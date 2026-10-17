@@ -209,13 +209,23 @@ void Engine::Run()
 		LoadEntryMap();
 
 	bool launchServer = !LaunchInfo.url.empty() && !UnrealURL(LaunchInfo.url).Host.empty() && !dedicated;
-	if (LaunchInfo.url.empty() || launchServer)
-		LoadMap(GetDefaultURL(packages->GetIniValue("system", "URL", "LocalMap")));
-	else
-		LoadMap(UnrealURL(GetDefaultURL(packages->GetIniValue("system", "URL", "LocalMap")), LaunchInfo.url));
+	// A save to start in, ?loadgame=N and no map: the slot loaded before any
+	// map, as the original's first browse loads it (DeusExGameEngine's
+	// Browse, dx-reverse-info's deusex-dll.md); the menu's map, as with no
+	// URL, for a slot with no save.
+	UnrealURL startURL(LaunchInfo.url);
+	bool launchSave = !LaunchInfo.url.empty() && startURL.Host.empty() && startURL.Map.empty() &&
+		startURL.HasOption("loadgame") && !dedicated;
+	if (!launchSave || !LoadSavedGame(startURL))
+	{
+		if (LaunchInfo.url.empty() || launchServer || launchSave)
+			LoadMap(GetDefaultURL(packages->GetIniValue("system", "URL", "LocalMap")));
+		else
+			LoadMap(UnrealURL(GetDefaultURL(packages->GetIniValue("system", "URL", "LocalMap")), LaunchInfo.url));
 
-	if (!dedicated)
-		LoginPlayer();
+		if (!dedicated)
+			LoginPlayer();
+	}
 
 	// A server's address to start with: joined from the menu's map, as the
 	// original's first browse does.
@@ -434,20 +444,7 @@ void Engine::Run()
 		if (ClientTravelInfo.URL.HasOption("load") || ClientTravelInfo.URL.HasOption("loadgame"))
 		{
 			UnrealURL url(ClientTravelInfo.URL);
-			if (LoadFromSaveFile(url))
-			{
-				// The saved player logs in, as the original's load logs it in
-				// with the load's URL, the default player's options on it: the
-				// game's Login finds it unoccupied and keeps it -- Deus Ex's as
-				// saved, for the ?loadgame its Browse loads a slot with
-				// (?load?loadonly?loadgame) -- and its TravelPostAccept spawns
-				// the level's mission script, which no save holds.
-				UnrealURL loginURL = GetDefaultURL(LevelInfo->URL.Map);
-				loginURL.AddOrReplaceOption("load");
-				loginURL.AddOrReplaceOption("loadonly");
-				loginURL.AddOrReplaceOption("loadgame");
-				LoginPlayer(loginURL);
-			}
+			LoadSavedGame(url);
 		}
 
 		// Lost the server, or refused by it after the join: to the Entry
@@ -1122,6 +1119,23 @@ void Engine::BeginPlay(const UnrealURL& url)
 void Engine::CallPostPostBeginPlay()
 {
 	for (size_t i = 0; i < Level->Actors.size(); i++) { if (Level->Actors[i]) CallEvent(Level->Actors[i], "PostPostBeginPlay"); }
+}
+
+bool Engine::LoadSavedGame(const UnrealURL& url)
+{
+	if (!LoadFromSaveFile(url))
+		return false;
+	// The saved player logs in, as the original's load logs it in with the
+	// load's URL, the default player's options on it: the game's Login finds
+	// it unoccupied and keeps it -- Deus Ex's as saved, for the ?loadgame its
+	// Browse loads a slot with (?load?loadonly?loadgame) -- and its
+	// TravelPostAccept spawns the level's mission script, which no save holds.
+	UnrealURL loginURL = GetDefaultURL(LevelInfo->URL.Map);
+	loginURL.AddOrReplaceOption("load");
+	loginURL.AddOrReplaceOption("loadonly");
+	loginURL.AddOrReplaceOption("loadgame");
+	LoginPlayer(loginURL);
+	return true;
 }
 
 bool Engine::LoadFromSaveFile(const UnrealURL& url)

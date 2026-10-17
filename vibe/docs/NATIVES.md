@@ -967,6 +967,14 @@ What the fork does with each:
   after `SERVER`) unless it starts with `-`; else the game's own start,
   `DX.dx`
   ([starting the game engine](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#starting-the-game-engine)).
+  `?loadgame=N` there, or as `--url`, starts on slot N's save, loaded
+  before any map as the original's first browse loads it (`StartConsole`,
+  the original's with `DXCAP_START`); a slot with none starts at `DX.dx`.
+  Differs by choice: the player is the one saved, as the game's own load
+  gives it (`LoadConsole`), where the original's start logs the player in
+  with the travel info the level was saved with -- on a map the player
+  travelled to, the inventory, skills, themes and key ring it arrived
+  with, made anew, the saved ones left in the level, held by no one.
 - **`-server`**: a dedicated server, as `--server`.
 - **`INI=` and `USERINI=`**: the inis read and written back, as `--ini` and
   `--userini`.

@@ -36,7 +36,7 @@ vibe/tools/dxcap.sh setup                          # once, and again after the p
 vibe/tools/dxcap.sh compile                        # after setup, and after changing vibe/tools/dxcap
 vibe/tools/dxcap.sh prove 01_NYC_UNATCOIsland.dx   # the fork: shots at 20 s and 60 s, exit at 65 s
 vibe/tools/dxcap.sh fork <console> <map> [<secs>]  # the fork, straight into <map> or a server's address; - the stock console
-vibe/tools/dxcap.sh original <console> [<secs>]    # the original, from its menu map
+vibe/tools/dxcap.sh original <console> [<secs>]    # the original, from its menu map (or DXCAP_START's URL)
 vibe/tools/dxcap.sh live <address> [<secs>]        # the fork on a live server (below)
 vibe/tools/dxcap.sh dedicated <original|fork> <actor> <map> [<secs>]  # either engine as a dedicated server
 ```
@@ -71,6 +71,7 @@ are gone.
 | `DXCAP_CONFIG="<key>=<value> ..."` | those keys in the run's console class's section of the ini, as `DXCAP_MISSION_MAP` gives `TargetMap` (`LightConsole`'s `Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`, `Macro`; `GlassConsole`'s `Pick`, `GlassName`, `View`, `Behind`; `FlushConsole`'s `Pick`, `DoorName`, `View`, `Angle`; `FaceConsole`'s `MeshOf`, `Ahead`, `Distance`; `MeshConsole`'s `LODBias`, `NoDetail`; `LoopConsole`'s `Jumps`; `CallConsole`'s `Depth`; `ReturnConsole`'s `Items`; `SaveConsole`'s and `LoadConsole`'s `Via`) |
 | `DXCAP_USERINI=<file>` | a run's `User.ini` made from that file, in place of the game's (`IniConsole`'s keys given twice) |
 | `DXCAP_MISSION_MAP=<map>` | the map a run's console travels to, its `TargetMap` (`MissionConsole`'s, `StaticConsole`'s, `WadeConsole`'s, `ScreenConsole`'s, `PerfConsole`'s, `EndgameConsole`'s, `VisibleConsole`'s, `MoverConsole`'s, `LightConsole`'s, `GlassConsole`'s, `FlushConsole`'s): an original run starts at its menu map, a fork run at the map it is given |
+| `DXCAP_START=<url>` | an original run started there, not at its menu map: its command line's first word, with `-hax0r` ([running the original](#running-the-original)); `?loadgame=9` for `StartConsole` |
 | `DXCAP_SETTINGS=<file>` | a fork run's `Settings.json`, in place of `~/.config/SurrealEngine`'s (through a `HOME` of the run's own; the caches stay the usual ones) |
 | `DXCAP_USERDIR=<dir>` | a fork run's `--userdir`: its `Settings.json`, log, shots and a class's own config file there ([running it](ENGINE.md#running-it)) |
 | `DXCAP_NOVSYNC=1` | Mesa's GL draws either engine without waiting for the display (`vblank_mode=0`): the original's `OpenGLDrv` asks for no swap interval and gets the driver's vsync |
@@ -167,6 +168,7 @@ the run. *Either*: one engine on each side of a pair.
 | `SoundConsole` | both | sounds behind a wall, a reverb zone, beeps from three sides and the root window | `DXCAP:` | `sound.py <run>`, with `DXCAP_RECORD=1` |
 | `SkipConsole` | both | a conversation's lines skipped | `DXSKIP:` | `skip.py <run> [<run> ...]`, with `DXCAP_RECORD=1` |
 | `SaveConsole`, `LoadConsole` | either | a save to slot 9 with a goal, a note and a key, and its load (`Via`: the save after a map exit's travel) | `DXSAVE:` |  |
+| `StartConsole` | either | a run started on slot 9's save (`?loadgame=9`: the fork's `<map>`, the original's `DXCAP_START`), logged as `LoadConsole` logs it | `DXSAVE:` |  |
 | `LoadingConsole` | both | the screen while a map loads or a level is saved: a load, a travel within a mission, a save and its load; a beep a second before each | `DXLOADING:` | the two logs' lines diffed; `shots.py`, at 4:3; `sound.py --levels` and `--onsets <run>`, with `DXCAP_RECORD=1 DXCAP_MUSIC=1`: the music through each load |
 | `NetConsole` | both | the script's sockets, a master server's list | `DXCAP:` |  |
 | `ServeConsole` | either | a listen server, its players and beeps; it exits after 290 s | `DXCAP:` | `netquery.py`, `fakemaster.py`, `netrelay.py` |
@@ -175,9 +177,10 @@ the run. *Either*: one engine on each side of a pair.
 | `TravelServeConsole` | either | a server that travels; it exits after 150 s | `DXCAP:` |  |
 | `TravelJoinConsole` | either | a client that follows it | `DXNET:` |  |
 
-- `SaveConsole`, `LoadConsole` and `LoadingConsole` use the game's own `Save\Save0009` and
-  `Save\Current`: delete them after. The original's own saves are in
-  `reference/original-saves/`: Liberty Island's start (no cheats), and a quick save, a hub save
+- `SaveConsole`, `LoadConsole`, `StartConsole` and `LoadingConsole` use the game's own
+  `Save\Save0009` and `Save\Current`: delete them after. The original's own saves are in
+  `reference/original-saves/`: Liberty Island's start (no cheats; the player under fire, so a
+  load's census 5 s in differs from run to run), and a quick save, a hub save
   (`bCheatsEnabled`) and the `Current` folder from a travel to UNATCO HQ and back. Copied into
   `Save0009`, the hub save loads in both engines; with the quick save there the original never
   finishes its run.
@@ -295,8 +298,9 @@ stock game's, serve the original here as for the [net tests](#net-tests)
 
 ### Running the original
 
-- **It boots its menu map** whatever map its command line or ini names, but as a dedicated
-  server (`dedicated`: `<map> -server`); a console class travels with `open <map>` itself.
+- **It boots its menu map** whatever map its command line or ini names, but with `-hax0r`
+  (`DXCAP_START`) or as a dedicated server (`dedicated`: `<map> -server`); a console class
+  travels with `open <map>` itself.
 - **`UCC.exe` crashes on a long base directory** while it reads its ini, and wants both
   `UCC.ini` and `DeusEx.ini`: hence `build/dxcap`. 92 characters as Wine names it
   (`Z:\...\build\dxcap\System\`) work; after a move to a longer path, `setup` and `compile`

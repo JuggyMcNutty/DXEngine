@@ -23,8 +23,8 @@
 #include "Utils/Logger.h"
 
 // What a launcher can rely on this build to do, beyond the original's
-// command line: --userdir.
-static const char* const Features = "userdir";
+// command line: --userdir; a start URL of ?loadgame=N, a save loaded.
+static const char* const Features = "userdir loadgame-url";
 
 int GameApp::main(Array<std::string> args)
 {

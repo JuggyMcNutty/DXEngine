@@ -6,7 +6,7 @@
 #
 #   vibe/tools/dxcap.sh setup                      build/dxcap: the SDK's UCC among links to the game's files
 #   vibe/tools/dxcap.sh compile                    vibe/tools/dxcap -> build/dxcap/System/DXCapture.u (UCC, under Proton)
-#   vibe/tools/dxcap.sh original <console> [<secs>] the original, from its menu map (it takes no map to start)
+#   vibe/tools/dxcap.sh original <console> [<secs>] the original, from its menu map (or DXCAP_START's URL)
 #   vibe/tools/dxcap.sh fork <console> <map> [<secs>] the fork's linux-x86_64 build, straight into <map>
 #                                                  (or joining a server: <map> an address, as 127.0.0.1:7790);
 #                                                  <console> - keeps the stock console, and DXCAP_TIMELINE=<file>
@@ -66,6 +66,9 @@
 # VisibleConsole's, MoverConsole's, LightConsole's, GlassConsole's,
 # FlushConsole's): an original run starts at its menu map, a fork run at the
 # map it is given.
+# DXCAP_START=<url> starts an original run there, not at its menu map: its
+# command line's first word, which the original takes only with -hax0r
+# (?loadgame=9 for StartConsole, a run started on slot 9's save).
 # DXCAP_ENGINE=<binary> runs another build of the fork than linux-x86_64's
 # (an ASan build). DXCAP_MEMLOG=1 logs a fork run's resident memory each
 # second into the run's memlog.txt: seconds since the start, then MB.
@@ -493,9 +496,9 @@ cmd_original() {
     gpid=$!
 
     [ "${DXCAP_RECORD:-0}" != 1 ] || rec_start "$dir/audio.wav"
-    # Started straight on the desktop's X display (no Wine desktop), its
-    # command line's first word taken for the start URL, so the menu map
-    # goes first; waited for until it exits
+    # Started straight on the desktop's X display (no Wine desktop), at the
+    # menu map, or at DXCAP_START's URL, which -hax0r has the original take
+    # from its command line; waited for until it exits
     # (each console class ends its run with EXIT) or the time runs out; then
     # only its own process is stopped.
     (
@@ -503,7 +506,7 @@ cmd_original() {
         export DISPLAY="$XDISPLAY"
         [ "${DXCAP_RECORD:-0}" != 1 ] || export PULSE_SINK=dxcap
         cd "$CAP/game/System"
-        (fps_env; wine_run DeusEx.exe DX.dx "INI=$(winpath "$ini")" "USERINI=$(winpath "$userini")" > "$dir/wine.log" 2>&1) &
+        (fps_env; wine_run DeusEx.exe "${DXCAP_START:-DX.dx}" ${DXCAP_START:+-hax0r} "INI=$(winpath "$ini")" "USERINI=$(winpath "$userini")" > "$dir/wine.log" 2>&1) &
         i=0
         while [ $i -lt 60 ] && ! pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; i=$((i+1)); done
         perfpid=""

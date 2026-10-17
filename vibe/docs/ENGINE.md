@@ -118,7 +118,8 @@ SurrealEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   `<dir>` first, else from the game's System folder, and written to `<dir>`. The engine makes
   the folder; without the option nothing changes.
 - **`--version`** prints `VibeEngine <commit> (<date>)` and a `features:` line, the words for
-  what a launcher can rely on (`userdir`), and exits before anything is loaded.
+  what a launcher can rely on (`userdir`; `loadgame-url`, a start URL of `?loadgame=N`:
+  [the command line](NATIVES.md#the-command-line)), and exits before anything is loaded.
 - **`--cmdline=<line>`** is the original's command line, which the launchers pass on (the
   recreated one, deusex-launcher's `main`, and DXLauncher): its start URL, `-server`, `INI=`,
   `USERINI=`, `EXEC=` and safe mode's flags, over the options above

@@ -92,6 +92,8 @@ public:
 	void LoadMap(const UnrealURL& url, const std::map<std::string, std::string>& travelInfo = {}, bool asClient = false);
 	// A save in place of the level; false when there is none to load.
 	bool LoadFromSaveFile(const UnrealURL& url);
+	// The same, its player logged in as the original's load logs it in.
+	bool LoadSavedGame(const UnrealURL& url);
 	// The original's loading screen (dx-reverse-info/engine-dll.md, the
 	// loading screen): one frame painted before a map loads or a level is
 	// saved, up until the next. PaintLoading is the map load's: LOADING, or
