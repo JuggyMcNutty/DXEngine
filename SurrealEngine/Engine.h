@@ -179,7 +179,7 @@ public:
 	std::string ConsoleCommand(UObject* context, const std::string& command, BitfieldBool& found);
 
 	void UpdateInput(float timeElapsed);
-	void InputCommand(const std::string& command, EInputKey key, int delta);
+	void InputCommand(const std::string& command, EInputKey key, int delta, bool press);
 
 	void LockCursor();
 	void UnlockCursor();

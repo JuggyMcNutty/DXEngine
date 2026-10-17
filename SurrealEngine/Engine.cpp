@@ -2960,11 +2960,11 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 				auto it = inputAliases.find(command);
 				if (it != inputAliases.end())
 				{
-					InputCommand(it->second, key, delta);
+					InputCommand(it->second, key, delta, type == EInputType::IST_Press);
 				}
 				else
 				{
-					InputCommand(command, key, delta);
+					InputCommand(command, key, delta, type == EInputType::IST_Press);
 				}
 			}
 		}
@@ -3067,7 +3067,15 @@ bool Engine::ExecCommand(const Array<std::string>& args)
 	return false;
 }
 
-void Engine::InputCommand(const std::string& commands, EInputKey key, int delta)
+// Words of the original's input object (UInput::Exec) that the fork does
+// not carry out, and OnRelease, whose line the original runs as the key is
+// released (engine-dll.md, a key's binding): never an engine command.
+static bool IsInputSystemCommand(const std::string& command)
+{
+	return command == "toggle" || command == "pulse" || command == "onrelease";
+}
+
+void Engine::InputCommand(const std::string& commands, EInputKey key, int delta, bool press)
 {
 	for (const std::string& commandline : GetSubcommands(commands))
 	{
@@ -3088,9 +3096,14 @@ void Engine::InputCommand(const std::string& commands, EInputKey key, int delta)
 					speed = (float)std::atof(args[2].substr(6).c_str());
 				activeInputAxes[args[1]] = { speed * delta, key };
 			}
-			else
+			else if (!ExecCommand(args) && press && !IsInputSystemCommand(command))
 			{
-				ExecCommand(args);
+				// No exec function takes it: the engine's own commands, as the
+				// original's viewport takes a pressed key's line on to them
+				// (DefUser.ini's GreyStar=Shot; engine-dll.md, a key's binding).
+				uint32_t foundBits = 0;
+				BitfieldBool found = { &foundBits, 1 };
+				ConsoleCommand(viewport->Actor(), commandline, found);
 			}
 		}
 	}

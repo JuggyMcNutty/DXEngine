@@ -901,6 +901,16 @@ engine's own objects are not deleted (the log says so).
 - **Input axes**: an axis a console command sets is used as it is; the
   original's input scales it (the harness's `StandConsole` and `JoinConsole`
   allow for it).
+- **A key's binding**, as the original's
+  ([a key's binding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)):
+  on a press, each command goes to `Button` and `Axis`, the exec functions
+  of the player and the console, then the engine's commands, so
+  `DefUser.ini`'s `GreyStar=Shot` takes a shot (a timeline's press; the
+  original's input takes no scripted key on this desktop, and its dispatch
+  is read). Differs: the original takes its viewport's own words (`SHOT`
+  among them) before the exec functions, the same but for a word an exec
+  function shares; `Toggle` and `Pulse` do nothing, and a command after
+  `OnRelease` never runs.
 - **The field of view** is the original's setting: the player's `DefaultFOV`
   is Deus Ex's own config, 75 (`[Engine.PlayerPawn]` in `User.ini`), the
   angle across a 4:3 view ([the view's width](#the-views-width)). Upstream's
