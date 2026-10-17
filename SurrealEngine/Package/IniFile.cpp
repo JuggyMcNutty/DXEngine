@@ -231,6 +231,18 @@ void IniFile::UpdateFile(const std::string& filename)
 	// The implementation however, is not :V
 	auto lines = File::read_all_lines(filename);
 
+	// A file written on Windows -- the game's own -- ends its lines with CR
+	// LF: matched without the CR, and written back with it.
+	bool crlf = false;
+	for (std::string& l : lines)
+	{
+		if (!l.empty() && l.back() == '\r')
+		{
+			l.pop_back();
+			crlf = true;
+		}
+	}
+
 	const IniSection* current_section = nullptr;
 
 	// A key can contain multiple values, so we gotta compare if we're getting the same key again and again
@@ -365,7 +377,7 @@ void IniFile::UpdateFile(const std::string& filename)
 		final_text += line;
 
 		if (line != "\n")
-			final_text += "\n";
+			final_text += crlf ? "\r\n" : "\n";
 	}
 	
 	File::write_all_text(filename, final_text);

@@ -986,7 +986,12 @@ A mod gets the original's loader and natives:
   player's as it spawns one, the client's, the audio and render devices'
   (`IniConsole`). Those read by hand, though, take an empty value for none:
   a float or a string keeps the fork's default where the original's is 0 or
-  empty.
+  empty. An ini written back, at a clean exit, has a changed value changed in
+  its own line and the rest of the file as it was, a CR LF file's line
+  endings with it; a key new to the file has the whole file rewritten, LF,
+  its comments gone. The original rewrites each file whole, CR LF, comments
+  gone (`ConfigConsole`: a class's own `DXCapConfig.ini`, CR LF, read and
+  written back alike).
 - **The natives no stock script calls** (`ModConsole`): `ResetConfig`, a
   System or User class's section copied from `Default.ini` or `DefUser.ini`
   and its config read again into the class, its subclasses and their
