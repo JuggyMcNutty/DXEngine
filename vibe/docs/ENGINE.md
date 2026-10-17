@@ -85,7 +85,8 @@ says how to read more; `vibe/tools/natives_audit.py` lists the stubs.
 
 ## Running it
 
-Each port's `run-game.sh` starts it for every real launch. By hand, from the game's directory:
+Each port's launcher starts it for every real launch: DXLauncher, linux-x86_64's, by its words,
+`main`'s and the Smart Pro's through their `run-game.sh`. By hand, from the game's directory:
 
 ```sh
 SurrealEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
@@ -118,15 +119,17 @@ SurrealEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   the folder; without the option nothing changes.
 - **`--version`** prints `VibeEngine <commit> (<date>)` and a `features:` line, the words for
   what a launcher can rely on (`userdir`), and exits before anything is loaded.
-- **`--cmdline=<line>`** is the original's command line, which the recreated launcher
-  (deusex-launcher's `main`) passes on: its start URL, `-server`, `INI=`, `USERINI=`, `EXEC=`
-  and safe mode's flags, over the options above
+- **`--cmdline=<line>`** is the original's command line, which the launchers pass on (the
+  recreated one, deusex-launcher's `main`, and DXLauncher): its start URL, `-server`, `INI=`,
+  `USERINI=`, `EXEC=` and safe mode's flags, over the options above
   ([the command line](NATIVES.md#the-command-line)).
-- **`DXL_LAUNCHER_FD`** in the environment is the recreated launcher's line to the engine, which
-  stays for the game's run as the original's process does. The engine says `hello` as it starts
-  and `ready` once its first map is in, takes `TakeFocus` and `Open <url>`, and passes a
-  `RELAUNCH` as `relaunch <line>` before it exits; the lines and their meaning are
-  [the game and the launcher](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md#the-game-and-the-launcher).
+- **`DXL_LAUNCHER_FD`** in the environment is the line to the engine of the launcher that
+  started it, which stays for the game's run as the original's process does. The engine says
+  `hello` as it starts and `ready` once its first map is in, takes `TakeFocus` and `Open <url>`,
+  and passes a `RELAUNCH` as `relaunch <line>` before it exits; the lines and their meaning are
+  [the game and the launcher](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md#the-game-and-the-launcher)
+  (DXLauncher's alike:
+  [the game and the launcher](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-game-and-the-launcher)).
   The Smart Pro's tabbed launcher sets nothing, and nothing changes.
 - Where there is no audio device (a container), give OpenAL Soft the null driver
   ([linux-x86_64's README](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/ports/linux-x86_64/README.md#audio)).
@@ -202,8 +205,9 @@ The engine reads `Settings.json` from its own folder, `--userdir`'s
 ([running it](#running-it)) or `$HOME/.config/SurrealEngine`, and never writes it: the Smart
 Pro's tabbed launcher does, and its `run-game.sh` pins `HOME` to the app's `home/`
 ([where the settings live](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/docs/LAUNCHER.md#where-the-settings-actually-live)).
-`main`'s launcher, linux-x86_64's and linux-aarch64's for now, writes none and leaves `HOME` as
-it is. The fork's keys:
+DXLauncher, linux-x86_64's, writes none yet and gives each profile a folder of its own
+(`--userdir`); `main`'s launcher, linux-aarch64's for now, writes none and leaves `HOME` as it
+is. The fork's keys:
 
 | Key | What it does |
 |---|---|
@@ -216,8 +220,8 @@ The environment:
 | Variable | What it does |
 |---|---|
 | `SURREAL_VK_NO_BINDLESS=1` | Forces the Vulkan device's per-batch descriptor-set path, the one a GPU without descriptor indexing (the Smart Pro's, for one) takes. |
-| `SURREALWIDGETS_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3` or `X11`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2. `run-game.sh` defaults it to `SDL2`, the backend with the fork's gamepad support. |
-| `DXL_LAUNCHER_FD` | The recreated launcher's line ([running it](#running-it)). |
+| `SURREALWIDGETS_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3` or `X11`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2. The launchers default it to `SDL2`, the backend with the fork's gamepad support. |
+| `DXL_LAUNCHER_FD` | The launcher's line ([running it](#running-it)). |
 | `SURREAL_GC_DRYRUN=1` | Each collection marks and frees nothing: the log has what would go, by where it lives and by class, and the first holder outside them of each object of a level left behind ([objects and memory](#objects-and-memory)). |
 | `SURREAL_GC_STRESS=<frames>` | A collection every that many frames, besides the map loads'. |
 | `SURREAL_GC_VERIFY=1` | Each collection checks that every pointer it is handed is a live object, walks all of the code, and logs the holders of pointers that are not, of code's references to code that reach an object not permanent, and of what the list kept from the code's last walk would have missed ([objects and memory](#objects-and-memory)). |
@@ -245,7 +249,7 @@ By area, as the code stands. Each device's numbers are its port's, such as
   backend, upstream's, has no `GetGamepadState`, only upstream's mapping of a pad's buttons to
   keys; SurrealWidgets builds it instead of SDL2's when both are on, so the ports build the
   engine without SDL3.
-- **The recreated launcher's lines**: `--cmdline=` (`OriginalCommandLine`) and `DXL_LAUNCHER_FD`
+- **The launchers' lines**: `--cmdline=` (`OriginalCommandLine`) and `DXL_LAUNCHER_FD`
   (`LauncherLine`) ([running it](#running-it)), with the console's `exec` and an `open` that
   takes a map's file name; `RELAUNCH` passed to the launcher, or a dedicated server started
   again by the engine itself (`Engine::Relaunch`, `GameApp::Relaunch`;

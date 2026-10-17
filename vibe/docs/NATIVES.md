@@ -602,7 +602,8 @@ and the ones on the walls are not drawn
   `RELAUNCH`, which starts the launcher again with the rest of the line once
   the engine has exited, as the original's starts `DeusEx.exe`
   ([`RELAUNCH`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#relaunch)):
-  the recreated launcher's renderer page, or a dedicated server. The fork
+  the recreated launcher's renderer page or DXLauncher's Graphics screen, or
+  a dedicated server. The fork
   passes the line to the launcher on its line
   ([running it](ENGINE.md#running-it)), which starts again once the game has
   ended, where the original's new process starts while the old one is still
@@ -930,9 +931,9 @@ engine's own objects are not deleted (the log says so).
 ## The command line
 
 The original's command line reaches the fork as one string, `--cmdline=`,
-which the recreated launcher's `run-game.sh` passes on as given
-([running it](ENGINE.md#running-it)) but for its quotes, which that launcher
-drops
+which the launchers pass on ([running it](ENGINE.md#running-it)):
+DXLauncher as given, the recreated launcher's `run-game.sh` but for its
+quotes, which that launcher drops
 ([its known defects](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md#known-defects)).
 Its flags are found as the original finds them
 ([cli-flags.md](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md)),
@@ -941,7 +942,7 @@ space, a `?` (a URL's next option, where the Host screen's
 [`RELAUNCH`](#the-menus-settings) puts `-server`) or the line's end, where
 the original's `ParseParam` checks nothing after it. Both take `/` as a
 switch, and a Linux path is full of them: the original's would find
-`-server` in `INI=/srv/server/x.ini`. The recreated launcher parses alike
+`-server` in `INI=/srv/server/x.ini`. The launchers parse alike
 ([where it differs](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md#where-it-differs-from-the-original)).
 What the fork does with each:
 
