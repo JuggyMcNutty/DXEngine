@@ -69,7 +69,9 @@
 # second into the run's memlog.txt: seconds since the start, then MB.
 # DXCAP_SETTINGS=<file> gives a fork run that Settings.json in place of
 # ~/.config/SurrealEngine's, through a HOME of the run's own (the caches stay
-# the usual ones). DXCAP_NOVSYNC=1 has Mesa's GL draw either engine without
+# the usual ones). DXCAP_USERDIR=<dir> gives a fork run the engine's
+# --userdir: Settings.json, its log, its shots and a class's own config file
+# there. DXCAP_NOVSYNC=1 has Mesa's GL draw either engine without
 # waiting for the display (vblank_mode=0), whatever the engine asks: the
 # original's OpenGLDrv asks nothing and gets the driver's vsync.
 # DXCAP_FPS=<n> holds either engine to n frames a second:
@@ -590,7 +592,9 @@ run_fork() {
             export HOME="$dir/home"
         fi
         fps_env
-        timeout -s KILL "$secs" "$ENGINE_BIN" --no-launcher "$GAME" --ini="$ini" --userini="$userini" --url="$map" "$@" > "$dir/engine.log" 2>&1 &
+        local userdir=()
+        [ -z "${DXCAP_USERDIR:-}" ] || userdir=(--userdir="$(realpath -m "$DXCAP_USERDIR")")
+        timeout -s KILL "$secs" "$ENGINE_BIN" --no-launcher "$GAME" --ini="$ini" --userini="$userini" --url="$map" "${userdir[@]}" "$@" > "$dir/engine.log" 2>&1 &
         local tpid=$! mpid="" perfpid="" epid="" i=0
         if [ "${DXCAP_MEMLOG:-0}" = 1 ]; then
             memlog "$tpid" "$dir/memlog.txt" &

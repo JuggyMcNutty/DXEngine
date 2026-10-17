@@ -64,6 +64,14 @@ class Directory
 public:
 	static void create(const std::string& path);
 	static fs::path localAppData();
+
+	// The engine's own folder: Settings.json, the last run's log, the crash
+	// reports, and with --userdir the shots and a class's own config file.
+	// --userdir names it (setEngineUserDir); otherwise it is
+	// localAppData()/SurrealEngine.
+	static fs::path engineUserDir();
+	static void setEngineUserDir(const std::string& path);
+	static bool hasEngineUserDir();
 };
 
 class OS

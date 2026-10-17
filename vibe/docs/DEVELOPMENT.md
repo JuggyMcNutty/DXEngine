@@ -72,6 +72,7 @@ are gone.
 | `DXCAP_USERINI=<file>` | a run's `User.ini` made from that file, in place of the game's (`IniConsole`'s keys given twice) |
 | `DXCAP_MISSION_MAP=<map>` | the map a run's console travels to, its `TargetMap` (`MissionConsole`'s, `StaticConsole`'s, `WadeConsole`'s, `ScreenConsole`'s, `PerfConsole`'s, `EndgameConsole`'s, `VisibleConsole`'s, `MoverConsole`'s, `LightConsole`'s, `GlassConsole`'s, `FlushConsole`'s): an original run starts at its menu map, a fork run at the map it is given |
 | `DXCAP_SETTINGS=<file>` | a fork run's `Settings.json`, in place of `~/.config/SurrealEngine`'s (through a `HOME` of the run's own; the caches stay the usual ones) |
+| `DXCAP_USERDIR=<dir>` | a fork run's `--userdir`: its `Settings.json`, log, shots and a class's own config file there ([running it](ENGINE.md#running-it)) |
 | `DXCAP_NOVSYNC=1` | Mesa's GL draws either engine without waiting for the display (`vblank_mode=0`): the original's `OpenGLDrv` asks for no swap interval and gets the driver's vsync |
 | `DXCAP_FPS=<n>` | either engine held to n frames a second: MangoHud's limiter, its display off (`mangohud`, and `lib32-mangohud` for the original's 32-bit process) |
 | `DXCAP_PERF=1` | the engine's main thread sampled by perf into the run's `perf.data`, on the wall clock, its cycles and instructions counted each 100 ms (`stat.csv`), with the process's `maps.txt` ([measuring both engines](#measuring-both-engines)) |
@@ -180,7 +181,8 @@ the run. *Either*: one engine on each side of a pair.
   `Save0009`, the hub save loads in both engines; with the quick save there the original never
   finishes its run.
 - `ConfigConsole` writes `DXCapConfig.ini` into the game's `System` folder, the original's into
-  its view (through the view's link when the file is there): delete it after.
+  its view (through the view's link when the file is there), the fork's with `DXCAP_USERDIR`
+  into that folder: delete it after.
 - In `VisibleConsole`'s logs the original numbers the player and its shadow one higher: its menu
   map made the first.
 - **A fork run started on its map has no long first frame there.** The original's always travels

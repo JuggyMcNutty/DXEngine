@@ -156,7 +156,7 @@ Engine::~Engine()
 	if (audiodev)
 		audiodev->ShutdownDevice();
 
-	Logger::Get()->SaveLogAsPlaintext((Directory::localAppData() / "SurrealEngine/SE-Log-LastRun.txt").string());
+	Logger::Get()->SaveLogAsPlaintext((Directory::engineUserDir() / "SE-Log-LastRun.txt").string());
 
 	engine = nullptr;
 }
@@ -1337,7 +1337,8 @@ void Engine::TakeSaveSnapshot()
 }
 
 // The original's SHOT: the frame as the player saw it, into the next free
-// ShotNNNN.bmp in the game's System folder, 24-bit and bottom-up.
+// ShotNNNN.bmp in the game's System folder, 24-bit and bottom-up; with
+// --userdir, into its Screenshots folder.
 void Engine::TakeScreenshot()
 {
 	Array<TextureColor> pixels;
@@ -1346,6 +1347,11 @@ void Engine::TakeScreenshot()
 		return;
 
 	fs::path folder = packages->GetSystemFolderPath();
+	if (Directory::hasEngineUserDir())
+	{
+		folder = Directory::engineUserDir() / "Screenshots";
+		Directory::create(folder.string());
+	}
 	fs::path filename;
 	for (int i = 0; i < 10000; i++)
 	{

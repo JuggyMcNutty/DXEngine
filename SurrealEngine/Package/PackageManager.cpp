@@ -827,17 +827,25 @@ std::unique_ptr<IniFile>& PackageManager::LoadIniFile(NameString iniName)
 	if (!ini)
 	{
 		// A class's config file not written yet is empty, as the original's
-		// is, until its SaveConfig writes it (a mod's, as DXMTL.ini).
+		// is, until its SaveConfig writes it (a mod's, as DXMTL.ini). With
+		// --userdir it lives there: read from there first, else from the
+		// game's System folder, and written there.
 		const auto iniFilePath = gameSystemFolderPath / (iniName.ToString() + ".ini");
+		const auto savePath = Directory::hasEngineUserDir() ? Directory::engineUserDir() / (iniName.ToString() + ".ini") : iniFilePath;
 		std::error_code ec;
-		if (fs::exists(iniFilePath, ec))
+		if (fs::exists(savePath, ec))
+		{
+			ini = std::make_unique<IniFile>(savePath.string());
+		}
+		else if (fs::exists(iniFilePath, ec))
 		{
 			ini = std::make_unique<IniFile>(iniFilePath.string());
+			ini->SetPath(savePath.string());
 		}
 		else
 		{
 			ini = std::make_unique<IniFile>();
-			ini->SetPath(iniFilePath.string());
+			ini->SetPath(savePath.string());
 		}
 	}
 
@@ -961,6 +969,8 @@ void PackageManager::SaveAllIniFiles()
 			else
 				iniFile.second->UpdateIfExists((gameSystemFolderPath / "SE-User.ini").string());
 		}
+		else if (Directory::hasEngineUserDir())
+			iniFile.second->UpdateIfExists(iniFile.second->GetPath());   // its copy may not be there yet
 		else
 			iniFile.second->UpdateFile();
 	}

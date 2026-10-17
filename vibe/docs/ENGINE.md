@@ -108,8 +108,16 @@ SurrealEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   stopped either way leaves it behind like any crash; a run by hand has none.
 - `--ini=<file>` and `--userini=<file>` name the inis to read and write back, as the original's
   `INI=` and `USERINI=`; the `shot` console command writes the next `ShotNNNN.bmp` into the
-  game's System folder; `--timeline=<file>` gives keys, the pointer and console commands at set
-  times. [Scripted runs](DEVELOPMENT.md#scripted-runs-of-both-engines) use all three.
+  game's System folder (with `--userdir`, its `Screenshots` folder); `--timeline=<file>` gives
+  keys, the pointer and console commands at set times.
+  [Scripted runs](DEVELOPMENT.md#scripted-runs-of-both-engines) use all three.
+- **`--userdir=<dir>`** is the engine's own folder in place of `~/.config/SurrealEngine`:
+  `Settings.json`, the last run's log (`SE-Log-LastRun.txt`), the crash reports, the shots (its
+  `Screenshots` folder) and a class's own config file (a mod's, as `DXMTL.ini`), read from
+  `<dir>` first, else from the game's System folder, and written to `<dir>`. The engine makes
+  the folder; without the option nothing changes.
+- **`--version`** prints `VibeEngine <commit> (<date>)` and a `features:` line, the words for
+  what a launcher can rely on (`userdir`), and exits before anything is loaded.
 - **`--cmdline=<line>`** is the original's command line, which the recreated launcher
   (deusex-launcher's `main`) passes on: its start URL, `-server`, `INI=`, `USERINI=`, `EXEC=`
   and safe mode's flags, over the options above
@@ -190,7 +198,8 @@ than the transforms they save.
 
 ## Settings and environment
 
-The engine reads `$HOME/.config/SurrealEngine/Settings.json` and never writes it: the Smart
+The engine reads `Settings.json` from its own folder, `--userdir`'s
+([running it](#running-it)) or `$HOME/.config/SurrealEngine`, and never writes it: the Smart
 Pro's tabbed launcher does, and its `run-game.sh` pins `HOME` to the app's `home/`
 ([where the settings live](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/docs/LAUNCHER.md#where-the-settings-actually-live)).
 `main`'s launcher, linux-x86_64's and linux-aarch64's for now, writes none and leaves `HOME` as
@@ -224,8 +233,8 @@ By area, as the code stands. Each device's numbers are its port's, such as
 - **The version**: every build stamps the fork's commit and its date into `vibe_version.h`
   (`vibe/cmake/version.cmake`, a step of every build that rewrites the header only when the text
   changes, so only what reads it recompiles); `GetDeusExVersion` shows it under the main menu,
-  as `1.112fm VibeEngine <commit> (<date>)`. A tree with uncommitted changes to tracked files
-  reads `-dirty`; one without git, `unknown`.
+  as `1.112fm VibeEngine <commit> (<date>)`, and `--version` prints it. A tree with uncommitted
+  changes to tracked files reads `-dirty`; one without git, `unknown`.
 - **Headless and embedded**: `--no-launcher` ([running it](#running-it)); a non-zero exit after
   a caught exception, which the launcher's crash sentinel reads. The cross build for an embedded
   aarch64 device is SDL2 only (no X11, Wayland or desktop GL), and takes SDL from pkg-config and

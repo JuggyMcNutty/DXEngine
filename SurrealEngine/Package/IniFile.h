@@ -72,6 +72,7 @@ public:
 	bool IsModified() const { return isModified; }
 	// Where SaveTo() writes: for a file not there yet, begun empty.
 	void SetPath(const std::string& filename) { ini_file_path = filename; }
+	const std::string& GetPath() const { return ini_file_path; }
 
 	Array<NameString> GetKeys(const NameString& sectionName) const;
 	// The key's value, of a key given twice or more the last, as the

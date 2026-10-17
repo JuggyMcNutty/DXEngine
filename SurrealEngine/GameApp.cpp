@@ -11,6 +11,7 @@
 #include "UI/WidgetResourceData.h"
 #include "UI/ErrorWindow/ErrorWindow.h"
 #include "Utils/File.h"
+#include "vibe_version.h"
 #include <stdexcept>
 #include <iostream>
 #include <cstring>
@@ -21,8 +22,23 @@
 #endif
 #include "Utils/Logger.h"
 
+// What a launcher can rely on this build to do, beyond the original's
+// command line: --userdir.
+static const char* const Features = "userdir";
+
 int GameApp::main(Array<std::string> args)
 {
+	// --version: which engine this is and what it can do, for a launcher
+	// to check before it starts one (and before anything is loaded).
+	for (const std::string& arg : args)
+	{
+		if (arg == "--version")
+		{
+			std::cout << "VibeEngine " << VIBE_VERSION << "\nfeatures: " << Features << std::endl;
+			return 0;
+		}
+	}
+
 	InitWidgetResources("dark");
 	int exitcode = 0;
 	std::string relaunchLine;
@@ -31,6 +47,17 @@ int GameApp::main(Array<std::string> args)
 	{
 		CommandLine cmd(args);
 		commandline = &cmd;
+
+		// --userdir: the engine's own folder, in place of
+		// ~/.config/SurrealEngine (Directory::engineUserDir).
+		if (commandline->HasArg("", "--userdir"))
+		{
+			std::string userDir = commandline->GetArg("", "--userdir");
+			if (userDir.empty())
+				throw std::runtime_error("--userdir needs a folder: --userdir=<dir>");
+			Directory::create(userDir);
+			Directory::setEngineUserDir(userDir);
+		}
 
 		// The original's command line, from the launcher that started us, and
 		// the line back to it (OriginalCommandLine, LauncherLine).
@@ -55,7 +82,7 @@ int GameApp::main(Array<std::string> args)
 
 		if (commandline->HasArg("-h", "--help"))
 		{
-			std::cout << "SurrealEngine [--url=<mapname>] [--server [--lanplay]] [--cmdline=<the original's>] [Path to game folder]\n";
+			std::cout << "SurrealEngine [--url=<mapname>] [--server [--lanplay]] [--cmdline=<the original's>] [--userdir=<dir>] [--version] [Path to game folder]\n";
 			return 0;
 		}
 

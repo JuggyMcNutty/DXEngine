@@ -12,7 +12,7 @@ LauncherSettings& LauncherSettings::Get()
 
 static std::string GetSettingsFilename()
 {
-	return (Directory::localAppData() / "SurrealEngine/Settings.json").string();
+	return (Directory::engineUserDir() / "Settings.json").string();
 }
 
 LauncherSettings::LauncherSettings()

@@ -377,6 +377,29 @@ fs::path Directory::localAppData()
 
 #endif
 
+static std::string& EngineUserDirOverride()
+{
+	static std::string path;
+	return path;
+}
+
+fs::path Directory::engineUserDir()
+{
+	if (!EngineUserDirOverride().empty())
+		return fs::path(EngineUserDirOverride());
+	return localAppData() / "SurrealEngine";
+}
+
+void Directory::setEngineUserDir(const std::string& path)
+{
+	EngineUserDirOverride() = path;
+}
+
+bool Directory::hasEngineUserDir()
+{
+	return !EngineUserDirOverride().empty();
+}
+
 std::string OS::executable_path()
 {
 #if defined(WIN32)
