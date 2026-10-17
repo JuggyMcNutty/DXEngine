@@ -227,6 +227,14 @@ void IniFile::UpdateFile(const std::string& filename)
 	if (filename == ini_file_path && !isModified)
 		return;
 
+	// A file not there yet -- a class's own config file before its first
+	// SaveConfig, as a mod's -- is written whole, as the original makes it.
+	if (!File::try_open_existing(filename))
+	{
+		SaveTo(filename);
+		return;
+	}
+
 	// The logic is simple: Read the file, check each line one-by-one, modify the differing lines, and write everything back
 	// The implementation however, is not :V
 	auto lines = File::read_all_lines(filename);
