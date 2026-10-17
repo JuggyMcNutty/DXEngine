@@ -12,7 +12,10 @@
 #include "Utils/File.h"
 #include "Utils/Logger.h"
 #include "Utils/StrTools.h"
+#include <surrealwidgets/window/window.h>
 #include <sstream>
+
+bool Timeline::LogKeys = false;
 
 bool Timeline::Load(const std::string& path)
 {
@@ -50,6 +53,8 @@ bool Timeline::Load(const std::string& path)
 		action.Arg = first == std::string::npos ? std::string() : action.Arg.substr(first);
 		while (!action.Arg.empty() && (action.Arg.back() == '\r' || action.Arg.back() == ' '))
 			action.Arg.pop_back();
+		if (action.Verb == "keydown" || action.Verb == "keyup")
+			LogKeys = true;
 		Actions.push_back(action);
 	}
 	LogMessage("Timeline: " + std::to_string(Actions.size()) + " actions from " + path);
@@ -120,6 +125,15 @@ void Timeline::Run(Action& action)
 			}
 		}
 		LogMessage("Timeline: no key '" + action.Arg + "'");
+		return;
+	}
+
+	if (action.Verb == "keydown" || action.Verb == "keyup")
+	{
+		LogMessage("DXLIVE: " + action.Verb + " " + action.Arg);
+		DisplayBackend* backend = DisplayBackend::Get();
+		if (!backend || !backend->SimulateKey(action.Arg, action.Verb == "keydown"))
+			LogMessage("Timeline: the window takes no key '" + action.Arg + "'");
 		return;
 	}
 

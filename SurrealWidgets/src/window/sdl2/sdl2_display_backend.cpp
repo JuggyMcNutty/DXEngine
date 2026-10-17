@@ -110,6 +110,20 @@ void SDL2DisplayBackend::SetGamepadKeyEmulation(bool enable)
 	SDL2DisplayWindow::GamepadKeyEmulation = enable;
 }
 
+bool SDL2DisplayBackend::SimulateKey(const std::string& name, bool down)
+{
+	SDL_Scancode scancode = SDL_GetScancodeFromName(name.c_str());
+	if (scancode == SDL_SCANCODE_UNKNOWN || SDL2DisplayWindow::WindowList.empty())
+		return false;
+	SDL_Event event = {};
+	event.type = down ? SDL_KEYDOWN : SDL_KEYUP;
+	event.key.windowID = SDL2DisplayWindow::WindowList.begin()->first;
+	event.key.state = down ? SDL_PRESSED : SDL_RELEASED;
+	event.key.keysym.scancode = scancode;
+	event.key.keysym.sym = SDL_GetKeyFromScancode(scancode);
+	return SDL_PushEvent(&event) == 1;
+}
+
 std::unique_ptr<DisplayWindow> SDL2DisplayBackend::Create(DisplayWindowHost* windowHost, WidgetType type, DisplayWindow* owner, RenderAPI renderAPI)
 {
 	return std::make_unique<SDL2DisplayWindow>(windowHost, type, static_cast<SDL2DisplayWindow*>(owner), renderAPI, UIScale);

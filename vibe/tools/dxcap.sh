@@ -50,6 +50,8 @@
 # DXCAP_SERVERPKGS=<dir> has a run's server find packages in <dir> too, each
 # named in its ServerPackages, so that a client, whose paths lack <dir>,
 # downloads them.
+# DXCAP_BACKEND=SDL2 gives a fork run SurrealWidgets' SDL2 window, the
+# launchers', in place of its X11 one.
 # DXCAP_USERINI=<file> gives a run that User.ini in place of the game's
 # (IniConsole's keys given twice). DXCAP_CONFIG="<key>=<value> ..." gives
 # the run's console class those keys in its section of the ini, as
@@ -573,9 +575,10 @@ run_fork() {
     (
         cd "$GAME"
         # The desktop's X display through the window's X11 backend, where
-        # the original draws through Wine's.
+        # the original draws through Wine's; DXCAP_BACKEND=SDL2 its SDL2
+        # one, the launchers', on the same display.
         unset WAYLAND_DISPLAY
-        export DISPLAY="$XDISPLAY" SURREALWIDGETS_DISPLAY_BACKEND=X11 SDL_VIDEODRIVER=x11
+        export DISPLAY="$XDISPLAY" SURREALWIDGETS_DISPLAY_BACKEND="${DXCAP_BACKEND:-X11}" SDL_VIDEODRIVER=x11
         if [ "${DXCAP_RECORD:-0}" = 1 ]; then
             printf '[general]\ndrivers = pulse\n' > "$CAP/alsoft-pulse.conf"
             export ALSOFT_CONF="$CAP/alsoft-pulse.conf" PULSE_SINK=dxcap

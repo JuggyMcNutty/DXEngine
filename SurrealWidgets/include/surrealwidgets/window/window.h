@@ -441,6 +441,13 @@ public:
 	// would arrive twice.
 	virtual void SetGamepadKeyEmulation(bool enable) {}
 
+	// A key of the keyboard pressed or released, by the window system's own
+	// name for it (SDL's scancode names under SDL2: "Left Shift", "Keypad *"),
+	// put among the window's events to reach the application as the
+	// keyboard's do: for the harness's timelines. False where the backend
+	// cannot, or has no key of that name.
+	virtual bool SimulateKey(const std::string& name, bool down) { return false; }
+
 	virtual std::unique_ptr<OpenFileDialog> CreateOpenFileDialog(DisplayWindow* owner);
 	virtual std::unique_ptr<SaveFileDialog> CreateSaveFileDialog(DisplayWindow* owner);
 	virtual std::unique_ptr<OpenFolderDialog> CreateOpenFolderDialog(DisplayWindow* owner);

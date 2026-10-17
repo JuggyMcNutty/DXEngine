@@ -1,0 +1,62 @@
+# The keys the SDL2 window gives the game, each pressed and released as the
+# keyboard's (keydown, keyup: SDL's scancode names), each key the game gets
+# logged (DXKEY:): the shifts, controls and alts, Caps Lock, the windows and
+# menu keys, the punctuation, the keypad's operators and Enter, Print
+# Screen. With DXCAP_BACKEND=SDL2, then an exit.
+start 12.0 keydown Left Shift
+start 12.2 keyup Left Shift
+start 12.4 keydown Right Shift
+start 12.6 keyup Right Shift
+start 12.8 keydown Left Ctrl
+start 13.0 keyup Left Ctrl
+start 13.2 keydown Right Ctrl
+start 13.4 keyup Right Ctrl
+start 13.6 keydown Left Alt
+start 13.8 keyup Left Alt
+start 14.0 keydown Right Alt
+start 14.2 keyup Right Alt
+start 14.4 keydown CapsLock
+start 14.6 keyup CapsLock
+start 14.8 keydown Left GUI
+start 15.0 keyup Left GUI
+start 15.2 keydown Right GUI
+start 15.4 keyup Right GUI
+start 15.6 keydown Menu
+start 15.8 keyup Menu
+start 16.0 keydown ;
+start 16.2 keyup ;
+start 16.4 keydown =
+start 16.6 keyup =
+start 16.8 keydown ,
+start 17.0 keyup ,
+start 17.2 keydown -
+start 17.4 keyup -
+start 17.6 keydown .
+start 17.8 keyup .
+start 18.0 keydown /
+start 18.2 keyup /
+start 18.4 keydown `
+start 18.6 keyup `
+start 18.8 keydown [
+start 19.0 keyup [
+start 19.2 keydown \
+start 19.4 keyup \
+start 19.6 keydown ]
+start 19.8 keyup ]
+start 20.0 keydown '
+start 20.2 keyup '
+start 20.4 keydown Keypad *
+start 20.6 keyup Keypad *
+start 20.8 keydown Keypad +
+start 21.0 keyup Keypad +
+start 21.2 keydown Keypad -
+start 21.4 keyup Keypad -
+start 21.6 keydown Keypad /
+start 21.8 keyup Keypad /
+start 22.0 keydown Keypad Enter
+start 22.2 keyup Keypad Enter
+start 22.4 keydown PrintScreen
+start 22.6 keyup PrintScreen
+start 23.0 keydown W
+start 23.2 keyup W
+start 25 exit

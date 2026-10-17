@@ -21,6 +21,7 @@ public:
 
 	bool GetGamepadState(GamepadState& state) override;
 	void SetGamepadKeyEmulation(bool enable) override;
+	bool SimulateKey(const std::string& name, bool down) override;
 
 	bool IsSDL2() override { return true; }
 

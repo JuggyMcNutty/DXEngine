@@ -2826,6 +2826,8 @@ void Engine::OnWindowKeyChar(std::string chars)
 
 void Engine::OnWindowKeyDown(EInputKey key)
 {
+	if (Timeline::LogKeys)
+		LogMessage(std::string("DXKEY: ") + ((unsigned)key < 256 && keynames[key] ? keynames[key] : "?") + " down");
 	if (engine->dxRootWindow && engine->dxRootWindow->OnWindowKeyDown(key))
 	{
 		ReleaseHeldInputKeys();
@@ -2837,6 +2839,8 @@ void Engine::OnWindowKeyDown(EInputKey key)
 
 void Engine::OnWindowKeyUp(EInputKey key)
 {
+	if (Timeline::LogKeys)
+		LogMessage(std::string("DXKEY: ") + ((unsigned)key < 256 && keynames[key] ? keynames[key] : "?") + " up");
 	if (engine->dxRootWindow && engine->dxRootWindow->OnWindowKeyUp(key))
 	{
 		ReleaseHeldInputKeys();
