@@ -205,9 +205,9 @@ The engine reads `Settings.json` from its own folder, `--userdir`'s
 ([running it](#running-it)) or `$HOME/.config/SurrealEngine`, and never writes it: the Smart
 Pro's tabbed launcher does, and its `run-game.sh` pins `HOME` to the app's `home/`
 ([where the settings live](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/docs/LAUNCHER.md#where-the-settings-actually-live)).
-DXLauncher, linux-x86_64's, writes none yet and gives each profile a folder of its own
-(`--userdir`); `main`'s launcher, linux-aarch64's for now, writes none and leaves `HOME` as it
-is. The fork's keys:
+DXLauncher, linux-x86_64's and linux-aarch64's, writes none yet and gives each profile a folder
+of its own (`--userdir`); `main`'s launcher, the original recreated, writes none and leaves
+`HOME` as it is. The fork's keys:
 
 | Key | What it does |
 |---|---|
