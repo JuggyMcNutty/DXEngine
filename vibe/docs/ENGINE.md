@@ -205,9 +205,9 @@ The engine reads `Settings.json` from its own folder, `--userdir`'s
 ([running it](#running-it)) or `$HOME/.config/SurrealEngine`, and never writes it: the Smart
 Pro's tabbed launcher does, and its `run-game.sh` pins `HOME` to the app's `home/`
 ([where the settings live](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/docs/LAUNCHER.md#where-the-settings-actually-live)).
-DXLauncher, linux-x86_64's and linux-aarch64's, writes none yet and gives each profile a folder
-of its own (`--userdir`); `main`'s launcher, the original recreated, writes none and leaves
-`HOME` as it is. The fork's keys:
+DXLauncher, linux-x86_64's and linux-aarch64's, writes one in each profile's folder of its own
+(`--userdir`); `main`'s launcher, the original recreated, writes none and leaves `HOME` as it
+is. The fork's keys:
 
 | Key | What it does |
 |---|---|
@@ -261,8 +261,8 @@ By area, as the code stands. Each device's numbers are its port's, such as
 
 ### Settings the launcher exposes
 
-`LauncherSettings` reads the `Gamepad` and `Performance` blocks the Smart Pro's launcher writes
-([the keys](#settings-and-environment)). Render scale is `RenderDevice::GetRenderScale`: a
+`LauncherSettings` reads the `Gamepad` and `Performance` blocks the Smart Pro's launcher and
+DXLauncher write ([the keys](#settings-and-environment)). Render scale is `RenderDevice::GetRenderScale`: a
 device whose `SupportsRenderScale()` says so (Vulkan, GL) makes its scene buffers at
 `GetRenderWidth()` by `GetRenderHeight()` and scales them to the window as it presents; the
 viewport, the canvas and the UI see the render size.
