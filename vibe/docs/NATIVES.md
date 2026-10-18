@@ -1011,6 +1011,19 @@ A mod gets the original's loader and natives:
   ini (`--ini`), relative to `System` and written with backslashes as the
   game's are, and by their extensions in any case, as the original's
   ([a package's file](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)).
+- **Its text.** Differs by choice: the `.int` files are read from each
+  folder of the paths, in their order, then from `System`, where the
+  original reads them from `System` alone
+  ([the .int files](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-int-files)).
+  So a mod's folders, named before the game's in its ini, give its text and
+  the objects its files register with no file of it in `System`. The first
+  folder to give a key, or to register an object, gives it: a mod's own
+  `DeusEx.int` changes only the keys it has. A key no file gives is the
+  original's: the script's `Localize` logs `No localization` and gives
+  `<?int?Package.Section.Key?>`, and a localized property keeps its default
+  (`LocalizeConsole`: the game's text, its render devices and a missing key
+  alike in both engines; two mod folders' text and objects in the fork's
+  run alone).
 - **Protected packages.** An export whose flags give it no context (client,
   server or editor) is never made, and a reference to it is None, as the
   original's linker has it: the live servers' anti-cheat packages (ANNA,

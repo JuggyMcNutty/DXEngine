@@ -750,7 +750,14 @@ void NObject::Less_StrStr(const std::string& A, const std::string& B, BitfieldBo
 
 void NObject::Localize(const std::string& SectionName, const std::string& KeyName, const std::string& PackageName, std::string& ReturnValue)
 {
-	ReturnValue = engine->packages->Localize(PackageName, SectionName, KeyName);
+	// A key no .int has: the original's line in the log, and its marker for
+	// the text (dx-reverse-info core-dll.md, the .int files).
+	if (!engine->packages->FindLocalized(PackageName, SectionName, KeyName, ReturnValue))
+	{
+		std::string key = PackageName + "." + SectionName + "." + KeyName;
+		LogMessage("No localization: " + key + " (int)");
+		ReturnValue = "<?int?" + key + "?>";
+	}
 }
 
 void NObject::Log(const std::string& S, std::optional<NameString> Tag)

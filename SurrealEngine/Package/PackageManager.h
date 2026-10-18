@@ -124,7 +124,10 @@ public:
 	void SetIniValues(NameString iniName, const NameString& sectionName, const NameString& keyName, const Array<std::string>& newValues);
 	void SaveAllIniFiles();
 
+	// A key's text from the first of its package's .int files to give it
+	// (LoadIntFiles), "" when none does; FindLocalized says whether one does.
 	std::string Localize(NameString packageName, const NameString& sectionName, const NameString& keyName);
+	bool FindLocalized(NameString packageName, const NameString& sectionName, const NameString& keyName, std::string& value);
 
 	Array<IntObject>& GetIntObjects(const NameString& metaclass);
 	const Array<std::string>& GetMaps() const { return maps; }
@@ -169,7 +172,10 @@ private:
 	std::map<NameString, std::string> replacedPackageFilenames;
 	std::map<NameString, GCRoot<Package>> packages;
 	std::map<NameString, std::unique_ptr<IniFile>> iniFiles;
-	std::map<NameString, std::unique_ptr<IniFile>> intFiles;
+	// Each package's .int files, in the order of the folders they are in.
+	std::map<NameString, std::vector<std::unique_ptr<IniFile>>> intFiles;
+	// Where a .int is looked for, in order: the paths' folders, then System.
+	Array<fs::path> intFolders;
 	std::map<std::string, std::string> packageRemaps;
 	std::map<NameString, Package*> saveInfos;
 

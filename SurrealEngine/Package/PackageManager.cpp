@@ -1042,17 +1042,64 @@ void PackageManager::LoadFileExtensions()
 	saveExtension = systemIni->GetValue("URL", "SaveExt", "usa");
 }
 
+// A name before another in any case, as Windows lists a folder's files.
+static bool NameBefore(const std::string& a, const std::string& b)
+{
+	return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(),
+		[](char x, char y) { return std::tolower((unsigned char)x) < std::tolower((unsigned char)y); });
+}
+
+// The .int files, from each of the paths' folders in their order, then
+// System's, as packages are found: the folders of a mod, named before the
+// game's, give their text and the objects their files register before the
+// game's files do -- the first folder to give a key's text gives it
+// (FindLocalized), the first to register an object registers it. A
+// departure: the original reads them from System alone
+// (vibe/docs/NATIVES.md, mods). A folder's files are read in their names'
+// order, as the original finds them.
 void PackageManager::LoadIntFiles()
 {
-	for (const auto& dir_entry: fs::directory_iterator{gameSystemFolderPath})
+	for (const std::string& path : GetIniValues("system", "Core.System", "Paths"))
 	{
+		fs::path folder = (gameSystemFolderPath / convert_path_separators(path)).lexically_normal().parent_path();
+		if (std::find(intFolders.begin(), intFolders.end(), folder) == intFolders.end())
+			intFolders.push_back(folder);
+	}
+	if (std::find(intFolders.begin(), intFolders.end(), gameSystemFolderPath.lexically_normal()) == intFolders.end())
+		intFolders.push_back(gameSystemFolderPath.lexically_normal());
+
+	auto registerObject = [&](const NameString& key, IntObject obj)
+	{
+		Array<IntObject>& objects = IntObjects[key];
+		for (const IntObject& registered : objects)
+		{
+			if (registered.Name == obj.Name)
+				return;
+		}
+		objects.push_back(std::move(obj));
+	};
+
+	for (const fs::path& folder : intFolders)
+	{
+		Array<fs::path> names;
 		try
 		{
-			if (dir_entry.is_regular_file() && dir_entry.path().extension().string() == ".int")
+			for (const auto& dir_entry : fs::directory_iterator{folder})
 			{
-				const auto intFileName = dir_entry.path().filename();
+				if (dir_entry.is_regular_file() && StrTools::equals_ignore_case(dir_entry.path().extension().string(), ".int"))
+					names.push_back(dir_entry.path().filename());
+			}
+		}
+		catch (...)
+		{
+		}
+		std::sort(names.begin(), names.end(), [](const fs::path& a, const fs::path& b) { return NameBefore(a.string(), b.string()); });
 
-				auto intFile = std::make_unique<IniFile>((gameSystemFolderPath / intFileName).string());
+		for (const fs::path& intFileName : names)
+		{
+			try
+			{
+				auto intFile = std::make_unique<IniFile>((folder / intFileName).string());
 
 				for (const std::string& value: intFile->GetValues("Public", "Object"))
 				{
@@ -1071,7 +1118,7 @@ void PackageManager::LoadIntFiles()
 						if (pos != std::string::npos)
 							metaClass = NameString(metaClass.ToString().substr(pos + 1));
 
-						IntObjects[metaClass].push_back(std::move(obj));
+						registerObject(metaClass, std::move(obj));
 					}
 					else if (!desc["Name"].empty() && !desc["Class"].empty()) // Used by Actor.GetNextSkin
 					{
@@ -1086,15 +1133,15 @@ void PackageManager::LoadIntFiles()
 						if (pos != std::string::npos)
 							cls = NameString(cls.ToString().substr(pos + 1));
 
-						IntObjects[cls].push_back(std::move(obj));
+						registerObject(cls, std::move(obj));
 					}
 				}
 
-				intFiles[intFileName.stem().string()] = std::move(intFile);
+				intFiles[intFileName.stem().string()].push_back(std::move(intFile));
 			}
-		}
-		catch (...)
-		{
+			catch (...)
+			{
+			}
 		}
 	}
 }
@@ -1110,34 +1157,52 @@ Array<IntObject>& PackageManager::GetIntObjects(const NameString& metaclass)
 
 std::string PackageManager::Localize(NameString packageName, const NameString& sectionName, const NameString& keyName)
 {
+	std::string value;
+	FindLocalized(packageName, sectionName, keyName, value);
+	return value;
+}
+
+bool PackageManager::FindLocalized(NameString packageName, const NameString& sectionName, const NameString& keyName, std::string& value)
+{
 	if (packageName == "Engine" && keyName == "ClassCaption")
 	{
-		if (sectionName == "SurrealRenderDevice") return "Surreal Graphics";
-		else if (sectionName == "SurrealAudioDevice") return "Surreal Audio";
-		else if (sectionName == "SurrealNetworkDevice") return "Surreal Network";
+		if (sectionName == "SurrealRenderDevice") { value = "Surreal Graphics"; return true; }
+		else if (sectionName == "SurrealAudioDevice") { value = "Surreal Audio"; return true; }
+		else if (sectionName == "SurrealNetworkDevice") { value = "Surreal Network"; return true; }
 	}
 
-	auto& intFile = intFiles[packageName];
-	if (!intFile)
+	// A package with no .int at the start: one made since, looked for once.
+	auto it = intFiles.find(packageName);
+	if (it == intFiles.end())
 	{
-		try
+		it = intFiles.emplace(packageName, std::vector<std::unique_ptr<IniFile>>()).first;
+		for (const fs::path& folder : intFolders)
 		{
-			const auto intFileName = fs::path(packageName.ToString() + ".int");
-			intFile = std::make_unique<IniFile>((gameSystemFolderPath / intFileName).string());
-		}
-		catch (...)
-		{
-			intFile = std::make_unique<IniFile>();
+			const fs::path file = folder / (packageName.ToString() + ".int");
+			std::error_code ec;
+			if (!fs::is_regular_file(file, ec))
+				continue;
+			try
+			{
+				it->second.push_back(std::make_unique<IniFile>(file.string()));
+			}
+			catch (...)
+			{
+			}
 		}
 	}
 
-	std::string value = intFile->GetValue(sectionName, keyName, {});
-	if (!value.empty() && value.front() == '"' && value.back() == '"')
+	for (const auto& intFile : it->second)
 	{
-		value.erase(value.begin());
-		value.erase(value.end()-1);
+		if (intFile->FindValue(sectionName, keyName, value))
+		{
+			if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
+				value = value.substr(1, value.size() - 2);
+			return true;
+		}
 	}
-	return value;
+	value.clear();
+	return false;
 }
 
 std::map<NameString, std::string> PackageManager::ParseIntPublicValue(const std::string& text)
@@ -1171,9 +1236,9 @@ std::map<NameString, std::string> PackageManager::ParseIntPublicValue(const std:
 
 			std::string value = text.substr(pos, endpos - pos);
 			desc[keyname] = value;
-			pos++;
 
-			pos = text.find(',', pos);
+			// The next pair after the closing quote: a comma in the quotes is the value's.
+			pos = text.find(',', endpos + 1);
 			if (pos == std::string::npos)
 				break;
 			pos++;

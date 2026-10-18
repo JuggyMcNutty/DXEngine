@@ -243,19 +243,67 @@ make_prefix() {
 # Wine's view of an absolute path: Z: is the root.
 winpath() { printf 'Z:%s' "${1//\//\\}"; }
 
+# crlf <file>: standard input into <file>, its lines ended as Windows ends them.
+crlf() { sed 's/$/\r/' > "$1"; }
+
+# LocalizeConsole's two folders, made afresh, each with .int files of the
+# harness's own: build/dxcap/mods/first/System, with a DeusEx.int giving one
+# of the game's keys, a DXCapture.int giving the console's Greeting and
+# DXCapFirst.int; mods/second/System, with DXCapSecond.int; those two each
+# registering an object for the console and giving a text. Prints the paths
+# that name them first in an <engine>'s run, as a mod's ini names its
+# folders: the first by its absolute path, the second by one relative to
+# the engine's System folder (the original's view's, the fork's game's).
+localize_folders() {
+    local engine="$1" first="$CAP/mods/first/System" second="$CAP/mods/second/System" system
+    rm -rf "$CAP/mods"
+    mkdir -p "$first" "$second"
+    crlf "$first/DeusEx.int" <<'EOF'
+[DeusExPlayer]
+TooHeavyToLift="the first folder's DeusEx.int"
+EOF
+    crlf "$first/DXCapture.int" <<'EOF'
+[LocalizeConsole]
+Greeting="the first folder's DXCapture.int"
+EOF
+    crlf "$first/DXCapFirst.int" <<'EOF'
+[Public]
+Object=(Name=DXCapFirst.Registered,Class=Class,MetaClass=DXCapture.LocalizeConsole,Description="registered, by the first folder")
+
+[Strings]
+Hello="the first folder's DXCapFirst.int"
+EOF
+    crlf "$second/DXCapSecond.int" <<'EOF'
+[Public]
+Object=(Name=DXCapSecond.Registered,Class=Class,MetaClass=DXCapture.LocalizeConsole,Description="registered by the second folder")
+
+[Strings]
+Hello="the second folder's DXCapSecond.int"
+EOF
+    if [ "$engine" = original ]; then
+        system="$CAP/game/System"
+        printf '%s\\*.u\n' "$(winpath "$first")"
+    else
+        system="$GAME/System"
+        printf '%s/*.u\n' "$first"
+    fi
+    printf '%s\\*.u\n' "$(realpath -m --relative-to="$system" "$second" | tr / '\\')"
+}
+
 # make_ini <original|fork> <console> <out>: the game's DeusEx.ini with the
 # console class, the package's path, the run's window, the music off when
 # recording (but with DXCAP_MUSIC=1), and for the original the OpenGL
 # renderer (DXCAP_RENDERER=D3D: D3DDrv), whose window its frames are grabbed
-# from.
+# from; for LocalizeConsole its folders first in the paths.
 make_ini() {
-    local engine="$1" console="$2" out="$3" path
+    local engine="$1" console="$2" out="$3" path mods=""
     if [ "$engine" = original ]; then
         path="$(winpath "$CAP/System")\\*.u"
     else
         path="$CAP/System/*.u"
     fi
-    python3 - "$GAME/System/DeusEx.ini" "$out" "$engine" "$console" "$path" "$WINDOW_X" "$WINDOW_Y" <<'EOF'
+    [ "$console" != LocalizeConsole ] || mods="$(localize_folders "$engine")"
+    DXCAP_LOCALIZE_PATHS="$mods" python3 - "$GAME/System/DeusEx.ini" "$out" "$engine" "$console" "$path" "$WINDOW_X" "$WINDOW_Y" <<'EOF'
 import os, re, sys
 src, out, engine, console, path, window_x, window_y = sys.argv[1:]
 s = open(src, encoding='latin1', newline='').read()
@@ -271,6 +319,10 @@ if console:
 s, n = re.subn(r'^(Paths=\.\.\\System\\\*\.u)\r?$', lambda m: m.group(1) + nl + 'Paths=' + path, s, count=1, flags=re.M)
 if n != 1:
     sys.exit('no Paths=..\\System\\*.u in ' + src)
+# LocalizeConsole's folders before the game's own, as a mod's are.
+mods = ''.join('Paths=%s%s' % (p, nl) for p in os.environ.get('DXCAP_LOCALIZE_PATHS', '').split('\n') if p)
+if mods:
+    s, n = re.subn(r'^(Paths=)', lambda m: mods + m.group(1), s, count=1, flags=re.M)
 if os.environ.get('DXCAP_RECORD') == '1' and os.environ.get('DXCAP_MUSIC') != '1':
     put('MusicVolume', '0')
 # The Join Internet screen asks a live master server: the game's names
