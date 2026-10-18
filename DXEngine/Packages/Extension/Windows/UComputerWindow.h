@@ -46,6 +46,7 @@ public:
 	void InitDefaults() override;
 	void ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight) override;
 	void DrawWindow(UGC* gc) override;
+	void Tick(float timeElapsed) override;
 
 	Color& FontColor() { return Value<Color>(PropOffsets_ComputerWindow.FontColor); }
 	UPlayerPawnExt*& Player() { return Value<UPlayerPawnExt*>(PropOffsets_ComputerWindow.Player); }
@@ -97,5 +98,33 @@ public:
 	USound*& typingSound() { return Value<USound*>(PropOffsets_ComputerWindow.typingSound); }
 
 private:
-	std::string text;
+	// The original's two buffers (dx-reverse-info extension-dll.md, the
+	// computer window): what waits to be typed, each item stamped with the
+	// time it is due, and what is typed, each character in its cell with
+	// the colour it took and its fade.
+	enum class ItemType { Text, NewLine, Colour, Clear };
+	struct QueuedItem
+	{
+		ItemType Type = ItemType::Text;
+		char Char = 0;
+		Color Colour = {};
+		float Time = 0.0f;
+	};
+	struct TypedChar
+	{
+		char Char = 0;
+		int X = 0;
+		int Y = 0;
+		Color Colour = {};
+		float FadeTimer = 0.0f;
+	};
+
+	void Queue(QueuedItem item, bool advance);
+	void ProcessQueue();
+	void TypeChar(size_t index);
+	void NewRow();
+	void FitToText();
+
+	std::vector<QueuedItem> queued;
+	std::vector<TypedChar> typed;
 };

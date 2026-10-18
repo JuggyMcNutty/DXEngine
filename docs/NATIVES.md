@@ -443,13 +443,15 @@ Matches the original
 [layout](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#layout),
 [text](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#text),
 [buttons](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#buttons),
+[the computer window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#the-computer-window),
 [scales and scrolling](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#scales-and-scrolling),
 [tiles and tab groups](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#tiles-and-tab-groups),
 [drawing](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#drawing),
 [small](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#small)).
 The consoles: `GetConsole`, `BeltConsole`, `BorderConsole`, `ColorsConsole`;
-`ChoiceConsole` for a conversation's choices; `SizeConsole` for a new
-window's size; `ScrollConsole` for a scroll area and a slider;
+`ChoiceConsole` for a conversation's choices; `ThemeConsole` for the
+InfoLink's text in the HUD theme; `SizeConsole` for a new window's size;
+`ScrollConsole` for a scroll area and a slider;
 `ClickConsole` for a button, a choice and a checkbox clicked, a menu dragged
 by its title bar and Alt with a letter; `EditConsole` for a script's text in
 an edit field, a text window and a button. `MenuConsole` and `ScreenConsole`
@@ -510,6 +512,15 @@ from the original's code:
   the drags between the searches (`loot-drags.txt`) are a timeline's, so
   DXEngine's alone, as are `ScrollConsole`'s clicks, drags and wheel
   (`scroll.txt`) and `ClickConsole`'s clicks, drag and keys (`clicks.txt`).
+- **The InfoLink's text** (a computer window): each character printed is
+  due a time step after the last, `SetTextTiming`'s 0.03 s, on the
+  windows' real time; each tick types those due, in the colour
+  `SetTextFont` queued before them, faded in from black over the fade time.
+  A row leaves its last column empty, and a word that would reach it starts
+  the next row whole; past the last row the text scrolls. The cursor, a bar
+  under the next cell in the header text's colour, is lit by each character
+  and blinks every 0.5 s. A clear waits its turn, so a speech stays up
+  until the next starts typing (`ThemeConsole`).
 - **Accelerators**: a text's `|&` marks its window's key while the text is
   its accelerator -- every text window's from its start, but a large text
   window's. Alt and a key the scripts leave press, in the modal on top, the
@@ -1181,7 +1192,7 @@ Stubs a single-player game does without; the audit lists each:
 - `DebugInfo` (compiled out in the original too:
   [`DebugInfo`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#debuginfo)),
   `SaveTimeDemo` and `Commandlet.Main`.
-- `ComputerWindow`'s 22, which no script calls: the InfoLink's text window,
+- `ComputerWindow`'s 21, which no script calls: the InfoLink's text window,
   its only user, calls only implemented ones.
 - `GC`'s `PushGC`, `PopGC`, `CopyGC` and `Intersect`, and 3 more of the
   windows' stubs, which no script calls.

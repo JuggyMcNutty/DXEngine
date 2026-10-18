@@ -68,7 +68,7 @@ are gone.
 | `DXCAP_RENDERER=D3D` | the original through `D3DDrv`, the game's own renderer, not `OpenGLDrv` |
 | `DXCAP_PREFIX=<dir>` | another Wine prefix than `build/dxcap/prefix` |
 | `DXCAP_PROTON=<name>` | another Proton build in `~/.local/share/Steam/compatibilitytools.d` than `Proton-CachyOS Latest` |
-| `DXCAP_CONFIG="<key>=<value> ..."` | those keys in the run's console class's section of the ini, as `DXCAP_MISSION_MAP` gives `TargetMap` (`LightConsole`'s `Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`, `Macro`; `GlassConsole`'s `Pick`, `GlassName`, `View`, `Behind`; `FlushConsole`'s `Pick`, `DoorName`, `View`, `Angle`; `FaceConsole`'s `MeshOf`, `Ahead`, `Distance`; `MeshConsole`'s `LODBias`, `NoDetail`; `LoopConsole`'s `Jumps`; `CallConsole`'s `Depth`; `ReturnConsole`'s `Items`; `SaveConsole`'s and `LoadConsole`'s `Via`; `LoadConsole`'s `Open`) |
+| `DXCAP_CONFIG="<key>=<value> ..."` | those keys in the run's console class's section of the ini, as `DXCAP_MISSION_MAP` gives `TargetMap` (`LightConsole`'s `Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`, `Macro`; `GlassConsole`'s `Pick`, `GlassName`, `View`, `Behind`; `FlushConsole`'s `Pick`, `DoorName`, `View`, `Angle`; `FaceConsole`'s `MeshOf`, `Ahead`, `Distance`; `MeshConsole`'s `LODBias`, `NoDetail`; `LoopConsole`'s `Jumps`; `CallConsole`'s `Depth`; `ReturnConsole`'s `Items`; `SaveConsole`'s and `LoadConsole`'s `Via`; `LoadConsole`'s `Open`; `ThemeConsole`'s `Direct`) |
 | `DXCAP_USERINI=<file>` | a run's `User.ini` made from that file, in place of the game's (`IniConsole`'s keys given twice) |
 | `DXCAP_USERINI_FIRST=1` | the run's inis named `USERINI=` then `INI=`: on the original's command line, and on DXEngine's by `--cmdline` in place of `--ini` and `--userini` ([the command line](NATIVES.md#the-command-line)) |
 | `DXCAP_MISSION_MAP=<map>` | the map a run's console travels to, its `TargetMap` (`MissionConsole`'s, `StaticConsole`'s, `WadeConsole`'s, `ScreenConsole`'s, `PerfConsole`'s, `EndgameConsole`'s, `VisibleConsole`'s, `MoverConsole`'s, `LightConsole`'s, `GlassConsole`'s, `FlushConsole`'s): an original run starts at its menu map, a dxe run at the map it is given |
@@ -109,6 +109,7 @@ the run. *Either*: one engine on each side of a pair.
 | `FlashConsole` | both | the screen flash | `DXFLASH:` | DXEngine at `DXCAP_FPS=60`: above some 105 frames a second the game's `ViewFlash`, which drops a fog under 0.019 each frame, never builds the glow's 0.2 |
 | `DyingConsole` | both | the player's death: the flash each second, shots of the spiral round the carcass | `DXDYING:` | `shots.py`, both at `DXCAP_FPS=60` |
 | `DrugConsole` | both | the drugged view: the HUD's `DrunkFX` background, modulated | `DXDRUG:` | `shots.py` |
+| `ThemeConsole` | both | the colour themes through a new game's travels; the InfoLink's text typed in the HUD theme (`Direct`: the island opened, no travels) | `DXTHEME:` | the original with `Direct=True` |
 | `GlassConsole` | both | a glass mover on `TargetMap`, and what is behind it (`Pick`, `GlassName`, `View`, `Behind`) | `DXGLASS:` | `shots.py` |
 | `FlushConsole` | both | a door on `TargetMap` slid half into the flat wall beside it, its face in the wall's plane (`Pick`, `DoorName`, `View`, `Angle`) | `DXFLUSH:` | `shots.py` |
 | `HeldConsole` | both | what a pawn holds | `DXHELD:` |  |
@@ -308,6 +309,8 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
 
 ### Running the original
 
+- **A long script log line stops it**: one of some 1,400 characters ends the run within a
+  second, no dialog shown, its log cut at 4 KB. A console logs a long list a few names a line.
 - **It boots its menu map** whatever map its command line or ini names, but with `-hax0r`
   (`DXCAP_START`) or as a dedicated server (`dedicated`: `<map> -server`); a console class
   travels with `open <map>` itself.
