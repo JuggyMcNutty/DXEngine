@@ -59,7 +59,8 @@
 # View, Aim, ShotAt and Macro; GlassConsole's Pick, GlassName, View and
 # Behind; FlushConsole's Pick, DoorName, View and Angle; FaceConsole's MeshOf,
 # Ahead and Distance; MeshConsole's LODBias and NoDetail; LoopConsole's Jumps;
-# CallConsole's Depth).
+# CallConsole's Depth; ReturnConsole's Items; SaveConsole's and LoadConsole's
+# Via; LoadConsole's Open).
 # DXCAP_MISSION_MAP=<map> names, through the run's ini, the map a run's
 # console travels to, its TargetMap (MissionConsole's, StaticConsole's,
 # WadeConsole's, ScreenConsole's, PerfConsole's, EndgameConsole's,
@@ -500,9 +501,9 @@ collect() {
 # each run: the game's folders linked, and its System folder's files, but for
 # what the game writes there -- its log, Running.ini, shots -- and any file
 # with no extension. The original takes a package's bare name in its folder
-# before any of its paths (appFindPackageFile), so the recreated launcher's
-# DeusEx, installed beside DeusEx.exe, stood in for the DeusEx package. What
-# the game writes stays in the view.
+# before any of its paths (appFindPackageFile), so a file with no extension
+# beside DeusEx.exe -- the recreated launcher's DeusEx -- stands in for the
+# DeusEx package. What the game writes stays in the view.
 make_view() {
     local view="$CAP/game" f name d
     rm -rf "$view"

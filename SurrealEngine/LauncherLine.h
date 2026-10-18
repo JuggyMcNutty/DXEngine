@@ -5,7 +5,8 @@
 
 // The line to the launcher that started the engine, when one did: the
 // recreated DeusEx, which stays for the game's whole run as the original's
-// process does (deusex-launcher main's README, "The game and the launcher").
+// process does (deusex-launcher main's README, "The game and the launcher"),
+// or DXLauncher, which waits on it so too (its docs/LAUNCHER.md).
 // Its descriptor is DXL_LAUNCHER_FD in the environment; one text line a
 // message. The engine says "hello" as it starts and "ready" once its first
 // map is in -- the launcher's splash closes then -- and takes "TakeFocus"
