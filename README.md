@@ -7,7 +7,7 @@ Targeting only Deus Ex.
 
 ### You need your own copy of Deus Ex (version 1112fm); none of the game's files are included!
 
-- **Build Targets**: Linux on x86_64 (X11, Wayland, SDL2) and on aarch64 with any GPU
+- **Build Targets**: Linux on x86_64 (X11, Wayland, SDL3 or SDL2) and on aarch64 with any GPU
   (Snapdragon, Mali, PowerVR). So far it runs on x86_64 and on the Smart Pro's PowerVR
   ([the ports](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#engine-ports)).
 - **Deus Ex as the original plays it**: Our goal is a playable build as close to 1:1 with the
@@ -54,9 +54,10 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target SurrealEngine -j"$(nproc)"
 ```
 
-The window is SDL3's when SDL3 is found, else SDL2's; either has the fork's gamepad support
-([the gamepad](vibe/docs/ENGINE.md#running-on-our-devices)). The build leaves two files in
-`build/` that go together:
+Its SDL window is SDL3's when SDL3 is found, else SDL2's: either has the fork's gamepad support,
+which its X11 and Wayland windows lack, and is the window when `SURREALWIDGETS_DISPLAY_BACKEND`
+names it ([the gamepad](vibe/docs/ENGINE.md#running-on-our-devices)). The build leaves two files
+in `build/` that go together:
 
 - `SurrealEngine`, the engine: the executable keeps upstream's name;
 - `SurrealEngine.pk3`, its resources (the UI's fonts among them), found beside the executable.

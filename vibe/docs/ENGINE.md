@@ -104,14 +104,15 @@ SurrealEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   window, sound or player; `--lanplay` gives it the LAN tick rate
   ([multiplayer](NATIVES.md#multiplayer)).
 - **Under SDL the engine ignores SIGTERM**: SDL turns it into a quit event nothing reads. Where
-  SDL is the only display backend (the Smart Pro's), stop it with SIGKILL (`kill -9`). A desktop
-  run on Wayland or X11 takes SIGTERM's default, and a dedicated server ends on it (143).
+  the window is SDL's -- every launcher's run, and the Smart Pro's only display -- stop it with
+  SIGKILL (`kill -9`). A run in the engine's own X11 or Wayland window takes SIGTERM's default,
+  and a dedicated server ends on it (143).
 - `Running.ini` is the launcher's crash sentinel, not the engine's: a run under a launcher
   stopped either way leaves it behind like any crash; a run by hand has none.
 - `--ini=<file>` and `--userini=<file>` name the inis to read and write back, as the original's
   `INI=` and `USERINI=`; the `shot` console command writes the next `ShotNNNN.bmp` into the
   game's System folder (with `--userdir`, its `Screenshots` folder); `--timeline=<file>` gives
-  keys, the pointer and console commands at set times.
+  keys, a virtual pad, the pointer and console commands at set times.
   [Scripted runs](DEVELOPMENT.md#scripted-runs-of-both-engines) use all three.
 - **`--userdir=<dir>`** is the engine's own folder in place of `~/.config/SurrealEngine`:
   `Settings.json`, the last run's log (`SE-Log-LastRun.txt`), the crash reports, the shots (its
@@ -223,7 +224,7 @@ The environment:
 | Variable | What it does |
 |---|---|
 | `SURREAL_VK_NO_BINDLESS=1` | Forces the Vulkan device's per-batch descriptor-set path, the one a GPU without descriptor indexing (the Smart Pro's, for one) takes. |
-| `SURREALWIDGETS_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3` or `X11`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2. The launchers set it to their port's SDL backend, the one with the pad: `SDL3` on linux-x86_64, `SDL2` on linux-aarch64 and the Smart Pro. |
+| `SURREALWIDGETS_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3` or `X11`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2. The launchers set it to the SDL backend their port's engine is built with, the one with the pad: `SDL3` for linux-x86_64's (DXLauncher's runs and the recreation's), `SDL2` for linux-aarch64's and the Smart Pro's. |
 | `DXL_LAUNCHER_FD` | The launcher's line ([running it](#running-it)). |
 | `SURREAL_GC_DRYRUN=1` | Each collection marks and frees nothing: the log has what would go, by where it lives and by class, and the first holder outside them of each object of a level left behind ([objects and memory](#objects-and-memory)). |
 | `SURREAL_GC_STRESS=<frames>` | A collection every that many frames, besides the map loads'. |
@@ -261,7 +262,8 @@ By area, as the code stands. Each device's numbers are its port's, such as
   takes a map's file name; `RELAUNCH` passed to the launcher, or a dedicated server started
   again by the engine itself (`Engine::Relaunch`, `GameApp::Relaunch`;
   [the menus' settings](NATIVES.md#the-menus-settings)).
-- **Fullscreen under SDL2** is SDL's `FULLSCREEN_DESKTOP`, or with
+- **Fullscreen under SDL** keeps the display's mode: SDL3's `SDL_SetWindowFullscreen` with no
+  fullscreen mode set, borderless at the desktop's size; SDL2's `FULLSCREEN_DESKTOP`, or with
   `VIBE_SDL2_BORDERLESS_FULLSCREEN` (the Smart Pro's build) a borderless window covering the
   display, set up while the window is hidden: `SDL_SetWindowFullscreen` deadlocks on a GL window
   with that device's vendor SDL2.

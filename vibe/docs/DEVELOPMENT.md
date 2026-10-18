@@ -70,6 +70,7 @@ are gone.
 | `DXCAP_PROTON=<name>` | another Proton build in `~/.local/share/Steam/compatibilitytools.d` than `Proton-CachyOS Latest` |
 | `DXCAP_CONFIG="<key>=<value> ..."` | those keys in the run's console class's section of the ini, as `DXCAP_MISSION_MAP` gives `TargetMap` (`LightConsole`'s `Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`, `Macro`; `GlassConsole`'s `Pick`, `GlassName`, `View`, `Behind`; `FlushConsole`'s `Pick`, `DoorName`, `View`, `Angle`; `FaceConsole`'s `MeshOf`, `Ahead`, `Distance`; `MeshConsole`'s `LODBias`, `NoDetail`; `LoopConsole`'s `Jumps`; `CallConsole`'s `Depth`; `ReturnConsole`'s `Items`; `SaveConsole`'s and `LoadConsole`'s `Via`; `LoadConsole`'s `Open`) |
 | `DXCAP_USERINI=<file>` | a run's `User.ini` made from that file, in place of the game's (`IniConsole`'s keys given twice) |
+| `DXCAP_USERINI_FIRST=1` | the run's inis named `USERINI=` then `INI=`: on the original's command line, and on the fork's by `--cmdline` in place of `--ini` and `--userini` ([the command line](NATIVES.md#the-command-line)) |
 | `DXCAP_MISSION_MAP=<map>` | the map a run's console travels to, its `TargetMap` (`MissionConsole`'s, `StaticConsole`'s, `WadeConsole`'s, `ScreenConsole`'s, `PerfConsole`'s, `EndgameConsole`'s, `VisibleConsole`'s, `MoverConsole`'s, `LightConsole`'s, `GlassConsole`'s, `FlushConsole`'s): an original run starts at its menu map, a fork run at the map it is given |
 | `DXCAP_START=<url>` | an original run started there, not at its menu map: its command line's first word, with `-hax0r` ([running the original](#running-the-original)); `?loadgame=9` for `StartConsole` |
 | `DXCAP_SETTINGS=<file>` | a fork run's `Settings.json`, in place of `~/.config/SurrealEngine`'s (through a `HOME` of the run's own; the caches stay the usual ones) |
@@ -255,19 +256,19 @@ timeline (`--timeline=<file>`, `SurrealEngine/Timeline.h`). Each line is
 the net game); the action `press <key>` or `release <key>` as the key in the window (a mouse
 button pressed where the pointer is, a press of `MouseWheelUp` or `MouseWheelDown` a notch of the
 wheel), `keydown <name>` or `keyup <name>` a key of the keyboard by the window system's name for
-it (SDL's under SDL2 and SDL3, its X11 driver's: `Left Shift`, `Keypad *`, `Menu`), put among the
-window's own events and each key the window gives the game logged (`DXKEY:`), `pad <button> down`
-or `up` and `padaxis <axis> <value>` the SDL window's virtual pad (`A` to `DpadRight`, `LeftX` to
-`RightTrigger`: a stick -1 to 1, a trigger 0 to 1), its keys logged so too, `pointer <x> <y>`
-the pointer moved there in the root window's coordinates, or a console command (`shot`, `exit`,
-...). The timeline is `DXCAP_TIMELINE`'s file, or `JoinConsole`'s walk: stand 5 s, walk forward
-5 s (`W`), stand, shots at the stops, out at 25 s. Each second of the game the player's place and
-every other pawn's are logged (`DXLIVE:`), and each correction the server sends the player
-(`ClientAdjustPosition`), how far it moved it; a run dropped to the menu exits. A join downloads
-what the fork lacks into the game's `Cache`. Which servers are up, and how full:
-`https://master.333networks.com/json/deusex`. Pick an empty server. Most run a mod (MTL, ANNA and
-others) whose player class replaces the stock moves and corrections, its names hidden: for the
-stock game's, serve the original here as for the [net tests](#net-tests)
+it (SDL's scancode names, under SDL2 and SDL3: `Left Shift`, `Keypad *`, `Menu`; the X11 window
+takes none), put among the window's own events and each key the window gives the game logged
+(`DXKEY:`), `pad <button> down` or `up` and `padaxis <axis> <value>` the SDL window's virtual pad
+(`A` to `DpadRight`, `LeftX` to `RightTrigger`: a stick -1 to 1, a trigger 0 to 1), its keys
+logged so too, `pointer <x> <y>` the pointer moved there in the root window's coordinates, or a
+console command (`shot`, `exit`, ...). The timeline is `DXCAP_TIMELINE`'s file, or `JoinConsole`'s
+walk: stand 5 s, walk forward 5 s (`W`), stand, shots at the stops, out at 25 s. Each second of
+the game the player's place and every other pawn's are logged (`DXLIVE:`), and each correction the
+server sends the player (`ClientAdjustPosition`), how far it moved it; a run dropped to the menu
+exits. A join downloads what the fork lacks into the game's `Cache`. Which servers are up, and how
+full: `https://master.333networks.com/json/deusex`. Pick an empty server. Most run a mod (MTL,
+ANNA and others) whose player class replaces the stock moves and corrections, its names hidden:
+for the stock game's, serve the original here as for the [net tests](#net-tests)
 (`original ServeConsole 300`, its port bound) and run `live 127.0.0.1:7790`.
 
 ### Shots

@@ -50,16 +50,18 @@
 # DXCAP_SERVERPKGS=<dir> has a run's server find packages in <dir> too, each
 # named in its ServerPackages, so that a client, whose paths lack <dir>,
 # downloads them.
-# DXCAP_BACKEND=SDL3 gives a fork run SurrealWidgets' SDL3 window, the
-# launchers', in place of its X11 one, DXCAP_BACKEND=SDL2 its SDL2 window,
-# in a build with SDL2's (DXCAP_ENGINE). A timeline that drives the window's
-# virtual pad has the run see that pad alone.
+# DXCAP_BACKEND=SDL3 gives a fork run SurrealWidgets' SDL3 window, the one
+# linux-x86_64's launchers start its engine with, in place of its X11 one;
+# DXCAP_BACKEND=SDL2 its SDL2 window, the other launchers', in a build with
+# SDL2's (DXCAP_ENGINE). A timeline that drives the window's virtual pad has
+# the run see that pad alone.
 # DXCAP_USERINI=<file> gives a run that User.ini in place of the game's
 # (IniConsole's keys given twice). DXCAP_USERINI_FIRST=1 names the run's inis
 # USERINI= then INI= on the original's command line, and gives the fork the
 # two so by --cmdline in place of --ini and --userini: each engine reads INI=
-# by its own name only, not within USERINI= (dx-reverse-info cli-flags.md). DXCAP_CONFIG="<key>=<value> ..." gives
-# the run's console class those keys in its section of the ini, as
+# by its own name only, not within USERINI= (dx-reverse-info cli-flags.md).
+# DXCAP_CONFIG="<key>=<value> ..." gives the run's console class those keys
+# in its section of the ini, as
 # DXCAP_MISSION_MAP gives TargetMap (LightConsole's Effect, Pick, LightName,
 # View, Aim, ShotAt and Macro; GlassConsole's Pick, GlassName, View and
 # Behind; FlushConsole's Pick, DoorName, View and Angle; FaceConsole's MeshOf,

@@ -587,7 +587,7 @@ and the ones on the walls are not drawn
   window's own and the screen's, a choice resizing the window and kept as
   its size; full screen, the screen's size alone, the fork's full screen
   never changing the display's mode
-  ([fullscreen under SDL2](ENGINE.md#running-on-our-devices)).
+  ([fullscreen under SDL](ENGINE.md#running-on-our-devices)).
 - **Detail Textures** draws or leaves the world's detail textures in one
   pass in the shaders, not `D3DDrv`'s three, each placed by its own pan, not
   panned with its surface, as the original's reads: no frame shows it. The
@@ -917,7 +917,8 @@ engine's own objects are not deleted (the log says so).
   function shares; `Toggle` and `Pulse` do nothing, and a command after
   `OnRelease` never runs.
 - **A key's name** from the SDL2 and SDL3 windows, the launchers', is the
-  original's ([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys)):
+  original's
+  ([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys)):
   a shift, control or alt its name for both sides, then its side's own
   (`LShift`; `UnknownA4` for the left alt), Caps Lock, the punctuation, the
   keypad's operators and Enter, Print Screen (`PrintScrn`), the Windows and
@@ -925,11 +926,11 @@ engine's own objects are not deleted (the log says so).
   `vibe/tools/dxcap/timelines/keys.txt` with `DXCAP_BACKEND=SDL3` or `SDL2`
   presses each through the window's own events and logs the names the game
   gets (the original's input takes no scripted key on this desktop, and its
-  code is read). Differs: a key is named by its place on a US keyboard, where
-  the original's name follows the layout; the keypad's digits are always
-  `NumPad0` to `NumPad9`, where with Num Lock off the original's are the
-  arrows, Home and the rest. The other windows name fewer, and a side's own
-  never: the X11 one, the harness's, has no Alt but the Meta key, no
+  code is read). Differs: a key is named by its place on a US keyboard,
+  where the original's name follows the layout; the keypad's digits are
+  always `NumPad0` to `NumPad9`, where with Num Lock off the original's are
+  the arrows, Home and the rest. The other windows name fewer, and a side's
+  own never: the X11 one, the harness's, has no Alt but the Meta key, no
   `` ` ``, no keypad Enter, and Print Screen as `Print`; the Wayland one,
   the engine's own on a Wayland desktop, no `/`, no `[` or `]` but as their
   shifted braces, no keypad operator but `-` (as `Minus`), no keypad period,
@@ -984,8 +985,8 @@ What the fork does with each:
 - **`-server`**: a dedicated server, as `--server`.
 - **`INI=` and `USERINI=`**: the inis read and written back, as `--ini` and
   `--userini`, each found by its own name, never `INI=` within `USERINI=`
-  (`DXCAP_USERINI_FIRST`: the two given `USERINI=` first, the console's run
-  alike in both engines).
+  (`DXCAP_USERINI_FIRST`: the two given `USERINI=` first, `MidConsole`'s
+  run alike in both engines).
 - **`EXEC=<file>`**: `exec <file>` on the player once the first map is in;
   `exec` runs a file's lines as commands, as the original's does.
 - **Safe mode's flags**
@@ -1003,7 +1004,8 @@ What the fork does with each:
   - **Nothing to do:** `-no3dsound` (the original's turns off A3D or EAX
     hardware; the fork's mixer is software, [sound](#sound)), `-nommx`,
     `-nokni` and `-nok6` (the original's mixer picks its routines by them),
-    and `-safe`'s no DirectInput (the fork's input is SDL's).
+    and `-safe`'s no DirectInput (the fork's input is its window's, SDL's
+    under the launchers).
 
 ## Mods
 
