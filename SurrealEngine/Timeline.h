@@ -17,18 +17,20 @@
 // then gives the game logged (DXKEY:), "pad <button> down|up" or "padaxis
 // <axis> <value>" the window's virtual pad (DisplayBackend::
 // SimulateGamepadButton, SimulateGamepadAxis; GamepadButton's and
-// GamepadAxis's names, a stick -1 to 1, a trigger 0 to 1), the keys logged
-// so too, "pointer <x> <y>" the root window's pointer moved there, else a
-// console command (shot, exit, ...). Each second of the game where
-// the player stands is logged, and every other pawn's place and animation,
-// as JoinConsole logs them; dropped back to the menu, the run exits.
+// GamepadAxis's names, a stick -1 to 1, a trigger 0 to 1; the pad attached
+// at rest as the timeline starts, so that no line of it is lost to the
+// pad's coming), the keys logged so too, "pointer <x> <y>" the root
+// window's pointer moved there, else a console command (shot, exit, ...).
+// Each second of the game where the player stands is logged, and every
+// other pawn's place and animation, as JoinConsole logs them; dropped back
+// to the menu, the run exits.
 class Timeline
 {
 public:
 	bool Load(const std::string& path);
 	void Tick(float realElapsed);
 
-	// A timeline with keydown, keyup or pad in it: the window's keys logged.
+	// A timeline with keydown, keyup, pad or padaxis in it: the window's keys logged.
 	static bool LogKeys;
 
 private:
@@ -49,4 +51,6 @@ private:
 	float GameTime = 0.0f;
 	float LogTime = 0.0f;
 	bool WasInGame = false;
+	bool HasPad = false;
+	bool PadAttached = false;
 };

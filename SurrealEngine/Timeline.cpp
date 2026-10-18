@@ -54,8 +54,10 @@ bool Timeline::Load(const std::string& path)
 		action.Arg = first == std::string::npos ? std::string() : action.Arg.substr(first);
 		while (!action.Arg.empty() && (action.Arg.back() == '\r' || action.Arg.back() == ' '))
 			action.Arg.pop_back();
-		if (action.Verb == "keydown" || action.Verb == "keyup" || action.Verb == "pad")
+		if (action.Verb == "keydown" || action.Verb == "keyup" || action.Verb == "pad" || action.Verb == "padaxis")
 			LogKeys = true;
+		if (action.Verb == "pad" || action.Verb == "padaxis")
+			HasPad = true;
 		Actions.push_back(action);
 	}
 	LogMessage("Timeline: " + std::to_string(Actions.size()) + " actions from " + path);
@@ -65,6 +67,16 @@ bool Timeline::Load(const std::string& path)
 void Timeline::Tick(float realElapsed)
 {
 	StartTime += realElapsed;
+
+	// The virtual pad attached at rest before any line drives it: a trigger
+	// pulled on the line that attaches it never reaches the game.
+	if (HasPad && !PadAttached)
+	{
+		DisplayBackend* backend = DisplayBackend::Get();
+		PadAttached = backend && backend->SimulateGamepadAxis(GamepadAxis::LeftX, 0.0f);
+		if (PadAttached)
+			LogMessage("DXLIVE: the virtual pad attached");
+	}
 
 	bool inGame = engine->LevelInfo && engine->LevelInfo->NetMode() == NM_Client && engine->viewport && engine->viewport->Actor();
 	if (inGame)
