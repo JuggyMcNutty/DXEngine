@@ -268,6 +268,13 @@ By area, as the code stands. Each device's numbers are its port's, such as
   `DXE_SDL2_BORDERLESS_FULLSCREEN` (the Smart Pro's build) a borderless window covering the
   display, set up while the window is hidden: `SDL_SetWindowFullscreen` deadlocks on a GL window
   with that device's vendor SDL2.
+- **The mouse and the keyboard under SDL**: the game's view takes the mouse in relative mode
+  (`SDL_SetWindowRelativeMouseMode` under SDL3, `SDL_SetRelativeMouseMode` under SDL2), which
+  hides the desktop's pointer, keeps it in the window and gives motion past the screen's edge;
+  the UI draws its own. Text input is on only while the game takes text, a window of its UI up
+  or the console typing (`Engine::TickWindow`, the window's `LockKeyboard`): in play a desktop's
+  input method leaves held keys alone, where KDE's press-and-hold accent picker takes a held
+  letter in a Wayland window with text input on.
 - **The windows' icon** is `DeusEx.exe`'s icon group 128, as the original's windows show it
   ([the frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#the-frame)),
   read from the game's `System` folder as a window opens (`DXEngine/Utils/PEIcon.cpp`): its

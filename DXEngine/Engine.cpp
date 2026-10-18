@@ -2765,6 +2765,15 @@ void Engine::TickWindow()
 			window->UnlockCursor();
 		else
 			window->LockCursor();
+
+		// Text typed only where the game takes it: a window of its UI up (the
+		// menus, conversations, computers and keypads are modals) or the
+		// console typing. In play the keyboard is the game's alone, so a
+		// desktop's input method does not hold back held keys.
+		if ((dxRootWindow && dxRootWindow->IsModalOpen()) || (console && console->bTyping()))
+			window->UnlockKeyboard();
+		else
+			window->LockKeyboard();
 	}
 
 	InputEvent(IK_MouseX, IST_Axis, 0);

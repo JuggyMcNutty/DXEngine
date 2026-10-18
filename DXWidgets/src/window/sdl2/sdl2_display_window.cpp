@@ -219,14 +219,15 @@ void SDL2DisplayWindow::ShowCursor(bool enable)
 	SDL_ShowCursor(enable);
 }
 
+// The keyboard locked to the program: no text input, as SDL3's window.
 void SDL2DisplayWindow::LockKeyboard()
 {
-	// Enables raw keyboard scancode events (OnRawKeyboard should be called for keyboard input)
+	SDL_StopTextInput();
 }
 
 void SDL2DisplayWindow::UnlockKeyboard()
 {
-	// Disable raw keyboard scancode events (OnKeyDown/OnKeyUp/OnKeyChar should be called for keyboard input)
+	SDL_StartTextInput();
 }
 
 void SDL2DisplayWindow::LockCursor()

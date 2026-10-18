@@ -228,26 +228,35 @@ void SDL3DisplayWindow::ShowCursor(bool enable)
 		SDL_HideCursor();
 }
 
+// The keyboard locked to the program: no text input, so a desktop's input
+// method leaves held keys alone (KDE's accent picker on Wayland takes a
+// held letter in a window with text input on); unlocked, typed text again.
 void SDL3DisplayWindow::LockKeyboard()
 {
-	// Enables raw keyboard scancode events (OnRawKeyboard should be called for keyboard input)
+	SDL_StopTextInput(Handle.window);
 }
 
 void SDL3DisplayWindow::UnlockKeyboard()
 {
-	// Disable raw keyboard scancode events (OnKeyDown/OnKeyUp/OnKeyChar should be called for keyboard input)
+	SDL_StartTextInput(Handle.window);
 }
 
 void SDL3DisplayWindow::LockCursor()
 {
-	SDL_CaptureMouse(true);
-	CursorLocked = true;
+	if (!CursorLocked)
+	{
+		SDL_SetWindowRelativeMouseMode(Handle.window, true);
+		CursorLocked = true;
+	}
 }
 
 void SDL3DisplayWindow::UnlockCursor()
 {
-	SDL_CaptureMouse(false);
-	CursorLocked = false;
+	if (CursorLocked)
+	{
+		SDL_SetWindowRelativeMouseMode(Handle.window, false);
+		CursorLocked = false;
+	}
 }
 
 void SDL3DisplayWindow::CaptureMouse()
