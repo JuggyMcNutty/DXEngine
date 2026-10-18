@@ -85,6 +85,7 @@ public:
 	static SDL_Scancode InputKeyToScancode(InputKey inputkey);
 
 	static SDL_PixelFormat ImageFormatToSDLPixelFormat(const ImageFormat& format);
+	static SDL_Surface* CreateIconSurface(const Image& image);
 
 	template<typename T>
 	Point GetMousePos(const T& event)

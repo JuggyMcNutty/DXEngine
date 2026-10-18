@@ -5,6 +5,7 @@
 #include <SDL3/SDL_video.h>
 #include <SDL3/SDL_mouse.h>
 #include <cmath>
+#include <cstring>
 
 #include "dxwidgets/core/image.h"
 
@@ -100,29 +101,47 @@ SDL_PixelFormat SDL3DisplayWindow::ImageFormatToSDLPixelFormat(const ImageFormat
 	switch (format)
 	{
 	case ImageFormat::B8G8R8A8:
-		return SDL_PIXELFORMAT_BGRA8888;
+		return SDL_PIXELFORMAT_BGRA32;
 	case ImageFormat::R8G8B8A8:
-		return SDL_PIXELFORMAT_RGBA8888;
+		return SDL_PIXELFORMAT_RGBA32;
 	}
 
 	return SDL_PIXELFORMAT_UNKNOWN;
 }
 
+// An image's pixels in a surface of its own, row by row: a surface's rows can
+// be longer than an image's.
+SDL_Surface* SDL3DisplayWindow::CreateIconSurface(const Image& image)
+{
+	SDL_Surface* surface = SDL_CreateSurface(image.GetWidth(), image.GetHeight(), ImageFormatToSDLPixelFormat(image.GetFormat()));
+	if (!surface)
+		throw std::runtime_error(std::string("Error on SDL_CreateSurface(): ") + SDL_GetError());
+	const size_t rowBytes = (size_t)image.GetWidth() * 4;
+	for (int y = 0; y < image.GetHeight(); y++)
+		memcpy((uint8_t*)surface->pixels + (size_t)y * surface->pitch, (const uint8_t*)image.GetData() + y * rowBytes, rowBytes);
+	return surface;
+}
+
+// The first image is the icon, the others alternates of it; SDL keeps its
+// own copy.
 void SDL3DisplayWindow::SetWindowIcon(const std::vector<std::shared_ptr<Image>>& images)
 {
-	const auto imageFormat = ImageFormatToSDLPixelFormat(images[0]->GetFormat());
-	SDL_Surface* iconSurface = SDL_CreateSurface(images[0]->GetWidth(), images[0]->GetHeight(), imageFormat);
+	if (images.empty())
+		return;
+
+	SDL_Surface* iconSurface = CreateIconSurface(*images[0]);
 
 	// Add the remaining images
 	for (size_t i = 1 ; i < images.size() ; i++)
 	{
-		SDL_Surface* altImageSurface = SDL_CreateSurface(images[i]->GetWidth(), images[i]->GetHeight(), imageFormat);
+		SDL_Surface* altImageSurface = CreateIconSurface(*images[i]);
 		if (!SDL_AddSurfaceAlternateImage(iconSurface, altImageSurface))
 			throw std::runtime_error(std::string("Error on SDL_AddSurfaceAlternateImage(): ") + SDL_GetError());
 		SDL_DestroySurface(altImageSurface); // SDL recommends calling this after AddSurfaceAlternateImage() is successful.
 	}
 
 	SDL_SetWindowIcon(Handle.window, iconSurface);
+	SDL_DestroySurface(iconSurface);
 }
 
 void SDL3DisplayWindow::SetClientFrame(const Rect& box)

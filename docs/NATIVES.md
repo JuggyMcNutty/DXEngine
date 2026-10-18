@@ -950,6 +950,12 @@ engine's own objects are not deleted (the log says so).
   object's run). Differs: a call held off gives its type's zero, where the
   original's leaves a variable assigned from it as it was; none of the
   game's returns a value.
+- **The windows' icon** is the original's, `DeusEx.exe`'s icon group 128
+  ([the frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#the-frame)):
+  the original's window under Proton and
+  [DXEngine's](ENGINE.md#running-on-our-devices) game and error windows,
+  through X11 and SDL3, give the window manager its 32x32 of 256 colours
+  (their `_NET_WM_ICON`).
 
 ## The command line
 

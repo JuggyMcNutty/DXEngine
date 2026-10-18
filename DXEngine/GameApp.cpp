@@ -11,6 +11,7 @@
 #include "UI/WidgetResourceData.h"
 #include "UI/ErrorWindow/ErrorWindow.h"
 #include "Utils/File.h"
+#include "Utils/PEIcon.h"
 #include "dxe_version.h"
 #include <stdexcept>
 #include <iostream>
@@ -43,6 +44,7 @@ int GameApp::main(Array<std::string> args)
 	InitWidgetResources("dark");
 	int exitcode = 0;
 	std::string relaunchLine;
+	GameLaunchInfo game; // once known, the error window shows its icon
 
 	try
 	{
@@ -98,6 +100,7 @@ int GameApp::main(Array<std::string> args)
 			          << " " << GameFolderSelection::Games[0].gameVersionString
 			          << std::endl;
 			GameLaunchInfo info = GameFolderSelection::GetLaunchInfo(0);
+			game = info;
 			Engine engine(info);
 			engine.Run();
 			relaunchLine = engine.RelaunchLine;
@@ -113,7 +116,12 @@ int GameApp::main(Array<std::string> args)
 		for (const LogMessageLine& line : Logger::Get()->GetLog())
 			std::cerr << "  log: " << line.Text << std::endl;
 		if (!commandline || !commandline->HasArg("-n", "--no-launcher"))
-			ErrorWindow::ExecModal(e.what(), Logger::Get()->GetLog());
+		{
+			std::vector<std::shared_ptr<Image>> icon;
+			if (!game.gameRootFolder.empty())
+				icon = PEIcon::OfGame(game.gameRootFolder, game.gameExecutableName);
+			ErrorWindow::ExecModal(e.what(), Logger::Get()->GetLog(), {}, icon);
+		}
 	}
 
 	DeinitWidgetResources();

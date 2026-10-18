@@ -13,9 +13,9 @@ class ErrorWindow : public Widget
 {
 public:
 	static bool CheckCrashReporter();
-	static void ExecModal(const std::string& text, const std::list<LogMessageLine>& log, Array<uint8_t> minidump = {});
+	static void ExecModal(const std::string& text, const std::list<LogMessageLine>& log, Array<uint8_t> minidump = {}, const std::vector<std::shared_ptr<Image>>& icon = {});
 
-	ErrorWindow(Array<uint8_t> minidump);
+	ErrorWindow(Array<uint8_t> minidump, const std::vector<std::shared_ptr<Image>>& icon = {});
 
 protected:
 	void OnClose() override;

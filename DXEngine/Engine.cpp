@@ -5,6 +5,7 @@
 #include "Utils/File.h"
 #include "Utils/StrTools.h"
 #include "Utils/SHA1Sum.h"
+#include "Utils/PEIcon.h"
 #include "Render/RenderSubsystem.h"
 #include "Package/PackageManager.h"
 #include "Package/ObjectStream.h"
@@ -2725,7 +2726,14 @@ void Engine::UpdateInput(float timeElapsed)
 void Engine::OpenWindow()
 {
 	if (!window)
+	{
 		window = GameWindow::Create(this);
+
+		// The game's own icon (PEIcon.h); none if its executable gives none.
+		auto icon = PEIcon::OfGame(LaunchInfo.gameRootFolder, LaunchInfo.gameExecutableName);
+		if (!icon.empty())
+			window->SetWindowIcon(icon);
+	}
 
 	int width = client->StartupFullscreen ? client->FullscreenViewportX : client->WindowedViewportX;
 	int height = client->StartupFullscreen ? client->FullscreenViewportY : client->WindowedViewportY;

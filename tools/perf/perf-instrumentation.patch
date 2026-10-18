@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 159f2bd..389cb2d 100644
+index 4bd4fa5..8e14a1a 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -12,6 +12,11 @@ endif()
@@ -15,7 +15,7 @@ index 159f2bd..389cb2d 100644
  	DXEngine/Precomp.cpp
  	DXEngine/Precomp.h
 diff --git a/DXEngine/Engine.cpp b/DXEngine/Engine.cpp
-index fc834e7..a1e52a2 100644
+index 3b98fc4..fdc11cd 100644
 --- a/DXEngine/Engine.cpp
 +++ b/DXEngine/Engine.cpp
 @@ -2,6 +2,7 @@
@@ -26,7 +26,7 @@ index fc834e7..a1e52a2 100644
  #include "Utils/File.h"
  #include "Utils/StrTools.h"
  #include "Utils/SHA1Sum.h"
-@@ -283,8 +284,10 @@ void Engine::Run()
+@@ -284,8 +285,10 @@ void Engine::Run()
  		// makes this frame has been laid out by the time they next tick.
  		// They tick by real seconds since their last tick, not the level's
  		// time (XRootWindow::TickWindows 0x1003a4a0).
@@ -37,7 +37,7 @@ index fc834e7..a1e52a2 100644
  
  		TotalTime += realTimeElapsed;
  
-@@ -318,10 +321,16 @@ void Engine::Run()
+@@ -319,10 +322,16 @@ void Engine::Run()
  		// original's level tick holds it (dx-reverse-info engine-dll.md, a
  		// level's tick).
  		if (!dedicated)
@@ -54,7 +54,7 @@ index fc834e7..a1e52a2 100644
  		// Do NOT pause this Tick event otherwise some messages will stay on screen forever.
  		if (!dedicated)
  			CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(levelElapsed) });
-@@ -347,6 +356,10 @@ void Engine::Run()
+@@ -348,6 +357,10 @@ void Engine::Run()
  		if (LevelNetDriver)
  			LevelNetDriver->TickFlush();
  
@@ -65,7 +65,7 @@ index fc834e7..a1e52a2 100644
  		// To do: improve CallEvent so parameter passing isn't this painful
  		UFunction* funcPlayerCalcView = viewport->Actor() ? FindEventFunction(viewport->Actor(), "PlayerCalcView") : nullptr;
  		if (funcPlayerCalcView)
-@@ -365,12 +378,17 @@ void Engine::Run()
+@@ -366,12 +379,17 @@ void Engine::Run()
  		}
  
  		if (!dedicated)
@@ -84,7 +84,7 @@ index fc834e7..a1e52a2 100644
  
  		// Save the game if there is a request for it
  		if (SaveGameInfo.SaveGameSlot != DONT_SAVE_GAME)
-@@ -2707,6 +2725,9 @@ void Engine::UpdateInput(float timeElapsed)
+@@ -2708,6 +2726,9 @@ void Engine::UpdateInput(float timeElapsed)
  	if (!viewport->Actor())
  		return;
  

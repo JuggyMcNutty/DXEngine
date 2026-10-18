@@ -5,6 +5,7 @@
 #include <SDL2/SDL_vulkan.h>
 #include <cstring>
 #include <cmath>
+#include "dxwidgets/core/image.h"
 
 Uint32 SDL2DisplayWindow::PaintEventNumber = 0xffffffff;
 bool SDL2DisplayWindow::ExitRunLoop;
@@ -91,10 +92,24 @@ void SDL2DisplayWindow::SetWindowTitle(const std::string& text)
 	SDL_SetWindowTitle(Handle.window, text.c_str());
 }
 
+// SDL2 takes one icon: the 32x32, or else the largest. SDL keeps its own copy.
 void SDL2DisplayWindow::SetWindowIcon(const std::vector<std::shared_ptr<Image>>& images)
 {
-	// To do: call SDL_SetWindowIcon for the highest resolution image (or maybe the first 32x32 or higher? not sure what is best here)
-	// To do: when this is upgraded to SDL3, call SDL_AddSurfaceAlternateImage for all the images
+	const Image* image = nullptr;
+	for (const auto& i : images)
+	{
+		if (!image || (image->GetWidth() != 32 && (i->GetWidth() == 32 || i->GetWidth() > image->GetWidth())))
+			image = i.get();
+	}
+	if (!image)
+		return;
+
+	Uint32 format = image->GetFormat() == ImageFormat::B8G8R8A8 ? SDL_PIXELFORMAT_BGRA32 : SDL_PIXELFORMAT_RGBA32;
+	SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(image->GetData(), image->GetWidth(), image->GetHeight(), 32, image->GetWidth() * 4, format);
+	if (!surface)
+		return;
+	SDL_SetWindowIcon(Handle.window, surface);
+	SDL_FreeSurface(surface);
 }
 
 void SDL2DisplayWindow::SetClientFrame(const Rect& box)

@@ -56,13 +56,13 @@ bool ErrorWindow::CheckCrashReporter()
 	}
 }
 
-void ErrorWindow::ExecModal(const std::string& text, const std::list<LogMessageLine>& log, Array<uint8_t> minidump)
+void ErrorWindow::ExecModal(const std::string& text, const std::list<LogMessageLine>& log, Array<uint8_t> minidump, const std::vector<std::shared_ptr<Image>>& icon)
 {
 	Size screenSize = GetScreenSize();
 	double windowWidth = 1500.0;
 	double windowHeight = 800.0;
 
-	auto window = std::make_unique<ErrorWindow>(std::move(minidump));
+	auto window = std::make_unique<ErrorWindow>(std::move(minidump), icon);
 	window->SetText(text, log);
 	window->SetFrameGeometry((screenSize.width - windowWidth) * 0.5, (screenSize.height - windowHeight) * 0.5, windowWidth, windowHeight);
 	window->Show();
@@ -70,22 +70,15 @@ void ErrorWindow::ExecModal(const std::string& text, const std::list<LogMessageL
 	DisplayWindow::RunLoop();
 }
 
-ErrorWindow::ErrorWindow(Array<uint8_t> initminidump) : Widget(nullptr, WidgetType::Window), minidump(std::move(initminidump))
+ErrorWindow::ErrorWindow(Array<uint8_t> initminidump, const std::vector<std::shared_ptr<Image>>& icon) : Widget(nullptr, WidgetType::Window), minidump(std::move(initminidump))
 {
 	SetWindowTitle("Fatal Error - DXEngine");
 	SetWindowBackground(Colorf::fromRgba8(51, 51, 51));
 	SetWindowBorderColor(Colorf::fromRgba8(51, 51, 51));
 	SetWindowCaptionColor(Colorf::fromRgba8(33, 33, 33));
 	SetWindowCaptionTextColor(Colorf::fromRgba8(226, 223, 219));
-	SetWindowIcon({
-		Image::LoadResource("surreal-engine-icon-16.png"),
-		Image::LoadResource("surreal-engine-icon-24.png"),
-		Image::LoadResource("surreal-engine-icon-32.png"),
-		Image::LoadResource("surreal-engine-icon-48.png"),
-		Image::LoadResource("surreal-engine-icon-64.png"),
-		Image::LoadResource("surreal-engine-icon-128.png"),
-		Image::LoadResource("surreal-engine-icon-256.png")
-		});
+	if (!icon.empty())
+		SetWindowIcon(icon);
 
 	LogView = new LogViewer(this);
 	ClipboardButton = new PushButton(this);
