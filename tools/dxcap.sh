@@ -7,7 +7,7 @@
 #   tools/dxcap.sh setup                      build/dxcap: the SDK's UCC among links to the game's files
 #   tools/dxcap.sh compile                    tools/dxcap -> build/dxcap/System/DXCapture.u (UCC, under Proton)
 #   tools/dxcap.sh original <console> [<secs>] the original, from its menu map (or DXCAP_START's URL)
-#   tools/dxcap.sh fork <console> <map> [<secs>] the fork's linux-x86_64 build, straight into <map>
+#   tools/dxcap.sh dxe <console> <map> [<secs>]  the fork's linux-x86_64 build, straight into <map>
 #                                                  (or joining a server: <map> an address, as 127.0.0.1:7790);
 #                                                  <console> - keeps the stock console, and DXCAP_TIMELINE=<file>
 #                                                  drives the run (tools/dxcap/timelines)
@@ -15,7 +15,7 @@
 #   tools/dxcap.sh live <address> [<secs>]    the fork joining a live server with the stock console its
 #                                                  game wants, driven by a timeline (the fork's --timeline):
 #                                                  DXCAP_TIMELINE=<file>, else JoinConsole's walk
-#   tools/dxcap.sh dedicated <original|fork> <actor> <map> [<secs>]
+#   tools/dxcap.sh dedicated <original|dxe> <actor> <map> [<secs>]
 #                                                  either engine as a dedicated server on <map>, drawing no
 #                                                  frame, driven by DXCapture.<actor> among its ServerActors
 #
@@ -50,7 +50,7 @@
 # DXCAP_SERVERPKGS=<dir> has a run's server find packages in <dir> too, each
 # named in its ServerPackages, so that a client, whose paths lack <dir>,
 # downloads them.
-# DXCAP_BACKEND=SDL3 gives a fork run DXWidgets' SDL3 window, the one
+# DXCAP_BACKEND=SDL3 gives a dxe run DXWidgets' SDL3 window, the one
 # linux-x86_64's launchers start its engine with, in place of its X11 one;
 # DXCAP_BACKEND=SDL2 its SDL2 window, the other launchers', in a build with
 # SDL2's (DXCAP_ENGINE). A timeline that drives the window's virtual pad has
@@ -72,17 +72,17 @@
 # console travels to, its TargetMap (MissionConsole's, StaticConsole's,
 # WadeConsole's, ScreenConsole's, PerfConsole's, EndgameConsole's,
 # VisibleConsole's, MoverConsole's, LightConsole's, GlassConsole's,
-# FlushConsole's): an original run starts at its menu map, a fork run at the
+# FlushConsole's): an original run starts at its menu map, a dxe run at the
 # map it is given.
 # DXCAP_START=<url> starts an original run there, not at its menu map: its
 # command line's first word, which the original takes only with -hax0r
 # (?loadgame=9 for StartConsole, a run started on slot 9's save).
 # DXCAP_ENGINE=<binary> runs another build of the fork than linux-x86_64's
-# (an ASan build). DXCAP_MEMLOG=1 logs a fork run's resident memory each
+# (an ASan build). DXCAP_MEMLOG=1 logs a dxe run's resident memory each
 # second into the run's memlog.txt: seconds since the start, then MB.
-# DXCAP_SETTINGS=<file> gives a fork run that Settings.json in place of
+# DXCAP_SETTINGS=<file> gives a dxe run that Settings.json in place of
 # ~/.config/DXEngine's, through a HOME of the run's own (the caches stay
-# the usual ones). DXCAP_USERDIR=<dir> gives a fork run the engine's
+# the usual ones). DXCAP_USERDIR=<dir> gives a dxe run the engine's
 # --userdir: Settings.json, its log, its shots and a class's own config file
 # there. DXCAP_NOVSYNC=1 has Mesa's GL draw either engine without
 # waiting for the display (vblank_mode=0), whatever the engine asks: the
@@ -298,7 +298,7 @@ EOF
     printf '%s\\*.u\n' "$(realpath -m -s --relative-to="$system" "$second" | tr / '\\')"
 }
 
-# make_ini <original|fork> <console> <out>: the game's DeusEx.ini with the
+# make_ini <original|dxe> <console> <out>: the game's DeusEx.ini with the
 # console class, the package's path, the run's window, the music off when
 # recording (but with DXCAP_MUSIC=1), and for the original the OpenGL
 # renderer (DXCAP_RENDERER=D3D: D3DDrv), whose window its frames are grabbed
@@ -621,9 +621,9 @@ memlog() {
     done
 }
 
-# A fork run into <map> or a server's address, its log into <dir>; any
+# A dxe run into <map> or a server's address, its log into <dir>; any
 # further arguments go to the engine.
-run_fork() {
+run_dxe() {
     local dir="$1" ini="$2" userini="$3" map="$4" secs="$5"
     shift 5
     local before; before="$(shots_before)"
@@ -693,19 +693,19 @@ run_fork() {
     [ "${DXCAP_RECORD:-0}" != 1 ] || rec_stop
     collect "$dir" "$before"
     printf '%s\n' "$rc" > "$dir/exit"
-    say "fork: $dir (exit $rc)"
+    say "dxe: $dir (exit $rc)"
     printf '%s\n' "$dir"
 }
 
-cmd_fork() {
+cmd_dxe() {
     local console="${1:?console class}" map="${2:?map}" secs="${3:-120}"
     [ -f "$CAP/System/DXCapture.u" ] || die "tools/dxcap.sh compile first"
     [ -x "$ENGINE_BIN" ] || die "no engine build at $ENGINE_BIN"
-    local ini="$CAP/System/Fork.ini" userini="$CAP/System/ForkUser.ini"
+    local ini="$CAP/System/DXE.ini" userini="$CAP/System/DXEUser.ini"
     local name="$console"
     [ "$console" != - ] || { console=""; name=stock; }
-    local dir="$CAP/runs/fork-$name-$(date +%H%M%S)"
-    make_ini fork "$console" "$ini"
+    local dir="$CAP/runs/dxe-$name-$(date +%H%M%S)"
+    make_ini dxe "$console" "$ini"
     user_ini "$userini"
     [ -z "$console" ] || console_keys "$console" >> "$ini"
     local args=()
@@ -714,7 +714,7 @@ cmd_fork() {
         cp "$DXCAP_TIMELINE" "$dir/timeline.txt"
         args=(--timeline="$dir/timeline.txt")
     fi
-    run_fork "$dir" "$ini" "$userini" "$map" "$secs" "${args[@]}"
+    run_dxe "$dir" "$ini" "$userini" "$map" "$secs" "${args[@]}"
 }
 
 # The fork on a live server: the stock console, and a timeline for what a
@@ -723,9 +723,9 @@ cmd_fork() {
 cmd_live() {
     local address="${1:?server address}" secs="${2:-120}"
     [ -x "$ENGINE_BIN" ] || die "no engine build at $ENGINE_BIN"
-    local ini="$CAP/System/Fork.ini" userini="$CAP/System/ForkUser.ini"
-    local dir="$CAP/runs/fork-live-$(date +%H%M%S)"
-    make_ini fork "" "$ini"
+    local ini="$CAP/System/DXE.ini" userini="$CAP/System/DXEUser.ini"
+    local dir="$CAP/runs/dxe-live-$(date +%H%M%S)"
+    make_ini dxe "" "$ini"
     user_ini "$userini"
     mkdir -p "$dir"
     local timeline="$dir/timeline.txt"
@@ -743,12 +743,12 @@ game 11 shot
 game 25 exit
 EOF
     fi
-    run_fork "$dir" "$ini" "$userini" "$address" "$secs" --timeline="$timeline"
+    run_dxe "$dir" "$ini" "$userini" "$address" "$secs" --timeline="$timeline"
 }
 
 cmd_prove() {
     local map="${1:?map}" dir shots=0 f mean bad=0
-    dir="$(cmd_fork ProveConsole "$map" 90 | tail -1)"
+    dir="$(cmd_dxe ProveConsole "$map" 90 | tail -1)"
     [ "$(cat "$dir/exit")" = 0 ] || { say "the run did not exit cleanly: $dir/engine.log"; bad=1; }
     for f in "$dir"/Shot*.bmp; do
         [ -f "$f" ] || continue
@@ -770,7 +770,7 @@ cmd_prove() {
 # cli-flags.md); the fork's, --server. Waited for until it exits or the time
 # runs out; its log lands in the run's folder.
 cmd_dedicated() {
-    local engine="${1:?original or fork}" actor="${2:?server actor class}" map="${3:?map}" secs="${4:-120}"
+    local engine="${1:?original or dxe}" actor="${2:?server actor class}" map="${3:?map}" secs="${4:-120}"
     [ -f "$CAP/System/DXCapture.u" ] || die "tools/dxcap.sh compile first"
     local ini userini dir
     case "$engine" in
@@ -804,15 +804,15 @@ cmd_dedicated() {
             cp "$CAP/game/System/DeusEx.log" "$dir/DeusEx.log" 2>/dev/null || true
             say "original: $dir"
             ;;
-        fork)
-            ini="$CAP/System/Fork.ini" userini="$CAP/System/ForkUser.ini"
-            dir="$CAP/runs/fork-dedicated-$actor-$(date +%H%M%S)"
-            make_ini fork "" "$ini"
+        dxe)
+            ini="$CAP/System/DXE.ini" userini="$CAP/System/DXEUser.ini"
+            dir="$CAP/runs/dxe-dedicated-$actor-$(date +%H%M%S)"
+            make_ini dxe "" "$ini"
             server_actor "$actor" "$ini"
             user_ini "$userini"
-            run_fork "$dir" "$ini" "$userini" "$map" "$secs" --server
+            run_dxe "$dir" "$ini" "$userini" "$map" "$secs" --server
             ;;
-        *) die "dedicated takes original or fork, not $engine" ;;
+        *) die "dedicated takes original or dxe, not $engine" ;;
     esac
 }
 
@@ -821,7 +821,7 @@ case "$cmd" in
     setup)    need_game; cmd_setup ;;
     compile)  need_game; cmd_compile ;;
     original) need_game; cmd_original "$@" ;;
-    fork)     need_game; cmd_fork "$@" ;;
+    dxe)      need_game; cmd_dxe "$@" ;;
     prove)    need_game; cmd_prove "$@" ;;
     live)     need_game; cmd_live "$@" ;;
     dedicated) need_game; cmd_dedicated "$@" ;;

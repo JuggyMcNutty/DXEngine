@@ -2,7 +2,7 @@
 // ChurnConsole: destroyed actors over time -- on Liberty Island, from 5 s in,
 // 20 GarbageMarkers spawned and the 20 of the tick before destroyed, every
 // tick for 120 s, then an exit; every 10 s how many it has destroyed, with
-// "DXCHURN:". A fork run with DXCAP_MEMLOG=1 shows whether the destroyed
+// "DXCHURN:". A dxe run with DXCAP_MEMLOG=1 shows whether the destroyed
 // actors are freed as they go.
 //=============================================================================
 class ChurnConsole extends Console;

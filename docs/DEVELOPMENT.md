@@ -35,10 +35,10 @@ and the fork alike, each driven by a console class of the DXCapture package: Unr
 tools/dxcap.sh setup                          # once, and again after the parent folder moves
 tools/dxcap.sh compile                        # after setup, and after changing tools/dxcap
 tools/dxcap.sh prove 01_NYC_UNATCOIsland.dx   # the fork: shots at 20 s and 60 s, exit at 65 s
-tools/dxcap.sh fork <console> <map> [<secs>]  # the fork, straight into <map> or a server's address; - the stock console
+tools/dxcap.sh dxe <console> <map> [<secs>]   # the fork, straight into <map> or a server's address; - the stock console
 tools/dxcap.sh original <console> [<secs>]    # the original, from its menu map (or DXCAP_START's URL)
 tools/dxcap.sh live <address> [<secs>]        # the fork on a live server (below)
-tools/dxcap.sh dedicated <original|fork> <actor> <map> [<secs>]  # either engine as a dedicated server
+tools/dxcap.sh dedicated <original|dxe> <actor> <map> [<secs>]  # either engine as a dedicated server
 ```
 
 A run stops after `<secs>`, 120 by default. `prove` fails on an unclean exit or a missing or
@@ -52,7 +52,7 @@ are gone.
   original. Both engines take the game's settings from it; the game's inis are never written.
 - **`Settings.json`.** The fork's renderer, MSAA, VSync, gamma mode, `GammaCorrectScreenshots`,
   HDR, bloom and render scale come from
-  `~/.config/DXEngine/Settings.json`, an input of every fork run that no run's ini changes,
+  `~/.config/DXEngine/Settings.json`, an input of every dxe run that no run's ini changes,
   or from the file `DXCAP_SETTINGS` names. Without one the fork runs on Vulkan with 4x MSAA.
 - **Results.** A run's log (`engine.log` or `DeusEx.log`), shots and recording land in
   `build/dxcap/runs/<engine>-<console>-<time>/`.
@@ -73,18 +73,18 @@ are gone.
 | `DXCAP_USERINI_FIRST=1` | the run's inis named `USERINI=` then `INI=`: on the original's command line, and on the fork's by `--cmdline` in place of `--ini` and `--userini` ([the command line](NATIVES.md#the-command-line)) |
 | `DXCAP_MISSION_MAP=<map>` | the map a run's console travels to, its `TargetMap` (`MissionConsole`'s, `StaticConsole`'s, `WadeConsole`'s, `ScreenConsole`'s, `PerfConsole`'s, `EndgameConsole`'s, `VisibleConsole`'s, `MoverConsole`'s, `LightConsole`'s, `GlassConsole`'s, `FlushConsole`'s): an original run starts at its menu map, a fork run at the map it is given |
 | `DXCAP_START=<url>` | an original run started there, not at its menu map: its command line's first word, with `-hax0r` ([running the original](#running-the-original)); `?loadgame=9` for `StartConsole` |
-| `DXCAP_SETTINGS=<file>` | a fork run's `Settings.json`, in place of `~/.config/DXEngine`'s (through a `HOME` of the run's own; the caches stay the usual ones) |
-| `DXCAP_USERDIR=<dir>` | a fork run's `--userdir`: its `Settings.json`, log, shots and a class's own config file there ([running it](ENGINE.md#running-it)) |
+| `DXCAP_SETTINGS=<file>` | a dxe run's `Settings.json`, in place of `~/.config/DXEngine`'s (through a `HOME` of the run's own; the caches stay the usual ones) |
+| `DXCAP_USERDIR=<dir>` | a dxe run's `--userdir`: its `Settings.json`, log, shots and a class's own config file there ([running it](ENGINE.md#running-it)) |
 | `DXCAP_NOVSYNC=1` | Mesa's GL draws either engine without waiting for the display (`vblank_mode=0`): the original's `OpenGLDrv` asks for no swap interval and gets the driver's vsync |
 | `DXCAP_FPS=<n>` | either engine held to n frames a second: MangoHud's limiter, its display off (`mangohud`, and `lib32-mangohud` for the original's 32-bit process) |
 | `DXCAP_PERF=1` | the engine's main thread sampled by perf into the run's `perf.data`, on the wall clock, its cycles and instructions counted each 100 ms (`stat.csv`), with the process's `maps.txt` ([measuring both engines](#measuring-both-engines)) |
-| `DXCAP_TIMELINE=<file>` | a `live` run's timeline, not `JoinConsole`'s walk; a `fork` run's [timeline](#timelines) |
-| `DXCAP_ENGINE=<binary>` | a fork run on that build, not linux-x86_64's (an [ASan build](#crashes)) |
-| `DXCAP_BACKEND=SDL3`, `SDL2` | a fork run's window DXWidgets' SDL3 or SDL2 one, the launchers', not its X11 one: SDL3 on linux-x86_64's build, SDL2 on one built with it (`DXCAP_ENGINE`); the keys of a timeline's `keydown` and `keyup` go through its own events, its `pad` and `padaxis` through its virtual pad |
-| `DXCAP_MEMLOG=1` | a fork run's resident memory each second in its `memlog.txt`: seconds, MB |
+| `DXCAP_TIMELINE=<file>` | a `live` run's timeline, not `JoinConsole`'s walk; a `dxe` run's [timeline](#timelines) |
+| `DXCAP_ENGINE=<binary>` | a dxe run on that build, not linux-x86_64's (an [ASan build](#crashes)) |
+| `DXCAP_BACKEND=SDL3`, `SDL2` | a dxe run's window DXWidgets' SDL3 or SDL2 one, the launchers', not its X11 one: SDL3 on linux-x86_64's build, SDL2 on one built with it (`DXCAP_ENGINE`); the keys of a timeline's `keydown` and `keyup` go through its own events, its `pad` and `padaxis` through its virtual pad |
+| `DXCAP_MEMLOG=1` | a dxe run's resident memory each second in its `memlog.txt`: seconds, MB |
 | `DXCAP_UPLINK=<host>:<port>` | the server announces itself to that master (`DoUplink`); otherwise to none |
 | `DXCAP_PORT=<port>` | the server listens there (`[URL] Port`), not on 7790: for `netrelay.py` between it and a client ([net tests](#net-tests)) |
-| `DXCAP_STATS=<password>` | on both runs: the server logs world stats (`bWorldLog`); the player holds that world stats password, so its login carries the checksum (a fork server logs the login's URL: `login request`) |
+| `DXCAP_STATS=<password>` | on both runs: the server logs world stats (`bWorldLog`); the player holds that world stats password, so its login carries the checksum (a dxe server logs the login's URL: `login request`) |
 | `DXCAP_SERVERPKGS=<dir>` | the server offers the packages in `<dir>` (`ServerPackages`) for a client to download |
 
 ### The console classes
@@ -97,13 +97,13 @@ the run. *Either*: one engine on each side of a pair.
 
 | Console | Engines | Drives and logs | Prefix | Read with |
 |---|---|---|---|---|
-| `ProveConsole` | fork | the URL's map: two shots, an exit | `DXPROVE:` | `prove` |
+| `ProveConsole` | dxe | the URL's map: two shots, an exit | `DXPROVE:` | `prove` |
 | `CaptureConsole` | both | tripwires, coronas, comment-jump conversations | `DXCAP:` |  |
 | `ViewConsole` | both | the weapon in view; the level's light | `DXVIEW:` |  |
 | `CoronaConsole` | both | lamp coronas; a movable corona light of its own | `DXCORONA:` |  |
 | `LaserConsole` | both | a laser tripwire's beam and its actors | `DXLASER:` |  |
 | `ParticleConsole` | both | smoke and puffs on the pier, in marked shots | `DXPART:` |  |
-| `FaceConsole` | both | a character's mesh close up (`MeshOf`, `Ahead`, `Distance`) | `DXFACE:` | `shots.py <original run> <fork run>` |
+| `FaceConsole` | both | a character's mesh close up (`MeshOf`, `Ahead`, `Distance`) | `DXFACE:` | `shots.py <original run> <dxe run>` |
 | `MeshConsole` | both | meshes lit on the pier (`LODBias`, `NoDetail`) | `DXMESH:` | `shots.py` |
 | `LightConsole` | both | a light of one effect on `TargetMap` (`Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`); the spot's texture as its own macro texture (`Macro`) | `DXLIGHT:` | `shots.py` |
 | `FlashConsole` | both | the screen flash | `DXFLASH:` | the fork at `DXCAP_FPS=60`: above some 105 frames a second the game's `ViewFlash`, which drops a fog under 0.019 each frame, never builds the glow's 0.2 |
@@ -113,13 +113,13 @@ the run. *Either*: one engine on each side of a pair.
 | `DeathConsole` | both | an NPC's death and its carcass | `DXDEATH:` |  |
 | `AIConsole` | both | every NPC's state, orders, enemy and render time; the camera | `DXAI:`, `DXAISTATE:` |  |
 | `StaticConsole` | both | `TargetMap`'s static actors at 5 s and 15 s | `DXSTATIC:` |  |
-| `MoveConsole` | both | every pawn's moves, every 2 s for 120 s | `DXMOVE:` | `move.py <original run> <fork run>` |
+| `MoveConsole` | both | every pawn's moves, every 2 s for 120 s | `DXMOVE:` | `move.py <original run> <dxe run>` |
 | `ReachConsole` | both | the reach tests, each pawn asked from its home spot | `DXREACH:` |  |
 | `TraceConsole` | both | `TraceTexture`, `TraceActors`, `Trace` and `FastTrace`; boxes started inside cylinders | `DXTRACE:` |  |
 | `FloatConsole` | both | the crates in the water by the pier | `DXFLOAT:` |  |
 | `SwimConsole` | both | falls into water, diving, swimming up; a troop thrown in | `DXSWIM:` |  |
 | `LadderConsole` | both | Liberty Island's first ladder, every tick | `DXLADDER:` |  |
-| `WadeConsole` | both | a troop walking off a ledge into water; `TargetMap`'s shore | `DXWADE:` | `track.py <original run> <fork run>` |
+| `WadeConsole` | both | a troop walking off a ledge into water; `TargetMap`'s shore | `DXWADE:` | `track.py <original run> <dxe run>` |
 | `FlightConsole` | both | a gull's flights at the pier; a stock gull's own | `DXFLIGHT:` | `track.py` |
 | `SlideConsole` | both | the player on low-friction slopes and in a low-friction zone | `DXSLIDE:` | `track.py`, at `DXCAP_FPS=60` and `20` |
 | `VisibleConsole` | both | each mover's line on `TargetMap`: `FastTrace`, `Trace`, its hit and normal, `TraceTexture`'s and `TraceActors`' hits, the line reversed; the visible-actor iterators and `RadiusActors` | `DXVIS:` | the two logs' `mover` lines diffed |
@@ -143,7 +143,7 @@ the run. *Either*: one engine on each side of a pair.
 | `ScreenConsole` | both | the game's screens on `TargetMap`, each window tree | `DXSCREEN:` |  |
 | `ScrollConsole` | both | a scroll area and a slider under the mouse | `DXSCROLL:` | with `tools/dxcap/timelines/scroll.txt` on the fork |
 | `ClickConsole` | both | a button, a choice and a checkbox clicked; a menu dragged; Alt accelerators | `DXCLICK:` | with `tools/dxcap/timelines/clicks.txt` on the fork |
-| `PadConsole` | fork | the player's place, speed, facing and physics every half second, as a pad moves it | `DXPAD:` | with `tools/dxcap/timelines/pad.txt` |
+| `PadConsole` | dxe | the player's place, speed, facing and physics every half second, as a pad moves it | `DXPAD:` | with `tools/dxcap/timelines/pad.txt` |
 | `EditConsole` | both | a script's text calls on an edit field, a text window and a button | `DXEDIT:` |  |
 | `SizeConsole` | both | the root's size and scale; the size a new window takes | `DXSIZE:` |  |
 | `PerfConsole` | both | what a frame costs on `TargetMap`: sixty one-second windows | `DXPERF:` | `tools/perf/frame-report.py`, with `DXCAP_PERF=1` ([measuring both engines](#measuring-both-engines)) |
@@ -166,7 +166,7 @@ the run. *Either*: one engine on each side of a pair.
 | `CallConsole` | both | singular functions held off; a call chain `Depth` deep, 248 by default: one more and either engine stops | `DXCALL:` | the two logs diffed |
 | `DynLoadConsole` | both | `Object.DynamicLoadObject` by each form of name | `DXDYNLOAD:` |  |
 | `GarbageConsole` | both | 128 actors destroyed, one a tick | `DXGARBAGE:` |  |
-| `ChurnConsole` | fork | 20 actors spawned and 20 destroyed every tick for 120 s (with `DXCAP_MEMLOG=1`) | `DXCHURN:` |  |
+| `ChurnConsole` | dxe | 20 actors spawned and 20 destroyed every tick for 120 s (with `DXCAP_MEMLOG=1`) | `DXCHURN:` |  |
 | `DeleteConsole` | both | `CriticalDelete` as the game uses it | `DXDELETE:` |  |
 | `SoundConsole` | both | sounds behind a wall, a reverb zone, beeps from three sides and the root window | `DXCAP:` | `sound.py <run>`, with `DXCAP_RECORD=1` |
 | `SkipConsole` | both | a conversation's lines skipped | `DXSKIP:` | `skip.py <run> [<run> ...]`, with `DXCAP_RECORD=1` |
@@ -192,15 +192,15 @@ the run. *Either*: one engine on each side of a pair.
   into that folder: delete it after.
 - In `VisibleConsole`'s logs the original numbers the player and its shadow one higher: its menu
   map made the first.
-- **A fork run started on its map has no long first frame there.** The original's always travels
+- **A dxe run started on its map has no long first frame there.** The original's always travels
   from its menu map, its first frame on the map taking in the load
-  ([a long frame](NATIVES.md#small)): a fork run compared over a map's first seconds starts at
+  ([a long frame](NATIVES.md#small)): a dxe run compared over a map's first seconds starts at
   `DX.dx` and travels as the original's does (`StandConsole`, `MoveConsole`).
 - A sweep runs `MissionConsole` over every mission map; no driver for it is committed.
 
 ### Timelines
 
-A fork run does what `DXCAP_TIMELINE`'s file says, in [the live mode's format](#live-servers),
+A dxe run does what `DXCAP_TIMELINE`'s file says, in [the live mode's format](#live-servers),
 beside its console's own script; with `-` for its console it keeps the stock one. Keys reach the
 game as the window's do, so a timeline drives the UI, which no console can; `keydown` and `keyup`
 go through the window itself (`DXCAP_BACKEND=SDL3`'s or `SDL2`'s), its naming of keys with them,
@@ -225,15 +225,15 @@ each load -- `keys.txt`, a key of each kind the SDL windows name, on the stock c
 
 ```sh
 DXCAP_MEMLOG=1 DXCAP_TIMELINE=tools/dxcap/timelines/reload-fresh.txt \
-    tools/dxcap.sh fork - 01_NYC_UNATCOIsland 580
+    tools/dxcap.sh dxe - 01_NYC_UNATCOIsland 580
 ```
 
 ### Net tests
 
 One engine on each side, on this machine. Start the server (`original ServeConsole 300` in the
-background, or `fork ServeConsole DX.dx 300`: the default 120 s would end it before its own 290),
+background, or `dxe ServeConsole DX.dx 300`: the default 120 s would end it before its own 290),
 wait until its game port is bound (`ss -uln | grep :7790`; an original server answers some 13 s
-after it starts), then run the client (`fork JoinConsole DX.dx`, or `original JoinConsole`).
+after it starts), then run the client (`dxe JoinConsole DX.dx`, or `original JoinConsole`).
 Never start a second server before the first has exited: it cannot bind the port ("Net: cannot
 listen" in its log), and the client joins the old one. To read what passes between them, start
 the server with `DXCAP_PORT=7792`, wait for that port, start `tools/dxcap/netrelay.py` (it
@@ -291,7 +291,7 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
   same through `D3DDrv` (`DXCAP_RENDERER=D3D`). The fork's `shot` reads the frame before the
   present pass applies gamma (`GammaCorrectScreenshots` off), so a fork shot takes that gamma
   before its brightness is compared ([brightness](NATIVES.md#brightness)):
-  `tools/dxcap/shots.py <original run> <fork run>` puts it through the gamma and gives,
+  `tools/dxcap/shots.py <original run> <dxe run>` puts it through the gamma and gives,
   for each pair of shots, the fork's brightness over the original's, block of 16 pixels by
   block (`--blocks` prints the grid) and over the frame or a region (`--region x,y,w,h`).
 - **The presented frame.** A fork shot is the scene before the present pass, so the
@@ -301,7 +301,7 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
 - A renderer that fails to start falls back to `SoftDrv` without a word, its frames passing for
   the renderer's: the script then fails, naming the log's `Bound to SoftDrv`.
 - **The same view.** Two runs' shots compare only from one view: one window size (`DXCAP_WINDOW`)
-  and, for `LightConsole`, one `View`, whose distance its `chosen` line logs; a fork run against
+  and, for `LightConsole`, one `View`, whose distance its `chosen` line logs; a dxe run against
   an original run of another `View` is off by however much the frame differs.
 
 ### Running the original
@@ -358,8 +358,8 @@ thread meanwhile. Both draw through OpenGL with no vsync, at 1280x720, the fork 
 ```sh
 DXCAP_NOVSYNC=1 DXCAP_PERF=1 tools/dxcap.sh original PerfConsole 150
 DXCAP_NOVSYNC=1 DXCAP_PERF=1 DXCAP_SETTINGS=tools/dxcap/perf-settings.json \
-    tools/dxcap.sh fork PerfConsole DX.dx 150
-tools/perf/frame-report.py <original run> <fork run>
+    tools/dxcap.sh dxe PerfConsole DX.dx 150
+tools/perf/frame-report.py <original run> <dxe run>
 ```
 
 - **The windows** are the wall clock's, the level's `Hour` to `Millisecond`, which both engines
@@ -384,7 +384,7 @@ tools/perf/frame-report.py <original run> <fork run>
 
 An original run that crashes shows a "Critical Error" dialog on the desktop and hangs
 until the harness kills it, its log cut short: the game writes the log only as it exits.
-Dismissed, the dialog lets the game log the error and the calls under it, and exit. A fork run
+Dismissed, the dialog lets the game log the error and the calls under it, and exit. A dxe run
 that crashes leaves a core, which systemd keeps.
 
 ```sh
@@ -395,11 +395,11 @@ xdotool key Return
 # The fork's core: the functions on the stack (the Release build has no lines)
 coredumpctl dump <pid> --output=<scratchpad>/core
 gdb -batch -ex bt <parent>/build/linux-x86_64/engine/DXEngine <scratchpad>/core
-# Lines: a copy with symbols (some two and a half minutes), run with the last fork run's ini
+# Lines: a copy with symbols (some two and a half minutes), run with the last dxe run's ini
 cmake -S DXEngine -B <scratchpad>/dbg -C deusex-launcher/linux-x86_64/ports/linux-x86_64/engine.cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build <scratchpad>/dbg --target DXEngine
 cd gamefiles && gdb -batch -ex run -ex bt --args <scratchpad>/dbg/DXEngine --no-launcher <parent>/gamefiles \
-    --ini=<parent>/build/dxcap/System/Fork.ini --userini=<parent>/build/dxcap/System/ForkUser.ini --url=<map>
+    --ini=<parent>/build/dxcap/System/DXE.ini --userini=<parent>/build/dxcap/System/DXEUser.ini --url=<map>
 ```
 
 An object freed while something still points at it shows only in an AddressSanitizer build,
@@ -414,7 +414,7 @@ CXXFLAGS="-fsanitize=address -fno-omit-frame-pointer" LDFLAGS=-fsanitize=address
     -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build <scratchpad>/asan --target DXEngine
 ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 DXCAP_ENGINE=<scratchpad>/asan/DXEngine \
-    tools/dxcap.sh fork <console> <map>
+    tools/dxcap.sh dxe <console> <map>
 ```
 
 ## Gotchas
@@ -428,7 +428,7 @@ before changing the engine: [profiling](ENGINE.md#profiling-and-validating-on-th
 
 - **`compile` takes `DXCapture.u` away before it builds it again**: a run started meanwhile, or
   one of a sweep, finds no console class. Compile between runs, never under one.
-- **A fork run straight into a mission map leaves `Save/Current` as earlier runs left it**: only
+- **A dxe run straight into a mission map leaves `Save/Current` as earlier runs left it**: only
   travel to another mission, or a new game, empties it. A run that returns to a map within its
   mission takes that map from there; a timeline that first crosses a mission starts it empty.
 - **An unattended run sees no NPC react to the player.** Liberty Island starts the player 7,000

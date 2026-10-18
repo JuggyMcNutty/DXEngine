@@ -2,7 +2,7 @@
 # puts the UI cursor on each window first; here the left and right buttons
 # click and a title bar is dragged, and Alt and a letter press the window
 # whose accelerator it is.
-# DXCAP_TIMELINE=<this> tools/dxcap.sh fork ClickConsole DX.dx 80
+# DXCAP_TIMELINE=<this> tools/dxcap.sh dxe ClickConsole DX.dx 80
 start 6 press LeftMouse
 start 6.1 release LeftMouse
 start 11 press LeftMouse

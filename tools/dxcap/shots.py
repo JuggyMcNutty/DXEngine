@@ -7,7 +7,7 @@ Brightness). Prints, for each pair of shots, the mean ratio over the region
 asked for (the whole frame by default), the ratios' spread, and with --blocks
 the grid of ratios.
 
-  shots.py <original run> <fork run> [--gamma 1.5] [--block 16]
+  shots.py <original run> <dxe run> [--gamma 1.5] [--block 16]
            [--region x,y,w,h] [--shot N] [--blocks]
 
 A run is its folder under build/dxcap/runs: the original's shots are the
@@ -37,7 +37,7 @@ def means(path, gamma, block):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('original')
-    ap.add_argument('fork')
+    ap.add_argument('dxe')
     ap.add_argument('--gamma', type=float, default=1.5, help="the gamma put on the fork's shot (1.5)")
     ap.add_argument('--block', type=int, default=16, help='the block size in pixels (16)')
     ap.add_argument('--region', help='x,y,w,h in pixels: the region whose mean ratio is given')
@@ -50,12 +50,12 @@ def main():
     if not numbers:
         sys.exit('no shots of the original to compare')
     for n in numbers:
-        fork = os.path.join(a.fork, 'Shot%04d.bmp' % n)
-        if not os.path.exists(fork):
-            print('shot %d: the fork has none' % n)
+        dxe = os.path.join(a.dxe, 'Shot%04d.bmp' % n)
+        if not os.path.exists(dxe):
+            print('shot %d: the dxe run has none' % n)
             continue
         og, w, h = means(os.path.join(a.original, 'Shot%04d.png' % n), 1.0, a.block)
-        fg, fw, fh = means(fork, a.gamma, a.block)
+        fg, fw, fh = means(dxe, a.gamma, a.block)
         if (w, h) != (fw, fh):
             sys.exit('shot %d: %dx%d blocks against %dx%d' % (n, w, h, fw, fh))
         x0, y0, x1, y1 = 0, 0, w, h
@@ -77,7 +77,7 @@ def main():
             print('shot %d: the original is black in the region' % n)
             continue
         mid = ratios[len(ratios) // 2]
-        print('shot %d: fork/original %.3f over the region (%d blocks of %d; the original %.3f, the fork %.3f); blocks %.2f to %.2f, median %.2f'
+        print('shot %d: dxe/original %.3f over the region (%d blocks of %d; the original %.3f, dxe %.3f); blocks %.2f to %.2f, median %.2f'
               % (n, fsum / osum if osum else 0.0, len(ratios), (x1 - x0) * (y1 - y0), osum / ((x1 - x0) * (y1 - y0)), fsum / ((x1 - x0) * (y1 - y0)), ratios[0], ratios[-1], mid))
         if a.blocks:
             for y in range(y0, y1):

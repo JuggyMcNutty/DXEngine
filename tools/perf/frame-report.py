@@ -86,7 +86,7 @@ FORK_AREAS = [
     ('maths, callers vary', r'^(mat[234]|vec[234]|Coords|Rotator|quaternion|BBox|dvec)'),
     ('containers and names, callers vary', r'(^std::|^void std::|^Array<|^NameString|^__gnu|_Hashtable|_Map_base)'),
 ]
-FORK_AREA_RES = [(name, re.compile(rx)) for name, rx in FORK_AREAS]
+DXE_AREA_RES = [(name, re.compile(rx)) for name, rx in FORK_AREAS]
 
 DRIVER_DSO = re.compile(r'(libgallium|libGL|libEGL|libGLX|libGLdispatch|libglapi|libdrm|libvulkan|'
                         r'libX11|libxcb|libXext|libXrender|libXfixes|libXcomposite|libxshmfence|'
@@ -235,9 +235,9 @@ def samples(run):
             yield float(m.group(1)), int(m.group(2), 16), m.group(3), m.group(4)
 
 
-def fork_area(sym, dso):
+def dxe_area(sym, dso):
     if '/DXEngine' in dso or dso.endswith('DXEngine'):
-        for name, rx in FORK_AREA_RES:
+        for name, rx in DXE_AREA_RES:
             if rx.search(sym):
                 return name
         return 'other engine code'
@@ -287,7 +287,7 @@ def measure(run):
             area = dso_area(dso)
             func = '%s!%s' % (os.path.basename(dso), sym)
         else:
-            area = fork_area(sym, dso)
+            area = dxe_area(sym, dso)
             func = sym if '/DXEngine' in dso else '%s!%s' % (os.path.basename(dso), sym)
         areas[area] += 1
         funcs[func] += 1
@@ -297,7 +297,7 @@ def measure(run):
     return {
         'mcycles': stat.get('cycles', 0.0) / 1e6 / max(frames, 1),
         'minstr': stat.get('instructions', 0.0) / 1e6 / max(frames, 1),
-        'engine': 'original' if original else 'fork',
+        'engine': 'original' if original else 'dxe',
         'frames': frames,
         'windows': len(windows),
         'seconds': (end - start) / 1000.0,
@@ -347,7 +347,7 @@ def main():
             show('%s (%s): %d frames in %d windows, %.0f s; %s' % (run, m['engine'], m['frames'], m['windows'],
                                                                  m['seconds'], m['total']), m, args.top)
         return
-    for engine in ('original', 'fork'):
+    for engine in ('original', 'dxe'):
         ms = [m for _, m in results if m['engine'] == engine]
         if not ms:
             continue

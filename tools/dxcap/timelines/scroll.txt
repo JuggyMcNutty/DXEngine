@@ -1,7 +1,7 @@
 # ScrollConsole's mouse, on its schedule (its header): ScrollConsole puts
 # the UI cursor on each part first; here the left button clicks, holds and
 # drags there, and the wheel turns.
-# DXCAP_TIMELINE=<this> tools/dxcap.sh fork ScrollConsole DX.dx 90
+# DXCAP_TIMELINE=<this> tools/dxcap.sh dxe ScrollConsole DX.dx 90
 start 9 press LeftMouse
 start 9.1 release LeftMouse
 start 13 press LeftMouse

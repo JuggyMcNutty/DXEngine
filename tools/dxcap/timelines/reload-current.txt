@@ -1,7 +1,7 @@
 # Ten loads of UNATCO HQ and ten of Liberty Island, in turn, 25 s apart:
 # one mission, so each map left is saved into Current and the next load of
 # it comes from there. Run straight into the island with the stock console:
-# DXCAP_TIMELINE=<this> DXCAP_MEMLOG=1 tools/dxcap.sh fork - 01_NYC_UNATCOIsland 580
+# DXCAP_TIMELINE=<this> DXCAP_MEMLOG=1 tools/dxcap.sh dxe - 01_NYC_UNATCOIsland 580
 start 20 open 01_NYC_UNATCOHQ
 start 45 open 01_NYC_UNATCOIsland
 start 70 open 01_NYC_UNATCOHQ
