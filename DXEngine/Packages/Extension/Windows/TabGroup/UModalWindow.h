@@ -7,6 +7,7 @@ class UModalWindow : public UTabGroupWindow
 public:
 	using UTabGroupWindow::UTabGroupWindow;
 
+	void InitDefaults() override;
 	bool IsCurrentModal();
 	void SetMouseFocusMode(uint8_t newFocusMode);
 	UWindow* GetAcceleratorWindow(int key);

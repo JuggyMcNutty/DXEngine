@@ -3,6 +3,15 @@
 #include "UModalWindow.h"
 #include "URootWindow.h"
 
+// The original's XModalWindow::Init (0x10036c00): every modal, the root
+// among them, gives the focus to the window the pointer enters
+// (MFOCUS_Enter) until its script sets another mode.
+void UModalWindow::InitDefaults()
+{
+	UTabGroupWindow::InitDefaults();
+	focusMode() = (uint8_t)EMouseFocusMode::Enter;
+}
+
 bool UModalWindow::IsCurrentModal()
 {
 	URootWindow* root = GetRootWindow();

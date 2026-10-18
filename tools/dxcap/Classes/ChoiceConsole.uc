@@ -9,10 +9,14 @@
 // the root window's own VirtualKeyPressed driving Down, Down and Up between
 // them (the keys' own path -- ConWindowActive passes them on and
 // RootWindow moves the focus), the focus logged after each with a shot,
-// then the focused choice picked through ConPlay.PlayChoice, the path a
-// click ends in. What is compared between the engines: whether the choice
-// buttons exist and are focusable, whether the focus moves between them,
-// and what the shots show of the highlighted choice.
+// then the pointer put on the last choice and back on the one the keys left
+// focused (Window.SetCursorPos, which the original's root takes as a move
+// at once: MFOCUS_Enter gives the focus to the window entered), the focus
+// logged after each with a shot, then the focused choice picked through
+// ConPlay.PlayChoice, the path a click ends in. What is compared between
+// the engines: whether the choice buttons exist and are focusable, whether
+// the focus moves between them by the keys and by the pointer, and what the
+// shots show of the highlighted choice.
 //=============================================================================
 class ChoiceConsole extends Console;
 
@@ -28,6 +32,7 @@ var ConEvent LastEvent;
 var bool bSkipping;
 var int ChoiceVisits;
 var int KeySteps;
+var Window KeysFocus;
 
 // A mark in the view's corner while a shot is due, as CaptureConsole marks
 // its shots.
@@ -209,6 +214,19 @@ function KeyDown(DeusExPlayer DXP, string Label)
 	LogChoices(DXP, "after " $ Label);
 }
 
+// The pointer put in the middle of a window, as a mouse moved there.
+function Hover(DeusExPlayer DXP, Window W, string Label)
+{
+	if (W == None)
+	{
+		Log("DXCHOICE: " $ Label $ ": no window to point at");
+		return;
+	}
+	W.SetCursorPos(W.width / 2, W.height / 2);
+	Log("DXCHOICE: " $ Label $ " (pointer on " $ W.Name $ ")");
+	LogChoices(DXP, "after " $ Label);
+}
+
 function KeyUp(DeusExPlayer DXP, string Label)
 {
 	DeusExRootWindow(DXP.rootWindow).VirtualKeyPressed(IK_Up, False);
@@ -360,6 +378,22 @@ event Tick(float Delta)
 			KeySteps = 4;
 		}
 		else if (StepTime > 5.0 && KeySteps == 4)
+		{
+			// The pointer on the last choice, then back on the one the
+			// keys left focused, so the same choice is picked.
+			KeysFocus = DeusExRootWindow(DXP.rootWindow).GetFocusWindow();
+			if (DXP.conPlay.conWinThird != None && DXP.conPlay.conWinThird.numChoices > 0)
+				Hover(DXP, DXP.conPlay.conWinThird.conChoices[DXP.conPlay.conWinThird.numChoices - 1], "pointer on the last choice");
+			Shot(P, "after the pointer on the last choice");
+			KeySteps = 5;
+		}
+		else if (StepTime > 6.0 && KeySteps == 5)
+		{
+			Hover(DXP, KeysFocus, "pointer back");
+			Shot(P, "after the pointer back");
+			KeySteps = 6;
+		}
+		else if (StepTime > 7.0 && KeySteps == 6)
 		{
 			// Pick through the focused button's own object, the path a
 			// click ends in.

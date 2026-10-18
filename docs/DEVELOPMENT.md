@@ -155,7 +155,7 @@ the run. *Either*: one engine on each side of a pair.
 | `FrobConsole` | both | the frob highlight round two decorations | `DXFROB:` |  |
 | `LootConsole` | both | two carcasses searched; the inventory grid | `DXLOOT:` | with `tools/dxcap/timelines/loot-drags.txt` on DXEngine |
 | `CarcassConsole` | both | what carcasses hold, their search, the looted weapon | `DXCARC:` |  |
-| `ChoiceConsole` | both | a conversation's choices and their focus | `DXCHOICE:` |  |
+| `ChoiceConsole` | both | a conversation's choices and their focus, by the keys and the pointer (`SetCursorPos`) | `DXCHOICE:` |  |
 | `KeypadConsole` | both | the root's focus round the keypad; a stray key release | `DXKEYPAD:` | with `tools/dxcap/timelines/stray-release.txt` on DXEngine |
 | `BorderConsole` | both | `GC.DrawBorders` on the inventory screen | `DXBORDER:` |  |
 | `ColorsConsole` | both | `DrawBorders` on the Colors screen | `DXCOLORS:` |  |

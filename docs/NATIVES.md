@@ -449,9 +449,9 @@ Matches the original
 [drawing](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#drawing),
 [small](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#small)).
 The consoles: `GetConsole`, `BeltConsole`, `BorderConsole`, `ColorsConsole`;
-`ChoiceConsole` for a conversation's choices; `ThemeConsole` for the
-InfoLink's text in the HUD theme; `SizeConsole` for a new window's size;
-`ScrollConsole` for a scroll area and a slider;
+`ChoiceConsole` for a conversation's choices, by the keys and the pointer;
+`ThemeConsole` for the InfoLink's text in the HUD theme; `SizeConsole` for
+a new window's size; `ScrollConsole` for a scroll area and a slider;
 `ClickConsole` for a button, a choice and a checkbox clicked, a menu dragged
 by its title bar and Alt with a letter; `EditConsole` for a script's text in
 an edit field, a text window and a button. `MenuConsole` and `ScreenConsole`
@@ -512,6 +512,17 @@ from the original's code:
   the drags between the searches (`loot-drags.txt`) are a timeline's, so
   DXEngine's alone, as are `ScrollConsole`'s clicks, drags and wheel
   (`scroll.txt`) and `ClickConsole`'s clicks, drag and keys (`clicks.txt`).
+- **The pointer**, while a modal shows: a move that puts another window
+  under it leaves the last one and enters that one, each told alone, never
+  its parents, and `MouseMoved` goes out only for a new place. The topmost
+  modal's mouse focus mode moves the focus with it. Every modal, the root
+  too, starts at `MFOCUS_Enter`: the window entered takes the focus, its
+  nearest selectable one if it can take it now. `MFOCUS_EnterLeave`, the
+  keypad's, also clears it on leaving; `MFOCUS_Click` gives it on a press
+  alone. A window that appears under a still pointer is not entered. So a
+  conversation's choice and a menu's button take the focus the pointer
+  moves onto (`ChoiceConsole`: the pointer put on a choice by
+  `SetCursorPos`, which either engine takes as a move).
 - **The InfoLink's text** (a computer window): each character printed is
   due a time step after the last, `SetTextTiming`'s 0.03 s, on the
   windows' real time; each tick types those due, in the colour

@@ -109,4 +109,8 @@ public:
 	int& vMultiplier() { return Value<int>(PropOffsets_RootWindow.vMultiplier); }
 
 	bool RenderViewportSet = false;
+
+	// The place MouseMoved last went out for: none yet.
+	float movedMouseX = -1.0f;
+	float movedMouseY = -1.0f;
 };

@@ -280,43 +280,6 @@ void URootWindow::PostDrawWindow(UGC* gc)
 	}
 }
 
-static UWindow* CommonAncestor(UWindow* a, UWindow* b)
-{
-	if (a == b)
-		return a;
-
-	std::vector<UWindow*> list1;
-	std::vector<UWindow*> list2;
-	list1.reserve(16);
-	list2.reserve(16);
-	for (UWindow* w = a; w != nullptr; w = w->parentOwner())
-		list1.push_back(w);
-	for (UWindow* w = b; w != nullptr; w = w->parentOwner())
-		list2.push_back(w);
-
-	if (list1.empty() || list2.empty() || list1.back() != list2.back())
-		return nullptr;
-
-	auto it1 = list1.rbegin();
-	auto it2 = list2.rbegin();
-	while (it1 != list1.rend() && it2 != list2.rend())
-	{
-		if (*it1 != *it2)
-		{
-			return *(--it1);
-		}
-		++it1;
-		++it2;
-	}
-
-	if (it1 == list1.rend())
-		return *(--it1);
-	else if (it2 == list2.rend())
-		return *(--it2);
-
-	return nullptr;
-}
-
 // The original's (XWindow::SetFocusWindow 0x1004f0e0): the focus goes to
 // the nearest selectable window up from the one asked for, only if it can
 // take it now (traversable in the topmost modal), and its modal keeps it as
@@ -392,27 +355,39 @@ void URootWindow::SetRootCursorPos(float newMouseX, float newMouseY)
 	MouseX() = newMouseX;
 	MouseY() = newMouseY;
 
+	// The original's ProcessMouseMove (XRootWindow 0x1003af50): a new window
+	// under the pointer is left and entered, each told alone, never its
+	// parents; the topmost modal's mode moves the focus with it -- cleared
+	// on leaving under MFOCUS_EnterLeave, given to the window entered (its
+	// nearest selectable one) under MFOCUS_Enter and EnterLeave -- so a
+	// conversation's choice and a menu's button take the focus the pointer
+	// moves onto. MouseMoved only when the place changed.
 	float relativeX = 0.0f, relativeY = 0.0f;
 	UWindow* focus = GetCursorFocus(relativeX, relativeY);
+	UModalWindow* modal = TopmostModal();
+	uint8_t mode = modal ? modal->focusMode() : focusMode();
 
 	auto lastFocus = UObject::Cast<UWindow>(lastMouseWindow());
 	if (lastFocus != focus)
 	{
 		if (lastFocus)
 		{
-			if (UWindow* ancestor = CommonAncestor(lastFocus, focus))
-			{
-				for (UWindow* w = lastFocus; w != ancestor; w = w->parentOwner())
-				{
-					w->MouseLeftWindow();
-				}
-			}
+			lastFocus->MouseLeftWindow();
+			if (mode >= (uint8_t)EMouseFocusMode::EnterLeave)
+				SetRootFocusWindow(nullptr);
 		}
 		lastMouseWindow() = focus;
 		focus->MouseEnteredWindow();
+		if (mode >= (uint8_t)EMouseFocusMode::Enter)
+			SetRootFocusWindow(focus);
 	}
 
-	focus->MouseMoved(relativeX, relativeY);
+	if (newMouseX != movedMouseX || newMouseY != movedMouseY)
+	{
+		movedMouseX = newMouseX;
+		movedMouseY = newMouseY;
+		focus->MouseMoved(relativeX, relativeY);
+	}
 }
 
 // The window under a point (Extension.dll XWindow::FindWindowByPoint
