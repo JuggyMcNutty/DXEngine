@@ -71,7 +71,7 @@ are gone.
 | `DXCAP_CONFIG="<key>=<value> ..."` | those keys in the run's console class's section of the ini, as `DXCAP_MISSION_MAP` gives `TargetMap` (`LightConsole`'s `Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`, `Macro`; `GlassConsole`'s `Pick`, `GlassName`, `View`, `Behind`; `FlushConsole`'s `Pick`, `DoorName`, `View`, `Angle`; `FaceConsole`'s `MeshOf`, `Ahead`, `Distance`; `MeshConsole`'s `LODBias`, `NoDetail`; `LoopConsole`'s `Jumps`; `CallConsole`'s `Depth`; `ReturnConsole`'s `Items`; `SaveConsole`'s and `LoadConsole`'s `Via`; `LoadConsole`'s `Open`; `ThemeConsole`'s `Direct`) |
 | `DXCAP_USERINI=<file>` | a run's `User.ini` made from that file, in place of the game's (`IniConsole`'s keys given twice) |
 | `DXCAP_USERINI_FIRST=1` | the run's inis named `USERINI=` then `INI=`: on the original's command line, and on DXEngine's by `--cmdline` in place of `--ini` and `--userini` ([the command line](NATIVES.md#the-command-line)) |
-| `DXCAP_MISSION_MAP=<map>` | the map a run's console travels to, its `TargetMap` (`MissionConsole`'s, `StaticConsole`'s, `WadeConsole`'s, `ScreenConsole`'s, `PerfConsole`'s, `EndgameConsole`'s, `VisibleConsole`'s, `MoverConsole`'s, `LightConsole`'s, `GlassConsole`'s, `FlushConsole`'s): an original run starts at its menu map, a dxe run at the map it is given |
+| `DXCAP_MISSION_MAP=<map>` | the map a run's console travels to, its `TargetMap` (`MissionConsole`'s, `StaticConsole`'s, `WadeConsole`'s, `ScreenConsole`'s, `PerfConsole`'s, `EndgameConsole`'s, `VisibleConsole`'s, `MoverConsole`'s, `LightConsole`'s, `GlassConsole`'s, `FlushConsole`'s, `WallConsole`'s): an original run starts at its menu map, a dxe run at the map it is given |
 | `DXCAP_START=<url>` | an original run started there, not at its menu map: its command line's first word, with `-hax0r` ([running the original](#running-the-original)); `?loadgame=9` for `StartConsole` |
 | `DXCAP_SETTINGS=<file>` | a dxe run's `Settings.json`, in place of `~/.config/DXEngine`'s (through a `HOME` of the run's own; the caches stay the usual ones) |
 | `DXCAP_USERDIR=<dir>` | a dxe run's `--userdir`: its `Settings.json`, log, shots and a class's own config file there ([running it](ENGINE.md#running-it)) |
@@ -113,6 +113,7 @@ the run. *Either*: one engine on each side of a pair.
 | `GlassConsole` | both | a glass mover on `TargetMap`, and what is behind it (`Pick`, `GlassName`, `View`, `Behind`) | `DXGLASS:` | `shots.py` |
 | `FlushConsole` | both | a door on `TargetMap` slid half into the flat wall beside it, its face in the wall's plane (`Pick`, `DoorName`, `View`, `Angle`) | `DXFLUSH:` | `shots.py` |
 | `HeldConsole` | both | what a pawn holds | `DXHELD:` |  |
+| `WallConsole` | both | the player's assault rifle against a wall of `TargetMap` (UNATCO HQ) | `DXWALL:` | `shots.py`, at `DXCAP_WINDOW=1024x768` |
 | `DeathConsole` | both | an NPC's death and its carcass | `DXDEATH:` |  |
 | `AIConsole` | both | every NPC's state, orders, enemy and render time; the camera | `DXAI:`, `DXAISTATE:` |  |
 | `StaticConsole` | both | `TargetMap`'s static actors at 5 s and 15 s | `DXSTATIC:` |  |

@@ -1712,10 +1712,14 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 	viewport->Actor()->Player() = viewport;
 	CallEvent(viewport->Actor(), EventName::Possess);
 
-	// The local player is the authority, simulated on any client, as the
-	// original's SpawnPlayActor for a viewport has it.
+	// The local player is the authority, simulated on any client, its view
+	// showing the actors (the overlays with them) and lit, as the original's
+	// SpawnPlayActor for a viewport has it (Engine.dll 0x10396bd0), a loaded
+	// or travelled player too.
 	pawn->Role() = ROLE_Authority;
 	pawn->RemoteRole() = ROLE_SimulatedProxy;
+	pawn->ShowFlags() = 0x480c;
+	pawn->RendMap() = 5;
 
 	// Transfer travel actors to the new map
 

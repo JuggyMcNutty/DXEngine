@@ -367,8 +367,13 @@ the original's frames: the room seen through 05_NYC_UNATCOMJ12lab's
 `BreakableGlass16` and 03_NYC_Airfield's `BreakableGlass2` within 2%, and
 behind the first an unlit crate within 0.3% and an unlit sprite drawn
 `STY_Normal` within 0.5%, the glass adding 7.8 of 255 over the sprite to the
-original's 8.5. Differs (`VisibleFrame::Draw`, `VisibleMesh`,
-`VisibleBrush`):
+original's 8.5. After the world the depth buffer is cleared and the
+player's overlays drawn
+([the overlays](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#the-overlays)),
+so the first-person weapon meets no depth of the world: an assault rifle
+held flush against a wall of UNATCO HQ draws whole, within 1.3% of the
+original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
+`VisibleMesh`, `VisibleBrush`):
 
 - **Back to front** by the distance of one point of each, where the
   original's lists run in the order its BSP walk met them.

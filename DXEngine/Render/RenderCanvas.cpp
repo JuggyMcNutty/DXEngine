@@ -67,12 +67,22 @@ void RenderSubsystem::PreRender()
 		CallEvent(engine->viewport->Actor(), EventName::PreRender, { ExpressionValue::ObjectValue(engine->canvas) });
 }
 
+// The original's DrawWorld after the world (Render.dll 0x10b1cb90): the
+// depth buffer cleared, then RenderOverlays sent to the player's view
+// target, the player with none, and to nothing in behind view or with the
+// actors hidden (ShowFlags' SHOW_Actors). So the first-person weapon meets
+// no depth of the world: a rifle held against a wall draws whole
+// (dx-reverse-info render-dll.md, the overlays).
 void RenderSubsystem::RenderOverlays()
 {
 	Device->SetSceneNode(&Canvas.Frame);
-	if (engine->viewport->Actor())
+	const int SHOW_Actors = 8;
+	UPlayerPawn* player = engine->viewport->Actor();
+	if (player && !player->bBehindView() && (player->ShowFlags() & SHOW_Actors))
 	{
-		CallEvent(engine->viewport->Actor(), EventName::RenderOverlays, { ExpressionValue::ObjectValue(engine->canvas) });
+		Device->ClearZ();
+		UActor* target = player->ViewTarget() ? player->ViewTarget() : player;
+		CallEvent(target, EventName::RenderOverlays, { ExpressionValue::ObjectValue(engine->canvas) });
 	}
 }
 
