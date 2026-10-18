@@ -90,9 +90,9 @@ The build's own switches:
 | `ZIPDIR_EXECUTABLE` | unset | A host-built `zipdir` to pack `SurrealEngine.pk3` with when cross-compiling. |
 
 - **A port's build** is an initial cache (`cmake -C`), `ports/<id>/engine.cmake` on the port's
-  launcher branch: the desktop's switches
+  launcher branch: the desktop's toolchain and switches
   ([linux-x86_64's](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/ports/linux-x86_64/engine.cmake)),
-  or a cross build's toolchain and switches
+  or a cross build's
   ([trimui-smartpro's](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/ports/trimui-smartpro/engine.cmake)).
   Port Ex Machina's `scripts/engine.sh build <port>` builds with it
   ([a port's files](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#what-a-port-is)).

@@ -251,14 +251,15 @@ timeline (`--timeline=<file>`, `SurrealEngine/Timeline.h`). Each line is
 `<clock> <seconds> <action>`: the clock `start` (from the engine's start) or `game` (seconds of
 the net game); the action `press <key>` or `release <key>` as the key in the window (a mouse
 button pressed where the pointer is, a press of `MouseWheelUp` or `MouseWheelDown` a notch of the
-wheel), `keydown <name>` or `keyup <name>` a key of the keyboard by the window system's name for it
-(SDL's under SDL2, its X11 driver's: `Left Shift`, `Keypad *`, `Menu`), put among the window's own
-events and each key the window gives the game logged (`DXKEY:`), `pointer <x> <y>` the pointer
-moved there in the root window's coordinates, or a console command (`shot`, `exit`, ...). The timeline is `DXCAP_TIMELINE`'s file, or `JoinConsole`'s walk:
-stand 5 s, walk forward 5 s (`W`), stand, shots at the stops, out at 25 s. Each second of the game
-the player's place and every other pawn's are logged (`DXLIVE:`), and each correction the server
-sends the player (`ClientAdjustPosition`), how far it moved it; a run dropped to the menu exits. A
-join downloads what the fork lacks into the game's `Cache`. Which servers are up, and how full:
+wheel), `keydown <name>` or `keyup <name>` a key of the keyboard by the window system's name for
+it (SDL's under SDL2, its X11 driver's: `Left Shift`, `Keypad *`, `Menu`), put among the window's
+own events and each key the window gives the game logged (`DXKEY:`), `pointer <x> <y>` the pointer
+moved there in the root window's coordinates, or a console command (`shot`, `exit`, ...). The
+timeline is `DXCAP_TIMELINE`'s file, or `JoinConsole`'s walk: stand 5 s, walk forward 5 s (`W`),
+stand, shots at the stops, out at 25 s. Each second of the game the player's place and every other
+pawn's are logged (`DXLIVE:`), and each correction the server sends the player
+(`ClientAdjustPosition`), how far it moved it; a run dropped to the menu exits. A join downloads
+what the fork lacks into the game's `Cache`. Which servers are up, and how full:
 `https://master.333networks.com/json/deusex`. Pick an empty server. Most run a mod (MTL, ANNA and
 others) whose player class replaces the stock moves and corrections, its names hidden: for the
 stock game's, serve the original here as for the [net tests](#net-tests)
@@ -397,12 +398,14 @@ cd gamefiles && gdb -batch -ex run -ex bt --args <scratchpad>/dbg/SurrealEngine 
 
 An object freed while something still points at it shows only in an AddressSanitizer build,
 which stops at the first bad access with the stacks of the access, the free and the allocation.
-A harness run takes it through `DXCAP_ENGINE`:
+Its flags go in by the environment, which CMake puts beside the port's toolchain's own (a
+`-DCMAKE_CXX_FLAGS` would drop them, the sysroot's with them). A harness run takes it through
+`DXCAP_ENGINE`:
 
 ```sh
-cmake -S VibeEngine -B <scratchpad>/asan -C deusex-launcher/linux-x86_64/ports/linux-x86_64/engine.cmake \
-    -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer" \
-    -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address
+CXXFLAGS="-fsanitize=address -fno-omit-frame-pointer" LDFLAGS=-fsanitize=address \
+    cmake -S VibeEngine -B <scratchpad>/asan -C deusex-launcher/linux-x86_64/ports/linux-x86_64/engine.cmake \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build <scratchpad>/asan --target SurrealEngine
 ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 DXCAP_ENGINE=<scratchpad>/asan/SurrealEngine \
     vibe/tools/dxcap.sh fork <console> <map>

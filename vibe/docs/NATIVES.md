@@ -607,9 +607,8 @@ and the ones on the walls are not drawn
   `RELAUNCH`, which starts the launcher again with the rest of the line once
   the engine has exited, as the original's starts `DeusEx.exe`
   ([`RELAUNCH`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#relaunch)):
-  the recreated launcher's renderer page or DXLauncher's Graphics screen, or
-  a dedicated server. The fork
-  passes the line to the launcher on its line
+  the recreated launcher's renderer page or DXLauncher's Graphics page, or a
+  dedicated server. The fork passes the line to the launcher on its line
   ([running it](ENGINE.md#running-it)), which starts again once the game has
   ended, where the original's new process starts while the old one is still
   ending. With no launcher on the line -- the Smart Pro's tabbed launcher,
@@ -922,18 +921,19 @@ engine's own objects are not deleted (the log says so).
   a shift, control or alt its name for both sides, then its side's own
   (`LShift`; `UnknownA4` for the left alt), Caps Lock, the punctuation, the
   keypad's operators and Enter, Print Screen (`PrintScrn`), the Windows and
-  menu keys (`Unknown5B` to `Unknown5D`): `vibe/tools/dxcap/timelines/keys.txt`
-  with `DXCAP_BACKEND=SDL2` presses each through the window's own events and
-  logs the names the game gets (the original's input takes no scripted key on
-  this desktop, and its code is read). Differs: a key is named by its place
-  on a US keyboard, where the original's name follows the layout; the
-  keypad's digits are always `NumPad0` to `NumPad9`, where with Num Lock off
-  the original's are the arrows, Home and the rest. The other windows name
-  fewer, and a side's own never: the X11 one, the harness's, has no Alt but
-  the Meta key, no `` ` ``, no keypad Enter, and Print Screen as `Print`; the
-  Wayland one, the engine's own on a Wayland desktop, no `/`, no `[` or `]`
-  but as their shifted braces, no keypad operator but `-` (as `Minus`), no
-  keypad period, Print Screen, Pause, Home, End, Insert, Page Up or Page Down.
+  menu keys (`Unknown5B` to `Unknown5D`):
+  `vibe/tools/dxcap/timelines/keys.txt` with `DXCAP_BACKEND=SDL2` presses
+  each through the window's own events and logs the names the game gets (the
+  original's input takes no scripted key on this desktop, and its code is
+  read). Differs: a key is named by its place on a US keyboard, where the
+  original's name follows the layout; the keypad's digits are always
+  `NumPad0` to `NumPad9`, where with Num Lock off the original's are the
+  arrows, Home and the rest. The other windows name fewer, and a side's own
+  never: the X11 one, the harness's, has no Alt but the Meta key, no
+  `` ` ``, no keypad Enter, and Print Screen as `Print`; the Wayland one,
+  the engine's own on a Wayland desktop, no `/`, no `[` or `]` but as their
+  shifted braces, no keypad operator but `-` (as `Minus`), no keypad period,
+  Print Screen, Pause, Home, End, Insert, Page Up or Page Down.
 - **The field of view** is the original's setting: the player's `DefaultFOV`
   is Deus Ex's own config, 75 (`[Engine.PlayerPawn]` in `User.ini`), the
   angle across a 4:3 view ([the view's width](#the-views-width)). Upstream's
@@ -1041,8 +1041,8 @@ A mod gets the original's loader and natives:
   player's as it spawns one, the client's, the audio and render devices'
   (`IniConsole`). Those read by hand, though, take an empty value for none:
   a float or a string keeps the fork's default where the original's is 0 or
-  empty. An ini written back, at a clean exit, has a changed value changed in
-  its own line and the rest of the file as it was, a CR LF file's line
+  empty. An ini written back, at a clean exit, has a changed value changed
+  in its own line and the rest of the file as it was, a CR LF file's line
   endings with it; a key new to the file has the whole file rewritten, LF,
   its comments gone, and a file not there yet is written whole. The
   original rewrites each file whole, CR LF, comments gone (`ConfigConsole`:

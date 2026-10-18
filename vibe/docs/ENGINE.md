@@ -85,8 +85,9 @@ says how to read more; `vibe/tools/natives_audit.py` lists the stubs.
 
 ## Running it
 
-Each port's launcher starts it for every real launch: DXLauncher, linux-x86_64's, by its words,
-`main`'s and the Smart Pro's through their `run-game.sh`. By hand, from the game's directory:
+Each launcher starts it for every real launch: DXLauncher, linux-x86_64's and linux-aarch64's,
+by its words, `main`'s and the Smart Pro's through their `run-game.sh`. By hand, from the game's
+directory:
 
 ```sh
 SurrealEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
@@ -267,10 +268,10 @@ By area, as the code stands. Each device's numbers are its port's, such as
 ### Settings the launcher exposes
 
 `LauncherSettings` reads the `Gamepad` and `Performance` blocks the Smart Pro's launcher and
-DXLauncher write ([the keys](#settings-and-environment)). Render scale is `RenderDevice::GetRenderScale`: a
-device whose `SupportsRenderScale()` says so (Vulkan, GL) makes its scene buffers at
-`GetRenderWidth()` by `GetRenderHeight()` and scales them to the window as it presents; the
-viewport, the canvas and the UI see the render size.
+DXLauncher write ([the keys](#settings-and-environment)). Render scale is
+`RenderDevice::GetRenderScale`: a device whose `SupportsRenderScale()` says so (Vulkan, GL)
+makes its scene buffers at `GetRenderWidth()` by `GetRenderHeight()` and scales them to the
+window as it presents; the viewport, the canvas and the UI see the render size.
 
 ### Rendering
 
