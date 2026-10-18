@@ -268,6 +268,36 @@ Matches the original
 ([a pawn's attachments](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-pawns-attachments));
 `HeldConsole`.
 
+### Viewport windows
+
+Matches the original
+([a viewport window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#a-viewport-window)):
+a new window is enabled, at a field of view of 90, with a player's view
+rotation and both eye heights used, and looks from the player's eyes; each
+setter takes the original's defaults and clears what the original's
+clears. The frame is drawn from the origin actor, up its `EyeHeight`, or
+from the window's own place, at the window's field of view, with the player
+in behind view for it, so the player and what it owns are drawn as in third
+person, and the origin actor hidden unless `bShowActor`. So a security
+computer's feed shows the player in the camera's view, its arrow keys pan
+the camera by `fov / 90` of a step and its plus and minus keys zoom, and
+the spy drone's window and the targeting augmentation's zoom, at its top
+level aimed at the target's eyes, are drawn (`CameraConsole`: every value
+it logs the original's; the feed within 0.5% of the original's frame, the
+zoom and the drone's window within 1% of `D3DDrv`'s). Differs, none of it
+reached by the game:
+
+- no `CalcView` event is sent, and an origin or watch actor gone leaves the
+  view where the window's fields put it, not at its last place and turn;
+- a window turned off draws nothing, where the original tiles its default
+  texture; `SetRotation` keeps the watch actor, and `SetDefaultTexture`
+  takes no defaults;
+- `bShowWeapons` draws no overlays; `SetViewportActor` adds no network view
+  (`AdditionalViews`);
+- the frame takes the window's whole rectangle, not its clip rectangle, and
+  a window wider than 4:3 sees more at the sides
+  ([the view's width](#the-views-width)).
+
 ### Mesh detail
 
 Matches the original's vertex budget and its morph

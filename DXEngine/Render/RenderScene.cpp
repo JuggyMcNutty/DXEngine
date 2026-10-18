@@ -240,6 +240,16 @@ void RenderSubsystem::DrawCoronasDX(VisibleFrame* frame)
 	}
 }
 
+// The original's XViewportWindow::Draw (Extension.dll 0x1004a770): the view
+// from the origin actor -- up its EyeHeight for a pawn with bUseEyeHeight,
+// a player's ViewRotation with bUseViewRotation -- or from the window's
+// location; moved by relLocation along the view; turned to the watch actor
+// (up its EyeHeight for a pawn with bWatchEyeHeight), then by relRotation.
+// Drawn as the player's own view but from there: for the draw the player is
+// in behind view (so it and what it owns show as in third person) unless
+// bShowWeapons is on the player's own view, its field of view is the
+// window's, and the origin actor is hidden unless bShowActor; all put back
+// after (dx-reverse-info extension-dll.md, a viewport window).
 void RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 {
 	if (!engine->Level)
@@ -252,43 +262,58 @@ void RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 	if (viewport->bClearZ())
 		Device->ClearZ();
 
-	bool originActorWasHidden = false;
+	UActor* originActor = viewport->originActor();
 	vec3 location;
 	Rotator rotation(0,0,0);
-	if (UActor* originActor = viewport->originActor())
+	if (originActor)
 	{
-		originActorWasHidden = originActor->bHidden();
-		originActor->bHidden() = true;
-		location = originActor->Location() + viewport->relLocation();
-		if (viewport->bUseEyeHeight())
-		{
-			if (auto pawn = UObject::TryCast<UPawn>(originActor))
-				location.z += pawn->BaseEyeHeight();
-		}
-		rotation = originActor->Rotation();
+		location = originActor->Location();
+		UPawn* pawn = UObject::TryCast<UPawn>(originActor);
+		if (pawn && viewport->bUseEyeHeight())
+			location.z += pawn->EyeHeight();
+		UPlayerPawn* originPlayer = UObject::TryCast<UPlayerPawn>(originActor);
+		rotation = (originPlayer && viewport->bUseViewRotation()) ? originPlayer->ViewRotation() : originActor->Rotation();
 	}
 	else
 	{
-		location = viewport->Location() + viewport->relLocation();
+		location = viewport->Location();
 		rotation = viewport->Rotation();
 	}
 
-	if (viewport->bUseViewRotation())
-	{
-		rotation = engine->CameraRotation;
-	}
-	else if (UActor* watchActor = viewport->watchActor())
+	// relLocation's length along the view, turned by its own direction
+	vec3 rel = viewport->relLocation();
+	float relLength = length(rel);
+	if (relLength > 0.0f)
+		location += Coords::Rotation(rotation + Rotator::FromVector(rel)).XAxis * relLength;
+
+	if (UActor* watchActor = viewport->watchActor())
 	{
 		vec3 lookAt = watchActor->Location();
 		if (viewport->bWatchEyeHeight())
 		{
 			if (auto pawn = UObject::TryCast<UPawn>(watchActor))
-				lookAt.z += pawn->BaseEyeHeight();
+				lookAt.z += pawn->EyeHeight();
 		}
 		rotation = Rotator::FromVector(lookAt - location);
 	}
 
 	rotation += viewport->relRotation();
+
+	UPlayerPawn* player = engine->viewport->Actor();
+	bool playerWasBehind = false;
+	float playerFov = 0.0f;
+	if (player)
+	{
+		playerWasBehind = player->bBehindView();
+		playerFov = player->FovAngle();
+		player->bBehindView() = !(viewport->bShowWeapons() && originActor == player);
+		player->FovAngle() = viewport->FOV();
+	}
+	bool originWasHidden = originActor && originActor->bHidden();
+	if (originActor)
+		originActor->bHidden() = !viewport->bShowActor();
+	float cameraFov = engine->CameraFovAngle;
+	engine->CameraFovAngle = viewport->FOV();
 
 	mat4 worldToView = Coords::ViewToRenderDev().ToMatrix() * Coords::Rotation(rotation).Inverse().ToMatrix() * Coords::Location(location).ToMatrix();
 	MainFrame.Process(location, worldToView, Coords::Rotation(rotation));
@@ -299,6 +324,12 @@ void RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 
 	engine->dxRootWindow->ResetRenderViewport();
 
-	if (UActor* originActor = viewport->originActor())
-		originActor->bHidden() = originActorWasHidden;
+	engine->CameraFovAngle = cameraFov;
+	if (originActor)
+		originActor->bHidden() = originWasHidden;
+	if (player)
+	{
+		player->bBehindView() = playerWasBehind;
+		player->FovAngle() = playerFov;
+	}
 }

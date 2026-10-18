@@ -146,6 +146,7 @@ the run. *Either*: one engine on each side of a pair.
 | `SettingsConsole` | both | every menu setting stepped, saved and read back | `DXSET:` |  |
 | `DecalConsole` | both | the Display menu's Decals | `DXDECAL:` |  |
 | `ScreenConsole` | both | the game's screens on `TargetMap`, each window tree | `DXSCREEN:` |  |
+| `CameraConsole` | both | the viewport windows: a security computer's feed with the player in the camera's view, its pan and zoom; the targeting augmentation's zoom on Paul Denton; the spy drone's window; four marked shots | `DXCAM:` | the two logs' lines; `shots.py --region`, at `DXCAP_WINDOW=1024x768`, the zoom and the drone's window against `DXCAP_RENDERER=D3D`'s ([shots](#shots)) |
 | `ScrollConsole` | both | a scroll area and a slider under the mouse | `DXSCROLL:` | with `tools/dxcap/timelines/scroll.txt` on DXEngine |
 | `ClickConsole` | both | a button, a choice and a checkbox clicked; a menu dragged; Alt accelerators | `DXCLICK:` | with `tools/dxcap/timelines/clicks.txt` on DXEngine |
 | `PadConsole` | dxe | the player's place, speed, facing and physics every half second, as a pad moves it | `DXPAD:` | with `tools/dxcap/timelines/pad.txt` |
@@ -288,6 +289,10 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
 - **Through `D3DDrv`** the window's contents reach the grabber only every 0.2 to 1.4 s, though
   the game draws some 63 frames a second: a console's mark, up for 0.6 s, can pass ungrabbed,
   and a run keeps 0 to 2 of `MeshConsole`'s 2 shots. `OpenGLDrv`'s window keeps them all.
+- **After a viewport window**, through `OpenGLDrv`, the original's frame shows none of what its
+  parent draws over it in `PostDrawWindow` (the targeting zoom's box and the target's text, the
+  drone window's label); through `D3DDrv` it shows all of it, as DXEngine's does
+  (`CameraConsole`).
 - **The desktop awake.** With the monitors blanked (Plasma's energy saving: their DPMS off) no
   window is viewable and every grab fails, a run keeping no shot.
   `distrobox-host-exec kscreen-doctor --dpms on` wakes them, and
