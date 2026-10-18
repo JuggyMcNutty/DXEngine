@@ -23,7 +23,7 @@ static float square(float x) { return x * x; }
 // games.
 static const char* ChannelsKey() { return "EffectsChannels"; }
 
-std::string USurrealAudioDevice::GetPropertyAsString(const NameString& propertyName) const
+std::string UDXEngineAudioDevice::GetPropertyAsString(const NameString& propertyName) const
 {
 	if (propertyName == "Class")
 		return "class'" + Class + "'";
@@ -64,11 +64,11 @@ std::string USurrealAudioDevice::GetPropertyAsString(const NameString& propertyN
 	else if (propertyName == "DopplerSpeed")
 		return IniPropertyConverter<float>::ToString(DopplerSpeed);
 
-	LogMessage("Queried unknown property for SurrealAudioDevice: " + propertyName.ToString());
+	LogMessage("Queried unknown property for DXEngineAudioDevice: " + propertyName.ToString());
 	return {};
 }
 
-void USurrealAudioDevice::SetPropertyFromString(const NameString& propertyName, const std::string& value)
+void UDXEngineAudioDevice::SetPropertyFromString(const NameString& propertyName, const std::string& value)
 {
 	if (propertyName == "UseFilter")
 		UseFilter = IniPropertyConverter<bool>::FromString(value);
@@ -113,12 +113,12 @@ void USurrealAudioDevice::SetPropertyFromString(const NameString& propertyName, 
 	else if (propertyName == "DopplerSpeed")
 		DopplerSpeed = IniPropertyConverter<float>::FromString(value);
 	else
-		LogMessage("Setting unknown property for SurrealAudioDevice: " + propertyName.ToString());
+		LogMessage("Setting unknown property for DXEngineAudioDevice: " + propertyName.ToString());
 
 	engine->packages->SetIniValue("System", Class, propertyName, value);
 }
 
-void USurrealAudioDevice::LoadProperties(const NameString& from)
+void UDXEngineAudioDevice::LoadProperties(const NameString& from)
 {
 	NameString name_from = from;
 
@@ -148,7 +148,7 @@ void USurrealAudioDevice::LoadProperties(const NameString& from)
 	DopplerSpeed = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "DopplerSpeed", DopplerSpeed);
 }
 
-void USurrealAudioDevice::SaveConfig()
+void UDXEngineAudioDevice::SaveConfig()
 {
 	engine->packages->SetIniValue("System", Class, "UseFilter", IniPropertyConverter<bool>::ToString(UseFilter));
 	engine->packages->SetIniValue("System", Class, "UseSurround", IniPropertyConverter<bool>::ToString(UseSurround));
@@ -170,7 +170,7 @@ void USurrealAudioDevice::SaveConfig()
 	engine->packages->SetIniValue("System", Class, "DopplerSpeed", IniPropertyConverter<float>::ToString(DopplerSpeed));
 }
 
-void USurrealAudioDevice::InitDevice()
+void UDXEngineAudioDevice::InitDevice()
 {
 	// TODO: Add configurable option for audio device
 	// TODO: Add configurable option for audio output frequency
@@ -182,13 +182,13 @@ void USurrealAudioDevice::InitDevice()
 	LogMessage("Audio device initialized");
 }
 
-void USurrealAudioDevice::ShutdownDevice()
+void UDXEngineAudioDevice::ShutdownDevice()
 {
 	m_Device.reset();
 	LogMessage("Audio device has been shut down");
 }
 
-void USurrealAudioDevice::SetViewport(UViewport* InViewport)
+void UDXEngineAudioDevice::SetViewport(UViewport* InViewport)
 {
 	// A joining client's viewport has no player until the server's arrives;
 	// it is taken then, its music with it.
@@ -215,7 +215,7 @@ void USurrealAudioDevice::SetViewport(UViewport* InViewport)
 // PostEditChange holds EffectsChannels to its 32 channel records; the setting
 // itself stays as set, as GET and the ini give it (galaxy-dll.md, Settings).
 // The sounds on channels past the count stop.
-void USurrealAudioDevice::SetChannelCount()
+void UDXEngineAudioDevice::SetChannelCount()
 {
 	size_t count = (size_t)std::clamp(Channels, 0, m_Device->GetTotalChannels());
 	for (size_t i = count; i < PlayingSounds.size(); i++)
@@ -223,7 +223,7 @@ void USurrealAudioDevice::SetChannelCount()
 	PlayingSounds.resize(count);
 }
 
-void USurrealAudioDevice::Update()
+void UDXEngineAudioDevice::Update()
 {
 	// The update's own time step, 0 to 1 s, as Galaxy's (galaxy-dll.md, Each
 	// frame); the obstruction fade runs on it.
@@ -249,7 +249,7 @@ void USurrealAudioDevice::Update()
 	m_Device->Update();
 }
 
-void USurrealAudioDevice::StartAmbience()
+void UDXEngineAudioDevice::StartAmbience()
 {
 	if (!m_Viewport || !m_Viewport->Actor())
 		return;
@@ -279,7 +279,7 @@ void USurrealAudioDevice::StartAmbience()
 	}
 }
 
-void USurrealAudioDevice::UpdateAmbience()
+void UDXEngineAudioDevice::UpdateAmbience()
 {
 	if (!m_Viewport || !m_Viewport->Actor())
 		return;
@@ -341,7 +341,7 @@ static bool HasLipSync()
 	return PropOffsets_Pawn.nextPhoneme.DataOffset != ~(size_t)0;
 }
 
-void USurrealAudioDevice::UpdateLipSync(PlayingSound& Playing)
+void UDXEngineAudioDevice::UpdateLipSync(PlayingSound& Playing)
 {
 	if (!HasLipSync() || !Playing.Actor || !engine->LevelInfo)
 		return;
@@ -368,7 +368,7 @@ void USurrealAudioDevice::UpdateLipSync(PlayingSound& Playing)
 	pawn->nextPhoneme() = std::string(1, letter);
 }
 
-void USurrealAudioDevice::UpdateSounds(float timeStep)
+void UDXEngineAudioDevice::UpdateSounds(float timeStep)
 {
 	if (!m_Viewport || !m_Viewport->Actor())
 		return;
@@ -422,7 +422,7 @@ void USurrealAudioDevice::UpdateSounds(float timeStep)
 // sounds the other way round --, full at 32767. Galaxy's equal-sliders quirk
 // (each sound scaled by the slider once more) and its floor of 128 are not
 // carried.
-void USurrealAudioDevice::GalaxyVoice(const PlayingSound& Playing, int& volume, int& panning)
+void UDXEngineAudioDevice::GalaxyVoice(const PlayingSound& Playing, int& volume, int& panning)
 {
 	vec3 forward, right, up;
 	Coords::Rotation(engine->CameraRotation).GetAxes(forward, right, up);
@@ -452,7 +452,7 @@ void USurrealAudioDevice::GalaxyVoice(const PlayingSound& Playing, int& volume, 
 	volume = (int)std::clamp((int64_t)(obstruction * falloff * share * Playing.Volume * 32767.0), (int64_t)0, (int64_t)0x7fff);
 }
 
-void USurrealAudioDevice::UpdateObstruction(PlayingSound& Playing, float timeStep)
+void UDXEngineAudioDevice::UpdateObstruction(PlayingSound& Playing, float timeStep)
 {
 	// Speech is never muffled, nor a sound whose actor has gone.
 	if (!Playing.Actor || (Playing.Id & 14) == SLOT_Talk * 2)
@@ -508,7 +508,7 @@ static std::unique_ptr<AudioSource> CreateMusicSource(UMusic* song, int order)
 	return source;
 }
 
-void USurrealAudioDevice::UpdateMusic(float timeStep)
+void UDXEngineAudioDevice::UpdateMusic(float timeStep)
 {
 	if (!m_Viewport || !m_Viewport->Actor())
 		return;
@@ -584,7 +584,7 @@ void USurrealAudioDevice::UpdateMusic(float timeStep)
 	}
 }
 
-void USurrealAudioDevice::UpdateReverb()
+void UDXEngineAudioDevice::UpdateReverb()
 {
 	if (!m_Viewport || !m_Viewport->Actor())
 		return;
@@ -620,7 +620,7 @@ void USurrealAudioDevice::UpdateReverb()
 	m_Device->SetReverb(&settings);
 }
 
-bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk)
+bool UDXEngineAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk)
 {
 	// A radius of 0 or less is 800 in Deus Ex's Actor.PlaySound (Engine.dll
 	// 0x103e1f60, engine-dll.md#sounds): a script that plays a sound with no
@@ -679,7 +679,7 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
 	return true;
 }
 
-void USurrealAudioDevice::ActorDestroyed(UActor* Actor)
+void UDXEngineAudioDevice::ActorDestroyed(UActor* Actor)
 {
 	SoundSerials.erase(Actor);
 	for (size_t i = 0; i < PlayingSounds.size(); i++)
@@ -710,7 +710,7 @@ void USurrealAudioDevice::ActorDestroyed(UActor* Actor)
 // twice. The low 24 bits of the object's address stood in for it before, and
 // two objects 16 MB apart shared them: one's sound could replace or stop the
 // other's.
-int USurrealAudioDevice::SoundId(UObject* Object, int Slot)
+int UDXEngineAudioDevice::SoundId(UObject* Object, int Slot)
 {
 	auto it = SoundSerials.find(Object);
 	if (it == SoundSerials.end())
@@ -718,7 +718,7 @@ int USurrealAudioDevice::SoundId(UObject* Object, int Slot)
 	return it->second * 16 + Slot * 2;
 }
 
-void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
+void UDXEngineAudioDevice::StopSound(UActor* Actor, int Id)
 {
 	// The original stops by ID alone: Actor.StopSound hands the ID to the
 	// audio subsystem, which stops the channel with that ID (Galaxy's
@@ -737,7 +737,7 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
 	}
 }
 
-void USurrealAudioDevice::StopSound(size_t index)
+void UDXEngineAudioDevice::StopSound(size_t index)
 {
 	PlayingSound& Playing = PlayingSounds[index];
 
@@ -752,7 +752,7 @@ void USurrealAudioDevice::StopSound(size_t index)
 	PlayingSounds[index] = {};
 }
 
-void USurrealAudioDevice::StopEffects()
+void UDXEngineAudioDevice::StopEffects()
 {
 	for (size_t i = 0; i < PlayingSounds.size(); i++)
 		StopSound(i);
@@ -761,7 +761,7 @@ void USurrealAudioDevice::StopEffects()
 	m_ReverbZone = nullptr;
 }
 
-void USurrealAudioDevice::StopSounds()
+void UDXEngineAudioDevice::StopSounds()
 {
 	StopEffects();
 
@@ -772,7 +772,7 @@ void USurrealAudioDevice::StopSounds()
 	m_Viewport = nullptr;
 }
 
-void USurrealAudioDevice::AddStats(Array<std::string>& lines)
+void UDXEngineAudioDevice::AddStats(Array<std::string>& lines)
 {
 	const int bufsize = 1024;
 	char buffer[bufsize];
@@ -796,7 +796,7 @@ void USurrealAudioDevice::AddStats(Array<std::string>& lines)
 	}
 }
 
-float USurrealAudioDevice::SoundPriority(UViewport* Viewport, vec3 Location, float Volume, float Radius)
+float UDXEngineAudioDevice::SoundPriority(UViewport* Viewport, vec3 Location, float Volume, float Radius)
 {
 	UActor* target = Viewport->Actor();
 	if (target && Viewport->Actor()->ViewTarget())
@@ -810,7 +810,7 @@ float USurrealAudioDevice::SoundPriority(UViewport* Viewport, vec3 Location, flo
 	return priority;
 }
 
-void USurrealAudioDevice::Mark(GCMarker& marker)
+void UDXEngineAudioDevice::Mark(GCMarker& marker)
 {
 	UAudioSubsystem::Mark(marker);
 	marker.SetField("PlayingSounds");
@@ -829,7 +829,7 @@ void USurrealAudioDevice::Mark(GCMarker& marker)
 	marker.MarkConst(m_Viewport);
 }
 
-void USurrealAudioDevice::PurgeDying()
+void UDXEngineAudioDevice::PurgeDying()
 {
 	for (auto it = SoundSerials.begin(); it != SoundSerials.end();)
 	{

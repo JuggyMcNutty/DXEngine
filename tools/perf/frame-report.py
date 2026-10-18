@@ -56,7 +56,7 @@ ORIGINAL_AREAS = [
 # The fork's areas, by a name anywhere in the symbol (a template's arguments
 # included); the first that matches wins.
 FORK_AREAS = [
-    ('render device', r'^(GL|OpenGL|Vulkan|SurrealGPU|VkTexture|CommandBuffer|TextureManager|UploadManager|'
+    ('render device', r'^(GL|OpenGL|Vulkan|DXGPU|VkTexture|CommandBuffer|TextureManager|UploadManager|'
                       r'BufferManager|DescriptorSetManager|RenderPassManager|SamplerManager|ShaderManager|'
                       r'FramebufferManager)'),
     ('scene render', r'(VisibleFrame|VisibleMesh|VisibleNode|BspClipper|PortalSpan|DrawPortal|LightSystem|'
@@ -82,7 +82,7 @@ FORK_AREAS = [
                                          r'DeusExProjectile)::|Engine::(Tick|CallEvent|LoadMap)|Timeline)'),
     ('UI windows', r'^(U\w*Window|N\w*Window|NGC|UGC|UDeusExRootWindow|URootWindow|UFlagBase|NFlagBase|'
                    r'UConEvent|UConversation|UConPlay|NConPlay|NConversation)'),
-    ('audio', r'^(Audio|Galaxy|USurrealAudioDevice|USound|UMusic|OpenAL|alc|al[A-Z])'),
+    ('audio', r'^(Audio|Galaxy|UDXEngineAudioDevice|USound|UMusic|OpenAL|alc|al[A-Z])'),
     ('maths, callers vary', r'^(mat[234]|vec[234]|Coords|Rotator|quaternion|BBox|dvec)'),
     ('containers and names, callers vary', r'(^std::|^void std::|^Array<|^NameString|^__gnu|_Hashtable|_Map_base)'),
 ]
@@ -236,7 +236,7 @@ def samples(run):
 
 
 def fork_area(sym, dso):
-    if '/SurrealEngine' in dso or dso.endswith('SurrealEngine'):
+    if '/DXEngine' in dso or dso.endswith('DXEngine'):
         for name, rx in FORK_AREA_RES:
             if rx.search(sym):
                 return name
@@ -288,7 +288,7 @@ def measure(run):
             func = '%s!%s' % (os.path.basename(dso), sym)
         else:
             area = fork_area(sym, dso)
-            func = sym if '/SurrealEngine' in dso else '%s!%s' % (os.path.basename(dso), sym)
+            func = sym if '/DXEngine' in dso else '%s!%s' % (os.path.basename(dso), sym)
         areas[area] += 1
         funcs[func] += 1
 

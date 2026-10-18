@@ -177,8 +177,8 @@ void Engine::CollectGarbage()
 	bool mapChange = GarbageMapChange;
 	GarbageMapChange = false;
 
-	bool dryRun = EnvSet("SURREAL_GC_DRYRUN");
-	bool verify = EnvSet("SURREAL_GC_VERIFY");
+	bool dryRun = EnvSet("DXE_GC_DRYRUN");
+	bool verify = EnvSet("DXE_GC_VERIFY");
 
 	// Only between frames: no script frame, no object half loaded. A map
 	// change's collection put off keeps its map change for the next.

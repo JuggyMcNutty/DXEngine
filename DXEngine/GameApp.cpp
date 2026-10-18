@@ -11,7 +11,7 @@
 #include "UI/WidgetResourceData.h"
 #include "UI/ErrorWindow/ErrorWindow.h"
 #include "Utils/File.h"
-#include "vibe_version.h"
+#include "dxe_version.h"
 #include <stdexcept>
 #include <iostream>
 #include <cstring>
@@ -35,7 +35,7 @@ int GameApp::main(Array<std::string> args)
 	{
 		if (arg == "--version")
 		{
-			std::cout << "VibeEngine " << VIBE_VERSION << "\nfeatures: " << Features << std::endl;
+			std::cout << "DXEngine " << DXE_VERSION << "\nfeatures: " << Features << std::endl;
 			return 0;
 		}
 	}
@@ -50,7 +50,7 @@ int GameApp::main(Array<std::string> args)
 		commandline = &cmd;
 
 		// --userdir: the engine's own folder, in place of
-		// ~/.config/SurrealEngine (Directory::engineUserDir).
+		// ~/.config/DXEngine (Directory::engineUserDir).
 		if (commandline->HasArg("", "--userdir"))
 		{
 			std::string userDir = commandline->GetArg("", "--userdir");
@@ -83,7 +83,7 @@ int GameApp::main(Array<std::string> args)
 
 		if (commandline->HasArg("-h", "--help"))
 		{
-			std::cout << "SurrealEngine [--url=<mapname>] [--server [--lanplay]] [--cmdline=<the original's>] [--userdir=<dir>] [--version] [Path to game folder]\n";
+			std::cout << "DXEngine [--url=<mapname>] [--server [--lanplay]] [--cmdline=<the original's>] [--userdir=<dir>] [--version] [Path to game folder]\n";
 			return 0;
 		}
 
@@ -109,7 +109,7 @@ int GameApp::main(Array<std::string> args)
 		// an embedded target there may be no window to read the message in, and
 		// a modal error window with nobody to close it just spins.
 		exitcode = 1;
-		std::cerr << "SurrealEngine error: " << e.what() << std::endl;
+		std::cerr << "DXEngine error: " << e.what() << std::endl;
 		for (const LogMessageLine& line : Logger::Get()->GetLog())
 			std::cerr << "  log: " << line.Text << std::endl;
 		if (!commandline || !commandline->HasArg("-n", "--no-launcher"))

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Report on the engine's own CPU samples (SURREAL_PERF_SAMPLE, a hook in
+"""Report on the engine's own CPU samples (DXE_PERF_SAMPLE, a hook in
 tools/perf/perf-instrumentation.patch), for devices without perf.
 
   tools/perf/sample-report.py <samples> <engine binary> [--root NAME] [--callers NAME]

@@ -5,7 +5,7 @@
 #include "Package/PackageManager.h"
 #include "Package/IniProperty.h"
 
-void USurrealClient::LoadProperties(const NameString& from)
+void UDXEngineClient::LoadProperties(const NameString& from)
 {
 	NameString name_from = from;
 
@@ -30,7 +30,7 @@ void USurrealClient::LoadProperties(const NameString& from)
 	SkinDetail = IniPropertyConverter<std::string>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "SkinDetail", SkinDetail);
 }
 
-void USurrealClient::SaveConfig()
+void UDXEngineClient::SaveConfig()
 {
 	engine->packages->SetIniValue("System", Class, "StartupFullscreen", IniPropertyConverter<bool>::ToString(StartupFullscreen));
 	engine->packages->SetIniValue("System", Class, "WindowedViewportX", IniPropertyConverter<int>::ToString(WindowedViewportX));
@@ -50,7 +50,7 @@ void USurrealClient::SaveConfig()
 	engine->packages->SetIniValue("System", Class, "SkinDetail", SkinDetail);
 }
 
-std::string USurrealClient::GetPropertyAsString(const NameString& propertyName) const
+std::string UDXEngineClient::GetPropertyAsString(const NameString& propertyName) const
 {
 	if (propertyName == "Class")
 		return "class'" + Class + "'";
@@ -87,11 +87,11 @@ std::string USurrealClient::GetPropertyAsString(const NameString& propertyName) 
 	else if (propertyName == "SkinDetail")
 		return SkinDetail;
 
-	LogMessage("Queried unknown property for Surreal.ViewportManager: " + propertyName.ToString());
+	LogMessage("Queried unknown property for DXEngine.ViewportManager: " + propertyName.ToString());
 	return {};
 }
 
-void USurrealClient::SetPropertyFromString(const NameString& propertyName, const std::string& value)
+void UDXEngineClient::SetPropertyFromString(const NameString& propertyName, const std::string& value)
 {
 	if (propertyName == "WindowedViewportX")
 		WindowedViewportX = IniPropertyConverter<int>::FromString(value);
@@ -124,7 +124,7 @@ void USurrealClient::SetPropertyFromString(const NameString& propertyName, const
 	else if (propertyName == "SkinDetail")
 		SkinDetail = value;
 	else
-		LogMessage("Setting unknown property for Surreal.ViewportManager: " + propertyName.ToString());
+		LogMessage("Setting unknown property for DXEngine.ViewportManager: " + propertyName.ToString());
 
 	engine->packages->SetIniValue("System", Class, propertyName, value);
 }

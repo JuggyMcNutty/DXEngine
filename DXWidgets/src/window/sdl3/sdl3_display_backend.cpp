@@ -112,7 +112,7 @@ SDL_Joystick* SDL3DisplayBackend::VirtualPad()
 	desc.nbuttons = (Uint16)GamepadButton::Count;
 	desc.axis_mask = (1u << (int)GamepadAxis::Count) - 1;
 	desc.button_mask = (1u << (int)GamepadButton::Count) - 1;
-	desc.name = "VibeEngine's timeline pad";
+	desc.name = "DXEngine's timeline pad";
 	SDL_JoystickID id = SDL_AttachVirtualJoystick(&desc);
 	if (id)
 		Virtual = SDL_OpenJoystick(id);

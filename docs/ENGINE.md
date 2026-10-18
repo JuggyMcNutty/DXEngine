@@ -63,7 +63,7 @@ profile and never committed: `tools/perf/perf.sh on`, and `off` afterwards.
   and `off` apply cleanly.
 
 With the hooks on, the engine builds with frame pointers (a little slower on the Smart Pro) and
-reads [the hooks' variables](#settings-and-environment). `SURREAL_PERF_SAMPLE=<file>` is a
+reads [the hooks' variables](#settings-and-environment). `DXE_PERF_SAMPLE=<file>` is a
 sampling profiler for devices without `perf`: it samples the main thread's CPU time, recording
 each sample's program counter and the return addresses a frame-pointer walk finds, one block per
 60-frame report, with `/proc/self/maps` beside it.
@@ -90,7 +90,7 @@ by its words, `main`'s and the Smart Pro's through their `run-game.sh`. By hand,
 directory:
 
 ```sh
-SurrealEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
+DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
 ```
 
 - `--no-launcher` (`-n`) puts the log on stderr, as `--verbose` (`-v`) does, and opens no error
@@ -114,12 +114,12 @@ SurrealEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   game's System folder (with `--userdir`, its `Screenshots` folder); `--timeline=<file>` gives
   keys, a virtual pad, the pointer and console commands at set times.
   [Scripted runs](DEVELOPMENT.md#scripted-runs-of-both-engines) use all three.
-- **`--userdir=<dir>`** is the engine's own folder in place of `~/.config/SurrealEngine`:
-  `Settings.json`, the last run's log (`SE-Log-LastRun.txt`), the crash reports, the shots (its
+- **`--userdir=<dir>`** is the engine's own folder in place of `~/.config/DXEngine`:
+  `Settings.json`, the last run's log (`DXE-Log-LastRun.txt`), the crash reports, the shots (its
   `Screenshots` folder) and a class's own config file (a mod's, as `DXMTL.ini`), read from
   `<dir>` first, else from the game's System folder, and written to `<dir>`. The engine makes
   the folder; without the option nothing changes.
-- **`--version`** prints `VibeEngine <commit> (<date>)` and a `features:` line, the words for
+- **`--version`** prints `DXEngine <commit> (<date>)` and a `features:` line, the words for
   what a launcher can rely on (`userdir`; `loadgame-url`, a start URL of `?loadgame=N`:
   [the command line](NATIVES.md#the-command-line); `int-paths`, a mod's `.int` files read from
   its own folders: [mods](NATIVES.md#mods)), and exits before anything is loaded.
@@ -155,12 +155,12 @@ DXEngine/tools/host-tools.sh
 cd gamefiles    # the engine is started from the game's directory
 # CPU profile of Liberty Island, recording from 25 s in (after the load):
 LD_LIBRARY_PATH=../deps/perf/usr/lib ../deps/perf/usr/bin/perf record -F 2000 --delay=25000 -o /tmp/se.data -- \
-    timeout -s KILL 55 ../build/linux-x86_64/engine/SurrealEngine --no-launcher "$PWD" --url=01_NYC_UNATCOIsland.dx
+    timeout -s KILL 55 ../build/linux-x86_64/engine/DXEngine --no-launcher "$PWD" --url=01_NYC_UNATCOIsland.dx
 LD_LIBRARY_PATH=../deps/perf/usr/lib ../deps/perf/usr/bin/perf report -i /tmp/se.data --no-children --sort symbol
-# Synchronization validation (add SURREAL_VK_NO_BINDLESS=1 for the per-batch descriptor path):
+# Synchronization validation (add DXE_VK_NO_BINDLESS=1 for the per-batch descriptor path):
 VK_LAYER_PATH=$PWD/../deps/vulkan-layers/layers VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation \
 VK_KHRONOS_VALIDATION_VALIDATE_SYNC=true \
-    timeout -s KILL 60 ../build/linux-x86_64/engine/SurrealEngine --no-launcher "$PWD" --url=01_NYC_UNATCOIsland.dx
+    timeout -s KILL 60 ../build/linux-x86_64/engine/DXEngine --no-launcher "$PWD" --url=01_NYC_UNATCOIsland.dx
 ```
 
 `--call-graph dwarf` on `perf record` gives callers (the desktop build has no frame pointers
@@ -206,7 +206,7 @@ than the transforms they save.
 ## Settings and environment
 
 The engine reads `Settings.json` from its own folder, `--userdir`'s
-([running it](#running-it)) or `$HOME/.config/SurrealEngine`, and never writes it: the Smart
+([running it](#running-it)) or `$HOME/.config/DXEngine`, and never writes it: the Smart
 Pro's tabbed launcher does, and its `run-game.sh` pins `HOME` to the app's `home/`
 ([where the settings live](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/docs/LAUNCHER.md#where-the-settings-actually-live)).
 DXLauncher, linux-x86_64's and linux-aarch64's, writes one in each profile's folder of its own
@@ -223,13 +223,14 @@ The environment:
 
 | Variable | What it does |
 |---|---|
-| `SURREAL_VK_NO_BINDLESS=1` | Forces the Vulkan device's per-batch descriptor-set path, the one a GPU without descriptor indexing (the Smart Pro's, for one) takes. |
-| `SURREALWIDGETS_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3` or `X11`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2. The launchers set it to the SDL backend their port's engine is built with, the one with the pad: `SDL3` for linux-x86_64's (DXLauncher's runs and the recreation's), `SDL2` for linux-aarch64's and the Smart Pro's. |
+| `DXE_VK_NO_BINDLESS=1` | Forces the Vulkan device's per-batch descriptor-set path, the one a GPU without descriptor indexing (the Smart Pro's, for one) takes. |
+| `DXE_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3` or `X11`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2. The launchers set it to the SDL backend their port's engine is built with, the one with the pad: `SDL3` for linux-x86_64's (DXLauncher's runs and the recreation's), `SDL2` for linux-aarch64's and the Smart Pro's. |
+| `DXE_FONT`, `DXE_MONOSPACE_FONT` | The font files DXWidgets' default loader takes for its UI and monospace fonts in a build without GLib and fontconfig, before the usual DejaVu and Noto files. Unused by the engine, whose UI's fonts are `DXEngine.pk3`'s. |
 | `DXL_LAUNCHER_FD` | The launcher's line ([running it](#running-it)). |
-| `SURREAL_GC_DRYRUN=1` | Each collection marks and frees nothing: the log has what would go, by where it lives and by class, and the first holder outside them of each object of a level left behind ([objects and memory](#objects-and-memory)). |
-| `SURREAL_GC_STRESS=<frames>` | A collection every that many frames, besides the map loads'. |
-| `SURREAL_GC_VERIFY=1` | Each collection checks that every pointer it is handed is a live object, walks all of the code, and logs the holders of pointers that are not, of code's references to code that reach an object not permanent, and of what the list kept from the code's last walk would have missed ([objects and memory](#objects-and-memory)). |
-| `SURREAL_PERF_LOG=1`, `SURREAL_PERF_DETAIL=1`, `SURREAL_PERF_TURN=<aBaseX>`, `SURREAL_PERF_SAMPLE=<file>` | Only with [the profiling hooks](#the-profiling-hooks) on: where the frame goes, every 60 frames on stderr; tick by actor class and script functions by self time (which inflates what it measures); the player turning on the spot; the sampling profiler. |
+| `DXE_GC_DRYRUN=1` | Each collection marks and frees nothing: the log has what would go, by where it lives and by class, and the first holder outside them of each object of a level left behind ([objects and memory](#objects-and-memory)). |
+| `DXE_GC_STRESS=<frames>` | A collection every that many frames, besides the map loads'. |
+| `DXE_GC_VERIFY=1` | Each collection checks that every pointer it is handed is a live object, walks all of the code, and logs the holders of pointers that are not, of code's references to code that reach an object not permanent, and of what the list kept from the code's last walk would have missed ([objects and memory](#objects-and-memory)). |
+| `DXE_PERF_LOG=1`, `DXE_PERF_DETAIL=1`, `DXE_PERF_TURN=<aBaseX>`, `DXE_PERF_SAMPLE=<file>` | Only with [the profiling hooks](#the-profiling-hooks) on: where the frame goes, every 60 frames on stderr; tick by actor class and script functions by self time (which inflates what it measures); the player turning on the spot; the sampling profiler. |
 
 ## What the fork changes
 
@@ -238,10 +239,10 @@ By area, as the code stands. Each device's numbers are its port's, such as
 
 ### Running on our devices
 
-- **The version**: every build stamps the fork's commit and its date into `vibe_version.h`
+- **The version**: every build stamps the fork's commit and its date into `dxe_version.h`
   (`cmake/version.cmake`, a step of every build that rewrites the header only when the text
   changes, so only what reads it recompiles); `GetDeusExVersion` shows it under the main menu,
-  as `1.112fm VibeEngine <commit> (<date>)`, and `--version` prints it. A tree with uncommitted
+  as `1.112fm DXEngine <commit> (<date>)`, and `--version` prints it. A tree with uncommitted
   changes to tracked files reads `-dirty`; one without git, `unknown`.
 - **Headless and embedded**: `--no-launcher` ([running it](#running-it)); a non-zero exit after
   a caught exception, which the launcher's crash sentinel reads. The cross build for an embedded
@@ -249,10 +250,10 @@ By area, as the code stands. Each device's numbers are its port's, such as
   a host-built `zipdir`. The desktop's, linux-x86_64's, is built at glibc 2.28 by a Buildroot
   SDK, its SDL3 built in (the launcher's), without the Wayland window of its own, which needs
   waylandpp ([what it is made of](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/ports/linux-x86_64/README.md#what-it-is-made-of)).
-  The UI's fonts are `SurrealEngine.pk3`'s.
+  The UI's fonts are `DXEngine.pk3`'s.
 - **The gamepad**: the SDL2 and SDL3 display backends give the pad as polled state
   (`GetGamepadState`), and `GamepadInput` turns it into UE1 joystick keys and axes that
-  `User.ini` binds; menus get their own controls. SurrealWidgets builds one SDL backend, SDL3's
+  `User.ini` binds; menus get their own controls. DXWidgets builds one SDL backend, SDL3's
   when both are on: linux-x86_64's engine is built with SDL3's, linux-aarch64's and the Smart
   Pro's with SDL2's, the Smart Pro's display being its vendor SDL2's alone. Each backend also
   has a virtual pad of its own for the harness's timelines
@@ -264,7 +265,7 @@ By area, as the code stands. Each device's numbers are its port's, such as
   [the menus' settings](NATIVES.md#the-menus-settings)).
 - **Fullscreen under SDL** keeps the display's mode: SDL3's `SDL_SetWindowFullscreen` with no
   fullscreen mode set, borderless at the desktop's size; SDL2's `FULLSCREEN_DESKTOP`, or with
-  `VIBE_SDL2_BORDERLESS_FULLSCREEN` (the Smart Pro's build) a borderless window covering the
+  `DXE_SDL2_BORDERLESS_FULLSCREEN` (the Smart Pro's build) a borderless window covering the
   display, set up while the window is hidden: `SDL_SetWindowFullscreen` deadlocks on a GL window
   with that device's vendor SDL2.
 
@@ -425,7 +426,7 @@ in `Frame::CallScript`.
 A collection runs at the end of the frame, with no script running (`Engine::CollectGarbage`, in
 `EngineGC.cpp`), when asked for: by every map load but Entry's, by the console's `obj garbage`,
 by 2048 destroyed actors let go since the last one
-([destroyed actors](NATIVES.md#housekeeping-not-seen-directly)), and every `SURREAL_GC_STRESS`
+([destroyed actors](NATIVES.md#housekeeping-not-seen-directly)), and every `DXE_GC_STRESS`
 frames. A map load's and the console's do everything; the backlog's and the stress runs' mark
 and sweep only, no level having departed since the last map load's. It logs the original's
 lines (`Collecting garbage`, `Purging garbage`, `Garbage: objects: ...; refs: ...`, the refs
@@ -508,7 +509,7 @@ its code is:
   through one OpenAL source at `OutputRate`. The fork's audio device adds `SpeechVolume` and
   `DopplerSpeed` to its ini section, and keeps Deus Ex's channel count under Galaxy's name,
   `EffectsChannels` ([sound](NATIVES.md#sound)). Its render device keeps `DetailTextures` beside
-  upstream's keys; on a first run (no `SE-DeusEx.ini`, or an `--ini` without the engine's
+  upstream's keys; on a first run (no `DXE-DeusEx.ini`, or an `--ini` without the engine's
   sections) it takes them from the section of the device the game's ini names
   (`GameRenderDevice`) ([the menus' settings](NATIVES.md#the-menus-settings)). Who hears a
   sound an actor plays, a remote player through its client, is `UActor::HearSound` and

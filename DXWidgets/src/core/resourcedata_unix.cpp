@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include <cmath>
-#ifdef SURREALWIDGETS_DESKTOP_FONTS
+#ifdef DXWIDGETS_DESKTOP_FONTS
 #include <gio/gio.h>
 #include <fontconfig/fontconfig.h>
 #else
@@ -28,7 +28,7 @@ static std::vector<uint8_t> ReadAllBytes(const std::string& filename)
 	return buffer;
 }
 
-#ifdef SURREALWIDGETS_DESKTOP_FONTS
+#ifdef DXWIDGETS_DESKTOP_FONTS
 
 static std::vector<SingleFontData> GetGtkUIFont(const std::string& propertyName)
 {
@@ -81,7 +81,7 @@ static std::vector<SingleFontData> GetGtkUIFont(const std::string& propertyName)
 {
 	const bool monospace = (propertyName.find("monospace") != std::string::npos);
 
-	const char* envName = monospace ? "SURREALWIDGETS_MONOSPACE_FONT" : "SURREALWIDGETS_FONT";
+	const char* envName = monospace ? "DXE_MONOSPACE_FONT" : "DXE_FONT";
 	const char* override = std::getenv(envName);
 
 	std::vector<std::string> candidates;

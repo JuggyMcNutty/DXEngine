@@ -132,7 +132,7 @@ public:
 	Array<IntObject>& GetIntObjects(const NameString& metaclass);
 	const Array<std::string>& GetMaps() const { return maps; }
 
-	bool MissingSESystemIni() const { return missing_se_system_ini; }
+	bool MissingDXESystemIni() const { return missing_dxe_system_ini; }
 
 	Package* GetTransientPackage() { return GetPackage("Transient"); }
 	Package* CreateEmptyPackage(const NameString& name);
@@ -197,7 +197,7 @@ private:
 	std::string mapExtension;
 	std::string saveExtension;
 
-	bool missing_se_system_ini = false;
+	bool missing_dxe_system_ini = false;
 
 	struct OpenStream
 	{

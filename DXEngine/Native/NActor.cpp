@@ -458,7 +458,7 @@ static bool CalledFromSimulated()
 // engine-dll.md, sounds): each hearer the native names is asked
 // (UActor::CheckHearSound), and the hearer's ClientHearSound plays it -- in a
 // net game on the remote player's client. The ID packs the fork's number for
-// the actor (USurrealAudioDevice::SoundId).
+// the actor (UDXEngineAudioDevice::SoundId).
 void NActor::PlaySound_Deus(UObject* Self, UObject* Sound, std::optional<uint8_t> Slot, std::optional<float> Volume, std::optional<bool> bNoOverride, std::optional<float> Radius, std::optional<float> Pitch, int& ReturnValue)
 {
 	UActor* SelfActor = UObject::Cast<UActor>(Self);

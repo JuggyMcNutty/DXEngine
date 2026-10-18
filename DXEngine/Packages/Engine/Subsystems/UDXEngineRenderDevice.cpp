@@ -5,7 +5,7 @@
 #include "Package/PackageManager.h"
 #include "Package/IniProperty.h"
 
-std::string USurrealRenderDevice::GetPropertyAsString(const NameString& propertyName) const
+std::string UDXEngineRenderDevice::GetPropertyAsString(const NameString& propertyName) const
 {
 	if (propertyName == "Class")
 		return "class'" + Class + "'";
@@ -22,11 +22,11 @@ std::string USurrealRenderDevice::GetPropertyAsString(const NameString& property
 	else if (propertyName == "DetailTextures")
 		return IniPropertyConverter<bool>::ToString(DetailTextures);
 
-	LogMessage("Queried unknown property for SurrealRenderDevice: " + propertyName.ToString());
+	LogMessage("Queried unknown property for DXEngineRenderDevice: " + propertyName.ToString());
 	return {};
 }
 
-void USurrealRenderDevice::SetPropertyFromString(const NameString& propertyName, const std::string& value)
+void UDXEngineRenderDevice::SetPropertyFromString(const NameString& propertyName, const std::string& value)
 {
 	if (propertyName == "Translucency")
 		Translucency = IniPropertyConverter<bool>::FromString(value);
@@ -41,12 +41,12 @@ void USurrealRenderDevice::SetPropertyFromString(const NameString& propertyName,
 	else if (propertyName == "DetailTextures")
 		DetailTextures = IniPropertyConverter<bool>::FromString(value);
 	else
-		LogMessage("Setting unknown property for SurrealRenderDevice: " + propertyName.ToString());
+		LogMessage("Setting unknown property for DXEngineRenderDevice: " + propertyName.ToString());
 
 	engine->packages->SetIniValue("System", Class, propertyName, value);
 }
 
-void USurrealRenderDevice::LoadProperties(const NameString& from)
+void UDXEngineRenderDevice::LoadProperties(const NameString& from)
 {
 	NameString name_from = from;
 
@@ -61,7 +61,7 @@ void USurrealRenderDevice::LoadProperties(const NameString& from)
 	DetailTextures = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "DetailTextures", DetailTextures);
 }
 
-void USurrealRenderDevice::SaveConfig()
+void UDXEngineRenderDevice::SaveConfig()
 {
 	engine->packages->SetIniValue("System", Class, "Translucency", IniPropertyConverter<bool>::ToString(Translucency));
 	engine->packages->SetIniValue("System", Class, "VolumetricLighting", IniPropertyConverter<bool>::ToString(VolumetricLighting));

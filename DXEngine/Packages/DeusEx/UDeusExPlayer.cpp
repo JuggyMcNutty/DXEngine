@@ -7,7 +7,7 @@
 #include "Packages/ConSys/History/UConHistory.h"
 #include "Packages/Extension/Flags/UFlagBase.h"
 #include "Utils/Logger.h"
-#include "vibe_version.h"
+#include "dxe_version.h"
 
 void UDeusExPlayer::ConBindEvents()
 {
@@ -61,7 +61,7 @@ std::string UDeusExPlayer::GetDeusExVersion()
 {
 	// The game's version and the engine's commit, which every build stamps
 	// (cmake/version.cmake): the main menu shows it at its bottom right.
-	return "1.112fm VibeEngine " VIBE_VERSION;
+	return "1.112fm DXEngine " DXE_VERSION;
 }
 
 void UDeusExPlayer::SaveGame(int saveIndex, std::optional<std::string> saveDesc)

@@ -43,8 +43,8 @@ VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
 			Device->EnabledFeatures.DescriptorIndexing.runtimeDescriptorArray &&
 			Device->EnabledFeatures.DescriptorIndexing.shaderSampledImageArrayNonUniformIndexing;
 
-		// SURREAL_VK_NO_BINDLESS exercises that fallback on hardware that doesn't need it.
-		if (std::getenv("SURREAL_VK_NO_BINDLESS"))
+		// DXE_VK_NO_BINDLESS exercises that fallback on hardware that doesn't need it.
+		if (std::getenv("DXE_VK_NO_BINDLESS"))
 			SupportsBindless = false;
 
 		Commands.reset(new CommandBufferManager(this));

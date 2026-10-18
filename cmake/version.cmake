@@ -2,8 +2,8 @@
 # build, so a player can tell which engine they run (DeusExPlayer's
 # GetDeusExVersion shows it at the main menu's bottom right).
 #
-# Included from CMakeLists.txt, it adds the target vibe_version, which runs on
-# every build and rewrites <build>/vibe/vibe_version.h only when the text
+# Included from CMakeLists.txt, it adds the target dxe_version, which runs on
+# every build and rewrites <build>/dxe/dxe_version.h only when the text
 # changes: a build after a new commit shows it, and recompiles only what reads
 # it. Run as a script (cmake -P, with SOURCE_DIR and OUTPUT), it writes that
 # header. "-dirty" marks a tree with uncommitted changes to tracked files; a
@@ -26,7 +26,7 @@ if(CMAKE_SCRIPT_MODE_FILE)
 		endif()
 		set(version "${commit} (${date})")
 	endif()
-	set(text "// Written by cmake/version.cmake at build time.\n#define VIBE_VERSION \"${version}\"\n")
+	set(text "// Written by cmake/version.cmake at build time.\n#define DXE_VERSION \"${version}\"\n")
 	set(old "")
 	if(EXISTS "${OUTPUT}")
 		file(READ "${OUTPUT}" old)
@@ -37,12 +37,12 @@ if(CMAKE_SCRIPT_MODE_FILE)
 	return()
 endif()
 
-set(VIBE_VERSION_DIR "${CMAKE_BINARY_DIR}/vibe")
-add_custom_target(vibe_version
+set(DXE_VERSION_DIR "${CMAKE_BINARY_DIR}/dxe")
+add_custom_target(dxe_version
 	COMMAND "${CMAKE_COMMAND}" "-DSOURCE_DIR=${CMAKE_SOURCE_DIR}"
-		"-DOUTPUT=${VIBE_VERSION_DIR}/vibe_version.h" -P "${CMAKE_CURRENT_LIST_FILE}"
-	BYPRODUCTS "${VIBE_VERSION_DIR}/vibe_version.h"
-	COMMENT "VibeEngine's version"
+		"-DOUTPUT=${DXE_VERSION_DIR}/dxe_version.h" -P "${CMAKE_CURRENT_LIST_FILE}"
+	BYPRODUCTS "${DXE_VERSION_DIR}/dxe_version.h"
+	COMMENT "DXEngine's version"
 	VERBATIM)
-add_dependencies(SurrealCommon vibe_version)
-target_include_directories(SurrealCommon PRIVATE "${VIBE_VERSION_DIR}")
+add_dependencies(DXCommon dxe_version)
+target_include_directories(DXCommon PRIVATE "${DXE_VERSION_DIR}")

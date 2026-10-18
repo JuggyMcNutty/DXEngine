@@ -2,12 +2,12 @@
 
 #include "URenderDevice.h"
 
-class USurrealRenderDevice : public URenderDevice
+class UDXEngineRenderDevice : public URenderDevice
 {
 public:
 	using URenderDevice::URenderDevice;
 
-	std::string Class = "Engine.SurrealRenderDevice";
+	std::string Class = "Engine.DXEngineRenderDevice";
 	bool Translucency = true;
 	bool VolumetricLighting = true;
 	bool ShinySurfaces = true;

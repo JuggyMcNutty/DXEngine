@@ -52,7 +52,7 @@ are gone.
   original. Both engines take the game's settings from it; the game's inis are never written.
 - **`Settings.json`.** The fork's renderer, MSAA, VSync, gamma mode, `GammaCorrectScreenshots`,
   HDR, bloom and render scale come from
-  `~/.config/SurrealEngine/Settings.json`, an input of every fork run that no run's ini changes,
+  `~/.config/DXEngine/Settings.json`, an input of every fork run that no run's ini changes,
   or from the file `DXCAP_SETTINGS` names. Without one the fork runs on Vulkan with 4x MSAA.
 - **Results.** A run's log (`engine.log` or `DeusEx.log`), shots and recording land in
   `build/dxcap/runs/<engine>-<console>-<time>/`.
@@ -73,14 +73,14 @@ are gone.
 | `DXCAP_USERINI_FIRST=1` | the run's inis named `USERINI=` then `INI=`: on the original's command line, and on the fork's by `--cmdline` in place of `--ini` and `--userini` ([the command line](NATIVES.md#the-command-line)) |
 | `DXCAP_MISSION_MAP=<map>` | the map a run's console travels to, its `TargetMap` (`MissionConsole`'s, `StaticConsole`'s, `WadeConsole`'s, `ScreenConsole`'s, `PerfConsole`'s, `EndgameConsole`'s, `VisibleConsole`'s, `MoverConsole`'s, `LightConsole`'s, `GlassConsole`'s, `FlushConsole`'s): an original run starts at its menu map, a fork run at the map it is given |
 | `DXCAP_START=<url>` | an original run started there, not at its menu map: its command line's first word, with `-hax0r` ([running the original](#running-the-original)); `?loadgame=9` for `StartConsole` |
-| `DXCAP_SETTINGS=<file>` | a fork run's `Settings.json`, in place of `~/.config/SurrealEngine`'s (through a `HOME` of the run's own; the caches stay the usual ones) |
+| `DXCAP_SETTINGS=<file>` | a fork run's `Settings.json`, in place of `~/.config/DXEngine`'s (through a `HOME` of the run's own; the caches stay the usual ones) |
 | `DXCAP_USERDIR=<dir>` | a fork run's `--userdir`: its `Settings.json`, log, shots and a class's own config file there ([running it](ENGINE.md#running-it)) |
 | `DXCAP_NOVSYNC=1` | Mesa's GL draws either engine without waiting for the display (`vblank_mode=0`): the original's `OpenGLDrv` asks for no swap interval and gets the driver's vsync |
 | `DXCAP_FPS=<n>` | either engine held to n frames a second: MangoHud's limiter, its display off (`mangohud`, and `lib32-mangohud` for the original's 32-bit process) |
 | `DXCAP_PERF=1` | the engine's main thread sampled by perf into the run's `perf.data`, on the wall clock, its cycles and instructions counted each 100 ms (`stat.csv`), with the process's `maps.txt` ([measuring both engines](#measuring-both-engines)) |
 | `DXCAP_TIMELINE=<file>` | a `live` run's timeline, not `JoinConsole`'s walk; a `fork` run's [timeline](#timelines) |
 | `DXCAP_ENGINE=<binary>` | a fork run on that build, not linux-x86_64's (an [ASan build](#crashes)) |
-| `DXCAP_BACKEND=SDL3`, `SDL2` | a fork run's window SurrealWidgets' SDL3 or SDL2 one, the launchers', not its X11 one: SDL3 on linux-x86_64's build, SDL2 on one built with it (`DXCAP_ENGINE`); the keys of a timeline's `keydown` and `keyup` go through its own events, its `pad` and `padaxis` through its virtual pad |
+| `DXCAP_BACKEND=SDL3`, `SDL2` | a fork run's window DXWidgets' SDL3 or SDL2 one, the launchers', not its X11 one: SDL3 on linux-x86_64's build, SDL2 on one built with it (`DXCAP_ENGINE`); the keys of a timeline's `keydown` and `keyup` go through its own events, its `pad` and `padaxis` through its virtual pad |
 | `DXCAP_MEMLOG=1` | a fork run's resident memory each second in its `memlog.txt`: seconds, MB |
 | `DXCAP_UPLINK=<host>:<port>` | the server announces itself to that master (`DoUplink`); otherwise to none |
 | `DXCAP_PORT=<port>` | the server listens there (`[URL] Port`), not on 7790: for `netrelay.py` between it and a client ([net tests](#net-tests)) |
@@ -296,7 +296,7 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
   block (`--blocks` prints the grid) and over the frame or a region (`--region x,y,w,h`).
 - **The presented frame.** A fork shot is the scene before the present pass, so the
   render-scale upscale and the gamma do not show in it. `grab.py` reads the fork's window too,
-  by its name, `Deus Ex (v1112fm) - Surreal Engine`; at a render scale under 1 the mark's blocks
+  by its name, `Deus Ex (v1112fm) - DXEngine`; at a render scale under 1 the mark's blocks
   are scaled with the frame, and the shot numbers it reads from them are wrong.
 - A renderer that fails to start falls back to `SoftDrv` without a word, its frames passing for
   the renderer's: the script then fails, naming the log's `Bound to SoftDrv`.
@@ -345,7 +345,7 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
 
 Both engines draw on the desktop's X display, Xwayland (`$DISPLAY`; `DXCAP_DISPLAY` names
 another), each in a 1280x720 window (`DXCAP_WINDOW` another size): the original through Wine's X11
-driver, the fork through its window's X11 backend (`SURREALWIDGETS_DISPLAY_BACKEND=X11`,
+driver, the fork through its window's X11 backend (`DXE_DISPLAY_BACKEND=X11`,
 `WAYLAND_DISPLAY` unset, `SDL_VIDEODRIVER=x11`). One X server and the GPU serve both, so their
 runs compare; no run uses a hidden display, as runs on different displays do not compare. The
 development machine is given over to it: windows come and go on its desktop.
@@ -394,11 +394,11 @@ xdotool windowfocus --sync <window>
 xdotool key Return
 # The fork's core: the functions on the stack (the Release build has no lines)
 coredumpctl dump <pid> --output=<scratchpad>/core
-gdb -batch -ex bt <parent>/build/linux-x86_64/engine/SurrealEngine <scratchpad>/core
+gdb -batch -ex bt <parent>/build/linux-x86_64/engine/DXEngine <scratchpad>/core
 # Lines: a copy with symbols (some two and a half minutes), run with the last fork run's ini
 cmake -S DXEngine -B <scratchpad>/dbg -C deusex-launcher/linux-x86_64/ports/linux-x86_64/engine.cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build <scratchpad>/dbg --target SurrealEngine
-cd gamefiles && gdb -batch -ex run -ex bt --args <scratchpad>/dbg/SurrealEngine --no-launcher <parent>/gamefiles \
+cmake --build <scratchpad>/dbg --target DXEngine
+cd gamefiles && gdb -batch -ex run -ex bt --args <scratchpad>/dbg/DXEngine --no-launcher <parent>/gamefiles \
     --ini=<parent>/build/dxcap/System/Fork.ini --userini=<parent>/build/dxcap/System/ForkUser.ini --url=<map>
 ```
 
@@ -412,8 +412,8 @@ Its flags go in by the environment, which CMake puts beside the port's toolchain
 CXXFLAGS="-fsanitize=address -fno-omit-frame-pointer" LDFLAGS=-fsanitize=address \
     cmake -S DXEngine -B <scratchpad>/asan -C deusex-launcher/linux-x86_64/ports/linux-x86_64/engine.cmake \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build <scratchpad>/asan --target SurrealEngine
-ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 DXCAP_ENGINE=<scratchpad>/asan/SurrealEngine \
+cmake --build <scratchpad>/asan --target DXEngine
+ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 DXCAP_ENGINE=<scratchpad>/asan/DXEngine \
     tools/dxcap.sh fork <console> <map>
 ```
 

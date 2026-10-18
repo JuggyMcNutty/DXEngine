@@ -125,7 +125,7 @@ void Logger::SaveLogAsPlaintext(const std::string& filename) const
 
 	for (const LogMessageLine& line : Log)
 	{
-		const auto source = line.Source.empty() ? "<Surreal Engine>" : line.Source;
+		const auto source = line.Source.empty() ? "<DXEngine>" : line.Source;
 		finalLog += "[" + std::to_string(line.Time) + "] " + source + ": " + line.Text + "\n";
 	}
 

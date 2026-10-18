@@ -50,7 +50,7 @@
 # DXCAP_SERVERPKGS=<dir> has a run's server find packages in <dir> too, each
 # named in its ServerPackages, so that a client, whose paths lack <dir>,
 # downloads them.
-# DXCAP_BACKEND=SDL3 gives a fork run SurrealWidgets' SDL3 window, the one
+# DXCAP_BACKEND=SDL3 gives a fork run DXWidgets' SDL3 window, the one
 # linux-x86_64's launchers start its engine with, in place of its X11 one;
 # DXCAP_BACKEND=SDL2 its SDL2 window, the other launchers', in a build with
 # SDL2's (DXCAP_ENGINE). A timeline that drives the window's virtual pad has
@@ -81,7 +81,7 @@
 # (an ASan build). DXCAP_MEMLOG=1 logs a fork run's resident memory each
 # second into the run's memlog.txt: seconds since the start, then MB.
 # DXCAP_SETTINGS=<file> gives a fork run that Settings.json in place of
-# ~/.config/SurrealEngine's, through a HOME of the run's own (the caches stay
+# ~/.config/DXEngine's, through a HOME of the run's own (the caches stay
 # the usual ones). DXCAP_USERDIR=<dir> gives a fork run the engine's
 # --userdir: Settings.json, its log, its shots and a class's own config file
 # there. DXCAP_NOVSYNC=1 has Mesa's GL draw either engine without
@@ -102,7 +102,7 @@ die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 GAME="$DX_ROOT/gamefiles"
 CAP="$DX_ROOT/build/dxcap"
 SDK="$DX_ROOT/reference/ReleaseSDK1112f/System"
-ENGINE_BIN="${DXCAP_ENGINE:-$DX_ROOT/build/linux-x86_64/engine/SurrealEngine}"
+ENGINE_BIN="${DXCAP_ENGINE:-$DX_ROOT/build/linux-x86_64/engine/DXEngine}"
 
 usage() { sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; exit 2; }
 # Every command but help needs the game.
@@ -643,7 +643,7 @@ run_fork() {
         # the original draws through Wine's; DXCAP_BACKEND=SDL3 or SDL2 its
         # SDL one, the launchers', on the same display.
         unset WAYLAND_DISPLAY
-        export DISPLAY="$XDISPLAY" SURREALWIDGETS_DISPLAY_BACKEND="${DXCAP_BACKEND:-X11}" SDL_VIDEODRIVER=x11
+        export DISPLAY="$XDISPLAY" DXE_DISPLAY_BACKEND="${DXCAP_BACKEND:-X11}" SDL_VIDEODRIVER=x11
         # A timeline's virtual pad alone (its vendor and product): no pad of
         # the machine's in its place.
         if [ -f "$dir/timeline.txt" ] &&
@@ -658,10 +658,10 @@ run_fork() {
             export ALSOFT_CONF="$CAP/alsoft-null.conf"
         fi
         # The run's own Settings.json, where the engine looks for it
-        # ($HOME/.config/SurrealEngine); the caches stay where they are.
+        # ($HOME/.config/DXEngine); the caches stay where they are.
         if [ -n "$settings" ]; then
-            mkdir -p "$dir/home/.config/SurrealEngine"
-            cp "$settings" "$dir/home/.config/SurrealEngine/Settings.json"
+            mkdir -p "$dir/home/.config/DXEngine"
+            cp "$settings" "$dir/home/.config/DXEngine/Settings.json"
             export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
             export HOME="$dir/home"
         fi
@@ -758,7 +758,7 @@ cmd_prove() {
         awk -v m="$mean" 'BEGIN { exit !(m < 0.01) }' && { say "  -- nearly black"; bad=1; }
     done
     [ "$shots" = 2 ] || { say "expected 2 shots, got $shots"; bad=1; }
-    grep -E "Script error|SurrealEngine error|Unimplemented" "$dir/engine.log" | sort | uniq -c >&2 || true
+    grep -E "Script error|DXEngine error|Unimplemented" "$dir/engine.log" | sort | uniq -c >&2 || true
     [ "$bad" = 0 ] || die "proving run failed: $dir"
     say "proving run clean: $dir"
 }

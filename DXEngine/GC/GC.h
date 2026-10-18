@@ -113,10 +113,10 @@ private:
 // What a collection is asked to do.
 struct GCCollectOptions
 {
-	// Mark only: nothing made None, nothing freed (SURREAL_GC_DRYRUN).
+	// Mark only: nothing made None, nothing freed (DXE_GC_DRYRUN).
 	bool DryRun = false;
 	// Every pointer the marker is handed must be a live allocation
-	// (SURREAL_GC_VERIFY).
+	// (DXE_GC_VERIFY).
 	bool Verify = false;
 	// The objects the dry run names the first holder of.
 	std::function<bool(GCObject*)> Watch;
@@ -136,12 +136,12 @@ struct GCCollectResult
 	// Eliminated objects reached through a reference that may not be
 	// written: they stay, by the holder's class and field.
 	std::map<std::string, size_t> KeptEliminated;
-	// SURREAL_GC_VERIFY: pointers that were no live allocation, by holder.
+	// DXE_GC_VERIFY: pointers that were no live allocation, by holder.
 	std::map<std::string, size_t> Invalid;
-	// SURREAL_GC_VERIFY: code's references to code (GCMarker::MarkCode) that
+	// DXE_GC_VERIFY: code's references to code (GCMarker::MarkCode) that
 	// reached an object not permanent, by holder.
 	std::map<std::string, size_t> CodeToCollectable;
-	// SURREAL_GC_VERIFY: what the walk of the code reached that the list
+	// DXE_GC_VERIFY: what the walk of the code reached that the list
 	// kept from the last walk did not hold, by holder ("names" for a name).
 	std::map<std::string, size_t> CodeKeptMissed;
 	// The dry run: each watched object reached, what reached it first (none
@@ -178,7 +178,7 @@ public:
 	// struct, class or enum a property names. Loaded code refers to loaded
 	// code, permanent, so from a permanent holder it is not handed over,
 	// which keeps the walk of the permanent list short; from any other
-	// holder it is handed as MarkConst. SURREAL_GC_VERIFY hands it from code
+	// holder it is handed as MarkConst. DXE_GC_VERIFY hands it from code
 	// too and reports a target that is not permanent (CodeToCollectable).
 	void MarkCode(const GCObject* obj)
 	{

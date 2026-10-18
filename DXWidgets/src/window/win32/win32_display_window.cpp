@@ -94,7 +94,7 @@ Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost, WidgetType
 	classdesc.cbSize = sizeof(WNDCLASSEX);
 	classdesc.hInstance = GetModuleHandle(0);
 	classdesc.style = CS_VREDRAW | CS_HREDRAW | CS_DBLCLKS;
-	classdesc.lpszClassName = L"SurrealWidgetsWindow";
+	classdesc.lpszClassName = L"DXWidgetsWindow";
 	classdesc.lpfnWndProc = &Win32DisplayWindow::WndProc;
 	if (renderAPI != RenderAPI::Unspecified && renderAPI != RenderAPI::Bitmap)
 		classdesc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH); // Use a black initial color for the window if not using GDI bitmap painting
@@ -119,7 +119,7 @@ Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost, WidgetType
 	if (!owner)
 		exstyle |= WS_EX_APPWINDOW;
 
-	CreateWindowEx(exstyle, L"SurrealWidgetsWindow", L"", style, 0, 0, 100, 100, owner ? owner->WindowHandle.hwnd : 0, 0, GetModuleHandle(0), this);
+	CreateWindowEx(exstyle, L"DXWidgetsWindow", L"", style, 0, 0, 100, 100, owner ? owner->WindowHandle.hwnd : 0, 0, GetModuleHandle(0), this);
 }
 
 Win32DisplayWindow::~Win32DisplayWindow()

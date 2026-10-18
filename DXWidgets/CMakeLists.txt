@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.11)
-project(surrealwidgets)
+project(dxwidgets)
 
 if(WIN32)
 	option(ENABLE_SDL3 "Enable SDL3 backend. Optional on all platforms" OFF)
@@ -20,7 +20,7 @@ option(ENABLE_WAYLAND "Enable the Wayland display backend" ON)
 # the window is hidden, in place of SDL_SetWindowFullscreen: a vendor SDL2 (the
 # TrimUI Smart Pro's mali backend) deadlocks switching a GL window that way.
 # Off, it is SDL's own FULLSCREEN_DESKTOP.
-option(VIBE_SDL2_BORDERLESS_FULLSCREEN "SDL2 fullscreen as a borderless window, for a vendor SDL2 that deadlocks in SDL_SetWindowFullscreen" OFF)
+option(DXE_SDL2_BORDERLESS_FULLSCREEN "SDL2 fullscreen as a borderless window, for a vendor SDL2 that deadlocks in SDL_SetWindowFullscreen" OFF)
 
 if (UNIX)
 	include(FindPkgConfig)
@@ -69,7 +69,7 @@ if(ENABLE_SDL2)
 	endif()
 endif()
 
-set(SURREALWIDGETS_SOURCES
+set(DXWIDGETS_SOURCES
 	src/core/canvas.cpp
 	src/core/font.cpp
 	src/core/font_impl.h
@@ -131,7 +131,7 @@ set(SURREALWIDGETS_SOURCES
 	src/systemdialogs/save_file_dialog.cpp
 )
 
-set(SURREALWIDGETS_INCLUDES
+set(DXWIDGETS_INCLUDES
 	include/dxwidgets/core/canvas.h
 	include/dxwidgets/core/colorf.h
 	include/dxwidgets/core/font.h
@@ -178,7 +178,7 @@ set(SURREALWIDGETS_INCLUDES
 	include/dxwidgets/systemdialogs/save_file_dialog.h
 )
 
-set(SURREALWIDGETS_WIN32_SOURCES
+set(DXWIDGETS_WIN32_SOURCES
 	src/window/win32/win32_display_backend.cpp
 	src/window/win32/win32_display_backend.h
 	src/window/win32/win32_display_window.cpp
@@ -195,7 +195,7 @@ set(SURREALWIDGETS_WIN32_SOURCES
 	src/core/resourcedata_win.cpp
 )
 
-set(SURREALWIDGETS_DBUS_SOURCES
+set(DXWIDGETS_DBUS_SOURCES
 	src/window/dbus/dbus_open_folder_dialog.cpp
 	src/window/dbus/dbus_open_folder_dialog.h
 	src/window/dbus/dbus_open_file_dialog.cpp
@@ -204,25 +204,25 @@ set(SURREALWIDGETS_DBUS_SOURCES
 	src/window/dbus/dbus_save_file_dialog.h
 )
 
-set(SURREALWIDGETS_UNIX_SOURCES
+set(DXWIDGETS_UNIX_SOURCES
 	src/core/resourcedata_unix.cpp
 )
 
-set(SURREALWIDGETS_SDL2_SOURCES
+set(DXWIDGETS_SDL2_SOURCES
 	src/window/sdl2/sdl2_display_backend.cpp
 	src/window/sdl2/sdl2_display_backend.h
 	src/window/sdl2/sdl2_display_window.cpp
 	src/window/sdl2/sdl2_display_window.h
 )
 
-set(SURREALWIDGETS_SDL3_SOURCES
+set(DXWIDGETS_SDL3_SOURCES
 	src/window/sdl3/sdl3_display_backend.cpp
 	src/window/sdl3/sdl3_display_backend.h
 	src/window/sdl3/sdl3_display_window.cpp
 	src/window/sdl3/sdl3_display_window.h
 )
 
-set(SURREALWIDGETS_X11_SOURCES
+set(DXWIDGETS_X11_SOURCES
 	src/window/x11/x11_display_backend.cpp
 	src/window/x11/x11_display_backend.h
 	src/window/x11/x11_display_window.cpp
@@ -231,7 +231,7 @@ set(SURREALWIDGETS_X11_SOURCES
 	src/window/x11/x11_connection.h
 )
 
-set(SURREALWIDGETS_WAYLAND_SOURCES
+set(DXWIDGETS_WAYLAND_SOURCES
 	src/window/wayland/wayland_display_backend.cpp
 	src/window/wayland/wayland_display_backend.h
 	src/window/wayland/wayland_display_window.cpp
@@ -298,40 +298,40 @@ source_group("include\\widgets\\tabwidget" REGULAR_EXPRESSION "${CMAKE_CURRENT_S
 source_group("include\\window" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/include/dxwidgets/window/.+")
 source_group("include\\systemdialogs" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/include/dxwidgets/systemdialogs/.+")
 
-# Include directory to external projects using surrealwidgets
+# Include directory to external projects using dxwidgets
 include_directories(include)
 
-# Internal include dirs for building surrealwidgets
-set(SURREALWIDGETS_INCLUDE_DIRS include/dxwidgets src)
+# Internal include dirs for building dxwidgets
+set(DXWIDGETS_INCLUDE_DIRS include/dxwidgets src)
 
-set(SURREALWIDGETS_COMPILE_OPTIONS)
+set(DXWIDGETS_COMPILE_OPTIONS)
 
 if(WIN32)
-	list(APPEND SURREALWIDGETS_SOURCES ${SURREALWIDGETS_WIN32_SOURCES})
-	set(SURREALWIDGETS_DEFINES -DUNICODE -D_UNICODE)
-	set(SURREALWIDGETS_LINK_OPTIONS)
+	list(APPEND DXWIDGETS_SOURCES ${DXWIDGETS_WIN32_SOURCES})
+	set(DXWIDGETS_DEFINES -DUNICODE -D_UNICODE)
+	set(DXWIDGETS_LINK_OPTIONS)
 	if(MSVC)
 		# Use all cores for compilation
-		set(SURREALWIDGETS_COMPILE_OPTIONS ${SURREALWIDGETS_COMPILE_OPTIONS} /MP)
+		set(DXWIDGETS_COMPILE_OPTIONS ${DXWIDGETS_COMPILE_OPTIONS} /MP)
 
 		# Ignore specific warnings
-		#set(SURREALWIDGETS_COMPILE_OPTIONS ${SURREALWIDGETS_COMPILE_OPTIONS} /wd4244 /wd4267 /wd4005 /wd4018)
+		#set(DXWIDGETS_COMPILE_OPTIONS ${DXWIDGETS_COMPILE_OPTIONS} /wd4244 /wd4267 /wd4005 /wd4018)
 
 		# Don't slow down std containers in debug builds
-		set(SURREALWIDGETS_DEFINES ${SURREALWIDGETS_DEFINES})
+		set(DXWIDGETS_DEFINES ${DXWIDGETS_DEFINES})
 
 		# Ignore warning about legacy CRT functions
-		#set(SURREALWIDGETS_DEFINES ${SURREALWIDGETS_DEFINES} -D_CRT_SECURE_NO_WARNINGS)
+		#set(DXWIDGETS_DEFINES ${DXWIDGETS_DEFINES} -D_CRT_SECURE_NO_WARNINGS)
 	endif()
 else()
-	set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${SURREALWIDGETS_UNIX_SOURCES})
-	set(SURREALWIDGETS_LIBS ${CMAKE_DL_LIBS})
-	set(SURREALWIDGETS_DEFINES -DUNIX -D_UNIX)
-	set(SURREALWIDGETS_LINK_OPTIONS -pthread)
+	set(DXWIDGETS_SOURCES ${DXWIDGETS_SOURCES} ${DXWIDGETS_UNIX_SOURCES})
+	set(DXWIDGETS_LIBS ${CMAKE_DL_LIBS})
+	set(DXWIDGETS_DEFINES -DUNIX -D_UNIX)
+	set(DXWIDGETS_LINK_OPTIONS -pthread)
 	if (ENABLE_X11)
-		set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${SURREALWIDGETS_X11_SOURCES})
-		set(SURREALWIDGETS_LIBS ${SURREALWIDGETS_LIBS} -lX11 -lXi)
-		set(SURREALWIDGETS_DEFINES ${SURREALWIDGETS_DEFINES} -DUSE_X11)
+		set(DXWIDGETS_SOURCES ${DXWIDGETS_SOURCES} ${DXWIDGETS_X11_SOURCES})
+		set(DXWIDGETS_LIBS ${DXWIDGETS_LIBS} -lX11 -lXi)
+		set(DXWIDGETS_DEFINES ${DXWIDGETS_DEFINES} -DUSE_X11)
 	endif()
 	if (DBUS_FOUND)
 		# Bazzite (and probably Fedora 42) keeps the platform-specific dbus
@@ -340,77 +340,77 @@ else()
 		if (NOT CMAKE_SYSROOT)
 			include_directories("/usr/lib64/dbus-1.0/include")
 		endif()
-		set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${SURREALWIDGETS_DBUS_SOURCES})
-		set(SURREALWIDGETS_INCLUDE_DIRS ${SURREALWIDGETS_INCLUDE_DIRS} ${DBUS_INCLUDE_DIRS})
-		set(SURREALWIDGETS_LIBS ${SURREALWIDGETS_LIBS} ${DBUS_LDFLAGS})
-		set(SURREALWIDGETS_DEFINES ${SURREALWIDGETS_DEFINES} -DUSE_DBUS)
+		set(DXWIDGETS_SOURCES ${DXWIDGETS_SOURCES} ${DXWIDGETS_DBUS_SOURCES})
+		set(DXWIDGETS_INCLUDE_DIRS ${DXWIDGETS_INCLUDE_DIRS} ${DBUS_INCLUDE_DIRS})
+		set(DXWIDGETS_LIBS ${DXWIDGETS_LIBS} ${DBUS_LDFLAGS})
+		set(DXWIDGETS_DEFINES ${DXWIDGETS_DEFINES} -DUSE_DBUS)
 	endif()
 	if (OpenGL_FOUND)
-		set(SURREALWIDGETS_INCLUDE_DIRS ${SURREALWIDGETS_INCLUDE_DIRS} ${OPENGL_INCLUDE_DIRS} ${OPENGL_EGL_INCLUDE_DIRS})
-		set(SURREALWIDGETS_LIBS ${SURREALWIDGETS_LIBS} ${OPENGL_opengl_LIBRARY} ${OPENGL_egl_LIBRARY} -lEGL)
+		set(DXWIDGETS_INCLUDE_DIRS ${DXWIDGETS_INCLUDE_DIRS} ${OPENGL_INCLUDE_DIRS} ${OPENGL_EGL_INCLUDE_DIRS})
+		set(DXWIDGETS_LIBS ${DXWIDGETS_LIBS} ${OPENGL_opengl_LIBRARY} ${OPENGL_egl_LIBRARY} -lEGL)
 	endif()
 	if (WAYLANDPP_FOUND)
-		set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${SURREALWIDGETS_WAYLAND_SOURCES})
-		set(SURREALWIDGETS_INCLUDE_DIRS ${SURREALWIDGETS_INCLUDE_DIRS} ${WAYLANDPP_INCLUDE_DIRS})
-		set(SURREALWIDGETS_LIBS ${SURREALWIDGETS_LIBS} ${WAYLANDPP_LDFLAGS})
-		set(SURREALWIDGETS_DEFINES ${SURREALWIDGETS_DEFINES} -DUSE_WAYLAND)
+		set(DXWIDGETS_SOURCES ${DXWIDGETS_SOURCES} ${DXWIDGETS_WAYLAND_SOURCES})
+		set(DXWIDGETS_INCLUDE_DIRS ${DXWIDGETS_INCLUDE_DIRS} ${WAYLANDPP_INCLUDE_DIRS})
+		set(DXWIDGETS_LIBS ${DXWIDGETS_LIBS} ${WAYLANDPP_LDFLAGS})
+		set(DXWIDGETS_DEFINES ${DXWIDGETS_DEFINES} -DUSE_WAYLAND)
 	endif()
 
 	# The system-font lookup asks GSettings what the desktop UI font is and
 	# resolves it with fontconfig. With neither available, resourcedata_unix.cpp
 	# looks for the usual font files. (The engine's own UI fonts are
-	# SurrealEngine.pk3's.)
+	# DXEngine.pk3's.)
 	if (GLIB_FOUND AND FONTCONFIG_FOUND)
-		set(SURREALWIDGETS_INCLUDE_DIRS ${SURREALWIDGETS_INCLUDE_DIRS} ${GLIB_INCLUDE_DIRS} ${FONTCONFIG_INCLUDE_DIRS})
-		set(SURREALWIDGETS_LIBS ${SURREALWIDGETS_LIBS} ${GLIB_LDFLAGS} -lgio-2.0 ${FONTCONFIG_LDFLAGS})
-		set(SURREALWIDGETS_DEFINES ${SURREALWIDGETS_DEFINES} -DSURREALWIDGETS_DESKTOP_FONTS)
+		set(DXWIDGETS_INCLUDE_DIRS ${DXWIDGETS_INCLUDE_DIRS} ${GLIB_INCLUDE_DIRS} ${FONTCONFIG_INCLUDE_DIRS})
+		set(DXWIDGETS_LIBS ${DXWIDGETS_LIBS} ${GLIB_LDFLAGS} -lgio-2.0 ${FONTCONFIG_LDFLAGS})
+		set(DXWIDGETS_DEFINES ${DXWIDGETS_DEFINES} -DDXWIDGETS_DESKTOP_FONTS)
 	endif()
 endif()
 
 if(SDL3_FOUND)
-	set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${SURREALWIDGETS_SDL3_SOURCES})
-	set(SURREALWIDGETS_DEFINES ${SURREALWIDGETS_DEFINES} -DUSE_SDL3)
+	set(DXWIDGETS_SOURCES ${DXWIDGETS_SOURCES} ${DXWIDGETS_SDL3_SOURCES})
+	set(DXWIDGETS_DEFINES ${DXWIDGETS_DEFINES} -DUSE_SDL3)
 endif()
 
 if(SDL2_FOUND AND NOT SDL3_FOUND)
-	set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${SURREALWIDGETS_SDL2_SOURCES})
-	set(SURREALWIDGETS_DEFINES ${SURREALWIDGETS_DEFINES} -DUSE_SDL2)
-	if(VIBE_SDL2_BORDERLESS_FULLSCREEN)
-		set(SURREALWIDGETS_DEFINES ${SURREALWIDGETS_DEFINES} -DVIBE_SDL2_BORDERLESS_FULLSCREEN)
+	set(DXWIDGETS_SOURCES ${DXWIDGETS_SOURCES} ${DXWIDGETS_SDL2_SOURCES})
+	set(DXWIDGETS_DEFINES ${DXWIDGETS_DEFINES} -DUSE_SDL2)
+	if(DXE_SDL2_BORDERLESS_FULLSCREEN)
+		set(DXWIDGETS_DEFINES ${DXWIDGETS_DEFINES} -DDXE_SDL2_BORDERLESS_FULLSCREEN)
 	endif()
 endif()
 
-add_library(surrealwidgets STATIC ${SURREALWIDGETS_SOURCES} ${SURREALWIDGETS_INCLUDES})
-target_compile_options(surrealwidgets PRIVATE ${SURREALWIDGETS_COMPILE_OPTIONS})
-target_compile_definitions(surrealwidgets PRIVATE ${SURREALWIDGETS_DEFINES})
-target_include_directories(surrealwidgets PRIVATE ${SURREALWIDGETS_INCLUDE_DIRS})
-target_link_options(surrealwidgets PRIVATE ${SURREALWIDGETS_LINK_OPTIONS})
-target_link_libraries(surrealwidgets PRIVATE ${SURREALWIDGETS_LIBS})
+add_library(dxwidgets STATIC ${DXWIDGETS_SOURCES} ${DXWIDGETS_INCLUDES})
+target_compile_options(dxwidgets PRIVATE ${DXWIDGETS_COMPILE_OPTIONS})
+target_compile_definitions(dxwidgets PRIVATE ${DXWIDGETS_DEFINES})
+target_include_directories(dxwidgets PRIVATE ${DXWIDGETS_INCLUDE_DIRS})
+target_link_options(dxwidgets PRIVATE ${DXWIDGETS_LINK_OPTIONS})
+target_link_libraries(dxwidgets PRIVATE ${DXWIDGETS_LIBS})
 # SDL can arrive either from find_package (which defines the imported target
 # and SDLn_LIBRARY) or from pkg-config (which defines SDLn_LIBRARIES instead).
 # Cross builds take the pkg-config path, where SDLn_LIBRARY is empty -- so try
 # all three rather than only the first two.
 if(SDL3_FOUND)
-	target_include_directories(surrealwidgets PRIVATE ${SDL3_INCLUDE_DIRS})
+	target_include_directories(dxwidgets PRIVATE ${SDL3_INCLUDE_DIRS})
 	if(TARGET SDL3::SDL3)
-		target_link_libraries(surrealwidgets PRIVATE SDL3::SDL3)
+		target_link_libraries(dxwidgets PRIVATE SDL3::SDL3)
 	elseif(SDL3_LIBRARIES)
-		target_link_libraries(surrealwidgets PRIVATE ${SDL3_LIBRARIES})
-		target_link_directories(surrealwidgets PRIVATE ${SDL3_LIBRARY_DIRS})
+		target_link_libraries(dxwidgets PRIVATE ${SDL3_LIBRARIES})
+		target_link_directories(dxwidgets PRIVATE ${SDL3_LIBRARY_DIRS})
 	else()
-		target_link_libraries(surrealwidgets PRIVATE ${SDL3_LIBRARY})
+		target_link_libraries(dxwidgets PRIVATE ${SDL3_LIBRARY})
 	endif()
 endif()
 if(SDL2_FOUND AND NOT SDL3_FOUND)
-	target_include_directories(surrealwidgets PRIVATE ${SDL2_INCLUDE_DIRS})
+	target_include_directories(dxwidgets PRIVATE ${SDL2_INCLUDE_DIRS})
 	if(TARGET SDL2::SDL2)
-		target_link_libraries(surrealwidgets PRIVATE SDL2::SDL2)
+		target_link_libraries(dxwidgets PRIVATE SDL2::SDL2)
 	elseif(SDL2_LIBRARIES)
-		target_link_libraries(surrealwidgets PRIVATE ${SDL2_LIBRARIES})
-		target_link_directories(surrealwidgets PRIVATE ${SDL2_LIBRARY_DIRS})
+		target_link_libraries(dxwidgets PRIVATE ${SDL2_LIBRARIES})
+		target_link_directories(dxwidgets PRIVATE ${SDL2_LIBRARY_DIRS})
 	else()
-		target_link_libraries(surrealwidgets PRIVATE ${SDL2_LIBRARY})
+		target_link_libraries(dxwidgets PRIVATE ${SDL2_LIBRARY})
 	endif()
 endif()
-set_target_properties(surrealwidgets PROPERTIES CXX_STANDARD 20)
-target_compile_options(surrealwidgets PRIVATE ${CXX_WARNING_FLAGS})
+set_target_properties(dxwidgets PROPERTIES CXX_STANDARD 20)
+target_compile_options(dxwidgets PRIVATE ${CXX_WARNING_FLAGS})

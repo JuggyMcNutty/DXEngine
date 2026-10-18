@@ -98,10 +98,10 @@ Engine::Engine(GameLaunchInfo launchinfo) : LaunchInfo(launchinfo)
 	auto transientpkg = packages->GetTransientPackage();
 	auto enginepkg = packages->GetPackage("Engine");
 	gameengine = UObject::Cast<UGameEngine>(transientpkg->NewObject("gameengine", enginepkg->GetClass("GameEngine"), ObjectFlags::Transient));
-	audiodev = UObject::Cast<USurrealAudioDevice>(transientpkg->NewObject("audiodev", enginepkg->GetClass("SurrealAudioDevice"), ObjectFlags::Transient));
-	renderdev = UObject::Cast<USurrealRenderDevice>(transientpkg->NewObject("renderdev", enginepkg->GetClass("SurrealRenderDevice"), ObjectFlags::Transient));
-	netdev = UObject::Cast<USurrealNetworkDevice>(transientpkg->NewObject("netdev", enginepkg->GetClass("SurrealNetworkDevice"), ObjectFlags::Transient));
-	client = UObject::Cast<USurrealClient>(transientpkg->NewObject("client", enginepkg->GetClass("SurrealClient"), ObjectFlags::Transient));
+	audiodev = UObject::Cast<UDXEngineAudioDevice>(transientpkg->NewObject("audiodev", enginepkg->GetClass("DXEngineAudioDevice"), ObjectFlags::Transient));
+	renderdev = UObject::Cast<UDXEngineRenderDevice>(transientpkg->NewObject("renderdev", enginepkg->GetClass("DXEngineRenderDevice"), ObjectFlags::Transient));
+	netdev = UObject::Cast<UDXEngineNetworkDevice>(transientpkg->NewObject("netdev", enginepkg->GetClass("DXEngineNetworkDevice"), ObjectFlags::Transient));
+	client = UObject::Cast<UDXEngineClient>(transientpkg->NewObject("client", enginepkg->GetClass("DXEngineClient"), ObjectFlags::Transient));
 	viewport = UObject::Cast<UViewport>(transientpkg->NewObject("viewport", enginepkg->GetClass("Viewport"), ObjectFlags::Transient));
 	canvas = UObject::Cast<UCanvas>(transientpkg->NewObject("canvas", enginepkg->GetClass("Canvas"), ObjectFlags::Transient));
 	DefaultTexture = UObject::Cast<UTexture>(packages->GetPackage("Engine")->GetUObject("Texture", "DefaultTexture"));
@@ -156,7 +156,7 @@ Engine::~Engine()
 	if (audiodev)
 		audiodev->ShutdownDevice();
 
-	Logger::Get()->SaveLogAsPlaintext((Directory::engineUserDir() / "SE-Log-LastRun.txt").string());
+	Logger::Get()->SaveLogAsPlaintext((Directory::engineUserDir() / "DXE-Log-LastRun.txt").string());
 
 	engine = nullptr;
 }
@@ -245,7 +245,7 @@ void Engine::Run()
 
 	bool firstCall = true;
 
-	if (const char* stress = std::getenv("SURREAL_GC_STRESS"))
+	if (const char* stress = std::getenv("DXE_GC_STRESS"))
 		GarbageStressFrames = std::max(std::atoi(stress), 0);
 
 	std::unique_ptr<Timeline> timeline;
@@ -495,14 +495,14 @@ void Engine::Run()
 
 	LogMessage("Saving configurations...");
 	RestoreRunOnlySettings();
-	if (packages->MissingSESystemIni())
+	if (packages->MissingDXESystemIni())
 	{
 		// Add the missing Subsystem entries
 		client->SaveConfig();
 		audiodev->SaveConfig();
 		renderdev->SaveConfig();
 	}
-	packages->SetIniValue("System", "Engine.SurrealWindowSystem", "WindowSystem", windowingSystemName);
+	packages->SetIniValue("System", "Engine.DXEngineWindowSystem", "WindowSystem", windowingSystemName);
 	packages->SaveAllIniFiles();
 
 	LogMessage("Closing window...");
@@ -1656,7 +1656,7 @@ void Engine::SetMultiplayerName(UnrealURL& url)
 {
 	std::string name = url.GetOption("Name");
 	if (name.empty() || name == "Player")
-		url.AddOrReplaceOption("Name=VibePlayer");
+		url.AddOrReplaceOption("Name=DXEnginePlayer");
 }
 
 void Engine::LoginPlayer(const UnrealURL& loginURL)
@@ -2640,7 +2640,7 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
 
 void Engine::LoadEngineSettings()
 {
-	if (packages->MissingSESystemIni())
+	if (packages->MissingDXESystemIni())
 	{
 		client->LoadProperties("WinDrv.WindowsClient");
 		audiodev->LoadProperties("Galaxy.GalaxyAudioSubsystem");
@@ -2656,9 +2656,9 @@ void Engine::LoadEngineSettings()
 	}
 
 #ifdef WIN32
-	windowingSystemName = packages->GetIniValue("System", "Engine.SurrealWindowSystem", "WindowSystem", "Win32");
+	windowingSystemName = packages->GetIniValue("System", "Engine.DXEngineWindowSystem", "WindowSystem", "Win32");
 #else
-	windowingSystemName = packages->GetIniValue("System", "Engine.SurrealWindowSystem", "WindowSystem", "SDL2");
+	windowingSystemName = packages->GetIniValue("System", "Engine.DXEngineWindowSystem", "WindowSystem", "SDL2");
 #endif
 }
 
@@ -2733,7 +2733,7 @@ void Engine::OpenWindow()
 
 	std::string versionString = !LaunchInfo.gameVersionString.empty() ? " (v" + LaunchInfo.gameVersionString + ")" : "";
 
-	window->SetWindowTitle(LaunchInfo.gameName + versionString + " - Surreal Engine");
+	window->SetWindowTitle(LaunchInfo.gameName + versionString + " - DXEngine");
 	window->SetFrameGeometry(Rect::xywh(0.0, 0.0, width, height));
 	viewport->SetViewportRect(0, 0, width, height);
 

@@ -387,7 +387,7 @@ fs::path Directory::engineUserDir()
 {
 	if (!EngineUserDirOverride().empty())
 		return fs::path(EngineUserDirOverride());
-	return localAppData() / "SurrealEngine";
+	return localAppData() / "DXEngine";
 }
 
 void Directory::setEngineUserDir(const std::string& path)

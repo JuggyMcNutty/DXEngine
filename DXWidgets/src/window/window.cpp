@@ -86,7 +86,7 @@ std::unique_ptr<DisplayBackend> DisplayBackend::TryCreateBackend()
 {
 	std::unique_ptr<DisplayBackend> backend;
 	// Check if there is an environment variable specified for the desired backend
-	const char* backendSelectionEnv = std::getenv("SURREALWIDGETS_DISPLAY_BACKEND");
+	const char* backendSelectionEnv = std::getenv("DXE_DISPLAY_BACKEND");
 	if (backendSelectionEnv)
 	{
 		std::string backendSelectionStr(backendSelectionEnv);

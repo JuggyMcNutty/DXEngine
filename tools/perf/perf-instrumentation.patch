@@ -1,21 +1,21 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 4cbbf8c..fcc6c56 100644
+index 159f2bd..389cb2d 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -12,6 +12,11 @@ endif()
  
- project(SurrealEngine)
+ project(DXEngine)
  
-+# TEMPORARY DEBUG TOOL: frame pointers, for SURREAL_PERF_SAMPLE's stack walk (Utils/PerfLog.h)
++# TEMPORARY DEBUG TOOL: frame pointers, for DXE_PERF_SAMPLE's stack walk (Utils/PerfLog.h)
 +if(NOT MSVC)
 +	add_compile_options(-fno-omit-frame-pointer)
 +endif()
 +
- set(SURREALCOMMON_SOURCES
+ set(DXCOMMON_SOURCES
  	DXEngine/Precomp.cpp
  	DXEngine/Precomp.h
 diff --git a/DXEngine/Engine.cpp b/DXEngine/Engine.cpp
-index 0389bd6..420a779 100644
+index fc834e7..a1e52a2 100644
 --- a/DXEngine/Engine.cpp
 +++ b/DXEngine/Engine.cpp
 @@ -2,6 +2,7 @@
@@ -441,13 +441,13 @@ index 49f2c20..8bee7d8 100644
  			renderer->Uploads->UploadTextureRect(tex.get(), *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
 diff --git a/DXEngine/Utils/PerfLog.h b/DXEngine/Utils/PerfLog.h
 new file mode 100644
-index 0000000..9bfa73b
+index 0000000..2adc2c9
 --- /dev/null
 +++ b/DXEngine/Utils/PerfLog.h
 @@ -0,0 +1,505 @@
 +// TEMPORARY DEBUG TOOL -- revert before commit.
 +//
-+// Frame-time breakdown for profiling on the handheld. With SURREAL_PERF_LOG=1
++// Frame-time breakdown for profiling on the handheld. With DXE_PERF_LOG=1
 +// every 60 frames prints, to stderr, where the average frame went: input,
 +// game tick, camera/audio, and rendering -- with rendering split into the
 +// time the CPU spends waiting on the GPU (fence), on the swapchain (acquire)
@@ -457,11 +457,11 @@ index 0000000..9bfa73b
 +// counts under "portals"), each exclusive of the waits, lightmap builds and
 +// texture uploads inside it, with the share spent under script calls.
 +//
-+// SURREAL_PERF_DETAIL=1 adds tick by actor class and script functions by self
++// DXE_PERF_DETAIL=1 adds tick by actor class and script functions by self
 +// time. Those hooks run on every actor tick and every VM call, so they inflate
 +// what they measure: leave them off when the frame time itself matters.
 +//
-+// SURREAL_PERF_SAMPLE=<file> is a sampling profiler for devices without perf
++// DXE_PERF_SAMPLE=<file> is a sampling profiler for devices without perf
 +// (the handheld's kernel has no perf events). The main thread's CPU time is
 +// sampled every millisecond, or every scheduler tick where CPU-time timers
 +// are only checked that often (every 4 ms on the handheld: each block records
@@ -663,7 +663,7 @@ index 0000000..9bfa73b
 +		static int enabled = -1;
 +		if (enabled < 0)
 +		{
-+			const char* v = std::getenv("SURREAL_PERF_LOG");
++			const char* v = std::getenv("DXE_PERF_LOG");
 +			enabled = (v && v[0] == '1') ? 1 : 0;
 +		}
 +		return enabled == 1;
@@ -674,7 +674,7 @@ index 0000000..9bfa73b
 +		static int detail = -1;
 +		if (detail < 0)
 +		{
-+			const char* v = std::getenv("SURREAL_PERF_DETAIL");
++			const char* v = std::getenv("DXE_PERF_DETAIL");
 +			detail = (Enabled() && v && v[0] == '1') ? 1 : 0;
 +		}
 +		return detail == 1;
@@ -767,14 +767,14 @@ index 0000000..9bfa73b
 +	// Events per interval: lightmaps rebuilt, textures uploaded.
 +	inline int& Counter(int slot) { static int c[Count]; return c[slot]; }
 +
-+	// SURREAL_PERF_TURN=<aBaseX> makes the player turn on the spot, so a run
++	// DXE_PERF_TURN=<aBaseX> makes the player turn on the spot, so a run
 +	// with nobody at the pad still brings new surfaces into view.
 +	inline float TurnSpeed()
 +	{
 +		static float speed = -1.0f;
 +		if (speed < 0.0f)
 +		{
-+			const char* v = std::getenv("SURREAL_PERF_TURN");
++			const char* v = std::getenv("DXE_PERF_TURN");
 +			speed = v ? (float)std::atof(v) : 0.0f;
 +		}
 +		return speed;
@@ -842,7 +842,7 @@ index 0000000..9bfa73b
 +		if (!samplerStarted)
 +		{
 +			samplerStarted = true;
-+			if (const char* path = std::getenv("SURREAL_PERF_SAMPLE"); path && path[0])
++			if (const char* path = std::getenv("DXE_PERF_SAMPLE"); path && path[0])
 +				Sampler::Start(path);
 +		}
 +		State& s = Get();

@@ -1130,10 +1130,11 @@ server-only stubs are under
   fork's server (`JoinConsole`'s jumps); why the fork's waits longer is
   unread. At a wall 0.02 units; standing, none.
 - **The player's name in a net game**: a name the player never chose --
-  none, or the game's stock `Player` -- logs in as `VibePlayer`, a client's
-  to its server and a listen server's host's, by choice, so the fork's
-  players show as such (`Engine::SetMultiplayerName`). A name the player
-  chose is kept; single player, the menus and the inis keep the game's.
+  none, or the game's stock `Player` -- logs in as `DXEnginePlayer`, a
+  client's to its server and a listen server's host's, by choice, so the
+  fork's players show as such (`Engine::SetMultiplayerName`). A name the
+  player chose is kept; single player, the menus and the inis keep the
+  game's.
 
 As in the original:
 

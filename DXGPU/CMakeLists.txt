@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.11)
-project(surrealgpu)
+project(dxgpu)
 
-set(SURREALGPU_SOURCES
+set(DXGPU_SOURCES
 	src/vulkanbuilders.cpp
 	src/vulkandevice.cpp
 	src/vulkaninstance.cpp
@@ -115,7 +115,7 @@ set(SURREALGPU_SOURCES
 	src/glslang/spirv/CInterface/spirv_c_interface.cpp
 )
 
-set(SURREALGPU_INCLUDES
+set(DXGPU_INCLUDES
 	include/dxgpu/vulkanbuilders.h
 	include/dxgpu/vulkancompatibledevice.h
 	include/dxgpu/vulkandevice.h
@@ -127,11 +127,11 @@ set(SURREALGPU_INCLUDES
 	include/dxgpu/vk_mem_alloc/vk_mem_alloc.h
 )
 
-set(SURREALGPU_WIN32_SOURCES
+set(DXGPU_WIN32_SOURCES
 	src/glslang/glslang/OSDependent/Windows/ossource.cpp
 )
 
-set(SURREALGPU_UNIX_SOURCES
+set(DXGPU_UNIX_SOURCES
 	src/glslang/glslang/OSDependent/Unix/ossource.cpp
 )
 
@@ -187,11 +187,11 @@ source_group("include\\volk" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/inc
 include_directories(include include/dxgpu src)
 
 if(WIN32)
-	set(SURREALGPU_SOURCES ${SURREALGPU_SOURCES} ${SURREALGPU_WIN32_SOURCES})
+	set(DXGPU_SOURCES ${DXGPU_SOURCES} ${DXGPU_WIN32_SOURCES})
 	add_definitions(-DUNICODE -D_UNICODE)
 else()
-	set(SURREALGPU_SOURCES ${SURREALGPU_SOURCES} ${SURREALGPU_UNIX_SOURCES})
-	set(SURREALGPU_LIBS ${CMAKE_DL_LIBS} -ldl)
+	set(DXGPU_SOURCES ${DXGPU_SOURCES} ${DXGPU_UNIX_SOURCES})
+	set(DXGPU_LIBS ${CMAKE_DL_LIBS} -ldl)
 	add_definitions(-DUNIX -D_UNIX)
 	add_link_options(-pthread)
 endif()
@@ -201,7 +201,7 @@ if(MSVC)
 	set(CMAKE_CXX_FLAGS "/MP ${CMAKE_CXX_FLAGS}")
 
 	# Ignore warnings in third party code
-	#set_source_files_properties(${SURREALGPU_SOURCES} PROPERTIES COMPILE_FLAGS "/wd4244 /wd4267 /wd4005 /wd4018 -D_CRT_SECURE_NO_WARNINGS")
+	#set_source_files_properties(${DXGPU_SOURCES} PROPERTIES COMPILE_FLAGS "/wd4244 /wd4267 /wd4005 /wd4018 -D_CRT_SECURE_NO_WARNINGS")
 endif()
 
 # GCC 13 takes std::vector<bool>::reserve in glslang's spvIR.h, inlined into
@@ -211,6 +211,6 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_
 	set_source_files_properties(src/glslang/spirv/GlslangToSpv.cpp PROPERTIES COMPILE_OPTIONS -Wno-stringop-overflow)
 endif()
 
-add_library(surrealgpu STATIC ${SURREALGPU_SOURCES} ${SURREALGPU_INCLUDES} ${VULKAN_INCLUDES})
-target_link_libraries(surrealgpu ${SURREALGPU_LIBS})
-set_target_properties(surrealgpu PROPERTIES CXX_STANDARD 17)
+add_library(dxgpu STATIC ${DXGPU_SOURCES} ${DXGPU_INCLUDES} ${VULKAN_INCLUDES})
+target_link_libraries(dxgpu ${DXGPU_LIBS})
+set_target_properties(dxgpu PROPERTIES CXX_STANDARD 17)

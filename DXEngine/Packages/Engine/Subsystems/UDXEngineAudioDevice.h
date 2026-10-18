@@ -31,12 +31,12 @@ struct PlayingSound
 	float ObstructionTime = 0.0f;   // Deus Ex: how long the level's BSP has stood in the way, 0 to 0.5 s
 };
 
-class USurrealAudioDevice : public UAudioSubsystem
+class UDXEngineAudioDevice : public UAudioSubsystem
 {
 public:
 	using UAudioSubsystem::UAudioSubsystem;
 
-	std::string Class = "Engine.SurrealAudioDevice";
+	std::string Class = "Engine.DXEngineAudioDevice";
 	bool UseFilter = true;
 	bool UseSurround = true;
 	bool UseStereo = true;

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(SurrealEngine)
+project(DXEngine)
 
 add_subdirectory(Thirdparty/openmpt)
 add_subdirectory(DXGPU)
@@ -10,9 +10,9 @@ if (WIN32)
 	add_subdirectory(Thirdparty/openal-soft)
 endif()
 
-project(SurrealEngine)
+project(DXEngine)
 
-set(SURREALCOMMON_SOURCES
+set(DXCOMMON_SOURCES
 	DXEngine/Precomp.cpp
 	DXEngine/Precomp.h
 	DXEngine/GameApp.cpp
@@ -708,7 +708,7 @@ set(SURREALCOMMON_SOURCES
 	DXEngine/UI/ErrorWindow/ErrorWindow.h
 )
 
-set(SURREALCOMMON_WIN32_SOURCES
+set(DXCOMMON_WIN32_SOURCES
 	DXEngine/DXEngine.natvis
 	DXEngine/Utils/ComPtr.h
 	DXEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp
@@ -760,23 +760,23 @@ set(THIRDPARTY_WIN32_SOURCES
 set(THIRDPARTY_UNIX_SOURCES
 )
 
-set(SURREALCOMMON_LIBS
-	surrealgpu
-	surrealwidgets
+set(DXCOMMON_LIBS
+	dxgpu
+	dxwidgets
 	openmpt
 )
 
-set(SURREALCOMMON_WIN32_LIBS
+set(DXCOMMON_WIN32_LIBS
 	OpenAL
 	DbgHelp
 	Shlwapi
 )
 
-set(SURREALCOMMON_UNIX_LIBS
+set(DXCOMMON_UNIX_LIBS
 	openal
 )
 
-set(SURREALENGINE_SOURCES
+set(DXENGINE_SOURCES
 	DXEngine/MainGame.cpp
 )
 
@@ -841,14 +841,14 @@ source_group("Thirdparty\\kissfft" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DI
 include_directories(DXEngine DXWidgets/include Thirdparty DXGPU/include Thirdparty/openmpt Thirdparty/openal-soft/include Thirdparty/miniz)
 
 if(WIN32)
-	set(SURREALCOMMON_SOURCES ${SURREALCOMMON_SOURCES} ${SURREALCOMMON_WIN32_SOURCES})
-	set(SURREALENGINE_SOURCES ${SURREALENGINE_SOURCES} Win32Resources/DXEngine.rc Win32Resources/DXEngine.manifest)
-	set(SURREALCOMMON_LIBS ${SURREALCOMMON_LIBS} ${SURREALCOMMON_WIN32_LIBS})
+	set(DXCOMMON_SOURCES ${DXCOMMON_SOURCES} ${DXCOMMON_WIN32_SOURCES})
+	set(DXENGINE_SOURCES ${DXENGINE_SOURCES} Win32Resources/DXEngine.rc Win32Resources/DXEngine.manifest)
+	set(DXCOMMON_LIBS ${DXCOMMON_LIBS} ${DXCOMMON_WIN32_LIBS})
 	set(THIRDPARTY_SOURCES ${THIRDPARTY_SOURCES} ${THIRDPARTY_WIN32_SOURCES})
 	add_definitions(-DUNICODE -D_UNICODE -D_CRT_SECURE_NO_WARNINGS)
 else()
-	set(SURREALCOMMON_SOURCES ${SURREALCOMMON_SOURCES})
-	set(SURREALCOMMON_LIBS ${SURREALCOMMON_LIBS} ${SURREALCOMMON_UNIX_LIBS} ${CMAKE_DL_LIBS})
+	set(DXCOMMON_SOURCES ${DXCOMMON_SOURCES})
+	set(DXCOMMON_LIBS ${DXCOMMON_LIBS} ${DXCOMMON_UNIX_LIBS} ${CMAKE_DL_LIBS})
 	set(THIRDPARTY_SOURCES ${THIRDPARTY_SOURCES} ${THIRDPARTY_UNIX_SOURCES})
 	add_definitions(-DUNIX -D_UNIX)
 	add_link_options(-pthread)
@@ -862,14 +862,14 @@ if(MSVC)
 	set_source_files_properties(${THIRDPARTY_SOURCES} PROPERTIES COMPILE_FLAGS "/wd4244 /wd4267 /wd4005 /wd4018 /wd4101 -D_CRT_SECURE_NO_WARNINGS")
 endif()
 
-add_library(SurrealCommon STATIC ${SURREALCOMMON_SOURCES} ${THIRDPARTY_SOURCES})
-set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
-target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/Precomp.h>)
+add_library(DXCommon STATIC ${DXCOMMON_SOURCES} ${THIRDPARTY_SOURCES})
+set_target_properties(DXCommon PROPERTIES CXX_STANDARD 20)
+target_precompile_headers(DXCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/Precomp.h>)
 include(cmake/version.cmake)
 
-add_executable(SurrealEngine WIN32 ${SURREALENGINE_SOURCES})
-target_link_libraries(SurrealEngine SurrealCommon ${SURREALCOMMON_LIBS})
-set_target_properties(SurrealEngine PROPERTIES CXX_STANDARD 20)
+add_executable(DXEngine WIN32 ${DXENGINE_SOURCES})
+target_link_libraries(DXEngine DXCommon ${DXCOMMON_LIBS})
+set_target_properties(DXEngine PROPERTIES CXX_STANDARD 20)
 
 function( create_zip_source_groups FOLDER_NAME ZIP_DIR )
 	file(GLOB ZIP_SRCS ${ZIP_DIR}/*)
@@ -949,21 +949,21 @@ if (NOT ZIPDIR_EXECUTABLE)
 	set_target_properties(zipdir PROPERTIES C_STANDARD 17)
 endif()
 
-add_zip(SurrealEngine.pk3 ${CMAKE_CURRENT_SOURCE_DIR}/Resources)
+add_zip(DXEngine.pk3 ${CMAKE_CURRENT_SOURCE_DIR}/Resources)
 
-add_dependencies(SurrealEngine Resources)
+add_dependencies(DXEngine Resources)
 
 if(WIN32)
-	add_custom_command(TARGET SurrealEngine POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:OpenAL::OpenAL>" $<TARGET_FILE_DIR:SurrealEngine>)
+	add_custom_command(TARGET DXEngine POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:OpenAL::OpenAL>" $<TARGET_FILE_DIR:DXEngine>)
 endif()
 
-add_custom_command(TARGET SurrealEngine POST_BUILD
+add_custom_command(TARGET DXEngine POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
-	"${CMAKE_BINARY_DIR}/SurrealEngine.pk3"
-	$<TARGET_FILE_DIR:SurrealEngine>
+	"${CMAKE_BINARY_DIR}/DXEngine.pk3"
+	$<TARGET_FILE_DIR:DXEngine>
 )
 
 if(MSVC)
 	# Create stripped PDBs for nightly builds
-	set_target_properties(SurrealEngine PROPERTIES LINK_FLAGS_RELWITHDEBINFO /PDBSTRIPPED:${CMAKE_CURRENT_BINARY_DIR}/RelWithDebInfo/SurrealEngine-stripped.pdb)
+	set_target_properties(DXEngine PROPERTIES LINK_FLAGS_RELWITHDEBINFO /PDBSTRIPPED:${CMAKE_CURRENT_BINARY_DIR}/RelWithDebInfo/DXEngine-stripped.pdb)
 endif()

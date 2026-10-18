@@ -2,12 +2,12 @@
 
 #include "UClient.h"
 
-class USurrealClient : public UClient
+class UDXEngineClient : public UClient
 {
 public:
 	using UClient::UClient;
 
-	std::string Class = "Engine.SurrealClient";
+	std::string Class = "Engine.DXEngineClient";
 	bool StartupFullscreen = false;
 	int WindowedViewportX = 1920;
 	int WindowedViewportY = 1080;

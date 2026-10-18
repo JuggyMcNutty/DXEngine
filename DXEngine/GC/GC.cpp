@@ -222,7 +222,7 @@ GCCollectResult GC::Collect(const std::function<void(GCMarker&)>& markRoots, con
 	// to what it referred to when it was loaded, so it is walked when code
 	// was loaded or found since the last such walk (GC::CodeChanged), and
 	// the collectable objects and names it reached are kept from a list
-	// until then. SURREAL_GC_VERIFY walks it every collection and reports
+	// until then. DXE_GC_VERIFY walks it every collection and reports
 	// what the list would have missed (CodeKeptMissed).
 	marker.CodeHolder = true;
 	bool walkAll = codeChanged || options.Verify;

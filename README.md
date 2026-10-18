@@ -51,23 +51,23 @@ list. Then:
 git clone https://github.com/JuggyMcNutty/VibeEngine.git
 cd VibeEngine
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --target SurrealEngine -j"$(nproc)"
+cmake --build build --target DXEngine -j"$(nproc)"
 ```
 
 Its SDL window is SDL3's when SDL3 is found, else SDL2's: either has the fork's gamepad support,
-which its X11 and Wayland windows lack, and is the window when `SURREALWIDGETS_DISPLAY_BACKEND`
+which its X11 and Wayland windows lack, and is the window when `DXE_DISPLAY_BACKEND`
 names it ([the gamepad](docs/ENGINE.md#running-on-our-devices)). The build leaves two files
 in `build/` that go together:
 
-- `SurrealEngine`, the engine: the executable keeps upstream's name;
-- `SurrealEngine.pk3`, its resources (the UI's fonts among them), found beside the executable.
+- `DXEngine`, the engine;
+- `DXEngine.pk3`, its resources (the UI's fonts among them), found beside the executable.
 
 ### Running it
 
 Give it the game's folder, or start it from the game's `System` folder:
 
 ```sh
-build/SurrealEngine /path/to/deusex
+build/DXEngine /path/to/deusex
 ```
 
 It draws with Vulkan unless its settings name another device, so it needs the GPU's Vulkan
@@ -87,8 +87,8 @@ The build's own switches:
 | `ENABLE_SDL2` | `ON` | The SDL2 window backend, built when SDL3's is not. |
 | `ENABLE_SDL3` | `ON` | The SDL3 backend: when SDL3 is found, it is built in place of SDL2's. |
 | `ENABLE_X11`, `ENABLE_WAYLAND` | `ON` | The desktop's window backends; off for a device with neither. |
-| `VIBE_SDL2_BORDERLESS_FULLSCREEN` | `OFF` | SDL2's fullscreen as a borderless window, for a vendor SDL2 that deadlocks in `SDL_SetWindowFullscreen`. |
-| `ZIPDIR_EXECUTABLE` | unset | A host-built `zipdir` to pack `SurrealEngine.pk3` with when cross-compiling. |
+| `DXE_SDL2_BORDERLESS_FULLSCREEN` | `OFF` | SDL2's fullscreen as a borderless window, for a vendor SDL2 that deadlocks in `SDL_SetWindowFullscreen`. |
+| `ZIPDIR_EXECUTABLE` | unset | A host-built `zipdir` to pack `DXEngine.pk3` with when cross-compiling. |
 
 - **A port's build** is an initial cache (`cmake -C`), `ports/<id>/engine.cmake` on the port's
   launcher branch: the desktop's toolchain and switches
@@ -101,7 +101,7 @@ The build's own switches:
   ([crashes](docs/DEVELOPMENT.md#crashes)).
 - **Profiling and validation**: [measuring it](docs/ENGINE.md#measuring-it).
 - **Kept, but neither built nor tested here**: the D3D11 device and the Win32 code it needs
-  (SurrealWidgets' Win32 backend, `Win32Resources/`, the natvis, the vendored OpenAL Soft, the
+  (DXWidgets' Win32 backend, `Win32Resources/`, the natvis, the vendored OpenAL Soft, the
   crash reporter's Windows part).
 
 ## License

@@ -72,7 +72,7 @@ void ErrorWindow::ExecModal(const std::string& text, const std::list<LogMessageL
 
 ErrorWindow::ErrorWindow(Array<uint8_t> initminidump) : Widget(nullptr, WidgetType::Window), minidump(std::move(initminidump))
 {
-	SetWindowTitle("Fatal Error - Surreal Engine");
+	SetWindowTitle("Fatal Error - DXEngine");
 	SetWindowBackground(Colorf::fromRgba8(51, 51, 51));
 	SetWindowBorderColor(Colorf::fromRgba8(51, 51, 51));
 	SetWindowCaptionColor(Colorf::fromRgba8(33, 33, 33));

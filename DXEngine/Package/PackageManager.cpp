@@ -950,13 +950,16 @@ void PackageManager::SetIniValues(NameString iniName, const NameString& sectionN
 	LoadIniFile(iniName)->SetValues(sectionName, keyName, newValues);
 }
 
+// The engine's own inis, beside the game's: DXE-<game>.ini and DXE-User.ini.
+static const std::string EngineIniPrefix = "DXE-";
+
 void PackageManager::SaveAllIniFiles()
 {
 	for (auto& iniFile: iniFiles)
 	{
 		if (iniFile.first == launchInfo.gameExecutableName || iniFile.first == "System")
 		{
-			const std::string engineIniName = "SE-" + iniFile.first.ToString() + ".ini";
+			const std::string engineIniName = EngineIniPrefix + iniFile.first.ToString() + ".ini";
 			if (!launchInfo.systemIniPath.empty())
 				iniFile.second->UpdateIfExists(launchInfo.systemIniPath);
 			else
@@ -967,7 +970,7 @@ void PackageManager::SaveAllIniFiles()
 			if (!launchInfo.userIniPath.empty())
 				iniFile.second->UpdateIfExists(launchInfo.userIniPath);
 			else
-				iniFile.second->UpdateIfExists((gameSystemFolderPath / "SE-User.ini").string());
+				iniFile.second->UpdateIfExists((gameSystemFolderPath / (EngineIniPrefix + "User.ini")).string());
 		}
 		else if (Directory::hasEngineUserDir())
 			iniFile.second->UpdateIfExists(iniFile.second->GetPath());   // its copy may not be there yet
@@ -988,17 +991,17 @@ void PackageManager::LoadPackageRemaps()
 
 void PackageManager::LoadEngineIniFiles()
 {
-	// Load SE-[GameName].ini and SE-User.ini from the appropriate places
+	// Load DXE-[GameName].ini and DXE-User.ini from the appropriate places
 	// If they do not exist, import the appropriate [GameName].ini and User.ini files
 	// If those also do not exist, import Default.ini and DefUser.ini files
 	const auto systemIniName = launchInfo.gameExecutableName;
-	std::string systemIniFileName = "SE-" + systemIniName + ".ini";
-	std::string userIniName = "SE-User.ini";
+	std::string systemIniFileName = EngineIniPrefix + systemIniName + ".ini";
+	std::string userIniName = EngineIniPrefix + "User.ini";
 
 	if ( !File::try_open_existing((gameSystemFolderPath / systemIniFileName).string()) )
 	{
-		missing_se_system_ini = true;
-		systemIniFileName = systemIniFileName.substr(3); // Trim off the "SE-" part
+		missing_dxe_system_ini = true;
+		systemIniFileName = systemIniFileName.substr(EngineIniPrefix.size()); // Trim off the "DXE-" part
 		if (!File::try_open_existing((gameSystemFolderPath / systemIniFileName).string()))
 			systemIniFileName = "Default.ini"; // use the default ini as a last resort
 	}
@@ -1009,11 +1012,11 @@ void PackageManager::LoadEngineIniFiles()
 	// --ini and --userini name the files outright, read and written back,
 	// as the original's INI= and USERINI= do. The file named is the engine's
 	// own when it has the engine's sections; otherwise it is a game's, and
-	// the settings come from the game's sections, as without an SE- ini.
+	// the settings come from the game's sections, as without a DXE- ini.
 	if (!launchInfo.systemIniPath.empty())
 	{
 		iniFiles[systemIniName] = std::make_unique<IniFile>(launchInfo.systemIniPath);
-		missing_se_system_ini = iniFiles[systemIniName]->GetKeys("Engine.SurrealAudioDevice").empty();
+		missing_dxe_system_ini = iniFiles[systemIniName]->GetKeys("Engine.DXEngineAudioDevice").empty();
 	}
 	else
 	{
@@ -1022,7 +1025,7 @@ void PackageManager::LoadEngineIniFiles()
 
 	if (!File::try_open_existing((gameSystemFolderPath / userIniName).string()))
 	{
-		userIniName = userIniName.substr(3); // Trim off the "SE-" part
+		userIniName = userIniName.substr(EngineIniPrefix.size()); // Trim off the "DXE-" part
 		if (!File::try_open_existing((gameSystemFolderPath / userIniName).string()))
 			userIniName = "DefUser.ini";
 	}
@@ -1171,9 +1174,9 @@ bool PackageManager::FindLocalized(NameString packageName, const NameString& sec
 {
 	if (packageName == "Engine" && keyName == "ClassCaption")
 	{
-		if (sectionName == "SurrealRenderDevice") { value = "Surreal Graphics"; return true; }
-		else if (sectionName == "SurrealAudioDevice") { value = "Surreal Audio"; return true; }
-		else if (sectionName == "SurrealNetworkDevice") { value = "Surreal Network"; return true; }
+		if (sectionName == "DXEngineRenderDevice") { value = "DXEngine Graphics"; return true; }
+		else if (sectionName == "DXEngineAudioDevice") { value = "DXEngine Audio"; return true; }
+		else if (sectionName == "DXEngineNetworkDevice") { value = "DXEngine Network"; return true; }
 	}
 
 	// A package with no .int at the start: one made since, looked for once.
@@ -1423,10 +1426,10 @@ void PackageManager::RegisterNativeClasses()
 	RegisterNativeClass<UActorChannel>(enginePackage, "ActorChannel", "Channel");
 	RegisterNativeClass<UFileChannel>(enginePackage, "FileChannel", "Channel");
 
-	RegisterNativeClass<USurrealRenderDevice>(enginePackage, "SurrealRenderDevice", "RenderDevice");
-	RegisterNativeClass<USurrealAudioDevice>(enginePackage, "SurrealAudioDevice", "AudioSubsystem");
-	RegisterNativeClass<USurrealNetworkDevice>(enginePackage, "SurrealNetworkDevice", "NetDriver");
-	RegisterNativeClass<USurrealClient>(enginePackage, "SurrealClient", "Client");
+	RegisterNativeClass<UDXEngineRenderDevice>(enginePackage, "DXEngineRenderDevice", "RenderDevice");
+	RegisterNativeClass<UDXEngineAudioDevice>(enginePackage, "DXEngineAudioDevice", "AudioSubsystem");
+	RegisterNativeClass<UDXEngineNetworkDevice>(enginePackage, "DXEngineNetworkDevice", "NetDriver");
+	RegisterNativeClass<UDXEngineClient>(enginePackage, "DXEngineClient", "Client");
 
 	RegisterNativeClass<UActor>(enginePackage, "Actor", "Object");
 	RegisterNativeClass<ULight>(enginePackage, "Light", "Actor");

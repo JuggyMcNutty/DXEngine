@@ -37,10 +37,10 @@ class UGameInfo;
 class UGameReplicationInfo;
 class UPlayerReplicationInfo;
 class UGameEngine;
-class USurrealRenderDevice;
-class USurrealAudioDevice;
-class USurrealNetworkDevice;
-class USurrealClient;
+class UDXEngineRenderDevice;
+class UDXEngineAudioDevice;
+class UDXEngineNetworkDevice;
+class UDXEngineClient;
 class BspSurface;
 class BspNode;
 class LightMapIndex;
@@ -174,7 +174,7 @@ public:
 	// let grow.
 	int GarbageDestroyedBacklog = 0;
 	static constexpr int GarbageDestroyedThreshold = 2048;
-	// SURREAL_GC_STRESS=<frames>: a collection every that many frames.
+	// DXE_GC_STRESS=<frames>: a collection every that many frames.
 	int GarbageStressFrames = 0;
 	int GarbageStressCount = 0;
 
@@ -224,10 +224,10 @@ public:
 	std::string ParseClassName(std::string className);
 
 	UGameEngine* gameengine = nullptr;
-	USurrealRenderDevice* renderdev = nullptr;
-	USurrealAudioDevice* audiodev = nullptr;
-	USurrealNetworkDevice* netdev = nullptr;
-	USurrealClient* client = nullptr;
+	UDXEngineRenderDevice* renderdev = nullptr;
+	UDXEngineAudioDevice* audiodev = nullptr;
+	UDXEngineNetworkDevice* netdev = nullptr;
+	UDXEngineClient* client = nullptr;
 	UViewport* viewport = nullptr;
 	UCanvas* canvas = nullptr;
 	UGC* dxgc = nullptr;
