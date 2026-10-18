@@ -2291,6 +2291,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 			return {};
 		}
 
+		// A save, ?loadgame=N and no map: loaded, as the original's open
+		// browses it, by the travel the game's LoadGame makes.
+		if (url.Map.empty() && url.HasOption("loadgame"))
+		{
+			ClientTravel(maparg, ETravelType::TRAVEL_Absolute, false);
+			return {};
+		}
+
 		// A map by its name, or its file's -- "open 01_NYC_UNATCOHQ.dx", as
 		// the original's opens it too.
 		std::string wanted = fs::path(url.Map).stem().string();

@@ -60,7 +60,9 @@ loaded, a save's or one returned to, then calls `PostPostBeginPlay`
 the original's does, with `?loadgame`: the game's `Login` keeps it as saved,
 and its `TravelPostAccept` spawns the level's mission script, which no save
 holds -- an object of a transient class is not written (`LoadConsole` over
-either engine's saves and the original's hub save, `ReturnConsole`). Before
+either engine's saves and the original's hub save, `ReturnConsole`). The
+console's `open ?loadgame=N` loads the slot as the game's own `LoadGame`
+does (`LoadConsole` with `Open`). Before
 a level is saved into `Current`, the augmentations, skills and flag base
 that travel with the player go from it, a decoration in its hands too
 (`PruneTravelActors`; `ReturnConsole`). The
