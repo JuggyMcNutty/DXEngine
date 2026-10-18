@@ -1012,8 +1012,8 @@ A mod gets the original's loader and natives:
   game's are, and by their extensions in any case, as the original's
   ([a package's file](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)).
 - **Its text.** Differs by choice: the `.int` files are read from each
-  folder of the paths, in their order, then from `System`, where the
-  original reads them from `System` alone
+  folder of the paths, in their order, and from `System` after them when
+  they do not name it, where the original reads them from `System` alone
   ([the .int files](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-int-files)).
   So a mod's folders, named before the game's in its ini, give its text and
   the objects its files register with no file of it in `System`. The first

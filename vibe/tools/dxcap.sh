@@ -287,7 +287,7 @@ EOF
         system="$GAME/System"
         printf '%s/*.u\n' "$first"
     fi
-    printf '%s\\*.u\n' "$(realpath -m --relative-to="$system" "$second" | tr / '\\')"
+    printf '%s\\*.u\n' "$(realpath -m -s --relative-to="$system" "$second" | tr / '\\')"
 }
 
 # make_ini <original|fork> <console> <out>: the game's DeusEx.ini with the

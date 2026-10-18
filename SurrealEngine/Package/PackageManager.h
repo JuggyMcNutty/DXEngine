@@ -174,7 +174,8 @@ private:
 	std::map<NameString, std::unique_ptr<IniFile>> iniFiles;
 	// Each package's .int files, in the order of the folders they are in.
 	std::map<NameString, std::vector<std::unique_ptr<IniFile>>> intFiles;
-	// Where a .int is looked for, in order: the paths' folders, then System.
+	// Where a .int is looked for, in order: the paths' folders as they name
+	// them, System among them where they name it, else last.
 	Array<fs::path> intFolders;
 	std::map<std::string, std::string> packageRemaps;
 	std::map<NameString, Package*> saveInfos;

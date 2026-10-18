@@ -1042,21 +1042,23 @@ void PackageManager::LoadFileExtensions()
 	saveExtension = systemIni->GetValue("URL", "SaveExt", "usa");
 }
 
-// A name before another in any case, as Windows lists a folder's files.
+// A name before another in any case, as Windows lists a folder's files:
+// by their upper case.
 static bool NameBefore(const std::string& a, const std::string& b)
 {
 	return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(),
-		[](char x, char y) { return std::tolower((unsigned char)x) < std::tolower((unsigned char)y); });
+		[](char x, char y) { return std::toupper((unsigned char)x) < std::toupper((unsigned char)y); });
 }
 
-// The .int files, from each of the paths' folders in their order, then
-// System's, as packages are found: the folders of a mod, named before the
-// game's, give their text and the objects their files register before the
-// game's files do -- the first folder to give a key's text gives it
-// (FindLocalized), the first to register an object registers it. A
-// departure: the original reads them from System alone
-// (vibe/docs/NATIVES.md, mods). A folder's files are read in their names'
-// order, as the original finds them.
+// The .int files, from each of the paths' folders in their order -- System
+// where they name it, else after them --, as packages are found: the
+// folders of a mod, named before the game's, give their text and the
+// objects their files register before the game's files do -- the first
+// folder to give a key's text gives it (FindLocalized), the first to
+// register an object registers it. A departure: the original reads them
+// from System alone (vibe/docs/NATIVES.md, mods). A folder's files are read
+// in their names' order, as the original finds them; one that cannot be
+// read is passed over.
 void PackageManager::LoadIntFiles()
 {
 	for (const std::string& path : GetIniValues("system", "Core.System", "Paths"))
@@ -1081,22 +1083,25 @@ void PackageManager::LoadIntFiles()
 
 	for (const fs::path& folder : intFolders)
 	{
-		Array<fs::path> names;
-		try
+		Array<std::string> names;
+		std::error_code ec;
+		for (fs::directory_iterator it(folder, fs::directory_options::skip_permission_denied, ec), end; !ec && it != end; it.increment(ec))
 		{
-			for (const auto& dir_entry : fs::directory_iterator{folder})
+			try
 			{
-				if (dir_entry.is_regular_file() && StrTools::equals_ignore_case(dir_entry.path().extension().string(), ".int"))
-					names.push_back(dir_entry.path().filename());
+				std::error_code type;
+				if (it->is_regular_file(type) && StrTools::equals_ignore_case(it->path().extension().string(), ".int"))
+					names.push_back(it->path().filename().string());
+			}
+			catch (...)
+			{
 			}
 		}
-		catch (...)
-		{
-		}
-		std::sort(names.begin(), names.end(), [](const fs::path& a, const fs::path& b) { return NameBefore(a.string(), b.string()); });
+		std::sort(names.begin(), names.end(), NameBefore);
 
-		for (const fs::path& intFileName : names)
+		for (const std::string& name : names)
 		{
+			const fs::path intFileName = name;
 			try
 			{
 				auto intFile = std::make_unique<IniFile>((folder / intFileName).string());
