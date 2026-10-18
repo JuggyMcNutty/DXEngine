@@ -138,7 +138,7 @@ the run. *Either*: one engine on each side of a pair.
 | `EndgameConsole` | both | an ending's way to the credits (`TargetMap`) | `DXEND:` |  |
 | `AugVisionConsole` | both | an NPC behind a wall under the vision augmentation | `DXAUGVIS:` |  |
 | `PortalConsole` | both | a map opened at a portal | `DXPORTAL:` |  |
-| `ReturnConsole` | both | Liberty Island, UNATCO HQ and back: what travels and what stays; the player's goals, notes and keys (`Items`: as a map exit travels) | `DXRETURN:` |  |
+| `ReturnConsole` | both | Liberty Island, UNATCO HQ and back: what travels and what stays; the player's goals, notes and keys, two augmentation canisters, the inventory grid, the augmentation slots, a vector and a rotator flag (`Items`: as a map exit travels) | `DXRETURN:` | the two logs' lines diffed |
 | `GetConsole` | both | `GET`, `SET`, `GetPropertyText`, `SetPropertyText`; the main menu | `DXGET:` |  |
 | `IniConsole` | both | a `User.ini` with keys given twice (`DXCAP_USERINI`) | `DXINI:` |  |
 | `MenuConsole` | both | every menu screen's window tree (`WindowDump`) and a shot | `DXMENU:` |  |

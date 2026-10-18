@@ -296,7 +296,7 @@ void UStructProperty::SetValueFromString(void* data, const std::string& valueStr
 
 				if (it != properties.end())
 				{
-					fieldprop->SetValueFromString(data, it->second);
+					fieldprop->SetValueFromString((uint8_t*)data + fieldprop->DataOffset.DataOffset, it->second);
 				}
 			}
 		}

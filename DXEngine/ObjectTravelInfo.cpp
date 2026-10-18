@@ -159,15 +159,23 @@ ActorTravelInfo::TravelObject ActorTravelInfo::CreateObject(UObject* travelObjec
 				}
 			}
 		}
-		else if (UObject::TryCast<UStrProperty>(property) && property->ArrayDimension == 1)
-		{
-			// As it is: printed, a string is quoted, and the quotes it came
-			// back with were kept, one more pair each travel.
-			info.Properties[property->Name.ToString()] = *static_cast<std::string*>(travelObject->GetProperty(property));
-		}
 		else
 		{
-			info.Properties[property->Name.ToString()] = travelObject->GetPropertyAsString(property->Name);
+			// Every element of a static array, as the original's travel
+			// carries it (a canister's two AddAugs, the inventory grid's
+			// invSlots, the augmentation slots' AugLocs). A string as it
+			// is: printed, it is quoted, and the quotes it came back with
+			// were kept, one more pair each travel.
+			bool isString = UObject::TryCast<UStrProperty>(property) != nullptr;
+			void* data = travelObject->GetProperty(property);
+			for (size_t dim = 0; dim < property->ArrayDimension; dim++)
+			{
+				std::string key = property->Name.ToString();
+				if (property->ArrayDimension > 1)
+					key += "[" + std::to_string(dim) + "]";
+				void* element = property->GetElement(data, dim);
+				info.Properties[key] = isString ? *static_cast<std::string*>(element) : property->PrintValue(element);
+			}
 		}
 	}
 	return info;
@@ -282,10 +290,17 @@ Array<UObject*> ActorTravelInfo::Accept(UPlayerPawn* pawn, const std::string& tr
 			}
 			else
 			{
-				auto it = objInfo.Properties.find(property->Name.ToString());
-				if (it == objInfo.Properties.end())
-					continue;
-				acceptedObject->SetPropertyFromString(property->Name, it->second);
+				void* data = acceptedObject->GetProperty(property);
+				for (size_t dim = 0; dim < property->ArrayDimension; dim++)
+				{
+					std::string key = property->Name.ToString();
+					if (property->ArrayDimension > 1)
+						key += "[" + std::to_string(dim) + "]";
+					auto it = objInfo.Properties.find(key);
+					if (it == objInfo.Properties.end())
+						continue;
+					property->SetValueFromString(property->GetElement(data, dim), it->second);
+				}
 			}
 		}
 	}

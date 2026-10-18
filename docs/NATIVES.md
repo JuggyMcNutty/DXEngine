@@ -79,7 +79,10 @@ and after a map exit's travel (`SaveConsole` and `LoadConsole`, also with
 in the new level, held by the new player and named by its class's count,
 its text whole (`ReturnConsole` with `Items`: a goal, a note and a key,
 their texts with `?`, `;` and `%` in them); a console's `open` carries none
-of them, in either engine. A map
+of them, in either engine. Every element of a static array travels, and
+each field of a struct (`ReturnConsole` with `Items`: two canisters'
+`AddAugs`, the inventory grid's `invSlots`, the augmentation slots'
+`AugLocs`, a vector and a rotator flag). A map
 opened at a portal (`open <map>#<portal>`) starts the player at the
 teleporter of that tag (`PortalConsole`). Differs: a level returned to from
 `Current` keeps the map's name in its URL, where the original's names the

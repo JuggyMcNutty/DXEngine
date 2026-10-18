@@ -25,6 +25,15 @@
 // exit leaves it (GameInfo.SendPlayer: ClientTravel, TRAVEL_Relative, with
 // the items), and all three travel: DeusExPlayer's FirstGoal, FirstNote and
 // KeyList are travel properties, as are theirs.
+//
+// On the first visit the player also picks up two augmentation canisters of
+// two augmentations each as a right click picks one up (HandleItemPickup),
+// into the grid's first two slots, and the flag base is given a vector and
+// a rotator flag. Each map logs every
+// canister's AddAugs and place, the inventory grid (invSlots), the
+// augmentation slots (AugLocs) and the two flags. With Items all of them
+// travel whole: AddAugs, invSlots and AugLocs are static arrays, AugLocs'
+// elements and the flags' values structs.
 //=============================================================================
 class ReturnConsole extends Console;
 
@@ -92,6 +101,61 @@ function GiveRecords(DeusExPlayer P)
 	P.AddNote("DXCapture note? 50%; %3F as typed", False, False);
 	if (P.KeyRing != None)
 		P.KeyRing.GiveKey('DXReturnKey', "DXCapture key");
+}
+
+// A canister of two augmentations, picked up as the game picks one up.
+function GiveCannister(DeusExPlayer P, name Aug0, name Aug1)
+{
+	local AugmentationCannister C;
+
+	C = P.Spawn(class'AugmentationCannister', , 'DXReturnCan', P.Location + 48 * vector(P.Rotation));
+	if (C == None)
+	{
+		Log("DXRETURN: no room for the canister");
+		return;
+	}
+	C.AddAugs[0] = Aug0;
+	C.AddAugs[1] = Aug1;
+	// The frob that HandleItemPickup ends in takes the player's.
+	P.FrobTarget = C;
+	if (!P.HandleItemPickup(C))
+		Log("DXRETURN: the canister was not picked up");
+}
+
+// Two canisters, the second in the grid's second slot, and a vector and a
+// rotator flag.
+function GiveArrays(DeusExPlayer P)
+{
+	GiveCannister(P, 'AugSpeed', 'AugCombat');
+	GiveCannister(P, 'AugHealing', 'AugEMP');
+	P.flagBase.SetVector('DXReturnVector', vect(1,2,3));
+	P.flagBase.SetRotator('DXReturnRotator', rot(100,200,300));
+}
+
+// Every canister the player holds, the inventory grid, the augmentation
+// slots and the two flags.
+function ReportArrays(DeusExPlayer P, string Map)
+{
+	local Inventory Item;
+	local AugmentationCannister C;
+	local string Grid;
+	local int i;
+
+	for (Item = P.Inventory; Item != None; Item = Item.Inventory)
+	{
+		C = AugmentationCannister(Item);
+		if (C != None)
+			Log("DXRETURN: in " $ Map $ " canister " $ C.AddAugs[0] $ " " $ C.AddAugs[1] $ " at " $ C.invPosX $ "," $ C.invPosY);
+	}
+	for (i = 0; i < ArrayCount(P.invSlots); i++)
+		Grid = Grid $ P.invSlots[i];
+	Log("DXRETURN: in " $ Map $ " invSlots " $ Grid);
+	if (P.AugmentationSystem != None)
+		for (i = 0; i < ArrayCount(P.AugmentationSystem.AugLocs); i++)
+			Log("DXRETURN: in " $ Map $ " AugLocs " $ i $ " NumSlots " $ P.AugmentationSystem.AugLocs[i].NumSlots
+				$ " AugCount " $ P.AugmentationSystem.AugLocs[i].AugCount $ " KeyBase " $ P.AugmentationSystem.AugLocs[i].KeyBase);
+	Log("DXRETURN: in " $ Map $ " vector flag " $ P.flagBase.GetVector('DXReturnVector')
+		$ " rotator flag " $ P.flagBase.GetRotator('DXReturnRotator'));
 }
 
 // The player's goals, notes and keys, each by its path, and its flag base's.
@@ -181,6 +245,7 @@ event Tick(float Delta)
 			{
 				CarryBall(DeusExPlayer(P));
 				GiveRecords(DeusExPlayer(P));
+				GiveArrays(DeusExPlayer(P));
 			}
 		}
 		if (DeusExPlayer(P) != None)
@@ -188,6 +253,7 @@ event Tick(float Delta)
 			Report(DeusExPlayer(P), Map);
 			ReportRecords(DeusExPlayer(P), Map);
 			ReportBalls(DeusExPlayer(P), Map);
+			ReportArrays(DeusExPlayer(P), Map);
 			if (Step == 1)
 				DropTravelled(DeusExPlayer(P));
 		}
