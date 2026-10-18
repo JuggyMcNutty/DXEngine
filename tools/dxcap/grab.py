@@ -82,8 +82,10 @@ def grab(env, name):
     ids = found.stdout.split()
     if not ids:
         return None
+    # -silent: import rings the X bell after each grab, five a second, which
+    # the desktop plays.
     try:
-        shot = subprocess.run(['import', '-window', ids[0], '-depth', '8', 'ppm:-'],
+        shot = subprocess.run(['import', '-silent', '-window', ids[0], '-depth', '8', 'ppm:-'],
                               env=env, capture_output=True, timeout=2)
     except subprocess.TimeoutExpired:
         return None
