@@ -14,10 +14,9 @@
 // and 3 s later the feed is shot again. The terminal closed, the player is
 // put before Paul Denton on the dock, looking at him, and takes the
 // targeting augmentation at its top level: the HUD's zoom window is logged
-// and shot. Then the spy drone:
-// its window logged and shot. Each shot is marked for the original's grabber
-// (the HUD's hit display, over the mark, hidden); then an exit. Each line is
-// logged with "DXCAM:" in front.
+// and shot. Then the spy drone: its window logged and shot. Each shot is
+// marked for the original's grabber (the HUD's hit display, over the mark,
+// hidden); then an exit. Each line is logged with "DXCAM:" in front.
 //=============================================================================
 class CameraConsole extends Console;
 

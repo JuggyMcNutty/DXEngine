@@ -190,7 +190,12 @@ load's, longer in the original's ([a long frame](#small)): by then
 DXEngine's pawns are further along their first walk. `ReachConsole`'s
 144 answers, twelve pawns each asked from its home spot, are the original's
 to the unit. A dead robot frozen in `Dying` for good is the original's own
-behaviour, and the rest of a death is alike too (`DeathConsole`).
+behaviour, and the rest of a death is alike too (`DeathConsole`). Differs:
+`Terrorist34`, walking west to `PatrolPoint86`, comes to a stop at x 1510
+some 8 s in, still walking at it, in every original run, and stands there
+until his move's time runs out (`MoveTimer`) some 12 s later, then steps
+back and goes on; DXEngine holds him there so in some runs, and in others
+he slips past within a second (`MoveConsole`).
 
 ## Out of sight
 
@@ -917,6 +922,11 @@ Differs:
   At 20 frames a second `FlightConsole`'s gull, flown level into the pier's
   wall, turns and slides some 18 units along it in the original, where
   DXEngine's stays put.
+- **Swimming out from under the water** (`SwimConsole`'s d: the player 100
+  under the water line off the pier, looking 45 degrees down, the forward
+  axis held): the original's player swims out within its first tenth of a
+  second; in some of DXEngine's runs it only sinks for up to three quarters
+  of a second, its swim outward held, and in others it swims out at once.
 
 ## Housekeeping, not seen directly
 

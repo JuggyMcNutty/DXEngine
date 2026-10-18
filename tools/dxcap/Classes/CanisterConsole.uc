@@ -6,14 +6,13 @@
 // ahead of the start, still, and a scorch mark on the pier's planks 40 units
 // to its left, as an explosion leaves one (a decal: drawn modulated, flat on
 // the floor, which the view meets at a slant); the player out of the
-// world's collision, held
-// in the air behind it at each of Distances ([DXCapture.CanisterConsole]:
-// 120, 250, 400, 700 and 1200 units by default) from it, a quarter of that
-// above it, looking at it at the field of view the game gives; a view is
-// held 1.5 s, then marked for the original's grabber MarkTime s (0.6 by
-// default) and shot. Then exit. The HUD is hidden, and conversations and
-// datalinks are stopped as they start. Each line is logged with "DXCAN:" in
-// front.
+// world's collision, held in the air behind it at each of Distances
+// ([DXCapture.CanisterConsole]: 120, 250, 400, 700 and 1200 units by
+// default) from it, a quarter of that above it, looking at it at the field
+// of view the game gives; a view is held 1.5 s, then marked for the
+// original's grabber MarkTime s (0.6 by default) and shot. Then exit. The
+// HUD is hidden, and conversations and datalinks are stopped as they start.
+// Each line is logged with "DXCAN:" in front.
 //=============================================================================
 class CanisterConsole extends Console;
 

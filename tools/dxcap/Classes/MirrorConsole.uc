@@ -4,11 +4,11 @@
 // Liberty Island by default):
 // - Liberty Island: the UNATCO HQ building's lobby, whose marble floor is a
 //   mirror -- from nine yaws 5 degrees apart and five places 40 units apart
-//   (the turns and steps that showed its reflection popping in), looking
-//   down at the player's own reflection, and toward the lobby's chairs and
-//   lamp -- then the island's two small wall mirrors, which face -y. A
-//   mannequin, a UNATCO troop's mesh, unlit and still, stands on the floor
-//   in view.
+//   (turns and steps, where a reflection walked from the wrong eye pops in
+//   and out), looking down at the player's own reflection, and toward the
+//   lobby's chairs and lamp -- then the island's two small wall mirrors,
+//   which face -y. A mannequin, a UNATCO troop's mesh, unlit and still,
+//   stands on the floor in view.
 // - 01_NYC_UNATCOHQ: a glass mirror facing -x (the mirror's matrix along
 //   x), a washroom's glass facing -y, the two facing +x, and the marble
 //   floor near the entrance.
