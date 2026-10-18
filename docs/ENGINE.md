@@ -154,9 +154,9 @@ From their parent folder:
 DXEngine/tools/host-tools.sh
 cd gamefiles    # the engine is started from the game's directory
 # CPU profile of Liberty Island, recording from 25 s in (after the load):
-LD_LIBRARY_PATH=../deps/perf/usr/lib ../deps/perf/usr/bin/perf record -F 2000 --delay=25000 -o /tmp/se.data -- \
+LD_LIBRARY_PATH=../deps/perf/usr/lib ../deps/perf/usr/bin/perf record -F 2000 --delay=25000 -o /tmp/dxe.data -- \
     timeout -s KILL 55 ../build/linux-x86_64/engine/DXEngine --no-launcher "$PWD" --url=01_NYC_UNATCOIsland.dx
-LD_LIBRARY_PATH=../deps/perf/usr/lib ../deps/perf/usr/bin/perf report -i /tmp/se.data --no-children --sort symbol
+LD_LIBRARY_PATH=../deps/perf/usr/lib ../deps/perf/usr/bin/perf report -i /tmp/dxe.data --no-children --sort symbol
 # Synchronization validation (add DXE_VK_NO_BINDLESS=1 for the per-batch descriptor path):
 VK_LAYER_PATH=$PWD/../deps/vulkan-layers/layers VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation \
 VK_KHRONOS_VALIDATION_VALIDATE_SYNC=true \
