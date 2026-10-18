@@ -64,16 +64,17 @@
 # in its section of the ini, as
 # DXCAP_MISSION_MAP gives TargetMap (LightConsole's Effect, Pick, LightName,
 # View, Aim, ShotAt and Macro; GlassConsole's Pick, GlassName, View and
-# Behind; FlushConsole's Pick, DoorName, View and Angle; FaceConsole's MeshOf,
-# Ahead and Distance; MeshConsole's LODBias and NoDetail; LoopConsole's Jumps;
+# Behind; FlushConsole's Pick, DoorName, View and Angle; MirrorConsole's
+# MarkTime and ShinyOff; FaceConsole's MeshOf, Ahead and Distance;
+# MeshConsole's LODBias and NoDetail; LoopConsole's Jumps;
 # CallConsole's Depth; ReturnConsole's Items; SaveConsole's and LoadConsole's
 # Via; LoadConsole's Open).
 # DXCAP_MISSION_MAP=<map> names, through the run's ini, the map a run's
 # console travels to, its TargetMap (MissionConsole's, StaticConsole's,
 # WadeConsole's, ScreenConsole's, PerfConsole's, EndgameConsole's,
 # VisibleConsole's, MoverConsole's, LightConsole's, GlassConsole's,
-# FlushConsole's): an original run starts at its menu map, a dxe run at the
-# map it is given.
+# FlushConsole's, MirrorConsole's): an original run starts at its menu map,
+# a dxe run at the map it is given.
 # DXCAP_START=<url> starts an original run there, not at its menu map: its
 # command line's first word, which the original takes only with -hax0r
 # (?loadgame=9 for StartConsole, a run started on slot 9's save).

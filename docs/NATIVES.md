@@ -298,6 +298,40 @@ reached by the game:
   a window wider than 4:3 sees more at the sides
   ([the view's width](#the-views-width)).
 
+### Mirrors
+
+Matches the original
+([a mirror's frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-frame)):
+a mirror's frame is seen from the eye reflected in the mirror's plane, its
+BSP walked front to back and its faces, a mesh's too, culled from there; it
+starts in the zone on the viewer's side, and the mirrors of one plane seen
+from one zone share one. A mirror seen from behind opens no frame, and one
+opens a frame three frames deep at most, a sky's and a warp zone's counted;
+a translucent mirror reflects only while the render device's
+`ShinySurfaces` is on, and is drawn solid without it. The player shows in a
+mirror: `bOnlyOwnerSee` and `bOwnerNoSee` go by the player's `bBehindView`
+in every frame, and the player is left out of the main frame alone, in
+first person. `MirrorConsole`, at 4:3, on GL and on Vulkan:
+
+- **Liberty Island's UNATCO HQ lobby**, its marble floor a mirror, turned
+  and stepped across: the furniture, a mannequin and the player show in its
+  reflection from every view, the right way out, as in the original's
+  frame.
+- **UNATCO HQ's glass mirrors**, facing -x, -y and +x, and the Paris club's:
+  the room and the player reflected, each mirror within 2 to 5% of the
+  original's brightness, through `OpenGLDrv` and `D3DDrv` alike.
+- **A mirror in a mirror**: the training map's exit sign, a strip of mirror
+  under it, in the marble floor's reflection, as the original's.
+- **`ShinySurfaces` off**: the lobby's floor solid marble in both.
+
+Differs:
+
+- **The mirror's plane clips** what lies behind it: in the BSP walk, and on
+  the Vulkan and D3D11 devices by a clip distance; the GL device has none,
+  so there an actor wholly behind the plane is left out and a surface
+  across it is drawn whole. The original keeps what lies behind a mirror
+  out with a span buffer per zone.
+
 ### Mesh detail
 
 Matches the original's vertex budget and its morph

@@ -12,7 +12,10 @@
 class VisibleFrame
 {
 public:
-	void Process(const vec3& location, const mat4& worldToView, const Coords& viewRotation, bool mirrorFlag = false, int portalDepth = 0, const Array<PortalSpan>& portalSpans = {}, const vec4& portalPlane = vec4(0.0f, 0.0f, 0.0f, 1.0f));
+	// A mirror's frame gives its eye reflected in the mirror, which lies behind
+	// it, and the zone on the viewer's side, which it starts in (viewZone);
+	// any other frame starts in the zone at its eye.
+	void Process(const vec3& location, const mat4& worldToView, const Coords& viewRotation, bool mirrorFlag = false, int portalDepth = 0, const Array<PortalSpan>& portalSpans = {}, const vec4& portalPlane = vec4(0.0f, 0.0f, 0.0f, 1.0f), int viewZone = -1);
 	void Draw();
 	void DrawCoronas();
 
@@ -21,6 +24,9 @@ public:
 	SceneNode Frame;
 	BspClipper Clipper;
 	vec4 ViewLocation = vec4(0.0f);
+	// A mirror's or a warp zone's plane, positive on the side its frame shows:
+	// what lies wholly on the other is not drawn.
+	vec4 PortalPlane = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	Coords ViewRotation = {};
 	int ViewZone = 0;
 	//uint64_t ViewZoneMask = 0;

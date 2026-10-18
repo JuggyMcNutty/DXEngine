@@ -22,12 +22,14 @@ void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
 	UActor* viewportActor = engine->viewport->Actor();
 	bool isOwnedByViewport = actor->IsOwnedBy(viewportActor);
 
-	bool behindView = frame->PortalDepth > 0;
+	// As the original's SetupDynamics (Render.dll 0x10b22d90): bOnlyOwnerSee
+	// and bOwnerNoSee go by the viewer's bBehindView in every frame, a
+	// mirror's too; the actor the view is from is left out in the main frame
+	// alone, in first person (OccludeFrame 0x10b19fc0 names it), so the
+	// player shows in a mirror
+	bool behindView = false;
 	if (UPawn* pawn = UObject::TryCast<UPawn>(viewportActor))
-	{
-		if (pawn->bBehindView())
-			behindView = true;
-	}
+		behindView = pawn->bBehindView();
 
 	if ((behindView || !isOwnedByViewport) && actor->bOnlyOwnerSee())
 		return;
@@ -35,7 +37,16 @@ void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
 	if (!behindView && isOwnedByViewport && actor->bOwnerNoSee())
 		return;
 
-	if (!behindView && actor == engine->CameraActor) // Hide CameraActor as if bOwnerNoSee was set for it
+	if (frame->PortalDepth == 0 && !behindView && actor == engine->CameraActor)
+		return;
+
+	// Behind a mirror, or before a warp zone's portal, nothing shows in its
+	// frame: the original draws an actor only through its zone's spans, which
+	// that frame never reaches
+	const BBox& box = actor->BspInfo.BoundingBox;
+	const vec4& plane = frame->PortalPlane;
+	vec3 farthest(plane.x >= 0.0f ? box.max.x : box.min.x, plane.y >= 0.0f ? box.max.y : box.min.y, plane.z >= 0.0f ? box.max.z : box.min.z);
+	if (dot(plane, vec4(farthest, 1.0f)) < 0.0f)
 		return;
 
 	if (!frame->Clipper.IsAABBVisible(actor->BspInfo.BoundingBox))

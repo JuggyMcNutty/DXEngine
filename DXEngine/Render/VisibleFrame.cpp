@@ -16,7 +16,7 @@
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Extension/Windows/TabGroup/URootWindow.h"
 
-void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const Coords& viewRotation, bool mirrorFlag, int portalDepth, const Array<PortalSpan>& portalSpans, const vec4& portalPlane)
+void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const Coords& viewRotation, bool mirrorFlag, int portalDepth, const Array<PortalSpan>& portalSpans, const vec4& portalPlane, int viewZone)
 {
 	engine->render->Stats.Frames++;
 
@@ -42,7 +42,8 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const 
 	Clipper.Setup(Frame.Projection * Frame.WorldToView * Frame.ObjectToWorld, portalSpans, portalPlane);
 
 	ViewLocation = vec4(location, 1.0f);
-	ViewZone = FindZoneAt(location);
+	PortalPlane = portalPlane;
+	ViewZone = viewZone >= 0 ? viewZone : FindZoneAt(location);
 	//ViewZoneMask = ViewZone ? 1ULL << ViewZone : -1;
 	ViewRotation = viewRotation;
 
@@ -682,42 +683,68 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
 				}
 			}
 		}
-		else if (PolyFlags & PF_Mirrored)
+		// A mirror opens a frame three frames deep at most, a sky's and a warp
+		// zone's counted, as the original's (Render.dll OccludeBsp
+		// 0x10b173d0, Recursion < 3); deeper, it is drawn as any surface
+		else if ((PolyFlags & PF_Mirrored) && PortalDepth < 3)
 		{
-			if (PortalDepth > 0) // To do: cull backfacing surfaces so we don't need this hack
+			// Seen from behind, a one-sided mirror is passed over, as the
+			// original passes over any surface seen from behind.
+			vec4 plane = { node->PlaneX, node->PlaneY, node->PlaneZ, -node->PlaneW };
+			if (!(PolyFlags & PF_TwoSided) && dot(ViewLocation, plane) < 0.0f)
 				return;
 
-			gatherPoints();
-			Array<PortalSpan> spans = Clipper.CheckPortal(points, numverts);
-			if (!spans.empty())
+			// A translucent mirror is a shiny surface: with the render
+			// device's ShinySurfaces off, the original draws it solid and
+			// reflects nothing.
+			if ((PolyFlags & PF_Translucent) && !engine->renderdev->ShinySurfaces)
 			{
-				for (auto& p : Portals)
-				{
-					if (!p.WarpZone && !p.SkyZone) // To do: how do we best merge mirrors using the same plane?
-					{
-						p.Nodes.push_back(info);
-						p.Spans.insert(p.Spans.end(), spans.begin(), spans.end());
-						return;
-					}
-				}
-
-				VisiblePortal portal;
-				portal.Nodes.push_back(info);
-				portal.Spans = std::move(spans);
-				Portals.push_back(std::move(portal));
+				PolyFlags &= ~PF_Translucent;
+				info.PolyFlags = PolyFlags;
 			}
-			return;
+			else
+			{
+				gatherPoints();
+				Array<PortalSpan> spans = Clipper.CheckPortal(points, numverts);
+				if (!spans.empty())
+				{
+					// One frame for the mirrors of one plane seen from one
+					// zone, as the original's child frames merge
+					// (Render.dll CreateChildFrame 0x10b15a40)
+					int zone = front ? node->Zone0 : node->Zone1;
+					for (auto& p : Portals)
+					{
+						if (p.WarpZone || p.SkyZone)
+							continue;
+						const BspNode* other = p.Nodes.front().Node;
+						int otherZone = p.Nodes.front().ViewerBehind ? other->Zone0 : other->Zone1;
+						if (otherZone == zone && std::abs(other->PlaneX - node->PlaneX) < 0.001f && std::abs(other->PlaneY - node->PlaneY) < 0.001f &&
+							std::abs(other->PlaneZ - node->PlaneZ) < 0.001f && std::abs(other->PlaneW - node->PlaneW) < 0.1f)
+						{
+							p.Nodes.push_back(info);
+							p.Spans.insert(p.Spans.end(), spans.begin(), spans.end());
+							return;
+						}
+					}
+
+					VisiblePortal portal;
+					portal.Nodes.push_back(info);
+					portal.Spans = std::move(spans);
+					Portals.push_back(std::move(portal));
+				}
+				return;
+			}
 		}
 	}
 
 	// A one-sided surface seen from behind is never drawn (UE1 did not either),
 	// and in a closed level a front face drawn earlier already hides it, so it
 	// hides nothing either: skip the clipper's test, over half of the surfaces
-	// in view. Not in a mirror's frame, whose view comes from the reflected
-	// position; portals, skies and mirrors themselves returned above -- and a
-	// zone portal, which leads into the zone beyond it from either side, as
+	// in view. A mirror's frame is seen from the reflected eye, its
+	// ViewLocation; portals, skies and mirrors themselves returned above -- and
+	// a zone portal, which leads into the zone beyond it from either side, as
 	// the original takes it.
-	if (!MirrorFlag && !(PolyFlags & (PF_TwoSided | PF_Portal)))
+	if (!(PolyFlags & (PF_TwoSided | PF_Portal)))
 	{
 		vec4 plane = { node->PlaneX, node->PlaneY, node->PlaneZ, -node->PlaneW };
 		if (dot(ViewLocation, plane) < 0.0f)
@@ -946,15 +973,39 @@ void VisibleFrame::DrawPortals()
 		}
 		else // Mirror
 		{
+			// The original's child frame (dx-reverse-info render-dll.md, a
+			// frame): the view and its eye reflected in the mirror's plane, so
+			// the BSP is walked front to back, and faces culled, from the
+			// reflected eye; it starts in the zone on the viewer's side, its
+			// spans the mirror's. What lies behind the mirror would show in
+			// front of it: the mirror's plane, the viewer's side kept, clips it
+			// from the clipper, and on a device with a clip distance from
+			// the drawing.
+			const VisibleNode& first = portal.Nodes.front();
 			UModel* model = engine->Level->Model;
-			const BspSurface& surface = model->Surfaces[portal.Nodes.front().Node->Surf];
+			const BspSurface& surface = model->Surfaces[first.Node->Surf];
 			vec3 v = model->Points[surface.pBase];
 			vec3 n = model->Vectors[surface.vNormal];
 			mat4 mirrorRotation = mat4::mirror(n);
 			mat4 mirrorToView = Frame.WorldToView * mat4::translate(v) * mirrorRotation * mat4::translate(-v);
 
+			vec4 plane(n, -dot(n, v));
+			if (dot(plane, ViewLocation) < 0.0f)
+				plane = -plane;
+			vec3 eye = ViewLocation.xyz() - plane.xyz() * (2.0f * dot(plane, ViewLocation));
+			int zone = first.ViewerBehind ? first.Node->Zone0 : first.Node->Zone1;
+
 			VisibleFrame mirrorframe;
-			mirrorframe.Process(ViewLocation.xyz(), mirrorToView, ViewRotation * Coords::FromMatrix(mirrorRotation).Inverse(), !MirrorFlag, PortalDepth + 1, portal.Spans);
+			mirrorframe.Process(eye, mirrorToView, ViewRotation * Coords::FromMatrix(mirrorRotation).Inverse(), !MirrorFlag, PortalDepth + 1, portal.Spans, plane, zone);
+
+			// The clip distance is the plane's in the mirror frame's view
+			// space, the parent's view of the reflected world, in which the
+			// reflection flips the plane's sign.
+			mat3 toView = mat3(Frame.WorldToView);
+			vec3 translation(Frame.WorldToView[12], Frame.WorldToView[13], Frame.WorldToView[14]);
+			vec3 viewNormal = mat3::transpose(mat3::inverse(toView)) * plane.xyz();
+			mirrorframe.Frame.NearClip = -vec4(viewNormal, plane.w - dot(viewNormal, translation));
+
 			Device->SetSceneNode(&mirrorframe.Frame);
 			mirrorframe.Draw();
 			Device->ClearZ();
