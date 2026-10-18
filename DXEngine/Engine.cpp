@@ -2749,7 +2749,12 @@ void Engine::OpenWindow()
 	window->SetFrameGeometry(Rect::xywh(0.0, 0.0, width, height));
 	viewport->SetViewportRect(0, 0, width, height);
 
-	LogMessage("Window: " + std::to_string(width) + "x" + std::to_string(height) + (fullscreen ? ", fullscreen" : ", in a window"));
+	// Full screen is the desktop's size, whatever FullscreenViewportX and Y
+	// say (ENGINE.md, running on our devices): the frame takes the window's.
+	if (fullscreen)
+		LogMessage("Window: full screen, the desktop's size");
+	else
+		LogMessage("Window: " + std::to_string(width) + "x" + std::to_string(height) + ", in a window");
 	if (fullscreen)
 		window->ShowFullscreen();
 	else
