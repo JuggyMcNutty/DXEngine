@@ -6,11 +6,11 @@
 // string, which the fork takes from --cmdline= -- the recreated launcher's
 // run-game.sh passes the player's there. Its flags are found as the
 // original's code finds them (dx-reverse-info's cli-flags.md) -- Parse's "X="
-// anywhere, in any case, its value up to the next space, or in double quotes
-// -- but for ParseParam, stricter by choice: "-X" or "/X" anywhere, ending at
-// a space, a '?' (a URL's next option: the Host screen's relaunch puts
-// -server there) or the end, where the original's checks nothing after the
-// name.
+// anywhere but straight after a letter or digit, in any case, its value up to
+// the next space, or in double quotes -- but for ParseParam, stricter by
+// choice: "-X" or "/X" anywhere, ending at a space, a '?' (a URL's next
+// option: the Host screen's relaunch puts -server there) or the end, where
+// the original's checks nothing after the name.
 // Both take '/' as a switch, and a Linux path is full of them: the original's
 // rule would find -server in INI=/srv/server/x.ini. What the fork does with
 // each flag is NATIVES.md's "The command line".

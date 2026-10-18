@@ -983,7 +983,9 @@ What the fork does with each:
   with, made anew, the saved ones left in the level, held by no one.
 - **`-server`**: a dedicated server, as `--server`.
 - **`INI=` and `USERINI=`**: the inis read and written back, as `--ini` and
-  `--userini`.
+  `--userini`, each found by its own name, never `INI=` within `USERINI=`
+  (`DXCAP_USERINI_FIRST`: the two given `USERINI=` first, the console's run
+  alike in both engines).
 - **`EXEC=<file>`**: `exec <file>` on the player once the first map is in;
   `exec` runs a file's lines as commands, as the original's does.
 - **Safe mode's flags**

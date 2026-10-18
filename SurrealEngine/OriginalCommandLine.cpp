@@ -6,13 +6,19 @@ namespace
 {
 	bool IsSpace(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; }
 
-	// appStrfind: a substring in any case, from pos; npos when there is none.
+	bool IsAsciiAlnum(char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'); }
+
+	// appStrfind: a substring in any case, from pos, but none straight after a
+	// letter or digit -- INI= is not found within USERINI= (dx-reverse-info
+	// cli-flags.md); npos when there is none.
 	size_t FindNoCase(const std::string& hay, const std::string& needle, size_t pos)
 	{
 		if (needle.empty())
 			return std::string::npos;
 		for (size_t i = pos; i + needle.size() <= hay.size(); i++)
 		{
+			if (i > 0 && IsAsciiAlnum(hay[i - 1]))
+				continue;
 			size_t k = 0;
 			while (k < needle.size() && std::tolower((unsigned char)hay[i + k]) == std::tolower((unsigned char)needle[k]))
 				k++;

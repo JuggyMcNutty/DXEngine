@@ -53,7 +53,10 @@
 # DXCAP_BACKEND=SDL2 gives a fork run SurrealWidgets' SDL2 window, the
 # launchers', in place of its X11 one.
 # DXCAP_USERINI=<file> gives a run that User.ini in place of the game's
-# (IniConsole's keys given twice). DXCAP_CONFIG="<key>=<value> ..." gives
+# (IniConsole's keys given twice). DXCAP_USERINI_FIRST=1 names the run's inis
+# USERINI= then INI= on the original's command line, and gives the fork the
+# two so by --cmdline in place of --ini and --userini: each engine reads INI=
+# by its own name only, not within USERINI= (dx-reverse-info cli-flags.md). DXCAP_CONFIG="<key>=<value> ..." gives
 # the run's console class those keys in its section of the ini, as
 # DXCAP_MISSION_MAP gives TargetMap (LightConsole's Effect, Pick, LightName,
 # View, Aim, ShotAt and Macro; GlassConsole's Pick, GlassName, View and
@@ -559,7 +562,9 @@ cmd_original() {
         export DISPLAY="$XDISPLAY"
         [ "${DXCAP_RECORD:-0}" != 1 ] || export PULSE_SINK=dxcap
         cd "$CAP/game/System"
-        (fps_env; wine_run DeusEx.exe "${DXCAP_START:-DX.dx}" ${DXCAP_START:+-hax0r} "INI=$(winpath "$ini")" "USERINI=$(winpath "$userini")" > "$dir/wine.log" 2>&1) &
+        inis=("INI=$(winpath "$ini")" "USERINI=$(winpath "$userini")")
+        [ "${DXCAP_USERINI_FIRST:-0}" != 1 ] || inis=("${inis[1]}" "${inis[0]}")
+        (fps_env; wine_run DeusEx.exe "${DXCAP_START:-DX.dx}" ${DXCAP_START:+-hax0r} "${inis[@]}" > "$dir/wine.log" 2>&1) &
         i=0
         while [ $i -lt 60 ] && ! pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; i=$((i+1)); done
         perfpid=""
@@ -653,7 +658,9 @@ run_fork() {
         fps_env
         local userdir=()
         [ -z "${DXCAP_USERDIR:-}" ] || userdir=(--userdir="$(realpath -m "$DXCAP_USERDIR")")
-        timeout -s KILL "$secs" "$ENGINE_BIN" --no-launcher "$GAME" --ini="$ini" --userini="$userini" --url="$map" "${userdir[@]}" "$@" > "$dir/engine.log" 2>&1 &
+        inis=(--ini="$ini" --userini="$userini")
+        [ "${DXCAP_USERINI_FIRST:-0}" != 1 ] || inis=(--cmdline="USERINI=$userini INI=$ini")
+        timeout -s KILL "$secs" "$ENGINE_BIN" --no-launcher "$GAME" "${inis[@]}" --url="$map" "${userdir[@]}" "$@" > "$dir/engine.log" 2>&1 &
         local tpid=$! mpid="" perfpid="" epid="" i=0
         if [ "${DXCAP_MEMLOG:-0}" = 1 ]; then
             memlog "$tpid" "$dir/memlog.txt" &
