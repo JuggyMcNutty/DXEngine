@@ -399,7 +399,10 @@ from the C library's `rand`, seeded from the clock at start as the
 original's
 ([the platform's start](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-platforms-start)),
 so a fire differs from run to run in either engine (`LaserConsole`'s
-texture shots). How a mesh shows its textures is the original's too
+texture shots). A texture moves on whenever something draws it, a window
+too: the drugged view's `DrunkFX`, a water texture only the HUD draws as
+its background, modulated over the view (`DrugConsole`). How a mesh shows
+its textures is the original's too
 ([mesh textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#mesh-textures)).
 Differs:
 

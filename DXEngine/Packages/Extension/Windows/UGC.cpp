@@ -645,6 +645,15 @@ void UGC::SetVerticalAlignment(uint8_t newVAlign)
 
 void UGC::DrawTile(UTexture* tex, const Rectf& dest, const Rectf& src, const Color& c, uint32_t flags)
 {
+	// Stepped as it is drawn, then its animation's frame, as the canvas's
+	// tiles are (RenderSubsystem::DrawTile): the original's texture moves on
+	// whenever a draw locks it (dx-reverse-info fire-dll.md, stepping), so a
+	// fractal texture only a window draws -- the drugged view's DrunkFX, the
+	// HUD's background -- is drawn, not left at its zeroed pixels.
+	engine->render->UpdateTexture(tex);
+	tex = tex->GetAnimTexture();
+	engine->render->UpdateTexture(tex);
+
 	vec4 color(c.R / 255.0f, c.G / 255.0f, c.B / 255.0f, 1.0f/*c.A / 255.0f*/);
 	float Z = 1.0f;
 	vec4 fog(0.0f);
