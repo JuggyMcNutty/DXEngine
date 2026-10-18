@@ -40,7 +40,7 @@ with the launcher for each of its ports, and stages, runs or deploys the result:
 You need:
 
 - a C++20 compiler (GCC 10 or later), CMake 3.15 or later and pkg-config;
-- the development files of OpenAL, SDL2 and X11 (with Xi);
+- the development files of OpenAL, SDL3 or SDL2, and X11 (with Xi);
 - optionally Wayland's (waylandpp, xkbcommon), EGL, dbus, GLib and fontconfig, used when found.
 
 On Arch these are among the packages
@@ -50,11 +50,11 @@ list. Then:
 ```sh
 git clone https://github.com/JuggyMcNutty/VibeEngine.git
 cd VibeEngine
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_SDL3=OFF
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target SurrealEngine -j"$(nproc)"
 ```
 
-`-DENABLE_SDL3=OFF` keeps the SDL2 window backend, the only one with the fork's gamepad support
+The window is SDL3's when SDL3 is found, else SDL2's; either has the fork's gamepad support
 ([the gamepad](vibe/docs/ENGINE.md#running-on-our-devices)). The build leaves two files in
 `build/` that go together:
 
@@ -83,7 +83,7 @@ The build's own switches:
 
 | Switch | Default | What it does |
 |---|---|---|
-| `ENABLE_SDL2` | `ON` | The SDL2 window backend, the only one with the fork's gamepad support. |
+| `ENABLE_SDL2` | `ON` | The SDL2 window backend, built when SDL3's is not. |
 | `ENABLE_SDL3` | `ON` | The SDL3 backend: when SDL3 is found, it is built in place of SDL2's. |
 | `ENABLE_X11`, `ENABLE_WAYLAND` | `ON` | The desktop's window backends; off for a device with neither. |
 | `VIBE_SDL2_BORDERLESS_FULLSCREEN` | `OFF` | SDL2's fullscreen as a borderless window, for a vendor SDL2 that deadlocks in `SDL_SetWindowFullscreen`. |
@@ -101,7 +101,7 @@ The build's own switches:
 - **Profiling and validation**: [measuring it](vibe/docs/ENGINE.md#measuring-it).
 - **Kept, but neither built nor tested here**: the D3D11 device and the Win32 code it needs
   (SurrealWidgets' Win32 backend, `Win32Resources/`, the natvis, the vendored OpenAL Soft, the
-  crash reporter's Windows part), and the SDL3 backend.
+  crash reporter's Windows part).
 
 ## License
 

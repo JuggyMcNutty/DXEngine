@@ -916,17 +916,17 @@ engine's own objects are not deleted (the log says so).
   among them) before the exec functions, the same but for a word an exec
   function shares; `Toggle` and `Pulse` do nothing, and a command after
   `OnRelease` never runs.
-- **A key's name** from the SDL2 window, the launchers', is the original's
-  ([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys)):
+- **A key's name** from the SDL2 and SDL3 windows, the launchers', is the
+  original's ([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys)):
   a shift, control or alt its name for both sides, then its side's own
   (`LShift`; `UnknownA4` for the left alt), Caps Lock, the punctuation, the
   keypad's operators and Enter, Print Screen (`PrintScrn`), the Windows and
   menu keys (`Unknown5B` to `Unknown5D`):
-  `vibe/tools/dxcap/timelines/keys.txt` with `DXCAP_BACKEND=SDL2` presses
-  each through the window's own events and logs the names the game gets (the
-  original's input takes no scripted key on this desktop, and its code is
-  read). Differs: a key is named by its place on a US keyboard, where the
-  original's name follows the layout; the keypad's digits are always
+  `vibe/tools/dxcap/timelines/keys.txt` with `DXCAP_BACKEND=SDL3` or `SDL2`
+  presses each through the window's own events and logs the names the game
+  gets (the original's input takes no scripted key on this desktop, and its
+  code is read). Differs: a key is named by its place on a US keyboard, where
+  the original's name follows the layout; the keypad's digits are always
   `NumPad0` to `NumPad9`, where with Num Lock off the original's are the
   arrows, Home and the rest. The other windows name fewer, and a side's own
   never: the X11 one, the harness's, has no Alt but the Meta key, no

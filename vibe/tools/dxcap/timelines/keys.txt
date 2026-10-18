@@ -1,8 +1,8 @@
-# The keys the SDL2 window gives the game, each pressed and released as the
+# The keys the SDL windows give the game, each pressed and released as the
 # keyboard's (keydown, keyup: SDL's scancode names), each key the game gets
 # logged (DXKEY:): the shifts, controls and alts, Caps Lock, the windows and
 # menu keys, the punctuation, the keypad's operators and Enter, Print
-# Screen. With DXCAP_BACKEND=SDL2, then an exit.
+# Screen. With DXCAP_BACKEND=SDL3 or SDL2, then an exit.
 start 12.0 keydown Left Shift
 start 12.2 keyup Left Shift
 start 12.4 keydown Right Shift

@@ -50,9 +50,9 @@
 # DXCAP_SERVERPKGS=<dir> has a run's server find packages in <dir> too, each
 # named in its ServerPackages, so that a client, whose paths lack <dir>,
 # downloads them.
-# DXCAP_BACKEND=SDL2 gives a fork run SurrealWidgets' SDL2 window, the
-# launchers', in place of its X11 one; DXCAP_BACKEND=SDL3 its SDL3 window, in
-# a build with SDL3's (DXCAP_ENGINE). A timeline that drives the window's
+# DXCAP_BACKEND=SDL3 gives a fork run SurrealWidgets' SDL3 window, the
+# launchers', in place of its X11 one, DXCAP_BACKEND=SDL2 its SDL2 window,
+# in a build with SDL2's (DXCAP_ENGINE). A timeline that drives the window's
 # virtual pad has the run see that pad alone.
 # DXCAP_USERINI=<file> gives a run that User.ini in place of the game's
 # (IniConsole's keys given twice). DXCAP_USERINI_FIRST=1 names the run's inis
@@ -638,8 +638,8 @@ run_fork() {
     (
         cd "$GAME"
         # The desktop's X display through the window's X11 backend, where
-        # the original draws through Wine's; DXCAP_BACKEND=SDL2 its SDL2
-        # one, the launchers', on the same display.
+        # the original draws through Wine's; DXCAP_BACKEND=SDL3 or SDL2 its
+        # SDL one, the launchers', on the same display.
         unset WAYLAND_DISPLAY
         export DISPLAY="$XDISPLAY" SURREALWIDGETS_DISPLAY_BACKEND="${DXCAP_BACKEND:-X11}" SDL_VIDEODRIVER=x11
         # A timeline's virtual pad alone (its vendor and product): no pad of

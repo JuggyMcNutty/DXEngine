@@ -223,7 +223,7 @@ The environment:
 | Variable | What it does |
 |---|---|
 | `SURREAL_VK_NO_BINDLESS=1` | Forces the Vulkan device's per-batch descriptor-set path, the one a GPU without descriptor indexing (the Smart Pro's, for one) takes. |
-| `SURREALWIDGETS_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3` or `X11`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2. The launchers default it to `SDL2`, the backend with the fork's gamepad support. |
+| `SURREALWIDGETS_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3` or `X11`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2. The launchers set it to their port's SDL backend, the one with the pad: `SDL3` on linux-x86_64, `SDL2` on linux-aarch64 and the Smart Pro. |
 | `DXL_LAUNCHER_FD` | The launcher's line ([running it](#running-it)). |
 | `SURREAL_GC_DRYRUN=1` | Each collection marks and frees nothing: the log has what would go, by where it lives and by class, and the first holder outside them of each object of a level left behind ([objects and memory](#objects-and-memory)). |
 | `SURREAL_GC_STRESS=<frames>` | A collection every that many frames, besides the map loads'. |
@@ -246,15 +246,16 @@ By area, as the code stands. Each device's numbers are its port's, such as
   a caught exception, which the launcher's crash sentinel reads. The cross build for an embedded
   aarch64 device is SDL2 only (no X11, Wayland or desktop GL), and takes SDL from pkg-config and
   a host-built `zipdir`. The desktop's, linux-x86_64's, is built at glibc 2.28 by a Buildroot
-  SDK, its SDL2 built in, without the Wayland window of its own, which needs waylandpp
-  ([what it is made of](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/ports/linux-x86_64/README.md#what-it-is-made-of)).
+  SDK, its SDL3 built in (the launcher's), without the Wayland window of its own, which needs
+  waylandpp ([what it is made of](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/ports/linux-x86_64/README.md#what-it-is-made-of)).
   The UI's fonts are `SurrealEngine.pk3`'s.
-- **The gamepad**: the SDL2 display backend gives the pad as polled state (`GetGamepadState`),
-  and `GamepadInput` turns it into UE1 joystick keys and axes that `User.ini` binds; menus get
-  their own controls. Only the SDL2 backend has it. SDL3 supports pads too, but the SDL3
-  backend, upstream's, has no `GetGamepadState`, only upstream's mapping of a pad's buttons to
-  keys; SurrealWidgets builds it instead of SDL2's when both are on, so the ports build the
-  engine without SDL3.
+- **The gamepad**: the SDL2 and SDL3 display backends give the pad as polled state
+  (`GetGamepadState`), and `GamepadInput` turns it into UE1 joystick keys and axes that
+  `User.ini` binds; menus get their own controls. SurrealWidgets builds one SDL backend, SDL3's
+  when both are on: linux-x86_64's engine is built with SDL3's, linux-aarch64's and the Smart
+  Pro's with SDL2's, the Smart Pro's display being its vendor SDL2's alone. Each backend also
+  has a virtual pad of its own for the harness's timelines
+  ([timelines](DEVELOPMENT.md#timelines)).
 - **The launchers' lines**: `--cmdline=` (`OriginalCommandLine`) and `DXL_LAUNCHER_FD`
   (`LauncherLine`) ([running it](#running-it)), with the console's `exec` and an `open` that
   takes a map's file name; `RELAUNCH` passed to the launcher, or a dedicated server started
