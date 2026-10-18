@@ -345,7 +345,12 @@ Vulkan, with descriptor indexing and without (the Smart Pro's), are within
 Matches the original
 ([the rest of a frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-rest-of-a-frame)):
 `FlashConsole`, and over the windows the loading screen's
-(`LoadingConsole`).
+(`LoadingConsole`). The player's `bNoFlash` stays `DeusExPlayer`'s default,
+True: Deus Ex declares it no config property, so neither engine reads the
+`bNoFlash=False` the game's `User.ini` lists. Its `ViewFlash` then drops
+every instant flash and fog, and the death's spiral round the carcass shows
+none of the fade to white and to black its state's `PlayerCalcView` asks
+for (`DyingConsole`, at 60 frames a second).
 
 ### Draw order and movers
 
