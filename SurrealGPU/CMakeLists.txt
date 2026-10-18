@@ -204,6 +204,13 @@ if(MSVC)
 	#set_source_files_properties(${SURREALGPU_SOURCES} PROPERTIES COMPILE_FLAGS "/wd4244 /wd4267 /wd4005 /wd4018 -D_CRT_SECURE_NO_WARNINGS")
 endif()
 
+# GCC 13 takes std::vector<bool>::reserve in glslang's spvIR.h, inlined into
+# GlslangToSpv.cpp, for a buffer overflow: a false positive that the newer
+# GCCs do not report (linux-x86_64's SDK is a GCC 13).
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 14)
+	set_source_files_properties(src/glslang/spirv/GlslangToSpv.cpp PROPERTIES COMPILE_OPTIONS -Wno-stringop-overflow)
+endif()
+
 add_library(surrealgpu STATIC ${SURREALGPU_SOURCES} ${SURREALGPU_INCLUDES} ${VULKAN_INCLUDES})
 target_link_libraries(surrealgpu ${SURREALGPU_LIBS})
 set_target_properties(surrealgpu PROPERTIES CXX_STANDARD 17)

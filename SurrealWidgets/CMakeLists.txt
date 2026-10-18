@@ -334,7 +334,12 @@ else()
 		set(SURREALWIDGETS_DEFINES ${SURREALWIDGETS_DEFINES} -DUSE_X11)
 	endif()
 	if (DBUS_FOUND)
-		include_directories("/usr/lib64/dbus-1.0/include") # Bazzite (and probably Fedora 42) keeps the platform-specific dbus headers in this folder
+		# Bazzite (and probably Fedora 42) keeps the platform-specific dbus
+		# headers in this folder; a build against a sysroot has its own, by
+		# pkg-config, and a compiler that refuses the machine's.
+		if (NOT CMAKE_SYSROOT)
+			include_directories("/usr/lib64/dbus-1.0/include")
+		endif()
 		set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${SURREALWIDGETS_DBUS_SOURCES})
 		set(SURREALWIDGETS_INCLUDE_DIRS ${SURREALWIDGETS_INCLUDE_DIRS} ${DBUS_INCLUDE_DIRS})
 		set(SURREALWIDGETS_LIBS ${SURREALWIDGETS_LIBS} ${DBUS_LDFLAGS})

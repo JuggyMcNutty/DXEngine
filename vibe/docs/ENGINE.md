@@ -243,7 +243,10 @@ By area, as the code stands. Each device's numbers are its port's, such as
 - **Headless and embedded**: `--no-launcher` ([running it](#running-it)); a non-zero exit after
   a caught exception, which the launcher's crash sentinel reads. The cross build for an embedded
   aarch64 device is SDL2 only (no X11, Wayland or desktop GL), and takes SDL from pkg-config and
-  a host-built `zipdir`. The UI's fonts are `SurrealEngine.pk3`'s.
+  a host-built `zipdir`. The desktop's, linux-x86_64's, is built at glibc 2.28 by a Buildroot
+  SDK, its SDL2 built in, without the Wayland window of its own, which needs waylandpp
+  ([what it is made of](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/ports/linux-x86_64/README.md#what-it-is-made-of)).
+  The UI's fonts are `SurrealEngine.pk3`'s.
 - **The gamepad**: the SDL2 display backend gives the pad as polled state (`GetGamepadState`),
   and `GamepadInput` turns it into UE1 joystick keys and axes that `User.ini` binds; menus get
   their own controls. Only the SDL2 backend has it. SDL3 supports pads too, but the SDL3
