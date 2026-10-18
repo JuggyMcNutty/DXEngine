@@ -85,8 +85,8 @@ PipelineState* RenderPassManager::GetPipeline(uint32_t PolyFlags, bool depthBias
 		index = 32;
 	}
 
-	if (depthBias && index < 32 && (index & 3) == 3)
-		return &Scene.BiasedPipeline[index >> 2];
+	if (depthBias && index < 32)
+		return &Scene.BiasedPipeline[index];
 	return &Scene.Pipeline[index];
 }
 
@@ -103,11 +103,16 @@ void RenderPassManager::CreatePipelines()
 	VulkanPipelineLayout* layout = Scene.PipelineLayout.get();
 	static const char* debugName = "ScenePipeline";
 
-	// The 33 scene pipelines, then the opaque ones again with a depth bias
-	for (int n = 0; n < 33 + 8; n++)
+	// The 33 scene pipelines, then the first 32 again a step toward the
+	// viewer, for a mover's surfaces (SurfaceInfo::DepthBias). None else
+	// takes a bias, as the GL device's and D3DDrv's draws take none: a
+	// translucent draw biased by its slope came through the opaque one
+	// before it from afar (an augmentation canister's inside through its
+	// shell).
+	for (int n = 0; n < 33 + 32; n++)
 	{
 		bool biased = n >= 33;
-		int i = biased ? (3 | ((n - 33) << 2)) : n;
+		int i = biased ? n - 33 : n;
 		GraphicsPipelineBuilder builder;
 		builder.AddVertexShader(vertShader);
 		builder.Viewport(0.0f, 0.0f, (float)renderer->Textures->Scene->Width, (float)renderer->Textures->Scene->Height);
@@ -139,22 +144,19 @@ void RenderPassManager::CreatePipelines()
 			{
 			case 0: // PF_Translucent
 				colorblend.BlendMode(VK_BLEND_OP_ADD, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR);
-				builder.DepthBias(true, -1.0f, 0.0f, -1.0f);
 				break;
 			case 1: // PF_Modulated
 				colorblend.BlendMode(VK_BLEND_OP_ADD, VK_BLEND_FACTOR_DST_COLOR, VK_BLEND_FACTOR_SRC_COLOR);
-				builder.DepthBias(true, -1.0f, 0.0f, -1.0f);
 				break;
 			case 2: // PF_Highlighted
 				colorblend.BlendMode(VK_BLEND_OP_ADD, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA);
-				builder.DepthBias(true, -1.0f, 0.0f, -1.0f);
 				break;
 			case 3:
 				colorblend.BlendMode(VK_BLEND_OP_ADD, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ZERO); // Hmm, is it faster to keep the blend mode enabled or to toggle it?
-				if (biased)
-					builder.DepthBias(true, -1.0f, 0.0f, -1.0f);
 				break;
 			}
+			if (biased)
+				builder.DepthBias(true, -1.0f, 0.0f, -1.0f);
 
 			if (i & 4) // PF_Invisible
 			{
@@ -190,7 +192,7 @@ void RenderPassManager::CreatePipelines()
 		builder.RasterizationSamples(renderer->Textures->Scene->SceneSamples);
 		builder.DebugName(debugName);
 
-		(biased ? Scene.BiasedPipeline[n - 33] : Scene.Pipeline[i]).Pipeline = builder.Create(renderer->Device.get());
+		(biased ? Scene.BiasedPipeline[i] : Scene.Pipeline[i]).Pipeline = builder.Create(renderer->Device.get());
 	}
 
 	// Line pipeline

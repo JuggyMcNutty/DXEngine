@@ -38,10 +38,9 @@ public:
 		std::unique_ptr<VulkanRenderPass> RenderPass;
 		std::unique_ptr<VulkanRenderPass> RenderPassContinue;
 		PipelineState Pipeline[33];
-		// The opaque ones a step toward the viewer (SurfaceInfo::DepthBias),
-		// by the bit their index has above the blend's: the translucent,
-		// modulated and highlighted ones take that step already
-		PipelineState BiasedPipeline[8];
+		// The first 32 again a step toward the viewer, for a mover's
+		// surfaces (SurfaceInfo::DepthBias), as the GL device's
+		PipelineState BiasedPipeline[32];
 		PipelineState LinePipeline[2];
 		PipelineState PointPipeline[2];
 	} Scene;
