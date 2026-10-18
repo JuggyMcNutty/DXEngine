@@ -51,7 +51,9 @@
 # named in its ServerPackages, so that a client, whose paths lack <dir>,
 # downloads them.
 # DXCAP_BACKEND=SDL2 gives a fork run SurrealWidgets' SDL2 window, the
-# launchers', in place of its X11 one.
+# launchers', in place of its X11 one; DXCAP_BACKEND=SDL3 its SDL3 window, in
+# a build with SDL3's (DXCAP_ENGINE). A timeline that drives the window's
+# virtual pad has the run see that pad alone.
 # DXCAP_USERINI=<file> gives a run that User.ini in place of the game's
 # (IniConsole's keys given twice). DXCAP_USERINI_FIRST=1 names the run's inis
 # USERINI= then INI= on the original's command line, and gives the fork the
@@ -640,6 +642,12 @@ run_fork() {
         # one, the launchers', on the same display.
         unset WAYLAND_DISPLAY
         export DISPLAY="$XDISPLAY" SURREALWIDGETS_DISPLAY_BACKEND="${DXCAP_BACKEND:-X11}" SDL_VIDEODRIVER=x11
+        # A timeline's virtual pad alone (its vendor and product): no pad of
+        # the machine's in its place.
+        if [ -f "$dir/timeline.txt" ] &&
+            grep -qE '^[[:space:]]*(start|game)[[:space:]]+[0-9.]+[[:space:]]+pad(axis)?[[:space:]]' "$dir/timeline.txt"; then
+            export SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x1209/0xd0d1
+        fi
         if [ "${DXCAP_RECORD:-0}" = 1 ]; then
             printf '[general]\ndrivers = pulse\n' > "$CAP/alsoft-pulse.conf"
             export ALSOFT_CONF="$CAP/alsoft-pulse.conf" PULSE_SINK=dxcap

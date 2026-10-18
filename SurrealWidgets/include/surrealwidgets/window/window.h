@@ -442,11 +442,19 @@ public:
 	virtual void SetGamepadKeyEmulation(bool enable) {}
 
 	// A key of the keyboard pressed or released, by the window system's own
-	// name for it (SDL's scancode names under SDL2: "Left Shift", "Keypad *"),
+	// name for it (SDL's scancode names under SDL2 and SDL3: "Left Shift", "Keypad *"),
 	// put among the window's events to reach the application as the
 	// keyboard's do: for the harness's timelines. False where the backend
 	// cannot, or has no key of that name.
 	virtual bool SimulateKey(const std::string& name, bool down) { return false; }
+
+	// A virtual controller's button pressed or released, or its axis moved
+	// (sticks -1..1, right and down positive; triggers 0..1): a pad of the
+	// backend's own, attached as it is first used, which GetGamepadState
+	// then reads as it reads any: for the harness's timelines. False where
+	// the backend cannot.
+	virtual bool SimulateGamepadButton(GamepadButton button, bool down) { return false; }
+	virtual bool SimulateGamepadAxis(GamepadAxis axis, float value) { return false; }
 
 	virtual std::unique_ptr<OpenFileDialog> CreateOpenFileDialog(DisplayWindow* owner);
 	virtual std::unique_ptr<SaveFileDialog> CreateSaveFileDialog(DisplayWindow* owner);

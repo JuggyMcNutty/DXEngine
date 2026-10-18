@@ -80,6 +80,7 @@ public:
 	InputKey GetMouseButtonKey(const SDL_MouseButtonEvent& event);
 
 	static InputKey ScancodeToInputKey(SDL_Scancode keycode);
+	static InputKey ScancodeToSideKey(SDL_Scancode keycode);
 	static InputKey GameControllerButtonToInputKey(SDL_GamepadButton button);
 	static SDL_Scancode InputKeyToScancode(InputKey inputkey);
 
@@ -116,6 +117,9 @@ public:
 
 	static bool ExitRunLoop;
 	static Uint32 PaintEventNumber;
+	// Controller buttons become key presses unless the application reads the
+	// pad itself (DisplayBackend::SetGamepadKeyEmulation).
+	static bool GamepadKeyEmulation;
 	static std::unordered_map<unsigned int, SDL3DisplayWindow*> WindowList;
 
 	static std::unordered_map<SDL_TimerID, void *> TimerHandles;

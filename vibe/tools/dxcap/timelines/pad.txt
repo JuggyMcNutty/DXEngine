@@ -1,0 +1,19 @@
+# The window's virtual pad in play (pad, padaxis), with PadConsole on
+# Liberty Island: the left stick pushed forward 2 s, the right one right
+# 1 s, B (Joy2: Jump), A (Joy1: Fire), the right trigger past half travel
+# (Joy12) and the d-pad's up (JoyPovUp) pressed in turn; each key the game
+# gets logged (DXKEY:), the player's place PadConsole's (DXPAD:). Either
+# SDL window (DXCAP_BACKEND=SDL2 or SDL3), then an exit.
+start 14.0 padaxis LeftY -1
+start 16.0 padaxis LeftY 0
+start 17.0 padaxis RightX 1
+start 18.0 padaxis RightX 0
+start 19.0 pad B down
+start 19.2 pad B up
+start 21.0 pad A down
+start 21.2 pad A up
+start 22.0 padaxis RightTrigger 1
+start 22.4 padaxis RightTrigger 0
+start 23.0 pad DpadUp down
+start 23.2 pad DpadUp up
+start 25 exit

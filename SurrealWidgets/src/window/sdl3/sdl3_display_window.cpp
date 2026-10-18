@@ -10,6 +10,7 @@
 
 Uint32 SDL3DisplayWindow::PaintEventNumber = 0xffffffff;
 bool SDL3DisplayWindow::ExitRunLoop;
+bool SDL3DisplayWindow::GamepadKeyEmulation = true;
 std::unordered_map<unsigned int, SDL3DisplayWindow*> SDL3DisplayWindow::WindowList;
 
 SDL3DisplayWindow::SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, SDL3DisplayWindow* owner, RenderAPI renderAPI, double uiscale) : WindowHost(windowHost), UIScale(uiscale)
@@ -258,8 +259,15 @@ bool SDL3DisplayWindow::GetKeyState(InputKey key)
 	const bool* state = SDL_GetKeyboardState(&numkeys);
 	if (!state) return false;
 
-	const SDL_Scancode index = InputKeyToScancode(key);
-	return (index < numkeys) ? state[index] != 0 : false;
+	auto down = [&](SDL_Scancode index) { return index < numkeys && state[index]; };
+	// Either side's, as Windows' state of VK_SHIFT, VK_CONTROL and VK_MENU.
+	switch (key)
+	{
+	case InputKey::Shift: return down(SDL_SCANCODE_LSHIFT) || down(SDL_SCANCODE_RSHIFT);
+	case InputKey::Ctrl: return down(SDL_SCANCODE_LCTRL) || down(SDL_SCANCODE_RCTRL);
+	case InputKey::Alt: return down(SDL_SCANCODE_LALT) || down(SDL_SCANCODE_RALT);
+	default: return down(InputKeyToScancode(key));
+	}
 }
 
 Rect SDL3DisplayWindow::GetClientFrame() const
@@ -484,8 +492,8 @@ SDL3DisplayWindow* SDL3DisplayWindow::FindEventWindow(const SDL_Event& event)
 		windowID = event.wheel.windowID;
 	else if (event.type == SDL_EVENT_MOUSE_MOTION)
 		windowID = event.motion.windowID;
-	// else if (event.type == SDL_EVENT_GAMEPAD_BUTTON_UP || event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN)
-	//  these don't have a windowID
+	else if (event.type == SDL_EVENT_GAMEPAD_BUTTON_UP || event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN)
+		; // a pad's has no window: the last event's, as SDL2's window takes it
 	else if (event.type == PaintEventNumber)
 		windowID = event.user.windowID;
 	else
@@ -512,6 +520,9 @@ void SDL3DisplayWindow::DispatchEvent(const SDL_Event& event)
 		eventFrame = event.common.timestamp / 10;
 		joyDown = keyDown = false;
 	}
+
+	if (!GamepadKeyEmulation && (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || event.type == SDL_EVENT_GAMEPAD_BUTTON_UP))
+		return;
 
 	if (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) joyDown = true;
 	if (event.type == SDL_EVENT_KEY_DOWN) keyDown = true;
@@ -581,14 +592,24 @@ void SDL3DisplayWindow::OnJoyButtonDown(const SDL_GamepadButtonEvent& event)
 	WindowHost->OnWindowKeyDown(GameControllerButtonToInputKey((SDL_GamepadButton)event.button));
 }
 
+// A shift, control or alt is its name for both sides, then its side's own,
+// as the original's are: the first from the window's key message, the
+// second from its poll of every key, which sees a held key once
+// (dx-reverse-info/windrv-dll.md, the keys).
 void SDL3DisplayWindow::OnKeyUp(const SDL_KeyboardEvent& event)
 {
 	WindowHost->OnWindowKeyUp(ScancodeToInputKey(event.scancode));
+	InputKey side = ScancodeToSideKey(event.scancode);
+	if (side != InputKey::None)
+		WindowHost->OnWindowKeyUp(side);
 }
 
 void SDL3DisplayWindow::OnKeyDown(const SDL_KeyboardEvent& event)
 {
 	WindowHost->OnWindowKeyDown(ScancodeToInputKey(event.scancode));
+	InputKey side = ScancodeToSideKey(event.scancode);
+	if (side != InputKey::None && !event.repeat)
+		WindowHost->OnWindowKeyDown(side);
 }
 
 InputKey SDL3DisplayWindow::GetMouseButtonKey(const SDL_MouseButtonEvent& event)
@@ -707,6 +728,10 @@ DisplayWindow::GLFuncPtr SDL3DisplayWindow::GetGLProcAddress(const char* name)
 	return (GLFuncPtr)SDL_GL_GetProcAddress(name);
 }
 
+// A key as the original's WinDrv names it: the Windows virtual-key code its
+// key message carries, which is EInputKey's (dx-reverse-info/windrv-dll.md,
+// the keys); a key by its place on a US keyboard, where Windows' code
+// follows the layout.
 InputKey SDL3DisplayWindow::ScancodeToInputKey(SDL_Scancode keycode)
 {
 	switch (keycode)
@@ -715,7 +740,18 @@ InputKey SDL3DisplayWindow::ScancodeToInputKey(SDL_Scancode keycode)
 		case SDL_SCANCODE_TAB:          return InputKey::Tab;
 		case SDL_SCANCODE_CLEAR:        return InputKey::OEMClear;
 		case SDL_SCANCODE_RETURN:       return InputKey::Enter;
-		case SDL_SCANCODE_MENU:         return InputKey::Alt;
+		case SDL_SCANCODE_KP_ENTER:     return InputKey::Enter;
+		case SDL_SCANCODE_LSHIFT:
+		case SDL_SCANCODE_RSHIFT:       return InputKey::Shift;
+		case SDL_SCANCODE_LCTRL:
+		case SDL_SCANCODE_RCTRL:        return InputKey::Ctrl;
+		case SDL_SCANCODE_LALT:
+		case SDL_SCANCODE_RALT:         return InputKey::Alt;
+		case SDL_SCANCODE_CAPSLOCK:     return InputKey::CapsLock;
+		case SDL_SCANCODE_LGUI:         return InputKey::Unknown5B;   // VK_LWIN
+		case SDL_SCANCODE_RGUI:         return InputKey::Unknown5C;   // VK_RWIN
+		case SDL_SCANCODE_APPLICATION:
+		case SDL_SCANCODE_MENU:         return InputKey::Unknown5D;   // VK_APPS
 		case SDL_SCANCODE_PAUSE:        return InputKey::Pause;
 		case SDL_SCANCODE_ESCAPE:       return InputKey::Escape;
 		case SDL_SCANCODE_SPACE:        return InputKey::Space;
@@ -728,7 +764,7 @@ InputKey SDL3DisplayWindow::ScancodeToInputKey(SDL_Scancode keycode)
 		case SDL_SCANCODE_RIGHT:        return InputKey::Right;
 		case SDL_SCANCODE_DOWN:         return InputKey::Down;
 		case SDL_SCANCODE_SELECT:       return InputKey::Select;
-		case SDL_SCANCODE_PRINTSCREEN:  return InputKey::Print;
+		case SDL_SCANCODE_PRINTSCREEN:  return InputKey::PrintScrn;   // VK_SNAPSHOT
 		case SDL_SCANCODE_EXECUTE:      return InputKey::Execute;
 		case SDL_SCANCODE_INSERT:       return InputKey::Insert;
 		case SDL_SCANCODE_DELETE:       return InputKey::Delete;
@@ -779,13 +815,12 @@ InputKey SDL3DisplayWindow::ScancodeToInputKey(SDL_Scancode keycode)
 		case SDL_SCANCODE_KP_7:         return InputKey::NumPad7;
 		case SDL_SCANCODE_KP_8:         return InputKey::NumPad8;
 		case SDL_SCANCODE_KP_9:         return InputKey::NumPad9;
-		// case SDL_SCANCODE_KP_ENTER:     return InputKey::NumPadEnter;
-		// case SDL_SCANCODE_KP_MULTIPLY:  return InputKey::Multiply;
-		// case SDL_SCANCODE_KP_PLUS:      return InputKey::Add;
+		case SDL_SCANCODE_KP_MULTIPLY:  return InputKey::GreyStar;
+		case SDL_SCANCODE_KP_PLUS:      return InputKey::GreyPlus;
 		case SDL_SCANCODE_SEPARATOR:    return InputKey::Separator;
-		// case SDL_SCANCODE_KP_MINUS:     return InputKey::Subtract;
+		case SDL_SCANCODE_KP_MINUS:     return InputKey::GreyMinus;
 		case SDL_SCANCODE_KP_PERIOD:    return InputKey::NumPadPeriod;
-		// case SDL_SCANCODE_KP_DIVIDE:    return InputKey::Divide;
+		case SDL_SCANCODE_KP_DIVIDE:    return InputKey::GreySlash;
 		case SDL_SCANCODE_F1:           return InputKey::F1;
 		case SDL_SCANCODE_F2:           return InputKey::F2;
 		case SDL_SCANCODE_F3:           return InputKey::F3;
@@ -812,11 +847,33 @@ InputKey SDL3DisplayWindow::ScancodeToInputKey(SDL_Scancode keycode)
 		case SDL_SCANCODE_F24:          return InputKey::F24;
 		case SDL_SCANCODE_NUMLOCKCLEAR: return InputKey::NumLock;
 		case SDL_SCANCODE_SCROLLLOCK:   return InputKey::ScrollLock;
+		case SDL_SCANCODE_SEMICOLON:    return InputKey::Semicolon;
+		case SDL_SCANCODE_EQUALS:       return InputKey::Equals;
+		case SDL_SCANCODE_COMMA:        return InputKey::Comma;
+		case SDL_SCANCODE_MINUS:        return InputKey::Minus;
+		case SDL_SCANCODE_PERIOD:       return InputKey::Period;
+		case SDL_SCANCODE_SLASH:        return InputKey::Slash;
+		case SDL_SCANCODE_GRAVE:        return InputKey::Tilde;
+		case SDL_SCANCODE_LEFTBRACKET:  return InputKey::LeftBracket;
+		case SDL_SCANCODE_BACKSLASH:    return InputKey::Backslash;
+		case SDL_SCANCODE_RIGHTBRACKET: return InputKey::RightBracket;
+		case SDL_SCANCODE_APOSTROPHE:   return InputKey::SingleQuote;
+		default:                        return InputKey::None;
+	}
+}
+
+// A shift's, control's or alt's side, its own key beside the one of both:
+// VK_LSHIFT and the rest, LMENU and RMENU EInputKey's UnknownA4 and A5.
+InputKey SDL3DisplayWindow::ScancodeToSideKey(SDL_Scancode keycode)
+{
+	switch (keycode)
+	{
 		case SDL_SCANCODE_LSHIFT:       return InputKey::LShift;
 		case SDL_SCANCODE_RSHIFT:       return InputKey::RShift;
 		case SDL_SCANCODE_LCTRL:        return InputKey::LControl;
 		case SDL_SCANCODE_RCTRL:        return InputKey::RControl;
-		case SDL_SCANCODE_GRAVE:        return InputKey::Tilde;
+		case SDL_SCANCODE_LALT:         return InputKey::UnknownA4;
+		case SDL_SCANCODE_RALT:         return InputKey::UnknownA5;
 		default:                        return InputKey::None;
 	}
 }
@@ -849,7 +906,12 @@ SDL_Scancode SDL3DisplayWindow::InputKeyToScancode(InputKey inputkey)
 		case InputKey::Tab:           return SDL_SCANCODE_TAB;
 		case InputKey::OEMClear:      return SDL_SCANCODE_CLEAR;
 		case InputKey::Enter:         return SDL_SCANCODE_RETURN;
-		case InputKey::Alt:           return SDL_SCANCODE_MENU;
+		case InputKey::CapsLock:      return SDL_SCANCODE_CAPSLOCK;
+		case InputKey::Unknown5B:     return SDL_SCANCODE_LGUI;
+		case InputKey::Unknown5C:     return SDL_SCANCODE_RGUI;
+		case InputKey::Unknown5D:     return SDL_SCANCODE_APPLICATION;
+		case InputKey::UnknownA4:     return SDL_SCANCODE_LALT;
+		case InputKey::UnknownA5:     return SDL_SCANCODE_RALT;
 		case InputKey::Pause:         return SDL_SCANCODE_PAUSE;
 		case InputKey::Escape:        return SDL_SCANCODE_ESCAPE;
 		case InputKey::Space:         return SDL_SCANCODE_SPACE;
@@ -860,7 +922,7 @@ SDL_Scancode SDL3DisplayWindow::InputKeyToScancode(InputKey inputkey)
 		case InputKey::Right:         return SDL_SCANCODE_RIGHT;
 		case InputKey::Down:          return SDL_SCANCODE_DOWN;
 		case InputKey::Select:        return SDL_SCANCODE_SELECT;
-		case InputKey::Print:         return SDL_SCANCODE_PRINTSCREEN;
+		case InputKey::PrintScrn:     return SDL_SCANCODE_PRINTSCREEN;
 		case InputKey::Execute:       return SDL_SCANCODE_EXECUTE;
 		case InputKey::Insert:        return SDL_SCANCODE_INSERT;
 		case InputKey::Delete:        return SDL_SCANCODE_DELETE;
@@ -911,13 +973,8 @@ SDL_Scancode SDL3DisplayWindow::InputKeyToScancode(InputKey inputkey)
 		case InputKey::NumPad7:       return SDL_SCANCODE_KP_7;
 		case InputKey::NumPad8:       return SDL_SCANCODE_KP_8;
 		case InputKey::NumPad9:       return SDL_SCANCODE_KP_9;
-		// case InputKey::NumPadEnter:   return SDL_SCANCODE_KP_ENTER;
-		// case InputKey::Multiply       return SDL_SCANCODE_KP_MULTIPLY:;
-		// case InputKey::Add:           return SDL_SCANCODE_KP_PLUS;
 		case InputKey::Separator:     return SDL_SCANCODE_SEPARATOR;
-		// case InputKey::Subtract:      return SDL_SCANCODE_KP_MINUS;
 		case InputKey::NumPadPeriod:  return SDL_SCANCODE_KP_PERIOD;
-		// case InputKey::Divide:        return SDL_SCANCODE_KP_DIVIDE;
 		case InputKey::F1:            return SDL_SCANCODE_F1;
 		case InputKey::F2:            return SDL_SCANCODE_F2;
 		case InputKey::F3:            return SDL_SCANCODE_F3;
@@ -949,6 +1006,20 @@ SDL_Scancode SDL3DisplayWindow::InputKeyToScancode(InputKey inputkey)
 		case InputKey::LControl:      return SDL_SCANCODE_LCTRL;
 		case InputKey::RControl:      return SDL_SCANCODE_RCTRL;
 		case InputKey::Tilde:         return SDL_SCANCODE_GRAVE;
+		case InputKey::Semicolon:     return SDL_SCANCODE_SEMICOLON;
+		case InputKey::Equals:        return SDL_SCANCODE_EQUALS;
+		case InputKey::Comma:         return SDL_SCANCODE_COMMA;
+		case InputKey::Minus:         return SDL_SCANCODE_MINUS;
+		case InputKey::Period:        return SDL_SCANCODE_PERIOD;
+		case InputKey::Slash:         return SDL_SCANCODE_SLASH;
+		case InputKey::LeftBracket:   return SDL_SCANCODE_LEFTBRACKET;
+		case InputKey::Backslash:     return SDL_SCANCODE_BACKSLASH;
+		case InputKey::RightBracket:  return SDL_SCANCODE_RIGHTBRACKET;
+		case InputKey::SingleQuote:   return SDL_SCANCODE_APOSTROPHE;
+		case InputKey::GreyStar:      return SDL_SCANCODE_KP_MULTIPLY;
+		case InputKey::GreyPlus:      return SDL_SCANCODE_KP_PLUS;
+		case InputKey::GreyMinus:     return SDL_SCANCODE_KP_MINUS;
+		case InputKey::GreySlash:     return SDL_SCANCODE_KP_DIVIDE;
 		default:                      return SDL_SCANCODE_UNKNOWN;
 	}
 }

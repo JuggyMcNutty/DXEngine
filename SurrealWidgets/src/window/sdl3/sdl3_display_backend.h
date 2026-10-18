@@ -1,5 +1,7 @@
 #pragma once
 
+#include <SDL3/SDL_gamepad.h>
+
 #include "surrealwidgets/window/window.h"
 
 class SDL3DisplayBackend : public DisplayBackend
@@ -17,8 +19,17 @@ public:
 
 	Size GetScreenSize() override;
 
+	bool GetGamepadState(GamepadState& state) override;
+	void SetGamepadKeyEmulation(bool enable) override;
+	bool SimulateKey(const std::string& name, bool down) override;
+	bool SimulateGamepadButton(GamepadButton button, bool down) override;
+	bool SimulateGamepadAxis(GamepadAxis axis, float value) override;
+
 	bool IsSDL3() override { return true; }
 
 private:
 	double UIScale = 1.0;
+	SDL_Gamepad* Gamepad = nullptr;
+	SDL_Joystick* VirtualPad();
+	SDL_Joystick* Virtual = nullptr;
 };

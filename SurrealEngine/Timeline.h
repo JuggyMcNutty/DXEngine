@@ -14,8 +14,12 @@
 // MouseWheelDown a notch of the wheel), "keydown <name>" or "keyup <name>"
 // a key of the keyboard by the window system's name for it, put among the
 // window's own events (DisplayBackend::SimulateKey), every key the window
-// then gives the game logged (DXKEY:), "pointer <x> <y>" the root
-// window's pointer moved there, else a console command (shot, exit, ...). Each second of the game where
+// then gives the game logged (DXKEY:), "pad <button> down|up" or "padaxis
+// <axis> <value>" the window's virtual pad (DisplayBackend::
+// SimulateGamepadButton, SimulateGamepadAxis; GamepadButton's and
+// GamepadAxis's names, a stick -1 to 1, a trigger 0 to 1), the keys logged
+// so too, "pointer <x> <y>" the root window's pointer moved there, else a
+// console command (shot, exit, ...). Each second of the game where
 // the player stands is logged, and every other pawn's place and animation,
 // as JoinConsole logs them; dropped back to the menu, the run exits.
 class Timeline
@@ -24,7 +28,7 @@ public:
 	bool Load(const std::string& path);
 	void Tick(float realElapsed);
 
-	// A timeline with keydown or keyup in it: the window's keys logged.
+	// A timeline with keydown, keyup or pad in it: the window's keys logged.
 	static bool LogKeys;
 
 private:

@@ -22,10 +22,14 @@ public:
 	bool GetGamepadState(GamepadState& state) override;
 	void SetGamepadKeyEmulation(bool enable) override;
 	bool SimulateKey(const std::string& name, bool down) override;
+	bool SimulateGamepadButton(GamepadButton button, bool down) override;
+	bool SimulateGamepadAxis(GamepadAxis axis, float value) override;
 
 	bool IsSDL2() override { return true; }
 
 private:
 	double UIScale = 1.0;
 	SDL_GameController* Gamepad = nullptr;
+	SDL_Joystick* VirtualPad();
+	SDL_Joystick* Virtual = nullptr;
 };

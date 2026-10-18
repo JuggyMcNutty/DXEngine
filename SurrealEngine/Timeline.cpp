@@ -13,6 +13,7 @@
 #include "Utils/Logger.h"
 #include "Utils/StrTools.h"
 #include <surrealwidgets/window/window.h>
+#include <cstdlib>
 #include <sstream>
 
 bool Timeline::LogKeys = false;
@@ -53,7 +54,7 @@ bool Timeline::Load(const std::string& path)
 		action.Arg = first == std::string::npos ? std::string() : action.Arg.substr(first);
 		while (!action.Arg.empty() && (action.Arg.back() == '\r' || action.Arg.back() == ' '))
 			action.Arg.pop_back();
-		if (action.Verb == "keydown" || action.Verb == "keyup")
+		if (action.Verb == "keydown" || action.Verb == "keyup" || action.Verb == "pad")
 			LogKeys = true;
 		Actions.push_back(action);
 	}
@@ -134,6 +135,49 @@ void Timeline::Run(Action& action)
 		DisplayBackend* backend = DisplayBackend::Get();
 		if (!backend || !backend->SimulateKey(action.Arg, action.Verb == "keydown"))
 			LogMessage("Timeline: the window takes no key '" + action.Arg + "'");
+		return;
+	}
+
+	// The window's virtual pad, its buttons and axes by GamepadButton's and
+	// GamepadAxis's names: what the game makes of them is what it makes of a
+	// pad's.
+	if (action.Verb == "pad" || action.Verb == "padaxis")
+	{
+		LogMessage("DXLIVE: " + action.Verb + " " + action.Arg);
+		std::istringstream words(action.Arg);
+		std::string name, value;
+		words >> name >> value;
+		DisplayBackend* backend = DisplayBackend::Get();
+		bool done = false;
+		if (action.Verb == "pad")
+		{
+			static const char* const buttons[(int)GamepadButton::Count] =
+			{
+				"A", "B", "X", "Y", "Back", "Guide", "Start", "LeftStick", "RightStick", "LeftShoulder", "RightShoulder",
+				"DpadUp", "DpadDown", "DpadLeft", "DpadRight"
+			};
+			for (int i = 0; i < (int)GamepadButton::Count; i++)
+			{
+				if (StrTools::equals_ignore_case(buttons[i], name) && (value == "down" || value == "up"))
+					done = backend && backend->SimulateGamepadButton((GamepadButton)i, value == "down");
+			}
+		}
+		else
+		{
+			static const char* const axes[(int)GamepadAxis::Count] =
+			{
+				"LeftX", "LeftY", "RightX", "RightY", "LeftTrigger", "RightTrigger"
+			};
+			char* end = nullptr;
+			float v = std::strtof(value.c_str(), &end);
+			for (int i = 0; i < (int)GamepadAxis::Count; i++)
+			{
+				if (StrTools::equals_ignore_case(axes[i], name) && !value.empty() && end && *end == '\0')
+					done = backend && backend->SimulateGamepadAxis((GamepadAxis)i, v);
+			}
+		}
+		if (!done)
+			LogMessage("Timeline: the window takes no " + action.Verb + " '" + action.Arg + "'");
 		return;
 	}
 

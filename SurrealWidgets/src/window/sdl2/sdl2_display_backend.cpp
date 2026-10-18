@@ -1,5 +1,6 @@
 #include "sdl2_display_backend.h"
 #include "sdl2_display_window.h"
+#include <cmath>
 #include <stdexcept>
 #include <SDL2/SDL_video.h>
 #ifndef WIN32
@@ -122,6 +123,48 @@ bool SDL2DisplayBackend::SimulateKey(const std::string& name, bool down)
 	event.key.keysym.scancode = scancode;
 	event.key.keysym.sym = SDL_GetKeyFromScancode(scancode);
 	return SDL_PushEvent(&event) == 1;
+}
+
+// The timeline's pad: a virtual game controller of SDL's, its axes and
+// buttons in SDL's order (GamepadAxis's and GamepadButton's), named by the
+// vendor and product ids a run's SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT
+// can keep alone.
+SDL_Joystick* SDL2DisplayBackend::VirtualPad()
+{
+	if (Virtual)
+		return Virtual;
+	SDL_VirtualJoystickDesc desc = {};
+	desc.version = SDL_VIRTUAL_JOYSTICK_DESC_VERSION;
+	desc.type = SDL_JOYSTICK_TYPE_GAMECONTROLLER;
+	desc.vendor_id = 0x1209;
+	desc.product_id = 0xd0d1;
+	desc.naxes = (Uint16)GamepadAxis::Count;
+	desc.nbuttons = (Uint16)GamepadButton::Count;
+	desc.axis_mask = (1u << (int)GamepadAxis::Count) - 1;
+	desc.button_mask = (1u << (int)GamepadButton::Count) - 1;
+	desc.name = "VibeEngine's timeline pad";
+	int index = SDL_JoystickAttachVirtualEx(&desc);
+	if (index >= 0)
+		Virtual = SDL_JoystickOpen(index);
+	return Virtual;
+}
+
+bool SDL2DisplayBackend::SimulateGamepadButton(GamepadButton button, bool down)
+{
+	SDL_Joystick* pad = VirtualPad();
+	return pad && SDL_JoystickSetVirtualButton(pad, (int)button, down ? SDL_PRESSED : SDL_RELEASED) == 0;
+}
+
+bool SDL2DisplayBackend::SimulateGamepadAxis(GamepadAxis axis, float value)
+{
+	SDL_Joystick* pad = VirtualPad();
+	if (!pad)
+		return false;
+	// A trigger's axis is the whole range, the released at its least.
+	bool trigger = axis == GamepadAxis::LeftTrigger || axis == GamepadAxis::RightTrigger;
+	float v = trigger ? std::fmin(std::fmax(value, 0.0f), 1.0f) * 2.0f - 1.0f : std::fmin(std::fmax(value, -1.0f), 1.0f);
+	Sint16 raw = (Sint16)std::lround(v < 0.0f ? v * 32768.0f : v * 32767.0f);
+	return SDL_JoystickSetVirtualAxis(pad, (int)axis, raw) == 0;
 }
 
 std::unique_ptr<DisplayWindow> SDL2DisplayBackend::Create(DisplayWindowHost* windowHost, WidgetType type, DisplayWindow* owner, RenderAPI renderAPI)
