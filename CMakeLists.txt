@@ -898,13 +898,13 @@ function( add_zip ZIP_NAME ZIP_DIR )
 		set(ZIPDIR_DEPENDS zipdir)
 	endif()
 
-	# Add command for building the zip file
+	# Find the files in the directory, again at build time when one comes or goes
+	file(GLOB_RECURSE ZIP_SRCS CONFIGURE_DEPENDS ${ZIP_DIR}/*)
+
+	# Add command for building the zip file, again whenever one of them changes
 	add_custom_command( OUTPUT ${CMAKE_BINARY_DIR}/${ZIP_NAME}
 		COMMAND ${ZIPDIR_COMMAND} ${CMAKE_BINARY_DIR}/${ZIP_NAME} ${ZIP_DIR}
-		DEPENDS ${ZIPDIR_DEPENDS} )
-
-	# Find the files in the directory
-	file(GLOB_RECURSE ZIP_SRCS ${ZIP_DIR}/*)
+		DEPENDS ${ZIPDIR_DEPENDS} ${ZIP_SRCS} )
 
 	# Create target project for the zip file
 	# Touch zipdir executable to force rebuild of the zip file if any of the resource files change
