@@ -1,0 +1,1575 @@
+
+#include "Precomp.h"
+#include "PackageManager.h"
+#include <algorithm>
+#include "Package.h"
+#include "PackageStream.h"
+#include "IniFile.h"
+#include "PackageWriter.h"
+#include "Utils/File.h"
+#include "Utils/StrTools.h"
+#include "Utils/Logger.h"
+#include "VM/NativeFunc.h"
+#include <chrono>
+#include <fstream>
+#include "Packages/ConSys/UConAudioList.h"
+#include "Packages/ConSys/UConCamera.h"
+#include "Packages/ConSys/UConChoice.h"
+#include "Packages/ConSys/UConFlagRef.h"
+#include "Packages/ConSys/UConItem.h"
+#include "Packages/ConSys/UConLight.h"
+#include "Packages/ConSys/UConListItem.h"
+#include "Packages/ConSys/UConObject.h"
+#include "Packages/ConSys/UConSpeech.h"
+#include "Packages/ConSys/UConversation.h"
+#include "Packages/ConSys/UConversationList.h"
+#include "Packages/ConSys/UConversationMissionList.h"
+#include "Packages/ConSys/Events/UConEvent.h"
+#include "Packages/ConSys/Events/UConEventAddCredits.h"
+#include "Packages/ConSys/Events/UConEventAddGoal.h"
+#include "Packages/ConSys/Events/UConEventAddNote.h"
+#include "Packages/ConSys/Events/UConEventAddSkillPoints.h"
+#include "Packages/ConSys/Events/UConEventAnimation.h"
+#include "Packages/ConSys/Events/UConEventCheckFlag.h"
+#include "Packages/ConSys/Events/UConEventCheckObject.h"
+#include "Packages/ConSys/Events/UConEventCheckPersona.h"
+#include "Packages/ConSys/Events/UConEventChoice.h"
+#include "Packages/ConSys/Events/UConEventComment.h"
+#include "Packages/ConSys/Events/UConEventEnd.h"
+#include "Packages/ConSys/Events/UConEventJump.h"
+#include "Packages/ConSys/Events/UConEventMoveCamera.h"
+#include "Packages/ConSys/Events/UConEventRandomLabel.h"
+#include "Packages/ConSys/Events/UConEventSetFlag.h"
+#include "Packages/ConSys/Events/UConEventSpeech.h"
+#include "Packages/ConSys/Events/UConEventTrade.h"
+#include "Packages/ConSys/Events/UConEventTransferObject.h"
+#include "Packages/ConSys/Events/UConEventTrigger.h"
+#include "Packages/ConSys/History/UConHistory.h"
+#include "Packages/ConSys/History/UConHistoryEvent.h"
+#include "Packages/Core/UClass.h"
+#include "Packages/Core/UCommandlet.h"
+#include "Packages/Core/UConst.h"
+#include "Packages/Core/UEnum.h"
+#include "Packages/Core/UField.h"
+#include "Packages/Core/UFunction.h"
+#include "Packages/Core/ULanguage.h"
+#include "Packages/Core/UObject.h"
+#include "Packages/Core/UPackage.h"
+#include "Packages/Core/USimpleCommandlet.h"
+#include "Packages/Core/UState.h"
+#include "Packages/Core/UStruct.h"
+#include "Packages/Core/USubsystem.h"
+#include "Packages/Core/UTextBuffer.h"
+#include "Packages/Core/Properties/UArrayProperty.h"
+#include "Packages/Core/Properties/UBoolProperty.h"
+#include "Packages/Core/Properties/UByteProperty.h"
+#include "Packages/Core/Properties/UClassProperty.h"
+#include "Packages/Core/Properties/UFixedArrayProperty.h"
+#include "Packages/Core/Properties/UFloatProperty.h"
+#include "Packages/Core/Properties/UIntProperty.h"
+#include "Packages/Core/Properties/UMapProperty.h"
+#include "Packages/Core/Properties/UNameProperty.h"
+#include "Packages/Core/Properties/UObjectProperty.h"
+#include "Packages/Core/Properties/UPointerProperty.h"
+#include "Packages/Core/Properties/UProperty.h"
+#include "Packages/Core/Properties/UStringProperty.h"
+#include "Packages/Core/Properties/UStrProperty.h"
+#include "Packages/Core/Properties/UStructProperty.h"
+#include "Packages/DeusEx/UDeusExDecoration.h"
+#include "Packages/DeusEx/UDeusExLevelInfo.h"
+#include "Packages/DeusEx/UDeusExPlayer.h"
+#include "Packages/DeusEx/UDeusExSaveInfo.h"
+#include "Packages/DeusEx/UGameDirectory.h"
+#include "Packages/DeusEx/ULaserIterator.h"
+#include "Packages/DeusEx/UParticleIterator.h"
+#include "Packages/DeusEx/UScriptedPawn.h"
+#include "Packages/DeusExText/UDeusExTextParser.h"
+#include "Packages/Engine/UCanvas.h"
+#include "Packages/Engine/UClient.h"
+#include "Packages/Engine/UConsole.h"
+#include "Packages/Engine/UPlayer.h"
+#include "Packages/Engine/URenderIterator.h"
+#include "Packages/Engine/UDXEngineClient.h"
+#include "Packages/Engine/UViewport.h"
+#include "Packages/Engine/Actors/UActor.h"
+#include "Packages/Engine/Actors/UDecal.h"
+#include "Packages/Engine/Actors/UHUD.h"
+#include "Packages/Engine/Actors/ULight.h"
+#include "Packages/Engine/Actors/UMenu.h"
+#include "Packages/Engine/Actors/UProjectile.h"
+#include "Packages/Engine/Actors/USpawnNotify.h"
+#include "Packages/Engine/Actors/Brush/UBrush.h"
+#include "Packages/Engine/Actors/Brush/UMover.h"
+#include "Packages/Engine/Actors/Decoration/UCarcass.h"
+#include "Packages/Engine/Actors/Decoration/UDecoration.h"
+#include "Packages/Engine/Actors/Info/UGameInfo.h"
+#include "Packages/Engine/Actors/Info/UGameReplicationInfo.h"
+#include "Packages/Engine/Actors/Info/UInfo.h"
+#include "Packages/Engine/Actors/Info/UInternetInfo.h"
+#include "Packages/Engine/Actors/Info/ULevelInfo.h"
+#include "Packages/Engine/Actors/Info/UMutator.h"
+#include "Packages/Engine/Actors/Info/UPlayerReplicationInfo.h"
+#include "Packages/Engine/Actors/Info/UReplicationInfo.h"
+#include "Packages/Engine/Actors/Info/USavedMove.h"
+#include "Packages/Engine/Actors/Info/USkyZoneInfo.h"
+#include "Packages/Engine/Actors/Info/UStatLog.h"
+#include "Packages/Engine/Actors/Info/UStatLogFile.h"
+#include "Packages/Engine/Actors/Info/UWarpZoneInfo.h"
+#include "Packages/Engine/Actors/Info/UZoneInfo.h"
+#include "Packages/Engine/Actors/Inventory/UInventory.h"
+#include "Packages/Engine/Actors/Inventory/UWeapon.h"
+#include "Packages/Engine/Actors/Keypoint/UInterpolationPoint.h"
+#include "Packages/Engine/Actors/Keypoint/UKeypoint.h"
+#include "Packages/Engine/Actors/Keypoint/Ulocationid.h"
+#include "Packages/Engine/Actors/NavigationPoint/UButtonMarker.h"
+#include "Packages/Engine/Actors/NavigationPoint/UInventorySpot.h"
+#include "Packages/Engine/Actors/NavigationPoint/ULiftCenter.h"
+#include "Packages/Engine/Actors/NavigationPoint/ULiftExit.h"
+#include "Packages/Engine/Actors/NavigationPoint/UNavigationPoint.h"
+#include "Packages/Engine/Actors/NavigationPoint/UPathNode.h"
+#include "Packages/Engine/Actors/NavigationPoint/UPlayerStart.h"
+#include "Packages/Engine/Actors/NavigationPoint/UTeleporter.h"
+#include "Packages/Engine/Actors/NavigationPoint/UTriggerMarker.h"
+#include "Packages/Engine/Actors/NavigationPoint/UWarpZoneMarker.h"
+#include "Packages/Engine/Actors/Pawn/UCamera.h"
+#include "Packages/Engine/Actors/Pawn/UPawn.h"
+#include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+#include "Packages/Engine/Actors/Pawn/UScout.h"
+#include "Packages/Engine/Actors/Triggers/UTrigger.h"
+#include "Packages/Engine/Actors/Triggers/UTriggers.h"
+#include "Packages/Engine/Network/UActorChannel.h"
+#include "Packages/Engine/Network/UChannel.h"
+#include "Packages/Engine/Network/UControlChannel.h"
+#include "Packages/Engine/Network/UDemoPlayPendingLevel.h"
+#include "Packages/Engine/Network/UDemoRecConnection.h"
+#include "Packages/Engine/Network/UFileChannel.h"
+#include "Packages/Engine/Network/UNetConnection.h"
+#include "Packages/Engine/Network/UNetPendingLevel.h"
+#include "Packages/Engine/Network/UPendingLevel.h"
+#include "Packages/Engine/Resources/UFont.h"
+#include "Packages/Engine/Resources/UMusic.h"
+#include "Packages/Engine/Resources/UPalette.h"
+#include "Packages/Engine/Resources/UPrimitive.h"
+#include "Packages/Engine/Resources/USound.h"
+#include "Packages/Engine/Resources/Level/UBspNodes.h"
+#include "Packages/Engine/Resources/Level/UBspSurfs.h"
+#include "Packages/Engine/Resources/Level/ULevel.h"
+#include "Packages/Engine/Resources/Level/ULevelBase.h"
+#include "Packages/Engine/Resources/Level/ULevelSummary.h"
+#include "Packages/Engine/Resources/Level/UModel.h"
+#include "Packages/Engine/Resources/Level/UPolys.h"
+#include "Packages/Engine/Resources/Level/UVectors.h"
+#include "Packages/Engine/Resources/Level/UVerts.h"
+#include "Packages/Engine/Resources/Mesh/UAnimation.h"
+#include "Packages/Engine/Resources/Mesh/ULodMesh.h"
+#include "Packages/Engine/Resources/Mesh/UMesh.h"
+#include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
+#include "Packages/Engine/Resources/Textures/UBitmap.h"
+#include "Packages/Engine/Resources/Textures/UFireTexture.h"
+#include "Packages/Engine/Resources/Textures/UFractalTexture.h"
+#include "Packages/Engine/Resources/Textures/UIceTexture.h"
+#include "Packages/Engine/Resources/Textures/UScriptedTexture.h"
+#include "Packages/Engine/Resources/Textures/UTexture.h"
+#include "Packages/Engine/Resources/Textures/UWaterTexture.h"
+#include "Packages/Engine/Resources/Textures/UWaveTexture.h"
+#include "Packages/Engine/Resources/Textures/UWetTexture.h"
+#include "Packages/Engine/Subsystems/UAudioSubsystem.h"
+#include "Packages/Engine/Subsystems/UEditorEngine.h"
+#include "Packages/Engine/Subsystems/UEngine.h"
+#include "Packages/Engine/Subsystems/UGameEngine.h"
+#include "Packages/Engine/Subsystems/UNetDriver.h"
+#include "Packages/Engine/Subsystems/URenderBase.h"
+#include "Packages/Engine/Subsystems/URenderDevice.h"
+#include "Packages/Engine/Subsystems/UDXEngineAudioDevice.h"
+#include "Packages/Engine/Subsystems/UDXEngineNetworkDevice.h"
+#include "Packages/Engine/Subsystems/UDXEngineRenderDevice.h"
+#include "Packages/Extension/UExtensionObject.h"
+#include "Packages/Extension/UExtString.h"
+#include "Packages/Extension/UPlayerPawnExt.h"
+#include "Packages/Extension/Flags/UFlag.h"
+#include "Packages/Extension/Flags/UFlagBase.h"
+#include "Packages/Extension/Flags/UFlagBool.h"
+#include "Packages/Extension/Flags/UFlagByte.h"
+#include "Packages/Extension/Flags/UFlagFloat.h"
+#include "Packages/Extension/Flags/UFlagInt.h"
+#include "Packages/Extension/Flags/UFlagName.h"
+#include "Packages/Extension/Flags/UFlagRotator.h"
+#include "Packages/Extension/Flags/UFlagVector.h"
+#include "Packages/Extension/Windows/UBorderWindow.h"
+#include "Packages/Extension/Windows/UComputerWindow.h"
+#include "Packages/Extension/Windows/UGC.h"
+#include "Packages/Extension/Windows/UListWindow.h"
+#include "Packages/Engine/UEventManager.h"
+#include "Packages/Extension/Windows/UScaleManagerWindow.h"
+#include "Packages/Extension/Windows/UScaleWindow.h"
+#include "Packages/Extension/Windows/UScrollAreaWindow.h"
+#include "Packages/Extension/Windows/UTileWindow.h"
+#include "Packages/Extension/Windows/UViewportWindow.h"
+#include "Packages/Extension/Windows/UWindow.h"
+#include "Packages/Extension/Windows/TabGroup/UClipWindow.h"
+#include "Packages/Extension/Windows/TabGroup/UModalWindow.h"
+#include "Packages/Extension/Windows/TabGroup/URadioBoxWindow.h"
+#include "Packages/Extension/Windows/TabGroup/URootWindow.h"
+#include "Packages/Extension/Windows/TabGroup/UTabGroupWindow.h"
+#include "Packages/Extension/Windows/Text/UButtonWindow.h"
+#include "Packages/Extension/Windows/Text/UCheckboxWindow.h"
+#include "Packages/Extension/Windows/Text/UEditWindow.h"
+#include "Packages/Extension/Windows/Text/ULargeTextWindow.h"
+#include "Packages/Extension/Windows/Text/UTextLogWindow.h"
+#include "Packages/Extension/Windows/Text/UTextWindow.h"
+#include "Packages/Extension/Windows/Text/UToggleWindow.h"
+#include "Packages/IpDrv/UInternetLink.h"
+#include "Packages/IpDrv/UTcpLink.h"
+#include "Packages/IpDrv/UUdpLink.h"
+#include "Native/NActor.h"
+#include "Native/NCanvas.h"
+#include "Native/NCommandlet.h"
+#include "Native/NConsole.h"
+#include "Native/NDecal.h"
+#include "Native/NGameInfo.h"
+#include "Native/NLevelInfo.h"
+#include "Native/NNavigationPoint.h"
+#include "Native/NObject.h"
+#include "Native/NPawn.h"
+#include "Native/NPlayerPawn.h"
+#include "Native/NScriptedTexture.h"
+#include "Native/NStatLog.h"
+#include "Native/NStatLogFile.h"
+#include "Native/NWarpZoneInfo.h"
+#include "Native/NZoneInfo.h"
+#include "Native/NInternetLink.h"
+#include "Native/NTcpLink.h"
+#include "Native/NUdpLink.h"
+#include "Native/NDebugInfo.h"
+#include "Native/NDeusExDecoration.h"
+#include "Native/NDeusExPlayer.h"
+#include "Native/NDeusExSaveInfo.h"
+#include "Native/NDumpLocation.h"
+#include "Native/NGameDirectory.h"
+#include "Native/NParticleIterator.h"
+#include "Native/NScriptedPawn.h"
+#include "Native/NPlayerPawnExt.h"
+#include "Native/NBorderWindow.h"
+#include "Native/NButtonWindow.h"
+#include "Native/NCheckboxWindow.h"
+#include "Native/NClipWindow.h"
+#include "Native/NComputerWindow.h"
+#include "Native/NConEvent.h"
+#include "Native/NConEventRandomLabel.h"
+#include "Native/NConversation.h"
+#include "Native/NDeusExTextParser.h"
+#include "Native/NEditWindow.h"
+#include "Native/NExtensionObject.h"
+#include "Native/NExtString.h"
+#include "Native/NFlagBase.h"
+#include "Native/NGC.h"
+#include "Native/NLargeTextWindow.h"
+#include "Native/NListWindow.h"
+#include "Native/NModalWindow.h"
+#include "Native/NRadioBoxWindow.h"
+#include "Native/NRootWindow.h"
+#include "Native/NScaleManagerWindow.h"
+#include "Native/NScaleWindow.h"
+#include "Native/NScrollAreaWindow.h"
+#include "Native/NTextLogWindow.h"
+#include "Native/NTextWindow.h"
+#include "Native/NTileWindow.h"
+#include "Native/NTimeDemo.h"
+#include "Native/NToggleWindow.h"
+#include "Native/NViewportWindow.h"
+#include "Native/NWebRequest.h"
+#include "Native/NWebResponse.h"
+#include "Native/NWindow.h"
+
+PackageManager::PackageManager(const GameLaunchInfo& launchInfo) : launchInfo(launchInfo)
+{
+	gameRootFolderPath = fs::path(launchInfo.gameRootFolder);
+	gameSystemFolderPath = gameRootFolderPath / "System";
+
+	RegisterNativeClasses();
+	CreateTransientPackage();
+	RegisterFunctions();
+	LoadEngineIniFiles();
+	LoadFileExtensions();
+	LoadIntFiles();
+	LoadPackageRemaps();
+	ScanPaths();
+	ScanForMaps();
+
+	ScanSaveInfos();
+
+	InitPropertyOffsets(this);
+
+	// File::write_all_text("C:\\Development\\UTNativeProps.txt", NativeObjExtractor::Run(this));
+	// File::write_all_text("C:\\Development\\UTNativeFuncs.txt", NativeFuncExtractor::Run(this));
+}
+
+void PackageManager::CreateTransientPackage()
+{
+	packages["Transient"].set(GC::Alloc<Package>(this, "Transient", ""));
+}
+
+Package* PackageManager::CreateEmptyPackage(const NameString& name)
+{
+	auto& pkg = packages[name];
+	if (!pkg)
+		pkg.set(GC::Alloc<Package>(this, name, ""));
+	return pkg.get();
+}
+
+Package* PackageManager::GetPackage(const NameString& name)
+{
+	auto& package = packages[name];
+	if (package)
+		return package.get();
+	
+	auto it = packageFilenames.find(name);
+	if (it != packageFilenames.end())
+	{
+		package.set(GC::Alloc<Package>(this, name, it->second));
+	}
+	else
+	{
+		Exception::Throw("Could not find package " + name.ToString());
+	}
+
+	return package.get();
+}
+
+bool PackageManager::IsMapPackage(const NameString& name) const
+{
+	auto it = packageFilenames.find(name);
+	if (it == packageFilenames.end())
+		return false;
+	std::string ext = fs::path(it->second).extension().string();
+	return StrTools::equals_ignore_case(ext, "." + GetMapExtension());
+}
+
+Package* PackageManager::LoadMap(const std::string& path)
+{
+	const auto mapPath = convert_path_separators(path);
+
+	auto mapFilename = mapPath.filename();
+
+	if (!mapFilename.has_extension())
+		mapFilename.replace_extension(GetMapExtension());
+
+	// Check if the map is in the map list
+	for (auto& mapName : maps)
+	{
+		if (StrTools::equals_ignore_case(mapName, mapFilename.string()))
+			mapFilename.replace_filename(mapName); // Workaround against case sensitivity problems under Linux.
+	}
+
+	// Check the map name against the map folders we know
+	// This should work if path only contains the map name and not any "."s or ".."s
+	for (auto& folder : mapFolders)
+	{
+		if (auto finalPath = fs::path(folder) / mapFilename ; fs::exists(finalPath))
+			return GC::Alloc<Package>(this, mapFilename.stem().string(), finalPath.string());
+	}
+
+	// Path is relative to the Maps folder?
+	// Or is it relative to the package requesting the map load?
+	// Or is it relative to the previous map?
+	//
+	// Only one of the above is most likely true. Let's begin with assuming its relative to the Maps folder.
+	const auto mapsFolder = gameRootFolderPath / "Maps";
+
+	auto absolute_path = (mapsFolder / mapPath).lexically_normal();
+
+	// Add the file extension if it is missing
+	if (!absolute_path.has_extension())
+		absolute_path.replace_extension(GetMapExtension());
+
+	return GC::Alloc<Package>(this, mapFilename.stem().string(), absolute_path.string());
+}
+
+Package* PackageManager::LoadMapFile(const NameString& name, const std::string& path)
+{
+	return GC::Alloc<Package>(this, name, path);
+}
+
+std::string PackageManager::FindPackageFile(const NameString& name, const std::string& guid)
+{
+	auto it = packageFilenames.find(name);
+	if (it != packageFilenames.end())
+		return it->second;
+	if (!guid.empty())
+	{
+		std::string cached = GetCachedPackagePath(guid);
+		std::error_code ec;
+		if (fs::exists(cached, ec))
+		{
+			// Used now: not purged as outdated for another PurgeCacheDays.
+			fs::last_write_time(cached, fs::file_time_type::clock::now(), ec);
+			return cached;
+		}
+	}
+	return {};
+}
+
+std::string PackageManager::GetCachedPackagePath(const std::string& guid) const
+{
+	std::string ext = const_cast<PackageManager*>(this)->GetIniValue("System", "Core.System", "CacheExt", ".uxx");
+	return (gameCacheFolderPath / (guid + ext)).string();
+}
+
+std::string PackageManager::ReadPackageGuid(const std::string& path)
+{
+	std::ifstream file(path, std::ios::binary);
+	uint8_t header[52] = {};
+	if (!file.read((char*)header, sizeof(header)))
+		return {};
+	auto u32 = [&](int offset) { return (uint32_t)header[offset] | ((uint32_t)header[offset + 1] << 8) | ((uint32_t)header[offset + 2] << 16) | ((uint32_t)header[offset + 3] << 24); };
+	if (u32(0) != 0x9E2A83C1)
+		return {};
+	int version = header[4] | (header[5] << 8);
+	uint8_t guid[16] = {};
+	if (version < 68)
+	{
+		// An older file's GUID is the last of its heritage.
+		uint32_t heritageCount = u32(36);
+		uint32_t heritageOffset = u32(40);
+		if (heritageCount == 0)
+			return {};
+		file.seekg(heritageOffset + (heritageCount - 1) * 16);
+		if (!file.read((char*)guid, 16))
+			return {};
+	}
+	else
+	{
+		memcpy(guid, header + 36, 16);
+	}
+	char text[33];
+	uint32_t d[4];
+	for (int i = 0; i < 4; i++)
+		d[i] = guid[i * 4] | (guid[i * 4 + 1] << 8) | (guid[i * 4 + 2] << 16) | ((uint32_t)guid[i * 4 + 3] << 24);
+	snprintf(text, sizeof(text), "%08X%08X%08X%08X", d[0], d[1], d[2], d[3]);
+	return text;
+}
+
+bool PackageManager::IsPackageLoaded(const NameString& name) const
+{
+	auto it = packages.find(name);
+	return it != packages.end() && it->second;
+}
+
+void PackageManager::UsePackageFile(const NameString& name, const std::string& path)
+{
+	if (replacedPackageFilenames.find(name) == replacedPackageFilenames.end())
+	{
+		auto it = packageFilenames.find(name);
+		replacedPackageFilenames[name] = it != packageFilenames.end() ? it->second : std::string();
+	}
+	packageFilenames[name] = path;
+}
+
+void PackageManager::RestorePackageFiles()
+{
+	for (auto it = replacedPackageFilenames.begin(); it != replacedPackageFilenames.end();)
+	{
+		// A package already loaded from its download stays what it is.
+		if (IsPackageLoaded(it->first))
+		{
+			++it;
+			continue;
+		}
+		if (it->second.empty())
+			packageFilenames.erase(it->first);
+		else
+			packageFilenames[it->first] = it->second;
+		it = replacedPackageFilenames.erase(it);
+	}
+}
+
+void PackageManager::ReleaseNetPackages(const Array<NameString>& keep)
+{
+	for (auto it = replacedPackageFilenames.begin(); it != replacedPackageFilenames.end();)
+	{
+		if (std::find(keep.begin(), keep.end(), it->first) != keep.end())
+		{
+			++it;
+			continue;
+		}
+		// The name goes, and the package is no longer a root: the map load's
+		// collection frees what nothing uses of it. Its code stays loaded
+		// (UField::IsGCRoot).
+		if (IsPackageLoaded(it->first))
+			LogMessage("Releasing package " + it->first.ToString());
+		packages.erase(it->first);
+		if (it->second.empty())
+			packageFilenames.erase(it->first);
+		else
+			packageFilenames[it->first] = it->second;
+		it = replacedPackageFilenames.erase(it);
+	}
+}
+
+void PackageManager::CleanFileCache()
+{
+	std::error_code ec;
+	if (!fs::is_directory(gameCacheFolderPath, ec))
+		return;
+	std::string ext = GetIniValue("System", "Core.System", "CacheExt", ".uxx");
+	int purgeDays = std::atoi(GetIniValue("System", "Core.System", "PurgeCacheDays", "0").c_str());
+	auto now = fs::file_time_type::clock::now();
+	for (const auto& entry : fs::directory_iterator(gameCacheFolderPath, ec))
+	{
+		if (!entry.is_regular_file(ec))
+			continue;
+		std::string fileExt = entry.path().extension().string();
+		if (StrTools::equals_ignore_case(fileExt, ".tmp"))
+		{
+			LogMessage("Deleting temporary file " + entry.path().string());
+			fs::remove(entry.path(), ec);
+		}
+		else if (purgeDays > 0 && StrTools::equals_ignore_case(fileExt, ext))
+		{
+			auto age = std::chrono::duration_cast<std::chrono::hours>(now - entry.last_write_time(ec)).count() / 24;
+			if (age > purgeDays)
+			{
+				LogMessage("Purging outdated file " + entry.path().string() + " (" + std::to_string(age) + " days)");
+				fs::remove(entry.path(), ec);
+			}
+		}
+	}
+}
+
+void PackageManager::UnloadPackage(Package* package)
+{
+	// Remove package from open streams cache:
+	auto streamit = openStreams.begin();
+	while (streamit != openStreams.end())
+	{
+		if (streamit->Pkg == package)
+		{
+			streamit = openStreams.erase(streamit);
+		}
+		else
+		{
+			++streamit;
+		}
+	}
+}
+
+void PackageManager::MarkRoots(GCMarker& marker)
+{
+	// A package of `packages` keeps its code (UField::IsGCRoot) and no
+	// other export: a texture, a sound, a mesh nothing reaches goes, and is
+	// loaded from the file again when next asked for, as the original's.
+	marker.SetRoot("packages");
+	for (auto& it : packages)
+		marker.MarkConst(it.second.get());
+	marker.SetRoot("saveInfos");
+	for (auto& it : saveInfos)
+	{
+		marker.MarkConst(it.second);
+		for (UObject* obj : it.second->ExportObjects)
+			marker.MarkConst(obj);
+	}
+}
+
+void PackageManager::PurgeDying()
+{
+	openStreams.remove_if([](const OpenStream& stream) { return GC::IsDying(stream.Pkg); });
+}
+
+bool PackageManager::IsRegisteredPackage(const Package* package) const
+{
+	for (auto& it : packages)
+	{
+		if (it.second.get() == package)
+			return true;
+	}
+	for (auto& it : saveInfos)
+	{
+		if (it.second == package)
+			return true;
+	}
+	return false;
+}
+
+void PackageManager::CloseStreams()
+{
+	openStreams.clear();
+}
+
+Package* PackageManager::LoadSaveFile(const std::string& path)
+{
+	auto fullPath = gameSaveFolderPath / fs::path(path);
+
+	if (!fullPath.has_extension() || (fullPath.extension().string() != GetSaveExtension()))
+		fullPath.replace_extension(GetSaveExtension());
+
+	if (fs::exists(fullPath))
+		return GC::Alloc<Package>(this, fullPath.stem().string(), fullPath.string());
+
+	return nullptr;
+}
+
+Package* PackageManager::LoadSaveSlot(const uint32_t slotNum)
+{
+	return LoadSaveFile("Save" + std::to_string(slotNum) + "." + GetSaveExtension());
+}
+
+void PackageManager::ScanForMaps()
+{
+	for (auto& mapFolderPath : mapFolders)
+	{
+		for (const auto& dir_entry: fs::directory_iterator{mapFolderPath})
+			if (dir_entry.is_regular_file())
+				maps.push_back(dir_entry.path().filename().string());
+	}
+}
+
+void PackageManager::ScanFolder(const std::string& packagedir, const std::string& search)
+{
+	const auto packageDirPath = fs::path(packagedir);
+	if (fs::exists(packageDirPath))
+	{
+		const auto searchExt = fs::path(search).extension();
+		for (const auto& dir_entry: fs::directory_iterator{packageDirPath})
+		{
+			// Do not add the package again if it exists
+			// This is useful for example when you have HD textures installed in a different folder
+			// And you wish to load them instead of the original ones
+			// Extensions matched as Windows matches them, whatever their case.
+			if (dir_entry.is_regular_file() && StrTools::equals_ignore_case(dir_entry.path().extension().string(), searchExt.string()))
+			{
+				NameString fileNameString(dir_entry.path().stem().string());
+				auto it = packageFilenames.find(fileNameString);
+				if (it == packageFilenames.end())
+					packageFilenames[fileNameString] = (packageDirPath / dir_entry.path().filename()).string();
+			}
+		}
+	}
+}
+
+void PackageManager::ScanPaths()
+{
+	Array<std::string> paths;
+	paths = GetIniValues("system", "Core.System", "Paths");
+
+	// Handle SavePath and CachePath
+	const auto savePath = convert_path_separators(GetIniValue("System", "Core.System", "SavePath"));
+	gameSaveFolderPath = (gameSystemFolderPath / savePath).lexically_normal();
+
+	const auto cachePath = convert_path_separators(GetIniValue("System", "Core.System", "CachePath"));
+	gameCacheFolderPath = (gameSystemFolderPath / cachePath).lexically_normal();
+
+	for (auto& currentPathStr: paths)
+	{
+		auto currentPath = convert_path_separators(currentPathStr);
+
+		// Get the filename
+		auto filename = currentPath.filename();
+
+		// Calculate the final, absolute path
+		auto finalPath = (gameSystemFolderPath / currentPath).lexically_normal().parent_path();
+
+		// Add map folders in a separate list, so ScanForMaps() can use them
+		if (filename.string() == "*." + GetMapExtension())
+			mapFolders.push_back(finalPath.string());
+
+		ScanFolder(finalPath.string(), filename.string());
+	}
+}
+
+void PackageManager::ScanSaveInfos()
+{
+	if (!fs::exists(gameSaveFolderPath) || !fs::is_directory(gameSaveFolderPath))
+		return;
+
+	for (const auto& entry : fs::directory_iterator{gameSaveFolderPath})
+	{
+		if (!entry.is_directory())
+			continue;
+
+		const auto save = entry.path() / ("SaveInfo." + saveExtension);
+
+		if (!fs::exists(save) || !fs::is_regular_file(save))
+			continue;
+
+		auto saveFolderName = entry.path().filename().string();
+
+		// A folder already loaded keeps its package; a writer that changes
+		// one evicts it with RemoveSaveInfoPackage.
+		if (saveInfos.find(saveFolderName) == saveInfos.end())
+			saveInfos[saveFolderName] = GC::Alloc<Package>(this, saveFolderName, save.string());
+	}
+}
+
+Package* PackageManager::GetSaveInfoPackage(const NameString& saveFolderName)
+{
+	auto idx = saveInfos.find(saveFolderName);
+
+	if (idx != saveInfos.end())
+		return idx->second;
+
+	return nullptr;
+}
+
+void PackageManager::RemoveSaveInfoPackage(const NameString& saveFolderName)
+{
+	auto idx = saveInfos.find(saveFolderName);
+
+	if (idx != saveInfos.end())
+		saveInfos.erase(idx);
+}
+
+std::shared_ptr<PackageStream> PackageManager::GetStream(Package* package)
+{
+	int numStreams = 0;
+	for (auto it = openStreams.begin(); it != openStreams.end(); ++it)
+	{
+		if ((*it).Pkg == package)
+		{
+			if (it != openStreams.begin())
+			{
+				OpenStream s = *it;
+				openStreams.erase(it);
+				openStreams.push_front(s);
+			}
+			return openStreams.front().Stream;
+		}
+		numStreams++;
+	}
+
+	OpenStream s;
+	s.Pkg = package;
+	s.Stream = std::make_shared<PackageStream>(package, File::open_existing(package->GetPackageFilePath()));
+	openStreams.push_front(s);
+
+	if (numStreams == 10)
+		openStreams.pop_back();
+
+	return openStreams.front().Stream;
+}
+
+void PackageManager::DelayLoadNow()
+{
+	while (!delayLoads.empty())
+	{
+		SetDelayLoadActive delayload(this);
+
+		UObject* obj = delayLoads.back();
+		delayLoads.pop_back();
+		obj->LoadNow();
+	}
+}
+
+UClass* PackageManager::FindClass(const NameString& name)
+{
+	const std::string& value = name.ToString();
+	size_t pos = value.find('.');
+	if (pos == 0 || pos == std::string::npos || pos + 1 == value.size())
+		return nullptr;
+
+	NameString packageName = value.substr(0, pos);
+	NameString className = value.substr(pos + 1);
+
+	try
+	{
+		return UObject::Cast<UClass>(GetPackage(packageName)->GetUObject("Class", className));
+	}
+	catch (...)
+	{
+		return nullptr;
+	}
+}
+
+UClass* PackageManager::FindClassAnyPackage(const NameString& name)
+{
+	if (name.ToString().find('.') != std::string::npos)
+		return FindClass(name);
+
+	for (auto& it : packages)
+	{
+		Package* package = it.second.get();
+		if (!package)
+			continue;
+		int ref = package->FindObjectReference("Class", name, {}, true);
+		if (ref > 0)
+			return UObject::Cast<UClass>(package->GetUObject(ref));
+	}
+	return nullptr;
+}
+
+std::unique_ptr<IniFile> PackageManager::GetIniFile(NameString iniName)
+{
+	if (iniName == "user")
+		return GetUserIniFile();
+	if (iniName == "System")
+		return GetSystemIniFile();
+
+	return std::make_unique<IniFile>(*iniFiles[iniName]);
+}
+
+std::unique_ptr<IniFile> PackageManager::GetUserIniFile()
+{
+	return std::make_unique<IniFile>(*iniFiles["User"]);
+}
+
+std::unique_ptr<IniFile> PackageManager::GetSystemIniFile()
+{
+	return std::make_unique<IniFile>(*iniFiles[launchInfo.gameExecutableName]);
+}
+
+std::unique_ptr<IniFile>& PackageManager::LoadIniFile(NameString iniName)
+{
+	if (iniName == "user")
+		return LoadUserIniFile();
+	if (iniName == "System")
+		return LoadSystemIniFile();
+	
+	auto& ini = iniFiles[iniName];
+	if (!ini)
+	{
+		// A class's config file not written yet is empty, as the original's
+		// is, until its SaveConfig writes it (a mod's, as DXMTL.ini). With
+		// --userdir it lives there: read from there first, else from the
+		// game's System folder, and written there.
+		const auto iniFilePath = gameSystemFolderPath / (iniName.ToString() + ".ini");
+		const auto savePath = Directory::hasEngineUserDir() ? Directory::engineUserDir() / (iniName.ToString() + ".ini") : iniFilePath;
+		std::error_code ec;
+		if (fs::exists(savePath, ec))
+		{
+			ini = std::make_unique<IniFile>(savePath.string());
+		}
+		else if (fs::exists(iniFilePath, ec))
+		{
+			ini = std::make_unique<IniFile>(iniFilePath.string());
+			ini->SetPath(savePath.string());
+		}
+		else
+		{
+			ini = std::make_unique<IniFile>();
+			ini->SetPath(savePath.string());
+		}
+	}
+
+	return ini;
+}
+
+std::unique_ptr<IniFile>& PackageManager::LoadUserIniFile()
+{
+	auto& ini = iniFiles["User"];
+
+	if (!ini)
+	{
+		// Case sensitivity check
+		if (fs::exists(gameSystemFolderPath / "User.ini"))
+			ini = std::make_unique<IniFile>((gameSystemFolderPath / "User.ini").string());
+		else
+			ini = std::make_unique<IniFile>((gameSystemFolderPath/ "user.ini").string());
+	}
+
+	return ini;
+}
+
+std::unique_ptr<IniFile>& PackageManager::LoadSystemIniFile()
+{
+	const std::string iniName = launchInfo.gameExecutableName;
+
+	auto& ini = iniFiles[iniName];
+
+	if (!ini)
+		ini = std::make_unique<IniFile>((gameSystemFolderPath / (iniName + ".ini")).string());
+
+	return ini;
+}
+
+
+Array<NameString> PackageManager::GetIniKeysFromSection(NameString iniName, const NameString& sectionName)
+{
+	return LoadIniFile(iniName)->GetKeys(sectionName);
+}
+
+std::string PackageManager::GetIniValue(NameString iniName, const NameString& sectionName, const NameString& keyName, std::string default_value)
+{
+	return LoadIniFile(iniName)->GetValue(sectionName, keyName, default_value);
+}
+
+bool PackageManager::FindIniValue(NameString iniName, const NameString& sectionName, const NameString& keyName, std::string& value)
+{
+	return LoadIniFile(iniName)->FindValue(sectionName, keyName, value);
+}
+
+Array<std::string> PackageManager::GetIniValues(NameString iniName, const NameString& sectionName, const NameString& keyName, Array<std::string> default_values)
+{
+	return LoadIniFile(iniName)->GetValues(sectionName, keyName, default_values);
+}
+
+std::string PackageManager::GetDefaultIniValue(const NameString& sectionName, const NameString& keyName, std::string default_value)
+{
+	return defaultIniFile->GetValue(sectionName, keyName, default_value);
+}
+
+Array<std::string> PackageManager::GetDefaultIniValues(const NameString& sectionName, const NameString& keyName, Array<std::string> default_values)
+{
+	return defaultIniFile->GetValues(sectionName, keyName, default_values);
+}
+
+std::string PackageManager::GetDefUserIniValue(const NameString& sectionName, const NameString& keyName, std::string default_value)
+{
+	return defaultUserFile->GetValue(sectionName, keyName, default_value);
+}
+
+Array<std::string> PackageManager::GetDefUserIniValues(const NameString& sectionName, const NameString& keyName, Array<std::string> default_values)
+{
+	return defaultUserFile->GetValues(sectionName, keyName, default_values);
+}
+
+void PackageManager::ResetIniSection(NameString iniName, const NameString& sectionName)
+{
+	IniFile* defaults = nullptr;
+	if (iniName == "system")
+		defaults = defaultIniFile.get();
+	else if (iniName == "user")
+		defaults = defaultUserFile.get();
+	if (!defaults)
+		return;
+
+	auto& ini = LoadIniFile(iniName);
+	for (const NameString& key : defaults->GetKeys(sectionName))
+	{
+		std::string value;
+		if (defaults->FindValue(sectionName, key, value))
+			ini->SetValue(sectionName, key, value);
+	}
+}
+
+void PackageManager::SetIniValue(NameString iniName, const NameString& sectionName, const NameString& keyName, const std::string& newValue)
+{
+	LoadIniFile(iniName)->SetValue(sectionName, keyName, newValue);
+}
+
+void PackageManager::SetIniValues(NameString iniName, const NameString& sectionName, const NameString& keyName, const Array<std::string>& newValues)
+{
+	LoadIniFile(iniName)->SetValues(sectionName, keyName, newValues);
+}
+
+void PackageManager::SaveAllIniFiles()
+{
+	for (auto& iniFile: iniFiles)
+	{
+		if (iniFile.first == launchInfo.gameExecutableName || iniFile.first == "System")
+		{
+			const std::string engineIniName = "SE-" + iniFile.first.ToString() + ".ini";
+			if (!launchInfo.systemIniPath.empty())
+				iniFile.second->UpdateIfExists(launchInfo.systemIniPath);
+			else
+				iniFile.second->UpdateIfExists((gameSystemFolderPath / engineIniName).string());
+		}
+		else if (iniFile.first == "User")
+		{
+			if (!launchInfo.userIniPath.empty())
+				iniFile.second->UpdateIfExists(launchInfo.userIniPath);
+			else
+				iniFile.second->UpdateIfExists((gameSystemFolderPath / "SE-User.ini").string());
+		}
+		else if (Directory::hasEngineUserDir())
+			iniFile.second->UpdateIfExists(iniFile.second->GetPath());   // its copy may not be there yet
+		else
+			iniFile.second->UpdateFile();
+	}
+}
+
+void PackageManager::LoadPackageRemaps()
+{
+	auto remap_keys = GetIniKeysFromSection("system", "PackageRemap");
+
+	for (auto& key : remap_keys)
+	{
+		packageRemaps[key.ToString()] = GetIniValue("system", "PackageRemap", key);
+	}
+}
+
+void PackageManager::LoadEngineIniFiles()
+{
+	// Load SE-[GameName].ini and SE-User.ini from the appropriate places
+	// If they do not exist, import the appropriate [GameName].ini and User.ini files
+	// If those also do not exist, import Default.ini and DefUser.ini files
+	const auto systemIniName = launchInfo.gameExecutableName;
+	std::string systemIniFileName = "SE-" + systemIniName + ".ini";
+	std::string userIniName = "SE-User.ini";
+
+	if ( !File::try_open_existing((gameSystemFolderPath / systemIniFileName).string()) )
+	{
+		missing_se_system_ini = true;
+		systemIniFileName = systemIniFileName.substr(3); // Trim off the "SE-" part
+		if (!File::try_open_existing((gameSystemFolderPath / systemIniFileName).string()))
+			systemIniFileName = "Default.ini"; // use the default ini as a last resort
+	}
+
+	// Also load Default.ini, so that we can reset values.
+	defaultIniFile = std::make_unique<IniFile>((gameSystemFolderPath / "Default.ini").string());
+
+	// --ini and --userini name the files outright, read and written back,
+	// as the original's INI= and USERINI= do. The file named is the engine's
+	// own when it has the engine's sections; otherwise it is a game's, and
+	// the settings come from the game's sections, as without an SE- ini.
+	if (!launchInfo.systemIniPath.empty())
+	{
+		iniFiles[systemIniName] = std::make_unique<IniFile>(launchInfo.systemIniPath);
+		missing_se_system_ini = iniFiles[systemIniName]->GetKeys("Engine.SurrealAudioDevice").empty();
+	}
+	else
+	{
+		iniFiles[systemIniName] = std::make_unique<IniFile>((gameSystemFolderPath / systemIniFileName).string());
+	}
+
+	if (!File::try_open_existing((gameSystemFolderPath / userIniName).string()))
+	{
+		userIniName = userIniName.substr(3); // Trim off the "SE-" part
+		if (!File::try_open_existing((gameSystemFolderPath / userIniName).string()))
+			userIniName = "DefUser.ini";
+	}
+
+	if (!launchInfo.userIniPath.empty())
+		iniFiles["User"] = std::make_unique<IniFile>(launchInfo.userIniPath);
+	else
+		iniFiles["User"] = std::make_unique<IniFile>((gameSystemFolderPath / userIniName).string());
+	defaultUserFile = std::make_unique<IniFile>((gameSystemFolderPath / "DefUser.ini").string());
+}
+
+void PackageManager::LoadFileExtensions()
+{
+	const auto systemIni = GetSystemIniFile();
+
+	mapExtension = systemIni->GetValue("URL", "MapExt", "unr");
+	saveExtension = systemIni->GetValue("URL", "SaveExt", "usa");
+}
+
+// A name before another in any case, as Windows lists a folder's files:
+// by their upper case.
+static bool NameBefore(const std::string& a, const std::string& b)
+{
+	return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(),
+		[](char x, char y) { return std::toupper((unsigned char)x) < std::toupper((unsigned char)y); });
+}
+
+// The .int files, from each of the paths' folders in their order -- System
+// where they name it, else after them --, as packages are found: the
+// folders of a mod, named before the game's, give their text and the
+// objects their files register before the game's files do -- the first
+// folder to give a key's text gives it (FindLocalized), the first to
+// register an object registers it. A departure: the original reads them
+// from System alone (docs/NATIVES.md, mods). A folder's files are read
+// in their names' order, as the original finds them; one that cannot be
+// read is passed over.
+void PackageManager::LoadIntFiles()
+{
+	for (const std::string& path : GetIniValues("system", "Core.System", "Paths"))
+	{
+		fs::path folder = (gameSystemFolderPath / convert_path_separators(path)).lexically_normal().parent_path();
+		if (std::find(intFolders.begin(), intFolders.end(), folder) == intFolders.end())
+			intFolders.push_back(folder);
+	}
+	if (std::find(intFolders.begin(), intFolders.end(), gameSystemFolderPath.lexically_normal()) == intFolders.end())
+		intFolders.push_back(gameSystemFolderPath.lexically_normal());
+
+	auto registerObject = [&](const NameString& key, IntObject obj)
+	{
+		Array<IntObject>& objects = IntObjects[key];
+		for (const IntObject& registered : objects)
+		{
+			if (registered.Name == obj.Name)
+				return;
+		}
+		objects.push_back(std::move(obj));
+	};
+
+	for (const fs::path& folder : intFolders)
+	{
+		Array<std::string> names;
+		std::error_code ec;
+		for (fs::directory_iterator it(folder, fs::directory_options::skip_permission_denied, ec), end; !ec && it != end; it.increment(ec))
+		{
+			try
+			{
+				std::error_code type;
+				if (it->is_regular_file(type) && StrTools::equals_ignore_case(it->path().extension().string(), ".int"))
+					names.push_back(it->path().filename().string());
+			}
+			catch (...)
+			{
+			}
+		}
+		std::sort(names.begin(), names.end(), NameBefore);
+
+		for (const std::string& name : names)
+		{
+			const fs::path intFileName = name;
+			try
+			{
+				auto intFile = std::make_unique<IniFile>((folder / intFileName).string());
+
+				for (const std::string& value: intFile->GetValues("Public", "Object"))
+				{
+					auto desc = ParseIntPublicValue(value);
+					if (!desc["Name"].empty() && !desc["Class"].empty() && !desc["MetaClass"].empty()) // Used by Actor.GetInt
+					{
+						IntObject obj;
+						obj.Name = desc["Name"];
+						obj.Class = desc["Class"];
+						obj.MetaClass = desc["MetaClass"];
+						obj.Description = desc["Description"];
+
+						NameString metaClass = obj.MetaClass;
+
+						size_t pos = metaClass.ToString().find_last_of('.');
+						if (pos != std::string::npos)
+							metaClass = NameString(metaClass.ToString().substr(pos + 1));
+
+						registerObject(metaClass, std::move(obj));
+					}
+					else if (!desc["Name"].empty() && !desc["Class"].empty()) // Used by Actor.GetNextSkin
+					{
+						IntObject obj;
+						obj.Name = desc["Name"];
+						obj.Class = desc["Class"];
+						obj.Description = desc["Description"];
+
+						NameString cls = obj.Class;
+
+						size_t pos = cls.ToString().find_last_of('.');
+						if (pos != std::string::npos)
+							cls = NameString(cls.ToString().substr(pos + 1));
+
+						registerObject(cls, std::move(obj));
+					}
+				}
+
+				intFiles[intFileName.stem().string()].push_back(std::move(intFile));
+			}
+			catch (...)
+			{
+			}
+		}
+	}
+}
+
+Array<IntObject>& PackageManager::GetIntObjects(const NameString& metaclass)
+{
+	size_t pos = metaclass.ToString().find_last_of('.');
+	if (pos == std::string::npos)
+		return IntObjects[metaclass];
+	else
+		return IntObjects[NameString(metaclass.ToString().substr(pos + 1))];
+}
+
+std::string PackageManager::Localize(NameString packageName, const NameString& sectionName, const NameString& keyName)
+{
+	std::string value;
+	FindLocalized(packageName, sectionName, keyName, value);
+	return value;
+}
+
+bool PackageManager::FindLocalized(NameString packageName, const NameString& sectionName, const NameString& keyName, std::string& value)
+{
+	if (packageName == "Engine" && keyName == "ClassCaption")
+	{
+		if (sectionName == "SurrealRenderDevice") { value = "Surreal Graphics"; return true; }
+		else if (sectionName == "SurrealAudioDevice") { value = "Surreal Audio"; return true; }
+		else if (sectionName == "SurrealNetworkDevice") { value = "Surreal Network"; return true; }
+	}
+
+	// A package with no .int at the start: one made since, looked for once.
+	auto it = intFiles.find(packageName);
+	if (it == intFiles.end())
+	{
+		it = intFiles.emplace(packageName, std::vector<std::unique_ptr<IniFile>>()).first;
+		for (const fs::path& folder : intFolders)
+		{
+			const fs::path file = folder / (packageName.ToString() + ".int");
+			std::error_code ec;
+			if (!fs::is_regular_file(file, ec))
+				continue;
+			try
+			{
+				it->second.push_back(std::make_unique<IniFile>(file.string()));
+			}
+			catch (...)
+			{
+			}
+		}
+	}
+
+	for (const auto& intFile : it->second)
+	{
+		if (intFile->FindValue(sectionName, keyName, value))
+		{
+			if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
+				value = value.substr(1, value.size() - 2);
+			return true;
+		}
+	}
+	value.clear();
+	return false;
+}
+
+std::map<NameString, std::string> PackageManager::ParseIntPublicValue(const std::string& text)
+{
+	// Parse one of the following:
+	//
+	// Object=(Name=Package.ObjectName,Class=ObjectClass,MetaClass=Package.MetaClassName,Description="descriptive string")
+	// Preferences=(Caption="display name",Parent="display name of parent",Class=Package.ClassName,Category=variable group name,Immediate=True)
+
+	if (text.size() < 2 || text.front() != '(' || text.back() != ')')
+		return {};
+
+	std::map<NameString, std::string> desc;
+
+	// This would have been so much easier with a regular expression, but we can't use that as we have no idea what character set those .int files might be using
+	size_t pos = 1;
+	while (pos < text.size() - 1)
+	{
+		size_t endpos = text.find('=', pos);
+		if (endpos == std::string::npos)
+			break;
+		std::string keyname = text.substr(pos, endpos - pos);
+		pos = endpos + 1;
+
+		if (text[pos] == '"')
+		{
+			pos++;
+			endpos = text.find('"', pos);
+			if (endpos == std::string::npos)
+				break;
+
+			std::string value = text.substr(pos, endpos - pos);
+			desc[keyname] = value;
+
+			// The next pair after the closing quote: a comma in the quotes is the value's.
+			pos = text.find(',', endpos + 1);
+			if (pos == std::string::npos)
+				break;
+			pos++;
+		}
+		else
+		{
+			endpos = text.find_first_of(",)", pos);
+			if (endpos == std::string::npos)
+				break;
+			std::string value = text.substr(pos, endpos - pos);
+			desc[keyname] = value;
+			pos = endpos + 1;
+		}
+	}
+
+	return desc;
+}
+
+void PackageManager::RegisterFunctions()
+{
+	NActor::RegisterFunctions();
+	NCanvas::RegisterFunctions();
+	NCommandlet::RegisterFunctions();
+	NConsole::RegisterFunctions();
+	NDecal::RegisterFunctions();
+	NGameInfo::RegisterFunctions();
+	NLevelInfo::RegisterFunctions();
+	NNavigationPoint::RegisterFunctions();
+	NObject::RegisterFunctions();
+	NPawn::RegisterFunctions();
+	NPlayerPawn::RegisterFunctions();
+	NScriptedTexture::RegisterFunctions();
+	NStatLog::RegisterFunctions();
+	NStatLogFile::RegisterFunctions();
+	NWarpZoneInfo::RegisterFunctions();
+	NZoneInfo::RegisterFunctions();
+	NInternetLink::RegisterFunctions();
+	NTcpLink::RegisterFunctions();
+	NUdpLink::RegisterFunctions();
+	NDebugInfo::RegisterFunctions();
+	NDeusExDecoration::RegisterFunctions();
+	NDeusExPlayer::RegisterFunctions();
+	NDeusExSaveInfo::RegisterFunctions();
+	NDumpLocation::RegisterFunctions();
+	NGameDirectory::RegisterFunctions();
+	NParticleIterator::RegisterFunctions();
+	NScriptedPawn::RegisterFunctions();
+	NPlayerPawnExt::RegisterFunctions();
+	NBorderWindow::RegisterFunctions();
+	NButtonWindow::RegisterFunctions();
+	NCheckboxWindow::RegisterFunctions();
+	NClipWindow::RegisterFunctions();
+	NComputerWindow::RegisterFunctions();
+	NConEvent::RegisterFunctions();
+	NConEventRandomLabel::RegisterFunctions();
+	NConversation::RegisterFunctions();
+	NDeusExTextParser::RegisterFunctions();
+	NEditWindow::RegisterFunctions();
+	NExtensionObject::RegisterFunctions();
+	NExtString::RegisterFunctions();
+	NFlagBase::RegisterFunctions();
+	NGC::RegisterFunctions();
+	NLargeTextWindow::RegisterFunctions();
+	NListWindow::RegisterFunctions();
+	NModalWindow::RegisterFunctions();
+	NRadioBoxWindow::RegisterFunctions();
+	NRootWindow::RegisterFunctions();
+	NScaleManagerWindow::RegisterFunctions();
+	NScaleWindow::RegisterFunctions();
+	NScrollAreaWindow::RegisterFunctions();
+	NTextLogWindow::RegisterFunctions();
+	NTextWindow::RegisterFunctions();
+	NTileWindow::RegisterFunctions();
+	NTimeDemo::RegisterFunctions();
+	NToggleWindow::RegisterFunctions();
+	NViewportWindow::RegisterFunctions();
+	NWebRequest::RegisterFunctions();
+	NWebResponse::RegisterFunctions();
+	NWindow::RegisterFunctions();
+}
+
+void PackageManager::RegisterNativeClasses()
+{
+	NameString corePackage = "Core";
+	NameString enginePackage = "Engine";
+	NameString ipdrvPackage = "IpDrv";
+	NameString extensionPackage = "Extension";
+	NameString conSysPackage = "ConSys";
+	NameString deusExPackage = "DeusEx";
+	NameString deusExTextPackage = "DeusExText";
+
+	RegisterNativeClass<UObject>(corePackage, "Object");
+	RegisterNativeClass<UPackage>(corePackage, "Package");
+	RegisterNativeClass<UField>(corePackage, "Field", "Object");
+	RegisterNativeClass<UConst>(corePackage, "Const", "Field");
+	RegisterNativeClass<UEnum>(corePackage, "Enum", "Field");
+	RegisterNativeClass<UStruct>(corePackage, "Struct", "Field");
+	RegisterNativeClass<UFunction>(corePackage, "Function", "Struct");
+	RegisterNativeClass<UState>(corePackage, "State", "Struct");
+	RegisterNativeClass<UClass>(corePackage, "Class", "State");
+	RegisterNativeClass<UAbstractProperty>(corePackage, "Property", "Field");
+	RegisterNativeClass<UPointerProperty>(corePackage, "PointerProperty", "Property");
+	RegisterNativeClass<UByteProperty>(corePackage, "ByteProperty", "Property");
+	RegisterNativeClass<UObjectProperty>(corePackage, "ObjectProperty", "Property");
+	RegisterNativeClass<UClassProperty>(corePackage, "ClassProperty", "ObjectProperty");
+	RegisterNativeClass<UFixedArrayProperty>(corePackage, "FixedArrayProperty", "Property");
+	RegisterNativeClass<UArrayProperty>(corePackage, "ArrayProperty", "Property");
+	RegisterNativeClass<UMapProperty>(corePackage, "MapProperty", "Property");
+	RegisterNativeClass<UStructProperty>(corePackage, "StructProperty", "Property");
+	RegisterNativeClass<UIntProperty>(corePackage, "IntProperty", "Property");
+	RegisterNativeClass<UBoolProperty>(corePackage, "BoolProperty", "Property");
+	RegisterNativeClass<UFloatProperty>(corePackage, "FloatProperty", "Property");
+	RegisterNativeClass<UNameProperty>(corePackage, "NameProperty", "Property");
+	RegisterNativeClass<UStrProperty>(corePackage, "StrProperty", "Property");
+	RegisterNativeClass<UStringProperty>(corePackage, "StringProperty", "Property");
+	RegisterNativeClass<UTextBuffer>(corePackage, "TextBuffer", "Object");
+
+	// Deus Ex's particles and laser beams are drawn through render
+	// iterators (dx-reverse-info/deusex-dll.md).
+	RegisterNativeClass<URenderIterator>(enginePackage, "RenderIterator", "Object");
+
+	RegisterNativeClass<USubsystem>(corePackage, "Subsystem", "Object");
+	RegisterNativeClass<ULanguage>(corePackage, "Language", "Object");
+
+	RegisterNativeClass<UEngine>(enginePackage, "Engine", "Subsystem");
+	RegisterNativeClass<UGameEngine>(enginePackage, "GameEngine", "Engine");
+	RegisterNativeClass<UEditorEngine>(enginePackage, "EditorEngine", "Engine");
+	RegisterNativeClass<URenderBase>(enginePackage, "RenderBase", "Subsystem");
+	RegisterNativeClass<URenderDevice>(enginePackage, "RenderDevice", "Subsystem");
+	RegisterNativeClass<UAudioSubsystem>(enginePackage, "AudioSubsystem", "Subsystem");
+	RegisterNativeClass<UNetDriver>(enginePackage, "NetDriver", "Subsystem");
+
+	RegisterNativeClass<UPalette>(enginePackage, "Palette", "Object");
+	RegisterNativeClass<USound>(enginePackage, "Sound", "Object");
+	RegisterNativeClass<UMusic>(enginePackage, "Music", "Object");
+
+	RegisterNativeClass<UPrimitive>(enginePackage, "Primitive", "Object");
+	RegisterNativeClass<UMesh>(enginePackage, "Mesh", "Primitive");
+	RegisterNativeClass<ULodMesh>(enginePackage, "LodMesh", "Mesh");
+	RegisterNativeClass<USkeletalMesh>(enginePackage, "SkeletalMesh", "LodMesh");
+	RegisterNativeClass<UAnimation>(enginePackage, "Animation", "Object");
+
+	RegisterNativeClass<UModel>(enginePackage, "Model", "Primitive");
+	RegisterNativeClass<ULevelBase>(enginePackage, "LevelBase", "Object");
+	RegisterNativeClass<ULevel>(enginePackage, "Level", "LevelBase");
+	RegisterNativeClass<ULevelSummary>(enginePackage, "LevelSummary", "Object");
+	RegisterNativeClass<UPolys>(enginePackage, "Polys", "Object");
+	RegisterNativeClass<UBspNodes>(enginePackage, "BspNodes", "Object");
+	RegisterNativeClass<UBspSurfs>(enginePackage, "BspSurfs", "Object");
+	RegisterNativeClass<UVectors>(enginePackage, "Vectors", "Object");
+	RegisterNativeClass<UVerts>(enginePackage, "Verts", "Object");
+
+	RegisterNativeClass<UBitmap>(enginePackage, "Bitmap", "Object");
+	RegisterNativeClass<UTexture>(enginePackage, "Texture", "Bitmap");
+	RegisterNativeClass<UFractalTexture>(enginePackage, "FractalTexture", "Texture");
+	RegisterNativeClass<UFireTexture>(enginePackage, "FireTexture", "FractalTexture");
+	RegisterNativeClass<UIceTexture>(enginePackage, "IceTexture", "FractalTexture");
+	RegisterNativeClass<UWaterTexture>(enginePackage, "WaterTexture", "FractalTexture");
+	RegisterNativeClass<UWaveTexture>(enginePackage, "WaveTexture", "WaterTexture");
+	RegisterNativeClass<UWetTexture>(enginePackage, "WetTexture", "WaterTexture");
+	RegisterNativeClass<UScriptedTexture>(enginePackage, "ScriptedTexture", "Texture");
+
+	RegisterNativeClass<UFont>(enginePackage, "Font", "Object");
+
+	RegisterNativeClass<UClient>(enginePackage, "Client", "Object");
+	RegisterNativeClass<UViewport>(enginePackage, "Viewport", "Player");
+	RegisterNativeClass<UCanvas>(enginePackage, "Canvas", "Object");
+	RegisterNativeClass<UConsole>(enginePackage, "Console", "Object");
+	RegisterNativeClass<UPlayer>(enginePackage, "Player", "Object");
+	RegisterNativeClass<UNetConnection>(enginePackage, "NetConnection", "Player");
+	RegisterNativeClass<UDemoRecConnection>(enginePackage, "DemoRecConnection", "NetConnection");
+	RegisterNativeClass<UPendingLevel>(enginePackage, "PendingLevel", "Object");
+	RegisterNativeClass<UNetPendingLevel>(enginePackage, "NetPendingLevel", "PendingLevel");
+	RegisterNativeClass<UDemoPlayPendingLevel>(enginePackage, "DemoPlayPendingLevel", "PendingLevel");
+	RegisterNativeClass<UChannel>(enginePackage, "Channel", "Object");
+	RegisterNativeClass<UControlChannel>(enginePackage, "ControlChannel", "Channel");
+	RegisterNativeClass<UActorChannel>(enginePackage, "ActorChannel", "Channel");
+	RegisterNativeClass<UFileChannel>(enginePackage, "FileChannel", "Channel");
+
+	RegisterNativeClass<USurrealRenderDevice>(enginePackage, "SurrealRenderDevice", "RenderDevice");
+	RegisterNativeClass<USurrealAudioDevice>(enginePackage, "SurrealAudioDevice", "AudioSubsystem");
+	RegisterNativeClass<USurrealNetworkDevice>(enginePackage, "SurrealNetworkDevice", "NetDriver");
+	RegisterNativeClass<USurrealClient>(enginePackage, "SurrealClient", "Client");
+
+	RegisterNativeClass<UActor>(enginePackage, "Actor", "Object");
+	RegisterNativeClass<ULight>(enginePackage, "Light", "Actor");
+	RegisterNativeClass<UInventory>(enginePackage, "Inventory", "Actor");
+	RegisterNativeClass<UWeapon>(enginePackage, "Weapon", "Inventory");
+	RegisterNativeClass<UNavigationPoint>(enginePackage, "NavigationPoint", "Actor");
+	RegisterNativeClass<ULiftExit>(enginePackage, "LiftExit", "NavigationPoint");
+	RegisterNativeClass<ULiftCenter>(enginePackage, "LiftCenter", "NavigationPoint");
+	RegisterNativeClass<UWarpZoneMarker>(enginePackage, "WarpZoneMarker", "NavigationPoint");
+	RegisterNativeClass<UInventorySpot>(enginePackage, "InventorySpot", "NavigationPoint");
+	RegisterNativeClass<UTriggerMarker>(enginePackage, "TriggerMarker", "NavigationPoint");
+	RegisterNativeClass<UButtonMarker>(enginePackage, "ButtonMarker", "NavigationPoint");
+	RegisterNativeClass<UPlayerStart>(enginePackage, "PlayerStart", "NavigationPoint");
+	RegisterNativeClass<UTeleporter>(enginePackage, "Teleporter", "NavigationPoint");
+	RegisterNativeClass<UPathNode>(enginePackage, "PathNode", "NavigationPoint");
+	RegisterNativeClass<UDecoration>(enginePackage, "Decoration", "Actor");
+	RegisterNativeClass<UCarcass>(enginePackage, "Carcass", "Decoration");
+	RegisterNativeClass<UProjectile>(enginePackage, "Projectile", "Actor");
+	RegisterNativeClass<UKeypoint>(enginePackage, "Keypoint", "Actor");
+	RegisterNativeClass<Ulocationid>(enginePackage, "locationid", "Keypoint");
+	RegisterNativeClass<UInterpolationPoint>(enginePackage, "InterpolationPoint", "Keypoint");
+	RegisterNativeClass<UTriggers>(enginePackage, "Triggers", "Actor");
+	RegisterNativeClass<UTrigger>(enginePackage, "Trigger", "Triggers");
+	RegisterNativeClass<UHUD>(enginePackage, "HUD", "Actor");
+	RegisterNativeClass<UMenu>(enginePackage, "Menu", "Actor");
+	RegisterNativeClass<UInfo>(enginePackage, "Info", "Actor");
+	RegisterNativeClass<UMutator>(enginePackage, "Mutator", "Info");
+	RegisterNativeClass<UGameInfo>(enginePackage, "GameInfo", "Info");
+	RegisterNativeClass<UZoneInfo>(enginePackage, "ZoneInfo", "Info");
+	RegisterNativeClass<ULevelInfo>(enginePackage, "LevelInfo", "ZoneInfo");
+	RegisterNativeClass<UWarpZoneInfo>(enginePackage, "WarpZoneInfo", "ZoneInfo");
+	RegisterNativeClass<USkyZoneInfo>(enginePackage, "SkyZoneInfo", "ZoneInfo");
+	RegisterNativeClass<USavedMove>(enginePackage, "SavedMove", "Info");
+	RegisterNativeClass<UReplicationInfo>(enginePackage, "ReplicationInfo", "Info");
+	RegisterNativeClass<UPlayerReplicationInfo>(enginePackage, "PlayerReplicationInfo", "ReplicationInfo");
+	RegisterNativeClass<UGameReplicationInfo>(enginePackage, "GameReplicationInfo", "ReplicationInfo");
+	RegisterNativeClass<UInternetInfo>(enginePackage, "InternetInfo", "Info");
+	RegisterNativeClass<UStatLog>(enginePackage, "StatLog", "Info");
+	RegisterNativeClass<UStatLogFile>(enginePackage, "StatLogFile", "StatLog");
+	RegisterNativeClass<UDecal>(enginePackage, "Decal", "Actor");
+	RegisterNativeClass<USpawnNotify>(enginePackage, "SpawnNotify", "Actor");
+	RegisterNativeClass<UBrush>(enginePackage, "Brush", "Actor");
+	RegisterNativeClass<UMover>(enginePackage, "Mover", "Brush");
+	RegisterNativeClass<UPawn>(enginePackage, "Pawn", "Actor");
+	RegisterNativeClass<UScout>(enginePackage, "Scout", "Pawn");
+	RegisterNativeClass<UPlayerPawn>(enginePackage, "PlayerPawn", "Pawn");
+	RegisterNativeClass<UCamera>(enginePackage, "Camera", "PlayerPawn");
+
+	RegisterNativeClass<UInternetLink>(ipdrvPackage, "InternetLink", "InternetInfo");
+	RegisterNativeClass<UTcpLink>(ipdrvPackage, "TcpLink", "InternetLink");
+	RegisterNativeClass<UUdpLink>(ipdrvPackage, "UdpLink", "InternetLink");
+
+	RegisterNativeClass<UPlayerPawnExt>(extensionPackage, "PlayerPawnExt", "PlayerPawn");
+	RegisterNativeClass<UExtensionObject>(extensionPackage, "ExtensionObject", "Object");
+	RegisterNativeClass<UFlagBase>(extensionPackage, "FlagBase", "ExtensionObject");
+	RegisterNativeClass<UFlag>(extensionPackage, "Flag", "ExtensionObject");
+	RegisterNativeClass<UFlagBool>(extensionPackage, "FlagBool", "Flag");
+	RegisterNativeClass<UFlagByte>(extensionPackage, "FlagByte", "Flag");
+	RegisterNativeClass<UFlagFloat>(extensionPackage, "FlagFloat", "Flag");
+	RegisterNativeClass<UFlagInt>(extensionPackage, "FlagInt", "Flag");
+	RegisterNativeClass<UFlagName>(extensionPackage, "FlagName", "Flag");
+	RegisterNativeClass<UFlagRotator>(extensionPackage, "FlagRotator", "Flag");
+	RegisterNativeClass<UFlagVector>(extensionPackage, "FlagVector", "Flag");
+	RegisterNativeClass<UDXExtString>(extensionPackage, "ExtString", "Object");
+	RegisterNativeClass<UDXGameDirectory>(deusExPackage, "GameDirectory", "Object");
+	RegisterNativeClass<UDeusExLevelInfo>(deusExPackage, "DeusExLevelInfo", "Info");
+	RegisterNativeClass<UDXTextParser>(deusExTextPackage, "DeusExTextParser", "Object");
+	RegisterNativeClass<UDXSaveInfo>(deusExPackage, "DeusExSaveInfo", "Object");
+	RegisterNativeClass<UGC>(extensionPackage, "GC", "ExtensionObject");
+	RegisterNativeClass<UWindow>(extensionPackage, "Window", "ExtensionObject");
+	RegisterNativeClass<UViewportWindow>(extensionPackage, "ViewportWindow", "Window");
+	RegisterNativeClass<UToggleWindow>(extensionPackage, "ToggleWindow", "ButtonWindow");
+	RegisterNativeClass<UCheckboxWindow>(extensionPackage, "CheckboxWindow", "ToggleWindow");
+	RegisterNativeClass<UTileWindow>(extensionPackage, "TileWindow", "Window");
+	RegisterNativeClass<UTextWindow>(extensionPackage, "TextWindow", "Window");
+	RegisterNativeClass<UButtonWindow>(extensionPackage, "ButtonWindow", "TextWindow");
+	RegisterNativeClass<UTextLogWindow>(extensionPackage, "TextLogWindow", "TextWindow");
+	RegisterNativeClass<ULargeTextWindow>(extensionPackage, "LargeTextWindow", "TextWindow");
+	RegisterNativeClass<UEditWindow>(extensionPackage, "EditWindow", "LargeTextWindow");
+	RegisterNativeClass<UTabGroupWindow>(extensionPackage, "TabGroupWindow", "Window");
+	RegisterNativeClass<UModalWindow>(extensionPackage, "ModalWindow", "TabGroupWindow");
+	RegisterNativeClass<URootWindow>(extensionPackage, "RootWindow", "ModalWindow");
+	RegisterNativeClass<URadioBoxWindow>(extensionPackage, "RadioBoxWindow", "TabGroupWindow");
+	RegisterNativeClass<UClipWindow>(extensionPackage, "ClipWindow", "TabGroupWindow");
+	RegisterNativeClass<UScrollAreaWindow>(extensionPackage, "ScrollAreaWindow", "Window");
+	RegisterNativeClass<UScaleWindow>(extensionPackage, "ScaleWindow", "Window");
+	RegisterNativeClass<UScaleManagerWindow>(extensionPackage, "ScaleManagerWindow", "Window");
+	RegisterNativeClass<UListWindow>(extensionPackage, "ListWindow", "Window");
+	RegisterNativeClass<UComputerWindow>(extensionPackage, "ComputerWindow", "Window");
+	RegisterNativeClass<UBorderWindow>(extensionPackage, "BorderWindow", "Window");
+	RegisterNativeClass<UEventManager>(enginePackage, "EventManager", "Object");
+	RegisterNativeClass<UAIEventType>(enginePackage, "AIEventType", "Object");
+	RegisterNativeClass<UAIEvent>(enginePackage, "AIEvent", "Object");
+	RegisterNativeClass<UAISenderEvent>(enginePackage, "AISenderEvent", "AIEvent");
+	RegisterNativeClass<UAIReceiverEvent>(enginePackage, "AIReceiverEvent", "AIEvent");
+	RegisterNativeClass<UDeusExPlayer>(deusExPackage, "DeusExPlayer", "PlayerPawnExt");
+	RegisterNativeClass<UScriptedPawn>(deusExPackage, "ScriptedPawn", "Pawn");
+	RegisterNativeClass<UDeusExDecoration>(deusExPackage, "DeusExDecoration", "Decoration");
+	RegisterNativeClass<UParticleIterator>(deusExPackage, "ParticleIterator", "RenderIterator");
+	RegisterNativeClass<ULaserIterator>(deusExPackage, "LaserIterator", "RenderIterator");
+	RegisterNativeClass<UConLight>(conSysPackage, "ConLight", "Light");
+	RegisterNativeClass<UConObject>(conSysPackage, "ConObject", "Object");
+	RegisterNativeClass<UConAudioList>(conSysPackage, "ConAudioList", "ConObject");
+	RegisterNativeClass<UConCamera>(conSysPackage, "ConCamera", "ConObject");
+	RegisterNativeClass<UConChoice>(conSysPackage, "ConChoice", "ConObject");
+	RegisterNativeClass<UConEvent>(conSysPackage, "ConEvent", "ConObject");
+	RegisterNativeClass<UConEventAddCredits>(conSysPackage, "ConEventAddCredits", "ConEvent");
+	RegisterNativeClass<UConEventAddGoal>(conSysPackage, "ConEventAddGoal", "ConEvent");
+	RegisterNativeClass<UConEventAddNote>(conSysPackage, "ConEventAddNote", "ConEvent");
+	RegisterNativeClass<UConEventAddSkillPoints>(conSysPackage, "ConEventAddSkillPoints", "ConEvent");
+	RegisterNativeClass<UConEventAnimation>(conSysPackage, "ConEventAnimation", "ConEvent");
+	RegisterNativeClass<UConEventCheckFlag>(conSysPackage, "ConEventCheckFlag", "ConEvent");
+	RegisterNativeClass<UConEventCheckObject>(conSysPackage, "ConEventCheckObject", "ConEvent");
+	RegisterNativeClass<UConEventCheckPersona>(conSysPackage, "ConEventCheckPersona", "ConEvent");
+	RegisterNativeClass<UConEventChoice>(conSysPackage, "ConEventChoice", "ConEvent");
+	RegisterNativeClass<UConEventComment>(conSysPackage, "ConEventComment", "ConEvent");
+	RegisterNativeClass<UConEventEnd>(conSysPackage, "ConEventEnd", "ConEvent");
+	RegisterNativeClass<UConEventJump>(conSysPackage, "ConEventJump", "ConEvent");
+	RegisterNativeClass<UConEventMoveCamera>(conSysPackage, "ConEventMoveCamera", "ConEvent");
+	RegisterNativeClass<UConEventRandomLabel>(conSysPackage, "ConEventRandomLabel", "ConEvent");
+	RegisterNativeClass<UConEventSetFlag>(conSysPackage, "ConEventSetFlag", "ConEvent");
+	RegisterNativeClass<UConEventSpeech>(conSysPackage, "ConEventSpeech", "ConEvent");
+	RegisterNativeClass<UConEventTrade>(conSysPackage, "ConEventTrade", "ConEvent");
+	RegisterNativeClass<UConEventTransferObject>(conSysPackage, "ConEventTransferObject", "ConEvent");
+	RegisterNativeClass<UConEventTrigger>(conSysPackage, "ConEventTrigger", "ConEvent");
+	RegisterNativeClass<UConFlagRef>(conSysPackage, "ConFlagRef", "ConObject");
+	RegisterNativeClass<UConHistory>(conSysPackage, "ConHistory", "ConObject");
+	RegisterNativeClass<UConHistoryEvent>(conSysPackage, "ConHistoryEvent", "ConObject");
+	RegisterNativeClass<UConItem>(conSysPackage, "ConItem", "ConObject");
+	RegisterNativeClass<UConListItem>(conSysPackage, "ConListItem", "ConObject");
+	RegisterNativeClass<UConSpeech>(conSysPackage, "ConSpeech", "ConObject");
+	RegisterNativeClass<UConversation>(conSysPackage, "Conversation", "ConObject");
+	RegisterNativeClass<UConversationList>(conSysPackage, "ConversationList", "ConObject");
+	RegisterNativeClass<UConversationMissionList>(conSysPackage, "ConversationMissionList", "ConObject");
+}
+
+template<typename T>
+void PackageManager::RegisterNativeClass(const NameString& packageName, const NameString& className, const NameString& baseClass)
+{
+	NativeClass nativeClass;
+	nativeClass.Package = packageName;
+	nativeClass.Name = className;
+	nativeClass.Base = baseClass;
+	nativeClass.CreateFunc = [](const NameString& name, UClass* cls, ObjectFlags flags) -> UObject* { return GC::Alloc<T>(name, cls, flags); };
+	NativeClasses[className] = std::move(nativeClass);
+}

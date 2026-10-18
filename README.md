@@ -15,14 +15,14 @@ Targeting only Deus Ex.
 
 ## The fork and Surreal Engine
 
-The two differ at the core ([how it is kept](vibe/docs/ENGINE.md#how-it-is-kept)).
+The two differ at the core ([how it is kept](docs/ENGINE.md#how-it-is-kept)).
 
-The fork's own docs and tools are in [`vibe/`](vibe/).
+The fork's own docs and tools are in [`docs/`](docs/) and [`tools/`](tools/).
 
-- [`vibe/docs/ENGINE.md`](vibe/docs/ENGINE.md): how the fork is kept, run and profiled, and
-  [what it changes](vibe/docs/ENGINE.md#what-the-fork-changes).
-- [`vibe/docs/NATIVES.md`](vibe/docs/NATIVES.md): differences from the original.
-- [`vibe/docs/DEVELOPMENT.md`](vibe/docs/DEVELOPMENT.md): scripted runs of both engines,
+- [`docs/ENGINE.md`](docs/ENGINE.md): how the fork is kept, run and profiled, and
+  [what it changes](docs/ENGINE.md#what-the-fork-changes).
+- [`docs/NATIVES.md`](docs/NATIVES.md): differences from the original.
+- [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md): scripted runs of both engines,
   debugging a crash, proving a change.
 
 ## Building and running
@@ -56,7 +56,7 @@ cmake --build build --target SurrealEngine -j"$(nproc)"
 
 Its SDL window is SDL3's when SDL3 is found, else SDL2's: either has the fork's gamepad support,
 which its X11 and Wayland windows lack, and is the window when `SURREALWIDGETS_DISPLAY_BACKEND`
-names it ([the gamepad](vibe/docs/ENGINE.md#running-on-our-devices)). The build leaves two files
+names it ([the gamepad](docs/ENGINE.md#running-on-our-devices)). The build leaves two files
 in `build/` that go together:
 
 - `SurrealEngine`, the engine: the executable keeps upstream's name;
@@ -73,9 +73,9 @@ build/SurrealEngine /path/to/deusex
 It draws with Vulkan unless its settings name another device, so it needs the GPU's Vulkan
 driver. Where to go next:
 
-- [Running it](vibe/docs/ENGINE.md#running-it): the rest of the command line -- the log on
+- [Running it](docs/ENGINE.md#running-it): the rest of the command line -- the log on
   stderr, a map to start on, a dedicated server, the inis.
-- [Settings and environment](vibe/docs/ENGINE.md#settings-and-environment): the settings file
+- [Settings and environment](docs/ENGINE.md#settings-and-environment): the settings file
   and the variables the engine reads, the window backend a pad needs among them.
 
 ### For advanced users
@@ -98,8 +98,8 @@ The build's own switches:
   Port Ex Machina's `scripts/engine.sh build <port>` builds with it
   ([a port's files](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#what-a-port-is)).
 - **Debugging**: a build with symbols, or with AddressSanitizer
-  ([crashes](vibe/docs/DEVELOPMENT.md#crashes)).
-- **Profiling and validation**: [measuring it](vibe/docs/ENGINE.md#measuring-it).
+  ([crashes](docs/DEVELOPMENT.md#crashes)).
+- **Profiling and validation**: [measuring it](docs/ENGINE.md#measuring-it).
 - **Kept, but neither built nor tested here**: the D3D11 device and the Win32 code it needs
   (SurrealWidgets' Win32 backend, `Win32Resources/`, the natvis, the vendored OpenAL Soft, the
   crash reporter's Windows part).

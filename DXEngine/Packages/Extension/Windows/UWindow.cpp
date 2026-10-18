@@ -1,0 +1,2252 @@
+
+#include "Precomp.h"
+#include "UWindow.h"
+#include "UGC.h"
+#include "TabGroup/URootWindow.h"
+#include "TabGroup/UModalWindow.h"
+#include "TabGroup/UTabGroupWindow.h"
+#include "Text/UButtonWindow.h"
+#include <algorithm>
+#include <chrono>
+#include <vector>
+#include "Audio/AudioDevice.h"
+#include "VM/ScriptCall.h"
+#include "Engine.h"
+#include "Render/RenderSubsystem.h"
+#include "Package/PackageManager.h"
+#include "Packages/Core/UClass.h"
+#include "Packages/Core/Properties/UFloatProperty.h"
+#include "Packages/Engine/UViewport.h"
+#include "Packages/Engine/Subsystems/UDXEngineAudioDevice.h"
+#include "Packages/Engine/Resources/UFont.h"
+#include "Packages/Extension/UPlayerPawnExt.h"
+
+void UWindow::UpdateLayout()
+{
+	if (!bIsVisible())
+		return;
+
+	UWindow* parent = parentOwner();
+	if (parent)
+	{
+		EHAlign halign = (EHAlign)winHAlign();
+		EVAlign valign = (EVAlign)winVAlign();
+		float pWidth = parent->Width();
+		float pHeight = parent->Height();
+
+		float offsetX = RootOffsetX();
+		if (parent == engine->dxRootWindow)
+			pWidth += std::max(GetExtendedVirtualWidth() - pWidth, 0.0f);
+
+		// Full: the parent's size less both margins, whoever placed it.
+		if (halign == EHAlign::Full || valign == EVAlign::Full)
+		{
+			float newWidth = Width();
+			float newHeight = Height();
+
+			if (halign == EHAlign::Full)
+			{
+				X() = hMargin0();
+				float fullWidth = parent == engine->dxRootWindow ? GetExtendedVirtualWidth() : pWidth;
+				newWidth = std::max(fullWidth - hMargin0() - hMargin1(), 0.0f);
+			}
+
+			if (valign == EVAlign::Full)
+			{
+				Y() = vMargin0();
+				newHeight = std::max(pHeight - vMargin0() - vMargin1(), 0.0f);
+			}
+
+			if (Width() != newWidth || Height() != newHeight)
+			{
+				Width() = newWidth;
+				Height() = newHeight;
+				bNeedsReconfigure() = true;
+			}
+		}
+
+		// A window its parent placed stays where it was put; one it did not
+		// places itself by its alignment (XWindow::ResizeChild 0x1004eab0):
+		// centred (the half truncated) plus its first margin, right or bottom
+		// less it, else at it -- where SetPos puts a window. Its x and y are
+		// that place, as the original's are.
+		if (!bConfigured())
+		{
+			if (halign == EHAlign::Center)
+				X() = std::trunc((pWidth - Width()) * 0.5f) + hMargin0();
+			else if (halign == EHAlign::Right)
+				X() = pWidth - Width() - hMargin0();
+			else if (halign == EHAlign::Left)
+				X() = hMargin0();
+
+			if (valign == EVAlign::Center)
+				Y() = std::trunc((pHeight - Height()) * 0.5f) + vMargin0();
+			else if (valign == EVAlign::Bottom)
+				Y() = pHeight - Height() - vMargin0();
+			else if (valign == EVAlign::Top)
+				Y() = vMargin0();
+		}
+
+		UsedX = X() + offsetX;
+		UsedY = Y();
+	}
+	else
+	{
+		float virtualWidth = GetVirtualWidth();
+		float virtualHeight = GetVirtualHeight();
+		float virtualScale = GetVirtualScale();
+		if (Width() != virtualWidth || Height() != virtualHeight)
+		{
+			ConfigureChild(0.0f, 0.0f, virtualWidth, virtualHeight);
+		}
+		if (URootWindow* root = UObject::TryCast<URootWindow>(this))
+		{
+			root->hMultiplier() = (int)virtualScale;
+			root->vMultiplier() = (int)virtualScale;
+		}
+
+		// Center the virtual viewbox
+		UsedX = std::round((engine->viewport->ViewportWidth() - virtualWidth * virtualScale) * 0.5f) / virtualScale;
+		UsedY = 0.0f;
+	}
+
+	bool wasReconfigured = bNeedsReconfigure();
+	if (wasReconfigured)
+	{
+		//LogMessage(GetUClassFullName(this).ToString() + ": UpdateLayout");
+
+		bNeedsReconfigure() = false;
+		ConfigurationChanged();
+	}
+
+	// Configure the windows that never got a ConfigureChild call:
+	for (UWindow* child = firstChild(); child; child = child->nextSibling())
+	{
+		if ((wasReconfigured || child->FirstDraw) && !child->bConfigured())
+		{
+			float newWidth = 0.0f, newHeight = 0.0f;
+			child->QueryPreferredSize(newWidth, newHeight);
+			child->Width() = newWidth;
+			child->Height() = newHeight;
+			child->bNeedsReconfigure() = true;
+		}
+	}
+
+	for (UWindow* child = firstChild(); child; child = child->nextSibling())
+	{
+		child->UpdateLayout();
+	}
+
+	if (FirstDraw)
+	{
+		FirstDraw = false;
+		WindowReady();
+	}
+}
+
+// The root's children lie across the screen up to 16:9, the 4:3 root centred
+// in it: their x is the screen's, drawn less this.
+float UWindow::RootOffsetX()
+{
+	UWindow* parent = parentOwner();
+	if (!parent || parent != engine->dxRootWindow)
+		return 0.0f;
+	return -std::round(std::max(GetExtendedVirtualWidth() - parent->Width(), 0.0f) * 0.5f);
+}
+
+float UWindow::GetVirtualWidth()
+{
+	// Force a 4:3 ratio for the root window as ConWindowActive.CalculateWindowSizes depends on it
+	return std::round(GetVirtualHeight() * 4 / 3);
+}
+
+float UWindow::GetExtendedVirtualWidth()
+{
+	// Extend up to 16:9 instead of staying in the 4:3 box of the root window
+	float scale = GetVirtualScale();
+	float realWidth = std::ceil(engine->viewport->ViewportWidth() / scale);
+	float maxWidth = GetVirtualHeight() * (16.0f / 9.0f);
+	return std::min(realWidth, maxWidth);
+}
+
+float UWindow::GetVirtualHeight()
+{
+	float scale = GetVirtualScale();
+	return std::ceil(engine->viewport->ViewportHeight() / scale);
+}
+
+// A number through a script's printf format, as the original's appSprintf
+// prints it (a list's float column, a scale's value). A format that is not a
+// single floating-point conversion is taken as %f, where the original would
+// print whatever it asks for.
+std::string UWindow::FormatScriptFloat(const std::string& format, double value)
+{
+	int conversions = 0;
+	bool valid = true;
+	for (size_t i = 0; i < format.size() && valid; i++)
+	{
+		if (format[i] != '%')
+			continue;
+		i++;
+		if (i < format.size() && format[i] == '%')
+			continue;
+		while (i < format.size() && strchr("-+ #0", format[i]))
+			i++;
+		while (i < format.size() && isdigit((unsigned char)format[i]))
+			i++;
+		if (i < format.size() && format[i] == '.')
+		{
+			i++;
+			while (i < format.size() && isdigit((unsigned char)format[i]))
+				i++;
+		}
+		valid = i < format.size() && strchr("fFeEgGaA", format[i]) != nullptr;
+		conversions++;
+	}
+	char buffer[256];
+	snprintf(buffer, sizeof(buffer), (valid && conversions == 1) ? format.c_str() : "%f", value);
+	return buffer;
+}
+
+float UWindow::GetVirtualScale()
+{
+	// The original's multiplier (XRootWindow::ResizeRoot, Extension.dll
+	// 0x1003adf0): the smaller of the viewport's width over 640 and its
+	// height over 480, each truncated, at least 1 -- the largest whole
+	// multiple of 640x480 the viewport holds
+	int width = engine->viewport->ViewportWidth();
+	int height = engine->viewport->ViewportHeight();
+	return (float)std::max(std::min(width / 640, height / 480), 1);
+}
+
+void UWindow::AddActorRef(UObject* refActor)
+{
+	UPlayerPawnExt* playerPawn = UObject::Cast<UPlayerPawnExt>(GetPlayerPawn());
+	if (!playerPawn) return;
+	UActor* target = UObject::Cast<UActor>(refActor);
+	if (!target) return;
+
+	int& count = playerPawn->actorCount();
+	auto refs = playerPawn->actorList();
+
+	int foundIndex = -1;
+	for (int i = 0; i < count; ++i)
+	{
+		UActor* actor = refs[i].Actor;
+		if (actor && actor->bDeleteMe()) actor = nullptr;
+		if (actor == target) { foundIndex = i; break; }
+	}
+
+	if (foundIndex >= 0)
+	{
+		++refs[foundIndex].RefCount;
+		return;
+	}
+
+	if (count >= 32)
+	{
+		for (int i = 1; i < count; ++i)
+			refs[i - 1] = refs[i];
+		--count;
+	}
+
+	refs[count].Actor = target;
+	refs[count].RefCount = 1;
+	++count;
+}
+
+int UWindow::AddTimer(float TimeOut, std::optional<bool> bLoop, std::optional<int> clientData, std::optional<NameString> functionName)
+{
+	if (!functionName) // Script always specifies a function name
+	{
+		return -1;
+	}
+
+	int id = NextTimerId++;
+	WTimer info;
+	info.ClientData = clientData ? *clientData : 0;
+	info.FunctionName = *functionName;
+	info.Timeout = TimeOut;
+	info.Loop = bLoop ? *bLoop : false;
+	info.TimeLeft = info.Timeout;
+	ActiveTimers[id] = info;
+	return id;
+}
+
+void UWindow::RemoveTimer(int timerId)
+{
+	auto it = ActiveTimers.find(timerId);
+	if (it != ActiveTimers.end())
+		ActiveTimers.erase(it);
+}
+
+// The original's (XWindow::AskParentToShowArea 0x1004e230): of the area, the
+// part inside the window; when the window's ancestors hide any of that, the
+// parent is asked to show it -- a clip window scrolls to it -- and then asks
+// its own parent, the area in its coordinates. Only a window that shows asks.
+void UWindow::AskParentToShowArea(float areaX, float areaY, float areaWidth, float areaHeight)
+{
+	UWindow* parent = parentOwner();
+	if (!parent || !IsShown())
+		return;
+
+	float x0 = std::max(areaX, 0.0f);
+	float y0 = std::max(areaY, 0.0f);
+	float x1 = std::min(areaX + areaWidth, Width());
+	float y1 = std::min(areaY + areaHeight, Height());
+	if (x1 <= x0 || y1 <= y0)
+		return;
+
+	// The part of the window its ancestors let show, in its coordinates
+	// (the original keeps it as the window's clip rect).
+	float visX0 = 0.0f, visY0 = 0.0f, visX1 = Width(), visY1 = Height();
+	float offsetX = 0.0f, offsetY = 0.0f;
+	for (UWindow* w = this; w->parentOwner(); w = w->parentOwner())
+	{
+		offsetX -= w->UsedX;
+		offsetY -= w->UsedY;
+		UWindow* ancestor = w->parentOwner();
+		visX0 = std::max(visX0, offsetX);
+		visY0 = std::max(visY0, offsetY);
+		visX1 = std::min(visX1, offsetX + ancestor->Width());
+		visY1 = std::min(visY1, offsetY + ancestor->Height());
+	}
+	float shownWidth = std::min(visX1, x1) - std::max(visX0, x0);
+	float shownHeight = std::min(visY1, y1) - std::max(visY0, y0);
+	if (shownWidth < x1 - x0 || shownHeight < y1 - y0)
+	{
+		parent->ChildRequestedShowArea(this, x0, y0, x1 - x0, y1 - y0);
+		float parentX = 0.0f, parentY = 0.0f;
+		ConvertCoordinates(this, x0, y0, parent, parentX, parentY);
+		parent->AskParentToShowArea(parentX, parentY, x1 - x0, y1 - y0);
+	}
+}
+
+std::string UWindow::CarriageReturn()
+{
+	return "\r\n"; // Can't be doing this, can it?
+}
+
+static void ApplyStyleChange(UWindow* window)
+{
+	CallEvent(window, "StyleChanged", {});
+	for (auto cur = window->firstChild(); cur; cur = cur->nextSibling())
+		ApplyStyleChange(cur);
+}
+
+void UWindow::ChangeStyle()
+{
+	UWindow* cur = this;
+	while (cur->parentOwner())
+		cur = cur->parentOwner();
+	ApplyStyleChange(cur);
+}
+
+void UWindow::ConvertCoordinates(UWindow* fromWin, float fromX, float fromY, UWindow* toWin, float& toX, float& toY)
+{
+	// Convert to global coordinates:
+	float x = fromX;
+	float y = fromY;
+	for (UWindow* cur = fromWin; cur->parentOwner(); cur = cur->parentOwner())
+	{
+		x += cur->UsedX;
+		y += cur->UsedY;
+	}
+	// Convert to local coordinates:
+	for (UWindow* cur = toWin; cur->parentOwner(); cur = cur->parentOwner())
+	{
+		x -= cur->UsedX;
+		y -= cur->UsedY;
+	}
+	toX = x;
+	toY = y;
+}
+
+// The original's XWindow::ConvertScriptString (Extension.dll 0x10050710): a
+// script's |n is a line break; every other | stays. The script natives that
+// take text (SetText, AppendText, InsertText) pass it through this, so a
+// window holds and GetText gives the break itself.
+std::string UWindow::ConvertScriptString(const std::string& oldStr)
+{
+	std::string out;
+	out.reserve(oldStr.size());
+	for (size_t i = 0; i < oldStr.size(); i++)
+	{
+		if (oldStr[i] == '|' && i + 1 < oldStr.size() && oldStr[i + 1] == 'n')
+		{
+			out += '\n';
+			i++;
+		}
+		else
+		{
+			out += oldStr[i];
+		}
+	}
+	return out;
+}
+
+// A point in the world to this window's coordinates: projected by the main
+// scene's view into its pixels, then into the root window's coordinates as
+// the root lays itself out -- a pixel over the UI's scale, less the offset
+// that centres the 4:3 root on a wider screen.
+bool UWindow::ConvertVectorToCoordinates(const vec3& Location, float& relativeX, float& relativeY)
+{
+	const SceneNode& view = engine->render->MainView;
+	vec4 viewSpaceLocation = view.WorldToView * vec4(Location, 1.0f);
+	if (viewSpaceLocation.z < 1.0f)
+		return false;
+
+	vec4 projLocation = view.Projection * viewSpaceLocation;
+	float rcpW = 1.0f / projLocation.w;
+	float pixelX = view.XB + (projLocation.x * rcpW + 1.0f) * view.FX * 0.5f;
+	float pixelY = view.YB + (projLocation.y * rcpW + 1.0f) * view.FY * 0.5f;
+
+	URootWindow* root = GetRootWindow();
+	if (!root)
+		return false;
+	float scale = GetVirtualScale();
+	float rootX = pixelX / scale - root->UsedX;
+	float rootY = pixelY / scale - root->UsedY;
+	ConvertCoordinates(root, rootX, rootY, this, relativeX, relativeY);
+
+	// Return true if the point is still inside the window
+	return relativeX >= 0.0f && relativeX < Width() && relativeY >= 0.0f && relativeY < Height();
+}
+
+// The original's (Extension.dll XWindow::PreDestroy 0x10050500, CleanUp
+// 0x1004bec0): a window that shows is hidden and every window made
+// unselectable, so focus and grabs move away from it; its children are
+// destroyed, then it gets DestroyWindow; then its parent gets ChildRemoved,
+// every ancestor DescendantRemoved (a modal lets go of its preferred focus),
+// the root lets go of it, and it leaves the tree.
+void UWindow::Destroy()
+{
+	if (Destroyed)
+		return;
+	Destroyed = true;
+
+	bool shown = true;
+	for (UWindow* w = this; w; w = w->parentOwner())
+	{
+		if (!w->bIsVisible())
+		{
+			shown = false;
+			break;
+		}
+	}
+	if (shown)
+		SetVisibility(false);
+	SetSelectability(false);
+
+	for (UWindow* child = firstChild(); child;)
+	{
+		UWindow* next = child->nextSibling();
+		child->Destroy();
+		child = next;
+	}
+
+	DestroyWindow();
+
+	URootWindow* root = GetRootWindow();
+	if (UWindow* parent = parentOwner())
+	{
+		parent->ChildRemoved(this);
+		for (UWindow* ancestor = parent; ancestor; ancestor = ancestor->parentOwner())
+		{
+			ancestor->DescendantRemoved(this);
+			if (UModalWindow* modal = UObject::TryCast<UModalWindow>(ancestor))
+			{
+				if (modal->preferredFocus() == this)
+					modal->preferredFocus() = nullptr;
+			}
+		}
+	}
+	if (root)
+	{
+		if (root->lastButtonWindow() == this)
+			root->lastButtonWindow() = nullptr;
+		if (root->lastMouseWindow() == this)
+			root->lastMouseWindow() = nullptr;
+		if (root->grabbedWindow() == this)
+			root->grabbedWindow() = nullptr;
+	}
+	ActiveTimers.clear();
+	DetachFromParent();
+}
+
+void UWindow::DetachFromParent()
+{
+	if (prevSibling())
+		prevSibling()->nextSibling() = nextSibling();
+	if (nextSibling())
+		nextSibling()->prevSibling() = prevSibling();
+	if (parentOwner())
+	{
+		if (parentOwner()->firstChild() == this)
+			parentOwner()->firstChild() = nextSibling();
+		if (parentOwner()->lastChild() == this)
+			parentOwner()->lastChild() = prevSibling();
+	}
+	prevSibling() = nullptr;
+	nextSibling() = nullptr;
+	parentOwner() = nullptr;
+}
+
+void UWindow::DestroyAllChildren()
+{
+	while (firstChild())
+		firstChild()->Destroy();
+}
+
+void UWindow::DisableWindow()
+{
+	SetSensitivity(false);
+}
+
+void UWindow::EnableSpecialText(std::optional<bool> bEnable)
+{
+	bSpecialText() = !bEnable || *bEnable;
+}
+
+void UWindow::EnableTranslucentText(std::optional<bool> bEnable)
+{
+	bTextTranslucent() = !bEnable || *bEnable;
+}
+
+void UWindow::EnableWindow(std::optional<bool> bEnable)
+{
+	SetSensitivity(bEnable ? *bEnable : true);
+}
+
+UWindow* UWindow::FindWindow(float pointX, float pointY, float& relativeX, float& relativeY)
+{
+	// Convert to global coordinates and find root:
+	float x = pointX;
+	float y = pointY;
+	UWindow* cur = this;
+	while (cur->parentOwner())
+	{
+		x += cur->UsedX;
+		y += cur->UsedY;
+		cur = cur->parentOwner();
+	}
+
+	// Search the tree
+	while (true)
+	{
+		UWindow* foundChild = nullptr;
+		for (UWindow* child = cur->lastChild(); child; child = child->prevSibling())
+		{
+			if (child->bIsVisible() &&
+				child->UsedX <= x &&
+				child->UsedY <= y &&
+				child->UsedX + child->Width() > x &&
+				child->UsedY + child->Height() > y)
+			{
+				foundChild = child;
+				break;
+			}
+		}
+		if (!foundChild)
+			break;
+		cur = foundChild;
+		x -= cur->UsedX;
+		y -= cur->UsedY;
+	}
+
+	relativeX = x;
+	relativeY = y;
+	return cur;
+}
+
+UObject* UWindow::GetBottomChild(std::optional<bool> bVisibleOnly)
+{
+	bool visibleOnly = (!bVisibleOnly || *bVisibleOnly);
+	for (UWindow* child = firstChild(); child; child = child->nextSibling())
+	{
+		if (!visibleOnly || child->bIsVisible())
+			return child;
+	}
+	return nullptr;
+}
+
+UObject* UWindow::GetClientObject()
+{
+	return clientObject();
+}
+
+void UWindow::GetCursorPos(float& MouseX, float& MouseY)
+{
+	if (URootWindow* root = GetRootWindow())
+	{
+		ConvertCoordinates(root, root->MouseX(), root->MouseY(), this, MouseX, MouseY);
+	}
+	else
+	{
+		MouseX = 0.0f;
+		MouseY = 0.0f;
+	}
+}
+
+UObject* UWindow::GetFocusWindow()
+{
+	if (URootWindow* root = GetRootWindow())
+	{
+		return root->FocusWindow();
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+UObject* UWindow::GetGC()
+{
+	return engine->dxgc;
+}
+
+UObject* UWindow::GetHigherSibling(std::optional<bool> bVisibleOnly)
+{
+	bool visibleOnly = (!bVisibleOnly || *bVisibleOnly);
+	for (UWindow* cur = nextSibling(); cur; cur = cur->nextSibling())
+	{
+		if (!visibleOnly || cur->bIsVisible())
+			return cur;
+	}
+	return nullptr;
+}
+
+UObject* UWindow::GetLowerSibling(std::optional<bool> bVisibleOnly)
+{
+	bool visibleOnly = (!bVisibleOnly || *bVisibleOnly);
+	for (UWindow* cur = prevSibling(); cur; cur = cur->prevSibling())
+	{
+		if (!visibleOnly || cur->bIsVisible())
+			return cur;
+	}
+	return nullptr;
+}
+
+UObject* UWindow::GetModalWindow()
+{
+	UWindow* cur = this;
+	do
+	{
+		if (UObject::TryCast<UModalWindow>(cur))
+			return cur;
+		cur = cur->parentOwner();
+	} while (cur);
+	return nullptr;
+}
+
+UObject* UWindow::GetParent()
+{
+	return parentOwner();
+}
+
+UObject* UWindow::GetPlayerPawn()
+{
+	UWindow* cur = this;
+	while (cur->parentOwner())
+		cur = cur->parentOwner();
+	URootWindow* root = UObject::TryCast<URootWindow>(cur);
+	return root ? root->parentPawn() : nullptr;
+}
+
+URootWindow* UWindow::GetRootWindow()
+{
+	UWindow* cur = this;
+	while (cur->parentOwner())
+		cur = cur->parentOwner();
+	return UObject::TryCast<URootWindow>(cur);
+}
+
+// The nearest tab group at or above the window (extension-dll.md, Small).
+UObject* UWindow::GetTabGroupWindow()
+{
+	// The original walks up to the nearest window that is not a generic
+	// child: a tab group, a modal or the root, any of which holds the
+	// focus-order tables (Extension.dll XWindow::GetTabGroupWindow
+	// 0x1004c560 -- ModalWindow extends TabGroupWindow, so a conversation
+	// window is its choices' group).
+	for (UWindow* cur = this; cur; cur = cur->parentOwner())
+	{
+		if (cur->windowType() != 0)
+			return cur;
+	}
+	return nullptr;
+}
+
+// The windows' clock (XRootWindow::GetWindowsTickOffset 0x1003a3b0): real
+// seconds since the root last ticked its windows, which restarts it -- the
+// windows tick by it, not by the level's time. A held button's or scale's
+// first repeat waits its delay plus the offset, so what of the frame had gone
+// by when the press came is not lost (XWindow::GetTickOffset 0x1004fda0).
+float UWindow::GetWindowsTickOffset(bool bRestart)
+{
+	using Clock = std::chrono::steady_clock;
+	static Clock::time_point lastTick = Clock::now();
+	Clock::time_point now = Clock::now();
+	float offset = std::chrono::duration<float>(now - lastTick).count();
+	if (bRestart)
+		lastTick = now;
+	return offset;
+}
+
+float UWindow::GetTickOffset()
+{
+	return GetWindowsTickOffset(false);
+}
+
+UObject* UWindow::GetTopChild(std::optional<bool> bVisibleOnly)
+{
+	bool visibleOnly = (!bVisibleOnly || *bVisibleOnly);
+	for (UWindow* child = lastChild(); child; child = child->prevSibling())
+	{
+		if (!visibleOnly || child->bIsVisible())
+			return child;
+	}
+	return nullptr;
+}
+
+void UWindow::GrabMouse()
+{
+	if (URootWindow* root = GetRootWindow())
+		root->grabbedWindow() = this;
+}
+
+void UWindow::Hide()
+{
+	SetVisibility(false);
+}
+
+// The original's SetVisibility asks the window's parent: the parent's
+// ChildRequestedVisibilityChange event decides, and the script's default
+// calls SetChildVisibility back on the child; DeusExHUD's override also lays
+// the HUD out again, so the InfoLink and the log push it around as they come
+// and go. The root window, having no parent, sets its own
+// (extension-dll.md, Showing and hiding).
+void UWindow::SetVisibility(bool show)
+{
+	if (bIsVisible() == show)
+		return;
+	if (UWindow* parent = parentOwner())
+		parent->ChildRequestedVisibilityChange(this, show);
+	else
+		SetChildVisibility(show);
+}
+
+bool UWindow::IsActorValid(UObject* refActor)
+{
+	UPlayerPawnExt* playerPawn = UObject::Cast<UPlayerPawnExt>(GetPlayerPawn());
+	if (!playerPawn) return false;
+	UActor* target = UObject::Cast<UActor>(refActor);
+	if (!target) return false;
+	auto refs = playerPawn->actorList();
+	for (int i = 0, count = playerPawn->actorCount(); i < count; i++)
+	{
+		if (refs[i].Actor == refActor)
+			return true;
+	}
+	return false;
+}
+
+bool UWindow::IsFocusWindow()
+{
+	if (auto root = GetRootWindow())
+		return root->FocusWindow() == this;
+	return false;
+}
+
+// The original's (XWindow::IsKeyDown 0x1004c980): the root's mark of the
+// key, which every press it sees sets and every release clears.
+bool UWindow::IsKeyDown(uint8_t Key)
+{
+	URootWindow* root = GetRootWindow();
+	if (!root || Key > 0xFE)
+		return false;
+	return (&root->keyDownMap())[Key] != 0;
+}
+
+bool UWindow::IsPointInWindow(float pointX, float pointY)
+{
+	return pointX >= 0.0f && pointX < Width() && pointY >= 0.0f && pointY < Height();
+}
+
+bool UWindow::IsSensitive(std::optional<bool> bRecurse)
+{
+	if (bIsSensitive())
+		return true;
+	if (bRecurse && *bRecurse)
+	{
+		for (UWindow* cur = firstChild(); cur; cur = cur->nextSibling())
+		{
+			if (cur->IsSensitive(bRecurse))
+				return true;
+		}
+	}
+	return false;
+}
+
+// The window and every ancestor visible: it shows if the root does. The
+// original's natives walk this chain before acting (a scale's attributes, a
+// shown area).
+bool UWindow::IsShown()
+{
+	for (UWindow* w = this; w; w = w->parentOwner())
+	{
+		if (!w->bIsVisible())
+			return false;
+	}
+	return true;
+}
+
+bool UWindow::IsVisible(std::optional<bool> bRecurse)
+{
+	if (bIsVisible())
+		return true;
+	if (bRecurse && *bRecurse)
+	{
+		for (UWindow* cur = firstChild(); cur; cur = cur->nextSibling())
+		{
+			if (cur->IsVisible(bRecurse))
+				return true;
+		}
+	}
+	return false;
+}
+
+void UWindow::Lower()
+{
+	if (!parentOwner())
+		return;
+	UWindow* owner = parentOwner();
+	DetachFromParent();
+	parentOwner() = owner;
+	if (owner->firstChild())
+	{
+		nextSibling() = owner->firstChild();
+		owner->firstChild()->prevSibling() = this;
+		owner->firstChild() = this;
+	}
+	else
+	{
+		owner->firstChild() = this;
+		owner->lastChild() = this;
+	}
+}
+
+/*
+UObject* UWindow::MoveFocus(EMove direction)
+{
+	auto root = GetRootWindow();
+	if(root)
+	{
+		int hmref = root->handleMouseRef();
+		if (!hmref)
+			MoveTabGroup(dir);
+		else {
+			UTabGroupWindow* tabWindow = UObject::Cast<UTabGroupWindow*>(GetTabGroupWindow());
+			if (tabWindow)
+			{
+				bool wrapFocus = bWrapFocus();
+			}
+		}
+	}
+}
+*/
+
+UObject* UWindow::MoveFocusDown()
+{
+	return MoveFocus(3);
+}
+
+UObject* UWindow::MoveFocusLeft()
+{
+	return MoveFocus(0);
+}
+
+UObject* UWindow::MoveFocusRight()
+{
+	return MoveFocus(1);
+}
+
+UObject* UWindow::MoveFocusUp()
+{
+	return MoveFocus(2);
+}
+
+// Whether focus may sit on this window (Extension.dll XWindow::IsTraversable
+// 0x1004c460): the window itself must be selectable, and it and every
+// ancestor visible and sensitive. With the topmost check, the nearest
+// ancestor that is a modal (or the root) must also be the topmost modal: the
+// root's topmost child that shows and is a modal, else the root. A window
+// under a buried modal cannot take focus.
+bool UWindow::IsTraversable(bool checkTopmost)
+{
+	if (!bIsSelectable())
+		return false;
+	UWindow* firstModalAncestor = nullptr;
+	for (UWindow* i = this; i; i = i->parentOwner())
+	{
+		if (!i->bIsVisible() || !i->bIsSensitive())
+			return false;
+		if (checkTopmost)
+		{
+			if (!firstModalAncestor && i->windowType() >= 2)
+				firstModalAncestor = i;
+			if (i->windowType() == 3)
+			{
+				UWindow* top = nullptr;
+				for (UWindow* c = i->lastChild(); c; c = c->prevSibling())
+				{
+					if (c->bIsVisible() && c->windowType() >= 2)
+					{
+						top = c;
+						break;
+					}
+				}
+				if ((top ? top : i) != firstModalAncestor)
+					return false;
+			}
+		}
+	}
+	return true;
+}
+
+// The group's focus order, built on demand: the original keeps row- and
+// column-major sorted lists of the group's selectable windows, resorted as
+// children are configured (XTabGroupWindow::ResortWindowTables 0x10045140,
+// sorted by position, ties broken by pointer); the fork walks the group's
+// descendants and sorts the same way each time focus moves -- the same
+// windows in the same order (XTabGroupWindow::AddWindowToTables only adds
+// what SetSelectability made selectable, and IsTraversable is asked live at
+// the walk anyway).
+static void CollectGroupWindows(UWindow* w, UWindow* also, std::vector<UWindow*>& out)
+{
+	for (UWindow* c = w->firstChild(); c; c = c->nextSibling())
+	{
+		if (c->bIsSelectable() || c == also)
+			out.push_back(c);
+		if (c->windowType() == 0)
+			CollectGroupWindows(c, also, out);
+	}
+}
+
+// Each window's place on the screen, which the original sorts by: its
+// clip rect's origin, in the root's coordinates (the comparers at
+// 0x10045250 and 0x100452d0).
+static std::vector<std::pair<UWindow*, vec2>> GroupWindowPlaces(UWindow* group, UWindow* also)
+{
+	std::vector<UWindow*> windows;
+	CollectGroupWindows(group, also, windows);
+	std::vector<std::pair<UWindow*, vec2>> places;
+	URootWindow* root = group->GetRootWindow();
+	for (UWindow* w : windows)
+	{
+		vec2 place = { 0.0f, 0.0f };
+		if (root)
+			group->ConvertCoordinates(w, 0.0f, 0.0f, root, place.x, place.y);
+		places.push_back({ w, place });
+	}
+	return places;
+}
+
+static std::vector<UWindow*> GroupWindowsByRow(UWindow* group, UWindow* also = nullptr)
+{
+	auto places = GroupWindowPlaces(group, also);
+	std::stable_sort(places.begin(), places.end(), [](const auto& a, const auto& b)
+	{
+		if (a.second.y != b.second.y) return a.second.y < b.second.y;
+		if (a.second.x != b.second.x) return a.second.x < b.second.x;
+		return a.first < b.first;
+	});
+	std::vector<UWindow*> out;
+	for (const auto& place : places)
+		out.push_back(place.first);
+	return out;
+}
+
+static std::vector<UWindow*> GroupWindowsByColumn(UWindow* group, UWindow* also = nullptr)
+{
+	auto places = GroupWindowPlaces(group, also);
+	std::stable_sort(places.begin(), places.end(), [](const auto& a, const auto& b)
+	{
+		if (a.second.x != b.second.x) return a.second.x < b.second.x;
+		if (a.second.y != b.second.y) return a.second.y < b.second.y;
+		return a.first < b.first;
+	});
+	std::vector<UWindow*> out;
+	for (const auto& place : places)
+		out.push_back(place.first);
+	return out;
+}
+
+// Focus moves within the focus window's group, along its row- or
+// column-major order (Extension.dll XWindow::MoveFocus 0x1004ef30): left
+// and up decrement, right and down increment, the walk wraps, windows that
+// are not traversable are passed over, and a group with nothing traversable
+// hands the move to the tab groups, as does a move with no focus window at
+// all -- which is how a conversation's choices light up the moment they
+// appear. It returns the focus window, moved or not.
+UObject* UWindow::MoveFocus(int dir)
+{
+	URootWindow* root = GetRootWindow();
+	if (!root)
+		return nullptr;
+
+	UWindow* focus = root->FocusWindow();
+	if (!focus)
+		return MoveTabGroup(dir == 0 || dir == 2 ? false : true);
+
+	UWindow* group = UObject::TryCast<UTabGroupWindow>(focus->GetTabGroupWindow());
+	if (!group)
+		return focus;
+
+	// The focus stays in its group's lists until its selectability changes
+	// after the focus has moved on (SetSelectability)
+	std::vector<UWindow*> list = (dir < 2) ? GroupWindowsByRow(group, focus) : GroupWindowsByColumn(group, focus);
+	size_t index = 0;
+	for (size_t i = 0; i < list.size(); i++)
+	{
+		if (list[i] == focus)
+		{
+			index = i;
+			break;
+		}
+	}
+
+	bool decrement = (dir == 0 || dir == 2);
+	for (size_t n = 0; n < list.size(); n++)
+	{
+		if (decrement)
+			index = (index == 0) ? list.size() - 1 : index - 1;
+		else
+			index = (index + 1) % list.size();
+		if (list[index]->IsTraversable(true))
+		{
+			root->SetRootFocusWindow(list[index]);
+			return root->FocusWindow();
+		}
+	}
+
+	// Nothing traversable in this group: the next group takes it.
+	return MoveTabGroup(dir == 0 || dir == 2 ? false : true);
+}
+
+// The topmost visible modal child of the root, else the root: where focus
+// moves among tab groups and where the focus is checked.
+static UWindow* TopmostModal(URootWindow* root)
+{
+	for (UWindow* c = root->lastChild(); c; c = c->prevSibling())
+	{
+		if (c->bIsVisible() && c->windowType() >= 2)
+			return c;
+	}
+	return root;
+}
+
+// A modal's table of tab groups (XModalWindow::AddTabGroupToTable): the
+// modal itself, and every group under it but those under a modal further
+// in, which keep their own.
+static void CollectTabGroupTable(UWindow* w, std::vector<UWindow*>& out)
+{
+	for (UWindow* c = w->firstChild(); c; c = c->nextSibling())
+	{
+		if (c->windowType() >= 2)
+			continue;
+		if (c->windowType() == 1)
+			out.push_back(c);
+		CollectTabGroupTable(c, out);
+	}
+}
+
+// Focus moves to the next or previous tab group (Extension.dll
+// XWindow::MoveTabGroup 0x1004f440), in the topmost modal's table, which the
+// original sorts by where each group's first traversable window is, top to
+// bottom, then left to right (XModalWindow::ResortTabGroupTable 0x10036ed0,
+// XTabGroupWindow::ComputeTabGroupLocation 0x10045000; the original also
+// passes over a window clipped away). It starts at the group after or before
+// the focus's, or at the table's first when the focus is not in that modal;
+// the first window of a group's row list traversable without the modal
+// check takes the focus, a group with none passed over, round the ends. The
+// root window's script calls it for Tab and Shift+Tab (extension-dll.md,
+// Small). It returns the focus window, moved or not.
+UObject* UWindow::MoveTabGroup(bool next)
+{
+	URootWindow* root = GetRootWindow();
+	if (!root)
+		return nullptr;
+
+	UWindow* holder = TopmostModal(root);
+	std::vector<UWindow*> groups = { holder };
+	CollectTabGroupTable(holder, groups);
+
+	struct Entry { UWindow* group; float x, y; };
+	std::vector<Entry> table;
+	for (UWindow* group : groups)
+	{
+		Entry entry = { group, 0.0f, 0.0f };
+		for (UWindow* w : GroupWindowsByRow(group))
+		{
+			if (w->IsTraversable(false))
+			{
+				ConvertCoordinates(w, 0.0f, 0.0f, root, entry.x, entry.y);
+				break;
+			}
+		}
+		table.push_back(entry);
+	}
+	std::sort(table.begin(), table.end(), [](const Entry& a, const Entry& b)
+	{
+		if (a.y != b.y) return a.y < b.y;
+		if (a.x != b.x) return a.x < b.x;
+		return a.group < b.group;
+	});
+
+	size_t count = table.size();
+	size_t start = 0;
+	UWindow* focus = root->FocusWindow();
+	if (focus && focus->GetModalWindow() == holder)
+	{
+		UWindow* current = static_cast<UWindow*>(focus->GetTabGroupWindow());
+		for (size_t i = 0; i < count; i++)
+		{
+			if (table[i].group == current)
+			{
+				start = next ? (i + 1) % count : (i + count - 1) % count;
+				break;
+			}
+		}
+	}
+
+	size_t index = start;
+	do
+	{
+		for (UWindow* w : GroupWindowsByRow(table[index].group))
+		{
+			if (w->IsTraversable(false))
+			{
+				root->SetRootFocusWindow(w);
+				return root->FocusWindow();
+			}
+		}
+		index = next ? (index + 1) % count : (index + count - 1) % count;
+	} while (index != start);
+	return root->FocusWindow();
+}
+
+// A focus that can no longer take it (Extension.dll XWindow::CheckFocusWindow
+// 0x10050b80) goes to the topmost modal's preferred window when that can take
+// it, else on as a move right takes it, else to nothing.
+void UWindow::CheckFocusWindow()
+{
+	URootWindow* root = GetRootWindow();
+	if (!root)
+		return;
+	UWindow* focus = root->FocusWindow();
+	if (!focus || focus->IsTraversable(true))
+		return;
+
+	if (UModalWindow* modal = UObject::TryCast<UModalWindow>(TopmostModal(root)))
+	{
+		if (modal->preferredFocus() && modal->preferredFocus()->IsTraversable(true))
+			root->SetRootFocusWindow(modal->preferredFocus());
+	}
+	if (root->FocusWindow() == focus && root->MoveFocus(1) == focus)
+		root->SetRootFocusWindow(nullptr);
+}
+
+// The root lets go of a grab by a window that is hidden or insensitive, or
+// under one (Extension.dll XWindow::CheckGrabbedWindow 0x10050c90).
+void UWindow::CheckGrabbedWindow()
+{
+	URootWindow* root = GetRootWindow();
+	if (!root)
+		return;
+	for (UWindow* w = root->grabbedWindow(); w; w = w->parentOwner())
+	{
+		if (!w->bIsVisible() || !w->bIsSensitive())
+		{
+			root->grabbedWindow() = nullptr;
+			return;
+		}
+	}
+}
+
+UObject* UWindow::MoveTabGroupNext()
+{
+	return MoveTabGroup(true);
+}
+
+UObject* UWindow::MoveTabGroupPrev()
+{
+	return MoveTabGroup(false);
+}
+
+UObject* UWindow::NewChild(UObject* NewClass, std::optional<bool> bShow)
+{
+	bool show = !bShow || *bShow;
+	//LogMessage(GetUClassFullName(this).ToString() + ": NewChild(" + NewClass->Name.ToString() + ", " + (show ? "true" : "false") + ")");
+	// Named after its class and a number, as the original names it
+	// (HUDKeypadWindow0).
+	Package* transient = engine->packages->GetTransientPackage();
+	UClass* childClass = UObject::Cast<UClass>(NewClass);
+	auto child = UObject::Cast<UWindow>(transient->NewObject(transient->MakeUniqueObjectName(childClass), childClass, ObjectFlags::Transient));
+	child->parentOwner() = this;
+	child->prevSibling() = lastChild();
+	child->nextSibling() = nullptr;
+	child->firstChild() = nullptr;
+	child->lastChild() = nullptr;
+	child->bIsVisible() = false;
+	child->bIsSensitive() = true;
+	// The window's type as the original's Init sets it (XTabGroupWindow::Init
+	// 0x10044d90 and XModalWindow::Init 0x10036c00): a tab group, a modal (a
+	// root child), or a generic child. Buttons are selectable from creation,
+	// as the original's class defaults have them -- the fork's choice buttons
+	// measured False beside the original's True.
+	if (UObject::TryCast<URootWindow>(child))
+		child->windowType() = 3;
+	else if (UObject::TryCast<UModalWindow>(child))
+		child->windowType() = 2;
+	else if (UObject::TryCast<UTabGroupWindow>(child))
+		child->windowType() = 1;
+	if (UObject::TryCast<UButtonWindow>(child))
+		child->bIsSelectable() = true;
+	if (lastChild())
+		lastChild()->nextSibling() = child;
+	lastChild() = child;
+	if (!firstChild())
+		firstChild() = child;
+	// The original's CreateNewWindow (Extension.dll 0x1004df70): the window is
+	// made hidden and its parent told -- ChildAdded, then DescendantAdded to
+	// the parent and each ancestor -- before its InitWindow runs; only then is
+	// it shown, as Show shows it, so VisibilityChanged reaches it and the
+	// windows its InitWindow made: a list given rows there selects its first.
+	ChildAdded(child);
+	for (UWindow* ancestor = this; ancestor; ancestor = ancestor->parentOwner())
+		ancestor->DescendantAdded(child);
+	child->InitWindow();
+	if (show)
+		child->SetVisibility(true);
+	child->AskParentForReconfigure();
+	return child;
+}
+
+// The original's (XWindow::PlaySound 0x10050050, extension-dll.md, window
+// sounds): one unit from the player's place, not its eyes, along the view's
+// yaw -- turned left or right by the point's place across the screen, a
+// quarter turn at either edge, when the root has positional sound on and
+// the window and every window it is in are shown --, with no actor and a
+// channel of its own, a radius of 100 and the volume over 0.99. The point
+// defaults to the window's centre, and a volume of -1 is the window's own,
+// which only SetSoundVolume sets.
+void UWindow::PlaySound(UObject* newsound, std::optional<float> Volume, std::optional<float> Pitch, std::optional<float> posX, std::optional<float> posY)
+{
+	USound* s = UObject::Cast<USound>(newsound);
+	UPlayerPawnExt* player = UObject::Cast<UPlayerPawnExt>(GetPlayerPawn());
+	URootWindow* root = GetRootWindow();
+	if (s && player && root)
+	{
+		float volume = Volume ? *Volume : -1.0f;
+		if (volume == -1.0f)
+			volume = SoundVolume();
+
+		UWindow* hidden = this;
+		while (hidden && hidden->bIsVisible())
+			hidden = hidden->parentOwner();
+
+		float across = 0.0f;
+		if (!hidden && root->bPositionalSound())
+		{
+			float rootX = 0.0f, rootY = 0.0f;
+			ConvertCoordinates(this, posX ? *posX : Width() * 0.5f, posY ? *posY : Height() * 0.5f, root, rootX, rootY);
+			across = std::clamp(rootX * 2.0f / std::max(root->Width(), 1.0f) - 1.0f, -1.0f, 1.0f);
+		}
+
+		Rotator rotation = player->ViewRotation();
+		rotation.Yaw += (int)(across * 16384.0f);
+		rotation.Pitch = 0;
+		vec3 at, left, up;
+		Coords::Rotation(rotation).GetAxes(at, left, up);
+		const float radius = 100.0f, distance = 1.0f;
+		engine->audiodev->PlaySound(nullptr, 2 * SLOT_None, s, player->Location() + at * distance, volume * radius / (radius - distance), radius, Pitch ? *Pitch : 1.0f, false);
+	}
+}
+
+// The original's (XWindow::QueryGranularity 0x1004e9e0): a pixel unless the
+// window says more, and never less.
+void UWindow::QueryGranularity(float& hGranularity, float& vGranularity)
+{
+	hGranularity = 1.0f;
+	vGranularity = 1.0f;
+	ParentRequestedGranularity(hGranularity, vGranularity);
+	hGranularity = std::max(hGranularity, 1.0f);
+	vGranularity = std::max(vGranularity, 1.0f);
+}
+
+void UWindow::Raise()
+{
+	if (!parentOwner())
+		return;
+	UWindow* owner = parentOwner();
+	DetachFromParent();
+	parentOwner() = owner;
+	if (owner->lastChild())
+	{
+		prevSibling() = owner->lastChild();
+		owner->lastChild()->nextSibling() = this;
+		owner->lastChild() = this;
+	}
+	else
+	{
+		owner->firstChild() = this;
+		owner->lastChild() = this;
+	}
+}
+
+void UWindow::ReleaseGC(UObject* GC)
+{
+	// Do nothing here for now.
+}
+
+void UWindow::RemoveActorRef(UObject* refActor)
+{
+	UPlayerPawnExt* playerPawn = UObject::Cast<UPlayerPawnExt>(GetPlayerPawn());
+	if (!playerPawn) return;
+	UActor* target = UObject::Cast<UActor>(refActor);
+	if (!target) return;
+
+	int& count = playerPawn->actorCount();
+	auto refs = playerPawn->actorList();
+
+	int foundIndex = -1;
+	for (int i = 0; i < count; ++i)
+	{
+		UActor* actor = refs[i].Actor;
+		if (actor && actor->bDeleteMe()) actor = nullptr;
+		if (actor == target) { foundIndex = i; break; }
+	}
+
+	if (foundIndex >= 0)
+	{
+		--refs[foundIndex].RefCount;
+		if (refs[foundIndex].RefCount == 0)
+		{
+			for (int i = foundIndex + 1; i < count; i++)
+				refs[i - 1] = refs[i];
+			refs[count - 1].Actor = nullptr;
+			refs[count - 1].RefCount = 0;
+			count--;
+		}
+	}
+}
+
+// The original's (XWindow::SetAcceleratorText 0x1004f310, SetAcceleratorKey
+// 0x1004f3b0): the character after the text's first |&, none past 254.
+// The modal it lies in looks its accelerators up afresh each time.
+void UWindow::SetAcceleratorText(const std::string& newStr)
+{
+	unsigned char accelerator = 0;
+	size_t pos = newStr.find("|&");
+	if (pos != std::string::npos && pos + 2 < newStr.size())
+		accelerator = (unsigned char)newStr[pos + 2];
+	int newKey = accelerator < 0xFF ? accelerator : 0;
+	if (acceleratorKey() != newKey)
+	{
+		acceleratorKey() = newKey;
+		if (UModalWindow* modal = UObject::TryCast<UModalWindow>(GetModalWindow()))
+			modal->bDirtyAccelerators() = true;
+	}
+}
+
+void UWindow::SetBackground(UObject* newBackground)
+{
+	Background() = UObject::Cast<UTexture>(newBackground);
+	bDrawRawBackground() = true;
+}
+
+void UWindow::SetBackgroundSmoothing(bool newSmoothing)
+{
+	bSmoothBackground() = newSmoothing;
+}
+
+void UWindow::SetBackgroundStretching(bool newStretching)
+{
+	bStretchBackground() = newStretching;
+}
+
+void UWindow::SetBackgroundStyle(uint8_t NewStyle)
+{
+	backgroundStyle() = NewStyle;
+}
+
+void UWindow::SetBaselineData(std::optional<float> newBaselineOffset, std::optional<float> newUnderlineHeight)
+{
+	if (newBaselineOffset)
+		BaselineOffset = *newBaselineOffset;
+	if (newUnderlineHeight)
+		UnderlineHeight = *newUnderlineHeight;
+}
+
+void UWindow::SetBoldFont(UObject* fn)
+{
+	boldFont() = UObject::Cast<UFont>(fn);
+}
+
+// VisibilityChanged goes to the window and down through the descendants whose
+// own flags let the change reach them: a subtree hidden by its own flag did
+// not change what can be seen.
+static void NotifyVisibilityChanged(UWindow* window, bool bNewVisibility)
+{
+	window->VisibilityChanged(bNewVisibility);
+	// Then the window's own sound for showing or hiding (the original's
+	// InvokeVisibilityChange, 0x10050e30).
+	if (USound* sound = bNewVisibility ? window->visibleSound() : window->invisibleSound())
+		window->PlaySound(sound, {}, {}, {}, {});
+	for (UWindow* child = window->firstChild(); child; child = child->nextSibling())
+	{
+		if (child->bIsVisible())
+			NotifyVisibilityChanged(child, bNewVisibility);
+	}
+}
+
+// The original's (extension-dll.md, Showing and hiding): the flag is set, and
+// when that changes whether the window can be seen, focus and grabs move away
+// from what is hidden, VisibilityChanged goes to the window and its
+// descendants, and the tree is laid out again.
+void UWindow::SetChildVisibility(bool bNewVisibility)
+{
+	if (bIsVisible() == bNewVisibility)
+		return;
+
+	// The flag change only shows when every ancestor is visible.
+	bool ancestorsVisible = true;
+	for (UWindow* w = parentOwner(); w; w = w->parentOwner())
+	{
+		if (!w->bIsVisible())
+		{
+			ancestorsVisible = false;
+			break;
+		}
+	}
+
+	bIsVisible() = bNewVisibility;
+
+	if (!ancestorsVisible)
+		return;
+
+	CheckFocusWindow();
+	CheckGrabbedWindow();
+
+	NotifyVisibilityChanged(this, bNewVisibility);
+	AskParentForReconfigure();
+}
+
+void UWindow::SetClientObject(UObject* newClientObject)
+{
+	clientObject() = newClientObject;
+}
+
+void UWindow::SetCursorPos(float newMouseX, float newMouseY)
+{
+	if (URootWindow* root = GetRootWindow())
+	{
+		float x = 0.0f, y = 0.0f;
+		ConvertCoordinates(this, newMouseX, newMouseY, root, x, y);
+		root->SetRootCursorPos(x, y);
+	}
+}
+
+void UWindow::SetDefaultCursor(UObject* tX, std::optional<UObject*> shadowTexture, std::optional<float> HotX, std::optional<float> HotY, std::optional<Color> cursorColor)
+{
+	defaultCursor() = UObject::Cast<UTexture>(tX);
+	if (shadowTexture)
+		defaultCursorShadow() = UObject::Cast<UTexture>(*shadowTexture);
+	if (HotX)
+		defaultHotX() = *HotX;
+	if (HotY)
+		defaultHotY() = *HotY;
+	if (cursorColor)
+		defaultCursorColor() = *cursorColor;
+}
+
+void UWindow::SetFocusSounds(std::optional<UObject*> newFocusSound, std::optional<UObject*> newUnfocusSound)
+{
+	if (newFocusSound)
+		focusSound() = UObject::Cast<USound>(*newFocusSound);
+	if (newUnfocusSound)
+		unfocusSound() = UObject::Cast<USound>(*newUnfocusSound);
+}
+
+bool UWindow::SetFocusWindow(UObject* NewFocusWindow)
+{
+	if (auto root = GetRootWindow())
+		return root->SetRootFocusWindow(UObject::Cast<UWindow>(NewFocusWindow));
+	return false;
+}
+
+void UWindow::SetFont(UObject* fn)
+{
+	normalFont() = UObject::Cast<UFont>(fn);
+	boldFont() = UObject::Cast<UFont>(fn);
+}
+
+void UWindow::SetFonts(UObject* nFont, UObject* bFont)
+{
+	normalFont() = UObject::Cast<UFont>(nFont);
+	boldFont() = UObject::Cast<UFont>(bFont);
+}
+
+void UWindow::SetNormalFont(UObject* fn)
+{
+	normalFont() = UObject::Cast<UFont>(fn);
+}
+
+// A focus that can no longer take it moves on (Extension.dll
+// XWindow::SetSelectability 0x1004c390).
+void UWindow::SetSelectability(bool newSelectability)
+{
+	if (bIsSelectable() == newSelectability)
+		return;
+	bIsSelectable() = newSelectability;
+	CheckFocusWindow();
+}
+
+void UWindow::SetSensitivity(bool newSensitivity)
+{
+	if (bIsSensitive() != newSensitivity)
+	{
+		bIsSensitive() = newSensitivity;
+		SensitivityChanged(newSensitivity);
+	}
+}
+
+void UWindow::SetSoundVolume(float newVolume)
+{
+	SoundVolume() = newVolume;
+}
+
+void UWindow::SetTextColor(const Color& NewColor)
+{
+	TextColor() = NewColor;
+}
+
+void UWindow::SetTileColor(const Color& NewColor)
+{
+	tileColor() = NewColor;
+}
+
+void UWindow::SetVisibilitySounds(std::optional<UObject*> visSound, std::optional<UObject*> invisSound)
+{
+	if (visSound)
+		visibleSound() = UObject::Cast<USound>(*visSound);
+	if (invisSound)
+		invisibleSound() = UObject::Cast<USound>(*invisSound);
+}
+
+void UWindow::Show(std::optional<bool> bShow)
+{
+	SetVisibility(!bShow || *bShow);
+}
+
+void UWindow::UngrabMouse()
+{
+	if (URootWindow* root = GetRootWindow())
+		root->grabbedWindow() = nullptr;
+}
+
+void UWindow::ResetSize()
+{
+	// Not called from script
+	ResetWidth();
+	ResetHeight();
+}
+
+void UWindow::ResetWidth()
+{
+	// Not called from script
+	FixedWidth = false;
+	bNeedsReconfigure() = true;
+}
+
+void UWindow::ResetHeight()
+{
+	// Not called from script
+	FixedHeight = false;
+	bNeedsReconfigure() = true;
+}
+
+void UWindow::SetSize(float newWidth, float NewHeight)
+{
+	SetWidth(newWidth);
+	SetHeight(NewHeight);
+}
+
+void UWindow::SetWidth(float newWidth)
+{
+	hardcodedWidth() = newWidth;
+	FixedWidth = true;
+	bNeedsReconfigure() = true;
+}
+
+void UWindow::SetHeight(float NewHeight)
+{
+	hardcodedHeight() = NewHeight;
+	FixedHeight = true;
+	bNeedsReconfigure() = true;
+}
+
+void UWindow::SetConfiguration(float newX, float newY, float newWidth, float NewHeight)
+{
+	SetPos(newX, newY);
+	SetSize(newWidth, NewHeight);
+}
+
+// The original's (XWindow::Move 0x1004ce80): left- and top-aligned, x and y
+// its margins, laid out again when that changes anything. A parent that
+// places its children places it again; else its margins place it.
+void UWindow::SetPos(float newX, float newY)
+{
+	if ((EHAlign)winHAlign() != EHAlign::Left || (EVAlign)winVAlign() != EVAlign::Top || hMargin0() != newX || vMargin0() != newY)
+	{
+		winHAlign() = (uint8_t)EHAlign::Left;
+		winVAlign() = (uint8_t)EVAlign::Top;
+		hMargin0() = newX;
+		vMargin0() = newY;
+		bConfigured() = false;
+		// Shown, the original's is laid out at once: one its parent does not
+		// place again sits at its margins, so it reads and draws there now.
+		if (IsShown())
+		{
+			X() = newX;
+			Y() = newY;
+			UsedX = X() + RootOffsetX();
+			UsedY = Y();
+		}
+		AskParentForReconfigure();
+	}
+}
+
+// The original's (XWindow::QueryPreferredSize 0x1004e790): a size the
+// window was given (SetSize, SetWidth) counts as asked for; with either side
+// not asked for, the window says (ParentRequestedPreferredSize, -1 standing
+// for a side not asked for), and a side it leaves below 0 is its background's
+// size, else its own size now -- a plain window's 10 by 10 from its start.
+void UWindow::QueryPreferredSize(bool bWidthSpecified, float width, float* outWidth, bool bHeightSpecified, float height, float* outHeight)
+{
+	if (!bWidthSpecified)
+	{
+		if (FixedWidth)
+		{
+			bWidthSpecified = true;
+			width = hardcodedWidth();
+		}
+		else
+		{
+			width = -1.0f;
+		}
+	}
+	if (!bHeightSpecified)
+	{
+		if (FixedHeight)
+		{
+			bHeightSpecified = true;
+			height = hardcodedHeight();
+		}
+		else
+		{
+			height = -1.0f;
+		}
+	}
+	if (!bWidthSpecified || !bHeightSpecified)
+	{
+		float askedWidth = width, askedHeight = height;
+		ParentRequestedPreferredSize(bWidthSpecified, askedWidth, bHeightSpecified, askedHeight);
+		if (!bWidthSpecified)
+			width = askedWidth;
+		if (!bHeightSpecified)
+			height = askedHeight;
+		lastQueryWidth() = width;
+		lastQueryHeight() = height;
+		if (width < 0.0f)
+			width = Background() ? (float)Background()->USize() : Width();
+		if (height < 0.0f)
+			height = Background() ? (float)Background()->VSize() : Height();
+	}
+	if (outWidth)
+		*outWidth = width;
+	if (outHeight)
+		*outHeight = height;
+}
+
+void UWindow::QueryPreferredSize(float& preferredWidth, float& preferredHeight)
+{
+	QueryPreferredSize(false, 0.0f, &preferredWidth, false, 0.0f, &preferredHeight);
+}
+
+// The original's (XWindow::QueryPreferredWidth 0x1004e5f0, QueryPreferredHeight
+// 0x1004e680): the other side asked for.
+float UWindow::QueryPreferredWidth(float queryHeight)
+{
+	float width = 0.0f;
+	QueryPreferredSize(false, 0.0f, &width, true, queryHeight, nullptr);
+	return width;
+}
+
+float UWindow::QueryPreferredHeight(float queryWidth)
+{
+	float height = 0.0f;
+	QueryPreferredSize(true, queryWidth, nullptr, false, 0.0f, &height);
+	return height;
+}
+
+// The original's (XWindow::AskParentForReconfigure 0x1004e060) marks the
+// window itself too: it is configured again even at the same size, so a
+// window whose look changed (a scale's textures) recomputes its own layout.
+// Only a window that shows asks its parents: one made inside a window's
+// InitWindow, before that window shows, does not reach its script.
+void UWindow::AskParentForReconfigure()
+{
+	//LogMessage(GetUClassFullName(this).ToString() + ": AskParentForReconfigure");
+	bNeedsReconfigure() = true;
+	if (!IsShown())
+		return;
+	for (UWindow* cur = parentOwner(); cur != nullptr; cur = cur->parentOwner())
+	{
+		cur->bNeedsReconfigure() = true;
+		bool handled = cur->ChildRequestedReconfiguration(this);
+		if (handled)
+			break;
+	}
+}
+
+// The original's (XWindow::ResizeChild 0x1004eab0) places the window by its
+// alignment at its preferred size -- the base Window script's answer to a
+// child's request. The fork's layout pass does, unless the parent places
+// the window again.
+void UWindow::ResizeChild()
+{
+	//LogMessage(GetUClassFullName(this).ToString() + ": ResizeChild");
+	bConfigured() = false;
+	bNeedsReconfigure() = true;
+}
+
+void UWindow::ConfigureChild(float newX, float newY, float newWidth, float newHeight)
+{
+	//LogMessage(GetUClassFullName(this).ToString() + ": ConfigureChild(" + std::to_string(newX) + ", " + std::to_string(newY) + ", " + std::to_string(newWidth) + ", " + std::to_string(newHeight) + ")");
+
+	// The size the parent gives is the window's, a size set on the window
+	// only what it asks for (XWindow::ConfigureChild 0x1004ec50): a tile
+	// that fills its width widens a child that set its own.
+	if (UWindow* owner = parentOwner())
+	{
+		if ((EHAlign)winHAlign() == EHAlign::Full)
+		{
+			float leftMargin = hMargin0();
+			float rightMargin = hMargin1();
+			newX = leftMargin;
+			if (owner == engine->dxRootWindow)
+				newWidth = std::max(GetExtendedVirtualWidth() - leftMargin - rightMargin, 0.0f);
+			else
+				newWidth = std::max(owner->Width() - leftMargin - rightMargin, 0.0f);
+		}
+		if ((EVAlign)winVAlign() == EVAlign::Full)
+		{
+			float topMargin = vMargin0();
+			float bottomMargin = vMargin1();
+			newY = topMargin;
+			newHeight = std::max(owner->Height() - topMargin - bottomMargin, 0.0f);
+		}
+	}
+
+	X() = newX;
+	Y() = newY;
+	bConfigured() = true;
+	//if (Width() != newWidth || Height() != newHeight)
+	{
+		Width() = newWidth;
+		Height() = newHeight;
+		bNeedsReconfigure() = true;
+	}
+}
+
+// The original's (XWindow::SetWindowAlignments 0x1004d300, from a script
+// 0x10052360): a first margin not given is 0, a second the first; laid out
+// again when that changes anything, the alignment placing the window unless
+// its parent places it again.
+void UWindow::SetWindowAlignments(uint8_t HAlign, uint8_t VAlign, std::optional<float> newHMargin0, std::optional<float> newVMargin0, std::optional<float> newHMargin1, std::optional<float> newVMargin1)
+{
+	float h0 = newHMargin0.value_or(0.0f);
+	float v0 = newVMargin0.value_or(0.0f);
+	float h1 = newHMargin1.value_or(h0);
+	float v1 = newVMargin1.value_or(v0);
+	if (winHAlign() != HAlign || winVAlign() != VAlign || hMargin0() != h0 || hMargin1() != h1 || vMargin0() != v0 || vMargin1() != v1)
+	{
+		winHAlign() = HAlign;
+		winVAlign() = VAlign;
+		hMargin0() = h0;
+		vMargin0() = v0;
+		hMargin1() = h1;
+		vMargin1() = v1;
+		bConfigured() = false;
+		AskParentForReconfigure();
+	}
+}
+
+// A new window: its class's own defaults, each class's after its parent
+// class's (as the original's Init chain sets them), then the script's
+// InitWindow.
+void UWindow::InitWindow()
+{
+	InitDefaults();
+	CallEvent(this, "InitWindow");
+}
+
+// The original's XWindow::Init (Extension.dll 0x1004bb30): 10 by 10 at the
+// parent's corner -- the size a window asked for one it does not set falls
+// back to (an empty text window is a line high by it) -- green text, white
+// tiles, the normal style, a line spacing of 1, special text on, the GC's
+// underline 1 high and 2 up from a character's foot, and the fonts of the
+// nearest ancestor that has any.
+void UWindow::InitDefaults()
+{
+	X() = 0.0f;
+	Y() = 0.0f;
+	Width() = 10.0f;
+	Height() = 10.0f;
+	TextColor() = { 0, 255, 0, 255 };
+	tileColor() = { 255, 255, 255, 255 };
+	backgroundStyle() = (uint8_t)EDrawStyle::Normal;
+	textVSpacing() = 1.0f;
+	bSpecialText() = true;
+	BaselineOffset = 2.0f;
+	UnderlineHeight = 1.0f;
+	for (UWindow* ancestor = parentOwner(); ancestor; ancestor = ancestor->parentOwner())
+	{
+		if (ancestor->normalFont() || ancestor->boldFont())
+		{
+			normalFont() = ancestor->normalFont();
+			boldFont() = ancestor->boldFont();
+			break;
+		}
+	}
+}
+
+void UWindow::DestroyWindow()
+{
+	CallEvent(this, "DestroyWindow");
+}
+
+void UWindow::WindowReady()
+{
+	CallEvent(this, "WindowReady");
+}
+
+void UWindow::ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight)
+{
+	CallEvent(this, "ParentRequestedPreferredSize", {
+		ExpressionValue::BoolValue(bWidthSpecified),
+		ExpressionValue::Variable(&preferredWidth, engine->floatprop),
+		ExpressionValue::BoolValue(bHeightSpecified),
+		ExpressionValue::Variable(&preferredHeight, engine->floatprop)
+		});
+}
+
+void UWindow::ParentRequestedGranularity(float& hGranularity, float& vGranularity)
+{
+	CallEvent(this, "ParentRequestedGranularity", {
+		ExpressionValue::Variable(&hGranularity, engine->floatprop),
+		ExpressionValue::Variable(&vGranularity, engine->floatprop)
+		});
+}
+
+void UWindow::ChildRequestedVisibilityChange(UWindow* childWin, bool bNewVisibility)
+{
+	CallEvent(this, "ChildRequestedVisibilityChange", {
+		ExpressionValue::ObjectValue(childWin),
+		ExpressionValue::BoolValue(bNewVisibility)
+		});
+}
+
+bool UWindow::ChildRequestedReconfiguration(UWindow* childWin)
+{
+	return CallEvent(this, "ChildRequestedReconfiguration", { ExpressionValue::ObjectValue(childWin) }).ToBool();
+}
+
+void UWindow::ChildRequestedShowArea(UWindow* child, float showX, float showY, float showWidth, float showHeight)
+{
+	CallEvent(this, "ChildRequestedShowArea", {
+		ExpressionValue::ObjectValue(child),
+		ExpressionValue::FloatValue(showX),
+		ExpressionValue::FloatValue(showY),
+		ExpressionValue::FloatValue(showWidth),
+		ExpressionValue::FloatValue(showHeight)
+		});
+}
+
+void UWindow::ConfigurationChanged()
+{
+	CallEvent(this, "ConfigurationChanged");
+}
+
+void UWindow::VisibilityChanged(bool bNewVisibility)
+{
+	CallEvent(this, "VisibilityChanged", { ExpressionValue::BoolValue(bNewVisibility) });
+}
+
+void UWindow::SensitivityChanged(bool bNewSensitivity)
+{
+	CallEvent(this, "SensitivityChanged", { ExpressionValue::BoolValue(bNewSensitivity) });
+}
+
+void UWindow::MouseMoved(float newX, float newY)
+{
+	CallEvent(this, "MouseMoved", {
+		ExpressionValue::FloatValue(newX),
+		ExpressionValue::FloatValue(newY)
+		});
+}
+
+bool UWindow::RawMouseButtonPressed(float pointX, float pointY, EInputKey button, EInputType iState)
+{
+	return CallEvent(this, "RawMouseButtonPressed", {
+		ExpressionValue::FloatValue(pointX),
+		ExpressionValue::FloatValue(pointY),
+		ExpressionValue::ByteValue(button),
+		ExpressionValue::ByteValue(iState)
+		}).ToBool();
+}
+
+bool UWindow::RawKeyPressed(EInputKey key, EInputType iState, bool bRepeat)
+{
+	return CallEvent(this, "RawKeyPressed", {
+		ExpressionValue::ByteValue(key),
+		ExpressionValue::ByteValue(iState),
+		ExpressionValue::BoolValue(bRepeat)
+		}).ToBool();
+}
+
+bool UWindow::MouseButtonPressed(float pointX, float pointY, EInputKey button, int numClicks)
+{
+	return CallEvent(this, "MouseButtonPressed", {
+		ExpressionValue::FloatValue(pointX),
+		ExpressionValue::FloatValue(pointY),
+		ExpressionValue::ByteValue(button),
+		ExpressionValue::IntValue(numClicks)
+		}).ToBool();
+}
+
+bool UWindow::MouseButtonReleased(float pointX, float pointY, EInputKey button, int numClicks)
+{
+	return CallEvent(this, "MouseButtonReleased", {
+		ExpressionValue::FloatValue(pointX),
+		ExpressionValue::FloatValue(pointY),
+		ExpressionValue::ByteValue(button),
+		ExpressionValue::IntValue(numClicks)
+		}).ToBool();
+}
+
+bool UWindow::KeyPressed(std::string key)
+{
+	return CallEvent(this, "KeyPressed", { ExpressionValue::StringValue(key) }).ToBool();
+}
+
+bool UWindow::AcceleratorKeyPressed(std::string key)
+{
+	return CallEvent(this, "AcceleratorKeyPressed", { ExpressionValue::StringValue(key) }).ToBool();
+}
+
+bool UWindow::VirtualKeyPressed(EInputKey key, bool bRepeat)
+{
+	return CallEvent(this, "VirtualKeyPressed", {
+		ExpressionValue::ByteValue(key),
+		ExpressionValue::BoolValue(bRepeat)
+		}).ToBool();
+}
+
+void UWindow::MouseEnteredWindow()
+{
+	CallEvent(this, "MouseEnteredWindow");
+}
+
+void UWindow::MouseLeftWindow()
+{
+	CallEvent(this, "MouseLeftWindow");
+}
+
+void UWindow::FocusEnteredWindow()
+{
+	CallEvent(this, "FocusEnteredWindow");
+}
+
+void UWindow::FocusLeftWindow()
+{
+	CallEvent(this, "FocusLeftWindow");
+}
+
+void UWindow::FocusEnteredDescendant(UWindow* enterWindow)
+{
+	CallEvent(this, "FocusEnteredDescendant", { ExpressionValue::ObjectValue(enterWindow) });
+}
+
+void UWindow::FocusLeftDescendant(UWindow* leaveWindow)
+{
+	CallEvent(this, "FocusLeftDescendant", { ExpressionValue::ObjectValue(leaveWindow) });
+}
+
+bool UWindow::ButtonActivated(UWindow* button)
+{
+	return CallEvent(this, "ButtonActivated", { ExpressionValue::ObjectValue(button) }).ToBool();
+}
+
+// A right click's activation (XWindow::ButtonActivatedRight 0x10003d50): the
+// script function of that name, which Window declares no event for -- the
+// game's menu choices define it, to step back a value.
+bool UWindow::ButtonActivatedRight(UWindow* button)
+{
+	return CallEvent(this, "ButtonActivatedRight", { ExpressionValue::ObjectValue(button) }).ToBool();
+}
+
+bool UWindow::ToggleChanged(UWindow* button, bool bNewToggle)
+{
+	return CallEvent(this, "ToggleChanged", {
+		ExpressionValue::ObjectValue(button),
+		ExpressionValue::BoolValue(bNewToggle)
+		}).ToBool();
+}
+
+bool UWindow::BoxOptionSelected(UWindow* box, int buttonNumber)
+{
+	return CallEvent(this, "BoxOptionSelected", {
+		ExpressionValue::ObjectValue(box),
+		ExpressionValue::IntValue(buttonNumber)
+		}).ToBool();
+}
+
+bool UWindow::ScalePositionChanged(UWindow* scale, int newTickPosition, float newValue, bool bFinal)
+{
+	return CallEvent(this, "ScalePositionChanged", {
+		ExpressionValue::ObjectValue(scale),
+		ExpressionValue::IntValue(newTickPosition),
+		ExpressionValue::FloatValue(newValue),
+		ExpressionValue::BoolValue(bFinal)
+		}).ToBool();
+}
+
+bool UWindow::ScaleRangeChanged(UWindow* scale, int fromTick, int toTick, float fromValue, float toValue, bool bFinal)
+{
+	return CallEvent(this, "ScaleRangeChanged", {
+		ExpressionValue::ObjectValue(scale),
+		ExpressionValue::IntValue(fromTick),
+		ExpressionValue::IntValue(toTick),
+		ExpressionValue::FloatValue(fromValue),
+		ExpressionValue::FloatValue(toValue),
+		ExpressionValue::BoolValue(bFinal)
+		}).ToBool();
+}
+
+bool UWindow::ScaleAttributesChanged(UWindow* scale, int tickPosition, int tickSpan, int numTicks)
+{
+	return CallEvent(this, "ScaleAttributesChanged", {
+		ExpressionValue::ObjectValue(scale),
+		ExpressionValue::IntValue(tickPosition),
+		ExpressionValue::IntValue(tickSpan),
+		ExpressionValue::IntValue(numTicks)
+		}).ToBool();
+}
+
+bool UWindow::ClipAttributesChanged(UWindow* clip, int newClipWidth, int newClipHeight, int newChildWidth, int newChildHeight)
+{
+	return CallEvent(this, "ClipAttributesChanged", {
+		ExpressionValue::ObjectValue(clip),
+		ExpressionValue::IntValue(newClipWidth),
+		ExpressionValue::IntValue(newClipHeight),
+		ExpressionValue::IntValue(newChildWidth),
+		ExpressionValue::IntValue(newChildHeight)
+		}).ToBool();
+}
+
+bool UWindow::ListRowActivated(UWindow* list, int rowId)
+{
+	return CallEvent(this, "ListRowActivated", {
+		ExpressionValue::ObjectValue(list),
+		ExpressionValue::IntValue(rowId)
+		}).ToBool();
+}
+
+bool UWindow::ListSelectionChanged(UWindow* list, int numSelections, int focusRowId)
+{
+	return CallEvent(this, "ListSelectionChanged", {
+		ExpressionValue::ObjectValue(list),
+		ExpressionValue::IntValue(numSelections),
+		ExpressionValue::IntValue(focusRowId)
+		}).ToBool();
+}
+
+bool UWindow::ClipPositionChanged(UWindow* clip, int newCol, int newRow)
+{
+	return CallEvent(this, "ClipPositionChanged", {
+		ExpressionValue::ObjectValue(clip),
+		ExpressionValue::IntValue(newCol),
+		ExpressionValue::IntValue(newRow)
+		}).ToBool();
+}
+
+bool UWindow::TextChanged(UWindow* edit, bool bModified)
+{
+	return CallEvent(this, "TextChanged", {
+		ExpressionValue::ObjectValue(edit),
+		ExpressionValue::BoolValue(bModified)
+		}).ToBool();
+}
+
+bool UWindow::EditActivated(UWindow* edit, bool bModified)
+{
+	return CallEvent(this, "EditActivated", {
+		ExpressionValue::ObjectValue(edit),
+		ExpressionValue::BoolValue(bModified)
+		}).ToBool();
+}
+
+void UWindow::DrawBackground(UGC* gc)
+{
+	if (bDrawRawBackground())
+	{
+		gc->SetStyle((EDrawStyle)backgroundStyle());
+		gc->EnableSmoothing(bSmoothBackground());
+		gc->SetTileColor(tileColor());
+		if (bStretchBackground())
+		{
+			if (UTexture* tex = UObject::Cast<UTexture>(Background()))
+			{
+				float swidth = (float)tex->USize();
+				float sheight = (float)tex->VSize();
+				Rectf dest = Rectf::xywh(gc->offsetX, gc->offsetY, Width(), Height());
+				Rectf src = Rectf::xywh(0.0f, 0.0f, swidth, sheight);
+				gc->DrawTile(tex, gc->ScaleRect(dest), src, tileColor(), gc->EffectivePolyFlags());
+			}
+		}
+		else if (Background())
+		{
+			gc->DrawPattern(0.0f, 0.0f, Width(), Height(), 0.0f, 0.0f, Background());
+		}
+		// DrawDebugBox(gc);
+	}
+}
+
+void UWindow::DrawWindow(UGC* gc)
+{
+	CallEvent(this, "DrawWindow", { ExpressionValue::ObjectValue(gc) });
+}
+
+void UWindow::PostDrawWindow(UGC* gc)
+{
+	CallEvent(this, "PostDrawWindow", { ExpressionValue::ObjectValue(gc) });
+}
+
+void UWindow::ChildAdded(UWindow* child)
+{
+	CallEvent(this, "ChildAdded", { ExpressionValue::ObjectValue(child) });
+}
+
+void UWindow::ChildRemoved(UWindow* child)
+{
+	CallEvent(this, "ChildRemoved", { ExpressionValue::ObjectValue(child) });
+}
+
+void UWindow::DescendantAdded(UWindow* descendant)
+{
+	CallEvent(this, "DescendantAdded", { ExpressionValue::ObjectValue(descendant) });
+}
+
+void UWindow::DescendantRemoved(UWindow* descendant)
+{
+	CallEvent(this, "DescendantRemoved", { ExpressionValue::ObjectValue(descendant) });
+}
+
+// The root's own tick (Extension.dll XRootWindow::Tick 0x1003a540): while
+// nothing has the focus, the topmost modal -- the root itself with none up --
+// seeds it, unless its focusMode is MFOCUS_EnterLeave (the keypad's): its
+// preferred window if that can take the focus (SetFocusWindow keeps the last
+// focus there), else as a move to the next tab group gives it, from the
+// table's first. This is how a conversation's choices light up as they
+// appear, and a menu's first button too. The original then ticks its modal
+// half (an accelerator-table rebuild the fork has no table for). The tab
+// groups go in the order of their windows' places, which the original has
+// as soon as a window is made; the fork places windows in its layout pass,
+// so it seeds the focus after that pass (RenderSubsystem::PreRenderWindows).
+void UWindow::SeedFocus()
+{
+	URootWindow* root = GetRootWindow();
+	if (!root || root->FocusWindow())
+		return;
+	UModalWindow* holder = UObject::TryCast<UModalWindow>(TopmostModal(root));
+	if (holder && holder->focusMode() != (uint8_t)EMouseFocusMode::EnterLeave)
+	{
+		if (holder->preferredFocus() && holder->preferredFocus()->IsTraversable(true))
+			root->SetRootFocusWindow(holder->preferredFocus());
+		if (!root->FocusWindow())
+			MoveTabGroup(true);
+	}
+}
+
+void UWindow::Tick(float timeElapsed)
+{
+	if (bTickEnabled())
+		CallEvent(this, "Tick", { ExpressionValue::FloatValue(timeElapsed) });
+
+	std::vector<int> expiredList;
+	for (auto& it : ActiveTimers)
+	{
+		it.second.TimeLeft -= timeElapsed;
+		if (it.second.TimeLeft <= 0.0f)
+			expiredList.push_back(it.first);
+	}
+
+	for (int timerId : expiredList)
+	{
+		// Keep calling the timer if its looping until we've called it the number of times total time elapsed
+		while (true)
+		{
+			auto it = ActiveTimers.find(timerId);
+			if (it == ActiveTimers.end())
+				break; // script removed it via Window.RemoveTimer(id)
+
+			NameString functionName = it->second.FunctionName;
+			int clientData = it->second.ClientData;
+			bool loop = it->second.Loop;
+
+			if (loop)
+			{
+				it->second.TimeLeft += it->second.Timeout;
+				if (it->second.TimeLeft > 0.0f || it->second.Timeout <= 0.00001f)
+					loop = false;
+			}
+			else
+			{
+				// Single fire. Remove it.
+				ActiveTimers.erase(it);
+			}
+
+			CallEvent(this, functionName, { ExpressionValue::IntValue(clientData) });
+
+			if (!loop)
+				break;
+		}
+	}
+
+	for (auto cur = firstChild(); cur; cur = cur->nextSibling())
+	{
+		cur->Tick(timeElapsed);
+	}
+}
+
+void UWindow::DrawDebugBox(UGC* gc)
+{
+	Rectf dest = gc->ScaleRect(Rectf::xywh(gc->offsetX, gc->offsetY, Width(), Height()));
+	engine->render->Draw2DLine(vec4(1.0f), 0, vec3(dest.left, dest.top, 1.0f), vec3(dest.right, dest.top, 1.0f), false);
+	engine->render->Draw2DLine(vec4(1.0f), 0, vec3(dest.left, dest.bottom, 1.0f), vec3(dest.right, dest.bottom, 1.0f), false);
+	engine->render->Draw2DLine(vec4(1.0f), 0, vec3(dest.left, dest.top, 1.0f), vec3(dest.left, dest.bottom, 1.0f), false);
+	engine->render->Draw2DLine(vec4(1.0f), 0, vec3(dest.right, dest.top, 1.0f), vec3(dest.right, dest.bottom, 1.0f), false);
+}

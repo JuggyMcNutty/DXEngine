@@ -1,0 +1,195 @@
+
+#include "Precomp.h"
+#include "LightSystem.h"
+#include "GC/GC.h"
+#include <algorithm>
+#include "Packages/Engine/Actors/UActor.h"
+#include "Packages/Engine/Actors/Info/ULevelInfo.h"
+#include "Packages/Engine/Resources/Level/ULevel.h"
+#include "Packages/Engine/Resources/Level/UModel.h"
+#include "Math/floating.h"
+#include "Math/coords.h"
+#include "Utils/Random.h"
+#include "Engine.h"
+#include "Packages/Engine/UDXEngineClient.h"
+
+LightSystem::LightSystem()
+{
+}
+
+LightSystem::~LightSystem()
+{
+}
+
+void LightSystem::Tick(float levelTimeElapsed)
+{
+	// The original's: 0.25 + 0.2 sin(8 t), t the viewport's time
+	// (dx-reverse-info/render-dll.md, meshes) -- here the level's
+	AmbientGlowTime = std::fmod(AmbientGlowTime + levelTimeElapsed, 2.0f * 3.14159265359f / 8.0f);
+	AmbientGlowAmount = 0.25f + 0.2f * std::sin(8.0f * AmbientGlowTime);
+	LastTickElapsed = levelTimeElapsed;
+}
+
+void LightSystem::OnMapLoaded()
+{
+	engine->Level->Light.FogBalls.clear();
+	engine->Level->Light.lmtextures.clear();
+	engine->Level->Light.SurfaceLightCaches.clear();
+	engine->Level->Light.fogtextures.clear();
+
+	std::set<UActor*> lightset;
+	for (UActor* light : engine->Level->Model->Lights)
+	{
+		if (light)
+			lightset.insert(light);
+	}
+
+	for (UActor* light : lightset)
+	{
+		if (light->VolumeRadius() != 0)
+			engine->Level->Light.FogBalls.push_back(light);
+	}
+}
+
+void LightSystem::TickRandoms(float levelTime)
+{
+	int ticks = (int)(int64_t)(levelTime * 35.0f);
+	for (int i = 0; i < 256; i++)
+		Randoms[i] = FRand();
+
+	// Under 16 ticks on: the entries the ticks went past take new draws to
+	// ease toward, and the others move on a step a tick; else all start over
+	if ((uint32_t)(16 * (ticks - RandomTicks)) < 0x100 && RandomTicks != 0)
+	{
+		int from = (uint8_t)(16 * RandomTicks);
+		int to = (uint8_t)(16 * ticks);
+		for (int i = from; i != to; i = (i + 1) & 255)
+			ShimmerSteps[i] = (Randoms[i] - ShimmerRandoms[i]) * 0.0625f;
+		float steps = (float)(uint8_t)(ticks - RandomTicks);
+		int i = to;
+		do
+		{
+			ShimmerRandoms[i] += steps * ShimmerSteps[i];
+			i = (i + 1) & 255;
+		} while (i != from);
+	}
+	else
+	{
+		for (int i = 0; i < 256; i++)
+		{
+			ShimmerRandoms[i] = FRand();
+			ShimmerSteps[i] = (Randoms[i] - ShimmerRandoms[i]) * 0.0625f;
+		}
+	}
+	for (int i = 0; i < 256; i++)
+		ShimmerRandoms[i] = std::clamp(ShimmerRandoms[i], 0.0f, 1.0f);
+	RandomTicks = ticks;
+}
+
+void LightSystem::BeginFrame()
+{
+	FrameCounter++;
+	TickRandoms(engine->LevelInfo->TimeSeconds());
+
+	LightTree.Lights.clear();
+	for (UActor* actor : engine->Level->Actors)
+	{
+		if (!actor)
+			continue;
+
+		uint8_t lightType = actor->LightType();
+		if (lightType == LT_None || actor->LightBrightness() == 0)
+			continue;
+
+		// Flicker lights flickered randomly every frame in UE1 but this looks terrible at higher refresh rates.
+		// Use an upper cap on how often it will flicker that roughly matches what was probably intended.
+		if (lightType == LT_Flicker && actor->Light.NextFlickerTime < actor->Level()->TimeSeconds())
+		{
+			constexpr float flickerFrameRate = 25.0f;
+			actor->Light.NextFlickerTime = actor->Level()->TimeSeconds() + 1.0f / flickerFrameRate;
+			actor->Light.FlickerValue = RandInt(32767) * (1.0f / 32768.0f);
+			actor->Light.FlickerRandom = actor->Light.FlickerValue >= 0.5f;
+		}
+
+		// An animating light invalidates what was built from it -- unless
+		// the client's NoDynamicLights stills it
+		if (LightmapBuilder::LightAnimates(actor) && !engine->client->NoDynamicLights)
+			actor->Light.LastUpdate = FrameCounter;
+
+		LightTree.Lights.push_back(actor);
+	}
+
+	// The tree is built from the lights, their order, locations and radii
+	// alone: when none of those changed, last frame's tree is this frame's.
+	bool sameLights = TreeLights.size() == LightTree.Lights.size();
+	for (size_t i = 0; sameLights && i < TreeLights.size(); i++)
+	{
+		UActor* light = LightTree.Lights[i];
+		const TreeLight& last = TreeLights[i];
+		sameLights = last.Actor == light && last.Location == light->Location() && last.Radius == light->WorldLightRadius();
+	}
+	if (!sameLights)
+	{
+		TreeLights.clear();
+		for (UActor* light : LightTree.Lights)
+			TreeLights.push_back({ light, light->Location(), light->WorldLightRadius() });
+		LightTree.CreateTLAS();
+		LightTreeVersion++;
+	}
+}
+
+void LightSystem::UpdateLightList(UActor* actor)
+{
+	vec3 location = actor->Location();
+
+	if (!actor->TouchingLights.NeedsUpdate && actor->TouchingLights.Location == location)
+		return;
+
+	actor->TouchingLights.NeedsUpdate = false;
+	actor->TouchingLights.Location = location;
+	actor->TouchingLights.List.clear();
+
+	if (actor->bUnlit())
+		return;
+
+	vec3 extents = actor->BspInfo.BoundingBox.extents();
+
+	LightTree.CollectLights(location, std::max(extents.x, std::max(extents.y, extents.z)));
+	for (UActor* light : LightTree.CollectedLights)
+	{
+		if (!light->bCorona() && light->bSpecialLit() == actor->bSpecialLit())
+		{
+			float radius = light->WorldLightRadius();
+			vec3 L = light->Location() - location;
+			if (dot(L, L) < radius * radius && !engine->Level->Collision.TraceAnyHit(light->Location(), location, actor, false, true, true))
+			{
+				actor->TouchingLights.List.push_back(light);
+			}
+		}
+	}
+}
+
+void LightSystem::SetLevel(ULevel* level)
+{
+	Level = level;
+}
+
+void LightSystem::PurgeDying()
+{
+	auto dying = [](UActor* actor) { return GC::IsDying(actor); };
+	FogBalls.erase(std::remove_if(FogBalls.begin(), FogBalls.end(), dying), FogBalls.end());
+	TempDynLightList.clear();
+	bool stale = false;
+	for (const TreeLight& light : TreeLights)
+		stale = stale || GC::IsDying(light.Actor);
+	for (auto it = SurfaceLightCaches.begin(); it != SurfaceLightCaches.end();)
+		it = GC::IsDying(it->first) ? SurfaceLightCaches.erase(it) : std::next(it);
+	if (stale)
+	{
+		TreeLights.clear();
+		SurfaceLightCaches.clear();
+		LightTree.Lights.clear();
+		LightTree.CollectedLights.clear();
+		LightTreeVersion++;
+	}
+}

@@ -1,0 +1,718 @@
+
+#include "Precomp.h"
+#include "UActor.h"
+#include "Packages/Core/UClass.h"
+#include "Packages/Core/Properties/UBoolProperty.h"
+#include "Packages/Engine/UEventManager.h"
+#include "Packages/Engine/UViewport.h"
+#include "Packages/Engine/Actors/USpawnNotify.h"
+#include "Packages/Engine/Actors/Info/ULevelInfo.h"
+#include "Packages/Engine/Actors/Info/UGameInfo.h"
+#include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+#include "Packages/Engine/Resources/Level/ULevel.h"
+#include "Packages/Engine/Resources/Level/UModel.h"
+#include "Packages/Engine/Subsystems/UDXEngineAudioDevice.h"
+#include "Utils/Logger.h"
+#include "Network/NetDriver.h"
+#include "Engine.h"
+#include "VM/ScriptCall.h"
+#include "VM/Frame.h"
+
+UActor* UActor::Spawn(UClass* SpawnClass, std::optional<UActor*> SpawnOwner, std::optional<NameString> SpawnTag, std::optional<vec3> SpawnLocation, std::optional<Rotator> SpawnRotation, bool noCollisionFail, bool remoteOwned)
+{
+	if (!SpawnClass || SpawnClass->ClsFlags & ClassFlags::Abstract)
+	{
+		LogMessage("Could not spawn class: " + (SpawnClass ? SpawnClass->Name.ToString() : std::string("null")));
+		return nullptr;
+	}
+
+	// Deus Ex's SpawnActor refuses a class whose defaults are static or not
+	// to be deleted, as the original's does out of the editor: a static
+	// actor would never be ticked (ULevel::SortActors).
+	UActor* defaults = SpawnClass->GetDefaultObject<UActor>();
+	if (defaults->bStatic() || defaults->bNoDelete())
+	{
+		LogMessage("SpawnActor failed because class " + SpawnClass->Name.ToString() + " has bStatic or bNoDelete");
+		return nullptr;
+	}
+
+	vec3 location = SpawnLocation ? *SpawnLocation : Location();
+	Rotator rotation = SpawnRotation ? *SpawnRotation : Rotation();
+
+	float radius = SpawnClass->GetDefaultObject<UActor>()->CollisionRadius();
+	float height = SpawnClass->GetDefaultObject<UActor>()->CollisionHeight();
+	bool bCollideWorld = SpawnClass->GetDefaultObject<UActor>()->bCollideWorld();
+	bool bCollideWhenPlacing = SpawnClass->GetDefaultObject<UActor>()->bCollideWhenPlacing();
+	// A client's spawn, and one the server's actor channel makes, stays where
+	// asked.
+	if ((bCollideWorld || bCollideWhenPlacing) && !noCollisionFail && Level()->NetMode() != NM_Client)
+	{
+		// Deus Ex fits it in as the original's SpawnActor does: FindSpot,
+		// the spot as it is if the actor fits there already
+		auto result = FindSpot(location, radius, height, true);
+		if (!result.first)
+		{
+			LogMessage("Could not find usable location when trying to spawn: " + SpawnClass->Name.ToString());
+			return nullptr;
+		}
+		location = result.second;
+	}
+
+	// In the package of the level it is spawned in, as the original's: an
+	// actor the Entry level spawns is Entry's, not the map's.
+	// Made as the original's SpawnActor makes one: transactional, for any
+	// context -- client, server, editor -- and with a state frame
+	// (InitExecution); a save then writes it as the original's does, which
+	// the original's load needs to make it at all.
+	Package* levelPackage = XLevel() && XLevel()->package ? XLevel()->package : engine->LevelPackage;
+	NameString name = levelPackage->MakeUniqueObjectName(UObject::Cast<UClass>(SpawnClass));
+	UActor* actor = UObject::Cast<UActor>(levelPackage->NewObject(name, UObject::Cast<UClass>(SpawnClass), ObjectFlags::Transactional | ObjectFlags::LoadContextFlags | ObjectFlags::HasStack, true));
+
+	// An actor the server owns and this client copies has the roles turned.
+	if (remoteOwned)
+		std::swap(actor->Role(), actor->RemoteRole());
+
+	actor->Outer() = XLevel()->Outer();
+	actor->XLevel() = XLevel();
+	actor->Level() = Level();
+	actor->Tag() = (SpawnTag && !SpawnTag->IsNone()) ? *SpawnTag : SpawnClass->Name;
+	// Deus Ex's is not yet ticked, the opposite of the level's mark, as the
+	// original's: the level's pass reaches it at the list's end and ticks it
+	// the same frame.
+	actor->bTicked() = !XLevel()->TickMark();
+	actor->Instigator() = Instigator();
+	actor->Brush() = nullptr;
+	actor->Location() = location;
+	actor->OldLocation() = location;
+	actor->Rotation() = rotation;
+	actor->Region().Zone = actor->Level();
+	// The original starts a spawned actor 10 s undrawn; the renderer keeps
+	// it from here.
+	actor->LastRenderTime() = Level()->TimeSeconds() - 10.0f;
+	actor->Index = (int)XLevel()->Actors.size();
+	XLevel()->Actors.push_back(actor);
+	XLevel()->ActorsVersion++;
+	XLevel()->Collision.AddToCollision(actor);
+
+	actor->SetOwner(SpawnOwner.has_value() && SpawnOwner.value() ? *SpawnOwner : nullptr);
+
+	if (Level()->bBegunPlay())
+	{
+		CallEvent(actor, EventName::Spawned);
+		CallEvent(actor, EventName::PreBeginPlay);
+		CallEvent(actor, EventName::BeginPlay);
+
+		if (actor->bDeleteMe())
+		{
+			LogMessage("Object deleted itself during Spawn!");
+			return nullptr;
+		}
+
+		actor->InitActorZone();
+
+		CallEvent(actor, EventName::PostBeginPlay);
+
+		// Deus Ex: spawned into something that stops it (its EncroachingOn
+		// agrees), it is destroyed, as the original's SpawnActor does after
+		// PostBeginPlay; what blocks it hears EncroachedBy
+		if (!noCollisionFail && !actor->bDeleteMe() && actor->CheckEncroachment(actor->Location()))
+		{
+			actor->Destroy();
+			return nullptr;
+		}
+		CallEvent(actor, EventName::SetInitialState);
+		CallEvent(actor, "PostPostBeginPlay");
+
+		actor->InitBase();
+
+		static bool spawnNotificationLocked = false;
+		if (!spawnNotificationLocked)
+		{
+			struct NotificationLockGuard
+			{
+				NotificationLockGuard() { spawnNotificationLocked = true; }
+				~NotificationLockGuard() { spawnNotificationLocked = false; }
+			} lockGuard;
+
+			for (USpawnNotify* notifyObj = Level()->SpawnNotify(); notifyObj != nullptr; notifyObj = notifyObj->Next())
+			{
+				UClass* cls = notifyObj->ActorClass();
+				if (cls && actor->IsA(cls->Name))
+					actor = UObject::Cast<UGameInfo>(CallEvent(notifyObj, EventName::SpawnNotification, { ExpressionValue::ObjectValue(actor) }).ToObject());
+			}
+		}
+	}
+
+	return actor;
+}
+
+bool UActor::Destroy()
+{
+	//engine->LogMessage("UActor.Destroy(" + Class->FriendlyName.ToString() + ")");
+
+	if (bStatic() || bNoDelete())
+		return false;
+	if (bDeleteMe())
+		return true;
+
+	bDeleteMe() = true;
+
+	//GotoState({}, {}); // What should happen to function calls after Destroy() has been called? Razor2 calls SetRoll afterwards!
+	SetBase(nullptr, true);
+
+	if (engine->audiodev)
+		engine->audiodev->ActorDestroyed(this);
+
+	ULevel* level = XLevel();
+
+	RemoveFromBspNode();
+	level->Collision.RemoveFromCollision(this);
+	// A Deus Ex mover stays filed in the BSP (CollisionSystem, filed movers)
+	if (Brush())
+		level->Collision.MoverDestroyed(this);
+
+	CallEvent(this, EventName::Destroyed);
+
+	for (const auto actor : Touching())
+		if (actor)
+			UnTouch(actor);
+
+
+	SetOwner(nullptr);
+
+	while (!ChildActors.empty())
+	{
+		ChildActors.back()->SetOwner(nullptr);
+	}
+	while (!BasedActors.empty())
+	{
+		BasedActors.back()->SetBase(nullptr, true);
+	}
+
+	// A server's clients' channels for it close.
+	if (engine->LevelNetDriver)
+		engine->LevelNetDriver->NotifyActorDestroyed(this);
+
+	if (Index == -1)
+		throw std::runtime_error("Actor index was never set!");
+	level->Actors[Index] = nullptr;
+	level->ActorsVersion++;
+	level->ActorsHaveHoles = true;
+
+	// To the level's chain of the destroyed: the event manager is told, and
+	// live actors' references made None, when the chain is cleaned up
+	// (ULevel::CleanupDestroyed).
+	Deleted() = level->FirstDeleted;
+	level->FirstDeleted = this;
+	level->DeletedCount++;
+
+	return true;
+}
+
+// The original's RandomBiasedRotation (0x1036d030): yaw up to half a turn
+// (32,768) either way and pitch up to a quarter (16,384). A distribution of
+// 0 spreads the offset evenly over the range, 1 gives the centre: with
+// a = (1 + d) / 2 and a uniform fraction x of the range, the offset is
+// x(1 - a)/a up to a, and (1 - a) + (x - a)a/(1 - a) above.
+Rotator UActor::RandomBiasedRotation(int centralYaw, float yawDistribution, int centralPitch, float pitchDistribution)
+{
+	auto biasedOffset = [](float distribution, int range) -> int
+	{
+		float d = std::clamp(distribution, 0.0f, 1.0f);
+		float a = (1.0f + d) * 0.5f;
+		float x = (float)std::rand() / (float)RAND_MAX;
+		float fraction;
+		if (x <= a)
+			fraction = x * (1.0f - a) / a;
+		else
+			fraction = (1.0f - a) + (x - a) * a / (1.0f - a);
+		float sign = (std::rand() & 1) ? 1.0f : -1.0f;
+		return (int)(sign * fraction * (float)range);
+	};
+	return Rotator(centralPitch + biasedOffset(pitchDistribution, 16384), centralYaw + biasedOffset(yawDistribution, 32768), 0);
+}
+
+bool UActor::InStasis()
+{
+	// The original's InStasis, all of which must hold: bStasis;
+	// bForceStasis, or physics none or rotating; not drawn for 5 s; its
+	// zone not drawn for 5 s, or more than 1,200 units from the player;
+	// single player.
+	if (!bStasis() || Level()->NetMode() != NM_Standalone)
+		return false;
+	if (!bForceStasis() && Physics() != PHYS_None && Physics() != PHYS_Rotating)
+		return false;
+	float now = Level()->TimeSeconds();
+	if (now - LastRenderTime() < 5.0f)
+		return false;
+	auto& zones = XLevel()->Model->Zones;
+	int zone = Region().ZoneNumber;
+	bool zoneDrawn = zone >= 0 && (size_t)zone < zones.size() && now - zones[zone].LastRenderTime < 5.0f;
+	return !zoneDrawn || DistanceFromPlayer() > 1200.0f;
+}
+
+bool UActor::IsTransient()
+{
+	if (!TransientPropSearched)
+	{
+		TransientPropSearched = 1;
+		for (UStruct* s = Class; s && TransientPropOffset.DataOffset == ~(size_t)0; s = s->StructParent)
+		{
+			for (UProperty* prop : s->Properties)
+			{
+				if (prop->Name == "bTransient" && UObject::TryCast<UBoolProperty>(prop))
+				{
+					TransientPropOffset = prop->DataOffset;
+					break;
+				}
+			}
+		}
+	}
+	return TransientPropOffset.DataOffset != ~(size_t)0 && BoolValue(TransientPropOffset);
+}
+
+bool UActor::StartTick()
+{
+	ULevel* level = XLevel();
+
+	// Nothing else for an actor in stasis -- no script tick, physics,
+	// animation or timers -- and a transient one (the rats a container lets
+	// out) destroyed. It counts as ticked, its mark left as it was.
+	if (InStasis())
+	{
+		if (IsTransient())
+			Destroy();
+		level->TickStarted(this, ULevel::TickStart::Stasis);
+		return false;
+	}
+
+	if (Owner() && Owner()->bTicked() != level->TickMark())
+	{
+		level->TickStarted(this, ULevel::TickStart::Waiting);
+		return false;
+	}
+
+	bTicked() = level->TickMark();
+	level->TickStarted(this, ULevel::TickStart::Ticked);
+	return true;
+}
+
+void UActor::Tick(float elapsed)
+{
+	// Deus Ex's tick starts as the original's AActor::Tick does; a pawn's
+	// starts in UPawn::Tick, before its own work.
+	if (!bIsPawn() && !StartTick())
+		return;
+
+	// The slots move only while the main animation plays or tweens
+	bool mainAnimMoving = IsAnimating() || (AnimFrame() < 0.0f && TweenRate() != 0.0f);
+	TickAnimation(elapsed);
+	if (mainAnimMoving)
+		TickBlendAnimation(elapsed);
+
+	// A net game's copies tick as the original's do by their roles: another
+	// player's pawn moves along its velocity, falling at half the zone's
+	// gravity when off the ground, and runs its Tick, nothing more; a dumb
+	// proxy only falls; the local player's physics run in its own moves
+	// (AutonomousPhysics), not here.
+	bool netGame = Level()->NetMode() != NM_Standalone;
+	if (netGame && Role() == ROLE_SimulatedProxy && bIsPawn())
+	{
+		if (UPawn* pawn = UObject::TryCast<UPawn>(this))
+		{
+			UZoneInfo* zone = Region().Zone;
+			if (pawn->bIsPlayer() && !pawn->bCanFly() && !(zone && zone->bWaterZone()))
+			{
+				TraceFlags flags;
+				flags.movers = true;
+				flags.world = true;
+				vec3 extent(CollisionRadius(), CollisionRadius(), CollisionHeight());
+				CollisionHit hit = XLevel()->Collision.TraceFirstHit(Location(), Location() - vec3(0.0f, 0.0f, 8.0f), this, extent, flags);
+				if ((hit.Fraction == 1.0f || hit.Normal.z < 0.7f) && zone)
+					Velocity() += zone->ZoneGravity() * (0.5f * elapsed);
+			}
+			MoveSmooth(Velocity() * elapsed);
+			if (IsEventEnabled(EventName::Tick))
+				CallEvent(this, EventName::Tick, { ExpressionValue::FloatValue(elapsed) });
+			return;
+		}
+	}
+	if (netGame && Role() < ROLE_SimulatedProxy)
+	{
+		if (Physics() == PHYS_Falling)
+			TickPhysics(elapsed);
+		return;
+	}
+
+	// A server's copy of a client's own pawn runs its state code and timer,
+	// nothing more: it moves by the client's moves (ServerMove).
+	bool clientsPawn = netGame && Role() == ROLE_Authority && RemoteRole() == ROLE_AutonomousProxy;
+
+	// Deus Ex's local player reads its input and runs PlayerTick here, before
+	// its state code and physics, in place of Tick, as the original's actor
+	// tick has it: its physics take the move it makes the same tick, where
+	// the fork took it a tick later.
+	UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(this);
+	if (player && player->TickInput(elapsed))
+	{
+	}
+	else if (!clientsPawn && Role() >= ROLE_SimulatedProxy && IsEventEnabled(EventName::Tick))
+	{
+		CallEvent(this, EventName::Tick, { ExpressionValue::FloatValue(elapsed) });
+	}
+
+	if (StateFrame)
+	{
+		if (StateFrame->LatentState == LatentRunState::Sleep)
+		{
+			SleepTimeLeft = std::max(SleepTimeLeft - elapsed, 0.0f);
+			if (SleepTimeLeft == 0.0f)
+				StateFrame->LatentState = LatentRunState::Continue;
+		}
+		else if (StateFrame->LatentState == LatentRunState::FinishInterpolation)
+		{
+			if (!bInterpolating())
+				StateFrame->LatentState = LatentRunState::Continue;
+		}
+
+		if (Role() >= ROLE_SimulatedProxy && StateFrame->LatentState == LatentRunState::Continue)
+		{
+			StateFrame->Tick();
+		}
+	}
+
+	if (!(netGame && Role() == ROLE_AutonomousProxy) && !clientsPawn)
+		TickPhysics(elapsed);
+
+	if (TimerRate() > 0.0f) // Role() == ROLE_Authority && RemoteRole() == ROLE_AutonomousProxy
+	{
+		TimerCounter() += elapsed;
+		while (TimerRate() > 0.0f && TimerCounter() > TimerRate())
+		{
+			TimerCounter() -= TimerRate();
+			if (!bTimerLoop())
+				TimerRate() = 0.0f;
+			CallEvent(this, EventName::Timer);
+		}
+	}
+}
+
+bool UActor::Move(const vec3& delta)
+{
+	return TryMove(delta).Fraction == 1.0f;
+}
+
+bool UActor::MoveSmooth(const vec3& delta)
+{
+	CollisionHit hit = TryMoveSmooth(delta);
+	return hit.Fraction != 1.0f;
+}
+
+void UActor::MakeNoise(float loudness)
+{
+	UPawn* noisePawn = UObject::Cast<UPawn>(Instigator());
+
+	if (!noisePawn || Level()->NetMode() == NM_Client)
+		return;
+
+	float currentTime = Level()->TimeSeconds();
+	vec3 delta1 = noisePawn->noise1spot() - Location();
+	vec3 delta2 = noisePawn->noise2spot() - Location();
+	if ((noisePawn->noise1time() > currentTime - 0.2f && dot(delta1, delta1) < 2500.0f && noisePawn->noise1loudness() >= 0.9f * loudness) ||
+		(noisePawn->noise2time() > currentTime - 0.2f && dot(delta2, delta2) < 2500.0f && noisePawn->noise2loudness() >= 0.9f * loudness))
+	{
+		return;
+	}
+
+	if (noisePawn->noise1time() < currentTime - 0.18f)
+	{
+		noisePawn->noise1time() = currentTime;
+		noisePawn->noise1spot() = Location();
+		noisePawn->noise1loudness() = loudness;
+	}
+	else if (noisePawn->noise2time() < currentTime - 0.18f)
+	{
+		noisePawn->noise2time() = currentTime;
+		noisePawn->noise2spot() = Location();
+		noisePawn->noise2loudness() = loudness;
+	}
+	else if (dot(delta1, delta1) < 2500.0f)
+	{
+		noisePawn->noise1time() = currentTime;
+		noisePawn->noise1spot() = Location();
+		noisePawn->noise1loudness() = loudness;
+	}
+	else if (noisePawn->noise2loudness() <= loudness)
+	{
+		noisePawn->noise2time() = currentTime;
+		noisePawn->noise2spot() = Location();
+		noisePawn->noise2loudness() = loudness;
+	}
+
+	for (UPawn* pawn = Level()->PawnList(); pawn != nullptr; pawn = pawn->nextPawn())
+	{
+		if (pawn != noisePawn && pawn->CanHearNoise(this, loudness))
+		{
+			CallEvent(pawn, EventName::HearNoise, { ExpressionValue::FloatValue(loudness), ExpressionValue::ObjectValue(this) });
+		}
+	}
+}
+
+bool UActor::PlayerCanSeeMe()
+{
+	// Deus Ex's as the original's (AActor::execPlayerCanSeeMe and
+	// TestCanSeeMe; dx-reverse-info/engine-dll.md, the senses): a player sees
+	// what it views through; else what lies within (collision radius + 3.6)
+	// x 100,000 squared units and -- its view not behind -- within 60 degrees
+	// of the view's line either way, if its LineOfSightTo finds it. The local
+	// player asks, alone or on a client for what is its own there (temporary
+	// or its authority); a net game's server, each player. The fork's asked
+	// every pawn within 500 units in a cone that took a length for a cosine,
+	// so a player looking never saw anything.
+	auto testCanSeeMe = [&](UPlayerPawn* viewer)
+	{
+		if (!viewer)
+			return false;
+		if (viewer->ViewTarget() == this)
+			return true;
+		vec3 d = Location() - viewer->Location();
+		float distSq = dot(d, d);
+		if ((CollisionRadius() + 3.6f) * 100000.0f <= distSq)
+			return false;
+		if (!viewer->bBehindView())
+		{
+			float along = dot(Coords::Rotation(viewer->ViewRotation()).XAxis, d);
+			if (distSq * 0.25f > along * along)
+				return false;
+		}
+		return viewer->LineOfSightTo(this, false);
+	};
+
+	uint8_t netMode = Level()->NetMode();
+	if (netMode == NM_Standalone || (netMode == NM_Client && (bNetTemporary() || Role() == ROLE_Authority)))
+		return testCanSeeMe(UObject::TryCast<UPlayerPawn>(engine->viewport->Actor()));
+	for (UPawn* pawn = Level()->PawnList(); pawn != nullptr; pawn = pawn->nextPawn())
+	{
+		if (testCanSeeMe(UObject::TryCast<UPlayerPawn>(pawn)))
+			return true;
+	}
+	return false;
+}
+
+void UActor::HearSound(int id, USound* sound, const vec3& parameters, float radiusSq, bool viewportsOnly, UPawn* skip)
+{
+	if (viewportsOnly)
+	{
+		UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
+		if (player && player->XLevel() == XLevel())
+			CheckHearSound(player, id, sound, parameters, radiusSq);
+		return;
+	}
+	for (UPawn* pawn = Level()->PawnList(); pawn != nullptr; pawn = pawn->nextPawn())
+	{
+		if (pawn->bIsPlayer() && pawn != skip)
+			CheckHearSound(pawn, id, sound, parameters, radiusSq);
+	}
+}
+
+void UActor::CheckHearSound(UPawn* hearer, int id, USound* sound, vec3 parameters, float radiusSq)
+{
+	// The listener: a player's view target if it has one, else the hearer,
+	// at its location, not its eyes. It hears within the radius / sqrt(1.3).
+	UActor* listener = hearer;
+	if (UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(hearer))
+	{
+		if (player->ViewTarget())
+			listener = player->ViewTarget();
+	}
+	vec3 d = listener->Location() - Location();
+	float distSq = dot(d, d);
+	float range = radiusSq * (1.0f / 1.3f);
+	if (!(distSq < range))
+		return;
+
+	// Behind the level's BSP (FastTrace's line), at 0.35 of the volume, and
+	// within 0.6 of the squared range but for the actor's instigator, the
+	// range's edge included.
+	if (!FastTrace(listener->Location(), Location()))
+	{
+		parameters.x *= 0.35f;
+		if (Instigator() != hearer)
+			range *= 0.6f;
+		if (!(distSq <= range))
+			return;
+	}
+
+	// An event: it waits for the level to begin play, as the original's, and
+	// a remote player's goes to its client (Pawn.ClientHearSound is
+	// replicated), where its native plays it.
+	CallEvent(hearer, "ClientHearSound", {
+		ExpressionValue::ObjectValue(this), ExpressionValue::IntValue(id), ExpressionValue::ObjectValue(sound),
+		ExpressionValue::VectorValue(Location()), ExpressionValue::VectorValue(parameters) });
+}
+
+void UActor::AIClearEvent(const NameString& eventName)
+{
+	if (UEventManager* manager = UEventManager::Get())
+		manager->ClearEvent(this, eventName);
+}
+
+void UActor::AIClearEventCallback(const NameString& eventName)
+{
+	if (UEventManager* manager = UEventManager::Get())
+		manager->ClearEventCallback(this, eventName);
+}
+
+void UActor::AIEndEvent(const NameString& eventName, uint8_t eventType)
+{
+	if (UEventManager* manager = UEventManager::Get())
+		manager->EndEvent(this, eventName, eventType);
+}
+
+static float AILightAt(UActor* actor, const vec3& location);
+
+float UActor::AIGetLightLevel(const vec3& Location)
+{
+	// The light the AI-sight work computes for AIVisibility (engine-dll.md,
+	// Small); no game script calls this one directly.
+	return AILightAt(this, Location);
+}
+
+void UActor::AISendEvent(const NameString& eventName, uint8_t eventType, std::optional<float> Value, std::optional<float> Radius)
+{
+	if (UEventManager* manager = UEventManager::Get())
+		manager->SendEvent(this, eventName, eventType, Value.value_or(1.0f), Radius.value_or(800.0f), false);
+}
+
+void UActor::AISetEventCallback(const NameString& eventName, const NameString& callback, std::optional<NameString> scoreCallback, std::optional<bool> bCheckVisibility, std::optional<bool> bCheckDir, std::optional<bool> bCheckCylinder, std::optional<bool> bCheckLOS)
+{
+	if (UEventManager* manager = UEventManager::Get())
+		manager->SetEventCallback(this, eventName, callback, scoreCallback.value_or(NameString()), bCheckVisibility.value_or(true), bCheckDir.value_or(true), bCheckCylinder.value_or(false), bCheckLOS.value_or(true));
+}
+
+void UActor::AIStartEvent(const NameString& eventName, uint8_t eventType, std::optional<float> Value, std::optional<float> Radius)
+{
+	if (UEventManager* manager = UEventManager::Get())
+		manager->SendEvent(this, eventName, eventType, Value.value_or(1.0f), Radius.value_or(800.0f), true);
+}
+
+// A light's share of what the AI sees by, 0 to 1: its brightness, a third of
+// it for a fully saturated colour and all of it for white.
+static float AILuminance(uint8_t brightness, uint8_t saturation)
+{
+	return (float)((saturation + 127.5) * (1.0 / 382.5) * (brightness * (1.0 / 255.0)));
+}
+
+// The light on an actor at a location, 0 to 1, as Deus Ex's AI sees it: half
+// of each light reaching it -- a static one only with no wall or mover
+// between -- the nearer its middle the more, and twice the zone's ambient
+// light. An unlit actor is always lit. From Engine.dll, where it serves
+// AActor::AIVisibility.
+static float AILightAt(UActor* actor, const vec3& location)
+{
+	float lights = 0.0f;
+	if (actor->bUnlit())
+	{
+		lights = 1.0f;
+	}
+	else
+	{
+		// The original tests every actor for a light reaching the location.
+		// The light system's tree holds the same lights, as of the last frame
+		// drawn, and gives the few whose reach may take it in; one destroyed
+		// since is skipped.
+		ULevel* level = actor->XLevel();
+		for (UActor* light : level->Light.LightsNear(location))
+		{
+			if (light == actor || light->bDeleteMe() || light->LightType() == LT_None || light->LightBrightness() == 0)
+				continue;
+
+			float radius = light->WorldLightRadius();
+			float radiusSq = radius * radius;
+			vec3 d = location - light->Location();
+			float distSq = dot(d, d);
+			if (radiusSq <= distSq)
+				continue;
+
+			if (light->bStatic())
+			{
+				const TraceFlags flags = { .movers = true, .world = true };
+				CollisionHit hit = level->Collision.TraceFirstHit(light->Location(), location, actor, vec3(0.0f), flags);
+				if (hit.Actor || hit.Node)
+					continue;
+			}
+
+			lights += AILuminance(light->LightBrightness(), light->LightSaturation()) * (1.0f - (float)std::sqrt(distSq / radiusSq));
+		}
+		lights *= 0.5f;
+	}
+
+	UZoneInfo* zone = actor->Region().Zone;
+	float ambient = zone ? AILuminance(zone->AmbientBrightness(), zone->AmbientSaturation()) : 0.0f;
+	return std::clamp(ambient * 2.0f + lights, 0.0f, 1.0f);
+}
+
+// How visible this actor is to Deus Ex's AI, 0 to 1 (Engine.dll
+// AActor::AIVisibility): the light on it, found again a quarter second after
+// the last finding and eased from one finding to the next, and with
+// bIncludeVelocity (the default) up to half again as much when it moves at
+// 30 to 200 units a second.
+float UActor::AIVisibility(std::optional<bool> bIncludeVelocity)
+{
+	const float period = 0.25f;
+	float now = Level()->TimeSeconds();
+	float elapsed = now - VisUpdateTime();
+	float visibility;
+	if (elapsed > period * 2.0f)
+	{
+		VisUpdateTime() = now;
+		visibility = AILightAt(this, Location());
+		CurrentVisibility() = visibility;
+		LastVisibility() = visibility;
+	}
+	else if (elapsed > period)
+	{
+		LastVisibility() = CurrentVisibility();
+		VisUpdateTime() = now;
+		CurrentVisibility() = AILightAt(this, Location());
+		visibility = LastVisibility();
+	}
+	else
+	{
+		visibility = (CurrentVisibility() - LastVisibility()) * (elapsed / period) + LastVisibility();
+	}
+
+	if (bIncludeVelocity.value_or(true))
+	{
+		float speed = length(Velocity());
+		float factor = std::clamp((speed - 30.0f) / (200.0f - 30.0f), 0.0f, 1.0f);
+		visibility += factor * visibility * 0.5f;
+	}
+	return std::clamp(visibility, 0.0f, 1.0f);
+}
+
+void UActor::Mark(GCMarker& marker)
+{
+	UObject::Mark(marker);
+	marker.SetField("ChildActors");
+	marker.MarkArray(ChildActors);
+	marker.SetField("BasedActors");
+	marker.MarkArray(BasedActors);
+	marker.SetField("TouchingLights");
+	size_t before = TouchingLights.List.size();
+	marker.MarkArray(TouchingLights.List);
+	if (TouchingLights.List.size() != before)
+		TouchingLights.NeedsUpdate = true;
+	marker.SetField("MeshLights");
+	size_t out = 0;
+	for (size_t i = 0; i < MeshLights.List.size(); i++)
+	{
+		marker.Mark(MeshLights.List[i].Light);
+		if (MeshLights.List[i].Light)
+			MeshLights.List[out++] = MeshLights.List[i];
+	}
+	MeshLights.List.resize(out);
+	marker.SetField("BspInfo");
+	marker.MarkConst(BspInfo.Prev);
+	marker.MarkConst(BspInfo.Next);
+}
