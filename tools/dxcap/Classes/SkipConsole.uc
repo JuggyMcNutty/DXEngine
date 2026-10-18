@@ -4,7 +4,7 @@
 // conversation window calls) taken mid-line, the line's audio and its length
 // logged with "DXSKIP:" and the console's clock, by which a recording of the
 // run (DXCAP_RECORD=1) is read: in the original the line's voice cuts at the
-// skip; the fork's StopSound once matched the caller as well as the ID, and
+// skip; DXEngine's StopSound once matched the caller as well as the ID, and
 // the player calling it with the speaker's ID stopped nothing, so the line
 // played on under the next.
 //

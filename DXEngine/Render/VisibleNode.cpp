@@ -23,7 +23,7 @@ void VisibleNode::Draw(VisibleFrame* frame)
 
 	// The zone the surface is seen from, whose ambient lights its light map
 	// and whose pan speeds pan it, as the original's draw list has it
-	// (dx-reverse-info render-dll.md, light maps); upstream took the far
+	// (dx-reverse-info render-dll.md, light maps); Surreal Engine took the far
 	// side's, zone 0 (the LevelInfo) behind a wall, which lit every surface
 	// of a zoned level with the LevelInfo's ambient (LightConsole on
 	// 06_HongKong_WanChai_Underworld's floor).
@@ -94,7 +94,7 @@ void VisibleNode::Draw(VisibleFrame* frame)
 		// (dx-reverse-info render-dll.md, light maps): only with the render
 		// device's VolumetricLighting on and the viewport's actor in a fog
 		// zone, for a surface not translucent, from the zone it is seen
-		// from, which a fog zone too; upstream took the camera's zone for
+		// from, which a fog zone too; Surreal Engine took the camera's zone for
 		// every surface, fogging one seen from a zone without fog.
 		if (frame->VolumetricFog && (PolyFlags & PF_Translucent) == 0)
 			fogmap = engine->Level->Light.GetLevelFogmap(surface, zoneActor, model);

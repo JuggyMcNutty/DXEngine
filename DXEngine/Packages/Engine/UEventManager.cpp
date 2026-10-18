@@ -22,7 +22,7 @@
 #include <cctype>
 #include <chrono>
 
-// The fork's own layout of the saved manager, which its saves before
+// DXEngine's own layout of the saved manager, which its saves before
 // 2026-09-27 carry; the original's is read and written since.
 static const int32_t EventManagerMagic = 0x4D454941; // 'AIEM'
 
@@ -559,7 +559,7 @@ void UEventManager::Load(ObjectStream* stream)
 {
 	UObject::Load(stream);
 
-	// A save the fork made before 2026-09-27 has the fork's own layout.
+	// A save DXEngine made before 2026-09-27 has DXEngine's own layout.
 	uint32_t start = stream->Tell();
 	if (stream->Remaining() >= 8 && stream->ReadInt32() == EventManagerMagic)
 	{

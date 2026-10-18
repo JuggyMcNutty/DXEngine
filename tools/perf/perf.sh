@@ -16,7 +16,7 @@ die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 usage() { sed -n '2,8p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2; }
 eng() { git -C "$REPO" "$@"; }
 
-# The hooks are a patch against the fork's head, so a fork commit that
+# The hooks are a patch against DXEngine's head, so a commit that
 # touches the same lines moves them. "on" falls back to a three-way merge;
 # after one (and after resolving any conflict it leaves), "save" rewrites the
 # patch from the tree so "off" and the next "on" apply cleanly. tools/, where
@@ -38,7 +38,7 @@ case "${1:-}" in
         eng reset -q
         conflicts="$conflicts $(cd "$REPO" && grep -l '^<<<<<<< ' -- "${touched[@]}" 2>/dev/null || true)"
         conflicts="$(echo $conflicts)"
-        [ -z "$conflicts" ] || die "the hooks conflict with the fork in: $conflicts -- resolve, then tools/perf/perf.sh save"
+        [ -z "$conflicts" ] || die "the hooks conflict with DXEngine in: $conflicts -- resolve, then tools/perf/perf.sh save"
         eng grep -q 'TEMPORARY DEBUG TOOL' -- DXEngine 2>/dev/null ||
             die "the hooks did not apply (git apply --3way: $rc) -- commit the engine's changes first, then perf.sh on"
         say "profiling hooks applied by a three-way merge -- tools/perf/perf.sh save to re-base the patch"

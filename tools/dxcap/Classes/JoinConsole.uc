@@ -2,7 +2,7 @@
 // JoinConsole: the joining side of a net test -- from the menu map it opens
 // the server on this machine (ServeConsole's), and once in the game its
 // player stands 5 s, walks forward 5 s (aBaseY 300: as with the key held in
-// the original, whose input scales the axis; slower in the fork, which takes
+// the original, whose input scales the axis; slower in DXEngine, which takes
 // it as set -- StandConsole), and stands
 // again; its place, and every other player's as this side has it -- with
 // the other's animation: sequence, frame, rate --, is logged each second,

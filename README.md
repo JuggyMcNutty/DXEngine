@@ -1,7 +1,7 @@
-## VibeEngine
+## DXEngine
 
-A fork of [Surreal Engine](https://github.com/dpjudas/SurrealEngine), the open-source Unreal
-Engine 1 reimplementation.
+Deus Ex's engine, a hard fork of [Surreal Engine](https://github.com/dpjudas/SurrealEngine), the
+open-source Unreal Engine 1 reimplementation.
 
 Targeting only Deus Ex.
 
@@ -13,14 +13,14 @@ Targeting only Deus Ex.
 - **Deus Ex as the original plays it**: Our goal is a playable build as close to 1:1 with the
   original engine, its scripting and the rest as possible.
 
-## The fork and Surreal Engine
+## DXEngine and Surreal Engine
 
 The two differ at the core ([how it is kept](docs/ENGINE.md#how-it-is-kept)).
 
-The fork's own docs and tools are in [`docs/`](docs/) and [`tools/`](tools/).
+DXEngine's docs and tools are in [`docs/`](docs/) and [`tools/`](tools/).
 
-- [`docs/ENGINE.md`](docs/ENGINE.md): how the fork is kept, run and profiled, and
-  [what it changes](docs/ENGINE.md#what-the-fork-changes).
+- [`docs/ENGINE.md`](docs/ENGINE.md): how the engine is kept, run and profiled, and
+  [what it changes](docs/ENGINE.md#what-it-changes-from-surreal-engine).
 - [`docs/NATIVES.md`](docs/NATIVES.md): differences from the original.
 - [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md): scripted runs of both engines,
   debugging a crash, proving a change.
@@ -48,13 +48,13 @@ On Arch these are among the packages
 list. Then:
 
 ```sh
-git clone https://github.com/JuggyMcNutty/VibeEngine.git
-cd VibeEngine
+git clone https://github.com/JuggyMcNutty/DXEngine.git
+cd DXEngine
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target DXEngine -j"$(nproc)"
 ```
 
-Its SDL window is SDL3's when SDL3 is found, else SDL2's: either has the fork's gamepad support,
+Its SDL window is SDL3's when SDL3 is found, else SDL2's: either has DXEngine's gamepad support,
 which its X11 and Wayland windows lack, and is the window when `DXE_DISPLAY_BACKEND`
 names it ([the gamepad](docs/ENGINE.md#running-on-our-devices)). The build leaves two files
 in `build/` that go together:
@@ -106,6 +106,6 @@ The build's own switches:
 
 ## License
 
-Surreal Engine's licences are in [`LICENSE.md`](LICENSE.md); the fork's own changes are
-zlib-licensed, as Surreal Engine's own code is. Deus Ex belongs to its owners; this project is not
-affiliated with or endorsed by them.
+DXEngine is zlib-licensed, an altered version of Surreal Engine, whose licence and those of the
+third-party code it carries are in [`LICENSE.md`](LICENSE.md). Deus Ex belongs to its owners; this
+project is not affiliated with or endorsed by them.

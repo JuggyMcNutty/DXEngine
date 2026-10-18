@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Scripted runs of both engines -- the original game under Proton and the
-# engine fork -- each driven by a console class of the DXCapture package
+# Scripted runs of both engines -- the original game under Proton and
+# DXEngine -- each driven by a console class of the DXCapture package
 # (tools/dxcap), named in a private ini made from the game's own for every
 # run: the game's inis are never touched. docs/DEVELOPMENT.md, scripted runs.
 #
 #   tools/dxcap.sh setup                      build/dxcap: the SDK's UCC among links to the game's files
 #   tools/dxcap.sh compile                    tools/dxcap -> build/dxcap/System/DXCapture.u (UCC, under Proton)
 #   tools/dxcap.sh original <console> [<secs>] the original, from its menu map (or DXCAP_START's URL)
-#   tools/dxcap.sh dxe <console> <map> [<secs>]  the fork's linux-x86_64 build, straight into <map>
+#   tools/dxcap.sh dxe <console> <map> [<secs>]  DXEngine's linux-x86_64 build, straight into <map>
 #                                                  (or joining a server: <map> an address, as 127.0.0.1:7790);
 #                                                  <console> - keeps the stock console, and DXCAP_TIMELINE=<file>
 #                                                  drives the run (tools/dxcap/timelines)
-#   tools/dxcap.sh prove <map>                the fork's proving run: shots at 20 s and 60 s, exit at 65 s
-#   tools/dxcap.sh live <address> [<secs>]    the fork joining a live server with the stock console its
-#                                                  game wants, driven by a timeline (the fork's --timeline):
+#   tools/dxcap.sh prove <map>                DXEngine's proving run: shots at 20 s and 60 s, exit at 65 s
+#   tools/dxcap.sh live <address> [<secs>]    DXEngine joining a live server with the stock console its
+#                                                  game wants, driven by a timeline (DXEngine's --timeline):
 #                                                  DXCAP_TIMELINE=<file>, else JoinConsole's walk
 #   tools/dxcap.sh dedicated <original|dxe> <actor> <map> [<secs>]
 #                                                  either engine as a dedicated server on <map>, drawing no
@@ -32,11 +32,11 @@
 # prefix and the Proton under ~/.local/share/Steam/compatibilitytools.d.
 # Both engines draw on the desktop's X display, Xwayland ($DISPLAY, or
 # DXCAP_DISPLAY), each in a 1280x720 window (DXCAP_WINDOW=<w>x<h> another
-# size), the fork through its window's X11 backend: one X server and the GPU
+# size), DXEngine through its window's X11 backend: one X server and the GPU
 # for both. DXCAP_RENDERER=D3D draws the original through D3DDrv, the game's
 # own renderer, instead of OpenGLDrv: the same picture, gamma ramp and all,
 # though the grabber can miss its shots (docs/DEVELOPMENT.md, shots).
-# DXCAP_AUDIO=1 gives the fork real audio; it is silent otherwise.
+# DXCAP_AUDIO=1 gives DXEngine real audio; it is silent otherwise.
 # DXCAP_RECORD=1 sends either engine's audio to a private sink instead of the
 # speakers and records it into the run's audio.wav, with the music off, or on
 # with DXCAP_MUSIC=1 (tools/dxcap/sound.py reads it).
@@ -57,7 +57,7 @@
 # the run see that pad alone.
 # DXCAP_USERINI=<file> gives a run that User.ini in place of the game's
 # (IniConsole's keys given twice). DXCAP_USERINI_FIRST=1 names the run's inis
-# USERINI= then INI= on the original's command line, and gives the fork the
+# USERINI= then INI= on the original's command line, and gives DXEngine the
 # two so by --cmdline in place of --ini and --userini: each engine reads INI=
 # by its own name only, not within USERINI= (dx-reverse-info cli-flags.md).
 # DXCAP_CONFIG="<key>=<value> ..." gives the run's console class those keys
@@ -77,7 +77,7 @@
 # DXCAP_START=<url> starts an original run there, not at its menu map: its
 # command line's first word, which the original takes only with -hax0r
 # (?loadgame=9 for StartConsole, a run started on slot 9's save).
-# DXCAP_ENGINE=<binary> runs another build of the fork than linux-x86_64's
+# DXCAP_ENGINE=<binary> runs another build of DXEngine than linux-x86_64's
 # (an ASan build). DXCAP_MEMLOG=1 logs a dxe run's resident memory each
 # second into the run's memlog.txt: seconds since the start, then MB.
 # DXCAP_SETTINGS=<file> gives a dxe run that Settings.json in place of
@@ -261,7 +261,7 @@ crlf() { sed 's/$/\r/' > "$1"; }
 # registering an object for the console and giving a text. Prints the paths
 # that name them first in an <engine>'s run, as a mod's ini names its
 # folders: the first by its absolute path, the second by one relative to
-# the engine's System folder (the original's view's, the fork's game's).
+# the engine's System folder (the original's view's, DXEngine's game's).
 localize_folders() {
     local engine="$1" first="$CAP/mods/first/System" second="$CAP/mods/second/System" system
     rm -rf "$CAP/mods"
@@ -717,7 +717,7 @@ cmd_dxe() {
     run_dxe "$dir" "$ini" "$userini" "$map" "$secs" "${args[@]}"
 }
 
-# The fork on a live server: the stock console, and a timeline for what a
+# DXEngine on a live server: the stock console, and a timeline for what a
 # console class would do -- by default JoinConsole's walk, the player's
 # place and the others' logged each second of the game (DXLIVE lines).
 cmd_live() {
@@ -767,7 +767,7 @@ cmd_prove() {
 # server runs no console, so DXCapture.<actor>, the first of its
 # ServerActors, drives the run and ends it (exit). The original's command
 # line is "<map> -server", its first word the start URL (dx-reverse-info
-# cli-flags.md); the fork's, --server. Waited for until it exits or the time
+# cli-flags.md); DXEngine's, --server. Waited for until it exits or the time
 # runs out; its log lands in the run's folder.
 cmd_dedicated() {
     local engine="${1:?original or dxe}" actor="${2:?server actor class}" map="${3:?map}" secs="${4:-120}"

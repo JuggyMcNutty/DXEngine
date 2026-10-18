@@ -228,7 +228,7 @@ void Engine::CollectGarbage()
 	}
 
 	// What goes with every reference to it made None: each object of a
-	// level left behind (the fork's own: a stale reference becomes None
+	// level left behind (DXEngine's own: a stale reference becomes None
 	// instead of keeping that level), and at a map change the new level's
 	// actors that are not in its Actors (the original's). Code is kept.
 	Array<UObject*> eliminated;

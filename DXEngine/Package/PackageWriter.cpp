@@ -241,8 +241,8 @@ int PackageWriter::GetObjectReference(UObject* obj)
 		// reads (RF_Load), with the load context -- client, server, editor --
 		// its objects made at play carry, and by which its linker makes an
 		// export at all (Package::GetUObject); an actor transactional, as its
-		// SpawnActor makes one. The fork's spawned actors had neither, and
-		// its transient flag, so the original's load of a fork save left out
+		// SpawnActor makes one. DXEngine's spawned actors had neither, and
+		// its transient flag, so the original's load of a DXEngine save left out
 		// the player, the game and all else spawned.
 		ObjectFlags flags = (obj->Flags & ObjectFlags::Load) | ObjectFlags::LoadContextFlags;
 		if (UObject::TryCast<UActor>(obj))

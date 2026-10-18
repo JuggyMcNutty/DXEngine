@@ -1,5 +1,5 @@
 //=============================================================================
-// StartConsole: a run started on a save -- the fork's ?loadgame=9 for its
+// StartConsole: a run started on a save -- DXEngine's ?loadgame=9 for its
 // map, the original's DXCAP_START=?loadgame=9 --, which the console itself
 // loads nothing of: 5 s into the loaded level, the island or SaveConsole's
 // Via, what it holds is logged as SaveConsole logs it; then an exit. With

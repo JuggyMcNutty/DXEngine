@@ -151,8 +151,8 @@ void UDXGameDirectory::PurgeAllSaveInfo()
 // the original's (dx-reverse-info/deusex-dll.md, the save directory). The screens
 // ask a directory object for the free space before it has read any
 // directory, so both go by the save path itself. The original cuts the KB
-// to an int, which wraps past 2 TB free and would refuse every save; the
-// fork holds it at the largest int, and space that cannot be read counts
+// to an int, which wraps past 2 TB free and would refuse every save;
+// DXEngine holds it at the largest int, and space that cannot be read counts
 // as that much, where the original's 0 would refuse every save too.
 int UDXGameDirectory::GetSaveFreeSpace()
 {

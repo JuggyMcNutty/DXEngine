@@ -199,7 +199,7 @@ void UMesh::Save(PackageStreamWriter* stream)
 
 	stream->WriteIndex((int)Verts.size());
 
-	if (false) // Deus Ex's packing, which Load reads, is off upstream
+	if (false) // Deus Ex's packing, which Load reads, is off, as in Surreal Engine
 	{
 		for (const vec3& v : Verts)
 		{

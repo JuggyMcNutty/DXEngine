@@ -286,12 +286,12 @@ float LightmapBuilder::GlobalLighting(UActor* light, float brightness, vec3* col
 	}
 	case LT_Blink:
 		// The original's blink goes by the lowest bit of its turn count, so
-		// by the frame: the fork's own even blink instead
+		// by the frame: DXEngine's own even blink instead
 		if (std::fmod(light->LightPhase() * (1.0 / 255.0) + time * 40.0 / std::max((int)light->LightPeriod(), 1), 2.0) >= 1.0)
 			brightness = 0.0f;
 		break;
 	case LT_Strobe:
-		// The original's strobe turns over each frame: the fork's own 5 Hz
+		// The original's strobe turns over each frame: DXEngine's own 5 Hz
 		if (std::fmod(time * 10.0, 2.0) >= 1.0)
 			brightness = 0.0f;
 		break;

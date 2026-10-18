@@ -61,7 +61,7 @@ void ULevel::Save(PackageStreamWriter* stream)
 
 	// The rest of the original's ULevel::Serialize (Engine.dll 0x1039d560),
 	// which its load of a save reads on: the level's time as a float, the
-	// first deleted actor, sixteen text blocks and the travel info. The fork
+	// first deleted actor, sixteen text blocks and the travel info. DXEngine
 	// wrote none of it, and the original's load read on into the next export.
 	ULevelInfo* levelInfo = Actors.empty() ? nullptr : UObject::TryCast<ULevelInfo>(Actors[0]);
 	stream->WriteFloat(levelInfo ? levelInfo->TimeSeconds() : 0.0f);
@@ -142,7 +142,7 @@ void ULevel::TickDeusEx(float elapsed, bool gamePaused)
 		return;
 	}
 
-	// The fork's own: with bPlayersOnly, the players and the actors with
+	// DXEngine's own: with bPlayersOnly, the players and the actors with
 	// bAlwaysTick.
 	if (engine->LevelInfo->bPlayersOnly())
 	{
@@ -309,7 +309,7 @@ void ULevel::CleanupDestroyed(bool force)
 		// until here; the original's then points at the freed decal.
 		if (UDecal* decal = UObject::TryCast<UDecal>(actor))
 			decal->DetachDecal();
-		// The original deletes it here; the fork frees it at the next
+		// The original deletes it here; DXEngine frees it at the next
 		// collection, which makes every other reference to it None (a
 		// window's, a conversation's): one deleted now would leave those
 		// pointing at freed memory.

@@ -20,7 +20,7 @@ var string CurrentMap;
 var int Phase;
 var DeusExLevelInfo dxInfo;
 // The map this run is for, from the run's ini ([DXCapture.MissionConsole]);
-// the fork's runs land on the map by their URL, the original's start at the
+// DXEngine's runs land on the map by their URL, the original's start at the
 // menu map and travel here.
 var globalconfig string TargetMap;
 var name StartFlag;

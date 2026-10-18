@@ -84,5 +84,5 @@ NameString UDeusExPlayer::SetBoolFlagFromString(const std::string& flagNameStrin
 
 void UDeusExPlayer::UnloadTexture(UObject* Texture)
 {
-	// Nothing going on here because SE never unloads textures atm. This is just here so it doesn't throw LogUnimplemented.
+	// Nothing going on here because DXEngine never unloads textures atm. This is just here so it doesn't throw LogUnimplemented.
 }

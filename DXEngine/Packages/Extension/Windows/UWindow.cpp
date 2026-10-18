@@ -917,7 +917,7 @@ bool UWindow::IsTraversable(bool checkTopmost)
 // The group's focus order, built on demand: the original keeps row- and
 // column-major sorted lists of the group's selectable windows, resorted as
 // children are configured (XTabGroupWindow::ResortWindowTables 0x10045140,
-// sorted by position, ties broken by pointer); the fork walks the group's
+// sorted by position, ties broken by pointer); DXEngine walks the group's
 // descendants and sorts the same way each time focus moves -- the same
 // windows in the same order (XTabGroupWindow::AddWindowToTables only adds
 // what SetSelectability made selectable, and IsTraversable is asked live at
@@ -1203,7 +1203,7 @@ UObject* UWindow::NewChild(UObject* NewClass, std::optional<bool> bShow)
 	// The window's type as the original's Init sets it (XTabGroupWindow::Init
 	// 0x10044d90 and XModalWindow::Init 0x10036c00): a tab group, a modal (a
 	// root child), or a generic child. Buttons are selectable from creation,
-	// as the original's class defaults have them -- the fork's choice buttons
+	// as the original's class defaults have them -- DXEngine's choice buttons
 	// measured False beside the original's True.
 	if (UObject::TryCast<URootWindow>(child))
 		child->windowType() = 3;
@@ -1723,7 +1723,7 @@ void UWindow::AskParentForReconfigure()
 
 // The original's (XWindow::ResizeChild 0x1004eab0) places the window by its
 // alignment at its preferred size -- the base Window script's answer to a
-// child's request. The fork's layout pass does, unless the parent places
+// child's request. DXEngine's layout pass does, unless the parent places
 // the window again.
 void UWindow::ResizeChild()
 {
@@ -2172,9 +2172,9 @@ void UWindow::DescendantRemoved(UWindow* descendant)
 // focus there), else as a move to the next tab group gives it, from the
 // table's first. This is how a conversation's choices light up as they
 // appear, and a menu's first button too. The original then ticks its modal
-// half (an accelerator-table rebuild the fork has no table for). The tab
+// half (an accelerator-table rebuild DXEngine has no table for). The tab
 // groups go in the order of their windows' places, which the original has
-// as soon as a window is made; the fork places windows in its layout pass,
+// as soon as a window is made; DXEngine places windows in its layout pass,
 // so it seeds the focus after that pass (RenderSubsystem::PreRenderWindows).
 void UWindow::SeedFocus()
 {

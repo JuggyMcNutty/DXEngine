@@ -27,7 +27,7 @@ protected:
 	// object must undo while the objects it points at are there to be told.
 	virtual void OnGCDestroy() {}
 
-	// Kept whatever reaches it (code: the fork never unloads a class).
+	// Kept whatever reaches it (code: DXEngine never unloads a class).
 	virtual bool IsGCRoot() const { return false; }
 
 	// Code whose references change after it is loaded (a class: scripts

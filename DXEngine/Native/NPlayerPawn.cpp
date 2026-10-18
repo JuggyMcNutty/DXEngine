@@ -71,7 +71,7 @@ void NPlayerPawn::ResetKeyboard(UObject* Self)
 {
 	// The original's ResetConfig of the input's class copies nothing in
 	// Deus Ex and has the input read the player's bindings from User.ini
-	// again (core-dll.md, configuration); the fork's binding store reads
+	// again (core-dll.md, configuration); DXEngine's binding store reads
 	// from the same ini. DeusExPlayer.TravelPostAccept calls this on every
 	// level change.
 	engine->LoadKeybindings();

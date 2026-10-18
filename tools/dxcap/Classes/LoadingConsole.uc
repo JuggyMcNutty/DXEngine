@@ -13,12 +13,12 @@
 // Its PostRender, after Super's, logs each frame drawn with a level action --
 // the action, the map, the pauser, bShowMenu, the player's flash and fog,
 // the console's TextLines, the wall clock -- and marks it for grab.py as
-// MeshConsole marks its shots; the next tick takes a fork shot of it, the
+// MeshConsole marks its shots; the next tick takes a DXEngine shot of it, the
 // last frame drawn, and logs the clock: the frame was up until then.
 // Two frames drawn before that tick (a travel's SAVING, then LOADING) share
 // the mark's number, and the shot is the last. Nothing advances while a
 // level action is up: the original ticks the console inside the paint's draw
-// too, the fork does not. It uses Save\Save0009 and Save\Current as
+// too, DXEngine does not. It uses Save\Save0009 and Save\Current as
 // SaveConsole does. Each line is logged with "DXLOADING:" in front, a beep
 // with the console's clock.
 //=============================================================================
@@ -152,7 +152,7 @@ event Tick(float Delta)
 
 	if (bShotDue)
 	{
-		// The fork's shot is of the last frame drawn: the one marked.
+		// DXEngine's shot is of the last frame drawn: the one marked.
 		Log("DXLOADING: shot " $ ShotsTaken $ " at clock " $ WallClock(P));
 		P.ConsoleCommand("shot");
 		ShotsTaken++;

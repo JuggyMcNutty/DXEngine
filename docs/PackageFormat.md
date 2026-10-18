@@ -11,7 +11,9 @@ All types are little endian.
 - `name` 8-bit text string encoded as described below
 
 ### Index Data Type
-A compressed 32 bit integer. Uses the two high bits of the first byte to indicate if its a negative number and if there's more data to read. Then each following byte the high bit is used to indicate additional bits. The following C++ code illustrates how to read it:
+A compressed 32 bit integer. Uses the two high bits of the first byte to indicate if its a negative
+number and if there's more data to read. Then each following byte the high bit is used to indicate
+additional bits. The following C++ code illustrates how to read it:
 ```c++
 int32_t ReadIndex()
 {
@@ -36,7 +38,8 @@ int32_t ReadIndex()
 ```
 
 ### Name Data Type
-In packages older than 64 a name string was a zero terminated list types. In newer versions its a `index size` followed by the string. The following C++ code illustrates how to read it:
+In packages older than 64 a name string was a zero terminated list types. In newer versions its a
+`index size` followed by the string. The following C++ code illustrates how to read it:
 ```c++
 std::string ReadString()
 {
@@ -89,7 +92,10 @@ struct FileHeader
   endif
 }
 ```
-The package format was clearly inspired by DLL files (oh what a bad idea that was). Each package has objects in it, and references to objects in other package files. The export table lists all objects in the package, while the import table lists all objects referenced by the objects in the package. The name table contains all text strings in the package.
+The package format was clearly inspired by DLL files (oh what a bad idea that was). Each package has
+objects in it, and references to objects in other package files. The export table lists all objects
+in the package, while the import table lists all objects referenced by the objects in the package.
+The name table contains all text strings in the package.
 
 ## Name Table
 ```
@@ -115,7 +121,9 @@ struct ExportTableEntry
 ```
 The list of all objects in the package.
 
-`Class` and `Base` are references to the object's class and base objects. If the reference is a positive number then it is an index to an entry in the export table. If it is a negative number then it is an entry in the import table. If the value is zero then it is null.
+`Class` and `Base` are references to the object's class and base objects. If the reference is a
+positive number then it is an index to an entry in the export table. If it is a negative number then
+it is an entry in the import table. If the value is zero then it is null.
 
 ```c++
 object GetObject(index objref)
@@ -126,11 +134,14 @@ object GetObject(index objref)
 }
 ```
 
-If `Class` is zero then the object is a class object. Class objects are the classes in UnrealScript. `Base` then points at the base class.
+If `Class` is zero then the object is a class object. Class objects are the classes in UnrealScript.
+`Base` then points at the base class.
 
-If `Class` is not zero then the object is an instance of the class. `Class` points at the class type of the object. For example, a texture has `Class` pointing at the `Texture` class object.
+If `Class` is not zero then the object is an instance of the class. `Class` points at the class type
+of the object. For example, a texture has `Class` pointing at the `Texture` class object.
 
-`Size` is the byte size of the object in the package file. `Offset` is the file offset where the object data begins.
+`Size` is the byte size of the object in the package file. `Offset` is the file offset where the
+object data begins.
 
 ## Import Table
 ```
@@ -142,9 +153,14 @@ struct ImportTableEntry
 	index ObjectName
 } ImportTable[FileHeader.ImportCount]
 ```
-This is the list of objects not present in this package. They are referenced by the `Class` and `Base` fields in the export table.
+This is the list of objects not present in this package. They are referenced by the `Class` and
+`Base` fields in the export table.
 
-The exact rules for how to look up objects here is not fully understood yet. See the `Package::GetUObject` and `Package::FindObjectReference` functions in Surreal Engine's Package.cpp for how to do it. These rules were derived from the UShock project and why they have to look like they do is still unknown. There's also some hacky stuff going on here in the Unreal Engine where the `UnrealI` and `UnrealShare` packages share objects.
+The exact rules for how to look up objects here is not fully understood yet. See the
+`Package::GetUObject` and `Package::FindObjectReference` functions in DXEngine's Package.cpp for how
+to do it. These rules were derived from the UShock project and why they have to look like they do is
+still unknown. There's also some hacky stuff going on here in the Unreal Engine where the `UnrealI`
+and `UnrealShare` packages share objects.
 
 ## Heritage Table
 ```
@@ -153,7 +169,8 @@ struct HeritageTableEntry
   byte Guid[16]
 } HeritageTable[FileHeader.HeritageCount]
 ```
-No idea what this table was about. Most likely some kind of revision history baked into the package. Don't think it is used for anything.
+No idea what this table was about. Most likely some kind of revision history baked into the package.
+Don't think it is used for anything.
 
 ## Object Format
 All objects begin with the following header:
@@ -177,7 +194,10 @@ struct ObjectHeader
   endif
 }
 ```
-There are basically three different variants of the object header. First, there's class objects, which have an empty header. Then there are normal instanced objects (i.e. a texture or a level), they begin with an unrealscript property block. And then there's savegame objects, which also stores information about the unrealscript state for the object when being saved.
+There are basically three different variants of the object header. First, there's class objects,
+which have an empty header. Then there are normal instanced objects (i.e. a texture or a level),
+they begin with an unrealscript property block. And then there's savegame objects, which also stores
+information about the unrealscript state for the object when being saved.
 
 The data for each object type follows the header.
 
@@ -273,7 +293,8 @@ else if (header.type == UPT_Bool)
 	header.boolValue = infoBit;
 }
 ```
-For some of the property types the value is stored in the header itself. For the remaining types the data follows the header:
+For some of the property types the value is stored in the header itself. For the remaining types the
+data follows the header:
 
 - UPT_Invalid: Should never be present in a package file
 - UPT_Byte: `byte` follows
@@ -337,7 +358,9 @@ struct Texture : Bitmap
   endif
 }
 ```
-The image format used by the texture is stored in the `Format` object property. If the `bHasComp` property exists and is true, then the texture contains additional data for a compressed version of the texture. The image format for the compressed version is stored in the `CompFormat` property.
+The image format used by the texture is stored in the `Format` object property. If the `bHasComp`
+property exists and is true, then the texture contains additional data for a compressed version of
+the texture. The image format for the compressed version is stored in the `CompFormat` property.
 
 ## FractalTexture Object
 ```
@@ -346,7 +369,8 @@ struct FractalTexture : Texture
   byte Pixels[Properties.UClamp * Properties.VClamp]
 }
 ```
-Not really sure what this image is used for. Maybe `IceTexture` or one of the other derived texture objects uses it for something?
+Not really sure what this image is used for. Maybe `IceTexture` or one of the other derived texture
+objects uses it for something?
 
 ## FireTexture Object
 ```
@@ -366,7 +390,9 @@ struct FireTexture : FractalTexture
   } Sparks[SparksCount]
 }
 ```
-Fire textures are updated each frame by spawning sparks as described by the sparks array (particle generators on a texture). The `Type` field of the spark sets what kind of particle effect each emitter creates.
+Fire textures are updated each frame by spawning sparks as described by the sparks array (particle
+generators on a texture). The `Type` field of the spark sets what kind of particle effect each
+emitter creates.
 
 ## Palette Object
 ```

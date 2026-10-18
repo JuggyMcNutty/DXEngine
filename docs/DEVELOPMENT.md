@@ -6,7 +6,7 @@ beside the game (`gamefiles/`), the SDK (`reference/`) and the builds (`build/`)
 command runs from this clone's root, anything else from the parent folder. How to work in the
 workspace:
 [its `DEVELOPMENT.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md).
-Keeping, running and profiling the fork, and what it changes: [`ENGINE.md`](ENGINE.md).
+Keeping, running and profiling DXEngine, and what it changes: [`ENGINE.md`](ENGINE.md).
 
 ## When a fidelity change is done
 
@@ -27,17 +27,17 @@ a run of 60 s or more that looks at what was drawn, not only at the log:
 ## Scripted runs of both engines
 
 `tools/dxcap.sh` runs the original game (under Proton's `wine`, in the development container)
-and the fork alike, each driven by a console class of the DXCapture package: UnrealScript in
+and DXEngine alike, each driven by a console class of the DXCapture package: UnrealScript in
 `tools/dxcap/Classes`, compiled by the SDK's `UCC.exe` (`reference/ReleaseSDK1112f`) into
 `build/dxcap`.
 
 ```sh
 tools/dxcap.sh setup                          # once, and again after the parent folder moves
 tools/dxcap.sh compile                        # after setup, and after changing tools/dxcap
-tools/dxcap.sh prove 01_NYC_UNATCOIsland.dx   # the fork: shots at 20 s and 60 s, exit at 65 s
-tools/dxcap.sh dxe <console> <map> [<secs>]   # the fork, straight into <map> or a server's address; - the stock console
+tools/dxcap.sh prove 01_NYC_UNATCOIsland.dx   # DXEngine: shots at 20 s and 60 s, exit at 65 s
+tools/dxcap.sh dxe <console> <map> [<secs>]   # DXEngine, straight into <map> or a server's address; - the stock console
 tools/dxcap.sh original <console> [<secs>]    # the original, from its menu map (or DXCAP_START's URL)
-tools/dxcap.sh live <address> [<secs>]        # the fork on a live server (below)
+tools/dxcap.sh live <address> [<secs>]        # DXEngine on a live server (below)
 tools/dxcap.sh dedicated <original|dxe> <actor> <map> [<secs>]  # either engine as a dedicated server
 ```
 
@@ -50,10 +50,10 @@ are gone.
   console class, the run's window size, 333networks' master server for the Join
   Internet screen (the game names GameSpy's, which is closed), no uplink, and `OpenGLDrv` for the
   original. Both engines take the game's settings from it; the game's inis are never written.
-- **`Settings.json`.** The fork's renderer, MSAA, VSync, gamma mode, `GammaCorrectScreenshots`,
+- **`Settings.json`.** DXEngine's renderer, MSAA, VSync, gamma mode, `GammaCorrectScreenshots`,
   HDR, bloom and render scale come from
   `~/.config/DXEngine/Settings.json`, an input of every dxe run that no run's ini changes,
-  or from the file `DXCAP_SETTINGS` names. Without one the fork runs on Vulkan with 4x MSAA.
+  or from the file `DXCAP_SETTINGS` names. Without one DXEngine runs on Vulkan with 4x MSAA.
 - **Results.** A run's log (`engine.log` or `DeusEx.log`), shots and recording land in
   `build/dxcap/runs/<engine>-<console>-<time>/`.
 
@@ -62,7 +62,7 @@ are gone.
 | `DX_ROOT=<dir>` | the parent folder, if not the one this clone is in |
 | `DXCAP_DISPLAY=<display>` | another X display than `$DISPLAY`, the desktop's ([the display](#the-display)) |
 | `DXCAP_WINDOW=<w>x<h>` | both engines' window that size ([the display](#the-display)): at 4:3 their views are the same ([the view's width](NATIVES.md#the-views-width)) |
-| `DXCAP_AUDIO=1` | the fork with real audio; it is silent otherwise |
+| `DXCAP_AUDIO=1` | DXEngine with real audio; it is silent otherwise |
 | `DXCAP_RECORD=1` | either engine's sound recorded into the run's `audio.wav` (a private null sink, `PULSE_SINK`, and `parecord`); the music off |
 | `DXCAP_MUSIC=1` | a `DXCAP_RECORD=1` recording with the music on, at the game's `MusicVolume` |
 | `DXCAP_RENDERER=D3D` | the original through `D3DDrv`, the game's own renderer, not `OpenGLDrv` |
@@ -70,8 +70,8 @@ are gone.
 | `DXCAP_PROTON=<name>` | another Proton build in `~/.local/share/Steam/compatibilitytools.d` than `Proton-CachyOS Latest` |
 | `DXCAP_CONFIG="<key>=<value> ..."` | those keys in the run's console class's section of the ini, as `DXCAP_MISSION_MAP` gives `TargetMap` (`LightConsole`'s `Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`, `Macro`; `GlassConsole`'s `Pick`, `GlassName`, `View`, `Behind`; `FlushConsole`'s `Pick`, `DoorName`, `View`, `Angle`; `FaceConsole`'s `MeshOf`, `Ahead`, `Distance`; `MeshConsole`'s `LODBias`, `NoDetail`; `LoopConsole`'s `Jumps`; `CallConsole`'s `Depth`; `ReturnConsole`'s `Items`; `SaveConsole`'s and `LoadConsole`'s `Via`; `LoadConsole`'s `Open`) |
 | `DXCAP_USERINI=<file>` | a run's `User.ini` made from that file, in place of the game's (`IniConsole`'s keys given twice) |
-| `DXCAP_USERINI_FIRST=1` | the run's inis named `USERINI=` then `INI=`: on the original's command line, and on the fork's by `--cmdline` in place of `--ini` and `--userini` ([the command line](NATIVES.md#the-command-line)) |
-| `DXCAP_MISSION_MAP=<map>` | the map a run's console travels to, its `TargetMap` (`MissionConsole`'s, `StaticConsole`'s, `WadeConsole`'s, `ScreenConsole`'s, `PerfConsole`'s, `EndgameConsole`'s, `VisibleConsole`'s, `MoverConsole`'s, `LightConsole`'s, `GlassConsole`'s, `FlushConsole`'s): an original run starts at its menu map, a fork run at the map it is given |
+| `DXCAP_USERINI_FIRST=1` | the run's inis named `USERINI=` then `INI=`: on the original's command line, and on DXEngine's by `--cmdline` in place of `--ini` and `--userini` ([the command line](NATIVES.md#the-command-line)) |
+| `DXCAP_MISSION_MAP=<map>` | the map a run's console travels to, its `TargetMap` (`MissionConsole`'s, `StaticConsole`'s, `WadeConsole`'s, `ScreenConsole`'s, `PerfConsole`'s, `EndgameConsole`'s, `VisibleConsole`'s, `MoverConsole`'s, `LightConsole`'s, `GlassConsole`'s, `FlushConsole`'s): an original run starts at its menu map, a dxe run at the map it is given |
 | `DXCAP_START=<url>` | an original run started there, not at its menu map: its command line's first word, with `-hax0r` ([running the original](#running-the-original)); `?loadgame=9` for `StartConsole` |
 | `DXCAP_SETTINGS=<file>` | a dxe run's `Settings.json`, in place of `~/.config/DXEngine`'s (through a `HOME` of the run's own; the caches stay the usual ones) |
 | `DXCAP_USERDIR=<dir>` | a dxe run's `--userdir`: its `Settings.json`, log, shots and a class's own config file there ([running it](ENGINE.md#running-it)) |
@@ -106,7 +106,7 @@ the run. *Either*: one engine on each side of a pair.
 | `FaceConsole` | both | a character's mesh close up (`MeshOf`, `Ahead`, `Distance`) | `DXFACE:` | `shots.py <original run> <dxe run>` |
 | `MeshConsole` | both | meshes lit on the pier (`LODBias`, `NoDetail`) | `DXMESH:` | `shots.py` |
 | `LightConsole` | both | a light of one effect on `TargetMap` (`Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`); the spot's texture as its own macro texture (`Macro`) | `DXLIGHT:` | `shots.py` |
-| `FlashConsole` | both | the screen flash | `DXFLASH:` | the fork at `DXCAP_FPS=60`: above some 105 frames a second the game's `ViewFlash`, which drops a fog under 0.019 each frame, never builds the glow's 0.2 |
+| `FlashConsole` | both | the screen flash | `DXFLASH:` | DXEngine at `DXCAP_FPS=60`: above some 105 frames a second the game's `ViewFlash`, which drops a fog under 0.019 each frame, never builds the glow's 0.2 |
 | `GlassConsole` | both | a glass mover on `TargetMap`, and what is behind it (`Pick`, `GlassName`, `View`, `Behind`) | `DXGLASS:` | `shots.py` |
 | `FlushConsole` | both | a door on `TargetMap` slid half into the flat wall beside it, its face in the wall's plane (`Pick`, `DoorName`, `View`, `Angle`) | `DXFLUSH:` | `shots.py` |
 | `HeldConsole` | both | what a pawn holds | `DXHELD:` |  |
@@ -141,8 +141,8 @@ the run. *Either*: one engine on each side of a pair.
 | `SettingsConsole` | both | every menu setting stepped, saved and read back | `DXSET:` |  |
 | `DecalConsole` | both | the Display menu's Decals | `DXDECAL:` |  |
 | `ScreenConsole` | both | the game's screens on `TargetMap`, each window tree | `DXSCREEN:` |  |
-| `ScrollConsole` | both | a scroll area and a slider under the mouse | `DXSCROLL:` | with `tools/dxcap/timelines/scroll.txt` on the fork |
-| `ClickConsole` | both | a button, a choice and a checkbox clicked; a menu dragged; Alt accelerators | `DXCLICK:` | with `tools/dxcap/timelines/clicks.txt` on the fork |
+| `ScrollConsole` | both | a scroll area and a slider under the mouse | `DXSCROLL:` | with `tools/dxcap/timelines/scroll.txt` on DXEngine |
+| `ClickConsole` | both | a button, a choice and a checkbox clicked; a menu dragged; Alt accelerators | `DXCLICK:` | with `tools/dxcap/timelines/clicks.txt` on DXEngine |
 | `PadConsole` | dxe | the player's place, speed, facing and physics every half second, as a pad moves it | `DXPAD:` | with `tools/dxcap/timelines/pad.txt` |
 | `EditConsole` | both | a script's text calls on an edit field, a text window and a button | `DXEDIT:` |  |
 | `SizeConsole` | both | the root's size and scale; the size a new window takes | `DXSIZE:` |  |
@@ -150,10 +150,10 @@ the run. *Either*: one engine on each side of a pair.
 | `PerfTurnConsole` | both | `PerfConsole` with the view turning | `DXPERF:` | the same |
 | `BeltConsole` | both | the object belt | `DXBELT:` |  |
 | `FrobConsole` | both | the frob highlight round two decorations | `DXFROB:` |  |
-| `LootConsole` | both | two carcasses searched; the inventory grid | `DXLOOT:` | with `tools/dxcap/timelines/loot-drags.txt` on the fork |
+| `LootConsole` | both | two carcasses searched; the inventory grid | `DXLOOT:` | with `tools/dxcap/timelines/loot-drags.txt` on DXEngine |
 | `CarcassConsole` | both | what carcasses hold, their search, the looted weapon | `DXCARC:` |  |
 | `ChoiceConsole` | both | a conversation's choices and their focus | `DXCHOICE:` |  |
-| `KeypadConsole` | both | the root's focus round the keypad; a stray key release | `DXKEYPAD:` | with `tools/dxcap/timelines/stray-release.txt` on the fork |
+| `KeypadConsole` | both | the root's focus round the keypad; a stray key release | `DXKEYPAD:` | with `tools/dxcap/timelines/stray-release.txt` on DXEngine |
 | `BorderConsole` | both | `GC.DrawBorders` on the inventory screen | `DXBORDER:` |  |
 | `ColorsConsole` | both | `DrawBorders` on the Colors screen | `DXCOLORS:` |  |
 | `RotatorConsole` | both | the rotator and vector conversions | `DXROT:` |  |
@@ -171,7 +171,7 @@ the run. *Either*: one engine on each side of a pair.
 | `SoundConsole` | both | sounds behind a wall, a reverb zone, beeps from three sides and the root window | `DXCAP:` | `sound.py <run>`, with `DXCAP_RECORD=1` |
 | `SkipConsole` | both | a conversation's lines skipped | `DXSKIP:` | `skip.py <run> [<run> ...]`, with `DXCAP_RECORD=1` |
 | `SaveConsole`, `LoadConsole` | either | a save to slot 9 with a goal, a note and a key, and its load (`Via`: the save after a map exit's travel; `Open=<url>`: the load by the console's `open <url>`, as `?loadgame=9`) | `DXSAVE:` |  |
-| `StartConsole` | either | a run started on slot 9's save (`?loadgame=9`: the fork's `<map>`, the original's `DXCAP_START`), logged as `LoadConsole` logs it | `DXSAVE:` |  |
+| `StartConsole` | either | a run started on slot 9's save (`?loadgame=9`: DXEngine's `<map>`, the original's `DXCAP_START`), logged as `LoadConsole` logs it | `DXSAVE:` |  |
 | `LoadingConsole` | both | the screen while a map loads or a level is saved: a load, a travel within a mission, a save and its load; a beep a second before each | `DXLOADING:` | the two logs' lines diffed; `shots.py`, at 4:3; `sound.py --levels` and `--onsets <run>`, with `DXCAP_RECORD=1 DXCAP_MUSIC=1`: the music through each load |
 | `NetConsole` | both | the script's sockets, a master server's list | `DXCAP:` |  |
 | `ServeConsole` | either | a listen server, its players and beeps; it exits after 290 s | `DXCAP:` | `netquery.py`, `fakemaster.py`, `netrelay.py` |
@@ -188,7 +188,7 @@ the run. *Either*: one engine on each side of a pair.
   `Save0009`, the hub save loads in both engines; with the quick save there the original never
   finishes its run.
 - `ConfigConsole` writes `DXCapConfig.ini` into the game's `System` folder, the original's into
-  its view (through the view's link when the file is there), the fork's with `DXCAP_USERDIR`
+  its view (through the view's link when the file is there), DXEngine's with `DXCAP_USERDIR`
   into that folder: delete it after.
 - In `VisibleConsole`'s logs the original numbers the player and its shadow one higher: its menu
   map made the first.
@@ -207,7 +207,7 @@ go through the window itself (`DXCAP_BACKEND=SDL3`'s or `SDL2`'s), its naming of
 and `pad` and `padaxis` through its own virtual pad, the one pad such a run sees (the harness sets
 `SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT` to its ids). The original takes no timeline, and the
 desktop's Xwayland passes over the pointer moves XTEST sends, so what a timeline's mouse and keys
-do is checked on the fork alone.
+do is checked on DXEngine alone.
 `tools/dxcap/timelines` has the map loads that show what a session keeps of the levels it
 left, both from Liberty Island, ten loads of each map 25 s apart, then an exit:
 
@@ -265,7 +265,7 @@ console command (`shot`, `exit`, ...). The timeline is `DXCAP_TIMELINE`'s file, 
 walk: stand 5 s, walk forward 5 s (`W`), stand, shots at the stops, out at 25 s. Each second of
 the game the player's place and every other pawn's are logged (`DXLIVE:`), and each correction the
 server sends the player (`ClientAdjustPosition`), how far it moved it; a run dropped to the menu
-exits. A join downloads what the fork lacks into the game's `Cache`. Which servers are up, and how
+exits. A join downloads what DXEngine lacks into the game's `Cache`. Which servers are up, and how
 full: `https://master.333networks.com/json/deusex`. Pick an empty server. Most run a mod (MTL,
 ANNA and others) whose player class replaces the stock moves and corrections, its names hidden:
 for the stock game's, serve the original here as for the [net tests](#net-tests)
@@ -288,14 +288,14 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
   `distrobox-host-exec kscreen-doctor --dpms on` wakes them, and
   `distrobox-host-exec kde-inhibit --power --screenSaver sleep <seconds>` keeps them on that long.
 - **Gamma.** The original's frames carry its gamma ramp, 1.5 at the runs' Brightness of 0.6, the
-  same through `D3DDrv` (`DXCAP_RENDERER=D3D`). The fork's `shot` reads the frame before the
-  present pass applies gamma (`GammaCorrectScreenshots` off), so a fork shot takes that gamma
+  same through `D3DDrv` (`DXCAP_RENDERER=D3D`). DXEngine's `shot` reads the frame before the
+  present pass applies gamma (`GammaCorrectScreenshots` off), so a DXEngine shot takes that gamma
   before its brightness is compared ([brightness](NATIVES.md#brightness)):
   `tools/dxcap/shots.py <original run> <dxe run>` puts it through the gamma and gives,
-  for each pair of shots, the fork's brightness over the original's, block of 16 pixels by
+  for each pair of shots, DXEngine's brightness over the original's, block of 16 pixels by
   block (`--blocks` prints the grid) and over the frame or a region (`--region x,y,w,h`).
-- **The presented frame.** A fork shot is the scene before the present pass, so the
-  render-scale upscale and the gamma do not show in it. `grab.py` reads the fork's window too,
+- **The presented frame.** A DXEngine shot is the scene before the present pass, so the
+  render-scale upscale and the gamma do not show in it. `grab.py` reads DXEngine's window too,
   by its name, `Deus Ex (v1112fm) - DXEngine`; at a render scale under 1 the mark's blocks
   are scaled with the frame, and the shot numbers it reads from them are wrong.
 - A renderer that fails to start falls back to `SoftDrv` without a word, its frames passing for
@@ -345,7 +345,7 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
 
 Both engines draw on the desktop's X display, Xwayland (`$DISPLAY`; `DXCAP_DISPLAY` names
 another), each in a 1280x720 window (`DXCAP_WINDOW` another size): the original through Wine's X11
-driver, the fork through its window's X11 backend (`DXE_DISPLAY_BACKEND=X11`,
+driver, DXEngine through its window's X11 backend (`DXE_DISPLAY_BACKEND=X11`,
 `WAYLAND_DISPLAY` unset, `SDL_VIDEODRIVER=x11`). One X server and the GPU serve both, so their
 runs compare; no run uses a hidden display, as runs on different displays do not compare. The
 development machine is given over to it: windows come and go on its desktop.
@@ -353,7 +353,7 @@ development machine is given over to it: windows come and go on its desktop.
 ### Measuring both engines
 
 `PerfConsole` times either engine's frames the same way, and `DXCAP_PERF=1` samples its main
-thread meanwhile. Both draw through OpenGL with no vsync, at 1280x720, the fork without MSAA:
+thread meanwhile. Both draw through OpenGL with no vsync, at 1280x720, DXEngine without MSAA:
 
 ```sh
 DXCAP_NOVSYNC=1 DXCAP_PERF=1 tools/dxcap.sh original PerfConsole 150
@@ -365,18 +365,18 @@ tools/perf/frame-report.py <original run> <dxe run>
 - **The windows** are the wall clock's, the level's `Hour` to `Millisecond`, which both engines
   set from the local time each tick: each `DXPERF:` line gives a window's span in milliseconds of
   the day and the frames in it. The total line gives frames a second, the mean, p50, p99 and the
-  worst frame. Started at `DX.dx`, the fork travels to the map as the original does.
+  worst frame. Started at `DX.dx`, DXEngine travels to the map as the original does.
 - **The original's own split**: its `Engine` object's `GameCycles` (the game's tick) and
-  `ClientCycles` (the frame drawn), read each frame where they are not 0 (the fork keeps neither),
+  `ClientCycles` (the frame drawn), read each frame where they are not 0 (DXEngine keeps neither),
   are each line's `game` and `client`.
 - **`frame-report.py`** keeps the samples inside the windows and gives the main thread's time a
   frame by area and by function, and its cycles and instructions a frame. The original's
   functions are each DLL's nearest export below the sample (its base from `maps.txt`):
   `Core.dll` and `Engine.dll` export most of theirs, `Render.dll` 97 of them, so names in it
-  are only near. The fork's are perf's own symbols. `--mean` averages each engine's runs.
+  are only near. DXEngine's are perf's own symbols. `--mean` averages each engine's runs.
 - **One run at a time**, nothing else running; three of each, alternating, before a number is
   taken. The machine's speed drifts from run to run by 10% and more, its CPU at full clock
-  (its power and memory clocks, the scene's own changes): a change to the fork is measured by
+  (its power and memory clocks, the scene's own changes): a change to DXEngine is measured by
   alternating runs of the two builds (`DXCAP_ENGINE`), and by the time of the functions it
   changes, which the report gives.
 
@@ -392,7 +392,7 @@ that crashes leaves a core, which systemd keeps.
 xdotool search --name 'Critical Error'    # its <window>
 xdotool windowfocus --sync <window>
 xdotool key Return
-# The fork's core: the functions on the stack (the Release build has no lines)
+# DXEngine's core: the functions on the stack (the Release build has no lines)
 coredumpctl dump <pid> --output=<scratchpad>/core
 gdb -batch -ex bt <parent>/build/linux-x86_64/engine/DXEngine <scratchpad>/core
 # Lines: a copy with symbols (some two and a half minutes), run with the last dxe run's ini

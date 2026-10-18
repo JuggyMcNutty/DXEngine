@@ -35,7 +35,7 @@ namespace
 		connection->State = ConnectionState::Closed;
 	}
 
-	// A value the fork has no accessor for, found by name once; none when
+	// A value DXEngine has no accessor for, found by name once; none when
 	// the class has no such property.
 	template<typename T>
 	T* FindValue(UObject* obj, const char* name, UProperty*& prop, bool& looked)

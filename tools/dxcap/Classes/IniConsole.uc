@@ -5,7 +5,7 @@
 // each of these given a second time, another value, after the first:
 // [DefaultPlayer]'s Name, Class and Team, and [Engine.PlayerPawn]'s
 // MouseSensitivity. Logged: GetDefaultURL's Name, Class and Team; the
-// player's MouseSensitivity, which the fork reads again by hand as it spawns
+// player's MouseSensitivity, which DXEngine reads again by hand as it spawns
 // a player, and the class default's; the player's name and the level's URL;
 // then Team written with UpdateURL and read back with GetDefaultURL, a write
 // meeting the line a read takes.

@@ -15,7 +15,7 @@
 // apart, each marked for the original's grabber; then exit. With ShotAt
 // set, a changing light is shot in both engines at that moment of the
 // level's time: the level's clock is slowed to a tenth 0.3 s before it and
-// to 0.0025 from it, the least the fork's clock takes, and the shots are
+// to 0.0025 from it, the least DXEngine's clock takes, and the shots are
 // timed by the wall clock (the level's Hour to Millisecond), which the
 // slowed clock does not stretch. Every light reaching the spot is logged
 // too. Pick -1 is a census of the map instead: every light with an effect,

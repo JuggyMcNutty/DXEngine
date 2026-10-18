@@ -68,10 +68,10 @@ void NActor::RegisterFunctions()
 	RegisterVMNativeFunc_1("Actor", "Sleep", &NActor::Sleep, 256);
 	// A latent action is saved as the number of the native that polls it,
 	// as the original's state frame keeps it: execPollSleep is 384 and
-	// execPollFinishAnim 385 (Engine.dll registers them so). The fork had
-	// 257 and 262 (SetCollision's), so the original's load of a fork save
+	// execPollFinishAnim 385 (Engine.dll registers them so). DXEngine had
+	// 257 and 262 (SetCollision's), so the original's load of a DXEngine save
 	// ran no native for a sleeping or animating actor and stopped with
-	// "Unknown code token", and the fork's of an original save cut the
+	// "Unknown code token", and DXEngine's of an original save cut the
 	// sleep or the animation short.
 	RegisterLatentAction(384, LatentRunState::Sleep);
 	RegisterVMNativeFunc_6("Actor", "Spawn", &NActor::Spawn, 278);
@@ -457,7 +457,7 @@ static bool CalledFromSimulated()
 // Deus Ex's sounds are heard as the original's are (dx-reverse-info
 // engine-dll.md, sounds): each hearer the native names is asked
 // (UActor::CheckHearSound), and the hearer's ClientHearSound plays it -- in a
-// net game on the remote player's client. The ID packs the fork's number for
+// net game on the remote player's client. The ID packs DXEngine's number for
 // the actor (UDXEngineAudioDevice::SoundId).
 void NActor::PlaySound_Deus(UObject* Self, UObject* Sound, std::optional<uint8_t> Slot, std::optional<float> Volume, std::optional<bool> bNoOverride, std::optional<float> Radius, std::optional<float> Pitch, int& ReturnValue)
 {

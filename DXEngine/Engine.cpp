@@ -184,7 +184,7 @@ void Engine::Run()
 		OpenWindow();
 
 		// -nosound: no sound and no music, as the original's engine makes no
-		// audio subsystem then. The fork keeps its device, on OpenAL Soft's
+		// audio subsystem then. DXEngine keeps its device, on OpenAL Soft's
 		// null driver, which plays nothing.
 		if (OriginalCommandLine::Get().Param("nosound"))
 		{
@@ -533,7 +533,7 @@ void Engine::ApplyRunOnlySettings()
 
 	// -nohard -noddraw, safe mode's "Run the game in a window": in the
 	// original, the software renderer with no DirectDraw for its fullscreen
-	// modes, so a window. The fork has no software renderer; the window is
+	// modes, so a window. DXEngine has no software renderer; the window is
 	// what it keeps of the two.
 	if (original.Param("nohard") && original.Param("noddraw") && client->StartupFullscreen)
 	{
@@ -1247,7 +1247,7 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 
 // Deus Ex's ShowMainMenu sets the travel variable bIgnoreNextShowMenu when
 // Escape (or a pad's START) skips the intro, to swallow a second menu event
-// the original engine delivered for that same press. Surreal Engine delivers
+// the original engine delivered for that same press. DXEngine delivers
 // one, so the flag would carry into the first level and eat the player's
 // first real attempt to open the menu. Nothing else sets it; clear it once a
 // level is running.
@@ -1609,7 +1609,7 @@ void Engine::SaveCurrentLevel(int32_t slot)
 
 // The level's own URL as the original's is when saved: the one it was
 // entered by -- the map named as travelled to, its options and port --, where
-// the fork's kept what the map file had (Index.dx).
+// DXEngine's kept what the map file had (Index.dx).
 void Engine::SetLevelURLForSave() const
 {
 	if (!Level || !LevelInfo)
@@ -1651,7 +1651,7 @@ void Engine::LoginPlayer()
 }
 
 // A net game's login: in Deus Ex a name the player never chose -- none, or
-// the game's stock "Player" -- is the project's own, so the fork's players show
+// the game's stock "Player" -- is the project's own, so DXEngine's players show
 // as such on a server. Single player keeps the game's.
 void Engine::SetMultiplayerName(UnrealURL& url)
 {
@@ -2160,7 +2160,7 @@ std::string Engine::ParseClassName(std::string className)
 	NameString sectionName = className.substr(4, pos - 4);
 	NameString keyName = className.substr(pos + 1);
 
-	// Override the ini file for things that are internal in Surreal Engine
+	// Override the ini file for things that are internal in DXEngine
 	if (sectionName == "Engine.Engine")
 	{
 		if (keyName == "GameRenderDevice" || keyName == "WindowedRenderDevice")
@@ -2946,7 +2946,7 @@ void Engine::Key(std::string key)
 // When the UI takes a key, every key the input holds down is released, so
 // nothing stays held under a menu (extension-dll.md, the engine and the
 // input). The original's XInputExt runs each held key's release binding; the
-// buttons and axes tracked here are the fork's equivalent of those bindings.
+// buttons and axes tracked here are DXEngine's equivalent of those bindings.
 void Engine::ReleaseHeldInputKeys()
 {
 	if (Frame::Halted || !viewport || !viewport->Actor())
@@ -3110,7 +3110,7 @@ bool Engine::ExecCommand(const Array<std::string>& args)
 	return false;
 }
 
-// Words of the original's input object (UInput::Exec) that the fork does
+// Words of the original's input object (UInput::Exec) that DXEngine does
 // not carry out, and OnRelease, whose line the original runs as the key is
 // released (engine-dll.md, a key's binding): never an engine command.
 static bool IsInputSystemCommand(const std::string& command)

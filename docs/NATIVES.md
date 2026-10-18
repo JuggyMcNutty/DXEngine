@@ -1,14 +1,14 @@
 # Deus Ex against the original
 
-What the fork does for Deus Ex, feature by feature, each against the
+What DXEngine does for Deus Ex, feature by feature, each against the
 original: its write-up in dx-reverse-info, the console that compares the two
-engines, what matches, and what still differs. What else the fork changes:
-[what the fork changes](ENGINE.md#what-the-fork-changes).
+engines, what matches, and what still differs. What else it changes:
+[what it changes from Surreal Engine](ENGINE.md#what-it-changes-from-surreal-engine).
 
 ## How it is known
 
 - **The audit**, [`tools/natives_audit.py`](../tools/natives_audit.py):
-  every native the game's packages declare against the fork's -- a stub, a
+  every native the game's packages declare against DXEngine's -- a stub, a
   partial or empty one, an iterator that makes none, or none registered --
   with its
   call sites in the game's scripts; `--runs` adds which stubs a run's log
@@ -25,7 +25,7 @@ engines, what matches, and what still differs. What else the fork changes:
 
 ## Stops the game
 
-Differs. An error the fork does not catch -- a script error, an unknown
+Differs. An error DXEngine does not catch -- a script error, an unknown
 native, a failed save -- exits the engine with 1, which the launcher takes
 for a crash. No map or action is known to reach one; the audit lists the
 natives whose call would.
@@ -63,9 +63,9 @@ holds -- an object of a transient class is not written (`LoadConsole` over
 either engine's saves and the original's hub save, `ReturnConsole`). The
 console's `open ?loadgame=N` loads the slot as the game's own `LoadGame`
 does (`LoadConsole` with `Open`); a slot that is no number loads nothing in
-either, the fork reading it as slot 0. Differs: a bare `?loadgame`, which
+either, DXEngine reading it as slot 0. Differs: a bare `?loadgame`, which
 the original's browse takes for no load, its menu map opened again, loads
-nothing in the fork's. Before
+nothing in DXEngine's. Before
 a level is saved into `Current`, the augmentations, skills and flag base
 that travel with the player go from it, a decoration in its hands too
 (`PruneTravelActors`; `ReturnConsole`). The
@@ -100,10 +100,10 @@ the quick save's too, and a travel within a mission shows `SAVING`, then
 within 1% of the original's). Differs:
 
 - The word sits a pixel lower: the console centres it at a half pixel for an
-  odd size, which the original's canvas truncates and the fork's draws as
+  odd size, which the original's canvas truncates and DXEngine's draws as
   it is.
 - The original's draw ticks the console (`UConsole::PreRender`), so its
-  painted frame ticks it once more; the fork's paint does not.
+  painted frame ticks it once more; DXEngine's paint does not.
 - No frame shows `PRECACHING`: the original's shows it only with its
   driver's precache on, which the game's ini has off.
 
@@ -132,7 +132,7 @@ Matches the original's parser
 ([`DeusExText.dll`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusextext-dll.md)),
 but for one quirk left out on purpose: at a comment (`NOTE`, `GOAL`,
 `COMMENT`) with no end tag the original reads on past the text's end, so
-`09_EmailMenu_ShipOps`'s listing depends on the memory after it. The fork
+`09_EmailMenu_ShipOps`'s listing depends on the memory after it. DXEngine
 stops at the end, hiding the rest.
 
 ## Every NPC
@@ -158,7 +158,7 @@ Matches the original
 ([the AI event system](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-ai-event-system)),
 saved in its layout
 ([saved](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#saved)):
-each engine loads the other's saves with every listener. The fork also reads
+each engine loads the other's saves with every listener. DXEngine also reads
 the manager as its own older saves lay it out.
 
 ### Moving: wandering and tactical movement
@@ -172,8 +172,8 @@ Matches the original
 stops there ends where the original's does, within a unit and a half, though
 25 to 110 units short of its distance: the console counts from its first
 line, 2 s in by its own clock, which takes in the island's first frame, the
-load's, longer in the original's ([a long frame](#small)): by then the
-fork's pawns are further along their first walk. `ReachConsole`'s
+load's, longer in the original's ([a long frame](#small)): by then
+DXEngine's pawns are further along their first walk. `ReachConsole`'s
 144 answers, twelve pawns each asked from its home spot, are the original's
 to the unit. A dead robot frozen in `Dying` for good is the original's own
 behaviour, and the rest of a death is alike too (`DeathConsole`).
@@ -200,7 +200,7 @@ the vision augmentation draws through a wall stays drawn while it is in view
   A buffer per zone would change no test in 15,500 at the starts of Liberty
   Island, UNATCO HQ and Battery Park: the walls round a portal are drawn
   before what lies beyond it.
-- **Drawing** is the fork's own box test, the depth buffer hiding the rest;
+- **Drawing** is DXEngine's own box test, the depth buffer hiding the rest;
   only whether an actor counts as drawn is the original's.
 
 ## On screen
@@ -213,7 +213,7 @@ Differs by choice: on a screen wider than 4:3 the view keeps the height a
 4:3 screen shows and sees more at the sides (Hor+), where the original keeps
 its field of view across the width and loses height. The game's scenes are
 framed for 4:3: at 16:9, with the original's angle, the intro's "Deus Ex"
-under the logo falls off the bottom; with the fork's it shows. At 4:3 and
+under the logo falls off the bottom; with DXEngine's it shows. At 4:3 and
 narrower the view is the original's. The scene, the coronas, what the HUD
 draws in 3D, the frob highlight's box and the meshes' level of detail
 ([mesh detail](#mesh-detail)) all take the one angle (`HorPlusFovAngle`), so
@@ -229,7 +229,7 @@ Matches the original
 and `ParticleConsole`'s particles rise, fall, grow and fade as the
 original's: its smoke's light row by row 6 to 17% over `D3DDrv`'s, its puffs
 under gravity in the same rows. Differs in the occlusion: the original
-occludes each item's sprite through its span buffer; the fork clips items to
+occludes each item's sprite through its span buffer; DXEngine clips items to
 the view (and a portal's spans) before its BSP walk and leaves the rest to
 the depth buffer. The look is the same; a hidden item's cost is paid.
 Whether the proxy counts as drawn is the original's.
@@ -294,7 +294,7 @@ shooting both engines at one moment of it (`ShotAt`), has
 are the reading's alone: the stock views of the searchlight, non-incidence
 and the rotor come out the same under other shapes too, and no stock light
 shows a fast wave (99_Endgame2's one is dark), shock, shell or interference.
-Still the fork's own:
+Still DXEngine's own:
 
 - **Light maps**
   - floats, converted on the CPU for a GPU that cannot filter them (the
@@ -306,14 +306,14 @@ Still the fork's own:
     original's cache hashes and first checks the item it found last;
   - a still-shaped animated light re-run, where the original keeps it as its
     shadowed light and rescales it;
-  - blink and strobe on the fork's timing; the original's blink goes by the
+  - blink and strobe on DXEngine's timing; the original's blink goes by the
     lowest bit of its turn count and its strobe turns over each frame, both
     at the frame rate;
   - a flicker drawn at most 25 times a second;
   - `LE_CloudCast`, the plain shape, built once, where the original re-runs
     it every frame (its table counts the shape as changing): the same light.
 - **Meshes**
-  - the moving lights come from the fork's light tree near the actor, not
+  - the moving lights come from DXEngine's light tree near the actor, not
     the leaf's own list;
   - the `AmbientGlow` pulse runs on the level's time, the original's on the
     viewport's.
@@ -330,12 +330,12 @@ curve) takes the same product. The shaders take nothing off a texture's
 colours (`NO_DARKCLAMP`), as `D3DDrv` draws 32-bit textures on any
 display of 24 bits or more, on every device: `MeshConsole`'s shots under
 Vulkan, with descriptor indexing and without (the Smart Pro's), are within
-0.2% of the GL device's. How a fork shot meets the original's frames:
+0.2% of the GL device's. How a DXEngine shot meets the original's frames:
 [scripted runs](DEVELOPMENT.md#scripted-runs-of-both-engines). Differs:
 
 - `MeshConsole`'s Liberty Island pier, where nothing is in hand, is 1.6%
   under `D3DDrv`'s frames with the detail textures on, and 0.7% over with
-  them off in both (`NoDetail`): the fork draws the pier's detail texture,
+  them off in both (`NoDetail`): DXEngine draws the pier's detail texture,
   the original none ([the menus' settings](#the-menus-settings)). Its crate,
   box and barrel are within 0.8%, Paul Denton a level over, and
   `LaserConsole`'s corridor within 0.9%.
@@ -381,13 +381,13 @@ original's 8.5. Differs (`VisibleFrame::Draw`, `VisibleMesh`,
   surfaces. The original files their polygons into the level's BSP and
   drops what lands in solid, a polygon in a wall's plane filed in front of
   the wall's. So one flush with a wall shows over it in both, by the step
-  in the fork: `FlushConsole`'s pocket door (Liberty Island's
+  in DXEngine: `FlushConsole`'s pocket door (Liberty Island's
   `DeusExMover12` slid half into the flat wall beside it) shows the door,
   head on and from 1,200 units at 75 degrees. No device here fights there
   without the step (GL and Vulkan on the desktop, Vulkan on the Smart Pro:
   the shots within 15 pixels with it and without); the step keeps the
   order whatever a GPU's rounding. A mover hidden after it is filed stays
-  drawn there in the original, where the fork stops drawing it
+  drawn there in the original, where DXEngine stops drawing it
   (`GlassConsole`); no stock script hides a mover.
 
 ### Fire, water and ice textures
@@ -406,10 +406,10 @@ Differs:
 - **The pace**
   ([stepping](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/fire-dll.md#stepping)):
   a texture with no `MaxFrameRate`, as most of Deus Ex's have, steps every
-  frame in the original, faster at a higher frame rate; the fork steps it at
+  frame in the original, faster at a higher frame rate; DXEngine steps it at
   most 60 times a second, the original's pace at 60 frames.
 - **The wave lighting table** can be one step off at a single entry, in 3 of
-  200 settings: the fork takes the C library's cosine, the original the
+  200 settings: DXEngine takes the C library's cosine, the original the
   x87's, and they differ in the last bit.
 
 ### Head turns and lip sync: blend animations
@@ -496,11 +496,11 @@ from the original's code:
   The root marks every press and release: a press of a key already down is
   a repeat, and a release of a key or button not down is taken while a
   modal shows and goes to no window (`KeypadConsole` with
-  `stray-release.txt`, the fork's alone; with no modal up the game gets it).
+  `stray-release.txt`, DXEngine's alone; with no modal up the game gets it).
   `IsKeyDown` reads those marks.
   `LootConsole` searches two carcasses alike in both engines; the keys and
-  the drags between the searches (`loot-drags.txt`) are a timeline's, so the
-  fork's alone, as are `ScrollConsole`'s clicks, drags and wheel
+  the drags between the searches (`loot-drags.txt`) are a timeline's, so
+  DXEngine's alone, as are `ScrollConsole`'s clicks, drags and wheel
   (`scroll.txt`) and `ClickConsole`'s clicks, drag and keys (`clicks.txt`).
 - **Accelerators**: a text's `|&` marks its window's key while the text is
   its accelerator -- every text window's from its start, but a large text
@@ -540,16 +540,16 @@ Differs:
   cover the whole view. Its render time: [out of sight](#out-of-sight).
 - **Keys**, read from both codes: the keyboard counts as grabbed while a
   modal shows, where the original counts its grabs (every modal grabs while
-  shown). With Alt down the fork takes a letter or digit from the key's
+  shown). With Alt down DXEngine takes a letter or digit from the key's
   press, not from the characters the platform sends, and it forgets the
   keys held as its window loses the keyboard.
-- **Keyboard focus**: the fork places windows in its layout pass, after the
+- **Keyboard focus**: DXEngine places windows in its layout pass, after the
   level's tick, and seeds the first focus there; the original places them as
   they are made and seeds it at its windows' next tick, so a conversation's
   first choice has the focus a frame sooner (`ChoiceConsole`). Read from
-  both codes, the tables pass no window over as clipped away, the fork
+  both codes, the tables pass no window over as clipped away, DXEngine
   keeping no clip rectangles.
-- **Layout** (`MenuConsole`, `ScreenConsole`, `SizeConsole`): the fork lays
+- **Layout** (`MenuConsole`, `ScreenConsole`, `SizeConsole`): DXEngine lays
   windows out once a frame, the original as each asks, so a window made this
   frame is 10 by 10 until the next; a window that shows sits at the margins
   `SetPos` gives it at once, where a parent that places it again does so the
@@ -582,10 +582,10 @@ and the ones on the walls are not drawn
 ([a frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-frame);
 `DecalConsole`). Differs:
 
-- **Screen Resolution** offers the fork's sizes, not the display's modes: in
+- **Screen Resolution** offers DXEngine's sizes, not the display's modes: in
   a window the common sizes from 640x480 that fit the screen, with the
   window's own and the screen's, a choice resizing the window and kept as
-  its size; full screen, the screen's size alone, the fork's full screen
+  its size; full screen, the screen's size alone, DXEngine's full screen
   never changing the display's mode
   ([fullscreen under SDL](ENGINE.md#running-on-our-devices)).
 - **Detail Textures** draws or leaves the world's detail textures in one
@@ -600,7 +600,7 @@ and the ones on the walls are not drawn
   under [brightness](#brightness).
 - **World and Object Texture Detail** are kept and read back, but every
   texture draws at full detail; **Low Sound Quality** is kept, but every
-  sound plays at its own; 16-bit **Texture Color Depth** is kept, the fork
+  sound plays at its own; 16-bit **Texture Color Depth** is kept, DXEngine
   drawing in 32 bits. **Use 3D Hardware** finds no hardware, as the original
   finds none without an A3D or EAX card.
 - **Rendering Device**, and a dedicated server from the Host screen, send
@@ -608,7 +608,7 @@ and the ones on the walls are not drawn
   the engine has exited, as the original's starts `DeusEx.exe`
   ([`RELAUNCH`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#relaunch)):
   the recreated launcher's renderer page or DXLauncher's Graphics page, or a
-  dedicated server. The fork passes the line to the launcher on its line
+  dedicated server. DXEngine passes the line to the launcher on its line
   ([running it](ENGINE.md#running-it)), which starts again once the game has
   ended, where the original's new process starts while the old one is still
   ending. With no launcher on the line -- the Smart Pro's tabbed launcher,
@@ -655,9 +655,9 @@ map it is on is loaded). Differs:
   ([settings](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#settings)).
 - Not carried: the holds a `SET` puts on `DopplerSpeed` and `AmbientFactor`,
   which no menu sets.
-- An ambient sound on a light follows its blink and strobe on the fork's
+- An ambient sound on a light follows its blink and strobe on DXEngine's
   timing ([lighting](#lighting)).
-- A sound's ID packs a number the fork gives each object that plays one,
+- A sound's ID packs a number DXEngine gives each object that plays one,
   never given out twice, where the original packs the object's index
   ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds));
   the slot and `bNoOverride` are packed alike.
@@ -782,19 +782,19 @@ Every other native the scripted runs compare matches the original
 Differs:
 
 - **A tie between a mover's own hit and the level's** at one plane falls to
-  the mover, the actors first in the fork's order, where the original's two
+  the mover, the actors first in DXEngine's order, where the original's two
   times, rounded apart by a half thousandth of a unit, fall either way: of
   `VisibleConsole`'s 110 lines on DXMP_Silo, `DeusExMover19`'s and `25`'s
   are the level in the original (a door turned a quarter turn in the plane
   of the wall round its doorway, its normal a bit off the wall's through the
   sine table, so not set before it) and `DeusExMover8`'s reversed line the
-  level too; the fork answers the mover for all three.
+  level too; DXEngine answers the mover for all three.
 - **The filed polygons** are an overlay on the level's BSP, not nodes in
-  it: a start inside a filed mover's own solid is not in solid to the fork,
+  it: a start inside a filed mover's own solid is not in solid to DXEngine,
   and `TraceTexture` on `DeusExMover26`'s line gives the flags of the
-  polygon the fork crossed, `PF_Invisible | PF_Semisolid`, where the
+  polygon DXEngine crossed, `PF_Invisible | PF_Semisolid`, where the
   original's filed node has 0.
-- **`DeusExPlayer.GetDeusExVersion`**: the fork's own string, by choice, so
+- **`DeusExPlayer.GetDeusExVersion`**: DXEngine's own string, by choice, so
   a player can tell which engine they run
   ([the version](ENGINE.md#running-on-our-devices)). The original's is "Mon
   Mar 19 12:06:14 2001 v1.112fm".
@@ -802,8 +802,8 @@ Differs:
   scripts' conversions take the original's sine table
   ([the natives](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-natives)).
   At 20 frames a second `FlightConsole`'s gull, flown level into the pier's
-  wall, turns and slides some 18 units along it in the original, where the
-  fork's stays put.
+  wall, turns and slides some 18 units along it in the original, where
+  DXEngine's stays put.
 
 ## Housekeeping, not seen directly
 
@@ -820,7 +820,7 @@ for single player only.
 
 **Garbage** is collected as the original's map load collects it
 ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-map-loads-collection);
-the fork's: [objects and memory](ENGINE.md#objects-and-memory)), the new
+DXEngine's: [objects and memory](ENGINE.md#objects-and-memory)), the new
 level's actors that are not in its `Actors` (an editor brush, a camera) with
 it. `GarbageConsole` and `DeleteConsole` run both engines. Differs:
 
@@ -865,21 +865,21 @@ but the hard-coded ones (`ChurnConsole`'s memory: the table above).
 each joins the level's chain (`FirstDeleted`, through `Deleted`), and at the
 end of a level's tick, once 128 wait, or before a save, every live actor's
 references to them are made None and the event manager is told. The original
-then deletes them; the fork frees them at the next collection, which makes
+then deletes them; DXEngine frees them at the next collection, which makes
 every other reference to them None (a window's, a conversation's), where the
-original's delete leaves those pointing at freed memory, and the fork lets
+original's delete leaves those pointing at freed memory, and DXEngine lets
 them gather between collections ([when](ENGINE.md#objects-and-memory)): a
 collection is a hitch on the Smart Pro (above). A map load does not clean
 the chain of the level it leaves, as the original's does only for `?push`:
 that level is freed whole. A decal attached again after its `Destroyed`
 (which detaches it) stays on its surfaces until that cleanup, as the
-original's; there the fork takes it off them, where the original's surfaces
+original's; there DXEngine takes it off them, where the original's surfaces
 keep pointing at the deleted decal.
 
 **`Object.CriticalDelete` 751** (20 call sites). The original frees the
 object at once, whatever still refers to it
 ([`CriticalDelete`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#criticaldelete)).
-The fork's flags it (`EliminateObject`), destroying an actor first: it goes
+DXEngine's flags it (`EliminateObject`), destroying an actor first: it goes
 at the next collection, which makes every reference to it None, and until
 then it stays as it was, which `NanoKeyRing.RemoveAllKeys` relies on as it
 reads the next key from the one it deleted. Gone to the script at once as
@@ -896,7 +896,7 @@ engine's own objects are not deleted (the log says so).
   (`FrameConsole`: a frame held 2 s, the level's time 2 s on and an actor's
   next tick 0.4 s in both). The first frame on a level travelled to takes in
   its load: some 1.5 s on Liberty Island in the original's runs, of which
-  its actors get 0.4 (`AIConsole`), and less in the fork's, whose load is
+  its actors get 0.4 (`AIConsole`), and less in DXEngine's, whose load is
   shorter. The player then stands where the original's does, 4.75 over the
   floor (`StandConsole`; a line straight down meets the floor half a unit
   higher). Not carried: the original's floor of 5 ms, the step of every tick
@@ -937,9 +937,9 @@ engine's own objects are not deleted (the log says so).
   Print Screen, Pause, Home, End, Insert, Page Up or Page Down.
 - **The field of view** is the original's setting: the player's `DefaultFOV`
   is Deus Ex's own config, 75 (`[Engine.PlayerPawn]` in `User.ini`), the
-  angle across a 4:3 view ([the view's width](#the-views-width)). Upstream's
-  own key, `MainFOV`, which the game's ini lacks (it would make the view
-  90), is neither read nor written.
+  angle across a 4:3 view ([the view's width](#the-views-width)). Surreal
+  Engine's own key, `MainFOV`, which the game's ini lacks (it would make the
+  view 90), is neither read nor written.
 - **A singular function** does not run while any singular function of its
   object does, as the original's
   ([variables and calls](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#variables-and-calls)):
@@ -959,7 +959,7 @@ engine's own objects are not deleted (the log says so).
 
 ## The command line
 
-The original's command line reaches the fork as one string, `--cmdline=`,
+The original's command line reaches DXEngine as one string, `--cmdline=`,
 which the launchers pass on ([running it](ENGINE.md#running-it)):
 DXLauncher as given, the recreated launcher's `run-game.sh` but for its
 quotes, which that launcher drops
@@ -973,7 +973,7 @@ the original's `ParseParam` checks nothing after it. Both take `/` as a
 switch, and a Linux path is full of them: the original's would find
 `-server` in `INI=/srv/server/x.ini`. The launchers parse alike
 ([where it differs](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md#where-it-differs-from-the-original)).
-What the fork does with each:
+What DXEngine does with each:
 
 - **The start URL**: with `-hax0r` or `-server`, the first word (the second
   after `SERVER`) unless it starts with `-`; else the game's own start,
@@ -998,19 +998,19 @@ What the fork does with each:
 - **Safe mode's flags**
   ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md#flags-the-launcher-emits-safe-mode)):
   - `-nosound`: no sound and no music. The original makes no audio
-    subsystem; the fork keeps its device, on OpenAL Soft's null driver.
+    subsystem; DXEngine keeps its device, on OpenAL Soft's null driver.
   - `-defaultres`: the window and fullscreen sizes 640x480 for the run, not
     saved.
   - `-nohard -noddraw` ("Run the game in a window"): a window. The original
     gets there through its software renderer, which has no fullscreen mode
-    without DirectDraw; the fork has no software renderer, so either flag
+    without DirectDraw; DXEngine has no software renderer, so either flag
     alone does nothing.
-  - `-nojoy`: no pad at all, neither the fork's pad handling nor its buttons
+  - `-nojoy`: no pad at all, neither DXEngine's pad handling nor its buttons
     as keys.
   - **Nothing to do:** `-no3dsound` (the original's turns off A3D or EAX
-    hardware; the fork's mixer is software, [sound](#sound)), `-nommx`,
+    hardware; DXEngine's mixer is software, [sound](#sound)), `-nommx`,
     `-nokni` and `-nok6` (the original's mixer picks its routines by them),
-    and `-safe`'s no DirectInput (the fork's input is its window's, SDL's
+    and `-safe`'s no DirectInput (DXEngine's input is its window's, SDL's
     under the launchers).
 
 ## Mods
@@ -1032,13 +1032,13 @@ A mod gets the original's loader and natives:
   original's: the script's `Localize` logs `No localization` and gives
   `<?int?Package.Section.Key?>`, and a localized property keeps its default
   (`LocalizeConsole`: the game's text, its render devices and a missing key
-  alike in both engines; two mod folders' text and objects in the fork's
+  alike in both engines; two mod folders' text and objects in DXEngine's
   run alone).
 - **Protected packages.** An export whose flags give it no context (client,
   server or editor) is never made, and a reference to it is None, as the
   original's linker has it: the live servers' anti-cheat packages (ANNA,
   DXNMS) point their classes' `ScriptText` at such exports. A save's exports
-  are all made whatever their flags: the fork's own saves may lack them.
+  are all made whatever their flags: DXEngine's own saves may lack them.
 - **Config files.** A class's config file that is not there is empty, its
   properties keeping their defaults, until the class writes it
   ([configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration)):
@@ -1050,7 +1050,7 @@ A mod gets the original's loader and natives:
   config, the default URL, the settings it reads again by hand -- the
   player's as it spawns one, the client's, the audio and render devices'
   (`IniConsole`). Those read by hand, though, take an empty value for none:
-  a float or a string keeps the fork's default where the original's is 0 or
+  a float or a string keeps DXEngine's default where the original's is 0 or
   empty. An ini written back, at a clean exit, has a changed value changed
   in its own line and the rest of the file as it was, a CR LF file's line
   endings with it; a key new to the file has the whole file rewritten, LF,
@@ -1063,7 +1063,7 @@ A mod gets the original's loader and natives:
   and its config read again into the class, its subclasses and their
   objects
   ([configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration)),
-  which the original then tells of it (`PostEditChange`) and the fork does
+  which the original then tells of it (`PostEditChange`) and DXEngine does
   not; `DeusExPlayer.SetBoolFlagFromString`
   ([the player](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-player));
   `ExtString`'s text in parts
@@ -1072,7 +1072,7 @@ A mod gets the original's loader and natives:
   ([the timing natives](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#clock-unclock-and-cyclestoseconds)),
   which count the steady clock's nanoseconds where the original's count the
   CPU's cycles.
-- **Two path natives no stock script calls are upstream's**, not the
+- **Two path natives no stock script calls are Surreal Engine's**, not the
   original's, which are unread: `Pawn.FindRandomDest` 525, a random
   navigation point the pawn can reach, and `FindBestInventoryPath` 540, the
   way to the inventory it wants most.
@@ -1085,7 +1085,8 @@ one pass, and not panned with the surface, at its own scale
 `LightConsole` with `Macro`, Liberty Island's `Spotlight0` on a world map
 given itself as its macro texture, has the GL and Vulkan devices' frames
 within 0.85 to 1.14 of `D3DDrv`'s in blocks of 16 pixels, as within 0.91 to
-1.07 without it. The D3D11 device, which no port builds, keeps upstream's.
+1.07 without it. The D3D11 device, which no port builds, keeps Surreal
+Engine's.
 
 ## Multiplayer
 
@@ -1104,13 +1105,13 @@ through `Pawn.ClientHearSound`
 ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds);
 `ServeConsole`'s beeps, the client recorded). Each runs against the original
 as client and as server: `ServeConsole`, `JoinConsole`, `RejoinConsole`,
-`TravelServeConsole`, `TravelJoinConsole`, `NetConsole`. The fork joins live
+`TravelServeConsole`, `TravelJoinConsole`, `NetConsole`. DXEngine joins live
 public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
-stays in. Until its pawn arrives, a joining fork draws no world. The
-server-only stubs are under
+stays in. Until its pawn arrives, a joining DXEngine client draws no world.
+The server-only stubs are under
 [not needed for single player](#not-needed-for-single-player). Differs:
 
-- **The net driver** is the fork's own, over UDP with
+- **The net driver** is DXEngine's own, over UDP with
   `[IpDrv.TcpNetDriver]`'s timeouts; the connection, its channels and the
   handshake are the original's.
 - **The download cache.** A package is cached as its GUID with `CacheExt`,
@@ -1126,19 +1127,19 @@ server-only stubs are under
   ([packets](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md#packets)).
   `ServeConsole`'s 8 beeps reach the original's client 7 of 8 at 100 and at
   144 frames a second, 4 at 200 and none at some 1,300 (uncapped on the
-  desktop with no vsync), as the original server's reach the fork's, 6 to 8:
+  desktop with no vsync), as the original server's reach DXEngine's, 6 to 8:
   the first goes as the host stops, its last step's packet just sent.
 - **A server's first correction** (`ClientAdjustPosition`, an unreliable
   call, dropped while the connection has no room, which the join's first
-  replication fills at 2,600 bytes a second): it reaches the fork's client
-  1.7 s after it spawns on the original's server, and 4.2 s after on the
-  fork's, where the original's client takes it 0.15 s after it spawns on the
-  fork's server (`JoinConsole`'s jumps); why the fork's waits longer is
+  replication fills at 2,600 bytes a second): it reaches DXEngine's client
+  1.7 s after it spawns on the original's server, and 4.2 s after on
+  DXEngine's, where the original's client takes it 0.15 s after it spawns on
+  DXEngine's server (`JoinConsole`'s jumps); why DXEngine's waits longer is
   unread. At a wall 0.02 units; standing, none.
 - **The player's name in a net game**: a name the player never chose --
   none, or the game's stock `Player` -- logs in as `DXEnginePlayer`, a
-  client's to its server and a listen server's host's, by choice, so the
-  fork's players show as such (`Engine::SetMultiplayerName`). A name the
+  client's to its server and a listen server's host's, by choice, so
+  DXEngine's players show as such (`Engine::SetMultiplayerName`). A name the
   player chose is kept; single player, the menus and the inis keep the
   game's.
 
@@ -1148,8 +1149,8 @@ As in the original:
   rests 2.46 units below the server's, which the correction lifts it by: a
   client runs no level's `SupportActor`, a simulated proxy running only
   simulated functions, so its floor is never its base, and the walk lifts a
-  pawn only over its base -- the fork's client on the original's server as
-  the original's on the fork's (`JoinConsole`).
+  pawn only over its base -- DXEngine's client on the original's server as
+  the original's on DXEngine's (`JoinConsole`).
 - For a player's first seconds in, until the server's augmentation manager
   reaches its client, the client walks at 100 where the server runs it at
   230 (`GetCurrentGroundSpeed` gives 0 without one), and the server corrects
@@ -1180,5 +1181,5 @@ Stubs a single-player game does without; the audit lists each:
   `Canvas.DrawPortal` 480, which draws nothing; the original's is unread.
 
 `StatLog`'s and `StatLogFile`'s natives do nothing too, though the audit
-reads them implemented (they log no `Unimplemented`), so a fork server
+reads them implemented (they log no `Unimplemented`), so a DXEngine server
 logging world stats writes no log of them.

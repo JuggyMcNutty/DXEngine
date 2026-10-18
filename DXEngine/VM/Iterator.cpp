@@ -377,7 +377,7 @@ bool VisibleActorsIterator::Next()
 // for none --, of the class, passed over when hidden only if bIgnoreHidden
 // asks, and with the line from the spot clear as it comes, as FastTrace asks
 // it: UModel::FastLineCheck, the level's BSP with the movers' polygons in it.
-// The fork's asked no line at all, so HurtRadius hurt through walls, and
+// DXEngine's asked no line at all, so HurtRadius hurt through walls, and
 // passed over the hidden unless asked not to.
 VisibleCollidingActorsIterator::VisibleCollidingActorsIterator(UObject* BaseClass, UObject** ReturnValue, float Radius, const vec3& Location, bool IgnoreHidden) : BaseClass(BaseClass), ReturnValue(ReturnValue), Radius(Radius), Location(Location), IgnoreHidden(IgnoreHidden)
 {

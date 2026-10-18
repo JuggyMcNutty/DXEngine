@@ -198,7 +198,7 @@ UObject* Package::GetUObject(int objref)
 		// A file's export for no context -- client, server or editor -- is
 		// never made, a reference to it None (Core's
 		// ULinkerLoad::CreateExport): protected packages point their
-		// classes' ScriptText at such. The fork's own saves wrote spawned
+		// classes' ScriptText at such. DXEngine's own saves wrote spawned
 		// actors without these flags, so a save's exports are all made.
 		if (!ExportObjects[index] && index < FileExportCount && !AnyFlags(ExportTable[index].ObjFlags, ObjectFlags::LoadContextFlags) && !IsSaveFile())
 			return nullptr;

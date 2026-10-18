@@ -351,7 +351,7 @@ void UActor::Tick(float elapsed)
 	// Deus Ex's local player reads its input and runs PlayerTick here, before
 	// its state code and physics, in place of Tick, as the original's actor
 	// tick has it: its physics take the move it makes the same tick, where
-	// the fork took it a tick later.
+	// DXEngine took it a tick later.
 	UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(this);
 	if (player && player->TickInput(elapsed))
 	{
@@ -466,7 +466,7 @@ bool UActor::PlayerCanSeeMe()
 	// x 100,000 squared units and -- its view not behind -- within 60 degrees
 	// of the view's line either way, if its LineOfSightTo finds it. The local
 	// player asks, alone or on a client for what is its own there (temporary
-	// or its authority); a net game's server, each player. The fork's asked
+	// or its authority); a net game's server, each player. DXEngine's asked
 	// every pawn within 500 units in a cone that took a length for a cosine,
 	// so a player looking never saw anything.
 	auto testCanSeeMe = [&](UPlayerPawn* viewer)

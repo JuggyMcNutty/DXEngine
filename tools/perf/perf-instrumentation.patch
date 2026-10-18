@@ -15,7 +15,7 @@ index 4bd4fa5..8e14a1a 100644
  	DXEngine/Precomp.cpp
  	DXEngine/Precomp.h
 diff --git a/DXEngine/Engine.cpp b/DXEngine/Engine.cpp
-index 3b98fc4..fdc11cd 100644
+index 6742679..8ec8aa1 100644
 --- a/DXEngine/Engine.cpp
 +++ b/DXEngine/Engine.cpp
 @@ -2,6 +2,7 @@
@@ -156,7 +156,7 @@ index cdbe574..0a416b3 100644
  		UnrealMipmap& lmmip = lmtexture->Mip;
  		const vec3* pixels = Builder.Pixels();
 diff --git a/DXEngine/Packages/Engine/Resources/Level/ULevel.cpp b/DXEngine/Packages/Engine/Resources/Level/ULevel.cpp
-index 71e4b42..b64822e 100644
+index c39f771..4459858 100644
 --- a/DXEngine/Packages/Engine/Resources/Level/ULevel.cpp
 +++ b/DXEngine/Packages/Engine/Resources/Level/ULevel.cpp
 @@ -1,5 +1,7 @@

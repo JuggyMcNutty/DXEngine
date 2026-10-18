@@ -13,7 +13,7 @@
 // units, and its place and velocity are logged every quarter second for
 // 25 s; then the package's KeyLogWindow is up for 45 s, logging every
 // key the root hands it. tools/dxcap/timelines/stray-release.txt drives
-// both on the fork with a release of E that no press came before.
+// both on DXEngine with a release of E that no press came before.
 //=============================================================================
 class KeypadConsole extends Console;
 

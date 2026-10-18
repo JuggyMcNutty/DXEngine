@@ -1,6 +1,6 @@
 //=============================================================================
 // ClickConsole: buttons, a choice and a checkbox clicked with the mouse, the
-// mouse pressed by the fork's timeline (tools/dxcap/timelines/
+// mouse pressed by DXEngine's timeline (tools/dxcap/timelines/
 // clicks.txt, on the same clock: seconds from the start). From the menu
 // map, on this schedule the UI cursor is put on a window and the timeline
 // clicks there; what the click did is logged ("DXCLICK:").

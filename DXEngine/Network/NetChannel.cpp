@@ -835,7 +835,7 @@ void NetActorChannel::ReplicateActor()
 		// Deus Ex's native lists: SimAnim, AnimMinRate and bAnimNotify go
 		// when AnimSequence does, as UE1's statement had them, where Deus
 		// Ex's own sent SimAnim to no simulated proxy -- the original's
-		// clients saw the fork server's pawns run frozen --; the blended
+		// clients saw DXEngine server's pawns run frozen --; the blended
 		// animations and a pawn's PlayerRestartState never go.
 		uint16_t replicationOffset = prop->ReplicationOffset;
 		if (native)

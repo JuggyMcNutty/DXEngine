@@ -204,7 +204,7 @@ bool UPawn::BreadthPathFrom(UNavigationPoint* start, UNavigationPoint*& endNode,
 
 std::pair<Array<UNavigationPoint*>, int32_t> UPawn::FindPathToEndPoint(UNavigationPoint* start, int maxNodes)
 {
-	// Upstream's route from the original's search (below): the end point's way
+	// Surreal Engine's route from the original's search (below): the end point's way
 	// back to the start -- the start the chain's last node -- with the parts
 	// the pawn already touches skipped.
 	if ((start->bPlayerOnly() && !bIsPlayer()))
@@ -904,7 +904,7 @@ UActor* UPawn::DeusExFindPath(UActor* goalActor, vec3 goalPoint, bool singlePath
 }
 
 // ---------------------------------------------------------------------------
-// Upstream's path search around the original's breadthPathFrom, for
+// Surreal Engine's path search around the original's breadthPathFrom, for
 // FindRandomDest and FindBestInventoryPath, which no script of the game calls.
 
 UObject* UPawn::FindRandomDest()

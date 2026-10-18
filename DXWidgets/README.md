@@ -1,3 +1,3 @@
-# SurrealWidgets
+# DXWidgets
 
-SurrealWidgets is a cross platform UI framework for C++.
+SurrealWidgets, renamed and altered for DXEngine: a cross platform UI framework for C++.

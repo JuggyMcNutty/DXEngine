@@ -104,7 +104,7 @@ public:
 	int SlotIndex = 0;
 
 private:
-	// The fork's own saved layout, before the original's (2026-09-27).
+	// DXEngine's own saved layout, before the original's (2026-09-27).
 	void LoadForkLayout(ObjectStream* stream);
 	EventType& GetEventType(const NameString& name);
 	Sender* FindSender(EventType& type, UActor* actor, bool create);

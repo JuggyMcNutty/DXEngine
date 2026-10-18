@@ -366,7 +366,7 @@ void NObject::Disable(UObject* Self, const NameString& ProbeFunc)
 }
 
 // The original's deletes the object at once, whatever still refers to it
-// (dx-reverse-info core-dll.md, CriticalDelete). The fork's flags it to go at
+// (dx-reverse-info core-dll.md, CriticalDelete). DXEngine's flags it to go at
 // the next collection, which makes every reference to it None: until then
 // it is as it was, so a script that reads the object it just deleted (as
 // NanoKeyRing.RemoveAllKeys does) reads it whole. An actor is destroyed
@@ -987,7 +987,7 @@ static bool IsClassOrSubclass(UStruct* cls, UClass* of)
 // keeping their values, and the config read again into the class's
 // defaults and every subclass's and into every object of them. A class of
 // any other config is left alone. The original then tells each object
-// (PostEditChange); the fork tells none.
+// (PostEditChange); DXEngine tells none.
 void NObject::ResetConfig(UObject* Self)
 {
 	UClass* cls = UObject::TryCast<UClass>(Self);

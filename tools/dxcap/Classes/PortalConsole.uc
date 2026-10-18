@@ -3,7 +3,7 @@
 // "#<portal>" -- logged with "DXPORTAL:" and the console's clock
 // (docs/DEVELOPMENT.md, scripted runs).
 //
-// From the menu map (the fork started on DX.dx too), it opens
+// From the menu map (DXEngine started on DX.dx too), it opens
 // 01_NYC_UNATCOIsland#tunnel_drop_nyc; there it logs the level's URL, where
 // the player stands, and each teleporter whose tag is the portal's, with
 // the player's distance from it; then it exits.

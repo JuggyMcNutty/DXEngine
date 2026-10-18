@@ -149,7 +149,7 @@ static int GetRevision()
 	//#else
 	//	MPT_WARNING_STATEMENT("SVN revision unknown. Please check your build system.");
 		
-	// XXX: don't need this for building in SurrealEngine
+	// XXX: don't need this for building in DXEngine
 	return 0;
 
 	//#endif

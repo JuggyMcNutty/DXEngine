@@ -43,7 +43,7 @@ uint32_t StrTools::ue1_strihash(const std::string_view& str)
 	uint32_t hash = 0;
 	for (char ch : str)
 	{
-		// A character of the fork's strings is one byte; the original's are
+		// A character of DXEngine's strings is one byte; the original's are
 		// two, the second 0 here.
 		uint16_t c = (uint8_t)ch;
 		if (c >= 'a' && c <= 'z')

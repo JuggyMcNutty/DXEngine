@@ -2,7 +2,7 @@
 """Where a frame's main-thread CPU time goes, for a PerfConsole run of either engine.
 
 Reads a run folder that tools/dxcap.sh wrote with DXCAP_PERF=1: the
-engine's log (engine.log, the fork's; DeusEx.log, the original's), whose
+engine's log (engine.log, DXEngine's; DeusEx.log, the original's), whose
 "DXPERF: window" lines give the measured windows on the wall clock and the
 frames in each, and perf.data, the main thread's samples on the same clock
 (cpu-clock at 999 a second). Only the samples inside the windows count. Each
@@ -11,7 +11,7 @@ is put in an area and a function; the result is milliseconds a frame.
 The original's code is the game's DLLs, mapped by Wine: a sample's DLL is
 perf's, its function the nearest export at or below its address (maps.txt
 gives the DLL's base). Render.dll exports few of its functions, so the names
-in it are only near. The fork's functions are perf's own symbols.
+in it are only near. DXEngine's functions are perf's own symbols.
 
 The main thread's cycles and instructions (stat.csv, counted each 100 ms
 from the wall-clock time in stat.start) give the frame's cost in cycles,
@@ -53,7 +53,7 @@ ORIGINAL_AREAS = [
     ('platform and launcher (WinDrv, DeusEx.exe)', ['windrv.dll', 'deusex.exe']),
 ]
 
-# The fork's areas, by a name anywhere in the symbol (a template's arguments
+# DXEngine's areas, by a name anywhere in the symbol (a template's arguments
 # included); the first that matches wins.
 FORK_AREAS = [
     ('render device', r'^(GL|OpenGL|Vulkan|DXGPU|VkTexture|CommandBuffer|TextureManager|UploadManager|'

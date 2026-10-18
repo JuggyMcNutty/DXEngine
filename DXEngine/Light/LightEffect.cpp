@@ -401,7 +401,7 @@ void LightEffect::SpotlightEffect(LightEffectArgs* args)
 	Coords::Rotation(args->light->Rotation()).GetAxes(tmp0, tmp1, tmp2);
 	vec3 spotDir = -tmp0;
 	// Deus Ex's cone is Render.dll's, its cosine 1 - LightCone / 256
-	// (dx-reverse-info/render-dll.md, light maps); upstream's divides by 255
+	// (dx-reverse-info/render-dll.md, light maps); Surreal Engine's divides by 255
 	float lightCosOuterAngle = 1.0f - args->light->LightCone() * (args->smoothFalloff ? 1.0f / 256.0f : 1.0f / 255.0f);
 	float lightCosInnerAngle = 1.0f;
 	if (lightCosOuterAngle < 1.0f)

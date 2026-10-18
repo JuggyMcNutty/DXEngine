@@ -1,13 +1,13 @@
 # The engine
 
-VibeEngine is a fork of [Surreal Engine](https://github.com/dpjudas/SurrealEngine), an
+DXEngine is a hard fork of [Surreal Engine](https://github.com/dpjudas/SurrealEngine), an
 open-source reimplementation of Unreal Engine 1 that recognises this build of Deus Ex directly
 (`DeusEx.exe` SHA1 `2a933e26aa9cfb33b37f78afe21434caa031f14a` is its `DEUS_EX_1112fm` database
 entry), for Deus Ex.
 
 It carries what [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina)'s ports need
 (their launchers, embedded GPUs, pads) and what Deus Ex needs to play as the original does. Its
-default branch is `deusex`.
+default branch is `main`.
 
 What matches the original and what still differs is
 [`NATIVES.md`](NATIVES.md); how to work on it, [`DEVELOPMENT.md`](DEVELOPMENT.md).
@@ -19,23 +19,23 @@ What matches the original and what still differs is
   ([the repositories](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#the-repositories)).
   Builds go to `build/<port>/engine` in the parent folder of the repositories, never into the
   clone.
-- **Upstream is not merged, and nothing goes upstream.** The fork and Surreal Engine differ at
-  the core. A fix of upstream's worth having is ported by hand, as a commit of the fork's own;
-  upstream's contribution rules do not apply here.
+- **A hard fork.** Not in Surreal Engine's fork network; nothing is merged from it or sent to
+  it; a fix worth having is ported by hand, as a commit of DXEngine's own. The two differ at the
+  core, and Surreal Engine's contribution rules do not apply here.
 - **Deus Ex only.** The engine is stripped back to focus only on Deus Ex, so other UE1 games do
   not launch, sorry.
 
-## The fork's tools
+## The engine's tools
 
 The workspace builds, stages, runs and pins the engine
 ([quick start](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#quick-start)).
-In this clone, the fork's own:
+In this clone, the engine's own:
 
 ```sh
 tools/perf/perf.sh on|off|save         # the profiling hooks (below)
 tools/perf/frame-report.py <run>...    # a PerfConsole run's frame by area and function (DEVELOPMENT.md)
 tools/host-tools.sh                    # perf and the validation layer, into the repositories' deps/
-tools/natives_audit.py                 # the original's natives against the fork's (NATIVES.md)
+tools/natives_audit.py                 # the original's natives against DXEngine's (NATIVES.md)
 tools/dxcap.sh                         # scripted runs of both engines (DEVELOPMENT.md)
 ```
 
@@ -46,7 +46,7 @@ it, then pin it in the workspace. Pushing and pinning wait for the owner's go-ah
 ([the workspace's rules](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#rules)).
 
 - Each commit's message says what it changes, why, and how it was checked.
-- The fork's history is published and never rewritten.
+- DXEngine's history is published and never rewritten.
 - Temporary debug hooks never reach a commit ([the rule](DEVELOPMENT.md#temporary-debug-hooks)).
 
 ### The profiling hooks
@@ -57,7 +57,7 @@ profile and never committed: `tools/perf/perf.sh on`, and `off` afterwards.
 - **Take them off before changing the engine**: a commit made with them on carries them. Commit
   before putting them back: `on` cannot merge over uncommitted changes to a file the hooks
   touch, and says so.
-- **The patch is against the fork's head**, so a fork commit that touches the same lines moves
+- **The patch is against DXEngine's head**, so a commit that touches the same lines moves
   them. `on` then falls back to a three-way merge (and stops if that leaves conflicts), and
   `save` rewrites the patch from the tree (all of it but `docs/` and `tools/`), so the next `on`
   and `off` apply cleanly.
@@ -76,7 +76,7 @@ the next frame. Profiling on a device:
 
 ### Natives from the original
 
-Where upstream has a Deus Ex native wrong or as a stub
+Where DXEngine has a Deus Ex native wrong or as a stub
 ([how stubs show](NATIVES.md#how-it-is-known)), the original is in the game's DLLs.
 [dx-reverse-info](https://github.com/JuggyMcNutty/dx-reverse-info) is what has been read of
 them, and
@@ -175,7 +175,7 @@ engine `ebda836` on the development machine (Ryzen 9 7940HS, Radeon 780M). Milli
 of the main thread, by area (`frame-report.py --mean`), and the same with the view turning
 (`PerfTurnConsole`):
 
-| | Original | Fork |
+| | Original | DXEngine |
 |---|---|---|
 | Frame (frames a second) | 4.20 (238) | 2.75 (364) |
 | Main thread on the CPU | 3.97 | 2.58 |
@@ -189,9 +189,9 @@ of the main thread, by area (`frame-report.py --mean`), and the same with the vi
 | Instructions a cycle | 1.35 | 2.0 |
 | Main thread off the CPU | 0.23 | 0.17 |
 | The original's own counters: its game, its client | 0.45, 3.73 | |
-| The fork's render by part: the visibility walk, meshes, light maps | | about 0.8, 0.25, 0.1 |
+| DXEngine's render by part: the visibility walk, meshes, light maps | | about 0.8, 0.25, 0.1 |
 
-The fork's frame is the shorter, held and turning: its main thread takes fewer cycles a frame
+DXEngine's frame is the shorter, held and turning: its main thread takes fewer cycles a frame
 for about as many instructions, and is off the CPU a little less. Its render takes about the
 original's: the visibility walk (`DrawPolygon` and `DrawSpan`, `ProcessNodeSurface`,
 `ProcessNode`, the box tests), meshes (`DrawLodMeshFaceDX`), light maps. The walk
@@ -211,7 +211,7 @@ Pro's tabbed launcher does, and its `run-game.sh` pins `HOME` to the app's `home
 ([where the settings live](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/docs/LAUNCHER.md#where-the-settings-actually-live)).
 DXLauncher, linux-x86_64's and linux-aarch64's, writes one in each profile's folder of its own
 (`--userdir`); `main`'s launcher, the original recreated, writes none and leaves `HOME` as it
-is. The fork's keys:
+is. DXEngine's keys:
 
 | Key | What it does |
 |---|---|
@@ -232,14 +232,14 @@ The environment:
 | `DXE_GC_VERIFY=1` | Each collection checks that every pointer it is handed is a live object, walks all of the code, and logs the holders of pointers that are not, of code's references to code that reach an object not permanent, and of what the list kept from the code's last walk would have missed ([objects and memory](#objects-and-memory)). |
 | `DXE_PERF_LOG=1`, `DXE_PERF_DETAIL=1`, `DXE_PERF_TURN=<aBaseX>`, `DXE_PERF_SAMPLE=<file>` | Only with [the profiling hooks](#the-profiling-hooks) on: where the frame goes, every 60 frames on stderr; tick by actor class and script functions by self time (which inflates what it measures); the player turning on the spot; the sampling profiler. |
 
-## What the fork changes
+## What it changes from Surreal Engine
 
 By area, as the code stands. Each device's numbers are its port's, such as
 [the Smart Pro's Performance](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/ports/trimui-smartpro/README.md#performance).
 
 ### Running on our devices
 
-- **The version**: every build stamps the fork's commit and its date into `dxe_version.h`
+- **The version**: every build stamps DXEngine's commit and its date into `dxe_version.h`
   (`cmake/version.cmake`, a step of every build that rewrites the header only when the text
   changes, so only what reads it recompiles); `GetDeusExVersion` shows it under the main menu,
   as `1.112fm DXEngine <commit> (<date>)`, and `--version` prints it. A tree with uncommitted
@@ -284,7 +284,7 @@ window as it presents; the viewport, the canvas and the UI see the render size.
 
 ### Rendering
 
-The renderer's CPU work is lighter than upstream's:
+The renderer's CPU work is lighter than Surreal Engine's:
 
 - **Light maps** are lit only where a light reaches; a map whose animating or moving lights
   changed is built, converted and uploaded again only where they reach, now or at its last
@@ -293,10 +293,10 @@ The renderer's CPU work is lighter than upstream's:
 - **The light tree** and each surface's lights that can move are kept while no light changes,
   the level's surfaces' apart from each mover's, with the map it last drew.
 - **The clipper's occlusion grid** is one row per image row; its non-SSE (ARM) build skips the
-  clip for triangles inside the view (an upstream bug); a surface is clipped once and filled
-  into the grid as one polygon, a span to a row (`BspClipper::DrawPolygon`); a span that closes
-  a gap in a row goes on into the gap after it (`BspClipper::DrawSpan`; upstream's passes that
-  gap over, leaving it open, so what lies behind counts as showing and is drawn).
+  clip for triangles inside the view (a Surreal Engine bug); a surface is clipped once and
+  filled into the grid as one polygon, a span to a row (`BspClipper::DrawPolygon`); a span that
+  closes a gap in a row goes on into the gap after it (`BspClipper::DrawSpan`; Surreal Engine's
+  passes that gap over, leaving it open, so what lies behind counts as showing and is drawn).
 - **One-sided surfaces** seen from behind are skipped before the visibility test, and a
   surface's points are gathered only when a test needs them.
 - **Meshes**: each vertex animated, lit and fogged once a draw; a run of faces with one texture
@@ -314,11 +314,11 @@ anything it uses is touched; a swapchain rebuild waits for the device). Without
 `VK_EXT_descriptor_indexing` it binds a descriptor set per batch instead of bindless textures.
 It decodes on the CPU what the GPU cannot sample or filter: BC1–5, RGB8, RGBA32F, and converts
 the lightmaps for upload in NEON on ARM. Its translucent, modulated and highlighted draws take
-upstream's depth bias toward the viewer, a step and a slope of 1; the GL device's take none, nor
-do `D3DDrv`'s but its detail pass
+Surreal Engine's depth bias toward the viewer, a step and a slope of 1; the GL device's take
+none, nor do `D3DDrv`'s but its detail pass
 ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)).
-A mover's surfaces take that step on both devices (`SurfaceInfo::DepthBias`; Vulkan's
-eight opaque pipelines again with it, GL's `glPolygonOffset`;
+A mover's surfaces take that step on both devices (`SurfaceInfo::DepthBias`; Vulkan's eight
+opaque pipelines again with it, GL's `glPolygonOffset`;
 [draw order and movers](NATIVES.md#draw-order-and-movers)).
 
 **The GL device** runs desktop GL 4.2+ and OpenGL ES 3.2 from one code path: `RenderAPI::GLES`
@@ -352,16 +352,16 @@ wherever else that state is set.
   mapping), and mapping the buffers' unused tails on every flush costs most of its frame.
 - **The scene buffers** are RGBA8 unless `Hdr` is on. They hold the frame top row first, so a
   scene drawn in a window (a security camera's view on its computer) lands where the Vulkan
-  device puts it: its viewport is placed from the top, where upstream's places it from the
+  device puts it: its viewport is placed from the top, where Surreal Engine's places it from the
   bottom.
 - **BC1** without `EXT_texture_compression_s3tc` and RGBA32F (the lightmaps) without
   `OES_texture_float_linear` are decoded to RGBA8 on the CPU.
 - **The samplers** set no `GL_TEXTURE_LOD_BIAS` on ES (no ES sampler has it), anisotropy only
   with `EXT_texture_filter_anisotropic`, and `GL_MIRROR_CLAMP_TO_EDGE` only where a probe at
   init finds the driver takes it (else `CLAMP_TO_EDGE`).
-- **`ReadPixels`** reads the buffer as it is, the right way up (upstream's is an `#if 0` stub of
-  D3D11 code, its shots black); `Exit()` runs once and tolerates a failed unmap, as the intro
-  can end the game after the window's context is gone.
+- **`ReadPixels`** reads the buffer as it is, the right way up (Surreal Engine's is an `#if 0`
+  stub of D3D11 code, its shots black); `Exit()` runs once and tolerates a failed unmap, as the
+  intro can end the game after the window's context is gone.
 - **The post-process passes bind their own samplers**, as the Vulkan device's do: the present,
   the bloom and the gamma-corrected read-back sample the image linearly, held at its edges, and
   the dither texel for texel (`PresentPass.PPLinearClamp`, `PPNearestRepeat`). A sampler object
@@ -379,15 +379,15 @@ wherever else that state is set.
 
 ### Script VM
 
-The fork reworks upstream's `ExpressionEvaluator` and `Frame::Run` for speed: no `dynamic_cast`
-or heap allocation on the call path (parameters from `Properties`, functions and events found
-through `UClass::VirtualFunctionCache`); each expression node classified once
+DXEngine reworks Surreal Engine's `ExpressionEvaluator` and `Frame::Run` for speed: no
+`dynamic_cast` or heap allocation on the call path (parameters from `Properties`, functions and
+events found through `UClass::VirtualFunctionCache`); each expression node classified once
 (`ExpressionEvaluator::Classify`, `Expression::TypedKind`), so conditions, `&&` and `||`, the
 commonest operators (`UFunction::FastOperator`) and assignments to plain variables evaluate as
 plain values, not through an `ExpressionValue`; conditions, jumps, plain assignments, calls,
 `return;` and a foreach's next pass run by `Frame::Run` in place, without an
 `ExpressionEvalResult` each (`Frame::ClassifyStatement`). A call leaving out an optional struct
-or array argument does not copy it, where upstream crashes.
+or array argument does not copy it, where Surreal Engine crashes.
 
 Script runs under the original's guards ([stops the game](NATIVES.md#stops-the-game),
 [a singular function](NATIVES.md#small)), on from the engine's start (`Frame::Guards`): the
@@ -405,8 +405,8 @@ in `Frame::CallScript`.
 - **Collision**: a ray trace hands each BSP child only its part of the segment and tests a
   polygon's plane before its vertex count and surface; sight lines test the actors of only the
   cells they cross; each cell's actors sit in an open-addressed table (`CellTable`), where
-  upstream keeps a `std::unordered_map` of `std::list`s; moves and traces go without casts and
-  heap allocations.
+  Surreal Engine keeps a `std::unordered_map` of `std::list`s; moves and traces go without casts
+  and heap allocations.
 - **Deus Ex's traces, moves and physics are `Engine.dll`'s**, in
   `DXEngine/Collision/TopLevel/TraceTest.cpp`, `UActor_Phys*.cpp` and `UPawn_Tick.cpp`: its
   backoffs; the movers a line meets where the level's BSP last filed them, filed by
@@ -507,20 +507,20 @@ its code is:
   the `pointReachable`, `actorReachable` and `Reachable` they ask are `Engine.dll`'s, walking
   its own moves (`UPawn_Path.cpp`, `UPawn_ReachDeusEx.cpp`); `RouteCache` stays empty, as the
   original never fills it ([moving](NATIVES.md#moving-wandering-and-tactical-movement)).
-  Upstream's own search serves only `FindRandomDest` and `FindBestInventoryPath`, which no
+  Surreal Engine's own search serves only `FindRandomDest` and `FindBestInventoryPath`, which no
   stock script calls ([mods](NATIVES.md#mods)).
 - **The audio mixer**: `GalaxyMixer` (`DXEngine/Audio/GalaxyMixer.cpp`) mixes Deus Ex's
   sounds as `Galaxy.dll` does (pan, fall-off, sliders, resampling, its reverb) and streams them
-  through one OpenAL source at `OutputRate`. The fork's audio device adds `SpeechVolume` and
+  through one OpenAL source at `OutputRate`. DXEngine's audio device adds `SpeechVolume` and
   `DopplerSpeed` to its ini section, and keeps Deus Ex's channel count under Galaxy's name,
   `EffectsChannels` ([sound](NATIVES.md#sound)). Its render device keeps `DetailTextures` beside
-  upstream's keys; on a first run (no `DXE-DeusEx.ini`, or an `--ini` without the engine's
+  Surreal Engine's keys; on a first run (no `DXE-DeusEx.ini`, or an `--ini` without the engine's
   sections) it takes them from the section of the device the game's ini names
   (`GameRenderDevice`) ([the menus' settings](NATIVES.md#the-menus-settings)). Who hears a
   sound an actor plays, a remote player through its client, is `UActor::HearSound` and
   `CheckHearSound` (`UActor.cpp`), from Deus Ex's `PlaySound`, `PlayOwnedSound` and
   `DemoPlaySound` natives (`NActor.cpp`).
-- **The network driver**: `DXEngine/Network/` is the fork's own, the original's protocol
+- **The network driver**: `DXEngine/Network/` is DXEngine's own, the original's protocol
   over UDP (`NetDriver`, channels, the package map, replication by the original's lists) with a
   client that joins the original's servers, a listen and a dedicated server, downloads and
   server travel; `IpDrv`'s `InternetLink`, `TcpLink` and `UdpLink` are the original's

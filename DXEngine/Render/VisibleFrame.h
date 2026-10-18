@@ -48,7 +48,7 @@ public:
 	// drawn translucent -- a mesh's translucent faces, a sprite of another
 	// style --, then the translucent and modulated surfaces, the movers'
 	// among them, then the actors drawn translucent (STY_Translucent). Other
-	// games keep upstream's one list, nearest first.
+	// games keep Surreal Engine's one list, nearest first.
 	enum TranslucentList { SolidActorParts, TranslucentSurfaces, TranslucentActors, NumTranslucentLists };
 	void AddTranslucent(TranslucentList list, const VisibleTranslucent& item);
 	static TranslucentList ActorTranslucentList(UActor* actor) { return actor->Style() == STY_Translucent ? TranslucentActors : SolidActorParts; }

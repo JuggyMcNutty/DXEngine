@@ -175,7 +175,7 @@ void GameWindow::ExitLoop()
 
 // Deus Ex's Display menu reads the sizes it offers from GETRES, smallest
 // first with a space between, as the original lists its display modes. It
-// takes at most 16, and none from a list with no space. The fork's window
+// takes at most 16, and none from a list with no space. DXEngine's window
 // takes any size, so in a window the common sizes from 640x480 that fit the
 // screen are offered, with the window's own size and the screen's; full
 // screen, the window is the screen's size, the one offered, followed by the

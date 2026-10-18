@@ -1,6 +1,6 @@
 //=============================================================================
 // ScrollConsole: a scroll area and a slider used with the mouse, the mouse
-// pressed by the fork's timeline (tools/dxcap/timelines/scroll.txt, on
+// pressed by DXEngine's timeline (tools/dxcap/timelines/scroll.txt, on
 // the same clock: seconds from the start). From the menu map, the keyboard
 // screen is opened (its key list scrolls); on the schedule below the UI
 // cursor is put on a part of the scrollbar -- the down arrow, the up arrow,

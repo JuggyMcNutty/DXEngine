@@ -2,8 +2,8 @@
 // ConfigConsole: a class's own config file, ConfigProbe's DXCapConfig.ini,
 // read and written back: logs "DXCONFIG: Runs <n>" as the class was given
 // it, saves n + 1 (StaticSaveConfig), then an exit, from the menu map. The
-// engine writes the file as it exits: the game's System folder, or with the
-// fork's --userdir (DXCAP_USERDIR) that folder, which a read takes first.
+// engine writes the file as it exits: the game's System folder, or with
+// DXEngine's --userdir (DXCAP_USERDIR) that folder, which a read takes first.
 //=============================================================================
 class ConfigConsole extends Console;
 

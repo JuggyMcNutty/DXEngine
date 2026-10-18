@@ -346,7 +346,7 @@ void UTileWindow::ChildRequestedVisibilityChange(UWindow* childWin, bool bNewVis
 }
 
 // A child added or removed lays the tile out afresh, its own size asked
-// again (the fork's layout keeps windows its parent places by bConfigured).
+// again (DXEngine's layout keeps windows its parent places by bConfigured).
 void UTileWindow::ChildAdded(UWindow* child)
 {
 	UWindow::ChildAdded(child);

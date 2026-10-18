@@ -3,7 +3,7 @@
 #include <string>
 
 // The original's command line, as DeusEx.exe hands it to its engine: one
-// string, which the fork takes from --cmdline= -- the recreated launcher's
+// string, which DXEngine takes from --cmdline= -- the recreated launcher's
 // run-game.sh passes the player's there. Its flags are found as the
 // original's code finds them (dx-reverse-info's cli-flags.md) -- Parse's "X="
 // anywhere but straight after a letter or digit, in any case, its value up to
@@ -12,7 +12,7 @@
 // option: the Host screen's relaunch puts -server there) or the end, where
 // the original's checks nothing after the name.
 // Both take '/' as a switch, and a Linux path is full of them: the original's
-// rule would find -server in INI=/srv/server/x.ini. What the fork does with
+// rule would find -server in INI=/srv/server/x.ini. What DXEngine does with
 // each flag is NATIVES.md's "The command line".
 class OriginalCommandLine
 {

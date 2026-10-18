@@ -18,7 +18,7 @@ nothing), so the verdict needs runs to compare.
 
 With two or more, the same windows are read side by side and differenced
 per tail: the same conversation, the same skips, so a window's difference
-is the tail itself. A fork whose StopSound leaves an NPC's line playing
+is the tail itself. A DXEngine build whose StopSound leaves an NPC's line playing
 shows that line's tail a dB or more louder than one that stops it; the
 player's own tails stay level in both, the player being both StopSound's
 caller and the sound's actor. Absolute levels are not comparable between the engines -- the

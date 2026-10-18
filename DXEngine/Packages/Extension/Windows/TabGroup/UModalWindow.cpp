@@ -64,7 +64,7 @@ static UWindow* FindAcceleratorWindow(UWindow* window, int foldedKey)
 }
 
 // The original's (XModalWindow::GetAcceleratorWindow 0x100372a0): the window
-// whose accelerator the key is, a letter in either case. The fork walks the
+// whose accelerator the key is, a letter in either case. DXEngine walks the
 // modal each time where the original keeps a table it rebuilds when dirty.
 UWindow* UModalWindow::GetAcceleratorWindow(int key)
 {

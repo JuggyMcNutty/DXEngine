@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The brightness of two runs' shots, block by block: the fork's against the
+"""The brightness of two runs' shots, block by block: DXEngine's against the
 original's (docs/DEVELOPMENT.md, shots). Each shot is cut into blocks
-(16x16 pixels by default) and each block's mean brightness taken; the fork's
+(16x16 pixels by default) and each block's mean brightness taken; DXEngine's
 shot first goes through the gamma the original's frames carry (1.5 at the runs'
 Brightness). Prints, for each pair of shots, the mean ratio over the region
 asked for (the whole frame by default), the ratios' spread, and with --blocks
@@ -11,7 +11,7 @@ the grid of ratios.
            [--region x,y,w,h] [--shot N] [--blocks]
 
 A run is its folder under build/dxcap/runs: the original's shots are the
-grabber's Shot0000.png..., the fork's Shot0000.bmp...; a pair is the two of one
+grabber's Shot0000.png..., DXEngine's Shot0000.bmp...; a pair is the two of one
 number (--shot picks one), the original's missing ones passed over. Needs
 ImageMagick (magick)."""
 import argparse, os, re, subprocess, sys
@@ -38,7 +38,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('original')
     ap.add_argument('dxe')
-    ap.add_argument('--gamma', type=float, default=1.5, help="the gamma put on the fork's shot (1.5)")
+    ap.add_argument('--gamma', type=float, default=1.5, help="the gamma put on DXEngine's shot (1.5)")
     ap.add_argument('--block', type=int, default=16, help='the block size in pixels (16)')
     ap.add_argument('--region', help='x,y,w,h in pixels: the region whose mean ratio is given')
     ap.add_argument('--shot', type=int, help='one shot number, else every pair')

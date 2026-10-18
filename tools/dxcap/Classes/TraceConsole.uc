@@ -90,7 +90,7 @@ function string Single(PlayerPawn P, vector Start, vector End)
 }
 
 // Hundredths, rounded: the original's normal is a float's, 0.99999994
-// where the fork's is 1.
+// where DXEngine's is 1.
 function int Hundredths(float F)
 {
 	return int(F * 100 + 1000.5) - 1000;

@@ -624,7 +624,7 @@ bool UDXEngineAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 
 {
 	// A radius of 0 or less is 800 in Deus Ex's Actor.PlaySound (Engine.dll
 	// 0x103e1f60, engine-dll.md#sounds): a script that plays a sound with no
-	// radius of its own is heard 800 units out, not the 1,500 the fork let
+	// radius of its own is heard 800 units out, not the 1,500 DXEngine let
 	// through -- and its priority, (1 - distance / radius) * volume, is worked
 	// out on that.
 	if (Radius <= 0.0)
@@ -704,7 +704,7 @@ void UDXEngineAudioDevice::ActorDestroyed(UActor* Actor)
 // number times 16, plus the slot times 2, plus 1 with bNoOverride -- as the
 // original packs the actor's object index (engine-dll.md#sounds). The ID is
 // load-bearing: a sound replaces the one playing with the same ID, and
-// StopSound stops by the ID alone. The fork's objects have no index, so each
+// StopSound stops by the ID alone. DXEngine's objects have no index, so each
 // gets a number of its own the first time it plays a sound, dropped when the
 // actor is destroyed or the level's sounds are all stopped, never given out
 // twice. The low 24 bits of the object's address stood in for it before, and

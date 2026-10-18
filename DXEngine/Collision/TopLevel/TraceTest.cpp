@@ -103,7 +103,7 @@ CollisionHitList TraceTester::Trace(const vec3& from, const vec3& to, float heig
 	// line's hit on a mover's brush within 2 units of the level's, with the
 	// level hit's normal to the bit -- the mover's as its sine table turns it
 	// -- is set 2 units before the level's. Equal distances keep the actors
-	// before the level, the fork's order where the original's sort leaves it
+	// before the level, DXEngine's order where the original's sort leaves it
 	// to chance.
 	bool line = radius == 0.0 && height == 0.0;
 	double brushBackoff = line ? 0.5 : std::max(0.1, 0.1 * tmax);
@@ -163,9 +163,9 @@ CollisionHitList TraceTester::Trace(const vec3& from, const vec3& to, float heig
 			}
 			if (line && mover && hit.NodeHead && levelIndex >= 0)
 			{
-				// A mover's own hit and the level's on one face, which the
-				// fork's two computations put a few millionths apart, are
-				// one distance, the actor's first: the fork's order where
+				// A mover's own hit and the level's on one face, which
+				// DXEngine's two computations put a few millionths apart, are
+				// one distance, the actor's first: DXEngine's order where
 				// the original's rounding decides (DXMP_Silo's bot doors)
 				if (std::abs(dist - levelDist) < 0.001)
 					dist = levelDist;

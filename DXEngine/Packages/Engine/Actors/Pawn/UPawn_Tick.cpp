@@ -234,7 +234,7 @@ bool UPawn::TickRotateTo(const vec3& target)
 // one tick of a move toward dest -- the acceleration set toward it at the
 // full rate --, and whether it is reached: within 16 units across (and the
 // pawn's height, at least 48, up or down), or the move's time out, or for a
-// pawn to move to within reach of it. Near the spot it slows. The fork's own
+// pawn to move to within reach of it. Near the spot it slows. DXEngine's own
 // took a spot reached within a fifth of the speed across, 20 units or more
 // at a walk, outside a pawn's cylinder -- so ScriptedPawn's CheckDestLoc
 // counted each leg of a patrol a miss and backed the pawn off at the fourth.

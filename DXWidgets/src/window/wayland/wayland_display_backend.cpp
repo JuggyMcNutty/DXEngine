@@ -912,7 +912,7 @@ InputKey WaylandDisplayBackend::XKBKeySymToInputKey(xkb_keysym_t keySym)
 		case XKB_KEY_Shift_R:
 			return InputKey::Shift;
 		case XKB_KEY_grave:
-		case XKB_KEY_quotedbl: // This will allow Surreal Engine to pop up the console window when pressing the key below Esc.
+		case XKB_KEY_quotedbl: // This will allow DXEngine to pop up the console window when pressing the key below Esc.
 			return InputKey::Tilde;
 		case XKB_KEY_apostrophe:
 			return InputKey::SingleQuote;

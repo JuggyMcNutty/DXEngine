@@ -1,4 +1,4 @@
-# The engine's version: the fork's commit and its date, stamped into every
+# The engine's version: DXEngine's commit and its date, stamped into every
 # build, so a player can tell which engine they run (DeusExPlayer's
 # GetDeusExVersion shows it at the main menu's bottom right).
 #

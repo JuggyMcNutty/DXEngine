@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Every native of the game's DLLs, against the engine fork's.
+"""Every native of the game's DLLs, against DXEngine's.
 
 For each native a Deus Ex package declares -- its script declaration, its
-`exec` export in the original DLL -- which function the fork registers,
+`exec` export in the original DLL -- which function DXEngine registers,
 whether that function is a stub (it, or the package method it hands over
 to, logs `Unimplemented`), and how often the game's scripts call it.
 
@@ -60,7 +60,7 @@ class Native:
         self.dll = None
         self.addr = None
         self.exec_name = None
-        self.reg = None          # the fork's registration for Deus Ex
+        self.reg = None          # DXEngine's registration for Deus Ex
         self.status = None
         self.calls = 0
         self.ambiguous = False
@@ -142,7 +142,7 @@ def follow_jump(pe, va):
 
 
 # ---------------------------------------------------------------------------
-# The fork's registrations
+# DXEngine's registrations
 
 REG = re.compile(r'RegisterVMNativeFunc_\d+\(\s*"(\w+)"\s*,\s*"(\w+)"\s*,\s*&(\w+)::(\w+)\s*,\s*(\d+)\s*\)')
 
@@ -260,7 +260,7 @@ def paren_end(toks, i):
 # Stubs
 
 def definitions(engine_src):
-    """'Owner::Func' -> body text, over the fork's sources."""
+    """'Owner::Func' -> body text, over DXEngine's sources."""
     defs = {}
     head = re.compile(r"^[\w:<>*&\s,]*?\b(\w+)::(\w+)\s*\(([^;{}]*)\)\s*(?:const\s*)?\{", re.M)
     for path in glob.glob(os.path.join(engine_src, "**", "*.cpp"), recursive=True):
@@ -411,7 +411,7 @@ def main(argv):
             m = re.search(r"Unimplemented:\s*([\w]+)\.(\w+)", line)
             if m:
                 caller = line.split("Unimplemented:")[0].strip(" :[]\t")
-                name = re.sub(r"_(?:Deus|HP|U227k?|UT469|219)$", "", m.group(2))   # the fork's variant names
+                name = re.sub(r"_(?:Deus|HP|U227k?|UT469|219)$", "", m.group(2))   # DXEngine's variant names
                 fired.setdefault((m.group(1).lower(), name.lower()), []).append((mapname, caller))
     for nat in natives:
         nat.fired = fired.get((nat.cls.name.lower(), nat.name.lower()), [])

@@ -58,8 +58,8 @@ GameLaunchInfo GameFolderSelection::GetLaunchInfo(int selectedGame)
 	info.timelinePath = commandline->GetArg("", "--timeline", info.timelinePath);
 
 	// The original's command line, when the launcher gave one: its start
-	// URL, -server, and the inis its INI= and USERINI= name, over the
-	// fork's own options.
+	// URL, -server, and the inis its INI= and USERINI= name, over
+	// DXEngine's own options.
 	const OriginalCommandLine& original = OriginalCommandLine::Get();
 	if (original.Given())
 	{

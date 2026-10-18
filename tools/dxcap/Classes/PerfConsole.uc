@@ -12,7 +12,7 @@
 // beside it. tools/perf/frame-report.py cuts a run's perf samples to
 // those spans.
 // In the original also the engine's own cycle counters, the game's tick and
-// the client's frame (what its STAT GLOBAL shows), which the fork does not
+// the client's frame (what its STAT GLOBAL shows), which DXEngine does not
 // keep: read only where they are not 0.
 // Then a total line, the frame times' spread, and an exit.
 //=============================================================================

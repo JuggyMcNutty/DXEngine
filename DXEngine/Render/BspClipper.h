@@ -35,7 +35,7 @@ public:
 	void Setup(const mat4& world_to_projection, const Array<PortalSpan>& portalSpans, const vec4& portalPlane);
 
 	// Where in a pixel the grid samples what covers it, from its upper left
-	// corner: upstream's centre, 0.5, or for Deus Ex its lower right corner,
+	// corner: Surreal Engine's centre, 0.5, or for Deus Ex its lower right corner,
 	// 1, as the original's span buffer has it (dx-reverse-info
 	// render-dll.md, a frame).
 	void SetPixelSample(float sample) { PixelSample = sample; }
