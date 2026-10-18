@@ -451,7 +451,7 @@ void UObject::EnableEvent(const NameString& name)
 
 void UObject::DisableEvent(const NameString& name)
 {
-	// Clears the probe's bit until the next GotoState.
+	// Clears the probe's bit until the mask is next set (GotoState).
 	EventName eventName = {};
 	if (!NameStringToEventName(name, eventName) || (int)eventName >= 64)
 	{
@@ -568,7 +568,8 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
 
 	// The mask is set at every GotoState, even into the state the object
 	// is in: the probes the state or the class has a function for, less
-	// those the state ignores.
+	// those the state ignores. A script's GotoState into its own state
+	// goes to the label alone (NObject::GotoState).
 	CurrentProbeMask = ComputeProbeMask();
 
 	if (newState)

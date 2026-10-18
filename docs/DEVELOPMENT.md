@@ -116,6 +116,7 @@ the run. *Either*: one engine on each side of a pair.
 | `WallConsole` | both | the player's assault rifle against a wall of `TargetMap` (UNATCO HQ) | `DXWALL:` | `shots.py`, at `DXCAP_WINDOW=1024x768` |
 | `DeathConsole` | both | an NPC's death and its carcass | `DXDEATH:` |  |
 | `AIConsole` | both | every NPC's state, orders, enemy and render time; the camera | `DXAI:`, `DXAISTATE:` |  |
+| `SitConsole` | both | Private Lloyd's way into his chair and his sitting, in view: state, animation, `bSitting`, place; two marked shots | `DXSIT:` | the two logs' lines |
 | `StaticConsole` | both | `TargetMap`'s static actors at 5 s and 15 s | `DXSTATIC:` |  |
 | `MoveConsole` | both | every pawn's moves, every 2 s for 120 s | `DXMOVE:` | `move.py <original run> <dxe run>` |
 | `ReachConsole` | both | the reach tests, each pawn asked from its home spot | `DXREACH:` |  |

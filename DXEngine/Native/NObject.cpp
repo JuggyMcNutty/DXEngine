@@ -617,7 +617,22 @@ void NObject::GetUnAxes(const Rotator& A, vec3& X, vec3& Y, vec3& Z)
 
 void NObject::GotoState(UObject* Self, std::optional<NameString> NewState, std::optional<NameString> Label)
 {
-	Self->GotoState(NewState ? *NewState : Self->GetStateName(), Label ? *Label : std::string());
+	// As the original's execGotoState (Core.dll 0x1013dd00): into the state
+	// the object is in (the one omitted names; None for no state), only the
+	// label, Begin by default -- no EndState or BeginState, and the probes
+	// as they are, so a Disable in BeginState holds (a sitting NPC's
+	// AnimEnd, which its Bump on the chair's way sends to CircleToFront).
+	// UObject::GotoState, which sets the probe mask, only for another state.
+	NameString current = Self->GetStateName();
+	NameString stateName = NewState ? *NewState : current;
+	NameString labelName = Label ? *Label : NameString();
+	if (stateName == current)
+	{
+		if (Self->StateFrame && Self->StateFrame->Func)
+			Self->StateFrame->GotoLabel(labelName);
+		return;
+	}
+	Self->GotoState(stateName, labelName);
 }
 
 void NObject::GreaterEqual_FloatFloat(float A, float B, BitfieldBool& ReturnValue)

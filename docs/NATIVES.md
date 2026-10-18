@@ -155,6 +155,17 @@ Matches the original
 every actor starts a level 10 s undrawn and every dynamic one ticks in its
 first tick, so a pawn out of sight starts from its state code (`AIConsole`).
 
+### Changing state
+
+Matches the original
+([events and probes](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#events-and-probes)):
+a script's `GotoState` into the state the object is in only goes to the
+label, with no `EndState` or `BeginState` and its probes as they are, so a
+`Disable` in `BeginState` holds. Private Lloyd's walk to his chair on
+Liberty Island meets it, and the chair's `Bump` sends him to his own
+state's `CircleToFront`: he sits in `SitBreathe` from then on in both
+engines (`SitConsole`).
+
 ### Hearing: the AI event system
 
 Matches the original
