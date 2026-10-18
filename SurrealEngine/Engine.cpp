@@ -1121,6 +1121,15 @@ void Engine::CallPostPostBeginPlay()
 	for (size_t i = 0; i < Level->Actors.size(); i++) { if (Level->Actors[i]) CallEvent(Level->Actors[i], "PostPostBeginPlay"); }
 }
 
+// A slot's number as the original's appAtoi reads one: its leading digits,
+// 0 for none -- a word typed into the console's open is a slot with no
+// save, not a number to throw on.
+static int32_t SlotNumber(const std::string& text)
+{
+	long n = std::strtol(text.c_str(), nullptr, 10);
+	return (int32_t)std::clamp(n, (long)INT32_MIN, (long)INT32_MAX);
+}
+
 bool Engine::LoadSavedGame(const UnrealURL& url)
 {
 	if (!LoadFromSaveFile(url))
@@ -1151,7 +1160,7 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 
 	if (url.HasOption("load"))
 	{
-		slotNum = Convert::to_uint32(url.GetOption("load"));
+		slotNum = (uint32_t)SlotNumber(url.GetOption("load"));
 		savefilePackage = packages->LoadSaveSlot(slotNum);
 	}
 
@@ -1161,7 +1170,7 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 		// and saving): read the slot's SaveInfo, empty Current, copy the
 		// slot into it, and load the info's map from Current. -1 is the
 		// quick save.
-		const int32_t slot = Convert::to_int32(url.GetOption("loadgame"));
+		const int32_t slot = SlotNumber(url.GetOption("loadgame"));
 		const std::string folder = SaveSlotFolderName(slot);
 		packages->ScanSaveInfos();
 		if (Package* infoPkg = packages->GetSaveInfoPackage(folder))

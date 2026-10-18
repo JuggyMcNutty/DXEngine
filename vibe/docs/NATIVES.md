@@ -62,7 +62,10 @@ and its `TravelPostAccept` spawns the level's mission script, which no save
 holds -- an object of a transient class is not written (`LoadConsole` over
 either engine's saves and the original's hub save, `ReturnConsole`). The
 console's `open ?loadgame=N` loads the slot as the game's own `LoadGame`
-does (`LoadConsole` with `Open`). Before
+does (`LoadConsole` with `Open`); a slot that is no number loads nothing in
+either, the fork reading it as slot 0. Differs: a bare `?loadgame`, which
+the original's browse takes for no load, its menu map opened again, loads
+nothing in the fork's. Before
 a level is saved into `Current`, the augmentations, skills and flag base
 that travel with the player go from it, a decoration in its hands too
 (`PruneTravelActors`; `ReturnConsole`). The
@@ -969,9 +972,10 @@ What the fork does with each:
   after `SERVER`) unless it starts with `-`; else the game's own start,
   `DX.dx`
   ([starting the game engine](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#starting-the-game-engine)).
-  `?loadgame=N` there, or as `--url`, starts on slot N's save, loaded
-  before any map as the original's first browse loads it (`StartConsole`,
-  the original's with `DXCAP_START`); a slot with none starts at `DX.dx`.
+  `?loadgame=N` there, or as `--url`, starts a client on slot N's save,
+  loaded before any map but Entry, as the original's first browse loads it
+  (`StartConsole`, the original's with `DXCAP_START`); a slot with none
+  starts at `DX.dx`.
   Differs by choice: the player is the one saved, as the game's own load
   gives it (`LoadConsole`), where the original's start logs the player in
   with the travel info the level was saved with -- on a map the player

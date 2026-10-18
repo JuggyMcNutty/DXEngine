@@ -167,7 +167,7 @@ the run. *Either*: one engine on each side of a pair.
 | `DeleteConsole` | both | `CriticalDelete` as the game uses it | `DXDELETE:` |  |
 | `SoundConsole` | both | sounds behind a wall, a reverb zone, beeps from three sides and the root window | `DXCAP:` | `sound.py <run>`, with `DXCAP_RECORD=1` |
 | `SkipConsole` | both | a conversation's lines skipped | `DXSKIP:` | `skip.py <run> [<run> ...]`, with `DXCAP_RECORD=1` |
-| `SaveConsole`, `LoadConsole` | either | a save to slot 9 with a goal, a note and a key, and its load (`Via`: the save after a map exit's travel; `Open`: the load by the console's `open ?loadgame=9`) | `DXSAVE:` |  |
+| `SaveConsole`, `LoadConsole` | either | a save to slot 9 with a goal, a note and a key, and its load (`Via`: the save after a map exit's travel; `Open=<url>`: the load by the console's `open <url>`, as `?loadgame=9`) | `DXSAVE:` |  |
 | `StartConsole` | either | a run started on slot 9's save (`?loadgame=9`: the fork's `<map>`, the original's `DXCAP_START`), logged as `LoadConsole` logs it | `DXSAVE:` |  |
 | `LoadingConsole` | both | the screen while a map loads or a level is saved: a load, a travel within a mission, a save and its load; a beep a second before each | `DXLOADING:` | the two logs' lines diffed; `shots.py`, at 4:3; `sound.py --levels` and `--onsets <run>`, with `DXCAP_RECORD=1 DXCAP_MUSIC=1`: the music through each load |
 | `NetConsole` | both | the script's sockets, a master server's list | `DXCAP:` |  |
