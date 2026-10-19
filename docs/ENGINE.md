@@ -361,12 +361,13 @@ wherever else that state is set.
 - **The scene buffers** are RGB10_A2 unless `Hdr` is on (RGBA16F), by choice: darks banded less
   than in `D3DDrv`'s 8-bit frame, as in the Vulkan device's 16-bit buffers, at 32 bits a pixel
   (`LightConsole` under 02_NYC_Underground's `Light33`, gamma-corrected: 63 levels under 64
-  where RGBA8 gave 54, no gap over 2 where it left 6). ES keeps RGBA8 until its drivers are
-  known to draw, resolve and read RGB10_A2, and so does a desktop driver whose scene framebuffer
-  of it comes up incomplete (logged). Each is made with immutable storage (`glTexStorage2D`),
-  which takes a format alone. They hold the frame top row first, so a scene drawn in a window (a
-  security camera's view on its computer) lands where the Vulkan device puts it: its viewport is
-  placed from the top, where Surreal Engine's places it from the bottom.
+  where RGBA8 gave 54, no gap over 2 where it left 6). ES's too: the Smart Pro's GE8300 draws,
+  resolves, samples and reads them, their ten bits kept (`probe-gles-scene.c`), at no cost to
+  its frame. A driver whose scene framebuffer of RGB10_A2 comes up incomplete gets RGBA8
+  (logged). Each is made with immutable storage (`glTexStorage2D`), which takes a format alone.
+  They hold the frame top row first, so a scene drawn in a window (a security camera's view on
+  its computer) lands where the Vulkan device puts it: its viewport is placed from the top,
+  where Surreal Engine's places it from the bottom.
 - **BC1** without `EXT_texture_compression_s3tc` and RGBA32F (the lightmaps) without
   `OES_texture_float_linear` are decoded to RGBA8 on the CPU.
 - **The samplers** set no `GL_TEXTURE_LOD_BIAS` on ES (no ES sampler has it), anisotropy only
@@ -392,8 +393,12 @@ wherever else that state is set.
 - **A mirror's frame is clipped at its plane** by a clip distance, as the Vulkan device's:
   `GL_CLIP_DISTANCE0` is on only in a frame whose `NearClip` is not the default, so the main
   frame draws as it would without it, and off for the passes after the scene. ES has clip
-  distances only with `EXT_clip_cull_distance` (its directive the line after the version):
-  without it nothing is clipped.
+  distances only with `EXT_clip_cull_distance` (its directive the line after the version).
+  Without it, as on the Smart Pro's GE8300, a mirror's frame is drawn by twins of the scene's
+  two programs that discard what lies behind the plane, and no other draw pays for a discard,
+  which costs a tile-based GPU its removal of hidden surfaces before shading: the picture the
+  clip distance gives (`MirrorConsole`'s `Straddle` on Mesa with the extension set aside, within
+  0.03 of a level), the GE8300's frame unchanged.
 - **The screen flash** is a quad on the near plane, z -1 and depth 0, where the Vulkan device's
   z 0 is: at z 0, GL's depth 0.5, the depth test would pass it only where the windows draw
   nothing solid, leaving their text, bars and icons out of the flash.

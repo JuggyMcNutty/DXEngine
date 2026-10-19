@@ -33,12 +33,17 @@ std::string GLFileResource::readAllText(const std::string& filename)
 			layout(location = 4) out vec2 texCoord4;
 			layout(location = 5) out vec4 color;
 			layout(location = 6) flat out uint hitIndex;
+			#if defined(CLIP_DISCARD)
+			layout(location = 8) out float clipDistance;
+			#endif
 
 			void main()
 			{
 				gl_Position = objectToProjection * vec4(aPosition, 1.0);
 				#if defined(CLIP_DISTANCE)
 				gl_ClipDistance[0] = dot(nearClip, objectToView * vec4(aPosition, 1.0));
+				#elif defined(CLIP_DISCARD)
+				clipDistance = dot(nearClip, objectToView * vec4(aPosition, 1.0));
 				#endif
 				flags = aFlags;
 				texCoord = aTexCoord;
@@ -66,6 +71,9 @@ std::string GLFileResource::readAllText(const std::string& filename)
 			layout(location = 5) in vec4 color;
 			layout(location = 6) flat in uint hitIndex;
 			layout(location = 7) flat in ivec4 textureBinds;
+			#if defined(CLIP_DISCARD)
+			layout(location = 8) in float clipDistance;
+			#endif
 
 			layout(location = 0) out vec4 outColor;
 			layout(location = 1) out uint outHitIndex;
@@ -90,6 +98,11 @@ std::string GLFileResource::readAllText(const std::string& filename)
 
 			void main()
 			{
+				#if defined(CLIP_DISCARD)
+				// A mirror's frame without clip distances: what lies behind its
+				// plane is left out here
+				if (clipDistance < 0.0) discard;
+				#endif
 				float actorXBlending = (flags & 32u) != 0u ? 1.5 : 1.0;
 				float oneXBlending = (flags & 64u) != 0u ? 1.0 : 2.0;
 

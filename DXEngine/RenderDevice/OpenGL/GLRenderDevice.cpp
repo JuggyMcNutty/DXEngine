@@ -101,8 +101,9 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 			// with EXT_clip_cull_distance (Port Ex Machina's
 			// tools/probes/probe-gles-scene.c asks a driver for it).
 			ClipDistance = clipCullDistance;
+			ClipDiscard = !clipCullDistance;
 			if (!ClipDistance)
-				LogMessage("GLDrv: EXT_clip_cull_distance absent; a mirror's plane is not clipped");
+				LogMessage("GLDrv: EXT_clip_cull_distance absent; a mirror's plane is clipped by a discard");
 		}
 
 		// GL_MIRROR_CLAMP_TO_EDGE: 4.4 desktop and 3.2 ES core on paper, but
@@ -239,11 +240,12 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 	// 32 bits a pixel, half the HDR buffers' bandwidth, which tells most on a
 	// shared-memory SoC. The overbright the scene shader can write clamps at
 	// the write, as in the original XOpenGLDrv's 8-bit buffer. Destination
-	// alpha keeps 2 bits, and no blend reads it but into alpha. ES keeps
-	// RGBA8 until its drivers are known to draw, resolve and read RGB10_A2
-	// (Port Ex Machina's tools/probes/probe-gles-scene.c). Immutable storage
-	// takes the format alone: ES has no glTexImage2D of RGB10_A2 from bytes.
-	GLenum colorInternal = ActiveHdr ? GL_RGBA16F : (IsGLES || SceneRGB10A2Failed) ? GL_RGBA8 : GL_RGB10_A2;
+	// alpha keeps 2 bits, and no blend reads it but into alpha. ES the same:
+	// the Smart Pro's GE8300 draws, resolves, samples and reads RGB10_A2,
+	// its ten bits kept (Port Ex Machina's tools/probes/probe-gles-scene.c).
+	// Immutable storage takes the format alone: ES has no glTexImage2D of
+	// RGB10_A2 from bytes.
+	GLenum colorInternal = ActiveHdr ? GL_RGBA16F : SceneRGB10A2Failed ? GL_RGBA8 : GL_RGB10_A2;
 	SceneBuffers.ColorFormat = colorInternal;
 
 	// ES has no glTexImage2DMultisample: its glTexStorage2DMultisample (ES
@@ -439,6 +441,24 @@ void GLRenderDevice::CreateScenePass()
 	ScenePass.FragmentShaderAlphaTest = CreateFragmentShader("ScenePass.PixelShaderAlphaTest", "shaders/Scene.frag", alphaTestDefines);
 	ScenePass.ShaderProgram = CreateProgram("ScenePass.ShaderProgram", ScenePass.VertexShader, ScenePass.FragmentShader);
 	ScenePass.ShaderProgramAlphaTest = CreateProgram("ScenePass.ShaderProgramAlphaTest", ScenePass.VertexShader, ScenePass.FragmentShaderAlphaTest);
+
+	// Without clip distances a mirror's frame is drawn by twins of the two
+	// that discard what lies behind its plane, and no other draw pays for a
+	// discard: one costs a tile-based GPU (PowerVR's) its removal of hidden
+	// surfaces before shading.
+	if (ClipDiscard)
+	{
+		std::vector<std::string> clipVertexDefines = { "CLIP_DISCARD" };
+		std::vector<std::string> clipDefines = sceneDefines;
+		clipDefines.push_back("CLIP_DISCARD");
+		std::vector<std::string> clipAlphaTestDefines = alphaTestDefines;
+		clipAlphaTestDefines.push_back("CLIP_DISCARD");
+		ScenePass.ClipVertexShader = CreateVertexShader("ScenePass.ClipVertexShader", "shaders/Scene.vert", clipVertexDefines);
+		ScenePass.ClipFragmentShader = CreateFragmentShader("ScenePass.ClipPixelShader", "shaders/Scene.frag", clipDefines);
+		ScenePass.ClipFragmentShaderAlphaTest = CreateFragmentShader("ScenePass.ClipPixelShaderAlphaTest", "shaders/Scene.frag", clipAlphaTestDefines);
+		ScenePass.ClipShaderProgram = CreateProgram("ScenePass.ClipShaderProgram", ScenePass.ClipVertexShader, ScenePass.ClipFragmentShader);
+		ScenePass.ClipShaderProgramAlphaTest = CreateProgram("ScenePass.ClipShaderProgramAlphaTest", ScenePass.ClipVertexShader, ScenePass.ClipFragmentShaderAlphaTest);
+	}
 
 	CreateSceneSamplers();
 
@@ -1260,6 +1280,7 @@ void GLRenderDevice::Unlock(bool Blit)
 	SceneIndexPos = 0;
 
 	SetClipDistance(false);
+	ClipDiscardOn = false;
 
 	if (Blit)
 	{
@@ -2171,9 +2192,13 @@ void GLRenderDevice::SetSceneNode(SceneNode* Frame)
 	SceneConstants.NearClip = Frame->NearClip;
 
 	// A mirror's frame is clipped at the mirror's plane, its NearClip, as
-	// the Vulkan device clips it; any other frame keeps the default, the
-	// clip off, so the main frame is drawn as before.
-	SetClipDistance(ClipDistance && Frame->NearClip != vec4(0.0f, 0.0f, 1.0f, -1.0f));
+	// the Vulkan device clips it -- by a clip distance, or without one by the
+	// programs' clip twins; any other frame keeps the default, the clip off,
+	// so the main frame is drawn as before. The draws queued before are
+	// drawn above, with the last frame's.
+	bool mirror = Frame->NearClip != vec4(0.0f, 0.0f, 1.0f, -1.0f);
+	SetClipDistance(ClipDistance && mirror);
+	ClipDiscardOn = ClipDiscard && mirror;
 
 	SetBufferData(GL_UNIFORM_BUFFER, GL_STREAM_DRAW, ScenePass.ConstantBuffer.get(), &SceneConstants, sizeof(GLScenePushConstants));
 }
@@ -2410,6 +2435,8 @@ void GLRenderDevice::DrawEntry(const DrawBatchEntry& entry)
 	// Only the state that differs from the last draw's (DrawState)
 	bool all = !DrawState.Valid;
 	GLuint program = entry.Pipeline->ShaderProgram->Handle;
+	if (ClipDiscardOn)
+		program = entry.Pipeline->ShaderProgram == ScenePass.ShaderProgramAlphaTest.get() ? ScenePass.ClipShaderProgramAlphaTest->Handle : ScenePass.ClipShaderProgram->Handle;
 	if (all || DrawState.Program != program)
 	{
 		glUseProgram(program);

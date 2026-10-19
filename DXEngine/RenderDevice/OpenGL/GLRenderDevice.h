@@ -160,6 +160,13 @@ public:
 		std::shared_ptr<GLFragmentShader> FragmentShaderAlphaTest;
 		std::shared_ptr<GLProgram> ShaderProgram;
 		std::shared_ptr<GLProgram> ShaderProgramAlphaTest;
+		// The two programs' twins for a mirror's frame without clip distances
+		// (ClipDiscard), which discard what lies behind its plane
+		std::shared_ptr<GLVertexShader> ClipVertexShader;
+		std::shared_ptr<GLFragmentShader> ClipFragmentShader;
+		std::shared_ptr<GLFragmentShader> ClipFragmentShaderAlphaTest;
+		std::shared_ptr<GLProgram> ClipShaderProgram;
+		std::shared_ptr<GLProgram> ClipShaderProgramAlphaTest;
 		std::shared_ptr<GLSampler> Samplers[16];
 		ScenePipelineState Pipelines[33];
 		// Pipelines' first 32 a step toward the viewer (SurfaceInfo::DepthBias)
@@ -423,6 +430,8 @@ private:
 	bool SamplerMirrorClampEdge = true; // GL_MIRROR_CLAMP_TO_EDGE; probed (absent on the GE8300)
 	bool ClipDistance = true; // gl_ClipDistance: desktop GL's own; ES's with EXT_clip_cull_distance
 	bool ClipDistanceOn = false; // GL_CLIP_DISTANCE0: on in a mirror's frame
+	bool ClipDiscard = false; // no clip distances (ES without EXT_clip_cull_distance): a mirror's frame drawn by the clip twins
+	bool ClipDiscardOn = false; // a mirror's frame being drawn with ClipDiscard
 	bool SceneRGB10A2Failed = false; // a framebuffer with RGB10_A2 came up incomplete: RGBA8 from then on
 	bool ActiveHdr = false;
 

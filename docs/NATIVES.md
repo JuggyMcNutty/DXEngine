@@ -353,10 +353,9 @@ first person. `MirrorConsole`, at 4:3, on GL and on Vulkan:
 Differs:
 
 - **The mirror's plane clips** what lies behind it: in the BSP walk, and on
-  every device by a clip distance, the GL device's on OpenGL ES only with
-  `EXT_clip_cull_distance`: without it an actor wholly behind the plane is
-  left out, and an actor or a surface across it is drawn whole. The
-  original keeps what lies behind a mirror out with a span buffer per zone.
+  every device by a clip distance, or on OpenGL ES without one (the Smart
+  Pro's) by a discard in the mirror's frame alone. The original keeps what
+  lies behind a mirror out with a span buffer per zone.
 
 ### Mesh detail
 
