@@ -9,10 +9,9 @@
 // nearest wall a level line from its middle meets (16 directions, within
 // 600), walks into it until a second past the time to cover the distance,
 // and stands 2 s: the gap between its cylinder and the wall is logged; then
-// an exit. It
-// walks with the forward axis a held key gives (Speed 300, times 20): the
-// original's input scales an axis the console sets, DXEngine's does not,
-// and 300 walked DXEngine at an acceleration of 120.
+// an exit. It walks with the forward axis a held key gives (Speed 300, times
+// 20): the original's input scales an axis the console sets, DXEngine's does
+// not, and 300 alone walks DXEngine at an acceleration of 120.
 //=============================================================================
 class StandConsole extends Console;
 

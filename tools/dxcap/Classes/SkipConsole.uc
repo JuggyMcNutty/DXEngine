@@ -3,10 +3,9 @@
 // -- the game's own skip path (ConPlay.PlayNextEvent, what a keypress in the
 // conversation window calls) taken mid-line, the line's audio and its length
 // logged with "DXSKIP:" and the console's clock, by which a recording of the
-// run (DXCAP_RECORD=1) is read: in the original the line's voice cuts at the
-// skip; DXEngine's StopSound once matched the caller as well as the ID, and
-// the player calling it with the speaker's ID stopped nothing, so the line
-// played on under the next.
+// run (DXCAP_RECORD=1) is read: in both the line's voice cuts at the skip,
+// StopSound stopping the sound of that ID whoever calls it -- the player,
+// with the speaker's ID.
 //
 // On Liberty Island: Tech Sergeant Kaplan's MeetKaplan, played through with
 // every speech line skipped a couple of seconds in (short lines at half

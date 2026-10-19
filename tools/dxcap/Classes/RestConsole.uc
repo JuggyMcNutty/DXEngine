@@ -9,7 +9,7 @@
 //
 // Then a landing on an edge: the pier's edge over the water south of the
 // player's start, where a lip a few units high runs along it, as a scan of
-// the original's traces found it; its outer face found by stepping traces
+// the original's traces finds it; its outer face found by stepping traces
 // down and halving to a quarter unit. A small crate dropped there 0.4 of its
 // radius past the edge, then the player 0.95 of its own, each 2 over the
 // lip; for 2 s each, every tick, its place, physics, velocity and base (and

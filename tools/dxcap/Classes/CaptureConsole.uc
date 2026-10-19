@@ -1,7 +1,7 @@
 //=============================================================================
-// CaptureConsole: the acceptance captures -- what the original shows of
-// things DXEngine read but had never seen, run the same
-// in both engines (docs/DEVELOPMENT.md, scripted runs).
+// CaptureConsole: the acceptance captures -- laser tripwires, coronas and a
+// conversation's jumps, run the same in both engines (docs/DEVELOPMENT.md,
+// scripted runs).
 //
 // On Liberty Island: a shot of each laser tripwire's beam from its side, and
 // of each corona light near and far. In the Brooklyn Bridge station: every

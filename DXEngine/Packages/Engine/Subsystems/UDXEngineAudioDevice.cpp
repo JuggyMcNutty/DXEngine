@@ -725,7 +725,7 @@ void UDXEngineAudioDevice::StopSound(UActor* Actor, int Id)
 	// StopSoundId, engine-dll.md#sounds). The ID encodes the actor that played
 	// it, but the caller need not be that actor -- ConPlay's StopSpeech calls
 	// the *player's* StopSound with the *speaker's* ID to cut a line short,
-	// which the old actor match never found, so skipped speech played on.
+	// which a match on the actor too would never find, the speech playing on.
 	// Actor is kept for the interface and ignored.
 	for (size_t i = 0; i < PlayingSounds.size(); i++)
 	{
