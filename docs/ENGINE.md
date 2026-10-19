@@ -41,8 +41,9 @@ tools/dxcap.sh                         # scripted runs of both engines (DEVELOPM
 
 ## Changing the engine
 
-Commit the change here with the docs it affects (this one and [`NATIVES.md`](NATIVES.md)), push
-it, then pin it in the workspace. Pushing and pinning wait for the owner's go-ahead
+Commit the change here with the docs it affects (this one, [`NATIVES.md`](NATIVES.md) and
+[`DEVELOPMENT.md`](DEVELOPMENT.md)), push it, then pin it in the workspace. Pushing and pinning
+wait for the owner's go-ahead
 ([the workspace's rules](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#rules)).
 
 - Each commit's message says what it changes, why, and how it was checked.
@@ -321,7 +322,7 @@ anything it uses is touched; a swapchain rebuild waits for the device). Without
 `VK_EXT_descriptor_indexing` it binds a descriptor set per batch instead of bindless textures.
 It decodes on the CPU what the GPU cannot sample or filter: BC1–5, RGB8, RGBA32F, and converts
 the lightmaps for upload in NEON on ARM. Its draws take no depth bias, as the GL device's take
-none, nor do `D3DDrv`'s but its detail pass
+none, nor do `D3DDrv`'s but its detail passes
 ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):
 a translucent draw biased by its slope shows through the opaque one in front of it from afar,
 an augmentation canister's inner glow through its shell (`CanisterConsole`). A mover's surfaces
@@ -345,8 +346,8 @@ wherever else that state is set.
 
 - **ES 3.2, not 3.0**: RGBA16F (the scene buffers with `Hdr`) is colour-renderable only from ES
   3.2 core, and the shaders bind their samplers with `layout(binding)`, which GLSL ES 3.00
-  lacks. `gl_FragCoord.w` is 1/w on ES as on desktop, so the detail-texture distance fade is
-  unchanged.
+  lacks. `gl_FragCoord.w` is 1/w on ES as on desktop, so the detail bands fall at the same
+  distances on ES as on desktop.
 - **Antialiasing on ES**: the multisampled scene buffers are made with ES 3.1's
   `glTexStorage2DMultisample`, as ES lacks desktop GL's `glTexImage2DMultisample`; on either,
   the samples are halved until every attachment takes them (an ES driver may take one sample of
@@ -361,13 +362,14 @@ wherever else that state is set.
 - **The scene buffers** are RGB10_A2 unless `Hdr` is on (RGBA16F), by choice: darks banded less
   than in `D3DDrv`'s 8-bit frame, as in the Vulkan device's 16-bit buffers, at 32 bits a pixel
   (`LightConsole` under 02_NYC_Underground's `Light33`, gamma-corrected: 63 levels under 64
-  where RGBA8 gave 54, no gap over 2 where it left 6). ES's too: the Smart Pro's GE8300 draws,
-  resolves, samples and reads them, their ten bits kept (`probe-gles-scene.c`), at no cost to
-  its frame. A driver whose scene framebuffer of RGB10_A2 comes up incomplete gets RGBA8
-  (logged). Each is made with immutable storage (`glTexStorage2D`), which takes a format alone.
-  They hold the frame top row first, so a scene drawn in a window (a security camera's view on
-  its computer) lands where the Vulkan device puts it: its viewport is placed from the top,
-  where Surreal Engine's places it from the bottom.
+  where RGBA8 gives 54, no gap over 2 where it leaves 6). ES's too: the Smart Pro's GE8300
+  draws, resolves, samples and reads them, their ten bits kept (Port Ex Machina's
+  `tools/probes/probe-gles-scene.c`), at no cost to its frame. A driver whose scene framebuffer
+  of RGB10_A2 comes up incomplete gets RGBA8 (logged). Each is made with immutable storage
+  (`glTexStorage2D`), which takes a format alone. They hold the frame top row first, so a scene
+  drawn in a window (a security camera's view on its computer) lands where the Vulkan device
+  puts it: its viewport is placed from the top, where Surreal Engine's places it from the
+  bottom.
 - **BC1** without `EXT_texture_compression_s3tc` and RGBA32F (the lightmaps) without
   `OES_texture_float_linear` are decoded to RGBA8 on the CPU.
 - **The samplers** set no `GL_TEXTURE_LOD_BIAS` on ES (no ES sampler has it), anisotropy only
@@ -396,9 +398,9 @@ wherever else that state is set.
   distances only with `EXT_clip_cull_distance` (its directive the line after the version).
   Without it, as on the Smart Pro's GE8300, a mirror's frame is drawn by twins of the scene's
   two programs that discard what lies behind the plane, and no other draw pays for a discard,
-  which costs a tile-based GPU its removal of hidden surfaces before shading: the picture the
-  clip distance gives (`MirrorConsole`'s `Straddle` on Mesa with the extension set aside, within
-  0.03 of a level), the GE8300's frame unchanged.
+  which costs a tile-based GPU its removal of hidden surfaces before shading. The discard gives
+  the clip distance's picture (`MirrorConsole`'s `Straddle` on Mesa with the extension set
+  aside, within 0.03 of a level) at no cost to the GE8300's frame.
 - **The screen flash** is a quad on the near plane, z -1 and depth 0, where the Vulkan device's
   z 0 is: at z 0, GL's depth 0.5, the depth test would pass it only where the windows draw
   nothing solid, leaving their text, bars and icons out of the flash.
@@ -447,8 +449,10 @@ in `Frame::CallScript`.
   rest of the frame at once, as the original's does, the walk and the fall in their own steps
   (`UPawn::DeusExPhysWalking`, `UActor::DeusExTickFalling`), a fall a walk or a swim hands over
   going on with its count of steps; so its speed, its slides, where it comes to rest and the
-  move it hands on are the original's at any frame rate. The other physics take a frame in steps
-  of at most 0.02 s (`UActor::TickPhysics`).
+  move it hands on are the original's at the same frame rate, but for a swim out from under the
+  water at some 1,000
+  ([implemented, not as the original](NATIVES.md#implemented-not-as-the-original)). The other
+  physics take a frame in steps of at most 0.02 s (`UActor::TickPhysics`).
 
 ### Objects and memory
 
@@ -535,15 +539,15 @@ its code is:
   original never fills it ([moving](NATIVES.md#moving-wandering-and-tactical-movement)).
   Surreal Engine's own search serves only `FindRandomDest` and `FindBestInventoryPath`, which no
   stock script calls ([mods](NATIVES.md#mods)).
-- **The audio mixer**: `GalaxyMixer` (`DXEngine/Audio/GalaxyMixer.cpp`) mixes Deus Ex's
-  sounds as `Galaxy.dll` does (pan, fall-off, sliders, resampling, its reverb) and streams them
-  through one OpenAL source at `OutputRate`. DXEngine's audio device adds `SpeechVolume` and
+- **The audio mixer**: `GalaxyMixer` (`DXEngine/Audio/GalaxyMixer.cpp`) mixes Deus Ex's sounds
+  as `Galaxy.dll` does (pan, fall-off, sliders, resampling, its reverb) and streams them through
+  one OpenAL source at `OutputRate`. DXEngine's audio device adds `SpeechVolume` and
   `DopplerSpeed` to its ini section, and keeps Deus Ex's channel count under Galaxy's name,
-  `EffectsChannels` ([sound](NATIVES.md#sound)). Its render device keeps `DetailTextures` beside
-  Surreal Engine's keys; on a first run (no `DXE-DeusEx.ini`, or an `--ini` without the engine's
-  sections) it takes them from the section of the device the game's ini names
-  (`GameRenderDevice`) ([the menus' settings](NATIVES.md#the-menus-settings)). Who hears a
-  sound an actor plays, a remote player through its client, is `UActor::HearSound` and
+  `EffectsChannels` ([sound](NATIVES.md#sound)). DXEngine's render device keeps `DetailTextures`
+  beside Surreal Engine's keys; on a first run (no `DXE-DeusEx.ini`, or an `--ini` without the
+  engine's sections) it takes them from the section of the device the game's ini names
+  (`GameRenderDevice`) ([the menus' settings](NATIVES.md#the-menus-settings)). Who hears a sound
+  an actor plays, a remote player through its client, is `UActor::HearSound` and
   `CheckHearSound` (`UActor.cpp`), from Deus Ex's `PlaySound`, `PlayOwnedSound` and
   `DemoPlaySound` natives (`NActor.cpp`).
 - **The network driver**: `DXEngine/Network/` is DXEngine's own, the original's protocol

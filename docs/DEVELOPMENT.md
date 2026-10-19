@@ -68,7 +68,7 @@ are gone.
 | `DXCAP_RENDERER=D3D` | the original through `D3DDrv`, the game's own renderer, not `OpenGLDrv` |
 | `DXCAP_PREFIX=<dir>` | another Wine prefix than `build/dxcap/prefix` |
 | `DXCAP_PROTON=<name>` | another Proton build in `~/.local/share/Steam/compatibilitytools.d` than `Proton-CachyOS Latest` |
-| `DXCAP_CONFIG="<key>=<value> ..."` | those keys in the run's console class's section of the ini, as `DXCAP_MISSION_MAP` gives `TargetMap` (`LightConsole`'s `Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`, `Macro`; `GlassConsole`'s `Pick`, `GlassName`, `View`, `Behind`; `FlushConsole`'s `Pick`, `DoorName`, `View`, `Angle`; `MirrorConsole`'s `MarkTime`, `ShinyOff`, `Straddle`; `FaceConsole`'s `MeshOf`, `Ahead`, `Distance`; `MeshConsole`'s `LODBias`, `NoDetail`; `CanisterConsole`'s `Distances`, `MarkTime`; `LoopConsole`'s `Jumps`; `CallConsole`'s `Depth`; `ReturnConsole`'s `Items`; `SaveConsole`'s and `LoadConsole`'s `Via`; `LoadConsole`'s `Open`; `ThemeConsole`'s `Direct`; `CensusConsole`'s `From`, `Wait`, `Load`, `Seconds`, `Notify`; `DetailConsole`'s `Heights`; `MoveConsole`'s `Watch`, `WatchFrom`, `WatchTo`; `SwimConsole`'s `Only`) |
+| `DXCAP_CONFIG="<key>=<value> ..."` | those keys in the run's console class's section of the ini, as `DXCAP_MISSION_MAP` gives `TargetMap` (`LightConsole`'s `Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`, `Macro`; `GlassConsole`'s `Pick`, `GlassName`, `View`, `Behind`; `FlushConsole`'s `Pick`, `DoorName`, `View`, `Angle`; `MirrorConsole`'s `MarkTime`, `ShinyOff`, `Straddle`; `FaceConsole`'s `MeshOf`, `Ahead`, `Distance`; `MeshConsole`'s `LODBias`, `NoDetail`; `CanisterConsole`'s `Distances`, `MarkTime`; `LoopConsole`'s `Jumps`; `CallConsole`'s `Depth`; `ReturnConsole`'s `Items`; `SaveConsole`'s, `LoadConsole`'s and `StartConsole`'s `Via`; `LoadConsole`'s `Open`; `ThemeConsole`'s `Direct`; `CensusConsole`'s `From`, `Wait`, `Load`, `Seconds`, `Notify`, `Open`; `DetailConsole`'s `Heights`; `MoveConsole`'s `Watch`, `WatchFrom`, `WatchTo`; `SwimConsole`'s `Only`) |
 | `DXCAP_USERINI=<file>` | a run's `User.ini` made from that file, in place of the game's (`IniConsole`'s keys given twice) |
 | `DXCAP_USERINI_FIRST=1` | the run's inis named `USERINI=` then `INI=`: on the original's command line, and on DXEngine's by `--cmdline` in place of `--ini` and `--userini` ([the command line](NATIVES.md#the-command-line)) |
 | `DXCAP_MISSION_MAP=<map>` | the map a run's console travels to, its `TargetMap` (`MissionConsole`'s, `StaticConsole`'s, `WadeConsole`'s, `ScreenConsole`'s, `PerfConsole`'s, `EndgameConsole`'s, `VisibleConsole`'s, `MoverConsole`'s, `LightConsole`'s, `GlassConsole`'s, `FlushConsole`'s, `WallConsole`'s, `MirrorConsole`'s): an original run starts at its menu map, a dxe run at the map it is given |
@@ -125,7 +125,7 @@ the run. *Either*: one engine on each side of a pair.
 | `ReachConsole` | both | the reach tests, each pawn asked from its home spot | `DXREACH:` |  |
 | `TraceConsole` | both | `TraceTexture`, `TraceActors`, `Trace` and `FastTrace`; boxes started inside cylinders | `DXTRACE:` |  |
 | `FloatConsole` | both | the crates in the water by the pier | `DXFLOAT:` |  |
-| `SwimConsole` | both | falls into water, diving, swimming up; a troop thrown in (`Only`: those scenarios) | `DXSWIM:` |  |
+| `SwimConsole` | both | falls into water, diving, swimming up; a troop thrown in (`Only`: the scenarios it names) | `DXSWIM:` |  |
 | `LadderConsole` | both | Liberty Island's first ladder, every tick | `DXLADDER:` |  |
 | `WadeConsole` | both | a troop walking off a ledge into water; `TargetMap`'s shore | `DXWADE:` | `track.py <original run> <dxe run>` |
 | `FlightConsole` | both | a gull's flights at the pier; a stock gull's own | `DXFLIGHT:` | `track.py` |
@@ -190,13 +190,13 @@ the run. *Either*: one engine on each side of a pair.
 | `TravelServeConsole` | either | a server that travels; it exits after 150 s | `DXCAP:` |  |
 | `TravelJoinConsole` | either | a client that follows it | `DXNET:` |  |
 
-- `SaveConsole`, `LoadConsole`, `StartConsole`, `LoadingConsole` and `CensusConsole` use the
-  game's own `Save\Save0009` and `Save\Current`: delete them after. The original's own saves are
-  in `reference/original-saves/`: Liberty Island's start (no cheats; the player under fire, so a
-  load's census 5 s in differs from run to run; the save `CensusConsole` loads), and a quick save,
-  a hub save (`bCheatsEnabled`) and the `Current` folder from a travel to UNATCO HQ and back.
-  Copied into `Save0009`, the hub save loads in both engines; with the quick save there the
-  original never finishes its run.
+- `SaveConsole`, `LoadConsole`, `StartConsole`, `LoadingConsole`, `MoverConsole` and
+  `CensusConsole` use the game's own `Save\Save0009` and `Save\Current`: delete them after. The
+  original's own saves are in `reference/original-saves/`: Liberty Island's start (no cheats; the
+  player under fire, so a load's census 5 s in differs from run to run; the save `CensusConsole`
+  loads), and a quick save, a hub save (`bCheatsEnabled`) and the `Current` folder from a travel
+  to UNATCO HQ and back. Copied into `Save0009`, the hub save loads in both engines; with the
+  quick save there the original never finishes its run.
 - `ConfigConsole` writes `DXCapConfig.ini` into the game's `System` folder, the original's into
   its view (through the view's link when the file is there), DXEngine's with `DXCAP_USERDIR`
   into that folder: delete it after.
@@ -309,9 +309,10 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
   for each pair of shots, DXEngine's brightness over the original's, block of 16 pixels by
   block (`--blocks` prints the grid) and over the frame or a region (`--region x,y,w,h`).
 - **The presented frame.** A DXEngine shot is the scene before the present pass, so the
-  render-scale upscale and the gamma do not show in it. `grab.py` reads DXEngine's window too,
-  by its name, `Deus Ex (v1112fm) - DXEngine`; at a render scale under 1 the mark's blocks
-  are scaled with the frame, and the shot numbers it reads from them are wrong.
+  render-scale upscale does not show in it, nor the gamma with `GammaCorrectScreenshots` off.
+  `grab.py` reads DXEngine's window too, by its name, `Deus Ex (v1112fm) - DXEngine`; at a render
+  scale under 1 the mark's blocks are scaled with the frame, and the shot numbers it reads from
+  them are wrong.
 - A renderer that fails to start falls back to `SoftDrv` without a word, its frames passing for
   the renderer's: the script then fails, naming the log's `Bound to SoftDrv`.
 - **The same view.** Two runs' shots compare only from one view: one window size (`DXCAP_WINDOW`)

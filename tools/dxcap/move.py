@@ -22,13 +22,13 @@ pawn:
 The summary counts the pawns within tolerance and the stalls the reference
 does not have; a pawn missing from either run is listed apart.
 
-With --pawn, the runs' "DXMOVE: watch" lines instead -- MoveConsole's with
-Watch=<name>, the pawn each tick -- and for each run where its path parts
-from the reference's: by place, not by time, as two runs' clocks start
-apart (the load's first frame) -- the first tick within the stretch the
-reference walked more than --off units (1 by default) across from its path,
-or with another state or physics than the reference's nearest tick; a way
-walked back is matched to its nearest stretch. That tick and the
+With --pawn it reads the runs' "DXMOVE: watch" lines instead --
+MoveConsole's with Watch=<name>, the pawn each tick -- and prints for each
+run where its path parts from the reference's, by place, not by time, as
+two runs' clocks start apart (the load's first frame): the first tick within
+the stretch the reference walked more than --off units (1 by default) across
+from its path, or with another state or physics than the reference's nearest
+tick; a way walked back is matched to its nearest stretch. That tick and the
 reference's nearest are printed whole, with how much later or earlier the
 reference passed there.
 """

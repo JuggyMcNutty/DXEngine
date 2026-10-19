@@ -206,9 +206,9 @@ every original run, and in every one of DXEngine's held to the original's
 walker's heading drifts with the frame rate, in both engines alike: after
 his turn toward the spot he drifts across his way, 0.06 units a second
 toward the spot's side at 120 frames and 0.1 away from it at the original's
-227 with vsync off, which meets the wall half a unit further along. DXEngine
-uncapped, at some 300, meets it further along again, and there in some runs
-he slips past within two seconds.
+227 with vsync off, where he meets the wall half a unit further along.
+DXEngine uncapped, at some 300, meets it further along again, and there in
+some runs he slips past within two seconds.
 
 ## Out of sight
 
@@ -726,22 +726,22 @@ and the ones on the walls are not drawn
   its size; full screen, the screen's size alone, DXEngine's full screen
   never changing the display's mode
   ([fullscreen under SDL](ENGINE.md#running-on-our-devices)).
-- **Detail Textures** draws the world's detail textures as `D3DDrv`'s
-  passes draw them, all three in the scene shader's one pass
+- **Detail Textures** draws the world's detail textures as `D3DDrv`'s passes
+  draw them, all three in the scene shader's one pass
   ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):
   a band each nearer than 380, 90 and 21.3 units, each band's grain 4.223
   times finer than the last, faded to grey toward its bound and modulated in
   at twice its colour, each detail placed by its own pan, not panned with
-  its surface (`DetailConsole`, `detail.py`). A surface takes its texture's
-  current frame's, but for a portal or a surface with a fog map; none does
-  with World Texture Detail below High, as `Render.dll` hands them over. The
-  original draws none here either way, `D3DDrv` and `OpenGLDrv` alike:
-  `D3DDrv` turns them off when Direct3D does not offer `BLENDDIFFUSEALPHA`,
-  which Wine's Direct3D 7 does not, and set on in the running game, its pass
-  changes nothing (`MeshConsole` with `NoDetail`); what that does to the
-  pier's picture is under [brightness](#brightness). Differs: the fade is
-  worked out for each pixel, where `D3DDrv`'s goes by a polygon's corners
-  and passes over one with no corner within the band; the bands are not
+  its surface (`DetailConsole`, `detail.py`). A surface takes the detail
+  texture of its texture's current frame, but for a portal or a surface with
+  a fog map, as `Render.dll` hands them over. The original draws none here
+  either way, `D3DDrv` and `OpenGLDrv` alike: `D3DDrv` turns them off when
+  Direct3D does not offer `BLENDDIFFUSEALPHA`, which Wine's Direct3D 7 does
+  not, and set on in the running game, its pass changes nothing
+  (`MeshConsole` with `NoDetail`); what that does to the pier's picture is
+  under [brightness](#brightness). Against `D3DDrv`'s passes, the fade is
+  worked out for each pixel, where theirs goes by a polygon's corners and
+  passes over one with no corner within the band, and the bands are not
   rounded to 8 bits between passes.
 - **World and Object Texture Detail** are kept and read back; every texture
   draws at full detail, World Texture Detail below High dropping the detail
@@ -959,7 +959,7 @@ Differs:
   way: the original's gains one such step a frame and is six times as far
   out by 0.75 s; DXEngine's, whose velocity is the move it made, keeps to a
   step a frame until its sinking adds to the move, 3 units out at 0.2 s, and
-  in some runs moves none for up to 0.4 s.
+  may move none for a while (`9e42a99`: up to 0.4 s in two runs of four).
 
 ## Housekeeping, not seen directly
 

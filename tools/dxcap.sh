@@ -68,10 +68,10 @@
 # MarkTime, ShinyOff and Straddle; FaceConsole's MeshOf, Ahead and Distance;
 # MeshConsole's LODBias and NoDetail; CanisterConsole's Distances and
 # MarkTime; LoopConsole's Jumps;
-# CallConsole's Depth; ReturnConsole's Items; SaveConsole's and LoadConsole's
-# Via; LoadConsole's Open; ThemeConsole's Direct; CensusConsole's From, Wait,
-# Load, Seconds and Notify; DetailConsole's Heights; MoveConsole's Watch,
-# WatchFrom and WatchTo; SwimConsole's Only).
+# CallConsole's Depth; ReturnConsole's Items; SaveConsole's, LoadConsole's and
+# StartConsole's Via; LoadConsole's Open; ThemeConsole's Direct;
+# CensusConsole's From, Wait, Load, Seconds, Notify and Open; DetailConsole's
+# Heights; MoveConsole's Watch, WatchFrom and WatchTo; SwimConsole's Only).
 # DXCAP_MISSION_MAP=<map> names, through the run's ini, the map a run's
 # console travels to, its TargetMap (MissionConsole's, StaticConsole's,
 # WadeConsole's, ScreenConsole's, PerfConsole's, EndgameConsole's,
@@ -80,7 +80,8 @@
 # its menu map, a dxe run at the map it is given.
 # DXCAP_START=<url> starts an original run there, not at its menu map: its
 # command line's first word, which the original takes only with -hax0r
-# (?loadgame=9 for StartConsole, a run started on slot 9's save).
+# (?loadgame=9 for StartConsole, a run started on slot 9's save, and for
+# CensusConsole with Load=False).
 # DXCAP_ENGINE=<binary> runs another build of DXEngine than linux-x86_64's
 # (an ASan build). DXCAP_MEMLOG=1 logs either engine's resident memory each
 # second into the run's memlog.txt: seconds since its process started, then
