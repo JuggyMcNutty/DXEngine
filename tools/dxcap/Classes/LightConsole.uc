@@ -21,7 +21,10 @@
 // too. Pick -1 is a census of the map instead: every light with an effect,
 // its effect and whether its axis meets the world, then an exit. With Macro
 // set, four shots more follow, the spot's texture given itself as its macro
-// texture, which no stock texture has (docs/NATIVES.md, mods).
+// texture, which no stock texture has (docs/NATIVES.md, mods). With NoDetail
+// the detail textures are turned off first, as MeshConsole's NoDetail turns
+// them off: the original under Wine draws none (docs/NATIVES.md, the menus'
+// settings).
 //=============================================================================
 class LightConsole extends Console;
 
@@ -33,6 +36,7 @@ var config string LightName;
 var config float View;
 var config float ShotAt;
 var config bool Macro;
+var config bool NoDetail;
 var bool bMacroOn;
 
 var string CurrentMap;
@@ -354,6 +358,11 @@ event Tick(float Delta)
 				P.ConsoleCommand("exit");
 				Phase = 9;
 				return;
+			}
+			if (NoDetail)
+			{
+				P.ConsoleCommand("set ini:Engine.Engine.GameRenderDevice DetailTextures False");
+				Log("DXLIGHT: detail textures " $ P.ConsoleCommand("get ini:Engine.Engine.GameRenderDevice DetailTextures"));
 			}
 			DXP.KillShadow();
 			P.SetCollision(false, false, false);

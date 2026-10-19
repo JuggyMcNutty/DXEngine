@@ -63,8 +63,8 @@
 # DXCAP_CONFIG="<key>=<value> ..." gives the run's console class those keys
 # in its section of the ini, as
 # DXCAP_MISSION_MAP gives TargetMap (LightConsole's Effect, Pick, LightName,
-# View, Aim, ShotAt and Macro; GlassConsole's Pick, GlassName, View and
-# Behind; FlushConsole's Pick, DoorName, View and Angle; MirrorConsole's
+# View, Aim, ShotAt, Macro and NoDetail; GlassConsole's Pick, GlassName, View
+# and Behind; FlushConsole's Pick, DoorName, View and Angle; MirrorConsole's
 # MarkTime, ShinyOff and Straddle; FaceConsole's MeshOf, Ahead and Distance;
 # MeshConsole's LODBias and NoDetail; CanisterConsole's Distances and
 # MarkTime; LoopConsole's Jumps;

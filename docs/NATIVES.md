@@ -377,8 +377,10 @@ light or fog map lights texel i at its centre, `Pan.X + i × UScale` along U,
 where both engines draw it
 ([a texel's place](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps)):
 `LightConsole` has 03_NYC_Airfield's `Spotlight7` and Liberty Island's
-`Spotlight0` within 0.90 to 1.05 of `D3DDrv`'s frames across their pools, in
-blocks of 16 pixels ([brightness](#brightness)). A surface's light map holds
+`Spotlight0` at 1.00 of `D3DDrv`'s frames, with DXEngine's detail textures
+off as the original draws none (`NoDetail`), in blocks of 16 pixels within
+0.94 to 1.07 across `Spotlight7`'s wall and `Spotlight0`'s world map, inside
+its border ([brightness](#brightness)). A surface's light map holds
 the ambient of the zone it is seen from, and pans at that zone's speeds, as
 the original's draw list has it: 06_HongKong_WanChai_Underworld's floor
 under its disco lights `Light2` and `Light21`, lit by its zone's ambient and
@@ -390,10 +392,10 @@ floor under the water below `Light33`'s grating, seen from the fog zone
 above, is unfogged in both, the frame within 1.02 of `D3DDrv`'s
 (`LightConsole`). The other effects' shapes are Render.dll's own, on the
 level's time. `LightConsole`, shooting both engines at one moment of it
-(`ShotAt`), has 06_HongKong_WanChai_Canal's disco `Light343` at 1.00 of
-`D3DDrv`'s frame, 02_NYC_BatteryPark's cylinder `Light81` at a correlation
-of 0.98 to it, and 09_NYC_ShipBelow's slow wave `Light16` at 1.01 of its
-brightness. The rest are the reading's alone: the stock views of the
+(`ShotAt`), has 06_HongKong_WanChai_Canal's disco `Light343`,
+02_NYC_BatteryPark's cylinder `Light81` and 09_NYC_ShipBelow's slow wave
+`Light16` within 0.99 to 1.01 of `D3DDrv`'s frames, correlated at up to 0.98
+(`NoDetail`). The rest are the reading's alone: the stock views of the
 searchlight, non-incidence and the rotor come out the same under other
 shapes too, and no stock light shows a fast wave (99_Endgame2's one is
 dark), shock, shell or interference.
@@ -1247,10 +1249,12 @@ modulated at twice its colour, the light map after it twice as bright as on
 one pass, and not panned with the surface, at its own scale
 ([a frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-frame)).
 `LightConsole` with `Macro`, Liberty Island's `Spotlight0` on a world map
-given itself as its macro texture, has the GL and Vulkan devices' frames
-within 0.85 to 1.14 of `D3DDrv`'s in blocks of 16 pixels, as within 0.91 to
-1.07 without it. The D3D11 device, which no port builds, keeps Surreal
-Engine's.
+given itself as its macro texture, has the GL and Vulkan devices' frames at
+1.00 of `D3DDrv`'s (`NoDetail`): in blocks of 16 pixels inside the map's
+border, within 0.94 to 1.08 but for a row along its bottom edge, at up to
+1.19, where without the macro they are within 0.96 to 1.06
+([lighting](#lighting)). The D3D11 device, which no port builds, keeps
+Surreal Engine's.
 
 ## Multiplayer
 
