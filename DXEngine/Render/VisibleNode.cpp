@@ -45,15 +45,16 @@ void VisibleNode::Draw(VisibleFrame* frame)
 
 	// Deus Ex's detail and macro textures lie as the original's lock leaves
 	// them, at their own scale and not panned with the surface
-	// (dx-reverse-info render-dll.md, a frame).
-	// The detail texture is drawn only while the render device's
-	// DetailTextures is on, as the original's (d3ddrv-dll.md, detail
-	// textures).
+	// (dx-reverse-info render-dll.md, a frame). The detail texture is the
+	// texture's current frame's, for a surface that is no portal, while the
+	// frame draws them (DetailTexturesDrawn), as Render.dll hands it over
+	// (render-dll.md, a frame; d3ddrv-dll.md, detail textures).
 	TextureInfo detailtex;
-	bool detail = engine->renderdev->DetailTextures && surface.Material && surface.Material->DetailTexture();
+	UTexture* detailTexture = engine->render->DetailTexturesDrawn && surface.Material && (PolyFlags & PF_Portal) == 0 ? tex->DetailTexture() : nullptr;
+	bool detail = detailTexture != nullptr;
 	if (detail)
 	{
-		tex = surface.Material->DetailTexture()->GetAnimTexture();
+		tex = detailTexture->GetAnimTexture();
 		engine->render->UpdateTexture(tex);
 		engine->render->UpdateTextureInfo(detailtex, tex);
 	}

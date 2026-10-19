@@ -7,8 +7,6 @@ SamplerManager::SamplerManager(VulkanRenderDevice* renderer) : renderer(renderer
 {
 	CreateSceneSamplers();
 
-	// To do: detail texture needs a zbias of 15
-
 	PPNearestRepeat = SamplerBuilder()
 		.MinFilter(VK_FILTER_NEAREST)
 		.MagFilter(VK_FILTER_NEAREST)

@@ -93,11 +93,13 @@ std::string FileResource::readAllText(const std::string& filename)
 			vec4 textureTex(vec2 uv) { return texture(textures[nonuniformEXT(textureBinds.x)], uv); }
 			vec4 textureMacro(vec2 uv) { return texture(textures[nonuniformEXT(textureBinds.y)], uv); }
 			vec4 textureDetail(vec2 uv) { return texture(textures[nonuniformEXT(textureBinds.z)], uv); }
+			vec4 textureDetailGrad(vec2 uv, vec2 dx, vec2 dy) { return textureGrad(textures[nonuniformEXT(textureBinds.z)], uv, dx, dy); }
 			vec4 textureLightmap(vec2 uv) { return texture(textures[nonuniformEXT(textureBinds.w)], uv); }
 			#else
 			vec4 textureTex(vec2 uv) { return texture(texSurface, uv); }
 			vec4 textureMacro(vec2 uv) { return texture(texMacro, uv); }
 			vec4 textureDetail(vec2 uv) { return texture(texDetail, uv); }
+			vec4 textureDetailGrad(vec2 uv, vec2 dx, vec2 dy) { return textureGrad(texDetail, uv, dx, dy); }
 			vec4 textureLightmap(vec2 uv) { return texture(texLightmap, uv); }
 			#endif
 
@@ -129,10 +131,35 @@ std::string FileResource::readAllText(const std::string& filename)
 
 				if ((flags & 4) != 0) // Detail texture
 				{
+					#if defined(DETAIL_BANDS)
+					// D3DDrv's three passes, a band each (d3ddrv-dll.md, detail
+					// textures): nearer than 380 units, each further bound 4.223
+					// times nearer and its grain 4.223 times finer, the detail
+					// faded to grey by (bound/z - 1) * 100/255 and modulated in at
+					// twice its colour, clamped after each. Faded per pixel; read
+					// with the gradients from outside the bands' branches.
+					float z = 1.0 / gl_FragCoord.w;
+					vec2 detailDx = dFdx(texCoord4);
+					vec2 detailDy = dFdy(texCoord4);
+					float bound = 380.0;
+					float repeat = 1.0;
+					for (int band = 0; band < 3; band++)
+					{
+						if (z < bound)
+						{
+							float a = min((bound / z - 1.0) * (100.0 / 255.0), 1.0);
+							vec3 detailColor = textureDetailGrad(texCoord4 * repeat, detailDx * repeat, detailDy * repeat).rgb;
+							outColor.rgb = min(outColor.rgb * 2.0 * mix(vec3(0.5), detailColor, a), 1.0);
+						}
+						bound /= 4.223;
+						repeat *= 4.223;
+					}
+					#else
 					float fadedistance = 380.0f;
 					float a = clamp(2.0f - (1.0f / gl_FragCoord.w) / fadedistance, 0.0f, 1.0f);
 					vec4 detailColor = (textureDetail(texCoord4) - 0.5) * 0.8 + 1.0;
 					outColor.rgb = mix(outColor.rgb, outColor.rgb * detailColor.rgb, a);
+					#endif
 				}
 				else if ((flags & 8) != 0) // Fog map
 				{

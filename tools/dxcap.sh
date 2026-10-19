@@ -70,7 +70,7 @@
 # MarkTime; LoopConsole's Jumps;
 # CallConsole's Depth; ReturnConsole's Items; SaveConsole's and LoadConsole's
 # Via; LoadConsole's Open; ThemeConsole's Direct; CensusConsole's From, Wait,
-# Load, Seconds and Notify).
+# Load, Seconds and Notify; DetailConsole's Heights).
 # DXCAP_MISSION_MAP=<map> names, through the run's ini, the map a run's
 # console travels to, its TargetMap (MissionConsole's, StaticConsole's,
 # WadeConsole's, ScreenConsole's, PerfConsole's, EndgameConsole's,

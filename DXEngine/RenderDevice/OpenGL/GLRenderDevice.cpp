@@ -431,6 +431,8 @@ void GLRenderDevice::CreateScenePass()
 		sceneDefines.push_back("NO_DARKCLAMP");
 	if (MacroTwoPass)
 		sceneDefines.push_back("MACRO_TWO_PASS");
+	if (DetailBands)
+		sceneDefines.push_back("DETAIL_BANDS");
 	std::vector<std::string> alphaTestDefines = sceneDefines;
 	alphaTestDefines.push_back("ALPHATEST");
 	ScenePass.FragmentShader = CreateFragmentShader("ScenePass.PixelShader", "shaders/Scene.frag", sceneDefines);

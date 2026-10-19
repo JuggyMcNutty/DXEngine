@@ -31,6 +31,7 @@ public:
 	void PurgeDying();
 	void FlushDevice();
 	bool DrawnSinceFlush = false;
+	bool DetailTexturesDrawn = false; // the device's DetailTextures and the client's TextureDetail High: once a frame (DrawGame)
 
 	// The last frame drawn, as the device reads it back. Only between
 	// frames: a read inside one would end the frame the device is still

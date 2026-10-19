@@ -4,6 +4,7 @@
 #include "RenderDevice/RenderDevice.h"
 #include "GameWindow.h"
 #include "Packages/Engine/UDXEngineClient.h"
+#include "Packages/Engine/Subsystems/UDXEngineRenderDevice.h"
 #include "Packages/Engine/UConsole.h"
 #include "Packages/Engine/UViewport.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
@@ -23,6 +24,11 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 {
 	DrawnSinceFlush = true;
 	LevelTimeElapsed = levelTimeElapsed;
+
+	// A surface's detail texture goes to the device only while its
+	// DetailTextures is on and the client's TextureDetail is High, as
+	// Render.dll hands it over (dx-reverse-info render-dll.md, a frame).
+	DetailTexturesDrawn = engine->renderdev->DetailTextures && NameString(engine->client->TextureDetail) == NameString("High");
 	AutoUV += levelTimeElapsed * 64.0f;
 	engine->Level->Light.Tick(levelTimeElapsed);
 

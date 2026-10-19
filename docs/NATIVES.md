@@ -377,21 +377,21 @@ blocks of 16 pixels ([brightness](#brightness)). A surface's light map holds
 the ambient of the zone it is seen from, and pans at that zone's speeds, as
 the original's draw list has it: 06_HongKong_WanChai_Underworld's floor
 under its disco lights `Light2` and `Light21`, lit by its zone's ambient and
-one steady light, comes out at 0.97 of `D3DDrv`'s frames, the detail texture
-the rest ([the menus' settings](#the-menus-settings)). Its fog map is drawn
-only with the render device's `VolumetricLighting` on and the viewport's
-actor in a fog zone, for a surface not translucent whose zone is a fog zone
-too, as the original's renderer has it: 02_NYC_Underground's floor under the
-water below `Light33`'s grating, seen from the fog zone above, is unfogged
-in both, the frame within 1.01 of `D3DDrv`'s (`LightConsole`). The other
-effects' shapes are Render.dll's own, on the level's time. `LightConsole`,
-shooting both engines at one moment of it (`ShotAt`), has
-06_HongKong_WanChai_Canal's disco `Light343` at 1.00 of `D3DDrv`'s frame,
-02_NYC_BatteryPark's cylinder `Light81` at a correlation of 0.98 to it, and
-09_NYC_ShipBelow's slow wave `Light16` at 1.01 of its brightness. The rest
-are the reading's alone: the stock views of the searchlight, non-incidence
-and the rotor come out the same under other shapes too, and no stock light
-shows a fast wave (99_Endgame2's one is dark), shock, shell or interference.
+one steady light, comes out at 0.99 of `D3DDrv`'s frames. Its fog map is
+drawn only with the render device's `VolumetricLighting` on and the
+viewport's actor in a fog zone, for a surface not translucent whose zone is
+a fog zone too, as the original's renderer has it: 02_NYC_Underground's
+floor under the water below `Light33`'s grating, seen from the fog zone
+above, is unfogged in both, the frame within 1.02 of `D3DDrv`'s
+(`LightConsole`). The other effects' shapes are Render.dll's own, on the
+level's time. `LightConsole`, shooting both engines at one moment of it
+(`ShotAt`), has 06_HongKong_WanChai_Canal's disco `Light343` at 1.00 of
+`D3DDrv`'s frame, 02_NYC_BatteryPark's cylinder `Light81` at a correlation
+of 0.98 to it, and 09_NYC_ShipBelow's slow wave `Light16` at 1.01 of its
+brightness. The rest are the reading's alone: the stock views of the
+searchlight, non-incidence and the rotor come out the same under other
+shapes too, and no stock light shows a fast wave (99_Endgame2's one is
+dark), shock, shell or interference.
 Still DXEngine's own:
 
 - **Light maps**
@@ -431,7 +431,7 @@ Vulkan, with descriptor indexing and without (the Smart Pro's), are within
 0.2% of the GL device's. How a DXEngine shot meets the original's frames:
 [scripted runs](DEVELOPMENT.md#scripted-runs-of-both-engines). Differs:
 
-- `MeshConsole`'s Liberty Island pier, where nothing is in hand, is 1.6%
+- `MeshConsole`'s Liberty Island pier, where nothing is in hand, is 1.7%
   under `D3DDrv`'s frames with the detail textures on, and 0.7% over with
   them off in both (`NoDetail`): DXEngine draws the pier's detail texture,
   the original none ([the menus' settings](#the-menus-settings)). Its crate,
@@ -721,21 +721,29 @@ and the ones on the walls are not drawn
   its size; full screen, the screen's size alone, DXEngine's full screen
   never changing the display's mode
   ([fullscreen under SDL](ENGINE.md#running-on-our-devices)).
-- **Detail Textures** draws or leaves the world's detail textures in one
-  pass in the shaders, not `D3DDrv`'s three, each placed by its own pan, not
-  panned with its surface, as the original's reads: no frame shows it. The
+- **Detail Textures** draws the world's detail textures as `D3DDrv`'s
+  passes draw them, all three in the scene shader's one pass
+  ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):
+  a band each nearer than 380, 90 and 21.3 units, each band's grain 4.223
+  times finer than the last, faded to grey toward its bound and modulated in
+  at twice its colour, each detail placed by its own pan, not panned with
+  its surface (`DetailConsole`, `detail.py`). A surface takes its texture's
+  current frame's, but for a portal or a surface with a fog map; none does
+  with World Texture Detail below High, as `Render.dll` hands them over. The
   original draws none here either way, `D3DDrv` and `OpenGLDrv` alike:
   `D3DDrv` turns them off when Direct3D does not offer `BLENDDIFFUSEALPHA`,
-  which Wine's Direct3D 7 does not, and set on in the running game, its
-  pass changes nothing
-  ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures);
-  `MeshConsole` with `NoDetail`); what that does to the pier's picture is
-  under [brightness](#brightness).
-- **World and Object Texture Detail** are kept and read back, but every
-  texture draws at full detail; **Low Sound Quality** is kept, but every
-  sound plays at its own; 16-bit **Texture Color Depth** is kept, DXEngine
-  drawing in 32 bits. **Use 3D Hardware** finds no hardware, as the original
-  finds none without an A3D or EAX card.
+  which Wine's Direct3D 7 does not, and set on in the running game, its pass
+  changes nothing (`MeshConsole` with `NoDetail`); what that does to the
+  pier's picture is under [brightness](#brightness). Differs: the fade is
+  worked out for each pixel, where `D3DDrv`'s goes by a polygon's corners
+  and passes over one with no corner within the band; the bands are not
+  rounded to 8 bits between passes.
+- **World and Object Texture Detail** are kept and read back; every texture
+  draws at full detail, World Texture Detail below High dropping the detail
+  textures alone; **Low Sound Quality** is kept, but every sound plays at
+  its own; 16-bit **Texture Color Depth** is kept, DXEngine drawing in 32
+  bits. **Use 3D Hardware** finds no hardware, as the original finds none
+  without an A3D or EAX card.
 - **Rendering Device**, and a dedicated server from the Host screen, send
   `RELAUNCH`, which starts the launcher again with the rest of the line once
   the engine has exited, as the original's starts `DeusEx.exe`

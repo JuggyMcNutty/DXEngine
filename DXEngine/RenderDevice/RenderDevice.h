@@ -185,6 +185,10 @@ public:
 	// then the light map, twice as bright as on one pass
 	// (dx-reverse-info/d3ddrv-dll.md, the light maps' brightness).
 	static constexpr bool MacroTwoPass = true;
+	// A world surface's detail texture drawn as D3DDrv's passes draw it, a
+	// band each nearer than 380, 90 and 21.3 units, in the scene shader's one
+	// pass (dx-reverse-info/d3ddrv-dll.md, detail textures).
+	static constexpr bool DetailBands = true;
 
 	// 2D rendering
 	bool IsOrtho = false;
