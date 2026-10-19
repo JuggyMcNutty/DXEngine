@@ -65,7 +65,7 @@
 # DXCAP_MISSION_MAP gives TargetMap (LightConsole's Effect, Pick, LightName,
 # View, Aim, ShotAt and Macro; GlassConsole's Pick, GlassName, View and
 # Behind; FlushConsole's Pick, DoorName, View and Angle; MirrorConsole's
-# MarkTime and ShinyOff; FaceConsole's MeshOf, Ahead and Distance;
+# MarkTime, ShinyOff and Straddle; FaceConsole's MeshOf, Ahead and Distance;
 # MeshConsole's LODBias and NoDetail; CanisterConsole's Distances and
 # MarkTime; LoopConsole's Jumps;
 # CallConsole's Depth; ReturnConsole's Items; SaveConsole's and LoadConsole's

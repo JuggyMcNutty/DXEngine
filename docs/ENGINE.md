@@ -381,6 +381,11 @@ wherever else that state is set.
 - **Depth is clamped** at the near and far planes on desktop GL, as the Vulkan device clamps it
   (the weapon close up): `DepthClipEnable` is D3D11's, off meaning a clamp. ES has no clamp and
   clips there.
+- **A mirror's frame is clipped at its plane** by a clip distance, as the Vulkan device's:
+  `GL_CLIP_DISTANCE0` is on only in a frame whose `NearClip` is not the default, so the main
+  frame draws as it would without it, and off for the passes after the scene. ES has clip
+  distances only with `EXT_clip_cull_distance` (its directive the line after the version):
+  without it nothing is clipped.
 - **The screen flash** is a quad on the near plane, z -1 and depth 0, where the Vulkan device's
   z 0 is: at z 0, GL's depth 0.5, the depth test would pass it only where the windows draw
   nothing solid, leaving their text, bars and icons out of the flash.

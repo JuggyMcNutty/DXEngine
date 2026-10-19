@@ -379,6 +379,7 @@ private:
 	void UnmapVertices();
 
 	void SetViewport(const GLViewport& viewport);
+	void SetClipDistance(bool on);
 	void SetBufferData(GLenum target, GLenum usage, GLBuffer* buffer, const void* data, size_t size);
 	void SetBlendState(GLBlendState* blendState, const float* BlendConstants = nullptr);
 	void SetDepthStencilState(GLDepthStencilState* depthStencilState);
@@ -419,6 +420,8 @@ private:
 	bool IsGLES = false; // an OpenGL ES context (RenderAPI::GLES): GLSL ES sources, no desktop versions
 	bool SamplerAnisotropy = true; // EXT_texture_filter_anisotropic; off where absent
 	bool SamplerMirrorClampEdge = true; // GL_MIRROR_CLAMP_TO_EDGE; probed (absent on the GE8300)
+	bool ClipDistance = true; // gl_ClipDistance: desktop GL's own; ES's with EXT_clip_cull_distance
+	bool ClipDistanceOn = false; // GL_CLIP_DISTANCE0: on in a mirror's frame
 	bool ActiveHdr = false;
 
 	bool CurrentFullscreen = 0;

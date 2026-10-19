@@ -37,7 +37,9 @@ std::string GLFileResource::readAllText(const std::string& filename)
 			void main()
 			{
 				gl_Position = objectToProjection * vec4(aPosition, 1.0);
-				//gl_ClipDistance[0] = dot(nearClip, objectToView * vec4(aPosition, 1.0));
+				#if defined(CLIP_DISTANCE)
+				gl_ClipDistance[0] = dot(nearClip, objectToView * vec4(aPosition, 1.0));
+				#endif
 				flags = aFlags;
 				texCoord = aTexCoord;
 				texCoord2 = aTexCoord2;

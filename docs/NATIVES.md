@@ -339,15 +339,18 @@ first person. `MirrorConsole`, at 4:3, on GL and on Vulkan:
   original's brightness, through `OpenGLDrv` and `D3DDrv` alike.
 - **A mirror in a mirror**: the training map's exit sign, a strip of mirror
   under it, in the marble floor's reflection, as the original's.
+- **An actor across the plane** (`Straddle`): the mannequin sunk half its
+  height into the lobby's floor, the part under the floor kept out of the
+  reflection, as in the original's frames.
 - **`ShinySurfaces` off**: the lobby's floor solid marble in both.
 
 Differs:
 
 - **The mirror's plane clips** what lies behind it: in the BSP walk, and on
-  the Vulkan and D3D11 devices by a clip distance; the GL device has none,
-  so there an actor wholly behind the plane is left out and a surface
-  across it is drawn whole. The original keeps what lies behind a mirror
-  out with a span buffer per zone.
+  every device by a clip distance, the GL device's on OpenGL ES only with
+  `EXT_clip_cull_distance`: without it an actor wholly behind the plane is
+  left out, and an actor or a surface across it is drawn whole. The
+  original keeps what lies behind a mirror out with a span buffer per zone.
 
 ### Mesh detail
 

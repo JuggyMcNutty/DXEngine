@@ -79,6 +79,7 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 			bool s3tc = false;
 			bool floatLinear = false;
 			bool anisotropic = false;
+			bool clipCullDistance = false;
 			GLint numExtensions = 0;
 			glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
 			for (GLint i = 0; i < numExtensions; i++)
@@ -90,11 +91,18 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 					s3tc = s3tc || strcmp(name, "GL_EXT_texture_compression_s3tc") == 0 || strcmp(name, "GL_WEBGL_compressed_texture_s3tc") == 0;
 					floatLinear = floatLinear || strcmp(name, "GL_OES_texture_float_linear") == 0;
 					anisotropic = anisotropic || strcmp(name, "GL_EXT_texture_filter_anisotropic") == 0;
+					clipCullDistance = clipCullDistance || strcmp(name, "GL_EXT_clip_cull_distance") == 0;
 				}
 			}
 			GLTextureUploader::SetS3TCSupported(s3tc);
 			GLTextureUploader::SetRGBA32FLinearSupported(floatLinear);
 			SamplerAnisotropy = anisotropic;
+			// A mirror's plane is clipped by a clip distance, which ES has only
+			// with EXT_clip_cull_distance (Port Ex Machina's
+			// tools/probes/probe-gles-scene.c asks a driver for it).
+			ClipDistance = clipCullDistance;
+			if (!ClipDistance)
+				LogMessage("GLDrv: EXT_clip_cull_distance absent; a mirror's plane is not clipped");
 		}
 
 		// GL_MIRROR_CLAMP_TO_EDGE: 4.4 desktop and 3.2 ES core on paper, but
@@ -391,7 +399,10 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 
 void GLRenderDevice::CreateScenePass()
 {
-	ScenePass.VertexShader = CreateVertexShader("ScenePass.VertexShader", "shaders/Scene.vert");
+	std::vector<std::string> vertexDefines;
+	if (ClipDistance)
+		vertexDefines.push_back("CLIP_DISTANCE");
+	ScenePass.VertexShader = CreateVertexShader("ScenePass.VertexShader", "shaders/Scene.vert", vertexDefines);
 	std::vector<std::string> sceneDefines;
 	if (!DarkClamp)
 		sceneDefines.push_back("NO_DARKCLAMP");
@@ -1223,6 +1234,8 @@ void GLRenderDevice::Unlock(bool Blit)
 	GLSceneVertexPos = 0;
 	SceneIndexPos = 0;
 
+	SetClipDistance(false);
+
 	if (Blit)
 	{
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, SceneBuffers.Framebuffer->Handle);
@@ -1922,6 +1935,7 @@ void GLRenderDevice::ClearZ()
 void GLRenderDevice::ReadPixels(TextureColor* Pixels)
 {
 	UnmapVertices();
+	SetClipDistance(false);
 
 	if (GammaCorrectScreenshots)
 	{
@@ -2104,7 +2118,25 @@ void GLRenderDevice::SetSceneNode(SceneNode* Frame)
 	SceneConstants.ObjectToView = Frame->WorldToView * Frame->ObjectToWorld;
 	SceneConstants.NearClip = Frame->NearClip;
 
+	// A mirror's frame is clipped at the mirror's plane, its NearClip, as
+	// the Vulkan device clips it; any other frame keeps the default, the
+	// clip off, so the main frame is drawn as before.
+	SetClipDistance(ClipDistance && Frame->NearClip != vec4(0.0f, 0.0f, 1.0f, -1.0f));
+
 	SetBufferData(GL_UNIFORM_BUFFER, GL_STREAM_DRAW, ScenePass.ConstantBuffer.get(), &SceneConstants, sizeof(GLScenePushConstants));
+}
+
+// The post-process passes, the present and the hit resolve write no clip
+// distance, which an enabled one leaves undefined: each turns it off.
+void GLRenderDevice::SetClipDistance(bool on)
+{
+	if (on == ClipDistanceOn)
+		return;
+	if (on)
+		glEnable(GL_CLIP_DISTANCE0);
+	else
+		glDisable(GL_CLIP_DISTANCE0);
+	ClipDistanceOn = on;
 }
 
 void GLRenderDevice::SetBufferData(GLenum target, GLenum usage, GLBuffer* buffer, const void* data, size_t size)
@@ -2478,6 +2510,9 @@ void GLRenderDevice::CompileGlsl(GLShader* shader, const std::string& filename, 
 		// declare highp. The sources are otherwise the same as the desktop
 		// ones -- gl_FragCoord.w is 1/w in ES as well.
 		code = "#version 320 es\r\n";
+		// An extension's directive comes before any line but the version.
+		if (std::find(defines.begin(), defines.end(), "CLIP_DISTANCE") != defines.end())
+			code += "#extension GL_EXT_clip_cull_distance : enable\r\n";
 		if (isFragmentShader)
 			code += "precision highp float;\r\nprecision highp int;\r\nprecision highp sampler2D;\r\n";
 	}

@@ -23,6 +23,11 @@
 // grabber MarkTime s (0.6 by default) and shot. Then exit. With ShinyOff
 // the render device's ShinySurfaces is set off first, each engine's by its
 // class: a translucent mirror is then drawn solid, reflecting nothing.
+// With Straddle the lobby's mannequin stands sunk half its height into the
+// floor, across the mirror's plane: from the reflected eye its lower half
+// lies before the plane, where a device that clips the mirror's frame at
+// its plane draws none of it, and one that does not draws it over the
+// reflection (docs/NATIVES.md, mirrors).
 // Each line is logged with "DXMIRROR:" in front.
 //=============================================================================
 class MirrorConsole extends Console;
@@ -30,6 +35,7 @@ class MirrorConsole extends Console;
 var config string TargetMap;
 var config float MarkTime;
 var config bool ShinyOff;
+var config bool Straddle;
 
 var string CurrentMap;
 var float MapTime;
@@ -235,7 +241,10 @@ function StandMannequin(PlayerPawn P)
 	Mannequin.DrawScale = class'UNATCOTroop'.default.DrawScale;
 	// Unlit, so the two engines' lighting does not tell them apart
 	Mannequin.bUnlit = true;
-	Log("DXMIRROR: mannequin " $ Mannequin.Name $ " at " $ Mannequin.Location $ " mesh " $ Mannequin.Mesh $ " zone " $ Mannequin.Region.Zone.Name);
+	if (Straddle)
+		Mannequin.SetLocation(Mannequin.Location - vect(0,0,1) * class'UNATCOTroop'.default.CollisionHeight);
+	Log("DXMIRROR: mannequin " $ Mannequin.Name $ " at " $ Mannequin.Location $ " mesh " $ Mannequin.Mesh $ " zone " $ Mannequin.Region.Zone.Name
+		$ " straddling " $ Straddle);
 }
 
 // The player's feet on the ground under the view's spot
