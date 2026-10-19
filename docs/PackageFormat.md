@@ -11,7 +11,7 @@ All types are little endian.
 - `name` 8-bit text string encoded as described below
 
 ### Index Data Type
-A compressed 32 bit integer. Uses the two high bits of the first byte to indicate if its a negative
+A compressed 32 bit integer. Uses the two high bits of the first byte to indicate if it's a negative
 number and if there's more data to read. Then each following byte the high bit is used to indicate
 additional bits. The following C++ code illustrates how to read it:
 ```c++
@@ -38,8 +38,8 @@ int32_t ReadIndex()
 ```
 
 ### Name Data Type
-In packages older than 64 a name string was a zero terminated list types. In newer versions its a
-`index size` followed by the string. The following C++ code illustrates how to read it:
+In packages older than 64 a name string was zero terminated. In newer versions it's an `index` size
+followed by the string. The following C++ code illustrates how to read it:
 ```c++
 std::string ReadString()
 {
@@ -177,7 +177,7 @@ All objects begin with the following header:
 ```
 struct ObjectHeader
 {
-  // Savegame objects serializes their unrealscript state
+  // Savegame objects serialize their unrealscript state
   if ExportTable[obj].ObjectFlags & HasStack
     index Node
     index StateNode
@@ -188,8 +188,9 @@ struct ObjectHeader
     endif
   endif
 
-  // Instanced objects serializes their unrealscript property values
-  if ExportTable[obj].Class == 0
+  // Instanced objects serialize their unrealscript property values; class objects
+  // (an export whose Class is 0) have none
+  if ExportTable[obj].Class != 0
     propertyblock properties
   endif
 }
@@ -310,7 +311,7 @@ data follows the header:
 - UPT_Vector: `float x,y,z` follows
 - UPT_Rotator: `uint32 pitch,yaw,roll` follows
 - UPT_Str: `name` follows
-- UPT_Map: `header.size`bytes follows
+- UPT_Map: `header.size` bytes follows
 - UPT_FixedArray: `header.size` bytes follows
 
 `header.arrayIndex` is the index of the value if the property is an array.
