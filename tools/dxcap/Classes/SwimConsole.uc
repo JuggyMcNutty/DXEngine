@@ -26,9 +26,12 @@
 //      out and 200 up.
 // The axes are set every tick to 120000, 20 times a held key's 6000
 // (StandConsole), so either engine's input cuts the acceleration to the
-// player's AccelRate; then an exit.
+// player's AccelRate; then an exit. With Only (DXCAP_CONFIG "Only=d", or
+// "Only=fg": g's troop is f's), those scenarios alone.
 //=============================================================================
 class SwimConsole extends Console;
+
+var config string Only;
 
 var float CapTime, MapTime, StepTime;
 var string CurrentMap;
@@ -349,7 +352,9 @@ event Tick(float Delta)
 	}
 	else if (Phase == 2)
 	{
-		// Stood a second, then the scenario
+		// Stood a second, then the scenario, but one Only leaves out
+		while (Only != "" && Scenario < 7 && InStr(Only, Mid("abcdefg", Scenario, 1)) < 0)
+			Scenario++;
 		if (StepTime > 1.0)
 		{
 			if (!StartScenario(P))

@@ -197,12 +197,18 @@ load's, longer in the original's ([a long frame](#small)): by then
 DXEngine's pawns are further along their first walk. `ReachConsole`'s
 144 answers, twelve pawns each asked from its home spot, are the original's
 to the unit. A dead robot frozen in `Dying` for good is the original's own
-behaviour, and the rest of a death is alike too (`DeathConsole`). Differs:
+behaviour, and the rest of a death is alike too (`DeathConsole`).
 `Terrorist34`, walking west to `PatrolPoint86`, comes to a stop at x 1510
-some 8 s in, still walking at it, in every original run, and stands there
-until his move's time runs out (`MoveTimer`) some 12 s later, then steps
-back and goes on; DXEngine holds him there so in some runs, and in others
-he slips past within a second (`MoveConsole`).
+some 8 s in, still walking at it, and stands there until his move's time
+runs out (`MoveTimer`) some 12 s later, then steps back and goes on: in
+every original run, and in every one of DXEngine's held to the original's
+120 frames a second, or to 60 (`MoveConsole`'s `Watch`, `move.py --pawn`). A
+walker's heading drifts with the frame rate, in both engines alike: after
+his turn toward the spot he drifts across his way, 0.06 units a second
+toward the spot's side at 120 frames and 0.1 away from it at the original's
+227 with vsync off, which meets the wall half a unit further along. DXEngine
+uncapped, at some 300, meets it further along again, and there in some runs
+he slips past within two seconds.
 
 ## Out of sight
 
@@ -947,9 +953,14 @@ Differs:
   DXEngine's stays put.
 - **Swimming out from under the water** (`SwimConsole`'s d: the player 100
   under the water line off the pier, looking 45 degrees down, the forward
-  axis held): the original's player swims out within its first tenth of a
-  second; in some of DXEngine's runs it only sinks for up to three quarters
-  of a second, its swim outward held, and in others it swims out at once.
+  axis held): at 60 and 120 frames a second the two engines' players swim
+  out alike, 4 units out at 0.2 s and 38 at 0.75 s. At some 1,000, either
+  engine uncapped, a frame's move outward is under the 0.001 units between
+  two floats of the player's place there (y 9,920), and each departs its own
+  way: the original's gains one such step a frame and is six times as far
+  out by 0.75 s; DXEngine's, whose velocity is the move it made, keeps to a
+  step a frame until its sinking adds to the move, 3 units out at 0.2 s, and
+  in some runs moves none for up to 0.4 s.
 
 ## Housekeeping, not seen directly
 

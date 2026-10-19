@@ -2,6 +2,7 @@
 """Reads MoveConsole runs: does each pawn move as the original's does?
 
     move.py <reference run dir> <run dir> [<run dir> ...]
+    move.py --pawn <name> [--off <units>] <reference run dir> <run dir> [...]
 
 Each run's DXMOVE lines -- MoveConsole's, every two seconds: a pawn's state,
 orders, move target, place, and the distance it moved since the line before
@@ -20,6 +21,16 @@ pawn:
 
 The summary counts the pawns within tolerance and the stalls the reference
 does not have; a pawn missing from either run is listed apart.
+
+With --pawn, the runs' "DXMOVE: watch" lines instead -- MoveConsole's with
+Watch=<name>, the pawn each tick -- and for each run where its path parts
+from the reference's: by place, not by time, as two runs' clocks start
+apart (the load's first frame) -- the first tick within the stretch the
+reference walked more than --off units (1 by default) across from its path,
+or with another state or physics than the reference's nearest tick; a way
+walked back is matched to its nearest stretch. That tick and the
+reference's nearest are printed whole, with how much later or earlier the
+reference passed there.
 """
 import os
 import re
@@ -68,8 +79,90 @@ def within(dist, ref):
     return abs(dist - ref) <= max(0.15 * ref, 200)
 
 
+WATCH = re.compile(r"DXMOVE: watch ([-0-9.]+) dt \S+ \S+ (\S+) at ([-0-9.]+),([-0-9.]+),([-0-9.]+) "
+                   r"vel \S+ physics (\d+) base \S+ state (\S+)")
+
+
+def read_watch(run, pawn):
+    """The pawn's ticks, in order: (time, (x, y, z), physics, state, line)."""
+    for name in ("engine.log", "DeusEx.log"):
+        path = os.path.join(run, name)
+        if os.path.exists(path):
+            break
+    else:
+        sys.exit(f"{run}: no engine.log or DeusEx.log")
+    ticks = []
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            m = WATCH.search(line)
+            if m and m.group(2).lower() == pawn.lower():
+                t, x, y, z = (float(v) for v in m.group(1, 3, 4, 5))
+                ticks.append((t, (x, y, z), int(m.group(6)), m.group(7), line[m.start():].rstrip()))
+    return ticks
+
+
+def nearest(ref, k, at):
+    """The reference's path nearest to at, looked for from its segment k on:
+    (segment, its share along it, the distance across), on the ground."""
+    best = None
+    for i in range(max(k - 1, 0), min(len(ref) - 1, k + 400)):
+        (ax, ay, _), (bx, by, _) = ref[i][1], ref[i + 1][1]
+        dx, dy = bx - ax, by - ay
+        span = dx * dx + dy * dy
+        f = 0.0 if span == 0.0 else max(0.0, min(1.0, ((at[0] - ax) * dx + (at[1] - ay) * dy) / span))
+        d = ((ax + dx * f - at[0]) ** 2 + (ay + dy * f - at[1]) ** 2) ** 0.5
+        if best is None or d < best[2]:
+            best = (i, f, d)
+    return best
+
+
+def parting(ref, other, off):
+    """The first of other's ticks within the stretch ref walked, off its path
+    by more than off or in another state or physics: (the tick, ref's nearest
+    tick, the distance, ref's time there); None if it never parts."""
+    if len(ref) < 2:
+        return None
+    k = 0
+    for tick in other:
+        t, at, physics, state, _ = tick
+        i, f, d = nearest(ref, k, at)
+        k = i
+        if (i == 0 and f == 0.0) or (i == len(ref) - 2 and f == 1.0):
+            continue
+        a = ref[i] if f < 0.5 else ref[i + 1]
+        if d > off or physics != a[2] or state != a[3]:
+            when = ref[i][0] + (ref[i + 1][0] - ref[i][0]) * f
+            return tick, a, d, when
+    return None
+
+
+def watch_main(pawn, runs, off):
+    ref = read_watch(runs[0], pawn)
+    if not ref:
+        sys.exit(f"{runs[0]}: no watch lines of {pawn}")
+    for run in runs[1:]:
+        other = read_watch(run, pawn)
+        print(f"{os.path.basename(run)} against {os.path.basename(runs[0])}, {pawn}: {len(other)} ticks against {len(ref)}")
+        found = parting(ref, other, off)
+        if not found:
+            print(f"  never parts by more than {off:g}")
+            continue
+        tick, near, d, when = found
+        print(f"  parts at {tick[0]:.3f} s, {d:.2f} units across; the reference passed there at {when:.3f} s "
+              f"({when - tick[0]:+.3f} s)")
+        print(f"    {tick[4]}")
+        print(f"    the reference's nearest tick: {near[4]}")
+
+
 def main():
-    if len(sys.argv) < 3:
+    if len(sys.argv) >= 5 and sys.argv[1] == "--pawn":
+        args = sys.argv[3:]
+        off = 1.0
+        if args[0] == "--off" and len(args) >= 4:
+            off = float(args[1])
+            args = args[2:]
+        return watch_main(sys.argv[2], args, off)
+    if len(sys.argv) < 3 or sys.argv[1] == "--pawn":
         sys.exit(__doc__)
     ref_run = sys.argv[1]
     ref = read_run(ref_run)

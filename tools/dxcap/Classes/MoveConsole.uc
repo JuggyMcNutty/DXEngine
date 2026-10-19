@@ -12,8 +12,19 @@
 // all, which states they pass through, what they chase (move target,
 // destination) and how far they get -- the animals (the rats and the
 // gulls) and the UNATCO security bots among them.
+//
+// With Watch (DXCAP_CONFIG "Watch=Terrorist34"), that pawn every tick too,
+// from WatchFrom to WatchTo of the level's seconds (all the 120 s by
+// default): the level's time and the tick's length, its place, velocity,
+// physics, base, state, move target, MoveTimer and destination, and the
+// nearest other actor that collides within 80 units, with "DXMOVE: watch";
+// move.py --pawn finds where two runs' paths part.
 //=============================================================================
 class MoveConsole extends Console;
+
+var config string Watch;
+var config float WatchFrom, WatchTo;
+var float WatchedAt;
 
 var float CapTime;
 var float MapTime;
@@ -102,6 +113,48 @@ function Census(PlayerPawn P)
 	Log("DXMOVE: " $ int(P.Level.TimeSeconds) $ " " $ Count $ " in-world pawns");
 }
 
+// The watched pawn this tick, as it stands.
+function WatchTick(PlayerPawn P, float Delta)
+{
+	local ScriptedPawn S;
+	local Actor A, Near;
+	local string MT, B, N;
+	local float T, D, NearD;
+
+	T = P.Level.TimeSeconds;
+	if (T < WatchFrom || (WatchTo > 0 && T > WatchTo))
+		return;
+	foreach P.AllActors(class'ScriptedPawn', S)
+		if (string(S.Name) ~= Watch)
+			break;
+	if (S == None || !(string(S.Name) ~= Watch))
+		return;
+	MT = "None";
+	if (S.MoveTarget != None)
+		MT = string(S.MoveTarget.Name);
+	B = "None";
+	if (S.Base != None)
+		B = string(S.Base.Name);
+	NearD = 80;
+	foreach S.RadiusActors(class'Actor', A, 80)
+	{
+		D = VSize(A.Location - S.Location);
+		if (A != S && A.bCollideActors && D < NearD)
+		{
+			Near = A;
+			NearD = D;
+		}
+	}
+	N = "None";
+	if (Near != None)
+		N = Near.Name $ " at " $ Near.Location;
+	Log("DXMOVE: watch " $ T $ " dt " $ (T - WatchedAt) $ " " $ Delta $ " " $ S.Name
+	    $ " at " $ S.Location $ " vel " $ S.Velocity $ " physics " $ int(S.Physics) $ " base " $ B
+	    $ " state " $ S.GetStateName() $ " mt " $ MT $ " movetimer " $ S.MoveTimer $ " dest " $ S.Destination
+	    $ " near " $ N);
+	WatchedAt = T;
+}
+
 event Tick(float Delta)
 {
 	local PlayerPawn P;
@@ -151,6 +204,8 @@ event Tick(float Delta)
 	}
 	else if (Phase == 2)
 	{
+		if (Watch != "")
+			WatchTick(P, Delta);
 		if (LogTime > 2.0)
 		{
 			Census(P);

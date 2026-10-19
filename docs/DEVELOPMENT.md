@@ -68,7 +68,7 @@ are gone.
 | `DXCAP_RENDERER=D3D` | the original through `D3DDrv`, the game's own renderer, not `OpenGLDrv` |
 | `DXCAP_PREFIX=<dir>` | another Wine prefix than `build/dxcap/prefix` |
 | `DXCAP_PROTON=<name>` | another Proton build in `~/.local/share/Steam/compatibilitytools.d` than `Proton-CachyOS Latest` |
-| `DXCAP_CONFIG="<key>=<value> ..."` | those keys in the run's console class's section of the ini, as `DXCAP_MISSION_MAP` gives `TargetMap` (`LightConsole`'s `Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`, `Macro`; `GlassConsole`'s `Pick`, `GlassName`, `View`, `Behind`; `FlushConsole`'s `Pick`, `DoorName`, `View`, `Angle`; `MirrorConsole`'s `MarkTime`, `ShinyOff`, `Straddle`; `FaceConsole`'s `MeshOf`, `Ahead`, `Distance`; `MeshConsole`'s `LODBias`, `NoDetail`; `CanisterConsole`'s `Distances`, `MarkTime`; `LoopConsole`'s `Jumps`; `CallConsole`'s `Depth`; `ReturnConsole`'s `Items`; `SaveConsole`'s and `LoadConsole`'s `Via`; `LoadConsole`'s `Open`; `ThemeConsole`'s `Direct`; `CensusConsole`'s `From`, `Wait`, `Load`, `Seconds`, `Notify`; `DetailConsole`'s `Heights`) |
+| `DXCAP_CONFIG="<key>=<value> ..."` | those keys in the run's console class's section of the ini, as `DXCAP_MISSION_MAP` gives `TargetMap` (`LightConsole`'s `Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`, `Macro`; `GlassConsole`'s `Pick`, `GlassName`, `View`, `Behind`; `FlushConsole`'s `Pick`, `DoorName`, `View`, `Angle`; `MirrorConsole`'s `MarkTime`, `ShinyOff`, `Straddle`; `FaceConsole`'s `MeshOf`, `Ahead`, `Distance`; `MeshConsole`'s `LODBias`, `NoDetail`; `CanisterConsole`'s `Distances`, `MarkTime`; `LoopConsole`'s `Jumps`; `CallConsole`'s `Depth`; `ReturnConsole`'s `Items`; `SaveConsole`'s and `LoadConsole`'s `Via`; `LoadConsole`'s `Open`; `ThemeConsole`'s `Direct`; `CensusConsole`'s `From`, `Wait`, `Load`, `Seconds`, `Notify`; `DetailConsole`'s `Heights`; `MoveConsole`'s `Watch`, `WatchFrom`, `WatchTo`; `SwimConsole`'s `Only`) |
 | `DXCAP_USERINI=<file>` | a run's `User.ini` made from that file, in place of the game's (`IniConsole`'s keys given twice) |
 | `DXCAP_USERINI_FIRST=1` | the run's inis named `USERINI=` then `INI=`: on the original's command line, and on DXEngine's by `--cmdline` in place of `--ini` and `--userini` ([the command line](NATIVES.md#the-command-line)) |
 | `DXCAP_MISSION_MAP=<map>` | the map a run's console travels to, its `TargetMap` (`MissionConsole`'s, `StaticConsole`'s, `WadeConsole`'s, `ScreenConsole`'s, `PerfConsole`'s, `EndgameConsole`'s, `VisibleConsole`'s, `MoverConsole`'s, `LightConsole`'s, `GlassConsole`'s, `FlushConsole`'s, `WallConsole`'s, `MirrorConsole`'s): an original run starts at its menu map, a dxe run at the map it is given |
@@ -121,11 +121,11 @@ the run. *Either*: one engine on each side of a pair.
 | `AIConsole` | both | every NPC's state, orders, enemy and render time; the camera | `DXAI:`, `DXAISTATE:` |  |
 | `SitConsole` | both | Private Lloyd's way into his chair and his sitting, in view: state, animation, `bSitting`, place; two marked shots | `DXSIT:` | the two logs' lines |
 | `StaticConsole` | both | `TargetMap`'s static actors at 5 s and 15 s | `DXSTATIC:` |  |
-| `MoveConsole` | both | every pawn's moves, every 2 s for 120 s | `DXMOVE:` | `move.py <original run> <dxe run>` |
+| `MoveConsole` | both | every pawn's moves, every 2 s for 120 s; with `Watch`, one pawn each tick (`WatchFrom`, `WatchTo`) | `DXMOVE:` | `move.py <original run> <dxe run>`; `move.py --pawn <name>`, where two runs' paths part, by place |
 | `ReachConsole` | both | the reach tests, each pawn asked from its home spot | `DXREACH:` |  |
 | `TraceConsole` | both | `TraceTexture`, `TraceActors`, `Trace` and `FastTrace`; boxes started inside cylinders | `DXTRACE:` |  |
 | `FloatConsole` | both | the crates in the water by the pier | `DXFLOAT:` |  |
-| `SwimConsole` | both | falls into water, diving, swimming up; a troop thrown in | `DXSWIM:` |  |
+| `SwimConsole` | both | falls into water, diving, swimming up; a troop thrown in (`Only`: those scenarios) | `DXSWIM:` |  |
 | `LadderConsole` | both | Liberty Island's first ladder, every tick | `DXLADDER:` |  |
 | `WadeConsole` | both | a troop walking off a ledge into water; `TargetMap`'s shore | `DXWADE:` | `track.py <original run> <dxe run>` |
 | `FlightConsole` | both | a gull's flights at the pier; a stock gull's own | `DXFLIGHT:` | `track.py` |
