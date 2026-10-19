@@ -15,7 +15,7 @@ index be1c475..986f542 100644
  	DXEngine/Precomp.cpp
  	DXEngine/Precomp.h
 diff --git a/DXEngine/Engine.cpp b/DXEngine/Engine.cpp
-index 6742679..8ec8aa1 100644
+index f7ad565..133e246 100644
 --- a/DXEngine/Engine.cpp
 +++ b/DXEngine/Engine.cpp
 @@ -2,6 +2,7 @@
@@ -84,7 +84,7 @@ index 6742679..8ec8aa1 100644
  
  		// Save the game if there is a request for it
  		if (SaveGameInfo.SaveGameSlot != DONT_SAVE_GAME)
-@@ -2708,6 +2726,9 @@ void Engine::UpdateInput(float timeElapsed)
+@@ -2712,6 +2730,9 @@ void Engine::UpdateInput(float timeElapsed)
  	if (!viewport->Actor())
  		return;
  
@@ -179,7 +179,7 @@ index c39f771..4459858 100644
  		return false;
  	if (lastStart == TickStart::Stasis || actor->bDeleteMe())
 diff --git a/DXEngine/Render/RenderScene.cpp b/DXEngine/Render/RenderScene.cpp
-index d9861eb..8860870 100644
+index 85afb7c..4392d17 100644
 --- a/DXEngine/Render/RenderScene.cpp
 +++ b/DXEngine/Render/RenderScene.cpp
 @@ -1,5 +1,6 @@
@@ -216,7 +216,7 @@ index d9861eb..8860870 100644
  
  void RenderSubsystem::UpdateRenderInterface(UActor* actor)
 diff --git a/DXEngine/Render/RenderSubsystem.cpp b/DXEngine/Render/RenderSubsystem.cpp
-index 78afff9..47c60fe 100644
+index 88f3cf7..94360e8 100644
 --- a/DXEngine/Render/RenderSubsystem.cpp
 +++ b/DXEngine/Render/RenderSubsystem.cpp
 @@ -1,5 +1,6 @@
@@ -226,9 +226,9 @@ index 78afff9..47c60fe 100644
  #include "RenderSubsystem.h"
  #include "RenderDevice/RenderDevice.h"
  #include "GameWindow.h"
-@@ -24,7 +25,9 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
- 	DrawnSinceFlush = true;
- 	LevelTimeElapsed = levelTimeElapsed;
+@@ -30,7 +31,9 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
+ 	// Render.dll hands it over (dx-reverse-info render-dll.md, a frame).
+ 	DetailTexturesDrawn = engine->renderdev->DetailTextures && NameString(engine->client->TextureDetail) == NameString("High");
  	AutoUV += levelTimeElapsed * 64.0f;
 +	{ PerfLog::Section perf(PerfLog::LightTick); // TEMPORARY DEBUG TOOL
  	engine->Level->Light.Tick(levelTimeElapsed);
@@ -236,7 +236,7 @@ index 78afff9..47c60fe 100644
  
  	Stats.Frames = 0;
  	Stats.Surfaces = 0;
-@@ -50,11 +53,15 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
+@@ -56,11 +59,15 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
  	}
  
  	Device->Brightness = engine->client->Brightness;
@@ -252,7 +252,7 @@ index 78afff9..47c60fe 100644
  
  	if (engine->console->bNoDrawWorld() == false)
  	{
-@@ -67,15 +74,23 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
+@@ -73,15 +80,23 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
  		if (engine->viewport->Actor() && (!engine->dxRootWindow || engine->dxRootWindow->bRender()))
  		{
  			DrawScene();
@@ -277,7 +277,7 @@ index 78afff9..47c60fe 100644
  	FrameDrawn = true;
  }
 diff --git a/DXEngine/Render/VisibleFrame.cpp b/DXEngine/Render/VisibleFrame.cpp
-index 5f91b85..6bc59a5 100644
+index 5a3c98d..c0fa21d 100644
 --- a/DXEngine/Render/VisibleFrame.cpp
 +++ b/DXEngine/Render/VisibleFrame.cpp
 @@ -1,6 +1,7 @@
@@ -288,7 +288,7 @@ index 5f91b85..6bc59a5 100644
  #include "VisibleCorona.h"
  #include "RenderSubsystem.h"
  #include "RenderDevice/RenderDevice.h"
-@@ -494,7 +495,11 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
+@@ -495,7 +496,11 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
  
  	// Skip node if its AABB is not visible -- and what came down into its
  	// space with it, as the original drops it
@@ -301,7 +301,7 @@ index 5f91b85..6bc59a5 100644
  	{
  		return;
  	}
-@@ -507,6 +512,7 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
+@@ -508,6 +513,7 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
  			actor->LastDrawFrame = FrameCounter;
  
  			VisibleActor visactor;
@@ -309,7 +309,7 @@ index 5f91b85..6bc59a5 100644
  			visactor.Process(this, actor);
  		}
  	}
-@@ -629,7 +635,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -630,7 +636,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  			if (zoneInfo->SkyZone())
  			{
  				gatherPoints();
@@ -319,7 +319,7 @@ index 5f91b85..6bc59a5 100644
  				if (!spans.empty())
  				{
  					USkyZoneInfo* skyZone = zoneInfo->SkyZone();
-@@ -660,7 +668,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -661,7 +669,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  				if (warpZone)
  				{
  					gatherPoints();
@@ -329,17 +329,17 @@ index 5f91b85..6bc59a5 100644
  					if (!spans.empty())
  					{
  						for (auto& p : Portals)
-@@ -688,7 +698,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
- 				return;
- 
- 			gatherPoints();
-+			uint64_t perfPortal = PerfLog::Enabled() ? PerfLog::NowNs() : 0; // TEMPORARY DEBUG TOOL
- 			Array<PortalSpan> spans = Clipper.CheckPortal(points, numverts);
-+			if (perfPortal) PerfLog::Add(PerfLog::VisPortal, (PerfLog::NowNs() - perfPortal) / 1e6); // TEMPORARY DEBUG TOOL
- 			if (!spans.empty())
+@@ -705,7 +715,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+ 			else
  			{
- 				for (auto& p : Portals)
-@@ -725,7 +737,11 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+ 				gatherPoints();
++				uint64_t perfPortal = PerfLog::Enabled() ? PerfLog::NowNs() : 0; // TEMPORARY DEBUG TOOL
+ 				Array<PortalSpan> spans = Clipper.CheckPortal(points, numverts);
++				if (perfPortal) PerfLog::Add(PerfLog::VisPortal, (PerfLog::NowNs() - perfPortal) / 1e6); // TEMPORARY DEBUG TOOL
+ 				if (!spans.empty())
+ 				{
+ 					// One frame for the mirrors of one plane seen from one
+@@ -752,7 +764,11 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  	}
  
  	gatherPoints();
@@ -352,7 +352,7 @@ index 5f91b85..6bc59a5 100644
  		return;
  
  	// A visible portal surface means the zones it borders were seen: their
-@@ -806,6 +822,14 @@ int VisibleFrame::FindZoneAt(const vec4& location, BspNode* node, BspNode* nodes
+@@ -833,6 +849,14 @@ int VisibleFrame::FindZoneAt(const vec4& location, BspNode* node, BspNode* nodes
  
  void VisibleFrame::Draw()
  {
