@@ -285,19 +285,27 @@ void UScriptedPawn::Tick(float elapsed)
 		}
 
 		// A wounded pawn drips faster the harder it bleeds and the faster
-		// it moves; the wound clots over ClotPeriod. With bTickVisibleOnly,
-		// only within 1,200 units of the player.
-		if (bCanBleed() && BleedRate() > 0.0f && (!bTickVisibleOnly() || DistanceFromPlayer() <= 1200.0f))
+		// it moves, its BleedRate held to 0-1 for the period, as the
+		// original holds it: a drop takes 0.1 s at the least. Unheld, a
+		// wound past 1.1 has no period, the counter grows while nothing
+		// drips, and a period near 0 pays it all out in one tick, drops by
+		// the hundred thousand. The wound clots over ClotPeriod. With
+		// bTickVisibleOnly, only within 1,200 units of the player, where a
+		// pawn that bleeds no more has both reset.
+		if (!bTickVisibleOnly() || DistanceFromPlayer() <= 1200.0f)
 		{
-			float speedShare = std::clamp(length(Velocity()) / 512.0f, 0.05f, 1.0f);
-			float period = (1.1f - BleedRate()) / speedShare;
-			DropCounter() += elapsed;
-			while (period > 0.0f && DropCounter() >= period)
+			if (bCanBleed() && BleedRate() > 0.0f)
 			{
-				DropCounter() -= period;
-				CallEvent(this, "SpurtBlood");
+				float speedShare = std::clamp(length(Velocity()) / 512.0f, 0.05f, 1.0f);
+				float period = (1.1f - std::clamp(BleedRate(), 0.0f, 1.0f)) / speedShare;
+				DropCounter() += elapsed;
+				while (DropCounter() >= period)
+				{
+					DropCounter() -= period;
+					CallEvent(this, "SpurtBlood");
+				}
+				BleedRate() -= ClotPeriod() > 0.0f ? elapsed / ClotPeriod() : BleedRate();
 			}
-			BleedRate() -= ClotPeriod() > 0.0f ? elapsed / ClotPeriod() : BleedRate();
 			if (BleedRate() <= 0.0f)
 			{
 				BleedRate() = 0.0f;

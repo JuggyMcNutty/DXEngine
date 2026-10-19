@@ -56,7 +56,11 @@ is, whatever region the map saved: DXMP_Silo's items, crates and robots
 start in their zones, where the map's regions put them in none and a first
 fall would take them out of the world (`VisibleConsole` there); every level
 loaded, a save's or one returned to, then calls `PostPostBeginPlay`
-(`LoadConsole`, `ReturnConsole`). A save's load logs the saved player in as
+(`LoadConsole`, `ReturnConsole`). A save loaded in the running game, from
+the menu map or the level it was saved in, and a run started on it, spawn
+what the original's do, class by class, second by second (`CensusConsole`,
+`census.py`), and keep it, but for the game's decals
+([out of sight](#out-of-sight)). A save's load logs the saved player in as
 the original's does, with `?loadgame`: the game's `Login` keeps it as saved,
 and its `TravelPostAccept` spawns the level's mission script, which no save
 holds -- an object of a transient class is not written (`LoadConsole` over
@@ -146,7 +150,10 @@ What `DeusEx.dll` and `Engine.dll` do for every NPC, piece by piece.
 
 Matches the original
 ([the native tick](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-native-tick)),
-run before the actor tick, in the original's order.
+run before the actor tick, in the original's order. A wound drips a drop
+each 0.1 s at the most, however hard it bleeds, its `BleedRate` held
+between 0 and 1 for the drop's period as the original holds it
+(`CensusConsole`).
 
 ### Starting up
 
@@ -221,6 +228,11 @@ the vision augmentation draws through a wall stays drawn while it is in view
   before what lies beyond it.
 - **Drawing** is DXEngine's own box test, the depth buffer hiding the rest;
   only whether an actor counts as drawn is the original's.
+- **The game's decals outlive the original's.** Each goes when it has not
+  been drawn for a second, some 20 s after it lands (`DeusExDecal`), and
+  DXEngine's mostly count as drawn: `CensusConsole`'s blood splats, 90 s
+  under fire on Liberty Island, are 300 to 670 at the end against the
+  original's 90 to 186.
 
 ## On screen
 
