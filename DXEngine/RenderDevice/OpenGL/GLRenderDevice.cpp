@@ -233,13 +233,18 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 	SceneBuffers.Height = height;
 	SceneBuffers.Multisample = multisample;
 
-	// The scene and post-process color buffers are 8-bit unless HDR is asked
-	// for: half the bandwidth, which tells most on a shared-memory SoC, and
-	// what the original XOpenGLDrv's own 8-bit buffer was (the overbright the
-	// scene shader can write clamps at the write, as it did there).
-	GLenum colorInternal = ActiveHdr ? GL_RGBA16F : GL_RGBA8;
-	GLenum colorFormat = GL_RGBA;
-	GLenum colorType = ActiveHdr ? GL_FLOAT : GL_UNSIGNED_BYTE;
+	// The scene and post-process color buffers are RGB10_A2 unless HDR is
+	// asked for (RGBA16F): ten bits a channel, so the darks band less than in
+	// D3DDrv's 8-bit frame, as in the Vulkan device's 16-bit one, at 8-bit's
+	// 32 bits a pixel, half the HDR buffers' bandwidth, which tells most on a
+	// shared-memory SoC. The overbright the scene shader can write clamps at
+	// the write, as in the original XOpenGLDrv's 8-bit buffer. Destination
+	// alpha keeps 2 bits, and no blend reads it but into alpha. ES keeps
+	// RGBA8 until its drivers are known to draw, resolve and read RGB10_A2
+	// (Port Ex Machina's tools/probes/probe-gles-scene.c). Immutable storage
+	// takes the format alone: ES has no glTexImage2D of RGB10_A2 from bytes.
+	GLenum colorInternal = ActiveHdr ? GL_RGBA16F : (IsGLES || SceneRGB10A2Failed) ? GL_RGBA8 : GL_RGB10_A2;
+	SceneBuffers.ColorFormat = colorInternal;
 
 	// ES has no glTexImage2DMultisample: its glTexStorage2DMultisample (ES
 	// 3.1) makes the same buffer, immutable, which a resize makes anew.
@@ -264,9 +269,9 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 	{
 		glBindTexture(GL_TEXTURE_2D, SceneBuffers.ColorBuffer->Handle);
 		SetDebugName(SceneBuffers.ColorBuffer, "SceneBuffers.ColorBuffer");
-		glTexImage2D(GL_TEXTURE_2D, 0, colorInternal, SceneBuffers.Width, SceneBuffers.Height, 0, colorFormat, colorType, nullptr);
+		glTexStorage2D(GL_TEXTURE_2D, 1, colorInternal, SceneBuffers.Width, SceneBuffers.Height);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-		ThrowIfGLError("glTexImage2D(SceneBuffers.ColorBuffer) failed");
+		ThrowIfGLError("glTexStorage2D(SceneBuffers.ColorBuffer) failed");
 	}
 
 	SceneBuffers.HitBuffer = std::make_shared<GLTexture2D>();
@@ -325,9 +330,9 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 		SceneBuffers.PPImage[i] = std::make_shared<GLTexture2D>();
 		glBindTexture(GL_TEXTURE_2D, SceneBuffers.PPImage[i]->Handle);
 		SetDebugName(SceneBuffers.PPImage[i], "SceneBuffers.PPImage");
-		glTexImage2D(GL_TEXTURE_2D, 0, colorInternal, SceneBuffers.Width, SceneBuffers.Height, 0, colorFormat, colorType, nullptr);
+		glTexStorage2D(GL_TEXTURE_2D, 1, colorInternal, SceneBuffers.Width, SceneBuffers.Height);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-		ThrowIfGLError("glTexImage2D(SceneBuffers.PPImage) failed");
+		ThrowIfGLError("glTexStorage2D(SceneBuffers.PPImage) failed");
 	}
 
 	SceneBuffers.Framebuffer = std::make_shared<GLFramebuffer>();
@@ -359,6 +364,24 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 		ThrowIfGLError("Creating SceneBuffers.PPFramebuffer failed");
 	}
 
+	// A driver that cannot draw into RGB10_A2 beside the hit buffer and depth
+	// gets the 8-bit buffers, from now on.
+	if (colorInternal == GL_RGB10_A2)
+	{
+		glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.Framebuffer->Handle);
+		bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+		glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.PPFramebuffer[0]->Handle);
+		complete = complete && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+		if (!complete)
+		{
+			LogMessage("GLDrv: RGB10_A2 scene buffers incomplete; RGBA8 in their place");
+			SceneRGB10A2Failed = true;
+			SceneBuffers.ColorBuffer.reset();
+			ResizeSceneBuffers(width, height, multisample);
+			return;
+		}
+	}
+
 	int bloomWidth = width;
 	int bloomHeight = height;
 	for (PPBlurLevel& level : SceneBuffers.BlurLevels)
@@ -369,16 +392,16 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 		level.VTexture = std::make_shared<GLTexture2D>();
 		glBindTexture(GL_TEXTURE_2D, level.VTexture->Handle);
 		SetDebugName(level.VTexture, "SceneBuffers.BlurLevels.VTexture");
-		glTexImage2D(GL_TEXTURE_2D, 0, colorInternal, bloomWidth, bloomHeight, 0, colorFormat, colorType, nullptr);
+		glTexStorage2D(GL_TEXTURE_2D, 1, colorInternal, bloomWidth, bloomHeight);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-		ThrowIfGLError("glTexImage2D(SceneBuffers.BlurLevels.VTexture) failed");
+		ThrowIfGLError("glTexStorage2D(SceneBuffers.BlurLevels.VTexture) failed");
 
 		level.HTexture = std::make_shared<GLTexture2D>();
 		glBindTexture(GL_TEXTURE_2D, level.HTexture->Handle);
 		SetDebugName(level.HTexture, "SceneBuffers.BlurLevels.HTexture");
-		glTexImage2D(GL_TEXTURE_2D, 0, colorInternal, bloomWidth, bloomHeight, 0, colorFormat, colorType, nullptr);
+		glTexStorage2D(GL_TEXTURE_2D, 1, colorInternal, bloomWidth, bloomHeight);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-		ThrowIfGLError("glTexImage2D(SceneBuffers.BlurLevels.HTexture) failed");
+		ThrowIfGLError("glTexStorage2D(SceneBuffers.BlurLevels.HTexture) failed");
 
 		level.VFramebuffer = std::make_shared<GLFramebuffer>();
 		glBindFramebuffer(GL_FRAMEBUFFER, level.VFramebuffer->Handle);
@@ -2008,6 +2031,33 @@ void GLRenderDevice::ReadPixels(TextureColor* Pixels)
 			}
 		}
 	}
+	else if (SceneBuffers.ColorFormat == GL_RGB10_A2)
+	{
+		// Ten bits a channel to a byte by a 4x4 ordered threshold, so that a
+		// region's mean is the buffer's: the driver's rounding to the nearest
+		// byte reads the darks a tenth of a level under, as 1023 is not four
+		// times 255 and below level 42 the step nearest each half-level lies
+		// under it (MeshConsole's pier 0.7% darker than with RGBA8 buffers).
+		static const int bayer[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
+		std::vector<uint32_t> col((size_t)w * h);
+		glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, col.data());
+		ThrowIfGLError("ReadPixels failed");
+
+		for (int y = 0; y < h; y++)
+		{
+			const uint32_t* src = &col[(size_t)(GammaCorrectScreenshots ? (h - 1 - y) : y) * w];
+			TextureColor* dest = Pixels + (size_t)y * w;
+			for (int x = 0; x < w; x++)
+			{
+				float threshold = (bayer[(y & 3) * 4 + (x & 3)] + 0.5f) / 16.0f;
+				uint32_t c = src[x];
+				dest[x].R = (uint8_t)(((c >> 20) & 1023) * (255.0f / 1023.0f) + threshold);
+				dest[x].G = (uint8_t)(((c >> 10) & 1023) * (255.0f / 1023.0f) + threshold);
+				dest[x].B = (uint8_t)((c & 1023) * (255.0f / 1023.0f) + threshold);
+				dest[x].A = (uint8_t)((c >> 30) * 85);
+			}
+		}
+	}
 	else
 	{
 		std::vector<uint8_t> col((size_t)w * h * 4);
@@ -2016,7 +2066,7 @@ void GLRenderDevice::ReadPixels(TextureColor* Pixels)
 
 		for (int y = 0; y < h; y++)
 		{
-			const uint8_t* src = &col[(size_t)y * w * 4];
+			const uint8_t* src = &col[(size_t)(GammaCorrectScreenshots ? (h - 1 - y) : y) * w * 4];
 			TextureColor* dest = Pixels + (size_t)y * w;
 			for (int x = 0; x < w; x++)
 			{

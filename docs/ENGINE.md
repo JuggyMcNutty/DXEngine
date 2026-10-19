@@ -358,17 +358,25 @@ wherever else that state is set.
 - **The vertices** stream through CPU staging arrays, each flush uploading the range written
   since the last one (`glBufferSubData`): the GE8300 has no `glBufferStorage` (persistent
   mapping), and mapping the buffers' unused tails on every flush costs most of its frame.
-- **The scene buffers** are RGBA8 unless `Hdr` is on. They hold the frame top row first, so a
-  scene drawn in a window (a security camera's view on its computer) lands where the Vulkan
-  device puts it: its viewport is placed from the top, where Surreal Engine's places it from the
-  bottom.
+- **The scene buffers** are RGB10_A2 unless `Hdr` is on (RGBA16F), by choice: darks banded less
+  than in `D3DDrv`'s 8-bit frame, as in the Vulkan device's 16-bit buffers, at 32 bits a pixel
+  (`LightConsole` under 02_NYC_Underground's `Light33`, gamma-corrected: 63 levels under 64
+  where RGBA8 gave 54, no gap over 2 where it left 6). ES keeps RGBA8 until its drivers are
+  known to draw, resolve and read RGB10_A2, and so does a desktop driver whose scene framebuffer
+  of it comes up incomplete (logged). Each is made with immutable storage (`glTexStorage2D`),
+  which takes a format alone. They hold the frame top row first, so a scene drawn in a window (a
+  security camera's view on its computer) lands where the Vulkan device puts it: its viewport is
+  placed from the top, where Surreal Engine's places it from the bottom.
 - **BC1** without `EXT_texture_compression_s3tc` and RGBA32F (the lightmaps) without
   `OES_texture_float_linear` are decoded to RGBA8 on the CPU.
 - **The samplers** set no `GL_TEXTURE_LOD_BIAS` on ES (no ES sampler has it), anisotropy only
   with `EXT_texture_filter_anisotropic`, and `GL_MIRROR_CLAMP_TO_EDGE` only where a probe at
   init finds the driver takes it (else `CLAMP_TO_EDGE`).
-- **`ReadPixels`** reads the buffer as it is, the right way up (Surreal Engine's is an `#if 0`
-  stub of D3D11 code, its shots black); `Exit()` runs once and tolerates a failed unmap, as the
+- **`ReadPixels`** reads the buffer the right way up, the gamma-corrected one too (Surreal
+  Engine's is an `#if 0` stub of D3D11 code, its shots black), RGB10_A2's to bytes by a 4×4
+  ordered threshold, so that a region's mean is the buffer's: the driver's rounding to the
+  nearest byte reads the darks a tenth of a level under, 1023 not being four times 255
+  (`MeshConsole`'s pier 0.7% darker). `Exit()` runs once and tolerates a failed unmap, as the
   intro can end the game after the window's context is gone.
 - **The post-process passes bind their own samplers**, as the Vulkan device's do: the present,
   the bloom and the gamma-corrected read-back sample the image linearly, held at its edges, and

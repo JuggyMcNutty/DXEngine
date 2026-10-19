@@ -134,6 +134,7 @@ public:
 		int Width = 0;
 		int Height = 0;
 		int Multisample = 0;
+		GLenum ColorFormat = GL_RGBA8; // the color buffers': RGB10_A2, RGBA8 or RGBA16F
 	} SceneBuffers;
 
 	struct ScenePipelineState
@@ -422,6 +423,7 @@ private:
 	bool SamplerMirrorClampEdge = true; // GL_MIRROR_CLAMP_TO_EDGE; probed (absent on the GE8300)
 	bool ClipDistance = true; // gl_ClipDistance: desktop GL's own; ES's with EXT_clip_cull_distance
 	bool ClipDistanceOn = false; // GL_CLIP_DISTANCE0: on in a mirror's frame
+	bool SceneRGB10A2Failed = false; // a framebuffer with RGB10_A2 came up incomplete: RGBA8 from then on
 	bool ActiveHdr = false;
 
 	bool CurrentFullscreen = 0;
