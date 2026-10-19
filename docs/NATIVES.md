@@ -759,9 +759,9 @@ and the ones on the walls are not drawn
   dedicated server. DXEngine passes the line to the launcher on its line
   ([running it](ENGINE.md#running-it)), which starts again once the game has
   ended, where the original's new process starts while the old one is still
-  ending. With no launcher on the line -- the Smart Pro's tabbed launcher,
-  or the engine started by hand -- the dedicated server's starts the engine
-  again itself, as that server, and Rendering Device does nothing.
+  ending. With no launcher on the line -- the engine started by hand -- the
+  dedicated server's starts the engine again itself, as that server, and
+  Rendering Device does nothing.
 
 ## Sound
 
@@ -1120,9 +1120,7 @@ engine's own objects are not deleted (the log says so).
 
 The original's command line reaches DXEngine as one string, `--cmdline=`,
 which main's launcher and DXLauncher pass on as given
-([running it](ENGINE.md#running-it)); the Smart Pro's hands the engine its
-words instead
-([its known defects](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/docs/LAUNCHER.md#known-defects)).
+([running it](ENGINE.md#running-it)).
 Its flags are found as the original finds them
 ([cli-flags.md](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md)),
 with one exception, by choice: a flag's name (`-X` or `/X`) must end at a

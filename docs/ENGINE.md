@@ -86,8 +86,8 @@ says how to read more; `tools/natives_audit.py` lists the stubs.
 
 ## Running it
 
-Each launcher starts it for every real launch: DXLauncher, linux-x86_64's and linux-aarch64's,
-by its words, `main`'s and the Smart Pro's through their `run-game.sh`. By hand, from the game's
+Each launcher starts it for every real launch: DXLauncher, every port's, the Smart Pro's
+included, by its words, and `main`'s through its `run-game.sh`. By hand, from the game's
 directory:
 
 ```sh
@@ -135,7 +135,7 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   [the game and the launcher](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md#the-game-and-the-launcher)
   (DXLauncher's alike:
   [the game and the launcher](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-game-and-the-launcher)).
-  The Smart Pro's tabbed launcher sets nothing, and nothing changes.
+  Started by hand, with nothing set, nothing changes.
 - Where there is no audio device (a container), give OpenAL Soft the null driver
   ([linux-x86_64's README](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/ports/linux-x86_64/README.md#audio)).
 
@@ -207,18 +207,16 @@ than the transforms they save.
 ## Settings and environment
 
 The engine reads `Settings.json` from its own folder, `--userdir`'s
-([running it](#running-it)) or `$HOME/.config/DXEngine`, and never writes it: the Smart
-Pro's tabbed launcher does, and its `run-game.sh` pins `HOME` to the app's `home/`
-([where the settings live](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/docs/LAUNCHER.md#where-the-settings-actually-live)).
-DXLauncher, linux-x86_64's and linux-aarch64's, writes one in each profile's folder of its own
+([running it](#running-it)) or `$HOME/.config/DXEngine`, and never writes it.
+DXLauncher, every port's, writes one in each profile's folder of its own
 (`--userdir`); `main`'s launcher, the original recreated, writes none and leaves `HOME` as it
 is. DXEngine's keys:
 
 | Key | What it does |
 |---|---|
 | `Performance.RenderScale` | The scene drawn at this fraction of the window's size (0.25 to 1; default 1) and scaled up to it, by the Vulkan device and the GL device ([how](#settings-the-launcher-exposes)). |
-| `"Type": "GLES"` in `RenderDevice` | The GL device on an OpenGL ES 3.2 context (on the Smart Pro, the `[GLES]` renderer of its `renderers.ini`). |
-| `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([controller support](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/docs/LAUNCHER.md#controller-support)). |
+| `"Type": "GLES"` in `RenderDevice` | The GL device on an OpenGL ES 3.2 context (DXLauncher's `[GLES]` renderer, `data/renderers.ini`). |
+| `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)). |
 
 The environment:
 
@@ -285,8 +283,8 @@ By area, as the code stands. Each device's numbers are its port's, such as
 
 ### Settings the launcher exposes
 
-`LauncherSettings` reads the `Gamepad` and `Performance` blocks the Smart Pro's launcher and
-DXLauncher write ([the keys](#settings-and-environment)). Render scale is
+`LauncherSettings` reads the `Gamepad` and `Performance` blocks DXLauncher writes
+([the keys](#settings-and-environment)). Render scale is
 `RenderDevice::GetRenderScale`: a device whose `SupportsRenderScale()` says so (Vulkan, GL)
 makes its scene buffers at `GetRenderWidth()` by `GetRenderHeight()` and scales them to the
 window as it presents; the viewport, the canvas and the UI see the render size.
@@ -352,8 +350,8 @@ wherever else that state is set.
 - **Antialiasing on ES**: the multisampled scene buffers are made with ES 3.1's
   `glTexStorage2DMultisample`, as ES lacks desktop GL's `glTexImage2DMultisample`; on either,
   the samples are halved until every attachment takes them (an ES driver may take one sample of
-  the integer hit buffer). Tried on the desktop's ES 3.2 context; the Smart Pro's launcher keeps
-  antialiasing off.
+  the integer hit buffer). Tried on the desktop's ES 3.2 context; DXLauncher keeps antialiasing
+  off on a PowerVR, the Smart Pro's GE8300 among them, whose resolve is speckle.
 - **The desktop context**: every Linux window backend asks for a desktop 4.2 core context, as
   the shaders are GLSL 4.20 (`CompileGlsl` prepends `#version 420`): a driver without 4.2 fails
   at the context, with an error that says so, not at a shader.
