@@ -69,7 +69,8 @@
 # MeshConsole's LODBias and NoDetail; CanisterConsole's Distances and
 # MarkTime; LoopConsole's Jumps;
 # CallConsole's Depth; ReturnConsole's Items; SaveConsole's and LoadConsole's
-# Via; LoadConsole's Open; ThemeConsole's Direct).
+# Via; LoadConsole's Open; ThemeConsole's Direct; CensusConsole's From, Wait,
+# Load, Seconds and Notify).
 # DXCAP_MISSION_MAP=<map> names, through the run's ini, the map a run's
 # console travels to, its TargetMap (MissionConsole's, StaticConsole's,
 # WadeConsole's, ScreenConsole's, PerfConsole's, EndgameConsole's,
@@ -80,8 +81,9 @@
 # command line's first word, which the original takes only with -hax0r
 # (?loadgame=9 for StartConsole, a run started on slot 9's save).
 # DXCAP_ENGINE=<binary> runs another build of DXEngine than linux-x86_64's
-# (an ASan build). DXCAP_MEMLOG=1 logs a dxe run's resident memory each
-# second into the run's memlog.txt: seconds since the start, then MB.
+# (an ASan build). DXCAP_MEMLOG=1 logs either engine's resident memory each
+# second into the run's memlog.txt: seconds since its process started, then
+# MB.
 # DXCAP_SETTINGS=<file> gives a dxe run that Settings.json in place of
 # ~/.config/DXEngine's, through a HOME of the run's own (the caches stay
 # the usual ones). DXCAP_USERDIR=<dir> gives a dxe run the engine's
@@ -575,6 +577,9 @@ cmd_original() {
         while [ $i -lt 60 ] && ! pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; i=$((i+1)); done
         perfpid=""
         [ "${DXCAP_PERF:-0}" != 1 ] || perfpid="$(perf_attach "$(pgrep -f "^DeusEx.exe" | head -1)" "$dir")"
+        if [ "${DXCAP_MEMLOG:-0}" = 1 ] && pgrep -f "^DeusEx.exe" > /dev/null; then
+            memlog "$(pgrep -f "^DeusEx.exe" | head -1)" "$dir/memlog.txt" &
+        fi
         i=0
         while [ $i -lt "$secs" ] && pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; i=$((i+1)); done
         if pgrep -f "^DeusEx.exe" > /dev/null; then
@@ -606,14 +611,16 @@ cmd_original() {
     fi
 }
 
-# memlog <timeout's pid> <file>: the engine's resident memory (/proc's statm)
-# each second, as "<seconds> <MB>", until it exits.
+# memlog <pid> <file> [child]: the process's resident memory (/proc's statm)
+# each second, as "<seconds> <MB>", until it exits; with child, its first
+# child's (the engine under timeout).
 memlog() {
-    local tpid="$1" out="$2" pid="" t=0 pages
+    local watch="$1" out="$2" pid="" t=0 pages
     local page; page="$(getconf PAGESIZE)"
+    [ "${3:-}" = child ] || pid="$watch"
     : > "$out"
-    while kill -0 "$tpid" 2>/dev/null; do
-        [ -n "$pid" ] || pid="$(pgrep -P "$tpid" | head -1)" || true
+    while kill -0 "$watch" 2>/dev/null; do
+        [ -n "$pid" ] || pid="$(pgrep -P "$watch" | head -1)" || true
         if [ -n "$pid" ] && [ -r "/proc/$pid/statm" ]; then
             read -r _ pages _ < "/proc/$pid/statm" || break
             awk -v t="$t" -v p="$pages" -v s="$page" 'BEGIN { printf "%d %.1f\n", t, p * s / 1048576 }' >> "$out"
@@ -675,7 +682,7 @@ run_dxe() {
         timeout -s KILL "$secs" "$ENGINE_BIN" --no-launcher "$GAME" "${inis[@]}" --url="$map" "${userdir[@]}" "$@" > "$dir/engine.log" 2>&1 &
         local tpid=$! mpid="" perfpid="" epid="" i=0
         if [ "${DXCAP_MEMLOG:-0}" = 1 ]; then
-            memlog "$tpid" "$dir/memlog.txt" &
+            memlog "$tpid" "$dir/memlog.txt" child &
             mpid=$!
         fi
         if [ "${DXCAP_PERF:-0}" = 1 ]; then

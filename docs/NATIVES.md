@@ -1195,6 +1195,13 @@ A mod gets the original's loader and natives:
   ([the timing natives](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#clock-unclock-and-cyclestoseconds)),
   which count the steady clock's nanoseconds where the original's count the
   CPU's cycles.
+- **Spawn notifications.** A `SpawnNotify` on the level's list is asked
+  about each actor spawned of its `ActorClass`, its answer standing for the
+  actor from then on: the next notification is asked about it, and the
+  spawn returns it, as the original's
+  ([spawning](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#teleporting-an-actor);
+  `CensusConsole`'s `CensusNotify`). Differs: a None answer ends the walk,
+  where the original's next notification with a class faults on it.
 - **Two path natives no stock script calls are Surreal Engine's**, not the
   original's, which are unread: `Pawn.FindRandomDest` 525, a random
   navigation point the pawn can reach, and `FindBestInventoryPath` 540, the

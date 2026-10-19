@@ -134,11 +134,15 @@ UActor* UActor::Spawn(UClass* SpawnClass, std::optional<UActor*> SpawnOwner, std
 				~NotificationLockGuard() { spawnNotificationLocked = false; }
 			} lockGuard;
 
-			for (USpawnNotify* notifyObj = Level()->SpawnNotify(); notifyObj != nullptr; notifyObj = notifyObj->Next())
+			// Each notification's answer stands for the actor from then on, as
+			// the original's SpawnActor has it: the next one is asked about it
+			// and the spawn returns it. A None answer ends the walk, where the
+			// original's next notification with a class faults on it.
+			for (USpawnNotify* notifyObj = Level()->SpawnNotify(); notifyObj != nullptr && actor; notifyObj = notifyObj->Next())
 			{
 				UClass* cls = notifyObj->ActorClass();
 				if (cls && actor->IsA(cls->Name))
-					actor = UObject::Cast<UGameInfo>(CallEvent(notifyObj, EventName::SpawnNotification, { ExpressionValue::ObjectValue(actor) }).ToObject());
+					actor = UObject::Cast<UActor>(CallEvent(notifyObj, EventName::SpawnNotification, { ExpressionValue::ObjectValue(actor) }).ToObject());
 			}
 		}
 	}

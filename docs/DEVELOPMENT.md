@@ -68,11 +68,11 @@ are gone.
 | `DXCAP_RENDERER=D3D` | the original through `D3DDrv`, the game's own renderer, not `OpenGLDrv` |
 | `DXCAP_PREFIX=<dir>` | another Wine prefix than `build/dxcap/prefix` |
 | `DXCAP_PROTON=<name>` | another Proton build in `~/.local/share/Steam/compatibilitytools.d` than `Proton-CachyOS Latest` |
-| `DXCAP_CONFIG="<key>=<value> ..."` | those keys in the run's console class's section of the ini, as `DXCAP_MISSION_MAP` gives `TargetMap` (`LightConsole`'s `Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`, `Macro`; `GlassConsole`'s `Pick`, `GlassName`, `View`, `Behind`; `FlushConsole`'s `Pick`, `DoorName`, `View`, `Angle`; `MirrorConsole`'s `MarkTime`, `ShinyOff`; `FaceConsole`'s `MeshOf`, `Ahead`, `Distance`; `MeshConsole`'s `LODBias`, `NoDetail`; `CanisterConsole`'s `Distances`, `MarkTime`; `LoopConsole`'s `Jumps`; `CallConsole`'s `Depth`; `ReturnConsole`'s `Items`; `SaveConsole`'s and `LoadConsole`'s `Via`; `LoadConsole`'s `Open`; `ThemeConsole`'s `Direct`) |
+| `DXCAP_CONFIG="<key>=<value> ..."` | those keys in the run's console class's section of the ini, as `DXCAP_MISSION_MAP` gives `TargetMap` (`LightConsole`'s `Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`, `Macro`; `GlassConsole`'s `Pick`, `GlassName`, `View`, `Behind`; `FlushConsole`'s `Pick`, `DoorName`, `View`, `Angle`; `MirrorConsole`'s `MarkTime`, `ShinyOff`; `FaceConsole`'s `MeshOf`, `Ahead`, `Distance`; `MeshConsole`'s `LODBias`, `NoDetail`; `CanisterConsole`'s `Distances`, `MarkTime`; `LoopConsole`'s `Jumps`; `CallConsole`'s `Depth`; `ReturnConsole`'s `Items`; `SaveConsole`'s and `LoadConsole`'s `Via`; `LoadConsole`'s `Open`; `ThemeConsole`'s `Direct`; `CensusConsole`'s `From`, `Wait`, `Load`, `Seconds`, `Notify`) |
 | `DXCAP_USERINI=<file>` | a run's `User.ini` made from that file, in place of the game's (`IniConsole`'s keys given twice) |
 | `DXCAP_USERINI_FIRST=1` | the run's inis named `USERINI=` then `INI=`: on the original's command line, and on DXEngine's by `--cmdline` in place of `--ini` and `--userini` ([the command line](NATIVES.md#the-command-line)) |
 | `DXCAP_MISSION_MAP=<map>` | the map a run's console travels to, its `TargetMap` (`MissionConsole`'s, `StaticConsole`'s, `WadeConsole`'s, `ScreenConsole`'s, `PerfConsole`'s, `EndgameConsole`'s, `VisibleConsole`'s, `MoverConsole`'s, `LightConsole`'s, `GlassConsole`'s, `FlushConsole`'s, `WallConsole`'s, `MirrorConsole`'s): an original run starts at its menu map, a dxe run at the map it is given |
-| `DXCAP_START=<url>` | an original run started there, not at its menu map: its command line's first word, with `-hax0r` ([running the original](#running-the-original)); `?loadgame=9` for `StartConsole` |
+| `DXCAP_START=<url>` | an original run started there, not at its menu map: its command line's first word, with `-hax0r` ([running the original](#running-the-original)); `?loadgame=9` for `StartConsole`, and for `CensusConsole` with `Load=False` |
 | `DXCAP_SETTINGS=<file>` | a dxe run's `Settings.json`, in place of `~/.config/DXEngine`'s (through a `HOME` of the run's own; the caches stay the usual ones) |
 | `DXCAP_USERDIR=<dir>` | a dxe run's `--userdir`: its `Settings.json`, log, shots and a class's own config file there ([running it](ENGINE.md#running-it)) |
 | `DXCAP_NOVSYNC=1` | Mesa's GL draws either engine without waiting for the display (`vblank_mode=0`): the original's `OpenGLDrv` asks for no swap interval and gets the driver's vsync |
@@ -81,7 +81,7 @@ are gone.
 | `DXCAP_TIMELINE=<file>` | a `live` run's timeline, not `JoinConsole`'s walk; a `dxe` run's [timeline](#timelines) |
 | `DXCAP_ENGINE=<binary>` | a dxe run on that build, not linux-x86_64's (an [ASan build](#crashes)) |
 | `DXCAP_BACKEND=SDL3`, `SDL2` | a dxe run's window DXWidgets' SDL3 or SDL2 one, the launchers', not its X11 one: SDL3 on linux-x86_64's build, SDL2 on one built with it (`DXCAP_ENGINE`); the keys of a timeline's `keydown` and `keyup` go through its own events, its `pad` and `padaxis` through its virtual pad |
-| `DXCAP_MEMLOG=1` | a dxe run's resident memory each second in its `memlog.txt`: seconds, MB |
+| `DXCAP_MEMLOG=1` | either engine's resident memory each second in the run's `memlog.txt`: seconds since its process started, MB |
 | `DXCAP_UPLINK=<host>:<port>` | the server announces itself to that master (`DoUplink`); otherwise to none |
 | `DXCAP_PORT=<port>` | the server listens there (`[URL] Port`), not on 7790: for `netrelay.py` between it and a client ([net tests](#net-tests)) |
 | `DXCAP_STATS=<password>` | on both runs: the server logs world stats (`bWorldLog`); the player holds that world stats password, so its login carries the checksum (a dxe server logs the login's URL: `login request`) |
@@ -180,6 +180,7 @@ the run. *Either*: one engine on each side of a pair.
 | `SkipConsole` | both | a conversation's lines skipped | `DXSKIP:` | `skip.py <run> [<run> ...]`, with `DXCAP_RECORD=1` |
 | `SaveConsole`, `LoadConsole` | either | a save to slot 9 with a goal, a note and a key, and its load (`Via`: the save after a map exit's travel; `Open=<url>`: the load by the console's `open <url>`, as `?loadgame=9`) | `DXSAVE:` |  |
 | `StartConsole` | either | a run started on slot 9's save (`?loadgame=9`: DXEngine's `<map>`, the original's `DXCAP_START`), logged as `LoadConsole` logs it | `DXSAVE:` |  |
+| `CensusConsole` | both | slot 9's save loaded in the running game, from the menu map or `From`'s, `Wait` s in, or none (`Load=False`: a run started on it); the loaded level's actors by class each second for `Seconds`: live, the most live, those spawned (a `CensusNotify` hears them; `Notify=False`, none) and the highest number in their names | `DXCENSUS:` | `census.py <original run> <dxe run>`, with `DXCAP_MEMLOG=1` |
 | `LoadingConsole` | both | the screen while a map loads or a level is saved: a load, a travel within a mission, a save and its load; a beep a second before each | `DXLOADING:` | the two logs' lines diffed; `shots.py`, at 4:3; `sound.py --levels` and `--onsets <run>`, with `DXCAP_RECORD=1 DXCAP_MUSIC=1`: the music through each load |
 | `NetConsole` | both | the script's sockets, a master server's list | `DXCAP:` |  |
 | `ServeConsole` | either | a listen server, its players and beeps; it exits after 290 s | `DXCAP:` | `netquery.py`, `fakemaster.py`, `netrelay.py` |
@@ -188,13 +189,13 @@ the run. *Either*: one engine on each side of a pair.
 | `TravelServeConsole` | either | a server that travels; it exits after 150 s | `DXCAP:` |  |
 | `TravelJoinConsole` | either | a client that follows it | `DXNET:` |  |
 
-- `SaveConsole`, `LoadConsole`, `StartConsole` and `LoadingConsole` use the game's own
-  `Save\Save0009` and `Save\Current`: delete them after. The original's own saves are in
-  `reference/original-saves/`: Liberty Island's start (no cheats; the player under fire, so a
-  load's census 5 s in differs from run to run), and a quick save, a hub save
-  (`bCheatsEnabled`) and the `Current` folder from a travel to UNATCO HQ and back. Copied into
-  `Save0009`, the hub save loads in both engines; with the quick save there the original never
-  finishes its run.
+- `SaveConsole`, `LoadConsole`, `StartConsole`, `LoadingConsole` and `CensusConsole` use the
+  game's own `Save\Save0009` and `Save\Current`: delete them after. The original's own saves are
+  in `reference/original-saves/`: Liberty Island's start (no cheats; the player under fire, so a
+  load's census 5 s in differs from run to run; the save `CensusConsole` loads), and a quick save,
+  a hub save (`bCheatsEnabled`) and the `Current` folder from a travel to UNATCO HQ and back.
+  Copied into `Save0009`, the hub save loads in both engines; with the quick save there the
+  original never finishes its run.
 - `ConfigConsole` writes `DXCapConfig.ini` into the game's `System` folder, the original's into
   its view (through the view's link when the file is there), DXEngine's with `DXCAP_USERDIR`
   into that folder: delete it after.
