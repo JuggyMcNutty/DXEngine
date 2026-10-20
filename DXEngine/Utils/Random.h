@@ -1,3 +1,4 @@
+void SeedRandom(unsigned int Seed); // As the original seeds rand: once, from the clock
 int RandInt(int Min, int Max); // A random integer value between [Min, Max]
 int RandInt(int Max); // A random integer value between [0, Max]
 float FRand(); // A random float value between [0, 1]

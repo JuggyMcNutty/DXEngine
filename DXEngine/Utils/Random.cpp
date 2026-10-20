@@ -5,6 +5,11 @@
 
 static std::default_random_engine s_Generator;
 
+void SeedRandom(unsigned int Seed)
+{
+	s_Generator.seed(Seed);
+}
+
 int RandInt(int Min, int Max)
 {
 	std::uniform_int_distribution<int> distribution(Min, Max);

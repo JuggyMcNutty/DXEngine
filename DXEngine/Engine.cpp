@@ -28,6 +28,7 @@
 #include "Packages/Engine/Actors/Info/UGameInfo.h"
 #include "Packages/Engine/Actors/Info/UZoneInfo.h"
 #include "Packages/Engine/Actors/Info/UPlayerReplicationInfo.h"
+#include "Utils/Random.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Resources/UFont.h"
@@ -117,7 +118,9 @@ Engine::Engine(GameLaunchInfo launchinfo) : LaunchInfo(launchinfo)
 
 	packages = std::make_unique<PackageManager>(LaunchInfo);
 
+	// The script's random numbers differ from run to run, as the original's
 	std::srand((unsigned int)std::time(nullptr));
+	SeedRandom((unsigned int)std::time(nullptr));
 
 	auto transientpkg = packages->GetTransientPackage();
 	auto enginepkg = packages->GetPackage("Engine");
