@@ -24,6 +24,7 @@ public:
 
 	static Coords Rotation(const Rotator& rotator);
 	static Coords TableRotation(const Rotator& rotator);
+	static Coords TableInverseRotation(const Rotator& rotator);
 	static Coords InverseRotation(const Rotator& rotator);
 
 	static Coords ViewToRenderDev();
@@ -190,6 +191,37 @@ inline Coords Coords::TableRotation(const Rotator& rotator)
 	roll.YAxis = { 0.0f, cr, -sr };
 	roll.ZAxis = { 0.0f, sr, cr };
 	return roll * pitch * yaw;
+}
+
+// The original's unit coords turned back by a rotator, by the sine table
+// (Core.dll FCoords::operator/=, as UObject::execGreaterGreater_VectorRotator
+// 0x101380e0 has it): the yaw undone, then the pitch, then the roll, step by
+// step, so its floats round as the original's
+inline Coords Coords::TableInverseRotation(const Rotator& rotator)
+{
+	auto tsin = [](int angle) { return (float)std::sin(((angle >> 2) & 16383) * (2.0 * 3.14159265358979 / 16384.0)); };
+	auto tcos = [&](int angle) { return tsin(angle + 0x4000); };
+	float sy = tsin(rotator.Yaw), cy = tcos(rotator.Yaw);
+	float sp = tsin(rotator.Pitch), cp = tcos(rotator.Pitch);
+	float sr = tsin(rotator.Roll), cr = tcos(rotator.Roll);
+
+	Coords yaw, pitch, roll;
+	yaw.Origin = pitch.Origin = roll.Origin = { 0.0f, 0.0f, 0.0f };
+	yaw.XAxis = { cy, sy, 0.0f };
+	yaw.YAxis = { -sy, cy, 0.0f };
+	yaw.ZAxis = { 0.0f, 0.0f, 1.0f };
+	pitch.XAxis = { cp, 0.0f, sp };
+	pitch.YAxis = { 0.0f, 1.0f, 0.0f };
+	pitch.ZAxis = { -sp, 0.0f, cp };
+	roll.XAxis = { 1.0f, 0.0f, 0.0f };
+	roll.YAxis = { 0.0f, cr, -sr };
+	roll.ZAxis = { 0.0f, sr, cr };
+
+	Coords result = Identity();
+	result *= yaw;
+	result *= pitch;
+	result *= roll;
+	return result;
 }
 
 inline Coords Coords::InverseRotation(const Rotator& rotator)

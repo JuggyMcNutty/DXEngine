@@ -671,7 +671,7 @@ void NObject::GreaterGreater_IntInt(int A, int B, int& ReturnValue)
 void NObject::GreaterGreater_VectorRotator(const vec3& A, const Rotator& B, vec3& ReturnValue)
 {
 	// The sine table's, as the original's (Core.dll 0x101380e0)
-	ReturnValue = Coords::TableRotation(B).Inverse() * A;
+	ReturnValue = Coords::TableInverseRotation(B) * A;
 }
 
 void NObject::Greater_FloatFloat(float A, float B, BitfieldBool& ReturnValue)
