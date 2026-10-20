@@ -126,7 +126,7 @@ private:
 	std::map<NameString, int> NameHash;
 
 	// The name-table indexes of the exports' names, for MakeUniqueObjectName;
-	// built again when the export table has grown.
+	// built again when the export table has grown, or been written anew.
 	std::unordered_set<int> ExportNameIndexes;
 	size_t ExportNamesBuiltFrom = (size_t)-1;
 

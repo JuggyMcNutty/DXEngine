@@ -662,6 +662,32 @@ void PackageManager::ScanFolder(const std::string& packagedir, const std::string
 	}
 }
 
+// A folder as Windows finds it, whatever its case: each part spelt as it is
+// on disk when only a different case is there. A part not there at all is
+// kept as it is given.
+static fs::path ResolveFolderCase(const fs::path& folder)
+{
+	fs::path resolved;
+	for (const auto& part : folder)
+	{
+		fs::path next = resolved / part;
+		std::error_code ec;
+		if (!resolved.empty() && !fs::exists(next, ec) && fs::is_directory(resolved, ec))
+		{
+			for (const auto& entry : fs::directory_iterator(resolved, ec))
+			{
+				if (StrTools::equals_ignore_case(entry.path().filename().string(), part.string()))
+				{
+					next = entry.path();
+					break;
+				}
+			}
+		}
+		resolved = next;
+	}
+	return resolved;
+}
+
 void PackageManager::ScanPaths()
 {
 	Array<std::string> paths;
@@ -682,7 +708,7 @@ void PackageManager::ScanPaths()
 		auto filename = currentPath.filename();
 
 		// Calculate the final, absolute path
-		auto finalPath = (gameSystemFolderPath / currentPath).lexically_normal().parent_path();
+		auto finalPath = ResolveFolderCase((gameSystemFolderPath / currentPath).lexically_normal().parent_path());
 
 		// Add map folders in a separate list, so ScanForMaps() can use them
 		if (filename.string() == "*." + GetMapExtension())

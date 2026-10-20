@@ -66,6 +66,9 @@ void PackageWriter::Save(UObject* packageObject, std::string filename)
 			// collector empties the right slot.
 			for (size_t i = 0; i < Source->ExportObjects.size(); i++)
 				Source->ExportObjects[i]->exportIndex = (uint32_t)i;
+			// The names' indexes are new: MakeUniqueObjectName's set is
+			// built again, even for a table the same size.
+			Source->ExportNamesBuiltFrom = (size_t)-1;
 		}
 	}
 	catch (...)

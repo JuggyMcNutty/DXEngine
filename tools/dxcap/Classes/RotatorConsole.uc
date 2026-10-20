@@ -9,7 +9,9 @@
 // ints and as the rotator's string. Then vector(r), GetAxes and GetUnAxes
 // for a few rotators, and a vector turned by each (<<) and back (>>); a
 // rotator scaled in place (*=), floats a hair apart and rotators a whole
-// turn apart compared (== and !=),
+// turn apart compared (== and !=), floats past an int's range made ints
+// and bytes and rotators scaled past it, Normal near its cutoff, Chr(0) and
+// IsInState of a state a state extends,
 // and an enum's first and last names (GetEnum); and an exit. What is compared between the engines:
 // every line, exactly.
 //=============================================================================
@@ -42,6 +44,8 @@ function Operators()
 {
 	local rotator R, S, T;
 	local float A, B;
+	local float F[8];
+	local CapDoomed D;
 
 	R = rot(1000, -2001, 3003);
 	S = (R *= 1.5);
@@ -52,6 +56,25 @@ function Operators()
 	R = rot(0, -1, 0);
 	S = rot(0, 65535, 0);
 	T = rot(65536, 0, -65536);
+	F[0] = 3000000000.0;
+	F[1] = -3000000000.0;
+	F[2] = 5000000000.0;
+	F[3] = 10000000000.0 * 10000000000.0;
+	F[4] = -F[3];
+	F[5] = Sqrt(-1.0);
+	F[6] = 300.7;
+	F[7] = -1.5;
+	Log("DXROT: ints " $ int(F[0]) $ " " $ int(F[1]) $ " " $ int(F[2]) $ " " $ int(F[3]) $ " " $ int(F[4]) $ " " $ int(F[5]) $ "; bytes " $ byte(F[6]) $ " " $ byte(F[7]));
+	R = rot(1000, -2001, 3003) * 3000000.0;
+	S = rot(16777217, 0, -16777217) * 1.0;
+	T = rot(7, 0, 0) / 0.000001;
+	Log("DXROT: scaled past " $ R.Pitch $ " " $ R.Yaw $ " " $ R.Roll $ "; exact " $ S.Pitch $ " " $ S.Roll $ "; divided " $ T.Pitch);
+	Log("DXROT: normals " $ Normal(vect(0.00009, 0, 0)) $ " " $ Normal(vect(0.0001, 0, 0)) $ " " $ Normal(vect(0.00000005, 0.0002, 0)) $ " " $ Normal(vect(1, 2, 3)));
+	Log("DXROT: chr " $ Len(Chr(0)) $ " " $ Len("a" $ Chr(0) $ "b") $ " " $ Asc(Chr(0)) $ " " $ Len(Chr(65536)));
+	D = Viewport.Actor.Spawn(class'CapDoomed',, 'State', Viewport.Actor.Location + vect(0,0,200));
+	D.GotoState('Lingering');
+	Log("DXROT: in state " $ D.IsInState('Lingering') $ " " $ D.IsInState('Waiting') $ " " $ D.IsInState('Other'));
+	D.Destroy();
 	Log("DXROT: rotators a turn apart == " $ (R == S) $ " != " $ (R != S) $ "; zero == " $ (T == rot(0,0,0)) $ " != " $ (T != rot(0,0,0)) $ "; == itself " $ (R == R));
 	Log("DXROT: enum " $ GetEnum(enum'ENetRole', 0) $ " " $ GetEnum(enum'ENetRole', 4) $ " " $ GetEnum(enum'ENetRole', 5) $ " " $ GetEnum(enum'ENetRole', -1));
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mat.h"
+#include "floating.h"
 
 class Rotator
 {
@@ -23,8 +24,8 @@ public:
 	Rotator& operator+=(const Rotator& b) { Pitch += b.Pitch; Yaw += b.Yaw; Roll += b.Roll; return *this; }
 	Rotator& operator-=(const Rotator& b) { Pitch -= b.Pitch; Yaw -= b.Yaw; Roll -= b.Roll; return *this; }
 
-	Rotator& operator*=(float scale) { Pitch = (int)(Pitch * scale); Yaw = (int)(Yaw * scale), Roll = (int)(Roll * scale); return *this; }
-	Rotator& operator/=(float scale) { Pitch = (int)(Pitch / scale); Yaw = (int)(Yaw / scale), Roll = (int)(Roll / scale); return *this; }
+	Rotator& operator*=(float scale) { Pitch = ftol(Pitch * scale); Yaw = ftol(Yaw * scale), Roll = ftol(Roll * scale); return *this; }
+	Rotator& operator/=(float scale) { Pitch = ftol(Pitch / scale); Yaw = ftol(Yaw / scale), Roll = ftol(Roll / scale); return *this; }
 
 	static int TurnToShortest(int from, int to, int speed)
 	{
@@ -83,10 +84,10 @@ public:
 
 inline Rotator operator+(const Rotator& a, const Rotator& b) { return Rotator(a.Pitch + b.Pitch, a.Yaw + b.Yaw, a.Roll + b.Roll); }
 inline Rotator operator-(const Rotator& a, const Rotator& b) { return Rotator(a.Pitch - b.Pitch, a.Yaw - b.Yaw, a.Roll - b.Roll); }
-inline Rotator operator*(const Rotator& a, float scale) { return Rotator((int)(a.Pitch * scale), (int)(a.Yaw * scale), (int)(a.Roll * scale)); }
-inline Rotator operator*(float scale, const Rotator& b) { return Rotator((int)(b.Pitch * scale), (int)(b.Yaw * scale), (int)(b.Roll * scale)); }
-inline Rotator operator/(const Rotator& a, float scale) { return Rotator((int)(a.Pitch / scale), (int)(a.Yaw / scale), (int)(a.Roll / scale)); }
-inline Rotator operator/(float scale, const Rotator& b) { return Rotator((int)(b.Pitch / scale), (int)(b.Yaw / scale), (int)(b.Roll / scale)); }
+inline Rotator operator*(const Rotator& a, float scale) { return Rotator(ftol(a.Pitch * scale), ftol(a.Yaw * scale), ftol(a.Roll * scale)); }
+inline Rotator operator*(float scale, const Rotator& b) { return Rotator(ftol(b.Pitch * scale), ftol(b.Yaw * scale), ftol(b.Roll * scale)); }
+inline Rotator operator/(const Rotator& a, float scale) { return Rotator(ftol(a.Pitch / scale), ftol(a.Yaw / scale), ftol(a.Roll / scale)); }
+inline Rotator operator/(float scale, const Rotator& b) { return Rotator(ftol(b.Pitch / scale), ftol(b.Yaw / scale), ftol(b.Roll / scale)); }
 // The script's == and != (Core.dll's execEqualEqual_RotatorRotator,
 // RotatorConsole): every bit of each angle, a whole turn apart not equal.
 // The engine's own comparisons below take the angles a turn apart as one.

@@ -583,12 +583,12 @@ void ExpressionEvaluator::Expr(BoolToFloatExpression* expr)
 
 void ExpressionEvaluator::Expr(FloatToByteExpression* expr)
 {
-	*Out = ExpressionValue::ByteValue((int)Value(expr->Value).ToFloat());
+	*Out = ExpressionValue::ByteValue((uint8_t)ftol(Value(expr->Value).ToFloat()));
 }
 
 void ExpressionEvaluator::Expr(FloatToIntExpression* expr)
 {
-	*Out = ExpressionValue::IntValue((int)Value(expr->Value).ToFloat());
+	*Out = ExpressionValue::IntValue(ftol(Value(expr->Value).ToFloat()));
 }
 
 void ExpressionEvaluator::Expr(FloatToBoolExpression* expr)

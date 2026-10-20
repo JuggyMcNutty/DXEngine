@@ -1,6 +1,18 @@
 #pragma once
 #include <cmath>
 #include <cfloat>
+#include <cstdint>
+
+// The original's float to int (MSVCRT's _ftol, RotatorConsole): truncated
+// to 64 bits and the low 32 kept, so past an int's range it wraps; NaN, or
+// past 64 bits, 0. A C++ cast is undefined there, INT_MIN on x86 and
+// saturated on aarch64.
+inline int ftol(float v)
+{
+	if (!(v >= -9223372036854775808.0f && v < 9223372036854775808.0f))
+		return 0;
+	return (int)(uint32_t)(int64_t)v;
+}
 
 class Float
 {

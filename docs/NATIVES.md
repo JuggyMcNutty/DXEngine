@@ -936,8 +936,12 @@ Every other native the scripted runs compare matches the original
   `RotationRate`'s).
 - **Small ones**: `SetLocation`; the rotators' conversions, `<<` and `>>`
   by the sine table, a rotator's `*=`, float `==` exact, a rotator's `==`
-  and `!=` every bit of each angle, and `GetEnum` from index 0
-  (`RotatorConsole`); `Object.Mid` 127 at its edges, its end's
+  and `!=` every bit of each angle, `GetEnum` from index 0, `Normal` zero
+  under a length of 0.0001, `Chr(0)` the empty string, `IsInState` true for
+  a state the state extends, and a float made an int past an int's range,
+  wrapping, by `int`, `byte` and a rotator's scaling (`RotatorConsole`;
+  differs: `Chr` keeps the low 8 bits, DXEngine's strings being of bytes,
+  where the original's makes a 16-bit character); `Object.Mid` 127 at its edges, its end's
   clamp known from `MidConsole`'s ten probes of both;
   `Object.DynamicLoadObject` with a group in the name, its own, another or
   none, and a class that is not the object's own (`DynLoadConsole`); and
@@ -1208,7 +1212,8 @@ A mod gets the original's loader and natives:
 
 - **Its folders.** Its packages and maps are found by the `Paths` of its own
   ini (`--ini`), relative to `System` and written with backslashes as the
-  game's are, and by their extensions in any case, as the original's
+  game's are, their folders and extensions in any case, as the original's
+  on Windows
   ([a package's file](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)).
 - **Its text.** Differs by choice: the `.int` files are read from each
   folder of the paths, in their order, and from `System` after them when

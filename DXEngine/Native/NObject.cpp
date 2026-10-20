@@ -307,9 +307,14 @@ void NObject::Caps(const std::string& S, std::string& ReturnValue)
 		ReturnValue.push_back(std::toupper(c));
 }
 
+// The original's is one 16-bit character, and 0 the empty string. Ours
+// keeps the low 8 bits (NATIVES.md, implemented, not as the original).
 void NObject::Chr(int i, std::string& ReturnValue)
 {
-	ReturnValue = std::string(1, i);
+	if ((i & 0xffff) == 0)
+		ReturnValue.clear();
+	else
+		ReturnValue = std::string(1, (char)i);
 }
 
 void NObject::Clamp(int V, int A, int B, int& ReturnValue)
@@ -707,9 +712,20 @@ void NObject::IsA(UObject* Self, const NameString& ClassName, BitfieldBool& Retu
 	ReturnValue = Self->IsA(ClassName);
 }
 
+// The original's (Core.dll's execIsInState): the state or any it extends.
 void NObject::IsInState(UObject* Self, const NameString& TestState, BitfieldBool& ReturnValue)
 {
-	ReturnValue = Self->GetStateName() == TestState;
+	ReturnValue = false;
+	if (!Self->StateFrame)
+		return;
+	for (UStruct* state = Self->StateFrame->Func; state; state = state->BaseStruct)
+	{
+		if (state->Name == TestState)
+		{
+			ReturnValue = true;
+			return;
+		}
+	}
 }
 
 void NObject::Left(const std::string& S, int i, std::string& ReturnValue)
@@ -897,9 +913,18 @@ void NObject::Multiply_VectorVector(const vec3& A, const vec3& B, vec3& ReturnVa
 	ReturnValue = A * B;
 }
 
+// The original's FVector::SafeNormal (Core.dll): zero under a squared
+// length of 1e-8, otherwise scaled by one over the root, in double.
 void NObject::Normal(const vec3& A, vec3& ReturnValue)
 {
-	ReturnValue = normalize(A);
+	double squared = (double)A.x * A.x + (double)A.y * A.y + (double)A.z * A.z;
+	if (squared < 0.00000001)
+	{
+		ReturnValue = vec3(0.0f);
+		return;
+	}
+	double scale = 1.0 / std::sqrt(squared);
+	ReturnValue = vec3((float)(scale * A.x), (float)(scale * A.y), (float)(scale * A.z));
 }
 
 void NObject::Normalize(const Rotator& Rot, Rotator& ReturnValue)
