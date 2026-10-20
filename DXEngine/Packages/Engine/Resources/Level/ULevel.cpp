@@ -216,19 +216,7 @@ bool ULevel::TickActorDeusEx(float elapsed, UActor* actor)
 	actor->Tick(elapsed);
 	if (lastStart == TickStart::Waiting)
 		return false;
-	if (lastStart == TickStart::Stasis || actor->bDeleteMe())
-		return true;
-
-	// Destroy the actor if its time
-	if (actor->Role() >= ROLE_SimulatedProxy && actor->LifeSpan() != 0.0f)
-	{
-		actor->LifeSpan() = std::max(actor->LifeSpan() - elapsed, 0.0f);
-		if (actor->LifeSpan() == 0.0f)
-		{
-			CallEvent(actor, EventName::Expired);
-			actor->Destroy();
-		}
-	}
+	// The life span runs out in the actor's own tick (UActor::Tick)
 	return true;
 }
 

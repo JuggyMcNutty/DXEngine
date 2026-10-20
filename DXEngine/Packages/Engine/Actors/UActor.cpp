@@ -385,20 +385,39 @@ void UActor::Tick(float elapsed)
 		}
 	}
 
-	if (!(netGame && Role() == ROLE_AutonomousProxy) && !clientsPawn)
-		TickPhysics(elapsed);
-
-	if (TimerRate() > 0.0f) // Role() == ROLE_Authority && RemoteRole() == ROLE_AutonomousProxy
+	// Then, as the original's (Engine.dll AActor::Tick 0x103a1aa0): the
+	// timer, once a tick however many of its periods passed, the counter
+	// keeping what is left; the life span, which destroys the actor when it
+	// runs out, and the tick ends there; then physics.
+	if (TimerRate() > 0.0f)
 	{
 		TimerCounter() += elapsed;
-		while (TimerRate() > 0.0f && TimerCounter() > TimerRate())
+		if (TimerCounter() >= TimerRate())
 		{
-			TimerCounter() -= TimerRate();
-			if (!bTimerLoop())
+			int periods = (int)(TimerCounter() / TimerRate());
+			TimerCounter() -= periods * TimerRate();
+			if (periods != 0 && !bTimerLoop())
 				TimerRate() = 0.0f;
 			CallEvent(this, EventName::Timer);
 		}
 	}
+
+	if (!clientsPawn && LifeSpan() != 0.0f)
+	{
+		LifeSpan() -= elapsed;
+		if (LifeSpan() <= 0.0001f)
+		{
+			CallEvent(this, EventName::Expired);
+			Destroy();
+			return;
+		}
+	}
+
+	if (bDeleteMe())
+		return;
+
+	if (!(netGame && Role() == ROLE_AutonomousProxy) && !clientsPawn)
+		TickPhysics(elapsed);
 }
 
 bool UActor::Move(const vec3& delta)

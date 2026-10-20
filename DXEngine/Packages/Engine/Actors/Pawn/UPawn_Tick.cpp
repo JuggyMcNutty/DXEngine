@@ -94,6 +94,8 @@ void UPawn::Tick(float elapsed)
 	}
 
 	UActor::Tick(elapsed);
+	if (bDeleteMe())
+		return;
 
 	if (bIsPlayer() && Role() >= ROLE_AutonomousProxy)
 	{
