@@ -6,6 +6,22 @@
 #include "Packages/Core/UObject.h"
 #include <sstream>
 
+// A value that does not read as its type (a hand-edited ini's) is the
+// default, as the original's import leaves a property as it was; it does
+// not stop the engine.
+template<typename T>
+static T FromIniOrDefault(const IniFile& iniFile, const NameString& section, const NameString& keyName, const T& default_value)
+{
+	try
+	{
+		return IniPropertyConverter<T>::FromString(iniFile.GetValue(section, keyName, IniPropertyConverter<T>::ToString(default_value)));
+	}
+	catch (const std::exception&)
+	{
+		return default_value;
+	}
+}
+
 template<>
 int IniPropertyConverter<int>::FromString(const std::string& valueString)
 {
@@ -21,7 +37,7 @@ std::string IniPropertyConverter<int>::ToString(const int& value)
 template<>
 int IniPropertyConverter<int>::FromIniFile(const IniFile& iniFile, const NameString& section, const NameString& keyName, const int& default_value)
 {
-	return Convert::to_int32(iniFile.GetValue(section, keyName, ToString(default_value)));
+	return FromIniOrDefault<int>(iniFile, section, keyName, default_value);
 }
 
 //====================================================================
@@ -41,7 +57,7 @@ std::string IniPropertyConverter<float>::ToString(const float& value)
 template<>
 float IniPropertyConverter<float>::FromIniFile(const IniFile& iniFile, const NameString& section, const NameString& keyName, const float& default_value)
 {
-	return Convert::to_float(iniFile.GetValue(section, keyName, ToString(default_value)));
+	return FromIniOrDefault<float>(iniFile, section, keyName, default_value);
 }
 
 //====================================================================
@@ -61,7 +77,7 @@ std::string IniPropertyConverter<uint8_t>::ToString(const uint8_t& value)
 template<>
 uint8_t IniPropertyConverter<uint8_t>::FromIniFile(const IniFile& iniFile, const NameString& section, const NameString& keyName, const uint8_t& default_value)
 {
-	return Convert::to_uint8(iniFile.GetValue(section, keyName, ToString(default_value)));
+	return FromIniOrDefault<uint8_t>(iniFile, section, keyName, default_value);
 }
 
 //====================================================================
@@ -69,9 +85,14 @@ uint8_t IniPropertyConverter<uint8_t>::FromIniFile(const IniFile& iniFile, const
 template<>
 bool IniPropertyConverter<bool>::FromString(const std::string& valueString)
 {
-	if (valueString == "True" || valueString == "true" || valueString == "1")
+	// In any case, as a class's config is read (UClass)
+	std::string value = valueString;
+	for (char& c : value)
+		if (c >= 'A' && c <= 'Z')
+			c += 'a' - 'A';
+	if (value == "true" || value == "1" || value == "yes")
 		return true;
-	else if (valueString == "False" || valueString == "false" || valueString == "0")
+	else if (value == "false" || value == "0" || value == "no")
 		return false;
 	else
 		Exception::Throw("Encountered a non-boolean value: " + valueString);
@@ -87,7 +108,7 @@ std::string IniPropertyConverter<bool>::ToString(const bool& value)
 template<>
 bool IniPropertyConverter<bool>::FromIniFile(const IniFile& iniFile, const NameString& section, const NameString& keyName, const bool& default_value)
 {
-	return FromString(iniFile.GetValue(section, keyName, ToString(default_value)));
+	return FromIniOrDefault<bool>(iniFile, section, keyName, default_value);
 }
 
 //====================================================================
