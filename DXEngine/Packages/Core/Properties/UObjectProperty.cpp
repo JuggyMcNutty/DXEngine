@@ -3,6 +3,7 @@
 #include "UObjectProperty.h"
 #include "Package/PackageManager.h"
 #include "Packages/Core/UClass.h"
+#include "Utils/StrTools.h"
 
 UObjectProperty::UObjectProperty(NameString name, UClass* base, ObjectFlags flags) : UPropertyT(std::move(name), base, flags)
 {
@@ -63,9 +64,33 @@ void UObjectProperty::SetValueFromString(void* data, const std::string& valueStr
 
 	UObject** propertyValue = (UObject**)data;
 
-	if (valueString.substr(0, 6) == "Class\'" || valueString.substr(0, 6) == "class\'")
+	// None clears it; Pkg.Name, or Type'Pkg.Name', names an object of the
+	// property's class in that package, in any group
+	std::string path = valueString;
+	size_t quote = path.find('\'');
+	if (quote != std::string::npos && path.size() > quote + 1 && path.back() == '\'' && path.substr(0, quote) != "Class" && path.substr(0, quote) != "class")
+		path = path.substr(quote + 1, path.size() - quote - 2);
+	size_t dot = path.find('.');
+
+	if (StrTools::equals_ignore_case(valueString, "None"))
+	{
+		*propertyValue = nullptr;
+	}
+	else if (valueString.substr(0, 6) == "Class\'" || valueString.substr(0, 6) == "class\'")
 	{
 		*propertyValue = package->GetPackageManager()->FindClass(valueString.substr(6, valueString.length() - 7));
+	}
+	else if (dot != std::string::npos && path.find('(') == std::string::npos && ObjectClass)
+	{
+		try
+		{
+			Package* pkg = package->GetPackageManager()->GetPackage(path.substr(0, dot));
+			if (UObject* obj = pkg->LoadObjectAnyGroup(ObjectClass, path.substr(path.rfind('.') + 1)))
+				*propertyValue = obj;
+		}
+		catch (const std::exception&)
+		{
+		}
 	}
 	else
 	{
