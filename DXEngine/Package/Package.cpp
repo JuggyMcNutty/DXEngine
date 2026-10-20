@@ -376,7 +376,8 @@ int Package::FindObjectReference(const NameString& className, const NameString& 
 			}
 			else
 			{
-				auto classExport = &ExportTable[entry.ObjClass + 1];
+				// An export reference is its index plus one
+				auto classExport = GetExportEntry(entry.ObjClass);
 				if (classExport && className == GetName(classExport->ObjName))
 					return (int)index + 1;
 			}
