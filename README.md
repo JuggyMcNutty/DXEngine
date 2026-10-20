@@ -8,7 +8,7 @@ Targeting only Deus Ex.
 ### You need your own copy of Deus Ex (version 1112fm); none of the game's files are included!
 
 - **Build Targets**: Linux on x86_64 (X11, Wayland, SDL3 or SDL2) and on aarch64 with any GPU
-  (Snapdragon, Mali, PowerVR). So far it runs on x86_64 and on the Smart Pro's PowerVR
+  (Snapdragon, Mali, PowerVR). It runs on x86_64 and on the Smart Pro's PowerVR
   ([the ports](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#engine-ports)).
 - **Deus Ex as the original plays it**: Our goal is a playable build as close to 1:1 with the
   original engine, its scripting and the rest as possible.

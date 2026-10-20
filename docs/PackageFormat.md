@@ -38,7 +38,7 @@ int32_t ReadIndex()
 ```
 
 ### Name Data Type
-In packages older than 64 a name string was zero terminated. In newer versions it's an `index` size
+In a package of version under 64 a name string is zero terminated; from 64 it is an `index` size
 followed by the string. The following C++ code illustrates how to read it:
 ```c++
 std::string ReadString()
@@ -92,7 +92,7 @@ struct FileHeader
   endif
 }
 ```
-The package format was clearly inspired by DLL files (oh what a bad idea that was). Each package has
+The package format is modelled on DLL files. Each package has
 objects in it, and references to objects in other package files. The export table lists all objects
 in the package, while the import table lists all objects referenced by the objects in the package.
 The name table contains all text strings in the package.
@@ -156,11 +156,9 @@ struct ImportTableEntry
 This is the list of objects not present in this package. They are referenced by the `Class` and
 `Base` fields in the export table.
 
-The exact rules for how to look up objects here is not fully understood yet. See the
-`Package::GetUObject` and `Package::FindObjectReference` functions in DXEngine's Package.cpp for how
-to do it. These rules were derived from the UShock project and why they have to look like they do is
-still unknown. There's also some hacky stuff going on here in the Unreal Engine where the `UnrealI`
-and `UnrealShare` packages share objects.
+How an import is found: `Package::GetUObject` and `Package::FindObjectReference` in DXEngine's
+`Package.cpp`; the original's loader:
+[packages and linkers](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers).
 
 ## Heritage Table
 ```
@@ -169,8 +167,8 @@ struct HeritageTableEntry
   byte Guid[16]
 } HeritageTable[FileHeader.HeritageCount]
 ```
-No idea what this table was about. Most likely some kind of revision history baked into the package.
-Don't think it is used for anything.
+The package's GUIDs, the last its own: a package of version under 68 has no GUID in its header, and
+DXEngine takes the last of these (`PackageManager.cpp`).
 
 ## Object Format
 All objects begin with the following header:
@@ -195,7 +193,7 @@ struct ObjectHeader
   endif
 }
 ```
-There are basically three different variants of the object header. First, there's class objects,
+The object header has three forms. First, there's class objects,
 which have an empty header. Then there are normal instanced objects (i.e. a texture or a level),
 they begin with an unrealscript property block. And then there's savegame objects, which also stores
 information about the unrealscript state for the object when being saved.
@@ -305,8 +303,8 @@ data follows the header:
 - UPT_Object: `index` follows (object reference)
 - UPT_Name: `index` follows (index into `NameTable`)
 - UPT_String: `byte[header.size]` follows
-- UPT_Class: Unknown. Not seen in 436
-- UPT_Array: Unknown. Not seen in 436
+- UPT_Class: Unknown
+- UPT_Array: Unknown
 - UPT_Struct: `header.structName` is the struct name of the data that follows
 - UPT_Vector: `float x,y,z` follows
 - UPT_Rotator: `uint32 pitch,yaw,roll` follows
@@ -370,8 +368,7 @@ struct FractalTexture : Texture
   byte Pixels[Properties.UClamp * Properties.VClamp]
 }
 ```
-Not really sure what this image is used for. Maybe `IceTexture` or one of the other derived texture
-objects uses it for something?
+The working image of the fire, water, wave and ice textures (`Fire.dll`).
 
 ## FireTexture Object
 ```
@@ -406,7 +403,7 @@ struct Palette : ObjectHeader
   endif
 }
 ```
-The palette used by a 8-bit texture.
+The palette used by an 8-bit texture.
 
 ## Font Object
 ```

@@ -155,12 +155,12 @@ DXEngine/tools/host-tools.sh
 cd gamefiles    # the engine is started from the game's directory
 # CPU profile of Liberty Island, recording from 25 s in (after the load):
 LD_LIBRARY_PATH=../deps/perf/usr/lib ../deps/perf/usr/bin/perf record -F 2000 --delay=25000 -o /tmp/dxe.data -- \
-    timeout -s KILL 55 ../build/linux-x86_64/engine/DXEngine --no-launcher "$PWD" --url=01_NYC_UNATCOIsland.dx
+    timeout 55 ../build/linux-x86_64/engine/DXEngine --no-launcher "$PWD" --url=01_NYC_UNATCOIsland.dx
 LD_LIBRARY_PATH=../deps/perf/usr/lib ../deps/perf/usr/bin/perf report -i /tmp/dxe.data --no-children --sort symbol
 # Synchronization validation (add DXE_VK_NO_BINDLESS=1 for the per-batch descriptor path):
 VK_LAYER_PATH=$PWD/../deps/vulkan-layers/layers VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation \
 VK_KHRONOS_VALIDATION_VALIDATE_SYNC=true \
-    timeout -s KILL 60 ../build/linux-x86_64/engine/DXEngine --no-launcher "$PWD" --url=01_NYC_UNATCOIsland.dx
+    timeout 60 ../build/linux-x86_64/engine/DXEngine --no-launcher "$PWD" --url=01_NYC_UNATCOIsland.dx
 ```
 
 `--call-graph dwarf` on `perf record` gives callers (the desktop build has no frame pointers
@@ -222,7 +222,7 @@ The environment:
 | Variable | What it does |
 |---|---|
 | `DXE_VK_NO_BINDLESS=1` | Forces the Vulkan device's per-batch descriptor-set path, the one a GPU without descriptor indexing (the Smart Pro's, for one) takes. |
-| `DXE_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3` or `X11`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2. The launchers set it to the SDL backend their port's engine is built with, the one with the pad: `SDL3` for linux-x86_64's (DXLauncher's runs and the recreation's), `SDL2` for linux-aarch64's and the Smart Pro's. |
+| `DXE_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3` or `X11`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2. The launchers set it to the SDL backend their port's engine is built with, the one with the pad ([which](#running-on-our-devices)). |
 | `DXE_FONT`, `DXE_MONOSPACE_FONT` | The font files DXWidgets' default loader takes for its UI and monospace fonts in a build without GLib and fontconfig, before the usual DejaVu and Noto files. Unused by the engine, whose UI's fonts are `DXEngine.pk3`'s. |
 | `DXL_LAUNCHER_FD` | The launcher's line ([running it](#running-it)). |
 | `DXE_GC_DRYRUN=1` | Each collection marks and frees nothing: the log has what would go, by where it lives and by class, and the first holder outside them of each object of a level left behind ([objects and memory](#objects-and-memory)). |
@@ -351,7 +351,7 @@ wherever else that state is set.
 - **Antialiasing on ES**: the multisampled scene buffers are made with ES 3.1's
   `glTexStorage2DMultisample`, as ES lacks desktop GL's `glTexImage2DMultisample`; on either,
   the samples are halved until every attachment takes them (an ES driver may take one sample of
-  the integer hit buffer). Tried on the desktop's ES 3.2 context; DXLauncher keeps antialiasing
+  the integer hit buffer). It works on the desktop's ES 3.2 context; DXLauncher keeps antialiasing
   off on a PowerVR, the Smart Pro's GE8300 among them, whose resolve is speckle.
 - **The desktop context**: every Linux window backend asks for a desktop 4.2 core context, as
   the shaders are GLSL 4.20 (`CompileGlsl` prepends `#version 420`): a driver without 4.2 fails

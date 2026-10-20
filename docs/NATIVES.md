@@ -59,8 +59,8 @@ loaded, a save's or one returned to, then calls `PostPostBeginPlay`
 (`LoadConsole`, `ReturnConsole`). A save loaded in the running game, from
 the menu map or the level it was saved in, and a run started on it, spawn
 what the original's do, class by class, second by second (`CensusConsole`,
-`census.py`), and keep it, but for the game's decals
-([out of sight](#out-of-sight)). A save's load logs the saved player in as
+`census.py`), and keep it, the game's decals going as
+[out of sight](#out-of-sight) has them. A save's load logs the saved player in as
 the original's does, with `?loadgame`: the game's `Login` keeps it as saved,
 and its `TravelPostAccept` spawns the level's mission script, which no save
 holds -- an object of a transient class is not written (`LoadConsole` over
@@ -180,7 +180,7 @@ Matches the original
 saved in its layout
 ([saved](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#saved)):
 each engine loads the other's saves with every listener. DXEngine also reads
-the manager as its own older saves lay it out.
+the manager in a layout of its own, which some of its saves carry.
 
 ### Moving: wandering and tactical movement
 
@@ -232,7 +232,7 @@ decal to what is drawn of its surface
 ([render time](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#render-time)):
 the game's go when not drawn for a second, some 20 s after they land
 (`DeusExDecal`), so `CensusConsole`'s blood splats, 90 s under fire on
-Liberty Island, are 140 to 170 at the end against the original's 90 to 136,
+Liberty Island, are 140 to 170 at the end against the original's 90 to 186,
 of some 400 to 700 made in either. Differs:
 
 - **One span buffer** for the frame, where the original keeps one per zone.
@@ -969,8 +969,7 @@ Differs:
   two floats of the player's place there (y 9,920), and each departs its own
   way: the original's gains one such step a frame and is six times as far
   out by 0.75 s; DXEngine's, whose velocity is the move it made, keeps to a
-  step a frame until its sinking adds to the move, 3 units out at 0.2 s, and
-  may move none for a while (`9e42a99`: up to 0.4 s in two runs of four).
+  step a frame until its sinking adds to the move, 3 units out at 0.2 s.
 
 ## Housekeeping, not seen directly
 
@@ -1335,7 +1334,7 @@ As in the original:
 - For a player's first seconds in, until the server's augmentation manager
   reaches its client, the client walks at 100 where the server runs it at
   230 (`GetCurrentGroundSpeed` gives 0 without one), and the server corrects
-  a walk by up to 36 units.
+  the walk (`JoinConsole`'s jumps).
 - A game hosted from the menus is never listed on a master server: an uplink
   announces a server only with its `DoUplink` set, which the game's
   `DeusEx.ini` does not set
