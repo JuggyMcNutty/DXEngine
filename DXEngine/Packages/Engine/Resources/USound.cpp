@@ -203,14 +203,16 @@ Array<float> USound::Decode()
 		Exception::Throw("Unsupported sound format: " + Format.ToString());
 	}
 
+	// GetSamples counts frames, ReadSamples samples: a stereo sound's are
+	// twice its frames
 	Array<float> decoded;
 	#define ALIGN(x, a) ((x & ~(a-1)) + a)
-	decoded.resize(ALIGN(source->GetSamples(), 4));
+	channels = source->GetChannels();
+	decoded.resize(ALIGN((size_t)source->GetSamples() * channels, 4));
 	decoded.resize(ALIGN(source->ReadSamples(decoded.data(), decoded.size()), 4));
 
 	frequency = source->GetFrequency();
-	duration = decoded.size() / (float)frequency;
-	channels = source->GetChannels();
+	duration = decoded.size() / (float)channels / (float)frequency;
 
 	loopInfo.Looped = source->bIsLooped;
 	loopInfo.LoopStart = source->loopStart;
