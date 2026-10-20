@@ -242,7 +242,7 @@ public:
 	void TickSwimming(float elapsed);
 	void TickFlying(float elapsed);
 	void TickProjectile(float elapsed);
-	void TickRolling(float elapsed);
+	void TickRolling(float deltaTime, int iterations = 0);
 	void TickInterpolating(float elapsed);
 	void TickMovingBrush(float elapsed);
 	void TickSpider(float elapsed);
@@ -262,12 +262,6 @@ public:
 	// along a second wall.
 	void ProcessHitWall(vec3 hitNormal, UActor* hitActor);
 	static void TwoWallAdjust(const vec3& desiredDir, vec3& delta, const vec3& hitNormal, const vec3& oldHitNormal, float hitTime);
-	// Steps onto the ground if able, if not (would be falling) retuns false without moving
-	bool TryStepToGround(vec3 stepDownDelta);
-
-	// Recovers Velocity from actual displacement over the tick, unless bJustTeleported was set (which
-	// makes the displacement meaningless as a velocity source).
-	void RecomputeVelocityFromDisplacement(float elapsed);
 
 	virtual void TickRotating(float elapsed);
 
@@ -745,9 +739,6 @@ public:
 	FixedArrayView<float, 4> BlendAnimFrame() { return FixedArray<float, 4>(PropOffsets_Actor.BlendAnimFrame); }
 	FixedArrayView<float, 4> BlendAnimRate() { return FixedArray<float, 4>(PropOffsets_Actor.BlendAnimRate); }
 	FixedArrayView<float, 4> BlendTweenRate() { return FixedArray<float, 4>(PropOffsets_Actor.BlendTweenRate); }
-
-protected:
-	static constexpr float stepDownDeltaFactor = 1.3f;
 
 private:
 	void AddBasedActor(UActor* actor);

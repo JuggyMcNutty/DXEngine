@@ -447,36 +447,6 @@ void UActor::TwoWallAdjust(const vec3& desiredDir, vec3& delta, const vec3& hitN
 	}
 }
 
-bool UActor::TryStepToGround(vec3 stepDownDelta)
-{
-	CollisionHitList hits;
-	CollisionHit floorHit = TryMove(stepDownDelta, true, true, &hits);
-
-	//check if floo was reached, or if we would be falling now
-	if (floorHit.Fraction == 1.0f || floorHit.Normal.z < 0.7071f)
-	{
-		//if we would be falling, move back up
-		return false;
-	}
-
-	// We could reach the ground. Step down there: nothing has changed since
-	// the dry run, whose trace is the one TryMove would make again, so the
-	// move is made with it. (A dry run that traced nothing -- a static actor,
-	// too small a step -- cannot have found a floor.)
-	floorHit = FinishMove(stepDownDelta, hits, floorHit);
-	// The world's floor is the level's, as the original's traces give the
-	// level for it: a pawn on the ground has its level for a base.
-	if (floorHit.Fraction != 1.0f)
-		SetBase(floorHit.Actor ? floorHit.Actor : Level(), true);
-	return true;
-}
-
-void UActor::RecomputeVelocityFromDisplacement(float elapsed)
-{
-	if (!bJustTeleported())
-		Velocity() = (Location() - OldLocation()) / elapsed;
-}
-
 // The original's ULevel::FindSpot (engine-dll.md, teleporting an actor): the
 // spot pushed out of the walls along each axis in turn by the collision
 // box's reach, and kept if the box fits there; else pushed from its eight

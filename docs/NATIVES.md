@@ -901,6 +901,9 @@ Every other native the scripted runs compare matches the original
   ledge -- a crate nudged off it, a pawn fitted clear of it and pushed on at
   random (`RestConsole`,
   [moving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#moving)).
+- **Rolling**, in the original's steps (`RollConsole`: crates rolled across
+  Liberty Island's pier slow, turn off its walls and creep down its slope as
+  the original's do, within a tenth of a unit, at 60 frames a second).
 - **A pawn landing on another** or on a decoration that cannot be its base,
   which the scripts' `SupportActor` bounces off 50 up and 25 to 50 sideways
   at random, again until it slips off, and the one under it stomped but for
