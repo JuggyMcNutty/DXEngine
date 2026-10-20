@@ -336,11 +336,12 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
 
 		if (renderflags & PF_Environment)
 		{
-			mat3 rotmat = mat3(frame->Frame.WorldToView * frame->Frame.ObjectToWorld);
+			// The original's (Render.dll 0x10b0bab0): the eye's line to the
+			// vertex mirrored by its normal, in the world's axes.
+			vec3 viewer = frame->ViewLocation.xyz();
 			for (int i = 0; i < 3; i++)
 			{
-				vec3 v = normalize(vertices[i].Point);
-				vec3 p = rotmat * reflect(v, normals[i]);
+				vec3 p = reflect(normalize(vertices[i].Point - viewer), normals[i]);
 				vertices[i].UV = { (p.x + 1.0f) * 128.0f * uscale, (p.y + 1.0f) * 128.0f * vscale };
 			}
 		}
@@ -582,11 +583,12 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 
 		if (renderflags & PF_Environment)
 		{
-			mat3 rotmat = mat3(frame->Frame.WorldToView * frame->Frame.ObjectToWorld);
+			// The original's (Render.dll 0x10b0bab0): the eye's line to the
+			// vertex mirrored by its normal, in the world's axes.
+			vec3 viewer = frame->ViewLocation.xyz();
 			for (int i = 0; i < 3; i++)
 			{
-				vec3 v = normalize(vertices[i].Point);
-				vec3 p = rotmat * reflect(v, normals[i]);
+				vec3 p = reflect(normalize(vertices[i].Point - viewer), normals[i]);
 				vertices[i].UV = { (p.x + 1.0f) * 128.0f * uscale, (p.y + 1.0f) * 128.0f * vscale };
 			}
 		}
@@ -994,11 +996,12 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 
 		if (renderflags & PF_Environment)
 		{
-			mat3 rotmat = mat3(frame->Frame.WorldToView * frame->Frame.ObjectToWorld);
+			// The original's (Render.dll 0x10b0bab0): the eye's line to the
+			// vertex mirrored by its normal, in the world's axes.
+			vec3 viewer = frame->ViewLocation.xyz();
 			for (int i = 0; i < 3; i++)
 			{
-				vec3 v = normalize(vertices[i].Point);
-				vec3 p = rotmat * reflect(v, normals[i]);
+				vec3 p = reflect(normalize(vertices[i].Point - viewer), normals[i]);
 				vertices[i].UV = { (p.x + 1.0f) * 128.0f * uscale, (p.y + 1.0f) * 128.0f * vscale };
 			}
 		}

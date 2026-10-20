@@ -66,8 +66,8 @@
 # View, Aim, ShotAt, Macro and NoDetail; GlassConsole's Pick, GlassName, View
 # and Behind; FlushConsole's Pick, DoorName, View and Angle; MirrorConsole's
 # MarkTime, ShinyOff and Straddle; FaceConsole's MeshOf, Ahead and Distance;
-# MeshConsole's LODBias and NoDetail; CanisterConsole's Distances and
-# MarkTime; LoopConsole's Jumps;
+# MeshConsole's LODBias, NoDetail and Enviro; CanisterConsole's Distances
+# and MarkTime; LoopConsole's Jumps;
 # CallConsole's Depth; ReturnConsole's Items; SaveConsole's, LoadConsole's and
 # StartConsole's Via; LoadConsole's Open; ThemeConsole's Direct;
 # CensusConsole's From, Wait, Load, Seconds, Notify and Open; DetailConsole's

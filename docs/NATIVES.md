@@ -369,7 +369,11 @@ Matches the original's vertex budget and its morph
 `MeshConsole` with `LODBias` 0.004 and 0.0015, Paul Denton cut down to a few
 vertices, has his shape at a correlation of 0.93 and 0.95 to `D3DDrv`'s. On
 a screen wider than 4:3 the budget takes the wider angle
-([the view's width](#the-views-width)).
+([the view's width](#the-views-width)). An environment-mapped face reflects
+the eye's line in its normals in the world's axes, as the original's
+([mesh textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#mesh-textures)):
+`MeshConsole` with `Enviro`, the four drawn so, has their streaks where
+`D3DDrv` has them.
 
 ### Lighting
 

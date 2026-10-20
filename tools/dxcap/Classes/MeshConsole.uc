@@ -8,7 +8,9 @@
 // map has it) is given to all four, a mesh's detail falling with it as with
 // distance (dx-reverse-info render-dll.md, mesh detail). With NoDetail the
 // detail textures are turned off first, as the Display menu turns them off
-// (set ini:Engine.Engine.GameRenderDevice DetailTextures False). The pier's
+// (set ini:Engine.Engine.GameRenderDevice DetailTextures False). With Enviro
+// all four are drawn environment-mapped (bMeshEnviroMap), in the map their
+// zone or the level gives, or their last slot's texture. The pier's
 // floor, compared in NATIVES.md (brightness), is two bands of a 1024x768
 // shot's planks, either side of Paul's feet: x 180 to 460 and 580 to 750,
 // y 640 to 760.
@@ -18,6 +20,7 @@ class MeshConsole extends Console;
 
 var config float LODBias;
 var config bool NoDetail;
+var config bool Enviro;
 
 var float MapTime;
 var float StepTime;
@@ -145,6 +148,10 @@ event Tick(float Delta)
 				for (i = 0; i < 4; i++)
 					if (Placed[i] != None)
 						Placed[i].LODBias = LODBias;
+			if (Enviro)
+				for (i = 0; i < 4; i++)
+					if (Placed[i] != None)
+						Placed[i].bMeshEnviroMap = True;
 			// The original's HUD draws over the grabber's mark.
 			if (DeusExRootWindow(DXP.rootWindow) != None)
 				DeusExRootWindow(DXP.rootWindow).ShowHud(False);
