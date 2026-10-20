@@ -172,7 +172,11 @@ VkSampleCountFlagBits SceneTextures::GetBestSampleCount(VulkanDevice* device, in
 {
 	const auto& limits = device->PhysicalDevice.Properties.Properties.limits;
 	int requestedSamples = clamp(multisample, 1, 64);
-	VkSampleCountFlags deviceSampleCounts = limits.sampledImageColorSampleCounts & limits.sampledImageDepthSampleCounts & limits.sampledImageStencilSampleCounts;
+	// Every attachment of the scene's framebuffer takes the count, and is
+	// sampled: the colour, the hit buffer (integer) and the depth
+	VkSampleCountFlags deviceSampleCounts =
+		limits.sampledImageColorSampleCounts & limits.sampledImageDepthSampleCounts & limits.sampledImageStencilSampleCounts &
+		limits.sampledImageIntegerSampleCounts & limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts;
 
 	int samples = 1;
 	VkSampleCountFlags bit = VK_SAMPLE_COUNT_1_BIT;
