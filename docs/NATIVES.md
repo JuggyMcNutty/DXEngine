@@ -1046,7 +1046,10 @@ but the hard-coded ones (`ChurnConsole`'s memory: the table above).
 
 **Destroyed actors** are the original's
 ([destroyed actors](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#destroyed-actors)):
-each joins the level's chain (`FirstDeleted`, through `Deleted`), and at the
+step by step as the original's, `bDeleteMe` set only at the end, so an actor
+takes its own `EndState`, `BaseChange`, `Detach` and `LostChild` as it goes
+and its `Destroyed` still finds it in `AllActors` (`DestroyConsole`); each
+joins the level's chain (`FirstDeleted`, through `Deleted`), and at the
 end of a level's tick, once 128 wait, or before a save, every live actor's
 references to them are made None and the event manager is told. The original
 then deletes them; DXEngine frees them at the next collection, which makes

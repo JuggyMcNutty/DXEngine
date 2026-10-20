@@ -71,7 +71,9 @@ void UActor::Touch(UActor* actor)
 	}
 }
 
-void UActor::UnTouch(UActor* actor)
+// The original's AActor::EndTouch(Other, bNoNotifySelf): without notifySelf
+// (a destroyed actor's) this actor's slot is cleared but it is sent nothing.
+void UActor::UnTouch(UActor* actor, bool notifySelf)
 {
 	auto TouchingArray = Touching();
 	auto TouchingArray2 = actor->Touching();
@@ -86,7 +88,8 @@ void UActor::UnTouch(UActor* actor)
 				if (TouchEventSent[i])
 				{
 					TouchEventSent[i] = false;
-					CallEvent(this, EventName::UnTouch, { ExpressionValue::ObjectValue(actor) });
+					if (notifySelf)
+						CallEvent(this, EventName::UnTouch, { ExpressionValue::ObjectValue(actor) });
 				}
 			}
 		}

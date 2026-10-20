@@ -324,7 +324,7 @@ public:
 	bool IsOverlapping(UActor* other);
 
 	void Touch(UActor* actor);
-	void UnTouch(UActor* actor);
+	void UnTouch(UActor* actor, bool notifySelf = true);
 	void CheckPendingTouch();
 
 	static const int TouchingArraySize = 4;

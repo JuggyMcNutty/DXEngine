@@ -118,6 +118,7 @@ the run. *Either*: one engine on each side of a pair.
 | `HeldConsole` | both | what a pawn holds | `DXHELD:` |  |
 | `WallConsole` | both | the player's assault rifle against a wall of `TargetMap` (UNATCO HQ) | `DXWALL:` | `shots.py`, at `DXCAP_WINDOW=1024x768` |
 | `DeathConsole` | both | an NPC's death and its carcass | `DXDEATH:` |  |
+| `DestroyConsole` | both | an actor's destruction, event by event: in a state, owned, standing on one actor, stood on by another, owning one and touched by one, each event logged with its `bDeleteMe` | `DXDESTROY:` | the two logs diffed |
 | `AIConsole` | both | every NPC's state, orders, enemy and render time; the camera | `DXAI:`, `DXAISTATE:` |  |
 | `SitConsole` | both | Private Lloyd's way into his chair and his sitting, in view: state, animation, `bSitting`, place; two marked shots | `DXSIT:` | the two logs' lines |
 | `StaticConsole` | both | `TargetMap`'s static actors at 5 s and 15 s | `DXSTATIC:` |  |

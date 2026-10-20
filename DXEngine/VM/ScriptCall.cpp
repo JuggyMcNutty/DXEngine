@@ -72,7 +72,7 @@ ExpressionValue CallEvent(UObject* Context, EventName eventname, Array<Expressio
 
 	if (auto actor = UObject::TryCast<UActor>(Context))
 	{
-		if (!actor->Level()->bBegunPlay() || (actor->bDeleteMe() && eventname != EventName::Destroyed))
+		if (!actor->Level()->bBegunPlay() || actor->bDeleteMe())
 			return ExpressionValue::NothingValue();
 	}
 

@@ -150,22 +150,33 @@ UActor* UActor::Spawn(UClass* SpawnClass, std::optional<UActor*> SpawnOwner, std
 	return actor;
 }
 
+// The original's ULevel::DestroyActor (0x10395ba0; dx-reverse-info/
+// engine-dll.md, destroyed actors): bDeleteMe is set only at the end, so the
+// actor still takes its events while it goes -- EndState, BaseChange, the
+// Detach and LostChild of what stands on it and what it owns. A script that
+// destroys it within any of them finishes the job, and this one stops there.
 bool UActor::Destroy()
 {
-	//engine->LogMessage("UActor.Destroy(" + Class->FriendlyName.ToString() + ")");
-
 	if (bStatic() || bNoDelete())
 		return false;
 	if (bDeleteMe())
 		return true;
 
-	bDeleteMe() = true;
+	if (StateFrame && StateFrame->Func)
+	{
+		CallEvent(this, EventName::EndState);
+		if (bDeleteMe())
+			return true;
+	}
 
-	//GotoState({}, {}); // What should happen to function calls after Destroy() has been called? Razor2 calls SetRoll afterwards!
-	SetBase(nullptr, true);
-
-	if (engine->audiodev)
-		engine->audiodev->ActorDestroyed(this);
+	if (ActorBase())
+	{
+		SetBase(nullptr, true);
+		if (bDeleteMe())
+			return true;
+	}
+	while (!BasedActors.empty())
+		BasedActors.back()->SetBase(nullptr, true);
 
 	ULevel* level = XLevel();
 
@@ -176,21 +187,43 @@ bool UActor::Destroy()
 		level->Collision.MoverDestroyed(this);
 
 	CallEvent(this, EventName::Destroyed);
+	if (bDeleteMe())
+		return true;
 
-	for (const auto actor : Touching())
-		if (actor)
-			UnTouch(actor);
-
-
-	SetOwner(nullptr);
-
-	while (!ChildActors.empty())
+	// What it owns loses its owner, and what touches it is untouched, the
+	// actor itself told nothing, in the level's order.
+	for (size_t i = 0; i < level->Actors.size(); i++)
 	{
-		ChildActors.back()->SetOwner(nullptr);
+		UActor* actor = level->Actors[i];
+		if (!actor)
+			continue;
+		if (actor->Owner() == this)
+		{
+			actor->SetOwner(nullptr);
+			if (bDeleteMe())
+				return true;
+		}
+		else
+		{
+			for (int j = 0; j < TouchingArraySize; j++)
+			{
+				if (actor->Touching()[j] == this)
+				{
+					UnTouch(actor, false);
+					if (bDeleteMe())
+						return true;
+				}
+			}
+		}
 	}
-	while (!BasedActors.empty())
+
+	// Its owner loses it; it keeps its Owner.
+	if (UActor* owner = Owner())
 	{
-		BasedActors.back()->SetBase(nullptr, true);
+		CallEvent(owner, EventName::LostChild, { ExpressionValue::ObjectValue(this) });
+		if (bDeleteMe())
+			return true;
+		owner->RemoveChildActor(this);
 	}
 
 	// A server's clients' channels for it close.
@@ -202,6 +235,10 @@ bool UActor::Destroy()
 	level->Actors[Index] = nullptr;
 	level->ActorsVersion++;
 	level->ActorsHaveHoles = true;
+	bDeleteMe() = true;
+
+	if (engine->audiodev)
+		engine->audiodev->ActorDestroyed(this);
 
 	// To the level's chain of the destroyed: the event manager is told, and
 	// live actors' references made None, when the chain is cleaned up
