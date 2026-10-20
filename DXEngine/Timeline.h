@@ -20,7 +20,9 @@
 // GamepadAxis's names, a stick -1 to 1, a trigger 0 to 1; the pad attached
 // at rest as the timeline starts, so that no line of it is lost to the
 // pad's coming), the keys logged so too, "pointer <x> <y>" the root
-// window's pointer moved there, else a console command (shot, exit, ...).
+// window's pointer moved there, "chars <text>" the text typed as the window
+// sends it (UTF-8, every character in one go), else a console command
+// (shot, exit, ...).
 // Each second of the game where the player stands is logged, and every
 // other pawn's place and animation, as JoinConsole logs them; dropped back
 // to the menu, the run exits.

@@ -158,6 +158,7 @@ the run. *Either*: one engine on each side of a pair.
 | `CameraConsole` | both | the viewport windows: a security computer's feed with the player in the camera's view, its pan and zoom; the targeting augmentation's zoom on Paul Denton; the spy drone's window; four marked shots | `DXCAM:` | the two logs' lines; `shots.py --region`, at `DXCAP_WINDOW=1024x768`, the zoom and the drone's window against `DXCAP_RENDERER=D3D`'s ([shots](#shots)) |
 | `ScrollConsole` | both | a scroll area and a slider under the mouse | `DXSCROLL:` | with `tools/dxcap/timelines/scroll.txt` on DXEngine |
 | `ClickConsole` | both | a button, a choice and a checkbox clicked; a menu dragged; Alt accelerators | `DXCLICK:` | with `tools/dxcap/timelines/clicks.txt` on DXEngine |
+| `TypeConsole` | dxe | text typed into an edit field on the main menu, past ASCII and several characters at once | `DXTYPE:` | with `tools/dxcap/timelines/type.txt` |
 | `PadConsole` | dxe | the player's place, speed, facing and physics every half second, as a pad moves it | `DXPAD:` | with `tools/dxcap/timelines/pad.txt` |
 | `EditConsole` | both | a script's text calls on an edit field, a text window and a button | `DXEDIT:` |  |
 | `ColumnConsole` | both | a list's columns fitted to fields in fonts that have and lack their characters, and to a field of two lines, on the main menu | `DXCOLUMN:` | the two logs diffed |
@@ -237,12 +238,13 @@ left, both from Liberty Island, ten loads of each map 25 s apart, then an exit:
 | `reload-fresh.txt` | the island and Battery Park | crosses a mission: `Current` emptied, the map from `Maps` |
 | `reload-current.txt` | the island and UNATCO HQ | stays in mission 1: the map left saved into `Current`, the next one from there |
 
-and seven more: `collections.txt`, the collections a player meets, each timed -- the console's
+and eight more: `collections.txt`, the collections a player meets, each timed -- the console's
 `obj garbage` on the island, then Battery Park and the island loaded in turn, `obj garbage` after
 each load -- `keys.txt`, a key of each kind the SDL windows name, on the stock console with
 `DXCAP_BACKEND=SDL3` ([a key's name](NATIVES.md#small)), and, each one console's input,
 `loot-drags.txt` (`LootConsole`), `stray-release.txt` (`KeypadConsole`), `scroll.txt`
-(`ScrollConsole`), `clicks.txt` (`ClickConsole`) and `pad.txt` (`PadConsole`).
+(`ScrollConsole`), `clicks.txt` (`ClickConsole`), `pad.txt` (`PadConsole`) and `type.txt`
+(`TypeConsole`).
 
 ```sh
 DXCAP_MEMLOG=1 DXCAP_TIMELINE=tools/dxcap/timelines/reload-fresh.txt \
@@ -281,7 +283,8 @@ it (SDL's scancode names, under SDL2 and SDL3: `Left Shift`, `Keypad *`, `Menu`;
 takes none), put among the window's own events and each key the window gives the game logged
 (`DXKEY:`), `pad <button> down` or `up` and `padaxis <axis> <value>` the SDL window's virtual pad
 (`A` to `DpadRight`, `LeftX` to `RightTrigger`: a stick -1 to 1, a trigger 0 to 1), its keys
-logged so too, `pointer <x> <y>` the pointer moved there in the root window's coordinates, or a
+logged so too, `pointer <x> <y>` the pointer moved there in the root window's coordinates,
+`chars <text>` text typed as the window sends it (UTF-8, every character in one go), or a
 console command (`shot`, `exit`, ...). The timeline is `DXCAP_TIMELINE`'s file, or `JoinConsole`'s
 walk: stand 5 s, walk forward 5 s (`W`), stand, shots at the stops, out at 25 s. Each second of
 the game the player's place and every other pawn's are logged (`DXLIVE:`), and each correction the

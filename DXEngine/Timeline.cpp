@@ -141,6 +141,14 @@ void Timeline::Run(Action& action)
 		return;
 	}
 
+	// Text typed, as the window sends it: UTF-8, characters together
+	if (action.Verb == "chars")
+	{
+		LogMessage("DXLIVE: chars " + action.Arg);
+		engine->OnWindowKeyChar(action.Arg);
+		return;
+	}
+
 	if (action.Verb == "keydown" || action.Verb == "keyup")
 	{
 		LogMessage("DXLIVE: " + action.Verb + " " + action.Arg);

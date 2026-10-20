@@ -660,7 +660,10 @@ from the original's code:
   a repeat, and a release of a key or button not down is taken while a
   modal shows and goes to no window (`KeypadConsole` with
   `stray-release.txt`, DXEngine's alone; with no modal up the game gets it).
-  `IsKeyDown` reads those marks.
+  `IsKeyDown` reads those marks. Typed text reaches the console and the
+  windows a character at a time, as the original's comes (a `WM_CHAR`
+  each), one past ASCII by its Latin-1 code: `TypeConsole`'s edit field
+  takes "Café", "ñü" and "ab" typed whole (`type.txt`, DXEngine's alone).
   `LootConsole` searches two carcasses alike in both engines; the keys and
   the drags between the searches (`loot-drags.txt`) are a timeline's, so
   DXEngine's alone, as are `ScrollConsole`'s clicks, drags and wheel
@@ -729,6 +732,9 @@ Differs:
 
 - **`GC.DrawActor` ignores `bConstrain`**: the vision augmentation's calls
   cover the whole view. Its render time: [out of sight](#out-of-sight).
+- **A typed character past Latin-1** (U+0100 on) goes nowhere, DXEngine's
+  text being 8-bit; the original's windows take it, and the game's fonts draw
+  it as nothing (read from `WinDrv.dll`'s code).
 - **Keys**, read from both codes: the keyboard counts as grabbed while a
   modal shows, where the original counts its grabs (every modal grabs while
   shown). With Alt down DXEngine takes a letter or digit from the key's

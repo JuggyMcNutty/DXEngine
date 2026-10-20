@@ -5,6 +5,7 @@
 #include "Utils/File.h"
 #include "Utils/StrTools.h"
 #include "Utils/SHA1Sum.h"
+#include "Utils/UTF8Reader.h"
 #include "Utils/PEIcon.h"
 #include "Render/RenderSubsystem.h"
 #include "Package/PackageManager.h"
@@ -2935,12 +2936,24 @@ void Engine::OnWindowRawMouseMove(int dx, int dy)
 	MouseMoveY += dy;
 }
 
+// Typed text comes as UTF-8; it goes on a character at a time, as Windows
+// sends the original's WM_CHAR (WinDrv.dll UWindowsViewport::ViewportWndProc
+// 0x11109b30, to the engine's Key, a carriage return passed over), each a
+// byte of the game's 8-bit text: one past it has no place there and goes
+// nowhere.
 void Engine::OnWindowKeyChar(std::string chars)
 {
-	if (engine->dxRootWindow && engine->dxRootWindow->OnWindowKeyChar(chars))
-		return;
-
-	Key(chars);
+	UTF8Reader reader(chars.data(), chars.size());
+	for (; !reader.is_end(); reader.next())
+	{
+		unsigned int c = reader.character();
+		if (c == '\r' || c > 0xff)
+			continue;
+		std::string key(1, (char)(uint8_t)c);
+		if (engine->dxRootWindow && engine->dxRootWindow->OnWindowKeyChar(key))
+			continue;
+		Key(key);
+	}
 }
 
 void Engine::OnWindowKeyDown(EInputKey key)
