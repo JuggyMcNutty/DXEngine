@@ -95,8 +95,8 @@ public:
 	// Saves values to a specified file
 	void SaveTo(const std::string& filename);
 
-	// Compares the text written in the ini file with what's in the memory, and updates the changed sections
-	// (File is still completely replaced, but this way the previous additional data in it won't be lost)
+	// The file updated from what is in memory, its comments and order kept
+	// (UpdateFile(filename))
 	void UpdateFile();
 	// Updates values in a specified file
 	void UpdateFile(const std::string& filename);
@@ -112,7 +112,6 @@ private:
 	const IniSection* FindSection(const std::string& sectionName) const;
 
 	bool isModified = false;
-	bool hasNewKeys = false; // True if any of the IniSection.hasNewKey values are true. If this is true, then the IniFile must be written to the disk from scratch.
 	std::string ini_file_path;
 	Array<IniSection> sections;
 };

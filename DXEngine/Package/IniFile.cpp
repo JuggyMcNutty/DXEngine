@@ -5,6 +5,7 @@
 #include "Utils/Convert.h"
 #include "MurmurHash3/MurmurHash3.h"
 #include <algorithm>
+#include <map>
 
 static uint32_t HashIniString(const std::string& str)
 {
@@ -156,7 +157,6 @@ void IniFile::SetValue(const NameString& sectionName, const NameString& keyName,
 	if (section.SetValue(keyName, newValue, last))
 	{
 		isModified = true;
-		hasNewKeys = hasNewKeys || section.HasNewKey();
 	}
 }
 
@@ -166,9 +166,7 @@ void IniFile::SetValues(const NameString& sectionName, const NameString& keyName
 	if (section.SetValues(keyName, newValues))
 	{
 		isModified = true;
-		hasNewKeys = hasNewKeys || section.HasNewKey();
 	}
-		
 }
 
 void IniFile::SaveTo()
@@ -222,6 +220,12 @@ void IniFile::UpdateFile()
 	UpdateFile(ini_file_path);
 }
 
+// The file as it is, its comments and order kept: each value in memory that
+// differs from its line is written into that line (a key given more than
+// once, each occurrence its own value, in order); values the file has no
+// line for are added after the last key line of their section (after the
+// key's own last line when it has some), and sections it has not at its end.
+// A key's name is taken as written, Name[0] included, as the file is read.
 void IniFile::UpdateFile(const std::string& filename)
 {
 	if (filename == ini_file_path && !isModified)
@@ -235,8 +239,6 @@ void IniFile::UpdateFile(const std::string& filename)
 		return;
 	}
 
-	// The logic is simple: Read the file, check each line one-by-one, modify the differing lines, and write everything back
-	// The implementation however, is not :V
 	auto lines = File::read_all_lines(filename);
 
 	// A file written on Windows -- the game's own -- ends its lines with CR
@@ -251,143 +253,140 @@ void IniFile::UpdateFile(const std::string& filename)
 		}
 	}
 
-	const IniSection* current_section = nullptr;
-
-	// A key can contain multiple values, so we gotta compare if we're getting the same key again and again
-	struct KeyOccurance
+	struct SeenSection
 	{
-		std::string keyName = "";
-		unsigned int currentIndex = 0;
+		const IniSection* Section = nullptr;
+		size_t LastLine = 0; // its header, then its last key line
+		std::map<uint32_t, int> Occurrences; // a key's lines so far
+		std::map<uint32_t, size_t> KeyLastLine;
+	};
+	Array<SeenSection> seen;
+
+	auto trim = [](const std::string& str) {
+		size_t start = str.find_first_not_of(" \t");
+		if (start == std::string::npos)
+			return std::string();
+		size_t end = str.find_last_not_of(" \t");
+		return str.substr(start, end - start + 1);
 	};
 
-	Array<KeyOccurance> keyOccurrances;
-
-	bool key_has_brackets = false;
-	std::string ini_value;			// Value read from the ini file
-
-	for (auto line_it = lines.begin() ; line_it != lines.end() ; line_it++)
+	for (size_t i = 0; i < lines.size(); i++)
 	{
-		std::string line = *line_it;
-
-		if (line.empty() || line[0] == ';')
-			// Do nothing on empty line
+		std::string line = trim(lines[i]);
+		if (line.empty() || line[0] == ';' || (line.size() >= 2 && line[0] == '/' && line[1] == '/'))
 			continue;
 
-		if (line.front() == '[' && line.back() == ']')
+		if (line.size() >= 2 && line.front() == '[' && line.back() == ']')
 		{
-			// If we're switching from a different section, check for values not in the file, but in the memory, and add them
-			if (current_section)
-			{
-				auto& section_keys = current_section->GetKeys();
-
-				for (auto& key : section_keys)
-				{
-					bool key_found = false;
-					for (auto& keyOccurrance : keyOccurrances)
-					{
-						if (key.GetName() == keyOccurrance.keyName)
-						{
-							key_found = true;
-							break;
-						}
-					}
-
-					if (key_found)
-						continue;
-
-					auto& values = key.GetValues();
-
-					for (auto& value : values)
-					{
-						std::string newline = key.GetName() + "=" + value;
-
-						line_it = lines.insert(line_it - 2, newline);
-
-						line_it += 2;
-					}
-				}
-			}
-
-			// Switch sections
-			std::string new_section_name = line.substr(1, line.length() - 2);
-
-			current_section = FindSection(new_section_name);
-
-			keyOccurrances.clear();
-
+			SeenSection entry;
+			entry.Section = FindSection(line.substr(1, line.size() - 2));
+			entry.LastLine = i;
+			seen.push_back(std::move(entry));
 			continue;
 		}
 
-		// Check stuff out only if we're in a relevant section
-		if (current_section)
+		if (seen.empty() || !seen.back().Section)
+			continue;
+		SeenSection& current = seen.back();
+
+		size_t equalpos = line.find('=');
+		if (equalpos == std::string::npos)
+			continue;
+		std::string name = line.substr(0, equalpos);
+		while (!name.empty() && (name.back() == ' ' || name.back() == '\t'))
+			name.pop_back();
+		if (name.empty())
+			continue;
+		std::string valueInFile;
+		size_t valuepos = line.find_first_not_of(" \t", equalpos + 1);
+		if (valuepos != std::string::npos)
+			valueInFile = line.substr(valuepos);
+
+		uint32_t keyHash = HashIniString(name);
+		int occurrence = current.Occurrences[keyHash]++;
+		current.LastLine = i;
+		current.KeyLastLine[keyHash] = i;
+
+		for (const IniKey& key : current.Section->GetKeys())
 		{
-			size_t equal_pos = line.find('=');
-
-			if (equal_pos != std::string::npos)
+			if (key.GetHash() != keyHash)
+				continue;
+			if (occurrence < (int)key.GetValues().size())
 			{
-				std::string key = line.substr(0, equal_pos);
-				std::string key_without_brackets = key; // Will differ from key if the said key contains brackets
-				std::string value_from_file = line.substr(equal_pos + 1);
-
-				size_t left_bracket_pos = key.find('['),
-					   right_bracket_pos = key.find(']');
-
-				int bracket_index = 0;
-
-				if (left_bracket_pos != std::string::npos && right_bracket_pos != std::string::npos && left_bracket_pos < right_bracket_pos)
-				{
-					bracket_index = Convert::to_int32(key.substr(left_bracket_pos, right_bracket_pos - left_bracket_pos + 1));
-					key_without_brackets = key.substr(0, left_bracket_pos);
-					key_has_brackets = true;
-				}
-
-				// If the key don't have any brackets, check if we encountered the said key before
-				// If we did, then get the next index from it, else add the key we found to the database
-				int found_index = 0;
-				bool occurance_found = false;
-
-				for (auto& keyOccurrance : keyOccurrances)
-				{
-					if (keyOccurrance.keyName == key_without_brackets)
-					{
-						keyOccurrance.currentIndex++;
-						occurance_found = true;
-						break;
-					}
-
-					found_index++;
-				}
-
-				if (!occurance_found)
-				{
-					// Must be a new occurrance
-					keyOccurrances.push_back({ key, 0 });
-				}
-
-				// Read and compare the value of the current line
-				if (key_has_brackets)
-					ini_value = current_section->GetValue(key_without_brackets, "", bracket_index);
-				else
-					ini_value = current_section->GetValue(key, "", occurance_found ? keyOccurrances[found_index].currentIndex : 0);
-				
-				// Update the current line if the value differs
-				if (value_from_file != ini_value)
-					*line_it = key + "=" + ini_value;
+				const std::string& value = key.GetValues()[occurrence];
+				if (value != valueInFile)
+					lines[i] = name + "=" + value;
 			}
+			break;
 		}
 	}
 
-	// Combine lines back
-	std::string final_text = "";
+	// What the file has no line for, added after its section's lines
+	struct Insertion
+	{
+		size_t After;
+		Array<std::string> Lines;
+	};
+	Array<Insertion> insertions;
+	for (SeenSection& entry : seen)
+	{
+		if (!entry.Section)
+			continue;
+		for (const IniKey& key : entry.Section->GetKeys())
+		{
+			int inFile = entry.Occurrences.count(key.GetHash()) ? entry.Occurrences[key.GetHash()] : 0;
+			const Array<std::string>& values = key.GetValues();
+			if ((int)values.size() <= inFile)
+				continue;
+			Insertion insertion;
+			insertion.After = inFile > 0 ? entry.KeyLastLine[key.GetHash()] : entry.LastLine;
+			for (size_t v = inFile; v < values.size(); v++)
+				insertion.Lines.push_back(key.GetName() + "=" + values[v]);
+			insertions.push_back(std::move(insertion));
+		}
+	}
+	// From the bottom up, so each one's line number still holds; those after
+	// one line in their order
+	std::stable_sort(insertions.begin(), insertions.end(), [](const Insertion& a, const Insertion& b) { return a.After > b.After; });
+	for (size_t i = 0; i < insertions.size(); )
+	{
+		size_t after = insertions[i].After;
+		Array<std::string> block;
+		for (; i < insertions.size() && insertions[i].After == after; i++)
+			block.insert(block.end(), insertions[i].Lines.begin(), insertions[i].Lines.end());
+		lines.insert(lines.begin() + after + 1, block.begin(), block.end());
+	}
 
-	for (auto& line : lines)
+	// Sections the file has not, at its end
+	for (const IniSection& section : sections)
+	{
+		bool inFile = false;
+		for (const SeenSection& entry : seen)
+		{
+			if (entry.Section == &section)
+			{
+				inFile = true;
+				break;
+			}
+		}
+		if (inFile || section.GetKeys().empty())
+			continue;
+		if (!lines.empty() && !lines.back().empty())
+			lines.push_back("");
+		lines.push_back("[" + section.GetName() + "]");
+		for (const IniKey& key : section.GetKeys())
+		{
+			for (const std::string& value : key.GetValues())
+				lines.push_back(key.GetName() + "=" + value);
+		}
+	}
+
+	std::string final_text;
+	for (const std::string& line : lines)
 	{
 		final_text += line;
-
-		if (line != "\n")
-			final_text += crlf ? "\r\n" : "\n";
+		final_text += crlf ? "\r\n" : "\n";
 	}
-	
 	File::write_all_text(filename, final_text);
 
 	if (filename != ini_file_path)
@@ -398,12 +397,10 @@ void IniFile::UpdateFile(const std::string& filename)
 
 void IniFile::UpdateIfExists(const std::string& filename)
 {
-	if (File::try_open_existing(filename) && !hasNewKeys)
+	if (File::try_open_existing(filename))
 		UpdateFile(filename);
 	else
 		SaveTo(filename);
-
-	hasNewKeys = false;
 }
 
 IniSection& IniFile::AddUniqueSection(const std::string& sectionName)
@@ -416,7 +413,6 @@ IniSection& IniFile::AddUniqueSection(const std::string& sectionName)
 	}
 
 	sections.push_back(std::move(IniSection(sectionName, sectionHash)));
-	hasNewKeys = true;
 	return sections.back();
 }
 
@@ -637,7 +633,8 @@ int IniKey::SetValues(const Array<std::string>& newValues)
 
 int IniKey::SetIndexed(bool newIndexed)
 {
-	bool result = !((int)indexed ^ (int)newIndexed);
+	// 1 only for a change, as SetValue's
+	int result = indexed != newIndexed ? 1 : 0;
 	indexed = newIndexed;
 	return result;
 }

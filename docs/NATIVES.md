@@ -1220,9 +1220,10 @@ A mod gets the original's loader and natives:
   (`IniConsole`). Those read by hand, though, take an empty value for none:
   a float or a string keeps DXEngine's default where the original's is 0 or
   empty. An ini written back, at a clean exit, has a changed value changed
-  in its own line and the rest of the file as it was, a CR LF file's line
-  endings with it; a key new to the file has the whole file rewritten, LF,
-  its comments gone, and a file not there yet is written whole. The
+  in its own line, a key new to a section added after the section's last
+  key, a section new to the file at its end, and the rest of the file as it
+  was, a CR LF file's line endings with it; a file not there yet is written
+  whole. The
   original rewrites each file whole, CR LF, comments gone (`ConfigConsole`:
   a class's own `DXCapConfig.ini`, CR LF or not there, read and written back
   alike).
