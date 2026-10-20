@@ -127,6 +127,16 @@ void NActor::Add_ColorColor(const Color& A, const Color& B, Color& ReturnValue)
 
 void NActor::AllActors(UObject* Self, UObject* BaseClass, UObject*& Actor, std::optional<NameString> MatchTag)
 {
+	// None for the class is every actor, as the original's (Engine.dll
+	// AActor::execAllActors 0x103e43f0)
+	if (!BaseClass)
+	{
+		for (UStruct* cls = Self->Class; cls; cls = cls->BaseStruct)
+		{
+			if (cls->Name == "Actor")
+				BaseClass = cls;
+		}
+	}
 	Frame::CreatedIterator = std::make_unique<AllActorsIterator>(BaseClass, &Actor, MatchTag ? *MatchTag : std::string());
 }
 

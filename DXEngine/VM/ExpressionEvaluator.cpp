@@ -306,9 +306,10 @@ void ExpressionEvaluator::Expr(ClassContextExpression* expr)
 	{
 		PassThrough(expr->ContextExpr, cls->GetDefaultObject<UObject>());
 	}
-	else
+	else if (IsStatement())
 	{
-		Frame::ThrowException("Class reference is None");
+		// As an object's context: a warning, the expression skipped
+		Result.Result = StatementResult::AccessedNone;
 	}
 }
 
