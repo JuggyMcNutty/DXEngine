@@ -353,7 +353,10 @@ void NetFileChannel::ReceivedBunch(NetInBunch& bunch)
 	{
 		// The server: a client asks for a package by its GUID. One it may
 		// download (AllowDownload) goes if the level agrees; anything else,
-		// the channel closes empty.
+		// the channel closes empty. A channel sends one file: a request
+		// after the first, on a channel already sending, is passed over.
+		if (File)
+			return;
 		uint32_t words[4] = {};
 		for (uint32_t& word : words)
 			word = (uint32_t)bunch.Data.ReadInt32();
