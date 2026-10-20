@@ -180,6 +180,9 @@ void VulkanRenderDevice::Flush(bool AllowPrecache)
 		VkDeviceSize offsets[] = { 0 };
 		cmdbuffer->bindVertexBuffers(0, 1, vertexBuffers, offsets);
 		cmdbuffer->bindIndexBuffer(Buffers->SceneIndexBuffer->buffer, 0, VK_INDEX_TYPE_UINT32);
+		// A new command buffer keeps no dynamic state: the scene node's
+		// viewport again, as FlushDrawBatchAndWait sets it
+		cmdbuffer->setViewport(0, 1, &viewportdesc);
 	}
 	else
 	{
