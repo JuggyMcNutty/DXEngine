@@ -844,7 +844,7 @@ void NObject::MultiplyEqual_IntFloat(int& A, float B, int& ReturnValue)
 
 void NObject::MultiplyEqual_RotatorFloat(Rotator& A, float B, Rotator& ReturnValue)
 {
-	ReturnValue = A * B;
+	ReturnValue = A *= B;
 }
 
 void NObject::MultiplyEqual_VectorFloat(vec3& A, float B, vec3& ReturnValue)
