@@ -1308,6 +1308,11 @@ The server-only stubs are under
   144 frames a second, 4 at 200 and none at some 1,300 (uncapped on the
   desktop with no vsync), as the original server's reach DXEngine's, 6 to 8:
   the first goes as the host stops, its last step's packet just sent.
+- **A link's binary data**: `ReceivedBinary` gives the script the bytes that
+  came, each element of its array. The original's gives it others, the
+  count right: 20 bytes sent to a `UdpLink` in binary mode reach its script
+  as 20 bytes of what else is there, whatever was sent, and its
+  `SendBinary` answers False. No mod can have counted on them.
 - **The player's name in a net game**: a name the player never chose --
   none, or the game's stock `Player` -- logs in as `DXEnginePlayer`, a
   client's to its server and a listen server's host's, by choice, so

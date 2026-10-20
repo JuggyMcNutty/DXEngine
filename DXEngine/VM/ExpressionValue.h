@@ -194,6 +194,9 @@ public:
 	static ExpressionValue DefaultValue(UProperty* prop);
 	static ExpressionValue PropertyValue(UProperty* prop);
 	static ExpressionValue Variable(void* data, UProperty* prop);
+	// The variable at ptr itself, not at its property's offset into ptr: a
+	// value of the property's type held on its own (a native's buffer)
+	static ExpressionValue At(void* ptr, UProperty* prop) { return ExpressionValue(ptr, prop); }
 
 	ExpressionValueType GetType() const { return Type; }
 	bool IsVariable() const { return VariableProperty; }

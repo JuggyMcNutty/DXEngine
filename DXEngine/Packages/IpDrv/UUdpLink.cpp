@@ -57,7 +57,7 @@ void UUdpLink::Tick(float elapsed)
 			{
 				uint8_t bytes[255] = {};
 				memcpy(bytes, data, std::min(count, 255));
-				CallEvent(this, "ReceivedBinary", { IpAddrArg("ReceivedBinary", from, prop), ExpressionValue::IntValue(count), ExpressionValue::Variable(bytes, func->Properties[2]) });
+				CallEvent(this, "ReceivedBinary", { IpAddrArg("ReceivedBinary", from, prop), ExpressionValue::IntValue(count), ExpressionValue::At(bytes, func->Properties[2]) });
 			}
 		}
 	}

@@ -235,7 +235,7 @@ void UTcpLink::PollConnections()
 				uint8_t bytes[255] = {};
 				int n = std::min(count - start, 255);
 				memcpy(bytes, data + start, n);
-				CallEvent(this, "ReceivedBinary", { ExpressionValue::IntValue(n), ExpressionValue::Variable(bytes, func->Properties[1]) });
+				CallEvent(this, "ReceivedBinary", { ExpressionValue::IntValue(n), ExpressionValue::At(bytes, func->Properties[1]) });
 			}
 		}
 	}

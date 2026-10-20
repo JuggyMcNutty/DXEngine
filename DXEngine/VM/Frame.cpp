@@ -281,7 +281,17 @@ ExpressionValue Frame::CallScript(UFunction* func, UObject* instance, CallArgume
 		if (args[i].GetType() == ExpressionValueType::Nothing)
 			continue;
 		ExpressionValue lvalue = ExpressionValue::Variable(frame.Variables.Data, parms[i]);
-		lvalue.Store(args[i]);
+		// A static array goes whole, element by element, when the caller
+		// gives one (a native's buffer: ReceivedBinary's bytes)
+		if (parms[i]->ArrayDimension > 1 && args[i].IsVariable())
+		{
+			for (int element = 0; element < parms[i]->ArrayDimension; element++)
+				lvalue.ItemAt(element).Store(args[i].ItemAt(element));
+		}
+		else
+		{
+			lvalue.Store(args[i]);
+		}
 	}
 
 	// Run the function
