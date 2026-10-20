@@ -317,9 +317,11 @@ void RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 	engine->CameraFovAngle = viewport->FOV();
 
 	mat4 worldToView = Coords::ViewToRenderDev().ToMatrix() * Coords::Rotation(rotation).Inverse().ToMatrix() * Coords::Location(location).ToMatrix();
-	MainFrame.Process(location, worldToView, Coords::Rotation(rotation));
-	MainFrame.Draw();
-	MainFrame.DrawCoronas();
+	// A frame of its own: the main view's stays as the scene left it, for what
+	// the HUD draws after (the vision augmentation's GC.DrawActor)
+	ViewportFrame.Process(location, worldToView, Coords::Rotation(rotation));
+	ViewportFrame.Draw();
+	ViewportFrame.DrawCoronas();
 
 	Device->SetSceneNode(&Canvas.Frame);
 

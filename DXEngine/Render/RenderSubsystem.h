@@ -114,6 +114,7 @@ public:
 	} Stats;
 
 	VisibleFrame MainFrame;
+	VisibleFrame ViewportFrame; // a ViewportWindow's view: the zoom, the drone, a camera's feed
 	SceneNode MainView; // The main scene's view, which a ViewportWindow's draw leaves alone
 
 private:
