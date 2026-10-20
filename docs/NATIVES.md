@@ -886,7 +886,10 @@ Every other native the scripted runs compare matches the original
   files again wherever they are; and the polygons are filed whole, where the
   original's tree drops what lands in solid, which no line in the open
   meets.
-- **Sight** (`SightConsole`), **the reach tests** (`ReachConsole`), and
+- **Sight** (`SightConsole`), and the pawns' in the tick (`SeeConsole`:
+  `SeePlayer` sent only a player, each 0.2 s,
+  [the senses](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-senses)),
+  **the reach tests** (`ReachConsole`), and
   **the look up and down stairs** (`StairConsole`: every answer of
   `Pawn.FindStairRotation` alike on Liberty Island's pier and
   `SlideConsole`'s slope,

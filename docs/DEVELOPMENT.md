@@ -135,6 +135,7 @@ the run. *Either*: one engine on each side of a pair.
 | `DoorConsole` | both | a hinged door on `TargetMap` (UNATCO HQ) closed on a breakable crate: the door's turn and the crate, each 0.1 s | `DXDOOR:` | the two logs' lines |
 | `MoverServer` | both | a line across a door on a dedicated server, the door moved off it: a server actor (`dedicated`) | `DXDEDI:` | the two logs diffed |
 | `SightConsole` | both | `LineOfSightTo`, `CanSee`, `PlayerCanSeeMe` | `DXSIGHT:` |  |
+| `SeeConsole` | both | the pawns' sight in the tick: two watchers in front of the player, one probing `EnemyNotVisible`, logging each `SeePlayer` and whom it names; their `SightCounter` each tick | `DXSEE:` | the two logs' lines |
 | `StandConsole` | both | where a walking player rests, and stops at a wall | `DXSTAND:` |  |
 | `StairConsole` | both | `Pawn.FindStairRotation` on the pier and a slope | `DXSTAIR:` | the two logs' answers diffed |
 | `StompConsole` | both | a pawn landing on another, and on crates | `DXSTOMP:` |  |

@@ -113,6 +113,22 @@ void UPawn::Tick(float elapsed)
 
 	if (Role() == ROLE_Authority)
 	{
+		// The original's sight (AActor::Tick 0x103a1aa0): the counter runs
+		// down from 0.2 s; while it is under 0 the pawn is due to look. A
+		// player shows itself to every pawn due to look (APawn::ShowSelf
+		// 0x103c0410), so SeePlayer is only ever sent a player; a pawn due
+		// to look checks its enemy (APawn::CheckEnemyVisible 0x103c0280).
+		if (SightCounter() < 0.0f)
+			SightCounter() += 0.2f;
+		SightCounter() -= elapsed;
+		if (bIsPlayer() && !bHidden())
+			ShowSelf();
+		if (SightCounter() < 0.0f && IsEventEnabled(EventName::EnemyNotVisible))
+		{
+			CheckEnemyVisible();
+			SightCounter() = 0.1f;
+		}
+
 		if (PainTime() > 0.0f)
 		{
 			PainTime() = std::max(PainTime() - elapsed, 0.0f);
@@ -127,49 +143,30 @@ void UPawn::Tick(float elapsed)
 		}
 		if (bAdvancedTactics())
 			CallEvent(this, EventName::UpdateTactics, { ExpressionValue::FloatValue(elapsed) });
-
-
-		SightCounter() -= elapsed;
-		if (SightCounter() <= 0.0f)
-		{
-			//apply random offest to pawns sight counter so not all
-			//pawns get evaluated at the same frame 
-			//numbers are arbitrarily picked -> if it causes perf. problems, 
-			//maybe switch to using some limit of how many pawns can be evaluated 
-			//every frame
-			SightCounter() += 0.4f - 0.2f * (static_cast <float> (rand()) / static_cast <float> (RAND_MAX));
-
-			//search for target, if the pawn has an event to see them
-			if (IsEventEnabled(EventName::SeePlayer))
-			{
-				//search every pawn in the map, if they are visible fire the related event
-				for (UPawn* other = Level()->PawnList(); other; other = other->nextPawn())
-				{
-					//skip self, dead pawns and the currenty chosen enemy (handeld by the if(Enemy()) branch)
-					if (other == this || other == Enemy() || other->Health() <= 0)
-						continue;
-					//if the enemy pawn is visible, notify the Unreal scrip about it
-					if (CanSee(other))
-						CallEvent(this, EventName::SeePlayer, { ExpressionValue::ObjectValue(other) });
-				}
-			}
-
-			//if the pawn already has an enemy, update its tracking data
-			if (Enemy())
-			{
-				if (CanSee(Enemy()))
-				{
-					LastSeenPos() = Enemy()->Location();
-					LastSeeingPos() = Location();
-					LastSeenTime() = Level()->TimeSeconds();
-				}
-				else if (IsEventEnabled(EventName::EnemyNotVisible))
-				{
-					CallEvent(this, EventName::EnemyNotVisible);
-				}
-			}
-		}
 	}
+}
+
+// Every other pawn due to look that sees this player (CanSee: the LOS flag
+// set) is sent SeePlayer.
+void UPawn::ShowSelf()
+{
+	for (UPawn* other = Level()->PawnList(); other; other = other->nextPawn())
+	{
+		if (other != this && other->SightCounter() < 0.0f && other->IsEventEnabled(EventName::SeePlayer) && other->CanSee(this))
+			CallEvent(other, EventName::SeePlayer, { ExpressionValue::ObjectValue(this) });
+	}
+}
+
+// Its enemy seen (LineOfSightTo, which notes where each stood) is the time
+// it was last seen; not seen, EnemyNotVisible.
+void UPawn::CheckEnemyVisible()
+{
+	if (!Enemy())
+		return;
+	if (LineOfSightTo(Enemy(), false))
+		LastSeenTime() = Level()->TimeSeconds();
+	else
+		CallEvent(this, EventName::EnemyNotVisible);
 }
 
 void UPawn::TickRotating(float elapsed)

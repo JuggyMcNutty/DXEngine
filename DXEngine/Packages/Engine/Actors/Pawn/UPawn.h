@@ -50,6 +50,10 @@ public:
 	// Deus Ex's LineOfSightTo and CanSee: the original's APawn::LineOfSightTo,
 	// the scripts' without the LOS flag and CanSee with it.
 	bool DeusExLineOfSightTo(UActor* other, bool useLOSFlag, bool ignoreDistance);
+	// The original's sight in the tick: a player shown to the pawns due to
+	// look, and a pawn's check of its enemy.
+	void ShowSelf();
+	void CheckEnemyVisible();
 	bool CanHearNoise(UActor* source, float loudness);
 	bool ActorReachable(UActor* anActor, bool checkNavpoint = false);
 	bool PointReachable(vec3 aPoint, bool knowVisible = false);
