@@ -13,7 +13,7 @@ public:
 	void SetTextTimeout(float newTimeout);
 
 	void Tick(float timeElapsed) override;
-	void ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight) override;
+	void ConfigurationChanged() override;
 	void DrawWindow(UGC* gc) override;
 
 	//DynamicArray& Lines() { return Value<DynamicArray>(PropOffsets_TextLogWindow.Lines); }
@@ -28,6 +28,8 @@ private:
 		Color color;
 		float timestamp = 0.0f;
 	};
+	void RegenerateText();
+
 	Array<LogEntry> logs;
 	float totalTime = 0.0f;
 };

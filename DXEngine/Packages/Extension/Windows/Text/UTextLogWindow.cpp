@@ -6,6 +6,13 @@
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 #include "Engine.h"
 
+// The original's XTextLogWindow (Extension.dll): its lines kept, each with
+// its colour and the time it is shown, and joined by newlines into the
+// window's text (RegenerateText 0x10047dc0), which sizes the window as a
+// text window's does; at each configuration, bTooTall if that text is taller
+// than the window less its margins (ConfigurationChanged 0x10047910); drawn
+// line by line (Draw 0x10047a10), from the newest up when too tall, so the
+// oldest leave at the top.
 void UTextLogWindow::AddLog(const std::string& NewText, const Color& linecol)
 {
 	LogEntry entry;
@@ -13,11 +20,26 @@ void UTextLogWindow::AddLog(const std::string& NewText, const Color& linecol)
 	entry.color = linecol;
 	entry.timestamp = totalTime + textTimeout();
 	logs.push_back(entry);
+	RegenerateText();
 }
 
 void UTextLogWindow::ClearLog()
 {
 	logs.clear();
+	RegenerateText();
+}
+
+void UTextLogWindow::RegenerateText()
+{
+	std::string text;
+	for (size_t i = 0; i < logs.size(); i++)
+	{
+		if (i > 0)
+			text += "\n";
+		text += logs[i].text;
+	}
+	Text() = text;
+	AskParentForReconfigure();
 }
 
 void UTextLogWindow::PauseLog(bool bNewPauseState)
@@ -37,68 +59,47 @@ void UTextLogWindow::Tick(float timeElapsed)
 	{
 		totalTime += timeElapsed;
 
-		while (!logs.empty() && logs.front().timestamp < totalTime)
-			logs.erase(logs.begin());
+		size_t expired = 0;
+		while (expired < logs.size() && logs[expired].timestamp <= totalTime)
+			expired++;
+		if (expired > 0)
+		{
+			logs.erase(logs.begin(), logs.begin() + expired);
+			RegenerateText();
+		}
 	}
 }
 
-void UTextLogWindow::ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight)
+void UTextLogWindow::ConfigurationChanged()
 {
+	UGC* gc = engine->dxgc;
+	UGC::TextSettings saved = gc->UseTextSettings(this);
 	float xExtent = 0.0f, yExtent = 0.0f;
-	UObject* oldNormalFont = nullptr;
-	UObject* oldBoldFont = nullptr;
-	engine->dxgc->GetFonts(oldNormalFont, oldBoldFont);
-	engine->dxgc->SetFonts(normalFont(), boldFont());
-
-	for (const LogEntry& line : logs)
-	{
-		float xLineExtent = 0.0f, yLineExtent = 0.0f;
-		engine->dxgc->GetTextExtent(bWidthSpecified ? std::max(preferredWidth, MinWidth()) : 100000.0f, xLineExtent, yLineExtent, line.text);
-		xExtent = std::max(xExtent, xLineExtent);
-		yExtent += yLineExtent;
-	}
-
-	engine->dxgc->SetFonts(oldNormalFont, oldBoldFont);
-
-	if (UFont* font = normalFont())
-	{
-		int lineHeight = font->GetGlyph('X').VSize;
-		int minHeight = minLines() * lineHeight;
-		int maxHeight = MaxLines() * lineHeight;
-		if (maxHeight > 0 && minHeight <= maxHeight)
-			yExtent = std::clamp(yExtent, (float)minHeight, (float)maxHeight);
-	}
-
-	float xMargin = hMargin();
-	float yMargin = vMargin();
-	if (!bWidthSpecified)
-		preferredWidth = xExtent + xMargin * 2.0f;
-	if (!bHeightSpecified)
-		preferredHeight = yExtent + yMargin * 2.0f;
-
-	UWindow::ParentRequestedPreferredSize(bWidthSpecified, preferredWidth, bHeightSpecified, preferredHeight);
+	gc->GetTextExtent(Width() - (hMargin() + hMargin()), xExtent, yExtent, Text());
+	gc->RestoreTextSettings(saved);
+	bTooTall() = Height() - (vMargin() + vMargin()) < yExtent;
+	UTextWindow::ConfigurationChanged();
 }
 
 void UTextLogWindow::DrawWindow(UGC* gc)
 {
 	UWindow::DrawWindow(gc);
 
-	float xMargin = hMargin();
-	float yMargin = vMargin();
-	float x = xMargin;
-	float y = yMargin;
-	float w = Width() - 2.0f * xMargin;
-	float h = Height() - 2.0f * yMargin;
+	bool tooTall = bTooTall();
+	float w = Width() - (hMargin() + hMargin());
+	float h = Height() - (vMargin() + vMargin());
 
-	gc->SetAlignments(HAlign(), VAlign());
+	gc->SetAlignments(HAlign(), tooTall ? (uint8_t)EVAlign::Bottom : VAlign());
 	gc->EnableWordWrap(true);
 
-	for (const LogEntry& line : logs)
+	float y = vMargin();
+	for (size_t n = 0; n < logs.size(); n++)
 	{
+		const LogEntry& line = logs[tooTall ? logs.size() - 1 - n : n];
 		float xExtent = 0.0f, yExtent = 0.0f;
-		gc->GetTextExtent(Width(), xExtent, yExtent, line.text);
+		gc->GetTextExtent(w, xExtent, yExtent, line.text);
 		gc->SetTextColor(line.color);
-		gc->DrawText(x, y, w, h - y, line.text);
-		y += yExtent;
+		gc->DrawText(hMargin(), y, w, h, line.text);
+		y += tooTall ? -yExtent : yExtent;
 	}
 }
