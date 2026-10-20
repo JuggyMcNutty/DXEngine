@@ -21,42 +21,33 @@ TextureInfo LightSystem::GetMoverLightmap(UMover* mover, const Poly& poly, UZone
 
 	vec3 scale = mover->MainScale().Scale;
 
-	mat4 objectToWorld;
+	mat4 brushToWorld;
 	if (mover->bDynamicLightMover())
 	{
 		vec3 moverLocation = mover->Location();
 		Rotator moverRotation = mover->Rotation();
-		objectToWorld = mat4::translate(moverLocation) * Coords::Rotation(moverRotation).ToMatrix() * mat4::scale(scale) * mat4::translate(-mover->PrePivot()) * localCoords.ToMatrix();
+		brushToWorld = mat4::translate(moverLocation) * Coords::Rotation(moverRotation).ToMatrix() * mat4::scale(scale) * mat4::translate(-mover->PrePivot());
 	}
 	else
 	{
 		vec3 moverLocation = mover->BasePos() + mover->KeyPos()[mover->BrushRaytraceKey()];
 		Rotator moverRotation = mover->BaseRot() + mover->KeyRot()[mover->BrushRaytraceKey()];
-		objectToWorld = mat4::translate(moverLocation) * Coords::Rotation(moverRotation).ToMatrix() * mat4::scale(scale) * mat4::translate(-mover->PrePivot()) * localCoords.ToMatrix();
+		brushToWorld = mat4::translate(moverLocation) * Coords::Rotation(moverRotation).ToMatrix() * mat4::scale(scale) * mat4::translate(-mover->PrePivot());
 	}
+	mat4 objectToWorld = brushToWorld * localCoords.ToMatrix();
 	Coords worldCoords = Coords::FromMatrix(objectToWorld);
 
+	// The sphere the moving lights are gathered in: the whole brush's, in its
+	// own space, put in the world with the brush (not one polygon's, through
+	// that polygon's texture space)
 	if (!mover->Light.Calculated)
 	{
 		vec3 location = { 0.0f };
 		float radius = 0.0f;
-		if (!poly.Vertices.empty())
+		if (UModel* brush = mover->Brush())
 		{
-			vec3 aabbMin = poly.Vertices.front();
-			vec3 aabbMax = aabbMin;
-			for (const vec3& v : poly.Vertices)
-			{
-				aabbMin.x = std::min(aabbMin.x, v.x);
-				aabbMin.y = std::min(aabbMin.y, v.y);
-				aabbMin.z = std::min(aabbMin.z, v.z);
-				aabbMax.x = std::max(aabbMax.x, v.x);
-				aabbMax.y = std::max(aabbMax.y, v.y);
-				aabbMax.z = std::max(aabbMax.z, v.z);
-			}
-			auto halfmin = aabbMin * 0.5f;
-			auto halfmax = aabbMax * 0.5f;
-			location = halfmax + halfmin;
-			radius = length(halfmax - halfmin);
+			location = brush->BoundingBox.center();
+			radius = length(brush->BoundingBox.extents());
 		}
 		mover->Light.Calculated = true;
 		mover->Light.Center = location;
@@ -65,7 +56,7 @@ TextureInfo LightSystem::GetMoverLightmap(UMover* mover, const Poly& poly, UZone
 
 	return GetLightmap(
 		model, poly.BrushPolyIndex, worldCoords, zoneActor,
-		(objectToWorld * vec4(mover->Light.Center, 1.0f)).xyz(),
+		(brushToWorld * vec4(mover->Light.Center, 1.0f)).xyz(),
 		mover->Light.Radius * std::max(scale.x, std::max(scale.y, scale.z)),
 		mover->bDynamicLightMover() ? mover : nullptr, mover->bSpecialLit());
 }
