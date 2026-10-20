@@ -12,6 +12,11 @@
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Resources/Level/UPolys.h"
 
+mat4 VisibleBrush::MoverToWorld(UMover* mover)
+{
+	return mat4::translate(mover->Location()) * Coords::Rotation(mover->Rotation()).ToMatrix() * mat4::scale(mover->MainScale().Scale) * mat4::translate(-mover->PrePivot());
+}
+
 bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass)
 {
 	UMover* mover = UActor::TryCast<UMover>(actor);
@@ -21,12 +26,12 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
 	engine->render->Stats.Actors++;
 
 	UModel* brush = mover->Brush();
-	const vec3& location = mover->Location();
 	SceneNode brushframe = frame->Frame;
 
 	engine->Level->Light.UpdateLightList(mover);
 
-	brushframe.ObjectToWorld = mat4::translate(location) * Coords::Rotation(mover->Rotation()).ToMatrix() * mat4::scale(mover->MainScale().Scale) * mat4::translate(-mover->PrePivot());
+	ToWorld = MoverToWorld(mover);
+	brushframe.ObjectToWorld = ToWorld;
 
 	frame->Device->SetSceneNode(&brushframe);
 	bool needTranslucentPass = false;
@@ -43,18 +48,61 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
 	return needTranslucentPass;
 }
 
-bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, UMover* mover, bool translucentPass)
+// A mover's mirror sealed after its frame (VisibleFrame::DrawPortals): its
+// polygon's depth alone, at the mover's step toward the viewer, so what lies
+// behind it stays behind the reflection
+void VisibleBrush::DrawMirrorSeal(VisibleFrame* frame, UMover* mover, const Poly& poly)
+{
+	SceneNode brushframe = frame->Frame;
+	ToWorld = MoverToWorld(mover);
+	brushframe.ObjectToWorld = ToWorld;
+	frame->Device->SetSceneNode(&brushframe);
+	DrawBrushPoly(frame, mover->Brush(), poly, mover, false, true);
+	frame->Device->SetSceneNode(&frame->Frame);
+}
+
+bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, UMover* mover, bool translucentPass, bool seal)
 {
 	uint32_t PolyFlags = poly.PolyFlags;
 
-	if (!engine->getEditorMode() && PolyFlags & PolyFlags::PF_Invisible)
-		return false;
+	if (seal)
+	{
+		PolyFlags |= PF_Occlude | PF_Invisible;
+	}
+	else
+	{
+		if (!engine->getEditorMode() && PolyFlags & PolyFlags::PF_Invisible)
+			return false;
 
-	bool isTranslucent = (PolyFlags & (PF_Translucent | PF_Modulated | PF_Highlighted)) != 0;
-	if (isTranslucent && !translucentPass)
-		return true;
-	else if (!isTranslucent && translucentPass)
-		return false;
+		// One-sided and seen from behind, not drawn: the original files a
+		// mover's polygons into the level's BSP, whose walk passes over such
+		// a surface, as VisibleFrame::ProcessNodeSurface does
+		if (!(PolyFlags & PF_TwoSided) && !poly.Vertices.empty())
+		{
+			vec3 normal = (ToWorld * vec4(poly.Normal, 0.0f)).xyz();
+			vec3 point = (ToWorld * vec4(poly.Vertices[0], 1.0f)).xyz();
+			if (dot(frame->ViewLocation.xyz() - point, normal) < 0.0f)
+				return false;
+		}
+
+		// A mirror that reflects this frame is drawn as its seal, and a
+		// translucent one over its reflection; a translucent one with the
+		// render device's ShinySurfaces off reflects nothing and is drawn
+		// solid, as a BSP mirror (VisibleFrame::ProcessNodeSurface)
+		if (PolyFlags & PF_Mirrored)
+		{
+			if ((PolyFlags & PF_Translucent) && !engine->renderdev->ShinySurfaces)
+				PolyFlags &= ~PF_Translucent;
+			else if (!(PolyFlags & PF_Translucent) && frame->HasMoverMirror(mover, &poly))
+				return false;
+		}
+
+		bool isTranslucent = (PolyFlags & (PF_Translucent | PF_Modulated | PF_Highlighted)) != 0;
+		if (isTranslucent && !translucentPass)
+			return true;
+		else if (!isTranslucent && translucentPass)
+			return false;
+	}
 
 	//UpdateTexture(poly.Texture);
 
@@ -112,7 +160,7 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
 
 	TextureInfo lightmap;
 	TextureInfo fogmap;
-	if ((PolyFlags & PF_Unlit) == 0)
+	if ((PolyFlags & PF_Unlit) == 0 && !seal)
 	{
 		lightmap = engine->Level->Light.GetMoverLightmap(mover, poly, zoneActor, model);
 		// Deus Ex's only as VisibleNode's makes one

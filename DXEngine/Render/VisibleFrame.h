@@ -48,6 +48,9 @@ public:
 	// if some piece of its proxy survives the world in front of it.
 	void AddOcclusionProxy(UActor* actor);
 
+	// Whether a mover's polygon reflects this frame (ProcessMoverMirrors)
+	bool HasMoverMirror(const UMover* mover, const Poly* poly) const;
+
 	// What is drawn after the opaque world and actors. Deus Ex's goes in
 	// three lists, each back to front, as its DrawFrame draws them
 	// (dx-reverse-info/render-dll.md, a frame): the parts of the actors not
@@ -98,6 +101,7 @@ private:
 	float Now = 0.0f;
 	void ProcessNodeSurface(BspNode* node, bool front);
 	void ProcessRenderIterators();
+	void ProcessMoverMirrors();
 	void SortTranslucent();
 
 	Array<VisibleTranslucent> Translucents[NumTranslucentLists];

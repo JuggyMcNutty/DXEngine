@@ -5,9 +5,9 @@
 // order and movers). On TargetMap ([DXCapture.GlassConsole], Liberty Island
 // by default), the Pick-th glass mover in name order (0 by default), or the
 // one named GlassName: a DeusExMover whose FragmentClass is GlassFragment,
-// as the game tells one. The view put View units (96 by default) off its
-// box along its thinnest side, on the side with more room, facing its
-// middle; the player out of the world, with no shadow, unseen by the NPCs,
+// as the game tells one, or any DeusExMover of that name. The view put View units (96 by default) off its
+// box along its thinnest side, on the side with more room (Flip: the side
+// with less), facing its middle; the player out of the world, with no shadow, unseen by the NPCs,
 // the HUD hidden, conversations and datalinks stopped as they start. Two
 // shots 2 s apart of the glass alone; then, Behind units (64 by default)
 // beyond the glass's far face, a quarter of its width to each side, a large
@@ -26,6 +26,7 @@ var config int Pick;
 var config string GlassName;
 var config float View;
 var config float Behind;
+var config bool Flip;
 
 var string CurrentMap;
 var float MapTime;
@@ -219,6 +220,12 @@ function bool Choose(PlayerPawn P)
 	{
 		for (i = 0; i < Count && !(string(Cands[i].Name) ~= GlassName); i++)
 			;
+		if (i == Count && Count < 64)
+		{
+			foreach P.AllActors(class'DeusExMover', G)
+				if (string(G.Name) ~= GlassName)
+					Cands[Count++] = G;
+		}
 		Pick = i;
 	}
 	if (Pick >= Count || !Cands[Pick].GetBoundingBox(Min, Max))
@@ -234,7 +241,7 @@ function bool Choose(PlayerPawn P)
 		Dist = 96;
 	Near = Room(P, Middle + A * (Half + 2), A, Dist + 16);
 	Far = Room(P, Middle - A * (Half + 2), -A, Dist + 16);
-	if (Far > Near)
+	if ((Far > Near) != Flip)
 	{
 		A = -A;
 		Near = Far;

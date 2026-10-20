@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Math/mat.h"
+
 class VisibleFrame;
 class UActor;
 class UModel;
@@ -11,6 +13,13 @@ class VisibleBrush
 public:
 	bool Draw(VisibleFrame* frame, UActor* actor, bool translucentPass);
 
+	// A mover's mirror sealed after its frame: the polygon's depth alone
+	void DrawMirrorSeal(VisibleFrame* frame, UMover* mover, const Poly& poly);
+
+	static mat4 MoverToWorld(UMover* mover);
+
 private:
-	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, UMover* mover, bool translucentPass);
+	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, UMover* mover, bool translucentPass, bool seal = false);
+
+	mat4 ToWorld;
 };

@@ -7,6 +7,9 @@
 #include "Packages/Engine/UViewport.h"
 #include "Packages/Engine/URenderIterator.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
+#include "Packages/Engine/Resources/Level/UPolys.h"
+#include "Packages/Engine/Actors/Brush/UMover.h"
+#include "VisibleBrush.h"
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 #include "Packages/Engine/Resources/Mesh/UMesh.h"
 #include "Packages/Engine/Actors/Info/UWarpZoneInfo.h"
@@ -77,8 +80,74 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const 
 	// test after it would cull everything; here it clips items to the view
 	// (and a portal's spans) only. Their proxies go down the whole walk.
 	ProcessRenderIterators();
+	ProcessMoverMirrors();
 
 	ProcessNode(&engine->Level->Model->Nodes[0], 0, FragmentStack.size(), engine->Level->Model->RootOutside != 0);
+}
+
+// A mover's mirror, which the original files with the mover's other polygons
+// into the level's BSP, to open a frame as any mirror there (dx-reverse-info
+// render-dll.md, a frame). A mover is no part of the walk here, so before it
+// each mirrored face of a shown mover becomes a mirror's portal, its spans
+// all of the face the frame shows: the depth test leaves out what lies in
+// front of it. Each face a frame of its own, three frames deep at most; one
+// seen from behind passed over, and a translucent one reflecting only while
+// the render device's ShinySurfaces is on, as the BSP's mirrors.
+void VisibleFrame::ProcessMoverMirrors()
+{
+	if (PortalDepth >= 3)
+		return;
+
+	for (UActor* actor : engine->Level->Actors)
+	{
+		UMover* mover = UActor::TryCast<UMover>(actor);
+		if (!mover || mover->bHidden() || mover->DrawType() != DT_Brush || !mover->Brush() || !mover->Brush()->Polys)
+			continue;
+
+		mat4 toWorld = VisibleBrush::MoverToWorld(mover);
+		for (const Poly& poly : mover->Brush()->Polys->Polys)
+		{
+			uint32_t flags = poly.PolyFlags;
+			if (!(flags & PF_Mirrored) || (flags & PF_Invisible) || poly.Vertices.size() < 3 || poly.Vertices.size() > 32)
+				continue;
+			if ((flags & PF_Translucent) && !engine->renderdev->ShinySurfaces)
+				continue;
+
+			vec3 points[32];
+			for (size_t i = 0; i < poly.Vertices.size(); i++)
+				points[i] = (toWorld * vec4(poly.Vertices[i], 1.0f)).xyz();
+			vec3 normal = (toWorld * vec4(poly.Normal, 0.0f)).xyz();
+			float len = length(normal);
+			if (len <= 0.0f)
+				continue;
+			normal = normal / len;
+			vec4 plane(normal, -dot(normal, points[0]));
+			if (!(flags & PF_TwoSided) && dot(ViewLocation, plane) < 0.0f)
+				continue;
+
+			Array<PortalSpan> spans = Clipper.ProjectPortal(points, (uint32_t)poly.Vertices.size());
+			if (spans.empty())
+				continue;
+
+			VisiblePortal portal;
+			portal.Mover = mover;
+			portal.MoverPoly = &poly;
+			portal.MirrorPoint = points[0];
+			portal.MirrorNormal = normal;
+			portal.Spans = std::move(spans);
+			Portals.push_back(std::move(portal));
+		}
+	}
+}
+
+bool VisibleFrame::HasMoverMirror(const UMover* mover, const Poly* poly) const
+{
+	for (const VisiblePortal& portal : Portals)
+	{
+		if (portal.Mover == mover && portal.MoverPoly == poly)
+			return true;
+	}
+	return false;
 }
 
 // A mesh's render box as the original's UMesh::GetRenderBoundingBox makes it
@@ -721,7 +790,7 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
 					int zone = front ? node->Zone0 : node->Zone1;
 					for (auto& p : Portals)
 					{
-						if (p.WarpZone || p.SkyZone)
+						if (p.WarpZone || p.SkyZone || p.Mover)
 							continue;
 						const BspNode* other = p.Nodes.front().Node;
 						int otherZone = p.Nodes.front().ViewerBehind ? other->Zone0 : other->Zone1;
@@ -1008,11 +1077,21 @@ void VisibleFrame::DrawPortals()
 			// front of it: the mirror's plane, the viewer's side kept, clips it
 			// from the clipper, and on a device with a clip distance from
 			// the drawing.
-			const VisibleNode& first = portal.Nodes.front();
-			UModel* model = engine->Level->Model;
-			const BspSurface& surface = model->Surfaces[first.Node->Surf];
-			vec3 v = model->Points[surface.pBase];
-			vec3 n = model->Vectors[surface.vNormal];
+			// A mover's: its face's plane, and the zone on the viewer's side
+			vec3 v, n;
+			if (portal.Mover)
+			{
+				v = portal.MirrorPoint;
+				n = portal.MirrorNormal;
+			}
+			else
+			{
+				const VisibleNode& first = portal.Nodes.front();
+				UModel* model = engine->Level->Model;
+				const BspSurface& surface = model->Surfaces[first.Node->Surf];
+				v = model->Points[surface.pBase];
+				n = model->Vectors[surface.vNormal];
+			}
 			mat4 mirrorRotation = mat4::mirror(n);
 			mat4 mirrorToView = Frame.WorldToView * mat4::translate(v) * mirrorRotation * mat4::translate(-v);
 
@@ -1020,7 +1099,16 @@ void VisibleFrame::DrawPortals()
 			if (dot(plane, ViewLocation) < 0.0f)
 				plane = -plane;
 			vec3 eye = ViewLocation.xyz() - plane.xyz() * (2.0f * dot(plane, ViewLocation));
-			int zone = first.ViewerBehind ? first.Node->Zone0 : first.Node->Zone1;
+			int zone;
+			if (portal.Mover)
+			{
+				zone = FindZoneAt(v + plane.xyz() * 2.0f);
+			}
+			else
+			{
+				const VisibleNode& first = portal.Nodes.front();
+				zone = first.ViewerBehind ? first.Node->Zone0 : first.Node->Zone1;
+			}
 
 			VisibleFrame mirrorframe;
 			mirrorframe.Process(eye, mirrorToView, ViewRotation * Coords::FromMatrix(mirrorRotation).Inverse(), !MirrorFlag, PortalDepth + 1, portal.Spans, plane, zone);
@@ -1043,6 +1131,9 @@ void VisibleFrame::DrawPortals()
 	Device->SetSceneNode(&Frame);
 	for (VisiblePortal& portal : Portals)
 	{
+		if (portal.Mover)
+			VisibleBrush().DrawMirrorSeal(this, portal.Mover, *portal.MoverPoly);
+
 		for (const auto& info : portal.Nodes)
 		{
 			VisibleNode visnode(info);

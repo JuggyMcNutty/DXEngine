@@ -49,6 +49,11 @@ public:
 
 	Array<PortalSpan> CheckPortal(const vec3* vertices, uint32_t count);
 
+	// What of a polygon shows through the spans left, with nothing filled: a
+	// mover's mirror, which is no part of the BSP walk (VisibleFrame::
+	// ProcessMoverMirrors).
+	Array<PortalSpan> ProjectPortal(const vec3* vertices, uint32_t count);
+
 	int numDrawSpans;
 	int numSurfs;
 	int numTris;
@@ -88,6 +93,7 @@ private:
 
 	Array<PortalSpan> VisibleSpans;
 	bool CollectSpans = false;
+	bool CollectOnly = false;
 
 	enum { max_additional_vertices = 16 };
 	float weightsbuffer[max_additional_vertices * 3 * 2];

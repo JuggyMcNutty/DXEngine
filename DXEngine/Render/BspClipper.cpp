@@ -77,6 +77,17 @@ Array<PortalSpan> BspClipper::CheckPortal(const vec3* vertices, uint32_t count)
 	return VisibleSpans;
 }
 
+Array<PortalSpan> BspClipper::ProjectPortal(const vec3* vertices, uint32_t count)
+{
+	VisibleSpans.clear();
+	CollectSpans = true;
+	CollectOnly = true;
+	CheckSurface(vertices, count, true);
+	CollectOnly = false;
+	CollectSpans = false;
+	return VisibleSpans;
+}
+
 bool BspClipper::CheckSurface(const vec3* vertices, uint32_t count, bool solid)
 {
 	if (count < 3)
@@ -411,6 +422,11 @@ bool BspClipper::DrawSpan(int16_t y, int16_t x0, int16_t x1, bool solid)
 				portalSpan.x1 = right;
 				portalSpan.y = y;
 				VisibleSpans.push_back(portalSpan);
+				if (CollectOnly)
+				{
+					pos++;
+					continue;
+				}
 			}
 
 			if (left == span.x1)

@@ -380,6 +380,14 @@ first person. `MirrorConsole`, at 4:3, on GL and on Vulkan:
   height into the lobby's floor, the part under the floor kept out of the
   reflection, as in the original's frames.
 - **`ShinySurfaces` off**: the lobby's floor solid marble in both.
+- **A mover's mirror**, as a BSP mirror, the original filing a mover's
+  faces into the BSP
+  ([which actors are drawn](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#which-actors-are-drawn)):
+  `GlassConsole` with `Flip` on 06_HongKong_WanChai_Underworld's
+  `BreakableGlass0`, an opaque one, its reflection at a correlation of 0.96
+  to `D3DDrv`'s frame (0.47 before), and on 02_NYC_Smug's `DeusExMover7`, a
+  translucent one, 0.91 (0.45); `OpeningConsole`'s view of the club, a
+  doorway's glass, 0.89 (-0.01).
 
 Differs:
 
@@ -387,6 +395,11 @@ Differs:
   every device by a clip distance, or on OpenGL ES without one (the Smart
   Pro's) by a discard in the mirror's frame alone. The original keeps what
   lies behind a mirror out with a span buffer per zone.
+- **A mover's mirror** is no part of the BSP walk: before it, each mirrored
+  face of a shown mover opens a frame of its own, over all of the face the
+  frame shows, and the depth test leaves out what lies in front of it,
+  where the original's walk clips the face by what is drawn in front of it
+  and shares a frame between the mirrors of one plane.
 
 ### Mesh detail
 
@@ -543,7 +556,8 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   head on and from 1,200 units at 75 degrees. No device here fights there
   without the step (GL and Vulkan on the desktop, Vulkan on the Smart Pro:
   the shots within 15 pixels with it and without); the step keeps the
-  order whatever a GPU's rounding. A mover hidden after it is filed stays
+  order whatever a GPU's rounding. A mover's one-sided polygon seen from
+  behind is passed over, as the original's walk passes over a surface. A mover hidden after it is filed stays
   drawn there in the original, where DXEngine stops drawing it
   (`GlassConsole`); no stock script hides a mover.
 
