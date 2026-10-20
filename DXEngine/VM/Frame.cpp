@@ -332,11 +332,17 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, CallArgume
 			}
 			catch (const std::exception& e)
 			{
+				// A script error under the native (an event it called) has
+				// halted the scripts: it stops the game as any other does
+				if (Frame::Halted)
+					throw;
 				LogMessage(std::string("Script error: ") + e.what());
 				return ExpressionValue::NothingValue();
 			}
 			catch (...)
 			{
+				if (Frame::Halted)
+					throw;
 				LogMessage("Script error: Unknown error");
 				return ExpressionValue::NothingValue();
 			}
@@ -363,11 +369,17 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, CallArgume
 			}
 			catch (const std::exception& e)
 			{
+				// A script error under the native (an event it called) has
+				// halted the scripts: it stops the game as any other does
+				if (Frame::Halted)
+					throw;
 				LogMessage(std::string("Script error: ") + e.what());
 				return ExpressionValue::NothingValue();
 			}
 			catch (...)
 			{
+				if (Frame::Halted)
+					throw;
 				LogMessage("Script error: Unknown error");
 				return ExpressionValue::NothingValue();
 			}
