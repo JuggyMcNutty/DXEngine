@@ -202,15 +202,26 @@ std::string UListWindow::FieldDisplayText(const Item& item, int colIndex)
 	return item.cells[colIndex].text;
 }
 
+// The original's field size (XListWindow::ComputeFieldSize 0x10031e60): the
+// GC's extent of the text in the column's font, special text off -- its
+// widest line, each character as the GC finds it, one the font lacks taking
+// no room.
 float UListWindow::MeasureText(UFont* colFont, const std::string& text)
 {
 	UFont* font = colFont ? colFont : normalFont();
-	if (!font)
+	UGC* gc = UObject::Cast<UGC>(GetGC());
+	if (!font || !gc)
 		return 0.0f;
-	float x = 0.0f;
-	for (char c : text)
-		x += (float)font->GetGlyph(c).USize;
-	return x;
+	UFont* gcNormal = gc->normalFont();
+	UFont* gcBold = gc->boldFont();
+	bool gcSpecialText = gc->IsSpecialTextEnabled();
+	gc->SetFonts(font, font);
+	gc->EnableSpecialText(false);
+	float width = 0.0f, height = 0.0f;
+	gc->GetTextExtent(0.0f, width, height, text);
+	gc->SetFonts(gcNormal, gcBold);
+	gc->EnableSpecialText(gcSpecialText);
+	return width;
 }
 
 // The original's row size: the tallest column font's line, with the row
@@ -777,11 +788,21 @@ void UListWindow::SetColumnColor(int colIndex, const Color& NewColor)
 	columns[colIndex].color = NewColor;
 }
 
+// The original's (XListWindow::SetColumnFont 0x100302d0): None is the
+// window's font; a new one, with auto-expanding columns, widens every column
+// to its fields.
 void UListWindow::SetColumnFont(int colIndex, UObject* NewFont)
 {
 	if (colIndex < 0 || (size_t)colIndex >= columns.size())
 		return;
-	columns[colIndex].font = UObject::Cast<UFont>(NewFont);
+	UFont* font = UObject::Cast<UFont>(NewFont);
+	if (!font)
+		font = normalFont();
+	if (columns[colIndex].font == font)
+		return;
+	columns[colIndex].font = font;
+	if (bAutoExpandColumns())
+		ResizeColumns(true);
 	AskParentForReconfigure();
 }
 

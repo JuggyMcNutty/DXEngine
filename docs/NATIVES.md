@@ -583,7 +583,11 @@ the rows, fields, sort order and selections that `MenuConsole` and
 selects and focuses its first, so the Images screen opens on its first
 image; a float field reads as its shown number. The hot keys and a drag's
 selection are the original's, read from its code; a list in a clip window
-fills it, and scrolls a row at a time (`ScrollConsole`).
+fills it, and scrolls a row at a time (`ScrollConsole`). A column fitted to
+its fields measures each in the column's font as the GC draws it, its
+widest line, a character the font lacks taking no room; a column given a
+new font, `None` the list's own, widens auto-expanding columns to their
+fields (`ColumnConsole`'s widths alike).
 
 ### The UI
 
