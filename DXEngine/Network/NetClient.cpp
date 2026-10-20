@@ -348,6 +348,25 @@ void NetPendingLevel::NotifyProgress(const std::string& line1, const std::string
 
 /////////////////////////////////////////////////////////////////////////////
 
+void NetClientLevel::TickNetClient(NetDriver& driver)
+{
+	// What the player uses goes this way: Deus Ex's client finds its
+	// FrobTarget, which the server's ParseRightClick takes.
+	NetConnection* connection = driver.ServerConnection.get();
+	if (!connection || connection->State != ConnectionState::Open)
+		return;
+	for (size_t i = 0; i < connection->OpenChannels.size(); i++)
+	{
+		NetChannel* channel = connection->OpenChannels[i];
+		if (channel->ChType != ChannelType::Actor || channel->Closing)
+			continue;
+		NetActorChannel* actorChannel = static_cast<NetActorChannel*>(channel);
+		UPlayerPawn* pawn = UObject::TryCast<UPlayerPawn>(actorChannel->Actor);
+		if (pawn && pawn->Player())
+			actorChannel->ReplicateActor();
+	}
+}
+
 bool NetClientLevel::NotifyAcceptingChannel(NetChannel* channel)
 {
 	return channel->ChType == ChannelType::Actor;

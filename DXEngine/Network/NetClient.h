@@ -57,6 +57,11 @@ private:
 class NetClientLevel : public NetNotify
 {
 public:
+	// Each tick, before the packets go: the player pawns this machine plays
+	// replicated to the server, what their statements send from a client
+	// (ULevel::TickNetClient).
+	void TickNetClient(NetDriver& driver);
+
 	bool NotifyAcceptingChannel(NetChannel* channel) override;
 	void NotifyReceivedText(NetConnection* connection, const std::string& text) override;
 	void NotifyClientPlayer(NetConnection* connection, UPlayerPawn* pawn) override;

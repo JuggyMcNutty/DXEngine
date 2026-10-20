@@ -189,6 +189,8 @@ the run. *Either*: one engine on each side of a pair.
 | `RejoinConsole` | either | a client that joins twice | `DXREJOIN:` |  |
 | `TravelServeConsole` | either | a server that travels; it exits after 150 s | `DXCAP:` |  |
 | `TravelJoinConsole` | either | a client that follows it | `DXNET:` |  |
+| `PickServer` | either | a weapon held before the joined player's eyes on a dedicated server (`dedicated <engine> PickServer DXMP_Cathedral?game=DXCapture.CapDeathMatch`): the player's frob target as the server has it, also in the player's name; it exits 20 s after placing it | `DXPICK:` | the client's log |
+| `PickJoinConsole` | either | a client of it that uses what it looks at 12 s in: its frob target, the server's (its name), whether it holds the weapon | `DXPICK:` |  |
 
 - `SaveConsole`, `LoadConsole`, `StartConsole`, `LoadingConsole`, `MoverConsole` and
   `CensusConsole` use the game's own `Save\Save0009` and `Save\Current`: delete them after. The

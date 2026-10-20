@@ -1271,7 +1271,8 @@ through `Pawn.ClientHearSound`
 ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds);
 `ServeConsole`'s beeps, the client recorded). Each runs against the original
 as client and as server: `ServeConsole`, `JoinConsole`, `RejoinConsole`,
-`TravelServeConsole`, `TravelJoinConsole`, `NetConsole`. DXEngine joins live
+`TravelServeConsole`, `TravelJoinConsole`, `NetConsole`, `PickServer` with
+`PickJoinConsole`. DXEngine joins live
 public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
 stays in. Until its pawn arrives, a joining DXEngine client draws no world.
 The server-only stubs are under
@@ -1311,6 +1312,14 @@ The server-only stubs are under
 
 As in the original:
 
+- A client replicates its own player's pawn to the server each tick, before
+  its packets go (`ULevel::TickNetClient`): the values the script classes'
+  statements send from a client, none of the engine classes' native lists,
+  which send only from the server. Deus Ex's `FrobTarget` goes so: the client
+  finds what the player looks at, and the server's `ParseRightClick` takes it,
+  so a weapon or an item is picked up on a net game only so (`PickServer` and
+  `PickJoinConsole`, each engine as server and as client). Each side keeps
+  what the other last got of each value.
 - Until a server's first correction gives it its base, a client's player
   rests 2.46 units below the server's, which the correction lifts it by: a
   client runs no level's `SupportActor`, a simulated proxy running only

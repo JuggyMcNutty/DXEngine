@@ -342,9 +342,12 @@ void Engine::Run()
 			EntryLevel->Tick(entryLevelElapsed, m_GamePaused);
 		Level->Tick(levelElapsed, m_GamePaused);
 
-		// A server replicates to its clients before the packets go.
+		// A server replicates to its clients before the packets go; a client
+		// its own player's pawn to the server.
 		if (LevelNetDriver && !LevelNetDriver->ServerConnection && ServerLevel)
 			ServerLevel->TickNetServer(levelElapsed);
+		else if (LevelNetDriver && LevelNetDriver->ServerConnection && ClientLevel)
+			ClientLevel->TickNetClient(*LevelNetDriver);
 		if (LevelNetDriver)
 			LevelNetDriver->TickFlush();
 

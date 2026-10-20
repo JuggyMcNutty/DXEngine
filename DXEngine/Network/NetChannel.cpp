@@ -658,12 +658,11 @@ void NetActorChannel::SetChannelActor(UActor* actor)
 	ActorClass = actor->Class;
 	Connection->ActorChannels[actor] = this;
 
-	// A server keeps what this client last got of each replicated value.
-	// It starts as the class's defaults, as a client's new copy does,
-	// less the config values, which may differ from the client's own and
-	// so always go.
-	if (Connection->Driver->ServerConnection)
-		return;
+	// Each side keeps what the other last got of each replicated value --
+	// a client of its own pawn's (NetClientLevel::TickNetClient). It
+	// starts as the class's defaults, as the other side's new copy does,
+	// less the config values, which may differ from the other's own and so
+	// always go (UActorChannel::SetChannelActor).
 	NetPackageMap::ClassNetCache* cache = Connection->PackageMap.GetClassNetCache(ActorClass);
 	Sent.resize(cache ? cache->RepElements.size() : 0);
 	if (actor->bNetTemporary())
@@ -829,7 +828,12 @@ void NetActorChannel::ReplicateActor()
 	{
 		UProperty* prop = static_cast<UProperty*>(field->Field);
 		UClass* owner = UObject::TryCast<UClass>(prop->Outer());
-		if (!scriptClassesToo && !(owner && (owner->ClsFlags & ClassFlags::NativeReplication) != 0))
+		bool nativeClass = owner && (owner->ClsFlags & ClassFlags::NativeReplication) != 0;
+		if (!scriptClassesToo && !nativeClass)
+			continue;
+		// The native lists send only from the authority: from a client,
+		// only the script classes' statements (DeusExPlayer's FrobTarget).
+		if (native && nativeClass && actor->Role() != ROLE_Authority)
 			continue;
 
 		// Deus Ex's native lists: SimAnim, AnimMinRate and bAnimNotify go
