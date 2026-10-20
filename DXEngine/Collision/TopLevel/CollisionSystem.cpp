@@ -127,9 +127,12 @@ void CollisionSystem::SetLevel(ULevel* level)
 	Level = level;
 }
 
+// A destroyed actor never goes back in: a move after its Destroy (a
+// BloodDrop's fall goes on after its HitWall destroys it, as the original's
+// does) would leave the hash holding it after it is freed.
 void CollisionSystem::AddToCollision(UActor* actor)
 {
-	if (actor->bCollideActors())
+	if (actor->bCollideActors() && !actor->bDeleteMe())
 	{
 		vec3 location = actor->Location();
 		float height = actor->CollisionHeight();
