@@ -318,8 +318,11 @@ Deus Ex's look, as `Render.dll` and `D3DDrv.dll` make it, is described by featur
 
 **The Vulkan device**: the game tick runs while the GPU draws the previous frame
 (`CommandBufferManager` keeps one frame in flight, and `WaitForFrame()` collects it before
-anything it uses is touched; a swapchain rebuild waits for the device). Without
-`VK_EXT_descriptor_indexing` it binds a descriptor set per batch instead of bindless textures.
+anything it uses is touched; the swapchain is made again for a new size asked, not for an
+extent the surface clamps, after waiting for the device). Without every descriptor-indexing
+feature its bindless set uses (partial binding, runtime arrays, non-uniform indexing,
+update-after-bind, a variable count) and room for that set, it binds a descriptor set per
+batch instead of bindless textures.
 It decodes on the CPU what the GPU cannot sample or filter: BC1–5, RGB8, RGBA32F, and converts
 the lightmaps for upload in NEON on ARM. Its draws take no depth bias, as the GL device's take
 none, nor do `D3DDrv`'s but its detail passes
@@ -375,8 +378,9 @@ wherever else that state is set.
 - **The samplers** set no `GL_TEXTURE_LOD_BIAS` on ES (no ES sampler has it), anisotropy only
   with `EXT_texture_filter_anisotropic`, and `GL_MIRROR_CLAMP_TO_EDGE` only where a probe at
   init finds the driver takes it (else `CLAMP_TO_EDGE`).
-- **`ReadPixels`** reads the buffer the right way up, the gamma-corrected one too (Surreal
-  Engine's is an `#if 0` stub of D3D11 code, its shots black), RGB10_A2's to bytes by a 4×4
+- **`ReadPixels`** reads the frame at the size it was drawn (`LastFrameSize`, not the
+  window's), the right way up, the gamma-corrected one too (Surreal Engine's is an `#if 0`
+  stub of D3D11 code, its shots black), RGB10_A2's to bytes by a 4×4
   ordered threshold, so that a region's mean is the buffer's: the driver's rounding to the
   nearest byte reads the darks a tenth of a level under, 1023 not being four times 255
   (`MeshConsole`'s pier 0.7% darker). `Exit()` runs once and tolerates a failed unmap, as the
@@ -431,16 +435,18 @@ in `Frame::CallScript`.
   [housekeeping](NATIVES.md#housekeeping-not-seen-directly)).
 - **The actor iterators** find a class's actors from an index, not a scan of the level.
 - **Collision**: a ray trace hands each BSP child only its part of the segment and tests a
-  polygon's plane before its vertex count and surface; sight lines test the actors of only the
-  cells they cross; each cell's actors sit in an open-addressed table (`CellTable`), where
+  polygon's plane before its vertex count and surface; a line tests the actors of only the
+  cells it crosses, however long; a box of 100 cells or more on an axis tests every actor in
+  the hash instead; each cell's actors sit in an open-addressed table (`CellTable`), where
   Surreal Engine keeps a `std::unordered_map` of `std::list`s; moves and traces go without casts
   and heap allocations.
 - **Deus Ex's traces, moves and physics are `Engine.dll`'s**, in
   `DXEngine/Collision/TopLevel/TraceTest.cpp`, `UActor_Phys*.cpp` and `UPawn_Tick.cpp`: its
   backoffs; the movers a line meets where the level's BSP last filed them, filed by
   `CollisionSystem::FileMovers` at a map's load, but a dedicated server's, and a save, and
-  `RefileMovers` each frame drawn, in a `CellTable` of their own; `FindSpot` and encroachment,
-  moves held off what they meet as `ULevel::MoveActor` holds them, landing as `processLanded`;
+  `RefileMovers` each frame drawn, in a `CellTable` of their own; a mover's move and turn as
+  one (`UActor::MoveBrush`); `FindSpot` and encroachment, moves held off what they meet as
+  `ULevel::MoveActor` holds them, landing as `processLanded`;
   walking, falling, swimming, flying, a player's ladders, the speed pawns move at and how they
   turn, as `physWalking`, `physFalling`, `physSwimming`, `physFlying`, `calcVelocity` and
   `physicsRotation`, a fall ending its frame where it lands

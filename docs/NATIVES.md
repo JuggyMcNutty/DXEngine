@@ -853,6 +853,13 @@ Every other native the scripted runs compare matches the original
   with its wall is met before the wall (`VisibleConsole` on DXMP_Silo: 55
   movers' lines each way, their hits, normals, `TraceTexture`'s and
   `TraceActors`' alike; `TraceConsole`, `MoverConsole`).
+- **A mover's move** is `ULevel::MoveActor`'s
+  ([moving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#moving)):
+  what stands on it carried first, then its encroachment checked at its new
+  place and rotation, what it meets pushed by its move first, and moved and
+  turned at once. A hinged door crushes a crate in its swing (`DoorConsole`
+  on UNATCO HQ: 0.2 s into the close in DXEngine, 0.3 s in the original's,
+  the crate coming to rest 8 units nearer the hinge).
 - **The movers in a line's way**: a line meets each mover where the level's
   BSP last filed it
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)),
@@ -924,8 +931,9 @@ Every other native the scripted runs compare matches the original
   the stock gull's own flight plausible), and the pawns' turning (the pitch
   at half a turn a second toward level when walking or falling, held within
   `RotationRate`'s).
-- **Small ones**: `SetLocation`; the rotators' conversions
-  (`RotatorConsole`, 702 of them); `Object.Mid` 127 at its edges, its end's
+- **Small ones**: `SetLocation`; the rotators' conversions, `<<` and `>>`
+  by the sine table, a rotator's `*=`, float `==` exact and `GetEnum` from
+  index 0 (`RotatorConsole`); `Object.Mid` 127 at its edges, its end's
   clamp known from `MidConsole`'s ten probes of both;
   `Object.DynamicLoadObject` with a group in the name, its own, another or
   none, and a class that is not the object's own (`DynLoadConsole`); and
@@ -985,7 +993,10 @@ keeps a timer (`StaticConsole`). Each dynamic actor's distance to the player
 comes first, in single player; an actor whose owner has not ticked that
 frame waits for it; one spawned during the pass is ticked in it; a class
 whose defaults are static or not to be deleted is not spawned; and stasis is
-for single player only.
+for single player only. An actor's own tick runs its state code, its timer,
+its `LifeSpan` and then its physics; the timer calls `Timer` once a tick
+however many of its periods passed, and a life span run out ends the tick
+(a 0.05 s timer over `FrameConsole`'s held frame: one call in each engine).
 
 **Garbage** is collected as the original's map load collects it
 ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-map-loads-collection);
