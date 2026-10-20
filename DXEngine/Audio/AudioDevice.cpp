@@ -496,6 +496,20 @@ public:
 		}
 	}
 
+	// The source stopped and every chunk rendered ahead dropped, so a new
+	// song or a jump starts with its own sound, not the old one's
+	void StopMusicBuffers(bool& musicPlaying)
+	{
+		if (musicPlaying)
+		{
+			alSourceStop(alMusicSource);
+			alSourceUnqueueBuffers(alMusicSource, (ALsizei)alMusicBuffers.size(), &alMusicBuffers[0]);
+			musicPlaying = false;
+		}
+		while (!musicQueue.Empty())
+			musicQueue.Pop();
+	}
+
 	void PlayMusicBuffer(AudioSource* music)
 	{
 		int format = (music->GetChannels() == 1) ? AL_FORMAT_MONO_FLOAT32 : AL_FORMAT_STEREO_FLOAT32;
@@ -614,12 +628,7 @@ public:
 				break;
 			if (musicThreadData.musicUpdate)
 			{
-				if (musicPlaying)
-				{
-					alSourceStop(alMusicSource);
-					alSourceUnqueueBuffers(alMusicSource, (ALsizei)alMusicBuffers.size(), &alMusicBuffers[0]);
-					musicPlaying = false;
-				}
+				StopMusicBuffers(musicPlaying);
 				currentMusic = std::move(musicThreadData.music);
 				musicThreadData.musicUpdate = false;
 			}
@@ -630,7 +639,11 @@ public:
 			// (currentOrder is atomic and written below).
 
 			if (jumpOrder >= 0 && currentMusic)
+			{
+				// What was rendered from the old position is not played
+				StopMusicBuffers(musicPlaying);
 				currentMusic->SetOrder(jumpOrder);
+			}
 
 			if (currentMusic)
 			{
