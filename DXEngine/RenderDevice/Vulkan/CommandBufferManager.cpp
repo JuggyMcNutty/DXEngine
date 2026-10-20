@@ -79,9 +79,13 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
 	WaitForFrame();
 	renderer->Uploads->SubmitUploads();
 
+	// A window of no size (minimized) has nothing to present to
+	if (present && (presentWidth <= 0 || presentHeight <= 0))
+		present = false;
+
 	if (present)
 	{
-		if (SwapChain->Lost() || SwapChain->Width() != presentWidth || SwapChain->Height() != presentHeight || UsingVsync != renderer->UseVSync || UsingHdr != renderer->Hdr)
+		if (SwapChain->Lost() || RequestedWidth != presentWidth || RequestedHeight != presentHeight || UsingVsync != renderer->UseVSync || UsingHdr != renderer->Hdr)
 		{
 			// A fence covers a submit, not the present queued after it: the
 			// old swapchain and its semaphores may still be in use until the
@@ -90,6 +94,8 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
 
 			UsingVsync = renderer->UseVSync;
 			UsingHdr = renderer->Hdr;
+			RequestedWidth = presentWidth;
+			RequestedHeight = presentHeight;
 			renderer->Framebuffers->DestroySwapChainFramebuffers();
 			SwapChain->Create(presentWidth, presentHeight, renderer->UseVSync ? 2 : 3, renderer->UseVSync, renderer->Hdr);
 			renderer->Framebuffers->CreateSwapChainFramebuffers();

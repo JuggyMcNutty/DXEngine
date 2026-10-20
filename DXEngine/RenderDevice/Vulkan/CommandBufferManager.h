@@ -34,6 +34,10 @@ public:
 	int PresentImageIndex = -1;
 	bool UsingVsync = false;
 	bool UsingHdr = false;
+	// The size the swapchain was last made for: the surface may clamp its
+	// extent to another, which is no reason to make it again
+	int RequestedWidth = -1;
+	int RequestedHeight = -1;
 
 private:
 	VulkanRenderDevice* renderer = nullptr;
