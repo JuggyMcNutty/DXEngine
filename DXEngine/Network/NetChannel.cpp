@@ -1100,6 +1100,9 @@ void NetActorChannel::ReceivedBunch(NetInBunch& bunch)
 			field = nextField();
 		}
 		PostNetReceive(Actor, saved, Connection);
+		// An event its values sent destroyed the actor, and closed this channel
+		if (!Actor)
+			return;
 
 		if (spawnedNewActor)
 		{
@@ -1117,6 +1120,10 @@ void NetActorChannel::ReceivedBunch(NetInBunch& bunch)
 			return;
 		}
 		ReceiveFunction(function, bunch);
+		// The call destroyed the actor (a client's call on the server), and
+		// closed this channel: the rest of the bunch is no one's
+		if (!Actor)
+			return;
 		field = nextField();
 	}
 
