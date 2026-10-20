@@ -475,14 +475,20 @@ void SDL3DisplayWindow::ExitLoop()
 
 std::unordered_map<void *, std::function<void()>> SDL3DisplayWindow::Timers;
 std::unordered_map<SDL_TimerID, void *> SDL3DisplayWindow::TimerHandles;
+std::mutex SDL3DisplayWindow::TimersMutex;
 unsigned long SDL3DisplayWindow::TimerIDs = 0;
 Uint32 TimerEventID = SDL_RegisterEvents(1);
 
+// On SDL's timer thread: Timers looked at under the lock the main thread
+// changes it under
 Uint32 SDL3DisplayWindow::ExecTimer(void* execID, SDL_TimerID timerID, Uint32 interval)
 {
-	// cancel event and stop loop if function not found
-	if (Timers.find(execID) == Timers.end())
-		return 0;
+	{
+		std::lock_guard<std::mutex> lock(TimersMutex);
+		// cancel event and stop loop if function not found
+		if (Timers.find(execID) == Timers.end())
+			return 0;
+	}
 
 	SDL_Event timerEvent;
 	SDL_zero(timerEvent);
@@ -498,11 +504,19 @@ Uint32 SDL3DisplayWindow::ExecTimer(void* execID, SDL_TimerID timerID, Uint32 in
 void* SDL3DisplayWindow::StartTimer(int timeoutMilliseconds, std::function<void()> onTimer)
 {
 	void* execID = (void*)(uintptr_t)++TimerIDs;
+	// The function in place first: the timer can go off before SDL_AddTimer returns
+	{
+		std::lock_guard<std::mutex> lock(TimersMutex);
+		Timers.insert({execID, onTimer});
+	}
 	SDL_TimerID id = SDL_AddTimer(timeoutMilliseconds, SDL3DisplayWindow::ExecTimer, execID);
 
-	if (!id) return (void*)(uintptr_t) id;
-
-	Timers.insert({execID, onTimer});
+	std::lock_guard<std::mutex> lock(TimersMutex);
+	if (!id)
+	{
+		Timers.erase(execID);
+		return nullptr;
+	}
 	TimerHandles.insert({id, execID});
 
 	return (void*)(uintptr_t) id;
@@ -513,12 +527,13 @@ void SDL3DisplayWindow::StopTimer(void* timerID)
 	SDL_TimerID SDLTimerID = (SDL_TimerID)(uintptr_t)timerID;
 	SDL_RemoveTimer(SDLTimerID);
 
+	std::lock_guard<std::mutex> lock(TimersMutex);
 	auto execID = TimerHandles.find(SDLTimerID);
 	if (execID == TimerHandles.end())
 		return;
 
 	Timers.erase(execID->second);
-	TimerHandles.erase(SDLTimerID);
+	TimerHandles.erase(execID);
 }
 
 SDL3DisplayWindow* SDL3DisplayWindow::FindEventWindow(const SDL_Event& event)
@@ -722,13 +737,20 @@ void SDL3DisplayWindow::OnPaintEvent()
 
 void SDL3DisplayWindow::OnTimerEvent(const SDL_UserEvent& event)
 {
-	auto func = Timers.find(event.data1);
+	// A copy is called: the function may stop its own timer, which drops the
+	// one in Timers
+	std::function<void()> func;
+	{
+		std::lock_guard<std::mutex> lock(TimersMutex);
+		auto it = Timers.find(event.data1);
 
-	// incase timer was cancelled before we get here
-	if (func == Timers.end())
-		return;
+		// incase timer was cancelled before we get here
+		if (it == Timers.end())
+			return;
+		func = it->second;
+	}
 
-	func->second();
+	func();
 }
 
 void SDL3DisplayWindow::CreateGLContext()

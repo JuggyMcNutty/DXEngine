@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <mutex>
 #include <dxwidgets/window/window.h>
 #include <dxwidgets/window/sdlnativehandle.h>
 #include <SDL3/SDL.h>
@@ -126,6 +127,7 @@ public:
 
 	static std::unordered_map<SDL_TimerID, void *> TimerHandles;
 	static std::unordered_map<void *, std::function<void()>> Timers;
+	static std::mutex TimersMutex; // SDL's timer thread reads Timers
 	static unsigned long TimerIDs;
 	static Uint32 TimerEventNumber;
 
