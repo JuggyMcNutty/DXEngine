@@ -57,8 +57,12 @@ void VisibleSprite::Draw(VisibleFrame* frame, UActor* actor, const vec3& locatio
 	float texwidth = (float)texture->UsedMipmaps.front().Width;
 	float texheight = (float)texture->UsedMipmaps.front().Height;
 
+	// The actor's style's flags, as the original's DrawActorSprite takes
+	// them (Render.dll 0x10b26230): masked, translucent, modulated.
 	uint32_t renderflags = PF_TwoSided;
-	if (style == 3)
+	if (style == 2)
+		renderflags |= PF_Masked;
+	else if (style == 3)
 		renderflags |= PF_Translucent;
 	else if (style == 4)
 		renderflags |= PF_Modulated;

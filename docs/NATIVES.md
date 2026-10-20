@@ -262,6 +262,26 @@ draws in 3D, the frob highlight's box and the meshes' level of detail
 on a wide screen a mesh keeps less detail than the original's at the same
 distance.
 
+### Sprites
+
+Matches the original
+([sprites](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#sprites)):
+a sprite draws with its actor's style -- `STY_Masked` masked,
+`STY_Translucent` translucent, `STY_Modulated` modulated -- its texture's
+own flags and its `bNoSmooth`; a render iterator's items with their proxy's,
+so a `ParticleGenerator` with neither `bTranslucent` nor `bModulated` draws
+its particles masked. `SpriteConsole`'s icon, its colour 0 magenta, drawn
+`STY_Masked` and as such particles, shows none of that colour in either
+engine: 0.0% of the sprite's box and 0.7% of the particles' magenta in
+DXEngine's frame, none in `D3DDrv`'s. Differs:
+
+- **A texture drawn both masked and not** shows its colour 0 in the
+  original as the draw that first set it made its copy
+  ([one copy a texture](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#textures)),
+  in DXEngine as each draw is: beside the masked ones, `SpriteConsole`'s
+  `STY_Normal` sprite shows the icon's magenta in DXEngine, black in the
+  original; drawn alone, magenta in both.
+
 ### Particles and lasers: render iterators
 
 Matches the original
