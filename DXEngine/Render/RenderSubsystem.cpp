@@ -91,8 +91,7 @@ bool RenderSubsystem::ReadLastFrame(Array<TextureColor>& pixels, int& width, int
 	if (FrameInProgress || !FrameDrawn)
 		return false;
 
-	width = Device->GetRenderWidth();
-	height = Device->GetRenderHeight();
+	Device->LastFrameSize(width, height);
 	if (width <= 0 || height <= 0)
 		return false;
 

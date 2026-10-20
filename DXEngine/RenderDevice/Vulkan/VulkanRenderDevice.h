@@ -37,6 +37,7 @@ public:
 	void PushHit(const uint8_t* Data, int Count) override;
 	void PopHit(int Count, bool bForce) override;
 	void ReadPixels(TextureColor* Pixels) override;
+	void LastFrameSize(int& width, int& height) const override;
 	void EndFlash() override;
 	void SetSceneNode(SceneNode* Frame) override;
 	void PrecacheTexture(TextureInfo& Info, uint32_t PolyFlags) override;

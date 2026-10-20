@@ -150,7 +150,10 @@ public:
 	virtual void ClearZ() = 0;
 	virtual void PushHit(const uint8_t* Data, int Count) = 0;
 	virtual void PopHit(int Count, bool bForce) = 0;
+	// The last frame's pixels, as many as LastFrameSize gives: the scene the
+	// device drew, which a window resized since no longer matches.
 	virtual void ReadPixels(TextureColor* Pixels) = 0;
+	virtual void LastFrameSize(int& width, int& height) const { width = GetRenderWidth(); height = GetRenderHeight(); }
 	virtual void EndFlash() = 0;
 	virtual void SetSceneNode(SceneNode* Frame) = 0;
 	virtual void PrecacheTexture(TextureInfo& Info, uint32_t PolyFlags) = 0;

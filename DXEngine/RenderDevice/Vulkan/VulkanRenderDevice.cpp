@@ -924,8 +924,8 @@ void VulkanRenderDevice::ReadPixels(TextureColor* Pixels)
 	// Convert from rgba16f to bgra8 using the GPU:
 	auto srcimage = Textures->Scene->PPImage[GammaCorrectScreenshots ? 1 : 0].get();
 
-	int w = GetRenderWidth();
-	int h = GetRenderHeight();
+	int w, h;
+	LastFrameSize(w, h);
 	void* data = Pixels;
 
 	auto dstimage = ImageBuilder()
@@ -985,6 +985,19 @@ void VulkanRenderDevice::ReadPixels(TextureColor* Pixels)
 	uint8_t* pixels = (uint8_t*)staging->Map(0, w * h * 4);
 	memcpy(data, pixels, w * h * 4);
 	staging->Unmap();
+}
+
+void VulkanRenderDevice::LastFrameSize(int& width, int& height) const
+{
+	if (Textures->Scene)
+	{
+		width = Textures->Scene->Width;
+		height = Textures->Scene->Height;
+	}
+	else
+	{
+		RenderDevice::LastFrameSize(width, height);
+	}
 }
 
 void VulkanRenderDevice::EndFlash()
