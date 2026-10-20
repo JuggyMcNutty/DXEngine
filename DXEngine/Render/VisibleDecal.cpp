@@ -23,11 +23,8 @@ void VisibleDecal::DrawDecals(VisibleFrame* frame, BspNode* node)
 	{
 		if (leveldecal.Decal->Texture())
 		{
-			// A drawn decal stamps its own LastRenderedTime, as the
-			// original's; LastRendered() reads LastRenderTime, which a
-			// decal never gets, so a decal never counts as drawn.
-			leveldecal.Decal->LastRenderedTime() = engine->LevelInfo->TimeSeconds();
-
+			// Its LastRenderedTime is stamped in the walk, when it shows
+			// (VisibleFrame).
 			engine->render->UpdateTexture(leveldecal.Decal->Texture());
 
 			UTexture* texture = leveldecal.Decal->Texture()->GetAnimTexture();

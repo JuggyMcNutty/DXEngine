@@ -14,6 +14,8 @@
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Subsystems/UDXEngineRenderDevice.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+#include "Packages/Engine/Actors/UDecal.h"
+#include "Packages/Engine/UDXEngineClient.h"
 #include "Packages/Extension/Windows/TabGroup/URootWindow.h"
 
 void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const Coords& viewRotation, bool mirrorFlag, int portalDepth, const Array<PortalSpan>& portalSpans, const vec4& portalPlane, int viewZone)
@@ -752,6 +754,21 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
 	}
 
 	gatherPoints();
+
+	// The decals that show on this surface, tested before it fills the spans:
+	// the original stamps a decal only when some of it is left once clipped to
+	// what is drawn of its surface (Render.dll DrawFrame 0x10b1a2d0, ClipDecal
+	// 0x10b1bda0), not every decal on a surface drawn.
+	Array<UDecal*> shownDecals;
+	if (engine->client->Decals)
+	{
+		for (auto& leveldecal : node->Decals)
+		{
+			if (leveldecal.Decal->Texture() && Clipper.IsPolygonVisible(leveldecal.Positions.data(), (uint32_t)leveldecal.Positions.size()))
+				shownDecals.push_back(leveldecal.Decal);
+		}
+	}
+
 	if (!Clipper.CheckSurface(points, numverts, (PolyFlags & PF_NoOcclude) == 0))
 		return;
 
@@ -771,6 +788,11 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
 
 	if (PolyFlags & PF_Invisible)
 		return;
+
+	// A drawn decal stamps its own LastRenderedTime; LastRendered() reads
+	// LastRenderTime, which a decal never gets, so a decal never counts as drawn.
+	for (UDecal* decal : shownDecals)
+		decal->LastRenderedTime() = engine->LevelInfo->TimeSeconds();
 
 	if ((PolyFlags & (PF_Translucent | PF_Modulated)) == 0 && (PolyFlags & PF_Occlude) != PF_Occlude)
 	{

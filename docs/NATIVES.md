@@ -226,7 +226,14 @@ the level, as the traces have it (`AIConsole`). An actor
 drawn on its own (`GC.DrawActor`, `Canvas.DrawActor`) counts as drawn
 whenever its rectangle is on the frame, whatever is in front of it: an NPC
 the vision augmentation draws through a wall stays drawn while it is in view
-(`AugVisionConsole`). Differs:
+(`AugVisionConsole`). A decal counts as drawn when some of it shows, tested
+against the spans before its surface fills them, as the original clips each
+decal to what is drawn of its surface
+([render time](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#render-time)):
+the game's go when not drawn for a second, some 20 s after they land
+(`DeusExDecal`), so `CensusConsole`'s blood splats, 90 s under fire on
+Liberty Island, are 140 to 170 at the end against the original's 90 to 136,
+of some 400 to 700 made in either. Differs:
 
 - **One span buffer** for the frame, where the original keeps one per zone.
   A buffer per zone would change no test in 15,500 at the starts of Liberty
@@ -234,11 +241,6 @@ the vision augmentation draws through a wall stays drawn while it is in view
   before what lies beyond it.
 - **Drawing** is DXEngine's own box test, the depth buffer hiding the rest;
   only whether an actor counts as drawn is the original's.
-- **The game's decals outlive the original's.** Each goes when it has not
-  been drawn for a second, some 20 s after it lands (`DeusExDecal`), and
-  DXEngine's mostly count as drawn: `CensusConsole`'s blood splats, 90 s
-  under fire on Liberty Island, are 300 to 670 at the end against the
-  original's 90 to 186.
 
 ## On screen
 
