@@ -75,7 +75,9 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, bool wireframe, b
 			// style for the draw as the original swaps it in (a cloaked pawn's
 			// weapon goes translucent with it):
 			mat4 heldMeshToWorld = attachment.ToMatrix() * mat4::scale(held->ThirdPersonScale()) * heldMesh->meshToObject;
-			mat3 heldNormalToWorld = mat3::transpose(mat3(heldMeshToWorld));
+			// Its normals turned as the pawn's own are, by the rotation alone:
+			// the attachment's axes (orthonormal) and the mesh's RotOrigin
+			mat3 heldNormalToWorld = mat3(attachment.ToMatrix() * Coords::Rotation(heldMesh->RotOrigin).ToMatrix());
 			uint8_t& heldStyle = held->Value<uint8_t>(PropOffsets_Actor.Style);
 			uint8_t ownStyle = heldStyle;
 			heldStyle = (uint8_t)pawn->Style();
