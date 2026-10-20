@@ -560,10 +560,12 @@ void SDL3DisplayWindow::DispatchEvent(const SDL_Event& event)
 	static bool dropJoyDown, joyDown, keyDown;
 	static unsigned long eventFrame = 0;
 
-	if (eventFrame != event.common.timestamp / 10) // millis / 10
+	// A pad button and a key down within the same 10 ms are one press sent
+	// twice; the pad's is dropped for those 10 ms only
+	if (eventFrame != event.common.timestamp / 10000000) // nanoseconds / 10 ms
 	{
-		eventFrame = event.common.timestamp / 10;
-		joyDown = keyDown = false;
+		eventFrame = event.common.timestamp / 10000000;
+		dropJoyDown = joyDown = keyDown = false;
 	}
 
 	if (!GamepadKeyEmulation && (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || event.type == SDL_EVENT_GAMEPAD_BUTTON_UP))
