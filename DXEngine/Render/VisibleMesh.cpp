@@ -295,8 +295,8 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
 		TextureInfo texinfo;
 		engine->render->UpdateTextureInfo(texinfo, tex);
 
-		float uscale = (texinfo.Texture ? texinfo.Texture->UsedMipmaps.front().Width : 256) * (1.0f / 255.0f);
-		float vscale = (texinfo.Texture ? texinfo.Texture->UsedMipmaps.front().Height : 256) * (1.0f / 255.0f);
+		float uscale = (texinfo.Texture ? texinfo.Texture->UsedMipmaps.front().Width : 256) * (1.0f / 256.0f);
+		float vscale = (texinfo.Texture ? texinfo.Texture->UsedMipmaps.front().Height : 256) * (1.0f / 256.0f);
 
 		vec3 normals[3];
 		for (int i = 0; i < 3; i++)
@@ -517,8 +517,8 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 		TextureInfo texinfo;
 		engine->render->UpdateTextureInfo(texinfo, tex);
 
-		float uscale = (tex ? tex->UsedMipmaps.front().Width : 256) * (1.0f / 255.0f);
-		float vscale = (tex ? tex->UsedMipmaps.front().Height : 256) * (1.0f / 255.0f);
+		float uscale = (tex ? tex->UsedMipmaps.front().Width : 256) * (1.0f / 256.0f);
+		float vscale = (tex ? tex->UsedMipmaps.front().Height : 256) * (1.0f / 256.0f);
 
 		vec3 normals[3];
 		for (int i = 0; i < 3; i++)
@@ -919,8 +919,8 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 			texinfoTexture = tex;
 		}
 
-		float uscale = (texinfo.Texture ? texinfo.Texture->UsedMipmaps.front().Width : 256) * (1.0f / 255.0f);
-		float vscale = (texinfo.Texture ? texinfo.Texture->UsedMipmaps.front().Height : 256) * (1.0f / 255.0f);
+		float uscale = (texinfo.Texture ? texinfo.Texture->UsedMipmaps.front().Width : 256) * (1.0f / 256.0f);
+		float vscale = (texinfo.Texture ? texinfo.Texture->UsedMipmaps.front().Height : 256) * (1.0f / 256.0f);
 
 		bool unlit = !!(renderflags & PF_Unlit);
 		bool twosided = !!(renderflags & PF_TwoSided);

@@ -399,7 +399,10 @@ a screen wider than 4:3 the budget takes the wider angle
 the eye's line in its normals in the world's axes, as the original's
 ([mesh textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#mesh-textures)):
 `MeshConsole` with `Enviro`, the four drawn so, has their streaks where
-`D3DDrv` has them.
+`D3DDrv` has them. A face's texture lies as the original's, its corners'
+bytes ÷ 256 of the texture's size: `FaceConsole`'s UNATCO troop at a
+correlation of 0.97 to `D3DDrv`'s frame, its chest 0.99 (0.94 and 0.88 at
+÷ 255).
 
 ### Lighting
 
