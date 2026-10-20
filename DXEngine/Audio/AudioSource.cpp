@@ -289,6 +289,10 @@ public:
 				}
 			}
 
+			// The stream's end may leave no frame decoded
+			if (!pcm || pcm_samples == pcm_position)
+				break;
+
 			int samples = pcm_samples - pcm_position;
 			if (samples > data_left) samples = data_left;
 
