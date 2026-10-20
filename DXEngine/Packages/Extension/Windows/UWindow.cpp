@@ -132,9 +132,14 @@ void UWindow::UpdateLayout()
 		}
 	}
 
+	// The children as they were, as Tick walks them
+	Array<UWindow*> children;
 	for (UWindow* child = firstChild(); child; child = child->nextSibling())
+		children.push_back(child);
+	for (UWindow* child : children)
 	{
-		child->UpdateLayout();
+		if (!child->Destroyed)
+			child->UpdateLayout();
 	}
 
 	if (FirstDraw)
@@ -2236,9 +2241,20 @@ void UWindow::Tick(float timeElapsed)
 		}
 	}
 
-	for (auto cur = firstChild(); cur; cur = cur->nextSibling())
+	// The children as they were, the top one first, as the original's walk
+	// (Extension.dll XRootWindow::TickTree 0x1003bfc0) ticks a window's
+	// higher siblings before it: one that destroys itself (the keypad's
+	// PopWindow) leaves its siblings to tick, as each window is locked
+	// there; one destroyed meanwhile is passed over
+	if (Destroyed)
+		return;
+	Array<UWindow*> children;
+	for (auto cur = lastChild(); cur; cur = cur->prevSibling())
+		children.push_back(cur);
+	for (UWindow* child : children)
 	{
-		cur->Tick(timeElapsed);
+		if (!child->Destroyed)
+			child->Tick(timeElapsed);
 	}
 }
 
