@@ -409,8 +409,24 @@ std::string PackageManager::FindPackageFile(const NameString& name, const std::s
 	return {};
 }
 
+bool PackageManager::IsPackageGuid(const std::string& guid)
+{
+	if (guid.size() != 32)
+		return false;
+	for (char c : guid)
+	{
+		if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')))
+			return false;
+	}
+	return true;
+}
+
+// A GUID is 32 hex digits, nothing else: one a server sent is never a path
+// out of the cache
 std::string PackageManager::GetCachedPackagePath(const std::string& guid) const
 {
+	if (!IsPackageGuid(guid))
+		return {};
 	std::string ext = const_cast<PackageManager*>(this)->GetIniValue("System", "Core.System", "CacheExt", ".uxx");
 	return (gameCacheFolderPath / (guid + ext)).string();
 }

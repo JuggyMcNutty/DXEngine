@@ -227,6 +227,15 @@ void NetPendingLevel::NotifyReceivedText(NetConnection* connection, const std::s
 		if (NetParseValue(text, "PKG=", value))
 			package.Name = value;
 		NetParseValue(text, "GUID=", package.Guid);
+		if (!PackageManager::IsPackageGuid(package.Guid))
+		{
+			// A package the cache cannot name: a server's GUID becomes a
+			// file's name there, so one that is not 32 hex digits ends the join
+			Error = "The server sent a package with a bad GUID: " + package.Name.ToString();
+			LogMessage("Net: " + Error);
+			connection->State = ConnectionState::Closed;
+			return;
+		}
 		if (NetParseValue(text, "FLAGS=", value))
 			package.Flags = (uint32_t)std::strtoul(value.c_str(), nullptr, 10);
 		if (NetParseValue(text, "SIZE=", value))

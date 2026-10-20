@@ -59,7 +59,8 @@ public:
 	// its GUID, whose date is then brought up to now; "" for none.
 	std::string FindPackageFile(const NameString& name, const std::string& guid);
 	// Where a download of that GUID is kept: the cache, the GUID, CacheExt.
-	std::string GetCachedPackagePath(const std::string& guid) const;
+	std::string GetCachedPackagePath(const std::string& guid) const; // none for a GUID that is not 32 hex digits
+	static bool IsPackageGuid(const std::string& guid);
 	// A package file's GUID from its header alone, as Package gives it.
 	static std::string ReadPackageGuid(const std::string& path);
 	bool IsPackageLoaded(const NameString& name) const;
