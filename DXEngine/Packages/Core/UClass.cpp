@@ -406,7 +406,15 @@ void UClass::SaveProperties(PropertyDataBlock* propertyBlock)
 
 				bool unsupported = false;
 				std::string value;
-				if (UObject::IsType<UByteProperty>(prop)) value = std::to_string(*static_cast<uint8_t*>(ptr));
+				if (auto byteprop = UObject::TryCast<UByteProperty>(prop))
+				{
+					// An enum's by its name, as the original's config holds it
+					uint8_t byte = *static_cast<uint8_t*>(ptr);
+					if (byteprop->EnumType && byte < byteprop->EnumType->ElementNames.size())
+						value = byteprop->EnumType->ElementNames[byte].ToString();
+					else
+						value = std::to_string(byte);
+				}
 				else if (UObject::IsType<UIntProperty>(prop)) value = std::to_string(*static_cast<int32_t*>(ptr));
 				else if (UObject::IsType<UFloatProperty>(prop)) value = std::to_string(*static_cast<float*>(ptr));
 				else if (UObject::IsType<UNameProperty>(prop)) value = (*static_cast<NameString*>(ptr)).ToString();
