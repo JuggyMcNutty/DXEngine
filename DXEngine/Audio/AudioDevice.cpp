@@ -475,9 +475,9 @@ public:
 		sources[channel].Stop();
 	}
 
-	std::string getALErrorString()
+	static std::string getALErrorString(ALenum error)
 	{
-		switch (alGetError())
+		switch (error)
 		{
 		case AL_NO_ERROR:
 			return "AL_NO_ERROR";
@@ -510,26 +510,31 @@ public:
 			musicQueue.Pop();
 	}
 
+	// On the music thread, which must not touch the script's call stack as
+	// Exception::Throw does: a plain error, which MusicThreadMain catches.
+	static void CheckMusicALError(const char* call)
+	{
+		ALenum error = alGetError();
+		if (error != AL_NO_ERROR)
+			throw std::runtime_error(std::string(call) + " failed: " + getALErrorString(error));
+	}
+
 	void PlayMusicBuffer(AudioSource* music)
 	{
 		int format = (music->GetChannels() == 1) ? AL_FORMAT_MONO_FLOAT32 : AL_FORMAT_STEREO_FLOAT32;
 		int freq = music->GetFrequency();
 
-		ALenum error;
 		for (int i = 0; i < musicBufferCount; i++)
 		{
 			alBufferData(alMusicBuffers[i], format, musicQueue.Pop(), musicBufferSize*4, freq);
-			if ((error = alGetError()) != AL_NO_ERROR)
-				Exception::Throw("alBufferData failed in PlayMusicBuffer: " + getALErrorString());
+			CheckMusicALError("alBufferData");
 
 			alSourceQueueBuffers(alMusicSource, 1, &alMusicBuffers[i]);
-			if (alGetError() != AL_NO_ERROR)
-				Exception::Throw("alSourceQueueBuffers failed in PlayMusicBuffer: " + getALErrorString());
+			CheckMusicALError("alSourceQueueBuffers");
 		}
 
 		alSourcePlay(alMusicSource);
-		if (alGetError() != AL_NO_ERROR)
-			Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString());
+		CheckMusicALError("alSourcePlay");
 	}
 
 	void UpdateMusicBuffer(AudioSource* music)
@@ -546,12 +551,10 @@ public:
 			int freq = music->GetFrequency();
 
 			alBufferData(buffer, format, musicQueue.Pop(), musicBufferSize*4, freq);
-			if (alGetError() != AL_NO_ERROR)
-				Exception::Throw("alBufferData failed in UpdateMusicBuffer: " + getALErrorString());
+			CheckMusicALError("alBufferData");
 
 			alSourceQueueBuffers(alMusicSource, 1, &buffer);
-			if (alGetError() != AL_NO_ERROR)
-				Exception::Throw("alSourceQueueBuffers failed in UpdateMusicBuffer: " + getALErrorString());
+			CheckMusicALError("alSourceQueueBuffers");
 
 			status--;
 		}
@@ -560,8 +563,7 @@ public:
 		if (status == AL_STOPPED)
 		{
 			alSourcePlay(alMusicSource);
-			if (alGetError() != AL_NO_ERROR)
-				Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString());
+			CheckMusicALError("alSourcePlay");
 		}
 	}
 
@@ -598,6 +600,14 @@ public:
 
 	void Update() override
 	{
+		std::string failure;
+		{
+			std::unique_lock lock(musicThreadData.mutex);
+			failure.swap(musicThreadData.failure);
+		}
+		if (!failure.empty())
+			LogMessage("Music: the song stopped: " + failure);
+
 		UActor* listener = engine->CameraActor;
 		if (listener)
 		{
@@ -647,23 +657,38 @@ public:
 
 			if (currentMusic)
 			{
-				musicThreadData.currentOrder.store(currentMusic->GetOrder());
-
-				while (musicQueue.Size() < musicBufferCount)
+				// A song that fails stops, and the game goes on without it: the
+				// failure is left for the main thread to log
+				try
 				{
-					// render a chunk of music
-					currentMusic->ReadSamples(musicQueue.GetNextFree(), musicBufferSize);
-					musicQueue.Push(musicQueue.GetNextFree());
+					musicThreadData.currentOrder.store(currentMusic->GetOrder());
+
+					while (musicQueue.Size() < musicBufferCount)
+					{
+						// render a chunk of music
+						currentMusic->ReadSamples(musicQueue.GetNextFree(), musicBufferSize);
+						musicQueue.Push(musicQueue.GetNextFree());
+					}
+
+					if (!musicPlaying)
+					{
+						PlayMusicBuffer(currentMusic.get());
+						musicPlaying = true;
+					}
+					else if (musicQueue.Size() > 0)
+					{
+						UpdateMusicBuffer(currentMusic.get());
+					}
 				}
-
-				if (!musicPlaying)
+				catch (const std::exception& e)
 				{
-					PlayMusicBuffer(currentMusic.get());
 					musicPlaying = true;
-				}
-				else if (musicQueue.Size() > 0)
-				{
-					UpdateMusicBuffer(currentMusic.get());
+					StopMusicBuffers(musicPlaying);
+					alGetError();
+					currentMusic.reset();
+					musicThreadData.currentOrder.store(-1);
+					std::unique_lock failedLock(musicThreadData.mutex);
+					musicThreadData.failure = e.what();
 				}
 			}
 			else
@@ -890,6 +915,7 @@ public:
 		bool musicUpdate = false;
 		int jumpOrder = -1;                     // an order to jump the playing song to
 		std::atomic<int> currentOrder{ -1 };    // the order playing, written by the music thread alone
+		std::string failure;                    // why the song stopped, for the main thread to log
 	} musicThreadData;
 
 	RingQueue<float*> musicQueue;

@@ -547,7 +547,9 @@ its code is:
   stock script calls ([mods](NATIVES.md#mods)).
 - **The audio mixer**: `GalaxyMixer` (`DXEngine/Audio/GalaxyMixer.cpp`) mixes Deus Ex's sounds
   as `Galaxy.dll` does (pan, fall-off, sliders, resampling, its reverb) and streams them through
-  one OpenAL source at `OutputRate`. DXEngine's audio device adds `SpeechVolume` and
+  one OpenAL source at `OutputRate`; the music streams through one of its own, from a thread of
+  its own, where a song that fails stops and the game goes on, the main thread logging why
+  (`Music: the song stopped:`). DXEngine's audio device adds `SpeechVolume` and
   `DopplerSpeed` to its ini section, and keeps Deus Ex's channel count under Galaxy's name,
   `EffectsChannels` ([sound](NATIVES.md#sound)). DXEngine's render device keeps `DetailTextures`
   beside Surreal Engine's keys; on a first run (no `DXE-DeusEx.ini`, or an `--ini` without the
