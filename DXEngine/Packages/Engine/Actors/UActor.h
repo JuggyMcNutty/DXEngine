@@ -282,11 +282,18 @@ public:
 	std::pair<bool, vec3> FindSpot(vec3 location, float radius, float height, bool checkFirst);
 	void AdjustSpot(vec3& spot, const vec3& dest, float traceLength);
 	bool EncroachBlockedBy(UActor* other);
-	bool CheckEncroachment(const vec3& location);
+	bool CheckEncroachment(const vec3& location) { return CheckEncroachment(location, Rotation()); }
+	bool CheckEncroachment(const vec3& location, const Rotator& rotation);
+	// A brush's move (ULevel::MoveActor): by delta, turned to rotation, what
+	// stands on it carried first, then stopped by what it encroaches on
+	// (false) or moved and turned at once.
+	bool MoveBrush(const vec3& delta, const Rotator& rotation);
 
 	// noCheck skips finding room and the touches (a trailer following its owner).
 	bool SetLocation(const vec3& newLocation, bool noCheck = false);
-	bool SetRotation(const Rotator& newRotation);
+	// A brush is turned as a move (MoveBrush) unless checkBrush is false (a
+	// client given its server's rotation).
+	bool SetRotation(const Rotator& newRotation, bool checkBrush = true);
 	bool SetCollisionSize(float newRadius, float newHeight);
 
 	UObject* Trace(vec3& hitLocation, vec3& hitNormal, const vec3& traceEnd, const vec3& traceStart, bool bTraceActors, const vec3& extent);

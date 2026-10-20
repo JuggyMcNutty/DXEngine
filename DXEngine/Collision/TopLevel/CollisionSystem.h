@@ -174,7 +174,7 @@ public:
 
 	Array<UActor*> CollidingActors(const vec3& origin, float radius);
 	Array<UActor*> CollidingActors(const vec3& origin, float height, float radius);
-	Array<UActor*> EncroachingActors(UActor* actor);
+	Array<UActor*> EncroachingActors(UActor* actor, const vec3& location, const Rotator& rotation);
 	Array<UActor*> EncroachedActors(const vec3& location, float height, float radius);
 
 	void SetLevel(ULevel* level);

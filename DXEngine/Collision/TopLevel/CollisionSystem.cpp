@@ -110,10 +110,10 @@ Array<UActor*> CollisionSystem::CollidingActors(const vec3& origin, float height
 	return overlap.CollidingActors(origin, height, radius);
 }
 
-Array<UActor*> CollisionSystem::EncroachingActors(UActor* actor)
+Array<UActor*> CollisionSystem::EncroachingActors(UActor* actor, const vec3& location, const Rotator& rotation)
 {
 	OverlapTester overlap(this);
-	return overlap.EncroachingActors(actor);
+	return overlap.EncroachingActors(actor, location, rotation);
 }
 
 Array<UActor*> CollisionSystem::EncroachedActors(const vec3& location, float height, float radius)

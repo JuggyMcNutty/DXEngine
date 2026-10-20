@@ -606,7 +606,7 @@ namespace
 		}
 
 		if (newRotation != actor->Rotation())
-			actor->SetRotation(newRotation);
+			actor->SetRotation(newRotation, false);
 
 		if (newRadius != actor->CollisionRadius() || newHeight != actor->CollisionHeight())
 			actor->SetCollisionSize(newRadius, newHeight);

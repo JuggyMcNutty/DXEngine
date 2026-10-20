@@ -4,6 +4,7 @@
 #include "Collision/BottomLevel/OverlapAABBModel.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Brush/UMover.h"
+#include "Packages/Engine/Resources/Level/UModel.h"
 
 CollisionHitList OverlapTester::TestOverlap(const vec3& location, float height, float radius, bool testActors, bool testWorld, bool visibilityOnly)
 {
@@ -154,20 +155,18 @@ Array<UActor*> OverlapTester::CollidingActors(const vec3& origin, float height, 
 	return uniqueHits;
 }
 
-Array<UActor*> OverlapTester::EncroachingActors(UActor* actor)
+// What the actor's brush overlaps were it at location, turned to rotation
+// (ActorEncroachmentCheck): each actor but a brush, its cylinder's box taken
+// into the brush's space, in the cells of the brush's box there.
+Array<UActor*> OverlapTester::EncroachingActors(UActor* actor, const vec3& location, const Rotator& rotation)
 {
 	UModel* brush = actor->Brush();
 	if (!brush)
-		return CollidingActors(actor->Location(), actor->CollisionHeight(), actor->CollisionRadius());
+		return CollidingActors(location, actor->CollisionHeight(), actor->CollisionRadius());
 
-	// To do: is radius and height correct for a mover? Should it use the brush bounding box?
+	vec3 origin = location;
 
-	vec3 origin = actor->Location();
-	float height = actor->CollisionHeight();
-	float radius = actor->CollisionRadius();
-	vec3 extents = { radius, radius, height };
-
-	mat4 rotateObjToWorld = Coords::Rotation(actor->Rotation()).ToMatrix();
+	mat4 rotateObjToWorld = Coords::Rotation(rotation).ToMatrix();
 	mat4 rotateWorldToObj = mat4::transpose(rotateObjToWorld);
 	vec3 prePivot = actor->PrePivot();
 
@@ -177,9 +176,14 @@ Array<UActor*> OverlapTester::EncroachingActors(UActor* actor)
 		mainScale = mover->MainScale().Scale;
 	}
 
+	mat4 objectToWorld = mat4::translate(origin) * rotateObjToWorld * mat4::scale(mainScale) * mat4::translate(-prePivot);
+	BBox bbox = brush->BoundingBox.transform(objectToWorld);
+	vec3 center = bbox.center();
+	vec3 extents = bbox.extents() + 0.1f;
+
 	Array<UActor*> hits;
 
-	VisitActorsInBox(GetStartExtents(origin, extents), GetEndExtents(origin, extents), [&](UActor* testActor) {
+	VisitActorsInBox(GetStartExtents(center, extents), GetEndExtents(center, extents), [&](UActor* testActor) {
 		if (testActor == actor || testActor->Brush())
 			return false;
 
