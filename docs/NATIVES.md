@@ -671,7 +671,9 @@ from the original's code:
   alone. A window that appears under a still pointer is not entered. So a
   conversation's choice and a menu's button take the focus the pointer
   moves onto (`ChoiceConsole`: the pointer put on a choice by
-  `SetCursorPos`, which either engine takes as a move).
+  `SetCursorPos`, which either engine takes as a move). It is drawn only
+  then, while `ShowCursor` leaves it: a modal window made hidden, or hidden
+  again, draws none in either engine (`PointerConsole`).
 - **The InfoLink's text** (a computer window): each character printed is
   due a time step after the last, `SetTextTiming`'s 0.03 s, on the
   windows' real time; each tick types those due, in the colour

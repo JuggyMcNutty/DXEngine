@@ -160,6 +160,7 @@ the run. *Either*: one engine on each side of a pair.
 | `ClickConsole` | both | a button, a choice and a checkbox clicked; a menu dragged; Alt accelerators | `DXCLICK:` | with `tools/dxcap/timelines/clicks.txt` on DXEngine |
 | `PadConsole` | dxe | the player's place, speed, facing and physics every half second, as a pad moves it | `DXPAD:` | with `tools/dxcap/timelines/pad.txt` |
 | `EditConsole` | both | a script's text calls on an edit field, a text window and a button | `DXEDIT:` |  |
+| `PointerConsole` | both | the root's pointer in the middle of the island's view: no modal window, one made hidden, shown, hidden, destroyed; five marked shots | `DXPOINTER:` | the shots' middles against the first, at `DXCAP_WINDOW=1024x768` |
 | `TimerConsole` | both | a window's timers on the main menu: a single one, one looping every millisecond and one at 0, two added in turn, one with no function name | `DXTIMER:` | the two logs diffed, both at `DXCAP_FPS=60` |
 | `SizeConsole` | both | the root's size and scale; the size a new window takes | `DXSIZE:` |  |
 | `PerfConsole` | both | what a frame costs on `TargetMap`: sixty one-second windows | `DXPERF:` | `tools/perf/frame-report.py`, with `DXCAP_PERF=1` ([measuring both engines](#measuring-both-engines)) |

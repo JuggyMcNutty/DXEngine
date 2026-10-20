@@ -230,20 +230,12 @@ void URootWindow::WindowReady()
 
 bool URootWindow::IsCursorVisible()
 {
-	// The pointer is drawn while a window takes the mouse -- a modal one,
-	// here -- and ShowCursor has not hidden it, as the original's
-	// XRootWindow::PaintWindows draws it (dx-reverse-info/extension-dll.md):
-	// the multiplayer message window hides it while it is up.
-	if (!bCursorVisible())
-		return false;
-	for (UWindow* cur = firstChild(); cur; cur = cur->nextSibling())
-	{
-		if (UObject::TryCast<UModalWindow>(cur))
-		{
-			return true;
-		}
-	}
-	return false;
+	// The pointer is drawn while a window takes the mouse -- a modal one that
+	// shows; a hidden one lets it go -- and ShowCursor has not hidden it, as
+	// the original's XRootWindow::PaintWindows draws it
+	// (dx-reverse-info/extension-dll.md): the multiplayer message window
+	// hides it while it is up.
+	return bCursorVisible() && IsModalOpen();
 }
 
 void URootWindow::PostDrawWindow(UGC* gc)
