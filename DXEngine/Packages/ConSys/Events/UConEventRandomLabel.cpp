@@ -15,8 +15,10 @@ void UConEventRandomLabel::Load(ObjectStream* stream)
 
 std::string UConEventRandomLabel::GetLabel(int labelIndex)
 {
-	std::string str = labels[labelIndex];
-	return str;
+	// One it has not is none, not a read past its labels
+	if (labelIndex < 0 || labelIndex >= (int)labels.size())
+		return {};
+	return labels[labelIndex];
 }
 
 int UConEventRandomLabel::GetLabelCount()

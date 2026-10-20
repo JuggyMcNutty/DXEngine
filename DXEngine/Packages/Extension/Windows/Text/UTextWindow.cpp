@@ -43,8 +43,10 @@ int UTextWindow::GetTextLength()
 
 int UTextWindow::GetTextPart(int startPos, int Count, std::string& OutText)
 {
-	int start = std::max(startPos, 0);
-	int end = std::min(startPos + Count, (int)Text().size());
+	// A part past the text's end, or of no length, is empty
+	int size = (int)Text().size();
+	int start = std::clamp(startPos, 0, size);
+	int end = std::clamp(startPos + Count, start, size);
 	OutText = Text().substr(start, end - start);
 	return (int)OutText.size();
 }

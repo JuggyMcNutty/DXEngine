@@ -51,7 +51,16 @@ bool UDXTextParser::OpenText(NameString textName, std::string textPackage)
 		textName = "DeusExQuotes"; // Not correct, but it handles empty strings just fine.
 	if (textPackage.empty())
 		textPackage = "DeusExText";
-	textObject = UObject::Cast<UDXExtString>(engine->packages->GetPackage(textPackage)->GetUObject("ExtString", textName));
+	// A package that is not there opens no text (false), not the game's end
+	try
+	{
+		textObject = UObject::Cast<UDXExtString>(engine->packages->GetPackage(textPackage)->GetUObject("ExtString", textName));
+	}
+	catch (const std::exception&)
+	{
+		LogMessage("Could not load package " + textPackage + " in DeusExTextParser.OpenText");
+		textObject = nullptr;
+	}
 	Text() = textObject ? 1 : 0;
 	// The original starts a text with no paragraph yet; the last tag, name,
 	// colour, file and email stay from before.

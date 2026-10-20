@@ -211,7 +211,18 @@ UObject* UConversation::GetSpeechAudio(int soundID)
 	if (prefix.size() >= 4 && NameString(prefix.substr(prefix.size() - 4)) == "Text")
 		prefix.resize(prefix.size() - 4);
 
-	auto audioPackage = engine->packages->GetPackage(prefix + "Audio" + audioPackageName());
+	// A package that is not there (a mod's conversation without its audio)
+	// is a line with no sound, not the game's end
+	Package* audioPackage = nullptr;
+	try
+	{
+		audioPackage = engine->packages->GetPackage(prefix + "Audio" + audioPackageName());
+	}
+	catch (const std::exception&)
+	{
+		LogMessage("Could not load package " + prefix + "Audio" + audioPackageName() + " in Conversation.GetSpeechAudio");
+		return nullptr;
+	}
 	UObject* sound = audioPackage->GetUObject("Sound", "ConAudio" + audioPackageName() + "_" + std::to_string(soundID));
 	if (!sound)
 		LogMessage("Could not find sound ConAudio" + audioPackageName() + "_" + std::to_string(soundID) + " in Conversation.GetSpeechAudio");
