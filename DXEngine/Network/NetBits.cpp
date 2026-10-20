@@ -167,21 +167,23 @@ float NetBitReader::ReadFloat()
 
 int32_t NetBitReader::ReadCompactIndex()
 {
+	// Built unsigned: the fifth byte's bits reach past bit 31, which a
+	// signed shift may not
 	uint8_t b0 = ReadByte();
-	int32_t value = b0 & 0x3f;
+	uint32_t value = b0 & 0x3f;
 	if (b0 & 0x40)
 	{
 		int shift = 6;
 		for (int i = 0; i < 4 && !Error; i++)
 		{
 			uint8_t b = ReadByte();
-			value |= (int32_t)(b & 0x7f) << shift;
+			value |= (uint32_t)(b & 0x7f) << shift;
 			shift += 7;
 			if (!(b & 0x80))
 				break;
 		}
 	}
-	return (b0 & 0x80) ? -value : value;
+	return (b0 & 0x80) ? (int32_t)(0u - value) : (int32_t)value;
 }
 
 std::string NetBitReader::ReadString()
