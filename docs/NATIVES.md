@@ -266,14 +266,16 @@ distance.
 
 Matches the original
 ([sprites](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#sprites)):
-a sprite draws with its actor's style -- `STY_Masked` masked,
-`STY_Translucent` translucent, `STY_Modulated` modulated -- its texture's
-own flags and its `bNoSmooth`; a render iterator's items with their proxy's,
-so a `ParticleGenerator` with neither `bTranslucent` nor `bModulated` draws
-its particles masked. `SpriteConsole`'s icon, its colour 0 magenta, drawn
-`STY_Masked` and as such particles, shows none of that colour in either
-engine: 0.0% of the sprite's box and 0.7% of the particles' magenta in
-DXEngine's frame, none in `D3DDrv`'s. Differs:
+a sprite draws upright, the texture's first row at the top, with its
+actor's style -- `STY_Masked` masked, `STY_Translucent` translucent,
+`STY_Modulated` modulated -- its texture's own flags and its `bNoSmooth`; a
+render iterator's items with their proxy's, so a `ParticleGenerator` with
+neither `bTranslucent` nor `bModulated` draws its particles masked.
+`SpriteConsole`'s icon, its colour 0 magenta, drawn `STY_Masked` and as
+such particles, shows none of that colour in either engine: 0.0% of the
+sprite's box and 0.7% of the particles' magenta in DXEngine's frame, none in
+`D3DDrv`'s, the sprite's box at a correlation of 0.998 to `D3DDrv`'s.
+Differs:
 
 - **A texture drawn both masked and not** shows its colour 0 in the
   original as the draw that first set it made its copy

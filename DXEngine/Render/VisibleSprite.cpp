@@ -82,21 +82,22 @@ void VisibleSprite::Draw(VisibleFrame* frame, UActor* actor, const vec3& locatio
 
 	vec3 color = clamp(scaleglow, 0.0f, 1.0f);
 
+	// Upright, as the original's tile: the texture's first row at the top
 	GouraudVertex vertices[4];
 	vertices[0].Point = location - sideAxis - upAxis;
-	vertices[0].UV = { 0.0f, 0.0f };
+	vertices[0].UV = { 0.0f, texheight };
 	vertices[0].Light = color;
 	vertices[0].Fog = { 0.0f };
 	vertices[1].Point = location + sideAxis - upAxis;
-	vertices[1].UV = { texwidth, 0.0f };
+	vertices[1].UV = { texwidth, texheight };
 	vertices[1].Light = color;
 	vertices[1].Fog = { 0.0f };
 	vertices[2].Point = location + sideAxis + upAxis;
-	vertices[2].UV = { texwidth, texheight };
+	vertices[2].UV = { texwidth, 0.0f };
 	vertices[2].Light = color;
 	vertices[2].Fog = { 0.0f };
 	vertices[3].Point = location - sideAxis + upAxis;
-	vertices[3].UV = { 0.0f, texheight };
+	vertices[3].UV = { 0.0f, 0.0f };
 	vertices[3].Light = color;
 	vertices[3].Fog = { 0.0f };
 
