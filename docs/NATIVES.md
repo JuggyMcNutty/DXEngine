@@ -557,9 +557,10 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   without the step (GL and Vulkan on the desktop, Vulkan on the Smart Pro:
   the shots within 15 pixels with it and without); the step keeps the
   order whatever a GPU's rounding. A mover's one-sided polygon seen from
-  behind is passed over, as the original's walk passes over a surface. A mover hidden after it is filed stays
-  drawn there in the original, where DXEngine stops drawing it
-  (`GlassConsole`); no stock script hides a mover.
+  behind is passed over, as the original's walk passes over a surface. A
+  mover hidden after it is filed stays drawn there in the original, where
+  DXEngine stops drawing it (`GlassConsole`); no stock script hides a
+  mover.
 
 ### Fire, water and ice textures
 
@@ -750,8 +751,8 @@ Differs:
 - **`GC.DrawActor` ignores `bConstrain`**: the vision augmentation's calls
   cover the whole view. Its render time: [out of sight](#out-of-sight).
 - **A typed character past Latin-1** (U+0100 on) goes nowhere, DXEngine's
-  text being 8-bit; the original's windows take it, and the game's fonts draw
-  it as nothing (read from `WinDrv.dll`'s code).
+  text being 8-bit; the original's windows take it, and the game's fonts
+  draw it as nothing (read from `WinDrv.dll`'s code).
 - **Keys**, read from both codes: the keyboard counts as grabbed while a
   modal shows, where the original counts its grabs (every modal grabs while
   shown). With Alt down DXEngine takes a letter or digit from the key's
