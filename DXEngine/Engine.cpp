@@ -2601,13 +2601,21 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	else if (command == "setres" && args.size() == 2)
 	{
 		window->SetResolution(args[1]);
-		// A window's new size is kept as the windowed size, which the ini
-		// saves, as the original's SETRES keeps it.
+		// The new size is kept as the windowed size, or full screen the
+		// mode taken, which the ini saves, as the original's SETRES keeps it.
 		int width = 0, height = 0;
-		if (!window->IsFullscreen() && sscanf(args[1].c_str(), "%dx%d", &width, &height) == 2 && width >= 640 && height >= 480)
+		if (window->IsFullscreen())
 		{
-			client->WindowedViewportX = width;
-			client->WindowedViewportY = height;
+			Size mode = window->GetClosestResolution(Size(window->GetPixelWidth(), window->GetPixelHeight()));
+			if (sscanf(args[1].c_str(), "%dx%d", &width, &height) == 2 && width >= 640 && height >= 480)
+				mode = window->GetClosestResolution(Size(width, height));
+			client->SetPropertyFromString("FullscreenViewportX", std::to_string((int)mode.width));
+			client->SetPropertyFromString("FullscreenViewportY", std::to_string((int)mode.height));
+		}
+		else if (sscanf(args[1].c_str(), "%dx%d", &width, &height) == 2 && width >= 640 && height >= 480)
+		{
+			client->SetPropertyFromString("WindowedViewportX", std::to_string(width));
+			client->SetPropertyFromString("WindowedViewportY", std::to_string(height));
 		}
 	}
 	else if (command == "togglefullscreen")
@@ -2787,16 +2795,29 @@ void Engine::OpenWindow()
 	window->SetFrameGeometry(Rect::xywh(0.0, 0.0, width, height));
 	viewport->SetViewportRect(0, 0, width, height);
 
-	// Full screen is the desktop's size, whatever FullscreenViewportX and Y
-	// say (ENGINE.md, running on our devices): the frame takes the window's.
+	// Full screen takes the display's mode nearest FullscreenViewportX and Y,
+	// as the original's; with none (0), the desktop's (ENGINE.md, running on
+	// our devices). The frame takes the window's size.
 	if (fullscreen)
-		LogMessage("Window: full screen, the desktop's size");
-	else
-		LogMessage("Window: " + std::to_string(width) + "x" + std::to_string(height) + ", in a window");
-	if (fullscreen)
+	{
+		if (width > 0 && height > 0)
+		{
+			Size mode = window->GetClosestResolution(Size(width, height));
+			window->SetFullscreenMode((int)mode.width, (int)mode.height);
+			LogMessage("Window: full screen, " + std::to_string((int)mode.width) + "x" + std::to_string((int)mode.height));
+		}
+		else
+		{
+			window->SetFullscreenMode(0, 0);
+			LogMessage("Window: full screen, the desktop's size");
+		}
 		window->ShowFullscreen();
+	}
 	else
+	{
+		LogMessage("Window: " + std::to_string(width) + "x" + std::to_string(height) + ", in a window");
 		window->ShowNormal();
+	}
 }
 
 void Engine::CloseWindow()

@@ -4,6 +4,7 @@
 #include "Engine.h"
 #include "Package/PackageManager.h"
 #include "Package/IniProperty.h"
+#include "Utils/StrTools.h"
 
 void UDXEngineClient::LoadProperties(const NameString& from)
 {
@@ -28,6 +29,23 @@ void UDXEngineClient::LoadProperties(const NameString& from)
 	NoDynamicLights = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "NoDynamicLights", NoDynamicLights);
 	TextureDetail = IniPropertyConverter<std::string>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "TextureDetail", TextureDetail);
 	SkinDetail = IniPropertyConverter<std::string>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "SkinDetail", SkinDetail);
+	UpdateDetailLevels();
+}
+
+void UDXEngineClient::UpdateDetailLevels()
+{
+	auto level = [](const std::string& detail)
+	{
+		static const char* names[] = { "High", "Medium", "Low", "UltraLow" };
+		for (int i = 0; i < 4; i++)
+		{
+			if (StrTools::equals_ignore_case(detail, names[i]))
+				return i;
+		}
+		return 0;
+	};
+	TextureLODSet[1] = level(TextureDetail);
+	TextureLODSet[2] = level(SkinDetail);
 }
 
 void UDXEngineClient::SaveConfig()
@@ -120,9 +138,15 @@ void UDXEngineClient::SetPropertyFromString(const NameString& propertyName, cons
 	else if (propertyName == "NoDynamicLights")
 		NoDynamicLights = IniPropertyConverter<bool>::FromString(value);
 	else if (propertyName == "TextureDetail")
+	{
 		TextureDetail = value;
+		UpdateDetailLevels();
+	}
 	else if (propertyName == "SkinDetail")
+	{
 		SkinDetail = value;
+		UpdateDetailLevels();
+	}
 	else
 		LogMessage("Setting unknown property for DXEngine.ViewportManager: " + propertyName.ToString());
 

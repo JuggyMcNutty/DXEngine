@@ -8,6 +8,7 @@
 #include "kissfft/kiss_fftr.h"
 
 #include <algorithm>
+#include <cstring>
 #include <type_traits>
 
 void USound::Load(ObjectStream* stream)
@@ -35,6 +36,145 @@ void USound::Save(PackageStreamWriter* stream)
 		stream->EndSkipOffset();
 }
 
+// Low Sound Quality (the audio subsystem's LowSoundQuality), as the original
+// applies it to a WAV as the sound loads (Engine.dll FSoundData::Load
+// 0x1036f040): 16-bit samples made 8-bit, a rate of 22,050 Hz or more halved,
+// or both, each sample rounded with the last one's error carried on, and the
+// header, the loop points and the chunks after the data mended
+// (0x10370010). The data is taken as one channel, as the original takes it.
+static void LowerSoundQuality(Array<uint8_t>& wav)
+{
+	auto u16 = [&](size_t at) { return (uint32_t)(wav[at] | (wav[at + 1] << 8)); };
+	auto u32 = [&](size_t at) { return u16(at) | (u16(at + 2) << 16); };
+	auto put16 = [&](size_t at, uint32_t v) { wav[at] = (uint8_t)v; wav[at + 1] = (uint8_t)(v >> 8); };
+	auto put32 = [&](size_t at, uint32_t v) { put16(at, v & 0xffff); put16(at + 2, v >> 16); };
+	auto findChunk = [&](const char* id) -> size_t
+	{
+		size_t at = 12;
+		while (at + 8 < wav.size() && memcmp(&wav[at], id, 4) != 0)
+			at += ((u32(at + 4) + 1) & ~1u) + 8;
+		return (at + 8 < wav.size() && memcmp(&wav[at], id, 4) == 0) ? at : 0;
+	};
+
+	if (wav.size() < 12 || memcmp(&wav[8], "WAVE", 4) != 0)
+		return;
+	size_t fmt = findChunk("fmt ");
+	size_t data = findChunk("data");
+	if (!fmt || !data || fmt + 24 > wav.size())
+		return;
+	size_t smpl = findChunk("smpl");
+
+	uint32_t rate = u32(fmt + 12);
+	uint32_t bits = u16(fmt + 22);
+	uint32_t size = std::min(u32(data + 4), (uint32_t)(wav.size() - data - 8));
+	if (size <= 4)
+		return;
+
+	bool to8 = bits == 16;
+	bool halve = rate >= 22050;
+	if (!to8 && !halve)
+		return;
+
+	uint8_t* bytes = &wav[data + 8];
+	int16_t* words = reinterpret_cast<int16_t*>(bytes);
+	uint32_t newSize = size;
+	if (to8 && halve)
+	{
+		uint32_t count = size / 4;
+		int prev = words[0], error = 0;
+		for (uint32_t i = 0; i < count; i++)
+		{
+			int cur = words[2 * i], next = words[2 * i + 1];
+			int sum = next + cur + prev + cur + 0x20000 + error;
+			prev = next;
+			int out = (sum + 512) & (int)0xFFFFFC00;
+			if (out > 261120)
+				out = 261120;
+			bytes[i] = (uint8_t)(out >> 10);
+			error = sum - out;
+		}
+		newSize = count;
+		put16(fmt + 22, 8);
+		put32(fmt + 12, rate >> 1);
+	}
+	else if (to8)
+	{
+		uint32_t count = size / 2;
+		int error = 0;
+		for (uint32_t i = 0; i < count; i++)
+		{
+			int sum = error + words[i] + 0x8000;
+			int out = (sum + 127) & ~0xFF;
+			if (out > 65280)
+				out = 65280;
+			bytes[i] = (uint8_t)(out >> 8);
+			error = sum - out;
+		}
+		newSize = count;
+		put16(fmt + 22, 8);
+	}
+	else if (bits == 16)
+	{
+		uint32_t count = size / 4;
+		int prev = words[0], error = 0;
+		for (uint32_t i = 0; i < count; i++)
+		{
+			int cur = words[2 * i], next = words[2 * i + 1];
+			int sum = next + cur + prev + cur + 0x20000 + error;
+			prev = next;
+			int out = (sum + 2) & 0x3FFFC;
+			words[i] = (int16_t)(uint16_t)((out >> 2) + 0x8000);
+			error = sum - out;
+		}
+		newSize = 2 * count;
+		put32(fmt + 12, rate >> 1);
+	}
+	else if (bits == 8)
+	{
+		uint32_t count = size / 2;
+		int prev = bytes[0], error = 0;
+		for (uint32_t i = 0; i < count; i++)
+		{
+			int cur = bytes[2 * i], next = bytes[2 * i + 1];
+			int sum = next + cur + cur + prev + error;
+			prev = next;
+			int out = (uint16_t)(sum + 2) & 0x3FC;
+			bytes[i] = (uint8_t)(out >> 2);
+			error = sum - out;
+		}
+		newSize = count;
+		put32(fmt + 12, rate >> 1);
+	}
+	else
+	{
+		return;
+	}
+
+	// The header: the data's size, the file's, the block and the bytes a
+	// second; the loop points scaled; what follows the data moved down.
+	uint32_t removed = ((size + 1) & ~1u) - ((newSize + 1) & ~1u);
+	uint32_t newBits = u16(fmt + 22);
+	uint32_t channels = u16(fmt + 10);
+	put32(data + 4, newSize);
+	put32(4, u32(4) - removed);
+	put16(fmt + 20, (newBits >> 3) * channels);
+	put32(fmt + 16, u32(fmt + 12) * u16(fmt + 20));
+	if (smpl && smpl + 44 <= wav.size())
+	{
+		uint32_t loops = u32(smpl + 8 + 28);
+		uint32_t scale = newBits * size / newSize;
+		for (uint32_t i = 0; i < loops && smpl + 8 + 36 + i * 24 + 16 <= wav.size(); i++)
+		{
+			size_t loop = smpl + 8 + 36 + i * 24;
+			put32(loop + 8, bits * u32(loop + 8) / scale);
+			put32(loop + 12, bits * u32(loop + 12) / scale);
+		}
+	}
+	size_t dataEnd = data + 8 + size;
+	if (removed && dataEnd <= wav.size())
+		wav.erase(wav.begin() + (dataEnd - removed), wav.begin() + dataEnd);
+}
+
 // The sound's samples, decoded from its data, and what the decoder says of
 // them.
 Array<float> USound::Decode()
@@ -43,7 +183,16 @@ Array<float> USound::Decode()
 
 	if (Format == "wav")
 	{
-		source = AudioSource::CreateWav(Data);
+		if (engine && engine->audiodev && engine->audiodev->LowSoundQuality)
+		{
+			Array<uint8_t> lowered = Data;
+			LowerSoundQuality(lowered);
+			source = AudioSource::CreateWav(lowered);
+		}
+		else
+		{
+			source = AudioSource::CreateWav(Data);
+		}
 	}
 	else if (Format == "mp3" || Format == "mp2")
 	{

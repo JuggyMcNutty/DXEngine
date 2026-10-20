@@ -1,6 +1,7 @@
 #include "sdl3_display_backend.h"
 #include "sdl3_display_window.h"
 #include <cmath>
+#include <algorithm>
 #include <stdexcept>
 #include <SDL3/SDL_video.h>
 #include <SDL3/SDL_joystick.h>
@@ -166,6 +167,29 @@ Size SDL3DisplayBackend::GetScreenSize()
 	SDL_free(displays);
 
 	return {rect.w / UIScale, rect.h / UIScale};
+}
+
+std::vector<Size> SDL3DisplayBackend::GetFullscreenModes()
+{
+	std::vector<Size> modes;
+	SDL_DisplayID display = SDL_GetPrimaryDisplay();
+	int count = 0;
+	if (SDL_DisplayMode** list = SDL_GetFullscreenDisplayModes(display, &count))
+	{
+		for (int i = 0; i < count; i++)
+		{
+			Size size(list[i]->w, list[i]->h);
+			if (std::find(modes.begin(), modes.end(), size) == modes.end())
+				modes.push_back(size);
+		}
+		SDL_free(list);
+	}
+	if (modes.empty())
+	{
+		if (const SDL_DisplayMode* desktop = SDL_GetDesktopDisplayMode(display))
+			modes.push_back(Size(desktop->w, desktop->h));
+	}
+	return modes;
 }
 
 void* SDL3DisplayBackend::StartTimer(int timeoutMilliseconds, std::function<void()> onTimer)

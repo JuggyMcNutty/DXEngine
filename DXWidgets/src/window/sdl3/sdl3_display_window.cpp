@@ -171,6 +171,23 @@ void SDL3DisplayWindow::ShowFullscreen()
 	isFullscreen = true;
 }
 
+// The mode SDL takes when the window is full screen: the display's nearest to
+// the size, or none, the desktop's, borderless.
+void SDL3DisplayWindow::SetFullscreenMode(int width, int height)
+{
+	if (width > 0 && height > 0)
+	{
+		SDL_DisplayID display = SDL_GetDisplayForWindow(Handle.window);
+		SDL_DisplayMode mode = {};
+		if (display && SDL_GetClosestFullscreenDisplayMode(display, width, height, 0.0f, false, &mode))
+		{
+			SDL_SetWindowFullscreenMode(Handle.window, &mode);
+			return;
+		}
+	}
+	SDL_SetWindowFullscreenMode(Handle.window, nullptr);
+}
+
 void SDL3DisplayWindow::ShowMaximized()
 {
 	SDL_ShowWindow(Handle.window);

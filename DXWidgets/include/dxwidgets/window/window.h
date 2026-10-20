@@ -327,6 +327,11 @@ public:
 	virtual void SetWindowIcon(const std::vector<std::shared_ptr<Image>>& images) = 0;
 	virtual void Show() = 0;
 	virtual void ShowFullscreen() = 0;
+	// The display mode full screen takes, the nearest the display has to
+	// width x height; 0 x 0 keeps the desktop's. Taken at once when full
+	// screen, else at the next ShowFullscreen. Backends that cannot change
+	// the display's mode keep the desktop's.
+	virtual void SetFullscreenMode(int width, int height) {}
 	virtual void ShowMaximized() = 0;
 	virtual void ShowMinimized() = 0;
 	virtual void ShowNormal() = 0;
@@ -430,6 +435,10 @@ public:
 	virtual void StopTimer(void* timerID) = 0;
 
 	virtual Size GetScreenSize() = 0;
+
+	// The sizes of the display's full screen modes, in pixels, each once;
+	// the screen's size alone where the backend cannot change the mode.
+	virtual std::vector<Size> GetFullscreenModes() { return { GetScreenSize() }; }
 
 	// The first connected controller. Backends without controller support
 	// report none.

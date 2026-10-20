@@ -129,6 +129,9 @@ public:
 	std::string GetMenuResolutions();
 	void SetResolution(const std::string& resolutionString);
 
+	// The display's full screen mode nearest the size.
+	Size GetClosestResolution(Size resolution) const;
+
 protected:
 	void OnPaint(Canvas* canvas) override;
 	bool OnMouseDown(const Point& pos, InputKey key) override;
@@ -149,7 +152,6 @@ private:
 	Array<Size> QueryAvailableResolutions() const;
 	void AddResolutionIfNotAdded(Array<Size>& resList, Size resolution) const;
 	Size ParseResolutionString(const std::string& resolutionString) const;
-	Size GetClosestResolution(Size resolution) const;
 
 	GameWindowHost* windowHost = nullptr;
 	std::unique_ptr<RenderDevice> device;

@@ -67,6 +67,10 @@ public:
 	float& Friction() { return Value<float>(PropOffsets_Texture.Friction); }
 	USound*& HitSound() { return Value<USound*>(PropOffsets_Texture.HitSound); }
 	uint8_t& LODSet() { return Value<uint8_t>(PropOffsets_Texture.LODSet); }
+
+	// The first of UsedMipmaps a frame draws: the client's level for its
+	// LODSet, at most 3 and never past the last mip (UTexture::Lock).
+	int DetailLOD();
 	UTexture*& MacroTexture() { return Value<UTexture*>(PropOffsets_Texture.MacroTexture); }
 	float& MaxFrameRate() { return Value<float>(PropOffsets_Texture.MaxFrameRate); }
 	float& MinFrameRate() { return Value<float>(PropOffsets_Texture.MinFrameRate); }

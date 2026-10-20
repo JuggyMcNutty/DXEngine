@@ -262,11 +262,13 @@ By area, as the code stands. Each device's numbers are its port's, such as
   takes a map's file name; `RELAUNCH` passed to the launcher, or a dedicated server started
   again by the engine itself (`Engine::Relaunch`, `GameApp::Relaunch`;
   [the menus' settings](NATIVES.md#the-menus-settings)).
-- **Fullscreen under SDL** keeps the display's mode: SDL3's `SDL_SetWindowFullscreen` with no
-  fullscreen mode set, borderless at the desktop's size; SDL2's `FULLSCREEN_DESKTOP`, or with
-  `DXE_SDL2_BORDERLESS_FULLSCREEN` (the Smart Pro's build) a borderless window covering the
-  display, set up while the window is hidden: `SDL_SetWindowFullscreen` deadlocks on a GL window
-  with that device's vendor SDL2.
+- **Fullscreen under SDL** takes the display's mode nearest the size asked for
+  (`SDL_SetWindowFullscreenMode` under SDL3, `SDL_SetWindowDisplayMode` and `FULLSCREEN` under
+  SDL2), or with none (0x0) the desktop's, borderless (SDL3 with no mode, SDL2's
+  `FULLSCREEN_DESKTOP`). With `DXE_SDL2_BORDERLESS_FULLSCREEN` (the Smart Pro's build) it is
+  always a borderless window covering the display, set up while the window is hidden:
+  `SDL_SetWindowFullscreen` deadlocks on a GL window with that device's vendor SDL2. The X11 and
+  Wayland windows keep the desktop's mode.
 - **The mouse and the keyboard under SDL**: the game's view takes the mouse in relative mode
   (`SDL_SetWindowRelativeMouseMode` under SDL3, `SDL_SetRelativeMouseMode` under SDL2), which
   hides the desktop's pointer, keeps it in the window and gives motion past the screen's edge;

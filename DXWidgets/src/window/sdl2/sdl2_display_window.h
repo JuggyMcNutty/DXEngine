@@ -16,6 +16,7 @@ public:
 	void SetClientFrame(const Rect& box) override;
 	void Show() override;
 	void ShowFullscreen() override;
+	void SetFullscreenMode(int width, int height) override;
 	void ShowMaximized() override;
 	void ShowMinimized() override;
 	void ShowNormal() override;
@@ -108,6 +109,9 @@ public:
 
 	bool CursorLocked = false;
 	bool isFullscreen = false;
+	int fullscreenWidth = 0;
+	int fullscreenHeight = 0;
+	void ApplyFullscreen();
 
 	static bool ExitRunLoop;
 	static Uint32 PaintEventNumber;

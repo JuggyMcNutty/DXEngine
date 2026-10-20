@@ -46,16 +46,17 @@ void GameWindow::ToggleWindowFullscreen(Size newResolution)
 	}
 	else
 	{
-		// Get the nearest valid fullscreen resolution first
-		auto selectedResolution = GetClosestResolution(newResolution);
-
-		// Then resize the window to the resolution
-		auto geometry = this->GetFrameGeometry();
-		geometry.width = selectedResolution.width;
-		geometry.height = selectedResolution.height;
-		this->SetFrameGeometry(geometry);
-
-		// Finally switch to fullscreen
+		// Full screen in the display's mode nearest the size, or the
+		// desktop's for none (0 x 0)
+		if (newResolution.width > 0 && newResolution.height > 0)
+		{
+			Size mode = GetClosestResolution(newResolution);
+			SetFullscreenMode((int)mode.width, (int)mode.height);
+		}
+		else
+		{
+			SetFullscreenMode(0, 0);
+		}
 		this->ShowFullscreen();
 	}
 }
@@ -65,9 +66,13 @@ bool GameWindow::GetKeyState(EInputKey key)
 	return Widget::GetKeyState((InputKey)key);
 }
 
+// The display's full screen modes (DisplayBackend::GetFullscreenModes).
 Array<Size> GameWindow::QueryAvailableResolutions() const
 {
-	return { DisplayBackend::Get()->GetScreenSize() };
+	Array<Size> sizes;
+	for (const Size& size : DisplayBackend::Get()->GetFullscreenModes())
+		sizes.push_back(size);
+	return sizes;
 }
 
 void GameWindow::OnPaint(Canvas* canvas)
@@ -175,20 +180,34 @@ void GameWindow::ExitLoop()
 
 // Deus Ex's Display menu reads the sizes it offers from GETRES, smallest
 // first with a space between, as the original lists its display modes. It
-// takes at most 16, and none from a list with no space. DXEngine's window
-// takes any size, so in a window the common sizes from 640x480 that fit the
-// screen are offered, with the window's own size and the screen's; full
-// screen, the window is the screen's size, the one offered, followed by the
-// space the menu needs to read it.
+// takes at most 16, and none from a list with no space. Full screen, the
+// display's modes from 640x480 are offered, as the original's; in a window,
+// which takes any size, the common sizes from 640x480 that fit the screen,
+// with the window's own size and the screen's. A list of one is followed by
+// the space the menu needs to read it.
 std::string GameWindow::GetMenuResolutions()
 {
-	Size screen = QueryAvailableResolutions()[0];
+	Size screen = DisplayBackend::Get()->GetScreenSize();
 	Size current((double)GetPixelWidth(), (double)GetPixelHeight());
 
 	Array<Size> sizes;
 	if (IsFullscreen())
 	{
-		sizes.push_back(current);
+		for (const Size& mode : QueryAvailableResolutions())
+		{
+			if (mode.width >= 640 && mode.height >= 480)
+				AddResolutionIfNotAdded(sizes, mode);
+		}
+		AddResolutionIfNotAdded(sizes, current);
+		std::sort(sizes.begin(), sizes.end(), [](const Size& a, const Size& b) { return a.width != b.width ? a.width < b.width : a.height < b.height; });
+		// The menu's 16 keep the current mode: the smallest others go first.
+		for (size_t i = 0; sizes.size() > 16 && i < sizes.size();)
+		{
+			if (sizes[i] == current)
+				i++;
+			else
+				sizes.erase(sizes.begin() + i);
+		}
 	}
 	else
 	{
@@ -312,15 +331,16 @@ void GameWindow::SetResolution(const std::string& resolutionString)
 	if (parsedResolution == Size(0, 0))
 		return;
 
-	Rect windowRect = GetFrameGeometry();
-
+	// Full screen, the display's mode nearest the size: the window takes
+	// the mode's size.
 	if (IsFullscreen())
 	{
 		parsedResolution = GetClosestResolution(parsedResolution);
-		windowRect.x = 0;
-		windowRect.y = 0;
+		SetFullscreenMode((int)parsedResolution.width, (int)parsedResolution.height);
+		return;
 	}
-		
+
+	Rect windowRect = GetFrameGeometry();
 	auto dpi = GetDpiScale();
 	windowRect.width = parsedResolution.width / dpi;
 	windowRect.height = parsedResolution.height / dpi;

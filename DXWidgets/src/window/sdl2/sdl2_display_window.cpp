@@ -152,9 +152,40 @@ void SDL2DisplayWindow::ShowFullscreen()
 	SDL_ShowWindow(Handle.window);
 #else
 	SDL_ShowWindow(Handle.window);
-	SDL_SetWindowFullscreen(Handle.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+	ApplyFullscreen();
 #endif
 	isFullscreen = true;
+}
+
+// The mode full screen takes: the display's nearest to the size, or the
+// desktop's (FULLSCREEN_DESKTOP). The borderless build keeps the desktop's.
+void SDL2DisplayWindow::SetFullscreenMode(int width, int height)
+{
+	fullscreenWidth = width;
+	fullscreenHeight = height;
+#ifndef DXE_SDL2_BORDERLESS_FULLSCREEN
+	if (isFullscreen)
+		ApplyFullscreen();
+#endif
+}
+
+void SDL2DisplayWindow::ApplyFullscreen()
+{
+	if (fullscreenWidth > 0 && fullscreenHeight > 0)
+	{
+		int display = SDL_GetWindowDisplayIndex(Handle.window);
+		SDL_DisplayMode want = {};
+		want.w = fullscreenWidth;
+		want.h = fullscreenHeight;
+		SDL_DisplayMode closest = {};
+		if (display >= 0 && SDL_GetClosestDisplayMode(display, &want, &closest))
+		{
+			SDL_SetWindowDisplayMode(Handle.window, &closest);
+			SDL_SetWindowFullscreen(Handle.window, SDL_WINDOW_FULLSCREEN);
+			return;
+		}
+	}
+	SDL_SetWindowFullscreen(Handle.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
 }
 
 void SDL2DisplayWindow::ShowMaximized()

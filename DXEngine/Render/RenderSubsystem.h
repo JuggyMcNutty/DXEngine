@@ -94,6 +94,7 @@ public:
 	void UpdateTextureInfo(TextureInfo& info, BspSurface& surface, UTexture* texture, float ZoneUPanSpeed, float ZoneVPanSpeed);
 	void UpdateTextureInfo(TextureInfo& info, const Poly& poly, UTexture* texture, float ZoneUPanSpeed, float ZoneVPanSpeed);
 	void UpdateTextureInfo(TextureInfo& info, UTexture* texture);
+	static void ApplyDetailLOD(TextureInfo& info);
 
 
 	RenderDevice* Device = nullptr;

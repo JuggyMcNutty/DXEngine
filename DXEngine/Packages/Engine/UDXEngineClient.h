@@ -25,9 +25,18 @@ public:
 	std::string TextureDetail = "High";
 	std::string SkinDetail = "High";
 
+	// The mips a texture of a LODSet skips: TextureDetail's for the world's,
+	// SkinDetail's for skins', none for any other (High 0, Medium 1, Low 2,
+	// UltraLow 3), as the original's UClient::TextureLODSet.
+	int DetailLevel(int lodSet) const { return lodSet >= 0 && lodSet < 3 ? TextureLODSet[lodSet] : 0; }
+
 	void LoadProperties(const NameString& from = "");
 	void SaveConfig() override;
 
 	std::string GetPropertyAsString(const NameString& propertyName) const override;
 	void SetPropertyFromString(const NameString& propertyName, const std::string& value) override;
+
+private:
+	void UpdateDetailLevels();
+	int TextureLODSet[3] = {};
 };

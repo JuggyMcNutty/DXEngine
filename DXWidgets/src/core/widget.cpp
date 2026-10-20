@@ -295,6 +295,12 @@ void Widget::ShowFullscreen()
 	}
 }
 
+void Widget::SetFullscreenMode(int width, int height)
+{
+	if (Type != WidgetType::Child)
+		DispWindow->SetFullscreenMode(width, height);
+}
+
 bool Widget::IsFullscreen()
 {
 	if (Type != WidgetType::Child)

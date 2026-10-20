@@ -18,6 +18,7 @@ public:
 	void StopTimer(void* timerID) override;
 
 	Size GetScreenSize() override;
+	std::vector<Size> GetFullscreenModes() override;
 
 	bool GetGamepadState(GamepadState& state) override;
 	void SetGamepadKeyEmulation(bool enable) override;

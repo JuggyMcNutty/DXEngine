@@ -722,14 +722,24 @@ With Decals off no new decal attaches
 ([small](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#small))
 and the ones on the walls are not drawn
 ([a frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-frame);
-`DecalConsole`). Differs:
+`DecalConsole`). World and Object Texture Detail draw the world's textures
+and the skins from one, two or three mips below the top at Medium, Low and
+UltraLow
+([a texture's mips](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-textures-mips)),
+World Texture Detail below High dropping the detail textures too. Low Sound
+Quality makes each WAV 8-bit, and one of 22,050 Hz or more half its rate, as
+it loads
+([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds)).
+Full screen, Screen Resolution offers the display's modes from 640x480,
+and a choice, or `FullscreenViewportX` and `Y` as the game starts, takes the
+display's nearest mode; 0 takes the desktop's
+([fullscreen under SDL](ENGINE.md#running-on-our-devices)). A size chosen is
+saved, the window's or the full screen's, as the original's `SETRES` saves
+it. Differs:
 
-- **Screen Resolution** offers DXEngine's sizes, not the display's modes: in
-  a window the common sizes from 640x480 that fit the screen, with the
-  window's own and the screen's, a choice resizing the window and kept as
-  its size; full screen, the screen's size alone, DXEngine's full screen
-  never changing the display's mode
-  ([fullscreen under SDL](ENGINE.md#running-on-our-devices)).
+- **Screen Resolution** in a window offers DXEngine's sizes, not the
+  display's modes: the common sizes from 640x480 that fit the screen, with
+  the window's own and the screen's, a choice resizing the window.
 - **Detail Textures** draws the world's detail textures as `D3DDrv`'s passes
   draw them, all three in the scene shader's one pass
   ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):
@@ -747,12 +757,9 @@ and the ones on the walls are not drawn
   worked out for each pixel, where theirs goes by a polygon's corners and
   passes over one with no corner within the band, and the bands are not
   rounded to 8 bits between passes.
-- **World and Object Texture Detail** are kept and read back; every texture
-  draws at full detail, World Texture Detail below High dropping the detail
-  textures alone; **Low Sound Quality** is kept, but every sound plays at
-  its own; 16-bit **Texture Color Depth** is kept, DXEngine drawing in 32
-  bits. **Use 3D Hardware** finds no hardware, as the original finds none
-  without an A3D or EAX card.
+- 16-bit **Texture Color Depth** is kept, DXEngine drawing in 32 bits.
+  **Use 3D Hardware** finds no hardware, as the original finds none without
+  an A3D or EAX card.
 - **Rendering Device**, and a dedicated server from the Host screen, send
   `RELAUNCH`, which starts the launcher again with the rest of the line once
   the engine has exited, as the original's starts `DeusEx.exe`

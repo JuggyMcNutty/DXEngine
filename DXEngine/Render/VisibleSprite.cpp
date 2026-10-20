@@ -52,6 +52,7 @@ void VisibleSprite::Draw(VisibleFrame* frame, UActor* actor, const vec3& locatio
 	texinfo.VSize = texinfo.Texture->VSize();
 	if (texinfo.Texture->Palette())
 		texinfo.Palette = (TextureColor*)texinfo.Texture->Palette()->Colors.data();
+	engine->render->ApplyDetailLOD(texinfo);
 
 	float texwidth = (float)texture->UsedMipmaps.front().Width;
 	float texheight = (float)texture->UsedMipmaps.front().Height;

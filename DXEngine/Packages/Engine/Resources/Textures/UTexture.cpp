@@ -2,6 +2,8 @@
 #include "Precomp.h"
 #include "UTexture.h"
 #include "Engine.h"
+#include "Packages/Engine/UDXEngineClient.h"
+#include <algorithm>
 
 void UTexture::Load(ObjectStream* stream)
 {
@@ -49,6 +51,18 @@ void UTexture::Load(ObjectStream* stream)
 		UsedFormat = (TextureFormat)GetByte("Format");
 		UsedMipmaps = UncompressedMipmaps;
 	}
+}
+
+// Engine.dll UTexture::Lock (0x103ecc90), a frame's texture locked with no
+// LOD of its own: the client's TextureLODSet for the texture's LODSet,
+// raised to the render device's RecommendedLOD (D3DDrv leaves it 0), held to
+// 3 and to the last mip.
+int UTexture::DetailLOD()
+{
+	if (!engine || !engine->client || UsedMipmaps.empty())
+		return 0;
+	int lod = engine->client->DetailLevel(LODSet());
+	return std::max(std::min({ lod, 3, (int)UsedMipmaps.size() - 1 }), 0);
 }
 
 void UTexture::Save(PackageStreamWriter* stream)

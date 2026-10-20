@@ -1,5 +1,6 @@
 #include "sdl2_display_backend.h"
 #include "sdl2_display_window.h"
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 #include <SDL2/SDL_video.h>
@@ -195,6 +196,30 @@ Size SDL2DisplayBackend::GetScreenSize()
 		throw std::runtime_error(std::string("Unable to get screen size:") + SDL_GetError());
 
 	return Size(rect.w / UIScale, rect.h / UIScale);
+}
+
+std::vector<Size> SDL2DisplayBackend::GetFullscreenModes()
+{
+	std::vector<Size> modes;
+#ifndef DXE_SDL2_BORDERLESS_FULLSCREEN
+	int count = SDL_GetNumDisplayModes(0);
+	for (int i = 0; i < count; i++)
+	{
+		SDL_DisplayMode mode = {};
+		if (SDL_GetDisplayMode(0, i, &mode) != 0)
+			continue;
+		Size size(mode.w, mode.h);
+		if (std::find(modes.begin(), modes.end(), size) == modes.end())
+			modes.push_back(size);
+	}
+#endif
+	if (modes.empty())
+	{
+		SDL_DisplayMode desktop = {};
+		if (SDL_GetDesktopDisplayMode(0, &desktop) == 0)
+			modes.push_back(Size(desktop.w, desktop.h));
+	}
+	return modes;
 }
 
 void* SDL2DisplayBackend::StartTimer(int timeoutMilliseconds, std::function<void()> onTimer)

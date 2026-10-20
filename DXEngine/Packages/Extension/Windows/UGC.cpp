@@ -668,6 +668,7 @@ void UGC::DrawTile(UTexture* tex, const Rectf& dest, const Rectf& src, const Col
 	texinfo.VSize = tex->VSize();
 	if (tex->Palette())
 		texinfo.Palette = (TextureColor*)tex->Palette()->Colors.data();
+	engine->render->ApplyDetailLOD(texinfo);
 
 	if (dest.left >= dest.right || dest.top >= dest.bottom)
 		return;

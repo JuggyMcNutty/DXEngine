@@ -147,10 +147,33 @@ void RenderSubsystem::UpdateTextureInfo(TextureInfo& info, UTexture* texture)
 	info.VSize = texture->VSize();
 	if (texture->Palette())
 		info.Palette = (TextureColor*)texture->Palette()->Colors.data();
+	ApplyDetailLOD(info);
 
 	info.bRealtimeChanged = texture->TextureModified;
 	if (texture->TextureModified)
 		texture->TextureModified = false;
+}
+
+// The texture from its detail level's mip down, as the original's
+// UTexture::Lock hands it over (Engine.dll 0x103ecc90): that mip's size, the
+// scale grown by as much, so a texel lands where it did, and a cache entry of
+// its own.
+void RenderSubsystem::ApplyDetailLOD(TextureInfo& info)
+{
+	if (!info.Texture || info.Mips != info.Texture->UsedMipmaps.data())
+		return;
+	int lod = info.Texture->DetailLOD();
+	if (lod <= 0 || lod >= info.NumMips)
+		return;
+	const UnrealMipmap& top = info.Mips[0];
+	const UnrealMipmap& mip = info.Mips[lod];
+	info.UScale *= (float)top.Width / (float)mip.Width;
+	info.VScale *= (float)top.Height / (float)mip.Height;
+	info.USize = mip.Width;
+	info.VSize = mip.Height;
+	info.Mips += lod;
+	info.NumMips -= lod;
+	info.CacheID += lod;
 }
 
 void RenderSubsystem::PurgeDying()

@@ -99,6 +99,7 @@ public:
 	void SetVisible(bool enable) { if (enable) Show(); else Hide(); }
 	void Show();
 	void ShowFullscreen();
+	void SetFullscreenMode(int width, int height);
 	void ShowMaximized();
 	void ShowMinimized();
 	void ShowNormal();

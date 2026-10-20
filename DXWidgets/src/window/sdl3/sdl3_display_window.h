@@ -18,6 +18,7 @@ public:
 	void SetClientFrame(const Rect& box) override;
 	void Show() override;
 	void ShowFullscreen() override;
+	void SetFullscreenMode(int width, int height) override;
 	void ShowMaximized() override;
 	void ShowMinimized() override;
 	void ShowNormal() override;

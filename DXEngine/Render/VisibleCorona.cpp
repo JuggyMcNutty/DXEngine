@@ -43,6 +43,7 @@ void VisibleCorona::Draw(VisibleFrame* frame)
 			texinfo.VSize = texinfo.Texture->VSize();
 			if (texinfo.Texture->Palette())
 				texinfo.Palette = (TextureColor*)texinfo.Texture->Palette()->Colors.data();
+			engine->render->ApplyDetailLOD(texinfo);
 
 			engine->render->UpdateTexture(texinfo.Texture);
 
