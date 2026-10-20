@@ -521,7 +521,7 @@ inline bool ExpressionValue::IsEqual(const ExpressionValue& value) const
 	case ExpressionValueType::ValueFloat: return ToFloat() == value.ToFloat();
 	case ExpressionValueType::ValueObject: return ToObject() == value.ToObject();
 	case ExpressionValueType::ValueVector: return ToVector() == value.ToVector();
-	case ExpressionValueType::ValueRotator: return ToRotator() == value.ToRotator();
+	case ExpressionValueType::ValueRotator: return identical(ToRotator(), value.ToRotator());
 	case ExpressionValueType::ValueString: return ToString() == value.ToString();
 	case ExpressionValueType::ValueName: return ToName() == value.ToName();
 	case ExpressionValueType::ValueColor: return ToColor() == value.ToColor();

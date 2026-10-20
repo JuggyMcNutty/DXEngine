@@ -8,7 +8,8 @@
 // to where an angle crosses a whole unit -- each logged as its parts read as
 // ints and as the rotator's string. Then vector(r), GetAxes and GetUnAxes
 // for a few rotators, and a vector turned by each (<<) and back (>>); a
-// rotator scaled in place (*=), floats a hair apart compared (== and !=),
+// rotator scaled in place (*=), floats a hair apart and rotators a whole
+// turn apart compared (== and !=),
 // and an enum's first and last names (GetEnum); and an exit. What is compared between the engines:
 // every line, exactly.
 //=============================================================================
@@ -39,7 +40,7 @@ function LogBack(rotator R)
 
 function Operators()
 {
-	local rotator R, S;
+	local rotator R, S, T;
 	local float A, B;
 
 	R = rot(1000, -2001, 3003);
@@ -48,6 +49,10 @@ function Operators()
 	A = 0.001;
 	B = A + 0.00000001;
 	Log("DXROT: floats == " $ (A == B) $ " != " $ (A != B) $ "; == itself " $ (A == A));
+	R = rot(0, -1, 0);
+	S = rot(0, 65535, 0);
+	T = rot(65536, 0, -65536);
+	Log("DXROT: rotators a turn apart == " $ (R == S) $ " != " $ (R != S) $ "; zero == " $ (T == rot(0,0,0)) $ " != " $ (T != rot(0,0,0)) $ "; == itself " $ (R == R));
 	Log("DXROT: enum " $ GetEnum(enum'ENetRole', 0) $ " " $ GetEnum(enum'ENetRole', 4) $ " " $ GetEnum(enum'ENetRole', 5) $ " " $ GetEnum(enum'ENetRole', -1));
 }
 

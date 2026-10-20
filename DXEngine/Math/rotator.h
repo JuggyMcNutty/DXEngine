@@ -87,6 +87,10 @@ inline Rotator operator*(const Rotator& a, float scale) { return Rotator((int)(a
 inline Rotator operator*(float scale, const Rotator& b) { return Rotator((int)(b.Pitch * scale), (int)(b.Yaw * scale), (int)(b.Roll * scale)); }
 inline Rotator operator/(const Rotator& a, float scale) { return Rotator((int)(a.Pitch / scale), (int)(a.Yaw / scale), (int)(a.Roll / scale)); }
 inline Rotator operator/(float scale, const Rotator& b) { return Rotator((int)(b.Pitch / scale), (int)(b.Yaw / scale), (int)(b.Roll / scale)); }
+// The script's == and != (Core.dll's execEqualEqual_RotatorRotator,
+// RotatorConsole): every bit of each angle, a whole turn apart not equal.
+// The engine's own comparisons below take the angles a turn apart as one.
+inline bool identical(const Rotator& a, const Rotator& b) { return a.Pitch == b.Pitch && a.Yaw == b.Yaw && a.Roll == b.Roll; }
 inline bool operator==(const Rotator& a, const Rotator& b) { return (uint16_t)a.Pitch == (uint16_t)b.Pitch && (uint16_t)a.Yaw == (uint16_t)b.Yaw && (uint16_t)a.Roll == (uint16_t)b.Roll; }
 inline bool operator!=(const Rotator& a, const Rotator& b) { return (uint16_t)a.Pitch != (uint16_t)b.Pitch || (uint16_t)a.Yaw != (uint16_t)b.Yaw || (uint16_t)a.Roll != (uint16_t)b.Roll; }
 

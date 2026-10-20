@@ -531,7 +531,7 @@ void NObject::EqualEqual_ObjectObject(UObject* A, UObject* B, BitfieldBool& Retu
 
 void NObject::EqualEqual_RotatorRotator(const Rotator& A, const Rotator& B, BitfieldBool& ReturnValue)
 {
-	ReturnValue = (A == B);
+	ReturnValue = identical(A, B);
 }
 
 void NObject::EqualEqual_StrStr(const std::string& A, const std::string& B, BitfieldBool& ReturnValue)
@@ -934,7 +934,7 @@ void NObject::NotEqual_ObjectObject(UObject* A, UObject* B, BitfieldBool& Return
 
 void NObject::NotEqual_RotatorRotator(const Rotator& A, const Rotator& B, BitfieldBool& ReturnValue)
 {
-	ReturnValue = A != B;
+	ReturnValue = !identical(A, B);
 }
 
 void NObject::NotEqual_StrStr(const std::string& A, const std::string& B, BitfieldBool& ReturnValue)

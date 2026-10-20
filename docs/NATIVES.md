@@ -935,8 +935,9 @@ Every other native the scripted runs compare matches the original
   at half a turn a second toward level when walking or falling, held within
   `RotationRate`'s).
 - **Small ones**: `SetLocation`; the rotators' conversions, `<<` and `>>`
-  by the sine table, a rotator's `*=`, float `==` exact and `GetEnum` from
-  index 0 (`RotatorConsole`); `Object.Mid` 127 at its edges, its end's
+  by the sine table, a rotator's `*=`, float `==` exact, a rotator's `==`
+  and `!=` every bit of each angle, and `GetEnum` from index 0
+  (`RotatorConsole`); `Object.Mid` 127 at its edges, its end's
   clamp known from `MidConsole`'s ten probes of both;
   `Object.DynamicLoadObject` with a group in the name, its own, another or
   none, and a class that is not the object's own (`DynLoadConsole`); and
