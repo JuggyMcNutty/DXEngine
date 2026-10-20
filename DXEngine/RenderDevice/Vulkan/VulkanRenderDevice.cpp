@@ -38,10 +38,23 @@ VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
 
 		// Descriptor indexing is missing on several mobile GPUs (PowerVR Rogue, for one).
 		// Without it the renderer falls back to a descriptor set per texture combination.
+		// The bindless set's binding is partially bound, of a variable count
+		// and updated after bind (DescriptorSetManager): each feature, and room
+		// for its MaxBindlessTextures image samplers updated after bind.
+		const auto& indexing = Device->EnabledFeatures.DescriptorIndexing;
+		const auto& indexingLimits = Device->PhysicalDevice.Properties.DescriptorIndexing;
+		const uint32_t bindlessCount = DescriptorSetManager::MaxBindlessTextures;
 		SupportsBindless =
-			Device->EnabledFeatures.DescriptorIndexing.descriptorBindingPartiallyBound &&
-			Device->EnabledFeatures.DescriptorIndexing.runtimeDescriptorArray &&
-			Device->EnabledFeatures.DescriptorIndexing.shaderSampledImageArrayNonUniformIndexing;
+			indexing.descriptorBindingPartiallyBound &&
+			indexing.runtimeDescriptorArray &&
+			indexing.shaderSampledImageArrayNonUniformIndexing &&
+			indexing.descriptorBindingSampledImageUpdateAfterBind &&
+			indexing.descriptorBindingVariableDescriptorCount &&
+			indexingLimits.maxDescriptorSetUpdateAfterBindSampledImages >= bindlessCount &&
+			indexingLimits.maxDescriptorSetUpdateAfterBindSamplers >= bindlessCount &&
+			indexingLimits.maxPerStageDescriptorUpdateAfterBindSampledImages >= bindlessCount &&
+			indexingLimits.maxPerStageDescriptorUpdateAfterBindSamplers >= bindlessCount &&
+			indexingLimits.maxPerStageUpdateAfterBindResources >= bindlessCount;
 
 		// DXE_VK_NO_BINDLESS exercises that fallback on hardware that doesn't need it.
 		if (std::getenv("DXE_VK_NO_BINDLESS"))
