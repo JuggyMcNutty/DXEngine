@@ -72,6 +72,12 @@ void VisibleSprite::Draw(VisibleFrame* frame, UActor* actor, const vec3& locatio
 		renderflags |= PF_Masked;
 
 	renderflags |= texture->PolyFlags();
+
+	// Modulated and masked alone, as D3DDrv draws every modulated tile
+	// (D3DDrv.dll 0x10005ba0): the texture's colour 0 cut out
+	if (renderflags & PF_Modulated)
+		renderflags = PF_TwoSided | PF_Modulated | PF_Masked;
+
 	if (renderflags & PF_Invisible)
 		return;
 

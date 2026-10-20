@@ -270,11 +270,15 @@ a sprite draws upright, the texture's first row at the top, with its
 actor's style -- `STY_Masked` masked, `STY_Translucent` translucent,
 `STY_Modulated` modulated -- its texture's own flags and its `bNoSmooth`; a
 render iterator's items with their proxy's, so a `ParticleGenerator` with
-neither `bTranslucent` nor `bModulated` draws its particles masked.
+neither `bTranslucent` nor `bModulated` draws its particles masked. A
+modulated sprite draws modulated and masked alone, as `D3DDrv` draws every
+modulated tile
+([tiles](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#tiles)).
 `SpriteConsole`'s icon, its colour 0 magenta, drawn `STY_Masked` and as
 such particles, shows none of that colour in either engine: 0.0% of the
 sprite's box and 0.7% of the particles' magenta in DXEngine's frame, none in
-`D3DDrv`'s, the sprite's box at a correlation of 0.998 to `D3DDrv`'s.
+`D3DDrv`'s, the sprite's box at a correlation of 0.998 to `D3DDrv`'s; drawn
+`STY_Modulated`, its box at 0.96 and within 1% of `D3DDrv`'s brightness.
 Differs:
 
 - **A texture drawn both masked and not** shows its colour 0 in the
