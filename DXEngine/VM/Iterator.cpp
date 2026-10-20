@@ -257,6 +257,10 @@ RadiusActorsIterator::RadiusActorsIterator(UActor* Caller, UObject* BaseClass, U
 
 bool RadiusActorsIterator::Next()
 {
+	// One destroyed since is passed over, as the original's walk of the
+	// level's list finds its slot empty
+	while (iterator != RadiusActors.end() && (*iterator)->bDeleteMe())
+		iterator++;
 	if (iterator == RadiusActors.end())
 	{
 		*Actor = nullptr;
@@ -286,6 +290,9 @@ TouchingActorsIterator::TouchingActorsIterator(UActor* Caller, UObject* BaseClas
 
 bool TouchingActorsIterator::Next()
 {
+	// One destroyed since, untouched by its Destroy, is passed over
+	while (iterator != TouchingActors.end() && (*iterator)->bDeleteMe())
+		iterator++;
 	if (iterator == TouchingActors.end())
 	{
 		*outActor = nullptr;
@@ -358,6 +365,9 @@ VisibleActorsIterator::VisibleActorsIterator(UActor* Caller, UObject* BaseClass,
 
 bool VisibleActorsIterator::Next()
 {
+	// One destroyed since is passed over, as RadiusActors'
+	while (iterator != VisibleActors.end() && (*iterator)->bDeleteMe())
+		iterator++;
 	if (iterator == VisibleActors.end())
 	{
 		*Actor = nullptr;
