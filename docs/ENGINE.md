@@ -98,18 +98,17 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   window: an error goes to stderr alone. With no game folder given, the engine runs the game
   whose `System` folder it starts in, or on Windows the Deus Ex the registry names; with
   neither, it says no game is found and exits.
-- **A map is `--url=<map>` (or `-u=<map>`): an option's value follows its `=`.** `-u <map>` or
-  `--url <map>` sets an empty URL and the map name becomes a stray argument, so the intro loads
-  with no warning.
+- **A map is `--url=<map>` (or `-u=<map>`, `--url <map>`).** An option that takes a value
+  (`--url`, `--ini`, `--userini`, `--userdir`, `--cmdline`, `--timeline`) takes the next word
+  when it has no `=`, unless that word starts with `-`.
 - **`--server`** runs a dedicated server of the `--url` map, as the original's `-SERVER`: no
   window, sound or player; `--lanplay` gives it the LAN tick rate
   ([multiplayer](NATIVES.md#multiplayer)).
-- **Under SDL the engine ignores SIGTERM**: SDL turns it into a quit event nothing reads. Where
-  the window is SDL's -- every launcher's run, and the Smart Pro's only display -- stop it with
-  SIGKILL (`kill -9`). A run in the engine's own X11 or Wayland window takes SIGTERM's default,
-  and a dedicated server ends on it (143).
-- `Running.ini` is the launcher's crash sentinel, not the engine's: a run under a launcher
-  stopped either way leaves it behind like any crash; a run by hand has none.
+- **SIGTERM or SIGINT quits as a closed window does**: at the next frame, the inis written back,
+  exit 0, whatever the window (a dedicated server too). A second signal kills at once, as a
+  stuck engine needs.
+- `Running.ini` is the launcher's crash sentinel, not the engine's: a run under a launcher that
+  is killed leaves it behind like any crash; a run by hand has none.
 - `--ini=<file>` and `--userini=<file>` name the inis to read and write back, as the original's
   `INI=` and `USERINI=`; the `shot` console command writes the next `ShotNNNN.bmp` into the
   game's System folder (with `--userdir`, its `Screenshots` folder); `--timeline=<file>` gives

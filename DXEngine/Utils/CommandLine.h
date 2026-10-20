@@ -34,6 +34,9 @@ public:
 
 	const Array<std::string>& GetItems() const { return Items; }
 
+	// An option whose value may follow it as the next word, when it has no '='
+	static bool TakesValue(const std::string& option);
+
 private:
 	std::map<std::string, std::string> Args;
 	Array<std::string> Items;

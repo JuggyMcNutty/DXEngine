@@ -66,6 +66,7 @@
 #include <thread>
 #ifndef WIN32
 #include <unistd.h>
+#include <csignal>
 #endif
 
 // The machine's name, as the original's LevelInfo.ComputerName has it
@@ -85,6 +86,28 @@ static std::string ComputerName()
 		c = (char)std::toupper((unsigned char)c);
 	return result.empty() ? "MyComputer" : result;
 }
+
+#ifndef WIN32
+// SIGTERM or SIGINT: quit as a closed window does, the inis written back. The
+// handler is installed before SDL's (which only takes a signal left at its
+// default) and is reset by its first signal, so a second one kills.
+static volatile std::sig_atomic_t StopSignalled = 0;
+
+static void OnStopSignal(int)
+{
+	StopSignalled = 1;
+}
+
+static void InstallStopSignal()
+{
+	struct sigaction action = {};
+	action.sa_handler = OnStopSignal;
+	action.sa_flags = SA_RESETHAND;
+	sigemptyset(&action.sa_mask);
+	sigaction(SIGTERM, &action, nullptr);
+	sigaction(SIGINT, &action, nullptr);
+}
+#endif
 
 Engine* engine = nullptr;
 
@@ -175,6 +198,10 @@ void Engine::Run()
 	// cleans its cache as the engine starts).
 	packages->CleanFileCache();
 
+#ifndef WIN32
+	InstallStopSignal();
+#endif
+
 	// A dedicated server has no client: no window, sound or picture, no
 	// player of its own, no Entry level (the original's -SERVER).
 	const bool dedicated = LaunchInfo.dedicatedServer;
@@ -259,6 +286,14 @@ void Engine::Run()
 
 	while (!quit)
 	{
+#ifndef WIN32
+		if (StopSignalled)
+		{
+			LogMessage("Stopped by a signal");
+			quit = true;
+			break;
+		}
+#endif
 		LauncherLine::Get().Poll([this](const std::string& line) { OnLauncherLine(line); });
 
 		// Main game loop should consist of these 4 steps:

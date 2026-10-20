@@ -1062,9 +1062,12 @@ engine's own objects are not deleted (the log says so).
   past 200 frames a second, which would run the game fast there. The level's
   `TimeDilation` is held to 0.0025 to 25, where the original's is not held
   (the game sets it only through `SetGameSpeed`, to 0.1 or more).
-- **Input axes**: an axis a console command sets is used as it is; the
-  original's input scales it (the harness's `StandConsole` and `JoinConsole`
-  allow for it).
+- **Input axes**: every `input` float is 0 again after the player's
+  `PlayerTick`, and after its `PlayerInput` while paused, as the original's
+  ([a player's input](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)).
+  Differs: an axis a console command sets is used as it is; the original's
+  input scales it (the harness's `StandConsole` and `JoinConsole` allow for
+  it).
 - **A key's binding**, as the original's
   ([a key's binding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)):
   on a press, each command goes to `Button` and `Axis`, the exec functions

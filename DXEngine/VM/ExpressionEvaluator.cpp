@@ -187,7 +187,8 @@ void ExpressionEvaluator::Expr(NothingExpression* expr)
 
 void ExpressionEvaluator::Expr(LabelTableExpression* expr)
 {
-	// Klingon honor guard has this! (UE 251)
+	// A state's label table follows its EX_Stop: read as data (FindLabelIndex),
+	// never run.
 	Frame::ThrowException("Label table expression is not implemented");
 }
 

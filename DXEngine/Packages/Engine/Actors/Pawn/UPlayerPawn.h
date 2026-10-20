@@ -17,6 +17,7 @@ public:
 	// Reads the player's input and runs its PlayerTick, when it has a player
 	// here; whether it did.
 	bool TickInput(float elapsed);
+	void ClearInput();
 
 	void Tick(float elapsed) override;
 	void TickRotating(float elapsed) override;

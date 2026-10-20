@@ -207,15 +207,6 @@ private:
 	bool speech = false;
 };
 
-// TODO list:
-//  Sound looping
-//  Positional audio
-//  Music fade in/out
-//  Music crossfade
-//  EFX effects
-//  Support for real EAX hardware
-//  (maybe) A3D style sound tracing
-
 class OpenALAudioDevice : public AudioDevice
 {
 public:
@@ -661,8 +652,6 @@ public:
 				{
 					UpdateMusicBuffer(currentMusic.get());
 				}
-
-				// TODO: music fade in/out
 			}
 			else
 			{

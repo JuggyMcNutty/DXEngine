@@ -172,12 +172,8 @@ void UDXEngineAudioDevice::SaveConfig()
 
 void UDXEngineAudioDevice::InitDevice()
 {
-	// TODO: Add configurable option for audio device
-	// TODO: Add configurable option for audio output frequency
-	// TODO: Add option for number of sound channels
-	// TODO: Add option for music buffer count
-	// TODO: Add option for music buffer size
-	// m_Device = AudioDevice::Create(48000, 256, 16, 256);
+	// The rate is OutputRate's; the rest is fixed, as the original's Galaxy
+	// has no key for a device, its voices or its music buffers.
 	m_Device = AudioDevice::Create(OutputRate.frequency, 256, 16, 256);
 	LogMessage("Audio device initialized");
 }

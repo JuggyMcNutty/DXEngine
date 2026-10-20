@@ -7,12 +7,31 @@
 #include "Package/PackageManager.h"
 #include "Package/IniProperty.h"
 #include "VM/ScriptCall.h"
+#include "Packages/Core/UClass.h"
+#include "Packages/Core/Properties/UFloatProperty.h"
 
 void UPlayerPawn::PausedInput(float elapsed)
 {
 	if (Role() >= ROLE_SimulatedProxy && Player() && !UObject::TryCast<UCamera>(this))
 	{
 		CallEvent(this, EventName::PlayerInput, { ExpressionValue::FloatValue(elapsed) });
+		ClearInput();
+	}
+}
+
+// Every input float (aBaseX, aTurn, aMouseX...) back to 0 once the script has
+// read them, as the original's Player->ReadInput(-1.0) after PlayerTick
+// (Engine.dll AActor::Tick 0x103a1aa0, UInput::ReadInput 0x10394580), and
+// ULevel::Tick's own loop while paused (0x103a51a0). Its input bytes stay.
+void UPlayerPawn::ClearInput()
+{
+	for (UProperty* prop : Class->Properties)
+	{
+		if (AllFlags(prop->PropFlags, PropertyFlags::Input) && UObject::IsType<UFloatProperty>(prop))
+		{
+			for (int i = 0; i < prop->ArrayDimension; i++)
+				*reinterpret_cast<float*>(static_cast<uint8_t*>(PropertyData.Ptr(prop)) + i * prop->ElementPitch()) = 0.0f;
+		}
 	}
 }
 
@@ -26,6 +45,7 @@ bool UPlayerPawn::TickInput(float elapsed)
 
 	CallEvent(this, EventName::PlayerInput, { ExpressionValue::FloatValue(elapsed) });
 	CallEvent(this, EventName::PlayerTick, { ExpressionValue::FloatValue(elapsed) });
+	ClearInput();
 	return true;
 }
 
@@ -34,14 +54,6 @@ void UPlayerPawn::Tick(float elapsed)
 	// Deus Ex's input is read in the actor's own tick, before its physics
 	// (UActor::Tick).
 	UPawn::Tick(elapsed);
-
-	// TODO: is this the correct place to set this?
-	aForward() = 0.0f;
-
-	// XXX: we reset this here to prevent infinite runaway, which eventually breaks mouselook
-	// however, this might break looking with the controller?
-	aTurn() = 0.0f;
-	aLookUp() = 0.0f;
 }
 
 void UPlayerPawn::TickRotating(float elapsed)
@@ -65,7 +77,6 @@ void UPlayerPawn::LoadProperties()
 {
 	bInvertMouse() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bInvertMouse", true);
 	MouseSensitivity() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "MouseSensitivity", 5.0f);
-	// TODO: Handle the array property this class has (WeaponPriority)
 	DodgeClickTime() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "DodgeClickTime", 0.25f);
 	Bob() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "Bob", 0.016f);
 	Handedness() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "Handedness", -1.0f);
@@ -76,8 +87,6 @@ void UPlayerPawn::LoadProperties()
 	bMaxMouseSmoothing() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bMaxMouseSmoothing", false);
 	bNoVoices() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bNoVoices", false);
 	bMessageBeep() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bMessageBeep", true);
-	// NetSpeed is missing
-	// LanSpeed is missing
 	MouseSmoothThreshold() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "MouseSmoothThreshold", 0.16f);
 	ngWorldSecret() = IniPropertyConverter<std::string>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "ngWorldSecret", "");
 }
@@ -86,12 +95,10 @@ void UPlayerPawn::SaveConfig()
 {
 	UPawn::SaveConfig();
 
-	// Note: the code below may no longer be needed. SaveConfig() on UObject saves all unrealscript variables marked as config or globalconfig
-
-	// Not sure why are PlayerPawn's config fields not saved with the base SaveConfig(), but whatever. 
+	// UObject::SaveConfig has saved every config and globalconfig property,
+	// WeaponPriority's entries among them; these are written again as before.
 	engine->packages->SetIniValue("user", "Engine.PlayerPawn", "bInvertMouse", IniPropertyConverter<bool>::ToString(bInvertMouse()));
 	engine->packages->SetIniValue("user", "Engine.PlayerPawn", "MouseSensitivity", IniPropertyConverter<float>::ToString(MouseSensitivity()));
-	// TODO: Handle the array property this class has (WeaponPriority)
 	engine->packages->SetIniValue("user", "Engine.PlayerPawn", "DodgeClickTime", IniPropertyConverter<float>::ToString(DodgeClickTime()));
 	engine->packages->SetIniValue("user", "Engine.PlayerPawn", "Bob", IniPropertyConverter<float>::ToString(Bob()));
 	engine->packages->SetIniValue("user", "Engine.PlayerPawn", "Handedness", IniPropertyConverter<float>::ToString(Handedness()));
@@ -102,8 +109,6 @@ void UPlayerPawn::SaveConfig()
 	engine->packages->SetIniValue("user", "Engine.PlayerPawn", "bMaxMouseSmoothing", IniPropertyConverter<bool>::ToString(bMaxMouseSmoothing()));
 	engine->packages->SetIniValue("user", "Engine.PlayerPawn", "bNoVoices", IniPropertyConverter<bool>::ToString(bNoVoices()));
 	engine->packages->SetIniValue("user", "Engine.PlayerPawn", "bMessageBeep", IniPropertyConverter<bool>::ToString(bMessageBeep()));
-	// NetSpeed is missing
-	// LanSpeed is missing
 	engine->packages->SetIniValue("user", "Engine.PlayerPawn", "MouseSmoothThreshold", IniPropertyConverter<float>::ToString(MouseSmoothThreshold()));
 	engine->packages->SetIniValue("user", "Engine.PlayerPawn", "ngWorldSecret", ngWorldSecret());
 }

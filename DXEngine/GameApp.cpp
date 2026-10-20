@@ -143,11 +143,17 @@ void GameApp::Relaunch(const Array<std::string>& args, const std::string& line)
 		return arg.compare(0, n, name) == 0 && (arg.size() == n || arg[n] == '=');
 	};
 	Array<std::string> next;
-	for (const std::string& arg : args)
+	for (size_t i = 0; i < args.size(); i++)
 	{
+		const std::string& arg = args[i];
 		if (option(arg, "--cmdline") || option(arg, "--url") || option(arg, "-u") || option(arg, "--server") ||
 			option(arg, "--lanplay") || option(arg, "--timeline"))
+		{
+			// its value as the next word (CommandLine) goes with it
+			if (CommandLine::TakesValue(arg) && i + 1 < args.size() && !args[i + 1].empty() && args[i + 1][0] != '-')
+				i++;
 			continue;
+		}
 		next.push_back(arg);
 	}
 	next.push_back("--cmdline=" + line);

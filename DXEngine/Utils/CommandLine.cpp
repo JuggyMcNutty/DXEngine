@@ -6,37 +6,42 @@ CommandLine* commandline;
 
 CommandLine::CommandLine(const Array<std::string>& args)
 {
-	for (const std::string& arg : args)
+	for (size_t i = 0; i < args.size(); i++)
 	{
-		if (arg.size() > 2 && arg[0] == '-' && arg[1] == '-')
+		const std::string& arg = args[i];
+		size_t dashes = (arg.size() > 2 && arg[0] == '-' && arg[1] == '-') ? 2 : (arg.size() > 1 && arg[0] == '-') ? 1 : 0;
+		if (dashes == 0)
 		{
-			size_t pos = arg.find('=', 2);
-			if (pos != std::string::npos)
-			{
-				Args[arg.substr(0, pos)] = arg.substr(pos + 1);
-			}
-			else
-			{
-				Args[arg] = {};
-			}
+			Items.push_back(arg);
+			continue;
 		}
-		else if (arg.size() > 1 && arg[0] == '-')
+
+		size_t pos = arg.find('=', dashes);
+		if (pos != std::string::npos)
 		{
-			size_t pos = arg.find('=', 1);
-			if (pos != std::string::npos)
-			{
-				Args[arg.substr(0, pos)] = arg.substr(pos + 1);
-			}
-			else
-			{
-				Args[arg] = {};
-			}
+			Args[arg.substr(0, pos)] = arg.substr(pos + 1);
+		}
+		else if (TakesValue(arg) && i + 1 < args.size() && !args[i + 1].empty() && args[i + 1][0] != '-')
+		{
+			// "--url <map>" as "--url=<map>": the next word is the value, not a game folder
+			Args[arg] = args[++i];
 		}
 		else
 		{
-			Items.push_back(arg);
+			Args[arg] = {};
 		}
 	}
+}
+
+bool CommandLine::TakesValue(const std::string& option)
+{
+	static const char* options[] = { "-u", "--url", "--ini", "--userini", "--userdir", "--cmdline", "--timeline" };
+	for (const char* name : options)
+	{
+		if (option == name)
+			return true;
+	}
+	return false;
 }
 
 bool CommandLine::HasArg(const std::string& shortform, const std::string& longform) const

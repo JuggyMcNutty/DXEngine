@@ -26,12 +26,14 @@ void UMapProperty::LoadValue(void* data, ObjectStream* stream, const PropertyHea
 
 void UMapProperty::SaveHeader(void* data, PropertyHeader& header)
 {
-	Exception::Throw("UMapProperty::SaveHeader not implemented");
+	// A map loads empty (LoadValue) and so equals its default, which is not
+	// saved; none of Deus Ex's classes declares one. Skipped if ever asked.
+	header.type = UPT_Invalid;
 }
 
 void UMapProperty::SaveValue(void* data, PackageStreamWriter* stream)
 {
-	Exception::Throw("UMapProperty::SaveValue not implemented");
+	// Never reached: SaveHeader marks a map invalid, and the save skips it.
 }
 
 size_t UMapProperty::ElementAlignment()
