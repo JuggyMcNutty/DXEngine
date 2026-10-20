@@ -7,7 +7,9 @@
 // each axis, directions every 15 degrees of yaw and pitch, and vectors close
 // to where an angle crosses a whole unit -- each logged as its parts read as
 // ints and as the rotator's string. Then vector(r), GetAxes and GetUnAxes
-// for a few rotators, and an exit. What is compared between the engines:
+// for a few rotators, and a vector turned by each (<<) and back (>>); a
+// rotator scaled in place (*=), floats a hair apart compared (== and !=),
+// and an enum's first and last names (GetEnum); and an exit. What is compared between the engines:
 // every line, exactly.
 //=============================================================================
 class RotatorConsole extends Console;
@@ -31,6 +33,22 @@ function LogBack(rotator R)
 	Log("DXROT: axes " $ R.Pitch $ " " $ R.Yaw $ " " $ R.Roll $ " -> " $ X $ " " $ Y $ " " $ Z);
 	GetUnAxes(R, X, Y, Z);
 	Log("DXROT: unaxes " $ R.Pitch $ " " $ R.Yaw $ " " $ R.Roll $ " -> " $ X $ " " $ Y $ " " $ Z);
+	V = vect(100, 20, -30);
+	Log("DXROT: turned " $ R.Pitch $ " " $ R.Yaw $ " " $ R.Roll $ " -> " $ (V << R) $ " back " $ (V >> R));
+}
+
+function Operators()
+{
+	local rotator R, S;
+	local float A, B;
+
+	R = rot(1000, -2001, 3003);
+	S = (R *= 1.5);
+	Log("DXROT: scaled " $ R $ " returned " $ S);
+	A = 0.001;
+	B = A + 0.00000001;
+	Log("DXROT: floats == " $ (A == B) $ " != " $ (A != B) $ "; == itself " $ (A == A));
+	Log("DXROT: enum " $ GetEnum(enum'ENetRole', 0) $ " " $ GetEnum(enum'ENetRole', 4) $ " " $ GetEnum(enum'ENetRole', 5) $ " " $ GetEnum(enum'ENetRole', -1));
 }
 
 function Probes()
@@ -76,6 +94,7 @@ function Probes()
 	LogBack(rot(70000, -70000, 1234));
 	LogBack(rot(1000, 2001, 3003));
 	LogBack(rot(-12345, 23456, -4567));
+	Operators();
 }
 
 event Tick(float Delta)

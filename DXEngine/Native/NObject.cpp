@@ -662,7 +662,8 @@ void NObject::GreaterGreater_IntInt(int A, int B, int& ReturnValue)
 
 void NObject::GreaterGreater_VectorRotator(const vec3& A, const Rotator& B, vec3& ReturnValue)
 {
-	ReturnValue = Coords::Rotation(B).Inverse() * A;
+	// The sine table's, as the original's (Core.dll 0x101380e0)
+	ReturnValue = Coords::TableRotation(B).Inverse() * A;
 }
 
 void NObject::Greater_FloatFloat(float A, float B, BitfieldBool& ReturnValue)
@@ -745,7 +746,8 @@ void NObject::LessLess_IntInt(int A, int B, int& ReturnValue)
 
 void NObject::LessLess_VectorRotator(const vec3& A, const Rotator& B, vec3& ReturnValue)
 {
-	ReturnValue = Coords::Rotation(B) * A;
+	// The sine table's, as the original's (Core.dll 0x10137d90)
+	ReturnValue = Coords::TableRotation(B) * A;
 }
 
 void NObject::Less_FloatFloat(float A, float B, BitfieldBool& ReturnValue)
