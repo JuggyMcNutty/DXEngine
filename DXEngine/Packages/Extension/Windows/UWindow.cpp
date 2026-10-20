@@ -260,20 +260,23 @@ void UWindow::AddActorRef(UObject* refActor)
 	++count;
 }
 
+// The original's (Extension.dll XWindow::AddTimer 0x1004fc20): due its time
+// out, at least a microsecond, after now -- the windows' time since their
+// last tick counted in -- and never 0 for its id; a window being destroyed
+// takes none and gets 0. One with no function name calls nothing.
 int UWindow::AddTimer(float TimeOut, std::optional<bool> bLoop, std::optional<int> clientData, std::optional<NameString> functionName)
 {
-	if (!functionName) // Script always specifies a function name
-	{
-		return -1;
-	}
+	if (Destroyed)
+		return 0;
 
-	int id = NextTimerId++;
+	int id = ++NextTimerId;
 	WTimer info;
 	info.ClientData = clientData ? *clientData : 0;
-	info.FunctionName = *functionName;
-	info.Timeout = TimeOut;
+	if (functionName)
+		info.FunctionName = *functionName;
+	info.Timeout = std::max(TimeOut, 0.000001f);
 	info.Loop = bLoop ? *bLoop : false;
-	info.TimeLeft = info.Timeout;
+	info.TimeLeft = GetTickOffset() + info.Timeout;
 	ActiveTimers[id] = info;
 	return id;
 }
@@ -2201,44 +2204,39 @@ void UWindow::Tick(float timeElapsed)
 	if (bTickEnabled())
 		CallEvent(this, "Tick", { ExpressionValue::FloatValue(timeElapsed) });
 
-	std::vector<int> expiredList;
-	for (auto& it : ActiveTimers)
+	// The original's (XWindow::InvokeTimers 0x10051340): each timer once a
+	// tick, the newest first; one past its time calls its function once with
+	// its id, how many of its time outs have passed (a single one 1, and then
+	// gone) and its client data. One added meanwhile waits for the next tick.
+	std::vector<int> timerIds;
+	for (auto it = ActiveTimers.rbegin(); it != ActiveTimers.rend(); ++it)
+		timerIds.push_back(it->first);
+	for (int timerId : timerIds)
 	{
-		it.second.TimeLeft -= timeElapsed;
-		if (it.second.TimeLeft <= 0.0f)
-			expiredList.push_back(it.first);
-	}
+		if (Destroyed)
+			return;
+		auto it = ActiveTimers.find(timerId);
+		if (it == ActiveTimers.end())
+			continue; // removed by an earlier one's function
 
-	for (int timerId : expiredList)
-	{
-		// Keep calling the timer if its looping until we've called it the number of times total time elapsed
-		while (true)
+		WTimer& timer = it->second;
+		timer.TimeLeft -= timeElapsed;
+		if (timer.TimeLeft >= 0.0f)
+			continue;
+
+		int invocations = 1;
+		if (timer.Loop)
 		{
-			auto it = ActiveTimers.find(timerId);
-			if (it == ActiveTimers.end())
-				break; // script removed it via Window.RemoveTimer(id)
-
-			NameString functionName = it->second.FunctionName;
-			int clientData = it->second.ClientData;
-			bool loop = it->second.Loop;
-
-			if (loop)
-			{
-				it->second.TimeLeft += it->second.Timeout;
-				if (it->second.TimeLeft > 0.0f || it->second.Timeout <= 0.00001f)
-					loop = false;
-			}
-			else
-			{
-				// Single fire. Remove it.
-				ActiveTimers.erase(it);
-			}
-
-			CallEvent(this, functionName, { ExpressionValue::IntValue(clientData) });
-
-			if (!loop)
-				break;
+			invocations = (int)(int64_t)(-timer.TimeLeft / timer.Timeout) + 1;
+			timer.TimeLeft += invocations * timer.Timeout;
 		}
+		NameString functionName = timer.FunctionName;
+		int clientData = timer.ClientData;
+		if (!timer.Loop)
+			ActiveTimers.erase(it);
+
+		if (!functionName.IsNone())
+			CallEvent(this, functionName, { ExpressionValue::IntValue(timerId), ExpressionValue::IntValue(invocations), ExpressionValue::IntValue(clientData) });
 	}
 
 	// The children as they were, the top one first, as the original's walk

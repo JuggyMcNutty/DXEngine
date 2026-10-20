@@ -698,6 +698,12 @@ from the original's code:
   (`KeypadConsole`).
 - **The windows** tick by real time since their last tick, not the level's,
   and a held button's first repeat counts what of the frame had gone.
+- **Timers**
+  ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#timers)):
+  each is due its time out after it was added, the frame already gone
+  counted in, and calls its function once a tick, the newest first, with
+  its id, how many of its time outs have passed and its client data
+  (`TimerConsole`'s logs alike, both engines at 60 frames a second).
 - **A GC's style** sets only how tiles draw: text stays masked, translucent
   only by `EnableTranslucentText`, so the frob label over its modulated
   backing reads as the original's (`FrobConsole`'s shots).
