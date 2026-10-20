@@ -510,7 +510,8 @@ void NObject::EqualEqual_BoolBool(bool A, bool B, BitfieldBool& ReturnValue)
 
 void NObject::EqualEqual_FloatFloat(float A, float B, BitfieldBool& ReturnValue)
 {
-	ReturnValue = (Float::Equals(A, B));
+	// Exact, as the original's (Core.dll 0x10135620) and as != is
+	ReturnValue = (A == B);
 }
 
 void NObject::EqualEqual_IntInt(int A, int B, BitfieldBool& ReturnValue)
