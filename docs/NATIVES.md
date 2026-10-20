@@ -389,7 +389,11 @@ its border ([brightness](#brightness)). A surface's light map holds
 the ambient of the zone it is seen from, and pans at that zone's speeds, as
 the original's draw list has it: 06_HongKong_WanChai_Underworld's floor
 under its disco lights `Light2` and `Light21`, lit by its zone's ambient and
-one steady light, comes out at 0.99 of `D3DDrv`'s frames. Its fog map is
+one steady light, comes out at 0.99 of `D3DDrv`'s frames. A surface on a
+plane's other coplanar nodes, which may face the other way, takes the zone
+on its own side, as the original's: the wall left of that map's start, lit
+by the LevelInfo's ambient when it took the first node's side, is lit by
+its zone's (`OpeningConsole`). Its fog map is
 drawn only with the render device's `VolumetricLighting` on and the
 viewport's actor in a fog zone, for a surface not translucent whose zone is
 a fog zone too, as the original's renderer has it: 02_NYC_Underground's

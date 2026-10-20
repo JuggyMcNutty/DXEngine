@@ -560,7 +560,12 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
 	BspNode* polynode = node;
 	while (true)
 	{
-		ProcessNodeSurface(polynode, swapFrontAndBack);
+		// Each coplanar node by its own plane, which may face the other way:
+		// the side the viewer is on picks its zone (the original's
+		// OccludeBsp, Render.dll 0x10b173d0).
+		vec4 polyPlane = { polynode->PlaneX, polynode->PlaneY, polynode->PlaneZ, -polynode->PlaneW };
+		bool polyBehind = dot(ViewLocation, polyPlane) < 0.0f;
+		ProcessNodeSurface(polynode, polyBehind);
 
 		if (polynode->Plane < 0) break;
 		polynode = &engine->Level->Model->Nodes[polynode->Plane];
