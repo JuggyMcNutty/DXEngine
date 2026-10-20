@@ -1263,8 +1263,9 @@ Matches the original's client and server
 ([the network](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md)):
 joining and playing, listen and dedicated servers, replication with the
 original's native lists, the server's calls, downloads both ways, server
-travel, the Entry level for a lost server, the login, merged bunches, the
-uplink and query answerer, the scripts' sockets
+travel, the Entry level for a lost server, the login, the player's net speed,
+which sets how soon the server corrects a client (`JoinConsole`'s jumps),
+merged bunches, the uplink and query answerer, the scripts' sockets
 ([the script's links](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/ipdrv-dll.md#the-scripts-links)),
 the addresses they ask for, a player's and the server's own, and a server's
 URL with the address it bound (`ServeConsole`'s `serving` line;
@@ -1299,13 +1300,6 @@ The server-only stubs are under
   144 frames a second, 4 at 200 and none at some 1,300 (uncapped on the
   desktop with no vsync), as the original server's reach DXEngine's, 6 to 8:
   the first goes as the host stops, its last step's packet just sent.
-- **A server's first correction** (`ClientAdjustPosition`, an unreliable
-  call, dropped while the connection has no room, which the join's first
-  replication fills at 2,600 bytes a second): it reaches DXEngine's client
-  1.7 s after it spawns on the original's server, and 4.2 s after on
-  DXEngine's, where the original's client takes it 0.15 s after it spawns on
-  DXEngine's server (`JoinConsole`'s jumps); why DXEngine's waits longer is
-  unread. At a wall 0.02 units; standing, none.
 - **The player's name in a net game**: a name the player never chose --
   none, or the game's stock `Player` -- logs in as `DXEnginePlayer`, a
   client's to its server and a listen server's host's, by choice, so

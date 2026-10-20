@@ -8,6 +8,7 @@
 #include "Packages/Core/UClass.h"
 #include "Packages/Core/UFunction.h"
 #include "Packages/Core/Properties/UProperty.h"
+#include "Packages/Engine/UPlayer.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Actors/Info/UGameInfo.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
@@ -298,7 +299,11 @@ void NetServerLevel::NotifyReceivedText(NetConnection* connection, const std::st
 	{
 		int rate = std::atoi(rest.c_str());
 		if (rate >= 500)
-			connection->CurrentNetSpeed = std::clamp(rate, 500, connection->Driver->MaxClientRate);
+		{
+			connection->CurrentNetSpeed = std::min(rate, connection->Driver->MaxClientRate);
+			if (UPlayer* player = UObject::TryCast<UPlayer>(connection->PlayerObject))
+				player->CurrentNetSpeed() = connection->CurrentNetSpeed;
+		}
 		LogMessage("Net: client netspeed is " + std::to_string(connection->CurrentNetSpeed));
 	}
 	else if (NetParseCommand(text, "HAVE"))
@@ -376,6 +381,12 @@ void NetServerLevel::Join(NetConnection* connection)
 	UObject* player = engine->packages->GetTransientPackage()->NewObject("NetConnection" + std::to_string(PlayerConnections.size()), engine->packages->FindClass("Engine.NetConnection"), ObjectFlags::Transient);
 	PlayerConnections[player] = connection;
 	connection->PlayerObject = player;
+
+	// The original's connection is the player: the script reads its speed
+	// (PlayerPawn.ServerMove corrects a client at most every
+	// 180 / Player.CurrentNetSpeed s). Engine.dll ULevel::NotifyReceivedText.
+	if (UPlayer* netPlayer = UObject::TryCast<UPlayer>(player))
+		netPlayer->CurrentNetSpeed() = connection->CurrentNetSpeed;
 
 	UPlayerPawn* pawn = engine->SpawnPlayActor(player, ROLE_AutonomousProxy, RequestURLs[connection], error);
 	if (!pawn)
