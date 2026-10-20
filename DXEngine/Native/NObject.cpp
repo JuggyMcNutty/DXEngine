@@ -577,8 +577,10 @@ void NObject::GetAxes(const Rotator& A, vec3& X, vec3& Y, vec3& Z)
 
 void NObject::GetEnum(UObject* E, int i, NameString& ReturnValue)
 {
-	UEnum* type = UObject::Cast<UEnum>(E);
-	if (i > 0 && i < (int)type->ElementNames.size())
+	// Its first name too (an empty key slot's None), as the original's
+	// (Core.dll 0x1013e9a0)
+	UEnum* type = UObject::TryCast<UEnum>(E);
+	if (type && i >= 0 && i < (int)type->ElementNames.size())
 		ReturnValue = type->ElementNames[i];
 	else
 		ReturnValue = {};
