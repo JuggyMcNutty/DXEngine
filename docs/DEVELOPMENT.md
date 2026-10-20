@@ -123,7 +123,7 @@ the run. *Either*: one engine on each side of a pair.
 | `StaticConsole` | both | `TargetMap`'s static actors at 5 s and 15 s | `DXSTATIC:` |  |
 | `MoveConsole` | both | every pawn's moves, every 2 s for 120 s; with `Watch`, one pawn each tick (`WatchFrom`, `WatchTo`) | `DXMOVE:` | `move.py <original run> <dxe run>`; `move.py --pawn <name>`, where two runs' paths part, by place |
 | `ReachConsole` | both | the reach tests, each pawn asked from its home spot | `DXREACH:` |  |
-| `TraceConsole` | both | `TraceTexture`, `TraceActors`, `Trace` and `FastTrace`; boxes started inside cylinders | `DXTRACE:` |  |
+| `TraceConsole` | both | `TraceTexture`, `TraceActors`, `Trace` and `FastTrace`; a rifle's shot, 48000 units long; boxes started inside cylinders | `DXTRACE:` |  |
 | `FloatConsole` | both | the crates in the water by the pier | `DXFLOAT:` |  |
 | `SwimConsole` | both | falls into water, diving, swimming up; a troop thrown in (`Only`: the scenarios it names) | `DXSWIM:` |  |
 | `LadderConsole` | both | Liberty Island's first ladder, every tick | `DXLADDER:` |  |

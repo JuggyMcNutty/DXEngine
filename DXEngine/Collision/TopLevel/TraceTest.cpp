@@ -31,29 +31,16 @@ CollisionHitList TraceTester::Trace(const vec3& from, const vec3& to, float heig
 	double dheight = height;
 	vec3 extents = { radius, radius, height };
 
-	int checkCounter = NextCheckCounter();
-	ivec3 start = GetSweepStartExtents(from, to, extents);
-	ivec3 end = GetSweepEndExtents(from, to, extents);
-	if (end.x - start.x < 100 && end.y - start.y < 100 && end.z - start.z < 100)
-	{
-		for (int z = start.z; z < end.z; z++)
-		{
-			for (int y = start.y; y < end.y; y++)
-			{
-				for (int x = start.x; x < end.x; x++)
-				{
-					for (UActor* actor : GetActors(x, y, z))
-					{
-						if (actor->Collision.CheckCounter != checkCounter)
-						{
-							actor->Collision.CheckCounter = checkCounter;
-							TraceActor(actor, origin, tmin, direction, tmax, dheight, dradius, traceActors, traceWorld, visibilityOnly, hits);
-						}
-					}
-				}
-			}
-		}
-	}
+	// A line asks the cells it passes through, however long (a rifle's
+	// 48000 units); a box the cells of its sweep
+	auto traceActor = [&](UActor* actor) {
+		TraceActor(actor, origin, tmin, direction, tmax, dheight, dradius, traceActors, traceWorld, visibilityOnly, hits);
+		return false;
+	};
+	if (radius == 0.0f && height == 0.0f)
+		VisitActorsOnRay(from, to, traceActor);
+	else
+		VisitActorsInBox(GetSweepStartExtents(from, to, extents), GetSweepEndExtents(from, to, extents), traceActor);
 
 	if (traceWorld)
 	{
@@ -215,8 +202,6 @@ bool TraceTester::VisitActorsOnRay(const vec3& from, const vec3& to, Visit&& vis
 	int checkCounter = NextCheckCounter();
 	ivec3 start = GetRayStartExtents(from, to);
 	ivec3 end = GetRayEndExtents(from, to);
-	if (end.x - start.x >= 100 || end.y - start.y >= 100 || end.z - start.z >= 100)
-		return false;
 
 	// Only the cells the segment passes through, not every cell of its
 	// box: a long sight line's box is mostly cells it never enters, and an

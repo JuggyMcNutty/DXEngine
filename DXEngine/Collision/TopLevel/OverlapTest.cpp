@@ -20,33 +20,14 @@ CollisionHitList OverlapTester::TestOverlap(const vec3& location, float height, 
 		double dheight = height;
 		dvec3 dlocation = to_dvec3(location);
 
-		int checkCounter = NextCheckCounter();
-		ivec3 start = GetStartExtents(location, extents);
-		ivec3 end = GetEndExtents(location, extents);
-		if (end.x - start.x < 100 && end.y - start.y < 100 && end.z - start.z < 100)
-		{
-			for (int z = start.z; z < end.z; z++)
+		VisitActorsInBox(GetStartExtents(location, extents), GetEndExtents(location, extents), [&](UActor* actor) {
+			if (CylinderActorOverlap(dlocation, dheight, dradius, actor))
 			{
-				for (int y = start.y; y < end.y; y++)
-				{
-					for (int x = start.x; x < end.x; x++)
-					{
-						for (UActor* actor : GetActors(x, y, z))
-						{
-							if (actor->Collision.CheckCounter != checkCounter)
-							{
-								actor->Collision.CheckCounter = checkCounter;
-								if (CylinderActorOverlap(dlocation, dheight, dradius, actor))
-								{
-									vec3 normal(0.0f); // To do: do we need the normal for contact tests?
-									hits.push_back({ 0.0f, normal, actor, nullptr, nullptr });
-								}
-							}
-						}
-					}
-				}
+				vec3 normal(0.0f); // To do: do we need the normal for contact tests?
+				hits.push_back({ 0.0f, normal, actor, nullptr, nullptr });
 			}
-		}
+			return false;
+		});
 	}
 
 	if (testWorld)
@@ -91,31 +72,12 @@ Array<UActor*> OverlapTester::ActorRadiusCheck(const vec3& origin, float radius)
 
 	Array<UActor*> hits;
 
-	int checkCounter = NextCheckCounter();
-	ivec3 start = GetStartExtents(origin, extents);
-	ivec3 end = GetEndExtents(origin, extents);
-	if (end.x - start.x < 100 && end.y - start.y < 100 && end.z - start.z < 100)
-	{
-		for (int z = start.z; z < end.z; z++)
-		{
-			for (int y = start.y; y < end.y; y++)
-			{
-				for (int x = start.x; x < end.x; x++)
-				{
-					for (UActor* actor : GetActors(x, y, z))
-					{
-						if (actor->Collision.CheckCounter != checkCounter)
-						{
-							actor->Collision.CheckCounter = checkCounter;
-							vec3 d = actor->Location() - origin;
-							if (dot(d, d) < radiusSquared)
-								hits.push_back(actor);
-						}
-					}
-				}
-			}
-		}
-	}
+	VisitActorsInBox(GetStartExtents(origin, extents), GetEndExtents(origin, extents), [&](UActor* actor) {
+		vec3 d = actor->Location() - origin;
+		if (dot(d, d) < radiusSquared)
+			hits.push_back(actor);
+		return false;
+	});
 	return hits;
 }
 
@@ -127,30 +89,11 @@ Array<UActor*> OverlapTester::CollidingActors(const vec3& origin, float radius)
 
 	Array<UActor*> hits;
 
-	int checkCounter = NextCheckCounter();
-	ivec3 start = GetStartExtents(origin, extents);
-	ivec3 end = GetEndExtents(origin, extents);
-	if (end.x - start.x < 100 && end.y - start.y < 100 && end.z - start.z < 100)
-	{
-		for (int z = start.z; z < end.z; z++)
-		{
-			for (int y = start.y; y < end.y; y++)
-			{
-				for (int x = start.x; x < end.x; x++)
-				{
-					for (UActor* actor : GetActors(x, y, z))
-					{
-						if (actor->Collision.CheckCounter != checkCounter)
-						{
-							actor->Collision.CheckCounter = checkCounter;
-							if (SphereActorOverlap(dorigin, dradius, actor))
-								hits.push_back(actor);
-						}
-					}
-				}
-			}
-		}
-	}
+	VisitActorsInBox(GetStartExtents(origin, extents), GetEndExtents(origin, extents), [&](UActor* actor) {
+		if (SphereActorOverlap(dorigin, dradius, actor))
+			hits.push_back(actor);
+		return false;
+	});
 
 	std::set<UActor*> seenActors;
 	Array<UActor*> uniqueHits;
@@ -183,30 +126,11 @@ Array<UActor*> OverlapTester::CollidingActors(const vec3& origin, float height, 
 
 	Array<UActor*> hits;
 
-	int checkCounter = NextCheckCounter();
-	ivec3 start = GetStartExtents(origin, extents);
-	ivec3 end = GetEndExtents(origin, extents);
-	if (end.x - start.x < 100 && end.y - start.y < 100 && end.z - start.z < 100)
-	{
-		for (int z = start.z; z < end.z; z++)
-		{
-			for (int y = start.y; y < end.y; y++)
-			{
-				for (int x = start.x; x < end.x; x++)
-				{
-					for (UActor* actor : GetActors(x, y, z))
-					{
-						if (actor->Collision.CheckCounter != checkCounter)
-						{
-							actor->Collision.CheckCounter = checkCounter;
-							if (CylinderActorOverlap(dorigin, dheight, dradius, actor))
-								hits.push_back(actor);
-						}
-					}
-				}
-			}
-		}
-	}
+	VisitActorsInBox(GetStartExtents(origin, extents), GetEndExtents(origin, extents), [&](UActor* actor) {
+		if (CylinderActorOverlap(dorigin, dheight, dradius, actor))
+			hits.push_back(actor);
+		return false;
+	});
 
 	std::set<UActor*> seenActors;
 	Array<UActor*> uniqueHits;
@@ -255,42 +179,23 @@ Array<UActor*> OverlapTester::EncroachingActors(UActor* actor)
 
 	Array<UActor*> hits;
 
-	int checkCounter = NextCheckCounter();
-	ivec3 start = GetStartExtents(origin, extents);
-	ivec3 end = GetEndExtents(origin, extents);
-	if (end.x - start.x < 100 && end.y - start.y < 100 && end.z - start.z < 100)
-	{
-		for (int z = start.z; z < end.z; z++)
-		{
-			for (int y = start.y; y < end.y; y++)
-			{
-				for (int x = start.x; x < end.x; x++)
-				{
-					for (UActor* testActor : GetActors(x, y, z))
-					{
-						if (testActor->Collision.CheckCounter != checkCounter)
-						{
-							testActor->Collision.CheckCounter = checkCounter;
-							if (testActor == actor || testActor->Brush())
-								continue;
+	VisitActorsInBox(GetStartExtents(origin, extents), GetEndExtents(origin, extents), [&](UActor* testActor) {
+		if (testActor == actor || testActor->Brush())
+			return false;
 
-							vec3 localOrigin = (rotateWorldToObj * vec4(testActor->Location() - origin, 1.0f)).xyz() / mainScale + prePivot;
+		vec3 localOrigin = (rotateWorldToObj * vec4(testActor->Location() - origin, 1.0f)).xyz() / mainScale + prePivot;
 
-							float testHeight = testActor->CollisionHeight();
-							float testRadius = testActor->CollisionRadius();
-							vec3 testExtents = { testRadius, testRadius, testHeight };
-							testExtents /= mainScale;
+		float testHeight = testActor->CollisionHeight();
+		float testRadius = testActor->CollisionRadius();
+		vec3 testExtents = { testRadius, testRadius, testHeight };
+		testExtents /= mainScale;
 
-							OverlapAABBModel test;
-							auto modelHits = test.TestOverlap(brush, localOrigin, testExtents, false);
-							if (!modelHits.empty())
-								hits.push_back(testActor);
-						}
-					}
-				}
-			}
-		}
-	}
+		OverlapAABBModel test;
+		auto modelHits = test.TestOverlap(brush, localOrigin, testExtents, false);
+		if (!modelHits.empty())
+			hits.push_back(testActor);
+		return false;
+	});
 
 	std::set<UActor*> seenActors;
 	Array<UActor*> uniqueHits;
@@ -324,43 +229,24 @@ Array<UActor*> OverlapTester::EncroachedActors(const vec3& location, float heigh
 	vec3 extents = { radius, radius, height };
 	Array<UActor*> hits;
 
-	int checkCounter = NextCheckCounter();
-	ivec3 start = GetStartExtents(location, extents);
-	ivec3 end = GetEndExtents(location, extents);
-	if (end.x - start.x >= 100 || end.y - start.y >= 100 || end.z - start.z >= 100)
-		return hits;
-
-	for (int z = start.z; z < end.z; z++)
-	{
-		for (int y = start.y; y < end.y; y++)
+	VisitActorsInBox(GetStartExtents(location, extents), GetEndExtents(location, extents), [&](UActor* actor) {
+		UMover* mover = UObject::TryCast<UMover>(actor);
+		if (mover && mover->Brush())
 		{
-			for (int x = start.x; x < end.x; x++)
-			{
-				for (UActor* actor : GetActors(x, y, z))
-				{
-					if (actor->Collision.CheckCounter == checkCounter)
-						continue;
-					actor->Collision.CheckCounter = checkCounter;
-
-					UMover* mover = UObject::TryCast<UMover>(actor);
-					if (mover && mover->Brush())
-					{
-						mat4 rotateWorldToObj = mat4::transpose(Coords::Rotation(mover->Rotation()).ToMatrix());
-						vec3 scale = mover->MainScale().Scale;
-						vec3 localOrigin = (rotateWorldToObj * vec4(location - mover->Location(), 1.0f)).xyz() / scale + mover->PrePivot();
-						vec3 localExtents = extents / vec3(std::abs(scale.x), std::abs(scale.y), std::abs(scale.z));
-						OverlapAABBModel test;
-						if (!test.TestOverlap(mover->Brush(), localOrigin, localExtents, false).empty())
-							hits.push_back(actor);
-					}
-					else if (CylinderActorOverlap(dlocation, height, radius, actor))
-					{
-						hits.push_back(actor);
-					}
-				}
-			}
+			mat4 rotateWorldToObj = mat4::transpose(Coords::Rotation(mover->Rotation()).ToMatrix());
+			vec3 scale = mover->MainScale().Scale;
+			vec3 localOrigin = (rotateWorldToObj * vec4(location - mover->Location(), 1.0f)).xyz() / scale + mover->PrePivot();
+			vec3 localExtents = extents / vec3(std::abs(scale.x), std::abs(scale.y), std::abs(scale.z));
+			OverlapAABBModel test;
+			if (!test.TestOverlap(mover->Brush(), localOrigin, localExtents, false).empty())
+				hits.push_back(actor);
 		}
-	}
+		else if (CylinderActorOverlap(dlocation, height, radius, actor))
+		{
+			hits.push_back(actor);
+		}
+		return false;
+	});
 	return hits;
 }
 

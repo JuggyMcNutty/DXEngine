@@ -4,11 +4,14 @@
 // level's time, for each NPC in the world, the hits of a line from the
 // player's eye to it, and the first hit of a line from it straight down 200
 // units (its floor, as footsteps read it): each hit's actor, texture, group,
-// flags and distance, one line each. Then, toward each decoration within
+// flags and distance, one line each; and a rifle's shot at it, a line 48000
+// units long (WeaponRifle's MaxRange) aimed through it: Trace's first hit,
+// actors included, as TraceShot asks. Then, toward each decoration within
 // 3000 units and on past it as far again, from and to whole units the same
 // in both engines: TraceActors' hits of Actor and of ScriptedPawn (each
 // hit's actor, distance and normal, in the order given), TraceTexture's,
-// Trace's first hit of the level and FastTrace's answer; and a box (8 units
+// Trace's first hit of the level and FastTrace's answer, and the rifle's
+// shot along the line, 48000 units of it; and a box (8 units
 // each way) started inside the decoration's cylinder, grown by the box,
 // across it from half its radius out: near its top and at its middle,
 // heading in toward the axis, and near its top heading out -- Trace's first
@@ -96,6 +99,19 @@ function int Hundredths(float F)
 	return int(F * 100 + 1000.5) - 1000;
 }
 
+// A rifle's shot from Start through Through: Trace's first hit of a line
+// 48000 units long, actors included.
+function string Rifle(PlayerPawn P, vector Start, vector Through)
+{
+	local Actor Hit;
+	local vector HitLoc, HitNorm;
+
+	Hit = P.Trace(HitLoc, HitNorm, Start + 48000 * Normal(Through - Start), Start, true);
+	if (Hit == None)
+		return " [None]";
+	return " [" $ Hit.Name $ " at " $ int(VSize(HitLoc - Start)) $ "]";
+}
+
 // A box's first hit as Trace gives it, actors included.
 function string BoxHit(PlayerPawn P, vector Start, vector End)
 {
@@ -132,6 +148,7 @@ function Traces(PlayerPawn P)
 			continue;
 		Log("DXTRACE: " $ S.Name $ " sight" $ Hits(P, Eye, S.Location, 3));
 		Log("DXTRACE: " $ S.Name $ " floor" $ Hits(P, S.Location, S.Location - vect(0,0,200), 1));
+		Log("DXTRACE: " $ S.Name $ " rifle" $ Rifle(P, Eye, S.Location));
 	}
 	Log("DXTRACE: player floor" $ Hits(P, P.Location, P.Location - vect(0,0,200), 1));
 	Log("DXTRACE: player eye " $ Eye);
@@ -154,6 +171,7 @@ function Traces(PlayerPawn P)
 		Log("DXTRACE: " $ D.Name $ " pawns" $ ActorHits(P, class'ScriptedPawn', Start, End, 8));
 		Log("DXTRACE: " $ D.Name $ " at " $ D.Location $ " surfaces" $ Hits(P, Start, End, 8));
 		Log("DXTRACE: " $ D.Name $ " single" $ Single(P, Start, End));
+		Log("DXTRACE: " $ D.Name $ " rifle" $ Rifle(P, Start, Aim));
 		if (D.bCollideActors)
 			BoxStarts(P, D);
 	}
