@@ -140,6 +140,7 @@ the run. *Either*: one engine on each side of a pair.
 | `MoverServer` | both | a line across a door on a dedicated server, the door moved off it: a server actor (`dedicated`) | `DXDEDI:` | the two logs diffed |
 | `SightConsole` | both | `LineOfSightTo`, `CanSee`, `PlayerCanSeeMe` | `DXSIGHT:` |  |
 | `SeeConsole` | both | the pawns' sight in the tick: two watchers in front of the player, one probing `EnemyNotVisible`, logging each `SeePlayer` and whom it names; their `SightCounter` each tick | `DXSEE:` | the two logs' lines |
+| `PainConsole` | both | a pawn's pain and speech timers at half speed, set to be left under a thousandth of a second after a tick: the tick each fires in | `DXPAIN:` | the two logs diffed, both at `DXCAP_FPS=60` |
 | `StandConsole` | both | where a walking player rests, and stops at a wall | `DXSTAND:` |  |
 | `StairConsole` | both | `Pawn.FindStairRotation` on the pier and a slope | `DXSTAIR:` | the two logs' answers diffed |
 | `StompConsole` | both | a pawn landing on another, and on crates | `DXSTOMP:` |  |

@@ -944,6 +944,8 @@ Every other native the scripted runs compare matches the original
 - **Sight** (`SightConsole`), and the pawns' in the tick (`SeeConsole`:
   `SeePlayer` sent only a player, each 0.2 s,
   [the senses](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-senses)),
+  **a pawn's pain and speech timers**, each due once under a thousandth of a
+  second (`PainConsole`, both at half speed: the tick each fires in alike),
   **the reach tests** (`ReachConsole`), and
   **the look up and down stairs** (`StairConsole`: every answer of
   `Pawn.FindStairRotation` alike on Liberty Island's pier and

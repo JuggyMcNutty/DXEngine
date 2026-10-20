@@ -129,17 +129,25 @@ void UPawn::Tick(float elapsed)
 			SightCounter() = 0.1f;
 		}
 
+		// Each due once under a thousandth of a second, set to 0 before its
+		// event, as the original's (AActor::Tick 0x103a1aa0)
 		if (PainTime() > 0.0f)
 		{
-			PainTime() = std::max(PainTime() - elapsed, 0.0f);
-			if (PainTime() == 0.0f)
+			PainTime() -= elapsed;
+			if (PainTime() < 0.001)
+			{
+				PainTime() = 0.0f;
 				CallEvent(this, EventName::PainTimer);
+			}
 		}
 		if (SpeechTime() > 0.0f)
 		{
-			SpeechTime() = std::max(SpeechTime() - elapsed, 0.0f);
-			if (SpeechTime() == 0.0f)
+			SpeechTime() -= elapsed;
+			if (SpeechTime() < 0.001)
+			{
+				SpeechTime() = 0.0f;
 				CallEvent(this, EventName::SpeechTimer);
+			}
 		}
 		if (bAdvancedTactics())
 			CallEvent(this, EventName::UpdateTactics, { ExpressionValue::FloatValue(elapsed) });
