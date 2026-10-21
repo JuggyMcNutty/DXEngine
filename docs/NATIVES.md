@@ -63,11 +63,12 @@ loaded, a save's or one returned to, then calls `PostPostBeginPlay`
 the menu map or the level it was saved in, and a run started on it, spawn
 what the original's do, class by class, second by second (`CensusConsole`,
 `census.py`), and keep it, the game's decals going as
-[out of sight](#out-of-sight) has them. A save's load logs the saved player in as
-the original's does, with `?loadgame`: the game's `Login` keeps it as saved,
-and its `TravelPostAccept` spawns the level's mission script, which no save
-holds -- an object of a transient class is not written (`LoadConsole` over
-either engine's saves and the original's hub save, `ReturnConsole`). The
+[out of sight](#out-of-sight) has them. A save's load logs the saved
+player in as the original's does, with `?loadgame`: the game's `Login` keeps
+it as saved, and its `TravelPostAccept` spawns the level's mission script,
+which no save holds -- an object of a transient class is not written
+(`LoadConsole` over either engine's saves and the original's hub save,
+`ReturnConsole`). The
 console's `open ?loadgame=N` loads the slot as the game's own `LoadGame`
 does (`LoadConsole` with `Open`); a slot that is no number loads nothing in
 either, DXEngine reading it as slot 0. Differs: a bare `?loadgame`, which
@@ -277,14 +278,13 @@ so a masked texture draws masked in any style; the canvas's text, clipped
 or not, takes its style's flags. `TileConsole`, on the canvas and in a
 window over a grey box: `StaticLine` modulated (the line across a camera's
 and the InfoLink's static, a quarter of it colour 0, black) at 1.02 of
-`D3DDrv`'s brightness, from 0.73; `HackInfoBackground` modulated (the
-hacking screen's message, all colour 0, dark grey) drawing nothing, at
-1.00, from 0.63; in the window, `HUDScopeCrosshair`, a masked texture,
-drawn `DSTY_Normal` at 1.00, from 0.02, a black square round its lines;
-"NEW GAME" in the TrueType font, drawn opaque, at a correlation of 1.00 to
-`D3DDrv`'s, from 0.98, its edges no longer darker than the box (the stock
-menus draw it translucent, unchanged); on the canvas, clipped text drawn
-`STY_Translucent` translucent, where it drew opaque.
+`D3DDrv`'s brightness; `HackInfoBackground` modulated (the hacking screen's
+message, all colour 0, dark grey) drawing nothing, at 1.00; in the window,
+`HUDScopeCrosshair`, a masked texture, drawn `DSTY_Normal` at 1.00, its
+lines alone; "NEW GAME" in the TrueType font, drawn opaque, at a
+correlation of 1.00 to `D3DDrv`'s, its edges blended into the box (the
+stock menus draw it translucent); on the canvas, clipped text drawn
+`STY_Translucent` translucent.
 
 ### Sprites
 
@@ -317,8 +317,8 @@ Matches the original
 [particles and lasers](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#particles-and-lasers)):
 `LaserConsole` has the beams' red over the floor within 0.5% of `D3DDrv`'s,
 and `ParticleConsole`'s particles rise, fall, grow and fade as the
-original's: its smoke's light row by row 6 to 17% over `D3DDrv`'s, its puffs
-under gravity in the same rows. Differs in the occlusion: the original
+original's: its smoke's column at 1.06 to 1.10 of `D3DDrv`'s brightness, its
+puffs under gravity in the same rows. Differs in the occlusion: the original
 occludes each item's sprite through its span buffer; DXEngine clips items to
 the view (and a portal's spans) before its BSP walk and leaves the rest to
 the depth buffer. The look is the same; a hidden item's cost is paid.
@@ -407,9 +407,8 @@ first person. `MirrorConsole`, at 4:3, on GL and on Vulkan:
   ([which actors are drawn](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#which-actors-are-drawn)):
   `GlassConsole` with `Flip` on 06_HongKong_WanChai_Underworld's
   `BreakableGlass0`, an opaque one, its reflection at a correlation of 0.96
-  to `D3DDrv`'s frame (0.47 before), and on 02_NYC_Smug's `DeusExMover7`, a
-  translucent one, 0.91 (0.45); `OpeningConsole`'s view of the club, a
-  doorway's glass, 0.89 (-0.01).
+  to `D3DDrv`'s frame, and on 02_NYC_Smug's `DeusExMover7`, a translucent
+  one, 0.91; `OpeningConsole`'s view of the club, a doorway's glass, 0.89.
 
 Differs:
 
@@ -436,8 +435,7 @@ the eye's line in its normals in the world's axes, as the original's
 `MeshConsole` with `Enviro`, the four drawn so, has their streaks where
 `D3DDrv` has them. A face's texture lies as the original's, its corners'
 bytes ÷ 256 of the texture's size: `FaceConsole`'s UNATCO troop at a
-correlation of 0.97 to `D3DDrv`'s frame, its chest 0.99 (0.94 and 0.88 at
-÷ 255).
+correlation of 0.97 to `D3DDrv`'s frame, its chest 0.99.
 
 ### Lighting
 
@@ -459,9 +457,9 @@ the original's draw list has it: 06_HongKong_WanChai_Underworld's floor
 under its disco lights `Light2` and `Light21`, lit by its zone's ambient and
 one steady light, comes out at 0.99 of `D3DDrv`'s frames. A surface on a
 plane's other coplanar nodes, which may face the other way, takes the zone
-on its own side, as the original's: the wall left of that map's start, lit
-by the LevelInfo's ambient when it took the first node's side, is lit by
-its zone's (`OpeningConsole`). Its fog map is
+on its own side, as the original's: the wall left of that map's start takes
+its own zone's ambient, not the LevelInfo's of the first node's side
+(`OpeningConsole`). Its fog map is
 drawn only with the render device's `VolumetricLighting` on and the
 viewport's actor in a fog zone, for a surface not translucent whose zone is
 a fog zone too, as the original's renderer has it: 02_NYC_Underground's
@@ -976,12 +974,12 @@ Every other native the scripted runs compare matches the original
   `bSpecialLit` mover, as it draws -- and a box meets none (`MoverConsole`
   on Liberty Island and DXMP_Silo: a door made not to collide, then hidden
   and moved, then saved; a window broken, at once and a frame on;
-  `VisibleConsole` there; `GlassConsole` on WanChai's club glass, 33 in
-  both, where DXEngine gave 1073741857, the editor's processed bit). Not
-  carried: the refiling of the movers filed under one filed again, which
-  the original files again wherever they are; and the polygons are filed
-  whole, where the original's tree drops what lands in solid, which no line
-  in the open meets.
+  `VisibleConsole` there; `GlassConsole` on WanChai's club glass: 33 in
+  both, its polygon's own flags carrying the editor's processed bit too).
+  Not carried: the refiling of the movers filed under one filed again,
+  which the original files again wherever they are; and the polygons are
+  filed whole, where the original's tree drops what lands in solid, which
+  no line in the open meets.
 - **Sight** (`SightConsole`), and the pawns' in the tick (`SeeConsole`:
   `SeePlayer` sent only a player, each 0.2 s,
   [the senses](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-senses)),
@@ -1043,8 +1041,8 @@ Every other native the scripted runs compare matches the original
   a state the state extends, and a float made an int past an int's range,
   wrapping, by `int`, `byte` and a rotator's scaling (`RotatorConsole`;
   differs: `Chr` keeps the low 8 bits, DXEngine's strings being of bytes,
-  where the original's makes a 16-bit character); `Object.Mid` 127 at its edges, its end's
-  clamp known from `MidConsole`'s ten probes of both;
+  where the original's makes a 16-bit character); `Object.Mid` 127 at its
+  edges, its end's clamp known from `MidConsole`'s ten probes of both;
   `Object.DynamicLoadObject` with a group in the name, its own, another or
   none, and a class that is not the object's own (`DynLoadConsole`); and
   `Object.GetPropertyText` and `SetPropertyText`, through which the server's
@@ -1400,9 +1398,9 @@ Matches the original's client and server
 ([the network](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md)):
 joining and playing, listen and dedicated servers, replication with the
 original's native lists, the server's calls, downloads both ways, server
-travel, the Entry level for a lost server, the login, the player's net speed,
-which sets how soon the server corrects a client (`JoinConsole`'s jumps),
-merged bunches, the uplink and query answerer, the scripts' sockets
+travel, the Entry level for a lost server, the login, the player's net
+speed, which sets how soon the server corrects a client (`JoinConsole`'s
+jumps), merged bunches, the uplink and query answerer, the scripts' sockets
 ([the script's links](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/ipdrv-dll.md#the-scripts-links)),
 the addresses they ask for, a player's and the server's own, and a server's
 URL with the address it bound (`ServeConsole`'s `serving` line;
@@ -1454,11 +1452,11 @@ As in the original:
 - A client replicates its own player's pawn to the server each tick, before
   its packets go (`ULevel::TickNetClient`): the values the script classes'
   statements send from a client, none of the engine classes' native lists,
-  which send only from the server. Deus Ex's `FrobTarget` goes so: the client
-  finds what the player looks at, and the server's `ParseRightClick` takes it,
-  so a weapon or an item is picked up on a net game only so (`PickServer` and
-  `PickJoinConsole`, each engine as server and as client). Each side keeps
-  what the other last got of each value.
+  which send only from the server. Deus Ex's `FrobTarget` goes so: the
+  client finds what the player looks at, and the server's `ParseRightClick`
+  takes it, so a weapon or an item is picked up on a net game only so
+  (`PickServer` and `PickJoinConsole`, each engine as server and as client).
+  Each side keeps what the other last got of each value.
 - Until a server's first correction gives it its base, a client's player
   rests 2.46 units below the server's, which the correction lifts it by: a
   client runs no level's `SupportActor`, a simulated proxy running only

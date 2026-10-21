@@ -76,8 +76,9 @@
 # console travels to, its TargetMap (MissionConsole's, StaticConsole's,
 # WadeConsole's, ScreenConsole's, PerfConsole's, EndgameConsole's,
 # VisibleConsole's, MoverConsole's, LightConsole's, GlassConsole's,
-# FlushConsole's, WallConsole's, MirrorConsole's, OpeningConsole's): an
-# original run starts at its menu map, a dxe run at the map it is given.
+# FlushConsole's, WallConsole's, MirrorConsole's, DoorConsole's,
+# OpeningConsole's): an original run starts at its menu map, a dxe run at
+# the map it is given.
 # DXCAP_START=<url> starts an original run there, not at its menu map: its
 # command line's first word, which the original takes only with -hax0r
 # (?loadgame=9 for StartConsole, a run started on slot 9's save, and for

@@ -102,7 +102,7 @@ the run. *Either*: one engine on each side of a pair.
 | `ViewConsole` | both | the weapon in view; the level's light | `DXVIEW:` |  |
 | `CoronaConsole` | both | lamp coronas; a movable corona light of its own | `DXCORONA:` |  |
 | `LaserConsole` | both | a laser tripwire's beam and its actors | `DXLASER:` |  |
-| `ParticleConsole` | both | smoke and puffs on the pier, in marked shots | `DXPART:` |  |
+| `ParticleConsole` | both | smoke and puffs on the pier, in marked shots | `DXPART:` | `shots.py --region` over the smoke's column, at `DXCAP_WINDOW=1024x768` |
 | `FaceConsole` | both | a character's mesh close up (`MeshOf`, `Ahead`, `Distance`) | `DXFACE:` | `shots.py <original run> <dxe run>` |
 | `MeshConsole` | both | meshes lit on the pier (`LODBias`, `NoDetail`, `Enviro`) | `DXMESH:` | `shots.py` |
 | `SpriteConsole` | both | an icon whose colour 0 is magenta on the pier: a sprite of each style, and a generator's particles of it drawn masked (`Styles`, `NoParticles`) | `DXSPRITE:` | `shots.py --region`, at `DXCAP_WINDOW=1024x768` |

@@ -193,10 +193,11 @@ inline Coords Coords::TableRotation(const Rotator& rotator)
 	return roll * pitch * yaw;
 }
 
-// The original's unit coords turned back by a rotator, by the sine table
-// (Core.dll FCoords::operator/=, as UObject::execGreaterGreater_VectorRotator
-// 0x101380e0 has it): the yaw undone, then the pitch, then the roll, step by
-// step, so its floats round as the original's
+// The original's unit coords turned back by a rotator, by the sine table,
+// which turns a vector by it (>>, Core.dll
+// UObject::execGreaterGreater_VectorRotator 0x101380e0): the yaw undone, then
+// the pitch, then the roll, step by step, so its floats round as the
+// original's
 inline Coords Coords::TableInverseRotation(const Rotator& rotator)
 {
 	auto tsin = [](int angle) { return (float)std::sin(((angle >> 2) & 16383) * (2.0 * 3.14159265358979 / 16384.0)); };

@@ -7,7 +7,7 @@
 // each axis, directions every 15 degrees of yaw and pitch, and vectors close
 // to where an angle crosses a whole unit -- each logged as its parts read as
 // ints and as the rotator's string. Then vector(r), GetAxes and GetUnAxes
-// for a few rotators, and a vector turned by each (<<) and back (>>); a
+// for a few rotators, and a vector turned by each (>>) and back (<<); a
 // rotator scaled in place (*=), floats a hair apart and rotators a whole
 // turn apart compared (== and !=), floats past an int's range made ints
 // and bytes and rotators scaled past it, Normal near its cutoff, Chr(0) and
@@ -37,7 +37,7 @@ function LogBack(rotator R)
 	GetUnAxes(R, X, Y, Z);
 	Log("DXROT: unaxes " $ R.Pitch $ " " $ R.Yaw $ " " $ R.Roll $ " -> " $ X $ " " $ Y $ " " $ Z);
 	V = vect(100, 20, -30);
-	Log("DXROT: turned " $ R.Pitch $ " " $ R.Yaw $ " " $ R.Roll $ " -> " $ (V << R) $ " back " $ (V >> R));
+	Log("DXROT: turned " $ R.Pitch $ " " $ R.Yaw $ " " $ R.Roll $ " -> " $ (V >> R) $ " back " $ (V << R));
 }
 
 function Operators()

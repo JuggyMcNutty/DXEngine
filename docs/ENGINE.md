@@ -112,7 +112,7 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
 - `--ini=<file>` and `--userini=<file>` name the inis to read and write back, as the original's
   `INI=` and `USERINI=`; the `shot` console command writes the next `ShotNNNN.bmp` into the
   game's System folder (with `--userdir`, its `Screenshots` folder); `--timeline=<file>` gives
-  keys, a virtual pad, the pointer and console commands at set times.
+  keys, typed text, a virtual pad, the pointer and console commands at set times.
   [Scripted runs](DEVELOPMENT.md#scripted-runs-of-both-engines) use all three.
 - **`--userdir=<dir>`** is the engine's own folder in place of `~/.config/DXEngine`:
   `Settings.json`, the last run's log (`DXE-Log-LastRun.txt`), the crash reports, the shots (its
@@ -354,8 +354,8 @@ wherever else that state is set.
 - **Antialiasing on ES**: the multisampled scene buffers are made with ES 3.1's
   `glTexStorage2DMultisample`, as ES lacks desktop GL's `glTexImage2DMultisample`; on either,
   the samples are halved until every attachment takes them (an ES driver may take one sample of
-  the integer hit buffer). It works on the desktop's ES 3.2 context; DXLauncher keeps antialiasing
-  off on a PowerVR, the Smart Pro's GE8300 among them, whose resolve is speckle.
+  the integer hit buffer). It works on the desktop's ES 3.2 context; DXLauncher keeps
+  antialiasing off on a PowerVR, the Smart Pro's GE8300 among them, whose resolve is speckle.
 - **The desktop context**: every Linux window backend asks for a desktop 4.2 core context, as
   the shaders are GLSL 4.20 (`CompileGlsl` prepends `#version 420`): a driver without 4.2 fails
   at the context, with an error that says so, not at a shader.
