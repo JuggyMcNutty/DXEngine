@@ -8,7 +8,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
-#include <ShlObj.h>
+#include <shlobj.h>
 
 static std::vector<SingleFontData> LoadWindowsFont(const wchar_t* fontname, double pointSize)
 {

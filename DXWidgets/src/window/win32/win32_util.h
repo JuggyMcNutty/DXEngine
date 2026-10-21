@@ -9,9 +9,10 @@
 #ifndef WINVER
 #define WINVER 0x0605
 #endif
-#include <Windows.h>
-#include <Shlobj.h>
+#include <windows.h>
+#include <shlobj.h>
 #include <stdexcept>
+#include <string>
 
 namespace
 {

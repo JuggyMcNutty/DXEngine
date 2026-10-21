@@ -24,9 +24,9 @@
 #else
 #define NOMINMAX
 #define WIN32_MEAN_AND_LEAN
-#include <Windows.h>
-#include <Shlwapi.h>
-#include <Shlobj.h>
+#include <windows.h>
+#include <shlwapi.h>
+#include <shlobj.h>
 #endif
 
 #ifdef WIN32

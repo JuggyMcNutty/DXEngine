@@ -23,7 +23,7 @@ enum class SeekPoint
 #ifdef WIN32
 
 #define NOMINMAX
-#include <Windows.h>
+#include <windows.h>
 
 class FileImpl : public File
 {

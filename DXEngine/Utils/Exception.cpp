@@ -9,8 +9,8 @@
 
 #ifdef WIN32
 
-#include <Windows.h>
-#include <DbgHelp.h>
+#include <windows.h>
+#include <dbghelp.h>
 
 struct InitDbgHelp
 {

@@ -4,9 +4,9 @@
 #include "Utils/UTF16.h"
 #include "Utils/StrTools.h"
 #ifdef WIN32
-#include <Windows.h>
-#include <Shlwapi.h>
-#include <Shlobj.h>
+#include <windows.h>
+#include <shlwapi.h>
+#include <shlobj.h>
 #else
 #include <libgen.h>
 #include <fnmatch.h>

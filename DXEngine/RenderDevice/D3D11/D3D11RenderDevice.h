@@ -14,7 +14,7 @@
 #include "D3D11UploadManager.h"
 #include "D3D11CachedTexture.h"
 
-#include <D3D11.h>
+#include <d3d11.h>
 #include <dxgi1_2.h>
 #include <dxgi1_4.h>
 #include <d3dcompiler.h>

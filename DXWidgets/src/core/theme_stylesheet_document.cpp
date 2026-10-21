@@ -1,6 +1,7 @@
 
 #include "theme_stylesheet_document.h"
 #include <algorithm>
+#include <cstdlib>
 
 ThemeStylesheetDocument::ThemeStylesheetDocument(const std::string& stylesheet)
 {

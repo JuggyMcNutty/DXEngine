@@ -5,8 +5,8 @@
 #include <iostream>
 #include <vector>
 #ifdef WIN32
-#include <CommCtrl.h>
-#include <ObjBase.h>
+#include <commctrl.h>
+#include <objbase.h>
 #include <shellapi.h>
 #endif
 

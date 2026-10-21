@@ -8,8 +8,8 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #define NOMINMAX
 #endif
-#include <WinSock2.h>
-#include <Windows.h>
+#include <winsock2.h>
+#include <windows.h>
 #undef PlaySound
 #undef DrawText
 #undef FindWindow

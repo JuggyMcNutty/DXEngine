@@ -5,6 +5,7 @@
 #include "core/pathfill.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <map>
 #include <utility>

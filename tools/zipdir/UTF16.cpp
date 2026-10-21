@@ -6,7 +6,7 @@
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
-#include <Windows.h>
+#include <windows.h>
 
 std::wstring to_utf16(const std::string& str)
 {

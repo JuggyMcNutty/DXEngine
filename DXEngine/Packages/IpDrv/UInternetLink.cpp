@@ -10,8 +10,8 @@
 #include <thread>
 
 #ifdef WIN32
-#include <WinSock2.h>
-#include <WS2tcpip.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 typedef unsigned long in_addr_t;
 #pragma comment(lib, "ws2_32.lib")
 #else
