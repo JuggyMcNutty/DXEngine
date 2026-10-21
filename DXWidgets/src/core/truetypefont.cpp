@@ -2715,7 +2715,7 @@ TrueTypeGlyph TrueTypeFont::LoadCFFGlyph(uint32_t glyphIndex, double height) con
 				operands.pop(1);
 				break;
 			case 1228: // exch
-				std::exchange(operands.get(-2), operands.get(-1));
+				std::swap(operands.get(-2), operands.get(-1));
 				break;
 			case 1229: // index
 			{
