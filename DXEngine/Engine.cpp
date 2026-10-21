@@ -3084,7 +3084,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 	
 	if (!handled)
 	{
-		if ((type == EInputType::IST_Press || type == EInputType::IST_Axis) && key >= 0 && key < 256)
+		if ((type == EInputType::IST_Press || type == EInputType::IST_Axis) && key >= 0 && (int)key < 256)
 		{
 			if (type == EInputType::IST_Press)
 				delta = 20;

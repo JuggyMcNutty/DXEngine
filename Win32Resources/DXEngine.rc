@@ -137,3 +137,13 @@ END
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
 
+#ifdef __MINGW32__
+/////////////////////////////////////////////////////////////////////////////
+//
+// Manifest: MSVC's linker embeds DXEngine.manifest, a source of the
+// executable in CMakeLists.txt; MinGW's takes it from here.
+//
+
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "DXEngine.manifest"
+#endif
+

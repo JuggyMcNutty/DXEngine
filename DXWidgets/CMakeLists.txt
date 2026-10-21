@@ -310,6 +310,8 @@ if(WIN32)
 	list(APPEND DXWIDGETS_SOURCES ${DXWIDGETS_WIN32_SOURCES})
 	set(DXWIDGETS_DEFINES -DUNICODE -D_UNICODE)
 	set(DXWIDGETS_LINK_OPTIONS)
+	# The Win32 window: DWM for its frame, WGL for its OpenGL context.
+	set(DXWIDGETS_LIBS dwmapi opengl32)
 	if(MSVC)
 		# Use all cores for compilation
 		set(DXWIDGETS_COMPILE_OPTIONS ${DXWIDGETS_COMPILE_OPTIONS} /MP)

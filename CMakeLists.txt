@@ -7,7 +7,30 @@ add_subdirectory(DXGPU)
 add_subdirectory(DXWidgets)
 
 if (WIN32)
+	# OpenAL Soft as OpenAL32.dll beside the engine (LGPL, so a library of its
+	# own): its library alone -- none of its programs or install rules, no
+	# PipeWire, nor the steps that run sed, dlltool or git while building.
+	set(ALSOFT_UTILS OFF CACHE BOOL "" FORCE)
+	set(ALSOFT_EXAMPLES OFF CACHE BOOL "" FORCE)
+	set(ALSOFT_INSTALL OFF CACHE BOOL "" FORCE)
+	set(ALSOFT_INSTALL_CONFIG OFF CACHE BOOL "" FORCE)
+	set(ALSOFT_INSTALL_HRTF_DATA OFF CACHE BOOL "" FORCE)
+	set(ALSOFT_INSTALL_AMBDEC_PRESETS OFF CACHE BOOL "" FORCE)
+	set(ALSOFT_INSTALL_EXAMPLES OFF CACHE BOOL "" FORCE)
+	set(ALSOFT_INSTALL_UTILS OFF CACHE BOOL "" FORCE)
+	set(ALSOFT_UPDATE_BUILD_VERSION OFF CACHE BOOL "" FORCE)
+	set(ALSOFT_BUILD_IMPORT_LIB OFF CACHE BOOL "" FORCE)
+	set(ALSOFT_BACKEND_PIPEWIRE OFF CACHE BOOL "" FORCE)
 	add_subdirectory(Thirdparty/openal-soft)
+endif()
+
+if (MINGW)
+	# The third-party libraries' own warnings under MinGW -- OpenMPT's check
+	# for MSVC's multi-threaded C library among them -- ignored, as the MSVC
+	# block below ignores theirs: not ours to fix.
+	target_compile_options(openmpt PRIVATE -w)
+	target_compile_options(OpenAL PRIVATE -w)
+	target_compile_options(common PRIVATE -w)
 endif()
 
 project(DXEngine)
@@ -770,8 +793,15 @@ set(DXCOMMON_LIBS
 
 set(DXCOMMON_WIN32_LIBS
 	OpenAL
-	DbgHelp
-	Shlwapi
+	dbghelp
+	shlwapi
+	comctl32
+	ws2_32
+	d3d11
+	d3dcompiler
+	dxgi
+	winmm
+	psapi
 )
 
 set(DXCOMMON_UNIX_LIBS
@@ -870,6 +900,10 @@ target_precompile_headers(DXCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CUR
 include(cmake/version.cmake)
 
 add_executable(DXEngine WIN32 ${DXENGINE_SOURCES})
+if(MINGW)
+	# wWinMain, as MSVC takes it.
+	target_link_options(DXEngine PRIVATE -municode)
+endif()
 target_link_libraries(DXEngine DXCommon ${DXCOMMON_LIBS})
 set_target_properties(DXEngine PROPERTIES CXX_STANDARD 20)
 
