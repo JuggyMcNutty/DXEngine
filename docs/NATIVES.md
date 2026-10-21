@@ -269,11 +269,16 @@ Matches the original
 every tile, a canvas's tile or text, a window's or a sprite, takes the
 flags `D3DDrv` draws it with (`RenderDevice::TileFlags`): a modulated one
 draws modulated and masked alone, filtered whatever its smoothing, its
-colour 0 cut out. `TileConsole`, on the canvas and in a window over a grey
-box: `StaticLine` modulated (the line across a camera's and the InfoLink's
-static, a quarter of it colour 0, black) at 1.02 of `D3DDrv`'s brightness,
-from 0.73; `HackInfoBackground` modulated (the hacking screen's message,
-all colour 0, dark grey) drawing nothing, at 1.00, from 0.63.
+colour 0 cut out. A window's tile, as a canvas's, adds its texture's own
+masked bit
+([the GC's styles](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#styles)),
+so a masked texture draws masked in any style. `TileConsole`, on the canvas
+and in a window over a grey box: `StaticLine` modulated (the line across a
+camera's and the InfoLink's static, a quarter of it colour 0, black) at
+1.02 of `D3DDrv`'s brightness, from 0.73; `HackInfoBackground` modulated
+(the hacking screen's message, all colour 0, dark grey) drawing nothing, at
+1.00, from 0.63; in the window, `HUDScopeCrosshair`, a masked texture,
+drawn `DSTY_Normal` at 1.00, from 0.02, a black square round its lines.
 
 ### Sprites
 

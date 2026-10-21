@@ -654,6 +654,12 @@ void UGC::DrawTile(UTexture* tex, const Rectf& dest, const Rectf& src, const Col
 	tex = tex->GetAnimTexture();
 	engine->render->UpdateTexture(tex);
 
+	// The frame's own masked bit too: the original's GC draws every tile
+	// through the canvas's DrawTile, which adds it (Engine.dll 0x10376160),
+	// so a masked texture draws masked in any style
+	if (tex->bMasked())
+		flags |= PF_Masked;
+
 	vec4 color(c.R / 255.0f, c.G / 255.0f, c.B / 255.0f, 1.0f/*c.A / 255.0f*/);
 	float Z = 1.0f;
 	vec4 fog(0.0f);
