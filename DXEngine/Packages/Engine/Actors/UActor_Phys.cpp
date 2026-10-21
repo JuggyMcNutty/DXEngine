@@ -21,10 +21,10 @@ void UActor::TickPhysics(float elapsed)
 		float physTimeElapsed = std::min(timeLeft, 0.02f);
 		int mode = Physics();
 		// Deus Ex's pawns walk, swim and fly the rest of the frame at once,
-		// and anything falls it, as the original's physWalking, physSwimming,
-		// physFlying and physFalling take a whole tick, handing what they
-		// leave to the physics they end in.
-		bool wholeFrame = ((mode == PHYS_Walking || mode == PHYS_Swimming || mode == PHYS_Flying) && bIsPawn()) || mode == PHYS_Falling;
+		// and anything falls or rolls it, as the original's physWalking,
+		// physSwimming, physFlying, physFalling and physRolling take a whole
+		// tick, handing what they leave to the physics they end in.
+		bool wholeFrame = ((mode == PHYS_Walking || mode == PHYS_Swimming || mode == PHYS_Flying) && bIsPawn()) || mode == PHYS_Falling || mode == PHYS_Rolling;
 		if (wholeFrame)
 			physTimeElapsed = timeLeft;
 		PhysicsFrameLeft = timeLeft - physTimeElapsed;

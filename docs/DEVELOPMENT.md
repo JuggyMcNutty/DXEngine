@@ -134,7 +134,7 @@ the run. *Either*: one engine on each side of a pair.
 | `WadeConsole` | both | a troop walking off a ledge into water; `TargetMap`'s shore | `DXWADE:` | `track.py <original run> <dxe run>` |
 | `FlightConsole` | both | a gull's flights at the pier; a stock gull's own | `DXFLIGHT:` | `track.py` |
 | `SlideConsole` | both | the player on low-friction slopes and in a low-friction zone | `DXSLIDE:` | `track.py`, at `DXCAP_FPS=60` and `20` |
-| `RollConsole` | both | four crates on Liberty Island's pier, landed, then rolled away from the player at 400 units/s: each one's place, velocity, physics and base every 0.1 s | `DXROLL:` | the two logs' lines, at `DXCAP_FPS=60` |
+| `RollConsole` | both | four crates on Liberty Island's pier, landed, then rolled away from the player at 400 units/s: each one's place, velocity, physics and base every 0.1 s | `DXROLL:` | the two logs' lines, at `DXCAP_FPS=60` and `20` |
 | `VisibleConsole` | both | each mover's line on `TargetMap`: `FastTrace`, `Trace`, its hit and normal, `TraceTexture`'s and `TraceActors`' hits, the line reversed; the visible-actor iterators and `RadiusActors` | `DXVIS:` | the two logs' `mover` lines diffed |
 | `MoverConsole` | both | lines across a door and a window on `TargetMap`, moved, hidden, broken, saved | `DXMOVER:` | the two logs diffed |
 | `DoorConsole` | both | a hinged door on `TargetMap` (UNATCO HQ) closed on a breakable crate: the door's turn and the crate, each 0.1 s | `DXDOOR:` | the two logs' lines |

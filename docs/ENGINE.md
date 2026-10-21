@@ -447,16 +447,16 @@ in `Frame::CallScript`.
   `RefileMovers` each frame drawn, in a `CellTable` of their own; a mover's move and turn as
   one (`UActor::MoveBrush`); `FindSpot` and encroachment, moves held off what they meet as
   `ULevel::MoveActor` holds them, landing as `processLanded`;
-  walking, falling, swimming, flying, a player's ladders, the speed pawns move at and how they
-  turn, as `physWalking`, `physFalling`, `physSwimming`, `physFlying`, `calcVelocity` and
-  `physicsRotation`, a fall ending its frame where it lands
+  walking, falling, swimming, flying, rolling, a player's ladders, the speed pawns move at and
+  how they turn, as `physWalking`, `physFalling`, `physSwimming`, `physFlying`, `physRolling`,
+  `calcVelocity` and `physicsRotation`, a fall ending its frame where it lands
   ([implemented, not as the original](NATIVES.md#implemented-not-as-the-original)).
-- **A whole frame at once**: a walking, swimming or flying pawn, and anything falling, takes the
-  rest of the frame at once, as the original's does, the walk and the fall in their own steps
-  (`UPawn::DeusExPhysWalking`, `UActor::DeusExTickFalling`), a fall a walk or a swim hands over
-  going on with its count of steps; so its speed, its slides, where it comes to rest and the
-  move it hands on are the original's at the same frame rate, but for a swim out from under the
-  water at some 1,000
+- **A whole frame at once**: a walking, swimming or flying pawn, and anything falling or
+  rolling, takes the rest of the frame at once, as the original's does, the walk, the fall and
+  the roll in their own steps (`UPawn::DeusExPhysWalking`, `UActor::DeusExTickFalling`,
+  `UActor::TickRolling`), a fall a walk or a swim hands over going on with its count of steps;
+  so its speed, its slides, where it comes to rest and the move it hands on are the original's
+  at the same frame rate, but for a swim out from under the water at some 1,000
   ([implemented, not as the original](NATIVES.md#implemented-not-as-the-original)). The other
   physics take a frame in steps of at most 0.02 s (`UActor::TickPhysics`).
 
