@@ -315,8 +315,11 @@ Differs:
 Matches the original
 ([render iterators](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#render-iterators),
 [particles and lasers](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#particles-and-lasers)):
-`LaserConsole` has the beams' red over the floor within 0.5% of `D3DDrv`'s,
-and `ParticleConsole`'s particles rise, fall, grow and fade as the
+`LaserConsole`'s laser fence, a still texture in its beams' slots, unlit and
+lit, has each beam's brightest row within 2.5% of `D3DDrv`'s red, its two
+lines a segment in `D3DDrv`'s rows but for a row at an edge, and one segment
+of each beam drawn twice, picked at random each frame as the original picks
+it; and `ParticleConsole`'s particles rise, fall, grow and fade as the
 original's: its smoke's column at 1.06 to 1.10 of `D3DDrv`'s brightness, its
 puffs under gravity in the same rows. Differs in the occlusion: the original
 occludes each item's sprite through its span buffer; DXEngine clips items to
@@ -518,7 +521,7 @@ Vulkan, with descriptor indexing and without (the Smart Pro's), are within
   them off in both (`NoDetail`): DXEngine draws the pier's detail texture,
   the original none ([the menus' settings](#the-menus-settings)). Its crate,
   box and barrel are within 0.8%, Paul Denton a level over, and
-  `LaserConsole`'s corridor within 0.9%.
+  `LaserConsole`'s corridor 2% under, within 0.5% with them off.
 
 ### The screen flash
 
