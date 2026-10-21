@@ -2032,7 +2032,7 @@ void D3D11RenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, 
 
 void D3D11RenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X, float Y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 Color, vec4 Fog, uint32_t PolyFlags)
 {
-	PolyFlags = ApplyPrecedenceRules(TileFlags(PolyFlags));
+	PolyFlags = ApplyPrecedenceRules(TileFlags(Info, PolyFlags));
 
 	if (PolyFlags == PF_SubpixelFont)
 	{

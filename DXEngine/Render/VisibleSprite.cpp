@@ -74,7 +74,7 @@ void VisibleSprite::Draw(VisibleFrame* frame, UActor* actor, const vec3& locatio
 	renderflags |= texture->PolyFlags();
 
 	// As D3DDrv draws the original's sprite, a tile (RenderDevice::TileFlags)
-	renderflags = RenderDevice::TileFlags(renderflags);
+	renderflags = RenderDevice::TileFlags(texinfo, renderflags);
 
 	if (renderflags & PF_Invisible)
 		return;

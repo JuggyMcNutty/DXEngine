@@ -464,7 +464,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
 
 			Rectf dest = Rectf::xywh(orgX + curX + centerX, orgY + curY, (float)glyph.USize, (float)glyph.VSize);
 			Rectf src = Rectf::xywh((float)glyph.StartU, (float)glyph.StartV, (float)glyph.USize, (float)glyph.VSize);
-			DrawTile(texinfo, dest, src, clipBox, 1.0f, color, vec4(0.0f), PF_Highlighted | PF_NoSmooth | PF_Masked);
+			DrawTile(texinfo, dest, src, clipBox, 1.0f, color, vec4(0.0f), polyflags);
 
 			curX += glyph.USize;
 			maxY = std::max(maxY, glyph.VSize);

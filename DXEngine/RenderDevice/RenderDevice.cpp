@@ -28,14 +28,18 @@ RenderDevice::RenderDevice()
 }
 
 // D3DDrv's DrawTile (D3DDrv.dll 0x10005ba0), which every tile goes through,
-// a canvas's tile or text, a window's or a sprite: a modulated tile is drawn
-// modulated and masked alone, every other flag dropped, PF_NoSmooth with
-// them, so its colour 0 is cut out and the rest filtered, doubling what is
-// behind it (in white: each device's DrawTile)
-uint32_t RenderDevice::TileFlags(uint32_t PolyFlags)
+// a canvas's tile or text, a window's or a sprite: a texture whose palette
+// has alpha, its entry 128's under 255 (the menu's TrueType font), is drawn
+// PF_Highlighted, its alpha blending it, unless translucent; a modulated
+// tile is drawn modulated and masked alone, every other flag dropped,
+// PF_NoSmooth with them, so its colour 0 is cut out and the rest filtered,
+// doubling what is behind it (in white: each device's DrawTile)
+uint32_t RenderDevice::TileFlags(const TextureInfo& Info, uint32_t PolyFlags)
 {
 	if (PolyFlags == PF_SubpixelFont)
 		return PolyFlags;
+	if (Info.Palette && Info.Palette[128].A != 255 && !(PolyFlags & PF_Translucent))
+		PolyFlags |= PF_Highlighted;
 	if (PolyFlags & PF_Modulated)
 		return PF_Modulated | PF_Masked;
 	return PolyFlags;

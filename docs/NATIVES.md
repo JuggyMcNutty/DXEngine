@@ -267,18 +267,24 @@ distance.
 Matches the original
 ([tiles](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#tiles)):
 every tile, a canvas's tile or text, a window's or a sprite, takes the
-flags `D3DDrv` draws it with (`RenderDevice::TileFlags`): a modulated one
-draws modulated and masked alone, filtered whatever its smoothing, its
-colour 0 cut out. A window's tile, as a canvas's, adds its texture's own
-masked bit
+flags `D3DDrv` draws it with (`RenderDevice::TileFlags`): one of a texture
+whose palette has alpha (the menu's TrueType font) blends by it unless
+translucent, and a modulated one draws modulated and masked alone, filtered
+whatever its smoothing, its colour 0 cut out. A window's tile, as a
+canvas's, adds its texture's own masked bit
 ([the GC's styles](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#styles)),
-so a masked texture draws masked in any style. `TileConsole`, on the canvas
-and in a window over a grey box: `StaticLine` modulated (the line across a
-camera's and the InfoLink's static, a quarter of it colour 0, black) at
-1.02 of `D3DDrv`'s brightness, from 0.73; `HackInfoBackground` modulated
-(the hacking screen's message, all colour 0, dark grey) drawing nothing, at
+so a masked texture draws masked in any style; the canvas's text, clipped
+or not, takes its style's flags. `TileConsole`, on the canvas and in a
+window over a grey box: `StaticLine` modulated (the line across a camera's
+and the InfoLink's static, a quarter of it colour 0, black) at 1.02 of
+`D3DDrv`'s brightness, from 0.73; `HackInfoBackground` modulated (the
+hacking screen's message, all colour 0, dark grey) drawing nothing, at
 1.00, from 0.63; in the window, `HUDScopeCrosshair`, a masked texture,
-drawn `DSTY_Normal` at 1.00, from 0.02, a black square round its lines.
+drawn `DSTY_Normal` at 1.00, from 0.02, a black square round its lines;
+"NEW GAME" in the TrueType font, drawn opaque, at a correlation of 1.00 to
+`D3DDrv`'s, from 0.98, its edges no longer darker than the box (the stock
+menus draw it translucent, unchanged); on the canvas, clipped text drawn
+`STY_Translucent` translucent, where it drew opaque.
 
 ### Sprites
 

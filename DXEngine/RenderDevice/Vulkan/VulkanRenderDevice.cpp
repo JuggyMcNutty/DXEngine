@@ -639,7 +639,7 @@ void VulkanRenderDevice::DrawGouraudTriangles(SceneNode* Frame, TextureInfo& Inf
 
 void VulkanRenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X, float Y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 Color, vec4 Fog, uint32_t PolyFlags)
 {
-	PolyFlags = ApplyPrecedenceRules(TileFlags(PolyFlags));
+	PolyFlags = ApplyPrecedenceRules(TileFlags(Info, PolyFlags));
 
 	if (PolyFlags == PF_SubpixelFont)
 	{
