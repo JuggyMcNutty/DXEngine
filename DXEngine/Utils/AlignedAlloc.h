@@ -1,10 +1,13 @@
 #pragma once
 
 #include <cstdlib>
+#ifdef _WIN32
+#include <malloc.h>
+#endif
 
 inline void* AlignedAlloc(std::size_t alignment, std::size_t size)
 {
-#ifdef _MSC_VER
+#ifdef _WIN32
 	return _aligned_malloc(size, alignment);
 #else
 	// std::aligned_alloc requires an alignment accepted by the platform and a
@@ -20,7 +23,7 @@ inline void* AlignedAlloc(std::size_t alignment, std::size_t size)
 
 inline void AlignedFree(void* data)
 {
-#ifdef _MSC_VER
+#ifdef _WIN32
 	_aligned_free(data);
 #else
 	std::free(data);

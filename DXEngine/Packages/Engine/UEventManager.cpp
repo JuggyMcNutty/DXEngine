@@ -344,7 +344,7 @@ bool UEventManager::ProcessReceiver(EventType& type, Receiver& receiver)
 	// 1,200 units of the player, and not in stasis, weighs every sender;
 	// any other only those within 400 units.
 	float now = actor->Level()->TimeSeconds();
-	bool near = (now - actor->LastRenderTime() < 5.0f || actor->DistanceFromPlayer() <= 1200.0f) && !actor->InStasis();
+	bool nearby = (now - actor->LastRenderTime() < 5.0f || actor->DistanceFromPlayer() <= 1200.0f) && !actor->InStasis();
 
 	struct Candidate
 	{
@@ -357,7 +357,7 @@ bool UEventManager::ProcessReceiver(EventType& type, Receiver& receiver)
 		if (sender->Delete || !sender->Actor || sender->Actor == actor)
 			continue;
 		vec3 delta = sender->Actor->Location() - actor->Location();
-		if (!near && dot(delta, delta) > 400.0f * 400.0f)
+		if (!nearby && dot(delta, delta) > 400.0f * 400.0f)
 			continue;
 
 		// A sender's score is its distance squared plus 1, or what the
