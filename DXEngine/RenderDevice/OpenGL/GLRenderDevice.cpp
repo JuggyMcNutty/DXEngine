@@ -1708,7 +1708,7 @@ void GLRenderDevice::DrawGouraudTriangles(SceneNode* Frame, TextureInfo& Info, c
 
 void GLRenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X, float Y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 Color, vec4 Fog, uint32_t PolyFlags)
 {
-	PolyFlags = ApplyPrecedenceRules(PolyFlags);
+	PolyFlags = ApplyPrecedenceRules(TileFlags(PolyFlags));
 
 	if (PolyFlags == PF_SubpixelFont)
 	{

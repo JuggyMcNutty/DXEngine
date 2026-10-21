@@ -262,6 +262,19 @@ draws in 3D, the frob highlight's box and the meshes' level of detail
 on a wide screen a mesh keeps less detail than the original's at the same
 distance.
 
+### Tiles
+
+Matches the original
+([tiles](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#tiles)):
+every tile, a canvas's tile or text, a window's or a sprite, takes the
+flags `D3DDrv` draws it with (`RenderDevice::TileFlags`): a modulated one
+draws modulated and masked alone, filtered whatever its smoothing, its
+colour 0 cut out. `TileConsole`, on the canvas and in a window over a grey
+box: `StaticLine` modulated (the line across a camera's and the InfoLink's
+static, a quarter of it colour 0, black) at 1.02 of `D3DDrv`'s brightness,
+from 0.73; `HackInfoBackground` modulated (the hacking screen's message,
+all colour 0, dark grey) drawing nothing, at 1.00, from 0.63.
+
 ### Sprites
 
 Matches the original
@@ -271,9 +284,7 @@ actor's style -- `STY_Masked` masked, `STY_Translucent` translucent,
 `STY_Modulated` modulated -- its texture's own flags and its `bNoSmooth`; a
 render iterator's items with their proxy's, so a `ParticleGenerator` with
 neither `bTranslucent` nor `bModulated` draws its particles masked. A
-modulated sprite draws modulated and masked alone, as `D3DDrv` draws every
-modulated tile
-([tiles](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#tiles)).
+modulated sprite draws as every modulated tile ([tiles](#tiles)).
 `SpriteConsole`'s icon, its colour 0 magenta, drawn `STY_Masked` and as
 such particles, shows none of that colour in either engine: 0.0% of the
 sprite's box and 0.7% of the particles' magenta in DXEngine's frame, none in

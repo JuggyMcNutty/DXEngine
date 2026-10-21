@@ -27,6 +27,20 @@ RenderDevice::RenderDevice()
 	UseDebugLayer = settings.RenderDevice.UseDebugLayer;
 }
 
+// D3DDrv's DrawTile (D3DDrv.dll 0x10005ba0), which every tile goes through,
+// a canvas's tile or text, a window's or a sprite: a modulated tile is drawn
+// modulated and masked alone, every other flag dropped, PF_NoSmooth with
+// them, so its colour 0 is cut out and the rest filtered, doubling what is
+// behind it (in white: each device's DrawTile)
+uint32_t RenderDevice::TileFlags(uint32_t PolyFlags)
+{
+	if (PolyFlags == PF_SubpixelFont)
+		return PolyFlags;
+	if (PolyFlags & PF_Modulated)
+		return PF_Modulated | PF_Masked;
+	return PolyFlags;
+}
+
 std::unique_ptr<RenderDevice> RenderDevice::Create(Widget* viewport, RenderAPI renderAPI)
 {
 	if (renderAPI == RenderAPI::Vulkan)

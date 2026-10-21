@@ -144,6 +144,12 @@ public:
 		}
 	}
 	virtual void DrawTile(SceneNode* Frame, TextureInfo& Info, float X, float Y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 Color, vec4 Fog, uint32_t PolyFlags) = 0;
+
+	// The flags a tile is drawn with, as D3DDrv's DrawTile changes them
+	// (RenderDevice.cpp): each device's DrawTile takes them first, and a
+	// sprite, drawn as a polygon, takes its own
+	static uint32_t TileFlags(uint32_t PolyFlags);
+
 	virtual void Draw3DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2) = 0;
 	virtual void Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2) = 0;
 	virtual void Draw2DPoint(SceneNode* Frame, vec4 Color, uint32_t LineFlags, float X1, float Y1, float X2, float Y2, float Z) = 0;
