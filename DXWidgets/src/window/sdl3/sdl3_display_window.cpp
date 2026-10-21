@@ -26,7 +26,9 @@ SDL3DisplayWindow::SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType t
 	if (type == WidgetType::Popup)
 		flags |= SDL_WINDOW_BORDERLESS;
 
-	if (renderAPI == RenderAPI::Vulkan || renderAPI == RenderAPI::OpenGL || renderAPI == RenderAPI::GLES)
+	// A device's window is a plain one, D3D11's too, whose swap chain is on
+	// its HWND; SDL's renderer is for a window that presents a bitmap.
+	if (renderAPI == RenderAPI::Vulkan || renderAPI == RenderAPI::OpenGL || renderAPI == RenderAPI::GLES || renderAPI == RenderAPI::D3D11)
 	{
 		Handle.window = SDL_CreateWindow("", 320, 200, flags);
 		if (!Handle.window)
@@ -68,6 +70,11 @@ SDL3DisplayWindow::~SDL3DisplayWindow()
 	SDL_DestroyWindow(Handle.window);
 	RendererHandle = nullptr;
 	Handle.window = nullptr;
+}
+
+void* SDL3DisplayWindow::GetWin32Handle()
+{
+	return SDL_GetPointerProperty(SDL_GetWindowProperties(Handle.window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
 }
 
 std::vector<std::string> SDL3DisplayWindow::GetVulkanInstanceExtensions()

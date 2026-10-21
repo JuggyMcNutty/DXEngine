@@ -65,6 +65,7 @@ public:
 	RawKeycode ToDirectInputKeycode(RAWINPUT* rawinput);
 
 	void* GetNativeHandle() override { return &WindowHandle; }
+	void* GetWin32Handle() override { return WindowHandle.hwnd; }
 
 	std::vector<std::string> GetVulkanInstanceExtensions() override;
 	VkSurfaceKHR CreateVulkanSurface(VkInstance instance) override;

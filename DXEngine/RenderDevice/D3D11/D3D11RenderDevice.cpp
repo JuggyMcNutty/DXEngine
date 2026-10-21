@@ -8,7 +8,6 @@
 #include "Math/halffloat.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include <dxwidgets/core/widget.h>
-#include <dxwidgets/window/win32nativehandle.h>
 #include <dxwidgets/window/sdlnativehandle.h>
 #include <comdef.h>
 
@@ -43,9 +42,8 @@ int D3D11RenderDevice::GetSettingsMultisample()
 
 HWND D3D11RenderDevice::GetWindowHandle()
 {
-	// To do: this is different for SDL2 backend on Windows
-	// return SDL_GetTheWin32Handle(static_cast<Win32NativeHandle*>(Viewport->GetNativeHandle())->window);
-	return static_cast<Win32NativeHandle*>(Viewport->GetNativeHandle())->hwnd;
+	// Windows' own window's, or SDL3's (DXWidgets' GetWin32Handle).
+	return static_cast<HWND>(Viewport->GetWin32Handle());
 }
 
 bool D3D11RenderDevice::Init(int NewX, int NewY, bool Fullscreen)

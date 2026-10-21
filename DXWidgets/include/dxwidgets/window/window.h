@@ -377,6 +377,9 @@ public:
 
 	virtual void* GetNativeHandle() = 0;
 
+	// The window's HWND on Windows, for Direct3D; null where it has none.
+	virtual void* GetWin32Handle() { return nullptr; }
+
 	virtual std::vector<std::string> GetVulkanInstanceExtensions() = 0;
 	virtual VkSurfaceKHR CreateVulkanSurface(VkInstance instance) = 0;
 

@@ -59,6 +59,7 @@ public:
 	Point MapToGlobal(const Point& pos) const override;
 
 	void* GetNativeHandle() override { return &Handle; }
+	void* GetWin32Handle() override;
 
 	std::vector<std::string> GetVulkanInstanceExtensions() override;
 	VkSurfaceKHR CreateVulkanSurface(VkInstance instance) override;

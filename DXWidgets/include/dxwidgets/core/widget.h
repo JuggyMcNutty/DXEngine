@@ -186,6 +186,9 @@ public:
 	std::vector<std::string> GetVulkanInstanceExtensions() { return Window()->DispWindow->GetVulkanInstanceExtensions(); }
 	VkSurfaceKHR CreateVulkanSurface(VkInstance instance) { return Window()->DispWindow->CreateVulkanSurface(instance); }
 
+	// Direct3D support:
+	void* GetWin32Handle() { return Window()->DispWindow->GetWin32Handle(); }
+
 	// OpenGL support:
 	void CreateGLContext() { Window()->DispWindow->CreateGLContext(); }
 	void MakeGLContextCurrent() { Window()->DispWindow->MakeGLContextCurrent(); }
