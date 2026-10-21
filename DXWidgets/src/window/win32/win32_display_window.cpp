@@ -785,9 +785,15 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 			POINT center = {};
 			center.x = box.right / 2;
 			center.y = box.bottom / 2;
-			ClientToScreen(WindowHandle.hwnd, &center);
 
-			SetCursorPos(center.x, center.y);
+			// Back to the centre, unless it is there: Wine makes every move
+			// of the pointer a message, the move to the centre too, and the
+			// queue would never empty.
+			if (GET_X_LPARAM(lparam) != center.x || GET_Y_LPARAM(lparam) != center.y)
+			{
+				ClientToScreen(WindowHandle.hwnd, &center);
+				SetCursorPos(center.x, center.y);
+			}
 		}
 		else
 		{
