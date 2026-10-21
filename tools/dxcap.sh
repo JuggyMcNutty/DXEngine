@@ -84,9 +84,15 @@
 # (?loadgame=9 for StartConsole, a run started on slot 9's save, and for
 # CensusConsole with Load=False).
 # DXCAP_ENGINE=<binary> runs another build of DXEngine than linux-x86_64's
-# (an ASan build). DXCAP_MEMLOG=1 logs either engine's resident memory each
-# second into the run's memlog.txt: seconds since its process started, then
-# MB.
+# (an ASan build). A Windows build's DXEngine.exe (windows-x86_64's) runs
+# under the original's wine, in its prefix, its files by Wine's names for
+# them, in its SDL3 window (DXCAP_BACKEND=Win32: its own), silent but with
+# DXCAP_AUDIO=1, its settings by a --userdir of the run's own
+# (DXCAP_SETTINGS) whose shots the run collects; DXCAP_DXVK=1 draws its
+# D3D11 through Proton's DXVK in place of Wine's own. DXCAP_RECORD and
+# DXCAP_PERF are for Linux builds. DXCAP_MEMLOG=1 logs either engine's
+# resident memory each second into the run's memlog.txt: seconds since its
+# process started, then MB.
 # DXCAP_SETTINGS=<file> gives a dxe run that Settings.json in place of
 # ~/.config/DXEngine's, through a HOME of the run's own (the caches stay
 # the usual ones). DXCAP_USERDIR=<dir> gives a dxe run the engine's
@@ -110,6 +116,8 @@ GAME="$DX_ROOT/gamefiles"
 CAP="$DX_ROOT/build/dxcap"
 SDK="$DX_ROOT/reference/ReleaseSDK1112f/System"
 ENGINE_BIN="${DXCAP_ENGINE:-$DX_ROOT/build/linux-x86_64/engine/DXEngine}"
+# A Windows build of DXEngine, run under wine (DXCAP_ENGINE).
+windows_engine() { [[ "$ENGINE_BIN" == *.exe ]]; }
 
 usage() { sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; exit 2; }
 # Every command but help needs the game.
@@ -257,6 +265,19 @@ make_prefix() {
 
 # Wine's view of an absolute path: Z: is the root.
 winpath() { printf 'Z:%s' "${1//\//\\}"; }
+# A path as DXEngine names it: Wine's name for a Windows build.
+enginepath() { if windows_engine; then winpath "$1"; else printf '%s' "$1"; fi; }
+
+# DXCAP_DXVK: Proton's DXVK, D3D11 on Vulkan, in the prefix beside Wine's
+# own d3d11 and dxgi, which stay the default: a run takes DXVK's by its
+# WINEDLLOVERRIDES.
+dxvk_ready() {
+    local dxvk="${WINE%/bin/wine}/lib/wine/dxvk/x86_64-windows" dir="$PREFIX/drive_c/windows/system32" f
+    for f in d3d11.dll dxgi.dll; do
+        [ -f "$dxvk/$f" ] || die "no DXVK $f in $dxvk"
+        cmp -s "$dxvk/$f" "$dir/$f" || cp "$dxvk/$f" "$dir/$f"
+    done
+}
 
 # crlf <file>: standard input into <file>, its lines ended as Windows ends them.
 crlf() { sed 's/$/\r/' > "$1"; }
@@ -297,9 +318,12 @@ Hello="the second folder's DXCapSecond.int"
 EOF
     if [ "$engine" = original ]; then
         system="$CAP/game/System"
-        printf '%s\\*.u\n' "$(winpath "$first")"
     else
         system="$GAME/System"
+    fi
+    if [ "$engine" = original ] || windows_engine; then
+        printf '%s\\*.u\n' "$(winpath "$first")"
+    else
         printf '%s/*.u\n' "$first"
     fi
     printf '%s\\*.u\n' "$(realpath -m -s --relative-to="$system" "$second" | tr / '\\')"
@@ -311,14 +335,15 @@ EOF
 # renderer (DXCAP_RENDERER=D3D: D3DDrv), whose window its frames are grabbed
 # from; for LocalizeConsole its folders first in the paths.
 make_ini() {
-    local engine="$1" console="$2" out="$3" path mods=""
-    if [ "$engine" = original ]; then
+    local engine="$1" console="$2" out="$3" path mods="" winpaths=0
+    if [ "$engine" = original ] || windows_engine; then winpaths=1; fi
+    if [ "$winpaths" = 1 ]; then
         path="$(winpath "$CAP/System")\\*.u"
     else
         path="$CAP/System/*.u"
     fi
     [ "$console" != LocalizeConsole ] || mods="$(localize_folders "$engine")"
-    DXCAP_LOCALIZE_PATHS="$mods" python3 - "$GAME/System/DeusEx.ini" "$out" "$engine" "$console" "$path" "$WINDOW_X" "$WINDOW_Y" <<'EOF'
+    DXCAP_LOCALIZE_PATHS="$mods" DXCAP_WINPATHS="$winpaths" python3 - "$GAME/System/DeusEx.ini" "$out" "$engine" "$console" "$path" "$WINDOW_X" "$WINDOW_Y" <<'EOF'
 import os, re, sys
 src, out, engine, console, path, window_x, window_y = sys.argv[1:]
 s = open(src, encoding='latin1', newline='').read()
@@ -369,7 +394,7 @@ if serverpkgs:
         sys.exit('no packages in ' + serverpkgs)
     exts = sorted(set(os.path.splitext(f)[1] for f in files))
     folder = os.path.abspath(serverpkgs)
-    if engine == 'original':
+    if os.environ.get('DXCAP_WINPATHS') == '1':
         folder = 'Z:' + folder.replace('/', '\\')
         lines = ''.join('Paths=%s\\*%s%s' % (folder, e, nl) for e in exts)
     else:
@@ -502,12 +527,16 @@ EOF
 shots_before() { (cd "$GAME/System" && ls Shot*.bmp 2>/dev/null) || true; }
 
 collect() {
-    local dir="$1" before="$2" f
+    local dir="$1" before="$2" own="${3:-}" f
     mkdir -p "$dir"
     for f in $( (cd "$GAME/System" && ls Shot*.bmp 2>/dev/null) || true); do
         if ! printf '%s\n' "$before" | grep -qx "$f"; then
             mv "$GAME/System/$f" "$dir/$f"
         fi
+    done
+    # A run's own --userdir: every shot in it the run's.
+    [ -z "$own" ] || for f in "$own"/Screenshots/Shot*.bmp; do
+        [ ! -f "$f" ] || mv "$f" "$dir/"
     done
 }
 
@@ -647,15 +676,48 @@ run_dxe() {
         [ -f "$settings" ] || die "no settings file $DXCAP_SETTINGS"
     fi
     need_display
+    # The engine's own folder: DXCAP_USERDIR's, or for a Windows build's
+    # settings (DXCAP_SETTINGS) one of the run's own.
+    local userdir=() own="" overrides="winemenubuilder.exe=d"
+    [ -z "${DXCAP_USERDIR:-}" ] || userdir=(--userdir="$(enginepath "$(realpath -m "$DXCAP_USERDIR")")")
+    if windows_engine; then
+        [ "${DXCAP_RECORD:-0}" != 1 ] && [ "${DXCAP_PERF:-0}" != 1 ] || die "DXCAP_RECORD and DXCAP_PERF are for Linux builds"
+        if [ -n "$settings" ]; then
+            [ -z "${DXCAP_USERDIR:-}" ] || die "a Windows build's DXCAP_SETTINGS is its own --userdir's: not with DXCAP_USERDIR"
+            own="$dir/userdir"
+            mkdir -p "$own"
+            cp "$settings" "$own/Settings.json"
+            userdir=(--userdir="$(winpath "$own")")
+        fi
+        ensure_prefix
+        if [ "${DXCAP_DXVK:-0}" = 1 ]; then
+            dxvk_ready
+            overrides="$overrides;d3d11,dxgi=n,b"
+        fi
+    fi
+    # The engine's own options, a timeline's file by the engine's name for it.
+    local args=() a
+    for a in "$@"; do
+        case "$a" in
+            --timeline=*) args+=(--timeline="$(enginepath "${a#--timeline=}")") ;;
+            *) args+=("$a") ;;
+        esac
+    done
     [ "${DXCAP_RECORD:-0}" != 1 ] || rec_start "$dir/audio.wav"
     local rc=0
     (
         cd "$GAME"
         # The desktop's X display through the window's X11 backend, where
         # the original draws through Wine's; DXCAP_BACKEND=SDL3 or SDL2 its
-        # SDL one, the launchers', on the same display.
+        # SDL one, the launchers', on the same display. A Windows build's
+        # window is SDL3's (or its own), through Wine's X11 driver: Windows'
+        # SDL has no driver to name.
         unset WAYLAND_DISPLAY
         export DISPLAY="$XDISPLAY" DXE_DISPLAY_BACKEND="${DXCAP_BACKEND:-X11}" SDL_VIDEODRIVER=x11
+        if windows_engine; then
+            export DXE_DISPLAY_BACKEND="${DXCAP_BACKEND:-SDL3}"
+            unset SDL_VIDEODRIVER
+        fi
         # A timeline's virtual pad alone (its vendor and product): no pad of
         # the machine's in its place.
         if [ -f "$dir/timeline.txt" ] &&
@@ -665,26 +727,45 @@ run_dxe() {
         if [ "${DXCAP_RECORD:-0}" = 1 ]; then
             printf '[general]\ndrivers = pulse\n' > "$CAP/alsoft-pulse.conf"
             export ALSOFT_CONF="$CAP/alsoft-pulse.conf" PULSE_SINK=dxcap
+        elif windows_engine && [ "${DXCAP_AUDIO:-0}" != 1 ]; then
+            # OpenAL Soft on Windows reads no file by a Unix name.
+            export ALSOFT_DRIVERS=null
         elif [ "${DXCAP_AUDIO:-0}" != 1 ]; then
             printf '[general]\ndrivers = null\n' > "$CAP/alsoft-null.conf"
             export ALSOFT_CONF="$CAP/alsoft-null.conf"
         fi
         # The run's own Settings.json, where the engine looks for it
         # ($HOME/.config/DXEngine); the caches stay where they are.
-        if [ -n "$settings" ]; then
+        if [ -n "$settings" ] && ! windows_engine; then
             mkdir -p "$dir/home/.config/DXEngine"
             cp "$settings" "$dir/home/.config/DXEngine/Settings.json"
             export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
             export HOME="$dir/home"
         fi
         fps_env
-        local userdir=()
-        [ -z "${DXCAP_USERDIR:-}" ] || userdir=(--userdir="$(realpath -m "$DXCAP_USERDIR")")
-        inis=(--ini="$ini" --userini="$userini")
-        [ "${DXCAP_USERINI_FIRST:-0}" != 1 ] || inis=(--cmdline="USERINI=$userini INI=$ini")
-        timeout -s KILL "$secs" "$ENGINE_BIN" --no-launcher "$GAME" "${inis[@]}" --url="$map" "${userdir[@]}" "$@" > "$dir/engine.log" 2>&1 &
-        local tpid=$! mpid="" perfpid="" epid="" i=0
-        if [ "${DXCAP_MEMLOG:-0}" = 1 ]; then
+        local e_ini e_userini run=("$ENGINE_BIN")
+        e_ini="$(enginepath "$ini")"
+        e_userini="$(enginepath "$userini")"
+        inis=(--ini="$e_ini" --userini="$e_userini")
+        [ "${DXCAP_USERINI_FIRST:-0}" != 1 ] || inis=(--cmdline="USERINI=$e_userini INI=$e_ini")
+        ! windows_engine || run=(env WINEPREFIX="$PREFIX" WINEDEBUG=-all WINEDLLOVERRIDES="$overrides" "$WINE" "$ENGINE_BIN")
+        local others; others="$(pgrep -x DXEngine.exe || true)"
+        timeout -s KILL "$secs" "${run[@]}" --no-launcher "$(enginepath "$GAME")" "${inis[@]}" --url="$map" "${userdir[@]}" "${args[@]}" > "$dir/engine.log" 2>&1 &
+        local tpid=$! mpid="" perfpid="" epid="" wpid="" i=0
+        # Under wine, timeout's child is start.exe, which starts the engine
+        # as a process of its own, passes on its exit code, and leaves it
+        # running when killed: the engine's process is the new DXEngine.exe.
+        if windows_engine; then
+            while [ $i -lt 300 ] && [ -z "$wpid" ] && kill -0 "$tpid" 2>/dev/null; do
+                wpid="$(pgrep -x DXEngine.exe | grep -vxF -e "${others:-none}" | head -1)" || true
+                [ -n "$wpid" ] || sleep 0.1
+                i=$((i + 1))
+            done
+        fi
+        if [ "${DXCAP_MEMLOG:-0}" = 1 ] && [ -n "$wpid" ]; then
+            memlog "$wpid" "$dir/memlog.txt" &
+            mpid=$!
+        elif [ "${DXCAP_MEMLOG:-0}" = 1 ]; then
             memlog "$tpid" "$dir/memlog.txt" child &
             mpid=$!
         fi
@@ -698,12 +779,13 @@ run_dxe() {
         fi
         local erc=0
         wait "$tpid" || erc=$?
+        [ -z "$wpid" ] || kill -KILL "$wpid" 2>/dev/null || true
         [ -z "$mpid" ] || kill "$mpid" 2>/dev/null || true
         [ -z "$perfpid" ] || perf_wait $perfpid
         exit "$erc"
     ) || rc=$?
     [ "${DXCAP_RECORD:-0}" != 1 ] || rec_stop
-    collect "$dir" "$before"
+    collect "$dir" "$before" "$own"
     printf '%s\n' "$rc" > "$dir/exit"
     say "dxe: $dir (exit $rc)"
     printf '%s\n' "$dir"
