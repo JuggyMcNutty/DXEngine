@@ -64,7 +64,12 @@ std::string FileResource::readAllText(const std::string& filename)
 			#endif
 
 			layout(location = 0) flat in uint flags;
-			layout(location = 1) centroid in vec2 texCoord;
+			// At the pixel's centre, multisampled or not (docs/ENGINE.md, the
+			// Vulkan device): at a covered sample (centroid), a pixel two
+			// triangles share, as along a tile's diagonal, took skewed
+			// derivatives on RADV, whose anisotropic filter then blended a
+			// point-sampled glyph's texels with its colour 0 into dark ones
+			layout(location = 1) in vec2 texCoord;
 			layout(location = 2) in vec2 texCoord2;
 			layout(location = 3) in vec2 texCoord3;
 			layout(location = 4) in vec2 texCoord4;

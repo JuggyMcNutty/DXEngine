@@ -331,7 +331,14 @@ a translucent draw biased by its slope shows through the opaque one in front of 
 an augmentation canister's inner glow through its shell (`CanisterConsole`). A mover's surfaces
 take a step and a slope of 1 toward the viewer on both devices (`SurfaceInfo::DepthBias`;
 Vulkan's 32 scene pipelines again with it, GL's `glPolygonOffset`;
-[draw order and movers](NATIVES.md#draw-order-and-movers)).
+[draw order and movers](NATIVES.md#draw-order-and-movers)). Multisampled, its scene shader
+reads a texture at the pixel's centre, as without multisampling: `TileConsole` on RADV, at 2x
+and 4x, draws its grey boxes pixel for pixel as without it, the `FontMenuHeaders` text at 1.00
+of `D3DDrv`'s brightness block for block. Read at a covered sample (`centroid`), as the GL
+device's shader reads it, a pixel two triangles share, along a tile's diagonal, takes skewed
+derivatives on RADV, whose anisotropic filter blends a point-sampled glyph's texels with its
+colour 0 into dark ones; on Mesa's radeonsi the GL device's tiles stay within a level of their
+picture without multisampling.
 
 **The GL device** runs desktop GL 4.2+ and OpenGL ES 3.2 from one code path: `RenderAPI::GLES`
 and `RenderDeviceType::GLES`, an ES 3.2 context from every Linux window backend (SDL2 and SDL3
