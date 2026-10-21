@@ -20,6 +20,9 @@
 #ifndef _WIN32
 #include <cerrno>
 #include <unistd.h>
+#else
+#include <algorithm>
+#include "Utils/UTF16.h"
 #endif
 #include "Utils/Logger.h"
 
@@ -136,7 +139,6 @@ void GameApp::Relaunch(const Array<std::string>& args, const std::string& line)
 	// again, with the same options but the original's command line the
 	// RELAUNCH named in place of its start (--cmdline, --url, --server,
 	// --lanplay, --timeline).
-#ifndef _WIN32
 	auto option = [](const std::string& arg, const char* name)
 	{
 		size_t n = std::strlen(name);
@@ -158,6 +160,7 @@ void GameApp::Relaunch(const Array<std::string>& args, const std::string& line)
 	}
 	next.push_back("--cmdline=" + line);
 
+#ifndef _WIN32
 	char path[4096];
 	ssize_t length = readlink("/proc/self/exe", path, sizeof(path) - 1);
 	if (length <= 0)
@@ -175,6 +178,79 @@ void GameApp::Relaunch(const Array<std::string>& args, const std::string& line)
 	execv(path, argv.data());
 	std::cerr << "Relaunch: " << std::strerror(errno) << std::endl;
 #else
-	std::cerr << "Relaunch: not on this platform" << std::endl;
+	// Windows has no exec: the engine is started again, its output where
+	// this one's goes -- its standard handles, and no others, handed on --
+	// and this one exits. Each word is quoted as CommandLineToArgvW splits
+	// the line.
+	std::vector<wchar_t> path(32768);
+	DWORD length = GetModuleFileNameW(nullptr, path.data(), (DWORD)path.size());
+	if (length == 0 || length >= path.size())
+	{
+		std::cerr << "Relaunch: the engine's own path is unknown" << std::endl;
+		return;
+	}
+	auto quote = [](const std::wstring& word)
+	{
+		if (!word.empty() && word.find_first_of(L" \t\n\v\"") == std::wstring::npos)
+			return word;
+		std::wstring quoted = L"\"";
+		size_t backslashes = 0;
+		for (wchar_t c : word)
+		{
+			if (c == L'\\')
+			{
+				backslashes++;
+				continue;
+			}
+			// backslashes before a quote are doubled, and the quote escaped
+			quoted.append(c == L'"' ? backslashes * 2 + 1 : backslashes, L'\\');
+			quoted.push_back(c);
+			backslashes = 0;
+		}
+		quoted.append(backslashes * 2, L'\\');
+		return quoted + L"\"";
+	};
+	std::wstring commandLine = L"\"" + std::wstring(path.data()) + L"\"";
+	for (const std::string& arg : next)
+		commandLine += L" " + quote(to_utf16(arg));
+
+	HANDLE standard[3] = { GetStdHandle(STD_INPUT_HANDLE), GetStdHandle(STD_OUTPUT_HANDLE), GetStdHandle(STD_ERROR_HANDLE) };
+	std::vector<HANDLE> inherit;
+	for (HANDLE h : standard)
+	{
+		if (h && h != INVALID_HANDLE_VALUE && std::find(inherit.begin(), inherit.end(), h) == inherit.end() &&
+			SetHandleInformation(h, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT))
+			inherit.push_back(h);
+	}
+	SIZE_T size = 0;
+	InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
+	std::vector<char> attributes(size);
+	auto list = (LPPROC_THREAD_ATTRIBUTE_LIST)attributes.data();
+	STARTUPINFOEXW startup = {};
+	startup.StartupInfo.cb = sizeof(startup);
+	bool listed = !inherit.empty() && InitializeProcThreadAttributeList(list, 1, 0, &size);
+	if (listed && UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, inherit.data(), inherit.size() * sizeof(HANDLE), nullptr, nullptr))
+	{
+		startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+		startup.StartupInfo.hStdInput = standard[0];
+		startup.StartupInfo.hStdOutput = standard[1];
+		startup.StartupInfo.hStdError = standard[2];
+		startup.lpAttributeList = list;
+	}
+	std::cerr << "Relaunch: " << from_utf16(path.data()) << " --cmdline=" << line << std::endl;
+	PROCESS_INFORMATION process = {};
+	bool inherits = startup.lpAttributeList != nullptr;
+	if (CreateProcessW(path.data(), commandLine.data(), nullptr, nullptr, inherits, inherits ? EXTENDED_STARTUPINFO_PRESENT : 0,
+		nullptr, nullptr, &startup.StartupInfo, &process))
+	{
+		CloseHandle(process.hThread);
+		CloseHandle(process.hProcess);
+	}
+	else
+	{
+		std::cerr << "Relaunch: error " << GetLastError() << std::endl;
+	}
+	if (listed)
+		DeleteProcThreadAttributeList(list);
 #endif
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <string>
 
@@ -7,13 +8,14 @@
 // recreated DeusEx, which stays for the game's whole run as the original's
 // process does (deusex-launcher main's README, "The game and the launcher"),
 // or DXLauncher, which waits on it so too (its docs/LAUNCHER.md).
-// Its descriptor is DXL_LAUNCHER_FD in the environment; one text line a
-// message. The engine says "hello" as it starts and "ready" once its first
-// map is in -- the launcher's splash closes then -- and takes "TakeFocus"
-// and "Open <url>", what a second launch forwarded. "relaunch <line>" asks
-// the launcher to start again with that command line once the game has
-// exited, as the original's RELAUNCH starts DeusEx.exe. Without the variable
-// every call does nothing.
+// Its descriptor is DXL_LAUNCHER_FD in the environment, on Windows the
+// value of an inherited pipe's handle; one text line a message. The engine
+// says "hello" as it starts and "ready" once its first map is in -- the
+// launcher's splash closes then -- and takes "TakeFocus" and "Open <url>",
+// what a second launch forwarded, and "Quit", the launcher's stop.
+// "relaunch <line>" asks the launcher to start again with that command line
+// once the game has exited, as the original's RELAUNCH starts DeusEx.exe.
+// Without the variable every call does nothing.
 class LauncherLine
 {
 public:
@@ -33,7 +35,8 @@ private:
 	bool Open();
 	void Send(const std::string& line);
 
-	int fd = -1;
+	// The descriptor, or on Windows the handle; -1 when there is none.
+	intptr_t handle = -1;
 	bool tried = false;
 	std::string pending;
 };

@@ -686,6 +686,14 @@ void Engine::OnLauncherLine(const std::string& line)
 		BitfieldBool found = { &foundBits, 1 };
 		ConsoleCommand(viewport ? viewport->Actor() : nullptr, "open " + line.substr(5), found);
 	}
+	else if (line == "Quit")
+	{
+		// The launcher's stop, where there are no signals (on POSIX it
+		// sends SIGTERM): quit as a closed window does, the inis written
+		// back.
+		LogMessage("Launcher: quit");
+		quit = true;
+	}
 	else
 	{
 		LogMessage("Launcher: unknown line: " + line);

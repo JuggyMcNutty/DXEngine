@@ -41,6 +41,8 @@
 #include <unordered_set>
 #ifdef __linux__
 #include <unistd.h>
+#elif defined(_WIN32)
+#include <psapi.h>
 #endif
 #if defined(__GLIBC__)
 #include <malloc.h>
@@ -165,6 +167,11 @@ static size_t ResidentBytes()
 		fclose(f);
 	}
 	return (size_t)resident * (size_t)sysconf(_SC_PAGESIZE);
+#elif defined(_WIN32)
+	PROCESS_MEMORY_COUNTERS counters = {};
+	if (!GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters)))
+		return 0;
+	return counters.WorkingSetSize;
 #else
 	return 0;
 #endif

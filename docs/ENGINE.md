@@ -106,7 +106,7 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   ([multiplayer](NATIVES.md#multiplayer)).
 - **SIGTERM or SIGINT quits as a closed window does**: at the next frame, the inis written back,
   exit 0, whatever the window (a dedicated server too). A second signal kills at once, as a
-  stuck engine needs.
+  stuck engine needs. Windows has no such signals: there a launcher's `Quit` (below) does so.
 - `Running.ini` is the launcher's crash sentinel, not the engine's: a run under a launcher that
   is killed leaves it behind like any crash; a run by hand has none.
 - `--ini=<file>` and `--userini=<file>` name the inis to read and write back, as the original's
@@ -128,9 +128,11 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   `USERINI=`, `EXEC=` and safe mode's flags, over the options above
   ([the command line](NATIVES.md#the-command-line)).
 - **`DXL_LAUNCHER_FD`** in the environment is the line to the engine of the launcher that
-  started it, which stays for the game's run as the original's process does. The engine says
-  `hello` as it starts and `ready` once its first map is in, takes `TakeFocus` and `Open <url>`,
-  and passes a `RELAUNCH` as `relaunch <line>` before it exits; the lines and their meaning are
+  started it, which stays for the game's run as the original's process does: a socket's
+  descriptor, on Windows an inherited pipe's handle. The engine says `hello` as it starts and
+  `ready` once its first map is in, takes `TakeFocus`, `Open <url>` and `Quit` (the launcher's
+  stop, as a closed window quits), and passes a `RELAUNCH` as `relaunch <line>` before it exits;
+  the lines and their meaning are
   [the game and the launcher](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md#the-game-and-the-launcher)
   (DXLauncher's alike:
   [the game and the launcher](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-game-and-the-launcher)).
@@ -222,7 +224,7 @@ The environment:
 | Variable | What it does |
 |---|---|
 | `DXE_VK_NO_BINDLESS=1` | Forces the Vulkan device's per-batch descriptor-set path, the one a GPU without descriptor indexing (the Smart Pro's, for one) takes. |
-| `DXE_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3` or `X11`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2. The launchers set it to the SDL backend their port's engine is built with, the one with the pad ([which](#running-on-our-devices)). |
+| `DXE_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3`, `X11` or `Win32`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2, on Windows of SDL3, Win32 and SDL2. The launchers set it to the SDL backend their port's engine is built with, the one with the pad ([which](#running-on-our-devices)). |
 | `DXE_FONT`, `DXE_MONOSPACE_FONT` | The font files DXWidgets' default loader takes for its UI and monospace fonts in a build without GLib and fontconfig, before the usual DejaVu and Noto files. Unused by the engine, whose UI's fonts are `DXEngine.pk3`'s. |
 | `DXL_LAUNCHER_FD` | The launcher's line ([running it](#running-it)). |
 | `DXE_GC_DRYRUN=1` | Each collection marks and frees nothing: the log has what would go, by where it lives and by class, and the first holder outside them of each object of a level left behind ([objects and memory](#objects-and-memory)). |

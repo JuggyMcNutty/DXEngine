@@ -19,36 +19,49 @@ LauncherLine& LauncherLine::Get()
 bool LauncherLine::Open()
 {
 	if (tried)
-		return fd >= 0;
+		return handle >= 0;
 	tried = true;
-#ifndef _WIN32
 	const char* value = std::getenv("DXL_LAUNCHER_FD");
 	if (!value || !*value)
 		return false;
 	char* end = nullptr;
-	long n = std::strtol(value, &end, 10);
-	if (*end || n < 0 || fcntl((int)n, F_GETFD) < 0)
+	long long n = std::strtoll(value, &end, 10);
+#ifndef _WIN32
+	if (*end || n < 0 || n > INT32_MAX || fcntl((int)n, F_GETFD) < 0)
 	{
 		LogMessage("Launcher line: no descriptor " + std::string(value));
 		return false;
 	}
-	fd = (int)n;
+	handle = (intptr_t)n;
 	// Not handed on to anything this process starts.
-	fcntl(fd, F_SETFD, FD_CLOEXEC);
-	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
-	return true;
+	fcntl((int)handle, F_SETFD, FD_CLOEXEC);
+	fcntl((int)handle, F_SETFL, fcntl((int)handle, F_GETFL) | O_NONBLOCK);
 #else
-	return false;
+	// The client end of the launcher's pipe, which it waits on: read only
+	// what has come (PeekNamedPipe), so the game's loop never waits on it.
+	if (*end || n <= 0 || GetFileType((HANDLE)(intptr_t)n) != FILE_TYPE_PIPE)
+	{
+		LogMessage("Launcher line: no pipe " + std::string(value));
+		return false;
+	}
+	handle = (intptr_t)n;
+	// Not handed on to anything this process starts.
+	SetHandleInformation((HANDLE)handle, HANDLE_FLAG_INHERIT, 0);
 #endif
+	return true;
 }
 
 void LauncherLine::Send(const std::string& line)
 {
 	if (!Open())
 		return;
-#ifndef _WIN32
 	std::string data = line + "\n";
-	if (send(fd, data.data(), data.size(), MSG_NOSIGNAL) < 0)
+#ifndef _WIN32
+	if (send((int)handle, data.data(), data.size(), MSG_NOSIGNAL) < 0)
+		LogMessage("Launcher line: the launcher is gone");
+#else
+	DWORD wrote = 0;
+	if (!WriteFile((HANDLE)handle, data.data(), (DWORD)data.size(), &wrote, nullptr))
 		LogMessage("Launcher line: the launcher is gone");
 #endif
 }
@@ -72,21 +85,34 @@ void LauncherLine::Poll(const std::function<void(const std::string&)>& onLine)
 {
 	if (!Open())
 		return;
-#ifndef _WIN32
 	char buffer[1024];
 	for (;;)
 	{
-		ssize_t n = recv(fd, buffer, sizeof(buffer), MSG_DONTWAIT);
+#ifndef _WIN32
+		ssize_t n = recv((int)handle, buffer, sizeof(buffer), MSG_DONTWAIT);
 		if (n <= 0)
 		{
 			if (n == 0 || (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR))
 			{
 				// The launcher has gone: nothing more will come.
-				close(fd);
-				fd = -1;
+				close((int)handle);
+				handle = -1;
 			}
 			break;
 		}
+#else
+		DWORD avail = 0, n = 0;
+		if (!PeekNamedPipe((HANDLE)handle, nullptr, 0, nullptr, &avail, nullptr) ||
+			(avail && !ReadFile((HANDLE)handle, buffer, avail < sizeof(buffer) ? avail : (DWORD)sizeof(buffer), &n, nullptr)))
+		{
+			// The launcher has gone: nothing more will come.
+			CloseHandle((HANDLE)handle);
+			handle = -1;
+			break;
+		}
+		if (n == 0)
+			break;
+#endif
 		pending.append(buffer, (size_t)n);
 	}
 	size_t end;
@@ -99,5 +125,4 @@ void LauncherLine::Poll(const std::function<void(const std::string&)>& onLine)
 		if (!line.empty())
 			onLine(line);
 	}
-#endif
 }

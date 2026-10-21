@@ -8,6 +8,10 @@
 #include <commctrl.h>
 #include <objbase.h>
 #include <shellapi.h>
+#include <timeapi.h>
+#include <cstdio>
+#include <fcntl.h>
+#include <io.h>
 #endif
 
 #ifdef WIN32
@@ -60,8 +64,20 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
 
 		InitCOM initCOM;
 
+		// The log as Linux' engine writes it, its lines ended by \n alone,
+		// where a launcher gave the engine its output.
+		if (_fileno(stdout) >= 0)
+			_setmode(_fileno(stdout), _O_BINARY);
+		if (_fileno(stderr) >= 0)
+			_setmode(_fileno(stderr), _O_BINARY);
+
+		// Waits as long as they ask -- a frame's, the mixer's 2 ms -- where
+		// Windows' timer otherwise ticks every 15.6 ms.
+		timeBeginPeriod(1);
 		GameApp app;
-		return app.main(std::move(args));
+		int exitcode = app.main(std::move(args));
+		timeEndPeriod(1);
+		return exitcode;
 	}
 	catch (const std::exception& e)
 	{

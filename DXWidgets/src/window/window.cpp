@@ -110,10 +110,18 @@ std::unique_ptr<DisplayBackend> DisplayBackend::TryCreateBackend()
 
 	if (!backend)
 	{
+#ifdef WIN32
+		// SDL3's window before Windows' own where it is built: the Win32 one
+		// has none of what the engine's window has since gained -- the
+		// display modes, the pad, a timeline's keys.
+		backend = TryCreateSDL3();
+		if (!backend) backend = TryCreateWin32();
+#else
 		backend = TryCreateWin32();
 		if (!backend) backend = TryCreateWayland();
 		if (!backend) backend = TryCreateX11();
 		if (!backend) backend = TryCreateSDL3();
+#endif
 		if (!backend) backend = TryCreateSDL2();
 	}
 
