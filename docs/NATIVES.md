@@ -970,14 +970,18 @@ Every other native the scripted runs compare matches the original
   sight and the mixer's walls, [sound](#sound)) meet the filed polygons, a
   line's `Trace` and the multi-hit check meet them as the level's -- a
   polygon in the plane of a node of the level's own as that node, the
-  texture and flags given those of the first polygon filed in the plane --
-  and a box meets none (`MoverConsole` on Liberty Island and DXMP_Silo: a
-  door made not to collide, then hidden and moved, then saved; a window
-  broken, at once and a frame on; `VisibleConsole` there). Not carried: the
-  refiling of the movers filed under one filed again, which the original
-  files again wherever they are; and the polygons are filed whole, where the
-  original's tree drops what lands in solid, which no line in the open
-  meets.
+  texture and flags given those of the first polygon filed in the plane,
+  the flags of the surface the original files it under: the polygon's
+  without the editor's own (`PF_NoAddToBSP`), with `PF_SpecialLit` for a
+  `bSpecialLit` mover, as it draws -- and a box meets none (`MoverConsole`
+  on Liberty Island and DXMP_Silo: a door made not to collide, then hidden
+  and moved, then saved; a window broken, at once and a frame on;
+  `VisibleConsole` there; `GlassConsole` on WanChai's club glass, 33 in
+  both, where DXEngine gave 1073741857, the editor's processed bit). Not
+  carried: the refiling of the movers filed under one filed again, which
+  the original files again wherever they are; and the polygons are filed
+  whole, where the original's tree drops what lands in solid, which no line
+  in the open meets.
 - **Sight** (`SightConsole`), and the pawns' in the tick (`SeeConsole`:
   `SeePlayer` sent only a player, each 0.2 s,
   [the senses](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-senses)),

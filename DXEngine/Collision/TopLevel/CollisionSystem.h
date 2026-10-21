@@ -8,6 +8,7 @@
 class ULevel;
 class UActor;
 class UMover;
+struct Poly;
 class CollisionHitList;
 class CollisionHit;
 
@@ -195,6 +196,9 @@ public:
 	// Each filed mover's nearest polygon on the line, as a hit (its
 	// Fraction in units along the line, Filed set)
 	void TraceFiledMovers(const dvec3& origin, const dvec3& dirNormalized, double tmax, bool visibilityOnly, CollisionHitList& hits);
+	// The flags of the level surface the original files a mover's polygon
+	// under: a hit on it gives them, and the polygon draws with them
+	static uint32_t FiledFlags(UMover* mover, const Poly& poly);
 
 private:
 	static ivec3 GetStartExtents(const vec3& location, const vec3& extents)

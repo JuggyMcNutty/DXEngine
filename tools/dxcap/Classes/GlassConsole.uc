@@ -15,7 +15,9 @@
 // and with no collision, and two more; the glass hidden, and two more; the
 // glass shown and broken (BlowItUp, which moves it away), and 5 s on two
 // more, of the crate and the sprite alone. Each shot marked for the
-// original's grabber; then exit.
+// original's grabber; then exit. Before the first, what TraceTexture gives
+// along the line from the view through the glass's middle and as far
+// again: each hit's actor, texture, group and flags.
 // Pick -1 is a census instead: every glass mover, its box and the room on
 // each side, then an exit. Each line is logged with "DXGLASS:" in front.
 //=============================================================================
@@ -261,6 +263,25 @@ function bool Choose(PlayerPawn P)
 	return true;
 }
 
+// TraceTexture's hits from the view through the glass's middle and as far
+// again, the level's with the flags of the surface hit
+function TraceThrough(PlayerPawn P)
+{
+	local Actor Hit;
+	local name TexName, TexGroup;
+	local vector HitLoc, HitNorm;
+	local int Flags, Count;
+	local string S;
+
+	foreach P.TraceTexture(class'Actor', Hit, TexName, TexGroup, Flags, HitLoc, HitNorm, Middle + (Middle - Eye), Eye)
+	{
+		S = S $ " [" $ Hit.Name $ " " $ TexName $ " " $ TexGroup $ " " $ Flags $ " at " $ int(VSize(HitLoc - Eye)) $ "]";
+		if (++Count >= 8)
+			break;
+	}
+	Log("DXGLASS: TraceTexture through it:" $ S);
+}
+
 function HoldView(PlayerPawn P)
 {
 	P.SetPhysics(PHYS_None);
@@ -372,6 +393,7 @@ event Tick(float Delta)
 			P.SetCollision(false, false, false);
 			P.bCollideWorld = false;
 			HoldView(P);
+			TraceThrough(P);
 			// The original's HUD draws over the grabber's mark.
 			if (DeusExRootWindow(DXP.rootWindow) != None)
 				DeusExRootWindow(DXP.rootWindow).ShowHud(False);

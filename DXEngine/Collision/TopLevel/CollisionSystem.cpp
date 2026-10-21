@@ -244,6 +244,15 @@ void CollisionSystem::MoverDestroyed(UActor* actor)
 	}
 }
 
+// The polygon's flags without the editor's own (PF_NoAddToBSP: processed,
+// cut, selected, memorized), and PF_SpecialLit for a bSpecialLit mover: the
+// surface the original's tracker makes for each polygon of a moving brush
+// as it starts (Engine.dll FMovingBrushTracker::AddActor, 0x1037b5c0)
+uint32_t CollisionSystem::FiledFlags(UMover* mover, const Poly& poly)
+{
+	return (poly.PolyFlags & ~PF_NoAddToBSP) | (mover->bSpecialLit() ? PF_SpecialLit : 0);
+}
+
 // The brush's polygons where the mover is, as the renderer places them; the
 // filing recorded in its SavedPos and SavedRot, as the original's is
 void CollisionSystem::File(UMover* mover, FiledMover& filed)
@@ -294,7 +303,7 @@ void CollisionSystem::File(UMover* mover, FiledMover& filed)
 			filedPoly.Normal = n;
 			filedPoly.PlaneW = dot(n, w[0]);
 			filedPoly.NormalOriginal = (tableRotation * vec4(poly.Normal, 0.0f)).xyz();
-			filedPoly.PolyFlags = poly.PolyFlags;
+			filedPoly.PolyFlags = FiledFlags(mover, poly);
 			filedPoly.Texture = poly.Texture;
 			filed.Polys.push_back(std::move(filedPoly));
 		}

@@ -9,6 +9,7 @@
 #include "Packages/Engine/Subsystems/UDXEngineRenderDevice.h"
 #include "Packages/Engine/Actors/Brush/UMover.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
+#include "Collision/TopLevel/CollisionSystem.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Resources/Level/UPolys.h"
 
@@ -63,7 +64,7 @@ void VisibleBrush::DrawMirrorSeal(VisibleFrame* frame, UMover* mover, const Poly
 
 bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, UMover* mover, bool translucentPass, bool seal)
 {
-	uint32_t PolyFlags = poly.PolyFlags;
+	uint32_t PolyFlags = CollisionSystem::FiledFlags(mover, poly);
 
 	if (seal)
 	{
