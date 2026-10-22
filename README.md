@@ -29,7 +29,9 @@ DXEngine's docs and tools are in [`docs/`](docs/) and [`tools/`](tools/).
 ## Building and running
 
 Linux builds are made and tested here, and Windows' cross-built by llvm-mingw and tested under
-Proton's wine.
+Proton's wine. GitHub's CI builds the engine for every port, on a pull request here and when
+Port Ex Machina's pins take a commit
+([CI](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#ci)).
 
 ### The easy way: Port Ex Machina
 

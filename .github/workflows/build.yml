@@ -1,0 +1,37 @@
+name: build
+
+# DXEngine's CI (Port Ex Machina's docs/DEVELOPMENT.md#ci): a pull request
+# into main, or a run by hand, builds every port with the engine at its
+# commit, each port's launcher at the commit Port Ex Machina pins. A push
+# builds when Port Ex Machina's pins take it, which also publishes the
+# release; the jobs are Port Ex Machina's .github/workflows/ports.yml.
+
+on:
+  pull_request:
+    branches: [main]
+    # Not the docs, nor the harness, which no build reads; the licence
+    # ships beside the engine.
+    paths:
+      - '**'
+      - '!**.md'
+      - '!docs/**'
+      - 'LICENSE.md'
+      - '!tools/dxcap/**'
+      - '!tools/dxcap.sh'
+      - '!tools/perf/**'
+      - '!tools/host-tools.sh'
+      - '!tools/natives_audit.py'
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ports:
+    uses: JuggyMcNutty/port-ex-machina/.github/workflows/ports.yml@main
+    with:
+      ports: all
