@@ -249,8 +249,8 @@ By area, as the code stands. Each device's numbers are its port's, such as
   a caught exception, which the launcher's crash sentinel reads. The cross build for an embedded
   aarch64 device is SDL2 only (no X11, Wayland or desktop GL), and takes SDL from pkg-config and
   a host-built `zipdir`. Every Linux build is at glibc 2.28, by a Buildroot SDK. The desktop's,
-  linux-x86_64's, has its SDL3 built in (the launcher's), without the Wayland window of its own,
-  which needs
+  linux-x86_64's, has its SDL3 built in (the launcher's), and linux-aarch64's, cross-built too,
+  its SDL2, both without the Wayland window of its own, which needs
   waylandpp ([what it is made of](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/ports/linux-x86_64/README.md#what-it-is-made-of)).
   The UI's fonts are `DXEngine.pk3`'s.
 - **Windows**: windows-x86_64's build is llvm-mingw's, Clang on the UCRT, its C++ runtime and
