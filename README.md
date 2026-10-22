@@ -9,7 +9,7 @@ Targeting only Deus Ex.
 
 - **Build Targets**: Linux on x86_64 (X11, Wayland, SDL3 or SDL2) and on aarch64 with any GPU
   (Snapdragon, Mali, PowerVR); Windows 10 (1903) or newer on x86_64 (SDL3 or Win32). It runs on
-  x86_64 and on the Smart Pro's PowerVR, and Windows' under Wine
+  x86_64 and on the Smart Pro's PowerVR
   ([the ports](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#engine-ports)).
 - **Deus Ex as the original plays it**: Our goal is a playable build as close to 1:1 with the
   original engine, its scripting and the rest as possible.
@@ -86,8 +86,8 @@ The build's own switches:
 
 | Switch | Default | What it does |
 |---|---|---|
-| `ENABLE_SDL2` | `ON` | The SDL2 window backend, built when SDL3's is not. |
-| `ENABLE_SDL3` | `ON` | The SDL3 backend: when SDL3 is found, it is built in place of SDL2's. |
+| `ENABLE_SDL2` | `ON`; on Windows `OFF` | The SDL2 window backend, built when SDL3's is not. |
+| `ENABLE_SDL3` | `ON`; on Windows `OFF` | The SDL3 backend: when SDL3 is found, it is built in place of SDL2's. |
 | `ENABLE_X11`, `ENABLE_WAYLAND` | `ON` | The desktop's window backends; off for a device with neither. |
 | `DXE_SDL2_BORDERLESS_FULLSCREEN` | `OFF` | SDL2's fullscreen as a borderless window, for a vendor SDL2 that deadlocks in `SDL_SetWindowFullscreen`. |
 | `ZIPDIR_EXECUTABLE` | unset | A host-built `zipdir` to pack `DXEngine.pk3` with when cross-compiling. |
@@ -103,8 +103,9 @@ The build's own switches:
   ([crashes](docs/DEVELOPMENT.md#crashes)).
 - **Profiling and validation**: [measuring it](docs/ENGINE.md#measuring-it).
 - **Kept, but neither built nor tested here**: MSVC's own, the natvis and the crash reporter's
-  Windows part (under MinGW a stub). The D3D11 device is built for Windows, and offered by no
-  launcher ([where it stands](docs/NATIVES.md)).
+  Windows part ([Windows](docs/ENGINE.md#running-on-our-devices)).
+- **The D3D11 device** is built for Windows alone, drawing in its SDL3 or Win32 window, and
+  offered by no launcher.
 
 ## License
 

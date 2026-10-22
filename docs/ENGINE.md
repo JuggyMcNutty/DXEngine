@@ -208,9 +208,8 @@ than the transforms they save.
 
 ## Settings and environment
 
-The engine reads `Settings.json` from its own folder, `--userdir`'s
-([running it](#running-it)) or `$HOME/.config/DXEngine` (Windows' `%LOCALAPPDATA%\DXEngine`),
-and never writes it.
+The engine reads `Settings.json` from its own folder ([running it](#running-it)), and never
+writes it.
 DXLauncher, every port's, writes one in each profile's folder of its own
 (`--userdir`); `main`'s launcher, the original recreated, writes none and leaves `HOME` as it
 is. DXEngine's keys:
@@ -278,8 +277,8 @@ By area, as the code stands. Each device's numbers are its port's, such as
   SDL2), or with none (0x0) the desktop's, borderless (SDL3 with no mode, SDL2's
   `FULLSCREEN_DESKTOP`). With `DXE_SDL2_BORDERLESS_FULLSCREEN` (the Smart Pro's build) it is
   always a borderless window covering the display, set up while the window is hidden:
-  `SDL_SetWindowFullscreen` deadlocks on a GL window with that device's vendor SDL2. The X11 and
-  Wayland windows keep the desktop's mode.
+  `SDL_SetWindowFullscreen` deadlocks on a GL window with that device's vendor SDL2. The X11,
+  Wayland and Win32 windows keep the desktop's mode.
 - **The mouse and the keyboard under SDL**: the game's view takes the mouse in relative mode
   (`SDL_SetWindowRelativeMouseMode` under SDL3, `SDL_SetRelativeMouseMode` under SDL2), which
   hides the desktop's pointer, keeps it in the window and gives motion past the screen's edge;
@@ -490,8 +489,9 @@ frames. A map load's and the console's do everything; the backlog's and the stre
 and sweep only, no level having departed since the last map load's. It logs the original's
 lines (`Collecting garbage`, `Purging garbage`, `Garbage: objects: ...; refs: ...`, the refs
 those followed, not the ones to code) with the milliseconds it took, the resident memory before
-and after, what it freed by kind and the references it made None by holder, and a map load's
-gives the freed memory back to the system (`malloc_trim`).
+and after (on Windows the working set), what it freed by kind and the references it made None
+by holder, and with glibc a map load's gives the freed memory back to the system
+(`malloc_trim`).
 
 - **Roots** (`Engine::MarkRoots`, in `EngineGC.cpp`): the engine's subsystems, levels and
   objects; the net drivers' players, channels and package maps; the natives; every export of a

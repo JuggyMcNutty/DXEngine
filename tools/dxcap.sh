@@ -52,9 +52,9 @@
 # downloads them.
 # DXCAP_BACKEND=SDL3 gives a dxe run DXWidgets' SDL3 window, the one
 # linux-x86_64's launchers start its engine with, in place of its X11 one;
-# DXCAP_BACKEND=SDL2 its SDL2 window, the other launchers', in a build with
-# SDL2's (DXCAP_ENGINE). A timeline that drives the window's virtual pad has
-# the run see that pad alone.
+# DXCAP_BACKEND=SDL2 its SDL2 window, linux-aarch64's and the Smart Pro's
+# launchers', in a build with SDL2's (DXCAP_ENGINE). A timeline that drives
+# the window's virtual pad has the run see that pad alone.
 # DXCAP_USERINI=<file> gives a run that User.ini in place of the game's
 # (IniConsole's keys given twice). DXCAP_USERINI_FIRST=1 names the run's inis
 # USERINI= then INI= on the original's command line, and gives DXEngine the
@@ -66,10 +66,11 @@
 # View, Aim, ShotAt, Macro and NoDetail; GlassConsole's Pick, GlassName, View,
 # Behind and Flip; FlushConsole's Pick, DoorName, View and Angle; MirrorConsole's
 # MarkTime, ShinyOff and Straddle; FaceConsole's MeshOf, Ahead and Distance;
-# MeshConsole's LODBias, NoDetail and Enviro; SpriteConsole's Styles and
-# NoParticles; CanisterConsole's Distances and MarkTime; LoopConsole's Jumps;
-# CallConsole's Depth; ReturnConsole's Items; SaveConsole's, LoadConsole's and
-# StartConsole's Via; LoadConsole's Open; ThemeConsole's Direct;
+# MeshConsole's LODBias, NoDetail and Enviro; LaserConsole's NoDetail;
+# SpriteConsole's Styles and NoParticles; CanisterConsole's Distances and
+# MarkTime; LoopConsole's Jumps; CallConsole's Depth; ReturnConsole's Items;
+# SaveConsole's, LoadConsole's and StartConsole's Via; LoadConsole's Open;
+# ThemeConsole's Direct;
 # CensusConsole's From, Wait, Load, Seconds, Notify and Open; DetailConsole's
 # Heights; MoveConsole's Watch, WatchFrom and WatchTo; SwimConsole's Only).
 # DXCAP_MISSION_MAP=<map> names, through the run's ini, the map a run's
@@ -86,13 +87,12 @@
 # DXCAP_ENGINE=<binary> runs another build of DXEngine than linux-x86_64's
 # (an ASan build). A Windows build's DXEngine.exe (windows-x86_64's) runs
 # under the original's wine, in its prefix, its files by Wine's names for
-# them, in its SDL3 window (DXCAP_BACKEND=Win32: its own), silent but with
-# DXCAP_AUDIO=1, its settings by a --userdir of the run's own
-# (DXCAP_SETTINGS) whose shots the run collects; DXCAP_DXVK=1 draws its
-# D3D11 through Proton's DXVK in place of Wine's own. DXCAP_RECORD and
-# DXCAP_PERF are for Linux builds. DXCAP_MEMLOG=1 logs either engine's
-# resident memory each second into the run's memlog.txt: seconds since its
-# process started, then MB.
+# them, in its SDL3 window (DXCAP_BACKEND=Win32: its own), its settings by a
+# --userdir of the run's own (DXCAP_SETTINGS) whose shots the run collects;
+# DXCAP_DXVK=1 draws its D3D11 through Proton's DXVK in place of Wine's own.
+# DXCAP_RECORD and DXCAP_PERF are for Linux builds. DXCAP_MEMLOG=1 logs
+# either engine's resident memory each second into the run's memlog.txt:
+# seconds since its process started, then MB.
 # DXCAP_SETTINGS=<file> gives a dxe run that Settings.json in place of
 # ~/.config/DXEngine's, through a HOME of the run's own (the caches stay
 # the usual ones). DXCAP_USERDIR=<dir> gives a dxe run the engine's

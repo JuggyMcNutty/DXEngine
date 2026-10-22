@@ -1392,8 +1392,8 @@ given itself as its macro texture, has the GL and Vulkan devices' frames at
 1.00 of `D3DDrv`'s (`NoDetail`): in blocks of 16 pixels inside the map's
 border, within 0.94 to 1.08 but for a row along its bottom edge, at up to
 1.19, where without the macro they are within 0.96 to 1.06
-([lighting](#lighting)). The D3D11 device, built for Windows alone and
-offered by no launcher, keeps Surreal Engine's.
+([lighting](#lighting)). The D3D11 device keeps Surreal Engine's
+([where it stands](../README.md#for-advanced-users)).
 
 ## Multiplayer
 
