@@ -114,7 +114,8 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   game's System folder (with `--userdir`, its `Screenshots` folder); `--timeline=<file>` gives
   keys, typed text, a virtual pad, the pointer and console commands at set times.
   [Scripted runs](DEVELOPMENT.md#scripted-runs-of-both-engines) use all three.
-- **`--userdir=<dir>`** is the engine's own folder in place of `~/.config/DXEngine`:
+- **`--userdir=<dir>`** is the engine's own folder in place of `~/.config/DXEngine` (Windows'
+  `%LOCALAPPDATA%\DXEngine`):
   `Settings.json`, the last run's log (`DXE-Log-LastRun.txt`), the crash reports, the shots (its
   `Screenshots` folder) and a class's own config file (a mod's, as `DXMTL.ini`), read from
   `<dir>` first, else from the game's System folder, and written to `<dir>`. The engine makes
@@ -208,7 +209,8 @@ than the transforms they save.
 ## Settings and environment
 
 The engine reads `Settings.json` from its own folder, `--userdir`'s
-([running it](#running-it)) or `$HOME/.config/DXEngine`, and never writes it.
+([running it](#running-it)) or `$HOME/.config/DXEngine` (Windows' `%LOCALAPPDATA%\DXEngine`),
+and never writes it.
 DXLauncher, every port's, writes one in each profile's folder of its own
 (`--userdir`); `main`'s launcher, the original recreated, writes none and leaves `HOME` as it
 is. DXEngine's keys:
@@ -252,12 +254,19 @@ By area, as the code stands. Each device's numbers are its port's, such as
   which needs
   waylandpp ([what it is made of](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/ports/linux-x86_64/README.md#what-it-is-made-of)).
   The UI's fonts are `DXEngine.pk3`'s.
+- **Windows**: windows-x86_64's build is llvm-mingw's, Clang on the UCRT, its C++ runtime and
+  SDL3 built in and OpenAL Soft beside it as `OpenAL32.dll`, the libraries named to the linker
+  where MSVC's `#pragma comment(lib)` named them. It waits as long as it asks
+  (`timeBeginPeriod(1)`, where Windows' timer otherwise ticks every 15.6 ms), its log's lines
+  end in `\n` alone, as Linux' do, and a dedicated server's `RELAUNCH` starts it again as a new
+  process, its standard handles and no others handed on. The crash reporter is MSVC's alone: a
+  crash under MinGW's build leaves its exception's code, which the launcher names.
 - **The gamepad**: the SDL2 and SDL3 display backends give the pad as polled state
   (`GetGamepadState`), and `GamepadInput` turns it into UE1 joystick keys and axes that
   `User.ini` binds; menus get their own controls. DXWidgets builds one SDL backend, SDL3's
-  when both are on: linux-x86_64's engine is built with SDL3's, linux-aarch64's and the Smart
-  Pro's with SDL2's, the Smart Pro's display being its vendor SDL2's alone. Each backend also
-  has a virtual pad of its own for the harness's timelines
+  when both are on: linux-x86_64's and windows-x86_64's engines are built with SDL3's,
+  linux-aarch64's and the Smart Pro's with SDL2's, the Smart Pro's display being its vendor
+  SDL2's alone. Each backend also has a virtual pad of its own for the harness's timelines
   ([timelines](DEVELOPMENT.md#timelines)).
 - **The launchers' lines**: `--cmdline=` (`OriginalCommandLine`) and `DXL_LAUNCHER_FD`
   (`LauncherLine`) ([running it](#running-it)), with the console's `exec` and an `open` that

@@ -8,7 +8,8 @@ Targeting only Deus Ex.
 ### You need your own copy of Deus Ex (version 1112fm); none of the game's files are included!
 
 - **Build Targets**: Linux on x86_64 (X11, Wayland, SDL3 or SDL2) and on aarch64 with any GPU
-  (Snapdragon, Mali, PowerVR). It runs on x86_64 and on the Smart Pro's PowerVR
+  (Snapdragon, Mali, PowerVR); Windows 10 (1903) or newer on x86_64 (SDL3 or Win32). It runs on
+  x86_64 and on the Smart Pro's PowerVR, and Windows' under Wine
   ([the ports](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#engine-ports)).
 - **Deus Ex as the original plays it**: Our goal is a playable build as close to 1:1 with the
   original engine, its scripting and the rest as possible.
@@ -27,7 +28,8 @@ DXEngine's docs and tools are in [`docs/`](docs/) and [`tools/`](tools/).
 
 ## Building and running
 
-Only Linux builds are made and tested here.
+Linux builds are made and tested here, and Windows' cross-built by llvm-mingw and tested under
+Proton's wine.
 
 ### The easy way: Port Ex Machina
 
@@ -100,9 +102,9 @@ The build's own switches:
 - **Debugging**: a build with symbols, or with AddressSanitizer
   ([crashes](docs/DEVELOPMENT.md#crashes)).
 - **Profiling and validation**: [measuring it](docs/ENGINE.md#measuring-it).
-- **Kept, but neither built nor tested here**: the D3D11 device and the Win32 code it needs
-  (DXWidgets' Win32 backend, `Win32Resources/`, the natvis, the vendored OpenAL Soft, the
-  crash reporter's Windows part).
+- **Kept, but neither built nor tested here**: MSVC's own, the natvis and the crash reporter's
+  Windows part (under MinGW a stub). The D3D11 device is built for Windows, and offered by no
+  launcher ([where it stands](docs/NATIVES.md)).
 
 ## License
 
