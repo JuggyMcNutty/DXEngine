@@ -1,39 +1,86 @@
-## DXEngine
+# DXEngine
 
-Deus Ex's engine, a hard fork of [Surreal Engine](https://github.com/dpjudas/SurrealEngine), the
-open-source Unreal Engine 1 reimplementation.
+Deus Ex's engine for modern systems: a hard fork of
+[Surreal Engine](https://github.com/dpjudas/SurrealEngine), the open-source reimplementation of
+Unreal Engine 1, made to play Deus Ex as the original does, on Linux and Windows, from the
+desktop to a handheld.
 
-Targeting only Deus Ex.
+<p align="center">
+  <img src="docs/screenshots/liberty-island.jpg" width="100%"
+       alt="Liberty Island at night: the statue and the city across the water, from the pier">
+</p>
 
-### You need your own copy of Deus Ex (version 1112fm); none of the game's files are included!
+**You need your own copy of Deus Ex, version 1112fm.** None of the game's files are included.
 
-- **Build Targets**: Linux on x86_64 (X11, Wayland, SDL3 or SDL2) and on aarch64 with any GPU
-  (Snapdragon, Mali, PowerVR); Windows 10 (1903) or newer on x86_64 (SDL3 or Win32). It runs on
-  x86_64 and on the Smart Pro's PowerVR
-  ([the ports](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#engine-ports)).
-- **Deus Ex as the original plays it**: Our goal is a playable build as close to 1:1 with the
-  original engine, its scripting and the rest as possible.
+## Features
 
-## DXEngine and Surreal Engine
+- **Deus Ex as the original plays it.** The game's own scripts run on the engine: its
+  conversations and cinematics, its characters' AI, saving, loading and travel between maps,
+  multiplayer. Each feature is checked against the original by scripted runs of both engines,
+  and [`docs/NATIVES.md`](docs/NATIVES.md) says what still differs.
+- **Modern renderers.** Vulkan by default, OpenGL, and OpenGL ES 3.2 for handhelds, with
+  multisampling and a render scale for slower GPUs.
+- **Gamepads.** Through SDL3 or SDL2, mapped to the game's own joystick bindings in `User.ini`,
+  its menus included.
+- **Linux and Windows.** Linux on x86_64 and aarch64, glibc 2.28 or newer, so any current
+  distribution; Windows 10 (1903) or newer on x86_64.
+- **From the desktop to the handheld.** The game plays on a PC and on the TrimUI Smart Pro, an
+  aarch64 handheld with a PowerVR GPU.
+- **Made for a launcher.**
+  [DXLauncher](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/README.md)
+  keeps the player's settings and saves in profiles and starts the engine; the engine runs on
+  its own too, or as a dedicated server.
 
-The two differ at the core ([how it is kept](docs/ENGINE.md#how-it-is-kept)).
+## Screenshots
 
-DXEngine's docs and tools are in [`docs/`](docs/) and [`tools/`](tools/).
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/tonnochi-road.jpg" width="100%"
+        alt="Hong Kong's Tonnochi Road at night under neon signs, the game's HUD on screen"></td>
+    <td width="50%"><img src="docs/screenshots/intro.jpg" width="100%"
+        alt="The intro: two men talk in a red-walled room, a subtitle beneath them"></td>
+  </tr>
+  <tr>
+    <td align="center">Hong Kong's Tonnochi Road, the HUD on</td>
+    <td align="center">The intro's cinematic</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/conversation.jpg" width="100%"
+        alt="A conversation in Paris: two men face each other, the choices below"></td>
+    <td width="50%"><img src="docs/screenshots/market.jpg" width="100%"
+        alt="Hong Kong's market: cloth banners under a green roof, a sign to Canal Road"></td>
+  </tr>
+  <tr>
+    <td align="center">A conversation and its choices</td>
+    <td align="center">Hong Kong's market</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/helibase.jpg" width="100%"
+        alt="A helicopter on its pad in a hangar lit red and white"></td>
+    <td width="50%"><img src="docs/screenshots/ocean-lab.jpg" width="100%"
+        alt="A yellow mini-submarine in a flooded bay under a steel roof"></td>
+  </tr>
+  <tr>
+    <td align="center">The MJ12 helibase</td>
+    <td align="center">The Ocean Lab's submarine bay</td>
+  </tr>
+</table>
 
-- [`docs/ENGINE.md`](docs/ENGINE.md): how the engine is kept, run and profiled, and
-  [what it changes](docs/ENGINE.md#what-it-changes-from-surreal-engine).
-- [`docs/NATIVES.md`](docs/NATIVES.md): differences from the original.
-- [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md): scripted runs of both engines,
-  debugging a crash, proving a change.
+Each is the engine's own shot of the game, on Vulkan at 1920 × 1080 with 4× multisampling.
+
+## Download
+
+To play, take your platform's app from
+[Port Ex Machina's releases](https://github.com/JuggyMcNutty/port-ex-machina/releases):
+DXLauncher and the engine together. This repository's
+[releases](https://github.com/JuggyMcNutty/DXEngine/releases) have the engine alone, for each
+platform. GitHub's CI builds both, on a pull request here and when Port Ex Machina's pins take a
+commit ([CI](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#ci)).
 
 ## Building and running
 
-Linux builds are made and tested here, and Windows' cross-built by llvm-mingw and tested under
-Proton's wine. GitHub's CI builds the engine for every port, on a pull request here and when
-Port Ex Machina's pins take a commit
-([CI](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#ci)), and
-the engine alone, for each port, is in this repository's
-[releases](https://github.com/JuggyMcNutty/DXEngine/releases).
+Linux builds are made and tested on Linux, and Windows' cross-built by llvm-mingw and tested
+under Proton's wine.
 
 ### The easy way: Port Ex Machina
 
@@ -60,8 +107,8 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target DXEngine -j"$(nproc)"
 ```
 
-Its SDL window is SDL3's when SDL3 is found, else SDL2's: either has DXEngine's gamepad support,
-which its X11 and Wayland windows lack, and is the window when `DXE_DISPLAY_BACKEND`
+Its SDL window is SDL3's when SDL3 is found, else SDL2's: either has the engine's gamepad
+support, which its X11 and Wayland windows lack, and is the window when `DXE_DISPLAY_BACKEND`
 names it ([the gamepad](docs/ENGINE.md#running-on-our-devices)). The build leaves two files
 in `build/` that go together:
 
@@ -111,8 +158,29 @@ The build's own switches:
 - **The D3D11 device** is built for Windows alone, drawing in its SDL3 or Win32 window, and
   offered by no launcher.
 
+## Status
+
+The engine runs the game, which is not yet fully playable: [`docs/NATIVES.md`](docs/NATIVES.md)
+lists where it still differs from the original. Where each platform stands:
+[the ports](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#engine-ports).
+
+## Documentation
+
+| Doc | Read it for |
+|---|---|
+| [`docs/ENGINE.md`](docs/ENGINE.md) | how the engine is kept, run and profiled, and [what it changes from Surreal Engine](docs/ENGINE.md#what-it-changes-from-surreal-engine) |
+| [`docs/NATIVES.md`](docs/NATIVES.md) | where it differs from the original, feature by feature |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | working on it: scripted runs of both engines, debugging a crash, proving a change |
+
+## DXEngine and Surreal Engine
+
+DXEngine began as Surreal Engine, by Magnus Norddahl, Lupert Everett and its contributors. It
+is a hard fork: not in Surreal Engine's fork network, nothing merged from it or sent to it, the
+two different at the core ([how it is kept](docs/ENGINE.md#how-it-is-kept)). It plays Deus Ex
+alone; other Unreal Engine 1 games do not start.
+
 ## License
 
-DXEngine is zlib-licensed, an altered version of Surreal Engine, whose licence and those of the
-third-party code it carries are in [`LICENSE.md`](LICENSE.md). Deus Ex belongs to its owners; this
-project is not affiliated with or endorsed by them.
+zlib, as Surreal Engine is: DXEngine's licence, Surreal Engine's and those of the third-party
+code it carries are in [`LICENSE.md`](LICENSE.md). Deus Ex belongs to its owners; this project is
+not affiliated with or endorsed by them.
