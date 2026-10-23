@@ -35,3 +35,6 @@ jobs:
     uses: JuggyMcNutty/port-ex-machina/.github/workflows/ports.yml@main
     with:
       ports: all
+    # RELEASES_TOKEN, this repository's secret: it reads the other private
+    # repositories.
+    secrets: inherit
