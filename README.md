@@ -66,7 +66,7 @@ desktop to a handheld.
   </tr>
 </table>
 
-Each is the engine's own shot of the game, on Vulkan at 1920 × 1080 with 4× multisampling.
+Each is the engine's own shot of the game, on Vulkan with 4× multisampling.
 
 ## Download
 
