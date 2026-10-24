@@ -311,14 +311,15 @@ tiles do ([sprites](#sprites), [tiles](#tiles)).
 Matches `D3DDrv`'s picture as the GPU devices draw it without their
 multisampling, bloom and HDR ([rendering](ENGINE.md#rendering)), into an
 8-bit frame as `D3DDrv`'s, its textures sampled as `D3DDrv` samples them
-with the game's ini: bilinear, from the one mip whose texels are no smaller
+with the game's ini: bilinear, from the one mip whose texels are no larger
 than the screen's pixels, where the GPU devices filter trilinearly with 8x
 anisotropy, by their own choice. Against `D3DDrv`'s frames: `LightConsole`'s
 `Spotlight0`, with its macro texture and without, and `Spotlight7` at 1.00,
 as the GPU devices' ([lighting](#lighting)), and `Light33`'s floor within
-1.02; `LaserConsole`'s wall and near floor as near as the Vulkan device's,
-within 0.01 of a level (RMSE), and best unmoved, its receding floor nearer,
-0.66 apart where the Vulkan device's is 1.10; `LoadingConsole`'s text on the
+1.02; `LaserConsole`'s wall and near floor 0.40 and 0.40 apart (RMSE, at
+1024x768 with `NoDetail`), the Vulkan device's 0.39 and 0.39, and best
+unmoved, its receding floor nearer, 0.66 apart where the Vulkan device's is
+1.10; `LoadingConsole`'s text on the
 rows `D3DDrv` draws it, where the Vulkan device draws some of its glyphs a
 row lower (point sampled on a texel's edge). Against the Vulkan device's:
 `TileConsole`'s tiles and text within a level, as are `DetailConsole`'s
@@ -845,7 +846,8 @@ from the original's code:
   asked from a window on the root (`ProjectionWindow`) at 1024x768: every
   answer the original's, a point far off the screen and one behind among
   them, the places within 2 units of the original's (its view turned by its
-  sine table: [the engine's own rotations](#implemented-not-as-the-original));
+  sine table:
+  [the engine's own rotations](#implemented-not-as-the-original));
   its boxes round two decorations, the crosshair on their middle and turned
   5 degrees four ways, within 7 pixels of the original's at 1280x720 with
   the original's [view width](#the-views-width).

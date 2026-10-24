@@ -93,9 +93,9 @@ private:
 	std::vector<int> TileOrder;
 	std::vector<uint32_t> TileCost;
 
-	// Waves drawn while the game's thread records (not with one thread, nor
-	// with the reference shading): the chunks handed out so far, the wave
-	// the workers have
+	// Waves drawn while the game's thread records (with three threads or
+	// more, not with the reference shading): the chunks handed out so far,
+	// the wave the workers have
 	bool Streaming = false;
 	uint32_t ChunksLaunched = 0;
 	Wave Background;

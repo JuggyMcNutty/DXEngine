@@ -19,7 +19,8 @@ desktop to a handheld.
   multiplayer. Each feature is checked against the original by scripted runs of both engines,
   and [`docs/NATIVES.md`](docs/NATIVES.md) says what still differs.
 - **Modern renderers.** Vulkan by default, OpenGL, and OpenGL ES 3.2 for handhelds, with
-  multisampling and a render scale for slower GPUs.
+  multisampling and a render scale for slower GPUs; on the CPU alone, on every core, where the GPU
+  has no driver.
 - **Gamepads.** Through SDL3 or SDL2, mapped to the game's own joystick bindings in `User.ini`,
   its menus included.
 - **Linux and Windows.** Linux on x86_64 and aarch64, glibc 2.28 or newer, so any current
@@ -93,7 +94,7 @@ with the launcher for each of its ports, and stages, runs or deploys the result:
 You need:
 
 - a C++20 compiler (GCC 10 or later), CMake 3.15 or later and pkg-config;
-- the development files of OpenAL, SDL3 or SDL2, and X11 (with Xi);
+- the development files of OpenAL, SDL3 or SDL2, and X11 (with Xi and Xext);
 - optionally Wayland's (waylandpp, xkbcommon), EGL, dbus, GLib and fontconfig, used when found.
 
 On Arch these are among the packages
@@ -123,8 +124,9 @@ Give it the game's folder, or start it from the game's `System` folder:
 build/DXEngine /path/to/deusex
 ```
 
-It draws with Vulkan unless its settings name another device, so it needs the GPU's Vulkan
-driver. Where to go next:
+It draws with Vulkan unless its settings or the game's ini name another device, and on the CPU,
+with its software device, where no GPU device starts
+([which device draws](docs/ENGINE.md#rendering)). Where to go next:
 
 - [Running it](docs/ENGINE.md#running-it): the rest of the command line -- the log on
   stderr, a map to start on, a dedicated server, the inis.

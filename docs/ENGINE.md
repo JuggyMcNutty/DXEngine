@@ -277,8 +277,8 @@ By area, as the code stands. Each device's numbers are its port's, such as
   aarch64 device is SDL2 only (no X11, Wayland or desktop GL), and takes SDL from pkg-config and
   a host-built `zipdir`. Every Linux build is at glibc 2.28, by a Buildroot SDK. The desktop's,
   linux-x86_64's, has its SDL3 built in (the launcher's), and linux-aarch64's, cross-built too,
-  its SDL2, both without the Wayland window of its own, which needs
-  waylandpp ([what it is made of](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/ports/linux-x86_64/README.md#what-it-is-made-of)).
+  its SDL2, both without the Wayland window of its own, which needs waylandpp
+  ([what it is made of](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/ports/linux-x86_64/README.md#what-it-is-made-of)).
   The UI's fonts are `DXEngine.pk3`'s.
 - **Windows**: windows-x86_64's build is llvm-mingw's, Clang on the UCRT, its C++ runtime and
   SDL3 built in and OpenAL Soft beside it as `OpenAL32.dll`, the libraries named to the linker
@@ -376,7 +376,8 @@ Deus Ex's look, as `Render.dll` and `D3DDrv.dll` make it, is described by featur
 `DXEngine/Packages/Engine/Resources/Textures/` (`FireEngine.cpp`, the fractal textures).
 
 Every device draws a 3D frame's polygons half a pixel right of and below where its projection
-puts them, as `D3DDrv` draws the original's ([the scene's pixels](NATIVES.md#the-scenes-pixels)):
+puts them, as `D3DDrv` draws the original's
+([the scene's pixels](NATIVES.md#the-scenes-pixels)):
 `PolygonShift` before the frustum in `SetSceneNode`, for a frame with
 `SceneNode::PolygonsAtFX15` (`VisibleFrame::SetupSceneFrame`'s, a mirror's, sky's, warp zone's
 and viewport window's among them, and `DrawClippedActor`'s). A canvas's frame and the coronas'
@@ -410,7 +411,7 @@ none, nor do `D3DDrv`'s but its detail passes
 ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):
 a translucent draw biased by its slope shows through the opaque one in front of it from afar,
 an augmentation canister's inner glow through its shell (`CanisterConsole`). A mover's surfaces
-take a step and a slope of 1 toward the viewer on both devices (`SurfaceInfo::DepthBias`;
+take a step and a slope of 1 toward the viewer on Vulkan and GL (`SurfaceInfo::DepthBias`;
 the Vulkan scene pipelines' dynamic depth bias, set as it changes, GL's `glPolygonOffset`;
 [draw order and movers](NATIVES.md#draw-order-and-movers)). Multisampled, its scene shader
 reads a texture at the pixel's centre, as without multisampling: `TileConsole` on RADV, at 2x
@@ -508,15 +509,16 @@ whose GPU has no driver: its window is a bitmap's (`RenderAPI::Bitmap`), its fra
 calls, copying each scene node and vertex, and draws them on every hardware thread, the game's
 among them (`SoftwareWorkers`, `DXE_SW_THREADS`): each chunk of about 128 triangles set up and
 binned to the frame's tiles of 64 pixels a side, then each tile drawn by one thread, the most
-binned first, its clear first, then what was binned to it in order. The chunks go to the other
-threads in waves as they close, while the game's thread records what follows, the frame's clear
-with `Lock`; what is left is drawn at `Unlock` on all of them, and no frame is drawn while the
-next is recorded. What a wave reads stays put: the recording's storage grows only once the wave
-is done; a texture changed in place after a draw not yet drawn named it (a light map's shared
-page, where its texels are among the draw's) has what is recorded drawn first, so each draw
-reads it as it was when the draw was made, as a `Flush` within a frame draws what is recorded
-before it lets the textures go; and a quad's lanes outside its primitive sample where one inside
-does, so a draw reads no texel but its pixels'.
+binned first, its clear first, then what was binned to it in order. With three threads or more,
+and not with the float reference (`DXE_SW_REFERENCE`), the chunks go to the other threads in
+waves as they close, while the game's thread records what follows, the frame's clear with
+`Lock`; what is left, or else all of it, is drawn at `Unlock` on all of them, and no frame is
+drawn while the next is recorded. What a wave reads stays put: the recording's storage grows
+only once the wave is done; a texture changed in place after a draw not yet drawn named it (a
+light map's shared page, where its texels are among the draw's) has what is recorded drawn
+first, so each draw reads it as it was when the draw was made, as a `Flush` within a frame draws
+what is recorded before it lets the textures go; and a quad's lanes outside its primitive sample
+where one inside does, so a draw reads no texel but its pixels'.
 
 - **Triangles**, as the Vulkan device's: each in clip space by its scene node's transforms,
   clipped where a corner lies behind the node's clip plane (the Vulkan device's clip distance,
@@ -535,10 +537,11 @@ does, so a draw reads no texel but its pixels'.
   devices' two triangles.
 - **Sampling** as `D3DDrv` samples with the game's ini (`UseMipmapping=True`,
   `UseTrilinear=False`): bilinear, its weights of 8 bits, from the mip whose texels are no
-  smaller than the screen's pixels, no anisotropy; `PF_NoSmooth` the nearest texel; a texture
+  larger than the screen's pixels, no anisotropy; `PF_NoSmooth` the nearest texel; a texture
   wrapped, a tile held at its edges where its coordinates lie within it
   ([the software device](NATIVES.md#the-software-device)). The mip is the floor of log2 of a
-  quad's scale factor, its bias of -0.5 fitted to `D3DDrv`'s frames (`SoftwareSampler::LODBias`).
+  quad's scale factor, its bias of -0.5 fitted to `D3DDrv`'s frames
+  (`SoftwareSampler::LODBias`).
 - **Shading**: the scene shader (`Scene.frag`) in fixed point, 2.14 in lanes of 16 bits, a quad
   of 2x2 pixels at a time, through `SoftwareSimd.h`'s SSE2, NEON or plain loops, which give the
   same bits (the device's files built without fused multiply-adds, `-ffp-contract=off`); the
