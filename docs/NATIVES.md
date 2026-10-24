@@ -319,12 +319,11 @@ as the GPU devices' ([lighting](#lighting)), and `Light33`'s floor within
 1.02; `LaserConsole`'s wall and near floor 0.40 and 0.40 apart (RMSE, at
 1024x768 with `NoDetail`), the Vulkan device's 0.39 and 0.39, and best
 unmoved, its receding floor nearer, 0.66 apart where the Vulkan device's is
-1.10; `LoadingConsole`'s text on the
-rows `D3DDrv` draws it, where the Vulkan device draws some of its glyphs a
-row lower (point sampled on a texel's edge). Against the Vulkan device's:
-`TileConsole`'s tiles and text within a level, as are `DetailConsole`'s
-bands (`detail.py` as the Vulkan device's). It draws where the original's
-software renderer does
+1.10; `LoadingConsole`'s text on the rows `D3DDrv` draws it, where the
+Vulkan device draws some of its glyphs a row lower (point sampled on a
+texel's edge). Against the Vulkan device's: `TileConsole`'s tiles and text
+within a level, as are `DetailConsole`'s bands (`detail.py` as the Vulkan
+device's). It draws where the original's software renderer does
 ([choosing the render device](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#choosing-the-render-device)):
 with `-nohard`; where the game's ini names it
 (`GameRenderDevice=SoftDrv.SoftwareRenderDevice`, the recreated launcher's
@@ -533,7 +532,7 @@ level's time. `LightConsole`, shooting both engines at one moment of it
 stock views of the searchlight, non-incidence and the rotor come out the
 same under other shapes too, and no stock light shows a fast wave
 (99_Endgame2's one is dark), shock, shell or interference.
-Still DXEngine's own:
+DXEngine's own:
 
 - **Light maps**
   - floats, converted on the CPU for a GPU that cannot filter them (the
@@ -1387,7 +1386,7 @@ What DXEngine does with each:
   - `-nohard`: the software device for the run, as the original's software
     renderer ([the software device](#the-software-device)).
   - `-noddraw`: with the software device, chosen or drawing where a GPU
-    device did not start, a window for the run, as the original's software
+    device does not start, a window for the run, as the original's software
     renderer has no fullscreen mode without DirectDraw: so
     `-nohard -noddraw`, "Run the game in a window".
   - `-nojoy`: no pad at all, neither DXEngine's pad handling nor its buttons

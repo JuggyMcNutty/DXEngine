@@ -102,10 +102,12 @@
 # original's OpenGLDrv asks nothing and gets the driver's vsync.
 # DXCAP_FPS=<n> holds either engine to n frames a second:
 # MangoHud's limiter, its display off (mangohud, and lib32-mangohud for the
-# original's 32-bit process). DXCAP_PERF=1 samples the engine's main thread
-# with the parent folder's deps/perf (tools/host-tools.sh) into the
-# run's perf.data, on the wall clock, with the process's maps.txt;
-# tools/perf/frame-report.py reads them against PerfConsole's windows.
+# original's 32-bit process); not the software device in its X11 window,
+# whose present (XShmPutImage) MangoHud does not hook. DXCAP_PERF=1 samples
+# the engine's main thread with the parent folder's deps/perf
+# (tools/host-tools.sh) into the run's perf.data, on the wall clock, with
+# the process's maps.txt; tools/perf/frame-report.py reads them against
+# PerfConsole's windows.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DX_ROOT="${DX_ROOT:-$(cd "$HERE/../.." && pwd)}"

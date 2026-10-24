@@ -124,8 +124,8 @@ Give it the game's folder, or start it from the game's `System` folder:
 build/DXEngine /path/to/deusex
 ```
 
-It draws with Vulkan unless its settings or the game's ini name another device, and on the CPU,
-with its software device, where no GPU device starts
+It draws with Vulkan unless its settings name another device or the game's ini names `SoftDrv`,
+and on the CPU, with its software device, where no GPU device starts
 ([which device draws](docs/ENGINE.md#rendering)). Where to go next:
 
 - [Running it](docs/ENGINE.md#running-it): the rest of the command line -- the log on

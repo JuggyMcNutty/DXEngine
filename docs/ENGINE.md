@@ -388,8 +388,9 @@ the frame's `Projection`, which the clipper and the HUD's projections use, keeps
 the original's; else the `Type` `Settings.json` names; else the device the game's ini names
 (`GameRenderDevice`): the software device for `SoftDrv.SoftwareRenderDevice`, the Vulkan device
 for any other. A GPU device that does not start -- no driver, or none it can use -- gives way to
-the software device, the window made again for it, full screen as the settings have it, and the
-error in the log (`Engine::CreateGameWindow`), as the original's `WindowedRenderDevice` takes
+the software device, the window made again for it, full screen as the settings have it but with
+`-noddraw` ([the command line](NATIVES.md#the-command-line)), and the error in the log
+(`Engine::CreateGameWindow`), as the original's `WindowedRenderDevice` takes
 `GameRenderDevice`'s place ([the software device](NATIVES.md#the-software-device)). A GPU device
 that finds only Mesa's CPU driver, lavapipe, llvmpipe or softpipe, counts as not starting, the
 software device being the faster on the CPU
