@@ -438,12 +438,6 @@ float UPawn::AICanSee(UActor* other, std::optional<float> visibilityArg, std::op
 	return visibility;
 }
 
-float UPawn::AICanSmell(UActor* other, std::optional<float> smell)
-{
-	LogUnimplemented("Pawn.AICanSmell() [Deus Ex]");
-	return 0.0f;
-}
-
 bool UPawn::PickWallAdjust()
 {
 	auto kneeHeight = CollisionHeight() * 0.45f;

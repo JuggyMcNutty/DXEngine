@@ -142,7 +142,6 @@ public:
 	// reachable nodes within 1,000 units when there is no start node.
 	Array<std::pair<UNavigationPoint*, float>> GetPathnodeList(UActor* fromPoint, bool usePrunedPaths);
 	void ComputePathnodeDistances(UActor* startActor);
-	float AICanSmell(UActor* other, std::optional<float> smell);
 
 	float& AccelRate() { return Value<float>(PropOffsets_Pawn.AccelRate); }
 	float& AirControl() { return Value<float>(PropOffsets_Pawn.AirControl); }
