@@ -310,6 +310,11 @@ The renderer's CPU work is lighter than Surreal Engine's:
   `TextureInfo::UpdateWidth`).
 - **The light tree** and each surface's lights that can move are kept while no light changes,
   the level's surfaces' apart from each mover's, with the map it last drew.
+- **Fog maps** take only the fog lights a line of sight from the eye to them can cross (their
+  sphere against the pyramid from the eye to the map's corner texels,
+  `FogmapBuilder::Reaches`); a map no fog light reaches stays all clear, its texels neither
+  placed nor built, sent once as it clears, and kept on its surface, whose passes go by
+  whether it has one (`LightSystem::UpdateFogmapTexture`).
 - **The clipper's occlusion grid** is one row per image row; its non-SSE (ARM) build skips the
   clip for triangles inside the view (a Surreal Engine bug); a surface is clipped once and
   filled into the grid as one polygon, a span to a row (`BspClipper::DrawPolygon`); a span that

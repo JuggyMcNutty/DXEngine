@@ -17,25 +17,36 @@ void FogmapBuilder::Setup(UModel* model, const Coords& mapCoords, int lightMap, 
 
 	width = lmindex.UClamp;
 	height = lmindex.VClamp;
+	SetupRows(mapCoords, lmindex);
+
+	// The texels' places and the clear map are made only for a light that
+	// reaches it (Prepare)
+	prepared = false;
+}
+
+// The texels' world places and the map all clear, once a map
+void FogmapBuilder::Prepare()
+{
+	if (prepared)
+		return;
+	prepared = true;
 
 	// Stop allocations over time by building up a reserve
-
 	size_t size = (size_t)width * height;
 	if (points.size() < size)
 		points.resize(size);
 	if (fogcolors.size() < size)
 		fogcolors.resize(size);
 
-	CalcWorldLocations(mapCoords, lmindex);
-
-	// Initialize fogmap with full transparency
+	CalcWorldLocations();
 
 	vec4 zero(0.0f);
-	for (vec4& c : fogcolors)
-		c = zero;
+	for (size_t i = 0; i < size; i++)
+		fogcolors[i] = zero;
 }
 
-void FogmapBuilder::AddLight(UActor* light, vec3 view)
+// A fog light's colour, density and sphere, worked out on its first use
+void FogmapBuilder::PrepareFogInfo(UActor* light)
 {
 	if (light->FogInfo.brightness < 0.0f)
 	{
@@ -45,6 +56,54 @@ void FogmapBuilder::AddLight(UActor* light, vec3 view)
 		light->FogInfo.radius = light->WorldVolumetricRadius();
 		light->FogInfo.location = light->Location();
 	}
+}
+
+// The sphere against the pyramid from the eye to the map's corner texels,
+// which holds every texel's centre, the map being a flat grid: wholly
+// outside one of its four sides, or behind the surface's plane, it is
+// crossed by no line of sight to a texel and fogs none (SphereDensity gives
+// each nothing). A side seen edge on is passed over: taken as reaching.
+bool FogmapBuilder::Reaches(UActor* light, const vec3& view) const
+{
+	PrepareFogInfo(light);
+	vec3 center = light->FogInfo.location;
+	float radius = light->FogInfo.radius;
+
+	vec3 corners[4] = { Location(0, 0), Location(width - 1, 0), Location(width - 1, height - 1), Location(0, height - 1) };
+	vec3 middle = (corners[0] + corners[1] + corners[2] + corners[3]) * 0.25f;
+	for (int i = 0; i < 4; i++)
+	{
+		vec3 n = cross(corners[i] - view, corners[(i + 1) % 4] - view);
+		float len = length(n);
+		if (len < 0.0001f)
+			continue;
+		n *= 1.0f / len;
+		float side = dot(n, middle - view);
+		if (std::abs(side) < 0.001f)
+			continue;
+		if (side < 0.0f)
+			n = -n;
+		if (dot(n, center - view) < -radius)
+			return false;
+	}
+
+	vec3 normal = cross(corners[1] - corners[0], corners[3] - corners[0]);
+	float len = length(normal);
+	if (len >= 0.0001f)
+	{
+		normal *= 1.0f / len;
+		if (dot(normal, view - corners[0]) < 0.0f)
+			normal = -normal;
+		if (dot(normal, center - corners[0]) < -radius)
+			return false;
+	}
+	return true;
+}
+
+void FogmapBuilder::AddLight(UActor* light, vec3 view)
+{
+	PrepareFogInfo(light);
+	Prepare();
 
 	vec3 fogcolor = light->FogInfo.fogcolor;
 	float brightness = light->FogInfo.brightness * 5.0f;
@@ -125,14 +184,10 @@ float FogmapBuilder::SphereDensity(const vec3& rayOrigin, const vec3& rayDirecti
 	return (i2 - i1) * (3.0f / 4.0f);
 }
 
-void FogmapBuilder::CalcWorldLocations(Coords MapCoords, const LightMapIndex& lmindex)
+// The map's texels on its surface: each row's line from its left edge to its
+// right, as the light maps' (LightmapBuilder::CalcRowLines)
+void FogmapBuilder::SetupRows(const Coords& MapCoords, const LightMapIndex& lmindex)
 {
-	// Note: this could be simplified a lot for better performance
-
-	// Allow optimizer to move them into registers
-	int width = this->width;
-	int height = this->height;
-
 	float UDot = dot(MapCoords.XAxis, MapCoords.Origin);
 	float VDot = dot(MapCoords.YAxis, MapCoords.Origin);
 	float LMUPan = UDot + lmindex.PanX - 0.5f * lmindex.UScale;
@@ -140,47 +195,58 @@ void FogmapBuilder::CalcWorldLocations(Coords MapCoords, const LightMapIndex& lm
 	float LMUMult = 1.0f / lmindex.UScale;
 	float LMVMult = 1.0f / lmindex.VScale;
 
-	vec3 p[3] =
-	{
-		MapCoords.Origin,
-		MapCoords.Origin + MapCoords.XAxis,
-		MapCoords.Origin + MapCoords.YAxis
-	};
-
-	vec2 uv[3];
+	corner[0] = MapCoords.Origin;
+	corner[1] = MapCoords.Origin + MapCoords.XAxis;
+	corner[2] = MapCoords.Origin + MapCoords.YAxis;
 	for (int j = 0; j < 3; j++)
 	{
 		uv[j] =
 		{
-			(dot(MapCoords.XAxis, p[j]) - LMUPan) * LMUMult,
-			(dot(MapCoords.YAxis, p[j]) - LMVPan) * LMVMult
+			(dot(MapCoords.XAxis, corner[j]) - LMUPan) * LMUMult,
+			(dot(MapCoords.YAxis, corner[j]) - LMVPan) * LMVMult
 		};
 	}
 
-	float leftDX = uv[2].x - uv[0].x;
-	float leftDY = uv[2].y - uv[0].y;
-	float leftStep = leftDX / leftDY;
-	float rightDX = uv[2].x - uv[1].x;
-	float rightDY = uv[2].y - uv[1].y;
-	float rightStep = rightDX / rightDY;
+	leftDY = uv[2].y - uv[0].y;
+	leftStep = (uv[2].x - uv[0].x) / leftDY;
+	rightDY = uv[2].y - uv[1].y;
+	rightStep = (uv[2].x - uv[1].x) / rightDY;
+}
 
-	// Texel i at its centre along U, as the light maps'
-	// (LightmapBuilder::CalcRowLines)
+// Row y's line: where texel 0's and the last's U lie along it, and the
+// points at its two ends
+void FogmapBuilder::RowLine(int y, float& x0, float& x1, vec3& p0, vec3& p1) const
+{
+	x0 = uv[0].x + leftStep * (y + 0.5f - uv[0].y);
+	x1 = uv[1].x + rightStep * (y + 0.5f - uv[1].y);
+	float t0 = (y + 0.5f - uv[0].y) / leftDY;
+	float t1 = (y + 0.5f - uv[1].y) / rightDY;
+	p0 = mix(corner[0], corner[2], t0);
+	p1 = mix(corner[1], corner[2], t1);
+	if (x1 < x0)
+	{
+		std::swap(x0, x1);
+		std::swap(p0, p1);
+	}
+}
+
+// Texel i at its centre along U, as the light maps'
+vec3 FogmapBuilder::Location(int i, int y) const
+{
+	float x0, x1;
+	vec3 p0, p1;
+	RowLine(y, x0, x1, p0, p1);
+	return mix(p0, p1, (i + 0.5f - x0) / (x1 - x0));
+}
+
+void FogmapBuilder::CalcWorldLocations()
+{
 	for (int y = 0; y < height; y++)
 	{
-		float x0 = uv[0].x + leftStep * (y + 0.5f - uv[0].y);
-		float x1 = uv[1].x + rightStep * (y + 0.5f - uv[1].y);
-		float t0 = (y + 0.5f - uv[0].y) / leftDY;
-		float t1 = (y + 0.5f - uv[1].y) / rightDY;
-		vec3 p0 = mix(p[0], p[2], t0);
-		vec3 p1 = mix(p[1], p[2], t1);
-		if (x1 < x0)
-		{
-			std::swap(x0, x1);
-			std::swap(p0, p1);
-		}
-
-		vec3* dest = &points[y * width];
+		float x0, x1;
+		vec3 p0, p1;
+		RowLine(y, x0, x1, p0, p1);
+		vec3* dest = &points[(size_t)y * width];
 		for (int i = 0; i < width; i++)
 		{
 			float t = (i + 0.5f - x0) / (x1 - x0);

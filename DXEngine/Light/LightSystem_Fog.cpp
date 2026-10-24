@@ -56,8 +56,8 @@ TextureInfo LightSystem::GetFogmap(UModel* model, int lightmapIndex, const Coord
 	uint64_t cacheID = (((uint64_t)model->LightMap[lightmapIndex].LMCacheID) << 32) | (((uint64_t)ambientID) << 8) | 2;
 
 	const LightMapIndex& lmindex = model->LightMap[lightmapIndex];
-	auto& fogtex = fogtextures[cacheID];
-	std::unique_ptr<LightmapTexture>& fogtexture = fogtex.second;
+	FogmapEntry& fogtex = fogtextures[cacheID];
+	std::unique_ptr<LightmapTexture>& fogtexture = fogtex.Texture;
 	if (!fogtexture)
 	{
 #if 1 // Float high quality lightmaps
@@ -82,20 +82,23 @@ TextureInfo LightSystem::GetFogmap(UModel* model, int lightmapIndex, const Coord
 	}
 
 	bool firstDrawThisScene = false;
-	if (fogtex.first != FrameCounter)
+	if (fogtex.Frame != FrameCounter)
 	{
 		firstDrawThisScene = true;
-		fogtex.first = FrameCounter;
+		fogtex.Frame = FrameCounter;
 	}
 
+	// Built each frame it is drawn, but sent again only when it changed: a map
+	// no fog light reaches stays clear
+	bool changed = false;
 	if (firstDrawThisScene)
 	{
-		UpdateFogmapTexture((uint32_t*)fogtexture->Mip.Data.data(), model, coords, lightmapIndex, zoneActor);
+		changed = UpdateFogmapTexture((uint32_t*)fogtexture->Mip.Data.data(), model, coords, lightmapIndex, zoneActor, fogtex.Clear);
 	}
 
 	TextureInfo texinfo;
 	texinfo.CacheID = cacheID;
-	texinfo.bRealtimeChanged = firstDrawThisScene;
+	texinfo.bRealtimeChanged = changed;
 	texinfo.Format = fogtexture->Format;
 	texinfo.Mips = &fogtexture->Mip;
 	texinfo.NumMips = 1;
@@ -108,15 +111,34 @@ TextureInfo LightSystem::GetFogmap(UModel* model, int lightmapIndex, const Coord
 #endif
 }
 
-void LightSystem::UpdateFogmapTexture(uint32_t* dest, UModel* model, const Coords& mapCoords, int lightMap, UZoneInfo* zoneActor)
+// Only the fog lights a line of sight to the map can cross go into it, the
+// rest adding nothing to any texel. With none, the map is all clear: cleared
+// if it held fog, else left as it is. The surface keeps its map either way,
+// as the original's, whose passes go by whether it has one. Whether the
+// texels changed; clear, whether they are all clear now.
+bool LightSystem::UpdateFogmapTexture(uint32_t* dest, UModel* model, const Coords& mapCoords, int lightMap, UZoneInfo* zoneActor, bool& clear)
 {
-	FogmapBuilder builder;
+	FogmapBuilder& builder = FogBuilder;
 	builder.Setup(model, mapCoords, lightMap, zoneActor);
 
+	bool reached = false;
 	for (UActor* light : FogBalls)
 	{
-		builder.AddLight(light, engine->CameraLocation);
+		if (builder.Reaches(light, engine->CameraLocation))
+		{
+			builder.AddLight(light, engine->CameraLocation);
+			reached = true;
+		}
 	}
+	if (!reached)
+	{
+		if (clear)
+			return false;
+		clear = true;
+		memset(dest, 0, (size_t)builder.Width() * builder.Height() * sizeof(vec4));
+		return true;
+	}
+	clear = false;
 
 #if 1 // Float high quality lightmaps
 	size_t size = (size_t)builder.Width() * builder.Height();
@@ -137,4 +159,5 @@ void LightSystem::UpdateFogmapTexture(uint32_t* dest, UModel* model, const Coord
 		dest[i] = (alpha << 24) | (red << 16) | (green << 8) | blue;
 	}
 #endif
+	return true;
 }

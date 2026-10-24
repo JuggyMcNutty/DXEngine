@@ -3,6 +3,7 @@
 #include "Math/vec.h"
 #include "LightActorTree.h"
 #include "LightmapBuilder.h"
+#include "FogmapBuilder.h"
 #include "Packages/Engine/Resources/Textures/UBitmap.h"
 #include <unordered_map>
 #include <list>
@@ -288,13 +289,22 @@ private:
 	struct SurfaceLights;
 	SurfaceLights& GetSurfaceLights(UModel* model, int lightmapIndex);
 	const Array<UActor*>& CollectSurfaceLights(SurfaceLights& entry, const vec3& center, float radius);
-	void UpdateFogmapTexture(uint32_t* texels, UModel* model, const Coords& mapCoords, int lightMap, UZoneInfo* zoneActor);
+	bool UpdateFogmapTexture(uint32_t* texels, UModel* model, const Coords& mapCoords, int lightMap, UZoneInfo* zoneActor, bool& clear);
 
 	ULevel* Level = nullptr;
 
 	LightmapBuilder Builder;
 	std::map<uint64_t, std::unique_ptr<LightmapTexture>> lmtextures;
-	std::map<uint64_t, std::pair<int, std::unique_ptr<LightmapTexture>>> fogtextures;
+	// A fog map: the frame it was last built in, and whether its texels are
+	// all clear, as a new one's are
+	struct FogmapEntry
+	{
+		int Frame = -1;
+		bool Clear = true;
+		std::unique_ptr<LightmapTexture> Texture;
+	};
+	std::map<uint64_t, FogmapEntry> fogtextures;
+	FogmapBuilder FogBuilder;
 	Array<UActor*> FogBalls;
 	int FrameCounter = 0;
 	int LightmapCheckCounter = 0;
