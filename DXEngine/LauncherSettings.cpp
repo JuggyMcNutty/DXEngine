@@ -30,6 +30,8 @@ LauncherSettings::LauncherSettings()
 			RenderDevice.Type = RenderDeviceType::OpenGL;
 		else if (rendevtype == "GLES")
 			RenderDevice.Type = RenderDeviceType::GLES;
+		else if (rendevtype == "Software")
+			RenderDevice.Type = RenderDeviceType::Software;
 
 		std::string rendevaa = settings["RenderDevice"]["Antialias"].to_string();
 		if (rendevaa == "Off")

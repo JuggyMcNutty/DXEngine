@@ -400,6 +400,9 @@ void SDL2DisplayWindow::PresentBitmap(int width, int height, const uint32_t* pix
 		BackBufferTexture = SDL_CreateTexture(RendererHandle, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
 		if (!BackBufferTexture)
 			return;
+		// Copied as it is: the format's alpha would otherwise blend it
+		// over what the renderer last drew
+		SDL_SetTextureBlendMode(BackBufferTexture, SDL_BLENDMODE_NONE);
 
 		BackBufferWidth = width;
 		BackBufferHeight = height;
@@ -419,6 +422,12 @@ void SDL2DisplayWindow::PresentBitmap(int width, int height, const uint32_t* pix
 
 	SDL_RenderCopy(RendererHandle, BackBufferTexture, nullptr, nullptr);
 	SDL_RenderPresent(RendererHandle);
+}
+
+void SDL2DisplayWindow::SetBitmapSwapInterval(int interval)
+{
+	if (RendererHandle)
+		SDL_RenderSetVSync(RendererHandle, interval);
 }
 
 void SDL2DisplayWindow::SetBorderColor(uint32_t rgba8)

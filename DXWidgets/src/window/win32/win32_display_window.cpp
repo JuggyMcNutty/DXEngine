@@ -610,10 +610,16 @@ void Win32DisplayWindow::PresentBitmap(int width, int height, const uint32_t* pi
 	header.bV5SizeImage = width * height * sizeof(uint32_t);
 	header.bV5CSType = LCS_sRGB;
 
-	HDC dc = PaintDC;
-	if (dc != 0)
+	// In WM_PAINT the paint's own DC; else the window's, as a frame drawn on
+	// the CPU is presented whenever it is done
+	if (PaintDC != 0)
+	{
+		SetDIBitsToDevice(PaintDC, 0, 0, width, height, 0, 0, 0, height, pixels, (const BITMAPINFO*)&header, BI_RGB);
+	}
+	else if (HDC dc = GetDC(WindowHandle.hwnd))
 	{
 		SetDIBitsToDevice(dc, 0, 0, width, height, 0, 0, 0, height, pixels, (const BITMAPINFO*)&header, BI_RGB);
+		ReleaseDC(WindowHandle.hwnd, dc);
 	}
 }
 

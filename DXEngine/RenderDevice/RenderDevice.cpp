@@ -4,6 +4,7 @@
 #include "LauncherSettings.h"
 #include "Vulkan/VulkanRenderDevice.h"
 #include "OpenGL/GLRenderDevice.h"
+#include "Software/SoftwareRenderDevice.h"
 #ifdef WIN32
 #include "D3D11/D3D11RenderDevice.h"
 #endif
@@ -56,6 +57,11 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(Widget* viewport, RenderAPI r
 		// The GL device runs on both a desktop core context and an OpenGL ES
 		// one (RenderAPI::GLES); it detects which it got at init.
 		return std::make_unique<GLRenderDevice>(viewport);
+	}
+	else if (renderAPI == RenderAPI::Bitmap)
+	{
+		// The software device, which presents its frame as a bitmap
+		return std::make_unique<SoftwareRenderDevice>(viewport);
 	}
 #ifdef WIN32
 	else if (renderAPI == RenderAPI::D3D11)

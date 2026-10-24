@@ -1,0 +1,65 @@
+#pragma once
+
+#include "SoftwareRasterizer.h"
+#include <vector>
+
+class RenderDevice;
+
+// The frame's way to the window: the gamma ramp, the scale from the render
+// size to the window's, and the frame read back for a shot.
+class SoftwarePresent
+{
+public:
+	// The ramp of the present shader's gamma (Vulkan's Present.frag) for an
+	// 8-bit frame, as D3DDrv's display ramp maps its frame: in D3D9's mode
+	// (i/255)^(1/gamma) a channel, in XOpenGL's the pixel brightened by its
+	// largest channel first. Made again only when the device's settings
+	// change.
+	void SetGamma(const RenderDevice& device);
+
+	// The frame in the window's pixels, the ramp applied: as it is when the
+	// window is the frame's size, else scaled up and letterboxed as the
+	// Vulkan device's DrawPresentTexture scales it, bilinear and held at
+	// the edges.
+	const uint32_t* Present(SoftwareFrame& frame, int windowWidth, int windowHeight);
+
+	// The frame's pixels, top row first, as B, G, R, A bytes, the ramp
+	// applied with GammaCorrectScreenshots.
+	void ReadPixels(SoftwareFrame& frame, uint8_t* dest, bool gamma) const;
+
+private:
+	uint32_t Map(uint32_t pixel) const;
+	void MapRow(const uint32_t* src, uint32_t* dest, int count) const;
+	void ScaleRow(SoftwareFrame& frame, int y, uint32_t* dest, int count);
+
+	struct GammaKey
+	{
+		float Brightness = -1.0f;
+		int Mode = -1;
+		bool Ortho = false;
+		float Offsets[4] = {};
+		bool operator==(const GammaKey& other) const;
+	} Key;
+
+	bool Identity = true;
+	uint8_t Ramp[3][256] = {};
+	// XOpenGL's: each channel's level by the pixel's largest channel and its
+	// own, [largest][channel], one table a channel
+	std::vector<uint8_t> ByLargest[3];
+
+	SoftwareBuffer<uint32_t> Output;
+	int OutputWidth = 0;
+	int OutputHeight = 0;
+
+	// The upscale's columns and rows: the two texels each output pixel
+	// reads and the second's weight, 0 to 256
+	struct Tap
+	{
+		int First = 0;
+		int Second = 0;
+		int Weight = 0;
+	};
+	std::vector<Tap> Columns;
+	std::vector<Tap> Rows;
+	int ScaleKey[4] = {};
+};

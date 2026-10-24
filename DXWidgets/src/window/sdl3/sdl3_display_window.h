@@ -47,6 +47,7 @@ public:
 	double GetDpiScale() const override;
 
 	void PresentBitmap(int width, int height, const uint32_t* pixels) override;
+	void SetBitmapSwapInterval(int interval) override;
 
 	void SetBorderColor(uint32_t rgba8) override;
 	void SetCaptionColor(uint32_t rgba8) override;

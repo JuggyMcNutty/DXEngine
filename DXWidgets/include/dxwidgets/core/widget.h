@@ -189,6 +189,10 @@ public:
 	// Direct3D support:
 	void* GetWin32Handle() { return Window()->DispWindow->GetWin32Handle(); }
 
+	// A frame drawn on the CPU, its pixels 0xAARRGGBB, top row first:
+	void PresentBitmap(int width, int height, const uint32_t* pixels) { Window()->DispWindow->PresentBitmap(width, height, pixels); }
+	void SetBitmapSwapInterval(int interval) { Window()->DispWindow->SetBitmapSwapInterval(interval); }
+
 	// OpenGL support:
 	void CreateGLContext() { Window()->DispWindow->CreateGLContext(); }
 	void MakeGLContextCurrent() { Window()->DispWindow->MakeGLContextCurrent(); }

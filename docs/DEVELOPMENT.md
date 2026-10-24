@@ -54,7 +54,9 @@ are gone.
   HDR, bloom and render scale come from
   `~/.config/DXEngine/Settings.json` (a Windows build's, the prefix's `%LOCALAPPDATA%\DXEngine`),
   an input of every dxe run that no run's ini changes, or from the file `DXCAP_SETTINGS` names.
-  Without one DXEngine runs on Vulkan with 4x MSAA.
+  Without one DXEngine runs on Vulkan with 4x MSAA. `tools/dxcap` has one for each device a run
+  compares, each without MSAA or vsync: `perf-settings.json` (GL), `vulkan-settings.json` and
+  `software-settings.json`.
 - **Results.** A run's log (`engine.log` or `DeusEx.log`), shots and recording land in
   `build/dxcap/runs/<engine>-<console>-<time>/`.
 

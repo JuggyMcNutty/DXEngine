@@ -305,6 +305,12 @@ set(DXCOMMON_SOURCES
 	DXEngine/RenderDevice/OpenGL/GLCachedTexture.h
 	DXEngine/RenderDevice/OpenGL/gl_load/gl_load.c
 	DXEngine/RenderDevice/OpenGL/gl_load/gl_load.h
+	DXEngine/RenderDevice/Software/SoftwarePresent.cpp
+	DXEngine/RenderDevice/Software/SoftwarePresent.h
+	DXEngine/RenderDevice/Software/SoftwareRasterizer.cpp
+	DXEngine/RenderDevice/Software/SoftwareRasterizer.h
+	DXEngine/RenderDevice/Software/SoftwareRenderDevice.cpp
+	DXEngine/RenderDevice/Software/SoftwareRenderDevice.h
 	DXEngine/Package/Package.cpp
 	DXEngine/Package/Package.h
 	DXEngine/Package/PackageManager.cpp
@@ -825,6 +831,7 @@ source_group("DXEngine\\RenderDevice/Vulkan" REGULAR_EXPRESSION "${CMAKE_CURRENT
 source_group("DXEngine\\RenderDevice/OpenGL" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/RenderDevice/OpenGL/.+")
 source_group("DXEngine\\RenderDevice/OpenGL/gl_load" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/RenderDevice/OpenGL/gl_load/.+")
 source_group("DXEngine\\RenderDevice/D3D11" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/RenderDevice/D3D11/.+")
+source_group("DXEngine\\RenderDevice/Software" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/RenderDevice/Software/.+")
 source_group("DXEngine\\Render" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/Render/.+")
 source_group("DXEngine\\UI" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/UI/.+")
 source_group("DXEngine\\UI\\ErrorWindow" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/UI/ErrorWindow/.+")

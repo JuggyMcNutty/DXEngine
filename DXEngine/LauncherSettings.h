@@ -5,7 +5,8 @@ enum class RenderDeviceType
 	Vulkan,
 	D3D11,
 	OpenGL,
-	GLES
+	GLES,
+	Software
 };
 
 enum class AntialiasMode

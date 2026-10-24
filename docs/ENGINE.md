@@ -215,8 +215,9 @@ is. DXEngine's keys:
 
 | Key | What it does |
 |---|---|
-| `Performance.RenderScale` | The scene drawn at this fraction of the window's size (0.25 to 1; default 1) and scaled up to it, by the Vulkan device and the GL device ([how](#settings-the-launcher-exposes)). |
+| `Performance.RenderScale` | The scene drawn at this fraction of the window's size (0.25 to 1; default 1) and scaled up to it, by the Vulkan, GL and software devices ([how](#settings-the-launcher-exposes)). |
 | `"Type": "GLES"` in `RenderDevice` | The GL device on an OpenGL ES 3.2 context (DXLauncher's `[GLES]` renderer, `data/renderers.ini`). |
+| `"Type": "Software"` in `RenderDevice` | The software device, which draws on the CPU ([rendering](#rendering)). |
 | `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)). |
 
 The environment:
@@ -295,9 +296,9 @@ By area, as the code stands. Each device's numbers are its port's, such as
 
 `LauncherSettings` reads the `Gamepad` and `Performance` blocks DXLauncher writes
 ([the keys](#settings-and-environment)). Render scale is
-`RenderDevice::GetRenderScale`: a device whose `SupportsRenderScale()` says so (Vulkan, GL)
-makes its scene buffers at `GetRenderWidth()` by `GetRenderHeight()` and scales them to the
-window as it presents; the viewport, the canvas and the UI see the render size.
+`RenderDevice::GetRenderScale`: a device whose `SupportsRenderScale()` says so (Vulkan, GL,
+software) makes its scene buffers at `GetRenderWidth()` by `GetRenderHeight()` and scales them
+to the window as it presents; the viewport, the canvas and the UI see the render size.
 
 ### Rendering
 
@@ -460,6 +461,19 @@ wherever else that state is set.
 - **The screen flash** is a quad on the near plane, z -1 and depth 0, where the Vulkan device's
   z 0 is: at z 0, GL's depth 0.5, the depth test would pass it only where the windows draw
   nothing solid, leaving their text, bars and icons out of the flash.
+
+**The software device** (`DXEngine/RenderDevice/Software/`) draws on the CPU, for a machine
+whose GPU has no driver: its window is a bitmap's (`RenderAPI::Bitmap`), its frame BGRA8, as
+`D3DDrv`'s 8-bit frame, with a float depth buffer, both at the render size. So far it draws only
+the frame's clear, and no launcher offers it.
+
+- **The present**: the frame through the gamma ramp, a table of 256 levels a channel of the
+  present shader's gamma (XOpenGL's mode by each pixel's largest channel too), scaled to the
+  window and letterboxed below a render scale of 1 as the Vulkan device's present, bilinear and
+  held at the edges, then handed to the window (`Widget::PresentBitmap`): SDL's renderer, which
+  waits for vsync with `UseVSync`; X11's `XPutImage` and Win32's `SetDIBitsToDevice`, outside
+  `WM_PAINT` too, which do not wait.
+- **`ReadPixels`** gives the frame before the ramp, but with `GammaCorrectScreenshots`.
 
 ### Script VM
 

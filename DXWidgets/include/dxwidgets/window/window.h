@@ -371,6 +371,9 @@ public:
 	virtual void SetCaptionTextColor(uint32_t rgba8) = 0;
 
 	virtual void PresentBitmap(int width, int height, const uint32_t* pixels) = 0;
+	// Whether a bitmap's present waits for the display's refresh: 1 waits, 0
+	// does not. A backend whose present cannot wait keeps to its own.
+	virtual void SetBitmapSwapInterval(int interval) {}
 
 	virtual std::string GetClipboardText() = 0;
 	virtual void SetClipboardText(const std::string& text) = 0;
