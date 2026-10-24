@@ -15,6 +15,7 @@
 #include "Packages/Extension/Windows/TabGroup/URootWindow.h"
 #include "VM/ScriptCall.h"
 #include "Engine.h"
+#include "Packages/Engine/Actors/Brush/UMover.h"
 
 RenderSubsystem::RenderSubsystem(RenderDevice* renderdevice) : Device(renderdevice)
 {
@@ -180,6 +181,7 @@ void RenderSubsystem::PurgeDying()
 	CoronaStates.erase(std::remove_if(CoronaStates.begin(), CoronaStates.end(), [](const CoronaState& state) { return GC::IsDying(state.Light); }), CoronaStates.end());
 	IteratorActors.erase(std::remove_if(IteratorActors.begin(), IteratorActors.end(), [](UActor* actor) { return GC::IsDying(actor); }), IteratorActors.end());
 	StaticIteratorActors.erase(std::remove_if(StaticIteratorActors.begin(), StaticIteratorActors.end(), [](UActor* actor) { return GC::IsDying(actor); }), StaticIteratorActors.end());
+	MirrorMovers.erase(std::remove_if(MirrorMovers.begin(), MirrorMovers.end(), [](UMover* mover) { return GC::IsDying(mover); }), MirrorMovers.end());
 }
 
 void RenderSubsystem::FlushDevice()
@@ -198,5 +200,6 @@ void RenderSubsystem::OnMapLoaded()
 	IteratorActors.clear();
 	CoronaStates.clear();
 	StaticIteratorActors.clear();
+	MirrorMovers.clear();
 	StaticActorsLevel = nullptr;
 }

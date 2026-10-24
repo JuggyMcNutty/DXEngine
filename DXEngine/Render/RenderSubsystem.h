@@ -68,6 +68,9 @@ public:
 	ULevel* StaticActorsLevel = nullptr;
 	int StaticActorsSorted = -1;
 	Array<UActor*> StaticIteratorActors;
+	// Its movers with a mirror among their faces, found with them, which
+	// VisibleFrame::ProcessMoverMirrors looks at each frame
+	Array<UMover*> MirrorMovers;
 
 	// Deus Ex coronas as the original's (dx-reverse-info/render-dll.md, coronas):
 	// up to 32 kept from frame to frame, each with a brightness 0 to 1,

@@ -329,6 +329,8 @@ The renderer's CPU work is lighter than Surreal Engine's:
   level sorts its actors (static first, as the original's), then a sixteenth of them a frame,
   in turn, should a script change one's look; only those with a render iterator are visited
   each frame (`RenderSubsystem::UpdateStaticActors`). The dynamic ones are filed each frame.
+- **Movers' mirrors**: each frame looks only at the movers with a mirrored face, found with the
+  static actors, where it cast every actor of the level to a mover (`RenderSubsystem::MirrorMovers`).
 - **Meshes**: each vertex animated, lit and fogged once a draw; a run of faces with one texture
   drawn in one device call, set up once (the GL device's `DrawGouraudTriangles` too).
 - **A portal's spans** are put in order by row in linear time, not sorted (`SortPortalSpans`).

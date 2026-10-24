@@ -12,6 +12,8 @@
 #include "Packages/Engine/Actors/Pawn/UPawn.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
+#include "Packages/Engine/Resources/Level/UPolys.h"
+#include "Packages/Engine/Actors/Brush/UMover.h"
 #include "Packages/Engine/Resources/UPalette.h"
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 #include "Packages/Engine/UViewport.h"
@@ -71,6 +73,24 @@ void RenderSubsystem::UpdateStaticActors(bool hasRenderIterators)
 		StaticActorsLevel = level;
 		StaticActorsSorted = level->ActorsSorted;
 		StaticIteratorActors.clear();
+
+		// The movers with a mirrored face, static or not: a brush's faces
+		// keep their flags
+		MirrorMovers.clear();
+		for (UActor* actor : level->Actors)
+		{
+			UMover* mover = UActor::TryCast<UMover>(actor);
+			if (!mover || !mover->Brush() || !mover->Brush()->Polys)
+				continue;
+			for (const Poly& poly : mover->Brush()->Polys->Polys)
+			{
+				if (poly.PolyFlags & PF_Mirrored)
+				{
+					MirrorMovers.push_back(mover);
+					break;
+				}
+			}
+		}
 	}
 
 	size_t turn = (size_t)(TextureFrameCounter & 15);

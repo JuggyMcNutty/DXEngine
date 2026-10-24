@@ -100,10 +100,10 @@ void VisibleFrame::ProcessMoverMirrors()
 	if (PortalDepth >= 3)
 		return;
 
-	for (UActor* actor : engine->Level->Actors)
+	// Only the level's movers with a mirrored face (RenderSubsystem::MirrorMovers)
+	for (UMover* mover : engine->render->MirrorMovers)
 	{
-		UMover* mover = UActor::TryCast<UMover>(actor);
-		if (!mover || mover->bHidden() || mover->DrawType() != DT_Brush || !mover->Brush() || !mover->Brush()->Polys)
+		if (mover->bDeleteMe() || mover->bHidden() || mover->DrawType() != DT_Brush || !mover->Brush() || !mover->Brush()->Polys)
 			continue;
 
 		mat4 toWorld = VisibleBrush::MoverToWorld(mover);
