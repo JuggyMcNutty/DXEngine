@@ -71,6 +71,10 @@ public:
 	// The first of UsedMipmaps a frame draws: the client's level for its
 	// LODSet, at most 3 and never past the last mip (UTexture::Lock).
 	int DetailLOD();
+	// The top P8 mip a fractal texture reads of another: the one drawn, a
+	// frame's as it animates, or beside the DXT1 mips drawn the P8 ones;
+	// none in another format.
+	const UnrealMipmap* P8Mip() const;
 	UTexture*& MacroTexture() { return Value<UTexture*>(PropOffsets_Texture.MacroTexture); }
 	float& MaxFrameRate() { return Value<float>(PropOffsets_Texture.MaxFrameRate); }
 	float& MinFrameRate() { return Value<float>(PropOffsets_Texture.MinFrameRate); }

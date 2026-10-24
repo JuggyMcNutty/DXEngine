@@ -333,8 +333,9 @@ extent the surface clamps, after waiting for the device). Without every descript
 feature its bindless set uses (partial binding, runtime arrays, non-uniform indexing,
 update-after-bind, a variable count) and room for that set, it binds a descriptor set per
 batch instead of bindless textures.
-It decodes on the CPU what the GPU cannot sample or filter: BC1–5, RGB8, RGBA32F, and converts
-the lightmaps for upload in NEON on ARM. Its draws take no depth bias, as the GL device's take
+It decodes on the CPU what the GPU cannot sample or filter: BC1, RGB8, RGBA32F, and converts
+the lightmaps for upload in NEON on ARM. A mip bigger than its 64 MB staging buffer goes up in
+bands of rows. Its draws take no depth bias, as the GL device's take
 none, nor do `D3DDrv`'s but its detail passes
 ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):
 a translucent draw biased by its slope shows through the opaque one in front of it from afar,
@@ -391,7 +392,12 @@ wherever else that state is set.
   puts it: its viewport is placed from the top, where Surreal Engine's places it from the
   bottom.
 - **BC1** without `EXT_texture_compression_s3tc` and RGBA32F (the lightmaps) without
-  `OES_texture_float_linear` are decoded to RGBA8 on the CPU.
+  `OES_texture_float_linear` are decoded to RGBA8 on the CPU, and BGRA8 goes up as RGBA8, red
+  and blue swapped, ES taking no BGRA upload.
+- **A DXT1 texture's levels**, on ES and desktop GL alike, are each its own size down to 1x1,
+  made by their uploads (`glCompressedTexImage2D`), as ES takes no compressed format in
+  `glTexImage2D`; a level with no mip of its own is made of zero blocks, so the chain is
+  whole.
 - **The samplers** set no `GL_TEXTURE_LOD_BIAS` on ES (no ES sampler has it), anisotropy only
   with `EXT_texture_filter_anisotropic`, and `GL_MIRROR_CLAMP_TO_EDGE` only where a probe at
   init finds the driver takes it (else `CLAMP_TO_EDGE`).

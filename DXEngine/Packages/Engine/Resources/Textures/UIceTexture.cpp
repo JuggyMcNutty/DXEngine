@@ -15,7 +15,7 @@ void UIceTexture::Prepare()
 
 	UnrealMipmap& mipmap = UsedMipmaps.front();
 	UTexture* source = SourceTexture();
-	if (source && (source->UsedMipmaps.empty() || mipmap.Width < 8 || mipmap.Height < 8))
+	if (source && (!source->P8Mip() || mipmap.Width < 8 || mipmap.Height < 8))
 	{
 		SourceTexture() = nullptr;
 		GlassTexture() = nullptr;
@@ -23,10 +23,11 @@ void UIceTexture::Prepare()
 	}
 	if (source)
 	{
-		const UnrealMipmap& sourceMip = source->UsedMipmaps.front();
+		const UnrealMipmap& sourceMip = *source->P8Mip();
 		bool sourceFits = sourceMip.Width == mipmap.Width && sourceMip.Height == mipmap.Height;
 		UTexture* glass = GlassTexture();
-		bool glassFits = glass && !glass->UsedMipmaps.empty() && glass->UsedMipmaps.front().Width == mipmap.Width && glass->UsedMipmaps.front().Height == mipmap.Height;
+		const UnrealMipmap* glassMip = glass ? glass->P8Mip() : nullptr;
+		bool glassFits = glassMip && glassMip->Width == mipmap.Width && glassMip->Height == mipmap.Height;
 		if (glass && !glassFits)
 			GlassTexture() = nullptr;
 		if (!sourceFits || !glassFits)
@@ -121,8 +122,12 @@ void UIceTexture::RenderIce(float deltaTime)
 	if (LocalCopy)
 		return;
 
+	const UnrealMipmap* glassMip = glass->P8Mip();
+	const UnrealMipmap* sourceMip = source->P8Mip();
+	if (!glassMip || !sourceMip)
+		return;
 	UnrealMipmap& mipmap = UsedMipmaps.front();
-	FireEngine::BlitIce(mipmap.Data.data(), glass->UsedMipmaps.front().Data.data(), source->UsedMipmaps.front().Data.data(),
+	FireEngine::BlitIce(mipmap.Data.data(), glassMip->Data.data(), sourceMip->Data.data(),
 		mipmap.Width, mipmap.Height, mipmap.UBits, mipmap.Width - 1, mipmap.Height - 1, upos, vpos, MoveIce());
 	TextureModified = true;
 }

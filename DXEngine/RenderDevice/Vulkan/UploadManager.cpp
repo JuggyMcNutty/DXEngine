@@ -13,9 +13,12 @@ UploadManager::~UploadManager()
 {
 }
 
+// The textures go, and their uploads not yet copied with them: the staging
+// buffer is free again.
 void UploadManager::ClearCache()
 {
 	PendingUploads.clear();
+	UploadBufferPos = 0;
 }
 
 bool UploadManager::SupportsTextureFormat(TextureFormat Format) const
@@ -28,15 +31,17 @@ void UploadManager::UploadTexture(CachedTexture* tex, const TextureInfo& Info, b
 	// The upload buffer is reused from offset 0 after every submit
 	renderer->Commands->WaitForFrame();
 
-	int width = Info.USize;
-	int height = Info.VSize;
+	// The image the size of its top mip's data, whatever the texture's
+	// USize and VSize say; none, or too big, a white texel.
+	bool hasMips = Info.NumMips >= 1 && Info.Mips;
+	int width = hasMips ? Info.Mips[0].Width : 0;
+	int height = hasMips ? Info.Mips[0].Height : 0;
 	int mipcount = Info.NumMips;
 
 	TextureUploader* uploader = TextureUploader::GetUploader(Info.Format, renderer->Device->PhysicalDevice.Device);
 
-	if ((uint32_t)Info.USize > renderer->Device.get()->PhysicalDevice.Properties.Properties.limits.maxImageDimension2D ||
-		(uint32_t)Info.VSize > renderer->Device.get()->PhysicalDevice.Properties.Properties.limits.maxImageDimension2D ||
-		!uploader)
+	uint32_t maxDimension = renderer->Device.get()->PhysicalDevice.Properties.Properties.limits.maxImageDimension2D;
+	if (!uploader || width < 1 || height < 1 || (uint32_t)width > maxDimension || (uint32_t)height > maxDimension)
 	{
 		width = 1;
 		height = 1;
@@ -80,6 +85,8 @@ void UploadManager::UploadTextureRect(CachedTexture* tex, const TextureInfo& Inf
 
 	size_t pixelsSize = uploader->GetUploadSize(x, y, w, h);
 	pixelsSize = (pixelsSize + 15) / 16 * 16; // memory alignment
+	if (pixelsSize > (size_t)BufferManager::UploadBufferSize)
+		return;
 
 	WaitIfUploadBufferIsFull((int)pixelsSize);
 
@@ -100,44 +107,38 @@ void UploadManager::UploadTextureRect(CachedTexture* tex, const TextureInfo& Inf
 	UploadBufferPos += (int)pixelsSize;
 }
 
+// Each mip into the staging buffer and copied to its level: whole while it
+// fits, else in bands of rows -- whole blocks of a block format -- the buffer
+// waited on whenever it is full.
 void UploadManager::UploadData(CachedTexture* tex, const TextureInfo& Info, bool masked, TextureUploader* uploader)
 {
-	size_t pixelsSize = 0;
+	int blockRows = uploader->GetBlockRows();
 	for (int level = 0; level < Info.NumMips; level++)
 	{
 		UnrealMipmap* Mip = &Info.Mips[level];
-		if (!Mip->Data.empty())
-		{
-			int mipsize = uploader->GetUploadSize(0, 0, Mip->Width, Mip->Height);
-			mipsize = (mipsize + 15) / 16 * 16; // memory alignment
-			pixelsSize += mipsize;
-		}
-	}
+		if (Mip->Data.empty() || Mip->Width < 1 || Mip->Height < 1)
+			continue;
 
-	WaitIfUploadBufferIsFull((int)pixelsSize);
-
-	for (int level = 0; level < Info.NumMips; level++)
-	{
-		UnrealMipmap* Mip = &Info.Mips[level];
-		if (!Mip->Data.empty())
+		int bandSize = std::max(uploader->GetUploadSize(0, 0, Mip->Width, blockRows), 1);
+		int bandRows = std::max(BufferManager::UploadBufferSize / bandSize, 1) * blockRows;
+		for (int y = 0; y < Mip->Height; y += bandRows)
 		{
-			uint32_t mipwidth = Mip->Width;
-			uint32_t mipheight = Mip->Height;
+			int rows = std::min(bandRows, Mip->Height - y);
+			int size = uploader->GetUploadSize(0, y, Mip->Width, rows);
+			size = (size + 15) / 16 * 16; // memory alignment
+			WaitIfUploadBufferIsFull(size);
 
 			VkBufferImageCopy region = {};
 			region.bufferOffset = UploadBufferPos;
 			region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			region.imageSubresource.mipLevel = level;
 			region.imageSubresource.layerCount = 1;
-			region.imageOffset = { 0, 0, 0 };
-			region.imageExtent = { mipwidth, mipheight, 1 };
+			region.imageOffset = { 0, y, 0 };
+			region.imageExtent = { (uint32_t)Mip->Width, (uint32_t)rows, 1 };
 			AddPendingUpload(tex, region, false);
 
-			uploader->UploadRect(renderer->Buffers->UploadData + UploadBufferPos, Mip, 0, 0, Mip->Width, Mip->Height, Info.Palette, masked);
-
-			int mipsize = uploader->GetUploadSize(0, 0, Mip->Width, Mip->Height);
-			mipsize = (mipsize + 15) / 16 * 16; // memory alignment
-			UploadBufferPos += mipsize;
+			uploader->UploadRect(renderer->Buffers->UploadData + UploadBufferPos, Mip, 0, y, Mip->Width, rows, Info.Palette, masked);
+			UploadBufferPos += size;
 		}
 	}
 }
@@ -159,11 +160,14 @@ void UploadManager::UploadWhite(CachedTexture* tex)
 	UploadBufferPos += 16; // 16-byte aligned
 }
 
+// The copies made and waited for when the bytes would not fit: the buffer
+// free again from its start.
 void UploadManager::WaitIfUploadBufferIsFull(int bytes)
 {
 	if (UploadBufferPos + bytes > BufferManager::UploadBufferSize)
 	{
 		renderer->Commands->WaitForTransfer();
+		UploadBufferPos = 0;
 	}
 }
 

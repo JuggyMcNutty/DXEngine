@@ -360,6 +360,8 @@ struct Texture : Bitmap
 The image format used by the texture is stored in the `Format` object property. If the `bHasComp`
 property exists and is true, then the texture contains additional data for a compressed version of
 the texture. The image format for the compressed version is stored in the `CompFormat` property.
+Deus Ex's formats are `TEXF_P8` (0), `TEXF_RGBA7` (1), `TEXF_RGB16` (2), `TEXF_DXT1` (3),
+`TEXF_RGB8` (4) and `TEXF_RGBA8` (5), as the SDK's `UnTex.h` has them.
 
 ## FractalTexture Object
 ```

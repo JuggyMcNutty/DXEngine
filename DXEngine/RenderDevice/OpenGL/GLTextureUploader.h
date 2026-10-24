@@ -30,6 +30,8 @@ public:
 	// comes down to RGBA8 as well. Desktop GL has both; they default on.
 	static void SetS3TCSupported(bool supported);
 	static void SetRGBA32FLinearSupported(bool supported);
+	// ES has no BGRA upload: BGRA8 textures are swizzled to RGBA on the CPU.
+	static void SetBGRASupported(bool supported);
 
 private:
 	GLint Internalformat;
@@ -64,33 +66,6 @@ public:
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
 };
 
-class GLTextureUploader_RGB10A2 : public GLTextureUploader
-{
-public:
-	GLTextureUploader_RGB10A2() : GLTextureUploader(GL_RGBA16, GL_RGBA, GL_UNSIGNED_SHORT) { }
-
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-};
-
-class GLTextureUploader_RGB10A2_UI : public GLTextureUploader
-{
-public:
-	GLTextureUploader_RGB10A2_UI() : GLTextureUploader(GL_RGBA16UI, GL_RGBA, GL_UNSIGNED_SHORT) { }
-
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-};
-
-class GLTextureUploader_RGB10A2_LM : public GLTextureUploader
-{
-public:
-	GLTextureUploader_RGB10A2_LM() : GLTextureUploader(GL_RGBA16, GL_RGBA, GL_UNSIGNED_SHORT) { }
-
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-};
-
 class GLTextureUploader_Simple : public GLTextureUploader
 {
 public:
@@ -101,6 +76,17 @@ public:
 
 private:
 	int BytesPerPixel;
+};
+
+// BGRA8 sent as RGBA8, red and blue swapped, where the context takes no BGRA
+// (OpenGL ES).
+class GLTextureUploader_BGRA8_Swizzle : public GLTextureUploader
+{
+public:
+	GLTextureUploader_BGRA8_Swizzle() : GLTextureUploader(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE) { }
+
+	int GetUploadSize(int x, int y, int w, int h) override;
+	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
 };
 
 class GLTextureUploader_4x4Block : public GLTextureUploader
@@ -131,18 +117,4 @@ public:
 
 	int GetUploadSize(int x, int y, int w, int h) override;
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-};
-
-class GLTextureUploader_2DBlock : public GLTextureUploader
-{
-public:
-	GLTextureUploader_2DBlock(GLint internalformat, GLenum format, GLenum type, int blockX, int blockY, int bytesPerBlock) : GLTextureUploader(internalformat, format, type), BlockX(blockX), BlockY(blockY), BytesPerBlock(bytesPerBlock) { }
-
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-
-private:
-	int BlockX;
-	int BlockY;
-	int BytesPerBlock;
 };

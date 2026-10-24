@@ -17,6 +17,7 @@
 // GE8300 has none): default on, as desktop GL has both.
 static bool S3TCSupported = true;
 static bool RGBA32FLinearSupported = true;
+static bool BGRASupported = true;
 
 void GLTextureUploader::SetS3TCSupported(bool supported)
 {
@@ -26,6 +27,11 @@ void GLTextureUploader::SetS3TCSupported(bool supported)
 void GLTextureUploader::SetRGBA32FLinearSupported(bool supported)
 {
 	RGBA32FLinearSupported = supported;
+}
+
+void GLTextureUploader::SetBGRASupported(bool supported)
+{
+	BGRASupported = supported;
 }
 
 GLTextureUploader* GLTextureUploader::GetUploader(TextureFormat format)
@@ -61,6 +67,12 @@ GLTextureUploader* GLTextureUploader::GetUploader(TextureFormat format)
 			if (!Decoders[TextureFormat::RGBA32_F])
 				Decoders[TextureFormat::RGBA32_F].reset(new GLTextureUploader_RGBA32F_Decode());
 			return Decoders[TextureFormat::RGBA32_F].get();
+		}
+		if (format == TextureFormat::BGRA8 && !BGRASupported)
+		{
+			if (!Decoders[TextureFormat::BGRA8])
+				Decoders[TextureFormat::BGRA8].reset(new GLTextureUploader_BGRA8_Swizzle());
+			return Decoders[TextureFormat::BGRA8].get();
 		}
 		return it->second.get();
 	}
@@ -207,109 +219,6 @@ void GLTextureUploader_BGRA8_LM::UploadRect(void* dst, UnrealMipmap* mip, int x,
 
 /////////////////////////////////////////////////////////////////////////////
 
-int GLTextureUploader_RGB10A2::GetUploadSize(int x, int y, int w, int h)
-{
-	return w * h * 8;
-}
-
-void GLTextureUploader_RGB10A2::UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
-{
-	int pitch = mip->Width;
-	uint32_t* src = ((uint32_t*)mip->Data.data()) + x + y * pitch;
-	uint16_t* Ptr = (uint16_t*)dst;
-	for (int i = 0; i < h; i++)
-	{
-		for (int j = 0; j < w; j++)
-		{
-			uint32_t c = *Ptr;
-			uint32_t r = (c >> 22) & 0x3ff;
-			uint32_t g = (c >> 12) & 0x3ff;
-			uint32_t b = (c >> 2) & 0x3ff;
-			uint32_t a = c & 0x3;
-
-			r = r * 0xffff / 0x3ff;
-			g = g * 0xffff / 0x3ff;
-			b = b * 0xffff / 0x3ff;
-			a = a * 0xffff / 0x3;
-
-			*(Ptr++) = r;
-			*(Ptr++) = g;
-			*(Ptr++) = b;
-			*(Ptr++) = a;
-		}
-		src += pitch;
-	}
-}
-
-/////////////////////////////////////////////////////////////////////////////
-
-int GLTextureUploader_RGB10A2_UI::GetUploadSize(int x, int y, int w, int h)
-{
-	return w * h * 8;
-}
-
-void GLTextureUploader_RGB10A2_UI::UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
-{
-	int pitch = mip->Width;
-	uint32_t* src = ((uint32_t*)mip->Data.data()) + x + y * pitch;
-	uint16_t* Ptr = (uint16_t*)dst;
-	for (int i = 0; i < h; i++)
-	{
-		for (int j = 0; j < w; j++)
-		{
-			uint32_t c = *Ptr;
-			uint32_t r = (c >> 22) & 0x3ff;
-			uint32_t g = (c >> 12) & 0x3ff;
-			uint32_t b = (c >> 2) & 0x3ff;
-			uint32_t a = c & 0x3;
-
-			*(Ptr++) = r;
-			*(Ptr++) = g;
-			*(Ptr++) = b;
-			*(Ptr++) = a;
-		}
-		src += pitch;
-	}
-}
-
-/////////////////////////////////////////////////////////////////////////////
-
-int GLTextureUploader_RGB10A2_LM::GetUploadSize(int x, int y, int w, int h)
-{
-	return w * h * 8;
-}
-
-void GLTextureUploader_RGB10A2_LM::UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
-{
-	int pitch = mip->Width;
-	uint32_t* src = ((uint32_t*)mip->Data.data()) + x + y * pitch;
-	uint16_t* Ptr = (uint16_t*)dst;
-	for (int i = 0; i < h; i++)
-	{
-		for (int j = 0; j < w; j++)
-		{
-			uint32_t c = *Ptr;
-			uint32_t r = (c >> 22) & 0x3ff;
-			uint32_t g = (c >> 12) & 0x3ff;
-			uint32_t b = (c >> 2) & 0x3ff;
-			uint32_t a = c & 0x3;
-
-			r = (r << 1) * 0xffff / 0xff;
-			g = (g << 1) * 0xffff / 0xff;
-			b = (b << 1) * 0xffff / 0xff;
-			a = (a << 1) * 0xffff / 0x3;
-
-			*(Ptr++) = r;
-			*(Ptr++) = g;
-			*(Ptr++) = b;
-			*(Ptr++) = a;
-		}
-		src += pitch;
-	}
-}
-
-/////////////////////////////////////////////////////////////////////////////
-
 int GLTextureUploader_Simple::GetUploadSize(int x, int y, int w, int h)
 {
 	return w * h * BytesPerPixel;
@@ -325,6 +234,32 @@ void GLTextureUploader_Simple::UploadRect(void* d, UnrealMipmap* mip, int x, int
 	{
 		memcpy(dst, src, size);
 		dst += size;
+		src += pitch;
+	}
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
+int GLTextureUploader_BGRA8_Swizzle::GetUploadSize(int x, int y, int w, int h)
+{
+	return w * h * 4;
+}
+
+void GLTextureUploader_BGRA8_Swizzle::UploadRect(void* d, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
+{
+	int pitch = mip->Width * 4;
+	const uint8_t* src = mip->Data.data() + x * 4 + y * pitch;
+	uint8_t* dst = (uint8_t*)d;
+	for (int i = 0; i < h; i++)
+	{
+		for (int j = 0; j < w; j++)
+		{
+			dst[0] = src[j * 4 + 2];
+			dst[1] = src[j * 4 + 1];
+			dst[2] = src[j * 4];
+			dst[3] = src[j * 4 + 3];
+			dst += 4;
+		}
 		src += pitch;
 	}
 }
@@ -359,36 +294,6 @@ void GLTextureUploader_4x4Block::UploadRect(void* d, UnrealMipmap* mip, int x, i
 	}
 }
 
-
-/////////////////////////////////////////////////////////////////////////////
-
-int GLTextureUploader_2DBlock::GetUploadSize(int x, int y, int w, int h)
-{
-	int x0 = x / BlockX;
-	int y0 = y / BlockY;
-	int x1 = (x + w + BlockX - 1) / BlockX;
-	int y1 = (y + h + BlockY - 1) / BlockY;
-	return (x1 - x0) * (y1 - y0) * BytesPerBlock;
-}
-
-void GLTextureUploader_2DBlock::UploadRect(void* d, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
-{
-	int x0 = x / BlockX;
-	int y0 = y / BlockY;
-	int x1 = (x + w + BlockX - 1) / BlockX;
-	int y1 = (y + h + BlockY - 1) / BlockY;
-
-	int pitch = (mip->Width + BlockX - 1) / BlockX * BytesPerBlock;
-	int size = (x1 - x0) * BytesPerBlock;
-	uint8_t* src = mip->Data.data() + x0 * BytesPerBlock + y0 * pitch;
-	uint8_t* dst = (uint8_t*)d;
-	for (int i = y0; i < y1; i++)
-	{
-		memcpy(dst, src, size);
-		dst += size;
-		src += pitch;
-	}
-}
 
 /////////////////////////////////////////////////////////////////////////////
 // CPU decoders for drivers without the extension (the Vulkan device's

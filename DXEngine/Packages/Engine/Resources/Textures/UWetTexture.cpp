@@ -15,7 +15,7 @@ void UWetTexture::Prepare()
 	if (!source)
 		return;
 	source->LoadNow();
-	if (source->UsedMipmaps.empty())
+	if (!source->P8Mip())
 	{
 		SourceTexture() = nullptr;
 		return;
@@ -23,7 +23,7 @@ void UWetTexture::Prepare()
 
 	LocalSource.clear();
 	UnrealMipmap& mipmap = UsedMipmaps.front();
-	const UnrealMipmap& sourceMip = source->UsedMipmaps.front();
+	const UnrealMipmap& sourceMip = *source->P8Mip();
 	int ushift = mipmap.UBits - sourceMip.UBits;
 	int vshift = mipmap.VBits - sourceMip.VBits;
 	if (ushift < 0 || vshift < 0)
@@ -64,7 +64,10 @@ void UWetTexture::UpdateFrame()
 
 	StepWater();
 
-	const uint8_t* sourceBits = LocalSource.empty() ? source->UsedMipmaps.front().Data.data() : LocalSource.data();
+	const UnrealMipmap* sourceMip = source->P8Mip();
+	if (!sourceMip)
+		return;
+	const uint8_t* sourceBits = LocalSource.empty() ? sourceMip->Data.data() : LocalSource.data();
 	FireEngine::ApplyWet(mipmap.Data.data(), sourceBits, mipmap.Width, mipmap.Height, mipmap.UBits, mipmap.Width - 1);
 	TextureModified = true;
 }

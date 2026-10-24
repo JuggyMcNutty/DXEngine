@@ -17,15 +17,21 @@ bool GLUploadManager::SupportsTextureFormat(TextureFormat Format) const
 	return GLTextureUploader::GetUploader(Format);
 }
 
+// The texture's levels made once and its mips sent, each level its own size,
+// the image the size of its top mip's data; none, or too big, a white texel.
+// A compressed format's levels are made by their uploads
+// (glCompressedTexImage2D), as ES takes no compressed format in
+// glTexImage2D.
 void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Info, bool masked)
 {
-	int width = Info.USize;
-	int height = Info.VSize;
+	bool hasMips = Info.NumMips >= 1 && Info.Mips;
+	int width = hasMips ? Info.Mips[0].Width : 0;
+	int height = hasMips ? Info.Mips[0].Height : 0;
 	int mipcount = Info.NumMips;
 
 	GLTextureUploader* uploader = GLTextureUploader::GetUploader(Info.Format);
 
-	if ((uint32_t)Info.USize > 16384 || (uint32_t)Info.VSize > 16384 || !uploader)
+	if (!uploader || width < 1 || height < 1 || width > 16384 || height > 16384)
 	{
 		width = 1;
 		height = 1;
@@ -36,6 +42,7 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
 	GLint internalFormat = GL_RGBA8;
 	GLenum format = GL_RGBA;
 	GLenum type = GL_UNSIGNED_BYTE;
+	bool compressed = false;
 	if (uploader)
 	{
 		internalFormat = uploader->GetInternalformat();
@@ -44,51 +51,33 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
 			format = uploader->GetFormat();
 			type = uploader->GetType();
 		}
+		else
+		{
+			compressed = true;
+		}
 	}
-
-	// Base texture must use complete 4x4 compression blocks in Direct3D 11 or some drivers crash.
-	// It is unclear if some OpenGL drivers have the same problem or not.
-	// 
-	// We fix this by creating 1 or 2 additional mipmap levels that are empty.
-
-	int minSize = Info.Format == TextureFormat::BC1 || (Info.Format >= TextureFormat::BC2 && Info.Format <= TextureFormat::BC6H) ? 4 : 0;
 
 	if (!tex->Texture)
 	{
-		if (width < minSize || height < minSize)
-		{
-			if (width == 1 || height == 1)
-			{
-				width *= 4;
-				height *= 4;
-				mipcount += 2;
-				tex->DummyMipmapCount = 2;
-			}
-			else
-			{
-				width *= 2;
-				height *= 2;
-				mipcount += 1;
-				tex->DummyMipmapCount = 1;
-			}
-		}
-
 		tex->Texture = std::make_shared<GLTexture2D>();
 		glBindTexture(GL_TEXTURE_2D, tex->Texture->Handle);
-		int mipwidth = width;
-		int mipheight = height;
-		for (int miplevel = 0; miplevel < mipcount; miplevel++)
+		if (!compressed)
 		{
-			glTexImage2D(GL_TEXTURE_2D, miplevel, internalFormat, mipwidth, mipheight, 0, format, type, nullptr);
-			ThrowIfGLError("UploadTexture failed");
-			mipwidth = std::max(mipwidth >> 1, 1);
-			mipheight = std::max(mipheight >> 1, 1);
+			int mipwidth = width;
+			int mipheight = height;
+			for (int miplevel = 0; miplevel < mipcount; miplevel++)
+			{
+				glTexImage2D(GL_TEXTURE_2D, miplevel, internalFormat, mipwidth, mipheight, 0, format, type, nullptr);
+				ThrowIfGLError("UploadTexture failed");
+				mipwidth = std::max(mipwidth >> 1, 1);
+				mipheight = std::max(mipheight >> 1, 1);
+			}
 		}
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, std::max(mipcount - 1, 0));
 	}
 
 	if (uploader)
-		UploadData(tex->Texture.get(), Info, masked, uploader, tex->DummyMipmapCount, minSize);
+		UploadData(tex->Texture.get(), Info, masked, uploader, width, height);
 	else
 		UploadWhite(tex->Texture.get());
 	renderer->ForgetBoundTexture(); // bound on the active unit, 0
@@ -99,7 +88,7 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
 void GLUploadManager::UploadTextureRect(GLCachedTexture* tex, const TextureInfo& Info, int x, int y, int w, int h)
 {
 	GLTextureUploader* uploader = GLTextureUploader::GetUploader(Info.Format);
-	if (!uploader || Info.NumMips < 1 || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > Info.Mips[0].Width || y + h > Info.Mips[0].Height || Info.Mips[0].Data.empty())
+	if (!uploader || uploader->GetFormat() == 0 || Info.NumMips < 1 || !Info.Mips || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > Info.Mips[0].Width || y + h > Info.Mips[0].Height || Info.Mips[0].Data.empty())
 		return;
 
 	size_t pixelsSize = uploader->GetUploadSize(x, y, w, h);
@@ -108,11 +97,7 @@ void GLUploadManager::UploadTextureRect(GLCachedTexture* tex, const TextureInfo&
 	uint8_t* data = GetUploadBuffer(pixelsSize);
 	uploader->UploadRect(data, &Info.Mips[0], x, y, w, h, Info.Palette, false);
 
-	// To do: do we need this?
-	// int pitch = uploader->GetUploadSize(0, 0, w, 1);
-	// glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	// glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / bytesPerPixel);
-
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // the rows packed tight
 	glBindTexture(GL_TEXTURE_2D, tex->Texture->Handle);
 	glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, w, h, uploader->GetFormat(), uploader->GetType(), data);
 	renderer->ForgetBoundTexture(); // bound on the active unit, 0
@@ -120,33 +105,40 @@ void GLUploadManager::UploadTextureRect(GLCachedTexture* tex, const TextureInfo&
 	renderer->Stats.RectUploads++;
 }
 
-void GLUploadManager::UploadData(GLTexture2D* image, const TextureInfo& Info, bool masked, GLTextureUploader* uploader, int dummyMipmapCount, int minSize)
+// Each mip into its level, the rows packed tight (a 1-wide 16-bit mip's are 2
+// bytes). A compressed format defines every level, by halves of the top's
+// size down to 1x1 -- a missing or misfit mip's from zero blocks -- so the
+// chain is whole, as GL samples no incomplete one.
+void GLUploadManager::UploadData(GLTexture2D* image, const TextureInfo& Info, bool masked, GLTextureUploader* uploader, int width, int height)
 {
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glBindTexture(GL_TEXTURE_2D, image->Handle);
+	bool compressed = uploader->GetFormat() == 0;
+	int levelwidth = width;
+	int levelheight = height;
 	for (int level = 0; level < Info.NumMips; level++)
 	{
 		UnrealMipmap* Mip = &Info.Mips[level];
-		if (!Mip->Data.empty())
+		bool fits = !Mip->Data.empty() && Mip->Width == levelwidth && Mip->Height == levelheight;
+		if (compressed)
 		{
-			uint32_t mipwidth = std::max(Mip->Width, minSize);
-			uint32_t mipheight = std::max(Mip->Height, minSize);
-
-			int mipsize = uploader->GetUploadSize(0, 0, mipwidth, mipheight);
-
-			auto data = (uint32_t*)GetUploadBuffer(mipsize);
-			uploader->UploadRect(data, Mip, 0, 0, mipwidth, mipheight, Info.Palette, masked);
-
-			if (uploader->GetFormat() != 0)
-			{
-				glBindTexture(GL_TEXTURE_2D, image->Handle);
-				glTexSubImage2D(GL_TEXTURE_2D, level + dummyMipmapCount, 0, 0, mipwidth, mipheight, uploader->GetFormat(), uploader->GetType(), data);
-			}
+			int mipsize = uploader->GetUploadSize(0, 0, levelwidth, levelheight);
+			uint8_t* data = GetUploadBuffer(mipsize);
+			if (fits)
+				uploader->UploadRect(data, Mip, 0, 0, levelwidth, levelheight, Info.Palette, masked);
 			else
-			{
-				glBindTexture(GL_TEXTURE_2D, image->Handle);
-				glCompressedTexImage2D(GL_TEXTURE_2D, level + dummyMipmapCount, uploader->GetInternalformat(), mipwidth, mipheight, 0, mipsize, data);
-				ThrowIfGLError("UploadData(compressed) failed");
-			}
+				memset(data, 0, mipsize);
+			glCompressedTexImage2D(GL_TEXTURE_2D, level, uploader->GetInternalformat(), levelwidth, levelheight, 0, mipsize, data);
+			ThrowIfGLError("UploadData(compressed) failed");
 		}
+		else if (fits)
+		{
+			uint8_t* data = GetUploadBuffer(uploader->GetUploadSize(0, 0, levelwidth, levelheight));
+			uploader->UploadRect(data, Mip, 0, 0, levelwidth, levelheight, Info.Palette, masked);
+			glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, levelwidth, levelheight, uploader->GetFormat(), uploader->GetType(), data);
+		}
+		levelwidth = std::max(levelwidth >> 1, 1);
+		levelheight = std::max(levelheight >> 1, 1);
 	}
 }
 

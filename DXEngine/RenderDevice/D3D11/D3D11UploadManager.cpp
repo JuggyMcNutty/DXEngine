@@ -19,13 +19,16 @@ bool D3D11UploadManager::SupportsTextureFormat(TextureFormat Format) const
 
 void D3D11UploadManager::UploadTexture(D3D11CachedTexture* tex, const TextureInfo& Info, bool masked)
 {
-	int width = Info.USize;
-	int height = Info.VSize;
+	// The image the size of its top mip's data, whatever the texture's USize
+	// and VSize say; none, or too big, a white texel.
+	bool hasMips = Info.NumMips >= 1 && Info.Mips;
+	int width = hasMips ? Info.Mips[0].Width : 0;
+	int height = hasMips ? Info.Mips[0].Height : 0;
 	int mipcount = Info.NumMips;
 
 	D3D11TextureUploader* uploader = D3D11TextureUploader::GetUploader(Info.Format);
 
-	if ((uint32_t)Info.USize > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || (uint32_t)Info.VSize > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || !uploader)
+	if (!uploader || width < 1 || height < 1 || (uint32_t)width > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || (uint32_t)height > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION)
 	{
 		width = 1;
 		height = 1;
@@ -39,7 +42,7 @@ void D3D11UploadManager::UploadTexture(D3D11CachedTexture* tex, const TextureInf
 	// 
 	// We fix this by creating 1 or 2 additional mipmap levels that are empty.
 
-	int minSize = Info.Format == TextureFormat::BC1 || (Info.Format >= TextureFormat::BC2 && Info.Format <= TextureFormat::BC6H) ? 4 : 0;
+	int minSize = uploader && Info.Format == TextureFormat::BC1 ? 4 : 0;
 
 	if (!tex->Texture)
 	{

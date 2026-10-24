@@ -25,6 +25,7 @@ void UTexture::Load(ObjectStream* stream)
 		mipmap.VBits = stream->ReadUInt8();
 	}
 
+	bool compressed = false;
 	if (HasProperty("bHasComp") && GetBool("bHasComp"))
 	{
 		mipsCount = stream->ReadUInt8();
@@ -43,13 +44,22 @@ void UTexture::Load(ObjectStream* stream)
 			mipmap.VBits = stream->ReadUInt8();
 		}
 
-		UsedFormat = (TextureFormat)GetByte("CompFormat");
-		UsedMipmaps = CompressedMipmaps;
+		// The original's UTexture::Lock (Engine.dll 0x103ecc90) draws the
+		// compressed mips only when they are DXT1, which every device here
+		// draws; else the others.
+		compressed = GetByte("CompFormat") == (uint8_t)TextureFormat::BC1 && !CompressedMipmaps.empty();
+	}
+
+	int format = compressed ? GetByte("CompFormat") : GetByte("Format");
+	UsedMipmaps = compressed ? CompressedMipmaps : UncompressedMipmaps;
+	if (format <= (int)TextureFormat::BGRA8)
+	{
+		UsedFormat = (TextureFormat)format;
 	}
 	else
 	{
-		UsedFormat = (TextureFormat)GetByte("Format");
-		UsedMipmaps = UncompressedMipmaps;
+		UsedFormat = TextureFormat::Unknown;
+		LogMessage("Texture " + Name.ToString() + ": format " + std::to_string(format) + " is none Deus Ex has; drawn white");
 	}
 }
 
@@ -63,6 +73,15 @@ int UTexture::DetailLOD()
 		return 0;
 	int lod = engine->client->DetailLevel(LODSet());
 	return std::max(std::min({ lod, 3, (int)UsedMipmaps.size() - 1 }), 0);
+}
+
+const UnrealMipmap* UTexture::P8Mip() const
+{
+	if (UsedFormat == TextureFormat::P8)
+		return UsedMipmaps.empty() ? nullptr : &UsedMipmaps.front();
+	if (const_cast<UTexture*>(this)->Format() == (uint8_t)TextureFormat::P8 && !UncompressedMipmaps.empty())
+		return &UncompressedMipmaps.front();
+	return nullptr;
 }
 
 void UTexture::Save(PackageStreamWriter* stream)

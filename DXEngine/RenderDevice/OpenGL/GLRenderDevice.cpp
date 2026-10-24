@@ -64,13 +64,19 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 		if (IsGLES)
 			LogMessage(std::string("GLDrv: OpenGL ES context, ") + (const char*)version);
 
+		// Desktop GL has S3TC, filterable RGBA32F and BGRA uploads; an ES
+		// context's are found below. Set at every start, so that a device made
+		// after another keeps none of its.
+		GLTextureUploader::SetS3TCSupported(true);
+		GLTextureUploader::SetRGBA32FLinearSupported(true);
+		GLTextureUploader::SetBGRASupported(!IsGLES);
+
 		// The ES path can sample and linearly filter everything the game
 		// uploads only where the driver has the extensions for it: the GE8300
 		// has no S3TC at all (BC1 textures decode to RGBA8 on the CPU) and
 		// samples RGBA32F but cannot filter it (lightmaps and fog maps,
 		// which would come up speckled). Decode both on the CPU to RGBA8,
-		// the same substitutions the Vulkan device makes for that GPU
-		// (patch 0002's decoders; GL gets its own below).
+		// the same substitutions the Vulkan device makes for that GPU.
 		if (IsGLES)
 		{
 			// BC1: EXT_texture_compression_s3tc. RGBA32F filtering:
@@ -648,7 +654,8 @@ void GLRenderDevice::CreateScenePass()
 
 void GLRenderDevice::CreateSceneSamplers()
 {
-	for (int i = 0; i < 16; i++)
+	// Smoothed or not, wrapped or clamped.
+	for (int i = 0; i < 4; i++)
 	{
 		ScenePass.Samplers[i] = std::make_shared<GLSampler>();
 		glBindSampler(0, ScenePass.Samplers[i]->Handle); // We must bind it before it actually exists. So stupid!
@@ -656,7 +663,6 @@ void GLRenderDevice::CreateSceneSamplers()
 
 		GLuint sampler = ScenePass.Samplers[i]->Handle;
 
-		int dummyMipmapCount = (i >> 2) & 3;
 		GLint addressmode = (i & 2) ? (SamplerMirrorClampEdge ? GL_MIRROR_CLAMP_TO_EDGE : GL_CLAMP_TO_EDGE) : GL_REPEAT;
 
 #if 0
@@ -671,12 +677,11 @@ void GLRenderDevice::CreateSceneSamplers()
 		glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, addressmode);
 		glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, addressmode);
 		glSamplerParameteri(sampler, GL_TEXTURE_WRAP_R, addressmode);
-		glSamplerParameterf(sampler, GL_TEXTURE_MIN_LOD, (float)dummyMipmapCount);
 		if (!IsGLES)
 		{
 			// GL_TEXTURE_LOD_BIAS is desktop GL only (Mesa tolerates it, the
 			// GE8300 rejects it); ES has no sampler LOD bias at all.
-			glSamplerParameterf(sampler, GL_TEXTURE_LOD_BIAS, (float)dummyMipmapCount + LODBias);
+			glSamplerParameterf(sampler, GL_TEXTURE_LOD_BIAS, LODBias);
 		}
 
 		ThrowIfGLError("Could not create sampler");

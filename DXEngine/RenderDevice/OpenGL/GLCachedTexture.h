@@ -7,7 +7,6 @@ class GLCachedTexture
 public:
 	std::shared_ptr<GLTexture2D> Texture;
 	int RealtimeChangeCount = 0;
-	int DummyMipmapCount = 0;
 
 	float UScale = 0.0f;
 	float VScale = 0.0f;

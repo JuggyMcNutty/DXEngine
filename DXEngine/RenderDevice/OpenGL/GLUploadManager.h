@@ -22,7 +22,7 @@ public:
 	void UploadWhite(GLTexture2D* image);
 
 private:
-	void UploadData(GLTexture2D* image, const TextureInfo& Info, bool masked, GLTextureUploader* uploader, int dummyMipmapCount, int minSize);
+	void UploadData(GLTexture2D* image, const TextureInfo& Info, bool masked, GLTextureUploader* uploader, int width, int height);
 
 	uint8_t* GetUploadBuffer(size_t size);
 

@@ -185,7 +185,7 @@ void RenderSubsystem::DrawCoronasDX(VisibleFrame* frame)
 	for (const CoronaState& state : CoronaStates)
 	{
 		UActor* light = state.Light;
-		if (state.Brightness <= 0.0f || light->bDeleteMe() || !light->Skin())
+		if (state.Brightness <= 0.0f || light->bDeleteMe() || !light->Skin() || light->Skin()->UsedMipmaps.empty())
 			continue;
 
 		vec4 pos = frame->Frame.WorldToView * frame->Frame.ObjectToWorld * vec4(light->Location(), 1.0f);

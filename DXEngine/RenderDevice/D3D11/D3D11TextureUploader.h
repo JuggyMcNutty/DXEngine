@@ -51,33 +51,6 @@ public:
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
 };
 
-class D3D11TextureUploader_RGB10A2 : public D3D11TextureUploader
-{
-public:
-	D3D11TextureUploader_RGB10A2() : D3D11TextureUploader(DXGI_FORMAT_R16G16B16A16_UNORM) { }
-
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-};
-
-class D3D11TextureUploader_RGB10A2_UI : public D3D11TextureUploader
-{
-public:
-	D3D11TextureUploader_RGB10A2_UI() : D3D11TextureUploader(DXGI_FORMAT_R16G16B16A16_UINT) { }
-
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-};
-
-class D3D11TextureUploader_RGB10A2_LM : public D3D11TextureUploader
-{
-public:
-	D3D11TextureUploader_RGB10A2_LM() : D3D11TextureUploader(DXGI_FORMAT_R16G16B16A16_UNORM) { }
-
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-};
-
 class D3D11TextureUploader_Simple : public D3D11TextureUploader
 {
 public:
@@ -99,19 +72,5 @@ public:
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
 
 private:
-	int BytesPerBlock;
-};
-
-class D3D11TextureUploader_2DBlock : public D3D11TextureUploader
-{
-public:
-	D3D11TextureUploader_2DBlock(DXGI_FORMAT format, int blockX, int blockY, int bytesPerBlock) : D3D11TextureUploader(format), BlockX(blockX), BlockY(blockY), BytesPerBlock(bytesPerBlock) { }
-
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-
-private:
-	int BlockX;
-	int BlockY;
 	int BytesPerBlock;
 };

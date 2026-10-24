@@ -34,7 +34,7 @@ void VisibleSprite::Draw(VisibleFrame* frame, UActor* actor, const vec3& locatio
 	{
 		texture = texture->GetAnimTexture();
 	}
-	if (!texture)
+	if (!texture || texture->UsedMipmaps.empty())
 		return;
 
 	engine->render->UpdateTexture(texture);

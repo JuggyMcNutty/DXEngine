@@ -1329,6 +1329,10 @@ What DXEngine does with each:
 
 A mod gets the original's loader and natives:
 
+- **Its textures**: Deus Ex's formats (`TEXF_P8` to `TEXF_RGBA8`), drawn
+  from the compressed mips when they are DXT1, as the original's
+  `UTexture::Lock` picks them; a format past those, which no Deus Ex
+  package has (a UT 469 one), is drawn white, with a line in the log.
 - **Its folders.** Its packages and maps are found by the `Paths` of its own
   ini (`--ini`), relative to `System` and written with backslashes as the
   game's are, their folders and extensions in any case, as the original's

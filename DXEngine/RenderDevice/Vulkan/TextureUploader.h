@@ -18,10 +18,14 @@ public:
 
 	VkFormat GetVkFormat() const { return Format; }
 
+	// The rows an upload's band is a multiple of: a block's for a block
+	// format.
+	virtual int GetBlockRows() const { return 1; }
+
 	// With physicalDevice == VK_NULL_HANDLE this returns the canonical uploader
 	// for the format. With a device it first checks that the GPU can actually
-	// sample the format (desktop BCn and RGB8 are not universally supported on
-	// mobile GPUs) and substitutes a CPU-decoding uploader where it can't. A
+	// sample the format (BC1 and RGB8 are not universally supported on mobile
+	// GPUs) and substitutes a CPU-decoding uploader where it can't. A
 	// format without a decoder returns nullptr, which the upload path turns
 	// into a white fallback texture.
 	static TextureUploader* GetUploader(TextureFormat format, VkPhysicalDevice physicalDevice = VK_NULL_HANDLE);
@@ -48,33 +52,6 @@ public:
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
 };
 
-class TextureUploader_RGB10A2 : public TextureUploader
-{
-public:
-	TextureUploader_RGB10A2() : TextureUploader(VK_FORMAT_R16G16B16A16_UNORM) { }
-
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-};
-
-class TextureUploader_RGB10A2_UI : public TextureUploader
-{
-public:
-	TextureUploader_RGB10A2_UI() : TextureUploader(VK_FORMAT_R16G16B16A16_UINT) { }
-
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-};
-
-class TextureUploader_RGB10A2_LM : public TextureUploader
-{
-public:
-	TextureUploader_RGB10A2_LM() : TextureUploader(VK_FORMAT_R16G16B16A16_UNORM) { }
-
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-};
-
 class TextureUploader_Simple : public TextureUploader
 {
 public:
@@ -94,22 +71,9 @@ public:
 
 	int GetUploadSize(int x, int y, int w, int h) override;
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
+	int GetBlockRows() const override { return 4; }
 
 private:
-	int BytesPerBlock;
-};
-
-class TextureUploader_2DBlock : public TextureUploader
-{
-public:
-	TextureUploader_2DBlock(VkFormat format, int blockX, int blockY, int bytesPerBlock) : TextureUploader(format), BlockX(blockX), BlockY(blockY), BytesPerBlock(bytesPerBlock) { }
-
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-
-private:
-	int BlockX;
-	int BlockY;
 	int BytesPerBlock;
 };
 
@@ -122,38 +86,7 @@ public:
 	TextureUploader_BC1_Decode() : TextureUploader(VK_FORMAT_R8G8B8A8_UNORM) { }
 	int GetUploadSize(int x, int y, int w, int h) override;
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-};
-
-class TextureUploader_BC2_Decode : public TextureUploader
-{
-public:
-	TextureUploader_BC2_Decode() : TextureUploader(VK_FORMAT_R8G8B8A8_UNORM) { }
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-};
-
-class TextureUploader_BC3_Decode : public TextureUploader
-{
-public:
-	TextureUploader_BC3_Decode() : TextureUploader(VK_FORMAT_R8G8B8A8_UNORM) { }
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-};
-
-class TextureUploader_BC4_Decode : public TextureUploader
-{
-public:
-	TextureUploader_BC4_Decode() : TextureUploader(VK_FORMAT_R8_UNORM) { }
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-};
-
-class TextureUploader_BC5_Decode : public TextureUploader
-{
-public:
-	TextureUploader_BC5_Decode() : TextureUploader(VK_FORMAT_R8G8_UNORM) { }
-	int GetUploadSize(int x, int y, int w, int h) override;
-	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
+	int GetBlockRows() const override { return 4; }
 };
 
 class TextureUploader_RGB8_Decode : public TextureUploader

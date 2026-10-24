@@ -168,7 +168,7 @@ public:
 		std::shared_ptr<GLFragmentShader> ClipFragmentShaderAlphaTest;
 		std::shared_ptr<GLProgram> ClipShaderProgram;
 		std::shared_ptr<GLProgram> ClipShaderProgramAlphaTest;
-		std::shared_ptr<GLSampler> Samplers[16];
+		std::shared_ptr<GLSampler> Samplers[4];
 		ScenePipelineState Pipelines[33];
 		// Pipelines' first 32 a step toward the viewer (SurfaceInfo::DepthBias)
 		ScenePipelineState BiasedPipelines[32];
@@ -467,7 +467,6 @@ inline void GLRenderDevice::SetDescriptorSet(uint32_t PolyFlags, GLCachedTexture
 	uint32_t samplermode = 0;
 	if (PolyFlags & PF_NoSmooth) samplermode |= 1;
 	if (clamp) samplermode |= 2;
-	samplermode |= (tex->DummyMipmapCount << 2);
 
 	if (Batch.Tex != tex || Batch.TexSamplerMode != samplermode || Batch.Lightmap != nulltex || Batch.Detailtex != nulltex || Batch.DetailtexSamplerMode != 0 || Batch.Macrotex != nulltex || Batch.MacrotexSamplerMode != 0)
 	{
@@ -486,10 +485,9 @@ inline void GLRenderDevice::SetDescriptorSet(uint32_t PolyFlags, const ComplexSu
 {
 	uint32_t samplermode = 0;
 	if (PolyFlags & PF_NoSmooth) samplermode |= 1;
-	samplermode |= (info.tex->DummyMipmapCount << 2);
 
-	int detailsamplermode = info.detailtex->DummyMipmapCount << 2;
-	int macrosamplermode = info.macrotex->DummyMipmapCount << 2;
+	int detailsamplermode = 0;
+	int macrosamplermode = 0;
 
 	if (Batch.Tex != info.tex || Batch.TexSamplerMode != samplermode || Batch.Lightmap != info.lightmap || Batch.Detailtex != info.detailtex || Batch.DetailtexSamplerMode != detailsamplermode || Batch.Macrotex != info.macrotex || Batch.MacrotexSamplerMode != macrosamplermode)
 	{

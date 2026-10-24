@@ -20,7 +20,7 @@ void UActor::UpdateBspInfo()
 		mat4 meshToWorld = objectToWorld * mesh->meshToObject;
 		bbox = mesh->BoundingBox.transform(meshToWorld);
 	}
-	else if ((dt == DT_Sprite || dt == DT_SpriteAnimOnce) && (Texture()))
+	else if ((dt == DT_Sprite || dt == DT_SpriteAnimOnce) && Texture() && !Texture()->UsedMipmaps.empty())
 	{
 		vec3 location = Location();
 		auto texWidth = Texture()->UsedMipmaps[0].Width;
