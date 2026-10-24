@@ -156,14 +156,138 @@ void SoftwareRenderDevice::SetBlend(SoftwareDraw& draw, uint32_t PolyFlags)
 
 void SoftwareRenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet)
 {
+	uint32_t PolyFlags = ApplyPrecedenceRules(Surface.PolyFlags);
+
+	// The textures first, drawn or not: a light map's change, perhaps only a
+	// part of it, is taken once
+	SoftwareTexture* tex = Textures.GetTexture(Surface.Texture, !!(PolyFlags & PF_Masked));
+	SoftwareTexture* lightmap = Textures.GetTexture(Surface.LightMap, false);
+	SoftwareTexture* macrotex = Textures.GetTexture(Surface.MacroTexture, false);
+	SoftwareTexture* detailtex = Textures.GetTexture(Surface.DetailTexture, false);
+	SoftwareTexture* fogmap = (Surface.FogMap && Surface.FogMap->NumMips > 0 && !Surface.FogMap->Mips[0].Data.empty()) ? Textures.GetTexture(Surface.FogMap, false) : nullptr;
+
+	if (Facet.VertexCount < 3)
+		return;
+
+	if (Surface.DetailTexture && Surface.FogMap) detailtex = nullptr;
+
+	// Each texture's coordinates as the Vulkan device's DrawComplexSurface
+	// lays them
+	float UDot = dot(Facet.MapCoords.XAxis, Facet.MapCoords.Origin);
+	float VDot = dot(Facet.MapCoords.YAxis, Facet.MapCoords.Origin);
+
+	float UPan = tex ? UDot + Surface.Texture->Pan.x : 0.0f;
+	float VPan = tex ? VDot + Surface.Texture->Pan.y : 0.0f;
+	float UMult = tex ? GetUMult(*Surface.Texture) : 0.0f;
+	float VMult = tex ? GetVMult(*Surface.Texture) : 0.0f;
+	float LMUPan = lightmap ? UDot + Surface.LightMap->Pan.x - 0.5f * Surface.LightMap->UScale : 0.0f;
+	float LMVPan = lightmap ? VDot + Surface.LightMap->Pan.y - 0.5f * Surface.LightMap->VScale : 0.0f;
+	float LMUMult = lightmap ? GetUMult(*Surface.LightMap) : 0.0f;
+	float LMVMult = lightmap ? GetVMult(*Surface.LightMap) : 0.0f;
+	float MacroUPan = macrotex ? UDot + Surface.MacroTexture->Pan.x : 0.0f;
+	float MacroVPan = macrotex ? VDot + Surface.MacroTexture->Pan.y : 0.0f;
+	float MacroUMult = macrotex ? GetUMult(*Surface.MacroTexture) : 0.0f;
+	float MacroVMult = macrotex ? GetVMult(*Surface.MacroTexture) : 0.0f;
+	float DetailUPan = detailtex ? UDot + Surface.DetailTexture->Pan.x : 0.0f;
+	float DetailVPan = detailtex ? VDot + Surface.DetailTexture->Pan.y : 0.0f;
+	float DetailUMult = detailtex ? GetUMult(*Surface.DetailTexture) : 0.0f;
+	float DetailVMult = detailtex ? GetVMult(*Surface.DetailTexture) : 0.0f;
+
+	uint32_t flags = 0;
+	if (lightmap) flags |= 1;
+	if (macrotex) flags |= 2;
+	if (detailtex && !fogmap) flags |= 4;
+	if (fogmap) flags |= 8;
+
+	if (LightMode == 1) flags |= 64;
+
+	if (fogmap) // in the detail texture's place
+	{
+		detailtex = fogmap;
+		DetailUPan = UDot + Surface.FogMap->Pan.x - 0.5f * Surface.FogMap->UScale;
+		DetailVPan = VDot + Surface.FogMap->Pan.y - 0.5f * Surface.FogMap->VScale;
+		DetailUMult = GetUMult(*Surface.FogMap);
+		DetailVMult = GetVMult(*Surface.FogMap);
+	}
+
+	SoftwareVertex* v;
+	SoftwareDraw& draw = AddDraw(SoftwareDrawType::Polygon, Facet.VertexCount, v);
+	SetBlend(draw, PolyFlags);
+	draw.DepthBias = Surface.DepthBias;
+	draw.ShaderFlags = flags;
+	draw.Texture = tex ? tex : Textures.GetWhite();
+	draw.LightMap = lightmap;
+	draw.MacroTexture = macrotex;
+	draw.DetailTexture = detailtex;
+	draw.NoSmooth = (PolyFlags & PF_NoSmooth) != 0;
+
+	for (uint32_t i = 0; i < Facet.VertexCount; i++)
+	{
+		vec3 point = Facet.Vertices[i];
+		float u = dot(Facet.MapCoords.XAxis, point);
+		float t = dot(Facet.MapCoords.YAxis, point);
+		v[i].Position = point;
+		v[i].TexCoord[0] = vec2((u - UPan) * UMult, (t - VPan) * VMult);
+		v[i].TexCoord[1] = vec2((u - LMUPan) * LMUMult, (t - LMVPan) * LMVMult);
+		v[i].TexCoord[2] = vec2((u - MacroUPan) * MacroUMult, (t - MacroVPan) * MacroVMult);
+		v[i].TexCoord[3] = vec2((u - DetailUPan) * DetailUMult, (t - DetailVPan) * DetailVMult);
+		v[i].Color = vec4(1.0f);
+	}
+}
+
+// A mesh's or a sprite's draw, its flags, texture and vertices, as the
+// Vulkan device's DrawGouraudPolygon sets them: the light the vertex colour,
+// white for a modulated draw; the vertex fog in the second and third
+// coordinates
+SoftwareDraw& SoftwareRenderDevice::AddGouraud(SoftwareDrawType type, SoftwareTexture* tex, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags)
+{
+	float UMult = GetUMult(Info);
+	float VMult = GetVMult(Info);
+	uint32_t flags = (PolyFlags & (PF_RenderFog | PF_Translucent | PF_Modulated)) == PF_RenderFog ? 16 : 0;
+	if ((PolyFlags & (PF_Translucent | PF_Modulated)) == 0 && LightMode == 2) flags |= 32;
+
+	SoftwareVertex* v;
+	SoftwareDraw& draw = AddDraw(type, NumPts, v);
+	SetBlend(draw, PolyFlags);
+	draw.ShaderFlags = flags;
+	draw.Texture = tex ? tex : Textures.GetWhite();
+	draw.NoSmooth = (PolyFlags & PF_NoSmooth) != 0;
+
+	bool modulated = (PolyFlags & PF_Modulated) != 0;
+	for (int i = 0; i < NumPts; i++)
+	{
+		const GouraudVertex* P = &Pts[i];
+		v[i].Position = P->Point;
+		v[i].TexCoord[0] = vec2(P->UV.x * UMult, P->UV.y * VMult);
+		v[i].TexCoord[1] = vec2(P->Fog.x, P->Fog.y);
+		v[i].TexCoord[2] = vec2(P->Fog.z, P->Fog.w);
+		v[i].TexCoord[3] = vec2(0.0f);
+		v[i].Color = modulated ? vec4(1.0f) : vec4(P->Light, 1.0f);
+	}
+	return draw;
 }
 
 void SoftwareRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags)
 {
+	if (NumPts < 3) return;
+
+	PolyFlags = ApplyPrecedenceRules(PolyFlags);
+	SoftwareTexture* tex = Textures.GetTexture(&Info, !!(PolyFlags & PF_Masked));
+	AddGouraud(SoftwareDrawType::Polygon, tex, Info, Pts, NumPts, PolyFlags);
 }
 
 void SoftwareRenderDevice::DrawGouraudTriangles(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumTris, uint32_t PolyFlags)
 {
+	if (NumTris <= 0) return;
+
+	// The texture once, then draws of a chunk's triangles at most
+	PolyFlags = ApplyPrecedenceRules(PolyFlags);
+	SoftwareTexture* tex = Textures.GetTexture(&Info, !!(PolyFlags & PF_Masked));
+	for (int first = 0; first < NumTris; first += (int)SoftwareCommands::MaxTriangles)
+	{
+		int count = std::min(NumTris - first, (int)SoftwareCommands::MaxTriangles);
+		AddGouraud(SoftwareDrawType::Triangles, tex, Info, Pts + first * 3, count * 3, PolyFlags);
+	}
 }
 
 void SoftwareRenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X, float Y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 Color, vec4 Fog, uint32_t PolyFlags)
@@ -213,12 +337,72 @@ void SoftwareRenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X
 		v[i].Color = color;
 }
 
+// The colour a line or a point is drawn in: under the present's gamma, so
+// that it shows as given (the Vulkan device's ApplyInverseGamma)
+vec4 SoftwareRenderDevice::ApplyInverseGamma(vec4 color)
+{
+	if (IsOrtho)
+		return color;
+	float brightness = std::clamp(Brightness * GammaScale, 0.05f, 2.99f);
+	float gammaRed = std::max(brightness + GammaOffset + GammaOffsetRed, 0.001f);
+	float gammaGreen = std::max(brightness + GammaOffset + GammaOffsetGreen, 0.001f);
+	float gammaBlue = std::max(brightness + GammaOffset + GammaOffsetBlue, 0.001f);
+	return vec4(std::pow(color.r, gammaRed), std::pow(color.g, gammaGreen), std::pow(color.b, gammaBlue), color.a);
+}
+
+// A line as the Vulkan device's line pipeline draws it: the premultiplied
+// blend, depth tested and written, in front of the scene unless depth cued
+void SoftwareRenderDevice::AddLine(vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2)
+{
+	bool occlude = !!(LineFlags & LINE_DepthCued);
+	vec4 color = ApplyInverseGamma(vec4(Color.x, Color.y, Color.z, 1.0f));
+
+	SoftwareVertex* v;
+	SoftwareDraw& draw = AddDraw(SoftwareDrawType::Line, 2, v);
+	draw.Blend = SoftwareBlend::Highlighted;
+	draw.DepthWrite = true;
+	draw.DepthMin = occlude ? 0.1f : 0.0f;
+	draw.DepthMax = occlude ? 1.0f : 0.1f;
+	draw.Texture = Textures.GetWhite();
+	v[0].Position = P1;
+	v[1].Position = P2;
+	v[0].Color = color;
+	v[1].Color = color;
+}
+
 void SoftwareRenderDevice::Draw3DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2)
 {
+	if (IsOrtho)
+	{
+		P1.x = (P1.x) / Frame->Zoom + Frame->FX2;
+		P1.y = (P1.y) / Frame->Zoom + Frame->FY2;
+		P1.z = 1;
+		P2.x = (P2.x) / Frame->Zoom + Frame->FX2;
+		P2.y = (P2.y) / Frame->Zoom + Frame->FY2;
+		P2.z = 1;
+
+		if (std::abs(P2.x - P1.x) + std::abs(P2.y - P1.y) >= 0.2f)
+		{
+			Draw2DLine(Frame, Color, LineFlags, P1, P2);
+		}
+		else if (IsOrthoLowDetail)
+		{
+			Draw2DPoint(Frame, Color, LINE_None, P1.x - 1, P1.y - 1, P1.x + 1, P1.y + 1, P1.z);
+		}
+	}
+	else
+	{
+		AddLine(Color, LineFlags, P1, P2);
+	}
 }
 
 void SoftwareRenderDevice::Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2)
 {
+	float RFX2 = State.RFX2;
+	float RFY2 = State.RFY2;
+	AddLine(Color, LineFlags,
+		vec3(RFX2 * P1.z * (P1.x - Frame->FX2), RFY2 * P1.z * (P1.y - Frame->FY2), P1.z),
+		vec3(RFX2 * P2.z * (P2.x - Frame->FX2), RFY2 * P2.z * (P2.y - Frame->FY2), P2.z));
 }
 
 void SoftwareRenderDevice::Draw2DPoint(SceneNode* Frame, vec4 Color, uint32_t LineFlags, float X1, float Y1, float X2, float Y2, float Z)
@@ -227,14 +411,7 @@ void SoftwareRenderDevice::Draw2DPoint(SceneNode* Frame, vec4 Color, uint32_t Li
 	// the premultiplied blend, depth written, in front of the scene unless
 	// the point is depth cued
 	bool occlude = !!(LineFlags & LINE_DepthCued);
-	vec4 color(Color.x, Color.y, Color.z, 1.0f);
-	if (!IsOrtho)
-	{
-		float brightness = std::clamp(Brightness * GammaScale, 0.05f, 2.99f);
-		color.x = std::pow(color.x, std::max(brightness + GammaOffset + GammaOffsetRed, 0.001f));
-		color.y = std::pow(color.y, std::max(brightness + GammaOffset + GammaOffsetGreen, 0.001f));
-		color.z = std::pow(color.z, std::max(brightness + GammaOffset + GammaOffsetBlue, 0.001f));
-	}
+	vec4 color = ApplyInverseGamma(vec4(Color.x, Color.y, Color.z, 1.0f));
 
 	SoftwareVertex* v;
 	SoftwareDraw& draw = AddDraw(SoftwareDrawType::Tile, 4, v);

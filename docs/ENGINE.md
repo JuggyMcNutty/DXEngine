@@ -468,8 +468,17 @@ whose GPU has no driver: its window is a bitmap's (`RenderAPI::Bitmap`), its fra
 frame's calls, copying each scene node and vertex, and draws them at `Unlock`: each chunk of
 about 128 triangles set up and binned to the frame's tiles of 64 pixels a side, then each tile
 drawn, its clear first, then what was binned to it in order; a `Flush` within a frame draws
-what is recorded before it lets the textures go. So far it draws the canvas and the UI: tiles,
-the screen flash and `ClearZ`. No launcher offers it.
+what is recorded before it lets the textures go. So far it draws on one thread, slowly, and no
+launcher offers it.
+
+- **Triangles**, as the Vulkan device's: each in clip space by its scene node's transforms,
+  clipped where a corner lies behind the node's clip plane (the Vulkan device's clip distance,
+  a mirror's plane in a mirror's frame) or outside a guard band of 8192 pixels, and held to the
+  viewport; a polygon a fan, (0, i - 1, i). Snapped to 1/256 pixel, its pixels by the top-left
+  rule, as RADV and lavapipe cover them; its attributes over w, at each pixel's centre. Depth
+  float, tested LEQUAL, clamped to the pipeline's range (the scene's 0.1 to 1, a line not depth
+  cued 0 to 0.1); a mover's surfaces biased as the Vulkan device biases them, constant -1 and
+  slope -1 on a float buffer. A line is a pixel wide.
 
 - **Textures**: a copy of its own of each, by cache ID, a masked one apart, as the Vulkan
   device keeps its images: BGRA8, each format converted as the Vulkan device's uploads and CPU

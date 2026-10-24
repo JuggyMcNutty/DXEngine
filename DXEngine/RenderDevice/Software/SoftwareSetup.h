@@ -36,6 +36,19 @@ struct SoftwarePrimitive
 	SoftwarePlane Depth;  // the window's depth, linear on the screen
 	SoftwarePlane InvW;   // 1/w
 	SoftwarePlane Attributes[NumAttributes]; // each over w
+
+	// A triangle's edges, each A x + B y + C at a pixel's whole coordinates,
+	// not negative where the pixel's centre is covered: the edge functions
+	// of its corners snapped to 1/256 pixel, the top-left rule's tie folded
+	// into C
+	int64_t EdgeA[3] = {};
+	int64_t EdgeB[3] = {};
+	int64_t EdgeC[3] = {};
+
+	// A line's ends on the screen, and their depths
+	float LineX[2] = {};
+	float LineY[2] = {};
+	float LineZ[2] = {};
 };
 
 // One chunk's primitives, and their indices tile by tile in the order they

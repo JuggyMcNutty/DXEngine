@@ -46,6 +46,9 @@ private:
 	void DrawRecorded();
 
 	SoftwareDraw& AddDraw(SoftwareDrawType type, uint32_t vertexCount, SoftwareVertex*& vertices);
+	SoftwareDraw& AddGouraud(SoftwareDrawType type, SoftwareTexture* tex, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags);
+	void AddLine(vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2);
+	vec4 ApplyInverseGamma(vec4 color);
 	static void SetBlend(SoftwareDraw& draw, uint32_t PolyFlags);
 
 	SoftwareFrame Frame;
