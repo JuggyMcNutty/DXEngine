@@ -246,6 +246,7 @@ public:
 	uint8_t LightMode = 0;
 	bool GammaCorrectScreenshots = true;
 	bool UseDebugLayer = false;
+	bool CPUDriver = false; // Mesa's CPU driver asked for: lavapipe, llvmpipe
 };
 
 class RenderDeviceTexture : public CanvasTexture

@@ -322,7 +322,15 @@ within 0.01 of a level (RMSE), and best unmoved, its receding floor nearer,
 rows `D3DDrv` draws it, where the Vulkan device draws some of its glyphs a
 row lower (point sampled on a texel's edge). Against the Vulkan device's:
 `TileConsole`'s tiles and text within a level, as are `DetailConsole`'s
-bands (`detail.py` as the Vulkan device's). Differs:
+bands (`detail.py` as the Vulkan device's). It draws where the original's
+software renderer does
+([choosing the render device](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#choosing-the-render-device)):
+with `-nohard`; where the game's ini names it
+(`GameRenderDevice=SoftDrv.SoftwareRenderDevice`, the recreated launcher's
+Software Rendering) and `Settings.json` names no device; and where the GPU
+device does not start, as the original's `WindowedRenderDevice` takes
+`GameRenderDevice`'s place, the error logged
+([which device draws](ENGINE.md#rendering)). Differs:
 
 - **Vsync** only through SDL's renderer: X11's and Win32's presents do not
   wait for it.
@@ -1374,10 +1382,11 @@ What DXEngine does with each:
     subsystem; DXEngine keeps its device, on OpenAL Soft's null driver.
   - `-defaultres`: the window and fullscreen sizes 640x480 for the run, not
     saved.
-  - `-nohard -noddraw` ("Run the game in a window"): a window. The original
-    gets there through its software renderer, which has no fullscreen mode
-    without DirectDraw; DXEngine has no software renderer, so either flag
-    alone does nothing.
+  - `-nohard`: the software device for the run, as the original's software
+    renderer ([the software device](#the-software-device)).
+  - `-noddraw`: with the software device, a window for the run, as the
+    original's software renderer has no fullscreen mode without DirectDraw:
+    so `-nohard -noddraw`, "Run the game in a window".
   - `-nojoy`: no pad at all, neither DXEngine's pad handling nor its buttons
     as keys.
   - **Nothing to do:** `-no3dsound` (the original's turns off A3D or EAX

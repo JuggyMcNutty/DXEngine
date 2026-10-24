@@ -26,6 +26,7 @@ RenderDevice::RenderDevice()
 	LightMode = (int)settings.RenderDevice.Light;
 	GammaCorrectScreenshots = settings.RenderDevice.GammaCorrectScreenshots;
 	UseDebugLayer = settings.RenderDevice.UseDebugLayer;
+	CPUDriver = settings.RenderDevice.CPUDriver;
 }
 
 // D3DDrv's DrawTile (D3DDrv.dll 0x10005ba0), which every tile goes through,

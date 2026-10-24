@@ -218,6 +218,7 @@ is. DXEngine's keys:
 | `Performance.RenderScale` | The scene drawn at this fraction of the window's size (0.25 to 1; default 1) and scaled up to it, by the Vulkan, GL and software devices ([how](#settings-the-launcher-exposes)). |
 | `"Type": "GLES"` in `RenderDevice` | The GL device on an OpenGL ES 3.2 context (DXLauncher's `[GLES]` renderer, `data/renderers.ini`). |
 | `"Type": "Software"` in `RenderDevice` | The software device, which draws on the CPU ([rendering](#rendering)). |
+| `"CPUDriver": true` in `RenderDevice` | The Vulkan device on Mesa's lavapipe, or the GL device on llvmpipe, a GPU passed over ([rendering](#rendering)). |
 | `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)). |
 
 The environment:
@@ -358,6 +359,17 @@ puts them, as `D3DDrv` draws the original's ([the scene's pixels](NATIVES.md#the
 and viewport window's among them, and `DrawClippedActor`'s). A canvas's frame and the coronas'
 take none, and a sprite's quad is moved back by it at its depth (`VisibleFrame::TileOffset`);
 the frame's `Projection`, which the clipper and the HUD's projections use, keeps the middle.
+
+**Which device draws** (`Engine::ChooseRenderDevice`): with `-nohard`, the software device, as
+the original's; else the `Type` `Settings.json` names; else the device the game's ini names
+(`GameRenderDevice`): the software device for `SoftDrv.SoftwareRenderDevice`, the Vulkan device
+for any other. A GPU device that does not start -- no driver, or none it can use -- gives way to
+the software device, the window made again for it, full screen as the settings have it, and the
+error in the log (`Engine::CreateGameWindow`), as the original's `WindowedRenderDevice` takes
+`GameRenderDevice`'s place ([the software device](NATIVES.md#the-software-device)). With
+`"CPUDriver": true` the Vulkan device takes Mesa's lavapipe, the GPUs passed over, and the GL
+device llvmpipe (`LIBGL_ALWAYS_SOFTWARE=1`, set before GL loads); the log names the driver
+either draws through.
 
 **The Vulkan device**: the game tick runs while the GPU draws the previous frame
 (`CommandBufferManager` keeps one frame in flight, and `WaitForFrame()` collects it before

@@ -34,6 +34,8 @@ VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
 		deviceBuilder.Surface(surface);
 		deviceBuilder.RequireExtension(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
 		deviceBuilder.SelectDevice(VkDeviceIndex);
+		if (CPUDriver)
+			deviceBuilder.SelectCPUDevice();
 		Device = deviceBuilder.Create(surface->Instance);
 
 		// Descriptor indexing is missing on several mobile GPUs (PowerVR Rogue, for one).

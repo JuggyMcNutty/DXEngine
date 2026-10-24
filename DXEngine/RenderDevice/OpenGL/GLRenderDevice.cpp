@@ -22,7 +22,7 @@ GLRenderDevice::GLRenderDevice(Widget* InViewport)
 {
 	Viewport = InViewport;
 	if (!Init(Viewport->GetNativePixelWidth(), Viewport->GetNativePixelHeight(), false))
-		Exception::Throw("Could not init GLRenderDevice");
+		Exception::Throw("Could not init GLRenderDevice" + (InitError.empty() ? std::string() : ": " + InitError));
 }
 
 GLRenderDevice::~GLRenderDevice()
@@ -56,6 +56,10 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 		InitGLWidget = nullptr;
 		if (result == ogl_LOAD_FAILED)
 			throw std::runtime_error("ogl_LoadFunctions failed");
+
+		// The driver that draws: Mesa's llvmpipe and softpipe on the CPU
+		const GLubyte* renderer = glGetString(GL_RENDERER);
+		LogMessage(std::string("GLDrv: ") + (renderer ? (const char*)renderer : "no renderer named"));
 
 		// An ES context (RenderAPI::GLES) reports its version as
 		// "OpenGL ES 3.2 <driver>"; the desktop one as "4.6 (Core Profile) ...".
@@ -137,6 +141,7 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 	catch (const std::exception& e)
 	{
 		LogMessage(std::string("Could not create opengl renderer: ") + e.what());
+		InitError = e.what();
 		Exit();
 		return false;
 	}

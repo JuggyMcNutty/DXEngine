@@ -196,6 +196,16 @@ public:
 	void CloseWindow();
 	void TickWindow();
 
+	// The render device the run draws with (ENGINE.md, rendering): -nohard's
+	// software device, as the original's; else Settings.json's Type where
+	// it names one; else the device the game's ini names (GameRenderDevice):
+	// the software device for SoftDrv's, the Vulkan device for any other
+	RenderDeviceType ChooseRenderDevice();
+	RenderDeviceType chosenRenderDevice = RenderDeviceType::Vulkan;
+	// The window for it; where its GPU device does not start, the software
+	// device's, the error logged
+	std::unique_ptr<GameWindow> CreateGameWindow(RenderDeviceType type);
+
 	void Key(std::string key);
 	void InputEvent(EInputKey key, EInputType type, int delta = 0);
 	void ReleaseHeldInputKeys();
@@ -338,9 +348,9 @@ private:
 	std::map<std::string, std::string> CreateTravelInfo(bool transferItems);
 
 	// What the original's command line changes for this run alone
-	// (OriginalCommandLine): -defaultres's 640x480 and the window -nohard
-	// -noddraw leave. What each replaced goes back before the client's
-	// settings are saved, unless the player changed it since.
+	// (OriginalCommandLine): -defaultres's 640x480 and the window -noddraw
+	// leaves the software device. What each replaced goes back before the
+	// client's settings are saved, unless the player changed it since.
 	void ApplyRunOnlySettings();
 	void RestoreRunOnlySettings();
 	struct RunOnlySetting

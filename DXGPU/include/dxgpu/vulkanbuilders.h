@@ -40,6 +40,9 @@ public:
 	VulkanDeviceBuilder& OptionalDescriptorIndexing();
 	VulkanDeviceBuilder& Surface(std::shared_ptr<VulkanSurface> surface);
 	VulkanDeviceBuilder& SelectDevice(int index);
+	// The first device that draws on the CPU (Mesa's lavapipe), the GPUs
+	// passed over; none is an error
+	VulkanDeviceBuilder& SelectCPUDevice();
 
 	std::vector<VulkanCompatibleDevice> FindDevices(const std::shared_ptr<VulkanInstance>& instance);
 	std::shared_ptr<VulkanDevice> Create(std::shared_ptr<VulkanInstance> instance);
@@ -49,6 +52,7 @@ private:
 	std::set<std::string> optionalDeviceExtensions;
 	std::shared_ptr<VulkanSurface> surface;
 	int deviceIndex = 0;
+	bool cpuDevice = false;
 };
 
 class VulkanSwapChainBuilder

@@ -1827,6 +1827,12 @@ VulkanDeviceBuilder& VulkanDeviceBuilder::SelectDevice(int index)
 	return *this;
 }
 
+VulkanDeviceBuilder& VulkanDeviceBuilder::SelectCPUDevice()
+{
+	cpuDevice = true;
+	return *this;
+}
+
 std::vector<VulkanCompatibleDevice> VulkanDeviceBuilder::FindDevices(const std::shared_ptr<VulkanInstance>& instance)
 {
 	std::vector<VulkanCompatibleDevice> supportedDevices;
@@ -1958,6 +1964,20 @@ std::shared_ptr<VulkanDevice> VulkanDeviceBuilder::Create(std::shared_ptr<Vulkan
 	size_t selected = deviceIndex;
 	if (selected >= supportedDevices.size())
 		selected = 0;
+	if (cpuDevice)
+	{
+		selected = supportedDevices.size();
+		for (size_t i = 0; i < supportedDevices.size(); i++)
+		{
+			if (supportedDevices[i].Device->Properties.Properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU)
+			{
+				selected = i;
+				break;
+			}
+		}
+		if (selected == supportedDevices.size())
+			VulkanError("No Vulkan device draws on the CPU (Mesa's lavapipe, vulkan-swrast)");
+	}
 	return std::make_shared<VulkanDevice>(instance, surface, supportedDevices[selected]);
 }
 

@@ -37,6 +37,8 @@ public:
 	struct
 	{
 		RenderDeviceType Type = RenderDeviceType::Vulkan;
+		bool TypeNamed = false; // Settings.json names Type: else the game's ini chooses (Engine::ChooseRenderDevice)
+		bool CPUDriver = false; // the Vulkan or GL device on Mesa's CPU driver, lavapipe or llvmpipe
 		bool UseVSync = true;
 		AntialiasMode Antialias = AntialiasMode::MSAA4x;
 		LightMode Light = LightMode::Normal;

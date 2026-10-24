@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Math/vec.h"
+#include "LauncherSettings.h"
 #include <dxwidgets/core/rect.h>
 #include <dxwidgets/core/widget.h>
 
@@ -107,7 +108,9 @@ public:
 class GameWindow : public Widget
 {
 public:
-	static std::unique_ptr<GameWindow> Create(GameWindowHost* windowHost);
+	// A window for the device chosen (Engine::ChooseRenderDevice): its
+	// render device made with it, whose failure throws
+	static std::unique_ptr<GameWindow> Create(GameWindowHost* windowHost, RenderDeviceType type);
 
 	GameWindow(GameWindowHost* windowHost, RenderAPI renderAPI);
 

@@ -149,10 +149,10 @@ void GameWindow::OnLostFocus()
 	windowHost->OnWindowDeactivated();
 }
 
-std::unique_ptr<GameWindow> GameWindow::Create(GameWindowHost* windowHost)
+std::unique_ptr<GameWindow> GameWindow::Create(GameWindowHost* windowHost, RenderDeviceType type)
 {
 	RenderAPI api;
-	switch (LauncherSettings::Get().RenderDevice.Type)
+	switch (type)
 	{
 	default:
 	case RenderDeviceType::Vulkan: api = RenderAPI::Vulkan; break;

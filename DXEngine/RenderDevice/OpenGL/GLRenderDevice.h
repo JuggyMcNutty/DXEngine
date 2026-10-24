@@ -72,6 +72,7 @@ public:
 
 	// To do: port this
 	bool Init(int NewX, int NewY, bool Fullscreen);
+	std::string InitError; // why Init failed, for the device's exception
 	bool SetRes(int NewX, int NewY, bool Fullscreen);
 	void Exit();
 

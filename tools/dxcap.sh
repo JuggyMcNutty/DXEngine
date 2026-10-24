@@ -421,6 +421,10 @@ if engine == 'original':
         put('GameRenderDevice', 'D3DDrv.D3DRenderDevice')
     else:
         put('GameRenderDevice', 'OpenGLDrv.OpenGLRenderDevice')
+else:
+    # DXEngine's device is the settings file's (DXCAP_SETTINGS), never the
+    # game ini's SoftDrv: its renderer settings D3DDrv's, as the stock ini's
+    put('GameRenderDevice', 'D3DDrv.D3DRenderDevice')
 open(out, 'w', encoding='latin1', newline='').write(s)
 EOF
 }

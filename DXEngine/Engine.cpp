@@ -211,6 +211,7 @@ void Engine::Run()
 	const bool dedicated = LaunchInfo.dedicatedServer;
 	if (!dedicated)
 	{
+		chosenRenderDevice = ChooseRenderDevice();
 		ApplyRunOnlySettings();
 		OpenWindow();
 
@@ -578,13 +579,12 @@ void Engine::ApplyRunOnlySettings()
 		set(runFullscreenY, client->FullscreenViewportY, 480);
 	}
 
-	// -nohard -noddraw, safe mode's "Run the game in a window": in the
-	// original, the software renderer with no DirectDraw for its fullscreen
-	// modes, so a window. DXEngine has no software renderer; the window is
-	// what it keeps of the two.
-	if (original.Param("nohard") && original.Param("noddraw") && client->StartupFullscreen)
+	// -noddraw with the software device (safe mode's "Run the game in a
+	// window", -nohard -noddraw): in the original, the software renderer
+	// with no DirectDraw for its fullscreen modes, so a window
+	if (original.Param("noddraw") && chosenRenderDevice == RenderDeviceType::Software && client->StartupFullscreen)
 	{
-		LogMessage("-nohard -noddraw: in a window");
+		LogMessage("-noddraw: the software device in a window");
 		int fullscreen = client->StartupFullscreen ? 1 : 0;
 		set(runStartupFullscreen, fullscreen, 0);
 		client->StartupFullscreen = false;
@@ -2790,11 +2790,56 @@ void Engine::UpdateInput(float timeElapsed)
 	}
 }
 
+RenderDeviceType Engine::ChooseRenderDevice()
+{
+	if (OriginalCommandLine::Get().Param("nohard"))
+	{
+		LogMessage("-nohard: the software device");
+		return RenderDeviceType::Software;
+	}
+	const auto& settings = LauncherSettings::Get().RenderDevice;
+	if (settings.TypeNamed)
+		return settings.Type;
+	std::string device = packages->GetIniValue("system", "Engine.Engine", "GameRenderDevice");
+	if (StrTools::equals_ignore_case(device, "SoftDrv.SoftwareRenderDevice"))
+	{
+		LogMessage("GameRenderDevice=SoftDrv.SoftwareRenderDevice: the software device");
+		return RenderDeviceType::Software;
+	}
+	return RenderDeviceType::Vulkan;
+}
+
+std::unique_ptr<GameWindow> Engine::CreateGameWindow(RenderDeviceType type)
+{
+	if (type != RenderDeviceType::Software)
+	{
+		const char* name = type == RenderDeviceType::D3D11 ? "D3D11" : type == RenderDeviceType::OpenGL ? "GL" : type == RenderDeviceType::GLES ? "GL ES" : "Vulkan";
+#ifndef WIN32
+		// Mesa's CPU driver for GL, llvmpipe, chosen before GL is loaded
+		if (LauncherSettings::Get().RenderDevice.CPUDriver && (type == RenderDeviceType::OpenGL || type == RenderDeviceType::GLES))
+			setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
+#endif
+		try
+		{
+			return GameWindow::Create(this, type);
+		}
+		catch (const std::exception& e)
+		{
+			// The error's first line, without the stack Exception::Throw adds
+			std::string error = e.what();
+			error = error.substr(0, error.find('\n'));
+			LogMessage(std::string("The ") + name + " device did not start (" + error + "): the software device draws in its place");
+			chosenRenderDevice = RenderDeviceType::Software;
+		}
+	}
+	return GameWindow::Create(this, RenderDeviceType::Software);
+}
+
 void Engine::OpenWindow()
 {
 	if (!window)
 	{
-		window = GameWindow::Create(this);
+		window = CreateGameWindow(chosenRenderDevice);
 
 		// The game's own icon (PEIcon.h); none if its executable gives none.
 		auto icon = PEIcon::OfGame(LaunchInfo.gameRootFolder, LaunchInfo.gameExecutableName);
