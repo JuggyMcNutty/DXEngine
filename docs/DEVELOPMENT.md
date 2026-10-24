@@ -13,7 +13,7 @@ Keeping, running and profiling DXEngine, and what it changes: [`ENGINE.md`](ENGI
 A fidelity change is done when `tools/natives_audit.py --runs <logs>` shows no stub firing
 on its path in the maps that reached one, a side-by-side
 [scripted run](#scripted-runs-of-both-engines) against the original proves it, and
-[`NATIVES.md`](NATIVES.md) says what still differs. The audit reads `AICanSmell` "empty": the
+[`NATIVES.md`](NATIVES.md) says what differs. The audit reads `AICanSmell` "empty": the
 original's answer is always 0 too. The runs say whether a stub fired.
 
 ## Temporary debug hooks

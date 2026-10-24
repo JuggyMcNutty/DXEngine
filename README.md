@@ -17,7 +17,7 @@ desktop to a handheld.
 - **Deus Ex as the original plays it.** The game's own scripts run on the engine: its
   conversations and cinematics, its characters' AI, saving, loading and travel between maps,
   multiplayer. Each feature is checked against the original by scripted runs of both engines,
-  and [`docs/NATIVES.md`](docs/NATIVES.md) says what still differs.
+  and [`docs/NATIVES.md`](docs/NATIVES.md) says what differs.
 - **Modern renderers.** Vulkan by default, OpenGL, and OpenGL ES 3.2 for handhelds, with
   multisampling and a render scale for slower GPUs; on the CPU alone, on every core, where the GPU
   has no driver.
@@ -166,8 +166,8 @@ The build's own switches:
 
 ## Status
 
-The engine runs the game, which is not yet fully playable: [`docs/NATIVES.md`](docs/NATIVES.md)
-lists where it still differs from the original. Where each platform stands:
+The engine runs the game, which is not fully playable: [`docs/NATIVES.md`](docs/NATIVES.md)
+lists where it differs from the original. Where each platform stands:
 [the ports](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#engine-ports).
 
 ## Documentation

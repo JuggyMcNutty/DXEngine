@@ -2,7 +2,7 @@
 
 What DXEngine does for Deus Ex, feature by feature, each against the
 original: its write-up in dx-reverse-info, the console that compares the two
-engines, what matches, and what still differs. What else it changes:
+engines, what matches, and what differs. What else it changes:
 [what it changes from Surreal Engine](ENGINE.md#what-it-changes-from-surreal-engine).
 
 ## How it is known

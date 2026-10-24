@@ -9,7 +9,7 @@ It carries what [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machin
 (their launchers, embedded GPUs, pads) and what Deus Ex needs to play as the original does. Its
 default branch is `main`.
 
-What matches the original and what still differs is
+What matches the original and what differs is
 [`NATIVES.md`](NATIVES.md); how to work on it, [`DEVELOPMENT.md`](DEVELOPMENT.md).
 
 ## How it is kept
