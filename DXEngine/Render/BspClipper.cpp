@@ -18,7 +18,8 @@ int16_t BspClipper::PixelFloor(float v, int limit)
 
 BspClipper::BspClipper()
 {
-	Viewport.resize(ViewportHeight);
+	Rows.resize(ViewportHeight);
+	Overflow.resize(ViewportHeight);
 }
 
 BspClipper::~BspClipper()
@@ -29,8 +30,58 @@ void BspClipper::SetViewportSize(int width, int height)
 {
 	ViewportWidth = std::clamp(width, 1, (int)MaxWidth);
 	ViewportHeight = std::clamp(height, 1, (int)MaxHeight);
-	if ((int)Viewport.size() != ViewportHeight)
-		Viewport.resize(ViewportHeight);
+	if ((int)Rows.size() != ViewportHeight)
+	{
+		Rows.resize(ViewportHeight);
+		Overflow.resize(ViewportHeight);
+	}
+}
+
+ClipSpan* BspClipper::RowSpans(int y, size_t& count)
+{
+	ClipRow& row = Rows[y];
+	if (row.Count == ClipRow::Spilled)
+	{
+		count = Overflow[y].size();
+		return Overflow[y].data();
+	}
+	count = row.Count;
+	return row.Spans;
+}
+
+void BspClipper::RowInsert(int y, size_t pos, ClipSpan span)
+{
+	ClipRow& row = Rows[y];
+	if (row.Count == ClipRow::Spilled)
+	{
+		Overflow[y].insert(Overflow[y].begin() + pos, span);
+		return;
+	}
+	if (row.Count == ClipRow::InlineSpans)
+	{
+		Array<ClipSpan>& spilled = Overflow[y];
+		spilled.assign(row.Spans, row.Spans + row.Count);
+		spilled.insert(spilled.begin() + pos, span);
+		row.Count = ClipRow::Spilled;
+		return;
+	}
+	for (size_t i = row.Count; i > pos; i--)
+		row.Spans[i] = row.Spans[i - 1];
+	row.Spans[pos] = span;
+	row.Count++;
+}
+
+void BspClipper::RowErase(int y, size_t pos)
+{
+	ClipRow& row = Rows[y];
+	if (row.Count == ClipRow::Spilled)
+	{
+		Overflow[y].erase(Overflow[y].begin() + pos);
+		return;
+	}
+	for (size_t i = pos + 1; i < row.Count; i++)
+		row.Spans[i - 1] = row.Spans[i];
+	row.Count--;
 }
 
 void BspClipper::Setup(const mat4& world_to_projection, const Array<PortalSpan>& portalSpans, const vec4& portalPlane)
@@ -41,11 +92,11 @@ void BspClipper::Setup(const mat4& world_to_projection, const Array<PortalSpan>&
 
 	ClipSpan left = { (int16_t)0x8000, 0 };
 	ClipSpan right = { (int16_t)ViewportWidth, (int16_t)0x7fff };
-	for (auto& line : Viewport)
+	for (ClipRow& row : Rows)
 	{
-		line.clear();
-		line.push_back(left);
-		line.push_back(right);
+		row.Count = 2;
+		row.Spans[0] = left;
+		row.Spans[1] = right;
 	}
 	
 	if (!portalSpans.empty())
@@ -99,7 +150,6 @@ bool BspClipper::CheckSurface(const vec3* vertices, uint32_t count, bool solid)
 		return DrawPolygon(vertices, count, solid);
 	return DrawFan(vertices, count, solid);
 }
-
 
 bool BspClipper::DrawPolygon(const vec3* vertices, uint32_t count, bool solid)
 {
@@ -364,8 +414,9 @@ bool BspClipper::IsAABBVisible(const BBox& bbox)
 
 bool BspClipper::IsVisible(int16_t y, int16_t x0, int16_t x1)
 {
-	auto& line = Viewport[y];
-	for (size_t pos = 0; pos < line.size(); pos++)
+	size_t count;
+	const ClipSpan* line = RowSpans(y, count);
+	for (size_t pos = 0; pos < count; pos++)
 	{
 		int16_t left = line[pos].x1;
 		if (left >= x1)
@@ -392,12 +443,13 @@ bool BspClipper::DrawSpan(int16_t y, int16_t x0, int16_t x1, bool solid)
 
 	numDrawSpans++;
 
-	auto& line = Viewport[y];
+	size_t count;
+	ClipSpan* line = RowSpans(y, count);
 
 	bool collect = CollectSpans;
 	bool visible = false;
 	size_t pos = 0;
-	while (pos + 1 < line.size())
+	while (pos + 1 < count)
 	{
 		ClipSpan& span = line[pos];
 		ClipSpan& nextspan = line[pos + 1];
@@ -436,7 +488,8 @@ bool BspClipper::DrawSpan(int16_t y, int16_t x0, int16_t x1, bool solid)
 					// borders this span now, so it is looked at from here.
 					// Moving on would pass it over unfilled.
 					span.x1 = nextspan.x1;
-					line.erase(line.begin() + pos + 1);
+					RowErase(y, pos + 1);
+					line = RowSpans(y, count);
 					continue;
 				}
 			}
@@ -450,7 +503,8 @@ bool BspClipper::DrawSpan(int16_t y, int16_t x0, int16_t x1, bool solid)
 				ClipSpan filled;
 				filled.x0 = left;
 				filled.x1 = right;
-				line.insert(line.begin() + pos, filled);
+				RowInsert(y, pos, filled);
+				line = RowSpans(y, count);
 			}
 		}
 		pos++;

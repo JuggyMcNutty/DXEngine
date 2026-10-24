@@ -202,9 +202,10 @@ waits on memory, not on arithmetic, so the original's own savings gain nothing h
 each node's box tested one frame in 16 while it shows, each point transformed once a frame into
 a cache, a surface outside one side rejected without a clip
 ([a frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-frame));
-nor does skipping the nodes of zones not yet seen, the occlusion grid's rows a cache line each,
-or asking ahead (prefetch) for a node's surfaces and far child. The cache's misses cost more
-than the transforms they save.
+nor does skipping the nodes of zones not yet seen, or asking ahead (prefetch) for a node's
+surfaces and far child; the occlusion grid's rows a cache line each gain nothing here, where
+they sit in L1 and L2, but half a millisecond a frame on the Smart Pro. The cache's misses cost
+more than the transforms they save.
 
 ## Settings and environment
 
@@ -315,11 +316,13 @@ The renderer's CPU work is lighter than Surreal Engine's:
   `FogmapBuilder::Reaches`); a map no fog light reaches stays all clear, its texels neither
   placed nor built, sent once as it clears, and kept on its surface, whose passes go by
   whether it has one (`LightSystem::UpdateFogmapTexture`).
-- **The clipper's occlusion grid** is one row per image row; its non-SSE (ARM) build skips the
-  clip for triangles inside the view (a Surreal Engine bug); a surface is clipped once and
-  filled into the grid as one polygon, a span to a row (`BspClipper::DrawPolygon`); a span that
-  closes a gap in a row goes on into the gap after it (`BspClipper::DrawSpan`; Surreal Engine's
-  passes that gap over, leaving it open, so what lies behind counts as showing and is drawn).
+- **The clipper's occlusion grid** is one row per image row, each row's spans in a cache line
+  of its own while 15 fit, then on the heap (`BspClipper::ClipRow`); its non-SSE (ARM) build
+  skips the clip for triangles inside the view (a Surreal Engine bug); a surface is clipped once
+  and filled into the grid as one polygon, a span to a row (`BspClipper::DrawPolygon`); a span
+  that closes a gap in a row goes on into the gap after it (`BspClipper::DrawSpan`; Surreal
+  Engine's passes that gap over, leaving it open, so what lies behind counts as showing and is
+  drawn).
 - **One-sided surfaces** seen from behind are skipped before the visibility test, and a
   surface's points are gathered only when a test needs them.
 - **The actors' places in the BSP**: a static actor, which does not move, is filed when the

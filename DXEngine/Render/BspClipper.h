@@ -93,7 +93,20 @@ private:
 	static bool IsFrontfacing(const vec4* const* vert);
 	static void SortVertices(const vec4* const* vertices, const vec4** sortedVertices);
 
-	Array<Array<ClipSpan>> Viewport;
+	// A row of the grid, its spans in order with a sentinel at each end: in
+	// a cache line of its own while they fit, else in Overflow[y]
+	struct alignas(64) ClipRow
+	{
+		enum { InlineSpans = 15, Spilled = 0xffff };
+		uint16_t Count = 0;
+		ClipSpan Spans[InlineSpans];
+	};
+	ClipSpan* RowSpans(int y, size_t& count);
+	void RowInsert(int y, size_t pos, ClipSpan span);
+	void RowErase(int y, size_t pos);
+
+	Array<ClipRow> Rows;
+	Array<Array<ClipSpan>> Overflow;
 	FrustumPlanes FrustumClip;
 	mat4 WorldToProjection;
 	vec4 PortalPlane = vec4(0.0f);
