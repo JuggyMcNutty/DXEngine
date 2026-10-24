@@ -393,32 +393,49 @@ std::string UWindow::ConvertScriptString(const std::string& oldStr)
 	return out;
 }
 
-// A point in the world to this window's coordinates: projected by the main
-// scene's view into its pixels, then into the root window's coordinates as
-// the root lays itself out -- a pixel over the UI's scale, less the offset
-// that centres the 4:3 root on a wider screen.
+// A point in the world to this window's coordinates, as the original's
+// (Extension.dll XRootWindow::ConvertVectorToCoordinates 0x10039f10, then
+// XWindow's 0x1004faf0 down the windows): projected by the main scene's view
+// into its pixels, then into the root window's coordinates as the root lays
+// itself out -- a pixel over the UI's scale, less the offset that centres
+// the 4:3 root on a wider screen -- truncated to whole units; a point at a
+// depth of 1 or less at the view's middle, in whole pixels, unscaled. Less
+// each window's place below the root. True when the point is in front of
+// the eye, wherever it lands, so the frob highlight's box takes in a corner
+// off the screen; under no root, the topmost window's middle, and false.
 bool UWindow::ConvertVectorToCoordinates(const vec3& Location, float& relativeX, float& relativeY)
 {
+	UWindow* top = this;
+	while (top->parentOwner())
+		top = top->parentOwner();
+	URootWindow* root = UObject::TryCast<URootWindow>(top);
+	if (!root)
+	{
+		ConvertCoordinates(top, top->Width() * 0.5f, top->Height() * 0.5f, this, relativeX, relativeY);
+		return false;
+	}
+
 	const SceneNode& view = engine->render->MainView;
 	vec4 viewSpaceLocation = view.WorldToView * vec4(Location, 1.0f);
-	if (viewSpaceLocation.z < 1.0f)
-		return false;
-
-	vec4 projLocation = view.Projection * viewSpaceLocation;
-	float rcpW = 1.0f / projLocation.w;
-	float pixelX = view.XB + (projLocation.x * rcpW + 1.0f) * view.FX * 0.5f;
-	float pixelY = view.YB + (projLocation.y * rcpW + 1.0f) * view.FY * 0.5f;
-
-	URootWindow* root = GetRootWindow();
-	if (!root)
-		return false;
-	float scale = GetVirtualScale();
-	float rootX = pixelX / scale - root->UsedX;
-	float rootY = pixelY / scale - root->UsedY;
+	bool inFront = viewSpaceLocation.z > 1.0f;
+	float rootX, rootY;
+	if (inFront)
+	{
+		vec4 projLocation = view.Projection * viewSpaceLocation;
+		float rcpW = 1.0f / projLocation.w;
+		float pixelX = view.XB + (projLocation.x * rcpW + 1.0f) * view.FX * 0.5f;
+		float pixelY = view.YB + (projLocation.y * rcpW + 1.0f) * view.FY * 0.5f;
+		float scale = GetVirtualScale();
+		rootX = std::trunc(pixelX / scale - root->UsedX);
+		rootY = std::trunc(pixelY / scale - root->UsedY);
+	}
+	else
+	{
+		rootX = std::trunc(view.FX2);
+		rootY = std::trunc(view.FY2);
+	}
 	ConvertCoordinates(root, rootX, rootY, this, relativeX, relativeY);
-
-	// Return true if the point is still inside the window
-	return relativeX >= 0.0f && relativeX < Width() && relativeY >= 0.0f && relativeY < Height();
+	return inFront;
 }
 
 // The original's (Extension.dll XWindow::PreDestroy 0x10050500, CleanUp

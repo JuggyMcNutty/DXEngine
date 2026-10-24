@@ -395,6 +395,8 @@ reached by the game:
   takes no defaults;
 - `bShowWeapons` draws no overlays; `SetViewportActor` adds no network view
   (`AdditionalViews`);
+- `ConvertVectorToCoordinates` in a viewport window, or a window inside
+  one, projects through the main view, not the window's own;
 - the frame takes the window's whole rectangle, not its clip rectangle, and
   a window wider than 4:3 sees more at the sides
   ([the view's width](#the-views-width)).
@@ -798,11 +800,20 @@ from the original's code:
   `SizeConsole` at 1600x900 and 1276x960 (a scale of 1 at both),
   `MenuConsole` and `ScreenConsole` at 1600x900: the windows' places and
   sizes alike.
-- **The frob highlight's box** (`ConvertVectorToCoordinates`) is projected
-  by the main scene's view into the root window's coordinates:
-  `FrobConsole`'s boxes round two decorations, the crosshair on their middle
-  and turned 5 degrees four ways, lie within 7 pixels of the original's at
-  1280x720 with the original's [view width](#the-views-width).
+- **A point on the screen** (`ConvertVectorToCoordinates`), as the frob
+  highlight's box asks it
+  ([a point on the screen](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#a-point-on-the-screen)):
+  projected by the main scene's view into the root window's coordinates,
+  truncated to whole units, and in front of the eye or not wherever it
+  lands, so the box takes in a corner off the screen; a point behind the
+  eye at the view's middle, in whole pixels. `FrobConsole`, its points
+  asked from a window on the root (`ProjectionWindow`) at 1024x768: every
+  answer the original's, a point far off the screen and one behind among
+  them, the places within 2 units of the original's (its view turned by its
+  sine table: [the engine's own rotations](#implemented-not-as-the-original));
+  its boxes round two decorations, the crosshair on their middle and turned
+  5 degrees four ways, within 7 pixels of the original's at 1280x720 with
+  the original's [view width](#the-views-width).
 
 Differs:
 

@@ -173,7 +173,7 @@ the run. *Either*: one engine on each side of a pair.
 | `PerfConsole` | both | what a frame costs on `TargetMap`: sixty one-second windows | `DXPERF:` | `tools/perf/frame-report.py`, with `DXCAP_PERF=1` ([measuring both engines](#measuring-both-engines)) |
 | `PerfTurnConsole` | both | `PerfConsole` with the view turning | `DXPERF:` | the same |
 | `BeltConsole` | both | the object belt | `DXBELT:` |  |
-| `FrobConsole` | both | the frob highlight round two decorations | `DXFROB:` |  |
+| `FrobConsole` | both | the frob highlight round two decorations; what `ConvertVectorToCoordinates` gives a window on the root (`ProjectionWindow`, asking from its `DrawWindow` as the highlight does) for each decoration's box, a point off the screen and one behind | `DXFROB:` | the two logs' `projected` lines, at `DXCAP_WINDOW=1024x768`; the shots' boxes |
 | `LootConsole` | both | two carcasses searched; the inventory grid | `DXLOOT:` | with `tools/dxcap/timelines/loot-drags.txt` on DXEngine |
 | `CarcassConsole` | both | what carcasses hold, their search, the looted weapon | `DXCARC:` |  |
 | `ChoiceConsole` | both | a conversation's choices and their focus, by the keys and the pointer (`SetCursorPos`) | `DXCHOICE:` |  |

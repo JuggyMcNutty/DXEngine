@@ -7,8 +7,13 @@
 // On Liberty Island: the player stood 90 units from each of two decorations
 // near the start, facing its middle; a shot with the crosshair on its
 // middle, and with the view turned 5 degrees left, right, up and down. Each
-// shot logs the frob target. What is compared between the engines: the
-// target, and the box's place and size round the decoration in the shots.
+// shot logs the frob target, and what ConvertVectorToCoordinates gives a
+// window on the root, 16 by 8 in from its corner (ProjectionWindow), as the
+// frob highlight calls it: for the decoration's middle and its collision
+// box's eight corners, a point in front of the eye far off to its right,
+// and one behind it -- each place and whether it was returned in front.
+// What is compared between the engines: the target, those lines, and the
+// box's place and size round the decoration in the shots.
 //=============================================================================
 class FrobConsole extends Console;
 
@@ -21,6 +26,7 @@ var int ShotCount;
 var int Target;
 var int Turn;
 var DeusExDecoration Deco;
+var ProjectionWindow Projector;
 var rotator Facing;
 var bool bTravelled;
 
@@ -51,9 +57,42 @@ function string MapOf(PlayerPawn P)
 	return URL;
 }
 
+// The points ProjectionWindow logs at its next draw.
+function LogProjections(PlayerPawn P)
+{
+	local vector V, X, Y, Z, Eye;
+	local int i, j, k;
+
+	if (Projector == None)
+	{
+		Projector = ProjectionWindow(DeusExPlayer(P).rootWindow.NewChild(class'ProjectionWindow'));
+		Projector.SetPos(16, 8);
+		Projector.SetSize(64, 64);
+	}
+	if (Deco == None)
+		return;
+	Projector.AddPoint("middle", Deco.Location);
+	for (i = -1; i <= 1; i += 2)
+		for (j = -1; j <= 1; j += 2)
+			for (k = -1; k <= 1; k += 2)
+			{
+				V = Deco.Location;
+				V.X += i * Deco.CollisionRadius;
+				V.Y += j * Deco.CollisionRadius;
+				V.Z += k * Deco.CollisionHeight;
+				Projector.AddPoint("corner " $ i $ "," $ j $ "," $ k, V);
+			}
+	GetAxes(P.ViewRotation, X, Y, Z);
+	Eye = P.Location + vect(0,0,1) * P.EyeHeight;
+	Projector.AddPoint("off to the right", Eye + X * 100 + Y * 1000);
+	Projector.AddPoint("behind", Eye - X * 100);
+	Projector.bLogNext = true;
+}
+
 function Shot(PlayerPawn P, string Label)
 {
 	Log("DXFROB: shot " $ ShotCount $ " = " $ Label $ ", target " $ DeusExPlayer(P).FrobTarget);
+	LogProjections(P);
 	MarkShot = ShotCount;
 	bMarking = true;
 	MarkTime = 0;
