@@ -1,8 +1,7 @@
 //=============================================================================
 // FrobConsole: the frob highlight -- the box FrobDisplayWindow draws round
-// the player's frob target, and its label -- logged with "DXFROB:" and the
-// console's clock, with marked shots (docs/DEVELOPMENT.md, scripted
-// runs).
+// the player's frob target, and its label -- logged with "DXFROB:", with
+// marked shots (docs/DEVELOPMENT.md, scripted runs).
 //
 // On Liberty Island: the player stood 90 units from each of two decorations
 // near the start, facing its middle; a shot with the crosshair on its

@@ -103,7 +103,7 @@ the run. *Either*: one engine on each side of a pair.
 | `CaptureConsole` | both | tripwires, coronas, comment-jump conversations | `DXCAP:` |  |
 | `ViewConsole` | both | the weapon in view; the level's light | `DXVIEW:` |  |
 | `CoronaConsole` | both | lamp coronas; a movable corona light of its own | `DXCORONA:` |  |
-| `LaserConsole` | both | a laser fence's beams and its trigger's actors; the beams with a still texture, unlit and lit; the detail textures off (`NoDetail`) | `DXLASER:` | `laser.py <original run> <dxe run>`; `shots.py --shift`; at `DXCAP_WINDOW=1024x768` with `NoDetail=True`, against `DXCAP_RENDERER=D3D`'s ([shots](#shots)) |
+| `LaserConsole` | both | a laser fence's beams and its trigger's actors; the beams with a still texture, unlit and lit; the detail textures off (`NoDetail`) | `DXLASER:` | `laser.py <original run> <dxe run>`; `shots.py --shift`; at `DXCAP_WINDOW=1024x768` with `NoDetail=True` ([shots](#shots)) |
 | `ParticleConsole` | both | smoke and puffs on the pier, in marked shots | `DXPART:` | `shots.py --region` over the smoke's column, at `DXCAP_WINDOW=1024x768` |
 | `FaceConsole` | both | a character's mesh close up (`MeshOf`, `Ahead`, `Distance`) | `DXFACE:` | `shots.py <original run> <dxe run>` |
 | `MeshConsole` | both | meshes lit on the pier (`LODBias`, `NoDetail`, `Enviro`) | `DXMESH:` | `shots.py` |
@@ -165,7 +165,7 @@ the run. *Either*: one engine on each side of a pair.
 | `TypeConsole` | dxe | text typed into an edit field on the main menu, past ASCII and several characters at once | `DXTYPE:` | with `tools/dxcap/timelines/type.txt` |
 | `PadConsole` | dxe | the player's place, speed, facing and physics every half second, as a pad moves it | `DXPAD:` | with `tools/dxcap/timelines/pad.txt` |
 | `EditConsole` | both | a script's text calls on an edit field, a text window and a button | `DXEDIT:` |  |
-| `MultiEditConsole` | both | an edit field of several lines on the main menu: each move from fourteen places, chains of moves, a drag, a selection put in, a single line's moves; two marked shots of a selection over three rows | `DXROWS:` | the two logs diffed; `shots.py --region --block 4` on the field, at `DXCAP_WINDOW=1024x768` against `DXCAP_RENDERER=D3D`'s; with `Keys=True`, `tools/dxcap/timelines/note-keys.txt` on DXEngine |
+| `MultiEditConsole` | both | an edit field of several lines on the main menu: each move from fourteen places, chains of moves, a drag, a selection put in, a single line's moves; two marked shots of a selection over three rows | `DXROWS:` | the two logs diffed; `shots.py --region --block 4` on the field, at `DXCAP_WINDOW=1024x768`; with `Keys=True`, `tools/dxcap/timelines/note-keys.txt` on DXEngine |
 | `ColumnConsole` | both | a list's columns fitted to fields in fonts that have and lack their characters, and to a field of two lines, on the main menu | `DXCOLUMN:` | the two logs diffed |
 | `PointerConsole` | both | the root's pointer in the middle of the island's view: no modal window, one made hidden, shown, hidden, destroyed; five marked shots | `DXPOINTER:` | the shots' middles against the first, at `DXCAP_WINDOW=1024x768` |
 | `TimerConsole` | both | a window's timers on the main menu: a single one, one looping every millisecond and one at 0, two added in turn, one with no function name | `DXTIMER:` | the two logs diffed, both at `DXCAP_FPS=60` |
@@ -303,7 +303,7 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
 ### Shots
 
 - The original's own `shot` gives noise under `D3DDrv` and black under the others in Proton. Its
-  window, drawn through `OpenGLDrv`, is read five times a second by `tools/dxcap/grab.py`
+  window, through either renderer, is read five times a second by `tools/dxcap/grab.py`
   (the window found by its name), keeping each frame whose corner carries the console's mark (a
   magenta block, then the shot's number in eight black or white blocks).
 - **A frame up through a load or a save** (`LoadingConsole`'s) reaches the original's window for
@@ -337,12 +337,12 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
 - **The same view.** Two runs' shots compare only from one view: one window size (`DXCAP_WINDOW`)
   and, for `LightConsole`, one `View`, whose distance its `chosen` line logs; a dxe run against
   an original run of another `View` is off by however much the frame differs.
-- **Registration against `D3DDrv`.** `OpenGLDrv` draws the original's polygons half a pixel up
-  and left of `D3DDrv`'s, its tiles where `D3DDrv` does, and DXEngine draws both as `D3DDrv`
-  ([the scene's pixels](NATIVES.md#the-scenes-pixels)): where a polygon's edges or rows are
-  compared, the original runs with `DXCAP_RENDERER=D3D`. `shots.py --rmse` gives the grey
-  levels' RMSE and correlation over the region, pixel by pixel, and `--shift` the quarter-pixel
-  move of DXEngine's shot that fits the original's best: none when the two register.
+- **Registration against `D3DDrv`.** DXEngine draws the scene's pixels as `D3DDrv` does, not as
+  `OpenGLDrv` ([the scene's pixels](NATIVES.md#the-scenes-pixels)): where a polygon's edges or
+  rows are compared, or a correlation or RMSE taken, the original runs with
+  `DXCAP_RENDERER=D3D`. `shots.py --rmse` gives the grey levels' RMSE and correlation over the
+  region, pixel by pixel, and `--shift` the quarter-pixel move of DXEngine's shot that fits the
+  original's best: none when the two register.
 
 ### Running the original
 

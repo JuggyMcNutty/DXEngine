@@ -301,12 +301,10 @@ every device; `OpenGLDrv` draws the polygons at the middle. Against
 `D3DDrv`'s frames, `LaserConsole`'s wall and floor fit best unmoved on
 Vulkan, with and without 4x multisampling, and within a quarter pixel on GL
 (`shots.py --shift`): their grey levels 0.47 and 0.30 apart on Vulkan (RMSE,
-of 255), where with the polygons at the middle they were 1.52 and 0.78
-apart, fitted best moved half a pixel right and down. `FaceConsole`'s troop,
-`MeshConsole`'s Paul Denton, the mirrors and the light maps register so
-too ([mesh detail](#mesh-detail), [mirrors](#mirrors),
-[lighting](#lighting)); a sprite and the canvas draw where they did, to a
-level of 256 (`SpriteConsole`, `TileConsole`), and so do the coronas.
+of 255). `FaceConsole`'s troop, `MeshConsole`'s Paul Denton, the mirrors and
+the light maps register so too ([mesh detail](#mesh-detail),
+[mirrors](#mirrors), [lighting](#lighting)), as a sprite and the canvas's
+tiles do ([sprites](#sprites), [tiles](#tiles)).
 
 ### Sprites
 
@@ -510,9 +508,9 @@ Still DXEngine's own:
 - **Light maps**
   - floats, converted on the CPU for a GPU that cannot filter them (the
     Smart Pro's; [rendering](ENGINE.md#rendering));
-  - a map whose animating or moving lights changed built, converted and sent
-    to the GPU again only where they reach now or reached at its last build,
-    where the original builds and uploads it whole every frame;
+  - a map whose lights changed built and sent again only in part
+    ([rendering](ENGINE.md#rendering)), where the original builds and
+    uploads it whole every frame;
   - the lookup each surface's own last map, else a `std::map`, where the
     original's cache hashes and first checks the item it found last;
   - a still-shaped animated light re-run, where the original keeps it as its
@@ -591,9 +589,8 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
 - **The opaque surfaces** go by zone, texture and light map, as the
   original sorts them by zone and texture, its order among one texture its
   sort's own: where two of them overlap at one depth, which shows can
-  differ (the gaps between the Liberty Island pier's planks: 272 pixels of
-  `MeshConsole`'s frame, by 3 levels or more, against DXEngine's BSP order
-  before, both as far from `D3DDrv`'s).
+  differ (the gaps between the Liberty Island pier's planks, a few hundred
+  pixels of `MeshConsole`'s frame).
 - **A mesh's translucent faces** are drawn after all its opaque ones. The
   original draws them in face order among them, so one drawn before an
   opaque face behind it is lost where that face writes over it. Of the 61
@@ -723,9 +720,9 @@ from the original's code:
   line's: the logs alike). A single line does not word wrap. With the
   focus, a selection is drawn row by row behind its text, the text in the
   inverse colour, then the insertion point, blinking each half period
-  (the field's shots alike, no pixel 24 levels apart); else the rows as a
-  large text window draws them. A press puts the insertion point at the
-  pointer and drags it, whole words on a second click.
+  (the field's shots alike, every pixel within 24 levels); else the rows
+  as a large text window draws them. A press puts the insertion point at
+  the pointer and drags it, whole words on a second click.
 - **Buttons** activate on the release, a repeating one on the press and
   again while held; a right click where the button takes them; each with
   its sounds, and a press from the keyboard shown pressed for its delay. A
@@ -1453,9 +1450,8 @@ one pass, and not panned with the surface, at its own scale
 `LightConsole` with `Macro`, Liberty Island's `Spotlight0` on a world map
 given itself as its macro texture, has the GL and Vulkan devices' frames at
 1.00 of `D3DDrv`'s (`NoDetail`): in blocks of 16 pixels inside the map's
-border, within 0.94 to 1.04, where without the macro they are within 0.98
-to 1.03
-([lighting](#lighting)). The D3D11 device keeps Surreal Engine's
+border, within 0.94 to 1.04 (without the macro, [lighting](#lighting)). The
+D3D11 device keeps Surreal Engine's
 ([where it stands](../README.md#for-advanced-users)).
 
 ## Multiplayer

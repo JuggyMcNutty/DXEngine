@@ -7,7 +7,8 @@ tools/perf/perf-instrumentation.patch), for devices without perf.
 
 <samples> is the file the engine wrote, with <samples>.maps beside it; the
 engine binary is the unstripped build that ran -- that exact build: every
-rebuild moves the addresses (Port Ex Machina's dx.sh profile keeps it as <samples>.engine).
+rebuild moves the addresses (Port Ex Machina's dx.sh profile keeps it as
+<samples>.engine).
 Each block records the main thread's CPU time over it, so shares come out
 as ms per frame too (a sample is 1 ms, or a scheduler tick where the kernel
 checks CPU timers only that often: 4 ms on the Smart Pro). --root keeps only

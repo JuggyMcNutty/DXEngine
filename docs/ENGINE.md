@@ -203,9 +203,7 @@ each node's box tested one frame in 16 while it shows, each point transformed on
 a cache, a surface outside one side rejected without a clip
 ([a frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-frame));
 nor does skipping the nodes of zones not yet seen, or asking ahead (prefetch) for a node's
-surfaces and far child; the occlusion grid's rows a cache line each gain nothing here, where
-they sit in L1 and L2, but half a millisecond a frame on the Smart Pro. The cache's misses cost
-more than the transforms they save.
+surfaces and far child. The cache's misses cost more than the transforms they save.
 
 ## Settings and environment
 
@@ -330,13 +328,14 @@ The renderer's CPU work is lighter than Surreal Engine's:
   in turn, should a script change one's look; only those with a render iterator are visited
   each frame (`RenderSubsystem::UpdateStaticActors`). The dynamic ones are filed each frame.
 - **Movers' mirrors**: each frame looks only at the movers with a mirrored face, found with the
-  static actors, where it cast every actor of the level to a mover (`RenderSubsystem::MirrorMovers`).
+  static actors (`RenderSubsystem::MirrorMovers`).
 - **Light maps in shared pages** of 1024 texels a side (`LightmapAtlas`), each map placed when
   it is first built at its size, with a border of 4 texels repeating its edges: a surface's
   points lie between its map's first and last texel centres, where the bilinear filter takes
   the edge texel, as `D3DDrv`'s does though it wraps, and the border gives the anisotropic
-  filter the same past them; a map too large for a page is drawn on its own. The surface is given the page at the map's place (its pan moved by it), so no device
-  changes, and a map's change is sent as a part of its page. The opaque surfaces are drawn by
+  filter the same past them; a map too large for a page is drawn on its own. The surface is
+  given the page at the map's place (its pan moved by it), which the devices draw as any
+  texture, and a map's change is sent as a part of its page. The opaque surfaces are drawn by
   zone, texture and light map ([draw order](NATIVES.md#draw-order-and-movers)), so a run of one
   texture and one page is one batch where descriptor indexing is missing (the Smart Pro's).
 - **Meshes**: each vertex animated, lit and fogged once a draw; a run of faces with one texture

@@ -6,7 +6,7 @@
 // notes have them, 200 by 150, with a text of rows the window wraps, a line
 // break, an empty row, a word wider than a row and spaces at a wrap. A tick
 // later, once both engines have laid it out, each of the twelve moves is
-// made from a dozen places, then chains of them -- down and up keeping the
+// made from fourteen places, then chains of them -- down and up keeping the
 // column, a drag down and across, every word right and left, pages down and
 // up -- then a selection over rows and a text put in selected, then the same
 // moves in a single-line edit window; each logged ("DXROWS:") with the
@@ -14,9 +14,9 @@
 // selection over three rows and an insertion point that stays on, and two
 // shots are taken 2 s apart, each marked for the original's grabber; then
 // an exit. With Keys (DXCAP_CONFIG "Keys=True", DXEngine's alone), the
-// window is given the focus at 7 instead, and each change of its insertion
-// point or selection is logged as tools/dxcap/timelines/note-keys.txt's
-// keys reach it, until an exit at 30 s.
+// window is given the focus instead, its insertion point at 7, and each
+// change of its insertion point or selection is logged as the keys of
+// tools/dxcap/timelines/note-keys.txt reach it, until an exit at 30 s.
 //=============================================================================
 class MultiEditConsole extends Console;
 
