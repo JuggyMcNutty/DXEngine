@@ -59,6 +59,8 @@ FORK_AREAS = [
     ('render device', r'^(GL|OpenGL|Vulkan|DXGPU|VkTexture|CommandBuffer|TextureManager|UploadManager|'
                       r'BufferManager|DescriptorSetManager|RenderPassManager|SamplerManager|ShaderManager|'
                       r'FramebufferManager)'),
+    ('software device', r'Software(RenderDevice|DrawPrimitive|Rasterizer|Setup|Present|Pipelines|Reference|Sampler|'
+                        r'Commands|Texture|Workers|Bins|Frame|State|Vertex|Pixel)'),
     ('scene render', r'(VisibleFrame|VisibleMesh|VisibleNode|BspClipper|PortalSpan|DrawPortal|LightSystem|'
                      r'LightActorTree|Lightmap|FogSystem|Corona|RenderSubsystem|UpdateBspInfo|'
                      r'UpdateRenderInterface|FireEngine|UFireTexture|UFractalTexture|UWaveTexture|UWetTexture|'

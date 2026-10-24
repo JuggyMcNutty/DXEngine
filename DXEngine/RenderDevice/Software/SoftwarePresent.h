@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SoftwareRasterizer.h"
+#include "SoftwareWorkers.h"
 #include <vector>
 
 class RenderDevice;
@@ -17,11 +18,20 @@ public:
 	// change.
 	void SetGamma(const RenderDevice& device);
 
+	// The window's size for the frame about to be drawn: true where it is
+	// the frame's, each tile then mapping its own pixels (MapTile) as the
+	// last step of its drawing.
+	bool Prepare(const SoftwareFrame& frame, int windowWidth, int windowHeight);
+
+	// A tile's pixels through the ramp into the window's
+	void MapTile(SoftwareFrame& frame, int tileX, int tileY);
+
 	// The frame in the window's pixels, the ramp applied: as it is when the
 	// window is the frame's size, else scaled up and letterboxed as the
 	// Vulkan device's DrawPresentTexture scales it, bilinear and held at
-	// the edges.
-	const uint32_t* Present(SoftwareFrame& frame, int windowWidth, int windowHeight);
+	// the edges. The rows shared out among the workers, unless each tile
+	// mapped its own (mapped).
+	const uint32_t* Present(SoftwareFrame& frame, SoftwareWorkers& workers, bool mapped);
 
 	// The frame's pixels, top row first, as B, G, R, A bytes, the ramp
 	// applied with GammaCorrectScreenshots.
@@ -31,6 +41,7 @@ private:
 	uint32_t Map(uint32_t pixel) const;
 	void MapRow(const uint32_t* src, uint32_t* dest, int count) const;
 	void ScaleRow(SoftwareFrame& frame, int y, uint32_t* dest, int count);
+	void PresentRow(SoftwareFrame& frame, int y);
 
 	struct GammaKey
 	{
@@ -50,6 +61,13 @@ private:
 	SoftwareBuffer<uint32_t> Output;
 	int OutputWidth = 0;
 	int OutputHeight = 0;
+	bool Unscaled = true; // the window the frame's size
+
+	// The letterbox the frame is scaled into, below a render scale of 1
+	int BoxX = 0;
+	int BoxY = 0;
+	int BoxWidth = 0;
+	int BoxHeight = 0;
 
 	// The upscale's columns and rows: the two texels each output pixel
 	// reads and the second's weight, 0 to 256

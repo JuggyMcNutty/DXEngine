@@ -8,6 +8,7 @@
 #include <X11/keysymdef.h>
 #include <X11/XKBlib.h>
 #include <X11/extensions/XInput2.h>
+#include <X11/extensions/XShm.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <map>
@@ -142,6 +143,12 @@ private:
 		void* pixels = nullptr;
 		int width = 0;
 		int height = 0;
+
+		// The image in memory the server shares (MIT-SHM), where it takes
+		// it; the server's reading of the last frame, not yet waited for
+		XShmSegmentInfo shm = {};
+		bool shared = false;
+		bool pending = false;
 	} backbuffer;
 
 	bool needsUpdate = false;

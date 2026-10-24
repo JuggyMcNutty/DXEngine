@@ -5,6 +5,7 @@
 #include "SoftwareSampler.h"
 #include "SoftwareSetup.h"
 #include "SoftwareSimd.h"
+#include <array>
 #include <algorithm>
 
 // A draw's state as its pipeline takes it, a bit or a field each. A
@@ -58,6 +59,24 @@ namespace SoftwarePipelines
 	{
 		uint32_t Key;
 		SoftwarePipeline Pipeline;
+	};
+
+	// The keys a file specializes, each once, made as it is compiled
+	struct KeyList
+	{
+		static constexpr size_t MaxKeys = 128;
+		uint32_t Keys[MaxKeys] = {};
+		size_t Count = 0;
+
+		constexpr void Add(uint32_t key)
+		{
+			for (size_t i = 0; i < Count; i++)
+			{
+				if (Keys[i] == key)
+					return;
+			}
+			Keys[Count++] = key;
+		}
 	};
 	const Entry* ScenePipelines(int& count);
 	const Entry* TilePipelines(int& count);
@@ -374,6 +393,24 @@ void SoftwareDrawPrimitive(SoftwareFrame& frame, const SoftwareRasterJob& job, c
 					continue;
 			}
 
+			auto writeDepth = [&]()
+			{
+				float zs[4];
+				StoreF(zs, depth);
+				if (mask & 1) depthRow0[0] = zs[0];
+				if (mask & 2) depthRow0[1] = zs[1];
+				if (mask & 4) depthRow1[0] = zs[2];
+				if (mask & 8) depthRow1[1] = zs[3];
+			};
+
+			// Depth alone: no colour written and none tested
+			if (!colorWrite && !alphaTest)
+			{
+				if (depthWrite)
+					writeDepth();
+				continue;
+			}
+
 			// The attributes at each lane's centre
 			const F4 w = SetF(1.0f) / plane(prim.InvW, dx, dy);
 			auto attribute = [&](int i) { return plane(prim.Attributes[i], dx, dy) * w; };
@@ -521,14 +558,7 @@ void SoftwareDrawPrimitive(SoftwareFrame& frame, const SoftwareRasterJob& job, c
 			}
 
 			if (depthWrite)
-			{
-				float zs[4];
-				StoreF(zs, depth);
-				if (mask & 1) depthRow0[0] = zs[0];
-				if (mask & 2) depthRow0[1] = zs[1];
-				if (mask & 4) depthRow1[0] = zs[2];
-				if (mask & 8) depthRow1[1] = zs[3];
-			}
+				writeDepth();
 		}
 	}
 }

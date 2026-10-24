@@ -6,12 +6,14 @@
 #include "SoftwarePresent.h"
 #include "SoftwareSetup.h"
 #include "SoftwareTextureManager.h"
+#include "SoftwareWorkers.h"
+#include <memory>
 
 // The device that draws on the CPU, for a machine without a GPU's driver:
 // the scene as the GPU devices draw it, sampled as D3DDrv samples it, into
 // an 8-bit frame presented as a bitmap (docs/ENGINE.md, rendering). It
 // records a frame's calls, and sets them up, bins them to tiles and draws
-// the tiles at Unlock.
+// the tiles at Unlock, on every core.
 class SoftwareRenderDevice : public RenderDevice
 {
 public:
@@ -42,8 +44,9 @@ public:
 
 private:
 	// What is recorded, drawn into the frame: the clear first if the frame
-	// has not had it
-	void DrawRecorded();
+	// has not had it. mapTiles: each tile, once drawn, mapped into the
+	// window's pixels (SoftwarePresent::MapTile); true where they were.
+	bool DrawRecorded(bool mapTiles);
 	void CompareWithReference();
 
 	SoftwareDraw& AddDraw(SoftwareDrawType type, uint32_t vertexCount, SoftwareVertex*& vertices);
@@ -57,6 +60,12 @@ private:
 	SoftwareTextureManager Textures;
 	SoftwareCommands Commands;
 	std::vector<SoftwareBins> Bins;
+
+	// The threads a frame's drawing is shared among, the game's with them,
+	// and the tiles in the order they are handed out: the most binned first
+	std::unique_ptr<SoftwareWorkers> Workers;
+	std::vector<int> TileOrder;
+	std::vector<uint32_t> TileCost;
 
 	// The current scene node's, kept from frame to frame: a draw before a
 	// frame's first SetSceneNode takes the last one

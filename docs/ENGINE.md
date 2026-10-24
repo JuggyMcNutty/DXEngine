@@ -230,6 +230,7 @@ The environment:
 | `DXL_LAUNCHER_FD` | The launcher's line ([running it](#running-it)). |
 | `DXE_SW_REFERENCE=1`, `check` | The software device shades with its float reference in its pipelines' place; with `check`, with both, each from the same frame, and logs every 60 frames how far apart they came out ([rendering](#rendering)). |
 | `DXE_SW_GENERAL=1` | The software device draws with its general pipeline alone, which its specialized ones match to the bit. |
+| `DXE_SW_THREADS=<n>` | The software device's threads, the game's among them: n in place of every hardware thread (1, the game's alone). |
 | `DXE_GC_DRYRUN=1` | Each collection marks and frees nothing: the log has what would go, by where it lives and by class, and the first holder outside them of each object of a level left behind ([objects and memory](#objects-and-memory)). |
 | `DXE_GC_STRESS=<frames>` | A collection every that many frames, besides the map loads'. |
 | `DXE_GC_VERIFY=1` | Each collection checks that every pointer it is handed is a live object, walks all of the code, and logs the holders of pointers that are not, of code's references to code that reach an object not permanent, and of what the list kept from the code's last walk would have missed ([objects and memory](#objects-and-memory)). |
@@ -466,12 +467,13 @@ wherever else that state is set.
 
 **The software device** (`DXEngine/RenderDevice/Software/`) draws on the CPU, for a machine
 whose GPU has no driver: its window is a bitmap's (`RenderAPI::Bitmap`), its frame BGRA8, as
-`D3DDrv`'s 8-bit frame, with a float depth buffer, both at the render size. It records a
-frame's calls, copying each scene node and vertex, and draws them at `Unlock`: each chunk of
-about 128 triangles set up and binned to the frame's tiles of 64 pixels a side, then each tile
-drawn, its clear first, then what was binned to it in order; a `Flush` within a frame draws
-what is recorded before it lets the textures go. So far it draws on one thread, slowly, and no
-launcher offers it.
+`D3DDrv`'s 8-bit frame, with a float depth buffer, both at the render size. It records a frame's
+calls, copying each scene node and vertex, and draws them at `Unlock` on every hardware thread,
+the game's among them (`SoftwareWorkers`, `DXE_SW_THREADS`): each chunk of about 128 triangles
+set up and binned to the frame's tiles of 64 pixels a side, the chunks shared out; then the
+tiles, the most binned first, each drawn by one thread, its clear first, then what was binned to
+it in order. A `Flush` within a frame draws what is recorded before it lets the textures go. No
+launcher offers it yet.
 
 - **Triangles**, as the Vulkan device's: each in clip space by its scene node's transforms,
   clipped where a corner lies behind the node's clip plane (the Vulkan device's clip distance,
@@ -504,11 +506,13 @@ launcher offers it.
   shader and the blends (`SoftwareReference`) is the oracle they are proven against: each draw
   within a level of it, two draws over one pixel at most two (`DXE_SW_REFERENCE=check`).
 - **The present**: the frame through the gamma ramp, a table of 256 levels a channel of the
-  present shader's gamma (XOpenGL's mode by each pixel's largest channel too), scaled to the
-  window and letterboxed below a render scale of 1 as the Vulkan device's present, bilinear and
-  held at the edges, then handed to the window (`Widget::PresentBitmap`): SDL's renderer, which
-  waits for vsync with `UseVSync`; X11's `XPutImage` and Win32's `SetDIBitsToDevice`, outside
-  `WM_PAINT` too, which do not wait.
+  present shader's gamma (XOpenGL's mode by each pixel's largest channel too): each tile's last
+  step where the window is the frame's size, else the frame scaled to the window and letterboxed
+  below a render scale of 1 as the Vulkan device's present, bilinear and held at the edges, the
+  window's rows shared out in bands. Then it is handed to the window (`Widget::PresentBitmap`):
+  SDL's renderer, which waits for vsync with `UseVSync`; X11's image in memory shared with the
+  server (MIT-SHM) where the server takes it, else `XPutImage`, and Win32's `SetDIBitsToDevice`,
+  outside `WM_PAINT` too, which do not wait.
 - **`ReadPixels`** gives the frame before the ramp, but with `GammaCorrectScreenshots`.
 
 ### Script VM

@@ -502,6 +502,24 @@ Its look against the Vulkan device's: a console run on each (`software-settings.
 `vulkan-settings.json`), `shots.py --levels` pairing the two ([shots](#shots)); against
 `D3DDrv`'s, the original with `DXCAP_RENDERER=D3D`.
 
+Its threads under ThreadSanitizer, built as the AddressSanitizer build is ([crashes](#crashes)),
+in a harness run (`ProveConsole`, `PerfTurnConsole`): the one report is OpenAL's own mixing
+thread's.
+
+```sh
+CXXFLAGS="-fsanitize=thread -fno-omit-frame-pointer" LDFLAGS=-fsanitize=thread \
+    cmake -S DXEngine -B <scratchpad>/tsan -C deusex-launcher/linux-x86_64/ports/linux-x86_64/engine.cmake \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build <scratchpad>/tsan --target DXEngine
+TSAN_OPTIONS=log_path=<scratchpad>/tsan DXCAP_ENGINE=<scratchpad>/tsan/DXEngine \
+    DXCAP_SETTINGS=tools/dxcap/software-settings.json tools/dxcap.sh dxe <console> <map>
+```
+
+Its speed against Mesa's CPU drivers, each through `PerfConsole`
+([measuring both engines](#measuring-both-engines)): the GL device on llvmpipe
+(`LIBGL_ALWAYS_SOFTWARE=1`, `perf-settings.json`), the Vulkan device on lavapipe (Arch's
+`vulkan-swrast`, `VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json`, `vulkan-settings.json`).
+
 ## Gotchas
 
 The workspace's:

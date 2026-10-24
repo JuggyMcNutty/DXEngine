@@ -42,7 +42,9 @@ SoftwareRenderDevice::SoftwareRenderDevice(Widget* InViewport)
 	CheckReference = reference && std::string(reference) == "check";
 	GeneralOnly = general && std::string(general) == "1";
 
-	LogMessage(std::string("Software device: 1 thread, ") + simd + (Reference ? ", the reference shading" : "") + (CheckReference ? ", the pipelines checked against the reference shading" : "") + (GeneralOnly ? ", the general pipeline alone" : ""));
+	Workers = std::make_unique<SoftwareWorkers>(SoftwareWorkers::DefaultThreads());
+	int threads = Workers->Threads();
+	LogMessage("Software device: " + std::to_string(threads) + (threads == 1 ? " thread, " : " threads, ") + simd + (Reference ? ", the reference shading" : "") + (CheckReference ? ", the pipelines checked against the reference shading" : "") + (GeneralOnly ? ", the general pipeline alone" : ""));
 }
 
 SoftwareRenderDevice::~SoftwareRenderDevice()
@@ -53,7 +55,7 @@ void SoftwareRenderDevice::Flush(bool AllowPrecache)
 {
 	// What is recorded drawn first: its textures are about to go
 	if (IsLocked)
-		DrawRecorded();
+		DrawRecorded(false);
 	Textures.ClearCache();
 
 	if (AllowPrecache && UsePrecache)
@@ -81,15 +83,20 @@ void SoftwareRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenC
 
 void SoftwareRenderDevice::Unlock(bool Blit)
 {
-	DrawRecorded();
-
 	if (Blit)
 	{
+		// The ramp and the window's size first: where the window is the
+		// frame's size, each tile goes through the ramp as it is finished
 		Present.SetGamma(*this);
-		int width = Viewport->GetNativePixelWidth();
-		int height = Viewport->GetNativePixelHeight();
-		const uint32_t* pixels = Present.Present(Frame, width, height);
-		Viewport->PresentBitmap(std::max(width, 1), std::max(height, 1), pixels);
+		int width = std::max(Viewport->GetNativePixelWidth(), 1);
+		int height = std::max(Viewport->GetNativePixelHeight(), 1);
+		bool mapped = DrawRecorded(Present.Prepare(Frame, width, height));
+		const uint32_t* pixels = Present.Present(Frame, *Workers, mapped);
+		Viewport->PresentBitmap(width, height, pixels);
+	}
+	else
+	{
+		DrawRecorded(false);
 	}
 
 	// No hit testing: the game asks for none (DXEngine has no editor)
@@ -101,17 +108,17 @@ void SoftwareRenderDevice::Unlock(bool Blit)
 	IsLocked = false;
 }
 
-void SoftwareRenderDevice::DrawRecorded()
+bool SoftwareRenderDevice::DrawRecorded(bool mapTiles)
 {
 	Commands.CloseChunk();
 	size_t chunks = Commands.Chunks.size();
 	if (chunks == 0 && !ClearPending)
-		return;
+		return false;
 
+	// The front end, a chunk at a time
 	if (Bins.size() < chunks)
 		Bins.resize(chunks);
-	for (size_t i = 0; i < chunks; i++)
-		SoftwareSetup::SetUp(Commands, Commands.Chunks[i], Frame, Bins[i], GeneralOnly);
+	Workers->Run((int)chunks, [&](int i, int) { SoftwareSetup::SetUp(Commands, Commands.Chunks[i], Frame, Bins[i], GeneralOnly); });
 
 	SoftwareRasterJob job;
 	job.Commands = &Commands;
@@ -122,6 +129,21 @@ void SoftwareRenderDevice::DrawRecorded()
 	job.MipFactor = SoftwareSampler::MipFactor(SoftwareSampler::LODBias);
 	job.Reference = Reference;
 
+	// The tiles by what was binned to them, the most first, so that the
+	// last ones handed out are short
+	const int tiles = Frame.TilesX * Frame.TilesY;
+	TileCost.assign(tiles, 0);
+	for (size_t c = 0; c < chunks; c++)
+	{
+		const uint32_t* offsets = Bins[c].Offsets.data();
+		for (int t = 0; t < tiles; t++)
+			TileCost[t] += offsets[t + 1] - offsets[t];
+	}
+	TileOrder.resize(tiles);
+	for (int t = 0; t < tiles; t++)
+		TileOrder[t] = t;
+	std::stable_sort(TileOrder.begin(), TileOrder.end(), [&](int a, int b) { return TileCost[a] > TileCost[b]; });
+
 	if (CheckReference)
 	{
 		// The frame as it stands drawn on with the reference shading too,
@@ -131,18 +153,21 @@ void SoftwareRenderDevice::DrawRecorded()
 		std::copy(Frame.Depth.Data(), Frame.Depth.Data() + Frame.Depth.Size(), CheckFrame.Depth.Data());
 		SoftwareRasterJob reference = job;
 		reference.Reference = true;
-		for (int y = 0; y < CheckFrame.TilesY; y++)
+		Workers->Run(tiles, [&](int i, int)
 		{
-			for (int x = 0; x < CheckFrame.TilesX; x++)
-				SoftwareRasterizer::DrawTile(CheckFrame, reference, x, y);
-		}
+			int t = TileOrder[i];
+			SoftwareRasterizer::DrawTile(CheckFrame, reference, t % Frame.TilesX, t / Frame.TilesX);
+		});
 	}
 
-	for (int y = 0; y < Frame.TilesY; y++)
+	Workers->Run(tiles, [&](int i, int)
 	{
-		for (int x = 0; x < Frame.TilesX; x++)
-			SoftwareRasterizer::DrawTile(Frame, job, x, y);
-	}
+		int t = TileOrder[i];
+		int x = t % Frame.TilesX, y = t / Frame.TilesX;
+		SoftwareRasterizer::DrawTile(Frame, job, x, y);
+		if (mapTiles)
+			Present.MapTile(Frame, x, y);
+	});
 
 	if (CheckReference)
 		CompareWithReference();
@@ -150,6 +175,7 @@ void SoftwareRenderDevice::DrawRecorded()
 	ClearPending = false;
 	Commands.Reset();
 	Commands.AddState(State);
+	return mapTiles;
 }
 
 // The pipelines' frame against the reference's: the largest difference of

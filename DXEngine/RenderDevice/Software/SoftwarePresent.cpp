@@ -122,7 +122,7 @@ void SoftwarePresent::MapRow(const uint32_t* src, uint32_t* dest, int count) con
 		dest[x] = Map(src[x]);
 }
 
-const uint32_t* SoftwarePresent::Present(SoftwareFrame& frame, int windowWidth, int windowHeight)
+bool SoftwarePresent::Prepare(const SoftwareFrame& frame, int windowWidth, int windowHeight)
 {
 	windowWidth = std::max(windowWidth, 1);
 	windowHeight = std::max(windowHeight, 1);
@@ -132,27 +132,23 @@ const uint32_t* SoftwarePresent::Present(SoftwareFrame& frame, int windowWidth, 
 		OutputWidth = windowWidth;
 		OutputHeight = windowHeight;
 	}
-
-	if (windowWidth == frame.Width && windowHeight == frame.Height)
-	{
-		for (int y = 0; y < frame.Height; y++)
-			MapRow(frame.ColorRow(y), Output.Data() + (size_t)y * windowWidth, frame.Width);
-		return Output.Data();
-	}
+	Unscaled = windowWidth == frame.Width && windowHeight == frame.Height;
+	if (Unscaled)
+		return true;
 
 	// The letterbox and the taps, as DrawPresentTexture places the frame and
 	// the linear sampler reads it at each pixel's centre
 	float scale = std::min(windowWidth / (float)frame.Width, windowHeight / (float)frame.Height);
-	int boxWidth = std::max((int)std::round(frame.Width * scale), 1);
-	int boxHeight = std::max((int)std::round(frame.Height * scale), 1);
-	int boxX = (windowWidth - boxWidth) / 2;
-	int boxY = (windowHeight - boxHeight) / 2;
-	if (ScaleKey[0] != frame.Width || ScaleKey[1] != frame.Height || ScaleKey[2] != boxWidth || ScaleKey[3] != boxHeight)
+	BoxWidth = std::max((int)std::round(frame.Width * scale), 1);
+	BoxHeight = std::max((int)std::round(frame.Height * scale), 1);
+	BoxX = (windowWidth - BoxWidth) / 2;
+	BoxY = (windowHeight - BoxHeight) / 2;
+	if (ScaleKey[0] != frame.Width || ScaleKey[1] != frame.Height || ScaleKey[2] != BoxWidth || ScaleKey[3] != BoxHeight)
 	{
 		ScaleKey[0] = frame.Width;
 		ScaleKey[1] = frame.Height;
-		ScaleKey[2] = boxWidth;
-		ScaleKey[3] = boxHeight;
+		ScaleKey[2] = BoxWidth;
+		ScaleKey[3] = BoxHeight;
 		auto taps = [](std::vector<Tap>& list, int count, int size)
 		{
 			list.resize(count);
@@ -166,23 +162,55 @@ const uint32_t* SoftwarePresent::Present(SoftwareFrame& frame, int windowWidth, 
 				tap.Weight = std::clamp((int)std::floor((t - first) * 256.0f + 0.5f), 0, 256);
 			}
 		};
-		taps(Columns, boxWidth, frame.Width);
-		taps(Rows, boxHeight, frame.Height);
+		taps(Columns, BoxWidth, frame.Width);
+		taps(Rows, BoxHeight, frame.Height);
 	}
+	return false;
+}
 
-	for (int y = 0; y < windowHeight; y++)
+void SoftwarePresent::MapTile(SoftwareFrame& frame, int tileX, int tileY)
+{
+	int x0 = tileX * SoftwareFrame::TileSize;
+	int y0 = tileY * SoftwareFrame::TileSize;
+	int width = std::min(SoftwareFrame::TileSize, frame.Width - x0);
+	int y1 = std::min(y0 + SoftwareFrame::TileSize, frame.Height);
+	for (int y = y0; y < y1; y++)
+		MapRow(frame.ColorRow(y) + x0, Output.Data() + (size_t)y * OutputWidth + x0, width);
+}
+
+const uint32_t* SoftwarePresent::Present(SoftwareFrame& frame, SoftwareWorkers& workers, bool mapped)
+{
+	if (!mapped)
 	{
-		uint32_t* dest = Output.Data() + (size_t)y * windowWidth;
-		if (y < boxY || y >= boxY + boxHeight)
+		// The window's rows in bands, a band a worker's item
+		const int band = 16;
+		workers.Run((OutputHeight + band - 1) / band, [&](int item, int)
 		{
-			std::fill(dest, dest + windowWidth, 0xff000000);
-			continue;
-		}
-		std::fill(dest, dest + boxX, 0xff000000);
-		ScaleRow(frame, y - boxY, dest + boxX, boxWidth);
-		std::fill(dest + boxX + boxWidth, dest + windowWidth, 0xff000000);
+			int y1 = std::min((item + 1) * band, OutputHeight);
+			for (int y = item * band; y < y1; y++)
+				PresentRow(frame, y);
+		});
 	}
 	return Output.Data();
+}
+
+void SoftwarePresent::PresentRow(SoftwareFrame& frame, int y)
+{
+	uint32_t* dest = Output.Data() + (size_t)y * OutputWidth;
+	if (Unscaled)
+	{
+		MapRow(frame.ColorRow(y), dest, frame.Width);
+	}
+	else if (y < BoxY || y >= BoxY + BoxHeight)
+	{
+		std::fill(dest, dest + OutputWidth, 0xff000000);
+	}
+	else
+	{
+		std::fill(dest, dest + BoxX, 0xff000000);
+		ScaleRow(frame, y - BoxY, dest + BoxX, BoxWidth);
+		std::fill(dest + BoxX + BoxWidth, dest + OutputWidth, 0xff000000);
+	}
 }
 
 void SoftwarePresent::ScaleRow(SoftwareFrame& frame, int y, uint32_t* dest, int count)

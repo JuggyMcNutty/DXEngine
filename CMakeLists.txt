@@ -326,6 +326,8 @@ set(DXCOMMON_SOURCES
 	DXEngine/RenderDevice/Software/SoftwareTextureManager.h
 	DXEngine/RenderDevice/Software/SoftwareTextureUploader.cpp
 	DXEngine/RenderDevice/Software/SoftwareTextureUploader.h
+	DXEngine/RenderDevice/Software/SoftwareWorkers.cpp
+	DXEngine/RenderDevice/Software/SoftwareWorkers.h
 	DXEngine/Package/Package.cpp
 	DXEngine/Package/Package.h
 	DXEngine/Package/PackageManager.cpp

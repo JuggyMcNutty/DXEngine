@@ -158,8 +158,8 @@ The build's own switches:
 - **The D3D11 device** is built for Windows alone, drawing in its SDL3 or Win32 window, and
   offered by no launcher.
 - **The software device** (`Settings.json`'s `"Type": "Software"`) is built on every platform,
-  drawing on the CPU into its window's bitmap: so far slowly, on one thread, and offered by no
-  launcher ([the software device](docs/ENGINE.md#rendering)).
+  drawing on the CPU into its window's bitmap on every core, and offered by no launcher yet
+  ([the software device](docs/ENGINE.md#rendering)).
 
 ## Status
 

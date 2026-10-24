@@ -10,6 +10,8 @@
 #include <cstring>
 #include <dlfcn.h>
 #include <unistd.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #include <iostream>
 
 X11DisplayWindow::X11DisplayWindow(DisplayWindowHost* windowHost, WidgetType windowType, X11DisplayWindow* owner, RenderAPI renderAPI) : windowHost(windowHost), owner(owner), m_GLIsES(renderAPI == RenderAPI::GLES)
@@ -544,20 +546,90 @@ double X11DisplayWindow::GetDpiScale() const
 	return dpiScale;
 }
 
+namespace
+{
+	// XShmAttach's refusal, which comes as an error: a server on another
+	// machine, or in another IPC namespace
+	bool ShmAttachFailed = false;
+	int OnShmAttachError(Display*, XErrorEvent*)
+	{
+		ShmAttachFailed = true;
+		return 0;
+	}
+}
+
 void X11DisplayWindow::CreateBackbuffer(int width, int height)
 {
-	backbuffer.pixels = malloc(width * height * sizeof(uint32_t));
-	backbuffer.image = XCreateImage(display, DefaultVisual(display, screen), depth, ZPixmap, 0, (char*)backbuffer.pixels, width, height, 32, 0);
 	backbuffer.pixmap = XCreatePixmap(display, window, width, height, depth);
 	backbuffer.width = width;
 	backbuffer.height = height;
+
+	// In memory shared with the server where it takes it (MIT-SHM): a frame
+	// then reaches it without going through the socket
+	if (XShmQueryExtension(display))
+	{
+		XImage* image = XShmCreateImage(display, DefaultVisual(display, screen), depth, ZPixmap, nullptr, &backbuffer.shm, width, height);
+		if (image && image->bytes_per_line == width * (int)sizeof(uint32_t))
+		{
+			backbuffer.shm.shmid = shmget(IPC_PRIVATE, (size_t)image->bytes_per_line * height, IPC_CREAT | 0600);
+			if (backbuffer.shm.shmid >= 0)
+			{
+				backbuffer.shm.shmaddr = (char*)shmat(backbuffer.shm.shmid, nullptr, 0);
+				backbuffer.shm.readOnly = False;
+				bool attached = false;
+				if (backbuffer.shm.shmaddr != (char*)-1)
+				{
+					XSync(display, False);
+					ShmAttachFailed = false;
+					auto previous = XSetErrorHandler(OnShmAttachError);
+					XShmAttach(display, &backbuffer.shm);
+					XSync(display, False);
+					XSetErrorHandler(previous);
+					attached = !ShmAttachFailed;
+					if (!attached)
+						shmdt(backbuffer.shm.shmaddr);
+				}
+				// Gone once the server and this process have both let it go
+				shmctl(backbuffer.shm.shmid, IPC_RMID, nullptr);
+				if (attached)
+				{
+					image->data = backbuffer.shm.shmaddr;
+					backbuffer.image = image;
+					backbuffer.pixels = image->data;
+					backbuffer.shared = true;
+					return;
+				}
+			}
+		}
+		if (image)
+			XDestroyImage(image); // no data: XShmCreateImage allocates none
+		backbuffer.shm = {};
+	}
+
+	backbuffer.pixels = malloc(width * height * sizeof(uint32_t));
+	backbuffer.image = XCreateImage(display, DefaultVisual(display, screen), depth, ZPixmap, 0, (char*)backbuffer.pixels, width, height, 32, 0);
 }
 
 void X11DisplayWindow::DestroyBackbuffer()
 {
 	if (backbuffer.width > 0 && backbuffer.height > 0)
 	{
-		XDestroyImage(backbuffer.image);
+		if (backbuffer.shared)
+		{
+			// The server's last reading done, then the memory let go
+			XShmDetach(display, &backbuffer.shm);
+			XSync(display, False);
+			backbuffer.image->data = nullptr;
+			XDestroyImage(backbuffer.image);
+			shmdt(backbuffer.shm.shmaddr);
+			backbuffer.shm = {};
+			backbuffer.shared = false;
+			backbuffer.pending = false;
+		}
+		else
+		{
+			XDestroyImage(backbuffer.image);
+		}
 		XFreePixmap(display, backbuffer.pixmap);
 		backbuffer.width = 0;
 		backbuffer.height = 0;
@@ -578,10 +650,26 @@ void X11DisplayWindow::PresentBitmap(int width, int height, const uint32_t* pixe
 
 	if (backbuffer.width == width && backbuffer.height == height)
 	{
+		// The server done with the last frame's shared pixels before they
+		// are written over
+		if (backbuffer.pending)
+		{
+			XSync(display, False);
+			backbuffer.pending = false;
+		}
 		memcpy(backbuffer.pixels, pixels, width * height * sizeof(uint32_t));
 		GC gc = XDefaultGC(display, screen);
-		XPutImage(display, backbuffer.pixmap, gc, backbuffer.image, 0, 0, 0, 0, width, height);
-		XCopyArea(display, backbuffer.pixmap, window, gc, 0, 0, width, height, BlackPixel(display, screen), WhitePixel(display, screen));
+		if (backbuffer.shared)
+		{
+			XShmPutImage(display, backbuffer.pixmap, gc, backbuffer.image, 0, 0, 0, 0, width, height, False);
+			backbuffer.pending = true;
+		}
+		else
+		{
+			XPutImage(display, backbuffer.pixmap, gc, backbuffer.image, 0, 0, 0, 0, width, height);
+		}
+		XCopyArea(display, backbuffer.pixmap, window, gc, 0, 0, width, height, 0, 0);
+		XFlush(display);
 	}
 }
 
