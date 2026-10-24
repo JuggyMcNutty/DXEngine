@@ -240,8 +240,8 @@ is. DXEngine's keys:
 |---|---|
 | `Performance.RenderScale` | The scene drawn at this fraction of the window's size (0.25 to 1; default 1) and scaled up to it, by the Vulkan, GL and software devices ([how](#settings-the-launcher-exposes)). |
 | `"Type": "GLES"` in `RenderDevice` | The GL device on an OpenGL ES 3.2 context (DXLauncher's `[GLES]` renderer, `data/renderers.ini`). |
-| `"Type": "Software"` in `RenderDevice` | The software device, which draws on the CPU ([rendering](#rendering)). |
-| `"CPUDriver": true` in `RenderDevice` | The Vulkan device on Mesa's lavapipe, or the GL device on llvmpipe, a GPU passed over ([rendering](#rendering)). |
+| `"Type": "Software"` in `RenderDevice` | The software device, which draws on the CPU (DXLauncher's `[Software]` renderer; [rendering](#rendering)). |
+| `"CPUDriver": true` in `RenderDevice` | The Vulkan device on Mesa's lavapipe, or the GL device on llvmpipe, a GPU passed over (DXLauncher's `[VulkanCPU]` and `[OpenGLCPU]` renderers; [rendering](#rendering)). |
 | `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)). |
 
 The environment:
@@ -516,7 +516,7 @@ is done; a texture changed in place after a draw not yet drawn named it (a light
 page, where its texels are among the draw's) has what is recorded drawn first, so each draw
 reads it as it was when the draw was made, as a `Flush` within a frame draws what is recorded
 before it lets the textures go; and a quad's lanes outside its primitive sample where one inside
-does, so a draw reads no texel but its pixels'. No launcher offers it yet.
+does, so a draw reads no texel but its pixels'.
 
 - **Triangles**, as the Vulkan device's: each in clip space by its scene node's transforms,
   clipped where a corner lies behind the node's clip plane (the Vulkan device's clip distance,
