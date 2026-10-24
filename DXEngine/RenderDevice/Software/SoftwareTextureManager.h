@@ -1,9 +1,11 @@
 #pragma once
 
 #include "SoftwareRasterizer.h"
+#include <functional>
 #include <unordered_map>
 #include <memory>
 #include <utility>
+#include <vector>
 
 struct TextureInfo;
 
@@ -21,6 +23,17 @@ struct SoftwareMip
 	uint32_t* Row(int y) const { return Texels + (size_t)y * Pitch; }
 };
 
+// Texels of a texture's first mip, [X0, X1) by [Y0, Y1)
+struct SoftwareRect
+{
+	int X0 = 0;
+	int Y0 = 0;
+	int X1 = 0;
+	int Y1 = 0;
+
+	bool Overlaps(const SoftwareRect& other) const { return X0 < other.X1 && other.X0 < X1 && Y0 < other.Y1 && other.Y0 < Y1; }
+};
+
 // The device's own copy of a texture: never the engine's memory, which a
 // realtime texture changes after the draw that names it.
 class SoftwareTexture
@@ -31,6 +44,13 @@ public:
 	int NumMips = 0;
 	SoftwareMip Mips[MaxMips];
 	SoftwareBuffer<uint32_t> Data;
+
+	// What the draws not yet drawn read of it, as of the device's epoch
+	// (SoftwareRenderDevice::Drain): all of it, or the rectangles a light
+	// map's draws read of the page it shares
+	uint64_t NamedEpoch = 0;
+	bool NamedAll = false;
+	std::vector<SoftwareRect> NamedRects;
 };
 
 // The copies by cache ID, a masked one apart (only a palette's colour 0 is
@@ -49,6 +69,10 @@ public:
 	void ClearCache();
 
 	SoftwareTexture* GetWhite() { return &White; }
+
+	// Told before a copy is changed in place, all of it (w < 0) or a
+	// rectangle: the device draws first what reads it
+	std::function<void(SoftwareTexture* tex, int x, int y, int w, int h)> BeforeWrite;
 
 private:
 	SoftwareTexture* Find(int masked, uint64_t cacheID);

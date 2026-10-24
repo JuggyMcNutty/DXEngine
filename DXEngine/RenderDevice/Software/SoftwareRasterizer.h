@@ -74,7 +74,7 @@ class SoftwareCommands;
 struct SoftwareRasterJob
 {
 	const SoftwareCommands* Commands = nullptr;
-	const SoftwareBins* Bins = nullptr; // one a chunk
+	const SoftwareBins* const* Bins = nullptr; // a chunk's each
 	size_t ChunkCount = 0;
 	bool Clear = false;
 	uint32_t ClearColor = 0xff000000;

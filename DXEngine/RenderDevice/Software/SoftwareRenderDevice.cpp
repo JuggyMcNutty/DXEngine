@@ -44,11 +44,19 @@ SoftwareRenderDevice::SoftwareRenderDevice(Widget* InViewport)
 
 	Workers = std::make_unique<SoftwareWorkers>(SoftwareWorkers::DefaultThreads());
 	int threads = Workers->Threads();
+	Streaming = threads >= 3 && !Reference && !CheckReference;
+
+	// A texture changed in place after a draw not yet drawn has named it:
+	// what is recorded drawn first, so each draw reads it as it was when
+	// the draw was made
+	Textures.BeforeWrite = [this](SoftwareTexture* tex, int x, int y, int w, int h) { BeforeTextureWrite(tex, x, y, w, h); };
 	LogMessage("Software device: " + std::to_string(threads) + (threads == 1 ? " thread, " : " threads, ") + simd + (Reference ? ", the reference shading" : "") + (CheckReference ? ", the pipelines checked against the reference shading" : "") + (GeneralOnly ? ", the general pipeline alone" : ""));
 }
 
 SoftwareRenderDevice::~SoftwareRenderDevice()
 {
+	// The wave the workers may have, which reads the members, done first
+	Workers->Wait();
 }
 
 void SoftwareRenderDevice::Flush(bool AllowPrecache)
@@ -64,6 +72,7 @@ void SoftwareRenderDevice::Flush(bool AllowPrecache)
 
 void SoftwareRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear, uint8_t* InHitData, int* InHitSize)
 {
+	Workers->Wait();
 	HitData = InHitData;
 	HitSize = InHitSize;
 	FlashScale = InFlashScale;
@@ -77,6 +86,12 @@ void SoftwareRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenC
 
 	Commands.Reset();
 	Commands.AddState(State);
+	ChunksLaunched = 0;
+
+	// The clear handed out at once, done while the game's thread finds what
+	// the frame draws
+	if (Streaming)
+		LaunchWave();
 
 	IsLocked = true;
 }
@@ -110,32 +125,96 @@ void SoftwareRenderDevice::Unlock(bool Blit)
 
 bool SoftwareRenderDevice::DrawRecorded(bool mapTiles)
 {
+	Workers->Wait();
 	Commands.CloseChunk();
-	size_t chunks = Commands.Chunks.size();
-	if (chunks == 0 && !ClearPending)
-		return false;
+	uint32_t chunks = (uint32_t)Commands.Chunks.size();
+	bool mapped = false;
+	if (chunks > ChunksLaunched || ClearPending)
+	{
+		Wave wave;
+		wave.FirstChunk = ChunksLaunched;
+		wave.Chunks.assign(Commands.Chunks.begin() + ChunksLaunched, Commands.Chunks.end());
+		wave.Clear = ClearPending;
+		wave.MapTiles = mapTiles;
+		ClearPending = false;
+		EnsureBins(chunks);
+		SetUpWave(wave, true);
 
-	// The front end, a chunk at a time
-	if (Bins.size() < chunks)
-		Bins.resize(chunks);
-	Workers->Run((int)chunks, [&](int i, int) { SoftwareSetup::SetUp(Commands, Commands.Chunks[i], Frame, Bins[i], GeneralOnly); });
+		if (CheckReference)
+		{
+			// The frame as it stands drawn on with the reference shading too,
+			// from a copy, for the pipelines' pixels to be compared with
+			CheckFrame.Resize(Frame.Width, Frame.Height);
+			std::copy(Frame.Color.Data(), Frame.Color.Data() + Frame.Color.Size(), CheckFrame.Color.Data());
+			std::copy(Frame.Depth.Data(), Frame.Depth.Data() + Frame.Depth.Size(), CheckFrame.Depth.Data());
+			Wave reference = wave;
+			reference.MapTiles = false;
+			DrawWave(reference, CheckFrame, true, true);
+		}
 
+		DrawWave(wave, Frame, Reference, true);
+		mapped = mapTiles;
+
+		if (CheckReference)
+			CompareWithReference();
+	}
+
+	Commands.Reset();
+	Commands.AddState(State);
+	ChunksLaunched = 0;
+	NameEpoch++;
+	return mapped;
+}
+
+void SoftwareRenderDevice::LaunchWave()
+{
+	uint32_t chunks = (uint32_t)Commands.Chunks.size();
+	Background.FirstChunk = ChunksLaunched;
+	Background.Chunks.assign(Commands.Chunks.begin() + ChunksLaunched, Commands.Chunks.end());
+	Background.Clear = ClearPending;
+	Background.MapTiles = false;
+	ClearPending = false;
+	ChunksLaunched = chunks;
+	EnsureBins(chunks);
+	Workers->Start([this]()
+	{
+		SetUpWave(Background, false);
+		DrawWave(Background, Frame, false, false);
+	});
+}
+
+void SoftwareRenderDevice::EnsureBins(uint32_t chunks)
+{
+	while (Bins.size() < chunks)
+	{
+		Bins.push_back(std::make_unique<SoftwareBins>());
+		BinPointers.push_back(Bins.back().get());
+	}
+}
+
+void SoftwareRenderDevice::SetUpWave(const Wave& wave, bool callerShares)
+{
+	Workers->Run((int)wave.Chunks.size(), [&](int i, int) { SoftwareSetup::SetUp(Commands, wave.Chunks[i], Frame, *Bins[wave.FirstChunk + i], GeneralOnly); }, callerShares);
+}
+
+void SoftwareRenderDevice::DrawWave(const Wave& wave, SoftwareFrame& frame, bool reference, bool callerShares)
+{
 	SoftwareRasterJob job;
 	job.Commands = &Commands;
-	job.Bins = Bins.data();
-	job.ChunkCount = chunks;
-	job.Clear = ClearPending;
+	job.Bins = BinPointers.data() + wave.FirstChunk;
+	job.ChunkCount = wave.Chunks.size();
+	job.Clear = wave.Clear;
 	job.ClearColor = ClearColor;
 	job.MipFactor = SoftwareSampler::MipFactor(SoftwareSampler::LODBias);
-	job.Reference = Reference;
+	job.Reference = reference;
 
 	// The tiles by what was binned to them, the most first, so that the
 	// last ones handed out are short
-	const int tiles = Frame.TilesX * Frame.TilesY;
+	const int tiles = frame.TilesX * frame.TilesY;
 	TileCost.assign(tiles, 0);
-	for (size_t c = 0; c < chunks; c++)
+	for (size_t c = 0; c < job.ChunkCount; c++)
 	{
-		const uint32_t* offsets = Bins[c].Offsets.data();
+		const uint32_t* offsets = job.Bins[c]->Offsets.data();
 		for (int t = 0; t < tiles; t++)
 			TileCost[t] += offsets[t + 1] - offsets[t];
 	}
@@ -144,38 +223,85 @@ bool SoftwareRenderDevice::DrawRecorded(bool mapTiles)
 		TileOrder[t] = t;
 	std::stable_sort(TileOrder.begin(), TileOrder.end(), [&](int a, int b) { return TileCost[a] > TileCost[b]; });
 
-	if (CheckReference)
-	{
-		// The frame as it stands drawn on with the reference shading too,
-		// from a copy, for the pipelines' pixels to be compared with
-		CheckFrame.Resize(Frame.Width, Frame.Height);
-		std::copy(Frame.Color.Data(), Frame.Color.Data() + Frame.Color.Size(), CheckFrame.Color.Data());
-		std::copy(Frame.Depth.Data(), Frame.Depth.Data() + Frame.Depth.Size(), CheckFrame.Depth.Data());
-		SoftwareRasterJob reference = job;
-		reference.Reference = true;
-		Workers->Run(tiles, [&](int i, int)
-		{
-			int t = TileOrder[i];
-			SoftwareRasterizer::DrawTile(CheckFrame, reference, t % Frame.TilesX, t / Frame.TilesX);
-		});
-	}
-
 	Workers->Run(tiles, [&](int i, int)
 	{
 		int t = TileOrder[i];
-		int x = t % Frame.TilesX, y = t / Frame.TilesX;
-		SoftwareRasterizer::DrawTile(Frame, job, x, y);
-		if (mapTiles)
-			Present.MapTile(Frame, x, y);
-	});
+		int x = t % frame.TilesX, y = t / frame.TilesX;
+		SoftwareRasterizer::DrawTile(frame, job, x, y);
+		if (wave.MapTiles)
+			Present.MapTile(frame, x, y);
+	}, callerShares);
+}
 
-	if (CheckReference)
-		CompareWithReference();
+// The textures a draw reads, named for BeforeTextureWrite
+void SoftwareRenderDevice::Name(SoftwareTexture* tex)
+{
+	if (!tex)
+		return;
+	if (tex->NamedEpoch != NameEpoch)
+	{
+		tex->NamedEpoch = NameEpoch;
+		tex->NamedRects.clear();
+	}
+	tex->NamedAll = true;
+}
 
-	ClearPending = false;
-	Commands.Reset();
-	Commands.AddState(State);
-	return mapTiles;
+void SoftwareRenderDevice::NameRect(SoftwareTexture* tex, const SoftwareVertex* vertices, uint32_t count, int coord)
+{
+	if (!tex || count == 0)
+		return;
+	if (tex->NamedEpoch != NameEpoch)
+	{
+		tex->NamedEpoch = NameEpoch;
+		tex->NamedAll = false;
+		tex->NamedRects.clear();
+	}
+	if (tex->NamedAll)
+		return;
+
+	// The texels the coordinates reach, and the bilinear filter's beside
+	// them; past the texture's edge, all of it (it wraps)
+	vec2 low = vertices[0].TexCoord[coord], high = low;
+	for (uint32_t i = 1; i < count; i++)
+	{
+		low = vec2(std::min(low.x, vertices[i].TexCoord[coord].x), std::min(low.y, vertices[i].TexCoord[coord].y));
+		high = vec2(std::max(high.x, vertices[i].TexCoord[coord].x), std::max(high.y, vertices[i].TexCoord[coord].y));
+	}
+	const SoftwareMip& mip = tex->Mips[0];
+	SoftwareRect rect;
+	rect.X0 = (int)std::floor(low.x * mip.Width) - 1;
+	rect.Y0 = (int)std::floor(low.y * mip.Height) - 1;
+	rect.X1 = (int)std::ceil(high.x * mip.Width) + 1;
+	rect.Y1 = (int)std::ceil(high.y * mip.Height) + 1;
+	if (!(low.x >= 0.0f && low.y >= 0.0f && high.x <= 1.0f && high.y <= 1.0f))
+		tex->NamedAll = true;
+	else
+		tex->NamedRects.push_back(rect);
+}
+
+void SoftwareRenderDevice::BeforeTextureWrite(SoftwareTexture* tex, int x, int y, int w, int h)
+{
+	if (tex->NamedEpoch != NameEpoch)
+		return;
+	bool read = tex->NamedAll || w < 0;
+	if (!read)
+	{
+		SoftwareRect rect;
+		rect.X0 = x;
+		rect.Y0 = y;
+		rect.X1 = x + w;
+		rect.Y1 = y + h;
+		for (const SoftwareRect& named : tex->NamedRects)
+		{
+			if (named.Overlaps(rect))
+			{
+				read = true;
+				break;
+			}
+		}
+	}
+	if (read)
+		DrawRecorded(false);
 }
 
 // The pipelines' frame against the reference's: the largest difference of
@@ -208,7 +334,15 @@ void SoftwareRenderDevice::CompareWithReference()
 
 SoftwareDraw& SoftwareRenderDevice::AddDraw(SoftwareDrawType type, uint32_t vertexCount, SoftwareVertex*& vertices)
 {
-	return Commands.AddDraw(type, vertexCount, vertices);
+	// What is recorded moved only once no wave reads it
+	if (Commands.WouldGrow(vertexCount))
+		Workers->Wait();
+	SoftwareDraw& draw = Commands.AddDraw(type, vertexCount, vertices);
+
+	// The chunks the draw's start closed, handed out if the workers are free
+	if (Streaming && Commands.Chunks.size() > ChunksLaunched && !Workers->Busy())
+		LaunchWave();
+	return draw;
 }
 
 // The blend, the depth's test and write, the alpha test and the colour's
@@ -319,6 +453,11 @@ void SoftwareRenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Sur
 		v[i].TexCoord[3] = vec2((u - DetailUPan) * DetailUMult, (t - DetailVPan) * DetailVMult);
 		v[i].Color = vec4(1.0f);
 	}
+
+	Name(draw.Texture);
+	NameRect(lightmap, v, Facet.VertexCount, 1);
+	Name(macrotex);
+	Name(detailtex);
 }
 
 // A mesh's or a sprite's draw, its flags, texture and vertices, as the
@@ -350,6 +489,7 @@ SoftwareDraw& SoftwareRenderDevice::AddGouraud(SoftwareDrawType type, SoftwareTe
 		v[i].TexCoord[3] = vec2(0.0f);
 		v[i].Color = modulated ? vec4(1.0f) : vec4(P->Light, 1.0f);
 	}
+	Name(draw.Texture);
 	return draw;
 }
 
@@ -421,6 +561,7 @@ void SoftwareRenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X
 	v[3].TexCoord[0] = vec2(u0, v1);
 	for (int i = 0; i < 4; i++)
 		v[i].Color = color;
+	Name(draw.Texture);
 }
 
 // The colour a line or a point is drawn in: under the present's gamma, so
@@ -533,6 +674,7 @@ void SoftwareRenderDevice::PopHit(int Count, bool bForce)
 
 void SoftwareRenderDevice::ReadPixels(TextureColor* Pixels)
 {
+	Workers->Wait();
 	Present.SetGamma(*this);
 	Present.ReadPixels(Frame, (uint8_t*)Pixels, GammaCorrectScreenshots);
 }
@@ -593,7 +735,11 @@ void SoftwareRenderDevice::SetSceneNode(SceneNode* Frame)
 	}
 
 	if (IsLocked)
+	{
+		if (Commands.StateWouldGrow())
+			Workers->Wait();
 		Commands.AddState(State);
+	}
 }
 
 void SoftwareRenderDevice::PrecacheTexture(TextureInfo& Info, uint32_t PolyFlags)

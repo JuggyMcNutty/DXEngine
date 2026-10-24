@@ -43,11 +43,36 @@ public:
 	bool SupportsRenderScale() const override { return true; }
 
 private:
-	// What is recorded, drawn into the frame: the clear first if the frame
-	// has not had it. mapTiles: each tile, once drawn, mapped into the
-	// window's pixels (SoftwarePresent::MapTile); true where they were.
+	// A run of chunks drawn together into every tile: the frame's clear
+	// first if it has not had it; each tile, once drawn, mapped into the
+	// window's pixels (SoftwarePresent::MapTile) with mapTiles
+	struct Wave
+	{
+		uint32_t FirstChunk = 0;
+		std::vector<SoftwareChunk> Chunks;
+		bool Clear = false;
+		bool MapTiles = false;
+	};
+
+	// What is recorded and not yet drawn, drawn: the wave the workers may
+	// be drawing waited for, then the rest on every thread; true where the
+	// tiles were mapped. Nothing recorded is left undrawn after it.
 	bool DrawRecorded(bool mapTiles);
+	// The chunks closed since the last wave, handed to the workers to set up
+	// and draw while the game's thread records what follows
+	void LaunchWave();
+	// A wave's chunks set up and drawn: callerShares, the calling thread
+	// takes its share (the game's); else it waits (the background thread)
+	void SetUpWave(const Wave& wave, bool callerShares);
+	void DrawWave(const Wave& wave, SoftwareFrame& frame, bool reference, bool callerShares);
+	void EnsureBins(uint32_t chunks);
 	void CompareWithReference();
+
+	// A draw's textures named as read until the next DrawRecorded; a light
+	// map's by the rectangle its coordinates reach
+	void Name(SoftwareTexture* tex);
+	void NameRect(SoftwareTexture* tex, const SoftwareVertex* vertices, uint32_t count, int coord);
+	void BeforeTextureWrite(SoftwareTexture* tex, int x, int y, int w, int h);
 
 	SoftwareDraw& AddDraw(SoftwareDrawType type, uint32_t vertexCount, SoftwareVertex*& vertices);
 	SoftwareDraw& AddGouraud(SoftwareDrawType type, SoftwareTexture* tex, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags);
@@ -59,13 +84,25 @@ private:
 	SoftwarePresent Present;
 	SoftwareTextureManager Textures;
 	SoftwareCommands Commands;
-	std::vector<SoftwareBins> Bins;
+	std::vector<std::unique_ptr<SoftwareBins>> Bins; // a chunk's each, where they stay
+	std::vector<const SoftwareBins*> BinPointers;
 
 	// The threads a frame's drawing is shared among, the game's with them,
 	// and the tiles in the order they are handed out: the most binned first
 	std::unique_ptr<SoftwareWorkers> Workers;
 	std::vector<int> TileOrder;
 	std::vector<uint32_t> TileCost;
+
+	// Waves drawn while the game's thread records (not with one thread, nor
+	// with the reference shading): the chunks handed out so far, the wave
+	// the workers have
+	bool Streaming = false;
+	uint32_t ChunksLaunched = 0;
+	Wave Background;
+
+	// What the draws not yet drawn read, named in this epoch
+	// (SoftwareTexture::NamedEpoch); each DrawRecorded begins another
+	uint64_t NameEpoch = 1;
 
 	// The current scene node's, kept from frame to frame: a draw before a
 	// frame's first SetSceneNode takes the last one

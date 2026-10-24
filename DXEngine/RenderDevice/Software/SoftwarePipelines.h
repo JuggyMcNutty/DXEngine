@@ -239,15 +239,27 @@ namespace SoftwarePixel
 		return SoftwareSampler::SelectMip(tex, SoftwareSampler::StepSquared(dudx, dvdx, dudy, dvdy), mipFactor);
 	}
 
-	// A texture sampled for the quad: its 0.16 fractions
+	// A texture sampled for the quad's lanes in mask: its 0.16 fractions
 	template<bool NoSmooth>
-	inline void Sample(const SoftwareTexture* tex, F4 u, F4 v, bool clamp, float scale, float mipFactor, W8& out01, W8& out23, int32_t* alpha = nullptr)
+	inline void Sample(const SoftwareTexture* tex, F4 u, F4 v, bool clamp, float scale, float mipFactor, int mask, W8& out01, W8& out23, int32_t* alpha = nullptr)
 	{
 		const SoftwareMip& mip = tex->Mips[QuadMip(tex, u, v, scale, mipFactor)];
 		if (scale != 1.0f)
 		{
 			u = u * SetF(scale);
 			v = v * SetF(scale);
+		}
+
+		// The lanes outside the mask read where one inside does: their pixels
+		// are not drawn, and their coordinates, carried past the primitive
+		// (wildly past the near plane), would reach texels the draw never
+		// reads, which the game's thread may be writing meanwhile
+		if (mask != 15)
+		{
+			int first = (mask & 1) ? 0 : (mask & 2) ? 1 : (mask & 4) ? 2 : 3;
+			I4 inside = SetI((mask & 1) ? -1 : 0, (mask & 2) ? -1 : 0, (mask & 4) ? -1 : 0, (mask & 8) ? -1 : 0);
+			u = Select(inside, u, SetF(Lane(u, first)));
+			v = Select(inside, v, SetF(Lane(v, first)));
 		}
 		if (NoSmooth)
 			Nearest(mip, u, v, clamp, out01, out23, alpha);
@@ -423,9 +435,9 @@ void SoftwareDrawPrimitive(SoftwareFrame& frame, const SoftwareRasterJob& job, c
 			W8 t01, t23;
 			int32_t alpha[4];
 			if (noSmooth)
-				Sample<true>(texture, attribute(0), attribute(1), clamp, 1.0f, mipFactor, t01, t23, alphaTest ? alpha : nullptr);
+				Sample<true>(texture, attribute(0), attribute(1), clamp, 1.0f, mipFactor, mask, t01, t23, alphaTest ? alpha : nullptr);
 			else
-				Sample<false>(texture, attribute(0), attribute(1), clamp, 1.0f, mipFactor, t01, t23, alphaTest ? alpha : nullptr);
+				Sample<false>(texture, attribute(0), attribute(1), clamp, 1.0f, mipFactor, mask, t01, t23, alphaTest ? alpha : nullptr);
 
 			if (alphaTest)
 			{
@@ -451,7 +463,7 @@ void SoftwareDrawPrimitive(SoftwareFrame& frame, const SoftwareRasterJob& job, c
 			if (flags & 2)
 			{
 				W8 m01, m23;
-				Sample<false>(draw.MacroTexture, attribute(4), attribute(5), false, 1.0f, mipFactor, m01, m23);
+				Sample<false>(draw.MacroTexture, attribute(4), attribute(5), false, 1.0f, mipFactor, mask, m01, m23);
 				o01 = Min(Twice(MulHighRound(o01, m01)), one);
 				o23 = Min(Twice(MulHighRound(o23, m23)), one);
 				lightmapShift++;
@@ -459,7 +471,7 @@ void SoftwareDrawPrimitive(SoftwareFrame& frame, const SoftwareRasterJob& job, c
 			if (flags & 1)
 			{
 				W8 l01, l23;
-				Sample<false>(draw.LightMap, attribute(2), attribute(3), false, 1.0f, mipFactor, l01, l23);
+				Sample<false>(draw.LightMap, attribute(2), attribute(3), false, 1.0f, mipFactor, mask, l01, l23);
 				o01 = MulHighRound(o01, l01);
 				o23 = MulHighRound(o23, l23);
 				for (int i = 0; i < lightmapShift; i++)
@@ -485,7 +497,7 @@ void SoftwareDrawPrimitive(SoftwareFrame& frame, const SoftwareRasterJob& job, c
 						int32_t as[4];
 						StoreI(as, ai);
 						W8 d01, d23;
-						Sample<false>(draw.DetailTexture, u3, v3, false, repeat, mipFactor, d01, d23);
+						Sample<false>(draw.DetailTexture, u3, v3, false, repeat, mipFactor, mask, d01, d23);
 						W8 f01 = SetW4((uint16_t)as[0], (uint16_t)as[1]);
 						W8 f23 = SetW4((uint16_t)as[2], (uint16_t)as[3]);
 						// mix(0.5, detail, a), then twice the colour times it
@@ -501,7 +513,7 @@ void SoftwareDrawPrimitive(SoftwareFrame& frame, const SoftwareRasterJob& job, c
 			else if (flags & 8)
 			{
 				W8 f01, f23;
-				Sample<false>(draw.DetailTexture, attribute(6), attribute(7), false, 1.0f, mipFactor, f01, f23);
+				Sample<false>(draw.DetailTexture, attribute(6), attribute(7), false, 1.0f, mipFactor, mask, f01, f23);
 				o01 = AddSat(ToShading(f01), MulHighRound(o01, ~BroadcastAlpha(f01)));
 				o23 = AddSat(ToShading(f23), MulHighRound(o23, ~BroadcastAlpha(f23)));
 			}

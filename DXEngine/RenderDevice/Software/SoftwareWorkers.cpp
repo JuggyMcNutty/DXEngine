@@ -37,6 +37,17 @@ SoftwareWorkers::SoftwareWorkers(int threads)
 
 SoftwareWorkers::~SoftwareWorkers()
 {
+	if (BackgroundThread.joinable())
+	{
+		Wait();
+		{
+			std::lock_guard<std::mutex> lock(BackgroundMutex);
+			StopBackground = true;
+		}
+		BackgroundWake.notify_all();
+		BackgroundThread.join();
+	}
+
 	{
 		std::lock_guard<std::mutex> lock(Mutex);
 		Exiting = true;
@@ -47,7 +58,7 @@ SoftwareWorkers::~SoftwareWorkers()
 		thread.join();
 }
 
-void SoftwareWorkers::Run(int count, const std::function<void(int item, int thread)>& work)
+void SoftwareWorkers::Run(int count, const std::function<void(int item, int thread)>& work, bool callerShares)
 {
 	if (count <= 0)
 		return;
@@ -70,9 +81,17 @@ void SoftwareWorkers::Run(int count, const std::function<void(int item, int thre
 	}
 	Wake.notify_all();
 
-	Share(0);
-	while (Finished.load(std::memory_order_acquire) < (int)Pool.size())
-		Pause();
+	if (callerShares)
+	{
+		Share(0);
+		while (Finished.load(std::memory_order_acquire) < (int)Pool.size())
+			Pause();
+	}
+	else
+	{
+		std::unique_lock<std::mutex> lock(Mutex);
+		PhaseDone.wait(lock, [&]() { return Finished.load(std::memory_order_acquire) == (int)Pool.size(); });
+	}
 }
 
 void SoftwareWorkers::Share(int thread)
@@ -110,6 +129,49 @@ void SoftwareWorkers::Worker(int thread)
 			return;
 
 		Share(thread);
-		Finished.fetch_add(1, std::memory_order_acq_rel);
+		if (Finished.fetch_add(1, std::memory_order_acq_rel) + 1 == (int)Pool.size())
+		{
+			// The last: a caller waiting asleep woken
+			std::lock_guard<std::mutex> lock(Mutex);
+			PhaseDone.notify_all();
+		}
+	}
+}
+
+void SoftwareWorkers::Start(std::function<void()> job)
+{
+	if (!BackgroundThread.joinable())
+		BackgroundThread = std::thread([this]() { Background(); });
+	{
+		std::lock_guard<std::mutex> lock(BackgroundMutex);
+		Job = std::move(job);
+		Pending.store(true, std::memory_order_release);
+	}
+	BackgroundWake.notify_one();
+}
+
+void SoftwareWorkers::Wait()
+{
+	if (!Pending.load(std::memory_order_acquire))
+		return;
+	std::unique_lock<std::mutex> lock(BackgroundMutex);
+	BackgroundDone.wait(lock, [&]() { return !Pending.load(std::memory_order_acquire); });
+}
+
+void SoftwareWorkers::Background()
+{
+	std::unique_lock<std::mutex> lock(BackgroundMutex);
+	for (;;)
+	{
+		BackgroundWake.wait(lock, [&]() { return Job != nullptr || StopBackground; });
+		if (StopBackground)
+			return;
+		std::function<void()> job = std::move(Job);
+		Job = nullptr;
+		lock.unlock();
+		job();
+		lock.lock();
+		Pending.store(false, std::memory_order_release);
+		BackgroundDone.notify_all();
 	}
 }

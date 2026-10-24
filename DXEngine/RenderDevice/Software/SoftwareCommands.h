@@ -104,6 +104,12 @@ public:
 	int CurrentState() const { return (int)States.size() - 1; }
 	bool Empty() const { return Draws.empty(); }
 
+	// Whether the next draw of vertexCount vertices, or the next state, moves
+	// the storage what is recorded lies in, which the device's threads may
+	// be reading
+	bool WouldGrow(uint32_t vertexCount) const { return Draws.size() == Draws.capacity() || Vertices.size() + vertexCount > Vertices.capacity(); }
+	bool StateWouldGrow() const { return States.size() == States.capacity(); }
+
 	std::vector<SoftwareState> States;
 	std::vector<SoftwareDraw> Draws;
 	std::vector<SoftwareVertex> Vertices;

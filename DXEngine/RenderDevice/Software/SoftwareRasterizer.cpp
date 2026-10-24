@@ -256,7 +256,7 @@ void SoftwareRasterizer::DrawTile(SoftwareFrame& frame, const SoftwareRasterJob&
 	const int tile = tileY * frame.TilesX + tileX;
 	for (size_t c = 0; c < job.ChunkCount; c++)
 	{
-		const SoftwareBins& bins = job.Bins[c];
+		const SoftwareBins& bins = *job.Bins[c];
 		for (uint32_t i = bins.Offsets[tile], end = bins.Offsets[tile + 1]; i < end; i++)
 		{
 			const SoftwarePrimitive& prim = bins.Primitives[bins.Entries[i]];

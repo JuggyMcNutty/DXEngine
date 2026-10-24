@@ -468,12 +468,18 @@ wherever else that state is set.
 **The software device** (`DXEngine/RenderDevice/Software/`) draws on the CPU, for a machine
 whose GPU has no driver: its window is a bitmap's (`RenderAPI::Bitmap`), its frame BGRA8, as
 `D3DDrv`'s 8-bit frame, with a float depth buffer, both at the render size. It records a frame's
-calls, copying each scene node and vertex, and draws them at `Unlock` on every hardware thread,
-the game's among them (`SoftwareWorkers`, `DXE_SW_THREADS`): each chunk of about 128 triangles
-set up and binned to the frame's tiles of 64 pixels a side, the chunks shared out; then the
-tiles, the most binned first, each drawn by one thread, its clear first, then what was binned to
-it in order. A `Flush` within a frame draws what is recorded before it lets the textures go. No
-launcher offers it yet.
+calls, copying each scene node and vertex, and draws them on every hardware thread, the game's
+among them (`SoftwareWorkers`, `DXE_SW_THREADS`): each chunk of about 128 triangles set up and
+binned to the frame's tiles of 64 pixels a side, then each tile drawn by one thread, the most
+binned first, its clear first, then what was binned to it in order. The chunks go to the other
+threads in waves as they close, while the game's thread records what follows, the frame's clear
+with `Lock`; what is left is drawn at `Unlock` on all of them, and no frame is drawn while the
+next is recorded. What a wave reads stays put: the recording's storage grows only once the wave
+is done; a texture changed in place after a draw not yet drawn named it (a light map's shared
+page, where its texels are among the draw's) has what is recorded drawn first, so each draw
+reads it as it was when the draw was made, as a `Flush` within a frame draws what is recorded
+before it lets the textures go; and a quad's lanes outside its primitive sample where one inside
+does, so a draw reads no texel but its pixels'. No launcher offers it yet.
 
 - **Triangles**, as the Vulkan device's: each in clip space by its scene node's transforms,
   clipped where a corner lies behind the node's clip plane (the Vulkan device's clip distance,

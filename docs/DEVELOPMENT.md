@@ -503,8 +503,8 @@ Its look against the Vulkan device's: a console run on each (`software-settings.
 `D3DDrv`'s, the original with `DXCAP_RENDERER=D3D`.
 
 Its threads under ThreadSanitizer, built as the AddressSanitizer build is ([crashes](#crashes)),
-in a harness run (`ProveConsole`, `PerfTurnConsole`): the one report is OpenAL's own mixing
-thread's.
+in harness runs (`ProveConsole`, `PerfTurnConsole`, `CameraConsole`'s two scenes a frame,
+`MirrorConsole`, `LaserConsole`, `FlushConsole`): the one report is OpenAL's own mixing thread's.
 
 ```sh
 CXXFLAGS="-fsanitize=thread -fno-omit-frame-pointer" LDFLAGS=-fsanitize=thread \

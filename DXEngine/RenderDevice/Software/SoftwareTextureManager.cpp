@@ -47,9 +47,17 @@ SoftwareTexture* SoftwareTextureManager::GetTexture(TextureInfo* info, bool mask
 	{
 		info->bRealtimeChanged = false;
 		if (info->UpdateWidth > 0)
+		{
+			if (BeforeWrite)
+				BeforeWrite(tex, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
 			SoftwareTextureUploader::UploadRect(tex, *info, masked, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
+		}
 		else
+		{
+			if (BeforeWrite)
+				BeforeWrite(tex, 0, 0, -1, -1);
 			SoftwareTextureUploader::Upload(tex, *info, masked);
+		}
 	}
 	return tex;
 }
@@ -59,6 +67,8 @@ void SoftwareTextureManager::UpdateTextureRect(TextureInfo* info, int x, int y, 
 	SoftwareTexture* tex = Find(0, info->CacheID);
 	if (tex)
 	{
+		if (BeforeWrite)
+			BeforeWrite(tex, x, y, w, h);
 		SoftwareTextureUploader::UploadRect(tex, *info, false, x, y, w, h);
 		info->bRealtimeChanged = false;
 	}
