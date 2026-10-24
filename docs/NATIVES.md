@@ -1121,6 +1121,9 @@ for single player only. An actor's own tick runs its state code, its timer,
 its `LifeSpan` and then its physics; the timer calls `Timer` once a tick
 however many of its periods passed, and a life span run out ends the tick
 (a 0.05 s timer over `FrameConsole`'s held frame: one call in each engine).
+Before each level tick the level's `bDropDetail` and `bAggressiveLOD` are
+cleared, as the original's game engine clears them with a client: nothing
+drops detail for the frame rate.
 
 **Garbage** is collected as the original's map load collects it
 ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-map-loads-collection);

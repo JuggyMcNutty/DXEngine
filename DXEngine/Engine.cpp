@@ -368,9 +368,14 @@ void Engine::Run()
 		if (timeline)
 			timeline->Tick(realTimeElapsed);
 
-		// To do: set these to true if the frame rate is too low
-		LevelInfo->bDropDetail() = false;
-		LevelInfo->bAggressiveLOD() = false;
+		// The original's game engine clears these before each level tick
+		// when it has a client, and nothing sets them: no detail is dropped
+		// for the frame rate (engine-dll.md, a level's tick).
+		if (!dedicated)
+		{
+			LevelInfo->bDropDetail() = false;
+			LevelInfo->bAggressiveLOD() = false;
+		}
 
 		// A client's packets come in before its level ticks and go out
 		// after, as the original's level tick has them.
