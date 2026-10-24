@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 0401ee2..6a5b4e1 100644
+index 3c83718..a15f923 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -35,6 +35,11 @@ endif()
@@ -367,6 +367,51 @@ index deadee5..d0088d7 100644
  	DrawPortals();
  	DrawOpaqueNodes();
  	DrawOpaqueActors();
+diff --git a/DXEngine/RenderDevice/Software/SoftwareRenderDevice.cpp b/DXEngine/RenderDevice/Software/SoftwareRenderDevice.cpp
+index 7927305..c82b512 100644
+--- a/DXEngine/RenderDevice/Software/SoftwareRenderDevice.cpp
++++ b/DXEngine/RenderDevice/Software/SoftwareRenderDevice.cpp
+@@ -5,6 +5,7 @@
+ #include "SoftwareSampler.h"
+ #include "SoftwareSimd.h"
+ #include "Utils/Logger.h"
++#include "Utils/PerfLog.h" // TEMPORARY DEBUG TOOL
+ #include "Packages/Engine/Resources/Level/UModel.h"
+ #include <dxwidgets/core/widget.h>
+ #include <algorithm>
+@@ -91,8 +92,13 @@ void SoftwareRenderDevice::Unlock(bool Blit)
+ 		int width = std::max(Viewport->GetNativePixelWidth(), 1);
+ 		int height = std::max(Viewport->GetNativePixelHeight(), 1);
+ 		bool mapped = DrawRecorded(Present.Prepare(Frame, width, height));
+-		const uint32_t* pixels = Present.Present(Frame, *Workers, mapped);
++		const uint32_t* pixels;
++		{ PerfLog::Scope perf(PerfLog::SwPresent); // TEMPORARY DEBUG TOOL
++		pixels = Present.Present(Frame, *Workers, mapped);
++		}
++		{ PerfLog::Scope perf(PerfLog::SwWindow); // TEMPORARY DEBUG TOOL
+ 		Viewport->PresentBitmap(width, height, pixels);
++		}
+ 	}
+ 	else
+ 	{
+@@ -118,7 +124,9 @@ bool SoftwareRenderDevice::DrawRecorded(bool mapTiles)
+ 	// The front end, a chunk at a time
+ 	if (Bins.size() < chunks)
+ 		Bins.resize(chunks);
++	{ PerfLog::Scope perf(PerfLog::SwSetup); // TEMPORARY DEBUG TOOL
+ 	Workers->Run((int)chunks, [&](int i, int) { SoftwareSetup::SetUp(Commands, Commands.Chunks[i], Frame, Bins[i], GeneralOnly); });
++	}
+ 
+ 	SoftwareRasterJob job;
+ 	job.Commands = &Commands;
+@@ -160,6 +168,7 @@ bool SoftwareRenderDevice::DrawRecorded(bool mapTiles)
+ 		});
+ 	}
+ 
++	PerfLog::Scope perfTiles(PerfLog::SwRaster); // TEMPORARY DEBUG TOOL
+ 	Workers->Run(tiles, [&](int i, int)
+ 	{
+ 		int t = TileOrder[i];
 diff --git a/DXEngine/RenderDevice/Vulkan/CommandBufferManager.cpp b/DXEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
 index 825bad8..2d67707 100644
 --- a/DXEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
@@ -441,10 +486,10 @@ index 49f2c20..8bee7d8 100644
  			renderer->Uploads->UploadTextureRect(tex.get(), *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
 diff --git a/DXEngine/Utils/PerfLog.h b/DXEngine/Utils/PerfLog.h
 new file mode 100644
-index 0000000..2adc2c9
+index 0000000..425102f
 --- /dev/null
 +++ b/DXEngine/Utils/PerfLog.h
-@@ -0,0 +1,505 @@
+@@ -0,0 +1,514 @@
 +// TEMPORARY DEBUG TOOL -- revert before commit.
 +//
 +// Frame-time breakdown for profiling on the handheld. With DXE_PERF_LOG=1
@@ -455,7 +500,9 @@ index 0000000..2adc2c9
 +// gpu-wait; GPU-bound as a big gpu-wait. A second line splits the render CPU
 +// into sections (the top-level frame only: a sky or warp portal's nested frame
 +// counts under "portals"), each exclusive of the waits, lightmap builds and
-+// texture uploads inside it, with the share spent under script calls.
++// texture uploads inside it, with the share spent under script calls. With
++// the software device, another line splits its part of unlock: its front
++// end, its tiles, its present and the window's.
 +//
 +// DXE_PERF_DETAIL=1 adds tick by actor class and script functions by self
 +// time. Those hooks run on every actor tick and every VM call, so they inflate
@@ -656,7 +703,10 @@ index 0000000..2adc2c9
 +		LmStatic, LmDynamic,
 +		// Inside the visibility pass (all frames): box tests, surface tests,
 +		// portal tests, actor set-up.
-+		VisAabb, VisSurface, VisPortal, VisActor, Count };
++		VisAabb, VisSurface, VisPortal, VisActor,
++		// Inside unlock, the software device's: its front end, its tiles,
++		// its present (the ramp, the scale), the window's present.
++		SwSetup, SwRaster, SwPresent, SwWindow, Count };
 +
 +	inline bool Enabled()
 +	{
@@ -899,6 +949,10 @@ index 0000000..2adc2c9
 +			s.sum[VisAabb] / n, (int)(Counter(VisAabb) / n), s.sum[VisSurface] / n, (int)(Counter(VisSurface) / n),
 +			s.sum[VisPortal] / n, s.sum[VisActor] / n, (int)(Counter(VisActor) / n));
 +		Counter(VisAabb) = Counter(VisSurface) = Counter(VisActor) = 0;
++
++		if (s.sum[SwSetup] + s.sum[SwRaster] + s.sum[SwPresent] + s.sum[SwWindow] > 0)
++			std::fprintf(stderr, "perf: software device (in unlock): front end %.2f, tiles %.2f, present %.2f, window %.2f\n",
++				s.sum[SwSetup] / n, s.sum[SwRaster] / n, s.sum[SwPresent] / n, s.sum[SwWindow] / n);
 +
 +		std::fprintf(stderr, "perf: lightmaps: static pass %.1f, dynamic pass %.1f | rebuilt by (per frame):",
 +			s.sum[LmStatic] / n, s.sum[LmDynamic] / n);
