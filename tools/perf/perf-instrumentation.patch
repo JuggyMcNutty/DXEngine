@@ -1,8 +1,8 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index be1c475..986f542 100644
+index 9661719..874e74c 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -12,6 +12,11 @@ endif()
+@@ -35,6 +35,11 @@ endif()
  
  project(DXEngine)
  
@@ -15,7 +15,7 @@ index be1c475..986f542 100644
  	DXEngine/Precomp.cpp
  	DXEngine/Precomp.h
 diff --git a/DXEngine/Engine.cpp b/DXEngine/Engine.cpp
-index f7ad565..133e246 100644
+index e4ebc2f..ba70fbf 100644
 --- a/DXEngine/Engine.cpp
 +++ b/DXEngine/Engine.cpp
 @@ -2,6 +2,7 @@
@@ -26,7 +26,7 @@ index f7ad565..133e246 100644
  #include "Utils/File.h"
  #include "Utils/StrTools.h"
  #include "Utils/SHA1Sum.h"
-@@ -284,8 +285,10 @@ void Engine::Run()
+@@ -323,8 +324,10 @@ void Engine::Run()
  		// makes this frame has been laid out by the time they next tick.
  		// They tick by real seconds since their last tick, not the level's
  		// time (XRootWindow::TickWindows 0x1003a4a0).
@@ -37,7 +37,7 @@ index f7ad565..133e246 100644
  
  		TotalTime += realTimeElapsed;
  
-@@ -319,10 +322,16 @@ void Engine::Run()
+@@ -358,10 +361,16 @@ void Engine::Run()
  		// original's level tick holds it (dx-reverse-info engine-dll.md, a
  		// level's tick).
  		if (!dedicated)
@@ -54,7 +54,7 @@ index f7ad565..133e246 100644
  		// Do NOT pause this Tick event otherwise some messages will stay on screen forever.
  		if (!dedicated)
  			CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(levelElapsed) });
-@@ -348,6 +357,10 @@ void Engine::Run()
+@@ -395,6 +404,10 @@ void Engine::Run()
  		if (LevelNetDriver)
  			LevelNetDriver->TickFlush();
  
@@ -65,7 +65,7 @@ index f7ad565..133e246 100644
  		// To do: improve CallEvent so parameter passing isn't this painful
  		UFunction* funcPlayerCalcView = viewport->Actor() ? FindEventFunction(viewport->Actor(), "PlayerCalcView") : nullptr;
  		if (funcPlayerCalcView)
-@@ -366,12 +379,17 @@ void Engine::Run()
+@@ -413,12 +426,17 @@ void Engine::Run()
  		}
  
  		if (!dedicated)
@@ -84,7 +84,7 @@ index f7ad565..133e246 100644
  
  		// Save the game if there is a request for it
  		if (SaveGameInfo.SaveGameSlot != DONT_SAVE_GAME)
-@@ -2712,6 +2730,9 @@ void Engine::UpdateInput(float timeElapsed)
+@@ -2775,6 +2793,9 @@ void Engine::UpdateInput(float timeElapsed)
  	if (!viewport->Actor())
  		return;
  
@@ -95,7 +95,7 @@ index f7ad565..133e246 100644
  		viewport->Actor()->SetBool(it.first, true);
  	for (auto& it : activeInputAxes)
 diff --git a/DXEngine/Light/LightSystem_Light.cpp b/DXEngine/Light/LightSystem_Light.cpp
-index cdbe574..0a416b3 100644
+index bb75748..04ee074 100644
 --- a/DXEngine/Light/LightSystem_Light.cpp
 +++ b/DXEngine/Light/LightSystem_Light.cpp
 @@ -1,6 +1,8 @@
@@ -107,7 +107,7 @@ index cdbe574..0a416b3 100644
  #include "RenderDevice/RenderDevice.h"
  #include "Engine.h"
  #include "Packages/Engine/UDXEngineClient.h"
-@@ -228,6 +230,29 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
+@@ -219,6 +221,29 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
  	std::unique_ptr<LightmapTexture>& lmtexture = *surface.Texture;
  	if (!lmtexture || lmtexture->LastStaticUpdate != lastStaticUpdate || lmtexture->LastDynamicUpdate != lastDynamicUpdate)
  	{
@@ -137,7 +137,7 @@ index cdbe574..0a416b3 100644
  		engine->render->Stats.LightmapsUpdated++;
  
  		Builder.Setup(model, coords, lightmapIndex);
-@@ -258,6 +283,7 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
+@@ -249,6 +274,7 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
  		{
  			updated = { 0, 0, Builder.Width(), Builder.Height() };
  			Builder.CalcWorldLocations(updated);
@@ -145,7 +145,7 @@ index cdbe574..0a416b3 100644
  			Builder.SetAmbientLight(zoneActor);
  			if (!dynamicMover)
  			{
-@@ -266,7 +292,9 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
+@@ -257,7 +283,9 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
  			}
  		}
  
@@ -156,7 +156,7 @@ index cdbe574..0a416b3 100644
  		UnrealMipmap& lmmip = lmtexture->Mip;
  		const vec3* pixels = Builder.Pixels();
 diff --git a/DXEngine/Packages/Engine/Resources/Level/ULevel.cpp b/DXEngine/Packages/Engine/Resources/Level/ULevel.cpp
-index c39f771..4459858 100644
+index de8c14b..f23fec0 100644
 --- a/DXEngine/Packages/Engine/Resources/Level/ULevel.cpp
 +++ b/DXEngine/Packages/Engine/Resources/Level/ULevel.cpp
 @@ -1,5 +1,7 @@
@@ -177,9 +177,9 @@ index c39f771..4459858 100644
 +		PerfLog::AddClass(actor->Class->Name.ToString(), (PerfLog::NowNs() - perfStart) / 1e6);
  	if (lastStart == TickStart::Waiting)
  		return false;
- 	if (lastStart == TickStart::Stasis || actor->bDeleteMe())
+ 	// The life span runs out in the actor's own tick (UActor::Tick)
 diff --git a/DXEngine/Render/RenderScene.cpp b/DXEngine/Render/RenderScene.cpp
-index 85afb7c..4392d17 100644
+index cbf1500..737d15c 100644
 --- a/DXEngine/Render/RenderScene.cpp
 +++ b/DXEngine/Render/RenderScene.cpp
 @@ -1,5 +1,6 @@
@@ -216,7 +216,7 @@ index 85afb7c..4392d17 100644
  
  void RenderSubsystem::UpdateRenderInterface(UActor* actor)
 diff --git a/DXEngine/Render/RenderSubsystem.cpp b/DXEngine/Render/RenderSubsystem.cpp
-index 88f3cf7..94360e8 100644
+index b34e7b2..257289f 100644
 --- a/DXEngine/Render/RenderSubsystem.cpp
 +++ b/DXEngine/Render/RenderSubsystem.cpp
 @@ -1,5 +1,6 @@
@@ -277,7 +277,7 @@ index 88f3cf7..94360e8 100644
  	FrameDrawn = true;
  }
 diff --git a/DXEngine/Render/VisibleFrame.cpp b/DXEngine/Render/VisibleFrame.cpp
-index 5a3c98d..c0fa21d 100644
+index 1bf3194..55737c5 100644
 --- a/DXEngine/Render/VisibleFrame.cpp
 +++ b/DXEngine/Render/VisibleFrame.cpp
 @@ -1,6 +1,7 @@
@@ -288,7 +288,7 @@ index 5a3c98d..c0fa21d 100644
  #include "VisibleCorona.h"
  #include "RenderSubsystem.h"
  #include "RenderDevice/RenderDevice.h"
-@@ -495,7 +496,11 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
+@@ -591,7 +592,11 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
  
  	// Skip node if its AABB is not visible -- and what came down into its
  	// space with it, as the original drops it
@@ -301,7 +301,7 @@ index 5a3c98d..c0fa21d 100644
  	{
  		return;
  	}
-@@ -508,6 +513,7 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
+@@ -604,6 +609,7 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
  			actor->LastDrawFrame = FrameCounter;
  
  			VisibleActor visactor;
@@ -309,7 +309,7 @@ index 5a3c98d..c0fa21d 100644
  			visactor.Process(this, actor);
  		}
  	}
-@@ -630,7 +636,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -731,7 +737,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  			if (zoneInfo->SkyZone())
  			{
  				gatherPoints();
@@ -319,7 +319,7 @@ index 5a3c98d..c0fa21d 100644
  				if (!spans.empty())
  				{
  					USkyZoneInfo* skyZone = zoneInfo->SkyZone();
-@@ -661,7 +669,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -762,7 +770,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  				if (warpZone)
  				{
  					gatherPoints();
@@ -329,7 +329,7 @@ index 5a3c98d..c0fa21d 100644
  					if (!spans.empty())
  					{
  						for (auto& p : Portals)
-@@ -705,7 +715,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -806,7 +816,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  			else
  			{
  				gatherPoints();
@@ -339,10 +339,10 @@ index 5a3c98d..c0fa21d 100644
  				if (!spans.empty())
  				{
  					// One frame for the mirrors of one plane seen from one
-@@ -752,7 +764,11 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -868,7 +880,11 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+ 		}
  	}
  
- 	gatherPoints();
 -	if (!Clipper.CheckSurface(points, numverts, (PolyFlags & PF_NoOcclude) == 0))
 +	bool perfSurfaceVisible; // TEMPORARY DEBUG TOOL: time the surface test
 +	{ PerfLog::Scope perf(PerfLog::VisSurface); PerfLog::Counter(PerfLog::VisSurface)++;
@@ -352,7 +352,7 @@ index 5a3c98d..c0fa21d 100644
  		return;
  
  	// A visible portal surface means the zones it borders were seen: their
-@@ -833,6 +849,14 @@ int VisibleFrame::FindZoneAt(const vec4& location, BspNode* node, BspNode* nodes
+@@ -954,6 +970,14 @@ int VisibleFrame::FindZoneAt(const vec4& location, BspNode* node, BspNode* nodes
  
  void VisibleFrame::Draw()
  {
@@ -368,7 +368,7 @@ index 5a3c98d..c0fa21d 100644
  	DrawOpaqueNodes();
  	DrawOpaqueActors();
 diff --git a/DXEngine/RenderDevice/Vulkan/CommandBufferManager.cpp b/DXEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
-index cede4fb..94c1dc3 100644
+index 825bad8..2d67707 100644
 --- a/DXEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
 +++ b/DXEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
 @@ -1,6 +1,7 @@
@@ -395,7 +395,7 @@ index cede4fb..94c1dc3 100644
  		VkResult result = vkWaitForFences(renderer->Device.get()->device, 1, &RenderFinishedFence->fence, VK_TRUE, std::numeric_limits<uint64_t>::max());
  		if (result != VK_SUCCESS)
  			throw std::runtime_error("vkWaitForFences failed");
-@@ -103,7 +106,9 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
+@@ -109,7 +112,9 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
  			}
  		}
  
@@ -405,7 +405,7 @@ index cede4fb..94c1dc3 100644
  		if (PresentImageIndex != -1)
  		{
  			renderer->DrawPresentTexture(presentWidth, presentHeight);
-@@ -155,6 +160,7 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
+@@ -161,6 +166,7 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
  		return;
  	}
  
@@ -951,7 +951,7 @@ index 0000000..2adc2c9
 +	}
 +}
 diff --git a/DXEngine/VM/Frame.cpp b/DXEngine/VM/Frame.cpp
-index effcd01..d1edcd0 100644
+index bba46e2..56193f6 100644
 --- a/DXEngine/VM/Frame.cpp
 +++ b/DXEngine/VM/Frame.cpp
 @@ -1,6 +1,7 @@
