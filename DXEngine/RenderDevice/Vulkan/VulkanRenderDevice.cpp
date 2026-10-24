@@ -92,6 +92,12 @@ VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
 		LogMessage("Vulkan device type: " + deviceType);
 		LogMessage("Vulkan version: " + apiVersion + " (api) " + driverVersion + " (driver)");
 		LogMessage(std::string("Vulkan textures: ") + (SupportsBindless ? "bindless" : "per-batch descriptor sets (no descriptor indexing)"));
+
+		// Mesa's CPU driver alone, lavapipe, not asked for: no GPU here, and
+		// the software device draws faster on the CPU (ENGINE.md, the
+		// software device against Mesa's)
+		if (!CPUDriver && props.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU)
+			throw std::runtime_error(std::string("its only device draws on the CPU: ") + props.deviceName);
 	}
 	catch (const std::exception& e)
 	{

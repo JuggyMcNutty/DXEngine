@@ -205,6 +205,29 @@ a cache, a surface outside one side rejected without a clip
 nor does skipping the nodes of zones not yet seen, or asking ahead (prefetch) for a node's
 surfaces and far child. The cache's misses cost more than the transforms they save.
 
+### The software device against Mesa's
+
+Liberty Island's level start and Hong Kong's market, the player held (`PerfConsole`) and turning
+on the spot (`PerfTurnConsole`), no vsync, at 640x480 and 1280x720 in the harness's X11 window,
+three alternating runs of each, at engine `1f411ca` on the development machine (Ryzen 9 7940HS,
+8 cores, 16 threads): frames a second, and in brackets the 99th percentile's frame in
+milliseconds. Mesa 26.2.4's CPU drivers, lavapipe under the Vulkan device and llvmpipe under the
+GL device ([how](DEVELOPMENT.md#the-software-device)), use every core too.
+
+| | Software device | Vulkan on lavapipe | GL on llvmpipe |
+|---|---|---|---|
+| Liberty Island, held, 640x480 | 162 (7) | 95 (12) | 95 (12) |
+| Liberty Island, held, 1280x720 | 103 (11) | 53 (22) | 54 (21) |
+| Liberty Island, turning, 640x480 | 255 (7) | 122 (11) | 123 (12) |
+| Liberty Island, turning, 1280x720 | 120 (11) | 63 (21) | 64 (20) |
+| Hong Kong's market, held, 640x480 | 216 (6) | 114 (10) | 110 (11) |
+| Hong Kong's market, held, 1280x720 | 107 (11) | 60 (19) | 60 (19) |
+| Hong Kong's market, turning, 640x480 | 295 (5) | 150 (9) | 148 (10) |
+| Hong Kong's market, turning, 1280x720 | 139 (10) | 88 (18) | 86 (18) |
+
+The software device draws 1.6 to 2.1 times the frames of either, its slowest within 7 ms at
+640x480 and 11 ms at 1280x720 ([which device draws](#rendering)).
+
 ## Settings and environment
 
 The engine reads `Settings.json` from its own folder ([running it](#running-it)), and never
@@ -366,10 +389,12 @@ the original's; else the `Type` `Settings.json` names; else the device the game'
 for any other. A GPU device that does not start -- no driver, or none it can use -- gives way to
 the software device, the window made again for it, full screen as the settings have it, and the
 error in the log (`Engine::CreateGameWindow`), as the original's `WindowedRenderDevice` takes
-`GameRenderDevice`'s place ([the software device](NATIVES.md#the-software-device)). With
-`"CPUDriver": true` the Vulkan device takes Mesa's lavapipe, the GPUs passed over, and the GL
-device llvmpipe (`LIBGL_ALWAYS_SOFTWARE=1`, set before GL loads); the log names the driver
-either draws through.
+`GameRenderDevice`'s place ([the software device](NATIVES.md#the-software-device)). A GPU device
+that finds only Mesa's CPU driver, lavapipe, llvmpipe or softpipe, counts as not starting, the
+software device being the faster on the CPU
+([against Mesa's](#the-software-device-against-mesas)); with `"CPUDriver": true` it is asked
+for: the Vulkan device takes lavapipe, the GPUs passed over, and the GL device llvmpipe
+(`LIBGL_ALWAYS_SOFTWARE=1`, set before GL loads). The log names the driver either draws through.
 
 **The Vulkan device**: the game tick runs while the GPU draws the previous frame
 (`CommandBufferManager` keeps one frame in flight, and `WaitForFrame()` collects it before

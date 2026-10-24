@@ -1,0 +1,27 @@
+{
+  "Gamepad": {
+    "CursorSpeed": 1,
+    "DeadZone": 0.2,
+    "Enabled": false,
+    "InvertY": false,
+    "LookSensitivityX": 1,
+    "LookSensitivityY": 1
+  },
+  "Performance": {
+    "RenderScale": 1
+  },
+  "RenderDevice": {
+    "Antialias": "Off",
+    "Bloom": false,
+    "BloomAmount": 128,
+    "CPUDriver": true,
+    "Gamma": "D3D9",
+    "GammaCorrectScreenshots": false,
+    "Hdr": false,
+    "HdrScale": 128,
+    "Light": "Normal",
+    "Type": "Vulkan",
+    "UseDebugLayer": false,
+    "UseVSync": false
+  }
+}

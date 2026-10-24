@@ -55,8 +55,9 @@ are gone.
   `~/.config/DXEngine/Settings.json` (a Windows build's, the prefix's `%LOCALAPPDATA%\DXEngine`),
   an input of every dxe run that no run's ini changes, or from the file `DXCAP_SETTINGS` names.
   Without one DXEngine runs on Vulkan with 4x MSAA. `tools/dxcap` has one for each device a run
-  compares, each without MSAA or vsync: `perf-settings.json` (GL), `vulkan-settings.json` and
-  `software-settings.json`.
+  compares, each without MSAA or vsync: `perf-settings.json` (GL), `vulkan-settings.json`,
+  `software-settings.json`, and Mesa's CPU drivers' (`CPUDriver`), `lavapipe-settings.json` and
+  `llvmpipe-settings.json`.
 - **Results.** A run's log (`engine.log` or `DeusEx.log`), shots and recording land in
   `build/dxcap/runs/<engine>-<console>-<time>/`.
 
@@ -516,9 +517,10 @@ TSAN_OPTIONS=log_path=<scratchpad>/tsan DXCAP_ENGINE=<scratchpad>/tsan/DXEngine 
 ```
 
 Its speed against Mesa's CPU drivers, each through `PerfConsole`
-([measuring both engines](#measuring-both-engines)): the GL device on llvmpipe
-(`LIBGL_ALWAYS_SOFTWARE=1`, `perf-settings.json`), the Vulkan device on lavapipe (Arch's
-`vulkan-swrast`, `VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json`, `vulkan-settings.json`).
+([measuring both engines](#measuring-both-engines)): the Vulkan device on lavapipe (Arch's
+`vulkan-swrast`; `lavapipe-settings.json`) and the GL device on llvmpipe
+(`llvmpipe-settings.json`), each with `CPUDriver`, without which a CPU driver alone gives way to
+the software device ([which device draws](ENGINE.md#rendering)).
 
 ## Gotchas
 

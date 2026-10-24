@@ -61,6 +61,12 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 		const GLubyte* renderer = glGetString(GL_RENDERER);
 		LogMessage(std::string("GLDrv: ") + (renderer ? (const char*)renderer : "no renderer named"));
 
+		// Mesa's CPU driver, llvmpipe or softpipe, not asked for: no GPU here,
+		// and the software device draws faster on the CPU (ENGINE.md, the
+		// software device against Mesa's)
+		if (!CPUDriver && renderer && (strstr((const char*)renderer, "llvmpipe") || strstr((const char*)renderer, "softpipe")))
+			throw std::runtime_error(std::string("its driver draws on the CPU: ") + (const char*)renderer);
+
 		// An ES context (RenderAPI::GLES) reports its version as
 		// "OpenGL ES 3.2 <driver>"; the desktop one as "4.6 (Core Profile) ...".
 		const GLubyte* version = glGetString(GL_VERSION);
