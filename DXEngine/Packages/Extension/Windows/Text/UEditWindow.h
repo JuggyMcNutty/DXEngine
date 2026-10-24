@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ULargeTextWindow.h"
+#include "Packages/Extension/Windows/UGC.h"
 
 class UEditWindow : public ULargeTextWindow
 {
@@ -43,14 +44,30 @@ public:
 	void ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight) override;
 	bool FilterChar(std::string& ch);
 	void Tick(float timeElapsed) override;
+	void ConfigurationChanged() override;
+	void VisibilityChanged(bool bNewVisibility) override;
 	void DrawWindow(UGC* gc) override;
 	bool KeyPressed(std::string key) override;
 	bool VirtualKeyPressed(EInputKey key, bool bRepeat) override;
 	bool MouseButtonPressed(float pointX, float pointY, EInputKey button, int numClicks) override;
+	void MouseMoved(float newX, float newY) override;
 	bool MouseButtonReleased(float pointX, float pointY, EInputKey button, int numClicks) override;
 	void SetText(const std::string& NewText) override;
 	void AppendText(const std::string& NewText) override;
 	void StoreText(const std::string& text);
+
+	// One row of the text as the GC breaks it (the original's XTextRowData):
+	// its width, where it starts, its characters without and with the spaces
+	// it ends with -- the last row's one more, for the place after the text --
+	// and the text state it starts in.
+	struct TextRow
+	{
+		float xExtent = 0.0f;
+		int startPos = 0;
+		int count = 0;
+		int totalCount = 0;
+		UGC::TextState state;
+	};
 
 	// The undo list: each change a position, the text removed and the text
 	// put in (extension-dll.md, Small). Changes [0, undoIndex) are applied;
@@ -119,9 +136,42 @@ public:
 
 private:
 	void DispatchTextChanged(bool modified);
-	int FindNextBreakCharacter(int search_start);
-	int FindPreviousBreakCharacter(int search_start);
+	void ReplaceText(std::string newText, bool bUndo, bool bSelect);
+
+	const Array<TextRow>& Rows();
+	float RowsTop(int count);
+	float RowLeft(float rowWidth);
+	float CharToPixel(UGC* gc, const TextRow& row, int col);
+	int PixelToChar(UGC* gc, const TextRow& row, float x);
+	int YToRow(float pointY);
+	int XToCol(int row, float pointX);
+	float RowToY(int row);
+	float ColToX(int row, int col);
+	int RowColToPos(int row, int col);
+	void PosToRowCol(int pos, int& row, int& col);
+	int XYToPos(float pointX, float pointY);
+	void PosToXY(int pos, float& pointX, float& pointY);
+	float VisibleHeight();
+
+	void ComputeCursorConfig(bool bSetPrefCol);
+	void ShowCursor();
+	void ComputeSelectArea();
+	void SetCursorPoint(int pos, bool bDrag);
+	void SetCursorRow(int row, bool bDrag);
+	int StartOfWord(int pos);
+	int EndOfWord(int pos);
+	int NextWord(int pos);
+	int PrevWord(int pos);
+	void DrawRow(UGC* gc, const TextRow& row, float x, float y, const Color& color, const Color& selectedColor, float selectedFrom, float selectedTo);
 
 	bool textChanged = false;
-	static const std::string break_characters;
+
+	// The rows, made again when the text, the wrap width or the fonts change.
+	Array<TextRow> rows;
+	bool rowsMade = false;
+	std::string rowsText;
+	float rowsWrap = 0.0f;
+	UFont* rowsNormalFont = nullptr;
+	UFont* rowsBoldFont = nullptr;
+	bool rowsSpecialText = false;
 };

@@ -1,0 +1,29 @@
+# MultiEditConsole's keys with Keys (its header): its edit field of several
+# lines has the focus at 7 from some 4 s; each key moves the insertion point
+# as the script's VirtualKeyPressed asks -- down twice, Shift and up, End and
+# Home of a row, Ctrl+End, a page up, Ctrl+Right, a page down.
+# DXCAP_CONFIG="Keys=True" DXCAP_TIMELINE=<this> tools/dxcap.sh dxe MultiEditConsole DX.dx 40
+start 8 press Down
+start 8.1 release Down
+start 9 press Down
+start 9.1 release Down
+start 10 press Shift
+start 10.2 press Up
+start 10.3 release Up
+start 10.5 release Shift
+start 11 press End
+start 11.1 release End
+start 12 press Home
+start 12.1 release Home
+start 13 press Ctrl
+start 13.2 press End
+start 13.3 release End
+start 13.5 release Ctrl
+start 14 press PageUp
+start 14.1 release PageUp
+start 15 press Ctrl
+start 15.2 press Right
+start 15.3 release Right
+start 15.5 release Ctrl
+start 16 press PageDown
+start 16.1 release PageDown

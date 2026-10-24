@@ -69,7 +69,7 @@ are gone.
 | `DXCAP_RENDERER=D3D` | the original through `D3DDrv`, the game's own renderer, not `OpenGLDrv` |
 | `DXCAP_PREFIX=<dir>` | another Wine prefix than `build/dxcap/prefix` |
 | `DXCAP_PROTON=<name>` | another Proton build in `~/.local/share/Steam/compatibilitytools.d` than `Proton-CachyOS Latest` |
-| `DXCAP_CONFIG="<key>=<value> ..."` | those keys in the run's console class's section of the ini, as `DXCAP_MISSION_MAP` gives `TargetMap` (`LightConsole`'s `Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`, `Macro`, `NoDetail`; `GlassConsole`'s `Pick`, `GlassName`, `View`, `Behind`, `Flip`; `FlushConsole`'s `Pick`, `DoorName`, `View`, `Angle`; `MirrorConsole`'s `MarkTime`, `ShinyOff`, `Straddle`; `FaceConsole`'s `MeshOf`, `Ahead`, `Distance`; `MeshConsole`'s `LODBias`, `NoDetail`, `Enviro`; `LaserConsole`'s `NoDetail`; `SpriteConsole`'s `Styles`, `NoParticles`; `CanisterConsole`'s `Distances`, `MarkTime`; `LoopConsole`'s `Jumps`; `CallConsole`'s `Depth`; `ReturnConsole`'s `Items`; `SaveConsole`'s, `LoadConsole`'s and `StartConsole`'s `Via`; `LoadConsole`'s `Open`; `ThemeConsole`'s `Direct`; `CensusConsole`'s `From`, `Wait`, `Load`, `Seconds`, `Notify`, `Open`; `DetailConsole`'s `Heights`; `MoveConsole`'s `Watch`, `WatchFrom`, `WatchTo`; `SwimConsole`'s `Only`) |
+| `DXCAP_CONFIG="<key>=<value> ..."` | those keys in the run's console class's section of the ini, as `DXCAP_MISSION_MAP` gives `TargetMap` (`LightConsole`'s `Effect`, `Pick`, `LightName`, `View`, `Aim`, `ShotAt`, `Macro`, `NoDetail`; `GlassConsole`'s `Pick`, `GlassName`, `View`, `Behind`, `Flip`; `FlushConsole`'s `Pick`, `DoorName`, `View`, `Angle`; `MirrorConsole`'s `MarkTime`, `ShinyOff`, `Straddle`; `FaceConsole`'s `MeshOf`, `Ahead`, `Distance`; `MeshConsole`'s `LODBias`, `NoDetail`, `Enviro`; `LaserConsole`'s `NoDetail`; `SpriteConsole`'s `Styles`, `NoParticles`; `CanisterConsole`'s `Distances`, `MarkTime`; `LoopConsole`'s `Jumps`; `CallConsole`'s `Depth`; `ReturnConsole`'s `Items`; `SaveConsole`'s, `LoadConsole`'s and `StartConsole`'s `Via`; `LoadConsole`'s `Open`; `ThemeConsole`'s `Direct`; `CensusConsole`'s `From`, `Wait`, `Load`, `Seconds`, `Notify`, `Open`; `DetailConsole`'s `Heights`; `MoveConsole`'s `Watch`, `WatchFrom`, `WatchTo`; `SwimConsole`'s `Only`; `MultiEditConsole`'s `Keys`) |
 | `DXCAP_USERINI=<file>` | a run's `User.ini` made from that file, in place of the game's (`IniConsole`'s keys given twice) |
 | `DXCAP_USERINI_FIRST=1` | the run's inis named `USERINI=` then `INI=`: on the original's command line, and on DXEngine's by `--cmdline` in place of `--ini` and `--userini` ([the command line](NATIVES.md#the-command-line)) |
 | `DXCAP_MISSION_MAP=<map>` | the map a run's console travels to, its `TargetMap` (`MissionConsole`'s, `StaticConsole`'s, `WadeConsole`'s, `ScreenConsole`'s, `PerfConsole`'s, `EndgameConsole`'s, `VisibleConsole`'s, `MoverConsole`'s, `LightConsole`'s, `GlassConsole`'s, `FlushConsole`'s, `WallConsole`'s, `MirrorConsole`'s, `DoorConsole`'s, `OpeningConsole`'s): an original run starts at its menu map, a dxe run at the map it is given |
@@ -165,6 +165,7 @@ the run. *Either*: one engine on each side of a pair.
 | `TypeConsole` | dxe | text typed into an edit field on the main menu, past ASCII and several characters at once | `DXTYPE:` | with `tools/dxcap/timelines/type.txt` |
 | `PadConsole` | dxe | the player's place, speed, facing and physics every half second, as a pad moves it | `DXPAD:` | with `tools/dxcap/timelines/pad.txt` |
 | `EditConsole` | both | a script's text calls on an edit field, a text window and a button | `DXEDIT:` |  |
+| `MultiEditConsole` | both | an edit field of several lines on the main menu: each move from fourteen places, chains of moves, a drag, a selection put in, a single line's moves; two marked shots of a selection over three rows | `DXROWS:` | the two logs diffed; `shots.py --region --block 4` on the field, at `DXCAP_WINDOW=1024x768` against `DXCAP_RENDERER=D3D`'s; with `Keys=True`, `tools/dxcap/timelines/note-keys.txt` on DXEngine |
 | `ColumnConsole` | both | a list's columns fitted to fields in fonts that have and lack their characters, and to a field of two lines, on the main menu | `DXCOLUMN:` | the two logs diffed |
 | `PointerConsole` | both | the root's pointer in the middle of the island's view: no modal window, one made hidden, shown, hidden, destroyed; five marked shots | `DXPOINTER:` | the shots' middles against the first, at `DXCAP_WINDOW=1024x768` |
 | `TimerConsole` | both | a window's timers on the main menu: a single one, one looping every millisecond and one at 0, two added in turn, one with no function name | `DXTIMER:` | the two logs diffed, both at `DXCAP_FPS=60` |
@@ -242,13 +243,13 @@ left, both from Liberty Island, ten loads of each map 25 s apart, then an exit:
 | `reload-fresh.txt` | the island and Battery Park | crosses a mission: `Current` emptied, the map from `Maps` |
 | `reload-current.txt` | the island and UNATCO HQ | stays in mission 1: the map left saved into `Current`, the next one from there |
 
-and eight more: `collections.txt`, the collections a player meets, each timed -- the console's
+and nine more: `collections.txt`, the collections a player meets, each timed -- the console's
 `obj garbage` on the island, then Battery Park and the island loaded in turn, `obj garbage` after
 each load -- `keys.txt`, a key of each kind the SDL windows name, on the stock console with
 `DXCAP_BACKEND=SDL3` ([a key's name](NATIVES.md#small)), and, each one console's input,
 `loot-drags.txt` (`LootConsole`), `stray-release.txt` (`KeypadConsole`), `scroll.txt`
-(`ScrollConsole`), `clicks.txt` (`ClickConsole`), `pad.txt` (`PadConsole`) and `type.txt`
-(`TypeConsole`).
+(`ScrollConsole`), `clicks.txt` (`ClickConsole`), `pad.txt` (`PadConsole`), `type.txt`
+(`TypeConsole`) and `note-keys.txt` (`MultiEditConsole`).
 
 ```sh
 DXCAP_MEMLOG=1 DXCAP_TIMELINE=tools/dxcap/timelines/reload-fresh.txt \

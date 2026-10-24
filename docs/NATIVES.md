@@ -648,7 +648,8 @@ The consoles: `GetConsole`, `BeltConsole`, `BorderConsole`, `ColorsConsole`;
 a new window's size; `ScrollConsole` for a scroll area and a slider;
 `ClickConsole` for a button, a choice and a checkbox clicked, a menu dragged
 by its title bar and Alt with a letter; `EditConsole` for a script's text in
-an edit field, a text window and a button. `MenuConsole` and `ScreenConsole`
+an edit field, a text window and a button; `MultiEditConsole` for an edit
+field of several lines. `MenuConsole` and `ScreenConsole`
 log every menu and game screen's windows (their places, sizes, text, focus,
 a slider's value text, a scroll area's bars, a tile's children and a list's
 rows), alike in both engines but for what is listed below. The same, read
@@ -679,7 +680,18 @@ from the original's code:
   parents -- and leaves the insertion point at the start, as `AppendText`
   does after adding at the end; so the save screen's Save Game button
   wakes for the name it fills in. An edit leaves the insertion point after
-  what it put in.
+  what it put in, and what it put in selected when asked to.
+- **Edit fields** (`MultiEditConsole`): rows as a large text window breaks
+  them, within the margins. Up and down a row or a page keep the column
+  the insertion point was last put at; a word either way within a row, a
+  row's start and end, the text's; a drag leaves the hook where it began
+  (each move from fourteen places, chains of them, a selection, a single
+  line's: the logs alike). A single line does not word wrap. With the
+  focus, a selection is drawn row by row behind its text, the text in the
+  inverse colour, then the insertion point, blinking each half period
+  (the field's shots alike, no pixel 24 levels apart); else the rows as a
+  large text window draws them. A press puts the insertion point at the
+  pointer and drags it, whole words on a second click.
 - **Buttons** activate on the release, a repeating one on the press and
   again while held; a right click where the button takes them; each with
   its sounds, and a press from the keyboard shown pressed for its delay. A
@@ -801,10 +813,11 @@ Differs:
   height on a root 16:9 or wider, the Smart Pro's among them, so a cutscene
   letterboxes at 16:9. The root's children lie across the screen up to 16:9,
   their `x` the screen's.
-- **A large text window and an edit field** draw their lines through the GC,
-  read from both codes, whose block of lines ends in one more spacing than
-  the original's rows: in a window taller than its text, lines centred or
-  at the bottom sit up to a pixel higher.
+- **A large text window** draws its lines through the GC, read from both
+  codes, whose block of lines ends in one more spacing than the original's
+  rows: in a window taller than its text, lines centred or at the bottom
+  sit up to a pixel higher. An edit field draws its own rows, as the
+  original's.
 
 ## The menus' settings
 
