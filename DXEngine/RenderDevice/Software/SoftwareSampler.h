@@ -2,6 +2,7 @@
 
 #include "SoftwareTextureManager.h"
 #include <cmath>
+#include <cstring>
 #include <algorithm>
 
 // Sampling as D3DDrv samples with the game's ini (UseMipmapping=True,
@@ -11,25 +12,39 @@
 // mirrored clamp holds it there. A bilinear weight has 8 bits, as the GPUs'.
 namespace SoftwareSampler
 {
-	// The mip lambda chooses: the nearest, lambda being log2 of the larger of
-	// the quad's two texel steps in mip 0's texels, plus the bias
-	inline int SelectMip(const SoftwareTexture* tex, float lambda)
+	// The bias D3DDrv's frames choose their mips by, as Wine's Direct3D 7
+	// draws them on RADV: fitted against LaserConsole's receding floor (its
+	// RMSE 0.66 at -0.5, 0.88 and 1.05 a quarter either way). The mip is
+	// then floor(log2 of the scale factor), its texels no smaller than the
+	// screen's pixels, and the factor below exactly 1.
+	constexpr float LODBias = -0.5f;
+
+	// The factor the LOD bias puts on a squared step: 2^(2 bias + 1)
+	inline float MipFactor(float lodBias)
 	{
-		if (!(lambda > 0.5f))
-			return 0;
-		int level = (int)std::min(std::floor(lambda + 0.5f), 15.0f);
-		return std::min(level, tex->NumMips - 1);
+		return std::exp2(2.0f * lodBias + 1.0f);
 	}
 
-	// lambda from a quad's coordinate steps across x and across y, in mip
-	// 0's texels: the scale factor of the Vulkan spec, the larger of the
-	// two steps' lengths
-	inline float Lambda(float dudx, float dvdx, float dudy, float dvdy)
+	// The square of a quad's scale factor, as the Vulkan spec has it: the
+	// larger of its coordinates' two steps, across x and across y, in mip
+	// 0's texels
+	inline float StepSquared(float dudx, float dvdx, float dudy, float dvdy)
 	{
-		float rx = dudx * dudx + dvdx * dvdx;
-		float ry = dudy * dudy + dvdy * dvdy;
-		float rho2 = std::max(rx, ry);
-		return rho2 > 0.0f ? 0.5f * std::log2(rho2) : -100.0f;
+		return std::max(dudx * dudx + dvdx * dvdx, dudy * dudy + dvdy * dvdy);
+	}
+
+	// The nearest mip, floor(lambda + bias + 0.5) with lambda log2 of the
+	// scale factor: half the exponent of the step squared times the bias's
+	// factor
+	inline int SelectMip(const SoftwareTexture* tex, float stepSquared, float mipFactor)
+	{
+		float y = stepSquared * mipFactor;
+		if (!(y >= 1.0f))
+			return 0;
+		uint32_t bits;
+		std::memcpy(&bits, &y, sizeof(bits));
+		int level = ((int)((bits >> 23) & 0xff) - 127) >> 1;
+		return std::min(level, tex->NumMips - 1);
 	}
 
 	// u's fraction of a turn, for a coordinate that wraps: what the texel

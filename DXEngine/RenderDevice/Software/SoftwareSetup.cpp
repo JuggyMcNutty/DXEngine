@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "SoftwareSetup.h"
+#include "SoftwarePipelines.h"
 #include <algorithm>
 #include <cmath>
 
@@ -35,6 +36,24 @@ namespace
 	constexpr float ClipGuardBand = 8000.0f;
 
 	constexpr int NumAttributes = SoftwarePrimitive::NumAttributes;
+
+	// The pipelines of the draw being set up, chosen once each
+	struct DrawPipelines
+	{
+		const SoftwareDraw* Draw = nullptr;
+		bool GeneralOnly = false;
+		SoftwarePipeline Triangle = nullptr;
+		SoftwarePipeline Rectangle = nullptr;
+
+		SoftwarePipeline Get(bool rectangle)
+		{
+			SoftwarePipeline& pipeline = rectangle ? Rectangle : Triangle;
+			if (!pipeline)
+				pipeline = SoftwarePipelines::Select(*Draw, rectangle, GeneralOnly);
+			return pipeline;
+		}
+	};
+	thread_local DrawPipelines CurrentPipelines;
 
 	// A vertex transformed: its clip coordinates, its distance from the
 	// clip plane, and its attributes, which clipping carries along
@@ -242,8 +261,10 @@ namespace
 
 	// The primitive into every tile its bounds reach, a triangle's only where
 	// its edges leave some of the tile
-	void Bin(SoftwareBins& bins, const SoftwareFrame& frame, const SoftwarePrimitive& prim)
+	void Bin(SoftwareBins& bins, const SoftwareFrame& frame, SoftwarePrimitive& prim)
 	{
+		if (prim.Type == SoftwarePrimitiveType::Triangle || prim.Type == SoftwarePrimitiveType::Rectangle)
+			prim.Pipeline = CurrentPipelines.Get(prim.Type == SoftwarePrimitiveType::Rectangle);
 		uint32_t index = (uint32_t)bins.Primitives.size();
 		bins.Primitives.push_back(prim);
 		int tx0 = prim.MinX / SoftwareFrame::TileSize;
@@ -506,11 +527,14 @@ namespace
 	}
 }
 
-void SoftwareSetup::SetUp(const SoftwareCommands& commands, const SoftwareChunk& chunk, const SoftwareFrame& frame, SoftwareBins& bins)
+void SoftwareSetup::SetUp(const SoftwareCommands& commands, const SoftwareChunk& chunk, const SoftwareFrame& frame, SoftwareBins& bins, bool generalOnly)
 {
 	bins.Reset();
 	for (uint32_t i = chunk.FirstDraw; i < chunk.LastDraw; i++)
 	{
+		CurrentPipelines = DrawPipelines();
+		CurrentPipelines.Draw = &commands.Draws[i];
+		CurrentPipelines.GeneralOnly = generalOnly;
 		switch (commands.Draws[i].Type)
 		{
 		case SoftwareDrawType::Polygon:

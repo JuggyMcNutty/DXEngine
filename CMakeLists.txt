@@ -307,6 +307,9 @@ set(DXCOMMON_SOURCES
 	DXEngine/RenderDevice/OpenGL/gl_load/gl_load.h
 	DXEngine/RenderDevice/Software/SoftwareCommands.cpp
 	DXEngine/RenderDevice/Software/SoftwareCommands.h
+	DXEngine/RenderDevice/Software/SoftwarePipelines.h
+	DXEngine/RenderDevice/Software/SoftwarePipelinesScene.cpp
+	DXEngine/RenderDevice/Software/SoftwarePipelinesTile.cpp
 	DXEngine/RenderDevice/Software/SoftwarePresent.cpp
 	DXEngine/RenderDevice/Software/SoftwarePresent.h
 	DXEngine/RenderDevice/Software/SoftwareRasterizer.cpp
@@ -318,6 +321,7 @@ set(DXCOMMON_SOURCES
 	DXEngine/RenderDevice/Software/SoftwareSampler.h
 	DXEngine/RenderDevice/Software/SoftwareSetup.cpp
 	DXEngine/RenderDevice/Software/SoftwareSetup.h
+	DXEngine/RenderDevice/Software/SoftwareSimd.h
 	DXEngine/RenderDevice/Software/SoftwareTextureManager.cpp
 	DXEngine/RenderDevice/Software/SoftwareTextureManager.h
 	DXEngine/RenderDevice/Software/SoftwareTextureUploader.cpp
@@ -912,6 +916,14 @@ if(MSVC)
 
 	# Ignore warnings in third party code
 	set_source_files_properties(${THIRDPARTY_SOURCES} PROPERTIES COMPILE_FLAGS "/wd4244 /wd4267 /wd4005 /wd4018 /wd4101 -D_CRT_SECURE_NO_WARNINGS")
+endif()
+
+# The software device's arithmetic the same bits on every machine: no
+# multiply and add fused into one, as GCC fuses them on aarch64 by default
+# (and so without the precompiled header, which is built without the flag)
+if(NOT MSVC)
+	file(GLOB SOFTWARE_DEVICE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/RenderDevice/Software/*.cpp)
+	set_source_files_properties(${SOFTWARE_DEVICE_SOURCES} PROPERTIES COMPILE_OPTIONS -ffp-contract=off SKIP_PRECOMPILE_HEADERS ON)
 endif()
 
 add_library(DXCommon STATIC ${DXCOMMON_SOURCES} ${THIRDPARTY_SOURCES})

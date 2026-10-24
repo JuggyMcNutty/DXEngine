@@ -73,7 +73,7 @@ namespace
 		}
 
 		float out[4][4];
-		int kept = SoftwareReference::Shade(draw, quad, mask, job.LODBias, out);
+		int kept = SoftwareReference::Shade(draw, quad, mask, job.MipFactor, out);
 		for (int lane = 0; lane < 4; lane++)
 		{
 			if (!(kept & (1 << lane)))
@@ -263,10 +263,16 @@ void SoftwareRasterizer::DrawTile(SoftwareFrame& frame, const SoftwareRasterJob&
 			switch (prim.Type)
 			{
 			case SoftwarePrimitiveType::Triangle:
-				DrawTriangle(frame, job, prim, x0, y0, x1, y1);
+				if (job.Reference)
+					DrawTriangle(frame, job, prim, x0, y0, x1, y1);
+				else
+					prim.Pipeline(frame, job, job.Commands->Draws[prim.Draw], prim, x0, y0, x1, y1);
 				break;
 			case SoftwarePrimitiveType::Rectangle:
-				DrawRectangle(frame, job, prim, x0, y0, x1, y1);
+				if (job.Reference)
+					DrawRectangle(frame, job, prim, x0, y0, x1, y1);
+				else
+					prim.Pipeline(frame, job, job.Commands->Draws[prim.Draw], prim, x0, y0, x1, y1);
 				break;
 			case SoftwarePrimitiveType::Line:
 				DrawLine(frame, job, prim, x0, y0, x1, y1);

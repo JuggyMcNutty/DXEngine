@@ -341,7 +341,10 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
   an original run of another `View` is off by however much the frame differs.
 - **Two dxe runs**: `shots.py` takes a dxe run in the original's place, another device's or
   build's, and puts the gamma on neither. `--levels` gives, pixel by pixel, the largest
-  difference of a channel and how many pixels are more than a level apart.
+  difference of a channel and how many pixels are more than a level apart. Two runs' shots differ
+  where something moves with the level's time, and at another frame rate by a level at a few
+  pixels, where a light map lies elsewhere in its page (`LightmapAtlas` places each in the order
+  the surfaces are first drawn).
 - **Registration against `D3DDrv`.** DXEngine draws the scene's pixels as `D3DDrv` does, not as
   `OpenGLDrv` ([the scene's pixels](NATIVES.md#the-scenes-pixels)): where a polygon's edges or
   rows are compared, or a correlation or RMSE taken, the original runs with
@@ -476,6 +479,28 @@ cmake --build <scratchpad>/asan --target DXEngine
 ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 DXCAP_ENGINE=<scratchpad>/asan/DXEngine \
     tools/dxcap.sh dxe <console> <map>
 ```
+
+### The software device
+
+Its pipelines are proven against its float reference in the running game: `DXE_SW_REFERENCE=check`
+on a dxe run draws each frame both ways, from the same frame, and logs how far apart they came out
+every 60 frames (`the pipelines against the reference`). The general pipeline alone
+(`DXE_SW_GENERAL=1`), a scalar build, the SIMD wrapper's loops on x86 (`DXE_SW_SCALAR`), and the
+Windows build under Wine give an SSE2 build's bits, their shots its own but where two runs differ
+([shots](#shots)): `LightConsole`'s `Spotlight7` the same to the bit all four ways. The scalar
+build:
+
+```sh
+CXXFLAGS=-DDXE_SW_SCALAR cmake -S DXEngine -B <scratchpad>/scalar \
+    -C deusex-launcher/linux-x86_64/ports/linux-x86_64/engine.cmake
+cmake --build <scratchpad>/scalar --target DXEngine
+DXCAP_ENGINE=<scratchpad>/scalar/DXEngine DXCAP_SETTINGS=tools/dxcap/software-settings.json \
+    tools/dxcap.sh dxe <console> <map>
+```
+
+Its look against the Vulkan device's: a console run on each (`software-settings.json`,
+`vulkan-settings.json`), `shots.py --levels` pairing the two ([shots](#shots)); against
+`D3DDrv`'s, the original with `DXCAP_RENDERER=D3D`.
 
 ## Gotchas
 

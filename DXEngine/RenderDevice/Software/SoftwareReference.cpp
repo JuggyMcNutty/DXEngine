@@ -7,7 +7,7 @@
 
 // The mip a quad reads of a texture, by its coordinates' steps across the
 // quad, times scale (a detail band's repeat)
-static int QuadMip(const SoftwareTexture* tex, const float u[4], const float v[4], float scale, float lodBias)
+static int QuadMip(const SoftwareTexture* tex, const float u[4], const float v[4], float scale, float mipFactor)
 {
 	const SoftwareMip& top = tex->Mips[0];
 	float w = (float)top.Width * scale;
@@ -16,19 +16,19 @@ static int QuadMip(const SoftwareTexture* tex, const float u[4], const float v[4
 	float dvdx = (v[1] - v[0]) * h;
 	float dudy = (u[2] - u[0]) * w;
 	float dvdy = (v[2] - v[0]) * h;
-	return SoftwareSampler::SelectMip(tex, SoftwareSampler::Lambda(dudx, dvdx, dudy, dvdy) + lodBias);
+	return SoftwareSampler::SelectMip(tex, SoftwareSampler::StepSquared(dudx, dvdx, dudy, dvdy), mipFactor);
 }
 
-int SoftwareReference::Shade(const SoftwareDraw& draw, const SoftwareQuad& quad, int mask, float lodBias, float out[4][4])
+int SoftwareReference::Shade(const SoftwareDraw& draw, const SoftwareQuad& quad, int mask, float mipFactor, float out[4][4])
 {
 	const uint32_t flags = draw.ShaderFlags;
 	const float actorXBlending = (flags & 32) != 0 ? 1.5f : 1.0f;
 	const float oneXBlending = (flags & 64) != 0 ? 1.0f : 2.0f;
 
 	const SoftwareTexture* tex = draw.Texture;
-	const SoftwareMip& texMip = tex->Mips[QuadMip(tex, quad.U[0], quad.V[0], 1.0f, lodBias)];
-	const SoftwareMip* macroMip = (flags & 2) ? &draw.MacroTexture->Mips[QuadMip(draw.MacroTexture, quad.U[2], quad.V[2], 1.0f, lodBias)] : nullptr;
-	const SoftwareMip* lightMip = (flags & 1) ? &draw.LightMap->Mips[QuadMip(draw.LightMap, quad.U[1], quad.V[1], 1.0f, lodBias)] : nullptr;
+	const SoftwareMip& texMip = tex->Mips[QuadMip(tex, quad.U[0], quad.V[0], 1.0f, mipFactor)];
+	const SoftwareMip* macroMip = (flags & 2) ? &draw.MacroTexture->Mips[QuadMip(draw.MacroTexture, quad.U[2], quad.V[2], 1.0f, mipFactor)] : nullptr;
+	const SoftwareMip* lightMip = (flags & 1) ? &draw.LightMap->Mips[QuadMip(draw.LightMap, quad.U[1], quad.V[1], 1.0f, mipFactor)] : nullptr;
 	const SoftwareMip* detailMips[3] = {};
 	const SoftwareMip* fogMip = nullptr;
 	if (flags & 4)
@@ -36,13 +36,13 @@ int SoftwareReference::Shade(const SoftwareDraw& draw, const SoftwareQuad& quad,
 		float repeat = 1.0f;
 		for (int band = 0; band < 3; band++)
 		{
-			detailMips[band] = &draw.DetailTexture->Mips[QuadMip(draw.DetailTexture, quad.U[3], quad.V[3], repeat, lodBias)];
+			detailMips[band] = &draw.DetailTexture->Mips[QuadMip(draw.DetailTexture, quad.U[3], quad.V[3], repeat, mipFactor)];
 			repeat *= 4.223f;
 		}
 	}
 	else if (flags & 8)
 	{
-		fogMip = &draw.DetailTexture->Mips[QuadMip(draw.DetailTexture, quad.U[3], quad.V[3], 1.0f, lodBias)];
+		fogMip = &draw.DetailTexture->Mips[QuadMip(draw.DetailTexture, quad.U[3], quad.V[3], 1.0f, mipFactor)];
 	}
 
 	int kept = 0;

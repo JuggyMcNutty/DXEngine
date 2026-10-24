@@ -306,6 +306,27 @@ the light maps register so too ([mesh detail](#mesh-detail),
 [mirrors](#mirrors), [lighting](#lighting)), as a sprite and the canvas's
 tiles do ([sprites](#sprites), [tiles](#tiles)).
 
+### The software device
+
+Matches `D3DDrv`'s picture as the GPU devices draw it without their
+multisampling, bloom and HDR ([rendering](ENGINE.md#rendering)), into an
+8-bit frame as `D3DDrv`'s, its textures sampled as `D3DDrv` samples them
+with the game's ini: bilinear, from the one mip whose texels are no smaller
+than the screen's pixels, where the GPU devices filter trilinearly with 8x
+anisotropy, by their own choice. Against `D3DDrv`'s frames: `LightConsole`'s
+`Spotlight0`, with its macro texture and without, and `Spotlight7` at 1.00,
+as the GPU devices' ([lighting](#lighting)), and `Light33`'s floor within
+1.02; `LaserConsole`'s wall and near floor as near as the Vulkan device's,
+within 0.01 of a level (RMSE), and best unmoved, its receding floor nearer,
+0.66 apart where the Vulkan device's is 1.10; `LoadingConsole`'s text on the
+rows `D3DDrv` draws it, where the Vulkan device draws some of its glyphs a
+row lower (point sampled on a texel's edge). Against the Vulkan device's:
+`TileConsole`'s tiles and text within a level, as are `DetailConsole`'s
+bands (`detail.py` as the Vulkan device's). Differs:
+
+- **Vsync** only through SDL's renderer: X11's and Win32's presents do not
+  wait for it.
+
 ### Sprites
 
 Matches the original

@@ -2,11 +2,14 @@
 #include "Precomp.h"
 #include "SoftwareRenderDevice.h"
 #include "SoftwareTextureUploader.h"
+#include "SoftwareSampler.h"
+#include "SoftwareSimd.h"
 #include "Utils/Logger.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include <dxwidgets/core/widget.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 // A colour's bytes in the frame's order, 0xAARRGGBB, its alpha whole
 static uint32_t FrameColor(vec4 color)
@@ -24,14 +27,22 @@ SoftwareRenderDevice::SoftwareRenderDevice(Widget* InViewport)
 
 	State.ObjectToProjection = mat4::identity();
 
-#if defined(USE_SSE2)
+#if defined(SOFTWARE_SSE2)
 	const char* simd = "SSE2";
-#elif defined(USE_NEON)
+#elif defined(SOFTWARE_NEON)
 	const char* simd = "NEON";
 #else
 	const char* simd = "scalar";
 #endif
-	LogMessage(std::string("Software device: 1 thread, ") + simd);
+	// The float shading in the pipelines' place, the oracle they are proven
+	// against; the general pipeline alone, which the specialized ones match
+	const char* reference = std::getenv("DXE_SW_REFERENCE");
+	const char* general = std::getenv("DXE_SW_GENERAL");
+	Reference = reference && std::string(reference) == "1";
+	CheckReference = reference && std::string(reference) == "check";
+	GeneralOnly = general && std::string(general) == "1";
+
+	LogMessage(std::string("Software device: 1 thread, ") + simd + (Reference ? ", the reference shading" : "") + (CheckReference ? ", the pipelines checked against the reference shading" : "") + (GeneralOnly ? ", the general pipeline alone" : ""));
 }
 
 SoftwareRenderDevice::~SoftwareRenderDevice()
@@ -100,7 +111,7 @@ void SoftwareRenderDevice::DrawRecorded()
 	if (Bins.size() < chunks)
 		Bins.resize(chunks);
 	for (size_t i = 0; i < chunks; i++)
-		SoftwareSetup::SetUp(Commands, Commands.Chunks[i], Frame, Bins[i]);
+		SoftwareSetup::SetUp(Commands, Commands.Chunks[i], Frame, Bins[i], GeneralOnly);
 
 	SoftwareRasterJob job;
 	job.Commands = &Commands;
@@ -108,16 +119,65 @@ void SoftwareRenderDevice::DrawRecorded()
 	job.ChunkCount = chunks;
 	job.Clear = ClearPending;
 	job.ClearColor = ClearColor;
-	job.LODBias = 0.0f;
+	job.MipFactor = SoftwareSampler::MipFactor(SoftwareSampler::LODBias);
+	job.Reference = Reference;
+
+	if (CheckReference)
+	{
+		// The frame as it stands drawn on with the reference shading too,
+		// from a copy, for the pipelines' pixels to be compared with
+		CheckFrame.Resize(Frame.Width, Frame.Height);
+		std::copy(Frame.Color.Data(), Frame.Color.Data() + Frame.Color.Size(), CheckFrame.Color.Data());
+		std::copy(Frame.Depth.Data(), Frame.Depth.Data() + Frame.Depth.Size(), CheckFrame.Depth.Data());
+		SoftwareRasterJob reference = job;
+		reference.Reference = true;
+		for (int y = 0; y < CheckFrame.TilesY; y++)
+		{
+			for (int x = 0; x < CheckFrame.TilesX; x++)
+				SoftwareRasterizer::DrawTile(CheckFrame, reference, x, y);
+		}
+	}
+
 	for (int y = 0; y < Frame.TilesY; y++)
 	{
 		for (int x = 0; x < Frame.TilesX; x++)
 			SoftwareRasterizer::DrawTile(Frame, job, x, y);
 	}
 
+	if (CheckReference)
+		CompareWithReference();
+
 	ClearPending = false;
 	Commands.Reset();
 	Commands.AddState(State);
+}
+
+// The pipelines' frame against the reference's: the largest difference of
+// a channel, and the pixels more than a level apart, logged every 60 frames
+void SoftwareRenderDevice::CompareWithReference()
+{
+	for (int y = 0; y < Frame.Height; y++)
+	{
+		const uint32_t* a = Frame.ColorRow(y);
+		const uint32_t* b = CheckFrame.ColorRow(y);
+		for (int x = 0; x < Frame.Width; x++)
+		{
+			if (a[x] == b[x])
+				continue;
+			int largest = 0;
+			for (int shift = 0; shift < 24; shift += 8)
+				largest = std::max(largest, std::abs((int)((a[x] >> shift) & 0xff) - (int)((b[x] >> shift) & 0xff)));
+			Check.Largest = std::max(Check.Largest, largest);
+			if (largest > 1)
+				Check.Over++;
+		}
+	}
+	Check.Pixels += (uint64_t)Frame.Width * Frame.Height;
+	if (++Check.Frames == 60)
+	{
+		LogMessage("Software device: the pipelines against the reference, 60 frames: at most " + std::to_string(Check.Largest) + " levels apart, " + std::to_string(Check.Over) + " pixels of " + std::to_string(Check.Pixels) + " more than one");
+		Check = {};
+	}
 }
 
 SoftwareDraw& SoftwareRenderDevice::AddDraw(SoftwareDrawType type, uint32_t vertexCount, SoftwareVertex*& vertices)

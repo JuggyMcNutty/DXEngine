@@ -44,6 +44,7 @@ private:
 	// What is recorded, drawn into the frame: the clear first if the frame
 	// has not had it
 	void DrawRecorded();
+	void CompareWithReference();
 
 	SoftwareDraw& AddDraw(SoftwareDrawType type, uint32_t vertexCount, SoftwareVertex*& vertices);
 	SoftwareDraw& AddGouraud(SoftwareDrawType type, SoftwareTexture* tex, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags);
@@ -61,6 +62,20 @@ private:
 	// frame's first SetSceneNode takes the last one
 	SoftwareState State;
 
+	bool Reference = false;
+	bool GeneralOnly = false;
+
+	// DXE_SW_REFERENCE=check: each frame drawn with the reference shading
+	// too, into its own frame, and the two compared
+	bool CheckReference = false;
+	SoftwareFrame CheckFrame;
+	struct
+	{
+		int Frames = 0;
+		int Largest = 0;
+		uint64_t Over = 0;
+		uint64_t Pixels = 0;
+	} Check;
 	bool IsLocked = false;
 	bool ClearPending = false;
 	uint32_t ClearColor = 0xff000000;

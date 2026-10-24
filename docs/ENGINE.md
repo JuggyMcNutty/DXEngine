@@ -228,6 +228,8 @@ The environment:
 | `DXE_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3`, `X11` or `Win32`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2, on Windows of SDL3, Win32 and SDL2. The launchers set it to the SDL backend their port's engine is built with, the one with the pad ([which](#running-on-our-devices)). |
 | `DXE_FONT`, `DXE_MONOSPACE_FONT` | The font files DXWidgets' default loader takes for its UI and monospace fonts in a build without GLib and fontconfig, before the usual DejaVu and Noto files. Unused by the engine, whose UI's fonts are `DXEngine.pk3`'s. |
 | `DXL_LAUNCHER_FD` | The launcher's line ([running it](#running-it)). |
+| `DXE_SW_REFERENCE=1`, `check` | The software device shades with its float reference in its pipelines' place; with `check`, with both, each from the same frame, and logs every 60 frames how far apart they came out ([rendering](#rendering)). |
+| `DXE_SW_GENERAL=1` | The software device draws with its general pipeline alone, which its specialized ones match to the bit. |
 | `DXE_GC_DRYRUN=1` | Each collection marks and frees nothing: the log has what would go, by where it lives and by class, and the first holder outside them of each object of a level left behind ([objects and memory](#objects-and-memory)). |
 | `DXE_GC_STRESS=<frames>` | A collection every that many frames, besides the map loads'. |
 | `DXE_GC_VERIFY=1` | Each collection checks that every pointer it is handed is a live object, walks all of the code, and logs the holders of pointers that are not, of code's references to code that reach an object not permanent, and of what the list kept from the code's last walk would have missed ([objects and memory](#objects-and-memory)). |
@@ -479,19 +481,28 @@ launcher offers it.
   float, tested LEQUAL, clamped to the pipeline's range (the scene's 0.1 to 1, a line not depth
   cued 0 to 0.1); a mover's surfaces biased as the Vulkan device biases them, constant -1 and
   slope -1 on a float buffer. A line is a pixel wide.
-
 - **Textures**: a copy of its own of each, by cache ID, a masked one apart, as the Vulkan
   device keeps its images: BGRA8, each format converted as the Vulkan device's uploads and CPU
   decoders convert it, each mip with a column and a row past its edges repeating its first, for
   the bilinear filter; a realtime change converted again, only the part that changed where it
   says so.
 - **Tiles**: one square on the screen is a rectangle, its pixels and attributes those of the GPU
-  devices' two triangles. Sampled as `D3DDrv` samples with the game's ini (`UseMipmapping=True`,
-  `UseTrilinear=False`): bilinear from the nearest mip, no anisotropy, its weights of 8 bits;
-  `PF_NoSmooth` the nearest texel; held at the edges where a tile's coordinates lie within its
-  texture, else wrapped.
-- **Shading**: a float transcription of the scene shader and the Vulkan device's blends
-  (`SoftwareReference`), each pixel rounded to the frame's bytes.
+  devices' two triangles.
+- **Sampling** as `D3DDrv` samples with the game's ini (`UseMipmapping=True`,
+  `UseTrilinear=False`): bilinear, its weights of 8 bits, from the mip whose texels are no
+  smaller than the screen's pixels, no anisotropy; `PF_NoSmooth` the nearest texel; a texture
+  wrapped, a tile held at its edges where its coordinates lie within it
+  ([the software device](NATIVES.md#the-software-device)). The mip is the floor of log2 of a
+  quad's scale factor, its bias of -0.5 fitted to `D3DDrv`'s frames (`SoftwareSampler::LODBias`).
+- **Shading**: the scene shader (`Scene.frag`) in fixed point, 2.14 in lanes of 16 bits, a quad
+  of 2x2 pixels at a time, through `SoftwareSimd.h`'s SSE2, NEON or plain loops, which give the
+  same bits (the device's files built without fused multiply-adds, `-ffp-contract=off`); the
+  alpha test and the blends in float, on the frame's bytes over 255. One template
+  (`SoftwareDrawPrimitive`) makes every pipeline: with each of a draw's flags read as it draws,
+  the general one; with them fixed as it is compiled, the specialized ones a draw's flags select
+  (`SoftwarePipelines::Select`), the same bits by construction. A float transcription of the
+  shader and the blends (`SoftwareReference`) is the oracle they are proven against: each draw
+  within a level of it, two draws over one pixel at most two (`DXE_SW_REFERENCE=check`).
 - **The present**: the frame through the gamma ramp, a table of 256 levels a channel of the
   present shader's gamma (XOpenGL's mode by each pixel's largest channel too), scaled to the
   window and letterboxed below a render scale of 1 as the Vulkan device's present, bilinear and

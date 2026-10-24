@@ -4,6 +4,10 @@
 #include "SoftwareRasterizer.h"
 #include <vector>
 
+struct SoftwarePrimitive;
+struct SoftwareRasterJob;
+typedef void (*SoftwarePipeline)(SoftwareFrame& frame, const SoftwareRasterJob& job, const SoftwareDraw& draw, const SoftwarePrimitive& prim, int x0, int y0, int x1, int y1);
+
 enum class SoftwarePrimitiveType : uint8_t
 {
 	Triangle,
@@ -31,6 +35,7 @@ struct SoftwarePrimitive
 
 	SoftwarePrimitiveType Type = SoftwarePrimitiveType::Triangle;
 	uint32_t Draw = 0;
+	SoftwarePipeline Pipeline = nullptr; // a triangle's or a rectangle's
 	int MinX = 0, MinY = 0, MaxX = 0, MaxY = 0; // [Min, Max)
 	float RefX = 0.0f, RefY = 0.0f; // the planes' origin, on the screen
 	SoftwarePlane Depth;  // the window's depth, linear on the screen
@@ -70,5 +75,7 @@ struct SoftwareBins
 // viewport, snapped, set up and binned to the frame's tiles
 namespace SoftwareSetup
 {
-	void SetUp(const SoftwareCommands& commands, const SoftwareChunk& chunk, const SoftwareFrame& frame, SoftwareBins& bins);
+	// generalOnly: every triangle and rectangle drawn by the general
+	// pipeline (DXE_SW_GENERAL=1)
+	void SetUp(const SoftwareCommands& commands, const SoftwareChunk& chunk, const SoftwareFrame& frame, SoftwareBins& bins, bool generalOnly);
 }

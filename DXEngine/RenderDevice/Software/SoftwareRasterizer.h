@@ -78,7 +78,8 @@ struct SoftwareRasterJob
 	size_t ChunkCount = 0;
 	bool Clear = false;
 	uint32_t ClearColor = 0xff000000;
-	float LODBias = 0.0f;
+	float MipFactor = 2.0f; // the LOD bias's (SoftwareSampler::MipFactor)
+	bool Reference = false; // the float shading (DXE_SW_REFERENCE=1), not the pipelines
 };
 
 namespace SoftwareRasterizer

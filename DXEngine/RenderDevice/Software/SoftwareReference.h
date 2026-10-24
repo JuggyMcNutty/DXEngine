@@ -23,7 +23,7 @@ namespace SoftwareReference
 {
 	// Each covered lane's colour, 0 to 1 a channel (mask: a bit a lane): the
 	// lanes the alpha test keeps come back
-	int Shade(const SoftwareDraw& draw, const SoftwareQuad& quad, int mask, float lodBias, float out[4][4]);
+	int Shade(const SoftwareDraw& draw, const SoftwareQuad& quad, int mask, float mipFactor, float out[4][4]);
 
 	// A colour blended into the frame's pixel as the draw's blend state
 	// blends it, rounded to the frame's bytes, its alpha whole
