@@ -283,6 +283,41 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 		bRealtimeChanged = !updated.Empty();
 	}
 
+	// The map's place in a shared page, found when it is first built at its
+	// size: what changed written there, and the page drawn in its stead, at
+	// the map's place (LightmapAtlas). A map too large for a page is drawn
+	// as it is.
+	if (bRealtimeChanged && lmtexture->AtlasPlace.Page < 0)
+	{
+		lmtexture->AtlasPlace = Atlas.Allocate(lmtexture->Mip.Width, lmtexture->Mip.Height);
+		if (lmtexture->AtlasPlace.Page >= 0)
+			updated = { 0, 0, lmtexture->Mip.Width, lmtexture->Mip.Height };
+	}
+	const LightmapAtlas::Place& place = lmtexture->AtlasPlace;
+	if (place.Page >= 0)
+	{
+		LightmapRect written;
+		if (bRealtimeChanged)
+			Atlas.Write(place, lmtexture->Mip, updated, written);
+
+		TextureInfo texinfo;
+		texinfo.bRealtimeChanged = !written.Empty();
+		texinfo.UpdateX = written.x0;
+		texinfo.UpdateY = written.y0;
+		texinfo.UpdateWidth = written.x1 - written.x0;
+		texinfo.UpdateHeight = written.y1 - written.y0;
+		texinfo.CacheID = Atlas.PageCacheID(place.Page);
+		texinfo.Format = lmtexture->Format;
+		texinfo.Mips = Atlas.PageMip(place.Page);
+		texinfo.NumMips = 1;
+		texinfo.USize = LightmapAtlas::PageSize;
+		texinfo.VSize = LightmapAtlas::PageSize;
+		texinfo.Pan = { lmindex.PanX - place.X * lmindex.UScale, lmindex.PanY - place.Y * lmindex.VScale };
+		texinfo.UScale = lmindex.UScale;
+		texinfo.VScale = lmindex.VScale;
+		return texinfo;
+	}
+
 	TextureInfo texinfo;
 	texinfo.bRealtimeChanged = bRealtimeChanged;
 	if (bRealtimeChanged && (updated.x1 - updated.x0 < lmtexture->Mip.Width || updated.y1 - updated.y0 < lmtexture->Mip.Height))

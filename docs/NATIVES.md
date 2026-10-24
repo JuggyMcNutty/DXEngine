@@ -588,6 +588,12 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
 
 - **Back to front** by the distance of one point of each, where the
   original's lists run in the order its BSP walk met them.
+- **The opaque surfaces** go by zone, texture and light map, as the
+  original sorts them by zone and texture, its order among one texture its
+  sort's own: where two of them overlap at one depth, which shows can
+  differ (the gaps between the Liberty Island pier's planks: 272 pixels of
+  `MeshConsole`'s frame, by 3 levels or more, against DXEngine's BSP order
+  before, both as far from `D3DDrv`'s).
 - **A mesh's translucent faces** are drawn after all its opaque ones. The
   original draws them in face order among them, so one drawn before an
   opaque face behind it is lost where that face writes over it. Of the 61

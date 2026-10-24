@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "VisibleFrame.h"
+#include <tuple>
 #include "VisibleCorona.h"
 #include "RenderSubsystem.h"
 #include "RenderDevice/RenderDevice.h"
@@ -978,6 +979,19 @@ void VisibleFrame::DrawCoronas()
 
 void VisibleFrame::DrawOpaqueNodes()
 {
+	// By zone, then texture, as the original's draw list sorts its solid
+	// surfaces (dx-reverse-info render-dll.md, a frame), then by light map:
+	// a run of one texture and one page of light maps is one batch
+	// (LightmapAtlas). The depth test makes their order free.
+	UModel* model = engine->Level->Model;
+	auto key = [&](const VisibleNode& node)
+	{
+		const BspSurface& surface = model->Surfaces[node.Node->Surf];
+		int zone = node.ViewerBehind ? node.Node->Zone0 : node.Node->Zone1;
+		return std::make_tuple(zone, (uintptr_t)surface.Material, surface.LightMap);
+	};
+	std::stable_sort(OpaqueNodes.begin(), OpaqueNodes.end(), [&](const VisibleNode& a, const VisibleNode& b) { return key(a) < key(b); });
+
 	Device->SetSceneNode(&Frame);
 	for (VisibleNode& node : OpaqueNodes)
 		node.Draw(this);

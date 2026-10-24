@@ -721,6 +721,8 @@ set(DXCOMMON_SOURCES
 	DXEngine/Light/LightActorTree.h
 	DXEngine/Light/LightEffect.cpp
 	DXEngine/Light/LightEffect.h
+	DXEngine/Light/LightmapAtlas.cpp
+	DXEngine/Light/LightmapAtlas.h
 	DXEngine/Light/LightmapBuilder.cpp
 	DXEngine/Light/LightmapBuilder.h
 	DXEngine/Light/Shadowmap.cpp

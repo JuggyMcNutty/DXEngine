@@ -4,6 +4,7 @@
 #include "LightActorTree.h"
 #include "LightmapBuilder.h"
 #include "FogmapBuilder.h"
+#include "LightmapAtlas.h"
 #include "Packages/Engine/Resources/Textures/UBitmap.h"
 #include <unordered_map>
 #include <list>
@@ -30,6 +31,9 @@ struct LightmapTexture
 	// Where the lights added over the static map reached when it was last
 	// built: outside it, the map is the static map
 	LightmapRect AddedRect;
+
+	// Its place in a shared page (LightmapAtlas)
+	LightmapAtlas::Place AtlasPlace;
 };
 
 class VertexLight
@@ -295,6 +299,7 @@ private:
 
 	LightmapBuilder Builder;
 	std::map<uint64_t, std::unique_ptr<LightmapTexture>> lmtextures;
+	LightmapAtlas Atlas;
 	// A fog map: the frame it was last built in, and whether its texels are
 	// all clear, as a new one's are
 	struct FogmapEntry
