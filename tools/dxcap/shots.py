@@ -5,16 +5,21 @@ original's (docs/DEVELOPMENT.md, shots). Each shot is cut into blocks
 shot first goes through the gamma the original's frames carry (1.5 at the runs'
 Brightness). Prints, for each pair of shots, the mean ratio over the region
 asked for (the whole frame by default), the ratios' spread, and with --blocks
-the grid of ratios.
+the grid of ratios. With --rmse, the RMSE of the two shots' grey levels over
+the region, pixel by pixel, and their correlation; with --shift, also the move
+of DXEngine's shot, in quarter pixels up to one each way (bilinear), that fits
+the original's best: none when the two register (a move of half a pixel blurs
+too, so a flat minimum over moves the same each way is the blur's, not a
+misregistration).
 
   shots.py <original run> <dxe run> [--gamma 1.5] [--block 16]
-           [--region x,y,w,h] [--shot N] [--blocks]
+           [--region x,y,w,h] [--shot N] [--blocks] [--rmse] [--shift]
 
 A run is its folder under build/dxcap/runs: the original's shots are the
 grabber's Shot0000.png..., DXEngine's Shot0000.bmp...; a pair is the two of one
 number (--shot picks one), the original's missing ones passed over. Needs
 ImageMagick (magick)."""
-import argparse, os, re, subprocess, sys
+import argparse, array, os, re, subprocess, sys
 
 def means(path, gamma, block):
     # One pixel per block: ImageMagick's scale averages each block
@@ -34,6 +39,34 @@ def means(path, gamma, block):
         w, h = max(w, x + 1), max(h, y + 1)
     return grid, w, h
 
+def greys(path, gamma, region, move=None):
+    # The region's grey levels, 0 to 65535, the shot first moved by (dx, dy)
+    cmd = ['magick', path]
+    if gamma != 1.0:
+        cmd += ['-gamma', str(gamma)]
+    if move:
+        cmd += ['-virtual-pixel', 'edge', '-interpolate', 'bilinear', '-filter', 'triangle', '-distort', 'SRT', '0,0 1 0 %g,%g' % move]
+    cmd += ['-colorspace', 'Gray']
+    if region:
+        cmd += ['-crop', '%dx%d+%d+%d' % (region[2], region[3], region[0], region[1]), '+repage']
+    cmd += ['-depth', '16', 'gray:-']
+    g = array.array('H')
+    g.frombytes(subprocess.run(cmd, check=True, capture_output=True).stdout)
+    return g
+
+def rmse(a, b):
+    # In levels of 255
+    return (sum((p - q) ** 2 for p, q in zip(a, b)) / len(a)) ** 0.5 / 257
+
+def correlation(a, b):
+    n = len(a)
+    ma, mb = sum(a) / n, sum(b) / n
+    va = sum((p - ma) ** 2 for p in a)
+    vb = sum((q - mb) ** 2 for q in b)
+    if not va or not vb:
+        return float('nan')
+    return sum((p - ma) * (q - mb) for p, q in zip(a, b)) / (va * vb) ** 0.5
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('original')
@@ -43,7 +76,10 @@ def main():
     ap.add_argument('--region', help='x,y,w,h in pixels: the region whose mean ratio is given')
     ap.add_argument('--shot', type=int, help='one shot number, else every pair')
     ap.add_argument('--blocks', action='store_true', help='print the grid of ratios')
+    ap.add_argument('--rmse', action='store_true', help="the grey levels' RMSE and correlation over the region")
+    ap.add_argument('--shift', action='store_true', help="also the quarter-pixel move of DXEngine's shot that fits best")
     a = ap.parse_args()
+    region = tuple(int(v) for v in a.region.split(',')) if a.region else None
     numbers = sorted(int(m[1]) for f in os.listdir(a.original) for m in [re.match(r'Shot(\d+)\.png$', f)] if m)
     if a.shot is not None:
         numbers = [n for n in numbers if n == a.shot]
@@ -79,6 +115,15 @@ def main():
         mid = ratios[len(ratios) // 2]
         print('shot %d: dxe/original %.3f over the region (%d blocks of %d; the original %.3f, dxe %.3f); blocks %.2f to %.2f, median %.2f'
               % (n, fsum / osum if osum else 0.0, len(ratios), (x1 - x0) * (y1 - y0), osum / ((x1 - x0) * (y1 - y0)), fsum / ((x1 - x0) * (y1 - y0)), ratios[0], ratios[-1], mid))
+        if a.rmse or a.shift:
+            og16 = greys(os.path.join(a.original, 'Shot%04d.png' % n), 1.0, region)
+            fg16 = greys(dxe, a.gamma, region)
+            line = 'shot %d: the grey levels %.2f apart (RMSE), correlated at %.3f' % (n, rmse(og16, fg16), correlation(og16, fg16))
+            if a.shift:
+                fits = [(rmse(og16, greys(dxe, a.gamma, region, (dx / 4, dy / 4))), dx / 4, dy / 4) for dy in range(-4, 5) for dx in range(-4, 5)]
+                best = min(fits)
+                line += '; best moved %+.2f, %+.2f: %.2f' % (best[1], best[2], best[0])
+            print(line)
         if a.blocks:
             for y in range(y0, y1):
                 row = []

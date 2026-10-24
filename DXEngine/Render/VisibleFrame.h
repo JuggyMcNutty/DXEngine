@@ -69,6 +69,11 @@ public:
 	// view's x across and y up over the depth; z the location's depth.
 	bool SpriteRectangle(UActor* actor, float& minX, float& minY, float& maxX, float& maxY, float& z);
 
+	// A tile drawn in the frame, as the original's sprite is, lies half a
+	// pixel left of and above its polygons (SceneNode::PolygonsAtFX15): the
+	// move, in the world, that puts a quad facing the view at location there.
+	vec3 TileOffset(const vec3& location) const;
+
 private:
 	// An actor's proxy for the occlusion test, as the original's sprites
 	// have one: its screen rectangle set back in the world at its

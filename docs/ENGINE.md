@@ -326,6 +326,14 @@ Deus Ex's look, as `Render.dll` and `D3DDrv.dll` make it, is described by featur
 `VisibleMesh.cpp`), `DXEngine/Light/` and
 `DXEngine/Packages/Engine/Resources/Textures/` (`FireEngine.cpp`, the fractal textures).
 
+Every device draws a 3D frame's polygons half a pixel right of and below where its projection
+puts them, as `D3DDrv` draws the original's ([the scene's pixels](NATIVES.md#the-scenes-pixels)):
+`PolygonShift` before the frustum in `SetSceneNode`, for a frame with
+`SceneNode::PolygonsAtFX15` (`VisibleFrame::SetupSceneFrame`'s, a mirror's, sky's, warp zone's
+and viewport window's among them, and `DrawClippedActor`'s). A canvas's frame and the coronas'
+take none, and a sprite's quad is moved back by it at its depth (`VisibleFrame::TileOffset`);
+the frame's `Projection`, which the clipper and the HUD's projections use, keeps the middle.
+
 **The Vulkan device**: the game tick runs while the GPU draws the previous frame
 (`CommandBufferManager` keeps one frame in flight, and `WaitForFrame()` collects it before
 anything it uses is touched; the swapchain is made again for a new size asked, not for an

@@ -286,6 +286,25 @@ correlation of 1.00 to `D3DDrv`'s, its edges blended into the box (the
 stock menus draw it translucent); on the canvas, clipped text drawn
 `STY_Translucent` translucent.
 
+### The scene's pixels
+
+Matches the original
+([its coordinates](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-frame),
+[the screen's pixels](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-screens-pixels)):
+a polygon -- a surface, a mesh's face, a decal -- is drawn half a pixel
+right of and below where the frame's middle puts it, and a tile -- the
+canvas's, a sprite, a corona -- at the middle, as `D3DDrv` draws them, on
+every device; `OpenGLDrv` draws the polygons at the middle. Against
+`D3DDrv`'s frames, `LaserConsole`'s wall and floor fit best unmoved on
+Vulkan, with and without 4x multisampling, and within a quarter pixel on GL
+(`shots.py --shift`): their grey levels 0.47 and 0.30 apart on Vulkan (RMSE,
+of 255), where with the polygons at the middle they were 1.52 and 0.78
+apart, fitted best moved half a pixel right and down. `FaceConsole`'s troop,
+`MeshConsole`'s Paul Denton, the mirrors and the light maps register so
+too ([mesh detail](#mesh-detail), [mirrors](#mirrors),
+[lighting](#lighting)); a sprite and the canvas draw where they did, to a
+level of 256 (`SpriteConsole`, `TileConsole`), and so do the coronas.
+
 ### Sprites
 
 Matches the original
@@ -317,15 +336,18 @@ Matches the original
 [particles and lasers](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#particles-and-lasers)):
 `LaserConsole`'s laser fence, a still texture in its beams' slots, unlit and
 lit, has each beam's brightest row within 2.5% of `D3DDrv`'s red, its two
-lines a segment in `D3DDrv`'s rows but for a row at an edge, and one segment
-of each beam drawn twice, picked at random each frame as the original picks
-it; and `ParticleConsole`'s particles rise, fall, grow and fade as the
-original's: its smoke's column at 1.06 to 1.10 of `D3DDrv`'s brightness, its
-puffs under gravity in the same rows. Differs in the occlusion: the original
-occludes each item's sprite through its span buffer; DXEngine clips items to
-the view (and a portal's spans) before its BSP walk and leaves the rest to
-the depth buffer. The look is the same; a hidden item's cost is paid.
-Whether the proxy counts as drawn is the original's.
+lines a segment in `D3DDrv`'s rows (each row within 20 levels of 256 of
+`D3DDrv`'s red, but the middle beam's top one, which `D3DDrv` draws and
+DXEngine's beam, a fraction of a pixel thinner there, misses), and one
+segment of each beam drawn twice, picked at random each frame as the
+original picks it; and `ParticleConsole`'s particles rise, fall, grow and
+fade as the original's: its smoke's column at 1.06 to 1.10 of `D3DDrv`'s
+brightness, its puffs under gravity in the same rows. Differs in the
+occlusion: the original occludes each item's sprite through its span
+buffer; DXEngine clips items to the view (and a portal's spans) before its
+BSP walk and leaves the rest to the depth buffer. The look is the same; a
+hidden item's cost is paid. Whether the proxy counts as drawn is the
+original's.
 
 ### Coronas
 
@@ -409,9 +431,10 @@ first person. `MirrorConsole`, at 4:3, on GL and on Vulkan:
   faces into the BSP
   ([which actors are drawn](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#which-actors-are-drawn)):
   `GlassConsole` with `Flip` on 06_HongKong_WanChai_Underworld's
-  `BreakableGlass0`, an opaque one, its reflection at a correlation of 0.96
-  to `D3DDrv`'s frame, and on 02_NYC_Smug's `DeusExMover7`, a translucent
-  one, 0.91; `OpeningConsole`'s view of the club, a doorway's glass, 0.89.
+  `BreakableGlass0`, an opaque one, its reflection, the frame's middle, at a
+  correlation of 0.985 to `D3DDrv`'s frame, and on 02_NYC_Smug's
+  `DeusExMover7`, a translucent one, 0.997; `OpeningConsole`'s view of the
+  club, a doorway's glass in it, 0.987 over the frame.
 
 Differs:
 
@@ -430,7 +453,7 @@ Differs:
 Matches the original's vertex budget and its morph
 ([mesh detail](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#mesh-detail)):
 `MeshConsole` with `LODBias` 0.004 and 0.0015, Paul Denton cut down to a few
-vertices, has his shape at a correlation of 0.93 and 0.95 to `D3DDrv`'s. On
+vertices, has his shape at a correlation of 0.95 and 0.97 to `D3DDrv`'s. On
 a screen wider than 4:3 the budget takes the wider angle
 ([the view's width](#the-views-width)). An environment-mapped face reflects
 the eye's line in its normals in the world's axes, as the original's
@@ -438,7 +461,7 @@ the eye's line in its normals in the world's axes, as the original's
 `MeshConsole` with `Enviro`, the four drawn so, has their streaks where
 `D3DDrv` has them. A face's texture lies as the original's, its corners'
 bytes ÷ 256 of the texture's size: `FaceConsole`'s UNATCO troop at a
-correlation of 0.97 to `D3DDrv`'s frame, its chest 0.99.
+correlation of 0.997 to `D3DDrv`'s frame, its chest 0.999.
 
 ### Lighting
 
@@ -453,7 +476,7 @@ where both engines draw it
 `LightConsole` has 03_NYC_Airfield's `Spotlight7` and Liberty Island's
 `Spotlight0` at 1.00 of `D3DDrv`'s frames, with DXEngine's detail textures
 off as the original draws none (`NoDetail`), in blocks of 16 pixels within
-0.94 to 1.07 across `Spotlight7`'s wall and `Spotlight0`'s world map, inside
+0.98 to 1.03 across `Spotlight7`'s wall and `Spotlight0`'s world map, inside
 its border ([brightness](#brightness)). A surface's light map holds
 the ambient of the zone it is seen from, and pans at that zone's speeds, as
 the original's draw list has it: 06_HongKong_WanChai_Underworld's floor
@@ -472,11 +495,11 @@ above, is unfogged in both, the frame within 1.02 of `D3DDrv`'s
 level's time. `LightConsole`, shooting both engines at one moment of it
 (`ShotAt`), has 06_HongKong_WanChai_Canal's disco `Light343`,
 02_NYC_BatteryPark's cylinder `Light81` and 09_NYC_ShipBelow's slow wave
-`Light16` within 0.99 to 1.01 of `D3DDrv`'s frames, correlated at up to 0.98
-(`NoDetail`). The rest are the reading's alone: the stock views of the
-searchlight, non-incidence and the rotor come out the same under other
-shapes too, and no stock light shows a fast wave (99_Endgame2's one is
-dark), shock, shell or interference.
+`Light16` within 0.99 to 1.01 of `D3DDrv`'s frames, correlated at up to
+0.997, 0.998 and 0.98 (`NoDetail`). The rest are the reading's alone: the
+stock views of the searchlight, non-incidence and the rotor come out the
+same under other shapes too, and no stock light shows a fast wave
+(99_Endgame2's one is dark), shock, shell or interference.
 Still DXEngine's own:
 
 - **Light maps**
@@ -1410,8 +1433,8 @@ one pass, and not panned with the surface, at its own scale
 `LightConsole` with `Macro`, Liberty Island's `Spotlight0` on a world map
 given itself as its macro texture, has the GL and Vulkan devices' frames at
 1.00 of `D3DDrv`'s (`NoDetail`): in blocks of 16 pixels inside the map's
-border, within 0.94 to 1.08 but for a row along its bottom edge, at up to
-1.19, where without the macro they are within 0.96 to 1.06
+border, within 0.94 to 1.04, where without the macro they are within 0.98
+to 1.03
 ([lighting](#lighting)). The D3D11 device keeps Surreal Engine's
 ([where it stands](../README.md#for-advanced-users)).
 

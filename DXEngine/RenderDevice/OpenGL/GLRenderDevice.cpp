@@ -2187,7 +2187,7 @@ void GLRenderDevice::SetSceneNode(SceneNode* Frame)
 	SceneViewport.MaxDepth = 1.0f;
 	SetViewport(SceneViewport);
 
-	SceneConstants.ObjectToProjection = mat4::frustum(-RProjZ, RProjZ, -Aspect * RProjZ, Aspect * RProjZ, 1.0f, 32768.0f, handedness::left, clipzrange::negative_positive_w);
+	SceneConstants.ObjectToProjection = PolygonShift(Frame) * mat4::frustum(-RProjZ, RProjZ, -Aspect * RProjZ, Aspect * RProjZ, 1.0f, 32768.0f, handedness::left, clipzrange::negative_positive_w);
 
 	// TBD; do this or do like UE1 does and do the transform on the CPU?
 	// maybe optionally do one or the other? transform on CPU can be super slow --Xaleros

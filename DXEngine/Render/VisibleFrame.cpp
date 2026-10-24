@@ -297,6 +297,18 @@ bool VisibleFrame::SpriteRectangle(UActor* actor, float& minX, float& minY, floa
 	return false;
 }
 
+vec3 VisibleFrame::TileOffset(const vec3& location) const
+{
+	if (!Frame.PolygonsAtFX15 || Frame.X <= 0 || Frame.Y <= 0)
+		return vec3(0.0f);
+
+	// The device's half pixel (PolygonShift) taken back at the location's
+	// depth, in the view's plane: half a pixel there is the frustum's
+	// tangent over the frame's size, times the depth.
+	float z = (Frame.WorldToView * vec4(location, 1.0f)).z;
+	return ViewToWorld * vec3(-z * FrustumTanX / Frame.X, -z * FrustumTanY / Frame.Y, 0.0f);
+}
+
 void VisibleFrame::AddOcclusionProxy(UActor* actor)
 {
 	if (actor->LastRenderTime() == Now)
@@ -540,6 +552,7 @@ void VisibleFrame::SetupSceneFrame(const mat4& worldToView)
 
 	Frame.FX2 = Frame.FX * 0.5f;
 	Frame.FY2 = Frame.FY * 0.5f;
+	Frame.PolygonsAtFX15 = true;
 	Frame.ObjectToWorld = mat4::identity();
 	Frame.WorldToView = worldToView;
 	Frame.FovAngle = HorPlusFovAngle(engine->CameraFovAngle, Frame.FX, Frame.FY);
@@ -938,9 +951,12 @@ void VisibleFrame::Draw()
 
 void VisibleFrame::DrawCoronas()
 {
+	// Tiles, about the frame's centre: the original projects a corona's
+	// place about FX2 (Render.dll DrawFrame)
 	SceneNode frame2d = Frame;
 	frame2d.ObjectToWorld = mat4::identity();
 	frame2d.WorldToView = mat4::identity();
+	frame2d.PolygonsAtFX15 = false;
 	Device->SetSceneNode(&frame2d);
 
 	// Deus Ex coronas are kept and faded across frames, from the viewer's

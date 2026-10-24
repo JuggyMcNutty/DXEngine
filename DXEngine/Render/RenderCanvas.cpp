@@ -143,6 +143,7 @@ void RenderSubsystem::DrawClippedActor(UActor* actor, bool WireFrame, int X, int
 	frame.FY = (float)Y * Canvas.uiscale;
 	frame.FX2 = frame.FX * 0.5f;
 	frame.FY2 = frame.FY * 0.5f;
+	frame.PolygonsAtFX15 = true;
 	frame.ObjectToWorld = Coords::ViewToRenderDev().ToMatrix();
 	frame.WorldToView = mat4::identity();
 	frame.FovAngle = HorPlusFovAngle(engine->CameraFovAngle, frame.FX, frame.FY);

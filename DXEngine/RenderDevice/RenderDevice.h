@@ -29,7 +29,24 @@ struct SceneNode
 
 	vec4 NearClip = vec4(0.0f, 0.0f, 1.0f, -1.0f);
 	float Zoom = 1.0f;
+
+	// A 3D frame's: its polygons half a pixel right of and below where the
+	// projection puts them, as D3DDrv draws the original's. Render.dll
+	// projects a polygon's corners about FX15, (FX + 1) / 2, but a sprite's
+	// place and a corona's about FX2, and D3DDrv draws each half a pixel up
+	// and left of its coordinates; a tile, and so the canvas, keeps the
+	// projection's centre, as a sprite does (VisibleFrame::TileOffset).
+	bool PolygonsAtFX15 = false;
 };
+
+// What a device puts before a frame's projection: the half pixel of
+// SceneNode::PolygonsAtFX15 in clip space, NDC's y down the frame on each.
+inline mat4 PolygonShift(const SceneNode* frame)
+{
+	if (!frame->PolygonsAtFX15 || frame->X <= 0 || frame->Y <= 0)
+		return mat4::identity();
+	return mat4::translate(1.0f / frame->X, 1.0f / frame->Y, 0.0f);
+}
 
 // Hor+: a view wider than 4:3 keeps the height a 4:3 view of the angle
 // given would have and sees more at the sides, where the original keeps the

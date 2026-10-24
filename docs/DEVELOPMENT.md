@@ -103,7 +103,7 @@ the run. *Either*: one engine on each side of a pair.
 | `CaptureConsole` | both | tripwires, coronas, comment-jump conversations | `DXCAP:` |  |
 | `ViewConsole` | both | the weapon in view; the level's light | `DXVIEW:` |  |
 | `CoronaConsole` | both | lamp coronas; a movable corona light of its own | `DXCORONA:` |  |
-| `LaserConsole` | both | a laser fence's beams and its trigger's actors; the beams with a still texture, unlit and lit; the detail textures off (`NoDetail`) | `DXLASER:` | `laser.py <original run> <dxe run>`; `shots.py`; at `DXCAP_WINDOW=1024x768` with `NoDetail=True` |
+| `LaserConsole` | both | a laser fence's beams and its trigger's actors; the beams with a still texture, unlit and lit; the detail textures off (`NoDetail`) | `DXLASER:` | `laser.py <original run> <dxe run>`; `shots.py --shift`; at `DXCAP_WINDOW=1024x768` with `NoDetail=True`, against `DXCAP_RENDERER=D3D`'s ([shots](#shots)) |
 | `ParticleConsole` | both | smoke and puffs on the pier, in marked shots | `DXPART:` | `shots.py --region` over the smoke's column, at `DXCAP_WINDOW=1024x768` |
 | `FaceConsole` | both | a character's mesh close up (`MeshOf`, `Ahead`, `Distance`) | `DXFACE:` | `shots.py <original run> <dxe run>` |
 | `MeshConsole` | both | meshes lit on the pier (`LODBias`, `NoDetail`, `Enviro`) | `DXMESH:` | `shots.py` |
@@ -337,6 +337,12 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
 - **The same view.** Two runs' shots compare only from one view: one window size (`DXCAP_WINDOW`)
   and, for `LightConsole`, one `View`, whose distance its `chosen` line logs; a dxe run against
   an original run of another `View` is off by however much the frame differs.
+- **Registration against `D3DDrv`.** `OpenGLDrv` draws the original's polygons half a pixel up
+  and left of `D3DDrv`'s, its tiles where `D3DDrv` does, and DXEngine draws both as `D3DDrv`
+  ([the scene's pixels](NATIVES.md#the-scenes-pixels)): where a polygon's edges or rows are
+  compared, the original runs with `DXCAP_RENDERER=D3D`. `shots.py --rmse` gives the grey
+  levels' RMSE and correlation over the region, pixel by pixel, and `--shift` the quarter-pixel
+  move of DXEngine's shot that fits the original's best: none when the two register.
 
 ### Running the original
 
