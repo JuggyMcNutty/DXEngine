@@ -229,6 +229,7 @@ void ULevel::TickStarted(UActor* actor, TickStart start)
 
 void ULevel::SortActors()
 {
+	ActorsSorted++;
 	Array<UActor*> sorted;
 	sorted.reserve(Actors.size());
 	for (size_t i = 0; i < Actors.size() && i < 2; i++)

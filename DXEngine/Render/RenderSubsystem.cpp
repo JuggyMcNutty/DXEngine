@@ -179,6 +179,7 @@ void RenderSubsystem::PurgeDying()
 {
 	CoronaStates.erase(std::remove_if(CoronaStates.begin(), CoronaStates.end(), [](const CoronaState& state) { return GC::IsDying(state.Light); }), CoronaStates.end());
 	IteratorActors.erase(std::remove_if(IteratorActors.begin(), IteratorActors.end(), [](UActor* actor) { return GC::IsDying(actor); }), IteratorActors.end());
+	StaticIteratorActors.erase(std::remove_if(StaticIteratorActors.begin(), StaticIteratorActors.end(), [](UActor* actor) { return GC::IsDying(actor); }), StaticIteratorActors.end());
 }
 
 void RenderSubsystem::FlushDevice()
@@ -192,7 +193,10 @@ void RenderSubsystem::OnMapLoaded()
 	Device->Flush(true);
 	DrawnSinceFlush = false;
 	engine->Level->Light.OnMapLoaded();
-	// Nothing of the level before: its lights are not this one's.
+	// Nothing of the level before: its lights are not this one's, nor its
+	// static actors, filed again at the next frame.
 	IteratorActors.clear();
 	CoronaStates.clear();
+	StaticIteratorActors.clear();
+	StaticActorsLevel = nullptr;
 }

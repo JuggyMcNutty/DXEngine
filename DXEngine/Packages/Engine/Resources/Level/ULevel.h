@@ -49,6 +49,7 @@ public:
 	// the actor list's order). 0 for a level never sorted.
 	void SortActors();
 	size_t FirstDynamicActor = 0;
+	int ActorsSorted = 0; // how many times SortActors has put the static actors first
 
 	// Deus Ex: the mark an actor ticked this frame carries (bTicked), which
 	// flips after each tick; a spawned actor takes its opposite, not yet

@@ -322,6 +322,10 @@ The renderer's CPU work is lighter than Surreal Engine's:
   passes that gap over, leaving it open, so what lies behind counts as showing and is drawn).
 - **One-sided surfaces** seen from behind are skipped before the visibility test, and a
   surface's points are gathered only when a test needs them.
+- **The actors' places in the BSP**: a static actor, which does not move, is filed when the
+  level sorts its actors (static first, as the original's), then a sixteenth of them a frame,
+  in turn, should a script change one's look; only those with a render iterator are visited
+  each frame (`RenderSubsystem::UpdateStaticActors`). The dynamic ones are filed each frame.
 - **Meshes**: each vertex animated, lit and fogged once a draw; a run of faces with one texture
   drawn in one device call, set up once (the GL device's `DrawGouraudTriangles` too).
 - **A portal's spans** are put in order by row in linear time, not sorted (`SortPortalSpans`).

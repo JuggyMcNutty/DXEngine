@@ -31,9 +31,10 @@ void RenderSubsystem::DrawScene()
 	// Only where Actor has the render interface properties
 	bool hasRenderIterators = PropOffsets_Actor.RenderInterface.DataOffset != ~(size_t)0 &&
 		PropOffsets_Actor.RenderIteratorClass.DataOffset != ~(size_t)0;
-	for (UActor* actor : engine->Level->Actors)
+	UpdateStaticActors(hasRenderIterators);
+	for (size_t i = std::min(engine->Level->FirstDynamicActor, engine->Level->Actors.size()); i < engine->Level->Actors.size(); i++)
 	{
-		if (actor)
+		if (UActor* actor = engine->Level->Actors[i])
 		{
 			actor->UpdateBspInfo();
 			if (hasRenderIterators)
@@ -53,6 +54,48 @@ void RenderSubsystem::DrawScene()
 	MainView = MainFrame.Frame;
 	MainFrame.Draw();
 	MainFrame.DrawCoronas();
+}
+
+// The level's static actors, which do not move -- the level puts them first,
+// before its FirstDynamicActor, as the original's does -- are filed in the BSP
+// when its actors are sorted, and then a sixteenth of them a frame, in turn,
+// should a script change one's look; only those with a render iterator are
+// visited each frame. The rest, the dynamic actors, are filed every frame.
+void RenderSubsystem::UpdateStaticActors(bool hasRenderIterators)
+{
+	ULevel* level = engine->Level;
+	size_t firstDynamic = std::min(level->FirstDynamicActor, level->Actors.size());
+	bool all = StaticActorsLevel != level || StaticActorsSorted != level->ActorsSorted;
+	if (all)
+	{
+		StaticActorsLevel = level;
+		StaticActorsSorted = level->ActorsSorted;
+		StaticIteratorActors.clear();
+	}
+
+	size_t turn = (size_t)(TextureFrameCounter & 15);
+	for (size_t i = all ? 0 : turn; i < firstDynamic; i += all ? 1 : 16)
+	{
+		UActor* actor = level->Actors[i];
+		if (!actor)
+			continue;
+		actor->UpdateBspInfo();
+		if (hasRenderIterators && actor->RenderIteratorClass() &&
+			std::find(StaticIteratorActors.begin(), StaticIteratorActors.end(), actor) == StaticIteratorActors.end())
+		{
+			StaticIteratorActors.push_back(actor);
+		}
+	}
+
+	if (hasRenderIterators)
+	{
+		for (UActor* actor : StaticIteratorActors)
+		{
+			UpdateRenderInterface(actor);
+			if (actor->RenderInterface())
+				IteratorActors.push_back(actor);
+		}
+	}
 }
 
 void RenderSubsystem::UpdateRenderInterface(UActor* actor)

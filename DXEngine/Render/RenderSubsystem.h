@@ -63,6 +63,11 @@ public:
 	// pass; each scene frame draws the items their iterators list
 	// (VisibleFrame::ProcessRenderIterators).
 	Array<UActor*> IteratorActors;
+	// The level whose static actors are filed, as of its last sort, and those
+	// of them with a render iterator (UpdateStaticActors)
+	ULevel* StaticActorsLevel = nullptr;
+	int StaticActorsSorted = -1;
+	Array<UActor*> StaticIteratorActors;
 
 	// Deus Ex coronas as the original's (dx-reverse-info/render-dll.md, coronas):
 	// up to 32 kept from frame to frame, each with a brightness 0 to 1,
@@ -120,6 +125,7 @@ public:
 private:
 	void DrawScene();
 	void UpdateRenderInterface(UActor* actor);
+	void UpdateStaticActors(bool hasRenderIterators);
 
 	void ResetCanvas();
 	void PreRender();
