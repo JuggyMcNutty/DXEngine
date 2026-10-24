@@ -6,12 +6,12 @@
 struct LightmapRect;
 
 // The light maps in shared pages, many to a texture, so that the surfaces
-// drawn with them make one batch where their other textures match. Each map
-// keeps a border of the texels a wrap samples beside its edges, the opposite
-// edges', so that its page samples as the map alone does: D3DDrv wraps its
-// light maps (D3DDrv.dll InitTextureStageState), and a surface's points lie
-// between its map's first and last texel centres, the border taking what the
-// anisotropic filter reaches past them.
+// drawn with them make one batch where their other textures match. A
+// surface's points lie between its map's first and last texel centres, so
+// the bilinear filter takes none of its neighbours'; D3DDrv's, though it
+// wraps its light maps (D3DDrv.dll InitTextureStageState), takes the edge
+// texel there. Each map keeps a border repeating its edges for what the
+// devices' anisotropic filter reaches past them.
 class LightmapAtlas
 {
 public:
@@ -28,8 +28,8 @@ public:
 	// A place for a map of width x height texels and its border
 	Place Allocate(int width, int height);
 
-	// The part of the map that changed, and its border where that touches
-	// an edge, written into its page: the page's rectangle written
+	// The part of the map that changed, and the border beside it where it
+	// meets an edge, written into its page: the page's rectangle written
 	void Write(const Place& place, const UnrealMipmap& map, const LightmapRect& changed, LightmapRect& written);
 
 	UnrealMipmap* PageMip(int page) { return &Pages[page]->Mip; }

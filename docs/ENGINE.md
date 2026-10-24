@@ -332,9 +332,10 @@ The renderer's CPU work is lighter than Surreal Engine's:
 - **Movers' mirrors**: each frame looks only at the movers with a mirrored face, found with the
   static actors, where it cast every actor of the level to a mover (`RenderSubsystem::MirrorMovers`).
 - **Light maps in shared pages** of 1024 texels a side (`LightmapAtlas`), each map placed when
-  it is first built at its size, with a border of 4 texels of its opposite edges, as the wrap
-  that `D3DDrv` and the devices sample with gives them; a map too large for a page is drawn on
-  its own. The surface is given the page at the map's place (its pan moved by it), so no device
+  it is first built at its size, with a border of 4 texels repeating its edges: a surface's
+  points lie between its map's first and last texel centres, where the bilinear filter takes
+  the edge texel, as `D3DDrv`'s does though it wraps, and the border gives the anisotropic
+  filter the same past them; a map too large for a page is drawn on its own. The surface is given the page at the map's place (its pan moved by it), so no device
   changes, and a map's change is sent as a part of its page. The opaque surfaces are drawn by
   zone, texture and light map ([draw order](NATIVES.md#draw-order-and-movers)), so a run of one
   texture and one page is one batch where descriptor indexing is missing (the Smart Pro's).

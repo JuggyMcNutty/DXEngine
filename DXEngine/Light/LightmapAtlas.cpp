@@ -78,27 +78,31 @@ void LightmapAtlas::Write(const Place& place, const UnrealMipmap& map, const Lig
 	}
 	written = { place.X + changed.x0, place.Y + changed.y0, place.X + changed.x1, place.Y + changed.y1 };
 
-	// Near an edge, the border again: each of its texels the one a wrap
-	// samples there, the opposite edge's
-	if (changed.x0 >= Border && changed.y0 >= Border && changed.x1 <= width - Border && changed.y1 <= height - Border)
+	// At an edge, the border beside the change again, each of its texels
+	// the edge texel nearest it
+	bool left = changed.x0 == 0, right = changed.x1 == width, top = changed.y0 == 0, bottom = changed.y1 == height;
+	if (!left && !right && !top && !bottom)
 		return;
-	auto wrap = [](int i, int size) { return ((i % size) + size) % size; };
-	for (int y = -Border; y < height + Border; y++)
+	int x0 = left ? -Border : changed.x0;
+	int x1 = right ? width + Border : changed.x1;
+	int y0 = top ? -Border : changed.y0;
+	int y1 = bottom ? height + Border : changed.y1;
+	for (int y = y0; y < y1; y++)
 	{
 		vec4* line = dest + (size_t)(place.Y + y) * PageSize + place.X;
-		const vec4* srcline = src + (size_t)wrap(y, height) * width;
+		const vec4* srcline = src + (size_t)std::clamp(y, 0, height - 1) * width;
 		bool inside = y >= 0 && y < height;
-		for (int x = -Border; x < width + Border; x++)
+		for (int x = x0; x < x1; x++)
 		{
 			if (inside && x >= 0 && x < width)
 			{
 				x = width - 1;
 				continue;
 			}
-			line[x] = srcline[wrap(x, width)];
+			line[x] = srcline[std::clamp(x, 0, width - 1)];
 		}
 	}
-	written = { place.X - Border, place.Y - Border, place.X + width + Border, place.Y + height + Border };
+	written = { place.X + x0, place.Y + y0, place.X + x1, place.Y + y1 };
 }
 
 void LightmapAtlas::Clear()
