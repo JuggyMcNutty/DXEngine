@@ -792,6 +792,11 @@ run_dxe() {
     collect "$dir" "$before" "$own"
     printf '%s\n' "$rc" > "$dir/exit"
     say "dxe: $dir (exit $rc)"
+    # A GPU device that does not start gives way to the software device:
+    # its frames would pass for the GPU device's.
+    if grep -a -q "the software device draws in its place" "$dir/engine.log" 2>/dev/null; then
+        die "the engine fell back to the software device (its device did not start): $dir/engine.log"
+    fi
     printf '%s\n' "$dir"
 }
 

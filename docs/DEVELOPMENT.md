@@ -336,7 +336,9 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
   scale under 1 the mark's blocks are scaled with the frame, and the shot numbers it reads from
   them are wrong.
 - A renderer that fails to start falls back to `SoftDrv` without a word, its frames passing for
-  the renderer's: the script then fails, naming the log's `Bound to SoftDrv`.
+  the renderer's: the script then fails, naming the log's `Bound to SoftDrv`; and so for a dxe run
+  whose GPU device does not start, naming its log's `the software device draws in its place`
+  ([which device draws](ENGINE.md#rendering)).
 - **The same view.** Two runs' shots compare only from one view: one window size (`DXCAP_WINDOW`)
   and, for `LightConsole`, one `View`, whose distance its `chosen` line logs; a dxe run against
   an original run of another `View` is off by however much the frame differs.
