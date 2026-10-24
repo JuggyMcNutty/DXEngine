@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 9661719..874e74c 100644
+index 0401ee2..6a5b4e1 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -35,6 +35,11 @@ endif()
@@ -95,7 +95,7 @@ index e4ebc2f..ba70fbf 100644
  		viewport->Actor()->SetBool(it.first, true);
  	for (auto& it : activeInputAxes)
 diff --git a/DXEngine/Light/LightSystem_Light.cpp b/DXEngine/Light/LightSystem_Light.cpp
-index bb75748..04ee074 100644
+index dffbcbf..4ff30da 100644
 --- a/DXEngine/Light/LightSystem_Light.cpp
 +++ b/DXEngine/Light/LightSystem_Light.cpp
 @@ -1,6 +1,8 @@
@@ -179,7 +179,7 @@ index fa81c74..0120a6a 100644
  		return false;
  	// The life span runs out in the actor's own tick (UActor::Tick)
 diff --git a/DXEngine/Render/RenderScene.cpp b/DXEngine/Render/RenderScene.cpp
-index 0387068..2b12149 100644
+index 82ed727..7239b9e 100644
 --- a/DXEngine/Render/RenderScene.cpp
 +++ b/DXEngine/Render/RenderScene.cpp
 @@ -1,5 +1,6 @@
@@ -189,7 +189,7 @@ index 0387068..2b12149 100644
  #include "RenderSubsystem.h"
  #include "RenderDevice/RenderDevice.h"
  #include "GameWindow.h"
-@@ -31,6 +32,7 @@ void RenderSubsystem::DrawScene()
+@@ -33,6 +34,7 @@ void RenderSubsystem::DrawScene()
  	// Only where Actor has the render interface properties
  	bool hasRenderIterators = PropOffsets_Actor.RenderInterface.DataOffset != ~(size_t)0 &&
  		PropOffsets_Actor.RenderIteratorClass.DataOffset != ~(size_t)0;
@@ -197,7 +197,7 @@ index 0387068..2b12149 100644
  	UpdateStaticActors(hasRenderIterators);
  	for (size_t i = std::min(engine->Level->FirstDynamicActor, engine->Level->Actors.size()); i < engine->Level->Actors.size(); i++)
  	{
-@@ -48,12 +50,17 @@ void RenderSubsystem::DrawScene()
+@@ -50,12 +52,17 @@ void RenderSubsystem::DrawScene()
  	// And Deus Ex's movers where the level's BSP files them, as the
  	// original's SetupDynamics does each frame drawn
  	engine->Level->Collision.RefileMovers();
@@ -216,7 +216,7 @@ index 0387068..2b12149 100644
  
  // The level's static actors, which do not move -- the level puts them first,
 diff --git a/DXEngine/Render/RenderSubsystem.cpp b/DXEngine/Render/RenderSubsystem.cpp
-index 72ba4e3..28be483 100644
+index 13a4c66..3d70f25 100644
 --- a/DXEngine/Render/RenderSubsystem.cpp
 +++ b/DXEngine/Render/RenderSubsystem.cpp
 @@ -1,5 +1,6 @@
@@ -226,7 +226,7 @@ index 72ba4e3..28be483 100644
  #include "RenderSubsystem.h"
  #include "RenderDevice/RenderDevice.h"
  #include "GameWindow.h"
-@@ -30,7 +31,9 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
+@@ -31,7 +32,9 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
  	// Render.dll hands it over (dx-reverse-info render-dll.md, a frame).
  	DetailTexturesDrawn = engine->renderdev->DetailTextures && NameString(engine->client->TextureDetail) == NameString("High");
  	AutoUV += levelTimeElapsed * 64.0f;
@@ -236,7 +236,7 @@ index 72ba4e3..28be483 100644
  
  	Stats.Frames = 0;
  	Stats.Surfaces = 0;
-@@ -56,11 +59,15 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
+@@ -57,11 +60,15 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
  	}
  
  	Device->Brightness = engine->client->Brightness;
@@ -252,7 +252,7 @@ index 72ba4e3..28be483 100644
  
  	if (engine->console->bNoDrawWorld() == false)
  	{
-@@ -73,15 +80,23 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
+@@ -74,15 +81,23 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
  		if (engine->viewport->Actor() && (!engine->dxRootWindow || engine->dxRootWindow->bRender()))
  		{
  			DrawScene();
@@ -277,18 +277,18 @@ index 72ba4e3..28be483 100644
  	FrameDrawn = true;
  }
 diff --git a/DXEngine/Render/VisibleFrame.cpp b/DXEngine/Render/VisibleFrame.cpp
-index 1bf3194..55737c5 100644
+index deadee5..d0088d7 100644
 --- a/DXEngine/Render/VisibleFrame.cpp
 +++ b/DXEngine/Render/VisibleFrame.cpp
-@@ -1,6 +1,7 @@
- 
+@@ -2,6 +2,7 @@
  #include "Precomp.h"
  #include "VisibleFrame.h"
+ #include <tuple>
 +#include "Utils/PerfLog.h" // TEMPORARY DEBUG TOOL
  #include "VisibleCorona.h"
  #include "RenderSubsystem.h"
  #include "RenderDevice/RenderDevice.h"
-@@ -591,7 +592,11 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
+@@ -592,7 +593,11 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
  
  	// Skip node if its AABB is not visible -- and what came down into its
  	// space with it, as the original drops it
@@ -301,7 +301,7 @@ index 1bf3194..55737c5 100644
  	{
  		return;
  	}
-@@ -604,6 +609,7 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
+@@ -605,6 +610,7 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
  			actor->LastDrawFrame = FrameCounter;
  
  			VisibleActor visactor;
@@ -309,7 +309,7 @@ index 1bf3194..55737c5 100644
  			visactor.Process(this, actor);
  		}
  	}
-@@ -731,7 +737,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -732,7 +738,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  			if (zoneInfo->SkyZone())
  			{
  				gatherPoints();
@@ -319,7 +319,7 @@ index 1bf3194..55737c5 100644
  				if (!spans.empty())
  				{
  					USkyZoneInfo* skyZone = zoneInfo->SkyZone();
-@@ -762,7 +770,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -763,7 +771,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  				if (warpZone)
  				{
  					gatherPoints();
@@ -329,7 +329,7 @@ index 1bf3194..55737c5 100644
  					if (!spans.empty())
  					{
  						for (auto& p : Portals)
-@@ -806,7 +816,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -807,7 +817,9 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  			else
  			{
  				gatherPoints();
@@ -339,7 +339,7 @@ index 1bf3194..55737c5 100644
  				if (!spans.empty())
  				{
  					// One frame for the mirrors of one plane seen from one
-@@ -868,7 +880,11 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -869,7 +881,11 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  		}
  	}
  
@@ -352,7 +352,7 @@ index 1bf3194..55737c5 100644
  		return;
  
  	// A visible portal surface means the zones it borders were seen: their
-@@ -954,6 +970,14 @@ int VisibleFrame::FindZoneAt(const vec4& location, BspNode* node, BspNode* nodes
+@@ -955,6 +971,14 @@ int VisibleFrame::FindZoneAt(const vec4& location, BspNode* node, BspNode* nodes
  
  void VisibleFrame::Draw()
  {
