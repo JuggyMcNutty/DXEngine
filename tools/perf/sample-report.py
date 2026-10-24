@@ -114,6 +114,13 @@ def main():
     maps, bases, exe = read_maps(args.samples + ".maps")
     starts = [m[0] for m in maps]
     engine = Symbols(args.binary, nm)
+    # An engine linked to a fixed address (ELF type EXEC, as the cross builds
+    # are) has nm's addresses where it runs: nothing to take off them. A
+    # position-independent one (DYN) is placed where its mapping starts.
+    with open(args.binary, "rb") as f:
+        header = f.read(18)
+    if header[:4] == b"\x7fELF" and int.from_bytes(header[16:18], "little") == 2:
+        bases[exe] = 0
     libs = {}
 
     def symbolise(addr, is_return):
