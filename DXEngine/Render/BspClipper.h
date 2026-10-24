@@ -34,13 +34,20 @@ public:
 
 	void Setup(const mat4& world_to_projection, const Array<PortalSpan>& portalSpans, const vec4& portalPlane);
 
-	// Where in a pixel the grid samples what covers it, from its upper left
-	// corner: Surreal Engine's centre, 0.5, or for Deus Ex its lower right corner,
-	// 1, as the original's span buffer has it (dx-reverse-info
-	// render-dll.md, a frame).
+	// Where in a pixel the grid samples a polygon that covers it, from its
+	// upper left corner, in the frame's coordinates about its middle. The
+	// original's span buffer takes a surface's pixel by its lower right
+	// corner in coordinates about FX15, half a pixel past the middle: at its
+	// centre, 0.5. An occlusion proxy's rectangle, a sprite's rounded up, by
+	// its upper left corner, 0; a mesh's box rounded down, by its lower
+	// right, 1 (dx-reverse-info render-dll.md, a frame; which actors are
+	// drawn).
 	void SetPixelSample(float sample) { PixelSample = sample; }
 
 	bool CheckSurface(const vec3* vertices, uint32_t count, bool solid);
+
+	// A box's rectangle, each side the pixel it falls in, the right and the
+	// bottom left out, as the original's BoundVisible makes it.
 	bool IsAABBVisible(const BBox& bbox);
 
 	// Whether any of the polygon shows through the spans, with nothing

@@ -341,15 +341,13 @@ bool BspClipper::IsAABBVisible(const BBox& bbox)
 	if (bits & (1 << 4)) min2d.y = 0;
 	if (bits & (1 << 5)) max2d.y = (float)ViewportHeight;
 
-	// Check if any of it can be seen: its rows by the pixels' sample point,
-	// as a polygon's; each side the pixel it falls in, the right one left
-	// out. Deus Ex's rows so too, as the original's BoundVisible makes a
+	// Check if any of it can be seen: each side the pixel it falls in, the
+	// right and the bottom left out, as the original's BoundVisible makes a
 	// box's rectangle (dx-reverse-info render-dll.md, which actors are
-	// drawn).
+	// drawn), whatever a polygon's sample point.
 
-	float bias = 1.0f - PixelSample;
-	int topY = PixelFloor(min2d.y + bias, ViewportHeight);
-	int bottomY = PixelFloor(max2d.y + bias, ViewportHeight);
+	int topY = PixelFloor(min2d.y, ViewportHeight);
+	int bottomY = PixelFloor(max2d.y, ViewportHeight);
 	if (topY >= bottomY)
 		return false;
 	int x0 = PixelFloor(min2d.x, ViewportWidth);

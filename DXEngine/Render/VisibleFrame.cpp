@@ -43,7 +43,9 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const 
 	// what shows through a one-pixel gap. A portal's frame is the same size,
 	// so the spans it inherits are in the same grid.
 	Clipper.SetViewportSize(Frame.X, Frame.Y);
-	Clipper.SetPixelSample(1.0f);
+	// A surface's pixel taken by its centre, as the original's span buffer
+	// takes it (BspClipper::SetPixelSample); a proxy's in TestFragment.
+	Clipper.SetPixelSample(0.5f);
 	Clipper.Setup(Frame.Projection * Frame.WorldToView * Frame.ObjectToWorld, portalSpans, portalPlane);
 
 	ViewLocation = vec4(location, 1.0f);
@@ -325,6 +327,7 @@ void VisibleFrame::AddOcclusionProxy(UActor* actor)
 	auto toWorld = [&](float x, float y) { return ViewToWorld * (vec3(x * z, y * z, z) - ViewTranslation); };
 	OcclusionFragment fragment;
 	fragment.Actor = actor;
+	fragment.Sample = actor->DrawType() == DT_Mesh ? 1.0f : 0.0f;
 	fragment.NumVerts = 4;
 	fragment.Verts[0] = toWorld(minX, minY);
 	fragment.Verts[1] = toWorld(maxX, minY);
@@ -372,6 +375,7 @@ void VisibleFrame::SplitFragments(size_t first, size_t count, const vec4& plane,
 
 		OcclusionFragment nearPiece, farPiece;
 		nearPiece.Actor = farPiece.Actor = fragment.Actor;
+		nearPiece.Sample = farPiece.Sample = fragment.Sample;
 		bool overflow = false;
 		auto add = [&](OcclusionFragment& piece, const vec3& v)
 		{
@@ -414,7 +418,15 @@ void VisibleFrame::SplitFragments(size_t first, size_t count, const vec4& plane,
 void VisibleFrame::TestFragment(int index)
 {
 	OcclusionFragment& fragment = Fragments[index];
-	if (fragment.Actor->LastRenderTime() != Now && Clipper.IsPolygonVisible(fragment.Verts, fragment.NumVerts))
+	if (fragment.Actor->LastRenderTime() == Now)
+		return;
+
+	// Its rectangle's pixels as the original rounds them, a sprite's up, a
+	// mesh's down (BspClipper::SetPixelSample); then back to a surface's
+	Clipper.SetPixelSample(fragment.Sample);
+	bool visible = Clipper.IsPolygonVisible(fragment.Verts, fragment.NumVerts);
+	Clipper.SetPixelSample(0.5f);
+	if (visible)
 		fragment.Actor->LastRenderTime() = Now;
 }
 

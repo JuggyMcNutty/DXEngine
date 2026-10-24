@@ -83,6 +83,7 @@ private:
 	{
 		enum { MaxVerts = 12 };
 		UActor* Actor = nullptr;
+		float Sample = 1.0f; // the clipper's pixel sample for it: a sprite's 0, a mesh's 1
 		int NumVerts = 0;
 		vec3 Verts[MaxVerts];
 	};

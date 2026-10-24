@@ -221,8 +221,11 @@ Matches the original
 [which actors are drawn](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#which-actors-are-drawn),
 [stasis and render time](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#stasis-and-render-time)):
 whether an actor counts as drawn is tested piece by piece in the BSP walk,
-and the proxies' rectangles and the grid's pixels are the original's, a
-pixel in when its lower right corner is
+and the grid's pixels are the original's: a surface's taken by its centre,
+as the original's span buffer takes it by its lower right corner half a
+pixel past the frame's middle; a proxy's rectangle, a sprite's by its upper
+left corner and a mesh's, as a node's box, by its lower right, as the
+original rounds them
 ([a frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-frame);
 `BspClipper::SetPixelSample`): at Liberty Island's start the same three NPCs
 count as drawn in both engines, every other one hidden from the camera by
