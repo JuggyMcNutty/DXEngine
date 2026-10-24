@@ -146,7 +146,7 @@ private:
 
 	bool IsLocked = false;
 
-	void SetPipeline(PipelineState* pipeline);
+	void SetPipeline(PipelineState* pipeline, bool depthBias = false);
 	void SetTextureSet(VulkanDescriptorSet* descriptorSet);
 	VulkanDescriptorSet* GetTextureSet(uint32_t PolyFlags, CachedTexture* tex, CachedTexture* lightmap, CachedTexture* macrotex, CachedTexture* detailtex, bool clamp);
 	ivec4 GetTextureIndexes(uint32_t PolyFlags, CachedTexture* tex, bool clamp = false);
@@ -161,9 +161,15 @@ private:
 	{
 		size_t SceneIndexStart = 0;
 		PipelineState* Pipeline = nullptr;
+		bool DepthBias = false; // a mover's surfaces' step (SurfaceInfo::DepthBias)
 		VulkanDescriptorSet* DescriptorSet = nullptr;
 		float BlendConstants[4] = {};
 	} Batch;
+
+	// The depth bias the draw commands have set: -1 none since a new command
+	// buffer or a pipeline that fixes its own, which Vulkan forgets it for;
+	// 0 none; 1 a mover's step.
+	int DepthBiasSet = -1;
 
 	ScenePushConstants pushconstants = {};
 
@@ -186,12 +192,13 @@ private:
 	HitQuery ForceHit;
 };
 
-inline void VulkanRenderDevice::SetPipeline(PipelineState* pipeline)
+inline void VulkanRenderDevice::SetPipeline(PipelineState* pipeline, bool depthBias)
 {
-	if (pipeline != Batch.Pipeline)
+	if (pipeline != Batch.Pipeline || depthBias != Batch.DepthBias)
 	{
 		DrawBatch(Commands->GetDrawCommands());
 		Batch.Pipeline = pipeline;
+		Batch.DepthBias = depthBias;
 	}
 }
 

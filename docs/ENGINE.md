@@ -341,7 +341,7 @@ none, nor do `D3DDrv`'s but its detail passes
 a translucent draw biased by its slope shows through the opaque one in front of it from afar,
 an augmentation canister's inner glow through its shell (`CanisterConsole`). A mover's surfaces
 take a step and a slope of 1 toward the viewer on both devices (`SurfaceInfo::DepthBias`;
-Vulkan's 32 scene pipelines again with it, GL's `glPolygonOffset`;
+the Vulkan scene pipelines' dynamic depth bias, set as it changes, GL's `glPolygonOffset`;
 [draw order and movers](NATIVES.md#draw-order-and-movers)). Multisampled, its scene shader
 reads a texture at the pixel's centre, as without multisampling: `TileConsole` on RADV, at 2x
 and 4x, draws its grey boxes pixel for pixel as without it, the `FontMenuHeaders` text at 1.00

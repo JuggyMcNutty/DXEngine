@@ -137,6 +137,7 @@ void VulkanRenderDevice::Submit(bool present, int presentWidth, int presentHeigh
 
 	Commands->SubmitCommands(present, presentWidth, presentHeight, presentFullscreen, wait);
 
+	DepthBiasSet = -1;
 	Batch.SceneIndexStart = 0;
 	SceneVertexPos = 0;
 	SceneIndexPos = 0;
@@ -305,6 +306,7 @@ void VulkanRenderDevice::Unlock(bool Blit)
 	Submit(Blit ? true : false, windowWidth, windowHeight, Viewport->IsFullscreen(), HitData != nullptr);
 
 	Batch.Pipeline = nullptr;
+	Batch.DepthBias = false;
 	Batch.DescriptorSet = nullptr;
 
 	if (Samplers->LODBias != LODBias)
@@ -383,6 +385,20 @@ void VulkanRenderDevice::DrawBatch(VulkanCommandBuffer* cmdbuffer)
 
 		auto layout = RenderPasses->Scene.PipelineLayout.get();
 		cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, Batch.Pipeline->Pipeline.get());
+		if (Batch.Pipeline->DynamicDepthBias)
+		{
+			int bias = Batch.DepthBias ? 1 : 0;
+			if (DepthBiasSet != bias)
+			{
+				float factor = Batch.DepthBias ? -1.0f : 0.0f;
+				cmdbuffer->setDepthBias(factor, 0.0f, factor); // constant, clamp, slope
+				DepthBiasSet = bias;
+			}
+		}
+		else
+		{
+			DepthBiasSet = -1;
+		}
 		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, Batch.DescriptorSet);
 		cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ScenePushConstants), &pushconstants);
 		cmdbuffer->setBlendConstants(Batch.BlendConstants);
@@ -448,7 +464,7 @@ void VulkanRenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surfa
 		DetailVMult = GetVMult(*Surface.FogMap);
 	}
 
-	SetPipeline(RenderPasses->GetPipeline(PolyFlags, Surface.DepthBias));
+	SetPipeline(RenderPasses->GetPipeline(PolyFlags), Surface.DepthBias);
 
 	ivec4 textureBinds = GetTextureIndexes(PolyFlags, tex, lightmap, macrotex, detailtex);
 	vec4 color(1.0f);

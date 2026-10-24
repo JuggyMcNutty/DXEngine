@@ -9,6 +9,7 @@ struct PipelineState
 	std::unique_ptr<VulkanPipeline> Pipeline;
 	float MinDepth = 0.1f;
 	float MaxDepth = 1.0f;
+	bool DynamicDepthBias = false; // its depth bias set per draw (vkCmdSetDepthBias)
 };
 
 class RenderPassManager
@@ -27,7 +28,7 @@ public:
 	void CreatePostprocessRenderPass();
 	void CreateBloomPipeline();
 
-	PipelineState* GetPipeline(uint32_t polyflags, bool depthBias = false);
+	PipelineState* GetPipeline(uint32_t polyflags);
 	PipelineState* GetEndFlashPipeline();
 	PipelineState* GetLinePipeline(bool occludeLines) { return &Scene.LinePipeline[occludeLines]; }
 	PipelineState* GetPointPipeline(bool occludeLines) { return &Scene.PointPipeline[occludeLines]; }
@@ -38,9 +39,6 @@ public:
 		std::unique_ptr<VulkanRenderPass> RenderPass;
 		std::unique_ptr<VulkanRenderPass> RenderPassContinue;
 		PipelineState Pipeline[33];
-		// The first 32 again a step toward the viewer, for a mover's
-		// surfaces (SurfaceInfo::DepthBias), as the GL device's
-		PipelineState BiasedPipeline[32];
 		PipelineState LinePipeline[2];
 		PipelineState PointPipeline[2];
 	} Scene;
