@@ -1384,9 +1384,10 @@ What DXEngine does with each:
     saved.
   - `-nohard`: the software device for the run, as the original's software
     renderer ([the software device](#the-software-device)).
-  - `-noddraw`: with the software device, a window for the run, as the
-    original's software renderer has no fullscreen mode without DirectDraw:
-    so `-nohard -noddraw`, "Run the game in a window".
+  - `-noddraw`: with the software device, chosen or drawing where a GPU
+    device did not start, a window for the run, as the original's software
+    renderer has no fullscreen mode without DirectDraw: so
+    `-nohard -noddraw`, "Run the game in a window".
   - `-nojoy`: no pad at all, neither DXEngine's pad handling nor its buttons
     as keys.
   - **Nothing to do:** `-no3dsound` (the original's turns off A3D or EAX

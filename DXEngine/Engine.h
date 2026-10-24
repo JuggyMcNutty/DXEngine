@@ -353,6 +353,9 @@ private:
 	// client's settings are saved, unless the player changed it since.
 	void ApplyRunOnlySettings();
 	void RestoreRunOnlySettings();
+	// -noddraw's window, for the software device chosen or drawing in the
+	// place of a GPU device that did not start
+	void ApplyNoDDraw();
 	struct RunOnlySetting
 	{
 		bool Active = false;

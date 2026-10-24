@@ -579,14 +579,22 @@ void Engine::ApplyRunOnlySettings()
 		set(runFullscreenY, client->FullscreenViewportY, 480);
 	}
 
-	// -noddraw with the software device (safe mode's "Run the game in a
-	// window", -nohard -noddraw): in the original, the software renderer
-	// with no DirectDraw for its fullscreen modes, so a window
-	if (original.Param("noddraw") && chosenRenderDevice == RenderDeviceType::Software && client->StartupFullscreen)
+	ApplyNoDDraw();
+}
+
+// -noddraw with the software device (safe mode's "Run the game in a
+// window", -nohard -noddraw): in the original, the software renderer with
+// no DirectDraw for its fullscreen modes, so a window -- where it is chosen,
+// and where it takes the place of a GPU device that did not start, as the
+// original's WindowedRenderDevice takes GameRenderDevice's
+void Engine::ApplyNoDDraw()
+{
+	if (OriginalCommandLine::Get().Param("noddraw") && chosenRenderDevice == RenderDeviceType::Software && client->StartupFullscreen)
 	{
 		LogMessage("-noddraw: the software device in a window");
-		int fullscreen = client->StartupFullscreen ? 1 : 0;
-		set(runStartupFullscreen, fullscreen, 0);
+		runStartupFullscreen.Active = true;
+		runStartupFullscreen.Configured = 1;
+		runStartupFullscreen.ForTheRun = 0;
 		client->StartupFullscreen = false;
 	}
 }
@@ -2840,6 +2848,8 @@ void Engine::OpenWindow()
 	if (!window)
 	{
 		window = CreateGameWindow(chosenRenderDevice);
+		// The software device in a GPU device's place: -noddraw's window
+		ApplyNoDDraw();
 
 		// The game's own icon (PEIcon.h); none if its executable gives none.
 		auto icon = PEIcon::OfGame(LaunchInfo.gameRootFolder, LaunchInfo.gameExecutableName);
