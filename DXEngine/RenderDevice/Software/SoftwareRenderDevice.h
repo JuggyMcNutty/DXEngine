@@ -1,12 +1,17 @@
 #pragma once
 
 #include "RenderDevice/RenderDevice.h"
+#include "SoftwareCommands.h"
 #include "SoftwareRasterizer.h"
 #include "SoftwarePresent.h"
+#include "SoftwareSetup.h"
+#include "SoftwareTextureManager.h"
 
 // The device that draws on the CPU, for a machine without a GPU's driver:
 // the scene as the GPU devices draw it, sampled as D3DDrv samples it, into
-// an 8-bit frame presented as a bitmap (docs/ENGINE.md, rendering).
+// an 8-bit frame presented as a bitmap (docs/ENGINE.md, rendering). It
+// records a frame's calls, and sets them up, bins them to tiles and draws
+// the tiles at Unlock.
 class SoftwareRenderDevice : public RenderDevice
 {
 public:
@@ -36,10 +41,26 @@ public:
 	bool SupportsRenderScale() const override { return true; }
 
 private:
+	// What is recorded, drawn into the frame: the clear first if the frame
+	// has not had it
+	void DrawRecorded();
+
+	SoftwareDraw& AddDraw(SoftwareDrawType type, uint32_t vertexCount, SoftwareVertex*& vertices);
+	static void SetBlend(SoftwareDraw& draw, uint32_t PolyFlags);
+
 	SoftwareFrame Frame;
 	SoftwarePresent Present;
+	SoftwareTextureManager Textures;
+	SoftwareCommands Commands;
+	std::vector<SoftwareBins> Bins;
+
+	// The current scene node's, kept from frame to frame: a draw before a
+	// frame's first SetSceneNode takes the last one
+	SoftwareState State;
 
 	bool IsLocked = false;
+	bool ClearPending = false;
+	uint32_t ClearColor = 0xff000000;
 	bool UsePrecache = true;
 	vec4 FlashScale = vec4(0.5f, 0.5f, 0.5f, 0.0f);
 	vec4 FlashFog = vec4(0.0f);

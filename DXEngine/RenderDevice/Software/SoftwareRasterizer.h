@@ -65,3 +65,25 @@ struct SoftwareFrame
 	uint32_t* ColorRow(int y) { return Color.Data() + (size_t)y * Pitch; }
 	float* DepthRow(int y) { return Depth.Data() + (size_t)y * Pitch; }
 };
+
+struct SoftwareBins;
+class SoftwareCommands;
+
+// What a tile's raster reads: the frame's draws, each chunk's bins, and
+// whether the frame's clear comes first
+struct SoftwareRasterJob
+{
+	const SoftwareCommands* Commands = nullptr;
+	const SoftwareBins* Bins = nullptr; // one a chunk
+	size_t ChunkCount = 0;
+	bool Clear = false;
+	uint32_t ClearColor = 0xff000000;
+	float LODBias = 0.0f;
+};
+
+namespace SoftwareRasterizer
+{
+	// One tile of the frame: the clear, then each chunk's primitives binned
+	// to the tile, in turn
+	void DrawTile(SoftwareFrame& frame, const SoftwareRasterJob& job, int tileX, int tileY);
+}

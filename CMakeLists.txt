@@ -305,12 +305,23 @@ set(DXCOMMON_SOURCES
 	DXEngine/RenderDevice/OpenGL/GLCachedTexture.h
 	DXEngine/RenderDevice/OpenGL/gl_load/gl_load.c
 	DXEngine/RenderDevice/OpenGL/gl_load/gl_load.h
+	DXEngine/RenderDevice/Software/SoftwareCommands.cpp
+	DXEngine/RenderDevice/Software/SoftwareCommands.h
 	DXEngine/RenderDevice/Software/SoftwarePresent.cpp
 	DXEngine/RenderDevice/Software/SoftwarePresent.h
 	DXEngine/RenderDevice/Software/SoftwareRasterizer.cpp
 	DXEngine/RenderDevice/Software/SoftwareRasterizer.h
+	DXEngine/RenderDevice/Software/SoftwareReference.cpp
+	DXEngine/RenderDevice/Software/SoftwareReference.h
 	DXEngine/RenderDevice/Software/SoftwareRenderDevice.cpp
 	DXEngine/RenderDevice/Software/SoftwareRenderDevice.h
+	DXEngine/RenderDevice/Software/SoftwareSampler.h
+	DXEngine/RenderDevice/Software/SoftwareSetup.cpp
+	DXEngine/RenderDevice/Software/SoftwareSetup.h
+	DXEngine/RenderDevice/Software/SoftwareTextureManager.cpp
+	DXEngine/RenderDevice/Software/SoftwareTextureManager.h
+	DXEngine/RenderDevice/Software/SoftwareTextureUploader.cpp
+	DXEngine/RenderDevice/Software/SoftwareTextureUploader.h
 	DXEngine/Package/Package.cpp
 	DXEngine/Package/Package.h
 	DXEngine/Package/PackageManager.cpp

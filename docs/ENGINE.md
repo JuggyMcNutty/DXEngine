@@ -464,9 +464,25 @@ wherever else that state is set.
 
 **The software device** (`DXEngine/RenderDevice/Software/`) draws on the CPU, for a machine
 whose GPU has no driver: its window is a bitmap's (`RenderAPI::Bitmap`), its frame BGRA8, as
-`D3DDrv`'s 8-bit frame, with a float depth buffer, both at the render size. So far it draws only
-the frame's clear, and no launcher offers it.
+`D3DDrv`'s 8-bit frame, with a float depth buffer, both at the render size. It records a
+frame's calls, copying each scene node and vertex, and draws them at `Unlock`: each chunk of
+about 128 triangles set up and binned to the frame's tiles of 64 pixels a side, then each tile
+drawn, its clear first, then what was binned to it in order; a `Flush` within a frame draws
+what is recorded before it lets the textures go. So far it draws the canvas and the UI: tiles,
+the screen flash and `ClearZ`. No launcher offers it.
 
+- **Textures**: a copy of its own of each, by cache ID, a masked one apart, as the Vulkan
+  device keeps its images: BGRA8, each format converted as the Vulkan device's uploads and CPU
+  decoders convert it, each mip with a column and a row past its edges repeating its first, for
+  the bilinear filter; a realtime change converted again, only the part that changed where it
+  says so.
+- **Tiles**: one square on the screen is a rectangle, its pixels and attributes those of the GPU
+  devices' two triangles. Sampled as `D3DDrv` samples with the game's ini (`UseMipmapping=True`,
+  `UseTrilinear=False`): bilinear from the nearest mip, no anisotropy, its weights of 8 bits;
+  `PF_NoSmooth` the nearest texel; held at the edges where a tile's coordinates lie within its
+  texture, else wrapped.
+- **Shading**: a float transcription of the scene shader and the Vulkan device's blends
+  (`SoftwareReference`), each pixel rounded to the frame's bytes.
 - **The present**: the frame through the gamma ramp, a table of 256 levels a channel of the
   present shader's gamma (XOpenGL's mode by each pixel's largest channel too), scaled to the
   window and letterboxed below a render scale of 1 as the Vulkan device's present, bilinear and

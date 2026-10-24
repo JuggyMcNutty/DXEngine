@@ -339,6 +339,9 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
 - **The same view.** Two runs' shots compare only from one view: one window size (`DXCAP_WINDOW`)
   and, for `LightConsole`, one `View`, whose distance its `chosen` line logs; a dxe run against
   an original run of another `View` is off by however much the frame differs.
+- **Two dxe runs**: `shots.py` takes a dxe run in the original's place, another device's or
+  build's, and puts the gamma on neither. `--levels` gives, pixel by pixel, the largest
+  difference of a channel and how many pixels are more than a level apart.
 - **Registration against `D3DDrv`.** DXEngine draws the scene's pixels as `D3DDrv` does, not as
   `OpenGLDrv` ([the scene's pixels](NATIVES.md#the-scenes-pixels)): where a polygon's edges or
   rows are compared, or a correlation or RMSE taken, the original runs with
