@@ -156,7 +156,7 @@ index bb75748..04ee074 100644
  		UnrealMipmap& lmmip = lmtexture->Mip;
  		const vec3* pixels = Builder.Pixels();
 diff --git a/DXEngine/Packages/Engine/Resources/Level/ULevel.cpp b/DXEngine/Packages/Engine/Resources/Level/ULevel.cpp
-index de8c14b..f23fec0 100644
+index fa81c74..0120a6a 100644
 --- a/DXEngine/Packages/Engine/Resources/Level/ULevel.cpp
 +++ b/DXEngine/Packages/Engine/Resources/Level/ULevel.cpp
 @@ -1,5 +1,7 @@
@@ -179,7 +179,7 @@ index de8c14b..f23fec0 100644
  		return false;
  	// The life span runs out in the actor's own tick (UActor::Tick)
 diff --git a/DXEngine/Render/RenderScene.cpp b/DXEngine/Render/RenderScene.cpp
-index cbf1500..737d15c 100644
+index 0387068..2b12149 100644
 --- a/DXEngine/Render/RenderScene.cpp
 +++ b/DXEngine/Render/RenderScene.cpp
 @@ -1,5 +1,6 @@
@@ -194,10 +194,10 @@ index cbf1500..737d15c 100644
  	bool hasRenderIterators = PropOffsets_Actor.RenderInterface.DataOffset != ~(size_t)0 &&
  		PropOffsets_Actor.RenderIteratorClass.DataOffset != ~(size_t)0;
 +	{ PerfLog::Section perf(PerfLog::BspInfo); // TEMPORARY DEBUG TOOL
- 	for (UActor* actor : engine->Level->Actors)
+ 	UpdateStaticActors(hasRenderIterators);
+ 	for (size_t i = std::min(engine->Level->FirstDynamicActor, engine->Level->Actors.size()); i < engine->Level->Actors.size(); i++)
  	{
- 		if (actor)
-@@ -47,12 +49,17 @@ void RenderSubsystem::DrawScene()
+@@ -48,12 +50,17 @@ void RenderSubsystem::DrawScene()
  	// And Deus Ex's movers where the level's BSP files them, as the
  	// original's SetupDynamics does each frame drawn
  	engine->Level->Collision.RefileMovers();
@@ -214,9 +214,9 @@ index cbf1500..737d15c 100644
 +	}
  }
  
- void RenderSubsystem::UpdateRenderInterface(UActor* actor)
+ // The level's static actors, which do not move -- the level puts them first,
 diff --git a/DXEngine/Render/RenderSubsystem.cpp b/DXEngine/Render/RenderSubsystem.cpp
-index b34e7b2..257289f 100644
+index 72ba4e3..28be483 100644
 --- a/DXEngine/Render/RenderSubsystem.cpp
 +++ b/DXEngine/Render/RenderSubsystem.cpp
 @@ -1,5 +1,6 @@
