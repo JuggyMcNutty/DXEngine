@@ -1559,9 +1559,14 @@ void Engine::DeleteSaveGameFiles(const std::string& folder) const
 	packages->RemoveSaveInfoPackage(name);
 }
 
-// Removes the slot with its contents, for the DELETEGAME console command.
+// Removes the slot with its contents, for the DELETEGAME console command: a
+// numbered slot alone, as the original's DeleteGame (DeusEx.dll 0x10010710)
+// removes Save%04d, so the Save Game screen's Delete on the quick save's row
+// (it sends -1) removes nothing, and -2 is not Current.
 void Engine::DeleteGame(int32_t slot) const
 {
+	if (slot < 0)
+		return;
 	const std::string name = SaveSlotFolderName(slot);
 	fs::remove_all(packages->GetSaveFolderPath() / name);
 	packages->RemoveSaveInfoPackage(name);

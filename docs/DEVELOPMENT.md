@@ -162,6 +162,7 @@ the run. *Either*: one engine on each side of a pair.
 | `PortalConsole` | both | a map opened at a portal | `DXPORTAL:` |  |
 | `PasswordConsole` | both | the island opened with `GamePassword=dxcap` on its URL from another mission's map (a dxe run started on `02_NYC_BatteryPark`, the original on its menu map): the local login under the password | `DXPASS:` | the two logs' lines |
 | `RevisitConsole` | both | a crate left on the island, UNATCO HQ opened, then the island opened as `01_nyc_unatcoisland`: whether the crate is there, the level as left from Current, or the map loaded fresh | `DXREVISIT:` | the two logs' lines |
+| `DeleteSaveConsole` | both | a quick save on the island, then `DeleteGame -1`, as the Save Game screen's Delete sends on the quick save's row | `DXDELSAVE:` | the game's `Save/QuickSave` after each run: there, as the original leaves it |
 | `ReturnConsole` | both | Liberty Island, UNATCO HQ and back: what travels and what stays; the player's goals, notes and keys, two augmentation canisters, the inventory grid, the augmentation slots, a vector and a rotator flag (`Items`: as a map exit travels) | `DXRETURN:` | the two logs' lines diffed |
 | `GetConsole` | both | `GET`, `SET`, `GetPropertyText`, `SetPropertyText`; the main menu | `DXGET:` |  |
 | `IniConsole` | both | a `User.ini` with keys given twice (`DXCAP_USERINI`) | `DXINI:` |  |
