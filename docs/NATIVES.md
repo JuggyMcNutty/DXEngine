@@ -674,7 +674,11 @@ Differs:
   ([stepping](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/fire-dll.md#stepping)):
   a texture with no `MaxFrameRate`, as most of Deus Ex's have, steps every
   frame in the original, faster at a higher frame rate; DXEngine steps it at
-  most 60 times a second, the original's pace at 60 frames.
+  most 60 times a second, the original's pace at 60 frames. A texture steps
+  by the time since its own last update, however often it is drawn, as the
+  original's: one with a `MaxFrameRate` drawn every other frame steps as
+  often as one drawn every frame, and one drawn every ninth frame at 60
+  steps at every draw (`StepConsole`).
 - **The wave lighting table** can be one step off at a single entry, in 3 of
   200 settings: DXEngine takes the C library's cosine, the original the
   x87's, and they differ in the last bit.

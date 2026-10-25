@@ -25,6 +25,7 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 {
 	DrawnSinceFlush = true;
 	LevelTimeElapsed = levelTimeElapsed;
+	LevelTime += levelTimeElapsed;
 
 	// A surface's detail texture goes to the device only while its
 	// DetailTextures is on and the client's TextureDetail is High, as
@@ -101,11 +102,17 @@ bool RenderSubsystem::ReadLastFrame(Array<TextureColor>& pixels, int& width, int
 	return true;
 }
 
+// A texture steps once a frame it is drawn, by the time since its own last
+// update, as the original's UTexture::Update passes it (fire-dll.md,
+// stepping): one drawn on some frames only counts the frames between too,
+// and a MaxFrameRate texture drawn every other frame steps as often as one
+// drawn every frame
 void RenderSubsystem::UpdateTexture(UTexture* tex)
 {
 	if (tex && tex->FrameCounter != TextureFrameCounter)
 	{
-		tex->Update(LevelTimeElapsed);
+		tex->Update((float)(LevelTime - tex->LastUpdateTime));
+		tex->LastUpdateTime = LevelTime;
 		tex->FrameCounter = TextureFrameCounter;
 	}
 }

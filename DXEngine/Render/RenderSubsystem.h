@@ -144,6 +144,7 @@ private:
 	void DrawTextBlockRange(float x, float y, const Array<std::string>& textBlocks, size_t start, size_t end, UFont* font, vec4 color, uint32_t polyflags, float spaceX);
 
 	float LevelTimeElapsed = 0.0f;
+	double LevelTime = 0.0; // the frames' level time summed: the textures' clock
 	float AutoUV = 0.0f;
 
 	bool FrameInProgress = false;

@@ -42,6 +42,9 @@ public:
 	int RealtimeChangeCount = 0;
 
 	int FrameCounter = -1;
+	// The level time of the texture's last update: it steps by the time since,
+	// as the original's InternalTime has it, however often it is drawn
+	double LastUpdateTime = 0.0;
 
 	bool Prepared = false;
 	float FrameTime = 0.0f;
