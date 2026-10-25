@@ -21,7 +21,6 @@ void UActor::TickProjectile(float elapsed)
 
 	UZoneInfo* zone = Region().Zone;
 	UProjectile* projectile = UObject::TryCast<UProjectile>(this);
-	UPawn* pawn = UObject::TryCast<UPawn>(this);
 
 	if (zone->bWaterZone())
 		Velocity() = Velocity() * std::max(1.0f - zone->ZoneFluidFriction() * 0.2f * elapsed, 0.0f);
@@ -42,7 +41,12 @@ void UActor::TickProjectile(float elapsed)
 
 	CollisionHit hit = TryMove(Velocity() * elapsed);
 
-	if (hit.Fraction < 1.0f && !hit.Actor && !bDeleteMe() && !bJustTeleported())
+	// A stopped move gives HitWall with what stopped it, the level or a
+	// mover, as the original's physProjectile (Engine.dll 0x103d4600) passes
+	// MoveActor's hit actor on; nothing else blocks a projectile, which
+	// blocks nothing itself (EncroachBlockedBy). A mover's hit once gave no
+	// HitWall, so a dart never stuck to a door.
+	if (hit.Fraction < 1.0f && !bDeleteMe() && !bJustTeleported())
 	{
 		CallEvent(this, EventName::HitWall, { ExpressionValue::VectorValue(hit.Normal), ExpressionValue::ObjectValue(hit.Actor ? hit.Actor : Level()) });
 	}

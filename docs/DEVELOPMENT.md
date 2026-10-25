@@ -147,6 +147,7 @@ the run. *Either*: one engine on each side of a pair.
 | `VisibleConsole` | both | each mover's line on `TargetMap`: `FastTrace`, `Trace`, its hit and normal, `TraceTexture`'s and `TraceActors`' hits, the line reversed; the visible-actor iterators and `RadiusActors` | `DXVIS:` | the two logs' `mover` lines diffed |
 | `MoverConsole` | both | lines across a door and a window on `TargetMap`, moved, hidden, broken, saved | `DXMOVER:` | the two logs diffed |
 | `DoorConsole` | both | a hinged door on `TargetMap` (UNATCO HQ) closed on a breakable crate: the door's turn and the crate, each 0.1 s | `DXDOOR:` | the two logs' lines |
+| `DoorShotConsole` | both | a dart shot at the island's first closed door from 80 units out: every tick for half a second its distance from the door's middle, physics, speed, base and bStuck, and once more at 1.5 s | `DXSHOT:` | the two logs' lines |
 | `MoverServer` | both | a line across a door on a dedicated server, the door moved off it: a server actor (`dedicated`) | `DXDEDI:` | the two logs diffed |
 | `SightConsole` | both | `LineOfSightTo`, `CanSee`, `PlayerCanSeeMe` | `DXSIGHT:` |  |
 | `SeeConsole` | both | the pawns' sight in the tick: two watchers in front of the player, one probing `EnemyNotVisible`, logging each `SeePlayer` and whom it names; their `SightCounter` each tick | `DXSEE:` | the two logs' lines |

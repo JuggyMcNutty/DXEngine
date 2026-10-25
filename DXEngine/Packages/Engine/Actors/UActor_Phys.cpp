@@ -665,7 +665,6 @@ bool UActor::IsPlayerOrProjectile()
 CollisionHit UActor::TraceMove(const vec3& delta, bool isOwnBaseBlocking, CollisionHitList& hits)
 {
 	// Analyze what we will hit if we move as requested and stop if it is the level or a blocking actor
-	bool useBlockPlayers = IsPlayerOrProjectile();
 	CollisionHit blockingHit;
 	if (!Brush())
 	{
@@ -676,11 +675,12 @@ CollisionHit UActor::TraceMove(const vec3& delta, bool isOwnBaseBlocking, Collis
 			{
 				if (hit.Actor)
 				{
-					bool isBlocking;
-					if (useBlockPlayers || hit.Actor->IsPlayerOrProjectile())
-						isBlocking = hit.Actor->bBlockPlayers() && bBlockPlayers();
-					else
-						isBlocking = hit.Actor->bBlockActors() && bBlockActors();
+					// What blocks the move is the original's IsBlockedBy
+					// (EncroachBlockedBy): a mover blocks what collides with
+					// the world, by its own flag for the actor's kind, so a
+					// projectile or a carcass, which block nothing, stops at
+					// a closed door or a lift's floor.
+					bool isBlocking = EncroachBlockedBy(hit.Actor);
 
 					// We never hit ourselves or anything moving along with us
 					if (isBlocking && (isOwnBaseBlocking || !hit.Actor->IsBasedOn(this)) && !IsBasedOn(hit.Actor))
