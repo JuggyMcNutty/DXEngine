@@ -279,8 +279,10 @@ public:
 	std::pair<bool, vec3> FindSpot(vec3 location, float radius, float height, bool checkFirst);
 	void AdjustSpot(vec3& spot, const vec3& dest, float traceLength);
 	bool EncroachBlockedBy(UActor* other);
-	bool CheckEncroachment(const vec3& location) { return CheckEncroachment(location, Rotation()); }
-	bool CheckEncroachment(const vec3& location, const Rotator& rotation);
+	// True when what is at the spot stops the move; with touches, the touches
+	// a SetLocation makes there (UActor_Phys.cpp)
+	bool CheckEncroachment(const vec3& location, bool touches = false) { return CheckEncroachment(location, Rotation(), touches); }
+	bool CheckEncroachment(const vec3& location, const Rotator& rotation, bool touches = false);
 	// A brush's move (ULevel::MoveActor): by delta, turned to rotation, what
 	// stands on it carried first, then stopped by what it encroaches on
 	// (false) or moved and turned at once.

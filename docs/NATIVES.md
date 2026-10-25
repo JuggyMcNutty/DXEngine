@@ -1143,7 +1143,11 @@ Every other native the scripted runs compare matches the original
   the stock gull's own flight plausible), and the pawns' turning (the pitch
   at half a turn a second toward level when walking or falling, held within
   `RotationRate`'s).
-- **Small ones**: `SetLocation`; the rotators' conversions, `<<` and `>>`
+- **Small ones**: `SetLocation`, its touches made in its encroachment check
+  before what stands on the actor is unbased and before it moves, as the
+  original's FarMoveActor makes them, so a Touch handler sees the actor
+  where it was, and what it no longer overlaps there untouched, not what it
+  leaves behind (`TeleportConsole`); the rotators' conversions, `<<` and `>>`
   by the sine table, a rotator's `*=`, float `==` exact, a rotator's `==`
   and `!=` every bit of each angle, `GetEnum` from index 0, `Normal` zero
   under a length of 0.0001, `Chr(0)` the empty string, `IsInState` true for

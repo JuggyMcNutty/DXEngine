@@ -128,6 +128,7 @@ the run. *Either*: one engine on each side of a pair.
 | `WallConsole` | both | the player's assault rifle against a wall of `TargetMap` (UNATCO HQ) | `DXWALL:` | `shots.py`, at `DXCAP_WINDOW=1024x768` |
 | `DeathConsole` | both | an NPC's death and its carcass | `DXDEATH:` |  |
 | `DestroyConsole` | both | an actor's destruction, event by event: in a state, owned, standing on one actor, stood on by another, owning one and touched by one, each event logged with its `bDeleteMe` | `DXDESTROY:` | the two logs diffed |
+| `TeleportConsole` | both | a SetLocation onto an actor and away again: the touches, the rider's base change and where each stood at that moment (`CapTeleported`) | `DXTELE:` | the two logs' lines diffed |
 | `BurnConsole` | both | a breakable crate spawned ahead of the player on the island and set alight: each second the crates and the Fires in the level, and how many stand on the crate, until it burns out and is destroyed | `DXBURN:` | the two logs' lines |
 | `AIConsole` | both | every NPC's state, orders, enemy and render time; the camera | `DXAI:`, `DXAISTATE:` |  |
 | `SitConsole` | both | Private Lloyd's way into his chair and his sitting, in view: state, animation, `bSitting`, place; two marked shots | `DXSIT:` | the two logs' lines |

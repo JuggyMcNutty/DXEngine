@@ -162,8 +162,12 @@ bool UActor::SetLocation(const vec3& newLocation, bool noCheck)
 		}
 
 		// Deus Ex: what stands at the spot may stop the move (EncroachingOn),
-		// and what blocks hears it come (EncroachedBy), before it moves.
-		if (CheckEncroachment(location))
+		// and what blocks hears it come (EncroachedBy), before it moves; and
+		// the touches are made there too, as the original's FarMoveActor
+		// makes them -- before what stands on it is unbased and before
+		// Location changes, so a Touch or UnTouch handler sees it where it
+		// was.
+		if (CheckEncroachment(location, Level()->bBegunPlay()))
 			return false;
 	}
 
@@ -183,27 +187,6 @@ bool UActor::SetLocation(const vec3& newLocation, bool noCheck)
 	Location() = location;
 	OldLocation() = location;
 	XLevel()->Collision.AddToCollision(this);
-
-	if (!noCheck && Level()->bBegunPlay())
-	{
-		// Send touch notifications for anything at the new location -- in
-		// Deus Ex only for what does not block it, as the original's
-		// encroachment check touches
-		for (UActor* actor : XLevel()->Collision.CollidingActors(Location(), CollisionHeight(), CollisionRadius()))
-		{
-			if (actor != this && !actor->IsBasedOn(this) && !IsBasedOn(actor) && bCollideActors() && actor->bCollideActors() && !EncroachBlockedBy(actor))
-			{
-				Touch(actor);
-			}
-		}
-
-		// Untouch everything we aren't overlapping anymore
-		for (const auto actor : Touching())
-		{
-			if (actor && !IsOverlapping(actor))
-				UnTouch(actor);
-		}
-	}
 
 	UpdateActorZone();
 	return true;
@@ -515,12 +498,15 @@ bool UActor::EncroachBlockedBy(UActor* other)
 // The original's ULevel::CheckEncroachment (Engine.dll 0x1039a350): of what
 // the actor would overlap at the spot, turned to rotation, each that blocks
 // it is asked with the actor's EncroachingOn, which stops it (true) when it
-// agrees; then each that blocks it hears EncroachedBy. Only an actor that
-// collides with actors or blocks is checked, or a brush that is not static.
-// A brush that is not static first pushes what it meets by its move
-// (moveSmooth); one pushed clear is not asked about, and one still in the
-// way is moved back against the brush at its new place before it is.
-bool UActor::CheckEncroachment(const vec3& location, const Rotator& rotation)
+// agrees; then, with touches, as FarMoveActor asks them (SpawnActor and a
+// mover's move do not), what the actor no longer overlaps where it stands
+// is untouched and what is at the spot and does not block it touched; and
+// each that blocks it hears EncroachedBy. Only an actor that collides with
+// actors or blocks is checked, or a brush that is not static. A brush that
+// is not static first pushes what it meets by its move (moveSmooth); one
+// pushed clear is not asked about, and one still in the way is moved back
+// against the brush at its new place before it is.
+bool UActor::CheckEncroachment(const vec3& location, const Rotator& rotation, bool touches)
 {
 	bool movingBrush = Brush() && UObject::TryCast<UBrush>(this) && !bStatic();
 	if (!movingBrush && (Brush() || !(bCollideActors() || bBlockActors() || bBlockPlayers())))
@@ -548,10 +534,24 @@ bool UActor::CheckEncroachment(const vec3& location, const Rotator& rotation)
 		if (CallEvent(this, EventName::EncroachingOn, { ExpressionValue::ObjectValue(other) }).ToBool())
 			return true;
 	}
+	if (touches)
+	{
+		// What this no longer overlaps where it stands now (the original's
+		// test is of its own place, not the spot's)
+		for (UActor* actor : Touching())
+		{
+			if (actor && !IsOverlapping(actor))
+				UnTouch(actor);
+		}
+	}
 	for (UActor* other : others)
 	{
-		if (other != this && other != Level() && !other->bDeleteMe() && EncroachBlockedBy(other))
+		if (other == this || other == Level() || other->bDeleteMe())
+			continue;
+		if (EncroachBlockedBy(other))
 			CallEvent(other, EventName::EncroachedBy, { ExpressionValue::ObjectValue(this) });
+		else if (touches && !other->IsBasedOn(this) && !IsBasedOn(other) && bCollideActors() && other->bCollideActors())
+			Touch(other);
 	}
 	return false;
 }
