@@ -41,5 +41,9 @@ bool UIntProperty::IsDefaultValue(void* val)
 
 void UIntProperty::SetValueFromString(void* data, const std::string& valueString)
 {
-	*(int32_t*)data = Convert::to_int32(valueString);
+	// As the original's import (core-dll.md, configuration): text that
+	// starts with a digit or a sign is read as far as it is a number, and
+	// any other text, an empty one too, leaves the value as it was
+	if (!valueString.empty() && (valueString.front() == '-' || valueString.front() == '+' || (valueString.front() >= '0' && valueString.front() <= '9')))
+		*(int32_t*)data = (int32_t)strtol(valueString.c_str(), nullptr, 10);
 }

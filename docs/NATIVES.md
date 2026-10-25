@@ -1177,7 +1177,10 @@ Every other native the scripted runs compare matches the original
   `Object.GetPropertyText` and `SetPropertyText`, through which the server's
   query answerer reads what a remote asks for: a public property's text as
   `GET` writes it, a const one never set, a private one or a name the class
-  has not read empty and set nothing (`GetConsole`). `LevelInfo`'s clock is
+  has not read empty and set nothing (`GetConsole`); text that is no value
+  of the property, by `SetPropertyText` or the console's `SET`, leaves an
+  int, a byte or a bool as it was and makes a float 0, as the original's
+  import does, an int read as far as it is a number (`JunkConsole`). `LevelInfo`'s clock is
   the original's
   ([small](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#small)).
   `Actor.GetBoundingBox` with no test place is the box where the actor is

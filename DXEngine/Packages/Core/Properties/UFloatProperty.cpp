@@ -41,5 +41,6 @@ bool UFloatProperty::IsDefaultValue(void* val)
 
 void UFloatProperty::SetValueFromString(void* data, const std::string& valueString)
 {
-	*(float*)data = Convert::to_float(valueString);
+	// As the original's appAtof: the number the text starts with, 0 for any other text
+	*(float*)data = (float)strtod(valueString.c_str(), nullptr);
 }

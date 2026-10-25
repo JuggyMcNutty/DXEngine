@@ -94,14 +94,13 @@ void UBoolProperty::SetBool(void* data, bool value)
 
 void UBoolProperty::SetValueFromString(void* data, const std::string& valueString)
 {
+	// 1, True, 0 and False in any case, as the original's import takes
+	// them; any other text leaves the value as it was
 	NameString valueName(valueString);
-
-	if (valueName != "true" && valueName != "false" && valueName != "0" && valueName != "1")
-		Exception::Throw("Invalid bool value given to SetValueFromString(): " + valueString);
-
-	bool value = (valueName == "true" || valueName == "1") ? true : false;
-
-	SetBool(data, value);
+	if (valueName == "true" || valueName == "1")
+		SetBool(data, true);
+	else if (valueName == "false" || valueName == "0")
+		SetBool(data, false);
 }
 
 bool UBoolProperty::IsDefaultValue(void* val)
