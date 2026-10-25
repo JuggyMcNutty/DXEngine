@@ -123,6 +123,19 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 		cacheID |= ((uint64_t)dynamicMover->Light.MoverID) << 52;
 	}
 
+	// The counter marks each light checked in this lookup. Before it would
+	// overflow (some hours at a few thousand surfaces a frame) every light's
+	// mark goes back to never visited and it starts again: a wrapped counter
+	// would be undefined, and at -1 would skip a never-visited light.
+	if (LightmapCheckCounter == INT32_MAX)
+	{
+		for (UActor* actor : Level->Actors)
+		{
+			if (actor)
+				actor->Light.LightmapCheckCounter = -1;
+		}
+		LightmapCheckCounter = 0;
+	}
 	int checkCounter = LightmapCheckCounter++;
 	SurfaceLights& surface = GetSurfaceLights(model, lightmapIndex);
 
