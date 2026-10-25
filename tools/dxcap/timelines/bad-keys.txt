@@ -1,0 +1,8 @@
+# A press of F and of G, bound by a User.ini to a Button and an Axis the pawn lacks
+# (F=Button bFirre, G=Axis aNope Speed=1 under [Engine.Input]): the engine logs
+# "Bad Button command" and "Bad Axis command" and plays on.
+# DXCAP_USERINI=<that ini> DXCAP_TIMELINE=<this> tools/dxcap.sh dxe - 01_NYC_UNATCOIsland.dx 12
+start 4 press F
+start 4.2 release F
+start 5 press G
+start 5.2 release G

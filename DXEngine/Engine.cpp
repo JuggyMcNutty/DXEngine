@@ -11,6 +11,7 @@
 #include "Package/PackageManager.h"
 #include "Package/ObjectStream.h"
 #include "Packages/Core/UClass.h"
+#include "Packages/Core/Properties/UBoolProperty.h"
 #include "Packages/Core/UFunction.h"
 #include "Packages/Core/USubsystem.h"
 #include "Packages/Core/Properties/UObjectProperty.h"
@@ -70,6 +71,10 @@
 #include <unistd.h>
 #include <csignal>
 #endif
+
+// The input bindings' writes into the pawn (below, with InputCommand)
+static void SetInputButton(UObject* pawn, const std::string& name, bool pressed);
+static void SetInputAxis(UObject* pawn, const std::string& name, float value);
 
 // The machine's name, as the original's LevelInfo.ComputerName has it
 // (Windows' computer name: the host name in capitals).
@@ -1368,9 +1373,6 @@ void Engine::EnsureFlagBase(UPlayerPawn* pawn)
 
 void Engine::SaveGameToSlot(int32_t slotNum, const std::string& saveDescription)
 {
-	if (slotNum < -1)
-		Exception::Throw("Invalid save slot: " + std::to_string(slotNum));
-
 	// First and foremost ensure the Save folder exists
 	const auto saveFolderPath = packages->GetSaveFolderPath();
 	if (!fs::exists(saveFolderPath))
@@ -2819,16 +2821,16 @@ void Engine::UpdateInput(float timeElapsed)
 		return;
 
 	for (auto& it : activeInputButtons)
-		viewport->Actor()->SetBool(it.first, true);
+		SetInputButton(viewport->Actor(), it.first, true);
 	for (auto& it : activeInputAxes)
 	{
 		if (it.first == "aMouseX" || it.first == "aMouseY")
 		{
-			viewport->Actor()->SetFloat(it.first, it.second.Value / (timeElapsed * 150.0f));
+			SetInputAxis(viewport->Actor(), it.first, it.second.Value / (timeElapsed * 150.0f));
 		}
 		else
 		{
-			viewport->Actor()->SetFloat(it.first, it.second.Value);
+			SetInputAxis(viewport->Actor(), it.first, it.second.Value);
 		}
 	}
 }
@@ -3149,11 +3151,11 @@ void Engine::ReleaseHeldInputKeys()
 		return;
 
 	for (auto& button : activeInputButtons)
-		viewport->Actor()->SetBool(button.first, false);
+		SetInputButton(viewport->Actor(), button.first, false);
 	activeInputButtons.clear();
 
 	for (auto& axis : activeInputAxes)
-		viewport->Actor()->SetFloat(axis.first, 0.0f);
+		SetInputAxis(viewport->Actor(), axis.first, 0.0f);
 	activeInputAxes.clear();
 }
 
@@ -3168,7 +3170,7 @@ void Engine::ReleaseFireButtons()
 	{
 		if (NameString(it->first) == "bFire" || NameString(it->first) == "bAltFire")
 		{
-			viewport->Actor()->SetBool(it->first, false);
+			SetInputButton(viewport->Actor(), it->first, false);
 			it = activeInputButtons.erase(it);
 		}
 		else
@@ -3213,7 +3215,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 			{
 				if (it->second == key)
 				{
-					viewport->Actor()->SetBool(it->first, false);
+					SetInputButton(viewport->Actor(), it->first, false);
 					it = activeInputButtons.erase(it);
 				}
 				else
@@ -3226,7 +3228,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 			{
 				if (it->second.Key == key)
 				{
-					viewport->Actor()->SetFloat(it->first, 0.0f);
+					SetInputAxis(viewport->Actor(), it->first, 0.0f);
 					it = activeInputAxes.erase(it);
 				}
 				else
@@ -3306,6 +3308,39 @@ bool Engine::ExecCommand(const Array<std::string>& args)
 	return false;
 }
 
+// A Button binding's property on the pawn: an `input byte` (Pawn's bFire
+// and the rest), or a bool; an Axis binding's a float. None, or another
+// type, is the original's "Bad Button command" or "Bad Axis command"
+// (UInput::Exec, Engine.dll 0x10393e10), logged and left alone.
+static UProperty* InputProperty(UObject* pawn, const std::string& name, bool axis)
+{
+	if (!pawn || !pawn->HasProperty(name))
+		return nullptr;
+	UProperty* prop = pawn->GetMemberProperty(name);
+	if (axis)
+		return prop->ValueType == ExpressionValueType::ValueFloat ? prop : nullptr;
+	return prop->ValueType == ExpressionValueType::ValueByte || prop->ValueType == ExpressionValueType::ValueBool ? prop : nullptr;
+}
+
+// A button's state into its property: a byte 1 or 0, as the original writes
+// the byte, a bool set or cleared
+static void SetInputButton(UObject* pawn, const std::string& name, bool pressed)
+{
+	UProperty* prop = InputProperty(pawn, name, false);
+	if (!prop)
+		return;
+	if (prop->ValueType == ExpressionValueType::ValueByte)
+		*static_cast<uint8_t*>(pawn->GetProperty(prop)) = pressed ? 1 : 0;
+	else
+		static_cast<UBoolProperty*>(prop)->SetBool(pawn->GetProperty(prop), pressed);
+}
+
+static void SetInputAxis(UObject* pawn, const std::string& name, float value)
+{
+	if (UProperty* prop = InputProperty(pawn, name, true))
+		*static_cast<float*>(pawn->GetProperty(prop)) = value;
+}
+
 // Words of the original's input object (UInput::Exec) that DXEngine does
 // not carry out, and OnRelease, whose line the original runs as the key is
 // released (engine-dll.md, a key's binding): never an engine command.
@@ -3326,10 +3361,18 @@ void Engine::InputCommand(const std::string& commands, EInputKey key, int delta,
 
 			if (command == "button" && args.size() == 2)
 			{
-				activeInputButtons[args[1]] = key;
+				if (InputProperty(viewport->Actor(), args[1], false))
+					activeInputButtons[args[1]] = key;
+				else
+					LogMessage("Bad Button command");
 			}
 			else if (command == "axis" && args.size() >= 2)
 			{
+				if (!InputProperty(viewport->Actor(), args[1], true))
+				{
+					LogMessage("Bad Axis command");
+					continue;
+				}
 				// The speed from a SPEED= word in any case, 1 without one, as
 				// the original's UInput::Exec (Engine.dll 0x10393e10) parses
 				// it: the game's DefUser.ini and DXLauncher's pad preset write

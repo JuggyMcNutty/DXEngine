@@ -1357,7 +1357,12 @@ engine's own objects are not deleted (the log says so).
   original's input takes no scripted key on this desktop, and its dispatch
   is read). An `Axis` binding's `speed=` word is taken in any case, and 1
   without one, as the original's parse has it (`DefUser.ini`'s
-  `JoyU=Axis aturn speed=5.9`; `PadConsole` with `pad.txt`). Differs: the
+  `JoyU=Axis aturn speed=5.9`; `PadConsole` with `pad.txt`). A `Button`
+  naming a property the pawn lacks, or an `Axis` naming no float of it, is
+  the original's "Bad Button command" or "Bad Axis command", logged and
+  left alone (a User.ini's `F=Button bFirre` and `G=Axis aNope Speed=1`
+  pressed by `timelines/bad-keys.txt`); a `Button`'s `input byte` is
+  written as a byte, 1 pressed and 0 released. Differs: the
   original takes its viewport's own words (`SHOT` among them) before the
   exec functions, the same but for a word an exec function shares; `Toggle`
   and `Pulse` do nothing, and a command after `OnRelease` never runs.
