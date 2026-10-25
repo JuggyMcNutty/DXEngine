@@ -231,7 +231,8 @@ The software device draws 1.6 to 2.1 times the frames of either, its slowest wit
 ## Settings and environment
 
 The engine reads `Settings.json` from its own folder ([running it](#running-it)), and never
-writes it.
+writes it; a UTF-8 byte order mark at its start is passed over, as DXLauncher's reader passes
+it (editors on Windows add one).
 DXLauncher, every port's, writes one in each profile's folder of its own
 (`--userdir`); `main`'s launcher, the original recreated, writes none and leaves `HOME` as it
 is. DXEngine's keys:

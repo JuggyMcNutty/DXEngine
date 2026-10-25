@@ -36,7 +36,9 @@ std::string JsonValue::to_json(bool formatted) const
 
 JsonValue JsonValue::parse(const std::string &json)
 {
-	size_t pos = 0;
+	// A UTF-8 byte order mark is passed over, as DXLauncher's reader passes
+	// it: editors on Windows add one to a hand-edited Settings.json.
+	size_t pos = json.compare(0, 3, "\xEF\xBB\xBF") == 0 ? 3 : 0;
 	return JsonValueImpl::read(json, pos);
 }
 
