@@ -1562,6 +1562,10 @@ void Engine::CopySaveGameFiles(const std::string& fromFolder, const std::string&
 // original's DeleteSaveGameFiles.
 void Engine::DeleteSaveGameFiles(const std::string& folder) const
 {
+	// The package streams closed first, as the original resets its loaders
+	// before it deletes: Windows refuses to delete a file held open for
+	// reading, and the save scan and a load keep up to ten open.
+	packages->CloseStreams();
 	const std::string name = folder.empty() ? "Current" : folder;
 	const auto dir = packages->GetSaveFolderPath() / name;
 	if (!fs::exists(dir) || !fs::is_directory(dir))
@@ -1582,6 +1586,7 @@ void Engine::DeleteGame(int32_t slot) const
 {
 	if (slot < 0)
 		return;
+	packages->CloseStreams();
 	const std::string name = SaveSlotFolderName(slot);
 	fs::remove_all(packages->GetSaveFolderPath() / name);
 	packages->RemoveSaveInfoPackage(name);
@@ -1681,6 +1686,7 @@ void Engine::SaveCurrentLevel(int32_t slot)
 	if (!fs::exists(folder))
 		fs::create_directories(folder);
 	const auto levelName = Level->package->GetPackageName().ToString() + "." + packages->GetSaveExtension();
+	packages->CloseStreams();
 	fs::remove(folder / levelName);
 	// The destroyed actors let go first, as the original's save does: the
 	// file holds none of them.
