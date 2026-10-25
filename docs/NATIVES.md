@@ -1300,10 +1300,12 @@ engine's own objects are not deleted (the log says so).
   of the player and the console, then the engine's commands, so
   `DefUser.ini`'s `GreyStar=Shot` takes a shot (a timeline's press; the
   original's input takes no scripted key on this desktop, and its dispatch
-  is read). Differs: the original takes its viewport's own words (`SHOT`
-  among them) before the exec functions, the same but for a word an exec
-  function shares; `Toggle` and `Pulse` do nothing, and a command after
-  `OnRelease` never runs.
+  is read). An `Axis` binding's `speed=` word is taken in any case, and 1
+  without one, as the original's parse has it (`DefUser.ini`'s
+  `JoyU=Axis aturn speed=5.9`; `PadConsole` with `pad.txt`). Differs: the
+  original takes its viewport's own words (`SHOT` among them) before the
+  exec functions, the same but for a word an exec function shares; `Toggle`
+  and `Pulse` do nothing, and a command after `OnRelease` never runs.
 - **A key's name** from the SDL2 and SDL3 windows, the launchers', is the
   original's
   ([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys)):

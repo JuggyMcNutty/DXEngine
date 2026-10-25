@@ -3298,11 +3298,18 @@ void Engine::InputCommand(const std::string& commands, EInputKey key, int delta,
 			{
 				activeInputButtons[args[1]] = key;
 			}
-			else if (command == "axis" && args.size() == 3)
+			else if (command == "axis" && args.size() >= 2)
 			{
+				// The speed from a SPEED= word in any case, 1 without one, as
+				// the original's UInput::Exec (Engine.dll 0x10393e10) parses
+				// it: the game's DefUser.ini and DXLauncher's pad preset write
+				// speed=.
 				float speed = 1.0f;
-				if (args[2].size() > 6 && args[2].substr(0, 6) == "Speed=")
-					speed = (float)std::atof(args[2].substr(6).c_str());
+				for (size_t i = 2; i < args.size(); i++)
+				{
+					if (args[i].size() > 6 && StrTools::equals_ignore_case(args[i].substr(0, 6), "speed="))
+						speed = (float)std::atof(args[i].substr(6).c_str());
+				}
 				activeInputAxes[args[1]] = { speed * delta, key };
 			}
 			else if (!ExecCommand(args) && press && !IsInputSystemCommand(command))
