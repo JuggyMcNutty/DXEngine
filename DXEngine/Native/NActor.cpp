@@ -690,28 +690,31 @@ void NActor::VisibleCollidingActors(UObject* Self, UObject* BaseClass, UObject*&
 		bIgnoreHidden ? *bIgnoreHidden : false);
 }
 
-void NActor::GetMeshTexture(UObject* Self, std::optional<int> texnum, UObject*& ReturnValue)  
-{  
-	UActor* actor = UObject::Cast<UActor>(Self);  
-	UMesh* mesh = actor ? actor->Mesh() : nullptr;  
-	int index = texnum ? *texnum : 0;  
-	if (!mesh || index < 0 || index >= (int)mesh->Textures.size())  
-	{  
-		ReturnValue = engine->DefaultTexture;  
-		return;  
-	}  
-  
-	UTexture* tex = actor->GetMultiskin(index);  
-	if (!tex)  
-	{  
-		if (!mesh->Textures[index] || index == 0)  
-			tex = actor->Skin();  
-		if (!tex)  
-			tex = mesh->Textures[index];  
-		if (!tex)  
-			tex = actor->Texture();  
-	}  
-	ReturnValue = tex ? tex : engine->DefaultTexture;  
+void NActor::GetMeshTexture(UObject* Self, std::optional<int> texnum, UObject*& ReturnValue)
+{
+	// The original's (Engine.dll 0x103e17c0): the actor's skin of that
+	// number (MultiSkins 0 to 7); else, for a number above 0, the mesh's
+	// texture of that number; else the actor's Skin; else the mesh's texture
+	// of that number, None past its textures; with no mesh a warning and
+	// None. DefaultTexture is never its answer.
+	UActor* actor = UObject::Cast<UActor>(Self);
+	UMesh* mesh = actor ? actor->Mesh() : nullptr;
+	int index = texnum ? *texnum : 0;
+	ReturnValue = nullptr;
+	if (!mesh)
+	{
+		LogMessage("GetMeshTexture: No mesh");
+		return;
+	}
+	int count = (int)mesh->Textures.size();
+	UTexture* tex = actor->GetMultiskin(index);
+	if (!tex && index > 0 && index < count)
+		tex = mesh->Textures[index];
+	if (!tex)
+		tex = actor->Skin();
+	if (!tex && index >= 0 && index < count)
+		tex = mesh->Textures[index];
+	ReturnValue = tex;
 }
 
 void NActor::GetPlayerPawn(UObject* Self, UObject*& ReturnValue)  

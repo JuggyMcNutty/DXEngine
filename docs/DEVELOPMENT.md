@@ -172,6 +172,7 @@ the run. *Either*: one engine on each side of a pair.
 | `ReturnConsole` | both | Liberty Island, UNATCO HQ and back: what travels and what stays; the player's goals, notes and keys, two augmentation canisters, the inventory grid, the augmentation slots, a vector and a rotator flag (`Items`: as a map exit travels) | `DXRETURN:` | the two logs' lines diffed |
 | `GetConsole` | both | `GET`, `SET`, `GetPropertyText`, `SetPropertyText`; the main menu | `DXGET:` |  |
 | `JunkConsole` | both | `SetPropertyText` and the console's `SET` with text that is no value of the property, on an int, a float, a bool, a byte, a string and a name of its own actor (`CapJunk`) | `DXJUNK:` | the two logs' lines diffed |
+| `MeshTexConsole` | both | `GetMeshTexture` for -1 to 8 on a Lamp1 with no skins, its Skin set, MultiSkins 1 and 7 set, Skin None again, and on an actor with no mesh | `DXMESHTEX:` | the two logs' lines diffed |
 | `NameConsole` | both | the names spawned actors get: a Lamp1, a Lamp2, a Lamp3, a second Lamp1, and the two Area 51 sector images | `DXNAME:` | the two logs' lines diffed |
 | `IniConsole` | both | a `User.ini` with keys given twice (`DXCAP_USERINI`) | `DXINI:` |  |
 | `MenuConsole` | both | every menu screen's window tree (`WindowDump`) and a shot | `DXMENU:` |  |

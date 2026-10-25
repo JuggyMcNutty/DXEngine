@@ -1188,7 +1188,11 @@ Every other native the scripted runs compare matches the original
   ([small](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#small)).
   `Actor.GetBoundingBox` with no test place is the box where the actor is
   now, a dedicated server's too, as the original takes its primitive's
-  (`MoverServer`).
+  (`MoverServer`). `Actor.GetMeshTexture` answers as the original's: the
+  skin of that number, else the mesh's texture of a number above 0, else
+  `Skin`, else the mesh's texture of that number, None past the mesh's
+  textures and for an actor with no mesh, never `DefaultTexture`
+  (`MeshTexConsole`).
 - **A None context** (`A.X` with `A` None; `NoneConsole`): the zero of
   `X`'s type, as the original's `execContext` zero-fills the result -- a
   `switch (A.Physics)` takes `case PHYS_None`, a struct copied through None
