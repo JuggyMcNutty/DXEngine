@@ -215,6 +215,7 @@ the run. *Either*: one engine on each side of a pair.
 | `ServeConsole` | either | a listen server, its players and beeps; it exits after 290 s | `DXCAP:` | `netquery.py`, `fakemaster.py`, `netrelay.py` |
 | `JoinConsole` | either | a client of `127.0.0.1:7790`; the moves its velocity does not account for (a server's corrections) | `DXNET:` | `sound.py --onsets <run>`, the client alone with `DXCAP_RECORD=1`: the server's beeps |
 | `LinkConsole` | both | 20 UdpLinks bound to ports from 2100, destroyed, then 20 bound to the same ports again: how many bind each time | `DXLINK:` | the two logs' lines |
+| `RstConsole` | dxe | a TcpLink to `tools/dxcap/rstserver.py` (started beside the run), which resets the connection a second after it opens: a line sent as it opens, two after the reset, each send's answer and the link's error | `DXRST:` | the run ends with its own exit, no signal |
 | `RejoinConsole` | either | a client that joins twice | `DXREJOIN:` |  |
 | `TravelServeConsole` | either | a server that travels; it exits after 150 s | `DXCAP:` |  |
 | `TravelJoinConsole` | either | a client that follows it | `DXNET:` |  |
