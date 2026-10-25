@@ -204,6 +204,7 @@ private:
 	struct OpenStream
 	{
 		Package* Pkg = nullptr;
+		std::string Path; // the package's file: a package whose construction failed leaves an entry its address can be given again
 		std::shared_ptr<PackageStream> Stream;
 	};
 

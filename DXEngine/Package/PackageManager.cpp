@@ -741,17 +741,22 @@ void PackageManager::ScanPaths()
 
 void PackageManager::ScanSaveInfos()
 {
-	if (!fs::exists(gameSaveFolderPath) || !fs::is_directory(gameSaveFolderPath))
+	// A save folder that cannot be read, or a slot whose SaveInfo is no
+	// package or is cut short, is passed over with a line in the log: the
+	// scan runs in the constructor and at every load, where a throw would
+	// end the engine for one bad slot.
+	std::error_code ec;
+	if (!fs::is_directory(gameSaveFolderPath, ec))
 		return;
 
-	for (const auto& entry : fs::directory_iterator{gameSaveFolderPath})
+	for (const auto& entry : fs::directory_iterator{gameSaveFolderPath, ec})
 	{
-		if (!entry.is_directory())
+		if (!entry.is_directory(ec))
 			continue;
 
 		const auto save = entry.path() / ("SaveInfo." + saveExtension);
 
-		if (!fs::exists(save) || !fs::is_regular_file(save))
+		if (!fs::is_regular_file(save, ec))
 			continue;
 
 		auto saveFolderName = entry.path().filename().string();
@@ -759,7 +764,18 @@ void PackageManager::ScanSaveInfos()
 		// A folder already loaded keeps its package; a writer that changes
 		// one evicts it with RemoveSaveInfoPackage.
 		if (saveInfos.find(saveFolderName) == saveInfos.end())
-			saveInfos[saveFolderName] = GC::Alloc<Package>(this, saveFolderName, save.string());
+		{
+			try
+			{
+				saveInfos[saveFolderName] = GC::Alloc<Package>(this, saveFolderName, save.string());
+			}
+			catch (const std::exception& e)
+			{
+				saveInfos.erase(saveFolderName);
+				openStreams.remove_if([&](const OpenStream& stream) { return stream.Path == save.string(); });
+				LogMessage("Save slot " + saveFolderName + " passed over: " + e.what());
+			}
+		}
 	}
 }
 
@@ -786,7 +802,7 @@ std::shared_ptr<PackageStream> PackageManager::GetStream(Package* package)
 	int numStreams = 0;
 	for (auto it = openStreams.begin(); it != openStreams.end(); ++it)
 	{
-		if ((*it).Pkg == package)
+		if ((*it).Pkg == package && (*it).Path == package->GetPackageFilePath())
 		{
 			if (it != openStreams.begin())
 			{
@@ -801,6 +817,7 @@ std::shared_ptr<PackageStream> PackageManager::GetStream(Package* package)
 
 	OpenStream s;
 	s.Pkg = package;
+	s.Path = package->GetPackageFilePath();
 	s.Stream = std::make_shared<PackageStream>(package, File::open_existing(package->GetPackageFilePath()));
 	openStreams.push_front(s);
 
