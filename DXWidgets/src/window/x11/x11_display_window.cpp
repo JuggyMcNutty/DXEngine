@@ -252,12 +252,19 @@ void X11DisplayWindow::SetClientFrame(const Rect& box)
 	int width = (int)std::round(box.width * dpiscale);
 	int height = (int)std::round(box.height * dpiscale);
 
+	// A size of nothing is not asked for: the server refuses it (BadValue),
+	// and Xlib's default handler ends the process. The engine's full screen
+	// at the desktop's size passes 0 by 0 for the frame.
 	XWindowChanges changes = {};
 	changes.x = x;
 	changes.y = y;
-	changes.width = width;
-	changes.height = height;
-	unsigned int mask = CWX | CWY | CWWidth | CWHeight;
+	unsigned int mask = CWX | CWY;
+	if (width > 0 && height > 0)
+	{
+		changes.width = width;
+		changes.height = height;
+		mask |= CWWidth | CWHeight;
+	}
 
 	XConfigureWindow(display, window, mask, &changes);
 }
