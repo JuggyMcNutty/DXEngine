@@ -1443,7 +1443,9 @@ What DXEngine does with each:
 - **`INI=` and `USERINI=`**: the inis read and written back, as `--ini` and
   `--userini`, each found by its own name, never `INI=` within `USERINI=`
   (`DXCAP_USERINI_FIRST`: the two given `USERINI=` first, `MidConsole`'s
-  run alike in both engines).
+  run alike in both engines). One not there yet is empty, as the original's
+  config cache takes it, and written whole at its first save; a missing
+  `Default.ini` or `DefUser.ini` the same.
 - **`EXEC=<file>`**: `exec <file>` on the player once the first map is in;
   `exec` runs a file's lines as commands, as the original's does.
 - **Safe mode's flags**

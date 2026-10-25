@@ -21,6 +21,15 @@ static uint32_t HashIniString(const std::string& str)
 
 IniFile::IniFile(const std::string& filename)
 {
+	// A file that is not there yet (an --ini or --userini named before its
+	// first write, a missing Default.ini) is empty, as the original's config
+	// cache takes it, and written whole at the first write
+	std::error_code ec;
+	if (!fs::exists(filename, ec))
+	{
+		ini_file_path = filename;
+		return;
+	}
 	std::string text = File::read_all_text(filename);
 	size_t pos = 0;
 	std::string line;

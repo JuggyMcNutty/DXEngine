@@ -1093,9 +1093,21 @@ void PackageManager::LoadEngineIniFiles()
 	// as the original's INI= and USERINI= do. The file named is the engine's
 	// own when it has the engine's sections; otherwise it is a game's, and
 	// the settings come from the game's sections, as without a DXE- ini.
+	// A named file not there yet is made from Default.ini, as the original
+	// makes a missing INI= from its default ini, and written there whole at
+	// the first save; a USERINI= from DefUser.ini.
+	std::error_code ec;
 	if (!launchInfo.systemIniPath.empty())
 	{
-		iniFiles[systemIniName] = std::make_unique<IniFile>(launchInfo.systemIniPath);
+		if (fs::exists(launchInfo.systemIniPath, ec))
+		{
+			iniFiles[systemIniName] = std::make_unique<IniFile>(launchInfo.systemIniPath);
+		}
+		else
+		{
+			iniFiles[systemIniName] = std::make_unique<IniFile>((gameSystemFolderPath / "Default.ini").string());
+			iniFiles[systemIniName]->SetPath(launchInfo.systemIniPath);
+		}
 		missing_dxe_system_ini = iniFiles[systemIniName]->GetKeys("Engine.DXEngineAudioDevice").empty();
 	}
 	else
@@ -1110,10 +1122,19 @@ void PackageManager::LoadEngineIniFiles()
 			userIniName = "DefUser.ini";
 	}
 
-	if (!launchInfo.userIniPath.empty())
+	if (!launchInfo.userIniPath.empty() && fs::exists(launchInfo.userIniPath, ec))
+	{
 		iniFiles["User"] = std::make_unique<IniFile>(launchInfo.userIniPath);
+	}
+	else if (!launchInfo.userIniPath.empty())
+	{
+		iniFiles["User"] = std::make_unique<IniFile>((gameSystemFolderPath / "DefUser.ini").string());
+		iniFiles["User"]->SetPath(launchInfo.userIniPath);
+	}
 	else
+	{
 		iniFiles["User"] = std::make_unique<IniFile>((gameSystemFolderPath / userIniName).string());
+	}
 	defaultUserFile = std::make_unique<IniFile>((gameSystemFolderPath / "DefUser.ini").string());
 }
 
