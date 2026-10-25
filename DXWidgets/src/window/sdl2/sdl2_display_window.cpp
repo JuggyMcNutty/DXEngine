@@ -794,6 +794,11 @@ void SDL2DisplayWindow::CreateGLContext()
 	}
 
 	m_GLContext = SDL_GL_CreateContext(Handle.window);
+	// None is an error here, with SDL's reason, so the GL device fails at
+	// its start and the engine falls back to the software device: the GL
+	// loader on no context read a null extension string.
+	if (!m_GLContext)
+		throw std::runtime_error(std::string("Could not create an OpenGL context: ") + SDL_GetError());
 }
 
 void SDL2DisplayWindow::MakeGLContextCurrent()
