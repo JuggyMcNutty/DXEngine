@@ -19,8 +19,16 @@
 
 UUdpLink::~UUdpLink()
 {
+	ActorDestroyed();
+}
+
+// The socket closes with the actor, as the original's AInternetLink::Destroy
+// closes it: a destroyed link held its port until a collection.
+void UUdpLink::ActorDestroyed()
+{
 	if (handle != invalid_socket_value)
 		CloseSocket(handle);
+	handle = invalid_socket_value;
 }
 
 void UUdpLink::Tick(float elapsed)

@@ -230,6 +230,9 @@ public:
 	PointRegion FindRegion(const vec3& offset = vec3(0.0f));
 
 	virtual void Tick(float elapsed);
+	// Destroy's last word to the actor: a link closes its sockets here, as
+	// the original's AInternetLink::Destroy does, not at the collection.
+	virtual void ActorDestroyed() {}
 
 	void TickAnimation(float elapsed);
 	void TickBlendAnimation(float elapsed);

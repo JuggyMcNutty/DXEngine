@@ -34,10 +34,19 @@ static bool Readable(socket_t s)
 
 UTcpLink::~UTcpLink()
 {
+	ActorDestroyed();
+}
+
+// The sockets close with the actor, as the original's AInternetLink::Destroy
+// closes them: a destroyed link held its port until a collection.
+void UTcpLink::ActorDestroyed()
+{
 	if (remote != invalid_socket_value)
 		CloseSocket(remote);
+	remote = invalid_socket_value;
 	if (handle != invalid_socket_value)
 		CloseSocket(handle);
+	handle = invalid_socket_value;
 }
 
 bool UTcpLink::EnsureSocket()
@@ -246,7 +255,15 @@ int UTcpLink::FlushSendBuffer()
 	socket_t s = DataSocket();
 	if (s == invalid_socket_value || sendBuffer.empty())
 		return (int)sendBuffer.size();
-	int sent = (int)send(s, (const char*)sendBuffer.data(), (int)sendBuffer.size(), 0);
+	// No SIGPIPE on a connection the peer has reset: the error comes back
+	// instead, as on Windows, where nothing masks the signal (a headless
+	// dedicated server, the X11 and Wayland windows).
+#ifdef MSG_NOSIGNAL
+	const int sendFlags = MSG_NOSIGNAL;
+#else
+	const int sendFlags = 0;
+#endif
+	int sent = (int)send(s, (const char*)sendBuffer.data(), (int)sendBuffer.size(), sendFlags);
 	if (sent > 0)
 		sendBuffer.erase(sendBuffer.begin(), sendBuffer.begin() + sent);
 	else if (sent < 0 && !WouldBlock(LastSocketError()))

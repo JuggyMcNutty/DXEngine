@@ -260,6 +260,8 @@ bool UActor::Destroy()
 	// (ULevel::CleanupDestroyed).
 	Deleted() = level->FirstDeleted;
 	level->FirstDeleted = this;
+
+	ActorDestroyed();
 	level->DeletedCount++;
 
 	return true;

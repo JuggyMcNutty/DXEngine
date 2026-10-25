@@ -7,6 +7,7 @@ class UUdpLink : public UInternetLink
 public:
 	using UInternetLink::UInternetLink;
 	~UUdpLink();
+	void ActorDestroyed() override;
 
 	void Tick(float elapsed) override;
 

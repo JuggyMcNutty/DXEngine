@@ -20,6 +20,7 @@ class UTcpLink : public UInternetLink
 public:
 	using UInternetLink::UInternetLink;
 	~UTcpLink();
+	void ActorDestroyed() override;
 
 	void Tick(float elapsed) override;
 
