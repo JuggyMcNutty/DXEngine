@@ -624,6 +624,27 @@ Package* PackageManager::LoadSaveFile(const std::string& path)
 	return nullptr;
 }
 
+// Current's save of a map, the map named in any case, with or without its
+// extension: the path LoadSaveFile takes, or empty where there is none.
+std::string PackageManager::FindCurrentSave(const std::string& mapName) const
+{
+	std::string name = mapName;
+	const std::string mapExt = "." + GetMapExtension();
+	if (name.size() > mapExt.size() && StrTools::equals_ignore_case(name.substr(name.size() - mapExt.size()), mapExt))
+		name.resize(name.size() - mapExt.size());
+	const std::string saveExt = "." + GetSaveExtension();
+	std::error_code ec;
+	for (const auto& entry : fs::directory_iterator{gameSaveFolderPath / "Current", ec})
+	{
+		if (!entry.is_regular_file(ec))
+			continue;
+		const fs::path& file = entry.path();
+		if (StrTools::equals_ignore_case(file.extension().string(), saveExt) && StrTools::equals_ignore_case(file.stem().string(), name))
+			return "Current/" + file.filename().string();
+	}
+	return {};
+}
+
 Package* PackageManager::LoadSaveSlot(const uint32_t slotNum)
 {
 	return LoadSaveFile("Save" + std::to_string(slotNum) + "." + GetSaveExtension());

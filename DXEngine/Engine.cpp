@@ -985,9 +985,12 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 	{
 		dxTravelUsesCurrent = false;
 		// Within a mission, a map saved into Current is revisited as the
-		// player left it.
-		const std::string currentMap = "Current/" + url.Map + "." + packages->GetSaveExtension();
-		if (fs::exists(packages->GetSaveFolderPath() / currentMap))
+		// player left it: the file SaveCurrentLevel named by the package,
+		// found whatever case the URL spells the map in (a stock exit names
+		// 12_vandenberg_cmd), with or without its .dx, as the original's
+		// Browse cuts and Windows' file system finds it.
+		const std::string currentMap = packages->FindCurrentSave(url.Map);
+		if (!currentMap.empty())
 		{
 			LogMessage("Loading " + url.Map + " from Current");
 			LevelPackage = packages->LoadSaveFile(currentMap);

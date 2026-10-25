@@ -95,7 +95,11 @@ opened at a portal (`open <map>#<portal>`) starts the player at the
 teleporter of that tag (`PortalConsole`). Differs: a level returned to from
 `Current` keeps the map's name in its URL, where the original's names the
 saved file (`..\Save\Current\<map>.dxs`), as `Level.GetLocalURL` shows
-(`ReturnConsole`).
+(`ReturnConsole`). The saved level is found whatever case the URL spells
+the map in, with or without its `.dx`, as the original's file system finds
+it: the stock exits spell `12_vandenberg_cmd` and `00_training`
+(`RevisitConsole`: the island opened again as `01_nyc_unatcoisland` has the
+crate left there).
 
 While a map loads or a level is saved the screen shows one frame, painted
 before the work, as the original's does
