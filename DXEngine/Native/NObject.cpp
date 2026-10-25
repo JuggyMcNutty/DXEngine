@@ -301,10 +301,13 @@ void NObject::Atan(float A, float& ReturnValue)
 
 void NObject::Caps(const std::string& S, std::string& ReturnValue)
 {
+	// toupper takes an unsigned char's value: a byte past 127, a Latin-1
+	// letter, as a signed char is outside its domain. In the C locale it
+	// stays as it is, as the original's towupper leaves it.
 	ReturnValue.clear();
 	ReturnValue.reserve(S.size());
 	for (char c : S)
-		ReturnValue.push_back(std::toupper(c));
+		ReturnValue.push_back((char)std::toupper((unsigned char)c));
 }
 
 // The original's is one 16-bit character, and 0 the empty string. Ours
