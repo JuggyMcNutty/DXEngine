@@ -682,7 +682,15 @@ Differs:
 ### Head turns and lip sync: blend animations
 
 Matches the original
-([blend animations](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#blend-animations)).
+([blend animations](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#blend-animations)),
+as the main animation's tick does
+([the main animation's tick](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#blend-animations)):
+four passes a tick, each ending at a notify the step crosses (one the actor
+has no function for too), a loop's wrap past 1.0 (its `AnimEnd` sent when
+the pass crossed `AnimLast`) or a sequence's end, so a long tick through a
+fast loop plays four loops of it and sends four `AnimEnd`s, the rest of its
+time unplayed (`PassesConsole`: a tarp's Blowing looped at 20 a second
+through a 0.4 s tick, four `AnimEnd`s and frame 0 after in both).
 
 ### Lists
 

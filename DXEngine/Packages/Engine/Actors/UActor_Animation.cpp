@@ -330,7 +330,12 @@ void UActor::TickAnimation(float elapsed)
 			StateFrame->LatentState = LatentRunState::Continue;
 	}
 
-	for (int i = 0; elapsed > 0.0f && i < 10; i++)
+	// Four passes a tick, as the original's AActor::Tick runs them (Engine.dll
+	// 0x103a1aa0; engine-dll.md, the main animation's tick): each ends at a
+	// notify, a loop's wrap or the sequence's end, so a long tick through a
+	// fast loop plays four loops of it and leaves the rest of its time
+	// unplayed
+	for (int i = 0; elapsed > 0.0f && i < 4; i++)
 	{
 		// If AnimFrame is positive we are doing a normal animation. If it is negative we are doing a tween animation.
 		float fromAnimTime = AnimFrame();
@@ -344,94 +349,84 @@ void UActor::TickAnimation(float elapsed)
 			// Find what time will we be at the end of the animation
 			float toAnimTime = fromAnimTime + animRate * elapsed;
 
-			// Stop at the next notify event, if any
+			// The pass stops at the earliest notify the step crosses, the time
+			// past it kept, its function called if the actor has one -- as
+			// the original's, which spends the pass on a notify the actor has
+			// no function for too
 			if (Mesh() && bAnimNotify())
 			{
 				MeshAnimSeq* seq = Mesh()->GetSequence(AnimSequence());
 				if (seq)
 				{
-					bool foundEvent = false;
+					const MeshAnimNotify* first = nullptr;
 					for (const MeshAnimNotify& n : seq->Notifys)
 					{
-						if (n.Time > fromAnimTime && n.Time <= toAnimTime)
-						{
-							if (FindEventFunction(this, n.Function))
-							{
-								toAnimTime = n.Time;
-								elapsed -= (toAnimTime - fromAnimTime) / animRate;
-								AnimFrame() = toAnimTime;
-								foundEvent = true;
-								CallEvent(this, n.Function);
-								break;
-							}
-						}
+						if (n.Time > fromAnimTime && n.Time <= toAnimTime && (!first || n.Time < first->Time))
+							first = &n;
 					}
-					if (foundEvent)
+					if (first)
+					{
+						elapsed = elapsed * (toAnimTime - first->Time) / (toAnimTime - fromAnimTime);
+						AnimFrame() = first->Time;
+						if (FindEventFunction(this, first->Function))
+							CallEvent(this, first->Function);
 						continue;
+					}
 				}
 			}
 
-			// Looped animations got their AnimEnd notify event at the AnimLast point, NOT when the loop finishes!
-			if (bAnimLoop() && AnimLast() > fromAnimTime && AnimLast() <= toAnimTime)
+			// A step short of AnimLast is the tick's whole animation
+			if (toAnimTime < AnimLast())
 			{
-				toAnimTime = AnimLast();
-				elapsed -= (toAnimTime - fromAnimTime) / animRate;
 				AnimFrame() = toAnimTime;
-
-				if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim)
-					StateFrame->LatentState = LatentRunState::Continue;
-
-				CallEvent(this, EventName::AnimEnd);
-				continue;
+				break;
 			}
 
-			// Clamp elapsed time to the animation end. This differs for looping animations as they also have to take the last frame into account before looping.
-			float animEndTime = bAnimLoop() ? 1.0f : AnimLast();
-			if (toAnimTime < fromAnimTime) // This can happen if FinishAnim is called after a looping animation made it past the AnimLast point
+			if (bAnimLoop())
 			{
-				toAnimTime = fromAnimTime;
-				animEndTime = fromAnimTime;
-				elapsed = 0.0f;
-			}
-			else if (toAnimTime >= animEndTime)
-			{
-				elapsed -= (animEndTime - fromAnimTime) / animRate;
-				toAnimTime = animEndTime;
-			}
-			else
-			{
-				elapsed = 0.0f;
-			}
-
-			AnimFrame() = toAnimTime;
-
-			if (toAnimTime == animEndTime)
-			{
-				if (bAnimLoop())
+				// Past AnimLast a loop goes on to 1.0 in the same pass: it
+				// wraps to 0 with the time past 1.0 kept for the next pass, or
+				// stops where the step took it with no time left. AnimEnd when
+				// the pass crossed AnimLast from below (and a FinishAnim
+				// waiting on it goes on).
+				bool crossed = fromAnimTime < AnimLast();
+				if (toAnimTime >= 1.0f)
 				{
+					elapsed = elapsed * (toAnimTime - 1.0f) / (toAnimTime - fromAnimTime);
 					AnimFrame() = 0.0f;
 				}
 				else
 				{
-					AnimRate() = 0.0f;
-					bAnimFinished() = true;
+					AnimFrame() = toAnimTime;
+					elapsed = 0.0f;
 				}
+				if (crossed)
+				{
+					if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim)
+						StateFrame->LatentState = LatentRunState::Continue;
+					CallEvent(this, EventName::AnimEnd);
+				}
+				continue;
 			}
 
-			if (!bAnimLoop() && fromAnimTime < animEndTime && toAnimTime >= animEndTime)
+			// A non-looping animation stops at AnimLast, its rate 0 and
+			// finished, with AnimEnd; the time past it is kept, and the next
+			// pass ends on the rate
+			elapsed = elapsed * (toAnimTime - AnimLast()) / (toAnimTime - fromAnimTime);
+			AnimFrame() = AnimLast();
+			AnimRate() = 0.0f;
+			bAnimFinished() = true;
+			if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim)
+				StateFrame->LatentState = LatentRunState::Continue;
+
+			CallEvent(this, EventName::AnimEnd);
+
+			// A client that does not simulate the actor (a weapon aside) is
+			// told where its animation stopped.
+			if (RemoteRole() < ROLE_SimulatedProxy && !IsA("Weapon"))
 			{
-				if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim)
-					StateFrame->LatentState = LatentRunState::Continue;
-
-				CallEvent(this, EventName::AnimEnd);
-
-				// A client that does not simulate the actor (a weapon
-				// aside) is told where its animation stopped.
-				if (RemoteRole() < ROLE_SimulatedProxy && !IsA("Weapon"))
-				{
-					SimAnim().x = AnimFrame() * 10000.0f;
-					SimAnim().y = std::min(AnimRate() * 5000.0f, 32767.0f);
-				}
+				SimAnim().x = AnimFrame() * 10000.0f;
+				SimAnim().y = std::min(AnimRate() * 5000.0f, 32767.0f);
 			}
 		}
 		else
