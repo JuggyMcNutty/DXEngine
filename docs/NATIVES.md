@@ -991,7 +991,8 @@ it. Differs:
 Matches `Galaxy.dll`
 ([`galaxy-dll.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md)):
 Deus Ex's sounds are mixed as its mixer mixes them (pan, volumes, resampling
-and reverb, at `OutputRate`) into one OpenAL source, one behind the level's
+and reverb, at `OutputRate`, which keeps its default when the ini's value
+is no number ending in `Hz`) into one OpenAL source, one behind the level's
 BSP muffled -- a closed door's too, the movers in it where it filed them
 ([the movers in a line's way](#implemented-not-as-the-original)); the
 wall test is the solid-space walk the original's `FastLineCheck` makes

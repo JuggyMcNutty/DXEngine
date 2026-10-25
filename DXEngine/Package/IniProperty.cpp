@@ -153,7 +153,17 @@ std::string IniPropertyConverter<AudioFrequency>::ToString(const AudioFrequency&
 template<>
 AudioFrequency IniPropertyConverter<AudioFrequency>::FromIniFile(const IniFile& iniFile, const NameString& section, const NameString& keyName, const AudioFrequency& default_value)
 {
-	return FromString(iniFile.GetValue(section, keyName, ToString(default_value)));
+	// A value that is no "<number>Hz" (a hand-edited OutputRate=44100) keeps
+	// the default, as the other types' rule above has it, rather than
+	// stopping the engine at its start
+	try
+	{
+		return FromString(iniFile.GetValue(section, keyName, ToString(default_value)));
+	}
+	catch (const std::exception&)
+	{
+		return default_value;
+	}
 }
 
 //====================================================================
