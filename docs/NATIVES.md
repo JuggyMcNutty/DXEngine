@@ -138,10 +138,13 @@ script running. `DX`, `DXOnly` and `Entry` are not mission maps, and
 
 Matches the original
 ([`ConSys.dll`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/consys-dll.md)):
-`SkipConsole` compares a skipped line's speech, `CaptureConsole` a jump to a
-comment's label, `EndgameConsole` an ending skipped to its credits:
-99_Endgame2's conversation stopped, its Played flag, the mission script's
-timer and quote, and the credits up at the level's fifteenth second, alike.
+`SkipConsole` compares a skipped line's speech and each line's length, which
+the script waits for, read from the sound's header as the original reads it
+(an MP3's bits over its first frame's bit rate: 2.834 s for a line the
+decoded samples make 2.847 s), `CaptureConsole` a jump to a comment's label,
+`EndgameConsole` an ending skipped to its credits: 99_Endgame2's
+conversation stopped, its Played flag, the mission script's timer and quote,
+and the credits up at the level's fifteenth second, alike.
 
 ## What the player reads
 

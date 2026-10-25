@@ -232,6 +232,10 @@ UObject* UConversation::GetSpeechAudio(int soundID)
 float UConversation::GetSpeechLength(int soundID)
 {
 	// 0 for -1 or no sound, as the original; the script waits this long.
+	// The length is read from the sound's header, as the original's
+	// GetSoundLength reads it (an MP3's bits over its first frame's bit
+	// rate), not the decoded samples': the game's 48 kbps MP3s decode
+	// 0.47% longer than the header says.
 	USound* sound = UObject::Cast<USound>(GetSpeechAudio(soundID));
-	return sound ? sound->GetDuration() : 0.0f;
+	return sound ? sound->GetHeaderDuration() : 0.0f;
 }

@@ -27,6 +27,11 @@ public:
 
 	void GetSound();
 	float GetDuration();
+	// The length the original's DConversation::GetSoundLength reads from the
+	// header, without decoding (ConSys.dll 0x10010460): a WAV's data bytes
+	// over its bytes a second, an MP3's bits over its first frame's bit
+	// rate; anything else logged and 0.
+	float GetHeaderDuration();
 
 	// Gone from the audio device's buffers and mixer.
 	void OnGCDestroy() override;

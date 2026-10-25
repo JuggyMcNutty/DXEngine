@@ -248,6 +248,57 @@ int USound::GetChannels()
 	return channels;
 }
 
+float USound::GetHeaderDuration()
+{
+	// A RIFF's canonical header: the data chunk's size at byte 40 over the
+	// format chunk's bytes a second at byte 28, read where they lie, as the
+	// original reads them
+	if (Data.size() >= 44 && memcmp(Data.data(), "RIFF", 4) == 0)
+	{
+		auto u32 = [&](size_t at) { return (uint32_t)(Data[at] | (Data[at + 1] << 8) | (Data[at + 2] << 16) | ((uint32_t)Data[at + 3] << 24)); };
+		return (float)((double)u32(40) / (double)(int32_t)u32(28));
+	}
+
+	// An MPEG frame header, read as the original reads it: the sync, the
+	// version and the layer picking the column of the bit rate table, the
+	// bit rate index its row; a reserved layer or version column 0; a free
+	// or bad bit rate index -1, a negative length
+	if (Data.size() >= 4 && Data[0] == 0xFF && (Data[1] & 0xE0) == 0xE0)
+	{
+		static const int32_t kbps[16][5] =
+		{
+			{ -1, -1, -1, -1, -1 },
+			{ 32, 32, 32, 32, 8 },
+			{ 64, 48, 40, 48, 16 },
+			{ 96, 56, 48, 56, 24 },
+			{ 128, 64, 56, 64, 32 },
+			{ 160, 80, 64, 80, 40 },
+			{ 192, 96, 80, 96, 48 },
+			{ 224, 112, 96, 112, 56 },
+			{ 256, 128, 112, 128, 64 },
+			{ 288, 160, 128, 144, 80 },
+			{ 320, 192, 160, 160, 96 },
+			{ 352, 224, 192, 176, 112 },
+			{ 384, 256, 224, 192, 128 },
+			{ 416, 320, 256, 224, 144 },
+			{ 448, 384, 320, 256, 160 },
+			{ -1, -1, -1, -1, -1 },
+		};
+		int version = (Data[1] >> 3) & 3; // 3 MPEG 1, 2 MPEG 2, 0 MPEG 2.5, 1 reserved
+		int layer = (Data[1] >> 1) & 3;   // 3 layer I, 2 layer II, 1 layer III, 0 reserved
+		int column = 0;
+		if (version == 3)
+			column = layer == 2 ? 1 : layer == 1 ? 2 : 0;
+		else if (version != 1)
+			column = layer == 3 ? 3 : layer == 0 ? 0 : 4;
+		int row = Data[2] >> 4;
+		return (float)((double)(int32_t)(8 * (uint32_t)Data.size()) / (double)(1000 * kbps[row][column]));
+	}
+
+	LogMessage("Unknown sound format in " + Name.ToString() + ": no length");
+	return 0.0f;
+}
+
 // Worked out once, from the samples decoded again for it and let go after.
 const Array<uint8_t>& USound::GetLipsyncLetters()
 {
