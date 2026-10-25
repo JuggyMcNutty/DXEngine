@@ -9,7 +9,24 @@ class CollisionTester
 public:
 	CollisionTester(CollisionSystem* collision) : Collision(collision) {}
 
-	static int NextCheckCounter() { return CheckCounter++; }
+	// A query's stamp, the actors it has met marked with it. Before the
+	// counter would overflow (some hours at a hundred thousand queries a
+	// second) every actor's stamp goes back to never visited and it starts
+	// again: a wrapped counter would be undefined, and at -1 would skip a
+	// never-visited actor.
+	int NextCheckCounter()
+	{
+		if (CheckCounter == INT32_MAX)
+		{
+			for (UActor* actor : GetLevel()->Actors)
+			{
+				if (actor)
+					actor->Collision.CheckCounter = -1;
+			}
+			CheckCounter = 0;
+		}
+		return CheckCounter++;
+	}
 
 	static ivec3 GetStartExtents(const vec3& location, const vec3& extents) { return CollisionSystem::GetStartExtents(location, extents); }
 	static ivec3 GetRayStartExtents(const vec3& from, const vec3& to) { return CollisionSystem::GetRayStartExtents(from, to); }

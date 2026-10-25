@@ -343,6 +343,13 @@ bool CollisionSystem::VisitFiledOnRay(const vec3& from, const vec3& to, Visit&& 
 {
 	if (Filed.empty())
 		return false;
+	// As CollisionTester::NextCheckCounter starts again before an overflow
+	if (FiledCheckCounter == INT32_MAX)
+	{
+		for (auto& filed : Filed)
+			filed->CheckCounter = 0;
+		FiledCheckCounter = 0;
+	}
 	int checkCounter = ++FiledCheckCounter;
 	ivec3 start = GetRayStartExtents(from, to);
 	ivec3 end = GetRayEndExtents(from, to);
