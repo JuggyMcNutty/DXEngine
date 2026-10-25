@@ -97,6 +97,7 @@ void Engine::MarkRoots(GCMarker& marker)
 	marker.MarkConst(floatprop);
 	marker.MarkConst(objprop);
 	marker.MarkConst(vecprop);
+	marker.MarkConst(colorprop);
 	marker.MarkConst(rotprop);
 
 	marker.SetRoot("natives");

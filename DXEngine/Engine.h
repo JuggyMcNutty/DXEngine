@@ -249,6 +249,7 @@ public:
 	// PlayerCalcView's three out parameters, as properties (Run).
 	UObjectProperty* objprop = nullptr;
 	UStructProperty* vecprop = nullptr;
+	UStructProperty* colorprop = nullptr; // a Color out argument's (CursorRequested); its Struct from the event's own
 	UStructProperty* rotprop = nullptr;
 
 	ULevelInfo* EntryLevelInfo = nullptr;

@@ -1486,17 +1486,18 @@ void UWindow::SetCursorPos(float newMouseX, float newMouseY)
 	}
 }
 
+// As the original's native (Extension.dll execSetDefaultCursor): every
+// argument set, an omitted one its default -- no shadow, hot spots of -1
+// (the texture's middle less one, QueryCursor's rule) and white. An omitted
+// one once left the window's old value: the root's SetDefaultCursor names
+// no colour, and the class's black with no alpha drew nothing.
 void UWindow::SetDefaultCursor(UObject* tX, std::optional<UObject*> shadowTexture, std::optional<float> HotX, std::optional<float> HotY, std::optional<Color> cursorColor)
 {
 	defaultCursor() = UObject::Cast<UTexture>(tX);
-	if (shadowTexture)
-		defaultCursorShadow() = UObject::Cast<UTexture>(*shadowTexture);
-	if (HotX)
-		defaultHotX() = *HotX;
-	if (HotY)
-		defaultHotY() = *HotY;
-	if (cursorColor)
-		defaultCursorColor() = *cursorColor;
+	defaultCursorShadow() = shadowTexture ? UObject::Cast<UTexture>(*shadowTexture) : nullptr;
+	defaultHotX() = HotX ? *HotX : -1.0f;
+	defaultHotY() = HotY ? *HotY : -1.0f;
+	defaultCursorColor() = cursorColor ? *cursorColor : Color{ 255, 255, 255, 255 };
 }
 
 void UWindow::SetFocusSounds(std::optional<UObject*> newFocusSound, std::optional<UObject*> newUnfocusSound)

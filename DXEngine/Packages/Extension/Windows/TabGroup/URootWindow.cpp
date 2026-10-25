@@ -8,6 +8,11 @@
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 #include "Packages/Extension/Windows/UGC.h"
 #include "Engine.h"
+#include "Packages/Core/Properties/UStructProperty.h"
+#include "Packages/Core/Properties/UObjectProperty.h"
+#include "Packages/Core/Properties/UFloatProperty.h"
+#include "Packages/Core/UFunction.h"
+#include "VM/ScriptCall.h"
 #include "GameWindow.h"
 #include "RenderDevice/RenderDevice.h"
 #include "Package/PackageManager.h"
@@ -243,31 +248,88 @@ void URootWindow::PostDrawWindow(UGC* gc)
 	UModalWindow::PostDrawWindow(gc);
 	if (IsCursorVisible())
 	{
-		// Find the cursor based on where the mouse is hovering:
-		UTexture* cursor = nullptr;
+		// The original's XWindow::QueryCursor (Extension.dll 0x1004f910), from
+		// the window under the pointer up its parents: each asked
+		// CursorRequested with the point in its own coordinates (a dragged
+		// item's icon, a menu's tinted pointer), else its defaultCursor with
+		// its shadow, hot spot and colour; a hot spot outside the texture is
+		// its middle less one. Drawn as PaintWindows (0x1003aab0) draws it:
+		// the shadow modulated, then the cursor masked in its colour, both at
+		// the hot spot. (The nearest defaultCursor, drawn white and centred,
+		// no CursorRequested asked, showed no dragged item, no shadow and no
+		// theme's tint.)
 		float relativeX = 0.0f, relativeY = 0.0f;
-		UWindow* focus = GetCursorFocus(relativeX, relativeY);
-		if (!focus)
-			focus = this;
-		while (focus)
+		UWindow* mouseWindow = GetCursorFocus(relativeX, relativeY);
+		if (!mouseWindow)
 		{
-			if (UTexture* tex = UObject::Cast<UTexture>(focus->defaultCursor()))
-			{
-				cursor = tex;
-				break;
-			}
-			focus = focus->parentOwner();
+			mouseWindow = this;
+			relativeX = MouseX();
+			relativeY = MouseY();
 		}
 
-		// Draw the cursor if we found one
+		UTexture* cursor = nullptr;
+		UTexture* shadow = nullptr;
+		float hotX = -1.0f, hotY = -1.0f;
+		Color color = { 255, 255, 255, 255 };
+		for (UWindow* w = mouseWindow; w && !cursor; w = w->parentOwner())
+		{
+			float pointX = relativeX, pointY = relativeY;
+			if (w != mouseWindow)
+				ConvertCoordinates(mouseWindow, relativeX, relativeY, w, pointX, pointY);
+			if (UFunction* func = FindEventFunction(w, "CursorRequested"))
+			{
+				if (!engine->colorprop->Struct && func->Properties.size() > 5)
+					if (auto structProp = UObject::TryCast<UStructProperty>(func->Properties[5]))
+						engine->colorprop->Struct = structProp->Struct;
+				float askHotX = -1.0f, askHotY = -1.0f;
+				Color askColor = { 255, 255, 255, 255 };
+				UObject* askShadow = nullptr;
+				ExpressionValue asked = CallEvent(w, "CursorRequested", {
+					ExpressionValue::ObjectValue(mouseWindow),
+					ExpressionValue::FloatValue(pointX),
+					ExpressionValue::FloatValue(pointY),
+					ExpressionValue::Variable(&askHotX, engine->floatprop),
+					ExpressionValue::Variable(&askHotY, engine->floatprop),
+					ExpressionValue::Variable(&askColor, engine->colorprop),
+					ExpressionValue::Variable(&askShadow, engine->objprop) });
+				cursor = UObject::TryCast<UTexture>(asked.ToObject());
+				if (cursor)
+				{
+					shadow = UObject::TryCast<UTexture>(askShadow);
+					hotX = askHotX;
+					hotY = askHotY;
+					color = askColor;
+				}
+			}
+			if (!cursor)
+			{
+				if (UTexture* tex = UObject::Cast<UTexture>(w->defaultCursor()))
+				{
+					cursor = tex;
+					shadow = w->defaultCursorShadow();
+					hotX = w->defaultHotX();
+					hotY = w->defaultHotY();
+					color = w->defaultCursorColor();
+				}
+			}
+		}
+
 		if (cursor)
 		{
-			Color white = { 255, 255, 255, 255 };
+			if (hotX < 0.0f || (float)cursor->USize() <= hotX)
+				hotX = (float)((cursor->USize() >> 1) - 1);
+			if (hotY < 0.0f || (float)cursor->VSize() <= hotY)
+				hotY = (float)((cursor->VSize() >> 1) - 1);
+			float x = MouseX() - hotX;
+			float y = MouseY() - hotY;
+			if (shadow)
+			{
+				gc->SetStyle(EDrawStyle::Modulated);
+				gc->DrawIcon(x, y, shadow);
+			}
 			gc->SetStyle(EDrawStyle::Masked);
-			gc->SetTileColor(white);
-			float hotspotX = cursor->USize() * 0.5f;
-			float hotspotY = cursor->VSize() * 0.5f;
-			gc->DrawIcon(MouseX() - hotspotX, MouseY() - hotspotY, cursor);
+			gc->SetTileColor(color);
+			gc->DrawIcon(x, y, cursor);
 		}
 	}
 }

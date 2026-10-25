@@ -799,7 +799,13 @@ from the original's code:
   moves onto (`ChoiceConsole`: the pointer put on a choice by
   `SetCursorPos`, which either engine takes as a move). It is drawn only
   then, while `ShowCursor` leaves it: a modal window made hidden, or hidden
-  again, draws none in either engine (`PointerConsole`).
+  again, draws none in either engine (`PointerConsole`). The pointer drawn
+  is the one `CursorRequested` gives, asked up the windows from the one
+  under it, else the nearest default, with its shadow, hot spot and
+  colour, as the original's `QueryCursor` chooses it: a dragged item's
+  icon, a menu's tinted arrow, the shadow under it (`PointerConsole`'s
+  shot with the modal window shown, the arrow's pixels within 31 levels
+  of the original's).
 - **The InfoLink's text** (a computer window): each character printed is
   due a time step after the last, `SetTextTiming`'s 0.03 s, on the
   windows' real time; each tick types those due, in the colour
