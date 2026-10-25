@@ -1378,12 +1378,15 @@ void Engine::SaveGameToSlot(int32_t slotNum, const std::string& saveDescription)
 
 	// The original's SaveGame (dx-reverse-info/deusex-dll.md, travel and saving):
 	// slot 0 is a new slot, the highest SaveNNNN plus one; -1 the quick
-	// save. The slot is emptied, Current copied in, the SaveInfo filled
-	// and written to the slot (and to Current, which keeps one of its
-	// own), and the level saved on top of the copy.
+	// save; any other number a Save%04d, a negative one too (the console's
+	// `savegame -3` writes Save-003, and `savegame -2` writes its info to
+	// Save-002 while SaveCurrentLevel saves the level into Current). The
+	// slot is emptied, Current copied in, the SaveInfo filled and written
+	// to the slot (and to Current, which keeps one of its own), and the
+	// level saved on top of the copy.
 	if (slotNum == 0)
 		slotNum = NextSaveSlot();
-	const auto slotFolderName = SaveSlotFolderName(slotNum);
+	const auto slotFolderName = slotNum == -1 ? SaveSlotFolderName(slotNum) : SaveNumberedFolderName(slotNum);
 	DeleteSaveGameFiles(slotFolderName);
 	const auto saveSlotFolder = saveFolderPath / slotFolderName;
 	if (!fs::exists(saveSlotFolder))
@@ -1510,10 +1513,16 @@ std::string Engine::SaveSlotFolderName(int32_t slot) const
 		return "QuickSave";
 	if (slot == -2)
 		return "Current";
-	std::string s = std::to_string(slot);
-	if (s.length() < 4)
-		s.insert(0, 4 - s.length(), '0');
-	return "Save" + s;
+	return SaveNumberedFolderName(slot);
+}
+
+// Save%04d, as the original formats it: a negative slot's sign takes one of
+// the four places (Save-003)
+std::string Engine::SaveNumberedFolderName(int32_t slot) const
+{
+	char buf[32];
+	snprintf(buf, sizeof(buf), "Save%04d", slot);
+	return buf;
 }
 
 // The next slot is the highest existing SaveNNNN plus one, never a gap.

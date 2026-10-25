@@ -67,7 +67,7 @@ struct SceneNode;
 struct SurfaceFacet;
 struct MeshFace;
 
-static constexpr int32_t DONT_SAVE_GAME = -2; // Since -1 might be used as the autosave slot in some UE1 games...
+static constexpr int32_t DONT_SAVE_GAME = INT32_MIN; // No slot: -1 is the quick save's, -2 Current's, and the original's SaveGame takes any other number
 
 class Engine : public GameWindowHost
 {
@@ -109,6 +109,7 @@ public:
 	// Save%04d a slot, QuickSave (-1) the quick save, Current (-2) the
 	// mission in progress.
 	std::string SaveSlotFolderName(int32_t slot) const;
+	std::string SaveNumberedFolderName(int32_t slot) const;
 	int32_t NextSaveSlot() const;
 	void CopySaveGameFiles(const std::string& fromFolder, const std::string& toFolder) const;
 	void DeleteSaveGameFiles(const std::string& folder) const;
