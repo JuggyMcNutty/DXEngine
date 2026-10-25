@@ -970,7 +970,11 @@ Matches `Galaxy.dll`
 Deus Ex's sounds are mixed as its mixer mixes them (pan, volumes, resampling
 and reverb, at `OutputRate`) into one OpenAL source, one behind the level's
 BSP muffled -- a closed door's too, the movers in it where it filed them
-([the movers in a line's way](#implemented-not-as-the-original)). Who hears
+([the movers in a line's way](#implemented-not-as-the-original)); the
+wall test is the solid-space walk the original's `FastLineCheck` makes
+(`FastWalk`, the hearing test's): a solid brush muffles through its
+invisible faces too, open space on both sides of a polygon does not
+(`SoundConsole`'s wall, recorded on both engines). Who hears
 a sound an actor plays is the original's too
 ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds)):
 the player within the radius ÷ √1.3, and with the level's BSP between, at
