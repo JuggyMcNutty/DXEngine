@@ -1371,7 +1371,7 @@ engine's own objects are not deleted (the log says so).
   naming a property the pawn lacks, or an `Axis` naming no float of it, is
   the original's "Bad Button command" or "Bad Axis command", logged and
   left alone (a User.ini's `F=Button bFirre` and `G=Axis aNope Speed=1`
-  pressed by `timelines/bad-keys.txt`); a `Button`'s `input byte` is
+  pressed by `tools/dxcap/timelines/bad-keys.txt`); a `Button`'s `input byte` is
   written as a byte, 1 pressed and 0 released. Differs: the
   original takes its viewport's own words (`SHOT` among them) before the
   exec functions, the same but for a word an exec function shares; `Toggle`
