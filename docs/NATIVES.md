@@ -702,7 +702,10 @@ through a 0.4 s tick, four `AnimEnd`s and frame 0 after in both).
 `FinishAnim` waits as the original's does: not at all with nothing playing
 or tweening, or with the frame at `AnimLast` or past, else until the
 animation finishes -- a tween's whole time after a `TweenAnim`
-(`FinishConsole`).
+(`FinishConsole`). A sequence name the mesh lacks is none: `HasAnim` false,
+`GetAnimGroup` None, and `PlayAnim`, `LoopAnim`, `TweenAnim` and
+`PlayBlendAnim` of it play nothing, as the original's `GetAnimSeq` answers
+(`AnimNameConsole`).
 
 ### Lists
 

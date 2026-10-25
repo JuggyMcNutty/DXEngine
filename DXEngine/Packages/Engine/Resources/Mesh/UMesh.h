@@ -63,12 +63,15 @@ public:
 	void Save(PackageStreamWriter* stream) override;
 	void Mark(GCMarker& marker) override;
 
+	// The sequence of that name; none for a name the mesh lacks, as the
+	// original's GetAnimSeq answers (it gave the first sequence, so HasAnim
+	// was true for any name and PlayAnim of a missing one played the first)
 	MeshAnimSeq* GetSequence(const NameString& name)
 	{
 		for (MeshAnimSeq& seq : AnimSeqs)
 			if (seq.Name == name)
 				return &seq;
-		return !AnimSeqs.empty() ? AnimSeqs.data() : nullptr;
+		return nullptr;
 	}
 
 	Array<vec3> Verts;
