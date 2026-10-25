@@ -1539,6 +1539,11 @@ The server-only stubs are under
   what nothing uses of it but its code, which stays loaded, where the
   original's collects it all
   ([housekeeping](#housekeeping-not-seen-directly)).
+- **A root window per pawn**, made at its first Possess and kept in it, as
+  the original's `InitRootWindow` makes it; the engine draws, ticks and
+  feeds the viewport's own player's: a client joining a listen server
+  gets a root of its own and leaves the host's in place (`ServeConsole`
+  with `JoinConsole`: the server's log names each root's pawn).
 - **A listen server runs at most 144 frames a second**, where the original's
   runs as fast as it draws: a remote client's queue drains its rate over a
   tick, so the faster the ticks, the less room an unreliable call finds
