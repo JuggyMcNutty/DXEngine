@@ -17,6 +17,7 @@
 #include "Packages/Core/Properties/UPointerProperty.h"
 #include "Packages/Core/Properties/UStructProperty.h"
 #include "Engine.h"
+#include "Packages/Engine/Actors/UActor.h"
 #include "Package/PackageManager.h"
 #include "Network/NetDriver.h"
 #include "Network/NetRemote.h"
@@ -490,10 +491,33 @@ ExpressionEvalResult Frame::Run()
 
 	ActiveCallStackFrame activeFrame(this);
 
+	// A state frame's run ends as the original's ProcessState (Engine.dll
+	// 0x103e5b60) ends it: before a statement once the actor is destroyed,
+	// and at the fifth state change of the tick (a GotoState moves the frame
+	// to the state's code, Func), which the next tick's run takes up. It ran
+	// on after Destroy, and for ever through a bounce between two states by
+	// GotoState alone, which the runaway guard never counted.
+	const bool stateFrame = Object->StateFrame.get() == this;
+	UActor* stateActor = stateFrame ? UObject::TryCast<UActor>(Object) : nullptr;
+	UStruct* stateCode = Func;
+	int stateChanges = 0;
+
 	const int maxInstructions = 500'000;
 	int instructionsRetired = 0;
 	while (true)
 	{
+		if (stateFrame)
+		{
+			if (stateActor && stateActor->bDeleteMe())
+				return {};
+			if (Func != stateCode)
+			{
+				stateCode = Func;
+				if (++stateChanges > 4)
+					return {};
+			}
+		}
+
 		if (StatementIndex >= Func->Code->Statements.size())
 			ThrowException("Unexpected end of code statements");
 
