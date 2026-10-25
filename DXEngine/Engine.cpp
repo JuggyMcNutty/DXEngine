@@ -795,6 +795,20 @@ void Engine::ClientTravel(const std::string& newURL, ETravelType travelType, boo
 
 	ClientTravelInfo.TravelType = travelType;
 	ClientTravelInfo.TransferItems = transferItems;
+
+	// PreTravel to every actor of the level that has the function, with no
+	// argument, as the original's UGameEngine::SetClientTravel (Engine.dll
+	// 0x1038fa10) sends it: the mission scripts' (the intro's sound volume
+	// put back, Mission02's flags), not the travelling player's alone.
+	if (Level)
+	{
+		Array<UActor*> actors = Level->Actors;
+		for (UActor* actor : actors)
+		{
+			if (actor && !actor->bDeleteMe())
+				CallEvent(actor, "PreTravel", {});
+		}
+	}
 }
 
 UnrealURL Engine::GetDefaultURL(const std::string& map)

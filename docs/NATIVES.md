@@ -99,7 +99,9 @@ saved file (`..\Save\Current\<map>.dxs`), as `Level.GetLocalURL` shows
 the map in, with or without its `.dx`, as the original's file system finds
 it: the stock exits spell `12_vandenberg_cmd` and `00_training`
 (`RevisitConsole`: the island opened again as `01_nyc_unatcoisland` has the
-crate left there).
+crate left there). A travel's `PreTravel` goes to every actor of the level that
+has the function, with no argument, as the original's `SetClientTravel` sends
+it: the mission scripts' among them (`TravelConsole`).
 
 While a map loads or a level is saved the screen shows one frame, painted
 before the work, as the original's does

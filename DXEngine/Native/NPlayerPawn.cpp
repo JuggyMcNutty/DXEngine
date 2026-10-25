@@ -26,7 +26,8 @@ void NPlayerPawn::RegisterFunctions()
 
 void NPlayerPawn::ClientTravel(UObject* Self, const std::string& URL, uint8_t TravelType, bool bItems)
 {
-	CallEvent(Self, "PreTravel", {});
+	// PreTravel goes to every actor from Engine::ClientTravel, as the
+	// original's SetClientTravel sends it; here it went to the player alone.
 	engine->ClientTravel(URL, static_cast<ETravelType>(TravelType), bItems);
 }
 
