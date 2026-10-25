@@ -101,6 +101,28 @@ ErrorWindow::ErrorWindow(Array<uint8_t> initminidump, const std::vector<std::sha
 	LogView->SetFocus();
 }
 
+
+// The engine's text is Latin-1 bytes, the game's strings' (NATIVES.md, the
+// UI); the widgets and the clipboard take UTF-8
+static std::string Latin1ToUtf8(const std::string& text)
+{
+	std::string utf8;
+	utf8.reserve(text.size());
+	for (unsigned char c : text)
+	{
+		if (c < 0x80)
+		{
+			utf8.push_back((char)c);
+		}
+		else
+		{
+			utf8.push_back((char)(0xC0 | (c >> 6)));
+			utf8.push_back((char)(0x80 | (c & 0x3F)));
+		}
+	}
+	return utf8;
+}
+
 void ErrorWindow::SetText(const std::string& text, const std::list<LogMessageLine>& log)
 {
 	LogView->SetText(text, log);
@@ -118,13 +140,13 @@ void ErrorWindow::SetText(const std::string& text, const std::list<LogMessageLin
 
 		clipboardtext += timeText;
 		clipboardtext += " ";
-		clipboardtext += sourceText;
+		clipboardtext += Latin1ToUtf8(sourceText);
 		clipboardtext += " ";
-		clipboardtext += line.Text;
+		clipboardtext += Latin1ToUtf8(line.Text);
 		clipboardtext += "\n";
 	}
 	clipboardtext += "\nExecution could not continue.\n";
-	clipboardtext += text;
+	clipboardtext += Latin1ToUtf8(text);
 	clipboardtext += "\n";
 }
 
@@ -243,6 +265,7 @@ void LogViewer::SetText(const std::string& text, const std::list<LogMessageLine>
 			line.pop_back();
 		if (line.empty())
 			line.push_back(' ');
+		line = Latin1ToUtf8(line);
 
 		layout.Clear();
 		layout.AddText(line, font, Colorf::fromRgba8(255, 255, 170));
@@ -267,8 +290,8 @@ LogViewer::LogLine LogViewer::CreateLineLayout(const LogMessageLine& line)
 {
 	LogLine logline;
 	logline.time.AddText(ToFixed(line.Time), font, Colorf::fromRgba8(200, 200, 200));
-	logline.source.AddText(line.Source, font, Colorf::fromRgba8(170, 170, 255));
-	logline.text.AddText(line.Text, font, Colorf::fromRgba8(255, 255, 255));
+	logline.source.AddText(Latin1ToUtf8(line.Source), font, Colorf::fromRgba8(170, 170, 255));
+	logline.text.AddText(Latin1ToUtf8(line.Text), font, Colorf::fromRgba8(255, 255, 255));
 	return logline;
 }
 
