@@ -169,6 +169,7 @@ the run. *Either*: one engine on each side of a pair.
 | `GetConsole` | both | `GET`, `SET`, `GetPropertyText`, `SetPropertyText`; the main menu | `DXGET:` |  |
 | `IniConsole` | both | a `User.ini` with keys given twice (`DXCAP_USERINI`) | `DXINI:` |  |
 | `MenuConsole` | both | every menu screen's window tree (`WindowDump`) and a shot | `DXMENU:` |  |
+| `ShownConsole` | both | `IsVisible` and `IsSensitive` of a window of its own and of the HUD's message log, under a parent shown, hidden, disabled, and hidden itself | `DXSHOWN:` | the two logs' lines diffed |
 | `SettingsConsole` | both | every menu setting stepped, saved and read back | `DXSET:` |  |
 | `DecalConsole` | both | the Display menu's Decals | `DXDECAL:` |  |
 | `ScreenConsole` | both | the game's screens on `TargetMap`, each window tree | `DXSCREEN:` |  |

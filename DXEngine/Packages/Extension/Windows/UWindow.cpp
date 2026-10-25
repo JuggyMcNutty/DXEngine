@@ -801,19 +801,19 @@ bool UWindow::IsPointInWindow(float pointX, float pointY)
 	return pointX >= 0.0f && pointX < Width() && pointY >= 0.0f && pointY < Height();
 }
 
+// The original's execIsSensitive (Extension.dll 0x10051bd0): recursing
+// unless told not to, and up through the parents -- the window and every
+// ancestor sensitive -- not down through the children
 bool UWindow::IsSensitive(std::optional<bool> bRecurse)
 {
-	if (bIsSensitive())
-		return true;
-	if (bRecurse && *bRecurse)
+	if (!bRecurse.value_or(true))
+		return bIsSensitive();
+	for (UWindow* w = this; w; w = w->parentOwner())
 	{
-		for (UWindow* cur = firstChild(); cur; cur = cur->nextSibling())
-		{
-			if (cur->IsSensitive(bRecurse))
-				return true;
-		}
+		if (!w->bIsSensitive())
+			return false;
 	}
-	return false;
+	return true;
 }
 
 // The window and every ancestor visible: it shows if the root does. The
@@ -829,19 +829,13 @@ bool UWindow::IsShown()
 	return true;
 }
 
+// As IsSensitive: the original's execIsVisible (0x10051a10) walks the
+// parents by default, IsShown's walk
 bool UWindow::IsVisible(std::optional<bool> bRecurse)
 {
-	if (bIsVisible())
-		return true;
-	if (bRecurse && *bRecurse)
-	{
-		for (UWindow* cur = firstChild(); cur; cur = cur->nextSibling())
-		{
-			if (cur->IsVisible(bRecurse))
-				return true;
-		}
-	}
-	return false;
+	if (!bRecurse.value_or(true))
+		return bIsVisible();
+	return IsShown();
 }
 
 void UWindow::Lower()

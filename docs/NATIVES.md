@@ -724,6 +724,10 @@ from the original's code:
 - **A new window** starts hidden, 10 by 10; its parent and ancestors hear of
   it before its `InitWindow`, and it is shown after, so `VisibilityChanged`
   reaches everything its `InitWindow` made.
+- **`IsVisible` and `IsSensitive`** recurse unless told not to, up through
+  the parents: true when the window and every ancestor is shown, or
+  sensitive, so a HUD window under the hidden HUD is not visible;
+  `IsVisible(False)` is the window's own flag (`ShownConsole`).
 - **Places**: `SetPos` makes a window left- and top-aligned with its x and
   y as margins; `SetWindowAlignments` sets both margins of each side, the
   second the first's unless given. A parent's `ConfigureChild` sets just
