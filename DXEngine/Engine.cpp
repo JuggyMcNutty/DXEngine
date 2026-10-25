@@ -2246,6 +2246,17 @@ float Engine::CalcTimeElapsed()
 	return seconds;
 }
 
+// A device's class named bare or with its package: the game's SET and GET
+// name a class without it (set D3DRenderDevice Coronas False), as the
+// original's StaticExec finds a class in any package
+static bool IsClassNamed(const NameString& name, const std::string& qualified)
+{
+	if (name == qualified)
+		return true;
+	size_t dot = qualified.find_last_of('.');
+	return dot != std::string::npos && name == qualified.substr(dot + 1);
+}
+
 std::string Engine::ParseClassName(std::string className)
 {
 	// Workaround for broken unrealscript code referencing windrv.windowsclient directly
@@ -2557,19 +2568,19 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 			return {};
 		}
 
-		if (className == renderdev->Class)
+		if (IsClassNamed(className, renderdev->Class))
 		{
 			return renderdev->GetPropertyAsString(propertyName);
 		}
-		else if (className == audiodev->Class)
+		else if (IsClassNamed(className, audiodev->Class))
 		{
 			return audiodev->GetPropertyAsString(propertyName);
 		}
-		else if (className == netdev->Class)
+		else if (IsClassNamed(className, netdev->Class))
 		{
 			return netdev->GetPropertyAsString(propertyName);
 		}
-		else if (className == client->Class)
+		else if (IsClassNamed(className, client->Class))
 		{
 			return client->GetPropertyAsString(propertyName);
 		}
@@ -2612,19 +2623,19 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 			return {};
 		}
 
-		if (className == renderdev->Class)
+		if (IsClassNamed(className, renderdev->Class))
 		{
 			renderdev->SetPropertyFromString(propertyName, value);
 		}
-		else if (className == audiodev->Class)
+		else if (IsClassNamed(className, audiodev->Class))
 		{
 			audiodev->SetPropertyFromString(propertyName, value);
 		}
-		else if (className == netdev->Class)
+		else if (IsClassNamed(className, netdev->Class))
 		{
 			netdev->SetPropertyFromString(propertyName, value);
 		}
-		else if (className == client->Class)
+		else if (IsClassNamed(className, client->Class))
 		{
 			client->SetPropertyFromString(propertyName, value);
 		}

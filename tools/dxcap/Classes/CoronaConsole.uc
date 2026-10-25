@@ -10,9 +10,12 @@
 // times, each place logged with its BSP leaf and the player's: in the
 // player's leaf; some 600 units ahead in another leaf, its LightRadius 40;
 // the same at 2; and 55 degrees off the view's axis, at 40. It exits 2 s
-// after the last.
+// after the last. With Coronas=False (DXCAP_CONFIG) the render device's
+// Coronas is set off first: neither engine then draws a glow.
 //=============================================================================
 class CoronaConsole extends Console;
+
+var config string Coronas;
 
 var float MapTime;
 var int Step;
@@ -96,6 +99,16 @@ event Tick(float Delta)
 		Step = 0;
 	else if (Step == 0 && MapTime > 6.0)
 	{
+		// Coronas=False: the render device's Coronas off, as the game's ini
+		// has it for SoftDrv, by SET on each engine's device class (the
+		// other's class is not there, and logs so)
+		if (Coronas ~= "False")
+		{
+			P.ConsoleCommand("set OpenGLRenderDevice Coronas False");
+			P.ConsoleCommand("set D3DRenderDevice Coronas False");
+			P.ConsoleCommand("set DXEngineRenderDevice Coronas False");
+			Log("DXCORONA: the render device's Coronas set False");
+		}
 		StandLoc = vect(-873.028076, 5163.140625, 559.696167);
 		R.Pitch = -1846;
 		R.Yaw = -28672;

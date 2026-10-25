@@ -401,7 +401,10 @@ original's.
 
 Matches the original
 ([coronas](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#coronas);
-`CoronaConsole`): the static lights reaching the player's leaf get coronas,
+`CoronaConsole`): the pass runs only with the render device's `Coronas` on,
+which the game's ini turns off for SoftDrv (`CoronaConsole` with
+`Coronas=False`: no glow in either engine); the static lights reaching the
+player's leaf get coronas,
 and no dynamic light does, the original's pass reading the leaf's dynamic
 lights only after its occlusion pass has emptied them. `CoronaConsole`'s own
 movable lamp shows none in either engine, in the player's leaf or out of it,

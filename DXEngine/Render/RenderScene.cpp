@@ -14,6 +14,7 @@
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Resources/Level/UPolys.h"
 #include "Packages/Engine/Actors/Brush/UMover.h"
+#include "Packages/Engine/Subsystems/UDXEngineRenderDevice.h"
 #include "Packages/Engine/Resources/UPalette.h"
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 #include "Packages/Engine/UViewport.h"
@@ -55,7 +56,11 @@ void RenderSubsystem::DrawScene()
 	MainFrame.Process(engine->CameraLocation, worldToView, Coords::Rotation(engine->CameraRotation));
 	MainView = MainFrame.Frame;
 	MainFrame.Draw();
-	MainFrame.DrawCoronas();
+	// The render device's Coronas gates the pass, as the original's DrawFrame
+	// tests it before its corona pass (Render.dll 0x10b1a2d0): the game's ini
+	// turns them off for SoftDrv
+	if (engine->renderdev->Coronas)
+		MainFrame.DrawCoronas();
 }
 
 // The level's static actors, which do not move -- the level puts them first,
@@ -384,7 +389,8 @@ void RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 	// the HUD draws after (the vision augmentation's GC.DrawActor)
 	ViewportFrame.Process(location, worldToView, Coords::Rotation(rotation));
 	ViewportFrame.Draw();
-	ViewportFrame.DrawCoronas();
+	if (engine->renderdev->Coronas)
+		ViewportFrame.DrawCoronas();
 
 	Device->SetSceneNode(&Canvas.Frame);
 
