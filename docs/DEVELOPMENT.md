@@ -191,7 +191,7 @@ the run. *Either*: one engine on each side of a pair.
 | `KeypadConsole` | both | the root's focus round the keypad; a stray key release | `DXKEYPAD:` | with `tools/dxcap/timelines/stray-release.txt` on DXEngine |
 | `BorderConsole` | both | `GC.DrawBorders` on the inventory screen | `DXBORDER:` |  |
 | `ColorsConsole` | both | `DrawBorders` on the Colors screen | `DXCOLORS:` |  |
-| `RotatorConsole` | both | the rotator and vector conversions | `DXROT:` |  |
+| `RotatorConsole` | both | the rotator and vector conversions; floats past an int's range to ints and bytes, by the VM's generic path and, stored in variables, its typed one | `DXROT:` |  |
 | `MidConsole` | both | `Object.Mid` at its edges | `DXMID:` |  |
 | `FrameConsole` | both | a frame held 2 s: the level's time over it, an actor's next tick | `DXFRAME:` | the two logs diffed |
 | `ModConsole` | both | the natives only a mod calls: the timing natives, a flag from a string, `ExtString`'s parts, `ResetConfig` | `DXMOD:` | the two logs diffed |

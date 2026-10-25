@@ -1283,8 +1283,10 @@ template<typename T> T ExpressionEvaluator::EvalNumber(Expression* expr)
 	case TypedKind::BoolToByte: return (T)(uint8_t)EvalBool(Operand<BoolToByteExpression>(expr));
 	case TypedKind::BoolToInt: return (T)(int32_t)EvalBool(Operand<BoolToIntExpression>(expr));
 	case TypedKind::BoolToFloat: return (T)(float)EvalBool(Operand<BoolToFloatExpression>(expr));
-	case TypedKind::FloatToByte: return (T)(uint8_t)(int)EvalNumber<float>(Operand<FloatToByteExpression>(expr));
-	case TypedKind::FloatToInt: return (T)(int32_t)(int)EvalNumber<float>(Operand<FloatToIntExpression>(expr));
+	// ftol, as the generic path's: the original's _ftol wraps past an int's
+	// range and gives 0 for NaN, where a C++ cast is undefined there.
+	case TypedKind::FloatToByte: return (T)(uint8_t)ftol(EvalNumber<float>(Operand<FloatToByteExpression>(expr)));
+	case TypedKind::FloatToInt: return (T)ftol(EvalNumber<float>(Operand<FloatToIntExpression>(expr)));
 	case TypedKind::Add_FloatFloat: if (!Context) break; { float a, b; Operands(expr, a, b); return (T)(a + b); }
 	case TypedKind::Subtract_FloatFloat: if (!Context) break; { float a, b; Operands(expr, a, b); return (T)(a - b); }
 	case TypedKind::Multiply_FloatFloat: if (!Context) break; { float a, b; Operands(expr, a, b); return (T)(a * b); }

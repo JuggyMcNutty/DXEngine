@@ -10,7 +10,8 @@
 // for a few rotators, and a vector turned by each (>>) and back (<<); a
 // rotator scaled in place (*=), floats a hair apart and rotators a whole
 // turn apart compared (== and !=), floats past an int's range made ints
-// and bytes and rotators scaled past it, Normal near its cutoff, Chr(0) and
+// and bytes (and stored in int and byte variables, the VM's typed path) and
+// rotators scaled past it, Normal near its cutoff, Chr(0) and
 // IsInState of a state a state extends,
 // and an enum's first and last names (GetEnum); and an exit. What is compared between the engines:
 // every line, exactly.
@@ -45,6 +46,8 @@ function Operators()
 	local rotator R, S, T;
 	local float A, B;
 	local float F[8];
+	local int I0, I1, I2, I3, I4, I5;
+	local byte B6, B7;
 	local CapDoomed D;
 
 	R = rot(1000, -2001, 3003);
@@ -65,6 +68,10 @@ function Operators()
 	F[6] = 300.7;
 	F[7] = -1.5;
 	Log("DXROT: ints " $ int(F[0]) $ " " $ int(F[1]) $ " " $ int(F[2]) $ " " $ int(F[3]) $ " " $ int(F[4]) $ " " $ int(F[5]) $ "; bytes " $ byte(F[6]) $ " " $ byte(F[7]));
+	// The same stored in int and byte variables: the VM's typed path.
+	I0 = int(F[0]); I1 = int(F[1]); I2 = int(F[2]); I3 = int(F[3]); I4 = int(F[4]); I5 = int(F[5]);
+	B6 = byte(F[6]); B7 = byte(F[7]);
+	Log("DXROT: typed ints " $ I0 $ " " $ I1 $ " " $ I2 $ " " $ I3 $ " " $ I4 $ " " $ I5 $ "; bytes " $ B6 $ " " $ B7);
 	R = rot(1000, -2001, 3003) * 3000000.0;
 	S = rot(16777217, 0, -16777217) * 1.0;
 	T = rot(7, 0, 0) / 0.000001;
