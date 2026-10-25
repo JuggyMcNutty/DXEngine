@@ -191,7 +191,9 @@ Array<UActor*> OverlapTester::EncroachingActors(UActor* actor, const vec3& locat
 		float testHeight = testActor->CollisionHeight();
 		float testRadius = testActor->CollisionRadius();
 		vec3 testExtents = { testRadius, testRadius, testHeight };
-		testExtents /= mainScale;
+		// By the scale's size on each axis, as EncroachedActors and the traces
+		// take a mover's scale: a mirrored axis would invert the box
+		testExtents /= vec3(std::abs(mainScale.x), std::abs(mainScale.y), std::abs(mainScale.z));
 
 		OverlapAABBModel test;
 		auto modelHits = test.TestOverlap(brush, localOrigin, testExtents, false);

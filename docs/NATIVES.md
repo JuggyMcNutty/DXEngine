@@ -1072,8 +1072,10 @@ Every other native the scripted runs compare matches the original
 - **A mover's move** is `ULevel::MoveActor`'s
   ([moving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#moving)):
   what stands on it carried first, then its encroachment checked at its new
-  place and rotation, what it meets pushed by its move first, and moved and
-  turned at once. A hinged door crushes a crate in its swing (`DoorConsole`
+  place and rotation (a mover mirrored on an axis tests the actor's box by
+  its scale's size, as the traces take the scale), what it meets pushed by
+  its move first, and moved and turned at once. A hinged door crushes a
+  crate in its swing (`DoorConsole`
   on UNATCO HQ: 0.2 s into the close in DXEngine, 0.3 s in the original's,
   the crate coming to rest 8 units nearer the hinge).
 - **The movers in a line's way**: a line meets each mover where the level's
