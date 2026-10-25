@@ -3,6 +3,7 @@
 #include "SoftwareWorkers.h"
 #include <algorithm>
 #include <cstdlib>
+#include <system_error>
 
 #if defined(USE_SSE2)
 #include <emmintrin.h>
@@ -31,8 +32,21 @@ int SoftwareWorkers::DefaultThreads()
 
 SoftwareWorkers::SoftwareWorkers(int threads)
 {
+	// A thread the system refuses (a low process limit) ends the pool at the
+	// threads it got, which share the work among them: the device runs on,
+	// where a throw out of here would leave the threads made unjoined and
+	// std::terminate the game at the pool's destruction
 	for (int i = 1; i < threads; i++)
-		Pool.emplace_back([this, i]() { Worker(i); });
+	{
+		try
+		{
+			Pool.emplace_back([this, i]() { Worker(i); });
+		}
+		catch (const std::system_error&)
+		{
+			break;
+		}
+	}
 }
 
 SoftwareWorkers::~SoftwareWorkers()
