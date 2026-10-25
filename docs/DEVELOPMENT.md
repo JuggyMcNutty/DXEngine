@@ -209,6 +209,7 @@ the run. *Either*: one engine on each side of a pair.
 | `MidConsole` | both | `Object.Mid` at its edges | `DXMID:` |  |
 | `FrameConsole` | both | a frame held 2 s: the level's time over it, an actor's next tick | `DXFRAME:` | the two logs diffed |
 | `PassesConsole` | both | a tarp's Blowing looped at 20 a second through one frame held 2 s: its ticks and AnimEnds, the AnimFrame after the long tick (`CapAnimated`) | `DXPASS:` | the AnimEnds in the long tick |
+| `FinishConsole` | both | a tarp's state code calling `FinishAnim` after a `PlayAnim`, a `TweenAnim` with a time, with nothing animating and after a `LoopAnim`: the level's time as each returns (`CapFinisher`) | `DXFINISH:` | the time each wait takes |
 | `ModConsole` | both | the natives only a mod calls: the timing natives, a flag from a string, `ExtString`'s parts, `ResetConfig` | `DXMOD:` | the two logs diffed |
 | `LocalizeConsole` | both | a package's text and the objects its `.int` files register: the game's, two mod folders' (`build/dxcap/mods`, the harness's own, first in the run's paths, one by its absolute path and one by a relative one), none | `DXLOC:` | the two logs diffed |
 | `ConfigConsole` | both | a class's own config file (`ConfigProbe`'s `DXCapConfig.ini`) read, one added, written back | `DXCONFIG:` | the file after each run |

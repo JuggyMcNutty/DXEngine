@@ -699,6 +699,10 @@ the pass crossed `AnimLast`) or a sequence's end, so a long tick through a
 fast loop plays four loops of it and sends four `AnimEnd`s, the rest of its
 time unplayed (`PassesConsole`: a tarp's Blowing looped at 20 a second
 through a 0.4 s tick, four `AnimEnd`s and frame 0 after in both).
+`FinishAnim` waits as the original's does: not at all with nothing playing
+or tweening, or with the frame at `AnimLast` or past, else until the
+animation finishes -- a tween's whole time after a `TweenAnim`
+(`FinishConsole`).
 
 ### Lists
 

@@ -25,8 +25,17 @@ void UActor::FinishAnim()
 		bAnimFinished() = false;
 	}
 
-	if (StateFrame)
-		StateFrame->LatentState = LatentRunState::FinishAnim;
+	// The original's execFinishAnim (Engine.dll 0x103dff60): no wait with no
+	// sequence, with nothing playing or tweening, or with the frame at
+	// AnimLast or past; else the latent wait, which the tick releases when
+	// the animation finishes (bAnimFinished): a non-loop's end, a loop's
+	// AnimLast, a tween's end with no rate to go on at
+	if (!StateFrame || AnimSequence().IsNone())
+		return;
+	bool moving = AnimFrame() < 0.0f ? TweenRate() != 0.0f : AnimRate() != 0.0f;
+	if (!moving || AnimFrame() >= AnimLast())
+		return;
+	StateFrame->LatentState = LatentRunState::FinishAnim;
 }
 
 NameString UActor::GetAnimGroup(const NameString& sequence)
@@ -324,11 +333,10 @@ void UActor::TweenAnim(const NameString& sequence, float tweenTime)
 
 void UActor::TickAnimation(float elapsed)
 {
-	if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim)
-	{
-		if (!IsAnimating() || AnimFrame() >= AnimLast())
-			StateFrame->LatentState = LatentRunState::Continue;
-	}
+	// The original's poll (execPollFinishAnim, 0x103e00a0): the wait ends
+	// once the animation has finished, a tween's included
+	if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim && bAnimFinished())
+		StateFrame->LatentState = LatentRunState::Continue;
 
 	// Four passes a tick, as the original's AActor::Tick runs them (Engine.dll
 	// 0x103a1aa0; engine-dll.md, the main animation's tick): each ends at a
