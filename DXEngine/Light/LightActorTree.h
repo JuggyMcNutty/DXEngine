@@ -11,6 +11,7 @@ public:
 	Array<UActor*> CollectedLights;
 
 	void CreateTLAS();
+	void Clear(); // the lights, the collected and the tree's nodes: a query walks no node into an emptied list
 	void CollectLights(const vec3& center, float radius);
 
 private:

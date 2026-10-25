@@ -189,8 +189,10 @@ void LightSystem::PurgeDying()
 	{
 		TreeLights.clear();
 		SurfaceLightCaches.clear();
-		LightTree.Lights.clear();
-		LightTree.CollectedLights.clear();
+		// The tree's nodes go with its lights: kept, a query before the next
+		// BeginFrame (the level's tick, AILightAt) walked them into the
+		// emptied vector, a read of the purged light.
+		LightTree.Clear();
 		LightTreeVersion++;
 	}
 }

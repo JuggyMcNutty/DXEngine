@@ -31,6 +31,14 @@ void LightActorTree::CollectLights(const vec3& center, float radius, int nodeInd
 	}
 }
 
+void LightActorTree::Clear()
+{
+	Lights.clear();
+	CollectedLights.clear();
+	TLAS.Nodes.clear();
+	TLAS.Root = -1;
+}
+
 void LightActorTree::CreateTLAS()
 {
 	Scratch.leafs.clear();
