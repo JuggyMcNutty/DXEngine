@@ -26,6 +26,7 @@ var Object Stopped;
 // The mark for the original's screen grabber, as CaptureConsole's.
 var int MarkShot;
 var bool bMarking;
+var bool bWidthsLogged;
 
 function DrawTests(canvas C)
 {
@@ -66,10 +67,36 @@ function DrawTests(canvas C)
 	C.bNoSmooth = False;
 }
 
+// The width the canvas's font gives Latin-1 letters past ASCII (the stock
+// fonts have them) and a space, logged once: a glyph index taken from a
+// signed char once drew them as spaces on x86-64.
+function LogWidths(canvas C)
+{
+	local float XL, YL, SL;
+
+	C.Font = Font'DeusExUI.FontMenuHeaders';
+	C.TextSize(" ", SL, YL);
+	C.TextSize(Chr(233), XL, YL);
+	Log("DXTILE: widths in FontMenuHeaders: space " $ SL $ ", e acute " $ XL);
+	C.TextSize(Chr(252), XL, YL);
+	Log("DXTILE: u umlaut " $ XL);
+	C.TextSize(Chr(223), XL, YL);
+	Log("DXTILE: sharp s " $ XL);
+	C.TextSize(Chr(201), XL, YL);
+	Log("DXTILE: E acute " $ XL);
+	C.TextSize("Caf" $ Chr(233), XL, YL);
+	Log("DXTILE: Cafe with the accent " $ XL);
+}
+
 event PostRender(canvas C)
 {
 	local int i;
 	Super.PostRender(C);
+	if (bDrawing && !bWidthsLogged)
+	{
+		bWidthsLogged = True;
+		LogWidths(C);
+	}
 	if (bDrawing)
 		DrawTests(C);
 	if (!bMarking)

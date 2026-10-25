@@ -86,7 +86,9 @@ void UFont::Save(PackageStreamWriter* stream)
 	}
 }
 
-FontGlyph UFont::GetGlyph(char c) const
+// The character is a byte: a char, signed on x86-64, sent a Latin-1 letter
+// past every page, and the canvas drew it as a space.
+FontGlyph UFont::GetGlyph(uint8_t c) const
 {
 	FontGlyph glyph = FindGlyph(c);
 	if (glyph.USize == 0)
@@ -117,7 +119,7 @@ FontGlyph UFont::GetPageGlyph(uint8_t c) const
 	return { pages[page].Texture, pages[page].Characters[index] };
 }
 
-FontGlyph UFont::FindGlyph(char c) const
+FontGlyph UFont::FindGlyph(uint8_t c) const
 {
 	size_t index = c;
 	for (auto& page : pages)

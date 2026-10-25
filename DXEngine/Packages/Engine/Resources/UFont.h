@@ -42,11 +42,11 @@ public:
 	void Save(PackageStreamWriter* stream) override;
 	void Mark(GCMarker& marker) override;
 
-	FontGlyph GetGlyph(char c) const;
+	FontGlyph GetGlyph(uint8_t c) const;
 	FontGlyph GetPageGlyph(uint8_t c) const;
 
 private:
-	FontGlyph FindGlyph(char c) const;
+	FontGlyph FindGlyph(uint8_t c) const;
 
 	Array<FontPage> pages;
 	int charactersPerPage = 0;
