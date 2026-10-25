@@ -174,6 +174,7 @@ the run. *Either*: one engine on each side of a pair.
 | `ScrollConsole` | both | a scroll area and a slider under the mouse | `DXSCROLL:` | with `tools/dxcap/timelines/scroll.txt` on DXEngine |
 | `ClickConsole` | both | a button, a choice and a checkbox clicked; a menu dragged; Alt accelerators | `DXCLICK:` | with `tools/dxcap/timelines/clicks.txt` on DXEngine |
 | `TypeConsole` | dxe | text typed into an edit field on the main menu, past ASCII and several characters at once | `DXTYPE:` | with `tools/dxcap/timelines/type.txt` |
+| `PasteConsole` | both | `PasteFromClipboard`'s text, the clipboard holding "dxcap paste" (an X selection owner alive through the run) | `DXPASTE:` | the two logs' lines |
 | `PadConsole` | dxe | the player's place, speed, facing and physics every half second, as a pad moves it | `DXPAD:` | with `tools/dxcap/timelines/pad.txt`, on a `DXCAP_SETTINGS` file whose `Gamepad.Enabled` is true (`vulkan-settings.json`'s is not: the virtual pad attaches and moves nothing) |
 | `EditConsole` | both | a script's text calls on an edit field (`CR()`'s text first), a text window and a button | `DXEDIT:` |  |
 | `MultiEditConsole` | both | an edit field of several lines on the main menu: each move from fourteen places, chains of moves, a drag, a selection put in, a single line's moves; two marked shots of a selection over three rows | `DXROWS:` | the two logs diffed; `shots.py --region --block 4` on the field, at `DXCAP_WINDOW=1024x768`; with `Keys=True`, `tools/dxcap/timelines/note-keys.txt` on DXEngine |

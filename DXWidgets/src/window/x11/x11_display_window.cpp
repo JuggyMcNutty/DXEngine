@@ -694,31 +694,42 @@ void X11DisplayWindow::SetCaptionTextColor(uint32_t rgba8)
 
 std::vector<uint8_t> X11DisplayWindow::GetWindowProperty(Atom property, Atom &actual_type, int &actual_format, unsigned long &item_count)
 {
-	long read_bytes = 0;
-	//Atom _actual_type = actual_type;
-	//int  _actual_format = actual_format;
-	unsigned long _item_count = item_count;
+	// The property's size first, from a read of no length, then the whole of
+	// it, the length in 32-bit units. A loop that asked for no data never
+	// ended on a property that had any, and a paste hung the game.
+	unsigned long _item_count = 0;
 	unsigned long bytes_remaining = 0;
 	unsigned char *read_data = nullptr;
-	do
+	int result = XGetWindowProperty(
+		display, window, property, 0L, 0L,
+		False, AnyPropertyType, &actual_type, &actual_format,
+		&_item_count, &bytes_remaining, &read_data);
+	if (read_data)
 	{
-		int result = XGetWindowProperty(
-			display, window, property, 0ul, read_bytes,
+		XFree(read_data);
+		read_data = nullptr;
+	}
+	if (result == Success && bytes_remaining > 0)
+	{
+		result = XGetWindowProperty(
+			display, window, property, 0L, (long)((bytes_remaining + 3) / 4),
 			False, AnyPropertyType, &actual_type, &actual_format,
 			&_item_count, &bytes_remaining, &read_data);
-		if (result != Success)
-		{
-			actual_type = None;
-			actual_format = 0;
-			item_count = 0;
-			return {};
-		}
-	} while (bytes_remaining > 0);
+	}
+	if (result != Success)
+	{
+		actual_type = None;
+		actual_format = 0;
+		item_count = 0;
+		return {};
+	}
 
 	item_count = _item_count;
 	if (!read_data)
 		return {};
-	std::vector<uint8_t> buffer(read_data, read_data + read_bytes);
+	// Xlib gives 32-bit items as longs, 16-bit ones as shorts.
+	size_t unit = actual_format == 32 ? sizeof(long) : actual_format == 16 ? sizeof(short) : 1;
+	std::vector<uint8_t> buffer(read_data, read_data + _item_count * unit);
 	XFree(read_data);
 	return buffer;
 }

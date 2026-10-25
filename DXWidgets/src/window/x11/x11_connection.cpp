@@ -128,11 +128,14 @@ bool X11Connection::WaitForEvents(int timeout)
 {
 	int fd = XConnectionNumber(display);
 
-	struct timeval tv;
+	// The timeout in milliseconds, to seconds and microseconds; 0 is a poll.
+	// The microseconds were divided, not multiplied, so a wait under a
+	// second was none (a paste's 500 ms), and a 0 passed select garbage.
+	struct timeval tv = {};
 	if (timeout > 0)
 	{
 		tv.tv_sec = timeout / 1000;
-		tv.tv_usec = (timeout % 1000) / 1000;
+		tv.tv_usec = (timeout % 1000) * 1000;
 	}
 
 	fd_set rfds;
