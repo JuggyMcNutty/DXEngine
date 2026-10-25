@@ -1168,6 +1168,12 @@ Every other native the scripted runs compare matches the original
   A string, of which the bytecode has it zero-fill no byte, and an array's
   element, of which the original copies nothing, leave a variable assigned
   from them as it was; a Let through None stores nothing.
+- **An actor spawned into water** keeps its physics, the spawn setting its
+  region alone, as the original's does: an AirBubble, an Effects with
+  PHYS_Projectile, rises as a swimming player's breath does, where Surreal
+  Engine's rule gave anything but a Projectile PHYS_Swimming, which moves
+  only a pawn (`BubbleConsole`: an AirBubble, an Effects and a Rat spawned
+  under water, alike).
 
 Differs:
 

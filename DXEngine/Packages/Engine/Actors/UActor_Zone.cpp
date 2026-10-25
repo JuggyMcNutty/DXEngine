@@ -12,14 +12,14 @@ PointRegion UActor::FindRegion(const vec3& offset)
 	return XLevel()->Model->FindRegion(Location() + offset, Level());
 }
 
+// A spawned actor's zone, as the original's SpawnActor sets it: the region
+// alone, no event and no change of physics -- Surreal Engine gave an actor
+// spawned into water PHYS_Swimming, which moves only a pawn, so an AirBubble
+// (an Effects with PHYS_Projectile) hung where it was spawned
+// (dx-reverse-info/engine-dll.md, the zone an actor is in)
 void UActor::InitActorZone()
 {
 	Region() = FindRegion();
-	if (Region().Zone->bWaterZone() && !this->IsA("Projectile"))
-	{
-		SetPhysics(PHYS_Swimming);
-		SetBase(nullptr, true);
-	}
 }
 
 void UActor::UpdateActorZone()

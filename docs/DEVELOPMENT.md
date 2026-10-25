@@ -139,6 +139,7 @@ the run. *Either*: one engine on each side of a pair.
 | `ParabolicConsole` | both | `ParabolicTrace` from the player's eyes on the island, 30 degrees up at 400, 700 and 1000 units a second, bouncing and not, the player turned a quarter turn four times: each throw's landing and time | `DXPARA:` | the two logs' lines |
 | `FloatConsole` | both | the crates in the water by the pier | `DXFLOAT:` |  |
 | `SwimConsole` | both | falls into water, diving, swimming up; a troop thrown in (`Only`: the scenarios it names) | `DXSWIM:` |  |
+| `BubbleConsole` | both | an AirBubble, an Effects and a Rat spawned under water by the pier: each one's zone, physics, velocity and height every 0.25 s for 3 s | `DXBUBBLE:` | the physics, and whether the bubble rises |
 | `LadderConsole` | both | Liberty Island's first ladder, every tick | `DXLADDER:` |  |
 | `WadeConsole` | both | a troop walking off a ledge into water; `TargetMap`'s shore | `DXWADE:` | `track.py <original run> <dxe run>` |
 | `FlightConsole` | both | a gull's flights at the pier; a stock gull's own | `DXFLIGHT:` | `track.py` |
