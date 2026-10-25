@@ -175,6 +175,7 @@ the run. *Either*: one engine on each side of a pair.
 | `MeshTexConsole` | both | `GetMeshTexture` for -1 to 8 on a Lamp1 with no skins, its Skin set, MultiSkins 1 and 7 set, Skin None again, and on an actor with no mesh | `DXMESHTEX:` | the two logs' lines diffed |
 | `NameConsole` | both | the names spawned actors get: a Lamp1, a Lamp2, a Lamp3, a second Lamp1, and the two Area 51 sector images | `DXNAME:` | the two logs' lines diffed |
 | `IniConsole` | both | a `User.ini` with keys given twice (`DXCAP_USERINI`) | `DXINI:` |  |
+| `IniWriteConsole` | both | `set Engine CacheSizeMegs 5`, then an exit that writes the inis back | `DXINIW:` | by hand, on a copy of an ini with a key above its first header and a section given twice: the file the same after two runs |
 | `MenuConsole` | both | every menu screen's window tree (`WindowDump`) and a shot | `DXMENU:` |  |
 | `ShownConsole` | both | `IsVisible` and `IsSensitive` of a window of its own and of the HUD's message log, under a parent shown, hidden, disabled, and hidden itself | `DXSHOWN:` | the two logs' lines diffed |
 | `SettingsConsole` | both | every menu setting stepped, saved and read back | `DXSET:` |  |

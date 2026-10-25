@@ -59,7 +59,11 @@ IniFile::IniFile(const std::string& filename)
 				if (valuepos != std::string::npos)
 					value = line.substr(valuepos);
 
-				if (!name.empty())
+				// A key above the first section header belongs to no section
+				// and is dropped, as the original's config reader drops it:
+				// kept, it was written back at the file's end under an empty
+				// header, and once more at every write
+				if (!name.empty() && !sectionName.empty())
 				{
 					int index = -1;
 					bool indexed = false;
@@ -270,6 +274,7 @@ void IniFile::UpdateFile(const std::string& filename)
 		std::map<uint32_t, size_t> KeyLastLine;
 	};
 	Array<SeenSection> seen;
+	size_t currentIndex = (size_t)-1;
 
 	auto trim = [](const std::string& str) {
 		size_t start = str.find_first_not_of(" \t");
@@ -287,16 +292,30 @@ void IniFile::UpdateFile(const std::string& filename)
 
 		if (line.size() >= 2 && line.front() == '[' && line.back() == ']')
 		{
-			SeenSection entry;
-			entry.Section = FindSection(line.substr(1, line.size() - 2));
-			entry.LastLine = i;
-			seen.push_back(std::move(entry));
+			// A section given twice in the file is one section in memory, its
+			// keys' values in the file's order: the second header goes on
+			// with the first's counts, so each line meets its own value
+			const IniSection* section = FindSection(line.substr(1, line.size() - 2));
+			currentIndex = (size_t)-1;
+			for (size_t j = 0; section && j < seen.size(); j++)
+			{
+				if (seen[j].Section == section)
+					currentIndex = j;
+			}
+			if (currentIndex == (size_t)-1)
+			{
+				SeenSection entry;
+				entry.Section = section;
+				seen.push_back(std::move(entry));
+				currentIndex = seen.size() - 1;
+			}
+			seen[currentIndex].LastLine = i;
 			continue;
 		}
 
-		if (seen.empty() || !seen.back().Section)
+		if (currentIndex == (size_t)-1 || !seen[currentIndex].Section)
 			continue;
-		SeenSection& current = seen.back();
+		SeenSection& current = seen[currentIndex];
 
 		size_t equalpos = line.find('=');
 		if (equalpos == std::string::npos)
