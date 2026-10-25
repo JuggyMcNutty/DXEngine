@@ -332,7 +332,10 @@ void UWindow::AskParentToShowArea(float areaX, float areaY, float areaWidth, flo
 
 std::string UWindow::CarriageReturn()
 {
-	return "\r\n"; // Can't be doing this, can it?
+	// The original's execCarriageReturn (Extension.dll 0x10053e70) gives "\n"
+	// alone; no window code handles '\r', which the GC drew as glyph 13 and
+	// every note saved from a datacube or book carried.
+	return "\n";
 }
 
 static void ApplyStyleChange(UWindow* window)

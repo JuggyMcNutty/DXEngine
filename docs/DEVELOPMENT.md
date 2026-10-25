@@ -173,7 +173,7 @@ the run. *Either*: one engine on each side of a pair.
 | `ClickConsole` | both | a button, a choice and a checkbox clicked; a menu dragged; Alt accelerators | `DXCLICK:` | with `tools/dxcap/timelines/clicks.txt` on DXEngine |
 | `TypeConsole` | dxe | text typed into an edit field on the main menu, past ASCII and several characters at once | `DXTYPE:` | with `tools/dxcap/timelines/type.txt` |
 | `PadConsole` | dxe | the player's place, speed, facing and physics every half second, as a pad moves it | `DXPAD:` | with `tools/dxcap/timelines/pad.txt` |
-| `EditConsole` | both | a script's text calls on an edit field, a text window and a button | `DXEDIT:` |  |
+| `EditConsole` | both | a script's text calls on an edit field (`CR()`'s text first), a text window and a button | `DXEDIT:` |  |
 | `MultiEditConsole` | both | an edit field of several lines on the main menu: each move from fourteen places, chains of moves, a drag, a selection put in, a single line's moves; two marked shots of a selection over three rows | `DXROWS:` | the two logs diffed; `shots.py --region --block 4` on the field, at `DXCAP_WINDOW=1024x768`; with `Keys=True`, `tools/dxcap/timelines/note-keys.txt` on DXEngine |
 | `ColumnConsole` | both | a list's columns fitted to fields in fonts that have and lack their characters, and to a field of two lines, on the main menu | `DXCOLUMN:` | the two logs diffed |
 | `PointerConsole` | both | the root's pointer in the middle of the island's view: no modal window, one made hidden, shown, hidden, destroyed; five marked shots | `DXPOINTER:` | the shots' middles against the first, at `DXCAP_WINDOW=1024x768` |

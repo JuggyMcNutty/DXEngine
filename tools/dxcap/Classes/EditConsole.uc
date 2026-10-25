@@ -34,6 +34,7 @@ function TestEdit()
 	Edit = EditWindow(Holder.NewChild(class'EditWindow'));
 	Edit.SetSize(200, 20);
 	LogEdit("made");
+	Log("DXEDIT: CR() is " $ Len(Edit.CR()) $ " character(s), the first " $ Asc(Edit.CR()));
 	Log("DXEDIT: SetText('Liberty Island')");
 	Edit.SetText("Liberty Island");
 	LogEdit("after");
