@@ -338,11 +338,17 @@ std::vector<VulkanPhysicalDevice> VulkanInstance::GetPhysicalDevices(VkInstance 
 
 std::vector<VkLayerProperties> VulkanInstance::GetAvailableLayers()
 {
-	uint32_t layerCount;
+	// A count query that fails writes no count: none then, as GetExtensions
+	uint32_t layerCount = 0;
 	VkResult result = vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+	if (result != VK_SUCCESS)
+		return {};
 
 	std::vector<VkLayerProperties> availableLayers(layerCount);
 	result = vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+	if (result != VK_SUCCESS)
+		return {};
+	availableLayers.resize(layerCount);
 	return availableLayers;
 }
 
