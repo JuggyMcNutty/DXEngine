@@ -16,6 +16,7 @@
 
 void UActor::TickPhysics(float elapsed)
 {
+	bool hadPhysics = Physics() != PHYS_None;
 	for (float timeLeft = elapsed; timeLeft > 0.0f && !bDeleteMe(); timeLeft -= 0.02f)
 	{
 		float physTimeElapsed = std::min(timeLeft, 0.02f);
@@ -59,6 +60,20 @@ void UActor::TickPhysics(float elapsed)
 	}
 	PhysicsFrameLeft = 0.0f;
 	PhysicsFrameEnded = false;
+
+	// A pawn's move timer counts down with its physics, and its running
+	// average of the tick, which moveToward reads, follows, as the
+	// original's APawn::performPhysics ends (0x103c9a70), run only for an
+	// actor with physics (AActor::Tick 0x103a1aa0): a pawn with none keeps
+	// its timer, its strafe or move never timing out.
+	if (hadPhysics && bIsPawn())
+	{
+		if (UPawn* pawn = UObject::TryCast<UPawn>(this))
+		{
+			pawn->MoveTimer() -= elapsed;
+			pawn->AvgPhysicsTime() = 0.8f * pawn->AvgPhysicsTime() + 0.2f * elapsed;
+		}
+	}
 }
 
 float UActor::EndPhysicsFrame()

@@ -396,6 +396,5 @@ void NPawn::StrafeTo_Deus(UObject* Self, const vec3& NewDestination, const vec3&
 	// to at most the speed (1 by default: all of it, not the 0.8 the base
 	// strafe gives).
 	UPawn* SelfPawn = UObject::Cast<UPawn>(Self);
-	SelfPawn->StrafeTo(NewDestination, NewFocus);
-	SelfPawn->DesiredSpeed() = SelfPawn->bIsPlayer() ? SelfPawn->MaxDesiredSpeed() : std::clamp(SelfPawn->MaxDesiredSpeed(), 0.0f, speed.value_or(1.0f));
+	SelfPawn->StrafeTo(NewDestination, NewFocus, std::clamp(SelfPawn->MaxDesiredSpeed(), 0.0f, speed.value_or(1.0f)));
 }

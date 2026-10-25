@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include "Packages/Engine/Actors/UActor.h"
 
 class CollisionHit;
@@ -27,7 +29,7 @@ public:
 	void MoveTo(const vec3& newDestination, float speed);
 	void MoveToward(UActor* newTarget, float speed);
 	void StrafeFacing(const vec3& newDestination, UActor* newTarget);
-	void StrafeTo(const vec3& newDestination, const vec3& newFocus);
+	void StrafeTo(const vec3& newDestination, const vec3& newFocus, std::optional<float> desiredSpeed = {});
 	void TurnTo(const vec3& newFocus);
 	void TurnToward(UActor* newTarget);
 	void WaitForLanding();

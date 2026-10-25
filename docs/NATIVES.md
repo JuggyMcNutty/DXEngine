@@ -213,7 +213,12 @@ line, 2 s in by its own clock, which takes in the island's first frame, the
 load's, longer in the original's ([a long frame](#small)): by then
 DXEngine's pawns are further along their first walk. `ReachConsole`'s
 144 answers, twelve pawns each asked from its home spot, are the original's
-to the unit. A dead robot frozen in `Dying` for good is the original's own
+to the unit. A strafe's move timer counts at the speed the strafe sets, all
+of `MaxDesiredSpeed` held to the speed asked, as the original's `StrafeTo`
+sets it before the timer; the timer takes a pawn with no physics at 200
+units a second and counts only while the pawn's physics run, as the
+original's `setMoveTimer` and `performPhysics` have it, so a strafe or move
+of a pawn with no physics never runs out (`StrafeConsole`). A dead robot frozen in `Dying` for good is the original's own
 behaviour, and the rest of a death is alike too (`DeathConsole`).
 `Terrorist34`, walking west to `PatrolPoint86`, comes to a stop at x 1510
 some 8 s in, still walking at it, and stands there until his move's time

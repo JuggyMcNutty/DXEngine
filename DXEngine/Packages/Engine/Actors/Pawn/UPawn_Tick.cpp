@@ -17,12 +17,6 @@ void UPawn::Tick(float elapsed)
 	if (!StartTick())
 		return;
 
-	MoveTimer() -= elapsed;
-
-	// The original's pawn physics keep a running average of the tick,
-	// which moveToward reads (APawn::performPhysics).
-	AvgPhysicsTime() = 0.8f * AvgPhysicsTime() + 0.2f * elapsed;
-
 	if (StateFrame)
 	{
 		if (StateFrame->LatentState == LatentRunState::MoveTo)
@@ -423,11 +417,15 @@ void UPawn::StrafeFacing(const vec3& newDestination, UActor* newTarget)
 		StateFrame->LatentState = LatentRunState::StrafeFacing;
 }
 
-void UPawn::StrafeTo(const vec3& newDestination, const vec3& newFocus)
+// The speed is set before the move's timer is, as the original's execStrafeTo
+// (Engine.dll 0x103bd5f0) sets it: the timer counts at the speed the strafe
+// goes at. Deus Ex's strafe gives its own speed (NPawn::StrafeTo_Deus); UE1's
+// 0.8 of the most desired is the base.
+void UPawn::StrafeTo(const vec3& newDestination, const vec3& newFocus, std::optional<float> desiredSpeed)
 {
 	MoveTarget() = nullptr;
 	bReducedSpeed() = false;
-	DesiredSpeed() = bIsPlayer() ? MaxDesiredSpeed() : 0.8f * MaxDesiredSpeed();
+	DesiredSpeed() = bIsPlayer() ? MaxDesiredSpeed() : desiredSpeed.value_or(0.8f * MaxDesiredSpeed());
 	Destination() = newDestination;
 	Focus() = newFocus;
 	SetMoveDuration(newDestination - Location());
@@ -484,6 +482,8 @@ float UPawn::GetSpeed()
 	case PHYS_Swimming:
 		return WaterSpeed();
 	default:
-		return 0.0f;
+		// The original's setMoveTimer (0x103be160) times any other physics,
+		// none among them, at 200 units a second
+		return 200.0f;
 	}
 }
