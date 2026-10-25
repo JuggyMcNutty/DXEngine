@@ -175,8 +175,23 @@ bool UActor::Destroy()
 		if (bDeleteMe())
 			return true;
 	}
-	while (!BasedActors.empty())
-		BasedActors.back()->SetBase(nullptr, true);
+	// Every actor standing on it set free in one pass over them, as the
+	// original's: one whose BaseChange bases it on the dying actor again
+	// (DeusEx.Fire's does) stays, its base made None with the other
+	// references to the destroyed (ULevel::CleanupDestroyed). A loop until
+	// none stands on it never ended on such an actor.
+	{
+		Array<UActor*> standing = BasedActors;
+		for (UActor* actor : standing)
+		{
+			if (actor->ActorBase() == this)
+			{
+				actor->SetBase(nullptr, true);
+				if (bDeleteMe())
+					return true;
+			}
+		}
+	}
 
 	ULevel* level = XLevel();
 
