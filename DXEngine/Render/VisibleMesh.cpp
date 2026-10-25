@@ -25,6 +25,17 @@ static bool FacesEye(const GouraudVertex* v, const vec3& eye)
 	return dot(cross(v[0].Point - v[1].Point, v[2].Point - v[0].Point), v[0].Point - eye) > 0.0f;
 }
 
+// The actor's sequence of the mesh, or, for a name the mesh lacks (None, most
+// decorations'), a sequence of the mesh's first frame alone: the original's
+// GetFrame draws frame 0 for a sequence it does not find (Engine.dll
+// ULodMesh::GetFrame 0x10355360, UMesh::GetFrame 0x103a7780)
+static const MeshAnimSeq* SequenceOrFirstFrame(UMesh* mesh, const NameString& name)
+{
+	static const MeshAnimSeq firstFrame = { NameString(), NameString(), 0, 1, 0.0f, {} };
+	const MeshAnimSeq* seq = mesh->GetSequence(name);
+	return seq ? seq : &firstFrame;
+}
+
 bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, bool wireframe, bool translucentPass)
 {
 	UMesh* mesh = actor->Mesh();
@@ -111,9 +122,7 @@ bool VisibleMesh::DrawLodMesh(VisibleFrame* frame, UActor* actor, UActor* lightL
 	if (actor->bAnimByOwner() && actor->Owner())
 		animSource = actor->Owner();
 
-	MeshAnimSeq* seq = mesh->GetSequence(animSource->AnimSequence());
-	if (!seq)
-		return false;
+	const MeshAnimSeq* seq = SequenceOrFirstFrame(mesh, animSource->AnimSequence());
 	float animFrame = animSource->AnimFrame() * seq->NumFrames;
 
 	int vertexOffsets[3];
@@ -374,9 +383,7 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 	if (actor->bAnimByOwner() && actor->Owner())
 		animSource = actor->Owner();
 
-	MeshAnimSeq* seq = mesh->GetSequence(animSource->AnimSequence());
-	if (!seq)
-		return false;
+	const MeshAnimSeq* seq = SequenceOrFirstFrame(mesh, animSource->AnimSequence());
 	float animFrame = animSource->AnimFrame() * seq->NumFrames;
 
 	int vertexOffsets[3];
@@ -612,9 +619,7 @@ bool VisibleMesh::DrawLodMeshDX(VisibleFrame* frame, UActor* actor, UActor* ligh
 	if (actor->bAnimByOwner() && actor->Owner())
 		animSource = actor->Owner();
 
-	MeshAnimSeq* seq = mesh->GetSequence(animSource->AnimSequence());
-	if (!seq)
-		return false;
+	const MeshAnimSeq* seq = SequenceOrFirstFrame(mesh, animSource->AnimSequence());
 	float animFrame = animSource->AnimFrame() * seq->NumFrames;
 
 	int vertexOffsets[3];

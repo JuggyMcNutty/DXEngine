@@ -713,7 +713,9 @@ animation finishes -- a tween's whole time after a `TweenAnim`
 (`FinishConsole`). A sequence name the mesh lacks is none: `HasAnim` false,
 `GetAnimGroup` None, and `PlayAnim`, `LoopAnim`, `TweenAnim` and
 `PlayBlendAnim` of it play nothing, as the original's `GetAnimSeq` answers
-(`AnimNameConsole`).
+(`AnimNameConsole`); an actor whose `AnimSequence` the mesh lacks -- None,
+most decorations' -- is drawn at the mesh's first frame, as the original's
+`GetFrame` draws it.
 
 ### Lists
 
