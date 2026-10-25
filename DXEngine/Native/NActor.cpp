@@ -881,17 +881,25 @@ void NActor::ParabolicTrace(UObject* Self, vec3& finalLocation, std::optional<ve
 			vec3 remaining = (pos + delta) - hitLocation;
 			vec3 slid = remaining - dot(remaining, hitNormal) * hitNormal;
 			vec3 slidTarget = hitLocation + slid;
-			if (SelfActor->Trace(hitLocation, hitNormal, slidTarget, hitLocation, checkActors, cylinder))
+			// The slide's own hit, or its end where it meets nothing: Trace
+			// gives a miss as zero (the original's), which once restarted the
+			// flight at the world's origin.
+			vec3 slideHit, slideNormal;
+			if (SelfActor->Trace(slideHit, slideNormal, slidTarget, hitLocation, checkActors, cylinder))
 			{
-				if (hitNormal.z > 0.7f && (!bouncing || length(velocity) < landSpeed))
+				if (slideNormal.z > 0.7f && (!bouncing || length(velocity) < landSpeed))
 				{
-					finalLocation = hitLocation;
+					finalLocation = slideHit;
 					ReturnValue = timeElapsed + step;
 					return;
 				}
-				velocity = (velocity - 2.0f * dot(velocity, hitNormal) * hitNormal) * bounciness;
+				velocity = (velocity - 2.0f * dot(velocity, slideNormal) * slideNormal) * bounciness;
+				pos = slideHit;
 			}
-			pos = hitLocation;
+			else
+			{
+				pos = slidTarget;
+			}
 		}
 		else
 		{
