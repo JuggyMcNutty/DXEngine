@@ -44,10 +44,10 @@ int GameApp::main(Array<std::string> args)
 		}
 	}
 
-	InitWidgetResources("dark");
 	int exitcode = 0;
 	std::string relaunchLine;
 	GameLaunchInfo game; // once known, the error window shows its icon
+	bool widgets = false; // the display backend, DXEngine.pk3 and the theme are up
 
 	try
 	{
@@ -82,6 +82,13 @@ int GameApp::main(Array<std::string> args)
 				std::cerr << "[" << line.Source << "] " << line.Text << std::endl;
 			});
 		}
+
+		// The display backend, DXEngine.pk3 and the theme, inside the try: a
+		// failure here ("Could not open DXEngine.pk3", SDL's) is reported as
+		// every other, with the prefix the launcher reads, after the hello
+		// and with the log; before, it left through main's own catch.
+		InitWidgetResources("dark");
+		widgets = true;
 
 		if (ErrorWindow::CheckCrashReporter())
 			return 0;
@@ -118,7 +125,7 @@ int GameApp::main(Array<std::string> args)
 		std::cerr << "DXEngine error: " << e.what() << std::endl;
 		for (const LogMessageLine& line : Logger::Get()->GetLog())
 			std::cerr << "  log: " << line.Text << std::endl;
-		if (!commandline || !commandline->HasArg("-n", "--no-launcher"))
+		if (widgets && (!commandline || !commandline->HasArg("-n", "--no-launcher")))
 		{
 			std::vector<std::shared_ptr<Image>> icon;
 			if (!game.gameRootFolder.empty())
@@ -127,7 +134,8 @@ int GameApp::main(Array<std::string> args)
 		}
 	}
 
-	DeinitWidgetResources();
+	if (widgets)
+		DeinitWidgetResources();
 	if (exitcode == 0 && !relaunchLine.empty())
 		Relaunch(args, relaunchLine);
 	return exitcode;
