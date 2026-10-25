@@ -1743,14 +1743,11 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 		playerPawnClass = packages->GetIniValue("system", "URL", "Class");
 	UClass* pawnClass = packages->FindClass(playerPawnClass);
 
-	// Perform PreLogin check (used for early rejection in network games)
-	CallEvent(LevelInfo->Game(), EventName::PreLogin, {
-		ExpressionValue::StringValue(options),
-		ExpressionValue::Variable(&error, stringProp),
-		ExpressionValue::Variable(&failcode, stringProp),
-		});
-	if (!error.empty() || !failcode.empty())
-		Exception::Throw("GameInfo prelogin failed: " + error + " (" + failcode + ")");
+	// No PreLogin for the local player, as the original's SpawnPlayActor
+	// (Engine.dll 0x10396bd0) runs none: a remote player's goes through
+	// Engine::PreLogin with the four arguments GameInfo.PreLogin takes. The
+	// three-argument call here bound the error to Address, so a GamePassword
+	// in the ini, or an IPPolicies deny, threw at every local login.
 
 	// Create viewport pawn
 	size_t numActors = Level->Actors.size();
