@@ -155,6 +155,7 @@ the run. *Either*: one engine on each side of a pair.
 | `StandConsole` | both | where a walking player rests, and stops at a wall | `DXSTAND:` |  |
 | `StairConsole` | both | `Pawn.FindStairRotation` on the pier and a slope | `DXSTAIR:` | the two logs' answers diffed |
 | `StompConsole` | both | a pawn landing on another, and on crates | `DXSTOMP:` |  |
+| `BaseConsole` | both | what the island's decorations, items and pawns at rest stand on at its start, and how many stand on each | `DXBASE:` | the two logs' lines, their positions and the original's line ends aside |
 | `RestConsole` | both | where a falling crate and the player come to rest | `DXREST:` |  |
 | `MissionConsole` | both | whether a mission map's script comes up | `DXMISSION:` |  |
 | `EndgameConsole` | both | an ending's way to the credits (`TargetMap`) | `DXEND:` |  |

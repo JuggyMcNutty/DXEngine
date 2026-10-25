@@ -41,21 +41,20 @@ CollisionHitList OverlapTester::TestOverlap(const vec3& location, float height, 
 		}
 	}
 
-	// Only include each actor once
+	// Only include each actor once, in the order the cells gave them: sorted
+	// by address, the list came out in heap order, which a travel, a save's
+	// load or another platform's allocator changes (TouchingActors walks it).
 
-	std::stable_sort(hits.begin(), hits.end(), [](const auto& a, const auto& b) { return a.Actor < b.Actor; });
-
-	UActor* prevActor = nullptr;
 	CollisionHitList uniqueHits;
 	for (auto& hit : hits)
 	{
 		if (hit.Actor)
 		{
-			if (hit.Actor != prevActor)
-			{
-				prevActor = hit.Actor;
+			bool seen = false;
+			for (const auto& kept : uniqueHits)
+				seen = seen || kept.Actor == hit.Actor;
+			if (!seen)
 				uniqueHits.push_back(hit);
-			}
 		}
 		else
 		{

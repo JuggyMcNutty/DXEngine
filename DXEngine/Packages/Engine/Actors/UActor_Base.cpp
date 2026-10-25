@@ -26,15 +26,19 @@ void UActor::InitBase()
 		return;
 	}
 
-	// Find base for certain types
+	// The original's LoadMap base pass (Engine.dll 0x1038c1f0): a decoration,
+	// inventory item or pawn with no base, colliding with the world and at
+	// rest (PHYS_None or PHYS_Rotating), finds its base by FindBase, a box of
+	// its size traced 8 units down, movers and actors included, the floor's
+	// SupportActor asked; one the level supports keeps no base. (The first
+	// actor it overlapped was taken, in heap order, itself among them: an
+	// item on a lift did not ride it, stacked crates stood on nothing.)
 	bool isDecorationInventoryOrPawn = UObject::TryCast<UDecoration>(this) || UObject::TryCast<UInventory>(this) || UObject::TryCast<UPawn>(this);
 	if (isDecorationInventoryOrPawn && !ActorBase() && bCollideWorld() && (Physics() == PHYS_None || Physics() == PHYS_Rotating))
 	{
-		CollisionHitList hits = XLevel()->Collision.OverlapTest(this);
-		if (!hits.empty())
-		{
-			SetBase(hits.front().Actor, true);
-		}
+		FindBase();
+		if (ActorBase() == Level())
+			SetBase(nullptr, false);
 	}
 }
 
