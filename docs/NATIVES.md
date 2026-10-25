@@ -1156,6 +1156,14 @@ Every other native the scripted runs compare matches the original
   `Actor.GetBoundingBox` with no test place is the box where the actor is
   now, a dedicated server's too, as the original takes its primitive's
   (`MoverServer`).
+- **A None context** (`A.X` with `A` None; `NoneConsole`): the zero of
+  `X`'s type, as the original's `execContext` zero-fills the result -- a
+  `switch (A.Physics)` takes `case PHYS_None`, a struct copied through None
+  is zeroed, and a native's optional argument given through None is its
+  type's zero, not left out (`Trace(,,, A.Location)` starts at the origin).
+  A string, of which the bytecode has it zero-fill no byte, and an array's
+  element, of which the original copies nothing, leave a variable assigned
+  from them as it was; a Let through None stores nothing.
 
 Differs:
 

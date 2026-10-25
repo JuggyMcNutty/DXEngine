@@ -9,7 +9,7 @@ class ExpressionValue
 public:
 	ExpressionValue() : Type(ExpressionValueType::Nothing) { Ptr = nullptr; BoolInfo.Ptr = nullptr; BoolInfo.Mask = 1; }
 
-	ExpressionValue(const ExpressionValue& v) : Type(v.Type)
+	ExpressionValue(const ExpressionValue& v) : Type(v.Type), KeepsVariable(v.KeepsVariable)
 	{
 		if (!v.VariableProperty)
 		{
@@ -37,7 +37,7 @@ public:
 		BoolInfo.Mask = v.BoolInfo.Mask;
 	}
 
-	ExpressionValue(ExpressionValue&& v) : Type(v.Type)
+	ExpressionValue(ExpressionValue&& v) : Type(v.Type), KeepsVariable(v.KeepsVariable)
 	{
 		if (!v.VariableProperty)
 		{
@@ -72,6 +72,7 @@ public:
 			Deinit();
 
 			Type = v.Type;
+			KeepsVariable = v.KeepsVariable;
 			if (!v.VariableProperty)
 			{
 				Ptr = (Type != ExpressionValueType::Nothing) ? &Buffer : nullptr;
@@ -108,6 +109,7 @@ public:
 			Deinit();
 
 			Type = v.Type;
+			KeepsVariable = v.KeepsVariable;
 			if (!v.VariableProperty)
 			{
 				Ptr = (Type != ExpressionValueType::Nothing) ? &Buffer : nullptr;
@@ -177,7 +179,15 @@ public:
 
 	bool IsEqual(const ExpressionValue& value) const;
 
-	static ExpressionValue NothingValue() { return ExpressionValue(); }
+	// Whether this is its type's zero. Nothing is one: what a None context
+	// yields, where the original's execContext zero-fills the result
+	bool IsZero() const;
+
+	// Nothing: no value, a zero to whatever reads it. With keepsVariable, a
+	// Let from it leaves the variable as it was: the original's execContext
+	// zero-fills as many bytes of the result as the bytecode says, none for a
+	// string, and its execArrayElement copies nothing through None.
+	static ExpressionValue NothingValue(bool keepsVariable = false) { ExpressionValue v; v.KeepsVariable = keepsVariable; return v; }
 	static ExpressionValue ByteValue(uint8_t value) { ExpressionValue v(ExpressionValueType::ValueByte); *v.PtrByte = value; return v; }
 	static ExpressionValue IntValue(int32_t value) { ExpressionValue v(ExpressionValueType::ValueInt); *v.PtrInt = value; return v; }
 	static ExpressionValue BoolValue(bool value) { ExpressionValue v(ExpressionValueType::ValueBool); v.BoolInfo.Set(value); return v; }
@@ -192,6 +202,8 @@ public:
 	static ExpressionValue QuatValue(quaternion value) { ExpressionValue v(ExpressionValueType::ValueQuat); *v.PtrQuat = value; return v; }
 
 	static ExpressionValue DefaultValue(UProperty* prop);
+	// The property's type's zero: DefaultValue, and nothing for a type it has no value for
+	static ExpressionValue ZeroValue(UProperty* prop);
 	static ExpressionValue PropertyValue(UProperty* prop);
 	static ExpressionValue Variable(void* data, UProperty* prop);
 	// The variable at ptr itself, not at its property's offset into ptr: a
@@ -309,6 +321,10 @@ private:
 
 	ExpressionValueType Type = ExpressionValueType::Nothing;
 
+public:
+	bool KeepsVariable = false; // NothingValue(true): a Let from it stores nothing
+
+private:
 	union
 	{
 		void* Ptr;
@@ -401,10 +417,10 @@ inline ExpressionValue ExpressionValue::DefaultValue(UProperty* prop)
 	default:
 	{
 		ExpressionValue v(prop->ValueType);
+		if (v.Type == ExpressionValueType::Nothing)
+			Exception::Throw("Unsupported expression value property type");
 		memset(v.Ptr, 0, sizeof(Buffer));
-		if (v.Type != ExpressionValueType::Nothing)
-			return v;
-		Exception::Throw("Unsupported expression value property type");
+		return v;
 	}
 	case ExpressionValueType::ValueVector: return VectorValue(vec3(0.0f));
 	case ExpressionValueType::ValueRotator: return RotatorValue(Rotator(0, 0, 0));
@@ -417,9 +433,23 @@ inline ExpressionValue ExpressionValue::DefaultValue(UProperty* prop)
 		v.GetStructValue()->Init(static_cast<UStructProperty*>(prop)->Struct);
 		return v;
 	}
+	case ExpressionValueType::ValueArray:
+	{
+		ExpressionValue v(prop->ValueType);
+		v.GetArrayValue()->Init(static_cast<UArrayProperty*>(prop));
+		v.Ptr = v.GetArrayValue()->Ptr;
+		return v;
+	}
 	case ExpressionValueType::ValueCoords: return CoordsValue({});
 	case ExpressionValueType::ValueQuat: return QuatValue({});
 	}
+}
+
+inline ExpressionValue ExpressionValue::ZeroValue(UProperty* prop)
+{
+	if (prop->ValueType == ExpressionValueType::Nothing)
+		return NothingValue();
+	return DefaultValue(prop);
 }
 
 inline ExpressionValue ExpressionValue::PropertyValue(UProperty* prop)
@@ -458,16 +488,34 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
 	case ExpressionValueType::ValueStruct:
 		if (UStruct* Struct = VariableProperty ? static_cast<UStructProperty*>(VariableProperty)->Struct : GetStructValue()->Struct)
 		{
+			// Nothing (a struct through a None context) stores the struct's zero
 			for (UProperty* prop : Struct->Properties)
-				prop->CopyArray(
-					static_cast<uint8_t*>(Ptr) + prop->DataOffset.DataOffset,
-					static_cast<uint8_t*>(rvalue.Ptr) + prop->DataOffset.DataOffset);
+			{
+				uint8_t* member = static_cast<uint8_t*>(Ptr) + prop->DataOffset.DataOffset;
+				if (rvalue.Type == ExpressionValueType::Nothing)
+				{
+					prop->DestructArray(member);
+					prop->ConstructArray(member);
+				}
+				else
+				{
+					prop->CopyArray(member, static_cast<uint8_t*>(rvalue.Ptr) + prop->DataOffset.DataOffset);
+				}
+			}
 		}
 		break;
 	case ExpressionValueType::ValueArray:
 		if (UArrayProperty* Array = VariableProperty ? static_cast<UArrayProperty*>(VariableProperty) : GetArrayValue()->Type)
 		{
-			Array->CopyArray(Ptr, rvalue.Ptr);
+			if (rvalue.Type == ExpressionValueType::Nothing)
+			{
+				Array->DestructArray(Ptr);
+				Array->ConstructArray(Ptr);
+			}
+			else
+			{
+				Array->CopyArray(Ptr, rvalue.Ptr);
+			}
 		}
 		break;
 	case ExpressionValueType::ValueCoords: *PtrCoords = rvalue.ToCoords(); break;
@@ -509,12 +557,46 @@ inline void ExpressionValue::Load()
 	}
 }
 
-inline bool ExpressionValue::IsEqual(const ExpressionValue& value) const
+inline bool ExpressionValue::IsZero() const
 {
 	switch (Type)
 	{
 	default:
-	case ExpressionValueType::Nothing: return value.Type == ExpressionValueType::Nothing || (value.Type == ExpressionValueType::ValueObject && value.ToObject() == nullptr);
+	case ExpressionValueType::Nothing: return true;
+	case ExpressionValueType::ValueByte:
+	case ExpressionValueType::ValueInt: return ToInt() == 0;
+	case ExpressionValueType::ValueBool: return !ToBool();
+	case ExpressionValueType::ValueFloat: return ToFloat() == 0.0f;
+	case ExpressionValueType::ValueObject: return ToObject() == nullptr;
+	case ExpressionValueType::ValueVector: return ToVector() == vec3(0.0f);
+	case ExpressionValueType::ValueRotator: return identical(ToRotator(), Rotator(0, 0, 0));
+	case ExpressionValueType::ValueString: return ToString().empty();
+	case ExpressionValueType::ValueName: return ToName().IsNone();
+	case ExpressionValueType::ValueColor: { const Color& c = ToColor(); return c.R == 0 && c.G == 0 && c.B == 0 && c.A == 0; }
+	case ExpressionValueType::ValueStruct:
+	{
+		UStruct* Struct = VariableProperty ? static_cast<UStructProperty*>(VariableProperty)->Struct : GetStructValue()->Struct;
+		if (!Struct)
+			return true;
+		StructValue zero;
+		zero.Init(Struct);
+		return Struct->IsEqual(Ptr, zero.Ptr);
+	}
+	case ExpressionValueType::ValueArray: return static_cast<const ScriptArray*>(Ptr)->GetSize() == 0;
+	case ExpressionValueType::ValueCoords: { const Coords& c = ToCoords(); vec3 z(0.0f); return c.Origin == z && c.XAxis == z && c.YAxis == z && c.ZAxis == z; }
+	case ExpressionValueType::ValueQuat: { const quaternion& q = ToQuat(); return q.x == 0.0f && q.y == 0.0f && q.z == 0.0f && q.w == 0.0f; }
+	}
+}
+
+inline bool ExpressionValue::IsEqual(const ExpressionValue& value) const
+{
+	// Nothing, a None context's value, is the zero of the other's type, as
+	// the original's zero-filled result compares (`switch (A.Physics)` with A
+	// None takes `case PHYS_None`)
+	switch (Type)
+	{
+	default:
+	case ExpressionValueType::Nothing: return value.IsZero();
 	case ExpressionValueType::ValueByte:
 	case ExpressionValueType::ValueInt: return ToInt() == value.ToInt();
 	case ExpressionValueType::ValueBool: return ToBool() == value.ToBool();
@@ -526,7 +608,9 @@ inline bool ExpressionValue::IsEqual(const ExpressionValue& value) const
 	case ExpressionValueType::ValueName: return ToName() == value.ToName();
 	case ExpressionValueType::ValueColor: return ToColor() == value.ToColor();
 	case ExpressionValueType::ValueStruct:
-		if (!VariableProperty)
+		if (value.Type == ExpressionValueType::Nothing)
+			return IsZero();
+		else if (!VariableProperty)
 			return GetStructValue()->Struct->IsEqual(Ptr, value.Ptr);
 		else
 			return static_cast<UStructProperty*>(VariableProperty)->Struct->IsEqual(Ptr, value.Ptr);

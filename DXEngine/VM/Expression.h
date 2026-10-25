@@ -22,7 +22,8 @@ public:
 	enum class LeafKind : uint8_t
 	{
 		Other, LocalVariable, InstanceVariable, BoolVariable, Self, NoObject, ObjectConst, NameConst,
-		IntConst, IntZero, IntOne, IntConstByte, ByteConst, FloatConst, True, False
+		IntConst, IntZero, IntOne, IntConstByte, ByteConst, FloatConst, True, False,
+		Nothing // an argument the caller left out (EX_Nothing): ExpressionEvaluator::Call tells it from a None context's nothing
 	};
 	LeafKind Leaf = LeafKind::Other;
 
@@ -43,6 +44,10 @@ public:
 		// Skip (the right side of && and ||): its operand's value, for the
 		// typed evaluators only -- no operator takes it as an operand
 		Skip,
+		// Context, ClassContext and ArrayElement: Generic to every typed
+		// evaluator; Assign takes the value whole, since through None it may
+		// leave the variable as it was (ExpressionValue::KeepsVariable)
+		Context,
 		// Conversions
 		ByteToInt, ByteToBool, ByteToFloat, IntToByte, IntToBool, IntToFloat, BoolToByte, BoolToInt, BoolToFloat,
 		FloatToByte, FloatToInt, FloatToBool, ObjectToBool, NameToBool,
@@ -167,6 +172,7 @@ public:
 class NothingExpression : public Expression
 {
 public:
+	NothingExpression() { Leaf = LeafKind::Nothing; }
 	void Visit(ExpressionVisitor* visitor) override { visitor->Expr(this); }
 };
 

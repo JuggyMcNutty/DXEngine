@@ -77,6 +77,7 @@ ExpressionValue ExpressionEvaluator::Value(Expression* expr)
 	case Expression::LeafKind::FloatConst: return ExpressionValue::FloatValue(static_cast<FloatConstExpression*>(expr)->Value);
 	case Expression::LeafKind::True: return ExpressionValue::BoolValue(true);
 	case Expression::LeafKind::False: return ExpressionValue::BoolValue(false);
+	case Expression::LeafKind::Nothing: return ExpressionValue::NothingValue();
 	}
 	return VisitValue(expr);
 }
@@ -217,7 +218,8 @@ void ExpressionEvaluator::Expr(LetExpression* expr)
 	ExpressionValue rvalue = Value(expr->RightSide);
 	if (lvalue.GetType() != ExpressionValueType::Nothing)
 	{
-		lvalue.Store(rvalue);
+		if (!rvalue.KeepsVariable)
+			lvalue.Store(rvalue);
 		*Out = std::move(lvalue);
 	}
 	else
@@ -235,7 +237,8 @@ void ExpressionEvaluator::Expr(LetBoolExpression* expr)
 	ExpressionValue rvalue = Value(expr->RightSide);
 	if (lvalue.GetType() != ExpressionValueType::Nothing)
 	{
-		lvalue.Store(rvalue);
+		if (!rvalue.KeepsVariable)
+			lvalue.Store(rvalue);
 		*Out = std::move(lvalue);
 	}
 	else
@@ -306,10 +309,12 @@ void ExpressionEvaluator::Expr(ClassContextExpression* expr)
 	{
 		PassThrough(expr->ContextExpr, cls->GetDefaultObject<UObject>());
 	}
-	else if (IsStatement())
+	else
 	{
-		// As an object's context: a warning, the expression skipped
-		Result.Result = StatementResult::AccessedNone;
+		// As an object's context: a warning, the expression skipped, its result nothing
+		*Out = ExpressionValue::NothingValue(expr->ZeroFillSize == 0);
+		if (IsStatement())
+			Result.Result = StatementResult::AccessedNone;
 	}
 }
 
@@ -356,9 +361,14 @@ void ExpressionEvaluator::Expr(ContextExpression* expr)
 	{
 		PassThrough(expr->ContextExpr, context);
 	}
-	else if (IsStatement())
+	else
 	{
-		Result.Result = StatementResult::AccessedNone;
+		// Nothing, a zero to whatever reads it, as the original's execContext
+		// zero-fills the result -- by the size the bytecode gives, which is
+		// none for a string: a variable assigned from one keeps its value
+		*Out = ExpressionValue::NothingValue(expr->ZeroFillSize == 0);
+		if (IsStatement())
+			Result.Result = StatementResult::AccessedNone;
 	}
 }
 
@@ -372,7 +382,11 @@ void ExpressionEvaluator::Expr(ArrayElementExpression* expr)
 	}
 	else
 	{
-		Frame::ThrowException("Array is not a variable in ArrayElementExpression");
+		// An array through a None context (`A.MultiSkins[1]` with A None):
+		// nothing, as the original's execArrayElement leaves it -- no address
+		// to read or write, so a Let through it stores nothing and a variable
+		// assigned from it keeps its value
+		*Out = ExpressionValue::NothingValue(true);
 	}
 }
 
@@ -929,10 +943,21 @@ void ExpressionEvaluator::Call(UFunction* func, const Array<Expression*>& exprAr
 	{
 		// Arguments are evaluated in the caller's own context; the call is made in this one
 		CallArguments args(CallArguments::Room(func, exprArgs.size()));
+		const Array<UProperty*>& parms = Frame::CallParms(func);
 		UObject* context = Context;
 		Context = Self;
-		for (Expression* arg : exprArgs)
-			args.push_back(Value(arg));
+		for (size_t i = 0; i < exprArgs.size(); i++)
+		{
+			ExpressionValue value = Value(exprArgs[i]);
+			// An argument through a None context (`Other.Location` with Other
+			// None) is nothing here, where the original's execContext
+			// zero-fills it: the parameter's type's zero, so that a native
+			// does not take it for an optional argument left out, which only
+			// EX_Nothing (LeafKind::Nothing) is
+			if (value.GetType() == ExpressionValueType::Nothing && exprArgs[i]->Leaf != Expression::LeafKind::Nothing && i < parms.size())
+				value = ExpressionValue::ZeroValue(parms[i]);
+			args.push_back(std::move(value));
+		}
 		Context = context;
 		*Out = Frame::Call(func, Context, args);
 	}
@@ -1142,6 +1167,7 @@ void ExpressionEvaluator::Classify(Expression* expr)
 	case Expression::LeafKind::FloatConst: kind = TypedKind::FloatConst; break;
 	case Expression::LeafKind::True: kind = TypedKind::True; break;
 	case Expression::LeafKind::False: kind = TypedKind::False; break;
+	case Expression::LeafKind::Nothing: break;
 	case Expression::LeafKind::Other:
 		if (dynamic_cast<SkipExpression*>(expr)) kind = TypedKind::Skip;
 		else if (dynamic_cast<ByteToIntExpression*>(expr)) kind = TypedKind::ByteToInt;
@@ -1159,6 +1185,7 @@ void ExpressionEvaluator::Classify(Expression* expr)
 		else if (dynamic_cast<ObjectToBoolExpression*>(expr)) kind = TypedKind::ObjectToBool;
 		else if (dynamic_cast<NameToBoolExpression*>(expr)) kind = TypedKind::NameToBool;
 		else if (auto native = dynamic_cast<NativeFunctionExpression*>(expr)) kind = OperatorKind(native);
+		else if (dynamic_cast<ContextExpression*>(expr) || dynamic_cast<ClassContextExpression*>(expr) || dynamic_cast<ArrayElementExpression*>(expr)) kind = TypedKind::Context;
 		break;
 	}
 	expr->Typed = kind;
@@ -1427,6 +1454,20 @@ bool ExpressionEvaluator::Assign(Expression* lhs, Expression* rhs)
 {
 	if (lhs->Typed == TypedKind::Unknown)
 		Classify(lhs);
+	if (!IsVariable(lhs->Typed))
+		return false;
+	if (rhs->Typed == TypedKind::Unknown)
+		Classify(rhs);
+
+	// A context's value (`X = A.B`, `X = A.B[i]`) is taken whole: through
+	// None it may leave the variable as it was, which only the value tells
+	if (rhs->Typed == TypedKind::Context)
+	{
+		ExpressionValue value = Value(rhs);
+		if (!value.KeepsVariable)
+			StoreTyped(lhs, value);
+		return true;
+	}
 
 	// The right side first, then the store: the variable's place is the same
 	// either side of it, as the context is
@@ -1447,5 +1488,29 @@ bool ExpressionEvaluator::Assign(Expression* lhs, Expression* rhs)
 	case TypedKind::InstanceBool: { bool v = EvalBool(rhs); SetBool<InstanceVar>(Instance<InstanceVar>(lhs), lhs, v); return true; }
 	case TypedKind::LocalBoolVariable: { bool v = EvalBool(rhs); SetBool<BoolVar>(Local<BoolVar>(lhs), lhs, v); return true; }
 	case TypedKind::InstanceBoolVariable: { bool v = EvalBool(rhs); SetBool<BoolVar>(Instance<BoolVar>(lhs), lhs, v); return true; }
+	}
+}
+
+// Assign's store of a value already made, by the variable kind's type, with
+// Store's conversions
+void ExpressionEvaluator::StoreTyped(Expression* lhs, const ExpressionValue& value)
+{
+	switch (lhs->Typed)
+	{
+	default: break;
+	case TypedKind::LocalByte: *Local<LocalVar>(lhs) = value.ToByte(); break;
+	case TypedKind::LocalInt: *reinterpret_cast<int32_t*>(Local<LocalVar>(lhs)) = value.ToInt(); break;
+	case TypedKind::LocalFloat: *reinterpret_cast<float*>(Local<LocalVar>(lhs)) = value.ToFloat(); break;
+	case TypedKind::LocalObject: *reinterpret_cast<UObject**>(Local<LocalVar>(lhs)) = value.ToObject(); break;
+	case TypedKind::LocalName: *reinterpret_cast<NameString*>(Local<LocalVar>(lhs)) = value.ToName(); break;
+	case TypedKind::LocalBool: SetBool<LocalVar>(Local<LocalVar>(lhs), lhs, value.ToBool()); break;
+	case TypedKind::InstanceByte: *Instance<InstanceVar>(lhs) = value.ToByte(); break;
+	case TypedKind::InstanceInt: *reinterpret_cast<int32_t*>(Instance<InstanceVar>(lhs)) = value.ToInt(); break;
+	case TypedKind::InstanceFloat: *reinterpret_cast<float*>(Instance<InstanceVar>(lhs)) = value.ToFloat(); break;
+	case TypedKind::InstanceObject: *reinterpret_cast<UObject**>(Instance<InstanceVar>(lhs)) = value.ToObject(); break;
+	case TypedKind::InstanceName: *reinterpret_cast<NameString*>(Instance<InstanceVar>(lhs)) = value.ToName(); break;
+	case TypedKind::InstanceBool: SetBool<InstanceVar>(Instance<InstanceVar>(lhs), lhs, value.ToBool()); break;
+	case TypedKind::LocalBoolVariable: SetBool<BoolVar>(Local<BoolVar>(lhs), lhs, value.ToBool()); break;
+	case TypedKind::InstanceBoolVariable: SetBool<BoolVar>(Instance<BoolVar>(lhs), lhs, value.ToBool()); break;
 	}
 }

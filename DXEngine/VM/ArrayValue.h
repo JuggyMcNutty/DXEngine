@@ -47,6 +47,18 @@ public:
 		}
 	}
 
+	// An empty array of the type
+	void Init(UArrayProperty* type)
+	{
+		Reset();
+		Type = type;
+		if (Type)
+		{
+			Ptr = AlignedAlloc(Type->ArrayAlignment(), Type->ArraySize());
+			Type->ConstructArray(Ptr);
+		}
+	}
+
 	void Reset()
 	{
 		if (Type)

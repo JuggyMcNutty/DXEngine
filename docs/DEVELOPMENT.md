@@ -195,6 +195,7 @@ the run. *Either*: one engine on each side of a pair.
 | `BorderConsole` | both | `GC.DrawBorders` on the inventory screen | `DXBORDER:` |  |
 | `ColorsConsole` | both | `DrawBorders` on the Colors screen | `DXCOLORS:` |  |
 | `RotatorConsole` | both | the rotator and vector conversions; floats past an int's range to ints and bytes, by the VM's generic path and, stored in variables, its typed one | `DXROT:` |  |
+| `NoneConsole` | both | what a None context yields: an array element written and read through None, a member of each type, a switch, a struct, calls, and a native's optional argument given through None (`CapNoneProbe`'s probes) | `DXNONE:` | the two logs' lines diffed |
 | `StateConsole` | both | state code's limits in a tick: an actor whose state code destroys it and logs on, and one bouncing between two states by `GotoState` alone, its count each second | `DXSTATE:` | the two logs' lines |
 | `MidConsole` | both | `Object.Mid` at its edges | `DXMID:` |  |
 | `FrameConsole` | both | a frame held 2 s: the level's time over it, an actor's next tick | `DXFRAME:` | the two logs diffed |

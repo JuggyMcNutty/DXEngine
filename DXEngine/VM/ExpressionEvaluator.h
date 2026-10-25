@@ -98,6 +98,7 @@ private:
 	// A statement's assignment to a variable kind, stored as ExpressionValue's
 	// Store would store it; false for any other left side
 	bool Assign(Expression* lhs, Expression* rhs);
+	void StoreTyped(Expression* lhs, const ExpressionValue& value); // Assign's store of a value made
 
 	// Where a variable kind's value lives: in the locals (Local* kinds) or the
 	// context's properties (Instance* kinds). E is the node's class: a
