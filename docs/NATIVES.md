@@ -1264,7 +1264,9 @@ the GPU, and on the Smart Pro:
 a spawned actor, an AI event's object, an object a script makes with `new`
 or travel makes anew, and a new window are named as the original names them
 (`MakeUniqueObjectName`: the class's name without trailing digits and the
-class's count, past any number an object of its package already has), and
+class's count, past any number an object of its package already has, a
+spawned one's or an export's: `NameConsole`, Lamp1, Lamp2 and Lamp3 spawned
+on Liberty Island named Lamp2, Lamp5 and Lamp6 in both), and
 the collection deletes such a name once nothing holds it (an object's own
 name, its properties', a class's defaults, a state frame's locals), its slot
 taken by the next name made. Differs: every other name -- from a package, an

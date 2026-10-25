@@ -343,6 +343,7 @@ public:
 	Package* package = nullptr;
 	uint32_t exportIndex = 0;
 	ObjectFlags Flags = ObjectFlags::NoFlags;
+	bool NameCounted = false; // in package->ObjectNames (Package::NewObject), until destroyed
 
 	PropertyDataBlock PropertyData;
 	std::shared_ptr<Frame> StateFrame;

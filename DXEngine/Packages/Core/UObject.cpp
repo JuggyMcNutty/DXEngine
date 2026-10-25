@@ -636,6 +636,8 @@ void UObject::OnGCDestroy()
 	DelayLoad.reset();
 	if (package && package->IsExportObject(this, (int)exportIndex))
 		package->ExportObjects[exportIndex] = nullptr;
+	if (package && NameCounted)
+		package->ForgetObjectName(Name);
 }
 
 std::string UObject::GCClassName() const

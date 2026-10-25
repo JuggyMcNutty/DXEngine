@@ -6,6 +6,7 @@
 #include "ObjectFlags.h"
 #include "NameString.h"
 #include <functional>
+#include <unordered_map>
 #include <unordered_set>
 
 class PackageManager;
@@ -129,6 +130,13 @@ private:
 	// built again when the export table has grown, or been written anew.
 	std::unordered_set<int> ExportNameIndexes;
 	size_t ExportNamesBuiltFrom = (size_t)-1;
+
+	// The names of the objects made here (NewObject) and still alive, by
+	// the name's compare index, each with how many bear it: a spawned
+	// actor's name is in no export table, and MakeUniqueObjectName counts
+	// past these too, as the original's counts past any object of the outer
+	std::unordered_map<int, int> ObjectNames;
+	void ForgetObjectName(const NameString& name); // UObject::OnGCDestroy's
 
 	Array<UObject*> ExportObjects;
 

@@ -86,6 +86,8 @@ UObject* Package::NewObject(const NameString& objname, UClass* objclass, ObjectF
 		{
 			UObject* obj = it->second.CreateFunc(objname, objclass, flags);
 			obj->package = this;
+			ObjectNames[objname.GetCompareIndex()]++;
+			obj->NameCounted = true;
 			if (initProperties)
 			{
 				obj->PropertyData.Init(objclass);
@@ -117,11 +119,21 @@ NameString Package::MakeUniqueObjectName(UClass* cls)
 
 	while (true)
 	{
-		std::string candidate = base + std::to_string(cls->ClassUnique++);
-		auto it = NameHash.find(NameString::Collectable(candidate));
-		if (it == NameHash.end() || !ExportNameIndexes.count(it->second))
-			return NameString::Collectable(candidate);
+		NameString candidate = NameString::Collectable(base + std::to_string(cls->ClassUnique++));
+		auto it = NameHash.find(candidate);
+		bool exported = it != NameHash.end() && ExportNameIndexes.count(it->second);
+		auto live = ObjectNames.find(candidate.GetCompareIndex());
+		bool borne = live != ObjectNames.end() && live->second > 0;
+		if (!exported && !borne)
+			return candidate;
 	}
+}
+
+void Package::ForgetObjectName(const NameString& name)
+{
+	auto it = ObjectNames.find(name.GetCompareIndex());
+	if (it != ObjectNames.end() && --it->second <= 0)
+		ObjectNames.erase(it);
 }
 
 void Package::AddRuntimeExport(UObject* obj)
