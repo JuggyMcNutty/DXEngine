@@ -343,7 +343,9 @@ The renderer's CPU work is lighter than Surreal Engine's:
   `FogmapBuilder::Reaches`); a map no fog light reaches stays all clear, its texels neither
   placed nor built, sent once as it clears, and kept on its surface, whose passes go by
   whether it has one (`LightSystem::UpdateFogmapTexture`).
-- **The clipper's occlusion grid** is one row per image row, each row's spans in a cache line
+- **The clipper's occlusion grid** is one row per image row up to a 4K frame (it followed the
+  image to 2048 x 1080 and scaled a larger one into that, a row in four of a 1440p frame
+  unsampled), each row's spans in a cache line
   of its own while 15 fit, then on the heap (`BspClipper::ClipRow`); its non-SSE (ARM) build
   skips the clip for triangles inside the view (a Surreal Engine bug); a surface is clipped once
   and filled into the grid as one polygon, a span to a row (`BspClipper::DrawPolygon`); a span

@@ -28,9 +28,12 @@ public:
 
 	// The occlusion grid's size. Its cost is per row, so it follows the image
 	// being drawn (VisibleFrame::Process) rather than a fixed 1080 rows:
-	// capped at MaxWidth x MaxHeight, which is what it always was.
+	// capped at MaxWidth x MaxHeight, a 4K frame, so that every image row and
+	// column up to it has its sample line (capped at 2048 x 1080, a 1440p or
+	// 4K frame was scaled into the grid, and a surface or an actor shown only
+	// between two sample lines was culled).
 	void SetViewportSize(int width, int height);
-	enum { MaxWidth = 2048, MaxHeight = 1080 };
+	enum { MaxWidth = 4096, MaxHeight = 2160 };
 
 	void Setup(const mat4& world_to_projection, const Array<PortalSpan>& portalSpans, const vec4& portalPlane);
 
