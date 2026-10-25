@@ -39,6 +39,9 @@ void PackageWriter::Save(UObject* packageObject, std::string filename)
 		WriteImportTable(stream.get());
 		stream->Seek(0);
 		WriteHeader(stream.get());
+		// The header's last flush checked before the file takes the slot's
+		// place: a save cut short (ENOSPC) was renamed over the slot as whole.
+		stream->Close();
 		stream.reset();
 
 		// Close all package file handles

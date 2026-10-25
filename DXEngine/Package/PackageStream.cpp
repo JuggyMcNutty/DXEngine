@@ -147,6 +147,11 @@ PackageStreamWriter::PackageStreamWriter(PackageWriter* package, std::shared_ptr
 {
 }
 
+void PackageStreamWriter::Close()
+{
+	file->close();
+}
+
 void PackageStreamWriter::WriteBytes(const void* d, uint32_t s)
 {
 	if (propertyPos == -1)

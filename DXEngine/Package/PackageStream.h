@@ -68,6 +68,7 @@ public:
 	void EndProperty(PropertyHeader header);
 
 	void Seek(uint32_t offset);
+	void Close(); // the file's last flush, checked
 	uint32_t Tell();
 
 	PackageWriter* GetPackage() const;

@@ -39,6 +39,16 @@ public:
 		CloseHandle(handle);
 	}
 
+	void close() override
+	{
+		if (handle == INVALID_HANDLE_VALUE)
+			return;
+		BOOL ok = CloseHandle(handle);
+		handle = INVALID_HANDLE_VALUE;
+		if (!ok)
+			Exception::Throw("CloseHandle failed");
+	}
+
 	void write(const void *data, size_t size) override
 	{
 		size_t pos = 0;
@@ -149,6 +159,18 @@ public:
 			fclose(handle);
 	}
 
+	// The last buffered flush, checked: fclose's failure (ENOSPC, EIO) was
+	// passed over in the destructor, an ini or a save left short.
+	void close() override
+	{
+		if (!handle)
+			return;
+		int result = fclose(handle);
+		handle = nullptr;
+		if (result != 0)
+			Exception::Throw("fclose failed");
+	}
+
 	int64_t size() override
 	{
 		auto pos = ftell(handle);
@@ -239,12 +261,14 @@ void File::write_all_bytes(const std::string& filename, const void* data, size_t
 {
 	auto file = create_always(filename);
 	file->write(data, size);
+	file->close();
 }
 
 void File::write_all_text(const std::string& filename, const std::string& text)
 {
 	auto file = create_always(filename);
 	file->write(text.data(), text.size());
+	file->close();
 }
 
 Array<uint8_t> File::read_all_bytes(const std::string& filename)

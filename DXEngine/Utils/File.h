@@ -55,6 +55,7 @@ public:
 	virtual int64_t size() = 0;
 	virtual void read(void *data, size_t size) = 0;
 	virtual void write(const void *data, size_t size) = 0;
+	virtual void close() = 0; // the last flush checked: an error here is the write's
 	virtual void seek(int64_t offset, SeekPoint origin = SeekPoint::begin) = 0;
 	virtual uint64_t tell() = 0;
 };
