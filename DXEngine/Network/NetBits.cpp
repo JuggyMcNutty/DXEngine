@@ -129,6 +129,8 @@ uint32_t NetBitReader::ReadInt(uint32_t valueMax)
 
 void NetBitReader::ReadBits(uint8_t* dest, int numBits)
 {
+	if (numBits <= 0) // nothing to read into nothing: memset's null is undefined
+		return;
 	memset(dest, 0, (numBits + 7) >> 3);
 	if (Pos + numBits > NumBits)
 	{

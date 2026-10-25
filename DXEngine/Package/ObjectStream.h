@@ -17,7 +17,8 @@ public:
 	{
 		if (pos + s > size)
 			Exception::Throw("Unexpected end of file");
-		memcpy(d, data + pos, s);
+		if (s != 0) // a struct with no bytecode reads 0 bytes into nothing: memcpy's null is undefined
+			memcpy(d, data + pos, s);
 		pos += s;
 	}
 
