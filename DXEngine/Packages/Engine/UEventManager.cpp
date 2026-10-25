@@ -107,7 +107,13 @@ void UEventManager::SetEventCallback(UActor* actor, const NameString& eventName,
 		type.Receivers.push_back(std::make_unique<Receiver>());
 		receiver = type.Receivers.back().get();
 		receiver->Actor = actor;
-		Ring.push_back({ &type, receiver });
+		// Before the receiver the ring resumes at, as the original's manager
+		// links a new one: its first turn comes after every other's. Appended,
+		// it started every later pass after a full one.
+		if (RingPos > Ring.size())
+			RingPos = Ring.size();
+		Ring.insert(Ring.begin() + RingPos, { &type, receiver });
+		RingPos++;
 		receiver->LastTurnFrame = FrameCounter;
 	}
 	receiver->Callback = callback;
@@ -533,22 +539,24 @@ void UEventManager::CleanupEvents()
 			anyReceiver = anyReceiver || receiver->Delete;
 		if (anyReceiver)
 		{
-			size_t pos = 0;
+			// The ring compacted, resuming at the first kept receiver at or
+			// after the old resume point: its new index is the count of the
+			// kept before it. (Fixed up two ways at once, it resumed early
+			// after a deletion before it, and after a full pass started the
+			// next at the last receiver.)
+			size_t pos = 0, keptBefore = 0;
 			for (size_t i = 0; i < Ring.size(); i++)
 			{
 				if (!Ring[i].second->Delete)
 				{
+					if (i < RingPos)
+						keptBefore++;
 					Ring[pos] = Ring[i];
-					if (RingPos == i)
-						RingPos = pos;
 					pos++;
-				}
-				else if (RingPos > i)
-				{
-					RingPos--;
 				}
 			}
 			Ring.resize(pos);
+			RingPos = keptBefore;
 			type.Receivers.erase(std::remove_if(type.Receivers.begin(), type.Receivers.end(),
 				[](const std::unique_ptr<Receiver>& r) { return r->Delete; }), type.Receivers.end());
 		}
