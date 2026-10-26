@@ -53,7 +53,7 @@ void NetReadItem(UProperty* prop, NetBitReader& reader, NetPackageMap& map, void
 	{
 		uint8_t value = 0;
 		if (byteProp->EnumType)
-			reader.ReadBits(&value, CeilLogTwo((uint32_t)byteProp->EnumType->ElementNames.size()));
+			reader.ReadBits(&value, std::min(CeilLogTwo((uint32_t)byteProp->EnumType->ElementNames.size()), 8));
 		else
 			value = reader.ReadByte();
 		*static_cast<uint8_t*>(data) = value;
@@ -143,9 +143,11 @@ bool NetWriteItem(UProperty* prop, NetBitWriter& writer, NetPackageMap& map, con
 	}
 	else if (auto byteProp = UObject::TryCast<UByteProperty>(prop))
 	{
+		// An enum of more than 256 names (a downloaded package's) would take
+		// more bits than the byte holds: held to its 8
 		uint8_t value = *static_cast<const uint8_t*>(data);
 		if (byteProp->EnumType)
-			writer.WriteBits(&value, CeilLogTwo((uint32_t)byteProp->EnumType->ElementNames.size()));
+			writer.WriteBits(&value, std::min(CeilLogTwo((uint32_t)byteProp->EnumType->ElementNames.size()), 8));
 		else
 			writer.WriteByte(value);
 	}
