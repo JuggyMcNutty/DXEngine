@@ -103,7 +103,7 @@ int32_t PackageStream::ReadIndex()
 		} while ((value & (1 << 7)) && shift < 32);
 	}
 	if (signbit)
-		index = -index;
+		index = (int32_t)(0u - (uint32_t)index); // defined at INT_MIN, where -index is not
 	return index;
 }
 
