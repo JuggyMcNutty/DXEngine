@@ -3,6 +3,10 @@
 #include <initializer_list>
 #include <iterator>
 #include <cstdlib>
+#include <cstddef>
+#ifdef _WIN32
+#include <malloc.h>
+#endif
 #include <limits>
 #include <stdexcept>
 
@@ -49,7 +53,7 @@ public:
 		catch (...)
 		{
 			clear();
-			std::free(_data);
+			FreeStorage(_data);
 			throw;
 		}
 	}
@@ -87,7 +91,7 @@ public:
 		catch (...)
 		{
 			clear();
-			std::free(_data);
+			FreeStorage(_data);
 			throw;
 		}
 	}
@@ -99,7 +103,7 @@ public:
 			_size--;
 			_data[_size].~T();
 		}
-		std::free(_data);
+		FreeStorage(_data);
 	}
 
 	Array& operator=(const Array& other)
@@ -302,7 +306,7 @@ public:
 		if (new_cap > _capacity)
 		{
 			Array copy;
-			copy._data = (T*)std::malloc(new_cap * sizeof(T));
+			copy._data = AllocateStorage(new_cap);
 			if (!copy._data) throw std::bad_alloc();
 			copy._capacity = new_cap;
 
@@ -647,6 +651,39 @@ public:
 	}
 
 private:
+	// Storage at the element type's alignment: an over-aligned type (a
+	// BspClipper::ClipRow, a cache line each) from the aligned allocator,
+	// malloc's 16 bytes not being enough; freed the matching way
+	static T* AllocateStorage(size_type count)
+	{
+		size_t bytes = count * sizeof(T);
+		if constexpr (alignof(T) > alignof(std::max_align_t))
+		{
+#ifdef _WIN32
+			return (T*)_aligned_malloc(bytes, alignof(T));
+#else
+			size_t rounded = (bytes + alignof(T) - 1) / alignof(T) * alignof(T);
+			return (T*)std::aligned_alloc(alignof(T), rounded);
+#endif
+		}
+		else
+		{
+			return (T*)std::malloc(bytes);
+		}
+	}
+
+	static void FreeStorage(T* data)
+	{
+#ifdef _WIN32
+		if constexpr (alignof(T) > alignof(std::max_align_t))
+		{
+			_aligned_free(data);
+			return;
+		}
+#endif
+		std::free(data);
+	}
+
 	T* _data = nullptr;
 	size_type _size = size_type(0);
 	size_type _capacity = size_type(0);
