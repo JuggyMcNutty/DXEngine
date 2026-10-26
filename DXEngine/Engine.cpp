@@ -3230,11 +3230,15 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 		}
 		else if (type == EInputType::IST_Release)
 		{
+			// No player (a net join's window, between the map's load and the
+			// server's pawn): the bindings are dropped, nothing written
+			UActor* actor = viewport->Actor();
 			for (auto it = activeInputButtons.begin(); it != activeInputButtons.end();)
 			{
 				if (it->second == key)
 				{
-					SetInputButton(viewport->Actor(), it->first, false);
+					if (actor)
+						SetInputButton(actor, it->first, false);
 					it = activeInputButtons.erase(it);
 				}
 				else
@@ -3247,7 +3251,8 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 			{
 				if (it->second.Key == key)
 				{
-					SetInputAxis(viewport->Actor(), it->first, 0.0f);
+					if (actor)
+						SetInputAxis(actor, it->first, 0.0f);
 					it = activeInputAxes.erase(it);
 				}
 				else
