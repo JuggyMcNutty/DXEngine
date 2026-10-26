@@ -928,13 +928,16 @@ void VisibleFrame::SortTranslucent()
 {
 	// By the distance of one point of each: back to front (DeusExOrder), as
 	// the original's lists run in the order its walk met them, each new one
-	// at the head; nearest first without it
+	// at the head; nearest first without it. An item at no place (a NaN
+	// location, a script's 0/0) sorts as nearest: a NaN key orders nothing,
+	// and the sort then has no order to keep.
+	auto key = [](const VisibleTranslucent& t) { return t.DistSqr == t.DistSqr ? t.DistSqr : 0.0f; };
 	for (Array<VisibleTranslucent>& list : Translucents)
 	{
 		if (DeusExOrder)
-			std::sort(list.begin(), list.end(), [](const VisibleTranslucent& a, const VisibleTranslucent& b) { return a.DistSqr > b.DistSqr; });
+			std::sort(list.begin(), list.end(), [&](const VisibleTranslucent& a, const VisibleTranslucent& b) { return key(a) > key(b); });
 		else
-			std::sort(list.begin(), list.end(), [](const VisibleTranslucent& a, const VisibleTranslucent& b) { return a.DistSqr < b.DistSqr; });
+			std::sort(list.begin(), list.end(), [&](const VisibleTranslucent& a, const VisibleTranslucent& b) { return key(a) < key(b); });
 	}
 }
 
