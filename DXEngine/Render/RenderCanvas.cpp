@@ -93,9 +93,6 @@ void RenderSubsystem::PostRender()
 		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
 	CallEvent(engine->console, EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
 	DrawTimedemoStats();
-	
-	if (ShowCollisionDebug)
-		DrawCollisionDebug();
 }
 
 void RenderSubsystem::PostRenderFlash()
@@ -584,20 +581,6 @@ void RenderSubsystem::DrawTimedemoStats()
 				DrawText(font, vec4(1.0f), 0.0f, 0.0f, curX, curY, curXL, curYL, false, text, PF_NoSmooth | PF_Masked, false);
 				curY += curYL;
 			}
-
-			/*
-			Array<std::string> leftlines;
-			engine->audiodev->AddStats(leftlines);
-			curY = 64;
-			for (const std::string& text : leftlines)
-			{
-				float curX = 16.0f;
-				float curXL = 0.0f;
-				float curYL = 0.0f;
-				DrawText(font, vec4(1.0f), 0.0f, 0.0f, curX, curY, curXL, curYL, false, text, PF_NoSmooth | PF_Masked, false);
-				curY += curYL;
-			}
-			*/
 		}
 	}
 
@@ -608,19 +591,6 @@ void RenderSubsystem::DrawTimedemoStats()
 		lines.push_back(std::to_string(engine->Level->Actors.size()) + " actors");
 		lines.push_back(std::to_string(GC::GetStats().numObjects) + " GC objects");
 		lines.push_back(std::to_string(GC::GetStats().memoryUsage / (1024 * 1024)) + " mb memory used");
-
-		/*size_t numCollisionActors = 0;
-		for (auto& it : engine->Level->Hash.CollisionActors)
-			numCollisionActors += it.second.size();
-		lines.push_back(std::to_string(numCollisionActors) + " collision actors");*/
-
-		/*lines.push_back(std::to_string(Scene.OpaqueNodes.size() + Scene.TranslucentNodes.size()) + " visible surfaces");
-		lines.push_back(std::to_string(Scene.Actors.size()) + " visible actors");
-		lines.push_back(std::to_string(Scene.Coronas.size()) + " visible coronas");
-
-		lines.push_back(std::to_string(Scene.Clipper.numDrawSpans) + " spans");
-		lines.push_back(std::to_string(Scene.Clipper.numSurfs) + " checked surfaces");
-		lines.push_back(std::to_string(Scene.Clipper.numTris) + " checked triangles");*/
 
 		UFont* font = engine->canvas->MedFont();
 		if (font)
@@ -634,70 +604,6 @@ void RenderSubsystem::DrawTimedemoStats()
 				DrawText(font, vec4(1.0f), 0.0f, 0.0f, curX, curY, curXL, curYL, false, text, PF_NoSmooth | PF_Masked, false);
 				curY += curYL;
 			}
-		}
-	}
-}
-
-void RenderSubsystem::DrawCollisionDebug()
-{
-	Array<std::string> lines;
-	if (engine->PlayerBspNode)
-	{
-		BspNode* node = engine->PlayerBspNode;
-		vec3& normal = engine->PlayerHitNormal;
-		vec3& location = engine->PlayerHitLocation;
-		BspSurface* surf = (node->Surf >= 0) ? &engine->Level->Model->Surfaces[node->Surf] : nullptr;
-
-		lines.push_back("BspNode CollisionBound: " + std::to_string(node->CollisionBound));
-		lines.push_back("BspNode Surface: " + std::to_string(node->Surf));
-
-		if (surf && surf->Material)
-			lines.push_back("BspNode Texture: " + surf->Material->Name.ToString());
-
-		lines.push_back("BspNode Plane: (" +
-			std::to_string(node->PlaneX) + ", " +
-			std::to_string(node->PlaneY) + ", " +
-			std::to_string(node->PlaneZ) + ", " +
-			std::to_string(node->PlaneW) + ")"
-		);
-
-		BBox box = node->GetCollisionBox(engine->Level->Model);
-		lines.push_back("BspNode Bound Min: (" +
-			std::to_string(box.min.x) + ", " +
-			std::to_string(box.min.y) + ", " +
-			std::to_string(box.min.z) + ")"
-		);
-
-		lines.push_back("BspNode Bound Max: (" +
-			std::to_string(box.max.x) + ", " +
-			std::to_string(box.max.y) + ", " +
-			std::to_string(box.max.z) + ")"
-		);
-
-		lines.push_back("HitNormal: (" +
-			std::to_string(normal.x) + ", " +
-			std::to_string(normal.y) + ", " +
-			std::to_string(normal.z) + ")"
-		);
-
-		lines.push_back("HitLocation: (" +
-			std::to_string(location.x) + ", " +
-			std::to_string(location.y) + ", " +
-			std::to_string(location.z) + ")"
-		);
-	}
-
-	UFont* font = engine->canvas->MedFont();
-	if (font)
-	{
-		float curY = 180;
-		for (const std::string& text : lines)
-		{
-			float curX = engine->viewport->ViewportWidth() / (float)Canvas.uiscale - GetTextSize(font, text).x - 16;
-			float curXL = 0.0f;
-			float curYL = 0.0f;
-			DrawText(font, vec4(1.0f), 0.0f, 0.0f, curX, curY, curXL, curYL, false, text, PF_NoSmooth | PF_Masked, false);
-			curY += curYL;
 		}
 	}
 }

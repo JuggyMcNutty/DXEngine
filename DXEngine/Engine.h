@@ -310,11 +310,6 @@ public:
 
 	std::string windowingSystemName;
 
-	// Collision debug
-	BspNode* PlayerBspNode = nullptr;
-	vec3 PlayerHitNormal = vec3(0.0f);
-	vec3 PlayerHitLocation = vec3(0.0f);
-
 	bool quit = false;
 
 	// The command line a RELAUNCH named, for GameApp to start the engine

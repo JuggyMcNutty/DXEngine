@@ -2343,7 +2343,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	// A dedicated server has no window and no renderer: the commands that
 	// take them do nothing there (a logged-in admin's "admin getres" or
 	// "admin flush" came through PlayerPawn.Admin)
-	if ((!window || !render) && (command == "getres" || command == "getcurrentres" || command == "setres" || command == "togglefullscreen" || command == "flush" || command == "timedemo" || command == "stat" || command == "collisiondebug" || command == "shot"))
+	if ((!window || !render) && (command == "getres" || command == "getcurrentres" || command == "setres" || command == "togglefullscreen" || command == "flush" || command == "timedemo" || command == "stat" || command == "shot"))
 		return {};
 	if (command == "exit" || command == "quit")
 	{
@@ -2371,10 +2371,6 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 
 		if (args[1] == "render")
 			render->ShowRenderStats = 1;
-	}
-	else if (command == "collisiondebug" && args.size() == 2)
-	{
-		render->ShowCollisionDebug = args[1] == "1";
 	}
 	else if (command == "dxwindowdebug")
 	{

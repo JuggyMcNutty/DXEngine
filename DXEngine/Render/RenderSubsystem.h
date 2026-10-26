@@ -62,7 +62,6 @@ public:
 
 	bool ShowTimedemoStats = false;
 	bool ShowRenderStats = false;
-	bool ShowCollisionDebug = false;
 
 	int TextureFrameCounter = 0;
 	int FrameCounter = 0;
@@ -146,7 +145,6 @@ private:
 	void PostRenderFlash();
 	void DrawRawBackground(URootWindow* root);
 	void DrawTimedemoStats();
-	void DrawCollisionDebug();
 	void DrawTile(TextureInfo& texinfo, const Rectf& dest, const Rectf& src, const Rectf& clipBox, float Z, vec4 color, vec4 fog, uint32_t flags);
 
 	static Array<std::string> FindTextBlocks(const std::string& text);
