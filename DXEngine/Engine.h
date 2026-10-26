@@ -187,7 +187,7 @@ public:
 	void LockCursor();
 	void UnlockCursor();
 
-	bool ExecCommand(const Array<std::string>& args);
+	bool ExecCommand(const Array<std::string>& args, const std::string& line = {});
 	Array<std::string> GetArgs(const std::string& commandline);
 	Array<std::string> GetSubcommands(const std::string& commandline);
 

@@ -2730,7 +2730,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	}
 	else
 	{
-		if (!ExecCommand(args))
+		if (!ExecCommand(args, commandline))
 		{
 			LogMessage("Unknown command: " + commandline);
 			found = false;
@@ -3271,7 +3271,25 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 	}
 }
 
-bool Engine::ExecCommand(const Array<std::string>& args)
+// The rest of the line from its (word)th word on, the words blank-separated
+// as GetArgs splits them
+static std::string LineFromWord(const std::string& line, size_t word)
+{
+	size_t i = 0;
+	for (size_t w = 0; w < word; w++)
+	{
+		i = line.find_first_not_of(" \t", i);
+		if (i == std::string::npos)
+			return {};
+		i = line.find_first_of(" \t", i);
+		if (i == std::string::npos)
+			return {};
+	}
+	i = line.find_first_not_of(" \t", i);
+	return i == std::string::npos ? std::string() : line.substr(i);
+}
+
+bool Engine::ExecCommand(const Array<std::string>& args, const std::string& line)
 {
 	for (UObject* target : { static_cast<UObject*>(viewport->Actor()), static_cast<UObject*>(console) })
 	{
@@ -3305,7 +3323,11 @@ bool Engine::ExecCommand(const Array<std::string>& args)
 					case ExpressionValueType::ValueInt: vmArgs.push_back(ExpressionValue::IntValue(std::atoi(arg.c_str()))); break;
 					case ExpressionValueType::ValueBool: vmArgs.push_back(ExpressionValue::BoolValue(arg == "1" || arg == "true")); break;
 					case ExpressionValueType::ValueFloat: vmArgs.push_back(ExpressionValue::FloatValue((float)std::atof(arg.c_str()))); break;
-					case ExpressionValueType::ValueString: vmArgs.push_back(ExpressionValue::StringValue(arg)); break;
+					// A string takes the rest of the line, as the original's
+					// ScriptConsoleExec imports it (Core.dll UStrProperty::ImportText
+					// 0x10167980, undelimited: the whole string): a chat line goes
+					// out whole, and Admin's CommandLine is the whole command
+					case ExpressionValueType::ValueString: vmArgs.push_back(ExpressionValue::StringValue(line.empty() ? arg : LineFromWord(line, 1 + argindex))); break;
 					case ExpressionValueType::ValueName: vmArgs.push_back(ExpressionValue::NameValue(arg)); break;
 					default: LogMessage("Unsupported value type found in Engine.ExecCommand"); return false;
 					}
@@ -3416,7 +3438,7 @@ void Engine::InputCommand(const std::string& commands, EInputKey key, int delta,
 				}
 				activeInputAxes[args[1]] = { speed * delta, key };
 			}
-			else if (press && !ExecCommand(args) && !IsInputSystemCommand(command))
+			else if (press && !ExecCommand(args, commandline) && !IsInputSystemCommand(command))
 			{
 				// A press's line alone reaches the exec functions and, when none
 				// takes it, the engine's own commands, as the original's
