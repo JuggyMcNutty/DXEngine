@@ -582,6 +582,24 @@ void SDL2DisplayWindow::DispatchEvent(const SDL_Event& event)
 	if (event.type == TimerEventID)
 		return OnTimerEvent(event.user);
 
+	// Posted by SDL's own SIGTERM and SIGINT handlers, installed where the
+	// engine's is not (the crash report window): every window closes, as
+	// a closed window does. Ignored, the window outlived the signal.
+	if (event.type == SDL_QUIT)
+	{
+		std::vector<SDL2DisplayWindow*> windows;
+		for (auto& it : WindowList)
+			windows.push_back(it.second);
+		for (SDL2DisplayWindow* w : windows)
+			for (auto& it : WindowList)
+				if (it.second == w)
+				{
+					w->WindowHost->OnWindowClose();
+					break;
+				}
+		return;
+	}
+
 	SDL2DisplayWindow* window = FindEventWindow(event);
 	if (!window) return;
 
