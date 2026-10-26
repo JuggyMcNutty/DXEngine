@@ -1850,12 +1850,12 @@ std::vector<VulkanCompatibleDevice> VulkanDeviceBuilder::FindDevices(const std::
 		if (!requiredExtensionSearch.empty())
 			continue;
 
-		// Check if all required features are there: no draw is indirect
-		// and no shader stores or uses atomics, so neither multiDrawIndirect
-		// nor fragmentStoresAndAtomics is asked for (a GPU lacking one fell
-		// back to the software device for features nothing uses)
-		if (info.Features.Features.samplerAnisotropy != VK_TRUE ||
-			info.Features.Features.independentBlend != VK_TRUE)
+		// Check if all required features are there: no draw is indirect,
+		// no shader stores or uses atomics, and the scene has one colour
+		// attachment, so neither multiDrawIndirect, fragmentStoresAndAtomics
+		// nor independentBlend is asked for (a GPU lacking one fell back to
+		// the software device for features nothing uses)
+		if (info.Features.Features.samplerAnisotropy != VK_TRUE)
 			continue;
 
 		VulkanCompatibleDevice dev;
@@ -1879,7 +1879,6 @@ std::vector<VulkanCompatibleDevice> VulkanDeviceBuilder::FindDevices(const std::
 		enabledFeatures.Features.depthClamp = deviceFeatures.Features.depthClamp;
 		enabledFeatures.Features.shaderClipDistance = deviceFeatures.Features.shaderClipDistance;
 		enabledFeatures.Features.multiDrawIndirect = deviceFeatures.Features.multiDrawIndirect;
-		enabledFeatures.Features.independentBlend = deviceFeatures.Features.independentBlend;
 		enabledFeatures.Features.imageCubeArray = deviceFeatures.Features.imageCubeArray;
 		enabledFeatures.BufferDeviceAddress.bufferDeviceAddress = deviceFeatures.BufferDeviceAddress.bufferDeviceAddress;
 		enabledFeatures.AccelerationStructure.accelerationStructure = deviceFeatures.AccelerationStructure.accelerationStructure;

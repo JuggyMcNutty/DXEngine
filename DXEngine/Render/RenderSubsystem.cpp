@@ -58,7 +58,7 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 	}
 
 	Device->Brightness = engine->client->Brightness;
-	Device->Lock(vec4(flashScale, 0.0f), vec4(flashFog, 0.0f), vec4(0.0f), nullptr, nullptr);
+	Device->Lock(vec4(flashScale, 0.0f), vec4(flashFog, 0.0f), vec4(0.0f));
 	FrameInProgress = true;
 
 	ResetCanvas();

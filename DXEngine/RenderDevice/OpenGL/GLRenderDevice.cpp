@@ -217,16 +217,14 @@ void GLRenderDevice::Exit()
 
 void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 {
-	// The samples the driver takes for every attachment of the scene's
-	// framebuffer -- colour, the integer hit buffer and depth -- halved
-	// until they fit: an ES 3.1 driver may take one integer sample only.
+	// The samples the driver takes for both attachments of the scene's
+	// framebuffer, colour and depth, halved until they fit.
 	if (multisample > 1)
 	{
-		GLint maxColor = 0, maxDepth = 0, maxInteger = 0;
+		GLint maxColor = 0, maxDepth = 0;
 		glGetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &maxColor);
 		glGetIntegerv(GL_MAX_DEPTH_TEXTURE_SAMPLES, &maxDepth);
-		glGetIntegerv(GL_MAX_INTEGER_SAMPLES, &maxInteger);
-		int maxSamples = std::min({ maxColor, maxDepth, maxInteger });
+		int maxSamples = std::min(maxColor, maxDepth);
 		while (multisample > 1 && multisample > maxSamples)
 			multisample /= 2;
 	}
@@ -237,23 +235,18 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 	// the size took as whole, and Unlock or a read-back then dereferenced a
 	// null
 	if (SceneBuffers.Width == width && SceneBuffers.Height == height && multisample == SceneBuffers.Multisample &&
-		SceneBuffers.ColorBuffer && SceneBuffers.HitBuffer && SceneBuffers.PPHitBuffer && SceneBuffers.StagingHitBuffer && SceneBuffers.DepthBuffer && SceneBuffers.PPImage[0] && SceneBuffers.PPImage[1] &&
-		SceneBuffers.Framebuffer && SceneBuffers.HitFramebuffer && SceneBuffers.PPHitFramebuffer && SceneBuffers.PPFramebuffer[0] && SceneBuffers.PPFramebuffer[1] &&
+		SceneBuffers.ColorBuffer && SceneBuffers.DepthBuffer && SceneBuffers.PPImage[0] && SceneBuffers.PPImage[1] &&
+		SceneBuffers.Framebuffer && SceneBuffers.PPFramebuffer[0] && SceneBuffers.PPFramebuffer[1] &&
 		SceneBuffers.BlurLevels[SceneBuffers.NumBloomLevels - 1].HFramebuffer && SceneBuffers.BlurLevels[SceneBuffers.NumBloomLevels - 1].VFramebuffer)
 		return;
 
 	SceneBuffers.Framebuffer.reset();
-	SceneBuffers.HitFramebuffer.reset();
-	SceneBuffers.PPHitFramebuffer.reset();
 	for (int i = 0; i < 2; i++)
 	{
 		SceneBuffers.PPFramebuffer[i].reset();
 		SceneBuffers.PPImage[i].reset();
 	}
 	SceneBuffers.ColorBuffer.reset();
-	SceneBuffers.StagingHitBuffer.reset();
-	SceneBuffers.PPHitBuffer.reset();
-	SceneBuffers.HitBuffer.reset();
 	SceneBuffers.DepthBuffer.reset();
 
 	for (PPBlurLevel& level : SceneBuffers.BlurLevels)
@@ -310,39 +303,6 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 		ThrowIfGLError("glTexStorage2D(SceneBuffers.ColorBuffer) failed");
 	}
 
-	SceneBuffers.HitBuffer = std::make_shared<GLTexture2D>();
-	if (SceneBuffers.Multisample > 1)
-	{
-		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, SceneBuffers.HitBuffer->Handle);
-		SetDebugName(SceneBuffers.HitBuffer, "SceneBuffers.HitBuffer");
-		multisampleImage(GL_R32UI);
-		glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
-		ThrowIfGLError("glTexStorage2DMultisample(SceneBuffers.HitBuffer) failed");
-	}
-	else
-	{
-		glBindTexture(GL_TEXTURE_2D, SceneBuffers.HitBuffer->Handle);
-		SetDebugName(SceneBuffers.HitBuffer, "SceneBuffers.HitBuffer");
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, SceneBuffers.Width, SceneBuffers.Height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-		ThrowIfGLError("glTexImage2D(SceneBuffers.HitBuffer) failed");
-	}
-
-	SceneBuffers.PPHitBuffer = std::make_shared<GLTexture2D>();
-	glBindTexture(GL_TEXTURE_2D, SceneBuffers.PPHitBuffer->Handle);
-	SetDebugName(SceneBuffers.PPHitBuffer, "SceneBuffers.PPHitBuffer");
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, SceneBuffers.Width, SceneBuffers.Height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-	ThrowIfGLError("glTexImage2D(SceneBuffers.PPHitBuffer) failed");
-
-	// To do: staging buffers can't be textures in OpenGL
-	SceneBuffers.StagingHitBuffer = std::make_shared<GLTexture2D>();
-	glBindTexture(GL_TEXTURE_2D, SceneBuffers.StagingHitBuffer->Handle);
-	SetDebugName(SceneBuffers.StagingHitBuffer, "SceneBuffers.StagingHitBuffer");
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, SceneBuffers.Width, SceneBuffers.Height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-	ThrowIfGLError("glTexImage2D(SceneBuffers.StagingHitBuffer) failed");
-
 	SceneBuffers.DepthBuffer = std::make_shared<GLTexture2D>();
 	if (SceneBuffers.Multisample > 1)
 	{
@@ -374,7 +334,7 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 	// Every framebuffer checked complete as it is made, the bound one: an
 	// incomplete one surfaced later as "Lock failed", "Unlock failed" or
 	// "ReadPixels failed" with no cause. A driver that cannot draw into
-	// RGB10_A2 (beside the hit buffer and depth, or alone) gets the 8-bit
+	// RGB10_A2 (beside the depth, or alone) gets the 8-bit
 	// buffers, from now on; any other incompleteness is the error, named.
 	auto incomplete = [&](const char* what) -> bool
 	{
@@ -396,26 +356,9 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.Framebuffer->Handle);
 	SetDebugName(SceneBuffers.Framebuffer, "SceneBuffers.Framebuffer");
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, SceneBuffers.ColorBuffer->Handle, 0);
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, SceneBuffers.HitBuffer->Handle, 0);
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, SceneBuffers.DepthBuffer->Handle, 0);
 	ThrowIfGLError("Creating SceneBuffers.Framebuffer failed");
 	if (incomplete("SceneBuffers.Framebuffer"))
-		return;
-
-	SceneBuffers.HitFramebuffer = std::make_shared<GLFramebuffer>();
-	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.HitFramebuffer->Handle);
-	SetDebugName(SceneBuffers.HitFramebuffer, "SceneBuffers.HitFramebuffer");
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, SceneBuffers.HitBuffer->Handle, 0);
-	ThrowIfGLError("Creating SceneBuffers.HitFramebuffer failed");
-	if (incomplete("SceneBuffers.HitFramebuffer"))
-		return;
-
-	SceneBuffers.PPHitFramebuffer = std::make_shared<GLFramebuffer>();
-	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.PPHitFramebuffer->Handle);
-	SetDebugName(SceneBuffers.PPHitFramebuffer, "SceneBuffers.PPHitFramebuffer");
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, SceneBuffers.PPHitBuffer->Handle, 0);
-	ThrowIfGLError("Creating SceneBuffers.PPHitFramebuffer failed");
-	if (incomplete("SceneBuffers.PPHitFramebuffer"))
 		return;
 
 	for (int i = 0; i < 2; i++)
@@ -524,7 +467,6 @@ void GLRenderDevice::CreateScenePass()
 	for (int i = 0; i < 33; i++)
 	{
 		GLBlendDesc blendDesc = {};
-		blendDesc.IndependentBlendEnable = true;
 		blendDesc.RenderTarget[0].BlendEnable = true;
 		if (i < 32)
 		{
@@ -578,8 +520,6 @@ void GLRenderDevice::CreateScenePass()
 			blendDesc.RenderTarget[0].DestBlendAlpha = GL_ONE_MINUS_SRC_ALPHA;
 			blendDesc.RenderTarget[0].RenderTargetWriteMask = true;
 		}
-		blendDesc.RenderTarget[1].BlendEnable = false;
-		blendDesc.RenderTarget[1].RenderTargetWriteMask = true;
 		ScenePass.Pipelines[i].BlendState = CreateBlendState(blendDesc);
 
 		GLDepthStencilDesc depthStencilDesc = {};
@@ -608,7 +548,6 @@ void GLRenderDevice::CreateScenePass()
 	for (int i = 0; i < 2; i++)
 	{
 		GLBlendDesc blendDesc = {};
-		blendDesc.IndependentBlendEnable = true;
 		blendDesc.RenderTarget[0].BlendEnable = true;
 		blendDesc.RenderTarget[0].BlendOp = GL_FUNC_ADD;
 		blendDesc.RenderTarget[0].BlendOpAlpha = GL_FUNC_ADD;
@@ -617,8 +556,6 @@ void GLRenderDevice::CreateScenePass()
 		blendDesc.RenderTarget[0].DestBlend = GL_ONE_MINUS_SRC_ALPHA;
 		blendDesc.RenderTarget[0].DestBlendAlpha = GL_ONE_MINUS_SRC_ALPHA;
 		blendDesc.RenderTarget[0].RenderTargetWriteMask = true;
-		blendDesc.RenderTarget[1].BlendEnable = false;
-		blendDesc.RenderTarget[1].RenderTargetWriteMask = true;
 		ScenePass.LinePipeline[i].BlendState = CreateBlendState(blendDesc);
 
 		GLDepthStencilDesc depthStencilDesc = {};
@@ -641,7 +578,6 @@ void GLRenderDevice::CreateScenePass()
 	for (int i = 0; i < 2; i++)
 	{
 		GLBlendDesc blendDesc = {};
-		blendDesc.IndependentBlendEnable = true;
 		blendDesc.RenderTarget[0].BlendEnable = true;
 		blendDesc.RenderTarget[0].BlendOp = GL_FUNC_ADD;
 		blendDesc.RenderTarget[0].BlendOpAlpha = GL_FUNC_ADD;
@@ -650,8 +586,6 @@ void GLRenderDevice::CreateScenePass()
 		blendDesc.RenderTarget[0].DestBlend = GL_ONE_MINUS_SRC_ALPHA;
 		blendDesc.RenderTarget[0].DestBlendAlpha = GL_ONE_MINUS_SRC_ALPHA;
 		blendDesc.RenderTarget[0].RenderTargetWriteMask = true;
-		blendDesc.RenderTarget[1].BlendEnable = false;
-		blendDesc.RenderTarget[1].RenderTargetWriteMask = true;
 		ScenePass.PointPipeline[i].BlendState = CreateBlendState(blendDesc);
 
 		GLDepthStencilDesc depthStencilDesc = {};
@@ -797,7 +731,6 @@ void GLRenderDevice::ReleasePresentPass()
 	PresentPass.PPStepLayout.reset();
 	PresentPass.PPStep.reset();
 	PresentPass.PPStepVertexBuffer.reset();
-	PresentPass.HitResolve.reset();
 	for (auto& shader : PresentPass.Present) shader.reset();
 	PresentPass.PresentConstantBuffer.reset();
 	PresentPass.DitherTexture.reset();
@@ -811,17 +744,12 @@ void GLRenderDevice::ReleasePresentPass()
 void GLRenderDevice::ReleaseSceneBuffers()
 {
 	SceneBuffers.Framebuffer.reset();
-	SceneBuffers.HitFramebuffer.reset();
-	SceneBuffers.PPHitFramebuffer.reset();
 	for (int i = 0; i < 2; i++)
 	{
 		SceneBuffers.PPFramebuffer[i].reset();
 		SceneBuffers.PPImage[i].reset();
 	}
 	SceneBuffers.ColorBuffer.reset();
-	SceneBuffers.StagingHitBuffer.reset();
-	SceneBuffers.PPHitBuffer.reset();
-	SceneBuffers.HitBuffer.reset();
 	SceneBuffers.DepthBuffer.reset();
 	for (PPBlurLevel& level : SceneBuffers.BlurLevels)
 	{
@@ -1082,10 +1010,6 @@ void GLRenderDevice::CreatePresentPass()
 		PresentPass.PresentProgram[i] = CreateProgram("PresentPass.PresentProgram", PresentPass.PPStep, PresentPass.Present[i]);
 	}
 
-	// To do: vulkan device didn't have this. Figure out why (maybe we don't need it for OpenGL? can we do like the vulkan device does?
-	//PresentPass.HitResolve = CreateFragmentShader("PresentPass.HitResolve", "shaders/HitResolve.frag");
-	//PresentPass.HitResolveProgram = CreateProgram("PresentPass.HitResolveProgram", PresentPass.PPStep, PresentPass.HitResolve);
-
 	static const float ditherdata[64] =
 	{
 		.0078125, .2578125, .1328125, .3828125, .0234375, .2734375, .1484375, .3984375,
@@ -1178,7 +1102,7 @@ void GLRenderDevice::UnmapVertices()
 	// written happens per flush in DrawBatches.
 }
 
-void GLRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear, uint8_t* InHitData, int* InHitSize)
+void GLRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 {
 	if (Viewport->GetNativePixelWidth() != CurrentSizeX || Viewport->GetNativePixelHeight() != CurrentSizeY)
 	{
@@ -1223,17 +1147,13 @@ void GLRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear, 
 		LastResizeError.clear();
 	}
 
-	HitData = InHitData;
-	HitSize = InHitSize;
-
 	FlashScale = InFlashScale;
 	FlashFog = InFlashFog;
 
 	float color[4] = { ScreenClear.x, ScreenClear.y, ScreenClear.z, ScreenClear.w };
 	float zero[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.Framebuffer->Handle);
-	GLenum bufs[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-	glDrawBuffers(2, bufs);
+	{ GLenum glAtt = GL_COLOR_ATTACHMENT0; glDrawBuffers(1, &glAtt); } // ES has only glDrawBuffers
 
 	GLViewport viewport = {};
 	viewport.Width = (float)SceneBuffers.Width;
@@ -1259,9 +1179,6 @@ void GLRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear, 
 	SetRasterizerState(ScenePass.RasterizerState[SceneBuffers.Multisample > 1].get());
 
 	MapVertices(true);
-
-	SceneConstants.HitIndex = 0;
-	ForceHitIndex = -1;
 
 	IsLocked = true;
 	ForgetDrawState();
@@ -1414,90 +1331,10 @@ void GLRenderDevice::Unlock(bool Blit)
 		UpdateLODBias();
 	}
 
-	if (HitData)
-	{
-		// Resolve multisampling
-		if (SceneBuffers.Multisample > 1)
-		{
-			glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.PPHitFramebuffer->Handle);
-			{ GLenum glAtt = GL_COLOR_ATTACHMENT0; glDrawBuffers(1, &glAtt); } // ES has only glDrawBuffers
-			glReadBuffer(GL_COLOR_ATTACHMENT0);
-			glUseProgram(PresentPass.HitResolveProgram->Handle);
-
-			GLViewport viewport = {};
-			viewport.X = (float)HitX;
-			viewport.Y = (float)HitY;
-			viewport.Width = (float)HitWidth;
-			viewport.Height = (float)HitHeight;
-			viewport.MaxDepth = 1.0f;
-			SetViewport(viewport);
-
-			glBindVertexArray(PresentPass.PPStepLayout->Handle);
-			SetRasterizerState(PresentPass.RasterizerState.get());
-			GLTexture2D* srvs[1] = { SceneBuffers.HitBuffer.get() };
-			SetTextures(0, 1, srvs);
-			SetDepthStencilState(PresentPass.DepthStencilState.get());
-			SetBlendState(PresentPass.BlendState.get());
-
-			glDrawArrays(GL_TRIANGLES, 0, 6);
-		}
-		else
-		{
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, SceneBuffers.PPHitFramebuffer->Handle);
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, SceneBuffers.HitFramebuffer->Handle);
-			{ GLenum glAtt = GL_COLOR_ATTACHMENT0; glDrawBuffers(1, &glAtt); } // ES has only glDrawBuffers
-			glReadBuffer(GL_COLOR_ATTACHMENT0);
-			glBlitFramebuffer(HitX, HitY, HitX + HitWidth, HitY + HitHeight, HitX, HitY, HitX + HitWidth, HitY + HitHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-		}
-
-#if 0
-		// Copy the hit buffer to a mappable texture, but only the part we want to examine
-		Context->CopySubresourceRegion(SceneBuffers.StagingHitBuffer, 0, 0, 0, 0, SceneBuffers.PPHitBuffer, 0, &box);
-
-		// Lock the buffer and look for the last hit
-		int hit = 0;
-		GL_MAPPED_SUBRESOURCE mapping = {};
-		HRESULT result = Context->Map(SceneBuffers.StagingHitBuffer, 0, GL_MAP_READ, 0, &mapping);
-		if (SUCCEEDED(result))
-		{
-			int width = HitWidth;
-			int height = HitHeight;
-			for (int y = 0; y < height; y++)
-			{
-				const int* line = (const int*)(((const char*)mapping.pData) + y * mapping.RowPitch);
-				for (int x = 0; x < width; x++)
-				{
-					hit = std::max(hit, line[x]);
-				}
-			}
-			Context->Unmap(SceneBuffers.StagingHitBuffer, 0);
-		}
-		hit--;
-
-		hit = std::max(hit, ForceHitIndex);
-
-		if (hit >= 0 && hit < (int)HitQueries.size())
-		{
-			const HitQuery& query = HitQueries[hit];
-			memcpy(HitData, HitBuffer.data() + query.Start, query.Count);
-			*HitSize = query.Count;
-		}
-		else
-		{
-			*HitSize = 0;
-		}
-#endif
-	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	{ GLenum glBack = GL_BACK; glDrawBuffers(1, &glBack); } // ES has only glDrawBuffers
 	glReadBuffer(GL_BACK);
-
-	HitQueryStack.clear();
-	HitQueries.clear();
-	HitBuffer.clear();
-	HitData = nullptr;
-	HitSize = nullptr;
 
 	IsLocked = false;
 	ForgetDrawState();
@@ -1505,48 +1342,6 @@ void GLRenderDevice::Unlock(bool Blit)
 	ThrowIfGLError("Unlock failed");
 }
 
-void GLRenderDevice::PushHit(const uint8_t* Data, int Count)
-{
-	if (Count <= 0) return;
-	HitQueryStack.insert(HitQueryStack.end(), Data, Data + Count);
-
-	SetHitLocation();
-}
-
-void GLRenderDevice::PopHit(int Count, bool bForce)
-{
-	if (bForce) // Force hit what we are popping
-		ForceHitIndex = (int)(HitQueries.size() - 1);
-
-	HitQueryStack.resize(HitQueryStack.size() - Count);
-
-	SetHitLocation();
-}
-
-void GLRenderDevice::SetHitLocation()
-{
-	DrawBatches();
-
-	if (!HitQueryStack.empty())
-	{
-		int index = (int)HitQueries.size();
-
-		HitQuery query;
-		query.Start = (int)HitBuffer.size();
-		query.Count = (int)HitQueryStack.size();
-		HitQueries.push_back(query);
-
-		HitBuffer.insert(HitBuffer.end(), HitQueryStack.begin(), HitQueryStack.end());
-
-		SceneConstants.HitIndex = index + 1;
-	}
-	else
-	{
-		SceneConstants.HitIndex = 0;
-	}
-
-	SetBufferData(GL_UNIFORM_BUFFER, GL_STREAM_DRAW, ScenePass.ConstantBuffer.get(), &SceneConstants, sizeof(GLScenePushConstants));
-}
 
 void GLRenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet)
 {
@@ -2282,8 +2077,8 @@ void GLRenderDevice::SetSceneNode(SceneNode* Frame)
 	SetBufferData(GL_UNIFORM_BUFFER, GL_STREAM_DRAW, ScenePass.ConstantBuffer.get(), &SceneConstants, sizeof(GLScenePushConstants));
 }
 
-// The post-process passes, the present and the hit resolve write no clip
-// distance, which an enabled one leaves undefined: each turns it off.
+// The post-process passes and the present write no clip distance, which an
+// enabled one leaves undefined: each turns it off.
 void GLRenderDevice::SetClipDistance(bool on)
 {
 	if (on == ClipDistanceOn)
@@ -2303,45 +2098,19 @@ void GLRenderDevice::SetBufferData(GLenum target, GLenum usage, GLBuffer* buffer
 
 void GLRenderDevice::SetBlendState(GLBlendState* blendState, const float* blendConstants)
 {
-	// Per-draw-buffer blend (the i variants) is desktop GL 4.0+ and in no ES
-	// version. On ES the non-indexed calls apply to every draw buffer: the
-	// blend describes the color attachment, and the integer hit attachment
-	// ignores blending by the spec itself.
-	if (blendState->desc.IndependentBlendEnable && !IsGLES)
+	// Every framebuffer drawn into has the one colour attachment
+	const GLBlendDesc::Target& target = blendState->desc.RenderTarget[0];
+	GLboolean maskValue = target.RenderTargetWriteMask ? GL_TRUE : GL_FALSE;
+	glColorMask(maskValue, maskValue, maskValue, maskValue);
+	if (target.BlendEnable)
 	{
-		// To do: this might require OpenGL 4.0 - glBlendFuncSeparatei does, not sure about glEnablei(GL_BLEND)
-		for (int i = 0; i < 2; i++)
-		{
-			const GLBlendDesc::Target& target = blendState->desc.RenderTarget[i];
-			GLboolean maskValue = target.RenderTargetWriteMask ? GL_TRUE : GL_FALSE;
-			glColorMaski(i, maskValue, maskValue, maskValue, maskValue);
-			if (target.BlendEnable)
-			{
-				glEnablei(GL_BLEND, i);
-				glBlendEquationSeparatei(i, target.BlendOp, target.BlendOpAlpha);
-				glBlendFuncSeparatei(i, target.SrcBlend, target.DestBlend, target.SrcBlendAlpha, target.DestBlendAlpha);
-			}
-			else
-			{
-				glDisablei(GL_BLEND, i);
-			}
-		}
+		glEnable(GL_BLEND);
+		glBlendEquationSeparate(target.BlendOp, target.BlendOpAlpha);
+		glBlendFuncSeparate(target.SrcBlend, target.DestBlend, target.SrcBlendAlpha, target.DestBlendAlpha);
 	}
 	else
 	{
-		const GLBlendDesc::Target& target = blendState->desc.RenderTarget[0];
-		GLboolean maskValue = target.RenderTargetWriteMask ? GL_TRUE : GL_FALSE;
-		glColorMask(maskValue, maskValue, maskValue, maskValue);
-		if (target.BlendEnable)
-		{
-			glEnable(GL_BLEND);
-			glBlendEquationSeparate(target.BlendOp, target.BlendOpAlpha);
-			glBlendFuncSeparate(target.SrcBlend, target.DestBlend, target.SrcBlendAlpha, target.DestBlendAlpha);
-		}
-		else
-		{
-			glDisable(GL_BLEND);
-		}
+		glDisable(GL_BLEND);
 	}
 
 	if (blendConstants)

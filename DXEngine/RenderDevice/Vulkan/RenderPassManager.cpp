@@ -173,7 +173,6 @@ void RenderPassManager::CreatePipelines()
 				builder.AddFragmentShader(fragShader);
 
 			builder.AddColorBlendAttachment(colorblend.Create());
-			builder.AddColorBlendAttachment(ColorBlendAttachmentBuilder().Create());
 		}
 		else // PF_SubpixelFont
 		{
@@ -181,7 +180,6 @@ void RenderPassManager::CreatePipelines()
 			builder.AddColorBlendAttachment(ColorBlendAttachmentBuilder()
 				.BlendMode(VK_BLEND_OP_ADD, VK_BLEND_FACTOR_CONSTANT_COLOR, VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR)
 				.Create());
-			builder.AddColorBlendAttachment(ColorBlendAttachmentBuilder().Create());
 		}
 
 		builder.RasterizationSamples(renderer->Textures->Scene->SceneSamples);
@@ -215,7 +213,6 @@ void RenderPassManager::CreatePipelines()
 		builder.RenderPass(Scene.RenderPass.get());
 
 		builder.AddColorBlendAttachment(ColorBlendAttachmentBuilder().BlendMode(VK_BLEND_OP_ADD, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA).Create());
-		builder.AddColorBlendAttachment(ColorBlendAttachmentBuilder().Create());
 
 		builder.DepthStencilEnable(true, true, false);
 		builder.AddFragmentShader(fragShader);
@@ -257,7 +254,6 @@ void RenderPassManager::CreatePipelines()
 		builder.RenderPass(Scene.RenderPass.get());
 
 		builder.AddColorBlendAttachment(ColorBlendAttachmentBuilder().BlendMode(VK_BLEND_OP_ADD, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA).Create());
-		builder.AddColorBlendAttachment(ColorBlendAttachmentBuilder().Create());
 
 		builder.DepthStencilEnable(true, true, false);
 		builder.RasterizationSamples(renderer->Textures->Scene->SceneSamples);
@@ -283,13 +279,6 @@ void RenderPassManager::CreateRenderPass()
 			VK_ATTACHMENT_STORE_OP_STORE,
 			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-		.AddAttachment(
-			VK_FORMAT_R32_UINT,
-			renderer->Textures->Scene->SceneSamples,
-			VK_ATTACHMENT_LOAD_OP_CLEAR,
-			VK_ATTACHMENT_STORE_OP_STORE,
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
 		.AddDepthStencilAttachment(
 			VK_FORMAT_D32_SFLOAT,
 			renderer->Textures->Scene->SceneSamples,
@@ -301,21 +290,13 @@ void RenderPassManager::CreateRenderPass()
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
 		.AddSubpass()
 		.AddSubpassColorAttachmentRef(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-		.AddSubpassColorAttachmentRef(1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-		.AddSubpassDepthStencilAttachmentRef(2, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+		.AddSubpassDepthStencilAttachmentRef(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
 		.DebugName("SceneRenderPass")
 		.Create(renderer->Device.get());
 
 	Scene.RenderPassContinue = RenderPassBuilder()
 		.AddAttachment(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
-			renderer->Textures->Scene->SceneSamples,
-			VK_ATTACHMENT_LOAD_OP_LOAD,
-			VK_ATTACHMENT_STORE_OP_STORE,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-		.AddAttachment(
-			VK_FORMAT_R32_UINT,
 			renderer->Textures->Scene->SceneSamples,
 			VK_ATTACHMENT_LOAD_OP_LOAD,
 			VK_ATTACHMENT_STORE_OP_STORE,
@@ -332,8 +313,7 @@ void RenderPassManager::CreateRenderPass()
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
 		.AddSubpass()
 		.AddSubpassColorAttachmentRef(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-		.AddSubpassColorAttachmentRef(1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-		.AddSubpassDepthStencilAttachmentRef(2, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+		.AddSubpassDepthStencilAttachmentRef(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
 		.DebugName("SceneRenderPassContinue")
 		.Create(renderer->Device.get());
 }

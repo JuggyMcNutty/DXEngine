@@ -102,7 +102,7 @@ RenderDeviceCanvas::RenderDeviceCanvas(RenderDevice* device) : device(device)
 
 void RenderDeviceCanvas::begin(const Colorf& color)
 {
-	device->Lock(vec4(0.0f), vec4(0.0f), vec4(color.r, color.g, color.b, color.a), nullptr, nullptr);
+	device->Lock(vec4(0.0f), vec4(0.0f), vec4(color.r, color.g, color.b, color.a));
 
 	frame.XB = 0;
 	frame.YB = 0;

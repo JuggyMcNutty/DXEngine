@@ -15,7 +15,6 @@ void FramebufferManager::CreateSceneFramebuffer()
 		.RenderPass(renderer->RenderPasses->Scene.RenderPass.get())
 		.Size(renderer->Textures->Scene->Width, renderer->Textures->Scene->Height)
 		.AddAttachment(renderer->Textures->Scene->ColorBufferView.get())
-		.AddAttachment(renderer->Textures->Scene->HitBufferView.get())
 		.AddAttachment(renderer->Textures->Scene->DepthBufferView.get())
 		.DebugName("SceneFramebuffer")
 		.Create(renderer->Device.get());

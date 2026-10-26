@@ -31,8 +31,6 @@ struct GLScenePushConstants
 	mat4 ObjectToProjection;
 	mat4 ObjectToView;
 	vec4 NearClip;
-	int HitIndex;
-	int Padding1, Padding2, Padding3;
 };
 
 struct GLPresentPushConstants
@@ -77,7 +75,7 @@ public:
 	void Exit();
 
 	void Flush(bool AllowPrecache) override;
-	void Lock(vec4 FlashScale, vec4 FlashFog, vec4 ScreenClear, uint8_t* HitData, int* HitSize) override;
+	void Lock(vec4 FlashScale, vec4 FlashFog, vec4 ScreenClear) override;
 	void Unlock(bool Blit) override;
 	void DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet) override;
 	void DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags) override;
@@ -87,8 +85,6 @@ public:
 	void Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2) override;
 	void Draw2DPoint(SceneNode* Frame, vec4 Color, uint32_t LineFlags, float X1, float Y1, float X2, float Y2, float Z) override;
 	void ClearZ() override;
-	void PushHit(const uint8_t* Data, int Count) override;
-	void PopHit(int Count, bool bForce) override;
 	void ReadPixels(TextureColor* Pixels) override;
 	void LastFrameSize(int& width, int& height) const override { width = SceneBuffers.Width; height = SceneBuffers.Height; }
 	void EndFlash() override;
@@ -97,7 +93,6 @@ public:
 	bool SupportsTextureFormat(TextureFormat Format) override;
 	void UpdateTextureRect(TextureInfo& Info, int U, int V, int UL, int VL) override;
 
-	void SetHitLocation();
 
 	void SetDebugName(GLenum type, GLuint handle, const char* name);
 
@@ -123,14 +118,9 @@ public:
 	{
 		std::shared_ptr<GLFramebuffer> Framebuffer;
 		std::shared_ptr<GLTexture2D> ColorBuffer;
-		std::shared_ptr<GLFramebuffer> HitFramebuffer;
-		std::shared_ptr<GLTexture2D> HitBuffer;
 		std::shared_ptr<GLTexture2D> DepthBuffer;
 		std::shared_ptr<GLFramebuffer> PPFramebuffer[2];
 		std::shared_ptr<GLTexture2D> PPImage[2];
-		std::shared_ptr<GLFramebuffer> PPHitFramebuffer;
-		std::shared_ptr<GLTexture2D> PPHitBuffer;
-		std::shared_ptr<GLTexture2D> StagingHitBuffer;
 		enum { NumBloomLevels = 4 };
 		PPBlurLevel BlurLevels[NumBloomLevels];
 		int Width = 0;
@@ -239,9 +229,7 @@ public:
 		std::shared_ptr<GLVertexShader> PPStep;
 		std::shared_ptr<GLInputLayout> PPStepLayout;
 		std::shared_ptr<GLBuffer> PPStepVertexBuffer;
-		std::shared_ptr<GLFragmentShader> HitResolve;
 		std::shared_ptr<GLFragmentShader> Present[16];
-		std::shared_ptr<GLProgram> HitResolveProgram;
 		std::shared_ptr<GLProgram> PresentProgram[16];
 		std::shared_ptr<GLBuffer> PresentConstantBuffer;
 		std::shared_ptr<GLTexture2D> DitherTexture;
@@ -409,21 +397,6 @@ private:
 	GLScenePushConstants SceneConstants = {};
 	GLViewport SceneViewport = {};
 	bool DepthCuedActive = false;
-
-	struct HitQuery
-	{
-		int Start = 0;
-		int Count = 0;
-	};
-
-	uint8_t* HitData = nullptr;
-	int* HitSize = nullptr;
-	std::vector<uint8_t> HitQueryStack;
-	std::vector<HitQuery> HitQueries;
-	std::vector<uint8_t> HitBuffer;
-
-	int ForceHitIndex = -1;
-	HitQuery ForceHit;
 
 	bool IsLocked = false;
 	std::string LastResizeError; // the last failed resize's reason, said once

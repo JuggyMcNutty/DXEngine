@@ -13,8 +13,6 @@ std::string FileResource::readAllText(const std::string& filename)
 			{
 				mat4 objectToProjection;
 				vec4 nearClip;
-				uint uHitIndex;
-				uint padding1, padding2, padding3;
 			};
 
 			layout(location = 0) in uint aFlags;
@@ -32,7 +30,6 @@ std::string FileResource::readAllText(const std::string& filename)
 			layout(location = 3) out vec2 texCoord3;
 			layout(location = 4) out vec2 texCoord4;
 			layout(location = 5) out vec4 color;
-			layout(location = 6) flat out uint hitIndex;
 			layout(location = 7) flat out ivec4 textureBinds;
 			#if defined(CLIP_DISCARD)
 			layout(location = 8) out float clipDistance;
@@ -53,7 +50,6 @@ std::string FileResource::readAllText(const std::string& filename)
 				texCoord3 = aTexCoord3;
 				texCoord4 = aTexCoord4;
 				color = aColor;
-				hitIndex = uHitIndex;
 				textureBinds = aTextureBinds;
 			}
 		)";
@@ -81,7 +77,6 @@ std::string FileResource::readAllText(const std::string& filename)
 			layout(location = 3) in vec2 texCoord3;
 			layout(location = 4) in vec2 texCoord4;
 			layout(location = 5) in vec4 color;
-			layout(location = 6) flat in uint hitIndex;
 			#if defined(BINDLESS_TEXTURES)
 			layout(location = 7) flat in ivec4 textureBinds;
 			#endif
@@ -90,7 +85,6 @@ std::string FileResource::readAllText(const std::string& filename)
 			#endif
 
 			layout(location = 0) out vec4 outColor;
-			layout(location = 1) out uint outHitIndex;
 
 			vec4 darkClamp(vec4 c)
 			{
@@ -197,8 +191,6 @@ std::string FileResource::readAllText(const std::string& filename)
 				#endif
 
 				outColor = clamp(outColor, 0.0, 1.0);
-
-				outHitIndex = hitIndex;
 			}
 		)";
 	}

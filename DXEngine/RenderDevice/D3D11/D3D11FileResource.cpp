@@ -29,7 +29,6 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 				float2 texCoord3 : PixelTexCoordThree;
 				float2 texCoord4 : PixelTexCoordFour;
 				float4 color : PixelColor;
-				uint hitIndex : PixelHitIndex;
 				float nearClipDistance : SV_ClipDistance0;
 			};
 
@@ -38,8 +37,6 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 				float4x4 ObjectToProjection;
 				float4x4 ObjectToView;
 				float4 NearClip;
-				uint HitIndex;
-				uint Padding1, Padding2, Padding3;
 			}
 
 			Output main(Input input)
@@ -53,7 +50,6 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 				output.texCoord3 = input.TexCoord3;
 				output.texCoord4 = input.TexCoord4;
 				output.color = input.Color;
-				output.hitIndex = HitIndex;
 				return output;
 			}
 		)";
@@ -70,13 +66,11 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 				float2 texCoord3 : PixelTexCoordThree;
 				float2 texCoord4 : PixelTexCoordFour;
 				float4 color : PixelColor;
-				uint hitIndex : PixelHitIndex;
 			};
 
 			struct Output
 			{
 				float4 outColor : SV_Target0;
-				uint outHitIndex : SV_Target1;
 			};
 
 			SamplerState samplerTex;
@@ -151,8 +145,6 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 				#endif
 
 				output.outColor = clamp(output.outColor, 0.0, 1.0);
-
-				output.outHitIndex = input.hitIndex;
 				return output;
 			}
 		)";
@@ -322,30 +314,6 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 			#else
 				output.outColor = float4(dither(color, input.fragCoord), 1.0f);
 			#endif
-				return output;
-			}
-		)";
-	}
-	else if (filename == "shaders/HitResolve.frag")
-	{
-		return R"(
-			struct Input
-			{
-				float4 fragCoord : SV_Position;
-				float2 texCoord : PixelTexCoord;
-			};
-
-			struct Output
-			{
-				uint outHitIndex : SV_Target;
-			};
-
-			Texture2DMS<uint> tex;
-
-			Output main(Input input)
-			{
-				Output output;
-				output.outHitIndex = tex.Load(int2(input.fragCoord.xy), 0);
 				return output;
 			}
 		)";

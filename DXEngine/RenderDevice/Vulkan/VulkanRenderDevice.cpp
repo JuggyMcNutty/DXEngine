@@ -172,7 +172,6 @@ void VulkanRenderDevice::Flush(bool AllowPrecache)
 
 		PipelineBarrier()
 			.AddImage(Textures->Scene->ColorBuffer.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, srcColorAccess, dstColorAccess)
-			.AddImage(Textures->Scene->HitBuffer.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, srcColorAccess, dstColorAccess)
 			.AddImage(Textures->Scene->DepthBuffer.get(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, srcDepthAccess, dstDepthAccess, VK_IMAGE_ASPECT_DEPTH_BIT)
 			.Execute(cmdbuffer, srcStages, dstStages);
 
@@ -180,7 +179,6 @@ void VulkanRenderDevice::Flush(bool AllowPrecache)
 			.RenderPass(RenderPasses->Scene.RenderPassContinue.get())
 			.Framebuffer(Framebuffers->SceneFramebuffer.get())
 			.RenderArea(0, 0, Textures->Scene->Width, Textures->Scene->Height)
-			.AddClearColor(0.0f, 0.0f, 0.0f, 0.0f)
 			.AddClearColor(0.0f, 0.0f, 0.0f, 0.0f)
 			.AddClearDepthStencil(1.0f, 0)
 			.Execute(cmdbuffer);
@@ -202,19 +200,13 @@ void VulkanRenderDevice::Flush(bool AllowPrecache)
 		PrecacheOnFlip = 1;
 }
 
-void VulkanRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear, uint8_t* InHitData, int* InHitSize)
+void VulkanRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 {
 	// The previous frame may still be drawing (Unlock does not wait for it).
 	Commands->WaitForFrame();
 
-	HitData = InHitData;
-	HitSize = InHitSize;
-
 	FlashScale = InFlashScale;
 	FlashFog = InFlashFog;
-
-	pushconstants.hitIndex = 0;
-	ForceHitIndex = -1;
 
 	// If frame textures no longer match the window or user settings, recreate them along with the swap chain
 	if (!Textures->Scene || Textures->Scene->Width != GetRenderWidth() || Textures->Scene->Height != GetRenderHeight() ||Textures->Scene->Multisample != GetSettingsMultisample())
@@ -240,7 +232,6 @@ void VulkanRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenCle
 
 	PipelineBarrier()
 		.AddImage(Textures->Scene->ColorBuffer.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, srcColorAccess, dstColorAccess)
-		.AddImage(Textures->Scene->HitBuffer.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, srcColorAccess, dstColorAccess)
 		.AddImage(Textures->Scene->DepthBuffer.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, srcDepthAccess, dstDepthAccess, VK_IMAGE_ASPECT_DEPTH_BIT)
 		.Execute(cmdbuffer, srcStages, dstStages);
 
@@ -249,7 +240,6 @@ void VulkanRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenCle
 		.Framebuffer(Framebuffers->SceneFramebuffer.get())
 		.RenderArea(0, 0, Textures->Scene->Width, Textures->Scene->Height)
 		.AddClearColor(ScreenClear.x, ScreenClear.y, ScreenClear.z, ScreenClear.w)
-		.AddClearColor(0.0f, 0.0f, 0.0f, 0.0f)
 		.AddClearDepthStencil(1.0f, 0)
 		.Execute(cmdbuffer);
 
@@ -278,7 +268,6 @@ void VulkanRenderDevice::FlushDrawBatchAndWait()
 
 	PipelineBarrier()
 		.AddImage(Textures->Scene->ColorBuffer.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, srcColorAccess, dstColorAccess)
-		.AddImage(Textures->Scene->HitBuffer.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, srcColorAccess, dstColorAccess)
 		.AddImage(Textures->Scene->DepthBuffer.get(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, srcDepthAccess, dstDepthAccess, VK_IMAGE_ASPECT_DEPTH_BIT)
 		.Execute(drawcommands, srcStages, dstStages);
 
@@ -310,8 +299,8 @@ void VulkanRenderDevice::Unlock(bool Blit)
 	int windowHeight = Viewport->GetNativePixelHeight();
 
 	// Leave the frame in flight, so the next game tick runs while the GPU
-	// draws -- unless the hit buffer has to be read back right away.
-	Submit(Blit ? true : false, windowWidth, windowHeight, Viewport->IsFullscreen(), HitData != nullptr);
+	// draws.
+	Submit(Blit ? true : false, windowWidth, windowHeight, Viewport->IsFullscreen(), false);
 
 	Batch.Pipeline = nullptr;
 	Batch.DepthBias = false;
@@ -324,47 +313,6 @@ void VulkanRenderDevice::Unlock(bool Blit)
 		Textures->ClearAllBindlessIndexes();
 		Samplers->CreateSceneSamplers();
 	}
-
-	if (HitData)
-	{
-		// Look for the last hit
-		int width = HitWidth;
-		int height = HitHeight;
-		int hit = 0;
-		const int32_t* data = (const int32_t*)Textures->Scene->StagingHitBuffer->Map(0, width * height * sizeof(int32_t));
-		if (data)
-		{
-			for (int y = 0; y < height; y++)
-			{
-				const int* line = data + y * width;
-				for (int x = 0; x < width; x++)
-				{
-					hit = std::max(hit, line[x]);
-				}
-			}
-			Textures->Scene->StagingHitBuffer->Unmap();
-		}
-		hit--;
-
-		hit = std::max(hit, ForceHitIndex);
-
-		if (hit >= 0 && hit < (int)HitQueries.size())
-		{
-			const HitQuery& query = HitQueries[hit];
-			memcpy(HitData, HitBuffer.data() + query.Start, query.Count);
-			*HitSize = query.Count;
-		}
-		else
-		{
-			*HitSize = 0;
-		}
-	}
-
-	HitQueryStack.clear();
-	HitQueries.clear();
-	HitBuffer.clear();
-	HitData = nullptr;
-	HitSize = nullptr;
 
 	IsLocked = false;
 }
@@ -861,47 +809,6 @@ void VulkanRenderDevice::ClearZ()
 	Commands->GetDrawCommands()->clearAttachments(1, &attachment, 1, &rect);
 }
 
-void VulkanRenderDevice::PushHit(const uint8_t* Data, int Count)
-{
-	if (Count <= 0) return;
-	HitQueryStack.insert(HitQueryStack.end(), Data, Data + Count);
-
-	SetHitLocation();
-}
-
-void VulkanRenderDevice::PopHit(int Count, bool bForce)
-{
-	if (bForce) // Force hit what we are popping
-		ForceHitIndex = (int)HitQueries.size() - 1;
-
-	HitQueryStack.resize(HitQueryStack.size() - Count);
-
-	SetHitLocation();
-}
-
-void VulkanRenderDevice::SetHitLocation()
-{
-	DrawBatch(Commands->GetDrawCommands());
-
-	if (!HitQueryStack.empty())
-	{
-		int index = (int)HitQueries.size();
-
-		HitQuery query;
-		query.Start = (int)HitBuffer.size();
-		query.Count = (int)HitQueryStack.size();
-		HitQueries.push_back(query);
-
-		HitBuffer.insert(HitBuffer.end(), HitQueryStack.begin(), HitQueryStack.end());
-
-		pushconstants.hitIndex = index + 1;
-	}
-	else
-	{
-		pushconstants.hitIndex = 0;
-	}
-}
-
 void VulkanRenderDevice::ReadPixels(TextureColor* Pixels)
 {
 	auto cmdbuffer = Commands->GetDrawCommands();
@@ -1144,22 +1051,6 @@ void VulkanRenderDevice::BlitSceneToPostprocess()
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 		VK_ACCESS_TRANSFER_READ_BIT);
-	if (HitData)
-	{
-		barrer0.AddImage(
-			buffers->HitBuffer.get(),
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_ACCESS_TRANSFER_READ_BIT);
-		barrer0.AddImage(
-			buffers->PPHitBuffer.get(),
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_ACCESS_TRANSFER_READ_BIT,
-			VK_ACCESS_TRANSFER_WRITE_BIT);
-		srcStageMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
-	}
 	barrer0.AddImage(
 		buffers->PPImage[0].get(),
 		VK_IMAGE_LAYOUT_UNDEFINED,
@@ -1183,13 +1074,6 @@ void VulkanRenderDevice::BlitSceneToPostprocess()
 			buffers->ColorBuffer->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			buffers->PPImage[0]->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1, &resolve);
-		if (HitData)
-		{
-			cmdbuffer->resolveImage(
-				buffers->HitBuffer->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				buffers->PPHitBuffer->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-				1, &resolve);
-		}
 	}
 	else
 	{
@@ -1207,19 +1091,6 @@ void VulkanRenderDevice::BlitSceneToPostprocess()
 			colorBuffer->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			buffers->PPImage[0]->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1, &blit, VK_FILTER_NEAREST);
-		if (HitData)
-		{
-			VkImageCopy copy = {};
-			copy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			copy.srcSubresource.layerCount = 1;
-			copy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			copy.dstSubresource.layerCount = 1;
-			copy.extent = { (uint32_t)colorBuffer->width, (uint32_t)colorBuffer->height, (uint32_t)1 };
-			cmdbuffer->copyImage(
-				buffers->HitBuffer->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				buffers->PPHitBuffer->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-				1, &copy);
-		}
 	}
 
 	PipelineBarrier barrier1;
@@ -1229,33 +1100,10 @@ void VulkanRenderDevice::BlitSceneToPostprocess()
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_ACCESS_TRANSFER_WRITE_BIT,
 		VK_ACCESS_SHADER_READ_BIT);
-	if (HitData)
-	{
-		barrier1.AddImage(
-			buffers->PPHitBuffer.get(),
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_ACCESS_TRANSFER_READ_BIT);
-	}
 	barrier1.Execute(
 		Commands->GetDrawCommands(),
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		HitData ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-
-	if (HitData)
-	{
-		VkBufferImageCopy copy = {};
-		copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		copy.imageSubresource.layerCount = 1;
-		copy.imageOffset = { (int32_t)HitX, (int32_t)HitY, (int32_t)0 };
-		copy.imageExtent = { (uint32_t)HitWidth, (uint32_t)HitHeight, (uint32_t)1 };
-		cmdbuffer->copyImageToBuffer(buffers->PPHitBuffer->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffers->StagingHitBuffer->buffer, 1, &copy);
-
-		PipelineBarrier()
-			.AddBuffer(buffers->StagingHitBuffer.get(), VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT)
-			.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT);
-	}
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void VulkanRenderDevice::RunBloomPass()

@@ -588,13 +588,10 @@ void D3D11RenderDevice::ResizeSceneBuffers(int width, int height, int multisampl
 {
 	multisample = std::max(multisample, 1);
 
-	if (SceneBuffers.Width == width && SceneBuffers.Height == height && multisample == SceneBuffers.Multisample && SceneBuffers.ColorBuffer && SceneBuffers.HitBuffer && SceneBuffers.PPHitBuffer && SceneBuffers.StagingHitBuffer && SceneBuffers.DepthBuffer && SceneBuffers.PPImage[0] && SceneBuffers.PPImage[1])
+	if (SceneBuffers.Width == width && SceneBuffers.Height == height && multisample == SceneBuffers.Multisample && SceneBuffers.ColorBuffer && SceneBuffers.DepthBuffer && SceneBuffers.PPImage[0] && SceneBuffers.PPImage[1])
 		return;
 
 	SceneBuffers.ColorBufferView.reset();
-	SceneBuffers.HitBufferView.reset();
-	SceneBuffers.HitBufferShaderView.reset();
-	SceneBuffers.PPHitBufferView.reset();
 	SceneBuffers.DepthBufferView.reset();
 	for (int i = 0; i < 2; i++)
 	{
@@ -603,9 +600,6 @@ void D3D11RenderDevice::ResizeSceneBuffers(int width, int height, int multisampl
 		SceneBuffers.PPImage[i].reset();
 	}
 	SceneBuffers.ColorBuffer.reset();
-	SceneBuffers.StagingHitBuffer.reset();
-	SceneBuffers.PPHitBuffer.reset();
-	SceneBuffers.HitBuffer.reset();
 	SceneBuffers.DepthBuffer.reset();
 
 	for (PPBlurLevel& level : SceneBuffers.BlurLevels)
@@ -635,49 +629,6 @@ void D3D11RenderDevice::ResizeSceneBuffers(int width, int height, int multisampl
 	HRESULT result = Device->CreateTexture2D(&texDesc, nullptr, SceneBuffers.ColorBuffer.TypedInitPtr());
 	ThrowIfFailed(result, "CreateTexture2D(ColorBuffer) failed");
 	SetDebugName(SceneBuffers.ColorBuffer, "SceneBuffers.ColorBuffer");
-
-	texDesc = {};
-	texDesc.Usage = D3D11_USAGE_DEFAULT;
-	texDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-	texDesc.Width = SceneBuffers.Width;
-	texDesc.Height = SceneBuffers.Height;
-	texDesc.MipLevels = 1;
-	texDesc.ArraySize = 1;
-	texDesc.Format = DXGI_FORMAT_R32_UINT;
-	texDesc.SampleDesc.Count = SceneBuffers.Multisample;
-	texDesc.SampleDesc.Quality = SceneBuffers.Multisample > 1 ? D3D11_STANDARD_MULTISAMPLE_PATTERN : 0;
-	result = Device->CreateTexture2D(&texDesc, nullptr, SceneBuffers.HitBuffer.TypedInitPtr());
-	ThrowIfFailed(result, "CreateTexture2D(HitBuffer) failed");
-	SetDebugName(SceneBuffers.HitBuffer, "SceneBuffers.HitBuffer");
-
-	texDesc = {};
-	texDesc.Usage = D3D11_USAGE_DEFAULT;
-	texDesc.BindFlags = D3D11_BIND_RENDER_TARGET;
-	texDesc.Width = SceneBuffers.Width;
-	texDesc.Height = SceneBuffers.Height;
-	texDesc.MipLevels = 1;
-	texDesc.ArraySize = 1;
-	texDesc.Format = DXGI_FORMAT_R32_UINT;
-	texDesc.SampleDesc.Count = 1;
-	texDesc.SampleDesc.Quality = 0;
-	result = Device->CreateTexture2D(&texDesc, nullptr, SceneBuffers.PPHitBuffer.TypedInitPtr());
-	ThrowIfFailed(result, "CreateTexture2D(PPHitBuffer) failed");
-	SetDebugName(SceneBuffers.PPHitBuffer, "SceneBuffers.PPHitBuffer");
-
-	texDesc = {};
-	texDesc.Usage = D3D11_USAGE_STAGING;
-	texDesc.BindFlags = 0;
-	texDesc.Width = SceneBuffers.Width;
-	texDesc.Height = SceneBuffers.Height;
-	texDesc.MipLevels = 1;
-	texDesc.ArraySize = 1;
-	texDesc.Format = DXGI_FORMAT_R32_UINT;
-	texDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-	texDesc.SampleDesc.Count = 1;
-	texDesc.SampleDesc.Quality = 0;
-	result = Device->CreateTexture2D(&texDesc, nullptr, SceneBuffers.StagingHitBuffer.TypedInitPtr());
-	ThrowIfFailed(result, "CreateTexture2D(StagingHitBuffer) failed");
-	SetDebugName(SceneBuffers.StagingHitBuffer, "SceneBuffers.StagingHitBuffer");
 
 	texDesc = {};
 	texDesc.Usage = D3D11_USAGE_DEFAULT;
@@ -713,18 +664,6 @@ void D3D11RenderDevice::ResizeSceneBuffers(int width, int height, int multisampl
 	result = Device->CreateRenderTargetView(SceneBuffers.ColorBuffer, nullptr, SceneBuffers.ColorBufferView.TypedInitPtr());
 	ThrowIfFailed(result, "CreateRenderTargetView(ColorBuffer) failed");
 	SetDebugName(SceneBuffers.ColorBufferView, "SceneBuffers.ColorBufferView");
-
-	result = Device->CreateRenderTargetView(SceneBuffers.HitBuffer, nullptr, SceneBuffers.HitBufferView.TypedInitPtr());
-	ThrowIfFailed(result, "CreateRenderTargetView(HitBuffer) failed");
-	SetDebugName(SceneBuffers.HitBufferView, "SceneBuffers.HitBufferView");
-
-	result = Device->CreateShaderResourceView(SceneBuffers.HitBuffer, nullptr, SceneBuffers.HitBufferShaderView.TypedInitPtr());
-	ThrowIfFailed(result, "CreateShaderResourceView(HitBuffer) failed");
-	SetDebugName(SceneBuffers.HitBufferShaderView, "SceneBuffers.HitBufferShaderView");
-
-	result = Device->CreateRenderTargetView(SceneBuffers.PPHitBuffer, nullptr, SceneBuffers.PPHitBufferView.TypedInitPtr());
-	ThrowIfFailed(result, "CreateRenderTargetView(PPHitBuffer) failed");
-	SetDebugName(SceneBuffers.PPHitBufferView, "SceneBuffers.PPHitBufferView");
 
 	result = Device->CreateDepthStencilView(SceneBuffers.DepthBuffer, nullptr, SceneBuffers.DepthBufferView.TypedInitPtr());
 	ThrowIfFailed(result, "CreateDepthStencilView(DepthBuffer) failed");
@@ -828,7 +767,6 @@ void D3D11RenderDevice::CreateScenePass()
 	for (int i = 0; i < 33; i++)
 	{
 		D3D11_BLEND_DESC blendDesc = {};
-		blendDesc.IndependentBlendEnable = TRUE;
 		blendDesc.RenderTarget[0].BlendEnable = TRUE;
 		if (i < 32)
 		{
@@ -882,8 +820,6 @@ void D3D11RenderDevice::CreateScenePass()
 			blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
 			blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 		}
-		blendDesc.RenderTarget[1].BlendEnable = FALSE;
-		blendDesc.RenderTarget[1].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 		HRESULT result = Device->CreateBlendState(&blendDesc, ScenePass.Pipelines[i].BlendState.TypedInitPtr());
 		ThrowIfFailed(result, "CreateBlendState(ScenePass.Pipelines.BlendState) failed");
 		SetDebugName(ScenePass.Pipelines[i].BlendState, "ScenePass.Pipelines.BlendState");
@@ -911,7 +847,6 @@ void D3D11RenderDevice::CreateScenePass()
 	for (int i = 0; i < 2; i++)
 	{
 		D3D11_BLEND_DESC blendDesc = {};
-		blendDesc.IndependentBlendEnable = TRUE;
 		blendDesc.RenderTarget[0].BlendEnable = TRUE;
 		blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
 		blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
@@ -920,8 +855,6 @@ void D3D11RenderDevice::CreateScenePass()
 		blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
 		blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
 		blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-		blendDesc.RenderTarget[1].BlendEnable = FALSE;
-		blendDesc.RenderTarget[1].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 		HRESULT result = Device->CreateBlendState(&blendDesc, ScenePass.LinePipeline[i].BlendState.TypedInitPtr());
 		ThrowIfFailed(result, "CreateBlendState(ScenePass.LinePipeline.BlendState) failed");
 		SetDebugName(ScenePass.LinePipeline[i].BlendState, "ScenePass.LinePipeline.BlendState");
@@ -948,7 +881,6 @@ void D3D11RenderDevice::CreateScenePass()
 	for (int i = 0; i < 2; i++)
 	{
 		D3D11_BLEND_DESC blendDesc = {};
-		blendDesc.IndependentBlendEnable = TRUE;
 		blendDesc.RenderTarget[0].BlendEnable = TRUE;
 		blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
 		blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
@@ -957,8 +889,6 @@ void D3D11RenderDevice::CreateScenePass()
 		blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
 		blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
 		blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-		blendDesc.RenderTarget[1].BlendEnable = FALSE;
-		blendDesc.RenderTarget[1].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 		HRESULT result = Device->CreateBlendState(&blendDesc, ScenePass.PointPipeline[i].BlendState.TypedInitPtr());
 		ThrowIfFailed(result, "CreateBlendState(ScenePass.LinePipeline.BlendState) failed");
 		SetDebugName(ScenePass.PointPipeline[i].BlendState, "ScenePass.PointPipeline.BlendState");
@@ -1096,7 +1026,6 @@ void D3D11RenderDevice::ReleasePresentPass()
 	PresentPass.PPStepLayout.reset();
 	PresentPass.PPStep.reset();
 	PresentPass.PPStepVertexBuffer.reset();
-	PresentPass.HitResolve.reset();
 	for (auto& shader : PresentPass.Present) shader.reset();
 	PresentPass.PresentConstantBuffer.reset();
 	PresentPass.DitherTextureView.reset();
@@ -1109,9 +1038,6 @@ void D3D11RenderDevice::ReleasePresentPass()
 void D3D11RenderDevice::ReleaseSceneBuffers()
 {
 	SceneBuffers.ColorBufferView.reset();
-	SceneBuffers.HitBufferView.reset();
-	SceneBuffers.HitBufferShaderView.reset();
-	SceneBuffers.PPHitBufferView.reset();
 	SceneBuffers.DepthBufferView.reset();
 	for (int i = 0; i < 2; i++)
 	{
@@ -1120,9 +1046,6 @@ void D3D11RenderDevice::ReleaseSceneBuffers()
 		SceneBuffers.PPImage[i].reset();
 	}
 	SceneBuffers.ColorBuffer.reset();
-	SceneBuffers.StagingHitBuffer.reset();
-	SceneBuffers.PPHitBuffer.reset();
-	SceneBuffers.HitBuffer.reset();
 	SceneBuffers.DepthBuffer.reset();
 	for (PPBlurLevel& level : SceneBuffers.BlurLevels)
 	{
@@ -1396,8 +1319,6 @@ void D3D11RenderDevice::CreatePresentPass()
 		CreatePixelShader(PresentPass.Present[i], "PresentPass.Present", "shaders/Present.frag", defines);
 	}
 
-	CreatePixelShader(PresentPass.HitResolve, "PresentPass.HitResolve", "shaders/HitResolve.frag");
-
 	static const float ditherdata[64] =
 	{
 		.0078125, .2578125, .1328125, .3828125, .0234375, .2734375, .1484375, .3984375,
@@ -1498,7 +1419,7 @@ void D3D11RenderDevice::UnmapVertices()
 	}
 }
 
-void D3D11RenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear, uint8_t* InHitData, int* InHitSize)
+void D3D11RenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 {
 	if (Viewport->GetNativePixelWidth() != CurrentSizeX || Viewport->GetNativePixelHeight() != CurrentSizeY)
 	{
@@ -1531,19 +1452,14 @@ void D3D11RenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClea
 		}
 	}
 
-	HitData = InHitData;
-	HitSize = InHitSize;
-
 	FlashScale = InFlashScale;
 	FlashFog = InFlashFog;
 
 	FLOAT color[4] = { ScreenClear.x, ScreenClear.y, ScreenClear.z, ScreenClear.w };
-	FLOAT zero[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	ID3D11RenderTargetView* views[2] = { SceneBuffers.ColorBufferView, SceneBuffers.HitBufferView };
+	ID3D11RenderTargetView* views[1] = { SceneBuffers.ColorBufferView };
 	Context->ClearRenderTargetView(SceneBuffers.ColorBufferView, color);
-	Context->ClearRenderTargetView(SceneBuffers.HitBufferView, zero);
 	Context->ClearDepthStencilView(SceneBuffers.DepthBufferView, D3D11_CLEAR_DEPTH, 1.0f, 0);
-	Context->OMSetRenderTargets(2, views, SceneBuffers.DepthBufferView);
+	Context->OMSetRenderTargets(1, views, SceneBuffers.DepthBufferView);
 
 	UINT stride = sizeof(D3D11SceneVertex);
 	UINT offset = 0;
@@ -1562,9 +1478,6 @@ void D3D11RenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClea
 	Context->RSSetScissorRects(1, &box);
 
 	MapVertices(true);
-
-	SceneConstants.HitIndex = 0;
-	ForceHitIndex = -1;
 
 	IsLocked = true;
 }
@@ -1722,143 +1635,14 @@ void D3D11RenderDevice::Unlock(bool Blit)
 		UpdateLODBias();
 	}
 
-	if (HitData)
-	{
-		D3D11_BOX box = {};
-		box.left = HitX;
-		box.right = HitX + HitWidth;
-		box.top = SceneBuffers.Height - HitY - HitHeight;
-		box.bottom = SceneBuffers.Height - HitY;
-		box.front = 0;
-		box.back = 1;
-
-		// Resolve multisampling
-		if (SceneBuffers.Multisample > 1)
-		{
-			ID3D11RenderTargetView* rtvs[1] = { SceneBuffers.PPHitBufferView.get() };
-			Context->OMSetRenderTargets(1, rtvs, nullptr);
-
-			D3D11_VIEWPORT viewport = {};
-			viewport.TopLeftX = (float)box.left;
-			viewport.TopLeftY = (float)box.top;
-			viewport.Width = (float)(box.right - box.left);
-			viewport.Height = (float)(box.bottom - box.top);
-			viewport.MaxDepth = 1.0f;
-			Context->RSSetViewports(1, &viewport);
-
-			UINT stride = sizeof(vec2);
-			UINT offset = 0;
-			ID3D11Buffer* vertexBuffers[1] = { PresentPass.PPStepVertexBuffer.get() };
-			ID3D11ShaderResourceView* srvs[1] = { SceneBuffers.HitBufferShaderView.get() };
-			Context->IASetVertexBuffers(0, 1, vertexBuffers, &stride, &offset);
-			Context->IASetInputLayout(PresentPass.PPStepLayout);
-			Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-			Context->VSSetShader(PresentPass.PPStep, nullptr, 0);
-			Context->RSSetState(PresentPass.RasterizerState);
-			Context->PSSetShader(PresentPass.HitResolve, nullptr, 0);
-			Context->PSSetShaderResources(0, 1, srvs);
-			Context->OMSetDepthStencilState(PresentPass.DepthStencilState, 0);
-			Context->OMSetBlendState(PresentPass.BlendState, nullptr, 0xffffffff);
-
-			Context->Draw(6, 0);
-		}
-		else
-		{
-			Context->CopySubresourceRegion(SceneBuffers.PPHitBuffer, 0, box.left, box.top, 0, SceneBuffers.HitBuffer, 0, &box);
-		}
-
-		// Copy the hit buffer to a mappable texture, but only the part we want to examine
-		Context->CopySubresourceRegion(SceneBuffers.StagingHitBuffer, 0, 0, 0, 0, SceneBuffers.PPHitBuffer, 0, &box);
-
-		// Lock the buffer and look for the last hit
-		int hit = 0;
-		D3D11_MAPPED_SUBRESOURCE mapping = {};
-		HRESULT result = Context->Map(SceneBuffers.StagingHitBuffer, 0, D3D11_MAP_READ, 0, &mapping);
-		if (SUCCEEDED(result))
-		{
-			int width = HitWidth;
-			int height = HitHeight;
-			for (int y = 0; y < height; y++)
-			{
-				const int* line = (const int*)(((const char*)mapping.pData) + y * mapping.RowPitch);
-				for (int x = 0; x < width; x++)
-				{
-					hit = std::max(hit, line[x]);
-				}
-			}
-			Context->Unmap(SceneBuffers.StagingHitBuffer, 0);
-		}
-		hit--;
-
-		hit = std::max(hit, ForceHitIndex);
-
-		if (hit >= 0 && hit < (int)HitQueries.size())
-		{
-			const HitQuery& query = HitQueries[hit];
-			memcpy(HitData, HitBuffer.data() + query.Start, query.Count);
-			*HitSize = query.Count;
-		}
-		else
-		{
-			*HitSize = 0;
-		}
-	}
 
 	Context->OMSetRenderTargets(0, nullptr, nullptr);
-
-	HitQueryStack.clear();
-	HitQueries.clear();
-	HitBuffer.clear();
-	HitData = nullptr;
-	HitSize = nullptr;
 
 	IsLocked = false;
 
 	PrintDebugLayerMessages();
 }
 
-void D3D11RenderDevice::PushHit(const uint8_t* Data, int Count)
-{
-	if (Count <= 0) return;
-	HitQueryStack.insert(HitQueryStack.end(), Data, Data + Count);
-
-	SetHitLocation();
-}
-
-void D3D11RenderDevice::PopHit(int Count, bool bForce)
-{
-	if (bForce) // Force hit what we are popping
-		ForceHitIndex = (int)(HitQueries.size() - 1);
-
-	HitQueryStack.resize(HitQueryStack.size() - Count);
-
-	SetHitLocation();
-}
-
-void D3D11RenderDevice::SetHitLocation()
-{
-	DrawBatches();
-
-	if (!HitQueryStack.empty())
-	{
-		int index = (int)HitQueries.size();
-
-		HitQuery query;
-		query.Start = (int)HitBuffer.size();
-		query.Count = (int)HitQueryStack.size();
-		HitQueries.push_back(query);
-
-		HitBuffer.insert(HitBuffer.end(), HitQueryStack.begin(), HitQueryStack.end());
-
-		SceneConstants.HitIndex = index + 1;
-	}
-	else
-	{
-		SceneConstants.HitIndex = 0;
-	}
-
-	Context->UpdateSubresource(ScenePass.ConstantBuffer, 0, nullptr, &SceneConstants, 0, 0);
-}
 
 void D3D11RenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet)
 {

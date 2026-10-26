@@ -17,15 +17,13 @@ struct SceneVertex
 	ivec4 TextureBinds;
 };
 
-// 96 bytes, within the 128 every Vulkan device grants (160 once, past the
+// 80 bytes, within the 128 every Vulkan device grants (160 once, past the
 // limit many a mobile driver reports): the near clip plane in the object's
 // space, the view matrix it was transformed by folded into it
 struct ScenePushConstants
 {
 	mat4 objectToProjection;
 	vec4 nearClip;
-	uint32_t hitIndex;
-	uint32_t padding1, padding2, padding3;
 };
 
 struct PresentPushConstants

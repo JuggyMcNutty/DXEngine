@@ -24,7 +24,7 @@ public:
 	~VulkanRenderDevice();
 
 	void Flush(bool AllowPrecache) override;
-	void Lock(vec4 FlashScale, vec4 FlashFog, vec4 ScreenClear, uint8_t* HitData, int* HitSize) override;
+	void Lock(vec4 FlashScale, vec4 FlashFog, vec4 ScreenClear) override;
 	void Unlock(bool Blit) override;
 	void DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet) override;
 	void DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags) override;
@@ -34,15 +34,11 @@ public:
 	void Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2) override;
 	void Draw2DPoint(SceneNode* Frame, vec4 Color, uint32_t LineFlags, float X1, float Y1, float X2, float Y2, float Z) override;
 	void ClearZ() override;
-	void PushHit(const uint8_t* Data, int Count) override;
-	void PopHit(int Count, bool bForce) override;
 	void ReadPixels(TextureColor* Pixels) override;
 	void LastFrameSize(int& width, int& height) const override;
 	void EndFlash() override;
 	void SetSceneNode(SceneNode* Frame) override;
 	void PrecacheTexture(TextureInfo& Info, uint32_t PolyFlags) override;
-
-	void SetHitLocation();
 
 	bool SupportsTextureFormat(TextureFormat Format) override;
 	bool SupportsRenderScale() const override { return true; }
@@ -175,21 +171,6 @@ private:
 
 	size_t SceneVertexPos = 0;
 	size_t SceneIndexPos = 0;
-
-	struct HitQuery
-	{
-		int Start = 0;
-		int Count = 0;
-	};
-
-	uint8_t* HitData = nullptr;
-	int* HitSize = nullptr;
-	std::vector<uint8_t> HitQueryStack;
-	std::vector<HitQuery> HitQueries;
-	std::vector<uint8_t> HitBuffer;
-
-	int ForceHitIndex = -1;
-	HitQuery ForceHit;
 };
 
 inline void VulkanRenderDevice::SetPipeline(PipelineState* pipeline, bool depthBias)

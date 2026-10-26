@@ -191,7 +191,6 @@ public:
 class GLBlendDesc
 {
 public:
-	bool IndependentBlendEnable;
 	struct Target
 	{
 		bool RenderTargetWriteMask; // glColorMask
@@ -202,7 +201,7 @@ public:
 		GLenum SrcBlendAlpha;
 		GLenum DestBlend;
 		GLenum DestBlendAlpha;
-	} RenderTarget[2];
+	} RenderTarget[1];
 };
 
 class GLBlendState

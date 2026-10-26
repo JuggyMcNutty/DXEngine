@@ -14,8 +14,6 @@ std::string GLFileResource::readAllText(const std::string& filename)
 				mat4 objectToProjection;
 				mat4 objectToView;
 				vec4 nearClip;
-				uint uHitIndex;
-				uint padding1, padding2, padding3;
 			};
 
 			layout(location = 0) in uint aFlags;
@@ -32,7 +30,6 @@ std::string GLFileResource::readAllText(const std::string& filename)
 			layout(location = 3) out vec2 texCoord3;
 			layout(location = 4) out vec2 texCoord4;
 			layout(location = 5) out vec4 color;
-			layout(location = 6) flat out uint hitIndex;
 			#if defined(CLIP_DISCARD)
 			layout(location = 8) out float clipDistance;
 			#endif
@@ -51,7 +48,6 @@ std::string GLFileResource::readAllText(const std::string& filename)
 				texCoord3 = aTexCoord3;
 				texCoord4 = aTexCoord4;
 				color = aColor;
-				hitIndex = uHitIndex;
 			}
 		)";
 	}
@@ -69,14 +65,12 @@ std::string GLFileResource::readAllText(const std::string& filename)
 			layout(location = 3) in vec2 texCoord3;
 			layout(location = 4) in vec2 texCoord4;
 			layout(location = 5) in vec4 color;
-			layout(location = 6) flat in uint hitIndex;
 			layout(location = 7) flat in ivec4 textureBinds;
 			#if defined(CLIP_DISCARD)
 			layout(location = 8) in float clipDistance;
 			#endif
 
 			layout(location = 0) out vec4 outColor;
-			layout(location = 1) out uint outHitIndex;
 
 			vec4 darkClamp(vec4 c)
 			{
@@ -175,8 +169,6 @@ std::string GLFileResource::readAllText(const std::string& filename)
 				#endif
 
 				outColor = clamp(outColor, 0.0, 1.0);
-
-				outHitIndex = hitIndex;
 			}
 		)";
 	}
@@ -322,31 +314,6 @@ std::string GLFileResource::readAllText(const std::string& filename)
 			}
 		)";
 	}
-	/*else if (filename == "shaders/HitResolve.frag")
-	{
-		// To do: vulkan device didn't have this. Figure out why (maybe we don't need it for OpenGL? can we do like the vulkan device does?
-		return R"(
-			struct Input
-			{
-				float4 fragCoord : SV_Position;
-				float2 texCoord : PixelTexCoord;
-			};
-
-			struct Output
-			{
-				uint outHitIndex : SV_Target;
-			};
-
-			Texture2DMS<uint> tex;
-
-			Output main(Input input)
-			{
-				Output output;
-				output.outHitIndex = tex.Load(int2(input.fragCoord.xy), 0);
-				return output;
-			}
-		)";
-	}*/
 	else if (filename == "shaders/BloomExtract.frag")
 	{
 		return R"(

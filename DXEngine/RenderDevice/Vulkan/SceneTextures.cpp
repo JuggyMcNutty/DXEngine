@@ -21,19 +21,6 @@ SceneTextures::SceneTextures(VulkanRenderDevice* renderer, int width, int height
 		.DebugName("colorBufferView")
 		.Create(renderer->Device.get());
 
-	HitBuffer = ImageBuilder()
-		.Size(width, height)
-		.Samples(SceneSamples)
-		.Format(VK_FORMAT_R32_UINT)
-		.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
-		.DebugName("hitBuffer")
-		.Create(renderer->Device.get());
-
-	HitBufferView = ImageViewBuilder()
-		.Image(HitBuffer.get(), VK_FORMAT_R32_UINT, VK_IMAGE_ASPECT_COLOR_BIT)
-		.DebugName("hitBufferView")
-		.Create(renderer->Device.get());
-
 	DepthBuffer = ImageBuilder()
 		.Size(width, height)
 		.Samples(SceneSamples)
@@ -62,20 +49,6 @@ SceneTextures::SceneTextures(VulkanRenderDevice* renderer, int width, int height
 			.DebugName("ppImageView")
 			.Create(renderer->Device.get());
 	}
-
-	PPHitBuffer = ImageBuilder()
-		.Size(width, height)
-		.Samples(VK_SAMPLE_COUNT_1_BIT)
-		.Format(VK_FORMAT_R32_UINT)
-		.Usage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-		.DebugName("ppHitBuffer")
-		.Create(renderer->Device.get());
-
-	StagingHitBuffer = BufferBuilder()
-		.Usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU)
-		.Size(width * height * sizeof(uint32_t))
-		.DebugName("stagingHitBuffer")
-		.Create(renderer->Device.get());
 
 	int bloomWidth = width;
 	int bloomHeight = height;
@@ -125,14 +98,6 @@ SceneTextures::SceneTextures(VulkanRenderDevice* renderer, int width, int height
 		VK_IMAGE_ASPECT_COLOR_BIT);
 
 	barrier.AddImage(
-		HitBuffer.get(),
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		0,
-		VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		VK_IMAGE_ASPECT_COLOR_BIT);
-
-	barrier.AddImage(
 		DepthBuffer.get(),
 		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
@@ -173,10 +138,10 @@ VkSampleCountFlagBits SceneTextures::GetBestSampleCount(VulkanDevice* device, in
 	const auto& limits = device->PhysicalDevice.Properties.Properties.limits;
 	int requestedSamples = clamp(multisample, 1, 64);
 	// Every attachment of the scene's framebuffer takes the count, and is
-	// sampled: the colour, the hit buffer (integer) and the depth
+	// sampled: the colour and the depth
 	VkSampleCountFlags deviceSampleCounts =
 		limits.sampledImageColorSampleCounts & limits.sampledImageDepthSampleCounts & limits.sampledImageStencilSampleCounts &
-		limits.sampledImageIntegerSampleCounts & limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts;
+		limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts;
 
 	int samples = 1;
 	VkSampleCountFlags bit = VK_SAMPLE_COUNT_1_BIT;

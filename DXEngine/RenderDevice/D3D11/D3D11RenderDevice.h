@@ -36,8 +36,6 @@ struct D3D11ScenePushConstants
 	mat4 ObjectToProjection;
 	mat4 ObjectToView;
 	vec4 NearClip;
-	int HitIndex;
-	int Padding1, Padding2, Padding3;
 };
 
 struct D3D11PresentPushConstants
@@ -66,7 +64,7 @@ public:
 	void Exit();
 
 	void Flush(bool AllowPrecache) override;
-	void Lock(vec4 FlashScale, vec4 FlashFog, vec4 ScreenClear, uint8_t* HitData, int* HitSize) override;
+	void Lock(vec4 FlashScale, vec4 FlashFog, vec4 ScreenClear) override;
 	void Unlock(bool Blit) override;
 	void DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet) override;
 	void DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags) override;
@@ -75,8 +73,6 @@ public:
 	void Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2) override;
 	void Draw2DPoint(SceneNode* Frame, vec4 Color, uint32_t LineFlags, float X1, float Y1, float X2, float Y2, float Z) override;
 	void ClearZ() override;
-	void PushHit(const uint8_t* Data, int Count) override;
-	void PopHit(int Count, bool bForce) override;
 	void ReadPixels(TextureColor* Pixels) override;
 	// The size ReadPixels writes: the scene's at the last Lock, not the
 	// window's now (a window resized since overflowed the buffer)
@@ -87,7 +83,6 @@ public:
 	bool SupportsTextureFormat(TextureFormat Format) override;
 	void UpdateTextureRect(TextureInfo& Info, int U, int V, int UL, int VL) override;
 
-	void SetHitLocation();
 
 	void SetDebugName(ID3D11Device* obj, const char* name);
 	void SetDebugName(ID3D11DeviceChild* obj, const char* name);
@@ -122,17 +117,11 @@ public:
 	struct
 	{
 		ComPtr<ID3D11Texture2D> ColorBuffer;
-		ComPtr<ID3D11Texture2D> HitBuffer;
 		ComPtr<ID3D11Texture2D> DepthBuffer;
 		ComPtr<ID3D11Texture2D> PPImage[2];
-		ComPtr<ID3D11Texture2D> PPHitBuffer;
-		ComPtr<ID3D11Texture2D> StagingHitBuffer;
 		ComPtr<ID3D11RenderTargetView> ColorBufferView;
-		ComPtr<ID3D11RenderTargetView> HitBufferView;
 		ComPtr<ID3D11DepthStencilView> DepthBufferView;
-		ComPtr<ID3D11RenderTargetView> PPHitBufferView;
 		ComPtr<ID3D11RenderTargetView> PPImageView[2];
-		ComPtr<ID3D11ShaderResourceView> HitBufferShaderView;
 		ComPtr<ID3D11ShaderResourceView> PPImageShaderView[2];
 		enum { NumBloomLevels = 4 };
 		PPBlurLevel BlurLevels[NumBloomLevels];
@@ -199,7 +188,6 @@ public:
 		ComPtr<ID3D11VertexShader> PPStep;
 		ComPtr<ID3D11InputLayout> PPStepLayout;
 		ComPtr<ID3D11Buffer> PPStepVertexBuffer;
-		ComPtr<ID3D11PixelShader> HitResolve;
 		ComPtr<ID3D11PixelShader> Present[16];
 		ComPtr<ID3D11Buffer> PresentConstantBuffer;
 		ComPtr<ID3D11Texture2D> DitherTexture;
@@ -346,21 +334,6 @@ private:
 	D3D11ScenePushConstants SceneConstants = {};
 	D3D11_VIEWPORT SceneViewport = {};
 	bool DepthCuedActive = false;
-
-	struct HitQuery
-	{
-		int Start = 0;
-		int Count = 0;
-	};
-
-	uint8_t* HitData = nullptr;
-	int* HitSize = nullptr;
-	std::vector<uint8_t> HitQueryStack;
-	std::vector<HitQuery> HitQueries;
-	std::vector<uint8_t> HitBuffer;
-
-	int ForceHitIndex = -1;
-	HitQuery ForceHit;
 
 	bool IsLocked = false;
 	bool ActiveHdr = false;

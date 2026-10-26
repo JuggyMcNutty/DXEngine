@@ -453,9 +453,9 @@ wherever else that state is set.
   distances on ES as on desktop.
 - **Antialiasing on ES**: the multisampled scene buffers are made with ES 3.1's
   `glTexStorage2DMultisample`, as ES lacks desktop GL's `glTexImage2DMultisample`; on either,
-  the samples are halved until every attachment takes them (an ES driver may take one sample of
-  the integer hit buffer). It works on the desktop's ES 3.2 context; DXLauncher keeps
-  antialiasing off on a PowerVR, the Smart Pro's GE8300 among them, whose resolve is speckle.
+  the samples are halved until the colour and the depth take them. It works on the desktop's
+  ES 3.2 context; DXLauncher keeps antialiasing off on a PowerVR, the Smart Pro's GE8300 among
+  them, whose resolve is speckle.
 - **The desktop context**: every Linux window backend asks for a desktop 4.2 core context, as
   the shaders are GLSL 4.20 (`CompileGlsl` prepends `#version 420`): a driver without 4.2 fails
   at the context, with an error that says so, not at a shader.

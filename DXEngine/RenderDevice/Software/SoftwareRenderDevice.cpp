@@ -70,11 +70,9 @@ void SoftwareRenderDevice::Flush(bool AllowPrecache)
 		PrecacheOnFlip = true;
 }
 
-void SoftwareRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear, uint8_t* InHitData, int* InHitSize)
+void SoftwareRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 {
 	Workers->Wait();
-	HitData = InHitData;
-	HitSize = InHitSize;
 	FlashScale = InFlashScale;
 	FlashFog = InFlashFog;
 
@@ -118,12 +116,6 @@ void SoftwareRenderDevice::Unlock(bool Blit)
 	{
 		DrawRecorded(false);
 	}
-
-	// No hit testing: the game asks for none (DXEngine has no editor)
-	if (HitData && HitSize)
-		*HitSize = 0;
-	HitData = nullptr;
-	HitSize = nullptr;
 
 	IsLocked = false;
 }
@@ -678,14 +670,6 @@ void SoftwareRenderDevice::ClearZ()
 {
 	SoftwareVertex* v;
 	AddDraw(SoftwareDrawType::ClearZ, 0, v);
-}
-
-void SoftwareRenderDevice::PushHit(const uint8_t* Data, int Count)
-{
-}
-
-void SoftwareRenderDevice::PopHit(int Count, bool bForce)
-{
 }
 
 void SoftwareRenderDevice::ReadPixels(TextureColor* Pixels)
