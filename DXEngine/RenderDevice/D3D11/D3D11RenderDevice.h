@@ -59,8 +59,8 @@ public:
 	~D3D11RenderDevice();
 
 	// To do: port this
-	bool Init(int NewX, int NewY, bool Fullscreen);
-	bool SetRes(int NewX, int NewY, bool Fullscreen);
+	bool Init(int NewX, int NewY);
+	bool SetRes(int NewX, int NewY);
 	void Exit();
 
 	void Flush(bool AllowPrecache) override;
@@ -210,7 +210,6 @@ public:
 	std::unique_ptr<D3D11TextureManager> Textures;
 	std::unique_ptr<D3D11UploadManager> Uploads;
 
-	int RefreshRate = 0;
 
 	struct
 	{
@@ -344,7 +343,6 @@ private:
 		int Height = 0;
 	} DesktopResolution;
 
-	bool CurrentFullscreen = 0;
 	int CurrentSizeX = 0;
 	int CurrentSizeY = 0;
 };

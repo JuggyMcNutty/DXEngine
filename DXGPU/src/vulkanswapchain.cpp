@@ -139,10 +139,6 @@ bool VulkanSwapChain::CreateSwapchain(int width, int height, int imageCount, boo
 	imageCount = std::max(caps.Capabilites.minImageCount, (uint32_t)imageCount);
 
 	VkSwapchainCreateInfoKHR swapChainCreateInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
-#ifdef WIN32
-	VkSurfaceFullScreenExclusiveInfoEXT exclusiveInfo = { VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_INFO_EXT };
-	VkSurfaceFullScreenExclusiveWin32InfoEXT exclusiveWin32Info = { VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_WIN32_INFO_EXT };
-#endif
 
 	swapChainCreateInfo.surface = device->Surface->Surface;
 	swapChainCreateInfo.minImageCount = imageCount;
@@ -269,10 +265,6 @@ VulkanSurfaceCapabilities VulkanSwapChain::GetSurfaceCapabilities()
 	VulkanSurfaceCapabilities caps;
 
 	VkPhysicalDeviceSurfaceInfo2KHR surfaceInfo = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR };
-#ifdef WIN32
-	VkSurfaceFullScreenExclusiveInfoEXT exclusiveInfo = { VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_INFO_EXT };
-	VkSurfaceFullScreenExclusiveWin32InfoEXT exclusiveWin32Info = { VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_WIN32_INFO_EXT };
-#endif
 
 	surfaceInfo.surface = device->Surface->Surface;
 
@@ -342,8 +334,6 @@ VulkanSurfaceCapabilities VulkanSwapChain::GetSurfaceCapabilities()
 				VulkanError("vkGetPhysicalDeviceSurfaceFormatsKHR failed");
 		}
 	}
-
-	caps.FullScreenExclusive.pNext = nullptr;
 
 	return caps;
 }

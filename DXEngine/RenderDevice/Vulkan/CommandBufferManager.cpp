@@ -76,7 +76,7 @@ void CommandBufferManager::WaitForTransfer()
 	}
 }
 
-void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int presentHeight, bool presentFullscreen, bool wait)
+void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int presentHeight, bool wait)
 {
 	WaitForFrame();
 	renderer->Uploads->SubmitUploads();

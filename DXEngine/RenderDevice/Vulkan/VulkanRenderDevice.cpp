@@ -133,17 +133,17 @@ void VulkanError(const char* text)
 	throw std::runtime_error(text);
 }
 
-void VulkanRenderDevice::SubmitAndWait(bool present, int presentWidth, int presentHeight, bool presentFullscreen)
+void VulkanRenderDevice::SubmitAndWait(bool present, int presentWidth, int presentHeight)
 {
-	Submit(present, presentWidth, presentHeight, presentFullscreen, true);
+	Submit(present, presentWidth, presentHeight, true);
 }
 
-void VulkanRenderDevice::Submit(bool present, int presentWidth, int presentHeight, bool presentFullscreen, bool wait)
+void VulkanRenderDevice::Submit(bool present, int presentWidth, int presentHeight, bool wait)
 {
 	if (SupportsBindless)
 		DescriptorSets->UpdateBindlessSet();
 
-	Commands->SubmitCommands(present, presentWidth, presentHeight, presentFullscreen, wait);
+	Commands->SubmitCommands(present, presentWidth, presentHeight, wait);
 
 	DepthBiasSet = -1;
 	Batch.SceneIndexStart = 0;
@@ -157,7 +157,7 @@ void VulkanRenderDevice::Flush(bool AllowPrecache)
 	{
 		DrawBatch(Commands->GetDrawCommands());
 		Commands->GetDrawCommands()->endRenderPass();
-		SubmitAndWait(false, 0, 0, false);
+		SubmitAndWait(false, 0, 0);
 
 		ClearTextureCache();
 
@@ -255,7 +255,7 @@ void VulkanRenderDevice::FlushDrawBatchAndWait()
 {
 	DrawBatch(Commands->GetDrawCommands());
 	Commands->GetDrawCommands()->endRenderPass();
-	SubmitAndWait(false, 0, 0, false);
+	SubmitAndWait(false, 0, 0);
 
 	auto drawcommands = Commands->GetDrawCommands();
 
@@ -300,7 +300,7 @@ void VulkanRenderDevice::Unlock(bool Blit)
 
 	// Leave the frame in flight, so the next game tick runs while the GPU
 	// draws.
-	Submit(Blit ? true : false, windowWidth, windowHeight, Viewport->IsFullscreen(), false);
+	Submit(Blit ? true : false, windowWidth, windowHeight, false);
 
 	Batch.Pipeline = nullptr;
 	Batch.DepthBias = false;
@@ -927,7 +927,7 @@ void VulkanRenderDevice::ReadPixels(TextureColor* Pixels)
 	cmdbuffer->copyImageToBuffer(dstimage->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, staging->buffer, 1, &region);
 
 	// Submit command buffers and wait for device to finish the work
-	SubmitAndWait(false, 0, 0, false);
+	SubmitAndWait(false, 0, 0);
 
 	uint8_t* pixels = (uint8_t*)staging->Map(0, w * h * 4);
 	memcpy(data, pixels, w * h * 4);

@@ -125,6 +125,7 @@ the run. *Either*: one engine on each side of a pair.
 | `GlassConsole` | both | a glass mover on `TargetMap`, or any mover named `GlassName`, and what is behind it (`Pick`, `GlassName`, `View`, `Behind`; `Flip`: seen from the side with less room); `TraceTexture`'s hits through it | `DXGLASS:` | `shots.py`; the hits' lines diffed |
 | `FlushConsole` | both | a door on `TargetMap` slid half into the flat wall beside it, its face in the wall's plane (`Pick`, `DoorName`, `View`, `Angle`) | `DXFLUSH:` | `shots.py` |
 | `MirrorConsole` | both | mirrors from fixed views on `TargetMap`: Liberty Island's UNATCO HQ lobby floor, turned and stepped across, a mannequin on it, and the island's wall mirrors; UNATCO HQ's glass mirrors and floor; the training map's floor and the mirror strip over it; the Paris club's two facing glass mirrors; marked shots (`ShinyOff`: the render device's `ShinySurfaces` off; `Straddle`: the mannequin sunk half its height into the floor, across the mirror's plane) | `DXMIRROR:` | `shots.py --region`, at `DXCAP_WINDOW=1024x768` |
+| `FullscreenConsole` | dxe | the window full screen and back by `togglefullscreen`, a shot in each with the root's size: the device's frame at each size | `DXFULL:` | `shots.py` |
 | `HeldConsole` | both | what a pawn holds | `DXHELD:` |  |
 | `WallConsole` | both | the player's assault rifle against a wall of `TargetMap` (UNATCO HQ) | `DXWALL:` | `shots.py`, at `DXCAP_WINDOW=1024x768` |
 | `DeathConsole` | both | an NPC's death and its carcass | `DXDEATH:` |  |

@@ -20,7 +20,7 @@ DEFINE_GUID(WKPDID_D3DDebugObjectName, 0x429b8c22, 0x9188, 0x4b0c, 0x87, 0x42, 0
 D3D11RenderDevice::D3D11RenderDevice(Widget* InViewport)
 {
 	Viewport = InViewport;
-	if (!Init(Viewport->GetNativePixelWidth(), Viewport->GetNativePixelHeight(), false))
+	if (!Init(Viewport->GetNativePixelWidth(), Viewport->GetNativePixelHeight()))
 		Exception::Throw("Could not init D3D11RenderDevice");
 }
 
@@ -46,7 +46,7 @@ HWND D3D11RenderDevice::GetWindowHandle()
 	return static_cast<HWND>(Viewport->GetWin32Handle());
 }
 
-bool D3D11RenderDevice::Init(int NewX, int NewY, bool Fullscreen)
+bool D3D11RenderDevice::Init(int NewX, int NewY)
 {
 	ActiveHdr = Hdr;
 	BufferCount = UseVSync ? 2 : 3;
@@ -200,20 +200,12 @@ bool D3D11RenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 			swapDesc.OutputWindow = GetWindowHandle();
 			swapDesc.Windowed = TRUE;
 			swapDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-			if (RefreshRate != 0)
+			DEVMODE devmode = {};
+			devmode.dmSize = sizeof(DEVMODE);
+			if (EnumDisplaySettings(nullptr, ENUM_CURRENT_SETTINGS, &devmode) && devmode.dmDisplayFrequency > 1)
 			{
-				swapDesc.BufferDesc.RefreshRate.Numerator = RefreshRate;
+				swapDesc.BufferDesc.RefreshRate.Numerator = devmode.dmDisplayFrequency;
 				swapDesc.BufferDesc.RefreshRate.Denominator = 1;
-			}
-			else
-			{
-				DEVMODE devmode = {};
-				devmode.dmSize = sizeof(DEVMODE);
-				if (EnumDisplaySettings(nullptr, ENUM_CURRENT_SETTINGS, &devmode) && devmode.dmDisplayFrequency > 1)
-				{
-					swapDesc.BufferDesc.RefreshRate.Numerator = devmode.dmDisplayFrequency;
-					swapDesc.BufferDesc.RefreshRate.Denominator = 1;
-				}
 			}
 
 			// First try create a swap chain for Windows 8 and newer. If that fails, try the old for Windows 7
@@ -294,7 +286,7 @@ bool D3D11RenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 		return false;
 	}
 
-	if (!SetRes(NewX, NewY, Fullscreen))
+	if (!SetRes(NewX, NewY))
 	{
 		Exit();
 		return false;
@@ -376,109 +368,14 @@ void D3D11RenderDevice::SetColorSpace()
 	}
 }
 
-bool D3D11RenderDevice::SetRes(int NewX, int NewY, bool Fullscreen)
+// The window's size: the device draws in a window, the display's mode the
+// window backend's (SDL's fullscreen sets it), never DXGI's own
+bool D3D11RenderDevice::SetRes(int NewX, int NewY)
 {
 	ReleaseSwapChainResources();
 
-	// Resize the swap chain buffers before doing the mode switch. Shouldn't really make any difference but you never know!
-	if (Fullscreen)
-	{
-		UINT flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-		if (DxgiSwapChainAllowTearing)
-			flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
-		SwapChain->ResizeBuffers(UseVSync ? 2 : 3, NewX, NewY, ActiveHdr ? DXGI_FORMAT_R16G16B16A16_FLOAT : DXGI_FORMAT_R8G8B8A8_UNORM, flags);
-	}
-
-	HRESULT result;
-
-	DXGI_MODE_DESC modeDesc = {};
-	modeDesc.Width = NewX;
-	modeDesc.Height = NewY;
-	modeDesc.Format = ActiveHdr ? DXGI_FORMAT_R16G16B16A16_FLOAT : DXGI_FORMAT_R8G8B8A8_UNORM;
-	if (RefreshRate != 0)
-	{
-		modeDesc.RefreshRate.Numerator = RefreshRate;
-		modeDesc.RefreshRate.Denominator = 1;
-	}
-	else
-	{
-		DEVMODE devmode = {};
-		devmode.dmSize = sizeof(DEVMODE);
-		if (EnumDisplaySettings(nullptr, ENUM_CURRENT_SETTINGS, &devmode) && devmode.dmDisplayFrequency > 1)
-		{
-			modeDesc.RefreshRate.Numerator = devmode.dmDisplayFrequency;
-			modeDesc.RefreshRate.Denominator = 1;
-		}
-	}
-
-	if (Fullscreen)
-	{
-		IDXGIOutput* output = nullptr;
-		result = SwapChain->GetContainingOutput(&output);
-		if (SUCCEEDED(result))
-		{
-			DXGI_MODE_DESC modeToMatch = modeDesc;
-			DXGI_MODE_DESC modeFound = {};
-			result = output->FindClosestMatchingMode(&modeToMatch, &modeFound, Device);
-			if (SUCCEEDED(result))
-			{
-				if (modeToMatch.Width == modeFound.Width && modeToMatch.Height == modeFound.Height)
-				{
-					modeDesc = modeFound;
-				}
-				else
-				{
-					LogMessage("FindClosestMatchingMode could not find a mode with the specified resolution");
-				}
-			}
-			else
-			{
-				LogMessage("FindClosestMatchingMode failed");
-			}
-			NewX = modeDesc.Width;
-			NewY = modeDesc.Height;
-			output->Release();
-		}
-		else
-		{
-			LogMessage("GetContainingOutput failed");
-		}
-
-		result = SwapChain->SetFullscreenState(TRUE, nullptr);
-		if (FAILED(result))
-		{
-			LogMessage("SwapChain.SetFullscreenState failed");
-			// Don't fail this as it can happen if the application isn't the foreground process
-		}
-
-		result = SwapChain->ResizeTarget(&modeDesc);
-		if (FAILED(result))
-		{
-			LogMessage("SwapChain.ResizeTarget failed");
-		}
-	}
-	else
-	{
-		if (CurrentFullscreen)
-		{
-			result = SwapChain->SetFullscreenState(FALSE, nullptr);
-			if (FAILED(result))
-			{
-				LogMessage("SwapChain.SetFullscreenState failed");
-				// Don't fail this as it can happen if the application isn't the foreground process
-			}
-
-			result = SwapChain->ResizeTarget(&modeDesc);
-			if (FAILED(result))
-			{
-				LogMessage("SwapChain.ResizeTarget failed");
-			}
-		}
-	}
-
 	CurrentSizeX = NewX;
 	CurrentSizeY = NewY;
-	CurrentFullscreen = Fullscreen;
 
 	BufferCount = UseVSync ? 2 : 3;
 	if (!UpdateSwapChain())
@@ -546,8 +443,6 @@ void D3D11RenderDevice::Exit()
 	UnmapVertices();
 
 	ReleaseSwapChainResources();
-	if (CurrentFullscreen && SwapChain)
-		SwapChain->SetFullscreenState(FALSE, nullptr);
 
 	PrintDebugLayerMessages();
 
@@ -1423,7 +1318,7 @@ void D3D11RenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClea
 {
 	if (Viewport->GetNativePixelWidth() != CurrentSizeX || Viewport->GetNativePixelHeight() != CurrentSizeY)
 	{
-		if (!SetRes(Viewport->GetNativePixelWidth(), Viewport->GetNativePixelHeight(), CurrentFullscreen))
+		if (!SetRes(Viewport->GetNativePixelWidth(), Viewport->GetNativePixelHeight()))
 		{
 			Exception::Throw("Could not resize D3D11RenderDevice");
 		}
@@ -1605,7 +1500,7 @@ void D3D11RenderDevice::Unlock(bool Blit)
 		if (SwapChain1)
 		{
 			UINT flags = 0;
-			if (!UseVSync && !CurrentFullscreen && DxgiSwapChainAllowTearing)
+			if (!UseVSync && DxgiSwapChainAllowTearing)
 				flags |= DXGI_PRESENT_ALLOW_TEARING;
 
 			DXGI_PRESENT_PARAMETERS presentParams = {};

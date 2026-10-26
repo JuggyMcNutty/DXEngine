@@ -11,7 +11,7 @@ public:
 	~CommandBufferManager();
 
 	void WaitForTransfer();
-	void SubmitCommands(bool present, int presentWidth, int presentHeight, bool presentFullscreen, bool wait = true);
+	void SubmitCommands(bool present, int presentWidth, int presentHeight, bool wait = true);
 
 	// Waits for a frame SubmitCommands left in flight (wait = false), if there
 	// is one. Anything that writes a buffer, image or descriptor the GPU may
