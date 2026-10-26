@@ -1411,6 +1411,10 @@ Differs:
   a player can tell which engine they run
   ([the version](ENGINE.md#running-on-our-devices)). The original's is "Mon
   Mar 19 12:06:14 2001 v1.112fm".
+- **`DeusExPlayer.UnloadTexture`** frees nothing: the original frees the
+  texture's mips, which the game asks for as a menu, a Persona screen, a
+  computer screen or an image closes, where DXEngine keeps a texture's mips
+  until nothing holds it and a collection frees it.
 - **The engine's own rotations** (the view, movement) take exact angles; the
   scripts' conversions take the original's sine table
   ([the natives](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-natives)).

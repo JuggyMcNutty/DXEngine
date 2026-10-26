@@ -89,5 +89,7 @@ NameString UDeusExPlayer::SetBoolFlagFromString(const std::string& flagNameStrin
 
 void UDeusExPlayer::UnloadTexture(UObject* Texture)
 {
-	// Nothing going on here because DXEngine never unloads textures atm. This is just here so it doesn't throw LogUnimplemented.
+	// The original frees the texture's mips; DXEngine keeps a texture's until
+	// nothing holds it and a collection frees it (NATIVES.md, implemented
+	// not as the original)
 }
