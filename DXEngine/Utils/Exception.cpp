@@ -101,25 +101,39 @@ int Exception::CaptureStackFrames(std::ostringstream& sstream, int maxframes)
 		DWORD64 symDisp = 0;
 		DWORD lineDisp = 0;
 		PSYMBOL_INFO si = reinterpret_cast<PSYMBOL_INFO>(sibuf);
-		IMAGEHLP_LINE ih;
+		IMAGEHLP_LINE ih = {};
 		si->SizeOfStruct = sizeof(SYMBOL_INFO);
 		si->MaxNameLen = MAX_SYM_NAME;
 
+		// DbgHelp is single-threaded: the line lookup under the lock too, its
+		// struct sized and its result checked (the line was printed
+		// uninitialized when it failed); the walk ends at wmain itself, not
+		// at any symbol wmain begins with
+		bool gotLine = false;
 		mutex.lock();
 
 		if (dbgHelp.bHasSymbols)
+		{
 			gotSymbol = SymFromAddr(hProcess, (DWORD64)context.Rip, &symDisp, si);
+			if (gotSymbol)
+			{
+				ih.SizeOfStruct = sizeof(IMAGEHLP_LINE);
+				gotLine = SymGetLineFromAddr(hProcess, (DWORD64)context.Rip, &lineDisp, &ih);
+			}
+		}
 
 		mutex.unlock();
 
 		if (gotSymbol)
 		{
-			if (strncmp(si->Name, "wmain", si->NameLen) == 0)
+			std::string funcStr(&si->Name[0], si->NameLen);
+			if (funcStr == "wmain")
 				break;
 
-			SymGetLineFromAddr(hProcess, (DWORD64)context.Rip, &lineDisp, &ih);
-			std::string funcStr(&si->Name[0], si->NameLen);
-			sstream << "at " << funcStr << " line " << ih.LineNumber << std::endl;
+			sstream << "at " << funcStr;
+			if (gotLine)
+				sstream << " line " << ih.LineNumber;
+			sstream << std::endl;
 		}
 		else
 		{
