@@ -242,9 +242,11 @@ void UEventManager::ComputeSenseDetection(Receiver& receiver, UActor* senderActo
 
 	// An inventory item with an owner counts as its owner for a pawn, and
 	// its visibility is scaled by the square root of its collision size
-	// (height times radius) over the owner's.
+	// (height times radius) over the owner's; a receiver that is no pawn
+	// (an AcousticSensor, an AutoTurret) weighs the item itself, as the
+	// original's does (engine-dll.md, the AI)
 	float visualScale = 1.0f;
-	if (UInventory* item = UObject::TryCast<UInventory>(senderActor))
+	if (UInventory* item = pawn ? UObject::TryCast<UInventory>(senderActor) : nullptr)
 	{
 		if (UActor* owner = item->Owner())
 		{
