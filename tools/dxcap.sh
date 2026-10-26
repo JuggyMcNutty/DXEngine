@@ -137,7 +137,12 @@ rec_start() {
 }
 
 rec_stop() {
-    [ -f "$CAP/rec.pid" ] && kill "$(cat "$CAP/rec.pid")" 2>/dev/null
+    # Not an && list: as the last command of a function called at the end
+    # of an || list, errexit is live, and a kill that failed ended the script
+    # there with no message, the sink loaded and the shots uncollected
+    if [ -f "$CAP/rec.pid" ]; then
+        kill "$(cat "$CAP/rec.pid")" 2>/dev/null || true
+    fi
     rm -f "$CAP/rec.pid"
     sleep 1
     if [ -f "$CAP/sink.module" ]; then
