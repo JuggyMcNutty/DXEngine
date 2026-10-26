@@ -449,13 +449,9 @@ void WaylandDisplayBackend::OnKeyboardCharEvent(const char* ch, wayland::keyboar
 
 void WaylandDisplayBackend::OnKeyboardDelayEnd()
 {
-	if (inputKeyStates[previousKey] && !m_KeyboardRepeatTimer)
-	{
-		if (m_KeyboardRepeatTimer)
-			StopTimer(m_KeyboardRepeatTimer);
+	// A rate of 0 is the compositor's "no repeat" (wl_keyboard's repeat_info)
+	if (inputKeyStates[previousKey] && !m_KeyboardRepeatTimer && m_KeyboardRepeatRate > 0)
 		m_KeyboardRepeatTimer = static_cast<WaylandTimer*>(StartTimer(1000 / m_KeyboardRepeatRate, [&]() { OnKeyboardRepeat(); }));
-	}
-
 }
 
 void WaylandDisplayBackend::OnKeyboardRepeat()
