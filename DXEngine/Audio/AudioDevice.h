@@ -24,7 +24,8 @@ struct ReverbSettings
 class AudioDevice
 {
 public:
-	static std::unique_ptr<AudioDevice> Create(int frequency, int numVoices, int musicBufferCount, int musicBufferSize);
+	// mixAheadMs: the output's mix-ahead (Galaxy's Latency), 10 ms buffers; stereo: else mono, as Galaxy's UseStereo off
+	static std::unique_ptr<AudioDevice> Create(int frequency, int numVoices, int musicBufferCount, int musicBufferSize, int mixAheadMs, bool stereo);
 
 	virtual ~AudioDevice() = default;
 	virtual void AddSound(USound* sound) = 0;

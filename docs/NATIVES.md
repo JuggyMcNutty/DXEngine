@@ -1124,8 +1124,11 @@ map it is on is loaded). Differs:
   its music's
   ([settings](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#settings)).
 - Carried: Galaxy's holds on `OutputRate` (8,000 to 48,000 Hz) and `Latency`
-  (10 to 250 ms). Not carried: the holds a `SET` puts on `DopplerSpeed` and
-  `AmbientFactor`, which no menu sets.
+  (10 to 250 ms), `Latency` the output's mix-ahead (10 ms buffers queued to
+  it), `UseStereo=False` mono. Not carried: the holds a `SET` puts on
+  `DopplerSpeed` and `AmbientFactor`, which no menu sets. `UseFilter`,
+  `UseCDMusic` and `UseSpatial` are read, saved and `SET` and change
+  nothing, as in the original.
 - An ambient sound on a light follows its blink and strobe on DXEngine's
   timing ([lighting](#lighting)).
 - A sound's ID packs a number DXEngine gives each object that plays one,

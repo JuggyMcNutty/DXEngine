@@ -210,11 +210,13 @@ private:
 class OpenALAudioDevice : public AudioDevice
 {
 public:
-	OpenALAudioDevice(int inFrequency, int numVoices, int inMusicBufferCount, int inMusicBufferSize)
+	OpenALAudioDevice(int inFrequency, int numVoices, int inMusicBufferCount, int inMusicBufferSize, int mixAheadMs, bool inStereo)
 	{
 		frequency = inFrequency;
 		musicBufferCount = inMusicBufferCount;
 		musicBufferSize = inMusicBufferSize;
+		mixBufferCount = std::clamp(mixAheadMs / 10, 2, 25);
+		stereo = inStereo;
 
 		musicBuffer.resize(musicBufferSize * musicBufferCount);
 		musicQueue.Resize(musicBufferCount);
@@ -749,7 +751,9 @@ public:
 	}
 
 	// The mixer's output: one stereo source, straight to the speakers, its
-	// queue 10 ms buffers deep to Galaxy's default Latency of 40 ms.
+	// queue 10 ms buffers deep to Latency, Galaxy's mix-ahead (40 ms by
+	// default); mono folded from both channels without UseStereo, as Galaxy
+	// mixes it.
 	void StartMixStream()
 	{
 		mixBufferFrames = std::max(frequency / 100, 64);
@@ -760,7 +764,7 @@ public:
 		alSourcef(alMixSource, AL_ROLLOFF_FACTOR, 0.0f);
 		if (alIsExtensionPresent("AL_SOFT_direct_channels"))
 			alSourcei(alMixSource, AL_DIRECT_CHANNELS_SOFT, AL_TRUE);
-		alMixBuffers.resize(4);
+		alMixBuffers.resize(mixBufferCount);
 		alGenBuffers((ALsizei)alMixBuffers.size(), &alMixBuffers[0]);
 		alGetError();
 		mixThread = std::thread([this]() { MixThreadMain(); });
@@ -781,6 +785,14 @@ public:
 		std::vector<float> block(mixBufferFrames * 2);
 		auto queue = [&](ALuint buffer) {
 			mixer->Mix(block.data(), mixBufferFrames);
+			if (!stereo)
+			{
+				for (int i = 0; i < mixBufferFrames; i++)
+				{
+					float mono = 0.5f * (block[2 * i] + block[2 * i + 1]);
+					block[2 * i] = block[2 * i + 1] = mono;
+				}
+			}
 			alBufferData(buffer, AL_FORMAT_STEREO_FLOAT32, block.data(), (ALsizei)(block.size() * sizeof(float)), frequency);
 			alSourceQueueBuffers(alMixSource, 1, &buffer);
 		};
@@ -828,6 +840,8 @@ public:
 	ALuint alMixSource = 0;
 	Array<ALuint> alMixBuffers;
 	int mixBufferFrames = 0;
+	int mixBufferCount = 4;
+	bool stereo = true;
 	std::thread mixThread;
 	std::atomic<bool> mixExit{ false };
 
@@ -978,7 +992,7 @@ public:
 	float globalSpeechVolume = 1.0f;
 };
 
-std::unique_ptr<AudioDevice> AudioDevice::Create(int frequency, int numVoices, int musicBufferCount, int musicBufferSize)
+std::unique_ptr<AudioDevice> AudioDevice::Create(int frequency, int numVoices, int musicBufferCount, int musicBufferSize, int mixAheadMs, bool stereo)
 {
-	return std::make_unique<OpenALAudioDevice>(frequency, numVoices, musicBufferCount, musicBufferSize);
+	return std::make_unique<OpenALAudioDevice>(frequency, numVoices, musicBufferCount, musicBufferSize, mixAheadMs, stereo);
 }

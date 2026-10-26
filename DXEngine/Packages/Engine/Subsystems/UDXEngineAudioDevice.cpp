@@ -178,9 +178,10 @@ void UDXEngineAudioDevice::SaveConfig()
 
 void UDXEngineAudioDevice::InitDevice()
 {
-	// The rate is OutputRate's; the rest is fixed, as the original's Galaxy
-	// has no key for a device, its voices or its music buffers.
-	m_Device = AudioDevice::Create(OutputRate.frequency, 256, 16, 256);
+	// The rate is OutputRate's, the mix-ahead Latency's and the channels
+	// UseStereo's; the rest is fixed, as the original's Galaxy has no key for
+	// a device, its voices or its music buffers.
+	m_Device = AudioDevice::Create(OutputRate.frequency, 256, 16, 256, Latency, UseStereo);
 	LogMessage("Audio device initialized");
 }
 
