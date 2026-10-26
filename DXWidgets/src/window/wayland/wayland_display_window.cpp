@@ -680,6 +680,10 @@ void WaylandDisplayWindow::MakeGLContextCurrent()
 
 bool WaylandDisplayWindow::SetGLSwapInterval(int interval)
 {
+	// EGL has no late swap: a negative interval is clamped, so it is refused
+	// here, and the GL device falls back to 1 (as the X11 window's)
+	if (interval < 0)
+		return false;
 	return eglSwapInterval(m_EGLDisplay, interval);
 }
 

@@ -1457,6 +1457,11 @@ void X11DisplayWindow::MakeGLContextCurrent()
 
 bool X11DisplayWindow::SetGLSwapInterval(int interval)
 {
+	// EGL has no late swap: a negative interval is clamped to the config's
+	// least (0 on Mesa unless vblank_mode forces sync), so it is refused
+	// here, and the GL device falls back to 1
+	if (interval < 0)
+		return false;
 	return eglSwapInterval(m_EGLDisplay, interval);
 }
 
