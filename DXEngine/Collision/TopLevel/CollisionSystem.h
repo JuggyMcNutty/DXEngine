@@ -114,6 +114,8 @@ private:
 // collides with, hidden or not, and on after the mover is destroyed.
 class UTexture;
 
+class GCMarker;
+
 struct FiledMoverPoly
 {
 	Array<vec3> Vertices;
@@ -155,6 +157,9 @@ struct TraceFlags
 class CollisionSystem
 {
 public:
+	// The filed polygons' textures, for the collector (ULevel::Mark)
+	void Mark(GCMarker& marker);
+
 	bool IsOverlapping(UActor* actor1, UActor* actor2);
 	CollisionHitList OverlapTest(UActor* actor);
 	CollisionHitList OverlapTest(const vec3& location, float height, float radius, bool testActors, bool testWorld, bool visibilityOnly);

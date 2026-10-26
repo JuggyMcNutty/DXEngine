@@ -12,6 +12,7 @@
 #include "Collision/BottomLevel/TraceRayModel.h"
 #include "Collision/TopLevel/OverlapTest.h"
 #include "Collision/TopLevel/TraceTest.h"
+#include "GC/GC.h"
 
 bool CollisionSystem::IsOverlapping(UActor* actor1, UActor* actor2)
 {
@@ -241,6 +242,19 @@ void CollisionSystem::MoverDestroyed(UActor* actor)
 	{
 		if (filed->Mover == actor)
 			filed->Mover = nullptr;
+	}
+}
+
+// A filed polygon's texture is held by its brush alone, and a destroyed
+// mover's polygons stay filed (above): the texture is kept for a
+// TraceTexture through them, which once handed the script a freed one
+void CollisionSystem::Mark(GCMarker& marker)
+{
+	marker.SetField("FiledMovers");
+	for (auto& filed : Filed)
+	{
+		for (const FiledMoverPoly& poly : filed->Polys)
+			marker.MarkConst(poly.Texture);
 	}
 }
 

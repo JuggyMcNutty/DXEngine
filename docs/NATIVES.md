@@ -1762,8 +1762,9 @@ A mod gets the original's loader and natives:
 - **A mod's deletions and sizes.** a `CriticalDelete` of an actor destroys
   it, with the destroyed actors (its flag once cut their chain), one whose
   `Destroy` refuses staying, and of the levels, their infos and games, the
-  save info or the root window nothing; a collision size or location past
-  the cells an int names, or no number, is held to them.
+  save info or the root window nothing; a destroyed mover's polygons keep
+  their texture for a `TraceTexture` through them; a collision size or
+  location past the cells an int names, or no number, is held to them.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).

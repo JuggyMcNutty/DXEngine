@@ -274,6 +274,7 @@ void ULevel::Mark(GCMarker& marker)
 	// its FirstDeleted.
 	marker.SetField("FirstDeleted");
 	marker.MarkConst(FirstDeleted);
+	Collision.Mark(marker);
 }
 
 void ULevel::CleanupDestroyed(bool force)
