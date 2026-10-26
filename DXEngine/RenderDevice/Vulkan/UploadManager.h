@@ -25,7 +25,7 @@ public:
 private:
 	void UploadData(CachedTexture* tex, const TextureInfo& Info, bool masked, TextureUploader* uploader, int mipcount);
 	void UploadWhite(CachedTexture* tex);
-	void WaitIfUploadBufferIsFull(int bytes);
+	void PlaceUpload(int bytes, int align);
 	void AddPendingUpload(CachedTexture* tex, const VkBufferImageCopy& region, bool isPartial);
 
 	VulkanRenderDevice* renderer = nullptr;

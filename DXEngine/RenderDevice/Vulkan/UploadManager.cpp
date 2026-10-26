@@ -97,11 +97,11 @@ void UploadManager::UploadTextureRect(CachedTexture* tex, const TextureInfo& Inf
 		return;
 
 	size_t pixelsSize = uploader->GetUploadSize(x, y, w, h);
-	pixelsSize = (pixelsSize + 15) / 16 * 16; // memory alignment
+	int align = std::lcm(std::max(uploader->GetUploadSize(0, 0, 1, 1), 1), 16);
 	if (pixelsSize > (size_t)BufferManager::UploadBufferSize)
 		return;
 
-	WaitIfUploadBufferIsFull((int)pixelsSize);
+	PlaceUpload((int)pixelsSize, align);
 
 	uint8_t* data = renderer->Buffers->UploadData;
 	uint8_t* Ptr = data + UploadBufferPos;
@@ -145,8 +145,7 @@ void UploadManager::UploadData(CachedTexture* tex, const TextureInfo& Info, bool
 		{
 			int rows = std::min(bandRows, levelHeight - y);
 			int size = uploader->GetUploadSize(0, y, levelWidth, rows);
-			WaitIfUploadBufferIsFull(size + align);
-			UploadBufferPos = (UploadBufferPos + align - 1) / align * align;
+			PlaceUpload(size, align);
 
 			VkBufferImageCopy region = {};
 			region.bufferOffset = UploadBufferPos;
@@ -170,7 +169,7 @@ void UploadManager::UploadData(CachedTexture* tex, const TextureInfo& Info, bool
 
 void UploadManager::UploadWhite(CachedTexture* tex)
 {
-	WaitIfUploadBufferIsFull(16);
+	PlaceUpload(16, 16);
 
 	auto data = (uint32_t*)(renderer->Buffers->UploadData + UploadBufferPos);
 	data[0] = 0xffffffff;
@@ -185,10 +184,15 @@ void UploadManager::UploadWhite(CachedTexture* tex)
 	UploadBufferPos += 16; // 16-byte aligned
 }
 
-// The copies made and waited for when the bytes would not fit: the buffer
-// free again from its start.
-void UploadManager::WaitIfUploadBufferIsFull(int bytes)
+// The next copy's place in the staging buffer, its start a multiple of align
+// (the texel's size and 16, as a copy must start: a band's bytes leave the
+// place where they end, a level's 1x1 mip of BGRA8 at 4 past one, and a light
+// or fog map's RGBA32F rect copied from there was invalid); the copies made and
+// waited for when the bytes would not fit, the buffer free again from its
+// start.
+void UploadManager::PlaceUpload(int bytes, int align)
 {
+	UploadBufferPos = (UploadBufferPos + align - 1) / align * align;
 	if (UploadBufferPos + bytes > BufferManager::UploadBufferSize)
 	{
 		renderer->Commands->WaitForTransfer();
