@@ -348,7 +348,16 @@ StylesheetTheme::StylesheetTheme(const std::string& stylesheet, const std::strin
 				}
 				else if (tokens[0].type == ThemeStylesheetTokenType::uri)
 				{
-					style->SetImage(partName, name, Image::LoadResource(tokens[0].value));
+					// A missing or undecodable image leaves the property unset,
+					// not the theme unbuilt: one bad url() kept the engine from
+					// starting
+					try
+					{
+						style->SetImage(partName, name, Image::LoadResource(tokens[0].value));
+					}
+					catch (const std::exception&)
+					{
+					}
 				}
 				else
 				{
