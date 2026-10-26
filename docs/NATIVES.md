@@ -1146,7 +1146,7 @@ Every other native the scripted runs compare matches the original
   its move first, and moved and turned at once. A hinged door crushes a
   crate in its swing (`DoorConsole`
   on UNATCO HQ: 0.2 s into the close in DXEngine, 0.3 s in the original's,
-  the crate coming to rest 8 units nearer the hinge).
+  the crate coming to rest 10 units from where the original's does).
 - **The movers in a line's way**: a line meets each mover where the level's
   BSP last filed it
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)),
@@ -1213,6 +1213,24 @@ Every other native the scripted runs compare matches the original
   next move again by the whole frame (`ShotConsole`: a shot bouncing off
   the floor within one 0.4 s tick ends it 129 units along and 63 up in both
   engines).
+- **Every physics runs once a frame**, as the original's `performPhysics`
+  gives it the whole tick to step as it will: a pawn's walk, fall, swim,
+  flight, path or climb; another actor's fall, projectile flight, roll,
+  path, brush move or trailing; nothing in any other physics (a walking
+  decoration stands still, as the original's). Then the turn, once a frame.
+- **A path** (`PathConsole`): an actor following a ring of four
+  `InterpolationPoint`s in 0.4 s ticks, the spline through the four, each
+  point's `InterpolateEnd` and the time past a point carried on to the
+  next, is where the original's is, turned as it turns, and stops at the
+  point that ends the path.
+- **An actor's turn** by its `RotationRate` (`SpinConsole`): a fixed
+  direction spins on; to a desired rotation it stops there; the shortest
+  way goes back through 0 when that is shorter; a rate of a whole turn a
+  second does nothing (its low 16 bits are 0); `EndedRotation` at the
+  desired rotation -- in both engines alike.
+- **A trailer** (`TrailConsole`): a sprite rides behind its owner's facing by
+  its `Mass`, or at the owner's `PrePivot`; another actor sits on the owner,
+  turned with it or against its velocity, straight up when it has none.
 - **Water**: falls in it (`FloatConsole`: a buoyant crate rises and bobs at
   the surface at the original's speeds) and swimming (`SwimConsole`: the
   player and a troop falling or thrown into water are put back at the water

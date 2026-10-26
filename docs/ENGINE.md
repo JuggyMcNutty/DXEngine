@@ -607,15 +607,17 @@ in `Frame::CallScript`.
   how they turn, as `physWalking`, `physFalling`, `physSwimming`, `physFlying`, `physRolling`,
   `calcVelocity` and `physicsRotation`, a fall ending its frame where it lands
   ([implemented, not as the original](NATIVES.md#implemented-not-as-the-original)).
-- **A whole frame at once**: a walking, swimming or flying pawn, and anything falling,
-  rolling or flying as a projectile, takes the rest of the frame at once, as the original's
-  does, the walk, the fall, the roll and the projectile's flight in their own steps
-  (`UPawn::DeusExPhysWalking`, `UActor::DeusExTickFalling`, `UActor::TickRolling`,
-  `UActor::TickProjectile`), a fall a walk or a swim hands over going on with its count of steps;
-  so its speed, its slides, where it comes to rest and the move it hands on are the original's
-  at the same frame rate, but for a swim out from under the water at some 1,000
-  ([implemented, not as the original](NATIVES.md#implemented-not-as-the-original)). The other
-  physics take a frame in steps of at most 0.02 s (`UActor::TickPhysics`).
+- **Each physics takes the whole frame**, as the original's `performPhysics` gives it once a
+  tick (`UActor::TickPhysics`): a pawn walks, falls, swims, flies, follows a path or climbs, any
+  other actor falls, flies as a projectile, rolls, follows a path, moves as a brush or trails its
+  owner, each stepping the frame as the original's does (`UPawn::DeusExPhysWalking`,
+  `UActor::DeusExTickFalling`, `UActor::TickRolling`, `UActor::TickProjectile`,
+  `UActor::TickInterpolating`, `UActor::TickMovingBrush`, `UActor::TickTrailer`), a fall a walk
+  or a swim hands over going on with its count of steps; so its speed, its slides, where it
+  comes to rest and the move it hands on are the original's at the same frame rate, but for a
+  swim out from under the water at some 1,000
+  ([implemented, not as the original](NATIVES.md#implemented-not-as-the-original)). Then the
+  turn by `RotationRate`, once a frame (`UActor::TickRotating`).
 
 ### Objects and memory
 

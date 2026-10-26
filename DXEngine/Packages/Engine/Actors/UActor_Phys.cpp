@@ -17,48 +17,47 @@
 void UActor::TickPhysics(float elapsed)
 {
 	bool hadPhysics = Physics() != PHYS_None;
-	for (float timeLeft = elapsed; timeLeft > 0.0f && !bDeleteMe(); timeLeft -= 0.02f)
+	PhysicsFrameLeft = 0.0f;
+	PhysicsFrameEnded = false;
+
+	// The original's performPhysics, once a tick with the whole tick, each
+	// physics stepping it as it will (AActor's, Engine.dll 0x103c9770; APawn's,
+	// 0x103c9a70): a pawn walks, falls, swims, flies, follows a path or
+	// climbs as a spider; any other actor falls, flies as a projectile,
+	// rolls, follows a path, moves as a brush or trails its owner; in any
+	// other physics it only turns. Then the turn, and the pending touch.
+	int mode = Physics();
+	if (mode != PHYS_None)
 	{
-		float physTimeElapsed = std::min(timeLeft, 0.02f);
-		int mode = Physics();
-		// Deus Ex's pawns walk, swim and fly the rest of the frame at once,
-		// and anything falls, rolls or flies as a projectile it, as the
-		// original's physWalking, physSwimming, physFlying, physFalling,
-		// physRolling and physProjectile take a whole tick, handing what
-		// they leave to the physics they end in.
-		bool wholeFrame = ((mode == PHYS_Walking || mode == PHYS_Swimming || mode == PHYS_Flying) && bIsPawn()) || mode == PHYS_Falling || mode == PHYS_Rolling || mode == PHYS_Projectile;
-		if (wholeFrame)
-			physTimeElapsed = timeLeft;
-		PhysicsFrameLeft = timeLeft - physTimeElapsed;
-		PhysicsFrameEnded = false;
-		if (mode != PHYS_None)
+		if (bIsPawn())
 		{
 			switch (mode)
 			{
-			case PHYS_Walking: TickWalking(physTimeElapsed); break;
-			case PHYS_Falling: TickFalling(physTimeElapsed); break;
-			case PHYS_Swimming: TickSwimming(physTimeElapsed); break;
-			case PHYS_Flying: TickFlying(physTimeElapsed); break;
-			case PHYS_Rotating: break;
-			case PHYS_Projectile: TickProjectile(physTimeElapsed); break;
-			case PHYS_Rolling: TickRolling(physTimeElapsed); break;
-			case PHYS_Interpolating: TickInterpolating(physTimeElapsed); break;
-			case PHYS_MovingBrush: TickMovingBrush(physTimeElapsed); break;
-			case PHYS_Spider: TickSpider(physTimeElapsed); break;
-			case PHYS_Trailer: TickTrailer(physTimeElapsed); break;
+			case PHYS_Walking: TickWalking(elapsed); break;
+			case PHYS_Falling: TickFalling(elapsed); break;
+			case PHYS_Swimming: TickSwimming(elapsed); break;
+			case PHYS_Flying: TickFlying(elapsed); break;
+			case PHYS_Interpolating: TickInterpolating(elapsed); break;
+			case PHYS_Spider: TickSpider(elapsed); break;
 			}
-			// A fall that ended the frame took the rest of it; the rotation
-			// still turns for the whole frame, as the original's turns once
-			// a frame after its physics.
-			if (PhysicsFrameEnded)
-				physTimeElapsed += timeLeft - physTimeElapsed;
-			TickRotating(physTimeElapsed); // Rotation logic applies to multiple physics modes and not just PHYS_Rotating
 		}
-
-		CheckPendingTouch();
-		if (PhysicsFrameEnded || wholeFrame)
-			break;
+		else
+		{
+			switch (mode)
+			{
+			case PHYS_Falling: TickFalling(elapsed); break;
+			case PHYS_Projectile: TickProjectile(elapsed); break;
+			case PHYS_Rolling: TickRolling(elapsed); break;
+			case PHYS_Interpolating: TickInterpolating(elapsed); break;
+			case PHYS_MovingBrush: TickMovingBrush(elapsed); break;
+			case PHYS_Trailer: TickTrailer(elapsed); break;
+			}
+		}
+		if (!bDeleteMe())
+			TickRotating(elapsed);
 	}
+
+	CheckPendingTouch();
 	PhysicsFrameLeft = 0.0f;
 	PhysicsFrameEnded = false;
 
