@@ -96,6 +96,16 @@ GCStats GC::GetStats()
 	return stats;
 }
 
+bool GCMarker::Unknown(const GCObject* obj)
+{
+	if (Live && Live->find(const_cast<GCObject*>(obj)->Allocation()) == Live->end())
+	{
+		Result->Invalid[HolderKey()]++;
+		return true;
+	}
+	return false;
+}
+
 bool GCMarker::Visit(GCObject* obj, bool writable)
 {
 	Result->Refs++;

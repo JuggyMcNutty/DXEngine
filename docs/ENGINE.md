@@ -258,7 +258,7 @@ The environment:
 | `DXE_SW_THREADS=<n>` | The software device's threads, the game's among them: n in place of every hardware thread (1, the game's alone). |
 | `DXE_GC_DRYRUN=1` | Each collection marks and frees nothing: the log has what would go, by where it lives and by class, and the first holder outside them of each object of a level left behind ([objects and memory](#objects-and-memory)). |
 | `DXE_GC_STRESS=<frames>` | A collection every that many frames, besides the map loads'. |
-| `DXE_GC_VERIFY=1` | Each collection checks that every pointer it is handed is a live object, walks all of the code, and logs the holders of pointers that are not, of code's references to code that reach an object not permanent, and of what the list kept from the code's last walk would have missed ([objects and memory](#objects-and-memory)). |
+| `DXE_GC_VERIFY=1` | Each collection checks that every pointer it is handed is a live object before reading it, walks all of the code, and logs the holders of pointers that are not, of code's references to code that reach an object not permanent, and of what the list kept from the code's last walk would have missed ([objects and memory](#objects-and-memory)). |
 | `DXE_PERF_LOG=1`, `DXE_PERF_DETAIL=1`, `DXE_PERF_TURN=<aBaseX>`, `DXE_PERF_SAMPLE=<file>` | Only with [the profiling hooks](#the-profiling-hooks) on: where the frame goes, every 60 frames on stderr; tick by actor class and script functions by self time (which inflates what it measures); the player turning on the spot; the sampling profiler. |
 
 ## What it changes from Surreal Engine

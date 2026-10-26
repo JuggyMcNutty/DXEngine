@@ -162,7 +162,7 @@ public:
 	template<typename T>
 	void Mark(T*& ref)
 	{
-		if (ref && !IsPermanent(static_cast<GCObject*>(ref)) && Visit(static_cast<GCObject*>(ref), true))
+		if (ref && !Unknown(static_cast<GCObject*>(ref)) && !IsPermanent(static_cast<GCObject*>(ref)) && Visit(static_cast<GCObject*>(ref), true))
 			ref = nullptr;
 	}
 
@@ -170,9 +170,15 @@ public:
 	// holds: an eliminated object reached this way stays, and is logged.
 	void MarkConst(const GCObject* obj)
 	{
-		if (obj && !IsPermanent(obj))
+		if (obj && !Unknown(obj) && !IsPermanent(obj))
 			Visit(const_cast<GCObject*>(obj), false);
 	}
+
+	// DXE_GC_VERIFY: whether the pointer names no live allocation, told
+	// before its header is read (IsPermanent): a dangling one was read
+	// through first, and one whose freed header read as permanent was
+	// passed over unreported.
+	bool Unknown(const GCObject* obj);
 
 	// A reference code holds to code: its class, its chain of fields, the
 	// struct, class or enum a property names. Loaded code refers to loaded
@@ -188,9 +194,11 @@ public:
 		}
 		else if (Options->Verify)
 		{
-			if (obj && !IsPermanent(obj))
+			if (obj && !Unknown(obj) && !IsPermanent(obj))
+			{
 				Result->CodeToCollectable[HolderKey()]++;
-			MarkConst(obj);
+				Visit(const_cast<GCObject*>(obj), false);
+			}
 		}
 	}
 
@@ -202,7 +210,7 @@ public:
 		for (size_t i = 0, count = list.size(); i < count; i++)
 		{
 			auto obj = list[i];
-			if (obj && !IsPermanent(static_cast<GCObject*>(obj)) && Visit(static_cast<GCObject*>(obj), true))
+			if (obj && !Unknown(static_cast<GCObject*>(obj)) && !IsPermanent(static_cast<GCObject*>(obj)) && Visit(static_cast<GCObject*>(obj), true))
 				continue;
 			list[out++] = obj;
 		}
