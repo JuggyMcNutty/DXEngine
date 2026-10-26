@@ -831,11 +831,15 @@ run_dxe() {
         # as a process of its own, passes on its exit code, and leaves it
         # running when killed: the engine's process is the new DXEngine.exe.
         if windows_engine; then
-            while [ $i -lt 300 ] && [ -z "$wpid" ] && kill -0 "$tpid" 2>/dev/null; do
+            # As long as the run itself (a prefix updating after a Proton
+            # update starts it slowly); a miss is said, the engine then
+            # outliving the run once timeout kills start.exe
+            while [ $i -lt $((secs * 10)) ] && [ -z "$wpid" ] && kill -0 "$tpid" 2>/dev/null; do
                 wpid="$(pgrep -x DXEngine.exe | grep -vxF -e "${others:-none}" | head -1)" || true
                 [ -n "$wpid" ] || sleep 0.1
                 i=$((i + 1))
             done
+            [ -n "$wpid" ] || ! kill -0 "$tpid" 2>/dev/null || say "dxe: DXEngine.exe not seen in $((i / 10)) s; it may outlive the run"
         fi
         if [ "${DXCAP_MEMLOG:-0}" = 1 ] && [ -n "$wpid" ]; then
             memlog "$wpid" "$dir/memlog.txt" &
