@@ -18,9 +18,11 @@ public:
 
 	int GetAnimTextureCount()
 	{
+		// A chain that enters a ring leaving out its first texture never
+		// comes back: the walk stops at 2,048 (a mod's animation at most)
 		int count = 1;
 		UTexture* cur = AnimNext();
-		while (cur && cur != this)
+		while (cur && cur != this && count < 2048)
 		{
 			cur = cur->AnimNext();
 			count++;
