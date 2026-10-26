@@ -49,10 +49,19 @@ void UStructProperty::LoadStructMemberValue(void* data, ObjectStream* stream)
 	if (Struct->Properties.empty())
 		throw std::runtime_error("Struct has no properties");
 
+	// Every element of a static array member, the native and transient
+	// members passed over, as the original's UStruct::SerializeBin has it
+	// (Core.dll 0x10126610); DXEngine read each member once, whatever its
+	// dimension, and the native and transient ones with the rest
 	for (UProperty* fieldprop : Struct->Properties)
 	{
-		void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset;
-		fieldprop->LoadStructMemberValue(fielddata, stream);
+		if (AnyFlags(fieldprop->PropFlags, PropertyFlags::Native | PropertyFlags::Transient))
+			continue;
+		for (int i = 0; i < fieldprop->ArrayDimension; i++)
+		{
+			void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset + i * fieldprop->ElementPitch();
+			fieldprop->LoadStructMemberValue(fielddata, stream);
+		}
 	}
 }
 
@@ -74,8 +83,13 @@ void UStructProperty::SaveStructMemberValue(void* data, PackageStreamWriter* str
 
 	for (UProperty* fieldprop : Struct->Properties)
 	{
-		void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset;
-		fieldprop->SaveStructMemberValue(fielddata, stream);
+		if (AnyFlags(fieldprop->PropFlags, PropertyFlags::Native | PropertyFlags::Transient))
+			continue;
+		for (int i = 0; i < fieldprop->ArrayDimension; i++)
+		{
+			void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset + i * fieldprop->ElementPitch();
+			fieldprop->SaveStructMemberValue(fielddata, stream);
+		}
 	}
 }
 
