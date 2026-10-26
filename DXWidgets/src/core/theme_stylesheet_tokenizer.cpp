@@ -537,7 +537,7 @@ size_t ThemeStylesheetTokenizer::read_nmstart(size_t p, std::string::value_type&
 	if ((p < doc.length()) && (doc[p] == '_' ||
 		(doc[p] >= 'a' && doc[p] <= 'z') ||
 		(doc[p] >= 'A' && doc[p] <= 'Z') ||
-		((unsigned char)doc[p]) > 177))
+		((unsigned char)doc[p]) >= 0x80))
 	{
 		out_c = doc[p];
 		return 1;
@@ -551,22 +551,24 @@ size_t ThemeStylesheetTokenizer::read_nmstart(size_t p, std::string::value_type&
 			unsigned int unicode_char = 0;
 			size_t p1 = p + 1;
 			size_t p2 = p1;
+			// Each digit in turn (the first was read six times over), and
+			// the length consumed from the backslash
 			while (p2 < doc.length() && p2 - p1 < 6)
 			{
-				if (doc[p + 1] >= '0' && doc[p + 1] <= '9')
+				if (doc[p2] >= '0' && doc[p2] <= '9')
 				{
 					unicode_char <<= 4;
-					unicode_char += (unsigned int)(doc[p + 1] - '0');
+					unicode_char += (unsigned int)(doc[p2] - '0');
 				}
-				else if (doc[p + 1] >= 'a' && doc[p + 1] <= 'f')
+				else if (doc[p2] >= 'a' && doc[p2] <= 'f')
 				{
 					unicode_char <<= 4;
-					unicode_char += (unsigned int)(doc[p + 1] - 'a') + 10;
+					unicode_char += (unsigned int)(doc[p2] - 'a') + 10;
 				}
-				else if (doc[p + 1] >= 'A' && doc[p + 1] <= 'F')
+				else if (doc[p2] >= 'A' && doc[p2] <= 'F')
 				{
 					unicode_char <<= 4;
-					unicode_char += (unsigned int)(doc[p + 1] - 'A') + 10;
+					unicode_char += (unsigned int)(doc[p2] - 'A') + 10;
 				}
 				else
 				{
@@ -579,14 +581,14 @@ size_t ThemeStylesheetTokenizer::read_nmstart(size_t p, std::string::value_type&
 			{
 				p2 += 2;
 			}
-			else if (p2 < doc.length() && (doc[p2] == '\r' || doc[p2] == '\n' || doc[p2] == '\t' || doc[p2] == '\f'))
+			else if (p2 < doc.length() && (doc[p2] == ' ' || doc[p2] == '\r' || doc[p2] == '\n' || doc[p2] == '\t' || doc[p2] == '\f'))
 			{
 				p2++;
 			}
 
 			// To do: return the char as utf-8
 			out_c = (std::string::value_type)unicode_char;
-			return p2 - p1;
+			return p2 - p;
 		}
 		else if (doc[p + 1] != '\r' &&
 			doc[p + 1] != '\n' &&
@@ -690,7 +692,27 @@ size_t ThemeStylesheetTokenizer::read_string(size_t p, std::string& out_str, std
 					}
 					if (character == 0)
 						character = 0xfffd;
-					out_str.append(1, character);
+					// As UTF-8, not cut to a char
+					if (character < 0x80)
+						out_str.push_back((char)character);
+					else if (character < 0x800)
+					{
+						out_str.push_back((char)(0xc0 | (character >> 6)));
+						out_str.push_back((char)(0x80 | (character & 0x3f)));
+					}
+					else if (character < 0x10000)
+					{
+						out_str.push_back((char)(0xe0 | (character >> 12)));
+						out_str.push_back((char)(0x80 | ((character >> 6) & 0x3f)));
+						out_str.push_back((char)(0x80 | (character & 0x3f)));
+					}
+					else
+					{
+						out_str.push_back((char)(0xf0 | (character >> 18)));
+						out_str.push_back((char)(0x80 | ((character >> 12) & 0x3f)));
+						out_str.push_back((char)(0x80 | ((character >> 6) & 0x3f)));
+						out_str.push_back((char)(0x80 | (character & 0x3f)));
+					}
 					end_pos = i;
 				}
 				else
