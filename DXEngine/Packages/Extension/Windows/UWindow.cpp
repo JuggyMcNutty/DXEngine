@@ -520,10 +520,21 @@ void UWindow::DetachFromParent()
 	parentOwner() = nullptr;
 }
 
+// Each child in turn, as the original's KillAllChildren (Extension.dll
+// 0x100505d0) takes them: one already being destroyed (its handlers
+// running, it still linked) is passed over, not waited on for ever, and a
+// child a handler destroyed meanwhile has left the list.
 void UWindow::DestroyAllChildren()
 {
-	while (firstChild())
-		firstChild()->Destroy();
+	for (;;)
+	{
+		UWindow* child = firstChild();
+		while (child && child->Destroyed)
+			child = child->nextSibling();
+		if (!child)
+			break;
+		child->Destroy();
+	}
 }
 
 void UWindow::DisableWindow()
@@ -1214,6 +1225,10 @@ UObject* UWindow::NewChild(UObject* NewClass, std::optional<bool> bShow)
 	// (HUDKeypadWindow0).
 	Package* transient = engine->packages->GetTransientPackage();
 	UClass* childClass = UObject::Cast<UClass>(NewClass);
+	// No class, no window: the original's CreateNewWindow (Extension.dll
+	// 0x1004df70) answers None (a mod's PushWindow of an unset class)
+	if (!childClass)
+		return nullptr;
 	auto child = UObject::Cast<UWindow>(transient->NewObject(transient->MakeUniqueObjectName(childClass), childClass, ObjectFlags::Transient));
 	child->parentOwner() = this;
 	child->prevSibling() = lastChild();
@@ -1249,6 +1264,11 @@ UObject* UWindow::NewChild(UObject* NewClass, std::optional<bool> bShow)
 	for (UWindow* ancestor = this; ancestor; ancestor = ancestor->parentOwner())
 		ancestor->DescendantAdded(child);
 	child->InitWindow();
+	// One that destroyed itself in its InitWindow is None to its maker, as
+	// the original's is (its destroy held off while the window is locked,
+	// done as the lock lifts, and None returned)
+	if (child->Destroyed)
+		return nullptr;
 	if (show)
 		child->SetVisibility(true);
 	child->AskParentForReconfigure();
@@ -1426,9 +1446,9 @@ static void NotifyVisibilityChanged(UWindow* window, bool bNewVisibility)
 	// InvokeVisibilityChange, 0x10050e30).
 	if (USound* sound = bNewVisibility ? window->visibleSound() : window->invisibleSound())
 		window->PlaySound(sound, {}, {}, {}, {});
-	for (UWindow* child = window->firstChild(); child; child = child->nextSibling())
+	for (UWindow* child : ChildrenOf(window))
 	{
-		if (child->bIsVisible())
+		if (child->parentOwner() == window && !child->Destroyed && child->bIsVisible())
 			NotifyVisibilityChanged(child, bNewVisibility);
 	}
 }
