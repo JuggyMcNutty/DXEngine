@@ -232,7 +232,7 @@ void VisibleMesh::FindAttachmentPoints(ULodMesh* mesh, const mat4& ObjectToWorld
 		for (int i = 0; i < 3; i++)
 		{
 			size_t vbase = (size_t)face.Indices[i];
-			size_t vindex = mesh->ReMapAnimVerts.empty() ? vbase : mesh->ReMapAnimVerts[vbase];
+			size_t vindex = mesh->ReMapAnimVerts.empty() || vbase >= mesh->ReMapAnimVerts.size() ? vbase : mesh->ReMapAnimVerts[vbase];
 			size_t vindex0 = vindex + vertexOffsets[0];
 			size_t vindex1 = vindex + vertexOffsets[1];
 
@@ -292,13 +292,20 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
 		if (face.MaterialIndex >= mesh->Materials.size())
 			continue;
 
+		// A face naming a wedge past the mesh's (a hand-made mesh's) is passed
+		// over, as the load passes it over for the normals
+		if (face.Indices[0] >= mesh->Wedges.size() || face.Indices[1] >= mesh->Wedges.size() || face.Indices[2] >= mesh->Wedges.size())
+			continue;
+
 		const MeshMaterial& material = mesh->Materials[face.MaterialIndex];
 
 		if (material.PolyFlags & PF_Invisible)
 			continue;
 
 		uint32_t renderflags = material.PolyFlags | polyFlags;
-		UTexture* tex = engine->render->Mesh.textures[material.TextureIndex];
+		// A slot past the mesh's textures (a hand-made mesh's material) holds
+		// another mesh's: none, so the environment map stands in
+		UTexture* tex = material.TextureIndex >= 0 && (size_t)material.TextureIndex < mesh->Textures.size() ? engine->render->Mesh.textures[material.TextureIndex] : nullptr;
 		if (!tex || (renderflags & PF_Environment))
 			tex = engine->render->Mesh.envmap;
 
@@ -331,7 +338,7 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
 			const MeshWedge& wedge = mesh->Wedges[face.Indices[i]];
 
 			size_t vbase = (size_t)wedge.Vertex + baseVertexOffset;
-			size_t vindex = mesh->ReMapAnimVerts.empty() ? vbase : mesh->ReMapAnimVerts[vbase];
+			size_t vindex = mesh->ReMapAnimVerts.empty() || vbase >= mesh->ReMapAnimVerts.size() ? vbase : mesh->ReMapAnimVerts[vbase];
 			size_t vindex0 = vindex + vertexOffsets[0];
 			size_t vindex1 = vindex + vertexOffsets[1];
 
@@ -894,13 +901,20 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 		if (face.MaterialIndex >= mesh->Materials.size())
 			continue;
 
+		// A face naming a wedge past the mesh's (a hand-made mesh's) is passed
+		// over, as the load passes it over for the normals
+		if (face.Indices[0] >= mesh->Wedges.size() || face.Indices[1] >= mesh->Wedges.size() || face.Indices[2] >= mesh->Wedges.size())
+			continue;
+
 		const MeshMaterial& material = mesh->Materials[face.MaterialIndex];
 
 		if (material.PolyFlags & PF_Invisible)
 			continue;
 
 		uint32_t renderflags = material.PolyFlags | polyFlags;
-		UTexture* tex = engine->render->Mesh.textures[material.TextureIndex];
+		// A slot past the mesh's textures (a hand-made mesh's material) holds
+		// another mesh's: none, so the environment map stands in
+		UTexture* tex = material.TextureIndex >= 0 && (size_t)material.TextureIndex < mesh->Textures.size() ? engine->render->Mesh.textures[material.TextureIndex] : nullptr;
 		if (!tex || (renderflags & PF_Environment))
 			tex = engine->render->Mesh.envmap;
 
@@ -951,12 +965,18 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 			{
 				size_t steps = 0;
 				while (mesh->Wedges[wedgeIndex].Vertex >= lodBudget && steps++ < mesh->Wedges.size())
-					wedgeIndex = mesh->CollapseWedgeThus[wedgeIndex];
+				{
+					// A list leading past the wedges (a hand-made mesh's) ends here
+					uint16_t next = mesh->CollapseWedgeThus[wedgeIndex];
+					if (next >= mesh->Wedges.size())
+						break;
+					wedgeIndex = next;
+				}
 			}
 			const MeshWedge& wedge = mesh->Wedges[wedgeIndex];
 
 			size_t vbase = (size_t)wedge.Vertex + baseVertexOffset;
-			size_t vindex = mesh->ReMapAnimVerts.empty() ? vbase : mesh->ReMapAnimVerts[vbase];
+			size_t vindex = mesh->ReMapAnimVerts.empty() || vbase >= mesh->ReMapAnimVerts.size() ? vbase : mesh->ReMapAnimVerts[vbase];
 
 			if (vindex < vertexCache.size())
 			{
@@ -984,7 +1004,7 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 
 			// The top of the budget slides toward what it collapses to; the
 			// texture coordinates as bytes, rounded down
-			uint16_t morphTarget = lodMorph && (int)wedge.Vertex > lodMorphStart ? mesh->CollapsePointThus[wedge.Vertex] : 0;
+			uint16_t morphTarget = lodMorph && (int)wedge.Vertex > lodMorphStart && wedge.Vertex < mesh->CollapsePointThus.size() ? mesh->CollapsePointThus[wedge.Vertex] : 0;
 			if (morphTarget != 0)
 			{
 				float morphT = std::min((float)((int)wedge.Vertex - lodMorphStart) * lodMorphScale, 1.0f);
@@ -994,12 +1014,15 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 				if (animateVertex(tindex, targetPoint, targetNormal))
 					vertices[i].Point = mix(vertices[i].Point, targetPoint, morphT);
 				uint16_t targetWedgeIndex = mesh->CollapseWedgeThus[wedgeIndex];
-				const MeshWedge& targetWedge = mesh->Wedges[targetWedgeIndex];
-				if (targetWedgeIndex != wedgeIndex && (targetWedge.U != wedge.U || targetWedge.V != wedge.V))
+				if (targetWedgeIndex != wedgeIndex && targetWedgeIndex < mesh->Wedges.size())
 				{
-					uint8_t u = (uint8_t)(int)(((double)targetWedge.U - (double)wedge.U) * morphT + (double)wedge.U);
-					uint8_t v = (uint8_t)(int)(((double)targetWedge.V - (double)wedge.V) * morphT + (double)wedge.V);
-					vertices[i].UV = { u * uscale, v * vscale };
+					const MeshWedge& targetWedge = mesh->Wedges[targetWedgeIndex];
+					if (targetWedge.U != wedge.U || targetWedge.V != wedge.V)
+					{
+						uint8_t u = (uint8_t)(int)(((double)targetWedge.U - (double)wedge.U) * morphT + (double)wedge.U);
+						uint8_t v = (uint8_t)(int)(((double)targetWedge.V - (double)wedge.V) * morphT + (double)wedge.V);
+						vertices[i].UV = { u * uscale, v * vscale };
+					}
 				}
 			}
 		}

@@ -1712,7 +1712,10 @@ A mod gets the original's loader and natives:
   frame, and an `AnimFrame` of 1 or more wraps into its sequence with the
   weight between frames taken before the wrap, as the original's GetFrame
   takes it; a blend's frames past the mesh's vertices are left out, as a LOD
-  mesh's are.
+  mesh's are; a LOD mesh's material naming a texture slot past the mesh's
+  draws with the environment map, and a face naming a wedge past them, or a
+  collapse list leading past them, is passed over, as a vertex past the
+  vertices is.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).
