@@ -231,14 +231,17 @@ public:
 		if (alDevice == nullptr)
 			Exception::Throw("Failed to initialize OpenAL device");
 
+		// The context at the mixing rate chosen (the launcher's), so OpenAL
+		// mixes the sources at it rather than resampling a mix made at it
 		const ALCint ctxAttribs[] =
 		{
 			ALC_FREQUENCY, inFrequency,
 			ALC_REFRESH, 60,
-			ALC_SYNC, ALC_FALSE
+			ALC_SYNC, ALC_FALSE,
+			0
 		};
 
-		alContext = alcCreateContext(alDevice, NULL);
+		alContext = alcCreateContext(alDevice, ctxAttribs);
 		if (alContext == nullptr)
 			Exception::Throw("Failed to initialize OpenAL context");
 
