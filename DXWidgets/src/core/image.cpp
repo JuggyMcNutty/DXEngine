@@ -6,15 +6,16 @@
 #include "nanosvg/nanosvgrast.h"
 #include <cstring>
 #include <stdexcept>
+#include <cmath>
 
 class ImageImpl : public Image
 {
 public:
 	ImageImpl(int width, int height, ImageFormat format, const void* data) : Width(width), Height(height), Format(format)
 	{
-		Data = std::make_unique<uint32_t[]>(width * height);
+		Data = std::make_unique<uint32_t[]>((size_t)width * height);
 		if (data)
-			memcpy(Data.get(), data, width * height * sizeof(uint32_t));
+			memcpy(Data.get(), data, (size_t)width * height * sizeof(uint32_t));
 	}
 
 	int GetWidth() const override
@@ -69,8 +70,10 @@ std::shared_ptr<Image> Image::LoadResource(const std::string& resourcename, doub
 		int result = decodePNG(pixels, width, height, (const unsigned char*)filedata.data(), filedata.size(), true);
 		if (result != 0)
 			throw std::runtime_error("Could not decode PNG file");
+		if (width == 0 || height == 0 || width > 16384 || height > 16384)
+			throw std::runtime_error("PNG size out of range");
 
-		return Image::Create(width, height, ImageFormat::R8G8B8A8, pixels.data());
+		return Image::Create((int)width, (int)height, ImageFormat::R8G8B8A8, pixels.data());
 	}
 	else if (extension == "svg")
 	{
@@ -83,8 +86,15 @@ std::shared_ptr<Image> Image::LoadResource(const std::string& resourcename, doub
 
 		try
 		{
-			int width = (int)(svgimage->width * dpiscale);
-			int height = (int)(svgimage->height * dpiscale);
+			// Held to a size the allocation holds: the float's cast was
+			// undefined out of range, and the width by height overflowed an
+			// int (a 65536 x 65536 SVG allocated nothing and was drawn into)
+			double w = std::floor(svgimage->width * dpiscale);
+			double h = std::floor(svgimage->height * dpiscale);
+			if (!(w >= 1.0 && w <= 16384.0 && h >= 1.0 && h <= 16384.0))
+				throw std::runtime_error("SVG size out of range");
+			int width = (int)w;
+			int height = (int)h;
 			std::shared_ptr<Image> image = Image::Create(width, height, ImageFormat::R8G8B8A8, nullptr);
 
 			NSVGrasterizer* rast = nsvgCreateRasterizer();
