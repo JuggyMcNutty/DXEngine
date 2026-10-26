@@ -1880,6 +1880,10 @@ settles it). The server-only stubs are under
   server's port the URL's or the next free of the 20 from it (`PORT=` and
   `MULTIHOME=` are not taken); a server's host name is looked up on a
   thread, the game going on.
+- **`InternetLink.GetLocalIP`** answers the address this machine reaches the
+  network from (a UDP socket's local end toward 8.8.8.8; 127.0.0.1 with no
+  route), by choice, where the original answers the first address of the
+  machine's own name, on Linux often a loopback address.
 - **The download cache.** A package is cached as its GUID with `CacheExt`,
   where the original writes `.uxx` whatever `CacheExt` says (the game's ini
   names `.uxx`). A package a join loaded from the cache is let go by name at
