@@ -208,6 +208,9 @@ Array<float> USound::Decode()
 	Array<float> decoded;
 	#define ALIGN(x, a) ((x & ~(a-1)) + a)
 	channels = source->GetChannels();
+	// A count past 256 M floats (a gigabyte) is no sound of the game's
+	if ((size_t)source->GetSamples() * channels > ((size_t)1 << 28))
+		Exception::Throw("Sound too large");
 	decoded.resize(ALIGN((size_t)source->GetSamples() * channels, 4));
 	decoded.resize(ALIGN(source->ReadSamples(decoded.data(), decoded.size()), 4));
 

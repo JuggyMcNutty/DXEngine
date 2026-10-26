@@ -149,7 +149,13 @@ public:
 
 	int GetSamples() override
 	{
-		return decoder.totalPCMFrameCount;
+		// The header's count held to what the data chunk holds (a claim of
+		// 0xFFFFFFF0 bytes committed 8 GB) and to int
+		uint64_t frames = decoder.totalPCMFrameCount;
+		uint64_t frameBytes = (uint64_t)decoder.channels * (decoder.bitsPerSample / 8);
+		if (frameBytes > 0)
+			frames = std::min<uint64_t>(frames, decoder.dataChunkDataSize / frameBytes);
+		return (int)std::min<uint64_t>(frames, INT_MAX);
 	}
 
 	void SeekToSample(uint64_t position) override
