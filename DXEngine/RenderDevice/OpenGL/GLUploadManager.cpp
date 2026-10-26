@@ -68,12 +68,14 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
 			for (int miplevel = 0; miplevel < mipcount; miplevel++)
 			{
 				glTexImage2D(GL_TEXTURE_2D, miplevel, internalFormat, mipwidth, mipheight, 0, format, type, nullptr);
-				ThrowIfGLError("UploadTexture failed");
 				mipwidth = std::max(mipwidth >> 1, 1);
 				mipheight = std::max(mipheight >> 1, 1);
 			}
 		}
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, std::max(mipcount - 1, 0));
+		// Once a texture made, not once a level or an upload: each ask makes a
+		// threaded driver finish its queue (GLRenderDevice.h, ThrowIfGLError)
+		ThrowIfGLError("UploadTexture failed");
 	}
 
 	if (uploader)
@@ -154,7 +156,6 @@ void GLUploadManager::UploadWhite(GLTexture2D* image)
 	data[0] = 0xffffffff;
 	glBindTexture(GL_TEXTURE_2D, image->Handle);
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, data);
-	ThrowIfGLError("UploadWhite failed");
 }
 
 uint8_t* GLUploadManager::GetUploadBuffer(size_t size)
