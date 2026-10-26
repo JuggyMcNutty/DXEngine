@@ -616,11 +616,17 @@ vec3 UPawn::JumpLanding(vec3 velocity, bool movePawn)
 	const float timeStep = 0.1f;
 	vec3 start = Location();
 
+	// Each test move puts the pawn's regions where it is, its feet's and
+	// head's too, as the original's MoveActor sets them for a test move
+	// (ULevel::SetActorZone 0x1039b940, a test setting the regions with no
+	// events): FindBestJump's pain test reads the feet's.
 	auto moveBy = [&](const vec3& delta)
 		{
 			CollisionHit hit = TryMove(delta, true);
 			Location() += delta * hit.Fraction;
 			Region() = FindRegion();
+			FootRegion() = FindRegion({ 0.0f, 0.0f, -CollisionHeight() });
+			HeadRegion() = FindRegion({ 0.0f, 0.0f, EyeHeight() });
 			return hit;
 		};
 

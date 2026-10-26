@@ -218,7 +218,11 @@ of `MaxDesiredSpeed` held to the speed asked, as the original's `StrafeTo`
 sets it before the timer; the timer takes a pawn with no physics at 200
 units a second and counts only while the pawn's physics run, as the
 original's `setMoveTimer` and `performPhysics` have it, so a strafe or move
-of a pawn with no physics never runs out (`StrafeConsole`). A dead robot frozen in `Dying` for good is the original's own
+of a pawn with no physics never runs out (`StrafeConsole`). A jumper's
+landing is judged by the zone its feet land in, each test move of the
+jump's fall setting its feet's and head's regions as the original's test
+moves set them, so a jump into a pain zone the pawn does not resist is
+refused. A dead robot frozen in `Dying` for good is the original's own
 behaviour, and the rest of a death is alike too (`DeathConsole`).
 `Terrorist34`, walking west to `PatrolPoint86`, comes to a stop at x 1510
 some 8 s in, still walking at it, and stands there until his move's time
