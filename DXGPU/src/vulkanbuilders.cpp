@@ -1928,11 +1928,12 @@ std::vector<VulkanCompatibleDevice> VulkanDeviceBuilder::FindDevices(const std::
 		}
 	}
 
-	// The device order returned by Vulkan can be anything. Prefer discrete > integrated > virtual gpu > cpu > other
+	// The device order returned by Vulkan can be anything. Prefer discrete > integrated > virtual gpu > other > cpu:
+	// a GPU reporting OTHER before Mesa's CPU driver, so that the CPU driver is never taken while a GPU is there
 	auto sortFunc = [&](const auto& a, const auto b)
 	{
 		// Sort by GPU type first. This will ensure the "best" device is most likely to map to vk_device 0
-		static const int typeSort[] = { 4, 1, 0, 2, 3 };
+		static const int typeSort[] = { 3, 1, 0, 2, 4 };
 		int sortA = a.Device->Properties.Properties.deviceType < 5 ? typeSort[a.Device->Properties.Properties.deviceType] : (int)a.Device->Properties.Properties.deviceType;
 		int sortB = b.Device->Properties.Properties.deviceType < 5 ? typeSort[b.Device->Properties.Properties.deviceType] : (int)b.Device->Properties.Properties.deviceType;
 		if (sortA != sortB)
