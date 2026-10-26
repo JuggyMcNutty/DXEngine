@@ -223,6 +223,12 @@ public:
 	{
 		CheckType(ExpressionValueType::ValueArray);
 		ScriptArray* v = static_cast<ScriptArray*>(Ptr);
+		// Grows to any index past its end, read or written (the original's
+		// execDynArrayElement asserts on every element: Deus Ex's scripts
+		// declare dynamic arrays and never index them); a negative index, or
+		// one the array cannot grow to, is a script error
+		if (index < 0 || index >= 0x7FFFFFFF)
+			Exception::Throw("Accessed array out of bounds (" + std::to_string(index) + "/" + std::to_string(v->GetSize()) + ")");
 		if (v->GetSize() <= index)
 			v->Resize(index + 1);
 		return ExpressionValue(v->GetItem(index), v->GetType());

@@ -31,7 +31,9 @@ for a crash. No map or action is known to reach one; the audit lists the
 natives whose call would. A `foreach` on a None context, and state code's
 `goto` to a label its state has not, stop both engines alike (the
 original's Critical Error); a None class's `default` is 0 in both, and
-`AllActors(None)` every actor.
+`AllActors(None)` every actor. A dynamic array's element, on which the
+original asserts (no Deus Ex script indexes one), grows the array to the
+index in DXEngine, a negative index a script error.
 
 A runaway script stops both engines alike, with an error no native's call
 catches
