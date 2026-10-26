@@ -156,9 +156,7 @@ void RenderSubsystem::UpdateTextureInfo(TextureInfo& info, UTexture* texture)
 		info.Palette = (TextureColor*)texture->Palette()->Colors.data();
 	ApplyDetailLOD(info);
 
-	info.bRealtimeChanged = texture->TextureModified;
-	if (texture->TextureModified)
-		texture->TextureModified = false;
+	info.bRealtimeChanged = texture->ChangedThisFrame(TextureFrameCounter);
 }
 
 // The texture from its detail level's mip down, as the original's
@@ -180,7 +178,10 @@ void RenderSubsystem::ApplyDetailLOD(TextureInfo& info)
 	info.VSize = mip.Height;
 	info.Mips += lod;
 	info.NumMips -= lod;
-	info.CacheID += lod;
+	// The level in bits no address or tag reaches: added to the texture's
+	// address it could end in 1, 2 or 3, a light map's, fog map's or atlas
+	// page's tag (LightmapAtlas), or make another texture's address
+	info.CacheID |= (uint64_t)lod << 56;
 }
 
 void RenderSubsystem::PurgeDying()
