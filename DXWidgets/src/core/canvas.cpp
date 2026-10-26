@@ -831,6 +831,10 @@ void BitmapCanvas::drawTile(CanvasTexture* tex, float left, float top, float wid
 	auto texture = static_cast<BitmapTexture*>(tex);
 	int swidth = texture->Width;
 	int sheight = texture->Height;
+	// An image of no size (an SVG with no width, height or viewBox) has no
+	// pixel to sample: its indexes clamped to -1 read before the buffer
+	if (swidth <= 0 || sheight <= 0)
+		return;
 	const uint32_t* src = texture->Data.data();
 
 	int dwidth = this->width;
