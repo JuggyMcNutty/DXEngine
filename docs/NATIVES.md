@@ -1836,7 +1836,10 @@ A mod gets the original's loader and natives:
   which count the steady clock's nanoseconds where the original's count the
   CPU's cycles.
 - **Spawn notifications.** A `SpawnNotify` on the level's list is asked
-  about each actor spawned of its `ActorClass`, its answer standing for the
+  about each actor spawned of its `ActorClass` (not one spawned while a
+  notification runs, DXEngine's guard against a notification spawning
+  without end; the original's `SpawnActor` is unread there), its answer
+  standing for the
   actor from then on: the next notification is asked about it, and the
   spawn returns it, as the original's
   ([spawning](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#teleporting-an-actor);
