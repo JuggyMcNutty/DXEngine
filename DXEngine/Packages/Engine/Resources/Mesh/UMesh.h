@@ -3,7 +3,6 @@
 #include "Packages/Engine/Resources/UPrimitive.h"
 
 class UTexture;
-class UAnimation;
 
 struct MeshTri
 {

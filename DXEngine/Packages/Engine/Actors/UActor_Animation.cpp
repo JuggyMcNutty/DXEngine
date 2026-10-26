@@ -4,7 +4,7 @@
 #include "Utils/Logger.h"
 #include "VM/ScriptCall.h"
 #include "VM/Frame.h"
-#include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
+#include "Packages/Engine/Resources/Mesh/ULodMesh.h"
 #include "Engine.h"
 
 bool UActor::HasAnim(const NameString& sequence)

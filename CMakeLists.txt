@@ -591,14 +591,10 @@ set(DXCOMMON_SOURCES
 	DXEngine/Packages/Engine/Resources/Level/UVectors.h
 	DXEngine/Packages/Engine/Resources/Level/UVerts.cpp
 	DXEngine/Packages/Engine/Resources/Level/UVerts.h
-	DXEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
-	DXEngine/Packages/Engine/Resources/Mesh/UAnimation.h
 	DXEngine/Packages/Engine/Resources/Mesh/ULodMesh.cpp
 	DXEngine/Packages/Engine/Resources/Mesh/ULodMesh.h
 	DXEngine/Packages/Engine/Resources/Mesh/UMesh.cpp
 	DXEngine/Packages/Engine/Resources/Mesh/UMesh.h
-	DXEngine/Packages/Engine/Resources/Mesh/USkeletalMesh.cpp
-	DXEngine/Packages/Engine/Resources/Mesh/USkeletalMesh.h
 	DXEngine/Packages/Engine/Resources/Textures/UBitmap.h
 	DXEngine/Packages/Engine/Resources/Textures/FireEngine.cpp
 	DXEngine/Packages/Engine/Resources/Textures/FireEngine.h

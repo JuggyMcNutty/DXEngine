@@ -4,7 +4,7 @@
 #include "Packages/Engine/Actors/Brush/UMover.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
-#include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
+#include "Packages/Engine/Resources/Mesh/ULodMesh.h"
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 
 void UActor::UpdateBspInfo()

@@ -24,7 +24,6 @@ class UActor;
 class UFont;
 class UMesh;
 class ULodMesh;
-class USkeletalMesh;
 class ULevelSummary;
 class ULevelInfo;
 class UZoneInfo;

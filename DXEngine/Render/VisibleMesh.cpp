@@ -13,7 +13,7 @@
 #include "Packages/Engine/Actors/Inventory/UInventory.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Actors/NavigationPoint/UNavigationPoint.h"
-#include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
+#include "Packages/Engine/Resources/Mesh/ULodMesh.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 
 // Whether a mesh face faces the eye, as the original's DrawMesh and
@@ -123,11 +123,7 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, bool translucentP
 
 bool VisibleMesh::DrawMeshAtLocation(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, UMesh* mesh, const mat4& meshToWorld, const mat3& meshNormalToWorld, bool translucentPass)
 {
-	if (auto skeletalmesh = UObject::TryCast<USkeletalMesh>(mesh))
-	{
-		return DrawSkeletalMesh(frame, actor, lightLocationActor, skeletalmesh, meshToWorld, meshNormalToWorld, translucentPass);
-	}
-	else if (auto lodmesh = UObject::TryCast<ULodMesh>(mesh))
+	if (auto lodmesh = UObject::TryCast<ULodMesh>(mesh))
 	{
 		return DrawLodMeshDX(frame, actor, lightLocationActor, lodmesh, meshToWorld, meshNormalToWorld, translucentPass);
 	}
@@ -135,41 +131,6 @@ bool VisibleMesh::DrawMeshAtLocation(VisibleFrame* frame, UActor* actor, UActor*
 	{
 		return DrawMeshDX(frame, actor, lightLocationActor, mesh, meshToWorld, meshNormalToWorld, translucentPass);
 	}
-}
-
-bool VisibleMesh::DrawLodMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, ULodMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, bool translucentPass)
-{
-	UActor* animSource = actor;
-	if (actor->bAnimByOwner() && actor->Owner())
-		animSource = actor->Owner();
-
-	const MeshAnimSeq* seq = SequenceOrFirstFrame(mesh, animSource->AnimSequence());
-	float animFrame = animSource->AnimFrame() * seq->NumFrames;
-
-	int vertexOffsets[3];
-	float t0, t1;
-
-	if (animFrame >= 0.0f)
-	{
-		int frame0, frame1;
-		SequenceFrames(seq, animFrame, frame0, frame1, t0);
-		t1 = 0.0f;
-		vertexOffsets[0] = (seq->StartFrame + frame0) * mesh->FrameVerts;
-		vertexOffsets[1] = (seq->StartFrame + frame1) * mesh->FrameVerts;
-		vertexOffsets[2] = 0;
-	}
-	else // Tween from old animation
-	{
-		t0 = animSource->TweenFromAnimFrame.T;
-		t1 = clamp(animFrame + 1.0f, 0.0f, 1.0f);
-		vertexOffsets[0] = animSource->TweenFromAnimFrame.V0;
-		vertexOffsets[1] = animSource->TweenFromAnimFrame.V1;
-		vertexOffsets[2] = seq->StartFrame * mesh->FrameVerts;
-	}
-
-	SetupMeshTextures(actor, mesh);
-	FindAttachmentPoints(mesh, ObjectToWorld, vertexOffsets, t0, t1);
-	return DrawLodMeshFace(frame, actor, lightLocationActor, mesh, mesh->Faces, ObjectToWorld, ObjectNormalToWorld, mesh->SpecialVerts, vertexOffsets, t0, t1, translucentPass);
 }
 
 // Each of the mesh's texture slots as the original fills it (UMesh::GetTexture):
@@ -255,148 +216,6 @@ void VisibleMesh::FindAttachmentPoints(ULodMesh* mesh, const mat4& ObjectToWorld
 			attachmentTris.push_back((ObjectToWorld * vec4(vertex, 1.0f)).xyz());
 		}
 	}
-}
-
-bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, ULodMesh* mesh, const Array<MeshFace>& faces, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, int baseVertexOffset, const int* vertexOffsets, float t0, float t1, bool translucentPass)
-{
-	auto lightsys = &engine->Level->Light;
-	float fatness = actor->Fatness() / 16.0f - 8.0f;
-
-	uint32_t polyFlags = 0;
-	switch (actor->Style())
-	{
-	default: break;
-	case STY_None: break;
-	case STY_AlphaBlend: break;
-	case STY_Masked: polyFlags |= PF_Masked; break;
-	case STY_Translucent: polyFlags |= PF_Translucent; break;
-	case STY_Modulated: polyFlags |= PF_Modulated; break;
-	}
-	if (actor->bNoSmooth()) polyFlags |= PF_NoSmooth;
-	if (actor->bSelected()) polyFlags |= PF_Selected;
-	if (actor->bMeshEnviroMap()) polyFlags |= PF_Environment;
-	if (actor->bMeshCurvy()) polyFlags |= PF_Flat;
-	if (actor->bNoSmooth()) polyFlags |= PF_NoSmooth;
-	if (actor->bUnlit() || actor->Region().ZoneNumber == 0) polyFlags |= PF_Unlit;
-
-	UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
-
-	VertexLight vertexLight;
-	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor);
-
-	bool needTranslucentPass = false;
-
-	GouraudVertex vertices[3];
-	for (const MeshFace& face : faces)
-	{
-		if (face.MaterialIndex >= mesh->Materials.size())
-			continue;
-
-		// A face naming a wedge past the mesh's (a hand-made mesh's) is passed
-		// over, as the load passes it over for the normals
-		if (face.Indices[0] >= mesh->Wedges.size() || face.Indices[1] >= mesh->Wedges.size() || face.Indices[2] >= mesh->Wedges.size())
-			continue;
-
-		const MeshMaterial& material = mesh->Materials[face.MaterialIndex];
-
-		if (material.PolyFlags & PF_Invisible)
-			continue;
-
-		uint32_t renderflags = material.PolyFlags | polyFlags;
-		// A slot past the mesh's textures (a hand-made mesh's material) holds
-		// another mesh's: none, so the environment map stands in
-		UTexture* tex = material.TextureIndex >= 0 && (size_t)material.TextureIndex < mesh->Textures.size() ? engine->render->Mesh.textures[material.TextureIndex] : nullptr;
-		if (!tex || (renderflags & PF_Environment))
-			tex = engine->render->Mesh.envmap;
-
-		// skip if no texture
-		if (!tex)
-			continue;
-		renderflags |= tex->PolyFlags() & PF_Masked;
-
-		bool isTranslucent = (renderflags & (PF_Translucent | PF_Modulated | PF_Highlighted)) != 0;
-		if (isTranslucent && !translucentPass)
-		{
-			needTranslucentPass = true;
-			continue;
-		}
-		else if (!isTranslucent && translucentPass)
-		{
-			// We already drew the opaque surface
-			continue;
-		}
-
-		TextureInfo texinfo;
-		engine->render->UpdateTextureInfo(texinfo, tex);
-
-		float uscale = (texinfo.Texture ? texinfo.Texture->UsedMipmaps.front().Width : 256) * (1.0f / 256.0f);
-		float vscale = (texinfo.Texture ? texinfo.Texture->UsedMipmaps.front().Height : 256) * (1.0f / 256.0f);
-
-		vec3 normals[3];
-		for (int i = 0; i < 3; i++)
-		{
-			const MeshWedge& wedge = mesh->Wedges[face.Indices[i]];
-
-			size_t vbase = (size_t)wedge.Vertex + baseVertexOffset;
-			size_t vindex = mesh->ReMapAnimVerts.empty() || vbase >= mesh->ReMapAnimVerts.size() ? vbase : mesh->ReMapAnimVerts[vbase];
-			size_t vindex0 = vindex + vertexOffsets[0];
-			size_t vindex1 = vindex + vertexOffsets[1];
-
-			if (vindex0 >= mesh->Verts.size() || vindex1 >= mesh->Verts.size())
-				return false; // out of bounds
-
-			const vec3& v0 = mesh->Verts[vindex0];
-			const vec3& v1 = mesh->Verts[vindex1];
-			const vec3& n0 = mesh->Normals[vindex0];
-			const vec3& n1 = mesh->Normals[vindex1];
-			vec3 vertex = mix(v0 + n0 * fatness, v1 + n1 * fatness, t0);
-			vec3 normal = mix(n0, n1, t0);
-			if (t1 != 0.0f)
-			{
-				size_t vindex2 = vindex + vertexOffsets[2];
-				if (vindex2 >= mesh->Verts.size())
-					return false; // out of bounds
-
-				const vec3& v2 = mesh->Verts[vindex2];
-				const vec3& n2 = mesh->Normals[vindex2];
-				vertex = mix(vertex, v2 + n2 * fatness, t1);
-				normal = mix(normal, n2, t1);
-			}
-
-			vertices[i].Point = (ObjectToWorld * vec4(vertex, 1.0f)).xyz();
-			vertices[i].UV = { wedge.U * uscale, wedge.V * vscale };
-			normals[i] = normalize(ObjectNormalToWorld * normal);
-		}
-
-		if (renderflags & PF_Environment)
-		{
-			// The original's (Render.dll 0x10b0bab0): the eye's line to the
-			// vertex mirrored by its normal, in the world's axes.
-			vec3 viewer = frame->ViewLocation.xyz();
-			for (int i = 0; i < 3; i++)
-			{
-				vec3 p = reflect(normalize(vertices[i].Point - viewer), normals[i]);
-				vertices[i].UV = { (p.x + 1.0f) * 128.0f * uscale, (p.y + 1.0f) * 128.0f * vscale };
-			}
-		}
-
-		for (int i = 0; i < 3; i++)
-		{
-			vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, normals[i], !!(renderflags & PF_Unlit), !!(renderflags & PF_TwoSided));
-			vertices[i].Fog = vertexLight.GetVertexFog(vertices[i].Point);
-		}
-
-		renderflags |= PF_RenderFog;
-
-		frame->Device->DrawGouraudPolygon(&frame->Frame, texinfo, vertices, 3, renderflags);
-	}
-
-	return needTranslucentPass;
-}
-
-bool VisibleMesh::DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, bool translucentPass)
-{
-	return DrawLodMesh(frame, actor, lightLocationActor, mesh, ObjectToWorld, ObjectNormalToWorld, translucentPass);
 }
 
 bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, UMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, bool translucentPass)

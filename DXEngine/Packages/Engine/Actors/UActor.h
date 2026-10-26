@@ -14,7 +14,6 @@ class UMesh;
 class ULevel;
 class ULevelInfo;
 class UModel;
-class UAnimation;
 class UViewport;
 class USound;
 class CollisionHit;
@@ -606,7 +605,6 @@ public:
 	Rotator& RotationRate() { return Value<Rotator>(PropOffsets_Actor.RotationRate); }
 	float& ScaleGlow() { return Value<float>(PropOffsets_Actor.ScaleGlow); }
 	vec4& SimAnim() { return Value<vec4>(PropOffsets_Actor.SimAnim); } // a Plane: X, Y, Z, W
-	UAnimation*& SkelAnim() { return Value<UAnimation*>(PropOffsets_Actor.SkelAnim); }
 	UTexture*& Skin() { return Value<UTexture*>(PropOffsets_Actor.Skin); }
 	uint8_t& SoundPitch() { return Value<uint8_t>(PropOffsets_Actor.SoundPitch); }
 	uint8_t& SoundRadius() { return Value<uint8_t>(PropOffsets_Actor.SoundRadius); }

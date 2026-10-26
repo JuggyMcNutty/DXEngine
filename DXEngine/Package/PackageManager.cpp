@@ -161,10 +161,8 @@
 #include "Packages/Engine/Resources/Level/UPolys.h"
 #include "Packages/Engine/Resources/Level/UVectors.h"
 #include "Packages/Engine/Resources/Level/UVerts.h"
-#include "Packages/Engine/Resources/Mesh/UAnimation.h"
 #include "Packages/Engine/Resources/Mesh/ULodMesh.h"
 #include "Packages/Engine/Resources/Mesh/UMesh.h"
-#include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
 #include "Packages/Engine/Resources/Textures/UBitmap.h"
 #include "Packages/Engine/Resources/Textures/UFireTexture.h"
 #include "Packages/Engine/Resources/Textures/UFractalTexture.h"
@@ -1486,8 +1484,6 @@ void PackageManager::RegisterNativeClasses()
 	RegisterNativeClass<UPrimitive>(enginePackage, "Primitive", "Object");
 	RegisterNativeClass<UMesh>(enginePackage, "Mesh", "Primitive");
 	RegisterNativeClass<ULodMesh>(enginePackage, "LodMesh", "Mesh");
-	RegisterNativeClass<USkeletalMesh>(enginePackage, "SkeletalMesh", "LodMesh");
-	RegisterNativeClass<UAnimation>(enginePackage, "Animation", "Object");
 
 	RegisterNativeClass<UModel>(enginePackage, "Model", "Primitive");
 	RegisterNativeClass<ULevelBase>(enginePackage, "LevelBase", "Object");
