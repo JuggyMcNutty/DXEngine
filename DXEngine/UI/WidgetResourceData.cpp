@@ -20,19 +20,18 @@ public:
 		// On Linux, DXEngine.pk3 can additionally be put in some other folders given below.
 		if (!result)
 			result = mz_zip_reader_init_file(&widgetResources, "/usr/share/dxengine/DXEngine.pk3", 0);
-		if (!result)
+		// The data home (XDG_DATA_HOME, else HOME's .local/share) and HOME's
+		// .dxengine, each only where its variable is set: a service with no
+		// HOME built a path from a null pointer
+		char* home = std::getenv("HOME");
+		char* xdg_data_home = std::getenv("XDG_DATA_HOME");
+		if (!result && (xdg_data_home || home))
 		{
-			char* home = std::getenv("HOME");
-			std::string directory = fs::path(home) / ".local/share/dxengine";
-			char* xdg_data_home = std::getenv("XDG_DATA_HOME");
-			if (xdg_data_home != nullptr) {
-				directory = fs::path(xdg_data_home) / "dxengine";
-			}
+			std::string directory = xdg_data_home ? (fs::path(xdg_data_home) / "dxengine").string() : (fs::path(home) / ".local/share/dxengine").string();
 			result = mz_zip_reader_init_file(&widgetResources, (fs::path(directory) / "DXEngine.pk3").c_str(), 0);
 		}
-		if (!result)
+		if (!result && home)
 		{
-			char* home = std::getenv("HOME");
 			const std::string directory = fs::path(home) / ".dxengine";
 			result = mz_zip_reader_init_file(&widgetResources, (fs::path(directory) / "DXEngine.pk3").c_str(), 0);
 		}
