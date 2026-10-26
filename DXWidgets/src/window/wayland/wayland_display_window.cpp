@@ -321,19 +321,21 @@ void WaylandDisplayWindow::Hide()
 void WaylandDisplayWindow::Activate()
 {
 	m_WindowActivationToken = backend->m_XDGActivation.get_activation_token();
-	m_WindowActivationToken.on_done() = [&](const std::string& newActivationToken)
+	// The token comes in its done event, after the commit: the activation
+	// waits for it (an empty or stale token activated nothing), and the
+	// compositor's configure says whether the window was activated
+	m_WindowActivationToken.on_done() = [this](const std::string& newActivationToken)
 	{
 		m_ActivationTokenString = newActivationToken;
+		backend->m_XDGActivation.activate(m_ActivationTokenString, m_WindowSurface);
 	};
 
 	m_WindowActivationToken.set_surface(m_WindowSurface);
 	m_WindowActivationToken.set_serial(backend->GetKeyboardSerial(), backend->m_waylandSeat);
-	m_WindowActivationToken.commit(); // This will set our token string
+	m_WindowActivationToken.commit();
 
-	backend->m_XDGActivation.activate(m_ActivationTokenString, m_WindowSurface);
 	backend->m_FocusWindow = this;
 	backend->m_MouseFocusWindow = this;
-	windowHost->OnWindowActivated();
 }
 
 void WaylandDisplayWindow::ShowCursor(bool enable)
