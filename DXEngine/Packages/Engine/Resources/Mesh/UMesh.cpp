@@ -183,6 +183,8 @@ void UMesh::Load(ObjectStream* stream)
 	// Build smoothed normals
 	Normals.clear();
 	Normals.resize(Verts.size(), vec3(0.0f));
+	// A face running past the vertices (a hand-made mesh's) is passed over,
+	// not written past the buffer
 	for (int frame = 0; frame < AnimFrames; frame++)
 	{
 		for (const MeshTri& tri : Tris)
@@ -190,6 +192,8 @@ void UMesh::Load(ObjectStream* stream)
 			int v0 = tri.Indices[0] + frame * FrameVerts;
 			int v1 = tri.Indices[1] + frame * FrameVerts;
 			int v2 = tri.Indices[2] + frame * FrameVerts;
+			if (v0 < 0 || v1 < 0 || v2 < 0 || (size_t)v0 >= Verts.size() || (size_t)v1 >= Verts.size() || (size_t)v2 >= Verts.size())
+				continue;
 			vec3 n = normalize(cross(Verts[v1] - Verts[v0], Verts[v2] - Verts[v0]));
 			Normals[v0] += n;
 			Normals[v1] += n;
@@ -226,18 +230,6 @@ void UMesh::Save(PackageStreamWriter* stream)
 			stream->WriteBytes(&packedvertex, sizeof(DeusExVertex));
 		}
 	}
-	else
-	{
-		for (const vec3& v : Verts)
-		{
-			int32_t x = (int)std::round(v.x);
-			int32_t y = (int)std::round(v.y);
-			int32_t z = (int)std::round(v.z);
-			int32_t packedvertex = (x & 0x7ff) | ((y & 0x7ff) << 11) | ((z & 0x3ff) << 22);
-			stream->WriteInt32(packedvertex);
-		}
-	}
-
 	if (stream->GetVersion() > 61)
 	{
 		stream->EndSkipOffset();

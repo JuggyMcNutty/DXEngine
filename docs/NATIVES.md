@@ -1684,9 +1684,11 @@ A mod gets the original's loader and natives:
   transient members passed over on disk, as the original's binary has them;
   a script's Unicode string constant of more than one character loads on the
   Linux ports; an expression 1,024 deep loads (64 was the limit); a mesh
-  DXEngine saves loads back; a palette short of 256 colours is padded with
-  black; a texture whose mip data is shorter than its size is padded with
-  black; an animation chain that never comes back ends at 2,048 textures.
+  whose faces run past its vertices or wedges loads, those faces passed
+  over; a mesh DXEngine saves loads back; a palette short of 256 colours is
+  padded with black; a texture whose mip data is shorter than its size is
+  padded with black; an animation chain that never comes back ends at 2,048
+  textures.
 - **Config files.** A class's config file that is not there is empty, its
   properties keeping their defaults, until the class writes it
   ([configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration)):
