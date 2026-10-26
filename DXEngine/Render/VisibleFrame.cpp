@@ -723,7 +723,10 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
 	info.ViewerBehind = front;
 	info.PolyFlags = PolyFlags;
 
-	if (PortalDepth < 4)
+	// A sky's and a warp zone's frames open three deep at most, as a
+	// mirror's, as the original's OccludeBsp opens them (Render.dll
+	// 0x10b173d0, Recursion < 3); deeper, the surface is drawn as it is
+	if (PortalDepth < 3)
 	{
 		if ((PolyFlags & (PF_FakeBackdrop | PF_Invisible)) == PF_FakeBackdrop)
 		{
