@@ -1692,7 +1692,8 @@ A mod gets the original's loader and natives:
   is refused with their numbers; a fire texture's sparks and drops outside
   it are masked into it; a scripted texture drawn from outside its source
   wraps, and one drawn with a size of 0 or a float that is no number draws
-  nothing; an animation chain that never comes back ends at 2,048 textures.
+  nothing; an animation chain that never comes back ends at 2,048 textures;
+  an import whose outers never end is refused.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).

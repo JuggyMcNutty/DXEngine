@@ -238,8 +238,13 @@ UObject* Package::GetUObject(int objref)
 		// Find the path for the outer object
 		std::string group;
 		ImportTableEntry* outerEntry = GetImportEntry(entry->ObjOuter);
+		int outers = 0;
 		while (outerEntry->ObjOuter != 0)
 		{
+			// An import whose outer is itself, or a ring of them, grew the
+			// group without end
+			if (++outers > 64)
+				Exception::Throw("Package " + Name.ToString() + ": an import's outers never end");
 			if (!group.empty())
 				group += '.';
 			group += GetName(outerEntry->ObjName).ToString();
