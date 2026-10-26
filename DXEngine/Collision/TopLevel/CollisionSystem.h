@@ -201,11 +201,22 @@ public:
 	static uint32_t FiledFlags(UMover* mover, const Poly& poly);
 
 private:
+	// A coordinate's cell, of 256 units, held to the cells an int can name:
+	// a coordinate that is no number, or past them (a script's collision
+	// size or location), converted undefined
+	static int CellCoord(float v)
+	{
+		if (v != v)
+			v = 0.0f;
+		v = std::clamp(v, -16777216.0f, 16777216.0f);
+		return (int)std::floor(v * (1.0f / 256.0f));
+	}
+
 	static ivec3 GetStartExtents(const vec3& location, const vec3& extents)
 	{
-		int xx = (int)std::floor((location.x - extents.x) * (1.0f / 256.0f));
-		int yy = (int)std::floor((location.y - extents.y) * (1.0f / 256.0f));
-		int zz = (int)std::floor((location.z - extents.z) * (1.0f / 256.0f));
+		int xx = CellCoord(location.x - extents.x);
+		int yy = CellCoord(location.y - extents.y);
+		int zz = CellCoord(location.z - extents.z);
 		return { xx, yy, zz };
 	}
 
@@ -214,9 +225,9 @@ private:
 		float x = std::min(from.x, to.x);
 		float y = std::min(from.y, to.y);
 		float z = std::min(from.z, to.z);
-		int xx = (int)std::floor(x * (1.0f / 256.0f));
-		int yy = (int)std::floor(y * (1.0f / 256.0f));
-		int zz = (int)std::floor(z * (1.0f / 256.0f));
+		int xx = CellCoord(x);
+		int yy = CellCoord(y);
+		int zz = CellCoord(z);
 		return { xx, yy, zz };
 	}
 
@@ -225,17 +236,17 @@ private:
 		float x = std::min(from.x, to.x) - extents.x;
 		float y = std::min(from.y, to.y) - extents.y;
 		float z = std::min(from.z, to.z) - extents.z;
-		int xx = (int)std::floor(x * (1.0f / 256.0f));
-		int yy = (int)std::floor(y * (1.0f / 256.0f));
-		int zz = (int)std::floor(z * (1.0f / 256.0f));
+		int xx = CellCoord(x);
+		int yy = CellCoord(y);
+		int zz = CellCoord(z);
 		return { xx, yy, zz };
 	}
 
 	static ivec3 GetEndExtents(const vec3& location, const vec3& extents)
 	{
-		int xx = (int)std::floor((location.x + extents.x) * (1.0f / 256.0f)) + 1;
-		int yy = (int)std::floor((location.y + extents.y) * (1.0f / 256.0f)) + 1;
-		int zz = (int)std::floor((location.z + extents.z) * (1.0f / 256.0f)) + 1;
+		int xx = CellCoord(location.x + extents.x) + 1;
+		int yy = CellCoord(location.y + extents.y) + 1;
+		int zz = CellCoord(location.z + extents.z) + 1;
 		return { xx, yy, zz };
 	}
 
@@ -244,9 +255,9 @@ private:
 		float x = std::max(from.x, to.x);
 		float y = std::max(from.y, to.y);
 		float z = std::max(from.z, to.z);
-		int xx = (int)std::floor(x * (1.0f / 256.0f)) + 1;
-		int yy = (int)std::floor(y * (1.0f / 256.0f)) + 1;
-		int zz = (int)std::floor(z * (1.0f / 256.0f)) + 1;
+		int xx = CellCoord(x) + 1;
+		int yy = CellCoord(y) + 1;
+		int zz = CellCoord(z) + 1;
 		return { xx, yy, zz };
 	}
 
@@ -255,9 +266,9 @@ private:
 		float x = std::max(from.x, to.x) + extents.x;
 		float y = std::max(from.y, to.y) + extents.y;
 		float z = std::max(from.z, to.z) + extents.z;
-		int xx = (int)std::floor(x * (1.0f / 256.0f)) + 1;
-		int yy = (int)std::floor(y * (1.0f / 256.0f)) + 1;
-		int zz = (int)std::floor(z * (1.0f / 256.0f)) + 1;
+		int xx = CellCoord(x) + 1;
+		int yy = CellCoord(y) + 1;
+		int zz = CellCoord(z) + 1;
 		return { xx, yy, zz };
 	}
 
