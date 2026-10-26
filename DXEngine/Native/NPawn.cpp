@@ -235,6 +235,10 @@ void NPawn::PickWallAdjust(UObject* Self, BitfieldBool& ReturnValue)
 	ReturnValue = SelfPawn->PickWallAdjust();
 }
 
+// The original's (Engine.dll APawn::execRemovePawn 0x103bb570): the pawn
+// unlinked from the level's PawnList, its own nextPawn left as it was, so a
+// script's walk through a pawn it has just destroyed goes on; DXEngine
+// cleared it
 void NPawn::RemovePawn(UObject* Self)
 {
 	UPawn* SelfPawn = UObject::Cast<UPawn>(Self);
@@ -242,7 +246,6 @@ void NPawn::RemovePawn(UObject* Self)
 	if (SelfPawn->Level()->PawnList() == SelfPawn)
 	{
 		SelfPawn->Level()->PawnList() = SelfPawn->nextPawn();
-		SelfPawn->nextPawn() = nullptr;
 	}
 	else
 	{
@@ -252,7 +255,6 @@ void NPawn::RemovePawn(UObject* Self)
 			if (cur->nextPawn() == SelfPawn)
 			{
 				cur->nextPawn() = SelfPawn->nextPawn();
-				SelfPawn->nextPawn() = nullptr;
 				break;
 			}
 		}
