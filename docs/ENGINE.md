@@ -132,7 +132,8 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   ([the command line](NATIVES.md#the-command-line)).
 - **`DXL_LAUNCHER_FD`** in the environment is the line to the engine of the launcher that
   started it, which stays for the game's run as the original's process does: a socket's
-  descriptor, on Windows an inherited pipe's handle. The engine says `hello` as it starts and
+  descriptor, on Windows an inherited pipe's handle, taken out of the environment once opened,
+  so that nothing the engine starts takes its number for a line. The engine says `hello` as it starts and
   `ready` once its first map is in, takes `TakeFocus`, `Open <url>` and `Quit` (the launcher's
   stop, as a closed window quits), and passes a `RELAUNCH` as `relaunch <line>` before it exits;
   the lines and their meaning are

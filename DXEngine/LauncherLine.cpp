@@ -33,8 +33,11 @@ bool LauncherLine::Open()
 		return false;
 	}
 	handle = (intptr_t)n;
-	// Not handed on to anything this process starts.
+	// Not handed on to anything this process starts: neither the descriptor
+	// nor its number, which a relaunch of the engine's own would take for a
+	// line (a descriptor reused by then)
 	fcntl((int)handle, F_SETFD, FD_CLOEXEC);
+	unsetenv("DXL_LAUNCHER_FD");
 	fcntl((int)handle, F_SETFL, fcntl((int)handle, F_GETFL) | O_NONBLOCK);
 #else
 	// The client end of the launcher's pipe, which it waits on: read only
@@ -45,8 +48,10 @@ bool LauncherLine::Open()
 		return false;
 	}
 	handle = (intptr_t)n;
-	// Not handed on to anything this process starts.
+	// Not handed on to anything this process starts: neither the handle nor
+	// its number, which a relaunch of the engine's own would take for a line
 	SetHandleInformation((HANDLE)handle, HANDLE_FLAG_INHERIT, 0);
+	SetEnvironmentVariableA("DXL_LAUNCHER_FD", nullptr);
 #endif
 	return true;
 }
