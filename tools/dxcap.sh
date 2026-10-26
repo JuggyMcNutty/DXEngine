@@ -120,7 +120,9 @@ die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 GAME="$DX_ROOT/gamefiles"
 CAP="$DX_ROOT/build/dxcap"
 SDK="$DX_ROOT/reference/ReleaseSDK1112f/System"
-ENGINE_BIN="${DXCAP_ENGINE:-$DX_ROOT/build/linux-x86_64/engine/DXEngine}"
+# Absolute: the engine is started from gamefiles, where a relative path
+# named another file (timeout's 127 in engine.log, the run exiting 0)
+ENGINE_BIN="$(realpath -m "${DXCAP_ENGINE:-$DX_ROOT/build/linux-x86_64/engine/DXEngine}")"
 # A Windows build of DXEngine, run under wine (DXCAP_ENGINE).
 windows_engine() { [[ "$ENGINE_BIN" == *.exe ]]; }
 
@@ -207,7 +209,7 @@ need_perf() {
 # The prefix's Windows programs -- the original and the SDK's UCC -- run
 # here with the Proton build's own wine, as dx-reverse-info's tools/ida/idalib-mcp.sh runs IDA.
 WINE="$HOME/.local/share/Steam/compatibilitytools.d/${DXCAP_PROTON:-Proton-CachyOS Latest}/files/bin/wine"
-PREFIX="${DXCAP_PREFIX:-$CAP/prefix}"
+PREFIX="$(realpath -m "${DXCAP_PREFIX:-$CAP/prefix}")" # wine takes only an absolute WINEPREFIX
 XDISPLAY="${DXCAP_DISPLAY:-${DISPLAY:-:0}}"
 WINDOW="${DXCAP_WINDOW:-1280x720}"
 [[ "$WINDOW" =~ ^[1-9][0-9]*x[1-9][0-9]*$ ]] || die "DXCAP_WINDOW is <width>x<height>, not $WINDOW"
