@@ -23,6 +23,7 @@ public:
 	void DrawText(float X, float Y, const std::string& Text, UFont* Font);
 	void DrawTile(float X, float Y, float XL, float YL, float U, float V, float UL, float VL, UTexture* Tex, bool bMasked);
 	void ReplaceTexture(UTexture* Tex);
+	uint8_t BestColor(const Color& color);
 	void TextSize(const std::string& Text, float& XL, float& YL, UFont* Font);
 
 private:

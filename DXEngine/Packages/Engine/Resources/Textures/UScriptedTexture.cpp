@@ -1,5 +1,8 @@
 
 #include "Precomp.h"
+#include <cstring>
+#include <cmath>
+#include "Utils/Logger.h"
 #include "UScriptedTexture.h"
 #include "Engine.h"
 #include "VM/ScriptCall.h"
@@ -29,13 +32,23 @@ void UScriptedTexture::Save(PackageStreamWriter* stream)
 	UTexture::Save(stream);
 }
 
+// A source texel's coordinate wrapped to the mip, as texture sampling wraps;
+// a coordinate that is no number or far out reads texel 0
+static int WrapTexel(float v, int size)
+{
+	if (!(std::fabs(v) < 16777216.0f) || size <= 0)
+		return 0;
+	int i = (int)std::floor(v) % size;
+	return i < 0 ? i + size : i;
+}
+
 void UScriptedTexture::UpdateFrame()
 {
 	if (TextureModified)
 		return;
 
 	UTexture* sourceTex = SourceTexture();
-	if (sourceTex)
+	if (sourceTex && !sourceTex->UsedMipmaps.empty() && !UsedMipmaps.empty())
 	{
 		Palette() = sourceTex->Palette();
 		DrawTileP8(sourceTex, 0.0f, 0.0f, (float)UsedMipmaps.front().Width, (float)UsedMipmaps.front().Height, 0.0f, 0.0f, (float)sourceTex->UsedMipmaps.front().Width, (float)sourceTex->UsedMipmaps.front().Height);
@@ -48,12 +61,19 @@ void UScriptedTexture::UpdateFrame()
 	TextureModified = true;
 }
 
+// The palette's nearest colour, 0 with no palette (a mod's scripted texture
+// made without one)
+uint8_t UScriptedTexture::BestColor(const Color& color)
+{
+	return Palette() ? Palette()->FindBestColor(color) : 0;
+}
+
 void UScriptedTexture::DrawColoredText(float X, float Y, const std::string& Text, UFont* Font, const Color& FontColor)
 {
 	if (!Font)
 		return;
 
-	uint8_t color = Palette()->FindBestColor(FontColor);
+	uint8_t color = BestColor(FontColor);
 
 	for (char c : Text)
 	{
@@ -140,10 +160,17 @@ void UScriptedTexture::TextSize(const std::string& Text, float& XL, float& YL, U
 
 void UScriptedTexture::DrawTileP8(UTexture* texture, float left, float top, float width, float height, float u, float v, float uvwidth, float uvheight)
 {
+	// A script's floats as they come: a size of 0 or less, a value that is
+	// no number or past an int, or a source with no mip draws nothing
+	auto sane = [](float f) { return std::fabs(f) < 1e8f; };
+	if (!texture || texture->UsedMipmaps.empty() || UsedMipmaps.empty() || !(width > 0.0f) || !(height > 0.0f) ||
+		!sane(left) || !sane(top) || !sane(width) || !sane(height) || !sane(u) || !sane(v) || !sane(uvwidth) || !sane(uvheight))
+		return;
 	if (!texture || width <= 0.0f || height <= 0.0f || UsedFormat != TextureFormat::P8 || texture->UsedFormat != TextureFormat::P8)
 		return;
 
 	int swidth = texture->UsedMipmaps.front().Width;
+	int sheight = texture->UsedMipmaps.front().Height;
 	const uint8_t* src = (const uint8_t*)texture->UsedMipmaps.front().Data.data();
 
 	int dwidth = UsedMipmaps.front().Width;
@@ -163,13 +190,13 @@ void UScriptedTexture::DrawTileP8(UTexture* texture, float left, float top, floa
 	for (int y = y0; y < y1; y++)
 	{
 		float vpix = v + vscale * (y + 0.5f - top);
-		const uint8_t* sline = src + ((int)vpix) * swidth;
+		const uint8_t* sline = src + WrapTexel(vpix, sheight) * swidth;
 		uint8_t* dline = dest + y * dwidth;
 
 		for (int x = x0; x < x1; x++)
 		{
 			float upix = u + uscale * (x + 0.5f - left);
-			uint8_t spixel = sline[(int)upix];
+			uint8_t spixel = sline[WrapTexel(upix, swidth)];
 			dline[x] = spixel;
 		}
 	}
@@ -177,10 +204,17 @@ void UScriptedTexture::DrawTileP8(UTexture* texture, float left, float top, floa
 
 void UScriptedTexture::DrawTileP8Masked(UTexture* texture, float left, float top, float width, float height, float u, float v, float uvwidth, float uvheight)
 {
+	// A script's floats as they come: a size of 0 or less, a value that is
+	// no number or past an int, or a source with no mip draws nothing
+	auto sane = [](float f) { return std::fabs(f) < 1e8f; };
+	if (!texture || texture->UsedMipmaps.empty() || UsedMipmaps.empty() || !(width > 0.0f) || !(height > 0.0f) ||
+		!sane(left) || !sane(top) || !sane(width) || !sane(height) || !sane(u) || !sane(v) || !sane(uvwidth) || !sane(uvheight))
+		return;
 	if (!texture || width <= 0.0f || height <= 0.0f || UsedFormat != TextureFormat::P8 || texture->UsedFormat != TextureFormat::P8)
 		return;
 
 	int swidth = texture->UsedMipmaps.front().Width;
+	int sheight = texture->UsedMipmaps.front().Height;
 	const uint8_t* src = (const uint8_t*)texture->UsedMipmaps.front().Data.data();
 
 	int dwidth = UsedMipmaps.front().Width;
@@ -200,13 +234,13 @@ void UScriptedTexture::DrawTileP8Masked(UTexture* texture, float left, float top
 	for (int y = y0; y < y1; y++)
 	{
 		float vpix = v + vscale * (y + 0.5f - top);
-		const uint8_t* sline = src + ((int)vpix) * swidth;
+		const uint8_t* sline = src + WrapTexel(vpix, sheight) * swidth;
 		uint8_t* dline = dest + y * dwidth;
 
 		for (int x = x0; x < x1; x++)
 		{
 			float upix = u + uscale * (x + 0.5f - left);
-			uint8_t spixel = sline[(int)upix];
+			uint8_t spixel = sline[WrapTexel(upix, swidth)];
 			if (spixel != 0)
 				dline[x] = spixel;
 		}
@@ -215,10 +249,17 @@ void UScriptedTexture::DrawTileP8Masked(UTexture* texture, float left, float top
 
 void UScriptedTexture::DrawTileP8Color(UTexture* texture, float left, float top, float width, float height, float u, float v, float uvwidth, float uvheight, uint8_t color)
 {
+	// A script's floats as they come: a size of 0 or less, a value that is
+	// no number or past an int, or a source with no mip draws nothing
+	auto sane = [](float f) { return std::fabs(f) < 1e8f; };
+	if (!texture || texture->UsedMipmaps.empty() || UsedMipmaps.empty() || !(width > 0.0f) || !(height > 0.0f) ||
+		!sane(left) || !sane(top) || !sane(width) || !sane(height) || !sane(u) || !sane(v) || !sane(uvwidth) || !sane(uvheight))
+		return;
 	if (!texture || width <= 0.0f || height <= 0.0f || UsedFormat != TextureFormat::P8 || texture->UsedFormat != TextureFormat::P8)
 		return;
 
 	int swidth = texture->UsedMipmaps.front().Width;
+	int sheight = texture->UsedMipmaps.front().Height;
 	const uint8_t* src = (const uint8_t*)texture->UsedMipmaps.front().Data.data();
 
 	int dwidth = UsedMipmaps.front().Width;
@@ -238,13 +279,13 @@ void UScriptedTexture::DrawTileP8Color(UTexture* texture, float left, float top,
 	for (int y = y0; y < y1; y++)
 	{
 		float vpix = v + vscale * (y + 0.5f - top);
-		const uint8_t* sline = src + ((int)vpix) * swidth;
+		const uint8_t* sline = src + WrapTexel(vpix, sheight) * swidth;
 		uint8_t* dline = dest + y * dwidth;
 
 		for (int x = x0; x < x1; x++)
 		{
 			float upix = u + uscale * (x + 0.5f - left);
-			uint8_t spixel = sline[(int)upix];
+			uint8_t spixel = sline[WrapTexel(upix, swidth)];
 			if (spixel != 0)
 				dline[x] = color;
 		}
