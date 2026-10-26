@@ -385,18 +385,21 @@ void WaylandDisplayBackend::ConnectMouseEvents()
 				if (!currentPointerEvent.axes[idx].valid)
 					continue;
 
+				// Each branch by its own field: value120 with AXIS_120 in the
+				// frame (a wheel's notches in 120ths), the continuous value
+				// without (a touchpad's scroll)
 				if (currentPointerEvent.event_mask & POINTER_EVENT_AXIS_120)
-				{
-					if (idx == uint32_t(wayland::pointer_axis::vertical_scroll) && currentPointerEvent.axes[idx].value > 0)
-						OnMouseWheelEvent(InputKey::MouseWheelDown);
-					if (idx == uint32_t(wayland::pointer_axis::vertical_scroll) && currentPointerEvent.axes[idx].value < 0)
-						OnMouseWheelEvent(InputKey::MouseWheelUp);
-				}
-				else if (currentPointerEvent.event_mask & POINTER_EVENT_AXIS)
 				{
 					if (idx == uint32_t(wayland::pointer_axis::vertical_scroll) && currentPointerEvent.axes[idx].value120 > 0)
 						OnMouseWheelEvent(InputKey::MouseWheelDown);
 					if (idx == uint32_t(wayland::pointer_axis::vertical_scroll) && currentPointerEvent.axes[idx].value120 < 0)
+						OnMouseWheelEvent(InputKey::MouseWheelUp);
+				}
+				else if (currentPointerEvent.event_mask & POINTER_EVENT_AXIS)
+				{
+					if (idx == uint32_t(wayland::pointer_axis::vertical_scroll) && currentPointerEvent.axes[idx].value > 0)
+						OnMouseWheelEvent(InputKey::MouseWheelDown);
+					if (idx == uint32_t(wayland::pointer_axis::vertical_scroll) && currentPointerEvent.axes[idx].value < 0)
 						OnMouseWheelEvent(InputKey::MouseWheelUp);
 				}
 			}
