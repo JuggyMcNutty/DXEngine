@@ -181,12 +181,18 @@ public:
 
 	LocalVariables Variables;
 	UObject* Object = nullptr;
+	// The code's node: the state, a function, or a state the state extends
+	// when a label took the code there
 	UStruct* Func = nullptr;
+	// The state the object is in (the original's StateNode): Func, or the
+	// state extending it
+	UStruct* State = nullptr;
 	size_t StatementIndex = 0;
 	Array<std::unique_ptr<Iterator>> Iterators;
 
 private:
 	ExpressionEvalResult Run();
+	bool FindLabel(const NameString& label);
 	void ProcessSwitch(const ExpressionValue& condition);
 	static void CountJump()
 	{

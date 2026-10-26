@@ -44,6 +44,7 @@ void Frame::Mark(GCMarker& marker)
 {
 	// Its object is the one that holds it, marked already.
 	marker.MarkConst(Func);
+	marker.MarkConst(State);
 	if (Variables.Func && Variables.Data)
 	{
 		for (UProperty* prop : Variables.Func->RefProps())
@@ -66,6 +67,7 @@ void Frame::MarkNames()
 void Frame::SetState(UStruct* func)
 {
 	Func = func;
+	State = func;
 	Variables.Init(func);
 }
 
@@ -460,24 +462,49 @@ void Frame::TraceCall(UFunction* func, UObject* instance, const CallArguments& a
 #endif
 }
 
-void Frame::GotoLabel(const NameString& label)
+// The original's UObject::GotoLabel (Core.dll 0x1012eb10): the label looked
+// for in the object's state and the states above it -- the one a state
+// extends, a parent class's of the name -- and the code then that state's,
+// the object's state kept. None having it stops the state code.
+bool Frame::FindLabel(const NameString& label)
 {
-	for (UClass* cls = Object->Class; cls != nullptr; cls = static_cast<UClass*>(cls->BaseStruct))
+	for (UStruct* s = State; s; s = s->BaseStruct)
 	{
-		UState* state = cls->GetState(Func->Name);
-		if (state)
+		UState* state = UObject::TryCast<UState>(s);
+		if (!state || !state->Code)
+			break;
+		int labelIndex = state->Code->FindLabelIndex(label);
+		if (labelIndex != -1)
 		{
-			int labelIndex = state->Code->FindLabelIndex(label.IsNone() ? NameString("Begin") : label);
+			Func = state;
+			StatementIndex = labelIndex;
+			return true;
+		}
+	}
+	// A state whose super link did not load: the states of its name up the classes
+	for (UClass* cls = State ? Object->Class : nullptr; cls != nullptr; cls = static_cast<UClass*>(cls->BaseStruct))
+	{
+		UState* state = cls->GetState(State->Name);
+		if (state && state->Code)
+		{
+			int labelIndex = state->Code->FindLabelIndex(label);
 			if (labelIndex != -1)
 			{
 				Func = state;
 				StatementIndex = labelIndex;
-				LatentState = LatentRunState::Continue;
-				return;
+				return true;
 			}
 		}
 	}
-	LatentState = LatentRunState::Stop;
+	return false;
+}
+
+void Frame::GotoLabel(const NameString& label)
+{
+	if (FindLabel(label.IsNone() ? NameString("Begin") : label))
+		LatentState = LatentRunState::Continue;
+	else
+		LatentState = LatentRunState::Stop;
 }
 
 void Frame::Tick()
@@ -621,33 +648,13 @@ ExpressionEvalResult Frame::Run()
 			break;
 		case StatementResult::GotoLabel:
 			{
+				// The label in the running node, else in the object's state
+				// and the states above it (FindLabel)
 				int index = Func->Code->FindLabelIndex(result.Label);
 				if (index != -1)
-				{
 					StatementIndex = index;
-				}
-				else
-				{
-					// State gotos can jump to a parent state block!
-					bool found = false;
-					for (UClass* cls = Object->Class; cls != nullptr; cls = static_cast<UClass*>(cls->BaseStruct))
-					{
-						UState* state = cls->GetState(Func->Name);
-						if (state)
-						{
-							int labelIndex = state->Code->FindLabelIndex(result.Label);
-							if (labelIndex != -1)
-							{
-								Func = state;
-								StatementIndex = labelIndex;
-								found = true;
-								break;
-							}
-						}
-					}
-					if (!found)
-						ThrowException("Could not find label: " + result.Label.ToString());
-				}
+				else if (!FindLabel(result.Label))
+					ThrowException("Could not find label: " + result.Label.ToString());
 			}
 			break;
 		case StatementResult::Stop:

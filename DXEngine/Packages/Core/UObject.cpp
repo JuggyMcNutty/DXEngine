@@ -92,6 +92,7 @@ void UObject::Load(ObjectStream* stream)
 				{
 					StateFrame = std::make_shared<Frame>(this, nullptr);
 					StateFrame->SetState(func);
+					StateFrame->State = state;
 					StateFrame->StatementIndex = index;
 					if (latentAction >= 0 && (size_t)latentAction < NativeFunctions::LatentActionByIndex.size())
 					{
@@ -144,17 +145,16 @@ void UObject::Save(PackageStreamWriter* stream)
 	{
 		// As the original's state frame is written: the state whose code runs
 		// (in this engine's VM a StateFrame is only ever suspended in state
-		// code, StateFrame->Func), then the state the object is in, the most
-		// derived of that name from its class, as the original's FindState
-		// finds it -- its functions are the ones the original calls. An
+		// code, StateFrame->Func), then the state the object is in (its
+		// State: the one GotoState found, which the node may be a super of)
+		// -- its functions are the ones the original calls. An
 		// object in no state has its class for both, as the original's frame
 		// starts: the original reads that state's name at its next GotoState.
 		UStruct* func = StateFrame ? StateFrame->Func : nullptr;
 		UState* state = nullptr;
 		if (func)
 		{
-			for (UClass* cls = Class; cls && !state; cls = static_cast<UClass*>(cls->BaseStruct))
-				state = cls->GetState(func->Name);
+			state = UObject::TryCast<UState>(StateFrame->State);
 			if (!state)
 				state = UObject::TryCast<UState>(func);
 		}
@@ -427,9 +427,9 @@ bool UObject::IsEventEnabled(const NameString& name) const
 uint64_t UObject::ComputeProbeMask() const
 {
 	uint64_t mask = Class ? Class->ProbeMask : ~0ULL;
-	if (StateFrame && StateFrame->Func)
+	if (StateFrame && StateFrame->State)
 	{
-		UState* state = static_cast<UState*>(StateFrame->Func);
+		UState* state = static_cast<UState*>(StateFrame->State);
 		mask = (mask | state->ProbeMask) & state->IgnoreMask;
 	}
 	return mask;
@@ -517,7 +517,7 @@ Array<UProperty*> UObject::GetAllTravelProperties()
 
 NameString UObject::GetStateName() const
 {
-	return StateFrame && StateFrame->Func ? StateFrame->Func->Name : NameString();
+	return StateFrame && StateFrame->State ? StateFrame->State->Name : NameString();
 }
 
 void UObject::GotoState(NameString stateName, const NameString& labelName)
@@ -558,7 +558,7 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
 	if (!StateFrame)
 		StateFrame = std::make_shared<Frame>(this, nullptr);
 
-	UState* oldState = (UState*)StateFrame->Func;
+	UState* oldState = (UState*)StateFrame->State;
 
 	if (oldState && oldState != newState)
 		CallEvent(this, EventName::EndState);

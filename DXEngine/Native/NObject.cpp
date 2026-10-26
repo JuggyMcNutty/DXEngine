@@ -735,7 +735,7 @@ void NObject::IsInState(UObject* Self, const NameString& TestState, BitfieldBool
 	ReturnValue = false;
 	if (!Self->StateFrame)
 		return;
-	for (UStruct* state = Self->StateFrame->Func; state; state = state->BaseStruct)
+	for (UStruct* state = Self->StateFrame->State; state; state = state->BaseStruct)
 	{
 		if (state->Name == TestState)
 		{

@@ -1281,7 +1281,8 @@ Every other native the scripted runs compare matches the original
   by the sine table, a rotator's `*=`, float `==` exact, a rotator's `==`
   and `!=` every bit of each angle, `GetEnum` from index 0, `Normal` zero
   under a length of 0.0001, `Chr(0)` the empty string, `IsInState` true for
-  a state the state extends, and a float made an int past an int's range,
+  a state the state extends, whose labels and functions the extending state
+  has too (`ExtendConsole`), and a float made an int past an int's range,
   wrapping, by `int`, `byte` and a rotator's scaling (`RotatorConsole`;
   differs: `Chr` keeps the low 8 bits, DXEngine's strings being of bytes,
   where the original's makes a 16-bit character); `Object.Mid` 127 at its

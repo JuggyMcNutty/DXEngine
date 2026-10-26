@@ -108,7 +108,23 @@ UFunction* FindEventFunction(UObject* Context, const NameString& name)
 
 static UFunction* SearchScriptFunction(UClass* contextClass, const NameString& stateName, const NameString& name)
 {
-	// Search states first
+	// The state first -- the object's and the states above it, the one a
+	// state extends among them, as the original's FindFunction walks them
+	// (core-dll.md, virtual calls) -- then the states of the name up the
+	// classes, for a super link that did not load
+
+	UState* stateNode = nullptr;
+	for (UClass* cls = contextClass; cls != nullptr && !stateNode; cls = static_cast<UClass*>(cls->BaseStruct))
+		stateNode = cls->GetState(stateName);
+	for (UStruct* s = stateNode; s; s = s->BaseStruct)
+	{
+		UState* state = UObject::TryCast<UState>(s);
+		if (!state)
+			break;
+		UFunction* func = state->GetFunction(name);
+		if (func)
+			return func;
+	}
 
 	for (UClass* cls = contextClass; cls != nullptr; cls = static_cast<UClass*>(cls->BaseStruct))
 	{
