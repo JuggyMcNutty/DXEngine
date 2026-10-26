@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "UMesh.h"
+#include <algorithm>
 #include "Package/PackageManager.h"
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 
@@ -134,6 +135,17 @@ void UMesh::Load(ObjectStream* stream)
 
 	FrameVerts = stream->ReadInt32();
 	AnimFrames = stream->ReadInt32();
+
+	// Each sequence held to the mesh's frames, at least one frame long: the
+	// animation calls divide by its frames and the draws read its frames'
+	// vertices, and a package may give an empty sequence or one past the
+	// mesh's frames (a mod's mesh; the game's are whole).
+	for (MeshAnimSeq& seq : AnimSeqs)
+	{
+		int last = std::max(AnimFrames, 1);
+		seq.StartFrame = std::clamp(seq.StartFrame, 0, last - 1);
+		seq.NumFrames = std::clamp(seq.NumFrames, 1, last - seq.StartFrame);
+	}
 
 	AndFlags = stream->ReadUInt32();
 	OrFlags = stream->ReadUInt32();
