@@ -1700,7 +1700,8 @@ A mod gets the original's loader and natives:
   is none is refused before anything is allocated; a map folder the paths
   name but the disk lacks is passed over with a line in the log; a path's
   map pattern is taken in any case; a path's folder in another case than the
-  disk's gives its text and registered objects too.
+  disk's gives its text and registered objects too; a class DXEngine saves
+  has its super class for its base, so it loads back laid out from it.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).

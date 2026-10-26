@@ -239,7 +239,12 @@ int PackageWriter::GetObjectReference(UObject* obj)
 	{
 		ExportTableEntry entry = {};
 		if (isClass)
-			entry.ObjBase = (obj != obj->Class) ? GetObjectReference(obj->Class) : 0;
+		{
+			// Its super class (PackageFormat.md): the metaclass, Core.Class,
+			// laid the loaded class's properties out from Class's
+			UStruct* base = static_cast<UClass*>(obj)->BaseStruct;
+			entry.ObjBase = base ? GetObjectReference(base) : 0;
+		}
 		else
 			entry.ObjClass = GetObjectReference(obj->Class);
 		entry.ObjName = GetNameIndex(obj->Name);
