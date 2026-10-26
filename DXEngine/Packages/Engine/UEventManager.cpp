@@ -239,6 +239,7 @@ void UEventManager::ComputeSenseDetection(Receiver& receiver, UActor* senderActo
 	smell = 0.0f;
 
 	UActor* actor = receiver.Actor;
+	UPawn* pawn = UObject::TryCast<UPawn>(actor);
 
 	// An inventory item with an owner counts as its owner for a pawn, and
 	// its visibility is scaled by the square root of its collision size
@@ -257,8 +258,6 @@ void UEventManager::ComputeSenseDetection(Receiver& receiver, UActor* senderActo
 			senderActor = owner;
 		}
 	}
-
-	UPawn* pawn = UObject::TryCast<UPawn>(actor);
 	if (peak.Visual > 0.0f)
 	{
 		if (pawn)
@@ -359,8 +358,14 @@ bool UEventManager::ProcessReceiver(EventType& type, Receiver& receiver)
 		UEventManager::Sender* From;
 		float Score;
 	};
+	// The score callback runs script, which may raise an event of this type
+	// (AISendEvent, AIStartEvent) and add a sender to the list under the
+	// walk: the walk is over a copy of the pointers, the senders staying put
+	std::vector<Sender*> senders;
+	for (auto& s : type.Senders)
+		senders.push_back(s.get());
 	std::vector<Candidate> candidates;
-	for (auto& sender : type.Senders)
+	for (Sender* sender : senders)
 	{
 		if (sender->Delete || !sender->Actor || sender->Actor == actor)
 			continue;
@@ -383,7 +388,7 @@ bool UEventManager::ProcessReceiver(EventType& type, Receiver& receiver)
 			LogMessage("Event manager: more than 256 senders for " + type.Name.ToString() + ", the rest are ignored");
 			break;
 		}
-		candidates.push_back(Candidate{ sender.get(), score });
+		candidates.push_back(Candidate{ sender, score });
 	}
 
 	bool weighed = !candidates.empty();
