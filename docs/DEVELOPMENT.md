@@ -596,7 +596,8 @@ the engine: [the profiling hooks](ENGINE.md#the-profiling-hooks); on the desktop
 - **`compile` takes `DXCapture.u` away before it builds it again**: a run started meanwhile, or
   one of a sweep, finds no console class. Compile between runs, never under one.
 - **A dxe run straight into a mission map leaves `Save/Current` as earlier runs left it**: only
-  travel to another mission, or a new game, empties it. A run that returns to a map within its
+  travel to another mission, a new game or a `?restart` URL empties it, and a save's load fills
+  it with that save's maps. A run that returns to a map within its
   mission takes that map from there; a timeline that first crosses a mission starts it empty.
 - **An unattended run sees no NPC react to the player.** Liberty Island starts the player 7,000
   to 20,000 units from every NSF, and no NPC reacts to a player it cannot see. `AIConsole`,
