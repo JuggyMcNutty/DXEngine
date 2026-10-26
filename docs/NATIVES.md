@@ -1509,8 +1509,9 @@ engine's own objects are not deleted (the log says so).
 - **A travel's items**: the travel is taken whether or not the game's Login
   spawned a new pawn, as the original's SpawnPlayActor takes it; its info is
   looked up by the URL's name, then by its first 20 characters (the stock
-  Login's cut), and standalone with none found the first entry is taken, as
-  the original's SpawnPlayActor spawns them.
+  Login's cut), and standalone with none found the first entry is taken; a
+  travelling actor is spawned at the player's place whatever stands there,
+  as the original's SpawnPlayActor spawns them.
 - **The first frame** is a microsecond at the shortest, never 0 s
   (`ScoutConsole`): a physics that takes the move's velocity from its tick
   -- flying, a projectile, rolling, a mover, a path -- divided 0 by 0 for an

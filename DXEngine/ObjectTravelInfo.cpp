@@ -207,7 +207,10 @@ Array<UObject*> ActorTravelInfo::Accept(UPlayerPawn* pawn, const std::string& tr
 
 			if (actorCls)
 			{
-				object = pawn->Spawn(cls, pawn, NameString(), {}, {});
+				// At the player's place whatever stands there, as the original's
+				// SpawnPlayActor spawns them (bNoCollisionFail): FindSpot dropped
+				// one whose cylinder did not fit
+				object = pawn->Spawn(cls, pawn, NameString(), {}, {}, true);
 			}
 			else if (cls)
 			{
