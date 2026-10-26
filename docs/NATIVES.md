@@ -911,7 +911,12 @@ from the original's code:
   (`TimerConsole`'s logs alike, both engines at 60 frames a second).
 - **A GC's style** sets only how tiles draw: text stays masked, translucent
   only by `EnableTranslucentText`, so the frob label over its modulated
-  backing reads as the original's (`FrobConsole`'s shots).
+  backing reads as the original's (`FrobConsole`'s shots). A box
+  (`DrawBox`) is four strips of its pattern that do not overlap, each tiled
+  from the origin given, and a box no wider or taller than two thicknesses
+  is filled once, as the original's `XGC::DrawBox` draws it, so the frob
+  label's translucent border has corners as bright as its sides
+  (`FrobConsole`'s shots).
 - **The scale** is the original's, its root's one multiplier: the largest
   whole multiple of 640x480 the screen holds, at least 1
   ([the root window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#the-root-window)).

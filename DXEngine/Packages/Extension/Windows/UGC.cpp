@@ -241,30 +241,26 @@ void UGC::DrawBorders(float DestX, float DestY, float destWidth, float destHeigh
 	piece(center, x1, y1, innerWidth, innerHeight, 0.0f, 0.0f, stretchAcross ? U(center) : 0.0f, stretchDown ? V(center) : 0.0f);
 }
 
+// The original's XGC::DrawBox (Extension.dll 0x10028c50): with a texture
+// and a thickness over 0, four strips of the pattern that do not overlap --
+// the top and bottom the box's width, the left and right between them --
+// each tiled from the origin as DrawPattern tiles it; a box no wider or
+// taller than two thicknesses is filled once.
 void UGC::DrawBox(float DestX, float DestY, float destWidth, float destHeight, float OrgX, float OrgY, float boxThickness, UObject* tX)
 {
-	if (!bDrawEnabled())
+	if (!bDrawEnabled() || !tX || boxThickness <= 0.0f)
 		return;
 
-	UTexture* tex = UObject::Cast<UTexture>(tX);
-	if (tex)
+	float twice = boxThickness + boxThickness;
+	if (destWidth <= twice || destHeight <= twice)
 	{
-		float swidth = (float)tex->USize();
-		float sheight = (float)tex->VSize();
-		Rectf src = Rectf::xywh(0.0f, 0.0f, swidth, sheight);
-		uint32_t polyflags = EffectivePolyFlags();
-		Color color = tileColor();
-
-		Rectf top = Rectf::xywh(offsetX + DestX, offsetY + DestY, destWidth, boxThickness);
-		Rectf bottom = Rectf::xywh(offsetX + DestX, offsetY + DestY + destHeight - boxThickness, destWidth, boxThickness);
-		Rectf left = Rectf::xywh(offsetX + DestX, offsetY + DestY, boxThickness, destHeight);
-		Rectf right = Rectf::xywh(offsetX + DestX + destWidth - boxThickness, offsetY + DestY, boxThickness, destHeight);
-
-		DrawTile(tex, ScaleRect(top), src, color, polyflags);
-		DrawTile(tex, ScaleRect(bottom), src, color, polyflags);
-		DrawTile(tex, ScaleRect(left), src, color, polyflags);
-		DrawTile(tex, ScaleRect(right), src, color, polyflags);
+		DrawPattern(DestX, DestY, destWidth, destHeight, OrgX, OrgY, tX);
+		return;
 	}
+	DrawPattern(DestX, DestY, destWidth, boxThickness, OrgX, OrgY, tX);
+	DrawPattern(DestX, DestY + destHeight - boxThickness, destWidth, boxThickness, OrgX, OrgY + destHeight - boxThickness, tX);
+	DrawPattern(DestX, DestY + boxThickness, boxThickness, destHeight - twice, OrgX, OrgY + boxThickness, tX);
+	DrawPattern(DestX + destWidth - boxThickness, DestY + boxThickness, boxThickness, destHeight - twice, OrgX + destWidth - boxThickness, OrgY + boxThickness, tX);
 }
 
 void UGC::DrawIcon(float DestX, float DestY, UObject* tX)
