@@ -172,7 +172,5 @@ void UAnimation::Save(PackageStreamWriter* stream)
 		stream->WriteIndex((int)move.RootTrack.KeyTime.size());
 		for (float v : move.RootTrack.KeyTime)
 			stream->WriteFloat(v);
-
-		Moves.push_back(move);
 	}
 }
