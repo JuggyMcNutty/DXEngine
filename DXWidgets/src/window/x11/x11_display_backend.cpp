@@ -10,6 +10,14 @@
 #include "window/dbus/dbus_open_folder_dialog.h"
 #endif
 
+// The display opened as the backend is made: with no X server the
+// connection throws here, and the next backend is tried (DisplayBackend's
+// TryCreateX11 catches it), not at the first window
+X11DisplayBackend::X11DisplayBackend()
+{
+	GetX11Connection();
+}
+
 std::unique_ptr<DisplayWindow> X11DisplayBackend::Create(DisplayWindowHost* windowHost, WidgetType type, DisplayWindow* owner, RenderAPI renderAPI)
 {
 	return std::make_unique<X11DisplayWindow>(windowHost, type, static_cast<X11DisplayWindow*>(owner), renderAPI);

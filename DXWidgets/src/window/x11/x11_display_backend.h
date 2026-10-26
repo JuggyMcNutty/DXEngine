@@ -5,6 +5,7 @@
 class X11DisplayBackend : public DisplayBackend
 {
 public:
+	X11DisplayBackend();
 	std::unique_ptr<DisplayWindow> Create(DisplayWindowHost* windowHost, WidgetType type, DisplayWindow* owner, RenderAPI renderAPI) override;
 	void ProcessEvents() override;
 	void RunLoop() override;
