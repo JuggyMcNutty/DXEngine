@@ -466,8 +466,10 @@ wherever else that state is set.
   where RGBA8 gives 54, no gap over 2 where it leaves 6). ES's too: the Smart Pro's GE8300
   draws, resolves, samples and reads them, their ten bits kept (Port Ex Machina's
   `tools/probes/probe-gles-scene.c`), at no cost to its frame. A driver whose scene framebuffer
-  of RGB10_A2 comes up incomplete gets RGBA8 (logged). Each is made with immutable storage
-  (`glTexStorage2D`), which takes a format alone. They hold the frame top row first, so a scene
+  of RGB10_A2 comes up incomplete gets RGBA8 (logged). The single-sample colour buffer and the
+  post-process image are made with immutable storage (`glTexStorage2D`), which takes a format
+  alone; a multisampled one by `glTexStorage2DMultisample` on ES, by `glTexImage2DMultisample`,
+  mutable, on desktop GL. They hold the frame top row first, so a scene
   drawn in a window (a security camera's view on its computer) lands where the Vulkan device
   puts it: its viewport is placed from the top, where Surreal Engine's places it from the
   bottom.
