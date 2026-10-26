@@ -11,6 +11,7 @@
 #include "Packages/Engine/Resources/Level/UPolys.h"
 #include "Packages/Engine/Actors/Brush/UMover.h"
 #include "VisibleBrush.h"
+#include "VM/ScriptCall.h"
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 #include "Packages/Engine/Resources/Mesh/UMesh.h"
 #include "Packages/Engine/Actors/Info/UWarpZoneInfo.h"
@@ -763,7 +764,15 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
 			if (portalZone > 0)
 			{
 				UWarpZoneInfo* warpZone = UObject::TryCast<UWarpZoneInfo>(engine->GetZoneActor(portalZone));
-				if (warpZone)
+				// The other side generated first when the zone has none, and
+				// with none still (a cross-level warp's; an OtherSideURL that
+				// names no zone of the level) no frame, the surface drawn as it
+				// is: the original's OccludeBsp (Render.dll 0x10b173d0) calls
+				// the zone's Generate and opens the frame only with the other
+				// side set. The transforms dereferenced a missing other side.
+				if (warpZone && !warpZone->OtherSideActor())
+					CallEvent(warpZone, "Generate", {});
+				if (warpZone && warpZone->OtherSideActor())
 				{
 					gatherPoints();
 					Array<PortalSpan> spans = Clipper.CheckPortal(points, numverts);
