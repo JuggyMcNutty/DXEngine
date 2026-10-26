@@ -734,28 +734,14 @@ void NActor::GetMeshTexture(UObject* Self, std::optional<int> texnum, UObject*& 
 	ReturnValue = tex;
 }
 
-void NActor::GetPlayerPawn(UObject* Self, UObject*& ReturnValue)  
-{  
-	if (engine && engine->viewport && engine->viewport->Actor())  
-	{  
-		ReturnValue = engine->viewport->Actor();  
-		return;  
-	}  
-  
-	if (engine && engine->Level)  
-	{  
-		for (UActor* actor : engine->Level->Actors)  
-		{  
-			UPlayerPawn* pawn = UObject::TryCast<UPlayerPawn>(actor);  
-			if (pawn && pawn->Player())  
-			{  
-				ReturnValue = pawn;  
-				return;  
-			}  
-		}  
-	}  
-  
-	ReturnValue = nullptr;  
+// The original's (Engine.dll AActor::execGetPlayerPawn 0x1036d2a0): the
+// first viewport's actor, None with no client (a dedicated server), no
+// viewport or no actor in it. DXEngine's fell back to the first player pawn
+// with a Player, handing a dedicated server's scripts a remote player's: the
+// weapons then took that player for the local one.
+void NActor::GetPlayerPawn(UObject* Self, UObject*& ReturnValue)
+{
+	ReturnValue = engine && engine->viewport ? engine->viewport->Actor() : nullptr;
 }
 
 void NActor::AIClearEvent(UObject* Self, const NameString& eventName)

@@ -1766,6 +1766,8 @@ The server-only stubs are under
   count right: 20 bytes sent to a `UdpLink` in binary mode reach its script
   as 20 bytes of what else is there, whatever was sent, and its
   `SendBinary` answers False. No mod can have counted on them.
+- **A dedicated server's natives**: `GetPlayerPawn` answers None, as the
+  original's with no client or viewport.
 - **The player's name in a net game**: a name the player never chose --
   none, or the game's stock `Player` -- logs in as `DXEnginePlayer`, a
   client's to its server and a listen server's host's, by choice, so
