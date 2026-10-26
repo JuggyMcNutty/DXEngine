@@ -422,6 +422,8 @@ none in either: the line to it is checked against the level and the movers
 with every surface, the invisible collision hull round the glass's pane
 among them, which a sight test passes (`GlassConsole` at 03_NYC_Airfield's
 `BreakableGlass2`, `Light56` beyond it).
+An animated or fractal corona skin shows its current frame (no run: the code
+settles it).
 
 ### What a pawn holds
 

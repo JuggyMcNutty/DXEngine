@@ -263,24 +263,22 @@ void RenderSubsystem::DrawCoronasDX(VisibleFrame* frame)
 		float x = frame->Frame.FX2 + clip.x / clip.w * frame->Frame.FX2;
 		float y = frame->Frame.FY2 + clip.y / clip.w * frame->Frame.FY2;
 
+		// The skin's current frame, brought up to date and keyed as every
+		// texture is (UpdateTextureInfo): an animated skin's frames were all
+		// cached under the first one's ID, and a fractal skin's changes never
+		// sent again
 		UTexture* skin = light->Skin();
 		engine->render->UpdateTexture(skin);
+		UTexture* skinFrame = skin->GetAnimTexture();
+		engine->render->UpdateTexture(skinFrame);
+		if (skinFrame->UsedMipmaps.empty())
+			continue;
 
 		TextureInfo texinfo;
-		texinfo.CacheID = (uint64_t)(ptrdiff_t)skin;
-		texinfo.Texture = skin->GetAnimTexture();
-		texinfo.Format = texinfo.Texture->UsedFormat;
-		texinfo.Mips = texinfo.Texture->UsedMipmaps.data();
-		texinfo.NumMips = (int)texinfo.Texture->UsedMipmaps.size();
-		texinfo.USize = texinfo.Texture->USize();
-		texinfo.VSize = texinfo.Texture->VSize();
-		if (texinfo.Texture->Palette())
-			texinfo.Palette = (TextureColor*)texinfo.Texture->Palette()->Colors.data();
-		engine->render->ApplyDetailLOD(texinfo);
-		engine->render->UpdateTexture(texinfo.Texture);
+		engine->render->UpdateTextureInfo(texinfo, skinFrame);
 
-		float width = (float)skin->UsedMipmaps.front().Width;
-		float height = (float)skin->UsedMipmaps.front().Height;
+		float width = (float)skinFrame->UsedMipmaps.front().Width;
+		float height = (float)skinFrame->UsedMipmaps.front().Height;
 		float size = light->DrawScale() * frame->Frame.FX * 0.2f;
 		// The hue's colour, whitened by the saturation, times the fade -- as
 		// DrawFrame works it out itself, with none of the light maps'
