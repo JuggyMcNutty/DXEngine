@@ -25,6 +25,27 @@ static bool FacesEye(const GouraudVertex* v, const vec3& eye)
 	return dot(cross(v[0].Point - v[1].Point, v[2].Point - v[0].Point), v[0].Point - eye) > 0.0f;
 }
 
+// The sequence's two frames at an animation position (AnimFrame times the
+// sequence's frames) and the second's weight: the weight taken before the
+// position is wrapped into the sequence, as the original's GetFrame takes
+// it (an AnimFrame of 1 or more, a script's, drew frames 0 and 1 at a weight
+// of NumFrames or more, the vertices thrown far past both); a sequence of no
+// frames (a hand-made mesh's) holds its first, not a division by zero.
+static void SequenceFrames(const MeshAnimSeq* seq, float animFrame, int& frame0, int& frame1, float& t)
+{
+	int frame = animFrame < 2147483520.0f ? (int)animFrame : 0;
+	t = animFrame - (float)frame;
+	if (seq->NumFrames <= 0)
+	{
+		frame0 = 0;
+		frame1 = 0;
+		t = 0.0f;
+		return;
+	}
+	frame0 = frame % seq->NumFrames;
+	frame1 = (frame0 + 1) % seq->NumFrames;
+}
+
 // The actor's sequence of the mesh, or, for a name the mesh lacks (None, most
 // decorations'), a sequence of the mesh's first frame alone: the original's
 // GetFrame draws frame 0 for a sequence it does not find (Engine.dll
@@ -130,11 +151,8 @@ bool VisibleMesh::DrawLodMesh(VisibleFrame* frame, UActor* actor, UActor* lightL
 
 	if (animFrame >= 0.0f)
 	{
-		int frame0 = (int)animFrame;
-		int frame1 = frame0 + 1;
-		frame0 = frame0 % seq->NumFrames;
-		frame1 = frame1 % seq->NumFrames;
-		t0 = animFrame - (float)frame0;
+		int frame0, frame1;
+		SequenceFrames(seq, animFrame, frame0, frame1, t0);
 		t1 = 0.0f;
 		vertexOffsets[0] = (seq->StartFrame + frame0) * mesh->FrameVerts;
 		vertexOffsets[1] = (seq->StartFrame + frame1) * mesh->FrameVerts;
@@ -391,11 +409,8 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 
 	if (animFrame >= 0.0f)
 	{
-		int frame0 = (int)animFrame;
-		int frame1 = frame0 + 1;
-		frame0 = frame0 % seq->NumFrames;
-		frame1 = frame1 % seq->NumFrames;
-		t0 = animFrame - (float)frame0;
+		int frame0, frame1;
+		SequenceFrames(seq, animFrame, frame0, frame1, t0);
 		t1 = 0.0f;
 		vertexOffsets[0] = (seq->StartFrame + frame0) * mesh->FrameVerts;
 		vertexOffsets[1] = (seq->StartFrame + frame1) * mesh->FrameVerts;
@@ -428,13 +443,8 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 
 		if (frame >= 0.0f)
 		{
-			int f0 = (int)frame;
-			int f1 = f0 + 1;
-
-			f0 %= seq->NumFrames;
-			f1 %= seq->NumFrames;
-
-			b.t0 = frame - f0;
+			int f0, f1;
+			SequenceFrames(seq, frame, f0, f1, b.t0);
 			b.t1 = 0.0f;
 
 			b.offsets[0] = (seq->StartFrame + f0) * mesh->FrameVerts;
@@ -627,11 +637,8 @@ bool VisibleMesh::DrawLodMeshDX(VisibleFrame* frame, UActor* actor, UActor* ligh
 
 	if (animFrame >= 0.0f)
 	{
-		int frame0 = (int)animFrame;
-		int frame1 = frame0 + 1;
-		frame0 = frame0 % seq->NumFrames;
-		frame1 = frame1 % seq->NumFrames;
-		t0 = animFrame - (float)frame0;
+		int frame0, frame1;
+		SequenceFrames(seq, animFrame, frame0, frame1, t0);
 		t1 = 0.0f;
 		vertexOffsets[0] = (seq->StartFrame + frame0) * mesh->FrameVerts;
 		vertexOffsets[1] = (seq->StartFrame + frame1) * mesh->FrameVerts;
@@ -664,13 +671,8 @@ bool VisibleMesh::DrawLodMeshDX(VisibleFrame* frame, UActor* actor, UActor* ligh
 
 		if (frame >= 0.0f)
 		{
-			int f0 = (int)frame;
-			int f1 = f0 + 1;
-
-			f0 %= seq->NumFrames;
-			f1 %= seq->NumFrames;
-
-			b.t0 = frame - f0;
+			int f0, f1;
+			SequenceFrames(seq, frame, f0, f1, b.t0);
 			b.t1 = 0.0f;
 
 			b.offsets[0] = (seq->StartFrame + f0) * mesh->FrameVerts;
