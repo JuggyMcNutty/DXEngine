@@ -78,7 +78,8 @@
 # MultiEditConsole's Keys).
 # DXCAP_MISSION_MAP=<map> names, through the run's ini, the map a run's
 # console travels to, its TargetMap (MissionConsole's, StaticConsole's,
-# WadeConsole's, ScreenConsole's, PerfConsole's, EndgameConsole's,
+# WadeConsole's, ScreenConsole's, PerfConsole's and PerfTurnConsole's,
+# EndgameConsole's,
 # VisibleConsole's, MoverConsole's, LightConsole's, GlassConsole's,
 # FlushConsole's, WallConsole's, MirrorConsole's, DoorConsole's,
 # OpeningConsole's): an original run starts at its menu map, a dxe run at
