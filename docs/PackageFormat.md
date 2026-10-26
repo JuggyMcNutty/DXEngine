@@ -399,7 +399,7 @@ emitter creates.
 struct Palette : ObjectHeader
 {
   index Count
-  uint32 Colors[Count] // Alpha,Red,Green,Blue
+  uint32 Colors[Count] // a byte each: Red (the low byte), Green, Blue, Alpha (the high byte), the SDK's FColor
   if FileHeader.PackageVersion < 66
     alpha channel is not set in the Colors array
   endif
