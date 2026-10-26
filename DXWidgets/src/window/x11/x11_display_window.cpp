@@ -153,6 +153,12 @@ X11DisplayWindow::~X11DisplayWindow()
 		m_EGLDisplay = nullptr;
 	}
 
+	if (xic)
+	{
+		XDestroyIC(xic);
+		xic = nullptr;
+	}
+
 	DestroyBackbuffer();
 	XDestroyWindow(display, window);
 	GetX11Connection()->windows.erase(GetX11Connection()->windows.find(window));
