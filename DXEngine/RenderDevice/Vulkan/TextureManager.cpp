@@ -37,19 +37,29 @@ CachedTexture* TextureManager::GetTexture(TextureInfo* info, bool masked)
 	if (info->Format != TextureFormat::P8)
 		masked = false;
 
+	// A realtime change goes to every copy there is, masked and not, as
+	// D3DDrv keeps one copy made again at a change: a P8 texture drawn
+	// masked and unmasked in one frame animates in both
+	if (info->bRealtimeChanged)
+	{
+		info->bRealtimeChanged = 0;
+		for (int m = 0; m < 2; m++)
+		{
+			auto it = TextureCache[m].find(info->CacheID);
+			if (it == TextureCache[m].end() || !it->second)
+				continue;
+			if (info->UpdateWidth > 0)
+				renderer->Uploads->UploadTextureRect(it->second.get(), *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
+			else
+				renderer->Uploads->UploadTexture(it->second.get(), *info, m != 0);
+		}
+	}
+
 	std::unique_ptr<CachedTexture>& tex = TextureCache[(int)masked][info->CacheID];
 	if (!tex)
 	{
 		tex.reset(new CachedTexture());
 		renderer->Uploads->UploadTexture(tex.get(), *info, masked);
-	}
-	else if (info->bRealtimeChanged)
-	{
-		info->bRealtimeChanged = 0;
-		if (info->UpdateWidth > 0)
-			renderer->Uploads->UploadTextureRect(tex.get(), *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
-		else
-			renderer->Uploads->UploadTexture(tex.get(), *info, masked);
 	}
 	return tex.get();
 }

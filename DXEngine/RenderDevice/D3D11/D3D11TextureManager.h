@@ -26,7 +26,6 @@ public:
 	}
 
 private:
-	void UploadTexture(TextureInfo* info, bool masked, D3D11CachedTexture* tex);
 	D3D11CachedTexture* CreateNullTexture();
 
 	D3D11CachedTexture* GetFromCache(int masked, uint64_t cacheID);

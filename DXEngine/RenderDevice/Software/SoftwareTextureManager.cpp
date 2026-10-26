@@ -33,6 +33,32 @@ SoftwareTexture* SoftwareTextureManager::GetTexture(TextureInfo* info, bool mask
 	if (info->Format != TextureFormat::P8)
 		masked = false;
 
+	// A realtime change goes to every copy there is, masked and not, as
+	// D3DDrv keeps one copy made again at a change: a P8 texture drawn
+	// masked and unmasked in one frame animates in both
+	if (info->bRealtimeChanged)
+	{
+		info->bRealtimeChanged = false;
+		for (int m = 0; m < 2; m++)
+		{
+			SoftwareTexture* copy = Find(m, info->CacheID);
+			if (!copy)
+				continue;
+			if (info->UpdateWidth > 0)
+			{
+				if (BeforeWrite)
+					BeforeWrite(copy, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
+				SoftwareTextureUploader::UploadRect(copy, *info, m != 0, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
+			}
+			else
+			{
+				if (BeforeWrite)
+					BeforeWrite(copy, 0, 0, -1, -1);
+				SoftwareTextureUploader::Upload(copy, *info, m != 0);
+			}
+		}
+	}
+
 	SoftwareTexture* tex = Find((int)masked, info->CacheID);
 	if (!tex)
 	{
@@ -41,23 +67,6 @@ SoftwareTexture* SoftwareTextureManager::GetTexture(TextureInfo* info, bool mask
 		tex = slot.get();
 		LastHit[(int)masked] = { info->CacheID, tex };
 		SoftwareTextureUploader::Upload(tex, *info, masked);
-		info->bRealtimeChanged = false;
-	}
-	else if (info->bRealtimeChanged)
-	{
-		info->bRealtimeChanged = false;
-		if (info->UpdateWidth > 0)
-		{
-			if (BeforeWrite)
-				BeforeWrite(tex, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
-			SoftwareTextureUploader::UploadRect(tex, *info, masked, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
-		}
-		else
-		{
-			if (BeforeWrite)
-				BeforeWrite(tex, 0, 0, -1, -1);
-			SoftwareTextureUploader::Upload(tex, *info, masked);
-		}
 	}
 	return tex;
 }

@@ -46,6 +46,24 @@ D3D11CachedTexture* D3D11TextureManager::GetTexture(TextureInfo* info, bool mask
 	if (info->Format != TextureFormat::P8)
 		masked = false;
 
+	// A realtime change goes to every copy there is, masked and not, as
+	// D3DDrv keeps one copy made again at a change: a P8 texture drawn
+	// masked and unmasked in one frame animates in both
+	if (info->bRealtimeChanged)
+	{
+		info->bRealtimeChanged = 0;
+		for (int m = 0; m < 2; m++)
+		{
+			D3D11CachedTexture* copy = GetFromCache(m, info->CacheID);
+			if (!copy)
+				continue;
+			if (info->UpdateWidth > 0)
+				renderer->Uploads->UploadTextureRect(copy, *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
+			else
+				renderer->Uploads->UploadTexture(copy, *info, m != 0);
+		}
+	}
+
 	D3D11CachedTexture* tex = GetFromCache((int)masked, info->CacheID);
 	if (!tex)
 	{
@@ -54,11 +72,6 @@ D3D11CachedTexture* D3D11TextureManager::GetTexture(TextureInfo* info, bool mask
 		tex = tex2.get();
 
 		renderer->Uploads->UploadTexture(tex, *info, masked);
-	}
-	else
-	{
-		if (info->bRealtimeChanged)
-			UploadTexture(info, masked, tex);
 	}
 
 	float uscale = info->UScale;
@@ -71,18 +84,6 @@ D3D11CachedTexture* D3D11TextureManager::GetTexture(TextureInfo* info, bool mask
 	tex->VMult = 1.0f / (vscale * info->VSize);
 
 	return tex;
-}
-
-void D3D11TextureManager::UploadTexture(TextureInfo* info, bool masked, D3D11CachedTexture* tex)
-{
-	if (info->bRealtimeChanged)
-	{
-		info->bRealtimeChanged = 0;
-		if (info->UpdateWidth > 0)
-			renderer->Uploads->UploadTextureRect(tex, *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
-		else
-			renderer->Uploads->UploadTexture(tex, *info, masked);
-	}
 }
 
 void D3D11TextureManager::ClearCache()

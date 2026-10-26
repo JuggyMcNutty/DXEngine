@@ -45,6 +45,24 @@ GLCachedTexture* GLTextureManager::GetTexture(TextureInfo* info, bool masked)
 	if (info->Format != TextureFormat::P8)
 		masked = false;
 
+	// A realtime change goes to every copy there is, masked and not, as
+	// D3DDrv keeps one copy made again at a change: a P8 texture drawn
+	// masked and unmasked in one frame animates in both
+	if (info->bRealtimeChanged)
+	{
+		info->bRealtimeChanged = 0;
+		for (int m = 0; m < 2; m++)
+		{
+			GLCachedTexture* copy = GetFromCache(m, info->CacheID);
+			if (!copy)
+				continue;
+			if (info->UpdateWidth > 0)
+				renderer->Uploads->UploadTextureRect(copy, *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
+			else
+				renderer->Uploads->UploadTexture(copy, *info, m != 0);
+		}
+	}
+
 	GLCachedTexture* tex = GetFromCache((int)masked, info->CacheID);
 	if (!tex)
 	{
@@ -53,11 +71,6 @@ GLCachedTexture* GLTextureManager::GetTexture(TextureInfo* info, bool masked)
 		tex = tex2.get();
 
 		renderer->Uploads->UploadTexture(tex, *info, masked);
-	}
-	else
-	{
-		if (info->bRealtimeChanged)
-			UploadTexture(info, masked, tex);
 	}
 
 	float uscale = info->UScale;
@@ -70,18 +83,6 @@ GLCachedTexture* GLTextureManager::GetTexture(TextureInfo* info, bool masked)
 	tex->VMult = 1.0f / (vscale * info->VSize);
 
 	return tex;
-}
-
-void GLTextureManager::UploadTexture(TextureInfo* info, bool masked, GLCachedTexture* tex)
-{
-	if (info->bRealtimeChanged)
-	{
-		info->bRealtimeChanged = 0;
-		if (info->UpdateWidth > 0)
-			renderer->Uploads->UploadTextureRect(tex, *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
-		else
-			renderer->Uploads->UploadTexture(tex, *info, masked);
-	}
 }
 
 void GLTextureManager::ClearCache()

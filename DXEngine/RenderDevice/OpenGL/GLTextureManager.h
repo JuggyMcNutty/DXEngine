@@ -26,7 +26,6 @@ public:
 	}
 
 private:
-	void UploadTexture(TextureInfo* info, bool masked, GLCachedTexture* tex);
 	GLCachedTexture* CreateNullTexture();
 
 	GLCachedTexture* GetFromCache(int masked, uint64_t cacheID);
