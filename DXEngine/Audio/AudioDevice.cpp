@@ -383,6 +383,7 @@ public:
 		std::unique_lock lock(musicThreadData.mutex);
 		musicThreadData.music = std::move(source);
 		musicThreadData.musicUpdate = true;
+		musicThreadData.generation++;
 		musicThreadData.currentOrder.store(-1);
 	}
 
@@ -397,10 +398,15 @@ public:
 			mixer->SetReverb(settings);
 	}
 
+	// A jump is the order at once, as Galaxy's Update jumps and writes the
+	// order back in one step: the main thread reads it that frame, not the
+	// pre-jump order until the music thread's next pass
 	void SetMusicOrder(int order) override
 	{
 		std::unique_lock lock(musicThreadData.mutex);
 		musicThreadData.jumpOrder = order;
+		if (order >= 0)
+			musicThreadData.currentOrder.store(order);
 	}
 
 	void PlaySound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch, bool speech) override
@@ -643,10 +649,12 @@ public:
 				musicThreadData.musicUpdate = false;
 			}
 			int jumpOrder = musicThreadData.jumpOrder;
+			int generation = musicThreadData.generation;
 			musicThreadData.jumpOrder = -1;
 			lock.unlock();
-			// Never touch anything from musicThreadData after this point
-			// (currentOrder is atomic and written below).
+			// Nothing of musicThreadData is touched past this point but under
+			// the lock again (the order's store, which is this song's alone:
+			// a new song set meanwhile keeps PlayMusic's -1).
 
 			if (jumpOrder >= 0 && currentMusic)
 			{
@@ -661,7 +669,11 @@ public:
 				// failure is left for the main thread to log
 				try
 				{
-					musicThreadData.currentOrder.store(currentMusic->GetOrder());
+					{
+						std::unique_lock orderLock(musicThreadData.mutex);
+						if (musicThreadData.generation == generation)
+							musicThreadData.currentOrder.store(currentMusic->GetOrder());
+					}
 
 					while (musicQueue.Size() < musicBufferCount)
 					{
@@ -914,7 +926,8 @@ public:
 		std::unique_ptr<AudioSource> music;
 		bool musicUpdate = false;
 		int jumpOrder = -1;                     // an order to jump the playing song to
-		std::atomic<int> currentOrder{ -1 };    // the order playing, written by the music thread alone
+		std::atomic<int> currentOrder{ -1 };    // the order playing: a jump's at once, else the music thread's
+		int generation = 0;                     // counts the songs set, so the thread's order is its own song's
 		std::string failure;                    // why the song stopped, for the main thread to log
 	} musicThreadData;
 
