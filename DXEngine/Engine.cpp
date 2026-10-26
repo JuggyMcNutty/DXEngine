@@ -788,9 +788,10 @@ void Engine::ClientTravel(const std::string& newURL, ETravelType travelType, boo
 		ClientTravelInfo.URL = url;
 	else if (travelType == ETravelType::TRAVEL_Partial)
 	{
-		auto name = ClientTravelInfo.URL.GetOption("name");
-		ClientTravelInfo.URL = url;
-		ClientTravelInfo.URL.AddOrReplaceOption("name=" + name);
+		// Built on the last URL, its options (the player's name among them)
+		// kept where the new one gives none: it took the name from the
+		// travel info's URL, which every load clears, and wrote an empty one
+		ClientTravelInfo.URL = UnrealURL(LastURL, url.ToString());
 	}
 	else if (travelType == ETravelType::TRAVEL_Relative)
 	{
@@ -2440,7 +2441,11 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		}
 
 		// A map by its name, or its file's -- "open 01_NYC_UNATCOHQ.dx", as
-		// the original's opens it too.
+		// the original's opens it too. OPEN travels partial, on the last URL
+		// (a listen server's keeps ?listen and ?game=), START absolute, as
+		// the original's UGameEngine::Exec sets the viewport's travel
+		// (engine-dll.md, OPEN and START).
+		ETravelType travel = command == "open" ? ETravelType::TRAVEL_Partial : ETravelType::TRAVEL_Absolute;
 		std::string wanted = fs::path(url.Map).stem().string();
 		for (auto& map : packages->GetMaps())
 		{
@@ -2448,7 +2453,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 
 			if (StrTools::equals_ignore_case(mapname, url.Map) || StrTools::equals_ignore_case(mapname, wanted))
 			{
-				ClientTravel(url.ToString(), ETravelType::TRAVEL_Absolute, false);
+				ClientTravel(url.ToString(), travel, false);
 				return {};
 			}	
 		}
