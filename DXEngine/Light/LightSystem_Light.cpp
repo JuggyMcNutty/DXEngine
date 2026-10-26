@@ -30,8 +30,11 @@ TextureInfo LightSystem::GetMoverLightmap(UMover* mover, const Poly& poly, UZone
 	}
 	else
 	{
-		vec3 moverLocation = mover->BasePos() + mover->KeyPos()[mover->BrushRaytraceKey()];
-		Rotator moverRotation = mover->BaseRot() + mover->KeyRot()[mover->BrushRaytraceKey()];
+		// The key held to the 8 (a map file sets BrushRaytraceKey; one over 7
+		// read past the arrays)
+		int key = std::min<int>(mover->BrushRaytraceKey(), 7);
+		vec3 moverLocation = mover->BasePos() + mover->KeyPos()[key];
+		Rotator moverRotation = mover->BaseRot() + mover->KeyRot()[key];
 		brushToWorld = mat4::translate(moverLocation) * Coords::Rotation(moverRotation).ToMatrix() * mat4::scale(scale) * mat4::translate(-mover->PrePivot());
 	}
 	mat4 objectToWorld = brushToWorld * localCoords.ToMatrix();
