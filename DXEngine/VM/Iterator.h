@@ -5,6 +5,7 @@
 
 class UZoneInfo;
 class UActor;
+class ULevel;
 struct IntObject;
 
 class Iterator
@@ -48,7 +49,7 @@ private:
 class AllActorsIterator : public Iterator
 {
 public:
-	AllActorsIterator(UObject* BaseClass, UObject** ReturnValue, NameString MatchTag);
+	AllActorsIterator(UObject* Self, UObject* BaseClass, UObject** ReturnValue, NameString MatchTag);
 	bool Next() override;
 	void Mark(GCMarker& marker) override;
 
@@ -57,6 +58,7 @@ private:
 	UObject** ReturnValue = nullptr;
 	NameString MatchTag = "";
 	size_t index = 0;
+	ULevel* Level = nullptr; // the caller's own level, the actors walked
 };
 
 class BasedActorsIterator : public Iterator
@@ -71,6 +73,7 @@ public:
 	UObject** Actor = nullptr;
 	size_t index = 0;
 
+	ULevel* Level = nullptr; // the caller's own level, the actors walked
 };
 
 // An Iterator for iterating through all child actors of a given actor (e.g. due to being spawned by them)
@@ -86,6 +89,7 @@ public:
 	UObject** Actor = nullptr;
 	size_t index = 0;
 
+	ULevel* Level = nullptr; // the caller's own level, the actors walked
 };
 
 // Deus Ex's resumable scan (native 1002). Index is the level-actor index of
@@ -96,7 +100,7 @@ public:
 class CycleActorsIterator : public Iterator
 {
 public:
-	CycleActorsIterator(UObject* BaseClass, UObject** Actor, int* outIndex);
+	CycleActorsIterator(UObject* Self, UObject* BaseClass, UObject** Actor, int* outIndex);
 	bool Next() override;
 	void Mark(GCMarker& marker) override;
 private:
@@ -107,6 +111,7 @@ private:
 	int* outIndex = nullptr;
 	size_t position = 0;
 	size_t visited = 0;
+	ULevel* Level = nullptr; // the caller's own level, the actors walked
 };
 
 class RadiusActorsIterator : public Iterator
@@ -122,6 +127,7 @@ public:
 	vec3 Location;
 	size_t index = 0;
 
+	ULevel* Level = nullptr; // the caller's own level, the actors walked
 };
 
 class TouchingActorsIterator : public Iterator
@@ -179,12 +185,13 @@ public:
 	vec3 Location = vec3(0.0f);
 	size_t index = 0;
 
+	ULevel* Level = nullptr; // the caller's own level, the actors walked
 };
 
 class VisibleCollidingActorsIterator : public Iterator
 {
 public:
-	VisibleCollidingActorsIterator(UObject* BaseClass, UObject** ReturnValue, float Radius, const vec3& Location, bool IgnoreHidden);
+	VisibleCollidingActorsIterator(UObject* Self, UObject* BaseClass, UObject** ReturnValue, float Radius, const vec3& Location, bool IgnoreHidden);
 	bool Next() override;
 	void Mark(GCMarker& marker) override;
 
@@ -196,6 +203,7 @@ public:
 	bool DeusEx = false;
 	size_t index = 0;
 	Array<UActor*> HitActors;
+	ULevel* Level = nullptr; // the caller's own level, the actors walked
 };
 
 // Iterator for iterating through all actors in a given Zone
@@ -211,6 +219,7 @@ public:
 	UObject** Actor = nullptr;
 	size_t index = 0;
 
+	ULevel* Level = nullptr; // the caller's own level, the actors walked
 };
 
 // Added in Deus Ex

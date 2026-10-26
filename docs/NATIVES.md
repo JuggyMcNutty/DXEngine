@@ -1312,7 +1312,8 @@ Every other native the scripted runs compare matches the original
   string `switch` matches its cases without regard to case and a float one
   by its bits (-0.0 is not 0.0); `new` with a flag outside the script's own
   (Transactional, Public, Transient and the three NotFor) logs `new: Flags
-  %08X not allowed` and leaves it out. Differs: an int divided by -1 at
+  %08X not allowed` and leaves it out; every actor iterator given None takes
+  Actor, and walks the caller's own level. Differs: an int divided by -1 at
   INT_MIN is INT_MIN on every port, where the original's divide faults (a
   Critical Error).
 - **A None context** (`A.X` with `A` None; `NoneConsole`): the zero of

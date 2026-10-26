@@ -40,6 +40,14 @@ static const Array<int>& ActorSlotsByName(ULevel* level, const NameString& class
 	return ActorSlots(level->ActorsByClassName, level, className.GetCompareIndex(), [&](UActor* actor) { return actor->IsA(className); });
 }
 
+// The caller's own level, whose actors the original's iterators walk (the
+// caller's XLevel): an actor of Entry, ticking under a map, iterates Entry's
+static ULevel* LevelOf(UObject* caller)
+{
+	UActor* actor = UObject::TryCast<UActor>(caller);
+	return actor && actor->XLevel() ? actor->XLevel() : engine->Level;
+}
+
 AllObjectsIterator::AllObjectsIterator(UObject* BaseClass, UObject** ReturnValue)
 	: BaseClass(BaseClass), ReturnValue(ReturnValue), m_Objects(GC::GetObjects()), m_Iterator(m_Objects.begin())
 {
@@ -67,17 +75,18 @@ bool AllObjectsIterator::Next()
 
 /////////////////////////////////////////////////////////////////////////////
 
-AllActorsIterator::AllActorsIterator(UObject* BaseClass, UObject** ReturnValue, NameString MatchTag)
+AllActorsIterator::AllActorsIterator(UObject* Self, UObject* BaseClass, UObject** ReturnValue, NameString MatchTag)
 	: BaseClass(BaseClass), ReturnValue(ReturnValue), MatchTag(MatchTag)
 {
+	Level = LevelOf(Self);
 }
 
 bool AllActorsIterator::Next()
 {
 	bool matchTag = !MatchTag.IsNone();
 
-	const Array<UActor*>& actors = engine->Level->Actors;
-	const Array<int>& slots = ActorSlotsByName(engine->Level, BaseClass->Name);
+	const Array<UActor*>& actors = Level->Actors;
+	const Array<int>& slots = ActorSlotsByName(Level, BaseClass->Name);
 	for (auto it = std::lower_bound(slots.begin(), slots.end(), (int)index); it != slots.end(); ++it)
 	{
 		UActor* actor = actors[*it];
@@ -101,11 +110,12 @@ bool AllActorsIterator::Next()
 // level's. DXEngine's decided the actors at the start.
 BasedActorsIterator::BasedActorsIterator(UActor* Caller, UObject* BaseClass, UObject** Actor) : Caller(Caller), BaseClass(BaseClass), Actor(Actor)
 {
+	Level = LevelOf(Caller);
 }
 
 bool BasedActorsIterator::Next()
 {
-	const Array<UActor*>& actors = engine->Level->Actors;
+	const Array<UActor*>& actors = Level->Actors;
 	while (index < actors.size())
 	{
 		UActor* actor = actors[index++];
@@ -126,11 +136,12 @@ bool BasedActorsIterator::Next()
 // actor), not its direct children alone.
 ChildActorsIterator::ChildActorsIterator(UActor* Caller, UObject* BaseClass, UObject** Actor) : Caller(Caller), BaseClass(BaseClass), Actor(Actor)
 {
+	Level = LevelOf(Caller);
 }
 
 bool ChildActorsIterator::Next()
 {
-	const Array<UActor*>& actors = engine->Level->Actors;
+	const Array<UActor*>& actors = Level->Actors;
 	while (index < actors.size())
 	{
 		UActor* actor = actors[index++];
@@ -145,9 +156,10 @@ bool ChildActorsIterator::Next()
 }
 
 /////////////////////////////////////////////////////////////////////////////
-CycleActorsIterator::CycleActorsIterator(UObject* BaseClass, UObject** Actor, int* outIndex) : BaseClass(UObject::TryCast<UStruct>(BaseClass)), Actor(Actor), outIndex(outIndex)
+CycleActorsIterator::CycleActorsIterator(UObject* Self, UObject* BaseClass, UObject** Actor, int* outIndex) : BaseClass(UObject::TryCast<UStruct>(BaseClass)), Actor(Actor), outIndex(outIndex)
 {
-	size_t size = engine->Level->Actors.size();
+	Level = LevelOf(Self);
+	size_t size = Level->Actors.size();
 	position = (outIndex && *outIndex >= 0 && (size_t)*outIndex < size) ? (size_t)*outIndex : 0;
 }
 
@@ -159,7 +171,7 @@ CycleActorsIterator::CycleActorsIterator(UObject* BaseClass, UObject** Actor, in
 // the indexes are the scan's.
 bool CycleActorsIterator::Next()
 {
-	ULevel* level = engine->Level;
+	ULevel* level = Level;
 	const Array<UActor*>& actors = level->Actors;
 	size_t size = actors.size();
 	if (!BaseClass || size == 0 || position >= size)
@@ -205,7 +217,7 @@ bool CycleActorsIterator::Next()
 // No class, an empty level or a start past the end: the scan itself
 bool CycleActorsIterator::NextByScan()
 {
-	const Array<UActor*>& actors = engine->Level->Actors;
+	const Array<UActor*>& actors = Level->Actors;
 	size_t size = actors.size();
 	while (BaseClass && size > 0 && visited < size)
 	{
@@ -236,6 +248,7 @@ bool CycleActorsIterator::NextByScan()
 
 RadiusActorsIterator::RadiusActorsIterator(UActor* Caller, UObject* BaseClass, UObject** Actor, float Radius, vec3 Location) : BaseClass(BaseClass), Actor(Actor), Radius(Radius), Location(Location)
 {
+	Level = LevelOf(Caller);
 }
 
 bool RadiusActorsIterator::Next()
@@ -244,7 +257,7 @@ bool RadiusActorsIterator::Next()
 	// original's does (Engine.dll 0x103e4fa0, dx-reverse-info engine-dll.md,
 	// traces): its location strictly within Radius + CollisionRadius; the
 	// level's list walked at each step, as the original walks it
-	const Array<UActor*>& actors = engine->Level->Actors;
+	const Array<UActor*>& actors = Level->Actors;
 	while (index < actors.size())
 	{
 		UActor* actor = actors[index++];
@@ -325,6 +338,7 @@ bool TraceActorsIterator::Next()
 
 VisibleActorsIterator::VisibleActorsIterator(UActor* Caller, UObject* BaseClass, UObject** Actor, float Radius, const vec3& Location) : Caller(Caller), BaseClass(BaseClass), Actor(Actor), Radius(Radius), Location(Location)
 {
+	Level = LevelOf(Caller);
 }
 
 bool VisibleActorsIterator::Next()
@@ -332,7 +346,7 @@ bool VisibleActorsIterator::Next()
 	// Deus Ex's as the original's: within the radius strictly, a radius of 0
 	// no limit, not hidden, and the line from the spot clear (FastTrace); the
 	// level's list walked at each step, as the original walks it
-	const Array<UActor*>& actors = engine->Level->Actors;
+	const Array<UActor*>& actors = Level->Actors;
 	while (index < actors.size())
 	{
 		UActor* actor = actors[index++];
@@ -358,13 +372,14 @@ bool VisibleActorsIterator::Next()
 // it: UModel::FastLineCheck, the level's BSP with the movers' polygons in it.
 // DXEngine's asked no line at all, so HurtRadius hurt through walls, and
 // passed over the hidden unless asked not to.
-VisibleCollidingActorsIterator::VisibleCollidingActorsIterator(UObject* BaseClass, UObject** ReturnValue, float Radius, const vec3& Location, bool IgnoreHidden) : BaseClass(BaseClass), ReturnValue(ReturnValue), Radius(Radius), Location(Location), IgnoreHidden(IgnoreHidden)
+VisibleCollidingActorsIterator::VisibleCollidingActorsIterator(UObject* Self, UObject* BaseClass, UObject** ReturnValue, float Radius, const vec3& Location, bool IgnoreHidden) : BaseClass(BaseClass), ReturnValue(ReturnValue), Radius(Radius), Location(Location), IgnoreHidden(IgnoreHidden)
 {
+	Level = LevelOf(Self);
 	DeusEx = true;
 	if (DeusEx)
-		HitActors = engine->Level->Collision.ActorRadiusCheck(Location, Radius != 0.0f ? Radius : 1000.0f);
+		HitActors = Level->Collision.ActorRadiusCheck(Location, Radius != 0.0f ? Radius : 1000.0f);
 	else
-		HitActors = engine->Level->Collision.CollidingActors(Location, Radius);
+		HitActors = Level->Collision.CollidingActors(Location, Radius);
 }
 
 bool VisibleCollidingActorsIterator::Next()
@@ -375,7 +390,7 @@ bool VisibleCollidingActorsIterator::Next()
 		UActor* actor = HitActors[index++];
 		if (!actor || !actor->IsA(BaseClass->Name))
 			continue;
-		if (DeusEx ? (IgnoreHidden && actor->bHidden()) || engine->Level->Collision.TraceAnyHit(Location, actor->Location(), nullptr, false, true, false) : !(IgnoreHidden || !actor->bHidden()))
+		if (DeusEx ? (IgnoreHidden && actor->bHidden()) || Level->Collision.TraceAnyHit(Location, actor->Location(), nullptr, false, true, false) : !(IgnoreHidden || !actor->bHidden()))
 			continue;
 		*ReturnValue = actor;
 		return true;
@@ -388,12 +403,13 @@ bool VisibleCollidingActorsIterator::Next()
 
 ZoneActorsIterator::ZoneActorsIterator(UZoneInfo* zone, UObject* BaseClass, UObject** Actor) : Zone(zone), BaseClass(BaseClass), Actor(Actor)
 {
+	Level = LevelOf(zone);
 }
 
 bool ZoneActorsIterator::Next()
 {
 	// The level's list walked at each step, as the original walks it
-	const Array<UActor*>& actors = engine->Level->Actors;
+	const Array<UActor*>& actors = Level->Actors;
 	while (index < actors.size())
 	{
 		UActor* actor = actors[index++];

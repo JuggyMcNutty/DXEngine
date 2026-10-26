@@ -9,6 +9,8 @@ public:
 
 	static void Add_ColorColor(const Color& A, const Color& B, Color& ReturnValue);
 	static void AllActors(UObject* Self, UObject* BaseClass, UObject*& Actor, std::optional<NameString> MatchTag);
+	// The class given, or Actor for None, for every actor iterator
+	static UObject* ActorClassOrGiven(UObject* Self, UObject* BaseClass);
 	static void AutonomousPhysics(UObject* Self, float DeltaSeconds);
 	static void BasedActors(UObject* Self, UObject* BaseClass, UObject*& Actor);
 	static void ChildActors(UObject* Self, UObject* BaseClass, UObject*& Actor);

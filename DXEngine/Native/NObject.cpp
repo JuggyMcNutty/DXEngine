@@ -1261,8 +1261,17 @@ void NObject::Xor_IntInt(int A, int B, int& ReturnValue)
 	ReturnValue = A ^ B;
 }
 
+// None for the class is Object, as the original's (Core.dll execAllObjects
+// 0x1013f1f0); DXEngine dereferenced it
 void NObject::AllObjects_DeusEx(UObject* Self, UObject* BaseClass, UObject*& Actor)
 {
+	if (!BaseClass)
+	{
+		UStruct* cls = Self->Class;
+		while (cls->BaseStruct)
+			cls = cls->BaseStruct;
+		BaseClass = cls;
+	}
 	Frame::CreatedIterator = std::make_unique<AllObjectsIterator>(BaseClass, &Actor);
 }
 

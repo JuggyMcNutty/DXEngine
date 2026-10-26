@@ -1,5 +1,6 @@
 
 #include "Precomp.h"
+#include "NActor.h"
 #include "NZoneInfo.h"
 #include "Packages/Engine/Actors/Info/UZoneInfo.h"
 #include "VM/NativeFunc.h"
@@ -12,5 +13,5 @@ void NZoneInfo::RegisterFunctions()
 
 void NZoneInfo::ZoneActors(UObject* Self, UObject* BaseClass, UObject*& Actor)
 {
-	Frame::CreatedIterator = std::make_unique<ZoneActorsIterator>(UObject::Cast<UZoneInfo>(Self), BaseClass, &Actor);
+	Frame::CreatedIterator = std::make_unique<ZoneActorsIterator>(UObject::Cast<UZoneInfo>(Self), NActor::ActorClassOrGiven(Self, BaseClass), &Actor);
 }
