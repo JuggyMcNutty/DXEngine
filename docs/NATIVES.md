@@ -1315,8 +1315,9 @@ Every other native the scripted runs compare matches the original
   %08X not allowed` and leaves it out; every actor iterator given None takes
   Actor, and walks the caller's own level; `OrthoRotation` is the
   original's; a destroyed pawn keeps its `nextPawn`, so a walk through it
-  goes on. Differs: an int divided by -1 at INT_MIN is INT_MIN on every
-  port, where the original's divide faults (a Critical Error).
+  goes on; `PlayBlendAnim` with a slot outside 0..3 logs and does nothing.
+  Differs: an int divided by -1 at INT_MIN is INT_MIN on every port, where
+  the original's divide faults (a Critical Error).
 - **A None context** (`A.X` with `A` None; `NoneConsole`): the zero of
   `X`'s type, as the original's `execContext` zero-fills the result -- a
   `switch (A.Physics)` takes `case PHYS_None`, a struct copied through None

@@ -157,21 +157,23 @@ void UActor::PackSimAnim(float last)
 
 void UActor::PlayBlendAnim(const NameString& sequenceName, float rate, float tweenTime, int blendSlot)
 {
+	// The original's texts (Engine.dll execPlayBlendAnim 0x103e0d80); its
+	// slot message reads the mesh's name with no mesh, a crash: None here
 	if (blendSlot < 0 || blendSlot > 3)
 	{
-		LogMessage("Invalid channel for PlayBlendAnim!");
+		LogMessage("PlayBlendAnim: BlendSlot out of range (0-3) for Mesh '" + (Mesh() ? Mesh()->Name.ToString() : std::string("None")) + "'");
 		return;
 	}
 	if (!Mesh())
 	{
-		LogMessage("No mesh for PlayBlendAnim");
+		LogMessage("PlayBlendAnim: No mesh");
 		return;
 	}
 
 	MeshAnimSeq* sequence = Mesh()->GetSequence(sequenceName);
 	if (!sequence)
 	{
-		LogMessage("Sequence not found for PlayBlendAnim");
+		LogMessage("PlayBlendAnim: Sequence '" + sequenceName.ToString() + "' not found in Mesh '" + Mesh()->Name.ToString() + "'");
 		return;
 	}
 

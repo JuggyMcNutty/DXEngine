@@ -458,7 +458,8 @@ void NActor::PlayAnim(UObject* Self, const NameString& Sequence, std::optional<f
 	UObject::Cast<UActor>(Self)->PlayAnim(Sequence, Rate ? *Rate : 1.0f, TweenTime ? *TweenTime : -1.0f);
 }
 
-void NActor::PlayBlendAnim(UObject* Self, const NameString& Sequence, std::optional<float> Rate, std::optional<float> TweenTime, std::optional<uint8_t> BlendSlot)
+// The slot an int, as the script declares it: a byte took 256 to slot 0
+void NActor::PlayBlendAnim(UObject* Self, const NameString& Sequence, std::optional<float> Rate, std::optional<float> TweenTime, std::optional<int> BlendSlot)
 {
 	// Rate 1, TweenTime -1 and slot 0 by default (dx-reverse-info/engine-dll.md)
 	UObject::Cast<UActor>(Self)->PlayBlendAnim(Sequence, Rate ? *Rate : 1.0f, TweenTime ? *TweenTime : -1.0f, BlendSlot ? *BlendSlot : 0);

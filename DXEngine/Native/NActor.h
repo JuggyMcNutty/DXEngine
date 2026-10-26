@@ -44,7 +44,7 @@ public:
 	static void Multiply_ColorFloat(const Color& A, float B, Color& ReturnValue);
 	static void Multiply_FloatColor(float A, const Color& B, Color& ReturnValue);
 	static void PlayAnim(UObject* Self, const NameString& Sequence, std::optional<float> Rate, std::optional<float> TweenTime);
-	static void PlayBlendAnim(UObject* Self, const NameString& Sequence, std::optional<float> Rate, std::optional<float> TweenTime, std::optional<uint8_t> BlendSlot);
+	static void PlayBlendAnim(UObject* Self, const NameString& Sequence, std::optional<float> Rate, std::optional<float> TweenTime, std::optional<int> BlendSlot);
 	static void PlayerCanSeeMe(UObject* Self, BitfieldBool& ReturnValue);
 	static void RadiusActors(UObject* Self, UObject* BaseClass, UObject*& Actor, float Radius, std::optional<vec3> Loc);
 	static void SetBase(UObject* Self, UObject* NewBase);
