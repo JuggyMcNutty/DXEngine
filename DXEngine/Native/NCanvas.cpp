@@ -58,6 +58,14 @@ void NCanvas::DrawText(UObject* Self, const std::string& Text, std::optional<boo
 	float& spaceX = SelfCanvas->SpaceX();
 	float& spaceY = SelfCanvas->SpaceY();
 
+	// No font: logged and nothing done, as the original's execDrawText
+	// (Engine.dll 0x103778f0, its text); the renderer dereferenced it
+	if (!font)
+	{
+		LogMessage("DrawText: No font");
+		return;
+	}
+
 	bool newline = CR ? *CR : true;
 
 	if (style != 0)
@@ -97,6 +105,13 @@ void NCanvas::DrawTextClipped(UObject* Self, const std::string& Text, std::optio
 	bool center = SelfCanvas->bCenter();
 
 	bool checkHotKey = bCheckHotKey && *bCheckHotKey;
+
+	// As the original's execDrawTextClipped (Engine.dll 0x10378890)
+	if (!font)
+	{
+		LogMessage("DrawTextClipped: No font");
+		return;
+	}
 	
 	if (style != 0)
 	{
@@ -203,23 +218,25 @@ void NCanvas::StrLen(UObject* Self, const std::string& String, float& XL, float&
 	bool center = SelfCanvas->bCenter();
 	float& spaceX = SelfCanvas->SpaceX();
 	float& spaceY = SelfCanvas->SpaceY();
-	uint8_t& style = SelfCanvas->Style();
 
-	if (style != 0)
+	// Measured whatever the canvas's Style: the original's execStrLen
+	// (Engine.dll 0x10377650) lays the text out through WrappedPrint with a
+	// style of none, which draws nothing and measures all; DXEngine answered
+	// 0 by 0 under STY_None. No font asserts there: 0 by 0 here, logged.
+	if (!font)
 	{
-		float curX = 0.0f;
-		float curY = 0.0f;
-		float curXL = 0.0f;
-		float curYL = 0.0f;
-		engine->render->DrawText(font, vec4(1.0f), orgX, orgY, curX, curY, curXL, curYL, false, String, 0, center, spaceX, spaceY, clipX, clipY, true);
-		XL = curXL;
-		YL = curYL;
-	}
-	else
-	{
+		LogMessage("StrLen: No font");
 		XL = 0.0f;
 		YL = 0.0f;
+		return;
 	}
+	float curX = 0.0f;
+	float curY = 0.0f;
+	float curXL = 0.0f;
+	float curYL = 0.0f;
+	engine->render->DrawText(font, vec4(1.0f), orgX, orgY, curX, curY, curXL, curYL, false, String, 0, center, spaceX, spaceY, clipX, clipY, true);
+	XL = curXL;
+	YL = curYL;
 }
 
 void NCanvas::TextSize(UObject* Self, const std::string& String, float& XL, float& YL)
@@ -227,6 +244,13 @@ void NCanvas::TextSize(UObject* Self, const std::string& String, float& XL, floa
 	UCanvas* SelfCanvas = UObject::Cast<UCanvas>(Self);
 	UFont*& font = SelfCanvas->Font();
 
+	// No font: logged, the outputs left as they were, as the original's
+	// execTextSize (Engine.dll 0x10378be0)
+	if (!font)
+	{
+		LogMessage("TextSize: No font");
+		return;
+	}
 	vec2 size = engine->render->GetTextSize(font, String);
 	XL = size.x;
 	YL = size.y;
