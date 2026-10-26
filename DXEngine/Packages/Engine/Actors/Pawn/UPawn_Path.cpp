@@ -913,69 +913,14 @@ UActor* UPawn::DeusExFindPath(UActor* goalActor, vec3 goalPoint, bool singlePath
 // Surreal Engine's path search around the original's breadthPathFrom, for
 // FindRandomDest and FindBestInventoryPath, which no script of the game calls.
 
+// The original's findRandomDest (Engine.dll 0x103dc700) answers nothing in
+// any level with navigation points (its first test returns on the list
+// being there), and with none finds nothing: the script's FindRandomDest
+// (0x103bcb90, which clears the paths first) is always None. No stock
+// script calls it.
 UObject* UPawn::FindRandomDest()
 {
-	// Find initial navpoints reachable from our location
-	int maxActorReachableCalls = 8; // upper bound for how expensive this can get
-	vec3 eyePos = Location();
-	eyePos.z += BaseEyeHeight();
-	std::vector<UNavigationPoint*> reachablePoints;
-	for (UNavigationPoint* navPoint = Level()->NavigationPointList(); navPoint && reachablePoints.size() < maxActorReachableCalls; navPoint = navPoint->nextNavigationPoint())
-	{
-		if (navPoint->bPlayerOnly() && !bIsPlayer())
-			continue; // Skip nav nodes only for the player if we aren't one
-
-		float maxDist = 1000.0;
-		vec3 d = navPoint->Location() - Location();
-		if (dot(d, d) > maxDist * maxDist)
-			continue; // Ignore things too far away
-
-		if (!ActorReachable(navPoint))
-			continue;
-
-		navPoint->bEndPoint() = true;
-		reachablePoints.push_back(navPoint);
-	}
-
-	if (reachablePoints.empty())
-		return nullptr;
-
-	// Add all navpoints reachable via reachspecs from what we can already reached
-	const Array<LevelReachSpec>& reachSpecs = XLevel()->ReachSpecs;
-	int radius = (int)CollisionRadius();
-	int height = (int)CollisionHeight();
-	for (size_t i = 0; i < reachablePoints.size(); i++)
-	{
-		UNavigationPoint* navPoint = reachablePoints[i];
-
-		for (int specIndex : navPoint->Paths())
-		{
-			if (specIndex < 0 || (size_t)specIndex >= reachSpecs.size())
-				break;
-			const LevelReachSpec& reachSpec = reachSpecs[specIndex];
-
-			// A spec with no end is passed over, as GetPathnodeList and
-			// BreadthPathFrom pass theirs
-			if (!reachSpec.endActor || reachSpec.endActor->bEndPoint())
-				continue; // Already processed
-
-			if (reachSpec.collisionRadius < radius || reachSpec.collisionHeight < height || reachSpec.bPruned)
-				continue; // Skip nav node links that we can't pass through
-
-			if (reachSpec.endActor->bPlayerOnly() && !bIsPlayer())
-				continue; // Skip nav nodes only for the player if we aren't one
-
-			// To do: check reachFlags
-
-			reachSpec.endActor->bEndPoint() = true;
-			reachablePoints.push_back(reachSpec.endActor);
-		}
-	}
-
-	// Pick a random point from our candidates
-	float randomValue = rand() / (float)RAND_MAX;
-	int index = (int)std::round(randomValue * (float)(reachablePoints.size() - 1));
-	return reachablePoints[index];
+	return nullptr;
 }
 
 bool UPawn::MarkReachableNavEndPoints()

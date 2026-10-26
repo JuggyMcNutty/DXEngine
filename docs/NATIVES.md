@@ -1669,10 +1669,12 @@ A mod gets the original's loader and natives:
   ([spawning](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#teleporting-an-actor);
   `CensusConsole`'s `CensusNotify`). Differs: a None answer ends the walk,
   where the original's next notification with a class faults on it.
-- **Two path natives no stock script calls are Surreal Engine's**, not the
-  original's, which are unread: `Pawn.FindRandomDest` 525, a random
-  navigation point the pawn can reach, and `FindBestInventoryPath` 540, the
-  way to the inventory it wants most.
+- **Two path natives no stock script calls**: `Pawn.FindRandomDest` 525
+  answers None, as the original's does (its `findRandomDest` returns nothing
+  in any level with navigation points, and finds nothing without them);
+  `FindBestInventoryPath` 540, the way to the inventory the pawn wants most,
+  is Surreal Engine's, not the original's `findPathTowardBestInventory`,
+  which is unread.
 
 A macro texture, which no stock texture has, is drawn as `D3DDrv` draws it
 ([the light maps' brightness](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-light-maps-brightness)):
