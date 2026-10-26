@@ -267,6 +267,13 @@ void SoftwareRenderDevice::NameRect(SoftwareTexture* tex, const SoftwareVertex* 
 		low = vec2(std::min(low.x, vertices[i].TexCoord[coord].x), std::min(low.y, vertices[i].TexCoord[coord].y));
 		high = vec2(std::max(high.x, vertices[i].TexCoord[coord].x), std::max(high.y, vertices[i].TexCoord[coord].y));
 	}
+	// A coordinate that is no number (an infinite light map multiplier) is
+	// no rectangle: the whole texture, before any conversion to int
+	if (!(std::isfinite(low.x) && std::isfinite(low.y) && std::isfinite(high.x) && std::isfinite(high.y)))
+	{
+		tex->NamedAll = true;
+		return;
+	}
 	const SoftwareMip& mip = tex->Mips[0];
 	SoftwareRect rect;
 	rect.X0 = (int)std::floor(low.x * mip.Width) - 1;
