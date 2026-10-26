@@ -1,85 +1,64 @@
 //=============================================================================
-// FrameConsole: a BorderWindow's frame, shot in both engines
-// (docs/DEVELOPMENT.md, scripted runs). From wherever the run starts, 2 s
-// in: the cheats enabled and the EditFlags cheat screen opened, a
-// ToolWindow framed by a BorderWindow of nine textures; a marked shot a
-// moment later, then an exit. "DXFRAME:" lines say what was opened. What is
-// compared between the engines: the frame's corners and edges.
+// FrameConsole: a long frame, logged with "DXFRAME:" from the menu map -- 2 s
+// in, one frame held 2 s more by the console's own line traces, timed by
+// clock and unclock in short spans (which the original's 32-bit cycle count
+// allows) and under the 10,000,000 jumps a tick that stop either engine;
+// then the level's time over that frame and the longest of an actor's next
+// three ticks, and an exit.
+// The level's clock takes the whole frame, the actors at most 0.4 s of it
+// (docs/NATIVES.md, small).
 //=============================================================================
 class FrameConsole extends Console;
 
-var float RunTime;
+var float RunTime, LevelBefore;
 var int Phase;
-var int MarkShot;
-var bool bMarking;
+var FrameWatcher Watcher;
 
 event Tick(float Delta)
 {
 	local PlayerPawn P;
+	local vector HitLocation, HitNormal;
+	local float Stalled;
+	local int c, i, Spans;
 
 	Super.Tick(Delta);
-	if (Phase == 9 || Viewport == None || Viewport.Actor == None)
+	if (Viewport == None || Viewport.Actor == None)
 		return;
 	P = Viewport.Actor;
 	RunTime += Delta;
 	if (Phase == 0 && RunTime > 2.0)
 	{
-		P.ConsoleCommand("set DeusEx.JCDentonMale bCheatsEnabled True");
-		P.ConsoleCommand("set DeusEx.JCDentonFemale bCheatsEnabled True");
-		Log("DXFRAME: opening the EditFlags cheat screen");
-		P.ConsoleCommand("editflags");
+		Watcher = P.Spawn(class'FrameWatcher', P);
+		LevelBefore = P.Level.TimeSeconds;
+		while (Stalled < 2.0 && Spans < 4000)
+		{
+			c = 0;
+			clock(c);
+			for (i = 0; i < 1000; i++)
+			{
+				P.Trace(HitLocation, HitNormal, P.Location + vect(0,0,-2000), P.Location, false);
+				P.Trace(HitLocation, HitNormal, P.Location + vect(0,0,-2000), P.Location, false);
+				P.Trace(HitLocation, HitNormal, P.Location + vect(0,0,-2000), P.Location, false);
+				P.Trace(HitLocation, HitNormal, P.Location + vect(0,0,-2000), P.Location, false);
+			}
+			unclock(c);
+			Stalled += CyclesToSeconds(c);
+			Spans++;
+		}
+		Log("DXFRAME: a frame held over 2 s: " $ (Stalled >= 2.0));
+		Watcher.TicksLeft = 3;
 		Phase = 1;
 	}
-	else if (Phase == 1 && RunTime > 3.5)
+	else if (Phase == 1)
 	{
-		MarkShot = 1;
-		bMarking = true;
+		Log("DXFRAME: the level's time over it over 1.5 s: " $ (P.Level.TimeSeconds - LevelBefore > 1.5));
 		Phase = 2;
 	}
-	else if (Phase == 2 && RunTime > 4.3)
+	else if (Phase == 2 && Watcher.TicksLeft == 0)
 	{
-		Log("DXFRAME: shot 1, the EditFlags screen");
-		Log("DXCAP: shot 1");
-		P.ConsoleCommand("shot");
-		bMarking = false;
-		Phase = 3;
-	}
-	else if (Phase == 3 && RunTime > 6.0)
-	{
-		Log("DXFRAME: done, exiting");
+		Log("DXFRAME: the longest of the actor's next three ticks " $ Watcher.Longest);
+		Log("DXFRAME: done");
 		P.ConsoleCommand("exit");
-		Phase = 9;
-	}
-}
-
-// The mark for the original's screen grabber, as BorderConsole's.
-event PostRender(canvas C)
-{
-	local int i;
-	Super.PostRender(C);
-	if (!bMarking)
-		return;
-	C.Style = 1;
-	C.SetPos(0, 0);
-	C.DrawColor.R = 255;
-	C.DrawColor.G = 0;
-	C.DrawColor.B = 255;
-	C.DrawRect(Texture'Solid', 12, 12);
-	for (i = 0; i < 8; i++)
-	{
-		if ((MarkShot & (1 << i)) != 0)
-		{
-			C.DrawColor.R = 255;
-			C.DrawColor.G = 255;
-			C.DrawColor.B = 255;
-		}
-		else
-		{
-			C.DrawColor.R = 0;
-			C.DrawColor.G = 0;
-			C.DrawColor.B = 0;
-		}
-		C.SetPos(12 + 12 * i, 0);
-		C.DrawRect(Texture'Solid', 12, 12);
+		Phase = 3;
 	}
 }
