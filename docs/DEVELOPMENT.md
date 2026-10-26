@@ -156,6 +156,7 @@ the run. *Either*: one engine on each side of a pair.
 | `PathConsole` | both | an actor on a ring of four `InterpolationPoint`s (`CapRider`), through frames held half a second: each 0.4 s tick's place, rotation and alpha, each point's `InterpolateEnd` | `DXPATH:` | every line |
 | `SpinConsole` | both | four actors turning by their `RotationRate` in `PHYS_Rotating` (`CapSpinner`): a fixed direction, the shortest way to a desired rotation, a fixed direction to one, a rate of a whole turn; each 0.4 s tick's rotations, `EndedRotation` | `DXSPIN:` | every line |
 | `TrailConsole` | both | four trailers of a crate (`CapTrail`, `SpriteTrail`): a sprite behind its facing by its `Mass`, one at its `PrePivot`, one turned with it, one against its velocity; the crate turned, moved, given a velocity and none | `DXTRAIL:` | every line |
+| `ContactConsole` | both | `TouchingActors` over the player's touches: three colliding actors set onto it (`CapToucher`), listed by class, one destroyed and listed again | `DXCONTACT:` | every line |
 | `TraceConsole` | both | `TraceTexture`, `TraceActors`, `Trace` and `FastTrace`; a rifle's shot, 48000 units long; boxes started inside cylinders | `DXTRACE:` |  |
 | `ParabolicConsole` | both | `ParabolicTrace` from the player's eyes on the island, 30 degrees up at 400, 700 and 1000 units a second, bouncing and not, the player turned a quarter turn four times: each throw's landing and time | `DXPARA:` | the two logs' lines |
 | `FloatConsole` | both | the crates in the water by the pier | `DXFLOAT:` |  |

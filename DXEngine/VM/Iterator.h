@@ -131,12 +131,10 @@ public:
 	bool Next() override;
 	void Mark(GCMarker& marker) override;
 
+	UActor* Caller = nullptr;
 	UObject* BaseClass = nullptr;
 	UObject** outActor = nullptr;
-	size_t index = 0;
-
-	Array<UActor*> TouchingActors;
-	Array<UActor*>::iterator iterator;
+	int index = 0;
 };
 
 class TraceActorsIterator : public Iterator

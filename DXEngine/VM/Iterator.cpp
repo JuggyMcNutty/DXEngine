@@ -264,34 +264,27 @@ bool RadiusActorsIterator::Next()
 
 /////////////////////////////////////////////////////////////////////////////
 
-TouchingActorsIterator::TouchingActorsIterator(UActor* Caller, UObject* BaseClass, UObject** outActor) : BaseClass(BaseClass), outActor(outActor)
+// The original's execTouchingActors (Engine.dll 0x103e4a00): the actor's
+// Touching slots walked, each actor there of the class given, as the touches
+// filled them -- a mover among them, which no overlap test of the actor's
+// cylinder meets
+TouchingActorsIterator::TouchingActorsIterator(UActor* Caller, UObject* BaseClass, UObject** outActor) : Caller(Caller), BaseClass(BaseClass), outActor(outActor)
 {
-	CollisionHitList hitList = Caller->XLevel()->Collision.OverlapTest(Caller->Location(), Caller->CollisionHeight(), Caller->CollisionRadius(), true, false, false);
-	for (auto& hit : hitList)
-	{
-		// Only allow the Actors of type BaseClass
-		if (hit.Actor && hit.Actor->IsA(BaseClass->Name))
-			TouchingActors.push_back(hit.Actor);
-	}
-
-	iterator = TouchingActors.begin();
 }
 
 bool TouchingActorsIterator::Next()
 {
-	// One destroyed since, untouched by its Destroy, is passed over
-	while (iterator != TouchingActors.end() && (*iterator)->bDeleteMe())
-		iterator++;
-	if (iterator == TouchingActors.end())
+	while (index < UActor::TouchingArraySize)
 	{
-		*outActor = nullptr;
-		return false;
+		UActor* actor = Caller->Touching()[index++];
+		if (actor && !actor->bDeleteMe() && actor->IsA(BaseClass->Name))
+		{
+			*outActor = actor;
+			return true;
+		}
 	}
-	
-	*outActor = *iterator;
-	iterator++;
-
-	return *outActor;
+	*outActor = nullptr;
+	return false;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -559,9 +552,8 @@ void RadiusActorsIterator::Mark(GCMarker& marker)
 
 void TouchingActorsIterator::Mark(GCMarker& marker)
 {
-	marker.MarkConst(BaseClass);
-	for (UActor* a : TouchingActors)
-		marker.MarkConst(a);
+	marker.Mark(Caller);
+	marker.Mark(BaseClass);
 }
 
 void TraceActorsIterator::Mark(GCMarker& marker)
