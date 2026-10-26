@@ -6,6 +6,8 @@
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Actors/UActor.h"
+#include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+#include "Packages/Engine/UViewport.h"
 #include "Engine.h"
 #include "RenderSubsystem.h"
 
@@ -37,14 +39,24 @@ void VisibleSprite::Draw(VisibleFrame* frame, UActor* actor, const vec3& locatio
 	if (!texture || texture->UsedMipmaps.empty())
 		return;
 
+	// The viewer's Sprite, when it has one (Deus Ex's Matrix easter egg),
+	// stands in for the texture, drawn at the actor's texture's size, as
+	// the original's DrawActorSprite has it and SetupMeshTextures does for
+	// a mesh
+	float texwidth = (float)texture->UsedMipmaps.front().Width;
+	float texheight = (float)texture->UsedMipmaps.front().Height;
+	if (UPlayerPawn* viewer = UObject::TryCast<UPlayerPawn>(engine->viewport->Actor()))
+	{
+		if (viewer->Sprite() && !viewer->Sprite()->UsedMipmaps.empty())
+			texture = viewer->Sprite();
+	}
+
 	engine->render->UpdateTexture(texture);
 
 	TextureInfo texinfo;
 	texinfo.Texture = texture;
 	texinfo.CacheID = (uint64_t)(ptrdiff_t)texinfo.Texture;
-	texinfo.bRealtimeChanged = texture->TextureModified;
-	if (texture->TextureModified)
-		texture->TextureModified = false;
+	texinfo.bRealtimeChanged = texture->ChangedThisFrame(engine->render->TextureFrameCounter);
 	texinfo.Format = texinfo.Texture->UsedFormat;
 	texinfo.Mips = texinfo.Texture->UsedMipmaps.data();
 	texinfo.NumMips = (int)texinfo.Texture->UsedMipmaps.size();
@@ -53,9 +65,6 @@ void VisibleSprite::Draw(VisibleFrame* frame, UActor* actor, const vec3& locatio
 	if (texinfo.Texture->Palette())
 		texinfo.Palette = (TextureColor*)texinfo.Texture->Palette()->Colors.data();
 	engine->render->ApplyDetailLOD(texinfo);
-
-	float texwidth = (float)texture->UsedMipmaps.front().Width;
-	float texheight = (float)texture->UsedMipmaps.front().Height;
 
 	// The actor's style's flags, as the original's DrawActorSprite takes
 	// them (Render.dll 0x10b26230): masked, translucent, modulated.
