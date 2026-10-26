@@ -62,8 +62,9 @@ bool AllObjectsIterator::Next()
 		++m_Iterator;
 
 		// An object deleted (CriticalDelete) is gone to the script, as the
-		// original's leaves the object table.
-		if (currentObject && !AnyFlags(currentObject->Flags, ObjectFlags::EliminateObject) && currentObject->IsA(BaseClass->Name))
+		// original's leaves the object table; a class's defaults object was
+		// never in it.
+		if (currentObject && !AnyFlags(currentObject->Flags, ObjectFlags::EliminateObject) && !currentObject->IsDefaultsObject() && currentObject->IsA(BaseClass->Name))
 		{
 			*ReturnValue = currentObject;
 			return true;

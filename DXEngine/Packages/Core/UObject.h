@@ -246,8 +246,21 @@ public:
 	size_t Size = 0;
 	UClass* Class = nullptr;
 
-	// The values destructed with Class's properties, and the memory freed.
+	// The values destructed with Class's properties, and the memory freed;
+	// a view only forgets them.
 	void Reset();
+
+	// Another block's values, which this one reads and writes but does not
+	// own: a class's defaults as its defaults object holds them
+	// (UClass::GetDefaultObject).
+	void ViewOf(PropertyDataBlock& block)
+	{
+		Data = block.Data;
+		Size = block.Size;
+		Class = block.Class;
+		IsView = true;
+	}
+	bool IsView = false;
 
 private:
 
@@ -312,6 +325,11 @@ public:
 	void SetObject(const NameString& name, const UObject* value);
 
 	bool IsA(const NameString& className) const;
+
+	// Its class's defaults as an object (UClass::GetDefaultObject), which the
+	// original's object table does not hold: not iterated, set, looked up,
+	// saved or eliminated.
+	bool IsDefaultsObject() const;
 
 	// An actor destroyed and waiting to be freed (the original's).
 	virtual bool IsPendingKill() { return false; }

@@ -79,28 +79,21 @@ UObject* Package::NewObject(const NameString& objname, UClass* objclass, ObjectF
 	if (!objclass)
 		Exception::Throw("Package.NewObject called with a null objclass!");
 
-	for (UClass* cur = objclass; cur != nullptr; cur = static_cast<UClass*>(cur->BaseStruct))
+	UObject* obj = Packages->CreateNativeObject(objname, objclass, flags);
+	if (!obj)
+		Exception::Throw("Could not find the native class for " + objname.ToString());
+	obj->package = this;
+	ObjectNames[objname.GetCompareIndex()]++;
+	obj->NameCounted = true;
+	if (initProperties)
 	{
-		auto it = Packages->NativeClasses.find(cur->Name);
-		if (it != Packages->NativeClasses.end())
-		{
-			UObject* obj = it->second.CreateFunc(objname, objclass, flags);
-			obj->package = this;
-			ObjectNames[objname.GetCompareIndex()]++;
-			obj->NameCounted = true;
-			if (initProperties)
-			{
-				obj->PropertyData.Init(objclass);
-				obj->SetObject("Class", obj->Class);
-				obj->SetName("Name", obj->Name);
-				obj->SetInt("ObjectFlags", (int)obj->Flags);
-				obj->InitNativeDefaults();
-			}
-			return obj;
-		}
+		obj->PropertyData.Init(objclass);
+		obj->SetObject("Class", obj->Class);
+		obj->SetName("Name", obj->Name);
+		obj->SetInt("ObjectFlags", (int)obj->Flags);
+		obj->InitNativeDefaults();
 	}
-
-	Exception::Throw("Could not find the native class for " + objname.ToString());
+	return obj;
 }
 
 NameString Package::MakeUniqueObjectName(UClass* cls)

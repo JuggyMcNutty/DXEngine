@@ -1095,7 +1095,7 @@ void NObject::ResetConfig(UObject* Self)
 	for (GCObject* gcObj : GC::GetObjects())
 	{
 		UObject* obj = dynamic_cast<UObject*>(gcObj);
-		if (!obj || AnyFlags(obj->Flags, ObjectFlags::EliminateObject))
+		if (!obj || AnyFlags(obj->Flags, ObjectFlags::EliminateObject) || obj->IsDefaultsObject())
 			continue;
 		if (UClass* objClass = UObject::TryCast<UClass>(obj))
 		{

@@ -48,12 +48,18 @@ public:
 
 	UProperty* GetProperty(const NameString& name);
 
+	// The class's defaults as an object of its nearest native class, made
+	// once, whose block is a view of the class's own (PropertyData): what
+	// the property accessors read the defaults through, and a static call's
+	// Self, as the original's default object is.
 	template<typename T>
 	T* GetDefaultObject()
 	{
-		// Note: this is a horrible hack. The object is not actually the type returned, but our property getters are members on that type.
-		return static_cast<T*>(static_cast<UObject*>(this));
+		UObject* obj = DefaultsObject ? DefaultsObject : MakeDefaultsObject();
+		obj->PropertyData.ViewOf(PropertyData);
+		return static_cast<T*>(obj);
 	}
+	UObject* DefaultsObject = nullptr;
 
 	void SaveConfig() override;
 
@@ -81,4 +87,5 @@ public:
 	int ClassUnique = 0;
 
 private:
+	UObject* MakeDefaultsObject();
 };

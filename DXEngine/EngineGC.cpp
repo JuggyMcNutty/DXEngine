@@ -254,7 +254,7 @@ void Engine::CollectGarbage()
 		for (GCObject* gcobj : GC::GetObjects(false))
 		{
 			UObject* obj = dynamic_cast<UObject*>(gcobj);
-			if (!obj || !obj->package || AnyFlags(obj->Flags, ObjectFlags::EliminateObject) || dynamic_cast<UField*>(obj))
+			if (!obj || !obj->package || AnyFlags(obj->Flags, ObjectFlags::EliminateObject) || dynamic_cast<UField*>(obj) || obj->IsDefaultsObject())
 				continue;
 			Package* pkg = obj->package;
 			bool eliminate = false;

@@ -412,6 +412,11 @@ bool UObject::IsA(const NameString& className) const
 	return false;
 }
 
+bool UObject::IsDefaultsObject() const
+{
+	return Class && Class->DefaultsObject == this;
+}
+
 bool UObject::IsEventEnabled(const NameString& name) const
 {
 	// An event of a probe, or a script call of a function named after one,
@@ -674,6 +679,13 @@ std::string UObject::GCDescribe() const
 
 void PropertyDataBlock::Reset()
 {
+	if (IsView)
+	{
+		Data = nullptr;
+		Class = nullptr;
+		IsView = false;
+		return;
+	}
 	// Classes are never collected (UField::IsGCRoot), so the class that
 	// laid the values out is there to destruct them.
 	if (Data && Class)

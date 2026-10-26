@@ -317,6 +317,17 @@ Package* PackageManager::CreateEmptyPackage(const NameString& name)
 	return pkg.get();
 }
 
+UObject* PackageManager::CreateNativeObject(const NameString& name, UClass* cls, ObjectFlags flags)
+{
+	for (UClass* cur = cls; cur != nullptr; cur = static_cast<UClass*>(cur->BaseStruct))
+	{
+		auto it = NativeClasses.find(cur->Name);
+		if (it != NativeClasses.end())
+			return it->second.CreateFunc(name, cls, flags);
+	}
+	return nullptr;
+}
+
 Package* PackageManager::GetPackage(const NameString& name)
 {
 	auto& package = packages[name];
@@ -894,7 +905,7 @@ UObject* PackageManager::FindObjectAnyPackage(UClass* cls, const std::string& pa
 	for (auto it = objects.begin(); it != objects.end(); ++it)
 	{
 		UObject* obj = dynamic_cast<UObject*>(*it);
-		if (obj && obj->Name == name && (!cls || obj->IsA(cls->Name)))
+		if (obj && obj->Name == name && !obj->IsDefaultsObject() && (!cls || obj->IsA(cls->Name)))
 			return obj;
 	}
 	return nullptr;

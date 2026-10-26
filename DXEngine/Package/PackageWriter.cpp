@@ -222,6 +222,11 @@ int PackageWriter::GetObjectReference(UObject* obj)
 	if (AllFlags(obj->Flags, ObjectFlags::NotForClient | ObjectFlags::NotForServer))
 		return 0;
 
+	// A class's defaults object, a static call's Self, is no object the
+	// original's save could tag
+	if (obj->IsDefaultsObject())
+		return 0;
+
 	// Going at the next collection (CriticalDelete, a destroyed actor):
 	// written as None, as the collection will make the reference.
 	if (AnyFlags(obj->Flags, ObjectFlags::EliminateObject))

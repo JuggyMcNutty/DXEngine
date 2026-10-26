@@ -2697,7 +2697,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 				for (GCObject* gcObj : GC::GetObjects())
 				{
 					UObject* obj = dynamic_cast<UObject*>(gcObj);
-					if (!obj || obj == cls || AnyFlags(obj->Flags, ObjectFlags::EliminateObject))
+					if (!obj || obj == cls || AnyFlags(obj->Flags, ObjectFlags::EliminateObject) || obj->IsDefaultsObject())
 						continue;
 					for (UStruct* objClass = obj->Class; objClass; objClass = objClass->BaseStruct)
 					{

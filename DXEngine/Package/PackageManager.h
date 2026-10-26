@@ -144,6 +144,10 @@ public:
 	Package* GetTransientPackage() { return GetPackage("Transient"); }
 	Package* CreateEmptyPackage(const NameString& name);
 
+	// An object of cls made by its nearest native class, with none of a
+	// package's bookkeeping; null when none of its classes is native.
+	UObject* CreateNativeObject(const NameString& name, UClass* cls, ObjectFlags flags);
+
 private:
 	void CreateTransientPackage();
 

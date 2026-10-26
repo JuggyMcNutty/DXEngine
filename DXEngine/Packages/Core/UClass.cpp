@@ -364,4 +364,18 @@ void UClass::Mark(GCMarker& marker)
 	marker.SetField("States");
 	for (auto& it : States)
 		marker.MarkCode(it.second);
+	// Kept as long as the class, which is never collected
+	marker.SetField("DefaultsObject");
+	marker.MarkConst(DefaultsObject);
+}
+
+UObject* UClass::MakeDefaultsObject()
+{
+	// Named as the class, so a static call's Self reads as before (its path
+	// name the class's); no package counts it, and nothing saves it
+	DefaultsObject = package->GetPackageManager()->CreateNativeObject(Name, this, ObjectFlags::Transient);
+	if (!DefaultsObject)
+		Exception::Throw("Could not find the native class for the defaults of " + Name.ToString());
+	DefaultsObject->package = package;
+	return DefaultsObject;
 }

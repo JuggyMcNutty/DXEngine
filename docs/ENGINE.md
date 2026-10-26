@@ -675,6 +675,13 @@ by holder, and with glibc a map load's gives the freed memory back to the system
   transient package. A conversation's camera and flag refs are in the conversation's package,
   which outlives any level, as the original's are in `DeusEx`'s. A package played as a level is
   tagged so (`Package::IsLevel`).
+- **A class's defaults** are its own property block, which scripts read and write as `default.`
+  values. The engine reads them through the class's defaults object (`UClass::GetDefaultObject`),
+  made once, of the class's nearest native class, its block a view of the class's own: the
+  original's default object, a static call's `Self` too. The class keeps it, and the walks over
+  every object pass it over, as the original's object table holds none (`AllObjects`, `set`,
+  `ResetConfig`, a lookup by name, a level's elimination); a save writes a reference to it as
+  None.
 - **A sound** is decoded once, when first played, for the audio device, which keeps a copy of
   its own (the mixer's 16-bit one, OpenAL's buffer); the sound keeps its file's bytes, its
   length, channels, rate, loop and lip-sync letters. Its lip-sync shapes decode the bytes again
