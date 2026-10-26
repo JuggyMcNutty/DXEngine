@@ -7,8 +7,8 @@
 // CapExtender) set by SetLocation at each generator's spot, 16 units under
 // it and 16 over it, its zone read after each; a GeneratorScout and a
 // marker spawned at each of the original's four FlyGenerator spots; and the
-// FlyGenerator objects left, destroyed or not (bugs.md E5b.N2: DXEngine has
-// none). Then an exit. The original has Liberty Island's five scouts flying
+// FlyGenerator objects left, destroyed or not, and the level's rolls for
+// them (bugs.md E5b.N2). Then an exit. The original has Liberty Island's five scouts flying
 // still at their generators, the fish's in zone 1, its water; DXEngine once
 // had their locations NaN, the first frame being 0 s (bugs.md E5b.N1).
 //=============================================================================
@@ -106,6 +106,25 @@ function Gone(PlayerPawn P)
 	Log("DXSCOUT: FlyGenerator objects: " $ n);
 }
 
+// The level's rolls for a FlyGenerator: each decoration with bGenerateFlies
+// spawns one at PreBeginPlay on FRand() < 0.1 (DeusExDecoration), and a
+// carcass with it on its timer, so the count is chance in either engine
+// (bugs.md E5b.N2): the rolls, for the count to be read against
+function Rolls(PlayerPawn P)
+{
+	local DeusExDecoration D;
+	local DeusExCarcass C;
+	local int decorations, carcasses;
+
+	foreach P.AllActors(class'DeusExDecoration', D)
+		if (D.bGenerateFlies)
+			decorations++;
+	foreach P.AllActors(class'DeusExCarcass', C)
+		if (C.bGenerateFlies)
+			carcasses++;
+	Log("DXSCOUT: rolls for flies: " $ decorations $ " decorations and " $ carcasses $ " carcasses with bGenerateFlies");
+}
+
 event Tick(float Delta)
 {
 	local PlayerPawn P;
@@ -122,6 +141,7 @@ event Tick(float Delta)
 		Markers(P);
 		SpawnTests(P);
 		Gone(P);
+		Rolls(P);
 		Phase = 1;
 	}
 	else if (Phase == 1 && RunTime > 5.0)
