@@ -116,6 +116,9 @@ void GalaxyMixer::SetReverb(const ReverbSettings* settings)
 	float lowpass = (float)(std::sqrt((v + 2.0) * v) - v);
 	for (int i = 0; i < 6; i++)
 	{
+		// Galaxy's setup guards a delay of 0 and a gain of 0 (0x106109f0),
+		// which never come: the subsystem holds both to 0.001 and over, as
+		// Galaxy's does (UDXEngineAudioDevice::UpdateReverb)
 		double time = settings->delaySeconds[i] == 0.0f ? 0.001 : settings->delaySeconds[i];
 		double g = 1.0 - settings->gains[i];
 		if (g == 1.0)
