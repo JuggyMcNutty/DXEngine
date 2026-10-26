@@ -29,7 +29,6 @@ public:
 	bool IsSDL3() override { return true; }
 
 private:
-	double UIScale = 1.0;
 	SDL_Gamepad* Gamepad = nullptr;
 	SDL_Joystick* VirtualPad();
 	SDL_Joystick* Virtual = nullptr;

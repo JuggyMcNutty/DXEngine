@@ -140,7 +140,7 @@ bool SDL3DisplayBackend::SimulateGamepadAxis(GamepadAxis axis, float value)
 
 std::unique_ptr<DisplayWindow> SDL3DisplayBackend::Create(DisplayWindowHost* windowHost, WidgetType type, DisplayWindow* owner, RenderAPI renderAPI)
 {
-	return std::make_unique<SDL3DisplayWindow>(windowHost, type, static_cast<SDL3DisplayWindow*>(owner), renderAPI, UIScale);
+	return std::make_unique<SDL3DisplayWindow>(windowHost, type, static_cast<SDL3DisplayWindow*>(owner), renderAPI);
 }
 
 void SDL3DisplayBackend::ProcessEvents()
@@ -160,13 +160,18 @@ void SDL3DisplayBackend::ExitLoop()
 
 Size SDL3DisplayBackend::GetScreenSize()
 {
+	// The bounds are in SDL's window units -- pixels, or on Wayland points,
+	// the desktop mode's density apart -- and a window's display scale is
+	// the density times the content scale: the bounds over the content
+	// scale are DIPs on every driver
+	SDL_DisplayID display = SDL_GetPrimaryDisplay();
 	SDL_Rect rect = {};
-	SDL_DisplayID *displays = SDL_GetDisplays(nullptr);
-	if (!displays || !SDL_GetDisplayBounds(displays[0], &rect))
+	if (!display || !SDL_GetDisplayBounds(display, &rect))
 		throw std::runtime_error(std::string("Unable to get screen size:") + SDL_GetError());
-	SDL_free(displays);
-
-	return {rect.w / UIScale, rect.h / UIScale};
+	double scale = SDL_GetDisplayContentScale(display);
+	if (!(scale > 0.0))
+		scale = 1.0;
+	return { rect.w / scale, rect.h / scale };
 }
 
 std::vector<Size> SDL3DisplayBackend::GetFullscreenModes()

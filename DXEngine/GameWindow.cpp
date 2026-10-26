@@ -197,7 +197,11 @@ void GameWindow::ExitLoop()
 // the space the menu needs to read it.
 std::string GameWindow::GetMenuResolutions()
 {
+	// The screen in pixels: the backends answer DIPs
+	double dpi = GetDpiScale();
 	Size screen = DisplayBackend::Get()->GetScreenSize();
+	screen.width *= dpi;
+	screen.height *= dpi;
 	// The window's own size, not the render size (the native size times
 	// RenderScale), which under 1 listed a size under the 640x480 floor and
 	// a full-screen mode the display has not

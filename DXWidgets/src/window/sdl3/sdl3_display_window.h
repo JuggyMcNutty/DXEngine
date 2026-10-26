@@ -11,7 +11,7 @@
 class SDL3DisplayWindow : public DisplayWindow
 {
 public:
-	SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, SDL3DisplayWindow* owner, RenderAPI renderAPI, double uiscale);
+	SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, SDL3DisplayWindow* owner, RenderAPI renderAPI);
 	~SDL3DisplayWindow();
 
 	void SetWindowTitle(const std::string& text) override;
@@ -114,8 +114,6 @@ public:
 	int BackBufferHeight = 0;
 
 	SDL_Surface* windowIconSurface = nullptr;
-
-	double UIScale = 1.0;
 
 	bool CursorLocked = false;
 	bool isFullscreen = false;

@@ -441,6 +441,7 @@ public:
 	virtual void* StartTimer(int timeoutMilliseconds, std::function<void()> onTimer) = 0;
 	virtual void StopTimer(void* timerID) = 0;
 
+	// The primary screen's size in DIPs: its pixels over the desktop's scale
 	virtual Size GetScreenSize() = 0;
 
 	// The sizes of the display's full screen modes, in pixels, each once;

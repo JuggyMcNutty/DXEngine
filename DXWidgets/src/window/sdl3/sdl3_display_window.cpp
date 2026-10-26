@@ -14,7 +14,7 @@ bool SDL3DisplayWindow::ExitRunLoop;
 bool SDL3DisplayWindow::GamepadKeyEmulation = true;
 std::unordered_map<unsigned int, SDL3DisplayWindow*> SDL3DisplayWindow::WindowList;
 
-SDL3DisplayWindow::SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, SDL3DisplayWindow* owner, RenderAPI renderAPI, double uiscale) : WindowHost(windowHost), UIScale(uiscale)
+SDL3DisplayWindow::SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, SDL3DisplayWindow* owner, RenderAPI renderAPI) : WindowHost(windowHost)
 {
 	m_GLIsES = renderAPI == RenderAPI::GLES;
 
