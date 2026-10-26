@@ -2,6 +2,8 @@
 #include "Precomp.h"
 #include "Timeline.h"
 #include "Engine.h"
+#include "Network/NetDriver.h"
+#include "Network/NetConnection.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Pawn/UPawn.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
@@ -79,12 +81,17 @@ void Timeline::Tick(float realElapsed)
 	}
 
 	bool inGame = engine->LevelInfo && engine->LevelInfo->NetMode() == NM_Client && engine->viewport && engine->viewport->Actor();
+	// A server's map change passes through the Entry level and a moment
+	// without a pawn while the next map loads: not back in the menu while
+	// the connection stands or a travel is pending
+	bool connected = engine->LevelNetDriver && engine->LevelNetDriver->ServerConnection && engine->LevelNetDriver->ServerConnection->State != ConnectionState::Closed;
+	bool travelling = !engine->ClientTravelInfo.URL.Host.empty() || !engine->ClientTravelInfo.URL.Map.empty();
 	if (inGame)
 	{
 		GameTime += realElapsed;
 		WasInGame = true;
 	}
-	else if (WasInGame)
+	else if (WasInGame && !connected && !travelling)
 	{
 		LogMessage("DXLIVE: back in the menu after " + std::to_string((int)GameTime) + " s of game; exiting");
 		WasInGame = false;
