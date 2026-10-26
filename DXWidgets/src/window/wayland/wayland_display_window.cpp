@@ -341,14 +341,16 @@ void WaylandDisplayWindow::ShowCursor(bool enable)
 	backend->ShowCursor(enable);
 }
 
+// Typed text off in play, as the engine asks: the backend sends this window
+// no characters while locked, its keys still
 void WaylandDisplayWindow::LockKeyboard()
 {
-	// Enables raw keyboard scancode events (OnRawKeyboard should be called for keyboard input)
+	keyboardLocked = true;
 }
 
 void WaylandDisplayWindow::UnlockKeyboard()
 {
-	// Disable raw keyboard scancode events (OnKeyDown/OnKeyUp/OnKeyChar should be called for keyboard input)
+	keyboardLocked = false;
 }
 
 void WaylandDisplayWindow::LockCursor()

@@ -214,6 +214,11 @@ private:
 	EGLSurface m_EGLSurface = nullptr;
 
 	bool isFullscreen = false;
+
+public:
+	bool KeyboardLocked() const { return keyboardLocked; }
+private:
+	bool keyboardLocked = false;
 	bool isMaximized = false;
 	bool isResizable = true;
 

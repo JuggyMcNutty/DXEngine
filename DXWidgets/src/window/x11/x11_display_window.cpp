@@ -412,14 +412,16 @@ void X11DisplayWindow::ShowCursor(bool enable)
 	}
 }
 
+// Typed text off in play, as the engine asks (SDL3's SDL_StopTextInput): the
+// keys still come as keys
 void X11DisplayWindow::LockKeyboard()
 {
-	// Enables raw keyboard scancode events (OnRawKeyboard should be called for keyboard input)
+	keyboardLocked = true;
 }
 
 void X11DisplayWindow::UnlockKeyboard()
 {
-	// Disable raw keyboard scancode events (OnKeyDown/OnKeyUp/OnKeyChar should be called for keyboard input)
+	keyboardLocked = false;
 }
 
 void X11DisplayWindow::LockCursor()
@@ -1091,7 +1093,7 @@ void X11DisplayWindow::OnKeyPress(XEvent* event)
 	windowHost->OnWindowKeyDown(key);
 
 	std::string text;
-	if (xic) // utf-8 text input
+	if (xic && !keyboardLocked) // utf-8 text input, off in play
 	{
 		Status status = {};
 		KeySym keysym = NoSymbol;

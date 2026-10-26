@@ -117,6 +117,7 @@ private:
 	bool isMapped = false;
 	bool isMinimized = false;
 	bool isFullscreen = false;
+	bool keyboardLocked = false;
 	double dpiScale = 1.0;
 
 	int ClientSizeX = 0;

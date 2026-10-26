@@ -438,7 +438,9 @@ void WaylandDisplayBackend::OnKeyboardCharEvent(const char* ch, wayland::keyboar
 	if (state == wayland::keyboard_key_state::pressed)
 	{
 		previousChars = std::string(ch);
-		m_FocusWindow->windowHost->OnWindowKeyChar(previousChars);
+		// Typed text off while the window's keyboard is locked (play)
+		if (m_FocusWindow && !m_FocusWindow->KeyboardLocked())
+			m_FocusWindow->windowHost->OnWindowKeyChar(previousChars);
 	}
 }
 
