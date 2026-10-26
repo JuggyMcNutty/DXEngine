@@ -2,8 +2,6 @@
 #include "Precomp.h"
 #include "StrTools.h"
 
-#include <sstream>
-#include <iomanip>
 
 static const int stricmptable[] =
 {
@@ -75,56 +73,6 @@ bool StrTools::startswith(const std::string_view& str, const std::string_view& c
 		return StrTools::equals_ignore_case(str.substr(0, cmp.size()), cmp);
 
 	return str.starts_with(cmp);
-}
-
-std::string StrTools::replace(const std::string& str, const std::string_view& find, const std::string_view& repl, bool ignoreCase)
-{
-	auto result = str;
-
-	if (ignoreCase)
-	{
-		auto lowerstr = str;
-		for (char c: lowerstr)
-			c = std::tolower(c);
-
-		auto lowerfind = std::string(find);
-		for (char c: lowerfind)
-			c = std::tolower(c);
-
-		auto pos = lowerstr.find(lowerfind);
-
-		while (pos != std::string::npos)
-		{
-			result.replace(pos, find.size(), repl);
-			pos = lowerstr.find(lowerfind);
-		}
-
-		return result;
-	}
-
-	auto pos = str.find(find);
-
-	while (pos != std::string::npos)
-	{
-		result.replace(pos, find.size(), repl);
-		pos = result.find(find);
-	}
-
-	return result;
-}
-
-std::string StrTools::int_to_string(const int value, const int minWidth)
-{
-	std::stringstream ss;
-
-	auto teststr = std::to_string(value);
-
-	if (teststr.size() < minWidth)
-		ss << std::setfill('0') << std::setw(minWidth) << value;
-	else
-		ss << value;
-
-	return ss.str();
 }
 
 size_t StrTools::find_first_of_any(const std::string& str, const std::string& characters)
