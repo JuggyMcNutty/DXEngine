@@ -176,8 +176,6 @@ private:
 
 	wayland::data_source_t m_DataSource;
 
-	wayland::zxdg_toplevel_decoration_v1_t m_XDGToplevelDecoration;
-
 	wayland::fractional_scale_v1_t m_FractionalScale;
 
 	wayland::surface_t m_WindowSurface;
@@ -188,13 +186,15 @@ private:
 	wayland::xdg_toplevel_t m_XDGToplevel;
 	wayland::xdg_popup_t m_XDGPopup;
 	wayland::xdg_dialog_v1_t m_XDGDialog;
+	// After the toplevel: waylandpp destroys a proxy as its last copy goes,
+	// the members in reverse, and the decoration must go before its
+	// toplevel (the protocol's "orphaned" error)
+	wayland::zxdg_toplevel_decoration_v1_t m_XDGToplevelDecoration;
 
 	wayland::zxdg_exported_v2_t m_XDGExported;
 
 	wayland::zwp_locked_pointer_v1_t m_LockedPointer;
 	wayland::zwp_confined_pointer_v1_t m_ConfinedPointer;
-
-	wayland::xdg_toplevel_icon_v1_t m_XDGToplevelIcon;
 
 	wayland::callback_t m_FrameCallback;
 
@@ -204,6 +204,8 @@ private:
 
 	std::vector<std::shared_ptr<SharedMemHelper>> appIconSharedMems;
 	std::vector<wayland::buffer_t> appIconBuffers;
+	// After its buffers: the icon must go before them (no_buffer)
+	wayland::xdg_toplevel_icon_v1_t m_XDGToplevelIcon;
 
 	wayland::xdg_activation_token_v1_t m_WindowActivationToken;
 	std::string m_ActivationTokenString;
