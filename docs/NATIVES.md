@@ -524,6 +524,8 @@ the eye's line in its normals in the world's axes, as the original's
 `D3DDrv` has them. A face's texture lies as the original's, its corners'
 bytes ÷ 256 of the texture's size: `FaceConsole`'s UNATCO troop at a
 correlation of 0.997 to `D3DDrv`'s frame, its chest 0.999.
+A budget past an int's range (a script's `LODBias` or `DrawScale`) is held
+to the mesh's vertices.
 
 ### Lighting
 

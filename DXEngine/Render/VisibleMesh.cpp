@@ -869,9 +869,13 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 		float shapeLOD = 0.25f;
 		float factor = 430.0f * resolutionTerm * actor->DrawScale() * actor->LODBias() * mesh->MeshScaleMax /
 			(mesh->LODStrength * shapeLOD * std::tan(radians(frame->Frame.FovAngle) * 0.5f) * depth * complexityTerm);
+		// Held to the mesh's vertices as floats, before the conversions: a
+		// budget past an int's range (a LODBias or DrawScale from script, a
+		// field of view near 0) converted to 0 and INT_MIN on x86-64, so every
+		// corner morphed fully to its target
 		float budget = std::max((float)mesh->LODMinVerts, (float)mesh->ModelVerts * factor);
-		lodBudget = std::min((uint32_t)budget, mesh->ModelVerts);
-		lodMorphStart = (int)((1.0f - mesh->LODMorph) * budget);
+		lodBudget = (uint32_t)std::min(budget, (float)mesh->ModelVerts);
+		lodMorphStart = (int)std::min((1.0f - mesh->LODMorph) * budget, (float)mesh->ModelVerts);
 		lodMorph = mesh->LODMorph > 0.0f && lodMorphStart < (int)lodBudget;
 		lodMorphScale = lodMorph ? 1.0f / (budget * mesh->LODMorph) : 0.0f;
 		lodActive = true;
