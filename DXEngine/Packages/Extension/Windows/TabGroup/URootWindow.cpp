@@ -642,13 +642,22 @@ bool URootWindow::OnWindowMouseWheel(const Point& pos, EInputKey key)
 	return true;
 }
 
+// The original's (XRootWindow::SetMouseDelta 0x1003b2e0; extension-dll.md,
+// pointer movement): the mouse's counts add to the pointer in the root's
+// units, not divided by the multiplier, both axes doubled when either moves
+// more than 2 -- at 1280x960 a count moves the pointer two pixels, as there
 bool URootWindow::OnWindowRawMouseMove(int dx, int dy)
 {
 	if (IsCursorVisible() && !bMouseMoveLocked())
 	{
-		// Deltas are window pixels; the UI is laid out in render pixels
-		float mouseSpeed = engine->window->GetRenderDevice()->GetRenderScale() / GetVirtualScale();
-		SetRootCursorPos(MouseX() + dx * mouseSpeed, MouseY() + dy * mouseSpeed);
+		float moveX = (float)dx;
+		float moveY = (float)dy;
+		if (std::abs(moveX) > 2.0f || std::abs(moveY) > 2.0f)
+		{
+			moveX += moveX;
+			moveY += moveY;
+		}
+		SetRootCursorPos(MouseX() + moveX, MouseY() + moveY);
 	}
 	return IsModalOpen();
 }
