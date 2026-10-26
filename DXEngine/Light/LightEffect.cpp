@@ -14,27 +14,32 @@
 #include <arm_neon.h>
 #endif
 
+// Deus Ex's shapes are Render.dll's own (dx-reverse-info/render-dll.md, light
+// maps): the torch and fire wavers and watery shimmer the plain shape, their
+// texels dimmed at random as they are added (LightmapBuilder::
+// AddLightContributionDX), the omni bump map and cloud cast the plain shape
+// too, and the shapes of their own below
 LightEffect::EffectFunc LightEffect::Effects[LE_Unused + 1] =
 {
 	&LightEffect::NoneEffect, // LE_None
-	&LightEffect::SlowWaveEffect, // LE_TorchWaver - to do: needs implementation
-	&LightEffect::SlowWaveEffect, // LE_FireWaver - to do: needs implementation
-	&LightEffect::SlowWaveEffect, // LE_WateryShimmer - to do: needs implementation
-	&LightEffect::SearchlightEffect, // LE_Searchlight
-	&LightEffect::SlowWaveEffect, // LE_SlowWave
-	&LightEffect::FastWaveEffect, // LE_FastWave
-	&LightEffect::NoneEffect, // LE_CloudCast - Deus Ex's is the plain shape too (Render.dll 0x10b04380 calls SpatialPlain)
+	&LightEffect::NoneEffect, // LE_TorchWaver
+	&LightEffect::NoneEffect, // LE_FireWaver
+	&LightEffect::NoneEffect, // LE_WateryShimmer
+	&LightEffect::SearchlightEffectDX, // LE_Searchlight
+	&LightEffect::SlowWaveEffectDX, // LE_SlowWave
+	&LightEffect::FastWaveEffectDX, // LE_FastWave
+	&LightEffect::NoneEffect, // LE_CloudCast (Render.dll 0x10b04380 calls SpatialPlain)
 	&LightEffect::SpotlightEffect, // LE_StaticSpot
-	&LightEffect::SlowWaveEffect, // LE_Shock - to do: needs implementation
-	&LightEffect::SlowWaveEffect, // LE_Disco - to do: needs implementation
+	&LightEffect::ShockEffectDX, // LE_Shock
+	&LightEffect::DiscoEffectDX, // LE_Disco
 	&LightEffect::NoneEffect, // LE_Warp
 	&LightEffect::SpotlightEffect, // LE_Spotlight
-	&LightEffect::NonIncidenceEffect, // LE_NonIncidence
-	&LightEffect::ShellEffect, // LE_Shell
-	&LightEffect::OmniBumpMapEffect, // LE_OmniBumpMap
-	&LightEffect::SlowWaveEffect, // LE_Interference - to do: needs implementation
-	&LightEffect::CylinderEffect, // LE_Cylinder
-	&LightEffect::SlowWaveEffect, // LE_Rotor - to do: needs implementation
+	&LightEffect::NonIncidenceEffectDX, // LE_NonIncidence
+	&LightEffect::ShellEffectDX, // LE_Shell
+	&LightEffect::NoneEffect, // LE_OmniBumpMap
+	&LightEffect::InterferenceEffectDX, // LE_Interference
+	&LightEffect::CylinderEffectDX, // LE_Cylinder
+	&LightEffect::RotorEffectDX, // LE_Rotor
 	&LightEffect::NoneEffect, // LE_Unused
 };
 
@@ -53,32 +58,9 @@ void LightEffect::Run(UActor* light, int width, const LightmapSpan* spans, size_
 	args.radius = light->WorldLightRadius();
 	args.invRadius = 1.0f / args.radius;
 	args.invRadiusSquared = args.invRadius * args.invRadius;
-	args.smoothFalloff = true;
 
 	uint8_t effect = light->LightEffect();
 	EffectFunc func = (effect <= LE_Unused) ? Effects[effect] : &LightEffect::NoneEffect;
-	// Deus Ex's are Render.dll's own (dx-reverse-info/render-dll.md, light
-	// maps): the torch and fire wavers and watery shimmer shaped as a plain
-	// light, their texels dimmed at random as they are added
-	// (LightmapBuilder::AddLightContributionDX), the omni bump map a plain
-	// light too, and the shapes of their own below
-	if (args.smoothFalloff)
-	{
-		switch (effect)
-		{
-		case LE_TorchWaver: case LE_FireWaver: case LE_WateryShimmer: case LE_OmniBumpMap: func = &LightEffect::NoneEffect; break;
-		case LE_NonIncidence: func = &LightEffect::NonIncidenceEffectDX; break;
-		case LE_Cylinder: func = &LightEffect::CylinderEffectDX; break;
-		case LE_SlowWave: func = &LightEffect::SlowWaveEffectDX; break;
-		case LE_FastWave: func = &LightEffect::FastWaveEffectDX; break;
-		case LE_Searchlight: func = &LightEffect::SearchlightEffectDX; break;
-		case LE_Rotor: func = &LightEffect::RotorEffectDX; break;
-		case LE_Disco: func = &LightEffect::DiscoEffectDX; break;
-		case LE_Shock: func = &LightEffect::ShockEffectDX; break;
-		case LE_Shell: func = &LightEffect::ShellEffectDX; break;
-		case LE_Interference: func = &LightEffect::InterferenceEffectDX; break;
-		}
-	}
 	for (size_t i = 0; i < count; i++)
 	{
 		const LightmapSpan& span = spans[i];
@@ -102,7 +84,6 @@ void LightEffect::NoneEffect(LightEffectArgs* args)
 	const float Nz = args->N.z;
 	const float invRadius = args->invRadius;
 	const float invRadiusSquared = args->invRadiusSquared;
-	const bool smoothFalloff = args->smoothFalloff;
 	const float* locations = (float*)args->locations; // vec3
 	const float* shadowmap = args->shadowmap;
 	float* result = args->result;
@@ -156,11 +137,6 @@ void LightEffect::NoneEffect(LightEffectArgs* args)
 			__m128 v2 = _mm_mul_ps(v, v); // float v2 = v * v;
 			__m128 v3 = _mm_mul_ps(v2, v); // float v3 = v2 * v;
 			__m128 distanceAttenuation = _mm_sub_ps(_mm_add_ps(_mm_set_ps1(1.0f), _mm_mul_ps(_mm_set_ps1(2.0f), v3)), _mm_mul_ps(_mm_set_ps1(3.0f), v2)); // float distanceAttenuation = 1.0f + 2.0f * v3 - 3.0f * v2;
-			if (!smoothFalloff)
-			{
-				distanceAttenuation = _mm_div_ps(distanceAttenuation, v); // distanceAttenuation /= v;
-				distanceAttenuation = _mm_min_ps(distanceAttenuation, _mm_set_ps1(1.0f)); // distanceAttenuation = std::min(distanceAttenuation, 1.0f);
-			}
 
 			__m128 value = _mm_mul_ps(_mm_loadu_ps(shadowmap), _mm_mul_ps(distanceAttenuation, angleAttenuation));
 			value = _mm_or_ps(_mm_and_ps(cmpdistmask, value), _mm_andnot_ps(cmpdistmask, _mm_setzero_ps()));
@@ -214,7 +190,7 @@ void LightEffect::NoneEffect(LightEffectArgs* args)
 			float32x4_t v2 = vmulq_f32(v, v);
 			float32x4_t v3 = vmulq_f32(v2, v);
 			float32x4_t num = vsubq_f32(vfmaq_f32(one, two, v3), vmulq_f32(three, v2));
-			float32x4_t dist = smoothFalloff ? num : vminq_f32(vdivq_f32(num, v), one);
+			float32x4_t dist = num;
 
 			float32x4_t value = vmulq_f32(vld1q_f32(shadowmap), vmulq_f32(dist, angle));
 			value = vreinterpretq_f32_u32(vandq_u32(vreinterpretq_u32_f32(value), inRange));
@@ -263,11 +239,6 @@ void LightEffect::NoneEffect(LightEffectArgs* args)
 			float v2 = v * v;
 			float v3 = v2 * v;
 			float distanceAttenuation = 1.0f + 2.0f * v3 - 3.0f * v2;
-			if (!smoothFalloff)
-			{
-				distanceAttenuation /= v;
-				distanceAttenuation = distanceAttenuation <= 1.0f ? distanceAttenuation : 1.0f;
-			}
 
 			*result = (*shadowmap) * distanceAttenuation * angleAttenuation;
 		}
@@ -278,124 +249,6 @@ void LightEffect::NoneEffect(LightEffectArgs* args)
 		locations += 3;
 		shadowmap++;
 		result++;
-	}
-}
-
-void LightEffect::NonIncidenceEffect(LightEffectArgs* args)
-{
-	const int size = args->size;
-	const vec3 lightLocation = args->LightLocation;
-	const float invRadius = args->invRadius;
-	const vec3* locations = args->locations;
-	const float* shadowmap = args->shadowmap;
-	float* result = args->result;
-	for (int i = 0; i < size; i++)
-	{
-		vec3 L = lightLocation - locations[i];
-		result[i] = shadowmap[i] * std::max(1.0f - length(L) * invRadius, 0.0f);
-	}
-}
-
-void LightEffect::CylinderEffect(LightEffectArgs* args)
-{
-	const int size = args->size;
-	const vec3 lightLocation = args->LightLocation;
-	const float invRadiusSquared = args->invRadiusSquared;
-	const vec3* locations = args->locations;
-	const float* shadowmap = args->shadowmap;
-	float* result = args->result;
-	for (int i = 0; i < size; i++)
-	{
-		vec3 L = lightLocation - locations[i];
-		float distsqr = (L.x * L.x + L.y * L.y) * invRadiusSquared;
-		result[i] = shadowmap[i] * std::max(1.0f - distsqr, 0.0f);
-	}
-}
-
-void LightEffect::SlowWaveEffect(LightEffectArgs* args)
-{
-	const int size = args->size;
-	const vec3 lightLocation = args->LightLocation;
-	const vec3 N = args->N;
-	const float invRadiusSquared = args->invRadiusSquared;
-	const vec3* locations = args->locations;
-	const float* shadowmap = args->shadowmap;
-	float* result = args->result;
-	float timeOffset = args->light->Level()->TimeSeconds() * 2.0f;
-	for (int i = 0; i < size; i++)
-	{
-		vec3 L = lightLocation - locations[i];
-		float lensqr = dot(L, L);
-		float distsqr = lensqr * invRadiusSquared;
-		if (distsqr < 1.0f)
-		{
-#ifdef USE_SSE2
-			float len = _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(lensqr)));
-#else
-			float len = std::sqrt(lensqr);
-#endif
-			L *= 1.0f / len;
-			float waveAttenuation = 0.6f + 0.4f * Sin(len * 0.04f + timeOffset);
-			float angleAttenuation = std::abs(dot(L, N));
-			float distanceAttenuation = LightDistanceFalloff(distsqr);
-			result[i] = shadowmap[i] * distanceAttenuation * angleAttenuation * waveAttenuation;
-		}
-		else
-		{
-			result[i] = 0.0f;
-		}
-	}
-}
-
-void LightEffect::FastWaveEffect(LightEffectArgs* args)
-{
-	const int size = args->size;
-	const vec3 lightLocation = args->LightLocation;
-	const vec3 N = args->N;
-	const float invRadiusSquared = args->invRadiusSquared;
-	const vec3* locations = args->locations;
-	const float* shadowmap = args->shadowmap;
-	float* result = args->result;
-	float timeOffset = args->light->Level()->TimeSeconds() * 4.0f;
-	for (int i = 0; i < size; i++)
-	{
-		vec3 L = lightLocation - locations[i];
-		float lensqr = dot(L, L);
-		float distsqr = lensqr * invRadiusSquared;
-		if (distsqr < 1.0f)
-		{
-#ifdef USE_SSE2
-			float len = _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(lensqr)));
-#else
-			float len = std::sqrt(lensqr);
-#endif
-			L *= 1.0f / len;
-			float waveAttenuation = 0.6f + 0.4f * Sin(len * 0.04f + timeOffset);
-			float angleAttenuation = std::abs(dot(L, N));
-			float distanceAttenuation = LightDistanceFalloff(distsqr);
-			result[i] = shadowmap[i] * distanceAttenuation * angleAttenuation * waveAttenuation;
-		}
-		else
-		{
-			result[i] = 0.0f;
-		}
-	}
-}
-
-void LightEffect::ShellEffect(LightEffectArgs* args)
-{
-	const int size = args->size;
-	const vec3 lightLocation = args->LightLocation;
-	const float invRadius = args->invRadius;
-	const vec3* locations = args->locations;
-	const float* shadowmap = args->shadowmap;
-	float* result = args->result;
-	for (int i = 0; i < size; i++)
-	{
-		vec3 L = lightLocation - locations[i];
-		float dist = length(L) * invRadius;
-		float attenuation = (dist > 0.8f && dist < 1.0f) ? 1.0f - 10.0f * std::abs(dist - 0.9f) : 0.0f;
-		result[i] = shadowmap[i] * attenuation;
 	}
 }
 
@@ -412,8 +265,8 @@ void LightEffect::SpotlightEffect(LightEffectArgs* args)
 	Coords::Rotation(args->light->Rotation()).GetAxes(tmp0, tmp1, tmp2);
 	vec3 spotDir = -tmp0;
 	// Deus Ex's cone is Render.dll's, its cosine 1 - LightCone / 256
-	// (dx-reverse-info/render-dll.md, light maps); Surreal Engine's divides by 255
-	float lightCosOuterAngle = 1.0f - args->light->LightCone() * (args->smoothFalloff ? 1.0f / 256.0f : 1.0f / 255.0f);
+	// (dx-reverse-info/render-dll.md, light maps)
+	float lightCosOuterAngle = 1.0f - args->light->LightCone() * (1.0f / 256.0f);
 	float lightCosInnerAngle = 1.0f;
 	if (lightCosOuterAngle < 1.0f)
 	{
@@ -442,8 +295,7 @@ void LightEffect::SpotlightEffect(LightEffectArgs* args)
 				result[i] = shadowmap[i] * distanceAttenuation * angleAttenuation * spotAttenuation;
 				// Deus Ex's is rounded down (SpatialSpotlight 0x10b04f80), the
 				// plain shape's rounded as its merge rounds
-				if (args->smoothFalloff)
-					result[i] = std::floor(result[i]);
+				result[i] = std::floor(result[i]);
 			}
 			else
 			{
@@ -455,59 +307,6 @@ void LightEffect::SpotlightEffect(LightEffectArgs* args)
 	else
 	{
 		for (int i = 0; i < size; i++)
-		{
-			result[i] = 0.0f;
-		}
-	}
-}
-
-void LightEffect::SearchlightEffect(LightEffectArgs* args)
-{
-	// The lightbeam will rotate, like a searchlight.
-	// If LightPeriod is 0, the SearchLight will not rotate.
-	// 
-	// Like the cylinder light effect, the Z component is ignored.
-
-	const int size = args->size;
-	const vec3 lightLocation = args->LightLocation;
-	const vec3 N = args->N;
-	const float invRadiusSquared = args->invRadiusSquared;
-	const vec3* locations = args->locations;
-	const float* shadowmap = args->shadowmap;
-	float* result = args->result;
-
-	constexpr float phaseScale = (1.0f / 255.0f);
-	constexpr float periodSpeed = 40.0f;
-	float turns = args->light->LightPhase() * phaseScale;
-	if (args->light->LightPeriod() != 0)
-		turns += args->light->Level()->TimeSeconds() * periodSpeed / args->light->LightPeriod();
-	float spotAngle = turns * (2.0f * 3.14159265359f);
-	float lightCone = 0.5f;
-
-	vec3 spotDir(Sin(spotAngle), Cos(spotAngle), 0.0f);
-	float lightCosOuterAngle = 1.0f - lightCone * (1.0f / 255.0f);
-	float lightCosInnerAngle = 1.0f;
-	for (int i = 0; i < size; i++)
-	{
-		vec3 L = lightLocation - locations[i];
-		float lensqr = dot(L, L);
-		float distsqr = lensqr * invRadiusSquared;
-		if (distsqr < 1.0f && lightCosOuterAngle < 1.0f)
-		{
-#ifdef USE_SSE2
-			float rcplen = _mm_cvtss_f32(_mm_rsqrt_ss(_mm_set_ss(lensqr)));
-#else
-			float rcplen = 1.0f / std::sqrt(lensqr);
-#endif
-			L *= rcplen;
-			float angleAttenuation = std::abs(dot(L, N));
-			float distanceAttenuation = LightDistanceFalloff(distsqr);
-			float cosDir = dot(L, spotDir);
-			float spotAttenuation = 1.0f - std::min((1.0f - cosDir) / (1.0f - lightCosOuterAngle), 1.0f);
-			spotAttenuation = spotAttenuation * spotAttenuation;
-			result[i] = shadowmap[i] * distanceAttenuation * angleAttenuation * spotAttenuation;
-		}
-		else
 		{
 			result[i] = 0.0f;
 		}
@@ -732,26 +531,8 @@ void LightEffect::InterferenceEffectDX(LightEffectArgs* args)
 	}
 }
 
-void LightEffect::OmniBumpMapEffect(LightEffectArgs* args)
-{
-	// Can be used to create blacklights. This is not what the name suggests, so this is
-	// probably an old remainder of the pre-release version of Unreal.
-	const int size = args->size;
-	float* result = args->result;
-	for (int i = 0; i < size; i++)
-	{
-		result[i] = 0.0f;
-	}
-}
-
 void LightEffect::InitTables()
 {
-	for (int i = 0; i < SinTableSize; i++)
-	{
-		SinTable[i] = (float)std::sin(i * ((2.0 * 3.14159265359) / (float)SinTableSize));
-		CosTable[i] = (float)std::cos(i * ((2.0 * 3.14159265359) / (float)SinTableSize));
-	}
-
 	for (int i = 0; i < FalloffTableSize; i++)
 	{
 		float v = std::sqrt(i + 0.0001f);
@@ -762,20 +543,6 @@ void LightEffect::InitTables()
 	}
 
 	TablesInitialized = true;
-}
-
-float LightEffect::Sin(float v)
-{
-	int x = (int)(v * ((SinTableSize >> 1) / 3.14159265359f));
-	x &= SinTableSize - 1;
-	return SinTable[x];
-}
-
-float LightEffect::Cos(float v)
-{
-	int x = (int)(v * ((SinTableSize >> 1) / 3.14159265359f));
-	x &= SinTableSize - 1;
-	return CosTable[x];
 }
 
 float LightEffect::CalcLightDistanceFalloff(float distsqr)
@@ -798,6 +565,4 @@ float LightEffect::LightDistanceFalloff(float distsqr)
 }
 
 bool LightEffect::TablesInitialized;
-float LightEffect::SinTable[SinTableSize];
-float LightEffect::CosTable[SinTableSize];
 float LightEffect::FalloffTable[FalloffTableSize];
