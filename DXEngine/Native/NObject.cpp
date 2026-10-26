@@ -665,14 +665,16 @@ void NObject::GreaterEqual_StrStr(const std::string& A, const std::string& B, Bi
 	ReturnValue = A >= B;
 }
 
+// The shifts take the count's low 5 bits, as the original's x86 shift does;
+// C++ is undefined at 32 and over or below 0
 void NObject::GreaterGreaterGreater_IntInt(int A, int B, int& ReturnValue)
 {
-	ReturnValue = static_cast<unsigned int>(A) >> B;
+	ReturnValue = (int)(static_cast<unsigned int>(A) >> (B & 31));
 }
 
 void NObject::GreaterGreater_IntInt(int A, int B, int& ReturnValue)
 {
-	ReturnValue = A >> B;
+	ReturnValue = A >> (B & 31);
 }
 
 void NObject::GreaterGreater_VectorRotator(const vec3& A, const Rotator& B, vec3& ReturnValue)
@@ -767,7 +769,7 @@ void NObject::LessEqual_StrStr(const std::string& A, const std::string& B, Bitfi
 
 void NObject::LessLess_IntInt(int A, int B, int& ReturnValue)
 {
-	ReturnValue = A << B;
+	ReturnValue = (int)(static_cast<unsigned int>(A) << (B & 31));
 }
 
 void NObject::LessLess_VectorRotator(const vec3& A, const Rotator& B, vec3& ReturnValue)
