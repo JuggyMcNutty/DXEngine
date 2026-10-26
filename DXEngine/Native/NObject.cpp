@@ -431,9 +431,13 @@ void NObject::DivideEqual_FloatFloat(float& A, float B, float& ReturnValue)
 	ReturnValue = A /= B;
 }
 
+// The original's (Core.dll 0x10134370): 0 for a divisor of 0.0, else the
+// quotient made an int by _ftol (floating.h's ftol, wrapping past an int's
+// range); a C++ cast is undefined there. The original's x87 runs at 24-bit
+// precision, so the quotient is rounded to a float first (OpsConsole).
 void NObject::DivideEqual_IntFloat(int& A, float B, int& ReturnValue)
 {
-	ReturnValue = A /= B;
+	ReturnValue = A = B != 0.0f ? ftol((float)((double)A / B)) : 0;
 }
 
 void NObject::DivideEqual_RotatorFloat(Rotator& A, float B, Rotator& ReturnValue)
@@ -856,9 +860,13 @@ void NObject::MultiplyEqual_FloatFloat(float& A, float B, float& ReturnValue)
 	ReturnValue = A *= B;
 }
 
+// The original's (Core.dll 0x10134280): the product made an int by _ftol
+// (ftol, wrapping past an int's range), the product rounded to a float
+// first by its x87 at 24-bit precision: 7 *= 3e9 is -474,836,992, 512 under
+// the exact product's low bits (OpsConsole)
 void NObject::MultiplyEqual_IntFloat(int& A, float B, int& ReturnValue)
 {
-	ReturnValue = A *= B;
+	ReturnValue = A = ftol((float)((double)A * B));
 }
 
 void NObject::MultiplyEqual_RotatorFloat(Rotator& A, float B, Rotator& ReturnValue)
