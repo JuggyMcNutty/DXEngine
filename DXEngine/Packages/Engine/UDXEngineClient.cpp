@@ -117,6 +117,8 @@ void UDXEngineClient::SetPropertyFromString(const NameString& propertyName, cons
 		WindowedViewportY = IniPropertyConverter<int>::FromString(value);
 	else if (propertyName == "WindowedColorBits")
 		WindowedColorBits = IniPropertyConverter<int>::FromString(value);
+	else if (propertyName == "StartupFullscreen")
+		StartupFullscreen = IniPropertyConverter<bool>::FromString(value);
 	else if (propertyName == "FullscreenViewportX")
 		FullscreenViewportX = IniPropertyConverter<int>::FromString(value);
 	else if (propertyName == "FullscreenViewportY")
