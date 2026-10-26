@@ -18,7 +18,12 @@ void LogUnimplemented(const std::string& message)
 
 void Logger::LogMessage(const std::string& message)
 {
-	if (!Frame::Callstack.empty() && Frame::Callstack.back()->Func)
+	// The VM's call stack is the main thread's: a line from another thread
+	// (a driver's own, a validation layer's) takes no source from it, and the
+	// log itself is written under a lock
+	bool onMainThread = std::this_thread::get_id() == mainThread;
+	std::lock_guard<std::mutex> lock(mutex);
+	if (onMainThread && !Frame::Callstack.empty() && Frame::Callstack.back()->Func)
 	{
 		std::string name;
 
@@ -66,10 +71,14 @@ void Logger::LogMessage(const std::string& message)
 void Logger::LogUnimplemented(const std::string& message)
 {
 	static std::unordered_set<std::string> seenMessages;
-	if (seenMessages.insert(message).second)
+	static std::mutex seenMutex;
+	bool first;
 	{
-		LogMessage("Unimplemented: " + message);
+		std::lock_guard<std::mutex> lock(seenMutex);
+		first = seenMessages.insert(message).second;
 	}
+	if (first)
+		LogMessage("Unimplemented: " + message);
 }
 
 std::vector<std::string> Logger::SplitNewlines(const std::string& str)

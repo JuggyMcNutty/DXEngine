@@ -2,6 +2,8 @@
 
 #include <string>
 #include <list>
+#include <mutex>
+#include <thread>
 #include <functional>
 
 void LogMessage(const std::string& message);
@@ -31,6 +33,8 @@ public:
 
 private:
 	float time = 0.0f;
+	std::mutex mutex;
+	std::thread::id mainThread = std::this_thread::get_id();
 	std::list<LogMessageLine> Log;
 	std::function<void(const LogMessageLine& line)> printLogDebugger;
 	static std::vector<std::string> SplitNewlines(const std::string& str);
