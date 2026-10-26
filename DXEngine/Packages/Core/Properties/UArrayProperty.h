@@ -27,6 +27,7 @@ public:
 
 	void GetExportText(std::string& buf, const std::string& whitespace, UObject* obj, UObject* defobj, int i) override;
 	std::string PrintValue(const void* data) override;
+	void SetValueFromString(void* data, const std::string& valueString) override;
 
 	void MarkValue(GCMarker& marker, void* data) override;
 	void MarkNames(void* data) override;

@@ -1334,9 +1334,9 @@ Every other native the scripted runs compare matches the original
   parenthesis whole, a nested struct whole; only the members named are set.
   Differs: an element by its index, `N[1]=7`, is taken, where the original's
   import stops at one (`ImportText: Illegal array element`: its index reader
-  starts on the bracket) though its own export writes them. A bool takes
-  `1`, `True`, `0` and `False` alone, an int the number its text starts
-  with.
+  starts on the bracket) though its own export writes them. A dynamic array
+  is `(1,2,3)`. A bool takes `1`, `True`, `0` and `False` alone, an int the
+  number its text starts with.
 - **A None context** (`A.X` with `A` None; `NoneConsole`): the zero of
   `X`'s type, as the original's `execContext` zero-fills the result -- a
   `switch (A.Physics)` takes `case PHYS_None`, a struct copied through None

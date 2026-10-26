@@ -126,9 +126,70 @@ void UArrayProperty::GetExportText(std::string& buf, const std::string& whitespa
 	}
 }
 
+// The original's UArrayProperty::ExportTextItem (Core.dll 0x10168720): the
+// elements' text joined by "," within parentheses
 std::string UArrayProperty::PrintValue(const void* data)
 {
-	return "array";
+	ScriptArray& vec = *const_cast<ScriptArray*>(static_cast<const ScriptArray*>(data));
+	std::string print = "(";
+	for (size_t i = 0; i < vec.GetSize(); i++)
+	{
+		if (i > 0)
+			print += ",";
+		print += Inner->PrintValue(vec.GetItem(i));
+	}
+	return print + ")";
+}
+
+// The original's UArrayProperty::ImportText (Core.dll 0x10168830): "(a,b,...)",
+// the array made as long as the elements, each element's delimited text to
+// the inner property; text that is no such list leaves the array as it was
+void UArrayProperty::SetValueFromString(void* data, const std::string& valueString)
+{
+	size_t p = valueString.find_first_not_of(' '), n = valueString.size();
+	if (p == std::string::npos || valueString[p] != '(')
+		return;
+	Array<std::string> elements;
+	p++;
+	while (p < n && valueString[p] == ' ')
+		p++;
+	if (p < n && valueString[p] != ')')
+	{
+		size_t start = p;
+		int depth = 0;
+		while (p < n)
+		{
+			char c = valueString[p];
+			if (c == '"')
+			{
+				p++;
+				while (p < n && valueString[p] != '"')
+					p++;
+				if (p >= n)
+					return;
+				p++;
+				continue;
+			}
+			if (c == '(')
+				depth++;
+			else if (c == ')' && depth > 0)
+				depth--;
+			else if ((c == ',' || c == ')') && depth == 0)
+			{
+				elements.push_back(valueString.substr(start, p - start));
+				if (c == ')')
+					break;
+				start = p + 1;
+			}
+			p++;
+		}
+		if (p >= n)
+			return;
+	}
+	ScriptArray& vec = *static_cast<ScriptArray*>(data);
+	vec.Resize(elements.size());
+	for (size_t i = 0; i < elements.size(); i++)
+		Inner->SetDelimitedValueFromString(vec.GetItem(i), elements[i]);
 }
 
 bool UArrayProperty::ComputeContainsRefs()
