@@ -1768,7 +1768,8 @@ A mod gets the original's loader and natives:
   collision size or location past the cells an int names, or no number, is
   held to them.
 - **A net game's edges.** a client's reference to a map actor destroyed and
-  freed is refused, not loaded afresh in no level.
+  freed is refused, not loaded afresh in no level; a channel destroyed
+  leaves nothing for the next bunch to merge into.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).

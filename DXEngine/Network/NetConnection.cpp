@@ -448,6 +448,15 @@ NetChannel* NetConnection::CreateChannel(ChannelType type, bool openedLocally, i
 
 void NetConnection::DestroyChannel(NetChannel* channel)
 {
+	// The last bunch sent was this channel's: nothing merges into its freed
+	// record (a new channel at the index, before the next flush, once wrote
+	// into freed memory)
+	if (LastOut.ChIndex == channel->ChIndex)
+	{
+		LastOutBunch = nullptr;
+		LastEnd = 0;
+		AllowMerge = false;
+	}
 	channel->CleanUp();
 	if (Channels[channel->ChIndex] == channel)
 		Channels[channel->ChIndex] = nullptr;
