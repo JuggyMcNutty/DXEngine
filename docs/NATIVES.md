@@ -715,7 +715,13 @@ animation finishes -- a tween's whole time after a `TweenAnim`
 `PlayBlendAnim` of it play nothing, as the original's `GetAnimSeq` answers
 (`AnimNameConsole`); an actor whose `AnimSequence` the mesh lacks -- None,
 most decorations' -- is drawn at the mesh's first frame, as the original's
-`GetFrame` draws it.
+`GetFrame` draws it. `PlayAnim`, `LoopAnim` and `TweenAnim` start as the
+original's do: with no tween time given, a frame's tween at the last
+animation's rate (in 0.025 s a frame after a tween or nothing playing, at
+the velocity's rate after a velocity-scaled one), none from nothing playing;
+a frame over the time given; none with 0, the frame set a shade past 0; a
+one-frame sequence tweened whole over the time, or in 0.1 s; and the same
+sequence looping on takes its new rate alone (`TweenConsole`).
 
 ### Lists
 

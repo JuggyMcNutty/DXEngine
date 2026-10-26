@@ -3,6 +3,8 @@
 #include "Packages/Core/UObject.h"
 #include "Math/bbox.h"
 
+struct MeshAnimSeq;
+
 class UZoneInfo;
 class UTexture;
 class UPawn;
@@ -334,6 +336,7 @@ public:
 	void FinishAnim();
 	NameString GetAnimGroup(const NameString& sequence);
 	void PlayAnim(const NameString& sequence, float rate, float tweenTime);
+	void TweenIntoAnim(const MeshAnimSeq* seq, float tweenTime, float noTweenFrame);
 	void PlayBlendAnim(const NameString& sequenceName, float rate, float tweenTime, int blendSlot);
 	void TweenBlendAnim(const NameString& sequenceName, float time, int blendSlot);
 	void LoopAnim(const NameString& sequence, float rate, float tweenTime, float minRate);

@@ -398,7 +398,9 @@ void NActor::LinkSkelAnim(UObject* Self, UObject* Anim)
 
 void NActor::LoopAnim(UObject* Self, const NameString& Sequence, std::optional<float> Rate, std::optional<float> TweenTime, std::optional<float> MinRate)
 {
-	UObject::Cast<UActor>(Self)->LoopAnim(Sequence, Rate ? *Rate : 1.0f, TweenTime ? *TweenTime : 0.0f, MinRate ? *MinRate : 0.0f);
+	// Rate 1, TweenTime -1 (a tween of one frame, UActor::TweenIntoAnim) and
+	// MinRate 0 by default, as the original's execLoopAnim takes them
+	UObject::Cast<UActor>(Self)->LoopAnim(Sequence, Rate ? *Rate : 1.0f, TweenTime ? *TweenTime : -1.0f, MinRate ? *MinRate : 0.0f);
 }
 
 void NActor::MakeNoise(UObject* Self, float Loudness)
@@ -444,7 +446,9 @@ void NActor::Multiply_FloatColor(float A, const Color& B, Color& ReturnValue)
 
 void NActor::PlayAnim(UObject* Self, const NameString& Sequence, std::optional<float> Rate, std::optional<float> TweenTime)
 {
-	UObject::Cast<UActor>(Self)->PlayAnim(Sequence, Rate ? *Rate : 1.0f, TweenTime ? *TweenTime : 0.0f);
+	// Rate 1 and TweenTime -1 (a tween of one frame, UActor::TweenIntoAnim) by
+	// default, as the original's execPlayAnim takes them
+	UObject::Cast<UActor>(Self)->PlayAnim(Sequence, Rate ? *Rate : 1.0f, TweenTime ? *TweenTime : -1.0f);
 }
 
 void NActor::PlayBlendAnim(UObject* Self, const NameString& Sequence, std::optional<float> Rate, std::optional<float> TweenTime, std::optional<uint8_t> BlendSlot)

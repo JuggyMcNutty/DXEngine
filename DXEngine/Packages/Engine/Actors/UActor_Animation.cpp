@@ -65,49 +65,83 @@ NameString UActor::GetAnimGroup(const NameString& sequence)
 // bAnimNotify   - true if animation notify events should be fired when animating
 // bAnimFinished - true if AnimLast was reached and there's no looping
 
+// The tween into a sequence, as the original's execPlayAnim (Engine.dll
+// 0x103e0160) and execLoopAnim (0x103e05e0) set it after the sequence's rate
+// and last frame. A one-frame sequence tweens its whole frame over the time
+// given, or in 0.1 s. Else a time given tweens a frame over it; -1, the
+// default, tweens a frame at the last animation's rate -- in 0.025 s a frame
+// after a tween or nothing, or at the greater of the velocity's rate and half
+// the new rate after a velocity-scaled one; 0, or any other, tweens nothing
+// and starts the frame a shade past 0 (noTweenFrame). The caller makes the
+// default 0 when nothing played before: there is nothing to tween from.
+void UActor::TweenIntoAnim(const MeshAnimSeq* seq, float tweenTime, float noTweenFrame)
+{
+	if (AnimLast() == 0.0f)
+	{
+		AnimMinRate() = 0.0f;
+		bAnimNotify() = false;
+		OldAnimRate() = 0.0f;
+		TweenRate() = tweenTime > 0.0f ? 1.0f / tweenTime : 10.0f;
+		AnimRate() = 0.0f;
+		AnimFrame() = -1.0f / seq->NumFrames;
+	}
+	else if (tweenTime > 0.0f)
+	{
+		TweenRate() = 1.0f / (seq->NumFrames * tweenTime);
+		AnimFrame() = -1.0f / seq->NumFrames;
+	}
+	else if (tweenTime == -1.0f)
+	{
+		AnimFrame() = -1.0f / seq->NumFrames;
+		if (OldAnimRate() > 0.0f)
+			TweenRate() = OldAnimRate();
+		else if (OldAnimRate() == 0.0f)
+			TweenRate() = 1.0f / (seq->NumFrames * 0.025f);
+		else
+			TweenRate() = std::max(length(Velocity()) * -OldAnimRate(), AnimRate() * 0.5f);
+	}
+	else
+	{
+		TweenRate() = 0.0f;
+		AnimFrame() = noTweenFrame;
+	}
+}
+
+// The original's execPlayAnim (Engine.dll 0x103e0160; Rate 1 and TweenTime
+// -1 by default): the sequence's rate and last frame, no loop, notifies as
+// the sequence has them, the tween in (TweenIntoAnim), the animation packed
+// for the net (changed if the same, so it goes again), and the rate kept as
+// the last one's. No mesh or a sequence the mesh lacks logs and does nothing.
 void UActor::PlayAnim(const NameString& sequence, float rate, float tweenTime)
 {
-	if (Mesh())
+	if (!Mesh())
 	{
-		MeshAnimSeq* seq = Mesh()->GetSequence(sequence);
-		if (seq)
-		{
-			SetTweenFromAnimFrame();
-
-			AnimSequence() = sequence;
-
-			if (seq->NumFrames > 1)
-			{
-				AnimFrame() = tweenTime > 0.0f ? -1.0f / seq->NumFrames : 0.0f;
-				AnimLast() = 1.0f - 1.0f / seq->NumFrames;
-				AnimRate() = rate * seq->Rate / seq->NumFrames;
-				TweenRate() = tweenTime > 0.0f ? 1.0f / (tweenTime * seq->NumFrames) : 0.0f;
-				bAnimNotify() = !seq->Notifys.empty();
-				OldAnimRate() = AnimRate();
-			}
-			else
-			{
-				// Special case for 1 frame animations. Simply keep drawing the animation for 0.1 second (or tween duration, if tweening).
-
-				AnimFrame() = -1.0f;
-				AnimLast() = 0.0f;
-				AnimRate() = 0.0f;
-				TweenRate() = tweenTime > 0.0f ? 1.0f / tweenTime : 10.0f;
-				bAnimNotify() = false;
-				OldAnimRate() = 0.0f;
-				AnimMinRate() = 0.0f;
-			}
-
-			bAnimLoop() = false;
-			bAnimFinished() = false;
-
-			// The same animation again still changes it, so it goes again.
-			vec4 old = SimAnim();
-			PackSimAnim(AnimLast());
-			if (SimAnim() == old)
-				SimAnim().w += 1.0f;
-		}
+		LogMessage("PlayAnim: No mesh");
+		return;
 	}
+	MeshAnimSeq* seq = Mesh()->GetSequence(sequence);
+	if (!seq)
+	{
+		LogMessage("PlayAnim: Sequence '" + sequence.ToString() + "' not found in Mesh '" + Mesh()->Name.ToString() + "'");
+		return;
+	}
+
+	SetTweenFromAnimFrame();
+	if (AnimSequence().IsNone())
+		tweenTime = 0.0f;
+	AnimSequence() = sequence;
+	AnimRate() = rate * seq->Rate / seq->NumFrames;
+	AnimLast() = 1.0f - 1.0f / seq->NumFrames;
+	bAnimFinished() = false;
+	bAnimLoop() = false;
+	bAnimNotify() = !seq->Notifys.empty();
+	TweenIntoAnim(seq, tweenTime, 0.001f);
+
+	vec4 old = SimAnim();
+	PackSimAnim(AnimLast());
+	if (SimAnim() == old)
+		SimAnim().w += 1.0f;
+	OldAnimRate() = AnimRate();
 }
 
 // The animation as a server sends it for a client to play (SimAnim, which
@@ -248,87 +282,97 @@ void UActor::TweenBlendAnim(const NameString& sequenceName, float time, int blen
 	OldBlendAnimRate()[blendSlot] = 0.0f;
 }
 
+// The original's execLoopAnim (Engine.dll 0x103e05e0; Rate 1, TweenTime -1
+// and MinRate 0 by default). The same sequence looping and moving (tweening
+// at a rate, or playing at one) goes on: its rate and least rate alone
+// change, the packed animation marked changed if the same. Else the sequence
+// starts as PlayAnim's does, looping, its least rate MinRate of the
+// sequence's own, its tween in (TweenIntoAnim) and the animation packed
+// with its last frame negative, a loop's. No mesh or a sequence the mesh
+// lacks logs and does nothing.
 void UActor::LoopAnim(const NameString& sequence, float rate, float tweenTime, float minRate)
 {
-	if (Mesh())
+	if (!Mesh())
 	{
-		MeshAnimSeq* seq = Mesh()->GetSequence(sequence);
-		if (seq)
-		{
-			if (AnimSequence() == sequence && IsAnimating() && bAnimLoop())
-			{
-				if (seq->NumFrames > 1)
-				{
-					AnimRate() = rate * seq->Rate / seq->NumFrames;
-					AnimMinRate() = minRate * seq->Rate / seq->NumFrames;
-					TweenRate() = tweenTime > 0.0f ? 1.0f / (tweenTime * seq->NumFrames) : 0.0f;
-					OldAnimRate() = AnimRate();
-				}
-
-				// The loop goes on at its new rate; unchanged, it goes again.
-				vec4 old = SimAnim();
-				SimAnim().y = AnimRate() * 5000.0f;
-				SimAnim().w = (1.0f - 1.0f / seq->NumFrames) * -10000.0f;
-				if (SimAnim() == old)
-					SimAnim().w += 1.0f;
-			}
-			else
-			{
-				SetTweenFromAnimFrame();
-
-				AnimSequence() = sequence;
-				if (seq->NumFrames > 1)
-				{
-					AnimFrame() = tweenTime > 0.0f ? -1.0f / seq->NumFrames : 0.0f;
-					AnimLast() = 1.0f - 1.0f / seq->NumFrames;
-					bAnimNotify() = !seq->Notifys.empty();
-					AnimRate() = rate * seq->Rate / seq->NumFrames;
-					AnimMinRate() = minRate * seq->Rate / seq->NumFrames;
-					TweenRate() = tweenTime > 0.0f ? 1.0f / (tweenTime * seq->NumFrames) : 0.0f;
-					OldAnimRate() = AnimRate();
-				}
-				else
-				{
-					// Special case for 1 frame animations. Simply keep drawing the animation for 0.1 second (or tween duration, if tweening).
-
-					AnimFrame() = -1.0f;
-					AnimLast() = 0.0f;
-					AnimRate() = 0.0f;
-					TweenRate() = tweenTime > 0.0f ? 1.0f / tweenTime : 10.0f;
-					bAnimNotify() = false;
-					OldAnimRate() = 0.0f;
-					AnimMinRate() = 0.0f;
-				}
-				bAnimFinished() = false;
-				bAnimLoop() = true;
-				PackSimAnim(-AnimLast());
-			}
-		}
+		LogMessage("LoopAnim: No mesh");
+		return;
 	}
+	MeshAnimSeq* seq = Mesh()->GetSequence(sequence);
+	if (!seq)
+	{
+		LogMessage("LoopAnim: Sequence '" + sequence.ToString() + "' not found in Mesh '" + Mesh()->Name.ToString() + "'");
+		return;
+	}
+
+	float minAnimRate = minRate == 0.0f ? 0.0f : seq->Rate / seq->NumFrames * minRate;
+	bool moving = AnimFrame() < 0.0f ? TweenRate() != 0.0f : AnimRate() != 0.0f;
+	if (AnimSequence() == sequence && bAnimLoop() && !AnimSequence().IsNone() && moving)
+	{
+		bAnimFinished() = false;
+		AnimRate() = rate * seq->Rate / seq->NumFrames;
+		AnimMinRate() = minAnimRate;
+		vec4 old = SimAnim();
+		SimAnim().y = AnimRate() * 5000.0f;
+		OldAnimRate() = AnimRate();
+		SimAnim().w = (1.0f - 1.0f / seq->NumFrames) * -10000.0f;
+		if (SimAnim() == old)
+			SimAnim().w += 1.0f;
+		return;
+	}
+
+	SetTweenFromAnimFrame();
+	if (AnimSequence().IsNone())
+		tweenTime = 0.0f;
+	AnimSequence() = sequence;
+	AnimRate() = rate * seq->Rate / seq->NumFrames;
+	AnimLast() = 1.0f - 1.0f / seq->NumFrames;
+	AnimMinRate() = minAnimRate;
+	bAnimFinished() = false;
+	bAnimNotify() = !seq->Notifys.empty();
+	bAnimLoop() = true;
+	TweenIntoAnim(seq, tweenTime, 0.0001f);
+	OldAnimRate() = AnimRate();
+	PackSimAnim(-AnimLast());
 }
 
+// The original's execTweenAnim (Engine.dll 0x103e0bd0; Time 0 by default): a
+// tween alone to the sequence's first frame, over the time, or none with no
+// time, nothing playing after it and no loop, notify or last frame. No mesh
+// or a sequence the mesh lacks logs and does nothing.
 void UActor::TweenAnim(const NameString& sequence, float tweenTime)
 {
-	if (Mesh())
+	if (!Mesh())
 	{
-		MeshAnimSeq* seq = Mesh()->GetSequence(sequence);
-		if (seq)
-		{
-			SetTweenFromAnimFrame();
-
-			AnimSequence() = sequence;
-			AnimFrame() = tweenTime > 0.0f ? -1.0f / seq->NumFrames : 0.0f;
-			AnimLast() = 0.0f;
-			AnimRate() = 0.0f;
-			AnimMinRate() = 0.0f;
-			TweenRate() = tweenTime > 0.0f ? 1.0f / (tweenTime * seq->NumFrames) : 0.0f;
-			OldAnimRate() = AnimRate();
-			bAnimNotify() = false;
-			bAnimFinished() = false;
-			bAnimLoop() = false;
-			PackSimAnim(0.0f);
-		}
+		LogMessage("TweenAnim: No mesh");
+		return;
 	}
+	MeshAnimSeq* seq = Mesh()->GetSequence(sequence);
+	if (!seq)
+	{
+		LogMessage("TweenAnim: Sequence '" + sequence.ToString() + "' not found in Mesh '" + Mesh()->Name.ToString() + "'");
+		return;
+	}
+
+	SetTweenFromAnimFrame();
+	bAnimFinished() = false;
+	bAnimLoop() = false;
+	bAnimNotify() = false;
+	AnimSequence() = sequence;
+	AnimLast() = 0.0f;
+	AnimMinRate() = 0.0f;
+	AnimRate() = 0.0f;
+	OldAnimRate() = 0.0f;
+	if (tweenTime > 0.0f)
+	{
+		TweenRate() = 1.0f / (seq->NumFrames * tweenTime);
+		AnimFrame() = -1.0f / seq->NumFrames;
+	}
+	else
+	{
+		TweenRate() = 0.0f;
+		AnimFrame() = 0.0f;
+	}
+	PackSimAnim(0.0f);
 }
 
 void UActor::TickAnimation(float elapsed)
