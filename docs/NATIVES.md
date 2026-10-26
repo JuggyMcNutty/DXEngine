@@ -1109,7 +1109,12 @@ Every other native the scripted runs compare matches the original
 - **The traces** (`TraceConsole`, `VisibleConsole`; `TraceActors`, the
   player's frob target, through decorations), and `RadiusActors`, which
   reaches each actor's own collision radius further (`VisibleConsole` on
-  Liberty Island and DXMP_Silo). A line or a box started inside an actor's
+  Liberty Island and DXMP_Silo). The actor iterators (`RadiusActors`,
+  `VisibleActors`, `ZoneActors`, `ChildActors`, `BasedActors`) walk the
+  level's list at each step, so an actor spawned in reach during the loop's
+  body is reached and one destroyed passed over, in the level's order, and
+  `ChildActors` gives every actor whose owner chain reaches the caller, the
+  caller among them (`WalkConsole`). A line or a box started inside an actor's
   cylinder, heading in, stops at its start, its normal level, out from the
   axis
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces);

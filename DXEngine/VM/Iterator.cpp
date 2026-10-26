@@ -95,56 +95,53 @@ bool AllActorsIterator::Next()
 
 /////////////////////////////////////////////////////////////////////////////
 
-BasedActorsIterator::BasedActorsIterator(UActor* Caller, UObject* BaseClass, UObject** Actor) : BaseClass(BaseClass), Actor(Actor)
+// The original's iterators walk the level's list at each step
+// (AActor::execBasedActors and the rest): an actor spawned in reach during
+// the body is reached, one destroyed is passed over, and the order is the
+// level's. DXEngine's decided the actors at the start.
+BasedActorsIterator::BasedActorsIterator(UActor* Caller, UObject* BaseClass, UObject** Actor) : Caller(Caller), BaseClass(BaseClass), Actor(Actor)
 {
-	for (UActor* based : Caller->BasedActors)
-	{
-		if (!based || !based->Class) continue;
-		if (based->IsA(BaseClass->Name))
-			BasedActors.push_back(based);
-	}
-	iterator = BasedActors.begin();
 }
 
 bool BasedActorsIterator::Next()
 {
-	if (iterator == BasedActors.end())
+	const Array<UActor*>& actors = engine->Level->Actors;
+	while (index < actors.size())
 	{
-		*Actor = nullptr;
-		return false;
+		UActor* actor = actors[index++];
+		if (actor && !actor->bDeleteMe() && actor->ActorBase() == Caller && actor->IsA(BaseClass->Name))
+		{
+			*Actor = actor;
+			return true;
+		}
 	}
-
-	*Actor = *iterator;
-	iterator++;
-
-	return *Actor;
+	*Actor = nullptr;
+	return false;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 
-ChildActorsIterator::ChildActorsIterator(UActor* Caller, UObject* BaseClass, UObject** Actor) : BaseClass(BaseClass), Actor(Actor)
+// The original's ChildActors: every actor whose owner chain reaches the
+// caller, the caller itself among them (AActor::IsOwnedBy starts at the
+// actor), not its direct children alone.
+ChildActorsIterator::ChildActorsIterator(UActor* Caller, UObject* BaseClass, UObject** Actor) : Caller(Caller), BaseClass(BaseClass), Actor(Actor)
 {
-	for (UActor* levelActor : Caller->ChildActors)
-	{
-		if (levelActor->IsA(BaseClass->Name))
-			ChildActors.push_back(levelActor);
-	}
-
-	iterator = ChildActors.begin();
 }
 
 bool ChildActorsIterator::Next()
 {
-	if (iterator == ChildActors.end())
+	const Array<UActor*>& actors = engine->Level->Actors;
+	while (index < actors.size())
 	{
-		*Actor = nullptr;
-		return false;
+		UActor* actor = actors[index++];
+		if (actor && !actor->bDeleteMe() && actor->IsOwnedBy(Caller) && actor->IsA(BaseClass->Name))
+		{
+			*Actor = actor;
+			return true;
+		}
 	}
-
-	*Actor = *iterator;
-	iterator++;
-
-	return *Actor;
+	*Actor = nullptr;
+	return false;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -239,38 +236,30 @@ bool CycleActorsIterator::NextByScan()
 
 RadiusActorsIterator::RadiusActorsIterator(UActor* Caller, UObject* BaseClass, UObject** Actor, float Radius, vec3 Location) : BaseClass(BaseClass), Actor(Actor), Radius(Radius), Location(Location)
 {
-	// Deus Ex's reaches each actor's own collision radius further, as the
-	// original's does (Engine.dll 0x103e4fa0, dx-reverse-info engine-dll.md,
-	// traces): its location strictly within Radius + CollisionRadius
-	const Array<UActor*>& actors = engine->Level->Actors;
-	for (int slot : ActorSlotsByName(engine->Level, BaseClass->Name))
-	{
-		UActor* levelActor = actors[slot];
-		vec3 d = levelActor->Location() - Location;
-		bool within = dot(d, d) < (Radius + levelActor->CollisionRadius()) * (Radius + levelActor->CollisionRadius());
-		if (within)
-			RadiusActors.push_back(levelActor);
-	}
-
-	iterator = RadiusActors.begin();
 }
 
 bool RadiusActorsIterator::Next()
 {
-	// One destroyed since is passed over, as the original's walk of the
-	// level's list finds its slot empty
-	while (iterator != RadiusActors.end() && (*iterator)->bDeleteMe())
-		iterator++;
-	if (iterator == RadiusActors.end())
+	// Deus Ex's reaches each actor's own collision radius further, as the
+	// original's does (Engine.dll 0x103e4fa0, dx-reverse-info engine-dll.md,
+	// traces): its location strictly within Radius + CollisionRadius; the
+	// level's list walked at each step, as the original walks it
+	const Array<UActor*>& actors = engine->Level->Actors;
+	while (index < actors.size())
 	{
-		*Actor = nullptr;
-		return false;
+		UActor* actor = actors[index++];
+		if (!actor || actor->bDeleteMe() || !actor->IsA(BaseClass->Name))
+			continue;
+		vec3 d = actor->Location() - Location;
+		float reach = Radius + actor->CollisionRadius();
+		if (dot(d, d) < reach * reach)
+		{
+			*Actor = actor;
+			return true;
+		}
 	}
-
-	*Actor = *iterator;
-	iterator++;
-
-	return *Actor;
+	*Actor = nullptr;
+	return false;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -341,43 +330,30 @@ bool TraceActorsIterator::Next()
 
 /////////////////////////////////////////////////////////////////////////////
 
-VisibleActorsIterator::VisibleActorsIterator(UActor* Caller, UObject* BaseClass, UObject** Actor, float Radius, const vec3& Location) : BaseClass(BaseClass), Actor(Actor), Radius(Radius), Location(Location)
+VisibleActorsIterator::VisibleActorsIterator(UActor* Caller, UObject* BaseClass, UObject** Actor, float Radius, const vec3& Location) : Caller(Caller), BaseClass(BaseClass), Actor(Actor), Radius(Radius), Location(Location)
 {
-	// Deus Ex's as the original's: within the radius strictly, a radius of 0
-	// no limit.
-	const Array<UActor*>& actors = engine->Level->Actors;
-	for (int slot : ActorSlotsByName(engine->Level, BaseClass->Name))
-	{
-		// Our checks (the slots are actors of the class of BaseClass):
-		// * Whether the actor we're dealing with is not hidden
-		// * Then whether the distance of the actor from our given Location is no more than Radius
-		UActor* levelActor = actors[slot];
-		float dist = length(levelActor->Location() - Location);
-		bool inRadius = (Radius == 0.0f || dist < Radius);
-		if (!levelActor->bHidden() && inRadius && Caller->FastTrace(levelActor->Location(), Location))
-		{
-			VisibleActors.push_back(levelActor);
-		}
-	}
-
-	iterator = VisibleActors.begin();
 }
 
 bool VisibleActorsIterator::Next()
 {
-	// One destroyed since is passed over, as RadiusActors'
-	while (iterator != VisibleActors.end() && (*iterator)->bDeleteMe())
-		iterator++;
-	if (iterator == VisibleActors.end())
+	// Deus Ex's as the original's: within the radius strictly, a radius of 0
+	// no limit, not hidden, and the line from the spot clear (FastTrace); the
+	// level's list walked at each step, as the original walks it
+	const Array<UActor*>& actors = engine->Level->Actors;
+	while (index < actors.size())
 	{
-		*Actor = nullptr;
-		return false;
+		UActor* actor = actors[index++];
+		if (!actor || actor->bDeleteMe() || actor->bHidden() || !actor->IsA(BaseClass->Name))
+			continue;
+		float dist = length(actor->Location() - Location);
+		if ((Radius == 0.0f || dist < Radius) && Caller->FastTrace(actor->Location(), Location))
+		{
+			*Actor = actor;
+			return true;
+		}
 	}
-
-	*Actor = *iterator;
-	iterator++;
-
-	return *Actor;
+	*Actor = nullptr;
+	return false;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -419,29 +395,23 @@ bool VisibleCollidingActorsIterator::Next()
 
 ZoneActorsIterator::ZoneActorsIterator(UZoneInfo* zone, UObject* BaseClass, UObject** Actor) : Zone(zone), BaseClass(BaseClass), Actor(Actor)
 {
-	for (UActor* levelActor : engine->Level->Actors)
-	{
-		if (levelActor && levelActor->Region().Zone == zone && levelActor->IsA(BaseClass->Name))
-		{
-			ZoneActors.push_back(levelActor);
-		}
-	}
-
-	iterator = ZoneActors.begin();
 }
 
 bool ZoneActorsIterator::Next()
 {
-	if (iterator == ZoneActors.end())
+	// The level's list walked at each step, as the original walks it
+	const Array<UActor*>& actors = engine->Level->Actors;
+	while (index < actors.size())
 	{
-		*Actor = nullptr;
-		return false;
+		UActor* actor = actors[index++];
+		if (actor && !actor->bDeleteMe() && actor->Region().Zone == Zone && actor->IsA(BaseClass->Name))
+		{
+			*Actor = actor;
+			return true;
+		}
 	}
-
-	*Actor = *iterator;
-	iterator++;
-
-	return *Actor;
+	*Actor = nullptr;
+	return false;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -567,16 +537,14 @@ void AllActorsIterator::Mark(GCMarker& marker)
 
 void BasedActorsIterator::Mark(GCMarker& marker)
 {
+	marker.MarkConst(Caller);
 	marker.MarkConst(BaseClass);
-	for (UActor* a : BasedActors)
-		marker.MarkConst(a);
 }
 
 void ChildActorsIterator::Mark(GCMarker& marker)
 {
+	marker.MarkConst(Caller);
 	marker.MarkConst(BaseClass);
-	for (UActor* a : ChildActors)
-		marker.MarkConst(a);
 }
 
 void CycleActorsIterator::Mark(GCMarker& marker)
@@ -587,8 +555,6 @@ void CycleActorsIterator::Mark(GCMarker& marker)
 void RadiusActorsIterator::Mark(GCMarker& marker)
 {
 	marker.MarkConst(BaseClass);
-	for (UActor* a : RadiusActors)
-		marker.MarkConst(a);
 }
 
 void TouchingActorsIterator::Mark(GCMarker& marker)
@@ -608,9 +574,8 @@ void TraceActorsIterator::Mark(GCMarker& marker)
 
 void VisibleActorsIterator::Mark(GCMarker& marker)
 {
+	marker.MarkConst(Caller);
 	marker.MarkConst(BaseClass);
-	for (UActor* a : VisibleActors)
-		marker.MarkConst(a);
 }
 
 void VisibleCollidingActorsIterator::Mark(GCMarker& marker)
@@ -624,8 +589,6 @@ void ZoneActorsIterator::Mark(GCMarker& marker)
 {
 	marker.MarkConst(Zone);
 	marker.MarkConst(BaseClass);
-	for (UActor* a : ZoneActors)
-		marker.MarkConst(a);
 }
 
 void TraceTextureIterator::Mark(GCMarker& marker)

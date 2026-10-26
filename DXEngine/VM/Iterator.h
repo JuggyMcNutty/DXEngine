@@ -66,12 +66,11 @@ public:
 	bool Next() override;
 	void Mark(GCMarker& marker) override;
 
+	UActor* Caller = nullptr;
 	UObject* BaseClass = nullptr;
 	UObject** Actor = nullptr;
 	size_t index = 0;
 
-	Array<UActor*> BasedActors;
-	Array<UActor*>::iterator iterator;
 };
 
 // An Iterator for iterating through all child actors of a given actor (e.g. due to being spawned by them)
@@ -82,12 +81,11 @@ public:
 	bool Next() override;
 	void Mark(GCMarker& marker) override;
 
+	UActor* Caller = nullptr;
 	UObject* BaseClass = nullptr;
 	UObject** Actor = nullptr;
 	size_t index = 0;
 
-	Array<UActor*> ChildActors;
-	Array<UActor*>::iterator iterator;
 };
 
 // Deus Ex's resumable scan (native 1002). Index is the level-actor index of
@@ -124,8 +122,6 @@ public:
 	vec3 Location;
 	size_t index = 0;
 
-	Array<UActor*> RadiusActors;
-	Array<UActor*>::iterator iterator;
 };
 
 class TouchingActorsIterator : public Iterator
@@ -178,14 +174,13 @@ public:
 	bool Next() override;
 	void Mark(GCMarker& marker) override;
 
+	UActor* Caller = nullptr;
 	UObject* BaseClass = nullptr;
 	UObject** Actor = nullptr;
 	float Radius = 0.0f;
 	vec3 Location = vec3(0.0f);
 	size_t index = 0;
 
-	Array<UActor*> VisibleActors;
-	Array<UActor*>::iterator iterator;
 };
 
 class VisibleCollidingActorsIterator : public Iterator
@@ -218,8 +213,6 @@ public:
 	UObject** Actor = nullptr;
 	size_t index = 0;
 
-	Array<UActor*> ZoneActors;
-	Array<UActor*>::iterator iterator;
 };
 
 // Added in Deus Ex
