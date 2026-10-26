@@ -1429,6 +1429,11 @@ engine's own objects are not deleted (the log says so).
   past 200 frames a second, which would run the game fast there. The level's
   `TimeDilation` is held to 0.0025 to 25, where the original's is not held
   (the game sets it only through `SetGameSpeed`, to 0.1 or more).
+- **The script's `Move`** is a move as every other, the actor stopping 2
+  units short of what blocks it, and answers whether the actor moved at
+  all, not only the whole way (`NudgeConsole`: a crate 50 units over the
+  floor moved 100 down answers true in both engines, resting at one height;
+  a move from half a unit over the floor answers false, the crate unmoved).
 - **Input axes**: every `input` float is 0 again after the player's
   `PlayerTick`, and after its `PlayerInput` while paused, as the original's
   ([a player's input](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)).

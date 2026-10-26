@@ -661,7 +661,8 @@ float UActor::HeldOffFraction(const vec3& delta, float tracedFraction)
 
 CollisionHit UActor::TryMoveHeldOff(const vec3& delta)
 {
-	if (bStatic() || !bMovable() || dot(delta, delta) < 0.00000001f)
+	// A brush traces nothing, so nothing holds it off: its move is MoveBrush's
+	if (bStatic() || !bMovable() || (Brush() && UObject::TryCast<UBrush>(this)) || dot(delta, delta) < 0.00000001f)
 		return TryMove(delta);
 
 	CollisionHitList hits;

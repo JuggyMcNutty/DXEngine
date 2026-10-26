@@ -474,9 +474,14 @@ void UActor::Tick(float elapsed)
 		TickPhysics(elapsed);
 }
 
+// The script's Move (AActor::execMove, Engine.dll 0x103e3030): a MoveActor
+// of the delta with the actor's own rotation, nothing passed over, failing
+// allowed -- held off 2 units short of what blocks it as every move, and
+// its answer whether the actor moved at all, not only the whole way
+// (dx-reverse-info/engine-dll.md, moving).
 bool UActor::Move(const vec3& delta)
 {
-	return TryMove(delta).Fraction == 1.0f;
+	return TryMoveHeldOff(delta).Fraction > 0.0f;
 }
 
 bool UActor::MoveSmooth(const vec3& delta)

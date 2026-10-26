@@ -147,6 +147,7 @@ the run. *Either*: one engine on each side of a pair.
 | `ListConsole` | both | the Load Game screen with two saves of the run's own, one named 50 characters long and one with a `|c` colour code, shot and the saves removed | `DXLIST:` | the list: the long name cut at its column, the code shown as typed, the fields' insets, the focus row's outline |
 | `MatrixConsole` | both | the player's Sprite set as the Matrix cheat sets it, a Fire sprite spawned ahead, shot | `DXMATRIX:` | the sprite drawn as the viewer's Sprite texture |
 | `WalkConsole` | both | RadiusActors, VisibleActors, ZoneActors, ChildActors and BasedActors over the run's own markers, each loop's body spawning one more in reach (`CapLoopMark`) | `DXWALK:` | every line |
+| `NudgeConsole` | both | the script's `Move`: a crate 50 units over the floor moved 100 down, no move, 100 down from half a unit over the floor, 60 up: each answer and the crate's height over the floor after it | `DXNUDGE:` | every line |
 | `TraceConsole` | both | `TraceTexture`, `TraceActors`, `Trace` and `FastTrace`; a rifle's shot, 48000 units long; boxes started inside cylinders | `DXTRACE:` |  |
 | `ParabolicConsole` | both | `ParabolicTrace` from the player's eyes on the island, 30 degrees up at 400, 700 and 1000 units a second, bouncing and not, the player turned a quarter turn four times: each throw's landing and time | `DXPARA:` | the two logs' lines |
 | `FloatConsole` | both | the crates in the water by the pier | `DXFLOAT:` |  |
