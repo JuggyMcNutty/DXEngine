@@ -994,21 +994,24 @@ InputKey X11DisplayWindow::GetInputKey(XEvent* event)
 		case XK_X: case XK_x: return InputKey::X;
 		case XK_Y: case XK_y: return InputKey::Y;
 		case XK_Z: case XK_z: return InputKey::Z;
-		case XK_KP_0: return InputKey::NumPad0;
-		case XK_KP_1: return InputKey::NumPad1;
-		case XK_KP_2: return InputKey::NumPad2;
-		case XK_KP_3: return InputKey::NumPad3;
-		case XK_KP_4: return InputKey::NumPad4;
-		case XK_KP_5: return InputKey::NumPad5;
-		case XK_KP_6: return InputKey::NumPad6;
-		case XK_KP_7: return InputKey::NumPad7;
-		case XK_KP_8: return InputKey::NumPad8;
-		case XK_KP_9: return InputKey::NumPad9;
+		// The keypad's digits as the keysym's first level gives them (Home,
+		// End, the arrows, Insert, Delete: XkbKeycodeToKeysym's level 0, the
+		// keypad type's unshifted) and as Num Lock's level does
+		case XK_KP_0: case XK_KP_Insert: return InputKey::NumPad0;
+		case XK_KP_1: case XK_KP_End: return InputKey::NumPad1;
+		case XK_KP_2: case XK_KP_Down: return InputKey::NumPad2;
+		case XK_KP_3: case XK_KP_Page_Down: return InputKey::NumPad3;
+		case XK_KP_4: case XK_KP_Left: return InputKey::NumPad4;
+		case XK_KP_5: case XK_KP_Begin: return InputKey::NumPad5;
+		case XK_KP_6: case XK_KP_Right: return InputKey::NumPad6;
+		case XK_KP_7: case XK_KP_Home: return InputKey::NumPad7;
+		case XK_KP_8: case XK_KP_Up: return InputKey::NumPad8;
+		case XK_KP_9: case XK_KP_Page_Up: return InputKey::NumPad9;
 		case XK_KP_Multiply: return InputKey::GreyStar;
 		case XK_KP_Add: return InputKey::GreyPlus;
 		case XK_KP_Separator: return InputKey::Separator;
 		case XK_KP_Subtract: return InputKey::GreyMinus;
-		case XK_KP_Decimal: return InputKey::NumPadPeriod;
+		case XK_KP_Decimal: case XK_KP_Delete: return InputKey::NumPadPeriod;
 		case XK_KP_Divide: return InputKey::GreySlash;
 		case XK_F1: return InputKey::F1;
 		case XK_F2: return InputKey::F2;
