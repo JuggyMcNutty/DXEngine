@@ -142,7 +142,7 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
 
 		if (polyTex->MacroTexture())
 		{
-			UTexture* tex = poly.Texture->MacroTexture()->GetAnimTexture();
+			UTexture* tex = polyTex->MacroTexture()->GetAnimTexture();
 			engine->render->UpdateTexture(tex);
 			engine->render->UpdateTextureInfo(macrotex, tex);
 			surfaceinfo.MacroTexture = &macrotex;
