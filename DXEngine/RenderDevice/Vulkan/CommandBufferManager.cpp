@@ -3,6 +3,8 @@
 #include "CommandBufferManager.h"
 #include "VulkanRenderDevice.h"
 #include <dxgpu/vulkanswapchain.h>
+#include <dxgpu/vulkansurface.h>
+#include <dxwidgets/core/widget.h>
 
 CommandBufferManager::CommandBufferManager(VulkanRenderDevice* renderer) : renderer(renderer)
 {
@@ -97,6 +99,15 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
 			RequestedWidth = presentWidth;
 			RequestedHeight = presentHeight;
 			renderer->Framebuffers->DestroySwapChainFramebuffers();
+			// The surface itself lost (a compositor gone): the swapchain let
+			// go, a new surface from the window, the dead one freed; the
+			// swapchain was once remade on the dead surface every frame
+			if (SwapChain->SurfaceLost())
+			{
+				SwapChain.reset();
+				renderer->Device->Surface = std::make_shared<VulkanSurface>(renderer->Device->Instance, renderer->Viewport->CreateVulkanSurface(renderer->Device->Instance->Instance));
+				SwapChain = std::make_shared<VulkanSwapChain>(renderer->Device.get());
+			}
 			SwapChain->Create(presentWidth, presentHeight, renderer->UseVSync ? 2 : 3, renderer->UseVSync, renderer->Hdr);
 			renderer->Framebuffers->CreateSwapChainFramebuffers();
 

@@ -203,6 +203,12 @@ int VulkanSwapChain::AcquireImage(VulkanSemaphore* semaphore, VulkanFence* fence
 		lost = true;
 		return -1;
 	}
+	else if (result == VK_ERROR_SURFACE_LOST_KHR)
+	{
+		lost = true;
+		surfaceLost = true;
+		return -1;
+	}
 	else if (result == VK_NOT_READY || result == VK_TIMEOUT)
 	{
 		return -1;
@@ -230,9 +236,14 @@ void VulkanSwapChain::QueuePresent(int imageIndex, VulkanSemaphore* semaphore)
 	{
 		return;
 	}
-	else if (result == VK_ERROR_OUT_OF_DATE_KHR  || result == VK_ERROR_SURFACE_LOST_KHR || result == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT)
+	else if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT)
 	{
 		lost = true;
+	}
+	else if (result == VK_ERROR_SURFACE_LOST_KHR)
+	{
+		lost = true;
+		surfaceLost = true;
 	}
 	else if (result == VK_ERROR_OUT_OF_HOST_MEMORY || result == VK_ERROR_OUT_OF_DEVICE_MEMORY)
 	{

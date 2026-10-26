@@ -27,6 +27,9 @@ public:
 
 	void Create(int width, int height, int imageCount, bool vsync, bool hdr);
 	bool Lost() const { return lost; }
+	// The surface itself gone (VK_ERROR_SURFACE_LOST_KHR): the owner makes a
+	// new one before the next Create, this swapchain let go first
+	bool SurfaceLost() const { return surfaceLost; }
 
 	int Width() const { return actualExtent.width; }
 	int Height() const { return actualExtent.height; }
@@ -48,6 +51,7 @@ private:
 
 	VulkanDevice* device = nullptr;
 	bool lost = true;
+	bool surfaceLost = false;
 
 	VkExtent2D actualExtent = {};
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
