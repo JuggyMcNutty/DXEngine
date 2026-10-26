@@ -162,6 +162,23 @@ bool UActor::Destroy()
 	if (bDeleteMe())
 		return true;
 
+	// A player pawn with a live net connection has the connection closed
+	// instead, as the original's DestroyActor has it (engine-dll.md,
+	// destroyed actors): the pawn goes as the connection does
+	// (NetServerLevel::NotifyConnectionClosed), so a kicked client is dropped,
+	// not left in with the server replicating from a destroyed pawn's view
+	if (engine->LevelNetDriver && !engine->LevelNetDriver->ServerConnection)
+	{
+		for (auto& connection : engine->LevelNetDriver->ClientConnections)
+		{
+			if (connection->Actor == this && connection->State != ConnectionState::Closed)
+			{
+				connection->State = ConnectionState::Closed;
+				return false;
+			}
+		}
+	}
+
 	if (StateFrame && StateFrame->Func)
 	{
 		CallEvent(this, EventName::EndState);

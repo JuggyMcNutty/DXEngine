@@ -1866,7 +1866,9 @@ as client and as server: `ServeConsole`, `JoinConsole`, `RejoinConsole`,
 `PickJoinConsole`. DXEngine joins live
 public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
 stays in. Until its pawn arrives, a joining DXEngine client draws no world.
-The server-only stubs are under
+A remote player's pawn destroyed by script (`Kick`) has its connection
+closed instead, as the original's `DestroyActor` has it (no run: the code
+settles it). The server-only stubs are under
 [not needed for single player](#not-needed-for-single-player). Differs:
 
 - **The net driver** is DXEngine's own, over UDP with
