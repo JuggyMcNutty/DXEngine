@@ -491,11 +491,14 @@ PointRegion UModel::FindRegion(const vec3& point, UZoneInfo* levelZoneInfo)
 	{
 		vec4 plane = { node->PlaneX, node->PlaneY, node->PlaneZ, -node->PlaneW };
 		float side = dot(location, plane);
+		// A point on the plane is in front, as FindLeafAt and the original's
+		// PointRegion take it (Engine.dll 0x103f5db0, dot - W >= 0), and a
+		// front with no child ends the walk there, not down the back
 		if (node->Front >= 0 && side >= 0.0f)
 		{
 			node = nodes + node->Front;
 		}
-		else if (node->Back >= 0 && side <= 0.0f)
+		else if (node->Back >= 0 && side < 0.0f)
 		{
 			node = nodes + node->Back;
 		}
