@@ -402,6 +402,7 @@ void Win32DisplayWindow::LockCursor()
 	if (!MouseLocked)
 	{
 		MouseLocked = true;
+		RawAbsoluteKnown = false;
 		GetCursorPos(&MouseLockPos);
 		if (GetFocus() == WindowHandle.hwnd)
 			::ShowCursor(FALSE);
@@ -744,7 +745,28 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 				RAWINPUT* rawinput = (RAWINPUT*)buffer.data();
 				if (rawinput->header.dwType == RIM_TYPEMOUSE)
 				{
-					WindowHost->OnWindowRawMouseMove(rawinput->data.mouse.lLastX, rawinput->data.mouse.lLastY);
+					const RAWMOUSE& mouse = rawinput->data.mouse;
+					if (mouse.usFlags & MOUSE_MOVE_ABSOLUTE)
+					{
+						// A tablet's, a touch screen's or a remote session's
+						// mouse gives its place on the desktop (the virtual
+						// one with MOUSE_VIRTUAL_DESKTOP) in 65535ths: the
+						// move is the difference from its last place
+						bool virtualDesktop = (mouse.usFlags & MOUSE_VIRTUAL_DESKTOP) != 0;
+						int width = GetSystemMetrics(virtualDesktop ? SM_CXVIRTUALSCREEN : SM_CXSCREEN);
+						int height = GetSystemMetrics(virtualDesktop ? SM_CYVIRTUALSCREEN : SM_CYSCREEN);
+						int x = (int)(mouse.lLastX * width / 65535.0);
+						int y = (int)(mouse.lLastY * height / 65535.0);
+						if (RawAbsoluteKnown && (x != RawAbsoluteX || y != RawAbsoluteY))
+							WindowHost->OnWindowRawMouseMove(x - RawAbsoluteX, y - RawAbsoluteY);
+						RawAbsoluteKnown = true;
+						RawAbsoluteX = x;
+						RawAbsoluteY = y;
+					}
+					else
+					{
+						WindowHost->OnWindowRawMouseMove(mouse.lLastX, mouse.lLastY);
+					}
 				}
 				else if (rawinput->header.dwType == RIM_TYPEKEYBOARD)
 				{

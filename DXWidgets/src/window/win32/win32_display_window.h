@@ -103,6 +103,10 @@ public:
 
 	bool MouseLocked = false;
 	POINT MouseLockPos = {};
+	// The last place of an absolute raw mouse (WM_INPUT's MOUSE_MOVE_ABSOLUTE)
+	bool RawAbsoluteKnown = false;
+	int RawAbsoluteX = 0;
+	int RawAbsoluteY = 0;
 
 	bool TrackMouseActive = false;
 
