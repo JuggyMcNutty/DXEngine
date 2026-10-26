@@ -1,5 +1,7 @@
 
 #include "Precomp.h"
+#include "Utils/Logger.h"
+#include "Utils/StrTools.h"
 #include "UStructProperty.h"
 #include "Packages/Core/UStruct.h"
 
@@ -252,53 +254,77 @@ void UStructProperty::GetExportText(std::string& buf, const std::string& whitesp
 	}
 }
 
-std::string UStructProperty::PrintValue(const void* data)
+// The struct's members in the original's order (its TFieldIterator): the
+// struct's own first, then those of the struct it extends, and so on up (a
+// Plane prints W before X, Y and Z)
+template<typename F>
+static void ForEachMember(UStruct* strct, F&& f)
 {
-	if (Struct)
+	for (UStruct* s = strct; s; s = s->BaseStruct)
 	{
-		std::string print;
-		uint8_t* d = (uint8_t*)data;
-		for (UField* field = Struct->Children; field != nullptr; field = field->Next)
+		for (UField* field = s->Children; field; field = field->Next)
 		{
-			UProperty* fieldprop = UObject::TryCast<UProperty>(field);
-			if (fieldprop)
-			{
-				if (!print.empty())
-					print += ", ";
-				print += fieldprop->Name.ToString();
-				print += "=";
-				print += fieldprop->PrintValue(d + fieldprop->DataOffset.DataOffset);
-			}
+			if (UProperty* member = UObject::TryCast<UProperty>(field))
+				if (!f(member))
+					return;
 		}
-		return "(" + print + ")";
-	}
-	else
-	{
-		return "null struct";
 	}
 }
 
+// The original's UStructProperty::ExportTextItem (Core.dll 0x10169710): the
+// members of the struct and of the structs it extends, its own first, each
+// element of a static array as Name[i]=, joined by "," within parentheses;
+// nothing at all for a struct with no member to print
+std::string UStructProperty::PrintValue(const void* data)
+{
+	if (!Struct)
+		return "null struct";
+	std::string print;
+	const uint8_t* d = (const uint8_t*)data;
+	ForEachMember(Struct, [&](UProperty* member) {
+		if (AnyFlags(member->PropFlags, PropertyFlags::Native | PropertyFlags::Transient))
+			return true;
+		for (int i = 0; i < member->ArrayDimension; i++)
+		{
+			print += print.empty() ? "(" : ",";
+			print += member->Name.ToString();
+			if (member->ArrayDimension > 1)
+				print += "[" + std::to_string(i) + "]";
+			print += "=" + member->PrintValue(d + member->DataOffset.DataOffset + i * member->ElementPitch());
+		}
+		return true;
+	});
+	if (!print.empty())
+		print += ")";
+	return print;
+}
+
+// The original's UStructProperty::ImportText (Core.dll 0x101698b0): the
+// pairs of "(key=value,...)", each member found by name among the struct's
+// and its supers', an element by its [i], its own import given the value's
+// text; a member not named keeps its value
 void UStructProperty::SetValueFromString(void* data, const std::string& valueString)
 {
-	if (valueString.empty())
+	if (valueString.empty() || !Struct)
+		return;
+	if (valueString == "null" || valueString == "null struct" || StrTools::equals_ignore_case(valueString, "None"))
 		return;
 
-	auto properties = ParsePropertiesFromString(valueString);
-
-	if (Struct)
+	Array<TextPair> pairs;
+	if (!ParseStructText(valueString, pairs))
+		LogMessage("Bad struct text for " + Name.ToString() + ": " + valueString);
+	for (const TextPair& pair : pairs)
 	{
-		for (UField* field = Struct->Children; field != nullptr; field = field->Next)
-		{
-			UProperty* fieldprop = UObject::TryCast<UProperty>(field);
-			if (fieldprop)
-			{
-				auto it = properties.find(fieldprop->Name);
-
-				if (it != properties.end())
-				{
-					fieldprop->SetValueFromString((uint8_t*)data + fieldprop->DataOffset.DataOffset, it->second);
-				}
-			}
-		}
+		ForEachMember(Struct, [&](UProperty* member) {
+			if (member->Name != pair.Key)
+				return true;
+			// An element by its index: the original's import stops at one
+			// ("ImportText: Illegal array element", its index reader
+			// starting on the bracket), so it never reads back the Name[i]=
+			// its own export writes; DXEngine takes them (docs/NATIVES.md)
+			if (pair.Index >= 0 && pair.Index < member->ArrayDimension)
+				member->SetDelimitedValueFromString((uint8_t*)data + member->DataOffset.DataOffset + pair.Index * member->ElementPitch(), pair.Value);
+			return false;
+		});
 	}
 }

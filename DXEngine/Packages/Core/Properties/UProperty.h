@@ -128,6 +128,21 @@ public:
 	virtual bool IsDefaultValue(void* val) { return false; }
 	virtual std::string PrintValue(const void* data) { return "?"; }
 	virtual void SetValueFromString(void* data, const std::string& valueString);
+	// A struct member's or an array element's text, delimited as the original's
+	// import has it (PPF_Delimited): SetValueFromString but for a string, which
+	// takes a quoted token or one bare token there
+	virtual void SetDelimitedValueFromString(void* data, const std::string& valueString) { SetValueFromString(data, valueString); }
+
+	// A struct's text, "(key=value,key[i]=value,...)", read as the original's
+	// UStructProperty::ImportText reads it (Core.dll 0x101698b0): a value runs
+	// to the next ',' or ')' outside quotes and nested parentheses, and is left
+	// as it is, quotes and all, for the member's own import. False for text
+	// that is not such a struct, the pairs read before the fault kept.
+	struct TextPair { NameString Key; int Index = 0; std::string Value; };
+	static bool ParseStructText(const std::string& text, Array<TextPair>& pairs);
+	// A delimited text's string: a quoted one's content with its escapes undone
+	// (\\ and \xx, as the original's ParseToken reads them), other text as it is
+	static std::string Unquote(const std::string& text);
 
 	static void ThrowIfTypeMismatch(const PropertyHeader& header, UnrealPropertyType type);
 
@@ -146,9 +161,6 @@ private:
 protected:
 	virtual bool ComputeContainsRefs() { return false; }
 	virtual bool ComputeContainsNames() { return false; }
-
-	static std::pair<NameString, std::string> ParseSingleProperty(std::string& propString);
-	static std::map<NameString, std::string> ParsePropertiesFromString(std::string propertiesString);
 };
 
 template<typename T>

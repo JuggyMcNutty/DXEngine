@@ -172,51 +172,109 @@ void UProperty::SetValueFromString(void* data, const std::string& valueString)
 	//Exception::Throw("SetValueFromString() is unimplemented on this Property type!");
 }
 
-// Parses a single property
-std::pair<NameString, std::string> UProperty::ParseSingleProperty(std::string& propString)
+bool UProperty::ParseStructText(const std::string& text, Array<TextPair>& pairs)
 {
-	propString.erase(propString.find_last_not_of(' ') + 1);
-	propString.erase(0, propString.find_first_not_of(' '));
-
-	auto equalsPos = propString.find('=');
-
-	if (equalsPos == std::string::npos)
-		Exception::Throw("No = found in the property string: " + propString);
-
-	std::string name = propString.substr(0, equalsPos);
-	std::string value = propString.substr(equalsPos + 1);
-
-	return std::make_pair(name, value);
+	size_t p = 0, n = text.size();
+	while (p < n && text[p] == ' ')
+		p++;
+	if (p >= n || text[p] != '(')
+		return false;
+	p++;
+	while (true)
+	{
+		while (p < n && text[p] == ' ')
+			p++;
+		if (p >= n)
+			return false;
+		if (text[p] == ')')
+			return true;
+		TextPair pair;
+		size_t keyStart = p;
+		while (p < n && text[p] != '=' && text[p] != '[' && text[p] != ')' && text[p] != ',')
+			p++;
+		std::string key = text.substr(keyStart, p - keyStart);
+		while (!key.empty() && key.back() == ' ')
+			key.pop_back();
+		if (p < n && text[p] == '[')
+		{
+			size_t q = p + 1;
+			int index = 0;
+			bool digits = false;
+			while (q < n && text[q] >= '0' && text[q] <= '9')
+			{
+				index = index * 10 + (text[q] - '0');
+				q++;
+				digits = true;
+			}
+			if (q >= n || text[q] != ']' || !digits)
+				return false;
+			pair.Index = index;
+			p = q + 1;
+		}
+		if (p >= n || text[p] != '=' || key.empty())
+			return false;
+		p++;
+		size_t valueStart = p;
+		int depth = 0;
+		while (p < n)
+		{
+			char c = text[p];
+			if (c == '"')
+			{
+				p++;
+				while (p < n && text[p] != '"')
+					p++;
+				if (p >= n)
+					return false;
+				p++;
+				continue;
+			}
+			if (c == '(')
+				depth++;
+			else if (c == ')')
+			{
+				if (depth == 0)
+					break;
+				depth--;
+			}
+			else if (c == ',' && depth == 0)
+				break;
+			p++;
+		}
+		if (p >= n)
+			return false;
+		pair.Key = NameString(key);
+		pair.Value = text.substr(valueStart, p - valueStart);
+		pairs.push_back(std::move(pair));
+		if (text[p] == ',')
+			p++;
+	}
 }
 
-// Parses all properties given in the string
-std::map<NameString, std::string> UProperty::ParsePropertiesFromString(std::string propertiesString)
+std::string UProperty::Unquote(const std::string& text)
 {
-	std::map<NameString, std::string> properties;
-
-	if (propertiesString.empty())
-		return {};
-
-	// Also check for the string being "null", "null struct" or "None"
-	if (propertiesString == "null" || propertiesString == "null struct" || propertiesString == "None")
-		return {};
-
-	if (propertiesString[0] != '(')
-		Exception::Throw("( not found in the property string: " + propertiesString);
-
-	if (propertiesString[propertiesString.size() - 1] != ')')
-		Exception::Throw(") not found in the property string: " + propertiesString);
-
-	std::string propsString = propertiesString.substr(1, propertiesString.find(')') - 1);
-
-	std::stringstream propsStream(propsString);
-	std::string prop;
-
-	while (getline(propsStream, prop, ','))
+	size_t p = text.find_first_not_of(' ');
+	if (p == std::string::npos || text[p] != '"')
+		return text;
+	auto hex = [](char c) { return (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'f') ? c - 'a' + 10 : (c >= 'A' && c <= 'F') ? c - 'A' + 10 : -1; };
+	std::string out;
+	for (p++; p < text.size() && text[p] != '"'; p++)
 	{
-		auto currProp = ParseSingleProperty(prop);
-		properties[currProp.first] = currProp.second;
+		if (text[p] == '\\' && p + 1 < text.size())
+		{
+			if (text[p + 1] == '\\')
+			{
+				out += '\\';
+				p++;
+				continue;
+			}
+			int h1 = hex(text[p + 1]);
+			int h2 = p + 2 < text.size() ? hex(text[p + 2]) : -1;
+			out += (char)((h1 > 0 ? h1 : 0) * 16 + (h2 > 0 ? h2 : 0));
+			p += 2;
+			continue;
+		}
+		out += text[p];
 	}
-
-	return properties;
+	return out;
 }

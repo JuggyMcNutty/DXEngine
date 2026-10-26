@@ -1325,6 +1325,18 @@ Every other native the scripted runs compare matches the original
   walks the `.int` files' Texture objects as the original does, none in the
   game's. Differs: an int divided by -1 at INT_MIN is INT_MIN on every port,
   where the original's divide faults (a Critical Error).
+- **A property's text** (`TextConsole`; `SetPropertyText`,
+  `GetPropertyText`, `SET`, `GET`, an ini's or a `.int` file's value, a
+  travel's): as the original's import and export have it. A struct's text is
+  `(X=1.000000,Y=2.500000,Z=-3.000000)`, its members by name and a static
+  array's by `Name[i]`, its own before those of the struct it extends (a
+  Plane's W, then X, Y and Z), a quoted string holding a comma or a
+  parenthesis whole, a nested struct whole; only the members named are set.
+  Differs: an element by its index, `N[1]=7`, is taken, where the original's
+  import stops at one (`ImportText: Illegal array element`: its index reader
+  starts on the bracket) though its own export writes them. A bool takes
+  `1`, `True`, `0` and `False` alone, an int the number its text starts
+  with.
 - **A None context** (`A.X` with `A` None; `NoneConsole`): the zero of
   `X`'s type, as the original's `execContext` zero-fills the result -- a
   `switch (A.Physics)` takes `case PHYS_None`, a struct copied through None

@@ -14,6 +14,7 @@ public:
 	void SaveValue(void* data, PackageStreamWriter* stream) override;
 
 	void SetValueFromString(void* data, const std::string& valueString) override;
+	void SetDelimitedValueFromString(void* data, const std::string& valueString) override;
 	std::string PrintValue(const void* data) override;
 	bool IsDefaultValue(void* val) override;
 };

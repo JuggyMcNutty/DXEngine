@@ -1316,53 +1316,14 @@ bool PackageManager::FindLocalized(NameString packageName, const NameString& sec
 
 std::map<NameString, std::string> PackageManager::ParseIntPublicValue(const std::string& text)
 {
-	// Parse one of the following:
-	//
 	// Object=(Name=Package.ObjectName,Class=ObjectClass,MetaClass=Package.MetaClassName,Description="descriptive string")
 	// Preferences=(Caption="display name",Parent="display name of parent",Class=Package.ClassName,Category=variable group name,Immediate=True)
-
-	if (text.size() < 2 || text.front() != '(' || text.back() != ')')
-		return {};
-
+	// read as the original's struct text, a quoted value's quotes taken off
 	std::map<NameString, std::string> desc;
-
-	// This would have been so much easier with a regular expression, but we can't use that as we have no idea what character set those .int files might be using
-	size_t pos = 1;
-	while (pos < text.size() - 1)
-	{
-		size_t endpos = text.find('=', pos);
-		if (endpos == std::string::npos)
-			break;
-		std::string keyname = text.substr(pos, endpos - pos);
-		pos = endpos + 1;
-
-		if (text[pos] == '"')
-		{
-			pos++;
-			endpos = text.find('"', pos);
-			if (endpos == std::string::npos)
-				break;
-
-			std::string value = text.substr(pos, endpos - pos);
-			desc[keyname] = value;
-
-			// The next pair after the closing quote: a comma in the quotes is the value's.
-			pos = text.find(',', endpos + 1);
-			if (pos == std::string::npos)
-				break;
-			pos++;
-		}
-		else
-		{
-			endpos = text.find_first_of(",)", pos);
-			if (endpos == std::string::npos)
-				break;
-			std::string value = text.substr(pos, endpos - pos);
-			desc[keyname] = value;
-			pos = endpos + 1;
-		}
-	}
-
+	Array<UProperty::TextPair> pairs;
+	UProperty::ParseStructText(text, pairs);
+	for (const UProperty::TextPair& pair : pairs)
+		desc[pair.Key] = UProperty::Unquote(pair.Value);
 	return desc;
 }
 
