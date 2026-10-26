@@ -39,7 +39,11 @@ namespace
 
 	int Round(float value)
 	{
-		return (int)std::lrint(value);
+		// A coordinate that is no number, or past an int (a script's),
+		// rounded undefined; held to what the field's largest holds
+		if (value != value)
+			return 0;
+		return (int)std::lrint(std::clamp(value, -2147483520.0f, 2147483520.0f));
 	}
 }
 
