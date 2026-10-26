@@ -32,9 +32,7 @@ public:
 	virtual void RemoveSound(USound* sound) = 0;
 	virtual bool IsPlaying(int channel) = 0;
 	virtual int GetTotalChannels() = 0;
-	virtual void PlaySound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch, bool speech = false) = 0;
 	virtual void PlayMusic(std::unique_ptr<AudioSource> source) = 0;
-	virtual void UpdateSound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch) = 0;
 	// Deus Ex's sounds go through Galaxy's mixer instead (GalaxyMixer), each
 	// with Galaxy's voice volume, 0-32767, and pan, 0-32767 from the left.
 	virtual void PlayMixedSound(int channel, USound* sound, int volume, int panning, float pitch) = 0;

@@ -20,193 +20,6 @@
 #include <AL/alc.h>
 #include <AL/alext.h>
 
-#define UU_PER_METER 43
-
-// Deus Ex's sounds are mixed as Galaxy mixes them (GalaxyMixer), the mix
-// streamed through one source, once the engine is up.
-static bool UseGalaxyMixer()
-{
-	return engine != nullptr;
-}
-
-class ALSoundSource
-{
-public:
-	ALSoundSource()
-	{
-		alGenSources(1, &id);
-		if (alGetError() != AL_NO_ERROR)
-			Exception::Throw("Failed to generate AL source");
-
-		alSourcef(id, AL_ROLLOFF_FACTOR, 1.1f);
-	}
-
-	~ALSoundSource()
-	{
-		Stop();
-		alSourcei(id, AL_BUFFER, 0);
-		alDeleteSources(1, &id);
-	}
-
-	void Play()
-	{
-		alSourcePlay(id);
-		if (alGetError() != AL_NO_ERROR)
-			Exception::Throw("Failed to play AL source");
-	}
-
-	void Stop()
-	{
-		alSourceStop(id);
-	}
-
-	bool IsPlaying()
-	{
-		if (!alIsSource(id))
-			return false;
-
-		ALint state;
-		alGetSourcei(id, AL_SOURCE_STATE, &state);
-		return state == AL_PLAYING;
-	}
-
-	USound* GetSound()
-	{
-		return sound;
-	}
-
-	void SetDopplerFactor(float newDopplerFactor)
-	{
-		if (dopplerFactor != newDopplerFactor)
-		{
-			dopplerFactor = newDopplerFactor;
-			alSourcef(id, AL_DOPPLER_FACTOR, dopplerFactor);
-		}
-	}
-
-	void SetPosition(vec3& newPosition)
-	{
-		position.x = newPosition.x;
-		position.y = newPosition.y;
-		position.z = -newPosition.z;
-		alSourcefv(id, AL_POSITION, &position[0]);
-	}
-
-	void SetRadius(float newRadius)
-	{
-		if (radius != newRadius)
-		{
-			radius = newRadius;
-			alSourcef(id, AL_MAX_DISTANCE, radius);
-			alSourcef(id, AL_REFERENCE_DISTANCE, 0.1f * radius);
-		}
-	}
-
-	void SetVelocity(vec3& newVelocity)
-	{
-		velocity.x = newVelocity.x;
-		velocity.y = newVelocity.y;
-		velocity.z = -newVelocity.z;
-		alSourcefv(id, AL_VELOCITY, &velocity[0]);
-	}
-
-	void SetSound(USound* newSound)
-	{
-		if (sound != newSound)
-		{
-			sound = newSound;
-			alSourcei(id, AL_BUFFER, 0);
-			alGetError();
-			alSourcei(id, AL_BUFFER, (ALint)(ptrdiff_t)sound->handle);
-
-			if (sound->loopInfo.Looped)
-				alSourcei(id, AL_LOOPING, AL_TRUE);
-			else
-				alSourcei(id, AL_LOOPING, AL_FALSE);
-		}
-	}
-
-	void SetSpatial(bool bSpatial)
-	{
-		if (bIs3d != bSpatial)
-		{
-			bIs3d = bSpatial;
-			alSourcei(id, AL_SOURCE_SPATIALIZE_SOFT, bIs3d);
-		}
-	}
-
-	// Which slider gains this source: the Speech slider for the talk slot,
-	// the Sound slider for the rest.
-	void SetSpeech(bool newSpeech)
-	{
-		speech = newSpeech;
-	}
-
-	bool IsSpeech() const
-	{
-		return speech;
-	}
-
-	void SetVolume(float newVolume)
-	{
-		if (volume != newVolume)
-		{
-			volume = newVolume;
-			ApplyGain();
-		}
-	}
-
-	void SetGlobalVolume(float newGlobalVolume)
-	{
-		if (globalVolume != newGlobalVolume)
-		{
-			globalVolume = newGlobalVolume;
-			ApplyGain();
-		}
-	}
-
-	void SetPitch(float newPitch)
-	{
-		if (pitch != newPitch)
-		{
-			pitch = newPitch;
-			alSourcef(id, AL_PITCH, pitch);
-		}
-	}
-
-	void DoLoop()
-	{
-		if (sound->loopInfo.Looped)
-		{
-			ALint offset;
-			alGetSourcei(id, AL_SAMPLE_OFFSET, &offset);
-			if (offset >= sound->loopInfo.LoopEnd)
-				alSourcei(id, AL_SAMPLE_OFFSET, (ALint)sound->loopInfo.LoopStart);
-		}
-	}
-
-	ALuint id = -1;
-
-private:
-	void ApplyGain()
-	{
-		alSourcef(id, AL_GAIN, volume * globalVolume);
-		alSourcef(id, AL_MAX_GAIN, volume * globalVolume);
-	}
-
-	UActor* actor = nullptr;
-	USound* sound = nullptr;
-	vec3 position = vec3(0.0f);
-	vec3 velocity = vec3(0.0f);
-	float radius = 0.0f;
-	float volume = 0.0f;
-	float globalVolume = 1.0f; // Comes from Audio Subsystem
-	float pitch = 0.0f;
-	float dopplerFactor = 0.0f;
-	bool bIs3d = false;
-	bool speech = false;
-};
-
 class OpenALAudioDevice : public AudioDevice
 {
 public:
@@ -250,32 +63,12 @@ public:
 		if (alcMakeContextCurrent(alContext) == ALC_FALSE)
 			Exception::Throw("Failed to make OpenAL context current");
 
-		// init listener state
-		ALfloat listenerOri[] = { 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f };
-		alListener3f(AL_POSITION, 0, 0, 0.0f);
-		alListener3f(AL_VELOCITY, 0, 0, 0);
-		alListenerfv(AL_ORIENTATION, listenerOri);
-		alListenerf(AL_METERS_PER_UNIT, 1.f / UU_PER_METER);
-
-		alDistanceModel(AL_LINEAR_DISTANCE_CLAMPED);
-		alSpeedOfSound(343.3f / (1.0f / UU_PER_METER));
-
-		if (UseGalaxyMixer())
-		{
-			// Galaxy's 32 channel records; the mix goes out at OutputRate, as
-			// Galaxy's does, so its reverb's delays are the original's samples.
-			mixer = std::make_unique<GalaxyMixer>(frequency, 32);
-			StartMixStream();
-		}
-		else
-		{
-			// Init sound sources
-			alcGetIntegerv(alDevice, ALC_MONO_SOURCES, 1, &monoSources);
-			alcGetIntegerv(alDevice, ALC_STEREO_SOURCES, 1, &stereoSources);
-
-			// TODO: how do we prioritize mono vs stereo source count?
-			sources.resize(monoSources);
-		}
+		// Deus Ex's sounds are mixed as Galaxy mixes them, in Galaxy's 32
+		// channel records, the mix streamed through one source at OutputRate,
+		// as Galaxy's goes out, so its reverb's delays are the original's
+		// samples; nothing is spatialized by OpenAL.
+		mixer = std::make_unique<GalaxyMixer>(frequency, 32);
+		StartMixStream();
 
 		// init music source/buffer
 		alGenSources(1, &alMusicSource);
@@ -295,20 +88,12 @@ public:
 		lock.unlock();
 		musicThreadData.thread.join();
 
-		if (mixer)
-			StopMixStream();
+		StopMixStream();
 
 		alSourceStop(alMusicSource);
 		alDeleteSources(1, &alMusicSource);
 
 		alDeleteBuffers((ALsizei)alMusicBuffers.size(), &alMusicBuffers[0]);
-
-		sources.clear();
-
-		for (USound* sound : sounds)
-		{
-			alDeleteBuffers(1, (ALuint*)&sound->handle);
-		}
 
 		alcDestroyContext(alContext);
 		alcCloseDevice(alDevice);
@@ -316,71 +101,34 @@ public:
 
 	int GetTotalChannels() override
 	{
-		return mixer ? mixer->GetChannels() : (int)sources.size();
+		return mixer->GetChannels();
 	}
 
 	void AddSound(USound* sound) override
 	{
-		if (mixer)
-		{
-			// The mixer's own 16-bit copy, which a channel keeps while it plays,
-			// two silent frames past the end for the last frame's interpolation.
-			auto sample = std::make_shared<GalaxySample>();
-			sample->channels = std::max(sound->channels, 1);
-			sample->frames = sound->samples.size() / sample->channels;
-			sample->rate = sound->frequency;
-			sample->data.resize((sample->frames + 2) * sample->channels);
-			for (size_t i = 0, count = sample->frames * sample->channels; i < count; i++)
-				sample->data[i] = (int16_t)std::clamp((int)std::lround(sound->samples[i] * 32768.0f), -32768, 32767);
-			sample->looped = sound->loopInfo.Looped;
-			sample->loopStart = sound->loopInfo.LoopStart;
-			sample->loopEnd = sound->loopInfo.LoopEnd;
-			mixedSounds[sound] = std::move(sample);
-			return;
-		}
-
-		sounds.push_back(sound);
-
-		ALenum format = AL_FORMAT_MONO_FLOAT32;
-		if (sound->channels == 2)
-			format = AL_FORMAT_STEREO_FLOAT32;
-
-		ALuint id;
-		alGenBuffers(1, &id);
-		alBufferData(id, format, sound->samples.data(), (ALsizei)(sound->samples.size()*sizeof(sound->samples[0])), sound->frequency);
-		alError = alGetError();
-		if (alError != AL_NO_ERROR)
-			Exception::Throw("Failed to buffer sound data for " + sound->Name.ToString());
-
-		sound->handle = (void*)(ptrdiff_t)id;
+		// The mixer's own 16-bit copy, which a channel keeps while it plays,
+		// two silent frames past the end for the last frame's interpolation.
+		auto sample = std::make_shared<GalaxySample>();
+		sample->channels = std::max(sound->channels, 1);
+		sample->frames = sound->samples.size() / sample->channels;
+		sample->rate = sound->frequency;
+		sample->data.resize((sample->frames + 2) * sample->channels);
+		for (size_t i = 0, count = sample->frames * sample->channels; i < count; i++)
+			sample->data[i] = (int16_t)std::clamp((int)std::lround(sound->samples[i] * 32768.0f), -32768, 32767);
+		sample->looped = sound->loopInfo.Looped;
+		sample->loopStart = sound->loopInfo.LoopStart;
+		sample->loopEnd = sound->loopInfo.LoopEnd;
+		mixedSounds[sound] = std::move(sample);
 	}
 
 	void RemoveSound(USound* sound) override
 	{
-		if (mixer)
-		{
-			mixedSounds.erase(sound);
-			return;
-		}
-
-		for (auto it = sounds.begin(); it != sounds.end(); ++it)
-		{
-			if (*it == sound)
-			{
-				// TODO: find sources playing this sound and stop them?
-				sounds.erase(it);
-				alDeleteBuffers(1, reinterpret_cast<const ALuint*>(&sound->handle));
-				return;
-			}
-		}
+		mixedSounds.erase(sound);
 	}
 
 	bool IsPlaying(int channel) override
 	{
-		if (mixer)
-			return mixer->IsPlaying(channel);
-		ALSoundSource& source = sources[channel];
-		return source.IsPlaying();
+		return mixer->IsPlaying(channel);
 	}
 
 	void PlayMusic(std::unique_ptr<AudioSource> source) override
@@ -399,8 +147,7 @@ public:
 
 	void SetReverb(const ReverbSettings* settings) override
 	{
-		if (mixer)
-			mixer->SetReverb(settings);
+		mixer->SetReverb(settings);
 	}
 
 	// A jump is the order at once, as Galaxy's Update jumps and writes the
@@ -414,57 +161,11 @@ public:
 			musicThreadData.currentOrder.store(order);
 	}
 
-	void PlaySound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch, bool speech) override
-	{
-		// A volume or pitch that is no number (a script's 0/0) plays as a
-		// plain one, as Galaxy plays on, rather than ending the game from the
-		// audio update
-		if (!std::isfinite(volume) || volume < 0.0f)
-			volume = 0.0f;
-		if (!std::isfinite(pitch))
-			pitch = 1.0f;
-		if (channel >= sources.size())
-			Exception::Throw("Invalid PlaySound arguments");
-
-		ALSoundSource& source = sources[channel];
-		if (source.IsPlaying())
-		{
-			LogMessage("Attempted to play sound on active channel " + std::to_string(channel));
-			return;
-		}
-
-		source.SetSound(sound);
-		source.SetPosition(location);
-		source.SetSpeech(speech);
-		source.SetVolume(volume);
-		source.SetGlobalVolume(speech ? globalSpeechVolume : globalSoundVolume);
-		source.SetRadius(radius);
-		source.SetPitch(pitch);
-		source.SetSpatial(true);
-		source.Play();
-	}
-
-	void UpdateSound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch) override
-	{
-		if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
-			Exception::Throw("Invalid PlaySound arguments");
-
-		ALSoundSource& source = sources[channel];
-
-		source.SetPosition(location);
-		source.SetVolume(volume);
-		source.SetGlobalVolume(source.IsSpeech() ? globalSpeechVolume : globalSoundVolume);
-		source.SetRadius(radius);
-		source.SetPitch(pitch);
-
-		source.DoLoop();
-	}
-
 	void PlayMixedSound(int channel, USound* sound, int volume, int panning, float pitch) override
 	{
 		if (!std::isfinite(pitch))
 			pitch = 1.0f;
-		if (!mixer || channel >= mixer->GetChannels())
+		if (channel >= mixer->GetChannels())
 			Exception::Throw("Invalid PlayMixedSound arguments");
 
 		auto it = mixedSounds.find(sound);
@@ -475,7 +176,7 @@ public:
 	{
 		if (!std::isfinite(pitch))
 			pitch = 1.0f;
-		if (!mixer || channel >= mixer->GetChannels())
+		if (channel >= mixer->GetChannels())
 			Exception::Throw("Invalid UpdateMixedSound arguments");
 
 		mixer->Update(channel, volume, panning, pitch);
@@ -483,18 +184,9 @@ public:
 
 	void StopSound(int channel) override
 	{
-		if (mixer)
-		{
-			if (channel >= mixer->GetChannels())
-				Exception::Throw("Invalid StopSound arguments");
-			mixer->Stop(channel);
-			return;
-		}
-
-		if (channel >= sources.size())
+		if (channel >= mixer->GetChannels())
 			Exception::Throw("Invalid StopSound arguments");
-
-		sources[channel].Stop();
+		mixer->Stop(channel);
 	}
 
 	static std::string getALErrorString(ALenum error)
@@ -614,27 +306,13 @@ public:
 	void SetSoundVolume(float volume) override
 	{
 		globalSoundVolume = volume;
-		if (mixer)
-			mixer->SetMasterVolume(std::max(globalSoundVolume, globalSpeechVolume));
-
-		for (auto& soundSource : sources)
-		{
-			if (!soundSource.IsSpeech())
-				soundSource.SetGlobalVolume(globalSoundVolume);
-		}
+		mixer->SetMasterVolume(std::max(globalSoundVolume, globalSpeechVolume));
 	}
 
 	void SetSpeechVolume(float volume) override
 	{
 		globalSpeechVolume = volume;
-		if (mixer)
-			mixer->SetMasterVolume(std::max(globalSoundVolume, globalSpeechVolume));
-
-		for (auto& soundSource : sources)
-		{
-			if (soundSource.IsSpeech())
-				soundSource.SetGlobalVolume(globalSpeechVolume);
-		}
+		mixer->SetMasterVolume(std::max(globalSoundVolume, globalSpeechVolume));
 	}
 
 	void Update() override
@@ -646,22 +324,6 @@ public:
 		}
 		if (!failure.empty())
 			LogMessage("Music: the song stopped: " + failure);
-
-		UActor* listener = engine->CameraActor;
-		if (listener)
-		{
-			// Update listener properties
-			vec3& location = listener->Location();
-			vec3& velocity = listener->Velocity();
-
-			vec3 at, left, up;
-			Coords::Rotation(listener->Rotation()).GetAxes(at, left, up);
-
-			ALfloat listenerOri[6] = { up.x, up.y, -up.z, -at.x, -at.y, at.z };
-			alListener3f(AL_POSITION, location.x, location.y, -location.z);
-			alListener3f(AL_VELOCITY, velocity.x, velocity.y, -velocity.z);
-			alListenerfv(AL_ORIENTATION, listenerOri);
-		}
 	}
 
 	void MusicThreadMain()
@@ -827,12 +489,8 @@ public:
 
 	ALCdevice* alDevice = nullptr;
 	ALCcontext* alContext = nullptr;
-	ALenum alError = 0;
 	ALuint alMusicSource = 0;
 	Array<ALuint> alMusicBuffers;
-	Array<ALSoundSource> sources;
-	ALint monoSources = 0;
-	ALint stereoSources = 0;
 
 	// Deus Ex's mixer, the sounds it holds, and its output
 	std::unique_ptr<GalaxyMixer> mixer;
@@ -965,7 +623,6 @@ public:
 	};
 
 	int frequency = 48000;
-	Array<USound*> sounds;
 
 	// Note: variables changed in musicThreadData *must* be done within a mutex lock to be thread safe
 	struct
