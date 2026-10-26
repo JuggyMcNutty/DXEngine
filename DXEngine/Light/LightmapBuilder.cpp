@@ -323,6 +323,10 @@ float LightmapBuilder::GlobalLighting(UActor* light, float brightness, vec3* col
 		}
 		else
 		{
+			// The phase is added in whole turns, which the byte drops, and the
+			// turn's 256ths are taken modulo 255: the phase changes nothing and
+			// the last entry never shows, as in the original (Render.dll
+			// 0x10b05d40)
 			double turns = time * 35.0 / std::max((int)light->LightPeriod(), 1) + light->LightPhase();
 			index = (uint8_t)(int64_t)(turns * 256.0) % 255;
 		}
