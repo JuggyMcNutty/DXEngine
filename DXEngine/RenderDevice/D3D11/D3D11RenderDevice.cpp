@@ -1667,6 +1667,7 @@ void D3D11RenderDevice::Unlock(bool Blit)
 		Context->UpdateSubresource(PresentPass.PresentConstantBuffer, 0, nullptr, &pushconstants, 0, 0);
 		Context->Draw(6, 0);
 
+		HRESULT presented = S_OK;
 		if (SwapChain1)
 		{
 			UINT flags = 0;
@@ -1674,11 +1675,20 @@ void D3D11RenderDevice::Unlock(bool Blit)
 				flags |= DXGI_PRESENT_ALLOW_TEARING;
 
 			DXGI_PRESENT_PARAMETERS presentParams = {};
-			SwapChain1->Present1(UseVSync ? 1 : 0, flags, &presentParams);
+			presented = SwapChain1->Present1(UseVSync ? 1 : 0, flags, &presentParams);
 		}
 		else
 		{
-			SwapChain->Present(UseVSync ? 1 : 0, 0);
+			presented = SwapChain->Present(UseVSync ? 1 : 0, 0);
+		}
+		// A device removed or reset (a driver crash, a TDR) showed only as
+		// silent Map failures and a frozen picture until something else
+		// failed with a message naming neither: named here
+		if (presented == DXGI_ERROR_DEVICE_REMOVED || presented == DXGI_ERROR_DEVICE_RESET)
+		{
+			char reason[64];
+			snprintf(reason, sizeof(reason), "0x%08lx (reason 0x%08lx)", (unsigned long)presented, (unsigned long)Device->GetDeviceRemovedReason());
+			throw std::runtime_error(std::string("D3D11 device removed: ") + reason);
 		}
 
 		Batch.Pipeline = nullptr;
