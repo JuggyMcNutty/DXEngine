@@ -1718,7 +1718,8 @@ A mod gets the original's loader and natives:
   draws with the environment map, and a face naming a wedge past them, or a
   collapse list leading past them, is passed over, as a vertex past the
   vertices is; a mover's polygon without a texture draws with the level's
-  default texture, its macro texture too.
+  default texture, its macro texture too; a mover whose brush has no
+  polygons is passed over.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).

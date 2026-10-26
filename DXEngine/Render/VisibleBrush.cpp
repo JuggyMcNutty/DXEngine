@@ -20,8 +20,10 @@ mat4 VisibleBrush::MoverToWorld(UMover* mover)
 
 bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass)
 {
+	// A mover whose brush has no polygons (a hand-made map's) is passed over,
+	// as the mirror and static passes pass it over
 	UMover* mover = UActor::TryCast<UMover>(actor);
-	if (!mover)
+	if (!mover || !mover->Brush() || !mover->Brush()->Polys)
 		return false;
 
 	engine->render->Stats.Actors++;

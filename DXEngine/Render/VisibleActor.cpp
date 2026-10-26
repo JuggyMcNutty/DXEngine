@@ -10,6 +10,8 @@
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Actors/Brush/UMover.h"
+#include "Packages/Engine/Resources/Level/UModel.h"
+#include "Packages/Engine/Subsystems/UDXEngineRenderDevice.h"
 
 void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
 {
@@ -69,7 +71,7 @@ void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
 		Actor = actor;
 		frame->Actors.push_back(*this);
 	}
-	else if (dt == DT_Brush && actor->Brush() && UActor::TryCast<UMover>(actor))
+	else if (dt == DT_Brush && actor->Brush() && actor->Brush()->Polys && UActor::TryCast<UMover>(actor))
 	{
 		Type = dt;
 		Actor = actor;
