@@ -2946,6 +2946,10 @@ void Engine::OpenWindow()
 	int width = client->StartupFullscreen ? client->FullscreenViewportX : client->WindowedViewportX;
 	int height = client->StartupFullscreen ? client->FullscreenViewportY : client->WindowedViewportY;
 	bool fullscreen = client->StartupFullscreen;
+	// The window backend that started, named in the log: DXE_DISPLAY_BACKEND
+	// asks for one, the first that starts is taken (ENGINE.md)
+	DisplayBackend* backend = DisplayBackend::Get();
+	std::string windowName = backend->IsSDL3() ? "SDL3" : backend->IsSDL2() ? "SDL2" : backend->IsWayland() ? "Wayland" : backend->IsX11() ? "X11" : backend->IsWin32() ? "Win32" : "unknown";
 
 	std::string versionString = !LaunchInfo.gameVersionString.empty() ? " (v" + LaunchInfo.gameVersionString + ")" : "";
 
@@ -2966,18 +2970,18 @@ void Engine::OpenWindow()
 		{
 			Size mode = window->GetClosestResolution(Size(width, height));
 			window->SetFullscreenMode((int)mode.width, (int)mode.height);
-			LogMessage("Window: full screen, " + std::to_string((int)mode.width) + "x" + std::to_string((int)mode.height));
+			LogMessage(std::string("Window: full screen, " + std::to_string((int)mode.width) + "x" + std::to_string((int)mode.height)) + " (" + windowName + " window)");
 		}
 		else
 		{
 			window->SetFullscreenMode(0, 0);
-			LogMessage("Window: full screen, the desktop's size");
+			LogMessage(std::string("Window: full screen, the desktop's size") + " (" + windowName + " window)");
 		}
 		window->ShowFullscreen();
 	}
 	else
 	{
-		LogMessage("Window: " + std::to_string(width) + "x" + std::to_string(height) + ", in a window");
+		LogMessage(std::string("Window: " + std::to_string(width) + "x" + std::to_string(height) + ", in a window") + " (" + windowName + " window)");
 		window->ShowNormal();
 	}
 }

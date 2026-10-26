@@ -250,7 +250,7 @@ The environment:
 | Variable | What it does |
 |---|---|
 | `DXE_VK_NO_BINDLESS=1` | Forces the Vulkan device's per-batch descriptor-set path, the one a GPU without descriptor indexing (the Smart Pro's, for one) takes. |
-| `DXE_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3`, `X11` or `Win32`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2, on Windows of SDL3, Win32 and SDL2. The launchers set it to the SDL backend their port's engine is built with, the one with the pad ([which](#running-on-our-devices)). |
+| `DXE_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3`, `X11` or `Win32`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2, on Windows of SDL3, Win32 and SDL2. The launchers set it to the SDL backend their port's engine is built with, the one with the pad ([which](#running-on-our-devices)); the log's `Window:` line names the one that started. |
 | `DXE_FONT`, `DXE_MONOSPACE_FONT` | The font files DXWidgets' default loader takes for its UI and monospace fonts in a build without GLib and fontconfig, before the usual DejaVu and Noto files. Unused by the engine, whose UI's fonts are `DXEngine.pk3`'s. |
 | `DXL_LAUNCHER_FD` | The launcher's line ([running it](#running-it)). |
 | `DXE_SW_REFERENCE=1`, `check` | The software device shades with its float reference in its pipelines' place; with `check`, with both, each from the same frame, and logs every 60 frames how far apart they came out ([rendering](#rendering)). |
