@@ -1309,6 +1309,8 @@ Every other native the scripted runs compare matches the original
 - **The natives' edges** (`OpsConsole`): an int divided by a float in place
   is 0 for a divisor of 0.0, and multiplied or divided in place past an
   int's range wraps, as `int` does; a shift takes its count's low 5 bits.
+  Differs: an int divided by -1 at INT_MIN is INT_MIN on every port, where
+  the original's divide faults (a Critical Error).
 - **A None context** (`A.X` with `A` None; `NoneConsole`): the zero of
   `X`'s type, as the original's `execContext` zero-fills the result -- a
   `switch (A.Physics)` takes `case PHYS_None`, a struct copied through None

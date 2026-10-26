@@ -457,8 +457,16 @@ void NObject::Divide_FloatFloat(float A, float B, float& ReturnValue)
 
 void NObject::Divide_IntInt(int A, int B, int& ReturnValue)
 {
-	// By zero: 0, as the original answers; the CPU exception would kill the engine.
-	ReturnValue = B != 0 ? A / B : 0;
+	// By zero: 0, as the original answers; the CPU exception would kill the
+	// engine. INT_MIN by -1: INT_MIN, the wrap, where the original's idiv
+	// faults (Core.dll 0x10133710 guards the zero alone) and C++ is undefined,
+	// a SIGFPE on x86 and INT_MIN on aarch64.
+	if (B == 0)
+		ReturnValue = 0;
+	else if (B == -1)
+		ReturnValue = (int)(0u - (uint32_t)A);
+	else
+		ReturnValue = A / B;
 }
 
 void NObject::Divide_RotatorFloat(const Rotator& A, float B, Rotator& ReturnValue)
