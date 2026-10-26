@@ -124,7 +124,10 @@ within 1% of the original's). Differs:
   odd size, which the original's canvas truncates and DXEngine's draws as
   it is.
 - The original's draw ticks the console (`UConsole::PreRender`), so its
-  painted frame ticks it once more; DXEngine's paint does not.
+  painted frame ticks it once more; DXEngine ticks it as each frame's draw
+  begins, after the level's tick, as the original's does (`HopConsole`,
+  `SpinConsole`: an actor's ticks after the console's exit as the
+  original's), and its paint does not.
 - No frame shows `PRECACHING`: the original's shows it only with its
   driver's precache on, which the game's ini has off.
 

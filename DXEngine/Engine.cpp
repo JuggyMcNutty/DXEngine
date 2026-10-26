@@ -369,9 +369,6 @@ void Engine::Run()
 
 		SetPause(!LevelInfo->Pauser().empty());
 
-		// Do NOT pause this Tick event otherwise some messages will stay on screen forever.
-		if (!dedicated)
-			CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(levelElapsed) });
 		if (timeline)
 			timeline->Tick(realTimeElapsed);
 
@@ -422,6 +419,12 @@ void Engine::Run()
 		if (!dedicated)
 		{
 			UpdateAudio();
+
+			// The console ticks as the draw begins, after the level's tick
+			// and by the real time since the last draw, as the original's
+			// UConsole::PreRender ticks it (dx-reverse-info engine-dll.md,
+			// the loading screen); paused or not, so its messages time out.
+			CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(realTimeElapsed) });
 
 			viewport->SetViewportRect(0, 0, engine->window->GetPixelWidth(), engine->window->GetPixelHeight());
 			render->DrawGame(levelElapsed);
