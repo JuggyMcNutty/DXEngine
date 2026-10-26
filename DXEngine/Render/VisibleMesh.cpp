@@ -573,6 +573,12 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 					size_t blendVindex0 = vindex + b.offsets[0];
 					size_t blendVindex1 = vindex + b.offsets[1];
 
+					// A blend's frames from before the mesh changed (a script's
+					// change of mesh mid-blend) lie past the vertices: left out, as
+					// the LOD mesh's draw leaves them
+					if (blendVindex0 >= mesh->Verts.size() || blendVindex1 >= mesh->Verts.size())
+						continue;
+
 					const vec3& bv0 = mesh->Verts[blendVindex0];
 					const vec3& bv1 = mesh->Verts[blendVindex1];
 					vec3 blendVertex = mix(bv0, bv1, b.t0);
@@ -580,6 +586,8 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 					if (b.t1 != 0.0f)
 					{
 						size_t blendVindex2 = vindex + b.offsets[2];
+						if (blendVindex2 >= mesh->Verts.size())
+							continue;
 						const vec3& bv2 = mesh->Verts[blendVindex2];
 						blendVertex = mix(blendVertex, bv2, b.t1);
 					}

@@ -1711,7 +1711,8 @@ A mod gets the original's loader and natives:
 - **A mod's actors drawn.** a mesh sequence of no frames draws its first
   frame, and an `AnimFrame` of 1 or more wraps into its sequence with the
   weight between frames taken before the wrap, as the original's GetFrame
-  takes it.
+  takes it; a blend's frames past the mesh's vertices are left out, as a LOD
+  mesh's are.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).
