@@ -22,7 +22,9 @@
 # The workspace is Port Ex Machina's: this clone sits in its repositories'
 # parent folder ($DX_ROOT, or the one the clone is in), with the game, the SDK
 # and the builds beside it. A run's shots and log land in
-# build/dxcap/runs/<engine>-<console>-<time>/.
+# build/dxcap/runs/<engine>-<console>-<date>-<time>/ (a folder of its own:
+# with the time alone, a run at the time of day of an earlier day's wrote
+# into that run's folder, their files mixed).
 # The original runs in this container, never on the host, under the Proton
 # build's own wine, in a Wine prefix of its own, build/dxcap/prefix (made on
 # first use), never IDA's: a prefix's Wine desktop is on the display of the
@@ -602,7 +604,7 @@ cmd_original() {
     fps_check
     ensure_prefix
     local ini="$CAP/System/Original.ini" userini="$CAP/System/OriginalUser.ini"
-    local dir="$CAP/runs/original-$console-$(date +%H%M%S)"
+    local dir="$CAP/runs/original-$console-$(date +%Y%m%d-%H%M%S)"
     make_ini original "$console" "$ini"
     user_ini "$userini"
     # A console that travels to a named map (the sweep's MissionConsole):
@@ -828,7 +830,7 @@ cmd_dxe() {
     local ini="$CAP/System/DXE.ini" userini="$CAP/System/DXEUser.ini"
     local name="$console"
     [ "$console" != - ] || { console=""; name=stock; }
-    local dir="$CAP/runs/dxe-$name-$(date +%H%M%S)"
+    local dir="$CAP/runs/dxe-$name-$(date +%Y%m%d-%H%M%S)"
     make_ini dxe "$console" "$ini"
     user_ini "$userini"
     [ -z "$console" ] || console_keys "$console" >> "$ini"
@@ -848,7 +850,7 @@ cmd_live() {
     local address="${1:?server address}" secs="${2:-120}"
     [ -x "$ENGINE_BIN" ] || die "no engine build at $ENGINE_BIN"
     local ini="$CAP/System/DXE.ini" userini="$CAP/System/DXEUser.ini"
-    local dir="$CAP/runs/dxe-live-$(date +%H%M%S)"
+    local dir="$CAP/runs/dxe-live-$(date +%Y%m%d-%H%M%S)"
     make_ini dxe "" "$ini"
     user_ini "$userini"
     mkdir -p "$dir"
@@ -902,7 +904,7 @@ cmd_dedicated() {
             need_display
             ensure_prefix
             ini="$CAP/System/Original.ini" userini="$CAP/System/OriginalUser.ini"
-            dir="$CAP/runs/original-dedicated-$actor-$(date +%H%M%S)"
+            dir="$CAP/runs/original-dedicated-$actor-$(date +%Y%m%d-%H%M%S)"
             make_ini original "" "$ini"
             server_actor "$actor" "$ini"
             user_ini "$userini"
@@ -930,7 +932,7 @@ cmd_dedicated() {
             ;;
         dxe)
             ini="$CAP/System/DXE.ini" userini="$CAP/System/DXEUser.ini"
-            dir="$CAP/runs/dxe-dedicated-$actor-$(date +%H%M%S)"
+            dir="$CAP/runs/dxe-dedicated-$actor-$(date +%Y%m%d-%H%M%S)"
             make_ini dxe "" "$ini"
             server_actor "$actor" "$ini"
             user_ini "$userini"
