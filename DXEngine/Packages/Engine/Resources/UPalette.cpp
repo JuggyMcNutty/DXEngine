@@ -5,7 +5,12 @@
 void UPalette::Load(ObjectStream* stream)
 {
 	UObject::Load(stream);
+	// The devices index a palette by a byte: a short one is padded to 256
+	// with opaque black (a hand-made package's; every stock palette has 256),
+	// and a count that is no palette refused
 	int count = stream->ReadIndex();
+	if (count < 0 || count > 65536)
+		Exception::Throw("Palette " + Name.ToString() + " has " + std::to_string(count) + " colours");
 	Colors.resize(count);
 	stream->ReadBytes(Colors.data(), count * 4);
 
@@ -14,6 +19,8 @@ void UPalette::Load(ObjectStream* stream)
 		for (uint32_t& c : Colors)
 			c |= 0xff000000;
 	}
+	if (Colors.size() < 256)
+		Colors.resize(256, 0xff000000);
 }
 
 void UPalette::Save(PackageStreamWriter* stream)
