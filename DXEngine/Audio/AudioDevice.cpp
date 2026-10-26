@@ -523,7 +523,18 @@ public:
 		if (musicPlaying)
 		{
 			alSourceStop(alMusicSource);
-			alSourceUnqueueBuffers(alMusicSource, (ALsizei)alMusicBuffers.size(), &alMusicBuffers[0]);
+			// What is queued, all processed once stopped: an unqueue of all 16
+			// with fewer queued (a throw mid-way) was refused whole, the
+			// buffers staying queued and the next song's first upload failing
+			// for the rest of the session
+			ALint queued = 0;
+			alGetSourcei(alMusicSource, AL_BUFFERS_QUEUED, &queued);
+			if (queued > 0)
+			{
+				std::vector<ALuint> unqueued((size_t)queued);
+				alSourceUnqueueBuffers(alMusicSource, queued, unqueued.data());
+			}
+			alGetError();
 			musicPlaying = false;
 		}
 		while (!musicQueue.Empty())
@@ -544,6 +555,11 @@ public:
 		int format = (music->GetChannels() == 1) ? AL_FORMAT_MONO_FLOAT32 : AL_FORMAT_STEREO_FLOAT32;
 		int freq = music->GetFrequency();
 
+		// The context's error state is one for every thread and keeps its
+		// first error until read: another thread's (the listener's calls, a
+		// mix upload's) is dropped here, not blamed on the song
+		alGetError();
+
 		for (int i = 0; i < musicBufferCount; i++)
 		{
 			alBufferData(alMusicBuffers[i], format, musicQueue.Pop(), musicBufferSize*4, freq);
@@ -559,6 +575,7 @@ public:
 
 	void UpdateMusicBuffer(AudioSource* music)
 	{
+		alGetError(); // another thread's error dropped, as PlayMusicBuffer drops it
 		ALint status;
 		alGetSourcei(alMusicSource, AL_BUFFERS_PROCESSED, &status);
 
