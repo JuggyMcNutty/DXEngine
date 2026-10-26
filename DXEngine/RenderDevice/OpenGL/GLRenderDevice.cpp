@@ -2092,7 +2092,10 @@ void GLRenderDevice::ReadPixels(TextureColor* Pixels)
 			TextureColor* dest = Pixels + (size_t)y * w;
 			for (int x = 0; x < w; x++)
 			{
-				float threshold = (bayer[(y & 3) * 4 + (x & 3)] + 0.5f) / 16.0f;
+				// A gamma-corrected shot's levels were dithered to 8 bits by the
+				// present pass already: read back by rounding, not thresholded
+				// again, so the shot is the picture presented
+				float threshold = GammaCorrectScreenshots ? 0.5f : (bayer[(y & 3) * 4 + (x & 3)] + 0.5f) / 16.0f;
 				uint32_t c = src[x];
 				dest[x].R = (uint8_t)(((c >> 20) & 1023) * (255.0f / 1023.0f) + threshold);
 				dest[x].G = (uint8_t)(((c >> 10) & 1023) * (255.0f / 1023.0f) + threshold);
