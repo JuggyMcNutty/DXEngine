@@ -1711,19 +1711,23 @@ A mod gets the original's loader and natives:
   over; a mesh DXEngine saves loads back; a palette short of 256 colours is
   padded with black; a texture whose mip data is shorter than its size is
   padded with black; a map whose surfaces or nodes point outside its arrays
-  is refused with their numbers; a fire texture's sparks and drops outside
-  it are masked into it; a scripted texture drawn from outside its source
-  wraps, and one drawn with a size of 0 or a float that is no number draws
-  nothing; an animation chain that never comes back ends at 2,048 textures;
-  an import whose outers never end is refused; an export whose class, outer
-  or base rings on itself is refused; a dynamic array property of a
-  dimension over 1 reads its element where it is; a name's length that is no
-  name is refused; a string's, an array's, a sound's or a song's size that
-  is none is refused before anything is allocated; a map folder the paths
-  name but the disk lacks is passed over with a line in the log; a path's
-  map pattern is taken in any case; a path's folder in another case than the
-  disk's gives its text and registered objects too; a class DXEngine saves
-  has its super class for its base, so it loads back laid out from it.
+  -- a node's links, zones, surface, render bound, vertices and their
+  points, and its collision hull's list -- is refused with their numbers,
+  the vertex pool's entries no node names left alone, every map of the game
+  having thousands past its points (`MapWalkConsole`: every map of the game
+  loads); a fire texture's sparks and drops outside it are masked into it; a
+  scripted texture drawn from outside its source wraps, and one drawn with a
+  size of 0 or a float that is no number draws nothing; an animation chain
+  that never comes back ends at 2,048 textures; an import whose outers never
+  end is refused; an export whose class, outer or base rings on itself is
+  refused; a dynamic array property of a dimension over 1 reads its element
+  where it is; a name's length that is no name is refused; a string's, an
+  array's, a sound's or a song's size that is none is refused before
+  anything is allocated; a map folder the paths name but the disk lacks is
+  passed over with a line in the log; a path's map pattern is taken in any
+  case; a path's folder in another case than the disk's gives its text and
+  registered objects too; a class DXEngine saves has its super class for its
+  base, so it loads back laid out from it.
 - **A mod's actors drawn.** a mesh sequence of no frames draws its first
   frame, and an `AnimFrame` of 1 or more wraps into its sequence with the
   weight between frames taken before the wrap, as the original's GetFrame

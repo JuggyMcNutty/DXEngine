@@ -236,9 +236,39 @@ void UModel::Load(ObjectStream* stream)
 	for (size_t i = 0; i < Nodes.size(); i++)
 	{
 		const BspNode& node = Nodes[i];
-		if (node.Front >= (int)Nodes.size() || node.Back >= (int)Nodes.size() ||
+		if (node.Front >= (int)Nodes.size() || node.Back >= (int)Nodes.size() || node.Plane >= (int)Nodes.size() ||
 			node.Zone0 < 0 || (size_t)node.Zone0 >= Zones.size() || node.Zone1 < 0 || (size_t)node.Zone1 >= Zones.size())
 			Exception::Throw("Model " + Name.ToString() + ": node " + std::to_string(i) + " points outside its nodes or zones");
+		// The walks' other reads: the node's surface, its render box, its
+		// vertices and their points, and its collision hull (a list of node
+		// indexes in LeafHulls, a negative one ending it, the box's six floats
+		// after). The vertex pool's entries no node names are left alone:
+		// every map of the game has thousands past its points.
+		if (node.Surf >= (int)Surfaces.size() || node.RenderBound >= (int)Bounds.size())
+			Exception::Throw("Model " + Name.ToString() + ": node " + std::to_string(i) + " points outside its surfaces or bounds");
+		if (node.NumVertices > 0)
+		{
+			if (node.VertPool < 0 || (size_t)node.VertPool + node.NumVertices > Vertices.size())
+				Exception::Throw("Model " + Name.ToString() + ": node " + std::to_string(i) + " points outside its vertices");
+			for (int k = 0; k < node.NumVertices; k++)
+			{
+				const BspVert& vert = Vertices[(size_t)node.VertPool + k];
+				if (vert.Vertex < 0 || (size_t)vert.Vertex >= Points.size())
+					Exception::Throw("Model " + Name.ToString() + ": node " + std::to_string(i) + "'s vertex " + std::to_string(k) + " points outside its points");
+			}
+		}
+		if (node.CollisionBound >= 0)
+		{
+			size_t k = (size_t)node.CollisionBound;
+			while (k < LeafHulls.size() && LeafHulls[k] >= 0)
+			{
+				if ((size_t)(LeafHulls[k] & ~0x4000'0000) >= Nodes.size())
+					Exception::Throw("Model " + Name.ToString() + ": node " + std::to_string(i) + "'s hull names a node outside its nodes");
+				k++;
+			}
+			if (k + 1 + 6 > LeafHulls.size())
+				Exception::Throw("Model " + Name.ToString() + ": node " + std::to_string(i) + "'s hull runs outside its leaf hulls");
+		}
 	}
 
 	// Calculate center and radius for all surface lightmaps:
