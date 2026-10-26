@@ -23,8 +23,15 @@ void UArrayProperty::LoadValue(void* data, ObjectStream* stream, const PropertyH
 {
 	ThrowIfTypeMismatch(header, UPT_Array);
 
+	// The data is the element's already (PropertyDataBlock::Load adds the
+	// index times the pitch): indexing it again read past an ArrayProperty
+	// whose dimension a package gave as more than 1. A count that is no array
+	// (negative, or past 16 M elements) is refused before anything is
+	// allocated.
 	int arraySize = stream->ReadIndex();
-	ScriptArray& vec = static_cast<ScriptArray*>(data)[header.arrayIndex];
+	if (arraySize < 0 || arraySize > 16 * 1024 * 1024)
+		Exception::Throw("Array " + Name.ToString() + " of " + std::to_string(arraySize) + " elements");
+	ScriptArray& vec = *static_cast<ScriptArray*>(data);
 	vec.Resize(arraySize);
 	for (int i = 0; i < arraySize; i++)
 	{
