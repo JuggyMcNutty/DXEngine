@@ -824,10 +824,12 @@ void Widget::OnWindowMouseMove(const Point& pos)
 
 		do
 		{
+			// The parent before the handler, which may delete the widget
+			Widget* parent = widget->Parent();
 			widget->OnMouseMove(widget->MapFrom(this, contentPos));
 			if (widget == this)
 				break;
-			widget = widget->Parent();
+			widget = parent;
 		} while (widget);
 	}
 }
@@ -858,10 +860,11 @@ void Widget::OnWindowMouseDown(const Point& pos, InputKey key)
 			widget = this;
 		while (widget)
 		{
+			Widget* parent = widget->Parent();
 			bool stopPropagation = widget->OnMouseDown(widget->MapFrom(this, contentPos), key);
 			if (stopPropagation || widget == this)
 				break;
-			widget = widget->Parent();
+			widget = parent;
 		}
 	}
 }
@@ -880,10 +883,11 @@ void Widget::OnWindowMouseDoubleclick(const Point& pos, InputKey key)
 			widget = this;
 		while (widget)
 		{
+			Widget* parent = widget->Parent();
 			bool stopPropagation = widget->OnMouseDoubleclick(widget->MapFrom(this, contentPos), key);
 			if (stopPropagation || widget == this)
 				break;
-			widget = widget->Parent();
+			widget = parent;
 		}
 	}
 }
@@ -902,10 +906,11 @@ void Widget::OnWindowMouseUp(const Point& pos, InputKey key)
 			widget = this;
 		while (widget)
 		{
+			Widget* parent = widget->Parent();
 			bool stopPropagation = widget->OnMouseUp(widget->MapFrom(this, contentPos), key);
 			if (stopPropagation || widget == this)
 				break;
-			widget = widget->Parent();
+			widget = parent;
 		}
 	}
 }
@@ -924,10 +929,11 @@ void Widget::OnWindowMouseWheel(const Point& pos, InputKey key)
 			widget = this;
 		while (widget)
 		{
+			Widget* parent = widget->Parent();
 			bool stopPropagation = widget->OnMouseWheel(widget->MapFrom(this, contentPos), key);
 			if (stopPropagation || widget == this)
 				break;
-			widget = widget->Parent();
+			widget = parent;
 		}
 	}
 }
