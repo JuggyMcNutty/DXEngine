@@ -488,6 +488,9 @@ Point WaylandDisplayWindow::MapToGlobal(const Point& pos) const
 
 void WaylandDisplayWindow::OnXDGToplevelConfigureEvent(int32_t width, int32_t height, const std::vector<wayland::xdg_toplevel_state>& states)
 {
+	// The states are the window's whole: one left out is off
+	isFullscreen = false;
+	isMaximized = false;
 	for (const auto state : states)
 	{
 		if (state == wayland::xdg_toplevel_state::activated)

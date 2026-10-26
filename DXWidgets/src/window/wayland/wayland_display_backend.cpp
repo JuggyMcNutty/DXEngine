@@ -241,6 +241,21 @@ void WaylandDisplayBackend::ConnectKeyboardEvents()
 		}
 	};
 
+	m_waylandKeyboard.on_leave() = [this] (uint32_t serial, wayland::surface_t surfaceLeft) {
+		// The keyboard gone: every key held is released to the window, the
+		// repeat stopped, and the window told it lost the keyboard (the
+		// engine forgets the keys it holds)
+		for (auto& state : inputKeyStates)
+		{
+			if (state.second && m_FocusWindow)
+				m_FocusWindow->windowHost->OnWindowKeyUp(state.first);
+			state.second = false;
+		}
+		StopKeyboardTimers();
+		if (m_FocusWindow)
+			m_FocusWindow->windowHost->OnWindowDeactivated();
+	};
+
 	m_waylandKeyboard.on_key() = [this] (uint32_t serial, uint32_t time, uint32_t key, wayland::keyboard_key_state state) {
 		// key is Linux evdev scancode, to translate it to XKB keycode, we must add 8
 		xkb_keysym_t sym = xkb_state_key_get_one_sym(m_KeyboardState, key + 8);
