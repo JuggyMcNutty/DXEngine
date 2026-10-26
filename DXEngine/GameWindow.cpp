@@ -148,12 +148,15 @@ void GameWindow::OnClose()
 	windowHost->OnWindowClose();
 }
 
-void GameWindow::OnSetFocus()
+// The window's own focus, not a widget's within it (nothing else in the
+// game's window takes the focus): the engine forgets the keys held as the
+// window loses the keyboard
+void GameWindow::OnWindowActivated()
 {
 	windowHost->OnWindowActivated();
 }
 
-void GameWindow::OnLostFocus()
+void GameWindow::OnWindowDeactivated()
 {
 	windowHost->OnWindowDeactivated();
 }

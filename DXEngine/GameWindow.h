@@ -149,8 +149,8 @@ protected:
 	void OnKeyUp(InputKey key) override;
 	void OnGeometryChanged() override;
 	void OnClose() override;
-	void OnSetFocus() override;
-	void OnLostFocus() override;
+	void OnWindowActivated() override;
+	void OnWindowDeactivated() override;
 
 private:
 	Array<Size> QueryAvailableResolutions() const;

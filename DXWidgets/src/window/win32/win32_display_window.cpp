@@ -773,7 +773,10 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 	}
 	else if (msg == WM_ACTIVATE)
 	{
-		WindowHost->OnWindowActivated();
+		if (LOWORD(wparam) == WA_INACTIVE)
+			WindowHost->OnWindowDeactivated();
+		else
+			WindowHost->OnWindowActivated();
 	}
 	else if (msg == WM_MOUSEACTIVATE)
 	{

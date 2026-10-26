@@ -640,6 +640,9 @@ void SDL2DisplayWindow::OnWindowEvent(const SDL_WindowEvent& event)
 			break;
 
 		case SDL_WINDOWEVENT_FOCUS_GAINED:
+			WindowHost->OnWindowActivated();
+			break;
+
 		case SDL_WINDOWEVENT_FOCUS_LOST:
 			WindowHost->OnWindowDeactivated();
 			break;
