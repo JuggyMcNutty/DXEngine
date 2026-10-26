@@ -143,7 +143,11 @@ X11DisplayWindow::~X11DisplayWindow()
 
 	if (m_EGLContext)
 	{
-		eglMakeCurrent(m_EGLDisplay, m_EGLSurface, m_EGLSurface, nullptr);
+		// The context let go of before it is destroyed: no context takes no
+		// surfaces (EGL 3.7.3: EGL_NO_CONTEXT with a surface is EGL_BAD_MATCH,
+		// which left the context and surface current, only marked for
+		// deletion, under a display terminated and a window destroyed)
+		eglMakeCurrent(m_EGLDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 		eglDestroyContext(m_EGLDisplay, m_EGLContext);
 		eglDestroySurface(m_EGLDisplay, m_EGLSurface);
 		eglTerminate(m_EGLDisplay);

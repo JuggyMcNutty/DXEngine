@@ -59,7 +59,8 @@ WaylandDisplayWindow::~WaylandDisplayWindow()
 {
 	if (m_EGLContext)
 	{
-		eglMakeCurrent(m_EGLDisplay, m_EGLSurface, m_EGLSurface, nullptr);
+		// No context takes no surfaces (EGL 3.7.3), as the X11 window's
+		eglMakeCurrent(m_EGLDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 		eglDestroyContext(m_EGLDisplay, m_EGLContext);
 		eglDestroySurface(m_EGLDisplay, m_EGLSurface);
 		eglTerminate(m_EGLDisplay);
