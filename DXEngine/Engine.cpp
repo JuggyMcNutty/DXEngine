@@ -627,8 +627,9 @@ void Engine::RestoreRunOnlySettings()
 
 void Engine::ExecFile(UObject* context, const std::string& filename)
 {
-	// As the original's EXEC: the file from the working directory -- the
-	// game's System folder -- each line a command.
+	// As the original's EXEC: a relative file from the game's System folder
+	// (the original's working directory, which nothing sets here), each line
+	// a command.
 	std::string text;
 	try
 	{
@@ -3403,11 +3404,14 @@ void Engine::InputCommand(const std::string& commands, EInputKey key, int delta,
 				}
 				activeInputAxes[args[1]] = { speed * delta, key };
 			}
-			else if (!ExecCommand(args) && press && !IsInputSystemCommand(command))
+			else if (press && !ExecCommand(args) && !IsInputSystemCommand(command))
 			{
-				// No exec function takes it: the engine's own commands, as the
-				// original's viewport takes a pressed key's line on to them
-				// (DefUser.ini's GreyStar=Shot; engine-dll.md, a key's binding).
+				// A press's line alone reaches the exec functions and, when none
+				// takes it, the engine's own commands, as the original's
+				// viewport takes a pressed key's line on (DefUser.ini's
+				// GreyStar=Shot; engine-dll.md, a key's binding): an axis's or a
+				// release's line goes to the input's own commands above, so a
+				// stick bound to an exec function does not fire it every tick.
 				uint32_t foundBits = 0;
 				BitfieldBool found = { &foundBits, 1 };
 				ConsoleCommand(viewport->Actor(), commandline, found);
