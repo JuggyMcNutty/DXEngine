@@ -242,6 +242,10 @@ void X11DisplayWindow::SetWindowIcon(const std::vector<std::shared_ptr<Image>>& 
 	// set icon data
 	Atom property = XInternAtom(display, "_NET_WM_ICON", 0);
 	XChangeProperty(display, window, property, XA_CARDINAL, 32, PropModeReplace, (unsigned char*)data, size);
+
+	// XChangeProperty copies both
+	free(geom);
+	free(data);
 }
 
 void X11DisplayWindow::SetClientFrame(const Rect& box)
