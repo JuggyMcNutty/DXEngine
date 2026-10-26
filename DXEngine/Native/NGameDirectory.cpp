@@ -27,7 +27,9 @@ void NGameDirectory::DeleteSaveInfo(UObject* Self, UObject* saveInfo)
 {
 	auto DXGDSelf = UObject::Cast<UDXGameDirectory>(Self);
 	auto dxSaveInfo = UObject::Cast<UDXSaveInfo>(saveInfo);
-	DXGDSelf->DeleteSaveInfo(*dxSaveInfo);
+	// None does nothing, as the original's (DeusEx.dll 0x10018170)
+	if (dxSaveInfo)
+		DXGDSelf->DeleteSaveInfo(*dxSaveInfo);
 }
 
 void NGameDirectory::GenerateNewSaveFilename(UObject* Self, std::optional<int> newIndex, std::string& ReturnValue)
