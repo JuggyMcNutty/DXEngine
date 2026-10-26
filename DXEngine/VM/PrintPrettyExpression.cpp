@@ -341,7 +341,7 @@ void PrintPrettyExpression::Expr(StructMemberExpression* expr)
 {
 	Print(writeOutput, expr->Value);
 	writeOutput(".");
-	writeOutput(expr->Field->Name.ToString());
+	writeOutput(expr->Field ? expr->Field->Name.ToString() : std::string("<no field>"));
 }
 
 void PrintPrettyExpression::Expr(RotatorToVectorExpression* expr)
@@ -626,7 +626,8 @@ void PrintPrettyExpression::Expr(GlobalFunctionExpression* expr)
 
 void PrintPrettyExpression::Expr(NativeFunctionExpression* expr)
 {
-	if (NativeFunctions::FuncByIndex[expr->nativeindex])
+	bool known = expr->nativeindex >= 0 && (size_t)expr->nativeindex < NativeFunctions::FuncByIndex.size() && NativeFunctions::FuncByIndex[expr->nativeindex];
+	if (known)
 		writeOutput(NativeFunctions::FuncByIndex[expr->nativeindex]->Name.ToString() + "(");
 	else
 		writeOutput("UnknownNative" + std::to_string(expr->nativeindex) + "(");

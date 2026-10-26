@@ -788,6 +788,9 @@ void ExpressionEvaluator::Expr(VirtualFunctionExpression* expr)
 
 void ExpressionEvaluator::Expr(FinalFunctionExpression* expr)
 {
+	// An import its package lacks reads as null: a script error, not a crash
+	if (!expr->Func)
+		Frame::ThrowException("Script function call to an import that did not load");
 	Call(expr->Func, expr->Args);
 }
 
@@ -819,9 +822,15 @@ void ExpressionEvaluator::Expr(NativeFunctionExpression* expr)
 
 	// The general path takes a None context to Frame::Call, which reports it
 	if (expr->Typed != TypedKind::Generic && Context)
+	{
 		*Out = OperatorValue(expr);
-	else
-		Call(NativeFunctions::FuncByIndex[expr->nativeindex], expr->Args);
+		return;
+	}
+	// A native no loaded class declares: a script error, not a read past the table
+	UFunction* func = expr->nativeindex >= 0 && (size_t)expr->nativeindex < NativeFunctions::FuncByIndex.size() ? NativeFunctions::FuncByIndex[expr->nativeindex] : nullptr;
+	if (!func)
+		Frame::ThrowException("Call to native function " + std::to_string(expr->nativeindex) + ", which no class declares");
+	Call(func, expr->Args);
 }
 
 // The operators most script calls go to -- about 83% of the native calls on
