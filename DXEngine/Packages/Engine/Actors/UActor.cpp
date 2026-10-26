@@ -252,6 +252,13 @@ bool UActor::Destroy()
 	level->ActorsHaveHoles = true;
 	bDeleteMe() = true;
 
+	// An event above (Destroyed, an owned actor's SetOwner, UnTouch,
+	// LostChild) may have moved or re-collided the actor, filing it in the
+	// hash and a BSP node again: out once more, now that bDeleteMe keeps it
+	// out, so no cell points at it once it is freed.
+	RemoveFromBspNode();
+	level->Collision.RemoveFromCollision(this);
+
 	if (engine->audiodev)
 		engine->audiodev->ActorDestroyed(this);
 
