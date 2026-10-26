@@ -414,7 +414,14 @@ public:
 
 	void PlaySound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch, bool speech) override
 	{
-		if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
+		// A volume or pitch that is no number (a script's 0/0) plays as a
+		// plain one, as Galaxy plays on, rather than ending the game from the
+		// audio update
+		if (!std::isfinite(volume) || volume < 0.0f)
+			volume = 0.0f;
+		if (!std::isfinite(pitch))
+			pitch = 1.0f;
+		if (channel >= sources.size())
 			Exception::Throw("Invalid PlaySound arguments");
 
 		ALSoundSource& source = sources[channel];
@@ -453,7 +460,9 @@ public:
 
 	void PlayMixedSound(int channel, USound* sound, int volume, int panning, float pitch) override
 	{
-		if (!mixer || channel >= mixer->GetChannels() || !std::isfinite(pitch))
+		if (!std::isfinite(pitch))
+			pitch = 1.0f;
+		if (!mixer || channel >= mixer->GetChannels())
 			Exception::Throw("Invalid PlayMixedSound arguments");
 
 		auto it = mixedSounds.find(sound);
@@ -462,7 +471,9 @@ public:
 
 	void UpdateMixedSound(int channel, int volume, int panning, float pitch) override
 	{
-		if (!mixer || channel >= mixer->GetChannels() || !std::isfinite(pitch))
+		if (!std::isfinite(pitch))
+			pitch = 1.0f;
+		if (!mixer || channel >= mixer->GetChannels())
 			Exception::Throw("Invalid UpdateMixedSound arguments");
 
 		mixer->Update(channel, volume, panning, pitch);
