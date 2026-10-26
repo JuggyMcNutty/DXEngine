@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "UActor.h"
+#include "Packages/Engine/Actors/Pawn/UPawn.h"
 #include "VM/ScriptCall.h"
 #include "Engine.h"
 
@@ -19,95 +20,108 @@ void UActor::CheckPendingTouch()
 	}
 }
 
+// The original's AActor::BeginTouch (Engine.dll 0x10369570): each side
+// makes its own link (0x10369630), this one first, then the other unless this
+// one's Touch event undid the link. A side already touching the other does
+// nothing more. Else it takes its last free slot of the four, and with none
+// frees one: every toucher with no physics is untouched (the last of them
+// gives the slot); else, for a pawn coming, the first toucher that is no
+// pawn; else, for a player coming, the first that is no player; with no slot
+// freed the side stays unlinked, the other side linked all the same. The
+// other goes in the slot and this side's Touch is sent.
+bool UActor::TouchOneSide(UActor* other)
+{
+	auto slots = Touching();
+	int slot = -1;
+	for (int i = 0; i < TouchingArraySize; i++)
+	{
+		if (slots[i] == other)
+			return true;
+		if (!slots[i])
+			slot = i;
+	}
+	if (slot < 0)
+	{
+		for (int i = 0; i < TouchingArraySize; i++)
+		{
+			if (slots[i] && slots[i]->Physics() == PHYS_None)
+			{
+				UnTouch(slots[i], true);
+				slot = i;
+			}
+		}
+		UPawn* otherPawn = UObject::TryCast<UPawn>(other);
+		if (slot < 0 && otherPawn)
+		{
+			for (int i = 0; i < TouchingArraySize; i++)
+			{
+				if (slots[i] && !UObject::TryCast<UPawn>(slots[i]))
+				{
+					UnTouch(slots[i], true);
+					slot = i;
+					break;
+				}
+			}
+		}
+		if (slot < 0 && otherPawn && otherPawn->bIsPlayer())
+		{
+			for (int i = 0; i < TouchingArraySize; i++)
+			{
+				UPawn* pawn = UObject::TryCast<UPawn>(slots[i]);
+				if (slots[i] && !(pawn && pawn->bIsPlayer()))
+				{
+					UnTouch(slots[i], true);
+					slot = i;
+					break;
+				}
+			}
+		}
+		if (slot < 0)
+			return true;
+	}
+
+	slots[slot] = other;
+	CallEvent(this, EventName::Touch, { ExpressionValue::ObjectValue(other) });
+	return slots[slot] == other;
+}
+
 void UActor::Touch(UActor* actor)
 {
 	// Don't setup touch if any object has been destroyed
-	if (bDeleteMe() || actor->bDeleteMe())
+	if (bDeleteMe() || actor->bDeleteMe() || actor == this)
 		return;
 
-	auto TouchingArray = Touching();
-	auto TouchingArray2 = actor->Touching();
-
-	// Do nothing if actors are already touching
-	for (int i = 0; i < TouchingArraySize; i++)
-	{
-		if (TouchingArray[i] == actor)
-			return;
-	}
-
-	// Only setup touch if we have room in both arrays
-	int slot1 = -1, slot2 = -1;
-	for (int i = 0; i < TouchingArraySize; i++)
-	{
-		if (slot1 == -1 && TouchingArray[i] == nullptr)
-			slot1 = i;
-		if (slot2 == -1 && TouchingArray2[i] == nullptr)
-			slot2 = i;
-	}
-	if (slot1 == -1 || slot2 == -1)
-		return;
-
-	// Setup links first so Destroy or recursive Touch calls always finds the touch binding
-	TouchingArray[slot1] = actor;
-	TouchEventSent[slot1] = true;
-	TouchingArray2[slot2] = this;
-	actor->TouchEventSent[slot2] = false;
-
-	// Notify unrealscript for first actor
-	CallEvent(this, EventName::Touch, { ExpressionValue::ObjectValue(actor) });
-
-	// Notify unrealscript for second actor
-	if (!actor->bDeleteMe())
-	{
-		for (int i = 0; i < TouchingArraySize; i++)
-		{
-			if (TouchingArray2[i] == this && !actor->TouchEventSent[i])
-			{
-				actor->TouchEventSent[i] = true;
-				CallEvent(actor, EventName::Touch, { ExpressionValue::ObjectValue(this) });
-				break;
-			}
-		}
-	}
+	if (TouchOneSide(actor))
+		actor->TouchOneSide(this);
 }
 
-// The original's AActor::EndTouch(Other, bNoNotifySelf): without notifySelf
-// (a destroyed actor's) this actor's slot is cleared but it is sent nothing.
+// The original's AActor::EndTouch(Other, bNoNotifySelf) (Engine.dll
+// 0x10369970): this actor's slot holding the other is cleared and, unless
+// told not to (a destroyed actor's untouch), its UnTouch sent; then the
+// other's slot holding this one, and the other's UnTouch sent.
 void UActor::UnTouch(UActor* actor, bool notifySelf)
 {
-	auto TouchingArray = Touching();
-	auto TouchingArray2 = actor->Touching();
+	auto slots = Touching();
+	auto otherSlots = actor->Touching();
 
-	if (!bDeleteMe())
+	for (int i = 0; i < TouchingArraySize; i++)
 	{
-		for (int i = 0; i < TouchingArraySize; i++)
+		if (slots[i] == actor)
 		{
-			if (TouchingArray[i] == actor)
-			{
-				TouchingArray[i] = nullptr;
-				if (TouchEventSent[i])
-				{
-					TouchEventSent[i] = false;
-					if (notifySelf)
-						CallEvent(this, EventName::UnTouch, { ExpressionValue::ObjectValue(actor) });
-				}
-			}
+			slots[i] = nullptr;
+			if (notifySelf)
+				CallEvent(this, EventName::UnTouch, { ExpressionValue::ObjectValue(actor) });
+			break;
 		}
 	}
 
-	if (!actor->bDeleteMe())
+	for (int i = 0; i < TouchingArraySize; i++)
 	{
-		for (int i = 0; i < TouchingArraySize; i++)
+		if (otherSlots[i] == this)
 		{
-			if (TouchingArray2[i] == this)
-			{
-				TouchingArray2[i] = nullptr;
-				if (actor->TouchEventSent[i])
-				{
-					actor->TouchEventSent[i] = false;
-					CallEvent(actor, EventName::UnTouch, { ExpressionValue::ObjectValue(this) });
-				}
-			}
+			otherSlots[i] = nullptr;
+			CallEvent(actor, EventName::UnTouch, { ExpressionValue::ObjectValue(this) });
+			break;
 		}
 	}
 }

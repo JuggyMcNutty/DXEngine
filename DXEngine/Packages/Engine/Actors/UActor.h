@@ -325,11 +325,11 @@ public:
 	bool IsOverlapping(UActor* other);
 
 	void Touch(UActor* actor);
+	bool TouchOneSide(UActor* other);
 	void UnTouch(UActor* actor, bool notifySelf = true);
 	void CheckPendingTouch();
 
 	static const int TouchingArraySize = 4;
-	bool TouchEventSent[TouchingArraySize] = {};
 
 	bool HasAnim(const NameString& sequence);
 	bool IsAnimating();

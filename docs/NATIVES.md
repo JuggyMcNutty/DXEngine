@@ -1189,7 +1189,12 @@ Every other native the scripted runs compare matches the original
   before what stands on the actor is unbased and before it moves, as the
   original's FarMoveActor makes them, so a Touch handler sees the actor
   where it was, and what it no longer overlaps there untouched, not what it
-  leaves behind (`TeleportConsole`); the rotators' conversions, `<<` and `>>`
+  leaves behind (`TeleportConsole`); a touch linking each side on its own,
+  its Touch sent as it is linked and the other side linked unless that
+  undid it, the last free of the four slots taken, and a full four freed of
+  their touchers with no physics, or for a pawn of a non-pawn, or for a
+  player of a non-player, as the original's BeginTouch links
+  (`TouchConsole`); the rotators' conversions, `<<` and `>>`
   by the sine table, a rotator's `*=`, float `==` exact, a rotator's `==`
   and `!=` every bit of each angle, `GetEnum` from index 0, `Normal` zero
   under a length of 0.0001, `Chr(0)` the empty string, `IsInState` true for
