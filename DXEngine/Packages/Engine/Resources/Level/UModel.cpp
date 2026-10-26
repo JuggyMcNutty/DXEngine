@@ -625,6 +625,11 @@ void UModel::Mark(GCMarker& marker)
 	marker.Mark(OldFormat.Unknown2);
 	marker.SetField("Polys");
 	marker.Mark(Polys);
+	// The lists in it are found by place (a light map's LightActors, a
+	// leaf's Permeating, each ended by a null): an entry dropped would shift
+	// every later list and its shadow bits, so a listed light is kept,
+	// destroyed or not
 	marker.SetField("Lights");
-	marker.MarkArray(Lights);
+	for (UActor* light : Lights)
+		marker.MarkConst(light);
 }
