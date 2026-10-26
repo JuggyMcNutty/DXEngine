@@ -41,49 +41,6 @@ struct LightmapTexture
 class VertexLight
 {
 public:
-	vec3 GetVertexLight(const vec3& location, const vec3& normal, bool unlit, bool twosided)
-	{
-		if (OriginalFormula)
-			return GetVertexLightDX(location, normal, unlit, twosided);
-
-		vec3 dynamicLight(0.0f);
-		if (!unlit)
-		{
-			for (int i = 0, count = NumLights; i < count; i++)
-			{
-				vec3 L = Lights[i].Location - location;
-
-				// Distance falloff
-				float lensqr = dot(L, L);
-				float distsqr = lensqr * Lights[i].InvRadiusSquared;
-				if (distsqr < 1.0f)
-				{
-					float attenuation = LightDistanceFalloff(distsqr);
-
-					// Diffuse light contribution
-					float rcplen = 1.0f / std::sqrt(lensqr);
-					L *= rcplen;
-					float d = dot(L, normal);
-					attenuation *= twosided ? std::abs(d) : std::max(d, 0.0f);
-					dynamicLight += Lights[i].Color * attenuation;
-				}
-
-			}
-			dynamicLight *= ScaleGlow;
-		}
-		else
-		{
-			dynamicLight = vec3(0.5f);
-		}
-
-		// Clamp final result and make it all brighter to match lightmaps
-		vec3 color = (AmbientColor + dynamicLight) * 3.0f;
-		color.r = std::min(color.r, 1.0f);
-		color.g = std::min(color.g, 1.0f);
-		color.b = std::min(color.b, 1.0f);
-		return color;
-	}
-
 	// The original's per-vertex formula (dx-reverse-info/render-dll.md, lighting):
 	// a diffuse term, (cos + 1)^2 - 1.5 of the angle to the light, and a
 	// highlight, 6 cos^2 of the angle between the eye and the light's
@@ -91,7 +48,7 @@ public:
 	// light's colour; the sum scaled by 1.4 ScaleGlow, the ambient added,
 	// each channel at most 1. An unlit draw is AmbientGlow / 256 + ScaleGlow
 	// / 2, mid-grey for most.
-	vec3 GetVertexLightDX(const vec3& location, const vec3& normal, bool unlit, bool twosided)
+	vec3 GetVertexLight(const vec3& location, const vec3& normal, bool unlit, bool twosided)
 	{
 		if (unlit)
 			return vec3(UnlitLevel);
@@ -129,14 +86,6 @@ public:
 		color.g = std::min(color.g, 1.0f);
 		color.b = std::min(color.b, 1.0f);
 		return color;
-	}
-
-	static float LightDistanceFalloff(float distsqr)
-	{
-		float v = std::sqrt(distsqr + 0.0001f);
-		float v2 = v * v;
-		float v3 = v2 * v;
-		return std::min((1.0f + 2.0f * v3 - 3.0f * v2) / v, 1.0f);
 	}
 
 	vec4 GetVertexFog(const vec3& location)
@@ -216,7 +165,6 @@ public:
 	float ScaleGlow;
 	// What an unlit draw is lit with in the original's formula
 	float UnlitLevel = 0.5f;
-	bool OriginalFormula = false;
 	enum { MaxLights = 16, MaxFogBalls = 4 };
 	struct Light
 	{

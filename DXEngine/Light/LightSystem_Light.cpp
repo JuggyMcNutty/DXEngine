@@ -418,14 +418,6 @@ void LightSystem::CheckLight(UActor* light)
 	}
 }
 
-static float LightDistanceFalloff(float distsqr)
-{
-	float v = std::sqrt(distsqr + 0.0001f);
-	float v2 = v * v;
-	float v3 = v2 * v;
-	return std::min((1.0f + 2.0f * v3 - 3.0f * v2) / v, 1.0f);
-}
-
 void LightSystem::InitVertexLight(VertexLight& out, UActor* actor, UZoneInfo* zoneActor)
 {
 	// AmbientGlow value 255 is a special pulsating effect used for powerups
@@ -434,7 +426,6 @@ void LightSystem::InitVertexLight(VertexLight& out, UActor* actor, UZoneInfo* zo
 	// colour (dx-reverse-info/render-dll.md, meshes)
 	out.AmbientColor = ambientGlow + FGetHSV(zoneActor->AmbientHue(), zoneActor->AmbientSaturation(), zoneActor->AmbientBrightness());
 
-	out.OriginalFormula = true;
 	out.ScaleGlow = actor->ScaleGlow();
 	// DrawLodMesh's unlit level (Render.dll 0x10b0f6e0): the glow raw,
 	// not pulsing, held to 0-1
