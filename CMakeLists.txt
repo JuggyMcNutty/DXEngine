@@ -772,20 +772,6 @@ set(THIRDPARTY_SOURCES
 	Thirdparty/minimp3.h
 	Thirdparty/MurmurHash3/MurmurHash3.cpp
 	Thirdparty/MurmurHash3/MurmurHash3.h
-	Thirdparty/resample/CDSPSincFilterGen.h
-	Thirdparty/resample/CDSPHBDownsampler.h
-	Thirdparty/resample/CDSPResampler.h
-	Thirdparty/resample/CDSPRealFFT.h
-	Thirdparty/resample/CDSPFIRFilter.h
-	Thirdparty/resample/r8butil.h
-	Thirdparty/resample/CDSPHBUpsampler.h
-	Thirdparty/resample/CDSPProcessor.h
-	Thirdparty/resample/r8bbase.cpp
-	Thirdparty/resample/CDSPFracInterpolator.h
-	Thirdparty/resample/CDSPBlockConvolver.h
-	Thirdparty/resample/fft4g.h
-	Thirdparty/resample/r8bconf.h
-	Thirdparty/resample/r8bbase.h
 	Thirdparty/stb_vorbis.h
 	Thirdparty/TinySHA1/TinySHA1.hpp
 	Thirdparty/miniz/miniz.c
@@ -884,7 +870,6 @@ source_group("DXEngine\\VM" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/DXEn
 
 
 source_group("Thirdparty" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/Thirdparty/.+")
-source_group("Thirdparty\\resample" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/Thirdparty/resample/.+")
 source_group("Thirdparty\\miniz" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/Thirdparty/miniz/.+")
 source_group("Thirdparty\\kissfft" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/Thirdparty/kissfft/.+")
 
