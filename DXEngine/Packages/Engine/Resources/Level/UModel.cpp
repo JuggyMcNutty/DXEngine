@@ -463,6 +463,16 @@ void UModel::Save(PackageStreamWriter* stream)
 
 PointRegion UModel::FindRegion(const vec3& point, UZoneInfo* levelZoneInfo)
 {
+	// The zone actor is the walked model's own, else the LevelInfo given
+	// (an Entry actor's, under a map), as the original's PointRegion takes
+	// them; DXEngine took the current level's zone of the number
+	auto zoneActor = [&](int n) -> UZoneInfo* {
+		if (n >= 0 && (size_t)n < Zones.size())
+			if (UZoneInfo* zone = UObject::TryCast<UZoneInfo>(Zones[n].ZoneActor))
+				return zone;
+		return levelZoneInfo ? levelZoneInfo : engine->GetZoneActor(n);
+	};
+
 	if (Nodes.empty()) // This happens in Harry Potter! Probably a load problem
 	{
 		static bool messageShown = false;

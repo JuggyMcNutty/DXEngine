@@ -1817,6 +1817,9 @@ The server-only stubs are under
 - **A dedicated server's natives**: `GetPlayerPawn` answers None, as the
   original's with no client or viewport, and `AttachDecal` attaches none, as
   the original's with no client.
+- **Entry's actors** find their regions in Entry's own model, with its zone
+  actors and its LevelInfo, while a map is current (no run: the code settles
+  it).
 - **The player's name in a net game**: a name the player never chose --
   none, or the game's stock `Player` -- logs in as `DXEnginePlayer`, a
   client's to its server and a listen server's host's, by choice, so
