@@ -948,7 +948,9 @@ UObject* UPawn::FindRandomDest()
 				break;
 			const LevelReachSpec& reachSpec = reachSpecs[specIndex];
 
-			if (reachSpec.endActor->bEndPoint())
+			// A spec with no end is passed over, as GetPathnodeList and
+			// BreadthPathFrom pass theirs
+			if (!reachSpec.endActor || reachSpec.endActor->bEndPoint())
 				continue; // Already processed
 
 			if (reachSpec.collisionRadius < radius || reachSpec.collisionHeight < height || reachSpec.bPruned)
