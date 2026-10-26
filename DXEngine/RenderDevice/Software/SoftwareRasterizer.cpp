@@ -186,7 +186,7 @@ namespace
 			return;
 		float start = xMajor ? prim.LineX[0] : prim.LineY[0];
 		float end = xMajor ? prim.LineX[1] : prim.LineY[1];
-		int first = (int)std::floor(std::min(start, end) - 0.5f) + 1;
+		int first = (int)std::ceil(std::min(start, end) - 0.5f); // a centre on the start kept (t = 0), the end's left out below
 		int last = (int)std::ceil(std::max(start, end) - 0.5f) - 1;
 		for (int i = first; i <= last; i++)
 		{
