@@ -410,7 +410,9 @@ Rect WaylandDisplayWindow::GetClientFrame() const
 		}
 	}
 
-	return Rect(globalPos, Size(m_WindowSize.width, m_WindowSize.height));
+	// In the window's logical units, as GetClientSize answers and the
+	// callers take them (m_WindowSize is pixels)
+	return Rect(globalPos, Size(m_WindowSize.width / m_ScaleFactor, m_WindowSize.height / m_ScaleFactor));
 }
 
 Size WaylandDisplayWindow::GetClientSize() const
