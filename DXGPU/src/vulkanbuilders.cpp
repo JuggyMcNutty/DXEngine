@@ -138,7 +138,9 @@ private:
 
 std::vector<uint32_t> GLSLCompiler::Compile(VulkanDevice* device)
 {
-	return Compile(device->Instance->ApiVersion);
+	// The lower of the instance's version and the device's: a 1.2 loader
+	// grants 1.2 whatever the GPU, and a 1.0 or 1.1 driver takes no SPIR-V 1.4
+	return Compile(std::min(device->Instance->ApiVersion, device->PhysicalDevice.Properties.Properties.apiVersion));
 }
 
 std::vector<uint32_t> GLSLCompiler::Compile(uint32_t apiVersion)

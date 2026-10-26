@@ -47,7 +47,8 @@ bool VulkanDevice::SupportsExtension(const char* ext) const
 void VulkanDevice::CreateAllocator()
 {
 	VmaAllocatorCreateInfo allocinfo = {};
-	allocinfo.vulkanApiVersion = Instance->ApiVersion;
+	// No higher than the device's, as VMA requires
+	allocinfo.vulkanApiVersion = std::min(Instance->ApiVersion, PhysicalDevice.Properties.Properties.apiVersion);
 	if (SupportsExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME) && SupportsExtension(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME))
 		allocinfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
 	if (SupportsExtension(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME))
