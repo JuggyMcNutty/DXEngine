@@ -72,7 +72,7 @@
 	Please credit the creator of this library in your documentation in the
 	following way: "Sample rate converter designed by Aleksey Vaneev of Voxengo"
 
-## License for Thirdparty/ShaderCompiler
+## License for DXGPU/src/glslang (ShaderCompiler)
 
 	//
 	// Copyright (C) 2002-2005  3Dlabs Inc. Ltd.
@@ -110,7 +110,7 @@
 	// POSSIBILITY OF SUCH DAMAGE.
 	//
 
-## License for Thirdparty/vk_mem_alloc
+## License for DXGPU/include/dxgpu/vk_mem_alloc
 
 	//
 	// Copyright (c) 2017-2018 Advanced Micro Devices, Inc. All rights reserved.
@@ -134,7 +134,7 @@
 	// THE SOFTWARE.
 	//
 
-## License for Thirdparty/volk
+## License for DXGPU/include/dxgpu/volk
 
 	/**
 	 * volk
@@ -145,7 +145,7 @@
 	 * This library is distributed under the MIT License. See notice at the end of this file.
 	 */
 
-## License for Thirdparty/vulkan
+## License for DXGPU/include/vulkan and vk_video
 
 	/*
 	** Copyright (c) 2015-2019 The Khronos Group Inc.
@@ -323,3 +323,50 @@
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
     THE SOFTWARE.
+
+## License for DXWidgets/src/core/nanosvg
+
+	Copyright (c) 2013-14 Mikko Mononen memon@inside.org
+
+	This software is provided 'as-is', without any express or implied
+	warranty.  In no event will the authors be held liable for any damages
+	arising from the use of this software.
+
+	Permission is granted to anyone to use this software for any purpose,
+	including commercial applications, and to alter it and redistribute it
+	freely, subject to the following restrictions:
+
+	1. The origin of this software must not be misrepresented; you must not
+	claim that you wrote the original software. If you use this software
+	in a product, an acknowledgment in the product documentation would be
+	appreciated but is not required.
+	2. Altered source versions must be plainly marked as such, and must not be
+	misrepresented as being the original software.
+	3. This notice may not be removed or altered from any source distribution.
+
+## License for DXWidgets/src/core/picopng
+
+	picoPNG version 20101224
+	Copyright (c) 2005-2010 Lode Vandevenne
+
+	This software is provided 'as-is', without any express or implied
+	warranty. In no event will the authors be held liable for any damages
+	arising from the use of this software.
+
+	Permission is granted to anyone to use this software for any purpose,
+	including commercial applications, and to alter it and redistribute it
+	freely, subject to the following restrictions:
+
+	    1. The origin of this software must not be misrepresented; you must not
+	    claim that you wrote the original software. If you use this software
+	    in a product, an acknowledgment in the product documentation would be
+	    appreciated but is not required.
+	    2. Altered source versions must be plainly marked as such, and must not be
+	    misrepresented as being the original software.
+	    3. This notice may not be removed or altered from any source distribution.
+
+## License for Thirdparty/openal-soft
+
+OpenAL Soft is under the GNU Library General Public License, version 2, the
+text in `Thirdparty/openal-soft/COPYING`. windows-x86_64 builds it and ships
+it beside the engine as `OpenAL32.dll`, with that file.
