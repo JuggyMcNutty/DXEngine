@@ -1294,7 +1294,9 @@ Every other native the scripted runs compare matches the original
   has not read empty and set nothing (`GetConsole`); text that is no value
   of the property, by `SetPropertyText` or the console's `SET`, leaves an
   int, a byte or a bool as it was and makes a float 0, as the original's
-  import does, an int read as far as it is a number (`JunkConsole`). `LevelInfo`'s clock is
+  import does, an int read as far as it is a number and a name its first
+  token -- quoted, or a run of letters, digits, `_` and `-`, or else one
+  character (`JunkConsole`). `LevelInfo`'s clock is
   the original's
   ([small](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#small)).
   `Actor.GetBoundingBox` with no test place is the box where the actor is
