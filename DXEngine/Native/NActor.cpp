@@ -309,54 +309,59 @@ void NActor::GetMapName(UObject* Self, const std::string& NameEnding, const std:
 	ReturnValue = !maps.empty() ? maps.front() : std::string();
 }
 
+// The original's (Engine.dll AActor::execGetNextSkin 0x103b8f10): over the
+// .int files' registered Texture objects in their order, those whose name
+// starts with Prefix (without regard to case, over its length: an empty
+// prefix takes all). Dir 0 gives the one named CurrentSkin, 1 the one after
+// it (the first when it is last), -1 the one before it (none when it is
+// first); a CurrentSkin not among them gives the last of them; none at all,
+// two empty strings. The game's .int files register no Texture.
 void NActor::GetNextSkin(UObject* Self, const std::string& Prefix, const std::string& CurrentSkin, int Dir, std::string& SkinName, std::string& SkinDesc)
 {
-	// To do: is this even right? Why does the skin name have Mesh/ in front of it? Are we doing a workaround for a bug somewhere else?
-	std::string prefix;
-	size_t slashpos = Prefix.find_last_of('/');
-	if (slashpos != std::string::npos)
-		prefix = Prefix.substr(slashpos + 1);
-	else
-		prefix = Prefix;
-
-	Array<const IntObject*> skins;
-
-	// Filter list to only those with the matching skin prefix
-	for (const IntObject& skin : engine->packages->GetIntObjects("Texture"))
+	const Array<IntObject>& skins = engine->packages->GetIntObjects("Texture");
+	int best = -1, first = -1, last = -1;
+	bool passedCurrent = false;
+	for (int i = 0; i < (int)skins.size(); i++)
 	{
-		std::string skinName = skin.Name.ToString();
-		if (skinName.size() >= prefix.size() && skinName.substr(0, prefix.size()) == prefix)
-			skins.push_back(&skin);
-	}
-
-	// Find the previous or next skin relative to the CurrentSkin specified
-	if (!CurrentSkin.empty() && CurrentSkin != "None")
-	{
-		auto it = std::find_if(skins.begin(), skins.end(), [&](auto skin) { return skin->Name == CurrentSkin; });
-		if (it != skins.end())
+		std::string name = skins[i].Name.ToString();
+		if (!StrTools::startswith(name, Prefix, true))
+			continue;
+		if (passedCurrent)
 		{
-			int index = (int)std::distance(skins.begin(), it) + Dir;
-			if (index < 0)
-				index = (int)skins.size() - 1;
-			else if (index >= (int)skins.size())
-				index = 0;
-
-			SkinName = skins[index]->Name.ToString();
-			SkinDesc = skins[index]->Description;
-			return;
+			best = i;
+			break;
 		}
+		if (first == -1)
+			first = i;
+		if (StrTools::equals_ignore_case(name, CurrentSkin))
+		{
+			if (Dir == -1)
+			{
+				best = last;
+				break;
+			}
+			if (Dir == 0)
+			{
+				best = i;
+				break;
+			}
+			passedCurrent = true;
+		}
+		last = i;
 	}
-
-	// Grab first skin if skin wasn't found or none was specified
-	if (!skins.empty())
+	if (best == -1 && passedCurrent)
+		best = first;
+	if (best == -1)
+		best = last;
+	if (best < 0 || best >= (int)skins.size())
 	{
-		SkinName = skins.front()->Name.ToString();
-		SkinDesc = skins.front()->Description;
+		SkinName.clear();
+		SkinDesc.clear();
 	}
 	else
 	{
-		SkinName = {};
-		SkinDesc = {};
+		SkinName = skins[best].Name.ToString();
+		SkinDesc = skins[best].Description;
 	}
 }
 
