@@ -547,6 +547,11 @@ Rect X11DisplayWindow::GetClientFrame() const
 	unsigned int depth = 0;
 	/*Status status =*/ XGetGeometry(display, window, &root, &x, &y, &width, &height, &borderwidth, &depth);
 
+	// The place from the root, as SetClientFrame sets it (ICCCM 4.1.5), not
+	// from the parent, which under a reparenting manager is the frame
+	Window child = None;
+	XTranslateCoordinates(display, window, root, 0, 0, &x, &y, &child);
+
 	return Rect::xywh(x / dpiscale, y / dpiscale, width / dpiscale, height / dpiscale);
 }
 
