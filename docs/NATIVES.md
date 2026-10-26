@@ -1667,6 +1667,10 @@ A mod gets the original's loader and natives:
   original's linker has it: the live servers' anti-cheat packages (ANNA,
   DXNMS) point their classes' `ScriptText` at such exports. A save's exports
   are all made whatever their flags: DXEngine's own saves may lack them.
+- **A mod's packages and saves.** a package's or a save's property tag of an
+  element past its static array, of another type or of another struct is
+  logged and skipped, as the original's loader skips it, the object loading
+  on.
 - **Config files.** A class's config file that is not there is empty, its
   properties keeping their defaults, until the class writes it
   ([configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration)):

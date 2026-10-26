@@ -790,11 +790,31 @@ void PropertyDataBlock::Load(ObjectStream* stream)
 
 		void* data = Ptr(prop);
 
+		// A tag the class's property cannot take -- an element past its
+		// static array, another type, another struct -- is logged and its
+		// bytes skipped, the object loading on, as the original's
+		// SerializeTaggedProperties does (Core.dll 0x10126730); DXEngine
+		// threw, failing the whole package or save
+		std::string owner = Class ? Class->Name.ToString() : std::string("?");
 		if (header.arrayIndex < 0 || header.arrayIndex >= prop->ArrayDimension)
-			Exception::Throw("Array property is out of bounds!");
+		{
+			LogMessage("Array bounds in " + name.ToString() + " of " + owner + ": " + std::to_string(header.arrayIndex) + "/" + std::to_string(prop->ArrayDimension));
+			if (header.type != UPT_Bool)
+				stream->Skip(header.size);
+			continue;
+		}
 
 		prop->Flags |= ObjectFlags::TagExp;
-		prop->LoadValue(static_cast<uint8_t*>(data) + header.arrayIndex * prop->ElementPitch(), stream, header);
+		uint32_t start = stream->Tell();
+		try
+		{
+			prop->LoadValue(static_cast<uint8_t*>(data) + header.arrayIndex * prop->ElementPitch(), stream, header);
+		}
+		catch (const std::exception& e)
+		{
+			LogMessage(std::string(e.what()) + " in " + name.ToString() + " of " + owner + ": skipping " + std::to_string(header.size) + " bytes of type " + std::to_string((int)header.type));
+			stream->Seek(header.type != UPT_Bool ? start + header.size : start);
+		}
 	}
 }
 
