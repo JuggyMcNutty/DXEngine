@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "UploadManager.h"
+#include <numeric>
 #include "VulkanRenderDevice.h"
 #include "CachedTexture.h"
 #include <dxgpu/vulkanbuilders.h>
@@ -40,13 +41,25 @@ void UploadManager::UploadTexture(CachedTexture* tex, const TextureInfo& Info, b
 
 	TextureUploader* uploader = TextureUploader::GetUploader(Info.Format, renderer->Device->PhysicalDevice.Device);
 
+	// A top mip short of its bytes is none: the texture is the white texel,
+	// as the software device draws it (an image made for it stayed in no
+	// layout, its view bound as read-only). The levels are at most the
+	// chain down to 1x1: more would make an invalid image.
 	uint32_t maxDimension = renderer->Device.get()->PhysicalDevice.Properties.Properties.limits.maxImageDimension2D;
-	if (!uploader || width < 1 || height < 1 || (uint32_t)width > maxDimension || (uint32_t)height > maxDimension)
+	if (!uploader || width < 1 || height < 1 || (uint32_t)width > maxDimension || (uint32_t)height > maxDimension ||
+		Info.Mips[0].Data.size() < TextureUploader::SourceBytes(Info.Format, width, height))
 	{
 		width = 1;
 		height = 1;
 		mipcount = 1;
 		uploader = nullptr;
+	}
+	else
+	{
+		int maxLevels = 1;
+		while ((std::max(width, height) >> maxLevels) >= 1)
+			maxLevels++;
+		mipcount = std::min(mipcount, maxLevels);
 	}
 
 	VkFormat format = uploader ? uploader->GetVkFormat() : VK_FORMAT_R8G8B8A8_UNORM;
@@ -70,7 +83,7 @@ void UploadManager::UploadTexture(CachedTexture* tex, const TextureInfo& Info, b
 	tex->pendingUploads[1].clear();
 
 	if (uploader)
-		UploadData(tex, Info, masked, uploader);
+		UploadData(tex, Info, masked, uploader, mipcount);
 	else
 		UploadWhite(tex);
 }
@@ -107,26 +120,33 @@ void UploadManager::UploadTextureRect(CachedTexture* tex, const TextureInfo& Inf
 	UploadBufferPos += (int)pixelsSize;
 }
 
-// Each mip into the staging buffer and copied to its level: whole while it
-// fits, else in bands of rows -- whole blocks of a block format -- the buffer
-// waited on whenever it is full.
-void UploadManager::UploadData(CachedTexture* tex, const TextureInfo& Info, bool masked, TextureUploader* uploader)
+// Each level into the staging buffer and copied to it: whole while it fits,
+// else in bands of rows -- whole blocks of a block format -- the buffer
+// waited on whenever it is full. A level whose mip is not its size, or is
+// short of its bytes (a package's misfit chain), is zeros, as the GL device
+// has it: its copy once wrote outside the image and read past the mip. Each
+// band starts at a multiple of the texel's size and of 16, as a copy must
+// (an RGB8 band at an offset no multiple of 3 was an invalid copy).
+void UploadManager::UploadData(CachedTexture* tex, const TextureInfo& Info, bool masked, TextureUploader* uploader, int mipcount)
 {
 	int blockRows = uploader->GetBlockRows();
-	for (int level = 0; level < Info.NumMips; level++)
+	int texelSize = std::max(uploader->GetUploadSize(0, 0, 1, 1), 1);
+	int align = std::lcm(texelSize, 16);
+	int levelWidth = Info.Mips[0].Width;
+	int levelHeight = Info.Mips[0].Height;
+	for (int level = 0; level < mipcount; level++)
 	{
 		UnrealMipmap* Mip = &Info.Mips[level];
-		if (Mip->Data.empty() || Mip->Width < 1 || Mip->Height < 1)
-			continue;
+		bool fits = Mip->Width == levelWidth && Mip->Height == levelHeight && Mip->Data.size() >= TextureUploader::SourceBytes(Info.Format, Mip->Width, Mip->Height);
 
-		int bandSize = std::max(uploader->GetUploadSize(0, 0, Mip->Width, blockRows), 1);
-		int bandRows = std::max(BufferManager::UploadBufferSize / bandSize, 1) * blockRows;
-		for (int y = 0; y < Mip->Height; y += bandRows)
+		int bandSize = std::max(uploader->GetUploadSize(0, 0, levelWidth, blockRows), 1);
+		int bandRows = std::max((BufferManager::UploadBufferSize - align) / bandSize, 1) * blockRows;
+		for (int y = 0; y < levelHeight; y += bandRows)
 		{
-			int rows = std::min(bandRows, Mip->Height - y);
-			int size = uploader->GetUploadSize(0, y, Mip->Width, rows);
-			size = (size + 15) / 16 * 16; // memory alignment
-			WaitIfUploadBufferIsFull(size);
+			int rows = std::min(bandRows, levelHeight - y);
+			int size = uploader->GetUploadSize(0, y, levelWidth, rows);
+			WaitIfUploadBufferIsFull(size + align);
+			UploadBufferPos = (UploadBufferPos + align - 1) / align * align;
 
 			VkBufferImageCopy region = {};
 			region.bufferOffset = UploadBufferPos;
@@ -134,12 +154,17 @@ void UploadManager::UploadData(CachedTexture* tex, const TextureInfo& Info, bool
 			region.imageSubresource.mipLevel = level;
 			region.imageSubresource.layerCount = 1;
 			region.imageOffset = { 0, y, 0 };
-			region.imageExtent = { (uint32_t)Mip->Width, (uint32_t)rows, 1 };
+			region.imageExtent = { (uint32_t)levelWidth, (uint32_t)rows, 1 };
 			AddPendingUpload(tex, region, false);
 
-			uploader->UploadRect(renderer->Buffers->UploadData + UploadBufferPos, Mip, 0, y, Mip->Width, rows, Info.Palette, masked);
+			if (fits)
+				uploader->UploadRect(renderer->Buffers->UploadData + UploadBufferPos, Mip, 0, y, levelWidth, rows, Info.Palette, masked);
+			else
+				memset(renderer->Buffers->UploadData + UploadBufferPos, 0, size);
 			UploadBufferPos += size;
 		}
+		levelWidth = std::max(levelWidth >> 1, 1);
+		levelHeight = std::max(levelHeight >> 1, 1);
 	}
 }
 

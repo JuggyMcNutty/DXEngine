@@ -65,6 +65,25 @@ TextureUploader* TextureUploader::GetUploader(TextureFormat format, VkPhysicalDe
 
 /////////////////////////////////////////////////////////////////////////////
 
+// The bytes a mip of the format holds, as the package has them
+size_t TextureUploader::SourceBytes(TextureFormat format, int width, int height)
+{
+	size_t texels = (size_t)width * (size_t)height;
+	switch (format)
+	{
+	case TextureFormat::P8: return texels;
+	case TextureFormat::BGRA8_LM: return texels * 4;
+	case TextureFormat::R5G6B5: return texels * 2;
+	case TextureFormat::BC1: return (size_t)((width + 3) / 4) * ((height + 3) / 4) * 8;
+	case TextureFormat::RGB8: return texels * 3;
+	case TextureFormat::BGRA8: return texels * 4;
+	case TextureFormat::RGBA32_F: return texels * 16;
+	default: return 0;
+	}
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
 int TextureUploader_P8::GetUploadSize(int x, int y, int w, int h)
 {
 	return w * h * 4;

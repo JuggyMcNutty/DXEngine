@@ -29,6 +29,9 @@ public:
 	// format without a decoder returns nullptr, which the upload path turns
 	// into a white fallback texture.
 	static TextureUploader* GetUploader(TextureFormat format, VkPhysicalDevice physicalDevice = VK_NULL_HANDLE);
+	// The bytes a mip of the format holds in the package: a shorter one is
+	// no mip
+	static size_t SourceBytes(TextureFormat format, int width, int height);
 
 private:
 	VkFormat Format;

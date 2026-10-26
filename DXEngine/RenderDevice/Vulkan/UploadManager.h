@@ -23,7 +23,7 @@ public:
 	void ClearCache();
 
 private:
-	void UploadData(CachedTexture* tex, const TextureInfo& Info, bool masked, TextureUploader* uploader);
+	void UploadData(CachedTexture* tex, const TextureInfo& Info, bool masked, TextureUploader* uploader, int mipcount);
 	void UploadWhite(CachedTexture* tex);
 	void WaitIfUploadBufferIsFull(int bytes);
 	void AddPendingUpload(CachedTexture* tex, const VkBufferImageCopy& region, bool isPartial);
