@@ -308,6 +308,7 @@ TRIVIAL = [
     re.compile(r"^\s*return\s*(?:\w+|\{\s*\}|nullptr|false|true|0|0\.0f?|std::string\(\)|\"\")?\s*$"),
     re.compile(r"^\s*ReturnValue\s*=\s*(?:\{\s*\}|nullptr|false|true|-?\d+(?:\.\d*)?f?|\"[^\"]*\"|std::string\(\)|\w+\(\))\s*$"),
     re.compile(r"^\s*(?:auto|U\w+\s*\*|const\s+\w+\s*&?)\s*\w+\s*=\s*(?:UObject::)?(?:Cast|TryCast)\s*<.*>\s*\(.*\)\s*$", re.S),
+    re.compile(r"^\s*(?:throw\b|Exception::Throw\s*\().*$", re.S),  # a body that only throws does nothing for the game
     re.compile(r"^\s*$"),
 ]
 
