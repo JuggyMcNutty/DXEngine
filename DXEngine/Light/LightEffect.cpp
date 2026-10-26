@@ -136,13 +136,17 @@ void LightEffect::NoneEffect(LightEffectArgs* args)
 		if (_mm_movemask_ps(cmpdistmask) != 0)
 		{
 			__m128 len = _mm_sqrt_ps(lensqr); // float len = std::sqrt(lensqr);
-			__m128 rcpdist = _mm_rcp_ps(len); // float rcpdist = 1.0f / len;
+			// A texel at the light (len 0) faces it full on: angle 1, as
+			// PlainDX takes it, not 0 x inf (a NaN, undefined as an int)
+			__m128 lenmask = _mm_cmpgt_ps(len, _mm_setzero_ps());
+			__m128 rcpdist = _mm_and_ps(lenmask, _mm_rcp_ps(len)); // float rcpdist = len > 0.0f ? 1.0f / len : 0.0f;
 			Lx = _mm_mul_ps(Lx, rcpdist); // Lx *= rcpdist;
 			Ly = _mm_mul_ps(Ly, rcpdist); // Ly *= rcpdist;
 			Lz = _mm_mul_ps(Lz, rcpdist); // Lz *= rcpdist;
 			__m128 angleAttenuation = _mm_add_ps(_mm_add_ps(_mm_mul_ps(Lx, mmNx), _mm_mul_ps(Ly, mmNy)), _mm_mul_ps(Lz, mmNz)); // float angleAttenuation = Lx * Nx + Ly * Ny + Lz * Nz;
 			__m128 cmpmask = _mm_cmpge_ps(angleAttenuation, _mm_setzero_ps());
 			angleAttenuation = _mm_or_ps(_mm_and_ps(cmpmask, angleAttenuation), _mm_andnot_ps(cmpmask, _mm_sub_ps(_mm_setzero_ps(), angleAttenuation))); // angleAttenuation = angleAttenuation >= 0.0f ? angleAttenuation : -angleAttenuation;
+			angleAttenuation = _mm_or_ps(_mm_and_ps(lenmask, angleAttenuation), _mm_andnot_ps(lenmask, _mm_set_ps1(1.0f))); // angleAttenuation = len > 0.0f ? angleAttenuation : 1.0f;
 
 			//float distanceAttenuation = LightDistanceFalloff(unitdistsqr);
 			__m128 v = _mm_mul_ps(len, mmInvRadius); // float v = len * invRadius;
@@ -240,12 +244,16 @@ void LightEffect::NoneEffect(LightEffectArgs* args)
 #else
 			float len = std::sqrt(lensqr);
 #endif
-			float rcpdist = 1.0f / len;
+			// A texel at the light (len 0) faces it full on: angle 1, as
+			// PlainDX takes it, not 0 x inf (a NaN, undefined as an int)
+			float rcpdist = len > 0.0f ? 1.0f / len : 0.0f;
 			Lx *= rcpdist;
 			Ly *= rcpdist;
 			Lz *= rcpdist;
 			float angleAttenuation = Lx * Nx + Ly * Ny + Lz * Nz;
 			angleAttenuation = angleAttenuation >= 0.0f ? angleAttenuation : -angleAttenuation;
+			if (len <= 0.0f)
+				angleAttenuation = 1.0f;
 
 			//float distanceAttenuation = LightDistanceFalloff(unitdistsqr);
 			float v = len * invRadius;
@@ -414,12 +422,14 @@ void LightEffect::SpotlightEffect(LightEffectArgs* args)
 			if (distsqr < 1.0f)
 			{
 #ifdef USE_SSE2
-				float rcplen = _mm_cvtss_f32(_mm_rsqrt_ss(_mm_set_ss(lensqr)));
+				float rcplen = lensqr > 0.0f ? _mm_cvtss_f32(_mm_rsqrt_ss(_mm_set_ss(lensqr))) : 0.0f;
 #else
-				float rcplen = 1.0f / std::sqrt(lensqr);
+				float rcplen = lensqr > 0.0f ? 1.0f / std::sqrt(lensqr) : 0.0f;
 #endif
+				// A texel at the light faces it full on (angle 1), as
+				// PlainDX takes it, not 0 x inf
 				L *= rcplen;
-				float angleAttenuation = std::abs(dot(L, N));
+				float angleAttenuation = lensqr > 0.0f ? std::abs(dot(L, N)) : 1.0f;
 				float distanceAttenuation = LightDistanceFalloff(distsqr);
 				float cosDir = dot(L, spotDir);
 				float spotAttenuation = 1.0f - std::min((1.0f - cosDir) / (1.0f - lightCosOuterAngle), 1.0f);
