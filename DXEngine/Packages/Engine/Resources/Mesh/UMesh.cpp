@@ -211,7 +211,8 @@ void UMesh::Save(PackageStreamWriter* stream)
 
 	stream->WriteIndex((int)Verts.size());
 
-	if (false) // Deus Ex's packing, which Load reads, is off, as in Surreal Engine
+	// Deus Ex's packing, which Load reads (a mesh written by DXEngine then
+	// loads back; Surreal Engine's 4-byte packing did not)
 	{
 		for (const vec3& v : Verts)
 		{
