@@ -653,10 +653,20 @@ Package* PackageManager::LoadSaveSlot(const uint32_t slotNum)
 
 void PackageManager::ScanForMaps()
 {
+	// A map folder the paths name but the disk lacks is passed over, with a
+	// line in the log; the engine stopped at its start with a
+	// filesystem_error
 	for (auto& mapFolderPath : mapFolders)
 	{
-		for (const auto& dir_entry: fs::directory_iterator{mapFolderPath})
-			if (dir_entry.is_regular_file())
+		std::error_code ec;
+		fs::directory_iterator it(mapFolderPath, ec);
+		if (ec)
+		{
+			LogMessage("Map folder not found: " + mapFolderPath);
+			continue;
+		}
+		for (const auto& dir_entry : it)
+			if (dir_entry.is_regular_file(ec))
 				maps.push_back(dir_entry.path().filename().string());
 	}
 }

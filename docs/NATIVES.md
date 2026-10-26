@@ -1697,7 +1697,8 @@ A mod gets the original's loader and natives:
   or base rings on itself is refused; a dynamic array property of a
   dimension over 1 reads its element where it is; a name's length that is no
   name is refused; a string's, an array's, a sound's or a song's size that
-  is none is refused before anything is allocated.
+  is none is refused before anything is allocated; a map folder the paths
+  name but the disk lacks is passed over with a line in the log.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).
