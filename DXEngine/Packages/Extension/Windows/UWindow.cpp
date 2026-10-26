@@ -652,8 +652,11 @@ UObject* UWindow::GetFocusWindow()
 	}
 }
 
+// The original's (XWindow::GetGC 0x1004ddc0): the one GC with the window's
+// own state put in it, its state before kept until ReleaseGC
 UObject* UWindow::GetGC()
 {
+	engine->render->PushWindowGC(this);
 	return engine->dxgc;
 }
 
@@ -1362,7 +1365,8 @@ void UWindow::Raise()
 
 void UWindow::ReleaseGC(UObject* GC)
 {
-	// Do nothing here for now.
+	if (GC)
+		engine->render->PopWindowGC();
 }
 
 void UWindow::RemoveActorRef(UObject* refActor)

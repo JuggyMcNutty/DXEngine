@@ -21,6 +21,11 @@ public:
 	void DrawWindowInfo(UFont* font, UWindow* window, int depth, float& curY);
 	void DrawWindow(UWindow* window, float offsetX, float offsetY);
 	void ResetWindowGC(UWindow* window, float offsetX, float offsetY);
+	// A script's GetGC and ReleaseGC: the GC's state kept, the window's put in
+	// it, and put back
+	void PushWindowGC(UWindow* window);
+	void PopWindowGC();
+	Array<std::function<void()>> WindowGCStack;
 
 	void DrawGame(float levelTimeElapsed);
 	void OnMapLoaded();

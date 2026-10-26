@@ -154,6 +154,45 @@ void RenderSubsystem::ResetWindowGC(UWindow* window, float offsetX, float offset
 	engine->dxgc->offsetY = offsetY;
 }
 
+// The original's XWindow::GetGC (Extension.dll 0x1004ddc0) pushes the one
+// GC's state and copies the window's own into it; ReleaseGC (0x1004de50)
+// pops it. So a script measuring text outside a draw (a menu title's
+// preferred size) takes its own window's fonts and settings, not the last
+// drawn window's leftovers. The state is kept as a closure that puts it back.
+void RenderSubsystem::PushWindowGC(UWindow* window)
+{
+	UGC* gc = engine->dxgc;
+	auto hAlign = gc->HAlign(); auto polyFlags = gc->PolyFlags(); auto style = gc->Style(); auto textColor = gc->TextColor(); auto vAlign = gc->VAlign();
+	bool drawEnabled = gc->bDrawEnabled(), free = gc->bFree(), masked = gc->bMasked(), modulated = gc->bModulated(), parseMetachars = gc->bParseMetachars();
+	bool smoothed = gc->bSmoothed(), textTranslucent = gc->bTextTranslucent(), translucent = gc->bTranslucent(), wordWrap = gc->bWordWrap();
+	auto baselineOffset = gc->baselineOffset(); auto boldFont = gc->boldFont(); auto clipRect = gc->gcClipRect(); auto gcCount = gc->gcCount(); auto gcFree = gc->gcFree(); auto gcOwner = gc->gcOwner(); auto gcStack = gc->gcStack();
+	auto hMultiplier = gc->hMultiplier(); auto normalFont = gc->normalFont(); auto textPolyFlags = gc->textPolyFlags(); auto textVSpacing = gc->textVSpacing(); auto tileColor = gc->tileColor();
+	auto underlineHeight = gc->underlineHeight(); auto underlineTexture = gc->underlineTexture(); auto vMultiplier = gc->vMultiplier(); bool specialText = gc->SpecialTextEnabled;
+	float offsetX = gc->offsetX, offsetY = gc->offsetY;
+	WindowGCStack.push_back([=]()
+	{
+		gc->HAlign() = hAlign; gc->PolyFlags() = polyFlags; gc->Style() = style; gc->TextColor() = textColor; gc->VAlign() = vAlign;
+		gc->bDrawEnabled() = drawEnabled; gc->bFree() = free; gc->bMasked() = masked; gc->bModulated() = modulated; gc->bParseMetachars() = parseMetachars;
+		gc->bSmoothed() = smoothed; gc->bTextTranslucent() = textTranslucent; gc->bTranslucent() = translucent; gc->bWordWrap() = wordWrap;
+		gc->baselineOffset() = baselineOffset; gc->boldFont() = boldFont; gc->gcClipRect() = clipRect; gc->gcCount() = gcCount; gc->gcFree() = gcFree; gc->gcOwner() = gcOwner; gc->gcStack() = gcStack;
+		gc->hMultiplier() = hMultiplier; gc->normalFont() = normalFont; gc->textPolyFlags() = textPolyFlags; gc->textVSpacing() = textVSpacing; gc->tileColor() = tileColor;
+		gc->underlineHeight() = underlineHeight; gc->underlineTexture() = underlineTexture; gc->vMultiplier() = vMultiplier; gc->SpecialTextEnabled = specialText;
+		gc->offsetX = offsetX; gc->offsetY = offsetY;
+	});
+	// A script that never releases: the oldest kept state dropped past 64
+	if (WindowGCStack.size() > 64)
+		WindowGCStack.erase(WindowGCStack.begin());
+	ResetWindowGC(window, offsetX, offsetY);
+}
+
+void RenderSubsystem::PopWindowGC()
+{
+	if (WindowGCStack.empty())
+		return;
+	WindowGCStack.back()();
+	WindowGCStack.pop_back();
+}
+
 void RenderSubsystem::DrawWindow(UWindow* window, float offsetX, float offsetY)
 {
 	if (!window->bIsVisible())
