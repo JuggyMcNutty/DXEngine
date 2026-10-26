@@ -291,11 +291,13 @@ bool UnrealURL::Empty() const
 	return Map.empty() && Portal.empty() && Options.empty();
 }
 
+// Emptied whole, the port and protocol the defaults again: a relative
+// travel merged onto a cleared URL kept a joined server's port. No map
+// either, not the default Index.unr: a cleared travel URL is no travel
+// (Engine::Tick takes a travel from a map or a host).
 void UnrealURL::Clear()
 {
+	*this = UnrealURL();
 	Map.clear();
-	Portal.clear();
-	Options.clear();
-	Host.clear();
 }
 
