@@ -821,20 +821,35 @@ void NActor::InStasis(UObject* Self, BitfieldBool& ReturnValue)
 
 void NActor::ParabolicTrace(UObject* Self, vec3& finalLocation, std::optional<vec3> startVelocity, std::optional<vec3> startLocation, std::optional<bool> bCheckActors, std::optional<vec3> Cylinder, std::optional<float> maxTime, std::optional<float> elasticity, std::optional<bool> bBounce, std::optional<float> landingSpeed, std::optional<float> granularity, float& ReturnValue)
 {
-	// The original's (engine-dll.md, traces): a thrown thing's flight in
-	// steps. By default the actor's velocity, location, bCollideActors,
-	// collision cylinder and bBounce, 5 s, an elasticity of 0.9, a landing
-	// speed of 60, and steps of 0.025 s held between 0.005 and 1. Each
-	// step adds the zone's gravity to the velocity and moves by it and the
-	// zone's velocity, the speed held to the zone's terminal velocity. On
-	// a hit it lands if the surface is a floor (normal Z above 0.7) and it
-	// is not bouncing or is slower than the landing speed; else it
-	// bounces: the velocity mirrored about the surface and times the
-	// elasticity, the rest of the step slid along it. It fails -- 0, the
-	// start its final location -- on entering water, leaving the world, a
-	// step longer than about 1,580 units, or running out of time. NPCs use
-	// it for where a falling grenade lands and whether a throw is safe.
+	// The original's (Engine.dll AActor::ParabolicTrace 0x1036c0a0;
+	// engine-dll.md, traces): a thrown thing's flight in steps. By default
+	// the actor's velocity, location, bCollideActors, collision cylinder and
+	// bBounce, 5 s, an elasticity of 0.9, a landing speed of 60, and steps
+	// of 0.025 s held between 0.005 and 1. Each step adds the zone's gravity
+	// to the velocity and moves by it and the zone's velocity, the speed
+	// held to the zone's terminal velocity after (not after a bouncing
+	// step's hit). On a hit it lands if the surface is a floor (normal Z
+	// above 0.7) and it is not bouncing or is slower than the landing speed;
+	// else it bounces: the velocity mirrored about the surface and times the
+	// elasticity, the rest of the step slid along it; a second wall met by
+	// the slide mirrors it again and turns the slide (TwoWallAdjust) for one
+	// more move, a floor met by either landing. It fails -- 0, the start its
+	// final location -- on entering water, leaving the world, a step longer
+	// than about 1,580 units, or running out of time, the landing step
+	// counted. NPCs use it for where a falling grenade lands and whether a
+	// throw is safe.
+	//
+	// Each move is the original's (0x1036ca90), MoveActor's: the step's line
+	// traced 2 units past its end with the cylinder, the first hit the
+	// level's or a blocking actor's, none of the thrower or what stands on
+	// it; a hit ends the move 2 units short of it along the line (no move
+	// within 2 units), its time that of the move made over the step. So the
+	// thing lands 2 units and the trace's own tenth short of what it meets,
+	// as the original's does (ParabolicConsole: once 2.2 units nearer the
+	// floor, and a bouncing throw once failed). A move too short to trace
+	// keeps the last move's hit, as the original keeps it.
 	UActor* SelfActor = UObject::Cast<UActor>(Self);
+	ULevel* level = SelfActor->XLevel();
 	vec3 start = startLocation.value_or(SelfActor->Location());
 	vec3 velocity = startVelocity.value_or(SelfActor->Velocity());
 	bool checkActors = bCheckActors.value_or(SelfActor->bCollideActors());
@@ -845,105 +860,117 @@ void NActor::ParabolicTrace(UObject* Self, vec3& finalLocation, std::optional<ve
 	float landSpeed = landingSpeed.value_or(60.0f);
 	float step = std::clamp(granularity.value_or(0.025f), 0.005f, 1.0f);
 
-	finalLocation = start;
-	ReturnValue = 0.0f;
-
 	vec3 pos = start;
-	float timeElapsed = 0.0f;
-	vec3 hitLocation, hitNormal;
+	PointRegion region = engine->LevelInfo->GetLocZone(pos);
+	vec3 hitNormal(0.0f);
+	float hitTime = 1.0f;
 
-	while (true)
+	auto move = [&](const vec3& delta)
 	{
-		if (timeElapsed >= timeLimit)
-			return; // ran out of time: it fails
+		if (std::abs(delta.x) < 0.0001f && std::abs(delta.y) < 0.0001f && std::abs(delta.z) < 0.0001f)
+			return;
+		float dist = length(delta);
+		vec3 dir = delta * (1.0f / dist);
+		vec3 traced = delta + dir * 2.0f;
+		hitTime = 1.0f;
+		vec3 moved = delta;
+		for (const CollisionHit& hit : level->Collision.Trace(pos, pos + traced, cylinder.z, cylinder.x, checkActors, true, false))
+		{
+			// IsBasedOn: whether the hit actor stands on the thrower, or is it
+			if (hit.Actor && (SelfActor->IsBasedOn(hit.Actor) || !hit.Actor->bBlockActors()))
+				continue;
+			hitNormal = hit.Normal;
+			float hitDist = (dist + 2.0f) * hit.Fraction;
+			if (hitDist > 2.0f)
+			{
+				moved = traced * hit.Fraction - dir * 2.0f;
+				hitTime = (hitDist - 2.0f) / dist;
+			}
+			else
+			{
+				moved = vec3(0.0f);
+				hitTime = 0.0f;
+			}
+			break;
+		}
+		pos += moved;
+		region = engine->LevelInfo->GetLocZone(pos);
+	};
+	auto landing = [&](const vec3& normal, float speedSquared)
+	{
+		return normal.z > 0.7f && (!bouncing || landSpeed * landSpeed > speedSquared);
+	};
 
-		UZoneInfo* zone = UObject::TryCast<UZoneInfo>(engine->LevelInfo->GetLocZone(pos).Zone);
-		if (!zone)
-			return; // left the world
-		if (zone->bWaterZone())
-			return; // entered water
-
+	// The original's loop to the letter, its failures' times with it: on
+	// water the step count is set to 0 and then counted, so the time is one
+	// step's; at the end's checks it stays 0
+	int steps = 0;
+	bool done = false;
+	while (!done)
+	{
+		UZoneInfo* zone = region.Zone ? region.Zone : engine->LevelInfo;
 		velocity += zone->ZoneGravity() * step;
 		vec3 delta = (velocity + zone->ZoneVelocity()) * step;
-		if (length(delta) > 1580.0f)
-			return; // a step too long: it fails
-
+		move(delta);
+		zone = region.Zone ? region.Zone : engine->LevelInfo;
 		bool hitThisStep = false;
-		if (SelfActor->Trace(hitLocation, hitNormal, pos + delta, pos, checkActors, cylinder))
+		if (zone->bWaterZone())
+		{
+			steps = 0;
+			pos = start;
+			done = true;
+		}
+		else if (hitTime < 1.0f)
 		{
 			hitThisStep = true;
-			if (hitNormal.z > 0.7f && (!bouncing || length(velocity) < landSpeed))
+			if (landing(hitNormal, dot(velocity, velocity)))
 			{
-				// landed on a floor
-				finalLocation = hitLocation;
-				ReturnValue = timeElapsed + step;
-				return;
+				done = true;
 			}
-			// bounce: the velocity mirrored about the surface and times the
-			// elasticity, the rest of the step slid along it
-			velocity = (velocity - 2.0f * dot(velocity, hitNormal) * hitNormal) * bounciness;
-			vec3 remaining = (pos + delta) - hitLocation;
-			vec3 slid = remaining - dot(remaining, hitNormal) * hitNormal;
-			vec3 slidTarget = hitLocation + slid;
-			pos = hitLocation;
-			if (dot(slid, delta) >= 0.0f)
+			else
 			{
-				// The slide's own hit, or its end where it meets nothing: Trace
-				// gives a miss as zero (the original's), which once restarted the
-				// flight at the world's origin.
-				vec3 slideHit, slideNormal;
-				if (SelfActor->Trace(slideHit, slideNormal, slidTarget, hitLocation, checkActors, cylinder))
+				vec3 firstNormal = hitNormal;
+				velocity = (velocity - hitNormal * (2.0f * dot(velocity, hitNormal))) * bounciness;
+				vec3 slide = (delta - hitNormal * dot(delta, hitNormal)) * (1.0f - hitTime);
+				if (dot(slide, delta) >= 0.0f)
 				{
-					// A second wall, as the original's (Engine.dll 0x1036c0a0)
-					// takes it: the velocity mirrored about it too, a floor
-					// there landing; then the slide turned by TwoWallAdjust
-					// and traced once more, a floor met landing, and the
-					// flight on from where that ends -- after a landing at
-					// the second wall too, whose place is that end
-					velocity = (velocity - 2.0f * dot(velocity, slideNormal) * slideNormal) * bounciness;
-					bool landed = slideNormal.z > 0.7f && (!bouncing || length(velocity) < landSpeed);
-					float slidLength = length(slid);
-					float hitTime = slidLength > 0.0f ? length(slideHit - hitLocation) / slidLength : 0.0f;
-					vec3 adjusted = slid;
-					vec3 desiredDir = length(delta) > 0.0f ? normalize(delta) : vec3(0.0f);
-					UActor::TwoWallAdjust(desiredDir, adjusted, slideNormal, hitNormal, hitTime);
-					vec3 thirdHit, thirdNormal;
-					if (SelfActor->Trace(thirdHit, thirdNormal, slideHit + adjusted, slideHit, checkActors, cylinder))
+					move(slide);
+					if (hitTime < 1.0f)
 					{
-						pos = thirdHit;
-						if (!landed && thirdNormal.z > 0.7f && (!bouncing || length(velocity) < landSpeed))
-							landed = true;
+						velocity = (velocity - hitNormal * (2.0f * dot(velocity, hitNormal))) * bounciness;
+						if (landing(hitNormal, dot(velocity, velocity)))
+							done = true;
+						vec3 secondNormal = hitNormal;
+						float deltaLength = length(delta);
+						vec3 desiredDir = deltaLength > 0.0f ? delta * (1.0f / deltaLength) : vec3(0.0f);
+						UActor::TwoWallAdjust(desiredDir, slide, secondNormal, firstNormal, hitTime);
+						move(slide);
+						// The original holds the landing speed against the turned
+						// slide's length, a distance of a few units: a floor met
+						// by this move lands
+						if (!done && hitTime < 1.0f && landing(hitNormal, dot(slide, slide)))
+							done = true;
 					}
-					else
-					{
-						pos = slideHit + adjusted;
-					}
-					if (landed)
-					{
-						finalLocation = pos;
-						ReturnValue = timeElapsed + step;
-						return;
-					}
-				}
-				else
-				{
-					pos = slidTarget;
 				}
 			}
 		}
-		else
+		if (!bouncing || !hitThisStep)
 		{
-			pos = pos + delta;
+			float terminal = zone->ZoneTerminalVelocity();
+			float speedSquared = dot(velocity, velocity);
+			if (speedSquared > terminal * terminal)
+				velocity = speedSquared > 0.0f ? velocity * (terminal / std::sqrt(speedSquared)) : vec3(0.0f);
 		}
-
-		// The speed held to the zone's terminal velocity at the step's end,
-		// not in a bouncing step that hit, as the original holds it
-		float terminal = zone->ZoneTerminalVelocity();
-		if ((!bouncing || !hitThisStep) && terminal > 0.0f && length(velocity) > terminal)
-			velocity = normalize(velocity) * terminal;
-
-		timeElapsed += step;
+		steps++;
+		if (region.ZoneNumber == 0 || (float)steps * step > timeLimit || dot(delta, delta) > 2500000.0f)
+		{
+			steps = 0;
+			pos = start;
+			done = true;
+		}
 	}
+	finalLocation = pos;
+	ReturnValue = (float)steps * step;
 }
 
 

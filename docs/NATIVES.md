@@ -1160,6 +1160,14 @@ Every other native the scripted runs compare matches the original
   with its wall is met before the wall (`VisibleConsole` on DXMP_Silo: 55
   movers' lines each way, their hits, normals, `TraceTexture`'s and
   `TraceActors`' alike; `TraceConsole`, `MoverConsole`).
+- **A thrown thing's flight** (`ParabolicTrace`) moves as the original's
+  `MoveActor` moves
+  ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
+  each step's line checked 2 units past its end, the move ended 2 units
+  short of what it meets, so the thing lands 2 units and the trace's tenth
+  short of the floor and bounces on from there; its failures' times the
+  original's. `ParabolicConsole`: 30 throws from the island, bouncing and
+  not, their landings and times alike, one coordinate a thousandth apart.
 - **A mover's move** is `ULevel::MoveActor`'s
   ([moving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#moving)):
   what stands on it carried first, then its encroachment checked at its new
