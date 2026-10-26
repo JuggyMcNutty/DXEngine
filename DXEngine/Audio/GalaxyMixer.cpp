@@ -188,7 +188,11 @@ void GalaxyMixer::MixVoice(Voice& voice, float* dry, float* send, int frames)
 		uint64_t index = voice.position >> 16;
 		if (loop && index >= sample.loopEnd)
 		{
-			voice.position -= (sample.loopEnd - sample.loopStart) << 16;
+			// As often as a step longer than the loop needs
+			uint64_t length = (uint64_t)(sample.loopEnd - sample.loopStart) << 16;
+			do
+				voice.position -= length;
+			while ((voice.position >> 16) >= sample.loopEnd);
 			index = voice.position >> 16;
 		}
 		else if (!loop && index >= sample.frames)
