@@ -55,11 +55,14 @@ void ULargeTextWindow::ParentRequestedPreferredSize(bool bWidthSpecified, float&
 	UGC::TextSettings saved = gc->UseTextSettings(this);
 
 	float wrap = (bWidthSpecified && bWordWrap()) ? std::max(preferredWidth - (hMargin() + hMargin()), 0.0f) : 0.0f;
-	float lineHeight = std::max(gc->GetFontHeight(false), 1.0f);
+	// The row height is the script's lineHeight too (the original's
+	// ComputeLineHeight 0x1002d9d0 sets it for every large text window)
+	float rowHeight = std::max(gc->GetFontHeight(false), 1.0f);
+	lineHeight() = rowHeight;
 	float widest = 0.0f;
 	int rows = CountRows(gc, wrap, widest);
 	preferredWidth = widest;
-	preferredHeight = rows > 0 ? rows * lineHeight + (rows - 1) * vSpace() : lineHeight;
+	preferredHeight = rows > 0 ? rows * rowHeight + (rows - 1) * vSpace() : rowHeight;
 
 	if (!bHeightSpecified && (minLines() >= 0 || MaxLines() >= 0))
 	{
