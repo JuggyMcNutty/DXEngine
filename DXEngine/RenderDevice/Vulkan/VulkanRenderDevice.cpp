@@ -1518,6 +1518,12 @@ void VulkanRenderDevice::DrawPresentTexture(int width, int height)
 	if (GammaMode == 1) presentShader |= 2;
 	if (pushconstants.Brightness != 0.0f || pushconstants.Contrast != 1.0f || pushconstants.Saturation != 1.0f) presentShader |= (clamp(GrayFormula, 0, 2) + 1) << 2;
 
+	// Laid out for the swapchain's extent, which the present render pass
+	// covers, not the size asked for: the surface's range holds the extent,
+	// and a SUBOPTIMAL swapchain is not remade, so the two differed for a
+	// frame of a resize (the picture cut off, or in the corner)
+	width = Commands->SwapChain->Width();
+	height = Commands->SwapChain->Height();
 	float scale = std::min(width / (float)vpWidth, height / (float)vpHeight);
 	int letterboxWidth = (int)std::round(vpWidth * scale);
 	int letterboxHeight = (int)std::round(vpHeight * scale);
