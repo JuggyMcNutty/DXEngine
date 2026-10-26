@@ -139,7 +139,10 @@ void LightEffect::NoneEffect(LightEffectArgs* args)
 			// A texel at the light (len 0) faces it full on: angle 1, as
 			// PlainDX takes it, not 0 x inf (a NaN, undefined as an int)
 			__m128 lenmask = _mm_cmpgt_ps(len, _mm_setzero_ps());
-			__m128 rcpdist = _mm_and_ps(lenmask, _mm_rcp_ps(len)); // float rcpdist = len > 0.0f ? 1.0f / len : 0.0f;
+			// An exact division, as the NEON and scalar lanes divide: rcp's
+			// 12-bit estimate put the SSE2 build's light maps off by up to
+			// 0.1 of a level
+			__m128 rcpdist = _mm_and_ps(lenmask, _mm_div_ps(_mm_set1_ps(1.0f), len)); // float rcpdist = len > 0.0f ? 1.0f / len : 0.0f;
 			Lx = _mm_mul_ps(Lx, rcpdist); // Lx *= rcpdist;
 			Ly = _mm_mul_ps(Ly, rcpdist); // Ly *= rcpdist;
 			Lz = _mm_mul_ps(Lz, rcpdist); // Lz *= rcpdist;
@@ -422,7 +425,9 @@ void LightEffect::SpotlightEffect(LightEffectArgs* args)
 			if (distsqr < 1.0f)
 			{
 #ifdef USE_SSE2
-				float rcplen = lensqr > 0.0f ? _mm_cvtss_f32(_mm_rsqrt_ss(_mm_set_ss(lensqr))) : 0.0f;
+				// Exact, as the other builds': rsqrt's estimate put a spotlight's
+				// cone off by up to 3% at its centre
+				float rcplen = lensqr > 0.0f ? 1.0f / _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(lensqr))) : 0.0f;
 #else
 				float rcplen = lensqr > 0.0f ? 1.0f / std::sqrt(lensqr) : 0.0f;
 #endif
