@@ -248,16 +248,10 @@ set(DXCOMMON_SOURCES
 	DXEngine/Native/NTextWindow.h
 	DXEngine/Native/NTileWindow.cpp
 	DXEngine/Native/NTileWindow.h
-	DXEngine/Native/NTimeDemo.cpp
-	DXEngine/Native/NTimeDemo.h
 	DXEngine/Native/NToggleWindow.cpp
 	DXEngine/Native/NToggleWindow.h
 	DXEngine/Native/NViewportWindow.cpp
 	DXEngine/Native/NViewportWindow.h
-	DXEngine/Native/NWebRequest.cpp
-	DXEngine/Native/NWebRequest.h
-	DXEngine/Native/NWebResponse.cpp
-	DXEngine/Native/NWebResponse.h
 	DXEngine/Native/NWindow.cpp
 	DXEngine/Native/NWindow.h
 	DXEngine/RenderDevice/RenderDevice.cpp

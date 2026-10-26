@@ -275,11 +275,8 @@
 #include "Native/NTextLogWindow.h"
 #include "Native/NTextWindow.h"
 #include "Native/NTileWindow.h"
-#include "Native/NTimeDemo.h"
 #include "Native/NToggleWindow.h"
 #include "Native/NViewportWindow.h"
-#include "Native/NWebRequest.h"
-#include "Native/NWebResponse.h"
 #include "Native/NWindow.h"
 
 PackageManager::PackageManager(const GameLaunchInfo& launchInfo) : launchInfo(launchInfo)
@@ -1426,11 +1423,8 @@ void PackageManager::RegisterFunctions()
 	NTextLogWindow::RegisterFunctions();
 	NTextWindow::RegisterFunctions();
 	NTileWindow::RegisterFunctions();
-	NTimeDemo::RegisterFunctions();
 	NToggleWindow::RegisterFunctions();
 	NViewportWindow::RegisterFunctions();
-	NWebRequest::RegisterFunctions();
-	NWebResponse::RegisterFunctions();
 	NWindow::RegisterFunctions();
 }
 
