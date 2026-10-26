@@ -1141,9 +1141,15 @@ void NObject::Square(float A, float& ReturnValue)
 	ReturnValue = A * A;
 }
 
+// The original's (Core.dll execStaticSaveConfig 0x1013e7c0): the class's
+// defaults, from a class context (Self the class itself) and from an
+// object's alike, never the object's own values
 void NObject::StaticSaveConfig(UObject* Class)
 {
-	Class->SaveConfig();
+	UClass* cls = UObject::TryCast<UClass>(Class);
+	if (!cls)
+		cls = Class->Class;
+	cls->SaveConfig();
 }
 
 void NObject::SubtractEqual_ByteByte(uint8_t& A, uint8_t B, uint8_t& ReturnValue)

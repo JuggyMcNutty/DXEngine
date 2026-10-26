@@ -1671,7 +1671,8 @@ A mod gets the original's loader and natives:
   whole. The
   original rewrites each file whole, CR LF, comments gone (`ConfigConsole`:
   a class's own `DXCapConfig.ini`, CR LF or not there, read and written back
-  alike).
+  alike). `StaticSaveConfig` from an object writes the class's defaults, as
+  from the class (`ConfigConsole`).
 - **The natives no stock script calls** (`ModConsole`): `ResetConfig`, a
   System or User class's section copied from `Default.ini` or `DefUser.ini`
   and its config read again into the class, its subclasses and their
