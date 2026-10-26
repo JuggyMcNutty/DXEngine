@@ -455,14 +455,17 @@ void X11DisplayWindow::UnlockCursor()
 	ShowCursor(true);
 }
 
+// A widget's drag (a scrollbar's thumb) follows the pointer past the window:
+// the pointer grabbed, still shown. Hiding it is the game's raw-motion mode,
+// which warps it to the centre and passes no move on
 void X11DisplayWindow::CaptureMouse()
 {
-	ShowCursor(false);
+	XGrabPointer(display, window, True, ButtonPressMask | ButtonReleaseMask | PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
 }
 
 void X11DisplayWindow::ReleaseMouseCapture()
 {
-	ShowCursor(true);
+	XUngrabPointer(display, CurrentTime);
 }
 
 void X11DisplayWindow::Update()
