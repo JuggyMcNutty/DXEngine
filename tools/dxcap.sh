@@ -119,6 +119,22 @@ DX_ROOT="${DX_ROOT:-$(cd "$HERE/../.." && pwd)}"
 say() { printf '%s\n' "$*" >&2; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
+# An interrupt ends what the script started too: the jobs it backgrounded
+# start with SIGINT ignored and timeout puts the engine in a process group
+# of its own, so a Ctrl-C ended the script alone, the engine running to its
+# limit and grab.py until killed by hand.
+GRAB_PID=""
+on_interrupt() {
+    trap - INT TERM
+    [ -z "$GRAB_PID" ] || kill "$GRAB_PID" 2>/dev/null || true
+    pkill -f "^DeusEx.exe" 2>/dev/null || true
+    pkill -x DXEngine 2>/dev/null || true
+    pkill -x DXEngine.exe 2>/dev/null || true
+    rec_stop 2>/dev/null || true
+    exit 130
+}
+trap on_interrupt INT TERM
+
 GAME="$DX_ROOT/gamefiles"
 CAP="$DX_ROOT/build/dxcap"
 SDK="$DX_ROOT/reference/ReleaseSDK1112f/System"
@@ -650,6 +666,7 @@ cmd_original() {
     local gpid=""
     python3 "$HERE/dxcap/grab.py" "$dir" "$XDISPLAY" '^Deus Ex$' "$WINDOW_X" "$WINDOW_Y" 2> "$dir/grab.log" &
     gpid=$!
+    GRAB_PID=$gpid
 
     [ "${DXCAP_RECORD:-0}" != 1 ] || rec_start "$dir/audio.wav"
     # Started straight on the desktop's X display (no Wine desktop), at the
@@ -682,6 +699,7 @@ cmd_original() {
 
     kill "$gpid" 2>/dev/null || true
     wait "$gpid" 2>/dev/null || true
+    GRAB_PID=""
     # The game's own shots, black here, stay in the view; the grabbed frames
     # stand for them.
     local f
