@@ -641,13 +641,16 @@ Array<std::pair<UNavigationPoint*, float>> UPawn::GetPathnodeList(UActor* fromPo
 	return nodes;
 }
 
-// The original's ComputePathnodeDistances (0x103c8910): clears the paths,
-// then sets each node's visitedWeight to its shortest distance over the
-// path network from GetPathnodeList's nodes. No script calls it.
+// The original's ComputePathnodeDistances (0x103c8910): clears the paths
+// (clearPaths: every node's visitedWeight 10,000,000, bEndPoint off, the
+// open list empty, the cost from SpecialCost or ExtraCost), then sets each
+// node's visitedWeight to its shortest distance over the path network from
+// GetPathnodeList's nodes, relaxing each node's paths (the original's
+// RelaxPathnodeDistances, depth first; a queue by distance here reaches the
+// same). No script calls it.
 void UPawn::ComputePathnodeDistances(UActor* startActor)
 {
-	for (UNavigationPoint* nav = Level()->NavigationPointList(); nav; nav = nav->nextNavigationPoint())
-		nav->visitedWeight() = INT_MAX;
+	ClearPaths();
 
 	using Entry = std::pair<float, UNavigationPoint*>;
 	std::priority_queue<Entry, std::vector<Entry>, std::greater<Entry>> queue;
