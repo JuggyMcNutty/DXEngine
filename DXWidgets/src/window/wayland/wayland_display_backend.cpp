@@ -665,8 +665,9 @@ static int64_t GetTimePoint()
 
 int WaylandDisplayBackend::GetTimerTimeout()
 {
+	// No timer: the loop waits for an event (0 returned at once, spinning)
 	if (m_timers.empty())
-		return 0;
+		return -1;
 
 	int64_t nextTime = m_timers.front()->nextTime;
 	for (auto& timer : m_timers)
