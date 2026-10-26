@@ -136,6 +136,7 @@ public:
 	Size GetClosestResolution(Size resolution) const;
 
 protected:
+	void OnWindowPaint() override;
 	void OnPaint(Canvas* canvas) override;
 	bool OnMouseDown(const Point& pos, InputKey key) override;
 	bool OnMouseDoubleclick(const Point& pos, InputKey key) override;

@@ -75,6 +75,14 @@ Array<Size> GameWindow::QueryAvailableResolutions() const
 	return sizes;
 }
 
+// A paint event (the window shown, exposed, resized, its full screen
+// toggled) draws nothing here: the game draws every frame itself (DrawGame),
+// and Widget's repaint would lock the render device cleared to the theme's
+// window background and present that, a solid frame between the game's.
+void GameWindow::OnWindowPaint()
+{
+}
+
 void GameWindow::OnPaint(Canvas* canvas)
 {
 	windowHost->OnWindowPaint();
