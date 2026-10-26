@@ -177,7 +177,9 @@ static HICON CreateIconFromImageList(const std::vector<std::shared_ptr<Image>>& 
 	BITMAPV5HEADER bmp_header = {};
 	bmp_header.bV5Size = sizeof(BITMAPV5HEADER);
 	bmp_header.bV5Width = width;
-	bmp_header.bV5Height = height;
+	// Top-down, as the image's rows are: a positive height is bottom-up,
+	// the icon drawn upside down (the cursor's code flips its rows instead)
+	bmp_header.bV5Height = -height;
 	bmp_header.bV5Planes = 1;
 	bmp_header.bV5BitCount = 32;
 	bmp_header.bV5Compression = BI_RGB;
