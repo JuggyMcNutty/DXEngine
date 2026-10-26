@@ -292,8 +292,11 @@ bool TraceTester::TraceAnyHit(vec3 from, vec3 to, UActor* tracingActor, bool tra
 	{
 		// Deus Ex's is the original's FastLineCheck: its walk down the
 		// level's BSP, blocked by any solid leaf the segment touches, the
-		// start's included; the movers where the BSP filed them besides
-		if (GetLevel()->Collision.FiledMoversBlock(from, to, visibilityOnly))
+		// start's included; the movers where the BSP filed them besides --
+		// their invisible and portal polygons too, as the walk is stopped by
+		// a node that does not block visibility (engine-dll.md, FastTrace),
+		// so a mesh light's shadow line passes neither
+		if (GetLevel()->Collision.FiledMoversBlock(from, to, false))
 			return true;
 		return !TraceRayModel::FastWalk(GetLevel()->Model, to_dvec3(from), to_dvec3(to));
 	}
