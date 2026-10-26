@@ -232,7 +232,14 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 	}
 	multisample = std::max(multisample, 1);
 
-	if (SceneBuffers.Width == width && SceneBuffers.Height == height && multisample == SceneBuffers.Multisample && SceneBuffers.ColorBuffer && SceneBuffers.HitBuffer && SceneBuffers.PPHitBuffer && SceneBuffers.StagingHitBuffer && SceneBuffers.DepthBuffer && SceneBuffers.PPImage[0] && SceneBuffers.PPImage[1])
+	// The set is made when all of it is: a throw while a framebuffer or a
+	// bloom level was being made left a half-made set that the next Lock at
+	// the size took as whole, and Unlock or a read-back then dereferenced a
+	// null
+	if (SceneBuffers.Width == width && SceneBuffers.Height == height && multisample == SceneBuffers.Multisample &&
+		SceneBuffers.ColorBuffer && SceneBuffers.HitBuffer && SceneBuffers.PPHitBuffer && SceneBuffers.StagingHitBuffer && SceneBuffers.DepthBuffer && SceneBuffers.PPImage[0] && SceneBuffers.PPImage[1] &&
+		SceneBuffers.Framebuffer && SceneBuffers.HitFramebuffer && SceneBuffers.PPHitFramebuffer && SceneBuffers.PPFramebuffer[0] && SceneBuffers.PPFramebuffer[1] &&
+		SceneBuffers.BlurLevels[SceneBuffers.NumBloomLevels - 1].HFramebuffer && SceneBuffers.BlurLevels[SceneBuffers.NumBloomLevels - 1].VFramebuffer)
 		return;
 
 	SceneBuffers.Framebuffer.reset();
