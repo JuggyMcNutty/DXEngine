@@ -1506,13 +1506,17 @@ keep pointing at the deleted decal.
 **`Object.CriticalDelete` 751** (20 call sites). The original frees the
 object at once, whatever still refers to it
 ([`CriticalDelete`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#criticaldelete)).
-DXEngine's flags it (`EliminateObject`), destroying an actor first: it goes
-at the next collection, which makes every reference to it None, and until
-then it stays as it was, which `NanoKeyRing.RemoveAllKeys` relies on as it
-reads the next key from the one it deleted. Gone to the script at once as
-the original's: `AllObjects`, the console's `SET` and a find by name pass it
-over, and a save writes a reference to it as None. Code, a package and the
-engine's own objects are not deleted (the log says so).
+DXEngine's flags it (`EliminateObject`): it goes at the next collection,
+which makes every reference to it None, and until then it stays as it was,
+which `NanoKeyRing.RemoveAllKeys` relies on as it reads the next key from
+the one it deleted. Gone to the script at once as the original's:
+`AllObjects`, the console's `SET` and a find by name pass it over, and a
+save writes a reference to it as None. An actor is destroyed instead and
+goes with the destroyed actors; one whose `Destroy` refuses (`bStatic`,
+`bNoDelete`) stays, the log saying so, where the original frees it with the
+level still pointing at it. Code, a package and the engine's own objects --
+the levels, their infos and games, the save info and the root window -- are
+not deleted (the log says so).
 
 ## Small
 
@@ -1755,6 +1759,10 @@ A mod gets the original's loader and natives:
   original's SetupDynamics passes it (of the game's classes only `Decal`
   sets the flag, and a decal is drawn with its surface); an actor at no
   place (a NaN location) sorts nearest among the translucent.
+- **A mod's deletions and sizes.** a `CriticalDelete` of an actor destroys
+  it, with the destroyed actors (its flag once cut their chain), one whose
+  `Destroy` refuses staying, and of the levels, their infos and games, the
+  save info or the root window nothing.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).

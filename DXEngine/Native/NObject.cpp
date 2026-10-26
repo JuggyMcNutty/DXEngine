@@ -19,6 +19,12 @@
 #include "Packages/Engine/UCanvas.h"
 #include "Packages/Engine/UViewport.h"
 #include "Packages/Engine/Actors/UActor.h"
+#include "Packages/Engine/Actors/Info/ULevelInfo.h"
+#include "Packages/Engine/Actors/Info/UGameInfo.h"
+#include "Packages/DeusEx/UDeusExLevelInfo.h"
+#include "Packages/DeusEx/UDeusExSaveInfo.h"
+#include "Packages/Extension/Windows/TabGroup/URootWindow.h"
+#include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Core/USubsystem.h"
 #include "Packages/Core/UPackage.h"
 #include "Packages/Core/UEnum.h"
@@ -378,20 +384,33 @@ void NObject::Disable(UObject* Self, const NameString& ProbeFunc)
 // the next collection, which makes every reference to it None: until then
 // it is as it was, so a script that reads the object it just deleted (as
 // NanoKeyRing.RemoveAllKeys does) reads it whole. An actor is destroyed
-// first. Code, a package and the engine's own objects are not deleted.
+// instead, and goes with the destroyed actors (ULevel::CleanupDestroyed):
+// flagged at once, its link in their chain was made None at the next
+// collection, cutting the chain behind it; one whose Destroy refuses
+// (bStatic, bNoDelete) stays, logged, where the original frees it with the
+// level's list, its BSP node and the collision hash still pointing at it.
+// Code, a package and the engine's own objects -- the levels, their infos
+// and games, the save info and the root window among them -- are not
+// deleted: the main loop reads them unchecked.
 void NObject::CriticalDelete(UObject* Self, UObject* myObject)
 {
 	if (!myObject || AnyFlags(myObject->Flags, ObjectFlags::EliminateObject))
 		return;
 	bool engineHeld = myObject == engine->client || myObject == engine->viewport || myObject == engine->canvas || myObject == engine->console ||
-		myObject == engine->audiodev || myObject == engine->renderdev || myObject == engine->netdev || myObject == engine->gameengine || myObject == engine->dxgc;
-	if (UObject::TryCast<UField>(myObject) || UObject::TryCast<UPackage>(myObject) || UObject::TryCast<USubsystem>(myObject) || engineHeld)
+		myObject == engine->audiodev || myObject == engine->renderdev || myObject == engine->netdev || myObject == engine->gameengine || myObject == engine->dxgc ||
+		myObject == engine->LevelInfo || myObject == engine->GameInfo || myObject == engine->DeusExLevelInfo || myObject == engine->dxSaveInfo || myObject == engine->dxRootWindow ||
+		myObject == engine->EntryLevelInfo || myObject == engine->EntryGameInfo || myObject == engine->EntryDeusExLevelInfo;
+	if (UObject::TryCast<UField>(myObject) || UObject::TryCast<UPackage>(myObject) || UObject::TryCast<USubsystem>(myObject) || UObject::TryCast<ULevelBase>(myObject) || engineHeld)
 	{
 		LogMessage("CriticalDelete: not deleting " + UObject::GetUClassName(myObject).ToString() + " " + myObject->Name.ToString());
 		return;
 	}
 	if (UActor* actor = UObject::TryCast<UActor>(myObject))
-		actor->Destroy();
+	{
+		if (!actor->Destroy())
+			LogMessage("CriticalDelete: Destroy refused " + UObject::GetUClassName(myObject).ToString() + " " + myObject->Name.ToString());
+		return;
+	}
 	myObject->Flags |= ObjectFlags::EliminateObject;
 }
 
