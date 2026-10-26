@@ -811,8 +811,9 @@ void SDL2DisplayWindow::MakeGLContextCurrent()
 
 bool SDL2DisplayWindow::SetGLSwapInterval(int interval)
 {
-	SDL_GL_SetSwapInterval(interval);
-	return true;
+	// SDL's own answer: a refused interval (adaptive vsync where the driver
+	// has none) lets the GL device fall back to a whole one
+	return SDL_GL_SetSwapInterval(interval) == 0;
 }
 
 void SDL2DisplayWindow::SwapGLBuffers()
