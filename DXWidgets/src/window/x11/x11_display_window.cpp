@@ -24,14 +24,7 @@ X11DisplayWindow::X11DisplayWindow(DisplayWindowHost* windowHost, WidgetType win
 	visual = XDefaultVisual(display, screen);
 	colormap = XDefaultColormap(display, screen);
 
-	if (char* value = XGetDefault(display, "Xft", "dpi"))
-	{
-		int dpi = std::atoi(value);
-		if (dpi != 0)
-		{
-			dpiScale = dpi / 96.0;
-		}
-	}
+	dpiScale = connection->dpiScale;
 
 	XSetWindowAttributes attributes = {};
 	attributes.backing_store = Always;

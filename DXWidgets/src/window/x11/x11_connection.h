@@ -49,6 +49,7 @@ public:
 	bool ExitRunLoop = false;
 
 	XIM xim = nullptr;
+	double dpiScale = 1.0; // Xft.dpi over 96: the windows' scale and the screen size's
 	bool XInput2Supported = false;
 	int XInputOpcode = 0;
 	int MasterPointerID = 0;

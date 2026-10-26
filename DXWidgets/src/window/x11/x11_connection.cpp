@@ -23,6 +23,14 @@ X11Connection::X11Connection()
 	Bool supports_detectable_autorepeat = {};
 	XkbSetDetectableAutoRepeat(display, True, &supports_detectable_autorepeat);
 
+	// The scale the windows and the screen's size share: Xft.dpi's
+	if (char* value = XGetDefault(display, "Xft", "dpi"))
+	{
+		int dpi = std::atoi(value);
+		if (dpi != 0)
+			dpiScale = dpi / 96.0;
+	}
+
 	// Loads the XMODIFIERS environment variable to see what IME to use
 	XSetLocaleModifiers("");
 	xim = XOpenIM(display, 0, 0, 0);
@@ -194,9 +202,9 @@ Size X11Connection::GetScreenSize()
 
 	int disp_width_px = XDisplayWidth(display, screen);
 	int disp_height_px = XDisplayHeight(display, screen);
-	int disp_width_mm = XDisplayWidthMM(display, screen);
-	double ppi = (disp_width_mm < 24) ? 96.0 : (25.4 * static_cast<double>(disp_width_px) / static_cast<double>(disp_width_mm));
-	double dpiScale = ppi / 96.0;
+	// By the windows' scale (Xft.dpi), not the monitor's physical DPI: the
+	// engine reads this size against the windows' sizes
+	double dpiScale = this->dpiScale;
 
 	return Size(disp_width_px / dpiScale, disp_height_px / dpiScale);
 }
