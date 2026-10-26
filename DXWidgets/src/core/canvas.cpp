@@ -152,12 +152,24 @@ CanvasGlyph* CanvasFont::getGlyph(Canvas* canvas, uint32_t utfchar)
 
 CanvasFontGroup::CanvasFontGroup(const std::string& fontname, double height) : height(height)
 {
+	// A font the pk3 lacks or cannot be read is left out, the group kept
+	// with the rest: one threw the whole group out, and every text drawn
+	// or measured after it, the error window's first
 	auto fontdata = ResourceData::LoadFont(fontname);
-	fonts.resize(fontdata.size());
-	for (size_t i = 0; i < fonts.size(); i++)
+	for (size_t i = 0; i < fontdata.size(); i++)
 	{
-		fonts[i].font = std::make_unique<CanvasFont>(fontname, height, fontdata[i].fontdata);
-		fonts[i].language = fontdata[i].language;
+		if (fontdata[i].fontdata.empty())
+			continue;
+		try
+		{
+			decltype(fonts)::value_type fd;
+			fd.font = std::make_unique<CanvasFont>(fontname, height, fontdata[i].fontdata);
+			fd.language = fontdata[i].language;
+			fonts.push_back(std::move(fd));
+		}
+		catch (const std::exception&)
+		{
+		}
 	}
 }
 
