@@ -27,11 +27,15 @@ D3D11CachedTexture* D3D11TextureManager::GetFromCache(int masked, uint64_t cache
 
 void D3D11TextureManager::UpdateTextureRect(TextureInfo* info, int x, int y, int w, int h)
 {
-	D3D11CachedTexture* tex = GetFromCache(0, info->CacheID);
-	if (tex)
+	// Both of the texture's cache entries, the masked one's rectangle masked
+	for (int masked = 0; masked < 2; masked++)
 	{
-		renderer->Uploads->UploadTextureRect(tex, *info, x, y, w, h);
-		info->bRealtimeChanged = 0;
+		D3D11CachedTexture* tex = GetFromCache(masked, info->CacheID);
+		if (tex)
+		{
+			renderer->Uploads->UploadTextureRect(tex, *info, x, y, w, h, masked != 0);
+			info->bRealtimeChanged = 0;
+		}
 	}
 }
 
@@ -58,7 +62,7 @@ D3D11CachedTexture* D3D11TextureManager::GetTexture(TextureInfo* info, bool mask
 			if (!copy)
 				continue;
 			if (info->UpdateWidth > 0)
-				renderer->Uploads->UploadTextureRect(copy, *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
+				renderer->Uploads->UploadTextureRect(copy, *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight, m != 0);
 			else
 				renderer->Uploads->UploadTexture(copy, *info, m != 0);
 		}

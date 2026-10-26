@@ -98,19 +98,26 @@ void D3D11UploadManager::UploadTexture(D3D11CachedTexture* tex, const TextureInf
 	renderer->Stats.Uploads++;
 }
 
-void D3D11UploadManager::UploadTextureRect(D3D11CachedTexture* tex, const TextureInfo& Info, int x, int y, int w, int h)
+void D3D11UploadManager::UploadTextureRect(D3D11CachedTexture* tex, const TextureInfo& Info, int x, int y, int w, int h, bool masked)
 {
 	D3D11TextureUploader* uploader = D3D11TextureUploader::GetUploader(Info.Format);
 	if (!uploader || Info.NumMips < 1 || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > Info.Mips[0].Width || y + h > Info.Mips[0].Height || Info.Mips[0].Data.empty())
 		return;
 
+	// Whole blocks of the format (BC1's 4x4), the box on their edges
+	int block = uploader->GetBlockSize();
+	int x0 = x / block * block, y0 = y / block * block;
+	int x1 = std::min((x + w + block - 1) / block * block, Info.Mips[0].Width);
+	int y1 = std::min((y + h + block - 1) / block * block, Info.Mips[0].Height);
+	x = x0; y = y0; w = x1 - x0; h = y1 - y0;
+
 	size_t pixelsSize = uploader->GetUploadSize(x, y, w, h);
 	pixelsSize = (pixelsSize + 15) / 16 * 16; // memory alignment
 
 	uint8_t* data = GetUploadBuffer(pixelsSize);
-	uploader->UploadRect(data, &Info.Mips[0], x, y, w, h, Info.Palette, false);
+	uploader->UploadRect(data, &Info.Mips[0], x, y, w, h, Info.Palette, masked);
 
-	UINT pitch = uploader->GetUploadSize(0, 0, w, 1);
+	UINT pitch = uploader->GetUploadSize(x, y, w, 1);
 
 	D3D11_BOX box = {};
 	box.left = x;
@@ -118,7 +125,9 @@ void D3D11UploadManager::UploadTextureRect(D3D11CachedTexture* tex, const Textur
 	box.right = x + w;
 	box.bottom = y + h;
 	box.back = 1;
-	renderer->Context->UpdateSubresource(tex->Texture, D3D11CalcSubresource(0, 0, Info.NumMips), &box, data, pitch, 0);
+	// The first level of the texture's own, past the padding levels a
+	// small block texture is given
+	renderer->Context->UpdateSubresource(tex->Texture, D3D11CalcSubresource(tex->DummyMipmapCount, 0, Info.NumMips + tex->DummyMipmapCount), &box, data, pitch, 0);
 
 	renderer->Stats.RectUploads++;
 }

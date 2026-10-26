@@ -16,7 +16,7 @@ public:
 	bool SupportsTextureFormat(TextureFormat Format) const;
 
 	void UploadTexture(D3D11CachedTexture* tex, const TextureInfo& Info, bool masked);
-	void UploadTextureRect(D3D11CachedTexture* tex, const TextureInfo& Info, int x, int y, int w, int h);
+	void UploadTextureRect(D3D11CachedTexture* tex, const TextureInfo& Info, int x, int y, int w, int h, bool masked);
 
 	void SubmitUploads();
 

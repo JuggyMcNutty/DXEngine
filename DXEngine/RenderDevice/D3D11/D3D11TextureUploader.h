@@ -15,6 +15,8 @@ public:
 
 	virtual int GetUploadSize(int x, int y, int w, int h) = 0;
 	virtual void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) = 0;
+	// The texels a side of the format's block: a rectangle is uploaded whole blocks
+	virtual int GetBlockSize() { return 1; }
 
 	DXGI_FORMAT GetDxgiFormat() const { return Format; }
 
@@ -69,6 +71,7 @@ public:
 	D3D11TextureUploader_4x4Block(DXGI_FORMAT format, int bytesPerBlock) : D3D11TextureUploader(format), BytesPerBlock(bytesPerBlock) { }
 
 	int GetUploadSize(int x, int y, int w, int h) override;
+	int GetBlockSize() override;
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
 
 private:

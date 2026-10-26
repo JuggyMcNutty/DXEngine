@@ -79,7 +79,7 @@ int D3D11TextureUploader_RGB8::GetUploadSize(int x, int y, int w, int h)
 void D3D11TextureUploader_RGB8::UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
 {
 	int pitch = mip->Width * 3;
-	uint8_t* src = ((uint8_t*)mip->Data.data()) + x + y * pitch;
+	uint8_t* src = ((uint8_t*)mip->Data.data()) + x * 3 + y * pitch;
 	auto Ptr = (TextureColor*)dst;
 	for (int i = 0; i < h; i++)
 	{
@@ -189,6 +189,11 @@ void D3D11TextureUploader_Simple::UploadRect(void* d, UnrealMipmap* mip, int x, 
 }
 
 /////////////////////////////////////////////////////////////////////////////
+
+int D3D11TextureUploader_4x4Block::GetBlockSize()
+{
+	return 4;
+}
 
 int D3D11TextureUploader_4x4Block::GetUploadSize(int x, int y, int w, int h)
 {
