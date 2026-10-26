@@ -78,53 +78,59 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 		if (IsGLES)
 			LogMessage(std::string("GLDrv: OpenGL ES context, ") + (const char*)version);
 
-		// Desktop GL has S3TC, filterable RGBA32F and BGRA uploads; an ES
-		// context's are found below. Set at every start, so that a device made
-		// after another keeps none of its.
-		GLTextureUploader::SetS3TCSupported(true);
-		GLTextureUploader::SetRGBA32FLinearSupported(true);
-		GLTextureUploader::SetBGRASupported(!IsGLES);
-
-		// The ES path can sample and linearly filter everything the game
-		// uploads only where the driver has the extensions for it: the GE8300
+		// What the driver has beyond its core: BC1
+		// (EXT_texture_compression_s3tc, an extension to desktop GL's core as
+		// to ES's), linear filtering of RGBA32F (OES_texture_float_linear;
+		// desktop's core), anisotropy (EXT_texture_filter_anisotropic, ARB's,
+		// or GL 4.6's core) and a clip distance (ES's EXT_clip_cull_distance;
+		// desktop's own). Set at every start, so that a device made after
+		// another keeps none of its; enumerated with glGetStringi, as the
+		// loader does (ES 3.0 has no glGetString(GL_EXTENSIONS)). The GE8300
 		// has no S3TC at all (BC1 textures decode to RGBA8 on the CPU) and
-		// samples RGBA32F but cannot filter it (lightmaps and fog maps,
-		// which would come up speckled). Decode both on the CPU to RGBA8,
-		// the same substitutions the Vulkan device makes for that GPU.
-		if (IsGLES)
+		// samples RGBA32F but cannot filter it (lightmaps and fog maps, which
+		// would come up speckled): decoded on the CPU to RGBA8, the same
+		// substitutions the Vulkan device makes for that GPU; a desktop driver
+		// without S3TC decodes the same, and one without the anisotropy
+		// extension (4.2 to 4.5) filters without it, where its samplers once
+		// failed to be made.
+		bool s3tc = false;
+		bool floatLinear = !IsGLES;
+		bool anisotropic = false;
+		bool clipCullDistance = !IsGLES;
+		int glMajor = 0, glMinor = 0;
+		if (!IsGLES && version)
+			sscanf((const char*)version, "%d.%d", &glMajor, &glMinor);
+		if (!IsGLES && (glMajor > 4 || (glMajor == 4 && glMinor >= 6)))
+			anisotropic = true;
+		GLint numExtensions = 0;
+		glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
+		for (GLint i = 0; i < numExtensions; i++)
 		{
-			// BC1: EXT_texture_compression_s3tc. RGBA32F filtering:
-			// OES_texture_float_linear. ES 3.0 has no glGetString(GL_EXTENSIONS);
-			// enumerate with glGetStringi, as the loader does.
-			bool s3tc = false;
-			bool floatLinear = false;
-			bool anisotropic = false;
-			bool clipCullDistance = false;
-			GLint numExtensions = 0;
-			glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
-			for (GLint i = 0; i < numExtensions; i++)
+			const GLubyte* e = glGetStringi(GL_EXTENSIONS, (GLuint)i);
+			if (e)
 			{
-				const GLubyte* e = glGetStringi(GL_EXTENSIONS, (GLuint)i);
-				if (e)
-				{
-					const char* name = (const char*)e;
-					s3tc = s3tc || strcmp(name, "GL_EXT_texture_compression_s3tc") == 0 || strcmp(name, "GL_WEBGL_compressed_texture_s3tc") == 0;
-					floatLinear = floatLinear || strcmp(name, "GL_OES_texture_float_linear") == 0;
-					anisotropic = anisotropic || strcmp(name, "GL_EXT_texture_filter_anisotropic") == 0;
-					clipCullDistance = clipCullDistance || strcmp(name, "GL_EXT_clip_cull_distance") == 0;
-				}
+				const char* name = (const char*)e;
+				s3tc = s3tc || strcmp(name, "GL_EXT_texture_compression_s3tc") == 0 || strcmp(name, "GL_WEBGL_compressed_texture_s3tc") == 0;
+				floatLinear = floatLinear || strcmp(name, "GL_OES_texture_float_linear") == 0;
+				anisotropic = anisotropic || strcmp(name, "GL_EXT_texture_filter_anisotropic") == 0 || strcmp(name, "GL_ARB_texture_filter_anisotropic") == 0;
+				clipCullDistance = clipCullDistance || strcmp(name, "GL_EXT_clip_cull_distance") == 0;
 			}
-			GLTextureUploader::SetS3TCSupported(s3tc);
-			GLTextureUploader::SetRGBA32FLinearSupported(floatLinear);
-			SamplerAnisotropy = anisotropic;
-			// A mirror's plane is clipped by a clip distance, which ES has only
-			// with EXT_clip_cull_distance (Port Ex Machina's
-			// tools/probes/probe-gles-scene.c asks a driver for it).
-			ClipDistance = clipCullDistance;
-			ClipDiscard = !clipCullDistance;
-			if (!ClipDistance)
-				LogMessage("GLDrv: EXT_clip_cull_distance absent; a mirror's plane is clipped by a discard");
 		}
+		GLTextureUploader::SetS3TCSupported(s3tc);
+		GLTextureUploader::SetRGBA32FLinearSupported(floatLinear);
+		GLTextureUploader::SetBGRASupported(!IsGLES);
+		SamplerAnisotropy = anisotropic;
+		if (!s3tc)
+			LogMessage("GLDrv: no S3TC; BC1 textures decoded on the CPU");
+		if (!anisotropic)
+			LogMessage("GLDrv: no anisotropic filtering");
+		// A mirror's plane is clipped by a clip distance, which ES has only
+		// with EXT_clip_cull_distance (Port Ex Machina's
+		// tools/probes/probe-gles-scene.c asks a driver for it).
+		ClipDistance = clipCullDistance;
+		ClipDiscard = !clipCullDistance;
+		if (!ClipDistance)
+			LogMessage("GLDrv: EXT_clip_cull_distance absent; a mirror's plane is clipped by a discard");
 
 		// GL_MIRROR_CLAMP_TO_EDGE: 4.4 desktop and 3.2 ES core on paper, but
 		// optional in practice (the GE8300's ES 3.2 driver rejects it: Port Ex

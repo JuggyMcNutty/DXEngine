@@ -474,8 +474,9 @@ wherever else that state is set.
   made by their uploads (`glCompressedTexImage2D`), as ES takes no compressed format in
   `glTexImage2D`, zero blocks there -- so the chain is whole.
 - **The samplers** set no `GL_TEXTURE_LOD_BIAS` on ES (no ES sampler has it), anisotropy only
-  with `EXT_texture_filter_anisotropic`, and `GL_MIRROR_CLAMP_TO_EDGE` only where a probe at
-  init finds the driver takes it (else `CLAMP_TO_EDGE`).
+  with `EXT_texture_filter_anisotropic` or `ARB_texture_filter_anisotropic`, or GL 4.6, on
+  desktop GL as on ES, and `GL_MIRROR_CLAMP_TO_EDGE` only where a probe at init finds the
+  driver takes it (else `CLAMP_TO_EDGE`).
 - **`ReadPixels`** reads the frame at the size it was drawn (`LastFrameSize`, not the
   window's), the right way up, the gamma-corrected one too (Surreal Engine's is an `#if 0`
   stub of D3D11 code, its shots black), RGB10_A2's to bytes by a 4×4
