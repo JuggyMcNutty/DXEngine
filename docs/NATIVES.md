@@ -977,7 +977,9 @@ Differs:
   `ConWindowActive.CalculateWindowSizes` gives a cutscene's subtitles no
   height on a root 16:9 or wider, the Smart Pro's among them, so a cutscene
   letterboxes at 16:9. The root's children lie across the screen up to 16:9,
-  their `x` the screen's.
+  their `x` the screen's. On a screen narrower than 4:3 (1280x1024) the root
+  is the screen's width, as the original's, so the HUD's left and right
+  parts lie at its edges.
 - **A large text window** draws its lines through the GC, read from both
   codes, whose block of lines ends in one more spacing than the original's
   rows: in a window taller than its text, lines centred or at the bottom

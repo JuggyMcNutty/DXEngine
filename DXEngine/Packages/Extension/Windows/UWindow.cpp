@@ -159,10 +159,15 @@ float UWindow::RootOffsetX()
 	return -std::round(std::max(GetExtendedVirtualWidth() - parent->Width(), 0.0f) * 0.5f);
 }
 
+// The root is 4:3 (ConWindowActive.CalculateWindowSizes lays the
+// conversation window out for it, and a wider screen extends the children
+// to 16:9, RootOffsetX), or the screen where that is narrower, as the
+// original's root is the viewport: at 1280x1024 a 640-unit root, not 683
+// centred 21 units off the screen's left edge.
 float UWindow::GetVirtualWidth()
 {
-	// Force a 4:3 ratio for the root window as ConWindowActive.CalculateWindowSizes depends on it
-	return std::round(GetVirtualHeight() * 4 / 3);
+	float screenWidth = std::ceil(engine->viewport->ViewportWidth() / GetVirtualScale());
+	return std::min(std::round(GetVirtualHeight() * 4 / 3), screenWidth);
 }
 
 float UWindow::GetExtendedVirtualWidth()
