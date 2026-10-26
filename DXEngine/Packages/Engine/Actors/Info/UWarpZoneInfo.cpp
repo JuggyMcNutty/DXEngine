@@ -30,18 +30,6 @@ static Coords InverseOf(const Coords& c)
 	return r;
 }
 
-static Rotator OrthoRotation(const Coords& c)
-{
-	const float scale = 32768.0f / 3.14159265358979f;
-	Rotator r(
-		(int)(std::atan2(c.XAxis.z, std::sqrt(c.XAxis.x * c.XAxis.x + c.XAxis.y * c.XAxis.y)) * scale),
-		(int)(std::atan2(c.XAxis.y, c.XAxis.x) * scale),
-		0);
-	Coords s = Coords::TableRotation(r); // the original's FCoords from a rotator: its sine table's
-	r.Roll = (int)(std::atan2(dot(c.ZAxis, s.YAxis), dot(c.YAxis, s.YAxis)) * scale);
-	return r;
-}
-
 static void Through(const Coords& by, vec3& Loc, vec3& Vel, Rotator& R)
 {
 	Loc = PointBy(by, Loc);
@@ -50,7 +38,7 @@ static void Through(const Coords& by, vec3& Loc, vec3& Vel, Rotator& R)
 	c.XAxis = VectorBy(by, c.XAxis);
 	c.YAxis = VectorBy(by, c.YAxis);
 	c.ZAxis = VectorBy(by, c.ZAxis);
-	R = OrthoRotation(c);
+	R = c.OrthoRotation();
 }
 
 void UWarpZoneInfo::Warp(vec3& Loc, vec3& Vel, Rotator& R)

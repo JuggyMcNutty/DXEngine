@@ -24,6 +24,8 @@ public:
 
 	static Coords Rotation(const Rotator& rotator);
 	static Coords TableRotation(const Rotator& rotator);
+	// The rotation of these axes (the original's FCoords::OrthoRotation)
+	Rotator OrthoRotation() const;
 	static Coords TableInverseRotation(const Rotator& rotator);
 	static Coords InverseRotation(const Rotator& rotator);
 
@@ -285,4 +287,20 @@ inline Coords Coords::FromMatrix(const mat4& coordsmatrix)
 	coords.YAxis = vec3(coordsmatrix[4], coordsmatrix[5], coordsmatrix[6]);
 	coords.ZAxis = vec3(coordsmatrix[8], coordsmatrix[9], coordsmatrix[10]);
 	return coords;
+}
+
+// The rotation of these axes (the original's FCoords::OrthoRotation, Core.dll
+// 0x10144830): the X axis's pitch and yaw, each atan2 x 32768/pi made an int
+// as the original's _ftol does; then the unit coords turned by that pitch and
+// yaw, and the roll from the Y and Z axes against their Y axis the same way
+inline Rotator Coords::OrthoRotation() const
+{
+	const double scale = 32768.0 / 3.14159265358979;
+	Rotator r(
+		ftol(std::atan2((double)XAxis.z, std::sqrt((double)(XAxis.x * XAxis.x + XAxis.y * XAxis.y))) * scale),
+		ftol(std::atan2((double)XAxis.y, (double)XAxis.x) * scale),
+		0);
+	Coords s = TableRotation(r);
+	r.Roll = ftol(std::atan2((double)dot(ZAxis, s.YAxis), (double)dot(YAxis, s.YAxis)) * scale);
+	return r;
 }

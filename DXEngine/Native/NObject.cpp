@@ -1003,10 +1003,16 @@ void NObject::Or_IntInt(int A, int B, int& ReturnValue)
 	ReturnValue = A | B;
 }
 
+// The original's (Core.dll execOrthoRotation 0x1013a700): the rotation of
+// the three axes as coords (FCoords::OrthoRotation)
 void NObject::OrthoRotation(const vec3& X, const vec3& Y, const vec3& Z, Rotator& ReturnValue)
 {
-	Exception::Throw("Object.OrthoRotation");
-	ReturnValue = {};
+	Coords c;
+	c.Origin = vec3(0.0f);
+	c.XAxis = X;
+	c.YAxis = Y;
+	c.ZAxis = Z;
+	ReturnValue = c.OrthoRotation();
 }
 
 void NObject::Percent_FloatFloat(float A, float B, float& ReturnValue)
