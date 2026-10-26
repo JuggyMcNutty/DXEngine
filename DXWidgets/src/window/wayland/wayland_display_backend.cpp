@@ -414,7 +414,10 @@ void WaylandDisplayBackend::OnKeyboardKeyEvent(xkb_keysym_t xkbKeySym, wayland::
 	if (state == wayland::keyboard_key_state::pressed)
 	{
 		inputKeyStates[inputKey] = true;
-		m_FocusWindow->windowHost->OnWindowKeyDown(inputKey);
+		// No window may have the focus (one destroyed, the next not yet
+		// made): the key is marked, not delivered
+		if (m_FocusWindow)
+			m_FocusWindow->windowHost->OnWindowKeyDown(inputKey);
 		if (inputKey != previousKey)
 		{
 			previousKey = inputKey;
@@ -457,10 +460,12 @@ void WaylandDisplayBackend::OnKeyboardDelayEnd()
 
 void WaylandDisplayBackend::OnKeyboardRepeat()
 {
-	if (inputKeyStates[previousKey])
+	if (inputKeyStates[previousKey] && m_FocusWindow)
 	{
 		m_FocusWindow->windowHost->OnWindowKeyDown(previousKey);
-		m_FocusWindow->windowHost->OnWindowKeyChar(previousChars);
+		// Typed text off while the keyboard is locked, as the first press's
+		if (!m_FocusWindow->KeyboardLocked())
+			m_FocusWindow->windowHost->OnWindowKeyChar(previousChars);
 	}
 }
 
