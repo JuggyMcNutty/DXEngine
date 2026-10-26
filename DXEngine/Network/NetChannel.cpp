@@ -1026,8 +1026,18 @@ void NetActorChannel::ReceivedBunch(NetInBunch& bunch)
 
 	if (!Actor)
 	{
+		// A bunch that opens nothing on a channel with no actor ends the game
+		// in the original (UActorChannel::ReceivedBunch 0x103fd980, a fatal
+		// "New actor channel received non-open packet"); here the connection:
+		// read as an open it once bound the channel to whatever actor its
+		// number named and wrote the server's values into it by the wrong
+		// class's fields.
 		if (!bunch.bOpen)
-			LogMessage("Net: actor channel " + std::to_string(ChIndex) + " began without its open");
+		{
+			LogMessage("Net: actor channel " + std::to_string(ChIndex) + " began without its open: closing the connection");
+			Connection->State = ConnectionState::Closed;
+			return;
+		}
 
 		// A map's actor by reference; any other by class and place, spawned.
 		UObject* obj = map.ReadObject(reader);
@@ -1044,10 +1054,18 @@ void NetActorChannel::ReceivedBunch(NetInBunch& bunch)
 			location.x = reader.ReadFloat();
 			location.y = reader.ReadFloat();
 			location.z = reader.ReadFloat();
+			if (reader.IsError())
+			{
+				LogMessage("Net: actor channel " + std::to_string(ChIndex) + " opened short of its place");
+				return;
+			}
 			actor = engine->LevelInfo->Spawn(cls, nullptr, NameString(), location, Rotator(0, 0, 0), true, true);
+			// The original asserts here; the channel closes, so its next
+			// bunches bind nothing
 			if (!actor)
 			{
 				LogMessage("Net: could not spawn a " + cls->Name.ToString());
+				Close();
 				return;
 			}
 			spawnedNewActor = true;
