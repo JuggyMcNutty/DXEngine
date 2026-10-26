@@ -95,9 +95,10 @@ static std::string ComputerName()
 }
 
 #ifndef WIN32
-// SIGTERM or SIGINT: quit as a closed window does, the inis written back. The
-// handler is installed before SDL's (which only takes a signal left at its
-// default) and is reset by its first signal, so a second one kills.
+// SIGTERM, SIGINT or SIGHUP (a closed terminal, a logout): quit as a closed
+// window does, the inis written back. The handler is installed after SDL's,
+// in its place (SDL's posts a quit event, which closes the window too) and
+// is reset by its first signal, so a second one kills.
 static volatile std::sig_atomic_t StopSignalled = 0;
 
 static void OnStopSignal(int)
@@ -113,6 +114,7 @@ static void InstallStopSignal()
 	sigemptyset(&action.sa_mask);
 	sigaction(SIGTERM, &action, nullptr);
 	sigaction(SIGINT, &action, nullptr);
+	sigaction(SIGHUP, &action, nullptr);
 }
 #endif
 

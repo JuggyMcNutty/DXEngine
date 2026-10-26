@@ -104,7 +104,7 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
 - **`--server`** runs a dedicated server of the `--url` map, as the original's `-SERVER`: no
   window, sound or player; `--lanplay` gives it the LAN tick rate
   ([multiplayer](NATIVES.md#multiplayer)).
-- **SIGTERM or SIGINT quits as a closed window does**: at the next frame, the inis written back,
+- **SIGTERM, SIGINT or SIGHUP quits as a closed window does**: at the next frame, the inis written back,
   exit 0, whatever the window (a dedicated server too). A second signal kills at once, as a
   stuck engine needs. The crash report window, up before the engine installs its handler,
   closes on one too, through SDL's own (an SDL window) or the signal's default (the X11
