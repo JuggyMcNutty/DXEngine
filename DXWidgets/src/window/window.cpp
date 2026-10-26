@@ -152,7 +152,16 @@ std::unique_ptr<DisplayBackend> DisplayBackend::TryCreateWin32()
 
 std::unique_ptr<DisplayBackend> DisplayBackend::TryCreateSDL2()
 {
-	return std::make_unique<SDL2DisplayBackend>();
+	// A failed SDL_Init throws: the next backend is tried, as after X11's
+	// and Wayland's
+	try
+	{
+		return std::make_unique<SDL2DisplayBackend>();
+	}
+	catch (...)
+	{
+		return nullptr;
+	}
 }
 
 #else
@@ -170,7 +179,16 @@ std::unique_ptr<DisplayBackend> DisplayBackend::TryCreateSDL2()
 
 std::unique_ptr<DisplayBackend> DisplayBackend::TryCreateSDL3()
 {
-	return std::make_unique<SDL3DisplayBackend>();
+	// A failed SDL_Init throws: the next backend is tried (on Windows, the
+	// Win32 window), as after X11's and Wayland's
+	try
+	{
+		return std::make_unique<SDL3DisplayBackend>();
+	}
+	catch (...)
+	{
+		return nullptr;
+	}
 }
 
 #else
