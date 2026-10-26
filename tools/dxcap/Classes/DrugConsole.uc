@@ -9,9 +9,12 @@
 // the view. Each shot is marked for the original's grabber for 0.6 s
 // before it, numbered from 0 as DXEngine's shots are; the drug's timer and
 // the view's angle are logged with each. Exits 2 s after the last. Each
-// line is logged with "DXDRUG:".
+// line is logged with "DXDRUG:". With HudWindows the HUD's windows stay
+// shown, drawn over the drugged view as in play.
 //=============================================================================
 class DrugConsole extends Console;
+
+var config bool HudWindows;
 
 var float MapTime;
 var float StepTime;
@@ -141,12 +144,12 @@ event Tick(float Delta)
 		Root = DeusExRootWindow(DXP.rootWindow);
 		Root.ShowHud(True);
 		W = Root.hud.GetBottomChild();
-		while (W != None)
+		while (W != None && !HudWindows)
 		{
 			W.Hide();
 			W = W.GetHigherSibling();
 		}
-		Log("DXDRUG: standing at " $ StandLoc $ " facing " $ StandRot);
+		Log("DXDRUG: standing at " $ StandLoc $ " facing " $ StandRot $ " windows " $ HudWindows);
 		StepTime = 0;
 		Phase = 1;
 	}
