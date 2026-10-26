@@ -139,7 +139,7 @@ void UActor::DeusExTickFalling(float deltaTime, int iterations)
 		if (pawn && Physics() == PHYS_Swimming)
 		{
 			remaining += (1.0f - hit.Fraction) * tick + EndPhysicsFrame();
-			pawn->DeusExStartSwimming(oldVelocity, tick, remaining);
+			pawn->DeusExStartSwimming(oldVelocity, tick, remaining, iterations);
 			return;
 		}
 

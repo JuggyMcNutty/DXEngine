@@ -1166,7 +1166,9 @@ Every other native the scripted runs compare matches the original
   player and a troop falling or thrown into water are put back at the water
   line and swim on, the player stopped as its head goes under and held to
   0.3 of `WaterSpeed`, as it walks whenever it swims; up out of the water it
-  hops and falls back in, bobbing).
+  hops and falls back in, bobbing). A tick's chain of falls and swims shares
+  the fall's eight steps, each hand-over carrying the count on, as the
+  original's `startSwimming` and `physSwimming` carry it.
 - **Walking**, a whole frame at once in the original's steps, a slope slid
   down where the zone's ground friction is low. Its ledges: a pawn that
   cannot jump stops there, its move given up; any other is given `Falling`

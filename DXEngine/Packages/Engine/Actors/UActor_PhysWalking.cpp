@@ -178,7 +178,7 @@ void UPawn::DeusExPhysWalking(float deltaTime)
 			}
 			if (Physics() == PHYS_Swimming)
 			{
-				DeusExStartSwimming(Velocity(), timeTick, remaining);
+				DeusExStartSwimming(Velocity(), timeTick, remaining, iterations);
 				return;
 			}
 		}
@@ -211,7 +211,7 @@ void UPawn::DeusExPhysWalking(float deltaTime)
 				SetSupportBase(floorActor);
 			if (Physics() == PHYS_Swimming)
 			{
-				DeusExStartSwimming(Velocity(), timeTick, remaining);
+				DeusExStartSwimming(Velocity(), timeTick, remaining, iterations);
 				return;
 			}
 		}
@@ -272,7 +272,7 @@ void UPawn::DeusExPhysWalking(float deltaTime)
 				return;
 			if (Physics() == PHYS_Swimming)
 			{
-				DeusExStartSwimming(Velocity(), timeTick, remaining);
+				DeusExStartSwimming(Velocity(), timeTick, remaining, iterations);
 				return;
 			}
 		}

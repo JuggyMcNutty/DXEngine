@@ -36,8 +36,13 @@ namespace
 }
 
 // APawn::physSwimming (0x103d3cd0).
-void UPawn::DeusExPhysSwimming(float deltaTime)
+// The step count is the fall's or walk's that handed over, one more for this
+// step, and goes on to the fall it hands to, as the original's physSwimming
+// (0x103d3cd0) counts: a tick's chain of falls and swims shares the fall's
+// eight steps.
+void UPawn::DeusExPhysSwimming(float deltaTime, int iterations)
 {
+	iterations++;
 	if (DeusExLadder(deltaTime))
 		return;
 	UZoneInfo* zone = Region().Zone;
@@ -121,10 +126,9 @@ void UPawn::DeusExPhysSwimming(float deltaTime)
 
 	if (remaining > 0.01f)
 	{
-		// The fall goes on from the swim's one step (physSwimming's count
-		// as a frame enters it).
+		// The fall goes on with the chain's count
 		if (Physics() == PHYS_Falling)
-			TickFalling(remaining, 1);
+			TickFalling(remaining, iterations);
 		else if (Physics() == PHYS_Flying)
 			TickFlying(remaining);
 	}
@@ -136,7 +140,7 @@ void UPawn::DeusExPhysSwimming(float deltaTime)
 // step's time for the way back given to the time left. Its velocity becomes
 // the move's own doubled less the old (at most 4,000); one sinking slower
 // than 160 sinks at 80 + 0.7 of its speed across, then it swims what is left.
-void UPawn::DeusExStartSwimming(const vec3& oldVelocity, float timeTick, float remaining)
+void UPawn::DeusExStartSwimming(const vec3& oldVelocity, float timeTick, float remaining, int iterations)
 {
 	vec3 end = Location();
 	FindWaterLine(OldLocation(), end);
@@ -159,7 +163,7 @@ void UPawn::DeusExStartSwimming(const vec3& oldVelocity, float timeTick, float r
 	if (Velocity().z > -160.0f && Velocity().z < 0.0f)
 		Velocity().z = -80.0f - length(Velocity().xy()) * 0.7f;
 	if (remaining > 0.01f)
-		DeusExPhysSwimming(remaining);
+		DeusExPhysSwimming(remaining, iterations);
 }
 
 // APawn::Swim (0x103d3850): a move through the water; one that leaves it is

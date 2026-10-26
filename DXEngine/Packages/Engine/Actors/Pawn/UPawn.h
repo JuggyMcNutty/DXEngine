@@ -76,8 +76,8 @@ public:
 	// Deus Ex's swimming, the original's (UActor_PhysSwimming.cpp): a tick
 	// of it, a pawn's move into water handed over to it, one move through the
 	// water, and a step up.
-	void DeusExPhysSwimming(float deltaTime);
-	void DeusExStartSwimming(const vec3& oldVelocity, float timeTick, float remaining);
+	void DeusExPhysSwimming(float deltaTime, int iterations = 0);
+	void DeusExStartSwimming(const vec3& oldVelocity, float timeTick, float remaining, int iterations = 0);
 	float DeusExSwim(const vec3& delta, CollisionHit& hit);
 	void DeusExStepUp(const vec3& gravDir, const vec3& desiredDir, vec3 delta, CollisionHit& hit);
 	// Deus Ex's walking, the original's, a whole frame at once, and the
