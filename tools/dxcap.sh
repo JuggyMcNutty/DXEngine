@@ -547,9 +547,20 @@ open(path, 'w', encoding='latin1', newline='').write(s)
 EOF
 }
 
-# Shots the game writes into its System folder, but not ones that were
-# already there before the run.
+# Shots the game writes into its System folder, or with --userdir into that
+# folder's Screenshots, but not ones that were already there before the run.
+# A dxe run refuses to start over stray shots: the engine writes the first
+# free ShotNNNN.bmp while the consoles number their marks from 0, so a shot
+# left behind shifted a run's numbers and shots.py paired them with the
+# original's wrong ones without a word.
 shots_before() { (cd "$GAME/System" && ls Shot*.bmp 2>/dev/null) || true; }
+shots_in() { [ -d "$1" ] && (cd "$1" && ls Shot*.bmp 2>/dev/null) || true; }
+no_stray_shots() {
+    local stray; stray="$(shots_before)"
+    [ -z "$stray" ] || die "stray shots in $GAME/System, which would shift this run's numbers: $(printf '%s ' $stray)-- move them away"
+    [ -z "${DXCAP_USERDIR:-}" ] || stray="$(shots_in "$(realpath -m "$DXCAP_USERDIR")/Screenshots")"
+    [ -z "$stray" ] || die "stray shots in $DXCAP_USERDIR/Screenshots, which would shift this run's numbers: $(printf '%s ' $stray)-- move them away"
+}
 
 collect() {
     local dir="$1" before="$2" own="${3:-}" f
@@ -559,7 +570,10 @@ collect() {
             mv "$GAME/System/$f" "$dir/$f"
         fi
     done
-    # A run's own --userdir: every shot in it the run's.
+    # A run's own --userdir (a Windows build's settings, or DXCAP_USERDIR):
+    # every shot in its Screenshots the run's, the folder checked empty of
+    # shots before
+    [ -n "$own" ] || [ -z "${DXCAP_USERDIR:-}" ] || own="$(realpath -m "$DXCAP_USERDIR")"
     [ -z "$own" ] || for f in "$own"/Screenshots/Shot*.bmp; do
         [ ! -f "$f" ] || mv "$f" "$dir/"
     done
@@ -693,6 +707,7 @@ memlog() {
 run_dxe() {
     local dir="$1" ini="$2" userini="$3" map="$4" secs="$5"
     shift 5
+    no_stray_shots
     local before; before="$(shots_before)"
     mkdir -p "$dir"
     need_perf
