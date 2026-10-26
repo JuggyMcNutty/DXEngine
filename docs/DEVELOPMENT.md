@@ -151,6 +151,7 @@ the run. *Either*: one engine on each side of a pair.
 | `BumpConsole` | both | a colliding actor's `Move` into the floor, partway and again from where it stopped, then up free: each answer and the actor's `BumpWall` events (`CapBumper`) | `DXBUMP:` | every line |
 | `HopConsole` | both | an actor set 1 unit over the floor, rising at 30 units a second, falling through a frame held half a second so its fall steps 0.1 s and its first step turns over: its landing's velocity (`CapHopper`) | `DXHOP:` | every line |
 | `AimConsole` | both | `PickTarget` and `PickAnyTarget`: two rats and two crates 300 units out along +X, 40 to either side (equal aims); a rat made no projectile target; a rat 2200 out | `DXAIM:` | every line |
+| `SmoothConsole` | both | `MoveSmooth`: an actor 50 units over the floor moved 100 along and 100 down, 10 down from its rest, 60 up: each answer, the move made and the actor's `BumpWall` and `HitWall` events (`CapBumper`) | `DXSMOOTH:` | every line |
 | `TraceConsole` | both | `TraceTexture`, `TraceActors`, `Trace` and `FastTrace`; a rifle's shot, 48000 units long; boxes started inside cylinders | `DXTRACE:` |  |
 | `ParabolicConsole` | both | `ParabolicTrace` from the player's eyes on the island, 30 degrees up at 400, 700 and 1000 units a second, bouncing and not, the player turned a quarter turn four times: each throw's landing and time | `DXPARA:` | the two logs' lines |
 | `FloatConsole` | both | the crates in the water by the pier | `DXFLOAT:` |  |

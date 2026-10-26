@@ -491,10 +491,13 @@ bool UActor::Move(const vec3& delta)
 	return TryMoveHeldOff(delta).Fraction > 0.0f;
 }
 
+// The script's MoveSmooth (AActor::execMoveSmooth, Engine.dll 0x103c8e10):
+// bJustTeleported cleared, then moveSmooth, its answer whether the first
+// move went at all.
 bool UActor::MoveSmooth(const vec3& delta)
 {
-	CollisionHit hit = TryMoveSmooth(delta);
-	return hit.Fraction != 1.0f;
+	bJustTeleported() = false;
+	return TryMoveSmooth(delta).Fraction > 0.0f;
 }
 
 void UActor::MakeNoise(float loudness)

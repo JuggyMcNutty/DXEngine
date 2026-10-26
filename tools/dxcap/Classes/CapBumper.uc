@@ -1,6 +1,6 @@
 //=============================================================================
-// CapBumper: BumpConsole's actor, which logs its BumpWall and Bump events
-// with "DXBUMP:". It collides with the world and with actors, draws nothing
+// CapBumper: BumpConsole's and SmoothConsole's actor, which logs its
+// BumpWall, Bump and HitWall events with "DXBUMP:". It collides with the world and with actors, draws nothing
 // and does not fall.
 //=============================================================================
 class CapBumper extends Actor;
@@ -13,6 +13,11 @@ event BumpWall(vector HitLocation, vector HitNormal)
 event Bump(Actor Other)
 {
 	Log("DXBUMP: Bump " $ Other.Name $ ", the actor at " $ Location);
+}
+
+event HitWall(vector HitNormal, Actor Wall)
+{
+	Log("DXBUMP: HitWall normal " $ HitNormal $ ", " $ Wall.Name $ ", the actor at " $ Location);
 }
 
 defaultproperties

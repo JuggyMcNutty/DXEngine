@@ -838,19 +838,37 @@ bool UActor::MoveBrush(const vec3& delta, const Rotator& rotation)
 	return true;
 }
 
+// AActor::moveSmooth (Engine.dll 0x103c9020, dx-reverse-info/engine-dll.md,
+// moving), the script's MoveSmooth, a mover's push of what blocks it and a
+// client's smoothing: a held-off move; blocked, a slide along what it met by
+// the rest of the move, unless that turns back; a second wall gets HitWall,
+// TwoWallAdjust and a third move. The one hit serves all three moves, and a
+// move under 0.0001 on each axis leaves it as it was, so a slide of nothing
+// after a blocked move still sends HitWall with the first move's hit. The
+// answer is the first move's: whether the actor moved at all.
 CollisionHit UActor::TryMoveSmooth(const vec3& delta)
 {
-	CollisionHit hit = TryMove(delta);
-	if (hit.Fraction != 1.0f)
+	auto nothing = [](const vec3& v) { return std::abs(v.x) < 0.0001f && std::abs(v.y) < 0.0001f && std::abs(v.z) < 0.0001f; };
+	CollisionHit first = TryMoveHeldOff(delta);
+	if (first.Fraction < 1.0f && !bDeleteMe())
 	{
-		// We hit a slope. Try to follow it.
-		vec3 alignedDelta = (delta - hit.Normal * dot(delta, hit.Normal)) * (1.0f - hit.Fraction);
-		if (dot(delta, alignedDelta) >= 0.0f) // Don't end up going backwards
+		vec3 adjusted = (delta - first.Normal * dot(delta, first.Normal)) * (1.0f - first.Fraction);
+		if (dot(adjusted, delta) >= 0.0f)
 		{
-			CollisionHit hit2 = TryMove(alignedDelta);
-			return hit2; // XXX: does this break anything?
+			vec3 oldHitNormal = first.Normal;
+			float size = length(delta);
+			vec3 desiredDir = size > 0.0f ? delta / size : vec3(0.0f);
+			CollisionHit hit = nothing(adjusted) ? first : TryMoveHeldOff(adjusted);
+			if (hit.Fraction < 1.0f && !bDeleteMe())
+			{
+				CallEvent(this, EventName::HitWall, { ExpressionValue::VectorValue(hit.Normal), ExpressionValue::ObjectValue(hit.Actor ? hit.Actor : Level()) });
+				if (bDeleteMe())
+					return first;
+				TwoWallAdjust(desiredDir, adjusted, hit.Normal, oldHitNormal, hit.Fraction);
+				if (!nothing(adjusted))
+					TryMoveHeldOff(adjusted);
+			}
 		}
 	}
-
-	return hit;
+	return first;
 }

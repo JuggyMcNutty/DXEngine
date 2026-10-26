@@ -1444,6 +1444,13 @@ engine's own objects are not deleted (the log says so).
   a move from half a unit over the floor answers false, the crate unmoved).
   A move the level stops sends `BumpWall` with where the trace met it, 2
   units past where the actor stops, and its normal (`BumpConsole`).
+- **The script's `MoveSmooth`**, a mover's push of what blocks it and a
+  client's smoothing are the original's `moveSmooth`: a held-off move, a
+  slide along what it meets by the rest, `HitWall` at a second wall, and
+  true when the first move went at all (`SmoothConsole`: an actor 50 units
+  over the floor moved 100 along and 100 down slides on along the floor,
+  resting at one height in both engines; a move straight down from its rest
+  slides nowhere and still gets `HitWall`, the first move's hit kept).
 - **Input axes**: every `input` float is 0 again after the player's
   `PlayerTick`, and after its `PlayerInput` while paused, as the original's
   ([a player's input](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)).
