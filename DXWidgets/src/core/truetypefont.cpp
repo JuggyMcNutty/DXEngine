@@ -2723,7 +2723,7 @@ TrueTypeGlyph TrueTypeFont::LoadCFFGlyph(uint32_t glyphIndex, double height) con
 				operands.push(tmp);
 				break;
 			case 1226: // sqrt
-				tmp = operands.get(-1);
+				tmp = std::sqrt(operands.get(-1));
 				operands.pop(1);
 				operands.push(tmp);
 				break;
@@ -2803,7 +2803,7 @@ TrueTypeGlyph TrueTypeFont::LoadCFFGlyph(uint32_t glyphIndex, double height) con
 				break;
 			case 1215: // eq
 				tmp = (operands.get(-2) == operands.get(-1)) ? 1.0 : 0.0;
-				operands.pop(1);
+				operands.pop(2);
 				operands.push(tmp);
 				break;
 			case 1222: // ifelse
@@ -2814,6 +2814,10 @@ TrueTypeGlyph TrueTypeFont::LoadCFFGlyph(uint32_t glyphIndex, double height) con
 
 			// Subroutine operators:
 			case 10: // callsubr
+				// Type 2's limit of 10 nested calls: none, and a charstring
+				// calling itself ran until the memory went
+				if (callstack.size() >= 10)
+					throw std::runtime_error("CFF subroutine calls too deep");
 				callstack.push_back({ reader.Position(), endpos });
 				tmp = operands.get(-1);
 				operands.pop(1);
@@ -2823,12 +2827,14 @@ TrueTypeGlyph TrueTypeFont::LoadCFFGlyph(uint32_t glyphIndex, double height) con
 					tmp += 1131;
 				else
 					tmp += 32768;
-				if ((int)tmp >= 0 && (int)cff.LocalSubroutines.size() <= (int)tmp)
+				if ((int)tmp < 0 || (int)cff.LocalSubroutines.size() <= (int)tmp)
 					throw std::runtime_error("CFF local subroutine index out of bounds");
 				reader.Seek(cff.LocalSubroutines[(int)tmp].Offset);
 				endpos = cff.LocalSubroutines[(int)tmp].Offset + cff.LocalSubroutines[(int)tmp].Size;
 				break;
 			case 29: // callgsubr
+				if (callstack.size() >= 10)
+					throw std::runtime_error("CFF subroutine calls too deep");
 				callstack.push_back({ reader.Position(), endpos });
 				tmp = operands.get(-1);
 				operands.pop(1);
@@ -2838,7 +2844,7 @@ TrueTypeGlyph TrueTypeFont::LoadCFFGlyph(uint32_t glyphIndex, double height) con
 					tmp += 1131;
 				else
 					tmp += 32768;
-				if ((int)tmp >= 0 && (int)cff.GlobalSubroutines.size() <= (int)tmp)
+				if ((int)tmp < 0 || (int)cff.GlobalSubroutines.size() <= (int)tmp)
 					throw std::runtime_error("CFF global subroutine index out of bounds");
 				reader.Seek(cff.GlobalSubroutines[(int)tmp].Offset);
 				endpos = cff.GlobalSubroutines[(int)tmp].Offset + cff.GlobalSubroutines[(int)tmp].Size;
