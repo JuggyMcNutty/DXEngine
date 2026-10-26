@@ -313,8 +313,12 @@ Array<std::string> File::read_all_lines(const std::string& filename)
 
 #ifdef WIN32
 
-void Directory::create(const std::string& path)
+void Directory::create(const std::string& name)
 {
+	// A trailing separator dropped, as the POSIX one's
+	std::string path = name;
+	while (path.size() > 1 && (path.back() == '\\' || path.back() == '/'))
+		path.pop_back();
 	BOOL result = CreateDirectory(to_utf16(path).c_str(), nullptr);
 	if (result == FALSE)
 	{
@@ -363,8 +367,14 @@ fs::path Directory::localAppData()
 
 #else
 
-void Directory::create(const std::string& dirname)
+void Directory::create(const std::string& name)
 {
+	// A trailing separator dropped: with it the parent of "a/b/" is "a/b",
+	// which the recursion made, and the folder's own mkdir then failed as
+	// made already
+	std::string dirname = name;
+	while (dirname.size() > 1 && dirname.back() == '/')
+		dirname.pop_back();
 	if (mkdir(dirname.c_str(), 0777) == 0)
 		return;
 	if (errno == EEXIST)
