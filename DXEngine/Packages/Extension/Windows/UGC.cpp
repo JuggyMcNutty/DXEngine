@@ -68,7 +68,7 @@ void UGC::DrawActor(UObject* Actor, std::optional<bool> bClearZ, std::optional<b
 			actor->MultiSkins()[i] = tex;
 	}
 
-	engine->render->DrawActor(actor, false, bClearZ.value_or(false));
+	engine->render->DrawActor(actor, bClearZ.value_or(false), false);
 
 	actorStyle = oldStyle;
 	actor->ScaleGlow() = oldScaleGlow;

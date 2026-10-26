@@ -57,7 +57,7 @@ static const MeshAnimSeq* SequenceOrFirstFrame(UMesh* mesh, const NameString& na
 	return seq ? seq : &firstFrame;
 }
 
-bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, bool wireframe, bool translucentPass)
+bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, bool translucentPass)
 {
 	UMesh* mesh = actor->Mesh();
 	if (!mesh)

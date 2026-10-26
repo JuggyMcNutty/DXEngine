@@ -105,7 +105,7 @@ void RenderSubsystem::PostRenderFlash()
 		CallEvent(engine->viewport->Actor(), "PostRenderFlash", {ExpressionValue::ObjectValue(engine->canvas)});
 }
 
-void RenderSubsystem::DrawActor(UActor* actor, bool WireFrame, bool ClearZ)
+void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter)
 {
 	Device->SetSceneNode(&MainFrame.Frame);
 	if (ClearZ)
@@ -120,19 +120,23 @@ void RenderSubsystem::DrawActor(UActor* actor, bool WireFrame, bool ClearZ)
 	if (MainFrame.SpriteRectangle(actor, minX, minY, maxX, maxY, z))
 		actor->LastRenderTime() = engine->LevelInfo->TimeSeconds();
 
-	// The actor draws as if not hidden; a visible one (the vision
-	// augmentation's heat sources) keeps its own flag afterwards.
+	// The actor draws as if not hidden. Canvas.DrawActor leaves it hidden,
+	// whatever it was, as the original's does (Engine.dll
+	// UCanvas::execDrawActor 0x10377ed0; OverlayConsole); GC.DrawActor puts
+	// the flag back, as the original's puts all back (extension-dll.md,
+	// actors in a window), so a visible one -- the vision augmentation's heat
+	// sources -- keeps it.
 	bool oldHidden = actor->bHidden();
 	actor->bHidden() = false;
 	VisibleMesh vismesh;
-	if (vismesh.DrawMesh(&MainFrame, actor, WireFrame, false))
-		vismesh.DrawMesh(&MainFrame, actor, WireFrame, true);
-	actor->bHidden() = oldHidden;
+	if (vismesh.DrawMesh(&MainFrame, actor, false))
+		vismesh.DrawMesh(&MainFrame, actor, true);
+	actor->bHidden() = hideAfter || oldHidden;
 
 	Device->SetSceneNode(&Canvas.Frame);
 }
 
-void RenderSubsystem::DrawClippedActor(UActor* actor, bool WireFrame, int X, int Y, int XB, int YB, bool ClearZ)
+void RenderSubsystem::DrawClippedActor(UActor* actor, int X, int Y, int XB, int YB, bool ClearZ)
 {
 	SceneNode frame;
 	frame.XB = XB * Canvas.uiscale;
@@ -157,14 +161,22 @@ void RenderSubsystem::DrawClippedActor(UActor* actor, bool WireFrame, int X, int
 	if (ClearZ)
 		Device->ClearZ();
 
-	// The actor draws as if not hidden; a visible one (the vision
-	// augmentation's heat sources) keeps its own flag afterwards.
-	bool oldHidden = actor->bHidden();
+	// Drawn through a frame of its own: the eye at the origin of the scene
+	// node above, the actor's location relative to it, so its faces are
+	// culled, its environment map reflected and its vertex budget set from
+	// that eye, not the player's in the world (the device draws through the
+	// scene node set; the main frame's eye once served for the rest). The
+	// actor is left hidden, as Canvas.DrawClippedActor leaves it (Engine.dll
+	// UCanvas::execDrawClippedActor 0x103780d0; OverlayConsole).
+	ActorFrame.Device = Device;
+	ActorFrame.Frame = frame;
+	ActorFrame.ViewLocation = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	ActorFrame.ViewRotation = Coords::Identity();
 	actor->bHidden() = false;
 	VisibleMesh vismesh;
-	if (vismesh.DrawMesh(&MainFrame, actor, WireFrame, false))
-		vismesh.DrawMesh(&MainFrame, actor, WireFrame, true);
-	actor->bHidden() = oldHidden;
+	if (vismesh.DrawMesh(&ActorFrame, actor, false))
+		vismesh.DrawMesh(&ActorFrame, actor, true);
+	actor->bHidden() = true;
 
 	Device->SetSceneNode(&Canvas.Frame);
 }

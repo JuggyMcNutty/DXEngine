@@ -32,7 +32,7 @@ struct CachedMeshVertex
 class VisibleMesh
 {
 public:
-	bool DrawMesh(VisibleFrame* frame, UActor* actor, bool wireframe, bool translucentPass);
+	bool DrawMesh(VisibleFrame* frame, UActor* actor, bool translucentPass);
 
 private:
 	void DrawDebugInfo(VisibleFrame* frame, UActor* actor);

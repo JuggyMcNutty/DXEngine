@@ -953,10 +953,19 @@ from the original's code:
   5 degrees four ways, within 7 pixels of the original's at 1280x720 with
   the original's [view width](#the-views-width).
 
+`Canvas.DrawActor` and `Canvas.DrawClippedActor` leave their actor hidden,
+whatever it was, as the original's natives do, where `GC.DrawActor` puts the
+flag back (`OverlayConsole`: the pawn drawn visible and drawn hidden, hidden
+after each, in both engines); `DrawClippedActor` draws from an eye at its
+own frame's origin.
+
 Differs:
 
 - **`GC.DrawActor` ignores `bConstrain`**: the vision augmentation's calls
   cover the whole view. Its render time: [out of sight](#out-of-sight).
+- **`Canvas.DrawActor`'s and `DrawClippedActor`'s `WireFrame`** draws the
+  actor solid: DXEngine draws no wire frames, where the original draws the
+  call with the player's `RendMap` at wire (the game passes false).
 - **A typed character past Latin-1** (U+0100 on) goes nowhere, DXEngine's
   text being 8-bit; the original's windows take it, and the game's fonts
   draw it as nothing (read from `WinDrv.dll`'s code). A string the original

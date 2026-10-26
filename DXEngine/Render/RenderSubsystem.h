@@ -43,8 +43,11 @@ public:
 	// recording. False when there is none to read.
 	bool ReadLastFrame(Array<TextureColor>& pixels, int& width, int& height);
 
-	void DrawActor(UActor* actor, bool WireFrame, bool ClearZ);
-	void DrawClippedActor(UActor* actor, bool WireFrame, int X, int Y, int XB, int YB, bool ClearZ);
+	// An actor drawn on its own: Canvas.DrawActor (hideAfter: left hidden,
+	// as the original's leaves it) and GC.DrawActor (its flag put back), and
+	// Canvas.DrawClippedActor through a frame of its own (ActorFrame)
+	void DrawActor(UActor* actor, bool ClearZ, bool hideAfter);
+	void DrawClippedActor(UActor* actor, int X, int Y, int XB, int YB, bool ClearZ);
 	void DrawTile(UTexture* Tex, float x, float y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 color, vec4 fog, uint32_t flags);
 	void DrawTileClipped(UTexture* Tex, float orgX, float orgY, float curX, float curY, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 color, vec4 fog, uint32_t flags, float clipX, float clipY);
 	void DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const std::string& text, uint32_t polyflags, bool center, float spaceX = 0.0f, float spaceY = 0.0f, float clipX = 100000.0f, float clipY = 100000.0f, bool noDraw = false);
@@ -128,6 +131,7 @@ public:
 
 	VisibleFrame MainFrame;
 	VisibleFrame ViewportFrame; // a ViewportWindow's view: the zoom, the drone, a camera's feed
+	VisibleFrame ActorFrame; // Canvas.DrawClippedActor's: the eye at its scene node's origin
 	SceneNode MainView; // The main scene's view, which a ViewportWindow's draw leaves alone
 
 private:

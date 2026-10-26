@@ -91,7 +91,7 @@ void VisibleActor::DrawOpaque(VisibleFrame* frame)
 	if (Type == DT_Mesh)
 	{
 		VisibleMesh vismesh;
-		if (vismesh.DrawMesh(frame, Actor, false, false))
+		if (vismesh.DrawMesh(frame, Actor, false))
 		{
 			vec3 v = Actor->Location() - frame->ViewLocation.xyz();
 			frame->AddTranslucent(VisibleFrame::ActorTranslucentList(Actor), VisibleTranslucent(*this, dot(v, v)));
@@ -121,7 +121,7 @@ void VisibleActor::DrawTranslucent(VisibleFrame* frame)
 	if (Type == DT_Mesh)
 	{
 		VisibleMesh vismesh;
-		vismesh.DrawMesh(frame, Actor, false, true);
+		vismesh.DrawMesh(frame, Actor, true);
 	}
 	else if (Type == DT_Sprite || Type == DT_SpriteAnimOnce)
 	{
