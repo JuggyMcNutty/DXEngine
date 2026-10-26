@@ -154,7 +154,7 @@ std::string ErrorWindow::ToFixed(float time)
 {
 	std::string fixedTime = std::to_string((int64_t)(time * 1000.0));
 	if (fixedTime.size() < 4)
-		fixedTime.resize(4, '0');
+		fixedTime.insert(0, 4 - fixedTime.size(), '0'); // padded on the left: 5 ms is 0.005, not 5.000
 	return fixedTime.substr(0, fixedTime.size() - 3) + "." + fixedTime.substr(fixedTime.size() - 3);
 }
 
@@ -282,7 +282,7 @@ std::string LogViewer::ToFixed(float time)
 {
 	std::string fixedTime = std::to_string((int64_t)(time * 1000.0));
 	if (fixedTime.size() < 4)
-		fixedTime.resize(4, '0');
+		fixedTime.insert(0, 4 - fixedTime.size(), '0'); // padded on the left: 5 ms is 0.005, not 5.000
 	return fixedTime.substr(0, fixedTime.size() - 3) + "." + fixedTime.substr(fixedTime.size() - 3);
 }
 
