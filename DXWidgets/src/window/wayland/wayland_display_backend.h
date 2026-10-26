@@ -164,7 +164,7 @@ private:
 	int GetTimerTimeout();
 	void ConnectKeyboardEvents();
 	void ConnectMouseEvents();
-	void OnKeyboardKeyEvent(xkb_keysym_t xkbKeySym, wayland::keyboard_key_state state);
+	void OnKeyboardKeyEvent(InputKey inputKey, wayland::keyboard_key_state state);
 	void OnKeyboardCharEvent(const char* ch, wayland::keyboard_key_state state);
 	void OnKeyboardDelayEnd();
 	void OnKeyboardRepeat();
@@ -181,6 +181,7 @@ private:
 	void StopKeyboardTimers();
 
 	InputKey XKBKeySymToInputKey(xkb_keysym_t keySym);
+	InputKey KeyToInputKey(uint32_t key);
 	InputKey LinuxInputEventCodeToInputKey(uint32_t inputCode);
 
 	wayland::cursor_shape_device_v1_shape GetWaylandCursorShape(StandardCursor cursor);

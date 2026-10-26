@@ -1599,9 +1599,9 @@ not deleted (the log says so).
   the arrows, Home and the rest. The other windows name fewer, and a side's
   own never: the X11 one, the harness's, has no Alt but the Meta key, no
   `` ` ``, no keypad Enter, and Print Screen as `Print`; the Wayland one,
-  the engine's own on a Wayland desktop, no `/`, no `[` or `]` but as their
-  shifted braces, no keypad operator but `-` (as `Minus`), no keypad period,
-  Print Screen, Pause, Home, End, Insert, Page Up or Page Down.
+  the engine's own on a Wayland desktop (a dev build's, no port's), names
+  each key by its first level, the key below Escape `` ` `` whatever the
+  layout, and lacks only the Windows and menu keys.
 - **The field of view** is the original's setting: the player's `DefaultFOV`
   is Deus Ex's own config, 75 (`[Engine.PlayerPawn]` in `User.ini`), the
   angle across a 4:3 view ([the view's width](#the-views-width)). Surreal

@@ -230,8 +230,7 @@ void WaylandDisplayBackend::ConnectKeyboardEvents()
 		{
 			// keys parameter represents the keys pressed when entering the surface
 			// key variable is Linux evdev scancode, to translate it to XKB keycode, we must add 8
-			xkb_keysym_t sym = xkb_state_key_get_one_sym(m_KeyboardState, key + 8);
-			OnKeyboardKeyEvent(sym, wayland::keyboard_key_state::pressed);
+			OnKeyboardKeyEvent(KeyToInputKey(key), wayland::keyboard_key_state::pressed);
 
 			// Also cause a Char event
 			char buf[128];
@@ -258,8 +257,7 @@ void WaylandDisplayBackend::ConnectKeyboardEvents()
 
 	m_waylandKeyboard.on_key() = [this] (uint32_t serial, uint32_t time, uint32_t key, wayland::keyboard_key_state state) {
 		// key is Linux evdev scancode, to translate it to XKB keycode, we must add 8
-		xkb_keysym_t sym = xkb_state_key_get_one_sym(m_KeyboardState, key + 8);
-		OnKeyboardKeyEvent(sym, state);
+		OnKeyboardKeyEvent(KeyToInputKey(key), state);
 
 		// Also cause a Char event
 		char buf[128];
@@ -429,10 +427,24 @@ void WaylandDisplayBackend::ConnectMouseEvents()
 	};
 }
 
-void WaylandDisplayBackend::OnKeyboardKeyEvent(xkb_keysym_t xkbKeySym, wayland::keyboard_key_state state)
+// The key's name: the key below Escape is the console's whatever its layout
+// names it, and the rest by the keysym of the key's first level, not of the
+// modifiers in force (Shift's digit row and punctuation and Shift+Tab came as
+// None, the keypad with Num Lock off too), as the X11 window reads it
+InputKey WaylandDisplayBackend::KeyToInputKey(uint32_t key)
 {
-	InputKey inputKey = XKBKeySymToInputKey(xkbKeySym);
+	if (key == KEY_GRAVE)
+		return InputKey::Tilde;
+	if (!m_Keymap || !m_KeyboardState)
+		return InputKey::None;
+	xkb_keycode_t keycode = key + 8;
+	const xkb_keysym_t* syms = nullptr;
+	int count = xkb_keymap_key_get_syms_by_level(m_Keymap, keycode, xkb_state_key_get_layout(m_KeyboardState, keycode), 0, &syms);
+	return XKBKeySymToInputKey(count > 0 ? syms[0] : xkb_state_key_get_one_sym(m_KeyboardState, keycode));
+}
 
+void WaylandDisplayBackend::OnKeyboardKeyEvent(InputKey inputKey, wayland::keyboard_key_state state)
+{
 	if (state == wayland::keyboard_key_state::pressed)
 	{
 		inputKeyStates[inputKey] = true;
@@ -831,25 +843,37 @@ InputKey WaylandDisplayBackend::XKBKeySymToInputKey(xkb_keysym_t keySym)
 			return InputKey::_9;
 		case XKB_KEY_0:
 			return InputKey::_0;
+		// The keypad's digits as the first level names them (Home, End, the
+		// arrows, Insert, Delete) and as Num Lock's level does
 		case XKB_KEY_KP_1:
+		case XKB_KEY_KP_End:
 			return InputKey::NumPad1;
 		case XKB_KEY_KP_2:
+		case XKB_KEY_KP_Down:
 			return InputKey::NumPad2;
 		case XKB_KEY_KP_3:
+		case XKB_KEY_KP_Page_Down:
 			return InputKey::NumPad3;
 		case XKB_KEY_KP_4:
+		case XKB_KEY_KP_Left:
 			return InputKey::NumPad4;
 		case XKB_KEY_KP_5:
+		case XKB_KEY_KP_Begin:
 			return InputKey::NumPad5;
 		case XKB_KEY_KP_6:
+		case XKB_KEY_KP_Right:
 			return InputKey::NumPad6;
 		case XKB_KEY_KP_7:
+		case XKB_KEY_KP_Home:
 			return InputKey::NumPad7;
 		case XKB_KEY_KP_8:
+		case XKB_KEY_KP_Up:
 			return InputKey::NumPad8;
 		case XKB_KEY_KP_9:
+		case XKB_KEY_KP_Page_Up:
 			return InputKey::NumPad9;
 		case XKB_KEY_KP_0:
+		case XKB_KEY_KP_Insert:
 			return InputKey::NumPad0;
 		case XKB_KEY_F1:
 			return InputKey::F1;
@@ -900,7 +924,6 @@ InputKey WaylandDisplayBackend::XKBKeySymToInputKey(xkb_keysym_t keySym)
 		case XKB_KEY_F24:
 			return InputKey::F24;
 		case XKB_KEY_minus:
-		case XKB_KEY_KP_Subtract:
 			return InputKey::Minus;
 		case XKB_KEY_equal:
 			return InputKey::Equals;
@@ -910,8 +933,10 @@ InputKey WaylandDisplayBackend::XKBKeySymToInputKey(xkb_keysym_t keySym)
 			return InputKey::Backslash;
 		case XKB_KEY_Tab:
 			return InputKey::Tab;
+		case XKB_KEY_bracketleft:
 		case XKB_KEY_braceleft:
 			return InputKey::LeftBracket;
+		case XKB_KEY_bracketright:
 		case XKB_KEY_braceright:
 			return InputKey::RightBracket;
 		case XKB_KEY_Control_L:
@@ -938,7 +963,6 @@ InputKey WaylandDisplayBackend::XKBKeySymToInputKey(xkb_keysym_t keySym)
 		case XKB_KEY_Shift_R:
 			return InputKey::Shift;
 		case XKB_KEY_grave:
-		case XKB_KEY_quotedbl: // This will allow DXEngine to pop up the console window when pressing the key below Esc.
 			return InputKey::Tilde;
 		case XKB_KEY_apostrophe:
 			return InputKey::SingleQuote;
@@ -1035,6 +1059,34 @@ InputKey WaylandDisplayBackend::XKBKeySymToInputKey(xkb_keysym_t keySym)
 		case XKB_KEY_Z:
 		case XKB_KEY_z:
 			return InputKey::Z;
+
+		case XKB_KEY_slash:
+			return InputKey::Slash;
+		case XKB_KEY_Home:
+			return InputKey::Home;
+		case XKB_KEY_End:
+			return InputKey::End;
+		case XKB_KEY_Page_Up:
+			return InputKey::PageUp;
+		case XKB_KEY_Page_Down:
+			return InputKey::PageDown;
+		case XKB_KEY_Insert:
+			return InputKey::Insert;
+		case XKB_KEY_KP_Multiply:
+			return InputKey::GreyStar;
+		case XKB_KEY_KP_Add:
+			return InputKey::GreyPlus;
+		case XKB_KEY_KP_Subtract:
+			return InputKey::GreyMinus;
+		case XKB_KEY_KP_Divide:
+			return InputKey::GreySlash;
+		case XKB_KEY_KP_Decimal:
+		case XKB_KEY_KP_Delete:
+			return InputKey::NumPadPeriod;
+		case XKB_KEY_Print:
+			return InputKey::PrintScrn;
+		case XKB_KEY_Pause:
+			return InputKey::Pause;
 
 		case XKB_KEY_NoSymbol:
 		case XKB_KEY_VoidSymbol:
