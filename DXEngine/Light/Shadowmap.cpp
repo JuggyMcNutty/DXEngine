@@ -72,6 +72,18 @@ void Shadowmap::Load(UModel* model, int lightMap, int lightindex, const Lightmap
 
 	// Convert bits to floats that are easier to work with
 
-	const uint8_t* bits = model->LightBits.data() + lmindex.DataOffset + lightindex * pitch * height;
-	LoadDX(bits, pitch, rect);
+	// A light whose bits lie past the stored ones (a map whose light list
+	// outruns its bits) casts no shadow, as a moving light's half-lit map
+	if (lmindex.DataOffset < 0)
+	{
+		Clear(model, lightMap, rect);
+		return;
+	}
+	size_t offset = (size_t)lmindex.DataOffset + (size_t)lightindex * pitch * height;
+	if (offset + (size_t)pitch * height > model->LightBits.size())
+	{
+		Clear(model, lightMap, rect);
+		return;
+	}
+	LoadDX(model->LightBits.data() + offset, pitch, rect);
 }
