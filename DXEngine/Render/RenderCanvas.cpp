@@ -266,6 +266,22 @@ Array<std::string> RenderSubsystem::FindTextBlocks(const std::string& text)
 	return textBlocks;
 }
 
+// A glyph's page as the device takes it: its own page's image, size and
+// palette, keyed by the page
+static void GlyphTextureInfo(const FontGlyph& glyph, TextureInfo& texinfo)
+{
+	texinfo = {};
+	texinfo.CacheID = (uint64_t)(ptrdiff_t)glyph.Texture;
+	texinfo.Texture = glyph.Texture;
+	texinfo.Format = glyph.Texture->UsedFormat;
+	texinfo.Mips = glyph.Texture->UsedMipmaps.data();
+	texinfo.NumMips = (int)glyph.Texture->UsedMipmaps.size();
+	texinfo.USize = glyph.Texture->USize();
+	texinfo.VSize = glyph.Texture->VSize();
+	if (glyph.Texture->Palette())
+		texinfo.Palette = (TextureColor*)glyph.Texture->Palette()->Colors.data();
+}
+
 void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::string>& textBlocks, size_t start, size_t end, UFont* font, vec4 color, uint32_t polyflags, float spaceX)
 {
 	for (size_t i = start; i < end; i++)
@@ -278,15 +294,7 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
 				continue;
 
 			TextureInfo texinfo;
-			texinfo.CacheID = (uint64_t)(ptrdiff_t)glyph.Texture;
-			texinfo.Texture = glyph.Texture;
-			texinfo.Format = texinfo.Texture->UsedFormat;
-			texinfo.Mips = glyph.Texture->UsedMipmaps.data();
-			texinfo.NumMips = (int)glyph.Texture->UsedMipmaps.size();
-			texinfo.USize = glyph.Texture->USize();
-			texinfo.VSize = glyph.Texture->VSize();
-			if (glyph.Texture->Palette())
-				texinfo.Palette = (TextureColor*)glyph.Texture->Palette()->Colors.data();
+			GlyphTextureInfo(glyph, texinfo);
 
 			int width = glyph.USize;
 			int height = glyph.VSize;
@@ -423,31 +431,29 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
 		{
 			foundAmpersand = false;
 
+			// The hot key's letter, then the '_' glyph under it, each from its
+			// own page: the underline once took the '_' page's ID with the
+			// letter's image and size, and lay off its letter by centerX
 			FontGlyph glyph = font->GetGlyph(c);
-			if (curX + glyph.USize > (int)clipX)
+			if (curX + centerX + glyph.USize > (int)clipX)
 				break;
 
-			TextureInfo texinfo;
-			texinfo.CacheID = (uint64_t)(ptrdiff_t)glyph.Texture;
-			texinfo.Texture = glyph.Texture;
-			texinfo.Format = texinfo.Texture->UsedFormat;
-			texinfo.Mips = glyph.Texture->UsedMipmaps.data();
-			texinfo.NumMips = (int)glyph.Texture->UsedMipmaps.size();
-			texinfo.USize = glyph.Texture->USize();
-			texinfo.VSize = glyph.Texture->VSize();
-			if (glyph.Texture->Palette())
-				texinfo.Palette = (TextureColor*)glyph.Texture->Palette()->Colors.data();
-
-			Rectf dest = Rectf::xywh(orgX + curX + centerX, orgY + curY, (float)glyph.USize, (float)glyph.VSize);
-			Rectf src = Rectf::xywh((float)glyph.StartU, (float)glyph.StartV, (float)glyph.USize, (float)glyph.VSize);
-			DrawTile(texinfo, dest, src, clipBox, 1.0f, color, vec4(0.0f), polyflags);
-
-			texinfo.CacheID = (uint64_t)(ptrdiff_t)uglyph.Texture;
-			texinfo.Texture = uglyph.Texture;
-
-			dest = Rectf::xywh(orgX + curX + (glyph.USize - uwidth) / 2, orgY + curY, (float)uwidth, (float)uheight);
-			src = Rectf::xywh(uStartU, uStartV, uUSize, uVSize);
-			DrawTile(texinfo, dest, src, clipBox, 1.0f, color, vec4(0.0f), polyflags);
+			if (glyph.Texture)
+			{
+				TextureInfo texinfo;
+				GlyphTextureInfo(glyph, texinfo);
+				Rectf dest = Rectf::xywh(orgX + curX + centerX, orgY + curY, (float)glyph.USize, (float)glyph.VSize);
+				Rectf src = Rectf::xywh((float)glyph.StartU, (float)glyph.StartV, (float)glyph.USize, (float)glyph.VSize);
+				DrawTile(texinfo, dest, src, clipBox, 1.0f, color, vec4(0.0f), polyflags);
+			}
+			if (uglyph.Texture)
+			{
+				TextureInfo texinfo;
+				GlyphTextureInfo(uglyph, texinfo);
+				Rectf dest = Rectf::xywh(orgX + curX + centerX + (glyph.USize - uwidth) / 2, orgY + curY, (float)uwidth, (float)uheight);
+				Rectf src = Rectf::xywh(uStartU, uStartV, uUSize, uVSize);
+				DrawTile(texinfo, dest, src, clipBox, 1.0f, color, vec4(0.0f), polyflags);
+			}
 
 			curX += glyph.USize;
 			maxY = std::max(maxY, glyph.VSize);
@@ -456,24 +462,20 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
 		{
 			foundAmpersand = false;
 
+			// A character the font lacks, with no space to stand in (a mod's
+			// font), draws nothing and takes no room
 			FontGlyph glyph = font->GetGlyph(c);
-			if (curX + glyph.USize > (int)clipX)
+			if (curX + centerX + glyph.USize > (int)clipX)
 				break;
 
-			TextureInfo texinfo;
-			texinfo.CacheID = (uint64_t)(ptrdiff_t)glyph.Texture;
-			texinfo.Texture = glyph.Texture;
-			texinfo.Format = texinfo.Texture->UsedFormat;
-			texinfo.Mips = glyph.Texture->UsedMipmaps.data();
-			texinfo.NumMips = (int)glyph.Texture->UsedMipmaps.size();
-			texinfo.USize = glyph.Texture->USize();
-			texinfo.VSize = glyph.Texture->VSize();
-			if (glyph.Texture->Palette())
-				texinfo.Palette = (TextureColor*)glyph.Texture->Palette()->Colors.data();
-
-			Rectf dest = Rectf::xywh(orgX + curX + centerX, orgY + curY, (float)glyph.USize, (float)glyph.VSize);
-			Rectf src = Rectf::xywh((float)glyph.StartU, (float)glyph.StartV, (float)glyph.USize, (float)glyph.VSize);
-			DrawTile(texinfo, dest, src, clipBox, 1.0f, color, vec4(0.0f), polyflags);
+			if (glyph.Texture)
+			{
+				TextureInfo texinfo;
+				GlyphTextureInfo(glyph, texinfo);
+				Rectf dest = Rectf::xywh(orgX + curX + centerX, orgY + curY, (float)glyph.USize, (float)glyph.VSize);
+				Rectf src = Rectf::xywh((float)glyph.StartU, (float)glyph.StartV, (float)glyph.USize, (float)glyph.VSize);
+				DrawTile(texinfo, dest, src, clipBox, 1.0f, color, vec4(0.0f), polyflags);
+			}
 
 			curX += glyph.USize;
 			maxY = std::max(maxY, glyph.VSize);
