@@ -548,7 +548,7 @@ where one inside does, so a draw reads no texel but its pixels'.
   (`SoftwareSampler::LODBias`).
 - **Shading**: the scene shader (`Scene.frag`) in fixed point, 2.14 in lanes of 16 bits, a quad
   of 2x2 pixels at a time, through `SoftwareSimd.h`'s SSE2, NEON or plain loops, which give the
-  same bits (the device's files built without fused multiply-adds, `-ffp-contract=off`); the
+  same bits (the whole engine built without fused multiply-adds, `-ffp-contract=off`); the
   alpha test and the blends in float, on the frame's bytes over 255. One template
   (`SoftwareDrawPrimitive`) makes every pipeline: with each of a draw's flags read as it draws,
   the general one; with them fixed as it is compiled, the specialized ones a draw's flags select

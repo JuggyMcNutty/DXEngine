@@ -920,12 +920,13 @@ if(MSVC)
 	set_source_files_properties(${THIRDPARTY_SOURCES} PROPERTIES COMPILE_FLAGS "/wd4244 /wd4267 /wd4005 /wd4018 /wd4101 -D_CRT_SECURE_NO_WARNINGS")
 endif()
 
-# The software device's arithmetic the same bits on every machine: no
-# multiply and add fused into one, as GCC fuses them on aarch64 by default
-# (and so without the precompiled header, which is built without the flag)
+# The engine's arithmetic the same bits on every machine: no multiply and
+# add fused into one, as GCC fuses them on aarch64 by default. The software
+# device's lanes need it; so do the traces, which take a mover's face for the
+# level's by its normal to the bit (TraceTester), a normal summed from two
+# products.
 if(NOT MSVC)
-	file(GLOB SOFTWARE_DEVICE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/RenderDevice/Software/*.cpp)
-	set_source_files_properties(${SOFTWARE_DEVICE_SOURCES} PROPERTIES COMPILE_OPTIONS -ffp-contract=off SKIP_PRECOMPILE_HEADERS ON)
+	add_compile_options(-ffp-contract=off)
 endif()
 
 add_library(DXCommon STATIC ${DXCOMMON_SOURCES} ${THIRDPARTY_SOURCES})
