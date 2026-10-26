@@ -426,6 +426,7 @@ private:
 	HitQuery ForceHit;
 
 	bool IsLocked = false;
+	std::string LastResizeError; // the last failed resize's reason, said once
 	bool Exited = false; // set by Exit(); after it no GL work is done
 	bool IsGLES = false; // an OpenGL ES context (RenderAPI::GLES): GLSL ES sources, no desktop versions
 	bool SamplerAnisotropy = true; // EXT_texture_filter_anisotropic; off where absent

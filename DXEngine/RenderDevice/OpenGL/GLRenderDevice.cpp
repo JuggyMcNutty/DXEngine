@@ -1206,9 +1206,21 @@ void GLRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear, 
 		}
 		catch (const std::exception& e)
 		{
-			LogMessage(std::string("Could not resize scene buffers: ") + e.what());
+			// The frame is skipped: nothing of it is bound, and the draws
+			// are passed over (below) until a Lock gets past the resize; the
+			// window keeps what it showed. Said once, and again when the
+			// reason changes: the engine drew the frame regardless, into the
+			// window's back buffer through the present pass's vertex array
+			// and constants, until a later Lock threw its errors as its own.
+			if (LastResizeError != e.what())
+			{
+				LastResizeError = e.what();
+				LogMessage("GLDrv: could not resize the scene buffers: " + LastResizeError);
+			}
+			IsLocked = false;
 			return;
 		}
+		LastResizeError.clear();
 	}
 
 	HitData = InHitData;
@@ -1538,6 +1550,8 @@ void GLRenderDevice::SetHitLocation()
 
 void GLRenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet)
 {
+	if (!IsLocked) // a frame whose Lock failed (its scene buffers' resize): nothing is bound for it
+		return;
 	uint32_t PolyFlags = ApplyPrecedenceRules(Surface.PolyFlags);
 
 	ComplexSurfaceInfo info;
@@ -1679,6 +1693,8 @@ static void WriteGouraudVertices(GLSceneVertex* vertex, const GouraudVertex* Pts
 
 void GLRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags)
 {
+	if (!IsLocked) // a frame whose Lock failed (its scene buffers' resize): nothing is bound for it
+		return;
 	if (NumPts < 3) return; // This can apparently happen!!
 
 	PolyFlags = ApplyPrecedenceRules(PolyFlags);
@@ -1719,6 +1735,8 @@ void GLRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, con
 
 void GLRenderDevice::DrawGouraudTriangles(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumTris, uint32_t PolyFlags)
 {
+	if (!IsLocked) // a frame whose Lock failed (its scene buffers' resize): nothing is bound for it
+		return;
 	if (NumTris <= 0) return;
 
 	// What DrawGouraudPolygon does for each triangle, with the texture and
@@ -1756,6 +1774,8 @@ void GLRenderDevice::DrawGouraudTriangles(SceneNode* Frame, TextureInfo& Info, c
 
 void GLRenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X, float Y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 Color, vec4 Fog, uint32_t PolyFlags)
 {
+	if (!IsLocked) // a frame whose Lock failed (its scene buffers' resize): nothing is bound for it
+		return;
 	PolyFlags = ApplyPrecedenceRules(TileFlags(Info, PolyFlags));
 
 	if (PolyFlags == PF_SubpixelFont)
@@ -1917,6 +1937,8 @@ vec4 GLRenderDevice::ApplyInverseGamma(vec4 color)
 
 void GLRenderDevice::Draw3DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2)
 {
+	if (!IsLocked) // a frame whose Lock failed (its scene buffers' resize): nothing is bound for it
+		return;
 	// P1 = P1.TransformPointBy(Frame->Coords);
 	// P2 = P2.TransformPointBy(Frame->Coords);
 	if (IsOrtho)
@@ -1964,6 +1986,8 @@ void GLRenderDevice::Draw3DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags
 
 void GLRenderDevice::Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2)
 {
+	if (!IsLocked) // a frame whose Lock failed (its scene buffers' resize): nothing is bound for it
+		return;
 	bool occlude = !!(LineFlags & LINE_DepthCued);
 	SetPipeline(&ScenePass.LinePipeline[occlude]);
 	SetDescriptorSet(PF_Highlighted);
@@ -1988,6 +2012,8 @@ void GLRenderDevice::Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags
 
 void GLRenderDevice::Draw2DPoint(SceneNode* Frame, vec4 Color, uint32_t LineFlags, float X1, float Y1, float X2, float Y2, float Z)
 {
+	if (!IsLocked) // a frame whose Lock failed (its scene buffers' resize): nothing is bound for it
+		return;
 	bool occlude = !!(LineFlags & LINE_DepthCued);
 	SetPipeline(&ScenePass.PointPipeline[occlude]);
 	SetDescriptorSet(PF_Highlighted);
@@ -2018,6 +2044,8 @@ void GLRenderDevice::Draw2DPoint(SceneNode* Frame, vec4 Color, uint32_t LineFlag
 
 void GLRenderDevice::ClearZ()
 {
+	if (!IsLocked) // a frame whose Lock failed (its scene buffers' resize): nothing is bound for it
+		return;
 	DrawBatches();
 
 	glDepthMask(GL_TRUE);
