@@ -58,13 +58,17 @@ LauncherSettings::LauncherSettings()
 		else if (rendevgamma == "XOpenGL")
 			RenderDevice.Gamma = GammaMode::XOpenGL;
 
-		RenderDevice.GammaCorrectScreenshots = settings["RenderDevice"]["GammaCorrectScreenshots"].to_boolean();
-		RenderDevice.UseVSync = settings["RenderDevice"]["UseVSync"].to_boolean();
-		RenderDevice.Hdr = settings["RenderDevice"]["Hdr"].to_boolean();
-		RenderDevice.HdrScale = settings["RenderDevice"]["HdrScale"].to_int();
-		RenderDevice.Bloom = settings["RenderDevice"]["Bloom"].to_boolean();
-		RenderDevice.BloomAmount = settings["RenderDevice"]["BloomAmount"].to_int();
-		RenderDevice.UseDebugLayer = settings["RenderDevice"]["UseDebugLayer"].to_boolean();
+		// Absent keys keep the header's defaults (UseVSync on, the scales 128),
+		// as the Gamepad block's do: a file without them read vsync off and
+		// each scale's floor
+		const JsonValue& rendev = settings["RenderDevice"];
+		if (!rendev["GammaCorrectScreenshots"].is_undefined()) RenderDevice.GammaCorrectScreenshots = rendev["GammaCorrectScreenshots"].to_boolean();
+		if (!rendev["UseVSync"].is_undefined()) RenderDevice.UseVSync = rendev["UseVSync"].to_boolean();
+		if (!rendev["Hdr"].is_undefined()) RenderDevice.Hdr = rendev["Hdr"].to_boolean();
+		if (!rendev["HdrScale"].is_undefined()) RenderDevice.HdrScale = rendev["HdrScale"].to_int();
+		if (!rendev["Bloom"].is_undefined()) RenderDevice.Bloom = rendev["Bloom"].to_boolean();
+		if (!rendev["BloomAmount"].is_undefined()) RenderDevice.BloomAmount = rendev["BloomAmount"].to_int();
+		if (!rendev["UseDebugLayer"].is_undefined()) RenderDevice.UseDebugLayer = rendev["UseDebugLayer"].to_boolean();
 
 		// Absent members keep their defaults: a missing bool would otherwise
 		// read as false and quietly turn controller support off.
