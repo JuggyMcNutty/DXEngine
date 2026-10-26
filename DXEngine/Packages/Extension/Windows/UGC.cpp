@@ -153,6 +153,60 @@ void UGC::DrawText(float DestX, float DestY, float destWidth, float destHeight, 
 	PopClip();
 }
 
+// Text at a point, clipped to a box of its own (the original's DrawText
+// after an Intersect of the clip): the lines from (x, y) down, left and top
+// aligned, never wrapped, each character as DrawText draws it.
+void UGC::DrawTextClipped(float ClipX, float ClipY, float clipWidth, float clipHeight, float x, float y, const std::string& textStr)
+{
+	if (!bDrawEnabled())
+		return;
+
+	PushClip(ScaleRect(Rectf::xywh(offsetX + ClipX, offsetY + ClipY, clipWidth, clipHeight)));
+
+	TextState state;
+	state.color = TextColor();
+	bool bold = false;
+	UFont* font = normalFont();
+	const uint8_t* text = (const uint8_t*)textStr.data();
+	const uint8_t* end = text + textStr.size();
+	float lineX = x;
+	float lineY = y;
+	while (true)
+	{
+		TextState lineState = state;
+		float lineWidth = 0.0f;
+		int lineLength = 0;
+		const uint8_t* line = GetLine(lineState, 0.0f, text, end, lineWidth, lineLength);
+		if (!line)
+			break;
+
+		float cx = lineX;
+		float lineHeight = 0.0f;
+		const uint8_t* c = line;
+		const uint8_t* lineEnd = line + lineLength;
+		while (uint8_t ch = GetNextChar(c, state, lineEnd))
+		{
+			if (state.bold != bold)
+			{
+				font = state.bold ? boldFont() : normalFont();
+				bold = state.bold;
+			}
+			if (ch != '\n' && font)
+			{
+				float charHeight = 0.0f;
+				DrawChar(font, ch, state.color, state.accel, cx, lineY, cx, charHeight);
+				lineHeight = std::max(lineHeight, charHeight);
+			}
+		}
+		if (lineHeight < 1.0f && font)
+			lineHeight = (float)font->GetPageGlyph(' ').VSize;
+		lineY += lineHeight + textVSpacing();
+		state = lineState;
+	}
+
+	PopClip();
+}
+
 void UGC::DrawBorders(float DestX, float DestY, float destWidth, float destHeight, float leftMargin, float rightMargin, float TopMargin, float BottomMargin, UObject** borders, std::optional<bool> bStretchHorizontally, std::optional<bool> bStretchVertically)
 {
 	// The original's XGC::DrawBorders (Extension.dll 0x10028df0;

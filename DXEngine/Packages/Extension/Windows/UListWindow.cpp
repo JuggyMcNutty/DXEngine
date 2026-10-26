@@ -1071,6 +1071,16 @@ void UListWindow::ToggleRowSelection(int rowId)
 	SelectRow(rowId, !IsRowSelected(rowId));
 }
 
+// The original's XListWindow::Draw (Extension.dll 0x10033350), in three
+// passes with the GC masked, word wrap and special text off, left and top
+// aligned: each selected row's highlight across the whole row; then column
+// by column, in the column's font, each field's text in the inverse colour
+// on a selected row or the column's, placed by the column's alignment
+// inside the cell less the column and row margins, its bottom a row margin
+// less one over the row's end, clipped to that cell (a long field is cut at
+// the column's inner edge, one line); then, only while the list has the
+// keyboard focus, the focus row's outline, focusThickness thick, in the
+// focus texture.
 void UListWindow::DrawWindow(UGC* gc)
 {
 	UFont* font = normalFont();
@@ -1080,55 +1090,72 @@ void UListWindow::DrawWindow(UGC* gc)
 	float w = Width();
 	float lineHeight = GetLineHeight();
 	lineSize() = lineHeight;
+	if (lineHeight <= 0.0f)
+		return;
 
-	float y = 0.0f;
-	int lineIndex = 0;
-	for (auto& item : items)
+	bool wordWrap = gc->IsWordWrapEnabled();
+	bool specialText = gc->IsSpecialTextEnabled();
+	uint8_t style = gc->GetStyle();
+	UFont* gcNormal = gc->normalFont();
+	UFont* gcBold = gc->boldFont();
+	gc->SetStyle(EDrawStyle::Masked);
+	gc->EnableWordWrap(false);
+	gc->SetAlignments((uint8_t)EHAlign::Left, (uint8_t)EVAlign::Top);
+	gc->EnableSpecialText(false);
+
+	gc->SetTileColor(highlightColor());
+	if (highlightTexture())
 	{
-		if (lineIndex == focusLine())
+		float y = 0.0f;
+		for (auto& item : items)
 		{
-			gc->SetTextColor(highlightTextColor);
-			gc->SetTileColor(focusColor());
-			if (focusTexture())
-				gc->DrawTexture(0.0f, y, w, lineHeight, 0.0f, 0.0f, focusTexture());
+			if (item.selected)
+				gc->DrawPattern(0.0f, y, w, lineHeight, 0.0f, 0.0f, highlightTexture());
+			y += lineHeight;
 		}
-
-		if (item.selected)
-		{
-			float t = focusThickness();
-			gc->SetTextColor(highlightTextColor);
-			gc->SetTileColor(highlightColor());
-			if (highlightTexture())
-				gc->DrawTexture(t, y + t, std::max(w - 2.0f * t, 0.0f), std::max(lineHeight - t * 2.0f, 0.0f), 0.0f, 0.0f, highlightTexture());
-		}
-		else
-		{
-			gc->SetTextColor(TextColor());
-			gc->SetTileColor(tileColor());
-		}
-
-		float x = 0.0f;
-		for (int colIndex = 0; colIndex < (int)columns.size(); colIndex++)
-		{
-			auto& col = columns[colIndex];
-			if (col.hidden)
-				continue;
-			if ((size_t)colIndex < item.cells.size())
-			{
-				UFont* colFont = col.font ? col.font : font;
-				gc->SetFont(colFont);
-				gc->SetAlignments((uint8_t)col.align, (uint8_t)EVAlign::Center);
-
-				//if (!item.selected)
-				//	gc->SetTextColor(col.color);
-
-				gc->DrawText(x, y, col.width, lineHeight, FieldDisplayText(item, colIndex));
-			}
-			x += col.width;
-		}
-		y += lineHeight;
-		lineIndex++;
 	}
+
+	float cm = colMargin();
+	float rm = rowMargin();
+	float x = 0.0f;
+	for (int colIndex = 0; colIndex < (int)columns.size(); colIndex++)
+	{
+		auto& col = columns[colIndex];
+		if (col.hidden)
+			continue;
+		UFont* colFont = col.font ? col.font : font;
+		gc->SetFonts(colFont, colFont);
+		float y = 0.0f;
+		for (auto& item : items)
+		{
+			gc->SetTextColor(item.selected ? highlightTextColor : col.color);
+			std::string text = FieldDisplayText(item, colIndex);
+			float textWidth = 0.0f, textHeight = 0.0f;
+			gc->GetTextExtent(0.0f, textWidth, textHeight, text);
+			float tx;
+			if (col.align == EHAlign::Right)
+				tx = x + col.width - textWidth - cm;
+			else if (col.align == EHAlign::Center)
+				tx = x + (col.width - textWidth) * 0.5f;
+			else
+				tx = x + cm;
+			float ty = y + lineHeight - textHeight - rm + 1.0f;
+			gc->DrawTextClipped(x + cm, y + rm, col.width - 2.0f * cm, lineHeight - 2.0f * rm, tx, ty, text);
+			y += lineHeight;
+		}
+		x += col.width;
+	}
+
+	if (IsFocusWindow() && focusLine() >= 0 && focusLine() < (int)items.size() && focusTexture())
+	{
+		gc->SetTileColor(focusColor());
+		gc->DrawBox(0.0f, focusLine() * lineHeight, w, lineHeight, 0.0f, 0.0f, focusThickness(), focusTexture());
+	}
+
+	gc->SetFonts(gcNormal, gcBold);
+	gc->EnableWordWrap(wordWrap);
+	gc->EnableSpecialText(specialText);
+	gc->SetStyle((EDrawStyle)style);
 }
 
 // A list shown with rows and no focus row selects and focuses its first.

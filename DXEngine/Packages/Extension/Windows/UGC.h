@@ -18,6 +18,7 @@ public:
 	void DrawPattern(float DestX, float DestY, float destWidth, float destHeight, float OrgX, float OrgY, UObject* tX);
 	void DrawStretchedTexture(float DestX, float DestY, float destWidth, float destHeight, float srcX, float srcY, float srcWidth, float srcHeight, UObject* tX);
 	void DrawText(float DestX, float DestY, float destWidth, float destHeight, const std::string& textStr);
+	void DrawTextClipped(float ClipX, float ClipY, float clipWidth, float clipHeight, float x, float y, const std::string& textStr);
 	void DrawTexture(float DestX, float DestY, float destWidth, float destHeight, float srcX, float srcY, UObject* tX);
 	void EnableDrawing(bool bDrawEnabled);
 	void EnableMasking(bool bNewMasking);

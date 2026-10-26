@@ -144,6 +144,7 @@ the run. *Either*: one engine on each side of a pair.
 | `FogConsole` | both | `TargetMap`'s start (02_NYC_Underground's, in a fog zone): a troop and a large crate spawned 220 units ahead, two shots | `DXFOG:` | the fog on the meshes against the floor's and walls' |
 | `FrameConsole` | both | the EditFlags cheat screen, a ToolWindow framed by a BorderWindow of nine textures, opened and shot | `DXFRAME:` | the frame's corners and edges |
 | `FocusConsole` | both | the inventory screen with a lockpick selected, so a button has the focus: the focus window after the button is made insensitive and sensitive again, and after its parent is | `DXFOCUS:` | every line |
+| `ListConsole` | both | the Load Game screen with two saves of the run's own, one named 50 characters long and one with a `|c` colour code, shot and the saves removed | `DXLIST:` | the list: the long name cut at its column, the code shown as typed, the fields' insets, the focus row's outline |
 | `TraceConsole` | both | `TraceTexture`, `TraceActors`, `Trace` and `FastTrace`; a rifle's shot, 48000 units long; boxes started inside cylinders | `DXTRACE:` |  |
 | `ParabolicConsole` | both | `ParabolicTrace` from the player's eyes on the island, 30 degrees up at 400, 700 and 1000 units a second, bouncing and not, the player turned a quarter turn four times: each throw's landing and time | `DXPARA:` | the two logs' lines |
 | `FloatConsole` | both | the crates in the water by the pier | `DXFLOAT:` |  |

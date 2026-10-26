@@ -753,7 +753,14 @@ fills it, and scrolls a row at a time (`ScrollConsole`). A column fitted to
 its fields measures each in the column's font as the GC draws it, its
 widest line, a character the font lacks taking no room; a column given a
 new font, `None` the list's own, widens auto-expanding columns to their
-fields (`ColumnConsole`'s widths alike).
+fields (`ColumnConsole`'s widths alike). A list draws as the original's
+does, in three passes with word wrap and special text off: each selected
+row's highlight across the row; each field on one line in its column's
+font, inset by the column and row margins and cut at the cell's edge, a
+code such as `|c` shown as typed; and the focus row outlined in the focus
+texture, `focusThickness` thick, only while the list has the keyboard
+focus (`ListConsole`: the Load Game screen with a 50-character save name
+and one named `a|cff0000b`).
 
 ### The UI
 
