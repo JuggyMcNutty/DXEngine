@@ -400,6 +400,13 @@ void Canvas::drawText(const std::shared_ptr<Font>& font, const Point& pos, const
 		{
 			glyph = canvasFont->getGlyph(this, 32);
 		}
+		// Neither the character nor a space has a glyph (a font group
+		// mapping neither): the character is passed over
+		if (!glyph)
+		{
+			reader.next();
+			continue;
+		}
 
 		if (glyph->texture)
 		{
@@ -433,6 +440,13 @@ Rect Canvas::measureText(const std::shared_ptr<Font>& font, const std::string& t
 		{
 			glyph = canvasFont->getGlyph(this, 32);
 		}
+		// Neither the character nor a space has a glyph (a font group
+		// mapping neither): the character is passed over
+		if (!glyph)
+		{
+			reader.next();
+			continue;
+		}
 
 		x += std::round(glyph->metrics.advanceWidth);
 		reader.next();
@@ -464,6 +478,13 @@ int Canvas::getCharacterIndex(const std::shared_ptr<Font>& font, const std::stri
 		if (!glyph || !glyph->texture)
 		{
 			glyph = canvasFont->getGlyph(this, 32);
+		}
+		// Neither the character nor a space has a glyph (a font group
+		// mapping neither): the character is passed over
+		if (!glyph)
+		{
+			reader.next();
+			continue;
 		}
 
 		if (hitPoint.x <= (x + glyph->metrics.advanceWidth * 0.5) / uiscale)
