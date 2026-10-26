@@ -148,6 +148,9 @@ TrueTypeGlyph TrueTypeFont::LoadTTFGlyph(uint32_t glyphIndex, double height) con
 
 	ttf_uint16 advanceWidth = 0;
 	ttf_int16 lsb = 0;
+	// A cmap may name a glyph the font has not
+	if (glyphIndex >= maxp.numGlyphs)
+		throw std::runtime_error("Glyph index out of bounds");
 	if (glyphIndex >= hhea.numberOfHMetrics)
 	{
 		advanceWidth = hmtx.hMetrics[hhea.numberOfHMetrics - 1].advanceWidth;
@@ -371,7 +374,14 @@ void TrueTypeFont::LoadGlyph(TTF_SimpleGlyph& g, uint32_t glyphIndex, int compos
 	{
 		int pointsOffset = (int)g.points.size();
 		for (ttf_uint16 i = 0; i < numberOfContours; i++)
-			g.endPtsOfContours.push_back(pointsOffset + reader.ReadUInt16());
+		{
+			// The contours' ends must not go back: a glyph whose did indexed
+			// the flags and points past their end
+			int endPoint = pointsOffset + reader.ReadUInt16();
+			if (endPoint < (i > 0 ? (int)g.endPtsOfContours.back() : pointsOffset))
+				throw std::runtime_error("Invalid glyph");
+			g.endPtsOfContours.push_back(endPoint);
+		}
 
 		ttf_uint16 instructionLength = reader.ReadUInt16();
 		std::vector<ttf_uint8> instructions;
@@ -1078,6 +1088,9 @@ void TTF_FontHeader::Load(TrueTypeFileReader& reader)
 	magicNumber = reader.ReadUInt32();
 	flags = reader.ReadUInt16();
 	unitsPerEm = reader.ReadUInt16();
+	// 0 made the scale infinite and a glyph's size undefined
+	if (unitsPerEm == 0)
+		throw std::runtime_error("Invalid TTF file");
 	created = reader.ReadLONGDATETIME();
 	modified = reader.ReadLONGDATETIME();
 	xMin = reader.ReadInt16();
@@ -1113,6 +1126,9 @@ void TTF_HorizontalHeader::Load(TrueTypeFileReader& reader)
 	reserved3 = reader.ReadInt16();
 	metricDataFormat = reader.ReadInt16();
 	numberOfHMetrics = reader.ReadUInt16();
+	// 0 indexed the metrics before their start
+	if (numberOfHMetrics == 0)
+		throw std::runtime_error("Invalid TTF file");
 }
 
 /////////////////////////////////////////////////////////////////////////////
