@@ -1505,6 +1505,11 @@ engine's own objects are not deleted (the log says so).
   past 200 frames a second, which would run the game fast there. The level's
   `TimeDilation` is held to 0.0025 to 25, where the original's is not held
   (the game sets it only through `SetGameSpeed`, to 0.1 or more).
+- **The first frame** is a microsecond at the shortest, never 0 s
+  (`ScoutConsole`): a physics that takes the move's velocity from its tick
+  -- flying, a projectile, rolling, a mover, a path -- divided 0 by 0 for an
+  actor at rest on a frame of nothing, a generator's scout then lying
+  nowhere; the original's first frame is its loop's own microseconds.
 - **The script's `Move`** is a move as every other, the actor stopping 2
   units short of what blocks it, and answers whether the actor moved at
   all, not only the whole way (`NudgeConsole`: a crate 50 units over the

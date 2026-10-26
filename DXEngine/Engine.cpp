@@ -2245,7 +2245,15 @@ float Engine::CalcTimeElapsed()
 	if (lastTime == 0)
 		lastTime = currentTime;
 
+	// Never a frame of nothing: the first frame was 0 s, and a physics that
+	// takes the move's velocity from its tick (flying, rolling, a projectile,
+	// a mover, a path) divided 0 by 0 for every such actor at rest then -- a
+	// generator's scout, spawned as the level began, had a NaN location for
+	// good, out of every zone (ScoutConsole). The original's first frame is
+	// the loop's own time, microseconds; this one is the shortest, 1 us.
 	uint64_t deltaTime = currentTime - lastTime;
+	if (deltaTime == 0)
+		deltaTime = 1;
 	lastTime = currentTime;
 
 	// Deus Ex's frame is its whole time, a map's load included, as the
