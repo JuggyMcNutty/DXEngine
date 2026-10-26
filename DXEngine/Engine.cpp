@@ -2515,7 +2515,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 			difficulty = LevelInfo->URL.GetOption("difficulty");
 
 		// If there still isn't, refer to GameInfo for difficulty
-		if (difficulty.empty())
+		if (difficulty.empty() && GameInfo) // a net client has none
 			difficulty = std::to_string(GameInfo->Difficulty());
 
 		if (!difficulty.empty())
