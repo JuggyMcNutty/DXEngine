@@ -496,7 +496,8 @@ void Engine::Run()
 			UnrealURL restartURL = LastURL;
 			auto restartTravelInfo = Level->TravelInfo;
 			LoadMap(restartURL, restartTravelInfo);
-			LoginPlayer();
+			if (!dedicated)
+				LoginPlayer();
 		}
 
 		if (ClientTravelInfo.URL.HasOption("load") || ClientTravelInfo.URL.HasOption("loadgame"))
@@ -534,7 +535,8 @@ void Engine::Run()
 			auto travelInfo = CreateTravelInfo(ClientTravelInfo.TransferItems);
 			DeusExPreTravel(url);
 			LoadMap(url, travelInfo);
-			LoginPlayer();
+			if (!dedicated)
+				LoginPlayer();
 		}
 
 		if (GarbageStressFrames > 0 && ++GarbageStressCount >= GarbageStressFrames)
