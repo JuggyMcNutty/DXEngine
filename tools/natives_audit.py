@@ -272,6 +272,10 @@ def definitions(engine_src):
     return defs
 
 
+def uncommented(text):
+    return re.sub(r"/\*.*?\*/", "", re.sub(r"//[^\n]*", "", text), flags=re.S)
+
+
 def handed_over_texts(reg, defs):
     """A registered function's body and the bodies it hands over to: what it
     calls through -> or ::, and in those, their own class's methods called
@@ -282,7 +286,9 @@ def handed_over_texts(reg, defs):
         return []
     texts = [bodies[0]]
     seen = {"%s::%s" % (owner, func)}
-    for m in re.finditer(r"(?:->|::)\s*(\w+)\s*\(", bodies[0]):
+    # The calls found in the code alone, the comments stripped first: a
+    # commented-out call was followed (StatLog's LogUnimplemented)
+    for m in re.finditer(r"(?:->|::)\s*(\w+)\s*\(", uncommented(bodies[0])):
         name = m.group(1)
         if name in ("Cast", "TryCast", "Value", "RegisterVMNativeFunc"):
             continue
@@ -291,7 +297,7 @@ def handed_over_texts(reg, defs):
                 seen.add(key)
                 texts.append(bs[0])
                 cls = key.split("::")[0]
-                for m2 in re.finditer(r"(?<![\w>:.])(\w+)\s*\(", bs[0]):
+                for m2 in re.finditer(r"(?<![\w>:.])(\w+)\s*\(", uncommented(bs[0])):
                     k2 = "%s::%s" % (cls, m2.group(1))
                     if k2 in defs and k2 not in seen:
                         seen.add(k2)

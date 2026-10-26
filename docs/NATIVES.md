@@ -1988,6 +1988,5 @@ Stubs a single-player game does without; the audit lists each:
 - One more that no script of the game calls, so only a mod reaches it:
   `Canvas.DrawPortal` 480, which draws nothing; the original's is unread.
 
-`StatLog`'s and `StatLogFile`'s natives do nothing too, though the audit
-reads them implemented (they log no `Unimplemented`), so a DXEngine server
-logging world stats writes no log of them.
+`StatLog`'s and `StatLogFile`'s natives do nothing too (empty to the
+audit), so a DXEngine server logging world stats writes no log of them.
