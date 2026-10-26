@@ -149,6 +149,7 @@ the run. *Either*: one engine on each side of a pair.
 | `WalkConsole` | both | RadiusActors, VisibleActors, ZoneActors, ChildActors and BasedActors over the run's own markers, each loop's body spawning one more in reach (`CapLoopMark`) | `DXWALK:` | every line |
 | `NudgeConsole` | both | the script's `Move`: a crate 50 units over the floor moved 100 down, no move, 100 down from half a unit over the floor, 60 up: each answer and the crate's height over the floor after it | `DXNUDGE:` | every line |
 | `BumpConsole` | both | a colliding actor's `Move` into the floor, partway and again from where it stopped, then up free: each answer and the actor's `BumpWall` events (`CapBumper`) | `DXBUMP:` | every line |
+| `HopConsole` | both | an actor set 1 unit over the floor, rising at 30 units a second, falling through a frame held half a second so its fall steps 0.1 s and its first step turns over: its landing's velocity (`CapHopper`) | `DXHOP:` | every line |
 | `TraceConsole` | both | `TraceTexture`, `TraceActors`, `Trace` and `FastTrace`; a rifle's shot, 48000 units long; boxes started inside cylinders | `DXTRACE:` |  |
 | `ParabolicConsole` | both | `ParabolicTrace` from the player's eyes on the island, 30 degrees up at 400, 700 and 1000 units a second, bouncing and not, the player turned a quarter turn four times: each throw's landing and time | `DXPARA:` | the two logs' lines |
 | `FloatConsole` | both | the crates in the water by the pier | `DXFLOAT:` |  |

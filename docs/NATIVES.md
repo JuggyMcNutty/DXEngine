@@ -1210,7 +1210,11 @@ Every other native the scripted runs compare matches the original
   0.3 of `WaterSpeed`, as it walks whenever it swims; up out of the water it
   hops and falls back in, bobbing). A tick's chain of falls and swims shares
   the fall's eight steps, each hand-over carrying the count on, as the
-  original's `startSwimming` and `physSwimming` carry it.
+  original's `startSwimming` and `physSwimming` carry it. A fall's step
+  whose Z velocity turns over is split at the turn, as the original splits
+  it, so a hit within the step meets the part's own mean (`HopConsole`: an
+  actor rising at 30 units a second from 1 unit over the floor, through a
+  0.4 s tick, lands in the split's next step at -77.5 in both engines).
 - **Walking**, a whole frame at once in the original's steps, a slope slid
   down where the zone's ground friction is low. Its ledges: a pawn that
   cannot jump stops there, its move given up; any other is given `Falling`

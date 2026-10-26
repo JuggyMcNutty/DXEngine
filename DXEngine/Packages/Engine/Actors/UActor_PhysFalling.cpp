@@ -28,8 +28,8 @@ void UActor::TickFalling(float elapsed, int iterations)
 // where it lands, handing the landing the rest of the frame: a landing, a
 // stop and a hand-over to swimming end the frame's physics (EndPhysicsFrame),
 // the rest of the frame theirs. A player on a ladder climbs it instead
-// (DeusExLadder). Not here: the original's split of a step at the top of a
-// rise.
+// (DeusExLadder). A step whose Z velocity turns over is split at the turn,
+// as the original splits it.
 void UActor::DeusExTickFalling(float deltaTime, int iterations)
 {
 	UPawn* pawn = UObject::TryCast<UPawn>(this);
@@ -85,6 +85,7 @@ void UActor::DeusExTickFalling(float deltaTime, int iterations)
 
 	float remaining = deltaTime;
 	int bounces = 0;
+	bool splitWeighed = false;
 	while (remaining > 0.0f && iterations < 8)
 	{
 		iterations++;
@@ -99,23 +100,48 @@ void UActor::DeusExTickFalling(float deltaTime, int iterations)
 		// zone's fluid friction twice over; a bobbing decoration at half
 		// gravity; a player falling with its feet in water slowed by their
 		// zone's fluid friction; else gravity and the acceleration.
-		if (zone->bWaterZone())
+		auto meanVelocity = [&](float step)
 		{
-			float netGravity = 1.0f - Buoyancy() / std::max(Mass(), 1.0f);
-			Velocity() = oldVelocity * (1.0f - 2.0f * tick * zone->ZoneFluidFriction()) + (zone->ZoneGravity() * netGravity + Acceleration()) * (0.5f * tick);
-		}
-		else if (decor && decor->bBobbing())
+			if (zone->bWaterZone())
+			{
+				float netGravity = 1.0f - Buoyancy() / std::max(Mass(), 1.0f);
+				Velocity() = oldVelocity * (1.0f - 2.0f * step * zone->ZoneFluidFriction()) + (zone->ZoneGravity() * netGravity + Acceleration()) * (0.5f * step);
+			}
+			else if (decor && decor->bBobbing())
+			{
+				Velocity() = oldVelocity + (zone->ZoneGravity() * 0.5f + Acceleration()) * (0.5f * step);
+			}
+			else if (player && pawn->FootRegion().Zone && pawn->FootRegion().Zone->bWaterZone() && oldVelocity.z < 0.0f)
+			{
+				Velocity() = oldVelocity * (1.0f - step * pawn->FootRegion().Zone->ZoneFluidFriction()) + (zone->ZoneGravity() + Acceleration()) * (0.5f * step);
+			}
+			else
+			{
+				Velocity() = oldVelocity + (zone->ZoneGravity() + Acceleration()) * (0.5f * step);
+			}
+		};
+		meanVelocity(tick);
+
+		// A step whose Z velocity turns over, over 5 either way before and
+		// after, is split at the turn when both parts are over 0.015 s, its
+		// first part's mean taken again, the second part back to the time
+		// left; the step after one weighed is not weighed (physFalling,
+		// 0x103d0a50).
+		if (!splitWeighed && (oldVelocity.z > 0.0f) != (Velocity().z > 0.0f) && std::abs(oldVelocity.z) > 5.0f && std::abs(Velocity().z) > 5.0f)
 		{
-			Velocity() = oldVelocity + (zone->ZoneGravity() * 0.5f + Acceleration()) * (0.5f * tick);
-		}
-		else if (player && pawn->FootRegion().Zone && pawn->FootRegion().Zone->bWaterZone() && oldVelocity.z < 0.0f)
-		{
-			Velocity() = oldVelocity * (1.0f - tick * pawn->FootRegion().Zone->ZoneFluidFriction()) + (zone->ZoneGravity() + Acceleration()) * (0.5f * tick);
+			splitWeighed = true;
+			float at = std::abs(oldVelocity.z) / (std::abs(Velocity().z) + std::abs(oldVelocity.z));
+			float first = at * tick;
+			float second = (1.0f - at) * tick;
+			if (first > 0.015f && second > 0.015f)
+			{
+				tick = first;
+				remaining += second;
+				meanVelocity(tick);
+			}
 		}
 		else
-		{
-			Velocity() = oldVelocity + (zone->ZoneGravity() + Acceleration()) * (0.5f * tick);
-		}
+			splitWeighed = false;
 
 		if (maxAirSpeed > 0.0f && dot(Velocity().xy(), Velocity().xy()) > maxAirSpeed * maxAirSpeed)
 		{
