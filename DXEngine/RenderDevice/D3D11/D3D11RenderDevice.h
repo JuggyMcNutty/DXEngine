@@ -305,6 +305,9 @@ private:
 				return { nullptr, nullptr, 0 };
 
 			DrawBatches(true);
+			// The flush maps the buffers again, each on its own: one may fail
+			if (!SceneVertices || !SceneIndexes)
+				return { nullptr, nullptr, 0 };
 		}
 
 		return { SceneVertices + D3D11SceneVertexPos, SceneIndexes + SceneIndexPos, (uint32_t)D3D11SceneVertexPos };
