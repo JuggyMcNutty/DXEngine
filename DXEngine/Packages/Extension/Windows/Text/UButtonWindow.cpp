@@ -71,6 +71,11 @@ void UButtonWindow::DrawWindow(UGC* gc)
 		tex = ButtonTextures.Normal;
 	tileColor = tileColors[state];
 	textColor = textColors[state];
+	// The script's view of the look (the original's ChangeButtonAppearance
+	// sets them): a mod's DrawWindow reads them
+	curTexture() = tex;
+	curTileColor() = tileColor;
+	curTextColor() = textColor;
 
 	// The original's XButtonWindow::Draw (0x100082c0): the state's colours,
 	// its texture tiled over the button, then the text window's drawing.
