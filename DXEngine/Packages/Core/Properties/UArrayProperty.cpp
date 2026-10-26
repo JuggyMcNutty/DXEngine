@@ -42,6 +42,8 @@ void UArrayProperty::LoadValue(void* data, ObjectStream* stream, const PropertyH
 void UArrayProperty::LoadStructMemberValue(void* data, ObjectStream* stream)
 {
 	int arraySize = stream->ReadIndex();
+	if (arraySize < 0 || arraySize > 16 * 1024 * 1024)
+		Exception::Throw("Array " + Name.ToString() + " of " + std::to_string(arraySize) + " elements");
 	ScriptArray& vec = *static_cast<ScriptArray*>(data);
 	vec.Resize(arraySize);
 	for (int i = 0; i < arraySize; i++)

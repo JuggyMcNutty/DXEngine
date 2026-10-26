@@ -11,6 +11,9 @@ void UStringProperty::LoadValue(void* data, ObjectStream* stream, const Property
 {
 	ThrowIfTypeMismatch(header, UPT_String);
 	int len = header.size;
+	// The tag's size, a 32-bit int from the file, held before the allocation
+	if (len < 0 || len > 16 * 1024 * 1024)
+		Exception::Throw("A string of " + std::to_string(len) + " bytes in " + Name.ToString());
 	Array<char> s;
 	s.resize(len);
 	stream->ReadBytes(s.data(), (int)s.size());

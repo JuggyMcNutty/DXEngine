@@ -1696,7 +1696,8 @@ A mod gets the original's loader and natives:
   an import whose outers never end is refused; an export whose class, outer
   or base rings on itself is refused; a dynamic array property of a
   dimension over 1 reads its element where it is; a name's length that is no
-  name is refused.
+  name is refused; a string's, an array's, a sound's or a song's size that
+  is none is refused before anything is allocated.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).

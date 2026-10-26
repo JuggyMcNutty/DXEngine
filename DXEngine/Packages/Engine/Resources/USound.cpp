@@ -18,7 +18,11 @@ void USound::Load(ObjectStream* stream)
 	Format = stream->ReadName();
 	if (stream->GetVersion() >= 63)
 		stream->ReadUInt32(); // lazy array skip offset
-	uint32_t size = stream->ReadIndex();
+	// The count from the file, held before the allocation: a negative one was
+	// up to 4 GB
+	int size = stream->ReadIndex();
+	if (size < 0 || size > 256 * 1024 * 1024)
+		Exception::Throw(Name.ToString() + ": " + std::to_string(size) + " bytes of data");
 	Data.resize(size);
 	stream->ReadBytes(Data.data(), size);
 }
