@@ -137,6 +137,10 @@ void UDXEngineAudioDevice::LoadProperties(const NameString& from)
 	ReverseStereo = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "ReverseStereo", ReverseStereo);
 	Latency = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "Latency", Latency);
 	OutputRate = IniPropertyConverter<AudioFrequency>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "OutputRate", OutputRate);
+	// Held to 8,000 to 48,000 Hz, as Galaxy holds its rate: 0 divided the
+	// mixer's step by zero, a negative rate capped every step, and one past
+	// 48,188 wrapped a reverb delay
+	OutputRate.frequency = std::clamp(OutputRate.frequency, 8000, 48000);
 	Channels = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, ChannelsKey(), Channels);
 	MusicVolume = IniPropertyConverter<uint8_t>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "MusicVolume", MusicVolume);
 	SoundVolume = IniPropertyConverter<uint8_t>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "SoundVolume", SoundVolume);
