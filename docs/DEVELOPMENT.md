@@ -146,7 +146,6 @@ the run. *Either*: one engine on each side of a pair.
 | `FocusConsole` | both | the inventory screen with a lockpick selected, so a button has the focus: the focus window after the button is made insensitive and sensitive again, and after its parent is | `DXFOCUS:` | every line |
 | `ListConsole` | both | the Load Game screen with two saves of the run's own, one named 50 characters long and one with a `|c` colour code, shot and the saves removed | `DXLIST:` | the list: the long name cut at its column, the code shown as typed, the fields' insets, the focus row's outline |
 | `MatrixConsole` | both | the player's Sprite set as the Matrix cheat sets it, a Fire sprite spawned ahead, shot | `DXMATRIX:` | the sprite drawn as the viewer's Sprite texture |
-| `BurnConsole` | both | two Fire sprites of one fire texture, one drawn masked, shot twice a second apart | `DXBURN:` | each flame changed between the shots |
 | `TraceConsole` | both | `TraceTexture`, `TraceActors`, `Trace` and `FastTrace`; a rifle's shot, 48000 units long; boxes started inside cylinders | `DXTRACE:` |  |
 | `ParabolicConsole` | both | `ParabolicTrace` from the player's eyes on the island, 30 degrees up at 400, 700 and 1000 units a second, bouncing and not, the player turned a quarter turn four times: each throw's landing and time | `DXPARA:` | the two logs' lines |
 | `FloatConsole` | both | the crates in the water by the pier | `DXFLOAT:` |  |
