@@ -45,6 +45,10 @@ public:
 	int GetPixelWidth() const override;
 	int GetPixelHeight() const override;
 	double GetDpiScale() const override;
+	// SDL's window units per DIP: the display scale over the pixel density.
+	// A high-pixel-density window's units on Wayland are points, its density
+	// its scale, so the scale is applied once, not twice
+	double UnitsPerDip() const;
 
 	void PresentBitmap(int width, int height, const uint32_t* pixels) override;
 	void SetBitmapSwapInterval(int interval) override;
@@ -94,8 +98,8 @@ public:
 	template<typename T>
 	Point GetMousePos(const T& event)
 	{
-		double uiscale = GetDpiScale();
-		return Point(event.x / uiscale, event.y / uiscale);
+		double units = UnitsPerDip();
+		return Point(event.x / units, event.y / units);
 	}
 
 	static void ProcessEvents();

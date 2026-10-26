@@ -155,11 +155,11 @@ void SDL3DisplayWindow::SetClientFrame(const Rect& box)
 {
 	// Is there a way to set both in one call?
 
-	double uiscale = GetDpiScale();
-	int x = (int)std::round(box.x * uiscale);
-	int y = (int)std::round(box.y * uiscale);
-	int w = (int)std::round(box.width * uiscale);
-	int h = (int)std::round(box.height * uiscale);
+	double units = UnitsPerDip();
+	int x = (int)std::round(box.x * units);
+	int y = (int)std::round(box.y * units);
+	int w = (int)std::round(box.width * units);
+	int h = (int)std::round(box.height * units);
 
 	// SDL_SetWindowSize sets the client size of the window
 	SDL_SetWindowSize(Handle.window, w, h);
@@ -328,37 +328,37 @@ Rect SDL3DisplayWindow::GetClientFrame() const
 	int y = 0;
 	int w = 0;
 	int h = 0;
-	double uiscale = GetDpiScale();
+	double units = UnitsPerDip();
 	SDL_GetWindowPosition(Handle.window, &x, &y);
 	SDL_GetWindowSize(Handle.window, &w, &h);
-	return Rect::xywh(x / uiscale, y / uiscale, w / uiscale, h / uiscale);
+	return Rect::xywh(x / units, y / units, w / units, h / units);
 }
 
 Point SDL3DisplayWindow::MapFromGlobal(const Point& pos) const
 {
 	int x = 0;
 	int y = 0;
-	double uiscale = GetDpiScale();
+	double units = UnitsPerDip();
 	SDL_GetWindowPosition(Handle.window, &x, &y);
-	return Point(pos.x - x / uiscale, pos.y - y / uiscale);
+	return Point(pos.x - x / units, pos.y - y / units);
 }
 
 Point SDL3DisplayWindow::MapToGlobal(const Point& pos) const
 {
 	int x = 0;
 	int y = 0;
-	double uiscale = GetDpiScale();
+	double units = UnitsPerDip();
 	SDL_GetWindowPosition(Handle.window, &x, &y);
-	return Point(pos.x + x / uiscale, pos.y + y / uiscale);
+	return Point(pos.x + x / units, pos.y + y / units);
 }
 
 Size SDL3DisplayWindow::GetClientSize() const
 {
 	int w = 0;
 	int h = 0;
-	double uiscale = GetDpiScale();
+	double units = UnitsPerDip();
 	SDL_GetWindowSize(Handle.window, &w, &h);
-	return Size(w / uiscale, h / uiscale);
+	return Size(w / units, h / units);
 }
 
 int SDL3DisplayWindow::GetPixelWidth() const
@@ -386,6 +386,12 @@ int SDL3DisplayWindow::GetPixelHeight() const
 double SDL3DisplayWindow::GetDpiScale() const
 {
 	return SDL_GetWindowDisplayScale(Handle.window);
+}
+
+double SDL3DisplayWindow::UnitsPerDip() const
+{
+	double density = SDL_GetWindowPixelDensity(Handle.window);
+	return density > 0.0 ? GetDpiScale() / density : GetDpiScale();
 }
 
 void SDL3DisplayWindow::PresentBitmap(int width, int height, const uint32_t* pixels)
@@ -725,8 +731,8 @@ void SDL3DisplayWindow::OnMouseWheel(const SDL_MouseWheelEvent& event)
 {
 	float x = 0, y = 0;
 	SDL_GetMouseState(&x, &y);
-	double uiscale = GetDpiScale();
-	Point mousepos(x / uiscale, y / uiscale);
+	double units = UnitsPerDip();
+	Point mousepos(x / units, y / units);
 
 	if (event.y > 0)
 		WindowHost->OnWindowMouseWheel(mousepos, InputKey::MouseWheelUp);
