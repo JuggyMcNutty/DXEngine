@@ -786,7 +786,12 @@ from the original's code:
 - **`IsVisible` and `IsSensitive`** recurse unless told not to, up through
   the parents: true when the window and every ancestor is shown, or
   sensitive, so a HUD window under the hidden HUD is not visible;
-  `IsVisible(False)` is the window's own flag (`ShownConsole`).
+  `IsVisible(False)` is the window's own flag (`ShownConsole`). A window
+  made insensitive, or whose parent is, has the focus and a grab checked
+  as hiding checks them, and `SensitivityChanged` reaches it and its
+  sensitive descendants with what is in effect, as the original's
+  `SetSensitivity` has it; a focused button disabled keeps the focus in
+  both engines (`FocusConsole`).
 - **Places**: `SetPos` makes a window left- and top-aligned with its x and
   y as margins; `SetWindowAlignments` sets both margins of each side, the
   second the first's unless given. A parent's `ConfigureChild` sets just

@@ -1564,13 +1564,39 @@ void UWindow::SetSelectability(bool newSelectability)
 	CheckFocusWindow();
 }
 
+// The original's SensitivityChanged goes down the tree
+// (XWindow::InvokeSensitivityChange, Extension.dll 0x10050ef0): to the window,
+// then to each child whose own flag is on, with the sensitivity the window
+// now has in effect
+static void InvokeSensitivityChange(UWindow* window, bool sensitive)
+{
+	window->SensitivityChanged(sensitive);
+	for (UWindow* child : ChildrenOf(window))
+	{
+		if (child->parentOwner() == window && !child->Destroyed && child->bIsSensitive())
+			InvokeSensitivityChange(child, sensitive);
+	}
+}
+
+// The original's (XWindow::SetSensitivity 0x1004c890): the flag set, and only
+// when that changes what the window has in effect -- its own flag and every
+// parent's -- the focus and a grab are checked, as hiding checks them, and
+// SensitivityChanged goes to the window and its sensitive descendants. So a
+// button disabled while it has the focus loses it, and one in a disabled
+// parent hears of it. (The original marks its accelerator table too, which
+// DXEngine has not.)
 void UWindow::SetSensitivity(bool newSensitivity)
 {
-	if (bIsSensitive() != newSensitivity)
-	{
-		bIsSensitive() = newSensitivity;
-		SensitivityChanged(newSensitivity);
-	}
+	if (bIsSensitive() == newSensitivity)
+		return;
+	bool before = IsSensitive(true);
+	bIsSensitive() = newSensitivity;
+	bool after = IsSensitive(true);
+	if (before == after)
+		return;
+	CheckFocusWindow();
+	CheckGrabbedWindow();
+	InvokeSensitivityChange(this, after);
 }
 
 void UWindow::SetSoundVolume(float newVolume)

@@ -143,6 +143,7 @@ the run. *Either*: one engine on each side of a pair.
 | `SwitchConsole` | both | on the pier, a spawned lamp shot on and switched off, then a spawned spotlight shot aimed north and turned east (`CapLamp`, `CapSpot`) | `DXSWITCH:` | shot 2 against 1 (the lamp's pool gone), 4 against 3 (the beam moved) |
 | `FogConsole` | both | `TargetMap`'s start (02_NYC_Underground's, in a fog zone): a troop and a large crate spawned 220 units ahead, two shots | `DXFOG:` | the fog on the meshes against the floor's and walls' |
 | `FrameConsole` | both | the EditFlags cheat screen, a ToolWindow framed by a BorderWindow of nine textures, opened and shot | `DXFRAME:` | the frame's corners and edges |
+| `FocusConsole` | both | the inventory screen with a lockpick selected, so a button has the focus: the focus window after the button is made insensitive and sensitive again, and after its parent is | `DXFOCUS:` | every line |
 | `TraceConsole` | both | `TraceTexture`, `TraceActors`, `Trace` and `FastTrace`; a rifle's shot, 48000 units long; boxes started inside cylinders | `DXTRACE:` |  |
 | `ParabolicConsole` | both | `ParabolicTrace` from the player's eyes on the island, 30 degrees up at 400, 700 and 1000 units a second, bouncing and not, the player turned a quarter turn four times: each throw's landing and time | `DXPARA:` | the two logs' lines |
 | `FloatConsole` | both | the crates in the water by the pier | `DXFLOAT:` |  |
