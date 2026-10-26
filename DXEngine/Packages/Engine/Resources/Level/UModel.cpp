@@ -1,5 +1,6 @@
 
 #include "Precomp.h"
+#include "Packages/Engine/Actors/Info/UZoneInfo.h"
 #include "UModel.h"
 #include "UVectors.h"
 #include "UBspNodes.h"
@@ -220,6 +221,25 @@ void UModel::Load(ObjectStream* stream)
 
 	RootOutside = stream->ReadInt32();
 	Linked = stream->ReadInt32();
+
+	// The package's indexes checked once, here, rather than on every walk:
+	// a hand-made map's surface or node pointing outside its arrays refused
+	for (size_t i = 0; i < Surfaces.size(); i++)
+	{
+		const BspSurface& surface = Surfaces[i];
+		if (surface.pBase < 0 || (size_t)surface.pBase >= Points.size() ||
+			surface.vTextureU < 0 || (size_t)surface.vTextureU >= Vectors.size() ||
+			surface.vTextureV < 0 || (size_t)surface.vTextureV >= Vectors.size() ||
+			surface.vNormal < 0 || (size_t)surface.vNormal >= Vectors.size())
+			Exception::Throw("Model " + Name.ToString() + ": surface " + std::to_string(i) + " points outside its points or vectors");
+	}
+	for (size_t i = 0; i < Nodes.size(); i++)
+	{
+		const BspNode& node = Nodes[i];
+		if (node.Front >= (int)Nodes.size() || node.Back >= (int)Nodes.size() ||
+			node.Zone0 < 0 || (size_t)node.Zone0 >= Zones.size() || node.Zone1 < 0 || (size_t)node.Zone1 >= Zones.size())
+			Exception::Throw("Model " + Name.ToString() + ": node " + std::to_string(i) + " points outside its nodes or zones");
+	}
 
 	// Calculate center and radius for all surface lightmaps:
 	for (BspSurface& surface : Surfaces)
@@ -484,7 +504,7 @@ PointRegion UModel::FindRegion(const vec3& point, UZoneInfo* levelZoneInfo)
 		PointRegion region;
 		region.BspLeaf = 0;
 		region.ZoneNumber = 0;
-		region.Zone = engine->GetZoneActor(region.ZoneNumber);
+		region.Zone = zoneActor(region.ZoneNumber);
 		return region;
 	}
 
@@ -521,7 +541,7 @@ PointRegion UModel::FindRegion(const vec3& point, UZoneInfo* levelZoneInfo)
 		}
 	}
 
-	region.Zone = engine->GetZoneActor(region.ZoneNumber);
+	region.Zone = zoneActor(region.ZoneNumber);
 	return region;
 }
 

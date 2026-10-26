@@ -1687,10 +1687,11 @@ A mod gets the original's loader and natives:
   whose faces run past its vertices or wedges loads, those faces passed
   over; a mesh DXEngine saves loads back; a palette short of 256 colours is
   padded with black; a texture whose mip data is shorter than its size is
-  padded with black; a fire texture's sparks and drops outside it are masked
-  into it; a scripted texture drawn from outside its source wraps, and one
-  drawn with a size of 0 or a float that is no number draws nothing; an
-  animation chain that never comes back ends at 2,048 textures.
+  padded with black; a map whose surfaces or nodes point outside its arrays
+  is refused with their numbers; a fire texture's sparks and drops outside
+  it are masked into it; a scripted texture drawn from outside its source
+  wraps, and one drawn with a size of 0 or a float that is no number draws
+  nothing; an animation chain that never comes back ends at 2,048 textures.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).
