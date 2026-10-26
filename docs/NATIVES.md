@@ -506,9 +506,10 @@ first person. `MirrorConsole`, at 4:3, on GL and on Vulkan:
 Differs:
 
 - **The mirror's plane clips** what lies behind it: in the BSP walk, and on
-  every device by a clip distance, or on OpenGL ES without one (the Smart
-  Pro's) by a discard in the mirror's frame alone. The original keeps what
-  lies behind a mirror out with a span buffer per zone.
+  every device by a clip distance, or without one -- on OpenGL ES (the Smart
+  Pro's) or a Vulkan device lacking `shaderClipDistance` -- by a discard in
+  the mirror's frame alone. The original keeps what lies behind a mirror out
+  with a span buffer per zone.
 - **A mover's mirror** is no part of the BSP walk: before it, each mirrored
   face of a shown mover opens a frame of its own, over all of the face the
   frame shows, and the depth test leaves out what lies in front of it,

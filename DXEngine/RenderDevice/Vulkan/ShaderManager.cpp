@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "ShaderManager.h"
+#include "Utils/Logger.h"
 #include "FileResource.h"
 #include "VulkanRenderDevice.h"
 #include <dxgpu/vulkanbuilders.h>
@@ -20,6 +21,15 @@ ShaderManager::ShaderManager(VulkanRenderDevice* renderer) : renderer(renderer)
 		sceneDefines += "#define MACRO_TWO_PASS\r\n";
 	if (RenderDevice::DetailBands)
 		sceneDefines += "#define DETAIL_BANDS\r\n";
+	// A device without shaderClipDistance (found but not required): a
+	// mirror's plane clipped by a discard, as the GL device's twins do on
+	// ES without EXT_clip_cull_distance; the shader once wrote
+	// gl_ClipDistance on every device, a capability not enabled there
+	if (!renderer->Device.get()->EnabledFeatures.Features.shaderClipDistance)
+	{
+		sceneDefines += "#define CLIP_DISCARD\r\n";
+		LogMessage("Vulkan: no shaderClipDistance; a mirror's plane is clipped by a discard");
+	}
 
 	Scene.VertexShader = GLSLCompiler()
 		.Type(ShaderType::Vertex)

@@ -34,11 +34,19 @@ std::string FileResource::readAllText(const std::string& filename)
 			layout(location = 5) out vec4 color;
 			layout(location = 6) flat out uint hitIndex;
 			layout(location = 7) flat out ivec4 textureBinds;
+			#if defined(CLIP_DISCARD)
+			layout(location = 8) out float clipDistance;
+			#endif
 
 			void main()
 			{
 				gl_Position = objectToProjection * vec4(aPosition, 1.0);
+				#if defined(CLIP_DISCARD)
+				// A device without shaderClipDistance: the fragment discards
+				clipDistance = dot(nearClip, vec4(aPosition, 1.0));
+				#else
 				gl_ClipDistance[0] = dot(nearClip, vec4(aPosition, 1.0));
+				#endif
 				flags = aFlags;
 				texCoord = aTexCoord;
 				texCoord2 = aTexCoord2;
@@ -77,6 +85,9 @@ std::string FileResource::readAllText(const std::string& filename)
 			#if defined(BINDLESS_TEXTURES)
 			layout(location = 7) flat in ivec4 textureBinds;
 			#endif
+			#if defined(CLIP_DISCARD)
+			layout(location = 8) in float clipDistance;
+			#endif
 
 			layout(location = 0) out vec4 outColor;
 			layout(location = 1) out uint outHitIndex;
@@ -109,6 +120,11 @@ std::string FileResource::readAllText(const std::string& filename)
 
 			void main()
 			{
+				#if defined(CLIP_DISCARD)
+				// A mirror's frame without clip distances: what lies behind its
+				// plane is left out here
+				if (clipDistance < 0.0) discard;
+				#endif
 				float actorXBlending = (flags & 32) != 0 ? 1.5 : 1.0;
 				float oneXBlending = (flags & 64) != 0 ? 1.0 : 2.0;
 
