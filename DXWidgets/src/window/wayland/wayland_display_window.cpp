@@ -477,6 +477,11 @@ void WaylandDisplayWindow::SetClipboardText(const std::string& text)
 	};
 
 	m_DataSource.offer("text/plain");
+	// Ours until the compositor cancels the source (another client's
+	// selection): a paste then answers from the text itself
+	m_DataSource.on_cancelled() = [this] () { backend->m_OwnsSelection = false; };
+	backend->m_OwnClipboard = text;
+	backend->m_OwnsSelection = true;
 	backend->GetDataDevice().set_selection(m_DataSource, backend->GetKeyboardSerial());
 }
 

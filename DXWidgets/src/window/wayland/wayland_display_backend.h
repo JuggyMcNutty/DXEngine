@@ -102,7 +102,7 @@ public:
 	void ShowCursor(bool enable);
 	bool GetKeyState(InputKey key);
 
-	std::string GetClipboardText() { return m_ClipboardContents; }
+	std::string GetClipboardText();
 	wayland::data_device_t& GetDataDevice() { return m_DataDevice; }
 	uint32_t GetKeyboardSerial() const { return m_KeyboardSerial; }
 
@@ -115,6 +115,9 @@ public:
 	bool exitRunLoop = false;
 	Size s_ScreenSize = Size(0, 0);
 	Size m_ScreenPixelSize = Size(0, 0);
+	// Our own selection: the text set, until the compositor cancels the source
+	std::string m_OwnClipboard;
+	bool m_OwnsSelection = false;
 	wayland::display_t s_waylandDisplay = wayland::display_t();
 	wayland::registry_t s_waylandRegistry;
 	std::vector<WaylandDisplayWindow*> s_Windows;
@@ -219,6 +222,7 @@ private:
 	std::unordered_map<wayland::data_offer_t, std::set<std::string>, hash_proxy_t> m_DataOfferMimeTypes;
 
 	std::string m_ClipboardContents;
+	wayland::data_offer_t m_SelectionOffer;
 
 	std::vector<std::shared_ptr<WaylandTimer>> m_timers;
 };

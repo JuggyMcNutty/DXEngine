@@ -148,29 +148,13 @@ WaylandDisplayBackend::WaylandDisplayBackend()
 			return;
 		}
 
-		int fds[2];
-		pipe(fds);
-		offer.receive("text/plain", fds[1]);
-		close(fds[1]);
-
-		s_waylandDisplay.roundtrip();
-
-		m_ClipboardContents.clear();
-
-		// Assign the read data to m_ClipboardContents
-		while (true)
-		{
-			std::string buf(1024, 0);
-			auto n = read(fds[0], const_cast<char*>(buf.c_str()), buf.size());
-			if (n <= 0)
-				break;
-
-			buf.resize(n);
-			m_ClipboardContents += buf;
-		}
-		close(fds[0]);
-
-		m_DataOfferMimeTypes.erase(offer);
+		// Kept for a paste, not read now: reading our own offer back here
+		// had the compositor's send arrive inside the roundtrip and our send
+		// write the whole text into a pipe nobody drained, stuck past the
+		// pipe's 64 KiB, and a slow owner stalled the game
+		if (m_SelectionOffer)
+			m_DataOfferMimeTypes.erase(m_SelectionOffer);
+		m_SelectionOffer = offer;
 	};
 
 	s_waylandDisplay.roundtrip();
@@ -743,6 +727,40 @@ void WaylandDisplayBackend::UpdateTimers()
 		foundTimer->nextTime = now + foundTimer->timeoutMilliseconds;
 		foundTimer->onTimer();
 	}
+}
+
+std::string WaylandDisplayBackend::GetClipboardText()
+{
+	// Our own selection is the text we set; another's offer is read now,
+	// with a bounded wait, so a stuck owner cannot hang the game
+	if (m_OwnsSelection)
+		return m_OwnClipboard;
+	if (!m_SelectionOffer)
+		return {};
+
+	int fds[2];
+	if (pipe(fds) != 0)
+		return {};
+	m_SelectionOffer.receive("text/plain", fds[1]);
+	close(fds[1]);
+	s_waylandDisplay.flush();
+
+	std::string text;
+	int64_t deadline = GetTimePoint() + 1000;
+	while (true)
+	{
+		int wait = (int)std::max(deadline - GetTimePoint(), (int64_t)0);
+		if (!(poll_single(fds[0], POLLIN, wait) & (POLLIN | POLLHUP)))
+			break;
+		char buf[4096];
+		ssize_t n = read(fds[0], buf, sizeof(buf));
+		if (n <= 0)
+			break;
+		text.append(buf, (size_t)n);
+	}
+	close(fds[0]);
+	m_ClipboardContents = text;
+	return text;
 }
 
 void WaylandDisplayBackend::CheckNeedsUpdate()
