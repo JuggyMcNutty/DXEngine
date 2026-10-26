@@ -2631,11 +2631,13 @@ std::vector<uint8_t> D3D11RenderDevice::CompileHlsl(const std::string& filename,
 	HRESULT result = D3DCompile(code.data(), code.size(), filename.c_str(), macros.data(), nullptr, "main", target.c_str(), D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, blob.TypedInitPtr(), errors.TypedInitPtr());
 	if (FAILED(result))
 	{
-		std::string msg((const char*)errors->GetBufferPointer(), errors->GetBufferSize());
+		// The error blob is optional: none where the compiler made no message
+		// (out of memory, an internal failure), which was a null dereference
+		// in place of the exception Init catches
+		std::string msg = errors ? std::string((const char*)errors->GetBufferPointer(), errors->GetBufferSize()) : std::string();
 		if (!msg.empty() && msg.back() == 0) msg.pop_back();
 		throw std::runtime_error("Could not compile shader '" + filename + "':" + msg);
 	}
-	ThrowIfFailed(result, "D3DCompile failed");
 
 	std::vector<uint8_t> bytecode;
 	bytecode.resize(blob->GetBufferSize());
