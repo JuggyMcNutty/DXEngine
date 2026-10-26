@@ -82,7 +82,8 @@ namespace FireEngine
 		{
 			Fire& F;
 
-			uint8_t& Pixel(int x, int y) { return F.Bits[x + (y << F.UBits)]; }
+			// Masked to the texture: a spark from the package may lie outside it
+			uint8_t& Pixel(int x, int y) { return F.Bits[(x & F.UMask) + ((y & F.VMask) << F.UBits)]; }
 
 			bool CanSpawn() const { return F.NumSparks < F.SparksLimit; }
 
@@ -667,7 +668,7 @@ namespace FireEngine
 			if (s.Type != 22)
 				continue;
 			stars = true;
-			uint8_t& pixel = fire.Bits[s.X + (s.Y << fire.UBits)];
+			uint8_t& pixel = fire.Bits[(s.X & fire.UMask) + ((s.Y & fire.VMask) << fire.UBits)];
 			s.B = pixel;
 			if (pixel < 0x26)
 				pixel = s.A;
@@ -693,7 +694,7 @@ namespace FireEngine
 		int vmask = water.VMask >> 1;
 		uint8_t* first = water.Fields;
 		uint8_t* second = water.Fields + water.USize / 2;
-		auto cell = [&](int x, int y) { return x + (y << water.UBits); };
+		auto cell = [&](int x, int y) { return (x & water.UMask) + ((y & water.VMask) << water.UBits); };
 		auto set = [&](int at, uint8_t value) { first[at] = value; second[at] = value; };
 		auto whirl = [&](const Drop& d, uint8_t angle, int shift) {
 			int x = hmask & (d.X + (SinTable[angle] >> shift));
