@@ -26,10 +26,15 @@ void VisibleSprite::Draw(VisibleFrame* frame, UActor* actor, const vec3& locatio
 
 	if (actor->DrawType() == DT_SpriteAnimOnce)
 	{
-		float t = (1.0f - actor->LifeSpan() / actor->Class->GetDefaultObject<UActor>()->LifeSpan());
-		int count = texture->GetAnimTextureCount();
-		int index = (int)std::floor(clamp(t, 0.0f, 1.0f) * count);
-		for (int i = 0; i < index; i++)
+		// The frame the actor's life has reached, held to the last, as the
+		// original's DrawActorSprite holds it (render-dll.md, sprites): a life
+		// of 0, forever, showed frame 0 again, or nothing past a chain's end;
+		// a class default of 0 (0/0) is frame 0
+		float defaultLife = actor->Class->GetDefaultObject<UActor>()->LifeSpan();
+		float t = defaultLife > 0.0f ? clamp(1.0f - actor->LifeSpan() / defaultLife, 0.0f, 1.0f) : 0.0f;
+		int count = std::max(texture->GetAnimTextureCount(), 1);
+		int index = t > 0.0f ? std::min((int)std::floor(t * count), count - 1) : 0;
+		for (int i = 0; i < index && texture; i++)
 			texture = texture->AnimNext();
 	}
 	else

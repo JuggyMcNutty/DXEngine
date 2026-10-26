@@ -377,6 +377,9 @@ such particles, shows none of that colour in either engine: 0.0% of the
 sprite's box and 0.7% of the particles' magenta in DXEngine's frame, none in
 `D3DDrv`'s, the sprite's box at a correlation of 0.998 to `D3DDrv`'s; drawn
 `STY_Modulated`, its box at 0.96 and within 1% of `D3DDrv`'s brightness.
+A sprite animated once (`DT_SpriteAnimOnce`) shows the frame its life has
+reached and holds the last, as the original's does (no run: the reading
+settles it).
 Differs:
 
 - **A texture drawn both masked and not** shows its colour 0 in the
