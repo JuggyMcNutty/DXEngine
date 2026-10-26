@@ -672,8 +672,9 @@ by holder, and with glibc a map load's gives the freed memory back to the system
   which outlives any level, as the original's are in `DeusEx`'s. A package played as a level is
   tagged so (`Package::IsLevel`).
 - **A sound** is decoded once, when first played, for the audio device, which keeps a copy of
-  its own (the mixer's 16-bit one, OpenAL's buffer); the sound keeps only its length, channels,
-  rate and loop. Its lip-sync shapes decode it again once, into a buffer let go after.
+  its own (the mixer's 16-bit one, OpenAL's buffer); the sound keeps its file's bytes, its
+  length, channels, rate, loop and lip-sync letters. Its lip-sync shapes decode the bytes again
+  once, into a buffer let go after.
 - **Saving a level** writes what the level reaches (`PackageWriter`), never the rest of its
   file: an export the collector freed is not loaded back to be saved. An object of a transient
   class is not written either ([as the original's](NATIVES.md#saving-loading-and-travel)).
