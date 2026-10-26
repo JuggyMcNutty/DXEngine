@@ -141,8 +141,8 @@ void UStruct::Load(ObjectStream* stream)
 		child = child->Next;
 	}
 
-	if (ScriptText)
-		ScriptText->LoadNow();
+	// The script text (a TextBuffer export per class, 5 MB over the game's
+	// packages) stays unloaded: nothing reads it but a package's save
 }
 
 void UStruct::Save(PackageStreamWriter* stream)
