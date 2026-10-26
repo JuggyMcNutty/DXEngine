@@ -1,5 +1,7 @@
 
 #include "Precomp.h"
+#include <cstring>
+#include "Utils/StrTools.h"
 #include "Frame.h"
 #include "Bytecode.h"
 #include "Expression.h"
@@ -747,6 +749,31 @@ void Frame::ClassifyStatement(Expression* statement, const Bytecode& code)
 	statement->Statement = kind;
 }
 
+// The original's execSwitch (Core.dll 0x1012f850): a string case matches
+// without regard to case (appStricmp); any other type by its bytes
+// (appMemcmp over the switch's size), so a float case by the condition's
+// bits, -0.0 and 0.0 apart
+static bool CaseMatches(const ExpressionValue& condition, const ExpressionValue& casevalue)
+{
+	switch (condition.GetType())
+	{
+	case ExpressionValueType::ValueString:
+		return StrTools::equals_ignore_case(condition.ToString(), casevalue.ToString());
+	case ExpressionValueType::ValueFloat:
+	{
+		float a = condition.ToFloat(), b = casevalue.ToFloat();
+		return memcmp(&a, &b, sizeof(float)) == 0;
+	}
+	case ExpressionValueType::ValueVector:
+	{
+		vec3 a = condition.ToVector(), b = casevalue.ToVector();
+		return memcmp(&a, &b, sizeof(vec3)) == 0;
+	}
+	default:
+		return condition.IsEqual(casevalue);
+	}
+}
+
 void Frame::ProcessSwitch(const ExpressionValue& condition)
 {
 	SwitchExpression* switchexpr = static_cast<SwitchExpression*>(Func->Code->Statements[StatementIndex - 1]);
@@ -756,7 +783,7 @@ void Frame::ProcessSwitch(const ExpressionValue& condition)
 		if (caseexpr->Value)
 		{
 			ExpressionValue casevalue = ExpressionEvaluator::Eval(caseexpr->Value, Object, Object, Variables.Data).Value;
-			if (condition.IsEqual(casevalue))
+			if (CaseMatches(condition, casevalue))
 				break;
 			else
 				StatementIndex = Func->Code->FindStatementIndex(caseexpr->NextOffset);
