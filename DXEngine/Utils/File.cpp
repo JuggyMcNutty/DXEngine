@@ -491,7 +491,7 @@ std::string OS::executable_path()
 	}
 	else
 	{
-		size = readlink(PROC_EXE_PATH, exe_file, PATH_MAX);
+		size = readlink(PROC_EXE_PATH, exe_file, PATH_MAX - 1); // a byte kept for the terminator written below
 		if (size < 0)
 		{
 			Exception::Throw(strerror(errno));
