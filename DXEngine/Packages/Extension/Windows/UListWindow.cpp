@@ -1083,15 +1083,19 @@ void UListWindow::ToggleRowSelection(int rowId)
 // focus texture.
 void UListWindow::DrawWindow(UGC* gc)
 {
+	// No font of the window's own draws the columns that have one (the
+	// original sets each column's font); the script's DrawWindow follows the
+	// rows in any case
 	UFont* font = normalFont();
-	if (!font)
-		return;
 
 	float w = Width();
 	float lineHeight = GetLineHeight();
 	lineSize() = lineHeight;
 	if (lineHeight <= 0.0f)
+	{
+		UWindow::DrawWindow(gc);
 		return;
+	}
 
 	bool wordWrap = gc->IsWordWrapEnabled();
 	bool specialText = gc->IsSpecialTextEnabled();
@@ -1124,6 +1128,11 @@ void UListWindow::DrawWindow(UGC* gc)
 		if (col.hidden)
 			continue;
 		UFont* colFont = col.font ? col.font : font;
+		if (!colFont)
+		{
+			x += col.width;
+			continue;
+		}
 		gc->SetFonts(colFont, colFont);
 		float y = 0.0f;
 		for (auto& item : items)
@@ -1145,6 +1154,11 @@ void UListWindow::DrawWindow(UGC* gc)
 		}
 		x += col.width;
 	}
+
+	// The script's DrawWindow after the rows (XListWindow::Draw), with the
+	// window's own fonts
+	gc->SetFonts(gcNormal, gcBold);
+	UWindow::DrawWindow(gc);
 
 	if (IsFocusWindow() && focusLine() >= 0 && focusLine() < (int)items.size() && focusTexture())
 	{
