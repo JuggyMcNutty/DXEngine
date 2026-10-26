@@ -43,6 +43,13 @@ Size X11DisplayBackend::GetScreenSize()
 	return GetX11Connection()->GetScreenSize();
 }
 
+// The screen's size alone: no mode is changed here. In pixels, as the
+// engine's resolution list takes them, not GetScreenSize's DIPs.
+std::vector<Size> X11DisplayBackend::GetFullscreenModes()
+{
+	return { GetX11Connection()->GetScreenPixelSize() };
+}
+
 void* X11DisplayBackend::StartTimer(int timeoutMilliseconds, std::function<void()> onTimer)
 {
 	return GetX11Connection()->StartTimer(timeoutMilliseconds, onTimer);

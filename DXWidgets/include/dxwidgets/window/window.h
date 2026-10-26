@@ -445,8 +445,9 @@ public:
 	virtual Size GetScreenSize() = 0;
 
 	// The sizes of the display's full screen modes, in pixels, each once;
-	// the screen's size alone where the backend cannot change the mode.
-	virtual std::vector<Size> GetFullscreenModes() { return { GetScreenSize() }; }
+	// the screen's size alone, in pixels (not GetScreenSize's DIPs), where
+	// the backend cannot change the mode.
+	virtual std::vector<Size> GetFullscreenModes() = 0;
 
 	// The first connected controller. Backends without controller support
 	// report none.

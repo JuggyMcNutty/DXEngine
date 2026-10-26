@@ -209,6 +209,12 @@ Size X11Connection::GetScreenSize()
 	return Size(disp_width_px / dpiScale, disp_height_px / dpiScale);
 }
 
+Size X11Connection::GetScreenPixelSize()
+{
+	int screen = XDefaultScreen(display);
+	return Size(XDisplayWidth(display, screen), XDisplayHeight(display, screen));
+}
+
 static int64_t GetTimePoint()
 {
 	using namespace std::chrono;

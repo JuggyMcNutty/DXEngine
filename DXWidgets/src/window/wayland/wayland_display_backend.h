@@ -92,6 +92,7 @@ public:
 	void StopTimer(void* timerID) override;
 
 	Size GetScreenSize() override;
+	std::vector<Size> GetFullscreenModes() override;
 
 	bool IsWayland() override { return true; }
 

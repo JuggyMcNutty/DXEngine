@@ -39,6 +39,7 @@ public:
 	void StopTimer(void* timerID);
 
 	Size GetScreenSize();
+	Size GetScreenPixelSize();
 
 	Atom GetAtom(const std::string& name);
 

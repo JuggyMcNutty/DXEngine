@@ -15,6 +15,7 @@ public:
 	void StopTimer(void* timerID) override;
 
 	Size GetScreenSize() override;
+	std::vector<Size> GetFullscreenModes() override;
 
 	bool IsX11() override { return true; }
 

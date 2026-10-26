@@ -30,6 +30,17 @@ Size Win32DisplayBackend::GetScreenSize()
 	return Win32DisplayWindow::GetScreenSize();
 }
 
+// The screen's size alone: no mode is changed here. In pixels, as the
+// engine's resolution list takes them, not GetScreenSize's DIPs.
+std::vector<Size> Win32DisplayBackend::GetFullscreenModes()
+{
+	HDC screenDC = GetDC(0);
+	int screenWidth = GetDeviceCaps(screenDC, HORZRES);
+	int screenHeight = GetDeviceCaps(screenDC, VERTRES);
+	ReleaseDC(0, screenDC);
+	return { Size(screenWidth, screenHeight) };
+}
+
 void* Win32DisplayBackend::StartTimer(int timeoutMilliseconds, std::function<void()> onTimer)
 {
 	return Win32DisplayWindow::StartTimer(timeoutMilliseconds, std::move(onTimer));

@@ -804,6 +804,13 @@ Size WaylandDisplayBackend::GetScreenSize()
 	return s_ScreenSize.width > 0 ? s_ScreenSize : m_ScreenPixelSize;
 }
 
+// The screen's size alone: no mode is changed here. In pixels, as the
+// engine's resolution list takes them, not GetScreenSize's DIPs.
+std::vector<Size> WaylandDisplayBackend::GetFullscreenModes()
+{
+	return { m_ScreenPixelSize };
+}
+
 #ifdef USE_DBUS
 std::unique_ptr<OpenFileDialog> WaylandDisplayBackend::CreateOpenFileDialog(DisplayWindow* owner)
 {
