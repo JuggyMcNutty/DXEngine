@@ -409,7 +409,9 @@ void UComputerWindow::DrawWindow(UGC* gc)
 			Color colour = c.Colour;
 			if (fadeSpeed() > 0.0f)
 			{
-				float f = (fadeSpeed() - c.FadeTimer) / fadeSpeed();
+				// Held to 0..1: a fade time lowered while a character fades
+				// made f negative, a negative float to a byte undefined
+				float f = std::clamp((fadeSpeed() - c.FadeTimer) / fadeSpeed(), 0.0f, 1.0f);
 				colour.R = (uint8_t)(colour.R * f);
 				colour.G = (uint8_t)(colour.G * f);
 				colour.B = (uint8_t)(colour.B * f);
