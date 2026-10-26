@@ -1732,11 +1732,12 @@ A mod gets the original's loader and natives:
   its `Generate` called first, as the original's OccludeBsp has it; a font
   lacking a character and the space draws nothing for it, and a hot key's
   underline is drawn from its own page of the font, under its letter when
-  centred; a `bHighDetail` actor is passed over while the render device's
-  `HighDetailActors` is off, as the original's SetupDynamics passes it (of
-  the game's classes only `Decal` sets the flag, and a decal is drawn with
-  its surface); an actor at no place (a NaN location) sorts nearest among
-  the translucent.
+  centred; a viewport window of no size draws nothing, and a frame is a
+  pixel at the least and 16,384 at the most; a `bHighDetail` actor is passed
+  over while the render device's `HighDetailActors` is off, as the
+  original's SetupDynamics passes it (of the game's classes only `Decal`
+  sets the flag, and a decal is drawn with its surface); an actor at no
+  place (a NaN location) sorts nearest among the translucent.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).

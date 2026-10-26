@@ -556,6 +556,12 @@ void VisibleFrame::SetupSceneFrame(const mat4& worldToView)
 			h *= virtscale;
 		}
 
+		// A pixel at the least and 16,384 at the most (DrawViewport passes
+		// over a window of no size): a frame of no width had no aspect, and
+		// one past an int's range no size at all
+		w = clamp(w, 1.0f, 16384.0f);
+		h = clamp(h, 1.0f, 16384.0f);
+
 		Frame.X = (int)w;
 		Frame.Y = (int)h;
 		Frame.XB = (int)std::round(x);

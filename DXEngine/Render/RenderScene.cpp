@@ -324,6 +324,10 @@ void RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 	if (!engine->Level)
 		return;
 
+	// A window of no size shows nothing: its frame had no aspect
+	if (viewport->Width() < 1.0f || viewport->Height() < 1.0f)
+		return;
+
 	float x = 0.0f, y = 0.0f;
 	engine->dxRootWindow->ConvertCoordinates(viewport, 0.0f, 0.0f, engine->dxRootWindow, x, y);
 	engine->dxRootWindow->SetRenderViewport(x, y, viewport->Width(), viewport->Height());
