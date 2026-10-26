@@ -402,7 +402,8 @@ that finds only Mesa's CPU driver, lavapipe, llvmpipe or softpipe, counts as not
 software device being the faster on the CPU
 ([against Mesa's](#the-software-device-against-mesas)); with `"CPUDriver": true` it is asked
 for: the Vulkan device takes lavapipe, the GPUs passed over, and the GL device llvmpipe
-(`LIBGL_ALWAYS_SOFTWARE=1`, set before GL loads). The log names the driver either draws through.
+(`LIBGL_ALWAYS_SOFTWARE=1`, set before GL loads; on Linux alone: on Windows the GL device draws
+through the GPU's driver whatever the key). The log names the driver either draws through.
 
 **The Vulkan device**: the game tick runs while the GPU draws the previous frame
 (`CommandBufferManager` keeps one frame in flight, and `WaitForFrame()` collects it before
