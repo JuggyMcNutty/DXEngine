@@ -270,7 +270,9 @@ the run. *Either*: one engine on each side of a pair.
   quick save there the original never finishes its run.
 - `ConfigConsole` writes `DXCapConfig.ini` into the game's `System` folder, the original's into
   its view (through the view's link when the file is there), DXEngine's with `DXCAP_USERDIR`
-  into that folder: delete it after.
+  into that folder: delete it after. Its object's `StaticSaveConfig` is the console's own, into
+  the game ini's `[DXCapture.ConfigConsole]`: an Object of a config class made by `new` hangs the
+  original at exit, the run ending at its timeout.
 - In `VisibleConsole`'s logs the original numbers the player and its shadow one higher: its menu
   map made the first.
 - **A dxe run started on its map has no long first frame there.** The original's always travels
