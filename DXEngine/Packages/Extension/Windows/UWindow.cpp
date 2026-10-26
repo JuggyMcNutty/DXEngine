@@ -338,11 +338,24 @@ std::string UWindow::CarriageReturn()
 	return "\n";
 }
 
+// The children as they were before the event, each told while still the
+// window's: a handler that destroys one, or the next, cannot end the walk
+static Array<UWindow*> ChildrenOf(UWindow* window)
+{
+	Array<UWindow*> children;
+	for (UWindow* cur = window->firstChild(); cur; cur = cur->nextSibling())
+		children.push_back(cur);
+	return children;
+}
+
 static void ApplyStyleChange(UWindow* window)
 {
 	CallEvent(window, "StyleChanged", {});
-	for (auto cur = window->firstChild(); cur; cur = cur->nextSibling())
-		ApplyStyleChange(cur);
+	for (UWindow* cur : ChildrenOf(window))
+	{
+		if (cur->parentOwner() == window && !cur->Destroyed)
+			ApplyStyleChange(cur);
+	}
 }
 
 void UWindow::ChangeStyle()
