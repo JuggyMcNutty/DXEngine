@@ -255,6 +255,26 @@ wine_run() {
         WINEDLLOVERRIDES="winemenubuilder.exe=d" "$WINE" "$@"
 }
 
+# The original at its time limit: closed by Windows' own taskkill, which
+# ends it with its exit written (its log is written only as it exits), and
+# killed only when that has not ended it within 10 s. The caller's $secs and
+# $i say how long it ran.
+stop_original() {
+    if pgrep -f "^DeusEx.exe" > /dev/null; then
+        wine_run taskkill /im DeusEx.exe > /dev/null 2>&1 || true
+        local j=0
+        while [ $j -lt 10 ] && pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; j=$((j+1)); done
+        if pgrep -f "^DeusEx.exe" > /dev/null; then
+            kill $(pgrep -f "^DeusEx.exe")
+            echo "killed after $secs s"
+        else
+            echo "closed after $secs s"
+        fi
+    else
+        echo "exited after $i s"
+    fi
+}
+
 # The prefix is made on first use, by the same wine's wineboot on the
 # desktop's X display, without Mono and Gecko, which
 # the game and UCC do not need. Wine's wined3d, which D3DDrv's DirectDraw
@@ -654,12 +674,7 @@ cmd_original() {
         fi
         i=0
         while [ $i -lt "$secs" ] && pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; i=$((i+1)); done
-        if pgrep -f "^DeusEx.exe" > /dev/null; then
-            kill $(pgrep -f "^DeusEx.exe")
-            echo "killed after $secs s"
-        else
-            echo "exited after $i s"
-        fi
+        stop_original
         sleep 3
         [ -z "$perfpid" ] || perf_wait $perfpid
     ) || true
@@ -934,12 +949,7 @@ cmd_dedicated() {
                 while [ $i -lt 60 ] && ! pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; i=$((i+1)); done
                 i=0
                 while [ $i -lt "$secs" ] && pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; i=$((i+1)); done
-                if pgrep -f "^DeusEx.exe" > /dev/null; then
-                    kill $(pgrep -f "^DeusEx.exe")
-                    echo "killed after $secs s"
-                else
-                    echo "exited after $i s"
-                fi
+                stop_original
                 sleep 3
             ) || true
             cp "$CAP/game/System/DeusEx.log" "$dir/DeusEx.log" 2>/dev/null || true

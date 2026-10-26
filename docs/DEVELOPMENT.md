@@ -450,8 +450,8 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
   is grabbed, naming any `import` left. `wine taskkill /im DeusEx.exe`, without `/f`, in
   the run's prefix closes a running original cleanly, its log written.
 - `dxcap.sh`'s comments document the rest of its set-up: vkd3d's libraries in the prefix for
-  `D3DDrv`, no Wine desktop, and only the game's own process killed at the end, never the
-  wineserver.
+  `D3DDrv`, no Wine desktop, and at a run's time limit the game closed by that `taskkill`,
+  its log written, killed only when it has not closed within 10 s; never the wineserver.
 
 ### A Windows build
 
