@@ -154,6 +154,13 @@ rec_stop() {
 # DXCAP_NOVSYNC: Mesa's vblank_mode. DXCAP_FPS: MangoHud preloaded into the
 # engine's process, its limiter on and its display off; the dynamic linker
 # takes lib32's copy for the original's 32-bit wine process ($LIB).
+# Checked in the main shell before a run: fps_env runs in the engine's
+# background subshell, where a die ended that subshell alone and the run
+# went on without the game, exiting 0.
+fps_check() {
+    [ -z "${DXCAP_FPS:-}" ] || [ -f /usr/lib/mangohud/libMangoHud_shim.so ] || die "DXCAP_FPS needs MangoHud (mangohud, and lib32-mangohud for the original)"
+}
+
 fps_env() {
     [ "${DXCAP_NOVSYNC:-0}" != 1 ] || export vblank_mode=0
     [ -n "${DXCAP_FPS:-}" ] || return 0
@@ -587,6 +594,7 @@ cmd_original() {
     need_display
     need_free_pointer
     need_perf
+    fps_check
     ensure_prefix
     local ini="$CAP/System/Original.ini" userini="$CAP/System/OriginalUser.ini"
     local dir="$CAP/runs/original-$console-$(date +%H%M%S)"
@@ -681,6 +689,7 @@ run_dxe() {
     local before; before="$(shots_before)"
     mkdir -p "$dir"
     need_perf
+    fps_check
     local settings=""
     if [ -n "${DXCAP_SETTINGS:-}" ]; then
         settings="$(realpath "$DXCAP_SETTINGS")"
