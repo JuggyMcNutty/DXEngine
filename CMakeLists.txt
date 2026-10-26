@@ -85,8 +85,6 @@ set(DXCOMMON_SOURCES
 	DXEngine/Utils/UTF16.h
 	DXEngine/Utils/UTF8Reader.cpp
 	DXEngine/Utils/UTF8Reader.h
-	DXEngine/Utils/MemoryStreamWriter.cpp
-	DXEngine/Utils/MemoryStreamWriter.h
 	DXEngine/Utils/Array.h
 	DXEngine/Utils/CrashReporter.cpp
 	DXEngine/Utils/CrashReporter.h
