@@ -865,16 +865,14 @@ void NActor::ParabolicTrace(UObject* Self, vec3& finalLocation, std::optional<ve
 			return; // entered water
 
 		velocity += zone->ZoneGravity() * step;
-		float terminal = zone->ZoneTerminalVelocity();
-		if (terminal > 0.0f && length(velocity) > terminal)
-			velocity = normalize(velocity) * terminal;
-
 		vec3 delta = (velocity + zone->ZoneVelocity()) * step;
 		if (length(delta) > 1580.0f)
 			return; // a step too long: it fails
 
+		bool hitThisStep = false;
 		if (SelfActor->Trace(hitLocation, hitNormal, pos + delta, pos, checkActors, cylinder))
 		{
+			hitThisStep = true;
 			if (hitNormal.z > 0.7f && (!bouncing || length(velocity) < landSpeed))
 			{
 				// landed on a floor
@@ -888,30 +886,62 @@ void NActor::ParabolicTrace(UObject* Self, vec3& finalLocation, std::optional<ve
 			vec3 remaining = (pos + delta) - hitLocation;
 			vec3 slid = remaining - dot(remaining, hitNormal) * hitNormal;
 			vec3 slidTarget = hitLocation + slid;
-			// The slide's own hit, or its end where it meets nothing: Trace
-			// gives a miss as zero (the original's), which once restarted the
-			// flight at the world's origin.
-			vec3 slideHit, slideNormal;
-			if (SelfActor->Trace(slideHit, slideNormal, slidTarget, hitLocation, checkActors, cylinder))
+			pos = hitLocation;
+			if (dot(slid, delta) >= 0.0f)
 			{
-				if (slideNormal.z > 0.7f && (!bouncing || length(velocity) < landSpeed))
+				// The slide's own hit, or its end where it meets nothing: Trace
+				// gives a miss as zero (the original's), which once restarted the
+				// flight at the world's origin.
+				vec3 slideHit, slideNormal;
+				if (SelfActor->Trace(slideHit, slideNormal, slidTarget, hitLocation, checkActors, cylinder))
 				{
-					finalLocation = slideHit;
-					ReturnValue = timeElapsed + step;
-					return;
+					// A second wall, as the original's (Engine.dll 0x1036c0a0)
+					// takes it: the velocity mirrored about it too, a floor
+					// there landing; then the slide turned by TwoWallAdjust
+					// and traced once more, a floor met landing, and the
+					// flight on from where that ends -- after a landing at
+					// the second wall too, whose place is that end
+					velocity = (velocity - 2.0f * dot(velocity, slideNormal) * slideNormal) * bounciness;
+					bool landed = slideNormal.z > 0.7f && (!bouncing || length(velocity) < landSpeed);
+					float slidLength = length(slid);
+					float hitTime = slidLength > 0.0f ? length(slideHit - hitLocation) / slidLength : 0.0f;
+					vec3 adjusted = slid;
+					vec3 desiredDir = length(delta) > 0.0f ? normalize(delta) : vec3(0.0f);
+					UActor::TwoWallAdjust(desiredDir, adjusted, slideNormal, hitNormal, hitTime);
+					vec3 thirdHit, thirdNormal;
+					if (SelfActor->Trace(thirdHit, thirdNormal, slideHit + adjusted, slideHit, checkActors, cylinder))
+					{
+						pos = thirdHit;
+						if (!landed && thirdNormal.z > 0.7f && (!bouncing || length(velocity) < landSpeed))
+							landed = true;
+					}
+					else
+					{
+						pos = slideHit + adjusted;
+					}
+					if (landed)
+					{
+						finalLocation = pos;
+						ReturnValue = timeElapsed + step;
+						return;
+					}
 				}
-				velocity = (velocity - 2.0f * dot(velocity, slideNormal) * slideNormal) * bounciness;
-				pos = slideHit;
-			}
-			else
-			{
-				pos = slidTarget;
+				else
+				{
+					pos = slidTarget;
+				}
 			}
 		}
 		else
 		{
 			pos = pos + delta;
 		}
+
+		// The speed held to the zone's terminal velocity at the step's end,
+		// not in a bouncing step that hit, as the original holds it
+		float terminal = zone->ZoneTerminalVelocity();
+		if ((!bouncing || !hitThisStep) && terminal > 0.0f && length(velocity) > terminal)
+			velocity = normalize(velocity) * terminal;
 
 		timeElapsed += step;
 	}
