@@ -26,14 +26,20 @@ int UDXGameDirectory::GetNewSaveFileIndex()
 	return engine->NextSaveSlot();
 }
 
+// The original's (DeusEx.dll 0x10017d60): "Save%04d.<the save extension>"
+// for any index -- DXEngine's own saves are folders named by the slot, the
+// quick save's and Current apart -- and a new name takes a new index for -1
+// or none (0x10017e30)
 std::string UDXGameDirectory::GenerateSaveFilename(int saveIndex)
 {
-	return GetSaveIndexFolderName(saveIndex);
+	char name[64];
+	snprintf(name, sizeof(name), "Save%04d.%s", saveIndex, engine->packages->GetSaveExtension().c_str());
+	return name;
 }
 
 std::string UDXGameDirectory::GenerateNewSaveFileName(std::optional<int> newIndex)
 {
-	return GenerateSaveFilename(newIndex ? *newIndex : GetNewSaveFileIndex());
+	return GenerateSaveFilename(newIndex && *newIndex != -1 ? *newIndex : GetNewSaveFileIndex());
 }
 
 int UDXGameDirectory::GetDirCount()
