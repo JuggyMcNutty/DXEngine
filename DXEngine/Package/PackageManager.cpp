@@ -1209,7 +1209,9 @@ void PackageManager::LoadIntFiles()
 {
 	for (const std::string& path : GetIniValues("system", "Core.System", "Paths"))
 	{
-		fs::path folder = (gameSystemFolderPath / convert_path_separators(path)).lexically_normal().parent_path();
+		// The folder as the disk spells it, as the package folders are found:
+		// a path in another case gave its packages but none of its text
+		fs::path folder = ResolveFolderCase((gameSystemFolderPath / convert_path_separators(path)).lexically_normal().parent_path());
 		if (std::find(intFolders.begin(), intFolders.end(), folder) == intFolders.end())
 			intFolders.push_back(folder);
 	}
