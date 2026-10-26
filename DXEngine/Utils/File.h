@@ -79,8 +79,6 @@ class OS
 {
 public:
 	static std::string executable_path();
-	static std::string get_default_font_name();
-	static std::string find_truetype_font(const std::string& font_name);
 };
 
 // This is needed because on Linux, path::make_preferred() does NOT convert

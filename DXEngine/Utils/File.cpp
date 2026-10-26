@@ -16,9 +16,6 @@
 #include <dirent.h>
 #include <cstdio>
 #include <unistd.h>
-#ifdef EXTERN___PROGNAME
-extern const char* __progname;
-#endif
 #endif
 #include "Utils/Exception.h"
 #include <cstring>
@@ -456,48 +453,7 @@ std::string OS::executable_path()
 	struct stat sb;
 	if (lstat(PROC_EXE_PATH, &sb) < 0)
 	{
-		#ifdef EXTERN___PROGNAME
-			char* pathenv, * name, * end;
-			char fname[PATH_MAX];
-			char cwd[PATH_MAX];
-			struct stat sba;
-
-			exe_file[0] = '\0';
-			if ((pathenv = getenv("PATH")) != nullptr)
-			{
-				for (name = pathenv; name; name = end)
-				{
-					if ((end = strchr(name, ':')))
-						*end++ = '\0';
-					snprintf(fname, sizeof(fname),
-						"%s/%s", name, (char*)__progname);
-					if (stat(fname, &sba) == 0) {
-						snprintf(exe_file, sizeof(exe_file),
-							"%s/", name);
-						break;
-					}
-				}
-			}
-			// if getenv failed or path still not found
-			// try current directory as last resort
-			if (!exe_file[0])
-			{
-				if (getcwd(cwd, sizeof(cwd)) != nullptr)
-				{
-					snprintf(fname, sizeof(fname),
-						"%s/%s", cwd, (char*)__progname);
-					if (stat(fname, &sba) == 0)
-						snprintf(exe_file, sizeof(exe_file),
-							"%s/", cwd);
-				}
-			}
-			if (!exe_file[0])
-				Exception::Throw("get_exe_path: could not find path");
-			else
-				return std::string(exe_file);
-		#else
-			Exception::Throw("get_exe_path: proc file system not accesible");
-		#endif
+		Exception::Throw("get_exe_path: proc file system not accesible");
 	}
 	else
 	{
@@ -514,41 +470,4 @@ std::string OS::executable_path()
 	}
 
 	#endif
-}
-
-std::string OS::get_default_font_name()
-{
-#ifdef WIN32
-	return "segoeui.ttf";
-#else
-	return "DejaVuSans.ttf";
-#endif
-}
-
-std::string OS::find_truetype_font(const std::string& font_name_and_extension)
-{
-#ifdef WIN32
-	const Array<std::string> possible_fonts_folders = {
-		"C:\\Windows\\Fonts"
-	};
-#else
-	// Linux is Linux and as always, how the fonts stored can be wholly different
-	// So here we try to account for possible paths
-	// ...is there a better way to do this?
-	const Array<std::string> possible_fonts_folders = {
-		"/usr/share/fonts",
-		"/usr/share/fonts/truetype",
-		"/usr/share/fonts/TTF"
-	};
-#endif
-
-	for (auto& current_font_folder : possible_fonts_folders) {
-		auto final_path = fs::path(current_font_folder) / font_name_and_extension;
-
-		if (File::try_open_existing(final_path.string()))
-			return final_path.string();
-	}
-
-	// We couldn't find the font in any of the folders, bail out
-	return "";
 }
