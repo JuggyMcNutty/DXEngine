@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "NetPackageMap.h"
+#include "Engine.h"
 #include "NetConnection.h"
 #include "NetChannel.h"
 #include "Package/Package.h"
@@ -54,7 +55,28 @@ UObject* NetPackageMap::IndexToObject(uint32_t index)
 	for (PackageInfo& info : List)
 	{
 		if (index >= (uint32_t)info.ObjectBase && index < (uint32_t)(info.ObjectBase + info.ObjectCount))
-			return info.Pkg->GetUObject((int)(index - info.ObjectBase) + 1);
+		{
+			int exportIndex = (int)(index - info.ObjectBase);
+			// An actor export of the level's package that is no longer loaded
+			// was destroyed and freed: loading it again would make a fresh
+			// copy in no level, whose Destroy reads a level that is None (a
+			// crafted client's reference to a map actor gone). The original's
+			// SerializeObject loads it as well (Engine.dll 0x104089f0).
+			if (info.Pkg == engine->LevelPackage && !info.Pkg->GetLoadedExport(exportIndex))
+			{
+				ExportTableEntry* entry = info.Pkg->GetExportEntry(exportIndex + 1);
+				UClass* cls = entry ? UObject::TryCast<UClass>(info.Pkg->GetUObject(entry->ObjClass)) : nullptr;
+				bool isActor = false;
+				for (UStruct* c = cls; c; c = c->BaseStruct)
+					isActor = isActor || c->Name == "Actor";
+				if (isActor)
+				{
+					LogMessage("Net: a reference to a map actor no longer there, " + info.Pkg->GetExportName(exportIndex + 1));
+					return nullptr;
+				}
+			}
+			return info.Pkg->GetUObject(exportIndex + 1);
+		}
 	}
 	return nullptr;
 }

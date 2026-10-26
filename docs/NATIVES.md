@@ -1767,6 +1767,8 @@ A mod gets the original's loader and natives:
   mover's polygons keep their texture for a `TraceTexture` through them; a
   collision size or location past the cells an int names, or no number, is
   held to them.
+- **A net game's edges.** a client's reference to a map actor destroyed and
+  freed is refused, not loaded afresh in no level.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).

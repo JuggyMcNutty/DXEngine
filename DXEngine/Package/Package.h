@@ -76,6 +76,9 @@ public:
 	int GetExportCount() const { return FileExportCount; }
 	int GetNameCount() const { return FileNameCount; }
 	bool IsExportObject(const UObject* obj, int index) const { return index >= 0 && (size_t)index < ExportObjects.size() && ExportObjects[index] == obj; }
+	// The export's object as it stands: none when it was never loaded, or
+	// was freed (the collector empties the slot)
+	UObject* GetLoadedExport(int index) const { return index >= 0 && (size_t)index < ExportObjects.size() ? ExportObjects[index] : nullptr; }
 	PackageFlags GetFlags() const { return Flags; }
 	// A package the engine played as a level: a map, or a save's level.
 	bool IsLevel() const { return LevelPackage; }
