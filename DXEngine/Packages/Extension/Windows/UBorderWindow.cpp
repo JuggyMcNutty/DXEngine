@@ -102,13 +102,15 @@ void UBorderWindow::ConfigurationChanged()
 
 void UBorderWindow::DrawWindow(UGC* gc)
 {
+	// In DrawBorders' order (GC.uc: the four corners, then the four
+	// edges, then the centre): the bottom-right corner before the left edge
 	UObject* borders[9] =
 	{
 		borderTopLeft(),
 		borderTopRight(),
 		borderBottomLeft(),
-		borderLeft(),
 		borderBottomRight(),
+		borderLeft(),
 		borderRight(),
 		borderTop(),
 		borderBottom(),
