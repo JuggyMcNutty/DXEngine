@@ -78,6 +78,9 @@ public:
 	void PushHit(const uint8_t* Data, int Count) override;
 	void PopHit(int Count, bool bForce) override;
 	void ReadPixels(TextureColor* Pixels) override;
+	// The size ReadPixels writes: the scene's at the last Lock, not the
+	// window's now (a window resized since overflowed the buffer)
+	void LastFrameSize(int& width, int& height) const override { width = CurrentSizeX; height = CurrentSizeY; }
 	void EndFlash() override;
 	void SetSceneNode(SceneNode* Frame) override;
 	void PrecacheTexture(TextureInfo& Info, uint32_t PolyFlags) override;
