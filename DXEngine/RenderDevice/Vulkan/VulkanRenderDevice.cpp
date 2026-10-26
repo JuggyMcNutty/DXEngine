@@ -1049,7 +1049,6 @@ void VulkanRenderDevice::EndFlash()
 
 		DrawBatch(Commands->GetDrawCommands());
 		pushconstants.objectToProjection = mat4::identity();
-		pushconstants.objectToView = mat4::identity();
 		pushconstants.nearClip = vec4(0.0f, 0.0f, 0.0f, 0.0f);
 
 		SetPipeline(RenderPasses->GetEndFlashPipeline());
@@ -1111,8 +1110,10 @@ void VulkanRenderDevice::SetSceneNode(SceneNode* Frame)
 	// maybe optionally do one or the other? transform on CPU can be super slow --Xaleros
 	pushconstants.objectToProjection = pushconstants.objectToProjection * Frame->WorldToView * Frame->ObjectToWorld;
 
-	pushconstants.objectToView = Frame->WorldToView * Frame->ObjectToWorld;
-	pushconstants.nearClip = Frame->NearClip;
+	// The near clip plane in the object's space, the view's turned by the
+	// transpose: dot(plane, M p) = dot(transpose(M) plane, p). So the vertex
+	// needs no view matrix, and the push constants fit 128 bytes.
+	pushconstants.nearClip = mat4::transpose(Frame->WorldToView * Frame->ObjectToWorld) * Frame->NearClip;
 }
 
 void VulkanRenderDevice::PrecacheTexture(TextureInfo& Info, uint32_t PolyFlags)
