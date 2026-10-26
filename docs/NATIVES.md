@@ -798,7 +798,10 @@ from the original's code:
   (`ClickConsole`, `MenuConsole`).
 - **Sizes**: a side a window was given (`SetSize`) counts as asked for; a
   side it leaves unset is its background's size, else its own -- an empty
-  text window is 0 wide and keeps its height. A large text window and an
+  text window is 0 wide and keeps its height. A size set is held at 0 or
+  more and lays the window out again, its parent asked, only when it
+  changes, as the original's `Resize` has it; `ResetSize` lays it out again
+  only when a size was set. A large text window and an
   edit field measure rows of the font's height with their vertical spacing
   between (`ScreenConsole`'s skill text and note), an edit field a space
   wider when no width is given. A window asking to be laid out again is

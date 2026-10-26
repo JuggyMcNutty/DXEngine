@@ -1607,45 +1607,75 @@ void UWindow::UngrabMouse()
 		root->grabbedWindow() = nullptr;
 }
 
+// The original's ResetSize, ResetWidth and ResetHeight (Extension.dll
+// 0x1004d410, 0x1004d4c0, 0x1004d550): a set size taken away, and the
+// window laid out again -- its parent asked -- only when one was set.
 void UWindow::ResetSize()
 {
-	// Not called from script
-	ResetWidth();
-	ResetHeight();
+	if (FixedWidth || FixedHeight)
+	{
+		FixedWidth = false;
+		FixedHeight = false;
+		AskParentForReconfigure();
+	}
 }
 
 void UWindow::ResetWidth()
 {
-	// Not called from script
-	FixedWidth = false;
-	bNeedsReconfigure() = true;
+	if (FixedWidth)
+	{
+		FixedWidth = false;
+		AskParentForReconfigure();
+	}
 }
 
 void UWindow::ResetHeight()
 {
-	// Not called from script
-	FixedHeight = false;
-	bNeedsReconfigure() = true;
+	if (FixedHeight)
+	{
+		FixedHeight = false;
+		AskParentForReconfigure();
+	}
 }
 
+// The original's Resize, SetWidth and SetHeight (Extension.dll 0x1004cf70,
+// 0x1004d040, 0x1004d0e0): a size held at 0 or more, and the window laid
+// out again -- its parent asked, which marks the window too -- only when
+// the size changes.
 void UWindow::SetSize(float newWidth, float NewHeight)
 {
-	SetWidth(newWidth);
-	SetHeight(NewHeight);
+	newWidth = std::max(newWidth, 0.0f);
+	NewHeight = std::max(NewHeight, 0.0f);
+	if (!FixedWidth || !FixedHeight || hardcodedWidth() != newWidth || hardcodedHeight() != NewHeight)
+	{
+		hardcodedWidth() = newWidth;
+		hardcodedHeight() = NewHeight;
+		FixedWidth = true;
+		FixedHeight = true;
+		AskParentForReconfigure();
+	}
 }
 
 void UWindow::SetWidth(float newWidth)
 {
-	hardcodedWidth() = newWidth;
-	FixedWidth = true;
-	bNeedsReconfigure() = true;
+	newWidth = std::max(newWidth, 0.0f);
+	if (!FixedWidth || hardcodedWidth() != newWidth)
+	{
+		hardcodedWidth() = newWidth;
+		FixedWidth = true;
+		AskParentForReconfigure();
+	}
 }
 
 void UWindow::SetHeight(float NewHeight)
 {
-	hardcodedHeight() = NewHeight;
-	FixedHeight = true;
-	bNeedsReconfigure() = true;
+	NewHeight = std::max(NewHeight, 0.0f);
+	if (!FixedHeight || hardcodedHeight() != NewHeight)
+	{
+		hardcodedHeight() = NewHeight;
+		FixedHeight = true;
+		AskParentForReconfigure();
+	}
 }
 
 void UWindow::SetConfiguration(float newX, float newY, float newWidth, float NewHeight)
