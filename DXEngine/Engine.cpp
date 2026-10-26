@@ -1800,7 +1800,6 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 	// in the ini, or an IPPolicies deny, threw at every local login.
 
 	// Create viewport pawn
-	size_t numActors = Level->Actors.size();
 	UPlayerPawn* pawn = UObject::Cast<UPlayerPawn>(CallEvent(LevelInfo->Game(), EventName::Login, {
 		ExpressionValue::StringValue(portal),
 		ExpressionValue::StringValue(options),
@@ -1809,7 +1808,6 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 		}).ToObject());
 	if (!pawn || !error.empty())
 		Exception::Throw("GameInfo login failed: " + error);
-	bool actorActuallySpawned = Level->Actors.size() != numActors;
 
 	pawn->LoadProperties();
 
@@ -1835,14 +1833,25 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 
 	CallEvent(pawn, EventName::TravelPreAccept);
 
+	// The travel is taken whether or not Login spawned a pawn, as the
+	// original's SpawnPlayActor takes it (its one test is ?loadonly, Engine.dll
+	// 0x10396bd0): a Login that reuses a pawn keeps its travelling items.
+	// The travel info is keyed by the player's PlayerName, which the stock
+	// Login cuts to 20 characters: the URL's name is looked up whole, then
+	// cut, and standalone with none found the first entry is taken, as the
+	// original's does.
 	Array<UObject*> acceptedObjects;
-	if (actorActuallySpawned && ClientTravelInfo.TravelType == ETravelType::TRAVEL_Relative)
+	if (ClientTravelInfo.TravelType == ETravelType::TRAVEL_Relative)
 	{
 		std::string playerName = url.GetOption("Name");
 		if (playerName.empty())
 			playerName = packages->GetIniValue("system", "URL", "Name");
 
 		auto it = travelInfo.find(playerName);
+		if (it == travelInfo.end() && playerName.size() > 20)
+			it = travelInfo.find(playerName.substr(0, 20));
+		if (it == travelInfo.end() && !travelInfo.empty() && LevelInfo->NetMode() == NM_Standalone)
+			it = travelInfo.begin();
 		if (!playerName.empty() && it != travelInfo.end())
 		{
 			acceptedObjects = ActorTravelInfo::Accept(pawn, it->second);
