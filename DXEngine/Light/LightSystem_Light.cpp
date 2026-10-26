@@ -219,6 +219,19 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 		}
 	}
 
+	// The moving lights over the map as a set, whichever order they came
+	// in: one that left it -- switched off, destroyed, moved or shrunk out
+	// of reach -- changes the set where it need not change the newest
+	// stamp, and the map is built again without it, as the original's
+	// dynamic map, built every frame from the lights then over it, drops it
+	uint64_t movingSet = TempDynLightList.size();
+	for (UActor* light : TempDynLightList)
+	{
+		uint64_t h = (uint64_t)(uintptr_t)light;
+		h ^= h >> 30; h *= 0xbf58476d1ce4e5b9ull; h ^= h >> 27; h *= 0x94d049bb133111ebull; h ^= h >> 31;
+		movingSet ^= h;
+	}
+
 	// If anything changed update the lightmap:
 
 	bool bRealtimeChanged = false;
@@ -230,7 +243,7 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 		surface.TextureID = cacheID;
 	}
 	std::unique_ptr<LightmapTexture>& lmtexture = *surface.Texture;
-	if (!lmtexture || lmtexture->LastStaticUpdate != lastStaticUpdate || lmtexture->LastDynamicUpdate != lastDynamicUpdate)
+	if (!lmtexture || lmtexture->LastStaticUpdate != lastStaticUpdate || lmtexture->LastDynamicUpdate != lastDynamicUpdate || lmtexture->MovingLightSet != movingSet)
 	{
 		engine->render->Stats.LightmapsUpdated++;
 
@@ -293,6 +306,7 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 		lmtexture->AddedRect = Builder.AddedLightsRect();
 		lmtexture->LastStaticUpdate = lastStaticUpdate;
 		lmtexture->LastDynamicUpdate = lastDynamicUpdate;
+		lmtexture->MovingLightSet = movingSet;
 		bRealtimeChanged = !updated.Empty();
 	}
 
@@ -366,6 +380,13 @@ void LightSystem::CheckLight(UActor* light)
 	uint8_t hue = light->LightHue();
 	uint8_t saturation = light->LightSaturation();
 	uint8_t brightness = light->LightBrightness();
+	// Its aim, cone, period and phase too: a spotlight that turns (the
+	// alarm lights) or whose cone a script changes lights its surfaces anew,
+	// as the original's dynamic map, built every frame, has it
+	Rotator rotation = light->Rotation();
+	uint8_t cone = light->LightCone();
+	uint8_t period = light->LightPeriod();
+	uint8_t phase = light->LightPhase();
 	if (
 		location != light->Light.Location ||
 		radius != light->Light.Radius ||
@@ -373,7 +394,11 @@ void LightSystem::CheckLight(UActor* light)
 		effect != light->Light.Effect ||
 		hue != light->Light.Hue ||
 		saturation != light->Light.Saturation ||
-		brightness != light->Light.Brightness)
+		brightness != light->Light.Brightness ||
+		rotation != light->Light.Rotation ||
+		cone != light->Light.Cone ||
+		period != light->Light.Period ||
+		phase != light->Light.Phase)
 	{
 		light->Light.Location = location;
 		light->Light.Radius = radius;
@@ -382,6 +407,10 @@ void LightSystem::CheckLight(UActor* light)
 		light->Light.Hue = hue;
 		light->Light.Saturation = saturation;
 		light->Light.Brightness = brightness;
+		light->Light.Rotation = rotation;
+		light->Light.Cone = cone;
+		light->Light.Period = period;
+		light->Light.Phase = phase;
 		light->Light.LastUpdate = FrameCounter;
 	}
 }

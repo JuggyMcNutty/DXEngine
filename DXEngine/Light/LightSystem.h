@@ -26,6 +26,8 @@ struct LightmapTexture
 	UnrealMipmap Mip;
 	int LastStaticUpdate = -1;
 	int LastDynamicUpdate = -1;
+	// The moving lights it was built with, as a set (LightSystem::GetLightmap)
+	uint64_t MovingLightSet = 0;
 	Array<vec3> StaticLightColors;
 
 	// Where the lights added over the static map reached when it was last

@@ -397,6 +397,11 @@ public:
 		uint8_t Hue = 0;
 		uint8_t Saturation = 0;
 		uint8_t Brightness = 0;
+		// A spotlight's aim and cone, a searchlight's period and phase
+		Rotator Rotation;
+		uint8_t Cone = 0;
+		uint8_t Period = 0;
+		uint8_t Phase = 0;
 		int LastUpdate = -1;
 		int LastCheck = -1;
 		int LightmapCheckCounter = -1;

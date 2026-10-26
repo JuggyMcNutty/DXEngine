@@ -525,7 +525,13 @@ correlation of 0.997 to `D3DDrv`'s frame, its chest 0.999.
 Matches the original's light maps, mesh lighting and the faces a mesh draws
 ([lighting](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#lighting)):
 `ViewConsole`, `LaserConsole`, `MeshConsole` and `CoronaConsole` come out
-within a level or two of 256 of `D3DDrv`'s frames. A spotlight's cone is the
+within a level or two of 256 of `D3DDrv`'s frames. A light that leaves a
+surface's moving lights -- switched off, destroyed, moved or shrunk out of
+reach -- and a spotlight that turns, or whose cone, period or phase a script
+changes, build the surface's map again, as the original's dynamic map, built
+every frame from the lights then over it, has them (`SwitchConsole`: a
+lamp's pool gone as it is switched off, a spotlight's beam moved as it
+turns). A spotlight's cone is the
 original's, its cosine `1 − LightCone ÷ 256`, its value rounded down, and a
 light or fog map lights texel i at its centre, `Pan.X + i × UScale` along U,
 where both engines draw it
