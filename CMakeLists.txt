@@ -970,10 +970,18 @@ function( add_zip ZIP_NAME ZIP_DIR )
 	# Find the files in the directory, again at build time when one comes or goes
 	file(GLOB_RECURSE ZIP_SRCS CONFIGURE_DEPENDS ${ZIP_DIR}/*)
 
+	# The list of files is an input of its own, written when it changes: a
+	# file deleted, or renamed with its mtime kept, left the zip newer than
+	# every input and it was not packed again, the old entry kept
+	string(REPLACE ";" "\n" ZIP_LIST "${ZIP_SRCS}")
+	file(WRITE ${CMAKE_BINARY_DIR}/${ZIP_NAME}.list.new "${ZIP_LIST}\n")
+	execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/${ZIP_NAME}.list.new ${CMAKE_BINARY_DIR}/${ZIP_NAME}.list)
+	file(REMOVE ${CMAKE_BINARY_DIR}/${ZIP_NAME}.list.new)
+
 	# Add command for building the zip file, again whenever one of them changes
 	add_custom_command( OUTPUT ${CMAKE_BINARY_DIR}/${ZIP_NAME}
 		COMMAND ${ZIPDIR_COMMAND} ${CMAKE_BINARY_DIR}/${ZIP_NAME} ${ZIP_DIR}
-		DEPENDS ${ZIPDIR_DEPENDS} ${ZIP_SRCS} )
+		DEPENDS ${ZIPDIR_DEPENDS} ${ZIP_SRCS} ${CMAKE_BINARY_DIR}/${ZIP_NAME}.list )
 
 	# Create target project for the zip file
 	# Touch zipdir executable to force rebuild of the zip file if any of the resource files change
