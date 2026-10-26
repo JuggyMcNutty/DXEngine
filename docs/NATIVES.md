@@ -1866,7 +1866,8 @@ The server-only stubs are under
   handshake are the original's, and so is its socket: broadcast and address
   reuse on, 32 KB buffers for a client's and 128 KB for a server's, a
   server's port the URL's or the next free of the 20 from it (`PORT=` and
-  `MULTIHOME=` are not taken).
+  `MULTIHOME=` are not taken); a server's host name is looked up on a
+  thread, the game going on.
 - **The download cache.** A package is cached as its GUID with `CacheExt`,
   where the original writes `.uxx` whatever `CacheExt` says (the game's ini
   names `.uxx`). A package a join loaded from the cache is let go by name at

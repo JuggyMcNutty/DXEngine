@@ -8,6 +8,7 @@
 #include "Utils/StrTools.h"
 #include "Engine.h"
 #include <algorithm>
+#include <thread>
 
 #ifdef WIN32
 #include <winsock2.h>
@@ -131,18 +132,42 @@ bool NetDriver::InitConnect(NetNotify* notify, const std::string& host, int port
 {
 	Notify = notify;
 
-	// The server's address: a dotted number as it is, a name looked up.
-	addrinfo hints = {};
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_DGRAM;
-	addrinfo* info = nullptr;
-	if (getaddrinfo(host.c_str(), nullptr, &hints, &info) != 0 || !info)
+	// The server's address: a dotted number as it is, a name looked up on a
+	// thread of its own (the original's connection does: IpDrv.dll
+	// UTcpipConnection 0x107092d0, "Resolving"), the game going on; a lookup
+	// that failed ends the join (TickDispatch), and nothing goes out before
+	// it answers (LowLevelSend). The thread is let go of: a slow resolver
+	// holds no one up, and the job outlives the driver.
+	uint32_t addr = 0;
+	in_addr dotted = {};
+	if (inet_pton(AF_INET, host.c_str(), &dotted) == 1)
 	{
-		error = "Could not resolve " + host;
-		return false;
+		addr = ntohl(dotted.s_addr);
 	}
-	uint32_t addr = ntohl(((sockaddr_in*)info->ai_addr)->sin_addr.s_addr);
-	freeaddrinfo(info);
+	else
+	{
+		Resolve = std::make_shared<ResolveJob>();
+		Resolve->Host = host;
+		LogMessage("Net: resolving " + host);
+		std::shared_ptr<ResolveJob> job = Resolve;
+		std::thread([job]()
+		{
+			addrinfo hints = {};
+			hints.ai_family = AF_INET;
+			hints.ai_socktype = SOCK_DGRAM;
+			addrinfo* info = nullptr;
+			if (getaddrinfo(job->Host.c_str(), nullptr, &hints, &info) == 0 && info)
+			{
+				job->Addr = ntohl(((sockaddr_in*)info->ai_addr)->sin_addr.s_addr);
+				freeaddrinfo(info);
+				job->State = 1;
+			}
+			else
+			{
+				job->State = 2;
+			}
+		}).detach();
+	}
 
 	if (!OpenSocket(0, error))
 		return false;
@@ -212,6 +237,24 @@ bool NetDriver::OpenSocket(int port, std::string& error)
 void NetDriver::TickDispatch(float deltaTime)
 {
 	Time += deltaTime;
+
+	// The host name's answer: the server's address, or the join's end
+	if (Resolve && ServerConnection)
+	{
+		int state = Resolve->State;
+		if (state == 1)
+		{
+			ServerConnection->RemoteAddr = Resolve->Addr;
+			LogMessage("Net: resolved " + Resolve->Host + " to " + NetAddressString(Resolve->Addr));
+			Resolve.reset();
+		}
+		else if (state == 2)
+		{
+			LogMessage("Net: could not resolve " + Resolve->Host);
+			ServerConnection->State = ConnectionState::Closed;
+			Resolve.reset();
+		}
+	}
 
 	// A server lets go of the connections that closed, and their players.
 	for (size_t i = ClientConnections.size(); i-- > 0;)
@@ -295,6 +338,10 @@ void NetDriver::NotifyActorDestroyed(UActor* actor)
 
 void NetDriver::LowLevelSend(NetConnection* connection, const uint8_t* data, int count)
 {
+	// The server's name still being looked up: nothing to send to yet, as
+	// the original's connection sends nothing while resolving
+	if (Resolve && connection == ServerConnection.get())
+		return;
 	if (Socket == NoSocket)
 		return;
 	sockaddr_in to = {};
