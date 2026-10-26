@@ -11,6 +11,8 @@
 #include "Packages/Core/UFunction.h"
 #include "ScriptCall.h"
 
+#include <cstdio>
+
 using TypedKind = Expression::TypedKind;
 
 static bool IsVariable(TypedKind kind)
@@ -289,11 +291,19 @@ void ExpressionEvaluator::Expr(NewExpression* expr)
 	if (objName.IsNone() && cls)
 		objName = package->MakeUniqueObjectName(cls);
 
-	UObject* newObj = package->NewObject(
-		objName,
-		cls,
-		flags.GetType() == ExpressionValueType::Nothing ? ObjectFlags::NoFlags : (ObjectFlags)flags.ToInt(),
-		true);
+	// A flag outside the script's own, RF_ScriptMask (Transactional, Public,
+	// Transient, NotForClient, NotForServer and NotForEdit), is logged and
+	// left out, as the original's execNew does (core-dll.md, the natives)
+	uint32_t newFlags = flags.GetType() == ExpressionValueType::Nothing ? 0 : (uint32_t)flags.ToInt();
+	const uint32_t scriptMask = 0x00704005;
+	if (newFlags & ~scriptMask)
+	{
+		char text[64];
+		snprintf(text, sizeof(text), "new: Flags %08X not allowed", newFlags);
+		LogMessage(text);
+		newFlags &= scriptMask;
+	}
+	UObject* newObj = package->NewObject(objName, cls, (ObjectFlags)newFlags, true);
 
 	if (outerObj)
 		newObj->Outer() = outerObj;
