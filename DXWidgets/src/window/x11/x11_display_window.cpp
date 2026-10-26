@@ -902,6 +902,19 @@ void X11DisplayWindow::OnFocusIn(XEvent* event)
 void X11DisplayWindow::OnFocusOut(XEvent* event)
 {
 	RawInput.Focused = false;
+
+	// No KeyRelease reaches an unfocused window: every key held is let go
+	// now, as the original's input poll lets go any key it reads up
+	std::vector<InputKey> held;
+	for (auto& it : keyState)
+		if (it.second)
+			held.push_back(it.first);
+	for (InputKey key : held)
+	{
+		keyState[key] = false;
+		windowHost->OnWindowKeyUp(key);
+	}
+
 	windowHost->OnWindowDeactivated();
 }
 
