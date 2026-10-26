@@ -233,20 +233,28 @@ UActor* UPawn::PickAnyTarget(float& bestAim, float& bestDist, const vec3& FireDi
 	return bestActor;
 }
 
+// Auto-aim's targets (APawn::execPickTarget, Engine.dll 0x103baca0;
+// execPickAnyTarget, 0x103bb130; dx-reverse-info/engine-dll.md, small): the
+// level's pawn list -- a pawn but itself, alive, a projectile target, not a
+// team mate in a team game, and none at all when the level has no Game (a
+// client's) -- or, for any target, the level's actors that are not pawns
+// and are projectile targets.
 UActor* UPawn::PickTarget(float& bestAim, float& bestDist, const vec3& FireDir, const vec3& projStart)
 {
 	UActor* bestActor = nullptr;
+	UGameInfo* game = Level()->Game();
+	if (!game)
+		return nullptr;
 	UPlayerReplicationInfo* ourPlayerInfo = PlayerReplicationInfo();
-	bool teamGame = ourPlayerInfo && Level()->Game()->bTeamGame();
+	bool teamGame = game->bTeamGame();
 	for (UPawn* pawn = Level()->PawnList(); pawn != nullptr; pawn = pawn->nextPawn())
 	{
-		// Skip dead pawns or ourselves
-		if (pawn == this || pawn->Health() <= 0)
+		if (pawn == this || pawn->Health() <= 0 || !pawn->bProjTarget())
 			continue;
 
 		// Skip team mates
 		auto pawnPlayerInfo = pawn->PlayerReplicationInfo();
-		if (teamGame && pawnPlayerInfo && ourPlayerInfo->Team() == pawnPlayerInfo->Team())
+		if (teamGame && ourPlayerInfo && pawnPlayerInfo && ourPlayerInfo->Team() == pawnPlayerInfo->Team())
 			continue;
 
 		if (CheckIfBestTarget(pawn, bestAim, bestDist, FireDir, projStart))
@@ -255,22 +263,22 @@ UActor* UPawn::PickTarget(float& bestAim, float& bestDist, const vec3& FireDir, 
 	return bestActor;
 }
 
+// One ahead (the direction's dot with the way to it above 0), nearer than
+// 2000, whose aim (that dot over the distance) beats the best so far,
+// strictly, and that the pawn sees.
 bool UPawn::CheckIfBestTarget(UActor* actor, float& bestAim, float& bestDist, const vec3& FireDir, const vec3& projStart)
 {
-	// Ignore targets behind us
 	vec3 delta = actor->Location() - projStart;
 	float angle = dot(FireDir, delta);
-	if (angle < 0.0f)
+	if (angle <= 0.0f)
 		return false;
 
-	// Skip things too far away
 	float distance = length(delta);
-	if (distance == 0.0f || distance > 2500.0f)
+	if (distance >= 2000.0f)
 		return false;
 
-	// Skip if we already have a target closer to the direction we are facing
 	angle /= distance;
-	if (angle < bestAim)
+	if (angle <= bestAim)
 		return false;
 
 	// Skip if we can't see the target

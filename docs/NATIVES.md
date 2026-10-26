@@ -1177,6 +1177,10 @@ Every other native the scripted runs compare matches the original
   which the original files again wherever they are; and the polygons are
   filed whole, where the original's tree drops what lands in solid, which
   no line in the open meets.
+- **Auto-aim's targets** (`AimConsole`): `PickTarget` takes a live
+  projectile-target pawn ahead, nearer than 2000 units, whose aim is
+  strictly the best so far and in sight, `PickAnyTarget` such an actor that
+  is no pawn, and neither any without a `Game` (a client's level).
 - **Sight** (`SightConsole`), and the pawns' in the tick (`SeeConsole`:
   `SeePlayer` sent only a player, each 0.2 s,
   [the senses](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-senses)),
