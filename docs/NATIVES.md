@@ -1771,7 +1771,7 @@ A mod gets the original's loader and natives:
   freed is refused, not loaded afresh in no level; a channel destroyed
   leaves nothing for the next bunch to merge into; an enum of more than 256
   names goes as a byte; a coordinate that is no number or past an int is
-  held.
+  held; a download past its size, or past 2 GiB, ends at once.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).

@@ -80,8 +80,8 @@ private:
 	int PackageIndex = -1;
 	std::string PackageName;
 	std::string Guid;
-	int FileSize = 0;
-	int Transferred = 0;
+	int64_t FileSize = 0;
+	int64_t Transferred = 0;
 	// The client's temporary file in the cache, or the server's package.
 	std::string Filename;
 	FILE* File = nullptr;

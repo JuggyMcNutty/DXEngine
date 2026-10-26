@@ -342,6 +342,14 @@ void NetFileChannel::ReceivedBunch(NetInBunch& bunch)
 			return;
 		}
 		Transferred += std::max(numBytes, 0);
+		// More than the server said the file was is wrong at once, not at the
+		// channel's end with the disk filled
+		if (Transferred > FileSize)
+		{
+			Error = LocalizeMessage("Engine", "Errors", "NetSize", "File size mismatch");
+			Close();
+			return;
+		}
 		if (notify)
 		{
 			std::string line1 = LocalizeMessage("Engine", "Progress", "ReceiveFile", "Receiving '%s'", { PackageName });
@@ -405,7 +413,7 @@ void NetFileChannel::Tick()
 		int size = Connection->MaxSendBytes();
 		if (size == 0)
 			break;
-		int remaining = FileSize - Transferred;
+		int remaining = (int)std::min<int64_t>(FileSize - Transferred, INT32_MAX);
 		NetOutBunch bunch(this, size >= remaining);
 		size = std::max(std::min(size, remaining), 0);
 		std::vector<uint8_t> data(size);
