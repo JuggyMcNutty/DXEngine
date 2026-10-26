@@ -1892,7 +1892,7 @@ void GLRenderDevice::ReadPixels(TextureColor* Pixels)
 	}
 
 	// Read the frame back and hand the engine blue, green, red, alpha, top
-	// row first -- the same bytes the Vulkan device's BGRA8 readback gives.
+	// row first -- the same bytes the Vulkan device's readback gives.
 	// The frame the player saw is PPImage[0]; with GammaCorrectScreenshots the
 	// present pass above has drawn it into PPImage[1]. The GL scene buffers
 	// store the frame top-row-first in their rows (the engine's Y-down
@@ -1927,33 +1927,12 @@ void GLRenderDevice::ReadPixels(TextureColor* Pixels)
 	}
 	else if (SceneBuffers.ColorFormat == GL_RGB10_A2)
 	{
-		// Ten bits a channel to a byte by a 4x4 ordered threshold, so that a
-		// region's mean is the buffer's: the driver's rounding to the nearest
-		// byte reads the darks a tenth of a level under, as 1023 is not four
-		// times 255 and below level 42 the step nearest each half-level lies
-		// under it (MeshConsole's pier 0.7% darker than with RGBA8 buffers).
-		static const int bayer[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
 		std::vector<uint32_t> col((size_t)w * h);
 		glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, col.data());
 		ThrowIfGLError("ReadPixels failed");
 
 		for (int y = 0; y < h; y++)
-		{
-			const uint32_t* src = &col[(size_t)(GammaCorrectScreenshots ? (h - 1 - y) : y) * w];
-			TextureColor* dest = Pixels + (size_t)y * w;
-			for (int x = 0; x < w; x++)
-			{
-				// A gamma-corrected shot's levels were dithered to 8 bits by the
-				// present pass already: read back by rounding, not thresholded
-				// again, so the shot is the picture presented
-				float threshold = GammaCorrectScreenshots ? 0.5f : (bayer[(y & 3) * 4 + (x & 3)] + 0.5f) / 16.0f;
-				uint32_t c = src[x];
-				dest[x].R = (uint8_t)(((c >> 20) & 1023) * (255.0f / 1023.0f) + threshold);
-				dest[x].G = (uint8_t)(((c >> 10) & 1023) * (255.0f / 1023.0f) + threshold);
-				dest[x].B = (uint8_t)((c & 1023) * (255.0f / 1023.0f) + threshold);
-				dest[x].A = (uint8_t)((c >> 30) * 85);
-			}
-		}
+			TenBitRowToBytes(&col[(size_t)(GammaCorrectScreenshots ? (h - 1 - y) : y) * w], Pixels + (size_t)y * w, w, y, GammaCorrectScreenshots);
 	}
 	else
 	{

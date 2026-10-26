@@ -868,47 +868,13 @@ void VulkanRenderDevice::ReadPixels(TextureColor* Pixels)
 			.Execute(cmdbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 	}
 
-	// Convert from rgba16f to bgra8 using the GPU:
+	// The frame's ten bits a channel copied as they are and made bytes on the
+	// CPU, as the GL device's are (TenBitRowToBytes): a blit to BGRA8 rounds
+	// to the nearest byte, which reads the darks under the buffer's levels
 	auto srcimage = Textures->Scene->PPImage[GammaCorrectScreenshots ? 1 : 0].get();
 
 	int w, h;
 	LastFrameSize(w, h);
-	void* data = Pixels;
-
-	auto dstimage = ImageBuilder()
-		.Format(VK_FORMAT_B8G8R8A8_UNORM)
-		.Usage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-		.Size(w, h)
-		.DebugName("ReadPixelsDstImage")
-		.Create(Device.get());
-
-	PipelineBarrier()
-		.AddImage(srcimage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT)
-		.AddImage(dstimage.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT)
-		.Execute(cmdbuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-
-	VkImageBlit blit = {};
-	blit.srcOffsets[0] = { 0, 0, 0 };
-	blit.srcOffsets[1] = { srcimage->width, srcimage->height, 1 };
-	blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	blit.srcSubresource.mipLevel = 0;
-	blit.srcSubresource.baseArrayLayer = 0;
-	blit.srcSubresource.layerCount = 1;
-	blit.dstOffsets[0] = { 0, 0, 0 };
-	blit.dstOffsets[1] = { dstimage->width, dstimage->height, 1 };
-	blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	blit.dstSubresource.mipLevel = 0;
-	blit.dstSubresource.baseArrayLayer = 0;
-	blit.dstSubresource.layerCount = 1;
-	cmdbuffer->blitImage(
-		srcimage->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		dstimage->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		1, &blit, VK_FILTER_NEAREST);
-
-	PipelineBarrier()
-		.AddImage(srcimage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT)
-		.AddImage(dstimage.get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT)
-		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
 	// Staging buffer for download
 	auto staging = BufferBuilder()
@@ -917,6 +883,10 @@ void VulkanRenderDevice::ReadPixels(TextureColor* Pixels)
 		.DebugName("ReadPixelsStaging")
 		.Create(Device.get());
 
+	PipelineBarrier()
+		.AddImage(srcimage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
 	// Copy from image to buffer
 	VkBufferImageCopy region = {};
 	region.imageExtent.width = w;
@@ -924,13 +894,18 @@ void VulkanRenderDevice::ReadPixels(TextureColor* Pixels)
 	region.imageExtent.depth = 1;
 	region.imageSubresource.layerCount = 1;
 	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	cmdbuffer->copyImageToBuffer(dstimage->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, staging->buffer, 1, &region);
+	cmdbuffer->copyImageToBuffer(srcimage->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, staging->buffer, 1, &region);
+
+	PipelineBarrier()
+		.AddImage(srcimage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
 	// Submit command buffers and wait for device to finish the work
 	SubmitAndWait(false, 0, 0);
 
-	uint8_t* pixels = (uint8_t*)staging->Map(0, w * h * 4);
-	memcpy(data, pixels, w * h * 4);
+	const uint32_t* pixels = (const uint32_t*)staging->Map(0, w * h * 4);
+	for (int y = 0; y < h; y++)
+		TenBitRowToBytes(pixels + (size_t)y * w, Pixels + (size_t)y * w, w, y, GammaCorrectScreenshots);
 	staging->Unmap();
 }
 

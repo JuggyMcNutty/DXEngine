@@ -11,13 +11,13 @@ SceneTextures::SceneTextures(VulkanRenderDevice* renderer, int width, int height
 	ColorBuffer = ImageBuilder()
 		.Size(width, height)
 		.Samples(SceneSamples)
-		.Format(VK_FORMAT_R16G16B16A16_SFLOAT)
+		.Format(SceneFormat)
 		.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
 		.DebugName("colorBuffer")
 		.Create(renderer->Device.get());
 
 	ColorBufferView = ImageViewBuilder()
-		.Image(ColorBuffer.get(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT)
+		.Image(ColorBuffer.get(), SceneFormat, VK_IMAGE_ASPECT_COLOR_BIT)
 		.DebugName("colorBufferView")
 		.Create(renderer->Device.get());
 
@@ -39,13 +39,13 @@ SceneTextures::SceneTextures(VulkanRenderDevice* renderer, int width, int height
 		PPImage[i] = ImageBuilder()
 			.Size(width, height)
 			.Samples(VK_SAMPLE_COUNT_1_BIT)
-			.Format(VK_FORMAT_R16G16B16A16_SFLOAT)
+			.Format(SceneFormat)
 			.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
 			.DebugName("ppImage")
 			.Create(renderer->Device.get());
 
 		PPImageView[i] = ImageViewBuilder()
-			.Image(PPImage[i].get(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT)
+			.Image(PPImage[i].get(), SceneFormat, VK_IMAGE_ASPECT_COLOR_BIT)
 			.DebugName("ppImageView")
 			.Create(renderer->Device.get());
 	}
@@ -63,7 +63,7 @@ SceneTextures::SceneTextures(VulkanRenderDevice* renderer, int width, int height
 		BloomBlurLevels[level].VTexture = ImageBuilder()
 			.Size(bloomWidth, bloomHeight)
 			.Samples(VK_SAMPLE_COUNT_1_BIT)
-			.Format(VK_FORMAT_R16G16B16A16_SFLOAT)
+			.Format(SceneFormat)
 			.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
 			.DebugName("BloomVTexture")
 			.Create(renderer->Device.get());
@@ -71,18 +71,18 @@ SceneTextures::SceneTextures(VulkanRenderDevice* renderer, int width, int height
 		BloomBlurLevels[level].HTexture = ImageBuilder()
 			.Size(bloomWidth, bloomHeight)
 			.Samples(VK_SAMPLE_COUNT_1_BIT)
-			.Format(VK_FORMAT_R16G16B16A16_SFLOAT)
+			.Format(SceneFormat)
 			.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
 			.DebugName("BloomHTexture")
 			.Create(renderer->Device.get());
 
 		BloomBlurLevels[level].VTextureView = ImageViewBuilder()
-			.Image(BloomBlurLevels[level].VTexture.get(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT)
+			.Image(BloomBlurLevels[level].VTexture.get(), SceneFormat, VK_IMAGE_ASPECT_COLOR_BIT)
 			.DebugName("BloomVTextureView")
 			.Create(renderer->Device.get());
 
 		BloomBlurLevels[level].HTextureView = ImageViewBuilder()
-			.Image(BloomBlurLevels[level].HTexture.get(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT)
+			.Image(BloomBlurLevels[level].HTexture.get(), SceneFormat, VK_IMAGE_ASPECT_COLOR_BIT)
 			.DebugName("BloomHTextureView")
 			.Create(renderer->Device.get());
 	}

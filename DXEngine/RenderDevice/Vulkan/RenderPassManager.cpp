@@ -273,7 +273,7 @@ void RenderPassManager::CreateRenderPass()
 {
 	Scene.RenderPass = RenderPassBuilder()
 		.AddAttachment(
-			VK_FORMAT_R16G16B16A16_SFLOAT,
+			SceneTextures::SceneFormat,
 			renderer->Textures->Scene->SceneSamples,
 			VK_ATTACHMENT_LOAD_OP_CLEAR,
 			VK_ATTACHMENT_STORE_OP_STORE,
@@ -296,7 +296,7 @@ void RenderPassManager::CreateRenderPass()
 
 	Scene.RenderPassContinue = RenderPassBuilder()
 		.AddAttachment(
-			VK_FORMAT_R16G16B16A16_SFLOAT,
+			SceneTextures::SceneFormat,
 			renderer->Textures->Scene->SceneSamples,
 			VK_ATTACHMENT_LOAD_OP_LOAD,
 			VK_ATTACHMENT_STORE_OP_STORE,
@@ -370,7 +370,7 @@ void RenderPassManager::CreatePostprocessRenderPass()
 {
 	Postprocess.RenderPass = RenderPassBuilder()
 		.AddAttachment(
-			VK_FORMAT_R16G16B16A16_SFLOAT,
+			SceneTextures::SceneFormat,
 			VK_SAMPLE_COUNT_1_BIT,
 			VK_ATTACHMENT_LOAD_OP_CLEAR,
 			VK_ATTACHMENT_STORE_OP_STORE,
@@ -383,7 +383,7 @@ void RenderPassManager::CreatePostprocessRenderPass()
 
 	Postprocess.RenderPassCombine = RenderPassBuilder()
 		.AddAttachment(
-			VK_FORMAT_R16G16B16A16_SFLOAT,
+			SceneTextures::SceneFormat,
 			VK_SAMPLE_COUNT_1_BIT,
 			VK_ATTACHMENT_LOAD_OP_LOAD,
 			VK_ATTACHMENT_STORE_OP_STORE,

@@ -175,6 +175,10 @@ public:
 	// device drew, which a window resized since no longer matches.
 	virtual void ReadPixels(TextureColor* Pixels) = 0;
 	virtual void LastFrameSize(int& width, int& height) const { width = GetRenderWidth(); height = GetRenderHeight(); }
+	// A row of a ten-bit scene buffer, red in each pixel's low bits, made
+	// bytes for ReadPixels (RenderDevice.cpp); y is the row's place in the
+	// shot, presented whether the present pass drew it
+	static void TenBitRowToBytes(const uint32_t* src, TextureColor* dest, int width, int y, bool presented);
 	virtual void EndFlash() = 0;
 	virtual void SetSceneNode(SceneNode* Frame) = 0;
 	virtual void PrecacheTexture(TextureInfo& Info, uint32_t PolyFlags) = 0;

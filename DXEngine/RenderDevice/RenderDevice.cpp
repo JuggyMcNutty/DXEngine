@@ -47,6 +47,28 @@ uint32_t RenderDevice::TileFlags(const TextureInfo& Info, uint32_t PolyFlags)
 	return PolyFlags;
 }
 
+// Ten bits a channel to a byte by a 4x4 ordered threshold, so that a region's
+// mean is the buffer's: the driver's rounding to the nearest byte reads the
+// darks a tenth of a level under, as 1023 is not four times 255 and below
+// level 42 the step nearest each half-level lies under it (MeshConsole's pier
+// 0.7% darker than with RGBA8 buffers). A gamma-corrected shot's levels were
+// dithered to 8 bits by the present pass already: read back by rounding, not
+// thresholded again, so the shot is the picture presented. Blue, green, red,
+// alpha in each pixel's bytes, as the devices hand the engine its shots.
+void RenderDevice::TenBitRowToBytes(const uint32_t* src, TextureColor* dest, int width, int y, bool presented)
+{
+	static const int bayer[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
+	for (int x = 0; x < width; x++)
+	{
+		float threshold = presented ? 0.5f : (bayer[(y & 3) * 4 + (x & 3)] + 0.5f) / 16.0f;
+		uint32_t c = src[x];
+		dest[x].R = (uint8_t)(((c >> 20) & 1023) * (255.0f / 1023.0f) + threshold);
+		dest[x].G = (uint8_t)(((c >> 10) & 1023) * (255.0f / 1023.0f) + threshold);
+		dest[x].B = (uint8_t)((c & 1023) * (255.0f / 1023.0f) + threshold);
+		dest[x].A = (uint8_t)((c >> 30) * 85);
+	}
+}
+
 std::unique_ptr<RenderDevice> RenderDevice::Create(Widget* viewport, RenderAPI renderAPI)
 {
 	if (renderAPI == RenderAPI::Vulkan)

@@ -417,8 +417,14 @@ update-after-bind, a variable count) and room for that set, it binds a descripto
 batch instead of bindless textures.
 It decodes on the CPU what the GPU cannot sample or filter: BC1, RGB8, RGBA32F, and converts
 the lightmaps for upload in NEON on ARM. A mip bigger than its 64 MB staging buffer goes up in
-bands of rows. Its draws take no depth bias, as the GL device's take
-none, nor do `D3DDrv`'s but its detail passes
+bands of rows. Its scene buffer, post-process images and bloom levels are A2B10G10R10, as the GL
+device's are RGB10_A2 (`SceneTextures::SceneFormat`): every blend clamps at 1, as `D3DDrv`'s 8-bit
+frame clamps it, where Surreal Engine's 16-bit float kept a modulated blend's 2 x src x dst for
+the draws after it; `LightConsole`'s Spotlight0 comes out block for block as on the GL device,
+`DrugConsole`'s HUD windows over the drugged view within a level of it. Its shots copy the ten
+bits out and make them bytes as the GL device's `ReadPixels` does: a blit to BGRA8 rounded them
+to the nearest byte, the drugged frame 1% dark. Its draws take no depth bias, as the GL device's
+take none, nor do `D3DDrv`'s but its detail passes
 ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):
 a translucent draw biased by its slope shows through the opaque one in front of it from afar,
 an augmentation canister's inner glow through its shell (`CanisterConsole`). A mover's surfaces
@@ -464,7 +470,7 @@ wherever else that state is set.
   mapping), and mapping the buffers' unused tails on every flush costs most of its frame.
 - **The scene buffers** are RGB10_A2, by choice (`Hdr` is the Vulkan device's, from an scRGB swap
   chain; no window gives GL a float or HDR framebuffer, so the setting is not taken here): darks banded less
-  than in `D3DDrv`'s 8-bit frame, as in the Vulkan device's 16-bit buffers, at 32 bits a pixel
+  than in `D3DDrv`'s 8-bit frame, as in the Vulkan device's, at 32 bits a pixel
   (`LightConsole` under 02_NYC_Underground's `Light33`, gamma-corrected: 63 levels under 64
   where RGBA8 gives 54, no gap over 2 where it leaves 6). ES's too: the Smart Pro's GE8300
   draws, resolves, samples and reads them, their ten bits kept (Port Ex Machina's
@@ -490,7 +496,8 @@ wherever else that state is set.
 - **`ReadPixels`** reads the frame at the size it was drawn (`LastFrameSize`, not the
   window's), the right way up, the gamma-corrected one too (Surreal Engine's is an `#if 0`
   stub of D3D11 code, its shots black), RGB10_A2's to bytes by a 4×4
-  ordered threshold, so that a region's mean is the buffer's: the driver's rounding to the
+  ordered threshold (`RenderDevice::TenBitRowToBytes`, the Vulkan device's shots' too), so
+  that a region's mean is the buffer's: the driver's rounding to the
   nearest byte reads the darks a tenth of a level under, 1023 not being four times 255
   (`MeshConsole`'s pier 0.7% darker). `Exit()` runs once and tolerates a failed unmap, as the
   intro can end the game after the window's context is gone.

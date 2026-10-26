@@ -11,6 +11,12 @@ enum { NumBloomLevels = 4 };
 class SceneTextures
 {
 public:
+	// The scene's, its post-process images' and the bloom's: 10-bit UNORM, as
+	// the GL device's RGB10_A2, so every blend clamps as D3DDrv's 8-bit frame
+	// does, darks banded less than in it; a float buffer kept a modulated
+	// blend's 2 x src x dst past 1 for the blends after it
+	static constexpr VkFormat SceneFormat = VK_FORMAT_A2B10G10R10_UNORM_PACK32;
+
 	SceneTextures(VulkanRenderDevice* renderer, int width, int height, int multisample);
 	~SceneTextures();
 
