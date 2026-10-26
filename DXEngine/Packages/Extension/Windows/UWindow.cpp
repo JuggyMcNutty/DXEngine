@@ -1813,18 +1813,21 @@ float UWindow::QueryPreferredHeight(float queryWidth)
 // window whose look changed (a scale's textures) recomputes its own layout.
 // Only a window that shows asks its parents: one made inside a window's
 // InitWindow, before that window shows, does not reach its script.
+// The parent is asked with its own child, and one that does not take it
+// asks its own parent in its own name (the original's recursion, 0x1004e060),
+// so a handler that looks at which child asks sees a child of its own, never
+// a grandchild.
 void UWindow::AskParentForReconfigure()
 {
 	//LogMessage(GetUClassFullName(this).ToString() + ": AskParentForReconfigure");
 	bNeedsReconfigure() = true;
 	if (!IsShown())
 		return;
-	for (UWindow* cur = parentOwner(); cur != nullptr; cur = cur->parentOwner())
+	if (UWindow* parent = parentOwner())
 	{
-		cur->bNeedsReconfigure() = true;
-		bool handled = cur->ChildRequestedReconfiguration(this);
-		if (handled)
-			break;
+		parent->bNeedsReconfigure() = true;
+		if (!parent->ChildRequestedReconfiguration(this))
+			parent->AskParentForReconfigure();
 	}
 }
 
