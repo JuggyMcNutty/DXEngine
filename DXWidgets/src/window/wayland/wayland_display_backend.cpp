@@ -25,7 +25,9 @@ WaylandDisplayBackend::WaylandDisplayBackend()
 			s_waylandRegistry.bind(name, m_waylandCompositor, std::min(version, 3u));
 		if (interface == wayland::shm_t::interface_name)
 			s_waylandRegistry.bind(name, m_waylandSHM, std::min(version, 1u));
-		if (interface == wayland::output_t::interface_name)
+		// The first output alone: the handlers below attach to the one
+		// proxy, which a second bind would replace
+		if (interface == wayland::output_t::interface_name && !m_waylandOutput)
 			s_waylandRegistry.bind(name, m_waylandOutput, std::min(version, 4u));
 		if (interface == wayland::seat_t::interface_name)
 			s_waylandRegistry.bind(name, m_waylandSeat, std::min(version, 8u));
@@ -79,7 +81,11 @@ WaylandDisplayBackend::WaylandDisplayBackend()
 		throw std::runtime_error("WaylandDisplayBackend: relative-pointer-unstable-v1 is required!");
 
 	m_waylandOutput.on_mode() = [this] (wayland::output_mode flags, int32_t width, int32_t height, int32_t refresh) {
-		s_ScreenSize = Size(width, height);
+		// The current mode's pixels alone (every mode is listed); the
+		// screen's size in DIPs is xdg_output's logical size, this in its
+		// place where there is none
+		if (flags & wayland::output_mode::current)
+			m_ScreenPixelSize = Size(width, height);
 	};
 
 	m_XDGWMBase.on_ping() = [this] (uint32_t serial) {
@@ -777,7 +783,7 @@ void WaylandDisplayBackend::ExitLoop()
 
 Size WaylandDisplayBackend::GetScreenSize()
 {
-	return s_ScreenSize;
+	return s_ScreenSize.width > 0 ? s_ScreenSize : m_ScreenPixelSize;
 }
 
 #ifdef USE_DBUS

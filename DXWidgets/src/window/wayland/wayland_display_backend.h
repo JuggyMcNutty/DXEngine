@@ -114,6 +114,7 @@ public:
 
 	bool exitRunLoop = false;
 	Size s_ScreenSize = Size(0, 0);
+	Size m_ScreenPixelSize = Size(0, 0);
 	wayland::display_t s_waylandDisplay = wayland::display_t();
 	wayland::registry_t s_waylandRegistry;
 	std::vector<WaylandDisplayWindow*> s_Windows;
