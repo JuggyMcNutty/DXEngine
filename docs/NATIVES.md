@@ -583,7 +583,14 @@ DXEngine's own:
     it every frame (its table counts the shape as changing): the same light.
 - **Meshes**
   - the moving lights come from DXEngine's light tree near the actor, not
-    the leaf's own list;
+    the leaf's own list; its fog from the level's first four volumetric
+    lights in memory order, where the original takes the leaf's own list
+    of them by a vertex model of its own, unread: a mesh in a fog zone is
+    faintly fogged in `D3DDrv` and unfogged here (`FogConsole`:
+    02_NYC_Underground's crate 220 units into the start's fog is at 0.09 of
+    the wall beside it in `D3DDrv`'s frame, 0.25 in DXEngine's; the fog
+    balls' model with the lights that reach it fogs it to the wall's
+    brightness, so the model is what differs, not the lights);
   - the `AmbientGlow` pulse runs on the level's time, the original's on the
     viewport's.
 
