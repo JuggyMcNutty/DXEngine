@@ -36,7 +36,7 @@ CollisionHitList OverlapTester::TestOverlap(const vec3& location, float height, 
 		if (extents != vec3(0.0f))
 		{
 			OverlapAABBModel overlapmodel;
-			CollisionHitList worldHits = overlapmodel.TestOverlap(GetLevel()->Model, location, extents, visibilityOnly);
+			CollisionHitList worldHits = overlapmodel.TestOverlap(GetLevel()->Model, location, extents);
 			hits.push_back(worldHits);
 		}
 	}
@@ -196,7 +196,7 @@ Array<UActor*> OverlapTester::EncroachingActors(UActor* actor, const vec3& locat
 		testExtents /= vec3(std::abs(mainScale.x), std::abs(mainScale.y), std::abs(mainScale.z));
 
 		OverlapAABBModel test;
-		auto modelHits = test.TestOverlap(brush, localOrigin, testExtents, false);
+		auto modelHits = test.TestOverlap(brush, localOrigin, testExtents);
 		if (!modelHits.empty())
 			hits.push_back(testActor);
 		return false;
@@ -243,7 +243,7 @@ Array<UActor*> OverlapTester::EncroachedActors(const vec3& location, float heigh
 			vec3 localOrigin = (rotateWorldToObj * vec4(location - mover->Location(), 1.0f)).xyz() / scale + mover->PrePivot();
 			vec3 localExtents = extents / vec3(std::abs(scale.x), std::abs(scale.y), std::abs(scale.z));
 			OverlapAABBModel test;
-			if (!test.TestOverlap(mover->Brush(), localOrigin, localExtents, false).empty())
+			if (!test.TestOverlap(mover->Brush(), localOrigin, localExtents).empty())
 				hits.push_back(actor);
 		}
 		else if (CylinderActorOverlap(dlocation, height, radius, actor))

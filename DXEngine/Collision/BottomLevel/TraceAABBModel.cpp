@@ -3,7 +3,10 @@
 #include "TraceAABBModel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 
-CollisionHitList TraceAABBModel::Trace(UModel* model, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, bool visibilityOnly, bool original, bool actorBrush)
+// A box takes no node flags, as the original's box check reads none (Engine.dll
+// 0x103f42f0; dx-reverse-info/engine-dll.md, traces): an NF_NotVisBlocking
+// surface stops it as any other, a line's trace alone keeping its flag
+CollisionHitList TraceAABBModel::Trace(UModel* model, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, bool original, bool actorBrush)
 {
 	Model = model;
 	Original = original;
@@ -11,12 +14,12 @@ CollisionHitList TraceAABBModel::Trace(UModel* model, const dvec3& origin, doubl
 	CollisionHitList hits;
 	if (!Model || Model->Nodes.empty())
 		return hits;
-	Trace(origin, tmin, dirNormalized, tmax, extents, visibilityOnly, &Model->Nodes.front(), hits);
+	Trace(origin, tmin, dirNormalized, tmax, extents, &Model->Nodes.front(), hits);
 	hits.SortByFraction();
 	return hits;
 }
 
-void TraceAABBModel::Trace(const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, bool visibilityOnly, BspNode* node, CollisionHitList& hits)
+void TraceAABBModel::Trace(const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, BspNode* node, CollisionHitList& hits)
 {
 	if (node->CollisionBound >= 0)
 	{
@@ -134,12 +137,12 @@ void TraceAABBModel::Trace(const dvec3& origin, double tmin, const dvec3& dirNor
 
 	if (node->Front >= 0 && (startSide <= 0 || endSide <= 0))
 	{
-		Trace(origin, tmin, dirNormalized, tmax, extents, visibilityOnly, &Model->Nodes[node->Front], hits);
+		Trace(origin, tmin, dirNormalized, tmax, extents, &Model->Nodes[node->Front], hits);
 	}
 
 	if (node->Back >= 0 && (startSide >= 0 || endSide >= 0))
 	{
-		Trace(origin, tmin, dirNormalized, tmax, extents, visibilityOnly, &Model->Nodes[node->Back], hits);
+		Trace(origin, tmin, dirNormalized, tmax, extents, &Model->Nodes[node->Back], hits);
 	}
 }
 

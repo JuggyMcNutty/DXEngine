@@ -71,7 +71,7 @@ CollisionHitList TraceTester::Trace(const vec3& from, const vec3& to, float heig
 			// AABB/Triangle intersect
 			TraceAABBModel tracemodel;
 			dvec3 extents = { (double)radius, (double)radius, (double)height };
-			CollisionHitList worldHits = tracemodel.Trace(GetLevel()->Model, origin, tmin, direction, tmax, extents, visibilityOnly, true, false);
+			CollisionHitList worldHits = tracemodel.Trace(GetLevel()->Model, origin, tmin, direction, tmax, extents, true, false);
 			hits.push_back(worldHits);
 		}
 	}
@@ -425,7 +425,7 @@ void TraceTester::TraceActor(UActor* actor, const dvec3& origin, double tmin, co
 			TraceAABBModel tracemodel;
 			dvec3 extents = { (double)radius, (double)radius, (double)height };
 			extents /= dvec3(std::abs(scale.x), std::abs(scale.y), std::abs(scale.z));
-			brushHits = tracemodel.Trace(mover->Brush(), localOrigin, localTMin, localDirection, localTMax, extents, visibilityOnly, true, true);
+			brushHits = tracemodel.Trace(mover->Brush(), localOrigin, localTMin, localDirection, localTMax, extents, true, true);
 		}
 
 		for (auto& hit : brushHits)

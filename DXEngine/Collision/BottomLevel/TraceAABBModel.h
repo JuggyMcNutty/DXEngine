@@ -11,10 +11,10 @@ public:
 	// the level's hulls (not an actorBrush's) bounded by their boxes as the
 	// original's are. Without, the hits a tenth of a unit short, within the
 	// trace, every hull's box shaved.
-	CollisionHitList Trace(UModel* model, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, bool visibilityOnly, bool original, bool actorBrush);
+	CollisionHitList Trace(UModel* model, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, bool original, bool actorBrush);
 
 private:
-	void Trace(const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, bool visibilityOnly, BspNode* node, CollisionHitList& hits);
+	void Trace(const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, BspNode* node, CollisionHitList& hits);
 	double TriangleAABBIntersect(const dvec3& origin, const dvec3& target, const dvec3& extents, const dvec3* points);
 	double NodeAABBIntersect(const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, BspNode* node);
 

@@ -3,17 +3,20 @@
 #include "OverlapAABBModel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 
-CollisionHitList OverlapAABBModel::TestOverlap(UModel* model, const vec3& center, const vec3& extents, bool visibilityOnly)
+// A box takes no node flags, as the original's box check reads none (Engine.dll
+// 0x103f42f0; dx-reverse-info/engine-dll.md, traces): an NF_NotVisBlocking
+// surface stops it as any other, a line's trace alone keeping its flag
+CollisionHitList OverlapAABBModel::TestOverlap(UModel* model, const vec3& center, const vec3& extents)
 {
 	Model = model;
 	CollisionHitList hits;
 	if (!Model || Model->Nodes.empty())
 		return hits;
-	TestOverlap(to_dvec3(center), to_dvec3(extents), visibilityOnly, &Model->Nodes.front(), hits);
+	TestOverlap(to_dvec3(center), to_dvec3(extents), &Model->Nodes.front(), hits);
 	return hits;
 }
 
-void OverlapAABBModel::TestOverlap(const dvec3& center, const dvec3& extents, bool visibilityOnly, BspNode* node, CollisionHitList& hits)
+void OverlapAABBModel::TestOverlap(const dvec3& center, const dvec3& extents, BspNode* node, CollisionHitList& hits)
 {
 	if (node->CollisionBound >= 0)
 	{
@@ -63,12 +66,12 @@ void OverlapAABBModel::TestOverlap(const dvec3& center, const dvec3& extents, bo
 
 	if (node->Front >= 0 && side <= 0)
 	{
-		TestOverlap(center, extents, visibilityOnly, &Model->Nodes[node->Front], hits);
+		TestOverlap(center, extents, &Model->Nodes[node->Front], hits);
 	}
 
 	if (node->Back >= 0 && side >= 0)
 	{
-		TestOverlap(center, extents, visibilityOnly, &Model->Nodes[node->Back], hits);
+		TestOverlap(center, extents, &Model->Nodes[node->Back], hits);
 	}
 }
 
