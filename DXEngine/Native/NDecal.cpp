@@ -17,7 +17,9 @@ void NDecal::RegisterFunctions()
 // decals then destroy themselves as they are made.
 void NDecal::AttachDecal_Deus(UObject* Self, float TraceDistance, std::optional<vec3> DecalDir, BitfieldBool& ReturnValue)
 {
-	if (!engine->client || !engine->client->Decals)
+	// A dedicated server has no client in the original: it attaches none
+	// (DXEngine's makes a client object whatever the run)
+	if (engine->LaunchInfo.dedicatedServer || !engine->client || !engine->client->Decals)
 	{
 		ReturnValue = false;
 		return;
