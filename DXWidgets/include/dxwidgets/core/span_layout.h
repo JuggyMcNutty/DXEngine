@@ -194,7 +194,7 @@ private:
 	FloatBox FloatBoxAny(FloatBox box, double max_width, const std::vector<FloatBox>& floats1);
 	bool BoxFitsOnLine(const FloatBox& box, double max_width);
 	void PlaceLineSegments(CurrentLine& current_line, TextSizeResult& text_size_result);
-	void ForcePlaceLineSegments(CurrentLine& current_line, TextSizeResult& text_size_result, double max_width);
+	void ForcePlaceLineSegments(Canvas* canvas, const TextBlock& block, CurrentLine& current_line, TextSizeResult& text_size_result, double max_width);
 	void NextLine(CurrentLine& current_line);
 	bool IsNewline(const TextBlock& block);
 	bool IsWhitespace(const TextBlock& block);

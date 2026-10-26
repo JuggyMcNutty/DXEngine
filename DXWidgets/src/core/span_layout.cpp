@@ -642,7 +642,7 @@ void SpanLayout::LayoutText(Canvas* canvas, const std::vector<TextBlock>& blocks
 			if (LargerThanLine(text_size_result, max_width))
 			{
 				// force line breaks to make it fit
-				ForcePlaceLineSegments(current_line, text_size_result, max_width);
+				ForcePlaceLineSegments(canvas, blocks[block_index], current_line, text_size_result, max_width);
 			}
 			else
 			{
@@ -704,13 +704,50 @@ void SpanLayout::PlaceLineSegments(CurrentLine& current_line, TextSizeResult& te
 	current_line.cur_line.ascender = std::max(current_line.cur_line.ascender, text_size_result.ascender);
 }
 
-void SpanLayout::ForcePlaceLineSegments(CurrentLine& current_line, TextSizeResult& text_size_result, double max_width)
+// A word wider than the line (the one caller's case) is broken into pieces
+// that fit, each on a line of its own but the last, which what follows
+// joins: from each point the longest run of whole characters the line
+// holds, one at least, measured as the block was. A long path in the error
+// window's log once ran past its column whole.
+void SpanLayout::ForcePlaceLineSegments(Canvas* canvas, const TextBlock& block, CurrentLine& current_line, TextSizeResult& text_size_result, double max_width)
 {
 	if (current_line.x_position != 0)
 		NextLine(current_line);
 
-	// to do: do this properly - for now we just place the entire block on one line
-	PlaceLineSegments(current_line, text_size_result);
+	// The next character's start past i: its UTF-8 continuation bytes go with it
+	auto next = [&](size_t i)
+	{
+		i++;
+		while (i < block.end && ((unsigned char)text[i] & 0xC0) == 0x80)
+			i++;
+		return i;
+	};
+
+	size_t object_index = current_line.object_index - text_size_result.objects_traversed;
+	size_t pos = block.start;
+	while (pos < block.end)
+	{
+		TextBlock piece;
+		piece.start = pos;
+		piece.end = next(pos);
+		TextSizeResult size = FindTextSize(canvas, piece, object_index);
+		while (piece.end < block.end)
+		{
+			TextBlock longer;
+			longer.start = pos;
+			longer.end = next(piece.end);
+			TextSizeResult longerSize = FindTextSize(canvas, longer, object_index);
+			if (!FitsOnLine(0, longerSize, max_width))
+				break;
+			piece = longer;
+			size = longerSize;
+		}
+		PlaceLineSegments(current_line, size);
+		object_index += size.objects_traversed;
+		pos = piece.end;
+		if (pos < block.end)
+			NextLine(current_line);
+	}
 }
 
 bool SpanLayout::IsNewline(const TextBlock& block)
