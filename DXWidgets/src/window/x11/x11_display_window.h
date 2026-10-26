@@ -94,6 +94,7 @@ private:
 	void OnSelectionNotify(XEvent* event);
 	void OnSelectionRequest(XEvent* event);
 	bool OnXInputEvent(XEvent* event);
+	void SetFullscreenState(bool fullscreen);
 
 	void CreateBackbuffer(int width, int height);
 	void DestroyBackbuffer();

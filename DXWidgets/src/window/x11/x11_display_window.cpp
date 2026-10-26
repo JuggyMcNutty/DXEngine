@@ -292,17 +292,44 @@ void X11DisplayWindow::Show()
 	}
 }
 
+// A mapped window's state changes only by a _NET_WM_STATE client message to
+// the root (EWMH); the property set before mapping is taken as the window
+// maps
+void X11DisplayWindow::SetFullscreenState(bool fullscreen)
+{
+	auto connection = GetX11Connection();
+	Atom stateAtom = connection->GetAtom("_NET_WM_STATE");
+	Atom fullscreenAtom = connection->GetAtom("_NET_WM_STATE_FULLSCREEN");
+	if (stateAtom == None || fullscreenAtom == None)
+		return;
+	if (isMapped)
+	{
+		XEvent message = {};
+		message.xclient.type = ClientMessage;
+		message.xclient.window = window;
+		message.xclient.message_type = stateAtom;
+		message.xclient.format = 32;
+		message.xclient.data.l[0] = fullscreen ? 1 : 0; // _NET_WM_STATE_ADD, _NET_WM_STATE_REMOVE
+		message.xclient.data.l[1] = fullscreenAtom;
+		message.xclient.data.l[2] = 0;
+		message.xclient.data.l[3] = 1; // a normal application's request
+		XSendEvent(display, RootWindow(display, screen), False, SubstructureRedirectMask | SubstructureNotifyMask, &message);
+	}
+	else if (fullscreen)
+	{
+		XChangeProperty(display, window, stateAtom, XA_ATOM, 32, PropModeReplace, (unsigned char*)&fullscreenAtom, 1);
+	}
+	else
+	{
+		XDeleteProperty(display, window, stateAtom);
+	}
+	isFullscreen = fullscreen;
+}
+
 void X11DisplayWindow::ShowFullscreen()
 {
+	SetFullscreenState(true);
 	Show();
-
-	auto connection = GetX11Connection();
-	if (connection->GetAtom("_NET_WM_STATE") != None && connection->GetAtom("_NET_WM_STATE_FULLSCREEN") != None)
-	{
-		Atom state = connection->GetAtom("_NET_WM_STATE_FULLSCREEN");
-		XChangeProperty(display, window, connection->GetAtom("_NET_WM_STATE"), XA_ATOM, 32, PropModeReplace, (unsigned char *)&state, 1);
-		isFullscreen = true;
-	}
 }
 
 bool X11DisplayWindow::IsWindowFullscreen()
@@ -327,8 +354,9 @@ void X11DisplayWindow::ShowMinimized()
 
 void X11DisplayWindow::ShowNormal()
 {
+	if (isFullscreen)
+		SetFullscreenState(false);
 	Show();
-	isFullscreen = false;
 }
 
 void X11DisplayWindow::SetWindowResizable(bool enable)
