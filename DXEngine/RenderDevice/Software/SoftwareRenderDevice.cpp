@@ -80,7 +80,12 @@ void SoftwareRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenC
 
 	// The frame at the render size, its tiles cleared as they are drawn, as
 	// the scene pass's start clears the GPU devices' buffers
-	Frame.Resize(GetRenderWidth(), GetRenderHeight());
+	// Within the rasterizer's guard band (SoftwareSetup's 8000 pixels either
+	// way of the origin): a larger frame is drawn smaller and scaled up at
+	// the present, as a render scale below 1 is
+	int width = GetRenderWidth(), height = GetRenderHeight();
+	float fit = std::min(1.0f, 8000.0f / (float)std::max(width, height));
+	Frame.Resize(std::max((int)std::lround(width * fit), 1), std::max((int)std::lround(height * fit), 1));
 	ClearColor = FrameColor(ScreenClear);
 	ClearPending = true;
 

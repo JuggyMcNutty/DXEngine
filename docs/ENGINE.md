@@ -536,7 +536,8 @@ where one inside does, so a draw reads no texel but its pixels'.
 
 - **Triangles**, as the Vulkan device's: each in clip space by its scene node's transforms,
   clipped where a corner lies behind the node's clip plane (the Vulkan device's clip distance,
-  a mirror's plane in a mirror's frame) or outside a guard band of 8192 pixels, and held to the
+  a mirror's plane in a mirror's frame) or outside a guard band of 8192 pixels (the frame kept
+  within it: a window over 8000 pixels a side is drawn smaller and scaled up at the present), and held to the
   viewport; a polygon a fan, (0, i - 1, i). Snapped to 1/256 pixel, its pixels by the top-left
   rule, as RADV and lavapipe cover them; its attributes over w, at each pixel's centre. Depth
   float, tested LEQUAL, clamped to the pipeline's range (the scene's 0.1 to 1, a line not depth
