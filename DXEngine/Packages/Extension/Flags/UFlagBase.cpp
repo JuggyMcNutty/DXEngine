@@ -124,23 +124,26 @@ bool UFlagBase::GetNextFlag(int Iterator, NameString& FlagName, uint8_t& flagTyp
 	auto table = hashTable();
 	FlagIterator& flagIt = it->second;
 
+	// The original's (the SDK's XFlagIteratorStruct; Extension.dll
+	// 0x10024c50): the flag last returned is kept and its next read at each
+	// call, so a flag deleted since -- unlinked, its own next kept -- is
+	// passed over; at the end the type is 0
 	while (flagIt.HashPos < HashTableSize)
 	{
-		UFlag* flag = flagIt.NextFlag ? flagIt.NextFlag : table[flagIt.HashPos];
+		UFlag* flag = flagIt.CurFlag ? flagIt.CurFlag->nextFlag() : table[flagIt.HashPos];
 		while (flag && flagIt.FlagTypeSet && flag->flagType() != flagIt.FlagType)
 			flag = flag->nextFlag();
 		if (flag)
 		{
 			FlagName = flag->FlagName();
 			flagType = flag->flagType();
-			flagIt.NextFlag = flag->nextFlag();
-			if (!flagIt.NextFlag)
-				flagIt.HashPos++;
+			flagIt.CurFlag = flag;
 			return true;
 		}
-		flagIt.NextFlag = nullptr;
+		flagIt.CurFlag = nullptr;
 		flagIt.HashPos++;
 	}
+	flagType = 0;
 	return false;
 }
 
@@ -359,7 +362,7 @@ void UFlagBase::Mark(GCMarker& marker)
 	UExtensionObject::Mark(marker);
 	marker.SetField("FlagIterators");
 	for (auto& it : FlagIterators)
-		marker.MarkConst(it.second.NextFlag);
+		marker.MarkConst(it.second.CurFlag);
 	marker.SetField("FlagClasses");
 	for (UClass* cls : FlagClasses)
 		marker.MarkConst(cls);

@@ -58,7 +58,7 @@ public:
 	struct FlagIterator
 	{
 		int HashPos = 0;
-		UFlag* NextFlag = nullptr; // within HashPos's chain; null starts the bucket
+		UFlag* CurFlag = nullptr; // the flag last returned, within HashPos's chain; null starts the bucket
 		uint8_t FlagType = 0;
 		bool FlagTypeSet = false;
 	};
