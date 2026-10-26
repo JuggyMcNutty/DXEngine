@@ -1774,7 +1774,9 @@ A mod gets the original's loader and natives:
   held; a download past its size, or past 2 GiB, ends at once; a first actor
   bunch that opens nothing closes the connection, and a spawn that fails
   closes its channel (the original's are a fatal error and an assertion); a
-  client opens four downloads at once at most.
+  client opens four downloads at once at most; a `TcpLink`'s failed connect
+  waits for the script's timer on Linux as on Windows, nothing is read while
+  connecting, and a listening link's close lets its port go.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).

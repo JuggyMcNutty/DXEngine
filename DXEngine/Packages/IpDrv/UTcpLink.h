@@ -59,4 +59,7 @@ private:
 	socket_t handle = invalid_socket_value; // Socket
 	socket_t remote = invalid_socket_value; // RemoteSocket
 	std::vector<uint8_t> sendBuffer;
+	// A connect that failed: Linux reports it once (SO_ERROR cleared by the
+	// read) and the socket stays writable, so it is remembered
+	bool connectFailed = false;
 };

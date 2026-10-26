@@ -81,8 +81,9 @@ void UTcpLink::Tick(float elapsed)
 		FlushSendBuffer();
 		break;
 	case STATE_Connecting:
+		// No read while connecting: the original reads only connected or
+		// closing, and a read here gave ReceivedText("") on a failed connect
 		CheckConnectionAttempt();
-		PollConnections();
 		break;
 	case STATE_Connected:
 		PollConnections();
@@ -125,10 +126,18 @@ void UTcpLink::CheckClosed(socket_t& s)
 	if (result > 0 || (result < 0 && WouldBlock(LastSocketError())))
 		return;
 
+	// A listening link's connection gone while the link closes: its
+	// listening socket goes with it, the port let go
+	bool listenClosing = LinkState() == STATE_ListenClosePending || LinkState() == STATE_ListenClosing;
 	if (LinkState() != STATE_Listening)
 		LinkState() = STATE_Initialized;
 	CloseSocket(s);
 	s = invalid_socket_value;
+	if (listenClosing && handle != invalid_socket_value)
+	{
+		CloseSocket(handle);
+		handle = invalid_socket_value;
+	}
 	Socket() = handle == invalid_socket_value ? -1 : (int)handle;
 	RemoteSocket() = remote == invalid_socket_value ? -1 : (int)remote;
 	CallEvent(this, "Closed");
@@ -182,6 +191,8 @@ void UTcpLink::CheckConnectionQueue()
 
 void UTcpLink::CheckConnectionAttempt()
 {
+	if (connectFailed)
+		return;
 	fd_set writable;
 	FD_ZERO(&writable);
 	FD_SET(handle, &writable);
@@ -200,6 +211,7 @@ void UTcpLink::CheckConnectionAttempt()
 	if (getsockopt(handle, SOL_SOCKET, SO_ERROR, (char*)&error, &size) != 0 || error != 0)
 	{
 		LastError = error;
+		connectFailed = true;
 		return;
 	}
 
@@ -273,6 +285,19 @@ int UTcpLink::FlushSendBuffer()
 
 void UTcpLink::ShutdownConnection()
 {
+	// A listening link with no connection accepted into it: its listening
+	// socket closes now, the port let go (a half-close of it closed nothing,
+	// and Closed never came)
+	if (LinkState() == STATE_ListenClosePending && remote == invalid_socket_value)
+	{
+		if (handle != invalid_socket_value)
+			CloseSocket(handle);
+		handle = invalid_socket_value;
+		Socket() = -1;
+		LinkState() = STATE_Initialized;
+		CallEvent(this, "Closed");
+		return;
+	}
 	socket_t s = DataSocket();
 	if (s != invalid_socket_value)
 		shutdown(s, SHUT_WR);
