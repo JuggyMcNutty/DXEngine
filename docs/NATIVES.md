@@ -1673,7 +1673,7 @@ A mod gets the original's loader and natives:
   on; a struct's static-array members are read every element, its native and
   transient members passed over on disk, as the original's binary has them;
   a script's Unicode string constant of more than one character loads on the
-  Linux ports.
+  Linux ports; an expression 1,024 deep loads (64 was the limit).
 - **Config files.** A class's config file that is not there is empty, its
   properties keeping their defaults, until the class writes it
   ([configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration)):

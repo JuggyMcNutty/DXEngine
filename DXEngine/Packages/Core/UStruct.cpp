@@ -322,7 +322,9 @@ static const char* tokennames[256] =
 
 ExprToken UStruct::ReadToken(ObjectStream* stream, int depth)
 {
-	if (depth == 64)
+	// The original's serializer takes any depth; 1024 refuses only a
+	// runaway (64 was within a long expression's reach)
+	if (depth == 1024)
 		Exception::Throw("Bytecode parsing error");
 	depth++;
 
