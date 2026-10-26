@@ -129,7 +129,9 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 				if ((input.flags & 4) != 0) // Detail texture
 				{
 					float fadedistance = 380.0f;
-					float a = clamp(2.0f - (1.0f / input.pos.w) / fadedistance, 0.0f, 1.0f);
+					// SV_Position.w is the clip-space w, the view depth (GLSL's
+					// 1 / gl_FragCoord.w)
+					float a = clamp(2.0f - input.pos.w / fadedistance, 0.0f, 1.0f);
 					float4 detailColor = (textureDetail(input.texCoord4) - 0.5) * 0.5 + 1.0;
 					output.outColor.rgb = lerp(output.outColor.rgb, output.outColor.rgb * detailColor.rgb, a);
 				}
