@@ -191,14 +191,16 @@ private:
 
 	WaylandDisplayWindow* m_MouseLockOwnerWindow = nullptr;
 
-	WaylandTimer* m_KeyboardDelayTimer;
-	WaylandTimer* m_KeyboardRepeatTimer;
+	WaylandTimer* m_KeyboardDelayTimer = nullptr;
+	WaylandTimer* m_KeyboardRepeatTimer = nullptr;
 
 	InputKey previousKey = {};
 	std::string previousChars;
 
-	int32_t m_KeyboardDelayTime;
-	int32_t m_KeyboardRepeatRate;
+	// Until the seat's repeat_info (wl_keyboard 4 and later send it): X's
+	// defaults
+	int32_t m_KeyboardDelayTime = 660;
+	int32_t m_KeyboardRepeatRate = 25;
 
 	uint32_t m_KeyboardSerial = 0;
 	uint32_t m_MouseSerial = 0;
