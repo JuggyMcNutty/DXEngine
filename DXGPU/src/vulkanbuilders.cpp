@@ -1848,10 +1848,11 @@ std::vector<VulkanCompatibleDevice> VulkanDeviceBuilder::FindDevices(const std::
 		if (!requiredExtensionSearch.empty())
 			continue;
 
-		// Check if all required features are there
+		// Check if all required features are there: no draw is indirect
+		// and no shader stores or uses atomics, so neither multiDrawIndirect
+		// nor fragmentStoresAndAtomics is asked for (a GPU lacking one fell
+		// back to the software device for features nothing uses)
 		if (info.Features.Features.samplerAnisotropy != VK_TRUE ||
-			info.Features.Features.fragmentStoresAndAtomics != VK_TRUE ||
-			info.Features.Features.multiDrawIndirect != VK_TRUE ||
 			info.Features.Features.independentBlend != VK_TRUE)
 			continue;
 
