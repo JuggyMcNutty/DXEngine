@@ -43,7 +43,11 @@ int GLRenderDevice::GetSettingsMultisample()
 
 bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 {
-	ActiveHdr = Hdr;
+	// No window gives GL a float or HDR framebuffer, so the Hdr setting is
+	// not taken here (the Vulkan device takes it from an scRGB swap chain):
+	// the present pass's linear HDR curve into an 8-bit window kept the
+	// mid-greys, pushed the darks down and whitened everything from 0.68 up
+	ActiveHdr = false;
 	BufferCount = UseVSync ? 2 : 3;
 
 	try

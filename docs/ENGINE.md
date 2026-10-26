@@ -440,9 +440,8 @@ GL errors once a frame, not at each flush of its batches and each texture upload
 differs from the last draw's (`DrawState`: program, samplers, textures, blend, depth), forgotten
 wherever else that state is set.
 
-- **ES 3.2, not 3.0**: RGBA16F (the scene buffers with `Hdr`) is colour-renderable only from ES
-  3.2 core, and the shaders bind their samplers with `layout(binding)`, which GLSL ES 3.00
-  lacks. `gl_FragCoord.w` is 1/w on ES as on desktop, so the detail bands fall at the same
+- **ES 3.2, not 3.0**: the shaders bind their samplers with `layout(binding)`, which GLSL ES
+  3.00 lacks. `gl_FragCoord.w` is 1/w on ES as on desktop, so the detail bands fall at the same
   distances on ES as on desktop.
 - **Antialiasing on ES**: the multisampled scene buffers are made with ES 3.1's
   `glTexStorage2DMultisample`, as ES lacks desktop GL's `glTexImage2DMultisample`; on either,
@@ -455,7 +454,8 @@ wherever else that state is set.
 - **The vertices** stream through CPU staging arrays, each flush uploading the range written
   since the last one (`glBufferSubData`): the GE8300 has no `glBufferStorage` (persistent
   mapping), and mapping the buffers' unused tails on every flush costs most of its frame.
-- **The scene buffers** are RGB10_A2 unless `Hdr` is on (RGBA16F), by choice: darks banded less
+- **The scene buffers** are RGB10_A2, by choice (`Hdr` is the Vulkan device's, from an scRGB swap
+  chain; no window gives GL a float or HDR framebuffer, so the setting is not taken here): darks banded less
   than in `D3DDrv`'s 8-bit frame, as in the Vulkan device's 16-bit buffers, at 32 bits a pixel
   (`LightConsole` under 02_NYC_Underground's `Light33`, gamma-corrected: 63 levels under 64
   where RGBA8 gives 54, no gap over 2 where it leaves 6). ES's too: the Smart Pro's GE8300
