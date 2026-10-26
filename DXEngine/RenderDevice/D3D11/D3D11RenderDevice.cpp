@@ -81,6 +81,24 @@ bool D3D11RenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 			Device.TypedInitPtr(),
 			&FeatureLevel,
 			Context.TypedInitPtr());
+		// Without the SDK layers (Windows without Graphics Tools) the debug
+		// flag fails the creation: once more without it, as the Vulkan device
+		// takes its validation layer only where found
+		if (FAILED(result) && (deviceFlags & D3D11_CREATE_DEVICE_DEBUG))
+		{
+			LogMessage("D3D11Drv: the debug layer is not available; without it");
+			deviceFlags &= ~D3D11_CREATE_DEVICE_DEBUG;
+			result = D3D11CreateDevice(
+				nullptr,
+				D3D_DRIVER_TYPE_HARDWARE,
+				0,
+				deviceFlags,
+				featurelevels.data(), (UINT)featurelevels.size(),
+				D3D11_SDK_VERSION,
+				Device.TypedInitPtr(),
+				&FeatureLevel,
+				Context.TypedInitPtr());
+		}
 		if (FAILED(result))
 			LogMessage("D3D11Drv: Could not create a modern D3D11 device");
 
