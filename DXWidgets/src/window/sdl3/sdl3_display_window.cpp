@@ -744,7 +744,16 @@ void SDL3DisplayWindow::OnMouseMotion(const SDL_MouseMotionEvent& event)
 {
 	if (CursorLocked)
 	{
-		WindowHost->OnWindowRawMouseMove(event.xrel, event.yrel);
+		// SDL's deltas are floats: a fraction is kept for the next event,
+		// not dropped (a touchpad's slow move is all fractions)
+		float x = event.xrel + RawMoveFractionX;
+		float y = event.yrel + RawMoveFractionY;
+		int dx = (int)x;
+		int dy = (int)y;
+		RawMoveFractionX = x - dx;
+		RawMoveFractionY = y - dy;
+		if (dx != 0 || dy != 0)
+			WindowHost->OnWindowRawMouseMove(dx, dy);
 	}
 	else
 	{

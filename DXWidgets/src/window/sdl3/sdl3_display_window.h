@@ -120,6 +120,9 @@ public:
 	SDL_Surface* windowIconSurface = nullptr;
 
 	bool CursorLocked = false;
+	// The relative motion's fractions not yet passed on
+	float RawMoveFractionX = 0.0f;
+	float RawMoveFractionY = 0.0f;
 	bool isFullscreen = false;
 
 	static bool ExitRunLoop;
