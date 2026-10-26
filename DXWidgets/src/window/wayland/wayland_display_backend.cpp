@@ -1,6 +1,7 @@
 #include "wayland_display_backend.h"
 #include "wayland_display_window.h"
 #include <chrono>
+#include <algorithm>
 
 #ifdef USE_DBUS
 #include "window/dbus/dbus_open_file_dialog.h"
@@ -17,28 +18,31 @@ WaylandDisplayBackend::WaylandDisplayBackend()
 	s_waylandRegistry = s_waylandDisplay.get_registry();
 
 	s_waylandRegistry.on_global() = [&](uint32_t name, std::string interface, uint32_t version) {
+		// Each bound at the lower of the advertised version and the one the
+		// code knows (waylandpp 1.0's, or the tree's own glue): a higher
+		// bind is a fatal protocol error, a lower one an event it lacks
 		if (interface == wayland::compositor_t::interface_name)
-			s_waylandRegistry.bind(name, m_waylandCompositor, 3);
+			s_waylandRegistry.bind(name, m_waylandCompositor, std::min(version, 3u));
 		if (interface == wayland::shm_t::interface_name)
-			s_waylandRegistry.bind(name, m_waylandSHM, version);
+			s_waylandRegistry.bind(name, m_waylandSHM, std::min(version, 1u));
 		if (interface == wayland::output_t::interface_name)
-			s_waylandRegistry.bind(name, m_waylandOutput, version);
+			s_waylandRegistry.bind(name, m_waylandOutput, std::min(version, 4u));
 		if (interface == wayland::seat_t::interface_name)
-			s_waylandRegistry.bind(name, m_waylandSeat, 8);
+			s_waylandRegistry.bind(name, m_waylandSeat, std::min(version, 8u));
 		if (interface == wayland::data_device_manager_t::interface_name)
-			s_waylandRegistry.bind(name, m_DataDeviceManager, 3);
+			s_waylandRegistry.bind(name, m_DataDeviceManager, std::min(version, 3u));
 		if (interface == wayland::viewporter_t::interface_name)
-			s_waylandRegistry.bind(name, m_Viewporter, version);
+			s_waylandRegistry.bind(name, m_Viewporter, std::min(version, 1u));
 		if (interface == wayland::xdg_wm_base_t::interface_name)
 			/* Setting the version to anything higher than 4 will cause an
 			 * "interface 'xdg_toplevel' has no event 3" error.
 			 * Presumably referring to wm_capabilities event.
 			 */
-			s_waylandRegistry.bind(name, m_XDGWMBase, 4);
+			s_waylandRegistry.bind(name, m_XDGWMBase, std::min(version, 4u));
 		if (interface == wayland::xdg_wm_dialog_v1_t::interface_name)
-			s_waylandRegistry.bind(name, m_XDGWMDialog, version);
+			s_waylandRegistry.bind(name, m_XDGWMDialog, std::min(version, 1u));
 		if (interface == wayland::zxdg_output_manager_v1_t::interface_name)
-			s_waylandRegistry.bind(name, m_XDGOutputManager, version);
+			s_waylandRegistry.bind(name, m_XDGOutputManager, std::min(version, 3u));
 		if (interface == wayland::zxdg_exporter_v2_t::interface_name)
 			s_waylandRegistry.bind(name, m_XDGExporter, 1);
 		if (interface == wayland::zwp_pointer_constraints_v1_t::interface_name)
@@ -54,7 +58,7 @@ WaylandDisplayBackend::WaylandDisplayBackend()
 		if (interface == wayland::xdg_toplevel_icon_manager_v1_t::interface_name)
 			s_waylandRegistry.bind(name, m_XDGToplevelIconManager, 1);
 		if (interface == wayland::cursor_shape_manager_v1_t::interface_name)
-			s_waylandRegistry.bind(name, m_CursorShapeManager, 2);
+			s_waylandRegistry.bind(name, m_CursorShapeManager, std::min(version, 2u));
 	};
 
 	s_waylandDisplay.roundtrip();
