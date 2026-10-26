@@ -2380,6 +2380,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	}
 	else if (command == "showlog")
 	{
+		// The original's shows its log window, which DXEngine has not
+		LogMessage("showlog: DXEngine has no log window");
 	}
 	/*else if (command == "playsong")
 	{

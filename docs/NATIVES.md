@@ -1415,6 +1415,8 @@ Differs:
   texture's mips, which the game asks for as a menu, a Persona screen, a
   computer screen or an image closes, where DXEngine keeps a texture's mips
   until nothing holds it and a collection frees it.
+- **The console's `showlog`** opens nothing: the original shows its log
+  window, which DXEngine has not (the log says so).
 - **The engine's own rotations** (the view, movement) take exact angles; the
   scripts' conversions take the original's sine table
   ([the natives](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-natives)).
