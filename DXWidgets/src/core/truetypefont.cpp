@@ -485,7 +485,9 @@ void TrueTypeFont::LoadGlyph(TTF_SimpleGlyph& g, uint32_t glyphIndex, int compos
 				}
 			}
 
-			float mat2x2[4];
+			// The identity until a scale flag sets it: a scaled offset without
+			// one took it uninitialized
+			float mat2x2[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
 			bool transform = true;
 			if (flags & TTF_WE_HAVE_A_SCALE)
 			{
