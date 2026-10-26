@@ -130,6 +130,8 @@ public:
 	// Controller buttons become key presses unless the application reads the
 	// pad itself (DisplayBackend::SetGamepadKeyEmulation).
 	static bool GamepadKeyEmulation;
+	// The keys a timeline holds down (DisplayBackend::SimulateKey)
+	static bool SimulatedKeys[SDL_SCANCODE_COUNT];
 	static std::unordered_map<unsigned int, SDL3DisplayWindow*> WindowList;
 
 	static std::unordered_map<SDL_TimerID, void *> TimerHandles;

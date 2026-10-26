@@ -123,6 +123,7 @@ bool SDL2DisplayBackend::SimulateKey(const std::string& name, bool down)
 	event.key.state = down ? SDL_PRESSED : SDL_RELEASED;
 	event.key.keysym.scancode = scancode;
 	event.key.keysym.sym = SDL_GetKeyFromScancode(scancode);
+	SDL2DisplayWindow::SimulatedKeys[scancode] = down;
 	return SDL_PushEvent(&event) == 1;
 }
 

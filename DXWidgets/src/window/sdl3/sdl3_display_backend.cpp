@@ -93,6 +93,7 @@ bool SDL3DisplayBackend::SimulateKey(const std::string& name, bool down)
 	event.key.scancode = scancode;
 	event.key.key = SDL_GetKeyFromScancode(scancode, SDL_KMOD_NONE, false);
 	event.key.down = down;
+	SDL3DisplayWindow::SimulatedKeys[scancode] = down;
 	return SDL_PushEvent(&event);
 }
 

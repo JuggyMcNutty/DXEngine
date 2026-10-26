@@ -1,0 +1,15 @@
+# Left Shift held while ~ is typed, then Left Ctrl and Left Alt each held a
+# second: KeysConsole logs its state and the root window's marks of the keys
+# every quarter second (DXKEYS:). The state must turn Typing at the ~, the
+# engine's Shift+~ asking the window's key state, which must count a
+# timeline's key as held though it is an event SDL's own keyboard state never
+# sees (docs/DEVELOPMENT.md, timelines). Then an exit.
+# DXCAP_BACKEND=SDL3 DXCAP_TIMELINE=<this> tools/dxcap.sh dxe KeysConsole 01_NYC_UNATCOIsland.dx 14
+start 6.0 keydown Left Shift
+start 6.5 chars ~
+start 7.0 keyup Left Shift
+start 7.5 keydown Left Ctrl
+start 8.5 keyup Left Ctrl
+start 9.0 keydown Left Alt
+start 10.0 keyup Left Alt
+start 11 exit

@@ -12,6 +12,7 @@
 Uint32 SDL3DisplayWindow::PaintEventNumber = 0xffffffff;
 bool SDL3DisplayWindow::ExitRunLoop;
 bool SDL3DisplayWindow::GamepadKeyEmulation = true;
+bool SDL3DisplayWindow::SimulatedKeys[SDL_SCANCODE_COUNT];
 std::unordered_map<unsigned int, SDL3DisplayWindow*> SDL3DisplayWindow::WindowList;
 
 SDL3DisplayWindow::SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, SDL3DisplayWindow* owner, RenderAPI renderAPI) : WindowHost(windowHost)
@@ -311,7 +312,9 @@ bool SDL3DisplayWindow::GetKeyState(InputKey key)
 	const bool* state = SDL_GetKeyboardState(&numkeys);
 	if (!state) return false;
 
-	auto down = [&](SDL_Scancode index) { return index < numkeys && state[index]; };
+	// A timeline's key (SimulateKey) is an event SDL's own state never
+	// sees: it counts as down from its press to its release
+	auto down = [&](SDL_Scancode index) { return (index < numkeys && state[index]) || (index < SDL_SCANCODE_COUNT && SimulatedKeys[index]); };
 	// Either side's, as Windows' state of VK_SHIFT, VK_CONTROL and VK_MENU.
 	switch (key)
 	{
