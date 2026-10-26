@@ -29,6 +29,16 @@ void UTextLogWindow::ClearLog()
 	RegenerateText();
 }
 
+// The original's XTextLogWindow::Init (0x100474b0): left and top aligned, a
+// 5 s timeout
+void UTextLogWindow::InitDefaults()
+{
+	UTextWindow::InitDefaults();
+	HAlign() = (uint8_t)EHAlign::Left;
+	VAlign() = (uint8_t)EVAlign::Top;
+	textTimeout() = 5.0f;
+}
+
 void UTextLogWindow::RegenerateText()
 {
 	std::string text;

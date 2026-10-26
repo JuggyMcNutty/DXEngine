@@ -7,6 +7,7 @@ class UTextLogWindow : public UTextWindow
 public:
 	using UTextWindow::UTextWindow;
 
+	void InitDefaults() override;
 	void AddLog(const std::string& NewText, const Color& linecol);
 	void ClearLog();
 	void PauseLog(bool bNewPauseState);
