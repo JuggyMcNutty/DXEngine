@@ -1892,7 +1892,9 @@ settles it). The server-only stubs are under
   reuse on, 32 KB buffers for a client's and 128 KB for a server's, a
   server's port the URL's or the next free of the 20 from it (`PORT=` and
   `MULTIHOME=` are not taken); a server's host name is looked up on a
-  thread, the game going on.
+  thread, the game going on; `GETPING` and `GETLOSS` answer the server
+  connection's best lag of the last second in ms and its incoming packet
+  loss in percent, as the original's do.
 - **`InternetLink.GetLocalIP`** answers the address this machine reaches the
   network from (a UDP socket's local end toward 8.8.8.8; 127.0.0.1 with no
   route), by choice, where the original answers the first address of the

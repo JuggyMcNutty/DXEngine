@@ -2420,11 +2420,17 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	}
 	else if (command == "getping")
 	{
-		return "0";
+		// The original's UNetConnection::Exec (0x10401c50): the connection's
+		// best lag of the last stats period in ms, which
+		// PlayerReplicationInfo shows as the ping; 0 with no server
+		NetConnection* server = LevelNetDriver ? LevelNetDriver->ServerConnection.get() : nullptr;
+		return std::to_string(server && server->BestLag < 9999.0f ? (int)(server->BestLag * 1000.0f) : 0);
 	}
 	else if (command == "getloss")
 	{
-		return "0";
+		// Its incoming packet loss of the period, in percent
+		NetConnection* server = LevelNetDriver ? LevelNetDriver->ServerConnection.get() : nullptr;
+		return std::to_string(server ? (int)server->InLoss : 0);
 	}
 	else if (command == "keyname" && args.size() == 2)
 	{

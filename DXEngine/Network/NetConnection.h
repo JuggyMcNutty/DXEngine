@@ -165,6 +165,11 @@ public:
 
 	float BestLag = 9999.0f;
 	float AvgLag = 9999.0f;
+	// The incoming packets lost in the stats period, in percent (the
+	// original's InLoss): what GETLOSS answers
+	float InLoss = 0.0f;
+	int InPacketsCounted = 0;
+	int InPacketsLost = 0;
 	double AverageFrameTime = 0.0;
 
 	NetChannel* Channels[MaxChannels] = {};

@@ -83,7 +83,12 @@ void NetConnection::ReceivedPacket(NetBitReader& reader)
 	if (reader.IsError())
 		return;
 	if (packetId > InPacketId)
+	{
+		// The ids skipped are packets lost (or late, counted as lost)
+		InPacketsLost += packetId - InPacketId - 1;
 		InPacketId = packetId;
+	}
+	InPacketsCounted++;
 
 	SendAck(packetId);
 
@@ -400,6 +405,10 @@ void NetConnection::UpdateStats()
 		AvgLag = LagAcc / LagCount;
 		BestLag = BestLagAcc;
 	}
+	int inPackets = InPacketsCounted + InPacketsLost;
+	InLoss = inPackets > 0 ? 100.0f * InPacketsLost / inPackets : 0.0f;
+	InPacketsCounted = 0;
+	InPacketsLost = 0;
 	LagAcc = 0.0f;
 	BestLagAcc = 9999.0f;
 	LagCount = 0;
