@@ -1719,7 +1719,10 @@ A mod gets the original's loader and natives:
   collapse list leading past them, is passed over, as a vertex past the
   vertices is; a mover's polygon without a texture draws with the level's
   default texture, its macro texture too; a mover whose brush has no
-  polygons is passed over.
+  polygons is passed over; a `bHighDetail` actor is passed over while the
+  render device's `HighDetailActors` is off, as the original's SetupDynamics
+  passes it (of the game's classes only `Decal` sets the flag, and a decal
+  is drawn with its surface).
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).

@@ -21,6 +21,13 @@ void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
 	if (actor->bHidden())
 		return;
 
+	// A high-detail actor is passed over while the render device's
+	// HighDetailActors is off, as the original's SetupDynamics passes it
+	// (render-dll.md, which actors are drawn); of the game's classes only
+	// Decal sets bHighDetail, and a decal is drawn with its surface
+	if (actor->bHighDetail() && !engine->renderdev->HighDetailActors)
+		return;
+
 	UActor* viewportActor = engine->viewport->Actor();
 	bool isOwnedByViewport = actor->IsOwnedBy(viewportActor);
 
