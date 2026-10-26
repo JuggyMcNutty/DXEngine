@@ -353,7 +353,7 @@ void NetFileChannel::ReceivedBunch(NetInBunch& bunch)
 		if (notify)
 		{
 			std::string line1 = LocalizeMessage("Engine", "Progress", "ReceiveFile", "Receiving '%s'", { PackageName });
-			std::string line2 = LocalizeMessage("Engine", "Progress", "ReceiveSize", "Size %iK, Complete %3.1f%%", { FileSize / 1024, FileSize > 0 ? Transferred * 100.0 / FileSize : 100.0 });
+			std::string line2 = LocalizeMessage("Engine", "Progress", "ReceiveSize", "Size %iK, Complete %3.1f%%", { (int)(FileSize / 1024), FileSize > 0 ? (double)Transferred * 100.0 / (double)FileSize : 100.0 });
 			notify->NotifyProgress(line1, line2, 4.0f);
 		}
 	}
