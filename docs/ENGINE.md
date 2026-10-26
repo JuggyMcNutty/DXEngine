@@ -469,10 +469,10 @@ wherever else that state is set.
 - **BC1** without `EXT_texture_compression_s3tc` and RGBA32F (the lightmaps) without
   `OES_texture_float_linear` are decoded to RGBA8 on the CPU, and BGRA8 goes up as RGBA8, red
   and blue swapped, ES taking no BGRA upload.
-- **A DXT1 texture's levels**, on ES and desktop GL alike, are each its own size down to 1x1,
+- **A texture's levels** are those of its mip count (`GL_TEXTURE_MAX_LEVEL`), each its own
+  size; a level with no mip of its own, or a misfit one, is zeros -- a DXT1 texture's levels
   made by their uploads (`glCompressedTexImage2D`), as ES takes no compressed format in
-  `glTexImage2D`; a level with no mip of its own is made of zero blocks, so the chain is
-  whole.
+  `glTexImage2D`, zero blocks there -- so the chain is whole.
 - **The samplers** set no `GL_TEXTURE_LOD_BIAS` on ES (no ES sampler has it), anisotropy only
   with `EXT_texture_filter_anisotropic`, and `GL_MIRROR_CLAMP_TO_EDGE` only where a probe at
   init finds the driver takes it (else `CLAMP_TO_EDGE`).
