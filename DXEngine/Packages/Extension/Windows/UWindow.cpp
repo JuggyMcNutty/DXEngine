@@ -122,7 +122,7 @@ void UWindow::UpdateLayout()
 	// Configure the windows that never got a ConfigureChild call:
 	for (UWindow* child = firstChild(); child; child = child->nextSibling())
 	{
-		if ((wasReconfigured || child->FirstDraw) && !child->bConfigured())
+		if ((wasReconfigured || child->FirstDraw) && !child->bConfigured() && child->bIsVisible())
 		{
 			float newWidth = 0.0f, newHeight = 0.0f;
 			child->QueryPreferredSize(newWidth, newHeight);
@@ -1854,6 +1854,12 @@ void UWindow::ResizeChild()
 void UWindow::ConfigureChild(float newX, float newY, float newWidth, float newHeight)
 {
 	//LogMessage(GetUClassFullName(this).ToString() + ": ConfigureChild(" + std::to_string(newX) + ", " + std::to_string(newY) + ", " + std::to_string(newWidth) + ", " + std::to_string(newHeight) + ")");
+
+	// A window that does not show is only counted as placed, its place and
+	// size left as they are (the original's; TitleConsole: the HUD's mission
+	// start text stays 10 by 10 at 0, 0 until a message shows it)
+	if (!bIsVisible())
+		return;
 
 	// The size the parent gives is the window's, a size set on the window
 	// only what it asks for (XWindow::ConfigureChild 0x1004ec50): a tile
