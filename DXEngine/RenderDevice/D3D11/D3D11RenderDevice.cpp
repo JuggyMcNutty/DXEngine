@@ -355,19 +355,22 @@ void D3D11RenderDevice::SetColorSpace()
 		HRESULT result = SwapChain->QueryInterface(swapChain3.GetIID(), swapChain3.InitPtr());
 		if (SUCCEEDED(result))
 		{
+			// scRGB, linear light in the RGBA16F chain, which is what the HDR
+			// present writes (and what the Vulkan device asks for); the PQ
+			// space would read those values as codes
 			UINT support = 0;
-			result = swapChain3->CheckColorSpaceSupport(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020, &support);
+			result = swapChain3->CheckColorSpaceSupport(DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709, &support);
 			if (SUCCEEDED(result) && (support & DXGI_SWAP_CHAIN_COLOR_SPACE_SUPPORT_FLAG_PRESENT) == DXGI_SWAP_CHAIN_COLOR_SPACE_SUPPORT_FLAG_PRESENT)
 			{
-				result = swapChain3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
+				result = swapChain3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709);
 				if (FAILED(result))
 				{
-					LogMessage("D3D11Drv: IDXGISwapChain3.SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020) failed");
+					LogMessage("D3D11Drv: IDXGISwapChain3.SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709) failed");
 				}
 			}
 			else
 			{
-				LogMessage("D3D11Drv: Swap chain does not support DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020");
+				LogMessage("D3D11Drv: Swap chain does not support DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709");
 			}
 		}
 	}
@@ -2360,9 +2363,9 @@ void D3D11RenderDevice::ReadPixels(TextureColor* Pixels)
 
 		D3D11PresentPushConstants pushconstants = GetD3D11PresentPushConstants();
 
-		// Select present shader based on what the user is actually using
+		// The read-back is bytes: the SDR present's gamma, never the HDR
+		// one's linear light times HdrScale (the Vulkan device reads back so)
 		int presentShader = 0;
-		if (ActiveHdr) presentShader |= 1;
 		if (GammaMode == 1) presentShader |= 2;
 		if (pushconstants.Brightness != 0.0f || pushconstants.Contrast != 1.0f || pushconstants.Saturation != 1.0f) presentShader |= (clamp(GrayFormula, 0, 2) + 1) << 2;
 
