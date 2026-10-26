@@ -3,6 +3,7 @@
 #include <limits>
 #include "UGameDirectory.h"
 #include "Utils/Logger.h"
+#include "Utils/StrTools.h"
 #include "Engine.h"
 #include "Package/PackageManager.h"
 
@@ -196,16 +197,26 @@ void UDXGameDirectory::PopulateDirectoryList()
 	auto list = DirectoryList();
 	list.Array->Resize(0);
 
+	if (GameDirectoryType() == EGameDirectoryTypes::GD_Maps)
+	{
+		// The map files ("*.<MapExt>") of every map folder of the paths, as
+		// the original's GetMapsDirectory (DeusEx.dll 0x10017200) finds
+		// them: a mod's maps in its own folder too, and nothing else
+		const std::string mapExt = "." + engine->packages->GetMapExtension();
+		for (const std::string& folder : engine->packages->GetMapFolders())
+		{
+			if (!fs::exists(folder) || !fs::is_directory(folder))
+				continue;
+			for (auto& p : fs::directory_iterator(folder))
+				if (p.is_regular_file() && StrTools::equals_ignore_case(p.path().extension().string(), mapExt))
+					list.push_back(p.path().filename().string());
+		}
+		return;
+	}
+
 	if (!fs::exists(currentDirectory) || !fs::is_directory(currentDirectory))
 		return;
 
-	if (GameDirectoryType() == EGameDirectoryTypes::GD_Maps)
-	{
-		for (auto& p : fs::directory_iterator(currentDirectory))
-			if (p.is_regular_file())
-				list.push_back(p.path().filename().string());
-	}
-	else
 	{
 		// The save listing is the SaveNNNN directories; the quick save and
 		// Current are asked for by slot (-1, -2), never listed.

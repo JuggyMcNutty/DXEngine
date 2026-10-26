@@ -137,6 +137,7 @@ public:
 
 	Array<IntObject>& GetIntObjects(const NameString& metaclass);
 	const Array<std::string>& GetMaps() const { return maps; }
+	const Array<std::string>& GetMapFolders() const { return mapFolders; }
 
 	bool MissingDXESystemIni() const { return missing_dxe_system_ini; }
 
