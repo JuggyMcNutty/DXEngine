@@ -2480,7 +2480,9 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	{
 		// The level's own event: its game tells the clients, and the server
 		// follows once NextSwitchCountdown runs out (the original's).
-		std::string url = commandline.substr(commandline.find_first_not_of(" \t", commandline.find_first_of(" \t")));
+		size_t word = commandline.find_first_not_of(" \t");
+		size_t blank = commandline.find_first_of(" \t", word);
+		std::string url = commandline.substr(commandline.find_first_not_of(" \t", blank));
 		CallEvent(LevelInfo, "ServerTravel", { ExpressionValue::StringValue(url), ExpressionValue::BoolValue(false) });
 	}
 	else if (command == "cancel")
