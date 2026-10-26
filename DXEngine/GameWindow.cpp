@@ -197,7 +197,10 @@ void GameWindow::ExitLoop()
 std::string GameWindow::GetMenuResolutions()
 {
 	Size screen = DisplayBackend::Get()->GetScreenSize();
-	Size current((double)GetPixelWidth(), (double)GetPixelHeight());
+	// The window's own size, not the render size (the native size times
+	// RenderScale), which under 1 listed a size under the 640x480 floor and
+	// a full-screen mode the display has not
+	Size current((double)GetNativePixelWidth(), (double)GetNativePixelHeight());
 
 	Array<Size> sizes;
 	if (IsFullscreen())

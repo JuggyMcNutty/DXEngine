@@ -2374,8 +2374,9 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	}
 	else if (command == "getcurrentres")
 	{
-		int width = window->GetPixelWidth();
-		int height = window->GetPixelHeight();
+		// The window's own size, as GETRES lists it, not the render size
+		int width = window->GetNativePixelWidth();
+		int height = window->GetNativePixelHeight();
 
 		return std::to_string(width) + "x" + std::to_string(height);
 	}
