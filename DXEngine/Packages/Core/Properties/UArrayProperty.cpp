@@ -52,9 +52,11 @@ void UArrayProperty::SaveValue(void* data, PackageStreamWriter* stream)
 {
 	ScriptArray& vec = *static_cast<ScriptArray*>(data);
 	stream->WriteIndex((int)vec.GetSize());
+	// Each element as LoadValue reads it back (a bool's byte among them,
+	// which SaveValue writes nothing for)
 	for (size_t i = 0, count = vec.GetSize(); i < count; i++)
 	{
-		Inner->SaveValue(vec.GetItem(i), stream);
+		Inner->SaveStructMemberValue(vec.GetItem(i), stream);
 	}
 }
 
