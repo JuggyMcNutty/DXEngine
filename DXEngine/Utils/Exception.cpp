@@ -42,6 +42,7 @@ struct InitDbgHelp
 #include <cstring>
 #include <cstdlib>
 #include <memory>
+#include <algorithm>
 
 #else
 
@@ -143,6 +144,42 @@ int Exception::CaptureStackFrames(std::ostringstream& sstream, int maxframes)
 
 	return frame;
 
+
+/////////////////////////////////////////////////////////////////////
+#elif defined __linux__
+
+	// The frames by backtrace, named where the dynamic symbols name them
+	// (the engine's own are not exported: those stay addresses, which
+	// addr2line resolves against the binary), demangled, down to main
+	void* frames[64];
+	int count = backtrace(frames, std::min(maxframes, 64));
+	char** symbols = backtrace_symbols(frames, count);
+	int written = 0;
+	for (int i = 1; i < count && symbols; i++)
+	{
+		std::string line = symbols[i];
+		size_t open = line.find('(');
+		size_t plus = open == std::string::npos ? std::string::npos : line.find('+', open);
+		if (open != std::string::npos && plus != std::string::npos && plus > open + 1)
+		{
+			std::string mangled = line.substr(open + 1, plus - open - 1);
+			int status = 0;
+			char* demangled = abi::__cxa_demangle(mangled.c_str(), nullptr, nullptr, &status);
+			std::string name = status == 0 && demangled ? demangled : mangled;
+			free(demangled);
+			sstream << "at " << name << std::endl;
+			written++;
+			if (name == "main")
+				break;
+		}
+		else
+		{
+			sstream << "at " << line << std::endl;
+			written++;
+		}
+	}
+	free(symbols);
+	return written;
 
 /////////////////////////////////////////////////////////////////////
 #else
