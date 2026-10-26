@@ -2322,6 +2322,11 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	for (char& c : command) c = std::tolower(c);
 
 	found = true;
+	// A dedicated server has no window and no renderer: the commands that
+	// take them do nothing there (a logged-in admin's "admin getres" or
+	// "admin flush" came through PlayerPawn.Admin)
+	if ((!window || !render) && (command == "getres" || command == "getcurrentres" || command == "setres" || command == "togglefullscreen" || command == "flush" || command == "timedemo" || command == "stat" || command == "collisiondebug" || command == "shot"))
+		return {};
 	if (command == "exit" || command == "quit")
 	{
 		quit = true;
