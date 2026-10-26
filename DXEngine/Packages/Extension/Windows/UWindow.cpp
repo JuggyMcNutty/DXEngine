@@ -466,12 +466,7 @@ void UWindow::Destroy()
 		SetVisibility(false);
 	SetSelectability(false);
 
-	for (UWindow* child = firstChild(); child;)
-	{
-		UWindow* next = child->nextSibling();
-		child->Destroy();
-		child = next;
-	}
+	DestroyAllChildren();
 
 	DestroyWindow();
 
