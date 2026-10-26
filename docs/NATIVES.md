@@ -1828,6 +1828,9 @@ The server-only stubs are under
 - **A dedicated server's natives**: `GetPlayerPawn` answers None, as the
   original's with no client or viewport, and `AttachDecal` attaches none, as
   the original's with no client.
+- **A URL**: a '/' is a character of a map's name or an option's value, '#'
+  alone marking the portal, as the original's URL has it (another game's '/'
+  once cut `?Name=AC/DC` at the slash).
 - **Entry's actors** find their regions in Entry's own model, with its zone
   actors and its LevelInfo, while a map is current (no run: the code settles
   it).

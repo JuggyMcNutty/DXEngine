@@ -40,11 +40,10 @@ UnrealURL::UnrealURL(std::string urlString)
 {
 	Port = DefaultPort();
 
-	// Expected url format on a local game:
-	// mapname[#teleporttag][?key1=value1[?key2=value2]...]
-	// Or in case of Klingon Honor Guard
-	// mapname[/teleporttag][?key1=value1[?key2=value2]...]
-	// Note that the options and the teleport tag can be in arbitrary places, as long as the map name comes first.
+	// Deus Ex's URL: mapname[#teleporttag][?key1=value1[?key2=value2]...],
+	// the options and the teleport tag in any order after the map. '#' alone
+	// marks the portal (network.md, the address): another game's '/' cut an
+	// option's value at a slash.
 
 	// Trim the url string of whitespaces
 	// Fixes the crash during the transition from Temple of Vandora to The Trench in Unreal
@@ -54,22 +53,22 @@ UnrealURL::UnrealURL(std::string urlString)
 
 	ParseAddress(urlString);
 
-	size_t mapNamePos = StrTools::find_first_of_any(urlString, "?/#");
+	size_t mapNamePos = StrTools::find_first_of_any(urlString, "?#");
 
 	Map = urlString.substr(0, mapNamePos);
 
 	if (mapNamePos != std::string::npos)
 	{
 		// We need to parse all options individually
-		char paramType = urlString[mapNamePos]; // Can be '/', '#' or '?'
+		char paramType = urlString[mapNamePos]; // '#' or '?'
 		std::string allParams = urlString.substr(mapNamePos + 1);
 
-		auto nextParamPos = StrTools::find_first_of_any(allParams, "?/#");
+		auto nextParamPos = StrTools::find_first_of_any(allParams, "?#");
 
 		// Every part, the last included.
 		for (;;)
 		{
-			if (paramType == '#' || paramType == '/')
+			if (paramType == '#')
 				Portal = allParams.substr(0, nextParamPos);
 			else if (paramType == '?')
 			{
@@ -82,7 +81,7 @@ UnrealURL::UnrealURL(std::string urlString)
 
 			paramType = allParams[nextParamPos];
 			allParams = allParams.substr(nextParamPos + 1);
-			nextParamPos = StrTools::find_first_of_any(allParams, "?/#");
+			nextParamPos = StrTools::find_first_of_any(allParams, "?#");
 		}
 	}
 }
