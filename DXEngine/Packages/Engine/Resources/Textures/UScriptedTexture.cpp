@@ -98,9 +98,26 @@ void UScriptedTexture::DrawTile(float X, float Y, float XL, float YL, float U, f
 		DrawTileP8(Tex, X, Y, XL, YL, U, V, UL, VL);
 }
 
+// The original's execReplaceTexture (Engine.dll 0x103eb1e0): the texture's
+// current frame's top mip copied over this one's when their sizes match;
+// else a line in the log, its texts
 void UScriptedTexture::ReplaceTexture(UTexture* Tex)
 {
-	// What does this do? Nothing calls it in UT it seems.
+	if (!Tex)
+	{
+		LogMessage("ReplaceTexture: Missing Texture");
+		return;
+	}
+	UTexture* frame = Tex->GetAnimTexture();
+	if (UsedMipmaps.empty() || frame->UsedMipmaps.empty() || frame->UsedMipmaps.front().Width != UsedMipmaps.front().Width || frame->UsedMipmaps.front().Height != UsedMipmaps.front().Height)
+	{
+		LogMessage("ReplaceTexture: Dimensions are different");
+		return;
+	}
+	UnrealMipmap& dst = UsedMipmaps.front();
+	const UnrealMipmap& src = frame->UsedMipmaps.front();
+	memcpy(dst.Data.data(), src.Data.data(), std::min(dst.Data.size(), src.Data.size()));
+	TextureModified = true;
 }
 
 void UScriptedTexture::TextSize(const std::string& Text, float& XL, float& YL, UFont* Font)

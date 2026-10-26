@@ -1689,6 +1689,9 @@ A mod gets the original's loader and natives:
   padded with black; a texture whose mip data is shorter than its size is
   padded with black; an animation chain that never comes back ends at 2,048
   textures.
+- **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
+  over the scripted texture when their sizes match, else logs, as the
+  original's (no run: no stock script calls it).
 - **Config files.** A class's config file that is not there is empty, its
   properties keeping their defaults, until the class writes it
   ([configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration)):
