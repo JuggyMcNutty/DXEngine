@@ -24,6 +24,34 @@ std::string UClassProperty::PrintValue(const void* data)
 		return "None";
 }
 
+// The original's UClassProperty::ImportText (Core.dll 0x10167110): the
+// object's import, then None unless it is a class deriving from MetaClass
+void UClassProperty::SetValueFromString(void* data, const std::string& valueString)
+{
+	UObjectProperty::SetValueFromString(data, valueString);
+	UObject*& value = *(UObject**)data;
+	UClass* cls = UObject::TryCast<UClass>(value);
+	if (!cls)
+	{
+		value = nullptr;
+		return;
+	}
+	if (MetaClass)
+	{
+		bool derived = false;
+		for (UStruct* s = cls; s; s = s->BaseStruct)
+		{
+			if (s == MetaClass)
+			{
+				derived = true;
+				break;
+			}
+		}
+		if (!derived)
+			value = nullptr;
+	}
+}
+
 void UClassProperty::Mark(GCMarker& marker)
 {
 	UObjectProperty::Mark(marker);

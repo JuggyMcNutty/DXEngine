@@ -1335,8 +1335,11 @@ Every other native the scripted runs compare matches the original
   Differs: an element by its index, `N[1]=7`, is taken, where the original's
   import stops at one (`ImportText: Illegal array element`: its index reader
   starts on the bracket) though its own export writes them. A dynamic array
-  is `(1,2,3)`. A bool takes `1`, `True`, `0` and `False` alone, an int the
-  number its text starts with.
+  is `(1,2,3)`. An object is `Type'Package.Group.Name'`, set from that, from
+  `Package.Name` or from a bare name among the loaded objects of its class;
+  a class is held to its metaclass (an Actor class from `Engine.Texture` is
+  None). A bool takes `1`, `True`, `0` and `False` alone, an int the number
+  its text starts with.
 - **A None context** (`A.X` with `A` None; `NoneConsole`): the zero of
   `X`'s type, as the original's `execContext` zero-fills the result -- a
   `switch (A.Physics)` takes `case PHYS_None`, a struct copied through None

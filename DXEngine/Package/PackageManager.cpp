@@ -1,5 +1,6 @@
 
 #include "Precomp.h"
+#include "GC/GC.h"
 #include "PackageManager.h"
 #include <algorithm>
 #include "Package.h"
@@ -857,6 +858,35 @@ UClass* PackageManager::FindClass(const NameString& name)
 	{
 		return nullptr;
 	}
+}
+
+UObject* PackageManager::FindObjectAnyPackage(UClass* cls, const std::string& path)
+{
+	if (cls && cls->Name == "Class")
+		return FindClassAnyPackage(path);
+	size_t dot = path.find('.');
+	if (dot != std::string::npos)
+	{
+		if (!cls)
+			return nullptr;
+		try
+		{
+			return GetPackage(path.substr(0, dot))->LoadObjectAnyGroup(cls, path.substr(path.rfind('.') + 1));
+		}
+		catch (...)
+		{
+			return nullptr;
+		}
+	}
+	NameString name(path);
+	GCObjectList objects = GC::GetObjects();
+	for (auto it = objects.begin(); it != objects.end(); ++it)
+	{
+		UObject* obj = dynamic_cast<UObject*>(*it);
+		if (obj && obj->Name == name && (!cls || obj->IsA(cls->Name)))
+			return obj;
+	}
+	return nullptr;
 }
 
 UClass* PackageManager::FindClassAnyPackage(const NameString& name)

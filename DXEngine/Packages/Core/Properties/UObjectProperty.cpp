@@ -43,11 +43,13 @@ void UObjectProperty::SaveValue(void* data, PackageStreamWriter* stream)
 	stream->WriteObject(*static_cast<UObject**>(data));
 }
 
+// The original's UObjectProperty::ExportTextItem (Core.dll 0x10166d40):
+// Type'Package.Group.Name', or None
 std::string UObjectProperty::PrintValue(const void* data)
 {
 	UObject* obj = *(UObject**)data;
 	if (obj)
-		return obj->Class->Name.ToString() + '\'' + obj->Name.ToString()/*obj->package->GetExportName(obj->exportIndex)*/ + '\'';
+		return obj->Class->Name.ToString() + '\'' + obj->GetPathName() + '\'';
 	else
 		return "None";
 }
@@ -57,55 +59,41 @@ bool UObjectProperty::IsDefaultValue(void* val)
 	return *(UObject**)val == nullptr;
 }
 
+// The original's UObjectProperty::ImportText (Core.dll 0x10166e20): None;
+// Type'Name' an object of the class Type, else of the property's class, the
+// name a path (Package.Group.Name) or bare, found among the loaded objects
+// of that class (StaticFindObject in any package); nothing found leaves
+// None. DXEngine loads a Package.Name not loaded yet, as its SET has always
+// done; it once took a bare name for a property list to write into the
+// object the property held.
 void UObjectProperty::SetValueFromString(void* data, const std::string& valueString)
 {
-	if (valueString.empty())
+	size_t first = valueString.find_first_not_of(' ');
+	if (first == std::string::npos)
 		return;
-
+	std::string text = valueString.substr(first, valueString.find_last_not_of(' ') - first + 1);
 	UObject** propertyValue = (UObject**)data;
 
-	// None clears it; Pkg.Name, or Type'Pkg.Name', names an object of the
-	// property's class in that package, in any group
-	std::string path = valueString;
-	size_t quote = path.find('\'');
-	if (quote != std::string::npos && path.size() > quote + 1 && path.back() == '\'' && path.substr(0, quote) != "Class" && path.substr(0, quote) != "class")
-		path = path.substr(quote + 1, path.size() - quote - 2);
-	size_t dot = path.find('.');
-
-	if (StrTools::equals_ignore_case(valueString, "None"))
+	if (StrTools::equals_ignore_case(text, "None"))
 	{
 		*propertyValue = nullptr;
+		return;
 	}
-	else if (valueString.substr(0, 6) == "Class\'" || valueString.substr(0, 6) == "class\'")
+	UClass* cls = ObjectClass;
+	std::string path = text;
+	size_t quote = text.find('\'');
+	if (quote != std::string::npos && text.size() > quote + 1 && text.back() == '\'')
 	{
-		*propertyValue = package->GetPackageManager()->FindClass(valueString.substr(6, valueString.length() - 7));
-	}
-	else if (dot != std::string::npos && path.find('(') == std::string::npos && ObjectClass)
-	{
-		try
+		path = text.substr(quote + 1, text.size() - quote - 2);
+		UClass* named = package->GetPackageManager()->FindClassAnyPackage(text.substr(0, quote));
+		if (!named)
 		{
-			Package* pkg = package->GetPackageManager()->GetPackage(path.substr(0, dot));
-			if (UObject* obj = pkg->LoadObjectAnyGroup(ObjectClass, path.substr(path.rfind('.') + 1)))
-				*propertyValue = obj;
+			*propertyValue = nullptr;
+			return;
 		}
-		catch (const std::exception&)
-		{
-		}
+		cls = named;
 	}
-	else
-	{
-		// This code is trying to set properties recursively into objects that already exists.
-		// Is this something UE1 actually does?
-
-		UObject* obj = *propertyValue;
-		if (obj)
-		{
-			auto parsedProperties = ParsePropertiesFromString(valueString);
-
-			for (auto& prop : parsedProperties)
-				obj->SetPropertyFromString(prop.first, prop.second);
-		}
-	}
+	*propertyValue = package->GetPackageManager()->FindObjectAnyPackage(cls, path);
 }
 
 bool UObjectProperty::ComputeContainsRefs()

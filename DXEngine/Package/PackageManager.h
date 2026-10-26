@@ -103,6 +103,10 @@ public:
 	// loaded, as the original's console finds one (StaticFindObject with
 	// ANY_PACKAGE): the game's menus name DeusExMPGame, not DeusEx.DeusExMPGame.
 	UClass* FindClassAnyPackage(const NameString& name);
+	// An object of the class by a path (Package.Group.Name, its package loaded
+	// as need be) or by a bare name among the loaded objects, as the original's
+	// StaticFindObject in any package finds it; the classes by FindClassAnyPackage
+	UObject* FindObjectAnyPackage(UClass* cls, const std::string& path);
 
 	std::string GetMapExtension() const { return mapExtension; }
 	std::string GetSaveExtension() const { return saveExtension; }

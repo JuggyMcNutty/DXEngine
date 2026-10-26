@@ -11,6 +11,7 @@ public:
 	void Save(PackageStreamWriter* stream) override;
 
 	std::string PrintValue(const void* data) override;
+	void SetValueFromString(void* data, const std::string& valueString) override;
 	void Mark(GCMarker& marker) override;
 
 	UClass* MetaClass = nullptr;
