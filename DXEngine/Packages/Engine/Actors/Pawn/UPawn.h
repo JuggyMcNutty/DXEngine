@@ -125,9 +125,7 @@ public:
 
 	void ClearPaths();
 	UObject* FindRandomDest();
-	UObject* FindPathToward(UObject* anActor, bool singlePath);
 	UObject* FindBestInventoryPath(bool predictRespawns, float& outBestWeight);
-	UNavigationPoint* FindClosestNavPoint(vec3 location);
 	bool MarkReachableNavEndPoints();
 
 	// Deus Ex AI functions
@@ -309,7 +307,4 @@ public:
 	float& SmellThreshold() { return Value<float>(PropOffsets_Pawn.SmellThreshold); }
 	NameString Alliance() { return Value<NameString>(PropOffsets_Pawn.Alliance); }
 	Rotator& AIAddViewRotation() { return Value<Rotator>(PropOffsets_Pawn.AIAddViewRotation); }
-
-private:
-	bool IsInPathSpecialHandling = false;
 };

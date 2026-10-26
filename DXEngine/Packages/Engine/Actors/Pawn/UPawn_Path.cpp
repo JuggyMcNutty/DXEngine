@@ -26,16 +26,9 @@ UNavigationPoint* UPawn::SetRouteCache(const Array<UNavigationPoint*>& points)
 
 UActor* UPawn::PathSpecialHandling(const Array<UNavigationPoint*>& bestPath)
 {
-#if 0
-	return SetRouteCache(bestPath);
-#else
-	IsInPathSpecialHandling = true;
 	UActor* oldBestPoint = SetRouteCache(bestPath);
 	if (!oldBestPoint)
-	{
-		IsInPathSpecialHandling = false;
 		return nullptr;
-	}
 
 	UActor* bestPoint = oldBestPoint;
 
@@ -48,10 +41,9 @@ UActor* UPawn::PathSpecialHandling(const Array<UNavigationPoint*>& bestPath)
 
 		if (bestPoint && bestPoint != oldBestPoint)
 		{
+			// An answer the pawn cannot walk to is searched for Deus Ex's way
 			if (!ActorReachable(bestPoint))
-			{
-				bestPoint = UObject::Cast<UActor>(FindPathToward(bestPoint, false));
-			}
+				bestPoint = DeusExFindPathFromScript(bestPoint, vec3(0.0f), false, true);
 		}
 	}
 	else
@@ -60,9 +52,7 @@ UActor* UPawn::PathSpecialHandling(const Array<UNavigationPoint*>& bestPath)
 			SpecialGoal() = nullptr;
 	}
 
-	IsInPathSpecialHandling = false;
 	return bestPoint;
-#endif
 }
 
 // The original's search (APawn::breadthPathFrom, Engine.dll 0x103dcd60;
@@ -950,67 +940,6 @@ bool UPawn::MarkReachableNavEndPoints()
 	}
 
 	return endPointsFound > 0;
-}
-
-UObject* UPawn::FindPathToward(UObject* anActor, bool singlePath)
-{
-	// A target that can be walked to straight is the route itself -- no
-	// search, no node detours (Deus Ex's own search is DeusExFindPath).
-	if (auto aNavPoint = UObject::TryCast<UNavigationPoint>(anActor))
-	{
-		if (ActorReachable(aNavPoint, true))
-			return SetRouteCache({ aNavPoint });
-		if (!MarkReachableNavEndPoints())
-			return SetRouteCache({});
-		// The search spends the start node's visitedWeight as what the route has
-		// cost so far: nothing yet at the goal's own node.
-		aNavPoint->visitedWeight() = 0;
-		if (!IsInPathSpecialHandling)
-			return PathSpecialHandling(FindPathToEndPoint(aNavPoint, 0).first);
-		return SetRouteCache({});
-	}
-	else if (auto actor = UObject::TryCast<UActor>(anActor))
-	{
-		return FindPathToward(FindClosestNavPoint(actor->Location()), singlePath);
-	}
-	else
-	{
-		return SetRouteCache({});
-	}
-}
-
-UNavigationPoint* UPawn::FindClosestNavPoint(vec3 location)
-{
-	// Order nav points by distance
-	std::vector<std::pair<UNavigationPoint*, float>> navPoints;
-	for (UNavigationPoint* navPoint = Level()->NavigationPointList(); navPoint; navPoint = navPoint->nextNavigationPoint())
-	{
-		if (navPoint->bPlayerOnly() && !bIsPlayer())
-			continue; // Skip nav nodes only for the player if we aren't one
-
-		float maxDist = 500;
-		vec3 d = navPoint->Location() - location;
-		float distsqr = dot(d, d);
-		if (distsqr > maxDist * maxDist)
-			continue; // Ignore things too far away
-
-		navPoints.push_back({ navPoint, distsqr });
-	}
-
-	std::sort(navPoints.begin(), navPoints.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
-
-	size_t maxTraces = 4; // upper bound for how expensive this can get
-	navPoints.resize(std::min(navPoints.size(), maxTraces));
-
-	// Find the first reachable nav point
-	for (auto& p : navPoints)
-	{
-		vec3 eyePos = p.first->Location();
-		eyePos.z += BaseEyeHeight();
-		if (FastTrace(location, eyePos))
-			return p.first;
-	}
-	return nullptr;
 }
 
 UObject* UPawn::FindBestInventoryPath(bool predictRespawns, float& outBestWeight)
