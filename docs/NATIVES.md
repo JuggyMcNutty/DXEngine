@@ -1775,8 +1775,10 @@ A mod gets the original's loader and natives:
   pixel at the least and 16,384 at the most; a `bHighDetail` actor is passed
   over while the render device's `HighDetailActors` is off, as the
   original's SetupDynamics passes it (of the game's classes only `Decal`
-  sets the flag, and a decal is drawn with its surface); an actor at no
-  place (a NaN location) sorts nearest among the translucent.
+  sets the flag, and a decal is drawn with its surface); the render device's
+  `Translucency` is read, saved and `SET`, and changes nothing (what it does
+  in the original is unread); an actor at no place (a NaN location) sorts
+  nearest among the translucent.
 - **A mod's deletions and sizes.** a `CriticalDelete` of an actor destroys
   it, with the destroyed actors (its flag once cut their chain), one whose
   `Destroy` refuses staying, and of the levels, their infos and games, the
