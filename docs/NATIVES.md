@@ -952,7 +952,9 @@ Differs:
   cover the whole view. Its render time: [out of sight](#out-of-sight).
 - **A typed character past Latin-1** (U+0100 on) goes nowhere, DXEngine's
   text being 8-bit; the original's windows take it, and the game's fonts
-  draw it as nothing (read from `WinDrv.dll`'s code).
+  draw it as nothing (read from `WinDrv.dll`'s code). A string the original
+  stored as wide characters (such a note in its save; every conversation
+  comment of `DeusExConText.u`) loads, each character past Latin-1 a `?`.
 - **Keys**, read from both codes: the keyboard counts as grabbed while a
   modal shows, where the original counts its grabs (every modal grabs while
   shown). With Alt down DXEngine takes a letter or digit from the key's

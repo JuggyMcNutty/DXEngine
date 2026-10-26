@@ -90,7 +90,25 @@ public:
 		if (GetVersion() >= 64)
 		{
 			int len = ReadIndex();
-			if (len < 0 || len > 1024 * 1024)
+			// A negative count is a string stored as UTF-16 (the original's
+			// FString of wide characters: a conversation's comments, a note
+			// typed past Latin-1): read as the engine's Latin-1, a character
+			// past it a '?'
+			if (len < 0)
+			{
+				if (len < -1024 * 1024)
+					Exception::Throw("ObjectStream::ReadString: Invalid size in " + package->GetPackageName().ToString());
+				std::string s;
+				for (int i = 0; i < -len; i++)
+				{
+					uint16_t c = ReadUInt16();
+					if (c == 0)
+						continue;
+					s.push_back(c < 256 ? (char)c : '?');
+				}
+				return s;
+			}
+			if (len > 1024 * 1024)
 				Exception::Throw("ObjectStream::ReadString: Invalid size in " + package->GetPackageName().ToString());
 			Array<char> s;
 			s.resize(len);

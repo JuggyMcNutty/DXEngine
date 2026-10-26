@@ -776,12 +776,6 @@ void PropertyDataBlock::Load(ObjectStream* stream)
 			}
 		}
 
-		if (Class->Name == "ConEventComment" && name == "commentText") // Deus Ex hack. We can't read this string for some weird reason.
-		{
-			stream->Skip(header.size);
-			continue;
-		}
-
 		if (!prop)
 		{
 #if 0
