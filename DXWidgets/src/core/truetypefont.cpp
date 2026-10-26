@@ -655,7 +655,9 @@ void TrueTypeFont::LoadCharacterMapEncoding(TrueTypeFileReader& reader)
 				TTF_GlyphRange range;
 				range.startCharCode = startCode;
 				bool firstGlyph = true;
-				for (ttf_uint16 c = startCode; c <= endCode; c++)
+				// A 32-bit count: a segment ending at 0xFFFF, legal for the
+				// last, wrapped a 16-bit one and never ended
+				for (ttf_uint32 c = startCode; c <= endCode; c++)
 				{
 					int offset = idRangeOffset / 2 + (c - startCode) - ((int)subformat.segCount - i);
 					if (offset >= 0 && (size_t)offset < subformat.glyphIdArray.size())
