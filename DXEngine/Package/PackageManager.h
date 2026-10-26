@@ -152,7 +152,6 @@ private:
 	void LoadEngineIniFiles();
 	void LoadFileExtensions();
 	void LoadIntFiles();
-	void LoadPackageRemaps();
 	std::map<NameString, std::string> ParseIntPublicValue(const std::string& value);
 
 	void ScanForMaps();
@@ -183,7 +182,6 @@ private:
 	// Where a .int is looked for, in order: the paths' folders as they name
 	// them, System among them where they name it, else last.
 	Array<fs::path> intFolders;
-	std::map<std::string, std::string> packageRemaps;
 	std::map<NameString, Package*> saveInfos;
 
 	std::map<NameString, Array<IntObject>> IntObjects;

@@ -293,7 +293,6 @@ PackageManager::PackageManager(const GameLaunchInfo& launchInfo) : launchInfo(la
 	LoadEngineIniFiles();
 	LoadFileExtensions();
 	LoadIntFiles();
-	LoadPackageRemaps();
 	ScanPaths();
 	ScanForMaps();
 
@@ -1098,16 +1097,6 @@ void PackageManager::SaveAllIniFiles()
 			iniFile.second->UpdateIfExists(iniFile.second->GetPath());   // its copy may not be there yet
 		else
 			iniFile.second->UpdateFile();
-	}
-}
-
-void PackageManager::LoadPackageRemaps()
-{
-	auto remap_keys = GetIniKeysFromSection("system", "PackageRemap");
-
-	for (auto& key : remap_keys)
-	{
-		packageRemaps[key.ToString()] = GetIniValue("system", "PackageRemap", key);
 	}
 }
 
