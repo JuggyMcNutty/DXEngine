@@ -750,6 +750,9 @@ run_dxe() {
         settings="$(realpath "$DXCAP_SETTINGS")"
         [ -f "$settings" ] || die "no settings file $DXCAP_SETTINGS"
     fi
+    # With DXCAP_USERDIR the folder's own Settings.json is the run's: the
+    # pair silently dropped DXCAP_SETTINGS on a Linux build
+    [ -z "$settings" ] || [ -z "${DXCAP_USERDIR:-}" ] || die "DXCAP_SETTINGS with DXCAP_USERDIR: the folder's own Settings.json is the run's; put the settings there"
     need_display
     # The engine's own folder: DXCAP_USERDIR's, or for a Windows build's
     # settings (DXCAP_SETTINGS) one of the run's own.
