@@ -632,7 +632,10 @@ void Engine::ExecFile(UObject* context, const std::string& filename)
 	std::string text;
 	try
 	{
-		text = File::read_all_text(filename);
+		fs::path file = filename;
+		if (file.is_relative())
+			file = packages->GetSystemFolderPath() / file;
+		text = File::read_all_text(file.string());
 	}
 	catch (...)
 	{
