@@ -82,9 +82,9 @@ GLTextureUploader* GLTextureUploader::GetUploader(TextureFormat format)
 
 /////////////////////////////////////////////////////////////////////////////
 
-int GLTextureUploader_P8::GetUploadSize(int x, int y, int w, int h)
+size_t GLTextureUploader_P8::GetUploadSize(int x, int y, int w, int h)
 {
-	return w * h * 4;
+	return (size_t)w * (size_t)h * 4;
 }
 
 void GLTextureUploader_P8::UploadRect(void* d, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
@@ -121,9 +121,9 @@ void GLTextureUploader_P8::UploadRect(void* d, UnrealMipmap* mip, int x, int y, 
 
 /////////////////////////////////////////////////////////////////////////////
 
-int GLTextureUploader_RGB8::GetUploadSize(int x, int y, int w, int h)
+size_t GLTextureUploader_RGB8::GetUploadSize(int x, int y, int w, int h)
 {
-	return w * h * 4;
+	return (size_t)w * (size_t)h * 4;
 }
 
 void GLTextureUploader_RGB8::UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
@@ -148,9 +148,9 @@ void GLTextureUploader_RGB8::UploadRect(void* dst, UnrealMipmap* mip, int x, int
 
 /////////////////////////////////////////////////////////////////////////////
 
-int GLTextureUploader_BGRA8_LM::GetUploadSize(int x, int y, int w, int h)
+size_t GLTextureUploader_BGRA8_LM::GetUploadSize(int x, int y, int w, int h)
 {
-	return w * h * 4;
+	return (size_t)w * (size_t)h * 4;
 }
 
 void GLTextureUploader_BGRA8_LM::UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
@@ -219,9 +219,9 @@ void GLTextureUploader_BGRA8_LM::UploadRect(void* dst, UnrealMipmap* mip, int x,
 
 /////////////////////////////////////////////////////////////////////////////
 
-int GLTextureUploader_Simple::GetUploadSize(int x, int y, int w, int h)
+size_t GLTextureUploader_Simple::GetUploadSize(int x, int y, int w, int h)
 {
-	return w * h * BytesPerPixel;
+	return (size_t)w * (size_t)h * (size_t)BytesPerPixel;
 }
 
 void GLTextureUploader_Simple::UploadRect(void* d, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
@@ -240,9 +240,9 @@ void GLTextureUploader_Simple::UploadRect(void* d, UnrealMipmap* mip, int x, int
 
 /////////////////////////////////////////////////////////////////////////////
 
-int GLTextureUploader_BGRA8_Swizzle::GetUploadSize(int x, int y, int w, int h)
+size_t GLTextureUploader_BGRA8_Swizzle::GetUploadSize(int x, int y, int w, int h)
 {
-	return w * h * 4;
+	return (size_t)w * (size_t)h * 4;
 }
 
 void GLTextureUploader_BGRA8_Swizzle::UploadRect(void* d, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
@@ -266,7 +266,7 @@ void GLTextureUploader_BGRA8_Swizzle::UploadRect(void* d, UnrealMipmap* mip, int
 
 /////////////////////////////////////////////////////////////////////////////
 
-int GLTextureUploader_4x4Block::GetUploadSize(int x, int y, int w, int h)
+size_t GLTextureUploader_4x4Block::GetUploadSize(int x, int y, int w, int h)
 {
 	int x0 = x / 4;
 	int y0 = y / 4;
@@ -377,9 +377,9 @@ static void UploadDecoded(void* d, UnrealMipmap* mip, int x, int y, int w, int h
 	}
 }
 
-int GLTextureUploader_BC1_Decode::GetUploadSize(int x, int y, int w, int h)
+size_t GLTextureUploader_BC1_Decode::GetUploadSize(int x, int y, int w, int h)
 {
-	return w * h * 4;
+	return (size_t)w * (size_t)h * 4;
 }
 
 static void BC1BlockToTexels(const uint8_t* block, uint8_t* texels)
@@ -392,9 +392,9 @@ void GLTextureUploader_BC1_Decode::UploadRect(void* d, UnrealMipmap* mip, int x,
 	UploadDecoded<4>(d, mip, x, y, w, h, 8, 4, 4, BC1BlockToTexels);
 }
 
-int GLTextureUploader_RGBA32F_Decode::GetUploadSize(int x, int y, int w, int h)
+size_t GLTextureUploader_RGBA32F_Decode::GetUploadSize(int x, int y, int w, int h)
 {
-	return w * h * 4;
+	return (size_t)w * (size_t)h * 4;
 }
 
 void GLTextureUploader_RGBA32F_Decode::UploadRect(void* d, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)

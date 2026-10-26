@@ -13,7 +13,8 @@ public:
 	GLTextureUploader(GLint internalformat, GLenum format, GLenum type) : Internalformat(internalformat), Format(format), Type(type) { }
 	virtual ~GLTextureUploader() = default;
 
-	virtual int GetUploadSize(int x, int y, int w, int h) = 0;
+	// In bytes: a texture of 16384 a side in RGBA32F is 4 GiB, past an int
+	virtual size_t GetUploadSize(int x, int y, int w, int h) = 0;
 	virtual void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) = 0;
 
 	GLint GetInternalformat() const { return Internalformat; }
@@ -44,7 +45,7 @@ class GLTextureUploader_P8 : public GLTextureUploader
 public:
 	GLTextureUploader_P8() : GLTextureUploader(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE) { }
 
-	int GetUploadSize(int x, int y, int w, int h) override;
+	size_t GetUploadSize(int x, int y, int w, int h) override;
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
 };
 
@@ -53,7 +54,7 @@ class GLTextureUploader_RGB8 : public GLTextureUploader
 public:
 	GLTextureUploader_RGB8() : GLTextureUploader(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE) { }
 
-	int GetUploadSize(int x, int y, int w, int h) override;
+	size_t GetUploadSize(int x, int y, int w, int h) override;
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
 };
 
@@ -62,7 +63,7 @@ class GLTextureUploader_BGRA8_LM : public GLTextureUploader
 public:
 	GLTextureUploader_BGRA8_LM() : GLTextureUploader(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE) { }
 
-	int GetUploadSize(int x, int y, int w, int h) override;
+	size_t GetUploadSize(int x, int y, int w, int h) override;
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
 };
 
@@ -71,7 +72,7 @@ class GLTextureUploader_Simple : public GLTextureUploader
 public:
 	GLTextureUploader_Simple(GLint internalformat, GLenum format, GLenum type, int bytesPerPixel) : GLTextureUploader(internalformat, format, type), BytesPerPixel(bytesPerPixel) { }
 
-	int GetUploadSize(int x, int y, int w, int h) override;
+	size_t GetUploadSize(int x, int y, int w, int h) override;
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
 
 private:
@@ -85,7 +86,7 @@ class GLTextureUploader_BGRA8_Swizzle : public GLTextureUploader
 public:
 	GLTextureUploader_BGRA8_Swizzle() : GLTextureUploader(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE) { }
 
-	int GetUploadSize(int x, int y, int w, int h) override;
+	size_t GetUploadSize(int x, int y, int w, int h) override;
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
 };
 
@@ -94,7 +95,7 @@ class GLTextureUploader_4x4Block : public GLTextureUploader
 public:
 	GLTextureUploader_4x4Block(GLint internalformat, GLenum format, GLenum type, int bytesPerBlock) : GLTextureUploader(internalformat, format, type), BytesPerBlock(bytesPerBlock) { }
 
-	int GetUploadSize(int x, int y, int w, int h) override;
+	size_t GetUploadSize(int x, int y, int w, int h) override;
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
 
 private:
@@ -106,7 +107,7 @@ class GLTextureUploader_BC1_Decode : public GLTextureUploader
 public:
 	GLTextureUploader_BC1_Decode() : GLTextureUploader(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE) { }
 
-	int GetUploadSize(int x, int y, int w, int h) override;
+	size_t GetUploadSize(int x, int y, int w, int h) override;
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
 };
 
@@ -115,6 +116,6 @@ class GLTextureUploader_RGBA32F_Decode : public GLTextureUploader
 public:
 	GLTextureUploader_RGBA32F_Decode() : GLTextureUploader(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE) { }
 
-	int GetUploadSize(int x, int y, int w, int h) override;
+	size_t GetUploadSize(int x, int y, int w, int h) override;
 	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
 };

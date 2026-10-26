@@ -122,19 +122,25 @@ void GLUploadManager::UploadData(GLTexture2D* image, const TextureInfo& Info, bo
 		bool fits = !Mip->Data.empty() && Mip->Width == levelwidth && Mip->Height == levelheight;
 		if (compressed)
 		{
-			int mipsize = uploader->GetUploadSize(0, 0, levelwidth, levelheight);
+			size_t mipsize = uploader->GetUploadSize(0, 0, levelwidth, levelheight);
 			uint8_t* data = GetUploadBuffer(mipsize);
 			if (fits)
 				uploader->UploadRect(data, Mip, 0, 0, levelwidth, levelheight, Info.Palette, masked);
 			else
 				memset(data, 0, mipsize);
-			glCompressedTexImage2D(GL_TEXTURE_2D, level, uploader->GetInternalformat(), levelwidth, levelheight, 0, mipsize, data);
-			ThrowIfGLError("UploadData(compressed) failed");
+			glCompressedTexImage2D(GL_TEXTURE_2D, level, uploader->GetInternalformat(), levelwidth, levelheight, 0, (GLsizei)mipsize, data);
 		}
-		else if (fits)
+		else
 		{
-			uint8_t* data = GetUploadBuffer(uploader->GetUploadSize(0, 0, levelwidth, levelheight));
-			uploader->UploadRect(data, Mip, 0, 0, levelwidth, levelheight, Info.Palette, masked);
+			// A level with no mip of its own, or a misfit one, is zeros, as a
+			// compressed one's is: made without data it was undefined, read
+			// as whatever the driver had (the BC1 decode's, among others)
+			size_t size = uploader->GetUploadSize(0, 0, levelwidth, levelheight);
+			uint8_t* data = GetUploadBuffer(size);
+			if (fits)
+				uploader->UploadRect(data, Mip, 0, 0, levelwidth, levelheight, Info.Palette, masked);
+			else
+				memset(data, 0, size);
 			glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, levelwidth, levelheight, uploader->GetFormat(), uploader->GetType(), data);
 		}
 		levelwidth = std::max(levelwidth >> 1, 1);
