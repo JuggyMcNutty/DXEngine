@@ -242,6 +242,9 @@ is. DXEngine's keys:
 | `Performance.RenderScale` | The scene drawn at this fraction of the window's size (0.25 to 1; default 1) and scaled up to it, by the Vulkan, GL and software devices ([how](#settings-the-launcher-exposes)). |
 | `"Type": "GLES"` in `RenderDevice` | The GL device on an OpenGL ES 3.2 context (DXLauncher's `[GLES]` renderer, `data/renderers.ini`). |
 | `"Type": "Software"` in `RenderDevice` | The software device, which draws on the CPU (DXLauncher's `[Software]` renderer; [rendering](#rendering)). |
+| `"Type": "Vulkan"`, `"OpenGL"` or `"D3D11"` in `RenderDevice` | The Vulkan device, the GL device on a desktop GL context, or the D3D11 device, Windows' own, which no launcher offers yet ([for advanced users](../README.md#for-advanced-users)). |
+| `"Antialias"`, `"Light"`, `"Gamma"` in `RenderDevice` | `Off`, `MSAA2x` or `MSAA4x`; `Normal`, `OneX` or `BrighterActors`; `D3D9` or `XOpenGL` ([rendering](#rendering)). |
+| `"UseVSync"`, `"Hdr"`, `"HdrScale"`, `"Bloom"`, `"BloomAmount"`, `"GammaCorrectScreenshots"`, `"UseDebugLayer"` in `RenderDevice` | Vsync (on unless the key says otherwise), HDR and its scale, bloom and its amount (128 each), screenshots written gamma-corrected, and the Vulkan validation layer or D3D11's debug layer where the machine has it; a key left out keeps its default. |
 | `"CPUDriver": true` in `RenderDevice` | The Vulkan device on Mesa's lavapipe, or the GL device on llvmpipe, a GPU passed over (DXLauncher's `[VulkanCPU]` and `[OpenGLCPU]` renderers; [rendering](#rendering)). |
 | `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)). |
 
