@@ -308,7 +308,6 @@ public:
 	Rotator CameraRotation = Rotator(0,0,0);
 	float CameraFovAngle = 95.0f;
 
-	std::string windowingSystemName;
 
 	bool quit = false;
 

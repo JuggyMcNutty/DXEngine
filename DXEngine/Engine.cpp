@@ -562,7 +562,6 @@ void Engine::Run()
 		audiodev->SaveConfig();
 		renderdev->SaveConfig();
 	}
-	packages->SetIniValue("System", "Engine.DXEngineWindowSystem", "WindowSystem", windowingSystemName);
 	packages->SaveAllIniFiles();
 
 	LogMessage("Closing window...");
@@ -2816,12 +2815,6 @@ void Engine::LoadEngineSettings()
 		audiodev->LoadProperties();
 		renderdev->LoadProperties();
 	}
-
-#ifdef WIN32
-	windowingSystemName = packages->GetIniValue("System", "Engine.DXEngineWindowSystem", "WindowSystem", "Win32");
-#else
-	windowingSystemName = packages->GetIniValue("System", "Engine.DXEngineWindowSystem", "WindowSystem", "SDL2");
-#endif
 }
 
 void Engine::LoadKeybindings()
