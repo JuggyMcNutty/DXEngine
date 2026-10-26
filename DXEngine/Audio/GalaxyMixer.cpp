@@ -79,8 +79,14 @@ void GalaxyMixer::SetMasterVolume(float louderSlider)
 // the mix at the master gain. Set again, it starts from silence.
 void GalaxyMixer::SetReverb(const ReverbSettings* settings)
 {
+	// A cutoff above the output rate: Galaxy's setup refuses it before
+	// touching its state, and glxSetSampleReverb plays on with the reverb it
+	// has (Galaxy.dll 0x106109f0, 0x106113d0), so this one keeps its own
+	if (settings && settings->masterGain != 0.0f && settings->cutoffHz > rate)
+		return;
+
 	float key[15] = {};
-	if (settings && settings->masterGain != 0.0f && settings->cutoffHz <= rate)
+	if (settings && settings->masterGain != 0.0f)
 	{
 		key[0] = settings->masterGain;
 		key[1] = settings->cutoffHz;
