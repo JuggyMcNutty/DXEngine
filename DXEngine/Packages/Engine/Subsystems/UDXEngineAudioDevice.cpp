@@ -91,7 +91,7 @@ void UDXEngineAudioDevice::SetPropertyFromString(const NameString& propertyName,
 	else if (propertyName == "ReverseStereo")
 		ReverseStereo = IniPropertyConverter<bool>::FromString(value);
 	else if (propertyName == "Latency")
-		Latency = IniPropertyConverter<int>::FromString(value);
+		Latency = std::clamp(IniPropertyConverter<int>::FromString(value), 10, 250);
 	else if (propertyName == "OutputRate")
 		OutputRate = IniPropertyConverter<AudioFrequency>::FromString(value);
 	else if (propertyName == ChannelsKey())
@@ -136,6 +136,8 @@ void UDXEngineAudioDevice::LoadProperties(const NameString& from)
 	LowSoundQuality = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "LowSoundQuality", LowSoundQuality);
 	ReverseStereo = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "ReverseStereo", ReverseStereo);
 	Latency = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "Latency", Latency);
+	// Held to 10 to 250 ms, as Galaxy holds it (galaxy-dll.md)
+	Latency = std::clamp(Latency, 10, 250);
 	OutputRate = IniPropertyConverter<AudioFrequency>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "OutputRate", OutputRate);
 	// Held to 8,000 to 48,000 Hz, as Galaxy holds its rate: 0 divided the
 	// mixer's step by zero, a negative rate capped every step, and one past

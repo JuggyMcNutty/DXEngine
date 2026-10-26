@@ -1098,8 +1098,9 @@ map it is on is loaded). Differs:
   raised count's channels are voices of their own, where the original's are
   its music's
   ([settings](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#settings)).
-- Not carried: the holds a `SET` puts on `DopplerSpeed` and `AmbientFactor`,
-  which no menu sets.
+- Carried: Galaxy's holds on `OutputRate` (8,000 to 48,000 Hz) and `Latency`
+  (10 to 250 ms). Not carried: the holds a `SET` puts on `DopplerSpeed` and
+  `AmbientFactor`, which no menu sets.
 - An ambient sound on a light follows its blink and strobe on DXEngine's
   timing ([lighting](#lighting)).
 - A sound's ID packs a number DXEngine gives each object that plays one,
