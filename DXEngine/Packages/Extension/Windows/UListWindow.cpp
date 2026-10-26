@@ -51,6 +51,11 @@ void UListWindow::InitDefaults()
 	colMargin() = 3.0f;
 	rowMargin() = 1.0f;
 	focusThickness() = 1.0f;
+	// Its colours (XListWindow::Init 0x1002e900): the selected text's black
+	// (inverseColor, the script's), the highlight white, the focus grey
+	inverseColor() = Color{ 0, 0, 0, 255 };
+	highlightColor() = Color{ 255, 255, 255, 255 };
+	focusColor() = Color{ 128, 128, 128, 255 };
 	SetNumColumns(1);
 }
 
@@ -912,9 +917,11 @@ void UListWindow::SetHighlightColor(const Color& NewColor)
 	highlightColor() = NewColor;
 }
 
+// The script's inverseColor, which the original's setter writes and its
+// Draw reads
 void UListWindow::SetHighlightTextColor(const Color& NewColor)
 {
-	highlightTextColor = NewColor;
+	inverseColor() = NewColor;
 }
 
 void UListWindow::SetHighlightTexture(UObject* NewTexture)
@@ -1137,7 +1144,7 @@ void UListWindow::DrawWindow(UGC* gc)
 		float y = 0.0f;
 		for (auto& item : items)
 		{
-			gc->SetTextColor(item.selected ? highlightTextColor : col.color);
+			gc->SetTextColor(item.selected ? inverseColor() : col.color);
 			std::string text = FieldDisplayText(item, colIndex);
 			float textWidth = 0.0f, textHeight = 0.0f;
 			gc->GetTextExtent(0.0f, textWidth, textHeight, text);

@@ -128,7 +128,6 @@ public:
 	// The sort keys, first compared first; a column not here is not a key.
 	std::vector<int> sortColumns;
 
-	Color highlightTextColor = { 255,255,255,255 };
 
 	USound*& ActivateSound() { return Value<USound*>(PropOffsets_ListWindow.ActivateSound); }
 	std::string& Delimiter() { return Value<std::string>(PropOffsets_ListWindow.Delimiter); }
