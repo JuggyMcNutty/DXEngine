@@ -27,7 +27,12 @@ bool Win32SaveFileDialog::Show()
 		throw_if_failed(result, "IFileSaveDialog.SetFileName failed");
 	}
 
-	FILEOPENDIALOGOPTIONS options = FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST;
+	// The dialog's own defaults kept (the overwrite question, no read-only
+	// file, the directory left), ours added
+	FILEOPENDIALOGOPTIONS options = 0;
+	result = save_dialog->GetOptions(&options);
+	throw_if_failed(result, "IFileSaveDialog.GetOptions() failed");
+	options |= FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST | FOS_OVERWRITEPROMPT;
 	result = save_dialog->SetOptions(options);
 	throw_if_failed(result, "IFileSaveDialog.SetOptions() failed");
 
@@ -49,7 +54,7 @@ bool Win32SaveFileDialog::Show()
 
 		if ((size_t)filterindex < filters.size())
 		{
-			result = save_dialog->SetFileTypeIndex(filterindex);
+			result = save_dialog->SetFileTypeIndex((UINT)filterindex + 1); // one-based
 			throw_if_failed(result, "IFileOpenDialog.SetFileTypeIndex() failed");
 		}
 	}
