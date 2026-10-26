@@ -74,7 +74,8 @@
 # SaveConsole's, LoadConsole's and StartConsole's Via; LoadConsole's Open;
 # ThemeConsole's Direct;
 # CensusConsole's From, Wait, Load, Seconds, Notify and Open; DetailConsole's
-# Heights; MoveConsole's Watch, WatchFrom and WatchTo; SwimConsole's Only).
+# Heights; MoveConsole's Watch, WatchFrom and WatchTo; SwimConsole's Only;
+# MultiEditConsole's Keys).
 # DXCAP_MISSION_MAP=<map> names, through the run's ini, the map a run's
 # console travels to, its TargetMap (MissionConsole's, StaticConsole's,
 # WadeConsole's, ScreenConsole's, PerfConsole's, EndgameConsole's,
