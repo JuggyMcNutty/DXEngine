@@ -86,40 +86,49 @@ std::shared_ptr<Font> WidgetStyle::GetFont(const std::string& state)
 	return font;
 }
 
+// A property written with another type than the one asked for (a number
+// for a bool, true for a length) answers as if unset: std::get threw
+// bad_variant_access out of layout or paint, which ended the error window
 bool WidgetStyle::GetBool(const std::string& state, const std::string& propertyName) const
 {
 	const PropertyVariant* prop = FindProperty(state, propertyName);
-	return prop ? std::get<bool>(*prop) : false;
+	const bool* value = prop ? std::get_if<bool>(prop) : nullptr;
+	return value ? *value : false;
 }
 
 int WidgetStyle::GetInt(const std::string& state, const std::string& propertyName) const
 {
 	const PropertyVariant* prop = FindProperty(state, propertyName);
-	return prop ? std::get<int>(*prop) : 0;
+	const int* value = prop ? std::get_if<int>(prop) : nullptr;
+	return value ? *value : 0;
 }
 
 double WidgetStyle::GetDouble(const std::string& state, const std::string& propertyName) const
 {
 	const PropertyVariant* prop = FindProperty(state, propertyName);
-	return prop ? std::get<double>(*prop) : 0.0;
+	const double* value = prop ? std::get_if<double>(prop) : nullptr;
+	return value ? *value : 0.0;
 }
 
 std::string WidgetStyle::GetString(const std::string& state, const std::string& propertyName) const
 {
 	const PropertyVariant* prop = FindProperty(state, propertyName);
-	return prop ? std::get<std::string>(*prop) : std::string();
+	const std::string* value = prop ? std::get_if<std::string>(prop) : nullptr;
+	return value ? *value : std::string();
 }
 
 Colorf WidgetStyle::GetColor(const std::string& state, const std::string& propertyName) const
 {
 	const PropertyVariant* prop = FindProperty(state, propertyName);
-	return prop ? std::get<Colorf>(*prop) : Colorf::transparent();
+	const Colorf* value = prop ? std::get_if<Colorf>(prop) : nullptr;
+	return value ? *value : Colorf::transparent();
 }
 
 std::shared_ptr<Image> WidgetStyle::GetImage(const std::string& state, const std::string& propertyName) const
 {
 	const PropertyVariant* prop = FindProperty(state, propertyName);
-	return prop ? std::get<std::shared_ptr<Image>>(*prop) : std::shared_ptr<Image>();
+	const std::shared_ptr<Image>* value = prop ? std::get_if<std::shared_ptr<Image>>(prop) : nullptr;
+	return value ? *value : std::shared_ptr<Image>();
 }
 
 /////////////////////////////////////////////////////////////////////////////
