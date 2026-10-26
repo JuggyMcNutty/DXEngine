@@ -47,12 +47,14 @@ static Array<std::string> ParseFields(const std::string& content)
 bool UDXTextParser::OpenText(NameString textName, std::string textPackage)
 {
 	CloseText();
-	if (textName.IsNone())
-		textName = "DeusExQuotes"; // Not correct, but it handles empty strings just fine.
 	if (textPackage.empty())
 		textPackage = "DeusExText";
-	// A package that is not there opens no text (false), not the game's end
-	try
+	// A package that is not there opens no text (false), not the game's end;
+	// a None name opens none quietly, as the original's (DeusExText.dll
+	// OpenText 0x10001287: DeusExText.None, found nothing), not the quotes
+	if (textName.IsNone())
+		textObject = nullptr;
+	else try
 	{
 		textObject = UObject::Cast<UDXExtString>(engine->packages->GetPackage(textPackage)->GetUObject("ExtString", textName));
 	}
