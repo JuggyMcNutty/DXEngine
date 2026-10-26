@@ -362,7 +362,8 @@ public:
 		if (subsong != 0)
 			module->select_subsong(subsong);
 
-		// TODO: mimic galaxy and look for the next non-empty pattern
+		// Galaxy starts at the order SongSection (galaxy-dll.md, Music);
+		// whether it passes over an empty order there is unread
 
 		module->set_repeat_count(-1);
 	}
