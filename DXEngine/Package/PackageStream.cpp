@@ -112,6 +112,10 @@ std::string PackageStream::ReadString()
 	if (GetVersion() >= 64)
 	{
 		int len = ReadIndex();
+		// A name's length from the file: a negative one threw bad_alloc and
+		// one up to 2 GB was zero-filled before the read failed
+		if (len < 0 || len > 1024 * 1024)
+			Exception::Throw("PackageStream::ReadString: a string of " + std::to_string(len) + " bytes");
 		Array<char> s;
 		s.resize(len);
 		ReadBytes(s.data(), (int)s.size());

@@ -1695,7 +1695,8 @@ A mod gets the original's loader and natives:
   nothing; an animation chain that never comes back ends at 2,048 textures;
   an import whose outers never end is refused; an export whose class, outer
   or base rings on itself is refused; a dynamic array property of a
-  dimension over 1 reads its element where it is.
+  dimension over 1 reads its element where it is; a name's length that is no
+  name is refused.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
   original's (no run: no stock script calls it).
