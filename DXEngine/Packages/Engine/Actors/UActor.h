@@ -306,7 +306,7 @@ public:
 	// TryMove in two halves: what the move would hit (hits, and the blocking
 	// hit returned), and the move itself given those.
 	CollisionHit TraceMove(const vec3& delta, bool isOwnBaseBlocking, CollisionHitList& hits);
-	CollisionHit FinishMove(const vec3& delta, const CollisionHitList& hits, CollisionHit blockingHit);
+	CollisionHit FinishMove(const vec3& delta, const CollisionHitList& hits, CollisionHit blockingHit, const vec3& hitLocation);
 	// TryMove held off what blocks it, as the original's ULevel::MoveActor
 	// makes every move: traced 2 units past its end, and stopped 2 units
 	// short of the hit -- not moved at all for a hit nearer than that -- the

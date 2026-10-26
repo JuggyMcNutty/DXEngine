@@ -38,7 +38,7 @@ NameString ToNameString(EventName name)
 		"Reset", "PreRender", "RenderOverlays", "PostRender",
 		"NotifyLevelChange", "InitGame", "PreLogin", "Login",
 		"Possess", "TravelPreAccept", "AcceptInventory", "TravelPostAccept",
-		"PostLogin", "KeyType", "KeyEvent"
+		"PostLogin", "KeyType", "KeyEvent", "BumpWall"
 	};
 	return names[(int)name];
 }

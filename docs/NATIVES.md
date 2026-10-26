@@ -1434,6 +1434,8 @@ engine's own objects are not deleted (the log says so).
   all, not only the whole way (`NudgeConsole`: a crate 50 units over the
   floor moved 100 down answers true in both engines, resting at one height;
   a move from half a unit over the floor answers false, the crate unmoved).
+  A move the level stops sends `BumpWall` with where the trace met it, 2
+  units past where the actor stops, and its normal (`BumpConsole`).
 - **Input axes**: every `input` float is 0 again after the player's
   `PlayerTick`, and after its `PlayerInput` while paused, as the original's
   ([a player's input](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)).

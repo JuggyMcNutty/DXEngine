@@ -637,7 +637,7 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
 	if (dryRun)
 		return blockingHit;
 
-	return FinishMove(delta, hits, blockingHit);
+	return FinishMove(delta, hits, blockingHit, Location() + delta * blockingHit.Fraction);
 }
 
 // ULevel::MoveActor (Engine.dll 0x103990e0, dx-reverse-info/engine-dll.md,
@@ -666,9 +666,11 @@ CollisionHit UActor::TryMoveHeldOff(const vec3& delta)
 		return TryMove(delta);
 
 	CollisionHitList hits;
-	CollisionHit blockingHit = TraceMove(HeldOffDelta(delta), true, hits);
+	vec3 traced = HeldOffDelta(delta);
+	CollisionHit blockingHit = TraceMove(traced, true, hits);
+	vec3 hitLocation = Location() + traced * blockingHit.Fraction;
 	blockingHit.Fraction = HeldOffFraction(delta, blockingHit.Fraction);
-	return FinishMove(delta, hits, blockingHit);
+	return FinishMove(delta, hits, blockingHit, hitLocation);
 }
 
 bool UActor::IsPlayerOrProjectile()
@@ -716,7 +718,7 @@ CollisionHit UActor::TraceMove(const vec3& delta, bool isOwnBaseBlocking, Collis
 	return blockingHit;
 }
 
-CollisionHit UActor::FinishMove(const vec3& delta, const CollisionHitList& hits, CollisionHit blockingHit)
+CollisionHit UActor::FinishMove(const vec3& delta, const CollisionHitList& hits, CollisionHit blockingHit, const vec3& hitLocation)
 {
 	bool useBlockPlayers = IsPlayerOrProjectile();
 
@@ -743,6 +745,13 @@ CollisionHit UActor::FinishMove(const vec3& delta, const CollisionHitList& hits,
 			CallEvent(blockingHit.Actor, EventName::Bump, { ExpressionValue::ObjectValue(this) });
 			CallEvent(this, EventName::Bump, { ExpressionValue::ObjectValue(blockingHit.Actor) });
 		}
+	}
+	else if (blockingHit.Fraction < 1.0f)
+	{
+		// A move the level stopped: Deus Ex's BumpWall to the actor, with
+		// where the trace met the level and the normal (ULevel::MoveActor,
+		// dx-reverse-info/engine-dll.md, moving)
+		CallEvent(this, EventName::BumpWall, { ExpressionValue::VectorValue(hitLocation), ExpressionValue::VectorValue(blockingHit.Normal) });
 	}
 
 	// Send touch notifications for anything we crossed while moving

@@ -33,7 +33,7 @@ enum class EventName
 	Reset, PreRender, RenderOverlays, PostRender,
 	NotifyLevelChange, InitGame, PreLogin, Login,
 	Possess, TravelPreAccept, AcceptInventory, TravelPostAccept,
-	PostLogin, KeyType, KeyEvent,
+	PostLogin, KeyType, KeyEvent, BumpWall,
 
 	MaxEventNameValue // Why isn't this part of C++ after 40+ years of people doing this in both C and C++?
 };
