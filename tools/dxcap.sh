@@ -109,6 +109,9 @@
 # the process's maps.txt; tools/perf/frame-report.py reads them against
 # PerfConsole's windows.
 set -euo pipefail
+# A die inside $(...) ends the run too (prove's cmd_dxe): without this, bash
+# clears errexit in a command substitution
+shopt -s inherit_errexit
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DX_ROOT="${DX_ROOT:-$(cd "$HERE/../.." && pwd)}"
 say() { printf '%s\n' "$*" >&2; }
