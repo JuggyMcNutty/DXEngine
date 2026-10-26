@@ -2,9 +2,10 @@
 // SaveConsole: a save for the other engine to load -- Liberty Island opened
 // from wherever the run starts; 8 s in, a LoadMarker is spawned, the player
 // is given a goal, a note and a nano key as the game gives them (AddGoal,
-// AddNote, the key ring's GiveKey: each new(Self) on the player), and what
-// the level holds is logged (the player, its place and inventory, its goals,
-// notes and keys, the game, how many actors, pawns and inventory items, the
+// AddNote, the key ring's GiveKey: each new(Self) on the player) and two HUD
+// messages (a log object each, CreateLogObject), and what the level holds
+// is logged (the player, its place and inventory, its goals, notes, keys
+// and logs, the game, how many actors, pawns and inventory items, the
 // mission script, and the marker's PostPostBeginPlay calls), then the game
 // is saved to slot 9 (by a SaveHelper, on the next actors' tick) and the run
 // exits 3 s later. LoadConsole loads that slot and logs the same: no save
@@ -64,6 +65,7 @@ function Census(PlayerPawn P, string Label)
 	local DeusExGoal Goal;
 	local DeusExNote Note;
 	local NanoKeyInfo Key;
+	local DeusExLog LogEntry;
 	local int Actors, Pawns, Items;
 	local string Carried;
 
@@ -89,6 +91,8 @@ function Census(PlayerPawn P, string Label)
 			Log("DXSAVE: " $ Label $ " note " $ string(Note) $ " user " $ Note.bUserNote $ ": " $ Note.text);
 		for (Key = DP.KeyList; Key != None; Key = Key.NextKey)
 			Log("DXSAVE: " $ Label $ " key " $ string(Key) $ " " $ Key.KeyID $ ": " $ Key.Description);
+		for (LogEntry = DP.FirstLog; LogEntry != None; LogEntry = LogEntry.next)
+			Log("DXSAVE: " $ Label $ " log " $ string(LogEntry) $ ": " $ LogEntry.text);
 	}
 	Log("DXSAVE: " $ Label $ " game " $ P.Level.Game $ ", " $ Actors $ " actors, " $ Pawns $ " pawns, " $ Items $ " inventory items");
 	foreach P.AllActors(class'MissionScript', S)
@@ -137,6 +141,10 @@ event Tick(float Delta)
 			DeusExPlayer(P).AddNote("DXCapture note", False, False);
 			if (DeusExPlayer(P).KeyRing != None)
 				DeusExPlayer(P).KeyRing.GiveKey('DXSaveKey', "DXCapture key");
+			// Two HUD messages: a log object each (DeusExPlayer.AddLog),
+			// each named apart in the save
+			P.ClientMessage("DXCapture message one");
+			P.ClientMessage("DXCapture message two");
 		}
 		if (Via != "")
 		{

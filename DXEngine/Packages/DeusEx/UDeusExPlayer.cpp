@@ -14,16 +14,21 @@ void UDeusExPlayer::ConBindEvents()
 	DeusExConBindEvents();
 }
 
+// Each named by MakeUniqueObjectName in the player's package, as the
+// original's (DeusEx.dll execCreateLogObject 0x10014760: a new object with
+// no name, NAME_None, which Core names DeusExLog0, DeusExLog1 ...): one
+// fixed name made a saved level's exports of one name, which a loader folds
+// into one object
 UObject* UDeusExPlayer::CreateDataVaultImageNoteObject()
 {
 	auto cls = engine->packages->FindClass("DeusEx.DataVaultImageNote");
-	return package->NewObject("DataVaultImageNote", cls, ObjectFlags::NoFlags);
+	return package->NewObject(package->MakeUniqueObjectName(cls), cls, ObjectFlags::NoFlags);
 }
 
 UObject* UDeusExPlayer::CreateDumpLocationObject()
 {
 	auto cls = engine->packages->FindClass("DeusEx.DumpLocation");
-	return package->NewObject("DumpLocation", cls, ObjectFlags::NoFlags);
+	return package->NewObject(package->MakeUniqueObjectName(cls), cls, ObjectFlags::NoFlags);
 }
 
 UObject* UDeusExPlayer::CreateGameDirectoryObject()
@@ -37,19 +42,19 @@ UObject* UDeusExPlayer::CreateGameDirectoryObject()
 UObject* UDeusExPlayer::CreateHistoryEvent()
 {
 	auto cls = engine->packages->FindClass("ConSys.ConHistoryEvent");
-	return package->NewObject("ConHistoryEvent", cls, ObjectFlags::NoFlags);
+	return package->NewObject(package->MakeUniqueObjectName(cls), cls, ObjectFlags::NoFlags);
 }
 
 UObject* UDeusExPlayer::CreateHistoryObject()
 {
 	auto cls = engine->packages->FindClass("ConSys.ConHistory");
-	return Cast<UConHistory>(package->NewObject("ConHistory", cls, ObjectFlags::NoFlags));
+	return Cast<UConHistory>(package->NewObject(package->MakeUniqueObjectName(cls), cls, ObjectFlags::NoFlags));
 }
 
 UObject* UDeusExPlayer::CreateLogObject()
 {
 	auto cls = engine->packages->FindClass("DeusEx.DeusExLog");
-	return package->NewObject("DeusExLog", cls, ObjectFlags::NoFlags);
+	return package->NewObject(package->MakeUniqueObjectName(cls), cls, ObjectFlags::NoFlags);
 }
 
 void UDeusExPlayer::DeleteSaveGameFiles(std::optional<std::string> saveDirectory)
