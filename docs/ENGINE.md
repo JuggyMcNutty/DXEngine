@@ -419,8 +419,9 @@ none, nor do `D3DDrv`'s but its detail passes
 ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):
 a translucent draw biased by its slope shows through the opaque one in front of it from afar,
 an augmentation canister's inner glow through its shell (`CanisterConsole`). A mover's surfaces
-take a step and a slope of 1 toward the viewer on Vulkan and GL (`SurfaceInfo::DepthBias`;
-the Vulkan scene pipelines' dynamic depth bias, set as it changes, GL's `glPolygonOffset`;
+take a step and a slope of 1 toward the viewer on Vulkan, GL and the software device
+(`SurfaceInfo::DepthBias`; the Vulkan scene pipelines' dynamic depth bias, set as it changes,
+GL's `glPolygonOffset`, the software device's own; D3D11's take none;
 [draw order and movers](NATIVES.md#draw-order-and-movers)). Multisampled, its scene shader
 reads a texture at the pixel's centre, as without multisampling: `TileConsole` on RADV, at 2x
 and 4x, draws its grey boxes pixel for pixel as without it, the `FontMenuHeaders` text at 1.00
