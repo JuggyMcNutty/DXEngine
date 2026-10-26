@@ -123,8 +123,9 @@ public:
 		if (!result)
 			Exception::Throw("Could not open wav file");
 
-		// drwav only supports 1 loop
-		if (decoder.smpl.numSampleLoops == 1)
+		// The first loop, as Galaxy plays it, whatever the count (dr_wav keeps
+		// the file's count and stores the first)
+		if (decoder.smpl.numSampleLoops >= 1)
 		{
 			bIsLooped = true;
 			loopStart = decoder.smpl.loops[0].start;
