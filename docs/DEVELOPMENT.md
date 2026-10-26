@@ -230,6 +230,7 @@ the run. *Either*: one engine on each side of a pair.
 | `NoneConsole` | both | what a None context yields: an array element written and read through None, a member of each type, a switch, a struct, calls, and a native's optional argument given through None (`CapNoneProbe`'s probes) | `DXNONE:` | the two logs' lines diffed |
 | `StateConsole` | both | state code's limits in a tick: an actor whose state code destroys it and logs on, and one bouncing between two states by `GotoState` alone, its count each second | `DXSTATE:` | the two logs' lines |
 | `ExtendConsole` | both | a state extending another (`CapExtender`): the extended state's `Begin` and a named label run on `GotoState` into the extending one, its function called from it, the state's name kept | `DXEXTEND:` |  |
+| `PreemptConsole` | both | a `GotoState` from within `EndState` and from within `BeginState` (`CapPreempter`): the state the actor ends in, the labels run | `DXPREEMPT:` |  |
 | `MidConsole` | both | `Object.Mid` at its edges | `DXMID:` |  |
 | `FrameConsole` | both | a frame held 2 s: the level's time over it, an actor's next tick | `DXFRAME:` | the two logs diffed |
 | `PassesConsole` | both | a tarp's Blowing looped at 20 a second through one frame held 2 s: its ticks and AnimEnds, the AnimFrame after the long tick (`CapAnimated`) | `DXPASS:` | the AnimEnds in the long tick |

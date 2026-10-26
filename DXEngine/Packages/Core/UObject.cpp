@@ -560,8 +560,23 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
 
 	UState* oldState = (UState*)StateFrame->State;
 
-	if (oldState && oldState != newState)
+	// As the original's UObject::GotoState (Core.dll 0x1012e8f0): EndState
+	// under InEndState, so a GotoState from within it sends no EndState
+	// again, and a state change during it (StateChanged, set by every
+	// finished GotoState) preempts the rest -- the object stays where that
+	// GotoState took it, this one's state and label forgotten; a change
+	// during BeginState likewise keeps that state and skips this label.
+	// DXEngine sent EndState again from within EndState, recursing on an
+	// unconditional GotoState there, and let this one's state override a
+	// conditional one's.
+	if (oldState && oldState != newState && !AnyFlags(Flags, ObjectFlags::InEndState))
+	{
+		Flags = (Flags & ~ObjectFlags::StateChanged) | ObjectFlags::InEndState;
 		CallEvent(this, EventName::EndState);
+		Flags &= ~ObjectFlags::InEndState;
+		if (AnyFlags(Flags, ObjectFlags::StateChanged))
+			return;
+	}
 
 	if (oldState != newState)
 		StateFrame->SetState(newState);
@@ -579,11 +594,16 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
 		// during play would otherwise never have that state written by Save() at all, silently
 		// losing it on the next save regardless of what state it's actually in.
 		Flags |= ObjectFlags::HasStack;
+		if (oldState != newState)
+		{
+			Flags &= ~ObjectFlags::StateChanged;
+			CallEvent(this, EventName::BeginState);
+			if (AnyFlags(Flags, ObjectFlags::StateChanged))
+				return;
+		}
 		StateFrame->GotoLabel(labelName);
 	}
-
-	if (newState && oldState != newState)
-		CallEvent(this, EventName::BeginState);
+	Flags |= ObjectFlags::StateChanged;
 }
 
 void UObject::Mark(GCMarker& marker)

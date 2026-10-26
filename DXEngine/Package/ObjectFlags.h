@@ -46,5 +46,7 @@ enum class ObjectFlags : uint32_t
 inline ObjectFlags operator|(ObjectFlags a, ObjectFlags b) { return (ObjectFlags)((uint32_t)a | (uint32_t)b); }
 inline ObjectFlags operator|=(ObjectFlags& a, ObjectFlags b) { a = (ObjectFlags)((uint32_t)a | (uint32_t)b); return a; }
 inline ObjectFlags operator&(ObjectFlags a, ObjectFlags b) { return (ObjectFlags)((uint32_t)a & (uint32_t)b); }
+inline ObjectFlags operator&=(ObjectFlags& a, ObjectFlags b) { a = (ObjectFlags)((uint32_t)a & (uint32_t)b); return a; }
+inline ObjectFlags operator~(ObjectFlags a) { return (ObjectFlags)(~(uint32_t)a); }
 inline bool AllFlags(ObjectFlags value, ObjectFlags flags) { return (value & flags) == flags; }
 inline bool AnyFlags(ObjectFlags value, ObjectFlags flags) { return (uint32_t)(value & flags) != 0; }

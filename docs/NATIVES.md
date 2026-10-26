@@ -1340,6 +1340,11 @@ Every other native the scripted runs compare matches the original
   a class is held to its metaclass (an Actor class from `Engine.Texture` is
   None). A bool takes `1`, `True`, `0` and `False` alone, an int the number
   its text starts with.
+- **A `GotoState` from within `EndState` or `BeginState`**
+  (`PreemptConsole`): preempts the one under way, as the original's
+  `RF_InEndState` and `RF_StateChanged` have it: the actor stays where the
+  inner one took it, the outer one's state and label forgotten, and
+  `EndState` is not sent again from within `EndState`.
 - **A None context** (`A.X` with `A` None; `NoneConsole`): the zero of
   `X`'s type, as the original's `execContext` zero-fills the result -- a
   `switch (A.Physics)` takes `case PHYS_None`, a struct copied through None
