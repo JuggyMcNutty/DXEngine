@@ -480,5 +480,10 @@ void UStruct::PushAsciiZ(const std::string& value)
 
 void UStruct::PushUnicodeZ(const std::wstring& value)
 {
-	PushBytes(value.c_str(), (value.length() + 1) * 2);
+	// 16-bit units, as ReadUnicodeZ reads them: a wchar_t is 4 bytes off
+	// Windows, so the string's bytes copied whole read back as its first
+	// character and garbage tokens
+	for (wchar_t c : value)
+		PushUInt16((uint16_t)c);
+	PushUInt16(0);
 }
