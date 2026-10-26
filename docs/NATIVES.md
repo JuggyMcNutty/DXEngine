@@ -1765,7 +1765,8 @@ The server-only stubs are under
   came, each element of its array. The original's gives it others, the
   count right: 20 bytes sent to a `UdpLink` in binary mode reach its script
   as 20 bytes of what else is there, whatever was sent, and its
-  `SendBinary` answers False. No mod can have counted on them.
+  `SendBinary` answers False. No mod can have counted on them. DXEngine's
+  `SendText` and `SendBinary` answer False when nothing went.
 - **A dedicated server's natives**: `GetPlayerPawn` answers None, as the
   original's with no client or viewport, and `AttachDecal` attaches none, as
   the original's with no client.

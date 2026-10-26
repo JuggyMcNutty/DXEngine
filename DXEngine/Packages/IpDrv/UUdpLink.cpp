@@ -143,7 +143,9 @@ bool UUdpLink::SendBinary(const IpAddr& Addr, int Count, const uint8_t* B)
 	addr.sin_addr.s_addr = htonl((uint32_t)Addr.Addr);
 	addr.sin_port = htons((uint16_t)Addr.Port);
 	int result = (int)sendto(handle, (const char*)B, std::clamp(Count, 0, 255), 0, (const sockaddr*)&addr, sizeof(addr));
-	return result != 0;
+	// False when nothing went, a failed send among it (the original's answers
+	// False always, docs/NATIVES.md)
+	return result > 0;
 }
 
 int UUdpLink::ReadText(IpAddr& Addr, std::string& Str)
@@ -172,5 +174,5 @@ bool UUdpLink::SendText(const IpAddr& Addr, const std::string& Str)
 	int result = (int)sendto(handle, Str.data(), (int)Str.size(), 0, (const sockaddr*)&addr, sizeof(addr));
 	if (result < 0)
 		LastError = LastSocketError();
-	return result != 0;
+	return result > 0;
 }
