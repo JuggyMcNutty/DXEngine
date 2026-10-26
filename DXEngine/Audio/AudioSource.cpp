@@ -36,6 +36,10 @@ public:
 		int error = mp3dec_ex_open_buf(&decoder, input.data(), input.size(), MP3D_SEEK_TO_SAMPLE);
 		if (error)
 			Exception::Throw("mp3dec_ex_open_buf failed");
+		// Data with no MP3 frame opens with its info zeroed: refused here, not
+		// divided by its zero channels at the first decode
+		if (decoder.info.channels <= 0 || decoder.info.hz <= 0)
+			Exception::Throw("No MP3 frames in the data");
 
 		memset(&frame_info, 0, sizeof(frame_info));
 	}
