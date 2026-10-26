@@ -166,6 +166,14 @@ void Package::AddRuntimeExport(UObject* obj)
 
 void Package::LoadExportObject(int index)
 {
+	// An export whose class, outer or base is itself, or a ring of them,
+	// recursed here without end (the slot is filled only after the load):
+	// a depth past 256 is such a ring, refused with the package's name
+	static int depth = 0;
+	struct DepthGuard { int& d; DepthGuard(int& d) : d(d) { d++; } ~DepthGuard() { d--; } } guard(depth);
+	if (depth > 256)
+		Exception::Throw("Package " + Name.ToString() + ": the exports' classes, outers or bases never end");
+
 	const ExportTableEntry* entry = &ExportTable[index];
 
 	SetDelayLoadActive delayload(Packages);
