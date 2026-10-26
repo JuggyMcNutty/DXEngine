@@ -134,6 +134,11 @@ void ThemeStylesheetDocument::read_statement(ThemeStylesheetTokenizer& tokenizer
 				bool important_flag = false;
 				tokenizer.read_property_value(token, important_flag);
 			}
+			// A value ending at the '}' with no ';', legal CSS, ends the
+			// ruleset too: the loop read on past it, taking the rules after
+			// as this one's properties (the shipped theme's menubaritem)
+			if (token.type == ThemeStylesheetTokenType::curly_brace_end)
+				break;
 		}
 		rulesets.push_back(std::move(ruleset));
 	}
