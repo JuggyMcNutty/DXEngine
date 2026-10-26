@@ -102,6 +102,10 @@ void X11Connection::ProcessEvents()
 	{
 		XEvent event = {};
 		XNextEvent(display, &event);
+		// The input method takes its keys first (a dead key's compose, an
+		// XIM's input): what it keeps goes no further
+		if (XFilterEvent(&event, None))
+			continue;
 		DispatchEvent(&event);
 	}
 	CheckTimers();
