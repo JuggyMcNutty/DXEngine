@@ -6,9 +6,9 @@
 // opened and the lockpick selected on it, as BorderConsole does, so that a
 // button has the focus. Then, the focus window logged after each: the
 // focus window made insensitive; made sensitive again; its parent made
-// insensitive; sensitive again. Then an exit. What is compared between the
-// engines: every line -- the original moves the focus off a window made
-// insensitive, and off one whose parent is.
+// insensitive; sensitive again. Then the screen is closed and the run
+// exits. What is compared between the engines: every line -- the focus
+// stays on the disabled button in both.
 //=============================================================================
 class FocusConsole extends Console;
 
@@ -169,6 +169,15 @@ event Tick(float Delta)
 	{
 		Parent.SetSensitivity(True);
 		Say(P, "its parent sensitive again");
+		// The screen closed first: the original crashes exiting with it open
+		root = DeusExRootWindow(DXP.rootWindow);
+		if (root != None)
+			root.ClearWindowStack();
+		StepTime = 0;
+		Phase = 8;
+	}
+	else if (Phase == 8 && StepTime > 0.5)
+	{
 		Log("DXFOCUS: done, exiting");
 		P.ConsoleCommand("exit");
 		Phase = 9;
