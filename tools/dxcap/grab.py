@@ -82,6 +82,9 @@ def grab(env, name):
     ids = found.stdout.split()
     if not ids:
         return None
+    # The newest, X's ids rising: a second window of the name is an earlier
+    # original's that outlived its run, the older.
+    ids = [ids[-1]]
     # -silent: import rings the X bell after each grab, five a second, which
     # the desktop plays.
     try:
