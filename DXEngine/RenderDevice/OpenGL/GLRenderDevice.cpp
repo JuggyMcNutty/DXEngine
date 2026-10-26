@@ -371,6 +371,27 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 		ThrowIfGLError("glTexStorage2D(SceneBuffers.PPImage) failed");
 	}
 
+	// Every framebuffer checked complete as it is made, the bound one: an
+	// incomplete one surfaced later as "Lock failed", "Unlock failed" or
+	// "ReadPixels failed" with no cause. A driver that cannot draw into
+	// RGB10_A2 (beside the hit buffer and depth, or alone) gets the 8-bit
+	// buffers, from now on; any other incompleteness is the error, named.
+	auto incomplete = [&](const char* what) -> bool
+	{
+		GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+		if (status == GL_FRAMEBUFFER_COMPLETE)
+			return false;
+		if (colorInternal == GL_RGB10_A2 && !SceneRGB10A2Failed)
+		{
+			LogMessage(std::string("GLDrv: ") + what + " incomplete with RGB10_A2; RGBA8 in its place");
+			SceneRGB10A2Failed = true;
+			SceneBuffers.ColorBuffer.reset();
+			ResizeSceneBuffers(width, height, multisample);
+			return true;
+		}
+		throw std::runtime_error(std::string(what) + " incomplete, status " + std::to_string(status));
+	};
+
 	SceneBuffers.Framebuffer = std::make_shared<GLFramebuffer>();
 	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.Framebuffer->Handle);
 	SetDebugName(SceneBuffers.Framebuffer, "SceneBuffers.Framebuffer");
@@ -378,18 +399,24 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, SceneBuffers.HitBuffer->Handle, 0);
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, SceneBuffers.DepthBuffer->Handle, 0);
 	ThrowIfGLError("Creating SceneBuffers.Framebuffer failed");
+	if (incomplete("SceneBuffers.Framebuffer"))
+		return;
 
 	SceneBuffers.HitFramebuffer = std::make_shared<GLFramebuffer>();
 	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.HitFramebuffer->Handle);
 	SetDebugName(SceneBuffers.HitFramebuffer, "SceneBuffers.HitFramebuffer");
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, SceneBuffers.HitBuffer->Handle, 0);
 	ThrowIfGLError("Creating SceneBuffers.HitFramebuffer failed");
+	if (incomplete("SceneBuffers.HitFramebuffer"))
+		return;
 
 	SceneBuffers.PPHitFramebuffer = std::make_shared<GLFramebuffer>();
 	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.PPHitFramebuffer->Handle);
 	SetDebugName(SceneBuffers.PPHitFramebuffer, "SceneBuffers.PPHitFramebuffer");
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, SceneBuffers.PPHitBuffer->Handle, 0);
 	ThrowIfGLError("Creating SceneBuffers.PPHitFramebuffer failed");
+	if (incomplete("SceneBuffers.PPHitFramebuffer"))
+		return;
 
 	for (int i = 0; i < 2; i++)
 	{
@@ -398,24 +425,8 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 		SetDebugName(SceneBuffers.PPFramebuffer[i], "SceneBuffers.PPFramebuffer");
 		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, SceneBuffers.PPImage[i]->Handle, 0);
 		ThrowIfGLError("Creating SceneBuffers.PPFramebuffer failed");
-	}
-
-	// A driver that cannot draw into RGB10_A2 beside the hit buffer and depth
-	// gets the 8-bit buffers, from now on.
-	if (colorInternal == GL_RGB10_A2)
-	{
-		glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.Framebuffer->Handle);
-		bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
-		glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.PPFramebuffer[0]->Handle);
-		complete = complete && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
-		if (!complete)
-		{
-			LogMessage("GLDrv: RGB10_A2 scene buffers incomplete; RGBA8 in their place");
-			SceneRGB10A2Failed = true;
-			SceneBuffers.ColorBuffer.reset();
-			ResizeSceneBuffers(width, height, multisample);
+		if (incomplete("SceneBuffers.PPFramebuffer"))
 			return;
-		}
 	}
 
 	int bloomWidth = width;
@@ -444,12 +455,16 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 		SetDebugName(level.VFramebuffer, "SceneBuffers.BlurLevels.VFramebuffer");
 		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, level.VTexture->Handle, 0);
 		ThrowIfGLError("Creating SceneBuffers.BlurLevels.VFramebuffer failed");
+		if (incomplete("SceneBuffers.BlurLevels.VFramebuffer"))
+			return;
 
 		level.HFramebuffer = std::make_shared<GLFramebuffer>();
 		glBindFramebuffer(GL_FRAMEBUFFER, level.HFramebuffer->Handle);
 		SetDebugName(level.HFramebuffer, "SceneBuffers.BlurLevels.HFramebuffer");
 		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, level.HTexture->Handle, 0);
 		ThrowIfGLError("Creating SceneBuffers.BlurLevels.HFramebuffer failed");
+		if (incomplete("SceneBuffers.BlurLevels.HFramebuffer"))
+			return;
 
 		level.Width = bloomWidth;
 		level.Height = bloomHeight;
