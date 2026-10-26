@@ -415,6 +415,9 @@ public:
 		}
 		else
 		{
+			// The tail moved up; a slot the tail left (moved from, still a T)
+			// takes an assignment, one past the old size is made in place
+			size_type oldSize = _size;
 			for (size_type i = _size; i > p; i--)
 			{
 				new((char*)(_data + (i + count - 1))) T(std::move(_data[i - 1]));
@@ -423,7 +426,10 @@ public:
 
 			for (size_type i = 0; i < count; i++)
 			{
-				_data[p + i] = value;
+				if (p + i < oldSize)
+					_data[p + i] = value;
+				else
+					new((char*)(_data + (p + i))) T(value);
 			}
 		}
 		return _data + p;
@@ -447,6 +453,7 @@ public:
 		}
 		else
 		{
+			size_type oldSize = _size;
 			for (size_type i = _size; i > p; i--)
 			{
 				new((char*)(_data + (i + count - 1))) T(std::move(_data[i - 1]));
@@ -454,9 +461,12 @@ public:
 			_size += count;
 
 			size_type i = p;
-			for (auto it = first; it != last; ++it)
+			for (auto it = first; it != last; ++it, ++i)
 			{
-				_data[i++] = *it;
+				if (i < oldSize)
+					_data[i] = *it;
+				else
+					new((char*)(_data + i)) T(*it);
 			}
 		}
 		return _data + p;
@@ -479,6 +489,7 @@ public:
 		}
 		else
 		{
+			size_type oldSize = _size;
 			for (size_type i = _size; i > p; i--)
 			{
 				new((char*)(_data + (i + count - 1))) T(std::move(_data[i - 1]));
@@ -487,7 +498,10 @@ public:
 
 			for (size_type i = 0; i < count; i++)
 			{
-				_data[p + i] = ilist[i];
+				if (p + i < oldSize)
+					_data[p + i] = ilist[i];
+				else
+					new((char*)(_data + (p + i))) T(ilist[i]);
 			}
 		}
 		return _data + p;
