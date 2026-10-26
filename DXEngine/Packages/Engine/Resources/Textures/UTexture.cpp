@@ -1,5 +1,6 @@
 
 #include "Precomp.h"
+#include "Utils/Logger.h"
 #include "UTexture.h"
 #include "Engine.h"
 #include "Packages/Engine/UDXEngineClient.h"
@@ -23,6 +24,32 @@ void UTexture::Load(ObjectStream* stream)
 		mipmap.Height = stream->ReadUInt32();
 		mipmap.UBits = stream->ReadUInt8();
 		mipmap.VBits = stream->ReadUInt8();
+
+		// The data held to the mip's size in its format: the uploads read
+		// Width by Height, and a hand-made texture's shorter data was read
+		// past (every stock mip holds its size); the rest black
+		size_t needed = 0;
+		uint64_t w = mipmap.Width, h = mipmap.Height;
+		uint8_t format = HasProperty("Format") ? GetByte("Format") : 0;
+		switch (format)
+		{
+		case 0: needed = w * h; break;              // TEXF_P8
+		case 1: case 5: needed = w * h * 4; break;  // TEXF_RGBA7 (32-bit light maps), TEXF_RGBA8
+		case 2: needed = w * h * 2; break;          // TEXF_RGB16
+		case 3: needed = ((w + 3) / 4) * ((h + 3) / 4) * 8; break; // TEXF_DXT1
+		case 4: needed = w * h * 3; break;          // TEXF_RGB8
+		default: break;
+		}
+		if (needed > (size_t)1 << 30)
+			Exception::Throw("Texture " + Name.ToString() + " has a mip of " + std::to_string(w) + " by " + std::to_string(h));
+		if (mipmap.Data.size() < needed)
+		{
+			// An empty mip is a procedural texture's (fire, scripted, wet, ice:
+			// the effects fill theirs at run time), padded without a word
+			if (!mipmap.Data.empty())
+				LogMessage("Texture " + Name.ToString() + ": a mip of " + std::to_string(w) + " by " + std::to_string(h) + " holds " + std::to_string(mipmap.Data.size()) + " of " + std::to_string(needed) + " bytes");
+			mipmap.Data.resize(needed, 0);
+		}
 	}
 
 	bool compressed = false;
