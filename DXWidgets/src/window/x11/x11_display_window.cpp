@@ -609,6 +609,13 @@ namespace
 
 void X11DisplayWindow::CreateBackbuffer(int width, int height)
 {
+	// The software device's frame is 8-bit BGRA: a visual of another depth
+	// or other masks (30-bit's 10:10:10, 16-bit's) would show its bytes as
+	// something else, so it is refused with what it is
+	Visual* defaultVisual = DefaultVisual(display, screen);
+	if (!((depth == 24 || depth == 32) && defaultVisual->red_mask == 0xff0000 && defaultVisual->green_mask == 0xff00 && defaultVisual->blue_mask == 0xff))
+		throw std::runtime_error("The X11 display's visual is not 8-bit BGRA (depth " + std::to_string(depth) + ", masks " + std::to_string(defaultVisual->red_mask) + "/" + std::to_string(defaultVisual->green_mask) + "/" + std::to_string(defaultVisual->blue_mask) + "): the software device cannot draw to it");
+
 	backbuffer.pixmap = XCreatePixmap(display, window, width, height, depth);
 	backbuffer.width = width;
 	backbuffer.height = height;
