@@ -85,11 +85,14 @@ def decode(data):
 
 
 class Direction:
-    """One way's channel types (from their opening bunches) and counts."""
+    """One way's counts; the channel types (from their opening bunches,
+    either way's: the server opens the actor channels the client's moves go
+    on) are shared between the two directions, a close ending the type for
+    both."""
 
-    def __init__(self, name):
+    def __init__(self, name, types):
         self.name = name
-        self.types = {}
+        self.types = types
         self.reset()
 
     def reset(self):
@@ -145,7 +148,8 @@ def main():
     log = open(args.log, "w") if args.log else None
     upstream = {}   # client address -> its socket toward the server
     clients = {}    # that socket -> the client address
-    c2s, s2c = Direction("c2s"), Direction("s2c")
+    types = {}
+    c2s, s2c = Direction("c2s", types), Direction("s2c", types)
     start = time.monotonic()
     second = 0
     print("relay: %d -> %s:%d" % (args.listen, server[0], server[1]), flush=True)
