@@ -222,10 +222,13 @@ void LightmapBuilder::AddLightContributionDX(UActor* light, const LightmapSpan* 
 	// draw) − 0.5, cut down, the draws from the frame's random tables
 	// (LightSystem::TickRandoms), the shimmer's its own, taken in turn over
 	// the texels of the light's rectangle on the map, row by row from 0.
+	// The scale held to what an int holds and the product taken in 64 bits:
+	// a LevelInfo Brightness of 128 or more overflowed i x scale, and one
+	// past about 32768 the conversion itself
 	vec3 scale = GetLightColorDX(light) * 65536.0f;
-	int scaleR = std::max((int)std::floor(scale.r), 0);
-	int scaleG = std::max((int)std::floor(scale.g), 0);
-	int scaleB = std::max((int)std::floor(scale.b), 0);
+	int64_t scaleR = (int64_t)std::clamp(std::floor(scale.r), 0.0f, 2147483520.0f);
+	int64_t scaleG = (int64_t)std::clamp(std::floor(scale.g), 0.0f, 2147483520.0f);
+	int64_t scaleB = (int64_t)std::clamp(std::floor(scale.b), 0.0f, 2147483520.0f);
 
 	float waver = 0.0f;
 	const float* randoms = engine->Level->Light.Randoms;
@@ -250,9 +253,9 @@ void LightmapBuilder::AddLightContributionDX(UActor* light, const LightmapSpan* 
 			int i = std::clamp((int)(*src + 0.5f), 0, 255);
 			if (waver != 0.0f)
 				i = std::max((int)(i * (1.0f - waver + waver * randoms[index & 255]) - 0.5f), 0);
-			dest->r = std::min(dest->r + (float)std::min((i * scaleR) >> 16, 127), 127.0f);
-			dest->g = std::min(dest->g + (float)std::min((i * scaleG) >> 16, 127), 127.0f);
-			dest->b = std::min(dest->b + (float)std::min((i * scaleB) >> 16, 127), 127.0f);
+			dest->r = std::min(dest->r + (float)std::min<int64_t>((i * scaleR) >> 16, 127), 127.0f);
+			dest->g = std::min(dest->g + (float)std::min<int64_t>((i * scaleG) >> 16, 127), 127.0f);
+			dest->b = std::min(dest->b + (float)std::min<int64_t>((i * scaleB) >> 16, 127), 127.0f);
 		}
 	}
 }
