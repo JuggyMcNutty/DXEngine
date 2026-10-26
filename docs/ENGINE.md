@@ -607,10 +607,11 @@ in `Frame::CallScript`.
   how they turn, as `physWalking`, `physFalling`, `physSwimming`, `physFlying`, `physRolling`,
   `calcVelocity` and `physicsRotation`, a fall ending its frame where it lands
   ([implemented, not as the original](NATIVES.md#implemented-not-as-the-original)).
-- **A whole frame at once**: a walking, swimming or flying pawn, and anything falling or
-  rolling, takes the rest of the frame at once, as the original's does, the walk, the fall and
-  the roll in their own steps (`UPawn::DeusExPhysWalking`, `UActor::DeusExTickFalling`,
-  `UActor::TickRolling`), a fall a walk or a swim hands over going on with its count of steps;
+- **A whole frame at once**: a walking, swimming or flying pawn, and anything falling,
+  rolling or flying as a projectile, takes the rest of the frame at once, as the original's
+  does, the walk, the fall, the roll and the projectile's flight in their own steps
+  (`UPawn::DeusExPhysWalking`, `UActor::DeusExTickFalling`, `UActor::TickRolling`,
+  `UActor::TickProjectile`), a fall a walk or a swim hands over going on with its count of steps;
   so its speed, its slides, where it comes to rest and the move it hands on are the original's
   at the same frame rate, but for a swim out from under the water at some 1,000
   ([implemented, not as the original](NATIVES.md#implemented-not-as-the-original)). The other

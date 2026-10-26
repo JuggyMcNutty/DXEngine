@@ -1207,6 +1207,12 @@ Every other native the scripted runs compare matches the original
   at random, again until it slips off, and the one under it stomped but for
   a human NPC not hostile to the player (`StompConsole`: the player and Paul
   Denton on each other, crates).
+- **A projectile's frame** is the original's `physProjectile`: one held-off
+  move by the velocity x the whole frame, `HitWall` from what stops it, and
+  with `bBounce` the step's time not moved given back, twice at most, the
+  next move again by the whole frame (`ShotConsole`: a shot bouncing off
+  the floor within one 0.4 s tick ends it 129 units along and 63 up in both
+  engines).
 - **Water**: falls in it (`FloatConsole`: a buoyant crate rises and bobs at
   the surface at the original's speeds) and swimming (`SwimConsole`: the
   player and a troop falling or thrown into water are put back at the water

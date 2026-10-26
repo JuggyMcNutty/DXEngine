@@ -246,7 +246,7 @@ public:
 	void DeusExTickFalling(float deltaTime, int iterations = 0);
 	void TickSwimming(float elapsed);
 	void TickFlying(float elapsed);
-	void TickProjectile(float elapsed);
+	void TickProjectile(float deltaTime, int iterations = 0);
 	void TickRolling(float deltaTime, int iterations = 0);
 	void TickInterpolating(float elapsed);
 	void TickMovingBrush(float elapsed);

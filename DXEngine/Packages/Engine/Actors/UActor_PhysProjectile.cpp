@@ -11,7 +11,19 @@
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Engine.h"
 
-void UActor::TickProjectile(float elapsed)
+// AActor::physProjectile (Engine.dll 0x103d4600; dx-reverse-info/engine-dll.md,
+// moving: a projectile's move), a whole frame at once: steps of the time
+// left, up to 8 counting the caller's, each the velocity less the zone's
+// fluid friction (in water) plus the acceleration x the time left, a
+// Projectile held to its MaxSpeed, and one held-off move by the velocity x
+// the frame's whole time, not the step's. A move that stops, the actor
+// living and not teleported, gets HitWall with the hit's actor, the level's
+// for the world (a mover's too: nothing else blocks a projectile, which
+// blocks nothing itself, EncroachBlockedBy); with bBounce the step's time
+// not moved goes back to the time left, twice at most, and an actor the
+// event set falling falls it. Without bBounce the velocity is then the
+// frame's move over the frame.
+void UActor::TickProjectile(float deltaTime, int iterations)
 {
 	if (Region().ZoneNumber == 0)
 	{
@@ -19,38 +31,47 @@ void UActor::TickProjectile(float elapsed)
 		return;
 	}
 
-	UZoneInfo* zone = Region().Zone;
 	UProjectile* projectile = UObject::TryCast<UProjectile>(this);
-
-	if (zone->bWaterZone())
-		Velocity() = Velocity() * std::max(1.0f - zone->ZoneFluidFriction() * 0.2f * elapsed, 0.0f);
-
-	Velocity() = Velocity() + Acceleration() * elapsed;
-
-	if (projectile)
-	{
-		float maxSpeed = projectile->MaxSpeed();
-		if (dot(Velocity(), Velocity()) > maxSpeed * maxSpeed)
-		{
-			Velocity() = normalize(Velocity()) * maxSpeed;
-		}
-	}
-
 	OldLocation() = Location();
 	bJustTeleported() = false;
 
-	CollisionHit hit = TryMove(Velocity() * elapsed);
-
-	// A stopped move gives HitWall with what stopped it, the level or a
-	// mover, as the original's physProjectile (Engine.dll 0x103d4600) passes
-	// MoveActor's hit actor on; nothing else blocks a projectile, which
-	// blocks nothing itself (EncroachBlockedBy). A mover's hit once gave no
-	// HitWall, so a dart never stuck to a door.
-	if (hit.Fraction < 1.0f && !bDeleteMe() && !bJustTeleported())
+	float remaining = deltaTime;
+	int bounces = 0;
+	while (remaining > 0.0f && iterations < 8)
 	{
-		CallEvent(this, EventName::HitWall, { ExpressionValue::VectorValue(hit.Normal), ExpressionValue::ObjectValue(hit.Actor ? hit.Actor : Level()) });
+		iterations++;
+		UZoneInfo* zone = Region().Zone;
+		if (zone->bWaterZone())
+			Velocity() = Velocity() * (1.0f - zone->ZoneFluidFriction() * remaining * 0.2f);
+		Velocity() = Velocity() + Acceleration() * remaining;
+		float step = remaining;
+		remaining = 0.0f;
+		if (projectile)
+		{
+			float maxSpeed = projectile->MaxSpeed();
+			if (dot(Velocity(), Velocity()) > maxSpeed * maxSpeed)
+				Velocity() = normalize(Velocity()) * maxSpeed;
+		}
+
+		CollisionHit hit = TryMoveHeldOff(Velocity() * deltaTime);
+		if (hit.Fraction < 1.0f && !bDeleteMe() && !bJustTeleported())
+		{
+			CallEvent(this, EventName::HitWall, { ExpressionValue::VectorValue(hit.Normal), ExpressionValue::ObjectValue(hit.Actor ? hit.Actor : Level()) });
+			if (bDeleteMe())
+				return;
+			if (bBounce())
+			{
+				if (bounces < 2)
+					remaining = (1.0f - hit.Fraction) * step;
+				bounces++;
+				if (Physics() == PHYS_Falling)
+					TickFalling(remaining, iterations);
+			}
+		}
+		if (bDeleteMe())
+			return;
 	}
 
 	if (!bBounce() && !bJustTeleported())
-		Velocity() = (Location() - OldLocation()) / elapsed;
+		Velocity() = (Location() - OldLocation()) / deltaTime;
 }
