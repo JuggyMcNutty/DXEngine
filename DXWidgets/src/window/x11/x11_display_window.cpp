@@ -1335,32 +1335,46 @@ void X11DisplayWindow::OnSelectionNotify(XEvent* event)
 	// This is handled in GetClipboardText
 }
 
+// The selection served as ICCSM has it: TARGETS as atoms (TARGETS,
+// UTF8_STRING, STRING), the text as UTF-8 for UTF8_STRING and as Latin-1
+// for STRING (what Latin-1 lacks a ?), a MULTIPLE request's pairs read from
+// the requestor's own property, and the window's own requests answered as
+// any other's, so a paste into the game of what it copied comes back.
 void X11DisplayWindow::OnSelectionRequest(XEvent* event)
 {
-	Atom requestor = event->xselectionrequest.requestor;
-	if (requestor == window)
-		return;
+	Window requestor = event->xselectionrequest.requestor;
 
 	X11Connection* connection = GetX11Connection();
 	Atom targetsAtom = connection->GetAtom("TARGETS");
 	Atom multipleAtom = connection->GetAtom("MULTIPLE");
+	// Interned here: GetAtom takes only atoms the server has, and a fresh
+	// server may lack these two
+	Atom utf8Atom = XInternAtom(display, "UTF8_STRING", False);
+	Atom atomPairAtom = XInternAtom(display, "ATOM_PAIR", False);
 
-	struct Request { Window target; Atom property; };
+	struct Request { Atom target; Atom property; };
 	std::vector<Request> requests;
 
-	if (event->xselectionrequest.target == multipleAtom)
+	bool multiple = event->xselectionrequest.target == multipleAtom;
+	if (multiple)
 	{
+		// The pairs of target and property in the requestor's property
 		Atom actualType = None;
 		int actualFormat = 0;
 		unsigned long itemCount = 0;
-		std::vector<uint8_t> data = GetWindowProperty(requestor, actualType, actualFormat, itemCount);
-		if (data.size() < itemCount * sizeof(Atom))
-			return;
-
-		Atom* atoms = (Atom*)data.data();
-		for (unsigned long i = 0; i + 1 < itemCount; i += 2)
+		unsigned long bytesRemaining = 0;
+		unsigned char* data = nullptr;
+		if (event->xselectionrequest.property != None &&
+			XGetWindowProperty(display, requestor, event->xselectionrequest.property, 0L, 65536L, False, AnyPropertyType, &actualType, &actualFormat, &itemCount, &bytesRemaining, &data) == Success)
 		{
-			requests.push_back({ atoms[i], atoms[i + 1]});
+			if (data && actualFormat == 32)
+			{
+				unsigned long* atoms = (unsigned long*)data;
+				for (unsigned long i = 0; i + 1 < itemCount; i += 2)
+					requests.push_back({ (Atom)atoms[i], (Atom)atoms[i + 1] });
+			}
+			if (data)
+				XFree(data);
 		}
 	}
 	else
@@ -1368,36 +1382,78 @@ void X11DisplayWindow::OnSelectionRequest(XEvent* event)
 		requests.push_back({ event->xselectionrequest.target, event->xselectionrequest.property });
 	}
 
-	for (const Request& request : requests)
+	// Latin-1 for STRING: a character past it a ?
+	auto latin1 = [](const std::string& utf8)
 	{
-		Window xtarget = request.target;
-		Atom xproperty = request.property;
+		std::string out;
+		for (size_t i = 0; i < utf8.size(); )
+		{
+			unsigned char c = (unsigned char)utf8[i];
+			if (c < 0x80) { out.push_back((char)c); i++; }
+			else if ((c & 0xE0) == 0xC0 && i + 1 < utf8.size())
+			{
+				unsigned int code = ((c & 0x1F) << 6) | ((unsigned char)utf8[i + 1] & 0x3F);
+				out.push_back(code < 0x100 ? (char)code : '?');
+				i += 2;
+			}
+			else
+			{
+				out.push_back('?');
+				i++;
+				while (i < utf8.size() && ((unsigned char)utf8[i] & 0xC0) == 0x80)
+					i++;
+			}
+		}
+		return out;
+	};
 
-		XEvent response = {};
-		response.xselection.type = SelectionNotify;
-		response.xselection.display = event->xselectionrequest.display;
-		response.xselection.requestor = event->xselectionrequest.requestor;
-		response.xselection.selection = event->xselectionrequest.selection;
-		response.xselection.target = event->xselectionrequest.target;
-		response.xselection.property = xproperty;
-		response.xselection.time = event->xselectionrequest.time;
+	for (Request& request : requests)
+	{
+		Atom xtarget = request.target;
+		Atom xproperty = request.property != None ? request.property : xtarget;
 
 		if (xtarget == targetsAtom)
 		{
-			Atom newTargets = XA_STRING;
-			XChangeProperty(display, requestor, xproperty, targetsAtom, 32, PropModeReplace, (unsigned char *)&newTargets, 1);
+			Atom targets[3] = { targetsAtom, utf8Atom, XA_STRING };
+			XChangeProperty(display, requestor, xproperty, XA_ATOM, 32, PropModeReplace, (unsigned char*)targets, 3);
+		}
+		else if (xtarget == utf8Atom)
+		{
+			XChangeProperty(display, requestor, xproperty, utf8Atom, 8, PropModeReplace, (const unsigned char*)clipboardText.c_str(), (int)clipboardText.size());
 		}
 		else if (xtarget == XA_STRING)
 		{
-			XChangeProperty(display, requestor, xproperty, xtarget, 8, PropModeReplace, (const unsigned char*)clipboardText.c_str(), clipboardText.size());
+			std::string text = latin1(clipboardText);
+			XChangeProperty(display, requestor, xproperty, XA_STRING, 8, PropModeReplace, (const unsigned char*)text.c_str(), (int)text.size());
 		}
 		else
 		{
-			response.xselection.property = None; // Is this correct?
+			request.property = None; // not served
 		}
-
-		XSendEvent(display, requestor, False, 0, &response);
 	}
+
+	if (multiple)
+	{
+		// The pairs written back, a refused one's property None
+		std::vector<unsigned long> pairs;
+		for (const Request& request : requests)
+		{
+			pairs.push_back(request.target);
+			pairs.push_back(request.property);
+		}
+		if (event->xselectionrequest.property != None)
+			XChangeProperty(display, requestor, event->xselectionrequest.property, atomPairAtom != None ? atomPairAtom : XA_ATOM, 32, PropModeReplace, (unsigned char*)pairs.data(), (int)pairs.size());
+	}
+
+	XEvent response = {};
+	response.xselection.type = SelectionNotify;
+	response.xselection.display = event->xselectionrequest.display;
+	response.xselection.requestor = requestor;
+	response.xselection.selection = event->xselectionrequest.selection;
+	response.xselection.target = event->xselectionrequest.target;
+	response.xselection.property = multiple ? event->xselectionrequest.property : (requests.empty() ? None : requests.front().property);
+	response.xselection.time = event->xselectionrequest.time;
+	XSendEvent(display, requestor, False, 0, &response);
 }
 
 void X11DisplayWindow::CreateGLContext()
