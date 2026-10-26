@@ -620,6 +620,9 @@ void BitmapCanvas::plot(float x, float y, float alpha, const Colorf& color)
 {
 	int xx = (int)x;
 	int yy = (int)y;
+	// A line's end on the canvas's right or bottom edge plotted outside it
+	if (xx < 0 || yy < 0 || xx >= width || yy >= height)
+		return;
 
 	uint32_t* dest = pixels.data() + xx + yy * width;
 
