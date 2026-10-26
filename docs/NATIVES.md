@@ -360,7 +360,9 @@ device does not start, as the original's `WindowedRenderDevice` takes
 ([which device draws](ENGINE.md#rendering)). Differs:
 
 - **Vsync** only through SDL's renderer: X11's and Win32's presents do not
-  wait for it.
+  wait for it, and the engine's own Wayland window (a dev build's) copies
+  the frame into its buffer and commits nothing of itself: untried with the
+  software device.
 
 ### Sprites
 
