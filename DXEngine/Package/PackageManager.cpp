@@ -743,7 +743,9 @@ void PackageManager::ScanPaths()
 		auto finalPath = ResolveFolderCase((gameSystemFolderPath / currentPath).lexically_normal().parent_path());
 
 		// Add map folders in a separate list, so ScanForMaps() can use them
-		if (filename.string() == "*." + GetMapExtension())
+		// A map folder's pattern in any case, as the folders' extensions are
+		// matched (ScanFolder)
+		if (StrTools::equals_ignore_case(filename.string(), "*." + GetMapExtension()))
 			mapFolders.push_back(finalPath.string());
 
 		ScanFolder(finalPath.string(), filename.string());
