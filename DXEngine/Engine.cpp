@@ -2950,7 +2950,11 @@ void Engine::OpenWindow()
 	std::string versionString = !LaunchInfo.gameVersionString.empty() ? " (v" + LaunchInfo.gameVersionString + ")" : "";
 
 	window->SetWindowTitle(LaunchInfo.gameName + versionString + " - DXEngine");
-	window->SetFrameGeometry(Rect::xywh(0.0, 0.0, width, height));
+	// The ini's sizes are pixels; the frame's are DIPs, which the window
+	// scales by the desktop's scale (a 1280x720 window on a desktop at 150%
+	// is 853x480 DIPs), as SETRES has it
+	double dpi = window->GetDpiScale();
+	window->SetFrameGeometry(Rect::xywh(0.0, 0.0, width / dpi, height / dpi));
 	viewport->SetViewportRect(0, 0, width, height);
 
 	// Full screen takes the display's mode nearest FullscreenViewportX and Y,

@@ -38,10 +38,11 @@ void GameWindow::ToggleWindowFullscreen(Size newResolution)
 		// First switch to normal
 		this->ShowNormal();
 
-		// Then resize the window
+		// Then resize the window: the size is pixels, the frame DIPs
 		auto geometry = this->GetFrameGeometry();
-		geometry.width = newResolution.width;
-		geometry.height = newResolution.height;
+		double dpi = GetDpiScale();
+		geometry.width = newResolution.width / dpi;
+		geometry.height = newResolution.height / dpi;
 		this->SetFrameGeometry(geometry);
 	}
 	else
