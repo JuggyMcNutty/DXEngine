@@ -1,7 +1,9 @@
 //=============================================================================
 // ConfigConsole: a class's own config file, ConfigProbe's DXCapConfig.ini,
 // read and written back: logs "DXCONFIG: Runs <n>" as the class was given
-// it, saves n + 1 (StaticSaveConfig), then an exit, from the menu map. The
+// it (with its Spot, Kind and Words), saves n + 1 with a vector, a class and
+// two strings (StaticSaveConfig: the file as the original writes those
+// types, bugs.md E5a.18), then an exit, from the menu map. The
 // engine writes the file as it exits: the game's System folder, or with
 // DXEngine's --userdir (DXCAP_USERDIR) that folder, which a read takes first.
 // Then the console itself, an object of a config class, sets its own
@@ -26,8 +28,12 @@ event Tick(float Delta)
 	if (RunTime < 2.0)
 		return;
 	bDone = true;
-	Log("DXCONFIG: Runs " $ class'ConfigProbe'.default.Runs);
+	Log("DXCONFIG: Runs " $ class'ConfigProbe'.default.Runs $ ", Spot " $ class'ConfigProbe'.default.Spot $ ", Kind " $ class'ConfigProbe'.default.Kind $ ", Words " $ class'ConfigProbe'.default.Words[0] $ "|" $ class'ConfigProbe'.default.Words[1]);
 	class'ConfigProbe'.default.Runs = class'ConfigProbe'.default.Runs + 1;
+	class'ConfigProbe'.default.Spot = vect(1, 2.5, -3);
+	class'ConfigProbe'.default.Kind = class'Light';
+	class'ConfigProbe'.default.Words[0] = "two words";
+	class'ConfigProbe'.default.Words[1] = "";
 	class'ConfigProbe'.static.StaticSaveConfig();
 	Log("DXCONFIG: saved Runs " $ class'ConfigProbe'.default.Runs);
 	ObjectRuns = 1000;

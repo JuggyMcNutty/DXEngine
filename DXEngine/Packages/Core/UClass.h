@@ -81,5 +81,4 @@ public:
 	int ClassUnique = 0;
 
 private:
-	std::map<NameString, std::string> ParseStructValue(const std::string& text);
 };

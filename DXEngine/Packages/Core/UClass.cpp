@@ -1,5 +1,6 @@
 
 #include "Precomp.h"
+#include "Properties/UArrayProperty.h"
 #include "UClass.h"
 #include "UEnum.h"
 #include "Properties/UPointerProperty.h"
@@ -134,58 +135,6 @@ void UClass::Save(PackageStreamWriter* stream)
 	PropertyData.Save(stream, nullptr);
 }
 
-std::map<NameString, std::string> UClass::ParseStructValue(const std::string& text)
-{
-	// Parse one of the following:
-	//
-	// Object=(Name=Package.ObjectName,Class=ObjectClass,MetaClass=Package.MetaClassName,Description="descriptive string")
-	// Preferences=(Caption="display name",Parent="display name of parent",Class=Package.ClassName,Category=variable group name,Immediate=True)
-
-	if (text.size() < 2 || text.front() != '(' || text.back() != ')')
-		return {};
-
-	std::map<NameString, std::string> desc;
-
-	// This would have been so much easier with a regular expression, but we can't use that as we have no idea what character set those .int files might be using
-	size_t pos = 1;
-	while (pos < text.size() - 1)
-	{
-		size_t endpos = text.find('=', pos);
-		if (endpos == std::string::npos)
-			break;
-		NameString keyname = text.substr(pos, endpos - pos);
-		pos = endpos + 1;
-
-		if (text[pos] == '"')
-		{
-			pos++;
-			endpos = text.find('"', pos);
-			if (endpos == std::string::npos)
-				break;
-
-			std::string value = text.substr(pos, endpos - pos);
-			desc[keyname] = value;
-			pos++;
-
-			pos = text.find(',', pos);
-			if (pos == std::string::npos)
-				break;
-			pos++;
-		}
-		else
-		{
-			endpos = text.find_first_of(",)", pos);
-			if (endpos == std::string::npos)
-				break;
-			std::string value = text.substr(pos, endpos - pos);
-			desc[keyname] = value;
-			pos = endpos + 1;
-		}
-	}
-
-	return desc;
-}
-
 UProperty* UClass::GetProperty(const NameString& propName)
 {
 	for (UProperty* prop : PropertyData.Class->Properties)
@@ -220,19 +169,20 @@ void UClass::LoadProperties(PropertyDataBlock* propertyBlock)
 
 				std::string value;
 				bool found = false;
+				NameString iniName = configName, iniSection = sectionName;
 				if (AllFlags(prop->PropFlags, PropertyFlags::GlobalConfig))
 				{
 					if (UClass* outer = UObject::TryCast<UClass>(prop->Outer()))
 					{
-						NameString outerSectionName = outer->package->GetPackageName().ToString() + "." + outer->Name.ToString();
-						NameString outerConfigName = outer->ClassConfigName;
-						if (outerConfigName.IsNone()) outerConfigName = "system";
-						found = package->GetPackageManager()->FindIniValue(outerConfigName, outerSectionName, name, value);
+						iniSection = outer->package->GetPackageName().ToString() + "." + outer->Name.ToString();
+						iniName = outer->ClassConfigName;
+						if (iniName.IsNone()) iniName = "system";
+						found = package->GetPackageManager()->FindIniValue(iniName, iniSection, name, value);
 					}
 				}
 				else if (AllFlags(prop->PropFlags, PropertyFlags::Config))
 				{
-					found = package->GetPackageManager()->FindIniValue(configName, sectionName, name, value);
+					found = package->GetPackageManager()->FindIniValue(iniName, iniSection, name, value);
 				}
 				else if (AllFlags(prop->PropFlags, PropertyFlags::Localized))
 				{
@@ -254,134 +204,45 @@ void UClass::LoadProperties(PropertyDataBlock* propertyBlock)
 				}
 				else if (!value.empty())
 				{
-					if (auto byteprop = UObject::TryCast<UByteProperty>(prop))
+					// The property's own import, as the original's LoadConfig
+					// and the localization hand each value to ImportText
+					// (core-dll.md, configuration): a struct's members by
+					// name, their quotes and nesting read, a class's or an
+					// object's path, a bool's 1, True, 0 or False, an int read
+					// as far as it is a number; a dynamic array from the
+					// section's lines of its name. DXEngine's own parsing of
+					// each type threw on the types it lacked.
+					if (auto arrayprop = UObject::TryCast<UArrayProperty>(prop))
 					{
-						if (value.front() >= '0' && value.front() <= '9')
+						if (AnyFlags(prop->PropFlags, PropertyFlags::Config | PropertyFlags::GlobalConfig))
 						{
-							*static_cast<uint8_t*>(ptr) = (uint8_t)std::atoi(value.c_str());
-						}
-						else if (byteprop->EnumType)
-						{
-							int index = 0;
-							for (const NameString& elementName : byteprop->EnumType->ElementNames)
-							{
-								if (elementName == value)
-								{
-									*static_cast<uint8_t*>(ptr) = (uint8_t)index;
-									break;
-								}
-								index++;
-							}
+							Array<std::string> elements = package->GetPackageManager()->GetIniValues(iniName, iniSection, name);
+							ScriptArray& vec = *static_cast<ScriptArray*>(ptr);
+							vec.Resize(elements.size());
+							for (size_t i = 0; i < elements.size(); i++)
+								arrayprop->Inner->SetValueFromString(vec.GetItem(i), elements[i]);
 						}
 					}
-					else if (UObject::IsType<UIntProperty>(prop)) *static_cast<int32_t*>(ptr) = (int32_t)std::atoi(value.c_str());
-					else if (UObject::IsType<UFloatProperty>(prop)) *static_cast<float*>(ptr) = (float)std::atof(value.c_str());
-					else if (UObject::IsType<UNameProperty>(prop)) *static_cast<NameString*>(ptr) = value;
-					else if (UObject::IsType<UStrProperty>(prop)) *static_cast<std::string*>(ptr) = value;
-					else if (UObject::IsType<UStringProperty>(prop)) *static_cast<std::string*>(ptr) = value;
-					else if (auto boolprop = UObject::TryCast<UBoolProperty>(prop))
-					{
-						for (char& c : value)
-							if (c >= 'A' && c <= 'Z')
-								c += 'a' - 'A';
-						boolprop->SetBool(ptr, value == "1" || value == "true" || value == "yes");
-					}
-					else if (UObject::IsType<UClassProperty>(prop))
-					{
-						try
-						{
-							size_t pos = value.find_first_of('.');
-							if (pos != std::string::npos)
-							{
-								NameString packageName = value.substr(0, pos);
-								NameString className = value.substr(pos + 1);
-								Package* pkg = package->GetPackageManager()->GetPackage(packageName);
-								*static_cast<UObject**>(ptr) = pkg->GetUObject("Class", className);
-							}
-						}
-						catch (...)
-						{
-							// To do: is this actually a fatal error?
-						}
-					}
-					else if (auto structprop = UObject::TryCast<UStructProperty>(prop))
-					{
-						// Yes, this is total spaghetti code at this point. No, I don't care anymore. ;)
-						auto values = ParseStructValue(value);
-						for (UProperty* member : structprop->Struct->Properties)
-						{
-							std::string membervalue = values[member->Name];
-							void* memberptr = static_cast<uint8_t*>(ptr) + member->DataOffset.DataOffset;
-							if (auto byteprop = UObject::TryCast<UByteProperty>(member))
-							{
-								if (!membervalue.empty() && membervalue.front() >= '0' && membervalue.front() <= '9')
-								{
-									*static_cast<uint8_t*>(memberptr) = (uint8_t)std::atoi(membervalue.c_str());
-								}
-								else if (byteprop->EnumType)
-								{
-									int index = 0;
-									for (const NameString& elementName : byteprop->EnumType->ElementNames)
-									{
-										if (elementName == membervalue)
-										{
-											*static_cast<uint8_t*>(memberptr) = (uint8_t)index;
-											break;
-										}
-										index++;
-									}
-								}
-							}
-							else if (UObject::IsType<UIntProperty>(member)) *static_cast<int32_t*>(memberptr) = (int32_t)std::atoi(membervalue.c_str());
-							else if (UObject::IsType<UFloatProperty>(member)) *static_cast<float*>(memberptr) = (float)std::atof(membervalue.c_str());
-							else if (UObject::IsType<UNameProperty>(member)) *static_cast<NameString*>(memberptr) = membervalue;
-							else if (UObject::IsType<UStrProperty>(member)) *static_cast<std::string*>(memberptr) = membervalue;
-							else if (UObject::IsType<UStringProperty>(member)) *static_cast<std::string*>(memberptr) = membervalue;
-							else if (auto boolprop = UObject::TryCast<UBoolProperty>(member))
-							{
-								for (char& c : membervalue)
-									if (c >= 'A' && c <= 'Z')
-										c += 'a' - 'A';
-								boolprop->SetBool(memberptr, membervalue == "1" || membervalue == "true" || membervalue == "yes");
-							}
-							else if (UObject::IsType<UClassProperty>(member))
-							{
-								try
-								{
-									size_t pos = membervalue.find_first_of('.');
-									if (pos != std::string::npos)
-									{
-										NameString packageName = membervalue.substr(0, pos);
-										NameString className = membervalue.substr(pos + 1);
-										Package* pkg = package->GetPackageManager()->GetPackage(packageName);
-										*static_cast<UObject**>(memberptr) = pkg->GetUObject("Class", className);
-									}
-								}
-								catch (...)
-								{
-									// To do: is this actually a fatal error?
-								}
-							}
-							else if (UObject::IsType<UObjectProperty>(member))
-							{
-								// This happens for Deus Ex
-							}
-							else
-							{
-								Exception::Throw("localize keyword used on unsupported struct member property type");
-							}
-						}
-					}
+					else if (UObject::IsType<UStringProperty>(prop))
+						*static_cast<std::string*>(ptr) = value;
 					else
-					{
-						Exception::Throw("localize keyword used on unsupported property type");
-					}
+						prop->SetValueFromString(ptr, value);
 				}
 
 				ptr = static_cast<uint8_t*>(ptr) + prop->ElementPitch();
 			}
 		}
 	}
+}
+
+// A config value's text as the original's SaveConfig writes it (Core.dll
+// 0x10151540, ExportText with no flags): a string bare, an enum by its name,
+// an object or class as Type'Path', a struct as its members' text
+static std::string ConfigText(UProperty* prop, void* ptr)
+{
+	if (UObject::IsType<UStrProperty>(prop) || UObject::IsType<UStringProperty>(prop))
+		return *static_cast<std::string*>(ptr);
+	return prop->PrintValue(ptr);
 }
 
 void UClass::SaveProperties(PropertyDataBlock* propertyBlock)
@@ -404,40 +265,35 @@ void UClass::SaveProperties(PropertyDataBlock* propertyBlock)
 				if (prop->ArrayDimension > 1)
 					name = NameString(name.ToString() + "[" + std::to_string(arrayIndex) + "]");
 
-				bool unsupported = false;
-				std::string value;
-				if (auto byteprop = UObject::TryCast<UByteProperty>(prop))
+				NameString iniName = configName, iniSection = sectionName;
+				bool write = AnyFlags(prop->PropFlags, PropertyFlags::Config);
+				if (AnyFlags(prop->PropFlags, PropertyFlags::GlobalConfig))
 				{
-					// An enum's by its name, as the original's config holds it
-					uint8_t byte = *static_cast<uint8_t*>(ptr);
-					if (byteprop->EnumType && byte < byteprop->EnumType->ElementNames.size())
-						value = byteprop->EnumType->ElementNames[byte].ToString();
-					else
-						value = std::to_string(byte);
-				}
-				else if (UObject::IsType<UIntProperty>(prop)) value = std::to_string(*static_cast<int32_t*>(ptr));
-				else if (UObject::IsType<UFloatProperty>(prop)) value = std::to_string(*static_cast<float*>(ptr));
-				else if (UObject::IsType<UNameProperty>(prop)) value = (*static_cast<NameString*>(ptr)).ToString();
-				else if (UObject::IsType<UStrProperty>(prop)) value = *static_cast<std::string*>(ptr);
-				else if (UObject::IsType<UStringProperty>(prop)) value = *static_cast<std::string*>(ptr);
-				else if (auto boolprop = UObject::TryCast<UBoolProperty>(prop)) value = boolprop->GetBool(ptr) ? "True" : "False";
-				else unsupported = true;
-
-				if (!unsupported)
-				{
-					if (AnyFlags(prop->PropFlags, PropertyFlags::GlobalConfig))
+					write = false;
+					if (UClass* outer = UObject::TryCast<UClass>(prop->Outer()))
 					{
-						if (UClass* outer = UObject::TryCast<UClass>(prop->Outer()))
-						{
-							NameString outerSectionName = outer->package->GetPackageName().ToString() + "." + outer->Name.ToString();
-							NameString outerConfigName = outer->ClassConfigName;
-							if (outerConfigName.IsNone()) outerConfigName = "system";
-							package->GetPackageManager()->SetIniValue(outerConfigName, outerSectionName, name, value);
-						}
+						iniSection = outer->package->GetPackageName().ToString() + "." + outer->Name.ToString();
+						iniName = outer->ClassConfigName;
+						if (iniName.IsNone()) iniName = "system";
+						write = true;
 					}
-					else if (AnyFlags(prop->PropFlags, PropertyFlags::Config))
+				}
+				if (write)
+				{
+					// Every config type, as the original writes them: a dynamic
+					// array one line of its name per element, the rest one key;
+					// DXEngine left a class, object, struct or array out
+					if (auto arrayprop = UObject::TryCast<UArrayProperty>(prop))
 					{
-						package->GetPackageManager()->SetIniValue(configName, sectionName, name, value);
+						ScriptArray& vec = *static_cast<ScriptArray*>(ptr);
+						Array<std::string> elements;
+						for (size_t i = 0; i < vec.GetSize(); i++)
+							elements.push_back(ConfigText(arrayprop->Inner, vec.GetItem(i)));
+						package->GetPackageManager()->SetIniValues(iniName, iniSection, name, elements);
+					}
+					else
+					{
+						package->GetPackageManager()->SetIniValue(iniName, iniSection, name, ConfigText(prop, ptr));
 					}
 				}
 				ptr = static_cast<uint8_t*>(ptr) + prop->ElementPitch();

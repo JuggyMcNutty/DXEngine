@@ -1687,7 +1687,12 @@ A mod gets the original's loader and natives:
   original rewrites each file whole, CR LF, comments gone (`ConfigConsole`:
   a class's own `DXCapConfig.ini`, CR LF or not there, read and written back
   alike). `StaticSaveConfig` from an object writes the class's defaults, as
-  from the class (`ConfigConsole`).
+  from the class (`ConfigConsole`). A config value of any type is read and
+  written as the original's import and export have it (a property's text,
+  above): a struct's members, a class or an object as `Type'Path'`, a
+  dynamic array one line of its name per element, a bool's four words alone,
+  an int as far as it is a number (`ConfigConsole`: a vector, a class and
+  two strings written and read back).
 - **The natives no stock script calls** (`ModConsole`): `ResetConfig`, a
   System or User class's section copied from `Default.ini` or `DefUser.ini`
   and its config read again into the class, its subclasses and their

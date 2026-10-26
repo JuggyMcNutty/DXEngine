@@ -237,7 +237,7 @@ the run. *Either*: one engine on each side of a pair.
 | `AnimNameConsole` | both | `HasAnim`, `GetAnimGroup`, `PlayAnim`, `LoopAnim`, `TweenAnim` and `PlayBlendAnim` of a sequence name a tarp's mesh lacks | `DXANIMNAME:` | the two logs' lines diffed |
 | `ModConsole` | both | the natives only a mod calls: the timing natives, a flag from a string, `ExtString`'s parts, `ResetConfig` | `DXMOD:` | the two logs diffed |
 | `LocalizeConsole` | both | a package's text and the objects its `.int` files register: the game's, two mod folders' (`build/dxcap/mods`, the harness's own, first in the run's paths, one by its absolute path and one by a relative one), none | `DXLOC:` | the two logs diffed |
-| `ConfigConsole` | both | a class's own config file (`ConfigProbe`'s `DXCapConfig.ini`) read, one added, written back, then an object's own `StaticSaveConfig`, which writes the class's | `DXCONFIG:` | the file after each run |
+| `ConfigConsole` | both | a class's own config file (`ConfigProbe`'s `DXCapConfig.ini`) read, one added and a vector, a class and two strings written back as the original writes them, then an object's own `StaticSaveConfig`, which writes the class's | `DXCONFIG:` | the file after each run |
 | `LoopConsole` | both | one loop of `Jumps` jumps in a tick, 9,990,000 by default: past 10,000,000 either engine stops | `DXLOOP:` | the two logs; the original's error is its dialog's ([crashes](#crashes)) |
 | `CallConsole` | both | singular functions held off; a call chain `Depth` deep, 248 by default: one more and either engine stops | `DXCALL:` | the two logs diffed |
 | `DynLoadConsole` | both | `Object.DynamicLoadObject` by each form of name | `DXDYNLOAD:` |  |
