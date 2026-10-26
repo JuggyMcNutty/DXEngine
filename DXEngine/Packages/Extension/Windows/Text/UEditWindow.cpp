@@ -1,5 +1,6 @@
 
 #include "Precomp.h"
+#include "Utils/UTF8Reader.h"
 #include "UEditWindow.h"
 #include "VM/ScriptCall.h"
 #include "Packages/Core/Properties/UStringProperty.h"
@@ -95,32 +96,61 @@ void UEditWindow::SetMaxUndos(int newMaxUndos)
 	maxUndos() = newMaxUndos;
 }
 
+// The original's (XEditWindow::CopyToTextBuffer 0x1001e5f0 and
+// PasteFromTextBuffer 0x1001e6b0): a copy or cut takes the selection,
+// nothing with none; a paste inserts the buffer. The buffer is the desktop's
+// clipboard, by choice (NATIVES.md, the UI): the Latin-1 the text holds goes
+// out as UTF-8 and comes back as Latin-1, a character past it dropped and a
+// carriage return left out.
+static std::string Latin1ToUTF8(const std::string& text)
+{
+	std::string utf8;
+	for (char c : text)
+	{
+		uint8_t b = (uint8_t)c;
+		if (b < 0x80)
+			utf8.push_back((char)b);
+		else
+		{
+			utf8.push_back((char)(0xc0 | (b >> 6)));
+			utf8.push_back((char)(0x80 | (b & 0x3f)));
+		}
+	}
+	return utf8;
+}
+
 void UEditWindow::Copy()
 {
 	int selStart = 0, selCount = 0;
 	GetSelectedArea(selStart, selCount);
 	if (selCount > 0)
-	{
-		engine->window->SetClipboardText(GetText().substr(selStart, selCount));
-	}
-	else
-	{
-		engine->window->SetClipboardText(GetText());
-	}
+		engine->window->SetClipboardText(Latin1ToUTF8(GetText().substr(selStart, selCount)));
 }
 
 void UEditWindow::Cut()
 {
-	Copy();
 	int selStart = 0, selCount = 0;
 	GetSelectedArea(selStart, selCount);
 	if (selCount > 0)
+	{
+		engine->window->SetClipboardText(Latin1ToUTF8(GetText().substr(selStart, selCount)));
 		DeleteChar(false, true);
+	}
 }
 
 void UEditWindow::Paste()
 {
-	InsertText(engine->window->GetClipboardText(), true, {});
+	std::string clipboard = engine->window->GetClipboardText();
+	std::string text;
+	UTF8Reader reader(clipboard.data(), clipboard.size());
+	for (; !reader.is_end(); reader.next())
+	{
+		unsigned int c = reader.character();
+		if (c == '\r' || c > 0xff)
+			continue;
+		text.push_back((char)(uint8_t)c);
+	}
+	InsertText(text, true, {});
 }
 
 // The original's XEditWindow::DeleteChar (0x1001e560) and DeleteText

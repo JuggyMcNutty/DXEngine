@@ -838,6 +838,12 @@ from the original's code:
   does after adding at the end; so the save screen's Save Game button
   wakes for the name it fills in. An edit leaves the insertion point after
   what it put in, and what it put in selected when asked to.
+- **An edit field's copy, cut and paste** go through the desktop's
+  clipboard, by choice, where the original keeps a text buffer of its own:
+  a copy or cut takes the selection and nothing with none, as there; the
+  Latin-1 the text holds goes out as UTF-8, and a paste reads the
+  clipboard's UTF-8 as Latin-1, a character past it dropped and a carriage
+  return left out.
 - **Edit fields** (`MultiEditConsole`): rows as a large text window breaks
   them, within the margins. Up and down a row or a page keep the column
   the insertion point was last put at; a word either way within a row, a
