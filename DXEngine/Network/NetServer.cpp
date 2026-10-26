@@ -253,8 +253,25 @@ bool NetServerLevel::NotifyAcceptingConnection()
 bool NetServerLevel::NotifyAcceptingChannel(NetChannel* channel)
 {
 	// A client opens the control channel, and one for each package it
-	// downloads.
-	return (channel->ChType == ChannelType::Control && channel->ChIndex == 0) || channel->ChType == ChannelType::File;
+	// downloads -- one at a time (the original's client too): a few at
+	// once, each holding the package's file open, and no more, where one
+	// client could take every descriptor the server has
+	if (channel->ChType == ChannelType::Control && channel->ChIndex == 0)
+		return true;
+	if (channel->ChType != ChannelType::File)
+		return false;
+	int files = 0;
+	for (NetChannel* open : channel->Connection->OpenChannels)
+	{
+		if (open != channel && open->ChType == ChannelType::File)
+			files++;
+	}
+	if (files >= 4)
+	{
+		LogMessage("Net: " + channel->Connection->RemoteAddressString() + " asks for a fifth file at once: refused");
+		return false;
+	}
+	return true;
 }
 
 bool NetServerLevel::NotifySendingFile(NetConnection* connection, const std::string& guid)
