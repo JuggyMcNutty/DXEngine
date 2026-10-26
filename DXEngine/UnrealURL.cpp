@@ -5,24 +5,25 @@
 #include "Package/PackageManager.h"
 #include "Utils/StrTools.h"
 
+// The next URL on the base: its map, portal and options, and, when it names
+// a host, that host, port and protocol too (a relative travel to another
+// server's address goes there)
 UnrealURL::UnrealURL(const UnrealURL& baseURL, const UnrealURL& nextURL)
 {
-	// To do: this also needs to be able to handle fully qualified URLs for network support
-
 	*this = baseURL;
 
-	// Pass options from the nextURL to the base one
 	Map = nextURL.Map;
 	Portal = nextURL.Portal;
 
 	for (auto& option : nextURL.Options)
 		AddOrReplaceOption(option);
 
-	/*
-	// Unreal uses relative urls
-	if (Map.size() > 8 && Map.substr(0, 8) == "..\\maps\\")
-		Map = Map.substr(8);
-	*/
+	if (!nextURL.Host.empty())
+	{
+		Host = nextURL.Host;
+		Port = nextURL.Port;
+		Protocol = nextURL.Protocol;
+	}
 }
 
 // The game's [URL] Port: any URL's port unless it names another, as the
