@@ -594,8 +594,7 @@ in `Frame::CallScript`.
   polygon's plane before its vertex count and surface; a line tests the actors of only the
   cells it crosses, however long; a box of 100 cells or more on an axis tests every actor in
   the hash instead; each cell's actors sit in an open-addressed table (`CellTable`), where
-  Surreal Engine keeps a `std::unordered_map` of `std::list`s; moves and traces go without casts
-  and heap allocations.
+  Surreal Engine keeps a `std::unordered_map` of `std::list`s.
 - **Deus Ex's traces, moves and physics are `Engine.dll`'s**, in
   `DXEngine/Collision/TopLevel/TraceTest.cpp`, `UActor_Phys*.cpp` and `UPawn_Tick.cpp`: its
   backoffs; the movers a line meets where the level's BSP last filed them, filed by
