@@ -160,7 +160,10 @@ bool SoftwareRenderDevice::DrawRecorded(bool mapTiles)
 		DrawWave(wave, Frame, Reference, true);
 		mapped = mapTiles;
 
-		if (CheckReference)
+		// Compared once a frame, at its present: the draws within a frame
+		// (a flush while locked, a texture about to be written) would count
+		// the frame again
+		if (CheckReference && mapTiles)
 			CompareWithReference();
 	}
 
@@ -316,8 +319,9 @@ void SoftwareRenderDevice::BeforeTextureWrite(SoftwareTexture* tex, int x, int y
 		DrawRecorded(false);
 }
 
-// The pipelines' frame against the reference's: the largest difference of
-// a channel, and the pixels more than a level apart, logged every 60 frames
+// The pipelines' frame against the reference's at its present: the largest
+// difference of a channel, and the pixels more than a level apart, logged
+// every 60 frames
 void SoftwareRenderDevice::CompareWithReference()
 {
 	for (int y = 0; y < Frame.Height; y++)
