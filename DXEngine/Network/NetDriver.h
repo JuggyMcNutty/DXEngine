@@ -5,6 +5,7 @@ class GCMarker;
 #include "NetConnection.h"
 #include <initializer_list>
 #include <memory>
+#include <atomic>
 #include <string>
 
 class NetChannel;
@@ -60,7 +61,20 @@ public:
 	~NetDriver();
 
 	bool InitConnect(NetNotify* notify, const std::string& host, int port, std::string& error);
+	// A server's socket, on the port or the next free of the 20 from it;
+	// the one bound is in BoundPort
 	bool InitListen(NetNotify* notify, int port, std::string& error);
+	int BoundPort = 0;
+	// A join's host name is looked up on a thread of its own, the game
+	// going on, as the original's connection looks it up (IpDrv.dll
+	// UTcpipConnection 0x107092d0); until it is, nothing is sent.
+	struct ResolveJob
+	{
+		std::string Host;
+		std::atomic<int> State{ 0 }; // 0 looking up, 1 found, 2 failed
+		uint32_t Addr = 0;
+	};
+	std::shared_ptr<ResolveJob> Resolve;
 	void TickDispatch(float deltaTime);
 	void TickFlush();
 

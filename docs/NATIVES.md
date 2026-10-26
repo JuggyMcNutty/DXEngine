@@ -1863,7 +1863,10 @@ The server-only stubs are under
 
 - **The net driver** is DXEngine's own, over UDP with
   `[IpDrv.TcpNetDriver]`'s timeouts; the connection, its channels and the
-  handshake are the original's.
+  handshake are the original's, and so is its socket: broadcast and address
+  reuse on, 32 KB buffers for a client's and 128 KB for a server's, a
+  server's port the URL's or the next free of the 20 from it (`PORT=` and
+  `MULTIHOME=` are not taken).
 - **The download cache.** A package is cached as its GUID with `CacheExt`,
   where the original writes `.uxx` whatever `CacheExt` says (the game's ini
   names `.uxx`). A package a join loaded from the cache is let go by name at

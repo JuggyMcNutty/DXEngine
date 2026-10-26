@@ -158,11 +158,27 @@ bool NetDriver::InitConnect(NetNotify* notify, const std::string& host, int port
 bool NetDriver::InitListen(NetNotify* notify, int port, std::string& error)
 {
 	Notify = notify;
-	return OpenSocket(port, error);
+	// The port, or the next free of the 20 from it, as the original's
+	// server binds (IpDrv.dll UTcpNetDriver::InitBase 0x1070abb0): a second
+	// server on the machine takes the next
+	for (int i = 0; i < 20; i++)
+	{
+		if (OpenSocket(port + i, error))
+		{
+			BoundPort = port + i;
+			return true;
+		}
+	}
+	return false;
 }
 
 bool NetDriver::OpenSocket(int port, std::string& error)
 {
+	if (Socket != NoSocket)
+	{
+		CloseSocket(Socket);
+		Socket = NoSocket;
+	}
 	Socket = (intptr_t)socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (Socket == NoSocket)
 	{
@@ -170,6 +186,15 @@ bool NetDriver::OpenSocket(int port, std::string& error)
 		return false;
 	}
 	SetNonBlocking(Socket);
+
+	// As the original's socket is set up (InitBase): broadcast and address
+	// reuse on, the buffers 32 KB for a client's and 128 KB for a server's
+	int on = 1;
+	setsockopt((decltype(socket(0, 0, 0)))Socket, SOL_SOCKET, SO_BROADCAST, (const char*)&on, sizeof(on));
+	setsockopt((decltype(socket(0, 0, 0)))Socket, SOL_SOCKET, SO_REUSEADDR, (const char*)&on, sizeof(on));
+	int buffer = port != 0 ? 0x20000 : 0x8000;
+	setsockopt((decltype(socket(0, 0, 0)))Socket, SOL_SOCKET, SO_SNDBUF, (const char*)&buffer, sizeof(buffer));
+	setsockopt((decltype(socket(0, 0, 0)))Socket, SOL_SOCKET, SO_RCVBUF, (const char*)&buffer, sizeof(buffer));
 
 	sockaddr_in local = {};
 	local.sin_family = AF_INET;

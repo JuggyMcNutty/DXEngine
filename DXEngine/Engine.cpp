@@ -2082,7 +2082,9 @@ void Engine::CloseNetDriver()
 
 void Engine::Listen(const UnrealURL& url)
 {
-	int port = std::atoi(packages->GetIniValue("system", "URL", "Port", "7777").c_str());
+	// The URL's port -- the game's [URL] Port unless the URL names one -- or
+	// the next free of the 20 from it, as the original's server binds
+	int port = url.Port;
 	ServerLevel = std::make_unique<NetServerLevel>(LevelPackage);
 	LevelNetDriver = std::make_unique<NetDriver>();
 	std::string error;
@@ -2094,6 +2096,7 @@ void Engine::Listen(const UnrealURL& url)
 		LevelInfo->NetMode() = NM_Standalone;
 		return;
 	}
+	port = LevelNetDriver->BoundPort;
 	LogMessage("Net: listening on port " + std::to_string(port));
 	// The level's URL takes the address and port bound, as the original's
 	// net driver writes them into it (IpDrv.dll UTcpNetDriver::InitListen):
