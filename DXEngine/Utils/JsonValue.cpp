@@ -39,7 +39,12 @@ JsonValue JsonValue::parse(const std::string &json)
 	// A UTF-8 byte order mark is passed over, as DXLauncher's reader passes
 	// it: editors on Windows add one to a hand-edited Settings.json.
 	size_t pos = json.compare(0, 3, "\xEF\xBB\xBF") == 0 ? 3 : 0;
-	return JsonValueImpl::read(json, pos);
+	JsonValue value = JsonValueImpl::read(json, pos);
+	// Nothing but blanks may follow the value
+	JsonValueImpl::read_whitespace(json, pos);
+	if (pos != json.length())
+		Exception::Throw("Unexpected character after the JSON value");
+	return value;
 }
 
 void JsonValue::add(const std::string name, const JsonValue& value)
@@ -231,6 +236,15 @@ void JsonValueImpl::write_number(const JsonValue &value, std::string &json)
 
 JsonValue JsonValueImpl::read(const std::string &json, size_t &pos)
 {
+	// Nesting held to 512 levels: the reader recurses, and a file made to
+	// nest without end would overflow the stack
+	static thread_local int depth = 0;
+	struct DepthGuard
+	{
+		DepthGuard() { if (++depth > 512) { depth--; Exception::Throw("JSON data nested too deep"); } }
+		~DepthGuard() { depth--; }
+	} depthGuard;
+
 	read_whitespace(json, pos);
 
 	if (pos == json.length())
@@ -307,6 +321,9 @@ JsonValue JsonValueImpl::read_object(const std::string &json, size_t &pos)
 		{
 			pos++;
 			read_whitespace(json, pos);
+			// A comma with nothing after it is no JSON
+			if (pos == json.length() || json[pos] == '}')
+				Exception::Throw("Unexpected character in JSON data");
 		}
 		else
 		{
@@ -347,6 +364,9 @@ JsonValue JsonValueImpl::read_array(const std::string &json, size_t &pos)
 		{
 			pos++;
 			read_whitespace(json, pos);
+			// A comma with nothing after it is no JSON
+			if (pos == json.length() || json[pos] == ']')
+				Exception::Throw("Unexpected character in JSON data");
 		}
 		else
 		{
@@ -436,9 +456,31 @@ std::string JsonValueImpl::read_string(const std::string &json, size_t &pos)
 						Exception::Throw("Invalid unicode escape");
 					}
 				}
-				result += from_utf32(codepoint);
 				pos += 4;
+				// A high surrogate with a low one after it (\uD83D\uDE00) is one
+				// character past U+FFFF, as write_string writes such a character
+				if (codepoint >= 0xD800 && codepoint <= 0xDBFF && pos + 7 <= json.length() && json[pos + 1] == '\\' && json[pos + 2] == 'u')
+				{
+					unsigned int low = 0;
+					bool hex = true;
+					for (int i = 0; i < 4 && hex; i++)
+					{
+						char c = json[pos + 3 + i];
+						if (c >= '0' && c <= '9') low = (low << 4) | (c - '0');
+						else if (c >= 'a' && c <= 'f') low = (low << 4) | (c - 'a' + 10);
+						else if (c >= 'A' && c <= 'F') low = (low << 4) | (c - 'A' + 10);
+						else hex = false;
+					}
+					if (hex && low >= 0xDC00 && low <= 0xDFFF)
+					{
+						codepoint = 0x10000 + ((codepoint - 0xD800) << 10) + (low - 0xDC00);
+						pos += 6;
+					}
+				}
+				result += from_utf32(codepoint);
 				break;
+			default:
+				Exception::Throw("Invalid escape in JSON string");
 			}
 			pos++;
 		}

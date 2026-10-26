@@ -3,6 +3,7 @@
 #include "LauncherSettings.h"
 #include "Utils/JsonValue.h"
 #include "Utils/File.h"
+#include "Utils/Logger.h"
 
 LauncherSettings& LauncherSettings::Get()
 {
@@ -78,7 +79,14 @@ LauncherSettings::LauncherSettings()
 		const JsonValue& perf = settings["Performance"];
 		if (!perf["RenderScale"].is_undefined()) Performance.RenderScale = (float)perf["RenderScale"].to_number();
 	}
+	catch (const std::exception& e)
+	{
+		// Said, not dropped in silence: every renderer and pad setting then
+		// stands at its default
+		LogMessage("Settings.json was not read (" + std::string(e.what()) + "): the defaults stand");
+	}
 	catch (...)
 	{
+		LogMessage("Settings.json was not read: the defaults stand");
 	}
 }
