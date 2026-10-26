@@ -102,7 +102,10 @@ int GameApp::main(Array<std::string> args)
 		GameFolderSelection::UpdateList();
 		if (GameFolderSelection::Games.empty())
 		{
-			std::cout << "No UE1 game found in the given folder." << std::endl;
+			// A failure, reported as every other (the error window, the
+			// launcher's prefix, a failing exit code), not a clean quit
+			// after one line on stdout
+			throw std::runtime_error("No UE1 game found in the given folder");
 		}
 		else
 		{
