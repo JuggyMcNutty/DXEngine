@@ -691,8 +691,13 @@ public:
 
 					while (musicQueue.Size() < musicBufferCount)
 					{
-						// render a chunk of music
-						currentMusic->ReadSamples(musicQueue.GetNextFree(), musicBufferSize);
+						// render a chunk of music; what a source that ends or reads
+						// short leaves is silence, not what the chunk held 16
+						// chunks before
+						float* chunk = musicQueue.GetNextFree();
+						size_t got = currentMusic->ReadSamples(chunk, musicBufferSize);
+						if (got < (size_t)musicBufferSize)
+							std::fill(chunk + got, chunk + musicBufferSize, 0.0f);
 						musicQueue.Push(musicQueue.GetNextFree());
 					}
 
