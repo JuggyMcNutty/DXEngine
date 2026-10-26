@@ -97,8 +97,21 @@ namespace SoftwarePixel
 	// bilinear with 8-bit weights, as SoftwareSampler::Bilinear. alpha, if
 	// asked for, is each lane's alpha exactly, times 65536, for the alpha
 	// test to take as the reference does.
+	// A coordinate that is no number or infinite (a DrawScale of 0, a NaN
+	// nothing on the path stops) samples as 0, as the float reference maps it:
+	// wrapped, it became INT_MIN through Floor and Truncate, a read gigabytes
+	// before the texture
+	inline F4 FiniteOrZero(F4 a)
+	{
+		F4 zero = SetF(0.0f);
+		a = Select(CmpLtF(a, SetF(1e30f)), a, zero);
+		return Select(CmpLtF(SetF(-1e30f), a), a, zero);
+	}
+
 	inline void Bilinear(const SoftwareMip& mip, F4 u, F4 v, bool clamp, W8& out01, W8& out23, int32_t* alpha)
 	{
+		u = FiniteOrZero(u);
+		v = FiniteOrZero(v);
 		if (!clamp)
 		{
 			u = u - Floor(u);
@@ -183,6 +196,8 @@ namespace SoftwarePixel
 	// times 65536, as Bilinear gives it
 	inline void Nearest(const SoftwareMip& mip, F4 u, F4 v, bool clamp, W8& out01, W8& out23, int32_t* alpha)
 	{
+		u = FiniteOrZero(u);
+		v = FiniteOrZero(v);
 		I4 x, y;
 		if (clamp)
 		{
