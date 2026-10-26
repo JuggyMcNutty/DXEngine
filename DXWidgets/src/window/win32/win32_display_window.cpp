@@ -875,18 +875,29 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 
 		WindowHost->OnWindowMouseWheel(Point(pos.x / dpiscale, pos.y / dpiscale), delta < 0.0 ? InputKey::MouseWheelDown : InputKey::MouseWheelUp);
 	}
-	else if (msg == WM_CHAR)
+	else if (msg == WM_CHAR || msg == WM_SYSCHAR)
 	{
+		// A character typed with Alt held is one too (WM_SYSCHAR), as the
+		// original's window has it; DefWindowProc then gets it, as there,
+		// so Alt+Space opens the window's menu
 		wchar_t buf[2] = { (wchar_t)wparam, 0 };
 		WindowHost->OnWindowKeyChar(from_utf16(buf));
 	}
-	else if (msg == WM_KEYDOWN)
+	else if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)
 	{
+		// Alt, F10 and a key pressed with Alt held come as the system key
+		// messages: the original's window presses and releases on them as
+		// on the others and returns, DefWindowProc never seeing them, so
+		// Alt's release enters no menu mode
 		WindowHost->OnWindowKeyDown((InputKey)wparam);
+		if (msg == WM_SYSKEYDOWN)
+			return 0;
 	}
-	else if (msg == WM_KEYUP)
+	else if (msg == WM_KEYUP || msg == WM_SYSKEYUP)
 	{
 		WindowHost->OnWindowKeyUp((InputKey)wparam);
+		if (msg == WM_SYSKEYUP)
+			return 0;
 	}
 	else if (msg == WM_SETFOCUS)
 	{
