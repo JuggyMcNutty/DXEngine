@@ -5,7 +5,8 @@
 class DBusOpenFileDialog : public OpenFileDialog
 {
 public:
-	DBusOpenFileDialog(std::string ownerHandle);
+	// The portal's method: OpenFile, or SaveFile for the save dialog
+	DBusOpenFileDialog(std::string ownerHandle, std::string method = "OpenFile");
 
 	std::string Filename() const override;
 	std::vector<std::string> Filenames() const override;
@@ -23,6 +24,7 @@ private:
 	static std::string unescapeUri(const std::string& s);
 	
 	std::string ownerHandle;
+	std::string method;
 	std::string title;
 	std::string initialDirectory;
 	std::string inputFilename;

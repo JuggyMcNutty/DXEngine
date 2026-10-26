@@ -2,7 +2,7 @@
 #include "dbus_open_file_dialog.h"
 #include <dbus/dbus.h>
 
-DBusOpenFileDialog::DBusOpenFileDialog(std::string ownerHandle) : ownerHandle(ownerHandle)
+DBusOpenFileDialog::DBusOpenFileDialog(std::string ownerHandle, std::string method) : ownerHandle(ownerHandle), method(method)
 {
 }
 
@@ -73,7 +73,7 @@ bool DBusOpenFileDialog::Show()
 
 	std::string busname = dbus_bus_get_unique_name(connection);
 
-	DBusMessage* request = dbus_message_new_method_call("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop", "org.freedesktop.portal.FileChooser", "OpenFile");
+	DBusMessage* request = dbus_message_new_method_call("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop", "org.freedesktop.portal.FileChooser", method.c_str());
 	if (!request)
 	{
 		dbus_connection_unref(connection);
@@ -126,7 +126,26 @@ bool DBusOpenFileDialog::Show()
 		bresult = dbus_message_iter_close_container(&requestOptions, &entry);
 	}
 
-	// multiple - b
+	// current_name - s (SaveFile's suggested name)
+	if (method == "SaveFile" && !inputFilename.empty())
+	{
+		const char* key = "current_name";
+		const char* value = inputFilename.c_str();
+
+		DBusMessageIter entry = {};
+		bresult = dbus_message_iter_open_container(&requestOptions, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
+		bresult = dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &key);
+
+		DBusMessageIter variant = {};
+		bresult = dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, DBUS_TYPE_STRING_AS_STRING, &variant);
+		bresult = dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &value);
+		bresult = dbus_message_iter_close_container(&entry, &variant);
+
+		bresult = dbus_message_iter_close_container(&requestOptions, &entry);
+	}
+
+	// multiple - b (OpenFile's)
+	if (method == "OpenFile")
 	{
 		const char* key = "multiple";
 		dbus_bool_t value = multiSelect;

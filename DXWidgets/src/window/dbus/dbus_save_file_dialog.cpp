@@ -1,13 +1,24 @@
 
 #include "dbus_save_file_dialog.h"
+#include "dbus_open_file_dialog.h"
 
 DBusSaveFileDialog::DBusSaveFileDialog(std::string ownerHandle) : ownerHandle(ownerHandle)
 {
 }
 
+// The portal's SaveFile, through the open dialog's call with that method:
+// this was a stub answering false, so the error window's Save Report saved
+// nothing and said nothing on every Linux window
 bool DBusSaveFileDialog::Show()
 {
-	return false;
+	DBusOpenFileDialog dialog(ownerHandle, "SaveFile");
+	dialog.SetTitle(title);
+	dialog.SetInitialDirectory(initial_directory);
+	dialog.SetFilename(initial_filename);
+	if (!dialog.Show())
+		return false;
+	filename = dialog.Filename();
+	return !filename.empty();
 }
 
 std::string DBusSaveFileDialog::Filename() const
