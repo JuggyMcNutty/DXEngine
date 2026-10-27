@@ -177,33 +177,33 @@ same way ([measuring both engines](DEVELOPMENT.md#measuring-both-engines)).
 
 Liberty Island's level start, the player idle, both engines on the desktop's Xwayland through
 OpenGL, no vsync, 1280x720 (`PerfConsole`, `DXCAP_PERF=1`), three alternating runs of each, at
-engine `ebda836` on the development machine (Ryzen 9 7940HS, Radeon 780M). Milliseconds a frame
+engine `53c82f0` on the development machine (Ryzen 9 7940HS, Radeon 780M). Milliseconds a frame
 of the main thread, by area (`frame-report.py --mean`), and the same with the view turning
 (`PerfTurnConsole`):
 
 | | Original | DXEngine |
 |---|---|---|
-| Frame (frames a second) | 4.20 (238) | 2.75 (364) |
-| Main thread on the CPU | 3.97 | 2.58 |
-| Cycles, instructions a frame | 21.3 M, 28.7 M | 13.7 M, 27.3 M |
-| Scene render | 1.40 (`Render.dll`), 0.10 fractal textures (`Fire.dll`) | 1.47, the fractal textures in it |
-| Script VM and objects | 0.39 (`Core.dll`) | 0.31 |
-| Game tick, AI, physics, collision | 0.37 (`Engine.dll`, `DeusEx.dll`) | 0.23 |
-| Render device, GL driver | 0.32, 0.38 | 0.05, 0.20 |
-| C runtime | 0.96 | 0.17 |
-| Turning: frame (frames a second), cycles | 2.14 (468), 10.1 M | 1.51 (663), 6.9 M |
-| Instructions a cycle | 1.35 | 2.0 |
-| Main thread off the CPU | 0.23 | 0.17 |
-| The original's own counters: its game, its client | 0.45, 3.73 | |
-| DXEngine's render by part: the visibility walk, meshes, light maps | | about 0.8, 0.25, 0.1 |
+| Frame (frames a second) | 4.34 (230) | 3.21 (311) |
+| Main thread on the CPU | 4.10 | 3.01 |
+| Cycles, instructions a frame | 22.1 M, 28.8 M | 15.2 M, 27.6 M |
+| Scene render | 1.46 (`Render.dll`), 0.10 fractal textures (`Fire.dll`) | 1.81, the fractal textures in it |
+| Script VM and objects | 0.42 (`Core.dll`) | 0.36 |
+| Game tick, AI, physics, collision | 0.39 (`Engine.dll`, `DeusEx.dll`) | 0.19 |
+| Render device, GL driver | 0.32, 0.40 | 0.08, 0.22 |
+| C runtime | 0.95 | 0.14 |
+| Turning: frame (frames a second), cycles | 2.14 (466), 10.3 M | 1.60 (627), 7.2 M |
+| Instructions a cycle | 1.30 | 1.81 |
+| Main thread off the CPU | 0.24 | 0.20 |
+| The original's own counters: its game, its client | 0.49, 3.85 | |
+| DXEngine's render by part: the visibility walk, meshes, light maps | | about 1.1, 0.27, 0.1 |
 
 DXEngine's frame is the shorter, held and turning: its main thread takes fewer cycles a frame
-for about as many instructions, and is off the CPU a little less. Its render takes about the
-original's: the visibility walk (`DrawPolygon` and `DrawSpan`, `ProcessNodeSurface`,
-`ProcessNode`, the box tests), meshes (`DrawLodMeshFaceDX`), light maps. The walk
-waits on memory, not on arithmetic, so the original's own savings gain nothing here, or lose:
-each node's box tested one frame in 16 while it shows, each point transformed once a frame into
-a cache, a surface outside one side rejected without a clip
+for about as many instructions, and is off the CPU a little less. Its render takes a little
+longer than the original's: the visibility walk (`DrawPolygon` and `DrawSpan`,
+`ProcessNodeSurface`, `ProcessNode`, the box tests), meshes (`DrawLodMeshFaceDX`), light maps.
+The walk waits on memory, not on arithmetic, so the original's own savings gain nothing here, or
+lose: each node's box tested one frame in 16 while it shows, each point transformed once a frame
+into a cache, a surface outside one side rejected without a clip
 ([a frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-frame));
 nor does skipping the nodes of zones not yet seen, or asking ahead (prefetch) for a node's
 surfaces and far child. The cache's misses cost more than the transforms they save.
