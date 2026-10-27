@@ -35,7 +35,9 @@ const Array<UObject*>& Bytecode::CollectableReferencedObjects()
 
 Expression* Bytecode::ReadToken(BytecodeStream* stream, int depth)
 {
-	if (depth == 64)
+	// As deep as the loader reads it (UStruct::ReadToken): the original's
+	// takes any depth, 1024 refusing only a runaway
+	if (depth == 1024)
 		Exception::Throw("Bytecode parsing error");
 	depth++;
 
