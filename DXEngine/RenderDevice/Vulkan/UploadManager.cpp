@@ -238,6 +238,17 @@ void UploadManager::SubmitUploads()
 	// Do full texture uploads, then partial
 	for (int i = 0; i < 2; i++)
 	{
+		// The rects after the whole images: a texture uploaded whole and
+		// changed again in one batch has its rects written over its full
+		// copy, which copies, unordered among themselves, keep only with a
+		// barrier between
+		if (i == 1)
+		{
+			PipelineBarrier()
+				.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT)
+				.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+		}
+
 		// Copy from buffer to images
 		VkBuffer buffer = renderer->Buffers->UploadBuffer->buffer;
 		for (CachedTexture* tex : PendingUploads)
