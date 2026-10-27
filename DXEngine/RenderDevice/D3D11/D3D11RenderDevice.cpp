@@ -914,6 +914,7 @@ void D3D11RenderDevice::ReleaseBloomPass()
 	BloomPass.BlurHorizontal.reset();
 	BloomPass.ConstantBuffer.reset();
 	BloomPass.AdditiveBlendState.reset();
+	BloomPass.LinearClamp.reset();
 }
 
 void D3D11RenderDevice::ReleasePresentPass()
@@ -1013,6 +1014,8 @@ void D3D11RenderDevice::RunBloomPass()
 	Context->VSSetShader(PresentPass.PPStep, nullptr, 0);
 	Context->RSSetState(PresentPass.RasterizerState);
 	Context->PSSetConstantBuffers(0, 1, cbs);
+	ID3D11SamplerState* samplers[1] = { BloomPass.LinearClamp.get() };
+	Context->PSSetSamplers(0, 1, samplers);
 	Context->OMSetDepthStencilState(PresentPass.DepthStencilState, 0);
 	Context->OMSetBlendState(PresentPass.BlendState, nullptr, 0xffffffff);
 	Context->UpdateSubresource(BloomPass.ConstantBuffer, 0, nullptr, &pushconstants, 0, 0);
@@ -1084,12 +1087,69 @@ void D3D11RenderDevice::RunBloomPass()
 	Context->RSSetViewports(1, &viewport);
 	BlurStep(SceneBuffers.BlurLevels[0].VTextureSRV, SceneBuffers.BlurLevels[0].HTextureRTV, false);
 	BlurStep(SceneBuffers.BlurLevels[0].HTextureSRV, SceneBuffers.BlurLevels[0].VTextureRTV, true);
+}
 
-	// Add bloom back to scene post process texture:
+// The world's frame copied out and its bloom taken into the levels, then the
+// scene's targets and state again, as Lock binds them, for the windows drawn
+// over it
+void D3D11RenderDevice::TakeBloom()
+{
+	if (!Bloom || !IsLocked)
+		return;
+
+	DrawBatches();
+	UnmapVertices();
+	if (SceneBuffers.Multisample > 1)
+		Context->ResolveSubresource(SceneBuffers.PPImage[0], 0, SceneBuffers.ColorBuffer, 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+	else
+		Context->CopyResource(SceneBuffers.PPImage[0], SceneBuffers.ColorBuffer);
+	RunBloomPass();
+	BloomTaken = true;
+
+	ID3D11RenderTargetView* views[1] = { SceneBuffers.ColorBufferView };
+	Context->OMSetRenderTargets(1, views, SceneBuffers.DepthBufferView);
+	UINT stride = sizeof(D3D11SceneVertex);
+	UINT offset = 0;
+	ID3D11Buffer* vertexBuffers[1] = { ScenePass.VertexBuffer.get() };
+	ID3D11Buffer* cbs[1] = { ScenePass.ConstantBuffer.get() };
+	Context->IASetVertexBuffers(0, 1, vertexBuffers, &stride, &offset);
+	Context->IASetIndexBuffer(ScenePass.IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+	Context->IASetInputLayout(ScenePass.InputLayout);
+	Context->VSSetShader(ScenePass.VertexShader, nullptr, 0);
+	Context->VSSetConstantBuffers(0, 1, cbs);
+	Context->RSSetState(ScenePass.RasterizerState[SceneBuffers.Multisample > 1]);
+	Context->RSSetViewports(1, &SceneViewport);
+	D3D11_RECT box = {};
+	box.right = CurrentSizeX;
+	box.bottom = CurrentSizeY;
+	Context->RSSetScissorRects(1, &box);
+	MapVertices(false);
+}
+
+// The bloom TakeBloom left in the first level, added to the frame's post
+// process image
+void D3D11RenderDevice::AddBloom()
+{
+	ID3D11Buffer* vertexBuffers[1] = { PresentPass.PPStepVertexBuffer.get() };
+	ID3D11Buffer* cbs[1] = { BloomPass.ConstantBuffer.get() };
+	ID3D11SamplerState* samplers[1] = { BloomPass.LinearClamp.get() };
+	UINT stride = sizeof(vec2);
+	UINT offset = 0;
+	Context->IASetVertexBuffers(0, 1, vertexBuffers, &stride, &offset);
+	Context->IASetInputLayout(PresentPass.PPStepLayout);
+	Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	Context->VSSetShader(PresentPass.PPStep, nullptr, 0);
+	Context->RSSetState(PresentPass.RasterizerState);
+	Context->PSSetConstantBuffers(0, 1, cbs);
+	Context->PSSetSamplers(0, 1, samplers);
+	Context->OMSetDepthStencilState(PresentPass.DepthStencilState, 0);
+
+	D3D11_VIEWPORT viewport = {};
 	viewport.Width = (float)SceneBuffers.Width;
 	viewport.Height = (float)SceneBuffers.Height;
-	rtvs[0] = SceneBuffers.PPImageView[0].get();
-	srvs[0] = SceneBuffers.BlurLevels[0].VTextureSRV.get();
+	viewport.MaxDepth = 1.0f;
+	ID3D11RenderTargetView* rtvs[1] = { SceneBuffers.PPImageView[0].get() };
+	ID3D11ShaderResourceView* srvs[1] = { SceneBuffers.BlurLevels[0].VTextureSRV.get() };
 	Context->OMSetRenderTargets(1, rtvs, nullptr);
 	Context->OMSetBlendState(BloomPass.AdditiveBlendState, nullptr, 0xffffffff);
 	Context->RSSetViewports(1, &viewport);
@@ -1160,6 +1220,20 @@ void D3D11RenderDevice::CreateBloomPass()
 	result = Device->CreateBlendState(&blendDesc, BloomPass.AdditiveBlendState.TypedInitPtr());
 	ThrowIfFailed(result, "CreateBlendState(BloomPass.AdditiveBlendState) failed");
 	SetDebugName(BloomPass.AdditiveBlendState, "BloomPass.AdditiveBlendState");
+
+	// The passes' own sampler, as the Vulkan and GL devices' post passes
+	// have theirs: without it they sampled with the last scene draw's, point
+	// after a NoSmooth tile and wrapping or mirrored at the edges
+	D3D11_SAMPLER_DESC samplerDesc = {};
+	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+	result = Device->CreateSamplerState(&samplerDesc, BloomPass.LinearClamp.TypedInitPtr());
+	ThrowIfFailed(result, "CreateSamplerState(BloomPass.LinearClamp) failed");
+	SetDebugName(BloomPass.LinearClamp, "BloomPass.LinearClamp");
 }
 
 void D3D11RenderDevice::CreatePresentPass()
@@ -1375,6 +1449,7 @@ void D3D11RenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClea
 	MapVertices(true);
 
 	IsLocked = true;
+	BloomTaken = false;
 }
 
 D3D11PresentPushConstants D3D11RenderDevice::GetD3D11PresentPushConstants()
@@ -1456,9 +1531,9 @@ void D3D11RenderDevice::Unlock(bool Blit)
 			Context->CopyResource(SceneBuffers.PPImage[0], SceneBuffers.ColorBuffer);
 		}
 
-		if (Bloom)
+		if (BloomTaken)
 		{
-			RunBloomPass();
+			AddBloom();
 		}
 
 		ID3D11RenderTargetView* rtvs[1] = { BackBufferView.get() };

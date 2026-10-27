@@ -76,6 +76,7 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 		{
 			DrawScene();
 			RenderOverlays();
+			Device->TakeBloom();
 		}
 		PostRenderFlash();
 		Device->EndFlash();

@@ -408,6 +408,15 @@ for: the Vulkan device takes lavapipe, the GPUs passed over, and the GL device l
 (`LIBGL_ALWAYS_SOFTWARE=1`, set before GL loads; on Linux alone: on Windows the GL device draws
 through the GPU's driver whatever the key). The log names the driver either draws through.
 
+**The bloom** (`"Bloom"`, the Vulkan, GL and D3D11 devices): what of the world's frame and the
+weapon lies over half the scene's range, by a pixel's brightest channel and eased in over a knee
+of 0.1 below that, is taken as the world ends (`RenderDevice::TakeBloom`), blurred over four
+halvings at `BloomAmount`'s spread and added to the frame at its end, so the HUD's and the
+menus' windows, drawn after it, stay sharp. The threshold is under 1, as the Vulkan and GL
+devices' scene buffers hold no more: Surreal Engine's of 1 bloomed only what a float buffer's
+blends pushed over it (D3D11's is float still). The D3D11 device's passes bind a linear, clamped
+sampler of their own, as the others' do.
+
 **The Vulkan device**: the game tick runs while the GPU draws the previous frame
 (`CommandBufferManager` keeps one frame in flight, and `WaitForFrame()` collects it before
 anything it uses is touched; the swapchain is made again for a new size asked, not for an

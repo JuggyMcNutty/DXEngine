@@ -78,6 +78,7 @@ public:
 	// window's now (a window resized since overflowed the buffer)
 	void LastFrameSize(int& width, int& height) const override { width = CurrentSizeX; height = CurrentSizeY; }
 	void EndFlash() override;
+	void TakeBloom() override;
 	void SetSceneNode(SceneNode* Frame) override;
 	void PrecacheTexture(TextureInfo& Info, uint32_t PolyFlags) override;
 	bool SupportsTextureFormat(TextureFormat Format) override;
@@ -205,6 +206,7 @@ public:
 		ComPtr<ID3D11PixelShader> BlurHorizontal;
 		ComPtr<ID3D11Buffer> ConstantBuffer;
 		ComPtr<ID3D11BlendState> AdditiveBlendState;
+		ComPtr<ID3D11SamplerState> LinearClamp;
 	} BloomPass;
 
 	std::unique_ptr<D3D11TextureManager> Textures;
@@ -255,6 +257,9 @@ private:
 	void ReleaseSceneBuffers();
 
 	void RunBloomPass();
+	void AddBloom();
+	// The bloom levels hold this frame's, taken by TakeBloom
+	bool BloomTaken = false;
 	void BlurStep(ID3D11ShaderResourceView* input, ID3D11RenderTargetView* output, bool vertical);
 	float ComputeBlurGaussian(float n, float theta);
 	void ComputeBlurSamples(int sampleCount, float blurAmount, float* sampleWeights);

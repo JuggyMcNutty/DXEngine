@@ -249,6 +249,7 @@ void VulkanRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenCle
 	cmdbuffer->bindIndexBuffer(Buffers->SceneIndexBuffer->buffer, 0, VK_INDEX_TYPE_UINT32);
 
 	IsLocked = true;
+	BloomTaken = false;
 }
 
 void VulkanRenderDevice::FlushDrawBatchAndWait()
@@ -290,9 +291,10 @@ void VulkanRenderDevice::Unlock(bool Blit)
 	Commands->GetDrawCommands()->endRenderPass();
 
 	BlitSceneToPostprocess();
-	if (Bloom)
+	if (BloomTaken)
 	{
-		RunBloomPass();
+		AddBloom();
+		BloomTaken = false;
 	}
 
 	int windowWidth = Viewport->GetNativePixelWidth();
@@ -1081,6 +1083,45 @@ void VulkanRenderDevice::BlitSceneToPostprocess()
 		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
+// The world's frame copied out and its bloom taken into the levels, then the
+// scene's pass again, its colour and depth as the world left them, for the
+// windows drawn over it
+void VulkanRenderDevice::TakeBloom()
+{
+	if (!Bloom || !IsLocked)
+		return;
+
+	auto cmdbuffer = Commands->GetDrawCommands();
+	DrawBatch(cmdbuffer);
+	cmdbuffer->endRenderPass();
+	BlitSceneToPostprocess();
+	RunBloomPass();
+	BloomTaken = true;
+
+	VkAccessFlags colorAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+	VkAccessFlags depthAccess = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	VkPipelineStageFlags depthStages = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+	PipelineBarrier()
+		.AddImage(Textures->Scene->ColorBuffer.get(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, colorAccess)
+		.AddImage(Textures->Scene->DepthBuffer.get(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, depthAccess, depthAccess, VK_IMAGE_ASPECT_DEPTH_BIT)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT | depthStages, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | depthStages);
+
+	RenderPassBegin()
+		.RenderPass(RenderPasses->Scene.RenderPassContinue.get())
+		.Framebuffer(Framebuffers->SceneFramebuffer.get())
+		.RenderArea(0, 0, Textures->Scene->Width, Textures->Scene->Height)
+		.Execute(cmdbuffer);
+
+	VkBuffer vertexBuffers[] = { Buffers->SceneVertexBuffer->buffer };
+	VkDeviceSize offsets[] = { 0 };
+	cmdbuffer->bindVertexBuffers(0, 1, vertexBuffers, offsets);
+	cmdbuffer->bindIndexBuffer(Buffers->SceneIndexBuffer->buffer, 0, VK_INDEX_TYPE_UINT32);
+	cmdbuffer->setViewport(0, 1, &viewportdesc);
+	// The bloom's pipelines fix their own depth bias, which Vulkan forgets
+	// the dynamic one for
+	DepthBiasSet = -1;
+}
+
 void VulkanRenderDevice::RunBloomPass()
 {
 	float blurAmount = 0.6f + BloomAmount * (1.9f / 255.0f);
@@ -1196,11 +1237,21 @@ void VulkanRenderDevice::RunBloomPass()
 	}
 
 	PipelineBarrier()
-		.AddImage(Textures->Scene->PPImage[0].get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT)
 		.AddImage(Textures->Scene->BloomBlurLevels[0].VTexture.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, VK_ACCESS_SHADER_READ_BIT)
-		.Execute(cmdbuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+}
 
-	// Add bloom back to frame post process texture:
+// The bloom TakeBloom left in the first level, added to the frame's post
+// process image
+void VulkanRenderDevice::AddBloom()
+{
+	auto cmdbuffer = Commands->GetDrawCommands();
+	BloomPushConstants pushconstants = {};
+
+	PipelineBarrier()
+		.AddImage(Textures->Scene->PPImage[0].get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+
 	BloomStep(cmdbuffer,
 		RenderPasses->Bloom.Combine.get(),
 		DescriptorSets->GetBloomVTextureSet(0),

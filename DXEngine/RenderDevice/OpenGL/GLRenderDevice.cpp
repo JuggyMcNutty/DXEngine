@@ -894,11 +894,56 @@ void GLRenderDevice::RunBloomPass()
 	SetViewport(viewport);
 	BlurStep(SceneBuffers.BlurLevels[0].VTexture.get(), SceneBuffers.BlurLevels[0].HFramebuffer.get(), false);
 	BlurStep(SceneBuffers.BlurLevels[0].HTexture.get(), SceneBuffers.BlurLevels[0].VFramebuffer.get(), true);
+}
 
-	// Add bloom back to scene post process texture:
+// The world's frame copied out and its bloom taken into the levels, then the
+// scene's framebuffer and state again, as Lock binds them, for the windows
+// drawn over it
+void GLRenderDevice::TakeBloom()
+{
+	if (!Bloom || !IsLocked)
+		return;
+
+	DrawBatches();
+	SetClipDistance(false);
+	ClipDiscardOn = false;
+
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, SceneBuffers.Framebuffer->Handle);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, SceneBuffers.PPFramebuffer[0]->Handle);
+	{ GLenum glAtt = GL_COLOR_ATTACHMENT0; glDrawBuffers(1, &glAtt); } // ES has only glDrawBuffers
+	glReadBuffer(GL_COLOR_ATTACHMENT0);
+	glBlitFramebuffer(0, 0, SceneBuffers.Width, SceneBuffers.Height, 0, 0, SceneBuffers.Width, SceneBuffers.Height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+	RunBloomPass();
+	BloomTaken = true;
+
+	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.Framebuffer->Handle);
+	{ GLenum glAtt = GL_COLOR_ATTACHMENT0; glDrawBuffers(1, &glAtt); } // ES has only glDrawBuffers
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ScenePass.IndexBuffer->Handle);
+	glBindVertexArray(ScenePass.InputLayout->Handle);
+	GLBuffer* cbs[1] = { ScenePass.ConstantBuffer.get() };
+	SetUniformBuffers(0, 1, cbs);
+	SetRasterizerState(ScenePass.RasterizerState[SceneBuffers.Multisample > 1].get());
+	SetViewport(SceneViewport);
+	ForgetDrawState();
+}
+
+// The bloom TakeBloom left in the first level, added to the frame's post
+// process image
+void GLRenderDevice::AddBloom()
+{
+	GLBuffer* cbs[1] = { BloomPass.ConstantBuffer.get() };
+	GLSampler* samplers[1] = { PresentPass.PPLinearClamp.get() };
+	glBindVertexArray(PresentPass.PPStepLayout->Handle);
+	SetRasterizerState(PresentPass.RasterizerState.get());
+	SetUniformBuffers(0, 1, cbs);
+	SetSamplers(0, 1, samplers);
+	SetDepthStencilState(PresentPass.DepthStencilState.get());
+
+	GLViewport viewport = {};
 	viewport.Width = (float)SceneBuffers.Width;
 	viewport.Height = (float)SceneBuffers.Height;
-	srvs[0] = SceneBuffers.BlurLevels[0].VTexture.get();
+	viewport.MaxDepth = 1.0f;
+	GLTexture2D* srvs[1] = { SceneBuffers.BlurLevels[0].VTexture.get() };
 	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.PPFramebuffer[0]->Handle);
 	{ GLenum glAtt = GL_COLOR_ATTACHMENT0; glDrawBuffers(1, &glAtt); } // ES has only glDrawBuffers
 	glReadBuffer(GL_COLOR_ATTACHMENT0);
@@ -1181,6 +1226,7 @@ void GLRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 	MapVertices(true);
 
 	IsLocked = true;
+	BloomTaken = false;
 	ForgetDrawState();
 
 	ThrowIfGLError("Lock failed");
@@ -1269,9 +1315,9 @@ void GLRenderDevice::Unlock(bool Blit)
 		// over the whole window and so scales it up.
 		glBlitFramebuffer(0, 0, SceneBuffers.Width, SceneBuffers.Height, 0, 0, SceneBuffers.Width, SceneBuffers.Height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
-		if (Bloom)
+		if (BloomTaken)
 		{
-			RunBloomPass();
+			AddBloom();
 		}
 
 		GLPresentPushConstants pushconstants = GetGLPresentPushConstants();

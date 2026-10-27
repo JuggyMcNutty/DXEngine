@@ -333,9 +333,20 @@ std::string GLFileResource::readAllText(const std::string& filename)
 			layout(location = 0) in vec2 texCoord;
 			layout(location = 0) out vec4 outColor;
 
+			// What of a pixel lies over the threshold, by its brightest
+			// channel, eased in over the knee below it, as the Vulkan
+			// device's: the scene buffer holds no more than 1, so the bloom
+			// takes the frame's brightest
+			const float Threshold = 0.5;
+			const float Knee = 0.1;
+
 			void main()
 			{
-				outColor = vec4(max(texture(texSampler, texCoord).rgb - 1.0, 0.0), 0.0);
+				vec3 c = texture(texSampler, texCoord).rgb;
+				float b = max(c.r, max(c.g, c.b));
+				float soft = clamp(b - Threshold + Knee, 0.0, 2.0 * Knee);
+				soft = soft * soft / (4.0 * Knee);
+				outColor = vec4(c * (max(soft, b - Threshold) / max(b, 0.0001)), 0.0);
 			}
 		)";
 	}

@@ -332,19 +332,27 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 				float4 outColor : SV_Target;
 			};
 
-			SamplerState samplerTex
-			{
-				Filter = MIN_MAG_MIP_LINEAR;
-				AddressU = Clamp;
-				AddressV = Clamp;
-			};
+			// Linear and clamped: RunBloomPass binds it, as D3DCompile applies no
+			// effect state to a pixel shader
+			SamplerState samplerTex;
 
 			Texture2D tex;
+
+			// What of a pixel lies over the threshold, by its brightest
+			// channel, eased in over the knee below it, as the Vulkan
+			// device's: the scene buffer holds no more than 1, so the bloom
+			// takes the frame's brightest
+			static const float Threshold = 0.5;
+			static const float Knee = 0.1;
 
 			Output main(Input input)
 			{
 				Output output;
-				output.outColor = float4(max(tex.Sample(samplerTex, input.texCoord).rgb - 1.0, 0.0), 0.0);
+				float3 c = tex.Sample(samplerTex, input.texCoord).rgb;
+				float b = max(c.r, max(c.g, c.b));
+				float soft = clamp(b - Threshold + Knee, 0.0, 2.0 * Knee);
+				soft = soft * soft / (4.0 * Knee);
+				output.outColor = float4(c * (max(soft, b - Threshold) / max(b, 0.0001)), 0.0);
 				return output;
 			}
 		)";
@@ -363,12 +371,9 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 				float4 outColor : SV_Target;
 			};
 
-			SamplerState samplerTex
-			{
-				Filter = MIN_MAG_MIP_LINEAR;
-				AddressU = Clamp;
-				AddressV = Clamp;
-			};
+			// Linear and clamped: RunBloomPass binds it, as D3DCompile applies no
+			// effect state to a pixel shader
+			SamplerState samplerTex;
 
 			Texture2D tex;
 
@@ -406,12 +411,9 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 				float SampleWeights7;
 			}
 
-			SamplerState samplerTex
-			{
-				Filter = MIN_MAG_MIP_LINEAR;
-				AddressU = Clamp;
-				AddressV = Clamp;
-			};
+			// Linear and clamped: RunBloomPass binds it, as D3DCompile applies no
+			// effect state to a pixel shader
+			SamplerState samplerTex;
 
 			Texture2D tex;
 

@@ -88,6 +88,7 @@ public:
 	void ReadPixels(TextureColor* Pixels) override;
 	void LastFrameSize(int& width, int& height) const override { width = SceneBuffers.Width; height = SceneBuffers.Height; }
 	void EndFlash() override;
+	void TakeBloom() override;
 	void SetSceneNode(SceneNode* Frame) override;
 	void PrecacheTexture(TextureInfo& Info, uint32_t PolyFlags) override;
 	bool SupportsTextureFormat(TextureFormat Format) override;
@@ -309,6 +310,9 @@ private:
 	void ReleaseSceneBuffers();
 
 	void RunBloomPass();
+	void AddBloom();
+	// The bloom levels hold this frame's, taken by TakeBloom
+	bool BloomTaken = false;
 	void BlurStep(GLTexture2D* input, GLFramebuffer* output, bool vertical);
 	float ComputeBlurGaussian(float n, float theta);
 	void ComputeBlurSamples(int sampleCount, float blurAmount, float* sampleWeights);
