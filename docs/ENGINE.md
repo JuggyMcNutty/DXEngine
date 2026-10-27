@@ -248,6 +248,7 @@ is. DXEngine's keys:
 | `"Type": "Vulkan"`, `"OpenGL"` or `"D3D11"` in `RenderDevice` | The Vulkan device, the GL device on a desktop GL context, or the D3D11 device, Windows' own, which no launcher offers yet ([for advanced users](../README.md#for-advanced-users)). |
 | `"Antialias"`, `"Light"`, `"Gamma"` in `RenderDevice` | `Off`, `MSAA2x` or `MSAA4x`; `Normal`, `OneX` or `BrighterActors`; `D3D9` or `XOpenGL` ([rendering](#rendering)). |
 | `"UseVSync"`, `"Hdr"`, `"HdrScale"`, `"Bloom"`, `"BloomAmount"`, `"GammaCorrectScreenshots"`, `"UseDebugLayer"` in `RenderDevice` | Vsync (on unless the key says otherwise), HDR and its scale, bloom and its amount (128 each), screenshots written gamma-corrected, and the Vulkan validation layer or D3D11's debug layer where the machine has it; a key left out keeps its default. |
+| `"Contrast"`, `"Saturation"`, `"GammaOffset"`, `"GammaOffsetRed"`, `"GammaOffsetGreen"`, `"GammaOffsetBlue"`, `"LODBias"` in `RenderDevice` | On every device: the present's colour correction, the picture unchanged at 1 each, contrast about the middle grey (0.1 to 4) and saturation toward the pixel's grey (0 to 1); its gamma's offsets, every channel's and each one's, added to the gamma (-1 to 1, 0 each by default); and the textures' mip bias (-2 to 2, -0.5 by default, `D3DDrv`'s as Wine draws it), fixed for the run. |
 | `"CPUDriver": true` in `RenderDevice` | The Vulkan device on Mesa's lavapipe, or the GL device on llvmpipe, a GPU passed over (DXLauncher's `[VulkanCPU]` and `[OpenGLCPU]` renderers; [rendering](#rendering)). |
 | `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)). |
 
@@ -572,8 +573,8 @@ where one inside does, so a draw reads no texel but its pixels'.
   larger than the screen's pixels, no anisotropy; `PF_NoSmooth` the nearest texel; a texture
   wrapped, a tile held at its edges where its coordinates lie within it
   ([the software device](NATIVES.md#the-software-device)). The mip is the floor of log2 of a
-  quad's scale factor, its bias of -0.5 fitted to `D3DDrv`'s frames
-  (`SoftwareSampler::LODBias`).
+  quad's scale factor, its bias `LODBias`'s, -0.5 by default, fitted to `D3DDrv`'s frames
+  (`RenderDevice::LODBias`).
 - **Shading**: the scene shader (`Scene.frag`) in fixed point, 2.14 in lanes of 16 bits, a quad
   of 2x2 pixels at a time, through `SoftwareSimd.h`'s SSE2, NEON or plain loops, which give the
   same bits (the whole engine built without fused multiply-adds, `-ffp-contract=off`); the

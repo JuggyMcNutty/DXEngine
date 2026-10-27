@@ -27,6 +27,16 @@ RenderDevice::RenderDevice()
 	GammaCorrectScreenshots = settings.RenderDevice.GammaCorrectScreenshots;
 	UseDebugLayer = settings.RenderDevice.UseDebugLayer;
 	CPUDriver = settings.RenderDevice.CPUDriver;
+	// Saturation to 1 at most, so the software present's grey and colour mix
+	// within the frame's range, as the GPU devices' do
+	Contrast = std::clamp(settings.RenderDevice.Contrast, 0.1f, 4.0f);
+	Saturation = std::clamp(settings.RenderDevice.Saturation, 0.0f, 1.0f);
+	GammaOffset = std::clamp(settings.RenderDevice.GammaOffset, -1.0f, 1.0f);
+	GammaOffsetRed = std::clamp(settings.RenderDevice.GammaOffsetRed, -1.0f, 1.0f);
+	GammaOffsetGreen = std::clamp(settings.RenderDevice.GammaOffsetGreen, -1.0f, 1.0f);
+	GammaOffsetBlue = std::clamp(settings.RenderDevice.GammaOffsetBlue, -1.0f, 1.0f);
+	// Within the 2 every Vulkan device takes (maxSamplerLodBias)
+	LODBias = std::clamp(settings.RenderDevice.LODBias, -2.0f, 2.0f);
 }
 
 // D3DDrv's DrawTile (D3DDrv.dll 0x10005ba0), which every tile goes through,

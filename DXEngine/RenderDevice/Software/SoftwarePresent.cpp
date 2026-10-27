@@ -8,7 +8,7 @@
 
 bool SoftwarePresent::GammaKey::operator==(const GammaKey& other) const
 {
-	return Brightness == other.Brightness && Mode == other.Mode && std::memcmp(Offsets, other.Offsets, sizeof(Offsets)) == 0;
+	return Brightness == other.Brightness && Mode == other.Mode && Contrast == other.Contrast && Saturation == other.Saturation && std::memcmp(Offsets, other.Offsets, sizeof(Offsets)) == 0;
 }
 
 void SoftwarePresent::SetGamma(const RenderDevice& device)
@@ -16,6 +16,8 @@ void SoftwarePresent::SetGamma(const RenderDevice& device)
 	GammaKey key;
 	key.Brightness = device.Brightness;
 	key.Mode = device.GammaMode;
+	key.Contrast = device.Contrast;
+	key.Saturation = device.Saturation;
 	key.Offsets[0] = device.GammaOffset;
 	key.Offsets[1] = device.GammaOffsetRed;
 	key.Offsets[2] = device.GammaOffsetGreen;
@@ -33,7 +35,7 @@ void SoftwarePresent::SetGamma(const RenderDevice& device)
 	{
 		float offset = key.Offsets[0] + key.Offsets[1 + c];
 		if (key.Mode == 1)
-			exponent[c] = (offset + 2.0f) > 0.0f ? 1.0f / (offset + 1.0f) : 1.0f;
+			exponent[c] = 1.0f / std::max(offset + 1.0f, 0.001f);
 		else
 			exponent[c] = 1.0f / std::max(brightness + offset, 0.001f);
 	}
@@ -41,11 +43,18 @@ void SoftwarePresent::SetGamma(const RenderDevice& device)
 		brighten = brightness;
 
 	auto level = [](float v) { return (uint8_t)std::clamp((int)std::floor(v * 255.0f + 0.5f), 0, 255); };
+	// The colour correction's contrast, a channel's own, about the middle
+	// grey and held to the frame's range, as gammaCorrect holds it first
+	float contrast = key.Contrast;
+	auto corrected = [contrast](float v) { return std::clamp(v * contrast - (contrast - 1.0f) * 0.5f, 0.0f, 1.0f); };
+	// The saturation's, in 8 bits: the pixel's grey mixed back toward it
+	Saturate = key.Saturation != 1.0f;
+	SaturationQ = (int)std::lround(key.Saturation * 256.0f);
 
 	for (int c = 0; c < 3; c++)
 	{
 		for (int i = 0; i < 256; i++)
-			Ramp[c][i] = level(std::pow(i / 255.0f, exponent[c]));
+			Ramp[c][i] = level(std::pow(corrected(i / 255.0f), exponent[c]));
 	}
 
 	if (brighten != 1.0f)
@@ -57,7 +66,7 @@ void SoftwarePresent::SetGamma(const RenderDevice& device)
 			ByLargest[c].resize(256 * 256);
 			for (int largest = 0; largest < 256; largest++)
 			{
-				float m = std::max(largest / 255.0f, 0.001f);
+				float m = std::max(corrected(largest / 255.0f), 0.001f);
 				float scale = brighten;
 				if (brighten > 1.0f)
 				{
@@ -66,7 +75,7 @@ void SoftwarePresent::SetGamma(const RenderDevice& device)
 				}
 				for (int i = 0; i < 256; i++)
 				{
-					float v = std::clamp(i / 255.0f * scale, 0.0f, 1.0f);
+					float v = std::clamp(corrected(i / 255.0f) * scale, 0.0f, 1.0f);
 					ByLargest[c][largest * 256 + i] = level(std::pow(v, exponent[c]));
 				}
 			}
@@ -78,7 +87,7 @@ void SoftwarePresent::SetGamma(const RenderDevice& device)
 			table = {};
 	}
 
-	Identity = ByLargest[0].empty();
+	Identity = ByLargest[0].empty() && !Saturate;
 	for (int c = 0; c < 3 && Identity; c++)
 	{
 		for (int i = 0; i < 256 && Identity; i++)
@@ -91,6 +100,15 @@ inline uint32_t SoftwarePresent::Map(uint32_t pixel) const
 	uint32_t r = (pixel >> 16) & 0xff;
 	uint32_t g = (pixel >> 8) & 0xff;
 	uint32_t b = pixel & 0xff;
+	if (Saturate)
+	{
+		// The grey by the GPU devices' weights (0.3, 0.56, 0.14); a
+		// saturation within 0 and 1 keeps each channel within its range
+		int grey = (77 * (int)r + 143 * (int)g + 36 * (int)b + 128) >> 8;
+		r = (uint32_t)(grey + ((((int)r - grey) * SaturationQ + 128) >> 8));
+		g = (uint32_t)(grey + ((((int)g - grey) * SaturationQ + 128) >> 8));
+		b = (uint32_t)(grey + ((((int)b - grey) * SaturationQ + 128) >> 8));
+	}
 	if (!ByLargest[0].empty())
 	{
 		uint32_t largest = std::max(std::max(r, g), b) << 8;

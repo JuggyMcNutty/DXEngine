@@ -153,7 +153,6 @@ public:
 		ComPtr<ID3D11SamplerState> Samplers[16];
 		ScenePipelineState Pipelines[33];
 		ScenePipelineState LinePipeline[2];
-		float LODBias = 0.0f;
 	} ScenePass;
 
 	static const int D3D11SceneVertexBufferSize = 16 * 1024;
@@ -250,7 +249,6 @@ private:
 
 	void CreateSceneSamplers();
 	void ReleaseSceneSamplers();
-	void UpdateLODBias();
 
 	void ReleaseSceneBuffers();
 

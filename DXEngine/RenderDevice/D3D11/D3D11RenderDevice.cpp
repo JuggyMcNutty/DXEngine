@@ -824,8 +824,6 @@ void D3D11RenderDevice::CreateSceneSamplers()
 		ThrowIfFailed(result, "CreateSamplerState(ScenePass.Samplers) failed");
 		SetDebugName(ScenePass.Samplers[i], "ScenePass.Samplers");
 	}
-
-	ScenePass.LODBias = LODBias;
 }
 
 void D3D11RenderDevice::ReleaseSceneSamplers()
@@ -833,16 +831,6 @@ void D3D11RenderDevice::ReleaseSceneSamplers()
 	for (auto& sampler : ScenePass.Samplers)
 	{
 		sampler.reset();
-	}
-	ScenePass.LODBias = 0.0f;
-}
-
-void D3D11RenderDevice::UpdateLODBias()
-{
-	if (ScenePass.LODBias != LODBias)
-	{
-		ReleaseSceneSamplers();
-		CreateSceneSamplers();
 	}
 }
 
@@ -1431,24 +1419,14 @@ D3D11PresentPushConstants D3D11RenderDevice::GetD3D11PresentPushConstants()
 	}
 	else
 	{
-		float invGammaRed = (GammaOffset + GammaOffsetRed + 2.0f) > 0.0f ? 1.0f / (GammaOffset + GammaOffsetRed + 1.0f) : 1.0f;
-		float invGammaGreen = (GammaOffset + GammaOffsetGreen + 2.0f) > 0.0f ? 1.0f / (GammaOffset + GammaOffsetGreen + 1.0f) : 1.0f;
-		float invGammaBlue = (GammaOffset + GammaOffsetBlue + 2.0f) > 0.0f ? 1.0f / (GammaOffset + GammaOffsetBlue + 1.0f) : 1.0f;
+		float invGammaRed = 1.0f / std::max(GammaOffset + GammaOffsetRed + 1.0f, 0.001f);
+		float invGammaGreen = 1.0f / std::max(GammaOffset + GammaOffsetGreen + 1.0f, 0.001f);
+		float invGammaBlue = 1.0f / std::max(GammaOffset + GammaOffsetBlue + 1.0f, 0.001f);
 		pushconstants.GammaCorrection = vec4(invGammaRed, invGammaGreen, invGammaBlue, brightness);
 	}
 
-	// pushconstants.Contrast = clamp(Contrast, 0.1f, 3.f);
-	if (Contrast >= 128)
-	{
-		pushconstants.Contrast = 1.0f + (Contrast - 128) / 127.0f * 3.0f;
-	}
-	else
-	{
-		pushconstants.Contrast = std::max(Contrast / 128.0f, 0.1f);
-	}
-
-	// pushconstants.Saturation = clamp(Saturation, -1.0f, 1.0f);
-	pushconstants.Saturation = 1.0f - 2.0f * (255 - Saturation) / 255.0f;
+	pushconstants.Contrast = Contrast;
+	pushconstants.Saturation = Saturation;
 
 	return pushconstants;
 }
@@ -1546,8 +1524,6 @@ void D3D11RenderDevice::Unlock(bool Blit)
 		Batch.Detailtex = nullptr;
 		Batch.Macrotex = nullptr;
 		Batch.SceneIndexStart = 0;
-
-		UpdateLODBias();
 	}
 
 

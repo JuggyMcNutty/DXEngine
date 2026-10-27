@@ -58,6 +58,4 @@ void SamplerManager::CreateSceneSamplers()
 
 		Samplers[i] = builder.Create(renderer->Device.get());
 	}
-
-	LODBias = renderer->LODBias;
 }

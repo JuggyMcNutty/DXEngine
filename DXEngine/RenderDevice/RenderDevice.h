@@ -228,12 +228,19 @@ public:
 	float GammaOffsetRed = 0.0f;
 	float GammaOffsetGreen = 0.0f;
 	float GammaOffsetBlue = 0.0f;
-	uint8_t Contrast = 128; // 1.0f;
-	uint8_t Saturation = 255; // 1.0f;
+	// The present's colour correction: 1 each the picture unchanged
+	float Contrast = 1.0f;
+	float Saturation = 1.0f;
 	bool Hdr = false;
 	uint8_t HdrScale = 128;
 	bool Bloom = false;
 	uint8_t BloomAmount = 128;
+	// The textures' mip bias, by default the one D3DDrv's frames choose their
+	// mips by, as Wine's Direct3D 7 draws them on RADV: fitted against
+	// LaserConsole's receding floor (its RMSE 0.66 at -0.5, 0.88 and 1.05 a
+	// quarter either way). At -0.5 the software device's mip is
+	// floor(log2 of the scale factor), its texels no larger than the
+	// screen's pixels, and the factor below exactly 1.
 	float LODBias = -0.5f;
 	uint8_t AntialiasMode = 2; // 4x multisample
 	uint8_t GammaMode = 0;

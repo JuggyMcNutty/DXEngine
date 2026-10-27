@@ -12,13 +12,6 @@
 // mirrored clamp holds it there. A bilinear weight has 8 bits, as the GPUs'.
 namespace SoftwareSampler
 {
-	// The bias D3DDrv's frames choose their mips by, as Wine's Direct3D 7
-	// draws them on RADV: fitted against LaserConsole's receding floor (its
-	// RMSE 0.66 at -0.5, 0.88 and 1.05 a quarter either way). The mip is
-	// then floor(log2 of the scale factor), its texels no larger than the
-	// screen's pixels, and the factor below exactly 1.
-	constexpr float LODBias = -0.5f;
-
 	// The factor the LOD bias puts on a squared step: 2^(2 bias + 1)
 	inline float MipFactor(float lodBias)
 	{

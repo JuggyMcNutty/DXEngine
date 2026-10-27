@@ -205,7 +205,7 @@ void SoftwareRenderDevice::DrawWave(const Wave& wave, SoftwareFrame& frame, bool
 	job.ChunkCount = wave.Chunks.size();
 	job.Clear = wave.Clear;
 	job.ClearColor = ClearColor;
-	job.MipFactor = SoftwareSampler::MipFactor(SoftwareSampler::LODBias);
+	job.MipFactor = SoftwareSampler::MipFactor(LODBias);
 	job.Reference = reference;
 
 	// The tiles by what was binned to them, the most first, so that the

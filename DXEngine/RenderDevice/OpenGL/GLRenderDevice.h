@@ -164,7 +164,6 @@ public:
 		// Pipelines' first 32 a step toward the viewer (SurfaceInfo::DepthBias)
 		ScenePipelineState BiasedPipelines[32];
 		ScenePipelineState LinePipeline[2];
-		float LODBias = 0.0f;
 	} ScenePass;
 
 	static const int SceneVertexBufferSize = 16 * 1024;
@@ -303,7 +302,6 @@ private:
 
 	void CreateSceneSamplers();
 	void ReleaseSceneSamplers();
-	void UpdateLODBias();
 
 	void ReleaseSceneBuffers();
 

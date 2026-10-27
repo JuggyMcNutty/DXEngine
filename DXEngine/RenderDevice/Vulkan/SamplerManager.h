@@ -16,7 +16,6 @@ public:
 	std::unique_ptr<VulkanSampler> PPNearestRepeat;
 	std::unique_ptr<VulkanSampler> PPLinearClamp;
 
-	float LODBias = 0.0f;
 
 private:
 	VulkanRenderDevice* renderer = nullptr;

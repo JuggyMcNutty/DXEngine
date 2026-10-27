@@ -47,11 +47,16 @@ private:
 	{
 		float Brightness = -1.0f;
 		int Mode = -1;
+		float Contrast = -1.0f;
+		float Saturation = -1.0f;
 		float Offsets[4] = {};
 		bool operator==(const GammaKey& other) const;
 	} Key;
 
 	bool Identity = true;
+	// The saturation's mix, its weight in 256ths, where it is not 1
+	bool Saturate = false;
+	int SaturationQ = 256;
 	uint8_t Ramp[3][256] = {};
 	// XOpenGL's: each channel's level by the pixel's largest channel and its
 	// own, [largest][channel], one table a channel

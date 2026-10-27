@@ -69,6 +69,13 @@ LauncherSettings::LauncherSettings()
 		if (!rendev["Bloom"].is_undefined()) RenderDevice.Bloom = rendev["Bloom"].to_boolean();
 		if (!rendev["BloomAmount"].is_undefined()) RenderDevice.BloomAmount = rendev["BloomAmount"].to_int();
 		if (!rendev["UseDebugLayer"].is_undefined()) RenderDevice.UseDebugLayer = rendev["UseDebugLayer"].to_boolean();
+		if (!rendev["Contrast"].is_undefined()) RenderDevice.Contrast = (float)rendev["Contrast"].to_number();
+		if (!rendev["Saturation"].is_undefined()) RenderDevice.Saturation = (float)rendev["Saturation"].to_number();
+		if (!rendev["GammaOffset"].is_undefined()) RenderDevice.GammaOffset = (float)rendev["GammaOffset"].to_number();
+		if (!rendev["GammaOffsetRed"].is_undefined()) RenderDevice.GammaOffsetRed = (float)rendev["GammaOffsetRed"].to_number();
+		if (!rendev["GammaOffsetGreen"].is_undefined()) RenderDevice.GammaOffsetGreen = (float)rendev["GammaOffsetGreen"].to_number();
+		if (!rendev["GammaOffsetBlue"].is_undefined()) RenderDevice.GammaOffsetBlue = (float)rendev["GammaOffsetBlue"].to_number();
+		if (!rendev["LODBias"].is_undefined()) RenderDevice.LODBias = (float)rendev["LODBias"].to_number();
 
 		// Absent members keep their defaults: a missing bool would otherwise
 		// read as false and quietly turn controller support off.

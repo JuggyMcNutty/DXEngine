@@ -49,6 +49,16 @@ public:
 		bool Bloom = false;
 		int BloomAmount = 128;
 		bool UseDebugLayer = false;
+		// The present's colour correction, 1 each its picture unchanged, and
+		// its gamma's offsets, all of them and each channel's; the textures'
+		// mip bias
+		float Contrast = 1.0f;
+		float Saturation = 1.0f;
+		float GammaOffset = 0.0f;
+		float GammaOffsetRed = 0.0f;
+		float GammaOffsetGreen = 0.0f;
+		float GammaOffsetBlue = 0.0f;
+		float LODBias = -0.5f;
 	} RenderDevice;
 
 	// Controller support (Engine::UpdateGamepad).
