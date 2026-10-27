@@ -228,10 +228,8 @@ public:
 	float GammaOffsetRed = 0.0f;
 	float GammaOffsetGreen = 0.0f;
 	float GammaOffsetBlue = 0.0f;
-	uint8_t LinearBrightness = 128; // 0.0f;
 	uint8_t Contrast = 128; // 1.0f;
 	uint8_t Saturation = 255; // 1.0f;
-	int GrayFormula = 1;
 	bool Hdr = false;
 	uint8_t HdrScale = 128;
 	bool Bloom = false;

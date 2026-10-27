@@ -30,7 +30,7 @@ struct PresentPushConstants
 {
 	float Contrast;
 	float Saturation;
-	float Brightness;
+	float Padding; // GammaCorrection kept at 16 bytes
 	float HdrScale;
 	vec4 GammaCorrection;
 };
@@ -56,7 +56,7 @@ public:
 	struct
 	{
 		std::vector<uint32_t> VertexShader;
-		std::vector<uint32_t> FragmentPresentShader[16];
+		std::vector<uint32_t> FragmentPresentShader[8];
 	} Postprocess;
 
 	struct

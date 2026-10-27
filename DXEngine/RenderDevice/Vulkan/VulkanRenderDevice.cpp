@@ -774,7 +774,7 @@ void VulkanRenderDevice::ReadPixels(TextureColor* Pixels)
 		int presentShader = 0;
 		if (ActiveHdr) presentShader |= 1;
 		if (GammaMode == 1) presentShader |= 2;
-		if (pushconstants.Brightness != 0.0f || pushconstants.Contrast != 1.0f || pushconstants.Saturation != 1.0f) presentShader |= (clamp(GrayFormula, 0, 2) + 1) << 2;
+		if (pushconstants.Contrast != 1.0f || pushconstants.Saturation != 1.0f) presentShader |= 4;
 
 		VkViewport viewport = {};
 		viewport.width = (float)Textures->Scene->Width;
@@ -1269,7 +1269,7 @@ void VulkanRenderDevice::ComputeBlurSamples(int sampleCount, float blurAmount, f
 
 PresentPushConstants VulkanRenderDevice::GetPresentPushConstants()
 {
-	PresentPushConstants pushconstants;
+	PresentPushConstants pushconstants = {};
 	pushconstants.HdrScale = 0.8f + HdrScale * (3.0f / 255.0f);
 	float brightness = clamp(Brightness * GammaScale, 0.05f, 2.99f);
 
@@ -1301,15 +1301,6 @@ PresentPushConstants VulkanRenderDevice::GetPresentPushConstants()
 	// pushconstants.Saturation = clamp(Saturation, -1.0f, 1.0f);
 	pushconstants.Saturation = 1.0f - 2.0f * (255 - Saturation) / 255.0f;
 
-	// pushconstants.Brightness = clamp(LinearBrightness, -1.8f, 1.8f);
-	if (LinearBrightness >= 128)
-	{
-		pushconstants.Brightness = (LinearBrightness - 128) / 127.0f * 1.8f;
-	}
-	else
-	{
-		pushconstants.Brightness = (128 - LinearBrightness) / 128.0f * -1.8f;
-	}
 	return pushconstants;
 }
 
@@ -1327,7 +1318,7 @@ void VulkanRenderDevice::DrawPresentTexture(int width, int height)
 	int presentShader = 0;
 	if (ActiveHdr) presentShader |= 1;
 	if (GammaMode == 1) presentShader |= 2;
-	if (pushconstants.Brightness != 0.0f || pushconstants.Contrast != 1.0f || pushconstants.Saturation != 1.0f) presentShader |= (clamp(GrayFormula, 0, 2) + 1) << 2;
+	if (pushconstants.Contrast != 1.0f || pushconstants.Saturation != 1.0f) presentShader |= 4;
 
 	// Laid out for the swapchain's extent, which the present render pass
 	// covers, not the size asked for: the surface's range holds the extent,

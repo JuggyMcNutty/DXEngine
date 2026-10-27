@@ -201,7 +201,7 @@ std::string GLFileResource::readAllText(const std::string& filename)
 			{
 				float Contrast;
 				float Saturation;
-				float Brightness;
+				float Padding; // GammaCorrection kept at 16 bytes
 				float HdrScale;
 				vec4 GammaCorrection;
 			};
@@ -272,31 +272,12 @@ std::string GLFileResource::readAllText(const std::string& filename)
 
 			#endif
 
-			#if defined(COLOR_CORRECT_MODE0)
-			vec3 colorCorrect(vec3 c)
-			{
-				float v = c.r + c.g + c.b;
-				vec3 valgray = vec3(v, v, v) * (1.0 - Saturation) / 3.0 + c * Saturation;
-				vec3 val = valgray * Contrast - (Contrast - 1.0) * 0.5;
-				val += Brightness * 0.5;
-				return max(val, vec3(0.0, 0.0, 0.0));
-			}
-			#elif defined(COLOR_CORRECT_MODE1)
+			#if defined(COLOR_CORRECT)
 			vec3 colorCorrect(vec3 c)
 			{
 				float v = dot(c, vec3(0.3, 0.56, 0.14));
 				vec3 valgray = mix(vec3(v, v, v), c, Saturation);
 				vec3 val = valgray * Contrast - (Contrast - 1.0) * 0.5;
-				val += Brightness * 0.5;
-				return max(val, vec3(0.0, 0.0, 0.0));
-			}
-			#elif defined(COLOR_CORRECT_MODE2)
-			vec3 colorCorrect(vec3 c)
-			{
-				float v = pow(dot(pow(c, vec3(2.2, 2.2, 2.2)), vec3(0.2126, 0.7152, 0.0722)), 1.0/2.2);
-				vec3 valgray = mix(vec3(v, v, v), c, Saturation);
-				vec3 val = valgray * Contrast - (Contrast - 1.0) * 0.5;
-				val += Brightness * 0.5;
 				return max(val, vec3(0.0, 0.0, 0.0));
 			}
 			#else

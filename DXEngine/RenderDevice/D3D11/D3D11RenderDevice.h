@@ -42,7 +42,7 @@ struct D3D11PresentPushConstants
 {
 	float Contrast;
 	float Saturation;
-	float Brightness;
+	float Padding; // GammaCorrection kept at 16 bytes
 	float HdrScale;
 	vec4 GammaCorrection;
 };
@@ -187,7 +187,7 @@ public:
 		ComPtr<ID3D11VertexShader> PPStep;
 		ComPtr<ID3D11InputLayout> PPStepLayout;
 		ComPtr<ID3D11Buffer> PPStepVertexBuffer;
-		ComPtr<ID3D11PixelShader> Present[16];
+		ComPtr<ID3D11PixelShader> Present[8];
 		ComPtr<ID3D11Buffer> PresentConstantBuffer;
 		ComPtr<ID3D11Texture2D> DitherTexture;
 		ComPtr<ID3D11ShaderResourceView> DitherTextureView;

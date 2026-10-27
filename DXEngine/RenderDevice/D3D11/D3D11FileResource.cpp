@@ -190,7 +190,7 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 			{
 				float Contrast;
 				float Saturation;
-				float Brightness;
+				float Padding; // GammaCorrection kept at 16 bytes
 				float HdrScale;
 				float4 GammaCorrection;
 			}
@@ -274,31 +274,12 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 
 			#endif
 
-			#if defined(COLOR_CORRECT_MODE0)
-			float3 colorCorrect(float3 c)
-			{
-				float v = c.r + c.g + c.b;
-				float3 valgray = float3(v, v, v) * (1 - Saturation) / 3 + c * Saturation;
-				float3 val = valgray * Contrast - (Contrast - 1.0) * 0.5;
-				val += Brightness * 0.5;
-				return max(val, float3(0.0, 0.0, 0.0));
-			}
-			#elif defined(COLOR_CORRECT_MODE1)
+			#if defined(COLOR_CORRECT)
 			float3 colorCorrect(float3 c)
 			{
 				float v = dot(c, float3(0.3, 0.56, 0.14));
 				float3 valgray = lerp(float3(v, v, v), c, Saturation);
 				float3 val = valgray * Contrast - (Contrast - 1.0) * 0.5;
-				val += Brightness * 0.5;
-				return max(val, float3(0.0, 0.0, 0.0));
-			}
-			#elif defined(COLOR_CORRECT_MODE2)
-			float3 colorCorrect(float3 c)
-			{
-				float v = pow(dot(pow(c, float3(2.2, 2.2, 2.2)), float3(0.2126, 0.7152, 0.0722)), 1.0/2.2);
-				float3 valgray = lerp(float3(v, v, v), c, Saturation);
-				float3 val = valgray * Contrast - (Contrast - 1.0) * 0.5;
-				val += Brightness * 0.5;
 				return max(val, float3(0.0, 0.0, 0.0));
 			}
 			#else

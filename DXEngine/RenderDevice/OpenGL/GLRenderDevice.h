@@ -37,7 +37,7 @@ struct GLPresentPushConstants
 {
 	float Contrast;
 	float Saturation;
-	float Brightness;
+	float Padding; // GammaCorrection kept at 16 bytes
 	float HdrScale;
 	vec4 GammaCorrection;
 };
@@ -228,8 +228,8 @@ public:
 		std::shared_ptr<GLVertexShader> PPStep;
 		std::shared_ptr<GLInputLayout> PPStepLayout;
 		std::shared_ptr<GLBuffer> PPStepVertexBuffer;
-		std::shared_ptr<GLFragmentShader> Present[16];
-		std::shared_ptr<GLProgram> PresentProgram[16];
+		std::shared_ptr<GLFragmentShader> Present[8];
+		std::shared_ptr<GLProgram> PresentProgram[8];
 		std::shared_ptr<GLBuffer> PresentConstantBuffer;
 		std::shared_ptr<GLTexture2D> DitherTexture;
 		// The post-process passes' own samplers, as the Vulkan device's: a

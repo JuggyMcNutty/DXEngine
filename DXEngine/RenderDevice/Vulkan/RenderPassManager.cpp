@@ -298,7 +298,7 @@ void RenderPassManager::CreatePresentRenderPass()
 
 void RenderPassManager::CreatePresentPipeline()
 {
-	for (int i = 0; i < 16; i++)
+	for (int i = 0; i < 8; i++)
 	{
 		Present.Pipeline[i] = GraphicsPipelineBuilder()
 			.AddVertexShader(renderer->Shaders->Postprocess.VertexShader)
@@ -314,7 +314,7 @@ void RenderPassManager::CreatePresentPipeline()
 
 void RenderPassManager::CreateScreenshotPipeline()
 {
-	for (int i = 0; i < 16; i++)
+	for (int i = 0; i < 8; i++)
 	{
 		Present.ScreenshotPipeline[i] = GraphicsPipelineBuilder()
 			.AddVertexShader(renderer->Shaders->Postprocess.VertexShader)

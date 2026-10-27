@@ -1241,13 +1241,13 @@ void D3D11RenderDevice::CreatePresentPass()
 
 	static const char* transferFunctions[2] = { nullptr, "HDR_MODE" };
 	static const char* gammaModes[2] = { "GAMMA_MODE_D3D9", "GAMMA_MODE_XOPENGL" };
-	static const char* colorModes[4] = { nullptr, "COLOR_CORRECT_MODE0", "COLOR_CORRECT_MODE1", "COLOR_CORRECT_MODE2" };
-	for (int i = 0; i < 16; i++)
+	static const char* colorModes[2] = { nullptr, "COLOR_CORRECT" };
+	for (int i = 0; i < 8; i++)
 	{
 		std::vector<std::string> defines;
 		if (transferFunctions[i & 1]) defines.push_back(transferFunctions[i & 1]);
 		if (gammaModes[(i >> 1) & 1]) defines.push_back(gammaModes[(i >> 1) & 1]);
-		if (colorModes[(i >> 2) & 3]) defines.push_back(colorModes[(i >> 2) & 3]);
+		if (colorModes[(i >> 2) & 1]) defines.push_back(colorModes[(i >> 2) & 1]);
 
 		CreatePixelShader(PresentPass.Present[i], "PresentPass.Present", "shaders/Present.frag", defines);
 	}
@@ -1418,7 +1418,7 @@ void D3D11RenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClea
 
 D3D11PresentPushConstants D3D11RenderDevice::GetD3D11PresentPushConstants()
 {
-	D3D11PresentPushConstants pushconstants;
+	D3D11PresentPushConstants pushconstants = {};
 	pushconstants.HdrScale = 0.8f + HdrScale * (3.0f / 255.0f);
 	float brightness = clamp(Brightness * GammaScale, 0.05f, 2.99f);
 
@@ -1450,15 +1450,6 @@ D3D11PresentPushConstants D3D11RenderDevice::GetD3D11PresentPushConstants()
 	// pushconstants.Saturation = clamp(Saturation, -1.0f, 1.0f);
 	pushconstants.Saturation = 1.0f - 2.0f * (255 - Saturation) / 255.0f;
 
-	// pushconstants.Brightness = clamp(LinearBrightness, -1.8f, 1.8f);
-	if (LinearBrightness >= 128)
-	{
-		pushconstants.Brightness = (LinearBrightness - 128) / 127.0f * 1.8f;
-	}
-	else
-	{
-		pushconstants.Brightness = (128 - LinearBrightness) / 128.0f * -1.8f;
-	}
 	return pushconstants;
 }
 
@@ -1505,7 +1496,7 @@ void D3D11RenderDevice::Unlock(bool Blit)
 		int presentShader = 0;
 		if (ActiveHdr) presentShader |= 1;
 		if (GammaMode == 1) presentShader |= 2;
-		if (pushconstants.Brightness != 0.0f || pushconstants.Contrast != 1.0f || pushconstants.Saturation != 1.0f) presentShader |= (clamp(GrayFormula, 0, 2) + 1) << 2;
+		if (pushconstants.Contrast != 1.0f || pushconstants.Saturation != 1.0f) presentShader |= 4;
 
 		UINT stride = sizeof(vec2);
 		UINT offset = 0;
@@ -2022,7 +2013,7 @@ void D3D11RenderDevice::ReadPixels(TextureColor* Pixels)
 		// one's linear light times HdrScale (the Vulkan device reads back so)
 		int presentShader = 0;
 		if (GammaMode == 1) presentShader |= 2;
-		if (pushconstants.Brightness != 0.0f || pushconstants.Contrast != 1.0f || pushconstants.Saturation != 1.0f) presentShader |= (clamp(GrayFormula, 0, 2) + 1) << 2;
+		if (pushconstants.Contrast != 1.0f || pushconstants.Saturation != 1.0f) presentShader |= 4;
 
 		UINT stride = sizeof(vec2);
 		UINT offset = 0;
