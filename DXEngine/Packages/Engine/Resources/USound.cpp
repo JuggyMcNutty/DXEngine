@@ -227,8 +227,8 @@ Array<float> USound::Decode()
 	return decoded;
 }
 
-// Decoded once, for the audio device, which keeps a copy of its own (the
-// mixer's 16-bit one, OpenAL's buffer): the samples are not kept here.
+// Decoded once, for the audio device, whose mixer keeps a 16-bit copy of its
+// own (GalaxySample): the samples are not kept here.
 void USound::GetSound()
 {
 	if (decoded)

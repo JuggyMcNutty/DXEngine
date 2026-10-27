@@ -320,9 +320,8 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 			Texture2D tex;
 
 			// What of a pixel lies over the threshold, by its brightest
-			// channel, eased in over the knee below it, as the Vulkan
-			// device's: the scene buffer holds no more than 1, so the bloom
-			// takes the frame's brightest
+			// channel, eased in over the knee below it, as the Vulkan and GL
+			// devices' take it from scene buffers that hold no more than 1
 			static const float Threshold = 0.5;
 			static const float Knee = 0.1;
 

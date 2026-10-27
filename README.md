@@ -177,6 +177,7 @@ lists where it differs from the original. Where each platform stands:
 | [`docs/ENGINE.md`](docs/ENGINE.md) | how the engine is kept, run and profiled, and [what it changes from Surreal Engine](docs/ENGINE.md#what-it-changes-from-surreal-engine) |
 | [`docs/NATIVES.md`](docs/NATIVES.md) | where it differs from the original, feature by feature |
 | [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | working on it: scripted runs of both engines, debugging a crash, proving a change |
+| [`docs/PackageFormat.md`](docs/PackageFormat.md) | the package files' format, as the engine reads and writes them |
 
 ## DXEngine and Surreal Engine
 

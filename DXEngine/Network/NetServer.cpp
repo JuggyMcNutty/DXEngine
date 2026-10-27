@@ -82,7 +82,7 @@ namespace
 	}
 
 	// Whether an actor matters to a client viewing from a place
-	// (AActor::IsNetRelevantFor, dx-reverse-info/network.md, relevancy).
+	// (AActor::IsNetRelevantFor, dx-reverse-info/network.md, replication).
 	bool IsNetRelevantFor(UActor* actor, UPlayerPawn* realViewer, UActor* viewer, const vec3& srcLocation)
 	{
 		if (actor->bAlwaysRelevant())

@@ -52,8 +52,8 @@ are gone.
   original and `D3DDrv` for DXEngine, whose device is the settings file's, never a game ini's
   `SoftDrv` ([which device draws](ENGINE.md#rendering)). Both engines take the game's settings
   from it; the game's inis are never written.
-- **`Settings.json`.** DXEngine's renderer, MSAA, VSync, gamma mode, `GammaCorrectScreenshots`,
-  HDR, bloom and render scale come from
+- **`Settings.json`.** DXEngine's device and its settings
+  ([the keys](ENGINE.md#settings-and-environment)) come from
   `~/.config/DXEngine/Settings.json` (a Windows build's, the prefix's `%LOCALAPPDATA%\DXEngine`),
   an input of every dxe run that no run's ini changes, or from the file `DXCAP_SETTINGS` names.
   Without one DXEngine runs on Vulkan with 4x MSAA. `tools/dxcap` has one for each device a run
@@ -61,7 +61,7 @@ are gone.
   `software-settings.json`, and Mesa's CPU drivers' (`CPUDriver`), `lavapipe-settings.json` and
   `llvmpipe-settings.json`.
 - **Results.** A run's log (`engine.log` or `DeusEx.log`), shots and recording land in
-  `build/dxcap/runs/<engine>-<console>-<time>/`.
+  `build/dxcap/runs/<engine>-<console>-<date>-<time>/`.
 
 | Variable | Effect |
 |---|---|
@@ -307,13 +307,15 @@ left, both from Liberty Island, ten loads of each map 25 s apart, then an exit:
 | `reload-fresh.txt` | the island and Battery Park | crosses a mission: `Current` emptied, the map from `Maps` |
 | `reload-current.txt` | the island and UNATCO HQ | stays in mission 1: the map left saved into `Current`, the next one from there |
 
-and nine more: `collections.txt`, the collections a player meets, each timed -- the console's
+and eleven more: `collections.txt`, the collections a player meets, each timed -- the console's
 `obj garbage` on the island, then Battery Park and the island loaded in turn, `obj garbage` after
 each load -- `keys.txt`, a key of each kind the SDL windows name, on the stock console with
-`DXCAP_BACKEND=SDL3` ([a key's name](NATIVES.md#small)), and, each one console's input,
-`loot-drags.txt` (`LootConsole`), `stray-release.txt` (`KeypadConsole`), `scroll.txt`
-(`ScrollConsole`), `clicks.txt` (`ClickConsole`), `pad.txt` (`PadConsole`), `type.txt`
-(`TypeConsole`) and `note-keys.txt` (`MultiEditConsole`).
+`DXCAP_BACKEND=SDL3` ([a key's name](NATIVES.md#small)), `bad-keys.txt`, a `Button` and an
+`Axis` the pawn lacks pressed on the stock console (`DXCAP_USERINI` binding them), and, each one
+console's input, `loot-drags.txt` (`LootConsole`), `stray-release.txt` (`KeypadConsole`),
+`scroll.txt` (`ScrollConsole`), `clicks.txt` (`ClickConsole`), `pad.txt` (`PadConsole`),
+`type.txt` (`TypeConsole`), `note-keys.txt` (`MultiEditConsole`) and `held-keys.txt`
+(`KeysConsole`).
 
 ```sh
 DXCAP_MEMLOG=1 DXCAP_TIMELINE=tools/dxcap/timelines/reload-fresh.txt \
@@ -597,6 +599,10 @@ the engine: [the profiling hooks](ENGINE.md#the-profiling-hooks); on the desktop
 
 - **`compile` takes `DXCapture.u` away before it builds it again**: a run started meanwhile, or
   one of a sweep, finds no console class. Compile between runs, never under one.
+- **A dxe run refuses to start over stray shots** in the game's `System` folder, or in a
+  `DXCAP_USERDIR`'s `Screenshots`: the engine writes the first free `ShotNNNN.bmp` while the
+  consoles number their marks from 0, so a shot left there would shift the run's numbers. Move
+  them away.
 - **A dxe run straight into a mission map leaves `Save/Current` as earlier runs left it**: only
   travel to another mission, a new game or a `?restart` URL empties it, and a save's load fills
   it with that save's maps. A run that returns to a map within its

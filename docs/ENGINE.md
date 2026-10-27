@@ -104,10 +104,10 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
 - **`--server`** runs a dedicated server of the `--url` map, as the original's `-SERVER`: no
   window, sound or player; `--lanplay` gives it the LAN tick rate
   ([multiplayer](NATIVES.md#multiplayer)).
-- **SIGTERM, SIGINT or SIGHUP quits as a closed window does**: at the next frame, the inis written back,
-  exit 0, whatever the window (a dedicated server too). A second signal kills at once, as a
-  stuck engine needs. The crash report window, up before the engine installs its handler,
-  closes on one too, through SDL's own (an SDL window) or the signal's default (the X11
+- **SIGTERM, SIGINT or SIGHUP quits as a closed window does**: at the next frame, the inis
+  written back, exit 0, whatever the window (a dedicated server too). A second signal kills at
+  once, as a stuck engine needs. The crash report window, up before the engine installs its
+  handler, closes on one too, through SDL's own (an SDL window) or the signal's default (the X11
   window). Windows has no such signals: there a launcher's `Quit` (below) does so.
 - `Running.ini` is the launcher's crash sentinel, not the engine's: a run under a launcher that
   is killed leaves it behind like any crash; a run by hand has none.
@@ -133,10 +133,10 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
 - **`DXL_LAUNCHER_FD`** in the environment is the line to the engine of the launcher that
   started it, which stays for the game's run as the original's process does: a socket's
   descriptor, on Windows an inherited pipe's handle, taken out of the environment once opened,
-  so that nothing the engine starts takes its number for a line. The engine says `hello` as it starts and
-  `ready` once its first map is in, takes `TakeFocus`, `Open <url>` and `Quit` (the launcher's
-  stop, as a closed window quits), and passes a `RELAUNCH` as `relaunch <line>` before it exits;
-  the lines and their meaning are
+  so that nothing the engine starts takes its number for a line. The engine says `hello` as it
+  starts and `ready` once its first map is in, takes `TakeFocus`, `Open <url>` and `Quit` (the
+  launcher's stop, as a closed window quits), and passes a `RELAUNCH` as `relaunch <line>`
+  before it exits; the lines and their meaning are
   [the game and the launcher](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md#the-game-and-the-launcher)
   (DXLauncher's alike:
   [the game and the launcher](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-game-and-the-launcher)).
@@ -245,10 +245,10 @@ is. DXEngine's keys:
 | `Performance.RenderScale` | The scene drawn at this fraction of the window's size (0.25 to 1; default 1) and scaled up to it, by the Vulkan, GL and software devices ([how](#settings-the-launcher-exposes)). |
 | `"Type": "GLES"` in `RenderDevice` | The GL device on an OpenGL ES 3.2 context (DXLauncher's `[GLES]` renderer, `data/renderers.ini`). |
 | `"Type": "Software"` in `RenderDevice` | The software device, which draws on the CPU (DXLauncher's `[Software]` renderer; [rendering](#rendering)). |
-| `"Type": "Vulkan"`, `"OpenGL"` or `"D3D11"` in `RenderDevice` | The Vulkan device, the GL device on a desktop GL context, or the D3D11 device, Windows' own, which no launcher offers yet ([for advanced users](../README.md#for-advanced-users)). |
+| `"Type": "Vulkan"`, `"OpenGL"` or `"D3D11"` in `RenderDevice` | The Vulkan device, the GL device on a desktop GL context, or the D3D11 device, Windows' own, which no launcher offers ([for advanced users](../README.md#for-advanced-users)). |
 | `"Antialias"`, `"Light"`, `"Gamma"` in `RenderDevice` | `Off`, `MSAA2x` or `MSAA4x`; `Normal`, `OneX` or `BrighterActors`; `D3D9` or `XOpenGL` ([rendering](#rendering)). |
 | `"UseVSync"`, `"Hdr"`, `"HdrScale"`, `"Bloom"`, `"BloomAmount"`, `"GammaCorrectScreenshots"`, `"UseDebugLayer"` in `RenderDevice` | Vsync (on unless the key says otherwise), HDR and its scale, bloom and its amount (128 each), screenshots written gamma-corrected, and the Vulkan validation layer or D3D11's debug layer where the machine has it; a key left out keeps its default. |
-| `"Contrast"`, `"Saturation"`, `"GammaOffset"`, `"GammaOffsetRed"`, `"GammaOffsetGreen"`, `"GammaOffsetBlue"`, `"LODBias"` in `RenderDevice` | On every device: the present's colour correction, the picture unchanged at 1 each, contrast about the middle grey (0.1 to 4) and saturation toward the pixel's grey (0 to 1); its gamma's offsets, every channel's and each one's, added to the gamma (-1 to 1, 0 each by default); and the textures' mip bias (-2 to 2, -0.5 by default, `D3DDrv`'s as Wine draws it), fixed for the run. |
+| `"Contrast"`, `"Saturation"`, `"GammaOffset"`, `"GammaOffsetRed"`, `"GammaOffsetGreen"`, `"GammaOffsetBlue"`, `"LODBias"` in `RenderDevice` | On every device: the present's colour correction, the picture unchanged at 1 each, contrast about the middle grey (0.1 to 4) and saturation toward the pixel's grey (0 to 1); its gamma's offsets, every channel's and each one's, added to the gamma (-1 to 1, 0 each by default); and the textures' mip bias (-2 to 2, -0.5 by default, `D3DDrv`'s as Wine draws it), fixed for the run, but on GL ES, whose samplers take none. |
 | `"CPUDriver": true` in `RenderDevice` | The Vulkan device on Mesa's lavapipe, or the GL device on llvmpipe, a GPU passed over (DXLauncher's `[VulkanCPU]` and `[OpenGLCPU]` renderers; [rendering](#rendering)). |
 | `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)). |
 
@@ -350,9 +350,8 @@ The renderer's CPU work is lighter than Surreal Engine's:
   `FogmapBuilder::Reaches`); a map no fog light reaches stays all clear, its texels neither
   placed nor built, sent once as it clears, and kept on its surface, whose passes go by
   whether it has one (`LightSystem::UpdateFogmapTexture`).
-- **The clipper's occlusion grid** is one row per image row up to a 4K frame (it followed the
-  image to 2048 x 1080 and scaled a larger one into that, a row in four of a 1440p frame
-  unsampled), each row's spans in a cache line
+- **The clipper's occlusion grid** is one row per image row up to a 4K frame
+  (`BspClipper::MaxWidth` by `MaxHeight`, 4096 x 2160), each row's spans in a cache line
   of its own while 15 fit, then on the heap (`BspClipper::ClipRow`); its non-SSE (ARM) build
   skips the clip for triangles inside the view (a Surreal Engine bug); a surface is clipped once
   and filled into the grid as one polygon, a span to a row (`BspClipper::DrawPolygon`); a span
@@ -414,9 +413,9 @@ weapon lies over half the scene's range, by a pixel's brightest channel and ease
 of 0.1 below that, is taken as the world ends (`RenderDevice::TakeBloom`), blurred over four
 halvings at `BloomAmount`'s spread and added to the frame at its end, so the HUD's and the
 menus' windows, drawn after it, stay sharp. The threshold is under 1, as the Vulkan and GL
-devices' scene buffers hold no more: Surreal Engine's of 1 bloomed only what a float buffer's
-blends pushed over it (D3D11's is float still). The D3D11 device's passes bind a linear, clamped
-sampler of their own, as the others' do.
+devices' scene buffers hold no more (D3D11's are `R16G16B16A16_FLOAT`, its threshold the same):
+Surreal Engine's of 1 blooms only what a float buffer's blends push over it. The D3D11 device's
+passes bind a linear, clamped sampler of their own, as the others' do.
 
 **The Vulkan device**: the game tick runs while the GPU draws the previous frame
 (`CommandBufferManager` keeps one frame in flight, and `WaitForFrame()` collects it before
@@ -428,13 +427,13 @@ batch instead of bindless textures.
 It decodes on the CPU what the GPU cannot sample or filter: BC1, RGB8, RGBA32F, and converts
 the lightmaps for upload in NEON on ARM. A mip bigger than its 64 MB staging buffer goes up in
 bands of rows. Its scene buffer, post-process images and bloom levels are A2B10G10R10, as the GL
-device's are RGB10_A2 (`SceneTextures::SceneFormat`): every blend clamps at 1, as `D3DDrv`'s 8-bit
-frame clamps it, where Surreal Engine's 16-bit float kept a modulated blend's 2 x src x dst for
-the draws after it; `LightConsole`'s Spotlight0 comes out block for block as on the GL device,
-`DrugConsole`'s HUD windows over the drugged view within a level of it. Its shots copy the ten
-bits out and make them bytes as the GL device's `ReadPixels` does: a blit to BGRA8 rounded them
-to the nearest byte, the drugged frame 1% dark. Its draws take no depth bias, as the GL device's
-take none, nor do `D3DDrv`'s but its detail passes
+device's are RGB10_A2 (`SceneTextures::SceneFormat`): every blend clamps at 1, as `D3DDrv`'s
+8-bit frame clamps it, where Surreal Engine's 16-bit float keeps a modulated blend's 2 x src x
+dst for the draws after it; `LightConsole`'s Spotlight0 comes out block for block as on the GL
+device, `DrugConsole`'s HUD windows over the drugged view within a level of it. Its shots copy
+the ten bits out and make them bytes as the GL device's `ReadPixels` does, where a blit to BGRA8
+would round them to the nearest byte, the drugged frame 1% dark. Its draws take no depth bias,
+as the GL device's take none, nor do `D3DDrv`'s but its detail passes
 ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):
 a translucent draw biased by its slope shows through the opaque one in front of it from afar,
 an augmentation canister's inner glow through its shell (`CanisterConsole`). A mover's surfaces
@@ -478,9 +477,10 @@ wherever else that state is set.
 - **The vertices** stream through CPU staging arrays, each flush uploading the range written
   since the last one (`glBufferSubData`): the GE8300 has no `glBufferStorage` (persistent
   mapping), and mapping the buffers' unused tails on every flush costs most of its frame.
-- **The scene buffers** are RGB10_A2, by choice (`Hdr` is the Vulkan device's, from an scRGB swap
-  chain; no window gives GL a float or HDR framebuffer, so the setting is not taken here): darks banded less
-  than in `D3DDrv`'s 8-bit frame, as in the Vulkan device's, at 32 bits a pixel
+- **The scene buffers** are RGB10_A2, by choice (`Hdr` is the Vulkan and D3D11 devices', from an
+  scRGB swap chain; no window gives GL a float or HDR framebuffer, so the setting is not taken
+  here): darks banded less than in `D3DDrv`'s 8-bit frame, as in the Vulkan device's, at 32 bits
+  a pixel
   (`LightConsole` under 02_NYC_Underground's `Light33`, gamma-corrected: 63 levels under 64
   where RGBA8 gives 54, no gap over 2 where it leaves 6). ES's too: the Smart Pro's GE8300
   draws, resolves, samples and reads them, their ten bits kept (Port Ex Machina's
@@ -505,12 +505,13 @@ wherever else that state is set.
   driver takes it (else `CLAMP_TO_EDGE`).
 - **`ReadPixels`** reads the frame at the size it was drawn (`LastFrameSize`, not the
   window's), the right way up, the gamma-corrected one too (Surreal Engine's is an `#if 0`
-  stub of D3D11 code, its shots black), RGB10_A2's to bytes by a 4×4
-  ordered threshold (`RenderDevice::TenBitRowToBytes`, the Vulkan device's shots' too), so
-  that a region's mean is the buffer's: the driver's rounding to the
-  nearest byte reads the darks a tenth of a level under, 1023 not being four times 255
-  (`MeshConsole`'s pier 0.7% darker). `Exit()` runs once and tolerates a failed unmap, as the
-  intro can end the game after the window's context is gone.
+  stub of D3D11 code, its shots black), RGB10_A2's to bytes by a 4×4 ordered threshold
+  (`RenderDevice::TenBitRowToBytes`, the Vulkan device's shots' too), so that a region's mean
+  is the buffer's: the driver's rounding to the nearest byte reads the darks a tenth of a level
+  under, 1023 not being four times 255 (`MeshConsole`'s pier 0.7% darker). The gamma-corrected
+  frame, which the present has dithered to bytes already, is read back by rounding. `Exit()`
+  runs once and tolerates a failed unmap, as the intro can end the game after the window's
+  context is gone.
 - **The post-process passes bind their own samplers**, as the Vulkan device's do: the present,
   the bloom and the gamma-corrected read-back sample the image linearly, held at its edges, and
   the dither texel for texel (`PresentPass.PPLinearClamp`, `PPNearestRepeat`). A sampler object
@@ -555,12 +556,12 @@ where one inside does, so a draw reads no texel but its pixels'.
 - **Triangles**, as the Vulkan device's: each in clip space by its scene node's transforms,
   clipped where a corner lies behind the node's clip plane (the Vulkan device's clip distance,
   a mirror's plane in a mirror's frame) or outside a guard band of 8192 pixels (the frame kept
-  within it: a window over 8000 pixels a side is drawn smaller and scaled up at the present), and held to the
-  viewport; a polygon a fan, (0, i - 1, i). Snapped to 1/256 pixel, its pixels by the top-left
-  rule, as RADV and lavapipe cover them; its attributes over w, at each pixel's centre. Depth
-  float, tested LEQUAL, clamped to the pipeline's range (the scene's 0.1 to 1, a line not depth
-  cued 0 to 0.1); a mover's surfaces biased as the Vulkan device biases them, constant -1 and
-  slope -1 on a float buffer. A line is a pixel wide.
+  within it: a window over 8000 pixels a side is drawn smaller and scaled up at the present),
+  and held to the viewport; a polygon a fan, (0, i - 1, i). Snapped to 1/256 pixel, its pixels
+  by the top-left rule, as RADV and lavapipe cover them; its attributes over w, at each pixel's
+  centre. Depth float, tested LEQUAL, clamped to the pipeline's range (the scene's 0.1 to 1, a
+  line not depth cued 0 to 0.1); a mover's surfaces biased as the Vulkan device biases them,
+  constant -1 and slope -1 on a float buffer. A line is a pixel wide.
 - **Textures**: a copy of its own of each, by cache ID, a masked one apart, as the Vulkan
   device keeps its images: BGRA8, each format converted as the Vulkan device's uploads and CPU
   decoders convert it, each mip with a column and a row past its edges repeating its first, for
@@ -572,9 +573,9 @@ where one inside does, so a draw reads no texel but its pixels'.
   `UseTrilinear=False`): bilinear, its weights of 8 bits, from the mip whose texels are no
   larger than the screen's pixels, no anisotropy; `PF_NoSmooth` the nearest texel; a texture
   wrapped, a tile held at its edges where its coordinates lie within it
-  ([the software device](NATIVES.md#the-software-device)). The mip is the floor of log2 of a
-  quad's scale factor, its bias `LODBias`'s, -0.5 by default, fitted to `D3DDrv`'s frames
-  (`RenderDevice::LODBias`).
+  ([the software device](NATIVES.md#the-software-device)). The mip is the nearest to log2 of a
+  quad's scale factor plus `LODBias` (`RenderDevice::LODBias`), whose -0.5 by default, fitted to
+  `D3DDrv`'s frames, makes it the floor of log2.
 - **Shading**: the scene shader (`Scene.frag`) in fixed point, 2.14 in lanes of 16 bits, a quad
   of 2x2 pixels at a time, through `SoftwareSimd.h`'s SSE2, NEON or plain loops, which give the
   same bits (the whole engine built without fused multiply-adds, `-ffp-contract=off`); the
@@ -585,13 +586,14 @@ where one inside does, so a draw reads no texel but its pixels'.
   shader and the blends (`SoftwareReference`) is the oracle they are proven against: each draw
   within a level of it, two draws over one pixel at most two (`DXE_SW_REFERENCE=check`).
 - **The present**: the frame through the gamma ramp, a table of 256 levels a channel of the
-  present shader's gamma (XOpenGL's mode by each pixel's largest channel too): each tile's last
-  step where the window is the frame's size, else the frame scaled to the window and letterboxed
-  below a render scale of 1 as the Vulkan device's present, bilinear and held at the edges, the
-  window's rows shared out in bands. Then it is handed to the window (`Widget::PresentBitmap`):
-  SDL's renderer, which waits for vsync with `UseVSync`; X11's image in memory shared with the
-  server (MIT-SHM) where the server takes it, else `XPutImage`, and Win32's `SetDIBitsToDevice`,
-  outside `WM_PAINT` too, which do not wait.
+  present shader's contrast and gamma, its offsets with it (XOpenGL's mode by each pixel's
+  largest channel too), each pixel first mixed toward its grey below a `Saturation` of 1: each
+  tile's last step where the window is the frame's size, else the frame scaled to the window and
+  letterboxed below a render scale of 1 as the Vulkan device's present, bilinear and held at the
+  edges, the window's rows shared out in bands. Then it is handed to the window
+  (`Widget::PresentBitmap`): SDL's renderer, which waits for vsync with `UseVSync`; X11's image
+  in memory shared with the server (MIT-SHM) where the server takes it, else `XPutImage`, and
+  Win32's `SetDIBitsToDevice`, outside `WM_PAINT` too, which do not wait.
 - **`ReadPixels`** gives the frame before the ramp, but with `GammaCorrectScreenshots`.
 
 ### Script VM
@@ -618,7 +620,10 @@ in `Frame::CallScript`.
   actors first and never ticked, an actor waiting for its owner's tick (`ULevel::SortActors`,
   `ULevel::TickDeusEx`, `UActor::StartTick`;
   [housekeeping](NATIVES.md#housekeeping-not-seen-directly)).
-- **The actor iterators** find a class's actors from an index, not a scan of the level.
+- **`AllActors` and `CycleActors`** find a class's actors from an index of the level's slots
+  (`ULevelBase::ActorsByClassName`, `ActorsByClass`), made again when the list changes, not a
+  scan of the level; the other iterators walk the level's list at each step, as the original's
+  do ([the traces](NATIVES.md#implemented-not-as-the-original)).
 - **Collision**: a ray trace hands each BSP child only its part of the segment and tests a
   polygon's plane before its vertex count and surface; a line tests the actors of only the
   cells it crosses, however long; a box of 100 cells or more on an axis tests every actor in
@@ -637,8 +642,8 @@ in `Frame::CallScript`.
   ([implemented, not as the original](NATIVES.md#implemented-not-as-the-original)).
 - **Each physics takes the whole frame**, as the original's `performPhysics` gives it once a
   tick (`UActor::TickPhysics`): a pawn walks, falls, swims, flies, follows a path or climbs, any
-  other actor falls, flies as a projectile, rolls, follows a path, moves as a brush or trails its
-  owner, each stepping the frame as the original's does (`UPawn::DeusExPhysWalking`,
+  other actor falls, flies as a projectile, rolls, follows a path, moves as a brush or trails
+  its owner, each stepping the frame as the original's does (`UPawn::DeusExPhysWalking`,
   `UActor::DeusExTickFalling`, `UActor::TickRolling`, `UActor::TickProjectile`,
   `UActor::TickInterpolating`, `UActor::TickMovingBrush`, `UActor::TickTrailer`), a fall a walk
   or a swim hands over going on with its count of steps; so its speed, its slides, where it
@@ -693,16 +698,16 @@ by holder, and with glibc a map load's gives the freed memory back to the system
   which outlives any level, as the original's are in `DeusEx`'s. A package played as a level is
   tagged so (`Package::IsLevel`).
 - **A class's defaults** are its own property block, which scripts read and write as `default.`
-  values. The engine reads them through the class's defaults object (`UClass::GetDefaultObject`),
-  made once, of the class's nearest native class, its block a view of the class's own: the
-  original's default object, a static call's `Self` too. The class keeps it, and the walks over
-  every object pass it over, as the original's object table holds none (`AllObjects`, `set`,
-  `ResetConfig`, a lookup by name, a level's elimination); a save writes a reference to it as
-  None.
-- **A sound** is decoded once, when first played, for the audio device, which keeps a copy of
-  its own (the mixer's 16-bit one, OpenAL's buffer); the sound keeps its file's bytes, its
-  length, channels, rate, loop and lip-sync letters. Its lip-sync shapes decode the bytes again
-  once, into a buffer let go after.
+  values. The engine reads them through the class's defaults object
+  (`UClass::GetDefaultObject`), made once, of the class's nearest native class, its block a view
+  of the class's own: the original's default object, a static call's `Self` too. The class keeps
+  it, and the walks over every object pass it over, as the original's object table holds none
+  (`AllObjects`, `set`, `ResetConfig`, a lookup by name, a level's elimination); a save writes a
+  reference to it as None.
+- **A sound** is decoded once, when first played, for the audio device, whose mixer keeps a
+  16-bit copy of its own (`GalaxySample`); the sound keeps its file's bytes, its length,
+  channels, rate, loop and lip-sync letters. Its lip-sync shapes decode the bytes again once,
+  into a buffer let go after.
 - **Saving a level** writes what the level reaches (`PackageWriter`), never the rest of its
   file: an export the collector freed is not loaded back to be saved. An object of a transient
   class is not written either ([as the original's](NATIVES.md#saving-loading-and-travel)).
@@ -739,8 +744,8 @@ its code is:
   the `pointReachable`, `actorReachable` and `Reachable` they ask are `Engine.dll`'s, walking
   its own moves (`UPawn_Path.cpp`, `UPawn_ReachDeusEx.cpp`); `RouteCache` stays empty, as the
   original never fills it ([moving](NATIVES.md#moving-wandering-and-tactical-movement)).
-  Surreal Engine's own search serves only `FindRandomDest` and `FindBestInventoryPath`, which no
-  stock script calls ([mods](NATIVES.md#mods)).
+  `FindRandomDest` answers None, as the original's; Surreal Engine's own search serves only
+  `FindBestInventoryPath`, which no stock script calls ([mods](NATIVES.md#mods)).
 - **The audio mixer**: `GalaxyMixer` (`DXEngine/Audio/GalaxyMixer.cpp`) mixes Deus Ex's sounds
   as `Galaxy.dll` does (pan, fall-off, sliders, resampling, its reverb) and streams them through
   one OpenAL source at `OutputRate`; the music streams through one of its own, from a thread of

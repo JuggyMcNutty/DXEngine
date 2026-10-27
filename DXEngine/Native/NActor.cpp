@@ -834,9 +834,9 @@ void NActor::ParabolicTrace(UObject* Self, vec3& finalLocation, std::optional<ve
 	// elasticity, the rest of the step slid along it; a second wall met by
 	// the slide mirrors it again and turns the slide (TwoWallAdjust) for one
 	// more move, a floor met by either landing. It fails -- 0, the start its
-	// final location -- on entering water, leaving the world, a step longer
-	// than about 1,580 units, or running out of time, the landing step
-	// counted. NPCs use it for where a falling grenade lands and whether a
+	// final location -- on leaving the world, a step longer than about 1,580
+	// units, or running out of time, the landing step counted, and on
+	// entering water with one step's time. NPCs use it for where a falling grenade lands and whether a
 	// throw is safe.
 	//
 	// Each move is the original's (0x1036ca90), MoveActor's: the step's line

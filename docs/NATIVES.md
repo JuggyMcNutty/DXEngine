@@ -105,9 +105,9 @@ saved file (`..\Save\Current\<map>.dxs`), as `Level.GetLocalURL` shows
 the map in, with or without its `.dx`, as the original's file system finds
 it: the stock exits spell `12_vandenberg_cmd` and `00_training`
 (`RevisitConsole`: the island opened again as `01_nyc_unatcoisland` has the
-crate left there). A travel's `PreTravel` goes to every actor of the level that
-has the function, with no argument, as the original's `SetClientTravel` sends
-it: the mission scripts' among them (`TravelConsole`).
+crate left there). A travel's `PreTravel` goes to every actor of the level
+that has the function, with no argument, as the original's `SetClientTravel`
+sends it: the mission scripts' among them (`TravelConsole`).
 
 While a map loads or a level is saved the screen shows one frame, painted
 before the work, as the original's does
@@ -327,9 +327,8 @@ canvas's, a sprite, a corona -- at the middle, as `D3DDrv` draws them, on
 every device; `OpenGLDrv` draws the polygons at the middle. Against
 `D3DDrv`'s frames, `LaserConsole`'s wall and floor fit best unmoved on
 Vulkan, with and without 4x multisampling, and within a quarter pixel on GL
-(`shots.py --shift`): their grey levels 0.47 and 0.30 apart on Vulkan (RMSE,
-of 255). `FaceConsole`'s troop, `MeshConsole`'s Paul Denton, the mirrors and
-the light maps register so too ([mesh detail](#mesh-detail),
+(`shots.py --shift`). `FaceConsole`'s troop, `MeshConsole`'s Paul Denton,
+the mirrors and the light maps register so too ([mesh detail](#mesh-detail),
 [mirrors](#mirrors), [lighting](#lighting)), as a sprite and the canvas's
 tiles do ([sprites](#sprites), [tiles](#tiles)).
 
@@ -338,15 +337,15 @@ tiles do ([sprites](#sprites), [tiles](#tiles)).
 Matches `D3DDrv`'s picture as the GPU devices draw it without their
 multisampling, bloom and HDR ([rendering](ENGINE.md#rendering)), into an
 8-bit frame as `D3DDrv`'s, its textures sampled as `D3DDrv` samples them
-with the game's ini: bilinear, from the one mip whose texels are no larger
-than the screen's pixels, where the GPU devices filter trilinearly with 8x
-anisotropy, by their own choice. Against `D3DDrv`'s frames: `LightConsole`'s
-`Spotlight0`, with its macro texture and without, and `Spotlight7` at 1.00,
-as the GPU devices' ([lighting](#lighting)), and `Light33`'s floor within
-1.02; `LaserConsole`'s wall and near floor 0.40 and 0.40 apart (RMSE, at
-1024x768 with `NoDetail`), the Vulkan device's 0.39 and 0.39, and best
-unmoved, its receding floor nearer, 0.66 apart where the Vulkan device's is
-1.10; `LoadingConsole`'s text on the rows `D3DDrv` draws it, where the
+with the game's ini, `LODBias` at its default: bilinear, from the one mip
+whose texels are no larger than the screen's pixels, where the GPU devices
+filter trilinearly with 8x anisotropy, by their own choice. Against
+`D3DDrv`'s frames: `LightConsole`'s `Spotlight0`, with its macro texture and
+without, and `Spotlight7` at 1.00, as the GPU devices'
+([lighting](#lighting)), and `Light33`'s floor within 1.02; `LaserConsole`'s
+wall and near floor 0.40 and 0.40 apart (RMSE, at 1024x768 with `NoDetail`)
+and best unmoved, its receding floor 0.66 apart, nearer than the Vulkan
+device's; `LoadingConsole`'s text on the rows `D3DDrv` draws it, where the
 Vulkan device draws some of its glyphs a row lower (point sampled on a
 texel's edge). Against the Vulkan device's: `TileConsole`'s tiles and text
 within a level, as are `DetailConsole`'s bands (`detail.py` as the Vulkan
@@ -390,6 +389,10 @@ Differs:
   in DXEngine as each draw is: beside the masked ones, `SpriteConsole`'s
   `STY_Normal` sprite shows the icon's magenta in DXEngine, black in the
   original; drawn alone, magenta in both.
+- **The viewer's `Sprite`** (the Matrix cheat's) stands in for the textures
+  of meshes and sprites alone, a sprite's at its own texture's size, as the
+  original's `DrawActorSprite` draws it: the original's draws the level's
+  surfaces in it too (`MatrixConsole`), by a rule unread.
 
 ### Particles and lasers: render iterators
 
@@ -617,12 +620,15 @@ Matches the original's picture
 [textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#textures)):
 the Brightness slider raises the picture to 1 / (2.5 × Brightness), as
 `D3DDrv` sets its ramp, and `Settings.json`'s other gamma mode (XOpenGL's
-curve) takes the same product. The shaders take nothing off a texture's
-colours (`NO_DARKCLAMP`), as `D3DDrv` draws 32-bit textures on any
-display of 24 bits or more, on every device: `MeshConsole`'s shots under
-Vulkan, with descriptor indexing and without (the Smart Pro's), are within
-0.2% of the GL device's. How a DXEngine shot meets the original's frames:
-[scripted runs](DEVELOPMENT.md#scripted-runs-of-both-engines). Differs:
+curve) takes the same product, its `Contrast`, `Saturation` and gamma
+offsets leaving the picture so at their defaults
+([the keys](ENGINE.md#settings-and-environment)). The shaders take nothing
+off a texture's colours (`NO_DARKCLAMP`), as `D3DDrv` draws 32-bit textures
+on any display of 24 bits or more, on every device: `MeshConsole`'s shots
+under Vulkan, with descriptor indexing and without (the Smart Pro's), are
+within 0.2% of the GL device's. How a DXEngine shot meets the original's
+frames: [scripted runs](DEVELOPMENT.md#scripted-runs-of-both-engines).
+Differs:
 
 - `MeshConsole`'s Liberty Island pier, where nothing is in hand, is 1.7%
   under `D3DDrv`'s frames with the detail textures on, and 0.7% over with
@@ -817,11 +823,13 @@ from the original's code:
 - **Places**: `SetPos` makes a window left- and top-aligned with its x and
   y as margins; `SetWindowAlignments` sets both margins of each side, the
   second the first's unless given. A parent's `ConfigureChild` sets just
-  what it gives; a window no parent places, or that the base script's
-  answer to its asking hands back (`ResizeChild`), sits by its alignment at
-  its preferred size -- centred with the half dropped, plus its margin --
-  and its `x` and `y` are that place. So a menu dragged by its title bar
-  follows the pointer and the credits start below the screen
+  what it gives, and leaves a window that does not show as it is, counted
+  placed (`TitleConsole`: the HUD's mission start text 10 by 10 at 0, 0
+  until a message shows it); a window no parent places, or that the base
+  script's answer to its asking hands back (`ResizeChild`), sits by its
+  alignment at its preferred size -- centred with the half dropped, plus its
+  margin -- and its `x` and `y` are that place. So a menu dragged by its
+  title bar follows the pointer and the credits start below the screen
   (`ClickConsole`, `MenuConsole`).
 - **Sizes**: a side a window was given (`SetSize`) counts as asked for; a
   side it leaves unset is its background's size, else its own -- an empty
@@ -1002,10 +1010,8 @@ Differs:
   `SetPos` gives it at once, where a parent that places it again does so the
   next frame. A window a parent placed keeps that place until it moves or
   asks again, where the original's goes back to its alignment when the
-  parent's next layout leaves it out; read from both codes, a hidden window
-  takes a parent's `ConfigureChild`, where the original's only counts itself
-  placed. The root window is 4:3 (960 wide at 1280x720) by choice, where the
-  original's is the whole viewport: the stock
+  parent's next layout leaves it out. The root window is 4:3 (960 wide at
+  1280x720) by choice, where the original's is the whole viewport: the stock
   `ConWindowActive.CalculateWindowSizes` gives a cutscene's subtitles no
   height on a root 16:9 or wider, the Smart Pro's among them, so a cutscene
   letterboxes at 16:9. The root's children lie across the screen up to 16:9,
@@ -1111,7 +1117,11 @@ the old song fades out and the new level's starts (its player's
 `MTRAN_Fade`), a level of the same song jumping to its section
 (`LoadingConsole` with `DXCAP_RECORD=1 DXCAP_MUSIC=1`: no silence across a
 load in either engine, the fade after it, the music on after a save of the
-map it is on is loaded). Differs:
+map it is on is loaded). Galaxy's holds on `OutputRate` (8,000 to 48,000 Hz)
+and `Latency` (10 to 250 ms) are kept, `Latency` the output's mix-ahead
+(10 ms buffers queued to it), and `UseStereo=False` is mono; `UseFilter`,
+`UseCDMusic` and `UseSpatial` are read, saved and `SET` and change nothing,
+as in the original. Differs:
 
 - The music plays on an OpenAL source of its own.
 - Not carried: Galaxy's quirk with the Sound and Speech sliders equal, both
@@ -1123,12 +1133,10 @@ map it is on is loaded). Differs:
   raised count's channels are voices of their own, where the original's are
   its music's
   ([settings](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#settings)).
-- Carried: Galaxy's holds on `OutputRate` (8,000 to 48,000 Hz) and `Latency`
-  (10 to 250 ms), `Latency` the output's mix-ahead (10 ms buffers queued to
-  it), `UseStereo=False` mono. Not carried: the holds a `SET` puts on
-  `DopplerSpeed` and `AmbientFactor`, which no menu sets. `UseFilter`,
-  `UseCDMusic` and `UseSpatial` are read, saved and `SET` and change
-  nothing, as in the original.
+- Not carried: the holds a `SET` puts on `DopplerSpeed` and
+  `AmbientFactor`, which no menu sets.
+- A WAV's ping-pong loop plays forward, where Galaxy's plays back and forth;
+  no stock sound has one.
 - An ambient sound on a light follows its blink and strobe on DXEngine's
   timing ([lighting](#lighting)).
 - A sound's ID packs a number DXEngine gives each object that plays one,
@@ -1150,9 +1158,9 @@ Every other native the scripted runs compare matches the original
   level's list at each step, so an actor spawned in reach during the loop's
   body is reached and one destroyed passed over, in the level's order, and
   `ChildActors` gives every actor whose owner chain reaches the caller, the
-  caller among them (`WalkConsole`). A line or a box started inside an actor's
-  cylinder, heading in, stops at its start, its normal level, out from the
-  axis
+  caller among them (`WalkConsole`). A line or a box started inside an
+  actor's cylinder, heading in, stops at its start, its normal level, out
+  from the axis
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces);
   `TraceConsole`'s boxes started near a decoration's top and at its middle).
 - **A line** meets the level as the original's walk down its BSP does
@@ -1270,9 +1278,10 @@ Every other native the scripted runs compare matches the original
   way goes back through 0 when that is shorter; a rate of a whole turn a
   second does nothing (its low 16 bits are 0); `EndedRotation` at the
   desired rotation -- in both engines alike.
-- **A trailer** (`TrailConsole`): a sprite rides behind its owner's facing by
-  its `Mass`, or at the owner's `PrePivot`; another actor sits on the owner,
-  turned with it or against its velocity, straight up when it has none.
+- **A trailer** (`TrailConsole`): a sprite rides behind its owner's facing
+  by its `Mass`, or at the owner's `PrePivot`; another actor sits on the
+  owner, turned with it or against its velocity, straight up when it has
+  none.
 - **Water**: falls in it (`FloatConsole`: a buoyant crate rises and bobs at
   the surface at the original's speeds) and swimming (`SwimConsole`: the
   player and a troop falling or thrown into water are put back at the water
@@ -1392,10 +1401,9 @@ Every other native the scripted runs compare matches the original
   from them as it was; a Let through None stores nothing.
 - **An actor spawned into water** keeps its physics, the spawn setting its
   region alone, as the original's does: an AirBubble, an Effects with
-  PHYS_Projectile, rises as a swimming player's breath does, where Surreal
-  Engine's rule gave anything but a Projectile PHYS_Swimming, which moves
-  only a pawn (`BubbleConsole`: an AirBubble, an Effects and a Rat spawned
-  under water, alike).
+  PHYS_Projectile, rises as a swimming player's breath does
+  (`BubbleConsole`: an AirBubble, an Effects and a Rat spawned under water,
+  alike).
 
 Differs:
 
@@ -1437,6 +1445,11 @@ Differs:
   way: the original's gains one such step a frame and is six times as far
   out by 0.75 s; DXEngine's, whose velocity is the move it made, keeps to a
   step a frame until its sinking adds to the move, 3 units out at 0.2 s.
+- **A map's actors at rest** find their base at its start as the original's
+  load finds it, a box of the actor's size traced 8 units down
+  (`BaseConsole`: Liberty Island's 396), but for an auto turret and a
+  crossbow pickup there, whose base is the level, where the original's have
+  none.
 
 ## Housekeeping, not seen directly
 
@@ -1595,8 +1608,8 @@ not deleted (the log says so).
   naming a property the pawn lacks, or an `Axis` naming no float of it, is
   the original's "Bad Button command" or "Bad Axis command", logged and
   left alone (a User.ini's `F=Button bFirre` and `G=Axis aNope Speed=1`
-  pressed by `tools/dxcap/timelines/bad-keys.txt`); a `Button`'s `input byte` is
-  written as a byte, 1 pressed and 0 released. Differs: the
+  pressed by `tools/dxcap/timelines/bad-keys.txt`); a `Button`'s
+  `input byte` is written as a byte, 1 pressed and 0 released. Differs: the
   original takes its viewport's own words (`SHOT` among them) before the
   exec functions, the same but for a word an exec function shares; `Toggle`
   and `Pulse` do nothing, and a command after `OnRelease` never runs.
@@ -1621,9 +1634,7 @@ not deleted (the log says so).
   layout, and lacks only the Windows and menu keys.
 - **The field of view** is the original's setting: the player's `DefaultFOV`
   is Deus Ex's own config, 75 (`[Engine.PlayerPawn]` in `User.ini`), the
-  angle across a 4:3 view ([the view's width](#the-views-width)). Surreal
-  Engine's own key, `MainFOV`, which the game's ini lacks (it would make the
-  view 90), is neither read nor written.
+  angle across a 4:3 view ([the view's width](#the-views-width)).
 - **A singular function** does not run while any singular function of its
   object does, as the original's
   ([variables and calls](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#variables-and-calls)):
@@ -1730,7 +1741,7 @@ A mod gets the original's loader and natives:
   original's linker has it: the live servers' anti-cheat packages (ANNA,
   DXNMS) point their classes' `ScriptText` at such exports. A save's exports
   are all made whatever their flags: DXEngine's own saves may lack them.
-- **A mod's packages and saves.** a package's or a save's property tag of an
+- **A mod's packages and saves.** A package's or a save's property tag of an
   element past its static array, of another type or of another struct is
   logged and skipped, as the original's loader skips it, the object loading
   on; a struct's static-array members are read every element, its native and
@@ -1758,7 +1769,7 @@ A mod gets the original's loader and natives:
   case; a path's folder in another case than the disk's gives its text and
   registered objects too; a class DXEngine saves has its super class for its
   base, so it loads back laid out from it.
-- **A mod's actors drawn.** a mesh sequence of no frames draws its first
+- **A mod's actors drawn.** A mesh sequence of no frames draws its first
   frame, and an `AnimFrame` of 1 or more wraps into its sequence with the
   weight between frames taken before the wrap, as the original's GetFrame
   takes it; a blend's frames past the mesh's vertices are left out, as a LOD
@@ -1779,15 +1790,12 @@ A mod gets the original's loader and natives:
   `Translucency` is read, saved and `SET`, and changes nothing (what it does
   in the original is unread); an actor at no place (a NaN location) sorts
   nearest among the translucent.
-- **A mod's deletions and sizes.** a `CriticalDelete` of an actor destroys
-  it, with the destroyed actors (its flag once cut their chain), one whose
-  `Destroy` refuses staying, and of the levels, their infos and games, the
-  save info or the root window nothing; a light in the level's light lists
+- **A mod's deletions and sizes.** A light in the level's light lists
   is kept, destroyed or not, so the lists keep their places; a destroyed
   mover's polygons keep their texture for a `TraceTexture` through them; a
   collision size or location past the cells an int names, or no number, is
   held to them.
-- **A net game's edges.** a client's reference to a map actor destroyed and
+- **A net game's edges.** A client's reference to a map actor destroyed and
   freed is refused, not loaded afresh in no level; a channel destroyed
   leaves nothing for the next bunch to merge into; an enum of more than 256
   names goes as a byte; a coordinate that is no number or past an int is
@@ -1916,11 +1924,6 @@ settles it). The server-only stubs are under
   what nothing uses of it but its code, which stays loaded, where the
   original's collects it all
   ([housekeeping](#housekeeping-not-seen-directly)).
-- **A root window per pawn**, made at its first Possess and kept in it, as
-  the original's `InitRootWindow` makes it; the engine draws, ticks and
-  feeds the viewport's own player's: a client joining a listen server
-  gets a root of its own and leaves the host's in place (`ServeConsole`
-  with `JoinConsole`: the server's log names each root's pawn).
 - **A listen server runs at most 144 frames a second**, where the original's
   runs as fast as it draws: a remote client's queue drains its rate over a
   tick, so the faster the ticks, the less room an unreliable call finds
@@ -1935,17 +1938,6 @@ settles it). The server-only stubs are under
   as 20 bytes of what else is there, whatever was sent, and its
   `SendBinary` answers False. No mod can have counted on them. DXEngine's
   `SendText` and `SendBinary` answer False when nothing went.
-- **A dedicated server's natives**: `GetPlayerPawn` answers None, as the
-  original's with no client or viewport, and `AttachDecal` attaches none, as
-  the original's with no client.
-- **A URL**: a '/' is a character of a map's name or an option's value, '#'
-  alone marking the portal, as the original's URL has it (another game's '/'
-  once cut `?Name=AC/DC` at the slash); a relative travel that names a
-  server's address goes there; a URL cleared is empty whole, its port the
-  game's default again.
-- **Entry's actors** find their regions in Entry's own model, with its zone
-  actors and its LevelInfo, while a map is current (no run: the code settles
-  it).
 - **The player's name in a net game**: a name the player never chose --
   none, or the game's stock `Player` -- logs in as `DXEnginePlayer`, a
   client's to its server and a listen server's host's, by choice, so
@@ -1955,6 +1947,21 @@ settles it). The server-only stubs are under
 
 As in the original:
 
+- A root window per pawn, made at its first Possess and kept in it, as the
+  original's `InitRootWindow` makes it; the engine draws, ticks and feeds
+  the viewport's own player's: a client joining a listen server gets a root
+  of its own and leaves the host's in place (`ServeConsole` with
+  `JoinConsole`: the server's log names each root's pawn).
+- On a dedicated server `GetPlayerPawn` answers None, as the original's
+  with no client or viewport, and `AttachDecal` attaches none, as the
+  original's with no client.
+- In a URL a '/' is a character of a map's name or an option's value
+  (`?Name=AC/DC` keeps its slash), '#' alone marking the portal; a relative
+  travel that names a server's address goes there; a URL cleared is empty
+  whole, its port the game's default again.
+- Entry's actors find their regions in Entry's own model, with its zone
+  actors and its LevelInfo, while a map is current (no run: the code
+  settles it).
 - A client replicates its own player's pawn to the server each tick, before
   its packets go (`ULevel::TickNetClient`): the values the script classes'
   statements send from a client, none of the engine classes' native lists,

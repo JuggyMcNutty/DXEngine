@@ -261,11 +261,10 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 	SceneBuffers.Height = height;
 	SceneBuffers.Multisample = multisample;
 
-	// The scene and post-process color buffers are RGB10_A2 unless HDR is
-	// asked for (RGBA16F): ten bits a channel, so the darks band less than in
-	// D3DDrv's 8-bit frame, as in the Vulkan device's 16-bit one, at 8-bit's
-	// 32 bits a pixel, half the HDR buffers' bandwidth, which tells most on a
-	// shared-memory SoC. The overbright the scene shader can write clamps at
+	// The scene and post-process color buffers are RGB10_A2: ten bits a
+	// channel, so the darks band less than in D3DDrv's 8-bit frame, as in the
+	// Vulkan device's A2B10G10R10 ones, at 8-bit's 32 bits a pixel, half a
+	// float buffer's bandwidth, which tells most on a shared-memory SoC. The overbright the scene shader can write clamps at
 	// the write, as in the original XOpenGLDrv's 8-bit buffer. Destination
 	// alpha keeps 2 bits, and no blend reads it but into alpha. ES the same:
 	// the Smart Pro's GE8300 draws, resolves, samples and reads RGB10_A2,
