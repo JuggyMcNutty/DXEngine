@@ -47,7 +47,6 @@ private:
 	{
 		float Brightness = -1.0f;
 		int Mode = -1;
-		bool Ortho = false;
 		float Offsets[4] = {};
 		bool operator==(const GammaKey& other) const;
 	} Key;

@@ -772,40 +772,6 @@ void D3D11RenderDevice::CreateScenePass()
 		}
 	}
 
-	// Point pipeline
-	for (int i = 0; i < 2; i++)
-	{
-		D3D11_BLEND_DESC blendDesc = {};
-		blendDesc.RenderTarget[0].BlendEnable = TRUE;
-		blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-		blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-		blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
-		blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-		blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-		blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
-		blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-		HRESULT result = Device->CreateBlendState(&blendDesc, ScenePass.PointPipeline[i].BlendState.TypedInitPtr());
-		ThrowIfFailed(result, "CreateBlendState(ScenePass.LinePipeline.BlendState) failed");
-		SetDebugName(ScenePass.PointPipeline[i].BlendState, "ScenePass.PointPipeline.BlendState");
-
-		D3D11_DEPTH_STENCIL_DESC depthStencilDesc = {};
-		depthStencilDesc.DepthEnable = TRUE;
-		depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
-		depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-		result = Device->CreateDepthStencilState(&depthStencilDesc, ScenePass.PointPipeline[i].DepthStencilState.TypedInitPtr());
-		ThrowIfFailed(result, "CreateDepthStencilState(ScenePass.PointPipeline.DepthStencilState) failed");
-		SetDebugName(ScenePass.PointPipeline[i].DepthStencilState, "ScenePass.PointPipeline.DepthStencilState");
-
-		ScenePass.PointPipeline[i].PixelShader = ScenePass.PixelShader;
-		ScenePass.PointPipeline[i].PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-
-		if (i == 0)
-		{
-			ScenePass.PointPipeline[i].MinDepth = 0.0f;
-			ScenePass.PointPipeline[i].MaxDepth = 0.1f;
-		}
-	}
-
 	D3D11_BUFFER_DESC bufDesc = {};
 	bufDesc.Usage = D3D11_USAGE_DYNAMIC;
 	bufDesc.ByteWidth = D3D11SceneVertexBufferSize * sizeof(D3D11SceneVertex);
@@ -901,8 +867,6 @@ void D3D11RenderDevice::ReleaseScenePass()
 	{
 		ScenePass.LinePipeline[i].BlendState.reset();
 		ScenePass.LinePipeline[i].DepthStencilState.reset();
-		ScenePass.PointPipeline[i].BlendState.reset();
-		ScenePass.PointPipeline[i].DepthStencilState.reset();
 	}
 }
 
@@ -1456,54 +1420,44 @@ D3D11PresentPushConstants D3D11RenderDevice::GetD3D11PresentPushConstants()
 {
 	D3D11PresentPushConstants pushconstants;
 	pushconstants.HdrScale = 0.8f + HdrScale * (3.0f / 255.0f);
-	if (IsOrtho)
+	float brightness = clamp(Brightness * GammaScale, 0.05f, 2.99f);
+
+	if (GammaMode == 0)
 	{
-		pushconstants.GammaCorrection = { 1.0f };
-		pushconstants.Contrast = 1.0f;
-		pushconstants.Saturation = 1.0f;
-		pushconstants.Brightness = 0.0f;
+		float invGammaRed = 1.0f / std::max(brightness + GammaOffset + GammaOffsetRed, 0.001f);
+		float invGammaGreen = 1.0f / std::max(brightness + GammaOffset + GammaOffsetGreen, 0.001f);
+		float invGammaBlue = 1.0f / std::max(brightness + GammaOffset + GammaOffsetBlue, 0.001f);
+		pushconstants.GammaCorrection = vec4(invGammaRed, invGammaGreen, invGammaBlue, 0.0f);
 	}
 	else
 	{
-		float brightness = clamp(Brightness * GammaScale, 0.05f, 2.99f);
+		float invGammaRed = (GammaOffset + GammaOffsetRed + 2.0f) > 0.0f ? 1.0f / (GammaOffset + GammaOffsetRed + 1.0f) : 1.0f;
+		float invGammaGreen = (GammaOffset + GammaOffsetGreen + 2.0f) > 0.0f ? 1.0f / (GammaOffset + GammaOffsetGreen + 1.0f) : 1.0f;
+		float invGammaBlue = (GammaOffset + GammaOffsetBlue + 2.0f) > 0.0f ? 1.0f / (GammaOffset + GammaOffsetBlue + 1.0f) : 1.0f;
+		pushconstants.GammaCorrection = vec4(invGammaRed, invGammaGreen, invGammaBlue, brightness);
+	}
 
-		if (GammaMode == 0)
-		{
-			float invGammaRed = 1.0f / std::max(brightness + GammaOffset + GammaOffsetRed, 0.001f);
-			float invGammaGreen = 1.0f / std::max(brightness + GammaOffset + GammaOffsetGreen, 0.001f);
-			float invGammaBlue = 1.0f / std::max(brightness + GammaOffset + GammaOffsetBlue, 0.001f);
-			pushconstants.GammaCorrection = vec4(invGammaRed, invGammaGreen, invGammaBlue, 0.0f);
-		}
-		else
-		{
-			float invGammaRed = (GammaOffset + GammaOffsetRed + 2.0f) > 0.0f ? 1.0f / (GammaOffset + GammaOffsetRed + 1.0f) : 1.0f;
-			float invGammaGreen = (GammaOffset + GammaOffsetGreen + 2.0f) > 0.0f ? 1.0f / (GammaOffset + GammaOffsetGreen + 1.0f) : 1.0f;
-			float invGammaBlue = (GammaOffset + GammaOffsetBlue + 2.0f) > 0.0f ? 1.0f / (GammaOffset + GammaOffsetBlue + 1.0f) : 1.0f;
-			pushconstants.GammaCorrection = vec4(invGammaRed, invGammaGreen, invGammaBlue, brightness);
-		}
+	// pushconstants.Contrast = clamp(Contrast, 0.1f, 3.f);
+	if (Contrast >= 128)
+	{
+		pushconstants.Contrast = 1.0f + (Contrast - 128) / 127.0f * 3.0f;
+	}
+	else
+	{
+		pushconstants.Contrast = std::max(Contrast / 128.0f, 0.1f);
+	}
 
-		// pushconstants.Contrast = clamp(Contrast, 0.1f, 3.f);
-		if (Contrast >= 128)
-		{
-			pushconstants.Contrast = 1.0f + (Contrast - 128) / 127.0f * 3.0f;
-		}
-		else
-		{
-			pushconstants.Contrast = std::max(Contrast / 128.0f, 0.1f);
-		}
+	// pushconstants.Saturation = clamp(Saturation, -1.0f, 1.0f);
+	pushconstants.Saturation = 1.0f - 2.0f * (255 - Saturation) / 255.0f;
 
-		// pushconstants.Saturation = clamp(Saturation, -1.0f, 1.0f);
-		pushconstants.Saturation = 1.0f - 2.0f * (255 - Saturation) / 255.0f;
-
-		// pushconstants.Brightness = clamp(LinearBrightness, -1.8f, 1.8f);
-		if (LinearBrightness >= 128)
-		{
-			pushconstants.Brightness = (LinearBrightness - 128) / 127.0f * 1.8f;
-		}
-		else
-		{
-			pushconstants.Brightness = (128 - LinearBrightness) / 128.0f * -1.8f;
-		}
+	// pushconstants.Brightness = clamp(LinearBrightness, -1.8f, 1.8f);
+	if (LinearBrightness >= 128)
+	{
+		pushconstants.Brightness = (LinearBrightness - 128) / 127.0f * 1.8f;
+	}
+	else
+	{
+		pushconstants.Brightness = (128 - LinearBrightness) / 128.0f * -1.8f;
 	}
 	return pushconstants;
 }
@@ -1965,8 +1919,6 @@ void D3D11RenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X, f
 
 vec4 D3D11RenderDevice::ApplyInverseGamma(vec4 color)
 {
-	if (IsOrtho)
-		return color;
 	float brightness = clamp(Brightness * GammaScale, 0.05f, 2.99f);
 	float gammaRed = std::max(brightness + GammaOffset + GammaOffsetRed, 0.001f);
 	float gammaGreen = std::max(brightness + GammaOffset + GammaOffsetGreen, 0.001f);
@@ -1978,46 +1930,25 @@ void D3D11RenderDevice::Draw3DLine(SceneNode* Frame, vec4 Color, uint32_t LineFl
 {
 	// P1 = P1.TransformPointBy(Frame->Coords);
 	// P2 = P2.TransformPointBy(Frame->Coords);
-	if (IsOrtho)
+	bool occlude = !!(LineFlags & LINE_DepthCued);
+	SetPipeline(&ScenePass.LinePipeline[occlude]);
+	SetDescriptorSet(PF_Highlighted);
+	vec4 color = ApplyInverseGamma(vec4(Color.x, Color.y, Color.z, 1.0f));
+
+	auto alloc = ReserveVertices(2, 2);
+	if (alloc.vptr)
 	{
-		P1.x = (P1.x) / Frame->Zoom + Frame->FX2;
-		P1.y = (P1.y) / Frame->Zoom + Frame->FY2;
-		P1.z = 1;
-		P2.x = (P2.x) / Frame->Zoom + Frame->FX2;
-		P2.y = (P2.y) / Frame->Zoom + Frame->FY2;
-		P2.z = 1;
+		D3D11SceneVertex* vptr = alloc.vptr;
+		uint32_t* iptr = alloc.iptr;
+		uint32_t vpos = alloc.vpos;
 
-		if (std::abs(P2.x - P1.x) + std::abs(P2.y - P1.y) >= 0.2)
-		{
-			Draw2DLine(Frame, Color, LineFlags, P1, P2);
-		}
-		else if (IsOrthoLowDetail)
-		{
-			Draw2DPoint(Frame, Color, LINE_None, P1.x - 1, P1.y - 1, P1.x + 1, P1.y + 1, P1.z);
-		}
-	}
-	else
-	{
-		bool occlude = !!(LineFlags & LINE_DepthCued);
-		SetPipeline(&ScenePass.LinePipeline[occlude]);
-		SetDescriptorSet(PF_Highlighted);
-		vec4 color = ApplyInverseGamma(vec4(Color.x, Color.y, Color.z, 1.0f));
+		vptr[0] = { 0, vec3(P1.x, P1.y, P1.z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color };
+		vptr[1] = { 0, vec3(P2.x, P2.y, P2.z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color };
 
-		auto alloc = ReserveVertices(2, 2);
-		if (alloc.vptr)
-		{
-			D3D11SceneVertex* vptr = alloc.vptr;
-			uint32_t* iptr = alloc.iptr;
-			uint32_t vpos = alloc.vpos;
+		iptr[0] = vpos;
+		iptr[1] = vpos + 1;
 
-			vptr[0] = { 0, vec3(P1.x, P1.y, P1.z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color };
-			vptr[1] = { 0, vec3(P2.x, P2.y, P2.z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color };
-
-			iptr[0] = vpos;
-			iptr[1] = vpos + 1;
-
-			UseVertices(2, 2);
-		}
+		UseVertices(2, 2);
 	}
 }
 
@@ -2042,36 +1973,6 @@ void D3D11RenderDevice::Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFl
 		iptr[1] = vpos + 1;
 
 		UseVertices(2, 2);
-	}
-}
-
-void D3D11RenderDevice::Draw2DPoint(SceneNode* Frame, vec4 Color, uint32_t LineFlags, float X1, float Y1, float X2, float Y2, float Z)
-{
-	bool occlude = !!(LineFlags & LINE_DepthCued);
-	SetPipeline(&ScenePass.PointPipeline[occlude]);
-	SetDescriptorSet(PF_Highlighted);
-	vec4 color = ApplyInverseGamma(vec4(Color.x, Color.y, Color.z, 1.0f));
-
-	auto alloc = ReserveVertices(4, 6);
-	if (alloc.vptr)
-	{
-		D3D11SceneVertex* vptr = alloc.vptr;
-		uint32_t* iptr = alloc.iptr;
-		uint32_t vpos = alloc.vpos;
-
-		vptr[0] = { 0, vec3(RFX2 * Z * (X1 - Frame->FX2 - 0.5f), RFY2 * Z * (Y1 - Frame->FY2 - 0.5f), Z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color };
-		vptr[1] = { 0, vec3(RFX2 * Z * (X2 - Frame->FX2 + 0.5f), RFY2 * Z * (Y1 - Frame->FY2 - 0.5f), Z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color };
-		vptr[2] = { 0, vec3(RFX2 * Z * (X2 - Frame->FX2 + 0.5f), RFY2 * Z * (Y2 - Frame->FY2 + 0.5f), Z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color };
-		vptr[3] = { 0, vec3(RFX2 * Z * (X1 - Frame->FX2 - 0.5f), RFY2 * Z * (Y2 - Frame->FY2 + 0.5f), Z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color };
-
-		iptr[0] = vpos;
-		iptr[1] = vpos + 1;
-		iptr[2] = vpos + 2;
-		iptr[3] = vpos;
-		iptr[4] = vpos + 2;
-		iptr[5] = vpos + 3;
-
-		UseVertices(4, 6);
 	}
 }
 

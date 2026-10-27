@@ -169,7 +169,6 @@ public:
 
 	virtual void Draw3DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2) = 0;
 	virtual void Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2) = 0;
-	virtual void Draw2DPoint(SceneNode* Frame, vec4 Color, uint32_t LineFlags, float X1, float Y1, float X2, float Y2, float Z) = 0;
 	virtual void ClearZ() = 0;
 	// The last frame's pixels, as many as LastFrameSize gives: the scene the
 	// device drew, which a window resized since no longer matches.
@@ -222,10 +221,6 @@ public:
 	// band each nearer than 380, 90 and 21.3 units, in the scene shader's one
 	// pass (dx-reverse-info/d3ddrv-dll.md, detail textures).
 	static constexpr bool DetailBands = true;
-
-	// 2D rendering
-	bool IsOrtho = false;
-	bool IsOrthoLowDetail = false;
 
 	// Settings
 	bool UseVSync = true;

@@ -8,7 +8,7 @@
 
 bool SoftwarePresent::GammaKey::operator==(const GammaKey& other) const
 {
-	return Brightness == other.Brightness && Mode == other.Mode && Ortho == other.Ortho && std::memcmp(Offsets, other.Offsets, sizeof(Offsets)) == 0;
+	return Brightness == other.Brightness && Mode == other.Mode && std::memcmp(Offsets, other.Offsets, sizeof(Offsets)) == 0;
 }
 
 void SoftwarePresent::SetGamma(const RenderDevice& device)
@@ -16,7 +16,6 @@ void SoftwarePresent::SetGamma(const RenderDevice& device)
 	GammaKey key;
 	key.Brightness = device.Brightness;
 	key.Mode = device.GammaMode;
-	key.Ortho = device.IsOrtho;
 	key.Offsets[0] = device.GammaOffset;
 	key.Offsets[1] = device.GammaOffsetRed;
 	key.Offsets[2] = device.GammaOffsetGreen;
@@ -29,20 +28,17 @@ void SoftwarePresent::SetGamma(const RenderDevice& device)
 	// makes them
 	float exponent[3] = { 1.0f, 1.0f, 1.0f };
 	float brighten = 1.0f;
-	if (!key.Ortho)
+	float brightness = std::clamp(key.Brightness * RenderDevice::GammaScale, 0.05f, 2.99f);
+	for (int c = 0; c < 3; c++)
 	{
-		float brightness = std::clamp(key.Brightness * RenderDevice::GammaScale, 0.05f, 2.99f);
-		for (int c = 0; c < 3; c++)
-		{
-			float offset = key.Offsets[0] + key.Offsets[1 + c];
-			if (key.Mode == 1)
-				exponent[c] = (offset + 2.0f) > 0.0f ? 1.0f / (offset + 1.0f) : 1.0f;
-			else
-				exponent[c] = 1.0f / std::max(brightness + offset, 0.001f);
-		}
+		float offset = key.Offsets[0] + key.Offsets[1 + c];
 		if (key.Mode == 1)
-			brighten = brightness;
+			exponent[c] = (offset + 2.0f) > 0.0f ? 1.0f / (offset + 1.0f) : 1.0f;
+		else
+			exponent[c] = 1.0f / std::max(brightness + offset, 0.001f);
 	}
+	if (key.Mode == 1)
+		brighten = brightness;
 
 	auto level = [](float v) { return (uint8_t)std::clamp((int)std::floor(v * 255.0f + 0.5f), 0, 255); };
 

@@ -689,8 +689,6 @@ void VulkanRenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X, 
 
 vec4 VulkanRenderDevice::ApplyInverseGamma(vec4 color)
 {
-	if (IsOrtho)
-		return color;
 	float brightness = clamp(Brightness * GammaScale, 0.05f, 2.99f);
 	float gammaRed = std::max(brightness + GammaOffset + GammaOffsetRed, 0.001f);
 	float gammaGreen = std::max(brightness + GammaOffset + GammaOffsetGreen, 0.001f);
@@ -700,46 +698,25 @@ vec4 VulkanRenderDevice::ApplyInverseGamma(vec4 color)
 
 void VulkanRenderDevice::Draw3DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2)
 {
-	if (IsOrtho)
+	bool occlude = !!(LineFlags & LINE_DepthCued);
+	SetPipeline(RenderPasses->GetLinePipeline(occlude));
+	ivec4 textureBinds = GetTextureIndexes(PF_Highlighted, nullptr);
+	vec4 color = ApplyInverseGamma(vec4(Color.x, Color.y, Color.z, 1.0f));
+
+	auto alloc = ReserveVertices(2, 2);
+	if (alloc.vptr)
 	{
-		P1.x = (P1.x) / Frame->Zoom + Frame->FX2;
-		P1.y = (P1.y) / Frame->Zoom + Frame->FY2;
-		P1.z = 1;
-		P2.x = (P2.x) / Frame->Zoom + Frame->FX2;
-		P2.y = (P2.y) / Frame->Zoom + Frame->FY2;
-		P2.z = 1;
+		SceneVertex* vptr = alloc.vptr;
+		uint32_t* iptr = alloc.iptr;
+		uint32_t vpos = alloc.vpos;
 
-		if (std::abs(P2.x - P1.x) + std::abs(P2.y - P1.y) >= 0.2f)
-		{
-			Draw2DLine(Frame, Color, LineFlags, P1, P2);
-		}
-		else if (IsOrthoLowDetail)
-		{
-			Draw2DPoint(Frame, Color, LINE_None, P1.x - 1, P1.y - 1, P1.x + 1, P1.y + 1, P1.z);
-		}
-	}
-	else
-	{
-		bool occlude = !!(LineFlags & LINE_DepthCued);
-		SetPipeline(RenderPasses->GetLinePipeline(occlude));
-		ivec4 textureBinds = GetTextureIndexes(PF_Highlighted, nullptr);
-		vec4 color = ApplyInverseGamma(vec4(Color.x, Color.y, Color.z, 1.0f));
+		vptr[0] = { 0, vec3(P1.x, P1.y, P1.z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color, textureBinds };
+		vptr[1] = { 0, vec3(P2.x, P2.y, P2.z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color, textureBinds };
 
-		auto alloc = ReserveVertices(2, 2);
-		if (alloc.vptr)
-		{
-			SceneVertex* vptr = alloc.vptr;
-			uint32_t* iptr = alloc.iptr;
-			uint32_t vpos = alloc.vpos;
+		iptr[0] = vpos;
+		iptr[1] = vpos + 1;
 
-			vptr[0] = { 0, vec3(P1.x, P1.y, P1.z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color, textureBinds };
-			vptr[1] = { 0, vec3(P2.x, P2.y, P2.z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color, textureBinds };
-
-			iptr[0] = vpos;
-			iptr[1] = vpos + 1;
-
-			UseVertices(2, 2);
-		}
+		UseVertices(2, 2);
 	}
 }
 
@@ -764,36 +741,6 @@ void VulkanRenderDevice::Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineF
 		iptr[1] = vpos + 1;
 
 		UseVertices(2, 2);
-	}
-}
-
-void VulkanRenderDevice::Draw2DPoint(SceneNode* Frame, vec4 Color, uint32_t LineFlags, float X1, float Y1, float X2, float Y2, float Z)
-{
-	bool occlude = !!(LineFlags & LINE_DepthCued);
-	SetPipeline(RenderPasses->GetPointPipeline(occlude));
-	ivec4 textureBinds = GetTextureIndexes(PF_Highlighted, nullptr);
-	vec4 color = ApplyInverseGamma(vec4(Color.x, Color.y, Color.z, 1.0f));
-
-	auto alloc = ReserveVertices(4, 6);
-	if (alloc.vptr)
-	{
-		SceneVertex* vptr = alloc.vptr;
-		uint32_t* iptr = alloc.iptr;
-		uint32_t vpos = alloc.vpos;
-
-		vptr[0] = { 0, vec3(RFX2 * Z * (X1 - Frame->FX2 - 0.5f), RFY2 * Z * (Y1 - Frame->FY2 - 0.5f), Z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color, textureBinds };
-		vptr[1] = { 0, vec3(RFX2 * Z * (X2 - Frame->FX2 + 0.5f), RFY2 * Z * (Y1 - Frame->FY2 - 0.5f), Z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color, textureBinds };
-		vptr[2] = { 0, vec3(RFX2 * Z * (X2 - Frame->FX2 + 0.5f), RFY2 * Z * (Y2 - Frame->FY2 + 0.5f), Z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color, textureBinds };
-		vptr[3] = { 0, vec3(RFX2 * Z * (X1 - Frame->FX2 - 0.5f), RFY2 * Z * (Y2 - Frame->FY2 + 0.5f), Z), vec2(0.0f), vec2(0.0f), vec2(0.0f), vec2(0.0f), color, textureBinds };
-
-		iptr[0] = vpos;
-		iptr[1] = vpos + 1;
-		iptr[2] = vpos + 2;
-		iptr[3] = vpos;
-		iptr[4] = vpos + 2;
-		iptr[5] = vpos + 3;
-
-		UseVertices(4, 6);
 	}
 }
 
@@ -1324,54 +1271,44 @@ PresentPushConstants VulkanRenderDevice::GetPresentPushConstants()
 {
 	PresentPushConstants pushconstants;
 	pushconstants.HdrScale = 0.8f + HdrScale * (3.0f / 255.0f);
-	if (IsOrtho)
+	float brightness = clamp(Brightness * GammaScale, 0.05f, 2.99f);
+
+	if (GammaMode == 0)
 	{
-		pushconstants.GammaCorrection = { 1.0f };
-		pushconstants.Contrast = 1.0f;
-		pushconstants.Saturation = 1.0f;
-		pushconstants.Brightness = 0.0f;
+		float invGammaRed = 1.0f / std::max(brightness + GammaOffset + GammaOffsetRed, 0.001f);
+		float invGammaGreen = 1.0f / std::max(brightness + GammaOffset + GammaOffsetGreen, 0.001f);
+		float invGammaBlue = 1.0f / std::max(brightness + GammaOffset + GammaOffsetBlue, 0.001f);
+		pushconstants.GammaCorrection = vec4(invGammaRed, invGammaGreen, invGammaBlue, 0.0f);
 	}
 	else
 	{
-		float brightness = clamp(Brightness * GammaScale, 0.05f, 2.99f);
+		float invGammaRed = (GammaOffset + GammaOffsetRed + 2.0f) > 0.0f ? 1.0f / (GammaOffset + GammaOffsetRed + 1.0f) : 1.0f;
+		float invGammaGreen = (GammaOffset + GammaOffsetGreen + 2.0f) > 0.0f ? 1.0f / (GammaOffset + GammaOffsetGreen + 1.0f) : 1.0f;
+		float invGammaBlue = (GammaOffset + GammaOffsetBlue + 2.0f) > 0.0f ? 1.0f / (GammaOffset + GammaOffsetBlue + 1.0f) : 1.0f;
+		pushconstants.GammaCorrection = vec4(invGammaRed, invGammaGreen, invGammaBlue, brightness);
+	}
 
-		if (GammaMode == 0)
-		{
-			float invGammaRed = 1.0f / std::max(brightness + GammaOffset + GammaOffsetRed, 0.001f);
-			float invGammaGreen = 1.0f / std::max(brightness + GammaOffset + GammaOffsetGreen, 0.001f);
-			float invGammaBlue = 1.0f / std::max(brightness + GammaOffset + GammaOffsetBlue, 0.001f);
-			pushconstants.GammaCorrection = vec4(invGammaRed, invGammaGreen, invGammaBlue, 0.0f);
-		}
-		else
-		{
-			float invGammaRed = (GammaOffset + GammaOffsetRed + 2.0f) > 0.0f ? 1.0f / (GammaOffset + GammaOffsetRed + 1.0f) : 1.0f;
-			float invGammaGreen = (GammaOffset + GammaOffsetGreen + 2.0f) > 0.0f ? 1.0f / (GammaOffset + GammaOffsetGreen + 1.0f) : 1.0f;
-			float invGammaBlue = (GammaOffset + GammaOffsetBlue + 2.0f) > 0.0f ? 1.0f / (GammaOffset + GammaOffsetBlue + 1.0f) : 1.0f;
-			pushconstants.GammaCorrection = vec4(invGammaRed, invGammaGreen, invGammaBlue, brightness);
-		}
+	// pushconstants.Contrast = clamp(Contrast, 0.1f, 3.f);
+	if (Contrast >= 128)
+	{
+		pushconstants.Contrast = 1.0f + (Contrast - 128) / 127.0f * 3.0f;
+	}
+	else
+	{
+		pushconstants.Contrast = std::max(Contrast / 128.0f, 0.1f);
+	}
 
-		// pushconstants.Contrast = clamp(Contrast, 0.1f, 3.f);
-		if (Contrast >= 128)
-		{
-			pushconstants.Contrast = 1.0f + (Contrast - 128) / 127.0f * 3.0f;
-		}
-		else
-		{
-			pushconstants.Contrast = std::max(Contrast / 128.0f, 0.1f);
-		}
+	// pushconstants.Saturation = clamp(Saturation, -1.0f, 1.0f);
+	pushconstants.Saturation = 1.0f - 2.0f * (255 - Saturation) / 255.0f;
 
-		// pushconstants.Saturation = clamp(Saturation, -1.0f, 1.0f);
-		pushconstants.Saturation = 1.0f - 2.0f * (255 - Saturation) / 255.0f;
-
-		// pushconstants.Brightness = clamp(LinearBrightness, -1.8f, 1.8f);
-		if (LinearBrightness >= 128)
-		{
-			pushconstants.Brightness = (LinearBrightness - 128) / 127.0f * 1.8f;
-		}
-		else
-		{
-			pushconstants.Brightness = (128 - LinearBrightness) / 128.0f * -1.8f;
-		}
+	// pushconstants.Brightness = clamp(LinearBrightness, -1.8f, 1.8f);
+	if (LinearBrightness >= 128)
+	{
+		pushconstants.Brightness = (LinearBrightness - 128) / 127.0f * 1.8f;
+	}
+	else
+	{
+		pushconstants.Brightness = (128 - LinearBrightness) / 128.0f * -1.8f;
 	}
 	return pushconstants;
 }

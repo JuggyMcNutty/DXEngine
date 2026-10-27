@@ -83,7 +83,6 @@ public:
 	void DrawTile(SceneNode* Frame, TextureInfo& Info, float X, float Y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 Color, vec4 Fog, uint32_t PolyFlags) override;
 	void Draw3DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 OrigP, vec3 OrigQ) override;
 	void Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2) override;
-	void Draw2DPoint(SceneNode* Frame, vec4 Color, uint32_t LineFlags, float X1, float Y1, float X2, float Y2, float Z) override;
 	void ClearZ() override;
 	void ReadPixels(TextureColor* Pixels) override;
 	void LastFrameSize(int& width, int& height) const override { width = SceneBuffers.Width; height = SceneBuffers.Height; }
@@ -165,7 +164,6 @@ public:
 		// Pipelines' first 32 a step toward the viewer (SurfaceInfo::DepthBias)
 		ScenePipelineState BiasedPipelines[32];
 		ScenePipelineState LinePipeline[2];
-		ScenePipelineState PointPipeline[2];
 		float LODBias = 0.0f;
 	} ScenePass;
 

@@ -229,44 +229,6 @@ void RenderPassManager::CreatePipelines()
 		}
 	}
 
-	// Point pipeline
-	for (int i = 0; i < 2; i++)
-	{
-		GraphicsPipelineBuilder builder;
-		builder.AddVertexShader(vertShader);
-		builder.AddFragmentShader(fragShader);
-		builder.Viewport(0.0f, 0.0f, (float)renderer->Textures->Scene->Width, (float)renderer->Textures->Scene->Height);
-		builder.Scissor(0, 0, renderer->Textures->Scene->Width, renderer->Textures->Scene->Height);
-		builder.Topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-		builder.Cull(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-		builder.AddVertexBufferBinding(0, sizeof(SceneVertex));
-		builder.AddVertexAttribute(0, 0, VK_FORMAT_R32_UINT, offsetof(SceneVertex, Flags));
-		builder.AddVertexAttribute(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(SceneVertex, Position));
-		builder.AddVertexAttribute(2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(SceneVertex, TexCoord));
-		builder.AddVertexAttribute(3, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(SceneVertex, TexCoord2));
-		builder.AddVertexAttribute(4, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(SceneVertex, TexCoord3));
-		builder.AddVertexAttribute(5, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(SceneVertex, TexCoord4));
-		builder.AddVertexAttribute(6, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(SceneVertex, Color));
-		builder.AddVertexAttribute(7, 0, VK_FORMAT_R32G32B32A32_SINT, offsetof(SceneVertex, TextureBinds));
-		builder.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT);
-		builder.AddDynamicState(VK_DYNAMIC_STATE_BLEND_CONSTANTS);
-		builder.Layout(layout);
-		builder.RenderPass(Scene.RenderPass.get());
-
-		builder.AddColorBlendAttachment(ColorBlendAttachmentBuilder().BlendMode(VK_BLEND_OP_ADD, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA).Create());
-
-		builder.DepthStencilEnable(true, true, false);
-		builder.RasterizationSamples(renderer->Textures->Scene->SceneSamples);
-		builder.DebugName(debugName);
-
-		Scene.PointPipeline[i].Pipeline = builder.Create(renderer->Device.get());
-
-		if (i == 0)
-		{
-			Scene.PointPipeline[i].MinDepth = 0.0f;
-			Scene.PointPipeline[i].MaxDepth = 0.1f;
-		}
-	}
 }
 
 void RenderPassManager::CreateRenderPass()

@@ -576,8 +576,6 @@ void SoftwareRenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X
 // that it shows as given (the Vulkan device's ApplyInverseGamma)
 vec4 SoftwareRenderDevice::ApplyInverseGamma(vec4 color)
 {
-	if (IsOrtho)
-		return color;
 	float brightness = std::clamp(Brightness * GammaScale, 0.05f, 2.99f);
 	float gammaRed = std::max(brightness + GammaOffset + GammaOffsetRed, 0.001f);
 	float gammaGreen = std::max(brightness + GammaOffset + GammaOffsetGreen, 0.001f);
@@ -607,28 +605,7 @@ void SoftwareRenderDevice::AddLine(vec4 Color, uint32_t LineFlags, vec3 P1, vec3
 
 void SoftwareRenderDevice::Draw3DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2)
 {
-	if (IsOrtho)
-	{
-		P1.x = (P1.x) / Frame->Zoom + Frame->FX2;
-		P1.y = (P1.y) / Frame->Zoom + Frame->FY2;
-		P1.z = 1;
-		P2.x = (P2.x) / Frame->Zoom + Frame->FX2;
-		P2.y = (P2.y) / Frame->Zoom + Frame->FY2;
-		P2.z = 1;
-
-		if (std::abs(P2.x - P1.x) + std::abs(P2.y - P1.y) >= 0.2f)
-		{
-			Draw2DLine(Frame, Color, LineFlags, P1, P2);
-		}
-		else if (IsOrthoLowDetail)
-		{
-			Draw2DPoint(Frame, Color, LINE_None, P1.x - 1, P1.y - 1, P1.x + 1, P1.y + 1, P1.z);
-		}
-	}
-	else
-	{
-		AddLine(Color, LineFlags, P1, P2);
-	}
+	AddLine(Color, LineFlags, P1, P2);
 }
 
 void SoftwareRenderDevice::Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2)
@@ -638,32 +615,6 @@ void SoftwareRenderDevice::Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t Lin
 	AddLine(Color, LineFlags,
 		vec3(RFX2 * P1.z * (P1.x - Frame->FX2), RFY2 * P1.z * (P1.y - Frame->FY2), P1.z),
 		vec3(RFX2 * P2.z * (P2.x - Frame->FX2), RFY2 * P2.z * (P2.y - Frame->FY2), P2.z));
-}
-
-void SoftwareRenderDevice::Draw2DPoint(SceneNode* Frame, vec4 Color, uint32_t LineFlags, float X1, float Y1, float X2, float Y2, float Z)
-{
-	// A square of the colour, as the Vulkan device's point pipeline draws it:
-	// the premultiplied blend, depth written, in front of the scene unless
-	// the point is depth cued
-	bool occlude = !!(LineFlags & LINE_DepthCued);
-	vec4 color = ApplyInverseGamma(vec4(Color.x, Color.y, Color.z, 1.0f));
-
-	SoftwareVertex* v;
-	SoftwareDraw& draw = AddDraw(SoftwareDrawType::Tile, 4, v);
-	draw.Blend = SoftwareBlend::Highlighted;
-	draw.DepthWrite = true;
-	draw.DepthMin = occlude ? 0.1f : 0.0f;
-	draw.DepthMax = occlude ? 1.0f : 0.1f;
-	draw.Texture = Textures.GetWhite();
-
-	float RFX2 = State.RFX2;
-	float RFY2 = State.RFY2;
-	v[0].Position = vec3(RFX2 * Z * (X1 - Frame->FX2 - 0.5f), RFY2 * Z * (Y1 - Frame->FY2 - 0.5f), Z);
-	v[1].Position = vec3(RFX2 * Z * (X2 - Frame->FX2 + 0.5f), RFY2 * Z * (Y1 - Frame->FY2 - 0.5f), Z);
-	v[2].Position = vec3(RFX2 * Z * (X2 - Frame->FX2 + 0.5f), RFY2 * Z * (Y2 - Frame->FY2 + 0.5f), Z);
-	v[3].Position = vec3(RFX2 * Z * (X1 - Frame->FX2 - 0.5f), RFY2 * Z * (Y2 - Frame->FY2 + 0.5f), Z);
-	for (int i = 0; i < 4; i++)
-		v[i].Color = color;
 }
 
 void SoftwareRenderDevice::ClearZ()
