@@ -20,6 +20,7 @@ public:
 	using UActor::UActor;
 
 	void Tick(float elapsed) override;
+	void PollLatentAction(float elapsed) override;
 	void TickRotating(float elapsed) override;
 	void DeusExPhysicsRotation(float deltaTime);
 

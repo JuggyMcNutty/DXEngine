@@ -231,6 +231,9 @@ public:
 	PointRegion FindRegion(const vec3& offset = vec3(0.0f));
 
 	virtual void Tick(float elapsed);
+	// The state frame's pending latent action, its one step this tick: a
+	// Sleep or a FinishInterpolation here, a pawn's moves and turns in UPawn's.
+	virtual void PollLatentAction(float elapsed);
 	// Destroy's last word to the actor: a link closes its sockets here, as
 	// the original's AInternetLink::Destroy does, not at the collection.
 	virtual void ActorDestroyed() {}

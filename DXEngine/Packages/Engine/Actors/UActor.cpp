@@ -379,6 +379,21 @@ bool UActor::StartTick()
 	return true;
 }
 
+void UActor::PollLatentAction(float elapsed)
+{
+	if (StateFrame->LatentState == LatentRunState::Sleep)
+	{
+		SleepTimeLeft = std::max(SleepTimeLeft - elapsed, 0.0f);
+		if (SleepTimeLeft == 0.0f)
+			StateFrame->LatentState = LatentRunState::Continue;
+	}
+	else if (StateFrame->LatentState == LatentRunState::FinishInterpolation)
+	{
+		if (!bInterpolating())
+			StateFrame->LatentState = LatentRunState::Continue;
+	}
+}
+
 void UActor::Tick(float elapsed)
 {
 	// Deus Ex's tick starts as the original's AActor::Tick does; a pawn's
@@ -445,17 +460,12 @@ void UActor::Tick(float elapsed)
 
 	if (StateFrame)
 	{
-		if (StateFrame->LatentState == LatentRunState::Sleep)
-		{
-			SleepTimeLeft = std::max(SleepTimeLeft - elapsed, 0.0f);
-			if (SleepTimeLeft == 0.0f)
-				StateFrame->LatentState = LatentRunState::Continue;
-		}
-		else if (StateFrame->LatentState == LatentRunState::FinishInterpolation)
-		{
-			if (!bInterpolating())
-				StateFrame->LatentState = LatentRunState::Continue;
-		}
+		// The pending latent action ticks first, then the state code runs,
+		// as the original's ProcessState (Engine.dll 0x103e5b60) follows the
+		// animation and the script's Tick: a Tick, an AnimEnd or a notify
+		// that changes state or the move's goal moves the pawn by it at once
+		if (!bDeleteMe())
+			PollLatentAction(elapsed);
 
 		if (Role() >= ROLE_SimulatedProxy && StateFrame->LatentState == LatentRunState::Continue)
 		{

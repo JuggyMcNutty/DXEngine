@@ -433,7 +433,9 @@ bool ZoneActorsIterator::Next()
 // all. Nothing beyond the first wall.
 static CollisionHitList DeusExMultiLineCheck(const vec3& start, const vec3& end, const vec3& extent, bool visibilityOnly)
 {
-	float radius = length(extent.xy());
+	// The extent's X is the cylinder's radius, as the original's
+	// UPrimitive::LineCheck adds it to each actor's (Engine.dll 0x103d8af0)
+	float radius = std::abs(extent.x);
 	float height = std::abs(extent.z);
 
 	CollisionHitList result;

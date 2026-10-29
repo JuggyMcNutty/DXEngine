@@ -10,82 +10,89 @@
 #include "Utils/Logger.h"
 #include "Engine.h"
 
+// The pawn's latent moves and turns, polled where the original's
+// ProcessState polls them (UActor::Tick); a Sleep or a FinishInterpolation
+// as any actor's.
+void UPawn::PollLatentAction(float elapsed)
+{
+	if (StateFrame->LatentState == LatentRunState::MoveTo)
+	{
+		if (DeusExPollMoveTo())
+			StateFrame->LatentState = LatentRunState::Continue;
+	}
+	else if (StateFrame->LatentState == LatentRunState::MoveToward)
+	{
+		if (DeusExPollMoveToward())
+			StateFrame->LatentState = LatentRunState::Continue;
+	}
+	else if (StateFrame->LatentState == LatentRunState::StrafeTo)
+	{
+		TickRotateTo(Focus());
+		if (DeusExMoveToward(Destination()))
+			StateFrame->LatentState = LatentRunState::Continue;
+	}
+	else if (StateFrame->LatentState == LatentRunState::StrafeFacing)
+	{
+		if (FaceTarget())
+		{
+			Focus() = FaceTarget()->Location();
+			TickRotateTo(Focus());
+			vec3 oldDest = Destination();
+			if (DeusExMoveToward(Destination()))
+				StateFrame->LatentState = LatentRunState::Continue;
+			Destination() = oldDest;
+		}
+		else
+		{
+			StateFrame->LatentState = LatentRunState::Continue;
+		}
+	}
+	else if (StateFrame->LatentState == LatentRunState::TurnTo)
+	{
+		if (TickRotateTo(Focus()))
+			StateFrame->LatentState = LatentRunState::Continue;
+	}
+	else if (StateFrame->LatentState == LatentRunState::TurnToward)
+	{
+		if (FaceTarget())
+		{
+			Focus() = FaceTarget()->Location();
+			if (TickRotateTo(FaceTarget()->Location()))
+				StateFrame->LatentState = LatentRunState::Continue;
+		}
+		else
+		{
+			StateFrame->LatentState = LatentRunState::Continue;
+		}
+	}
+	else if (StateFrame->LatentState == LatentRunState::WaitForLanding)
+	{
+		if (Physics() != PHYS_Falling)
+		{
+			StateFrame->LatentState = LatentRunState::Continue;
+		}
+		else
+		{
+			// The original's poll (APawn::execPollWaitForLanding
+			// 0x103bb730): the fall counted down from 2.5 s
+			// (LatentFloat); past it, LongFall each tick.
+			LatentFloat() -= elapsed;
+			if (LatentFloat() < 0.0f)
+				CallEvent(this, "LongFall");
+		}
+	}
+	else
+	{
+		UActor::PollLatentAction(elapsed);
+	}
+}
+
 void UPawn::Tick(float elapsed)
 {
 	// Deus Ex's tick starts as the original's AActor::Tick does: a pawn in
 	// stasis, or waiting for its owner, does nothing more here.
 	if (!StartTick())
 		return;
-
-	if (StateFrame)
-	{
-		if (StateFrame->LatentState == LatentRunState::MoveTo)
-		{
-			if (DeusExPollMoveTo())
-				StateFrame->LatentState = LatentRunState::Continue;
-		}
-		else if (StateFrame->LatentState == LatentRunState::MoveToward)
-		{
-			if (DeusExPollMoveToward())
-				StateFrame->LatentState = LatentRunState::Continue;
-		}
-		else if (StateFrame->LatentState == LatentRunState::StrafeTo)
-		{
-			TickRotateTo(Focus());
-			if (DeusExMoveToward(Destination()))
-				StateFrame->LatentState = LatentRunState::Continue;
-		}
-		else if (StateFrame->LatentState == LatentRunState::StrafeFacing)
-		{
-			if (FaceTarget())
-			{
-				Focus() = FaceTarget()->Location();
-				TickRotateTo(Focus());
-				vec3 oldDest = Destination();
-				if (DeusExMoveToward(Destination()))
-					StateFrame->LatentState = LatentRunState::Continue;
-				Destination() = oldDest;
-			}
-			else
-			{
-				StateFrame->LatentState = LatentRunState::Continue;
-			}
-		}
-		else if (StateFrame->LatentState == LatentRunState::TurnTo)
-		{
-			if (TickRotateTo(Focus()))
-				StateFrame->LatentState = LatentRunState::Continue;
-		}
-		else if (StateFrame->LatentState == LatentRunState::TurnToward)
-		{
-			if (FaceTarget())
-			{
-				Focus() = FaceTarget()->Location();
-				if (TickRotateTo(FaceTarget()->Location()))
-					StateFrame->LatentState = LatentRunState::Continue;
-			}
-			else
-			{
-				StateFrame->LatentState = LatentRunState::Continue;
-			}
-		}
-		else if (StateFrame->LatentState == LatentRunState::WaitForLanding)
-		{
-			if (Physics() != PHYS_Falling)
-			{
-				StateFrame->LatentState = LatentRunState::Continue;
-			}
-			else
-			{
-				// The original's poll (APawn::execPollWaitForLanding
-				// 0x103bb730): the fall counted down from 2.5 s
-				// (LatentFloat); past it, LongFall each tick.
-				LatentFloat() -= elapsed;
-				if (LatentFloat() < 0.0f)
-					CallEvent(this, "LongFall");
-			}
-		}
-	}
 
 	UActor::Tick(elapsed);
 	if (bDeleteMe())
@@ -176,7 +183,14 @@ void UPawn::TickRotating(float elapsed)
 	if (Physics() == PHYS_Spider)
 		return;
 
-	DeusExPhysicsRotation(elapsed);
+	// Only off the desired rotation, its numbers compared whole, or with a
+	// roll in its rate, as the original's APawn::performPhysics calls it for
+	// a pawn that is not a player (Engine.dll 0x103c9a70): at the desired
+	// rotation its flags and any roll stay
+	const Rotator& rotation = Rotation();
+	const Rotator& desired = DesiredRotation();
+	if (rotation.Pitch != desired.Pitch || rotation.Yaw != desired.Yaw || rotation.Roll != desired.Roll || RotationRate().Roll > 0)
+		DeusExPhysicsRotation(elapsed);
 }
 
 // APawn::physicsRotation (Engine.dll 0x103c9f30; dx-reverse-info/

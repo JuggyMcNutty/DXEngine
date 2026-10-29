@@ -144,7 +144,10 @@ void UActor::FindBase()
 	CollisionHit hit = XLevel()->Collision.TraceFirstHit(Location(), Location() - vec3(0.0f, 0.0f, 8.0f), this, vec3(CollisionRadius(), CollisionRadius(), CollisionHeight()), flags);
 	if (ActorBase() != hit.Actor)
 	{
-		if (hit.Actor && hit.Actor->IsBasedOn(this))
+		// The hit standing on this one, through any chain of bases: this
+		// IsBasedOn(other) walks other's bases for this, where the original's
+		// hit->IsBasedOn(this) walks the hit's (Engine.dll 0x1034c8d0)
+		if (hit.Actor && IsBasedOn(hit.Actor))
 			return;
 		SetSupportBase(hit.Actor);
 	}
