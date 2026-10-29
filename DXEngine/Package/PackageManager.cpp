@@ -353,6 +353,18 @@ bool PackageManager::IsMapPackage(const NameString& name) const
 
 Package* PackageManager::LoadMap(const std::string& path)
 {
+	fs::path file = FindMapFile(path);
+	return GC::Alloc<Package>(this, file.stem().string(), file.string());
+}
+
+bool PackageManager::MapExists(const std::string& path) const
+{
+	std::error_code ec;
+	return fs::is_regular_file(FindMapFile(path), ec);
+}
+
+fs::path PackageManager::FindMapFile(const std::string& path) const
+{
 	const auto mapPath = convert_path_separators(path);
 
 	auto mapFilename = mapPath.filename();
@@ -372,7 +384,7 @@ Package* PackageManager::LoadMap(const std::string& path)
 	for (auto& folder : mapFolders)
 	{
 		if (auto finalPath = fs::path(folder) / mapFilename ; fs::exists(finalPath))
-			return GC::Alloc<Package>(this, mapFilename.stem().string(), finalPath.string());
+			return finalPath;
 	}
 
 	// Path is relative to the Maps folder?
@@ -388,7 +400,8 @@ Package* PackageManager::LoadMap(const std::string& path)
 	if (!absolute_path.has_extension())
 		absolute_path.replace_extension(GetMapExtension());
 
-	return GC::Alloc<Package>(this, mapFilename.stem().string(), absolute_path.string());
+	// Spelt as the map list has it, as the package is named
+	return absolute_path.parent_path() / mapFilename;
 }
 
 Package* PackageManager::LoadMapFile(const NameString& name, const std::string& path)

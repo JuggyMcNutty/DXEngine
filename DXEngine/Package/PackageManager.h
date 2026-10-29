@@ -49,6 +49,8 @@ public:
 	std::map<NameString, Package*> GetSaveInfoPackages() const { return saveInfos; };
 
 	Package* LoadMap(const std::string& path);
+	// Whether the file LoadMap opens for that map is there.
+	bool MapExists(const std::string& path) const;
 	// A map from a file of any name, as the package of the name given: a
 	// download kept in the cache.
 	Package* LoadMapFile(const NameString& name, const std::string& path);
@@ -150,6 +152,9 @@ public:
 
 private:
 	void CreateTransientPackage();
+	// The file of a map's name or path: a map folder's, by the map list's
+	// spelling, else the path under Maps.
+	fs::path FindMapFile(const std::string& path) const;
 
 	std::unique_ptr<IniFile>& LoadIniFile(NameString iniName);
 	std::unique_ptr<IniFile>& LoadUserIniFile();

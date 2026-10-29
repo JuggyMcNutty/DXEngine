@@ -118,6 +118,11 @@ public:
 	// left it; a new mission, or a player starting a new game, empties
 	// Current (dx-reverse-info/deusex-dll.md, travel and saving).
 	void DeusExPreTravel(const UnrealURL& url);
+	// Whether a travel's map is there to load; where it is not, the browse
+	// fails as the original's does, the level playing on.
+	bool BrowseFinds(const UnrealURL& url);
+	// The map a ?restart reloads, as the original's Browse makes it.
+	UnrealURL RestartURL();
 	void PruneTravelActors() const;
 	void SaveCurrentLevel(int32_t slot);
 	void SetLevelURLForSave() const;

@@ -111,6 +111,25 @@ crate left there). A travel's `PreTravel` goes to every actor of the level
 that has the function, with no argument, as the original's `SetClientTravel`
 sends it: the mission scripts' among them (`TravelConsole`).
 
+A travel to a map that is not there leaves the level playing, as the
+original's failed browse does, with its message for 6 s: Core's `Failed
+launching URL` over `Can't find file '<map>'` (`BrowseConsole`). The
+console's `switchlevel` is the player's exec function, whose `ServerTravel`
+Deus Ex's `LevelInfo` passes over in standalone: no travel there. A
+`?restart` (the console's `RestartLevel`) loads the `DeusExLevelInfo`'s map
+again with `?loadonly` and no other option, carrying nothing: the player
+starts afresh, its login with no name, as the original's
+([travel and saving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-game-engine-travel-and-saving)).
+Differs:
+
+- A map that is not there is found so before the pre-travel. By then the
+  original's browse has pruned the player's augmentations, skills and flag
+  base when the map is numbered within the mission, and the player plays on
+  without them; for any other it has emptied `Current` and loads the level
+  again from `Maps`, its progress and the message gone.
+- After a restart `Level.GetLocalURL` names the map, where the original's
+  names `Index`.
+
 While a map loads or a level is saved the screen shows one frame, painted
 before the work, as the original's does
 ([the loading screen](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-loading-screen)):

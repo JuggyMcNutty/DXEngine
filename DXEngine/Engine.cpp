@@ -459,14 +459,20 @@ void Engine::Run()
 				if (UnrealURL(LevelInfo->NextURL()).HasOption("restart"))
 				{
 					DeleteSaveGameFiles("Current"); // the original's ?restart empties Current
-					// Passes the level's own TravelInfo back in, so it means to preserve it.
-					// Copies: LoadMap unloads the level that holds them.
-					ClientTravelInfo.TravelType = ETravelType::TRAVEL_Relative;
-					UnrealURL restartURL = LastURL;
-					auto restartTravelInfo = Level->TravelInfo;
-					LoadMap(restartURL, restartTravelInfo);
+					// Carries nothing: the original's Browse loads the map with no
+					// travel info and ?loadonly, whose login takes none of it, the
+					// player's own or its items' (Engine.dll's SpawnPlayActor,
+					// 0x10396bd0)
+					ClientTravelInfo.TravelType = ETravelType::TRAVEL_Absolute;
+					UnrealURL restartURL = RestartURL();
+					LoadMap(restartURL, {});
 					if (!dedicated)
 						LoginPlayer();
+				}
+				else if (!BrowseFinds(UnrealURL(LastURL, LevelInfo->NextURL())))
+				{
+					// Cleared after the browse, failed or not, as the original's
+					LevelInfo->NextURL().clear();
 				}
 				else if (LevelInfo->bNextItems())
 				{
@@ -495,9 +501,10 @@ void Engine::Run()
 		if (ClientTravelInfo.URL.HasOption("restart"))
 		{
 			DeleteSaveGameFiles("Current"); // the original's ?restart empties Current
-			UnrealURL restartURL = LastURL;
-			auto restartTravelInfo = Level->TravelInfo;
-			LoadMap(restartURL, restartTravelInfo);
+			// Carries nothing, as the NextURL's ?restart above
+			ClientTravelInfo.TravelType = ETravelType::TRAVEL_Absolute;
+			UnrealURL restartURL = RestartURL();
+			LoadMap(restartURL, {});
 			if (!dedicated)
 				LoginPlayer();
 		}
@@ -525,6 +532,10 @@ void Engine::Run()
 			UnrealURL url(ClientTravelInfo.URL);
 			ClientTravelInfo.URL.Clear();
 			BeginConnect(url);
+		}
+		else if (!ClientTravelInfo.URL.Map.empty() && !BrowseFinds(ClientTravelInfo.URL))
+		{
+			ClientTravelInfo.URL.Clear();
 		}
 		else if (!ClientTravelInfo.URL.Map.empty())
 		{
@@ -1633,6 +1644,38 @@ int32_t Engine::DeusExMissionNumber(const std::string& mapName) const
 	return (mapName[0] - '0') * 10 + (mapName[1] - '0');
 }
 
+// The original's LoadMap checks the new map's package (LOAD_Verify) before
+// anything of the old level goes, and a map that is not there fails the
+// browse: Core's UrlFailed over the error for 6 s, the level playing on
+// (Engine.dll 0x1038c1f0). Checked before the pre-travel too, where the
+// original's Browse has already pruned the player's augmentations, skills and
+// flags, and the level played on without them (NATIVES.md, saving).
+bool Engine::BrowseFinds(const UnrealURL& url)
+{
+	if (!Level || packages->MapExists(url.Map) || !packages->FindCurrentSave(url.Map).empty())
+		return true;
+	std::string error = LocalizeMessage("Core", "Errors", "FileNotFound", "Can't find file '%s'", { url.Map });
+	LogMessage("Failed to load '" + url.Map + "': " + error);
+	SetProgress(LocalizeMessage("Core", "Errors", "UrlFailed", "Failed launching URL"), error, 6.0f);
+	return false;
+}
+
+// The original's (DeusEx.dll's Browse, 0x10010b90): the DeusExLevelInfo's
+// MapName -- there the first among all objects (GetDeusExLevelInfo), the
+// level's own once those of the levels left are collected -- with the last
+// URL's portal, ?loadonly and no other option, so the player logs in with no
+// name; with none, the last URL as it is.
+UnrealURL Engine::RestartURL()
+{
+	if (!DeusExLevelInfo)
+		return LastURL;
+	UnrealURL url(DeusExLevelInfo->MapName());
+	url.Portal = LastURL.Portal;
+	url.Options.clear();
+	url.AddOrReplaceOption("loadonly");
+	return url;
+}
+
 // The original's Browse, before an ordinary map change: within one mission
 // the departing level is pruned and saved into Current; a new mission, a
 // map outside any, or a player starting a new game empties Current.
@@ -2540,41 +2583,6 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		// The last URL again: a client's is its server's.
 		if (LevelInfo)
 			ClientTravel(LastURL.ToString(), ETravelType::TRAVEL_Absolute, false);
-	}
-	else if (command == "switchlevel" && args.size() == 2)
-	{
-		// This works like open/start, but keeps the difficulty level
-		// As well as the game type
-		const std::string& maparg = args[1];
-
-		UnrealURL url(maparg);
-
-		// First check if the provided URL has a difficulty option
-		std::string difficulty = url.GetOption("difficulty");
-
-		// If there isn't, try to get it from the current level's options
-		if (difficulty.empty())
-			difficulty = LevelInfo->URL.GetOption("difficulty");
-
-		// If there still isn't, refer to GameInfo for difficulty
-		if (difficulty.empty() && GameInfo) // a net client has none
-			difficulty = std::to_string(GameInfo->Difficulty());
-
-		if (!difficulty.empty())
-			url.AddOrReplaceOption("difficulty=" + difficulty);
-
-		for (auto& map : packages->GetMaps())
-		{
-			std::string mapname = fs::path(map).stem().string();
-
-			if (StrTools::equals_ignore_case(mapname, url.Map))
-			{
-				LevelInfo->NextURL() = url.ToString();
-				return {};
-			}
-		}
-
-		LogMessage("Couldn't find map " + maparg);
 	}
 	else if (command == "savegame" && (args.size() == 2 || args.size() == 3))
 	{
