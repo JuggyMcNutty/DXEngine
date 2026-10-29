@@ -81,8 +81,9 @@ void LightmapBuilder::AddStaticLights(UModel* model, int lightMap)
 			{
 				// An animating light is added over the kept static map
 				// each frame instead (AddLights), unless the
-				// client's NoDynamicLights stills it into the map here
-				if (LightAnimates(light) && !engine->client->NoDynamicLights)
+				// client's NoDynamicLights stills it into the map here;
+				// a bDynamicLight one is a moving light, there or nowhere
+				if (light->bDynamicLight() || (LightAnimates(light) && !engine->client->NoDynamicLights))
 					continue;
 				spans.clear();
 				FindLitSpans(light, spans);

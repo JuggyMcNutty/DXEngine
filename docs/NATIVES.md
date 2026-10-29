@@ -575,7 +575,12 @@ reach -- and a spotlight that turns, or whose cone, period or phase a script
 changes, build the surface's map again, as the original's dynamic map, built
 every frame from the lights then over it, has them (`SwitchConsole`: a
 lamp's pool gone as it is switched off, a spotlight's beam moved as it
-turns). A spotlight's cone is the
+turns). A light with `bDynamicLight` is a moving one before all else, lighting a
+surface with no shadow and left out with `NoDynamicLights`, as the original's
+`AddLight` takes it ([light maps](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps));
+the stock maps' few, on 02_NYC_Street, 02_NYC_Warehouse, 08_NYC_Underground
+and 99_Endgame1, are moving ones anyway, neither static nor no-delete.
+A spotlight's cone is the
 original's, its cosine `1 − LightCone ÷ 256`, its value rounded down, and a
 light or fog map lights texel i at its centre, `Pan.X + i × UScale` along U,
 where both engines draw it

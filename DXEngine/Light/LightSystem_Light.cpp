@@ -87,9 +87,10 @@ LightSystem::SurfaceLights& LightSystem::GetSurfaceLights(UModel* model, int lig
 // The tree's lights that can move, for a lightmap's surface. Every visible
 // surface asked the tree again every frame (~6 ms a frame on the handheld);
 // its answer is now kept until the tree is rebuilt, or the surface's sphere
-// differs. Only a light that can move is ever taken from it -- a static or
-// no-delete one lights a map through the surface's own list -- so the
-// others are left out here once, not passed over every frame.
+// differs. Only a moving light is ever taken from it -- bDynamicLight, or
+// neither static nor no-delete; any other lights a map through the
+// surface's own list -- so the others are left out here once, not passed
+// over every frame.
 const Array<UActor*>& LightSystem::CollectSurfaceLights(SurfaceLights& entry, const vec3& center, float radius)
 {
 	if (entry.Version != LightTreeVersion || entry.Center != center || entry.Radius != radius)
@@ -98,7 +99,7 @@ const Array<UActor*>& LightSystem::CollectSurfaceLights(SurfaceLights& entry, co
 		entry.Lights.clear();
 		for (UActor* light : LightTree.CollectedLights)
 		{
-			if (!light->bStatic() && !light->bNoDelete())
+			if (light->bDynamicLight() || (!light->bStatic() && !light->bNoDelete()))
 				entry.Lights.push_back(light);
 		}
 		entry.Version = LightTreeVersion;
@@ -154,9 +155,10 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 	{
 		// The surface's own lights: the still ones are the kept static
 		// map's; an animating one is added over it every frame, through
-		// its shadow bits (dx-reverse-info/render-dll.md, light maps). With
-		// NoDynamicLights, animated lights count as static and moving
-		// ones are left out.
+		// its shadow bits; a bDynamicLight one, before all else, is a
+		// moving one, with no shadow (dx-reverse-info/render-dll.md, light
+		// maps). With NoDynamicLights, animated lights count as static and
+		// moving ones are left out.
 
 		if (lmindex.LightActors >= 0)
 		{
@@ -165,7 +167,15 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 			{
 				UActor* light = lightlist[lightindex];
 				CheckLight(light);
-				if (!noDynamicLights && LightmapBuilder::LightAnimates(light))
+				if (light->bDynamicLight())
+				{
+					if (!noDynamicLights && light->bSpecialLit() == specialLit)
+					{
+						lastDynamicUpdate = std::max(lastDynamicUpdate, light->Light.LastUpdate);
+						TempDynLightList.push_back(light);
+					}
+				}
+				else if (!noDynamicLights && LightmapBuilder::LightAnimates(light))
 				{
 					TempAnimatedIndexList.push_back(lightindex);
 					lastDynamicUpdate = FrameCounter;
