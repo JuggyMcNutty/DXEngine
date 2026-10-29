@@ -177,7 +177,11 @@ void LightEffect::NoneEffect(LightEffectArgs* args)
 		if (vmaxvq_u32(inRange))
 		{
 			float32x4_t len = vsqrtq_f32(lensqr);
-			float32x4_t rcpdist = vdivq_f32(one, len);
+			// A texel at the light (len 0) faces it full on: angle 1, as
+			// the SSE2 and plain lanes take it, not 0 x inf (a NaN,
+			// undefined as an int)
+			uint32x4_t lenmask = vcgtq_f32(len, vdupq_n_f32(0.0f));
+			float32x4_t rcpdist = vreinterpretq_f32_u32(vandq_u32(lenmask, vreinterpretq_u32_f32(vdivq_f32(one, len))));
 
 			Lx = vmulq_f32(Lx, rcpdist);
 			Ly = vmulq_f32(Ly, rcpdist);
@@ -185,6 +189,7 @@ void LightEffect::NoneEffect(LightEffectArgs* args)
 
 			float32x4_t angle = vfmaq_f32(vfmaq_f32(vmulq_f32(Lx, vNx), Ly, vNy), Lz, vNz);
 			angle = vabsq_f32(angle);
+			angle = vbslq_f32(lenmask, angle, one);
 
 			float32x4_t v = vmulq_f32(len, vInvR);
 			float32x4_t v2 = vmulq_f32(v, v);

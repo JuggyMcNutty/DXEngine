@@ -60,6 +60,11 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 	Device->Brightness = engine->client->Brightness;
 	Device->Lock(vec4(flashScale, 0.0f), vec4(flashFog, 0.0f), vec4(0.0f));
 	FrameInProgress = true;
+	// Every frame, the world drawn or not: a texture the windows or the
+	// canvas alone draw (a menu over the snapshot, the credits) steps on, as
+	// the original's by its own time (fire-dll.md, stepping), and one changed
+	// once is not uploaded again each frame
+	TextureFrameCounter++;
 
 	ResetCanvas();
 	PreRender();

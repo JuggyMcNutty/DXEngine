@@ -694,8 +694,17 @@ namespace FireEngine
 		int vmask = water.VMask >> 1;
 		uint8_t* first = water.Fields;
 		uint8_t* second = water.Fields + water.USize / 2;
-		auto cell = [&](int x, int y) { return (x & water.UMask) + ((y & water.VMask) << water.UBits); };
-		auto set = [&](int at, uint8_t value) { first[at] = value; second[at] = value; };
+		// The original's cell, X + (Y << UBits) unmasked (Fire.dll
+		// 0x10506410), a row the texture's width as WaterPass reads the
+		// fields; a height that falls outside them is passed over, where the
+		// original's wrote past them (a drop outside the water's half, which
+		// no stock drop is)
+		const size_t size = (size_t)water.USize * water.VSize / 2;
+		const int half = water.USize / 2;
+		auto cell = [&](int x, int y) { return x + y * water.USize; };
+		auto setFirst = [&](int at, uint8_t value) { if (at >= 0 && (size_t)at < size) first[at] = value; };
+		auto setSecond = [&](int at, uint8_t value) { if (at >= 0 && (size_t)at + half < size) second[at] = value; };
+		auto set = [&](int at, uint8_t value) { setFirst(at, value); setSecond(at, value); };
 		auto whirl = [&](const Drop& d, uint8_t angle, int shift) {
 			int x = hmask & (d.X + (SinTable[angle] >> shift));
 			int y = vmask & (d.Y + (SinTable[(uint8_t)(angle + 64)] >> shift));
@@ -735,13 +744,13 @@ namespace FireEngine
 				a = Random();
 				b = Random();
 				d.Y = (uint8_t)(vmask & (d.Y + (b & 3) - (a & 3)));
-				first[at] = 0xb9;
-				second[at] = 71;
+				setFirst(at, 0xb9);
+				setSecond(at, 71);
 				break;
 			}
 			case 5: // FixedRandomSpot
-				first[at] = Random();
-				second[at] = Random();
+				setFirst(at, Random());
+				setSecond(at, Random());
 				break;
 			case 6: // WhirlyThing: circling, small
 			case 7: // BigWhirly
@@ -813,8 +822,8 @@ namespace FireEngine
 				{
 					int y = vmask & (d.Y + ((d.D * Random()) >> 8));
 					int x = hmask & (d.X + ((d.D * Random()) >> 8));
-					first[cell(x, y)] = d.Depth;
-					second[cell(x, y)] = (uint8_t)~d.Depth;
+					setFirst(cell(x, y), d.Depth);
+					setSecond(cell(x, y), (uint8_t)~d.Depth);
 				}
 				break;
 			case 17: // AreaClamp: a square of D/2 held at its depth
@@ -832,8 +841,8 @@ namespace FireEngine
 				{
 					if (d.Type == 19)
 						d.A = Random();
-					first[at] = d.Depth;
-					second[at] = (uint8_t)~d.Depth;
+					setFirst(at, d.Depth);
+					setSecond(at, (uint8_t)~d.Depth);
 				}
 				break;
 			default:

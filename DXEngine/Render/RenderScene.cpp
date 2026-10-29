@@ -27,7 +27,6 @@ void RenderSubsystem::DrawScene()
 		return;
 
 	engine->Level->Light.BeginFrame();
-	TextureFrameCounter++;
 
 	// Make sure all actors are at the right location in the BSP
 	IteratorActors.clear();

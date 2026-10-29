@@ -65,7 +65,6 @@ namespace FireEngine
 		uint8_t* Fields = nullptr;
 		int USize = 0;
 		int VSize = 0;
-		int UBits = 0;
 		int UMask = 0;
 		int VMask = 0;
 		Drop* Drops = nullptr;

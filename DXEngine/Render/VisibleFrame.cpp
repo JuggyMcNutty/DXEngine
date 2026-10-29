@@ -1243,20 +1243,22 @@ vec3 VisibleFrame::WarpLocationToOtherSide(UWarpZoneInfo* warpZone, vec3 p)
 	return p;
 }
 
+// Turned as a location is, its origins aside: a rigid turn takes a normal
+// by the same matrix as a direction, and the other order turned it back
+// the other way, tilting the warped frame's clip plane
 vec3 VisibleFrame::WarpNormalToOtherSide(UWarpZoneInfo* warpZone, vec3 n)
 {
 	// Transform to warp space:
 	{
 		mat3 rotate = warpZone->WarpCoords().ToMatrix();
-		mat3 invrotate = mat3::transpose(rotate);
-		n = invrotate * n;
+		n = rotate * n;
 	}
 
 	// Transform from warp space:
 	{
 		mat3 rotate = warpZone->OtherSideActor()->WarpCoords().ToMatrix();
-		//mat3 invrotate = mat3::transpose(rotate);
-		n = rotate * n;
+		mat3 invrotate = mat3::transpose(rotate);
+		n = invrotate * n;
 	}
 
 	return n;

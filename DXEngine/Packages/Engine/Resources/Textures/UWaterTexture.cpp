@@ -23,7 +23,6 @@ void UWaterTexture::StepWater()
 	water.Fields = Fields.data();
 	water.USize = mipmap.Width;
 	water.VSize = mipmap.Height;
-	water.UBits = mipmap.UBits;
 	water.UMask = mipmap.Width - 1;
 	water.VMask = mipmap.Height - 1;
 	static_assert(sizeof(ADrop) == sizeof(FireEngine::Drop), "a drop is 8 bytes");
