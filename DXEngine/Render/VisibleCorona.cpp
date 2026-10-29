@@ -10,7 +10,8 @@
 
 void VisibleCorona::Draw(VisibleFrame* frame)
 {
-	if (light->bCorona() && light->Skin() && !engine->Level->Collision.TraceAnyHit(light->Location(), engine->CameraLocation, nullptr, false, true, true))
+	// Seen from the frame's own eye: a viewport window's, a mirror's
+	if (light->bCorona() && light->Skin() && !engine->Level->Collision.TraceAnyHit(light->Location(), frame->ViewLocation.xyz(), nullptr, false, true, true))
 	{
 		vec4 pos = frame->Frame.WorldToView * frame->Frame.ObjectToWorld * vec4(light->Location(), 1.0f);
 		if (pos.z >= 1.0f)

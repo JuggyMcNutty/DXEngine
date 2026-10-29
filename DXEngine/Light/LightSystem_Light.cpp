@@ -432,7 +432,7 @@ void LightSystem::InitVertexLight(VertexLight& out, UActor* actor, UZoneInfo* zo
 	out.UnlitLevel = std::clamp(actor->AmbientGlow() / 256.0f + actor->ScaleGlow() * 0.5f, 0.0f, 1.0f);
 	SetupForActorDX(out, actor);
 
-	out.CameraLocation = engine->CameraLocation;
+	out.CameraLocation = Eye;
 
 	int fogIndex = 0;
 	for (UActor* light : FogBalls)

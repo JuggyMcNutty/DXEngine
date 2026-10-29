@@ -31,6 +31,7 @@ public:
 	int ViewZone = 0;
 	//uint64_t ViewZoneMask = 0;
 	int FrameCounter = 0;
+	int SceneIndex = 0;   // its place among the scene's frames, 0 the main view's
 	bool MirrorFlag = false;
 	int PortalDepth = 0;
 	// Deus Ex's fog maps drawn this frame: the render device's

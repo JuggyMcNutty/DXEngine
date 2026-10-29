@@ -29,6 +29,7 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const 
 
 	Device = engine->render->Device;
 	FrameCounter = engine->render->FrameCounter++;
+	SceneIndex = FrameCounter - engine->render->SceneFirstFrame;
 	MirrorFlag = mirrorFlag;
 	PortalDepth = portalDepth;
 	DeusExOrder = true;
@@ -977,6 +978,9 @@ int VisibleFrame::FindZoneAt(const vec4& location, BspNode* node, BspNode* nodes
 void VisibleFrame::Draw()
 {
 	DrawPortals();
+	// The frames through its portals drawn, each from its own eye: its own
+	// draws from its own
+	engine->Level->Light.SetEye(ViewLocation.xyz(), SceneIndex);
 	DrawOpaqueNodes();
 	DrawOpaqueActors();
 	SortTranslucent();

@@ -65,6 +65,7 @@ public:
 
 	int TextureFrameCounter = 0;
 	int FrameCounter = 0;
+	int SceneFirstFrame = 0;   // the main view's FrameCounter: a frame's place in the scene counts from it
 
 	// The actors with a live render iterator, gathered by DrawScene's actor
 	// pass; each scene frame draws the items their iterators list

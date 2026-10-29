@@ -213,6 +213,14 @@ public:
 	void InitVertexLight(VertexLight& vertexlight, UActor* actor, UZoneInfo* zoneActor);
 	void SetupForActorDX(VertexLight& out, UActor* actor);
 
+	// The eye of the frame drawn now (VisibleFrame::Draw), its meshes'
+	// highlights and fog and its fog maps' lines of sight taken from it, as
+	// the original's frame draws from its own eye (render-dll.md, a mirror's
+	// frame): the main view's, a mirror's, a sky's, a viewport window's. view
+	// is the frame's place among the scene's frames, 0 the main view's: each
+	// keeps fog maps of its own.
+	void SetEye(const vec3& eye, int view) { Eye = eye; EyeView = view; }
+
 	// The level's lights whose reach may take in a location, as of the last
 	// frame drawn: BeginFrame builds their tree from each actor with a light
 	// type and a brightness. The list lasts until the next call.
@@ -261,6 +269,8 @@ private:
 	std::map<uint64_t, FogmapEntry> fogtextures;
 	FogmapBuilder FogBuilder;
 	Array<UActor*> FogBalls;
+	vec3 Eye = vec3(0.0f);
+	int EyeView = 0;
 	int FrameCounter = 0;
 	int LightmapCheckCounter = 0;
 	int NextMoverID = 1;

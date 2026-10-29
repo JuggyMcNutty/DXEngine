@@ -53,7 +53,9 @@ TextureInfo LightSystem::GetFogmap(UModel* model, int lightmapIndex, const Coord
 		return {};
 
 	uint32_t ambientID = (((uint32_t)zoneActor->AmbientHue()) << 16) | (((uint32_t)zoneActor->AmbientSaturation()) << 8) | (uint32_t)zoneActor->AmbientBrightness();
-	uint64_t cacheID = (((uint64_t)model->LightMap[lightmapIndex].LMCacheID) << 32) | (((uint64_t)ambientID) << 8) | 2;
+	// One a frame of the scene, its lines of sight its eye's: the low byte's
+	// bits above its tag (2) the frame's place
+	uint64_t cacheID = (((uint64_t)model->LightMap[lightmapIndex].LMCacheID) << 32) | (((uint64_t)ambientID) << 8) | ((uint64_t)(EyeView & 63) << 2) | 2;
 
 	const LightMapIndex& lmindex = model->LightMap[lightmapIndex];
 	FogmapEntry& fogtex = fogtextures[cacheID];
@@ -124,9 +126,9 @@ bool LightSystem::UpdateFogmapTexture(uint32_t* dest, UModel* model, const Coord
 	bool reached = false;
 	for (UActor* light : FogBalls)
 	{
-		if (builder.Reaches(light, engine->CameraLocation))
+		if (builder.Reaches(light, Eye))
 		{
-			builder.AddLight(light, engine->CameraLocation);
+			builder.AddLight(light, Eye);
 			reached = true;
 		}
 	}

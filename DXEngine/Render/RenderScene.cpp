@@ -52,6 +52,7 @@ void RenderSubsystem::DrawScene()
 	engine->Level->Collision.RefileMovers();
 
 	mat4 worldToView = Coords::ViewToRenderDev().ToMatrix() * Coords::Rotation(engine->CameraRotation).Inverse().ToMatrix() * Coords::Location(engine->CameraLocation).ToMatrix();
+	SceneFirstFrame = FrameCounter;
 	MainFrame.Process(engine->CameraLocation, worldToView, Coords::Rotation(engine->CameraRotation));
 	MainView = MainFrame.Frame;
 	MainFrame.Draw();
@@ -392,6 +393,8 @@ void RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 	ViewportFrame.Draw();
 	if (engine->renderdev->Coronas)
 		ViewportFrame.DrawCoronas();
+	// The main view's eye again, for what the HUD draws after
+	engine->Level->Light.SetEye(MainFrame.ViewLocation.xyz(), MainFrame.SceneIndex);
 
 	Device->SetSceneNode(&Canvas.Frame);
 

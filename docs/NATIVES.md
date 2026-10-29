@@ -519,6 +519,11 @@ first person. `MirrorConsole`, at 4:3, on GL and on Vulkan:
 - **An actor across the plane** (`Straddle`): the mannequin sunk half its
   height into the lobby's floor, the part under the floor kept out of the
   reflection, as in the original's frames.
+- **Lit from its own eye**: a mirror's frame, as a sky's and a viewport
+  window's, gives its meshes their highlights and fog, its fog maps their
+  lines of sight and its coronas their sight from its own eye, as the
+  original's frame walks from it: the lobby floor's reflected chairs, plants
+  and mannequin nearer `D3DDrv`'s frames than lit from the player's eye.
 - **`ShinySurfaces` off**: the lobby's floor solid marble in both.
 - **A mover's mirror**, as a BSP mirror, the original filing a mover's
   faces into the BSP
