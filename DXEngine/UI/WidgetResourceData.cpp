@@ -93,9 +93,10 @@ private:
 
 static std::unique_ptr<DisplayBackend> backend;
 
-void InitWidgetResources(const std::string& theme)
+bool InitWidgetResources(const std::string& theme)
 {
 	backend = DisplayBackend::TryCreateBackend();
+	bool windowSystem = backend != nullptr;
 	DisplayBackend::Set(std::move(backend));
 
 	ResourceLoader::Set(std::make_unique<ResourceLoaderPK3>());
@@ -103,6 +104,7 @@ void InitWidgetResources(const std::string& theme)
 	auto bytes = ResourceData::ReadAllBytes("theme/Theme.css");
 	std::string stylesheet((const char*)bytes.data(), bytes.size());
 	WidgetTheme::SetTheme(std::make_unique<StylesheetTheme>(stylesheet, theme));
+	return windowSystem;
 }
 
 void DeinitWidgetResources()

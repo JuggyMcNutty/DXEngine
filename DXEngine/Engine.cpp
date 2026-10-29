@@ -3001,6 +3001,11 @@ std::unique_ptr<GameWindow> Engine::CreateGameWindow(RenderDeviceType type)
 
 void Engine::OpenWindow()
 {
+	// No window system started (no display over ssh, no SDL video): said, as
+	// any failure is, where the window's creation read through null
+	if (!DisplayBackend::Get())
+		Exception::Throw("No window system to open the game's window in: no display (DISPLAY, WAYLAND_DISPLAY) and no SDL video");
+
 	if (!window)
 	{
 		window = CreateGameWindow(chosenRenderDevice);

@@ -48,11 +48,16 @@ int GameApp::main(Array<std::string> args)
 	std::string relaunchLine;
 	GameLaunchInfo game; // once known, the error window shows its icon
 	bool widgets = false; // the display backend, DXEngine.pk3 and the theme are up
+	bool windowSystem = false; // a window can open: the error window's too
+	// Read while the command line lives: the try block's end destroys it
+	// before its handler runs
+	bool noLauncher = false;
 
 	try
 	{
 		CommandLine cmd(args);
 		commandline = &cmd;
+		noLauncher = commandline->HasArg("-n", "--no-launcher");
 
 		// --userdir: the engine's own folder, in place of
 		// ~/.config/DXEngine (Directory::engineUserDir).
@@ -87,7 +92,7 @@ int GameApp::main(Array<std::string> args)
 		// failure here ("Could not open DXEngine.pk3", SDL's) is reported as
 		// every other, with the prefix the launcher reads, after the hello
 		// and with the log; before, it left through main's own catch.
-		InitWidgetResources("dark");
+		windowSystem = InitWidgetResources("dark");
 		widgets = true;
 
 		if (ErrorWindow::CheckCrashReporter())
@@ -118,9 +123,12 @@ int GameApp::main(Array<std::string> args)
 			engine.Run();
 			relaunchLine = engine.RelaunchLine;
 		}
+		commandline = nullptr;
 	}
 	catch (const std::exception& e)
 	{
+		commandline = nullptr;
+
 		// Always report to stderr as well as the GUI. On a headless test rig or
 		// an embedded target there may be no window to read the message in, and
 		// a modal error window with nobody to close it just spins.
@@ -128,7 +136,7 @@ int GameApp::main(Array<std::string> args)
 		std::cerr << "DXEngine error: " << e.what() << std::endl;
 		for (const LogMessageLine& line : Logger::Get()->GetLog())
 			std::cerr << "  log: " << line.Text << std::endl;
-		if (widgets && (!commandline || !commandline->HasArg("-n", "--no-launcher")))
+		if (widgets && windowSystem && !noLauncher)
 		{
 			std::vector<std::shared_ptr<Image>> icon;
 			if (!game.gameRootFolder.empty())
