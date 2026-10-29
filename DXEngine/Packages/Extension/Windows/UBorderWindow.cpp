@@ -124,5 +124,4 @@ void UBorderWindow::DrawWindow(UGC* gc)
 		childTopMargin(), childBottomMargin(), borders, {}, {});
 
 	UWindow::DrawWindow(gc);
-	DrawDebugBox(gc);
 }

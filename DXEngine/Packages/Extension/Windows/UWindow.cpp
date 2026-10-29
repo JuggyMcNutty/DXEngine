@@ -229,6 +229,30 @@ float UWindow::GetVirtualScale()
 	return (float)std::max(std::min(width / 640, height / 480), 1);
 }
 
+// The lookup under AddActorRef, RemoveActorRef and IsActorValid, as the
+// original's (APlayerPawnExt::FindActor, Extension.dll 0x10038400): the list
+// compacted first, a destroyed actor's entry and every None one dropped, then
+// the actor's place in what is left, or -1.
+static int FindActorRef(UPlayerPawnExt* playerPawn, UActor* target)
+{
+	int& count = playerPawn->actorCount();
+	auto refs = playerPawn->actorList();
+	int found = -1;
+	int kept = 0;
+	for (int i = 0; i < count; ++i)
+	{
+		ActorRef ref = refs[i];
+		if (ref.Actor && ref.Actor->bDeleteMe())
+			ref.Actor = nullptr;
+		if (ref.Actor == target)
+			found = kept;
+		if (ref.Actor)
+			refs[kept++] = ref;
+	}
+	count = kept;
+	return found;
+}
+
 void UWindow::AddActorRef(UObject* refActor)
 {
 	UPlayerPawnExt* playerPawn = UObject::Cast<UPlayerPawnExt>(GetPlayerPawn());
@@ -236,16 +260,9 @@ void UWindow::AddActorRef(UObject* refActor)
 	UActor* target = UObject::Cast<UActor>(refActor);
 	if (!target) return;
 
+	int foundIndex = FindActorRef(playerPawn, target);
 	int& count = playerPawn->actorCount();
 	auto refs = playerPawn->actorList();
-
-	int foundIndex = -1;
-	for (int i = 0; i < count; ++i)
-	{
-		UActor* actor = refs[i].Actor;
-		if (actor && actor->bDeleteMe()) actor = nullptr;
-		if (actor == target) { foundIndex = i; break; }
-	}
 
 	if (foundIndex >= 0)
 	{
@@ -531,6 +548,7 @@ void UWindow::DetachFromParent()
 	prevSibling() = nullptr;
 	nextSibling() = nullptr;
 	parentOwner() = nullptr;
+	winParent() = nullptr; // as the original's RemoveChild clears it
 }
 
 // Each child in turn, as the original's KillAllChildren (Extension.dll
@@ -797,13 +815,7 @@ bool UWindow::IsActorValid(UObject* refActor)
 	if (!playerPawn) return false;
 	UActor* target = UObject::Cast<UActor>(refActor);
 	if (!target) return false;
-	auto refs = playerPawn->actorList();
-	for (int i = 0, count = playerPawn->actorCount(); i < count; i++)
-	{
-		if (refs[i].Actor == refActor)
-			return true;
-	}
-	return false;
+	return FindActorRef(playerPawn, target) >= 0;
 }
 
 bool UWindow::IsFocusWindow()
@@ -872,6 +884,7 @@ void UWindow::Lower()
 	UWindow* owner = parentOwner();
 	DetachFromParent();
 	parentOwner() = owner;
+	winParent() = owner; // the original's AddChild sets it again
 	if (owner->firstChild())
 	{
 		nextSibling() = owner->firstChild();
@@ -1246,7 +1259,11 @@ UObject* UWindow::NewChild(UObject* NewClass, std::optional<bool> bShow)
 	if (!childClass)
 		return nullptr;
 	auto child = UObject::Cast<UWindow>(transient->NewObject(transient->MakeUniqueObjectName(childClass), childClass, ObjectFlags::Transient));
+	// The script's winParent too, which the original's AddChild sets beside
+	// its own parentOwner (Extension.dll 0x10050a80): SpinningLogoWindow
+	// bounces off its parent's size
 	child->parentOwner() = this;
+	child->winParent() = this;
 	child->prevSibling() = lastChild();
 	child->nextSibling() = nullptr;
 	child->firstChild() = nullptr;
@@ -1260,10 +1277,15 @@ UObject* UWindow::NewChild(UObject* NewClass, std::optional<bool> bShow)
 	// measured False beside the original's True.
 	if (UObject::TryCast<URootWindow>(child))
 		child->windowType() = 3;
-	else if (UObject::TryCast<UModalWindow>(child))
+	else if (UObject::TryCast<UModalWindow>(child) && windowType() == 3)
 		child->windowType() = 2;
 	else if (UObject::TryCast<UTabGroupWindow>(child))
+	{
+		// A modal anywhere but under the root stays the tab group it also is
+		if (UObject::TryCast<UModalWindow>(child))
+			LogMessage("Modal window must be a child of Root!");
 		child->windowType() = 1;
+	}
 	if (UObject::TryCast<UButtonWindow>(child))
 		child->bIsSelectable() = true;
 	if (lastChild())
@@ -1350,6 +1372,7 @@ void UWindow::Raise()
 	UWindow* owner = parentOwner();
 	DetachFromParent();
 	parentOwner() = owner;
+	winParent() = owner; // the original's AddChild sets it again
 	if (owner->lastChild())
 	{
 		prevSibling() = owner->lastChild();
@@ -1376,21 +1399,14 @@ void UWindow::RemoveActorRef(UObject* refActor)
 	UActor* target = UObject::Cast<UActor>(refActor);
 	if (!target) return;
 
+	int foundIndex = FindActorRef(playerPawn, target);
 	int& count = playerPawn->actorCount();
 	auto refs = playerPawn->actorList();
-
-	int foundIndex = -1;
-	for (int i = 0; i < count; ++i)
-	{
-		UActor* actor = refs[i].Actor;
-		if (actor && actor->bDeleteMe()) actor = nullptr;
-		if (actor == target) { foundIndex = i; break; }
-	}
 
 	if (foundIndex >= 0)
 	{
 		--refs[foundIndex].RefCount;
-		if (refs[foundIndex].RefCount == 0)
+		if (refs[foundIndex].RefCount < 1)
 		{
 			for (int i = foundIndex + 1; i < count; i++)
 				refs[i - 1] = refs[i];

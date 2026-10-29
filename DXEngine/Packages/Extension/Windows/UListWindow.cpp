@@ -210,22 +210,20 @@ std::string UListWindow::FieldDisplayText(const Item& item, int colIndex)
 // The original's field size (XListWindow::ComputeFieldSize 0x10031e60): the
 // GC's extent of the text in the column's font, special text off -- its
 // widest line, each character as the GC finds it, one the font lacks taking
-// no room.
+// no room. The GC is the list's, released after, as the original's callers
+// take it (SetField, FillRow and the rest): its state comes back whole.
 float UListWindow::MeasureText(UFont* colFont, const std::string& text)
 {
 	UFont* font = colFont ? colFont : normalFont();
 	UGC* gc = UObject::Cast<UGC>(GetGC());
-	if (!font || !gc)
-		return 0.0f;
-	UFont* gcNormal = gc->normalFont();
-	UFont* gcBold = gc->boldFont();
-	bool gcSpecialText = gc->IsSpecialTextEnabled();
-	gc->SetFonts(font, font);
-	gc->EnableSpecialText(false);
 	float width = 0.0f, height = 0.0f;
-	gc->GetTextExtent(0.0f, width, height, text);
-	gc->SetFonts(gcNormal, gcBold);
-	gc->EnableSpecialText(gcSpecialText);
+	if (font && gc)
+	{
+		gc->SetFonts(font, font);
+		gc->EnableSpecialText(false);
+		gc->GetTextExtent(0.0f, width, height, text);
+	}
+	ReleaseGC(gc);
 	return width;
 }
 

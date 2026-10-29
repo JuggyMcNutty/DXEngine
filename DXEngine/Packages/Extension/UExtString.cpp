@@ -32,7 +32,9 @@ int UDXExtString::GetFirstTextPart(std::string& outText)
 	return count;
 }
 
-// The next part, or 0 once none is left, the argument left as it was.
+// The next part, or 0 once none is left, the argument left as it was; but
+// for a text a multiple of 239 long the first call past its end empties it
+// (Extension.dll 0x10044ad0).
 int UDXExtString::GetNextTextPart(std::string& outText)
 {
 	int page = ++SpeechPage();
