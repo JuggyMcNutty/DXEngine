@@ -1,18 +1,18 @@
 //=============================================================================
 // OpsConsole: the natives' edges, logged with "DXOPS:" from wherever the run
 // starts, 2 s in (docs/DEVELOPMENT.md, scripted runs): an int divided and
-// multiplied by a float in place (by 0.0, past an int's range); the shifts
-// by a count of 33 and of -1; a switch on a string against a case of the
+// multiplied by a float in place (by 0.0, past an int's range); the shifts by
+// a count of 33 and of -1; Clamp and FClamp with their bounds the wrong way
+// round, and FClamp of a NaN (0/0); a switch on a string against a case of the
 // other case, and on -0.0 against 0.0; new with a flag outside the script's
 // (the engine logs "new: Flags 04000000 not allowed"); each actor iterator
 // given None for its class, counted; OrthoRotation of four frames; two rats
 // spawned, the first destroyed and its nextPawn read; PlayBlendAnim with a
 // slot of 256 (the engine logs the slot out of range); GetNextSkin with the
-// server browser's prefix; and, in a PostRender with the medium font set
-// (the console's canvas comes with none), StrLen under STY_None and under
+// server browser's prefix; and, in a PostRender with the medium font set (the
+// console's canvas comes with none), StrLen under STY_None and under
 // STY_Normal, TextSize, and DrawText and TextSize with no font (the engine
-// logs "No font"; never StrLen, which asserts in the original). Then an
-// exit.
+// logs "No font"; never StrLen, which asserts in the original). Then an exit.
 //=============================================================================
 class OpsConsole extends Console;
 
@@ -49,6 +49,17 @@ function IntOps()
 	Log("DXOPS: 1 << 33 -> " $ (1 << N) $ ", -8 >> 33 -> " $ ((-8) >> N) $ ", -8 >>> 33 -> " $ ((-8) >>> N));
 	N = -1;
 	Log("DXOPS: 1 << -1 -> " $ (1 << N) $ ", -8 >> -1 -> " $ ((-8) >> N) $ ", -8 >>> -1 -> " $ ((-8) >>> N));
+}
+
+function ClampOps()
+{
+	local float Zero, NaN;
+
+	Log("DXOPS: Clamp(0, 0, -1) -> " $ Clamp(0, 0, -1) $ ", Clamp(5, 10, 1) -> " $ Clamp(5, 10, 1) $ ", Clamp(20, 10, 1) -> " $ Clamp(20, 10, 1));
+	Log("DXOPS: FClamp(0.0, 0.0, -1.0) -> " $ FClamp(0.0, 0.0, -1.0) $ ", FClamp(20.0, 10.0, 1.0) -> " $ FClamp(20.0, 10.0, 1.0));
+	Zero = 0.0;
+	NaN = Zero / Zero;
+	Log("DXOPS: FClamp(0/0, 2.0, 3.0) -> " $ FClamp(NaN, 2.0, 3.0));
 }
 
 function SwitchOps()
@@ -243,6 +254,7 @@ event Tick(float Delta)
 	if (Phase == 0 && RunTime > 2.0)
 	{
 		IntOps();
+		ClampOps();
 		SwitchOps();
 		NewOps();
 		IterOps(P);

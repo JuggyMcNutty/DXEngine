@@ -487,6 +487,9 @@ void ExpressionEvaluator::Expr(BoolVariableExpression* expr)
 
 void ExpressionEvaluator::Expr(DynamicCastExpression* expr)
 {
+	// A class import its package lacks reads as null, as a FinalFunction's does
+	if (!expr->Class)
+		Frame::ThrowException("Script cast to a class import that did not load");
 	UObject* value = Value(expr->Value).ToObject();
 	if (value && !value->IsA(expr->Class->Name))
 		value = nullptr;

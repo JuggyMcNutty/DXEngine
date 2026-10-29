@@ -332,7 +332,10 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, CallArgume
 
 	if (func->NativeFuncIndex != 0)
 	{
-		auto& callback = NativeFunctions::NativeByIndex[func->NativeFuncIndex];
+		// The table reaches only the highest number registered: a mod's
+		// native numbered past it has no handler either
+		static const NativeFuncHandler unregistered;
+		const NativeFuncHandler& callback = (size_t)func->NativeFuncIndex < NativeFunctions::NativeByIndex.size() ? NativeFunctions::NativeByIndex[func->NativeFuncIndex] : unregistered;
 		if (callback)
 		{
 			Frame frame(instance, func, Frame::NoLocals());

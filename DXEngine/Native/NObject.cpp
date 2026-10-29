@@ -326,9 +326,11 @@ void NObject::Chr(int i, std::string& ReturnValue)
 		ReturnValue = std::string(1, (char)i);
 }
 
+// UE1's Clamp (UnTemplate.h, Core.dll's execClamp): under A gives A, else
+// under B the value, else B, so with A over B the value from A up gives B
 void NObject::Clamp(int V, int A, int B, int& ReturnValue)
 {
-	ReturnValue = clamp(V, A, B);
+	ReturnValue = V < A ? A : V < B ? V : B;
 }
 
 void NObject::ClassIsChildOf(UObject* TestClass, UObject* ParentClass, BitfieldBool& ReturnValue)
@@ -588,9 +590,10 @@ void NObject::Exp(float A, float& ReturnValue)
 	ReturnValue = std::exp(A);
 }
 
+// Clamp's order (execFClamp): its x87 compare takes a NaN for under A
 void NObject::FClamp(float V, float A, float B, float& ReturnValue)
 {
-	ReturnValue = clamp(V, A, B);
+	ReturnValue = !(V >= A) ? A : !(V >= B) ? V : B;
 }
 
 void NObject::FMax(float A, float B, float& ReturnValue)

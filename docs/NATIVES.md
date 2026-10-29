@@ -1357,7 +1357,10 @@ Every other native the scripted runs compare matches the original
   (`MeshTexConsole`).
 - **The natives' edges** (`OpsConsole`): an int divided by a float in place
   is 0 for a divisor of 0.0, and multiplied or divided in place past an
-  int's range wraps, as `int` does; a shift takes its count's low 5 bits; a
+  int's range wraps, as `int` does; `Clamp` and `FClamp` take a value under
+  the lower bound to it, else one under the upper as it is, else the upper,
+  so with the bounds the wrong way round the upper wins, and `FClamp` takes
+  a NaN to the lower, as the original's x87 compare does; a shift takes its count's low 5 bits; a
   string `switch` matches its cases without regard to case and a float one
   by its bits (-0.0 is not 0.0); `new` with a flag outside the script's own
   (Transactional, Public, Transient and the three NotFor) logs `new: Flags
