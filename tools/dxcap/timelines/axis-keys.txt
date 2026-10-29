@@ -1,0 +1,23 @@
+# Keys in play, with PadConsole on Liberty Island: W held, S pressed over it
+# and let go, then W let go -- two keys on one axis add (MoveForward's and
+# MoveBackward's aBaseY), and W walks on once S is up; then the console's
+# `set input w Jump`, the key named in lower case, and W pressed: a jump;
+# then Enter with Alt held, twice, each toggling full screen with no Enter
+# for the game. The player's speed and physics PadConsole's (DXPAD:), each
+# key the game gets the timeline's (DXKEY:). DXCAP_BACKEND=SDL3, then an exit.
+start 14.0 keydown W
+start 16.0 keydown S
+start 17.0 keyup S
+start 19.0 keyup W
+start 20.0 set input w Jump
+start 21.0 keydown W
+start 21.2 keyup W
+start 23.0 keydown Left Alt
+start 23.2 keydown Return
+start 23.4 keyup Return
+start 23.6 keyup Left Alt
+start 25.0 keydown Left Alt
+start 25.2 keydown Return
+start 25.4 keyup Return
+start 25.6 keyup Left Alt
+start 27 exit

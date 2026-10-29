@@ -191,7 +191,16 @@ Engine::~Engine()
 	if (audiodev)
 		audiodev->ShutdownDevice();
 
-	Logger::Get()->SaveLogAsPlaintext((Directory::engineUserDir() / "DXE-Log-LastRun.txt").string());
+	// A log the folder will not take (a full disk, an I/O error) is lost, not
+	// the exit: a throw out of a destructor ends the process, before the error
+	// window when one from Run is on its way
+	try
+	{
+		Logger::Get()->SaveLogAsPlaintext((Directory::engineUserDir() / "DXE-Log-LastRun.txt").string());
+	}
+	catch (const std::exception&)
+	{
+	}
 
 	engine = nullptr;
 }
@@ -670,9 +679,31 @@ void Engine::ExecFile(UObject* context, const std::string& filename)
 			line.pop_back();
 		if (line.find_first_not_of(" \t") == std::string::npos)
 			continue;
-		uint32_t foundBits = 0;
-		BitfieldBool found = { &foundBits, 1 };
-		ConsoleCommand(context, line, found);
+		RunCommand(context, line);
+	}
+}
+
+// A failure (a SHOT whose file cannot be written) logged and the game going
+// on, as a console line's is under its native (Frame::CallNative) and the
+// original's SHOT carries on, writing nothing: it left Run through the
+// window's events and ended the game. A runaway script still stops it.
+void Engine::RunCommand(UObject* context, const std::string& command)
+{
+	uint32_t foundBits = 0;
+	BitfieldBool found = { &foundBits, 1 };
+	try
+	{
+		ConsoleCommand(context, command, found);
+	}
+	catch (const ScriptCriticalError&)
+	{
+		throw;
+	}
+	catch (const std::exception& e)
+	{
+		if (Frame::Halted)
+			throw;
+		LogMessage(std::string("Script error: ") + e.what());
 	}
 }
 
@@ -722,9 +753,7 @@ void Engine::OnLauncherLine(const std::string& line)
 	else if (line.compare(0, 5, "Open ") == 0 && line.size() > 5)
 	{
 		LogMessage("Launcher: open " + line.substr(5));
-		uint32_t foundBits = 0;
-		BitfieldBool found = { &foundBits, 1 };
-		ConsoleCommand(viewport ? viewport->Actor() : nullptr, "open " + line.substr(5), found);
+		RunCommand(viewport ? viewport->Actor() : nullptr, "open " + line.substr(5));
 	}
 	else if (line == "Quit")
 	{
@@ -2845,6 +2874,12 @@ void Engine::LoadEngineSettings()
 	}
 }
 
+bool Engine::NameLess::operator()(const std::string& a, const std::string& b) const
+{
+	return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(),
+		[](char x, char y) { return std::tolower((unsigned char)x) < std::tolower((unsigned char)y); });
+}
+
 void Engine::LoadKeybindings()
 {
 	for (int i = 0; i < 256; i++)
@@ -2892,17 +2927,31 @@ void Engine::UpdateInput(float timeElapsed)
 
 	for (auto& it : activeInputButtons)
 		SetInputButton(viewport->Actor(), it.first, true);
+	std::map<std::string, float> axes;
 	for (auto& it : activeInputAxes)
+		axes[it.first.first] += it.second;
+	for (auto& [axis, value] : axes)
 	{
-		if (it.first == "aMouseX" || it.first == "aMouseY")
+		if (axis == "aMouseX" || axis == "aMouseY")
 		{
-			SetInputAxis(viewport->Actor(), it.first, it.second.Value / (timeElapsed * 150.0f));
+			SetInputAxis(viewport->Actor(), axis, value / (timeElapsed * 150.0f));
 		}
 		else
 		{
-			SetInputAxis(viewport->Actor(), it.first, it.second.Value);
+			SetInputAxis(viewport->Actor(), axis, value);
 		}
 	}
+}
+
+float Engine::HeldAxisValue(const std::string& axis) const
+{
+	float value = 0.0f;
+	for (auto& it : activeInputAxes)
+	{
+		if (it.first.first == axis)
+			value += it.second;
+	}
+	return value;
 }
 
 RenderDeviceType Engine::ChooseRenderDevice()
@@ -3233,7 +3282,7 @@ void Engine::ReleaseHeldInputKeys()
 	activeInputButtons.clear();
 
 	for (auto& axis : activeInputAxes)
-		SetInputAxis(viewport->Actor(), axis.first, 0.0f);
+		SetInputAxis(viewport->Actor(), axis.first.first, 0.0f);
 	activeInputAxes.clear();
 }
 
@@ -3306,18 +3355,25 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 				}
 			}
 
+			// Its axes go on with the keys still held on them: W's walk again
+			// once S, pressed over it, is let go
+			Array<std::string> released;
 			for (auto it = activeInputAxes.begin(); it != activeInputAxes.end();)
 			{
-				if (it->second.Key == key)
+				if (it->first.second == key)
 				{
-					if (actor)
-						SetInputAxis(actor, it->first, 0.0f);
+					released.push_back(it->first.first);
 					it = activeInputAxes.erase(it);
 				}
 				else
 				{
 					++it;
 				}
+			}
+			if (actor)
+			{
+				for (const std::string& axis : released)
+					SetInputAxis(actor, axis, HeldAxisValue(axis));
 			}
 		}
 	}
@@ -3488,7 +3544,7 @@ void Engine::InputCommand(const std::string& commands, EInputKey key, int delta,
 					if (args[i].size() > 6 && StrTools::equals_ignore_case(args[i].substr(0, 6), "speed="))
 						speed = (float)std::atof(args[i].substr(6).c_str());
 				}
-				activeInputAxes[args[1]] = { speed * delta, key };
+				activeInputAxes[{ args[1], key }] = speed * delta;
 			}
 			else if (press && !ExecCommand(args, commandline) && !IsInputSystemCommand(command))
 			{
@@ -3498,9 +3554,7 @@ void Engine::InputCommand(const std::string& commands, EInputKey key, int delta,
 				// GreyStar=Shot; engine-dll.md, a key's binding): an axis's or a
 				// release's line goes to the input's own commands above, so a
 				// stick bound to an exec function does not fire it every tick.
-				uint32_t foundBits = 0;
-				BitfieldBool found = { &foundBits, 1 };
-				ConsoleCommand(viewport->Actor(), commandline, found);
+				RunCommand(viewport->Actor(), commandline);
 			}
 		}
 	}

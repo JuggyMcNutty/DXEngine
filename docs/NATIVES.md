@@ -1633,7 +1633,14 @@ not deleted (the log says so).
   the original's "Bad Button command" or "Bad Axis command", logged and
   left alone (a User.ini's `F=Button bFirre` and `G=Axis aNope Speed=1`
   pressed by `tools/dxcap/timelines/bad-keys.txt`); a `Button`'s
-  `input byte` is written as a byte, 1 pressed and 0 released. Differs: the
+  `input byte` is written as a byte, 1 pressed and 0 released. Keys held on
+  one axis add, as the original's held bindings add into its float: W and S
+  held stand still, and W walks on once S is let go. Key and alias names
+  are matched in any case, as the original's names are: the console's
+  `set input w Jump` binds W (`PadConsole` with `axis-keys.txt`). A command
+  of the engine's that fails from a key, an exec file or the launcher (a
+  `SHOT` whose file cannot be written) is logged and the game goes on, as
+  one typed in the console is. Differs: the
   original takes its viewport's own words (`SHOT` among them) before the
   exec functions, the same but for a word an exec function shares; `Toggle`
   and `Pulse` do nothing, and a command after `OnRelease` never runs.

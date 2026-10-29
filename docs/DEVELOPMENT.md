@@ -212,7 +212,7 @@ the run. *Either*: one engine on each side of a pair.
 | `ClickConsole` | both | a button, a choice and a checkbox clicked; a menu dragged; Alt accelerators | `DXCLICK:` | with `tools/dxcap/timelines/clicks.txt` on DXEngine |
 | `TypeConsole` | dxe | text typed into an edit field on the main menu, past ASCII and several characters at once | `DXTYPE:` | with `tools/dxcap/timelines/type.txt` |
 | `PasteConsole` | both | `PasteFromClipboard`'s text, the clipboard holding "dxcap paste" (an X selection owner alive through the run) | `DXPASTE:` | the two logs' lines |
-| `PadConsole` | dxe | the player's place, speed, facing and physics every half second, as a pad moves it | `DXPAD:` | with `tools/dxcap/timelines/pad.txt`, on a `DXCAP_SETTINGS` file whose `Gamepad.Enabled` is true (`vulkan-settings.json`'s is not: the virtual pad attaches and moves nothing) |
+| `PadConsole` | dxe | the player's place, speed, facing and physics every half second, and the root window's size, as a pad or the keys move it | `DXPAD:` | with `tools/dxcap/timelines/pad.txt` or `axis-keys.txt` (`DXCAP_BACKEND=SDL3`), on a `DXCAP_SETTINGS` file whose `Gamepad.Enabled` is true (`vulkan-settings.json`'s is not: the virtual pad attaches and moves nothing) |
 | `KeysConsole` | dxe | the console's state and the root window's marks of Shift, Ctrl and Alt every quarter second, as a timeline holds Left Shift while typing `~`: the state turns Typing | `DXKEYS:` | with `tools/dxcap/timelines/held-keys.txt`, `DXCAP_BACKEND=SDL3` |
 | `EditConsole` | both | a script's text calls on an edit field (`CR()`'s text first), a text window and a button | `DXEDIT:` |  |
 | `MultiEditConsole` | both | an edit field of several lines on the main menu: each move from fourteen places, chains of moves, a drag, a selection put in, a single line's moves; two marked shots of a selection over three rows | `DXROWS:` | the two logs diffed; `shots.py --region --block 4` on the field, at `DXCAP_WINDOW=1024x768`; with `Keys=True`, `tools/dxcap/timelines/note-keys.txt` on DXEngine |
@@ -309,15 +309,16 @@ left, both from Liberty Island, ten loads of each map 25 s apart, then an exit:
 | `reload-fresh.txt` | the island and Battery Park | crosses a mission: `Current` emptied, the map from `Maps` |
 | `reload-current.txt` | the island and UNATCO HQ | stays in mission 1: the map left saved into `Current`, the next one from there |
 
-and eleven more: `collections.txt`, the collections a player meets, each timed -- the console's
+and twelve more: `collections.txt`, the collections a player meets, each timed -- the console's
 `obj garbage` on the island, then Battery Park and the island loaded in turn, `obj garbage` after
 each load -- `keys.txt`, a key of each kind the SDL windows name, on the stock console with
 `DXCAP_BACKEND=SDL3` ([a key's name](NATIVES.md#small)), `bad-keys.txt`, a `Button` and an
 `Axis` the pawn lacks pressed on the stock console (`DXCAP_USERINI` binding them), and, each one
 console's input, `loot-drags.txt` (`LootConsole`), `stray-release.txt` (`KeypadConsole`),
 `scroll.txt` (`ScrollConsole`), `clicks.txt` (`ClickConsole`), `pad.txt` (`PadConsole`),
-`type.txt` (`TypeConsole`), `note-keys.txt` (`MultiEditConsole`) and `held-keys.txt`
-(`KeysConsole`).
+`type.txt` (`TypeConsole`), `note-keys.txt` (`MultiEditConsole`), `held-keys.txt`
+(`KeysConsole`) and `axis-keys.txt` (`PadConsole`: two keys on one axis, a key bound in lower
+case, Enter with Alt held).
 
 ```sh
 DXCAP_MEMLOG=1 DXCAP_TIMELINE=tools/dxcap/timelines/reload-fresh.txt \

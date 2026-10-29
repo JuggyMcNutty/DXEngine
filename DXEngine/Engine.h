@@ -184,6 +184,9 @@ public:
 	int GarbageStressCount = 0;
 
 	std::string ConsoleCommand(UObject* context, const std::string& command, BitfieldBool& found);
+	// A command the engine runs itself -- a key's line, an exec file's, the
+	// launcher's Open --, a failure in it logged and the game going on.
+	void RunCommand(UObject* context, const std::string& command);
 
 	void UpdateInput(float timeElapsed);
 	void InputCommand(const std::string& command, EInputKey key, int delta, bool press);
@@ -324,18 +327,22 @@ public:
 	void LoadEngineSettings();
 
 	void LoadKeybindings();
-	std::map<std::string, std::string> keybindings;
-	std::map<std::string, std::string> inputAliases;
+	// Key and alias names in any case, as the original's, FNames
+	struct NameLess
+	{
+		bool operator()(const std::string& a, const std::string& b) const;
+	};
+	std::map<std::string, std::string, NameLess> keybindings;
+	std::map<std::string, std::string, NameLess> inputAliases;
 	static const char* keynames[256];
 
-	struct ActiveInputAxis
-	{
-		float Value;
-		EInputKey Key;
-	};
-
 	std::map<std::string, EInputKey> activeInputButtons;
-	std::map<std::string, ActiveInputAxis> activeInputAxes;
+	// Each held key's own value of an axis, by the axis and the key: the
+	// axis is their sum each tick, as the original's held bindings add into
+	// it (engine-dll.md, a key's binding)
+	std::map<std::pair<std::string, EInputKey>, float> activeInputAxes;
+	// The axis as its held keys give it, after one is let go
+	float HeldAxisValue(const std::string& axis) const;
 
 	GamepadInput gamepad;
 
