@@ -1650,19 +1650,22 @@ not deleted (the log says so).
   a shift, control or alt its name for both sides, then its side's own
   (`LShift`; `UnknownA4` for the left alt), Caps Lock, the punctuation, the
   keypad's operators and Enter, Print Screen (`PrintScrn`), the Windows and
-  menu keys (`Unknown5B` to `Unknown5D`):
-  `tools/dxcap/timelines/keys.txt` with `DXCAP_BACKEND=SDL3` or `SDL2`
-  presses each through the window's own events and logs the names the game
-  gets (the original's input takes no scripted key on this desktop, and its
-  code is read). Differs: a key is named by its place on a US keyboard,
-  where the original's name follows the layout; the keypad's digits are
-  always `NumPad0` to `NumPad9`, where with Num Lock off the original's are
-  the arrows, Home and the rest. The other windows name fewer, and a side's
-  own never: the X11 one, the harness's, has no Alt but the Meta key, no
-  `` ` ``, no keypad Enter, and Print Screen as `Print`; the Wayland one,
-  the engine's own on a Wayland desktop (a dev build's, no port's), names
-  each key by its first level, the key below Escape `` ` `` whatever the
-  layout, and lacks only the Windows and menu keys.
+  menu keys (`Unknown5B` to `Unknown5D`): `tools/dxcap/timelines/keys.txt`
+  with `DXCAP_BACKEND=SDL3` or `SDL2` presses each through the window's own
+  events and logs the names the game gets (the original's input takes no
+  scripted key on this desktop, and its code is read). Enter with Alt held
+  toggles full screen, the game's input getting no press of it, and Alt+F4
+  closes nothing, as the original's window takes them (`PadConsole` with
+  `axis-keys.txt`: the root window full screen's size and back). Differs: a
+  key is named by its place on a US keyboard, where the original's name
+  follows the layout; the keypad's digits are always `NumPad0` to `NumPad9`,
+  where with Num Lock off the original's are the arrows, Home and the rest.
+  The other windows name fewer, and a side's own never: the X11 one, the
+  harness's, has no Alt but the Meta key, no `` ` ``, no keypad Enter, and
+  Print Screen as `Print`; the Wayland one, the engine's own on a Wayland
+  desktop (a dev build's, no port's), names each key by its first level, the
+  key below Escape `` ` `` whatever the layout, and lacks only the Windows
+  and menu keys.
 - **The field of view** is the original's setting: the player's `DefaultFOV`
   is Deus Ex's own config, 75 (`[Engine.PlayerPawn]` in `User.ini`), the
   angle across a 4:3 view ([the view's width](#the-views-width)).

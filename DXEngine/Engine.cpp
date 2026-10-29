@@ -2787,19 +2787,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	}
 	else if (command == "togglefullscreen")
 	{
-		bool isFullscreen = window->IsFullscreen();
-
-		// Get the resolution to SWITCH TO
-		int width = isFullscreen ? client->WindowedViewportX : client->FullscreenViewportX;
-		int height = isFullscreen ? client->WindowedViewportY : client->FullscreenViewportY;
-
-		Size resolution;
-		resolution.width = width;
-		resolution.height = height;
-
-		window->ToggleWindowFullscreen(resolution);
-		viewport->SetViewportRect(0, 0, width, height);
-
+		ToggleFullscreen();
 		return {};
 	}
 	else if (command == "flush")
@@ -3193,10 +3181,34 @@ void Engine::OnWindowKeyChar(std::string chars)
 	}
 }
 
+void Engine::ToggleFullscreen()
+{
+	bool isFullscreen = window->IsFullscreen();
+
+	// Get the resolution to SWITCH TO
+	int width = isFullscreen ? client->WindowedViewportX : client->FullscreenViewportX;
+	int height = isFullscreen ? client->WindowedViewportY : client->FullscreenViewportY;
+
+	Size resolution;
+	resolution.width = width;
+	resolution.height = height;
+
+	window->ToggleWindowFullscreen(resolution);
+	viewport->SetViewportRect(0, 0, width, height);
+}
+
 void Engine::OnWindowKeyDown(EInputKey key)
 {
 	if (Timeline::LogKeys)
 		LogMessage(std::string("DXKEY: ") + ((unsigned)key < 256 && keynames[key] ? keynames[key] : "?") + " down");
+	// Enter with Alt held toggles full screen and presses nothing, as the
+	// original's window takes it before the game sees a key (WinDrv.dll
+	// 0x1110a28e: GetKeyState of Alt, then ToggleFullscreen)
+	if (key == IK_Enter && window && window->GetKeyState(IK_Alt))
+	{
+		ToggleFullscreen();
+		return;
+	}
 	if (engine->dxRootWindow && engine->dxRootWindow->OnWindowKeyDown(key))
 	{
 		ReleaseHeldInputKeys();

@@ -268,8 +268,10 @@ void X11Connection::CheckTimers()
 
 int X11Connection::GetTimerTimeout()
 {
+	// No timer: the loop waits for an event, as Wayland's does (0, a poll,
+	// spun a core while the error window was up)
 	if (timers.empty())
-		return 0;
+		return -1;
 
 	int64_t nextTime = timers.front()->nextTime;
 	for (auto& timer : timers)

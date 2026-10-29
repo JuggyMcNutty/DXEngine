@@ -201,6 +201,9 @@ public:
 	void UpdateAudio();
 
 	void OpenWindow();
+	// Between the window and full screen, each at the ini's size for it:
+	// the console's togglefullscreen, and Enter with Alt held.
+	void ToggleFullscreen();
 	void CloseWindow();
 	void TickWindow();
 

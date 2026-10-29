@@ -5,12 +5,18 @@
 #include <stdexcept>
 #include <SDL3/SDL_video.h>
 #include <SDL3/SDL_joystick.h>
+#include <SDL3/SDL_hints.h>
 #ifndef WIN32
 #include <dlfcn.h>
 #endif
 
 SDL3DisplayBackend::SDL3DisplayBackend()
 {
+	// Alt+F4 the keys it is, as the Win32 window takes them and the
+	// original's (windrv-dll.md, the keys): SDL's Windows video closes the
+	// window on it by default
+	SDL_SetHint(SDL_HINT_WINDOWS_CLOSE_ON_ALT_F4, "0");
+
 	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD))
 		throw std::runtime_error(std::string("Unable to initialize SDL:") + SDL_GetError());
 
