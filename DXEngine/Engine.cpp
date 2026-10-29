@@ -789,10 +789,20 @@ void Engine::ClientTravel(const std::string& newURL, ETravelType travelType, boo
 		ClientTravelInfo.URL = url;
 	else if (travelType == ETravelType::TRAVEL_Partial)
 	{
-		// Built on the last URL, its options (the player's name among them)
-		// kept where the new one gives none: it took the name from the
-		// travel info's URL, which every load clears, and wrote an empty one
-		ClientTravelInfo.URL = UnrealURL(LastURL, url.ToString());
+		// Built on the last URL's options (the player's name among them),
+		// kept where the new one gives none, and on none of its server, map
+		// or portal: the original's FURL(Base, URL, TRAVEL_Partial) (Engine.dll
+		// 0x103f7b60) copies the base's options but PUSH, POP, PEER and LOAD,
+		// "carry name, reset server" (Engine.u), so a net client's 'open <map>'
+		// leaves the server for the local map
+		UnrealURL base;
+		for (const std::string& option : LastURL.Options)
+		{
+			if (!StrTools::equals_ignore_case(option, "push") && !StrTools::equals_ignore_case(option, "pop") &&
+				!StrTools::equals_ignore_case(option, "peer") && !StrTools::equals_ignore_case(option, "load"))
+				base.Options.push_back(option);
+		}
+		ClientTravelInfo.URL = UnrealURL(base, url.ToString());
 	}
 	else if (travelType == ETravelType::TRAVEL_Relative)
 	{

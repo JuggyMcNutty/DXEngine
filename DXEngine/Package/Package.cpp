@@ -564,16 +564,18 @@ std::unique_ptr<ObjectStream> Package::OpenObjectStream(int index, const NameStr
 
 std::string Package::GetExportName(int objref)
 {
-	if (objref <= 0)
+	// objref counts from 1, as GetExportEntry's does; the walk up the outers
+	// only reads the table
+	if (objref <= 0 || (size_t)objref > ExportTable.size())
 		return "None";
 
-	ExportTableEntry& entry = ExportTable[objref];
-	std::string objname = NameTable[entry.ObjName].Name.ToString();
+	const ExportTableEntry* entry = &ExportTable[objref - 1];
+	std::string objname = NameTable[entry->ObjName].Name.ToString();
 
-	while (entry.ObjOuter != 0)
+	while (entry->ObjOuter > 0 && (size_t)entry->ObjOuter <= ExportTable.size())
 	{
-		entry = ExportTable[entry.ObjOuter - 1];
-		objname = NameTable[entry.ObjName].Name.ToString() + '.' + objname;
+		entry = &ExportTable[entry->ObjOuter - 1];
+		objname = NameTable[entry->ObjName].Name.ToString() + '.' + objname;
 	}
 
 	objname = Name.ToString() + '.' + objname;

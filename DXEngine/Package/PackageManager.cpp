@@ -621,7 +621,9 @@ Package* PackageManager::LoadSaveFile(const std::string& path)
 {
 	auto fullPath = gameSaveFolderPath / fs::path(path);
 
-	if (!fullPath.has_extension() || (fullPath.extension().string() != GetSaveExtension()))
+	// The extension kept in whatever case FindCurrentSave found it in: it was
+	// set lower case again whatever it was, ".dxs" never equal to "dxs"
+	if (!fullPath.has_extension() || !StrTools::equals_ignore_case(fullPath.extension().string(), "." + GetSaveExtension()))
 		fullPath.replace_extension(GetSaveExtension());
 
 	if (fs::exists(fullPath))
