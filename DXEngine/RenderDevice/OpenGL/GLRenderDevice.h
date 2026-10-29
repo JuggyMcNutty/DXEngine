@@ -85,7 +85,14 @@ public:
 	void Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2) override;
 	void ClearZ() override;
 	void ReadPixels(TextureColor* Pixels) override;
-	void LastFrameSize(int& width, int& height) const override { width = SceneBuffers.Width; height = SceneBuffers.Height; }
+	// None while a failed resize leaves the buffers ReadPixels reads unmade:
+	// the size is set before they are made
+	void LastFrameSize(int& width, int& height) const override
+	{
+		bool made = SceneBuffers.PPImage[0] && SceneBuffers.PPFramebuffer[0] && SceneBuffers.PPFramebuffer[1];
+		width = made ? SceneBuffers.Width : 0;
+		height = made ? SceneBuffers.Height : 0;
+	}
 	void EndFlash() override;
 	void TakeBloom() override;
 	void SetSceneNode(SceneNode* Frame) override;

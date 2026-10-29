@@ -1085,8 +1085,11 @@ void GLRenderDevice::MapVertices(bool nextBuffer)
 		glBufferData(GL_ARRAY_BUFFER, SceneVertexBufferSize * sizeof(GLSceneVertex), nullptr, GL_STREAM_DRAW);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ScenePass.IndexBuffer->Handle);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, SceneIndexBufferSize * sizeof(uint32_t), nullptr, GL_STREAM_DRAW);
+		// The batch starts with them: a start left past 0 queued a batch
+		// ending before it, a negative count for glDrawElements
 		GLSceneVertexPos = 0;
 		SceneIndexPos = 0;
+		Batch.SceneIndexStart = 0;
 		UploadedVertexPos = 0;
 		UploadedIndexPos = 0;
 		Stats.BuffersUsed++;
@@ -1878,6 +1881,8 @@ void GLRenderDevice::ReadPixels(TextureColor* Pixels)
 
 void GLRenderDevice::EndFlash()
 {
+	if (!IsLocked) // a frame whose Lock failed (its scene buffers' resize): nothing is bound for it
+		return;
 	if (FlashScale != vec4(0.5f, 0.5f, 0.5f, 0.0f) || FlashFog != vec4(0.0f, 0.0f, 0.0f, 0.0f))
 	{
 		DrawBatches();
