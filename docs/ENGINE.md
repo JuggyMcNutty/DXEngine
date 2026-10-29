@@ -127,8 +127,8 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   [the command line](NATIVES.md#the-command-line); `int-paths`, a mod's `.int` files read from
   its own folders: [mods](NATIVES.md#mods)), and exits before anything is loaded.
 - **`--cmdline=<line>`** is the original's command line, which the launchers pass on (the
-  recreated one, deusex-launcher's `main`, and DXLauncher): its start URL, `-server`, `INI=`,
-  `USERINI=`, `EXEC=` and safe mode's flags, over the options above
+  recreated one, deusex-launcher's `main`, and DXLauncher): its start URL, `-server`,
+  `-lanplay`, `INI=`, `USERINI=`, `EXEC=` and safe mode's flags, over the options above
   ([the command line](NATIVES.md#the-command-line)).
 - **`DXL_LAUNCHER_FD`** in the environment is the line to the engine of the launcher that
   started it, which stays for the game's run as the original's process does: a socket's

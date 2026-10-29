@@ -1716,6 +1716,9 @@ What DXEngine does with each:
   travelled to, the inventory, skills, themes and key ring it arrived
   with, made anew, the saved ones left in the level, held by no one.
 - **`-server`**: a dedicated server, as `--server`.
+- **`-lanplay`**: a dedicated server ticking at `LanServerMaxTickRate`, as
+  `--lanplay`
+  ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md#packets)).
 - **`INI=` and `USERINI=`**: the inis read and written back, as `--ini` and
   `--userini`, each found by its own name, never `INI=` within `USERINI=`
   (`DXCAP_USERINI_FIRST`: the two given `USERINI=` first, `MidConsole`'s

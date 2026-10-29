@@ -58,8 +58,9 @@ GameLaunchInfo GameFolderSelection::GetLaunchInfo(int selectedGame)
 	info.timelinePath = commandline->GetArg("", "--timeline", info.timelinePath);
 
 	// The original's command line, when the launcher gave one: its start
-	// URL, -server, and the inis its INI= and USERINI= name, over
-	// DXEngine's own options.
+	// URL, -server, -lanplay (a dedicated server's LanServerMaxTickRate,
+	// network.md), and the inis its INI= and USERINI= name, over DXEngine's
+	// own options.
 	const OriginalCommandLine& original = OriginalCommandLine::Get();
 	if (original.Given())
 	{
@@ -68,6 +69,8 @@ GameLaunchInfo GameFolderSelection::GetLaunchInfo(int selectedGame)
 			info.url = url;
 		if (original.Param("server"))
 			info.dedicatedServer = true;
+		if (original.Param("lanplay"))
+			info.lanPlay = true;
 		std::string ini;
 		if (original.Value("INI", ini) && !ini.empty())
 			info.systemIniPath = ini;
