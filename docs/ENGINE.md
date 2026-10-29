@@ -431,6 +431,10 @@ extent the surface clamps, after waiting for the device). Without every descript
 feature its bindless set uses (partial binding, runtime arrays, non-uniform indexing,
 update-after-bind, a variable count) and room for that set, it binds a descriptor set per
 batch instead of bindless textures.
+A mirror's frame alone is clipped at its plane, its `NearClip`, by a clip distance: any other
+clips nothing near the eye, its depth clamped at the near plane (the weapon close up), as the GL
+device draws it. Without `shaderClipDistance` the mirror's frames take scene pipelines of their
+own that discard what lies behind the plane, and no other draw has a discard.
 It decodes on the CPU what the GPU cannot sample or filter: BC1, RGB8, RGBA32F, and converts
 the lightmaps for upload in NEON on ARM. A mip bigger than its 64 MB staging buffer goes up in
 bands of rows. Its scene buffer, post-process images and bloom levels are A2B10G10R10, as the GL

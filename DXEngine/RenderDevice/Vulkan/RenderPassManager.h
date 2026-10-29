@@ -1,6 +1,7 @@
 #pragma once
 
 #include <dxgpu/vulkanobjects.h>
+#include "ShaderManager.h"
 
 class VulkanRenderDevice;
 
@@ -20,6 +21,7 @@ public:
 
 	void CreateRenderPass();
 	void CreatePipelines();
+	void CreateScenePipelines(const ShaderManager::SceneShaders& shaders, PipelineState* pipelines, PipelineState* linePipelines);
 
 	void CreatePresentRenderPass();
 	void CreatePresentPipeline();
@@ -30,7 +32,11 @@ public:
 
 	PipelineState* GetPipeline(uint32_t polyflags);
 	PipelineState* GetEndFlashPipeline();
-	PipelineState* GetLinePipeline(bool occludeLines) { return &Scene.LinePipeline[occludeLines]; }
+	PipelineState* GetLinePipeline(bool occludeLines) { return &(MirrorClip ? Scene.ClipLinePipeline : Scene.LinePipeline)[occludeLines]; }
+
+	// The frame drawn now a mirror's, its draws the pipelines that discard
+	// behind its plane: on a device without shaderClipDistance alone
+	void SetMirrorFrame(bool mirror) { MirrorClip = mirror && Scene.ClipPipeline[0].Pipeline; }
 
 	struct
 	{
@@ -39,7 +45,10 @@ public:
 		std::unique_ptr<VulkanRenderPass> RenderPassContinue;
 		PipelineState Pipeline[33];
 		PipelineState LinePipeline[2];
+		PipelineState ClipPipeline[33];       // ShaderManager's SceneClip's: none with clip distances
+		PipelineState ClipLinePipeline[2];
 	} Scene;
+	bool MirrorClip = false;
 
 	struct
 	{

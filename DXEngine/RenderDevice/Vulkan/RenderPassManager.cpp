@@ -85,7 +85,7 @@ PipelineState* RenderPassManager::GetPipeline(uint32_t PolyFlags)
 		index = 32;
 	}
 
-	return &Scene.Pipeline[index];
+	return &(MirrorClip ? Scene.ClipPipeline : Scene.Pipeline)[index];
 }
 
 PipelineState* RenderPassManager::GetEndFlashPipeline()
@@ -95,9 +95,16 @@ PipelineState* RenderPassManager::GetEndFlashPipeline()
 
 void RenderPassManager::CreatePipelines()
 {
-	const std::vector<uint32_t>& vertShader = renderer->Shaders->Scene.VertexShader;
-	const std::vector<uint32_t>& fragShader = renderer->Shaders->Scene.FragmentShader;
-	const std::vector<uint32_t>& fragShaderAlphaTest = renderer->Shaders->Scene.FragmentShaderAlphaTest;
+	CreateScenePipelines(renderer->Shaders->Scene, Scene.Pipeline, Scene.LinePipeline);
+	if (!renderer->Shaders->SceneClip.VertexShader.empty())
+		CreateScenePipelines(renderer->Shaders->SceneClip, Scene.ClipPipeline, Scene.ClipLinePipeline);
+}
+
+void RenderPassManager::CreateScenePipelines(const ShaderManager::SceneShaders& shaders, PipelineState* pipelines, PipelineState* linePipelines)
+{
+	const std::vector<uint32_t>& vertShader = shaders.VertexShader;
+	const std::vector<uint32_t>& fragShader = shaders.FragmentShader;
+	const std::vector<uint32_t>& fragShaderAlphaTest = shaders.FragmentShaderAlphaTest;
 	VulkanPipelineLayout* layout = Scene.PipelineLayout.get();
 	static const char* debugName = "ScenePipeline";
 
@@ -185,8 +192,8 @@ void RenderPassManager::CreatePipelines()
 		builder.RasterizationSamples(renderer->Textures->Scene->SceneSamples);
 		builder.DebugName(debugName);
 
-		Scene.Pipeline[i].Pipeline = builder.Create(renderer->Device.get());
-		Scene.Pipeline[i].DynamicDepthBias = i < 32;
+		pipelines[i].Pipeline = builder.Create(renderer->Device.get());
+		pipelines[i].DynamicDepthBias = i < 32;
 	}
 
 	// Line pipeline
@@ -220,12 +227,12 @@ void RenderPassManager::CreatePipelines()
 		builder.RasterizationSamples(renderer->Textures->Scene->SceneSamples);
 		builder.DebugName(debugName);
 
-		Scene.LinePipeline[i].Pipeline = builder.Create(renderer->Device.get());
+		linePipelines[i].Pipeline = builder.Create(renderer->Device.get());
 
 		if (i == 0)
 		{
-			Scene.LinePipeline[i].MinDepth = 0.0f;
-			Scene.LinePipeline[i].MaxDepth = 0.1f;
+			linePipelines[i].MinDepth = 0.0f;
+			linePipelines[i].MaxDepth = 0.1f;
 		}
 	}
 

@@ -41,7 +41,7 @@ std::string FileResource::readAllText(const std::string& filename)
 				#if defined(CLIP_DISCARD)
 				// A device without shaderClipDistance: the fragment discards
 				clipDistance = dot(nearClip, vec4(aPosition, 1.0));
-				#else
+				#elif !defined(NO_CLIP)
 				gl_ClipDistance[0] = dot(nearClip, vec4(aPosition, 1.0));
 				#endif
 				flags = aFlags;

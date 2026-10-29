@@ -942,10 +942,15 @@ void VulkanRenderDevice::SetSceneNode(SceneNode* Frame)
 	// maybe optionally do one or the other? transform on CPU can be super slow --Xaleros
 	pushconstants.objectToProjection = pushconstants.objectToProjection * Frame->WorldToView * Frame->ObjectToWorld;
 
-	// The near clip plane in the object's space, the view's turned by the
-	// transpose: dot(plane, M p) = dot(transpose(M) plane, p). So the vertex
-	// needs no view matrix, and the push constants fit 128 bytes.
-	pushconstants.nearClip = mat4::transpose(Frame->WorldToView * Frame->ObjectToWorld) * Frame->NearClip;
+	// A mirror's frame is clipped at the mirror's plane, its NearClip, in the
+	// object's space, the view's turned by the transpose: dot(plane, M p) =
+	// dot(transpose(M) plane, p). So the vertex needs no view matrix, and the
+	// push constants fit 128 bytes. Any other frame keeps the default, which
+	// clips nothing (0, 0, 0, 1), all in front of the eye drawn, the near
+	// plane's depth clamped, as the GL device draws it (the weapon close up).
+	bool mirror = Frame->NearClip != vec4(0.0f, 0.0f, 1.0f, -1.0f);
+	pushconstants.nearClip = mirror ? mat4::transpose(Frame->WorldToView * Frame->ObjectToWorld) * Frame->NearClip : vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	RenderPasses->SetMirrorFrame(mirror);
 }
 
 void VulkanRenderDevice::PrecacheTexture(TextureInfo& Info, uint32_t PolyFlags)

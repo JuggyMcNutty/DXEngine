@@ -21,30 +21,39 @@ ShaderManager::ShaderManager(VulkanRenderDevice* renderer) : renderer(renderer)
 		sceneDefines += "#define MACRO_TWO_PASS\r\n";
 	if (RenderDevice::DetailBands)
 		sceneDefines += "#define DETAIL_BANDS\r\n";
-	// A device without shaderClipDistance (found but not required): a
-	// mirror's plane clipped by a discard, as the GL device's twins do on
-	// ES without EXT_clip_cull_distance; the shader once wrote
-	// gl_ClipDistance on every device, a capability not enabled there
-	if (!renderer->Device.get()->EnabledFeatures.Features.shaderClipDistance)
+	auto compileScene = [&](SceneShaders& shaders, const std::string& defines) {
+		shaders.VertexShader = GLSLCompiler()
+			.Type(ShaderType::Vertex)
+			.AddSource("shaders/Scene.vert", LoadShaderCode("shaders/Scene.vert", defines))
+			.Compile(renderer->Device.get());
+
+		shaders.FragmentShader = GLSLCompiler()
+			.Type(ShaderType::Fragment)
+			.AddSource("shaders/Scene.frag", LoadShaderCode("shaders/Scene.frag", defines))
+			.Compile(renderer->Device.get());
+
+		shaders.FragmentShaderAlphaTest = GLSLCompiler()
+			.Type(ShaderType::Fragment)
+			.AddSource("shaders/Scene.frag", LoadShaderCode("shaders/Scene.frag", defines + "#define ALPHATEST\r\n"))
+			.Compile(renderer->Device.get());
+	};
+
+	// A mirror's frame is clipped at the mirror's plane by a clip distance.
+	// A device without shaderClipDistance (found but not required) clips it
+	// by a discard, as the GL device's twins do on ES without
+	// EXT_clip_cull_distance: shaders of their own for the mirror's frames
+	// alone, so no other draw has a discard, which costs a tile-based GPU its
+	// hidden-surface removal.
+	if (renderer->Device.get()->EnabledFeatures.Features.shaderClipDistance)
 	{
-		sceneDefines += "#define CLIP_DISCARD\r\n";
-		LogMessage("Vulkan: no shaderClipDistance; a mirror's plane is clipped by a discard");
+		compileScene(Scene, sceneDefines);
 	}
-
-	Scene.VertexShader = GLSLCompiler()
-		.Type(ShaderType::Vertex)
-		.AddSource("shaders/Scene.vert", LoadShaderCode("shaders/Scene.vert", sceneDefines))
-		.Compile(renderer->Device.get());
-
-	Scene.FragmentShader = GLSLCompiler()
-		.Type(ShaderType::Fragment)
-		.AddSource("shaders/Scene.frag", LoadShaderCode("shaders/Scene.frag", sceneDefines))
-		.Compile(renderer->Device.get());
-
-	Scene.FragmentShaderAlphaTest = GLSLCompiler()
-		.Type(ShaderType::Fragment)
-		.AddSource("shaders/Scene.frag", LoadShaderCode("shaders/Scene.frag", sceneDefines + "#define ALPHATEST\r\n"))
-		.Compile(renderer->Device.get());
+	else
+	{
+		compileScene(Scene, sceneDefines + "#define NO_CLIP\r\n");
+		compileScene(SceneClip, sceneDefines + "#define CLIP_DISCARD\r\n");
+		LogMessage("Vulkan: no shaderClipDistance; a mirror's plane is clipped by a discard, in its frame alone");
+	}
 
 	Postprocess.VertexShader = GLSLCompiler()
 		.Type(ShaderType::Vertex)

@@ -51,7 +51,10 @@ public:
 		std::vector<uint32_t> VertexShader;
 		std::vector<uint32_t> FragmentShader;
 		std::vector<uint32_t> FragmentShaderAlphaTest;
-	} Scene;
+	};
+	// SceneClip: a mirror's frames' on a device without shaderClipDistance,
+	// what lies behind its plane discarded; empty on one with it
+	SceneShaders Scene, SceneClip;
 
 	struct
 	{
