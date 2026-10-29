@@ -234,60 +234,65 @@ UEventManager::SenseLevels UEventManager::PeakLevels(const Sender& sender, int s
 
 void UEventManager::ComputeSenseDetection(Receiver& receiver, UActor* senderActor, const SenseLevels& peak, float& visibility, float& volume, float& smell)
 {
-	visibility = 0.0f;
-	volume = 0.0f;
-	smell = 0.0f;
-
 	UActor* actor = receiver.Actor;
 	UPawn* pawn = UObject::TryCast<UPawn>(actor);
 
-	// An inventory item with an owner counts as its owner for a pawn, and
-	// its visibility is scaled by the square root of its collision size
-	// (height times radius) over the owner's; a receiver that is no pawn
-	// (an AcousticSensor, an AutoTurret) weighs the item itself, as the
-	// original's does (engine-dll.md, the AI)
+	// The original's (Engine.dll 0x103837b0; engine-dll.md, the AI): an
+	// inventory item with an owner is its owner to a pawn's sight and
+	// hearing, and for every receiver its visual number is scaled by the
+	// square root of its size (height times radius) over the owner's, or of
+	// its own size where the owner has none, before the pawn's AICanSee
+	// weighs it; a receiver that is no pawn (an AcousticSensor, an
+	// AutoTurret) traces to the item itself and hears it where it is.
+	UActor* seen = senderActor;
 	float visualScale = 1.0f;
-	if (UInventory* item = pawn ? UObject::TryCast<UInventory>(senderActor) : nullptr)
+	if (UInventory* item = UObject::TryCast<UInventory>(senderActor))
 	{
 		if (UActor* owner = item->Owner())
 		{
-			float itemSize = item->CollisionHeight() * item->CollisionRadius();
+			float size = item->CollisionHeight() * item->CollisionRadius();
 			float ownerSize = owner->CollisionHeight() * owner->CollisionRadius();
-			if (itemSize > 0.0f && ownerSize > 0.0f)
-				visualScale = std::sqrt(itemSize / ownerSize);
-			senderActor = owner;
+			if (ownerSize != 0.0f)
+				size /= ownerSize;
+			visualScale = std::sqrt(size);
+			seen = owner;
 		}
 	}
-	if (peak.Visual > 0.0f)
+
+	visibility = peak.Visual * visualScale;
+	if (visibility > 0.0f)
 	{
 		if (pawn)
 		{
-			visibility = pawn->AICanSee(senderActor, peak.Visual, receiver.bCheckVisibility, receiver.bCheckDir, receiver.bCheckCylinder, receiver.bCheckLOS) * visualScale;
+			visibility = pawn->AICanSee(seen, visibility, receiver.bCheckVisibility, receiver.bCheckDir, receiver.bCheckCylinder, receiver.bCheckLOS);
 		}
 		else
 		{
 			// The visual number, if a trace to the sender meets no wall or
 			// mover.
 			auto blocks = [](UActor* hit) { return UObject::TryCast<UMover>(hit) != nullptr; };
-			if (!actor->XLevel()->Collision.SightBlocked(actor->Location(), senderActor->Location(), blocks))
-				visibility = peak.Visual * visualScale;
+			if (actor->XLevel()->Collision.SightBlocked(actor->Location(), senderActor->Location(), blocks))
+				visibility = 0.0f;
 		}
 	}
-	if (peak.Audio > 0.0f)
+	volume = peak.Audio;
+	if (volume > 0.0f)
 	{
 		if (pawn)
 		{
-			volume = pawn->AICanHear(senderActor, peak.Audio, peak.AudioRadius);
+			volume = pawn->AICanHear(seen, peak.Audio, peak.AudioRadius);
 		}
 		else
 		{
+			// Within the radius as it is: one of 0 is heard nowhere, the
+			// 800 of AICanHear a pawn's alone
 			vec3 delta = senderActor->Location() - actor->Location();
-			float radius = peak.AudioRadius > 0.0f ? peak.AudioRadius : 800.0f;
-			if (length(delta) < radius)
-				volume = peak.Audio;
+			if (dot(delta, delta) >= peak.AudioRadius * peak.AudioRadius)
+				volume = 0.0f;
 		}
 	}
 	// AICanSmell returns 0 in the original too.
+	smell = peak.Smell > 0.0f ? 0.0f : peak.Smell;
 }
 
 void UEventManager::CallListener(EventType& type, Receiver& receiver, uint8_t state)
@@ -501,6 +506,12 @@ void UEventManager::Tick()
 	{
 		for (auto& sender : type.Senders)
 		{
+			// One whose actor is being destroyed gives off nothing from now
+			// on, as the original's ring zeroes its levels before the copy
+			// (AIProcess, Engine.dll 0x103844fb): ActorDestroyed comes only
+			// with the level's clean-up of its destroyed actors
+			if (sender->Actor && sender->Actor->bDeleteMe())
+				sender->Current = SenseLevels();
 			sender->Slots[SlotIndex] = sender->Current;
 			bool anything = false;
 			for (const SenseLevels& slot : sender->Slots)
