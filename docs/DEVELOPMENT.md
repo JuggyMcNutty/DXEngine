@@ -270,12 +270,11 @@ the run. *Either*: one engine on each side of a pair.
 | `PickJoinConsole` | either | a client of it that uses what it looks at 12 s in: its frob target, the server's (its name), whether it holds the weapon | `DXPICK:` |  |
 
 - `SaveConsole`, `LoadConsole`, `StartConsole`, `LoadingConsole`, `MoverConsole` and
-  `CensusConsole` use the game's own `Save\Save0009` and `Save\Current`: delete them after. The
-  original's own saves are in `reference/original-saves/`: Liberty Island's start (no cheats; the
-  player under fire, so a load's census 5 s in differs from run to run; the save `CensusConsole`
-  loads), and a quick save, a hub save (`bCheatsEnabled`) and the `Current` folder from a travel
-  to UNATCO HQ and back. Copied into `Save0009`, the hub save loads in both engines; with the
-  quick save there the original never finishes its run.
+  `CensusConsole` use the game's own `Save\Save0009` and `Save\Current`: delete them after. A
+  save the original made, copied into `Save0009`, loads in both engines when it is a hub save
+  (`bCheatsEnabled`); with a quick save there the original never finishes its run.
+  `CensusConsole`'s save is Liberty Island's start, saved in the original without cheats: the
+  player is under fire there, so a load's census 5 s in differs from run to run.
 - `ConfigConsole` writes `DXCapConfig.ini` into the game's `System` folder, the original's into
   its view (through the view's link when the file is there), DXEngine's with `DXCAP_USERDIR`
   into that folder: delete it after. Its object's `StaticSaveConfig` is the console's own, into
