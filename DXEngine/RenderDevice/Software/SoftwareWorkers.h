@@ -67,4 +67,5 @@ private:
 	std::function<void()> Job;
 	std::atomic<bool> Pending{ false };
 	bool StopBackground = false;
+	bool NoBackground = false; // the system refused it: jobs run in Start
 };

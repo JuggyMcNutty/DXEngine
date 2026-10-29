@@ -2171,7 +2171,12 @@ void D3D11RenderDevice::DrawBatches(bool nextBuffer)
 		DrawEntry(entry);
 	QueuedBatches.clear();
 
-	MapVertices(nextBuffer);
+	// Mapped again only within a frame: a flush between frames (SetRes in
+	// Lock at a resize, a map's load) mapped them NO_OVERWRITE, the next
+	// Lock's DISCARD then did nothing, and its frame wrote from the start
+	// over vertices the last frames' draws might still read
+	if (IsLocked)
+		MapVertices(nextBuffer);
 
 	if (nextBuffer)
 	{

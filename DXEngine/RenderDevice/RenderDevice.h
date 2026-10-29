@@ -178,6 +178,9 @@ public:
 	// bytes for ReadPixels (RenderDevice.cpp); y is the row's place in the
 	// shot, presented whether the present pass drew it
 	static void TenBitRowToBytes(const uint32_t* src, TextureColor* dest, int width, int y, bool presented);
+	// The bytes a mip of the format holds in the package: a shorter one is
+	// no mip, to the Vulkan and D3D11 uploads alike
+	static size_t MipBytes(TextureFormat format, int width, int height);
 	virtual void EndFlash() = 0;
 	// The world's frame and the weapon's drawn: with Bloom on, its bloom
 	// taken from them now, the HUD's and the menus' windows drawn after it
@@ -194,6 +197,9 @@ public:
 	// Performance.RenderScale). The game -- the viewport, the canvas, the UI --
 	// then sees the render size, not the window's.
 	virtual bool SupportsRenderScale() const { return false; }
+	// The largest side the device draws, the render scale held down to fit a
+	// larger window; 0 for none.
+	virtual int MaxRenderSize() const { return 0; }
 	float GetRenderScale() const;
 	int GetRenderWidth() const;
 	int GetRenderHeight() const;

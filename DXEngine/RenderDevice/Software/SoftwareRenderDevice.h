@@ -38,6 +38,10 @@ public:
 	bool SupportsTextureFormat(TextureFormat Format) override;
 	void UpdateTextureRect(TextureInfo& Info, int U, int V, int UL, int VL) override;
 	bool SupportsRenderScale() const override { return true; }
+	// The rasterizer's guard band, SoftwareSetup's 8000 pixels either way of
+	// the origin: a larger window is drawn smaller and scaled up at the
+	// present, as a render scale below 1 is
+	int MaxRenderSize() const override { return 8000; }
 
 private:
 	// A run of chunks drawn together into every tile: the frame's clear

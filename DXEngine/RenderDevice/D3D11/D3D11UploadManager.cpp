@@ -20,7 +20,9 @@ bool D3D11UploadManager::SupportsTextureFormat(TextureFormat Format) const
 void D3D11UploadManager::UploadTexture(D3D11CachedTexture* tex, const TextureInfo& Info, bool masked)
 {
 	// The image the size of its top mip's data, whatever the texture's USize
-	// and VSize say; none, or too big, a white texel.
+	// and VSize say; none, too big or short of its bytes, a white texel, as
+	// the Vulkan device has it. The levels are at most the chain down to 1x1:
+	// more made CreateTexture2D fail, which threw out of the draw.
 	bool hasMips = Info.NumMips >= 1 && Info.Mips;
 	int width = hasMips ? Info.Mips[0].Width : 0;
 	int height = hasMips ? Info.Mips[0].Height : 0;
@@ -28,12 +30,20 @@ void D3D11UploadManager::UploadTexture(D3D11CachedTexture* tex, const TextureInf
 
 	D3D11TextureUploader* uploader = D3D11TextureUploader::GetUploader(Info.Format);
 
-	if (!uploader || width < 1 || height < 1 || (uint32_t)width > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || (uint32_t)height > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION)
+	if (!uploader || width < 1 || height < 1 || (uint32_t)width > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || (uint32_t)height > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION ||
+		Info.Mips[0].Data.size() < RenderDevice::MipBytes(Info.Format, width, height))
 	{
 		width = 1;
 		height = 1;
 		mipcount = 1;
 		uploader = nullptr;
+	}
+	else
+	{
+		int maxLevels = 1;
+		while ((std::max(width, height) >> maxLevels) >= 1)
+			maxLevels++;
+		mipcount = std::min(mipcount, maxLevels);
 	}
 
 	DXGI_FORMAT format = uploader ? uploader->GetDxgiFormat() : DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -132,21 +142,34 @@ void D3D11UploadManager::UploadTextureRect(D3D11CachedTexture* tex, const Textur
 	renderer->Stats.RectUploads++;
 }
 
+// Each level the image has, past its padding ones. A level whose mip is not
+// its size, or is short of its bytes (a package's misfit chain), is zeros, as
+// the Vulkan device has it: its box lay outside the level and its read ran
+// past the mip.
 void D3D11UploadManager::UploadData(ID3D11Texture2D* image, const TextureInfo& Info, bool masked, D3D11TextureUploader* uploader, int dummyMipmapCount, INT minSize)
 {
-	for (INT level = 0; level < Info.NumMips; level++)
+	D3D11_TEXTURE2D_DESC desc = {};
+	image->GetDesc(&desc);
+	int levels = std::min(Info.NumMips, (int)desc.MipLevels - dummyMipmapCount);
+	int levelWidth = Info.Mips[0].Width;
+	int levelHeight = Info.Mips[0].Height;
+	for (INT level = 0; level < levels; level++)
 	{
 		UnrealMipmap* Mip = &Info.Mips[level];
+		bool fits = Mip->Width == levelWidth && Mip->Height == levelHeight && Mip->Data.size() >= RenderDevice::MipBytes(Info.Format, Mip->Width, Mip->Height);
 		if (!Mip->Data.empty())
 		{
-			uint32_t mipwidth = std::max(Mip->Width, minSize);
-			uint32_t mipheight = std::max(Mip->Height, minSize);
+			uint32_t mipwidth = std::max(levelWidth, minSize);
+			uint32_t mipheight = std::max(levelHeight, minSize);
 
 			INT mipsize = uploader->GetUploadSize(0, 0, mipwidth, mipheight);
 			mipsize = (mipsize + 15) / 16 * 16; // memory alignment
 
 			auto data = (uint32_t*)GetUploadBuffer(mipsize);
-			uploader->UploadRect(data, Mip, 0, 0, mipwidth, mipheight, Info.Palette, masked);
+			if (fits)
+				uploader->UploadRect(data, Mip, 0, 0, mipwidth, mipheight, Info.Palette, masked);
+			else
+				memset(data, 0, mipsize);
 
 			UINT pitch = uploader->GetUploadSize(0, 0, mipwidth, 1);
 
@@ -155,9 +178,11 @@ void D3D11UploadManager::UploadData(ID3D11Texture2D* image, const TextureInfo& I
 			box.bottom = mipheight;
 			box.back = 1;
 
-			UINT subresource = D3D11CalcSubresource(level + dummyMipmapCount, 0, Info.NumMips + dummyMipmapCount);
+			UINT subresource = D3D11CalcSubresource(level + dummyMipmapCount, 0, desc.MipLevels);
 			renderer->Context->UpdateSubresource(image, subresource, &box, data, pitch, 0);
 		}
+		levelWidth = std::max(levelWidth >> 1, 1);
+		levelHeight = std::max(levelHeight >> 1, 1);
 	}
 }
 

@@ -57,6 +57,22 @@ uint32_t RenderDevice::TileFlags(const TextureInfo& Info, uint32_t PolyFlags)
 	return PolyFlags;
 }
 
+size_t RenderDevice::MipBytes(TextureFormat format, int width, int height)
+{
+	size_t texels = (size_t)width * (size_t)height;
+	switch (format)
+	{
+	case TextureFormat::P8: return texels;
+	case TextureFormat::BGRA8_LM: return texels * 4;
+	case TextureFormat::R5G6B5: return texels * 2;
+	case TextureFormat::BC1: return (size_t)((width + 3) / 4) * ((height + 3) / 4) * 8;
+	case TextureFormat::RGB8: return texels * 3;
+	case TextureFormat::BGRA8: return texels * 4;
+	case TextureFormat::RGBA32_F: return texels * 16;
+	default: return 0;
+	}
+}
+
 // Ten bits a channel to a byte by a 4x4 ordered threshold, so that a region's
 // mean is the buffer's: the driver's rounding to the nearest byte reads the
 // darks a tenth of a level under, as 1023 is not four times 255 and below
@@ -113,7 +129,11 @@ float RenderDevice::GetRenderScale() const
 	if (!SupportsRenderScale())
 		return 1.0f;
 	float scale = LauncherSettings::Get().Performance.RenderScale;
-	return std::isfinite(scale) ? std::clamp(scale, 0.25f, 1.0f) : 1.0f;
+	scale = std::isfinite(scale) ? std::clamp(scale, 0.25f, 1.0f) : 1.0f;
+	int side = std::max(Viewport->GetNativePixelWidth(), Viewport->GetNativePixelHeight());
+	if (MaxRenderSize() > 0 && side * scale > MaxRenderSize())
+		scale = (float)MaxRenderSize() / side;
+	return scale;
 }
 
 int RenderDevice::GetRenderWidth() const

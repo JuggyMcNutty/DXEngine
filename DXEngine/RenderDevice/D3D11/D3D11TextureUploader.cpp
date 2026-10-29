@@ -39,6 +39,17 @@ int D3D11TextureUploader_P8::GetUploadSize(int x, int y, int w, int h)
 
 void D3D11TextureUploader_P8::UploadRect(void* d, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
 {
+	// A texture without a palette (a scripted, ice or wet texture copied
+	// from a palette-less source, a mod's) draws as its grey levels, as the
+	// Vulkan, GL and software devices draw it; the palette was read through
+	// null
+	TextureColor greys[256];
+	if (!palette)
+	{
+		for (int i = 0; i < 256; i++)
+			greys[i] = TextureColor(i, i, i, 255);
+		palette = greys;
+	}
 	int pitch = mip->Width;
 	uint8_t* src = mip->Data.data() + x + y * pitch;
 	TextureColor* Ptr = (TextureColor*)d;

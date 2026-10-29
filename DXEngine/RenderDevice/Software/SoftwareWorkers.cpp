@@ -154,8 +154,24 @@ void SoftwareWorkers::Worker(int thread)
 
 void SoftwareWorkers::Start(std::function<void()> job)
 {
-	if (!BackgroundThread.joinable())
-		BackgroundThread = std::thread([this]() { Background(); });
+	// A thread the system refuses (a low process limit) leaves the job to
+	// this one, as the pool's are shared out: its throw left Lock or a draw
+	if (!BackgroundThread.joinable() && !NoBackground)
+	{
+		try
+		{
+			BackgroundThread = std::thread([this]() { Background(); });
+		}
+		catch (const std::system_error&)
+		{
+			NoBackground = true;
+		}
+	}
+	if (NoBackground)
+	{
+		job();
+		return;
+	}
 	{
 		std::lock_guard<std::mutex> lock(BackgroundMutex);
 		Job = std::move(job);

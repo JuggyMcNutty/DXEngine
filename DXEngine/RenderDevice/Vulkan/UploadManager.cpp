@@ -47,7 +47,7 @@ void UploadManager::UploadTexture(CachedTexture* tex, const TextureInfo& Info, b
 	// chain down to 1x1: more would make an invalid image.
 	uint32_t maxDimension = renderer->Device.get()->PhysicalDevice.Properties.Properties.limits.maxImageDimension2D;
 	if (!uploader || width < 1 || height < 1 || (uint32_t)width > maxDimension || (uint32_t)height > maxDimension ||
-		Info.Mips[0].Data.size() < TextureUploader::SourceBytes(Info.Format, width, height))
+		Info.Mips[0].Data.size() < RenderDevice::MipBytes(Info.Format, width, height))
 	{
 		width = 1;
 		height = 1;
@@ -137,7 +137,7 @@ void UploadManager::UploadData(CachedTexture* tex, const TextureInfo& Info, bool
 	for (int level = 0; level < mipcount; level++)
 	{
 		UnrealMipmap* Mip = &Info.Mips[level];
-		bool fits = Mip->Width == levelWidth && Mip->Height == levelHeight && Mip->Data.size() >= TextureUploader::SourceBytes(Info.Format, Mip->Width, Mip->Height);
+		bool fits = Mip->Width == levelWidth && Mip->Height == levelHeight && Mip->Data.size() >= RenderDevice::MipBytes(Info.Format, Mip->Width, Mip->Height);
 
 		int bandSize = std::max(uploader->GetUploadSize(0, 0, levelWidth, blockRows), 1);
 		int bandRows = std::max((BufferManager::UploadBufferSize - align) / bandSize, 1) * blockRows;
