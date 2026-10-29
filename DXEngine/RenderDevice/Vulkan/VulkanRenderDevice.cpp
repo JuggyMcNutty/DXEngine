@@ -841,10 +841,19 @@ void VulkanRenderDevice::ReadPixels(TextureColor* Pixels)
 		.AddImage(srcimage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT)
 		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
+	// The copy made visible to the host: the fence's wait covers the device's
+	// own accesses alone, and VMA may give the staging buffer cached memory
+	// that is not coherent (some PowerVR and Adreno drivers), which the read
+	// then invalidates
+	PipelineBarrier()
+		.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT);
+
 	// Submit command buffers and wait for device to finish the work
 	SubmitAndWait(false, 0, 0);
 
 	const uint32_t* pixels = (const uint32_t*)staging->Map(0, w * h * 4);
+	staging->Invalidate(0, (size_t)w * h * 4);
 	for (int y = 0; y < h; y++)
 		TenBitRowToBytes(pixels + (size_t)y * w, Pixels + (size_t)y * w, w, y, GammaCorrectScreenshots);
 	staging->Unmap();

@@ -66,6 +66,9 @@ public:
 
 	void *Map(size_t offset, size_t size);
 	void Unmap();
+	// What the device wrote made the host's to read, for memory that is not
+	// coherent; nothing where it is.
+	void Invalidate(size_t offset, size_t size);
 
 private:
 	VulkanBuffer(const VulkanBuffer &) = delete;
@@ -508,6 +511,11 @@ inline void *VulkanBuffer::Map(size_t offset, size_t size)
 	void *data;
 	VkResult result = vmaMapMemory(device->allocator, allocation, &data);
 	return (result == VK_SUCCESS) ? ((uint8_t*)data) + offset : nullptr;
+}
+
+inline void VulkanBuffer::Invalidate(size_t offset, size_t size)
+{
+	vmaInvalidateAllocation(device->allocator, allocation, offset, size);
 }
 
 inline void VulkanBuffer::Unmap()
