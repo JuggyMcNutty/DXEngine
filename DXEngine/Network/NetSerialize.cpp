@@ -187,9 +187,11 @@ bool NetWriteItem(UProperty* prop, NetBitWriter& writer, NetPackageMap& map, con
 			writer.WriteInt(bits, 16);
 			int bias = 1 << (bits + 1);
 			uint32_t max = 1u << (bits + 2);
-			writer.WriteInt((uint32_t)(x + bias), max);
-			writer.WriteInt((uint32_t)(y + bias), max);
-			writer.WriteInt((uint32_t)(z + bias), max);
+			// Added unsigned: a coordinate near an int's end wraps as the
+			// original's 32-bit sum does, where an int's overflowed
+			writer.WriteInt((uint32_t)x + (uint32_t)bias, max);
+			writer.WriteInt((uint32_t)y + (uint32_t)bias, max);
+			writer.WriteInt((uint32_t)z + (uint32_t)bias, max);
 		}
 		else if (s->Name == "Rotator")
 		{

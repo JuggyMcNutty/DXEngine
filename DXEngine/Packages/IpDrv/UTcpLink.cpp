@@ -336,6 +336,9 @@ bool UTcpLink::Open(const IpAddr& Addr)
 {
 	if (!EnsureSocket())
 		return false;
+	// A new connect: the failure kept was the last one's (a script opens a
+	// link again after closing it, UBrowser's HTTP client among them)
+	connectFailed = false;
 	sockaddr_in addr = {};
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = htonl((uint32_t)Addr.Addr);

@@ -92,6 +92,10 @@ int UUdpLink::BindPort(int port, bool bUseNextAvailable)
 		}
 		int on = 1;
 		setsockopt(handle, SOL_SOCKET, SO_BROADCAST, (const char*)&on, sizeof(on));
+		// Non-blocking before the bind, as the original's (ipdrv-dll.md,
+		// UdpLink): a bind that fails leaves a socket the next tick's read
+		// polls, where a blocking one waited on Linux for good
+		SetNonBlocking(handle);
 		Socket() = (int)handle;
 	}
 
@@ -101,7 +105,6 @@ int UUdpLink::BindPort(int port, bool bUseNextAvailable)
 		LastError = LastSocketError();
 		return 0;
 	}
-	SetNonBlocking(handle);
 	Port() = bound;
 	return bound;
 }
