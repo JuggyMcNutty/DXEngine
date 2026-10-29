@@ -5,11 +5,13 @@
 // On Liberty Island, 2 s in: the player's SaveGame(-3), as the console's
 // `savegame -3` saves, made from an actor's tick (SaveHelper: the original
 // crashes on a save from its console's tick), 3 s later SaveGame(-2), 3 s
-// later an exit, each call logged as it is made. What is compared
-// between the engines: the game's Save folder after each run -- Save-003
-// holding a SaveInfo and the level, Save-002 a SaveInfo with the level
-// saved into Current, as the original's SaveGame and SaveCurrentLevel put
-// them; the run ends at its own exit. Remove the two folders after.
+// later the save listing the Load Game screen reads (GameDirectory's
+// GD_SaveGames, each folder's name), then an exit, each call logged as it is
+// made. What is compared between the engines: the listing, and the game's
+// Save folder after each run -- Save-003 holding a SaveInfo and the level,
+// Save-002 a SaveInfo with the level saved into Current, as the original's
+// SaveGame and SaveCurrentLevel put them; the run ends at its own exit.
+// Remove the two folders after.
 //=============================================================================
 class SlotConsole extends Console;
 
@@ -19,6 +21,24 @@ var int Phase;
 function Say(string S)
 {
 	Log("DXSLOT: " $ S);
+}
+
+// The Load Game screen's listing (MenuScreenLoadGame's
+// GetSaveGameDirectory), each folder the directory gives by its name
+function ListSaves(DeusExPlayer P)
+{
+	local GameDirectory Dir;
+	local int i;
+
+	if (P == None)
+		return;
+	Dir = P.CreateGameDirectoryObject();
+	Dir.SetDirType(Dir.EGameDirectoryTypes.GD_SaveGames);
+	Dir.GetGameDirectory();
+	for (i = 0; i < Dir.GetDirCount(); i++)
+		Say("listed " $ Dir.GetDirFilename(i));
+	Say("listed " $ Dir.GetDirCount() $ " in all");
+	CriticalDelete(Dir);
 }
 
 event Tick(float Delta)
@@ -47,6 +67,7 @@ event Tick(float Delta)
 	}
 	else if (Phase == 2 && RunTime > 8.0)
 	{
+		ListSaves(DeusExPlayer(Viewport.Actor));
 		Say("done, exiting");
 		Viewport.Actor.ConsoleCommand("exit");
 		Phase = 3;

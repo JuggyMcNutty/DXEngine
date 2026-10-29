@@ -77,7 +77,9 @@ either, DXEngine reading it as slot 0. The console's `SAVEGAME n` takes any
 number as the original's `SaveGame` does: -1 the quick save, 0 a new slot,
 and any other `Save%04d`, a negative one too -- `savegame -3` writes
 Save-003, and `savegame -2` its SaveInfo to Save-002 with the level saved
-into Current (`SlotConsole`). Differs: a bare `?loadgame`, which
+into Current -- and the Load Game screen lists every `Save*` folder, both of
+those among them, by name, as the original's `FindFiles` on NTFS gives them
+(`SlotConsole`). Differs: a bare `?loadgame`, which
 the original's browse takes for no load, its menu map opened again, loads
 nothing in DXEngine's. Before
 a level is saved into `Current`, the augmentations, skills and flag base

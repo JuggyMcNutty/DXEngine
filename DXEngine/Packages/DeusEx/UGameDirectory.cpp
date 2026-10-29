@@ -1,6 +1,8 @@
 
 #include "Precomp.h"
 #include <limits>
+#include <algorithm>
+#include <cctype>
 #include "UGameDirectory.h"
 #include "Utils/Logger.h"
 #include "Utils/StrTools.h"
@@ -192,6 +194,16 @@ std::string UDXGameDirectory::GetSaveIndexFolderName(int saveIndex)
 	return engine->SaveSlotFolderName(saveIndex);
 }
 
+// A folder's names in the order the original's FindFiles gives them on NTFS,
+// by name without regard to case: a directory's own order on Linux is none.
+static void SortAsFound(std::vector<std::string>& names)
+{
+	std::sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) {
+		return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(),
+			[](char x, char y) { return std::tolower((unsigned char)x) < std::tolower((unsigned char)y); });
+	});
+}
+
 void UDXGameDirectory::PopulateDirectoryList()
 {
 	auto list = DirectoryList();
@@ -207,9 +219,13 @@ void UDXGameDirectory::PopulateDirectoryList()
 		{
 			if (!fs::exists(folder) || !fs::is_directory(folder))
 				continue;
+			std::vector<std::string> names;
 			for (auto& p : fs::directory_iterator(folder))
 				if (p.is_regular_file() && StrTools::equals_ignore_case(p.path().extension().string(), mapExt))
-					list.push_back(p.path().filename().string());
+					names.push_back(p.path().filename().string());
+			SortAsFound(names);
+			for (const std::string& name : names)
+				list.push_back(name);
 		}
 		return;
 	}
@@ -218,15 +234,21 @@ void UDXGameDirectory::PopulateDirectoryList()
 		return;
 
 	{
-		// The save listing is the SaveNNNN directories; the quick save and
-		// Current are asked for by slot (-1, -2), never listed.
+		// The save listing is the Save* directories, in any case, as the
+		// original's finds them (GetSaveGamesDirectory, DeusEx.dll 0x10017520):
+		// Save-003 of a `savegame -3` among them; the quick save and Current
+		// are asked for by slot (-1, -2), never listed.
+		std::vector<std::string> names;
 		for (auto& p : fs::directory_iterator(currentDirectory))
 		{
 			if (!p.is_directory())
 				continue;
 			const std::string name = p.path().filename().string();
-			if (name.size() >= 5 && name.compare(0, 4, "Save") == 0 && name[4] >= '0' && name[4] <= '9')
-				list.push_back(name);
+			if (name.size() >= 4 && StrTools::equals_ignore_case(name.substr(0, 4), "Save"))
+				names.push_back(name);
 		}
+		SortAsFound(names);
+		for (const std::string& name : names)
+			list.push_back(name);
 	}
 }
