@@ -397,7 +397,8 @@ public:
 		if (!module)
 			return 0;
 
-		return module->read_interleaved_stereo(GetFrequency(), samples / GetChannels(), output);
+		// OpenMPT answers the frames it rendered; a read answers samples
+		return module->read_interleaved_stereo(GetFrequency(), samples / GetChannels(), output) * GetChannels();
 	}
 
 	int GetOrder() override

@@ -457,10 +457,12 @@ void UDXEngineAudioDevice::GalaxyVoice(const PlayingSound& Playing, int& volume,
 
 void UDXEngineAudioDevice::UpdateObstruction(PlayingSound& Playing, float timeStep)
 {
-	// Speech is never muffled, nor a sound whose actor has gone.
+	// Speech and a sound whose actor has gone run no line: their time only
+	// shrinks, as Galaxy's (galaxy-dll.md, sounds behind walls), so a sound
+	// muffled when its actor went fades back over up to half a second
 	if (!Playing.Actor || (Playing.Id & 14) == SLOT_Talk * 2)
 	{
-		Playing.ObstructionTime = 0.0f;
+		Playing.ObstructionTime = std::max(Playing.ObstructionTime - timeStep, 0.0f);
 		return;
 	}
 
