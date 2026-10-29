@@ -166,6 +166,19 @@ void SDL3DisplayWindow::SetClientFrame(const Rect& box)
 	// SDL_SetWindowSize sets the client size of the window
 	SDL_SetWindowSize(Handle.window, w, h);
 	SDL_SetWindowPosition(Handle.window, x, y);
+	placed = true;
+}
+
+void SDL3DisplayWindow::SetClientSize(const Size& size)
+{
+	double units = UnitsPerDip();
+	SDL_SetWindowSize(Handle.window, (int)std::round(size.width * units), (int)std::round(size.height * units));
+	// Never placed: SDL puts a new window in the middle of the display, but
+	// on Windows it keeps the corner its first size centered it by, which a
+	// larger one runs off the screen from: centered again. Elsewhere the
+	// window manager or the compositor places it.
+	if (!placed && SDL_strcmp(SDL_GetCurrentVideoDriver(), "windows") == 0)
+		SDL_SetWindowPosition(Handle.window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 }
 
 void SDL3DisplayWindow::Show()

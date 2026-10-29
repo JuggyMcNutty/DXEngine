@@ -125,6 +125,17 @@ void SDL2DisplayWindow::SetClientFrame(const Rect& box)
 
 	SDL_SetWindowSize(Handle.window, w, h);
 	SDL_SetWindowPosition(Handle.window, x, y);
+	placed = true;
+}
+
+void SDL2DisplayWindow::SetClientSize(const Size& size)
+{
+	double uiscale = GetDpiScale();
+	SDL_SetWindowSize(Handle.window, (int)std::round(size.width * uiscale), (int)std::round(size.height * uiscale));
+	// Never placed: in the middle of the display, as it was made, for its
+	// size now
+	if (!placed)
+		SDL_SetWindowPosition(Handle.window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 }
 
 void SDL2DisplayWindow::Show()

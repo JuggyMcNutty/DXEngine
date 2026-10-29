@@ -3019,9 +3019,11 @@ void Engine::OpenWindow()
 	window->SetWindowTitle(LaunchInfo.gameName + versionString + " - DXEngine");
 	// The ini's sizes are pixels; the frame's are DIPs, which the window
 	// scales by the desktop's scale (a 1280x720 window on a desktop at 150%
-	// is 853x480 DIPs), as SETRES has it
+	// is 853x480 DIPs), as SETRES has it. Its size alone: the window where the
+	// system puts a new one, as the original's (WinDrv's OpenWindow,
+	// CW_USEDEFAULT), its title bar on the screen
 	double dpi = window->GetDpiScale();
-	window->SetFrameGeometry(Rect::xywh(0.0, 0.0, width / dpi, height / dpi));
+	window->SetFrameSize(Size(width / dpi, height / dpi));
 	viewport->SetViewportRect(0, 0, width, height);
 
 	// Full screen takes the display's mode nearest FullscreenViewportX and Y,

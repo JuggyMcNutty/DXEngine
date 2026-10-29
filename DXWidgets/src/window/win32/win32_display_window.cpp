@@ -119,7 +119,11 @@ Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost, WidgetType
 	if (!owner)
 		exstyle |= WS_EX_APPWINDOW;
 
-	CreateWindowEx(exstyle, L"DXWidgetsWindow", L"", style, 0, 0, 100, 100, owner ? owner->WindowHandle.hwnd : 0, 0, GetModuleHandle(0), this);
+	// A window of its own where Windows puts a new one, as the original's game
+	// window is (WinDrv's OpenWindow, CW_USEDEFAULT); a popup or dialog where
+	// it is set
+	int at = type == WidgetType::Popup || type == WidgetType::Dialog ? 0 : CW_USEDEFAULT;
+	CreateWindowEx(exstyle, L"DXWidgetsWindow", L"", style, at, at, 100, 100, owner ? owner->WindowHandle.hwnd : 0, 0, GetModuleHandle(0), this);
 }
 
 Win32DisplayWindow::~Win32DisplayWindow()
@@ -281,6 +285,18 @@ void Win32DisplayWindow::SetClientFrame(const Rect& box)
 	DelayLoadAdjustWindowRectExForDpi(&rect, style, FALSE, exstyle, WindowHandle.hwnd);
 
 	SetWindowPos(WindowHandle.hwnd, nullptr, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOACTIVATE | SWP_NOZORDER);
+}
+
+void Win32DisplayWindow::SetClientSize(const Size& size)
+{
+	double dpiscale = GetDpiScale();
+	RECT rect = {};
+	rect.right = (int)std::round(size.width * dpiscale);
+	rect.bottom = (int)std::round(size.height * dpiscale);
+	DWORD style = (DWORD)GetWindowLongPtr(WindowHandle.hwnd, GWL_STYLE);
+	DWORD exstyle = (DWORD)GetWindowLongPtr(WindowHandle.hwnd, GWL_EXSTYLE);
+	DelayLoadAdjustWindowRectExForDpi(&rect, style, FALSE, exstyle, WindowHandle.hwnd);
+	SetWindowPos(WindowHandle.hwnd, nullptr, 0, 0, rect.right - rect.left, rect.bottom - rect.top, SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER);
 }
 
 void Win32DisplayWindow::Show()

@@ -195,6 +195,13 @@ void WaylandDisplayWindow::SetWindowIcon(const std::vector<std::shared_ptr<Image
 	}
 }
 
+void WaylandDisplayWindow::SetClientSize(const Size& size)
+{
+	// A Wayland window has no place of its own to keep: the compositor's
+	CreateBuffers(size.width, size.height);
+	windowHost->OnWindowGeometryChanged();
+}
+
 void WaylandDisplayWindow::SetClientFrame(const Rect& box)
 {
 	if (m_XDGPopup && m_owner)

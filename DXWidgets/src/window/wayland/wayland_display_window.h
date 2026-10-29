@@ -90,6 +90,7 @@ public:
 	void SetWindowTitle(const std::string& text) override;
 	void SetWindowIcon(const std::vector<std::shared_ptr<Image>>& images) override;
 	void SetClientFrame(const Rect& box) override;
+	void SetClientSize(const Size& size) override;
 	void Show() override;
 	void ShowFullscreen() override;
 	void ShowMaximized() override;

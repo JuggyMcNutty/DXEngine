@@ -241,6 +241,19 @@ void Widget::SetFrameGeometry(const Rect& geometry)
 	}
 }
 
+void Widget::SetFrameSize(const Size& size)
+{
+	if (Type == WidgetType::Child)
+	{
+		SetFrameGeometry(Rect::xywh(FrameGeometry.x, FrameGeometry.y, size.width, size.height));
+	}
+	else
+	{
+		DispGeometrySet = true;
+		DispWindow->SetClientSize(size);
+	}
+}
+
 void Widget::CheckInitialShow()
 {
 	if (Type != WidgetType::Child && !DispGeometrySet)

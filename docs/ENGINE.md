@@ -314,6 +314,13 @@ By area, as the code stands. Each device's numbers are its port's, such as
   always a borderless window covering the display, set up while the window is hidden:
   `SDL_SetWindowFullscreen` deadlocks on a GL window with that device's vendor SDL2. The X11,
   Wayland and Win32 windows keep the desktop's mode.
+- **The window's place**: the game's window opens at its size alone, where the system puts a
+  new window, as the original's viewport opens at Windows' default place
+  ([the window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-window)):
+  the Win32 window at `CW_USEDEFAULT`, the X11 one and SDL3's under X11 where the window
+  manager puts it, Wayland's where the compositor does. SDL makes a window in the middle of
+  its display and keeps its corner as it grows, so SDL3's on Windows and SDL2's are put in the
+  middle again for their size, not at Windows' default place.
 - **The mouse and the keyboard under SDL**: the game's view takes the mouse in relative mode
   (`SDL_SetWindowRelativeMouseMode` under SDL3, `SDL_SetRelativeMouseMode` under SDL2), which
   hides the desktop's pointer, keeps it in the window and gives motion past the screen's edge;

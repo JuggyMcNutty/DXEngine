@@ -276,6 +276,19 @@ void X11DisplayWindow::SetClientFrame(const Rect& box)
 	XConfigureWindow(display, window, mask, &changes);
 }
 
+void X11DisplayWindow::SetClientSize(const Size& size)
+{
+	double dpiscale = GetDpiScale();
+	int width = (int)std::round(size.width * dpiscale);
+	int height = (int)std::round(size.height * dpiscale);
+	if (width <= 0 || height <= 0)
+		return;   // none asked for, as SetClientFrame's
+	XWindowChanges changes = {};
+	changes.width = width;
+	changes.height = height;
+	XConfigureWindow(display, window, CWWidth | CWHeight, &changes);
+}
+
 void X11DisplayWindow::Show()
 {
 	if (!isMapped)

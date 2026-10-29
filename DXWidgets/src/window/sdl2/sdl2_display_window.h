@@ -15,6 +15,7 @@ public:
 	void SetWindowTitle(const std::string& text) override;
 	void SetWindowIcon(const std::vector<std::shared_ptr<Image>>& images) override;
 	void SetClientFrame(const Rect& box) override;
+	void SetClientSize(const Size& size) override;
 	void Show() override;
 	void ShowFullscreen() override;
 	void SetFullscreenMode(int width, int height) override;
@@ -111,6 +112,7 @@ public:
 
 	bool CursorLocked = false;
 	bool isFullscreen = false;
+	bool placed = false;   // put somewhere by SetClientFrame
 	int fullscreenWidth = 0;
 	int fullscreenHeight = 0;
 	void ApplyFullscreen();

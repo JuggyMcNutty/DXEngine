@@ -66,6 +66,8 @@ public:
 	Rect GetFrameGeometry() const;
 	void SetFrameGeometry(const Rect& geometry);
 	void SetFrameGeometry(double x, double y, double width, double height) { SetFrameGeometry(Rect::xywh(x, y, width, height)); }
+	// Its size alone: a window left where it is, or where the system puts it
+	void SetFrameSize(const Size& size);
 
 	// Get the UI font for this widget
 	std::shared_ptr<Font> GetFont() const;

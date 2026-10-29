@@ -355,6 +355,9 @@ public:
 	// The geometry of a top level widget is always its client area due to Linux limitations
 	virtual void SetClientFrame(const Rect& box) = 0;
 	virtual Rect GetClientFrame() const = 0;
+	// The client area's size alone, the window left where it is: one never
+	// placed where the system puts a new window
+	virtual void SetClientSize(const Size& size) = 0;
 
 	virtual void SetCursor(StandardCursor cursor, std::shared_ptr<CustomCursor> custom) = 0;
 
