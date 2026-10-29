@@ -47,11 +47,12 @@ game's files into `build/dxcap` by absolute path, and after a move `compile` doe
 are gone.
 
 - **The ini.** Each run gets a private ini made from the game's `DeusEx.ini` and `User.ini`: the
-  console class, the run's window size, 333networks' master server for the Join
-  Internet screen (the game names GameSpy's, which is closed), no uplink, `OpenGLDrv` for the
-  original and `D3DDrv` for DXEngine, whose device is the settings file's, never a game ini's
-  `SoftDrv` ([which device draws](ENGINE.md#rendering)). Both engines take the game's settings
-  from it; the game's inis are never written.
+  console class, the run's window size, `FirstRun` 1100 (an install never started keeps 0, and
+  the original's launcher then opens its first-run wizard), 333networks' master server for the
+  Join Internet screen (the game names GameSpy's, which is closed), no uplink, `OpenGLDrv` for
+  the original and `D3DDrv` for DXEngine, whose device is the settings file's, never a game
+  ini's `SoftDrv` ([which device draws](ENGINE.md#rendering)). Both engines take the game's
+  settings from it; the game's inis are never written.
 - **`Settings.json`.** DXEngine's device and its settings
   ([the keys](ENGINE.md#settings-and-environment)) come from
   `~/.config/DXEngine/Settings.json` (a Windows build's, the prefix's `%LOCALAPPDATA%\DXEngine`),
@@ -443,7 +444,9 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
   ([a package's file](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)),
   so the recreated launcher's `DeusEx`, installed beside `DeusEx.exe`, cannot stand in for the
   `DeusEx` package there. The run's log, `Running.ini` (a stale one opens the recovery wizard,
-  which waits for a click) and shots stay in the view, never in the game's folder.
+  which waits for a click) and shots stay in the view, never in the game's folder. Its
+  `DeusEx.exe` is GOG's where `goggamefiles/` holds it: Steam's is packed and starts only under
+  Steam's client ("Failed to find Steam"), and GOG's is the same build over the same DLLs.
 - **It stops at its first focus change while another X client holds the pointer
   grabbed**: Wine gives a window the focus only once it can grab the pointer itself, and
   tries until it can, in the game's message pump, the window black and the log cut at

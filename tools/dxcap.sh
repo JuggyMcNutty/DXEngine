@@ -475,6 +475,9 @@ if os.environ.get('DXCAP_STATS'):
 put('WindowedViewportX', window_x)
 put('WindowedViewportY', window_y)
 put('StartupFullscreen', 'False')
+# A game that has run: an install never started keeps FirstRun 0, and the
+# original's launcher then opens its first-run wizard, which waits for clicks
+put('FirstRun', '1100')
 if engine == 'original':
     if os.environ.get('DXCAP_RENDERER', '') == 'D3D':
         put('GameRenderDevice', 'D3DDrv.D3DRenderDevice')
@@ -623,7 +626,11 @@ collect() {
 # with no extension. The original takes a package's bare name in its folder
 # before any of its paths (appFindPackageFile), so a file with no extension
 # beside DeusEx.exe -- the recreated launcher's DeusEx -- stands in for the
-# DeusEx package. What the game writes stays in the view.
+# DeusEx package. What the game writes stays in the view. Its DeusEx.exe is
+# GOG's where goggamefiles/ holds it: Steam's is packed and starts only under
+# Steam's client ("Failed to find Steam"), and GOG's is the same build over
+# the same DLLs, byte for byte.
+GOG_EXE="$DX_ROOT/goggamefiles/System/DeusEx.exe"
 make_view() {
     local view="$CAP/game" f name d
     rm -rf "$view"
@@ -638,6 +645,9 @@ make_view() {
         case "$name" in
             *.log|*.bmp|*.i64|Running.ini) continue ;;
         esac
+        if [ "$name" = DeusEx.exe ] && [ -f "$GOG_EXE" ]; then
+            f="$GOG_EXE"
+        fi
         ln -s "$f" "$view/System/$name"
     done
     for d in "$GAME"/*/; do
