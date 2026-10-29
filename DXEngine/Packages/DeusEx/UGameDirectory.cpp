@@ -6,6 +6,7 @@
 #include "UGameDirectory.h"
 #include "Utils/Logger.h"
 #include "Utils/StrTools.h"
+#include "Utils/File.h"
 #include "Engine.h"
 #include "Package/PackageManager.h"
 
@@ -13,7 +14,7 @@ void UDXGameDirectory::GetGameDirectory()
 {
 	if (GameDirectoryType() == EGameDirectoryTypes::GD_Maps)
 	{
-		currentDirectory = fs::path(engine->LaunchInfo.gameRootFolder) / "Maps";
+		currentDirectory = Directory::resolveCase(fs::path(engine->LaunchInfo.gameRootFolder) / "Maps");
 		PopulateDirectoryList();
 	}
 	else

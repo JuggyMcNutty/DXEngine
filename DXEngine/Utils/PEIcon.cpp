@@ -231,5 +231,5 @@ std::vector<std::shared_ptr<Image>> PEIcon::Load(const std::string& path, int gr
 
 std::vector<std::shared_ptr<Image>> PEIcon::OfGame(const std::string& gameRootFolder, const std::string& gameExecutableName)
 {
-	return Load((fs::path(gameRootFolder) / "System" / (gameExecutableName + ".exe")).string(), 128);
+	return Load((Directory::resolveCase(fs::path(gameRootFolder) / "System") / (gameExecutableName + ".exe")).string(), 128);
 }

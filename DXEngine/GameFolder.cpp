@@ -3,6 +3,7 @@
 #include "GameFolder.h"
 #include "Utils/File.h"
 #include "Utils/UTF16.h"
+#include "Utils/StrTools.h"
 #include "UE1GameDatabase.h"
 #include "Utils/CommandLine.h"
 #include "OriginalCommandLine.h"
@@ -25,7 +26,7 @@ void GameFolderSelection::UpdateList()
 	{
 		// Check if we're within an UE1-game System folder.
 		auto p = std::filesystem::current_path();
-		if (p.filename().string() == "System")
+		if (StrTools::equals_ignore_case(p.filename().string(), "System"))
 		{
 			GameLaunchInfo game = ExamineFolder(p.parent_path().string());
 			if (!game.gameName.empty())

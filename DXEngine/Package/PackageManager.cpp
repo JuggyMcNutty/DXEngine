@@ -280,7 +280,7 @@
 PackageManager::PackageManager(const GameLaunchInfo& launchInfo) : launchInfo(launchInfo)
 {
 	gameRootFolderPath = fs::path(launchInfo.gameRootFolder);
-	gameSystemFolderPath = gameRootFolderPath / "System";
+	gameSystemFolderPath = Directory::resolveCase(gameRootFolderPath / "System");
 
 	RegisterNativeClasses();
 	CreateTransientPackage();
@@ -392,7 +392,7 @@ fs::path PackageManager::FindMapFile(const std::string& path) const
 	// Or is it relative to the previous map?
 	//
 	// Only one of the above is most likely true. Let's begin with assuming its relative to the Maps folder.
-	const auto mapsFolder = gameRootFolderPath / "Maps";
+	const auto mapsFolder = Directory::resolveCase(gameRootFolderPath / "Maps");
 
 	auto absolute_path = (mapsFolder / mapPath).lexically_normal();
 
@@ -714,32 +714,6 @@ void PackageManager::ScanFolder(const std::string& packagedir, const std::string
 	}
 }
 
-// A folder as Windows finds it, whatever its case: each part spelt as it is
-// on disk when only a different case is there. A part not there at all is
-// kept as it is given.
-static fs::path ResolveFolderCase(const fs::path& folder)
-{
-	fs::path resolved;
-	for (const auto& part : folder)
-	{
-		fs::path next = resolved / part;
-		std::error_code ec;
-		if (!resolved.empty() && !fs::exists(next, ec) && fs::is_directory(resolved, ec))
-		{
-			for (const auto& entry : fs::directory_iterator(resolved, ec))
-			{
-				if (StrTools::equals_ignore_case(entry.path().filename().string(), part.string()))
-				{
-					next = entry.path();
-					break;
-				}
-			}
-		}
-		resolved = next;
-	}
-	return resolved;
-}
-
 void PackageManager::ScanPaths()
 {
 	Array<std::string> paths;
@@ -747,10 +721,10 @@ void PackageManager::ScanPaths()
 
 	// Handle SavePath and CachePath
 	const auto savePath = convert_path_separators(GetIniValue("System", "Core.System", "SavePath"));
-	gameSaveFolderPath = (gameSystemFolderPath / savePath).lexically_normal();
+	gameSaveFolderPath = Directory::resolveCase((gameSystemFolderPath / savePath).lexically_normal());
 
 	const auto cachePath = convert_path_separators(GetIniValue("System", "Core.System", "CachePath"));
-	gameCacheFolderPath = (gameSystemFolderPath / cachePath).lexically_normal();
+	gameCacheFolderPath = Directory::resolveCase((gameSystemFolderPath / cachePath).lexically_normal());
 
 	for (auto& currentPathStr: paths)
 	{
@@ -760,7 +734,7 @@ void PackageManager::ScanPaths()
 		auto filename = currentPath.filename();
 
 		// Calculate the final, absolute path
-		auto finalPath = ResolveFolderCase((gameSystemFolderPath / currentPath).lexically_normal().parent_path());
+		auto finalPath = Directory::resolveCase((gameSystemFolderPath / currentPath).lexically_normal().parent_path());
 
 		// Add map folders in a separate list, so ScanForMaps() can use them
 		// A map folder's pattern in any case, as the folders' extensions are
@@ -1221,7 +1195,7 @@ void PackageManager::LoadIntFiles()
 	{
 		// The folder as the disk spells it, as the package folders are found:
 		// a path in another case gave its packages but none of its text
-		fs::path folder = ResolveFolderCase((gameSystemFolderPath / convert_path_separators(path)).lexically_normal().parent_path());
+		fs::path folder = Directory::resolveCase((gameSystemFolderPath / convert_path_separators(path)).lexically_normal().parent_path());
 		if (std::find(intFolders.begin(), intFolders.end(), folder) == intFolders.end())
 			intFolders.push_back(folder);
 	}

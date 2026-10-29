@@ -1758,7 +1758,8 @@ A mod gets the original's loader and natives:
 - **Its folders.** Its packages and maps are found by the `Paths` of its own
   ini (`--ini`), relative to `System` and written with backslashes as the
   game's are, their folders and extensions in any case, as the original's
-  on Windows
+  on Windows; so are the game folder's own `System` and `Maps` and the
+  `SavePath` and `CachePath` folders, as a copy recased on Linux leaves them
   ([a package's file](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)).
 - **Its text.** Differs by choice: the `.int` files are read from each
   folder of the paths, in their order, and from `System` after them when

@@ -96,8 +96,8 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
 
 - `--no-launcher` (`-n`) puts the log on stderr, as `--verbose` (`-v`) does, and opens no error
   window: an error goes to stderr alone. With no game folder given, the engine runs the game
-  whose `System` folder it starts in, or on Windows the Deus Ex the registry names; with
-  neither, it says no game is found and exits.
+  whose `System` folder (in any case) it starts in, or on Windows the Deus Ex the registry
+  names; with neither, it says no game is found and exits.
 - **A map is `--url=<map>` (or `-u=<map>`, `--url <map>`).** An option that takes a value
   (`--url`, `--ini`, `--userini`, `--userdir`, `--cmdline`, `--timeline`) takes the next word
   when it has no `=`, unless that word starts with `-`.

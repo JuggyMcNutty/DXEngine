@@ -73,6 +73,11 @@ public:
 	static fs::path engineUserDir();
 	static void setEngineUserDir(const std::string& path);
 	static bool hasEngineUserDir();
+
+	// A folder as Windows finds it, whatever its case: each part spelt as it
+	// is on disk when only a different case is there. A part not there at all
+	// is kept as it is given.
+	static fs::path resolveCase(const fs::path& folder);
 };
 
 class OS

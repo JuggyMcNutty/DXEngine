@@ -431,6 +431,29 @@ bool Directory::hasEngineUserDir()
 	return !EngineUserDirOverride().empty();
 }
 
+fs::path Directory::resolveCase(const fs::path& folder)
+{
+	fs::path resolved;
+	for (const auto& part : folder)
+	{
+		fs::path next = resolved / part;
+		std::error_code ec;
+		if (!resolved.empty() && !fs::exists(next, ec) && fs::is_directory(resolved, ec))
+		{
+			for (const auto& entry : fs::directory_iterator(resolved, ec))
+			{
+				if (StrTools::equals_ignore_case(entry.path().filename().string(), part.string()))
+				{
+					next = entry.path();
+					break;
+				}
+			}
+		}
+		resolved = next;
+	}
+	return resolved;
+}
+
 std::string OS::executable_path()
 {
 #if defined(WIN32)
