@@ -35,7 +35,6 @@
 #pragma warning(disable: 4244) // warning C4244: '/=': conversion from 'float' to 'int', possible loss of data
 #endif
 
-// TODO: assign native indices based on game, not hardcoded
 void NObject::RegisterFunctions()
 {
 	RegisterVMNativeFunc_2("Object", "Abs", &NObject::Abs, 186);

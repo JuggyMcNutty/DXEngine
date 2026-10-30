@@ -13,11 +13,15 @@
 // it again. With Via (DXCAP_CONFIG "Via=<map>", for LoadConsole too) the
 // island is left as a map exit leaves it, with the items, and the marker,
 // the census and the save are made 8 s into that map, where all three
-// arrived by travel.
+// arrived by travel. With Fresh (DXCAP_CONFIG "Fresh=True") the island is a new
+// game's, the game's own StartNewGame sending the player there from the menu
+// map, and it is saved 8 s in as it is, nothing given or spawned: the start
+// CensusConsole loads, saved without cheats.
 //=============================================================================
 class SaveConsole extends Console;
 
 var config string Via;
+var config bool Fresh;
 var float MapTime;
 var int Step;
 var string CurrentMap;
@@ -123,8 +127,16 @@ event Tick(float Delta)
 	{
 		if (MapTime > 3.0)
 		{
-			Log("DXSAVE: opening 01_NYC_UNATCOIsland");
-			P.ConsoleCommand("open 01_NYC_UNATCOIsland");
+			if (Fresh)
+			{
+				Log("DXSAVE: a new game, StartNewGame 01_NYC_UNATCOIsland");
+				P.ConsoleCommand("StartNewGame 01_NYC_UNATCOIsland");
+			}
+			else
+			{
+				Log("DXSAVE: opening 01_NYC_UNATCOIsland");
+				P.ConsoleCommand("open 01_NYC_UNATCOIsland");
+			}
 			Step = -1;
 		}
 		return;
@@ -132,7 +144,7 @@ event Tick(float Delta)
 	if (Step == -1 && (CurrentMap ~= "01_NYC_UNATCOIsland"))
 		Step = 0;
 
-	if (Step == 0 && MapTime > 8.0)
+	if (Step == 0 && MapTime > 8.0 && !Fresh)
 	{
 		if (DeusExPlayer(P) != None)
 		{
@@ -156,7 +168,8 @@ event Tick(float Delta)
 	}
 	if ((Step == 0 && MapTime > 8.0) || (Step == 3 && CurrentMap ~= Via && MapTime > 8.0))
 	{
-		P.Spawn(class'LoadMarker');
+		if (!Fresh)
+			P.Spawn(class'LoadMarker');
 		Census(P, "saved");
 		S = P.Spawn(class'SaveHelper', P);
 		S.Slot = 9;

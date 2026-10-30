@@ -24,7 +24,7 @@
 #include "Utils/Array.h"
 #include "Utils/Exception.h"
 
-// TODO: if we eventually support big endian platforms, these need to be implemented properly
+// Every port is little endian, as the packages are: nothing to swap
 #define BSWAP16(i) i
 #define BSWAP32(i) i
 #define BSWAP64(i) i

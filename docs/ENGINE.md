@@ -359,8 +359,9 @@ The renderer's CPU work is lighter than Surreal Engine's:
   whether it has one (`LightSystem::UpdateFogmapTexture`).
 - **The clipper's occlusion grid** is one row per image row up to a 4K frame
   (`BspClipper::MaxWidth` by `MaxHeight`, 4096 x 2160), each row's spans in a cache line
-  of its own while 15 fit, then on the heap (`BspClipper::ClipRow`); its non-SSE (ARM) build
-  skips the clip for triangles inside the view (a Surreal Engine bug); a surface is clipped once
+  of its own while 15 fit, then on the heap (`BspClipper::ClipRow`); its non-SSE (ARM) build,
+  as its SSE one, skips the clip for a triangle wholly inside the view (Surreal Engine's tested
+  a vertex's index there, not a distance's sign, and clipped every triangle); a surface is clipped once
   and filled into the grid as one polygon, a span to a row (`BspClipper::DrawPolygon`); a span
   that closes a gap in a row goes on into the gap after it (`BspClipper::DrawSpan`; Surreal
   Engine's passes that gap over, leaving it open, so what lies behind counts as showing and is

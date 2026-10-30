@@ -305,7 +305,7 @@ public:
 
 	GameLaunchInfo LaunchInfo;
 	std::unique_ptr<PackageManager> packages;
-	std::unique_ptr<GameWindow> window; // TODO: Move into UViewport
+	std::unique_ptr<GameWindow> window;
 	std::unique_ptr<RenderSubsystem> render;
 
 	int MouseMoveX = 0;

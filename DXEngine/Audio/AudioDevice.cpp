@@ -40,8 +40,7 @@ public:
 			musicQueue.Pop();
 		}
 
-		// Init OpenAL
-		// TODO: Add device enumeration
+		// Init OpenAL, on the system's default device
 		alDevice = alcOpenDevice(NULL);
 		if (alDevice == nullptr)
 			Exception::Throw("Failed to initialize OpenAL device");

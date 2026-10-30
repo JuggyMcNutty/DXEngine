@@ -303,8 +303,11 @@ data follows the header:
 - UPT_Object: `index` follows (object reference)
 - UPT_Name: `index` follows (index into `NameTable`)
 - UPT_String: `byte[header.size]` follows
-- UPT_Class: Unknown
-- UPT_Array: Unknown
+- UPT_Class: never written: a class property is tagged UPT_Object, its `index` an object
+  reference to the class, in every package of the game (`UClassProperty` reads it as
+  `UObjectProperty` does)
+- UPT_Array: `index Count` follows, then each element as its inner property's value without a
+  header (`UArrayProperty::LoadValue`)
 - UPT_Struct: `header.structName` is the struct name of the data that follows
 - UPT_Vector: `float x,y,z` follows
 - UPT_Rotator: `uint32 pitch,yaw,roll` follows
@@ -411,8 +414,16 @@ The palette used by an 8-bit texture.
 ```
 struct Font : ObjectHeader
 {
-  if FileHeader.PackageVersion <= 63
-    Unknown
+  if FileHeader.PackageVersion <= 63 // the font is a texture, its one page itself
+    struct Texture TextureData // as a Texture object's, after its ObjectHeader
+    index CharacterCount
+    struct Character
+    {
+      uint32 StartU
+      uint32 StartV
+      uint32 USize
+      uint32 VSize
+    } Characters[CharacterCount]
   else
     index PageCount
     struct Page
