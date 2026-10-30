@@ -91,9 +91,12 @@ and any other `Save%04d`, a negative one too -- `savegame -3` writes
 Save-003, and `savegame -2` its SaveInfo to Save-002 with the level saved
 into Current -- and the Load Game screen lists every `Save*` folder, both of
 those among them, by name, as the original's `FindFiles` on NTFS gives them
-(`SlotConsole`). Differs: a bare `?loadgame`, which
-the original's browse takes for no load, its menu map opened again, loads
-nothing in DXEngine's (bugs.md PKG.9). Before
+(`SlotConsole`). A bare `?loadgame`, a slot named by no number, is no load,
+as the original's browse asks for `loadgame=`: the console's `open` of it
+goes to the default map, `Index.dx`, which is not there, so the level's own
+map is loaded again, as for any map not there (below): from the menu map the
+menu again, its URL a load's, `Index.dx` (`URLConsole` with `Bare`: the same
+lines in both engines). Before
 a level is saved into `Current`, the augmentations, skills and flag base
 that travel with the player go from it, a decoration in its hands too
 (`PruneTravelActors`; `ReturnConsole`). The
@@ -140,20 +143,23 @@ crate left there). A travel's `PreTravel` goes to every actor of the level
 that has the function, with no argument, as the original's `SetClientTravel`
 sends it: the mission scripts' among them (`TravelConsole`).
 
-A travel to a map that is not there leaves the level playing, as the
-original's failed browse does, with its message for 6 s: Core's `Failed
-launching URL` over `Can't find file '<map>'` (`BrowseConsole`). The
-console's `switchlevel` is the player's exec function, whose `ServerTravel`
+A travel to a map that is not there fails after the pre-travel, as the
+original's browse does, with its message for 6 s: Core's `Failed launching
+URL` over `Can't find file '<map>'` -- a console's `open` of one too, which
+travels as any. Within the map's mission the level plays on as the
+pre-travel left it, pruned and saved into `Current`: the player without its
+augmentations, skills and flag base. For any other map `Current` is emptied
+and the level's own map loaded again on the travel's URL, with its travel
+info: the level begins again from `Maps`, the message gone with the pawn
+that showed it, or stays where its URL names no map there, one from
+`Current` or restarted (`BrowseConsole`: a missing map outside any mission
+and one of the island's, alike in both engines). The console's
+`switchlevel` is the player's exec function, whose `ServerTravel`
 Deus Ex's `LevelInfo` passes over in standalone: no travel there. A
 `?restart` (the console's `RestartLevel`) loads the `DeusExLevelInfo`'s map
 again with `?loadonly` and no other option, carrying nothing: the player
 starts afresh, its login with no name, as the original's
 ([travel and saving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-game-engine-travel-and-saving)).
-Differs: a map that is not there is found so before the pre-travel. By then
-the original's browse has pruned the player's augmentations, skills and flag
-base when the map is numbered within the mission, and the player plays on
-without them; for any other it has emptied `Current` and loads the level
-again from `Maps`, its progress and the message gone (bugs.md PKG.11).
 
 While a map loads or a level is saved the screen shows one frame, painted
 before the work, as the original's does

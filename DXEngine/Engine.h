@@ -121,6 +121,9 @@ public:
 	// Whether a travel's map is there to load; where it is not, the browse
 	// fails as the original's does, the level playing on.
 	bool BrowseFinds(const UnrealURL& url);
+	// A travel to a map as the original's Browse makes it: the pre-travel,
+	// then the load, or a missing map's fallback; false when no level loads.
+	bool BrowseMap(const UnrealURL& url, const std::map<std::string, std::string>& travelInfo);
 	// The map a ?restart reloads, as the original's Browse makes it.
 	UnrealURL RestartURL();
 	void PruneTravelActors() const;

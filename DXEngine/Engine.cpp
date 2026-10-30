@@ -120,6 +120,18 @@ static void InstallStopSignal()
 }
 #endif
 
+// An option with a value, name=..., whatever the value: the original's
+// GetOption("name="), which an option of that name alone does not match.
+static bool HasValueOption(const UnrealURL& url, const std::string& name)
+{
+	for (const std::string& option : url.Options)
+	{
+		if (option.size() > name.size() && option[name.size()] == '=' && StrTools::equals_ignore_case(option.substr(0, name.size()), name))
+			return true;
+	}
+	return false;
+}
+
 Engine* engine = nullptr;
 
 Engine::Engine(GameLaunchInfo launchinfo) : LaunchInfo(launchinfo)
@@ -481,31 +493,18 @@ void Engine::Run()
 					if (!dedicated)
 						LoginPlayer();
 				}
-				else if (!BrowseFinds(UnrealURL(LastURL, LevelInfo->NextURL())))
-				{
-					// Cleared after the browse, failed or not, as the original's
-					LevelInfo->NextURL().clear();
-				}
-				else if (LevelInfo->bNextItems())
-				{
-					ClientTravelInfo.TravelType = ETravelType::TRAVEL_Relative;
-					// Captured before the pre-travel prune deletes what
-					// crosses in the pawn's graph, as the original's travel
-					// save runs before its Browse.
-					auto travelInfo = CreateTravelInfo(true);
-					DeusExPreTravel(UnrealURL(LastURL, LevelInfo->NextURL()));
-					LoadMap(UnrealURL(LastURL, LevelInfo->NextURL()), travelInfo);
-					if (!dedicated)
-						LoginPlayer();
-				}
 				else
 				{
-					// Deliberately carries nothing - it passes no travel info at all.
-					ClientTravelInfo.TravelType = ETravelType::TRAVEL_Absolute;
-					DeusExPreTravel(UnrealURL(LastURL, LevelInfo->NextURL()));
-					LoadMap(UnrealURL(LastURL, LevelInfo->NextURL()), {});
-					if (!dedicated)
-						LoginPlayer();
+					// With bNextItems the players' travel info, captured
+					// before the pre-travel prune deletes what crosses in the
+					// pawn's graph, as the original's travel save runs before
+					// its Browse; without it none. A browse that loads no
+					// level clears NextURL, as the original's clears it after
+					// the browse, failed or not.
+					ClientTravelInfo.TravelType = LevelInfo->bNextItems() ? ETravelType::TRAVEL_Relative : ETravelType::TRAVEL_Absolute;
+					auto travelInfo = LevelInfo->bNextItems() ? CreateTravelInfo(true) : std::map<std::string, std::string>();
+					if (!BrowseMap(UnrealURL(LastURL, LevelInfo->NextURL()), travelInfo))
+						LevelInfo->NextURL().clear();
 				}
 			}
 		}
@@ -521,7 +520,10 @@ void Engine::Run()
 				LoginPlayer();
 		}
 
-		if (ClientTravelInfo.URL.HasOption("load") || ClientTravelInfo.URL.HasOption("loadgame"))
+		// A slot's load is ?loadgame=N or ?load=N, as the original's Browse
+		// asks for "loadgame=" and "load=": a bare ?loadgame is a map's
+		// browse, its map the default one.
+		if (HasValueOption(ClientTravelInfo.URL, "load") || HasValueOption(ClientTravelInfo.URL, "loadgame"))
 		{
 			UnrealURL url(ClientTravelInfo.URL);
 			LoadSavedGame(url);
@@ -545,23 +547,15 @@ void Engine::Run()
 			ClientTravelInfo.URL.Clear();
 			BeginConnect(url);
 		}
-		else if (!ClientTravelInfo.URL.Map.empty() && !BrowseFinds(ClientTravelInfo.URL))
-		{
-			ClientTravelInfo.URL.Clear();
-		}
 		else if (!ClientTravelInfo.URL.Map.empty())
 		{
-			// To do: need to do something about that travel type and transfering of items
-
 			UnrealURL url(ClientTravelInfo.URL);
 			LogMessage("Client travel to " + url.ToString());
 			// Captured before the pre-travel prune deletes what crosses in
 			// the pawn's graph.
 			auto travelInfo = CreateTravelInfo(ClientTravelInfo.TransferItems);
-			DeusExPreTravel(url);
-			LoadMap(url, travelInfo);
-			if (!dedicated)
-				LoginPlayer();
+			if (!BrowseMap(url, travelInfo))
+				ClientTravelInfo.URL.Clear();
 		}
 
 		if (GarbageStressFrames > 0 && ++GarbageStressCount >= GarbageStressFrames)
@@ -891,6 +885,12 @@ void Engine::ClientTravel(const std::string& newURL, ETravelType travelType, boo
 		base.Options = carried();
 		ClientTravelInfo.URL = UnrealURL(base, url);
 	}
+
+	// A URL that names no map goes to the default one, [URL] Map, as the
+	// original's starts from it, a relative one to the last URL's: a bare
+	// ?loadgame opened from the menu browses Index.dx.
+	if (url.Map.empty())
+		ClientTravelInfo.URL.Map = travelType == ETravelType::TRAVEL_Relative ? LastURL.Map : packages->GetIniValue("system", "URL", "Map");
 
 	ClientTravelInfo.TravelType = travelType;
 	ClientTravelInfo.TransferItems = transferItems;
@@ -1766,6 +1766,37 @@ bool Engine::BrowseFinds(const UnrealURL& url)
 	return false;
 }
 
+// The original's Browse of a map (DeusEx.dll 0x10010b90): the pre-travel
+// first, then the load. A map that is not there leaves the level playing --
+// within the mission pruned and saved into Current, as the pre-travel left
+// it --, and otherwise, Current emptied, loads the level's own map again on
+// the travel's URL, with its travel info: the level begins again from Maps,
+// the failure's message gone with the pawn that showed it.
+bool Engine::BrowseMap(const UnrealURL& url, const std::map<std::string, std::string>& travelInfo)
+{
+	// ?failed and ?entry go to the Entry level, whose return logs the player
+	// in, as the original's game engine takes them before any map.
+	if (url.HasOption("failed") || url.HasOption("entry"))
+	{
+		LoadMap(url, travelInfo);
+		return true;
+	}
+	DeusExPreTravel(url);
+	UnrealURL loadURL = url;
+	if (!BrowseFinds(url))
+	{
+		const bool withinMission = dxTravelUsesCurrent;
+		dxTravelUsesCurrent = false;
+		loadURL.Map = LevelInfo->URL.Map;
+		if (withinMission || !BrowseFinds(loadURL))
+			return false;
+	}
+	LoadMap(loadURL, travelInfo);
+	if (!LaunchInfo.dedicatedServer)
+		LoginPlayer();
+	return true;
+}
+
 // The original's (DeusEx.dll's Browse, 0x10010b90): the DeusExLevelInfo's
 // MapName -- there the first among all objects (GetDeusExLevelInfo), the
 // level's own once those of the levels left are collected -- with the last
@@ -1782,39 +1813,39 @@ UnrealURL Engine::RestartURL()
 	return url;
 }
 
-// The original's Browse, before an ordinary map change: within one mission
-// the departing level is pruned and saved into Current; a new mission, a
-// map outside any, or a player starting a new game empties Current.
+// The original's Browse, before an ordinary map change, in its order: within
+// one mission the departing level is pruned and saved into Current; a new
+// mission, a map outside any, or a player starting a new game empties Current.
 void Engine::DeusExPreTravel(const UnrealURL& url)
 {
 	dxTravelUsesCurrent = false;
 	if (!Level || url.Map.empty())
 		return;
-	if (url.HasOption("load") || url.HasOption("loadgame") || url.HasOption("loadonly") ||
-		url.HasOption("restart") || url.HasOption("entry"))
+	if (url.HasOption("restart") || url.HasOption("entry") || url.HasOption("failed") ||
+		HasValueOption(url, "load") || HasValueOption(url, "loadgame"))
 		return;
 
-	bool startingNew = false;
-	if (auto player = UObject::TryCast<UDeusExPlayer>(viewport->Actor()))
-	{
-		if (player->bStartingNewGame())
-		{
-			startingNew = true;
-			player->bStartingNewGame() = false;
-		}
-	}
-
+	// For a map numbered within a mission and no ?loadonly: within the same
+	// mission, for a player not starting a new game, the level is pruned and
+	// saved into Current; otherwise the player's bStartingNewGame is cleared.
+	// Every other way empties Current, a map outside any mission or a
+	// ?loadonly with no mission's test.
 	const int32_t next = DeusExMissionNumber(url.Map);
-	const int32_t current = DeusExLevelInfo ? DeusExLevelInfo->MissionNumber() : -1;
-	if (startingNew || next == -1 || next != current)
+	if (next != -1 && !url.HasOption("loadonly"))
 	{
-		DeleteSaveGameFiles("Current");
-		return;
+		auto player = UObject::TryCast<UDeusExPlayer>(viewport->Actor());
+		const int32_t current = DeusExLevelInfo ? DeusExLevelInfo->MissionNumber() : -1;
+		if (next == current && !(player && player->bStartingNewGame()))
+		{
+			PruneTravelActors();
+			SaveCurrentLevel(-2);
+			dxTravelUsesCurrent = true;
+			return;
+		}
+		if (player)
+			player->bStartingNewGame() = false;
 	}
-
-	PruneTravelActors();
-	SaveCurrentLevel(-2);
-	dxTravelUsesCurrent = true;
+	DeleteSaveGameFiles("Current");
 }
 
 // Destroys what travels with the player, so it is not saved twice: the
@@ -2641,44 +2672,13 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	}
 	else if ((command == "open" || command == "start") && args.size() == 2)
 	{
-		const std::string& maparg = args[1];
-
-		UnrealURL url(maparg);
-
-		// A server's address: join it.
-		if (!url.Host.empty())
-		{
-			ClientTravel(maparg, ETravelType::TRAVEL_Absolute, false);
-			return {};
-		}
-
-		// A save, ?loadgame=N and no map: loaded, as the original's open
-		// browses it, by the travel the game's LoadGame makes.
-		if (url.Map.empty() && url.HasOption("loadgame"))
-		{
-			ClientTravel(maparg, ETravelType::TRAVEL_Absolute, false);
-			return {};
-		}
-
-		// A map by its name, or its file's -- "open 01_NYC_UNATCOHQ.dx", as
-		// the original's opens it too. OPEN travels partial, on the last URL
-		// (a listen server's keeps ?listen and ?game=), START absolute, as
-		// the original's UGameEngine::Exec sets the viewport's travel
-		// (engine-dll.md, OPEN and START).
-		ETravelType travel = command == "open" ? ETravelType::TRAVEL_Partial : ETravelType::TRAVEL_Absolute;
-		std::string wanted = fs::path(url.Map).stem().string();
-		for (auto& map : packages->GetMaps())
-		{
-			std::string mapname = fs::path(map).stem().string();
-
-			if (StrTools::equals_ignore_case(mapname, url.Map) || StrTools::equals_ignore_case(mapname, wanted))
-			{
-				ClientTravel(url.ToString(), travel, false);
-				return {};
-			}	
-		}
-
-		LogMessage("Couldn't find map " + maparg);
+		// The URL as given becomes the next travel, as the original's
+		// UGameEngine::Exec sets the viewport's (engine-dll.md, OPEN and
+		// START): OPEN partial, on the last URL's options (a listen server's
+		// keeps ?listen and ?game=), START absolute -- a map, a server's
+		// address or a slot's ?loadgame=N alike. A map that is not there is
+		// the browse's to find, as the original's.
+		ClientTravel(args[1], command == "open" ? ETravelType::TRAVEL_Partial : ETravelType::TRAVEL_Absolute, false);
 	}
 	else if ((command == "netspeed" || command == "lanspeed") && args.size() == 2)
 	{

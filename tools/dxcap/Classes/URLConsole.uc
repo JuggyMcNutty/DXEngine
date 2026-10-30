@@ -11,10 +11,15 @@
 // starting again: the console holds no actor of a level, which would keep
 // the level loaded past the next one's collection, and the original's game
 // engine takes the first DeusExLevelInfo it finds for the current level's
-// (its mission number, the name it saves the level under).
+// (its mission number, the name it saves the level under). With Bare
+// (DXCAP_CONFIG "Bare=True") the menu map's console opens a bare ?loadgame
+// instead, a slot named by no number, and the level that comes of it is
+// logged the same way; with none 15 s on it says so.
 //=============================================================================
 class URLConsole extends Console;
 
+var config bool Bare;
+var float WaitTime;
 var float LevelTime;
 var float LastSeconds;
 var string LastLevel;
@@ -43,12 +48,32 @@ event Tick(float Delta)
 	LastLevel = string(P.Level);
 	LastSeconds = P.Level.TimeSeconds;
 	LevelTime += Delta;
+	if (Bare && Step == 1 && LevelTime < 0)
+	{
+		WaitTime += Delta;
+		if (WaitTime > 15.0)
+		{
+			Log("DXURL: no level 15 s on, on " $ P.Level.GetLocalURL() $ ", exiting");
+			P.ConsoleCommand("exit");
+			Step = 99;
+			return;
+		}
+	}
 	if (LevelTime < 3.0)
 		return;
 	LevelTime = -1000;
 
 	Log("DXURL: step " $ Step $ ": " $ P.Level.GetLocalURL() $ ", " $ InventoryCount(P) $ " items");
-	if (Step == 0)
+	if (Bare && Step == 0)
+		P.ConsoleCommand("open ?loadgame");
+	else if (Bare)
+	{
+		Log("DXURL: done, exiting");
+		P.ConsoleCommand("exit");
+		Step = 99;
+		return;
+	}
+	else if (Step == 0)
 		P.ConsoleCommand("open 01_NYC_UNATCOIsland");
 	else if (Step == 1)
 		P.ClientTravel("01_NYC_UNATCOHQ", TRAVEL_Relative, true);
