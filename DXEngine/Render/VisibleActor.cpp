@@ -90,8 +90,13 @@ void VisibleActor::DrawOpaque(VisibleFrame* frame)
 {
 	if (Type == DT_Mesh)
 	{
+		// A mesh with an opaque face after a translucent one is drawn whole
+		// in face order with the solid actors, as the original draws a
+		// mesh's faces; the rest leave their translucent faces for later
 		VisibleMesh vismesh;
-		if (vismesh.DrawMesh(frame, Actor, false))
+		if (VisibleMesh::DrawsInFaceOrder(Actor))
+			vismesh.DrawMesh(frame, Actor, MeshPass::FaceOrder);
+		else if (vismesh.DrawMesh(frame, Actor, MeshPass::Opaque))
 		{
 			vec3 v = Actor->Location() - frame->ViewLocation.xyz();
 			frame->AddTranslucent(VisibleFrame::ActorTranslucentList(Actor), VisibleTranslucent(*this, dot(v, v)));
@@ -121,7 +126,7 @@ void VisibleActor::DrawTranslucent(VisibleFrame* frame)
 	if (Type == DT_Mesh)
 	{
 		VisibleMesh vismesh;
-		vismesh.DrawMesh(frame, Actor, true);
+		vismesh.DrawMesh(frame, Actor, MeshPass::Translucent);
 	}
 	else if (Type == DT_Sprite || Type == DT_SpriteAnimOnce)
 	{

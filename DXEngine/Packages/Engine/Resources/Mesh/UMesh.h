@@ -96,4 +96,13 @@ public:
 
 	Array<vec3> Normals;
 	mat4 meshToObject;
+
+	// A face drawn opaque after one drawn translucent, in face order: the
+	// original draws a mesh's faces in their order, so a translucent face
+	// that a later one behind it writes over is lost (render-dll.md, which
+	// faces are drawn), and such a mesh is drawn whole in that order
+	bool OpaqueAfterTranslucent = false;
+	// Sets it from each face's flags in turn, a face of PF_Invisible drawn
+	// by neither
+	void FindFaceOrder(const Array<uint32_t>& faceFlags);
 };

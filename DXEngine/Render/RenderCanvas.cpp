@@ -126,8 +126,7 @@ void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter)
 	bool oldHidden = actor->bHidden();
 	actor->bHidden() = false;
 	VisibleMesh vismesh;
-	if (vismesh.DrawMesh(&MainFrame, actor, false))
-		vismesh.DrawMesh(&MainFrame, actor, true);
+	vismesh.DrawMesh(&MainFrame, actor, MeshPass::FaceOrder);
 	actor->bHidden() = hideAfter || oldHidden;
 
 	Device->SetSceneNode(&Canvas.Frame);
@@ -171,8 +170,7 @@ void RenderSubsystem::DrawClippedActor(UActor* actor, int X, int Y, int XB, int 
 	ActorFrame.ViewRotation = Coords::Identity();
 	actor->bHidden() = false;
 	VisibleMesh vismesh;
-	if (vismesh.DrawMesh(&ActorFrame, actor, false))
-		vismesh.DrawMesh(&ActorFrame, actor, true);
+	vismesh.DrawMesh(&ActorFrame, actor, MeshPass::FaceOrder);
 	actor->bHidden() = true;
 
 	Device->SetSceneNode(&Canvas.Frame);

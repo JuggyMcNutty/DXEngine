@@ -21,8 +21,7 @@ void VisibleIteratorItem::DrawTranslucent(VisibleFrame* frame)
 		Actor->ScaleGlow() = ScaleGlow;
 
 		VisibleMesh vismesh;
-		if (vismesh.DrawMesh(frame, Actor, false))
-			vismesh.DrawMesh(frame, Actor, true);
+		vismesh.DrawMesh(frame, Actor, MeshPass::FaceOrder);
 
 		Actor->Location() = location;
 		Actor->Rotation() = rotation;

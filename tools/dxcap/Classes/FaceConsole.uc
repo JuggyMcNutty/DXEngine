@@ -6,7 +6,8 @@
 // start's way: the mesh, skins, draw scale and animation of MeshOf
 // ([DXCapture.FaceConsole], DeusEx.UNATCOTroop by default) on a plain actor
 // with no AI or collision, unlit, its animation's first frame held, Ahead
-// units (200 by default) ahead and turned to the player; the view put
+// units (200 by default) ahead and turned to the player, or Turn degrees
+// round from that; the view put Raise units over (0 by default) and
 // Distance units (40 by default) in front of it at the class's eye height,
 // facing its eyes; the player out of the world, unseen by the NPCs, the HUD
 // hidden, conversations and datalinks stopped as they start. Two shots 2 s
@@ -18,6 +19,8 @@ class FaceConsole extends Console;
 var config string MeshOf;
 var config float Ahead;
 var config float Distance;
+var config int Turn;
+var config float Raise;
 
 var float MapTime;
 var float StepTime;
@@ -113,6 +116,12 @@ function bool Stand(PlayerPawn P)
 		Log("DXFACE: no model at " $ Spot);
 		return false;
 	}
+	if (Turn != 0)
+	{
+		R = rotator(-X);
+		R.Yaw += Turn * 65536 / 360;
+		Model.SetRotation(R);
+	}
 	Model.SetCollision(false, false, false);
 	Model.bCollideWorld = false;
 	Model.SetPhysics(PHYS_None);
@@ -133,7 +142,7 @@ function bool Stand(PlayerPawn P)
 	Model.AnimRate = 0;
 	// Unlit, so the faces' own textures and how they are drawn are all that show
 	Model.bUnlit = true;
-	Eye = Spot + Z * C.default.BaseEyeHeight - X * Dist;
+	Eye = Spot + Z * (C.default.BaseEyeHeight + Raise) - X * Dist;
 	Look = Spot + Z * C.default.BaseEyeHeight;
 	Log("DXFACE: " $ MeshOf $ " mesh " $ Model.Mesh $ " sequence " $ Model.AnimSequence $ " at " $ Model.Location
 		$ " rotation " $ Model.Rotation $ " scale " $ Model.DrawScale $ " eye height " $ C.default.BaseEyeHeight

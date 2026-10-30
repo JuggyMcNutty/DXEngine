@@ -27,17 +27,25 @@ struct CachedMeshVertex
 	vec3 Light;
 };
 
+// Which of a mesh's faces a draw takes: the opaque ones, the translucent ones
+// (the scene draws them later, back to front), or all of them in face order,
+// as the original draws a mesh
+enum class MeshPass { Opaque, Translucent, FaceOrder };
+
 class VisibleMesh
 {
 public:
-	bool DrawMesh(VisibleFrame* frame, UActor* actor, bool translucentPass);
+	// Whether the actor's mesh is drawn whole in face order, an opaque face
+	// coming after a translucent one, the actor's style not translucent
+	static bool DrawsInFaceOrder(UActor* actor);
+	bool DrawMesh(VisibleFrame* frame, UActor* actor, MeshPass pass);
 
 private:
 	void DrawDebugInfo(VisibleFrame* frame, UActor* actor);
-	bool DrawMeshAtLocation(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, UMesh* mesh, const mat4& meshToWorld, const mat3& meshNormalToWorld, bool translucentPass);
-	bool DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, UMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, bool translucentPass);
-	bool DrawLodMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, ULodMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, bool translucentPass);
-	bool DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, ULodMesh* mesh, const Array<MeshFace>& faces, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, int baseVertexOffset, const int* vertexOffsets, float t0, float t1, bool translucentPass, BlendInfo* blends, int blendCount);
+	bool DrawMeshAtLocation(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, UMesh* mesh, const mat4& meshToWorld, const mat3& meshNormalToWorld, MeshPass pass);
+	bool DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, UMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, MeshPass pass);
+	bool DrawLodMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, ULodMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, MeshPass pass);
+	bool DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, ULodMesh* mesh, const Array<MeshFace>& faces, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, int baseVertexOffset, const int* vertexOffsets, float t0, float t1, MeshPass pass, BlendInfo* blends, int blendCount);
 	void SetupMeshTextures(UActor* actor, UMesh* mesh);
 	void FindAttachmentPoints(ULodMesh* mesh, const mat4& ObjectToWorld, const int* vertexOffsets, float t0, float t1);
 

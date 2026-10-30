@@ -4,6 +4,7 @@
 #include <algorithm>
 #include "Package/PackageManager.h"
 #include "Packages/Engine/Resources/Textures/UTexture.h"
+#include "Packages/Engine/Resources/Level/UModel.h"
 
 void UMesh::Load(ObjectStream* stream)
 {
@@ -203,6 +204,29 @@ void UMesh::Load(ObjectStream* stream)
 	for (vec3& n : Normals)
 	{
 		n = normalize(n);
+	}
+
+	Array<uint32_t> faceFlags;
+	for (const MeshTri& tri : Tris)
+		faceFlags.push_back(tri.PolyFlags);
+	FindFaceOrder(faceFlags);
+}
+
+void UMesh::FindFaceOrder(const Array<uint32_t>& faceFlags)
+{
+	OpaqueAfterTranslucent = false;
+	bool translucentSeen = false;
+	for (uint32_t flags : faceFlags)
+	{
+		if (flags & PF_Invisible)
+			continue;
+		if (flags & (PF_Translucent | PF_Modulated | PF_Highlighted))
+			translucentSeen = true;
+		else if (translucentSeen)
+		{
+			OpaqueAfterTranslucent = true;
+			return;
+		}
 	}
 }
 

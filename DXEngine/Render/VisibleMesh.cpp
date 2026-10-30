@@ -57,7 +57,13 @@ static const MeshAnimSeq* SequenceOrFirstFrame(UMesh* mesh, const NameString& na
 	return seq ? seq : &firstFrame;
 }
 
-bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, bool translucentPass)
+bool VisibleMesh::DrawsInFaceOrder(UActor* actor)
+{
+	UMesh* mesh = actor->Mesh();
+	return mesh && mesh->OpaqueAfterTranslucent && actor->Style() != STY_Translucent && actor->Style() != STY_Modulated;
+}
+
+bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, MeshPass pass)
 {
 	UMesh* mesh = actor->Mesh();
 	if (!mesh)
@@ -74,7 +80,7 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, bool translucentP
 	// Note: using transpose seems to be wrong here
 	mat3 meshNormalToWorld = mat3(Coords::Rotation(actor->Rotation()).ToMatrix() * Coords::Rotation(mesh->RotOrigin).ToMatrix());
 
-	bool needsTranslucentPass = DrawMeshAtLocation(frame, actor, actor, mesh, meshToWorld, meshNormalToWorld, translucentPass);
+	bool needsTranslucentPass = DrawMeshAtLocation(frame, actor, actor, mesh, meshToWorld, meshNormalToWorld, pass);
 
 	// A pawn's own attachments (render-dll.md, A pawn's attachments): where its
 	// mesh has a triangle to hold a weapon at, the weapon in its third-person
@@ -113,7 +119,7 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, bool translucentP
 			uint8_t& heldStyle = held->Value<uint8_t>(PropOffsets_Actor.Style);
 			uint8_t ownStyle = heldStyle;
 			heldStyle = (uint8_t)pawn->Style();
-			needsTranslucentPass = DrawMeshAtLocation(frame, held, actor, heldMesh, heldMeshToWorld, heldNormalToWorld, translucentPass) || needsTranslucentPass;
+			needsTranslucentPass = DrawMeshAtLocation(frame, held, actor, heldMesh, heldMeshToWorld, heldNormalToWorld, pass) || needsTranslucentPass;
 			heldStyle = ownStyle;
 		}
 	}
@@ -121,15 +127,15 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, bool translucentP
 	return needsTranslucentPass;
 }
 
-bool VisibleMesh::DrawMeshAtLocation(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, UMesh* mesh, const mat4& meshToWorld, const mat3& meshNormalToWorld, bool translucentPass)
+bool VisibleMesh::DrawMeshAtLocation(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, UMesh* mesh, const mat4& meshToWorld, const mat3& meshNormalToWorld, MeshPass pass)
 {
 	if (auto lodmesh = UObject::TryCast<ULodMesh>(mesh))
 	{
-		return DrawLodMeshDX(frame, actor, lightLocationActor, lodmesh, meshToWorld, meshNormalToWorld, translucentPass);
+		return DrawLodMeshDX(frame, actor, lightLocationActor, lodmesh, meshToWorld, meshNormalToWorld, pass);
 	}
 	else
 	{
-		return DrawMeshDX(frame, actor, lightLocationActor, mesh, meshToWorld, meshNormalToWorld, translucentPass);
+		return DrawMeshDX(frame, actor, lightLocationActor, mesh, meshToWorld, meshNormalToWorld, pass);
 	}
 }
 
@@ -218,7 +224,7 @@ void VisibleMesh::FindAttachmentPoints(ULodMesh* mesh, const mat4& ObjectToWorld
 	}
 }
 
-bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, UMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, bool translucentPass)
+bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, UMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, MeshPass pass)
 {
 	auto lightsys = &engine->Level->Light;
 	float fatness = actor->Fatness() / 16.0f - 8.0f;
@@ -346,12 +352,12 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 		renderflags |= tex->PolyFlags() & PF_Masked;
 
 		bool isTranslucent = (renderflags & (PF_Translucent | PF_Modulated | PF_Highlighted)) != 0;
-		if (isTranslucent && !translucentPass)
+		if (isTranslucent && pass == MeshPass::Opaque)
 		{
 			needTranslucentPass = true;
 			continue;
 		}
-		else if (!isTranslucent && translucentPass)
+		else if (!isTranslucent && pass == MeshPass::Translucent)
 		{
 			// We already drew the opaque surface
 			continue;
@@ -457,7 +463,7 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 	return needTranslucentPass;
 }
 
-bool VisibleMesh::DrawLodMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, ULodMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, bool translucentPass)
+bool VisibleMesh::DrawLodMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, ULodMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, MeshPass pass)
 {
 	UActor* animSource = actor;
 	if (actor->bAnimByOwner() && actor->Owner())
@@ -542,10 +548,10 @@ bool VisibleMesh::DrawLodMeshDX(VisibleFrame* frame, UActor* actor, UActor* ligh
 
 	SetupMeshTextures(actor, mesh);
 	FindAttachmentPoints(mesh, ObjectToWorld, vertexOffsets, t0, t1);
-	return DrawLodMeshFaceDX(frame, actor, lightLocationActor, mesh, mesh->Faces, ObjectToWorld, ObjectNormalToWorld, mesh->SpecialVerts, vertexOffsets, t0, t1, translucentPass, blends, blendCount);
+	return DrawLodMeshFaceDX(frame, actor, lightLocationActor, mesh, mesh->Faces, ObjectToWorld, ObjectNormalToWorld, mesh->SpecialVerts, vertexOffsets, t0, t1, pass, blends, blendCount);
 }
 
-bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, ULodMesh* mesh, const Array<MeshFace>& faces, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, int baseVertexOffset, const int* vertexOffsets, float t0, float t1, bool translucentPass, BlendInfo* blends, int blendCount)
+bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, ULodMesh* mesh, const Array<MeshFace>& faces, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, int baseVertexOffset, const int* vertexOffsets, float t0, float t1, MeshPass pass, BlendInfo* blends, int blendCount)
 {
 	auto lightsys = &engine->Level->Light;
 	float fatness = actor->Fatness() / 16.0f - 8.0f;
@@ -747,12 +753,12 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 		renderflags |= tex->PolyFlags() & PF_Masked;
 
 		bool isTranslucent = (renderflags & (PF_Translucent | PF_Modulated | PF_Highlighted)) != 0;
-		if (isTranslucent && !translucentPass)
+		if (isTranslucent && pass == MeshPass::Opaque)
 		{
 			needTranslucentPass = true;
 			continue;
 		}
-		else if (!isTranslucent && translucentPass)
+		else if (!isTranslucent && pass == MeshPass::Translucent)
 		{
 			// We already drew the opaque surface
 			continue;

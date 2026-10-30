@@ -743,14 +743,19 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   sort's own: where two of them overlap at one depth, which shows can
   differ (the gaps between the Liberty Island pier's planks, a few hundred
   pixels of `MeshConsole`'s frame; bugs.md REN.14).
-- **A mesh's translucent faces** are drawn after all its opaque ones. The
-  original draws them in face order among them, so one drawn before an
-  opaque face behind it is lost where that face writes over it. Of the 61
-  meshes with translucent faces on 13 maps counted, only `GM_Jumpsuit`,
-  `GM_Suit`, `GFM_TShirtPants` (and their carcasses') and `ComputerPublic`
-  have opaque faces after them; `FaceConsole`'s close-ups of a UNATCO troop,
-  an MIB and Anna Navarre, face on, come out the same in either order, the
-  MIB's lenses within 0.5% of `D3DDrv`'s (REN.15).
+- **A mesh's translucent faces** are drawn after its opaque ones, back to
+  front with the scene's translucent parts, where the original draws a
+  mesh's faces in their order as its walk meets the mesh: by choice, the
+  same picture, but for a mesh with an opaque face after a translucent
+  one, whose translucent face the original loses where the later face
+  behind it writes over it. Of the 61 meshes with translucent faces on 13
+  maps counted, `GM_Jumpsuit`, `GM_Suit`, `GFM_TShirtPants` (and their
+  carcasses') and `ComputerPublic` alone have one; they are drawn whole in
+  face order, with the solid actors, so a translucent surface behind one is
+  drawn after its translucent faces (bugs.md D.27). `FaceConsole`'s UNATCO
+  troop face on and turned 60 degrees, an MIB face on and Anna Navarre from
+  40 units above come out the same either way, as `D3DDrv`'s, the MIB's
+  lenses 0.176 of white in both engines.
 - **Movers** are drawn as their brushes, through their own matrix, a step
   toward the viewer ([rendering](ENGINE.md#rendering)): their opaque
   polygons with the solid actors, their translucent ones among the

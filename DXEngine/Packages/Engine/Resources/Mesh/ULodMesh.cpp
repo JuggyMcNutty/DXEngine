@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "ULodMesh.h"
+#include "Packages/Engine/Resources/Level/UModel.h"
 
 void ULodMesh::Load(ObjectStream* stream)
 {
@@ -100,6 +101,11 @@ void ULodMesh::Load(ObjectStream* stream)
 	{
 		n = normalize(n);
 	}
+
+	Array<uint32_t> faceFlags;
+	for (const MeshFace& face : Faces)
+		faceFlags.push_back(face.MaterialIndex < Materials.size() ? Materials[face.MaterialIndex].PolyFlags : PF_Invisible);
+	FindFaceOrder(faceFlags);
 }
 
 void ULodMesh::Save(PackageStreamWriter* stream)
