@@ -112,10 +112,27 @@ each field of a struct (`ReturnConsole` with `Items`: two canisters'
 `AddAugs`, the inventory grid's `invSlots`, the augmentation slots'
 `AugLocs`, a vector and a rotator flag). A map
 opened at a portal (`open <map>#<portal>`) starts the player at the
-teleporter of that tag (`PortalConsole`). Differs: a level returned to from
-`Current` keeps the map's name in its URL, where the original's names the
-saved file (`..\Save\Current\<map>.dxs`), as `Level.GetLocalURL` shows
-(`ReturnConsole`; bugs.md PKG.10). The saved level is found whatever case the URL spells
+teleporter of that tag (`PortalConsole`). A level's URL, which
+`Level.GetLocalURL` gives, is the one it was entered by, as the original's
+`LoadMap` sets it: a level returned to from `Current` names the saved file,
+`..\Save\Current\<map>.dxs` with the travel's options, as the original's
+browse loads it; a load -- an option starting `load`, `?loadonly` or
+`?loadgame` -- leaves the URL the level holds, a map file's `Index.dx` (every
+stock map's), so a restarted level's is `Index.dx`, or a save's, the URL its
+level was entered by, which a save keeps. A travel builds on the last URL,
+the one the level was entered by, less its `?loadonly` and its portal, as
+the original's game engine takes them off: a map exit's takes its server,
+map and options, the player's name and class among them, a console's `open`
+its options; an absolute travel, the console's `start`, takes the player's
+options it lacks -- `Name`, `Team`, `Class`, `Skin`, `Face`, `Voice`,
+`OverrideClass` --, after its own, logging each (`URL: Adding default
+option`), so a hosted game keeps the player's name (`ServeConsole` with a
+name in the user ini: the host logs in by it in both engines). Nothing else
+is added: the travel after a restart has no option, and none has the game's
+`?Difficulty` (`URLConsole`: the same six URLs in both engines, from the
+menu map through Liberty Island, UNATCO HQ, the island again from `Current`,
+its restart and UNATCO HQ again, and the same logins).
+The saved level is found whatever case the URL spells
 the map in, with or without its `.dx`, as the original's file system finds
 it: the stock exits spell `12_vandenberg_cmd` and `00_training`
 (`RevisitConsole`: the island opened again as `01_nyc_unatcoisland` has the
@@ -132,15 +149,11 @@ Deus Ex's `LevelInfo` passes over in standalone: no travel there. A
 again with `?loadonly` and no other option, carrying nothing: the player
 starts afresh, its login with no name, as the original's
 ([travel and saving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-game-engine-travel-and-saving)).
-Differs:
-
-- A map that is not there is found so before the pre-travel. By then the
-  original's browse has pruned the player's augmentations, skills and flag
-  base when the map is numbered within the mission, and the player plays on
-  without them; for any other it has emptied `Current` and loads the level
-  again from `Maps`, its progress and the message gone (bugs.md PKG.11).
-- After a restart `Level.GetLocalURL` names the map, where the original's
-  names `Index` (PKG.12).
+Differs: a map that is not there is found so before the pre-travel. By then
+the original's browse has pruned the player's augmentations, skills and flag
+base when the map is numbered within the mission, and the player plays on
+without them; for any other it has emptied `Current` and loads the level
+again from `Maps`, its progress and the message gone (bugs.md PKG.11).
 
 While a map loads or a level is saved the screen shows one frame, painted
 before the work, as the original's does
@@ -173,7 +186,11 @@ each engine finds the other's saved flags. Mission scripts come up as the
 original's: `MissionConsole` over all 83 maps finds every mission map's
 script running. `DX`, `DXOnly` and `Entry` are not mission maps, and
 `12_Vandenberg_Tunnels` (no `MissionScript` actor) and `99_Endgame4` (no
-`DeusExLevelInfo`) run none in the original either.
+`DeusExLevelInfo`) run none in the original either. Differs: the player's
+flag base is made after its login, in the level's package and named
+`FlagBase`, where the original's player makes its own as it is made, the
+player its outer and the name by the class's count,
+`JCDentonMale1.FlagBase1` (`ReturnConsole`; bugs.md EXT.16).
 
 ## Conversations
 
@@ -1662,7 +1679,11 @@ spawned one's or an export's: `NameConsole`, Lamp1, Lamp2 and Lamp3 spawned
 on Liberty Island named Lamp2, Lamp5 and Lamp6 in both), and
 the collection deletes such a name once nothing holds it (an object's own
 name, its properties', a class's defaults, a state frame's locals), its slot
-taken by the next name made. Differs by choice: every other name -- from a package, an
+taken by the next name made. Differs: a level's game, which the engine
+spawns, is named `<class>0`, `DeusExGameInfo0`, where the original's is
+named by the class's count as any spawned actor's, `DeusExGameInfo2` on
+Liberty Island opened from the menu map (`ReturnConsole`, `SaveConsole`;
+bugs.md ENG.14). Differs by choice: every other name -- from a package, an
 ini, the script or C++, or a spawned actor's looked up by its spelling -- is
 kept for the session, where the original's deletes any name nothing reaches
 but the hard-coded ones (`ChurnConsole`'s memory: the table above).
@@ -2154,6 +2175,11 @@ settles it; bugs.md NET.6). The server-only stubs are under
   DXEngine's players show as such (`Engine::SetMultiplayerName`). A name the
   player chose is kept; single player, the menus and the inis keep the
   game's.
+- **The Entry level** is loaded with the player's options from the ini, its
+  game's `InitGame` given `?Name=Player?Class=DeusEx.JCDentonMale`, where the
+  original's loads `entry.dx` with none; and a return to it (a lost server,
+  `?failed`, `?entry`) logs the player in with Entry's URL, where the
+  original's logs in with the browse's own (bugs.md PKG.13).
 
 As in the original:
 

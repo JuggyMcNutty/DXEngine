@@ -809,58 +809,87 @@ void Engine::ClientTravel(const std::string& newURL, ETravelType travelType, boo
 {
 	UnrealURL url(newURL);
 
-	// If the URL doesn't contain the player info, add them here.
-	// As they have to persist somehow. Only the keys the ini has, as the
-	// original's default URL takes them (FURL::LoadURLConfig): a login's
-	// URL carries no empty team= or skin= the player never set. The seven
-	// keys the URL has are written to the ini, as the original's LoadMap
-	// saves them (SaveURLConfig).
+	// The seven keys the URL has are written to the ini, as the original's
+	// LoadMap saves them (SaveURLConfig).
 	const char* playerKeys[] = { "Name", "Class", "team", "skin", "Face", "Voice", "OverrideClass" };
 	for (const char* optionKey : playerKeys)
 	{
 		if (url.HasOption(optionKey))
 			engine->packages->SetIniValue("User", "DefaultPlayer", optionKey, url.GetOption(optionKey));
 	}
-	for (const std::string& optionKey : DefaultPlayerOptionKeys())
-	{
-		std::string value;
-		if (!url.HasOption(optionKey) && packages->FindIniValue("user", "DefaultPlayer", optionKey, value))
-			url.AddOrReplaceOption(optionKey + "=" + value);
-	}
 
-	if (travelType == ETravelType::TRAVEL_Absolute)
-		ClientTravelInfo.URL = url;
-	else if (travelType == ETravelType::TRAVEL_Partial)
+	// The last URL loses its ?loadonly and its portal first, as the
+	// original's game engine takes them off it before a travel
+	// (UGameEngine::Tick, Engine.dll 0x1038fe90): a travel from a restarted
+	// level, entered by MapName?loadonly, carries no ?loadonly on.
+	for (size_t i = LastURL.Options.size(); i > 0; i--)
 	{
-		// Built on the last URL's options (the player's name among them),
-		// kept where the new one gives none, and on none of its server, map
-		// or portal: the original's FURL(Base, URL, TRAVEL_Partial) (Engine.dll
-		// 0x103f7b60) copies the base's options but PUSH, POP, PEER and LOAD,
-		// "carry name, reset server" (Engine.u), so a net client's 'open <map>'
-		// leaves the server for the local map
-		UnrealURL base;
+		if (StrTools::equals_ignore_case(LastURL.Options[i - 1], "loadonly"))
+			LastURL.Options.erase(LastURL.Options.begin() + (i - 1));
+	}
+	LastURL.Portal.clear();
+
+	// The last URL's options but PUSH, POP, PEER and LOAD, as the original's
+	// FURL(Base, URL, TRAVEL_Partial or TRAVEL_Relative) (Engine.dll
+	// 0x103f7b60) copies them, the new URL's over them.
+	auto carried = [&]()
+	{
+		Array<std::string> options;
 		for (const std::string& option : LastURL.Options)
 		{
 			if (!StrTools::equals_ignore_case(option, "push") && !StrTools::equals_ignore_case(option, "pop") &&
 				!StrTools::equals_ignore_case(option, "peer") && !StrTools::equals_ignore_case(option, "load"))
-				base.Options.push_back(option);
+				options.push_back(option);
 		}
+		return options;
+	};
+
+	if (travelType == ETravelType::TRAVEL_Absolute)
+	{
+		// With the last URL's player options it lacks or has empty, after
+		// its own, as the original's FURL(Base, URL, TRAVEL_Absolute) adds
+		// them to a URL of the game's protocol and logs each: a hosted
+		// game's start keeps the player's name and class.
+		ClientTravelInfo.URL = url;
+		if (url.Protocol == UnrealURL().Protocol)
+		{
+			const std::string playerOptions[] = { "Name", "Team", "Class", "Skin", "Face", "Voice", "OverrideClass" };
+			for (const std::string& option : LastURL.Options)
+			{
+				for (const std::string& name : playerOptions)
+				{
+					if (option.size() > name.size() && option[name.size()] == '=' && StrTools::equals_ignore_case(option.substr(0, name.size()), name))
+					{
+						if (ClientTravelInfo.URL.GetOption(name).empty())
+						{
+							LogMessage("URL: Adding default option " + option);
+							ClientTravelInfo.URL.Options.push_back(option);
+						}
+						break;
+					}
+				}
+			}
+		}
+	}
+	else if (travelType == ETravelType::TRAVEL_Partial)
+	{
+		// On the last URL's options (the player's name among them) alone,
+		// none of its server, map or portal: "carry name, reset server"
+		// (Engine.u), so a net client's 'open <map>' leaves the server for
+		// the local map
+		UnrealURL base;
+		base.Options = carried();
 		ClientTravelInfo.URL = UnrealURL(base, url.ToString());
 	}
 	else if (travelType == ETravelType::TRAVEL_Relative)
 	{
-		// A net client's is relative to its server, whose address its
-		// level's URL holds (the original's is relative to its last URL): a
-		// server travelling sends its clients its next map this way.
-		UnrealURL base = ClientTravelInfo.URL;
-		if (base.Host.empty() && LevelInfo && LevelInfo->NetMode() == NM_Client)
-			base = LevelInfo->URL;
+		// On the last URL whole, its server, map and options -- a net
+		// client's is its server's, so a server travelling sends its clients
+		// its next map this way --, and no option added: DXEngine added the
+		// game's ?Difficulty, which the original's never has.
+		UnrealURL base = LastURL;
+		base.Options = carried();
 		ClientTravelInfo.URL = UnrealURL(base, url);
-		// Add difficulty if it isn't there
-		if (ClientTravelInfo.URL.GetOption("Difficulty").empty() && GameInfo)
-		{
-			ClientTravelInfo.URL.AddOrReplaceOption("Difficulty=" + std::to_string(GameInfo->Difficulty()));
-		}
 	}
 
 	ClientTravelInfo.TravelType = travelType;
@@ -957,7 +986,7 @@ void Engine::ReturnToEntry(bool failed)
 	GameInfo = EntryGameInfo;
 	DeusExLevelInfo = EntryDeusExLevelInfo;
 	LevelInfo->LevelAction() = LEVACT_None;
-	LoginPlayer();
+	LoginPlayer(LevelInfo->URL);
 	if (failed && !PendingLevel)
 		SetProgress(LocalizeMessage("Engine", "Errors", "ConnectionFailed", "Connection failed"), "", 6.0f);
 }
@@ -1041,6 +1070,19 @@ void Engine::PaintLoading(bool connecting)
 	LevelInfo->LevelAction() = LEVACT_None;
 }
 
+// An option starting "load", whatever follows -- ?load, ?load=9, ?loadonly,
+// ?loadgame=3 --, as the original's LoadMap asks GetOption("load"), which
+// matches the option's start.
+static bool HasLoadOption(const UnrealURL& url)
+{
+	for (const std::string& option : url.Options)
+	{
+		if (option.size() >= 4 && StrTools::equals_ignore_case(option.substr(0, 4), "load"))
+			return true;
+	}
+	return false;
+}
+
 void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::string>& travelInfo, bool asClient)
 {
 	ClientTravelInfo.URL.Clear();
@@ -1092,6 +1134,28 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 	}
 	LevelPackage->SetIsLevel();
 
+	// A level from Current is entered by its file, as the original's Browse
+	// loads it (DeusEx.dll 0x10010b90, FURL(URL, file, TRAVEL_Relative)):
+	// the map the save path's Current\<map>.<save extension>, the map named
+	// cut at its first .dx -- ..\Save\Current\01_NYC_UNATCOIsland.dxs --,
+	// with the URL's options but PUSH, POP, PEER and LOAD, and its portal.
+	UnrealURL enteredURL = url;
+	if (loadedFromCurrent)
+	{
+		std::string map = url.Map;
+		size_t dx = map.find(".dx");
+		if (dx != std::string::npos)
+			map.resize(dx);
+		enteredURL.Map = packages->GetIniValue("System", "Core.System", "SavePath") + "\\Current\\" + map + "." + packages->GetSaveExtension();
+		enteredURL.Options.clear();
+		for (const std::string& option : url.Options)
+		{
+			if (!StrTools::equals_ignore_case(option, "push") && !StrTools::equals_ignore_case(option, "pop") &&
+				!StrTools::equals_ignore_case(option, "peer") && !StrTools::equals_ignore_case(option, "load"))
+				enteredURL.Options.push_back(option);
+		}
+	}
+
 	GetLevelInfoObject();
 
 	LevelInfo->ComputerName() = ComputerName();
@@ -1101,10 +1165,16 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 	LevelInfo->NetMode() = asClient ? NM_Client : LaunchInfo.dedicatedServer ? NM_DedicatedServer : url.HasOption("listen") ? NM_ListenServer : NM_Standalone;
 	LevelInfo->DefaultTexture() = engine->DefaultTexture;
 
-	LevelInfo->URL = url;
-	LastURL = url;
-
 	GetLevelObject();
+
+	// The level's URL is the one it was entered by, as the original's
+	// LoadMap sets it (Engine.dll 0x1038c1f0), but for a load -- an option
+	// starting "load", ?loadonly, ?loadgame or ?load=, as its GetOption
+	// matches -- whose level keeps the URL it holds: a map file's Index.dx,
+	// so a restarted level's reads Index.dx, or a save's. The last URL is
+	// the one entered by, which the game and the player log in with.
+	LevelInfo->URL = HasLoadOption(enteredURL) ? LevelHeldURL() : enteredURL;
+	LastURL = enteredURL;
 
 	Level->TravelInfo = travelInfo; // Initially used travel info for level restart
 
@@ -1166,7 +1236,7 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 	if (!GameInfo)
 	{
 		// Find the game info class
-		UClass* gameInfoClass = packages->FindClass(LevelInfo->URL.GetOption("game"));
+		UClass* gameInfoClass = packages->FindClass(LastURL.GetOption("game"));
 		if (!gameInfoClass)
 			gameInfoClass = LevelInfo->DefaultGameType();
 		if (!gameInfoClass)
@@ -1371,16 +1441,14 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 	LevelInfo->NetMode() = 0; // NM_StandAlone
 	LevelInfo->DefaultTexture() = engine->DefaultTexture;
 
-	// LevelInfo->URL is not serialized, so it is
-	// never restored by loading the save package and must be rebuilt
-	std::string realMapName = !deusExMapName.empty() ? deusExMapName
-		: packages->GetIniValue("user", "SaveGame", "MapName" + std::to_string(slotNum));
-	if (realMapName.empty())
-		realMapName = LevelPackage->GetPackageName().ToString();
-	LevelInfo->URL = UnrealURL(realMapName);
-	LastURL = LevelInfo->URL;
-
 	GetLevelObject();
+
+	// The level's URL the one the save holds, the URL its level was
+	// entered by, as the original's load keeps it (its ?load?loadonly?loadgame
+	// sets none) and its Browse makes it the last URL (DeusEx.dll
+	// 0x10010b90): the next travel goes on from it.
+	LevelInfo->URL = LevelHeldURL();
+	LastURL = LevelInfo->URL;
 
 	LinkActorsToLevel();
 	// Filed as a map's load files them, with a client only
@@ -1397,7 +1465,7 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 	CallPostPostBeginPlay();
 	Level->SortActors();
 
-	RequestGarbageCollection("saved level " + realMapName, true);
+	RequestGarbageCollection("saved level " + LevelPackage->GetPackageName().ToString(), true);
 	return true;
 }
 
@@ -1812,24 +1880,34 @@ void Engine::SaveCurrentLevel(int32_t slot)
 	LevelInfo->LevelAction() = LEVACT_None;
 }
 
-// The level's own URL as the original's is when saved: the one it was
-// entered by -- the map named as travelled to, its options and port --, where
-// DXEngine's kept what the map file had (Index.dx).
+// The level's own URL as the original's is when saved (ULevel::Serialize):
+// the one it was entered by, or for a level loaded the one it held.
 void Engine::SetLevelURLForSave() const
 {
 	if (!Level || !LevelInfo)
 		return;
 	const UnrealURL& url = LevelInfo->URL;
-	Level->Protocol = packages->GetIniValue("system", "URL", "Protocol", url.Protocol);
+	Level->Protocol = url.Protocol;
 	Level->Host = url.Host;
 	Level->Map = url.Map;
-	std::string ext = "." + packages->GetMapExtension();
-	if (Level->Map.size() > ext.size() && StrTools::equals_ignore_case(Level->Map.substr(Level->Map.size() - ext.size()), ext))
-		Level->Map.resize(Level->Map.size() - ext.size());
 	Level->Portal = url.Portal;
 	Level->Options = url.Options;
 	Level->Port = url.Port;
 	Level->Unknown = 1;
+}
+
+// The URL the level holds, as its file has it: a map's the editor's,
+// Index.dx, a save's the one its level was entered by.
+UnrealURL Engine::LevelHeldURL() const
+{
+	UnrealURL url;
+	url.Protocol = Level->Protocol;
+	url.Host = Level->Host;
+	url.Map = Level->Map;
+	url.Portal = Level->Portal;
+	url.Options = Level->Options;
+	url.Port = Level->Port;
+	return url;
 }
 
 std::map<std::string, std::string> Engine::CreateTravelInfo(bool transferItems)
@@ -1850,9 +1928,12 @@ std::map<std::string, std::string> Engine::CreateTravelInfo(bool transferItems)
 	return travelInfo;
 }
 
+// With the URL the level was entered by, as the original's LoadMap logs
+// the player in with its own: a restarted level's ?loadonly, which its
+// level's URL, the map file's, has not.
 void Engine::LoginPlayer()
 {
-	LoginPlayer(LevelInfo->URL);
+	LoginPlayer(LastURL);
 }
 
 // A net game's login: in Deus Ex a name the player never chose -- none, or

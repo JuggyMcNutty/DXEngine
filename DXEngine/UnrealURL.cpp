@@ -33,12 +33,20 @@ static int DefaultPort()
 	return engine && engine->packages ? std::atoi(engine->packages->GetIniValue("system", "URL", "Port", "7777").c_str()) : 7777;
 }
 
-UnrealURL::UnrealURL() : Port(DefaultPort())
+// The game's [URL] Protocol, deusex, the same way: the one a map file's
+// level holds, which its URL writes without.
+static std::string DefaultProtocol()
+{
+	return engine && engine->packages ? engine->packages->GetIniValue("system", "URL", "Protocol", "unreal") : std::string("unreal");
+}
+
+UnrealURL::UnrealURL() : Protocol(DefaultProtocol()), Port(DefaultPort())
 {
 }
 
 UnrealURL::UnrealURL(std::string urlString)
 {
+	Protocol = DefaultProtocol();
 	Port = DefaultPort();
 
 	// Deus Ex's URL: mapname[#teleporttag][?key1=value1[?key2=value2]...],
@@ -250,13 +258,13 @@ std::string UnrealURL::GetPortal() const
 }
 
 // As the original's FURL::String writes it (dx-reverse-info/network.md,
-// addresses): the host when it or the port is not the default, the port
-// only when it is not, '#' before a portal.
+// addresses): the protocol when it is not the default, the host when it or
+// the port is not, the port only when it is not, '#' before a portal.
 std::string UnrealURL::ToString() const
 {
 	std::string result;
 
-	if (Protocol != "unreal")
+	if (Protocol != DefaultProtocol())
 	{
 		result += Protocol;
 		result += ":";
