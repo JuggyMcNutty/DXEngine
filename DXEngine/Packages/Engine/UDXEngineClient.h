@@ -16,6 +16,11 @@ public:
 	int FullscreenViewportY = 0;
 	int FullscreenColorBits = 32;
 	float Brightness = 0.5f;
+	// The brightness the frame takes, the live client's of the original:
+	// the ini's as read, a SET's as set, then held to 0 to 1 by any SET of
+	// the client (PostEditChange); Brightness is the class default, which
+	// GET answers and the ini keeps
+	float BrightnessInUse = 0.5f;
 	bool UseJoystick = false;
 	bool UseDirectInput = true;
 	int MinDesiredFrameRate = 200;
@@ -35,6 +40,7 @@ public:
 
 	std::string GetPropertyAsString(const NameString& propertyName) const override;
 	void SetPropertyFromString(const NameString& propertyName, const std::string& value) override;
+	void PostEditChange() override;
 
 private:
 	void UpdateDetailLevels();

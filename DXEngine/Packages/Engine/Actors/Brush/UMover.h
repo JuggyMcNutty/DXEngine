@@ -12,6 +12,8 @@ class UMover : public UBrush
 public:
 	using UBrush::UBrush;
 
+	void PostEditChange() override;
+
 	vec3& BasePos() { return Value<vec3>(PropOffsets_Mover.BasePos); }
 	Rotator& BaseRot() { return Value<Rotator>(PropOffsets_Mover.BaseRot); }
 	uint8_t& BrushRaytraceKey() { return Value<uint8_t>(PropOffsets_Mover.BrushRaytraceKey); }

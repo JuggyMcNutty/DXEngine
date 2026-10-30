@@ -2764,14 +2764,16 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		else if (IsClassNamed(className, client->Class))
 		{
 			client->SetPropertyFromString(propertyName, value);
+			client->PostEditChange();
 		}
 		else
 		{
 			try
 			{
 				// As the original's GlobalSetProperty: every object of the
-				// class or a subclass takes the value, then the class's
-				// defaults, and the class's config is saved.
+				// class or a subclass takes the value, each then told of it
+				// (PostEditChange), then the class's defaults, and the
+				// class's config is saved.
 				cls->GetMemberProperty(propertyName);
 				for (GCObject* gcObj : GC::GetObjects())
 				{
@@ -2783,6 +2785,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 						if (objClass == cls)
 						{
 							obj->SetPropertyFromString(propertyName, value);
+							obj->PostEditChange();
 							break;
 						}
 					}

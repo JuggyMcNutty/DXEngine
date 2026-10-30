@@ -688,7 +688,10 @@ Matches the original's picture
 [the light maps' brightness](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-light-maps-brightness),
 [textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#textures)):
 the Brightness slider raises the picture to 1 / (2.5 × Brightness), as
-`D3DDrv` sets its ramp, and `Settings.json`'s other gamma mode (XOpenGL's
+`D3DDrv` sets its ramp: the ini's value as read, a `SET`'s as set, then
+held to 0 to 1 by any `SET` of the client, as the original's client is
+(`UClient::PostEditChange`), `GET` and the ini keeping the value set
+(`ChangeConsole`: `Brightness` set to 5, `GET` 5, in both engines); and `Settings.json`'s other gamma mode (XOpenGL's
 curve) takes the same product, its `Contrast`, `Saturation` and gamma
 offsets leaving the picture so at their defaults
 ([the keys](ENGINE.md#settings-and-environment)). The shaders take nothing
@@ -2041,8 +2044,12 @@ A mod gets the original's loader and natives:
   and its config read again into the class, its subclasses and their
   objects
   ([configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration)),
-  which the original then tells of it (`PostEditChange`) and DXEngine does
-  not (bugs.md ENG.12); `DeusExPlayer.SetBoolFlagFromString`
+  each object then told of it (`PostEditChange`), as each of a `SET`'s is:
+  a mover put at its base and key the editor's way, which in play moves it
+  (`ChangeConsole`: a `SET` of `DeusExMover` sends Liberty Island's
+  `DeusExMover16`, at rest at its second key, to −112, 0, 0 in both
+  engines), a client's brightness held ([brightness](#brightness));
+  `DeusExPlayer.SetBoolFlagFromString`
   ([the player](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-player));
   `ExtString`'s text in parts
   ([small](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#small));

@@ -1079,8 +1079,8 @@ static bool IsClassOrSubclass(UStruct* cls, UClass* of)
 // live ini from Default.ini or DefUser.ini, the keys the default file lacks
 // keeping their values, and the config read again into the class's
 // defaults and every subclass's and into every object of them. A class of
-// any other config is left alone. The original then tells each object
-// (PostEditChange); DXEngine tells none.
+// any other config is left alone. Each object is then told of it
+// (PostEditChange).
 void NObject::ResetConfig(UObject* Self)
 {
 	UClass* cls = UObject::TryCast<UClass>(Self);
@@ -1107,6 +1107,7 @@ void NObject::ResetConfig(UObject* Self)
 		else if (IsClassOrSubclass(obj->Class, cls))
 		{
 			LoadConfigPropagated(obj->Class, &obj->PropertyData);
+			obj->PostEditChange();
 		}
 	}
 }

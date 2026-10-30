@@ -64,7 +64,7 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 		flashFog = vec3(clamp(fog.x, 0.0f, 1.0f), clamp(fog.y, 0.0f, 1.0f), clamp(fog.z, 0.0f, 1.0f));
 	}
 
-	Device->Brightness = engine->client->Brightness;
+	Device->Brightness = engine->client->BrightnessInUse;
 	Device->Lock(vec4(flashScale, 0.0f), vec4(flashFog, 0.0f), vec4(0.0f));
 	FrameInProgress = true;
 	// Every frame, the world drawn or not: a texture the windows or the

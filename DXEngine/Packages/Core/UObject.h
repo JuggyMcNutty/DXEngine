@@ -303,6 +303,11 @@ public:
 
 	virtual void SaveConfig();
 
+	// Told its properties changed under it -- a SET of its class, its
+	// class's ResetConfig -- as the original's UObject::PostEditChange is,
+	// which a few classes override: a mover's, a client's
+	virtual void PostEditChange() {}
+
 	uint8_t GetByte(const NameString& name) const;
 	uint32_t GetInt(const NameString& name) const;
 	bool GetBool(const NameString& name) const;

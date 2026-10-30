@@ -21,6 +21,7 @@ void UDXEngineClient::LoadProperties(const NameString& from)
 	FullscreenViewportY = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "FullscreenViewportY", FullscreenViewportY);
 	FullscreenColorBits = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "FullscreenColorBits", FullscreenColorBits);
 	Brightness = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "Brightness", Brightness);
+	BrightnessInUse = Brightness;
 	UseJoystick = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "UseJoystick", UseJoystick);
 	UseDirectInput = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "UseDirectInput", UseDirectInput);
 	MinDesiredFrameRate = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "MinDesiredFrameRate", MinDesiredFrameRate);
@@ -109,6 +110,14 @@ std::string UDXEngineClient::GetPropertyAsString(const NameString& propertyName)
 	return {};
 }
 
+// The original's UClient::PostEditChange (Engine.dll 0x10374ef0), after a
+// SET of it: the live client's brightness held to 0 to 1 (and its
+// MipFactor, which DXEngine has not, to -3 to 3), the class default not
+void UDXEngineClient::PostEditChange()
+{
+	BrightnessInUse = clamp(BrightnessInUse, 0.0f, 1.0f);
+}
+
 void UDXEngineClient::SetPropertyFromString(const NameString& propertyName, const std::string& value)
 {
 	if (propertyName == "WindowedViewportX")
@@ -126,7 +135,7 @@ void UDXEngineClient::SetPropertyFromString(const NameString& propertyName, cons
 	else if (propertyName == "FullscreenColorBits")
 		FullscreenColorBits = IniPropertyConverter<int>::FromString(value);
 	else if (propertyName == "Brightness")
-		Brightness = IniPropertyConverter<float>::FromString(value);
+		BrightnessInUse = Brightness = IniPropertyConverter<float>::FromString(value);
 	else if (propertyName == "UseJoystick")
 		UseJoystick = IniPropertyConverter<bool>::FromString(value);
 	else if (propertyName == "UseDirectInput")

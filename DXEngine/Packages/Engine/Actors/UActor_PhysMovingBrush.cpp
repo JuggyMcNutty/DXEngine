@@ -10,6 +10,40 @@
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Engine.h"
 
+// The original's AMover::PostEditChange (Engine.dll 0x103afbd0), the
+// editor's but run in play too: its key held to 7, its base made again from
+// where it is and where its last move started, it put at that base and its
+// key's place, no move made; then PostEditMove (0x103af920): from key 1 on,
+// that key's place and turn made again from where it stands, and it put at
+// its base and that place. So a mover at rest at a key past its first, its
+// move started from the first, goes on by that key's place.
+void UMover::PostEditChange()
+{
+	if (KeyNum() > 7)
+		KeyNum() = 7;
+	BasePos() = Location() - OldPos();
+	BaseRot() = Rotation() - OldRot();
+	OldPos() = KeyPos()[KeyNum()];
+	OldRot() = KeyRot()[KeyNum()];
+	Location() = OldPos() + BasePos();
+	Rotation() = OldRot() + BaseRot();
+
+	int key = KeyNum();
+	if (key != 0)
+	{
+		KeyPos()[key] = Location() - (KeyPos()[0] + BasePos());
+		KeyRot()[key] = Rotation() - (BaseRot() + KeyRot()[0]);
+		OldPos() = KeyPos()[key];
+		OldRot() = KeyRot()[key];
+	}
+	else
+	{
+		BasePos() = Location() - OldPos();
+		BaseRot() = Rotation() - OldRot();
+	}
+	Location() = BasePos() + KeyPos()[key];
+}
+
 void UActor::TickMovingBrush(float elapsed)
 {
 	OldLocation() = Location();
