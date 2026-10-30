@@ -192,11 +192,13 @@ each engine finds the other's saved flags. Mission scripts come up as the
 original's: `MissionConsole` over all 83 maps finds every mission map's
 script running. `DX`, `DXOnly` and `Entry` are not mission maps, and
 `12_Vandenberg_Tunnels` (no `MissionScript` actor) and `99_Endgame4` (no
-`DeusExLevelInfo`) run none in the original either. Differs: the player's
-flag base is made after its login, in the level's package and named
-`FlagBase`, where the original's player makes its own as it is made, the
-player its outer and the name by the class's count,
-`JCDentonMale1.FlagBase1` (`ReturnConsole`; bugs.md EXT.16).
+`DeusExLevelInfo`) run none in the original either. The player's flag base
+is its own, made as the pawn is made, as the original's constructor makes
+it: the pawn its outer, its name the class's count, at a spawn and at a load
+alike, a load's saved base then taking its place, and a travel that brings
+the player's flags making another (`ReturnConsole`: `JCDentonMale1.FlagBase1`,
+`JCDentonMale2.FlagBase2` and `JCDentonMale1.FlagBase3`, with `Items`
+`FlagBase2`, `4` and `6`, in both engines).
 
 ## Conversations
 
@@ -1557,7 +1559,10 @@ Every other native the scripted runs compare matches the original
   `Package.Name` or from a bare name among the loaded objects of its class;
   a class is held to its metaclass (an Actor class from `Engine.Texture` is
   None). A bool takes `1`, `True`, `0` and `False` alone, an int the number
-  its text starts with.
+  its text starts with. Differs: a float's six decimals round a tie to even,
+  where the original's C library rounds it up: 813.1953125 is `813.195312`,
+  the original's `813.195313` (`LoadConsole`'s player's place; bugs.md
+  VM.10).
 - **A `GotoState` from within `EndState` or `BeginState`**
   (`PreemptConsole`): preempts the one under way, as the original's
   `RF_InEndState` and `RF_StateChanged` have it: the actor stays where the

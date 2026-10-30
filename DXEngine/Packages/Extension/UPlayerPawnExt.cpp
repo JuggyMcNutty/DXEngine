@@ -7,6 +7,26 @@
 #include "Package/PackageManager.h"
 #include "Packages/Extension/Windows/TabGroup/URootWindow.h"
 #include "Render/RenderSubsystem.h"
+#include "Packages/Extension/Flags/UFlagBase.h"
+#include "Packages/Core/UClass.h"
+
+// The original's constructor (APlayerPawnExt, Extension.dll 0x10037ba0): a
+// flag base of the pawn's own when it holds none, the pawn its outer and its
+// name the class's count, at a spawn and at a load alike. A load's saved base
+// then takes its place, so a pawn saved with none, pruned into Current, keeps
+// this one; a travel makes another for the flags it brings.
+void UPlayerPawnExt::InitNativeDefaults()
+{
+	if (FlagBase())
+		return;
+	UClass* cls = engine->packages->FindClass("Extension.FlagBase");
+	if (!cls)
+		return;
+	cls->LoadNow();
+	auto flagBase = UObject::Cast<UFlagBase>(package->NewObject(package->MakeUniqueObjectName(cls), cls, ObjectFlags::NoFlags));
+	flagBase->Outer() = this;
+	FlagBase() = flagBase;
+}
 
 void UPlayerPawnExt::InitRootWindow()
 {

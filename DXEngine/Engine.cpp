@@ -1499,18 +1499,6 @@ static void ClearIgnoreNextShowMenu(UObject* player)
 	}
 }
 
-void Engine::EnsureFlagBase(UPlayerPawn* pawn)
-{
-	if (auto pawnExt = UObject::TryCast<UPlayerPawnExt>(pawn))
-	{
-		if (!pawnExt->FlagBase())
-		{
-			auto flagBaseCls = packages->FindClass("Extension.FlagBase");
-			pawnExt->FlagBase() = UObject::Cast<UFlagBase>(pawn->package->NewObject("FlagBase", flagBaseCls, ObjectFlags::NoFlags));
-		}
-	}
-}
-
 void Engine::SaveGameToSlot(int32_t slotNum, const std::string& saveDescription)
 {
 	// First and foremost ensure the Save folder exists
@@ -2017,10 +2005,6 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 
 	pawn->LoadProperties();
 
-	// In the level package, so a save keeps the base and its flags. A
-	// travelled or loaded pawn brings its own.
-	EnsureFlagBase(pawn);
-
 	// Assign the pawn to the viewport
 	viewport->Actor() = pawn;
 	viewport->Actor()->Player() = viewport;
@@ -2253,7 +2237,6 @@ void Engine::HandleClientPlayer(NetConnection* connection, UPlayerPawn* pawn)
 	pawn->ShowFlags() = 0x480c;
 	pawn->RendMap() = 5;
 	pawn->LoadProperties();
-	EnsureFlagBase(pawn);
 
 	viewport->Actor() = pawn;
 	pawn->Player() = viewport;
@@ -2406,7 +2389,6 @@ UPlayerPawn* Engine::SpawnPlayActor(UObject* player, uint8_t remoteRole, const U
 		LogMessage("Net: login failed: " + error);
 		return nullptr;
 	}
-	EnsureFlagBase(pawn);
 
 	// Possessed by its player, the server's own with its connection's roles.
 	if (UPlayer* p = UObject::Cast<UPlayer>(player))

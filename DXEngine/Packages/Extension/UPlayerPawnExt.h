@@ -17,6 +17,7 @@ class UPlayerPawnExt : public UPlayerPawn
 public:
 	using UPlayerPawn::UPlayerPawn;
 
+	void InitNativeDefaults() override;
 	void InitRootWindow();
 	void PreRenderWindows(UCanvas* canvas);
 	void PostRenderWindows(UCanvas* canvas);

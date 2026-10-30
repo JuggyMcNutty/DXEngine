@@ -128,7 +128,10 @@ void UObject::Load(ObjectStream* stream)
 
 	if (!UObject::TryCast<UClass>(this))
 	{
+		// The class's defaults, then the original's constructor, which runs
+		// at a load too, then what the save holds over them
 		PropertyData.Init(Class);
+		InitNativeDefaults();
 		PropertyData.Load(stream);
 		if (Class && !Class->Properties.empty())
 		{

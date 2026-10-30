@@ -402,7 +402,6 @@ private:
 	void LinkActorsToLevel();
 	void BeginPlay(const UnrealURL& url);
 	void CallPostPostBeginPlay();
-	void EnsureFlagBase(UPlayerPawn* pawn);
 
 	bool m_EditorMode = false; // Set this to true to allow rendering of invisible polys.
 	bool m_GamePaused = false;
