@@ -4,11 +4,13 @@
 #include "Utils/Exception.h"
 #include "Utils/Convert.h"
 #include "Packages/Core/UObject.h"
+#include <cstdlib>
 #include <sstream>
 
 // A value that does not read as its type (a hand-edited ini's) is the
-// default, as the original's import leaves a property as it was; it does
-// not stop the engine.
+// default, as the original's import leaves an int, a byte or a bool as it
+// was; it does not stop the engine. A float is read as the original's is.
+// An empty value is none (GetValue) but for a float.
 template<typename T>
 static T FromIniOrDefault(const IniFile& iniFile, const NameString& section, const NameString& keyName, const T& default_value)
 {
@@ -54,10 +56,17 @@ std::string IniPropertyConverter<float>::ToString(const float& value)
 	return std::to_string(value);
 }
 
+// A float as the original's import reads one (appAtof), the class config's
+// way (UFloatProperty::SetValueFromString): the number the text starts with,
+// 0 for an empty value or any other text, the default only for a key that
+// is not there.
 template<>
 float IniPropertyConverter<float>::FromIniFile(const IniFile& iniFile, const NameString& section, const NameString& keyName, const float& default_value)
 {
-	return FromIniOrDefault<float>(iniFile, section, keyName, default_value);
+	std::string value;
+	if (!iniFile.FindValue(section, keyName, value))
+		return default_value;
+	return (float)strtod(value.c_str(), nullptr);
 }
 
 //====================================================================
