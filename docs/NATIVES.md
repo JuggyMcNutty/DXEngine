@@ -1241,7 +1241,7 @@ runs, where the original's own runs are 79.7% alike. Differs:
   raised count's channels are voices of their own, where the original's are
   its music's
   ([settings](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#settings);
-  AUD.4).
+  bugs.md D.28).
 - A WAV's ping-pong loop plays forward, where Galaxy's plays back and forth;
   no stock sound has one (AUD.7).
 - The original's MP3 voice can play on, silent, past its sound:
