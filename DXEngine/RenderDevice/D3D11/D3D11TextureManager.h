@@ -16,7 +16,7 @@ public:
 	D3D11CachedTexture* GetTexture(TextureInfo* info, bool masked);
 
 	void ClearCache();
-	int GetTexturesInCache() { return (int)(TextureCache[0].size() + TextureCache[1].size()); }
+	int GetTexturesInCache() { return (int)TextureCache.size(); }
 
 	D3D11CachedTexture* GetNullTexture()
 	{
@@ -28,11 +28,12 @@ public:
 private:
 	D3D11CachedTexture* CreateNullTexture();
 
-	D3D11CachedTexture* GetFromCache(int masked, uint64_t cacheID);
+	D3D11CachedTexture* GetFromCache(uint64_t cacheID);
 
 	D3D11RenderDevice* renderer = nullptr;
-	std::unordered_map<uint64_t, std::unique_ptr<D3D11CachedTexture>> TextureCache[2];
+	// One copy a texture, as D3DDrv keeps (dx-reverse-info d3ddrv-dll.md, textures)
+	std::unordered_map<uint64_t, std::unique_ptr<D3D11CachedTexture>> TextureCache;
 	std::unique_ptr<D3D11CachedTexture> NullTexture;
 
-	std::pair<uint64_t, D3D11CachedTexture*> LastTextureResult[2];
+	std::pair<uint64_t, D3D11CachedTexture*> LastTextureResult;
 };

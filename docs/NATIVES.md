@@ -407,22 +407,23 @@ actor's style -- `STY_Masked` masked, `STY_Translucent` translucent,
 render iterator's items with their proxy's, so a `ParticleGenerator` with
 neither `bTranslucent` nor `bModulated` draws its particles masked. A
 modulated sprite draws as every modulated tile ([tiles](#tiles)).
-`SpriteConsole`'s icon, its colour 0 magenta, drawn `STY_Masked` and as
-such particles, shows none of that colour in either engine: 0.0% of the
-sprite's box and 0.7% of the particles' magenta in DXEngine's frame, none in
-`D3DDrv`'s (bugs.md REN.8), the sprite's box at a correlation of 0.998 to `D3DDrv`'s; drawn
-`STY_Modulated`, its box at 0.96 and within 1% of `D3DDrv`'s brightness.
-A sprite animated once (`DT_SpriteAnimOnce`) shows the frame its life has
-reached and holds the last, as the original's does (no run: the reading
-settles it; REN.21).
+A texture has one copy on every device, as `D3DDrv` keeps it
+([one copy a texture](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#textures)):
+the draw that first sets it makes the copy, its colour 0 cleared or not as
+that draw is masked or not, and every later draw takes it so until a
+realtime change makes it again. `SpriteConsole`'s icon, its colour 0
+magenta, drawn in each style beside its particles, which draw masked, shows
+none of that colour in either engine, the `STY_Normal` sprite's box black,
+the `STY_Translucent` one's adding nothing (at 1024x768 against `D3DDrv`:
+no magenta pixel in either, the sprites' band at 1.006 of the original's
+brightness, correlated at 0.998); drawn alone, `STY_Normal`, its box is
+magenta in both (32,351 and 32,471 pixels of it). Drawn `STY_Modulated`,
+its box is at 0.96 and within 1% of `D3DDrv`'s brightness. A sprite
+animated once (`DT_SpriteAnimOnce`) shows the frame its life has reached
+and holds the last, as the original's does (no run: the reading settles it;
+bugs.md REN.21).
 Differs:
 
-- **A texture drawn both masked and not** shows its colour 0 in the
-  original as the draw that first set it made its copy
-  ([one copy a texture](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#textures)),
-  in DXEngine as each draw is: beside the masked ones, `SpriteConsole`'s
-  `STY_Normal` sprite shows the icon's magenta in DXEngine, black in the
-  original; drawn alone, magenta in both (REN.9).
 - **The viewer's `Sprite`** (the Matrix cheat's) stands in for the textures
   of meshes and sprites alone, a sprite's at its own texture's size, as the
   original's `DrawActorSprite` draws it: the original's draws the level's

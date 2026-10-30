@@ -13,23 +13,23 @@ GLTextureManager::~GLTextureManager()
 	ClearCache();
 }
 
-GLCachedTexture* GLTextureManager::GetFromCache(int masked, uint64_t cacheID)
+GLCachedTexture* GLTextureManager::GetFromCache(uint64_t cacheID)
 {
-	if (LastTextureResult[masked].first == cacheID && LastTextureResult[masked].second)
-		return LastTextureResult[masked].second;
+	if (LastTextureResult.first == cacheID && LastTextureResult.second)
+		return LastTextureResult.second;
 
-	LastTextureResult[masked].first = cacheID;
-	LastTextureResult[masked].second = TextureCache[masked][cacheID].get();
+	LastTextureResult.first = cacheID;
+	LastTextureResult.second = TextureCache[cacheID].get();
 
-	return LastTextureResult[masked].second;
+	return LastTextureResult.second;
 }
 
 void GLTextureManager::UpdateTextureRect(TextureInfo* info, int x, int y, int w, int h)
 {
-	GLCachedTexture* tex = GetFromCache(0, info->CacheID);
+	GLCachedTexture* tex = GetFromCache(info->CacheID);
 	if (tex)
 	{
-		renderer->Uploads->UploadTextureRect(tex, *info, x, y, w, h);
+		renderer->Uploads->UploadTextureRect(tex, *info, x, y, w, h, tex->Masked);
 		info->bRealtimeChanged = 0;
 	}
 }
@@ -45,31 +45,38 @@ GLCachedTexture* GLTextureManager::GetTexture(TextureInfo* info, bool masked)
 	if (info->Format != TextureFormat::P8)
 		masked = false;
 
-	// A realtime change goes to every copy there is, masked and not, as
-	// D3DDrv keeps one copy made again at a change: a P8 texture drawn
-	// masked and unmasked in one frame animates in both
+	// One copy a texture, as D3DDrv's SetTexture finds its copy by the cache
+	// ID alone (dx-reverse-info d3ddrv-dll.md, textures): the draw that first
+	// sets a texture makes the copy, colour 0 cleared or not as that draw is
+	// masked or not, and every later draw takes it so, until a realtime
+	// change makes it again, as the draw then is; a rectangle of it changed
+	// keeps the copy's own way
+	GLCachedTexture* tex = GetFromCache(info->CacheID);
 	if (info->bRealtimeChanged)
 	{
 		info->bRealtimeChanged = 0;
-		for (int m = 0; m < 2; m++)
+		if (tex)
 		{
-			GLCachedTexture* copy = GetFromCache(m, info->CacheID);
-			if (!copy)
-				continue;
 			if (info->UpdateWidth > 0)
-				renderer->Uploads->UploadTextureRect(copy, *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
+			{
+				renderer->Uploads->UploadTextureRect(tex, *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight, tex->Masked);
+			}
 			else
-				renderer->Uploads->UploadTexture(copy, *info, m != 0);
+			{
+				tex->Masked = masked;
+				renderer->Uploads->UploadTexture(tex, *info, masked);
+			}
 		}
 	}
 
-	GLCachedTexture* tex = GetFromCache((int)masked, info->CacheID);
 	if (!tex)
 	{
-		std::unique_ptr<GLCachedTexture>& tex2 = TextureCache[(int)masked][info->CacheID];
+		std::unique_ptr<GLCachedTexture>& tex2 = TextureCache[info->CacheID];
 		tex2.reset(new GLCachedTexture());
 		tex = tex2.get();
+		LastTextureResult = { info->CacheID, tex };
 
+		tex->Masked = masked;
 		renderer->Uploads->UploadTexture(tex, *info, masked);
 	}
 
@@ -87,12 +94,8 @@ GLCachedTexture* GLTextureManager::GetTexture(TextureInfo* info, bool masked)
 
 void GLTextureManager::ClearCache()
 {
-	for (auto& cache : TextureCache)
-	{
-		cache.clear();
-	}
-	for (auto& texture : LastTextureResult)
-		texture = {};
+	TextureCache.clear();
+	LastTextureResult = {};
 }
 
 GLCachedTexture* GLTextureManager::CreateNullTexture()

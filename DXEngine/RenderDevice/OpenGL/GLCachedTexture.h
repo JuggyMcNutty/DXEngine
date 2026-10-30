@@ -7,6 +7,8 @@ class GLCachedTexture
 public:
 	std::shared_ptr<GLTexture2D> Texture;
 	int RealtimeChangeCount = 0;
+	// Colour 0 cleared in it, as the draw that made it was masked
+	bool Masked = false;
 
 	float UScale = 0.0f;
 	float VScale = 0.0f;

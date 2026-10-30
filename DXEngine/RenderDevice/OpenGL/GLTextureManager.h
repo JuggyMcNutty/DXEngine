@@ -16,7 +16,7 @@ public:
 	GLCachedTexture* GetTexture(TextureInfo* info, bool masked);
 
 	void ClearCache();
-	int GetTexturesInCache() { return (int)(TextureCache[0].size() + TextureCache[1].size()); }
+	int GetTexturesInCache() { return (int)TextureCache.size(); }
 
 	GLCachedTexture* GetNullTexture()
 	{
@@ -28,11 +28,12 @@ public:
 private:
 	GLCachedTexture* CreateNullTexture();
 
-	GLCachedTexture* GetFromCache(int masked, uint64_t cacheID);
+	GLCachedTexture* GetFromCache(uint64_t cacheID);
 
 	GLRenderDevice* renderer = nullptr;
-	std::unordered_map<uint64_t, std::unique_ptr<GLCachedTexture>> TextureCache[2];
+	// One copy a texture, as D3DDrv keeps (dx-reverse-info d3ddrv-dll.md, textures)
+	std::unordered_map<uint64_t, std::unique_ptr<GLCachedTexture>> TextureCache;
 	std::unique_ptr<GLCachedTexture> NullTexture;
 
-	std::pair<uint64_t, GLCachedTexture*> LastTextureResult[2];
+	std::pair<uint64_t, GLCachedTexture*> LastTextureResult;
 };

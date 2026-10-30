@@ -88,7 +88,7 @@ void UploadManager::UploadTexture(CachedTexture* tex, const TextureInfo& Info, b
 		UploadWhite(tex);
 }
 
-void UploadManager::UploadTextureRect(CachedTexture* tex, const TextureInfo& Info, int x, int y, int w, int h)
+void UploadManager::UploadTextureRect(CachedTexture* tex, const TextureInfo& Info, int x, int y, int w, int h, bool masked)
 {
 	renderer->Commands->WaitForFrame();
 
@@ -105,7 +105,7 @@ void UploadManager::UploadTextureRect(CachedTexture* tex, const TextureInfo& Inf
 
 	uint8_t* data = renderer->Buffers->UploadData;
 	uint8_t* Ptr = data + UploadBufferPos;
-	uploader->UploadRect(Ptr, &Info.Mips[0], x, y, w, h, Info.Palette, false);
+	uploader->UploadRect(Ptr, &Info.Mips[0], x, y, w, h, Info.Palette, masked);
 
 	VkBufferImageCopy region = {};
 	region.bufferOffset = (VkDeviceSize)(Ptr - data);

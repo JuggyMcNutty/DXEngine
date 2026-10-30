@@ -10,15 +10,15 @@ SoftwareTextureManager::SoftwareTextureManager()
 	SoftwareTextureUploader::MakeWhite(&White);
 }
 
-SoftwareTexture* SoftwareTextureManager::Find(int masked, uint64_t cacheID)
+SoftwareTexture* SoftwareTextureManager::Find(uint64_t cacheID)
 {
-	if (LastHit[masked].second && LastHit[masked].first == cacheID)
-		return LastHit[masked].second;
+	if (LastHit.second && LastHit.first == cacheID)
+		return LastHit.second;
 
-	auto it = TextureCache[masked].find(cacheID);
-	if (it == TextureCache[masked].end())
+	auto it = TextureCache.find(cacheID);
+	if (it == TextureCache.end())
 		return nullptr;
-	LastHit[masked] = { cacheID, it->second.get() };
+	LastHit = { cacheID, it->second.get() };
 	return it->second.get();
 }
 
@@ -33,39 +33,41 @@ SoftwareTexture* SoftwareTextureManager::GetTexture(TextureInfo* info, bool mask
 	if (info->Format != TextureFormat::P8)
 		masked = false;
 
-	// A realtime change goes to every copy there is, masked and not, as
-	// D3DDrv keeps one copy made again at a change: a P8 texture drawn
-	// masked and unmasked in one frame animates in both
+	// One copy a texture, as D3DDrv's SetTexture finds its copy by the cache
+	// ID alone (dx-reverse-info d3ddrv-dll.md, textures): the draw that first
+	// sets a texture makes the copy, colour 0 cleared or not as that draw is
+	// masked or not, and every later draw takes it so, until a realtime
+	// change makes it again, as the draw then is; a rectangle of it changed
+	// keeps the copy's own way
+	SoftwareTexture* tex = Find(info->CacheID);
 	if (info->bRealtimeChanged)
 	{
 		info->bRealtimeChanged = false;
-		for (int m = 0; m < 2; m++)
+		if (tex)
 		{
-			SoftwareTexture* copy = Find(m, info->CacheID);
-			if (!copy)
-				continue;
 			if (info->UpdateWidth > 0)
 			{
 				if (BeforeWrite)
-					BeforeWrite(copy, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
-				SoftwareTextureUploader::UploadRect(copy, *info, m != 0, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
+					BeforeWrite(tex, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
+				SoftwareTextureUploader::UploadRect(tex, *info, tex->Masked, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
 			}
 			else
 			{
 				if (BeforeWrite)
-					BeforeWrite(copy, 0, 0, -1, -1);
-				SoftwareTextureUploader::Upload(copy, *info, m != 0);
+					BeforeWrite(tex, 0, 0, -1, -1);
+				tex->Masked = masked;
+				SoftwareTextureUploader::Upload(tex, *info, masked);
 			}
 		}
 	}
 
-	SoftwareTexture* tex = Find((int)masked, info->CacheID);
 	if (!tex)
 	{
-		std::unique_ptr<SoftwareTexture>& slot = TextureCache[(int)masked][info->CacheID];
+		std::unique_ptr<SoftwareTexture>& slot = TextureCache[info->CacheID];
 		slot = std::make_unique<SoftwareTexture>();
 		tex = slot.get();
-		LastHit[(int)masked] = { info->CacheID, tex };
+		LastHit = { info->CacheID, tex };
+		tex->Masked = masked;
 		SoftwareTextureUploader::Upload(tex, *info, masked);
 	}
 	return tex;
@@ -73,20 +75,18 @@ SoftwareTexture* SoftwareTextureManager::GetTexture(TextureInfo* info, bool mask
 
 void SoftwareTextureManager::UpdateTextureRect(TextureInfo* info, int x, int y, int w, int h)
 {
-	SoftwareTexture* tex = Find(0, info->CacheID);
+	SoftwareTexture* tex = Find(info->CacheID);
 	if (tex)
 	{
 		if (BeforeWrite)
 			BeforeWrite(tex, x, y, w, h);
-		SoftwareTextureUploader::UploadRect(tex, *info, false, x, y, w, h);
+		SoftwareTextureUploader::UploadRect(tex, *info, tex->Masked, x, y, w, h);
 		info->bRealtimeChanged = false;
 	}
 }
 
 void SoftwareTextureManager::ClearCache()
 {
-	for (auto& cache : TextureCache)
-		cache.clear();
-	for (auto& hit : LastHit)
-		hit = {};
+	TextureCache.clear();
+	LastHit = {};
 }

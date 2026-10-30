@@ -26,12 +26,13 @@ public:
 
 	std::unique_ptr<SceneTextures> Scene;
 
-	int GetTexturesInCache() { return (int)(TextureCache[0].size() + TextureCache[1].size()); }
+	int GetTexturesInCache() { return (int)TextureCache.size(); }
 
 private:
 	void CreateNullTexture();
 	void CreateDitherTexture();
 
 	VulkanRenderDevice* renderer = nullptr;
-	std::unordered_map<uint64_t, std::unique_ptr<CachedTexture>> TextureCache[2];
+	// One copy a texture, as D3DDrv keeps (dx-reverse-info d3ddrv-dll.md, textures)
+	std::unordered_map<uint64_t, std::unique_ptr<CachedTexture>> TextureCache;
 };

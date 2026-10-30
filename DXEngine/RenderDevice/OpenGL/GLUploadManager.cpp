@@ -87,7 +87,7 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
 	renderer->Stats.Uploads++;
 }
 
-void GLUploadManager::UploadTextureRect(GLCachedTexture* tex, const TextureInfo& Info, int x, int y, int w, int h)
+void GLUploadManager::UploadTextureRect(GLCachedTexture* tex, const TextureInfo& Info, int x, int y, int w, int h, bool masked)
 {
 	GLTextureUploader* uploader = GLTextureUploader::GetUploader(Info.Format);
 	if (!uploader || uploader->GetFormat() == 0 || Info.NumMips < 1 || !Info.Mips || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > Info.Mips[0].Width || y + h > Info.Mips[0].Height || Info.Mips[0].Data.empty())
@@ -97,7 +97,7 @@ void GLUploadManager::UploadTextureRect(GLCachedTexture* tex, const TextureInfo&
 	pixelsSize = (pixelsSize + 15) / 16 * 16; // memory alignment
 
 	uint8_t* data = GetUploadBuffer(pixelsSize);
-	uploader->UploadRect(data, &Info.Mips[0], x, y, w, h, Info.Palette, false);
+	uploader->UploadRect(data, &Info.Mips[0], x, y, w, h, Info.Palette, masked);
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // the rows packed tight
 	glBindTexture(GL_TEXTURE_2D, tex->Texture->Handle);

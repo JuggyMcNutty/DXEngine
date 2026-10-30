@@ -18,10 +18,10 @@ TextureManager::~TextureManager()
 
 void TextureManager::UpdateTextureRect(TextureInfo* info, int x, int y, int w, int h)
 {
-	std::unique_ptr<CachedTexture>& tex = TextureCache[0][info->CacheID];
-	if (tex)
+	auto it = TextureCache.find(info->CacheID);
+	if (it != TextureCache.end() && it->second)
 	{
-		renderer->Uploads->UploadTextureRect(tex.get(), *info, x, y, w, h);
+		renderer->Uploads->UploadTextureRect(it->second.get(), *info, x, y, w, h, it->second->Masked);
 		info->bRealtimeChanged = 0;
 	}
 }
@@ -37,28 +37,34 @@ CachedTexture* TextureManager::GetTexture(TextureInfo* info, bool masked)
 	if (info->Format != TextureFormat::P8)
 		masked = false;
 
-	// A realtime change goes to every copy there is, masked and not, as
-	// D3DDrv keeps one copy made again at a change: a P8 texture drawn
-	// masked and unmasked in one frame animates in both
+	// One copy a texture, as D3DDrv's SetTexture finds its copy by the cache
+	// ID alone (dx-reverse-info d3ddrv-dll.md, textures): the draw that first
+	// sets a texture makes the copy, colour 0 cleared or not as that draw is
+	// masked or not, and every later draw takes it so, until a realtime
+	// change makes it again, as the draw then is; a rectangle of it changed
+	// keeps the copy's own way
+	std::unique_ptr<CachedTexture>& tex = TextureCache[info->CacheID];
 	if (info->bRealtimeChanged)
 	{
 		info->bRealtimeChanged = 0;
-		for (int m = 0; m < 2; m++)
+		if (tex)
 		{
-			auto it = TextureCache[m].find(info->CacheID);
-			if (it == TextureCache[m].end() || !it->second)
-				continue;
 			if (info->UpdateWidth > 0)
-				renderer->Uploads->UploadTextureRect(it->second.get(), *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
+			{
+				renderer->Uploads->UploadTextureRect(tex.get(), *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight, tex->Masked);
+			}
 			else
-				renderer->Uploads->UploadTexture(it->second.get(), *info, m != 0);
+			{
+				tex->Masked = masked;
+				renderer->Uploads->UploadTexture(tex.get(), *info, masked);
+			}
 		}
 	}
 
-	std::unique_ptr<CachedTexture>& tex = TextureCache[(int)masked][info->CacheID];
 	if (!tex)
 	{
 		tex.reset(new CachedTexture());
+		tex->Masked = masked;
 		renderer->Uploads->UploadTexture(tex.get(), *info, masked);
 	}
 	return tex.get();
@@ -66,21 +72,15 @@ CachedTexture* TextureManager::GetTexture(TextureInfo* info, bool masked)
 
 void TextureManager::ClearCache()
 {
-	for (auto& cache : TextureCache)
-	{
-		cache.clear();
-	}
+	TextureCache.clear();
 }
 
 void TextureManager::ClearAllBindlessIndexes()
 {
-	for (auto& cache : TextureCache)
+	for (auto& it : TextureCache)
 	{
-		for (auto& it : cache)
-		{
-			for (int& index : it.second->BindlessIndex)
-				index = -1;
-		}
+		for (int& index : it.second->BindlessIndex)
+			index = -1;
 	}
 }
 

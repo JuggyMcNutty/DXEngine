@@ -574,8 +574,9 @@ where one inside does, so a draw reads no texel but its pixels'.
   centre. Depth float, tested LEQUAL, clamped to the pipeline's range (the scene's 0.1 to 1, a
   line not depth cued 0 to 0.1); a mover's surfaces biased as the Vulkan device biases them,
   constant -1 and slope -1 on a float buffer. A line is a pixel wide.
-- **Textures**: a copy of its own of each, by cache ID, a masked one apart, as the Vulkan
-  device keeps its images: BGRA8, each format converted as the Vulkan device's uploads and CPU
+- **Textures**: a copy of its own of each, by cache ID, its colour 0 cleared or not as the
+  draw that made it was masked or not, as every device keeps one
+  ([one copy a texture](NATIVES.md#sprites)): BGRA8, each format converted as the Vulkan device's uploads and CPU
   decoders convert it, each mip with a column and a row past its edges repeating its first, for
   the bilinear filter; a realtime change converted again, only the part that changed where it
   says so.

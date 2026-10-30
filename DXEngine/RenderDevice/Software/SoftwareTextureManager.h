@@ -51,10 +51,14 @@ public:
 	uint64_t NamedEpoch = 0;
 	bool NamedAll = false;
 	std::vector<SoftwareRect> NamedRects;
+
+	// Colour 0 cleared in it, as the draw that made it was masked
+	bool Masked = false;
 };
 
-// The copies by cache ID, a masked one apart (only a palette's colour 0 is
-// cleared for a masked draw), as the Vulkan device keeps its images.
+// One copy a texture by its cache ID, as D3DDrv keeps them (dx-reverse-info
+// d3ddrv-dll.md, textures): colour 0 cleared or not as the draw that made it
+// was masked or not.
 class SoftwareTextureManager
 {
 public:
@@ -75,10 +79,10 @@ public:
 	std::function<void(SoftwareTexture* tex, int x, int y, int w, int h)> BeforeWrite;
 
 private:
-	SoftwareTexture* Find(int masked, uint64_t cacheID);
+	SoftwareTexture* Find(uint64_t cacheID);
 
-	std::unordered_map<uint64_t, std::unique_ptr<SoftwareTexture>> TextureCache[2];
+	std::unordered_map<uint64_t, std::unique_ptr<SoftwareTexture>> TextureCache;
 	// The last texture found of each kind, as the GL device's lookup keeps it
-	std::pair<uint64_t, SoftwareTexture*> LastHit[2];
+	std::pair<uint64_t, SoftwareTexture*> LastHit;
 	SoftwareTexture White;
 };
