@@ -19,24 +19,14 @@ TextureInfo LightSystem::GetMoverLightmap(UMover* mover, const Poly& poly, UZone
 	localCoords.YAxis = poly.TextureV;
 	localCoords.ZAxis = poly.Normal;
 
+	// A mover's polygons are lit where the mover is: the original's brush
+	// tracker files them into the level's BSP as surfaces of its own, each
+	// filing moving their bases and axes with the mover, and lights them
+	// there, a static map through the shadows the editor raytraced at its
+	// BrushRaytraceKey (dx-reverse-info's engine-dll.md, the movers in the
+	// BSP; render-dll.md, light maps)
 	vec3 scale = mover->MainScale().Scale;
-
-	mat4 brushToWorld;
-	if (mover->bDynamicLightMover())
-	{
-		vec3 moverLocation = mover->Location();
-		Rotator moverRotation = mover->Rotation();
-		brushToWorld = mat4::translate(moverLocation) * Coords::Rotation(moverRotation).ToMatrix() * mat4::scale(scale) * mat4::translate(-mover->PrePivot());
-	}
-	else
-	{
-		// The key held to the 8 (a map file sets BrushRaytraceKey; one over 7
-		// read past the arrays)
-		int key = std::min<int>(mover->BrushRaytraceKey(), 7);
-		vec3 moverLocation = mover->BasePos() + mover->KeyPos()[key];
-		Rotator moverRotation = mover->BaseRot() + mover->KeyRot()[key];
-		brushToWorld = mat4::translate(moverLocation) * Coords::Rotation(moverRotation).ToMatrix() * mat4::scale(scale) * mat4::translate(-mover->PrePivot());
-	}
+	mat4 brushToWorld = mat4::translate(mover->Location()) * Coords::Rotation(mover->Rotation()).ToMatrix() * mat4::scale(scale) * mat4::translate(-mover->PrePivot());
 	mat4 objectToWorld = brushToWorld * localCoords.ToMatrix();
 	Coords worldCoords = Coords::FromMatrix(objectToWorld);
 
@@ -61,7 +51,7 @@ TextureInfo LightSystem::GetMoverLightmap(UMover* mover, const Poly& poly, UZone
 		model, poly.BrushPolyIndex, worldCoords, zoneActor,
 		(brushToWorld * vec4(mover->Light.Center, 1.0f)).xyz(),
 		mover->Light.Radius * std::max(scale.x, std::max(scale.y, scale.z)),
-		mover->bDynamicLightMover() ? mover : nullptr, mover->bSpecialLit());
+		mover, mover->bSpecialLit());
 }
 
 TextureInfo LightSystem::GetLevelLightmap(BspSurface& surface, UZoneInfo* zoneActor, UModel* model)
@@ -109,7 +99,7 @@ const Array<UActor*>& LightSystem::CollectSurfaceLights(SurfaceLights& entry, co
 	return entry.Lights;
 }
 
-TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor, const vec3& worldLocation, float radius, UMover* dynamicMover, bool specialLit)
+TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor, const vec3& worldLocation, float radius, UMover* mover, bool specialLit)
 {
 	if (lightmapIndex < 0)
 		return {};
@@ -119,12 +109,27 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 	uint32_t ambientID = (((uint32_t)zoneActor->AmbientHue()) << 16) | (((uint32_t)zoneActor->AmbientSaturation()) << 8) | (uint32_t)zoneActor->AmbientBrightness();
 	uint64_t cacheID = (((uint64_t)lmindex.LMCacheID) << 32) | (((uint64_t)ambientID) << 8) | 1;
 
-	if (dynamicMover)
+	UMover* dynamicMover = mover && mover->bDynamicLightMover() ? mover : nullptr;
+	if (mover)
 	{
-		// Place mover ID in upper 12 bits (4096 movers). This leaves 20 bits (1 million) for the lightmaps.
-		if (dynamicMover->Light.MoverID == 0)
-			dynamicMover->Light.MoverID = NextMoverID++;
-		cacheID |= ((uint64_t)dynamicMover->Light.MoverID) << 52;
+		// A mover's maps are its own, lit where it is: the mover's ID in the
+		// upper 12 bits (4096 movers), which leaves 20 bits (1 million) for
+		// the lightmaps
+		if (mover->Light.MoverID == 0)
+			mover->Light.MoverID = NextMoverID++;
+		cacheID |= ((uint64_t)mover->Light.MoverID) << 52;
+
+		// Built again when the mover moved or turned since, as the
+		// original's is for a mover's surface (render-dll.md, light maps)
+		if (!mover->Light.HasLastTransform ||
+			mover->Light.LastLocation != mover->Location() ||
+			mover->Light.LastRotation != mover->Rotation())
+		{
+			mover->Light.HasLastTransform = true;
+			mover->Light.LastLocation = mover->Location();
+			mover->Light.LastRotation = mover->Rotation();
+			mover->Light.MovedFrame = FrameCounter;
+		}
 	}
 
 	// The counter marks each light checked in this lookup. Before it would
@@ -189,6 +194,8 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 				light->Light.LightmapCheckCounter = checkCounter;
 			}
 		}
+		if (mover)
+			lastStaticUpdate = std::max(lastStaticUpdate, mover->Light.MovedFrame);
 
 		// The moving lights over the surface go into the dynamic light list:
 
@@ -211,17 +218,8 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 	}
 	else
 	{
-		// A mover's maps are rebuilt when the mover moved or turned
+		// A dynamic mover's maps are rebuilt when the mover moved or turned
 		// since, or one of its lights changed
-		if (!dynamicMover->Light.HasLastTransform ||
-			dynamicMover->Light.LastLocation != dynamicMover->Location() ||
-			dynamicMover->Light.LastRotation != dynamicMover->Rotation())
-		{
-			dynamicMover->Light.HasLastTransform = true;
-			dynamicMover->Light.LastLocation = dynamicMover->Location();
-			dynamicMover->Light.LastRotation = dynamicMover->Rotation();
-			dynamicMover->Light.MovedFrame = FrameCounter;
-		}
 		lastDynamicUpdate = dynamicMover->Light.MovedFrame;
 
 		for (UActor* light : dynamicMover->TouchingLights.List)

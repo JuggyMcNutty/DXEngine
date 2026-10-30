@@ -580,6 +580,15 @@ surface with no shadow and left out with `NoDynamicLights`, as the original's
 `AddLight` takes it ([light maps](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps));
 the stock maps' few, on 02_NYC_Street, 02_NYC_Warehouse, 08_NYC_Underground
 and 99_Endgame1, are moving ones anyway, neither static nor no-delete.
+A mover's polygons are lit where the mover is, as the original's brush
+tracker files them into the level
+([the movers in the BSP](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
+its static lights through the shadows raytraced at its `BrushRaytraceKey`,
+the moving ones over it there, its map built again when it moves or turns.
+`MoverLightConsole` at 1024x768, Liberty Island's `DeusExMover10` moved 100
+units off its place: the door at 1.003 of the original's frame under its
+own lights and 1.000 with a lamp 48 units before it, where it was 0.82 and
+0.43, lit as if still at its key.
 A spotlight's cone is the
 original's, its cosine `1 − LightCone ÷ 256`, its value rounded down, and a
 light or fog map lights texel i at its centre, `Pan.X + i × UScale` along U,
