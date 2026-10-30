@@ -655,25 +655,26 @@ DXEngine's own, by choice where no ID is named:
   - a flicker drawn at most 25 times a second (D.16);
   - `LE_CloudCast`, the plain shape, built once, where the original re-runs
     it every frame (its table counts the shape as changing): the same light.
-- **Meshes**
-  - the moving lights come from DXEngine's light tree near the actor, not
-    the leaf's own list; its fog from the level's first four volumetric
-    lights in memory order, where the original takes the leaf's own list
-    of them by a vertex model of its own, unread: a mesh in a fog zone is
-    faintly fogged in `D3DDrv` and unfogged here (`FogConsole`:
-    02_NYC_Underground's crate 220 units into the start's fog is at 0.09 of
-    the wall beside it in `D3DDrv`'s frame, 0.25 in DXEngine's; the fog
-    balls' model with the lights that reach it fogs it to the wall's
-    brightness, so the model is what differs, not the lights; REN.12);
-  - an actor spawned 3 s into a level is darker while the level's time is
-    young: `GlowConsole`'s crate, its `AmbientGlow` 255, at a hundredth of
-    the time (`TimeDilation` 0.01), 0.08 to 0.13 of the screen's white
-    against the original's 0.24, where at full speed, 4.8 s on, the two are
-    alike (0.195 and 0.197 on average; REN.25).
+- **Meshes**: the moving lights come from DXEngine's light tree near the
+  actor, not the leaf's own list.
 
-The `AmbientGlow` pulse is the original's, on the level's time: at a
-hundredth of it `GlowConsole`'s crate barely changes over five shots 1.5 s
-apart in either engine, and at full speed it pulses in both.
+A mesh's lights are picked and faded as the original's
+([meshes](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#meshes)):
+in one pass, strongest first, a static light lit while fewer than 8 static
+ones are and any other while fewer than 8 in all are, none under an eighth
+of the first one lit; on the actor's first draw each light its shadow line
+finds open lit full at once, a moving light full when it first reaches the
+actor, a static one new to it dark until its line is next run; each fade a
+byte stepped by the viewport's time since its last frame. The `AmbientGlow`
+pulse runs on the viewport's clock, the real time, whatever the level's
+`TimeDilation`. `GlowConsole`'s crate, spawned 3 s into Liberty Island:
+with no glow, 0.171 of the screen's white in both engines, at full speed
+and at a hundredth of it; with the pulse at a hundredth, twelve shots 1.5 s
+apart run 0.18 to 0.26 in both. A mesh in a fog zone is drawn unfogged, as
+`D3DDrv` draws it with the game's `UseVertexFog` off
+([fog](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#fog)):
+`FogConsole`'s crate 220 units into 02_NYC_Underground's fog at 0.089 of the
+floor and walls beside it, the original's 0.087.
 
 ### Brightness
 

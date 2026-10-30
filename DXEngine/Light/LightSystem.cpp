@@ -21,14 +21,16 @@ LightSystem::~LightSystem()
 {
 }
 
-void LightSystem::Tick(float levelTimeElapsed)
+void LightSystem::Tick(float frameElapsed)
 {
-	// The original's: 0.25 + 0.2 sin(8 t), t the level's time, its pulse
-	// slowing with TimeDilation (dx-reverse-info/render-dll.md, meshes;
-	// GlowConsole: still at a hundredth, pulsing at 1)
-	AmbientGlowTime = std::fmod(AmbientGlowTime + levelTimeElapsed, 2.0f * 3.14159265359f / 8.0f);
+	// The original's pulse: 0.25 + 0.2 sin(8 t), t its viewport's clock, the
+	// real time, whatever the level's TimeDilation (Render.dll
+	// FLightManager::SetupForActor; dx-reverse-info/render-dll.md, meshes;
+	// GlowConsole: twelve shots at a hundredth of the level's time run
+	// through the pulse's range)
+	AmbientGlowTime = std::fmod(AmbientGlowTime + frameElapsed, 2.0f * 3.14159265359f / 8.0f);
 	AmbientGlowAmount = 0.25f + 0.2f * std::sin(8.0f * AmbientGlowTime);
-	LastTickElapsed = levelTimeElapsed;
+	LastFrameElapsed = frameElapsed;
 }
 
 void LightSystem::OnMapLoaded()

@@ -32,7 +32,14 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 	// Render.dll hands it over (dx-reverse-info render-dll.md, a frame).
 	DetailTexturesDrawn = engine->renderdev->DetailTextures && NameString(engine->client->TextureDetail) == NameString("High");
 	AutoUV += levelTimeElapsed * 64.0f;
-	engine->Level->Light.Tick(levelTimeElapsed);
+	// The viewport's clock, which the meshes' lighting takes: the real time
+	// since the last frame drawn, a load's painted frame among them, as the
+	// original's viewport takes it at each lock (Engine.dll UViewport::Lock
+	// and Unlock)
+	auto now = std::chrono::steady_clock::now();
+	float frameElapsed = LastDrawTime == std::chrono::steady_clock::time_point() ? 0.0f : std::chrono::duration<float>(now - LastDrawTime).count();
+	LastDrawTime = now;
+	engine->Level->Light.Tick(frameElapsed);
 
 	Stats.Frames = 0;
 	Stats.Surfaces = 0;

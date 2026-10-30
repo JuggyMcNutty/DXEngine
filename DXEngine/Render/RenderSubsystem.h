@@ -91,6 +91,7 @@ public:
 	};
 	Array<CoronaState> CoronaStates;
 	std::chrono::steady_clock::time_point CoronaLastUpdate = {};
+	std::chrono::steady_clock::time_point LastDrawTime = {};
 	void DrawCoronasDX(VisibleFrame* frame);
 
 	vec3* GetTempVertexBuffer(size_t count)

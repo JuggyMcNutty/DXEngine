@@ -88,84 +88,13 @@ public:
 		return color;
 	}
 
-	vec4 GetVertexFog(const vec3& location)
-	{
-		vec4 color(0.0f);
-		if (NumFogBalls == 0)
-			return color;
-#ifndef NOFOG
-		vec3 view = CameraLocation;
-		vec3 rayDirection = location - view;
-#ifndef NOSSE
-		float depth = _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(dot(rayDirection, rayDirection))));
-#else
-		float depth = std::sqrt(dot(rayDirection, rayDirection));
-#endif
-		rayDirection *= (1.0f / depth);
-
-		for (int i = 0, count = NumFogBalls; i < count; i++)
-		{
-			float fogamount = SphereDensity(view, rayDirection, FogBalls[i].lightpos, FogBalls[i].radius, depth) * FogBalls[i].brightness;
-			float alpha = std::min(fogamount * FogBalls[i].fog, 1.0f);
-			float invalpha = 1.0f - alpha;
-			color.r = FogBalls[i].fogcolor.r * fogamount + color.r * invalpha;
-			color.g = FogBalls[i].fogcolor.g * fogamount + color.g * invalpha;
-			color.b = FogBalls[i].fogcolor.b * fogamount + color.b * invalpha;
-			color.a = std::min(color.a + alpha, 1.0f);
-		}
-#endif
-		return color;
-	}
-
-	static float SphereDensity(const vec3& rayOrigin, const vec3& rayDirection, const vec3& sphereCenter, float sphereRadius, float dbuffer)
-	{
-		// normalize the problem to the canonical sphere
-		float rcp_radius = 1.0f / sphereRadius;
-		float ndbuffer = dbuffer * rcp_radius;
-		//vec3 rc = (rayOrigin - sphereCenter) * rcp_radius;
-		float rc_x = (rayOrigin.x - sphereCenter.x) * rcp_radius;
-		float rc_y = (rayOrigin.y - sphereCenter.y) * rcp_radius;
-		float rc_z = (rayOrigin.z - sphereCenter.z) * rcp_radius;
-
-		// find intersection with sphere
-		float b = rayDirection.x * rc_x + rayDirection.y * rc_y + rayDirection.z * rc_z; // dot(rayDirection, rc)
-		float c = rc_x * rc_x + rc_y * rc_y + rc_z * rc_z - 1.0f; // dot(rc, rc) - 1.0f
-		float h = b * b - c;
-
-		// not intersecting
-		if (h < 0.0f) return 0.0f;
-
-#ifndef NOSSE
-		h = _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(h)));
-#else
-		h = std::sqrt(h);
-#endif
-
-		//return h*h*h;
-
-		float t1 = -b - h;
-		float t2 = -b + h;
-
-		// not visible (behind camera or behind ndbuffer)
-		if (t2 < 0.0f || t1 > ndbuffer) return 0.0f;
-
-		// clip integration segment from camera to ndbuffer
-		t1 = std::max(t1, 0.0f);
-		t2 = std::min(t2, ndbuffer);
-
-		// analytical integration of an inverse squared density
-		float i1 = -(c * t1 + b * t1 * t1 + t1 * t1 * t1 * (1.0f / 3.0f));
-		float i2 = -(c * t2 + b * t2 * t2 + t2 * t2 * t2 * (1.0f / 3.0f));
-		return (i2 - i1) * (3.0f / 4.0f);
-	}
-
 	// Light:
 
 	vec3 AmbientColor;
 	float ScaleGlow;
 	// What an unlit draw is lit with in the original's formula
 	float UnlitLevel = 0.5f;
-	enum { MaxLights = 16, MaxFogBalls = 4 };
+	enum { MaxLights = 16 };
 	struct Light
 	{
 		vec3 Location;
@@ -175,18 +104,8 @@ public:
 	} Lights[MaxLights];
 	int NumLights;
 
-	// Fog:
-
+	// The eye, for the highlight
 	vec3 CameraLocation;
-	struct FogBall
-	{
-		vec3 fogcolor;
-		float brightness;
-		float fog;
-		float radius;
-		vec3 lightpos;
-	} FogBalls[MaxFogBalls];
-	int NumFogBalls;
 };
 
 class LightSystem
@@ -195,7 +114,8 @@ public:
 	LightSystem();
 	~LightSystem();
 
-	void Tick(float levelTimeElapsed);
+	// By the viewport's clock: the real time since the last frame drawn
+	void Tick(float frameElapsed);
 
 	void OnMapLoaded();
 
@@ -277,7 +197,7 @@ private:
 
 	float AmbientGlowTime = 0.0f;
 	float AmbientGlowAmount = 0.0f;
-	float LastTickElapsed = 0.0f;
+	float LastFrameElapsed = 0.0f;
 
 	Array<UActor*> TempDynLightList;
 	Array<int> TempAnimatedIndexList;

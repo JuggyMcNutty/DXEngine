@@ -4,8 +4,9 @@
 // TargetMap ([DXCapture.GlowConsole], 01_NYC_UNATCOIsland by default), the
 // player out of the world, the HUD hidden, conversations and datalinks
 // stopped; 3 s in, a crate (CrateUnbreakableSmall, not to collide) spawned
-// Ahead units (96 by default) before the player's eye, its AmbientGlow 255,
-// the pulse, and the level's TimeDilation set to Dilation (0.01 by default),
+// Ahead units (96 by default) before the player's eye, its AmbientGlow Glow
+// (255 by default, the pulse; 256 for none), and the level's TimeDilation set
+// to Dilation (0.01 by default),
 // so the level's time crawls while the viewport's runs on. Then Shots shots
 // (6 by default), one every 1.5 s of the console's clock, the console ticking
 // by the viewport's time: the pulse, 0.25 + 0.2 sin(8 t) of the viewport's
@@ -19,6 +20,7 @@ var config string TargetMap;
 var config float Ahead;
 var config float Dilation;
 var config int Shots;
+var config int Glow;
 
 var float MapTime;
 var float NextShot;
@@ -144,7 +146,9 @@ event Tick(float Delta)
 		Crate.SetCollision(false, false, false);
 		Crate.bCollideWorld = false;
 		Crate.SetPhysics(PHYS_None);
-		Crate.AmbientGlow = 255;
+		if (Glow == 0)
+			Glow = 255;
+		Crate.AmbientGlow = Glow % 256;
 		DeusExPlayer(P).ShowHud(False);
 		Hold(P);
 		P.Level.TimeDilation = Dilation;

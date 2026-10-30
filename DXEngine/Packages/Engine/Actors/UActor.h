@@ -420,16 +420,13 @@ public:
 		Array<UActor*> List;
 	} TouchingLights;
 
-	// Deus Ex mesh lighting: the picked lights kept under the actor with
-	// their fades and shadow checks (dx-reverse-info/render-dll.md, lighting)
+	// Deus Ex mesh lighting: the lights kept under the actor with their
+	// fades, the original's byte each, odd while the light is lit
+	// (dx-reverse-info/render-dll.md, lighting)
 	struct MeshLightEntry
 	{
 		UActor* Light = nullptr;
-		float Fade = 0.0f;
-		float Strength = 0.0f;
-		bool Shadowed = false;
-		bool Picked = false;
-		int LastShadowFrame = -1;
+		int Fade = 0;
 	};
 	struct
 	{

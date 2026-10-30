@@ -444,13 +444,13 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 			}
 		}
 
+		// No vertex fog: D3DDrv draws a mesh in a fog zone unfogged, the
+		// game's UseVertexFog off (dx-reverse-info/d3ddrv-dll.md, fog)
 		for (int i = 0; i < 3; i++)
 		{
 			vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, normals[i], !!(renderflags & PF_Unlit), !!(renderflags & PF_TwoSided));
-			vertices[i].Fog = vertexLight.GetVertexFog(vertices[i].Point);
+			vertices[i].Fog = vec4(0.0f);
 		}
-
-		renderflags |= PF_RenderFog;
 
 		frame->Device->DrawGouraudPolygon(&frame->Frame, texinfo, vertices, 3, renderflags);
 	}
@@ -758,7 +758,7 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 			continue;
 		}
 
-		uint32_t drawFlags = renderflags | PF_RenderFog;
+		uint32_t drawFlags = renderflags;
 		if (tex != texinfoTexture || drawFlags != batchFlags)
 			drawBatch();
 
@@ -870,19 +870,18 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 		for (int i = 0; i < 3; i++)
 		{
 			CachedMeshVertex* c = cached[i];
+			// No vertex fog, as DrawMeshDX's
+			vertices[i].Fog = vec4(0.0f);
 			if (c && c->LightKey == lightKey)
 			{
 				vertices[i].Light = c->Light;
-				vertices[i].Fog = c->Fog;
 			}
 			else
 			{
 				vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, normals[i], unlit, twosided);
-				vertices[i].Fog = vertexLight.GetVertexFog(vertices[i].Point);
 				if (c)
 				{
 					c->Light = vertices[i].Light;
-					c->Fog = vertices[i].Fog;
 					c->LightKey = lightKey;
 				}
 			}

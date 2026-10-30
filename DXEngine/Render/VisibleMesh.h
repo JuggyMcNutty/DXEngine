@@ -17,7 +17,7 @@ struct BlendInfo
 };
 
 // One vertex of a mesh as DrawLodMeshFaceDX last computed it: valid for the
-// draw whose Generation it holds, its light and fog for the LightKey's flags.
+// draw whose Generation it holds, its light for the LightKey's flags.
 struct CachedMeshVertex
 {
 	uint32_t Generation = 0;
@@ -25,7 +25,6 @@ struct CachedMeshVertex
 	vec3 Point;
 	vec3 Normal;
 	vec3 Light;
-	vec4 Fog;
 };
 
 class VisibleMesh

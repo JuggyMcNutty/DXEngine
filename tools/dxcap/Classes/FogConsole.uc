@@ -7,7 +7,8 @@
 // UNATCOTroop, standing still, and a large crate are spawned 220 units
 // ahead in the view, 60 units either side of its axis; each one's place and
 // zone logged with "DXFOG:"; then two shots 2 s apart, each with the mark
-// for the original's screen grabber; then an exit. What is compared between
+// for the original's screen grabber and the two meshes' places, physics and
+// zones; then an exit. What is compared between
 // the engines: the fog on the two meshes against the fog on the floor and
 // walls round them.
 //=============================================================================
@@ -177,6 +178,10 @@ event Tick(float Delta)
 		else if (bMarking && P.Level.TimeSeconds - ShotTime > 2.0)
 		{
 			Log("DXFOG: shot " $ (ShotsTaken + 1) $ " from " $ P.Location $ " looking " $ P.ViewRotation);
+			if (Troop != None)
+				Log("DXFOG: the troop at " $ Troop.Location $ " physics " $ Troop.Physics $ " state " $ Troop.GetStateName() $ " zone " $ ZoneOf(Troop));
+			if (Crate != None)
+				Log("DXFOG: the crate at " $ Crate.Location $ " physics " $ Crate.Physics $ " zone " $ ZoneOf(Crate));
 			Log("DXCAP: shot " $ (ShotsTaken + 1) $ " at " $ P.Location $ " facing " $ P.ViewRotation);
 			P.ConsoleCommand("shot");
 			bMarking = false;

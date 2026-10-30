@@ -441,44 +441,17 @@ void LightSystem::InitVertexLight(VertexLight& out, UActor* actor, UZoneInfo* zo
 	SetupForActorDX(out, actor);
 
 	out.CameraLocation = Eye;
-
-	int fogIndex = 0;
-	for (UActor* light : FogBalls)
-	{
-		if (light->FogInfo.brightness < 0.0f)
-		{
-			light->FogInfo.fogcolor = hsbtorgb(light->LightHue(), light->LightSaturation(), light->LightBrightness());
-			light->FogInfo.brightness = light->LightBrightness() * (1.0f / 255.0f) * light->VolumeBrightness() * (1.0f / 64.0f);
-			light->FogInfo.fog = light->VolumeFog() * (1.0f / 255.0f);
-			light->FogInfo.radius = light->WorldVolumetricRadius();
-			light->FogInfo.location = light->Location();
-		}
-
-		out.FogBalls[fogIndex].fogcolor = light->FogInfo.fogcolor;
-		out.FogBalls[fogIndex].brightness = light->FogInfo.brightness * 5.0f;
-		out.FogBalls[fogIndex].fog = light->FogInfo.fog;
-		out.FogBalls[fogIndex].radius = light->FogInfo.radius;
-		out.FogBalls[fogIndex].lightpos = light->FogInfo.location;
-
-		fogIndex++;
-		if (fogIndex == VertexLight::MaxFogBalls)
-			break;
-	}
-	out.NumFogBalls = fogIndex;
 }
 
 void LightSystem::SetupForActorDX(VertexLight& out, UActor* actor)
 {
 	// The original's SetupForActor picks an actor's lights once a draw
-	// (dx-reverse-info/render-dll.md, lighting -- meshes): the static lights that
-	// reach into the actor's leaf of the BSP, the moving lights in it, and
-	// the lights it had last frame, each counted at its strength at the
-	// actor's centre; the pick strongest first -- statics until 8 are
-	// taken, the others while fewer than 8 in all are, none below an
-	// eighth of the strongest; each picked light shadow-checked through
-	// the BSP every 16 frames by the frame count and the light's index,
-	// except a movable non-static one, always taken; and each fading in
-	// and out over about a third of a second, lighting as it fades.
+	// (Render.dll 0x10b08c70; dx-reverse-info/render-dll.md, lighting --
+	// meshes): the static lights that reach into the actor's leaf of the
+	// BSP, the moving lights in it, and the lights it had last frame that
+	// still reach it, each counted at its strength at the actor's centre;
+	// then one pass over them, strongest first, and each light's fade, a
+	// byte kept under the actor, lighting as it fades.
 	auto& state = actor->MeshLights;
 	out.NumLights = 0;
 
@@ -490,12 +463,11 @@ void LightSystem::SetupForActorDX(VertexLight& out, UActor* actor)
 
 	if (state.LastFrame != FrameCounter)
 	{
+		// The actor's first draw, which finds no lights kept under it
+		bool fresh = state.LastFrame == -1;
 		state.LastFrame = FrameCounter;
 		vec3 location = actor->Location();
 		UModel* model = Level->Model;
-
-		for (UActor::MeshLightEntry& entry : state.List)
-			entry.Picked = false;
 
 		// The candidates
 		Array<UActor*> candidates;
@@ -562,90 +534,87 @@ void LightSystem::SetupForActorDX(VertexLight& out, UActor* actor)
 		}
 		std::sort(reaching.begin(), reaching.end(), [](const Candidate& a, const Candidate& b) { return a.Strength > b.Strength; });
 
-		// The pick
-		Array<const Candidate*> taken;
+		// The pass: a static light is lit while fewer than 8 static ones
+		// are, any other while fewer than 8 in all are, none under an eighth
+		// of the first lit one's strength (its strength in 1024ths). A
+		// movable light that is not static is lit, and full when it first
+		// reaches the actor; another as its shadow line through the BSP
+		// found it, run again every 16 frames by the frame count and the
+		// light's index, and for every light on the actor's first draw, when
+		// one found open is full at once. A static light new to the actor
+		// starts dark and unlit until its line is run. Each fade steps by
+		// the viewport's time since its last frame x 768, at most 255 (a
+		// third of a second): lit, up and odd, to 255; else down and even,
+		// to 0.
+		// Up to 16 lights with a fade over 1 are kept for the next draw,
+		// strongest first; one that no longer reaches the actor is dropped
+		// at once.
+		int step = std::clamp((int)(LastFrameElapsed * 768.0f), 0, 255);
+		int threshold = -1, litStatics = 0, litAll = 0;
+		Array<UActor::MeshLightEntry> kept;
 		for (const Candidate& candidate : reaching)
 		{
-			if (!candidate.Static)
-				continue;
-			taken.push_back(&candidate);
-			if (taken.size() == 8)
-				break;
-		}
-		for (const Candidate& candidate : reaching)
-		{
-			if (candidate.Static || taken.size() >= 8)
-				continue;
-			taken.push_back(&candidate);
-		}
-		float strongest = 0.0f;
-		for (const Candidate* candidate : taken)
-			strongest = std::max(strongest, candidate->Strength);
-
-		for (const Candidate* candidate : taken)
-		{
-			if (candidate->Strength < strongest * 0.125f)
-				continue;
-
-			UActor::MeshLightEntry* entry = nullptr;
-			for (UActor::MeshLightEntry& kept : state.List)
+			UActor* light = candidate.Light;
+			bool moving = light->bMovable() && !light->bStatic();
+			UActor::MeshLightEntry entry;
+			entry.Light = light;
+			entry.Fade = moving ? 255 : 0;
+			for (const UActor::MeshLightEntry& last : state.List)
 			{
-				if (kept.Light == candidate->Light)
+				if (last.Light == light)
 				{
-					entry = &kept;
+					entry.Fade = last.Fade;
 					break;
 				}
 			}
-			if (!entry)
-			{
-				if (state.List.size() >= 16)
-					continue;
-				UActor::MeshLightEntry fresh;
-				fresh.Light = candidate->Light;
-				state.List.push_back(fresh);
-				entry = &state.List.back();
-			}
-			entry->Picked = true;
-			entry->Strength = candidate->Strength;
 
-			// Shadowed or not
-			UActor* light = entry->Light;
-			if (light->bMovable() && !light->bStatic())
+			int strength = (int)(candidate.Strength * 1024.0f);
+			bool lit = false;
+			if (strength >= threshold && (candidate.Static ? litStatics : litAll) < 8)
 			{
-				entry->Shadowed = false;
+				if (moving)
+				{
+					lit = true;
+				}
+				else if (fresh || ((FrameCounter + light->Name.GetCompareIndex()) & 15) == 0)
+				{
+					lit = !engine->Level->Collision.TraceAnyHit(light->Location(), location, actor, false, true, true);
+					if (lit && fresh)
+						entry.Fade = 255;
+				}
+				else
+				{
+					lit = (entry.Fade & 1) != 0;
+				}
 			}
-			else if (entry->LastShadowFrame < 0 ||
-				((FrameCounter + light->Name.GetCompareIndex()) & 15) == 0)
-			{
-				entry->Shadowed = engine->Level->Collision.TraceAnyHit(light->Location(), location, actor, false, true, true);
-				entry->LastShadowFrame = FrameCounter;
-			}
-		}
 
-		// The fades
-		float elapsed = clamp(LastTickElapsed, 0.0f, 0.1f);
-		for (size_t i = 0; i < state.List.size();)
-		{
-			UActor::MeshLightEntry& entry = state.List[i];
-			bool lit = entry.Picked && !entry.Shadowed;
-			entry.Fade = clamp(entry.Fade + (lit ? 3.0f : -3.0f) * elapsed, 0.0f, 1.0f);
-			if (!entry.Picked && entry.Fade <= 0.0f)
+			if (lit)
 			{
-				state.List.erase(state.List.begin() + i);
-				continue;
+				litAll++;
+				if (candidate.Static)
+					litStatics++;
+				if (threshold < 0)
+					threshold = strength / 8;
+				entry.Fade = std::min(entry.Fade + step, 255) | 1;
 			}
-			i++;
+			else
+			{
+				entry.Fade = std::max(entry.Fade - step, 0) & ~1;
+			}
+			if (entry.Fade > 1 && kept.size() < 16)
+				kept.push_back(entry);
 		}
+		state.List = std::move(kept);
 	}
 
 	int lightIndex = 0;
 	for (const UActor::MeshLightEntry& entry : state.List)
 	{
-		if (entry.Fade <= 0.0f || entry.Light->bDeleteMe())
+		if (entry.Fade <= 0 || entry.Light->bDeleteMe())
 			continue;
 		UActor* light = entry.Light;
 		out.Lights[lightIndex].Location = light->Location();
-		out.Lights[lightIndex].Color = LightmapBuilder::GetLightColorDX(light) * entry.Fade;
+		out.Lights[lightIndex].Color = LightmapBuilder::GetLightColorDX(light) * (entry.Fade / 255.0f);
 		float invRadius = 1.0f / light->WorldLightRadius();
 		out.Lights[lightIndex].InvRadius = invRadius;
 		out.Lights[lightIndex].InvRadiusSquared = invRadius * invRadius;
