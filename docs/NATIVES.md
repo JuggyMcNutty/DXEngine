@@ -1685,11 +1685,10 @@ spawned one's or an export's: `NameConsole`, Lamp1, Lamp2 and Lamp3 spawned
 on Liberty Island named Lamp2, Lamp5 and Lamp6 in both), and
 the collection deletes such a name once nothing holds it (an object's own
 name, its properties', a class's defaults, a state frame's locals), its slot
-taken by the next name made. Differs: a level's game, which the engine
-spawns, is named `<class>0`, `DeusExGameInfo0`, where the original's is
-named by the class's count as any spawned actor's, `DeusExGameInfo2` on
-Liberty Island opened from the menu map (`ReturnConsole`, `SaveConsole`;
-bugs.md ENG.14). Differs by choice: every other name -- from a package, an
+taken by the next name made. A level's game, which the engine spawns, is
+named so too: `DeusExGameInfo2` on Liberty Island opened from the menu map,
+after Entry's and the menu's (`ReturnConsole`, `SaveConsole`). Differs by
+choice: every other name -- from a package, an
 ini, the script or C++, or a spawned actor's looked up by its spelling -- is
 kept for the session, where the original's deletes any name nothing reaches
 but the hard-coded ones (`ChurnConsole`'s memory: the table above).

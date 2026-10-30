@@ -1245,9 +1245,11 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 			Exception::Throw("Could not find any gameinfo class!");
 
 		// Spawn GameInfo actor
-		// Named and flagged as the original's spawned game: DeusExGameInfo0, and
-		// the flags any spawned actor has (UActor::Spawn).
-		GameInfo = UObject::Cast<UGameInfo>(LevelPackage->NewObject(gameInfoClass->Name.ToString() + "0", gameInfoClass, ObjectFlags::Transactional | ObjectFlags::LoadContextFlags | ObjectFlags::HasStack));
+		// Named and flagged as the original's spawned game: by the class's
+		// count, as any spawned actor (MakeUniqueObjectName: Entry's
+		// DeusExGameInfo0, the menu map's 1, the next map's 2), and with the
+		// flags any spawned actor has (UActor::Spawn).
+		GameInfo = UObject::Cast<UGameInfo>(LevelPackage->NewObject(LevelPackage->MakeUniqueObjectName(gameInfoClass), gameInfoClass, ObjectFlags::Transactional | ObjectFlags::LoadContextFlags | ObjectFlags::HasStack));
 		GameInfo->XLevel() = Level;
 		GameInfo->Level() = LevelInfo;
 		Level->Collision.AddToCollision(GameInfo);
