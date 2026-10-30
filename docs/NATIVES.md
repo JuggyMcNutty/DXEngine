@@ -1706,9 +1706,11 @@ not deleted (the log says so).
   (`StandConsole`, a line straight down meeting the floor at the same
   height in both: bugs.md PHYS.12). Not carried: the original's floor of 5 ms, the
   step of every tick past 200 frames a second, which would run the game fast
-  there (D.17). The level's `TimeDilation` is held to 0.0025 to 25, where the
-  original's is not held (the game sets it only through `SetGameSpeed`, to
-  0.1 or more; D.18).
+  there: uncapped, the original's flyby on the menu map sweeps between its
+  logos in a tenth of a second, where held to 60 frames both engines' keep
+  together (`IntroConsole`; D.17). The level's `TimeDilation` is held to
+  0.0025 to 25, where the original's is not held (the game sets it only
+  through `SetGameSpeed`, to 0.1 or more; D.18).
 - **A travel's items**: the travel is taken whether or not the game's Login
   spawned a new pawn, as the original's SpawnPlayActor takes it; its info is
   looked up by the URL's name, then by its first 20 characters (the stock
