@@ -6,16 +6,22 @@
 // round, and FClamp of a NaN (0/0); a switch on a string against a case of the
 // other case, and on -0.0 against 0.0; new with a flag outside the script's
 // (the engine logs "new: Flags 04000000 not allowed"); each actor iterator
-// given None for its class, counted; OrthoRotation of four frames; two rats
+// given None for its class, counted, the radius ones round the level's
+// first PlayerStart (DX.dx's player rides the menu's flyby, its own place
+// the moment's); OrthoRotation of four frames; two rats
 // spawned, the first destroyed and its nextPawn read; PlayBlendAnim with a
 // slot of 256 (the engine logs the slot out of range); GetNextSkin with the
 // server browser's prefix; and, in a PostRender with the medium font set (the
 // console's canvas comes with none), StrLen under STY_None and under
 // STY_Normal, TextSize, and DrawText and TextSize with no font (the engine
 // logs "No font"; never StrLen, which asserts in the original). Then an exit.
+// With ListRadius (DXCAP_CONFIG="ListRadius=True"), each actor
+// RadiusActors(None, 300) gives is logged too, with its class and distance,
+// and every actor within 350 units, with its collision radius.
 //=============================================================================
 class OpsConsole extends Console;
 
+var config bool ListRadius;
 var float RunTime;
 var int Phase;
 var bool bCanvasDone;
@@ -105,16 +111,35 @@ function IterOps(PlayerPawn P)
 	local Actor A;
 	local class<Actor> C;
 	local int n, i;
+	local PlayerStart PS;
+	local vector Spot;
 
+	Spot = P.Location;
+	foreach P.AllActors(class'PlayerStart', PS)
+	{
+		Spot = PS.Location;
+		break;
+	}
+	Log("DXOPS: the radius iterators round " $ Spot);
 	C = None;
 	n = 0;
 	foreach P.AllActors(C, A)
 		n++;
 	Log("DXOPS: AllActors(None): " $ n);
 	n = 0;
-	foreach P.RadiusActors(C, A, 300)
+	foreach P.RadiusActors(C, A, 300, Spot)
+	{
 		n++;
+		if (ListRadius)
+			Log("DXOPS: radius actor " $ A.Name $ " " $ A.Class $ " " $ VSize(A.Location - Spot));
+	}
 	Log("DXOPS: RadiusActors(None, 300): " $ n);
+	if (ListRadius)
+	{
+		foreach P.AllActors(C, A)
+			if (VSize(A.Location - Spot) < 350)
+				Log("DXOPS: near actor " $ A.Name $ " at " $ A.Location $ " " $ VSize(A.Location - Spot) $ " radius " $ A.CollisionRadius);
+	}
 	n = 0;
 	foreach P.BasedActors(C, A)
 		n++;
@@ -128,11 +153,11 @@ function IterOps(PlayerPawn P)
 		n++;
 	Log("DXOPS: TouchingActors(None): " $ n);
 	n = 0;
-	foreach P.VisibleActors(C, A, 300)
+	foreach P.VisibleActors(C, A, 300, Spot)
 		n++;
 	Log("DXOPS: VisibleActors(None, 300): " $ n);
 	n = 0;
-	foreach P.VisibleCollidingActors(C, A, 300)
+	foreach P.VisibleCollidingActors(C, A, 300, Spot)
 		n++;
 	Log("DXOPS: VisibleCollidingActors(None, 300): " $ n);
 	n = 0;
