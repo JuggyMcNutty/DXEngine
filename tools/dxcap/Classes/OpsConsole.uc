@@ -11,7 +11,7 @@
 // the moment's); OrthoRotation of four frames; two rats
 // spawned, the first destroyed and its nextPawn read; PlayBlendAnim with a
 // slot of 256 (the engine logs the slot out of range); GetNextSkin with the
-// server browser's prefix; and, in a PostRender with the medium font set (the
+// server browser's prefix; GetSoundDuration of a WAV and of an MP3; and, in a PostRender with the medium font set (the
 // console's canvas comes with none), StrLen under STY_None and under
 // STY_Normal, TextSize, and DrawText and TextSize with no font (the engine
 // logs "No font"; never StrLen, which asserts in the original). Then an exit.
@@ -249,6 +249,16 @@ function PawnOps(PlayerPawn P)
 	B.Destroy();
 }
 
+// A WAV's duration, and an MP3's: a mission 1 line of conversation
+function SoundOps(PlayerPawn P)
+{
+	local Sound S;
+
+	Log("DXOPS: GetSoundDuration(Beep4, a WAV): " $ P.GetSoundDuration(Sound'DeusExSounds.Generic.Beep4'));
+	S = Sound(DynamicLoadObject("DeusExConAudioMission01.ConAudioMission01_3", class'Sound'));
+	Log("DXOPS: GetSoundDuration(ConAudioMission01_3, an MP3): " $ P.GetSoundDuration(S));
+}
+
 function BlendOps(PlayerPawn P)
 {
 	Log("DXOPS: PlayBlendAnim with slot 256 follows");
@@ -287,6 +297,7 @@ event Tick(float Delta)
 		PawnOps(P);
 		BlendOps(P);
 		SkinOps(P);
+		SoundOps(P);
 		Phase = 2;
 	}
 	else if (Phase == 2 && RunTime > 3.5)

@@ -247,6 +247,35 @@ float USound::GetDuration()
 	return duration;
 }
 
+float USound::GetPeriod()
+{
+	if (Data.size() < 12 || memcmp(Data.data(), "RIFF", 4) != 0 || memcmp(Data.data() + 8, "WAVE", 4) != 0)
+		return 0.0f;
+	auto u16 = [&](size_t at) { return (uint32_t)(Data[at] | (Data[at + 1] << 8)); };
+	auto u32 = [&](size_t at) { return u16(at) | (u16(at + 2) << 16); };
+	uint32_t channels = 0, rate = 0, bits = 0, bytes = 0;
+	bool format = false, data = false;
+	for (size_t at = 12; at + 8 <= Data.size(); at += ((u32(at + 4) + 1) & ~(size_t)1) + 8)
+	{
+		if (!format && memcmp(&Data[at], "fmt ", 4) == 0 && at + 24 <= Data.size())
+		{
+			channels = u16(at + 10);
+			rate = u32(at + 12);
+			bits = u16(at + 22);
+			format = true;
+		}
+		else if (!data && memcmp(&Data[at], "data", 4) == 0)
+		{
+			bytes = u32(at + 4);
+			data = true;
+		}
+	}
+	uint32_t perSecond = bits * channels * rate;
+	if (!format || !data || perSecond == 0)
+		return 0.0f;
+	return (float)((double)bytes * 8.0 / (double)(int32_t)perSecond);
+}
+
 int USound::GetChannels()
 {
 	GetSound();

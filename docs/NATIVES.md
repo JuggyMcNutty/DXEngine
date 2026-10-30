@@ -1181,6 +1181,10 @@ silence first, as Galaxy's decoder fills its ring
 ([lip sync](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#lip-sync)):
 a shape each tenth of a second of a line's time played, from 1,024 frames
 where its voice plays, the first at the update after it starts.
+`GetSoundDuration` is the original's, read from a WAV's header and 0 for an
+MP3
+([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds)):
+`OpsConsole`'s, a beep's and a mission 1 line's, alike.
 `LipConsole`: 30, 6 and 27 shapes on its three lines, the original's 30, 6
 and 30; one after another, 73.6% of them alike between the two engines'
 runs, where the original's own runs are 79.7% alike. Differs:

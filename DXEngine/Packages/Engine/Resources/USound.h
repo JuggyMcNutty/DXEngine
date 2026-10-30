@@ -27,6 +27,12 @@ public:
 
 	void GetSound();
 	float GetDuration();
+	// The original's USound::GetDuration (Engine.dll 0x1034ce50), which
+	// Actor.GetSoundDuration gives: its FSoundData::GetPeriod (0x1036f7a0),
+	// a WAV's data bytes times 8 over its bits a sample, channels and rate,
+	// read from its first format and data chunks; 0 for anything else, an
+	// MP3 among them.
+	float GetPeriod();
 	// The length the original's DConversation::GetSoundLength reads from the
 	// header, without decoding (ConSys.dll 0x10010460): a WAV's data bytes
 	// over its bytes a second, an MP3's bits over its first frame's bit

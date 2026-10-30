@@ -369,7 +369,7 @@ void NActor::GetSoundDuration(UObject* Self, UObject* Sound, float& ReturnValue)
 {
 	UActor* SelfActor = UObject::Cast<UActor>(Self);
 	USound* s = UObject::Cast<USound>(Sound);
-	ReturnValue = s->GetDuration();
+	ReturnValue = s->GetPeriod();
 }
 
 void NActor::GetURLMap(UObject* Self, std::string& ReturnValue)
