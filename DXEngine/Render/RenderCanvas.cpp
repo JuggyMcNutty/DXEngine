@@ -591,33 +591,6 @@ void RenderSubsystem::DrawTimedemoStats()
 		Canvas.framesDrawn = 0;
 	}
 
-	if (ShowTimedemoStats)
-	{
-		Array<std::string> lines;
-		lines.push_back(std::to_string(Canvas.fps) + " FPS");
-		lines.push_back(std::to_string(engine->Level->Actors.size()) + " actors");
-		lines.push_back(std::to_string(GC::GetStats().numObjects) + " GC objects");
-		lines.push_back(std::to_string(GC::GetStats().memoryUsage / (1024 * 1024)) + " mb memory used");
-		lines.push_back(std::to_string(Stats.Frames) + " visible frames");
-		lines.push_back(std::to_string(Stats.Surfaces) + " visible surfaces");
-		lines.push_back(std::to_string(Stats.Actors) + " visible actors");
-		lines.push_back(std::to_string(Stats.LightmapsUpdated) + " lightmaps updated");
-
-		UFont* font = engine->canvas->SmallFont();
-		if (font)
-		{
-			float curY = 180;
-			for (const std::string& text : lines)
-			{
-				float curX = engine->viewport->ViewportWidth() / (float)Canvas.uiscale - GetTextSize(font, text).x - 16;
-				float curXL = 0.0f;
-				float curYL = 0.0f;
-				DrawText(font, vec4(1.0f), 0.0f, 0.0f, curX, curY, curXL, curYL, false, text, PF_NoSmooth | PF_Masked, false);
-				curY += curYL;
-			}
-		}
-	}
-
 	if (ShowRenderStats)
 	{
 		Array<std::string> lines;

@@ -18,6 +18,7 @@ public:
 	// here; whether it did.
 	bool TickInput(float elapsed);
 	void ClearInput();
+	void ScaleInput(float scale);
 
 	void Tick(float elapsed) override;
 	void TickRotating(float elapsed) override;

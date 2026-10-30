@@ -1743,37 +1743,53 @@ not deleted (the log says so).
   over the floor moved 100 along and 100 down slides on along the floor,
   resting at one height in both engines; a move straight down from its rest
   slides nowhere and still gets `HitWall`, the first move's hit kept).
-- **Input axes**: every `input` float is 0 again after the player's
-  `PlayerTick`, and after its `PlayerInput` while paused, as the original's
-  ([a player's input](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)).
-  Differs: an axis a console command sets is used as it is; the original's
-  input scales it (the harness's `StandConsole` and `JoinConsole` allow for
-  it; bugs.md ENG.8).
+- **Input axes**, read as the original's input reads them
+  ([a player's input](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)):
+  in the player's tick, before `PlayerInput`, every `input` float a script
+  left since the last read is scaled by 20 over the tick, and the keys held
+  and the mouse add theirs; after `PlayerTick`, and after `PlayerInput`
+  while paused, every one is 0 again. So a script's own axis walks the
+  player as the original's does (`AxisConsole`: an `aBaseY` of 1 set from
+  the console's tick, at 60 frames, accelerates the player at 480, its
+  speed climbing 8 a tick, in both engines).
 - **A key's binding**, as the original's
   ([a key's binding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)):
-  on a press, each command goes to `Button` and `Axis`, the exec functions
-  of the player and the console, then the engine's commands, so
-  `DefUser.ini`'s `GreyStar=Shot` takes a shot (a timeline's press; the
-  original's input takes no scripted key on this desktop, and its dispatch
-  is read). An `Axis` binding's `speed=` word is taken in any case, and 1
-  without one, as the original's parse has it (`DefUser.ini`'s
-  `JoyU=Axis aturn speed=5.9`; `PadConsole` with `pad.txt`). A `Button`
-  naming a property the pawn lacks, or an `Axis` naming no float of it, is
-  the original's "Bad Button command" or "Bad Axis command", logged and
-  left alone (a User.ini's `F=Button bFirre` and `G=Axis aNope Speed=1`
-  pressed by `tools/dxcap/timelines/bad-keys.txt`); a `Button`'s
-  `input byte` is written as a byte, 1 pressed and 0 released. Keys held on
-  one axis add, as the original's held bindings add into its float: W and S
-  held stand still, and W walks on once S is let go. Key and alias names
-  are matched in any case, as the original's names are: the console's
-  `set input w Jump` binds W (`PadConsole` with `axis-keys.txt`). A command
-  of the engine's that fails from a key, an exec file or the launcher (a
-  `SHOT` whose file cannot be written) is logged and the game goes on, as
-  one typed in the console is. Differs: the
-  original takes its viewport's own words (`SHOT` among them) before the
-  exec functions, the same but for a word an exec function shares (bugs.md
-  ENG.9); `Toggle` and `Pulse` do nothing, and a command after `OnRelease`
-  never runs (ENG.10).
+  a press runs its line once per hold, a release only after its press. A
+  press's commands go to the input's own words and its aliases, the render
+  device's and the viewport's own words (`SHOT`, `EXEC` and the rest), then
+  the exec functions -- the console's, the game's, the HUD's, the player's
+  and each of its items' in turn -- then the engine's commands; a typed or
+  scripted command goes the same way, so `DefUser.ini`'s `GreyStar=Shot`
+  takes a shot, and `TIMEDEMO` is the console's own, whose result its
+  script logs. A release runs the input's words alone, and a command after
+  `OnRelease` the press's way. `Button` sets its byte to 1 on the press and
+  to 0 on the release, so a byte a script clears while the key is held
+  stays clear until the next press (Deus Ex's player clears `bDuck` as it
+  enters water); `Pulse` sets it on the press alone; `Toggle` flips its top
+  bit on the press; an alias's line runs with its key's press or release,
+  an alias inside it not expanded again (`BindConsole` with
+  `tools/dxcap/timelines/bind-keys.txt`: a toggle's byte 128 then 0, a
+  pulse's left at 1, a button's 1 then 0 with its press's command and its
+  release's, a key pressed three times over run once, `Shot` the viewport's
+  and not the console's, `ShowPath` the console's before the player's; the
+  original's input takes no scripted key on this desktop, and its code is
+  read; the timedemo's result in both engines). Each held key's line runs
+  again at each read as held, its input words alone. An `Axis` binding's
+  `speed=` word is taken in any case, and 1 without one, as the original's
+  parse has it (`DefUser.ini`'s `JoyU=Axis aturn speed=5.9`; `PadConsole`
+  with `pad.txt`). A `Button` naming a property the pawn lacks, or an
+  `Axis` naming no float of it, is the original's "Bad Button command" or
+  "Bad Axis command", logged and left alone, on the press, at each read
+  while the key is held and on the release, as the original's input runs
+  the line each time (a User.ini's `F=Button bFirre` and
+  `G=Axis aNope Speed=1` pressed by `tools/dxcap/timelines/bad-keys.txt`).
+  Keys held on one axis add, as the original's held bindings add into its
+  float: W and S held stand still, and W walks on once S is let go. Key and
+  alias names are matched in any case, as the original's names are: the
+  console's `set input w Jump` binds W (`PadConsole` with `axis-keys.txt`).
+  A command of the engine's that fails from a key, an exec file or the
+  launcher (a `SHOT` whose file cannot be written) is logged and the game
+  goes on, as one typed in the console is.
 - **A key's name** from the SDL2 and SDL3 windows, the launchers', is the
   original's
   ([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys)):

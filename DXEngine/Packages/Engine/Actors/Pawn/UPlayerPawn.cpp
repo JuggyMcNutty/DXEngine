@@ -14,6 +14,7 @@ void UPlayerPawn::PausedInput(float elapsed)
 {
 	if (Role() >= ROLE_SimulatedProxy && Player() && !UObject::TryCast<UCamera>(this))
 	{
+		engine->ReadInput(this, elapsed);
 		CallEvent(this, EventName::PlayerInput, { ExpressionValue::FloatValue(elapsed) });
 		ClearInput();
 	}
@@ -35,6 +36,20 @@ void UPlayerPawn::ClearInput()
 	}
 }
 
+// Every input float times the scale, as the original's ReadInput scales them
+// at each read with the tick's time
+void UPlayerPawn::ScaleInput(float scale)
+{
+	for (UProperty* prop : Class->Properties)
+	{
+		if (AllFlags(prop->PropFlags, PropertyFlags::Input) && UObject::IsType<UFloatProperty>(prop))
+		{
+			for (int i = 0; i < prop->ArrayDimension; i++)
+				*reinterpret_cast<float*>(static_cast<uint8_t*>(PropertyData.Ptr(prop)) + i * prop->ElementPitch()) *= scale;
+		}
+	}
+}
+
 bool UPlayerPawn::TickInput(float elapsed)
 {
 	// A server's copy of a client's pawn reads no input here; the client
@@ -43,6 +58,7 @@ bool UPlayerPawn::TickInput(float elapsed)
 	if (Role() < ROLE_SimulatedProxy || clientsPawn || !Player() || UObject::TryCast<UCamera>(this))
 		return false;
 
+	engine->ReadInput(this, elapsed);
 	CallEvent(this, EventName::PlayerInput, { ExpressionValue::FloatValue(elapsed) });
 	CallEvent(this, EventName::PlayerTick, { ExpressionValue::FloatValue(elapsed) });
 	ClearInput();

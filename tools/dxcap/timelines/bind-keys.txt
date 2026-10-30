@@ -1,0 +1,26 @@
+# BindConsole's keys (its header), each bound by a User.ini under
+# [Engine.Input]: F=Toggle bExtra0, G=Pulse bExtra1,
+# H=Button bExtra2|Mark 1|OnRelease Mark 2, J=Mark 3, K=Shot, L=ShowPath.
+# F pressed twice (its byte's top bit set, then cleared), G once (its byte
+# set and left), H held half a second (its byte set and cleared, Mark 1 on
+# the press and Mark 2 on the release), J pressed three times over without a
+# release between, as a held key's repeats come (Mark 3 once), K (the
+# viewport's SHOT, a shot, not the console's Shot), L (the console's
+# ShowPath, not the player's).
+# DXCAP_USERINI=<that ini> DXCAP_TIMELINE=<this> tools/dxcap.sh dxe BindConsole 01_NYC_UNATCOIsland 30
+start 10 press F
+start 10.2 release F
+start 11 press F
+start 11.2 release F
+start 12 press G
+start 12.2 release G
+start 13 press H
+start 13.5 release H
+start 14 press J
+start 14.1 press J
+start 14.2 press J
+start 14.3 release J
+start 15 press K
+start 15.2 release K
+start 16 press L
+start 16.2 release L

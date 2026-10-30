@@ -25,6 +25,8 @@
 #include "Packages/Engine/UCanvas.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+#include "Packages/Engine/Actors/UHUD.h"
+#include "Packages/Engine/Actors/Inventory/UInventory.h"
 #include "Packages/Engine/Actors/Decoration/UDecoration.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Actors/Info/UGameInfo.h"
@@ -73,8 +75,8 @@
 #endif
 
 // The input bindings' writes into the pawn (below, with InputCommand)
+static UProperty* InputProperty(UObject* pawn, const std::string& name, bool axis);
 static void SetInputButton(UObject* pawn, const std::string& name, bool pressed);
-static void SetInputAxis(UObject* pawn, const std::string& name, float value);
 
 // The machine's name, as the original's LevelInfo.ComputerName has it
 // (Windows' computer name: the host name in capitals).
@@ -2445,8 +2447,26 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	// A dedicated server has no window and no renderer: the commands that
 	// take them do nothing there (a logged-in admin's "admin getres" or
 	// "admin flush" came through PlayerPawn.Admin)
-	if ((!window || !render) && (command == "getres" || command == "getcurrentres" || command == "setres" || command == "togglefullscreen" || command == "flush" || command == "timedemo" || command == "stat" || command == "shot"))
+	if ((!window || !render) && (command == "getres" || command == "getcurrentres" || command == "setres" || command == "togglefullscreen" || command == "flush" || command == "stat" || command == "shot"))
 		return {};
+
+	// The original's order (UViewport::Exec, Engine.dll 0x10373a60;
+	// engine-dll.md, a key's binding): the input's words and aliases, the
+	// render device's and the viewport's own, then the exec functions
+	// (ExecCommand), then the engine's words. So a word an exec function
+	// shares is the viewport's (SHOT) or the exec function's (TIMEDEMO, the
+	// console's).
+	static const std::set<std::string> viewportWords = {
+		"shot", "exec", "getping", "getloss", "netspeed", "lanspeed", "keyname", "keybinding",
+		"getres", "getcolordepths", "getcurrentres", "getcurrentcolordepth", "setres", "togglefullscreen",
+		"showlog", "dxwindowdebug"
+	};
+	if (InputExec(commandline, IK_None, EInputType::IST_Press, 20))
+		return {};
+	bool viewportWord = viewportWords.count(command) != 0;
+	if (!viewportWord && ExecCommand(args, commandline))
+		return {};
+
 	if (command == "exit" || command == "quit")
 	{
 		quit = true;
@@ -2462,10 +2482,6 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	else if (command == "exec" && args.size() >= 2)
 	{
 		ExecFile(context, args[1]);
-	}
-	else if (command == "timedemo" && args.size() == 2)
-	{
-		render->ShowTimedemoStats = args[1] == "1";
 	}
 	else if (command == "stat" && args.size() == 2)
 	{
@@ -2811,13 +2827,10 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		engine->render->Device->Flush(1);
 		return {};
 	}
-	else
+	else if (!viewportWord || !ExecCommand(args, commandline))
 	{
-		if (!ExecCommand(args, commandline))
-		{
-			LogMessage("Unknown command: " + commandline);
-			found = false;
-		}
+		LogMessage("Unknown command: " + commandline);
+		found = false;
 	}
 	return {};
 }
@@ -2925,37 +2938,35 @@ void Engine::UpdateInput(float timeElapsed)
 
 	TickWindow();
 	gamepad.Update(this, timeElapsed);
+}
 
-	if (!viewport->Actor())
+// The original's UInput::ReadInput with the player's tick, in that tick
+// before PlayerInput (Engine.dll 0x10394580; engine-dll.md, a key's
+// binding): every input float a script left since the last read is scaled
+// by 20 over the tick, as the original scales each, then the keys held and
+// the mouse add theirs, already in those units (a held key's axis its speed
+// x 20, the original's speed x the tick x 20 over the tick). The buttons are
+// set and cleared by their keys' press and release alone (InputExec); each
+// held key's line runs again as held, its input words alone, as the
+// original's read runs it, its axes counted here.
+void Engine::ReadInput(UPlayerPawn* player, float elapsed)
+{
+	if (elapsed <= 0.0f)
 		return;
-
-	for (auto& it : activeInputButtons)
-		SetInputButton(viewport->Actor(), it.first, true);
+	player->ScaleInput(20.0f / elapsed);
+	for (EInputKey key : std::set<EInputKey>(heldInputKeys))
+		ExecInputLine(keybindings[keynames[key]], key, EInputType::IST_Hold, 0);
 	std::map<std::string, float> axes;
 	for (auto& it : activeInputAxes)
 		axes[it.first.first] += it.second;
 	for (auto& [axis, value] : axes)
 	{
-		if (axis == "aMouseX" || axis == "aMouseY")
+		if (UProperty* prop = InputProperty(player, axis, true))
 		{
-			SetInputAxis(viewport->Actor(), axis, value / (timeElapsed * 150.0f));
-		}
-		else
-		{
-			SetInputAxis(viewport->Actor(), axis, value);
+			float add = (axis == "aMouseX" || axis == "aMouseY") ? value / (elapsed * 150.0f) : value;
+			*static_cast<float*>(player->GetProperty(prop)) += add;
 		}
 	}
-}
-
-float Engine::HeldAxisValue(const std::string& axis) const
-{
-	float value = 0.0f;
-	for (auto& it : activeInputAxes)
-	{
-		if (it.first.first == axis)
-			value += it.second;
-	}
-	return value;
 }
 
 RenderDeviceType Engine::ChooseRenderDevice()
@@ -3314,12 +3325,14 @@ void Engine::ReleaseHeldInputKeys()
 	if (Frame::Halted || !viewport || !viewport->Actor())
 		return;
 
-	for (auto& button : activeInputButtons)
-		SetInputButton(viewport->Actor(), button.first, false);
+	// Each held key's release binding, as the original's input runs it
+	std::set<EInputKey> held;
+	held.swap(heldInputKeys);
+	for (EInputKey key : held)
+		ExecInputLine(keybindings[keynames[key]], key, EInputType::IST_Release, 0);
 	activeInputButtons.clear();
 
-	for (auto& axis : activeInputAxes)
-		SetInputAxis(viewport->Actor(), axis.first.first, 0.0f);
+	// The axes are made at each read from the keys held, none now
 	activeInputAxes.clear();
 }
 
@@ -3350,68 +3363,44 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 		return;
 
 	bool handled = CallEvent(console, EventName::KeyEvent, { ExpressionValue::ByteValue(key), ExpressionValue::ByteValue(type), ExpressionValue::FloatValue((float)delta) }).ToBool();
-	
-	if (!handled)
+	if (handled || key < 0 || (int)key >= 256)
+		return;
+
+	// The key's binding run as the original's input runs it (XInputExt,
+	// extension-dll.md, the engine and the input): a press once per hold, a
+	// release only after its press
+	if (type == EInputType::IST_Press)
 	{
-		if ((type == EInputType::IST_Press || type == EInputType::IST_Axis) && key >= 0 && (int)key < 256)
+		if (!heldInputKeys.insert(key).second)
+			return;
+		ExecInputLine(keybindings[keynames[key]], key, type, 20);
+	}
+	else if (type == EInputType::IST_Axis)
+	{
+		ExecInputLine(keybindings[keynames[key]], key, type, delta * 16);
+	}
+	else if (type == EInputType::IST_Release)
+	{
+		if (heldInputKeys.erase(key) != 0)
+			ExecInputLine(keybindings[keynames[key]], key, type, 0);
+
+		// The axes it added to -- a held key's, or a pad's stick, which a
+		// release with no press before it centres -- go on with the keys
+		// still held on them at the next read: W's walk again once S,
+		// pressed over it, is let go
+		for (auto it = activeInputAxes.begin(); it != activeInputAxes.end();)
 		{
-			if (type == EInputType::IST_Press)
-				delta = 20;
+			if (it->first.second == key)
+				it = activeInputAxes.erase(it);
 			else
-				delta *= 16;
-
-			for (const std::string& command : GetSubcommands(keybindings[keynames[key]]))
-			{
-				auto it = inputAliases.find(command);
-				if (it != inputAliases.end())
-				{
-					InputCommand(it->second, key, delta, type == EInputType::IST_Press);
-				}
-				else
-				{
-					InputCommand(command, key, delta, type == EInputType::IST_Press);
-				}
-			}
+				++it;
 		}
-		else if (type == EInputType::IST_Release)
+		for (auto it = activeInputButtons.begin(); it != activeInputButtons.end();)
 		{
-			// No player (a net join's window, between the map's load and the
-			// server's pawn): the bindings are dropped, nothing written
-			UActor* actor = viewport->Actor();
-			for (auto it = activeInputButtons.begin(); it != activeInputButtons.end();)
-			{
-				if (it->second == key)
-				{
-					if (actor)
-						SetInputButton(actor, it->first, false);
-					it = activeInputButtons.erase(it);
-				}
-				else
-				{
-					++it;
-				}
-			}
-
-			// Its axes go on with the keys still held on them: W's walk again
-			// once S, pressed over it, is let go
-			Array<std::string> released;
-			for (auto it = activeInputAxes.begin(); it != activeInputAxes.end();)
-			{
-				if (it->first.second == key)
-				{
-					released.push_back(it->first.first);
-					it = activeInputAxes.erase(it);
-				}
-				else
-				{
-					++it;
-				}
-			}
-			if (actor)
-			{
-				for (const std::string& axis : released)
-					SetInputAxis(actor, axis, HeldAxisValue(axis));
-			}
+			if (it->second == key)
+				it = activeInputButtons.erase(it);
+			else
+				++it;
 		}
 	}
 }
@@ -3434,9 +3423,25 @@ static std::string LineFromWord(const std::string& line, size_t word)
 	return i == std::string::npos ? std::string() : line.substr(i);
 }
 
+// The exec functions in the original's order: the console's (UViewport::
+// Exec), then the game's, the HUD's, the player pawn's and each item of its
+// inventory in turn (UPlayer::Exec, Engine.dll 0x103d7ed0).
 bool Engine::ExecCommand(const Array<std::string>& args, const std::string& line)
 {
-	for (UObject* target : { static_cast<UObject*>(viewport->Actor()), static_cast<UObject*>(console) })
+	Array<UObject*> targets;
+	targets.push_back(console);
+	UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(viewport->Actor());
+	if (LevelInfo && LevelInfo->Game())
+		targets.push_back(LevelInfo->Game());
+	if (player && player->myHUD())
+		targets.push_back(player->myHUD());
+	targets.push_back(viewport->Actor());
+	if (player)
+	{
+		for (UInventory* item = player->Inventory(); item; item = item->Inventory())
+			targets.push_back(item);
+	}
+	for (UObject* target : targets)
 	{
 		if (!target)
 			continue;
@@ -3533,68 +3538,137 @@ static void SetInputButton(UObject* pawn, const std::string& name, bool pressed)
 		static_cast<UBoolProperty*>(prop)->SetBool(pawn->GetProperty(prop), pressed);
 }
 
-static void SetInputAxis(UObject* pawn, const std::string& name, float value)
+// The original's UInput::ExecInputCommands (Engine.dll 0x10393bf0), a key's
+// binding line by line: a press's to the viewport's commands -- the input's
+// own first (InputExec), then the console's (RunCommand) --, as a release's
+// that starts with OnRelease does, the rest of it; anything else -- an
+// axis, any other release -- to the input's own alone. OnRelease's line on
+// the press, which no command takes, is passed over.
+void Engine::ExecInputLine(const std::string& line, EInputKey key, EInputType action, int value)
 {
-	if (UProperty* prop = InputProperty(pawn, name, true))
-		*static_cast<float*>(pawn->GetProperty(prop)) = value;
-}
-
-// Words of the original's input object (UInput::Exec) that DXEngine does
-// not carry out, and OnRelease, whose line the original runs as the key is
-// released (engine-dll.md, a key's binding): never an engine command.
-static bool IsInputSystemCommand(const std::string& command)
-{
-	return command == "toggle" || command == "pulse" || command == "onrelease";
-}
-
-void Engine::InputCommand(const std::string& commands, EInputKey key, int delta, bool press)
-{
-	for (const std::string& commandline : GetSubcommands(commands))
+	for (const std::string& command : GetSubcommands(line))
 	{
-		Array<std::string> args = GetArgs(commandline);
-		if (!args.empty())
+		Array<std::string> args = GetArgs(command);
+		if (args.empty())
+			continue;
+		bool onRelease = StrTools::equals_ignore_case(args[0], "onrelease");
+		if (action == EInputType::IST_Press)
 		{
-			std::string command = args[0];
-			for (char& c : command) c = std::tolower(c);
-
-			if (command == "button" && args.size() == 2)
-			{
-				if (InputProperty(viewport->Actor(), args[1], false))
-					activeInputButtons[args[1]] = key;
-				else
-					LogMessage("Bad Button command");
-			}
-			else if (command == "axis" && args.size() >= 2)
-			{
-				if (!InputProperty(viewport->Actor(), args[1], true))
-				{
-					LogMessage("Bad Axis command");
-					continue;
-				}
-				// The speed from a SPEED= word in any case, 1 without one, as
-				// the original's UInput::Exec (Engine.dll 0x10393e10) parses
-				// it: the game's DefUser.ini and DXLauncher's pad preset write
-				// speed=.
-				float speed = 1.0f;
-				for (size_t i = 2; i < args.size(); i++)
-				{
-					if (args[i].size() > 6 && StrTools::equals_ignore_case(args[i].substr(0, 6), "speed="))
-						speed = (float)std::atof(args[i].substr(6).c_str());
-				}
-				activeInputAxes[{ args[1], key }] = speed * delta;
-			}
-			else if (press && !ExecCommand(args, commandline) && !IsInputSystemCommand(command))
-			{
-				// A press's line alone reaches the exec functions and, when none
-				// takes it, the engine's own commands, as the original's
-				// viewport takes a pressed key's line on (DefUser.ini's
-				// GreyStar=Shot; engine-dll.md, a key's binding): an axis's or a
-				// release's line goes to the input's own commands above, so a
-				// stick bound to an exec function does not fire it every tick.
-				RunCommand(viewport->Actor(), commandline);
-			}
+			if (!onRelease && !InputExec(command, key, action, value))
+				RunCommand(viewport->Actor(), command);
+		}
+		else if (action == EInputType::IST_Release && onRelease)
+		{
+			std::string rest = LineFromWord(command, 1);
+			if (!rest.empty() && !InputExec(rest, key, action, value))
+				RunCommand(viewport->Actor(), rest);
+		}
+		else
+		{
+			InputExec(command, key, action, value);
 		}
 	}
+}
+
+// A button's byte, or a bool's 1 or 0
+static uint8_t InputButtonValue(UObject* pawn, UProperty* prop)
+{
+	if (prop->ValueType == ExpressionValueType::ValueByte)
+		return *static_cast<uint8_t*>(pawn->GetProperty(prop));
+	return static_cast<UBoolProperty*>(prop)->GetBool(pawn->GetProperty(prop)) ? 1 : 0;
+}
+
+static void SetInputButtonValue(UObject* pawn, UProperty* prop, uint8_t value)
+{
+	if (prop->ValueType == ExpressionValueType::ValueByte)
+		*static_cast<uint8_t*>(pawn->GetProperty(prop)) = value;
+	else
+		static_cast<UBoolProperty*>(prop)->SetBool(pawn->GetProperty(prop), value != 0);
+}
+
+// The original's UInput::Exec (Engine.dll 0x10393e10), the input's own
+// words: BUTTON sets its byte to 1 on a press and to 0 on a release, PULSE
+// sets it on a press alone, TOGGLE flips its top bit on a press; AXIS adds at
+// each read while its key is held, its speed x 20 (the original's hold adds
+// the speed x the tick, which the read scales by 20 over the tick), or an
+// axis's move, the speed x the move x 16; an alias's name runs the alias's
+// line as the key's, with its action, an alias inside it not expanded again.
+// False for any other word, which the viewport's commands take.
+bool Engine::InputExec(const std::string& command, EInputKey key, EInputType action, int value)
+{
+	Array<std::string> args = GetArgs(command);
+	if (args.empty())
+		return false;
+	std::string word = args[0];
+	for (char& c : word) c = std::tolower(c);
+	UActor* actor = viewport->Actor();
+
+	if (word == "button" || word == "pulse" || word == "toggle")
+	{
+		UProperty* prop = actor && args.size() >= 2 ? InputProperty(actor, args[1], false) : nullptr;
+		if (!prop)
+		{
+			LogMessage(word == "toggle" ? "Bad Toggle command" : "Bad Button command");
+			return true;
+		}
+		if (word == "button")
+		{
+			if (action == EInputType::IST_Press)
+			{
+				SetInputButtonValue(actor, prop, 1);
+				if (key != IK_None)
+					activeInputButtons[args[1]] = key;
+			}
+			else if (action == EInputType::IST_Release && InputButtonValue(actor, prop) != 0)
+			{
+				SetInputButtonValue(actor, prop, 0);
+			}
+		}
+		else if (word == "pulse")
+		{
+			if (action == EInputType::IST_Press)
+				SetInputButtonValue(actor, prop, 1);
+		}
+		else if (action == EInputType::IST_Press)
+		{
+			SetInputButtonValue(actor, prop, InputButtonValue(actor, prop) ^ 0x80);
+		}
+		return true;
+	}
+
+	if (word == "axis")
+	{
+		if (!actor || args.size() < 2 || !InputProperty(actor, args[1], true))
+		{
+			LogMessage("Bad Axis command");
+			return true;
+		}
+		// The speed from a SPEED= word in any case, 1 without one, as the
+		// original's parses it: the game's DefUser.ini and DXLauncher's pad
+		// preset write speed=.
+		float speed = 1.0f;
+		for (size_t i = 2; i < args.size(); i++)
+		{
+			if (args[i].size() > 6 && StrTools::equals_ignore_case(args[i].substr(0, 6), "speed="))
+				speed = (float)std::atof(args[i].substr(6).c_str());
+		}
+		if (key != IK_None && (action == EInputType::IST_Press || action == EInputType::IST_Axis))
+			activeInputAxes[{ args[1], key }] = speed * value;
+		return true;
+	}
+
+	if (!inputAliasRunning)
+	{
+		auto it = inputAliases.find(args[0]);
+		if (it != inputAliases.end())
+		{
+			inputAliasRunning = true;
+			ExecInputLine(it->second, key, action, value);
+			inputAliasRunning = false;
+			return true;
+		}
+	}
+	return false;
 }
 
 void Engine::SetPause(bool value)

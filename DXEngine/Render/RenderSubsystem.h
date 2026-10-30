@@ -62,7 +62,6 @@ public:
 
 	void DrawViewport(UViewportWindow* viewport);
 
-	bool ShowTimedemoStats = false;
 	bool ShowRenderStats = false;
 
 	int TextureFrameCounter = 0;

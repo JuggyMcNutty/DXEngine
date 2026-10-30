@@ -189,7 +189,8 @@ public:
 	void RunCommand(UObject* context, const std::string& command);
 
 	void UpdateInput(float timeElapsed);
-	void InputCommand(const std::string& command, EInputKey key, int delta, bool press);
+	void ExecInputLine(const std::string& line, EInputKey key, EInputType action, int value);
+	bool InputExec(const std::string& command, EInputKey key, EInputType action, int value);
 
 	void LockCursor();
 	void UnlockCursor();
@@ -346,12 +347,17 @@ public:
 	static const char* keynames[256];
 
 	std::map<std::string, EInputKey> activeInputButtons;
+	// The keys the input holds down, each pressed once per hold and released
+	// only after its press, as the original's XInputExt runs them
+	std::set<EInputKey> heldInputKeys;
+	// An alias's lines running: an alias inside one is not expanded again
+	bool inputAliasRunning = false;
 	// Each held key's own value of an axis, by the axis and the key: the
 	// axis is their sum each tick, as the original's held bindings add into
 	// it (engine-dll.md, a key's binding)
 	std::map<std::pair<std::string, EInputKey>, float> activeInputAxes;
-	// The axis as its held keys give it, after one is let go
-	float HeldAxisValue(const std::string& axis) const;
+	// The player's input read in its tick, before PlayerInput (ReadInput)
+	void ReadInput(UPlayerPawn* player, float elapsed);
 
 	GamepadInput gamepad;
 
