@@ -165,6 +165,18 @@ void Timeline::Run(Action& action)
 		return;
 	}
 
+	// The keyboard layout's family the keys stand in for, as the SDL windows
+	// name the typing keys by it: "keylayout AZERTY", "keylayout" alone for
+	// the system's own
+	if (action.Verb == "keylayout")
+	{
+		LogMessage("DXLIVE: keylayout " + action.Arg);
+		DisplayBackend* backend = DisplayBackend::Get();
+		if (!backend || !backend->SimulateKeyLayout(action.Arg))
+			LogMessage("Timeline: the window takes no layout '" + action.Arg + "'");
+		return;
+	}
+
 	// The window's virtual pad, its buttons and axes by GamepadButton's and
 	// GamepadAxis's names: what the game makes of them is what it makes of a
 	// pad's.

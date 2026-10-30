@@ -469,6 +469,13 @@ public:
 	// cannot, or has no key of that name.
 	virtual bool SimulateKey(const std::string& name, bool down) { return false; }
 
+	// The keyboard layout's family a timeline's keys stand in for, as the
+	// window names the typing keys by it (SDL2's and SDL3's: "QWERTY",
+	// "QWERTZ", "AZERTY", "Dvorak", "Swedish", "ABNT", "JP106"); empty for
+	// the system's own. For the harness's timelines. False where the backend
+	// cannot, or knows no such family.
+	virtual bool SimulateKeyLayout(const std::string& family) { return false; }
+
 	// A virtual controller's button pressed or released, or its axis moved
 	// (sticks -1..1, right and down positive; triggers 0..1): a pad of the
 	// backend's own, attached as it is first used, which GetGamepadState

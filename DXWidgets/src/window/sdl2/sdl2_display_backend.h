@@ -23,6 +23,7 @@ public:
 	bool GetGamepadState(GamepadState& state) override;
 	void SetGamepadKeyEmulation(bool enable) override;
 	bool SimulateKey(const std::string& name, bool down) override;
+	bool SimulateKeyLayout(const std::string& family) override;
 	bool SimulateGamepadButton(GamepadButton button, bool down) override;
 	bool SimulateGamepadAxis(GamepadAxis axis, float value) override;
 

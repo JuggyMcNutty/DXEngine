@@ -81,6 +81,8 @@ public:
 
 	InputKey GetMouseButtonKey(const SDL_MouseButtonEvent& event);
 
+	static InputKey KeyEventToInputKey(const SDL_KeyboardEvent& event);
+	static InputKey LayoutKeyName(SDL_Scancode scancode);
 	static InputKey ScancodeToInputKey(SDL_Scancode keycode);
 	static InputKey ScancodeToSideKey(SDL_Scancode keycode);
 	static InputKey GameControllerButtonToInputKey(SDL_GameControllerButton button);
@@ -122,8 +124,16 @@ public:
 	// Controller buttons become key presses unless the application reads the
 	// pad itself (DisplayBackend::SetGamepadKeyEmulation).
 	static bool GamepadKeyEmulation;
-	// The keys a timeline holds down (DisplayBackend::SimulateKey)
+	// The keys a timeline holds down (DisplayBackend::SimulateKey), its
+	// Num Lock and Caps Lock, toggled by its presses of them (Num Lock on and
+	// Caps Lock off at the start), and the layout's family it stands in for
+	// (SimulateKeyLayout; empty for the system's)
 	static bool SimulatedKeys[SDL_NUM_SCANCODES];
+	static bool SimulatedNumLock;
+	static bool SimulatedCapsLock;
+	static std::string SimulatedLayout;
+	// Each key held as the name it was pressed as, which its release takes
+	static InputKey PressedAs[SDL_NUM_SCANCODES];
 	static std::unordered_map<int, SDL2DisplayWindow*> WindowList;
 
 	static std::unordered_map<void *, void *> TimerHandles;

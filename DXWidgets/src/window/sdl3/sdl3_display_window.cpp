@@ -10,10 +10,20 @@
 
 #include "dxwidgets/core/image.h"
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 Uint32 SDL3DisplayWindow::PaintEventNumber = 0xffffffff;
 bool SDL3DisplayWindow::ExitRunLoop;
 bool SDL3DisplayWindow::GamepadKeyEmulation = true;
 bool SDL3DisplayWindow::SimulatedKeys[SDL_SCANCODE_COUNT];
+bool SDL3DisplayWindow::SimulatedNumLock = true;
+bool SDL3DisplayWindow::SimulatedCapsLock = false;
+std::string SDL3DisplayWindow::SimulatedLayout;
+InputKey SDL3DisplayWindow::PressedAs[SDL_SCANCODE_COUNT];
 std::unordered_map<unsigned int, SDL3DisplayWindow*> SDL3DisplayWindow::WindowList;
 
 SDL3DisplayWindow::SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, SDL3DisplayWindow* owner, RenderAPI renderAPI) : WindowHost(windowHost)
@@ -714,10 +724,16 @@ void SDL3DisplayWindow::OnJoyButtonDown(const SDL_GamepadButtonEvent& event)
 // A shift, control or alt is its name for both sides, then its side's own,
 // as the original's are: the first from the window's key message, the
 // second from its poll of every key, which sees a held key once
-// (dx-reverse-info/windrv-dll.md, the keys).
+// (dx-reverse-info/windrv-dll.md, the keys). A key's repeats and its
+// release are the name it was pressed as, whatever Num Lock or the layout
+// became meanwhile.
 void SDL3DisplayWindow::OnKeyUp(const SDL_KeyboardEvent& event)
 {
-	WindowHost->OnWindowKeyUp(ScancodeToInputKey(event.scancode));
+	InputKey key = PressedAs[event.scancode];
+	if (key == InputKey::None)
+		key = KeyEventToInputKey(event);
+	PressedAs[event.scancode] = InputKey::None;
+	WindowHost->OnWindowKeyUp(key);
 	InputKey side = ScancodeToSideKey(event.scancode);
 	if (side != InputKey::None)
 		WindowHost->OnWindowKeyUp(side);
@@ -725,10 +741,240 @@ void SDL3DisplayWindow::OnKeyUp(const SDL_KeyboardEvent& event)
 
 void SDL3DisplayWindow::OnKeyDown(const SDL_KeyboardEvent& event)
 {
-	WindowHost->OnWindowKeyDown(ScancodeToInputKey(event.scancode));
+	InputKey key = PressedAs[event.scancode];
+	if (!event.repeat || key == InputKey::None)
+		PressedAs[event.scancode] = key = KeyEventToInputKey(event);
+	WindowHost->OnWindowKeyDown(key);
 	InputKey side = ScancodeToSideKey(event.scancode);
 	if (side != InputKey::None && !event.repeat)
 		WindowHost->OnWindowKeyDown(side);
+	std::string chars = AltCharacter(event);
+	if (!chars.empty())
+		WindowHost->OnWindowKeyChar(chars);
+}
+
+// A key as the original's WinDrv names it: the Windows virtual-key code its
+// key message carries, which is EInputKey's (dx-reverse-info/windrv-dll.md,
+// the keys). Windows' code follows Num Lock and the layout: with Num Lock
+// off the keypad's digits and point are the keys they move by (VK_CLEAR,
+// Unknown0C, for 5); a typing key on Windows is the code Windows' own
+// layout gives its scancode, elsewhere it is named as the original's Wine
+// names it (LayoutKeyName). Any other key by its place on a US keyboard.
+InputKey SDL3DisplayWindow::KeyEventToInputKey(const SDL_KeyboardEvent& event)
+{
+	if (!(event.mod & SDL_KMOD_NUM))
+	{
+		switch (event.scancode)
+		{
+		case SDL_SCANCODE_KP_0:      return InputKey::Insert;
+		case SDL_SCANCODE_KP_1:      return InputKey::End;
+		case SDL_SCANCODE_KP_2:      return InputKey::Down;
+		case SDL_SCANCODE_KP_3:      return InputKey::PageDown;
+		case SDL_SCANCODE_KP_4:      return InputKey::Left;
+		case SDL_SCANCODE_KP_5:      return InputKey::Unknown0C;
+		case SDL_SCANCODE_KP_6:      return InputKey::Right;
+		case SDL_SCANCODE_KP_7:      return InputKey::Home;
+		case SDL_SCANCODE_KP_8:      return InputKey::Up;
+		case SDL_SCANCODE_KP_9:      return InputKey::PageUp;
+		case SDL_SCANCODE_KP_PERIOD: return InputKey::Delete;
+		default: break;
+		}
+	}
+	InputKey typing = LayoutKeyName(event.scancode);
+	if (typing == InputKey::None)
+		return ScancodeToInputKey(event.scancode);
+#ifdef _WIN32
+	if (event.raw != 0 && SimulatedLayout.empty())
+	{
+		UINT vk = MapVirtualKeyExW(event.raw, MAPVK_VSC_TO_VK_EX, GetKeyboardLayout(0));
+		if (vk != 0 && vk < 0xFF)
+			return (InputKey)vk;
+	}
+#endif
+	return typing;
+}
+
+// The typing keys -- a US keyboard's letters, digits and punctuation, the
+// ISO key by the left Shift and an ABNT or JIS keyboard's own keys -- as
+// Wine's X11 keyboard driver, the original's on Linux, names them
+// (dlls/winex11.drv/keyboard.c, main_key_vkey_*): the layout's family told
+// by what a few keys type (SDL's keycodes, Latin letters on any layout, a
+// dead key its US key's) -- AZERTY's A and Z, QWERTZ's Z and Y, Dvorak's O
+// and E, Swedish's (and Finnish's) å, ö and ä, Brazilian ABNT's ç and [,
+// Japanese 106's @ and : -- a QWERTY's keys by their places, as every other
+// layout's are, each other family's by its table, the French, Dvorak and
+// Swedish ones Windows' own. None for any other key.
+InputKey SDL3DisplayWindow::LayoutKeyName(SDL_Scancode scancode)
+{
+	InputKey place;
+	switch (scancode)
+	{
+	case SDL_SCANCODE_NONUSBACKSLASH:
+	case SDL_SCANCODE_INTERNATIONAL1: place = InputKey::JoyZ; break;      // VK_OEM_102: ABNT's /?, JIS's ro too
+	case SDL_SCANCODE_INTERNATIONAL3: place = InputKey::Backslash; break; // VK_OEM_5: JIS's yen
+	case SDL_SCANCODE_NONUSHASH:      place = InputKey::Backslash; break;
+	default:                          place = ScancodeToInputKey(scancode); break;
+	}
+	bool typing = (place >= InputKey::_0 && place <= InputKey::_9) || (place >= InputKey::A && place <= InputKey::Z) ||
+		(place >= InputKey::Semicolon && place <= InputKey::Tilde) || (place >= InputKey::LeftBracket && place <= InputKey::SingleQuote) ||
+		place == InputKey::JoyZ;
+	if (!typing)
+		return InputKey::None;
+
+	auto at = [](SDL_Scancode s) { return SDL_GetKeyFromScancode(s, SDL_KMOD_NONE, true); };
+	std::string family = SimulatedLayout;
+	if (family.empty())
+	{
+		if (at(SDL_SCANCODE_Q) == 'a' && at(SDL_SCANCODE_W) == 'z')
+			family = "AZERTY";
+		else if (at(SDL_SCANCODE_Y) == 'z' && at(SDL_SCANCODE_Z) == 'y')
+			family = "QWERTZ";
+		else if (at(SDL_SCANCODE_S) == 'o' && at(SDL_SCANCODE_D) == 'e')
+			family = "Dvorak";
+		else if (at(SDL_SCANCODE_LEFTBRACKET) == 0xe5 && at(SDL_SCANCODE_SEMICOLON) == 0xf6 && at(SDL_SCANCODE_APOSTROPHE) == 0xe4)
+			family = "Swedish";
+		else if (at(SDL_SCANCODE_SEMICOLON) == 0xe7 && at(SDL_SCANCODE_RIGHTBRACKET) == '[')
+			family = "ABNT";
+		else if (at(SDL_SCANCODE_LEFTBRACKET) == '@' && at(SDL_SCANCODE_APOSTROPHE) == ':')
+			family = "JP106";
+	}
+
+	if (family == "QWERTZ")
+	{
+		switch (scancode)
+		{
+		case SDL_SCANCODE_Y:            return InputKey::Z;
+		case SDL_SCANCODE_Z:            return InputKey::Y;
+		default: break;
+		}
+	}
+	else if (family == "AZERTY")
+	{
+		switch (scancode)
+		{
+		case SDL_SCANCODE_GRAVE:        return InputKey::SingleQuote;  // VK_OEM_7
+		case SDL_SCANCODE_MINUS:        return InputKey::LeftBracket;  // VK_OEM_4
+		case SDL_SCANCODE_Q:            return InputKey::A;
+		case SDL_SCANCODE_W:            return InputKey::Z;
+		case SDL_SCANCODE_LEFTBRACKET:  return InputKey::RightBracket; // VK_OEM_6
+		case SDL_SCANCODE_RIGHTBRACKET: return InputKey::Semicolon;    // VK_OEM_1
+		case SDL_SCANCODE_A:            return InputKey::Q;
+		case SDL_SCANCODE_SEMICOLON:    return InputKey::M;
+		case SDL_SCANCODE_APOSTROPHE:   return InputKey::Tilde;        // VK_OEM_3
+		case SDL_SCANCODE_Z:            return InputKey::W;
+		case SDL_SCANCODE_M:            return InputKey::Comma;
+		case SDL_SCANCODE_COMMA:        return InputKey::Period;
+		case SDL_SCANCODE_PERIOD:       return InputKey::Slash;        // VK_OEM_2
+		case SDL_SCANCODE_SLASH:        return InputKey::UnknownDF;    // VK_OEM_8
+		default: break;
+		}
+	}
+	else if (family == "Swedish")
+	{
+		switch (scancode)
+		{
+		case SDL_SCANCODE_GRAVE:        return InputKey::Backslash;    // VK_OEM_5
+		case SDL_SCANCODE_MINUS:        return InputKey::Equals;       // VK_OEM_PLUS
+		case SDL_SCANCODE_EQUALS:       return InputKey::LeftBracket;  // VK_OEM_4
+		case SDL_SCANCODE_LEFTBRACKET:  return InputKey::RightBracket; // VK_OEM_6
+		case SDL_SCANCODE_RIGHTBRACKET: return InputKey::Semicolon;    // VK_OEM_1
+		case SDL_SCANCODE_SEMICOLON:    return InputKey::Tilde;        // VK_OEM_3
+		case SDL_SCANCODE_BACKSLASH:
+		case SDL_SCANCODE_NONUSHASH:    return InputKey::Slash;        // VK_OEM_2
+		case SDL_SCANCODE_SLASH:        return InputKey::Minus;
+		default: break;
+		}
+	}
+	else if (family == "ABNT")
+	{
+		switch (scancode)
+		{
+		case SDL_SCANCODE_APOSTROPHE:     return InputKey::UnknownDF;    // VK_OEM_8
+		case SDL_SCANCODE_NONUSBACKSLASH: return InputKey::SingleQuote;  // VK_OEM_7
+		default: break;
+		}
+	}
+	else if (family == "JP106")
+	{
+		switch (scancode)
+		{
+		case SDL_SCANCODE_GRAVE:        return InputKey::JoyPovRight;  // Hankaku/Zenkaku, VK_DBE_SBCSCHAR
+		case SDL_SCANCODE_EQUALS:       return InputKey::SingleQuote;  // VK_OEM_7
+		case SDL_SCANCODE_LEFTBRACKET:  return InputKey::Tilde;        // VK_OEM_3
+		case SDL_SCANCODE_RIGHTBRACKET: return InputKey::LeftBracket;  // VK_OEM_4
+		case SDL_SCANCODE_SEMICOLON:    return InputKey::Equals;       // VK_OEM_PLUS
+		case SDL_SCANCODE_APOSTROPHE:   return InputKey::Semicolon;    // VK_OEM_1
+		case SDL_SCANCODE_BACKSLASH:
+		case SDL_SCANCODE_NONUSHASH:    return InputKey::RightBracket; // VK_OEM_6
+		default: break;
+		}
+	}
+	else if (family == "Dvorak")
+	{
+		switch (scancode)
+		{
+		case SDL_SCANCODE_MINUS:        return InputKey::LeftBracket;
+		case SDL_SCANCODE_EQUALS:       return InputKey::RightBracket;
+		case SDL_SCANCODE_Q:            return InputKey::SingleQuote;
+		case SDL_SCANCODE_W:            return InputKey::Comma;
+		case SDL_SCANCODE_E:            return InputKey::Period;
+		case SDL_SCANCODE_R:            return InputKey::P;
+		case SDL_SCANCODE_T:            return InputKey::Y;
+		case SDL_SCANCODE_Y:            return InputKey::F;
+		case SDL_SCANCODE_U:            return InputKey::G;
+		case SDL_SCANCODE_I:            return InputKey::C;
+		case SDL_SCANCODE_O:            return InputKey::R;
+		case SDL_SCANCODE_P:            return InputKey::L;
+		case SDL_SCANCODE_LEFTBRACKET:  return InputKey::Slash;
+		case SDL_SCANCODE_RIGHTBRACKET: return InputKey::Equals;
+		case SDL_SCANCODE_S:            return InputKey::O;
+		case SDL_SCANCODE_D:            return InputKey::E;
+		case SDL_SCANCODE_F:            return InputKey::U;
+		case SDL_SCANCODE_G:            return InputKey::I;
+		case SDL_SCANCODE_H:            return InputKey::D;
+		case SDL_SCANCODE_J:            return InputKey::H;
+		case SDL_SCANCODE_K:            return InputKey::T;
+		case SDL_SCANCODE_L:            return InputKey::N;
+		case SDL_SCANCODE_SEMICOLON:    return InputKey::S;
+		case SDL_SCANCODE_APOSTROPHE:   return InputKey::Minus;
+		case SDL_SCANCODE_Z:            return InputKey::Semicolon;
+		case SDL_SCANCODE_X:            return InputKey::Q;
+		case SDL_SCANCODE_C:            return InputKey::J;
+		case SDL_SCANCODE_V:            return InputKey::K;
+		case SDL_SCANCODE_B:            return InputKey::X;
+		case SDL_SCANCODE_N:            return InputKey::B;
+		case SDL_SCANCODE_COMMA:        return InputKey::W;
+		case SDL_SCANCODE_PERIOD:       return InputKey::V;
+		case SDL_SCANCODE_SLASH:        return InputKey::Z;
+		default: break;
+		}
+	}
+	return place;
+}
+
+// The character a key types while Alt is held, for which SDL sends no text
+// (its X11 and Wayland windows drop the text under Alt, its Windows one
+// takes no WM_SYSCHAR): the one the layout gives the key with Shift and
+// Caps Lock as they are, as the original's window gets it in a WM_SYSCHAR
+// after the key (dx-reverse-info/windrv-dll.md, typed characters). None
+// with Ctrl or AltGr held too, nor for a key that types no character.
+std::string SDL3DisplayWindow::AltCharacter(const SDL_KeyboardEvent& event)
+{
+	if (!(event.mod & SDL_KMOD_ALT) || (event.mod & (SDL_KMOD_CTRL | SDL_KMOD_MODE)))
+		return {};
+	SDL_Keycode c = SDL_GetKeyFromScancode(event.scancode, SDL_KMOD_NONE, false);
+	if (c >= 'a' && c <= 'z')
+	{
+		if (((event.mod & SDL_KMOD_SHIFT) != 0) != ((event.mod & SDL_KMOD_CAPS) != 0))
+			c = c - 'a' + 'A';
+	}
+	else if (event.mod & SDL_KMOD_SHIFT)
+		c = SDL_GetKeyFromScancode(event.scancode, SDL_KMOD_SHIFT, false);
+	if (c < 0x20 || c == 0x7f || (c & SDLK_SCANCODE_MASK) || c > 0x10ffff)
+		return {};
+	char utf8[5] = {};
+	SDL_UCS4ToUTF8(c, utf8);
+	return utf8;
 }
 
 InputKey SDL3DisplayWindow::GetMouseButtonKey(const SDL_MouseButtonEvent& event)
@@ -869,10 +1115,8 @@ DisplayWindow::GLFuncPtr SDL3DisplayWindow::GetGLProcAddress(const char* name)
 	return (GLFuncPtr)SDL_GL_GetProcAddress(name);
 }
 
-// A key as the original's WinDrv names it: the Windows virtual-key code its
-// key message carries, which is EInputKey's (dx-reverse-info/windrv-dll.md,
-// the keys); a key by its place on a US keyboard, where Windows' code
-// follows the layout.
+// A key by its place on a US keyboard, as Windows' virtual-key code names
+// it there (KeyEventToInputKey).
 InputKey SDL3DisplayWindow::ScancodeToInputKey(SDL_Scancode keycode)
 {
 	switch (keycode)

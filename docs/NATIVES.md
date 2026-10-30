@@ -1030,7 +1030,12 @@ from the original's code:
   first window with that key -- the modal, then its children bottom to
   top, each in turn -- that shows, is sensitive and takes the focus, a
   letter in either case (`ClickConsole`: Alt+B opens Brightness from the
-  Display screen, Alt+C cancels it).
+  Display screen, Alt+C cancels it). The letter is the character the layout
+  gives the key, after the key, as the original's comes in a `WM_SYSCHAR`
+  (read from both codes): the Win32 window's that message, the X11, Wayland
+  and SDL2 ones' their text, the SDL3 one's the layout's character with
+  Shift and Caps Lock, for which SDL sends none (`keys.txt`: Alt and B,
+  Caps Lock on, give `B`).
 - **Keyboard focus**
   ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#keyboard-focus)):
   a tab group's windows in order of where they lie on screen; `MoveFocus`,
@@ -1101,9 +1106,11 @@ Differs:
   stored as wide characters (such a note in its save; every conversation
   comment of `DeusExConText.u`) loads, each character past Latin-1 a `?`
   (VM.5).
-- **Keys**, read from both codes: with Alt down DXEngine takes a letter or
-  digit from the key's press, not from the characters the platform sends,
-  and it forgets the keys held as its window loses the keyboard (WIN.7).
+- **Keys held as the window loses the keyboard** are forgotten, by choice,
+  so an Alt held into Alt+Tab does not stick: the original's root keeps
+  their marks, its window resetting only the engine's input (read from both
+  codes), and its Alt stays down to the windows until pressed again, a key
+  and a typed letter passing every window over but a modal.
 - **Keyboard focus**: DXEngine places windows in its layout pass, after the
   level's tick, and seeds the first focus there; the original places them as
   they are made and seeds it at its windows' next tick, so a conversation's
@@ -1773,17 +1780,25 @@ not deleted (the log says so).
   a shift, control or alt its name for both sides, then its side's own
   (`LShift`; `UnknownA4` for the left alt), Caps Lock, the punctuation, the
   keypad's operators and Enter, Print Screen (`PrintScrn`), the Windows and
-  menu keys (`Unknown5B` to `Unknown5D`): `tools/dxcap/timelines/keys.txt`
-  with `DXCAP_BACKEND=SDL3` or `SDL2` presses each through the window's own
-  events and logs the names the game gets (the original's input takes no
-  scripted key on this desktop, and its code is read). Enter with Alt held
+  menu keys (`Unknown5B` to `Unknown5D`), the ISO key by the left Shift
+  (`JoyZ`, Windows' `VK_OEM_102`); with Num Lock off the keypad's digits and
+  point are the keys they move by (`Up`, `Insert`, `Delete`; 5 `Unknown0C`,
+  `VK_CLEAR`). A key that types follows the layout: on Windows the code
+  Windows' layout gives its scancode, on Linux the name Wine's X11 driver,
+  the original's there, gives it -- the layout's family told by what a few
+  keys type, a QWERTY's keys by their places, a QWERTZ's, an AZERTY's, a
+  Dvorak's, a Swedish's (and a Finnish's), a Brazilian ABNT's and a
+  Japanese 106's by its family's table, any other layout's by their places.
+  A key is released as the name it was pressed as.
+  `tools/dxcap/timelines/keys.txt` with `DXCAP_BACKEND=SDL3` or `SDL2`
+  presses each through the window's own events, the keypad with Num Lock on
+  and off, the typing keys under each family (`keylayout`), and logs the
+  names the game gets (the original's input takes no scripted key on this
+  desktop, and its code is read). Enter with Alt held
   toggles full screen, the game's input getting no press of it, and Alt+F4
   closes nothing, as the original's window takes them (`PadConsole` with
-  `axis-keys.txt`: the root window full screen's size and back). Differs: a
-  key is named by its place on a US keyboard, where the original's name
-  follows the layout; the keypad's digits are always `NumPad0` to `NumPad9`,
-  where with Num Lock off the original's are the arrows, Home and the rest
-  (bugs.md WIN.6). By choice, the other windows name fewer, and a side's own
+  `axis-keys.txt`: the root window full screen's size and back). By choice,
+  the other windows name fewer, and a side's own
   never: the X11 one, the
   harness's, has no Alt but the Meta key, no `` ` ``, no keypad Enter, and
   Print Screen as `Print`; the Wayland one, the engine's own on a Wayland

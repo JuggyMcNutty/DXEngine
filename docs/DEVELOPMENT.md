@@ -322,8 +322,9 @@ left, both from Liberty Island, ten loads of each map 25 s apart, then an exit:
 
 and twelve more: `collections.txt`, the collections a player meets, each timed -- the console's
 `obj garbage` on the island, then Battery Park and the island loaded in turn, `obj garbage` after
-each load -- `keys.txt`, a key of each kind the SDL windows name, on the stock console with
-`DXCAP_BACKEND=SDL3` ([a key's name](NATIVES.md#small)), `bad-keys.txt`, a `Button` and an
+each load -- `keys.txt`, a key of each kind the SDL windows name, the keypad with Num Lock on and
+off, B with Alt held and its character, and typing keys under each layout family, on the stock
+console with `DXCAP_BACKEND=SDL3` ([a key's name](NATIVES.md#small)), `bad-keys.txt`, a `Button` and an
 `Axis` the pawn lacks pressed on the stock console (`DXCAP_USERINI` binding them), and, each one
 console's input, `loot-drags.txt` (`LootConsole`), `stray-release.txt` (`KeypadConsole`),
 `scroll.txt` (`ScrollConsole`), `clicks.txt` (`ClickConsole`), `pad.txt` (`PadConsole`),
@@ -365,8 +366,12 @@ the net game); the action `press <key>` or `release <key>` as the key in the win
 button pressed where the pointer is, a press of `MouseWheelUp` or `MouseWheelDown` a notch of the
 wheel), `keydown <name>` or `keyup <name>` a key of the keyboard by the window system's name for
 it (SDL's scancode names, under SDL2 and SDL3: `Left Shift`, `Keypad *`, `Menu`; the X11 window
-takes none), put among the window's own events and each key the window gives the game logged
-(`DXKEY:`), `pad <button> down` or `up` and `padaxis <axis> <value>` the SDL window's virtual pad
+takes none), put among the window's own events with the modifiers the timeline holds and its
+Num Lock and Caps Lock, which its presses of them toggle (Num Lock on and Caps Lock off at the
+start), and each key and character the window gives the game logged (`DXKEY:`), `keylayout
+<family>` the layout's family the keys stand in for as the SDL windows name them (`QWERTY`,
+`QWERTZ`, `AZERTY`, `Dvorak`, `Swedish`; alone, the system's again), `pad <button> down` or `up`
+and `padaxis <axis> <value>` the SDL window's virtual pad
 (`A` to `DpadRight`, `LeftX` to `RightTrigger`: a stick -1 to 1, a trigger 0 to 1), its keys
 logged so too, `pointer <x> <y>` the pointer moved there in the root window's coordinates,
 `chars <text>` text typed as the window sends it (UTF-8, every character in one go), or a

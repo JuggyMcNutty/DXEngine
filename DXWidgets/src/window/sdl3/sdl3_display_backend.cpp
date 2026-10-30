@@ -88,19 +88,54 @@ void SDL3DisplayBackend::SetGamepadKeyEmulation(bool enable)
 	SDL3DisplayWindow::GamepadKeyEmulation = enable;
 }
 
+// The key's event as the keyboard's: its modifiers those the timeline holds
+// and its locks, Num Lock and Caps Lock toggled by their presses, and the
+// keycode SDL puts in a key event.
 bool SDL3DisplayBackend::SimulateKey(const std::string& name, bool down)
 {
 	SDL_Scancode scancode = SDL_GetScancodeFromName(name.c_str());
 	if (scancode == SDL_SCANCODE_UNKNOWN || SDL3DisplayWindow::WindowList.empty())
 		return false;
+	if (down && !SDL3DisplayWindow::SimulatedKeys[scancode])
+	{
+		if (scancode == SDL_SCANCODE_NUMLOCKCLEAR)
+			SDL3DisplayWindow::SimulatedNumLock = !SDL3DisplayWindow::SimulatedNumLock;
+		else if (scancode == SDL_SCANCODE_CAPSLOCK)
+			SDL3DisplayWindow::SimulatedCapsLock = !SDL3DisplayWindow::SimulatedCapsLock;
+	}
+	SDL3DisplayWindow::SimulatedKeys[scancode] = down;
+
+	static const struct { SDL_Scancode key; SDL_Keymod mod; } modifiers[] = {
+		{ SDL_SCANCODE_LSHIFT, SDL_KMOD_LSHIFT }, { SDL_SCANCODE_RSHIFT, SDL_KMOD_RSHIFT },
+		{ SDL_SCANCODE_LCTRL, SDL_KMOD_LCTRL }, { SDL_SCANCODE_RCTRL, SDL_KMOD_RCTRL },
+		{ SDL_SCANCODE_LALT, SDL_KMOD_LALT }, { SDL_SCANCODE_RALT, SDL_KMOD_RALT },
+		{ SDL_SCANCODE_LGUI, SDL_KMOD_LGUI }, { SDL_SCANCODE_RGUI, SDL_KMOD_RGUI },
+	};
+	SDL_Keymod mod = SDL_KMOD_NONE;
+	for (const auto& m : modifiers)
+		if (SDL3DisplayWindow::SimulatedKeys[m.key])
+			mod |= m.mod;
+	if (SDL3DisplayWindow::SimulatedNumLock)
+		mod |= SDL_KMOD_NUM;
+	if (SDL3DisplayWindow::SimulatedCapsLock)
+		mod |= SDL_KMOD_CAPS;
+
 	SDL_Event event = {};
 	event.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
 	event.key.windowID = SDL3DisplayWindow::WindowList.begin()->first;
 	event.key.scancode = scancode;
-	event.key.key = SDL_GetKeyFromScancode(scancode, SDL_KMOD_NONE, false);
+	event.key.key = SDL_GetKeyFromScancode(scancode, mod, true);
+	event.key.mod = mod;
 	event.key.down = down;
-	SDL3DisplayWindow::SimulatedKeys[scancode] = down;
 	return SDL_PushEvent(&event);
+}
+
+bool SDL3DisplayBackend::SimulateKeyLayout(const std::string& family)
+{
+	if (!family.empty() && family != "QWERTY" && family != "QWERTZ" && family != "AZERTY" && family != "Dvorak" && family != "Swedish" && family != "ABNT" && family != "JP106")
+		return false;
+	SDL3DisplayWindow::SimulatedLayout = family;
+	return true;
 }
 
 // The timeline's pad: a virtual gamepad of SDL's, its axes and buttons in

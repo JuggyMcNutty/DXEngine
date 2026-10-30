@@ -684,37 +684,20 @@ bool URootWindow::RouteKey(const std::function<bool(UWindow*)>& handle)
 	return true;
 }
 
-// While Alt is down the platform's characters are not counted on (some send
-// none): a letter or digit pressed is its own character (OnWindowKeyDown).
+// A typed character goes the keys' way, Alt held or not: each window sends
+// what a key types with Alt as the original's gets it in a WM_SYSCHAR (the
+// Win32 one that message, the X11, Wayland and SDL2 ones their text, the
+// SDL3 one the layout's character), and a modal on top presses the window
+// whose accelerator it is (UModalWindow::KeyPressed).
 bool URootWindow::OnWindowKeyChar(std::string chars)
 {
-	if (IsKeyDown(IK_Alt))
-		return IsKeyboardGrabbed();
-
 	return RouteKey([&](UWindow* w) { return w->KeyPressed(chars); });
 }
 
 bool URootWindow::OnWindowKeyDown(EInputKey key)
 {
 	bool repeat = MarkKey(key, true);
-
-	bool taken = RouteKey([&](UWindow* w) { return w->RawKeyPressed(key, EInputType::IST_Press, repeat) || w->VirtualKeyPressed(key, repeat); });
-
-	// With Alt down, a letter or digit goes on as a character, as the
-	// original's Alt characters do: a modal on top presses the window whose
-	// accelerator it is (UModalWindow::KeyPressed).
-	if (IsKeyDown(IK_Alt))
-	{
-		char ch = 0;
-		if (key >= IK_A && key <= IK_Z)
-			ch = (char)('a' + (key - IK_A));
-		else if (key >= IK_0 && key <= IK_9)
-			ch = (char)('0' + (key - IK_0));
-		if (ch != 0)
-			RouteKey([&](UWindow* w) { return w->KeyPressed(std::string(1, ch)); });
-	}
-
-	return taken;
+	return RouteKey([&](UWindow* w) { return w->RawKeyPressed(key, EInputType::IST_Press, repeat) || w->VirtualKeyPressed(key, repeat); });
 }
 
 // Keys held as the window loses the keyboard are let go unseen: none counts

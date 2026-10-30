@@ -3186,6 +3186,8 @@ void Engine::OnWindowRawMouseMove(int dx, int dy)
 // nowhere.
 void Engine::OnWindowKeyChar(std::string chars)
 {
+	if (Timeline::LogKeys)
+		LogMessage("DXKEY: char " + chars);
 	UTF8Reader reader(chars.data(), chars.size());
 	for (; !reader.is_end(); reader.next())
 	{

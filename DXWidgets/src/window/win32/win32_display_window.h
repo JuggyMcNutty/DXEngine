@@ -103,6 +103,9 @@ public:
 	bool KeyboardLocked = false;
 
 	bool MouseLocked = false;
+	// The keys down by the window's key messages, let go as it loses the
+	// keyboard (WM_KILLFOCUS)
+	bool HeldKeys[256] = {};
 	POINT MouseLockPos = {};
 	// The last place of an absolute raw mouse (WM_INPUT's MOUSE_MOVE_ABSOLUTE)
 	bool RawAbsoluteKnown = false;

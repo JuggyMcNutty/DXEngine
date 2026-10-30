@@ -2,7 +2,15 @@
 # keyboard's (keydown, keyup: SDL's scancode names), each key the game gets
 # logged (DXKEY:): the shifts, controls and alts, Caps Lock, the windows and
 # menu keys, the punctuation, the keypad's operators and Enter, Print
-# Screen. With DXCAP_BACKEND=SDL3 or SDL2, then an exit.
+# Screen. Then the keypad with Num Lock on, off -- its digits and point the
+# keys they move by, 5 VK_CLEAR's Unknown0C -- and on again; the ISO key by
+# the left Shift (VK_OEM_102, JoyZ); B with Alt held, the character the
+# window sends after it (DXKEY: char; B, Caps Lock on since its press);
+# and typing keys under the AZERTY, QWERTZ, Dvorak, Swedish, Brazilian ABNT
+# and Japanese 106 families (keylayout), each named as Wine names the
+# layout's, then the system's layout again. With DXCAP_BACKEND=SDL3 or SDL2,
+# then an exit (SDL2 sends no character for the timeline's Alt and B: its
+# text is the platform's alone).
 start 12.0 keydown Left Shift
 start 12.2 keyup Left Shift
 start 12.4 keydown Right Shift
@@ -59,4 +67,71 @@ start 22.4 keydown PrintScreen
 start 22.6 keyup PrintScreen
 start 23.0 keydown W
 start 23.2 keyup W
-start 25 exit
+start 23.6 keydown Keypad 8
+start 23.8 keyup Keypad 8
+start 24.0 keydown Keypad 5
+start 24.2 keyup Keypad 5
+start 24.4 keydown Numlock
+start 24.6 keyup Numlock
+start 24.8 keydown Keypad 8
+start 25.0 keyup Keypad 8
+start 25.2 keydown Keypad 5
+start 25.4 keyup Keypad 5
+start 25.6 keydown Keypad .
+start 25.8 keyup Keypad .
+start 26.0 keydown Keypad 0
+start 26.2 keyup Keypad 0
+start 26.4 keydown Numlock
+start 26.6 keyup Numlock
+start 26.8 keydown NonUSBackslash
+start 27.0 keyup NonUSBackslash
+start 27.2 keydown Left Alt
+start 27.4 keydown B
+start 27.6 keyup B
+start 27.8 keyup Left Alt
+start 28.0 keylayout AZERTY
+start 28.2 keydown Q
+start 28.4 keyup Q
+start 28.6 keydown A
+start 28.8 keyup A
+start 29.0 keydown ;
+start 29.2 keyup ;
+start 29.4 keydown M
+start 29.6 keyup M
+start 29.8 keydown /
+start 30.0 keyup /
+start 30.2 keylayout QWERTZ
+start 30.4 keydown Y
+start 30.6 keyup Y
+start 30.8 keylayout Dvorak
+start 31.0 keydown Q
+start 31.2 keyup Q
+start 31.4 keydown S
+start 31.6 keyup S
+start 31.8 keylayout Swedish
+start 32.0 keydown `
+start 32.2 keyup `
+start 32.4 keydown -
+start 32.6 keyup -
+start 32.8 keydown /
+start 33.0 keyup /
+start 33.2 keylayout ABNT
+start 33.4 keydown '
+start 33.6 keyup '
+start 33.8 keydown NonUSBackslash
+start 34.0 keyup NonUSBackslash
+start 34.2 keydown International 1
+start 34.4 keyup International 1
+start 34.6 keylayout JP106
+start 34.8 keydown `
+start 35.0 keyup `
+start 35.2 keydown [
+start 35.4 keyup [
+start 35.6 keydown ;
+start 35.8 keyup ;
+start 36.0 keydown International 3
+start 36.2 keyup International 3
+start 36.4 keylayout
+start 36.6 keydown Q
+start 36.8 keyup Q
+start 38 exit

@@ -929,12 +929,16 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 		// messages: the original's window presses and releases on them as
 		// on the others and returns, DefWindowProc never seeing them, so
 		// Alt's release enters no menu mode
+		if (wparam < 256)
+			HeldKeys[wparam] = true;
 		WindowHost->OnWindowKeyDown((InputKey)wparam);
 		if (msg == WM_SYSKEYDOWN)
 			return 0;
 	}
 	else if (msg == WM_KEYUP || msg == WM_SYSKEYUP)
 	{
+		if (wparam < 256)
+			HeldKeys[wparam] = false;
 		WindowHost->OnWindowKeyUp((InputKey)wparam);
 		if (msg == WM_SYSKEYUP)
 			return 0;
@@ -951,6 +955,16 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 		if (MouseLocked)
 		{
 			::ShowCursor(TRUE);
+		}
+		// No key's release reaches a window without the keyboard: every key
+		// held is let go now, as the X11 and SDL windows let them go
+		for (int i = 0; i < 256; i++)
+		{
+			if (HeldKeys[i])
+			{
+				HeldKeys[i] = false;
+				WindowHost->OnWindowKeyUp((InputKey)i);
+			}
 		}
 	}
 	else if (msg == WM_GETICON)

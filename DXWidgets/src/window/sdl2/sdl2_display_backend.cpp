@@ -112,19 +112,53 @@ void SDL2DisplayBackend::SetGamepadKeyEmulation(bool enable)
 	SDL2DisplayWindow::GamepadKeyEmulation = enable;
 }
 
+// The key's event as the keyboard's: its modifiers those the timeline holds
+// and its locks, Num Lock and Caps Lock toggled by their presses.
 bool SDL2DisplayBackend::SimulateKey(const std::string& name, bool down)
 {
 	SDL_Scancode scancode = SDL_GetScancodeFromName(name.c_str());
 	if (scancode == SDL_SCANCODE_UNKNOWN || SDL2DisplayWindow::WindowList.empty())
 		return false;
+	if (down && !SDL2DisplayWindow::SimulatedKeys[scancode])
+	{
+		if (scancode == SDL_SCANCODE_NUMLOCKCLEAR)
+			SDL2DisplayWindow::SimulatedNumLock = !SDL2DisplayWindow::SimulatedNumLock;
+		else if (scancode == SDL_SCANCODE_CAPSLOCK)
+			SDL2DisplayWindow::SimulatedCapsLock = !SDL2DisplayWindow::SimulatedCapsLock;
+	}
+	SDL2DisplayWindow::SimulatedKeys[scancode] = down;
+
+	static const struct { SDL_Scancode key; int mod; } modifiers[] = {
+		{ SDL_SCANCODE_LSHIFT, KMOD_LSHIFT }, { SDL_SCANCODE_RSHIFT, KMOD_RSHIFT },
+		{ SDL_SCANCODE_LCTRL, KMOD_LCTRL }, { SDL_SCANCODE_RCTRL, KMOD_RCTRL },
+		{ SDL_SCANCODE_LALT, KMOD_LALT }, { SDL_SCANCODE_RALT, KMOD_RALT },
+		{ SDL_SCANCODE_LGUI, KMOD_LGUI }, { SDL_SCANCODE_RGUI, KMOD_RGUI },
+	};
+	int mod = KMOD_NONE;
+	for (const auto& m : modifiers)
+		if (SDL2DisplayWindow::SimulatedKeys[m.key])
+			mod |= m.mod;
+	if (SDL2DisplayWindow::SimulatedNumLock)
+		mod |= KMOD_NUM;
+	if (SDL2DisplayWindow::SimulatedCapsLock)
+		mod |= KMOD_CAPS;
+
 	SDL_Event event = {};
 	event.type = down ? SDL_KEYDOWN : SDL_KEYUP;
 	event.key.windowID = SDL2DisplayWindow::WindowList.begin()->first;
 	event.key.state = down ? SDL_PRESSED : SDL_RELEASED;
 	event.key.keysym.scancode = scancode;
 	event.key.keysym.sym = SDL_GetKeyFromScancode(scancode);
-	SDL2DisplayWindow::SimulatedKeys[scancode] = down;
+	event.key.keysym.mod = (Uint16)mod;
 	return SDL_PushEvent(&event) == 1;
+}
+
+bool SDL2DisplayBackend::SimulateKeyLayout(const std::string& family)
+{
+	if (!family.empty() && family != "QWERTY" && family != "QWERTZ" && family != "AZERTY" && family != "Dvorak" && family != "Swedish" && family != "ABNT" && family != "JP106")
+		return false;
+	SDL2DisplayWindow::SimulatedLayout = family;
+	return true;
 }
 
 // The timeline's pad: a virtual game controller of SDL's, its axes and
