@@ -824,6 +824,7 @@ Matches the original
 [the computer window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#the-computer-window),
 [scales and scrolling](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#scales-and-scrolling),
 [tiles and tab groups](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#tiles-and-tab-groups),
+[border windows](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#border-windows),
 [drawing](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#drawing),
 [small](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#small)).
 The consoles: `GetConsole`, `BeltConsole`, `BorderConsole`, `ColorsConsole`;
@@ -833,7 +834,8 @@ a new window's size; `ScrollConsole` for a scroll area and a slider;
 `ClickConsole` for a button, a choice and a checkbox clicked, a menu dragged
 by its title bar and Alt with a letter; `EditConsole` for a script's text in
 an edit field, a text window and a button; `MultiEditConsole` for an edit
-field of several lines. `MenuConsole` and `ScreenConsole`
+field of several lines; `ToolConsole` for a cheat screen's tool window.
+`MenuConsole` and `ScreenConsole`
 log every menu and game screen's windows (their places, sizes, text, focus,
 a slider's value text, a scroll area's bars, a tile's children and a list's
 rows), alike in both engines but for what is listed below. The same, read
@@ -872,6 +874,15 @@ from the original's code:
   between (`ScreenConsole`'s skill text and note), an edit field a space
   wider when no width is given. A window asking to be laid out again is
   laid out itself too.
+- **A border window** gives its top shown child the inside: within the
+  child margins, and within the border's textures while its margins are
+  from the border, as they are from the start. It asks for that child's
+  size with those margins, no less than the border, and draws its nine
+  textures in its style, sending its script neither `ConfigurationChanged`
+  nor `DrawWindow`. So the cheat screens' tool windows show their title
+  bar, labels, list field and buttons (`ToolConsole`'s shot of the EditFlags
+  screen, through the original's gamma: within a level of the original's
+  but for the pointer).
 - **Text from a script** (`EditConsole`): a text window takes no text that
   differs only in case. An edit field's `SetText` replaces its text as
   typing would -- its undo cleared, `TextChanged` announced up its

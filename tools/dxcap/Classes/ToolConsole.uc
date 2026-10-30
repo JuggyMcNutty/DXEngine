@@ -1,10 +1,11 @@
 //=============================================================================
-// ToolConsole: a BorderWindow's frame, shot in both engines
-// (docs/DEVELOPMENT.md, scripted runs). From wherever the run starts, 2 s
-// in: the cheats enabled and the EditFlags cheat screen opened, a
-// ToolWindow framed by a BorderWindow of nine textures; a marked shot a
-// moment later, then an exit. "DXTOOL:" lines say what was opened. What is
-// compared between the engines: the frame's corners and edges.
+// ToolConsole: a tool window, shot in both engines (docs/DEVELOPMENT.md,
+// scripted runs). From wherever the run starts, 2 s in: the cheats enabled
+// and the EditFlags cheat screen opened, a ToolWindow framed by a
+// BorderWindow of nine textures; a marked shot a moment later, shot 0 as
+// DXEngine numbers its first, then an exit. "DXTOOL:" lines say what was
+// opened. What is compared between the engines: the tool window, its frame,
+// title bar, label, list field and buttons.
 //=============================================================================
 class ToolConsole extends Console;
 
@@ -32,14 +33,14 @@ event Tick(float Delta)
 	}
 	else if (Phase == 1 && RunTime > 3.5)
 	{
-		MarkShot = 1;
+		MarkShot = 0;
 		bMarking = true;
 		Phase = 2;
 	}
 	else if (Phase == 2 && RunTime > 4.3)
 	{
-		Log("DXTOOL: shot 1, the EditFlags screen");
-		Log("DXCAP: shot 1");
+		Log("DXTOOL: shot 0, the EditFlags screen");
+		Log("DXCAP: shot 0");
 		P.ConsoleCommand("shot");
 		bMarking = false;
 		Phase = 3;

@@ -13,8 +13,10 @@ public:
 	void SetBorders(std::optional<UObject*> bordTL, std::optional<UObject*> bordTR, std::optional<UObject*> bordBL, std::optional<UObject*> bordBR, std::optional<UObject*> bordL, std::optional<UObject*> bordR, std::optional<UObject*> bordT, std::optional<UObject*> bordB, std::optional<UObject*> center);
 	void SetMoveCursors(std::optional<UObject*> Move, std::optional<UObject*> hMove, std::optional<UObject*> vMove, std::optional<UObject*> tlMove, std::optional<UObject*> trMove);
 
+	void InitDefaults() override;
 	void ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight) override;
 	void ConfigurationChanged() override;
+	bool ChildRequestedReconfiguration(UWindow* childWin) override;
 	void DrawWindow(UGC* gc) override;
 
 	float& BottomMargin() { return Value<float>(PropOffsets_BorderWindow.BottomMargin); }
@@ -54,4 +56,8 @@ public:
 	UTexture*& tlMoveCursor() { return Value<UTexture*>(PropOffsets_BorderWindow.tlMoveCursor); }
 	UTexture*& trMoveCursor() { return Value<UTexture*>(PropOffsets_BorderWindow.trMoveCursor); }
 	UTexture*& vMoveCursor() { return Value<UTexture*>(PropOffsets_BorderWindow.vMoveCursor); }
+
+private:
+	void ComputeWindowBorders();
+	void GetInsideMargins(float& left, float& right, float& top, float& bottom);
 };
