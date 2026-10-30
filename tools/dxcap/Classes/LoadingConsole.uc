@@ -17,9 +17,9 @@
 // last frame drawn, and logs the clock: the frame was up until then.
 // Two frames drawn before that tick (a travel's SAVING, then LOADING) share
 // the mark's number, and the shot is the last. Nothing advances while a
-// level action is up: the original ticks the console inside the paint's draw
-// too, DXEngine does not. It uses Save\Save0009 and Save\Current as
-// SaveConsole does. Each line is logged with "DXLOADING:" in front, a beep
+// level action is up; a tick then, the paint's draw ticking the console, is
+// logged with the action and the map. It uses Save\Save0009 and Save\Current
+// as SaveConsole does. Each line is logged with "DXLOADING:" in front, a beep
 // with the console's clock.
 //=============================================================================
 class LoadingConsole extends SaveConsole;
@@ -145,7 +145,10 @@ event Tick(float Delta)
 		return;
 	P = Viewport.Actor;
 	if (P.Level.LevelAction != LEVACT_None)
+	{
+		Log("DXLOADING: ticked with " $ ActionName(P.Level.LevelAction) $ " in " $ MapOf(P));
 		return;
+	}
 	RunTime += Delta;
 	MapTime += Delta;
 	P.ReducedDamageType = 'All';

@@ -106,7 +106,6 @@ void NCanvas::DrawTextClipped(UObject* Self, const std::string& Text, std::optio
 	UFont*& font = SelfCanvas->Font();
 	Color& color = SelfCanvas->DrawColor();
 	uint8_t& style = SelfCanvas->Style();
-	bool center = SelfCanvas->bCenter();
 
 	bool checkHotKey = bCheckHotKey && *bCheckHotKey;
 
@@ -125,7 +124,7 @@ void NCanvas::DrawTextClipped(UObject* Self, const std::string& Text, std::optio
 		else if (style == 4)
 			renderflags |= PF_Modulated;
 
-		engine->render->DrawTextClipped(font, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, orgX, orgY, curX, curY, Text, renderflags, checkHotKey, clipX, clipY, center);
+		engine->render->DrawTextClipped(font, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, orgX, orgY, curX, curY, Text, renderflags, checkHotKey, clipX, clipY);
 	}
 }
 

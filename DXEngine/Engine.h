@@ -313,6 +313,12 @@ public:
 
 	float CalcTimeElapsed();
 
+	// The console's Tick, by the time since the viewport was last drawn, as
+	// the original's UConsole::PreRender gives it at each frame's draw, the
+	// loading screen's too; the first, by the frame's time.
+	void TickConsole(float firstElapsed);
+	uint64_t consoleLastTick = 0;
+
 	UActor* CameraActor = nullptr;
 	vec3 CameraLocation = vec3(0.0f);
 	Rotator CameraRotation = Rotator(0,0,0);

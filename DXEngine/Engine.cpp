@@ -435,7 +435,7 @@ void Engine::Run()
 			// and by the real time since the last draw, as the original's
 			// UConsole::PreRender ticks it (dx-reverse-info engine-dll.md,
 			// the loading screen); paused or not, so its messages time out.
-			CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(realTimeElapsed) });
+			TickConsole(realTimeElapsed);
 
 			viewport->SetViewportRect(0, 0, engine->window->GetPixelWidth(), engine->window->GetPixelHeight());
 			render->DrawGame(levelElapsed);
@@ -1000,8 +1000,10 @@ void Engine::UnloadMap()
 // player's flash at a tenth and its fog black for one frame, drawn and shown
 // as any frame is, both put back. The flash ends before the player's and the
 // console's PostRender, so the view and the windows come out at a tenth of
-// their brightness and the console's word at full. No clock moves, and no
-// event is taken: input mid-load could start a travel or a save.
+// their brightness and the console's word at full. The console ticks as the
+// draw begins, as every frame's draw ticks it (UConsole::PreRender); no other
+// clock moves, and no event is taken: input mid-load could start a travel or
+// a save.
 void Engine::PaintProgress()
 {
 	UPlayerPawn* player = viewport ? viewport->Actor() : nullptr;
@@ -1012,6 +1014,7 @@ void Engine::PaintProgress()
 	vec3 flashFog = player->FlashFog();
 	player->FlashScale() = vec3(0.1f);
 	player->FlashFog() = vec3(0.0f);
+	TickConsole(0.0f);
 	viewport->SetViewportRect(0, 0, window->GetPixelWidth(), window->GetPixelHeight());
 	render->DrawGame(0.0f);
 	player->FlashScale() = flashScale;
@@ -2309,6 +2312,15 @@ UZoneInfo* Engine::GetZoneActor(int zoneIndex)
 		return zone;
 	else
 		return LevelInfo;
+}
+
+void Engine::TickConsole(float firstElapsed)
+{
+	using namespace std::chrono;
+	uint64_t now = duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count();
+	float elapsed = consoleLastTick ? (now - consoleLastTick) / 1'000'000.0f : firstElapsed;
+	consoleLastTick = now;
+	CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(elapsed) });
 }
 
 float Engine::CalcTimeElapsed()

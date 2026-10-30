@@ -146,18 +146,17 @@ first empties the pauser and clears the player's `bShowMenu`, set while an
 in-game menu is up, which would hide the word; every save paints `SAVING`,
 the quick save's too, and a travel within a mission shows `SAVING`, then
 `LOADING` (`LoadingConsole`: the same frames in the same order, their shots
-within 1% of the original's). Differs:
-
-- The word sits a pixel lower: the console centres it at a half pixel for an
-  odd size, which the original's canvas truncates and DXEngine's draws as
-  it is (bugs.md PKG.6).
-- The original's draw ticks the console (`UConsole::PreRender`), so its
-  painted frame ticks it once more; DXEngine ticks it as each frame's draw
-  begins, after the level's tick, as the original's does (`HopConsole`,
-  `SpinConsole`: an actor's ticks after the console's exit as the
-  original's), and its paint does not (PKG.7).
-- No frame shows `PRECACHING`: the original's shows it only with its
-  driver's precache on, which the game's ini has off (PKG.8).
+within 1% of the original's). The word, which the console centres at a half
+pixel for an odd size, lies on the original's rows, the canvas's text
+truncated to whole pixels ([tiles](#tiles); `LoadingConsole` at 1024x768
+against `D3DDrv`: `LOADING` on rows 371 to 393 and columns 439 to 584 in
+both). The painted frame ticks the console as every frame's draw does
+(`UConsole::PreRender`), by the time since the last draw, after the level's
+tick (`HopConsole`, `SpinConsole`: an actor's ticks after the console's exit
+as the original's): `LoadingConsole`'s log, a tick under each level action
+among its lines, alike in both engines. Differs: no frame shows
+`PRECACHING`, which the original's shows with its driver's precache on, as
+the game's ini has it off (bugs.md PKG.8).
 
 ## Flags
 
@@ -331,7 +330,13 @@ whatever its smoothing, its colour 0 cut out. A window's tile, as a
 canvas's, adds its texture's own masked bit
 ([the GC's styles](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#styles)),
 so a masked texture draws masked in any style; the canvas's text, clipped
-or not, takes its style's flags. `TileConsole`, on the canvas and in a
+or not, takes its style's flags, and lands on whole pixels, as the original's
+`WrappedPrint` and `DrawTextClipped` place it
+([the loading screen](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-loading-screen)):
+a line from its X and the canvas's `CurY` each truncated, a centred one's
+half the room it leaves added before, each glyph a whole pixel's step
+(its width and `SpaceX`, truncated), and `CurX` where the line ended;
+`DrawTextClipped` centres nothing. `TileConsole`, on the canvas and in a
 window over a grey box: `StaticLine` modulated (the line across a camera's
 and the InfoLink's static, a quarter of it colour 0, black) at 1.02 of
 `D3DDrv`'s brightness; `HackInfoBackground` modulated (the hacking screen's
@@ -656,8 +661,15 @@ DXEngine's own, by choice where no ID is named:
     the wall beside it in `D3DDrv`'s frame, 0.25 in DXEngine's; the fog
     balls' model with the lights that reach it fogs it to the wall's
     brightness, so the model is what differs, not the lights; REN.12);
-  - the `AmbientGlow` pulse runs on the level's time, the original's on the
-    viewport's (REN.13).
+  - an actor spawned 3 s into a level is darker while the level's time is
+    young: `GlowConsole`'s crate, its `AmbientGlow` 255, at a hundredth of
+    the time (`TimeDilation` 0.01), 0.08 to 0.13 of the screen's white
+    against the original's 0.24, where at full speed, 4.8 s on, the two are
+    alike (0.195 and 0.197 on average; REN.25).
+
+The `AmbientGlow` pulse is the original's, on the level's time: at a
+hundredth of it `GlowConsole`'s crate barely changes over five shots 1.5 s
+apart in either engine, and at full speed it pulses in both.
 
 ### Brightness
 
