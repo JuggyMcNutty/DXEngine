@@ -235,12 +235,12 @@ void URootWindow::WindowReady()
 
 bool URootWindow::IsCursorVisible()
 {
-	// The pointer is drawn while a window takes the mouse -- a modal one that
-	// shows; a hidden one lets it go -- and ShowCursor has not hidden it, as
-	// the original's XRootWindow::PaintWindows draws it
+	// The pointer is drawn while the mouse is grabbed -- a modal grabs it as
+	// it shows and lets it go as it hides -- and ShowCursor has not hidden
+	// it, as the original's XRootWindow::PaintWindows draws it
 	// (dx-reverse-info/extension-dll.md): the multiplayer message window
 	// hides it while it is up.
-	return bCursorVisible() && IsModalOpen();
+	return bCursorVisible() && IsMouseGrabbed();
 }
 
 void URootWindow::PostDrawWindow(UGC* gc)
@@ -500,7 +500,7 @@ bool URootWindow::OnWindowMouseMove(const Point& pos)
 	if (IsCursorVisible())
 		SetRootCursorPos((float)pos.x / scale, (float)pos.y / scale);
 #endif
-	return IsModalOpen();
+	return IsMouseGrabbed();
 }
 
 bool URootWindow::OnWindowMouseDown(const Point& pos, EInputKey key)
@@ -547,7 +547,7 @@ bool URootWindow::MarkKey(EInputKey key, bool down)
 bool URootWindow::HandleButton(EInputKey key, bool press)
 {
 	bool wasDown = MarkKey(key, press);
-	if (!IsModalOpen())
+	if (!IsMouseGrabbed())
 		return false;
 	// A release of a button not down is taken, and goes to no window.
 	if (!press && !wasDown)
@@ -659,7 +659,7 @@ bool URootWindow::OnWindowRawMouseMove(int dx, int dy)
 		}
 		SetRootCursorPos(MouseX() + moveX, MouseY() + moveY);
 	}
-	return IsModalOpen();
+	return IsMouseGrabbed();
 }
 
 // The original's (dx-reverse-info/extension-dll.md, the root window): while a
@@ -669,11 +669,10 @@ bool URootWindow::OnWindowRawMouseMove(int dx, int dy)
 // down. The UI then takes every key, handled or not.
 bool URootWindow::RouteKey(const std::function<bool(UWindow*)>& handle)
 {
-	UWindow* modal = TopmostModal();
-	if (!modal)
+	if (!IsKeyboardGrabbed())
 		return false;
 
-	UWindow* start = FocusWindow() ? FocusWindow() : modal;
+	UWindow* start = FocusWindow() ? FocusWindow() : TopmostModal();
 	bool alt = IsKeyDown(IK_Alt);
 	for (UWindow* cur = start; cur; cur = cur->parentOwner())
 	{
@@ -690,7 +689,7 @@ bool URootWindow::RouteKey(const std::function<bool(UWindow*)>& handle)
 bool URootWindow::OnWindowKeyChar(std::string chars)
 {
 	if (IsKeyDown(IK_Alt))
-		return IsModalOpen();
+		return IsKeyboardGrabbed();
 
 	return RouteKey([&](UWindow* w) { return w->KeyPressed(chars); });
 }
@@ -735,10 +734,10 @@ bool URootWindow::OnWindowKeyUp(EInputKey key)
 	// event bool ListRowActivated(window list, int rowId)
 	// event bool ListSelectionChanged(window list, int numSelections, int focusRowId)
 
-	// A release of a key not down is taken while a modal holds the keyboard,
-	// and goes to no window; with none up, the game gets it.
+	// A release of a key not down is taken while the keyboard is grabbed, and
+	// goes to no window; with no grab, the game gets it.
 	if (!MarkKey(key, false))
-		return IsModalOpen();
+		return IsKeyboardGrabbed();
 
 	return RouteKey([&](UWindow* w) { return w->RawKeyPressed(key, EInputType::IST_Release, false); });
 }
@@ -756,8 +755,49 @@ UModalWindow* URootWindow::TopmostModal()
 	return nullptr;
 }
 
-// A shown modal holds the mouse and the keyboard; a hidden one holds neither.
-bool URootWindow::IsModalOpen()
+void URootWindow::GrabKeyboardEvents()
 {
-	return TopmostModal() != nullptr;
+	if (handleKeyboardRef() <= 0)
+	{
+		for (int i = 0; i < 255; i++)
+			if (!IsMouseButton((EInputKey)i))
+				(&keyDownMap())[i] = 0;
+	}
+	handleKeyboardRef()++;
+}
+
+void URootWindow::UngrabKeyboardEvents()
+{
+	if (handleKeyboardRef() > 0)
+		handleKeyboardRef()--;
+}
+
+void URootWindow::GrabMouseEvents()
+{
+	if (handleMouseRef() <= 0)
+	{
+		for (int i = 0; i < 255; i++)
+			if (IsMouseButton((EInputKey)i))
+				(&keyDownMap())[i] = 0;
+	}
+	handleMouseRef()++;
+}
+
+void URootWindow::UngrabMouseEvents()
+{
+	if (handleMouseRef() > 0)
+		handleMouseRef()--;
+}
+
+bool URootWindow::IsMouseButton(EInputKey key)
+{
+	switch (key)
+	{
+	case IK_LeftMouse: case IK_RightMouse: case IK_MiddleMouse:
+	case IK_MouseX: case IK_MouseY: case IK_MouseZ: case IK_MouseW:
+	case IK_MouseWheelUp: case IK_MouseWheelDown:
+		return true;
+	default:
+		return false;
+	}
 }

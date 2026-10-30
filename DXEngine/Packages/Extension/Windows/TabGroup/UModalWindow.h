@@ -13,6 +13,7 @@ public:
 	UWindow* GetAcceleratorWindow(int key);
 
 	bool KeyPressed(std::string key) override;
+	void VisibilityChanged(bool bNewVisibility) override;
 
 	UWindow*& acceleratorTable() { return Value<UWindow*>(PropOffsets_ModalWindow.acceleratorTable); }
 	BitfieldBool bDirtyAccelerators() { return BoolValue(PropOffsets_ModalWindow.bDirtyAccelerators); }

@@ -38,7 +38,12 @@ natives whose call would. A `foreach` on a None context, and state code's
 original's Critical Error); a None class's `default` is 0 in both, and
 `AllActors(None)` every actor. A dynamic array's element, on which the
 original asserts (no Deus Ex script indexes one), grows the array to the
-index in DXEngine, by choice, a negative index a script error.
+index in DXEngine, by choice, a negative index a script error. A modal
+window made inside another window stops the original as it is destroyed:
+its cleanup takes it out of the table of tab groups of the modal it lies
+in, which never held it, and the table's index asserts (as it was made,
+only "Modal window must be a child of Root!" was logged; no Deus Ex script
+makes one). DXEngine destroys it, by choice.
 
 A runaway script stops both engines alike, with an error no native's call
 catches
@@ -962,16 +967,25 @@ from the original's code:
   shows a bar only while what it holds does not fit, its clip window moving
   it a unit at a time (a list's row, a text's line) and bringing the focus
   into view; the wheel steps it.
+- **The grabs** (`GrabConsole`): the root takes the keys while its count
+  of the keyboard's grabs is not 0, and the mouse's buttons, axes and
+  wheel while its count of the mouse's is not 0. A modal window with a
+  parent raises both as it shows and lowers them as it hides, never below
+  0: a message box over a menu counts 2, either hidden 1, a modal made
+  hidden 0 until it shows. The root's `GrabKeyboardEvents` and
+  `GrabMouseEvents` count for a script as well. The first grab of the
+  keyboard clears the marks of the keys held, the first of the mouse those
+  of its buttons. The counts alike in both engines at every step.
 - **Keys** go up from the focus window to the root, so Esc and F1 close a
-  screen; **mouse buttons**, only while a modal shows, to the window the
-  mouse acts on (the grab, else the one under the pointer in the topmost
-  modal, else that modal), then up its parents. A press grabs the mouse for
+  screen; **mouse buttons**, only while the mouse is grabbed, to the window
+  the mouse acts on (the grab, else the one under the pointer in the
+  topmost modal, else that modal), then up its parents. A press grabs the mouse for
   that window, so a drag's moves and its drop reach the item it started on,
   and counts as a multiple click within 0.5 s and 10 units of the first.
   The root marks every press and release: a press of a key already down is
-  a repeat, and a release of a key or button not down is taken while a
-  modal shows and goes to no window (`KeypadConsole` with
-  `stray-release.txt`, DXEngine's alone; with no modal up the game gets it).
+  a repeat, and a release of a key or button not down is taken while it is
+  grabbed and goes to no window (`KeypadConsole` with `stray-release.txt`,
+  DXEngine's alone; with no grab the game gets it).
   `IsKeyDown` reads those marks. Typed text reaches the console and the
   windows a character at a time, as the original's comes (a `WM_CHAR`
   each), one past ASCII by its Latin-1 code: `TypeConsole`'s edit field
@@ -980,7 +994,7 @@ from the original's code:
   the drags between the searches (`loot-drags.txt`) are a timeline's, so
   DXEngine's alone, as are `ScrollConsole`'s clicks, drags and wheel
   (`scroll.txt`) and `ClickConsole`'s clicks, drag and keys (`clicks.txt`).
-- **The pointer**, while a modal shows: a move that puts another window
+- **The pointer**, while the mouse is grabbed: a move that puts another window
   under it leaves the last one and enters that one, each told alone, never
   its parents, and `MouseMoved` goes out only for a new place. The topmost
   modal's mouse focus mode moves the focus with it. Every modal, the root
@@ -992,7 +1006,9 @@ from the original's code:
   moves onto (`ChoiceConsole`: the pointer put on a choice by
   `SetCursorPos`, which either engine takes as a move). It is drawn only
   then, while `ShowCursor` leaves it: a modal window made hidden, or hidden
-  again, draws none in either engine (`PointerConsole`). The pointer drawn
+  again, draws none in either engine (`PointerConsole`), and a script's
+  grab of the mouse with no modal up draws it in both (`GrabConsole`'s
+  shots). The pointer drawn
   is the one `CursorRequested` gives, asked up the windows from the one
   under it, else the nearest default, with its shadow, hot spot and
   colour, as the original's `QueryCursor` chooses it: a dragged item's
@@ -1085,11 +1101,9 @@ Differs:
   stored as wide characters (such a note in its save; every conversation
   comment of `DeusExConText.u`) loads, each character past Latin-1 a `?`
   (VM.5).
-- **Keys**, read from both codes: the keyboard counts as grabbed while a
-  modal shows, where the original counts its grabs (every modal grabs while
-  shown). With Alt down DXEngine takes a letter or digit from the key's
-  press, not from the characters the platform sends, and it forgets the
-  keys held as its window loses the keyboard (EXT.11, WIN.7).
+- **Keys**, read from both codes: with Alt down DXEngine takes a letter or
+  digit from the key's press, not from the characters the platform sends,
+  and it forgets the keys held as its window loses the keyboard (WIN.7).
 - **Keyboard focus**: DXEngine places windows in its layout pass, after the
   level's tick, and seeds the first focus there; the original places them as
   they are made and seeds it at its windows' next tick, so a conversation's

@@ -324,10 +324,10 @@ By area, as the code stands. Each device's numbers are its port's, such as
 - **The mouse and the keyboard under SDL**: the game's view takes the mouse in relative mode
   (`SDL_SetWindowRelativeMouseMode` under SDL3, `SDL_SetRelativeMouseMode` under SDL2), which
   hides the desktop's pointer, keeps it in the window and gives motion past the screen's edge;
-  the UI draws its own. Text input is on only while the game takes text, a window of its UI up
-  or the console typing (`Engine::TickWindow`, the window's `LockKeyboard`): in play a desktop's
-  input method leaves held keys alone, where KDE's press-and-hold accent picker takes a held
-  letter in a Wayland window with text input on.
+  the UI draws its own. Text input is on only while the game takes text, its UI holding the
+  keyboard (every modal up grabs it) or the console typing (`Engine::TickWindow`, the window's
+  `LockKeyboard`): in play a desktop's input method leaves held keys alone, where KDE's
+  press-and-hold accent picker takes a held letter in a Wayland window with text input on.
 - **The windows' icon** is `DeusEx.exe`'s icon group 128, as the original's windows show it
   ([the frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#the-frame)),
   read from the game's `System` folder as a window opens (`DXEngine/Utils/PEIcon.cpp`): its

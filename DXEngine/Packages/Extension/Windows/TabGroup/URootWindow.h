@@ -49,8 +49,24 @@ public:
 	bool OnWindowKeyUp(EInputKey key);
 
 	bool IsCursorVisible();
-	bool IsModalOpen();
 	UModalWindow* TopmostModal();
+
+	// The original's grabs (Extension.dll XRootWindow::GrabKeyboardEvents
+	// 0x1003a110 and the rest): counts by which the root takes the keys, and
+	// the mouse's buttons, while not 0. A modal with a parent raises both as
+	// it shows and lowers them as it hides (UModalWindow::VisibilityChanged);
+	// a script may too, by RootWindow's functions of the same names, which
+	// only count. The first grab here clears the marks of the keys held, or
+	// of the mouse's buttons.
+	void GrabKeyboardEvents();
+	void UngrabKeyboardEvents();
+	void GrabMouseEvents();
+	void UngrabMouseEvents();
+	bool IsKeyboardGrabbed() { return handleKeyboardRef() != 0; }
+	bool IsMouseGrabbed() { return handleMouseRef() != 0; }
+	// The mouse's buttons, axes and wheel (XRootWindow::IsMouseButton
+	// 0x1003a2c0)
+	static bool IsMouseButton(EInputKey key);
 	bool RouteKey(const std::function<bool(UWindow*)>& handle);
 
 	UTexture*& DefaultMoveCursor() { return Value<UTexture*>(PropOffsets_RootWindow.DefaultMoveCursor); }

@@ -68,9 +68,9 @@ namespace
 
 	bool IsUIOpen(Engine* engine)
 	{
-		// Deus Ex's interface is a stack of windows under the root; menus, the
-		// inventory, conversations and keypads are modal ones.
-		return engine->dxRootWindow && engine->dxRootWindow->IsModalOpen();
+		// Deus Ex's interface holds the keyboard while it is up: every modal
+		// grabs it -- menus, the inventory, conversations and keypads.
+		return engine->dxRootWindow && engine->dxRootWindow->IsKeyboardGrabbed();
 	}
 }
 

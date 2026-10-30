@@ -83,6 +83,29 @@ UWindow* UModalWindow::GetAcceleratorWindow(int key)
 	return FindAcceleratorWindow(this, FoldAccelerator(key));
 }
 
+// The original's (XModalWindow::VisibilityChanged 0x10037330): the script's
+// event, then, for a modal with a parent, the root's keyboard and mouse
+// grabbed as it shows and let go as it hides.
+void UModalWindow::VisibilityChanged(bool bNewVisibility)
+{
+	UTabGroupWindow::VisibilityChanged(bNewVisibility);
+	if (!winParent())
+		return;
+	URootWindow* root = GetRootWindow();
+	if (!root)
+		return;
+	if (bNewVisibility)
+	{
+		root->GrabKeyboardEvents();
+		root->GrabMouseEvents();
+	}
+	else
+	{
+		root->UngrabKeyboardEvents();
+		root->UngrabMouseEvents();
+	}
+}
+
 // The original's (XModalWindow::KeyPressed 0x10037510): the script's say
 // first; a key it leaves, while Alt is down and this modal is on top, goes to
 // the window whose accelerator it is (AcceleratorKeyPressed: a button
