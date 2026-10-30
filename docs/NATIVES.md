@@ -379,9 +379,10 @@ without, and `Spotlight7` at 1.00, as the GPU devices'
 ([lighting](#lighting)), and `Light33`'s floor within 1.02; `LaserConsole`'s
 wall and near floor 0.40 and 0.40 apart (RMSE, at 1024x768 with `NoDetail`)
 and best unmoved, its receding floor 0.66 apart, nearer than the Vulkan
-device's; `LoadingConsole`'s text on the rows `D3DDrv` draws it, where the
-Vulkan device draws some of its glyphs a row lower (point sampled on a
-texel's edge; VK.3). Against the Vulkan device's: `TileConsole`'s tiles and text
+device's; `LoadingConsole`'s text on the rows `D3DDrv` draws it, as the
+Vulkan device's, with multisampling and without: every column of the word's
+glyphs, its first and last lit rows, the original's (the canvas's text on
+whole pixels, [tiles](#tiles)). Against the Vulkan device's: `TileConsole`'s tiles and text
 within a level, as are `DetailConsole`'s bands (`detail.py` as the Vulkan
 device's). It draws where the original's software renderer does
 ([choosing the render device](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#choosing-the-render-device)):
