@@ -1802,8 +1802,10 @@ What DXEngine does with each:
   (`DXCAP_USERINI_FIRST`: the two given `USERINI=` first, `MidConsole`'s
   run alike in both engines). One not there yet is empty, as the original's
   config cache takes it, and written whole at its first save; a missing
-  `Default.ini` or `DefUser.ini` the same. Each is opened as given, where
-  the original's file system finds it in any case (bugs.md ENG.7).
+  `Default.ini` or `DefUser.ini` the same. Each is a path from `System`, its
+  folders and its name found in any case, as the original's file system
+  finds them (`DXCAP_INI_CASE`: `MidConsole` with both named in capitals,
+  its lines alike in both engines).
 - **`EXEC=<file>`**: `exec <file>` on the player once the first map is in;
   `exec` runs a file's lines as commands, as the original's does.
 - **Safe mode's flags**

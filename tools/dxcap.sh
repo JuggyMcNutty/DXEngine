@@ -62,6 +62,9 @@
 # USERINI= then INI= on the original's command line, and gives DXEngine the
 # two so by --cmdline in place of --ini and --userini: each engine reads INI=
 # by its own name only, not within USERINI= (dx-reverse-info cli-flags.md).
+# DXCAP_INI_CASE=1 gives the original's INI= and USERINI=, and DXEngine's by
+# --cmdline, their names in capitals, the files on disk as they are: each
+# engine finds them in any case, as Windows' file system does.
 # DXCAP_CONFIG="<key>=<value> ..." gives the run's console class those keys
 # in its section of the ini, as
 # DXCAP_MISSION_MAP gives TargetMap (LightConsole's Effect, Pick, LightName,
@@ -326,6 +329,8 @@ make_prefix() {
 winpath() { printf 'Z:%s' "${1//\//\\}"; }
 # A path as DXEngine names it: Wine's name for a Windows build.
 enginepath() { if windows_engine; then winpath "$1"; else printf '%s' "$1"; fi; }
+# A path's last part in capitals with DXCAP_INI_CASE=1, the rest as it is.
+ini_case() { if [ "${DXCAP_INI_CASE:-0}" = 1 ]; then printf '%s/%s' "${1%[/\\]*}" "$(printf '%s' "${1##*[/\\]}" | tr '[:lower:]' '[:upper:]')"; else printf '%s' "$1"; fi; }
 
 # DXCAP_DXVK: Proton's DXVK, D3D11 on Vulkan, in the prefix beside Wine's
 # own d3d11 and dxgi, which stay the default: a run takes DXVK's by its
@@ -691,7 +696,7 @@ cmd_original() {
         export DISPLAY="$XDISPLAY"
         [ "${DXCAP_RECORD:-0}" != 1 ] || export PULSE_SINK=dxcap
         cd "$CAP/game/System"
-        inis=("INI=$(winpath "$ini")" "USERINI=$(winpath "$userini")")
+        inis=("INI=$(winpath "$(ini_case "$ini")")" "USERINI=$(winpath "$(ini_case "$userini")")")
         [ "${DXCAP_USERINI_FIRST:-0}" != 1 ] || inis=("${inis[1]}" "${inis[0]}")
         (fps_env; wine_run DeusEx.exe "${DXCAP_START:-DX.dx}" ${DXCAP_START:+-hax0r} "${inis[@]}" > "$dir/wine.log" 2>&1) &
         i=0
@@ -837,7 +842,8 @@ run_dxe() {
         e_ini="$(enginepath "$ini")"
         e_userini="$(enginepath "$userini")"
         inis=(--ini="$e_ini" --userini="$e_userini")
-        [ "${DXCAP_USERINI_FIRST:-0}" != 1 ] || inis=(--cmdline="USERINI=$e_userini INI=$e_ini")
+        [ "${DXCAP_INI_CASE:-0}" != 1 ] || inis=(--cmdline="INI=$(ini_case "$e_ini") USERINI=$(ini_case "$e_userini")")
+        [ "${DXCAP_USERINI_FIRST:-0}" != 1 ] || inis=(--cmdline="USERINI=$(ini_case "$e_userini") INI=$(ini_case "$e_ini")")
         ! windows_engine || run=(env WINEPREFIX="$PREFIX" WINEDEBUG=-all WINEDLLOVERRIDES="$overrides" "$WINE" "$ENGINE_BIN")
         local others; others="$(pgrep -x DXEngine.exe || true)"
         timeout -s KILL "$secs" "${run[@]}" --no-launcher "$(enginepath "$GAME")" "${inis[@]}" --url="$map" "${userdir[@]}" "${args[@]}" > "$dir/engine.log" 2>&1 &

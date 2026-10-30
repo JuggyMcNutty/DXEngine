@@ -45,6 +45,18 @@ void GameFolderSelection::UpdateList()
 	}
 }
 
+// The original's INI= and USERINI=: a path from System, the original's
+// working folder, its folders and name found in any case, as Windows' file
+// system finds them (dx-reverse-info cli-flags.md; the launchers find them
+// so too). A part not there at all is kept as given: a new ini is made there.
+static std::string OriginalIniPath(const GameLaunchInfo& info, const std::string& value)
+{
+	fs::path path = convert_path_separators(value);
+	if (path.is_relative())
+		path = Directory::resolveCase(fs::path(info.gameRootFolder) / "System") / path;
+	return Directory::resolveCase(path.lexically_normal()).string();
+}
+
 GameLaunchInfo GameFolderSelection::GetLaunchInfo(int selectedGame)
 {
 	if (selectedGame < 0 || (size_t)selectedGame >= Games.size())
@@ -74,9 +86,9 @@ GameLaunchInfo GameFolderSelection::GetLaunchInfo(int selectedGame)
 			info.lanPlay = true;
 		std::string ini;
 		if (original.Value("INI", ini) && !ini.empty())
-			info.systemIniPath = ini;
+			info.systemIniPath = OriginalIniPath(info, ini);
 		if (original.Value("USERINI", ini) && !ini.empty())
-			info.userIniPath = ini;
+			info.userIniPath = OriginalIniPath(info, ini);
 	}
 	return info;
 }
