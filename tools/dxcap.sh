@@ -65,6 +65,8 @@
 # DXCAP_INI_CASE=1 gives the original's INI= and USERINI=, and DXEngine's by
 # --cmdline, their names in capitals, the files on disk as they are: each
 # engine finds them in any case, as Windows' file system does.
+# DXCAP_FLAGS="<flags>" puts the original's flags (-norunaway) on its command
+# line, and on DXEngine's by --cmdline.
 # DXCAP_CONFIG="<key>=<value> ..." gives the run's console class those keys
 # in its section of the ini, as
 # DXCAP_MISSION_MAP gives TargetMap (LightConsole's Effect, Pick, LightName,
@@ -698,7 +700,7 @@ cmd_original() {
         cd "$CAP/game/System"
         inis=("INI=$(winpath "$(ini_case "$ini")")" "USERINI=$(winpath "$(ini_case "$userini")")")
         [ "${DXCAP_USERINI_FIRST:-0}" != 1 ] || inis=("${inis[1]}" "${inis[0]}")
-        (fps_env; wine_run DeusEx.exe "${DXCAP_START:-DX.dx}" ${DXCAP_START:+-hax0r} "${inis[@]}" > "$dir/wine.log" 2>&1) &
+        (fps_env; wine_run DeusEx.exe "${DXCAP_START:-DX.dx}" ${DXCAP_START:+-hax0r} "${inis[@]}" ${DXCAP_FLAGS:-} > "$dir/wine.log" 2>&1) &
         i=0
         while [ $i -lt 60 ] && ! pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; i=$((i+1)); done
         perfpid=""
@@ -844,6 +846,9 @@ run_dxe() {
         inis=(--ini="$e_ini" --userini="$e_userini")
         [ "${DXCAP_INI_CASE:-0}" != 1 ] || inis=(--cmdline="INI=$(ini_case "$e_ini") USERINI=$(ini_case "$e_userini")")
         [ "${DXCAP_USERINI_FIRST:-0}" != 1 ] || inis=(--cmdline="USERINI=$(ini_case "$e_userini") INI=$(ini_case "$e_ini")")
+        if [ -n "${DXCAP_FLAGS:-}" ]; then
+            if [[ "${inis[0]}" == --cmdline=* ]]; then inis=("${inis[0]} $DXCAP_FLAGS"); else inis+=(--cmdline="$DXCAP_FLAGS"); fi
+        fi
         ! windows_engine || run=(env WINEPREFIX="$PREFIX" WINEDEBUG=-all WINEDLLOVERRIDES="$overrides" "$WINE" "$ENGINE_BIN")
         local others; others="$(pgrep -x DXEngine.exe || true)"
         timeout -s KILL "$secs" "${run[@]}" --no-launcher "$(enginepath "$GAME")" "${inis[@]}" --url="$map" "${userdir[@]}" "${args[@]}" > "$dir/engine.log" 2>&1 &

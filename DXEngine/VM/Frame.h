@@ -156,6 +156,8 @@ public:
 	static bool Guards;
 	static int Jumps;
 	static int ScriptDepth;
+	// The original's -norunaway: a runaway loop counted and let run on
+	static bool NoRunaway;
 	static void InitRunaway() { Jumps = 0; }
 
 	Frame(UObject* instance, UStruct* func);
@@ -199,7 +201,7 @@ private:
 		if (Guards && ++Jumps > 10'000'000)
 			RunawayLoop();
 	}
-	[[noreturn]] static void RunawayLoop();
+	static void RunawayLoop();
 	[[noreturn]] static void InfiniteRecursion();
 
 	// A script function's run under Deus Ex's guards: its object's singular

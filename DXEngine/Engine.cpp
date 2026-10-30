@@ -144,6 +144,7 @@ Engine::Engine(GameLaunchInfo launchinfo) : LaunchInfo(launchinfo)
 	floatprop = GC::Alloc<UFloatProperty>(NameString(), nullptr, ObjectFlags::NoFlags);
 
 	Frame::Guards = true;
+	Frame::NoRunaway = OriginalCommandLine::Get().Param("norunaway");
 
 	auto extpkg = packages->GetPackage("Extension");
 	deusExPackage = packages->GetPackage("DeusEx");
@@ -1283,6 +1284,9 @@ static int32_t SlotNumber(const std::string& text)
 
 bool Engine::LoadSavedGame(const UnrealURL& url)
 {
+	// A save's load counts its own jumps, a map's load as the original's is
+	// (UGameEngine::LoadMap's GInitRunaway)
+	Frame::InitRunaway();
 	if (!LoadFromSaveFile(url))
 		return false;
 	// The saved player logs in, as the original's load logs it in with the

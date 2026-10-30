@@ -31,6 +31,7 @@ std::string Frame::ExceptionText;
 bool Frame::Halted = false;
 std::unique_ptr<Iterator> Frame::CreatedIterator;
 bool Frame::Guards = false;
+bool Frame::NoRunaway = false;
 int Frame::Jumps = 0;
 int Frame::ScriptDepth = 0;
 
@@ -85,10 +86,14 @@ void Frame::Break()
 	}
 }
 
-// The original logs these as critical errors: the game stops with the message
+// The original logs these as critical errors: the game stops with the
+// message; a runaway loop runs on with -norunaway, its count started again
+// either way (Core.dll execJump 0x1012faf0)
 void Frame::RunawayLoop()
 {
 	Jumps = 0;
+	if (NoRunaway)
+		return;
 	throw ScriptCriticalError("Script execution error:\r\n\r\nRunaway loop detected (over 10000000 iterations)\r\n\r\nCall stack:\r\n\r\n" + GetCallstack());
 }
 
@@ -267,11 +272,12 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, CallArguments& a
 
 ExpressionValue Frame::CallScript(UFunction* func, UObject* instance, CallArguments& args)
 {
-	// Deus Ex: a singular function held off gives its type's zero, where the
-	// original's leaves a variable assigned from it as it was
+	// Deus Ex: a singular function held off gives nothing, a zero to whatever
+	// reads it, and leaves a variable assigned from it as it was, as the
+	// original's, whose Let has the call write its result in the variable
 	GuardedRun guarded(func, instance);
 	if (guarded.HeldOff)
-		return func->ReturnParm ? ExpressionValue::DefaultValue(func->ReturnParm) : ExpressionValue::NothingValue();
+		return ExpressionValue::NothingValue(true);
 	if (ScriptDepth > 250)
 		InfiniteRecursion();
 

@@ -46,10 +46,12 @@ catches
 a loop past 10,000,000 jumps run, taken or not, in one level tick or one
 map's load, "Runaway loop detected (over 10000000 iterations)"
 (`LoopConsole`); a 251st nested script call, "Infinite script recursion
-(250 calls) detected" (`CallConsole`). Differs: the original's
-`-norunaway`, which lets the loop run on, is not carried (bugs.md VM.6);
-a save's load counts on from its frame's level tick, where the original's, a
-map's load, starts the count afresh (VM.7).
+(250 calls) detected" (`CallConsole`). With `-norunaway` the loop runs on,
+its count started again, as the original's (`LoopConsole` with
+`DXCAP_FLAGS=-norunaway`: 20,000,001 jumps run through in both); a save's
+load counts its own jumps, as the original's map load does (`LoopConsole`
+with `LoadAfter`: 9,999,001 jumps, then slot 9's load in the same tick, in
+both).
 
 ## Saving, loading and travel
 
@@ -1754,9 +1756,10 @@ not deleted (the log says so).
   `BaseChange` and `SupportActor` among them (`CallConsole`: one calling
   itself, its object's others directly and through a function that is not
   singular, and its object touched while it runs, all held off; another
-  object's run). Differs: a call held off gives its type's zero, where the
-  original's leaves a variable assigned from it as it was; none of the
-  game's returns a value (bugs.md VM.8).
+  object's run). A call held off gives nothing: a variable assigned from it
+  keeps what it held, as the original's Let has the call write into it, and
+  an expression reads it as zero (`CallConsole`: `Answer()` held off into 5
+  leaves 5, and tests as 0, in both).
 - **The windows' icon** is the original's, `DeusEx.exe`'s icon group 128
   ([the frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#the-frame)):
   the original's window under Proton and

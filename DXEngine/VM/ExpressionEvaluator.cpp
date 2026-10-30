@@ -1482,8 +1482,10 @@ bool ExpressionEvaluator::Assign(Expression* lhs, Expression* rhs)
 		Classify(rhs);
 
 	// A context's value (`X = A.B`, `X = A.B[i]`) is taken whole: through
-	// None it may leave the variable as it was, which only the value tells
-	if (rhs->Typed == TypedKind::Context)
+	// None it may leave the variable as it was, which only the value tells;
+	// so is any other's but a variable's, a constant's or an operator's here,
+	// a call's among them: a singular one held off leaves it too
+	if (rhs->Typed == TypedKind::Context || rhs->Typed == TypedKind::Generic)
 	{
 		ExpressionValue value = Value(rhs);
 		if (!value.KeepsVariable)
