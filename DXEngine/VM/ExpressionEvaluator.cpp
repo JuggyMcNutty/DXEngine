@@ -560,7 +560,7 @@ void ExpressionEvaluator::Expr(UnicodeStringConstExpression* expr)
 void ExpressionEvaluator::Expr(RotatorToVectorExpression* expr)
 {
 	Rotator rot = Value(expr->Value).ToRotator();
-	*Out = ExpressionValue::VectorValue(Coords::TableRotation(rot).XAxis);
+	*Out = ExpressionValue::VectorValue(Coords::Rotation(rot).XAxis);
 }
 
 void ExpressionEvaluator::Expr(ByteToIntExpression* expr)

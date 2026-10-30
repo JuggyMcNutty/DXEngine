@@ -34,7 +34,7 @@ static void Through(const Coords& by, vec3& Loc, vec3& Vel, Rotator& R)
 {
 	Loc = PointBy(by, Loc);
 	Vel = VectorBy(by, Vel);
-	Coords c = Coords::TableRotation(R);
+	Coords c = Coords::Rotation(R);
 	c.XAxis = VectorBy(by, c.XAxis);
 	c.YAxis = VectorBy(by, c.YAxis);
 	c.ZAxis = VectorBy(by, c.ZAxis);

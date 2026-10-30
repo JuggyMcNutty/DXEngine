@@ -413,7 +413,7 @@ void TraceTester::TraceActor(UActor* actor, const dvec3& origin, double tmin, co
 			if (TraceRayModel::WalkSolid(mover->Brush(), localOrigin, localOrigin + localDirection * localTMax, visibilityOnly ? NF_NotVisBlocking : 0, fraction, crossed))
 			{
 				vec3 local(crossed->PlaneX, crossed->PlaneY, crossed->PlaneZ);
-				vec3 normal = (Coords::TableRotation(mover->Rotation()).ToMatrix() * vec4(local, 0.0f)).xyz();
+				vec3 normal = (Coords::Rotation(mover->Rotation()).ToMatrix() * vec4(local, 0.0f)).xyz();
 				CollisionHit hit = { (float)(fraction * localTMax), normal, actor, crossed, crossed };
 				hits.push_back(hit);
 			}

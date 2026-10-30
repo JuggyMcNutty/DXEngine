@@ -18,15 +18,9 @@ public:
 	static Coords Identity();
 	static Coords Location(const vec3& origin);
 
-	static Coords YawRotation(float yaw);
-	static Coords PitchRotation(float pitch);
-	static Coords RollRotation(float roll);
-
 	static Coords Rotation(const Rotator& rotator);
-	static Coords TableRotation(const Rotator& rotator);
 	// The rotation of these axes (the original's FCoords::OrthoRotation)
 	Rotator OrthoRotation() const;
-	static Coords TableInverseRotation(const Rotator& rotator);
 	static Coords InverseRotation(const Rotator& rotator);
 
 	static Coords ViewToRenderDev();
@@ -134,46 +128,15 @@ inline Coords Coords::Location(const vec3& origin)
 	return coords;
 }
 
-inline Coords Coords::YawRotation(float yaw)
-{
-	Coords result;
-	result.Origin = { 0.0f, 0.0f, 0.0f };
-	result.XAxis = { std::cos(yaw), -std::sin(yaw), 0.0f };
-	result.YAxis = { std::sin(yaw), std::cos(yaw), 0.0f };
-	result.ZAxis = { 0.0f, 0.0f, 1.0f };
-	return result;
-}
-
-inline Coords Coords::PitchRotation(float pitch)
-{
-	Coords result;
-	result.Origin = { 0.0f, 0.0f, 0.0f };
-	result.XAxis = { std::cos(pitch), 0.0f, -std::sin(pitch) };
-	result.YAxis = { 0.0f, 1.0f, 0.0f };
-	result.ZAxis = { std::sin(pitch), 0.0f, std::cos(pitch) };
-	return result;
-}
-
-inline Coords Coords::RollRotation(float roll)
-{
-	Coords result;
-	result.Origin = { 0.0f, 0.0f, 0.0f };
-	result.XAxis = { 1.0f, 0.0f, 0.0f };
-	result.YAxis = { 0.0f, std::cos(roll), -std::sin(roll) };
-	result.ZAxis = { 0.0f, std::sin(roll), std::cos(roll) };
-	return result;
-}
-
+// The unit coords turned by a rotator, as the original turns every one -- the
+// scripts' conversions (vector(rotator), GetAxes, GetUnAxes; Core.dll
+// FRotator::Vector), the view's coords (Engine.dll
+// FSceneNode::ComputeRenderCoords), a mesh's frame, an actor's and a brush's
+// coords (UMesh::GetFrame, AActor::ToWorld, ABrush::ToWorld): by its sine
+// table, 16384 steps round the turn, so an angle's low 2 bits are dropped; a
+// cosine is the table a quarter turn on. Its axes are the rotator's facing,
+// right and up; Rotation(r) * v gives v in them.
 inline Coords Coords::Rotation(const Rotator& rotator)
-{
-	return RollRotation(rotator.RollRadians()) * PitchRotation(rotator.PitchRadians()) * YawRotation(rotator.YawRadians());
-}
-
-// The rotation the original's script conversions take (vector(rotator),
-// GetAxes, GetUnAxes; Core.dll FRotator::Vector): its sine table's, 16384
-// steps round the turn, so an angle's low 2 bits are dropped; a cosine is the
-// table a quarter turn on.
-inline Coords Coords::TableRotation(const Rotator& rotator)
 {
 	auto tsin = [](int angle) { return (float)std::sin(((angle >> 2) & 16383) * (2.0 * 3.14159265358979 / 16384.0)); };
 	auto tcos = [&](int angle) { return tsin(angle + 0x4000); }; // the table a quarter turn on
@@ -199,8 +162,8 @@ inline Coords Coords::TableRotation(const Rotator& rotator)
 // which turns a vector by it (>>, Core.dll
 // UObject::execGreaterGreater_VectorRotator 0x101380e0): the yaw undone, then
 // the pitch, then the roll, step by step, so its floats round as the
-// original's
-inline Coords Coords::TableInverseRotation(const Rotator& rotator)
+// original's. InverseRotation(r) * v turns v by r.
+inline Coords Coords::InverseRotation(const Rotator& rotator)
 {
 	auto tsin = [](int angle) { return (float)std::sin(((angle >> 2) & 16383) * (2.0 * 3.14159265358979 / 16384.0)); };
 	auto tcos = [&](int angle) { return tsin(angle + 0x4000); };
@@ -225,11 +188,6 @@ inline Coords Coords::TableInverseRotation(const Rotator& rotator)
 	result *= pitch;
 	result *= roll;
 	return result;
-}
-
-inline Coords Coords::InverseRotation(const Rotator& rotator)
-{
-	return YawRotation(-rotator.YawRadians()) * PitchRotation(-rotator.PitchRadians()) * RollRotation(-rotator.RollRadians());
 }
 
 inline void Coords::GetAxes(vec3& X, vec3& Y, vec3& Z) const
@@ -300,7 +258,7 @@ inline Rotator Coords::OrthoRotation() const
 		ftol(std::atan2((double)XAxis.z, std::sqrt((double)(XAxis.x * XAxis.x + XAxis.y * XAxis.y))) * scale),
 		ftol(std::atan2((double)XAxis.y, (double)XAxis.x) * scale),
 		0);
-	Coords s = TableRotation(r);
+	Coords s = Rotation(r);
 	r.Roll = ftol(std::atan2((double)dot(ZAxis, s.YAxis), (double)dot(YAxis, s.YAxis)) * scale);
 	return r;
 }

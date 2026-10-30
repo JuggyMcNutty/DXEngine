@@ -143,7 +143,7 @@ static int DeusExFindStairRotation(UPawn* pawn, float deltaTime)
 		view.Pitch = (view.Pitch & 0xffff) - 0x10000;
 
 	vec3 dir, y, z;
-	Coords::TableRotation(Rotator(0, view.Yaw, view.Roll)).GetAxes(dir, y, z);
+	Coords::Rotation(Rotator(0, view.Yaw, view.Roll)).GetAxes(dir, y, z);
 	vec3 eye = pawn->Location() + vec3(0.0f, 0.0f, pawn->BaseEyeHeight());
 	float height = pawn->CollisionHeight() + pawn->BaseEyeHeight();
 	vec3 slice(pawn->CollisionRadius(), pawn->CollisionRadius(), 1.0f);

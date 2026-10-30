@@ -279,7 +279,7 @@ void CollisionSystem::File(UMover* mover, FiledMover& filed)
 	filed.Polys.clear();
 
 	mat4 objectToWorld = mat4::translate(mover->Location()) * Coords::Rotation(mover->Rotation()).ToMatrix() * mat4::scale(mover->MainScale().Scale) * mat4::translate(-mover->PrePivot());
-	mat4 tableRotation = Coords::TableRotation(mover->Rotation()).ToMatrix();
+	mat4 tableRotation = Coords::Rotation(mover->Rotation()).ToMatrix();
 	vec3 boundsMin(1e30f), boundsMax(-1e30f);
 	UModel* brush = mover->Brush();
 	if (brush && brush->Polys)

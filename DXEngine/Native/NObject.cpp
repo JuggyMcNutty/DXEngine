@@ -613,7 +613,7 @@ void NObject::FRand(float& ReturnValue)
 
 void NObject::GetAxes(const Rotator& A, vec3& X, vec3& Y, vec3& Z)
 {
-	Coords::TableRotation(A).GetAxes(X, Y, Z);
+	Coords::Rotation(A).GetAxes(X, Y, Z);
 }
 
 void NObject::GetEnum(UObject* E, int i, NameString& ReturnValue)
@@ -653,7 +653,7 @@ void NObject::GetStateName(UObject* Self, NameString& ReturnValue)
 void NObject::GetUnAxes(const Rotator& A, vec3& X, vec3& Y, vec3& Z)
 {
 	// The original's are GetAxes' transposed (RotatorConsole)
-	Coords axes = Coords::TableRotation(A);
+	Coords axes = Coords::Rotation(A);
 	X = { axes.XAxis.x, axes.YAxis.x, axes.ZAxis.x };
 	Y = { axes.XAxis.y, axes.YAxis.y, axes.ZAxis.y };
 	Z = { axes.XAxis.z, axes.YAxis.z, axes.ZAxis.z };
@@ -709,7 +709,7 @@ void NObject::GreaterGreater_IntInt(int A, int B, int& ReturnValue)
 void NObject::GreaterGreater_VectorRotator(const vec3& A, const Rotator& B, vec3& ReturnValue)
 {
 	// The sine table's, as the original's (Core.dll 0x101380e0)
-	ReturnValue = Coords::TableInverseRotation(B) * A;
+	ReturnValue = Coords::InverseRotation(B) * A;
 }
 
 void NObject::Greater_FloatFloat(float A, float B, BitfieldBool& ReturnValue)
@@ -804,7 +804,7 @@ void NObject::LessLess_IntInt(int A, int B, int& ReturnValue)
 void NObject::LessLess_VectorRotator(const vec3& A, const Rotator& B, vec3& ReturnValue)
 {
 	// The sine table's, as the original's (Core.dll 0x10137d90)
-	ReturnValue = Coords::TableRotation(B) * A;
+	ReturnValue = Coords::Rotation(B) * A;
 }
 
 void NObject::Less_FloatFloat(float A, float B, BitfieldBool& ReturnValue)

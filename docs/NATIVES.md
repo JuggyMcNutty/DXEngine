@@ -1048,9 +1048,9 @@ from the original's code:
   eye at the view's middle, in whole pixels. `FrobConsole`, its points
   asked from a window on the root (`ProjectionWindow`) at 1024x768: every
   answer the original's, a point far off the screen and one behind among
-  them, the places within 2 units of the original's (its view turned by its
-  sine table:
-  [the engine's own rotations](#implemented-not-as-the-original));
+  them, the places within 3 units of the original's, 56 of the 100 on the
+  screen exactly
+  ([the engine's own rotations](#implemented-not-as-the-original));
   its boxes round two decorations, the crosshair on their middle and turned
   5 degrees four ways, within 7 pixels of the original's at 1280x720 with
   the original's [view width](#the-views-width).
@@ -1510,6 +1510,13 @@ Every other native the scripted runs compare matches the original
   PHYS_Projectile, rises as a swimming player's breath does
   (`BubbleConsole`: an AirBubble, an Effects and a Rat spawned under water,
   alike).
+- **The engine's own rotations** -- the view's, a mesh's and a mover's, a
+  laser's beam, movement's and the AI's -- take the original's sine table,
+  as the scripts' conversions do
+  ([a rotator's turn](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#small)):
+  at 20 frames a second `FlightConsole`'s gull, flown level into the pier's
+  wall, turns and slides 10.8 units along it in both engines, its track
+  within 0.2 units of the original's.
 
 Differs:
 
@@ -1536,12 +1543,6 @@ Differs:
   until nothing holds it and a collection frees it (DX.2).
 - **The console's `showlog`** opens nothing: the original shows its log
   window, which DXEngine has not (the log says so); by choice.
-- **The engine's own rotations** (the view, movement) take exact angles; the
-  scripts' conversions take the original's sine table
-  ([the natives](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-natives)).
-  At 20 frames a second `FlightConsole`'s gull, flown level into the pier's
-  wall, turns and slides some 18 units along it in the original, where
-  DXEngine's stays put (PHYS.5).
 - **Swimming out from under the water** (`SwimConsole`'s d: the player 100
   under the water line off the pier, looking 45 degrees down, the forward
   axis held): at 60 and 120 frames a second the two engines' players swim

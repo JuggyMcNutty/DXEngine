@@ -22,7 +22,7 @@ void UActor::TickTrailer(float elapsed)
 		if (bTrailerPrePivot())
 			place += PrePivot();
 		else if (bTrailerSameRotation())
-			place -= Coords::TableRotation(owner->Rotation()).XAxis * Mass(); // the original's FCoords from a rotator: its sine table's
+			place -= Coords::Rotation(owner->Rotation()).XAxis * Mass(); // the original's FCoords from a rotator: its sine table's
 		SetLocation(place, true);
 		return;
 	}

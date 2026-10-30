@@ -235,7 +235,7 @@ void UActor::TurnBasedActors(const Rotator& deltaRotation)
 {
 	if ((deltaRotation.Yaw & 0xffff) == 0)
 		return;
-	Coords yawRot = Coords::YawRotation(deltaRotation.YawRadians());
+	Coords yawRot = Coords::InverseRotation(Rotator(0, deltaRotation.Yaw, 0));
 	vec3 baseLoc = Location();
 	for (size_t i = 0; i < BasedActors.size(); )
 	{
@@ -805,7 +805,7 @@ bool UActor::MoveBrush(const vec3& delta, const Rotator& rotation)
 	if (StandingCount() > 0)
 	{
 		int yaw = rotation.Yaw - oldRotation.Yaw;
-		Coords yawRot = Coords::YawRotation(Rotator(0, (rotation.Yaw & 0xfffc) - (oldRotation.Yaw & 0xfffc), 0).YawRadians());
+		Coords yawRot = Coords::InverseRotation(Rotator(0, (rotation.Yaw & 0xfffc) - (oldRotation.Yaw & 0xfffc), 0));
 		vec3 baseLoc = Location();
 		Array<UActor*> riders = BasedActors;
 		for (UActor* rider : riders)
