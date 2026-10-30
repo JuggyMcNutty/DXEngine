@@ -1,5 +1,6 @@
 
 #include "Precomp.h"
+#include "Utils/StrTools.h"
 #include "IniProperty.h"
 #include "Utils/Exception.h"
 #include "Utils/Convert.h"
@@ -53,7 +54,7 @@ float IniPropertyConverter<float>::FromString(const std::string& valueString)
 template<>
 std::string IniPropertyConverter<float>::ToString(const float& value)
 {
-	return std::to_string(value);
+	return StrTools::float_text(value);
 }
 
 // A float as the original's import reads one (appAtof), the class config's

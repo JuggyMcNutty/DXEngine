@@ -3,7 +3,10 @@
 // starts, 2 s in (docs/DEVELOPMENT.md, scripted runs): an int divided and
 // multiplied by a float in place (by 0.0, past an int's range); the shifts by
 // a count of 33 and of -1; Clamp and FClamp with their bounds the wrong way
-// round, and FClamp of a NaN (0/0); a switch on a string against a case of the
+// round, and FClamp of a NaN (0/0); floats as text at a tie of their sixth
+// decimal (813.1953125, 0.0078125 and its negative, a vector of them, a
+// float property's text), 2 to the 70th and both infinities; a switch on a
+// string against a case of the
 // other case, and on -0.0 against 0.0; new with a flag outside the script's
 // (the engine logs "new: Flags 04000000 not allowed"); each actor iterator
 // given None for its class, counted, the radius ones round the level's
@@ -23,6 +26,7 @@ class OpsConsole extends Console;
 
 var config bool ListRadius;
 var float RunTime;
+var float TieValue;
 var int Phase;
 var bool bCanvasDone;
 
@@ -66,6 +70,19 @@ function ClampOps()
 	Zero = 0.0;
 	NaN = Zero / Zero;
 	Log("DXOPS: FClamp(0/0, 2.0, 3.0) -> " $ FClamp(NaN, 2.0, 3.0));
+}
+
+function FloatTextOps()
+{
+	local float Zero, Big;
+	local vector V;
+
+	Zero = 0.0;
+	Big = 2.0 ** 70.0;
+	V = vect(0.0078125, 813.1953125, -2.5);
+	TieValue = 123456.7890625;
+	Log("DXOPS: float text " $ 813.1953125 $ " " $ 0.0078125 $ " " $ -0.0078125 $ " " $ Big $ " " $ (1.0 / Zero) $ " " $ (-1.0 / Zero));
+	Log("DXOPS: vector text " $ string(V) $ ", property text " $ GetPropertyText("TieValue"));
 }
 
 function SwitchOps()
@@ -290,6 +307,7 @@ event Tick(float Delta)
 	{
 		IntOps();
 		ClampOps();
+		FloatTextOps();
 		SwitchOps();
 		NewOps();
 		IterOps(P);

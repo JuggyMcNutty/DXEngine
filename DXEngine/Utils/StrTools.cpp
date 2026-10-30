@@ -1,6 +1,9 @@
 
 #include "Precomp.h"
 #include "StrTools.h"
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
 
 
 static const int stricmptable[] =
@@ -85,4 +88,41 @@ size_t StrTools::find_first_of_any(const std::string& str, const std::string& ch
 	}
 
 	return std::string::npos;
+}
+
+std::string StrTools::float_text(double value)
+{
+	if (std::isnan(value))
+		return std::signbit(value) ? "-1.#IND00" : "1.#QNAN0";
+	if (std::isinf(value))
+		return value < 0 ? "-1.#INF00" : "1.#INF00";
+
+	// Every digit, exactly, to forty decimals: far past any float's sixth
+	char buf[400];
+	std::snprintf(buf, sizeof(buf), "%.40f", value);
+	std::string text(buf);
+	bool negative = text[0] == '-';
+	if (negative)
+		text.erase(0, 1);
+	size_t point = text.find('.');
+	std::string whole = text.substr(0, point);
+	std::string decimals = text.substr(point + 1);
+
+	// Six decimals, the seventh's 5 or more rounding up, carried leftward
+	bool roundUp = decimals[6] >= '5';
+	decimals.resize(6);
+	if (roundUp)
+	{
+		std::string number = whole + decimals;
+		int i = (int)number.size() - 1;
+		while (i >= 0 && number[i] == '9')
+			number[i--] = '0';
+		if (i >= 0)
+			number[i]++;
+		else
+			number.insert(number.begin(), '1');
+		whole = number.substr(0, number.size() - 6);
+		decimals = number.substr(number.size() - 6);
+	}
+	return (negative ? "-" : "") + whole + "." + decimals;
 }

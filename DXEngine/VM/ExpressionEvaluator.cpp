@@ -736,7 +736,7 @@ void ExpressionEvaluator::Expr(BoolToStringExpression* expr)
 
 void ExpressionEvaluator::Expr(FloatToStringExpression* expr)
 {
-	*Out = ExpressionValue::StringValue(std::to_string(Value(expr->Value).ToFloat()));
+	*Out = ExpressionValue::StringValue(StrTools::float_text(Value(expr->Value).ToFloat()));
 }
 
 void ExpressionEvaluator::Expr(ObjectToStringExpression* expr)
@@ -760,7 +760,7 @@ void ExpressionEvaluator::Expr(NameToStringExpression* expr)
 void ExpressionEvaluator::Expr(VectorToStringExpression* expr)
 {
 	vec3 v = Value(expr->Value).ToVector();
-	*Out = ExpressionValue::StringValue(std::to_string(v.x) + "," + std::to_string(v.y) + "," + std::to_string(v.z));
+	*Out = ExpressionValue::StringValue(StrTools::float_text(v.x) + "," + StrTools::float_text(v.y) + "," + StrTools::float_text(v.z));
 }
 
 void ExpressionEvaluator::Expr(RotatorToStringExpression* expr)

@@ -16,4 +16,9 @@ public:
 	// each character's two bytes, a-z in upper case. The flag base's 64
 	// buckets and the AI event manager's 256 are chosen by it.
 	static uint32_t ue1_strihash(const std::string_view& str);
+	// A float as the original's "%f" writes it, the MSVC runtime's it links:
+	// its digits exact to the sixth decimal, a 5 after the sixth rounding up
+	// -- a tie away from zero, where the C library's rounds it to even --,
+	// and infinity and NaN as that runtime spells them.
+	static std::string float_text(double value);
 };

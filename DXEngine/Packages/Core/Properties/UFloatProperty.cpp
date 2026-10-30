@@ -1,5 +1,6 @@
 
 #include "Precomp.h"
+#include "Utils/StrTools.h"
 #include "UFloatProperty.h"
 #include "Utils/Convert.h"
 
@@ -31,7 +32,7 @@ void UFloatProperty::SaveValue(void* data, PackageStreamWriter* stream)
 
 std::string UFloatProperty::PrintValue(const void* data)
 {
-	return std::to_string(*(float*)data);
+	return StrTools::float_text(*(float*)data);
 }
 
 bool UFloatProperty::IsDefaultValue(void* val)

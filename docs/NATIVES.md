@@ -1559,10 +1559,10 @@ Every other native the scripted runs compare matches the original
   `Package.Name` or from a bare name among the loaded objects of its class;
   a class is held to its metaclass (an Actor class from `Engine.Texture` is
   None). A bool takes `1`, `True`, `0` and `False` alone, an int the number
-  its text starts with. Differs: a float's six decimals round a tie to even,
-  where the original's C library rounds it up: 813.1953125 is `813.195312`,
-  the original's `813.195313` (`LoadConsole`'s player's place; bugs.md
-  VM.10).
+  its text starts with. A float's text, a vector's and `string()`'s too, is
+  the original's `%f`, its runtime's: every digit exact to six decimals, a
+  tie rounding up, infinity `1.#INF00` (`OpsConsole`: 813.1953125 as
+  `813.195313`, 2 to the 70th whole, alike in both engines).
 - **A `GotoState` from within `EndState` or `BeginState`**
   (`PreemptConsole`): preempts the one under way, as the original's
   `RF_InEndState` and `RF_StateChanged` have it: the actor stays where the
