@@ -1163,7 +1163,18 @@ map it is on is loaded). Galaxy's holds on `OutputRate` (8,000 to 48,000 Hz)
 and `Latency` (10 to 250 ms) are kept, `Latency` the output's mix-ahead
 (10 ms buffers queued to it), and `UseStereo=False` is mono; `UseFilter`,
 `UseCDMusic` and `UseSpatial` are read, saved and `SET` and change nothing,
-as in the original. Differs:
+as in the original. An MP3 -- the game's speech -- plays 4,096 frames of
+silence first, as Galaxy's decoder fills its ring
+([playing a sound](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)):
+`LipConsole` with `Beep=True` and `DXCAP_RECORD=1`, each of its three lines
+4,096 frames after a beep started on the same tick, the original's 4,083 to
+4,096. Lip sync is Galaxy's
+([lip sync](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#lip-sync)):
+a shape each tenth of a second of a line's time played, from 1,024 frames
+where its voice plays, the first at the update after it starts.
+`LipConsole`: 30, 6 and 27 shapes on its three lines, the original's 30, 6
+and 30; one after another, 73.6% of them alike between the two engines'
+runs, where the original's own runs are 79.7% alike. Differs:
 
 - The music plays on an OpenAL source of its own.
 - Not carried: Galaxy's quirk with the Sound and Speech sliders equal, both
@@ -1179,6 +1190,11 @@ as in the original. Differs:
   `AmbientFactor`, which no menu sets.
 - A WAV's ping-pong loop plays forward, where Galaxy's plays back and forth;
   no stock sound has one.
+- The original's MP3 voice can play on, silent, past its sound:
+  `LipConsole`'s third line, 2.6 s with its silence first, works out shapes
+  to 2.9 s there, three more `X`s.
+- Not carried: an 8-bit sample's lip sync read from its start wherever it
+  plays; no stock speech is a WAV.
 - An ambient sound on a light follows its blink and strobe on DXEngine's
   timing ([lighting](#lighting)).
 - A sound's ID packs a number DXEngine gives each object that plays one,

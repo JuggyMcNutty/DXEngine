@@ -38,6 +38,13 @@ public:
 	void Stop(int channel);
 	bool IsPlaying(int channel);
 
+	// A playing voice as Galaxy's lip sync reads it (galaxy-dll.md, Lip
+	// sync): the frame of its sample its mix has reached, and count frames of
+	// the sample's first channel from frame on, 0 past its end; false when
+	// the channel plays nothing.
+	bool GetPosition(int channel, uint64_t& frame);
+	bool Read(int channel, uint64_t frame, int16_t* frames, int count);
+
 	// Galaxy's sample volume: the louder of the Sound and Speech sliders,
 	// 0 to 1.
 	void SetMasterVolume(float louderSlider);

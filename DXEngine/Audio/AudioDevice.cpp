@@ -108,13 +108,19 @@ public:
 	{
 		// The mixer's own 16-bit copy, which a channel keeps while it plays,
 		// two silent frames past the end for the last frame's interpolation.
+		// An MP3 plays 8 KB of silence first, 4,096 frames of one channel:
+		// Galaxy decodes it into a zeroed ring, its first fill 8 KB past the
+		// voice's place (galaxy-dll.md, Playing a sound; its refill,
+		// Galaxy.dll 0x1060e340).
 		auto sample = std::make_shared<GalaxySample>();
 		sample->channels = std::max(sound->channels, 1);
-		sample->frames = sound->samples.size() / sample->channels;
+		size_t lead = (sound->Format == "mp3" || sound->Format == "mp2") ? 8192 / (2 * sample->channels) : 0;
+		sample->frames = lead + sound->samples.size() / sample->channels;
 		sample->rate = sound->frequency;
 		sample->data.resize((sample->frames + 2) * sample->channels);
-		for (size_t i = 0, count = sample->frames * sample->channels; i < count; i++)
-			sample->data[i] = (int16_t)std::clamp((int)std::lround(sound->samples[i] * 32768.0f), -32768, 32767);
+		int16_t* frames = sample->data.data() + lead * sample->channels;
+		for (size_t i = 0, count = (sample->frames - lead) * sample->channels; i < count; i++)
+			frames[i] = (int16_t)std::clamp((int)std::lround(sound->samples[i] * 32768.0f), -32768, 32767);
 		sample->looped = sound->loopInfo.Looped;
 		sample->loopStart = sound->loopInfo.LoopStart;
 		sample->loopEnd = sound->loopInfo.LoopEnd;
@@ -187,6 +193,16 @@ public:
 		if (channel >= mixer->GetChannels())
 			Exception::Throw("Invalid StopSound arguments");
 		mixer->Stop(channel);
+	}
+
+	bool GetMixedSoundPosition(int channel, uint64_t& frame) override
+	{
+		return channel < mixer->GetChannels() && mixer->GetPosition(channel, frame);
+	}
+
+	bool ReadMixedSound(int channel, uint64_t frame, int16_t* frames, int count) override
+	{
+		return channel < mixer->GetChannels() && mixer->Read(channel, frame, frames, count);
 	}
 
 	static std::string getALErrorString(ALenum error)

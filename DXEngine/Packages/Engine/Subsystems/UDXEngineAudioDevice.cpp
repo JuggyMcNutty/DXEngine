@@ -15,6 +15,7 @@
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Collision/BottomLevel/TraceRayModel.h"
 #include "Light/LightmapBuilder.h"
+#include "kissfft/kiss_fftr.h"
 
 static float square(float x) { return x * x; }
 
@@ -332,11 +333,6 @@ void UDXEngineAudioDevice::UpdateAmbience()
 	}
 }
 
-//
-// Deliberately stores no state on PlayingSound. The slot is already packed into Id by
-// NActor::PlaySound as (slot << 1), and this file already decodes it that way for
-// SLOT_Ambient, so SLOT_Talk is recoverable the same way.
-//
 // A Pawn class without the lip-sync properties leaves their offsets unset: then no lip
 // sync, and nothing else changes.
 static bool HasLipSync()
@@ -344,31 +340,100 @@ static bool HasLipSync()
 	return PropOffsets_Pawn.nextPhoneme.DataOffset != ~(size_t)0;
 }
 
-void UDXEngineAudioDevice::UpdateLipSync(PlayingSound& Playing)
+// Galaxy's mouth shape for 1,024 frames of a voice (galaxy-dll.md, Lip sync;
+// Galaxy.dll 0x10609180, 0x10609310, 0x10608d70): each sample over 32,768,
+// times its place over 1,024 -- the rising half of a triangle --, through a
+// 1,024-point FFT, of whose bins Galaxy takes the size of the real part
+// alone. The largest of the first 512, DC's among them, the first of equals:
+// X at 5 or less, else the letter of its frequency, T above 2,000 Hz, F above
+// 1,500, A above 600, O above 400, U above 250, E at 250 or below. Galaxy's
+// M, tested above 1,000 Hz inside the branch for 250 or below, never comes.
+static char LipSyncShape(const int16_t* frames, int rate)
 {
-	if (!HasLipSync() || !Playing.Actor || !engine->LevelInfo)
+	constexpr int Size = 1024;
+	static std::unique_ptr<kiss_fftr_state, void(*)(void*)> fft(kiss_fftr_alloc(Size, 0, nullptr, nullptr), free);
+	if (!fft)
+		return 'X';
+
+	float windowed[Size];
+	for (int i = 0; i < Size; i++)
+		windowed[i] = (float)(frames[i] / 32768.0 * (i / (double)Size));
+	kiss_fft_cpx bins[Size / 2 + 1];
+	kiss_fftr(fft.get(), windowed, bins);
+
+	float largest = 0.0f;
+	int strongest = -1;
+	for (int i = 0; i < Size / 2; i++)
+	{
+		float size = std::fabs(bins[i].r);
+		if (strongest < 0 || largest < size)
+		{
+			largest = size;
+			strongest = i;
+		}
+	}
+	if (largest <= 5.0f)
+		return 'X';
+
+	float hz = strongest * (float)rate * (1.0f / Size);
+	if (hz > 2000.0f)
+		return 'T';
+	if (hz > 1500.0f)
+		return 'F';
+	if (hz > 600.0f)
+		return 'A';
+	if (hz > 400.0f)
+		return 'O';
+	if (hz > 250.0f)
+		return 'U';
+	return 'E';
+}
+
+// Galaxy's lip sync (galaxy-dll.md, Lip sync; its Update, 0x1060a09a): for
+// speech from a pawn whose script has set bIsSpeaking, a voice that plays,
+// once its time played reaches the next tenth of a second -- the first at
+// once, at the update after the voice starts --, the shape written to the
+// pawn's nextPhoneme and the next a tenth on, so one held back runs a shape
+// an update until it catches up. An MP3 plays from a ring of 64 KB Galaxy
+// decodes it into, 32,768 frames, read from the voice's place in it -- its
+// 4,096 frames of silence first among them -- up to the ring's last frame;
+// any other sound 0.1 s past its time played.
+void UDXEngineAudioDevice::UpdateLipSync(PlayingSound& Playing, int channel)
+{
+	if (!HasLipSync() || !Playing.Actor || !Playing.IsActive || !m_Device->IsPlaying(channel))
 		return;
 	if ((Playing.Id & 14) != SLOT_Talk * 2)
 		return;
 
 	UPawn* pawn = UObject::TryCast<UPawn>(Playing.Actor);
-	if (!pawn)
+	if (!pawn || Playing.PlayTime < Playing.NextLipSync)
 		return;
 
 	// bIsSpeaking is the script's alone: ConPlay sets it around a line and
 	// LipSynch's bWasSpeaking branch closes the mouth when it drops, so the
-	// original's Galaxy only reads it (galaxy-dll.md, Lip sync). Writing it
-	// here moved mouths on barks the script never opened.
+	// original's Galaxy only reads it. Writing it here moved mouths on barks
+	// the script never opened.
 	if (!pawn->bIsSpeaking())
 		return;
 
-	float elapsedTime = engine->LevelInfo->TimeSeconds() - Playing.StartTime;
-	uint8_t letter = Playing.Sound->GetLipsyncLetterAt(elapsedTime);
+	constexpr int Size = 1024, Ring = 0x8000;
+	int16_t frames[Size] = {};
+	int rate = Playing.Sound->frequency;
+	if (Playing.Sound->Format == "mp3" || Playing.Sound->Format == "mp2")
+	{
+		uint64_t frame = 0;
+		if (!m_Device->GetMixedSoundPosition(channel, frame))
+			return;
+		m_Device->ReadMixedSound(channel, frame, frames, std::min(Size, (int)(Ring - 1 - frame % Ring)));
+	}
+	else
+	{
+		double played = (double)(int64_t)(rate * (double)Playing.PlayTime);
+		m_Device->ReadMixedSound(channel, (uint64_t)(int64_t)(played + rate * 0.1), frames, Size);
+	}
 
-	if (!letter)
-		return;
-
-	pawn->nextPhoneme() = std::string(1, letter);
+	pawn->nextPhoneme() = std::string(1, LipSyncShape(frames, rate));
+	Playing.NextLipSync += 0.1f;
 }
 
 void UDXEngineAudioDevice::UpdateSounds(float timeStep)
@@ -383,6 +448,8 @@ void UDXEngineAudioDevice::UpdateSounds(float timeStep)
 
 		if (Playing.Id != 0)
 		{
+			Playing.PlayTime += timeStep;
+
 			// Update positioning from actor, if available
 			if (Playing.Actor)
 				Playing.Location = Playing.Actor->Location();
@@ -390,7 +457,7 @@ void UDXEngineAudioDevice::UpdateSounds(float timeStep)
 			// Update the priority
 			Playing.Priority = SoundPriority(m_Viewport, Playing.Location, Playing.Volume, Playing.Radius);
 
-			UpdateLipSync(Playing);
+			UpdateLipSync(Playing, (int)i);
 
 			// Deus Ex: a wall between the player's eyes and the sound fades it
 			// toward a third of its volume over half a second, and back as it
@@ -685,7 +752,6 @@ bool UDXEngineAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 
 	// Put the sound on the play-list
 	StopSound(Index);
 	PlayingSounds[Index] = PlayingSound(Actor, Id, Sound, Location, Volume, Radius, Pitch, Priority);
-	PlayingSounds[Index].StartTime = engine->LevelInfo->TimeSeconds();
 
 	return true;
 }

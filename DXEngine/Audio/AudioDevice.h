@@ -38,6 +38,10 @@ public:
 	virtual void PlayMixedSound(int channel, USound* sound, int volume, int panning, float pitch) = 0;
 	virtual void UpdateMixedSound(int channel, int volume, int panning, float pitch) = 0;
 	virtual void StopSound(int channel) = 0;
+	// A mixed sound's voice as Galaxy's lip sync reads it (GalaxyMixer's
+	// GetPosition and Read).
+	virtual bool GetMixedSoundPosition(int channel, uint64_t& frame) = 0;
+	virtual bool ReadMixedSound(int channel, uint64_t frame, int16_t* frames, int count) = 0;
 	virtual void SetMusicVolume(float volume) = 0;
 	virtual void SetSoundVolume(float volume) = 0;
 	virtual void SetSpeechVolume(float volume) = 0;

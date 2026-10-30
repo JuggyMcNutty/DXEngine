@@ -5,7 +5,6 @@
 #include "Audio/AudioSource.h"
 #include "Audio/AudioDevice.h"
 #include "Packages/Engine/Subsystems/UDXEngineAudioDevice.h"
-#include "kissfft/kiss_fftr.h"
 
 #include <algorithm>
 #include <cstring>
@@ -304,101 +303,6 @@ float USound::GetHeaderDuration()
 
 	LogMessage("Unknown sound format in " + Name.ToString() + ": no length");
 	return 0.0f;
-}
-
-// Worked out once, from the samples decoded again for it and let go after.
-const Array<uint8_t>& USound::GetLipsyncLetters()
-{
-	if (lipsyncDone)
-		return lipsyncLetters;
-	lipsyncDone = true;
-
-	GetSound();
-
-	if (channels != 1)
-		return lipsyncLetters;
-
-	Array<float> pcm = Decode();
-
-	// guard against empty sound or decoding error
-	if (pcm.empty())
-		return lipsyncLetters;
-
-	static const float MIN_VOLUME = 0.02f;
-
-	std::unique_ptr<kiss_fftr_state, void(*)(void*)> fftcfg(kiss_fftr_alloc(LIPSYNC_BLOCK_SIZE, 0, nullptr, nullptr), free);
-
-	if (!fftcfg)
-		return lipsyncLetters;
-
-	Array<kiss_fft_cpx> freq(LIPSYNC_BLOCK_SIZE / 2 + 1);
-	float binHz = frequency / (float)LIPSYNC_BLOCK_SIZE;
-
-	for(size_t i = 0; i + LIPSYNC_BLOCK_SIZE <= pcm.size(); i += LIPSYNC_BLOCK_SIZE)
-	{
-		float maxVolume = 0.0f;
-
-		for(size_t j = i; j < i + LIPSYNC_BLOCK_SIZE; ++j)
-			maxVolume = std::max(maxVolume, std::fabs(pcm[j]));
-
-		if (maxVolume < MIN_VOLUME)
-		{
-			lipsyncLetters.push_back('X');
-			continue;
-		}
-		kiss_fftr(fftcfg.get(), pcm.data() + i, freq.data());
-
-		float bestMagn = 0.0f;
-		int bestBin = 0;
-		for(int b = 1; b < LIPSYNC_BLOCK_SIZE / 2 + 1; b++)
-		{
-			float magn = freq[b].r * freq[b].r + freq[b].i * freq[b].i;
-			if (magn > bestMagn)
-			{
-				bestMagn = magn;
-				bestBin = b;
-			}
-		}
-
-		lipsyncLetters.push_back(LetterForHz(bestBin * binHz));
-	}
-
-	return lipsyncLetters;
-}
-
-uint8_t USound::LetterForHz(float hz)
-{
-	struct Band {
-		float hzCutoff;
-		uint8_t letter;
-	};
-	// The original's bands (galaxy-dll.md, Lip sync): E at 250 Hz or below,
-	// then U, O, A, F, T upward. Its M shape is unreachable -- the test sits
-	// inside the 250-and-below branch -- so no M here either; the game's
-	// MouthM animation only ever came from a shape the original never gave.
-	static const Band bands[] =
-	{
-		{250.0f, 'E'},
-		{400.0f, 'U'},
-		{600.0f, 'O'},
-		{1500.0f, 'A'},
-		{2000.0f, 'F'},
-	};
-	for(const Band& b: bands)
-		if(hz < b.hzCutoff)
-			return b.letter;
-
-	return 'T';
-}
-
-uint8_t USound::GetLipsyncLetterAt(float seconds)
-{
-	const Array<uint8_t>& letters = GetLipsyncLetters();
-	if(letters.empty())
-		return 0;
-
-	int block = (int)(seconds * frequency / LIPSYNC_BLOCK_SIZE);
-	return letters[std::max(0, std::min(block, (int)letters.size() - 1))];
 }
 
 void USound::OnGCDestroy()

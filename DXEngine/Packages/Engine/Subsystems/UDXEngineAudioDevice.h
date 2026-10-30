@@ -27,7 +27,8 @@ struct PlayingSound
 	float Volume = 1.0f;
 	float Radius = 1.0f;
 	float Pitch = 1.0f;
-	float StartTime = 0.0f;
+	float PlayTime = 0.0f;          // Galaxy's time played: its updates' time steps since it started
+	float NextLipSync = 0.0f;       // Deus Ex: when its mouth shape is next worked out
 	float ObstructionTime = 0.0f;   // Deus Ex: how long the level's BSP has stood in the way, 0 to 0.5 s
 };
 
@@ -106,7 +107,7 @@ private:
 	void UpdateObstruction(PlayingSound& Playing, float timeStep);
 	void GalaxyVoice(const PlayingSound& Playing, int& volume, int& panning);
 
-	void UpdateLipSync(PlayingSound& Playing);
+	void UpdateLipSync(PlayingSound& Playing, int channel);
 	void UpdateMusic(float timeStep);
 	void UpdateReverb();
 	void StopSound(size_t index);

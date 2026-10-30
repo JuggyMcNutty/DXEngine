@@ -45,6 +45,28 @@ bool GalaxyMixer::IsPlaying(int channel)
 	return voices[channel].playing;
 }
 
+bool GalaxyMixer::GetPosition(int channel, uint64_t& frame)
+{
+	std::unique_lock lock(mutex);
+	const Voice& voice = voices[channel];
+	if (!voice.playing)
+		return false;
+	frame = voice.position >> 16;
+	return true;
+}
+
+bool GalaxyMixer::Read(int channel, uint64_t frame, int16_t* frames, int count)
+{
+	std::unique_lock lock(mutex);
+	const Voice& voice = voices[channel];
+	if (!voice.playing)
+		return false;
+	const GalaxySample& sample = *voice.sample;
+	for (int i = 0; i < count; i++)
+		frames[i] = frame + i < sample.frames ? sample.data[(frame + i) * sample.channels] : 0;
+	return true;
+}
+
 // The voice's rate is the sample's times the pitch, in whole hertz, as a
 // 16.16 step (glxControlSample).
 void GalaxyMixer::SetPitch(Voice& voice, float pitch)
