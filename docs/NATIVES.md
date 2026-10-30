@@ -22,10 +22,15 @@ engines, what matches, and what differs. What else it changes:
 - **Scripted runs of both engines**
   ([scripted runs](DEVELOPMENT.md#scripted-runs-of-both-engines)), by the
   consoles named below.
+- **What differs** is the owner's choice, said "by choice" with its reason,
+  or open, named by its ID in Port Ex Machina's
+  [bugs list](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md):
+  a `D` one made on purpose and the owner's to rule on, any other to be
+  made the original's.
 
 ## Stops the game
 
-Differs. An error DXEngine does not catch -- a script error, an unknown
+Differs by choice. An error DXEngine does not catch -- a script error, an unknown
 native, a failed save -- exits the engine with 1, which the launcher takes
 for a crash. No map or action is known to reach one; the audit lists the
 natives whose call would. A `foreach` on a None context, and state code's
@@ -33,7 +38,7 @@ natives whose call would. A `foreach` on a None context, and state code's
 original's Critical Error); a None class's `default` is 0 in both, and
 `AllActors(None)` every actor. A dynamic array's element, on which the
 original asserts (no Deus Ex script indexes one), grows the array to the
-index in DXEngine, a negative index a script error.
+index in DXEngine, by choice, a negative index a script error.
 
 A runaway script stops both engines alike, with an error no native's call
 catches
@@ -42,9 +47,9 @@ a loop past 10,000,000 jumps run, taken or not, in one level tick or one
 map's load, "Runaway loop detected (over 10000000 iterations)"
 (`LoopConsole`); a 251st nested script call, "Infinite script recursion
 (250 calls) detected" (`CallConsole`). Differs: the original's
-`-norunaway`, which lets the loop run on, is not carried; a save's load
-counts on from its frame's level tick, where the original's, a map's load,
-starts the count afresh.
+`-norunaway`, which lets the loop run on, is not carried (bugs.md VM.6);
+a save's load counts on from its frame's level tick, where the original's, a
+map's load, starts the count afresh (VM.7).
 
 ## Saving, loading and travel
 
@@ -81,7 +86,7 @@ into Current -- and the Load Game screen lists every `Save*` folder, both of
 those among them, by name, as the original's `FindFiles` on NTFS gives them
 (`SlotConsole`). Differs: a bare `?loadgame`, which
 the original's browse takes for no load, its menu map opened again, loads
-nothing in DXEngine's. Before
+nothing in DXEngine's (bugs.md PKG.9). Before
 a level is saved into `Current`, the augmentations, skills and flag base
 that travel with the player go from it, a decoration in its hands too
 (`PruneTravelActors`; `ReturnConsole`). The
@@ -103,7 +108,7 @@ opened at a portal (`open <map>#<portal>`) starts the player at the
 teleporter of that tag (`PortalConsole`). Differs: a level returned to from
 `Current` keeps the map's name in its URL, where the original's names the
 saved file (`..\Save\Current\<map>.dxs`), as `Level.GetLocalURL` shows
-(`ReturnConsole`). The saved level is found whatever case the URL spells
+(`ReturnConsole`; bugs.md PKG.10). The saved level is found whatever case the URL spells
 the map in, with or without its `.dx`, as the original's file system finds
 it: the stock exits spell `12_vandenberg_cmd` and `00_training`
 (`RevisitConsole`: the island opened again as `01_nyc_unatcoisland` has the
@@ -126,9 +131,9 @@ Differs:
   original's browse has pruned the player's augmentations, skills and flag
   base when the map is numbered within the mission, and the player plays on
   without them; for any other it has emptied `Current` and loads the level
-  again from `Maps`, its progress and the message gone.
+  again from `Maps`, its progress and the message gone (bugs.md PKG.11).
 - After a restart `Level.GetLocalURL` names the map, where the original's
-  names `Index`.
+  names `Index` (PKG.12).
 
 While a map loads or a level is saved the screen shows one frame, painted
 before the work, as the original's does
@@ -145,14 +150,14 @@ within 1% of the original's). Differs:
 
 - The word sits a pixel lower: the console centres it at a half pixel for an
   odd size, which the original's canvas truncates and DXEngine's draws as
-  it is.
+  it is (bugs.md PKG.6).
 - The original's draw ticks the console (`UConsole::PreRender`), so its
   painted frame ticks it once more; DXEngine ticks it as each frame's draw
   begins, after the level's tick, as the original's does (`HopConsole`,
   `SpinConsole`: an actor's ticks after the console's exit as the
-  original's), and its paint does not.
+  original's), and its paint does not (PKG.7).
 - No frame shows `PRECACHING`: the original's shows it only with its
-  driver's precache on, which the game's ini has off.
+  driver's precache on, which the game's ini has off (PKG.8).
 
 ## Flags
 
@@ -183,7 +188,7 @@ Matches the original's parser
 but for one quirk left out on purpose: at a comment (`NOTE`, `GOAL`,
 `COMMENT`) with no end tag the original reads on past the text's end, so
 `09_EmailMenu_ShipOps`'s listing depends on the memory after it. DXEngine
-stops at the end, hiding the rest.
+stops at the end, hiding the rest (for the owner to rule on: bugs.md D.22).
 
 ## Every NPC
 
@@ -288,7 +293,7 @@ decal to what is drawn of its surface
 the game's go when not drawn for a second, some 20 s after they land
 (`DeusExDecal`), so `CensusConsole`'s blood splats, 90 s under fire on
 Liberty Island, are 140 to 170 at the end against the original's 90 to 186,
-of some 400 to 700 made in either. Differs:
+of some 400 to 700 made in either. Differs by choice:
 
 - **One span buffer** for the frame, where the original keeps one per zone.
   A buffer per zone would change no test in 15,500 at the starts of Liberty
@@ -303,7 +308,7 @@ What is drawn and how it looks, against `Render.dll` and `D3DDrv.dll`.
 
 ### The view's width
 
-Differs by choice: on a screen wider than 4:3 the view keeps the height a
+Differs, for the owner to rule on (bugs.md D.1): on a screen wider than 4:3 the view keeps the height a
 4:3 screen shows and sees more at the sides (Hor+), where the original keeps
 its field of view across the width and loses height. The game's scenes are
 framed for 4:3: at 16:9, with the original's angle, the intro's "Deus Ex"
@@ -312,7 +317,7 @@ narrower the view is the original's. The scene, the coronas, what the HUD
 draws in 3D, the frob highlight's box and the meshes' level of detail
 ([mesh detail](#mesh-detail)) all take the one angle (`HorPlusFovAngle`), so
 on a wide screen a mesh keeps less detail than the original's at the same
-distance.
+distance (D.2).
 
 ### Tiles
 
@@ -356,11 +361,12 @@ tiles do ([sprites](#sprites), [tiles](#tiles)).
 ### The software device
 
 Matches `D3DDrv`'s picture as the GPU devices draw it without their
-multisampling, bloom and HDR ([rendering](ENGINE.md#rendering)), into an
+multisampling, bloom and HDR ([rendering](ENGINE.md#rendering); bugs.md
+D.4), into an
 8-bit frame as `D3DDrv`'s, its textures sampled as `D3DDrv` samples them
 with the game's ini, `LODBias` at its default: bilinear, from the one mip
 whose texels are no larger than the screen's pixels, where the GPU devices
-filter trilinearly with 8x anisotropy, by their own choice. Against
+filter trilinearly with 8x anisotropy (D.6). Against
 `D3DDrv`'s frames: `LightConsole`'s `Spotlight0`, with its macro texture and
 without, and `Spotlight7` at 1.00, as the GPU devices'
 ([lighting](#lighting)), and `Light33`'s floor within 1.02; `LaserConsole`'s
@@ -368,7 +374,7 @@ wall and near floor 0.40 and 0.40 apart (RMSE, at 1024x768 with `NoDetail`)
 and best unmoved, its receding floor 0.66 apart, nearer than the Vulkan
 device's; `LoadingConsole`'s text on the rows `D3DDrv` draws it, where the
 Vulkan device draws some of its glyphs a row lower (point sampled on a
-texel's edge). Against the Vulkan device's: `TileConsole`'s tiles and text
+texel's edge; VK.3). Against the Vulkan device's: `TileConsole`'s tiles and text
 within a level, as are `DetailConsole`'s bands (`detail.py` as the Vulkan
 device's). It draws where the original's software renderer does
 ([choosing the render device](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#choosing-the-render-device)):
@@ -377,7 +383,7 @@ with `-nohard`; where the game's ini names it
 Software Rendering) and `Settings.json` names no device; and where the GPU
 device does not start, as the original's `WindowedRenderDevice` takes
 `GameRenderDevice`'s place, the error logged
-([which device draws](ENGINE.md#rendering)). Differs:
+([which device draws](ENGINE.md#rendering)). Differs by choice:
 
 - **Vsync** only through SDL's renderer: X11's and Win32's presents do not
   wait for it, and the engine's own Wayland window (a dev build's) copies
@@ -397,11 +403,11 @@ modulated sprite draws as every modulated tile ([tiles](#tiles)).
 `SpriteConsole`'s icon, its colour 0 magenta, drawn `STY_Masked` and as
 such particles, shows none of that colour in either engine: 0.0% of the
 sprite's box and 0.7% of the particles' magenta in DXEngine's frame, none in
-`D3DDrv`'s, the sprite's box at a correlation of 0.998 to `D3DDrv`'s; drawn
+`D3DDrv`'s (bugs.md REN.8), the sprite's box at a correlation of 0.998 to `D3DDrv`'s; drawn
 `STY_Modulated`, its box at 0.96 and within 1% of `D3DDrv`'s brightness.
 A sprite animated once (`DT_SpriteAnimOnce`) shows the frame its life has
 reached and holds the last, as the original's does (no run: the reading
-settles it).
+settles it; REN.21).
 Differs:
 
 - **A texture drawn both masked and not** shows its colour 0 in the
@@ -409,11 +415,11 @@ Differs:
   ([one copy a texture](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#textures)),
   in DXEngine as each draw is: beside the masked ones, `SpriteConsole`'s
   `STY_Normal` sprite shows the icon's magenta in DXEngine, black in the
-  original; drawn alone, magenta in both.
+  original; drawn alone, magenta in both (REN.9).
 - **The viewer's `Sprite`** (the Matrix cheat's) stands in for the textures
   of meshes and sprites alone, a sprite's at its own texture's size, as the
   original's `DrawActorSprite` draws it: the original's draws the level's
-  surfaces in it too (`MatrixConsole`), by a rule unread.
+  surfaces in it too (`MatrixConsole`), by a rule unread (REN.10).
 
 ### Particles and lasers: render iterators
 
@@ -424,12 +430,13 @@ Matches the original
 lit, has each beam's brightest row within 2.5% of `D3DDrv`'s red, its two
 lines a segment in `D3DDrv`'s rows (each row within 20 levels of 256 of
 `D3DDrv`'s red, but the middle beam's top one, which `D3DDrv` draws and
-DXEngine's beam, a fraction of a pixel thinner there, misses), and one
+DXEngine's beam, a fraction of a pixel thinner there, misses: bugs.md
+REN.11), and one
 segment of each beam drawn twice, picked at random each frame as the
 original picks it; and `ParticleConsole`'s particles rise, fall, grow and
 fade as the original's: its smoke's column at 1.06 to 1.10 of `D3DDrv`'s
-brightness, its puffs under gravity in the same rows. Differs in the
-occlusion: the original occludes each item's sprite through its span
+brightness, its puffs under gravity in the same rows. Differs by choice in
+the occlusion: the original occludes each item's sprite through its span
 buffer; DXEngine clips items to the view (and a portal's spans) before its
 BSP walk and leaves the rest to the depth buffer. The look is the same; a
 hidden item's cost is paid. Whether the proxy counts as drawn is the
@@ -452,7 +459,7 @@ with every surface, the invisible collision hull round the glass's pane
 among them, which a sight test passes (`GlassConsole` at 03_NYC_Airfield's
 `BreakableGlass2`, `Light56` beyond it).
 An animated or fractal corona skin shows its current frame (no run: the code
-settles it).
+settles it; bugs.md REN.22).
 
 ### What a pawn holds
 
@@ -477,7 +484,7 @@ the spy drone's window and the targeting augmentation's zoom, at its top
 level aimed at the target's eyes, are drawn (`CameraConsole`: every value
 it logs the original's; the feed within 0.5% of the original's frame, the
 zoom and the drone's window within 1% of `D3DDrv`'s). Differs, none of it
-reached by the game:
+reached by the game (bugs.md EXT.14):
 
 - no `CalcView` event is sent, and an origin or watch actor gone leaves the
   view where the window's fields put it, not at its last place and turn;
@@ -490,7 +497,7 @@ reached by the game:
   one, projects through the main view, not the window's own;
 - the frame takes the window's whole rectangle, not its clip rectangle, and
   a window wider than 4:3 sees more at the sides
-  ([the view's width](#the-views-width)).
+  ([the view's width](#the-views-width), D.1).
 
 ### Mirrors
 
@@ -534,7 +541,7 @@ first person. `MirrorConsole`, at 4:3, on GL and on Vulkan:
   `DeusExMover7`, a translucent one, 0.997; `OpeningConsole`'s view of the
   club, a doorway's glass in it, 0.987 over the frame.
 
-Differs:
+Differs by choice:
 
 - **The mirror's plane clips** what lies behind it: in the BSP walk, and on
   every device by a clip distance, or without one -- on OpenGL ES (the Smart
@@ -554,7 +561,7 @@ Matches the original's vertex budget and its morph
 `MeshConsole` with `LODBias` 0.004 and 0.0015, Paul Denton cut down to a few
 vertices, has his shape at a correlation of 0.95 and 0.97 to `D3DDrv`'s. On
 a screen wider than 4:3 the budget takes the wider angle
-([the view's width](#the-views-width)). An environment-mapped face reflects
+([the view's width](#the-views-width); bugs.md D.2). An environment-mapped face reflects
 the eye's line in its normals in the world's axes, as the original's
 ([mesh textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#mesh-textures)):
 `MeshConsole` with `Enviro`, the four drawn so, has their streaks where
@@ -620,8 +627,8 @@ level's time. `LightConsole`, shooting both engines at one moment of it
 0.997, 0.998 and 0.98 (`NoDetail`). The rest are the reading's alone: the
 stock views of the searchlight, non-incidence and the rotor come out the
 same under other shapes too, and no stock light shows a fast wave
-(99_Endgame2's one is dark), shock, shell or interference.
-DXEngine's own:
+(99_Endgame2's one is dark), shock, shell or interference (bugs.md REN.23).
+DXEngine's own, by choice where no ID is named:
 
 - **Light maps**
   - floats, converted on the CPU for a GPU that cannot filter them (the
@@ -635,8 +642,8 @@ DXEngine's own:
     shadowed light and rescales it;
   - blink and strobe on DXEngine's timing; the original's blink goes by the
     lowest bit of its turn count and its strobe turns over each frame, both
-    at the frame rate;
-  - a flicker drawn at most 25 times a second;
+    at the frame rate (D.15);
+  - a flicker drawn at most 25 times a second (D.16);
   - `LE_CloudCast`, the plain shape, built once, where the original re-runs
     it every frame (its table counts the shape as changing): the same light.
 - **Meshes**
@@ -648,9 +655,9 @@ DXEngine's own:
     02_NYC_Underground's crate 220 units into the start's fog is at 0.09 of
     the wall beside it in `D3DDrv`'s frame, 0.25 in DXEngine's; the fog
     balls' model with the lights that reach it fogs it to the wall's
-    brightness, so the model is what differs, not the lights);
+    brightness, so the model is what differs, not the lights; REN.12);
   - the `AmbientGlow` pulse runs on the level's time, the original's on the
-    viewport's.
+    viewport's (REN.13).
 
 ### Brightness
 
@@ -668,7 +675,7 @@ on any display of 24 bits or more, on every device: `MeshConsole`'s shots
 under Vulkan, with descriptor indexing and without (the Smart Pro's), are
 within 0.2% of the GL device's. How a DXEngine shot meets the original's
 frames: [scripted runs](DEVELOPMENT.md#scripted-runs-of-both-engines).
-Differs:
+Differs (bugs.md REN.24, once D.8 is ruled):
 
 - `MeshConsole`'s Liberty Island pier, where nothing is in hand, is 1.7%
   under `D3DDrv`'s frames with the detail textures on, and 0.7% over with
@@ -713,12 +720,12 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
 `VisibleMesh`, `VisibleBrush`):
 
 - **Back to front** by the distance of one point of each, where the
-  original's lists run in the order its BSP walk met them.
+  original's lists run in the order its BSP walk met them, by choice.
 - **The opaque surfaces** go by zone, texture and light map, as the
   original sorts them by zone and texture, its order among one texture its
   sort's own: where two of them overlap at one depth, which shows can
   differ (the gaps between the Liberty Island pier's planks, a few hundred
-  pixels of `MeshConsole`'s frame).
+  pixels of `MeshConsole`'s frame; bugs.md REN.14).
 - **A mesh's translucent faces** are drawn after all its opaque ones. The
   original draws them in face order among them, so one drawn before an
   opaque face behind it is lost where that face writes over it. Of the 61
@@ -726,7 +733,7 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   `GM_Suit`, `GFM_TShirtPants` (and their carcasses') and `ComputerPublic`
   have opaque faces after them; `FaceConsole`'s close-ups of a UNATCO troop,
   an MIB and Anna Navarre, face on, come out the same in either order, the
-  MIB's lenses within 0.5% of `D3DDrv`'s.
+  MIB's lenses within 0.5% of `D3DDrv`'s (REN.15).
 - **Movers** are drawn as their brushes, through their own matrix, a step
   toward the viewer ([rendering](ENGINE.md#rendering)): their opaque
   polygons with the solid actors, their translucent ones among the
@@ -738,11 +745,11 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   head on and from 1,200 units at 75 degrees. No device here fights there
   without the step (GL and Vulkan on the desktop, Vulkan on the Smart Pro:
   the shots within 15 pixels with it and without); the step keeps the
-  order whatever a GPU's rounding. A mover's one-sided polygon seen from
+  order whatever a GPU's rounding, by choice. A mover's one-sided polygon seen from
   behind is passed over, as the original's walk passes over a surface. A
   mover hidden after it is filed stays drawn there in the original, where
   DXEngine stops drawing it (`GlassConsole`); no stock script hides a
-  mover.
+  mover (REN.16).
 
 ### Fire, water and ice textures
 
@@ -768,10 +775,11 @@ Differs:
   by the time since its own last update, however often it is drawn, as the
   original's: one with a `MaxFrameRate` drawn every other frame steps as
   often as one drawn every frame, and one drawn every ninth frame at 60
-  steps at every draw (`StepConsole`).
+  steps at every draw (`StepConsole`; bugs.md D.14).
 - **The wave lighting table** can be one step off at a single entry, in 3 of
   200 settings: DXEngine takes the C library's cosine, the original the
-  x87's, and they differ in the last bit.
+  x87's, and they differ in the last bit; by choice, a port computing as
+  its C library does.
 
 ### Head turns and lip sync: blend animations
 
@@ -900,7 +908,7 @@ from the original's code:
   wakes for the name it fills in. An edit leaves the insertion point after
   what it put in, and what it put in selected when asked to.
 - **An edit field's copy, cut and paste** go through the desktop's
-  clipboard, by choice, where the original keeps a text buffer of its own:
+  clipboard (bugs.md D.10), where the original keeps a text buffer of its own:
   a copy or cut takes the selection and nothing with none, as there; the
   Latin-1 the text holds goes out as UTF-8, and a paste reads the
   clipboard's UTF-8 as Latin-1, a character past it dropped and a carriage
@@ -1035,34 +1043,35 @@ own frame's origin.
 Differs:
 
 - **`GC.DrawActor` ignores `bConstrain`**: the vision augmentation's calls
-  cover the whole view. Its render time: [out of sight](#out-of-sight).
+  cover the whole view (bugs.md EXT.13). Its render time: [out of sight](#out-of-sight).
 - **`Canvas.DrawActor`'s and `DrawClippedActor`'s `WireFrame`** draws the
   actor solid: DXEngine draws no wire frames, where the original draws the
-  call with the player's `RendMap` at wire (the game passes false).
+  call with the player's `RendMap` at wire (the game passes false; REN.17).
 - **A typed character past Latin-1** (U+0100 on) goes nowhere, DXEngine's
   text being 8-bit; the original's windows take it, and the game's fonts
   draw it as nothing (read from `WinDrv.dll`'s code). A string the original
   stored as wide characters (such a note in its save; every conversation
-  comment of `DeusExConText.u`) loads, each character past Latin-1 a `?`.
+  comment of `DeusExConText.u`) loads, each character past Latin-1 a `?`
+  (VM.5).
 - **Keys**, read from both codes: the keyboard counts as grabbed while a
   modal shows, where the original counts its grabs (every modal grabs while
   shown). With Alt down DXEngine takes a letter or digit from the key's
   press, not from the characters the platform sends, and it forgets the
-  keys held as its window loses the keyboard.
+  keys held as its window loses the keyboard (EXT.11, WIN.7).
 - **Keyboard focus**: DXEngine places windows in its layout pass, after the
   level's tick, and seeds the first focus there; the original places them as
   they are made and seeds it at its windows' next tick, so a conversation's
   first choice has the focus a frame sooner (`ChoiceConsole`). Read from
   both codes, the tables pass no window over as clipped away, DXEngine
-  keeping no clip rectangles.
+  keeping no clip rectangles (EXT.9, EXT.10).
 - **Layout** (`MenuConsole`, `ScreenConsole`, `SizeConsole`): DXEngine lays
   windows out once a frame, the original as each asks, so a window made this
   frame is 10 by 10 until the next; a window that shows sits at the margins
   `SetPos` gives it at once, where a parent that places it again does so the
   next frame. A window a parent placed keeps that place until it moves or
   asks again, where the original's goes back to its alignment when the
-  parent's next layout leaves it out. The root window is 4:3 (960 wide at
-  1280x720) by choice, where the original's is the whole viewport: the stock
+  parent's next layout leaves it out (EXT.8). The root window is 4:3 (960
+  wide at 1280x720), where the original's is the whole viewport (D.3): the stock
   `ConWindowActive.CalculateWindowSizes` gives a cutscene's subtitles no
   height on a root 16:9 or wider, the Smart Pro's among them, so a cutscene
   letterboxes at 16:9. The root's children lie across the screen up to 16:9,
@@ -1072,8 +1081,8 @@ Differs:
 - **A large text window** draws its lines through the GC, read from both
   codes, whose block of lines ends in one more spacing than the original's
   rows: in a window taller than its text, lines centred or at the bottom
-  sit up to a pixel higher. An edit field draws its own rows, as the
-  original's.
+  sit up to a pixel higher (EXT.12). An edit field draws its own rows, as
+  the original's.
 
 ## The menus' settings
 
@@ -1104,7 +1113,7 @@ it. Differs:
 
 - **Screen Resolution** in a window offers DXEngine's sizes, not the
   display's modes: the common sizes from 640x480 that fit the screen, with
-  the window's own and the screen's, a choice resizing the window.
+  the window's own and the screen's, a choice resizing the window; by choice.
 - **Detail Textures** draws the world's detail textures as `D3DDrv`'s passes
   draw them, all three in the scene shader's one pass
   ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):
@@ -1121,10 +1130,10 @@ it. Differs:
   under [brightness](#brightness). Against `D3DDrv`'s passes, the fade is
   worked out for each pixel, where theirs goes by a polygon's corners and
   passes over one with no corner within the band, and the bands are not
-  rounded to 8 bits between passes.
+  rounded to 8 bits between passes (bugs.md D.8).
 - 16-bit **Texture Color Depth** is kept, DXEngine drawing in 32 bits.
   **Use 3D Hardware** finds no hardware, as the original finds none without
-  an A3D or EAX card.
+  an A3D or EAX card. Both by choice.
 - **Rendering Device**, and a dedicated server from the Host screen, send
   `RELAUNCH`, which starts the launcher again with the rest of the line once
   the engine has exited, as the original's starts `DeusEx.exe`
@@ -1135,7 +1144,7 @@ it. Differs:
   ended, where the original's new process starts while the old one is still
   ending. With no launcher on the line -- the engine started by hand -- the
   dedicated server's starts the engine again itself, as that server, and
-  Rendering Device does nothing.
+  Rendering Device does nothing, by choice.
 
 ## Sound
 
@@ -1189,29 +1198,30 @@ MP3
 and 30; one after another, 73.6% of them alike between the two engines'
 runs, where the original's own runs are 79.7% alike. Differs:
 
-- The music plays on an OpenAL source of its own.
+- The music plays on an OpenAL source of its own, by choice.
 - Not carried: Galaxy's quirk with the Sound and Speech sliders equal, both
-  kinds of sound scaled by the slider once more.
-- Not carried: the original's 1/256 volume floor, an integer artifact.
+  kinds of sound scaled by the slider once more (bugs.md D.20).
+- Not carried: the original's 1/256 volume floor, an integer artifact (D.21).
 - A change to `EffectsChannels` (the Sound menu's Effects Channels) applies
   at once, held to 0-32, as the original's. The sounds on channels past a
   lowered count stop, where the original's play on out of its reach, and a
   raised count's channels are voices of their own, where the original's are
   its music's
-  ([settings](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#settings)).
+  ([settings](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#settings);
+  AUD.4).
 - Not carried: the holds a `SET` puts on `DopplerSpeed` and
-  `AmbientFactor`, which no menu sets.
+  `AmbientFactor`, which no menu sets (AUD.6).
 - A WAV's ping-pong loop plays forward, where Galaxy's plays back and forth;
-  no stock sound has one.
+  no stock sound has one (AUD.7).
 - The original's MP3 voice can play on, silent, past its sound:
   `LipConsole`'s third line, 2.6 s with its silence first, works out shapes
-  to 2.9 s there, three more `X`s.
+  to 2.9 s there, three more `X`s (AUD.5).
 - Not carried: an 8-bit sample's lip sync read from its start wherever it
-  plays; no stock speech is a WAV.
+  plays; no stock speech is a WAV (AUD.8).
 - An ambient sound on a light follows its blink and strobe on DXEngine's
-  timing ([lighting](#lighting)).
+  timing ([lighting](#lighting); D.15).
 - A sound's ID packs a number DXEngine gives each object that plays one,
-  never given out twice, where the original packs the object's index
+  never given out twice, by choice, where the original packs the object's index
   ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds));
   the slot and `bNoOverride` are packed alike.
 
@@ -1267,7 +1277,8 @@ Every other native the scripted runs compare matches the original
   its move first, and moved and turned at once. A hinged door crushes a
   crate in its swing (`DoorConsole`
   on UNATCO HQ: 0.2 s into the close in DXEngine, 0.3 s in the original's,
-  the crate coming to rest 10 units from where the original's does).
+  the crate coming to rest 10 units from where the original's does;
+  bugs.md PHYS.7).
 - **The movers in a line's way**: a line meets each mover where the level's
   BSP last filed it
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)),
@@ -1297,7 +1308,7 @@ Every other native the scripted runs compare matches the original
   Not carried: the refiling of the movers filed under one filed again,
   which the original files again wherever they are; and the polygons are
   filed whole, where the original's tree drops what lands in solid, which
-  no line in the open meets.
+  no line in the open meets (bugs.md PHYS.10).
 - **Auto-aim's targets** (`AimConsole`): `PickTarget` takes a live
   projectile-target pawn ahead, nearer than 2000 units, whose aim is
   strictly the best so far and in sight, `PickAnyTarget` such an actor that
@@ -1404,7 +1415,7 @@ Every other native the scripted runs compare matches the original
   has too (`ExtendConsole`), and a float made an int past an int's range,
   wrapping, by `int`, `byte` and a rotator's scaling (`RotatorConsole`;
   differs: `Chr` keeps the low 8 bits, DXEngine's strings being of bytes,
-  where the original's makes a 16-bit character); `Object.Mid` 127 at its
+  where the original's makes a 16-bit character: bugs.md VM.5); `Object.Mid` 127 at its
   edges, its end's clamp known from `MidConsole`'s ten probes of both;
   `Object.DynamicLoadObject` with a group in the name, its own, another or
   none, and a class that is not the object's own (`DynLoadConsole`); and
@@ -1441,9 +1452,9 @@ Every other native the scripted runs compare matches the original
   goes on; `PlayBlendAnim` with a slot outside 0..3 logs and does nothing;
   `StrLen` measures under `STY_None` as under any style, and `DrawText`,
   `TextSize` and `DrawTextClipped` with no font log and do nothing (`StrLen`
-  with none, which asserts in the original, answers 0 by 0); `GetNextSkin`
+  with none, which asserts in the original, answers 0 by 0, by choice); `GetNextSkin`
   walks the `.int` files' Texture objects as the original does, none in the
-  game's. Differs: an int divided by -1 at INT_MIN is INT_MIN on every port,
+  game's. Differs by choice: an int divided by -1 at INT_MIN is INT_MIN on every port,
   where the original's divide faults (a Critical Error).
 - **A property's text** (`TextConsole`; `SetPropertyText`,
   `GetPropertyText`, `SET`, `GET`, an ini's or a `.int` file's value, a
@@ -1454,7 +1465,8 @@ Every other native the scripted runs compare matches the original
   parenthesis whole, a nested struct whole; only the members named are set.
   Differs: an element by its index, `N[1]=7`, is taken, where the original's
   import stops at one (`ImportText: Illegal array element`: its index reader
-  starts on the bracket) though its own export writes them. A dynamic array
+  starts on the bracket) though its own export writes them (bugs.md VM.9).
+  A dynamic array
   is `(1,2,3)`. An object is `Type'Package.Group.Name'`, set from that, from
   `Package.Name` or from a bare name among the loaded objects of its class;
   a class is held to its metaclass (an Actor class from `Engine.Texture` is
@@ -1488,28 +1500,28 @@ Differs:
   are the level in the original (a door turned a quarter turn in the plane
   of the wall round its doorway, its normal a bit off the wall's through the
   sine table, so not set before it) and `DeusExMover8`'s reversed line the
-  level too; DXEngine answers the mover for all three.
+  level too; DXEngine answers the mover for all three (bugs.md PHYS.8).
 - **The filed polygons** are an overlay on the level's BSP, not nodes in
   it: a start inside a filed mover's own solid is not in solid to DXEngine,
   and `TraceTexture` on `DeusExMover26`'s line gives the flags of the
   polygon DXEngine crossed, `PF_Invisible | PF_Semisolid`, where the
-  original's filed node has 0.
-- **`DeusExPlayer.GetDeusExVersion`**: DXEngine's own string, by choice, so
+  original's filed node has 0 (PHYS.9).
+- **`DeusExPlayer.GetDeusExVersion`**: DXEngine's own string (D.11), so
   a player can tell which engine they run
   ([the version](ENGINE.md#running-on-our-devices)). The original's is "Mon
   Mar 19 12:06:14 2001 v1.112fm".
 - **`DeusExPlayer.UnloadTexture`** frees nothing: the original frees the
   texture's mips, which the game asks for as a menu, a Persona screen, a
   computer screen or an image closes, where DXEngine keeps a texture's mips
-  until nothing holds it and a collection frees it.
+  until nothing holds it and a collection frees it (DX.2).
 - **The console's `showlog`** opens nothing: the original shows its log
-  window, which DXEngine has not (the log says so).
+  window, which DXEngine has not (the log says so); by choice.
 - **The engine's own rotations** (the view, movement) take exact angles; the
   scripts' conversions take the original's sine table
   ([the natives](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-natives)).
   At 20 frames a second `FlightConsole`'s gull, flown level into the pier's
   wall, turns and slides some 18 units along it in the original, where
-  DXEngine's stays put.
+  DXEngine's stays put (PHYS.5).
 - **Swimming out from under the water** (`SwimConsole`'s d: the player 100
   under the water line off the pier, looking 45 degrees down, the forward
   axis held): at 60 and 120 frames a second the two engines' players swim
@@ -1518,12 +1530,13 @@ Differs:
   two floats of the player's place there (y 9,920), and each departs its own
   way: the original's gains one such step a frame and is six times as far
   out by 0.75 s; DXEngine's, whose velocity is the move it made, keeps to a
-  step a frame until its sinking adds to the move, 3 units out at 0.2 s.
+  step a frame until its sinking adds to the move, 3 units out at 0.2 s
+  (PHYS.6).
 - **A map's actors at rest** find their base at its start as the original's
   load finds it, a box of the actor's size traced 8 units down
   (`BaseConsole`: Liberty Island's 396), but for an auto turret and a
   crossbow pickup there, whose base is the level, where the original's have
-  none.
+  none (PHYS.11).
 
 ## Housekeeping, not seen directly
 
@@ -1548,7 +1561,7 @@ drops detail for the frame rate.
 ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-map-loads-collection);
 DXEngine's: [objects and memory](ENGINE.md#objects-and-memory)), the new
 level's actors that are not in its `Actors` (an editor brush, a camera) with
-it. `GarbageConsole` and `DeleteConsole` run both engines. Differs:
+it. `GarbageConsole` and `DeleteConsole` run both engines. Differs by choice:
 
 - **When**: at the end of the frame of the load, once the new level has
   begun and the player is in, where the original's runs before the new
@@ -1584,7 +1597,7 @@ spawned one's or an export's: `NameConsole`, Lamp1, Lamp2 and Lamp3 spawned
 on Liberty Island named Lamp2, Lamp5 and Lamp6 in both), and
 the collection deletes such a name once nothing holds it (an object's own
 name, its properties', a class's defaults, a state frame's locals), its slot
-taken by the next name made. Differs: every other name -- from a package, an
+taken by the next name made. Differs by choice: every other name -- from a package, an
 ini, the script or C++, or a spawned actor's looked up by its spelling -- is
 kept for the session, where the original's deletes any name nothing reaches
 but the hard-coded ones (`ChurnConsole`'s memory: the table above).
@@ -1597,7 +1610,7 @@ and its `Destroyed` still finds it in `AllActors` (`DestroyConsole`); each
 joins the level's chain (`FirstDeleted`, through `Deleted`), and at the
 end of a level's tick, once 128 wait, or before a save, every live actor's
 references to them are made None and the event manager is told. The original
-then deletes them; DXEngine frees them at the next collection, which makes
+then deletes them; DXEngine frees them at the next collection, by choice, which makes
 every other reference to them None (a window's, a conversation's), where the
 original's delete leaves those pointing at freed memory, and DXEngine lets
 them gather between collections ([when](ENGINE.md#objects-and-memory)): a
@@ -1611,7 +1624,7 @@ keep pointing at the deleted decal.
 **`Object.CriticalDelete` 751** (20 call sites). The original frees the
 object at once, whatever still refers to it
 ([`CriticalDelete`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#criticaldelete)).
-DXEngine's flags it (`EliminateObject`): it goes at the next collection,
+DXEngine's flags it (`EliminateObject`), by choice: it goes at the next collection,
 which makes every reference to it None, and until then it stays as it was,
 which `NanoKeyRing.RemoveAllKeys` relies on as it reads the next key from
 the one it deleted. Gone to the script at once as the original's:
@@ -1635,10 +1648,11 @@ not deleted (the log says so).
   its actors get 0.4 (`AIConsole`), and less in DXEngine's, whose load is
   shorter. The player then stands where the original's does, 4.75 over the
   floor (`StandConsole`; a line straight down meets the floor half a unit
-  higher). Not carried: the original's floor of 5 ms, the step of every tick
-  past 200 frames a second, which would run the game fast there. The level's
-  `TimeDilation` is held to 0.0025 to 25, where the original's is not held
-  (the game sets it only through `SetGameSpeed`, to 0.1 or more).
+  higher: bugs.md PHYS.12). Not carried: the original's floor of 5 ms, the
+  step of every tick past 200 frames a second, which would run the game fast
+  there (D.17). The level's `TimeDilation` is held to 0.0025 to 25, where the
+  original's is not held (the game sets it only through `SetGameSpeed`, to
+  0.1 or more; D.18).
 - **A travel's items**: the travel is taken whether or not the game's Login
   spawned a new pawn, as the original's SpawnPlayActor takes it; its info is
   looked up by the URL's name, then by its first 20 characters (the stock
@@ -1669,7 +1683,7 @@ not deleted (the log says so).
   ([a player's input](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)).
   Differs: an axis a console command sets is used as it is; the original's
   input scales it (the harness's `StandConsole` and `JoinConsole` allow for
-  it).
+  it; bugs.md ENG.8).
 - **A key's binding**, as the original's
   ([a key's binding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)):
   on a press, each command goes to `Button` and `Axis`, the exec functions
@@ -1692,8 +1706,9 @@ not deleted (the log says so).
   `SHOT` whose file cannot be written) is logged and the game goes on, as
   one typed in the console is. Differs: the
   original takes its viewport's own words (`SHOT` among them) before the
-  exec functions, the same but for a word an exec function shares; `Toggle`
-  and `Pulse` do nothing, and a command after `OnRelease` never runs.
+  exec functions, the same but for a word an exec function shares (bugs.md
+  ENG.9); `Toggle` and `Pulse` do nothing, and a command after `OnRelease`
+  never runs (ENG.10).
 - **A key's name** from the SDL2 and SDL3 windows, the launchers', is the
   original's
   ([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys)):
@@ -1709,8 +1724,9 @@ not deleted (the log says so).
   `axis-keys.txt`: the root window full screen's size and back). Differs: a
   key is named by its place on a US keyboard, where the original's name
   follows the layout; the keypad's digits are always `NumPad0` to `NumPad9`,
-  where with Num Lock off the original's are the arrows, Home and the rest.
-  The other windows name fewer, and a side's own never: the X11 one, the
+  where with Num Lock off the original's are the arrows, Home and the rest
+  (bugs.md WIN.6). By choice, the other windows name fewer, and a side's own
+  never: the X11 one, the
   harness's, has no Alt but the Meta key, no `` ` ``, no keypad Enter, and
   Print Screen as `Print`; the Wayland one, the engine's own on a Wayland
   desktop (a dev build's, no port's), names each key by its first level, the
@@ -1728,7 +1744,7 @@ not deleted (the log says so).
   singular, and its object touched while it runs, all held off; another
   object's run). Differs: a call held off gives its type's zero, where the
   original's leaves a variable assigned from it as it was; none of the
-  game's returns a value.
+  game's returns a value (bugs.md VM.8).
 - **The windows' icon** is the original's, `DeusEx.exe`'s icon group 128
   ([the frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#the-frame)):
   the original's window under Proton and
@@ -1760,7 +1776,7 @@ What DXEngine does with each:
   loaded before any map but Entry, as the original's first browse loads it
   (`StartConsole`, the original's with `DXCAP_START`); a slot with none
   starts at `DX.dx`.
-  Differs by choice: the player is the one saved, as the game's own load
+  Differs (bugs.md D.23): the player is the one saved, as the game's own load
   gives it (`LoadConsole`), where the original's start logs the player in
   with the travel info the level was saved with -- on a map the player
   travelled to, the inventory, skills, themes and key ring it arrived
@@ -1774,13 +1790,15 @@ What DXEngine does with each:
   (`DXCAP_USERINI_FIRST`: the two given `USERINI=` first, `MidConsole`'s
   run alike in both engines). One not there yet is empty, as the original's
   config cache takes it, and written whole at its first save; a missing
-  `Default.ini` or `DefUser.ini` the same.
+  `Default.ini` or `DefUser.ini` the same. Each is opened as given, where
+  the original's file system finds it in any case (bugs.md ENG.7).
 - **`EXEC=<file>`**: `exec <file>` on the player once the first map is in;
   `exec` runs a file's lines as commands, as the original's does.
 - **Safe mode's flags**
   ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md#flags-the-launcher-emits-safe-mode)):
   - `-nosound`: no sound and no music. The original makes no audio
-    subsystem; DXEngine keeps its device, on OpenAL Soft's null driver.
+    subsystem; DXEngine keeps its device, on OpenAL Soft's null driver, by
+    choice.
   - `-defaultres`: the window and fullscreen sizes 640x480 for the run, not
     saved.
   - `-nohard`: the software device for the run, as the original's software
@@ -1804,14 +1822,15 @@ A mod gets the original's loader and natives:
 - **Its textures**: Deus Ex's formats (`TEXF_P8` to `TEXF_RGBA8`), drawn
   from the compressed mips when they are DXT1, as the original's
   `UTexture::Lock` picks them; a format past those, which no Deus Ex
-  package has (a UT 469 one), is drawn white, with a line in the log.
+  package has (a UT 469 one), is drawn white, with a line in the log (what
+  the original does with one: bugs.md REN.18).
 - **Its folders.** Its packages and maps are found by the `Paths` of its own
   ini (`--ini`), relative to `System` and written with backslashes as the
   game's are, their folders and extensions in any case, as the original's
   on Windows; so are the game folder's own `System` and `Maps` and the
   `SavePath` and `CachePath` folders, as a copy recased on Linux leaves them
   ([a package's file](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)).
-- **Its text.** Differs by choice: the `.int` files are read from each
+- **Its text.** Differs (bugs.md D.24): the `.int` files are read from each
   folder of the paths, in their order, and from `System` after them when
   they do not name it, where the original reads them from `System` alone
   ([the .int files](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-int-files)).
@@ -1876,7 +1895,7 @@ A mod gets the original's loader and natives:
   original's SetupDynamics passes it (of the game's classes only `Decal`
   sets the flag, and a decal is drawn with its surface); the render device's
   `Translucency` is read, saved and `SET`, and changes nothing (what it does
-  in the original is unread); an actor at no place (a NaN location) sorts
+  in the original is unread: bugs.md REN.19); an actor at no place (a NaN location) sorts
   nearest among the translucent.
 - **A mod's deletions and sizes.** A light in the level's light lists
   is kept, destroyed or not, so the lists keep their places; a destroyed
@@ -1895,7 +1914,7 @@ A mod gets the original's loader and natives:
   connecting, and a listening link's close lets its port go.
 - **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
   over the scripted texture when their sizes match, else logs, as the
-  original's (no run: no stock script calls it).
+  original's (no run: no stock script calls it; bugs.md REN.20).
 - **Config files.** A class's config file that is not there is empty, its
   properties keeping their defaults, until the class writes it
   ([configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration)):
@@ -1908,12 +1927,13 @@ A mod gets the original's loader and natives:
   player's as it spawns one, the client's, the audio and render devices'
   (`IniConsole`). Those read by hand, though, take an empty value for none:
   a float or a string keeps DXEngine's default where the original's is 0 or
-  empty. An ini written back, at a clean exit, has a changed value changed
+  empty (bugs.md ENG.11). An ini written back, at a clean exit, has a changed value changed
   in its own line, a key new to a section added after the section's last
   key, a section new to the file at its end, and the rest of the file as it
   was, a CR LF file's line endings with it; a file not there yet is written
   whole. The
-  original rewrites each file whole, CR LF, comments gone (`ConfigConsole`:
+  original rewrites each file whole, CR LF, comments gone (bugs.md D.25;
+  `ConfigConsole`:
   a class's own `DXCapConfig.ini`, CR LF or not there, read and written back
   alike). `StaticSaveConfig` from an object writes the class's defaults, as
   from the class (`ConfigConsole`). A config value of any type is read and
@@ -1928,30 +1948,31 @@ A mod gets the original's loader and natives:
   objects
   ([configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration)),
   which the original then tells of it (`PostEditChange`) and DXEngine does
-  not; `DeusExPlayer.SetBoolFlagFromString`
+  not (bugs.md ENG.12); `DeusExPlayer.SetBoolFlagFromString`
   ([the player](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-player));
   `ExtString`'s text in parts
   ([small](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#small));
   and `clock`, `unclock` and `CyclesToSeconds`
   ([the timing natives](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#clock-unclock-and-cyclestoseconds)),
   which count the steady clock's nanoseconds where the original's count the
-  CPU's cycles.
+  CPU's cycles, by choice.
 - **Spawn notifications.** A `SpawnNotify` on the level's list is asked
   about each actor spawned of its `ActorClass` (not one spawned while a
   notification runs, DXEngine's guard against a notification spawning
-  without end; the original's `SpawnActor` is unread there), its answer
+  without end; the original's `SpawnActor` is unread there: bugs.md
+  ENG.13), its answer
   standing for the
   actor from then on: the next notification is asked about it, and the
   spawn returns it, as the original's
   ([spawning](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#teleporting-an-actor);
-  `CensusConsole`'s `CensusNotify`). Differs: a None answer ends the walk,
+  `CensusConsole`'s `CensusNotify`). Differs by choice: a None answer ends the walk,
   where the original's next notification with a class faults on it.
 - **Two path natives no stock script calls**: `Pawn.FindRandomDest` 525
   answers None, as the original's does (its `findRandomDest` returns nothing
   in any level with navigation points, and finds nothing without them);
   `FindBestInventoryPath` 540, the way to the inventory the pawn wants most,
   is Surreal Engine's, not the original's `findPathTowardBestInventory`,
-  which is unread.
+  which is unread (bugs.md AI.6).
 
 A macro texture, which no stock texture has, is drawn as `D3DDrv` draws it
 ([the light maps' brightness](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-light-maps-brightness)):
@@ -1989,30 +2010,30 @@ public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
 stays in. Until its pawn arrives, a joining DXEngine client draws no world.
 A remote player's pawn destroyed by script (`Kick`) has its connection
 closed instead, as the original's `DestroyActor` has it (no run: the code
-settles it). The server-only stubs are under
+settles it; bugs.md NET.6). The server-only stubs are under
 [not needed for single player](#not-needed-for-single-player). Differs:
 
-- **The net driver** is DXEngine's own, over UDP with
+- **The net driver** is DXEngine's own, by choice, over UDP with
   `[IpDrv.TcpNetDriver]`'s timeouts; the connection, its channels and the
   handshake are the original's, and so is its socket: broadcast and address
   reuse on, 32 KB buffers for a client's and 128 KB for a server's, a
   server's port the URL's or the next free of the 20 from it (`PORT=` and
-  `MULTIHOME=` are not taken); a server's host name is looked up on a
+  `MULTIHOME=` are not taken: bugs.md NET.4); a server's host name is looked up on a
   thread, the game going on; `GETPING` and `GETLOSS` answer the server
   connection's best lag of the last second in ms and its incoming packet
   loss in percent, as the original's do.
 - **`InternetLink.GetLocalIP`** answers the address this machine reaches the
   network from (a UDP socket's local end toward 8.8.8.8; 127.0.0.1 with no
-  route), by choice, where the original answers the first address of the
+  route; bugs.md D.13), where the original answers the first address of the
   machine's own name, on Linux often a loopback address.
 - **The download cache.** A package is cached as its GUID with `CacheExt`,
   where the original writes `.uxx` whatever `CacheExt` says (the game's ini
-  names `.uxx`). A package a join loaded from the cache is let go by name at
+  names `.uxx`; bugs.md NET.5). A package a join loaded from the cache is let go by name at
   the next map load that does not use it, and that load's collection frees
-  what nothing uses of it but its code, which stays loaded, where the
-  original's collects it all
+  what nothing uses of it but its code, which stays loaded, by choice, where
+  the original's collects it all
   ([housekeeping](#housekeeping-not-seen-directly)).
-- **A listen server runs at most 144 frames a second**, where the original's
+- **A listen server runs at most 144 frames a second** (bugs.md D.19), where the original's
   runs as fast as it draws: a remote client's queue drains its rate over a
   tick, so the faster the ticks, the less room an unreliable call finds
   ([packets](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md#packets)).
@@ -2024,11 +2045,12 @@ settles it). The server-only stubs are under
   came, each element of its array. The original's gives it others, the
   count right: 20 bytes sent to a `UdpLink` in binary mode reach its script
   as 20 bytes of what else is there, whatever was sent, and its
-  `SendBinary` answers False. No mod can have counted on them. DXEngine's
+  `SendBinary` answers False. No mod can have counted on them (bugs.md
+  D.26). DXEngine's
   `SendText` and `SendBinary` answer False when nothing went.
 - **The player's name in a net game**: a name the player never chose --
   none, or the game's stock `Player` -- logs in as `DXEnginePlayer`, a
-  client's to its server and a listen server's host's, by choice, so
+  client's to its server and a listen server's host's (bugs.md D.12), so
   DXEngine's players show as such (`Engine::SetMultiplayerName`). A name the
   player chose is kept; single player, the menus and the inis keep the
   game's.
@@ -2049,7 +2071,7 @@ As in the original:
   whole, its port the game's default again.
 - Entry's actors find their regions in Entry's own model, with its zone
   actors and its LevelInfo, while a map is current (no run: the code
-  settles it).
+  settles it; bugs.md NET.7).
 - A client replicates its own player's pawn to the server each tick, before
   its packets go (`ULevel::TickNetClient`): the values the script classes'
   statements send from a client, none of the engine classes' native lists,
@@ -2078,7 +2100,9 @@ As in the original:
 
 ## Not needed for single player
 
-Stubs a single-player game does without; the audit lists each:
+Stubs a single-player game does without, by choice: none is needed unless a
+mod needs it, and Revision's scripts call none past the stock ones. The
+audit lists each:
 
 - `DumpLocation`'s 21: Ion Storm's bug-location tool, though
   `DeusExGameInfo.Login` calls `HasLocationBeenSaved` on every map but a
