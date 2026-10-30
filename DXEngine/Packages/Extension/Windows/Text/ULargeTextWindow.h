@@ -12,6 +12,7 @@ public:
 	void InitDefaults() override;
 	void ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight) override;
 	void ParentRequestedGranularity(float& hGranularity, float& vGranularity) override;
+	void DrawWindow(UGC* gc) override;
 
 	int CountRows(UGC* gc, float wrap, float& widest);
 

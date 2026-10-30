@@ -83,6 +83,37 @@ void ULargeTextWindow::ParentRequestedPreferredSize(bool bWidthSpecified, float&
 	gc->RestoreTextSettings(saved);
 }
 
+// The original's XLargeTextWindow::Draw (0x1002e500): its rows, each the
+// font's height (at least 1) with its vertical spacing between and none
+// after the last, placed by its vertical alignment -- at the top margin,
+// above the bottom one, or centred by the whole half of the room, margins and
+// all -- and drawn within the margins, each row at its own alignment across.
+void ULargeTextWindow::DrawWindow(UGC* gc)
+{
+	gc->SetAlignments(HAlign(), VAlign());
+	gc->EnableWordWrap(bWordWrap());
+	UWindow::DrawWindow(gc);
+
+	float wrap = bWordWrap() ? (float)(int)(Width() - (hMargin() + hMargin())) : 0.0f;
+	float rowHeight = std::max(gc->GetFontHeight(false), 1.0f);
+	float widest = 0.0f;
+	int rows = CountRows(gc, wrap, widest);
+	float block = rows * rowHeight + (rows > 1 ? (rows - 1) * vSpace() : 0.0f);
+	float top;
+	switch ((EVAlign)VAlign())
+	{
+	default:
+	case EVAlign::Top: top = vMargin(); break;
+	case EVAlign::Bottom: top = Height() - block - vMargin(); break;
+	case EVAlign::Center: top = (float)(int)((Height() - block) * 0.5f); break;
+	}
+
+	float spacing = gc->GetTextVSpacing();
+	gc->SetTextVSpacing(vSpace());
+	gc->DrawTextBlock(hMargin(), vMargin(), Width() - (hMargin() + hMargin()), Height() - (vMargin() + vMargin()), Text(), top);
+	gc->SetTextVSpacing(spacing);
+}
+
 // The original's (XLargeTextWindow::ParentRequestedGranularity 0x1002e380,
 // ComputeLineHeight 0x1002d9d0): a line down -- the font's height, at least
 // 1, plus the vertical spacing -- a pixel across; then the script's say.

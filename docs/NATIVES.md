@@ -906,7 +906,12 @@ from the original's code:
   edit field measure rows of the font's height with their vertical spacing
   between (`ScreenConsole`'s skill text and note), an edit field a space
   wider when no width is given. A window asking to be laid out again is
-  laid out itself too.
+  laid out itself too. A large text window draws its rows as it measures
+  them, the block of them at the top margin, above the bottom one, or
+  centred by the whole half of the room, margins and all, each row at its
+  own alignment across (`TextBlockConsole`: two lines in boxes aligned to
+  the top, the middle and the bottom, their lit rows and columns alike in
+  both engines); an edit field draws its own rows, as the original's.
 - **A border window** gives its top shown child the inside: within the
   child margins, and within the border's textures while its margins are
   from the border, as they are from the start. It asks for that child's
@@ -1094,11 +1099,6 @@ Differs:
   their `x` the screen's. On a screen narrower than 4:3 (1280x1024) the root
   is the screen's width, as the original's, so the HUD's left and right
   parts lie at its edges.
-- **A large text window** draws its lines through the GC, read from both
-  codes, whose block of lines ends in one more spacing than the original's
-  rows: in a window taller than its text, lines centred or at the bottom
-  sit up to a pixel higher (EXT.12). An edit field draws its own rows, as
-  the original's.
 
 ## The menus' settings
 

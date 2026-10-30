@@ -91,19 +91,29 @@ void UGC::DrawText(float DestX, float DestY, float destWidth, float destHeight, 
 		return;
 
 	float wrap = bWordWrap() ? (float)(int)destWidth : 0.0f;
-
-	PushClip(ScaleRect(Rectf::xywh(offsetX + DestX, offsetY + DestY, destWidth, destHeight)));
-
+	float blockY = DestY;
 	auto valign = (EVAlign)VAlign();
 	if (valign != EVAlign::Top)
 	{
 		float textWidth = 0.0f, textHeight = 0.0f;
 		GetTextExtent(wrap, textWidth, textHeight, textStr);
 		if (valign == EVAlign::Center)
-			DestY += (float)((int)(destHeight - textHeight) / 2);
+			blockY += (float)((int)(destHeight - textHeight) / 2);
 		else if (valign == EVAlign::Bottom)
-			DestY = DestY + destHeight - textHeight;
+			blockY = DestY + destHeight - textHeight;
 	}
+	DrawTextBlock(DestX, DestY, destWidth, destHeight, textStr, blockY);
+}
+
+void UGC::DrawTextBlock(float DestX, float DestY, float destWidth, float destHeight, const std::string& textStr, float blockY)
+{
+	if (!bDrawEnabled())
+		return;
+
+	float wrap = bWordWrap() ? (float)(int)destWidth : 0.0f;
+
+	PushClip(ScaleRect(Rectf::xywh(offsetX + DestX, offsetY + DestY, destWidth, destHeight)));
+	DestY = blockY;
 
 	TextState state;
 	state.color = TextColor();
