@@ -7,7 +7,8 @@
 // units out, every 5 degrees, at its height and 32 and 64 units above and
 // below: the first that meets the door. The door opened (DoOpen), and its
 // leaf found again once it stops; a breakable crate spawned 40 units out
-// between the two angles and left to settle 1.5 s; then the door closed
+// between the two angles, where the spawn placed it logged, and left to
+// settle 1.5 s; then the door closed
 // (DoClose): a mover crushes a decoration it encroaches on, whatever its
 // MoverEncroachType. Each 0.1 s for 5 s the door's yaw, KeyNum and whether
 // it moves, and the crate's place or that it is gone; then exit. Each line is
@@ -179,6 +180,8 @@ event Tick(float Delta)
 		Spot = Door.Location + Out(Mid, 40);
 		Crate = P.Spawn(class'CrateBreakableMedGeneral',,, Spot);
 		Log("DXDOOR: open, leaf " $ OpenAngle $ "; crate at " $ Mid $ " degrees: " $ Crate);
+		if (Crate != None)
+			Log("DXDOOR: spawned for " $ Spot $ ", placed at " $ Crate.Location $ ", radius " $ Crate.CollisionRadius $ " height " $ Crate.CollisionHeight);
 		StepTime = 0;
 		Step = 2;
 	}
