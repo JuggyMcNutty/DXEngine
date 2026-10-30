@@ -2059,11 +2059,9 @@ A mod gets the original's loader and natives:
   CPU's cycles, by choice.
 - **Spawn notifications.** A `SpawnNotify` on the level's list is asked
   about each actor spawned of its `ActorClass` (not one spawned while a
-  notification runs, DXEngine's guard against a notification spawning
-  without end; the original's `SpawnActor` is unread there: bugs.md
-  ENG.13), its answer
-  standing for the
-  actor from then on: the next notification is asked about it, and the
+  notification runs, as the original's, a flag held over the walk, so a
+  notification spawning its own class does not spawn without end), its
+  answer standing for the actor from then on: the next notification is asked about it, and the
   spawn returns it, as the original's
   ([spawning](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#teleporting-an-actor);
   `CensusConsole`'s `CensusNotify`). Differs by choice: a None answer ends the walk,
