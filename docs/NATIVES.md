@@ -1065,12 +1065,17 @@ from the original's code:
 whatever it was, as the original's natives do, where `GC.DrawActor` puts the
 flag back (`OverlayConsole`: the pawn drawn visible and drawn hidden, hidden
 after each, in both engines); `DrawClippedActor` draws from an eye at its
-own frame's origin.
+own frame's origin. `GC.DrawActor` with `bConstrain` draws through the
+scene's frame narrowed to the window's clip, its projection made again for
+that size, as the original's
+([actors in a window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#actors-in-a-window)):
+`ConstrainConsole`'s crate, drawn from a window over the screen's top right
+quarter, comes out at half its size about the quarter's middle in both
+engines, the quarter within RMSE 6.5 of `D3DDrv`'s; no stock script
+constrains. Its render time: [out of sight](#out-of-sight).
 
 Differs:
 
-- **`GC.DrawActor` ignores `bConstrain`**: the vision augmentation's calls
-  cover the whole view (bugs.md EXT.13). Its render time: [out of sight](#out-of-sight).
 - **`Canvas.DrawActor`'s and `DrawClippedActor`'s `WireFrame`** draws the
   actor solid: DXEngine draws no wire frames, where the original draws the
   call with the player's `RendMap` at wire (the game passes false; REN.17).

@@ -30,9 +30,9 @@ void UGC::CopyGC(UObject* Copy)
 // GC's style, the glow and unlit given, its draw scale multiplied and a given
 // skin replacing every skin, as if not hidden, over the depth buffer when
 // bClearZ asks -- and all of it put back afterwards (extension-dll.md, Actors
-// in a window). The vision augmentation passes no skin (its script swaps the
-// skins itself), never constrains and never clears; bConstrain is not
-// honoured, the augmentation's calls covering the whole view.
+// in a window); with bConstrain, through the scene's frame narrowed to the
+// window's clip. The vision augmentation passes no skin (its script swaps
+// the skins itself), never constrains and never clears.
 void UGC::DrawActor(UObject* Actor, std::optional<bool> bClearZ, std::optional<bool> bConstrain, std::optional<bool> bUnlit, std::optional<float> DrawScale, std::optional<float> ScaleGlow, std::optional<UObject*> Skin)
 {
 	if (!bDrawEnabled())
@@ -68,7 +68,7 @@ void UGC::DrawActor(UObject* Actor, std::optional<bool> bClearZ, std::optional<b
 			actor->MultiSkins()[i] = tex;
 	}
 
-	engine->render->DrawActor(actor, bClearZ.value_or(false), false);
+	engine->render->DrawActor(actor, bClearZ.value_or(false), false, bConstrain.value_or(false) ? &clipBox : nullptr);
 
 	actorStyle = oldStyle;
 	actor->ScaleGlow() = oldScaleGlow;

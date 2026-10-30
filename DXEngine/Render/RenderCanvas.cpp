@@ -102,8 +102,42 @@ void RenderSubsystem::PostRenderFlash()
 		CallEvent(engine->viewport->Actor(), "PostRenderFlash", {ExpressionValue::ObjectValue(engine->canvas)});
 }
 
-void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter)
+void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter, const Rectf* constrain)
 {
+	// Constrained, the scene's frame narrows to where it meets the rectangle,
+	// its projection made again for that size about its middle -- the same
+	// angle over the narrower width -- as the original's XGC::DrawActor does
+	// for bConstrain (Extension.dll 0x1002aa60, FSceneNode::ComputeRenderSize;
+	// extension-dll.md, actors in a window), and is put back after
+	SceneNode scene = MainFrame.Frame;
+	if (constrain)
+	{
+		float left = std::max((float)scene.XB, constrain->left);
+		float top = std::max((float)scene.YB, constrain->top);
+		float right = std::min((float)(scene.XB + scene.X), constrain->right);
+		float bottom = std::min((float)(scene.YB + scene.Y), constrain->bottom);
+		if (right <= left || bottom <= top)
+			return;
+		SceneNode& frame = MainFrame.Frame;
+		frame.XB = (int)(left - scene.XB);
+		frame.YB = (int)(top - scene.YB);
+		frame.X = (int)(right - left);
+		frame.Y = (int)(bottom - top);
+		if (frame.X <= 0 || frame.Y <= 0)
+		{
+			frame = scene;
+			return;
+		}
+		frame.FX = (float)frame.X;
+		frame.FY = (float)frame.Y;
+		frame.FX2 = frame.FX * 0.5f;
+		frame.FY2 = frame.FY * 0.5f;
+		frame.FovAngle = HorPlusFovAngle(engine->CameraFovAngle, frame.FX, frame.FY);
+		float Aspect = frame.FY / frame.FX;
+		float RProjZ = (float)std::tan(radians(frame.FovAngle) * 0.5f);
+		frame.Projection = mat4::frustum(-RProjZ, RProjZ, -Aspect * RProjZ, Aspect * RProjZ, 1.0f, 32768.0f, handedness::left, clipzrange::zero_positive_w);
+	}
+
 	Device->SetSceneNode(&MainFrame.Frame);
 	if (ClearZ)
 		Device->ClearZ();
@@ -129,6 +163,7 @@ void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter)
 	vismesh.DrawMesh(&MainFrame, actor, MeshPass::FaceOrder);
 	actor->bHidden() = hideAfter || oldHidden;
 
+	MainFrame.Frame = scene;
 	Device->SetSceneNode(&Canvas.Frame);
 }
 

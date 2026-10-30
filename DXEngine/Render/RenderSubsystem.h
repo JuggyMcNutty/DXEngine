@@ -46,7 +46,9 @@ public:
 	// An actor drawn on its own: Canvas.DrawActor (hideAfter: left hidden,
 	// as the original's leaves it) and GC.DrawActor (its flag put back), and
 	// Canvas.DrawClippedActor through a frame of its own (ActorFrame)
-	void DrawActor(UActor* actor, bool ClearZ, bool hideAfter);
+	// With constrain, through the scene's frame narrowed to that rectangle
+	// of the screen (GC.DrawActor's bConstrain)
+	void DrawActor(UActor* actor, bool ClearZ, bool hideAfter, const Rectf* constrain = nullptr);
 	void DrawClippedActor(UActor* actor, int X, int Y, int XB, int YB, bool ClearZ);
 	void DrawTile(UTexture* Tex, float x, float y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 color, vec4 fog, uint32_t flags);
 	void DrawTileClipped(UTexture* Tex, float orgX, float orgY, float curX, float curY, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 color, vec4 fog, uint32_t flags, float clipX, float clipY);
