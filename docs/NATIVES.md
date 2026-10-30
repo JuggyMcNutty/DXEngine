@@ -1195,7 +1195,13 @@ the old song fades out and the new level's starts (its player's
 load in either engine, the fade after it, the music on after a save of the
 map it is on is loaded). Galaxy's holds on `OutputRate` (8,000 to 48,000 Hz)
 and `Latency` (10 to 250 ms) are kept, `Latency` the output's mix-ahead
-(10 ms buffers queued to it), and `UseStereo=False` is mono; `UseFilter`,
+(10 ms buffers queued to it), and so are those a `SET` puts on what plays,
+where `GET` gives the value as set
+([settings](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#settings)):
+`DopplerSpeed` to 1-100,000 and `AmbientFactor` to 0-10. `AmbientConsole`'s
+fan, recorded on both engines, plays 23.2 dB louder at an `AmbientFactor`
+set to 20 than at 0.7 in the original and 23.1 dB in DXEngine, as at 10
+(29.2 dB without the hold). `UseStereo=False` is mono; `UseFilter`,
 `UseCDMusic` and `UseSpatial` are read, saved and `SET` and change nothing,
 as in the original. An MP3 -- the game's speech -- plays 4,096 frames of
 silence first, as Galaxy's decoder fills its ring
@@ -1225,8 +1231,6 @@ runs, where the original's own runs are 79.7% alike. Differs:
   its music's
   ([settings](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#settings);
   AUD.4).
-- Not carried: the holds a `SET` puts on `DopplerSpeed` and
-  `AmbientFactor`, which no menu sets (AUD.6).
 - A WAV's ping-pong loop plays forward, where Galaxy's plays back and forth;
   no stock sound has one (AUD.7).
 - The original's MP3 voice can play on, silent, past its sound:

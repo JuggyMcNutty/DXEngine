@@ -110,9 +110,15 @@ void UDXEngineAudioDevice::SetPropertyFromString(const NameString& propertyName,
 	else if (propertyName == "SpeechVolume")
 		SpeechVolume = SpeechVolumeSetting = IniPropertyConverter<uint8_t>::FromString(value);
 	else if (propertyName == "AmbientFactor")
+	{
 		AmbientFactor = IniPropertyConverter<float>::FromString(value);
+		AmbientFactorInUse = std::clamp(AmbientFactor, 0.0f, 10.0f);
+	}
 	else if (propertyName == "DopplerSpeed")
+	{
 		DopplerSpeed = IniPropertyConverter<float>::FromString(value);
+		DopplerSpeedInUse = std::clamp(DopplerSpeed, 1.0f, 100000.0f);
+	}
 	else
 		LogMessage("Setting unknown property for DXEngineAudioDevice: " + propertyName.ToString());
 
@@ -153,6 +159,8 @@ void UDXEngineAudioDevice::LoadProperties(const NameString& from)
 	SpeechVolumeSetting = SpeechVolume;
 	AmbientFactor = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "AmbientFactor", AmbientFactor);
 	DopplerSpeed = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "DopplerSpeed", DopplerSpeed);
+	AmbientFactorInUse = AmbientFactor;
+	DopplerSpeedInUse = DopplerSpeed;
 }
 
 void UDXEngineAudioDevice::SaveConfig()
@@ -277,7 +285,7 @@ void UDXEngineAudioDevice::StartAmbience()
 					}
 				}
 				if (!foundSound)
-					PlaySound(Actor, Id, Actor->AmbientSound(), Actor->Location(), AmbientFactor * Actor->SoundVolume() / 255.0f, Actor->WorldSoundRadius(), Actor->SoundPitch() / 64.0f, false);
+					PlaySound(Actor, Id, Actor->AmbientSound(), Actor->Location(), AmbientFactorInUse * Actor->SoundVolume() / 255.0f, Actor->WorldSoundRadius(), Actor->SoundPitch() / 64.0f, false);
 			}
 		}
 	}
@@ -303,7 +311,7 @@ void UDXEngineAudioDevice::UpdateAmbience()
 			else
 			{
 				// Update basic sound properties
-				Playing.Volume = 2.0f * (AmbientFactor * Playing.Actor->SoundVolume() / 255.0f);
+				Playing.Volume = 2.0f * (AmbientFactorInUse * Playing.Actor->SoundVolume() / 255.0f);
 				Playing.Radius = Playing.Actor->WorldSoundRadius();
 				Playing.Pitch = Playing.Actor->SoundPitch() / 64.0f;
 
@@ -318,14 +326,14 @@ void UDXEngineAudioDevice::UpdateAmbience()
 				// 1 - the actor's speed away from the view target / DopplerSpeed,
 				// kept to 0.5-2 (galaxy-dll.md, Each frame). AL's own Doppler is
 				// off for Deus Ex, so nothing else shifts.
-				if (DopplerSpeed > 0.0f)
+				if (DopplerSpeedInUse > 0.0f)
 				{
 					vec3 away = Playing.Actor->Location() - ViewActor->Location();
 					float distance = length(away);
 					if (distance > 0.0f)
 					{
 						float speedAway = dot(Playing.Actor->Velocity(), away / distance);
-						Playing.Pitch *= std::clamp(1.0f - speedAway / DopplerSpeed, 0.5f, 2.0f);
+						Playing.Pitch *= std::clamp(1.0f - speedAway / DopplerSpeedInUse, 0.5f, 2.0f);
 					}
 				}
 			}

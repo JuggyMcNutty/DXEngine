@@ -63,6 +63,12 @@ public:
 	uint8_t SpeechVolumeSetting = 255;
 	float AmbientFactor = 0.7f;
 	float DopplerSpeed = 6500.0f; // Deus Ex: the speed of sound for its ambient-only Doppler, units a second
+	// The subsystem's own copies, which a SET holds as Galaxy's PostEditChange
+	// (0x10605ad0) holds them, AmbientFactor to 0-10 and DopplerSpeed to
+	// 1-100,000, where GET and the ini give the value as set; as loaded at
+	// the start (galaxy-dll.md, Settings)
+	float AmbientFactorInUse = 0.7f;
+	float DopplerSpeedInUse = 6500.0f;
 
 	void LoadProperties(const NameString& from = "") override;
 	void SaveConfig() override;
