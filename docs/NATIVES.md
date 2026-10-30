@@ -1559,10 +1559,12 @@ Differs:
   a player can tell which engine they run
   ([the version](ENGINE.md#running-on-our-devices)). The original's is "Mon
   Mar 19 12:06:14 2001 v1.112fm".
-- **`DeusExPlayer.UnloadTexture`** frees nothing: the original frees the
-  texture's mips, which the game asks for as a menu, a Persona screen, a
-  computer screen or an image closes, where DXEngine keeps a texture's mips
-  until nothing holds it and a collection frees it (DX.2).
+- **`DeusExPlayer.UnloadTexture`** frees nothing, by choice, the picture
+  the same: the original frees the texture's mips, which the game asks for
+  as a menu, a Persona screen, a computer screen or an image closes, and
+  reads them from the package again when the texture is next drawn, where
+  DXEngine keeps a texture's mips until nothing holds it and a collection
+  frees it; the game unloads still textures alone.
 - **The console's `showlog`** opens nothing: the original shows its log
   window, which DXEngine has not (the log says so); by choice.
 - **Swimming out from under the water** (`SwimConsole`'s d: the player 100
