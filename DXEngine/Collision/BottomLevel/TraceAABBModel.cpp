@@ -14,12 +14,45 @@ CollisionHitList TraceAABBModel::Trace(UModel* model, const dvec3& origin, doubl
 	CollisionHitList hits;
 	if (!Model || Model->Nodes.empty())
 		return hits;
-	Trace(origin, tmin, dirNormalized, tmax, extents, &Model->Nodes.front(), hits);
+	Trace(origin, tmin, dirNormalized, tmax, extents, 0, Model->RootOutside != 0, hits);
 	hits.SortByFraction();
 	return hits;
 }
 
-void TraceAABBModel::Trace(const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, BspNode* node, CollisionHitList& hits)
+// The original's walk down the tree (Engine.dll 0x103f42f0): each side of a
+// node that either end's box, grown by a tenth, reaches, the space kept as a
+// line's walk keeps it (TraceRayModel: the front of a solid boundary empty,
+// its back solid); at a solid leaf, the hull its node bounds. A hull whose
+// solid the box does not reach is never tried, though the box would enter it
+// within twice the trace's length.
+void TraceAABBModel::Trace(const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, int iNode, bool outside, CollisionHitList& hits)
+{
+	BspNode* node = &Model->Nodes[iNode];
+	dvec3 extentspadded = extents * 1.1;
+	int startSide = NodeAABBOverlap(origin, extentspadded, node);
+	int endSide = NodeAABBOverlap(origin + dirNormalized * tmax, extentspadded, node);
+	bool csg = node->NumVertices > 0 && (node->NodeFlags & (NF_NotCsg | NF_IsNew)) == 0;
+
+	if (startSide <= 0 || endSide <= 0)
+	{
+		bool frontOutside = outside || csg;
+		if (node->Front >= 0)
+			Trace(origin, tmin, dirNormalized, tmax, extents, node->Front, frontOutside, hits);
+		else if (!frontOutside)
+			TraceHull(origin, tmin, dirNormalized, tmax, extents, node, hits);
+	}
+
+	if (startSide >= 0 || endSide >= 0)
+	{
+		bool backOutside = outside && !csg;
+		if (node->Back >= 0)
+			Trace(origin, tmin, dirNormalized, tmax, extents, node->Back, backOutside, hits);
+		else if (!backOutside)
+			TraceHull(origin, tmin, dirNormalized, tmax, extents, node, hits);
+	}
+}
+
+void TraceAABBModel::TraceHull(const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, BspNode* node, CollisionHitList& hits)
 {
 	if (node->CollisionBound >= 0)
 	{
@@ -129,20 +162,6 @@ void TraceAABBModel::Trace(const dvec3& origin, double tmin, const dvec3& dirNor
 				}
 			}
 		}
-	}
-
-	dvec3 extentspadded = extents * 1.1; // For numerical stability
-	int startSide = NodeAABBOverlap(origin, extentspadded, node);
-	int endSide = NodeAABBOverlap(origin + dirNormalized * tmax, extentspadded, node);
-
-	if (node->Front >= 0 && (startSide <= 0 || endSide <= 0))
-	{
-		Trace(origin, tmin, dirNormalized, tmax, extents, &Model->Nodes[node->Front], hits);
-	}
-
-	if (node->Back >= 0 && (startSide >= 0 || endSide >= 0))
-	{
-		Trace(origin, tmin, dirNormalized, tmax, extents, &Model->Nodes[node->Back], hits);
 	}
 }
 

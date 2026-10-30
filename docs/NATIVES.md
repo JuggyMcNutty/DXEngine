@@ -1292,6 +1292,13 @@ Every other native the scripted runs compare matches the original
   with its wall is met before the wall (`VisibleConsole` on DXMP_Silo: 55
   movers' lines each way, their hits, normals, `TraceTexture`'s and
   `TraceActors`' alike; `TraceConsole`, `MoverConsole`).
+- **A box** meets the level as the original's box check does
+  ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
+  down its BSP on each side either end's box, grown by a tenth of its size,
+  reaches, the hull of each solid leaf it reaches tried and no other, a hull
+  entered within twice the trace's length counted, the hit backed off a
+  tenth of the trace: a box traced 8 units down from 8.78 over the floor
+  meets nothing in either engine (Liberty Island's carcass crossbow).
 - **A thrown thing's flight** (`ParabolicTrace`) moves as the original's
   `MoveActor` moves
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
@@ -1528,6 +1535,10 @@ Every other native the scripted runs compare matches the original
   at 20 frames a second `FlightConsole`'s gull, flown level into the pier's
   wall, turns and slides 10.8 units along it in both engines, its track
   within 0.2 units of the original's.
+- **A map's actors at rest** find their base at its start as the original's
+  load finds it, a box of the actor's size traced 8 units down
+  (`BaseConsole`: Liberty Island's 395 alike, a carcass's crossbow among
+  them, its box 8.78 over the floor finding none).
 
 Differs:
 
@@ -1564,11 +1575,6 @@ Differs:
   out by 0.75 s; DXEngine's, whose velocity is the move it made, keeps to a
   step a frame until its sinking adds to the move, 3 units out at 0.2 s
   (PHYS.6).
-- **A map's actors at rest** find their base at its start as the original's
-  load finds it, a box of the actor's size traced 8 units down
-  (`BaseConsole`: Liberty Island's 396), but for an auto turret and a
-  crossbow pickup there, whose base is the level, where the original's have
-  none (PHYS.11).
 
 ## Housekeeping, not seen directly
 
@@ -1678,9 +1684,11 @@ not deleted (the log says so).
   next tick 0.4 s in both). The first frame on a level travelled to takes in
   its load: some 1.5 s on Liberty Island in the original's runs, of which
   its actors get 0.4 (`AIConsole`), and less in DXEngine's, whose load is
-  shorter. The player then stands where the original's does, 4.75 over the
-  floor (`StandConsole`; a line straight down meets the floor half a unit
-  higher: bugs.md PHYS.12). Not carried: the original's floor of 5 ms, the
+  shorter. The player then stands 4.75 over the floor in the original's
+  runs and 4.8 in DXEngine's, its walk's floor check lifting it from a
+  landing lower than the original's, the last step of its fall shorter
+  (`StandConsole`, a line straight down meeting the floor at the same
+  height in both: bugs.md PHYS.12). Not carried: the original's floor of 5 ms, the
   step of every tick past 200 frames a second, which would run the game fast
   there (D.17). The level's `TimeDilation` is held to 0.0025 to 25, where the
   original's is not held (the game sets it only through `SetGameSpeed`, to
