@@ -1525,10 +1525,11 @@ Every other native the scripted runs compare matches the original
   array's by `Name[i]`, its own before those of the struct it extends (a
   Plane's W, then X, Y and Z), a quoted string holding a comma or a
   parenthesis whole, a nested struct whole; only the members named are set.
-  Differs: an element by its index, `N[1]=7`, is taken, where the original's
-  import stops at one (`ImportText: Illegal array element`: its index reader
-  starts on the bracket) though its own export writes them (bugs.md VM.9).
-  A dynamic array
+  An element by its index, `N[1]=7`, stops the import there, logged
+  (`ImportText: Illegal array element`), the members before it set, as the
+  original's index reader starts on the bracket and finds none, though its
+  own export writes them (`TextConsole`: `N[1]` left 0 after `Text` and
+  `Key` are set, in both engines). A dynamic array
   is `(1,2,3)`. An object is `Type'Package.Group.Name'`, set from that, from
   `Package.Name` or from a bare name among the loaded objects of its class;
   a class is held to its metaclass (an Actor class from `Engine.Texture` is

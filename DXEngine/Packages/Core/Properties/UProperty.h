@@ -138,7 +138,7 @@ public:
 	// to the next ',' or ')' outside quotes and nested parentheses, and is left
 	// as it is, quotes and all, for the member's own import. False for text
 	// that is not such a struct, the pairs read before the fault kept.
-	struct TextPair { NameString Key; int Index = 0; std::string Value; };
+	struct TextPair { NameString Key; int Index = 0; bool Indexed = false; std::string Value; };
 	static bool ParseStructText(const std::string& text, Array<TextPair>& pairs);
 	// A delimited text's string: a quoted one's content with its escapes undone
 	// (\\ and \xx, as the original's ParseToken reads them), other text as it is

@@ -209,6 +209,7 @@ bool UProperty::ParseStructText(const std::string& text, Array<TextPair>& pairs)
 			if (q >= n || text[q] != ']' || !digits)
 				return false;
 			pair.Index = index;
+			pair.Indexed = true;
 			p = q + 1;
 		}
 		if (p >= n || text[p] != '=' || key.empty())

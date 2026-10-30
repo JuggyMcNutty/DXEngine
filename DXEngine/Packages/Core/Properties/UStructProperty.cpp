@@ -315,8 +315,11 @@ std::string UStructProperty::PrintValue(const void* data)
 
 // The original's UStructProperty::ImportText (Core.dll 0x101698b0): the
 // pairs of "(key=value,...)", each member found by name among the struct's
-// and its supers', an element by its [i], its own import given the value's
-// text; a member not named keeps its value
+// and its supers', its own import given the value's text; a member not named
+// keeps its value. A key with an element's index stops the import there,
+// logged, the members before it set: the original's index reader starts on
+// the bracket and finds none, so it never reads back the Name[i]= its own
+// export writes.
 void UStructProperty::SetValueFromString(void* data, const std::string& valueString)
 {
 	if (valueString.empty() || !Struct)
@@ -329,15 +332,15 @@ void UStructProperty::SetValueFromString(void* data, const std::string& valueStr
 		LogMessage("Bad struct text for " + Name.ToString() + ": " + valueString);
 	for (const TextPair& pair : pairs)
 	{
+		if (pair.Indexed)
+		{
+			LogMessage("ImportText: Illegal array element");
+			return;
+		}
 		ForEachMember(Struct, [&](UProperty* member) {
 			if (member->Name != pair.Key)
 				return true;
-			// An element by its index: the original's import stops at one
-			// ("ImportText: Illegal array element", its index reader
-			// starting on the bracket), so it never reads back the Name[i]=
-			// its own export writes; DXEngine takes them (docs/NATIVES.md)
-			if (pair.Index >= 0 && pair.Index < member->ArrayDimension)
-				member->SetDelimitedValueFromString((uint8_t*)data + member->DataOffset.DataOffset + pair.Index * member->ElementPitch(), pair.Value);
+			member->SetDelimitedValueFromString((uint8_t*)data + member->DataOffset.DataOffset, pair.Value);
 			return false;
 		});
 	}
