@@ -437,10 +437,10 @@ Matches the original
 [particles and lasers](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#particles-and-lasers)):
 `LaserConsole`'s laser fence, a still texture in its beams' slots, unlit and
 lit, has each beam's brightest row within 2.5% of `D3DDrv`'s red, its two
-lines a segment in `D3DDrv`'s rows (each row within 20 levels of 256 of
-`D3DDrv`'s red, but the middle beam's top one, which `D3DDrv` draws and
-DXEngine's beam, a fraction of a pixel thinner there, misses: bugs.md
-REN.11), and one
+lines a segment in `D3DDrv`'s rows, each row within 11 levels of 256 of
+`D3DDrv`'s red without multisampling (with DXEngine's 4x, its default, a
+beam's edge rows are partly covered, a fraction of a pixel's difference:
+bugs.md D.4), and one
 segment of each beam drawn twice, picked at random each frame as the
 original picks it; and `ParticleConsole`'s particles rise, fall, grow and
 fade as the original's: its smoke's column at 1.06 to 1.10 of `D3DDrv`'s
