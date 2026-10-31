@@ -290,9 +290,7 @@ void UGC::DrawBorders(float DestX, float DestY, float destWidth, float destHeigh
 		{
 			if (!tex)
 				return;
-			Rectf dest = Rectf::xywh(x, y, w, h);
-			Rectf src = Rectf::xywh(sx, sy, sw != 0.0f ? sw : w, sh != 0.0f ? sh : h);
-			DrawTile(tex, ScaleRect(dest), src, tileColor(), EffectivePolyFlags());
+			DrawUnitTile(tex, x, y, w, h, sx, sy, sw, sh, sw == 0.0f, sh == 0.0f, tileColor(), EffectivePolyFlags());
 		};
 	piece(tl, DestX, DestY, marginLeft, marginTop, U(tl) - marginLeft, V(tl) - marginTop, marginLeft, marginTop);
 	piece(tr, x2, DestY, marginRight, marginTop, 0.0f, V(tr) - marginTop, marginRight, marginTop);
@@ -332,14 +330,14 @@ void UGC::DrawIcon(float DestX, float DestY, UObject* tX)
 	if (!bDrawEnabled())
 		return;
 
+	// The texture whole, as the original's DrawIcon stretches it over its
+	// own size (DrawStretchedIcon, 0x10028850)
 	UTexture* tex = UObject::Cast<UTexture>(tX);
 	if (tex)
 	{
 		float swidth = (float)tex->USize();
 		float sheight = (float)tex->VSize();
-		Rectf dest = Rectf::xywh(offsetX + DestX, offsetY + DestY, swidth, sheight);
-		Rectf src = Rectf::xywh(0.0f, 0.0f, swidth, sheight);
-		DrawTile(tex, ScaleRect(dest), src, tileColor(), EffectivePolyFlags());
+		DrawUnitTile(tex, offsetX + DestX, offsetY + DestY, swidth, sheight, 0.0f, 0.0f, swidth, sheight, false, false, tileColor(), EffectivePolyFlags());
 	}
 }
 
@@ -351,9 +349,7 @@ void UGC::DrawIconPattern(float DestX, float DestY, float destWidth, float destH
 	if (!bDrawEnabled() || !tex)
 		return;
 
-	Rectf dest = Rectf::xywh(offsetX + DestX, offsetY + DestY, destWidth, destHeight);
-	Rectf src = Rectf::xywh(OrgX, OrgY, srcWidth != 0.0f ? srcWidth : destWidth, srcHeight != 0.0f ? srcHeight : destHeight);
-	DrawTile(tex, ScaleRect(dest), src, tileColor(), EffectivePolyFlags());
+	DrawUnitTile(tex, offsetX + DestX, offsetY + DestY, destWidth, destHeight, OrgX, OrgY, srcWidth, srcHeight, srcWidth == 0.0f, srcHeight == 0.0f, tileColor(), EffectivePolyFlags());
 }
 
 void UGC::DrawPattern(float DestX, float DestY, float destWidth, float destHeight, float OrgX, float OrgY, UObject* tX)
@@ -361,13 +357,10 @@ void UGC::DrawPattern(float DestX, float DestY, float destWidth, float destHeigh
 	if (!bDrawEnabled())
 		return;
 
+	// Tiled one texel a unit both ways (XGC::DrawPattern, 0x10028a60)
 	UTexture* tex = UObject::Cast<UTexture>(tX);
 	if (tex)
-	{
-		Rectf dest = Rectf::xywh(offsetX + DestX, offsetY + DestY, destWidth, destHeight);
-		Rectf src = Rectf::xywh(OrgX, OrgY, destWidth, destHeight);
-		DrawTile(tex, ScaleRect(dest), src, tileColor(), EffectivePolyFlags());
-	}
+		DrawUnitTile(tex, offsetX + DestX, offsetY + DestY, destWidth, destHeight, OrgX, OrgY, 0.0f, 0.0f, true, true, tileColor(), EffectivePolyFlags());
 }
 
 void UGC::DrawStretchedTexture(float DestX, float DestY, float destWidth, float destHeight, float srcX, float srcY, float srcWidth, float srcHeight, UObject* tX)
@@ -377,11 +370,7 @@ void UGC::DrawStretchedTexture(float DestX, float DestY, float destWidth, float 
 
 	UTexture* tex = UObject::Cast<UTexture>(tX);
 	if (tex)
-	{
-		Rectf dest = Rectf::xywh(offsetX + DestX, offsetY + DestY, destWidth, destHeight);
-		Rectf src = Rectf::xywh(srcX, srcY, srcWidth, srcHeight);
-		DrawTile(tex, ScaleRect(dest), src, tileColor(), EffectivePolyFlags());
-	}
+		DrawUnitTile(tex, offsetX + DestX, offsetY + DestY, destWidth, destHeight, srcX, srcY, srcWidth, srcHeight, false, false, tileColor(), EffectivePolyFlags());
 }
 
 void UGC::DrawTexture(float DestX, float DestY, float destWidth, float destHeight, float srcX, float srcY, UObject* tX)
@@ -389,13 +378,11 @@ void UGC::DrawTexture(float DestX, float DestY, float destWidth, float destHeigh
 	if (!bDrawEnabled())
 		return;
 
+	// As the original's DrawTexture draws it, through DrawIconPattern with
+	// the source the box's size (0x10028b00)
 	UTexture* tex = UObject::Cast<UTexture>(tX);
 	if (tex)
-	{
-		Rectf dest = Rectf::xywh(offsetX + DestX, offsetY + DestY, destWidth, destHeight);
-		Rectf src = Rectf::xywh(srcX, srcY, destWidth, destHeight);
-		DrawTile(tex, ScaleRect(dest), src, tileColor(), EffectivePolyFlags());
-	}
+		DrawUnitTile(tex, offsetX + DestX, offsetY + DestY, destWidth, destHeight, srcX, srcY, destWidth, destHeight, destWidth == 0.0f, destHeight == 0.0f, tileColor(), EffectivePolyFlags());
 }
 
 Rectf UGC::ScaleRect(const Rectf& box)
@@ -1049,41 +1036,79 @@ void UGC::DrawChar(UFont* font, uint8_t ch, const Color& color, bool accel, floa
 	outX = x + (float)glyph.USize;
 	outHeight = (float)glyph.VSize;
 
-	// The box in the window's units, as the original keeps its clip rectangle
-	float scale = UWindow::GetVirtualScale();
-	Rectf box(clipBox.left / scale, clipBox.top / scale, clipBox.right / scale, clipBox.bottom / scale);
-	auto whole = [](float v) { return (float)(int64_t)(v + 0.1f); };
+	// Cut one for one as a tile is along an axis it tiles
 	uint32_t polyflags = EffectiveTextPolyFlags();
-	auto drawClipped = [&](UTexture* tex, float left, float top, float width, float height, float u, float v) -> bool
-	{
-		if (left < box.left)
-		{
-			u += box.left - left;
-			width -= box.left - left;
-			left = box.left;
-		}
-		if (top < box.top)
-		{
-			v += box.top - top;
-			height -= box.top - top;
-			top = box.top;
-		}
-		if (left + width > box.right)
-			width = box.right - left;
-		if (top + height > box.bottom)
-			height = box.bottom - top;
-		if (width <= 0.0f || height <= 0.0f)
-			return false;
-		Rectf dest = Rectf::xywh(whole(left), whole(top), whole(width), whole(height));
-		Rectf src = Rectf::xywh(whole(u), whole(v), whole(width), whole(height));
-		DrawTile(tex, ScaleRect(dest), src, color, polyflags, false);
-		return true;
-	};
-
-	if (!glyph.Texture || !drawClipped(glyph.Texture, px, py, (float)glyph.USize, (float)glyph.VSize, (float)glyph.StartU, (float)glyph.StartV))
+	if (!glyph.Texture || !DrawUnitTile(glyph.Texture, px, py, (float)glyph.USize, (float)glyph.VSize, (float)glyph.StartU, (float)glyph.StartV, 0.0f, 0.0f, true, true, color, polyflags))
 		return;
 	if (accel && underlineTexture() && underlineHeight() > 0.0f)
-		drawClipped(underlineTexture(), px, (float)glyph.VSize - baselineOffset() + py, (float)(glyph.USize - 1), underlineHeight(), 0.0f, 0.0f);
+		DrawUnitTile(underlineTexture(), px, (float)glyph.VSize - baselineOffset() + py, (float)(glyph.USize - 1), underlineHeight(), 0.0f, 0.0f, 0.0f, 0.0f, true, true, color, polyflags);
+}
+
+// A tile as the original's XGC::DrawTile draws one (Extension.dll
+// 0x1002a820, its clip XGC::ClipTile 0x1002a4f0): placed in the window's
+// units and clipped to the GC's box there -- along an axis it tiles, the
+// source cut one for one with it and as long as it; along one it stretches,
+// the source cut in proportion, then held to the texture, the place cut to
+// match -- and only then put on whole units, the place, the size and the
+// source each truncated (each plus a tenth), and drawn unclipped. Whether
+// anything was drawn.
+bool UGC::DrawUnitTile(UTexture* tex, float x, float y, float w, float h, float u, float v, float uw, float vh, bool tileX, bool tileY, const Color& c, uint32_t flags)
+{
+	float scale = UWindow::GetVirtualScale();
+	auto clip = [](float& p, float& size, float& s, float& ssize, float lo, float hi, bool tile, float texSize)
+		{
+			if (tile)
+			{
+				if (p < lo)
+				{
+					float d = p - lo;
+					s -= d;
+					size += d;
+					p = lo;
+				}
+				if (p + size > hi)
+					size = hi - p;
+				ssize = size;
+				return;
+			}
+			if (size > 0.0f && p < lo)
+			{
+				double d = (double)p - lo;
+				double ds = d * ssize / size;
+				ssize = (float)(ds + ssize);
+				s = (float)(s - ds);
+				size = (float)(d + size);
+				p = lo;
+			}
+			if (size > 0.0f && (double)p + size > (double)hi)
+			{
+				ssize = (float)(((double)hi - ((double)p + size)) * ssize / size + ssize);
+				size = hi - p;
+			}
+			if (ssize > 0.0f && s < 0.0f)
+			{
+				double ds = (double)s * size / ssize;
+				size = (float)(ds + size);
+				p = (float)(p - ds);
+				ssize = (float)((double)s + ssize);
+				s = 0.0f;
+			}
+			if (ssize > 0.0f && (double)s + ssize > (double)texSize)
+			{
+				size = (float)(((double)texSize - ((double)s + ssize)) * size / ssize + size);
+				ssize = texSize - s;
+			}
+		};
+	clip(x, w, u, uw, clipBox.left / scale, clipBox.right / scale, tileX, (float)tex->USize());
+	clip(y, h, v, vh, clipBox.top / scale, clipBox.bottom / scale, tileY, (float)tex->VSize());
+	if (!(w > 0.0f && h > 0.0f && uw > 0.0f && vh > 0.0f))
+		return false;
+
+	auto whole = [](float value) { return (float)(int64_t)((double)value + 0.1); };
+	Rectf dest = Rectf::xywh(whole(x), whole(y), whole(w), whole(h));
+	Rectf src = Rectf::xywh(whole(u), whole(v), whole(uw), whole(vh));
+	DrawTile(tex, ScaleRect(dest), src, c, flags, false);
+	return true;
 }
 
 void UGC::ResetClip(Rectf box)

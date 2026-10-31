@@ -101,6 +101,7 @@ public:
 	uint32_t EffectivePolyFlags();
 	uint32_t EffectiveTextPolyFlags();
 	void DrawTile(UTexture* tex, const Rectf& dest, const Rectf& src, const Color& c, uint32_t flags, bool clip = true);
+	bool DrawUnitTile(UTexture* tex, float x, float y, float w, float h, float u, float v, float uw, float vh, bool tileX, bool tileY, const Color& c, uint32_t flags);
 
 	// What the text's codes have set as a line is read (the original's
 	// XTextState): bold, a colour of its own, a line break before, and the

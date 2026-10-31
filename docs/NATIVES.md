@@ -407,6 +407,18 @@ correlation of 1.00 to `D3DDrv`'s, its edges blended into the box (the
 stock menus draw it translucent); on the canvas, clipped text drawn
 `STY_Translucent` translucent.
 
+A window's tile and character are placed as the original's GC places them
+([the GC's styles](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#styles)):
+clipped to the GC's box in the window's units -- along an axis the tile
+repeats, its source cut one for one with it; along one it stretches, in
+proportion, then held to the texture -- and only then put on whole units,
+the place, the size and the source each truncated, so a window at half a
+unit draws on the unit before it. `LoginConsole` at 1280x960: a computer's
+login screen, centred at half a unit, its fields' first letters lit as the
+original's pixel for pixel, their frames' outlines on the original's
+pixels, the whole screen alike but for the insertion point's blink and the
+pointer.
+
 ### The scene's pixels
 
 Matches the original
@@ -1054,13 +1066,9 @@ from the original's code:
   inverse colour, then the insertion point, blinking each half period
   (the field's shots alike, every pixel within 24 levels); else the rows
   as a large text window draws them. A press puts the insertion point at
-  the pointer and drags it, whole words on a second click. A window's
-  character is clipped to its GC's box in the window's units, then put on
-  whole units, as the original's `XGC::DrawChar` draws it, so one a
-  fraction of a unit inside the box's edge is drawn whole on the unit
-  before it (`LoginConsole` at 1280x960: a computer's login screen,
-  centred at half a unit: each field's first letter lit as the original's,
-  pixel for pixel, its first column too).
+  the pointer and drags it, whole words on a second click. A character a
+  fraction of a unit inside the field's edge is drawn whole on the unit
+  before it, as the original's ([tiles](#tiles)).
 - **Buttons** activate on the release, a repeating one on the press and
   again while held; a right click where the button takes them; each with
   its sounds, and a press from the keyboard shown pressed for its delay. A
