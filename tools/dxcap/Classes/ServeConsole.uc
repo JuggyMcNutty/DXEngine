@@ -15,13 +15,16 @@
 // function, which is not simulated: a server's sound every player hears,
 // the client through Pawn.ClientHearSound (a client run with
 // DXCAP_RECORD=1, read with tools/dxcap/sound.py --onsets). Exits
-// after 290 s.
+// after 290 s. With Kick (DXCAP_CONFIG "Kick=True"), 5 s after the host is
+// placed the other player's pawn is destroyed, as the game's Kick destroys
+// it, and logged.
 //=============================================================================
 class ServeConsole extends Console;
 
+var config bool Kick;
 var float CapTime, LogTime, WalkTime, PlacedTime;
 var int Phase, Beeps, Frames;
-var bool bPlaced;
+var bool bPlaced, bKicked;
 
 // The first free spot in the other player's line of sight: 300 units ahead
 // of it, then nearer, then turning an eighth at a time.
@@ -84,6 +87,19 @@ event Tick(float Delta)
 					bPlaced = true;
 					PlacedTime = CapTime;
 					WalkTime = 0.0;
+					break;
+				}
+			}
+		}
+		if (Kick && bPlaced && !bKicked && CapTime - PlacedTime >= 5.0)
+		{
+			foreach P.AllActors(class'PlayerPawn', Other)
+			{
+				if (Other != P)
+				{
+					Log("DXCAP: kicking " $ Other.PlayerReplicationInfo.PlayerName $ " at " $ CapTime);
+					Other.Destroy();
+					bKicked = true;
 					break;
 				}
 			}

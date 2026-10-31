@@ -2147,8 +2147,10 @@ as client and as server: `ServeConsole`, `JoinConsole`, `RejoinConsole`,
 public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
 stays in. Until its pawn arrives, a joining DXEngine client draws no world.
 A remote player's pawn destroyed by script (`Kick`) has its connection
-closed instead, as the original's `DestroyActor` has it (no run: the code
-settles it; bugs.md NET.6). The server-only stubs are under
+closed instead, as the original's `DestroyActor` has it (`ServeConsole`
+with `Kick`, each engine the server and the other's `TravelJoinConsole` the
+client: the connection closed, the client back on Entry by
+`Index.dx?failed?...`, alike). The server-only stubs are under
 [not needed for single player](#not-needed-for-single-player). Differs:
 
 - **The net driver** is DXEngine's own, by choice, over UDP with
