@@ -1361,7 +1361,11 @@ Every other native the scripted runs compare matches the original
   not, their landings and times alike, one coordinate a thousandth apart.
 - **A mover's move** is `ULevel::MoveActor`'s
   ([moving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#moving)):
-  what stands on it carried first, then its encroachment checked at its new
+  what stands on it carried first -- by the move and round it by the change
+  of yaw, each yaw to a multiple of 4, its own yaw turned by the change, its
+  pitch and roll left, as for any actor that turns (`TurnConsole`: a crate
+  on a crate turned six times by `SetRotation`, alike in both engines) --,
+  then its encroachment checked at its new
   place and rotation (a mover mirrored on an axis tests the actor's box by
   its scale's size, as the traces take the scale), what it meets pushed by
   its move first, and moved and turned at once. A hinged door crushes a

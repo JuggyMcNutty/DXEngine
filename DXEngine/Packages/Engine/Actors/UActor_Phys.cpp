@@ -224,32 +224,36 @@ bool UActor::SetRotation(const Rotator& newRotation, bool checkBrush)
 
 	// To do: return false if there isn't room
 
-	Rotator delta = newRotation - Rotation();
+	Rotator oldRotation = Rotation();
+	TurnBasedActors(oldRotation, newRotation);
 	Rotation() = newRotation;
-	TurnBasedActors(delta);
 	return true;
 }
 
-// carried items and actors on movers should rotate with the actor their based on
-void UActor::TurnBasedActors(const Rotator& deltaRotation)
+// What stands on an actor that turns, as the original's MoveActor carries it
+// (Engine.dll 0x103990e0, dx-reverse-info/engine-dll.md, moving), MoveBrush's
+// riders alike: first, each moved round the actor by the change of yaw, each
+// yaw to a multiple of 4, what it stands on passed over, then its own yaw (and
+// a pawn's view) turned by the change -- its pitch and roll left as they are.
+void UActor::TurnBasedActors(const Rotator& oldRotation, const Rotator& newRotation)
 {
-	if ((deltaRotation.Yaw & 0xffff) == 0)
+	if (oldRotation == newRotation || StandingCount() <= 0)
 		return;
-	Coords yawRot = Coords::InverseRotation(Rotator(0, deltaRotation.Yaw, 0));
+	int yaw = newRotation.Yaw - oldRotation.Yaw;
+	Coords yawRot = Coords::InverseRotation(Rotator(0, (newRotation.Yaw & 0xfffc) - (oldRotation.Yaw & 0xfffc), 0));
 	vec3 baseLoc = Location();
-	for (size_t i = 0; i < BasedActors.size(); )
+	Array<UActor*> riders = BasedActors;
+	for (UActor* rider : riders)
 	{
-		UActor* basedActor = BasedActors[i];
-		if (!basedActor) { i++; continue; }
-		vec3 basedLoc = basedActor->Location();
-		vec3 rotatedOffset = yawRot * (basedLoc - baseLoc);
-		basedActor->TryMove((baseLoc + rotatedOffset) - basedLoc, false, false);
-		basedActor->SetRotation(basedActor->Rotation() + deltaRotation);
-		if (UPawn* pawn = UObject::TryCast<UPawn>(basedActor))
-			pawn->ViewRotation().Yaw += deltaRotation.Yaw;
-		// UnrealScript events triggered in TryMove can call methods such as SetBase or Destroy, so need to guard while iterating.
-		if (i < BasedActors.size() && BasedActors[i] == basedActor)
-			i++;
+		if (!rider || rider->ActorBase() != this || rider->bDeleteMe())
+			continue;
+		rider->TryMove((baseLoc + yawRot * (rider->Location() - baseLoc)) - rider->Location(), false, false);
+		if (yaw != 0)
+		{
+			rider->SetRotation(rider->Rotation() + Rotator(0, yaw, 0));
+			if (UPawn* pawn = UObject::TryCast<UPawn>(rider))
+				pawn->ViewRotation().Yaw += yaw;
+		}
 	}
 }
 

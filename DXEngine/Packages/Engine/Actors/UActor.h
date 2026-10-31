@@ -754,7 +754,5 @@ public:
 private:
 	void AddBasedActor(UActor* actor);
 	void RemoveBasedActor(UActor* actor);
-	void TurnBasedActors(const Rotator& deltaRotation);
-
-	// TODO: Compare behavior more closely with original engine. Might differ depending on game.
+	void TurnBasedActors(const Rotator& oldRotation, const Rotator& newRotation);
 };
