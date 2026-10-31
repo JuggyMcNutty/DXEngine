@@ -376,7 +376,10 @@ narrower the view is the original's. The scene, the coronas, what the HUD
 draws in 3D, the frob highlight's box and the meshes' level of detail
 ([mesh detail](#mesh-detail)) all take the one angle (`HorPlusFovAngle`), so
 on a wide screen a mesh keeps less detail than the original's at the same
-distance (D.2).
+distance (D.2). A conversation's letterboxed view is wider than 4:3
+whatever the screen, so there DXEngine sees more at the sides even at 4:3:
+the intro's scenes at 1024x768 some 92 degrees across, the original's 75
+(`IntroDoorConsole`).
 
 ### Tiles
 
