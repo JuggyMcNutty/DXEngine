@@ -503,8 +503,12 @@ none in either: the line to it is checked against the level and the movers
 with every surface, the invisible collision hull round the glass's pane
 among them, which a sight test passes (`GlassConsole` at 03_NYC_Airfield's
 `BreakableGlass2`, `Light56` beyond it).
-An animated or fractal corona skin shows its current frame (no run: the code
-settles it; bugs.md REN.22).
+A corona's skin is drawn at its current frame, an animated one's or a
+fractal one's, as the original's: `CoronaSkinConsole` gives `Light169` a
+chain of three noise frames stepped every 4 s, its current frame at each
+shot logged alike in both engines and drawn alike (correlated with
+`D3DDrv`'s at 0.975), and the fire texture `LaserBeam1`, its image changing
+from shot to shot in both.
 
 ### What a pawn holds
 
@@ -850,7 +854,12 @@ Differs:
   by the time since its own last update, however often it is drawn, as the
   original's: one with a `MaxFrameRate` drawn every other frame steps as
   often as one drawn every frame, and one drawn every ninth frame at 60
-  steps at every draw (`StepConsole`; bugs.md D.14).
+  steps at every draw (`StepConsole`; bugs.md D.14). That time is the real
+  time each frame is begun at, as the original's viewport hands every
+  texture it draws, whatever the level's `TimeDilation`, counted from when
+  the texture was made or loaded: one first drawn long after its load
+  steps once at its first draw, as the original's (`CoronaSkinConsole`'s
+  chain, its frames alike in both engines).
 - **The wave lighting table** can be one step off at a single entry, in 3 of
   200 settings: DXEngine takes the C library's cosine, the original the
   x87's, and they differ in the last bit; by choice, a port computing as

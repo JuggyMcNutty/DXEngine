@@ -1,5 +1,6 @@
 
 #include "Precomp.h"
+#include <chrono>
 #include "Utils/Logger.h"
 #include "UTexture.h"
 #include "Engine.h"
@@ -163,6 +164,12 @@ void UTexture::Save(PackageStreamWriter* stream)
 			stream->WriteUInt8(mipmap.VBits);
 		}
 	}
+}
+
+double UTexture::ClockNow()
+{
+	static const auto start = std::chrono::steady_clock::now();
+	return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
 }
 
 // The original steps a texture from its Update, at most once a frame that

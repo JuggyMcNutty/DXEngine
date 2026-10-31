@@ -25,7 +25,7 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 {
 	DrawnSinceFlush = true;
 	LevelTimeElapsed = levelTimeElapsed;
-	LevelTime += levelTimeElapsed;
+	TextureClock = UTexture::ClockNow();
 
 	// A surface's detail texture goes to the device only while its
 	// DetailTextures is on and the client's TextureDetail is High, as
@@ -119,13 +119,15 @@ bool RenderSubsystem::ReadLastFrame(Array<TextureColor>& pixels, int& width, int
 // update, as the original's UTexture::Update passes it (fire-dll.md,
 // stepping): one drawn on some frames only counts the frames between too,
 // and a MaxFrameRate texture drawn every other frame steps as often as one
-// drawn every frame
+// drawn every frame. The time is the real time the frame was begun at, as
+// the original's viewport hands it, whatever the level's TimeDilation or
+// pause
 void RenderSubsystem::UpdateTexture(UTexture* tex)
 {
 	if (tex && tex->FrameCounter != TextureFrameCounter)
 	{
-		tex->Update((float)(LevelTime - tex->LastUpdateTime));
-		tex->LastUpdateTime = LevelTime;
+		tex->Update((float)(TextureClock - tex->LastUpdateTime));
+		tex->LastUpdateTime = TextureClock;
 		tex->FrameCounter = TextureFrameCounter;
 	}
 }

@@ -47,9 +47,14 @@ public:
 	int RealtimeChangeCount = 0;
 
 	int FrameCounter = -1;
-	// The level time of the texture's last update: it steps by the time since,
-	// as the original's InternalTime has it, however often it is drawn
-	double LastUpdateTime = 0.0;
+	// The textures' clock: the real seconds, which the original's viewport
+	// takes as it locks for each frame (Engine.dll UViewport::Lock) and hands
+	// every texture it draws
+	static double ClockNow();
+	// The clock at the texture's last update: it steps by the time since, as
+	// the original's InternalTime has it, however often it is drawn, from the
+	// time it was made or loaded (UBitmap's constructor, UTexture::PostLoad)
+	double LastUpdateTime = ClockNow();
 
 	bool Prepared = false;
 	float FrameTime = 0.0f;

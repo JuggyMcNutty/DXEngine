@@ -113,6 +113,7 @@ the run. *Either*: one engine on each side of a pair.
 | `CaptureConsole` | both | tripwires, coronas, comment-jump conversations | `DXCAP:` |  |
 | `ViewConsole` | both | the weapon in view; the level's light | `DXVIEW:` |  |
 | `CoronaConsole` | both | lamp coronas; a movable corona light of its own; with `Coronas=False` the render device's Coronas set off first | `DXCORONA:` |  |
+| `CoronaSkinConsole` | both | Liberty Island's `Light169` given a skin that changes (`SkinName`, `SkinClass`; `Rate` its frame rate): its corona shot three times 4 s apart, the skin's current frame logged at each | `DXSKIN:` | the lines diffed; `shots.py --region` of the corona at `DXCAP_WINDOW=1024x768`, the original's shots named by their marks (1 to 3) |
 | `LaserConsole` | both | a laser fence's beams and its trigger's actors; the beams with a still texture, unlit and lit; the detail textures off (`NoDetail`) | `DXLASER:` | `laser.py <original run> <dxe run>`; `shots.py --shift`; at `DXCAP_WINDOW=1024x768` with `NoDetail=True` ([shots](#shots)) |
 | `ParticleConsole` | both | smoke and puffs on the pier, in marked shots | `DXPART:` | `shots.py --region` over the smoke's column, at `DXCAP_WINDOW=1024x768` |
 | `FaceConsole` | both | a character's mesh close up (`MeshOf`, `Ahead`, `Distance`), turned `Turn` degrees from facing the view, seen from `Raise` units over its eyes | `DXFACE:` | `shots.py <original run> <dxe run>` |
