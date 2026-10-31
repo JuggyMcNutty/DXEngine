@@ -538,7 +538,9 @@ void Engine::Run()
 		{
 			LogMessage("Net: disconnected" + (NetFailure.empty() ? std::string() : ": " + NetFailure));
 			NetFailure.clear();
-			ReturnToEntry(true);
+			// The viewport's next travel, absolute, as the original's sets it:
+			// the player's options from the last URL, the server's, on it
+			ClientTravel("?failed", ETravelType::TRAVEL_Absolute, false);
 		}
 
 		if (!ClientTravelInfo.URL.Host.empty())
@@ -950,8 +952,9 @@ Array<std::string> Engine::DefaultPlayerOptionKeys()
 void Engine::LoadEntryMap()
 {
 	// The entry map is the map you see in the game when no other map is playing. For example when disconnected from a server. It is always loaded and running.
-	const auto entryMapName = packages->GetIniValue("System", "URL", "EntryMap", "Entry");
-	LoadMap(GetDefaultURL(entryMapName));
+	// Loaded as the original's Init loads it, entry.dx with no option: its
+	// game begins with none, the player's options coming with a return to it.
+	LoadMap(UnrealURL("entry." + packages->GetMapExtension()));
 	EntryLevelInfo = LevelInfo;
 	EntryLevel = Level;
 	EntryDeusExLevelInfo = DeusExLevelInfo;
@@ -966,12 +969,14 @@ void Engine::LoadEntryMap()
 	viewport->Actor() = nullptr;
 }
 
-void Engine::ReturnToEntry(bool failed)
+void Engine::ReturnToEntry(const UnrealURL& url)
 {
 	// UGameEngine::Browse's ?failed and ?entry (Engine.dll 0x1038ad30): the
 	// level left, the Entry level played with no level action, a player
-	// spawned there for the viewport; a failure with no join pending says so
-	// for 6 s.
+	// spawned there for the viewport, logged in with the browse's URL (a lost
+	// server's ?failed with the player's options); a failure with no join
+	// pending says so for 6 s.
+	const bool failed = url.HasOption("failed");
 	LogMessage(LocalizeMessage("Engine", "Errors", "AbortToEntry", "Failed; returning to Entry"));
 	if (!EntryLevel)
 		return;
@@ -986,7 +991,7 @@ void Engine::ReturnToEntry(bool failed)
 	GameInfo = EntryGameInfo;
 	DeusExLevelInfo = EntryDeusExLevelInfo;
 	LevelInfo->LevelAction() = LEVACT_None;
-	LoginPlayer(LevelInfo->URL);
+	LoginPlayer(url);
 	if (failed && !PendingLevel)
 		SetProgress(LocalizeMessage("Engine", "Errors", "ConnectionFailed", "Connection failed"), "", 6.0f);
 }
@@ -1092,7 +1097,7 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 
 	if (url.HasOption("entry") || url.HasOption("failed"))
 	{
-		ReturnToEntry(url.HasOption("failed"));
+		ReturnToEntry(url);
 		return;
 	}
 

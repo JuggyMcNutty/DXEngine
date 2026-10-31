@@ -2123,7 +2123,11 @@ Matches the original's client and server
 ([the network](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md)):
 joining and playing, listen and dedicated servers, replication with the
 original's native lists, the server's calls, downloads both ways, server
-travel, the Entry level for a lost server, the login, the player's net
+travel, the Entry level for a lost server -- loaded as `entry.dx` with no
+option, a lost server's client travelling there by `?failed`, absolute, the
+player's options from its server's URL on it, and logging in with them
+(`TravelJoinConsole` with a server that stops: `Index.dx?failed?Name=...`,
+alike in both engines but for the name, D.12) --, the login, the player's net
 speed, which sets how soon the server corrects a client (`JoinConsole`'s
 jumps), merged bunches, the uplink and query answerer, the scripts' sockets
 ([the script's links](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/ipdrv-dll.md#the-scripts-links)),
@@ -2185,11 +2189,6 @@ settles it; bugs.md NET.6). The server-only stubs are under
   DXEngine's players show as such (`Engine::SetMultiplayerName`). A name the
   player chose is kept; single player, the menus and the inis keep the
   game's.
-- **The Entry level** is loaded with the player's options from the ini, its
-  game's `InitGame` given `?Name=Player?Class=DeusEx.JCDentonMale`, where the
-  original's loads `entry.dx` with none; and a return to it (a lost server,
-  `?failed`, `?entry`) logs the player in with Entry's URL, where the
-  original's logs in with the browse's own (bugs.md PKG.13).
 
 As in the original:
 

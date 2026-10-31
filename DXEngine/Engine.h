@@ -87,7 +87,7 @@ public:
 	// The Entry level made the level played, a new player spawned in it, as
 	// the original's browse to ?failed or ?entry: a lost server, or one that
 	// refused the player after the join, sends a client there.
-	void ReturnToEntry(bool failed);
+	void ReturnToEntry(const UnrealURL& url);
 	void LoadMap(const UnrealURL& url, const std::map<std::string, std::string>& travelInfo = {}, bool asClient = false);
 	// A save in place of the level; false when there is none to load.
 	bool LoadFromSaveFile(const UnrealURL& url);
