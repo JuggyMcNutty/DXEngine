@@ -8,8 +8,9 @@
 // marks its shots: as loaded; replaced by CoreTexMisc.plaque_b (64 by 64, its
 // pixels then greys by their indices); asked to take Compu_A04 (128 by 128)
 // and None, each refused and logged; replaced by WhiteNoise_A01, an animated
-// one, its current frame logged; then an exit. Each line starts
-// "DXSCRIPTED:".
+// one, its current frame logged. Beside it, at 384, 64, CapSourced, the same
+// with plaque_b its source texture: its source set to WhiteNoise_A01, shot;
+// replaced by radar_A15, shot; then an exit. Each line starts "DXSCRIPTED:".
 //=============================================================================
 class ScriptedConsole extends Console;
 
@@ -18,7 +19,7 @@ class ScriptedConsole extends Console;
 var float RunTime, StepTime;
 var int Step;
 var int MarkShot;
-var ScriptedTexture Scripted;
+var ScriptedTexture Scripted, Sourced;
 
 function Shoot(PlayerPawn P, string What)
 {
@@ -30,7 +31,7 @@ function Shoot(PlayerPawn P, string What)
 event Tick(float Delta)
 {
 	local PlayerPawn P;
-	local Texture Plaque, Compu, Noise;
+	local Texture Plaque, Compu, Noise, Radar;
 
 	Super.Tick(Delta);
 	if (Step == 99 || Viewport == None || Viewport.Actor == None)
@@ -42,14 +43,16 @@ event Tick(float Delta)
 		if (RunTime < 2.0)
 			return;
 		Scripted = ScriptedTexture(DynamicLoadObject("DXCapture.CapScripted", class'ScriptedTexture'));
-		if (Scripted == None)
+		Sourced = ScriptedTexture(DynamicLoadObject("DXCapture.CapSourced", class'ScriptedTexture'));
+		if (Scripted == None || Sourced == None)
 		{
-			Log("DXSCRIPTED: no CapScripted, exiting");
+			Log("DXSCRIPTED: no CapScripted or CapSourced, exiting");
 			P.ConsoleCommand("exit");
 			Step = 99;
 			return;
 		}
 		Log("DXSCRIPTED: CapScripted " $ Scripted.USize $ " by " $ Scripted.VSize $ ", palette " $ Scripted.Palette);
+		Log("DXSCRIPTED: CapSourced " $ Sourced.USize $ " by " $ Sourced.VSize $ ", palette " $ Sourced.Palette $ ", source " $ Sourced.SourceTexture);
 		StepTime = RunTime;
 		Step = 1;
 		return;
@@ -64,6 +67,7 @@ event Tick(float Delta)
 	Plaque = Texture(DynamicLoadObject("CoreTexMisc.plaque_b", class'Texture'));
 	Compu = Texture(DynamicLoadObject("CoreTexMisc.Compu_A04", class'Texture'));
 	Noise = Texture(DynamicLoadObject("CoreTexMisc.WhiteNoise_A01", class'Texture'));
+	Radar = Texture(DynamicLoadObject("CoreTexMisc.radar_A15", class'Texture'));
 	if (Step == 1)
 	{
 		Shoot(P, "as loaded");
@@ -87,6 +91,18 @@ event Tick(float Delta)
 	else if (Step == 4)
 	{
 		Shoot(P, "after WhiteNoise_A01");
+		Sourced.SourceTexture = Noise;
+		Log("DXSCRIPTED: CapSourced's source set to " $ Sourced.SourceTexture);
+	}
+	else if (Step == 5)
+	{
+		Shoot(P, "CapSourced after its source set");
+		Sourced.ReplaceTexture(Radar);
+		Log("DXSCRIPTED: CapSourced replaced by " $ Radar $ ", " $ Radar.USize $ " by " $ Radar.VSize);
+	}
+	else if (Step == 6)
+	{
+		Shoot(P, "CapSourced after radar_A15");
 		Log("DXSCRIPTED: done, exiting");
 		P.ConsoleCommand("exit");
 		Step = 99;
@@ -108,6 +124,8 @@ event PostRender(canvas C)
 		C.DrawColor.B = 255;
 		C.SetPos(64, 64);
 		C.DrawTile(Scripted, 256, 256, 0, 0, 64, 64);
+		C.SetPos(384, 64);
+		C.DrawTile(Sourced, 256, 256, 0, 0, 64, 64);
 	}
 	if (MarkShot == 0)
 		return;

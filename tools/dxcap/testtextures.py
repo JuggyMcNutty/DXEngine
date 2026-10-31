@@ -10,6 +10,8 @@ the game ships none of, made here rather than kept as files.
     CapScripted    a ScriptedTexture of 64 by 64 in CapGrey, no source texture
                    and no notify actor, its one mip saved empty, as an editor
                    saves a scripted texture: the engine makes its pixels.
+    CapSourced     the same with CoreTexMisc.plaque_b, 64 by 64, its source
+                   texture.
 """
 import os
 import struct
@@ -35,7 +37,7 @@ def compact(v):
 
 NAMES = ['None', 'Core', 'Engine', 'Package', 'Class', 'Palette', 'ScriptedTexture', 'CapTextures',
          'CapGrey', 'CapScripted', 'bParametric', 'bRealtime', 'UBits', 'VBits', 'USize', 'VSize',
-         'UClamp', 'VClamp']
+         'UClamp', 'VClamp', 'CapSourced', 'SourceTexture', 'Texture', 'CoreTexMisc', 'Metal', 'plaque_b']
 
 
 def name(n):
@@ -63,12 +65,14 @@ def package():
     # Imports: Engine (a package), and its classes Palette and ScriptedTexture;
     # an import is referred to as -(its index + 1).
     imports = [('Core', 'Package', 0, 'Engine'), ('Core', 'Class', -1, 'Palette'),
-               ('Core', 'Class', -1, 'ScriptedTexture')]
+               ('Core', 'Class', -1, 'ScriptedTexture'), ('Core', 'Package', 0, 'CoreTexMisc'),
+               ('Core', 'Package', -4, 'Metal'), ('Engine', 'Texture', -5, 'plaque_b')]
     grey = name('None') + compact(256) + b''.join(bytes([n, n, n, 0]) for n in range(256))
 
-    def scripted(at):
+    def scripted(at, source=None):
         size = 64
         props = (prop_bool('bParametric') + prop_bool('bRealtime') + prop_object('Palette', 1) +
+                 (prop_object('SourceTexture', source) if source else b'') +
                  prop_byte('UBits', 6) + prop_byte('VBits', 6) + prop_int('USize', size) +
                  prop_int('VSize', size) + prop_int('UClamp', size) + prop_int('VClamp', size) +
                  name('None'))
@@ -87,16 +91,19 @@ def package():
     grey_at = data_at
     scripted_at = grey_at + len(grey)
     scripted_data = scripted(scripted_at)
-    export_at = scripted_at + len(scripted_data)
+    sourced_at = scripted_at + len(scripted_data)
+    sourced_data = scripted(sourced_at, source=-6)
+    export_at = sourced_at + len(sourced_data)
     exports = [(-2, 'CapGrey', 0x70004, grey_at, len(grey)),
-               (-3, 'CapScripted', 0xf0004, scripted_at, len(scripted_data))]
+               (-3, 'CapScripted', 0xf0004, scripted_at, len(scripted_data)),
+               (-3, 'CapSourced', 0xf0004, sourced_at, len(sourced_data))]
     export_table = b''.join(compact(cls) + compact(0) + struct.pack('<i', 0) + name(n) + struct.pack('<I', flags) +
                             compact(size) + compact(at) for cls, n, flags, at, size in exports)
     header = (struct.pack('<IHHI', 0x9e2a83c1, 68, 0, 1) +
               struct.pack('<iiiiii', len(NAMES), name_at, len(exports), export_at, len(imports), import_at) +
               bytes(range(16)) + struct.pack('<i', 1) + struct.pack('<ii', len(exports), len(NAMES)))
     assert len(header) == header_size
-    return header + name_table + import_table + grey + scripted_data + export_table
+    return header + name_table + import_table + grey + scripted_data + sourced_data + export_table
 
 
 def main():

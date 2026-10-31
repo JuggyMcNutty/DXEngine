@@ -2133,7 +2133,13 @@ A mod gets the original's loader and natives:
   the harness's `CapScripted`: `plaque_b` copied, `Compu_A04`'s size and
   None refused, `WhiteNoise_A01` stepped to `WhiteNoise_A02` and copied,
   each shot of it alike in both engines, correlated at 0.996 to 1.000, where
-  DXEngine copied the animated one unstepped).
+  DXEngine copied the animated one unstepped). A scripted texture's source
+  texture is taken once, as it loads, scaled by the two textures' bits, its
+  palette with it, and that copy laid over it each tick before its notify
+  actor draws, as the original's: a source set later, or a `ReplaceTexture`
+  on it, never shows (`CapSourced` keeps `plaque_b` through both in both
+  engines, where DXEngine drew its source afresh each frame, and missed a
+  `RenderTexture` the frame after a change).
 - **Config files.** A class's config file that is not there is empty, its
   properties keeping their defaults, until the class writes it
   ([configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration)):

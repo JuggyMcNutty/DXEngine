@@ -25,6 +25,34 @@ void UScriptedTexture::Load(ObjectStream* stream)
 	mipmap.Data.resize((size_t)mipmap.Width * mipmap.Height);
 	uint8_t* pixels = (uint8_t*)mipmap.Data.data();
 	memset(pixels, 0, (size_t)width * height);
+
+	// The original's load takes its source texture's pixels once, its own top
+	// mip's, scaled by the two textures' bits -- each pixel the source's at
+	// its place shifted down by the difference, as an x86 shift counts a
+	// negative one -- and its palette (Engine.dll 0x103ea3d0); its tick copies
+	// that copy over the mip, whatever the source has become
+	UTexture* source = SourceTexture();
+	if (source)
+	{
+		source->LoadNow();
+		if (!source->UsedMipmaps.empty() && source->UsedFormat == TextureFormat::P8)
+		{
+			Palette() = source->Palette();
+			const UnrealMipmap& from = source->UsedMipmaps.front();
+			const uint8_t* src = (const uint8_t*)from.Data.data();
+			int ushift = (UBits() - source->UBits()) & 31, vshift = (VBits() - source->VBits()) & 31;
+			int usize = std::max(USize(), 0), vsize = std::max(VSize(), 0);
+			SourceCopy.assign((size_t)usize * vsize, 0);
+			for (int y = 0; y < vsize; y++)
+			{
+				for (int x = 0; x < usize; x++)
+				{
+					size_t at = ((size_t)(y >> vshift) << source->UBits()) + (size_t)(x >> ushift);
+					SourceCopy[(size_t)y * usize + x] = at < from.Data.size() ? src[at] : 0;
+				}
+			}
+		}
+	}
 }
 
 void UScriptedTexture::Save(PackageStreamWriter* stream)
@@ -42,16 +70,14 @@ static int WrapTexel(float v, int size)
 	return i < 0 ? i + size : i;
 }
 
+// The original's tick (Engine.dll 0x103ea5b0): the source's copy its load
+// took over the mip, then the notify actor's RenderTexture
 void UScriptedTexture::UpdateFrame()
 {
-	if (TextureModified)
-		return;
-
-	UTexture* sourceTex = SourceTexture();
-	if (sourceTex && !sourceTex->UsedMipmaps.empty() && !UsedMipmaps.empty())
+	if (!SourceCopy.empty() && !UsedMipmaps.empty())
 	{
-		Palette() = sourceTex->Palette();
-		DrawTileP8(sourceTex, 0.0f, 0.0f, (float)UsedMipmaps.front().Width, (float)UsedMipmaps.front().Height, 0.0f, 0.0f, (float)sourceTex->UsedMipmaps.front().Width, (float)sourceTex->UsedMipmaps.front().Height);
+		UnrealMipmap& mipmap = UsedMipmaps.front();
+		memcpy(mipmap.Data.data(), SourceCopy.data(), std::min(mipmap.Data.size(), SourceCopy.size()));
 	}
 
 	UActor* actor = NotifyActor();
