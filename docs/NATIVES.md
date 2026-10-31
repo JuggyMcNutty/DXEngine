@@ -1719,6 +1719,16 @@ Every other native the scripted runs compare matches the original
   PHYS_Projectile, rises as a swimming player's breath does
   (`BubbleConsole`: an AirBubble, an Effects and a Rat spawned under water,
   alike).
+- **A spawn fitted into the world**, an actor that collides with it or
+  when placed, is fitted where the original's `FindSpot` fits it and
+  refused where it fits nowhere, the original refusing it without a word
+  where DXEngine logs it: a broken window's pieces and a destroyed
+  container's trash are refused at the same spots in both engines
+  (`DebrisConsole`: of 128 directions round Liberty Island's
+  `BreakableGlass0`, 111 placed alike, within 0.0001, and 17 refused in
+  both; of 125 spots round 02_NYC_BatteryPark's `Trashbag1`, which falls
+  out of the world at the map's start, 50 placed alike and 75 refused in
+  both).
 - **The engine's own rotations** -- the view's, a mesh's and a mover's, a
   laser's beam, movement's and the AI's -- take the original's sine table,
   as the scripts' conversions do
