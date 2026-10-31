@@ -682,10 +682,13 @@ which no stock light shows (fast wave, shock, shell, interference), with
 `Spawn`: a lamp of each made 64 units over Liberty Island's dock, the dock
 alone in the view, `D3DDrv`'s frames correlated with DXEngine's at 0.993
 (the searchlight) to 0.999, RMSE under 1. `D3DDrv` holds that lamp's map at
-the frame it was first lit, 6.02 s into the level (bugs.md D.31), so
-DXEngine's is shot a whole number of each shape's periods on (`ShotAt`);
-through `OpenGLDrv`, which shows them changing, each at one moment of both
-at 0.96 to 0.98, as its frame of non-incidence, which holds still, is.
+the frame it was first lit, 6.02 s into the level, a defect of its cache
+([textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#textures))
+that DXEngine does not carry, by choice, the map changing as `OpenGLDrv`
+shows it; so DXEngine's is shot a whole number of each shape's periods on
+(`ShotAt`); through `OpenGLDrv`, which shows them changing, each at one
+moment of both at 0.96 to 0.98, as its frame of non-incidence, which holds
+still, is.
 DXEngine's own, by choice where no ID is named:
 
 - **Light maps**
@@ -829,9 +832,10 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   of 06_HongKong_WanChai_Underworld's `BreakableGlass0`: each engine's frames
   as with it shown). No stock script hides a mover, and no stock map holds one
   hidden, nor passed over otherwise, at its load. A destroyed one is drawn
-  no more, where the original's stays drawn until
-  the next load or save; the game's movers are `bNoDelete`, and refuse
-  (`GlassConsole` with `Destroy`, in both engines; bugs.md D.30).
+  no more, by choice, where the original's stays drawn until the next load
+  or save, its drawing reading the destroyed actor, a freed one once 128
+  destroyed actors are cleaned up; the game's movers are `bNoDelete`, and
+  refuse (`GlassConsole` with `Destroy`, in both engines).
 
 ### Fire, water and ice textures
 
