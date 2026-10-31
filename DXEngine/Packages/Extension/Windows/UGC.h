@@ -100,7 +100,7 @@ public:
 	Rectf ScaleRect(const Rectf& box);
 	uint32_t EffectivePolyFlags();
 	uint32_t EffectiveTextPolyFlags();
-	void DrawTile(UTexture* tex, const Rectf& dest, const Rectf& src, const Color& c, uint32_t flags);
+	void DrawTile(UTexture* tex, const Rectf& dest, const Rectf& src, const Color& c, uint32_t flags, bool clip = true);
 
 	// What the text's codes have set as a line is read (the original's
 	// XTextState): bold, a colour of its own, a line break before, and the

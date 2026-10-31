@@ -703,7 +703,9 @@ void UGC::SetVerticalAlignment(uint8_t newVAlign)
 	VAlign() = newVAlign;
 }
 
-void UGC::DrawTile(UTexture* tex, const Rectf& dest, const Rectf& src, const Color& c, uint32_t flags)
+// A tile clipped to the GC's box in the frame's pixels, unless it is
+// clipped already (a character, DrawChar).
+void UGC::DrawTile(UTexture* tex, const Rectf& dest, const Rectf& src, const Color& c, uint32_t flags, bool clip)
 {
 	// Stepped as it is drawn, then its animation's frame, as the canvas's
 	// tiles are (RenderSubsystem::DrawTile): the original's texture moves on
@@ -743,7 +745,7 @@ void UGC::DrawTile(UTexture* tex, const Rectf& dest, const Rectf& src, const Col
 	// device again (a snapshot taken into the same texture, for one).
 	texinfo.bRealtimeChanged = tex->ChangedThisFrame(engine->render->TextureFrameCounter);
 
-	if (dest.left >= clipBox.left && dest.top >= clipBox.top && dest.right <= clipBox.right && dest.bottom <= clipBox.bottom)
+	if (!clip || (dest.left >= clipBox.left && dest.top >= clipBox.top && dest.right <= clipBox.right && dest.bottom <= clipBox.bottom))
 	{
 		engine->render->DrawTile(
 			texinfo,
@@ -1030,10 +1032,15 @@ const uint8_t* UGC::GetLine(TextState& state, float wrap, const uint8_t*& text, 
 }
 
 // One character at a place in the window, moving the place on by its width
-// and giving its height (XGC::DrawChar, 0x10029e40): at whole pixels, clipped
-// to the GC's box; an accelerator underlined with the underline texture,
-// underlineHeight tall, baselineOffset up from the character's foot, one
-// pixel short of its width.
+// and giving its height (XGC::DrawChar, 0x10029e40): clipped to the GC's box
+// in the window's units, its place and its rectangle on the font's page cut
+// together, and only then put on whole units -- the place, the size and the
+// page's rectangle each truncated -- and drawn unclipped; so a character at
+// a fraction of a unit inside the box's edge (a window at half a unit, as a
+// computer's screen is centred) is drawn whole on the unit before it. A
+// character drawn, an accelerator's is underlined so with the underline
+// texture, underlineHeight tall, baselineOffset up from the character's
+// foot, one unit short of its width.
 void UGC::DrawChar(UFont* font, uint8_t ch, const Color& color, bool accel, float x, float y, float& outX, float& outHeight)
 {
 	FontGlyph glyph = font->GetPageGlyph(ch);
@@ -1042,21 +1049,41 @@ void UGC::DrawChar(UFont* font, uint8_t ch, const Color& color, bool accel, floa
 	outX = x + (float)glyph.USize;
 	outHeight = (float)glyph.VSize;
 
+	// The box in the window's units, as the original keeps its clip rectangle
+	float scale = UWindow::GetVirtualScale();
+	Rectf box(clipBox.left / scale, clipBox.top / scale, clipBox.right / scale, clipBox.bottom / scale);
 	auto whole = [](float v) { return (float)(int64_t)(v + 0.1f); };
 	uint32_t polyflags = EffectiveTextPolyFlags();
-	if (glyph.Texture && glyph.USize > 0 && glyph.VSize > 0)
+	auto drawClipped = [&](UTexture* tex, float left, float top, float width, float height, float u, float v) -> bool
 	{
-		Rectf dest = Rectf::xywh(whole(px), whole(py), (float)glyph.USize, (float)glyph.VSize);
-		Rectf src = Rectf::xywh((float)glyph.StartU, (float)glyph.StartV, (float)glyph.USize, (float)glyph.VSize);
-		DrawTile(glyph.Texture, ScaleRect(dest), src, color, polyflags);
-	}
-	if (accel && underlineTexture() && underlineHeight() > 0.0f && glyph.USize > 1)
-	{
-		float w = (float)(glyph.USize - 1);
-		Rectf dest = Rectf::xywh(whole(px), whole((float)glyph.VSize - baselineOffset() + py), whole(w), whole(underlineHeight()));
-		Rectf src = Rectf::xywh(0.0f, 0.0f, dest.right - dest.left, dest.bottom - dest.top);
-		DrawTile(underlineTexture(), ScaleRect(dest), src, color, polyflags);
-	}
+		if (left < box.left)
+		{
+			u += box.left - left;
+			width -= box.left - left;
+			left = box.left;
+		}
+		if (top < box.top)
+		{
+			v += box.top - top;
+			height -= box.top - top;
+			top = box.top;
+		}
+		if (left + width > box.right)
+			width = box.right - left;
+		if (top + height > box.bottom)
+			height = box.bottom - top;
+		if (width <= 0.0f || height <= 0.0f)
+			return false;
+		Rectf dest = Rectf::xywh(whole(left), whole(top), whole(width), whole(height));
+		Rectf src = Rectf::xywh(whole(u), whole(v), whole(width), whole(height));
+		DrawTile(tex, ScaleRect(dest), src, color, polyflags, false);
+		return true;
+	};
+
+	if (!glyph.Texture || !drawClipped(glyph.Texture, px, py, (float)glyph.USize, (float)glyph.VSize, (float)glyph.StartU, (float)glyph.StartV))
+		return;
+	if (accel && underlineTexture() && underlineHeight() > 0.0f)
+		drawClipped(underlineTexture(), px, (float)glyph.VSize - baselineOffset() + py, (float)(glyph.USize - 1), underlineHeight(), 0.0f, 0.0f);
 }
 
 void UGC::ResetClip(Rectf box)

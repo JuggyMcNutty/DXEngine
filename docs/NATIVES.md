@@ -1054,8 +1054,13 @@ from the original's code:
   inverse colour, then the insertion point, blinking each half period
   (the field's shots alike, every pixel within 24 levels); else the rows
   as a large text window draws them. A press puts the insertion point at
-  the pointer and drags it, whole words on a second click. A computer's
-  login field cuts off the left of its first letter (bugs.md EXT.18).
+  the pointer and drags it, whole words on a second click. A window's
+  character is clipped to its GC's box in the window's units, then put on
+  whole units, as the original's `XGC::DrawChar` draws it, so one a
+  fraction of a unit inside the box's edge is drawn whole on the unit
+  before it (`LoginConsole` at 1280x960: a computer's login screen,
+  centred at half a unit: each field's first letter lit as the original's,
+  pixel for pixel, its first column too).
 - **Buttons** activate on the release, a repeating one on the press and
   again while held; a right click where the button takes them; each with
   its sounds, and a press from the keyboard shown pressed for its delay. A
