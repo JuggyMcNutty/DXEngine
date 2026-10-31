@@ -274,6 +274,10 @@ Liberty Island meets it, and the chair's `Bump` sends him to his own
 state's `CircleToFront`: he sits in `SitBreathe` from then on in both
 engines (`SitConsole`).
 
+Differs (bugs.md AI.7): the terrorists Liberty Island's script kills as the
+statue's mission ends leave carcasses that hold their inventory, the
+original's empty.
+
 ### Hearing: the AI event system
 
 Matches the original
@@ -667,6 +671,8 @@ the moving ones over it there, its map built again when it moves or turns.
 units off its place: the door at 1.003 of the original's frame under its
 own lights and 1.000 with a lamp 48 units before it, where it was 0.82 and
 0.43, lit as if still at its key.
+Differs (bugs.md REN.26): 00_Intro's door under the two pawns is lit another
+colour than the original's.
 A spotlight's cone is the
 original's, its cosine `1 − LightCone ÷ 256`, its value rounded down, and a
 light or fog map lights texel i at its centre, `Pan.X + i × UScale` along U,
@@ -1046,7 +1052,8 @@ from the original's code:
   inverse colour, then the insertion point, blinking each half period
   (the field's shots alike, every pixel within 24 levels); else the rows
   as a large text window draws them. A press puts the insertion point at
-  the pointer and drags it, whole words on a second click.
+  the pointer and drags it, whole words on a second click. A computer's
+  login field cuts off the left of its first letter (bugs.md EXT.18).
 - **Buttons** activate on the release, a repeating one on the press and
   again while held; a right click where the button takes them; each with
   its sounds, and a press from the keyboard shown pressed for its delay. A
@@ -1266,6 +1273,9 @@ it. Differs:
 - **Screen Resolution** in a window offers DXEngine's sizes, not the
   display's modes: the common sizes from 640x480 that fit the screen, with
   the window's own and the screen's, a choice resizing the window; by choice.
+- **Full screen in a Wayland session**, a size chosen is drawn at its size
+  and scaled to the display by the compositor, the display's mode as it was
+  (bugs.md WIN.8).
 - **Detail Textures** draws the world's detail textures as `D3DDrv`'s passes
   draw them, all three in the scene shader's one pass
   ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):
@@ -1476,6 +1486,8 @@ Every other native the scripted runs compare matches the original
   0.3 s in, in six runs, DXEngine's still there at 14,601 and gone 0.1 s
   later (`DoorConsole` on UNATCO HQ: the crate placed at -875.4, 362.6 in
   both engines; bugs.md PHYS.7).
+  On 02_NYC_BatteryPark an invisible box stops the player beside the grate
+  that slides up under Castle Clinton (bugs.md PHYS.14).
 - **The movers in a line's way**: a line meets each mover where the level's
   BSP last filed it
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)),

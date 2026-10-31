@@ -250,7 +250,7 @@ is. DXEngine's keys:
 | `"UseVSync"`, `"Hdr"`, `"HdrScale"`, `"Bloom"`, `"BloomAmount"`, `"GammaCorrectScreenshots"`, `"UseDebugLayer"` in `RenderDevice` | Vsync (on unless the key says otherwise), HDR and its scale, bloom and its amount (128 each), screenshots written gamma-corrected, and the Vulkan validation layer or D3D11's debug layer where the machine has it; a key left out keeps its default. |
 | `"Contrast"`, `"Saturation"`, `"GammaOffset"`, `"GammaOffsetRed"`, `"GammaOffsetGreen"`, `"GammaOffsetBlue"`, `"LODBias"` in `RenderDevice` | On every device: the present's colour correction, the picture unchanged at 1 each, contrast about the middle grey (0.1 to 4) and saturation toward the pixel's grey (0 to 1); its gamma's offsets, every channel's and each one's, added to the gamma (-1 to 1, 0 each by default); and the textures' mip bias (-2 to 2, -0.5 by default, `D3DDrv`'s as Wine draws it), fixed for the run, but on GL ES, whose samplers take none. |
 | `"CPUDriver": true` in `RenderDevice` | The Vulkan device on Mesa's lavapipe, or the GL device on llvmpipe, a GPU passed over (DXLauncher's `[VulkanCPU]` and `[OpenGLCPU]` renderers; [rendering](#rendering)). |
-| `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)). |
+| `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)); in a rootless container a pad plugged in after the start goes unseen (bugs.md ENG.15). |
 
 The environment:
 
@@ -313,7 +313,8 @@ By area, as the code stands. Each device's numbers are its port's, such as
   `FULLSCREEN_DESKTOP`). With `DXE_SDL2_BORDERLESS_FULLSCREEN` (the Smart Pro's build) it is
   always a borderless window covering the display, set up while the window is hidden:
   `SDL_SetWindowFullscreen` deadlocks on a GL window with that device's vendor SDL2. The X11,
-  Wayland and Win32 windows keep the desktop's mode.
+  Wayland and Win32 windows keep the desktop's mode. In a Wayland session SDL3 emulates a mode:
+  the frame drawn at its size and scaled to the display by the compositor (bugs.md WIN.8).
 - **The window's place**: the game's window opens at its size alone, where the system puts a
   new window, as the original's viewport opens at Windows' default place
   ([the window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-window)):
