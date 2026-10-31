@@ -2,6 +2,7 @@
 
 #include "Math/vec.h"
 #include "Math/rotator.h"
+#include "BrushTracker.h"
 #include <functional>
 #include <memory>
 
@@ -108,38 +109,7 @@ private:
 	inline static const Array<T> None;
 };
 
-// Deus Ex: a mover where the level's BSP last filed it (dx-reverse-info
-// engine-dll.md, traces: the movers in the BSP): its brush's polygons in the
-// world as they were then. A line test meets them there, whatever the mover
-// collides with, hidden or not, and on after the mover is destroyed.
-class UTexture;
-
 class GCMarker;
-
-struct FiledMoverPoly
-{
-	Array<vec3> Vertices;
-	vec3 Normal;
-	float PlaneW; // dot(Normal, a vertex)
-	// The polygon's normal turned as the original's tracker turns it, by its
-	// sine table: the normal of the node it files, which a hit reports
-	// (TraceTester: a mover's hit against the level's)
-	vec3 NormalOriginal;
-	uint32_t PolyFlags;
-	// The polygon's texture, which with its PolyFlags a TraceTexture hit on
-	// it gives, as the original's filed node has them for its surface
-	UTexture* Texture = nullptr;
-};
-
-struct FiledMover
-{
-	UMover* Mover = nullptr; // none once destroyed: it stays filed
-	vec3 Location;
-	Rotator Rotation;
-	vec3 Center, Extents; // the cells it is in
-	Array<FiledMoverPoly> Polys;
-	int CheckCounter = 0;
-};
 
 struct TraceFlags
 {
@@ -187,20 +157,20 @@ public:
 	void AddToCollision(UActor* actor);
 	void RemoveFromCollision(UActor* actor);
 
-	// Deus Ex's movers in the BSP: filed afresh at a map's load, but on a
-	// dedicated server, and after a save (all, where they are), each drawn
-	// frame again where a shown one has moved or turned since; a destroyed
-	// one stays filed.
+	// Deus Ex's movers in the BSP (BrushTracker): filed afresh at a map's
+	// load, but on a dedicated server, and after a save (all, where they
+	// are), each drawn frame again where a shown one has moved or turned
+	// since, in the actor list's order; a destroyed one stays filed, the
+	// tracker not told, as the original's.
 	void FileMovers();
 	void RefileMovers(const std::function<bool(UMover*)>& shown);
-	void MoverDestroyed(UActor* actor);
-	// Whether a filed mover's polygon crosses the segment: any but a
-	// PF_NotSolid one, and with visibilityOnly not a PF_Invisible or
-	// PF_Portal one.
-	bool FiledMoversBlock(const vec3& from, const vec3& to, bool visibilityOnly);
-	// Each filed mover's nearest polygon on the line, as a hit (its
-	// Fraction in units along the line, Filed set)
-	void TraceFiledMovers(const dvec3& origin, const dvec3& dirNormalized, double tmax, bool visibilityOnly, CollisionHitList& hits);
+	// The BSP a line walks: the level's with the movers filed into it, or
+	// the level's own with no tracker (a dedicated server); and its root's
+	// side
+	const Array<BspNode>& LineNodes() const;
+	bool LineRootOutside() const;
+	// A node's surface in that BSP: the level's own, or a filed polygon's
+	const BspSurface& LineSurface(int index) const;
 	// The flags of the level surface the original files a mover's polygon
 	// under: a hit on it gives them, and the polygon draws with them
 	static uint32_t FiledFlags(UMover* mover, const Poly& poly);
@@ -285,17 +255,9 @@ private:
 	// The actors whose collision boxes reach each cell
 	const Array<UActor*>& FindCell(uint32_t id) const { return ActorCells.Find(id); }
 
-	void File(UMover* mover, FiledMover& filed);
-	void AddFiledToCells(FiledMover* filed);
-	void RemoveFiledFromCells(FiledMover* filed);
-	template<typename Visit> bool VisitFiledOnRay(const vec3& from, const vec3& to, Visit&& visit);
-	static bool FiledPolyHit(const FiledMoverPoly& poly, const dvec3& from, const dvec3& delta, double& t);
-
 	ULevel* Level = nullptr;
 	CellTable<UActor*> ActorCells;
-	Array<std::unique_ptr<FiledMover>> Filed;
-	CellTable<FiledMover*> FiledCells;
-	int FiledCheckCounter = 0;
+	BrushTracker Tracker;
 
 	friend class CollisionTester;
 };

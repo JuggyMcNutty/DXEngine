@@ -477,8 +477,8 @@ bool TraceTextureIterator::Next()
 
 	// Every hit, in turn. A hit on the level gives the texture of the
 	// surface hit, its group (the texture's outer) and the surface's
-	// PolyFlags -- a filed mover's polygon's, where the hit is one
-	// (CollisionSystem, filed movers) --; an actor, no texture and flags 0.
+	// PolyFlags -- a filed mover's polygon's, where the node met is one
+	// (BrushTracker) --; an actor, no texture and flags 0.
 	*OutActor = hit.Actor;
 	*HitLoc = HitLocationOf(Start, End, hit.Fraction);
 	*HitNorm = hit.Normal;
@@ -490,15 +490,9 @@ bool TraceTextureIterator::Next()
 		// gives it -- the head of the plane's coplanar nodes -- not the
 		// polygon of them it crossed.
 		const BspNode* node = hit.NodeHead ? hit.NodeHead : hit.Node;
-		const BspSurface& surface = engine->Level->Model->Surfaces[node->Surf];
+		const BspSurface& surface = engine->Level->Collision.LineSurface(node->Surf);
 		texture = surface.Material;
 		*flags = surface.PolyFlags;
-	}
-	else if (hit.Actor == engine->LevelInfo && hit.FiledPoly)
-	{
-		// The filed polygon's surface, as the node the original files has it
-		texture = hit.FiledPoly->Texture;
-		*flags = hit.FiledPoly->PolyFlags;
 	}
 	*TexName = texture ? texture->Name : NameString();
 	if (texture && texture->Outer())

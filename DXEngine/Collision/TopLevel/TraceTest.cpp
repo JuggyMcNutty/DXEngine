@@ -46,15 +46,17 @@ CollisionHitList TraceTester::Trace(const vec3& from, const vec3& to, float heig
 	{
 		if (radius == 0.0 && height == 0.0)
 		{
-			// Deus Ex's line is the original's walk down the level's BSP
-			// (UModel::LineCheck; dx-reverse-info engine-dll.md, traces):
-			// one hit, where the line enters solid space -- at its start
-			// when that is in solid -- with the plane of the node crossed
-			// there, turned to face the start, and that node's surface; a
-			// polygon with empty space on both sides stops nothing.
+			// Deus Ex's line is the original's walk down the level's BSP,
+			// the movers filed into it (UModel::LineCheck; dx-reverse-info
+			// engine-dll.md, traces): one hit, where the line enters solid
+			// space -- at its start when that is in solid -- with the plane
+			// of the node crossed there, turned to face the start, and that
+			// node's surface; a polygon with empty space on both sides
+			// stops nothing.
 			double fraction;
 			BspNode* crossed;
-			if (TraceRayModel::WalkSolid(GetLevel()->Model, origin, origin + direction * tmax, visibilityOnly ? NF_NotVisBlocking : 0, fraction, crossed))
+			CollisionSystem& collision = GetLevel()->Collision;
+			if (TraceRayModel::WalkSolid(collision.LineNodes(), collision.LineRootOutside(), origin, origin + direction * tmax, visibilityOnly ? NF_NotVisBlocking : 0, fraction, crossed))
 			{
 				CollisionHit hit = { (float)(fraction * tmax), vec3(crossed->PlaneX, crossed->PlaneY, crossed->PlaneZ), nullptr, crossed, crossed };
 				if (dot(to_dvec3(hit.Normal), direction) > 0.0)
@@ -62,9 +64,6 @@ CollisionHitList TraceTester::Trace(const vec3& from, const vec3& to, float heig
 				hits.push_back(hit);
 			}
 
-			// Deus Ex's line meets the movers where the BSP filed them too,
-			// the hits the level's (CollisionSystem, filed movers)
-			GetLevel()->Collision.TraceFiledMovers(origin, direction, tmax, visibilityOnly, hits);
 		}
 		else
 		{
@@ -136,9 +135,14 @@ CollisionHitList TraceTester::Trace(const vec3& from, const vec3& to, float heig
 				continue;
 			if (hit.Node)
 			{
-				// A brush: its hit backed off, none at the cut line's end or past it
+				// A brush: its hit backed off, none at the cut line's end or
+				// past it but one at its start, in the brush's solid: the
+				// original's check along a line the level cut to nothing,
+				// its start in solid, still meets that brush (a door's leaf
+				// traced from inside it, the door filed in the BSP too:
+				// DoorConsole)
 				dist = std::max((double)hit.Fraction - brushBackoff, 0.0);
-				if (dist >= cutLen)
+				if (dist >= cutLen && hit.Fraction > 0.0f)
 					continue;
 			}
 			else
@@ -291,14 +295,13 @@ bool TraceTester::TraceAnyHit(vec3 from, vec3 to, UActor* tracingActor, bool tra
 	if (traceWorld)
 	{
 		// Deus Ex's is the original's FastLineCheck: its walk down the
-		// level's BSP, blocked by any solid leaf the segment touches, the
-		// start's included; the movers where the BSP filed them besides --
-		// their invisible and portal polygons too, as the walk is stopped by
-		// a node that does not block visibility (engine-dll.md, FastTrace),
+		// level's BSP, the movers filed into it, blocked by any solid leaf
+		// the segment touches, the start's included -- behind a mover's
+		// invisible and portal polygons too, as the walk is stopped by a
+		// node that does not block visibility (engine-dll.md, FastTrace),
 		// so a mesh light's shadow line passes neither
-		if (GetLevel()->Collision.FiledMoversBlock(from, to, false))
-			return true;
-		return !TraceRayModel::FastWalk(GetLevel()->Model, to_dvec3(from), to_dvec3(to));
+		CollisionSystem& collision = GetLevel()->Collision;
+		return !TraceRayModel::FastWalk(collision.LineNodes(), collision.LineRootOutside(), to_dvec3(from), to_dvec3(to));
 	}
 
 	return false;
@@ -331,13 +334,12 @@ bool TraceTester::SightBlocked(const vec3& from, const vec3& to, const std::func
 	if (actorBlocks)
 		return true;
 
-	// Deus Ex's BSP holds the movers where it filed them, and the level's
-	// part is the original's walk with the NF_NotVisBlocking nodes passed
-	if (GetLevel()->Collision.FiledMoversBlock(from, to, true))
-		return true;
+	// Deus Ex's BSP holds the movers where it filed them, the original's
+	// walk down it with the NF_NotVisBlocking nodes passed
 	double fraction;
 	BspNode* crossed;
-	return TraceRayModel::WalkSolid(GetLevel()->Model, to_dvec3(from), to_dvec3(to), NF_NotVisBlocking, fraction, crossed);
+	CollisionSystem& collision = GetLevel()->Collision;
+	return TraceRayModel::WalkSolid(collision.LineNodes(), collision.LineRootOutside(), to_dvec3(from), to_dvec3(to), NF_NotVisBlocking, fraction, crossed);
 }
 
 // The hit lies on the cylinder the trace actually swept against: the actor's cylinder grown by the

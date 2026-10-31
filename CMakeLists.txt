@@ -710,6 +710,8 @@ set(DXCOMMON_SOURCES
 	DXEngine/Network/NetSerialize.h
 	DXEngine/Network/NetServer.cpp
 	DXEngine/Network/NetServer.h
+	DXEngine/Collision/TopLevel/BrushTracker.cpp
+	DXEngine/Collision/TopLevel/BrushTracker.h
 	DXEngine/Collision/TopLevel/CollisionSystem.cpp
 	DXEngine/Collision/TopLevel/CollisionSystem.h
 	DXEngine/Collision/TopLevel/CollisionHit.h

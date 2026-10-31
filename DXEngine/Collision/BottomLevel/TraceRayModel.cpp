@@ -35,7 +35,7 @@ namespace
 {
 	struct SolidWalk
 	{
-		UModel* Model;
+		const Array<BspNode>* Nodes;
 		uint8_t Extra;
 		bool WasOutside = false;
 		double Fraction = 0.0;
@@ -66,7 +66,7 @@ namespace
 					}
 					return true;
 				}
-				const BspNode& node = Model->Nodes[iNode];
+				const BspNode& node = (*Nodes)[iNode];
 				dvec4 plane = { node.PlaneX, node.PlaneY, node.PlaneZ, -node.PlaneW };
 				double d0 = dot(dvec4(start, 1.0), plane);
 				double d1 = dot(dvec4(end, 1.0), plane);
@@ -98,11 +98,11 @@ namespace
 		}
 	};
 
-	bool FastWalkNode(UModel* model, int iNode, dvec3 start, dvec3 end, bool outside)
+	bool FastWalkNode(const Array<BspNode>& nodes, int iNode, dvec3 start, dvec3 end, bool outside)
 	{
 		while (iNode >= 0)
 		{
-			const BspNode& node = model->Nodes[iNode];
+			const BspNode& node = nodes[iNode];
 			dvec4 plane = { node.PlaneX, node.PlaneY, node.PlaneZ, -node.PlaneW };
 			double d0 = dot(dvec4(start, 1.0), plane);
 			double d1 = dot(dvec4(end, 1.0), plane);
@@ -112,7 +112,7 @@ namespace
 			if (g0 != g1)
 			{
 				dvec3 mid = start + (end - start) * (d0 / (d0 - d1));
-				if (!FastWalkNode(model, g1 ? node.Front : node.Back, mid, end, notCsg ? outside : g1))
+				if (!FastWalkNode(nodes, g1 ? node.Front : node.Back, mid, end, notCsg ? outside : g1))
 					return false;
 				end = mid;
 			}
@@ -126,48 +126,35 @@ namespace
 bool TraceRayModel::WalkSolid(UModel* model, const dvec3& start, const dvec3& end, uint8_t extraNodeFlags, double& fraction, BspNode*& crossed)
 {
 	// A model with no BSP answers every check with no hit, as the original's
-	if (!model || model->Nodes.empty())
+	if (!model)
 		return false;
-	SolidWalk walk{ model, extraNodeFlags };
-	if (walk.Walk(0, 0, start, end, 0.0, 1.0, model->RootOutside != 0))
+	return WalkSolid(model->Nodes, model->RootOutside != 0, start, end, extraNodeFlags, fraction, crossed);
+}
+
+bool TraceRayModel::WalkSolid(const Array<BspNode>& nodes, bool rootOutside, const dvec3& start, const dvec3& end, uint8_t extraNodeFlags, double& fraction, BspNode*& crossed)
+{
+	if (nodes.empty())
+		return false;
+	SolidWalk walk{ &nodes, extraNodeFlags };
+	if (walk.Walk(0, 0, start, end, 0.0, 1.0, rootOutside))
 		return false;
 	fraction = walk.Fraction;
-	crossed = &model->Nodes[walk.Node];
+	crossed = const_cast<BspNode*>(&nodes[walk.Node]);
 	return true;
 }
 
 bool TraceRayModel::FastWalk(UModel* model, const dvec3& start, const dvec3& end)
 {
-	if (!model || model->Nodes.empty())
+	if (!model)
 		return true;
-	return FastWalkNode(model, 0, start, end, model->RootOutside != 0);
+	return FastWalk(model->Nodes, model->RootOutside != 0, start, end);
 }
 
-BspNode* TraceRayModel::CoplanarNode(UModel* model, const dvec3& point, const dvec3& start, const dvec3& end)
+bool TraceRayModel::FastWalk(const Array<BspNode>& nodes, bool rootOutside, const dvec3& start, const dvec3& end)
 {
-	if (!model || model->Nodes.empty())
-		return nullptr;
-	int iNode = 0;
-	while (iNode >= 0)
-	{
-		BspNode& node = model->Nodes[iNode];
-		dvec4 plane = { node.PlaneX, node.PlaneY, node.PlaneZ, -node.PlaneW };
-		double d = dot(dvec4(point, 1.0), plane);
-		double dEnd = dot(dvec4(end, 1.0), plane);
-		bool onPlane = d > -0.001 && d < 0.001;
-		if (onPlane)
-		{
-			double dStart = dot(dvec4(start, 1.0), plane);
-			bool csg = node.NumVertices > 0 && (node.NodeFlags & (NF_NotCsg | NF_IsNew)) == 0;
-			if (csg && ((dStart >= 0.001 && dEnd <= -0.001) || (dStart <= -0.001 && dEnd >= 0.001)))
-				return &node;
-		}
-		// The side the walk takes for a segment starting here: in front when
-		// both ends are, else behind
-		bool front = onPlane ? dEnd > -0.001 : d > 0.0;
-		iNode = front ? node.Front : node.Back;
-	}
-	return nullptr;
+	if (nodes.empty())
+		return true;
+	return FastWalkNode(nodes, 0, start, end, rootOutside);
 }
 
 // The traversal handed both children of a plane the whole segment whenever it

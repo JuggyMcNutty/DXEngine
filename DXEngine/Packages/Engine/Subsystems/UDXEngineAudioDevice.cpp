@@ -583,14 +583,12 @@ void UDXEngineAudioDevice::UpdateObstruction(PlayingSound& Playing, float timeSt
 	if (tmax > 0.01)
 	{
 		// The original's mixer asks FastLineCheck, the solid-space walk
-		// (FastWalk, the hearing test's), with the movers filed in the BSP:
-		// a solid brush muffles whatever faces the line crosses, invisible
-		// or portal ones too, and a polygon with open space on both sides
-		// does not. (The visibility walk of the polygons, which passes
-		// NF_NotVisBlocking ones, and the filed movers' test, which passed
-		// invisible polygons, once took the walls' place.)
-		blocked = !TraceRayModel::FastWalk(player->XLevel()->Model, origin, to_dvec3(Playing.Location)) ||
-			player->XLevel()->Collision.FiledMoversBlock(eyes, Playing.Location, false);
+		// (FastWalk, the hearing test's), down the BSP with the movers filed
+		// into it: a solid brush muffles whatever faces the line crosses,
+		// invisible or portal ones too, and a polygon with open space on
+		// both sides does not.
+		CollisionSystem& collision = player->XLevel()->Collision;
+		blocked = !TraceRayModel::FastWalk(collision.LineNodes(), collision.LineRootOutside(), origin, to_dvec3(Playing.Location));
 	}
 
 	if (blocked)

@@ -18,17 +18,15 @@ public:
 	// original's caller passes them (NF_NotVisBlocking for a sight line); bit
 	// 0x10 lets a start in solid pass until the line has been in empty space.
 	static bool WalkSolid(UModel* model, const dvec3& start, const dvec3& end, uint8_t extraNodeFlags, double& fraction, BspNode*& crossed);
+	// The same down a BSP of nodes alone: the level's with the movers filed
+	// into it (BrushTracker)
+	static bool WalkSolid(const Array<BspNode>& nodes, bool rootOutside, const dvec3& start, const dvec3& end, uint8_t extraNodeFlags, double& fraction, BspNode*& crossed);
 
 	// Deus Ex: FastLineCheck's walk: whether the segment stays in empty space
 	// down the BSP, only NF_NotCsg asked, a node's side by the sign bit of the
 	// distance.
 	static bool FastWalk(UModel* model, const dvec3& start, const dvec3& end);
-
-	// Deus Ex: the shallowest solid-boundary node on the way down to a point
-	// of the line from start to end whose plane holds the point, within a
-	// thousandth, and parts the line's ends: the node the original's walk
-	// crosses there (a filed mover's polygon in that plane is met as it).
-	static BspNode* CoplanarNode(UModel* model, const dvec3& point, const dvec3& start, const dvec3& end);
+	static bool FastWalk(const Array<BspNode>& nodes, bool rootOutside, const dvec3& start, const dvec3& end);
 
 private:
 	void Trace(const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, bool visibilityOnly, BspNode* node, CollisionHitList& hits, double t0, double t1);

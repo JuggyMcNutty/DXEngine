@@ -98,7 +98,8 @@ void UPawn::DeusExPhysFlying(float deltaTime)
 }
 
 // The texture of the level's surface a line meets first (the world and
-// movers, flags 6): none for a mover (0x103ccb70).
+// movers, flags 6), a filed mover's polygon's where the node met is one
+// (BrushTracker): none for a mover met as an actor (0x103ccb70).
 UTexture* UPawn::DeusExLineTexture(const vec3& start, const vec3& end, CollisionHit& hit, vec3& hitLocation)
 {
 	TraceFlags world;
@@ -109,7 +110,7 @@ UTexture* UPawn::DeusExLineTexture(const vec3& start, const vec3& end, Collision
 	if (!hit.Actor || !hit.Node || !UObject::TryCast<ULevelInfo>(hit.Actor))
 		return nullptr;
 	const BspNode* node = hit.NodeHead ? hit.NodeHead : hit.Node;
-	return XLevel()->Model->Surfaces[node->Surf].Material;
+	return XLevel()->Collision.LineSurface(node->Surf).Material;
 }
 
 // The ladder probe (0x103ccc40): lines 2 x the radius long from 0.95 of the

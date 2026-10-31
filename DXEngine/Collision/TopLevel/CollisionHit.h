@@ -4,7 +4,6 @@
 
 class UActor;
 class BspNode;
-struct FiledMoverPoly;
 
 class CollisionHit
 {
@@ -17,12 +16,6 @@ public:
 	UActor* Actor = nullptr;
 	BspNode* Node = nullptr;
 	BspNode* NodeHead = nullptr;
-
-	// Deus Ex: a mover where the level's BSP filed it, the level's hit
-	// (CollisionSystem, filed movers); the polygon met, for its texture, when
-	// no node of the level's own takes the hit
-	bool Filed = false;
-	const FiledMoverPoly* FiledPoly = nullptr;
 };
 
 class CollisionHitList

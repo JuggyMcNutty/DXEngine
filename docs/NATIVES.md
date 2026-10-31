@@ -1475,10 +1475,11 @@ Every other native the scripted runs compare matches the original
   place and rotation (a mover mirrored on an axis tests the actor's box by
   its scale's size, as the traces take the scale), what it meets pushed by
   its move first, and moved and turned at once. A hinged door crushes a
-  crate in its swing (`DoorConsole`
-  on UNATCO HQ: 0.2 s into the close in DXEngine, 0.3 s in the original's,
-  the crate coming to rest 10 units from where the original's does;
-  bugs.md PHYS.7).
+  crate in its swing, the crate's spawn fitting it where the original's
+  does, but later into the close: the original's is gone by yaw 14,680,
+  0.3 s in, in six runs, DXEngine's still there at 14,601 and gone 0.1 s
+  later (`DoorConsole` on UNATCO HQ: the crate placed at -875.4, 362.6 in
+  both engines; bugs.md PHYS.7).
 - **The movers in a line's way**: a line meets each mover where the level's
   BSP last filed it
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)),
@@ -1495,21 +1496,29 @@ Every other native the scripted runs compare matches the original
   clear at both its places). `FastTrace` and the checks on
   its line (`LineOfSightTo`, hearing, the reach tests and path searches, the
   visible-actor iterators, network relevance, mesh lights' shadows, the AI's
-  sight and the mixer's walls, [sound](#sound)) meet the filed polygons, a
-  line's `Trace` and the multi-hit check meet them as the level's -- a
-  polygon in the plane of a node of the level's own as that node, the
-  texture and flags given those of the first polygon filed in the plane,
-  the flags of the surface the original files it under: the polygon's
-  without the editor's own (`PF_NoAddToBSP`), with `PF_SpecialLit` for a
-  `bSpecialLit` mover, as it draws -- and a box meets none (`MoverConsole`
-  on Liberty Island and DXMP_Silo: a door made not to collide, then hidden
-  and moved, then saved; a window broken, at once and a frame on;
-  `VisibleConsole` there; `GlassConsole` on WanChai's club glass: 33 in
-  both, its polygon's own flags carrying the editor's processed bit too).
-  Not carried: the refiling of the movers filed under one filed again,
-  which the original files again wherever they are; and the polygons are
-  filed whole, where the original's tree drops what lands in solid, which
-  no line in the open meets (bugs.md PHYS.10).
+  sight and the mixer's walls, [sound](#sound)) meet them as the original's
+  do: the movers' polygons filed into the level's BSP as the original's
+  tracker files them, each split down the tree, a fragment in empty space a
+  node of its own, the space behind it solid within its leaf, and one in
+  solid dropped, one in a node's plane hung at the end of that plane's
+  chain; a mover filed again takes the movers filed under it with it, the
+  last filed first. A line's `Trace` and the multi-hit check meet them as
+  the level's: the node the line meets, its plane, and the surface the
+  original files a polygon under -- the polygon's flags without the
+  editor's own (`PF_NoAddToBSP`), with `PF_SpecialLit` for a `bSpecialLit`
+  mover, as it draws --, a polygon in the plane of the level's own node met
+  as that node; and a box meets none. A brush whose solid holds a line's
+  start still meets the line when the level's BSP holds the start too and
+  cuts the line to nothing, as the original's actors are checked along the
+  line cut so (`MoverConsole` on Liberty Island and DXMP_Silo: a door made
+  not to collide, then hidden and moved, then saved; a window broken, at
+  once and a frame on; `VisibleConsole` there and on UNATCO HQ, the mover
+  lines alike but PHYS.8's ties and a few of a float's step: 14 of 377 on
+  DXMP_Silo, 1 of 133 on the island, 6 of 177 on UNATCO HQ, where DXEngine
+  had 29, 2 and 34 with the polygons kept beside the BSP; `DoorConsole`:
+  the door's leaf found from inside it; `GlassConsole` on WanChai's club
+  glass: 33 in both, its polygon's own flags carrying the editor's
+  processed bit too).
 - **Auto-aim's targets** (`AimConsole`): `PickTarget` takes a live
   projectile-target pawn ahead, nearer than 2000 units, whose aim is
   strictly the best so far and in sight, `PickAnyTarget` such an actor that
@@ -1716,12 +1725,8 @@ Differs:
   are the level in the original (a door turned a quarter turn in the plane
   of the wall round its doorway, its normal a bit off the wall's through the
   sine table, so not set before it) and `DeusExMover8`'s reversed line the
-  level too; DXEngine answers the mover for all three (bugs.md PHYS.8).
-- **The filed polygons** are an overlay on the level's BSP, not nodes in
-  it: a start inside a filed mover's own solid is not in solid to DXEngine,
-  and `TraceTexture` on `DeusExMover26`'s line gives the flags of the
-  polygon DXEngine crossed, `PF_Invisible | PF_Semisolid`, where the
-  original's filed node has 0 (PHYS.9).
+  level too, and on UNATCO HQ `DeusExMover15`'s; DXEngine answers the mover
+  for all four (bugs.md PHYS.8).
 - **`DeusExPlayer.GetDeusExVersion`**: DXEngine's own string (D.11), so
   a player can tell which engine they run
   ([the version](ENGINE.md#running-on-our-devices)). The original's is "Mon
