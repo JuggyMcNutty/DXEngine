@@ -666,10 +666,16 @@ level's time. `LightConsole`, shooting both engines at one moment of it
 (`ShotAt`), has 06_HongKong_WanChai_Canal's disco `Light343`,
 02_NYC_BatteryPark's cylinder `Light81` and 09_NYC_ShipBelow's slow wave
 `Light16` within 0.99 to 1.01 of `D3DDrv`'s frames, correlated at up to
-0.997, 0.998 and 0.98 (`NoDetail`). The rest are the reading's alone: the
-stock views of the searchlight, non-incidence and the rotor come out the
-same under other shapes too, and no stock light shows a fast wave
-(99_Endgame2's one is dark), shock, shell or interference (bugs.md REN.23).
+0.997, 0.998 and 0.98 (`NoDetail`). The rest, whose stock views come out
+the same under other shapes (the searchlight, non-incidence, the rotor) or
+which no stock light shows (fast wave, shock, shell, interference), with
+`Spawn`: a lamp of each made 64 units over Liberty Island's dock, the dock
+alone in the view, `D3DDrv`'s frames correlated with DXEngine's at 0.993
+(the searchlight) to 0.999, RMSE under 1. `D3DDrv` holds that lamp's map at
+the frame it was first lit, 6.02 s into the level (bugs.md D.31), so
+DXEngine's is shot a whole number of each shape's periods on (`ShotAt`);
+through `OpenGLDrv`, which shows them changing, each at one moment of both
+at 0.96 to 0.98, as its frame of non-incidence, which holds still, is.
 DXEngine's own, by choice where no ID is named:
 
 - **Light maps**

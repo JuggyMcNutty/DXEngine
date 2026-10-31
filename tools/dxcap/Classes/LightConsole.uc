@@ -24,7 +24,13 @@
 // texture, which no stock texture has (docs/NATIVES.md, mods). With NoDetail
 // the detail textures are turned off first, as MeshConsole's NoDetail turns
 // them off: the original under Wine draws none (docs/NATIVES.md, the menus'
-// settings).
+// settings). With Spawn no light of the map is chosen: a CapLamp is made
+// with the Effect, its period 32, phase 0, cone 128 and radius 12, Spawn
+// units above the floor 128 units ahead of where the player stands, for an
+// effect no stock light shows, and the view put View units (300 by default)
+// over that spot, looking straight down; SpawnAt the seconds of the map it
+// waits for first (6 by default), SpawnType its LightType (1, LT_Steady, by
+// default).
 //=============================================================================
 class LightConsole extends Console;
 
@@ -37,6 +43,9 @@ var config float View;
 var config float ShotAt;
 var config bool Macro;
 var config bool NoDetail;
+var config float Spawn;
+var config float SpawnAt;
+var config byte SpawnType;
 var bool bMacroOn;
 
 var string CurrentMap;
@@ -222,6 +231,59 @@ function MacroOnItself(PlayerPawn P)
 	Log("DXLIGHT: macro texture " $ T $ " on itself");
 }
 
+// Every light reaching the spot.
+function LogReaching(PlayerPawn P)
+{
+	local Actor T;
+
+	foreach P.AllActors(class'Actor', T)
+		if (T.LightType != LT_None && VSize(T.Location - Spot) < Radius(T))
+			Log("DXLIGHT: reaching the spot " $ T.Name $ " type " $ int(T.LightType) $ " effect " $ int(T.LightEffect)
+				$ " brightness " $ T.LightBrightness $ " radius " $ T.LightRadius $ " hue " $ T.LightHue $ " saturation " $ T.LightSaturation
+				$ " period " $ T.LightPeriod $ " phase " $ T.LightPhase $ " static " $ T.bStatic $ " " $ VSize(T.Location - Spot) $ " away");
+}
+
+// A light of the Effect made over the floor ahead of the player.
+function SpawnLight(PlayerPawn P)
+{
+	local vector Ahead, HitLocation, HitNormal;
+	local rotator Facing;
+	local float Dist;
+
+	Facing.Yaw = P.Rotation.Yaw;
+	Ahead = P.Location + 128 * vector(Facing);
+	if (P.Trace(HitLocation, HitNormal, Ahead - vect(0,0,1000), Ahead, false) == None)
+	{
+		Log("DXLIGHT: no floor below " $ Ahead);
+		return;
+	}
+	Spot = HitLocation;
+	SpotNormal = HitNormal;
+	Chosen = P.Spawn(class'CapLamp',,, Spot + SpotNormal * Spawn, rot(-16384,0,0));
+	if (Chosen == None)
+	{
+		Log("DXLIGHT: no room for the light over " $ Spot);
+		return;
+	}
+	// An enum takes no byte: the effect by its name
+	Chosen.SetPropertyText("LightEffect", string(GetEnum(enum'ELightEffect', Effect)));
+	if (SpawnType != 0)
+		Chosen.SetPropertyText("LightType", string(GetEnum(enum'ELightType', SpawnType)));
+	Chosen.LightPeriod = 32;
+	Chosen.LightPhase = 0;
+	Chosen.LightCone = 128;
+	Chosen.LightRadius = 12;
+	Dist = View;
+	if (Dist <= 0)
+		Dist = 300;
+	if (P.Trace(HitLocation, HitNormal, Spot + SpotNormal * Dist, Spot + SpotNormal * 2, false) != None)
+		Dist = FMax(VSize(HitLocation - Spot) - 8, 16);
+	Eye = Spot + SpotNormal * Dist;
+	LogReaching(P);
+	Log("DXLIGHT: made " $ Chosen.Name $ " type " $ int(Chosen.LightType) $ " effect " $ int(Chosen.LightEffect) $ " at " $ Chosen.Location $ " spot " $ Spot
+		$ " normal " $ SpotNormal $ " view distance " $ Dist);
+}
+
 // The candidates in name order; the Pick-th made the one shot.
 function Choose(PlayerPawn P)
 {
@@ -279,11 +341,7 @@ function Choose(PlayerPawn P)
 	if (P.Trace(HitLocation, HitNormal, Spot + SpotNormal * Dist, Spot + SpotNormal * 2, false) != None)
 		Dist = FMax(VSize(HitLocation - Spot) - 8, 16);
 	Eye = Spot + SpotNormal * Dist;
-	foreach P.AllActors(class'Actor', T)
-		if (T.LightType != LT_None && VSize(T.Location - Spot) < Radius(T))
-			Log("DXLIGHT: reaching the spot " $ T.Name $ " type " $ int(T.LightType) $ " effect " $ int(T.LightEffect)
-				$ " brightness " $ T.LightBrightness $ " radius " $ T.LightRadius $ " hue " $ T.LightHue $ " saturation " $ T.LightSaturation
-				$ " period " $ T.LightPeriod $ " phase " $ T.LightPhase $ " static " $ T.bStatic $ " " $ VSize(T.Location - Spot) $ " away");
+	LogReaching(P);
 	Log("DXLIGHT: chosen " $ Chosen.Name $ " spot " $ Spot $ " normal " $ SpotNormal $ " axis " $ Axis(Chosen)
 		$ " axis to normal " $ (-Axis(Chosen) dot SpotNormal) $ " view distance " $ Dist);
 }
@@ -350,9 +408,12 @@ event Tick(float Delta)
 			P.ConsoleCommand("exit");
 			Phase = 9;
 		}
-		else if (MapTime > 6.0 && DXP != None)
+		else if (MapTime > FMax(SpawnAt, 6.0) && DXP != None)
 		{
-			Choose(P);
+			if (Spawn > 0)
+				SpawnLight(P);
+			else
+				Choose(P);
 			if (Chosen == None)
 			{
 				P.ConsoleCommand("exit");
