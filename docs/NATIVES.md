@@ -1618,8 +1618,10 @@ Every other native the scripted runs compare matches the original
   owner, turned with it or against its velocity, straight up when it has
   none.
 - **Water**: falls in it (`FloatConsole`: a buoyant crate rises and bobs at
-  the surface at the original's speeds, but comes to rest there some 6 s
-  in, where the original's bobs on: bugs.md PHYS.16) and swimming (`SwimConsole`: the
+  the surface at the original's speeds, and now and then comes to rest just
+  under it in both engines: Engine.u's `Decoration.ZoneChange` stops one
+  that falls slowly back in where no player sees it, one time in twenty)
+  and swimming (`SwimConsole`: the
   player and a troop falling or thrown into water are put back at the water
   line and swim on, the player stopped as its head goes under and held to
   0.3 of `WaterSpeed`, as it walks whenever it swims; up out of the water it
