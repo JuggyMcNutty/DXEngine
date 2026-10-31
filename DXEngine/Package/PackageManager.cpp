@@ -450,6 +450,13 @@ std::string PackageManager::GetCachedPackagePath(const std::string& guid) const
 	return (gameCacheFolderPath / (guid + ext)).string();
 }
 
+std::string PackageManager::GetCacheDownloadPath(const std::string& guid) const
+{
+	if (!IsPackageGuid(guid))
+		return {};
+	return (gameCacheFolderPath / (guid + ".uxx")).string();
+}
+
 std::string PackageManager::ReadPackageGuid(const std::string& path)
 {
 	std::ifstream file(path, std::ios::binary);

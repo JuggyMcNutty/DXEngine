@@ -149,7 +149,18 @@ bool NetPendingLevel::VerifyPackages(std::string& error)
 		if (engine->packages->IsPackageLoaded(package.Name))
 			guid = engine->packages->GetPackage(package.Name)->GetGuidString();
 		else
-			guid = PackageManager::ReadPackageGuid(engine->packages->FindPackageFile(package.Name, package.Guid));
+		{
+			// None to be found fails as the original's load does (Core's
+			// PackageNotFound, logged as a failed load)
+			std::string file = engine->packages->FindPackageFile(package.Name, package.Guid);
+			if (file.empty())
+			{
+				error = LocalizeMessage("Core", "Errors", "PackageNotFound", "Can't find file for package '%s'", { package.Name.ToString() });
+				LogMessage("Failed to load '" + package.Name.ToString() + "': " + error);
+				return false;
+			}
+			guid = PackageManager::ReadPackageGuid(file);
+		}
 		if (!StrTools::equals_ignore_case(guid, package.Guid))
 		{
 			error = LocalizeMessage("Core", "Errors", "PackageVersion", "Package '%s' version mismatch", { package.Name.ToString() });
@@ -343,10 +354,14 @@ void NetPendingLevel::NotifyReceivedFile(NetConnection* connection, int packageI
 		return;
 	}
 
-	// In the cache now, and loaded from there under its name.
+	// In the cache now, and loaded from there under its name where the
+	// search finds it, by CacheExt, as the original's: one written .uxx is
+	// not found where CacheExt names another extension.
 	package.Flags &= ~(uint32_t)PackageFlags::Need;
 	FilesNeeded--;
-	engine->packages->UsePackageFile(package.Name, engine->packages->GetCachedPackagePath(package.Guid));
+	std::string cached = engine->packages->FindPackageFile(package.Name, package.Guid);
+	if (!cached.empty())
+		engine->packages->UsePackageFile(package.Name, cached);
 	ReceiveNextFile(connection);
 }
 

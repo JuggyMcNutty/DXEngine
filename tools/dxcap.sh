@@ -49,6 +49,8 @@
 # and a client opening 7790. DXCAP_STATS=<password> has a run's server log
 # world stats (bWorldLog) and its player hold that world stats password, so a
 # join carries the player's checksum (the server logs the login's URL).
+# DXCAP_CACHEEXT=<ext> gives a run's ini that [Core.System] CacheExt, the
+# extension its download cache looks packages up by.
 # DXCAP_SERVERPKGS=<dir> has a run's server find packages in <dir> too, each
 # named in its ServerPackages, so that a client, whose paths lack <dir>,
 # downloads them.
@@ -450,6 +452,9 @@ if n == 0:
 # A run's server listens on DXCAP_PORT's port.
 if os.environ.get('DXCAP_PORT'):
     put('Port', os.environ['DXCAP_PORT'])
+# A run's download cache names its packages by DXCAP_CACHEEXT's extension.
+if os.environ.get('DXCAP_CACHEEXT'):
+    put('CacheExt', os.environ['DXCAP_CACHEEXT'])
 # A run's server offers the packages of DXCAP_SERVERPKGS's folder, found
 # there by its paths.
 serverpkgs = os.environ.get('DXCAP_SERVERPKGS', '')

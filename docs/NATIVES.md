@@ -2168,9 +2168,13 @@ settles it; bugs.md NET.6). The server-only stubs are under
   network from (a UDP socket's local end toward 8.8.8.8; 127.0.0.1 with no
   route; bugs.md D.13), where the original answers the first address of the
   machine's own name, on Linux often a loopback address.
-- **The download cache.** A package is cached as its GUID with `CacheExt`,
-  where the original writes `.uxx` whatever `CacheExt` says (the game's ini
-  names `.uxx`; bugs.md NET.5). A package a join loaded from the cache is let go by name at
+- **The download cache.** A download is written as its GUID and `.uxx`
+  whatever `CacheExt` says, and found by its GUID and `CacheExt`, as the
+  original's: with another extension there it is not found, the join failing
+  with `Can't find file for package '<name>'` (`JoinConsole` downloading a
+  package from the original's server with `DXCAP_CACHEEXT=.ucx`: `<GUID>.uxx`
+  written and the join failing so in both engines; with the game's `.uxx` the
+  join goes on). A package a join loaded from the cache is let go by name at
   the next map load that does not use it, and that load's collection frees
   what nothing uses of it but its code, which stays loaded, by choice, where
   the original's collects it all

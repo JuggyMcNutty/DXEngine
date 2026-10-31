@@ -443,8 +443,9 @@ void NetFileChannel::CleanUp()
 	if (!OpenedLocally)
 		return;
 
-	// The client: the whole file, moved into the cache under its GUID; or
-	// why not, the server having sent nothing, too little or too much.
+	// The client: the whole file, moved into the cache under its GUID and
+	// .uxx, whatever CacheExt says, as the original's; or why not, the
+	// server having sent nothing, too little or too much.
 	std::error_code ec;
 	if (Error.empty() && Transferred == 0)
 		Error = LocalizeMessage("Engine", "Errors", "NetRefused", "Server refused to send '%s'", { PackageName });
@@ -452,7 +453,7 @@ void NetFileChannel::CleanUp()
 		Error = LocalizeMessage("Engine", "Errors", "NetSize", "File size mismatch");
 	if (Error.empty())
 	{
-		fs::rename(Filename, engine->packages->GetCachedPackagePath(Guid), ec);
+		fs::rename(Filename, engine->packages->GetCacheDownloadPath(Guid), ec);
 		if (ec)
 			Error = LocalizeMessage("Engine", "Errors", "NetMove", "Error moving file");
 	}
