@@ -454,8 +454,11 @@ brightness, correlated at 0.998); drawn alone, `STY_Normal`, its box is
 magenta in both (32,351 and 32,471 pixels of it). Drawn `STY_Modulated`,
 its box is at 0.96 and within 1% of `D3DDrv`'s brightness. A sprite
 animated once (`DT_SpriteAnimOnce`) shows the frame its life has reached
-and holds the last, as the original's does (no run: the reading settles it;
-bugs.md REN.21).
+and holds the last, as the original's does: `OnceConsole`'s chain of three
+noise frames, its life held at 7.5, 5.6, 4, 3 and 1.5 s and none of its
+class's 8, shows frames 0, 0, 1, 1, 2 and 2 in both engines, each shot
+correlated with `D3DDrv`'s at 1.000 -- at 5.6 and 3 the frame `n × t − ½`
+rounds to, one before the frame `n × t` would.
 Differs:
 
 - **The viewer's `Sprite`** (the Matrix cheat's) stands in for the textures
