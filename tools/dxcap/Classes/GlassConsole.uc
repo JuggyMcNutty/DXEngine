@@ -13,8 +13,9 @@
 // beyond the glass's far face, a quarter of its width to each side, a large
 // crate's mesh and a dark grey square sprite drawn STY_Normal, both unlit
 // and with no collision, and two more; the glass hidden, and two more; the
-// glass shown and broken (BlowItUp, which moves it away), and 5 s on two
-// more, of the crate and the sprite alone. Each shot marked for the
+// glass shown and broken (BlowItUp, which moves it away), or with Destroy
+// destroyed -- asked to be: a mover is bNoDelete, and refuses --, and 5 s
+// on two more, of the crate and the sprite alone. Each shot marked for the
 // original's grabber; then exit. Before the first, what TraceTexture gives
 // along the line from the view through the glass's middle and as far
 // again: each hit's actor, texture, group and flags.
@@ -29,6 +30,7 @@ var config string GlassName;
 var config float View;
 var config float Behind;
 var config bool Flip;
+var config bool Destroy;
 
 var string CurrentMap;
 var float MapTime;
@@ -436,8 +438,13 @@ event Tick(float Delta)
 				if (ShotsTaken == 6)
 				{
 					Glass.bHidden = false;
-					Glass.BlowItUp(P);
-					Log("DXGLASS: glass broken, now at " $ Glass.Location);
+					if (Destroy)
+						Log("DXGLASS: glass destroyed: " $ Glass.Destroy() $ ", bNoDelete " $ Glass.bNoDelete);
+					else
+					{
+						Glass.BlowItUp(P);
+						Log("DXGLASS: glass broken, now at " $ Glass.Location);
+					}
 					StepTime = -2.0;
 				}
 			}

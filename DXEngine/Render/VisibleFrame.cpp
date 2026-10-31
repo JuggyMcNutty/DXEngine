@@ -93,7 +93,8 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const 
 // A mover's mirror, which the original files with the mover's other polygons
 // into the level's BSP, to open a frame as any mirror there (dx-reverse-info
 // render-dll.md, a frame). A mover is no part of the walk here, so before it
-// each mirrored face of a shown mover becomes a mirror's portal, its spans
+// each mirrored face of a mover where it is drawn -- a filed one hidden too,
+// as its filing stays in the BSP -- becomes a mirror's portal, its spans
 // all of the face the frame shows: the depth test leaves out what lies in
 // front of it. Each face a frame of its own, three frames deep at most; one
 // seen from behind passed over, and a translucent one reflecting only while
@@ -106,7 +107,7 @@ void VisibleFrame::ProcessMoverMirrors()
 	// Only the level's movers with a mirrored face (RenderSubsystem::MirrorMovers)
 	for (UMover* mover : engine->render->MirrorMovers)
 	{
-		if (mover->bDeleteMe() || mover->bHidden() || mover->DrawType() != DT_Brush || !mover->Brush() || !mover->Brush()->Polys)
+		if (mover->bDeleteMe() || (!mover->Filed && mover->bHidden()) || mover->DrawType() != DT_Brush || !mover->Brush() || !mover->Brush()->Polys)
 			continue;
 
 		mat4 toWorld = VisibleBrush::MoverToWorld(mover);

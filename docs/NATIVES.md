@@ -805,9 +805,17 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   the shots within 15 pixels with it and without); the step keeps the
   order whatever a GPU's rounding, by choice. A mover's one-sided polygon seen from
   behind is passed over, as the original's walk passes over a surface. A
-  mover hidden after it is filed stays drawn there in the original, where
-  DXEngine stops drawing it (`GlassConsole`); no stock script hides a
-  mover (REN.16).
+  mover is drawn and lit where the level's BSP last filed it ([the movers in
+  a line's way](#implemented-not-as-the-original)), whatever its flags, as
+  the original's walk draws the polygons its tracker filed: hidden, it stays
+  drawn where it was, its mirror too (`GlassConsole` with
+  05_NYC_UNATCOMJ12lab's `BreakableGlass16` hidden, and with `Flip` the mirror
+  of 06_HongKong_WanChai_Underworld's `BreakableGlass0`: each engine's frames
+  as with it shown). No stock script hides a mover, and no stock map holds one
+  hidden, nor passed over otherwise, at its load. A destroyed one is drawn
+  no more, where the original's stays drawn until
+  the next load or save; the game's movers are `bNoDelete`, and refuse
+  (`GlassConsole` with `Destroy`, in both engines; bugs.md D.30).
 
 ### Fire, water and ice textures
 
@@ -1386,8 +1394,9 @@ Every other native the scripted runs compare matches the original
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)),
   whatever it collides with, hidden or not. A map's load and a save file
   every mover where it is; each frame drawn files again where it is every
-  mover not hidden that has moved or turned since; a destroyed one stays
-  filed until the next load or save. A dedicated server, which has no
+  mover the frame does not pass over, as it passes over a hidden actor,
+  that has moved or turned since, before anything is placed; a destroyed one
+  stays filed until the next load or save. A dedicated server, which has no
   client, files none at its load, as the original's makes no tracker
   without one: `FastTrace` and the checks on its line pass its movers, a
   `Trace` meeting a colliding one only as an actor (`MoverServer` on

@@ -192,7 +192,7 @@ public:
 	// frame again where a shown one has moved or turned since; a destroyed
 	// one stays filed.
 	void FileMovers();
-	void RefileMovers();
+	void RefileMovers(const std::function<bool(UMover*)>& shown);
 	void MoverDestroyed(UActor* actor);
 	// Whether a filed mover's polygon crosses the segment: any but a
 	// PF_NotSolid one, and with visibilityOnly not a PF_Invisible or

@@ -13,20 +13,17 @@
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Subsystems/UDXEngineRenderDevice.h"
 
-void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
+bool VisibleActor::PassedOver(UActor* actor, int portalDepth)
 {
-	// Deus Ex coronas come from the viewer's leaf and are kept across
-	// frames (RenderSubsystem::DrawCoronasDX), not gathered here
-
 	if (actor->bHidden())
-		return;
+		return true;
 
 	// A high-detail actor is passed over while the render device's
 	// HighDetailActors is off, as the original's SetupDynamics passes it
 	// (render-dll.md, which actors are drawn); of the game's classes only
 	// Decal sets bHighDetail, and a decal is drawn with its surface
 	if (actor->bHighDetail() && !engine->renderdev->HighDetailActors)
-		return;
+		return true;
 
 	UActor* viewportActor = engine->viewport->Actor();
 	bool isOwnedByViewport = actor->IsOwnedBy(viewportActor);
@@ -41,12 +38,25 @@ void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
 		behindView = pawn->bBehindView();
 
 	if ((behindView || !isOwnedByViewport) && actor->bOnlyOwnerSee())
-		return;
+		return true;
 
 	if (!behindView && isOwnedByViewport && actor->bOwnerNoSee())
-		return;
+		return true;
 
-	if (frame->PortalDepth == 0 && !behindView && actor == engine->CameraActor)
+	return portalDepth == 0 && !behindView && actor == engine->CameraActor;
+}
+
+void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
+{
+	// Deus Ex coronas come from the viewer's leaf and are kept across
+	// frames (RenderSubsystem::DrawCoronasDX), not gathered here
+
+	// A mover filed in the level's BSP is drawn there whatever its flags,
+	// hidden too: the original's walk draws the polygons its tracker filed
+	// as the level's own, their refiling alone waiting on the tests
+	// (CollisionSystem::RefileMovers; render-dll.md, which actors are drawn)
+	UMover* mover = UObject::TryCast<UMover>(actor);
+	if (!(mover && mover->Filed) && PassedOver(actor, frame->PortalDepth))
 		return;
 
 	// Behind a mirror, or before a warp zone's portal, nothing shows in its
@@ -115,7 +125,7 @@ void VisibleActor::DrawOpaque(VisibleFrame* frame)
 		VisibleBrush visbrush;
 		if (visbrush.Draw(frame, Actor, false))
 		{
-			vec3 v = Actor->Location() - frame->ViewLocation.xyz();
+			vec3 v = UObject::Cast<UMover>(Actor)->DrawnLocation() - frame->ViewLocation.xyz();
 			frame->AddTranslucent(VisibleFrame::TranslucentSurfaces, VisibleTranslucent(*this, dot(v, v)));
 		}
 	}

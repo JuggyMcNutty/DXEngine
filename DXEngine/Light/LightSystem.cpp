@@ -4,6 +4,7 @@
 #include "GC/GC.h"
 #include <algorithm>
 #include "Packages/Engine/Actors/UActor.h"
+#include "Packages/Engine/Actors/Brush/UMover.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
@@ -144,7 +145,9 @@ void LightSystem::BeginFrame()
 
 void LightSystem::UpdateLightList(UActor* actor)
 {
-	vec3 location = actor->Location();
+	// A mover's where it is drawn, its filing in the level's BSP
+	UMover* mover = UObject::TryCast<UMover>(actor);
+	vec3 location = mover ? mover->DrawnLocation() : actor->Location();
 
 	if (!actor->TouchingLights.NeedsUpdate && actor->TouchingLights.Location == location)
 		return;

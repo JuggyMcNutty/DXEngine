@@ -15,7 +15,7 @@
 
 mat4 VisibleBrush::MoverToWorld(UMover* mover)
 {
-	return mat4::translate(mover->Location()) * Coords::Rotation(mover->Rotation()).ToMatrix() * mat4::scale(mover->MainScale().Scale) * mat4::translate(-mover->PrePivot());
+	return mover->BrushToWorld();
 }
 
 bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass)

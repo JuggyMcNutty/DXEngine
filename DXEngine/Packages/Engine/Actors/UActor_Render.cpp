@@ -7,6 +7,13 @@
 #include "Packages/Engine/Resources/Mesh/ULodMesh.h"
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 
+// A mover's brush in the world where it is drawn: where the level's BSP
+// filed it, else where it is
+mat4 UMover::BrushToWorld()
+{
+	return mat4::translate(DrawnLocation()) * Coords::Rotation(DrawnRotation()).ToMatrix() * mat4::scale(MainScale().Scale) * mat4::translate(-PrePivot());
+}
+
 void UActor::UpdateBspInfo()
 {
 	// Figure out where the actor is visually located in the world
@@ -35,8 +42,7 @@ void UActor::UpdateBspInfo()
 		UModel* brush = Brush();
 		if (UMover* mover = UObject::TryCast<UMover>(this))
 		{
-			mat4 objectToWorld = mat4::translate(Location()) * Coords::Rotation(Rotation()).ToMatrix() * mat4::scale(mover->MainScale().Scale) * mat4::translate(-PrePivot());
-			bbox = brush->BoundingBox.transform(objectToWorld);
+			bbox = brush->BoundingBox.transform(mover->BrushToWorld());
 		}
 		else
 		{

@@ -6,6 +6,7 @@
 #include "VM/ScriptCall.h"
 #include "Engine.h"
 #include "VisibleFrame.h"
+#include "VisibleActor.h"
 #include "Package/PackageManager.h"
 #include "Packages/Core/UClass.h"
 #include "Packages/Engine/URenderIterator.h"
@@ -28,6 +29,11 @@ void RenderSubsystem::DrawScene()
 
 	engine->Level->Light.BeginFrame();
 
+	// Deus Ex's movers filed again where they are, as the original's
+	// SetupDynamics files each it does not pass over, each frame drawn:
+	// first, a mover being placed and drawn where it is filed
+	engine->Level->Collision.RefileMovers([](UMover* mover) { return !VisibleActor::PassedOver(mover, 0); });
+
 	// Make sure all actors are at the right location in the BSP
 	IteratorActors.clear();
 	// Only where Actor has the render interface properties
@@ -47,10 +53,6 @@ void RenderSubsystem::DrawScene()
 			}
 		}
 	}
-	// And Deus Ex's movers where the level's BSP files them, as the
-	// original's SetupDynamics does each frame drawn
-	engine->Level->Collision.RefileMovers();
-
 	mat4 worldToView = Coords::ViewToRenderDev().ToMatrix() * Coords::Rotation(engine->CameraRotation).Inverse().ToMatrix() * Coords::Location(engine->CameraLocation).ToMatrix();
 	SceneFirstFrame = FrameCounter;
 	MainFrame.Process(engine->CameraLocation, worldToView, Coords::Rotation(engine->CameraRotation));

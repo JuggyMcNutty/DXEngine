@@ -218,15 +218,16 @@ void CollisionSystem::FileMovers()
 	}
 }
 
-// Each frame drawn, every mover not hidden, in view or not, that has moved
-// or turned since it was filed is filed again where it is
-// (Render.dll's SetupDynamics).
-void CollisionSystem::RefileMovers()
+// Each frame drawn, every mover the frame shows -- not hidden, in view or
+// not -- that has moved or turned since it was filed is filed again where
+// it is (Render.dll's SetupDynamics, 0x10b22d90, which hands the tracker
+// each moving brush it does not pass over).
+void CollisionSystem::RefileMovers(const std::function<bool(UMover*)>& shown)
 {
 	for (auto& filed : Filed)
 	{
 		UMover* mover = filed->Mover;
-		if (!mover || mover->bHidden() || (mover->Location() == filed->Location && mover->Rotation() == filed->Rotation))
+		if (!mover || (mover->Location() == filed->Location && mover->Rotation() == filed->Rotation) || !shown(mover))
 			continue;
 		RemoveFiledFromCells(filed.get());
 		File(mover, *filed);
@@ -276,6 +277,7 @@ void CollisionSystem::File(UMover* mover, FiledMover& filed)
 	filed.Rotation = mover->Rotation();
 	mover->SavedPos() = filed.Location;
 	mover->SavedRot() = filed.Rotation;
+	mover->Filed = true;
 	filed.Polys.clear();
 
 	mat4 objectToWorld = mat4::translate(mover->Location()) * Coords::Rotation(mover->Rotation()).ToMatrix() * mat4::scale(mover->MainScale().Scale) * mat4::translate(-mover->PrePivot());

@@ -72,6 +72,16 @@ public:
 	UNavigationPoint*& myMarker() { return Value<UNavigationPoint*>(PropOffsets_Mover.myMarker); }
 	int& numTriggerEvents() { return Value<int>(PropOffsets_Mover.numTriggerEvents); }
 
+	// Filed in the level's BSP (CollisionSystem::File), at SavedPos and
+	// SavedRot: it is drawn and lit there, hidden or not, as the original's
+	// BSP draws the polygons its tracker filed (dx-reverse-info render-dll.md,
+	// which actors are drawn). One not filed -- spawned after the load -- is
+	// drawn where it is.
+	bool Filed = false;
+	const vec3& DrawnLocation() { return Filed ? SavedPos() : Location(); }
+	const Rotator& DrawnRotation() { return Filed ? SavedRot() : Rotation(); }
+	mat4 BrushToWorld();
+
 	// LightSystem info
 	struct
 	{

@@ -19,14 +19,14 @@ TextureInfo LightSystem::GetMoverLightmap(UMover* mover, const Poly& poly, UZone
 	localCoords.YAxis = poly.TextureV;
 	localCoords.ZAxis = poly.Normal;
 
-	// A mover's polygons are lit where the mover is: the original's brush
-	// tracker files them into the level's BSP as surfaces of its own, each
-	// filing moving their bases and axes with the mover, and lights them
-	// there, a static map through the shadows the editor raytraced at its
-	// BrushRaytraceKey (dx-reverse-info's engine-dll.md, the movers in the
+	// A mover's polygons are lit where the level's BSP filed them: the
+	// original's brush tracker files them into the BSP as surfaces of its
+	// own, each filing moving their bases and axes with the mover, and lights
+	// them there, a static map through the shadows the editor raytraced at
+	// its BrushRaytraceKey (dx-reverse-info's engine-dll.md, the movers in the
 	// BSP; render-dll.md, light maps)
 	vec3 scale = mover->MainScale().Scale;
-	mat4 brushToWorld = mat4::translate(mover->Location()) * Coords::Rotation(mover->Rotation()).ToMatrix() * mat4::scale(scale) * mat4::translate(-mover->PrePivot());
+	mat4 brushToWorld = mover->BrushToWorld();
 	mat4 objectToWorld = brushToWorld * localCoords.ToMatrix();
 	Coords worldCoords = Coords::FromMatrix(objectToWorld);
 
@@ -122,12 +122,12 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 		// Built again when the mover moved or turned since, as the
 		// original's is for a mover's surface (render-dll.md, light maps)
 		if (!mover->Light.HasLastTransform ||
-			mover->Light.LastLocation != mover->Location() ||
-			mover->Light.LastRotation != mover->Rotation())
+			mover->Light.LastLocation != mover->DrawnLocation() ||
+			mover->Light.LastRotation != mover->DrawnRotation())
 		{
 			mover->Light.HasLastTransform = true;
-			mover->Light.LastLocation = mover->Location();
-			mover->Light.LastRotation = mover->Rotation();
+			mover->Light.LastLocation = mover->DrawnLocation();
+			mover->Light.LastRotation = mover->DrawnRotation();
 			mover->Light.MovedFrame = FrameCounter;
 		}
 	}

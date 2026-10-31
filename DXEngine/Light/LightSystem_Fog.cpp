@@ -27,9 +27,7 @@ TextureInfo LightSystem::GetMoverFogmap(UMover* mover, const Poly& poly, UZoneIn
 	localCoords.YAxis = poly.TextureV;
 	localCoords.ZAxis = poly.Normal;
 
-	vec3 moverLocation = mover->Location();// mover->BasePos() + mover->KeyPos()[mover->BrushRaytraceKey()];
-	Rotator moverRotation = mover->Rotation();// mover->BaseRot() + mover->KeyRot()[mover->BrushRaytraceKey()];
-	mat4 objectToWorld = mat4::translate(moverLocation) * Coords::Rotation(moverRotation).ToMatrix() * mat4::scale(mover->MainScale().Scale) * mat4::translate(-mover->PrePivot()) * localCoords.ToMatrix();
+	mat4 objectToWorld = mover->BrushToWorld() * localCoords.ToMatrix();
 	Coords worldCoords = Coords::FromMatrix(objectToWorld);
 	return GetFogmap(model, poly.BrushPolyIndex, worldCoords, zoneActor);
 }
