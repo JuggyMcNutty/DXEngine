@@ -1,0 +1,28 @@
+# ResizeConsole's border window dragged, in the root window's
+# coordinates at 1280x720, where it sits at 217,210, 200 by 150: its bottom
+# right corner with the left button, a pixel within its thin border, 50 to
+# the right and 30 down in small moves, then the window by its inside with
+# the right button, 40 to the right and 20 down. Shots of each, the
+# pointer's cursor in them.
+# DXCAP_TIMELINE=<this> tools/dxcap.sh dxe ResizeConsole DX
+start 9 pointer 416 359
+start 9.5 shot
+start 10 press LeftMouse
+start 10.2 pointer 426 365
+start 10.4 pointer 436 371
+start 10.6 pointer 446 377
+start 10.8 pointer 456 383
+start 11 pointer 466 389
+start 11.3 shot
+start 11.6 release LeftMouse
+start 12 shot
+start 12.5 pointer 300 280
+start 13 shot
+start 13.5 press RightMouse
+start 13.7 pointer 310 285
+start 13.9 pointer 320 290
+start 14.1 pointer 330 295
+start 14.3 pointer 340 300
+start 14.6 shot
+start 15 release RightMouse
+start 15.5 shot

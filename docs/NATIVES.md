@@ -962,7 +962,15 @@ from the original's code:
   nor `DrawWindow`. So the cheat screens' tool windows show their title
   bar, labels, list field and buttons (`ToolConsole`'s shot of the EditFlags
   screen, through the original's gamma: within a level of the original's
-  but for the pointer).
+  but for the pointer). With resizing on (`EnableResizing`, which no script
+  of the game turns on), a left press on its border drags the sides it is
+  on, a right press all four, which moves the window; each move asks for
+  the new place and size as `SetConfiguration` does, and the pointer shows
+  the sides' cursor, the window's own or the root's default -- with no
+  drag, the border's under it --, the script's elsewhere, as the original's
+  code has it (`ResizeConsole` with `tools/dxcap/timelines/resize-drags.txt`,
+  DXEngine alone: 200 by 150 made 250 by 180 by its corner, then moved 40
+  by 20; the corner's diagonal cursor, the move one, the arrow inside).
 - **Text from a script** (`EditConsole`): a text window takes no text that
   differs only in case. An edit field's `SetText` replaces its text as
   typing would -- its undo cleared, `TextChanged` announced up its

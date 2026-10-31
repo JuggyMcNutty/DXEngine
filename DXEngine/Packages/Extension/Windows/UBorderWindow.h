@@ -18,6 +18,13 @@ public:
 	void ConfigurationChanged() override;
 	bool ChildRequestedReconfiguration(UWindow* childWin) override;
 	void DrawWindow(UGC* gc) override;
+	bool MouseButtonPressed(float pointX, float pointY, EInputKey button, int numClicks) override;
+	bool MouseButtonReleased(float pointX, float pointY, EInputKey button, int numClicks) override;
+	void MouseMoved(float newX, float newY) override;
+	// The move cursor a resizeable border shows at the point, or while its
+	// drag goes on; none to ask the script, as the original's
+	// CursorRequested does.
+	UTexture* ResizeCursor(float pointX, float pointY);
 
 	float& BottomMargin() { return Value<float>(PropOffsets_BorderWindow.BottomMargin); }
 	float& DragX() { return Value<float>(PropOffsets_BorderWindow.DragX); }

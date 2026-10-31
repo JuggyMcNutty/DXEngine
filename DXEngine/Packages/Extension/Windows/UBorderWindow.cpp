@@ -3,6 +3,7 @@
 #include "UBorderWindow.h"
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 #include "Packages/Extension/Windows/UGC.h"
+#include "Packages/Extension/Windows/TabGroup/URootWindow.h"
 
 // The original's border window (Extension.dll XBorderWindow; dx-reverse-info/
 // extension-dll.md, Border windows) frames its top shown child with nine
@@ -181,4 +182,124 @@ void UBorderWindow::DrawWindow(UGC* gc)
 		Width(), Height(),
 		leftMargin(), rightMargin(),
 		TopMargin(), BottomMargin(), borders, bStretchBorder(), bStretchBorder());
+}
+
+// Resizing by the border, the original's (XBorderWindow::MouseButtonPressed
+// 0x10001e00, MouseButtonReleased 0x10001ff0, MouseMoved 0x100020e0), the
+// script's event first in each. With resizing on, a left press on the
+// border drags each side it is on -- left of the left border, past the right
+// one, above the top one, below the bottom one --, a right press all four,
+// which moves the window; the place where it began kept in root coordinates,
+// the window raised. Each move then changes the size and place it is being
+// dragged to by how far the pointer went and asks for them, as the script's
+// SetConfiguration does (XWindow::Configure): left- and top-aligned at that
+// place, that size, its parent laying it out again. Either button's release
+// ends the drag.
+bool UBorderWindow::MouseButtonPressed(float pointX, float pointY, EInputKey button, int numClicks)
+{
+	bool handled = UWindow::MouseButtonPressed(pointX, pointY, button, numClicks);
+	if (!bResizeable() || (button != IK_LeftMouse && button != IK_RightMouse))
+		return handled;
+
+	DragX() = X();
+	DragY() = Y();
+	dragWidth() = Width();
+	dragHeight() = Height();
+	if (button == IK_LeftMouse)
+	{
+		bLeftDrag() = pointX < leftMargin();
+		bRightDrag() = Width() - rightMargin() <= pointX;
+		bUpDrag() = pointY < TopMargin();
+		bDownDrag() = Height() - BottomMargin() <= pointY;
+	}
+	else
+	{
+		bLeftDrag() = true;
+		bRightDrag() = true;
+		bUpDrag() = true;
+		bDownDrag() = true;
+	}
+	ConvertCoordinates(this, pointX, pointY, GetRootWindow(), lastMouseX(), lastMouseY());
+	Raise();
+	return true;
+}
+
+bool UBorderWindow::MouseButtonReleased(float pointX, float pointY, EInputKey button, int numClicks)
+{
+	bool handled = UWindow::MouseButtonReleased(pointX, pointY, button, numClicks);
+	if (button != IK_LeftMouse && button != IK_RightMouse)
+		return handled;
+	bLeftDrag() = false;
+	bRightDrag() = false;
+	bUpDrag() = false;
+	bDownDrag() = false;
+	return bResizeable() ? true : handled;
+}
+
+void UBorderWindow::MouseMoved(float newX, float newY)
+{
+	UWindow::MouseMoved(newX, newY);
+	if (!bLeftDrag() && !bRightDrag() && !bUpDrag() && !bDownDrag())
+		return;
+
+	float rootX = 0.0f, rootY = 0.0f;
+	ConvertCoordinates(this, newX, newY, GetRootWindow(), rootX, rootY);
+	float dx = rootX - lastMouseX();
+	float dy = rootY - lastMouseY();
+	lastMouseX() = rootX;
+	lastMouseY() = rootY;
+	if (bLeftDrag())
+	{
+		dragWidth() -= dx;
+		DragX() += dx;
+	}
+	if (bRightDrag())
+		dragWidth() += dx;
+	if (bUpDrag())
+	{
+		dragHeight() -= dy;
+		DragY() += dy;
+	}
+	if (bDownDrag())
+		dragHeight() += dy;
+	SetConfiguration(DragX(), DragY(), dragWidth(), dragHeight());
+}
+
+// The original's XBorderWindow::CursorRequested (0x100016c0): while a drag
+// goes on, its sides' cursor -- moving both of a pair, the move cursor; a
+// side and the one across a corner from it, the top-left or top-right
+// diagonal; one side, the horizontal or vertical --, else the border under
+// the point's, a corner by its diagonal; each the window's own or the root's
+// default. None, or the point inside the border, asks the script.
+UTexture* UBorderWindow::ResizeCursor(float pointX, float pointY)
+{
+	URootWindow* root = GetRootWindow();
+	auto pick = [](UTexture* own, UTexture* fallback) { return own ? own : fallback; };
+	UTexture* move = pick(MoveCursor(), root ? root->DefaultMoveCursor() : nullptr);
+	UTexture* horizontal = pick(hMoveCursor(), root ? root->defaultHorizontalMoveCursor() : nullptr);
+	UTexture* vertical = pick(vMoveCursor(), root ? root->defaultVerticalMoveCursor() : nullptr);
+	UTexture* topLeft = pick(tlMoveCursor(), root ? root->defaultTopLeftMoveCursor() : nullptr);
+	UTexture* topRight = pick(trMoveCursor(), root ? root->defaultTopRightMoveCursor() : nullptr);
+
+	bool left = bLeftDrag(), right = bRightDrag(), up = bUpDrag(), down = bDownDrag();
+	if ((left && right) || (up && down))
+		return move;
+	if ((left && up) || (right && down))
+		return topLeft;
+	if ((left && down) || (right && up))
+		return topRight;
+	if (left || right)
+		return horizontal;
+	if (up || down)
+		return vertical;
+
+	bool top = pointY >= 0.0f && pointY < TopMargin();
+	bool bottom = pointY < Height() && Height() - BottomMargin() <= pointY;
+	if (pointX >= 0.0f && pointX < leftMargin())
+		return top ? topLeft : bottom ? topRight : horizontal;
+	if (pointX < Width() && Width() - rightMargin() <= pointX)
+		return top ? topRight : bottom ? topLeft : horizontal;
+	if (top || bottom)
+		return vertical;
+	return nullptr;
 }

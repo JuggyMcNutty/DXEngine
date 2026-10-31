@@ -149,6 +149,7 @@ the run. *Either*: one engine on each side of a pair.
 | `SwitchConsole` | both | on the pier, a spawned lamp shot on and switched off, then a spawned spotlight shot aimed north and turned east (`CapLamp`, `CapSpot`) | `DXSWITCH:` | shot 2 against 1 (the lamp's pool gone), 4 against 3 (the beam moved) |
 | `FogConsole` | both | `TargetMap`'s start (02_NYC_Underground's, in a fog zone): a troop and a large crate spawned 220 units ahead, two shots, the two meshes' places at each | `DXFOG:` | the crate against the floor and walls beside it (the troop wanders where its state takes it) |
 | `ToolConsole` | both | the EditFlags cheat screen, a ToolWindow framed by a BorderWindow of nine textures, opened and shot | `DXTOOL:` | the tool window: its frame, title bar, label, list field and buttons (the pointer differs, DXEngine's at the screen's middle) |
+| `ResizeConsole` | dxe | a BorderWindow of the tool window's textures in the EditFlags cheat screen, resizing on (`EnableResizing`, which no script of the game turns on): its place and size every half second | `DXRESIZE:` | with `tools/dxcap/timelines/resize-drags.txt`: 200 by 150 at 20, 60, then 250 by 180 by the corner's drag, then at 60, 80 by the right button's; the shots' cursors the corner's diagonal, the arrow inside, the move one |
 | `TextBlockConsole` | both | three large text windows of two lines on the menu map's root, aligned to the middle across and to the top, the middle and the bottom, shot | `DXTEXTBLOCK:` | each box's lit rows and columns, at 4:3 (DXEngine's shot through its gamma) |
 | `LogoConsole` | both | the ShowQuotesWindow cheat's quotes window, its ten spinning logos 1 s and 3 s after: each one's `winParent`, that parent's size, whether the logo lies within it | `DXLOGO:` | the two logs' lines |
 | `FocusConsole` | both | the inventory screen with a lockpick selected, so a button has the focus: the focus window after the button is made insensitive and sensitive again, and after its parent is | `DXFOCUS:` | every line |
@@ -327,7 +328,7 @@ left, both from Liberty Island, ten loads of each map 25 s apart, then an exit:
 | `reload-fresh.txt` | the island and Battery Park | crosses a mission: `Current` emptied, the map from `Maps` |
 | `reload-current.txt` | the island and UNATCO HQ | stays in mission 1: the map left saved into `Current`, the next one from there |
 
-and thirteen more: `collections.txt`, the collections a player meets, each timed -- the console's
+and fourteen more: `collections.txt`, the collections a player meets, each timed -- the console's
 `obj garbage` on the island, then Battery Park and the island loaded in turn, `obj garbage` after
 each load -- `keys.txt`, a key of each kind the SDL windows name, the keypad with Num Lock on and
 off, B with Alt held and its character, and typing keys under each layout family, on the stock
@@ -336,8 +337,8 @@ console with `DXCAP_BACKEND=SDL3` ([a key's name](NATIVES.md#small)), `bad-keys.
 console's input, `loot-drags.txt` (`LootConsole`), `stray-release.txt` (`KeypadConsole`),
 `scroll.txt` (`ScrollConsole`), `clicks.txt` (`ClickConsole`), `pad.txt` (`PadConsole`),
 `type.txt` (`TypeConsole`), `note-keys.txt` (`MultiEditConsole`), `bind-keys.txt` (`BindConsole`), `held-keys.txt`
-(`KeysConsole`) and `axis-keys.txt` (`PadConsole`: two keys on one axis, a key bound in lower
-case, Enter with Alt held).
+(`KeysConsole`), `resize-drags.txt` (`ResizeConsole`) and `axis-keys.txt` (`PadConsole`: two keys
+on one axis, a key bound in lower case, Enter with Alt held).
 
 ```sh
 DXCAP_MEMLOG=1 DXCAP_TIMELINE=tools/dxcap/timelines/reload-fresh.txt \

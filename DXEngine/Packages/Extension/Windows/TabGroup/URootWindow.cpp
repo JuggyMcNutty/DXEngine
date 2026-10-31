@@ -8,6 +8,7 @@
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 #include "Packages/Extension/Windows/UGC.h"
 #include "Engine.h"
+#include "Packages/Extension/Windows/UBorderWindow.h"
 #include "Packages/Core/Properties/UStructProperty.h"
 #include "Packages/Core/Properties/UObjectProperty.h"
 #include "Packages/Core/Properties/UFloatProperty.h"
@@ -276,7 +277,15 @@ void URootWindow::PostDrawWindow(UGC* gc)
 			float pointX = relativeX, pointY = relativeY;
 			if (w != mouseWindow)
 				ConvertCoordinates(mouseWindow, relativeX, relativeY, w, pointX, pointY);
-			if (UFunction* func = FindEventFunction(w, "CursorRequested"))
+			// A resizeable border's own move cursor first, its native
+			// CursorRequested's (XBorderWindow, 0x100016c0)
+			if (UBorderWindow* border = UObject::TryCast<UBorderWindow>(w))
+			{
+				if (border->bResizeable())
+					cursor = border->ResizeCursor(pointX, pointY);
+			}
+			UFunction* func = cursor ? nullptr : FindEventFunction(w, "CursorRequested");
+			if (func)
 			{
 				if (!engine->colorprop->Struct && func->Properties.size() > 5)
 					if (auto structProp = UObject::TryCast<UStructProperty>(func->Properties[5]))
