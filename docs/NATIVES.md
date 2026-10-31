@@ -274,9 +274,11 @@ Liberty Island meets it, and the chair's `Bump` sends him to his own
 state's `CircleToFront`: he sits in `SitBreathe` from then on in both
 engines (`SitConsole`).
 
-Differs (bugs.md AI.7): the terrorists Liberty Island's script kills as the
-statue's mission ends leave carcasses that hold their inventory, the
-original's empty.
+A state's code runs in its actor's tick alone, never within the
+`GotoState` that sets it: the terrorists Liberty Island's script kills as
+the statue's mission ends (`Mission01.Timer`: `TakeDamage` at no health,
+then each one's inventory deleted) leave empty carcasses in both engines,
+spawned by their `Dying` state's code 1.3 s later (`StatueConsole`).
 
 ### Hearing: the AI event system
 
