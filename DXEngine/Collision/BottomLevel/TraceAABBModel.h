@@ -78,11 +78,14 @@ private:
 			}
 		}
 
+		// A bevel where the two planes' crosses with the axis, dotted, come
+		// over a thousandth, as the original's box walk tests them
+		// (Engine.dll 0x103f5273)
 		bool ClipBevel(const dvec4& plane0, const dvec4& plane1, const dvec3& bevelDirection)
 		{
 			dvec3 cross1 = cross(bevelDirection, plane0.xyz());
 			dvec3 cross2 = cross(bevelDirection, plane1.xyz());
-			if (dot(cross1, cross2) > 0.00001)
+			if (dot(cross1, cross2) > 0.001)
 			{
 				dvec3 linedir = cross(plane0.xyz(), plane1.xyz());
 				double length2 = dot(linedir, linedir);
