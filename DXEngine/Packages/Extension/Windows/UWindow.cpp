@@ -1125,15 +1125,19 @@ static void CollectTabGroupTable(UWindow* w, std::vector<UWindow*>& out)
 
 // Focus moves to the next or previous tab group (Extension.dll
 // XWindow::MoveTabGroup 0x1004f440), in the topmost modal's table, which the
-// original sorts by where each group's first traversable window is, top to
-// bottom, then left to right (XModalWindow::ResortTabGroupTable 0x10036ed0,
-// XTabGroupWindow::ComputeTabGroupLocation 0x10045000; the original also
-// passes over a window clipped away). It starts at the group after or before
-// the focus's, or at the table's first when the focus is not in that modal;
-// the first window of a group's row list traversable without the modal
-// check takes the focus, a group with none passed over, round the ends. The
-// root window's script calls it for Tab and Shift+Tab (extension-dll.md,
-// Small). It returns the focus window, moved or not.
+// original sorts top to bottom, then left to right, by each group's place
+// (XModalWindow::ResortTabGroupTable 0x10036ed0): the corner of what shows of
+// the first window of its row list that shows any of itself -- its clip
+// rectangle with a width and a height above 0 -- and is traversable without
+// the modal check, 0, 0 with none (XTabGroupWindow::ComputeTabGroupLocation
+// 0x10045000). So a group's first window scrolled out of its clip window
+// leaves the group's place to the first that shows. It starts at the group
+// after or before the focus's, or at the table's first when the focus is
+// not in that modal; the first window of a group's row list traversable
+// without the modal check takes the focus, shown or not -- the clip window
+// scrolls to it -- a group with none passed over, round the ends. The root
+// window's script calls it for Tab and Shift+Tab (extension-dll.md, Small).
+// It returns the focus window, moved or not.
 UObject* UWindow::MoveTabGroup(bool next)
 {
 	URootWindow* root = GetRootWindow();
@@ -1151,9 +1155,11 @@ UObject* UWindow::MoveTabGroup(bool next)
 		Entry entry = { group, 0.0f, 0.0f };
 		for (UWindow* w : GroupWindowsByRow(group))
 		{
-			if (w->IsTraversable(false))
+			const ClipRect& clip = w->winClipRect();
+			if (clip.clipWidth > 0.0f && clip.clipHeight > 0.0f && w->IsTraversable(false))
 			{
-				ConvertCoordinates(w, 0.0f, 0.0f, root, entry.x, entry.y);
+				entry.x = clip.originX + clip.clipX;
+				entry.y = clip.originY + clip.clipY;
 				break;
 			}
 		}
@@ -1755,6 +1761,7 @@ void UWindow::SetPos(float newX, float newY)
 			Y() = newY;
 			UsedX = X() + RootOffsetX();
 			UsedY = Y();
+			ClipTree();
 		}
 		AskParentForReconfigure();
 	}
@@ -1972,6 +1979,17 @@ void UWindow::InitDefaults()
 			break;
 		}
 	}
+	// Its clip rectangle all of it at the parent's corner, not yet cut by
+	// the parents, until it is placed (XWindow::Init's)
+	ClipRect& clip = winClipRect();
+	clip = {};
+	if (UWindow* parent = parentOwner())
+	{
+		clip.originX = parent->winClipRect().originX;
+		clip.originY = parent->winClipRect().originY;
+	}
+	clip.clipWidth = Width();
+	clip.clipHeight = Height();
 }
 
 void UWindow::DestroyWindow()
@@ -2304,6 +2322,53 @@ void UWindow::DescendantAdded(UWindow* descendant)
 void UWindow::DescendantRemoved(UWindow* descendant)
 {
 	CallEvent(this, "DescendantRemoved", { ExpressionValue::ObjectValue(descendant) });
+}
+
+// Each window's clip rectangle (winClipRect), which the original keeps at all
+// times (Extension.dll XWindow::ClipTree 0x10051160, from ConfigureChild
+// 0x1004ec50 each time a window is placed): its origin, the window's corner
+// in the root's coordinates, and the part of it its parents leave in view,
+// from that origin -- its width or height 0 or less where none shows, as
+// the original keeps them, uncut at 0 -- for the window and every window in
+// it, shown or not. The root's is all of it; DXEngine's 4:3 root is drawn
+// over the whole screen, its children across it (RootOffsetX), so the
+// root's is the screen in its units. DXEngine places windows in its layout
+// pass, so they are clipped after it (RenderSubsystem::PreRenderWindows),
+// and a window SetPos places at once, at once. The tab groups' places read
+// them (MoveTabGroup).
+void UWindow::ClipTree()
+{
+	ClipRect& clip = winClipRect();
+	if (UWindow* parent = parentOwner())
+	{
+		const ClipRect& outer = parent->winClipRect();
+		clip.originX = outer.originX + UsedX;
+		clip.originY = outer.originY + UsedY;
+		float left = std::max(clip.originX, outer.originX + outer.clipX);
+		float top = std::max(clip.originY, outer.originY + outer.clipY);
+		float right = std::min(clip.originX + Width(), outer.originX + outer.clipX + outer.clipWidth);
+		float bottom = std::min(clip.originY + Height(), outer.originY + outer.clipY + outer.clipHeight);
+		clip.clipX = left - clip.originX;
+		clip.clipY = top - clip.originY;
+		clip.clipWidth = right - left;
+		clip.clipHeight = bottom - top;
+	}
+	else
+	{
+		clip = {};
+		clip.clipWidth = Width();
+		clip.clipHeight = Height();
+		if (engine->viewport)
+		{
+			float scale = GetVirtualScale();
+			clip.clipX = -UsedX;
+			clip.clipY = -UsedY;
+			clip.clipWidth = engine->viewport->ViewportWidth() / scale;
+			clip.clipHeight = engine->viewport->ViewportHeight() / scale;
+		}
+	}
+	for (UWindow* child = firstChild(); child; child = child->nextSibling())
+		child->ClipTree();
 }
 
 // The root's own tick (Extension.dll XRootWindow::Tick 0x1003a540): while

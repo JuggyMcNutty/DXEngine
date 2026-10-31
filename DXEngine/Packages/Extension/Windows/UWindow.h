@@ -262,6 +262,7 @@ public:
 
 	void DetachFromParent();
 	void UpdateLayout();
+	void ClipTree();
 	void SeedFocus();
 
 	void DrawDebugBox(UGC* gc);

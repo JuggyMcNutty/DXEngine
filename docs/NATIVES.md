@@ -1166,7 +1166,12 @@ from the original's code:
   takes it, its modal keeping it to return to), the focus moving off a
   window hidden, made unselectable or destroyed, and the root seeding it --
   none while the keypad (`MFOCUS_EnterLeave`) is up, none with no modal up
-  (`KeypadConsole`).
+  (`KeypadConsole`). Each window keeps the part of it its parents leave in
+  view, as the original's clip rectangle, and a modal's tab groups go in
+  the order of the first of their windows that shows, a group none of whose
+  windows shows first (`FocusConsole`: a clip window scrolled so that its
+  first button lies above the view, then none in view; Tab and Shift+Tab
+  from each place, and each button's clip rectangle, every line alike).
 - **The windows** tick by real time since their last tick, not the level's,
   and a held button's first repeat counts what of the frame had gone.
 - **Timers**
@@ -1250,9 +1255,7 @@ Differs:
 - **Keyboard focus**: DXEngine places windows in its layout pass, after the
   level's tick, and seeds the first focus there; the original places them as
   they are made and seeds it at its windows' next tick, so a conversation's
-  first choice has the focus a frame sooner (`ChoiceConsole`). Read from
-  both codes, the tables pass no window over as clipped away, DXEngine
-  keeping no clip rectangles (EXT.9, EXT.10).
+  first choice has the focus a frame sooner (`ChoiceConsole`; EXT.9).
 - **Layout** (`MenuConsole`, `ScreenConsole`, `SizeConsole`): DXEngine lays
   windows out once a frame, the original as each asks, so a window made this
   frame is 10 by 10 until the next; a window that shows sits at the margins
