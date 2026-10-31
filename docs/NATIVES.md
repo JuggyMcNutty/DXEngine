@@ -2302,8 +2302,12 @@ As in the original:
   travel that names a server's address goes there; a URL cleared is empty
   whole, its port the game's default again.
 - Entry's actors find their regions in Entry's own model, with its zone
-  actors and its LevelInfo, while a map is current (no run: the code
-  settles it; bugs.md NET.7).
+  actors and its LevelInfo, while a map is current, as the original's
+  (`EntryConsole`: markers spawned into Entry from Liberty Island, as the
+  game's server lists spawn their links there, and moved, alike in both
+  engines). A level's LevelInfo is in its own zone, in no leaf and zone 0,
+  wherever it stands, as the original's `SetActorZone` puts it, where
+  DXEngine found it by its place (Entry's in zone 1, leaf 4).
 - A client replicates its own player's pawn to the server each tick, before
   its packets go (`ULevel::TickNetClient`): the values the script classes'
   statements send from a client, none of the engine classes' native lists,

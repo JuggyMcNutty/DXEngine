@@ -24,7 +24,13 @@ class ULevelInfo : public UZoneInfo
 public:
 	using UZoneInfo::UZoneInfo;
 
+	void InitActorZone() override;
 	void UpdateActorZone() override;
+
+	// A level's LevelInfo is in its own zone, in no leaf, zone 0 -- where
+	// it is aside -- as the original's SetActorZone sets it (Engine.dll
+	// 0x1039b940)
+	PointRegion OwnRegion() { return { this, -1, 0 }; }
 
 	PointRegion GetLocZone(const vec3& pos);
 

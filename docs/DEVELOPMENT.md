@@ -286,6 +286,7 @@ the run. *Either*: one engine on each side of a pair.
 | `ServeConsole` | either | a listen server, its players and beeps; it exits after 290 s (`Kick`: the other player's pawn destroyed 5 s after the host is placed) | `DXCAP:` | `netquery.py`, `fakemaster.py`, `netrelay.py` |
 | `JoinConsole` | either | a client of `127.0.0.1:7790`; the moves its velocity does not account for (a server's corrections) | `DXNET:` | `sound.py --onsets <run>`, the client alone with `DXCAP_RECORD=1`: the server's beeps |
 | `LinkConsole` | both | 20 UdpLinks bound to ports from 2100, destroyed, then 20 bound to the same ports again: how many bind each time | `DXLINK:` | the two logs' lines |
+| `EntryConsole` | both | on Liberty Island, markers spawned into the Entry level by its LevelInfo, as the game's server lists spawn their links there, and moved: each one's level, zone, zone number and leaf, with the player's and both levels' LevelInfos' | `DXENTRY:` | the two logs diffed |
 | `RstConsole` | dxe | a TcpLink to `tools/dxcap/rstserver.py` (started beside the run), which resets the connection a second after it opens: a line sent as it opens, two after the reset, each send's answer and the link's error | `DXRST:` | the run ends with its own exit, no signal |
 | `RejoinConsole` | either | a client that joins twice | `DXREJOIN:` |  |
 | `TravelServeConsole` | either | a server that travels; it exits after 150 s | `DXCAP:` |  |

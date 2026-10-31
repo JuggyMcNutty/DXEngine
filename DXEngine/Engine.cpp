@@ -1345,7 +1345,13 @@ void Engine::BeginPlay(const UnrealURL& url)
 		// level start finds it, whatever the map saved: DXMP_Silo's saved
 		// regions put its items, crates and robots in none, which their first
 		// fall took for leaving the world
-		for (size_t i = 0; i < Level->Actors.size(); i++) { UActor* actor = Level->Actors[i]; if (actor && !actor->bDeleteMe()) actor->Region() = actor->FindRegion(); }
+		for (size_t i = 0; i < Level->Actors.size(); i++)
+		{
+			UActor* actor = Level->Actors[i];
+			ULevelInfo* info = UObject::TryCast<ULevelInfo>(actor);
+			if (actor && !actor->bDeleteMe())
+				actor->Region() = info && info == actor->Level() ? info->OwnRegion() : actor->FindRegion();
+		}
 
 		// The original's level start has every actor 10 s undrawn, whatever
 		// the map file kept, before PostBeginPlay: a ScriptedPawn out of
