@@ -111,9 +111,6 @@ public:
 	UActor* PickTarget(float& bestAim, float& bestDist, const vec3& FireDir, const vec3& projStart);
 	bool CheckIfBestTarget(UActor* actor, float& bestAim, float& bestDist, const vec3& FireDir, const vec3& projStart);
 
-	UActor* PathSpecialHandling(const Array<UNavigationPoint*>& points);
-	UNavigationPoint* SetRouteCache(const Array<UNavigationPoint*>& points);
-	std::pair<Array<UNavigationPoint*>, int32_t> FindPathToEndPoint(UNavigationPoint* start, int maxNodes);
 	bool BreadthPathFrom(UNavigationPoint* start, UNavigationPoint*& endNode, bool singlePath, int moveFlags);
 
 	// Deus Ex's path search, the original's (engine-dll.md, the search):
@@ -126,8 +123,9 @@ public:
 
 	void ClearPaths();
 	UObject* FindRandomDest();
-	UObject* FindBestInventoryPath(bool predictRespawns, float& outBestWeight);
-	bool MarkReachableNavEndPoints();
+	UActor* FindBestInventoryPath(float& minWeight, bool predictRespawns);
+	float FindPathTowardBestInventory(UActor*& bestPath, bool clearPaths, float minWeight, bool predictRespawns);
+	float BreadthPathToInventory(UNavigationPoint* start, UActor*& bestPath, int moveFlags, float bestWeight, bool predictRespawns);
 
 	// Deus Ex AI functions
 	float AICanHear(UActor* other, std::optional<float> volume, std::optional<float> radius);

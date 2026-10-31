@@ -96,7 +96,7 @@ void NPawn::EAdjustJump(UObject* Self, vec3& ReturnValue)
 void NPawn::FindBestInventoryPath(UObject* Self, float& MinWeight, bool bPredictRespawns, UObject*& ReturnValue)
 {
 	UPawn* selfPawn = UObject::Cast<UPawn>(Self);
-	ReturnValue = selfPawn->FindBestInventoryPath(bPredictRespawns, MinWeight);
+	ReturnValue = selfPawn->FindBestInventoryPath(MinWeight, bPredictRespawns);
 }
 
 void NPawn::FindPathTo(UObject* Self, const vec3& aPoint, std::optional<bool> bSinglePath, std::optional<bool> bClearPaths, UObject*& ReturnValue)
@@ -261,10 +261,13 @@ void NPawn::RemovePawn(UObject* Self)
 	}
 }
 
+// The original's (APawn::execStopWaiting, Engine.dll 0x103ba590): a sleep's
+// LatentFloat set to -1, so the next poll ends it; nothing else waits on it
 void NPawn::StopWaiting(UObject* Self)
 {
 	UPawn* SelfPawn = UObject::Cast<UPawn>(Self);
-	SelfPawn->SleepTimeLeft = 0.0f;
+	if (SelfPawn->StateFrame && SelfPawn->StateFrame->LatentState == LatentRunState::Sleep)
+		SelfPawn->LatentFloat() = -1.0f;
 }
 
 void NPawn::TurnTo(UObject* Self, const vec3& NewFocus)

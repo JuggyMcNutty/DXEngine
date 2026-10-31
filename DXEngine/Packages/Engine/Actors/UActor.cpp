@@ -383,8 +383,11 @@ void UActor::PollLatentAction(float elapsed)
 {
 	if (StateFrame->LatentState == LatentRunState::Sleep)
 	{
-		SleepTimeLeft = std::max(SleepTimeLeft - elapsed, 0.0f);
-		if (SleepTimeLeft == 0.0f)
+		// The original's PollSleep (Engine.dll 0x103e0020): LatentFloat less the
+		// tick's time, the sleep over once under half the tick is left
+		double left = (double)LatentFloat() - elapsed;
+		LatentFloat() = (float)left;
+		if (elapsed * 0.5 > left)
 			StateFrame->LatentState = LatentRunState::Continue;
 	}
 	else if (StateFrame->LatentState == LatentRunState::FinishInterpolation)

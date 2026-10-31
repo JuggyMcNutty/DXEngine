@@ -73,7 +73,14 @@ is, whatever region the map saved: DXMP_Silo's items, crates and robots
 start in their zones, where the map's regions put them in none and a first
 fall would take them out of the world (`VisibleConsole` there); every level
 loaded, a save's or one returned to, then calls `PostPostBeginPlay`
-(`LoadConsole`, `ReturnConsole`). A save loaded in the running game, from
+(`LoadConsole`, `ReturnConsole`). A state's `Sleep` keeps its time in the
+actor's `LatentFloat`, as the original's, so a save keeps it and a script
+reads it, and ends once under half a tick is left
+([latent functions](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#latent-functions)):
+`SleepConsole` at 60 frames, a 0.105 s sleep over and over waking 31 times
+in 3 s in both engines, and a 10 s one saved and loaded 3 s in sleeping out
+its time after the load, where DXEngine woke it at the load and took a
+frame more each sleep (26). A save loaded in the running game, from
 the menu map or the level it was saved in, and a run started on it, spawn
 what the original's do, class by class, second by second (`CensusConsole`,
 `census.py`), and keep it, the game's decals going as
@@ -2213,8 +2220,14 @@ A mod gets the original's loader and natives:
   answers None, as the original's does (its `findRandomDest` returns nothing
   in any level with navigation points, and finds nothing without them);
   `FindBestInventoryPath` 540, the way to the inventory the pawn wants most,
-  is Surreal Engine's, not the original's `findPathTowardBestInventory`,
-  which is unread (bugs.md AI.6).
+  is the original's search
+  ([the best inventory](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-search)):
+  each inventory spot's item weighed by its `BotDesireability` over the cost
+  of the way there, the best way's start the answer, a pawn placed but not
+  anchored given its nearest node at a weight of 0.00005. No stock map has an
+  inventory spot: `InventoryPathConsole` on Liberty Island, each pawn asked
+  three ways, the 48 that stood at one place in both engines answered alike,
+  routes and weights, where DXEngine, Surreal Engine's search, answered None.
 
 A macro texture, which no stock texture has, is drawn as `D3DDrv` draws it
 ([the light maps' brightness](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-light-maps-brightness)):

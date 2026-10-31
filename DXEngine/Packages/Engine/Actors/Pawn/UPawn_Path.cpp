@@ -15,46 +15,6 @@
 #include "Utils/Logger.h"
 #include "Engine.h"
 
-UNavigationPoint* UPawn::SetRouteCache(const Array<UNavigationPoint*>& points)
-{
-	// Deus Ex's engine never fills RouteCache: its SetRouteCache only logs "Hey,
-	// who called SetRouteCache?", and nothing calls it (engine-dll.md, the
-	// search) -- so Teleporter.SpecialHandling, which looks at RouteCache[1],
-	// never finds a teleporter there.
-	return !points.empty() ? points.front() : nullptr;
-}
-
-UActor* UPawn::PathSpecialHandling(const Array<UNavigationPoint*>& bestPath)
-{
-	UActor* oldBestPoint = SetRouteCache(bestPath);
-	if (!oldBestPoint)
-		return nullptr;
-
-	UActor* bestPoint = oldBestPoint;
-
-	if (oldBestPoint->IsEventEnabled(EventName::SpecialHandling))
-	{
-		bestPoint = UObject::Cast<UActor>(CallEvent(oldBestPoint, EventName::SpecialHandling, { ExpressionValue::ObjectValue(this) }).ToObject());
-		if (!bCanDoSpecial())
-			bestPoint = nullptr;
-		SpecialGoal() = bestPoint;
-
-		if (bestPoint && bestPoint != oldBestPoint)
-		{
-			// An answer the pawn cannot walk to is searched for Deus Ex's way
-			if (!ActorReachable(bestPoint))
-				bestPoint = DeusExFindPathFromScript(bestPoint, vec3(0.0f), false, true);
-		}
-	}
-	else
-	{
-		if (SpecialGoal() == oldBestPoint)
-			SpecialGoal() = nullptr;
-	}
-
-	return bestPoint;
-}
-
 // The original's search (APawn::breadthPathFrom, Engine.dll 0x103dcd60;
 // engine-dll.md, the search): best first from the start, over the reach specs
 // the other way round, each node it expands the next in its own open list --
@@ -190,41 +150,6 @@ bool UPawn::BreadthPathFrom(UNavigationPoint* start, UNavigationPoint*& endNode,
 	}
 
 	return false;
-}
-
-std::pair<Array<UNavigationPoint*>, int32_t> UPawn::FindPathToEndPoint(UNavigationPoint* start, int maxNodes)
-{
-	// Surreal Engine's route from the original's search (below): the end point's way
-	// back to the start -- the start the chain's last node -- with the parts
-	// the pawn already touches skipped.
-	if ((start->bPlayerOnly() && !bIsPlayer()))
-		return { {}, 0 };
-
-	UNavigationPoint* endNode = nullptr;
-	if (!BreadthPathFrom(start, endNode, maxNodes != 0, CalcMoveFlags()))
-		return { {}, 0 };
-
-	int radius = (int)CollisionRadius();
-	int height = (int)CollisionHeight();
-	Array<UNavigationPoint*> path;
-	for (UNavigationPoint* at = endNode; at; at = at->previousPath())
-	{
-		// Skip path parts we already are touching: within the pawn's
-		// cylinder, its radius across and its height up or down. The height
-		// was once counted in the distance across too, so a pawn standing on
-		// a node a step below its middle kept being sent to it.
-		vec3 d = at->Location() - Location();
-		if (d.x * d.x + d.y * d.y < (float)radius * (float)radius && std::abs(d.z) < (float)height)
-		{
-			path.clear();
-		}
-		else
-		{
-			path.push_back(at);
-		}
-	}
-
-	return { path, endNode->visitedWeight() };
 }
 
 void UPawn::ClearPaths()
@@ -900,7 +825,6 @@ UActor* UPawn::DeusExFindPath(UActor* goalActor, vec3 goalPoint, bool singlePath
 }
 
 // ---------------------------------------------------------------------------
-// Surreal Engine's path search around the original's breadthPathFrom, for
 // FindRandomDest and FindBestInventoryPath, which no script of the game calls.
 
 // The original's findRandomDest (Engine.dll 0x103dc700) answers nothing in
@@ -913,99 +837,201 @@ UObject* UPawn::FindRandomDest()
 	return nullptr;
 }
 
-bool UPawn::MarkReachableNavEndPoints()
+// The original's breadthPathToInventory (Engine.dll 0x103dd310): best first
+// from the start over the reach specs as they run (Paths), the open list kept
+// as breadthPathFrom keeps it, a node's cost its spec's distance and its own
+// penalty on top of what reaching the node it came from cost; no player-only
+// node passed over. An end point starts a route of its own -- its startPath
+// itself -- and each node reached carries the startPath of the node it came
+// from. At an inventory spot whose item takes a touch -- or, predicting
+// respawns, sleeps less than 5 s more -- and whose MaxDesireability over the
+// node's cost beats the best weight, the item's BotDesireability over the
+// cost is the spot's weight; the best kept, its route's start the answer.
+// After 250 nodes the search ends if the best weight is above 0, else goes on
+// 50 nodes more, again and again; a list walk past 500 nodes gives up with 0.
+// The best spot's route is turned around.
+float UPawn::BreadthPathToInventory(UNavigationPoint* start, UActor*& bestPath, int moveFlags, float bestWeight, bool predictRespawns)
 {
-	int maxActorReachableCalls = 8; // upper bound for how expensive this can get
-	int endPointsFound = 0;
-	for (UNavigationPoint* navPoint = Level()->NavigationPointList(); navPoint; navPoint = navPoint->nextNavigationPoint())
+	const Array<LevelReachSpec>& reachSpecs = XLevel()->ReachSpecs;
+	int radius = (int)CollisionRadius();
+	int height = (int)CollisionHeight();
+
+	UNavigationPoint* bestSpot = nullptr;
+	int iterations = 0;
+	int pathCount = 0;
+	int listIndex = 1;
+	UNavigationPoint* frontNode = start;
+
+	for (UNavigationPoint* node = start; node; node = node->nextOrdered())
 	{
-		navPoint->bEndPoint() = false;
-
-		if (endPointsFound < maxActorReachableCalls)
+		if (node->bEndPoint())
 		{
-			if (navPoint->bPlayerOnly() && !bIsPlayer())
-				continue; // Skip nav nodes only for the player if we aren't one
+			node->startPath() = node;
+			node->previousPath() = nullptr;
+		}
 
-			float maxDist = 1000.0;
-			vec3 d = navPoint->Location() - Location();
-			if (dot(d, d) > maxDist * maxDist)
-				continue; // Ignore things too far away
+		if (UInventorySpot* spot = UObject::TryCast<UInventorySpot>(node))
+		{
+			UInventory* item = spot->markedItem();
+			if (item && (item->IsEventEnabled(EventName::Touch) || (predictRespawns && item->LatentFloat() < 5.0f)) &&
+				item->MaxDesireability() / (double)node->visitedWeight() > bestWeight)
+			{
+				double desire = CallEvent(item, "BotDesireability", { ExpressionValue::ObjectValue(this) }).ToFloat();
+				double weight = desire / (double)node->visitedWeight();
+				if (weight > bestWeight)
+				{
+					bestWeight = (float)weight;
+					bestPath = node->startPath();
+					bestSpot = node;
+				}
+			}
+		}
 
-			if (!ActorReachable(navPoint))
+		for (int specIndex : node->Paths())
+		{
+			if (specIndex < 0 || (size_t)specIndex >= reachSpecs.size())
+				break;
+			const LevelReachSpec& reachSpec = reachSpecs[specIndex];
+			UNavigationPoint* reached = reachSpec.endActor;
+			if (!reached || reachSpec.collisionRadius < radius || reachSpec.collisionHeight < height || (moveFlags & reachSpec.reachFlags) != reachSpec.reachFlags)
 				continue;
 
-			navPoint->bEndPoint() = true;
-			endPointsFound++;
+			int32_t newCost = reachSpec.distance + reached->cost() + node->visitedWeight();
+			if (reached->visitedWeight() <= newCost)
+				continue;
+
+			reached->startPath() = node->startPath();
+			reached->previousPath() = node;
+
+			UNavigationPoint* prev = reached->prevOrdered();
+			if (prev)
+			{
+				prev->nextOrdered() = reached->nextOrdered();
+				if (reached->nextOrdered())
+					reached->nextOrdered()->prevOrdered() = prev;
+
+				if (frontNode == reached)
+				{
+					if (prev->visitedWeight() > newCost)
+						frontNode = prev;
+				}
+				else if (reached->visitedWeight() > frontNode->visitedWeight() && newCost < frontNode->visitedWeight())
+				{
+					listIndex--;
+				}
+			}
+			else if (newCost <= frontNode->visitedWeight())
+			{
+				listIndex--;
+			}
+			else
+			{
+				listIndex++;
+			}
+
+			reached->visitedWeight() = newCost;
+
+			UNavigationPoint* at = frontNode->visitedWeight() < newCost ? frontNode : node;
+			for (int walked = 0; at->nextOrdered() && at->nextOrdered()->visitedWeight() < newCost; at = at->nextOrdered())
+			{
+				if (++walked > 500)
+					return 0.0f;
+			}
+			if (at->nextOrdered() != reached)
+			{
+				UNavigationPoint* after = at->nextOrdered();
+				if (after)
+					after->prevOrdered() = reached;
+				reached->nextOrdered() = after;
+				at->nextOrdered() = reached;
+				reached->prevOrdered() = at;
+			}
+		}
+
+		listIndex++;
+		while (pathCount < (int)(listIndex * 0.5))
+		{
+			pathCount++;
+			if (frontNode->nextOrdered())
+				frontNode = frontNode->nextOrdered();
+		}
+
+		if (++iterations > 250)
+		{
+			if (bestWeight > 0.0f)
+				break;
+			iterations = 200;
 		}
 	}
 
-	return endPointsFound > 0;
+	ReverseRouteFor(bestSpot);
+	return bestWeight;
 }
 
-UObject* UPawn::FindBestInventoryPath(bool predictRespawns, float& outBestWeight)
+// The original's findPathTowardBestInventory (Engine.dll 0x103dbe40): the
+// pawn's own list gathered as a search's, no goal, the paths cleared when
+// asked; unanchored, its end point found first, and placed so but not
+// anchored, the pawn's nearest node is the answer at once, at a weight of
+// 0.00005. Anchored, the anchor's neighbours made the end points, the search
+// runs from the anchor at its distance, at least 10, and a weight past the
+// least asked for answers its route's start. The pawn is put back where it
+// stood.
+float UPawn::FindPathTowardBestInventory(UActor*& bestPath, bool clearPaths, float minWeight, bool predictRespawns)
 {
-	if (!MarkReachableNavEndPoints())
+	bestPath = nullptr;
+	if (!Level()->NavigationPointList() || XLevel()->ReachSpecs.empty())
+		return 0.0f;
+
+	vec3 standing = Location();
+	auto putBack = [&]() { TestMoveTo(standing, true); };
+
+	SortedPathList pawnList, goalList;
+	bool anchored = false;
+	GatherPathLists(this, vec3(0.0f), pawnList, goalList, clearPaths, anchored, true);
+	if (pawnList.NumPoints == 0)
+		return 0.0f;
+
+	if (!anchored && !FindEndPoint(this, pawnList, anchored))
 	{
-		outBestWeight = 0.0f;
-		return SetRouteCache({});
+		putBack();
+		return 0.0f;
+	}
+	if (!anchored)
+	{
+		bestPath = pawnList.Path[0];
+		putBack();
+		return 0.00005f;
 	}
 
-	float bestWeight = 0.0f;
-	UInventorySpot* bestSpot = nullptr;
-	Array<UNavigationPoint*> bestPath;
+	DefinePathsFor(this, pawnList);
+	UNavigationPoint* start = pawnList.Path[0];
+	start->visitedWeight() = std::max(pawnList.Dist[0], 10);
+	UActor* route = nullptr;
+	float weight = BreadthPathToInventory(start, route, CalcMoveFlags(), minWeight, predictRespawns);
+	putBack();
+	if (weight <= minWeight)
+		return 0.0f;
+	bestPath = route;
+	return weight;
+}
 
-	for (UNavigationPoint* navPoint = Level()->NavigationPointList(); navPoint; navPoint = navPoint->nextNavigationPoint())
-	{
-		auto invSpot = UObject::TryCast<UInventorySpot>(navPoint);
-		if (!invSpot)
-			continue;
-		auto inv = invSpot->markedItem();
-		if (!inv)
-			continue;
-
-		if (inv->GetStateName() != "PickUp")
-			continue;
-
-		float desire = CallEvent(inv, "BotDesireability", { ExpressionValue::ObjectValue(this) }).ToFloat();
-		if (desire > 0.0f)
-		{
-			// Each search spends the nodes' own fields, so each starts them
-			// afresh, the end points kept, from nothing spent at the spot.
-			for (UNavigationPoint* cur = Level()->NavigationPointList(); cur; cur = cur->nextNavigationPoint())
-			{
-				cur->visitedWeight() = 10000000;
-				cur->nextOrdered() = nullptr;
-				cur->prevOrdered() = nullptr;
-			}
-			invSpot->visitedWeight() = 0;
-
-			auto [path, pathDist] = FindPathToEndPoint(invSpot, 0);
-
-			// To do: how to take path costs into account?
-			//int cost = 0;
-			//for (auto nav : path)
-			//	cost += nav->cost();
-
-			float distance = std::max((float)pathDist, 1.0f);
-			float weight = desire / distance;
-
-			if (!bestSpot || weight > bestWeight)
-			{
-				bestSpot = invSpot;
-				bestWeight = weight;
-				bestPath = std::move(path);
-			}
-		}
-	}
-
-	if (bestSpot)
-	{
-		outBestWeight = bestWeight;
-		return PathSpecialHandling(bestPath);
-	}
-	else
-	{
-		outBestWeight = 0.0f;
-		return SetRouteCache({});
-	}
+// The script's FindBestInventoryPath (APawn::execFindBestInventoryPath,
+// Engine.dll 0x103b97c0): the search with the paths cleared; a weight past
+// MinWeight becomes MinWeight, with bShootSpecial and SpecialPause cleared, a
+// route with a SpecialHandling handed to HandleSpecial and SpecialGoal
+// dropped when the route is it. Else None, MinWeight as it was.
+UActor* UPawn::FindBestInventoryPath(float& minWeight, bool predictRespawns)
+{
+	UActor* route = nullptr;
+	float weight = FindPathTowardBestInventory(route, true, minWeight, predictRespawns);
+	if (!(weight > minWeight))
+		return nullptr;
+	minWeight = weight;
+	bShootSpecial() = false;
+	SpecialPause() = 0.0f;
+	if (route && route->IsEventEnabled(EventName::SpecialHandling))
+		HandleSpecial(route);
+	if (route == SpecialGoal())
+		SpecialGoal() = nullptr;
+	return route;
 }

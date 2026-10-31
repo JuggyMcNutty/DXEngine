@@ -490,7 +490,6 @@ public:
 	int8_t TransientPropSearched = 0;
 	PropertyDataOffset TransientPropOffset;
 
-	float SleepTimeLeft = 0.0f;
 	vec3 gravityVector;
 
 	// A frame's physics goes in steps (TickPhysics): the time the frame has

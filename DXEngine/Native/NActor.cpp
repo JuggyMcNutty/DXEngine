@@ -627,10 +627,12 @@ void NActor::SetTimer(UObject* Self, float NewTimerRate, bool bLoop)
 	SelfActor->bTimerLoop() = bLoop;
 }
 
+// The original's (AActor::execSleep, Engine.dll 0x103dfef0): the time kept in
+// the actor's LatentFloat, which a save keeps with it (UActor::PollLatentAction)
 void NActor::Sleep(UObject* Self, float Seconds)
 {
 	UActor* SelfActor = UObject::Cast<UActor>(Self);
-	SelfActor->SleepTimeLeft = Seconds;
+	SelfActor->LatentFloat() = Seconds;
 	if (Self->StateFrame)
 		Self->StateFrame->LatentState = LatentRunState::Sleep;
 }
