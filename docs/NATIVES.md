@@ -1910,6 +1910,9 @@ What DXEngine does with each:
 - **`-lanplay`**: a dedicated server ticking at `LanServerMaxTickRate`, as
   `--lanplay`
   ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md#packets)).
+- **`PORT=`, `MULTIHOME=` and `-PRIMARYNET`**: a server's port, and the
+  address a net socket binds, as the original's net driver takes them
+  ([multiplayer](#multiplayer)).
 - **`INI=` and `USERINI=`**: the inis read and written back, as `--ini` and
   `--userini`, each found by its own name, never `INI=` within `USERINI=`
   (`DXCAP_USERINI_FIRST`: the two given `USERINI=` first, `MidConsole`'s
@@ -2152,8 +2155,12 @@ settles it; bugs.md NET.6). The server-only stubs are under
   `[IpDrv.TcpNetDriver]`'s timeouts; the connection, its channels and the
   handshake are the original's, and so is its socket: broadcast and address
   reuse on, 32 KB buffers for a client's and 128 KB for a server's, a
-  server's port the URL's or the next free of the 20 from it (`PORT=` and
-  `MULTIHOME=` are not taken: bugs.md NET.4); a server's host name is looked up on a
+  server's port the URL's or the next free of the 20 from it, or with
+  `PORT=` on the command line that port alone, its address every one of the
+  machine's but the one `MULTIHOME=` names or, with `-PRIMARYNET`, the first
+  of the machine's own name (`ServeConsole` with `PORT=7795`, then with
+  `MULTIHOME=127.0.0.1`: `0.0.0.0:7795/DXMP_Cathedral...` and
+  `127.0.0.1/DXMP_Cathedral...`, alike in both engines); a server's host name is looked up on a
   thread, the game going on; `GETPING` and `GETLOSS` answer the server
   connection's best lag of the last second in ms and its incoming packet
   loss in percent, as the original's do.

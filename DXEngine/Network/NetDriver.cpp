@@ -7,6 +7,7 @@
 #include "Utils/Logger.h"
 #include "Utils/StrTools.h"
 #include "Engine.h"
+#include "OriginalCommandLine.h"
 #include <algorithm>
 #include <thread>
 
@@ -180,13 +181,13 @@ bool NetDriver::InitConnect(NetNotify* notify, const std::string& host, int port
 	return true;
 }
 
-bool NetDriver::InitListen(NetNotify* notify, int port, std::string& error)
+bool NetDriver::InitListen(NetNotify* notify, int port, int tries, std::string& error)
 {
 	Notify = notify;
-	// The port, or the next free of the 20 from it, as the original's
+	// The port, or the next free of the tries from it, as the original's
 	// server binds (IpDrv.dll UTcpNetDriver::InitBase 0x1070abb0): a second
 	// server on the machine takes the next
-	for (int i = 0; i < 20; i++)
+	for (int i = 0; i < tries; i++)
 	{
 		if (OpenSocket(port + i, error))
 		{
@@ -195,6 +196,50 @@ bool NetDriver::InitListen(NetNotify* notify, int port, std::string& error)
 		}
 	}
 	return false;
+}
+
+// The address a socket binds, in host order, as the original's
+// getlocalbindaddr chooses it (IpDrv.dll 0x10708e40, getlocalhostaddr
+// 0x10703eb0): MULTIHOME='s a.b.c.d when it has four parts, each part's
+// number, and every address when it has not, logged; with -PRIMARYNET the
+// first address of the machine's own name; else every one of the machine's
+// (0.0.0.0).
+static uint32_t LocalBindAddress()
+{
+	const OriginalCommandLine& commandLine = OriginalCommandLine::Get();
+	std::string multihome;
+	if (commandLine.Value("MULTIHOME", multihome))
+	{
+		size_t first = multihome.find('.');
+		size_t second = first != std::string::npos ? multihome.find('.', first + 1) : std::string::npos;
+		size_t third = second != std::string::npos ? multihome.find('.', second + 1) : std::string::npos;
+		if (third == std::string::npos)
+		{
+			LogMessage("Invalid multihome IP address " + multihome);
+			return 0;
+		}
+		uint32_t a = (uint32_t)std::atoi(multihome.c_str()) & 0xff;
+		uint32_t b = (uint32_t)std::atoi(multihome.c_str() + first + 1) & 0xff;
+		uint32_t c = (uint32_t)std::atoi(multihome.c_str() + second + 1) & 0xff;
+		uint32_t d = (uint32_t)std::atoi(multihome.c_str() + third + 1) & 0xff;
+		return (a << 24) | (b << 16) | (c << 8) | d;
+	}
+	if (commandLine.Param("PRIMARYNET"))
+	{
+		char name[256] = {};
+		addrinfo hints = {};
+		hints.ai_family = AF_INET;
+		hints.ai_socktype = SOCK_DGRAM;
+		addrinfo* info = nullptr;
+		if (gethostname(name, sizeof(name) - 1) == 0 && getaddrinfo(name, nullptr, &hints, &info) == 0 && info)
+		{
+			uint32_t addr = ntohl(((sockaddr_in*)info->ai_addr)->sin_addr.s_addr);
+			freeaddrinfo(info);
+			return addr;
+		}
+		LogMessage("gethostbyname failed for " + std::string(name));
+	}
+	return 0;
 }
 
 bool NetDriver::OpenSocket(int port, std::string& error)
@@ -223,7 +268,7 @@ bool NetDriver::OpenSocket(int port, std::string& error)
 
 	sockaddr_in local = {};
 	local.sin_family = AF_INET;
-	local.sin_addr.s_addr = htonl(INADDR_ANY);
+	local.sin_addr.s_addr = htonl(LocalBindAddress());
 	local.sin_port = htons((uint16_t)port);
 	if (bind((decltype(socket(0, 0, 0)))Socket, (sockaddr*)&local, sizeof(local)) != 0)
 	{

@@ -2277,12 +2277,22 @@ void Engine::CloseNetDriver()
 void Engine::Listen(const UnrealURL& url)
 {
 	// The URL's port -- the game's [URL] Port unless the URL names one -- or
-	// the next free of the 20 from it, as the original's server binds
+	// the next free of the 20 from it, as the original's server binds; with
+	// PORT= on the command line that port alone, its number read as
+	// appAtoi reads it (IpDrv.dll UTcpNetDriver::InitBase 0x1070abb0, Core's
+	// Parse true whenever it finds the name)
 	int port = url.Port;
+	int tries = 20;
+	std::string portText;
+	if (OriginalCommandLine::Get().Value("PORT", portText))
+	{
+		port = std::atoi(portText.c_str());
+		tries = 1;
+	}
 	ServerLevel = std::make_unique<NetServerLevel>(LevelPackage);
 	LevelNetDriver = std::make_unique<NetDriver>();
 	std::string error;
-	if (!LevelNetDriver->InitListen(ServerLevel.get(), port, error))
+	if (!LevelNetDriver->InitListen(ServerLevel.get(), port, tries, error))
 	{
 		LogMessage("Net: cannot listen: " + error);
 		LevelNetDriver.reset();

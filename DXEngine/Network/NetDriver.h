@@ -61,9 +61,9 @@ public:
 	~NetDriver();
 
 	bool InitConnect(NetNotify* notify, const std::string& host, int port, std::string& error);
-	// A server's socket, on the port or the next free of the 20 from it;
+	// A server's socket, on the port or the next free of the tries from it;
 	// the one bound is in BoundPort
-	bool InitListen(NetNotify* notify, int port, std::string& error);
+	bool InitListen(NetNotify* notify, int port, int tries, std::string& error);
 	int BoundPort = 0;
 	// A join's host name is looked up on a thread of its own, the game
 	// going on, as the original's connection looks it up (IpDrv.dll
@@ -88,8 +88,7 @@ public:
 
 	NetNotify* Notify = nullptr;
 	// The address the socket is bound to, in host order: every one of the
-	// machine's (0.0.0.0), as IpDrv's is but with MULTIHOME= or -PRIMARYNET,
-	// which DXEngine does not take.
+	// machine's (0.0.0.0) but with MULTIHOME= or -PRIMARYNET, as IpDrv's is.
 	uint32_t LocalAddr = 0;
 	std::unique_ptr<NetConnection> ServerConnection;
 	Array<std::unique_ptr<NetConnection>> ClientConnections;
