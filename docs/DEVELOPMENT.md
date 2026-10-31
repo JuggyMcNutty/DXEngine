@@ -107,7 +107,8 @@ What each console does is its class's header comment in `tools/dxcap/Classes`; t
 names it. A dedicated server runs no console: `dedicated` makes the run's class, an actor, the
 first of the server's `ServerActors`, which drives the run and ends it. The scripts are in
 `tools/dxcap/`. *Both*: run in each engine and compare, side by side where no script reads
-the run. *Either*: one engine on each side of a pair.
+the run. *Either*: one engine on each side of a pair. *Original*: the original alone, for its
+launcher's part, which DXEngine leaves to the launchers.
 
 | Console | Engines | Drives and logs | Prefix | Read with |
 |---|---|---|---|---|
@@ -284,6 +285,7 @@ the run. *Either*: one engine on each side of a pair.
 | `SaveConsole`, `LoadConsole` | either | a save to slot 9 with a goal, a note, a key and two HUD messages (a log object each), and its load (`Via`: the save after a map exit's travel; `Open=<url>`: the load by the console's `open <url>`, as `?loadgame=9`; `Fresh`: a new game's start, sent by the game's `StartNewGame` from the menu map and saved as it is) | `DXSAVE:` |  |
 | `QuickLoadConsole` | dxe | UNATCO HQ opened from the island (the island into Current), the quick save there by a `SaveHelper`, then `LoadGame -1`: whether the level loads again | `DXQL:` | a Windows build under Wine (`DXCAP_ENGINE`) against the Linux one |
 | `StartConsole` | either | a run started on slot 9's save (`?loadgame=9`: DXEngine's `<map>`, the original's `DXCAP_START`), logged as `LoadConsole` logs it | `DXSAVE:` |  |
+| `ForwardConsole` | original | from the menu map, the level's URL each second for 60 s, then an exit, while a second `DeusEx.exe` started by hand with a map and the run's `INI=` and `USERINI=` hands the running game its command line | `DXFWD:` | the map after the second launch; the game's `WM_COPYDATA:` line; the splash in the game's windows over its start (`xdotool search --pid`) |
 | `CensusConsole` | both | slot 9's save loaded in the running game, from the menu map or `From`'s, `Wait` s in, or none (`Load=False`: a run started on it); the loaded level's actors by class each second for `Seconds`: live, the most live, those spawned (a `CensusNotify` hears them; `Notify=False`, none) and the highest number in their names | `DXCENSUS:` | `census.py <original run> <dxe run>`, with `DXCAP_MEMLOG=1` |
 | `LoadingConsole` | both | the screen while a map loads or a level is saved: a load, a travel within a mission, a save and its load; a beep a second before each; each tick under a level action, the paint's | `DXLOADING:` | the two logs' lines diffed; `shots.py`, at 4:3; `sound.py --levels` and `--onsets <run>`, with `DXCAP_RECORD=1 DXCAP_MUSIC=1`: the music through each load |
 | `NetConsole` | both | the script's sockets, a master server's list | `DXCAP:` |  |
