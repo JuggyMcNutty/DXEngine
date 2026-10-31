@@ -1784,11 +1784,10 @@ not deleted (the log says so).
   next tick 0.4 s in both). The first frame on a level travelled to takes in
   its load: some 1.5 s on Liberty Island in the original's runs, of which
   its actors get 0.4 (`AIConsole`), and less in DXEngine's, whose load is
-  shorter. The player then stands 4.75 over the floor in the original's
-  runs and 4.8 in DXEngine's, its walk's floor check lifting it from a
-  landing lower than the original's, the last step of its fall shorter
-  (`StandConsole`, a line straight down meeting the floor at the same
-  height in both: bugs.md PHYS.12). Not carried: the original's floor of 5 ms, the
+  shorter. Where the player then rests follows its landing, so that first
+  frame's length: 4.25 over the floor at Liberty Island's start in both
+  engines' runs, and after each walk alike (`StandConsole`, two runs of
+  each). Not carried: the original's floor of 5 ms, the
   step of every tick past 200 frames a second, which would run the game fast
   there: uncapped, the original's flyby on the menu map sweeps between its
   logos in a tenth of a second, where held to 60 frames both engines' keep
