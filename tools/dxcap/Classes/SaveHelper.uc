@@ -21,6 +21,6 @@ event Tick(float Delta)
 	if (P != None)
 	{
 		P.SaveGame(Slot, Description);
-		Log("DXSAVE: saved to slot " $ Slot);
+		Log("DXSAVE: saved to slot " $ Slot $ " at " $ Level.TimeSeconds);
 	}
 }

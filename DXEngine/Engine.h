@@ -321,6 +321,14 @@ public:
 
 	float CalcTimeElapsed();
 
+	// A save asked for, written: after the levels' tick, before a travel
+	// takes the level, and after the draw.
+	void WritePendingSave();
+	// The game engine's travels, after the levels' tick as the original's
+	// (UGameEngine::Tick, Engine.dll 0x1038fe90): a server's next map, then
+	// a client's travel; true when one was taken, loaded or not.
+	bool TakeTravel(float realTimeElapsed);
+
 	// The console's Tick, by the time since the viewport was last drawn, as
 	// the original's UConsole::PreRender gives it at each frame's draw, the
 	// loading screen's too; the first, by the frame's time.

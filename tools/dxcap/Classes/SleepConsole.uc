@@ -5,14 +5,25 @@
 // and over -- 6.3 frames at 60 frames a second -- and one 10 s; 6 s in the
 // game saved to slot 9 (a SaveHelper), 7 s in slot 9 loaded, and after the
 // load -- a CapMarker placed after the save gone -- each sleeper's LatentFloat
-// logged, and the 10 s one's waking; 12 s after the
-// load an exit. Each line starts "DXSLEEP:"; run with DXCAP_FPS=60.
+// logged, and the 10 s one's waking; the level's time and the wall clock at
+// each tick waiting for the load and the first after it, the level's time
+// having taken the load's whole frame, as the save's line gives the time
+// saved; 12 s after the load an exit. The load is asked for from this
+// console's tick, inside a draw, or with LoadByActor=True from a LoadHelper's
+// tick. Each line starts "DXSLEEP:"; run with DXCAP_FPS=60.
 //=============================================================================
 class SleepConsole extends Console;
 
-var float MapTime, LoadedTime, Waited;
+var float MapTime, LoadedTime;
+var config bool LoadByActor;
 var string CurrentMap;
 var int Phase;
+
+// The wall clock's seconds in the hour, as the level last read it
+function float WallClock(PlayerPawn P)
+{
+	return P.Level.Minute * 60 + P.Level.Second + P.Level.Millisecond / 1000.0;
+}
 
 function string MapOf(PlayerPawn P)
 {
@@ -40,6 +51,7 @@ event Tick(float Delta)
 	local PlayerPawn P;
 	local CapSleeper Short, Long, S;
 	local SaveHelper Helper;
+	local LoadHelper Loader;
 	local CapMarker M;
 	local bool bMarked;
 
@@ -97,7 +109,13 @@ event Tick(float Delta)
 		foreach P.AllActors(class'CapSleeper', S)
 			Log("DXSLEEP: before the load, at " $ P.Level.TimeSeconds $ ", " $ S.Name $ " woke " $ S.Wakes $ " times, LatentFloat " $ S.LatentFloat);
 		P.Spawn(class'CapMarker');
-		DeusExPlayer(P).LoadGame(9);
+		if (LoadByActor)
+		{
+			Loader = P.Spawn(class'LoadHelper', P);
+			Loader.Slot = 9;
+		}
+		else
+			DeusExPlayer(P).LoadGame(9);
 		Phase = 3;
 	}
 	else if (Phase == 3)
@@ -106,14 +124,10 @@ event Tick(float Delta)
 			bMarked = true;
 		if (bMarked)
 		{
-			Waited += Delta;
-			if (Waited > 2.0)
-			{
-				Log("DXSLEEP: waiting for the load, at " $ P.Level.TimeSeconds);
-				Waited = 0;
-			}
+			Log("DXSLEEP: tick waiting for the load at " $ P.Level.TimeSeconds $ ", its time " $ Delta $ ", the clock " $ WallClock(P));
 			return;
 		}
+		Log("DXSLEEP: first tick after the load at " $ P.Level.TimeSeconds $ ", the clock " $ WallClock(P));
 		foreach P.AllActors(class'CapSleeper', S)
 			Log("DXSLEEP: after the load, at " $ P.Level.TimeSeconds $ ", " $ S.Name $ " sleeps " $ S.Seconds $ ", woke " $ S.Wakes $ " times, LatentFloat " $ S.LatentFloat);
 		LoadedTime = MapTime;

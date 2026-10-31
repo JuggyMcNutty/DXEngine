@@ -333,20 +333,11 @@ void Engine::Run()
 #endif
 		LauncherLine::Get().Poll([this](const std::string& line) { OnLauncherLine(line); });
 
-		// Main game loop should consist of these 4 steps:
-		// Tick everything
-		// Render the scene
-		// Check if there is a request to save the game: save the game if that's the case
-		// Check if there is a new map to load (next level, saved game etc.): load it if that's the case
-
-		// Tick everything
+		// A frame, as the original's game engine has it (dx-reverse-info
+		// engine-dll.md, the game engine's frame): the windows' tick, the
+		// levels' tick, a save asked for, a travel -- the frame ending
+		// there --, a join under way, the draw.
 		float realTimeElapsed = CalcTimeElapsed();
-
-		// A join under way; its map may load here, before the level's time.
-		if (PendingLevel)
-			TickPendingLevel(realTimeElapsed);
-		if (PendingLevel)
-			UpdateConnectingMessage();
 
 		float entryLevelElapsed = EntryLevel ? realTimeElapsed * clamp(EntryLevelInfo->TimeDilation(), 0.0025f, 25.0f) : 0.0f;
 		float levelElapsed = realTimeElapsed * clamp(LevelInfo->TimeDilation(), 0.0025f, 25.0f);
@@ -425,6 +416,34 @@ void Engine::Run()
 		if (LevelNetDriver)
 			LevelNetDriver->TickFlush();
 
+		// A save asked for during the tick, written before a travel takes
+		// its level.
+		WritePendingSave();
+
+		// A frame that travels ends with its load, drawing nothing, as the
+		// original's game engine returns from its tick there: the next
+		// frame's time takes in the load. A travel asked for during a draw
+		// -- a console's tick -- waits for the next frame's tick, the old
+		// level ticking once more.
+		if (TakeTravel(realTimeElapsed))
+		{
+			// The load's collection is part of the frame, as the original's
+			// is part of its load.
+			if (!GarbageRequest.empty())
+				CollectGarbage();
+			continue;
+		}
+
+		// A join under way, ticked in a frame that takes no travel, as the
+		// original's: the frame that loads its map draws it.
+		if (PendingLevel)
+			TickPendingLevel(realTimeElapsed);
+
+		// While a join is pending, each frame drawn shows its message
+		// (UGameEngine::Draw's UpdateConnectingMessage).
+		if (PendingLevel)
+			UpdateConnectingMessage();
+
 		// To do: improve CallEvent so parameter passing isn't this painful
 		UFunction* funcPlayerCalcView = viewport->Actor() ? FindEventFunction(viewport->Actor(), "PlayerCalcView") : nullptr;
 		if (funcPlayerCalcView)
@@ -476,109 +495,8 @@ void Engine::Run()
 			}
 		}
 
-		// Save the game if there is a request for it
-		if (SaveGameInfo.SaveGameSlot != DONT_SAVE_GAME)
-		{
-			SaveGameToSlot(SaveGameInfo.SaveGameSlot, SaveGameInfo.SaveGameDescription);
-
-			SaveGameInfo.SaveGameSlot = DONT_SAVE_GAME;
-			SaveGameInfo.SaveGameDescription.clear();
-		}
-
-		// Check if there is a new map to load
-		if (!LevelInfo->NextURL().empty())
-		{
-			LevelInfo->NextSwitchCountdown() -= levelElapsed;
-			if (LevelInfo->NextSwitchCountdown() <= 0.0f)
-			{
-				if (LevelNetDriver)
-					LogMessage("Net: server switch level: " + LevelInfo->NextURL());
-				// LoginPlayer only transfers travel actors when ClientTravelInfo.TravelType is
-				// TRAVEL_Relative, and TravelType is otherwise assigned only in ClientTravel. These
-				// NextURL routes never go through ClientTravel, so without setting it here they
-				// inherit whatever the last ClientTravel left behind (or TRAVEL_Absolute, the
-				// default) - which silently discarded the inventory the bNextItems branch exists
-				// specifically to carry. State the intent explicitly on each branch instead of
-				// depending on leftover state.
-				if (UnrealURL(LevelInfo->NextURL()).HasOption("restart"))
-				{
-					DeleteSaveGameFiles("Current"); // the original's ?restart empties Current
-					// Carries nothing: the original's Browse loads the map with no
-					// travel info and ?loadonly, whose login takes none of it, the
-					// player's own or its items' (Engine.dll's SpawnPlayActor,
-					// 0x10396bd0)
-					ClientTravelInfo.TravelType = ETravelType::TRAVEL_Absolute;
-					UnrealURL restartURL = RestartURL();
-					LoadMap(restartURL, {});
-					if (!dedicated)
-						LoginPlayer();
-				}
-				else
-				{
-					// With bNextItems the players' travel info, captured
-					// before the pre-travel prune deletes what crosses in the
-					// pawn's graph, as the original's travel save runs before
-					// its Browse; without it none. A browse that loads no
-					// level clears NextURL, as the original's clears it after
-					// the browse, failed or not.
-					ClientTravelInfo.TravelType = LevelInfo->bNextItems() ? ETravelType::TRAVEL_Relative : ETravelType::TRAVEL_Absolute;
-					auto travelInfo = LevelInfo->bNextItems() ? CreateTravelInfo(true) : std::map<std::string, std::string>();
-					if (!BrowseMap(UnrealURL(LastURL, LevelInfo->NextURL()), travelInfo))
-						LevelInfo->NextURL().clear();
-				}
-			}
-		}
-
-		if (ClientTravelInfo.URL.HasOption("restart"))
-		{
-			DeleteSaveGameFiles("Current"); // the original's ?restart empties Current
-			// Carries nothing, as the NextURL's ?restart above
-			ClientTravelInfo.TravelType = ETravelType::TRAVEL_Absolute;
-			UnrealURL restartURL = RestartURL();
-			LoadMap(restartURL, {});
-			if (!dedicated)
-				LoginPlayer();
-		}
-
-		// A slot's load is ?loadgame=N or ?load=N, as the original's Browse
-		// asks for "loadgame=" and "load=": a bare ?loadgame is a map's
-		// browse, its map the default one.
-		if (HasValueOption(ClientTravelInfo.URL, "load") || HasValueOption(ClientTravelInfo.URL, "loadgame"))
-		{
-			UnrealURL url(ClientTravelInfo.URL);
-			LoadSavedGame(url);
-		}
-
-		// Lost the server, or refused by it after the join: to the Entry
-		// level, as the original's client level browses ?failed
-		// (ULevel::TickNetClient, NotifyReceivedText) -- a join pending or
-		// not: a server that travels closes the old connection as its clients
-		// join it again, and the join then loads the next map.
-		if (LevelNetDriver && LevelNetDriver->ServerConnection && (!NetFailure.empty() || LevelNetDriver->ServerConnection->State == ConnectionState::Closed))
-		{
-			LogMessage("Net: disconnected" + (NetFailure.empty() ? std::string() : ": " + NetFailure));
-			NetFailure.clear();
-			// The viewport's next travel, absolute, as the original's sets it:
-			// the player's options from the last URL, the server's, on it
-			ClientTravel("?failed", ETravelType::TRAVEL_Absolute, false);
-		}
-
-		if (!ClientTravelInfo.URL.Host.empty())
-		{
-			UnrealURL url(ClientTravelInfo.URL);
-			ClientTravelInfo.URL.Clear();
-			BeginConnect(url);
-		}
-		else if (!ClientTravelInfo.URL.Map.empty())
-		{
-			UnrealURL url(ClientTravelInfo.URL);
-			LogMessage("Client travel to " + url.ToString());
-			// Captured before the pre-travel prune deletes what crosses in
-			// the pawn's graph.
-			auto travelInfo = CreateTravelInfo(ClientTravelInfo.TransferItems);
-			if (!BrowseMap(url, travelInfo))
-				ClientTravelInfo.URL.Clear();
-		}
+		// A save asked for during the draw: a console's tick
+		WritePendingSave();
 
 		if (GarbageStressFrames > 0 && ++GarbageStressCount >= GarbageStressFrames)
 		{
@@ -2518,6 +2436,123 @@ float Engine::CalcTimeElapsed()
 	// most 0.4 s of it (ULevel::Tick, Engine::UpdateInput).
 	float seconds = deltaTime / 1'000'000.0f;
 	return seconds;
+}
+
+void Engine::WritePendingSave()
+{
+	if (SaveGameInfo.SaveGameSlot == DONT_SAVE_GAME)
+		return;
+	SaveGameToSlot(SaveGameInfo.SaveGameSlot, SaveGameInfo.SaveGameDescription);
+	SaveGameInfo.SaveGameSlot = DONT_SAVE_GAME;
+	SaveGameInfo.SaveGameDescription.clear();
+}
+
+bool Engine::TakeTravel(float realTimeElapsed)
+{
+	const bool dedicated = LaunchInfo.dedicatedServer;
+
+	// A server's next map, once its countdown has run out, by the frame's
+	// real time as the original's counts it down; the original's tick takes
+	// it before a client's travel and ends there.
+	if (!LevelInfo->NextURL().empty())
+	{
+		LevelInfo->NextSwitchCountdown() -= realTimeElapsed;
+		if (LevelInfo->NextSwitchCountdown() <= 0.0f)
+		{
+			if (LevelNetDriver)
+				LogMessage("Net: server switch level: " + LevelInfo->NextURL());
+			// LoginPlayer only transfers travel actors when ClientTravelInfo.TravelType is
+			// TRAVEL_Relative, and TravelType is otherwise assigned only in ClientTravel. These
+			// NextURL routes never go through ClientTravel, so without setting it here they
+			// inherit whatever the last ClientTravel left behind (or TRAVEL_Absolute, the
+			// default) - which silently discarded the inventory the bNextItems branch exists
+			// specifically to carry. State the intent explicitly on each branch instead of
+			// depending on leftover state.
+			if (UnrealURL(LevelInfo->NextURL()).HasOption("restart"))
+			{
+				DeleteSaveGameFiles("Current"); // the original's ?restart empties Current
+				// Carries nothing: the original's Browse loads the map with no
+				// travel info and ?loadonly, whose login takes none of it, the
+				// player's own or its items' (Engine.dll's SpawnPlayActor,
+				// 0x10396bd0)
+				ClientTravelInfo.TravelType = ETravelType::TRAVEL_Absolute;
+				UnrealURL restartURL = RestartURL();
+				LoadMap(restartURL, {});
+				if (!dedicated)
+					LoginPlayer();
+			}
+			else
+			{
+				// With bNextItems the players' travel info, captured
+				// before the pre-travel prune deletes what crosses in the
+				// pawn's graph, as the original's travel save runs before
+				// its Browse; without it none. A browse that loads no
+				// level clears NextURL, as the original's clears it after
+				// the browse, failed or not.
+				ClientTravelInfo.TravelType = LevelInfo->bNextItems() ? ETravelType::TRAVEL_Relative : ETravelType::TRAVEL_Absolute;
+				auto travelInfo = LevelInfo->bNextItems() ? CreateTravelInfo(true) : std::map<std::string, std::string>();
+				if (!BrowseMap(UnrealURL(LastURL, LevelInfo->NextURL()), travelInfo))
+					LevelInfo->NextURL().clear();
+			}
+			return true;
+		}
+	}
+
+	if (ClientTravelInfo.URL.HasOption("restart"))
+	{
+		DeleteSaveGameFiles("Current"); // the original's ?restart empties Current
+		// Carries nothing, as the NextURL's ?restart above
+		ClientTravelInfo.TravelType = ETravelType::TRAVEL_Absolute;
+		UnrealURL restartURL = RestartURL();
+		LoadMap(restartURL, {});
+		if (!dedicated)
+			LoginPlayer();
+		return true;
+	}
+
+	// A slot's load is ?loadgame=N or ?load=N, as the original's Browse
+	// asks for "loadgame=" and "load=": a bare ?loadgame is a map's
+	// browse, its map the default one.
+	if (HasValueOption(ClientTravelInfo.URL, "load") || HasValueOption(ClientTravelInfo.URL, "loadgame"))
+	{
+		UnrealURL url(ClientTravelInfo.URL);
+		LoadSavedGame(url);
+		return true;
+	}
+
+	// Lost the server, or refused by it after the join: to the Entry
+	// level, as the original's client level browses ?failed
+	// (ULevel::TickNetClient, NotifyReceivedText) -- a join pending or
+	// not: a server that travels closes the old connection as its clients
+	// join it again, and the join then loads the next map.
+	if (LevelNetDriver && LevelNetDriver->ServerConnection && (!NetFailure.empty() || LevelNetDriver->ServerConnection->State == ConnectionState::Closed))
+	{
+		LogMessage("Net: disconnected" + (NetFailure.empty() ? std::string() : ": " + NetFailure));
+		NetFailure.clear();
+		// The viewport's next travel, absolute, as the original's sets it:
+		// the player's options from the last URL, the server's, on it
+		ClientTravel("?failed", ETravelType::TRAVEL_Absolute, false);
+	}
+
+	if (!ClientTravelInfo.URL.Host.empty())
+	{
+		UnrealURL url(ClientTravelInfo.URL);
+		ClientTravelInfo.URL.Clear();
+		BeginConnect(url);
+		return true;
+	}
+	else if (!ClientTravelInfo.URL.Map.empty())
+	{
+		UnrealURL url(ClientTravelInfo.URL);
+		LogMessage("Client travel to " + url.ToString());
+		// Captured before the pre-travel prune deletes what crosses in
+		// the pawn's graph.
+		auto travelInfo = CreateTravelInfo(ClientTravelInfo.TransferItems);
+		if (!BrowseMap(url, travelInfo))
+			ClientTravelInfo.URL.Clear();
+		return true;
+	}
+	return false;
 }
 
 // A device's class named bare or with its package: the game's SET and GET

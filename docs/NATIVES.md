@@ -194,6 +194,21 @@ the console's `PRECACHING` over the view, as the original's with `D3DDrv`'s
 (`LoadingConsole` with `DXCAP_PRECACHE=1`: the same frames, words and ticks
 in both engines, the original on `D3DDrv`).
 
+A frame that travels -- a client's travel, a save's load, a server's next
+map -- ends with its load and draws nothing, as the original's game engine
+returns from its tick there
+([the game engine's frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-levels-tick)):
+a travel asked for during the level's tick is taken before anything is
+drawn, and one asked for during a draw -- a console's tick -- waits for the
+next frame's tick, the old level ticking once more (`SleepConsole`, its load
+asked for by its own tick and, with `LoadByActor`, by an actor's: the ticks
+before the load alike in both engines, where DXEngine drew the old level
+once more before the load and took the console's before the old level's
+next tick). A server's next map waits out its countdown by the frame's real
+time, not the level's, and a join under way ticks after the level's tick in
+a frame that takes no travel, its connecting message shown at each frame's
+draw, as the original's.
+
 ## Flags
 
 Matches the original
@@ -1841,10 +1856,16 @@ not deleted (the log says so).
   next tick 0.4 s in both). The first frame on a level travelled to takes in
   its load: some 1.5 s on Liberty Island in the original's runs, of which
   its actors get 0.4 (`AIConsole`), and less in DXEngine's, whose load is
-  shorter. Where the player then rests follows its landing, so that first
-  frame's length: 4.25 over the floor at Liberty Island's start in both
-  engines' runs, and after each walk alike (`StandConsole`, two runs of
-  each). Not carried: the original's floor of 5 ms, the
+  shorter. A save's load likewise, the level's time going on from the time
+  saved (`SleepConsole`: past the save's within a millisecond of the wall
+  clock's step over the load in both engines, 2.87 s in the original's run
+  and some 0.14 s in DXEngine's). Where the player then rests follows its
+  landing, so that first frame's length: 4.25 over the floor at Liberty
+  Island's start in both engines' runs, and after each walk alike
+  (`StandConsole`, two runs of each); after the island's travel to UNATCO
+  HQ, a frame a little under 0.4 s in DXEngine's runs, some 0.01 under the
+  original's, whose actors get 0.4 (`SaveConsole` with `Via`: 607.74 and
+  607.75). Not carried: the original's floor of 5 ms, the
   step of every tick past 200 frames a second, which would run the game fast
   there: uncapped, the original's flyby on the menu map sweeps between its
   logos in a tenth of a second, where held to 60 frames both engines' keep
@@ -2266,7 +2287,9 @@ as client and as server: `ServeConsole`, `JoinConsole`, `RejoinConsole`,
 `TravelServeConsole`, `TravelJoinConsole`, `NetConsole`, `PickServer` with
 `PickJoinConsole`. DXEngine joins live
 public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
-stays in. Until its pawn arrives, a joining DXEngine client draws no world.
+stays in. Differs (bugs.md NET.8): until its pawn arrives, a joining DXEngine
+client has no player and draws no world, where the original's player waits
+in the Entry level, which the original ticks twice a frame meanwhile.
 A remote player's pawn destroyed by script (`Kick`) has its connection
 closed instead, as the original's `DestroyActor` has it (`ServeConsole`
 with `Kick`, each engine the server and the other's `TravelJoinConsole` the
