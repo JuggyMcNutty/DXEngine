@@ -14,6 +14,7 @@ public:
 	bool Coronas = true;
 	bool HighDetailActors = true;
 	bool DetailTextures = true; // the world's detail textures drawn (the Display menu's Detail Textures)
+	bool UsePrecache = false; // D3DDrv's: the frame after a map's load shows PRECACHING
 
 	void LoadProperties(const NameString& from = "") override;
 	void SaveConfig() override;

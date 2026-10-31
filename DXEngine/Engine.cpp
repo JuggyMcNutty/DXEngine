@@ -446,6 +446,21 @@ void Engine::Run()
 		{
 			UpdateAudio();
 
+			// After a map's load with the render device's UsePrecache on, a
+			// frame under the level action Precaching, its console's tick too
+			// -- the console's PRECACHING --, the old action back after it, as
+			// the original's Draw gives it while the device's PrecacheOnFlip
+			// is set and the viewport's bSuspendPrecaching is not
+			// (UGameEngine::Draw, Engine.dll 0x1038f110); nothing to
+			// precache, DXEngine's textures uploading as they are drawn.
+			const bool precaching = PrecacheOnFlip && LevelInfo && !viewport->bSuspendPrecaching();
+			uint8_t action = 0;
+			if (precaching)
+			{
+				action = LevelInfo->LevelAction();
+				LevelInfo->LevelAction() = LEVACT_Precaching;
+			}
+
 			// The console ticks as the draw begins, after the level's tick
 			// and by the real time since the last draw, as the original's
 			// UConsole::PreRender ticks it (dx-reverse-info engine-dll.md,
@@ -454,6 +469,11 @@ void Engine::Run()
 
 			viewport->SetViewportRect(0, 0, engine->window->GetPixelWidth(), engine->window->GetPixelHeight());
 			render->DrawGame(levelElapsed);
+			if (precaching)
+			{
+				LevelInfo->LevelAction() = action;
+				PrecacheOnFlip = false;
+			}
 		}
 
 		// Save the game if there is a request for it
@@ -1224,6 +1244,7 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 		LevelInfo->Game() = nullptr;
 		BeginPlay(url);
 		RequestGarbageCollection("client map " + url.Map, true);
+		PrecacheOnFlip = renderdev && renderdev->UsePrecache;
 		return;
 	}
 
@@ -1274,6 +1295,10 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 	BeginPlay(url);
 
 	RequestGarbageCollection("map " + url.Map, true);
+
+	// The render device flushed, a precache allowed (UGameEngine::LoadMap's
+	// Flush): its UsePrecache sets PrecacheOnFlip, as D3DDrv's does
+	PrecacheOnFlip = renderdev && renderdev->UsePrecache;
 
 	// As the original's map load collects what the new level does not use:
 	// a server's downloads go, but a pending join's.
@@ -1473,6 +1498,7 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 	Level->SortActors();
 
 	RequestGarbageCollection("saved level " + LevelPackage->GetPackageName().ToString(), true);
+	PrecacheOnFlip = renderdev && renderdev->UsePrecache;
 	return true;
 }
 

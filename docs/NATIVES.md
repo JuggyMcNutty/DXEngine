@@ -180,9 +180,12 @@ both). The painted frame ticks the console as every frame's draw does
 (`UConsole::PreRender`), by the time since the last draw, after the level's
 tick (`HopConsole`, `SpinConsole`: an actor's ticks after the console's exit
 as the original's): `LoadingConsole`'s log, a tick under each level action
-among its lines, alike in both engines. Differs: no frame shows
-`PRECACHING`, which the original's shows with its driver's precache on, as
-the game's ini has it off (bugs.md PKG.8).
+among its lines, alike in both engines. With the render device's
+`UsePrecache` on, which the game's ini has off, the frame after each map's
+load is drawn under the level action Precaching, its console's tick too:
+the console's `PRECACHING` over the view, as the original's with `D3DDrv`'s
+(`LoadingConsole` with `DXCAP_PRECACHE=1`: the same frames, words and ticks
+in both engines, the original on `D3DDrv`).
 
 ## Flags
 

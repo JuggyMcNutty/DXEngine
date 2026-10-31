@@ -49,6 +49,8 @@
 # and a client opening 7790. DXCAP_STATS=<password> has a run's server log
 # world stats (bWorldLog) and its player hold that world stats password, so a
 # join carries the player's checksum (the server logs the login's URL).
+# DXCAP_PRECACHE=1 gives a run's ini D3DDrv's UsePrecache on: the frame after
+# a map's load shows PRECACHING.
 # DXCAP_CACHEEXT=<ext> gives a run's ini that [Core.System] CacheExt, the
 # extension its download cache looks packages up by.
 # DXCAP_SERVERPKGS=<dir> has a run's server find packages in <dir> too, each
@@ -452,6 +454,9 @@ if n == 0:
 # A run's server listens on DXCAP_PORT's port.
 if os.environ.get('DXCAP_PORT'):
     put('Port', os.environ['DXCAP_PORT'])
+# A run's render device precaches after each map's load with DXCAP_PRECACHE=1.
+if os.environ.get('DXCAP_PRECACHE') == '1':
+    put('UsePrecache', 'True')
 # A run's download cache names its packages by DXCAP_CACHEEXT's extension.
 if os.environ.get('DXCAP_CACHEEXT'):
     put('CacheExt', os.environ['DXCAP_CACHEEXT'])

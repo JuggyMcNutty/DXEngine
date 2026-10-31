@@ -21,6 +21,8 @@ std::string UDXEngineRenderDevice::GetPropertyAsString(const NameString& propert
 		return IniPropertyConverter<bool>::ToString(HighDetailActors);
 	else if (propertyName == "DetailTextures")
 		return IniPropertyConverter<bool>::ToString(DetailTextures);
+	else if (propertyName == "UsePrecache")
+		return IniPropertyConverter<bool>::ToString(UsePrecache);
 
 	LogMessage("Queried unknown property for DXEngineRenderDevice: " + propertyName.ToString());
 	return {};
@@ -40,6 +42,8 @@ void UDXEngineRenderDevice::SetPropertyFromString(const NameString& propertyName
 		HighDetailActors = IniPropertyConverter<bool>::FromString(value);
 	else if (propertyName == "DetailTextures")
 		DetailTextures = IniPropertyConverter<bool>::FromString(value);
+	else if (propertyName == "UsePrecache")
+		UsePrecache = IniPropertyConverter<bool>::FromString(value);
 	else
 		LogMessage("Setting unknown property for DXEngineRenderDevice: " + propertyName.ToString());
 
@@ -59,6 +63,7 @@ void UDXEngineRenderDevice::LoadProperties(const NameString& from)
 	Coronas = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "Coronas", Coronas);
 	HighDetailActors = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "HighDetailActors", HighDetailActors);
 	DetailTextures = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "DetailTextures", DetailTextures);
+	UsePrecache = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "UsePrecache", UsePrecache);
 }
 
 void UDXEngineRenderDevice::SaveConfig()
@@ -69,4 +74,5 @@ void UDXEngineRenderDevice::SaveConfig()
 	engine->packages->SetIniValue("System", Class, "Coronas", IniPropertyConverter<bool>::ToString(Coronas));
 	engine->packages->SetIniValue("System", Class, "HighDetailActors", IniPropertyConverter<bool>::ToString(HighDetailActors));
 	engine->packages->SetIniValue("System", Class, "DetailTextures", IniPropertyConverter<bool>::ToString(DetailTextures));
+	engine->packages->SetIniValue("System", Class, "UsePrecache", IniPropertyConverter<bool>::ToString(UsePrecache));
 }

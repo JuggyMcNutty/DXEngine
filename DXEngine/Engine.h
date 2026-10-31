@@ -285,6 +285,9 @@ public:
 	Package* deusExPackage = nullptr;
 	UDeusExLevelInfo* DeusExLevelInfo = nullptr;
 	bool dxTravelUsesCurrent = false; // set by DeusExPreTravel, read once by LoadMap
+	// The render device's PrecacheOnFlip: set by a map's load with its
+	// UsePrecache on, cleared by the frame that shows PRECACHING
+	bool PrecacheOnFlip = false;
 
 	std::unique_ptr<NetPendingLevel> PendingLevel;
 	std::unique_ptr<NetDriver> LevelNetDriver;
