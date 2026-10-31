@@ -95,7 +95,7 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, MeshPass pass)
 		if (!held)
 			held = pawn->SelectedItem();
 		UMesh* heldMesh = held ? held->ThirdPersonMesh() : nullptr;
-		if (heldMesh && pawnLodMesh && attachmentTris.size() >= 3)
+		if (heldMesh && pawnLodMesh && attachmentTris.size() >= 3 && (!Wire || WireTriangleInView(frame)))
 		{
 			// Find attachment triangle location in the world:
 			const vec3& v0 = attachmentTris[0];
@@ -125,6 +125,29 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, MeshPass pass)
 	}
 
 	return needsTranslucentPass;
+}
+
+// Whether the original's DrawLodMesh finds the weapon triangle in view when
+// drawing wire (Render.dll 0x10b0ea80): it tests each corner's outcode
+// against the view's sides as ever, but a wire mesh's corners are in the
+// world's axes, not the view's, so a corner is out by where it lies from the
+// world's origin -- nearly always, the world's distances dwarfing the
+// heights -- and a triangle wholly out past one side holds nothing.
+bool VisibleMesh::WireTriangleInView(VisibleFrame* frame)
+{
+	const SceneNode& node = frame->Frame;
+	float t = (float)std::tan(radians(node.FovAngle) * 0.5f);
+	float aspect = node.FX > 0.0f ? node.FY / node.FX : 1.0f;
+	float prjXM = -t, prjXP = t, prjYM = -aspect * t, prjYP = aspect * t;
+	int all = 15;
+	for (int i = 0; i < 3; i++)
+	{
+		const vec3& p = attachmentTris[i];
+		int out = (std::signbit(p.z * prjXM + p.x) ? 1 : 0) | (std::signbit(p.z * prjYM + p.y) ? 2 : 0) |
+			(std::signbit(p.z * prjYP - p.y) ? 4 : 0) | (std::signbit(p.z * prjXP - p.x) ? 8 : 0);
+		all &= out;
+	}
+	return all == 0;
 }
 
 bool VisibleMesh::DrawMeshAtLocation(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, UMesh* mesh, const mat4& meshToWorld, const mat3& meshNormalToWorld, MeshPass pass)
@@ -336,6 +359,62 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 	VertexLight vertexLight;
 	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor);
 	vec3 eye = frame->ViewLocation.xyz();
+
+	// Wire, as the original's DrawMesh draws a mesh with the viewer's RendMap
+	// at wire (Render.dll 0x10b0d1a0): each triangle's lines, its last corner
+	// to its first, then each to the next, a line only from the corner of the
+	// greater X -- so an edge two triangles share is drawn once -- but every
+	// line of a two-sided triangle; as the LOD mesh's otherwise
+	if (Wire)
+	{
+		vec4 color = actor->bSelected() ? vec4(0.2f, 0.8f, 0.1f, 0.0f) : vec4(0.6f, 0.4f, 0.1f, 0.0f);
+		for (const MeshTri& tri : mesh->Tris)
+		{
+			vec3 points[3];
+			for (int i = 0; i < 3; i++)
+			{
+				size_t vindex = tri.Indices[i];
+				size_t vindex0 = vindex + vertexOffsets[0];
+				size_t vindex1 = vindex + vertexOffsets[1];
+				if (vindex0 >= mesh->Verts.size() || vindex1 >= mesh->Verts.size())
+					return false;
+				vec3 vertex = mix(mesh->Verts[vindex0] + mesh->Normals[vindex0] * fatness, mesh->Verts[vindex1] + mesh->Normals[vindex1] * fatness, t0);
+				if (t1 != 0.0f)
+				{
+					size_t vindex2 = vindex + vertexOffsets[2];
+					if (vindex2 >= mesh->Verts.size())
+						return false;
+					vertex = mix(vertex, mesh->Verts[vindex2] + mesh->Normals[vindex2] * fatness, t1);
+				}
+				vec3 restPose = mesh->Verts[vindex];
+				for (int j = 0; j < blendCount; j++)
+				{
+					BlendInfo& b = blends[j];
+					size_t blendVindex0 = vindex + b.offsets[0];
+					size_t blendVindex1 = vindex + b.offsets[1];
+					if (b.weight <= 0.0f || blendVindex0 >= mesh->Verts.size() || blendVindex1 >= mesh->Verts.size())
+						continue;
+					vec3 blendVertex = mix(mesh->Verts[blendVindex0], mesh->Verts[blendVindex1], b.t0);
+					if (b.t1 != 0.0f)
+					{
+						size_t blendVindex2 = vindex + b.offsets[2];
+						if (blendVindex2 >= mesh->Verts.size())
+							continue;
+						blendVertex = mix(blendVertex, mesh->Verts[blendVindex2], b.t1);
+					}
+					vertex += (blendVertex - restPose) * b.weight;
+				}
+				points[i] = (ObjectToWorld * vec4(vertex, 1.0f)).xyz();
+			}
+			for (int i = 0; i < 3; i++)
+			{
+				const vec3& from = points[(i + 2) % 3];
+				if ((tri.PolyFlags & PF_TwoSided) || from.x >= points[i].x)
+					frame->Device->Draw3DLine(&frame->Frame, color, 0, from, points[i]);
+			}
+		}
+		return false;
+	}
 
 	GouraudVertex vertices[3];
 	for (const MeshTri& tri : mesh->Tris)
@@ -704,6 +783,83 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 		lodMorph = mesh->LODMorph > 0.0f && lodMorphStart < (int)lodBudget;
 		lodMorphScale = lodMorph ? 1.0f / (budget * mesh->LODMorph) : 0.0f;
 		lodActive = true;
+	}
+
+	// Wire, as the original's DrawLodMesh draws a mesh with the viewer's
+	// RendMap at wire (Render.dll 0x10b0ea80): each face within the budget,
+	// whatever its material, as three lines -- its last corner to its first,
+	// then each to the next --, its corners down their collapse lists and
+	// slid as the faces' are; then each special face, the weapon triangle's,
+	// between its special vertices; no face culled, nothing lit. The lines
+	// of the colour of a mesh not selected, or green selected, over the
+	// scene: D3DDrv draws every line at one depth before all (Draw2DLine)
+	if (Wire)
+	{
+		vec4 color = actor->bSelected() ? vec4(0.2f, 0.8f, 0.1f, 0.0f) : vec4(0.6f, 0.4f, 0.1f, 0.0f);
+		auto lines = [&](const vec3* points)
+		{
+			for (int i = 0; i < 3; i++)
+				frame->Device->Draw3DLine(&frame->Frame, color, 0, points[(i + 2) % 3], points[i]);
+		};
+		size_t index = (size_t)-1;
+		for (const MeshFace& face : faces)
+		{
+			index++;
+			if (lodActive && mesh->FaceLevel[index] > lodBudget)
+				continue;
+			if (face.Indices[0] >= mesh->Wedges.size() || face.Indices[1] >= mesh->Wedges.size() || face.Indices[2] >= mesh->Wedges.size())
+				continue;
+			vec3 points[3];
+			for (int i = 0; i < 3; i++)
+			{
+				uint16_t wedgeIndex = face.Indices[i];
+				if (lodActive)
+				{
+					size_t steps = 0;
+					while (mesh->Wedges[wedgeIndex].Vertex >= lodBudget && steps++ < mesh->Wedges.size())
+					{
+						uint16_t next = mesh->CollapseWedgeThus[wedgeIndex];
+						if (next >= mesh->Wedges.size())
+							break;
+						wedgeIndex = next;
+					}
+				}
+				const MeshWedge& wedge = mesh->Wedges[wedgeIndex];
+				size_t vbase = (size_t)wedge.Vertex + baseVertexOffset;
+				size_t vindex = mesh->ReMapAnimVerts.empty() || vbase >= mesh->ReMapAnimVerts.size() ? vbase : mesh->ReMapAnimVerts[vbase];
+				vec3 normal;
+				if (!animateVertex(vindex, points[i], normal))
+					return false;
+				uint16_t morphTarget = lodMorph && (int)wedge.Vertex > lodMorphStart && wedge.Vertex < mesh->CollapsePointThus.size() ? mesh->CollapsePointThus[wedge.Vertex] : 0;
+				if (morphTarget != 0)
+				{
+					float morphT = std::min((float)((int)wedge.Vertex - lodMorphStart) * lodMorphScale, 1.0f);
+					size_t tbase = (size_t)morphTarget + baseVertexOffset;
+					size_t tindex = mesh->ReMapAnimVerts.empty() ? tbase : (tbase < mesh->ReMapAnimVerts.size() ? mesh->ReMapAnimVerts[tbase] : tbase);
+					vec3 targetPoint, targetNormal;
+					if (animateVertex(tindex, targetPoint, targetNormal))
+						points[i] = mix(points[i], targetPoint, morphT);
+				}
+			}
+			lines(points);
+		}
+		if (&faces == &mesh->Faces)
+		{
+			for (const MeshFace& face : mesh->SpecialFaces)
+			{
+				vec3 points[3], normal;
+				bool inside = true;
+				for (int i = 0; i < 3 && inside; i++)
+				{
+					size_t vbase = face.Indices[i];
+					size_t vindex = mesh->ReMapAnimVerts.empty() || vbase >= mesh->ReMapAnimVerts.size() ? vbase : mesh->ReMapAnimVerts[vbase];
+					inside = animateVertex(vindex, points[i], normal);
+				}
+				if (inside)
+					lines(points);
+			}
+		}
+		return false;
 	}
 
 	// Consecutive faces with one texture and one set of flags go to the

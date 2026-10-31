@@ -315,8 +315,6 @@ private:
 	void CreatePixelShader(ComPtr<ID3D11PixelShader>& outShader, const std::string& shaderName, const std::string& filename, const std::vector<std::string> defines = {});
 	std::vector<uint8_t> CompileHlsl(const std::string& filename, const std::string& shadertype, const std::vector<std::string> defines = {});
 
-	vec4 ApplyInverseGamma(vec4 color);
-
 	D3D11PresentPushConstants GetD3D11PresentPushConstants();
 
 	bool VerticesMapped() const { return SceneVertices && SceneIndexes; }

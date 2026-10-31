@@ -1884,15 +1884,6 @@ void D3D11RenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X, f
 	Stats.Tiles++;
 }
 
-vec4 D3D11RenderDevice::ApplyInverseGamma(vec4 color)
-{
-	float brightness = clamp(Brightness * GammaScale, 0.05f, 2.99f);
-	float gammaRed = std::max(brightness + GammaOffset + GammaOffsetRed, 0.001f);
-	float gammaGreen = std::max(brightness + GammaOffset + GammaOffsetGreen, 0.001f);
-	float gammaBlue = std::max(brightness + GammaOffset + GammaOffsetBlue, 0.001f);
-	return vec4(pow(color.r, gammaRed), pow(color.g, gammaGreen), pow(color.b, gammaBlue), color.a);
-}
-
 void D3D11RenderDevice::Draw3DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2)
 {
 	// P1 = P1.TransformPointBy(Frame->Coords);
@@ -1900,7 +1891,7 @@ void D3D11RenderDevice::Draw3DLine(SceneNode* Frame, vec4 Color, uint32_t LineFl
 	bool occlude = !!(LineFlags & LINE_DepthCued);
 	SetPipeline(&ScenePass.LinePipeline[occlude]);
 	SetDescriptorSet(PF_Highlighted);
-	vec4 color = ApplyInverseGamma(vec4(Color.x, Color.y, Color.z, 1.0f));
+	vec4 color = vec4(Color.x, Color.y, Color.z, 1.0f);
 
 	auto alloc = ReserveVertices(2, 2);
 	if (alloc.vptr)
@@ -1924,7 +1915,7 @@ void D3D11RenderDevice::Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFl
 	bool occlude = !!(LineFlags & LINE_DepthCued);
 	SetPipeline(&ScenePass.LinePipeline[occlude]);
 	SetDescriptorSet(PF_Highlighted);
-	vec4 color = ApplyInverseGamma(vec4(Color.x, Color.y, Color.z, 1.0f));
+	vec4 color = vec4(Color.x, Color.y, Color.z, 1.0f);
 
 	auto alloc = ReserveVertices(2, 2);
 	if (alloc.vptr)

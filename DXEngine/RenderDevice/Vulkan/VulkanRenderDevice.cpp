@@ -679,21 +679,14 @@ void VulkanRenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X, 
 	Stats.Tiles++;
 }
 
-vec4 VulkanRenderDevice::ApplyInverseGamma(vec4 color)
-{
-	float brightness = clamp(Brightness * GammaScale, 0.05f, 2.99f);
-	float gammaRed = std::max(brightness + GammaOffset + GammaOffsetRed, 0.001f);
-	float gammaGreen = std::max(brightness + GammaOffset + GammaOffsetGreen, 0.001f);
-	float gammaBlue = std::max(brightness + GammaOffset + GammaOffsetBlue, 0.001f);
-	return vec4(pow(color.r, gammaRed), pow(color.g, gammaGreen), pow(color.b, gammaBlue), color.a);
-}
-
+// A line's colour goes under the present's gamma with the rest of the
+// frame, as D3DDrv's lines go through its gamma ramp (d3ddrv-dll.md, gamma)
 void VulkanRenderDevice::Draw3DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2)
 {
 	bool occlude = !!(LineFlags & LINE_DepthCued);
 	SetPipeline(RenderPasses->GetLinePipeline(occlude));
 	ivec4 textureBinds = GetTextureIndexes(PF_Highlighted, nullptr);
-	vec4 color = ApplyInverseGamma(vec4(Color.x, Color.y, Color.z, 1.0f));
+	vec4 color = vec4(Color.x, Color.y, Color.z, 1.0f);
 
 	auto alloc = ReserveVertices(2, 2);
 	if (alloc.vptr)
@@ -717,7 +710,7 @@ void VulkanRenderDevice::Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineF
 	bool occlude = !!(LineFlags & LINE_DepthCued);
 	SetPipeline(RenderPasses->GetLinePipeline(occlude));
 	ivec4 textureBinds = GetTextureIndexes(PF_Highlighted, nullptr);
-	vec4 color = ApplyInverseGamma(vec4(Color.x, Color.y, Color.z, 1.0f));
+	vec4 color = vec4(Color.x, Color.y, Color.z, 1.0f);
 
 	auto alloc = ReserveVertices(2, 2);
 	if (alloc.vptr)

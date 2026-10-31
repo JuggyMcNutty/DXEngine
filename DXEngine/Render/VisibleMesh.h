@@ -40,8 +40,13 @@ public:
 	static bool DrawsInFaceOrder(UActor* actor);
 	bool DrawMesh(VisibleFrame* frame, UActor* actor, MeshPass pass);
 
+	// Drawn as lines, as the original's renderer draws a mesh with the
+	// viewer's RendMap at wire (Canvas.DrawActor's WireFrame)
+	bool Wire = false;
+
 private:
 	void DrawDebugInfo(VisibleFrame* frame, UActor* actor);
+	bool WireTriangleInView(VisibleFrame* frame);
 	bool DrawMeshAtLocation(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, UMesh* mesh, const mat4& meshToWorld, const mat3& meshNormalToWorld, MeshPass pass);
 	bool DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, UMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, MeshPass pass);
 	bool DrawLodMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, ULodMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, MeshPass pass);

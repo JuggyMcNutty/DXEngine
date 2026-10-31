@@ -48,8 +48,8 @@ public:
 	// Canvas.DrawClippedActor through a frame of its own (ActorFrame)
 	// With constrain, through the scene's frame narrowed to that rectangle
 	// of the screen (GC.DrawActor's bConstrain)
-	void DrawActor(UActor* actor, bool ClearZ, bool hideAfter, const Rectf* constrain = nullptr);
-	void DrawClippedActor(UActor* actor, int X, int Y, int XB, int YB, bool ClearZ);
+	void DrawActor(UActor* actor, bool ClearZ, bool hideAfter, const Rectf* constrain = nullptr, bool wire = false);
+	void DrawClippedActor(UActor* actor, int X, int Y, int XB, int YB, bool ClearZ, bool wire = false);
 	void DrawTile(UTexture* Tex, float x, float y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 color, vec4 fog, uint32_t flags);
 	void DrawTileClipped(UTexture* Tex, float orgX, float orgY, float curX, float curY, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 color, vec4 fog, uint32_t flags, float clipX, float clipY);
 	void DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const std::string& text, uint32_t polyflags, bool center, float spaceX = 0.0f, float spaceY = 0.0f, float clipX = 100000.0f, float clipY = 100000.0f, bool noDraw = false);

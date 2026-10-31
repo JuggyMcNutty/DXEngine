@@ -102,7 +102,7 @@ void RenderSubsystem::PostRenderFlash()
 		CallEvent(engine->viewport->Actor(), "PostRenderFlash", {ExpressionValue::ObjectValue(engine->canvas)});
 }
 
-void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter, const Rectf* constrain)
+void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter, const Rectf* constrain, bool wire)
 {
 	// Constrained, the scene's frame narrows to where it meets the rectangle,
 	// its projection made again for that size about its middle -- the same
@@ -160,6 +160,7 @@ void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter, cons
 	bool oldHidden = actor->bHidden();
 	actor->bHidden() = false;
 	VisibleMesh vismesh;
+	vismesh.Wire = wire;
 	vismesh.DrawMesh(&MainFrame, actor, MeshPass::FaceOrder);
 	actor->bHidden() = hideAfter || oldHidden;
 
@@ -167,7 +168,7 @@ void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter, cons
 	Device->SetSceneNode(&Canvas.Frame);
 }
 
-void RenderSubsystem::DrawClippedActor(UActor* actor, int X, int Y, int XB, int YB, bool ClearZ)
+void RenderSubsystem::DrawClippedActor(UActor* actor, int X, int Y, int XB, int YB, bool ClearZ, bool wire)
 {
 	SceneNode frame;
 	frame.XB = XB * Canvas.uiscale;
@@ -205,6 +206,7 @@ void RenderSubsystem::DrawClippedActor(UActor* actor, int X, int Y, int XB, int 
 	ActorFrame.ViewRotation = Coords::Identity();
 	actor->bHidden() = false;
 	VisibleMesh vismesh;
+	vismesh.Wire = wire;
 	vismesh.DrawMesh(&ActorFrame, actor, MeshPass::FaceOrder);
 	actor->bHidden() = true;
 

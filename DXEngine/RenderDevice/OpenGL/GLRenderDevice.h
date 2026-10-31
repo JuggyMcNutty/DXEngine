@@ -375,8 +375,6 @@ private:
 	std::shared_ptr<GLFragmentShader> CreateFragmentShader(const std::string& shaderName, const std::string& filename, const std::vector<std::string> defines = {});
 	void CompileGlsl(GLShader* shader, const std::string& filename, const std::vector<std::string> defines = {}, bool isFragmentShader = false);
 
-	vec4 ApplyInverseGamma(vec4 color);
-
 	GLPresentPushConstants GetGLPresentPushConstants();
 
 	bool VerticesMapped() const { return SceneVertices && SceneIndexes; }

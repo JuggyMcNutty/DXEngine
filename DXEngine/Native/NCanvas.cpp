@@ -27,18 +27,18 @@ void NCanvas::RegisterFunctions()
 	RegisterVMNativeFunc_3("Canvas", "TextSize", &NCanvas::TextSize, 470);
 }
 
-// WireFrame is taken and not read: DXEngine draws no wire frames, where the
-// original draws the call with the player's RendMap at wire (NATIVES.md, the
-// UI); the game passes false. The actor is left hidden, as the original's
-// leave it (RenderSubsystem::DrawActor).
+// WireFrame draws the actor's mesh as lines, as the original draws the call
+// with the player's RendMap at wire (Engine.dll UCanvas::execDrawActor
+// 0x10377ed0; VisibleMesh::Wire); the game passes false. The actor is left
+// hidden, as the original's leave it (RenderSubsystem::DrawActor).
 void NCanvas::DrawActor(UObject* Self, UObject* A, bool WireFrame, std::optional<bool> ClearZ)
 {
-	engine->render->DrawActor(UObject::Cast<UActor>(A), ClearZ ? *ClearZ : false, true);
+	engine->render->DrawActor(UObject::Cast<UActor>(A), ClearZ ? *ClearZ : false, true, nullptr, WireFrame);
 }
 
 void NCanvas::DrawClippedActor(UObject* Self, UObject* A, bool WireFrame, int X, int Y, int XB, int YB, std::optional<bool> ClearZ)
 {
-	engine->render->DrawClippedActor(UObject::Cast<UActor>(A), X, Y, XB, YB, ClearZ ? *ClearZ : false);
+	engine->render->DrawClippedActor(UObject::Cast<UActor>(A), X, Y, XB, YB, ClearZ ? *ClearZ : false, WireFrame);
 }
 
 void NCanvas::DrawPortal(UObject* Self, int X, int Y, int Width, int Height, UObject* CamActor, const vec3& CamLocation, const Rotator& CamRotation, std::optional<int> FOV, std::optional<bool> ClearZ)

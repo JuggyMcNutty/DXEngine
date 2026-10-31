@@ -1169,9 +1169,22 @@ constrains. Its render time: [out of sight](#out-of-sight).
 
 Differs:
 
-- **`Canvas.DrawActor`'s and `DrawClippedActor`'s `WireFrame`** draws the
-  actor solid: DXEngine draws no wire frames, where the original draws the
-  call with the player's `RendMap` at wire (the game passes false; REN.17).
+- **`Canvas.DrawActor`'s and `DrawClippedActor`'s `WireFrame`**, which the
+  game passes false, draws the actor's mesh as the original draws it with
+  the player's `RendMap` at wire
+  ([wire meshes](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#wire-meshes)):
+  lines between the corners of each face within its detail budget and of
+  its special faces, whatever their material, in (0.6, 0.4, 0.1), green for
+  a selected actor, over the scene; a plain mesh's shared edges once; what a
+  pawn holds not drawn where the weapon triangle lies wholly past one side
+  of the view taken in the world's axes, as nearly anywhere. A line's colour
+  goes under the present's gamma with the frame, as `D3DDrv`'s goes through
+  its gamma ramp, where DXEngine's devices had set it to show as given.
+  `OverlayConsole` with `Wire`, a crate and a `JCDentonMale` holding a pistol
+  on Liberty Island: 99.7% of the original's line pixels within a pixel of
+  DXEngine's and 96% the other way, the lines (181, 138, 55) through the
+  gamma against the original's (181, 138, 54), the pistol undrawn in both
+  (drawn solid with `Solid`), where DXEngine drew both solid.
 - **A typed character past Latin-1** (U+0100 on) goes nowhere, DXEngine's
   text being 8-bit; the original's windows take it, and the game's fonts
   draw it as nothing (read from `WinDrv.dll`'s code). A string the original

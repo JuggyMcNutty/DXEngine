@@ -568,23 +568,14 @@ void SoftwareRenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X
 	Name(draw.Texture);
 }
 
-// The colour a line or a point is drawn in: under the present's gamma, so
-// that it shows as given (the Vulkan device's ApplyInverseGamma)
-vec4 SoftwareRenderDevice::ApplyInverseGamma(vec4 color)
-{
-	float brightness = std::clamp(Brightness * GammaScale, 0.05f, 2.99f);
-	float gammaRed = std::max(brightness + GammaOffset + GammaOffsetRed, 0.001f);
-	float gammaGreen = std::max(brightness + GammaOffset + GammaOffsetGreen, 0.001f);
-	float gammaBlue = std::max(brightness + GammaOffset + GammaOffsetBlue, 0.001f);
-	return vec4(std::pow(color.r, gammaRed), std::pow(color.g, gammaGreen), std::pow(color.b, gammaBlue), color.a);
-}
-
 // A line as the Vulkan device's line pipeline draws it: the premultiplied
-// blend, depth tested and written, in front of the scene unless depth cued
+// blend, depth tested and written, in front of the scene unless depth cued;
+// its colour under the present's gamma with the rest of the frame, as
+// D3DDrv's lines go through its gamma ramp (d3ddrv-dll.md, gamma)
 void SoftwareRenderDevice::AddLine(vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2)
 {
 	bool occlude = !!(LineFlags & LINE_DepthCued);
-	vec4 color = ApplyInverseGamma(vec4(Color.x, Color.y, Color.z, 1.0f));
+	vec4 color = vec4(Color.x, Color.y, Color.z, 1.0f);
 
 	SoftwareVertex* v;
 	SoftwareDraw& draw = AddDraw(SoftwareDrawType::Line, 2, v);

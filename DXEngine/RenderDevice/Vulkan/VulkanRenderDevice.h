@@ -154,8 +154,6 @@ private:
 	void SubmitAndWait(bool present, int presentWidth, int presentHeight);
 	void Submit(bool present, int presentWidth, int presentHeight, bool wait);
 
-	vec4 ApplyInverseGamma(vec4 color);
-
 	struct
 	{
 		size_t SceneIndexStart = 0;
