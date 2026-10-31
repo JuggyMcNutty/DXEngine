@@ -6,12 +6,14 @@
 // 3 s into the map: each grate's keys, rotation and pivot, and the actors
 // whose event is its tag; then the player's box swept 16 units along X and
 // along Y from each point of a grid 192 units round each grate's box, on the
-// floor under it: every hit, with what it met. Then the conversation the map
-// opens in ended, and the player walked in the room each grate closes a duct
-// from: put 60 units before DeusExMover31's face and walked into it, then
-// put 8 units clear of that face and walked along it, past the grate; the
-// same at DeusExMover13, turned a quarter more, 14 units clear: its place
-// every tenth of a second and where it comes to rest. Then an exit.
+// floor under it: every hit, with what it met. Then the player put with its
+// box's side resting on the face of the wall beside DeusExMover13, and where
+// it stands. Then the conversation the map opens in ended, and the player
+// walked in the room each grate closes a duct from: put 60 units before
+// DeusExMover31's face and walked into it, then put 8 units clear of that
+// face and walked along it, past the grate; the same at DeusExMover13,
+// turned a quarter more, 14 units clear: its place every tenth of a second
+// and where it comes to rest. Then an exit.
 //=============================================================================
 class GrateConsole extends Console;
 
@@ -174,6 +176,10 @@ event Tick(float Delta)
 			foreach P.AllActors(class'Mover', Mv)
 				if (IsGrate(Mv))
 					Sweep(P, Mv);
+			// The box's side resting on a wall's face, the room's beside
+			// DeusExMover13 at y -1504: clear of it, as the original's box
+			// check has a box resting on a plane
+			Log("DXGRATE: put on the wall's face " $ P.SetLocation(vect(-680, -1484, -387.5)) $ " at " $ P.Location);
 			// The map opens in a conversation, which holds the player
 			Log("DXGRATE: the player " $ P.GetStateName() $ ", the conversation ended");
 			if (DeusExPlayer(P) != None)

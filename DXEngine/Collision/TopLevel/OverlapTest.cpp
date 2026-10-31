@@ -31,14 +31,14 @@ CollisionHitList OverlapTester::TestOverlap(const vec3& location, float height, 
 		});
 	}
 
+	// The level's own box check, as ULevel::MultiPointCheck asks it (Engine.dll
+	// 0x1039acc0): its model with no owner; for an actor of no size, whether
+	// the point is in solid
 	if (testWorld)
 	{
-		if (extents != vec3(0.0f))
-		{
-			OverlapAABBModel overlapmodel;
-			CollisionHitList worldHits = overlapmodel.TestOverlap(GetLevel()->Model, location, extents);
-			hits.push_back(worldHits);
-		}
+		OverlapAABBModel overlapmodel;
+		if (overlapmodel.TestOverlap(GetLevel()->Model, location, extents))
+			hits.push_back({ 0.0f, vec3(0.0f), nullptr, nullptr, nullptr });
 	}
 
 	// Only include each actor once, in the order the cells gave them: sorted
@@ -154,19 +154,17 @@ Array<UActor*> OverlapTester::CollidingActors(const vec3& origin, float height, 
 	return uniqueHits;
 }
 
-// What the actor's brush overlaps were it at location, turned to rotation
-// (ActorEncroachmentCheck): each actor but a brush, its cylinder's box taken
-// into the brush's space, in the cells of the brush's box there.
+// What the actor's brush overlaps were it at location, turned to rotation,
+// as the original's ActorEncroachmentCheck (Engine.dll 0x10358d50) asks the
+// brush's box check with the actor its owner: each actor but a brush, in the
+// cells of the brush's box there, its cylinder's box as it stands, along the
+// world's axes, against the brush's planes taken into the world.
 Array<UActor*> OverlapTester::EncroachingActors(UActor* actor, const vec3& location, const Rotator& rotation)
 {
 	UModel* brush = actor->Brush();
 	if (!brush)
 		return CollidingActors(location, actor->CollisionHeight(), actor->CollisionRadius());
 
-	vec3 origin = location;
-
-	mat4 rotateObjToWorld = Coords::Rotation(rotation).ToMatrix();
-	mat4 rotateWorldToObj = mat4::transpose(rotateObjToWorld);
 	vec3 prePivot = actor->PrePivot();
 
 	vec3 mainScale(1.0f);
@@ -175,29 +173,21 @@ Array<UActor*> OverlapTester::EncroachingActors(UActor* actor, const vec3& locat
 		mainScale = mover->MainScale().Scale;
 	}
 
-	mat4 objectToWorld = mat4::translate(origin) * rotateObjToWorld * mat4::scale(mainScale) * mat4::translate(-prePivot);
+	mat4 objectToWorld = mat4::translate(location) * Coords::Rotation(rotation).ToMatrix() * mat4::scale(mainScale) * mat4::translate(-prePivot);
 	BBox bbox = brush->BoundingBox.transform(objectToWorld);
 	vec3 center = bbox.center();
 	vec3 extents = bbox.extents() + 0.1f;
 
+	BrushPlanes planes(location, rotation, mainScale, prePivot);
 	Array<UActor*> hits;
 
 	VisitActorsInBox(GetStartExtents(center, extents), GetEndExtents(center, extents), [&](UActor* testActor) {
 		if (testActor == actor || testActor->Brush())
 			return false;
 
-		vec3 localOrigin = (rotateWorldToObj * vec4(testActor->Location() - origin, 1.0f)).xyz() / mainScale + prePivot;
-
-		float testHeight = testActor->CollisionHeight();
-		float testRadius = testActor->CollisionRadius();
-		vec3 testExtents = { testRadius, testRadius, testHeight };
-		// By the scale's size on each axis, as EncroachedActors and the traces
-		// take a mover's scale: a mirrored axis would invert the box
-		testExtents /= vec3(std::abs(mainScale.x), std::abs(mainScale.y), std::abs(mainScale.z));
-
+		vec3 testExtents = { testActor->CollisionRadius(), testActor->CollisionRadius(), testActor->CollisionHeight() };
 		OverlapAABBModel test;
-		auto modelHits = test.TestOverlap(brush, localOrigin, testExtents);
-		if (!modelHits.empty())
+		if (test.TestOverlap(brush, testActor->Location(), testExtents, &planes))
 			hits.push_back(testActor);
 		return false;
 	});
@@ -226,8 +216,8 @@ Array<UActor*> OverlapTester::EncroachingActors(UActor* actor, const vec3& locat
 
 // What a cylinder standing at a spot overlaps, as the original's encroachment
 // check finds it: other actors by their cylinders, movers by their brushes,
-// the cylinder's box taken into the mover's own space as the traces take a
-// line.
+// the cylinder's box along the world's axes against the brush's planes taken
+// into the world.
 Array<UActor*> OverlapTester::EncroachedActors(const vec3& location, float height, float radius)
 {
 	dvec3 dlocation = to_dvec3(location);
@@ -238,12 +228,9 @@ Array<UActor*> OverlapTester::EncroachedActors(const vec3& location, float heigh
 		UMover* mover = UObject::TryCast<UMover>(actor);
 		if (mover && mover->Brush())
 		{
-			mat4 rotateWorldToObj = mat4::transpose(Coords::Rotation(mover->Rotation()).ToMatrix());
-			vec3 scale = mover->MainScale().Scale;
-			vec3 localOrigin = (rotateWorldToObj * vec4(location - mover->Location(), 1.0f)).xyz() / scale + mover->PrePivot();
-			vec3 localExtents = extents / vec3(std::abs(scale.x), std::abs(scale.y), std::abs(scale.z));
+			BrushPlanes planes(mover->Location(), mover->Rotation(), mover->MainScale().Scale, mover->PrePivot());
 			OverlapAABBModel test;
-			if (!test.TestOverlap(mover->Brush(), localOrigin, localExtents).empty())
+			if (test.TestOverlap(mover->Brush(), location, extents, &planes))
 				hits.push_back(actor);
 		}
 		else if (CylinderActorOverlap(dlocation, height, radius, actor))

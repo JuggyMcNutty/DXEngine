@@ -1488,14 +1488,16 @@ Every other native the scripted runs compare matches the original
   pitch and roll left, as for any actor that turns (`TurnConsole`: a crate
   on a crate turned six times by `SetRotation`, alike in both engines) --,
   then its encroachment checked at its new
-  place and rotation (a mover mirrored on an axis tests the actor's box by
-  its scale's size), what it meets pushed by
-  its move first, and moved and turned at once. A hinged door crushes a
-  crate in its swing, the crate's spawn fitting it where the original's
-  does, but later into the close: the original's is gone by yaw 14,680,
-  0.3 s in, in six runs, DXEngine's still there at 14,601 and gone 0.1 s
-  later (`DoorConsole` on UNATCO HQ: the crate placed at -875.4, 362.6 in
-  both engines; bugs.md PHYS.7).
+  place and rotation as the original's box check asks it
+  (`UModel::PointCheck`): the actor's box along the world's axes, against
+  the brush's planes turned into the world by its place, rotation and
+  scale, the hull of each solid leaf of the brush's tree the box reaches
+  tried with the bevels its planes' signs call for, a box resting on a
+  plane clear of it; what it meets pushed by its move first, and moved and
+  turned at once. A hinged door crushes a crate in its swing where the
+  original's does: gone by yaw 14,677, 0.3 s in, the original's by 14,594
+  and 14,680 (`DoorConsole` on UNATCO HQ: the crate placed at -875.43,
+  362.61 in both engines).
 - **The movers in a line's way**: a line meets each mover where the level's
   BSP last filed it
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)),
