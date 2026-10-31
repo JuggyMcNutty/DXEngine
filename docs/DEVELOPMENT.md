@@ -300,10 +300,12 @@ launcher's part, which DXEngine leaves to the launchers.
 | `PickServer` | either | a weapon held before the joined player's eyes on a dedicated server (`dedicated <engine> PickServer DXMP_Cathedral?game=DXCapture.CapDeathMatch`): the player's frob target as the server has it, also in the player's name; it exits 20 s after placing it | `DXPICK:` | the client's log |
 | `PickJoinConsole` | either | a client of it that uses what it looks at 12 s in: its frob target, the server's (its name), whether it holds the weapon | `DXPICK:` |  |
 
-- `SaveConsole`, `LoadConsole`, `StartConsole`, `LoadingConsole`, `MoverConsole` and
-  `CensusConsole` use the game's own `Save\Save0009` and `Save\Current`: delete them after. A
-  save the original made, copied into `Save0009`, loads in both engines when it is a hub save
-  (`bCheatsEnabled`); with a quick save there the original never finishes its run.
+- `SaveConsole`, `LoadConsole`, `StartConsole`, `LoadingConsole`, `MoverConsole`,
+  `SleepConsole` and `CensusConsole` use the game's own `Save\Save0009` and `Save\Current`,
+  and `QuickLoadConsole` and `DeleteSaveConsole` its `Save\QuickSave`: delete them after, as
+  the launchers' UI tests continue the newest save they find there. A save the original made,
+  copied into `Save0009`, loads in both engines when it is a hub save (`bCheatsEnabled`); with
+  a quick save there the original never finishes its run.
   `CensusConsole`'s save is Liberty Island's start, saved in the original without cheats
   (`SaveConsole` with `Fresh`, run on the original): the player is under fire there, so a
   load's census 5 s in differs from run to run.
