@@ -25,6 +25,10 @@ public:
 	virtual int GetOrder() { return -1; }
 	virtual void SetOrder(int order) {}
 
+	// Tracker music's tempo, 5/2 of its ticks a second; 0 for sources
+	// without one.
+	virtual double GetTempo() { return 0.0; }
+
 	bool bIsLooped = false;
 	uint32_t loopStart = 0;
 	uint32_t loopEnd = 0;

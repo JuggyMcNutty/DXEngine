@@ -107,13 +107,15 @@ public:
 	{
 		// The mixer's own 16-bit copy, which a channel keeps while it plays,
 		// two silent frames past the end for the last frame's interpolation.
-		// An MP3 plays 8 KB of silence first, 4,096 frames of one channel:
-		// Galaxy decodes it into a zeroed ring, its first fill 8 KB past the
-		// voice's place (galaxy-dll.md, Playing a sound; its refill,
-		// Galaxy.dll 0x1060e340).
+		// An MP3 plays 4,096 frames of silence first: Galaxy decodes it into
+		// a zeroed ring of 64 KB for each channel, its first fill 8 KB past
+		// the voice's place (galaxy-dll.md, Playing a sound; its refill,
+		// Galaxy.dll 0x1060e340), and the mixer plays it on from there as
+		// that ring's fill sets its end (GalaxyMixer::FillRing).
 		auto sample = std::make_shared<GalaxySample>();
 		sample->channels = std::max(sound->channels, 1);
-		size_t lead = (sound->Format == "mp3" || sound->Format == "mp2") ? 8192 / (2 * sample->channels) : 0;
+		sample->ringed = sound->Format == "mp3" || sound->Format == "mp2";
+		size_t lead = sample->ringed ? 4096 : 0;
 		sample->frames = lead + sound->samples.size() / sample->channels;
 		sample->rate = sound->frequency;
 		sample->data.resize((sample->frames + 2) * sample->channels);
@@ -357,6 +359,7 @@ public:
 				StopMusicBuffers(musicPlaying);
 				currentMusic = std::move(musicThreadData.music);
 				musicThreadData.musicUpdate = false;
+				mixer->SetMusicTempo(0.0);
 			}
 			int jumpOrder = musicThreadData.jumpOrder;
 			int generation = musicThreadData.generation;
@@ -396,6 +399,7 @@ public:
 							std::fill(chunk + got, chunk + musicBufferSize, 0.0f);
 						musicQueue.Push(musicQueue.GetNextFree());
 					}
+					mixer->SetMusicTempo(currentMusic->GetTempo());
 
 					if (!musicPlaying)
 					{
@@ -413,6 +417,7 @@ public:
 					StopMusicBuffers(musicPlaying);
 					alGetError();
 					currentMusic.reset();
+					mixer->SetMusicTempo(0.0);
 					musicThreadData.currentOrder.store(-1);
 					std::unique_lock failedLock(musicThreadData.mutex);
 					musicThreadData.failure = e.what();

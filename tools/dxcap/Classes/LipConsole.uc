@@ -10,11 +10,13 @@
 // nextPhoneme after each read, so a shape written again shows again.
 // "DXLIP:" lines; a line's shapes are compared by their order. With Beep
 // (DXCAP_CONFIG="Beep=True"), a beep on the same tick as each line, so that
-// a recording (DXCAP_RECORD=1) gives each line's start against it.
+// a recording (DXCAP_RECORD=1) gives each line's start against it. With
+// Speech, a sound's full name, that line first, then the three.
 //=============================================================================
 class LipConsole extends Console;
 
 var config bool Beep;
+var config string Speech;
 
 var float RunTime;
 var float LineTime;
@@ -24,6 +26,12 @@ var int Shapes;
 
 function string LineName(int i)
 {
+	if (Speech != "")
+	{
+		if (i == 0)
+			return Speech;
+		i--;
+	}
 	switch (i)
 	{
 		case 0: return "DeusExConAudioMission01.ConAudioMission01_3";

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -17,6 +18,7 @@ struct GalaxySample
 	bool looped = false;
 	uint64_t loopStart = 0;
 	uint64_t loopEnd = 0;           // the first frame not in the loop
+	bool ringed = false;            // played from a ring its decoder fills: an MP3
 };
 
 // Galaxy.dll's sample mixer and zone reverb, as Deus Ex's sounds play
@@ -49,6 +51,10 @@ public:
 	// 0 to 1.
 	void SetMasterVolume(float louderSlider);
 
+	// The tempo of the module the music plays, which times Galaxy's tick;
+	// 0 with none.
+	void SetMusicTempo(double tempo);
+
 	// nullptr, or a master gain of 0, turns the reverb off.
 	void SetReverb(const ReverbSettings* settings);
 
@@ -64,6 +70,9 @@ private:
 		uint32_t step = 0;          // 16.16 frames per output frame
 		int volume = 0;
 		int panning = 16383;
+		uint64_t end = 0;           // the frame it stops at
+		uint64_t fill = 0;          // a ringed voice: the frame its ring is filled to, 0 before the first fill
+		int64_t tick = 0;           // a ringed voice: 16.16 output frames to its decoder's next call
 	};
 
 	struct Reverb
@@ -83,6 +92,7 @@ private:
 	};
 
 	void SetPitch(Voice& voice, float pitch);
+	void FillRing(Voice& voice);
 	void MixVoice(Voice& voice, float* dry, float* send, int frames);
 	void RunReverb(float* dry, const float* send, int frames);
 
@@ -90,6 +100,7 @@ private:
 	int rate = 44100;
 	std::vector<Voice> voices;
 	int master = 0;                 // the voices' common gain, 0-32767
+	std::atomic<int64_t> tickPeriod{ 0 };   // 16.16 output frames between Galaxy's ticks
 	bool reverbOn = false;
 	float reverbKey[15] = {};
 	Reverb reverb;

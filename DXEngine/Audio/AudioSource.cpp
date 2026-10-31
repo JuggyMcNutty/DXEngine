@@ -412,6 +412,11 @@ public:
 			module->set_position_order_row(order, 0);
 	}
 
+	double GetTempo() override
+	{
+		return module ? module->get_current_tempo2() : 0.0;
+	}
+
 	openmpt::module* module;
 };
 

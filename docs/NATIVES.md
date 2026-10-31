@@ -1307,12 +1307,22 @@ fan, recorded on both engines, plays 23.2 dB louder at an `AmbientFactor`
 set to 20 than at 0.7 in the original and 23.1 dB in DXEngine, as at 10
 (29.2 dB without the hold). `UseStereo=False` is mono; `UseFilter`,
 `UseCDMusic` and `UseSpatial` are read, saved and `SET` and change nothing,
-as in the original. An MP3 -- the game's speech -- plays 4,096 frames of
-silence first, as Galaxy's decoder fills its ring
+as in the original. An MP3 -- the game's speech -- plays as Galaxy's
+decoder fills its ring, 32,768 frames of each channel
 ([playing a sound](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)):
-`LipConsole` with `Beep=True` and `DXCAP_RECORD=1`, each of its three lines
-4,096 frames after a beep started on the same tick, the original's 4,083 to
-4,096. Lip sync is Galaxy's
+4,096 frames of silence first, then its sound, then on, silent, until the
+fill sets its end, at Galaxy's ticks, timed by the music's tempo -- one
+whose data, the silence counted, ends within the first fill to that fill's
+end, 20,480 frames, one within the ring's first turn with its data, and a
+longer one to within a tick of the ring's turn after its data's end.
+Galaxy's first fill is at its first tick after the voice starts, as its
+mixer's thread falls against the game's, DXEngine's at the voice's start,
+by choice, the original's usual case. `LipConsole` with `Beep=True` and
+`DXCAP_RECORD=1`: each of its three lines 4,085 to 4,096 frames after a beep
+started on the same tick, the original's 4,083 to 4,096, or 512 more as its
+voice starts against its mixer's tick; and with `Speech` naming the stereo
+`ConAudioMission01_450`, 4,085, the original's 4,107 and 4,608, where
+DXEngine had half the silence for a stereo one (2,037). Lip sync is Galaxy's
 ([lip sync](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#lip-sync)):
 a shape each tenth of a second of a line's time played, from 1,024 frames
 where its voice plays, the first at the update after it starts.
@@ -1320,9 +1330,10 @@ where its voice plays, the first at the update after it starts.
 MP3
 ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds)):
 `OpsConsole`'s, a beep's and a mission 1 line's, alike.
-`LipConsole`: 30, 6 and 27 shapes on its three lines, the original's 30, 6
-and 30; one after another, 73.6% of them alike between the two engines'
-runs, where the original's own runs are 79.7% alike. Differs:
+`LipConsole`: 30, 6 and 30 shapes on its three lines, the last running to
+2.9 s past its sound's 2.6 in both engines; one after another, 78.0% of them
+alike between the two engines' runs, where the original's own runs are 79.7%
+alike. Differs:
 
 - The music plays on an OpenAL source of its own, by choice.
 - Not carried: Galaxy's quirk with the Sound and Speech sliders equal, both
@@ -1337,9 +1348,12 @@ runs, where the original's own runs are 79.7% alike. Differs:
   bugs.md D.28).
 - A WAV's ping-pong loop plays forward, where Galaxy's plays back and forth;
   no stock sound has one (AUD.7).
-- The original's MP3 voice can play on, silent, past its sound:
-  `LipConsole`'s third line, 2.6 s with its silence first, works out shapes
-  to 2.9 s there, three more `X`s (AUD.5).
+- A stereo MP3 plays once, both its channels at the sound's pan, as a mono
+  one's ring has it. The original's plays its ring's first 32,768 frames over
+  and over, its lip sync with them, until a sound on its slot stops it, and
+  a beep its speaker plays with each later line goes unheard (`LipConsole`
+  with `Speech`, two runs); the stock game has four, `ConAudioHK_Shared_681`,
+  `_1531` and `_1532`, and `ConAudioMission01_450` (D.32).
 - Not carried: an 8-bit sample's lip sync read from its start wherever it
   plays; no stock speech is a WAV (AUD.8).
 - An ambient sound on a light follows its blink and strobe on DXEngine's

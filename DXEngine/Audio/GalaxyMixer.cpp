@@ -9,6 +9,7 @@
 GalaxyMixer::GalaxyMixer(int rate, int channels) : rate(rate), voices(channels)
 {
 	reverb.lines.resize(3 * Reverb::Length * 2);
+	SetMusicTempo(0.0);
 }
 
 void GalaxyMixer::Play(int channel, std::shared_ptr<const GalaxySample> sample, int volume, int panning, float pitch)
@@ -18,6 +19,9 @@ void GalaxyMixer::Play(int channel, std::shared_ptr<const GalaxySample> sample, 
 	voice.sample = std::move(sample);
 	voice.playing = voice.sample && voice.sample->frames > 0;
 	voice.position = 0;
+	voice.end = voice.playing && voice.sample->ringed ? UINT64_MAX : voice.playing ? voice.sample->frames : 0;
+	voice.fill = 0;
+	voice.tick = 0;
 	voice.volume = volume;
 	voice.panning = panning;
 	SetPitch(voice, pitch);
@@ -76,6 +80,51 @@ void GalaxyMixer::SetPitch(Voice& voice, float pitch)
 	int64_t frequency = std::max((int64_t)(voice.sample->rate * (double)pitch), (int64_t)0);
 	uint64_t step = ((frequency / rate) << 16) + (((frequency % rate) << 16) / rate);
 	voice.step = (uint32_t)std::min(step, (uint64_t)0xffffffff);
+}
+
+// Galaxy calls a ringed voice's decoder at its music's tick (0x106151f5):
+// with a module playing, every 5/2 of the output rate over its tempo, 50
+// times a second at 125; with none, at its reset's 120 beats of 48 ticks a
+// minute (0x1060e850), 96 times a second.
+void GalaxyMixer::SetMusicTempo(double tempo)
+{
+	int64_t beats = std::isfinite(tempo) ? std::clamp((int64_t)tempo, (int64_t)0, (int64_t)0xffff) : 0;
+	int64_t num = beats > 0 ? 5 * (int64_t)rate : 60 * (int64_t)rate;
+	int64_t den = beats > 0 ? 2 * beats : 48 * 120;
+	tickPeriod.store(((num / den) << 16) + (((num % den) << 16) / den));
+}
+
+// A ringed voice's decoder at a tick (Galaxy.dll 0x1060e340; galaxy-dll.md,
+// Playing a sound): its ring of 32,768 frames, 64 KB of each channel's, is
+// filled on from where it was filled to as far as the voice's place, at most
+// 16,384 frames a call, the first fill 4,096 frames past it. Once the data
+// has run out, the rest of a call's fill is zeros, and the voice's end is set
+// at the fill's place before them only while the voice's place lies before
+// it in the ring: when the fill has wrapped past the ring's end and the
+// voice has not, a later call sets it, past the zeros. So a voice whose data
+// ends within the first fill plays to that fill's end, 20,480 frames; one
+// whose data ends within the ring's first turn ends with it; and a longer
+// one plays on, silent, to within a tick of the ring's turn after its data's
+// end. The first call is at the voice's start, as if it started on a tick.
+void GalaxyMixer::FillRing(Voice& voice)
+{
+	constexpr uint64_t Ring = 0x8000, Lead = 0x1000, MostAFill = 0x4000;
+	uint64_t place = voice.position >> 16;
+	if (voice.fill == 0)
+		voice.fill = place + Lead;
+	uint64_t room = std::min((place % Ring + Ring - voice.fill % Ring) % Ring, MostAFill);
+	uint64_t frames = voice.sample->frames;
+	if (voice.fill < frames)
+	{
+		uint64_t decoded = std::min(room, frames - voice.fill);
+		voice.fill += decoded;
+		room -= decoded;
+	}
+	if (room == 0)
+		return;
+	if (place % Ring < voice.fill % Ring)
+		voice.end = voice.fill;
+	voice.fill += room;
 }
 
 // SetVolumes hands Galaxy 127 times the louder slider; its mixer gains every
@@ -206,10 +255,24 @@ void GalaxyMixer::MixVoice(Voice& voice, float* dry, float* send, int frames)
 	float sendL = leftSend * scale, sendR = rightSend * scale;
 
 	bool loop = sample.looped && sample.loopStart < sample.loopEnd && sample.loopEnd <= sample.frames;
+	bool ringed = sample.ringed && !loop;
+	int64_t period = tickPeriod.load();
 	const int16_t* data = sample.data.data();
 	int channels = sample.channels;
 	for (int i = 0; i < frames; i++)
 	{
+		// The tick comes before the frames that reach it, as Galaxy's mixer
+		// posts it before mixing the block that ends there
+		if (ringed)
+		{
+			if (voice.tick < 0x10000)
+			{
+				FillRing(voice);
+				voice.tick += period;
+			}
+			voice.tick -= 0x10000;
+		}
+
 		uint64_t index = voice.position >> 16;
 		if (loop && index >= sample.loopEnd)
 		{
@@ -220,7 +283,7 @@ void GalaxyMixer::MixVoice(Voice& voice, float* dry, float* send, int frames)
 			while ((voice.position >> 16) >= sample.loopEnd);
 			index = voice.position >> 16;
 		}
-		else if (!loop && index >= sample.frames)
+		else if (!loop && index >= voice.end)
 		{
 			voice.playing = false;
 			voice.sample.reset();
@@ -229,20 +292,24 @@ void GalaxyMixer::MixVoice(Voice& voice, float* dry, float* send, int frames)
 
 		// Linear between this frame and the next, as its SSE and MMX mixers
 		// resample; a stereo sample's two sides are two voices at one pan.
-		float t = (voice.position & 0xfffe) * (1.0f / 65536.0f);
-		const int16_t* frame = data + index * channels;
-		float a = frame[0], b = frame[channels];
-		if (channels == 2)
+		// Past the data, a ringed voice's zeros.
+		if (index < sample.frames)
 		{
-			a += frame[1];
-			b += frame[3];
-		}
-		float s = a + (b - a) * t;
+			float t = (voice.position & 0xfffe) * (1.0f / 65536.0f);
+			const int16_t* frame = data + index * channels;
+			float a = frame[0], b = frame[channels];
+			if (channels == 2)
+			{
+				a += frame[1];
+				b += frame[3];
+			}
+			float s = a + (b - a) * t;
 
-		dry[i * 2] += s * gainL;
-		dry[i * 2 + 1] += s * gainR;
-		send[i * 2] += s * sendL;
-		send[i * 2 + 1] += s * sendR;
+			dry[i * 2] += s * gainL;
+			dry[i * 2 + 1] += s * gainR;
+			send[i * 2] += s * sendL;
+			send[i * 2 + 1] += s * sendR;
+		}
 		voice.position += voice.step;
 	}
 }
