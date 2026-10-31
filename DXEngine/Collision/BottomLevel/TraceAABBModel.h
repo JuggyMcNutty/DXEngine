@@ -11,9 +11,14 @@ public:
 	// the level's hulls (not an actorBrush's) bounded by their boxes as the
 	// original's are. Without, the hits a tenth of a unit short, within the
 	// trace, every hull's box shaved.
-	CollisionHitList Trace(UModel* model, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, bool original, bool actorBrush);
+	// With objectToWorld, the model is an actor's brush placed in the world
+	// by it: each plane is turned into the world, as the original's walk
+	// turns its owner's by the owner's coordinates (Engine.dll 0x103f42f0),
+	// and the box, the trace and the hits' normals are the world's.
+	CollisionHitList Trace(UModel* model, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, bool original, bool actorBrush, const mat4* objectToWorld = nullptr);
 
 private:
+	dvec4 NodePlane(const BspNode* node) const;
 	void Trace(const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, int iNode, bool outside, CollisionHitList& hits);
 	void TraceHull(const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, BspNode* node, CollisionHitList& hits);
 	double TriangleAABBIntersect(const dvec3& origin, const dvec3& target, const dvec3& extents, const dvec3* points);
@@ -177,4 +182,11 @@ private:
 	UModel* Model = nullptr;
 	bool Original = false;
 	bool ActorBrush = false;
+
+	// The placement's turn of a plane: its normal by the inverse transpose
+	// of the linear part (one column each for X, Y and Z), its distance
+	// moved by the translation
+	bool Placed = false;
+	dvec3 PlaneAxes[3];
+	dvec3 Translation;
 };

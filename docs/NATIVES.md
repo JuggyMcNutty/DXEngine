@@ -1464,7 +1464,15 @@ Every other native the scripted runs compare matches the original
   reaches, the hull of each solid leaf it reaches tried and no other, a hull
   entered within twice the trace's length counted, the hit backed off a
   tenth of the trace: a box traced 8 units down from 8.78 over the floor
-  meets nothing in either engine (Liberty Island's carcass crossbow).
+  meets nothing in either engine (Liberty Island's carcass crossbow). A
+  mover's brush meets the box in the world's axes, its planes turned into
+  the world by its place, rotation and scale, as the original's walk turns
+  its owner's: the player walked into and along the grates under Castle
+  Clinton on 02_NYC_BatteryPark, pitched on their sides, rests where the
+  original's does within a hundredth of a unit, and a 16-unit box swept
+  round the five grates from 1,916 places meets a grate in DXEngine alone
+  at 3, where the original's box meets the wall the grate stands in first
+  (`GrateConsole`).
 - **A thrown thing's flight** (`ParabolicTrace`) moves as the original's
   `MoveActor` moves
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
@@ -1481,15 +1489,13 @@ Every other native the scripted runs compare matches the original
   on a crate turned six times by `SetRotation`, alike in both engines) --,
   then its encroachment checked at its new
   place and rotation (a mover mirrored on an axis tests the actor's box by
-  its scale's size, as the traces take the scale), what it meets pushed by
+  its scale's size), what it meets pushed by
   its move first, and moved and turned at once. A hinged door crushes a
   crate in its swing, the crate's spawn fitting it where the original's
   does, but later into the close: the original's is gone by yaw 14,680,
   0.3 s in, in six runs, DXEngine's still there at 14,601 and gone 0.1 s
   later (`DoorConsole` on UNATCO HQ: the crate placed at -875.4, 362.6 in
   both engines; bugs.md PHYS.7).
-  On 02_NYC_BatteryPark an invisible box stops the player beside the grate
-  that slides up under Castle Clinton (bugs.md PHYS.14).
 - **The movers in a line's way**: a line meets each mover where the level's
   BSP last filed it
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)),

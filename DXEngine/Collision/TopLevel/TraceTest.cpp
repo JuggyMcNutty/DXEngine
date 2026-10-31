@@ -400,7 +400,6 @@ void TraceTester::TraceActor(UActor* actor, const dvec3& origin, double tmin, co
 		 */
 		dvec3 localDirection = dvec3((rotateWorldToObj * vec4(vec3(dirNormalized), 1.0f)).xyz() / scale);
 
-		double localTMin = tmin;
 		double localTMax = tmax;
 
 		if (radius == 0.0 && height == 0.0)
@@ -423,24 +422,20 @@ void TraceTester::TraceActor(UActor* actor, const dvec3& origin, double tmin, co
 		}
 		else
 		{
-			// AABB/Triangle intersect
+			// A box meets the brush in the world's axes, as the original's box
+			// walk turns the brush's planes into the world by its owner's
+			// coordinates (Engine.dll 0x103f42f0): taken into the brush's own
+			// axes, the box would turn with it, a grate pitched on its side
+			// meeting a box as deep as the cylinder is tall
 			TraceAABBModel tracemodel;
+			mat4 objectToWorld = mat4::translate(mover->Location()) * rotateObjToWorld * mat4::scale(scale) * mat4::translate(-mover->PrePivot());
 			dvec3 extents = { (double)radius, (double)radius, (double)height };
-			extents /= dvec3(std::abs(scale.x), std::abs(scale.y), std::abs(scale.z));
-			brushHits = tracemodel.Trace(mover->Brush(), localOrigin, localTMin, localDirection, localTMax, extents, true, true);
+			brushHits = tracemodel.Trace(mover->Brush(), origin, tmin, dirNormalized, tmax, extents, true, true, &objectToWorld);
 		}
 
 		for (auto& hit : brushHits)
 		{
 			hit.Actor = actor;
-            /* hit.Normal is in local coords; callers of TraceActor expect normal in world coords. Normals need special
-			 * handling when doing non-uniform scaling
-			 * (see: https://www.scratchapixel.com/lessons/mathematics-physics-for-computer-graphics/geometry/transforming-normals.html).
-			 */
-			hit.Normal = normalize((
-				rotateObjToWorld * 
-				vec4(hit.Normal / mover->MainScale().Scale, 1.0f)
-			).xyz());
 			hits.push_back(hit);
 		}
 	}

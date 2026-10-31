@@ -6,11 +6,24 @@
 // A box takes no node flags, as the original's box check reads none (Engine.dll
 // 0x103f42f0; dx-reverse-info/engine-dll.md, traces): an NF_NotVisBlocking
 // surface stops it as any other, a line's trace alone keeping its flag
-CollisionHitList TraceAABBModel::Trace(UModel* model, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, bool original, bool actorBrush)
+CollisionHitList TraceAABBModel::Trace(UModel* model, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, bool original, bool actorBrush, const mat4* objectToWorld)
 {
 	Model = model;
 	Original = original;
 	ActorBrush = actorBrush;
+	Placed = objectToWorld != nullptr;
+	if (Placed)
+	{
+		const mat4& m = *objectToWorld;
+		dvec3 a0(m.matrix[0], m.matrix[1], m.matrix[2]);
+		dvec3 a1(m.matrix[4], m.matrix[5], m.matrix[6]);
+		dvec3 a2(m.matrix[8], m.matrix[9], m.matrix[10]);
+		double det = dot(a0, cross(a1, a2));
+		PlaneAxes[0] = cross(a1, a2) / det;
+		PlaneAxes[1] = cross(a2, a0) / det;
+		PlaneAxes[2] = cross(a0, a1) / det;
+		Translation = dvec3(m.matrix[12], m.matrix[13], m.matrix[14]);
+	}
 	CollisionHitList hits;
 	if (!Model || Model->Nodes.empty())
 		return hits;
@@ -50,6 +63,16 @@ void TraceAABBModel::Trace(const dvec3& origin, double tmin, const dvec3& dirNor
 		else if (!backOutside)
 			TraceHull(origin, tmin, dirNormalized, tmax, extents, node, hits);
 	}
+}
+
+dvec4 TraceAABBModel::NodePlane(const BspNode* node) const
+{
+	dvec4 plane((double)node->PlaneX, (double)node->PlaneY, (double)node->PlaneZ, (double)node->PlaneW);
+	if (!Placed)
+		return plane;
+	dvec3 normal = PlaneAxes[0] * plane.x + PlaneAxes[1] * plane.y + PlaneAxes[2] * plane.z;
+	double length = std::sqrt(dot(normal, normal));
+	return dvec4(normal / length, (plane.w + dot(normal, Translation)) / length);
 }
 
 void TraceAABBModel::TraceHull(const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, BspNode* node, CollisionHitList& hits)
@@ -95,8 +118,7 @@ void TraceAABBModel::TraceHull(const dvec3& origin, double tmin, const dvec3& di
 				int32_t hullIndex = hullIndexList[i];
 				bool hullFlip = !!(hullIndex & 0x4000'0000);
 				hullIndex = hullIndex & ~0x4000'0000;
-				BspNode* hullnode = &Model->Nodes[hullIndex];
-				dvec4 hullplane((double)hullnode->PlaneX, (double)hullnode->PlaneY, (double)hullnode->PlaneZ, (double)hullnode->PlaneW);
+				dvec4 hullplane = NodePlane(&Model->Nodes[hullIndex]);
 				planes[i] = hullFlip ? -hullplane : hullplane;
 			}
 
@@ -274,8 +296,9 @@ double TraceAABBModel::NodeAABBIntersect(const dvec3& origin, double tmin, const
 // -1 = inside, 0 = intersects, 1 = outside
 int TraceAABBModel::NodeAABBOverlap(const dvec3& center, const dvec3& extents, BspNode* node)
 {
-	double e = extents.x * std::abs(node->PlaneX) + extents.y * std::abs(node->PlaneY) + extents.z * std::abs(node->PlaneZ);
-	double s = center.x * node->PlaneX + center.y * node->PlaneY + center.z * node->PlaneZ - node->PlaneW;
+	dvec4 plane = NodePlane(node);
+	double e = extents.x * std::abs(plane.x) + extents.y * std::abs(plane.y) + extents.z * std::abs(plane.z);
+	double s = center.x * plane.x + center.y * plane.y + center.z * plane.z - plane.w;
 	if (s - e > 0)
 		return -1;
 	else if (s + e < 0)
