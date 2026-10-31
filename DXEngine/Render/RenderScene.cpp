@@ -269,6 +269,14 @@ void RenderSubsystem::DrawCoronasDX(VisibleFrame* frame)
 		// texture is (UpdateTextureInfo): an animated skin's frames were all
 		// cached under the first one's ID, and a fractal skin's changes never
 		// sent again
+		// The viewer's Sprite, the Matrix cheat's, is written into the
+		// light's Skin as its corona is drawn, and stays there, as the
+		// original's DrawFrame writes it
+		if (UTexture* sprite = engine->render->ViewerSprite())
+		{
+			engine->render->UpdateTexture(sprite);
+			light->Skin() = sprite->GetAnimTexture();
+		}
 		UTexture* skin = light->Skin();
 		engine->render->UpdateTexture(skin);
 		UTexture* skinFrame = skin->GetAnimTexture();

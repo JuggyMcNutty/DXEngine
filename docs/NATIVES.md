@@ -458,13 +458,16 @@ and holds the last, as the original's does: `OnceConsole`'s chain of three
 noise frames, its life held at 7.5, 5.6, 4, 3 and 1.5 s and none of its
 class's 8, shows frames 0, 0, 1, 1, 2 and 2 in both engines, each shot
 correlated with `D3DDrv`'s at 1.000 -- at 5.6 and 3 the frame `n × t − ½`
-rounds to, one before the frame `n × t` would.
-Differs:
-
-- **The viewer's `Sprite`** (the Matrix cheat's) stands in for the textures
-  of meshes and sprites alone, a sprite's at its own texture's size, as the
-  original's `DrawActorSprite` draws it: the original's draws the level's
-  surfaces in it too (`MatrixConsole`), by a rule unread (REN.10).
+rounds to, one before the frame `n × t` would. The viewer's `Sprite` (the
+Matrix cheat's) stands in for every texture of the frame, as the original's
+`DrawFrame` has it
+([a frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-frame)):
+a mesh's, a sprite's at its own texture's size, the level's and a mover's
+surfaces' with the Sprite's own detail and macro textures, a decal's; and
+a corona drawn has it written into its light's `Skin`, where it stays once
+the cheat is off. `MatrixConsole` with `TargetMap` on Liberty Island: the
+level tiled with the light icon in both engines, the frame at 1.001 of
+`D3DDrv`'s brightness, correlated at 0.885.
 
 ### Particles and lasers: render iterators
 

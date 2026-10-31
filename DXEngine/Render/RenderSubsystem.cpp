@@ -26,6 +26,8 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 	DrawnSinceFlush = true;
 	LevelTimeElapsed = levelTimeElapsed;
 	TextureClock = UTexture::ClockNow();
+	UPlayerPawn* viewer = UObject::TryCast<UPlayerPawn>(engine->viewport->Actor());
+	FrameViewerSprite = viewer && viewer->Sprite() && !viewer->Sprite()->UsedMipmaps.empty() ? viewer->Sprite() : nullptr;
 
 	// A surface's detail texture goes to the device only while its
 	// DetailTextures is on and the client's TextureDetail is High, as
@@ -205,6 +207,8 @@ void RenderSubsystem::PurgeDying()
 	IteratorActors.erase(std::remove_if(IteratorActors.begin(), IteratorActors.end(), [](UActor* actor) { return GC::IsDying(actor); }), IteratorActors.end());
 	StaticIteratorActors.erase(std::remove_if(StaticIteratorActors.begin(), StaticIteratorActors.end(), [](UActor* actor) { return GC::IsDying(actor); }), StaticIteratorActors.end());
 	MirrorMovers.erase(std::remove_if(MirrorMovers.begin(), MirrorMovers.end(), [](UMover* mover) { return GC::IsDying(mover); }), MirrorMovers.end());
+	if (FrameViewerSprite && GC::IsDying(FrameViewerSprite))
+		FrameViewerSprite = nullptr;
 }
 
 void RenderSubsystem::FlushDevice()

@@ -6,16 +6,43 @@
 // cheat sets it to a texture every mesh and sprite is then drawn with; a
 // Fire effect, a sprite, spawned 150 units ahead at eye height; a marked
 // shot a moment later; then an exit. What is compared between the engines:
-// the fire drawn as the icon.
+// the fire drawn as the icon. With TargetMap set ([DXCapture.MatrixConsole],
+// DXCAP_MISSION_MAP) that map is opened first and all that is done there
+// from the player's start: its surfaces, decals and coronas drawn in the
+// Sprite too.
 //=============================================================================
 class MatrixConsole extends Console;
 
+var config string TargetMap;
+
 var float RunTime;
 var int Phase;
+var bool bOpened;
 var int MarkShot;
 var bool bMarking;
 var vector Stand;
 var rotator Look;
+
+function string MapOf(PlayerPawn P)
+{
+	local string U;
+	local int i;
+
+	U = P.Level.GetLocalURL();
+	i = InStr(U, "/");
+	while (i >= 0)
+	{
+		U = Mid(U, i + 1);
+		i = InStr(U, "/");
+	}
+	i = InStr(U, ".");
+	if (i >= 0)
+		U = Left(U, i);
+	i = InStr(U, "?");
+	if (i >= 0)
+		U = Left(U, i);
+	return U;
+}
 
 function Hold(PlayerPawn P)
 {
@@ -38,6 +65,19 @@ event Tick(float Delta)
 	P = Viewport.Actor;
 	RunTime += Delta;
 	P.ReducedDamageType = 'All';
+	// The target map first, the run begun again there
+	if (TargetMap != "" && !(MapOf(P) ~= TargetMap))
+	{
+		if (!bOpened && RunTime > 3.0)
+		{
+			Log("DXMATRIX: opening " $ TargetMap);
+			P.ConsoleCommand("open " $ TargetMap);
+			bOpened = true;
+		}
+		if (bOpened)
+			RunTime = 0;
+		return;
+	}
 	if (Phase > 0)
 		Hold(P);
 	if (Phase == 0 && RunTime > 2.0)

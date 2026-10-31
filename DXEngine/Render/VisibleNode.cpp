@@ -38,6 +38,15 @@ void VisibleNode::Draw(VisibleFrame* frame)
 		tex = surface.Material->GetAnimTexture();
 	else
 		tex = engine->LevelInfo->DefaultTexture();
+	// The viewer's Sprite, the Matrix cheat's, in its place, its own detail
+	// and macro textures with it
+	UTexture* sprite = engine->render->ViewerSprite();
+	if (sprite)
+	{
+		engine->render->UpdateTexture(sprite);
+		tex = sprite->GetAnimTexture();
+	}
+	UTexture* drawn = tex;
 
 	TextureInfo texture;
 	engine->render->UpdateTexture(tex);
@@ -50,7 +59,7 @@ void VisibleNode::Draw(VisibleFrame* frame)
 	// frame draws them (DetailTexturesDrawn), as Render.dll hands it over
 	// (render-dll.md, a frame; d3ddrv-dll.md, detail textures).
 	TextureInfo detailtex;
-	UTexture* detailTexture = engine->render->DetailTexturesDrawn && surface.Material && (PolyFlags & PF_Portal) == 0 ? tex->DetailTexture() : nullptr;
+	UTexture* detailTexture = engine->render->DetailTexturesDrawn && (surface.Material || sprite) && (PolyFlags & PF_Portal) == 0 ? tex->DetailTexture() : nullptr;
 	bool detail = detailTexture != nullptr;
 	if (detail)
 	{
@@ -60,9 +69,10 @@ void VisibleNode::Draw(VisibleFrame* frame)
 	}
 
 	TextureInfo macrotex;
-	if (surface.Material && surface.Material->MacroTexture())
+	UTexture* macroOwner = sprite ? drawn : surface.Material;
+	if (macroOwner && macroOwner->MacroTexture())
 	{
-		tex = surface.Material->MacroTexture()->GetAnimTexture();
+		tex = macroOwner->MacroTexture()->GetAnimTexture();
 		engine->render->UpdateTexture(tex);
 		engine->render->UpdateTextureInfo(macrotex, tex);
 	}

@@ -28,6 +28,12 @@ void VisibleDecal::DrawDecals(VisibleFrame* frame, BspNode* node)
 			engine->render->UpdateTexture(leveldecal.Decal->Texture());
 
 			UTexture* texture = leveldecal.Decal->Texture()->GetAnimTexture();
+			// The viewer's Sprite, the Matrix cheat's, in its place
+			if (UTexture* sprite = engine->render->ViewerSprite())
+			{
+				engine->render->UpdateTexture(sprite);
+				texture = sprite->GetAnimTexture();
+			}
 			engine->render->UpdateTexture(texture);
 
 			TextureInfo texinfo;

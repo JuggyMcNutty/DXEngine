@@ -124,6 +124,14 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
 	TextureInfo detailtex;
 	TextureInfo macrotex;
 
+	// The viewer's Sprite, the Matrix cheat's, in its place, as on the
+	// level's surfaces, its own detail and macro textures with it
+	if (UTexture* sprite = engine->render->ViewerSprite())
+	{
+		engine->render->UpdateTexture(sprite);
+		polyTex = sprite->GetAnimTexture();
+	}
+
 	if (polyTex)
 	{
 		UTexture* tex = polyTex->GetAnimTexture();
