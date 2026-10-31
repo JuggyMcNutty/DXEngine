@@ -79,8 +79,7 @@ reads it, and ends once under half a tick is left
 ([latent functions](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#latent-functions)):
 `SleepConsole` at 60 frames, a 0.105 s sleep over and over waking 31 times
 in 3 s in both engines, and a 10 s one saved and loaded 3 s in sleeping out
-its time after the load, where DXEngine woke it at the load and took a
-frame more each sleep (26). A save loaded in the running game, from
+its time after the load. A save loaded in the running game, from
 the menu map or the level it was saved in, and a run started on it, spawn
 what the original's do, class by class, second by second (`CensusConsole`,
 `census.py`), and keep it, the game's decals going as
@@ -202,9 +201,7 @@ a travel asked for during the level's tick is taken before anything is
 drawn, and one asked for during a draw -- a console's tick -- waits for the
 next frame's tick, the old level ticking once more (`SleepConsole`, its load
 asked for by its own tick and, with `LoadByActor`, by an actor's: the ticks
-before the load alike in both engines, where DXEngine drew the old level
-once more before the load and took the console's before the old level's
-next tick). A server's next map waits out its countdown by the frame's real
+before the load alike in both engines). A server's next map waits out its countdown by the frame's real
 time, not the level's, and a join under way ticks after the level's tick in
 a frame that takes no travel, its connecting message shown at each frame's
 draw, as the original's.
@@ -1189,24 +1186,24 @@ quarter, comes out at half its size about the quarter's middle in both
 engines, the quarter within RMSE 6.5 of `D3DDrv`'s; no stock script
 constrains. Its render time: [out of sight](#out-of-sight).
 
+`Canvas.DrawActor`'s and `DrawClippedActor`'s `WireFrame`, which the game
+passes false, draws the actor's mesh as the original draws it with the
+player's `RendMap` at wire
+([wire meshes](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#wire-meshes)):
+lines between the corners of each face within its detail budget and of its
+special faces, whatever their material, in (0.6, 0.4, 0.1), green for a
+selected actor, over the scene; a plain mesh's shared edges once; what a
+pawn holds not drawn where the weapon triangle lies wholly past one side of
+the view taken in the world's axes, as nearly anywhere. A line's colour goes
+under the present's gamma with the frame, as `D3DDrv`'s goes through its
+gamma ramp (`OverlayConsole` with `Wire`, a crate and a `JCDentonMale`
+holding a pistol on Liberty Island: 99.7% of the original's line pixels
+within a pixel of DXEngine's and 96% the other way, the lines (181, 138,
+55) through the gamma against the original's (181, 138, 54), the pistol
+undrawn in both, and drawn solid with `Solid`).
+
 Differs:
 
-- **`Canvas.DrawActor`'s and `DrawClippedActor`'s `WireFrame`**, which the
-  game passes false, draws the actor's mesh as the original draws it with
-  the player's `RendMap` at wire
-  ([wire meshes](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#wire-meshes)):
-  lines between the corners of each face within its detail budget and of
-  its special faces, whatever their material, in (0.6, 0.4, 0.1), green for
-  a selected actor, over the scene; a plain mesh's shared edges once; what a
-  pawn holds not drawn where the weapon triangle lies wholly past one side
-  of the view taken in the world's axes, as nearly anywhere. A line's colour
-  goes under the present's gamma with the frame, as `D3DDrv`'s goes through
-  its gamma ramp, where DXEngine's devices had set it to show as given.
-  `OverlayConsole` with `Wire`, a crate and a `JCDentonMale` holding a pistol
-  on Liberty Island: 99.7% of the original's line pixels within a pixel of
-  DXEngine's and 96% the other way, the lines (181, 138, 55) through the
-  gamma against the original's (181, 138, 54), the pistol undrawn in both
-  (drawn solid with `Solid`), where DXEngine drew both solid.
 - **A typed character past Latin-1** (U+0100 on) goes nowhere, DXEngine's
   text being 8-bit; the original's windows take it, and the game's fonts
   draw it as nothing (read from `WinDrv.dll`'s code). A string the original
@@ -1358,7 +1355,7 @@ the voice's start, by choice, the original's usual case. `LipConsole` with
 frames after a beep started on the same tick, the original's 4,083 to 4,096,
 or 512 more as its voice starts against its mixer's tick; and with `Speech`
 naming the stereo `ConAudioMission01_450`, 4,085, the original's 4,107 and
-4,608, where DXEngine had half the silence for a stereo one (2,037). Lip sync
+4,608. Lip sync
 is Galaxy's
 ([lip sync](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#lip-sync)):
 a shape each tenth of a second of a line's time played, from 1,024 frames
@@ -1366,10 +1363,9 @@ where its voice plays, the first at the update after it starts; an 8-bit
 sound's from its first 1,024 bytes wherever it plays, every other one, in
 half the FFT's input, the rest kept from the read before (`LipConsole` with
 `Speech` on the harness's `Cap8Bit`: 19 `O`s, then two `X`s as the place read
-from passes its end, in both engines, where DXEngine read it as a 16-bit one,
-`A`s). A WAV loops by its first loop only from a `smpl` chunk after its data
+from passes its end, in both engines). A WAV loops by its first loop only from a `smpl` chunk after its data
 chunk, as Galaxy's loader sets the sound up afresh at the data (`CapEarlyLoop`
-once in both engines, where DXEngine looped it), and a voice mixes the frame
+once in both engines), and a voice mixes the frame
 that falls on its loop's end or its data's end too.
 `GetSoundDuration` is the original's, read from a WAV's header and 0 for an
 MP3
@@ -1514,8 +1510,7 @@ Every other native the scripted runs compare matches the original
   not to collide, then hidden and moved, then saved; a window broken, at
   once and a frame on; `VisibleConsole` there and on UNATCO HQ, the mover
   lines alike but PHYS.8's ties and a few of a float's step: 14 of 377 on
-  DXMP_Silo, 1 of 133 on the island, 6 of 177 on UNATCO HQ, where DXEngine
-  had 29, 2 and 34 with the polygons kept beside the BSP; `DoorConsole`:
+  DXMP_Silo, 1 of 133 on the island, 6 of 177 on UNATCO HQ; `DoorConsole`:
   the door's leaf found from inside it; `GlassConsole` on WanChai's club
   glass: 33 in both, its polygon's own flags carrying the editor's
   processed bit too).
@@ -2181,14 +2176,12 @@ A mod gets the original's loader and natives:
   the scripted texture's; else logs, as the original's (`ScriptedConsole` on
   the harness's `CapScripted`: `plaque_b` copied, `Compu_A04`'s size and
   None refused, `WhiteNoise_A01` stepped to `WhiteNoise_A02` and copied,
-  each shot of it alike in both engines, correlated at 0.996 to 1.000, where
-  DXEngine copied the animated one unstepped). A scripted texture's source
-  texture is taken once, as it loads, scaled by the two textures' bits, its
-  palette with it, and that copy laid over it each tick before its notify
-  actor draws, as the original's: a source set later, or a `ReplaceTexture`
-  on it, never shows (`CapSourced` keeps `plaque_b` through both in both
-  engines, where DXEngine drew its source afresh each frame, and missed a
-  `RenderTexture` the frame after a change).
+  each shot of it alike in both engines, correlated at 0.996 to 1.000). A
+  scripted texture's source texture is taken once, as it loads, scaled by
+  the two textures' bits, its palette with it, and that copy laid over it
+  each tick before its notify actor draws, as the original's: a source set
+  later, or a `ReplaceTexture` on it, never shows (`CapSourced` keeps
+  `plaque_b` through both in both engines).
 - **Config files.** A class's config file that is not there is empty, its
   properties keeping their defaults, until the class writes it
   ([configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration)):
@@ -2313,8 +2306,8 @@ client: the connection closed, the client back on Entry by
   `PORT=` on the command line that port alone, its address every one of the
   machine's but the one `MULTIHOME=` names or, with `-PRIMARYNET`, the first
   of the machine's own name (`ServeConsole` with `PORT=7795`, then with
-  `MULTIHOME=127.0.0.1`: `0.0.0.0:7795/DXMP_Cathedral...` and
-  `127.0.0.1/DXMP_Cathedral...`, alike in both engines); a server's host name is looked up on a
+  `MULTIHOME=127.0.0.1`: the serving URL's address `0.0.0.0:7795`, then
+  `127.0.0.1` with no port, alike in both engines); a server's host name is looked up on a
   thread, the game going on; `GETPING` and `GETLOSS` answer the server
   connection's best lag of the last second in ms and its incoming packet
   loss in percent, as the original's do.
