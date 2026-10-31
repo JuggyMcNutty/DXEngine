@@ -306,6 +306,11 @@ void Engine::Run()
 	objprop = GC::Alloc<UObjectProperty>(NameString(), nullptr, ObjectFlags::NoFlags);
 	vecprop = GC::Alloc<UStructProperty>(NameString(), nullptr, ObjectFlags::NoFlags);
 	colorprop = GC::Alloc<UStructProperty>(NameString(), nullptr, ObjectFlags::NoFlags);
+	// A Color, as a package's struct property of one is typed
+	// (UStructProperty::Load): CursorRequested's out color is copied into the
+	// event's own Color, which takes no plain struct (ToColor), where a
+	// vector or a rotator takes one
+	colorprop->ValueType = ExpressionValueType::ValueColor;
 	rotprop = GC::Alloc<UStructProperty>(NameString(), nullptr, ObjectFlags::NoFlags);
 
 	bool firstCall = true;

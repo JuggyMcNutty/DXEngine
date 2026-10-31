@@ -10,8 +10,25 @@
 // its belt slot, and whether invSlots holds exactly the cells the items in
 // the grid cover. A timeline (DXCAP_TIMELINE) drags items in the inventory
 // screen between the searches; the grid must still match after.
+//
+// With Hover, between the searches, the console's own steps a second apart,
+// the same in both engines: the inventory screen opened; the pointer put on
+// the middle of the first grid item's button (the screen's winItems child
+// whose client object it is, as the screen finds one), a marked shot; the
+// pointer on the screen's corner, clear of the buttons, a marked shot; the
+// screen closed. The pointer the root draws over an item is the one its
+// CursorRequested gives.
 //=============================================================================
 class LootConsole extends Console;
+
+var config bool Hover;
+var int HoverStep;
+var int ShotsTaken;
+var Window Pointed;
+
+// The mark for the original's screen grabber, as CaptureConsole's.
+var int MarkShot;
+var bool bMarking;
 
 var float CapTime;
 var float MapTime;
@@ -42,6 +59,106 @@ function string MapOf(PlayerPawn P)
 	if (i >= 0)
 		URL = Left(URL, i);
 	return URL;
+}
+
+event PostRender(canvas C)
+{
+	local int i;
+	Super.PostRender(C);
+	if (!bMarking)
+		return;
+	C.Style = 1;
+	C.SetPos(0, 0);
+	C.DrawColor.R = 255;
+	C.DrawColor.G = 0;
+	C.DrawColor.B = 255;
+	C.DrawRect(Texture'Solid', 12, 12);
+	for (i = 0; i < 8; i++)
+	{
+		if ((MarkShot & (1 << i)) != 0)
+		{
+			C.DrawColor.R = 255;
+			C.DrawColor.G = 255;
+			C.DrawColor.B = 255;
+		}
+		else
+		{
+			C.DrawColor.R = 0;
+			C.DrawColor.G = 0;
+			C.DrawColor.B = 0;
+		}
+		C.SetPos(12 + 12 * i, 0);
+		C.DrawRect(Texture'Solid', 12, 12);
+	}
+}
+
+// Hover's steps, a second apart, each shot's mark up for 0.6 s before it.
+function HoverTick(DeusExPlayer DXP)
+{
+	local DeusExRootWindow root;
+	local PersonaScreenInventory screen;
+	local Inventory item;
+	local Window w;
+
+	if (bMarking)
+	{
+		if (StepTime > 0.6)
+		{
+			Log("DXLOOT: hover: shot " $ ShotsTaken);
+			DXP.ConsoleCommand("shot");
+			bMarking = false;
+			ShotsTaken++;
+			StepTime = 0;
+		}
+		return;
+	}
+	if (StepTime < 1.0)
+		return;
+	StepTime = 0;
+	root = DeusExRootWindow(DXP.rootWindow);
+	if (root != None)
+		screen = PersonaScreenInventory(root.GetTopWindow());
+	if (HoverStep == 0)
+	{
+		DXP.ShowInventoryWindow();
+		Log("DXLOOT: hover: the inventory screen opened");
+	}
+	else if (HoverStep == 1)
+	{
+		for (item = DXP.Inventory; item != None; item = item.Inventory)
+			if (item.invPosX >= 0 && item.invPosY >= 0)
+				break;
+		if (screen != None && screen.winItems != None && item != None)
+			for (w = screen.winItems.GetTopChild(); w != None && Pointed == None; w = w.GetLowerSibling())
+				if (PersonaInventoryItemButton(w) != None && w.GetClientObject() == item)
+					Pointed = w;
+		if (Pointed == None)
+		{
+			Log("DXLOOT: hover: no item's button to point at, exiting");
+			DXP.ConsoleCommand("exit");
+			Phase = 9;
+			return;
+		}
+		Pointed.SetCursorPos(Pointed.width / 2, Pointed.height / 2);
+		Log("DXLOOT: hover: the pointer on " $ Pointed.Class.Name $ ", " $ item.Name $ "'s");
+		MarkShot = ShotsTaken;
+		bMarking = true;
+	}
+	else if (HoverStep == 2 && screen != None)
+	{
+		screen.SetCursorPos(2, 2);
+		Log("DXLOOT: hover: the pointer on the screen's corner");
+		MarkShot = ShotsTaken;
+		bMarking = true;
+	}
+	else
+	{
+		if (root != None)
+			root.ClearWindowStack();
+		Log("DXLOOT: hover: the screen closed");
+		Phase = 4;
+	}
+	HoverStep++;
 }
 
 // The most isolated scripted pawn at least 400 units from the player, as
@@ -228,8 +345,11 @@ event Tick(float Delta)
 	}
 	else if (Phase == 3)
 	{
-		// The timeline's drags happen here.
-		Phase = 4;
+		// The timeline's drags happen here, or Hover's steps.
+		if (Hover)
+			HoverTick(DXP);
+		else
+			Phase = 4;
 	}
 	else if (Phase == 6)
 	{
