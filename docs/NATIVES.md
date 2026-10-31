@@ -1738,12 +1738,15 @@ Differs:
   under the water line off the pier, looking 45 degrees down, the forward
   axis held): at 60 and 120 frames a second the two engines' players swim
   out alike, 4 units out at 0.2 s and 38 at 0.75 s. At some 1,000, either
-  engine uncapped, a frame's move outward is under the 0.001 units between
-  two floats of the player's place there (y 9,920), and each departs its own
-  way: the original's gains one such step a frame and is six times as far
-  out by 0.75 s; DXEngine's, whose velocity is the move it made, keeps to a
-  step a frame until its sinking adds to the move, 3 units out at 0.2 s
-  (PHYS.6).
+  engine uncapped, the original's ticks each take its floor of 5 ms (D.17):
+  its swimmer is 134 units out at 0.23 s, its velocity each tick the move
+  rounded to the floats of its place (0.001 apart at y 9,920) over the
+  5 ms, 5 such steps more each tick. DXEngine with that floor, in a test
+  build, swims alike: the same velocity out and the same distance out each
+  tick until its speed's cap, the same speed after, its first tick a little
+  longer than 5 ms, 0.4 units further out from there. Without it,
+  DXEngine's swimmer goes by the real time, 3.4 units out at 0.2 s and 37 at
+  0.75 s, a float step each of its first ticks, whose moves are under one.
 
 ## Housekeeping, not seen directly
 
