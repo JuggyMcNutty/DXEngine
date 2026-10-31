@@ -43,6 +43,12 @@ public:
 	// A node's surface, the level's own or a filed polygon's
 	const BspSurface& Surface(int index) const;
 
+	// For each of the mover's polygons, whether its last filing hung a
+	// fragment of it in the plane chain of a node of the level's own: after
+	// that node, whose surface the original's walk draws first. None for a
+	// mover the tracker does not file.
+	const Array<uint8_t>* InLevelPlane(const UMover* mover) const;
+
 private:
 	struct Fragment
 	{
@@ -56,6 +62,7 @@ private:
 		UMover* Mover = nullptr;
 		int FirstSurface = 0; // the surface of its brush's first polygon
 		Array<int> Nodes; // its fragments' nodes, in filing order
+		Array<uint8_t> InLevelPlane; // by polygon (InLevelPlane above)
 		bool Queued = false;
 	};
 

@@ -179,8 +179,18 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
 			fogmap = engine->Level->Light.GetMoverFogmap(mover, poly, zoneActor, model);
 	}
 
+	// A step toward the viewer, as the original's walk draws a polygon its
+	// brush tracker filed in front of the level's surfaces before them; one
+	// filed in the plane of a surface of the level's own hangs at the end of
+	// that plane's chain, after the level's surface, which hides it where it
+	// occludes (the floor of 00_Intro under its trap door: bugs.md REN.26),
+	// so a step away
+	const Array<uint8_t>* inLevelPlane = engine->Level->Collision.FiledInLevelPlane(mover);
+	size_t polyIndex = (size_t)(&poly - model->Polys->Polys.data());
+	bool behindLevel = inLevelPlane && polyIndex < inLevelPlane->size() && (*inLevelPlane)[polyIndex];
+
 	surfaceinfo.PolyFlags = PolyFlags;
-	surfaceinfo.DepthBias = true;
+	surfaceinfo.DepthBias = behindLevel ? -1 : 1;
 	surfaceinfo.LightMap = lightmap.NumMips != 0 ? &lightmap : nullptr;
 	surfaceinfo.FogMap = fogmap.NumMips != 0 ? &fogmap : nullptr;
 

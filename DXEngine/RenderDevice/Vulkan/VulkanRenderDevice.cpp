@@ -145,7 +145,7 @@ void VulkanRenderDevice::Submit(bool present, int presentWidth, int presentHeigh
 
 	Commands->SubmitCommands(present, presentWidth, presentHeight, wait);
 
-	DepthBiasSet = -1;
+	DepthBiasSet = DepthBiasUnknown;
 	Batch.SceneIndexStart = 0;
 	SceneVertexPos = 0;
 	SceneIndexPos = 0;
@@ -305,7 +305,7 @@ void VulkanRenderDevice::Unlock(bool Blit)
 	Submit(Blit ? true : false, windowWidth, windowHeight, false);
 
 	Batch.Pipeline = nullptr;
-	Batch.DepthBias = false;
+	Batch.DepthBias = 0;
 	Batch.DescriptorSet = nullptr;
 
 	IsLocked = false;
@@ -337,17 +337,18 @@ void VulkanRenderDevice::DrawBatch(VulkanCommandBuffer* cmdbuffer)
 		cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, Batch.Pipeline->Pipeline.get());
 		if (Batch.Pipeline->DynamicDepthBias)
 		{
-			int bias = Batch.DepthBias ? 1 : 0;
+			int bias = Batch.DepthBias;
 			if (DepthBiasSet != bias)
 			{
-				float factor = Batch.DepthBias ? -1.0f : 0.0f;
+				// Toward the viewer -1, away 1
+				float factor = (float)-bias;
 				cmdbuffer->setDepthBias(factor, 0.0f, factor); // constant, clamp, slope
 				DepthBiasSet = bias;
 			}
 		}
 		else
 		{
-			DepthBiasSet = -1;
+			DepthBiasSet = DepthBiasUnknown;
 		}
 		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, Batch.DescriptorSet);
 		cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ScenePushConstants), &pushconstants);
@@ -1065,7 +1066,7 @@ void VulkanRenderDevice::TakeBloom()
 	cmdbuffer->setViewport(0, 1, &viewportdesc);
 	// The bloom's pipelines fix their own depth bias, which Vulkan forgets
 	// the dynamic one for
-	DepthBiasSet = -1;
+	DepthBiasSet = DepthBiasUnknown;
 }
 
 void VulkanRenderDevice::RunBloomPass()

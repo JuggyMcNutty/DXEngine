@@ -280,6 +280,7 @@ void BrushTracker::File(Tracked* tracked)
 		PrecomputeSphereFilter(sphere);
 	}
 
+	tracked->InLevelPlane.assign(polys.size(), 0);
 	if (!LineNodes.empty())
 	{
 		for (size_t i = 0; i < polys.size(); i++)
@@ -575,6 +576,11 @@ void BrushTracker::AddPolyFragment(int surface, int parent, int coplanarParent, 
 	else
 		hang.Plane = node;
 	Filing->Nodes.push_back(node);
+
+	// In the plane of a node of the level's own: after it in the chain
+	size_t polyIndex = (size_t)(surface - Filing->FirstSurface);
+	if (coplanarParent != -1 && coplanarParent < FirstNode && polyIndex < Filing->InLevelPlane.size())
+		Filing->InLevelPlane[polyIndex] = 1;
 }
 
 // A free node slot, from the last one taken on, then from the first back to
@@ -648,6 +654,16 @@ const BspSurface& BrushTracker::Surface(int index) const
 	if (index < FirstFiledSurface)
 		return Level->Model->Surfaces[index];
 	return FiledSurfaces[index - FirstFiledSurface];
+}
+
+const Array<uint8_t>* BrushTracker::InLevelPlane(const UMover* mover) const
+{
+	for (const auto& tracked : Movers)
+	{
+		if (tracked->Mover == mover)
+			return &tracked->InLevelPlane;
+	}
+	return nullptr;
 }
 
 void BrushTracker::Mark(GCMarker& marker)

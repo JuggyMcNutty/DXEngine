@@ -121,11 +121,13 @@ struct SurfaceInfo
 	TextureInfo* MacroTexture = nullptr;
 	TextureInfo* DetailTexture = nullptr;
 	TextureInfo* FogMap = nullptr;
-	// Drawn a step toward the viewer, as the Vulkan device draws translucent
-	// surfaces: a Deus Ex mover's (VisibleBrush), so that one flush with the
-	// level's surfaces shows over them instead of fighting them in the
-	// depth buffer
-	bool DepthBias = false;
+	// A Deus Ex mover's step in the depth buffer (VisibleBrush), the Vulkan
+	// device's depth bias: 1 toward the viewer, so that one filed in front
+	// of the level's surfaces shows over them instead of fighting them; -1
+	// away, for one the brush tracker filed in the plane of a surface of the
+	// level's own, which the original's walk draws first and lets hide it;
+	// 0 none
+	int DepthBias = 0;
 };
 
 class OutputDevice

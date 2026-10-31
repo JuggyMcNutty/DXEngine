@@ -171,6 +171,10 @@ public:
 	bool LineRootOutside() const;
 	// A node's surface in that BSP: the level's own, or a filed polygon's
 	const BspSurface& LineSurface(int index) const;
+	// For each of a mover's polygons, whether the tracker filed it in the
+	// plane of a surface of the level's own, after that surface (BrushTracker);
+	// none with no tracker or for a mover it does not file
+	const Array<uint8_t>* FiledInLevelPlane(const UMover* mover) const { return Tracker.Active() ? Tracker.InLevelPlane(mover) : nullptr; }
 	// The flags of the level surface the original files a mover's polygon
 	// under: a hit on it gives them, and the polygon draws with them
 	static uint32_t FiledFlags(UMover* mover, const Poly& poly);

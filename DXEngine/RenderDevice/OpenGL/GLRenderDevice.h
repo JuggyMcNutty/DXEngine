@@ -168,8 +168,10 @@ public:
 		std::shared_ptr<GLProgram> ClipShaderProgramAlphaTest;
 		std::shared_ptr<GLSampler> Samplers[4];
 		ScenePipelineState Pipelines[33];
-		// Pipelines' first 32 a step toward the viewer (SurfaceInfo::DepthBias)
+		// Pipelines' first 32 a step toward the viewer, and away from it
+		// (SurfaceInfo::DepthBias 1 and -1)
 		ScenePipelineState BiasedPipelines[32];
+		ScenePipelineState AwayPipelines[32];
 		ScenePipelineState LinePipeline[2];
 	} ScenePass;
 
@@ -321,7 +323,7 @@ private:
 	void ComputeBlurSamples(int sampleCount, float blurAmount, float* sampleWeights);
 
 	void SetPipeline(ScenePipelineState* pipeline);
-	void SetPipeline(uint32_t polyflags, bool depthBias = false);
+	void SetPipeline(uint32_t polyflags, int depthBias = 0);
 	void SetDescriptorSet(uint32_t polyflags, GLCachedTexture* tex = nullptr, bool clamp = false);
 	void SetDescriptorSet(uint32_t polyflags, const ComplexSurfaceInfo& info);
 
@@ -362,7 +364,7 @@ private:
 
 	int GetSettingsMultisample();
 
-	ScenePipelineState* GetPipeline(uint32_t PolyFlags, bool depthBias = false);
+	ScenePipelineState* GetPipeline(uint32_t PolyFlags, int depthBias = 0);
 
 	std::shared_ptr<GLBlendState> CreateBlendState(const GLBlendDesc& desc);
 	std::shared_ptr<GLRasterizerState> CreateRasterizerState(const GLRasterizerDesc& desc);
@@ -430,7 +432,7 @@ inline void GLRenderDevice::SetPipeline(ScenePipelineState* pipeline)
 	}
 }
 
-inline void GLRenderDevice::SetPipeline(uint32_t PolyFlags, bool depthBias)
+inline void GLRenderDevice::SetPipeline(uint32_t PolyFlags, int depthBias)
 {
 	auto pipeline = GetPipeline(PolyFlags, depthBias);
 	if (pipeline != Batch.Pipeline)

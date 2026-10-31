@@ -541,6 +541,8 @@ void GLRenderDevice::CreateScenePass()
 	{
 		ScenePass.BiasedPipelines[i] = ScenePass.Pipelines[i];
 		ScenePass.BiasedPipelines[i].DepthBias = -1.0f;
+		ScenePass.AwayPipelines[i] = ScenePass.Pipelines[i];
+		ScenePass.AwayPipelines[i].DepthBias = 1.0f;
 	}
 
 	// Line pipeline
@@ -664,6 +666,11 @@ void GLRenderDevice::ReleaseScenePass()
 		pipeline.BlendState.reset();
 		pipeline.DepthStencilState.reset();
 	}
+	for (auto& pipeline : ScenePass.AwayPipelines)
+	{
+		pipeline.BlendState.reset();
+		pipeline.DepthStencilState.reset();
+	}
 	for (int i = 0; i < 2; i++)
 	{
 		ScenePass.LinePipeline[i].BlendState.reset();
@@ -715,7 +722,7 @@ void GLRenderDevice::ReleaseSceneBuffers()
 	}
 }
 
-GLRenderDevice::ScenePipelineState* GLRenderDevice::GetPipeline(uint32_t PolyFlags, bool depthBias)
+GLRenderDevice::ScenePipelineState* GLRenderDevice::GetPipeline(uint32_t PolyFlags, int depthBias)
 {
 	int index;
 	if (PolyFlags & PF_Translucent)
@@ -753,8 +760,10 @@ GLRenderDevice::ScenePipelineState* GLRenderDevice::GetPipeline(uint32_t PolyFla
 		index = 32;
 	}
 
-	if (depthBias && index < 32)
+	if (depthBias > 0 && index < 32)
 		return &ScenePass.BiasedPipelines[index];
+	if (depthBias < 0 && index < 32)
+		return &ScenePass.AwayPipelines[index];
 	return &ScenePass.Pipelines[index];
 }
 

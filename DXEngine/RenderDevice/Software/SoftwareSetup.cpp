@@ -335,14 +335,14 @@ namespace
 
 		if (draw.DepthBias)
 		{
-			// Vulkan's depth bias on a float depth buffer, constant -1 and
-			// slope -1: the larger of the depth's steps, and the least step
-			// of the largest depth's exponent
+			// Vulkan's depth bias on a float depth buffer, constant and
+			// slope -1 toward the viewer, 1 away: the larger of the depth's
+			// steps, and the least step of the largest depth's exponent
 			float slope = std::max(std::fabs(prim.Depth.Dx), std::fabs(prim.Depth.Dy));
 			int exponent = 0;
 			std::frexp(std::max({ s0.Z, s1.Z, s2.Z }), &exponent);
 			float resolution = std::ldexp(1.0f, exponent - 1 - 23);
-			prim.Depth.Value -= slope + resolution;
+			prim.Depth.Value -= (float)draw.DepthBias * (slope + resolution);
 		}
 
 		Bin(bins, frame, prim);

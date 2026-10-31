@@ -66,7 +66,7 @@ struct SoftwareDraw
 	bool AlphaTest = false;  // PF_Masked: alpha under a half discarded
 	bool NoSmooth = false;   // the base texture's nearest texel and mip
 	bool Clamp = false;      // the base texture held at its edges
-	bool DepthBias = false;  // a mover's step toward the viewer
+	int DepthBias = 0;       // a mover's step: 1 toward the viewer, -1 away
 	uint32_t ShaderFlags = 0; // Scene.frag's flags (VulkanRenderDevice's SceneVertex::Flags)
 	int State = 0;
 	uint32_t FirstVertex = 0;

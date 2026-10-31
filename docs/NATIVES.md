@@ -688,8 +688,6 @@ the moving ones over it there, its map built again when it moves or turns.
 units off its place: the door at 1.003 of the original's frame under its
 own lights and 1.000 with a lamp 48 units before it, where it was 0.82 and
 0.43, lit as if still at its key.
-Differs (bugs.md REN.26): 00_Intro's door under the two pawns is lit another
-colour than the original's.
 A spotlight's cone is the
 original's, its cosine `1 − LightCone ÷ 256`, its value rounded down, and a
 light or fog map lights texel i at its centre, `Pan.X + i × UScale` along U,
@@ -825,8 +823,17 @@ the original's frames: the room seen through 05_NYC_UNATCOMJ12lab's
 `BreakableGlass16` and 03_NYC_Airfield's `BreakableGlass2` within 2%, and
 behind the first an unlit crate within 0.3% and an unlit sprite drawn
 `STY_Normal` within 0.5%, the glass adding 7.8 of 255 over the sprite to the
-original's 8.5. After the world the depth buffer is cleared and the
-player's overlays drawn
+original's 8.5. A mover's polygon is drawn a step toward the viewer in the
+depth buffer, so one flush with the level's surfaces shows over them; one
+the brush tracker filed in the plane of a surface of the level's own,
+which hangs after that surface in its plane's chain, is drawn a step away,
+so the level's surface shows over it where it covers it, as in the
+original's frame. `IntroDoorConsole`: the
+trap door under Bob Page and Walton Simons on 00_Intro, its top in the
+marble floor's plane, under the floor's lit marble as in the original's
+frame (the panel round their feet correlated at 0.91 with it, on Vulkan,
+GL and the software device). After the world the depth buffer is cleared
+and the player's overlays drawn
 ([the overlays](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#the-overlays)),
 so the first-person weapon meets no depth of the world: an assault rifle
 held flush against a wall of UNATCO HQ draws whole, within 1.3% of the
