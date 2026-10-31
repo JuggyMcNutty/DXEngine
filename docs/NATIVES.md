@@ -2065,8 +2065,11 @@ A mod gets the original's loader and natives:
   over while the render device's `HighDetailActors` is off, as the
   original's SetupDynamics passes it (of the game's classes only `Decal`
   sets the flag, and a decal is drawn with its surface); the render device's
-  `Translucency` is read, saved and `SET`, and changes nothing (what it does
-  in the original is unread: bugs.md REN.19); an actor at no place (a NaN location) sorts
+  `Translucency` is read, saved and `SET`, and changes nothing, as under
+  `D3DDrv` and `OpenGLDrv`, which have no such setting -- of the game's
+  devices only the software one names it
+  ([the binary](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-binary));
+  an actor at no place (a NaN location) sorts
   nearest among the translucent.
 - **A mod's deletions and sizes.** A light in the level's light lists
   is kept, destroyed or not, so the lists keep their places; a destroyed
