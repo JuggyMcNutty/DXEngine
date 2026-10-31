@@ -1464,7 +1464,10 @@ Every other native the scripted runs compare matches the original
   reaches, the hull of each solid leaf it reaches tried and no other, a hull
   entered within twice the trace's length counted, the hit backed off a
   tenth of the trace: a box traced 8 units down from 8.78 over the floor
-  meets nothing in either engine (Liberty Island's carcass crossbow). A
+  meets nothing in either engine (Liberty Island's carcass crossbow). A box
+  started partly inside the level's solid is stopped at its start by the
+  original's where DXEngine's passes on, at 94 of `GrateConsole`'s 1,916
+  places (bugs.md PHYS.17). A
   mover's brush meets the box in the world's axes, its planes turned into
   the world by its place, rotation and scale, as the original's walk turns
   its owner's: the player walked into and along the grates under Castle
@@ -1592,7 +1595,8 @@ Every other native the scripted runs compare matches the original
   owner, turned with it or against its velocity, straight up when it has
   none.
 - **Water**: falls in it (`FloatConsole`: a buoyant crate rises and bobs at
-  the surface at the original's speeds) and swimming (`SwimConsole`: the
+  the surface at the original's speeds, but comes to rest there some 6 s
+  in, where the original's bobs on: bugs.md PHYS.16) and swimming (`SwimConsole`: the
   player and a troop falling or thrown into water are put back at the water
   line and swim on, the player stopped as its head goes under and held to
   0.3 of `WaterSpeed`, as it walks whenever it swims; up out of the water it
