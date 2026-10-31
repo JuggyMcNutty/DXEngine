@@ -2126,9 +2126,14 @@ A mod gets the original's loader and natives:
   client opens four downloads at once at most; a `TcpLink`'s failed connect
   waits for the script's timer on Linux as on Windows, nothing is read while
   connecting, and a listening link's close lets its port go.
-- **`ScriptedTexture.ReplaceTexture`** copies the texture's current frame
-  over the scripted texture when their sizes match, else logs, as the
-  original's (no run: no stock script calls it; bugs.md REN.20).
+- **`ScriptedTexture.ReplaceTexture`**, which no stock script calls, takes
+  a texture of the scripted texture's USize and VSize, steps it to now, as
+  the original's Update does, and copies its current frame's top mip over
+  the scripted texture's; else logs, as the original's (`ScriptedConsole` on
+  the harness's `CapScripted`: `plaque_b` copied, `Compu_A04`'s size and
+  None refused, `WhiteNoise_A01` stepped to `WhiteNoise_A02` and copied,
+  each shot of it alike in both engines, correlated at 0.996 to 1.000, where
+  DXEngine copied the animated one unstepped).
 - **Config files.** A class's config file that is not there is empty, its
   properties keeping their defaults, until the class writes it
   ([configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration)):

@@ -29,8 +29,9 @@ a run of 60 s or more that looks at what was drawn, not only at the log:
 `tools/dxcap.sh` runs the original game (under Proton's `wine`, in the development container)
 and DXEngine alike, each driven by a console class of the DXCapture package: UnrealScript in
 `tools/dxcap/Classes`, compiled by the SDK's `UCC.exe` (`reference/ReleaseSDK1112f`) into
-`build/dxcap`, with test sounds of kinds the game ships none of, which
-`tools/dxcap/testsounds.py` writes for it (its header names them).
+`build/dxcap`, with test sounds and textures of kinds the game ships none
+of, which `tools/dxcap/testsounds.py` and `testtextures.py` write for it
+(their headers name them).
 
 ```sh
 tools/dxcap.sh setup                          # once, and again after the parent folder moves
@@ -265,6 +266,7 @@ the run. *Either*: one engine on each side of a pair.
 | `FinishConsole` | both | a tarp's state code calling `FinishAnim` after a `PlayAnim`, a `TweenAnim` with a time, with nothing animating and after a `LoopAnim`: the level's time as each returns (`CapFinisher`) | `DXFINISH:` | the time each wait takes |
 | `AnimNameConsole` | both | `HasAnim`, `GetAnimGroup`, `PlayAnim`, `LoopAnim`, `TweenAnim` and `PlayBlendAnim` of a sequence name a tarp's mesh lacks | `DXANIMNAME:` | the two logs' lines diffed |
 | `ModConsole` | both | the natives only a mod calls: the timing natives, a flag from a string, `ExtString`'s parts, `ResetConfig` | `DXMOD:` | the two logs diffed |
+| `ScriptedConsole` | both | `ScriptedTexture.ReplaceTexture` on the harness's `CapScripted`, drawn at four times its size: as loaded, after a texture of its size, after one of another size and None, after an animated one; each step shot | `DXSCRIPTED:` | `shots.py --rmse --region 64,64,256,256`, at `DXCAP_WINDOW=1024x768`; the two logs diffed |
 | `LocalizeConsole` | both | a package's text and the objects its `.int` files register: the game's, two mod folders' (`build/dxcap/mods`, the harness's own, first in the run's paths, one by its absolute path and one by a relative one), none | `DXLOC:` | the two logs diffed |
 | `ConfigConsole` | both | a class's own config file (`ConfigProbe`'s `DXCapConfig.ini`) read, one added and a vector, a class and two strings written back as the original writes them, then an object's own `StaticSaveConfig`, which writes the class's | `DXCONFIG:` | the file after each run |
 | `LoopConsole` | both | one loop of `Jumps` jumps in a tick, 9,990,000 by default: past 10,000,000 either engine stops, but with `-norunaway` (`DXCAP_FLAGS`); with `LoadAfter`, slot 9's load in the same tick (`SaveConsole`'s `Fresh` makes it), the load counting its own jumps | `DXLOOP:` | the two logs; the original's error is its dialog's ([crashes](#crashes)) |

@@ -118,9 +118,12 @@ void UScriptedTexture::DrawTile(float X, float Y, float XL, float YL, float U, f
 		DrawTileP8(Tex, X, Y, XL, YL, U, V, UL, VL);
 }
 
-// The original's execReplaceTexture (Engine.dll 0x103eb1e0): the texture's
-// current frame's top mip copied over this one's when their sizes match;
-// else a line in the log, its texts
+// The original's execReplaceTexture (Engine.dll 0x103eb1e0): when the
+// texture's size is this one's, the texture stepped to now, as its Update
+// steps it to the time this one last ticked at, and its current frame's top
+// mip copied over this one's; else a line in the log, its texts. A frame of
+// another size, which the original's copy would read past, is copied as far
+// as both reach.
 void UScriptedTexture::ReplaceTexture(UTexture* Tex)
 {
 	if (!Tex)
@@ -128,15 +131,20 @@ void UScriptedTexture::ReplaceTexture(UTexture* Tex)
 		LogMessage("ReplaceTexture: Missing Texture");
 		return;
 	}
-	UTexture* frame = Tex->GetAnimTexture();
-	if (UsedMipmaps.empty() || frame->UsedMipmaps.empty() || frame->UsedMipmaps.front().Width != UsedMipmaps.front().Width || frame->UsedMipmaps.front().Height != UsedMipmaps.front().Height)
+	if (Tex->USize() != USize() || Tex->VSize() != VSize())
 	{
 		LogMessage("ReplaceTexture: Dimensions are different");
 		return;
 	}
+	double now = UTexture::ClockNow();
+	Tex->Update((float)(now - Tex->LastUpdateTime));
+	Tex->LastUpdateTime = now;
+	UTexture* frame = Tex->GetAnimTexture();
+	if (UsedMipmaps.empty() || frame->UsedMipmaps.empty())
+		return;
 	UnrealMipmap& dst = UsedMipmaps.front();
 	const UnrealMipmap& src = frame->UsedMipmaps.front();
-	memcpy(dst.Data.data(), src.Data.data(), std::min(dst.Data.size(), src.Data.size()));
+	memcpy(dst.Data.data(), src.Data.data(), std::min({ dst.Data.size(), src.Data.size(), (size_t)std::max(USize(), 0) * std::max(VSize(), 0) }));
 	TextureModified = true;
 }
 
