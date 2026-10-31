@@ -18,7 +18,7 @@ struct GalaxySample
 	bool looped = false;
 	uint64_t loopStart = 0;
 	uint64_t loopEnd = 0;           // the first frame not in the loop
-	bool ringed = false;            // played from a ring its decoder fills: an MP3
+	bool ringed = false;            // played from a ring its decoder fills: an MP3, a 16-bit stereo sound
 };
 
 // Galaxy.dll's sample mixer and zone reverb, as Deus Ex's sounds play
@@ -73,6 +73,7 @@ private:
 		uint64_t end = 0;           // the frame it stops at
 		uint64_t fill = 0;          // a ringed voice: the frame its ring is filled to, 0 before the first fill
 		int64_t tick = 0;           // a ringed voice: 16.16 output frames to its decoder's next call
+		uint64_t turn = 0;          // a ringed voice: the ring's last frame in this turn
 	};
 
 	struct Reverb

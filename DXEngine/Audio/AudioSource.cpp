@@ -123,13 +123,32 @@ public:
 			Exception::Throw("Could not open wav file");
 
 		// The first loop, as Galaxy plays it, whatever the count (dr_wav keeps
-		// the file's count and stores the first)
-		if (decoder.smpl.numSampleLoops >= 1)
+		// the file's count and stores the first), and only from a smpl chunk
+		// after the data chunk: Galaxy's loader sets the sample up afresh at
+		// the data chunk, an earlier loop lost (Galaxy.dll 0x10619d20)
+		if (decoder.smpl.numSampleLoops >= 1 && SmplFollowsData())
 		{
 			bIsLooped = true;
 			loopStart = decoder.smpl.loops[0].start;
 			loopEnd = decoder.smpl.loops[0].end;
 		}
+		eightBit = decoder.bitsPerSample == 8;
+	}
+
+	bool SmplFollowsData() const
+	{
+		bool data = false;
+		for (uint64_t at = 12; at + 8 <= filedata.size();)
+		{
+			const uint8_t* chunk = filedata.data() + at;
+			uint32_t size = chunk[4] | (chunk[5] << 8) | (chunk[6] << 16) | ((uint32_t)chunk[7] << 24);
+			if (memcmp(chunk, "data", 4) == 0)
+				data = true;
+			else if (memcmp(chunk, "smpl", 4) == 0)
+				return data;
+			at += 8 + (uint64_t)size + (size & 1);
+		}
+		return false;
 	}
 
 	~WavAudioSource()
@@ -168,7 +187,21 @@ public:
 	{
 		if (!eofdata)
 		{
-			size_t samplesread = drwav_read_pcm_frames_f32(&decoder, samples / decoder.channels, output) * decoder.channels;
+			// 8-bit data as Galaxy holds it, each byte less 128 times 256 (its
+			// loader's += 0x80, Galaxy.dll 0x10619d20), which dr_wav's 16-bit
+			// read gives and its float read does not
+			size_t samplesread;
+			if (eightBit)
+			{
+				std::vector<int16_t> data(samples);
+				samplesread = drwav_read_pcm_frames_s16(&decoder, samples / decoder.channels, data.data()) * decoder.channels;
+				for (size_t i = 0; i < samplesread; i++)
+					output[i] = data[i] * (1.0f / 32768.0f);
+			}
+			else
+			{
+				samplesread = drwav_read_pcm_frames_f32(&decoder, samples / decoder.channels, output) * decoder.channels;
+			}
 			eofdata = (samplesread != samples);
 			return samplesread;
 		}

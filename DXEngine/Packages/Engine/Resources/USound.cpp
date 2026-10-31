@@ -223,6 +223,8 @@ Array<float> USound::Decode()
 	loopInfo.Looped = source->bIsLooped;
 	loopInfo.LoopStart = source->loopStart;
 	loopInfo.LoopEnd = source->loopEnd;
+	eightBit = source->eightBit;
+	frames = (uint64_t)std::max(source->GetSamples(), 0);
 	return decoded;
 }
 

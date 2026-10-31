@@ -15,6 +15,13 @@
 //=============================================================================
 class LipConsole extends Console;
 
+// The harness's own sounds (tools/dxcap/testsounds.py), for Speech
+#exec AUDIO IMPORT FILE="Sounds\CapPingPong.wav" NAME="CapPingPong"
+#exec AUDIO IMPORT FILE="Sounds\CapLoop.wav" NAME="CapLoop"
+#exec AUDIO IMPORT FILE="Sounds\CapEarlyLoop.wav" NAME="CapEarlyLoop"
+#exec AUDIO IMPORT FILE="Sounds\Cap8Bit.wav" NAME="Cap8Bit"
+#exec AUDIO IMPORT FILE="Sounds\CapStereo.wav" NAME="CapStereo"
+
 var config bool Beep;
 var config string Speech;
 

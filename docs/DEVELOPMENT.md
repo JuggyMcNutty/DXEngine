@@ -29,7 +29,8 @@ a run of 60 s or more that looks at what was drawn, not only at the log:
 `tools/dxcap.sh` runs the original game (under Proton's `wine`, in the development container)
 and DXEngine alike, each driven by a console class of the DXCapture package: UnrealScript in
 `tools/dxcap/Classes`, compiled by the SDK's `UCC.exe` (`reference/ReleaseSDK1112f`) into
-`build/dxcap`.
+`build/dxcap`, with test sounds of kinds the game ships none of, which
+`tools/dxcap/testsounds.py` writes for it (its header names them).
 
 ```sh
 tools/dxcap.sh setup                          # once, and again after the parent folder moves
@@ -274,7 +275,7 @@ the run. *Either*: one engine on each side of a pair.
 | `DeleteConsole` | both | `CriticalDelete` as the game uses it | `DXDELETE:` |  |
 | `SoundConsole` | both | sounds behind a wall, a reverb zone, beeps from three sides and the root window | `DXCAP:` | `sound.py <run>`, with `DXCAP_RECORD=1` |
 | `SkipConsole` | both | a conversation's lines skipped | `DXSKIP:` | `skip.py <run> [<run> ...]`, with `DXCAP_RECORD=1` |
-| `LipConsole` | both | the player speaking three of mission 1's lines as ConPlay plays one, 8 s each: every mouth shape written to its `nextPhoneme` (`Beep`: a beep on the same tick as each line; `Speech`: a sound's full name, played first) | `DXLIP:` | each line's shapes one after another; with `Beep=True` and `DXCAP_RECORD=1`, `sound.py --onsets <run>`: each line's first onset after its beep's |
+| `LipConsole` | both | the player speaking three of mission 1's lines as ConPlay plays one, 8 s each: every mouth shape written to its `nextPhoneme` (`Beep`: a beep on the same tick as each line; `Speech`: a sound's full name, played first, such as one of the package's test sounds, `DXCapture.CapLoop`) | `DXLIP:` | each line's shapes one after another; with `Beep=True` and `DXCAP_RECORD=1`, `sound.py --onsets <run>`: each line's first onset after its beep's |
 | `AmbientConsole` | both | on Liberty Island, the level's ambient sounds hushed, a fan 64 units ahead at a `SoundVolume` of `Volume` (5): 4 s at the ini's `AmbientFactor`, 4 s after a `SET` of it to `Factor` (20, past Galaxy's hold at 10) and 4 s at 0.7 again, beeps before each | `DXAMBIENT:` | with `DXCAP_RECORD=1`, `sound.py --levels <run>` between the beeps (`--onsets`): the fan's step from 0.7 to `Factor` |
 | `SaveConsole`, `LoadConsole` | either | a save to slot 9 with a goal, a note, a key and two HUD messages (a log object each), and its load (`Via`: the save after a map exit's travel; `Open=<url>`: the load by the console's `open <url>`, as `?loadgame=9`; `Fresh`: a new game's start, sent by the game's `StartNewGame` from the menu map and saved as it is) | `DXSAVE:` |  |
 | `QuickLoadConsole` | dxe | UNATCO HQ opened from the island (the island into Current), the quick save there by a `SaveHelper`, then `LoadGame -1`: whether the level loads again | `DXQL:` | a Windows build under Wine (`DXCAP_ENGINE`) against the Linux one |

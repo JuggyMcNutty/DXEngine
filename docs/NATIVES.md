@@ -1314,18 +1314,28 @@ decoder fills its ring, 32,768 frames of each channel
 fill sets its end, at Galaxy's ticks, timed by the music's tempo -- one
 whose data, the silence counted, ends within the first fill to that fill's
 end, 20,480 frames, one within the ring's first turn with its data, and a
-longer one to within a tick of the ring's turn after its data's end.
-Galaxy's first fill is at its first tick after the voice starts, as its
-mixer's thread falls against the game's, DXEngine's at the voice's start,
-by choice, the original's usual case. `LipConsole` with `Beep=True` and
-`DXCAP_RECORD=1`: each of its three lines 4,085 to 4,096 frames after a beep
-started on the same tick, the original's 4,083 to 4,096, or 512 more as its
-voice starts against its mixer's tick; and with `Speech` naming the stereo
-`ConAudioMission01_450`, 4,085, the original's 4,107 and 4,608, where
-DXEngine had half the silence for a stereo one (2,037). Lip sync is Galaxy's
+longer one to within a tick of the ring's turn after its data's end; each
+turn after the first passes over the ring's first frame, the ring's loop
+ending at its last. Galaxy's first fill is at its first tick after the
+voice starts, as its mixer's thread falls against the game's, DXEngine's at
+the voice's start, by choice, the original's usual case. `LipConsole` with
+`Beep=True` and `DXCAP_RECORD=1`: each of its three lines 4,085 to 4,096
+frames after a beep started on the same tick, the original's 4,083 to 4,096,
+or 512 more as its voice starts against its mixer's tick; and with `Speech`
+naming the stereo `ConAudioMission01_450`, 4,085, the original's 4,107 and
+4,608, where DXEngine had half the silence for a stereo one (2,037). Lip sync
+is Galaxy's
 ([lip sync](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#lip-sync)):
 a shape each tenth of a second of a line's time played, from 1,024 frames
-where its voice plays, the first at the update after it starts.
+where its voice plays, the first at the update after it starts; an 8-bit
+sound's from its first 1,024 bytes wherever it plays, every other one, in
+half the FFT's input, the rest kept from the read before (`LipConsole` with
+`Speech` on the harness's `Cap8Bit`: 19 `O`s, then two `X`s as the place read
+from passes its end, in both engines, where DXEngine read it as a 16-bit one,
+`A`s). A WAV loops by its first loop only from a `smpl` chunk after its data
+chunk, as Galaxy's loader sets the sound up afresh at the data (`CapEarlyLoop`
+once in both engines, where DXEngine looped it), and a voice mixes the frame
+that falls on its loop's end or its data's end too.
 `GetSoundDuration` is the original's, read from a WAV's header and 0 for an
 MP3
 ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds)):
@@ -1346,16 +1356,22 @@ alike. Differs:
   its music's
   ([settings](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#settings);
   bugs.md D.28).
-- A WAV's ping-pong loop plays forward, where Galaxy's plays back and forth;
-  no stock sound has one (AUD.7).
-- A stereo MP3 plays once, both its channels at the sound's pan, as a mono
-  one's ring has it. The original's plays its ring's first 32,768 frames over
-  and over, its lip sync with them, until a sound on its slot stops it, and
-  a beep its speaker plays with each later line goes unheard (`LipConsole`
-  with `Speech`, two runs); the stock game has four, `ConAudioHK_Shared_681`,
-  `_1531` and `_1532`, and `ConAudioMission01_450` (D.32).
-- Not carried: an 8-bit sample's lip sync read from its start wherever it
-  plays; no stock speech is a WAV (AUD.8).
+- A WAV's ping-pong loop plays forward, by choice: the original's crashes
+  the game at the loop's first turn (`LipConsole` with `Speech` on the
+  harness's `CapPingPong`, twice), where its forward `CapLoop` plays alike in
+  both engines, each tenth of a second's level within 0.1 dB over six turns.
+- A stereo sound plays once, both its channels at the sound's pan, as a
+  mono MP3's ring has it, a WAV of 16-bit samples too, after the ring's
+  4,096 frames of silence (the harness's `CapStereo` 8,180 output frames
+  after its beep, the original's 8,192 at its 22,050 Hz, where DXEngine
+  played it at once); an 8-bit one from its start. The original's plays its
+  ring's first 32,768 frames over and over, its lip sync with them, until a
+  sound on its slot stops it; a beep its speaker plays with each later line
+  goes unheard, and the game crashes at its exit, unloading a sound
+  (`LipConsole` with `Speech` on `ConAudioMission01_450`, twice, and on the
+  harness's `CapStereo`). The stock game has four stereo sounds, all MP3s:
+  `ConAudioHK_Shared_681`, `_1531` and `_1532`, and `ConAudioMission01_450`
+  (D.32).
 - An ambient sound on a light follows its blink and strobe on DXEngine's
   timing ([lighting](#lighting); D.15).
 - A sound's ID packs a number DXEngine gives each object that plays one,

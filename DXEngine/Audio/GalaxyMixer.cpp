@@ -22,6 +22,7 @@ void GalaxyMixer::Play(int channel, std::shared_ptr<const GalaxySample> sample, 
 	voice.end = voice.playing && voice.sample->ringed ? UINT64_MAX : voice.playing ? voice.sample->frames : 0;
 	voice.fill = 0;
 	voice.tick = 0;
+	voice.turn = 0x7fff;
 	voice.volume = volume;
 	voice.panning = panning;
 	SetPitch(voice, pitch);
@@ -232,6 +233,13 @@ static int PanGain(int share)
 	return (int)(std::sqrt(share * 0.00003051850947599719) * 32767.0);
 }
 
+// Whether a 16.16 position lies past a frame, as Galaxy's mixer finds a
+// voice past its limit: it mixes a frame that falls on the limit too.
+static bool Past(uint64_t position, uint64_t frame)
+{
+	return (position >> 16) > frame || ((position >> 16) == frame && (position & 0xffff) != 0);
+}
+
 void GalaxyMixer::MixVoice(Voice& voice, float* dry, float* send, int frames)
 {
 	const GalaxySample& sample = *voice.sample;
@@ -273,22 +281,28 @@ void GalaxyMixer::MixVoice(Voice& voice, float* dry, float* send, int frames)
 			voice.tick -= 0x10000;
 		}
 
-		uint64_t index = voice.position >> 16;
-		if (loop && index >= sample.loopEnd)
+		// Past its limit (Galaxy.dll 0x10614920), a loop goes back by its
+		// length, as often as a step longer than the loop needs; a voice past
+		// its end stops; and a ringed one past its ring's last frame goes on
+		// at the ring's second, the first passed over: the ring's loop ends at
+		// frame 32,767 and goes back by that many
+		if (loop)
 		{
-			// As often as a step longer than the loop needs
-			uint64_t length = (uint64_t)(sample.loopEnd - sample.loopStart) << 16;
-			do
-				voice.position -= length;
-			while ((voice.position >> 16) >= sample.loopEnd);
-			index = voice.position >> 16;
+			while (Past(voice.position, sample.loopEnd))
+				voice.position -= (uint64_t)(sample.loopEnd - sample.loopStart) << 16;
 		}
-		else if (!loop && index >= voice.end)
+		else if (Past(voice.position, voice.end))
 		{
 			voice.playing = false;
 			voice.sample.reset();
 			return;
 		}
+		else if (ringed && Past(voice.position, voice.turn))
+		{
+			voice.position += 0x10000;
+			voice.turn += 0x8000;
+		}
+		uint64_t index = voice.position >> 16;
 
 		// Linear between this frame and the next, as its SSE and MMX mixers
 		// resample; a stereo sample's two sides are two voices at one pan.

@@ -54,6 +54,10 @@ public:
 	int channels = 0;
 	void* handle = nullptr;
 	AudioLoopInfo loopInfo;
+	// A WAV of 8-bit samples, and its frames: Galaxy's lip sync reads such
+	// a sound from its start (UDXEngineAudioDevice::UpdateLipSync)
+	bool eightBit = false;
+	uint64_t frames = 0;
 
 private:
 	Array<float> Decode();

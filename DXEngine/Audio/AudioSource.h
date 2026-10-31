@@ -32,4 +32,5 @@ public:
 	bool bIsLooped = false;
 	uint32_t loopStart = 0;
 	uint32_t loopEnd = 0;
+	bool eightBit = false;      // a WAV of 8-bit samples
 };

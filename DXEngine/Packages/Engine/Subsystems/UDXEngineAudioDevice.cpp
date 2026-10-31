@@ -348,26 +348,33 @@ static bool HasLipSync()
 	return PropOffsets_Pawn.nextPhoneme.DataOffset != ~(size_t)0;
 }
 
-// Galaxy's mouth shape for 1,024 frames of a voice (galaxy-dll.md, Lip sync;
-// Galaxy.dll 0x10609180, 0x10609310, 0x10608d70): each sample over 32,768,
-// times its place over 1,024 -- the rising half of a triangle --, through a
-// 1,024-point FFT, of whose bins Galaxy takes the size of the real part
-// alone. The largest of the first 512, DC's among them, the first of equals:
-// X at 5 or less, else the letter of its frequency, T above 2,000 Hz, F above
-// 1,500, A above 600, O above 400, U above 250, E at 250 or below. Galaxy's
-// M, tested above 1,000 Hz inside the branch for 250 or below, never comes.
-static char LipSyncShape(const int16_t* frames, int rate)
+// Galaxy's input to its lip sync's FFT, one for every voice (Galaxy.dll
+// 0x1067588c): each slot a sample over 32,768, times the slot over 1,024 --
+// the rising half of a triangle (0x10609180). A read sets the slots it reads
+// and leaves the rest as the last read left them.
+static float LipSyncInput[1024];
+
+static void LipSyncSet(int slot, int16_t sample)
+{
+	LipSyncInput[slot] = (float)(sample / 32768.0 * (slot / 1024.0));
+}
+
+// Galaxy's mouth shape from its FFT's input (galaxy-dll.md, Lip sync;
+// Galaxy.dll 0x10609310, 0x10608d70): a 1,024-point FFT, of whose bins Galaxy
+// takes the size of the real part alone. The largest of the first 512, DC's
+// among them, the first of equals: X at 5 or less, else the letter of its
+// frequency, T above 2,000 Hz, F above 1,500, A above 600, O above 400, U
+// above 250, E at 250 or below. Galaxy's M, tested above 1,000 Hz inside the
+// branch for 250 or below, never comes.
+static char LipSyncShape(int rate)
 {
 	constexpr int Size = 1024;
 	static std::unique_ptr<kiss_fftr_state, void(*)(void*)> fft(kiss_fftr_alloc(Size, 0, nullptr, nullptr), free);
 	if (!fft)
 		return 'X';
 
-	float windowed[Size];
-	for (int i = 0; i < Size; i++)
-		windowed[i] = (float)(frames[i] / 32768.0 * (i / (double)Size));
 	kiss_fft_cpx bins[Size / 2 + 1];
-	kiss_fftr(fft.get(), windowed, bins);
+	kiss_fftr(fft.get(), LipSyncInput, bins);
 
 	float largest = 0.0f;
 	int strongest = -1;
@@ -405,7 +412,10 @@ static char LipSyncShape(const int16_t* frames, int rate)
 // an update until it catches up. An MP3 plays from a ring of 64 KB Galaxy
 // decodes it into, 32,768 frames, read from the voice's place in it -- its
 // 4,096 frames of silence first among them -- up to the ring's last frame;
-// any other sound 0.1 s past its time played.
+// any other sound 0.1 s past its time played, but an 8-bit one: its bytes
+// from its start, wherever the voice plays, two to a slot, the second kept,
+// so its first 512 slots alone, each 0 where the place read from and the
+// byte pass the data's end (0x10609180).
 void UDXEngineAudioDevice::UpdateLipSync(PlayingSound& Playing, int channel)
 {
 	if (!HasLipSync() || !Playing.Actor || !Playing.IsActive || !m_Device->IsPlaying(channel))
@@ -433,14 +443,28 @@ void UDXEngineAudioDevice::UpdateLipSync(PlayingSound& Playing, int channel)
 		if (!m_Device->GetMixedSoundPosition(channel, frame))
 			return;
 		m_Device->ReadMixedSound(channel, frame, frames, std::min(Size, (int)(Ring - 1 - frame % Ring)));
+		for (int i = 0; i < Size; i++)
+			LipSyncSet(i, frames[i]);
 	}
 	else
 	{
 		double played = (double)(int64_t)(rate * (double)Playing.PlayTime);
-		m_Device->ReadMixedSound(channel, (uint64_t)(int64_t)(played + rate * 0.1), frames, Size);
+		uint64_t from = (uint64_t)(int64_t)(played + rate * 0.1);
+		if (Playing.Sound->eightBit)
+		{
+			m_Device->ReadMixedSound(channel, 0, frames, Size);
+			for (int i = 0; i < Size / 2; i++)
+				LipSyncSet(i, from + 2 * i + 1 >= Playing.Sound->frames ? 0 : frames[2 * i + 1]);
+		}
+		else
+		{
+			m_Device->ReadMixedSound(channel, from, frames, Size);
+			for (int i = 0; i < Size; i++)
+				LipSyncSet(i, frames[i]);
+		}
 	}
 
-	pawn->nextPhoneme() = std::string(1, LipSyncShape(frames, rate));
+	pawn->nextPhoneme() = std::string(1, LipSyncShape(rate));
 	Playing.NextLipSync += 0.1f;
 }
 
