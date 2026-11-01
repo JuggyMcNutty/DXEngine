@@ -861,7 +861,8 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   40 units above come out the same either way, as `D3DDrv`'s, the MIB's
   lenses 0.176 of white in both engines.
 - **Movers** are drawn as their brushes, through their own matrix, a step
-  toward the viewer ([rendering](ENGINE.md#rendering)): their opaque
+  toward the viewer, a polygon filed in a level surface's plane a step away
+  ([rendering](ENGINE.md#rendering)): their opaque
   polygons with the solid actors, their translucent ones among the
   surfaces. The original files their polygons into the level's BSP and
   drops what lands in solid, a polygon in a wall's plane filed in front of
@@ -1270,6 +1271,13 @@ Differs:
   their `x` the screen's. On a screen narrower than 4:3 (1280x1024) the root
   is the screen's width, as the original's, so the HUD's left and right
   parts lie at its edges.
+- **What a clip rectangle holds back**: the original draws nothing of a
+  window none of which shows, no background, no `DrawWindow` or
+  `PostDrawWindow` event and none of its children, and takes a list's page
+  size and rows in view, an edit field's and a large text window's from
+  its clip rectangle; DXEngine sends the draw events for every window shown
+  and works those rows out from the parent's height or the window's own
+  clip (EXT.20).
 
 ## The menus' settings
 
@@ -1499,21 +1507,21 @@ Every other native the scripted runs compare matches the original
   meets nothing in either engine (Liberty Island's carcass crossbow). The
   check's sums are floats, in the original's order, and its walk takes the
   side of a node the box starts on first, so a box resting on a plane or
-  started inside a hull meets it as the original's does: `GrateConsole`'s
-  sweeps round the grates under Castle Clinton hit where the original's do
-  at every one of their 1,916 places, a terrorist walking through aside. A
-  mover's brush is asked along the whole line, where the original's asks the
-  movers along the line cut 5 units past the level's hit: at 58 of those
-  places a box starting against both the level and a grate meets the grate,
-  the original's the level (bugs.md PHYS.18). A mover's brush meets the box
-  in the world's axes, its planes turned into the world by its place,
-  rotation and scale, as the original's walk turns
-  its owner's: the player walked into and along the grates under Castle
-  Clinton on 02_NYC_BatteryPark, pitched on their sides, rests where the
-  original's does within a hundredth of a unit, and a 16-unit box swept
-  round the five grates from 1,916 places meets a grate in DXEngine alone
-  at 3, where the original's box meets the wall the grate stands in first
-  (`GrateConsole`).
+  started inside a hull meets it as the original's does. A mover's brush
+  meets the box in the world's axes, its planes turned into the world by
+  its place, rotation and scale, as the original's walk turns its owner's:
+  the player walked into and along the grates under Castle Clinton on
+  02_NYC_BatteryPark, pitched on their sides, rests where the original's
+  does within a hundredth of a unit (`GrateConsole`). A mover's brush is
+  asked along the whole line, where the original's asks the movers along
+  the line cut 5 units past the level's hit (bugs.md PHYS.18).
+  `GrateConsole`'s 16-unit boxes swept round the five grates, at the 1,842
+  places a terrorist walking through does not reach, hit as the original's
+  do but at 58, where a box starting against both the level and a grate or
+  `BreakableGlass0` meets the mover and the original's the level at the
+  same place, and at 13, where a grate is met 0.06 units nearer (PHYS.18);
+  4 more give a cage light's cylinder normal a last digit apart (bugs.md
+  PHYS.19).
 - **A thrown thing's flight** (`ParabolicTrace`) moves as the original's
   `MoveActor` moves
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):

@@ -450,7 +450,8 @@ as the GL device's take none, nor do `D3DDrv`'s but its detail passes
 ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):
 a translucent draw biased by its slope shows through the opaque one in front of it from afar,
 an augmentation canister's inner glow through its shell (`CanisterConsole`). A mover's surfaces
-take a step and a slope of 1 toward the viewer on Vulkan, GL and the software device
+take a step and a slope of 1 toward the viewer, and a polygon the brush tracker filed in the
+plane of a level surface a step away from it, on Vulkan, GL and the software device
 (`SurfaceInfo::DepthBias`; the Vulkan scene pipelines' dynamic depth bias, set as it changes,
 GL's `glPolygonOffset`, the software device's own; D3D11's take none;
 [draw order and movers](NATIVES.md#draw-order-and-movers)). Multisampled, its scene shader
@@ -644,12 +645,13 @@ in `Frame::CallScript`.
   the hash instead; each cell's actors sit in an open-addressed table (`CellTable`), where
   Surreal Engine keeps a `std::unordered_map` of `std::list`s.
 - **Deus Ex's traces, moves and physics are `Engine.dll`'s**, in
-  `DXEngine/Collision/TopLevel/TraceTest.cpp`, `UActor_Phys*.cpp` and `UPawn_Tick.cpp`: its
-  backoffs; the movers a line meets where the level's BSP last filed them, filed by
-  `CollisionSystem::FileMovers` at a map's load, but a dedicated server's, and a save, and
-  `RefileMovers` each frame drawn, in a `CellTable` of their own; a mover's move and turn as
-  one (`UActor::MoveBrush`); `FindSpot` and encroachment, moves held off what they meet as
-  `ULevel::MoveActor` holds them, landing as `processLanded`;
+  `DXEngine/Collision/TopLevel/TraceTest.cpp`, `DXEngine/Collision/BottomLevel` (the box check
+  and the point check), `UActor_Phys*.cpp` and `UPawn_Tick.cpp`: its backoffs; the multi-hit
+  check's times and order; the movers a line meets where the level's BSP last filed them,
+  filed by `CollisionSystem::FileMovers` at a map's load, but a dedicated server's, and a
+  save, and `RefileMovers` each frame drawn, in a `CellTable` of their own; a mover's move and
+  turn as one (`UActor::MoveBrush`); `FindSpot` and encroachment, moves held off what they
+  meet as `ULevel::MoveActor` holds them, landing as `processLanded`;
   walking, falling, swimming, flying, rolling, a player's ladders, the speed pawns move at and
   how they turn, as `physWalking`, `physFalling`, `physSwimming`, `physFlying`, `physRolling`,
   `calcVelocity` and `physicsRotation`, a fall ending its frame where it lands
