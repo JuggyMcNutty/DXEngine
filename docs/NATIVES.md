@@ -832,8 +832,16 @@ original's frame. `IntroDoorConsole`: the
 trap door under Bob Page and Walton Simons on 00_Intro, its top in the
 marble floor's plane, under the floor's lit marble as in the original's
 frame (the panel round their feet correlated at 0.91 with it, on Vulkan,
-GL and the software device). After the world the depth buffer is cleared
-and the player's overlays drawn
+GL and the software device). A mover's polygon takes its texture's own
+flags with its own, as the original's walk takes the surface the brush
+tracker files for it, its back-face test on the polygon's alone: a grate
+whose texture alone is masked (`CoreTexMetal.Metal.metalgrate_a`, the five
+under 02_NYC_BatteryPark's Castle Clinton; 93 movers of 29 stock maps
+draw such a polygon) shows what lies behind it (`GlassConsole` with
+`GlassName=DeusExMover31`: a crate and a sprite behind the grate correlated
+at 0.96 with the original's frame on Vulkan, GL and the software device,
+where at 94968ca9 its gaps were black, 0.64). After the world the depth
+buffer is cleared and the player's overlays drawn
 ([the overlays](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#the-overlays)),
 so the first-person weapon meets no depth of the world: an assault rifle
 held flush against a wall of UNATCO HQ draws whole, within 1.3% of the
@@ -1573,8 +1581,9 @@ Every other native the scripted runs compare matches the original
   the level's: the node the line meets, its plane, and the surface the
   original files a polygon under -- the polygon's flags without the
   editor's own (`PF_NoAddToBSP`), with `PF_SpecialLit` for a `bSpecialLit`
-  mover, as it draws --, a polygon in the plane of the level's own node met
-  as that node; and a box meets none. A brush whose solid holds a line's
+  mover, which it draws with its texture's own --, a polygon in the plane
+  of the level's own node met as that node; and a box meets none. A brush
+  whose solid holds a line's
   start still meets the line when the level's BSP holds the start too and
   cuts the line to nothing, as the original's actors are checked along the
   line cut so (`MoverConsole` on Liberty Island and DXMP_Silo: a door made

@@ -66,7 +66,17 @@ void VisibleBrush::DrawMirrorSeal(VisibleFrame* frame, UMover* mover, const Poly
 
 bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, UMover* mover, bool translucentPass, bool seal)
 {
-	uint32_t PolyFlags = CollisionSystem::FiledFlags(mover, poly);
+	// The surface the brush tracker files for the polygon, its texture's own
+	// flags with it, as the original's walk takes every surface of the BSP,
+	// a mover's among them: a grate whose texture alone is masked is drawn
+	// masked (Render.dll OccludeBsp 0x10b173d0 ORs the surface's
+	// Texture->PolyFlags in at 0x10b181b2, as VisibleFrame::ProcessNodeSurface
+	// does a level surface's). Its back-face test (0x10b17fc9) comes before,
+	// on the surface's own flags alone.
+	const uint32_t filedFlags = CollisionSystem::FiledFlags(mover, poly);
+	uint32_t PolyFlags = filedFlags;
+	if (poly.Texture)
+		PolyFlags |= poly.Texture->PolyFlags();
 
 	if (seal)
 	{
@@ -80,7 +90,7 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
 		// One-sided and seen from behind, not drawn: the original files a
 		// mover's polygons into the level's BSP, whose walk passes over such
 		// a surface, as VisibleFrame::ProcessNodeSurface does
-		if (!(PolyFlags & PF_TwoSided) && !poly.Vertices.empty())
+		if (!(filedFlags & PF_TwoSided) && !poly.Vertices.empty())
 		{
 			vec3 normal = (ToWorld * vec4(poly.Normal, 0.0f)).xyz();
 			vec3 point = (ToWorld * vec4(poly.Vertices[0], 1.0f)).xyz();
