@@ -114,7 +114,7 @@ public:
 		// Galaxy.dll 0x1060e340), and the mixer plays it on from there as
 		// that ring's fill sets its end (GalaxyMixer::FillRing). An 8-bit
 		// stereo one's ring turns at half its length there, and plays from
-		// its start here (bugs.md D.32).
+		// its start here, by choice (docs/NATIVES.md, sound).
 		auto sample = std::make_shared<GalaxySample>();
 		sample->channels = std::max(sound->channels, 1);
 		sample->ringed = sound->Format == "mp3" || sound->Format == "mp2" || (sample->channels == 2 && !sound->eightBit);

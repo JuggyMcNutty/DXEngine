@@ -491,7 +491,7 @@ wherever else that state is set.
 - **The vertices** stream through CPU staging arrays, each flush uploading the range written
   since the last one (`glBufferSubData`): the GE8300 has no `glBufferStorage` (persistent
   mapping), and mapping the buffers' unused tails on every flush costs most of its frame.
-- **The scene buffers** are RGB10_A2 (for the owner to rule on: bugs.md D.5; `Hdr` is the
+- **The scene buffers** are RGB10_A2 (by choice; `Hdr` is the
   Vulkan and D3D11 devices', from an scRGB swap chain; no window gives GL a float or HDR
   framebuffer, so the setting is not taken here): darks banded less than in `D3DDrv`'s 8-bit
   frame, as in the Vulkan device's, at 32 bits a pixel
