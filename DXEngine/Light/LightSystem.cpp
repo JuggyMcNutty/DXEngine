@@ -32,6 +32,25 @@ void LightSystem::Tick(float frameElapsed)
 	AmbientGlowTime = std::fmod(AmbientGlowTime + frameElapsed, 2.0f * 3.14159265359f / 8.0f);
 	AmbientGlowAmount = 0.25f + 0.2f * std::sin(8.0f * AmbientGlowTime);
 	LastFrameElapsed = frameElapsed;
+
+	// The original's blink, strobe and flicker change with each frame it
+	// draws (Render.dll GlobalLighting, 0x10b05e90), paused too, so faster at
+	// a higher frame rate, and its torch and fire wavers take each frame's
+	// draws (TickRandoms). DXEngine's step instead as the original's would at
+	// 60 frames a second, by choice (docs/NATIVES.md, lighting): a step each
+	// 60th of a second of this clock, whatever the level's TimeDilation or
+	// pause, as the textures step (UTexture::Update); at most one a frame,
+	// the frame nearest each 60th taking it, so that at 120 frames each state
+	// holds two and under 60 every frame steps, as the original's does. A
+	// blink's count is taken at the level's time of the step.
+	const float step = 1.0f / 60.0f;
+	StepTime += frameElapsed;
+	if (StepTime + frameElapsed * 0.5f >= step)
+	{
+		StepTime = std::min(StepTime - step, step);
+		Steps++;
+		StepLevelTime = engine->LevelInfo ? engine->LevelInfo->TimeSeconds() : 0.0f;
+	}
 }
 
 void LightSystem::OnMapLoaded()
@@ -59,8 +78,16 @@ void LightSystem::OnMapLoaded()
 void LightSystem::TickRandoms(float levelTime)
 {
 	int ticks = (int)(int64_t)(levelTime * 35.0f);
-	for (int i = 0; i < 256; i++)
-		Randoms[i] = FRand();
+
+	// The torch and fire wavers' draws afresh at each of the lights' steps,
+	// as the blink, strobe and flicker change, where the original's draw
+	// each frame, faster at a higher frame rate (docs/NATIVES.md, lighting)
+	if (RandomsStep != Steps)
+	{
+		RandomsStep = Steps;
+		for (int i = 0; i < 256; i++)
+			Randoms[i] = FRand();
+	}
 
 	// Under 16 ticks on: the entries the ticks went past take new draws to
 	// ease toward, and the others move on a step a tick; else all start over
@@ -106,14 +133,14 @@ void LightSystem::BeginFrame()
 		if (lightType == LT_None || actor->LightBrightness() == 0)
 			continue;
 
-		// Flicker lights flickered randomly every frame in UE1 but this looks terrible at higher refresh rates.
-		// Use an upper cap on how often it will flicker that roughly matches what was probably intended.
-		if (lightType == LT_Flicker && actor->Light.NextFlickerTime < actor->Level()->TimeSeconds())
+		// A flickering light draws afresh at each of the lights' steps (Tick),
+		// a draw of its own, where the original's takes each frame's, one of
+		// the 256 its PreRender draws (TickRandoms, 0x10b13080) by the low
+		// byte of the light's address: appFrand's, rand() over 32,767
+		if (lightType == LT_Flicker && actor->Light.FlickerStep != Steps)
 		{
-			constexpr float flickerFrameRate = 25.0f;
-			actor->Light.NextFlickerTime = actor->Level()->TimeSeconds() + 1.0f / flickerFrameRate;
-			actor->Light.FlickerValue = RandInt(32767) * (1.0f / 32768.0f);
-			actor->Light.FlickerRandom = actor->Light.FlickerValue >= 0.5f;
+			actor->Light.FlickerStep = Steps;
+			actor->Light.FlickerValue = RandInt(32767) * (1.0f / 32767.0f);
 		}
 
 		// An animating light invalidates what was built from it -- unless

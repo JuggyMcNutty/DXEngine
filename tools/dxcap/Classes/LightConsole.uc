@@ -25,12 +25,17 @@
 // the detail textures are turned off first, as MeshConsole's NoDetail turns
 // them off: the original under Wine draws none (docs/NATIVES.md, the menus'
 // settings). With Spawn no light of the map is chosen: a CapLamp is made
-// with the Effect, its period 32, phase 0, cone 128 and radius 12, Spawn
-// units above the floor 128 units ahead of where the player stands, for an
-// effect no stock light shows, and the view put View units (300 by default)
-// over that spot, looking straight down; SpawnAt the seconds of the map it
-// waits for first (6 by default), SpawnType its LightType (1, LT_Steady, by
-// default).
+// with the Effect, its period SpawnPeriod (32 by default), phase 0, cone 128
+// and radius 12, Spawn units above the floor 128 units ahead of where the
+// player stands, for an effect no stock light shows, and the view put View
+// units (300 by default) over that spot, looking straight down; SpawnAt the
+// seconds of the map it waits for first (6 by default), SpawnType its
+// LightType (1, LT_Steady, by default). With Burst set, no shots: once the
+// view settles, that many frames in a row each carry the mark with its
+// number, the low 8 bits, for tools/dxcap/burst.py (DXCAP_BURST), each
+// logged with the level's time and the bit a blink of the chosen light's
+// period and phase takes then, as the original's render works it out (in
+// floats); then exit.
 //=============================================================================
 class LightConsole extends Console;
 
@@ -46,7 +51,11 @@ var config bool NoDetail;
 var config float Spawn;
 var config float SpawnAt;
 var config byte SpawnType;
+var config int SpawnPeriod;
+var config int Burst;
 var bool bMacroOn;
+var bool bBursting;
+var int BurstFrame;
 
 var string CurrentMap;
 var float MapTime;
@@ -161,10 +170,44 @@ function Census(PlayerPawn P)
 	Log("DXLIGHT: census of " $ Count $ " lights with an effect");
 }
 
+// A blink's bit at a level time T: its turn count, 35 turns a second in
+// 65536ths over the period plus one, from the phase's 256ths of a turn, each
+// step a float as the original's render has it (Render.dll 0x10b05a90), the
+// light out when it is odd.
+function int BlinkBit(float T)
+{
+	local float F;
+
+	F = T * 2293760.0;
+	F = F / float(Chosen.LightPeriod + 1);
+	F = F + float(Chosen.LightPhase * 256);
+	return int(F) & 1;
+}
+
+// A burst's frame: its number in the mark, logged with the level's time and
+// a blink's bit then.
+function MarkFrame()
+{
+	local float T;
+
+	if (BurstFrame >= Burst)
+	{
+		bBursting = false;
+		bMarking = false;
+		return;
+	}
+	T = Viewport.Actor.Level.TimeSeconds;
+	MarkShot = BurstFrame & 255;
+	Log("DXLIGHT: frame " $ BurstFrame $ " time " $ T $ " blink " $ BlinkBit(T));
+	BurstFrame++;
+}
+
 event PostRender(canvas C)
 {
 	local int i;
 	Super.PostRender(C);
+	if (bBursting)
+		MarkFrame();
 	if (!bMarking)
 		return;
 	C.Style = 1;
@@ -269,7 +312,7 @@ function SpawnLight(PlayerPawn P)
 	Chosen.SetPropertyText("LightEffect", string(GetEnum(enum'ELightEffect', Effect)));
 	if (SpawnType != 0)
 		Chosen.SetPropertyText("LightType", string(GetEnum(enum'ELightType', SpawnType)));
-	Chosen.LightPeriod = 32;
+	Chosen.LightPeriod = SpawnPeriod;
 	Chosen.LightPhase = 0;
 	Chosen.LightCone = 128;
 	Chosen.LightRadius = 12;
@@ -441,6 +484,25 @@ event Tick(float Delta)
 	else if (Phase == 1)
 	{
 		HoldView(P);
+		// A burst, once settled after 3 s: Burst frames in a row marked
+		// (PostRender), then an exit
+		if (Burst > 0)
+		{
+			if (!bBursting && BurstFrame == 0 && StepTime > 3.0)
+			{
+				Log("DXLIGHT: burst of " $ Burst $ " frames of " $ Chosen.Name $ " type " $ int(Chosen.LightType)
+					$ " period " $ Chosen.LightPeriod $ " phase " $ Chosen.LightPhase $ " from time " $ P.Level.TimeSeconds);
+				bBursting = true;
+				bMarking = true;
+			}
+			else if (BurstFrame >= Burst && !bBursting)
+			{
+				Log("DXLIGHT: done, exiting");
+				P.ConsoleCommand("exit");
+				Phase = 9;
+			}
+			return;
+		}
 		if (ShotAt > 0 && ShotsTaken < 4)
 		{
 			if (P.Level.TimeSeconds >= ShotAt)
@@ -494,4 +556,5 @@ event Tick(float Delta)
 defaultproperties
 {
 	Effect=12
+	SpawnPeriod=32
 }

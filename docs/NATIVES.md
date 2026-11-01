@@ -772,14 +772,37 @@ DXEngine's own, by choice where no ID is named:
     original's cache hashes and first checks the item it found last;
   - a still-shaped animated light re-run, where the original keeps it as its
     shadowed light and rescales it;
-  - blink and strobe on DXEngine's timing; the original's blink goes by the
-    lowest bit of its turn count and its strobe turns over each frame, both
-    at the frame rate (D.15);
-  - a flicker drawn at most 25 times a second (D.16);
   - `LE_CloudCast`, the plain shape, built once, where the original re-runs
     it every frame (its table counts the shape as changing): the same light.
 - **Meshes**: the moving lights come from DXEngine's light tree near the
   actor, not the leaf's own list.
+- **The blink, the strobe, the flicker and the torch and fire wavers** at
+  the original's pace at 60 frames a second, by choice, whatever the frame
+  rate, where the original's change with each frame it draws, paused too
+  ([lighting](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#lighting)):
+  a step each 60th of a second of the real time each frame is begun at,
+  whatever the level's `TimeDilation` or pause, the frame nearest each 60th
+  taking it, at most one a frame, so that at 120 frames each state holds two
+  and under 60 every frame steps, as the original's. At each step a blink
+  takes the lowest bit of its turn count at the level's time then, out when
+  it is odd; a strobe turns over, every strobe together; a flickering light
+  draws afresh, out below one half; and the wavers take 256 fresh draws.
+  Two more by choice: the blink's count is in doubles, where the original's
+  render works it out in floats (its x87 at 24 bits), so that from 2^24,
+  some 7.3 s × (`LightPeriod` + 1) into the level, its count is always even
+  and its light stays lit; and each flickering light has a draw of its own,
+  where the original's take the frame's 256 draws by the low byte of their
+  addresses, so that two can flicker as one. `LightConsole` with `Burst`, a
+  lamp of each made over Liberty Island's dock, sampled frame by frame
+  (`DXCAP_BURST`), both engines at 60 frames: a strobe turned over at every
+  frame in both; a flicker's state changed at 0.51 of the original's frames
+  and 0.48 of DXEngine's, its brightness at 0.72 and 0.68; the torch's and
+  the fire's waver at 0.95 and 0.94 of the original's, 0.94 and 0.94 of
+  DXEngine's; a blink of period 32 the state its count gives in floats at
+  0.998 of the original's frames, in doubles at 0.998 of DXEngine's; one of
+  period 1 lit for good from 14.62 s in the original, blinking on to 24 s in
+  DXEngine. At 120 frames DXEngine's states each held two frames, every run
+  of an even length.
 
 A mesh's lights are picked and faded as the original's
 ([meshes](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#meshes)):
@@ -1498,8 +1521,10 @@ alike. Differs:
   harness's `CapStereo`): a defect of Galaxy's, ending in a crash, not
   carried. The stock game has four stereo sounds, all MP3s:
   `ConAudioHK_Shared_681`, `_1531` and `_1532`, and `ConAudioMission01_450`.
-- An ambient sound on a light follows its blink and strobe on DXEngine's
-  timing ([lighting](#lighting); D.15).
+- An ambient sound on a light follows its blink, strobe and flicker as the
+  lights' last step left them, at the original's pace at 60 frames a second
+  ([lighting](#lighting)), by choice, where the original's follows them each
+  frame.
 - A sound's ID packs a number DXEngine gives each object that plays one,
   never given out twice, by choice, where the original packs the object's index
   ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds));

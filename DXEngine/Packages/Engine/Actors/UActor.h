@@ -407,9 +407,10 @@ public:
 		int LastUpdate = -1;
 		int LastCheck = -1;
 		int LightmapCheckCounter = -1;
-		bool FlickerRandom = false;
-		float FlickerValue = 0.0f; // the draw FlickerRandom is: at least one half
-		float NextFlickerTime = 0.0f;
+		// A flickering light's draw, 0 to 1, and the lights' step it was
+		// drawn at (LightSystem::BeginFrame)
+		float FlickerValue = 0.0f;
+		int FlickerStep = -1;
 	} Light;
 
 	// Lights touching this actor

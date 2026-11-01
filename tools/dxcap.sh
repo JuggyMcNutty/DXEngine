@@ -118,7 +118,10 @@
 # DXCAP_FPS=<n> holds either engine to n frames a second:
 # MangoHud's limiter, its display off (mangohud, and lib32-mangohud for the
 # original's 32-bit process); not the software device in its X11 window,
-# whose present (XShmPutImage) MangoHud does not hook. DXCAP_PERF=1 samples
+# whose present (XShmPutImage) MangoHud does not hook. DXCAP_BURST=1 samples
+# either engine's window frame by frame with tools/dxcap/burst.py into the
+# run's burst.csv, the frames LightConsole's Burst marks (an original run's in
+# grab.py's place, whose five grabs a second would only slow it). DXCAP_PERF=1 samples
 # the engine's main thread with the parent folder's deps/perf
 # (tools/host-tools.sh) into the run's perf.data, on the wall clock, with
 # the process's maps.txt; tools/perf/frame-report.py reads them against
@@ -697,7 +700,11 @@ cmd_original() {
     mkdir -p "$dir"
 
     local gpid=""
-    python3 "$HERE/dxcap/grab.py" "$dir" "$XDISPLAY" '^Deus Ex$' "$WINDOW_X" "$WINDOW_Y" 2> "$dir/grab.log" &
+    if [ "${DXCAP_BURST:-0}" = 1 ]; then
+        python3 "$HERE/dxcap/burst.py" grab "$dir/burst.csv" "$XDISPLAY" '^Deus Ex$' "$WINDOW_X" "$WINDOW_Y" 2> "$dir/burst.log" &
+    else
+        python3 "$HERE/dxcap/grab.py" "$dir" "$XDISPLAY" '^Deus Ex$' "$WINDOW_X" "$WINDOW_Y" 2> "$dir/grab.log" &
+    fi
     gpid=$!
     GRAB_PID=$gpid
 
@@ -815,6 +822,13 @@ run_dxe() {
         esac
     done
     [ "${DXCAP_RECORD:-0}" != 1 ] || rec_start "$dir/audio.wav"
+    # DXCAP_BURST: the engine's window, by its name, sampled frame by frame
+    local bpid=""
+    if [ "${DXCAP_BURST:-0}" = 1 ]; then
+        python3 "$HERE/dxcap/burst.py" grab "$dir/burst.csv" "$XDISPLAY" ' - DXEngine$' "$WINDOW_X" "$WINDOW_Y" 2> "$dir/burst.log" &
+        bpid=$!
+        GRAB_PID=$bpid
+    fi
     local rc=0
     (
         cd "$GAME"
@@ -904,6 +918,11 @@ run_dxe() {
         exit "$erc"
     ) || rc=$?
     [ "${DXCAP_RECORD:-0}" != 1 ] || rec_stop
+    if [ -n "$bpid" ]; then
+        kill "$bpid" 2>/dev/null || true
+        wait "$bpid" 2>/dev/null || true
+        GRAB_PID=""
+    fi
     collect "$dir" "$before" "$own"
     printf '%s\n' "$rc" > "$dir/exit"
     say "dxe: $dir (exit $rc)"

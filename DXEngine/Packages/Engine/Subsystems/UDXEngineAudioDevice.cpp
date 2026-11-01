@@ -316,9 +316,11 @@ void UDXEngineAudioDevice::UpdateAmbience()
 				Playing.Pitch = Playing.Actor->SoundPitch() / 64.0f;
 
 				// An actor with a light has its sound follow the light: the volume
-				// times LightBrightness / 255 and the light's momentary pulse or
-				// flicker -- the renderer's GlobalLighting of a steady 1 --, then at
-				// most 1 (galaxy-dll.md, Each frame).
+				// times LightBrightness / 255 and the light's momentary pulse,
+				// blink, flicker or strobe -- the renderer's GlobalLighting of a
+				// steady 1, the last three as the lights' last step left them
+				// (LightSystem::Tick) --, then at most 1 (galaxy-dll.md, Each
+				// frame).
 				if (Playing.Actor->LightType() != LT_None)
 					Playing.Volume = std::min(Playing.Volume * (Playing.Actor->LightBrightness() / 255.0f) * LightmapBuilder::GlobalLighting(Playing.Actor, 1.0f, nullptr), 1.0f);
 

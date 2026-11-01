@@ -114,8 +114,17 @@ public:
 	LightSystem();
 	~LightSystem();
 
-	// By the viewport's clock: the real time since the last frame drawn
+	// By the viewport's clock: the real time since the last frame drawn.
+	// The meshes' glow pulse, and the lights' steps.
 	void Tick(float frameElapsed);
+
+	// The blink, strobe and flicker lights' pace, and the torch and fire
+	// wavers': the original's change at each frame it draws, DXEngine's at
+	// its steps, as the original's would at 60 frames a second (Tick). Steps
+	// counts them, a strobe out at an odd one; StepLevelTime is the level's
+	// time at the last, which a blink's turn count is taken at.
+	int Steps = 0;
+	float StepLevelTime = 0.0f;
 
 	void OnMapLoaded();
 
@@ -148,14 +157,16 @@ public:
 
 	// Deus Ex's random tables (Render.dll's TickRandoms, 0x10b13080), from
 	// the level's time each frame: 256 fresh draws -- the torch and fire
-	// wavers' --, and the watery shimmer's own, each entry easing toward a
-	// draw from those, 16 entries taking a new one at each of 35 ticks a
-	// second, a sixteenth of the way a tick.
+	// wavers' --, at each of the lights' steps (Tick) where the original's
+	// are each frame's, and the watery shimmer's own, each entry easing
+	// toward a draw from those, 16 entries taking a new one at each of 35
+	// ticks a second, a sixteenth of the way a tick.
 	void TickRandoms(float levelTime);
 	float Randoms[256] = {};
 	float ShimmerRandoms[256] = {};
 	float ShimmerSteps[256] = {};
 	int RandomTicks = 0;
+	int RandomsStep = -1;
 
 private:
 	TextureInfo GetLightmap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor, const vec3& worldLocation, float radius, UMover* mover, bool specialLit);
@@ -198,6 +209,8 @@ private:
 	float AmbientGlowTime = 0.0f;
 	float AmbientGlowAmount = 0.0f;
 	float LastFrameElapsed = 0.0f;
+	// The real time toward the lights' next step (Tick)
+	float StepTime = 0.0f;
 
 	Array<UActor*> TempDynLightList;
 	Array<int> TempAnimatedIndexList;

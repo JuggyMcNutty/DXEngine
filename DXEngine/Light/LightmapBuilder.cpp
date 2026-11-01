@@ -289,19 +289,32 @@ float LightmapBuilder::GlobalLighting(UActor* light, float brightness, vec3* col
 		break;
 	}
 	case LT_Blink:
-		// The original's blink goes by the lowest bit of its turn count, so
-		// by the frame: DXEngine's own even blink instead
-		if (std::fmod(light->LightPhase() * (1.0 / 255.0) + time * 40.0 / std::max((int)light->LightPeriod(), 1), 2.0) >= 1.0)
+	{
+		// Out when its turn count is odd (Render.dll 0x10b05a90): 35 turns
+		// a second in 65536ths over the period plus one, from the phase's
+		// 256ths of a turn, truncated. Taken at the level's time of the
+		// lights' last step (LightSystem::Tick), where the original's takes it
+		// each frame. In doubles, by choice: the original's x87 is held to 24
+		// bits while it draws (URender::PreRender's appEnableFastMath), so
+		// from 2^24 on its count is even and its light stays lit, some 7.3 s
+		// x (the period + 1) into the level (docs/NATIVES.md, lighting)
+		double count = (double)engine->Level->Light.StepLevelTime * 2293760.0 / (double)(light->LightPeriod() + 1) +
+			(double)(light->LightPhase() * 256);
+		if ((int64_t)count & 1)
 			brightness = 0.0f;
 		break;
+	}
 	case LT_Strobe:
-		// The original's strobe turns over each frame: DXEngine's own 5 Hz
-		if (std::fmod(time * 10.0, 2.0) >= 1.0)
+		// Out at every other step of the lights (LightSystem::Tick), every
+		// strobe together, where the original's one switch turns over each
+		// frame a strobe is lit at a new level time (Render.dll 0x10b05b30)
+		if (engine->Level->Light.Steps & 1)
 			brightness = 0.0f;
 		break;
 	case LT_Flicker:
-		// A random draw, at most 25 times a second (LightSystem::BeginFrame):
-		// out below one half, else that much of the brightness
+		// The light's draw at the lights' last step (LightSystem::BeginFrame):
+		// out below one half, else that much of the brightness (Render.dll
+		// 0x10b05af0)
 		brightness = light->Light.FlickerValue >= 0.5f ? brightness * light->Light.FlickerValue : 0.0f;
 		break;
 	case LT_TexturePaletteOnce:
