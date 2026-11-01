@@ -1490,12 +1490,18 @@ Every other native the scripted runs compare matches the original
   reaches, the hull of each solid leaf it reaches tried and no other, a hull
   entered within twice the trace's length counted, the hit backed off a
   tenth of the trace: a box traced 8 units down from 8.78 over the floor
-  meets nothing in either engine (Liberty Island's carcass crossbow). A box
-  started partly inside the level's solid is stopped at its start by the
-  original's where DXEngine's passes on, at 94 of `GrateConsole`'s 1,916
-  places (bugs.md PHYS.17). A
-  mover's brush meets the box in the world's axes, its planes turned into
-  the world by its place, rotation and scale, as the original's walk turns
+  meets nothing in either engine (Liberty Island's carcass crossbow). The
+  check's sums are floats, in the original's order, and its walk takes the
+  side of a node the box starts on first, so a box resting on a plane or
+  started inside a hull meets it as the original's does: `GrateConsole`'s
+  sweeps round the grates under Castle Clinton hit where the original's do
+  at every one of their 1,916 places, a terrorist walking through aside. A
+  mover's brush is asked along the whole line, where the original's asks the
+  movers along the line cut 5 units past the level's hit: at 58 of those
+  places a box starting against both the level and a grate meets the grate,
+  the original's the level (bugs.md PHYS.18). A mover's brush meets the box
+  in the world's axes, its planes turned into the world by its place,
+  rotation and scale, as the original's walk turns
   its owner's: the player walked into and along the grates under Castle
   Clinton on 02_NYC_BatteryPark, pitched on their sides, rests where the
   original's does within a hundredth of a unit, and a 16-unit box swept
