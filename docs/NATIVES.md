@@ -1392,10 +1392,11 @@ the player within the radius ÷ √1.3, and with the level's BSP between, at
 window's sound is the original's too
 ([window sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#window-sounds)):
 in the world, one unit from the player, turned by its place on the screen,
-at the window's own volume, which is 0, unheard, unless the window sets it.
-`SoundConsole`'s root beeps from the screen's left edge, centre and right
-edge come out within 0.2 dB of the original's, panned alike, the one at the
-root's own volume unheard in both. A map's load stops the sounds and leaves
+at the window's own volume, which is 0 unless the window sets it, so at
+Galaxy's floor (below). `SoundConsole`'s root beeps from the screen's left
+edge, centre and right edge come out within 0.2 dB of the original's, panned
+alike, the one at the root's own volume 41.9 dB under the centre's in both.
+A map's load stops the sounds and leaves
 the music playing, as Galaxy does when the load hands it the viewport it has
 ([playing a sound](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)):
 the old song fades out and the new level's starts (its player's
@@ -1410,7 +1411,16 @@ where `GET` gives the value as set
 `DopplerSpeed` to 1-100,000 and `AmbientFactor` to 0-10. `AmbientConsole`'s
 fan, recorded on both engines, plays 23.2 dB louder at an `AmbientFactor`
 set to 20 than at 0.7 in the original and 23.1 dB in DXEngine, as at 10
-(29.2 dB without the hold). `UseStereo=False` is mono; `UseFilter`,
+(29.2 dB without the hold). A voice is never quieter than Galaxy's floor,
+1/256 of full
+([volume](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#volume)):
+a sound gone out of its radius as it plays (an ambient one stops there),
+one played at a volume of 0 and one whose own slider is at 0 while the
+other is not play on at it, and only both sliders at 0 silence a sound.
+`AmbientConsole` with `Factor=0.01`: the fan 14.7 dB under its level at 0.7
+in the original and 14.8 dB in DXEngine (37.9 dB without the floor); with
+`Volume=1` too, 0.6 and 0.7 dB under, the floor holding the fan at
+-60.1 dB in both either way. `UseStereo=False` is mono; `UseFilter`,
 `UseCDMusic` and `UseSpatial` are read, saved and `SET` and change nothing,
 as in the original. An MP3 -- the game's speech -- plays as Galaxy's
 decoder fills its ring, 32,768 frames of each channel
@@ -1453,7 +1463,6 @@ alike. Differs:
 - Not carried, by choice: Galaxy's quirk with the Sound and Speech sliders
   equal, both kinds of sound scaled by the slider once more, everything at
   an eighth with both at half.
-- Not carried: the original's 1/256 volume floor, an integer artifact (D.21).
 - A change to `EffectsChannels` (the Sound menu's Effects Channels) applies
   at once, held to 0-32, as the original's. By choice, the sounds on
   channels past a lowered count stop, where the original's play on out of

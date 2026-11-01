@@ -521,9 +521,9 @@ void UDXEngineAudioDevice::UpdateSounds(float timeStep)
 // within a tenth of its radius; and its volume is the script's times the
 // fall-off, the obstruction and its share of the sliders -- speech the Speech
 // slider over the Sound one when the Sound slider is the louder, the other
-// sounds the other way round --, full at 32767. Galaxy's equal-sliders quirk
-// (each sound scaled by the slider once more) and its floor of 128 are not
-// carried.
+// sounds the other way round --, full at 32767 and never under 128, 1/256 of
+// it. Galaxy's equal-sliders quirk (each sound scaled by the slider once
+// more) is not carried, by choice (docs/NATIVES.md, sound).
 void UDXEngineAudioDevice::GalaxyVoice(const PlayingSound& Playing, int& volume, int& panning)
 {
 	vec3 forward, right, up;
@@ -552,6 +552,13 @@ void UDXEngineAudioDevice::GalaxyVoice(const PlayingSound& Playing, int& volume,
 	else if (speech && SoundVolume > SpeechVolume)
 		share = (double)SpeechVolume / SoundVolume;
 	volume = (int)std::clamp((int64_t)(obstruction * falloff * share * Playing.Volume * 32767.0), (int64_t)0, (int64_t)0x7fff);
+	// Then Galaxy's floor, on every voice it starts or updates (Galaxy.dll
+	// 0x10609ee3): a sound gone out of its radius as it plays (an ambient
+	// one stops there), one at a volume of 0 and one whose own slider is at
+	// 0 while the other is not play on at 128, never silent; only both
+	// sliders at 0 silence a voice, through the mixer's sample volume
+	// (GalaxyMixer::SetMasterVolume).
+	volume = std::max(volume, 128);
 }
 
 void UDXEngineAudioDevice::UpdateObstruction(PlayingSound& Playing, float timeStep)
@@ -739,7 +746,8 @@ bool UDXEngineAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 
 		Radius = 800.0f;
 
 	// Deus Ex plays the script's volume as Galaxy does: scaled only by fall-off,
-	// obstruction and the sliders, and capped at full by the device (AL_MAX_GAIN).
+	// obstruction and the sliders, at most full and at least 1/256 of it
+	// (GalaxyVoice).
 
 	if (!m_Viewport || !Sound)
 		return false;
