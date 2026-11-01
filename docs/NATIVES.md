@@ -252,11 +252,24 @@ and the credits up at the level's fifteenth second, alike.
 ## What the player reads
 
 Matches the original's parser
-([`DeusExText.dll`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusextext-dll.md)),
-but for one quirk left out on purpose: at a comment (`NOTE`, `GOAL`,
-`COMMENT`) with no end tag the original reads on past the text's end, so
-`09_EmailMenu_ShipOps`'s listing depends on the memory after it. DXEngine
-stops at the end, hiding the rest (for the owner to rule on: bugs.md D.22).
+([`DeusExText.dll`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusextext-dll.md)):
+a comment's tags (`NOTE`, `GOAL`, `COMMENT`) parsed with their effects, a
+token's tag the last a name matched, and a tag's text its own, a player's
+name or a bracket, else none. Differs by choice at a comment with no end
+tag: the original reads on past the end of its copy of the text, to the
+first NUL there, so a tag in the memory after it changes the token
+(`ShipOpsConsole` with `Provoke`: a `<B>` freed just before, read as the
+token's tag), where DXEngine takes what lies past the end for NULs. That
+gives `09_EmailMenu_ShipOps`, the game's one comment left open, the
+listing the original gives in play: one email, its fields empty, the
+token's tag the last inside the comment (`ShipOpsConsole`: five runs of the
+original, from its menu map and after a map's load, every read and the
+ship's computer logged in to as ShipOps alike, and DXEngine's the same,
+every line of the controls' reads alike). A text whose first paragraph never
+starts and that ends after its last tag, as 15 email lists and
+`03_BulletinMenu` end in a line break, gives no last token in DXEngine, where
+the original gives an empty one with no tag, which the game passes over
+(bugs.md DX.3).
 
 ## Every NPC
 

@@ -96,13 +96,18 @@ bool UDXTextParser::ProcessText()
 	{
 		if (text[pos] == '<')
 		{
-			DeusExTextTags tag = ParseTag(text, pos);
+			// The token's tag is the last one a tag's name matched (a comment's
+			// end tag, or the last tag a comment with none holds), and its text
+			// the tag's own: a player's name, a bracket, else none.
+			DeusExTextTags tag = DeusExTextTags::TT_None;
+			std::string value = ParseTag(text, pos, tag);
 			if (tag == DeusExTextTags::TT_NewParagraph && !bParagraphStarted())
 			{
 				bParagraphStarted() = true;
 				continue;
 			}
 			LastTag() = tag;
+			LastText() = std::move(value);
 			TextPos() = (int)pos;
 			return true;
 		}
@@ -125,27 +130,30 @@ bool UDXTextParser::ProcessText()
 	return false;
 }
 
-DeusExTextTags UDXTextParser::ParseTag(const std::string& text, size_t& pos)
+std::string UDXTextParser::ParseTag(const std::string& text, size_t& pos, DeusExTextTags& tag)
 {
 	// A tag runs from '<' to the first '>' (the original's ParseTag), and
-	// its effects are the original's ParseToken.
+	// its effects are the original's ParseToken. It sets the tag only when a
+	// name matches: content that starts with none leaves it as it was, as
+	// the original leaves its last tag. Gives the token's text.
 	size_t start = pos + 1;
 	size_t close = text.find('>', start);
 	std::string content = close == std::string::npos ? text.substr(start) : text.substr(start, close - start);
 	pos = close == std::string::npos ? text.size() : close + 1;
 
-	DeusExTextTags tag = DeusExTextTags::TT_None;
-	std::string fields;
+	int match = -1;
 	for (int i = 0; i < 30; i++)
 	{
-		size_t nameLen = strlen(DeusExTextTagNames[i]);
-		if (content.compare(0, nameLen, DeusExTextTagNames[i]) == 0)
+		if (content.compare(0, strlen(DeusExTextTagNames[i]), DeusExTextTagNames[i]) == 0)
 		{
-			tag = (DeusExTextTags)i;
-			fields = content.substr(nameLen);
+			match = i;
 			break;
 		}
 	}
+	if (match < 0)
+		return {};
+	tag = (DeusExTextTags)match;
+	std::string fields = content.substr(strlen(DeusExTextTagNames[match]));
 
 	switch (tag)
 	{
@@ -156,17 +164,18 @@ DeusExTextTags UDXTextParser::ParseTag(const std::string& text, size_t& pos)
 		ParseEmail(fields);
 		break;
 	case DeusExTextTags::TT_Note:
-		return FindEndTag(text, pos, DeusExTextTags::TT_EndNote);
+		FindEndTag(text, pos, DeusExTextTags::TT_EndNote, tag);
+		break;
 	case DeusExTextTags::TT_Goal:
-		return FindEndTag(text, pos, DeusExTextTags::TT_EndGoal);
+		FindEndTag(text, pos, DeusExTextTags::TT_EndGoal, tag);
+		break;
 	case DeusExTextTags::TT_Comment:
-		return FindEndTag(text, pos, DeusExTextTags::TT_EndComment);
+		FindEndTag(text, pos, DeusExTextTags::TT_EndComment, tag);
+		break;
 	case DeusExTextTags::TT_PlayerName:
-		LastText() = PlayerName();
-		break;
+		return PlayerName();
 	case DeusExTextTags::TT_PlayerFirstName:
-		LastText() = PlayerFirstName();
-		break;
+		return PlayerFirstName();
 	case DeusExTextTags::TT_DefaultColor:
 		DefaultColor() = ParseColor(fields);
 		LastColor() = DefaultColor();
@@ -180,52 +189,45 @@ DeusExTextTags UDXTextParser::ParseTag(const std::string& text, size_t& pos)
 			LastName() = NameString(fields.substr(1));
 		break;
 	case DeusExTextTags::TT_OpenBracket:
-		LastText() = "<";
-		break;
+		return "<";
 	case DeusExTextTags::TT_CloseBracket:
-		LastText() = ">";
-		break;
+		return ">";
 	default:
 		break;
 	}
-	return tag;
+	return {};
 }
 
-DeusExTextTags UDXTextParser::FindEndTag(const std::string& text, size_t& pos, DeusExTextTags endTag)
+void UDXTextParser::FindEndTag(const std::string& text, size_t& pos, DeusExTextTags endTag, DeusExTextTags& tag)
 {
-	// The original's FindEndTag: NOTE, GOAL and COMMENT hide what they hold
-	// and the token's tag is the end tag's. The tags inside are read and the
-	// character after each is skipped, so an end tag straight after another
-	// tag is missed. With no end tag the rest of the text is hidden -- the
-	// original reads on past the text's end there; this stops at it.
+	// The original's FindEndTag: NOTE, GOAL and COMMENT hide what they hold,
+	// and the token's tag is the end tag's. The tags inside are parsed as
+	// any, with their effects (a NOTE, GOAL or COMMENT among them reads on
+	// to its own end tag), and the character after each is skipped, so an
+	// end tag straight after another tag is missed. With no end tag the
+	// token's tag is the last one a tag inside matched, the opening tag's
+	// with none, and the rest of the text is hidden: the original's reading
+	// steps past its copy's NUL there, a step for each comment open, and
+	// stops at the first NUL it meets, a tag in that memory read as any.
+	// This takes what lies past the end for NULs, by choice, which gives
+	// 09_EmailMenu_ShipOps, the game's one comment left open, the listing the
+	// original gives in play: one email, its fields empty (docs/NATIVES.md,
+	// what the player reads).
 	size_t len = text.size();
-	while (pos < len)
+	if (pos >= len)
+		return;
+	while (true)
 	{
-		if (text[pos] != '<')
+		if (text[pos] == '<')
 		{
-			pos++;
-			continue;
+			ParseTag(text, pos, tag);
+			if (tag == endTag)
+				return;
 		}
-
-		size_t start = pos + 1;
-		size_t close = text.find('>', start);
-		std::string content = close == std::string::npos ? text.substr(start) : text.substr(start, close - start);
-		pos = close == std::string::npos ? len : close + 1;
-
-		DeusExTextTags tag = DeusExTextTags::TT_None;
-		for (int i = 0; i < 30; i++)
-		{
-			if (content.compare(0, strlen(DeusExTextTagNames[i]), DeusExTextTagNames[i]) == 0)
-			{
-				tag = (DeusExTextTags)i;
-				break;
-			}
-		}
-		if (tag == endTag)
-			return endTag;
 		pos++;
+		if (pos >= len)
+			return;
 	}
-	return endTag;
 }
 
 void UDXTextParser::ParseFile(const std::string& fields)

@@ -82,8 +82,8 @@ public:
 private:
 	UDXExtString* textObject = nullptr;
 
-	DeusExTextTags ParseTag(const std::string& text, size_t& pos);
-	DeusExTextTags FindEndTag(const std::string& text, size_t& pos, DeusExTextTags endTag);
+	std::string ParseTag(const std::string& text, size_t& pos, DeusExTextTags& tag);
+	void FindEndTag(const std::string& text, size_t& pos, DeusExTextTags endTag, DeusExTextTags& tag);
 	void ParseFile(const std::string& fields);
 	void ParseEmail(const std::string& fields);
 	static Color ParseColor(const std::string& fields);
