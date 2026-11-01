@@ -388,10 +388,10 @@ its field of view across the width and loses height. The game's scenes are
 framed for 4:3: at 16:9, with the original's angle, the intro's "Deus Ex"
 under the logo falls off the bottom; with DXEngine's it shows. At 4:3 and
 narrower the view is the original's. The scene, the coronas, what the HUD
-draws in 3D, the frob highlight's box and the meshes' level of detail
-([mesh detail](#mesh-detail)) all take the one angle (`HorPlusFovAngle`), so
-on a wide screen a mesh keeps less detail than the original's at the same
-distance (D.2). A conversation's letterboxed view is wider than 4:3
+draws in 3D and the frob highlight's box all take the one angle
+(`HorPlusFovAngle`); the meshes' level of detail takes the angle before it
+is widened, the original's, so a mesh keeps the original's detail at the
+same distance ([mesh detail](#mesh-detail)). A conversation's letterboxed view is wider than 4:3
 whatever the screen, so there DXEngine sees more at the sides even at 4:3:
 the intro's scenes at 1024x768 some 92 degrees across, the original's 75
 (`IntroDoorConsole`).
@@ -667,8 +667,11 @@ Matches the original's vertex budget and its morph
 ([mesh detail](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#mesh-detail)):
 `MeshConsole` with `LODBias` 0.004 and 0.0015, Paul Denton cut down to a few
 vertices, has his shape at a correlation of 0.95 and 0.97 to `D3DDrv`'s. On
-a screen wider than 4:3 the budget takes the wider angle
-([the view's width](#the-views-width); bugs.md D.2). An environment-mapped face reflects
+a screen wider than 4:3 the budget takes the original's angle, the view's
+before Hor+ widens it ([the view's width](#the-views-width)), so a mesh
+keeps the original's detail at the same distance: at 1920x1080, the
+original's frame scaled onto the middle of DXEngine's, Paul's shape at
+0.95 at both, where the wider angle cut him to 0.77. An environment-mapped face reflects
 the eye's line in its normals in the world's axes, as the original's
 ([mesh textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#mesh-textures)):
 `MeshConsole` with `Enviro`, the four drawn so, has their streaks where

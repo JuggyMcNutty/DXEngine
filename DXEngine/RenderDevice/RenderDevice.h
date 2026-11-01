@@ -51,11 +51,17 @@ inline mat4 PolygonShift(const SceneNode* frame)
 // Hor+: a view wider than 4:3 keeps the height a 4:3 view of the angle
 // given would have and sees more at the sides, where the original keeps the
 // angle across the width whatever the screen (docs/NATIVES.md, the
-// view's width). The angle the view's frame takes.
+// view's width). How much wider the half angle's tangent is: 1 at 4:3 and
+// narrower.
+inline float HorPlusWidening(float width, float height)
+{
+	return std::max(1.0f, (width / height) / (4.0f / 3.0f));
+}
+
+// The angle the view's frame takes.
 inline float HorPlusFovAngle(float fovAngle, float width, float height)
 {
-	float widen = std::max(1.0f, (width / height) / (4.0f / 3.0f));
-	return degrees(2.0f * std::atan(std::tan(radians(fovAngle) * 0.5f) * widen));
+	return degrees(2.0f * std::atan(std::tan(radians(fovAngle) * 0.5f) * HorPlusWidening(width, height)));
 }
 
 struct GouraudVertex
