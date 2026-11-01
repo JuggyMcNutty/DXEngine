@@ -11,6 +11,7 @@ desktop to a handheld.
 </p>
 
 **You need your own copy of Deus Ex, version 1112fm.** None of the game's files are included.
+Made with AI assistance.
 
 ## Features
 
@@ -166,9 +167,13 @@ The build's own switches:
 
 ## Status
 
-The engine runs the game, which is not fully playable: [`docs/NATIVES.md`](docs/NATIVES.md)
-lists where it differs from the original. Where each platform stands:
+An alpha: the engine runs the game, which is not fully playable:
+[`docs/NATIVES.md`](docs/NATIVES.md) lists where it differs from the original. Where each
+platform stands:
 [the ports](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#engine-ports).
+A bug in the game goes to
+[this repository's issues](https://github.com/JuggyMcNutty/DXEngine/issues)
+([what to say](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#reporting-bugs)).
 
 ## Documentation
 
@@ -182,8 +187,8 @@ lists where it differs from the original. Where each platform stands:
 ## DXEngine and Surreal Engine
 
 DXEngine began as Surreal Engine, by Magnus Norddahl, Lupert Everett and its contributors. It
-is a hard fork: not in Surreal Engine's fork network, nothing merged from it or sent to it, the
-two different at the core ([how it is kept](docs/ENGINE.md#how-it-is-kept)). It plays Deus Ex
+is a hard fork: not in Surreal Engine's fork network, nothing is merged from it or sent to it,
+the two different at the core ([how it is kept](docs/ENGINE.md#how-it-is-kept)). It plays Deus Ex
 alone; other Unreal Engine 1 games do not start.
 
 ## License
