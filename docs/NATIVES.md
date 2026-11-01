@@ -124,15 +124,17 @@ each field of a struct (`ReturnConsole` with `Items`: two canisters'
 `TravelPostAccept`, last to first, with the player's own pair round them,
 once each, as the original's `SpawnPlayActor` runs them, so each item's
 `GiveTo` links the player's chain in the original's order. A travel
-property's reference to an actor destroyed in the level left travels too,
-the actor made anew, as the original's export has it: a new game begun
-from the game with a weapon drawn brings that weapon to the island beside
-the new game's, by the player's `LastinHand`, which the intro's
-`Paralyzed` never updates; the belt's slot holds the new one, the 1 key
-draws the old, and no weapon can then be put away (`NewGameConsole`: 9
-items, two pistols, in the original's order, in both engines; bugs.md
-D.33). The original puts the old weapon in the belt's first free slot,
-DXEngine leaves it off the belt (bugs.md PKG.17). A map
+property's reference to an actor destroyed in the level left does not
+travel, by choice, where the original's export writes it and the actor is
+made anew: in the original a new game begun from the game with a weapon
+drawn brings that weapon to the island beside the new game's, by the
+player's `LastinHand`, which the intro's `Paralyzed` never updates; the
+belt's slot holds the new one, the 1 key draws the old, and no weapon can
+then be put away until the old one is dropped (`NewGameConsole`: the
+original's 9 items, two pistols; DXEngine's 6, one, the belt's 1 then 2
+drawing the pistol and then the prod). A travelled item whose belt slot is
+taken goes to the belt's first free slot in the original, off the belt in
+DXEngine (bugs.md PKG.17). A map
 opened at a portal (`open <map>#<portal>`) starts the player at the
 teleporter of that tag (`PortalConsole`). A level's URL, which
 `Level.GetLocalURL` gives, is the one it was entered by, as the original's

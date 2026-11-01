@@ -77,8 +77,15 @@ std::string ActorTravelInfo::Create(UPlayerPawn* pawn, bool transferItems)
 					void* data = cur->GetProperty(objProperty);
 					for (size_t dim = 0; dim < objProperty->ArrayDimension; dim++)
 					{
+						// A destroyed actor stays behind, by choice, where the
+						// original's export (Engine.dll 0x10391740) writes it as
+						// any and it is made anew: there a new game begun with a
+						// weapon drawn brings back the weapon StartNewGame's
+						// ResetPlayer destroyed, still the player's LastinHand,
+						// beside the new game's (docs/NATIVES.md, saving, loading
+						// and travel)
 						UObject* value = *static_cast<UObject**>(objProperty->GetElement(data, dim));
-						if (value && travelObjectNames.find(value) == travelObjectNames.end())
+						if (value && !value->IsPendingKill() && travelObjectNames.find(value) == travelObjectNames.end())
 						{
 							std::string name = "item" + std::to_string(processList.size());
 							travelObjectNames[value] = name;
