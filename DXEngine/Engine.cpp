@@ -2017,13 +2017,25 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 		}
 	}
 
-	for (UObject* object : acceptedObjects)
-		CallEvent(object, EventName::TravelPreAccept);
+	// The travelled items' TravelPreAccept, the game's AcceptInventory, the
+	// items' TravelPostAccept, each run over the items last to first and the
+	// player's own pair round them, as the original's SpawnPlayActor runs
+	// them (Engine.dll 0x10396bd0): an item's GiveTo then links the chain in
+	// the original's order, and the player, whose travel entry is among the
+	// accepted, gets each of its events once
+	for (size_t i = acceptedObjects.size(); i-- > 0;)
+	{
+		if (acceptedObjects[i] != pawn)
+			CallEvent(acceptedObjects[i], EventName::TravelPreAccept);
+	}
 
 	CallEvent(LevelInfo->Game(), EventName::AcceptInventory, { ExpressionValue::ObjectValue(pawn) });
 
-	for (UObject* object : acceptedObjects)
-		CallEvent(object, EventName::TravelPostAccept);
+	for (size_t i = acceptedObjects.size(); i-- > 0;)
+	{
+		if (acceptedObjects[i] != pawn)
+			CallEvent(acceptedObjects[i], EventName::TravelPostAccept);
+	}
 
 	CallEvent(pawn, EventName::TravelPostAccept);
 	CallEvent(LevelInfo->Game(), EventName::PostLogin, { ExpressionValue::ObjectValue(pawn) });

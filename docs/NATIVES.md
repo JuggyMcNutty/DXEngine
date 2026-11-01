@@ -119,7 +119,20 @@ their texts with `?`, `;` and `%` in them); a console's `open` carries none
 of them, in either engine. Every element of a static array travels, and
 each field of a struct (`ReturnConsole` with `Items`: two canisters'
 `AddAugs`, the inventory grid's `invSlots`, the augmentation slots'
-`AugLocs`, a vector and a rotator flag). A map
+`AugLocs`, a vector and a rotator flag). The travelled items take their
+`TravelPreAccept`, the game's `AcceptInventory`, then their
+`TravelPostAccept`, last to first, with the player's own pair round them,
+once each, as the original's `SpawnPlayActor` runs them, so each item's
+`GiveTo` links the player's chain in the original's order. A travel
+property's reference to an actor destroyed in the level left travels too,
+the actor made anew, as the original's export has it: a new game begun
+from the game with a weapon drawn brings that weapon to the island beside
+the new game's, by the player's `LastinHand`, which the intro's
+`Paralyzed` never updates; the belt's slot holds the new one, the 1 key
+draws the old, and no weapon can then be put away (`NewGameConsole`: 9
+items, two pistols, in the original's order, in both engines; bugs.md
+D.33). The original puts the old weapon in the belt's first free slot,
+DXEngine leaves it off the belt (bugs.md PKG.17). A map
 opened at a portal (`open <map>#<portal>`) starts the player at the
 teleporter of that tag (`PortalConsole`). A level's URL, which
 `Level.GetLocalURL` gives, is the one it was entered by, as the original's
