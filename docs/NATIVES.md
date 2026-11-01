@@ -1474,16 +1474,22 @@ Every other native the scripted runs compare matches the original
   hit's normal is the plane of the node the walk crossed, turned to face the
   start, and its surface that node's. `FastTrace` is blocked by any solid
   leaf its line touches, its start's included. A mover's brush is walked the
-  same way, its hit's normal the node's plane as the mover's rotation turns
-  it, by the original's sine table, not turned to face the line. The hits
-  come out as the original's multi-hit check hands them on: the level's one,
-  nearest first, the actors along the line cut to 5 units past it; with the
-  level met within a hundredth of the line and 30 units, every actor's hit
-  but a mover's dropped; a mover's hit with the level hit's normal to the
-  bit, within 2 units of it, set 2 units before the level's, so a door flush
-  with its wall is met before the wall (`VisibleConsole` on DXMP_Silo: 55
-  movers' lines each way, their hits, normals, `TraceTexture`'s and
-  `TraceActors`' alike; `TraceConsole`, `MoverConsole`).
+  same way in the world, its planes turned into it as the original's walk
+  turns its owner's, its hit's normal the crossed node's plane so turned,
+  not turned to face the line. The hits come out as the original's
+  multi-hit check hands them on, their times in its floats and its order:
+  the level's one, its time `UModel::LineCheck`'s, the line cut to 5 units
+  past it, its end a float; with the level met within a hundredth of the
+  line and 30 units, every actor's hit but a mover's dropped; a mover's
+  brush walked along the cut line, its time made the whole line's by the
+  cut; a mover's hit within 2 units of the level's, with the level hit's
+  normal (a float compare), set 2 units before it; the hits sorted by their
+  times alone, equal ones keeping the actors first, so a mover flush with
+  its wall falls before or after it as the original's two times round
+  (`VisibleConsole` on DXMP_Silo: 55 movers' lines each way, their hits,
+  normals, `TraceTexture`'s and `TraceActors`' alike, among them the bot
+  doors whose wall lies a float step off the door's face; `TraceConsole`,
+  `MoverConsole`).
 - **A box** meets the level as the original's box check does
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
   down its BSP on each side either end's box, grown by a tenth of its size,
@@ -1566,8 +1572,8 @@ Every other native the scripted runs compare matches the original
   line cut so (`MoverConsole` on Liberty Island and DXMP_Silo: a door made
   not to collide, then hidden and moved, then saved; a window broken, at
   once and a frame on; `VisibleConsole` there and on UNATCO HQ, the mover
-  lines alike but PHYS.8's ties and a few of a float's step: 14 of 377 on
-  DXMP_Silo, 1 of 133 on the island, 6 of 177 on UNATCO HQ; `DoorConsole`:
+  lines alike but a few a float's step apart: 6 of 377 on DXMP_Silo, 1 of
+  133 on the island, 4 of 177 on UNATCO HQ (bugs.md PHYS.19); `DoorConsole`:
   the door's leaf found from inside it; `GlassConsole` on WanChai's club
   glass: 33 in both, its polygon's own flags carrying the editor's
   processed bit too).
@@ -1783,15 +1789,6 @@ Every other native the scripted runs compare matches the original
 
 Differs:
 
-- **A tie between a mover's own hit and the level's** at one plane falls to
-  the mover, the actors first in DXEngine's order, where the original's two
-  times, rounded apart by a half thousandth of a unit, fall either way: of
-  `VisibleConsole`'s 110 lines on DXMP_Silo, `DeusExMover19`'s and `25`'s
-  are the level in the original (a door turned a quarter turn in the plane
-  of the wall round its doorway, its normal a bit off the wall's through the
-  sine table, so not set before it) and `DeusExMover8`'s reversed line the
-  level too, and on UNATCO HQ `DeusExMover15`'s; DXEngine answers the mover
-  for all four (bugs.md PHYS.8).
 - **`DeusExPlayer.GetDeusExVersion`**: DXEngine's own string (D.11), so
   a player can tell which engine they run
   ([the version](ENGINE.md#running-on-our-devices)). The original's is "Mon
