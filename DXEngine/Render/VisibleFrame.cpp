@@ -724,6 +724,30 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
 	if (!texture)
 		texture = engine->LevelInfo->DefaultTexture();
 
+	// A one-sided surface seen from behind is passed over first, a sky, a
+	// warp zone and a mirror among them, by the surface's own flags: the
+	// original's OccludeBsp (Render.dll 0x10b173d0) tests the surface's
+	// with the viewport's ExtraPolyFlags at 0x10b17fc9, before anything
+	// else, and ORs its texture's in only after (0x10b181b2), so a texture's
+	// PF_TwoSided shows no surface from behind. Its test passes over a
+	// surface more than a unit behind the eye (0x10b17fb9) and passes on one
+	// within a unit, which no frame of the original's then shows either
+	// (BackFaceConsole's views C and E). ExtraPolyFlags, which
+	// UViewport::Lock sets as it locks (Engine.dll 0x10373750), is
+	// PF_NoMerge with the viewer's RendMap at REN_Zones or REN_PolyCuts and
+	// none otherwise: never PF_TwoSided or PF_Portal, so DXEngine keeps
+	// none. A zone portal leads into the zone beyond it from either side, as
+	// the original takes it. In a closed level a front face drawn earlier
+	// already hides a back face, so a back face hides nothing either: the
+	// clipper's test is skipped for over half of the surfaces in view. A
+	// mirror's frame is seen from the reflected eye, its ViewLocation.
+	if (!(PolyFlags & (PF_TwoSided | PF_Portal)))
+	{
+		vec4 plane = { node->PlaneX, node->PlaneY, node->PlaneZ, -node->PlaneW };
+		if (dot(ViewLocation, plane) < 0.0f)
+			return;
+	}
+
 	if (surface.Material)
 		PolyFlags |= surface.Material->PolyFlags();
 
@@ -807,15 +831,10 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
 		}
 		// A mirror opens a frame three frames deep at most, a sky's and a warp
 		// zone's counted, as the original's (Render.dll OccludeBsp
-		// 0x10b173d0, Recursion < 3); deeper, it is drawn as any surface
+		// 0x10b173d0, Recursion < 3); deeper, it is drawn as any surface. A
+		// one-sided mirror seen from behind was passed over above.
 		else if ((PolyFlags & PF_Mirrored) && PortalDepth < 3)
 		{
-			// Seen from behind, a one-sided mirror is passed over, as the
-			// original passes over any surface seen from behind.
-			vec4 plane = { node->PlaneX, node->PlaneY, node->PlaneZ, -node->PlaneW };
-			if (!(PolyFlags & PF_TwoSided) && dot(ViewLocation, plane) < 0.0f)
-				return;
-
 			// A translucent mirror is a shiny surface: with the render
 			// device's ShinySurfaces off, the original draws it solid and
 			// reflects nothing.
@@ -857,20 +876,6 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
 				return;
 			}
 		}
-	}
-
-	// A one-sided surface seen from behind is never drawn (UE1 did not either),
-	// and in a closed level a front face drawn earlier already hides it, so it
-	// hides nothing either: skip the clipper's test, over half of the surfaces
-	// in view. A mirror's frame is seen from the reflected eye, its
-	// ViewLocation; portals, skies and mirrors themselves returned above -- and
-	// a zone portal, which leads into the zone beyond it from either side, as
-	// the original takes it.
-	if (!(PolyFlags & (PF_TwoSided | PF_Portal)))
-	{
-		vec4 plane = { node->PlaneX, node->PlaneY, node->PlaneZ, -node->PlaneW };
-		if (dot(ViewLocation, plane) < 0.0f)
-			return;
 	}
 
 	gatherPoints();

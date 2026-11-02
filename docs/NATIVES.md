@@ -906,7 +906,18 @@ under 02_NYC_BatteryPark's Castle Clinton; 93 movers of 29 stock maps
 draw such a polygon) shows what lies behind it (`GlassConsole` with
 `GlassName=DeusExMover31`: a crate and a sprite behind the grate correlated
 at 0.96 with the original's frame on Vulkan, GL and the software device,
-where at 94968ca9 its gaps were black, 0.64). After the world the depth
+where at 94968ca9 its gaps were black, 0.64). A one-sided surface of the
+level's own seen from behind is passed over by its own flags, its
+texture's taken only after, as the original's walk does: a texture made
+two-sided shows none from behind (`BackFaceConsole`: Liberty Island's
+chain-link sheet over the statue's pedestal room, its texture
+`CoreTexMetal.Metal.ClenChainlink_B` given `bTwoSided`, seen from behind
+as with it one-sided in both engines, where at cc9b9ef0 DXEngine drew the
+sheet, 31% of the frame's pixels changed). Neither engine draws one the
+eye is within a unit behind, which the original's walk passes on where
+it passes over one farther (the sheet and a door's face from 0.9 units
+behind, correlated at 0.987 and 0.993 with the original's frames on
+Vulkan). After the world the depth
 buffer is cleared and the player's overlays drawn
 ([the overlays](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#the-overlays)),
 so the first-person weapon meets no depth of the world: an assault rifle
