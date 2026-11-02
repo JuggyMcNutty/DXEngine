@@ -6,14 +6,23 @@
 // its look logged -- its animation, place and turn among it -- and shot
 // three times over two seconds once it is up; then exit. With FovAngle the
 // view takes that field of view, its default and desired ones too, as the
-// weapon is drawn only at the default (Weapon.RenderOverlays). The level's
-// Brightness and each zone's ambient light are logged on arrival, for the
-// light maps' brightness.
+// weapon is drawn only at the default (Weapon.RenderOverlays). With HoldAnim
+// the weapon, once idle, is held at that sequence's HoldFrame, not playing,
+// from the tick before each draw: one pose in both engines, whichever idle
+// its script picks. With Floor a second Dragon's Tooth is left on the floor
+// ahead and to the left, in view: a mesh with a light of its own, drawn by
+// the scene, logged with each shot. The level's Brightness and each zone's
+// ambient light are logged on arrival, for the light maps' brightness.
 // Each line is logged with "DXVIEW:" in front.
 //=============================================================================
 class ViewConsole extends Console;
 
 var config float FovAngle;
+var config name HoldAnim;
+var config float HoldFrame;
+var config bool Floor;
+
+var Actor FloorSword;
 
 var float MapTime;
 var float StepTime;
@@ -80,7 +89,7 @@ event Tick(float Delta)
 	local Inventory Item;
 	local DeusExWeapon W;
 	local ZoneInfo Z;
-	local rotator R;
+	local rotator R, Left;
 
 	Super.Tick(Delta);
 	if (Viewport == None || Viewport.Actor == None)
@@ -138,6 +147,16 @@ event Tick(float Delta)
 				return;
 			}
 			DXP.PutInHand(W);
+			if (Floor)
+			{
+				Left = R;
+				Left.Yaw = R.Yaw - 16384;
+				FloorSword = P.Spawn(class'WeaponNanoSword',,, P.Location + 160 * vector(R) + 60 * vector(Left));
+				if (FloorSword != None)
+					LogLook("floor", FloorSword);
+				else
+					Log("DXVIEW: no floor sword");
+			}
 			if (FovAngle > 0)
 			{
 				P.DefaultFOV = FovAngle;
@@ -154,6 +173,16 @@ event Tick(float Delta)
 	}
 	else if (Phase == 2)
 	{
+		if (HoldAnim != '')
+		{
+			W = DeusExWeapon(P.FindInventoryType(class'WeaponNanoSword'));
+			if (W != None && W.IsInState('Idle'))
+			{
+				W.AnimSequence = HoldAnim;
+				W.AnimFrame = HoldFrame;
+				W.AnimRate = 0;
+			}
+		}
 		// Up after 4 s; a shot every second from then, the mark shown for
 		// the 0.6 s before each.
 		if (StepTime > 4.0 && ShotsTaken < 3)
@@ -168,6 +197,8 @@ event Tick(float Delta)
 			{
 				W = DeusExWeapon(P.FindInventoryType(class'WeaponNanoSword'));
 				LogLook("in hand, shot " $ ShotsTaken, W);
+				if (FloorSword != None)
+					LogLook("on the floor, shot " $ ShotsTaken, FloorSword);
 				P.ConsoleCommand("shot");
 				bMarking = false;
 				ShotsTaken++;

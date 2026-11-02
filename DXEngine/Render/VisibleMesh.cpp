@@ -357,7 +357,7 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 	UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
 
 	VertexLight vertexLight;
-	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor);
+	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor, !OnItsOwn);
 	vec3 eye = frame->ViewLocation.xyz();
 
 	// Wire, as the original's DrawMesh draws a mesh with the viewer's RendMap
@@ -655,7 +655,7 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 	UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
 
 	VertexLight vertexLight;
-	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor);
+	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor, !OnItsOwn);
 	vec3 eye = frame->ViewLocation.xyz();
 
 	bool needTranslucentPass = false;

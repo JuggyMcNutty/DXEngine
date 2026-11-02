@@ -163,6 +163,7 @@ void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter, cons
 	actor->bHidden() = false;
 	VisibleMesh vismesh;
 	vismesh.Wire = wire;
+	vismesh.OnItsOwn = true;
 	vismesh.DrawMesh(&sceneFrame, actor, MeshPass::FaceOrder);
 	actor->bHidden() = hideAfter || oldHidden;
 
@@ -209,6 +210,7 @@ void RenderSubsystem::DrawClippedActor(UActor* actor, int X, int Y, int XB, int 
 	actor->bHidden() = false;
 	VisibleMesh vismesh;
 	vismesh.Wire = wire;
+	vismesh.OnItsOwn = true;
 	vismesh.DrawMesh(&ActorFrame, actor, MeshPass::FaceOrder);
 	actor->bHidden() = true;
 

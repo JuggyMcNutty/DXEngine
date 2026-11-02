@@ -44,6 +44,12 @@ public:
 	// viewer's RendMap at wire (Canvas.DrawActor's WireFrame)
 	bool Wire = false;
 
+	// Drawn on its own (Canvas.DrawActor, Canvas.DrawClippedActor,
+	// GC.DrawActor), not by the scene: lit without the moving lights, as
+	// the original's URender::DrawActor gives its sprite no leaf lights
+	// (Render.dll 0x10b262c0; LightSystem::SetupForActorDX)
+	bool OnItsOwn = false;
+
 private:
 	void DrawDebugInfo(VisibleFrame* frame, UActor* actor);
 	bool WireTriangleInView(VisibleFrame* frame);

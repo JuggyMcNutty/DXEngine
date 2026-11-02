@@ -139,8 +139,11 @@ public:
 	TextureInfo GetMoverFogmap(UMover* mover, const Poly& poly, UZoneInfo* zoneActor, UModel* model);
 	TextureInfo GetLevelFogmap(BspSurface& surface, UZoneInfo* zoneActor, UModel* model);
 
-	void InitVertexLight(VertexLight& vertexlight, UActor* actor, UZoneInfo* zoneActor);
-	void SetupForActorDX(VertexLight& out, UActor* actor);
+	// leafLights: whether the moving lights near the actor are candidates, as
+	// the scene's draws give them; an actor drawn on its own has none
+	// (SetupForActorDX)
+	void InitVertexLight(VertexLight& vertexlight, UActor* actor, UZoneInfo* zoneActor, bool leafLights = true);
+	void SetupForActorDX(VertexLight& out, UActor* actor, bool leafLights);
 
 	// The eye of the frame drawn now (VisibleFrame::Draw), its meshes'
 	// highlights and fog and its fog maps' lines of sight taken from it, as

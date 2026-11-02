@@ -426,7 +426,7 @@ void LightSystem::CheckLight(UActor* light)
 	}
 }
 
-void LightSystem::InitVertexLight(VertexLight& out, UActor* actor, UZoneInfo* zoneActor)
+void LightSystem::InitVertexLight(VertexLight& out, UActor* actor, UZoneInfo* zoneActor, bool leafLights)
 {
 	// AmbientGlow value 255 is a special pulsating effect used for powerups
 	float ambientGlow = actor->AmbientGlow() == 255 ? AmbientGlowAmount : actor->AmbientGlow() * (1.0f / 255.0f);
@@ -438,12 +438,12 @@ void LightSystem::InitVertexLight(VertexLight& out, UActor* actor, UZoneInfo* zo
 	// DrawLodMesh's unlit level (Render.dll 0x10b0f6e0): the glow raw,
 	// not pulsing, held to 0-1
 	out.UnlitLevel = std::clamp(actor->AmbientGlow() / 256.0f + actor->ScaleGlow() * 0.5f, 0.0f, 1.0f);
-	SetupForActorDX(out, actor);
+	SetupForActorDX(out, actor, leafLights);
 
 	out.CameraLocation = Eye;
 }
 
-void LightSystem::SetupForActorDX(VertexLight& out, UActor* actor)
+void LightSystem::SetupForActorDX(VertexLight& out, UActor* actor, bool leafLights)
 {
 	// The original's SetupForActor picks an actor's lights once a draw
 	// (Render.dll 0x10b08c70; dx-reverse-info/render-dll.md, lighting --
@@ -451,7 +451,12 @@ void LightSystem::SetupForActorDX(VertexLight& out, UActor* actor)
 	// BSP, the moving lights in it, and the lights it had last frame that
 	// still reach it, each counted at its strength at the actor's centre;
 	// then one pass over them, strongest first, and each light's fade, a
-	// byte kept under the actor, lighting as it fades.
+	// byte kept under the actor, lighting as it fades. The moving lights
+	// are those the scene's walk filed in the leaf: an actor drawn on its
+	// own (Canvas.DrawActor, GC.DrawActor: URender::DrawActor, 0x10b262c0)
+	// has none, so a first-person weapon is lit by the static lights alone.
+	// The actor's own light is a candidate as any other and counts in the
+	// pass, but lights nothing of it (AddLight, 0x10b08b30).
 	auto& state = actor->MeshLights;
 	out.NumLights = 0;
 
@@ -493,12 +498,15 @@ void LightSystem::SetupForActorDX(VertexLight& out, UActor* actor)
 				for (size_t i = index; i < model->Lights.size() && model->Lights[i]; i++)
 					addCandidate(model->Lights[i]);
 		}
-		vec3 extents = actor->BspInfo.BoundingBox.extents();
-		LightTree.CollectLights(location, std::max(extents.x, std::max(extents.y, extents.z)));
-		for (UActor* light : LightTree.CollectedLights)
+		if (leafLights)
 		{
-			if (light->bDynamicLight() || (!light->bStatic() && !light->bNoDelete()))
-				addCandidate(light);
+			vec3 extents = actor->BspInfo.BoundingBox.extents();
+			LightTree.CollectLights(location, std::max(extents.x, std::max(extents.y, extents.z)));
+			for (UActor* light : LightTree.CollectedLights)
+			{
+				if (light->bDynamicLight() || (!light->bStatic() && !light->bNoDelete()))
+					addCandidate(light);
+			}
 		}
 		for (const UActor::MeshLightEntry& entry : state.List)
 			addCandidate(entry.Light);
@@ -610,7 +618,7 @@ void LightSystem::SetupForActorDX(VertexLight& out, UActor* actor)
 	int lightIndex = 0;
 	for (const UActor::MeshLightEntry& entry : state.List)
 	{
-		if (entry.Fade <= 0 || entry.Light->bDeleteMe())
+		if (entry.Fade <= 0 || entry.Light->bDeleteMe() || entry.Light == actor)
 			continue;
 		UActor* light = entry.Light;
 		out.Lights[lightIndex].Location = light->Location();

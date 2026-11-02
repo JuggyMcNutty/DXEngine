@@ -794,8 +794,8 @@ DXEngine's own, by choice where no ID is named:
     shadowed light and rescales it;
   - `LE_CloudCast`, the plain shape, built once, where the original re-runs
     it every frame (its table counts the shape as changing): the same light.
-- **Meshes**: the moving lights come from DXEngine's light tree near the
-  actor, not the leaf's own list.
+- **Meshes**: the moving lights of an actor the scene draws come from
+  DXEngine's light tree near the actor, not the leaf's own list.
 - **The blink, the strobe, the flicker and the torch and fire wavers** at
   the original's pace at 60 frames a second, by choice, whatever the frame
   rate, where the original's change with each frame it draws, paused too
@@ -831,7 +831,17 @@ ones are and any other while fewer than 8 in all are, none under an eighth
 of the first one lit; on the actor's first draw each light its shadow line
 finds open lit full at once, a moving light full when it first reaches the
 actor, a static one new to it dark until its line is next run; each fade a
-byte stepped by the viewport's time since its last frame. The `AmbientGlow`
+byte stepped by the viewport's time since its last frame. An actor drawn on
+its own (`Canvas.DrawActor`, `Canvas.DrawClippedActor`, `GC.DrawActor`), a
+first-person weapon among them, takes no moving light, only the static
+lights and those it kept; an actor's own light counts in the pass, so that
+a light under an eighth of its strength lights nothing, but lights nothing
+of it. `ViewConsole` with `FovAngle=90`, `HoldAnim=Idle1`,
+`HoldFrame=0.875` and `Floor`, both engines at 1024x768: the Dragon's
+Tooth's hand correlated at 0.939 with the original's frame, where at
+654e675d its own light's pick left its thumb black (0.773), and the hilt
+of the one on the floor at 0.870 (0.818); `CrosshairConsole`'s pistol in
+hand at 0.981 (0.711). The `AmbientGlow`
 pulse runs on the viewport's clock, the real time, whatever the level's
 `TimeDilation`. `GlowConsole`'s crate, spawned 3 s into Liberty Island:
 with no glow, 0.171 of the screen's white in both engines, at full speed
