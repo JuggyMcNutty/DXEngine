@@ -836,15 +836,19 @@ its own (`Canvas.DrawActor`, `Canvas.DrawClippedActor`, `GC.DrawActor`), a
 first-person weapon among them, takes no moving light, only the static
 lights and those it kept; an actor's own light counts in the pass, so that
 a light under an eighth of its strength lights nothing, but lights nothing
-of it. `ViewConsole` with `FovAngle=90`, `HoldAnim=Idle1`,
-`HoldFrame=0.875` and `Floor`, both engines at 1024x768: the Dragon's
-Tooth's hand correlated at 0.939 with the original's frame, where at
-654e675d its own light's pick left its thumb black (0.773), and the hilt
-of the one on the floor at 0.870 (0.818); `CrosshairConsole`'s pistol in
-hand at 0.981 (0.711). A two-sided face's vertex is lit by the cosine's
-size, a light behind its normal as one before it, where the original's
-`Light` (`Render.dll` `0x10b027f0`) lights each vertex once, by its normal,
-whatever its faces' flags (bugs.md REN.30). The `AmbientGlow`
+of it. A vertex is lit by its normal alone, whatever its faces' flags, as
+the original's `Light` (`Render.dll` `0x10b027f0`) lights each once: a
+two-sided face shows on both sides the light its normal gets.
+`ViewConsole` with `FovAngle=90`, `HoldAnim=Idle1`, `HoldFrame=0.875` and
+`Floor`, both engines at 1024x768: the Dragon's Tooth's hand correlated
+at 0.973 with the original's frame, where at 654e675d its own light's pick
+left its thumb black (0.773), and the hilt of the one on the floor at
+0.897 (0.818); `CrosshairConsole`'s pistol in hand at 0.981 (0.711).
+`MeshConsole` with `Hold` and `Extra=DeusEx.Plant1`: the plant's leaves
+at 0.997 of the original's brightness, where at 724acfd9 the cosine's size
+lit them from behind as from before, 1.113; Paul Denton at a median 1.01
+(1.03); `HeldConsole`'s JC from behind, his coat at 1.009 (1.095). The
+`AmbientGlow`
 pulse runs on the viewport's clock, the real time, whatever the level's
 `TimeDilation`. `GlowConsole`'s crate, spawned 3 s into Liberty Island:
 with no glow, 0.171 of the screen's white in both engines, at full speed

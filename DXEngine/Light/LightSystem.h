@@ -47,8 +47,11 @@ public:
 	// reflection when it heads toward the eye, both times 1 - d/r and the
 	// light's colour; the sum scaled by 1.4 ScaleGlow, the ambient added,
 	// each channel at most 1. An unlit draw is AmbientGlow / 256 + ScaleGlow
-	// / 2, mid-grey for most.
-	vec3 GetVertexLight(const vec3& location, const vec3& normal, bool unlit, bool twosided)
+	// / 2, mid-grey for most. A vertex is lit by its normal alone, whatever
+	// its faces' flags, as the original's Light (Render.dll 0x10b027f0) lights
+	// each once: a two-sided face shows on both sides the light its normal
+	// gets.
+	vec3 GetVertexLight(const vec3& location, const vec3& normal, bool unlit)
 	{
 		if (unlit)
 			return vec3(UnlitLevel);
@@ -69,8 +72,6 @@ public:
 				continue;
 			vec3 Ldir = L / dist;
 			float c = dot(Ldir, normal);
-			if (twosided)
-				c = std::abs(c);
 			float diffuse = (c + 1.0f) * (c + 1.0f) - 1.5f;
 			if (diffuse < 0.0f)
 				diffuse = 0.0f;

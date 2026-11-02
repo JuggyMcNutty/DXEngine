@@ -533,7 +533,7 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 		// game's UseVertexFog off (dx-reverse-info/d3ddrv-dll.md, fog)
 		for (int i = 0; i < 3; i++)
 		{
-			vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, normals[i], !!(renderflags & PF_Unlit), !!(renderflags & PF_TwoSided));
+			vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, normals[i], !!(renderflags & PF_Unlit));
 			vertices[i].Fog = vec4(0.0f);
 		}
 
@@ -662,7 +662,7 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 
 	// Faces share their vertices, and a vertex's animated position, normal,
 	// light and fog depend only on the vertex this draw (the light also on
-	// the face's unlit and two-sided flags). Each was computed again for
+	// the face's unlit flag). Each was computed again for
 	// every face using it; now once a draw, by the same arithmetic, so the
 	// results are the same to the bit.
 	if (++vertexCacheGeneration == 0)
@@ -943,7 +943,7 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 
 		bool unlit = !!(renderflags & PF_Unlit);
 		bool twosided = !!(renderflags & PF_TwoSided);
-		uint32_t lightKey = 1 | (unlit ? 2 : 0) | (twosided ? 4 : 0);
+		uint32_t lightKey = 1 | (unlit ? 2 : 0);
 
 		vec3 normals[3];
 		CachedMeshVertex* cached[3] = {};
@@ -1045,7 +1045,7 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 			}
 			else
 			{
-				vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, normals[i], unlit, twosided);
+				vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, normals[i], unlit);
 				if (c)
 				{
 					c->Light = vertices[i].Light;
