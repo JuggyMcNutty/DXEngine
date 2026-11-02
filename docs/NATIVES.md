@@ -1081,17 +1081,28 @@ from the original's code:
   sensitive descendants with what is in effect, as the original's
   `SetSensitivity` has it; a focused button disabled keeps the focus in
   both engines (`FocusConsole`).
-- **Places**: `SetPos` makes a window left- and top-aligned with its x and
-  y as margins; `SetWindowAlignments` sets both margins of each side, the
-  second the first's unless given. A parent's `ConfigureChild` sets just
-  what it gives, and leaves a window that does not show as it is, counted
-  placed (`TitleConsole`: the HUD's mission start text 10 by 10 at 0, 0
-  until a message shows it); a window no parent places, or that the base
-  script's answer to its asking hands back (`ResizeChild`), sits by its
-  alignment at its preferred size -- centred with the half dropped, plus its
-  margin -- and its `x` and `y` are that place. So a menu dragged by its
-  title bar follows the pointer and the credits start below the screen
-  (`ClickConsole`, `MenuConsole`).
+- **Places**, laid out at once as a window asks -- made, shown, moved,
+  sized or aligned --, its parent asked, and a parent that does not take
+  the request asking its own: every native container but the root passes
+  it on unasked, a tab group, a modal, a clip window, a scroll area, a
+  tile among them. `SetPos` makes a window left- and top-aligned with its
+  x and y as margins; `SetWindowAlignments` sets both margins of each
+  side, the second the first's unless given. A parent's `ConfigureChild`
+  sets just what it gives, to a full-aligned window too (`ScreenConsole`:
+  a tile in a clip window at -0, -0, as the clip places it), and leaves a
+  window that does not show as it is, counted placed (`TitleConsole`: the
+  HUD's mission start text 10 by 10 at 0, 0 until a message shows it); a
+  window no parent places, or that the base script's answer to its asking
+  hands back (`ResizeChild`), sits by its alignment at its preferred size
+  -- centred with the half dropped, plus its margin -- and its `x` and `y`
+  are that place, from the moment it asks (`SizeConsole`: a new window's
+  place and size as made). A parent laid out again counts its left- and
+  top-aligned children placed, and each other one its layout leaves out
+  goes back to its alignment (`LayoutConsole`: a window's second child
+  moved by `SetPos` placed again by its parent at once, its first, which
+  the parent's next layout leaves out, centred at once). So a menu dragged
+  by its title bar follows the pointer and the credits start below the
+  screen (`ClickConsole`, `MenuConsole`).
 - **Sizes**: a side a window was given (`SetSize`) counts as asked for; a
   side it leaves unset is its background's size, else its own -- an empty
   text window is 0 wide and keeps its height. A size set is held at 0 or
@@ -1340,23 +1351,17 @@ Differs:
   their marks, its window resetting only the engine's input (read from both
   codes), and its Alt stays down to the windows until pressed again, a key
   and a typed letter passing every window over but a modal.
-- **Layout** (`MenuConsole`, `ScreenConsole`, `SizeConsole`): DXEngine lays
-  windows out once a frame, the original as each asks, so a window made this
-  frame is 10 by 10 until the next; a window that shows sits at the margins
-  `SetPos` gives it at once, where a parent that places it again does so the
-  next frame. A window a parent placed keeps that place until it moves or
-  asks again, where the original's goes back to its alignment when the
-  parent's next layout leaves it out (EXT.8). The root window is 4:3 (960
-  wide at 1280x720), where the original's is the whole viewport, by choice:
-  the stock `ConWindowActive.CalculateWindowSizes` gives a cutscene's
-  subtitles no height on a root 16:9 or wider, the Smart Pro's among them,
-  so a cutscene letterboxes at 16:9. The root's children lie across the
-  screen up to 16:9, where the original's lie across all of it (D.34), their
-  `x` the screen's: the screen in units is the original's, the viewport over
-  the scale with its fractions (853.33 by 533.33 at 2560x1600), and the root
-  a whole number of units in, so that a child at 0 lies on a whole unit and
-  each tile the GC puts on whole units lies on the original's pixels at any
-  scale (`CrosshairConsole`: the crosshair and the accuracy marks on the
+- **The root window** is 4:3 (960 wide at 1280x720), where the original's is
+  the whole viewport, by choice: the stock
+  `ConWindowActive.CalculateWindowSizes` gives a cutscene's subtitles no
+  height on a root 16:9 or wider, the Smart Pro's among them, so a cutscene
+  letterboxes at 16:9. The root's children lie across the screen up to 16:9,
+  where the original's lie across all of it (D.34), their `x` the screen's:
+  the screen in units is the original's, the viewport over the scale with
+  its fractions (853.33 by 533.33 at 2560x1600), and the root a whole number
+  of units in, so that a child at 0 lies on a whole unit and each tile the
+  GC puts on whole units lies on the original's pixels at any scale
+  (`CrosshairConsole`: the crosshair and the accuracy marks on the
   original's pixels at 2560x1440, a scale of 3 and the root 107 units in, at
   1600x1001, the root 500.5 units high, and at 1920x1080). On a screen
   narrower than 4:3 (1280x1024) the root is the screen's width, as the

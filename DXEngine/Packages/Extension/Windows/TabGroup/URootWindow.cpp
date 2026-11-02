@@ -246,6 +246,55 @@ void URootWindow::Tick(float timeElapsed)
 	UModalWindow::Tick(timeElapsed);
 }
 
+// The root asks its script of a child's request, where every other tab group
+// passes it up unasked (XRootWindow::ChildRequestedReconfiguration
+// 0x1003a6d0): the base Window script's answer places the child by its
+// alignment (ResizeChild).
+bool URootWindow::ChildRequestedReconfiguration(UWindow* childWin)
+{
+	return UWindow::ChildRequestedReconfiguration(childWin);
+}
+
+// The original's (XRootWindow::ResizeRoot 0x1003adf0), each frame from its
+// PreRender: the root's one multiplier, and its size the screen's in its
+// units, laid out again only when that changes -- every child but a left-
+// and top-aligned one placed again by its alignment (ChangeConfiguration).
+// Every other window is laid out as it asks (AskParentForReconfigure).
+// DXEngine's root is 4:3, centred on a wider screen, and its children lie
+// across the screen up to 16:9 (RootOffsetX): a change of the screen lays
+// them out again whether the root's size changes or not, and moves the left-
+// and top-aligned ones with it.
+void URootWindow::ResizeRoot()
+{
+	int viewportWidth = engine->viewport->ViewportWidth();
+	int viewportHeight = engine->viewport->ViewportHeight();
+	if (viewportWidth == LaidOutViewportWidth && viewportHeight == LaidOutViewportHeight)
+		return;
+	LaidOutViewportWidth = viewportWidth;
+	LaidOutViewportHeight = viewportHeight;
+
+	float virtualWidth = GetVirtualWidth();
+	float virtualHeight = GetVirtualHeight();
+	float virtualScale = GetVirtualScale();
+	hMultiplier() = (int)virtualScale;
+	vMultiplier() = (int)virtualScale;
+
+	// The 4:3 root centred to a whole unit, as RootOffsetX takes its
+	// children back by whole units: a root child at 0 then lies on a whole
+	// unit at the screen's edge, up to 16:9, as on the original's root, the
+	// viewport, at 0, and each tile the GC puts on whole units (XGC::DrawTile,
+	// Extension.dll 0x1002a820) on the original's pixels: at 2560x1440 the
+	// root 107 units in, not 106.67.
+	UsedX = std::round((viewportWidth - virtualWidth * virtualScale) * 0.5f / virtualScale);
+	UsedY = 0.0f;
+
+	bNeedsReconfigure() = true;
+	ConfigureChild(0.0f, 0.0f, virtualWidth, virtualHeight);
+	for (UWindow* child = firstChild(); child; child = child->nextSibling())
+		child->UsedX = child->X() + child->RootOffsetX();
+	ClipTree();
+}
+
 bool URootWindow::IsCursorVisible()
 {
 	// The pointer is drawn while the mouse is grabbed -- a modal grabs it as

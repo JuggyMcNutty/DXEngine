@@ -22,6 +22,7 @@ public:
 
 	void InitDefaults() override;
 	void ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight) override;
+	bool ChildRequestedReconfiguration(UWindow* childWin) override;
 	void ChildRequestedVisibilityChange(UWindow* childWin, bool bNewVisibility) override;
 	void ConfigurationChanged() override;
 	void ChildRemoved(UWindow* child) override;

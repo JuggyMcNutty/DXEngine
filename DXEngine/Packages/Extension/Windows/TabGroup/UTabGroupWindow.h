@@ -10,6 +10,7 @@ public:
 	void InitDefaults() override;
 	void ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight) override;
 	void ConfigurationChanged() override;
+	bool ChildRequestedReconfiguration(UWindow* childWin) override;
 	void ChildRequestedVisibilityChange(UWindow* childWin, bool bNewVisibility) override;
 
 	BitfieldBool bSizeChildrenToParent() { return BoolValue(PropOffsets_TabGroupWindow.bSizeChildrenToParent); }

@@ -21,122 +21,17 @@
 #include "Packages/Engine/Resources/UFont.h"
 #include "Packages/Extension/UPlayerPawnExt.h"
 
-void UWindow::UpdateLayout()
+// WindowReady for each window that shows and has not had it, its shown
+// children first, bottom to top, then the window, as the original's root
+// sends it each frame before it draws them (XRootWindow::InitializeWindows
+// 0x1003bc80, InvokeWindowReady 0x1003bd20): the menus' first focus and a
+// note list's scroll. No window is laid out here: each is laid out as it
+// asks (AskParentForReconfigure), the root as the screen changes
+// (URootWindow::ResizeRoot).
+void UWindow::InvokeWindowReady()
 {
 	if (!bIsVisible())
 		return;
-
-	UWindow* parent = parentOwner();
-	if (parent)
-	{
-		EHAlign halign = (EHAlign)winHAlign();
-		EVAlign valign = (EVAlign)winVAlign();
-		float pWidth = parent->Width();
-		float pHeight = parent->Height();
-
-		float offsetX = RootOffsetX();
-		if (parent == engine->dxRootWindow)
-			pWidth += std::max(GetExtendedVirtualWidth() - pWidth, 0.0f);
-
-		// Full: the parent's size less both margins, whoever placed it.
-		if (halign == EHAlign::Full || valign == EVAlign::Full)
-		{
-			float newWidth = Width();
-			float newHeight = Height();
-
-			if (halign == EHAlign::Full)
-			{
-				X() = hMargin0();
-				float fullWidth = parent == engine->dxRootWindow ? GetExtendedVirtualWidth() : pWidth;
-				newWidth = std::max(fullWidth - hMargin0() - hMargin1(), 0.0f);
-			}
-
-			if (valign == EVAlign::Full)
-			{
-				Y() = vMargin0();
-				newHeight = std::max(pHeight - vMargin0() - vMargin1(), 0.0f);
-			}
-
-			if (Width() != newWidth || Height() != newHeight)
-			{
-				Width() = newWidth;
-				Height() = newHeight;
-				bNeedsReconfigure() = true;
-			}
-		}
-
-		// A window its parent placed stays where it was put; one it did not
-		// places itself by its alignment (XWindow::ResizeChild 0x1004eab0):
-		// centred (the half truncated) plus its first margin, right or bottom
-		// less it, else at it -- where SetPos puts a window. Its x and y are
-		// that place, as the original's are.
-		if (!bConfigured())
-		{
-			if (halign == EHAlign::Center)
-				X() = std::trunc((pWidth - Width()) * 0.5f) + hMargin0();
-			else if (halign == EHAlign::Right)
-				X() = pWidth - Width() - hMargin0();
-			else if (halign == EHAlign::Left)
-				X() = hMargin0();
-
-			if (valign == EVAlign::Center)
-				Y() = std::trunc((pHeight - Height()) * 0.5f) + vMargin0();
-			else if (valign == EVAlign::Bottom)
-				Y() = pHeight - Height() - vMargin0();
-			else if (valign == EVAlign::Top)
-				Y() = vMargin0();
-		}
-
-		UsedX = X() + offsetX;
-		UsedY = Y();
-	}
-	else
-	{
-		float virtualWidth = GetVirtualWidth();
-		float virtualHeight = GetVirtualHeight();
-		float virtualScale = GetVirtualScale();
-		if (Width() != virtualWidth || Height() != virtualHeight)
-		{
-			ConfigureChild(0.0f, 0.0f, virtualWidth, virtualHeight);
-		}
-		if (URootWindow* root = UObject::TryCast<URootWindow>(this))
-		{
-			root->hMultiplier() = (int)virtualScale;
-			root->vMultiplier() = (int)virtualScale;
-		}
-
-		// The 4:3 root centred to a whole unit, as RootOffsetX takes its
-		// children back by whole units: a root child at 0 then lies on a
-		// whole unit at the screen's edge, up to 16:9, as on the original's
-		// root, the viewport, at 0, and each tile the GC puts on whole units
-		// (XGC::DrawTile, Extension.dll 0x1002a820) on the original's pixels:
-		// at 2560x1440 the root 107 units in, not 106.67, and the crosshair
-		// and its accuracy marks where the original draws them.
-		UsedX = std::round((engine->viewport->ViewportWidth() - virtualWidth * virtualScale) * 0.5f / virtualScale);
-		UsedY = 0.0f;
-	}
-
-	bool wasReconfigured = bNeedsReconfigure();
-	if (wasReconfigured)
-	{
-		//LogMessage(GetUClassFullName(this).ToString() + ": UpdateLayout");
-
-		bNeedsReconfigure() = false;
-		ConfigurationChanged();
-	}
-
-	// Configure the windows that never got a ConfigureChild call:
-	for (UWindow* child = firstChild(); child; child = child->nextSibling())
-	{
-		if ((wasReconfigured || child->FirstDraw) && !child->bConfigured() && child->bIsVisible())
-		{
-			float newWidth = 0.0f, newHeight = 0.0f;
-			child->QueryPreferredSize(newWidth, newHeight);
-			child->Width() = newWidth;
-			child->Height() = newHeight;
-			child->bNeedsReconfigure() = true;
-		}
-	}
 
 	// The children as they were, as Tick walks them
 	Array<UWindow*> children;
@@ -145,7 +40,7 @@ void UWindow::UpdateLayout()
 	for (UWindow* child : children)
 	{
 		if (!child->Destroyed)
-			child->UpdateLayout();
+			child->InvokeWindowReady();
 	}
 
 	if (FirstDraw)
@@ -1502,10 +1397,12 @@ static void NotifyVisibilityChanged(UWindow* window, bool bNewVisibility)
 	}
 }
 
-// The original's (extension-dll.md, Showing and hiding): the flag is set, and
-// when that changes whether the window can be seen, focus and grabs move away
-// from what is hidden, VisibilityChanged goes to the window and its
-// descendants, and the tree is laid out again.
+// The original's (XWindow::SetChildVisibility 0x1004ee20; extension-dll.md,
+// Showing and hiding): the flag is set, and when that changes whether the
+// window can be seen, focus and grabs move away from what is hidden, the
+// window is marked to be laid out, VisibilityChanged goes to the window and
+// its descendants, and the tree is laid out again (ReconfigureTree): a window
+// shown, and each in it that asked while it could not be seen, at once.
 void UWindow::SetChildVisibility(bool bNewVisibility)
 {
 	if (bIsVisible() == bNewVisibility)
@@ -1530,8 +1427,9 @@ void UWindow::SetChildVisibility(bool bNewVisibility)
 	CheckFocusWindow();
 	CheckGrabbedWindow();
 
+	bNeedsReconfigure() = true;
 	NotifyVisibilityChanged(this, bNewVisibility);
-	AskParentForReconfigure();
+	ReconfigureTree();
 }
 
 void UWindow::SetClientObject(UObject* newClientObject)
@@ -1752,8 +1650,9 @@ void UWindow::SetConfiguration(float newX, float newY, float newWidth, float New
 }
 
 // The original's (XWindow::Move 0x1004ce80): left- and top-aligned, x and y
-// its margins, laid out again when that changes anything. A parent that
-// places its children places it again; else its margins place it.
+// its margins, laid out again when that changes anything -- at once, where
+// it shows: a parent that places its children places it again, else its
+// margins place it, and it reads and draws there now.
 void UWindow::SetPos(float newX, float newY)
 {
 	if ((EHAlign)winHAlign() != EHAlign::Left || (EVAlign)winVAlign() != EVAlign::Top || hMargin0() != newX || vMargin0() != newY)
@@ -1762,17 +1661,6 @@ void UWindow::SetPos(float newX, float newY)
 		winVAlign() = (uint8_t)EVAlign::Top;
 		hMargin0() = newX;
 		vMargin0() = newY;
-		bConfigured() = false;
-		// Shown, the original's is laid out at once: one its parent does not
-		// place again sits at its margins, so it reads and draws there now.
-		if (IsShown())
-		{
-			X() = newX;
-			Y() = newY;
-			UsedX = X() + RootOffsetX();
-			UsedY = Y();
-			ClipTree();
-		}
 		AskParentForReconfigure();
 	}
 }
@@ -1850,89 +1738,159 @@ float UWindow::QueryPreferredHeight(float queryWidth)
 	return height;
 }
 
-// The original's (XWindow::AskParentForReconfigure 0x1004e060) marks the
-// window itself too: it is configured again even at the same size, so a
-// window whose look changed (a scale's textures) recomputes its own layout.
-// Only a window that shows asks its parents: one made inside a window's
-// InitWindow, before that window shows, does not reach its script.
-// The parent is asked with its own child, and one that does not take it
-// asks its own parent in its own name (the original's recursion, 0x1004e060),
-// so a handler that looks at which child asks sees a child of its own, never
-// a grandchild.
+// The original's (XWindow::AskParentForReconfigure 0x1004e060): the window
+// marked to be laid out, and laid out at once when it and every window it is
+// in shows -- one made inside a window's InitWindow, before that window
+// shows, asks as it shows (ReconfigureTree). The parent is asked with its
+// own child, and one that does not take it -- every native container but the
+// root: a tab group, a modal, a clip window, a tile -- asks its own parent in
+// its own name, up to the root, which lays itself out (its
+// ConfigurationChanged, nothing placed again); so a handler that looks at
+// which child asks sees a child of its own, never a grandchild. Then a window
+// still marked, one no parent's layout placed, places itself by its alignment
+// (ResizeChild).
 void UWindow::AskParentForReconfigure()
 {
 	//LogMessage(GetUClassFullName(this).ToString() + ": AskParentForReconfigure");
 	bNeedsReconfigure() = true;
 	if (!IsShown())
 		return;
-	if (UWindow* parent = parentOwner())
+	UWindow* parent = parentOwner();
+	if (!parent)
 	{
-		parent->bNeedsReconfigure() = true;
-		if (!parent->ChildRequestedReconfiguration(this))
-			parent->AskParentForReconfigure();
+		bNeedsReconfigure() = false;
+		ConfigurationChanged();
+		return;
 	}
+	if (!parent->ChildRequestedReconfiguration(this))
+		parent->AskParentForReconfigure();
+	if (bNeedsReconfigure())
+		ResizeChild();
 }
 
-// The original's (XWindow::ResizeChild 0x1004eab0) places the window by its
-// alignment at its preferred size -- the base Window script's answer to a
-// child's request. DXEngine's layout pass does, unless the parent places
-// the window again.
+// The original's (XWindow::ResizeChild 0x1004eab0), the base Window script's
+// answer to a child's request: the window placed at once by its alignment at
+// its preferred size -- a full side the parent's less both margins, asked for
+// as given -- centred (the half truncated) plus its first margin, right or
+// bottom less it, else at it. Its x and y are that place. The root's children
+// are placed across the screen up to 16:9 (RootOffsetX), a full one that wide.
 void UWindow::ResizeChild()
 {
 	//LogMessage(GetUClassFullName(this).ToString() + ": ResizeChild");
-	bConfigured() = false;
-	bNeedsReconfigure() = true;
+	UWindow* parent = parentOwner();
+	float pWidth = parent ? parent->Width() : 0.0f;
+	float pHeight = parent ? parent->Height() : 0.0f;
+	if (parent && parent == engine->dxRootWindow)
+		pWidth += std::max(GetExtendedVirtualWidth() - pWidth, 0.0f);
+
+	EHAlign halign = (EHAlign)winHAlign();
+	EVAlign valign = (EVAlign)winVAlign();
+	bool fullWidth = halign == EHAlign::Full;
+	bool fullHeight = valign == EVAlign::Full;
+	float newWidth = fullWidth ? std::max(pWidth - hMargin0() - hMargin1(), 0.0f) : 0.0f;
+	float newHeight = fullHeight ? std::max(pHeight - vMargin0() - vMargin1(), 0.0f) : 0.0f;
+	QueryPreferredSize(fullWidth, newWidth, &newWidth, fullHeight, newHeight, &newHeight);
+
+	float newX, newY;
+	if (halign == EHAlign::Center)
+		newX = std::trunc((pWidth - newWidth) * 0.5f) + hMargin0();
+	else if (halign == EHAlign::Right)
+		newX = pWidth - newWidth - hMargin0();
+	else
+		newX = hMargin0();
+	if (valign == EVAlign::Center)
+		newY = std::trunc((pHeight - newHeight) * 0.5f) + vMargin0();
+	else if (valign == EVAlign::Bottom)
+		newY = pHeight - newHeight - vMargin0();
+	else
+		newY = vMargin0();
+	ConfigureChild(newX, newY, newWidth, newHeight);
 }
 
+// How deep the placings in progress go: the outermost clips (ConfigureChild).
+static int ConfigureDepth = 0;
+
+// The original's (XWindow::ConfigureChild 0x1004ec50) sets just what it is
+// given -- a size set on the window only what it asks for, a full alignment
+// only where no parent places it: a tile that fills its width widens a child
+// that set its own -- and counts the window as placed. A window that does
+// not show is only that, its place and size left as they are (TitleConsole:
+// the HUD's mission start text stays 10 by 10 at 0, 0 until a message shows
+// it). One whose size changes, or that asked to be laid out, is laid out at
+// once (ChangeConfiguration); then the outermost placing, or a tab group's,
+// clips the window and all in it (ClipTree).
 void UWindow::ConfigureChild(float newX, float newY, float newWidth, float newHeight)
 {
 	//LogMessage(GetUClassFullName(this).ToString() + ": ConfigureChild(" + std::to_string(newX) + ", " + std::to_string(newY) + ", " + std::to_string(newWidth) + ", " + std::to_string(newHeight) + ")");
 
-	// A window that does not show is only counted as placed, its place and
-	// size left as they are (the original's; TitleConsole: the HUD's mission
-	// start text stays 10 by 10 at 0, 0 until a message shows it)
+	bConfigured() = true;
 	if (!bIsVisible())
 		return;
 
-	// The size the parent gives is the window's, a size set on the window
-	// only what it asks for (XWindow::ConfigureChild 0x1004ec50): a tile
-	// that fills its width widens a child that set its own.
-	if (UWindow* owner = parentOwner())
-	{
-		if ((EHAlign)winHAlign() == EHAlign::Full)
-		{
-			float leftMargin = hMargin0();
-			float rightMargin = hMargin1();
-			newX = leftMargin;
-			if (owner == engine->dxRootWindow)
-				newWidth = std::max(GetExtendedVirtualWidth() - leftMargin - rightMargin, 0.0f);
-			else
-				newWidth = std::max(owner->Width() - leftMargin - rightMargin, 0.0f);
-		}
-		if ((EVAlign)winVAlign() == EVAlign::Full)
-		{
-			float topMargin = vMargin0();
-			float bottomMargin = vMargin1();
-			newY = topMargin;
-			newHeight = std::max(owner->Height() - topMargin - bottomMargin, 0.0f);
-		}
-	}
-
+	bool changed = Width() != newWidth || Height() != newHeight || bNeedsReconfigure();
+	bNeedsReconfigure() = false;
 	X() = newX;
 	Y() = newY;
-	bConfigured() = true;
-	//if (Width() != newWidth || Height() != newHeight)
+	Width() = newWidth;
+	Height() = newHeight;
+	// The root's own place is the screen's middle (URootWindow::ResizeRoot)
+	if (parentOwner())
 	{
-		Width() = newWidth;
-		Height() = newHeight;
-		bNeedsReconfigure() = true;
+		UsedX = X() + RootOffsetX();
+		UsedY = Y();
+	}
+
+	ConfigureDepth++;
+	if (changed)
+		ChangeConfiguration();
+	if (ConfigureDepth == 1 || windowType() != 0)
+		ClipTree();
+	ConfigureDepth--;
+}
+
+static bool IsLeftTopAligned(UWindow* window)
+{
+	return (EHAlign)window->winHAlign() == EHAlign::Left && (EVAlign)window->winVAlign() == EVAlign::Top;
+}
+
+// A window laid out (XWindow::ChangeConfiguration 0x10050f90): its children
+// count as placed but each that shows and is not left- and top-aligned; then
+// its ConfigurationChanged places what it places; then each of those it left
+// out places itself by its alignment (ResizeChild). So a window a parent
+// placed goes back to its alignment when the parent's next layout leaves it
+// out, and a left- and top-aligned one stays where it was put.
+void UWindow::ChangeConfiguration()
+{
+	for (UWindow* child = firstChild(); child; child = child->nextSibling())
+		child->bConfigured() = !child->bIsVisible() || IsLeftTopAligned(child);
+	ConfigurationChanged();
+	for (UWindow* child : ChildrenOf(this))
+	{
+		if (child->parentOwner() == this && !child->Destroyed && child->bIsVisible() && !IsLeftTopAligned(child) && !child->bConfigured())
+			child->ResizeChild();
+	}
+}
+
+// The original's (XWindow::ReconfigureTree 0x1004e520), as a window comes to
+// show: it, and each window in it that shows and asked to be laid out while
+// it could not be seen, asks now, from the top down.
+void UWindow::ReconfigureTree()
+{
+	if (!IsShown())
+		return;
+	if (bNeedsReconfigure())
+		AskParentForReconfigure();
+	for (UWindow* child : ChildrenOf(this))
+	{
+		if (child->parentOwner() == this && !child->Destroyed)
+			child->ReconfigureTree();
 	}
 }
 
 // The original's (XWindow::SetWindowAlignments 0x1004d300, from a script
 // 0x10052360): a first margin not given is 0, a second the first; laid out
-// again when that changes anything, the alignment placing the window unless
-// its parent places it again.
+// again, at once, when that changes anything, the alignment placing the
+// window unless its parent places it again.
 void UWindow::SetWindowAlignments(uint8_t HAlign, uint8_t VAlign, std::optional<float> newHMargin0, std::optional<float> newVMargin0, std::optional<float> newHMargin1, std::optional<float> newVMargin1)
 {
 	float h0 = newHMargin0.value_or(0.0f);
@@ -1947,7 +1905,6 @@ void UWindow::SetWindowAlignments(uint8_t HAlign, uint8_t VAlign, std::optional<
 		vMargin0() = v0;
 		hMargin1() = h1;
 		vMargin1() = v1;
-		bConfigured() = false;
 		AskParentForReconfigure();
 	}
 }
@@ -2342,10 +2299,9 @@ void UWindow::DescendantRemoved(UWindow* descendant)
 // the original keeps them, uncut at 0 -- for the window and every window in
 // it, shown or not. The root's is all of it; DXEngine's 4:3 root is drawn
 // over the whole screen, its children across it (RootOffsetX), so the
-// root's is the screen in its units. DXEngine places windows in its layout
-// pass, so they are clipped after it (RenderSubsystem::PreRenderWindows),
-// and a window SetPos places at once, at once. The tab groups' places read
-// them (MoveTabGroup), as the root's next tick seeds the focus.
+// root's is the screen in its units, clipped again as the screen changes
+// (URootWindow::ResizeRoot). The tab groups' places read them
+// (MoveTabGroup), as the root's tick seeds the focus.
 void UWindow::ClipTree()
 {
 	ClipRect& clip = winClipRect();
@@ -2389,10 +2345,9 @@ void UWindow::ClipTree()
 // table's first. This is how a conversation's choices light up, the frame
 // after they appear, and a menu's first button too. The original then ticks
 // its modal half (an accelerator-table rebuild DXEngine has no table for).
-// The tab groups go in the order of their windows' places, which the
-// original has as soon as a window is made; DXEngine's layout pass has laid
-// out the windows made in the frame before (RenderSubsystem::PreRenderWindows)
-// by the root's next tick, which seeds it (URootWindow::Tick).
+// The tab groups go in the order of their windows' places, which a window
+// has as soon as it is made (AskParentForReconfigure); the root's tick
+// seeds it (URootWindow::Tick).
 void UWindow::SeedFocus()
 {
 	URootWindow* root = GetRootWindow();

@@ -17,11 +17,11 @@ void RenderSubsystem::PreRenderWindows(UCanvas* canvas)
 	if (!engine->dxRootWindow)
 		return;
 
-	engine->dxRootWindow->UpdateLayout();
-	// Each window's clip rectangle for the places the layout gave
-	// (UWindow::ClipTree): the tab groups' places by which the root's next
-	// tick seeds the first focus (URootWindow::Tick)
-	engine->dxRootWindow->ClipTree();
+	// The root sized to the screen, as the original's PreRender sizes it
+	// (URootWindow::ResizeRoot); every other window is laid out as it asks.
+	// Then WindowReady for each window shown that has not had it.
+	engine->dxRootWindow->ResizeRoot();
+	engine->dxRootWindow->InvokeWindowReady();
 }
 
 void RenderSubsystem::PostRenderWindows(UCanvas* canvas)

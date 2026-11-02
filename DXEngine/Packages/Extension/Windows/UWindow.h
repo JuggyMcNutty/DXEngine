@@ -261,7 +261,9 @@ public:
 	void UngrabMouse();
 
 	void DetachFromParent();
-	void UpdateLayout();
+	void ChangeConfiguration();
+	void ReconfigureTree();
+	void InvokeWindowReady();
 	void ClipTree();
 	void SeedFocus();
 

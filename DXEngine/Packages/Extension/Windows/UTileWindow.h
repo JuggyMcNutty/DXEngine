@@ -25,8 +25,6 @@ public:
 	void ConfigurationChanged() override;
 	bool ChildRequestedReconfiguration(UWindow* childWin) override;
 	void ChildRequestedVisibilityChange(UWindow* childWin, bool bNewVisibility) override;
-	void ChildAdded(UWindow* child) override;
-	void ChildRemoved(UWindow* child) override;
 
 	BitfieldBool bEqualHeight() { return BoolValue(PropOffsets_TileWindow.bEqualHeight); }
 	BitfieldBool bEqualWidth() { return BoolValue(PropOffsets_TileWindow.bEqualWidth); }

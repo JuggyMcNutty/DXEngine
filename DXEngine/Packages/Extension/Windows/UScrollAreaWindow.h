@@ -13,6 +13,7 @@ public:
 	void InitDefaults() override;
 	void ConfigurationChanged() override;
 	void ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight) override;
+	bool ChildRequestedReconfiguration(UWindow* childWin) override;
 	void ChildRequestedVisibilityChange(UWindow* childWin, bool bNewVisibility) override;
 	void DescendantRemoved(UWindow* descendant) override;
 	bool ScaleRangeChanged(UWindow* scale, int fromTick, int toTick, float fromValue, float toValue, bool bFinal) override;

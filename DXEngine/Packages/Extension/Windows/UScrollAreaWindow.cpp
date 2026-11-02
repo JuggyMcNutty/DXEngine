@@ -216,6 +216,13 @@ void UScrollAreaWindow::ComputeChildSizes(bool bWidthSpecified, float width, flo
 		*outHeight = resultHeight;
 }
 
+// A child's request goes on up, the area laid out again with its parent
+// (XScrollAreaWindow::ChildRequestedReconfiguration 0x100421d0 takes none).
+bool UScrollAreaWindow::ChildRequestedReconfiguration(UWindow* childWin)
+{
+	return false;
+}
+
 void UScrollAreaWindow::ChildRequestedVisibilityChange(UWindow* childWin, bool bNewVisibility)
 {
 	childWin->SetChildVisibility(bNewVisibility);

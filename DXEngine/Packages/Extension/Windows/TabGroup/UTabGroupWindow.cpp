@@ -67,6 +67,15 @@ void UTabGroupWindow::ConfigurationChanged()
 	}
 }
 
+// A child's request goes on up, the script unasked, the group laid out again
+// with its parent (XTabGroupWindow::ChildRequestedReconfiguration 0x100421d0
+// takes none): a modal's, a clip window's and a radio box's too, the root's
+// alone asking its script (URootWindow::ChildRequestedReconfiguration).
+bool UTabGroupWindow::ChildRequestedReconfiguration(UWindow* childWin)
+{
+	return false;
+}
+
 // The original's (XTabGroupWindow::ChildRequestedVisibilityChange
 // 0x10045870): a child that hides lays the group out again.
 void UTabGroupWindow::ChildRequestedVisibilityChange(UWindow* childWin, bool bNewVisibility)

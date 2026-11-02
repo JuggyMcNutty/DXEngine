@@ -167,6 +167,13 @@ void UScaleManagerWindow::ParentRequestedPreferredSize(bool bWidthSpecified, flo
 	preferredHeight += marginHeight() + marginHeight();
 }
 
+// A child's request goes on up, the manager laid out again with its parent
+// (XScaleManagerWindow::ChildRequestedReconfiguration 0x100421d0 takes none).
+bool UScaleManagerWindow::ChildRequestedReconfiguration(UWindow* childWin)
+{
+	return false;
+}
+
 void UScaleManagerWindow::ChildRequestedVisibilityChange(UWindow* childWin, bool bNewVisibility)
 {
 	childWin->SetChildVisibility(bNewVisibility);

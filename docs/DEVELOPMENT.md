@@ -251,6 +251,7 @@ launcher's part, which DXEngine leaves to the launchers.
 | `GrabConsole` | both | the root's counts of the keyboard's and the mouse's grabs on the menu map, a step every half second: the window stack cleared, the main menu, a message box over it hidden and shown again, the menu under it hidden, the stack cleared, a modal made hidden then shown and destroyed, the root's grabs and ungrabs by script; the pointer under a script's grab of the mouse with no modal up, and after it, two marked shots | `DXGRAB:` | every line; the pointer in the first shot alone, at `DXCAP_WINDOW=1024x768` |
 | `TimerConsole` | both | a window's timers on the main menu: a single one, one looping every millisecond and one at 0, two added in turn, one with no function name | `DXTIMER:` | the two logs diffed, both at `DXCAP_FPS=60` |
 | `SizeConsole` | both | the root's size and scale; the size a new window takes | `DXSIZE:` |  |
+| `LayoutConsole` | both | on the main menu, a window of the package's own placing its first two children itself (`CapLayoutWindow`): their places as made, the second moved by `SetPos`, the first left out of the holder's next layout, each at once and on the next frame | `DXLAYOUT:` | every line |
 | `PerfConsole` | both | what a frame costs on `TargetMap`: sixty one-second windows | `DXPERF:` | `tools/perf/frame-report.py`, with `DXCAP_PERF=1` ([measuring both engines](#measuring-both-engines)) |
 | `PerfTurnConsole` | both | `PerfConsole` with the view turning | `DXPERF:` | the same |
 | `BeltConsole` | both | the object belt | `DXBELT:` |  |

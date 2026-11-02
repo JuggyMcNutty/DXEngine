@@ -345,20 +345,6 @@ void UTileWindow::ChildRequestedVisibilityChange(UWindow* childWin, bool bNewVis
 	AskParentForReconfigure();
 }
 
-// A child added or removed lays the tile out afresh, its own size asked
-// again (DXEngine's layout keeps windows its parent places by bConfigured).
-void UTileWindow::ChildAdded(UWindow* child)
-{
-	UWindow::ChildAdded(child);
-	bConfigured() = false;
-}
-
-void UTileWindow::ChildRemoved(UWindow* child)
-{
-	UWindow::ChildRemoved(child);
-	bConfigured() = false;
-}
-
 // The original's (XTileWindow::ParentRequestedGranularity 0x10048860): the
 // script's say; then with equal widths (or heights), a child and its
 // spacing -- the topmost shown child's.

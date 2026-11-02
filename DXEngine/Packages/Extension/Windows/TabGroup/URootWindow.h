@@ -30,6 +30,8 @@ public:
 	void WindowReady() override;
 	void PostDrawWindow(UGC* gc) override;
 	void Tick(float timeElapsed) override;
+	bool ChildRequestedReconfiguration(UWindow* childWin) override;
+	void ResizeRoot();
 
 	bool SetRootFocusWindow(UWindow* NewFocusWindow);
 	void SetRootCursorPos(float newMouseX, float newMouseY);
@@ -126,6 +128,10 @@ public:
 	int& vMultiplier() { return Value<int>(PropOffsets_RootWindow.vMultiplier); }
 
 	bool RenderViewportSet = false;
+
+	// The screen the root was last laid out for (ResizeRoot): none yet.
+	int LaidOutViewportWidth = 0;
+	int LaidOutViewportHeight = 0;
 
 	// The place MouseMoved last went out for: none yet.
 	float movedMouseX = -1.0f;
