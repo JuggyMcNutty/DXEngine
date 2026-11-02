@@ -314,7 +314,8 @@ By area, as the code stands. Each device's numbers are its port's, such as
   always a borderless window covering the display, set up while the window is hidden:
   `SDL_SetWindowFullscreen` deadlocks on a GL window with that device's vendor SDL2. The X11,
   Wayland and Win32 windows keep the desktop's mode. In a Wayland session SDL3 emulates a mode:
-  the frame drawn at its size and scaled to the display by the compositor (bugs.md WIN.8).
+  the frame drawn at its size and scaled to the display by the compositor, by choice: Wayland lets
+  no program switch the display's mode.
 - **The window's place**: the game's window opens at its size alone, where the system puts a
   new window, as the original's viewport opens at Windows' default place
   ([the window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-window)):

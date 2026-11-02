@@ -635,7 +635,8 @@ pixels as the original's as it sways). Differs:
 
 - `ConvertVectorToCoordinates` asked outside a viewport window's draw
   answers through the frame it last drew, or as a plain window's before it
-  draws one, where the original stops at an assertion (bugs.md D.36);
+  draws one, where the original stops at an assertion, by choice: an
+  assertion stops the game, and no stock script asks one so;
 - a window wider than 4:3 sees more at the sides, by choice
   ([the view's width](#the-views-width)).
 
@@ -878,7 +879,7 @@ on any display of 24 bits or more, on every device: `MeshConsole`'s shots
 under Vulkan, with descriptor indexing and without (the Smart Pro's), are
 within 0.2% of the GL device's. How a DXEngine shot meets the original's
 frames: [scripted runs](DEVELOPMENT.md#scripted-runs-of-both-engines).
-Differs (bugs.md REN.24):
+Differs, by choice, the owner judging it close enough, its cause not found:
 
 - `MeshConsole`'s Liberty Island pier, where nothing is in hand, is 1.7%
   under `D3DDrv`'s frames with the detail textures on, DXEngine drawing the
@@ -964,7 +965,8 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   where two of them overlap at one depth, which shows can differ, as the
   indices the original's loads and frees gave its objects decide there (the
   gaps between the Liberty Island pier's planks, a few hundred pixels of
-  `MeshConsole`'s frame; bugs.md D.37).
+  `MeshConsole`'s frame), by choice: no run can give the original's
+  object indices.
 - **A mesh's translucent faces** are drawn after its opaque ones, back to
   front with the scene's translucent parts, where the original draws a
   mesh's faces in their order as its walk meets the mesh: by choice, the
@@ -1447,8 +1449,8 @@ it. Differs:
   display's modes: the common sizes from 640x480 that fit the screen, with
   the window's own and the screen's, a choice resizing the window; by choice.
 - **Full screen in a Wayland session**, a size chosen is drawn at its size
-  and scaled to the display by the compositor, the display's mode as it was
-  (bugs.md WIN.8).
+  and scaled to the display by the compositor, the display's mode as it was,
+  by choice: Wayland lets no program switch the display's mode.
 - **Detail Textures** draws the world's detail textures as `D3DDrv`'s passes
   draw them, all three in the scene shader's one pass
   ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):
@@ -1962,8 +1964,9 @@ Every other native the scripted runs compare matches the original
   their own, as the original's: so `I = I++` ends stepped, of a local, an
   instance variable and an array's element, through a context too
   (`ResultConsole`). Differs: a native's vector or struct parameter given
-  such a result reads zero, where the original's reads what its stack held
-  (D.35).
+  such a result reads zero, where the original's reads what its stack held,
+  by choice: no run can match that, and no stock script gives one such a
+  result.
 - **An actor spawned into water** keeps its physics, the spawn setting its
   region alone, as the original's does: an AirBubble, an Effects with
   PHYS_Projectile, rises as a swimming player's breath does

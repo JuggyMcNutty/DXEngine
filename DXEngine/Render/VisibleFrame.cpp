@@ -1026,7 +1026,7 @@ void VisibleFrame::DrawOpaqueNodes()
 	// zone actor's, the texture's and its palette's, in a sort that keeps no
 	// order among equal keys (dx-reverse-info render-dll.md, a frame), which
 	// no run can give: where two surfaces overlap at one depth, which shows
-	// can differ (bugs.md D.37). Elsewhere the depth test makes the order free.
+	// can differ, by choice. Elsewhere the depth test makes the order free.
 	UModel* model = engine->Level->Model;
 	auto key = [&](const VisibleNode& node)
 	{
