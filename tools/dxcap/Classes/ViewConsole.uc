@@ -3,12 +3,17 @@
 // (docs/DEVELOPMENT.md, scripted runs). At Liberty Island's start, level
 // and facing the start's way: the Dragon's Tooth given as the game gives the
 // starting pistol (a spawned one frobbed) and put in hand, the HUD hidden,
-// its look logged and shot three times over two seconds once it is up; then
-// exit. The level's Brightness and each zone's ambient light are logged on
-// arrival, for the light maps' brightness.
+// its look logged -- its animation, place and turn among it -- and shot
+// three times over two seconds once it is up; then exit. With FovAngle the
+// view takes that field of view, its default and desired ones too, as the
+// weapon is drawn only at the default (Weapon.RenderOverlays). The level's
+// Brightness and each zone's ambient light are logged on arrival, for the
+// light maps' brightness.
 // Each line is logged with "DXVIEW:" in front.
 //=============================================================================
 class ViewConsole extends Console;
+
+var config float FovAngle;
 
 var float MapTime;
 var float StepTime;
@@ -27,7 +32,9 @@ function LogLook(string Label, Actor A)
 		$ " style " $ int(A.Style) $ " unlit " $ A.bUnlit $ " glow " $ A.ScaleGlow $ " ambient " $ A.AmbientGlow
 		$ " fatness " $ A.Fatness $ " enviro " $ A.bMeshEnviroMap $ " skin " $ A.Skin $ " texture " $ A.Texture
 		$ " light " $ int(A.LightType) $ " effect " $ int(A.LightEffect) $ " bright " $ A.LightBrightness
-		$ " hue " $ A.LightHue $ " sat " $ A.LightSaturation $ " radius " $ A.LightRadius;
+		$ " hue " $ A.LightHue $ " sat " $ A.LightSaturation $ " radius " $ A.LightRadius
+		$ " anim " $ A.AnimSequence $ " frame " $ A.AnimFrame $ " rate " $ A.AnimRate $ " tween " $ A.TweenRate
+		$ " location " $ A.Location $ " rotation " $ A.Rotation $ " drawscale " $ A.DrawScale;
 	for (i = 0; i < 8; i++)
 		S = S $ " multi" $ i $ " " $ A.MultiSkins[i];
 	Log(S);
@@ -131,6 +138,13 @@ event Tick(float Delta)
 				return;
 			}
 			DXP.PutInHand(W);
+			if (FovAngle > 0)
+			{
+				P.DefaultFOV = FovAngle;
+				P.DesiredFOV = FovAngle;
+				P.FOVAngle = FovAngle;
+				Log("DXVIEW: the view's field of view " $ P.FOVAngle);
+			}
 			// The original's HUD draws over the grabber's mark.
 			if (DeusExRootWindow(DXP.rootWindow) != None)
 				DeusExRootWindow(DXP.rootWindow).ShowHud(False);
