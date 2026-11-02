@@ -10,12 +10,43 @@
 #include <dlfcn.h>
 #endif
 
+#ifndef WIN32
+#include <sys/stat.h>
+#include <cstdio>
+#include <cstdlib>
+
+// In a rootless container (podman's, so distrobox's and toolbox's) the
+// host's root is not mapped into the user namespace: what it owns shows as
+// the overflow uid, and libudev's monitor drops each message from a sender
+// other than uid 0, so SDL's udev enumeration never hears of a pad plugged
+// in after the start. SDL watches /dev/input itself only in a Flatpak or a
+// Snap (SDL_GetSandbox); there it is asked to (SDL_JOYSTICK_DISABLE_UDEV).
+static bool HostRootUnmapped()
+{
+	struct stat st;
+	if (stat("/dev/input", &st) != 0)
+		return false;
+	unsigned long overflow = 65534;
+	if (FILE* file = fopen("/proc/sys/kernel/overflowuid", "r"))
+	{
+		if (fscanf(file, "%lu", &overflow) != 1)
+			overflow = 65534;
+		fclose(file);
+	}
+	return st.st_uid == overflow;
+}
+#endif
+
 SDL3DisplayBackend::SDL3DisplayBackend()
 {
 	// Alt+F4 the keys it is, as the Win32 window takes them and the
 	// original's (windrv-dll.md, the keys): SDL's Windows video closes the
 	// window on it by default
 	SDL_SetHint(SDL_HINT_WINDOWS_CLOSE_ON_ALT_F4, "0");
+#ifndef WIN32
+	if (HostRootUnmapped())
+		SDL_SetHint("SDL_JOYSTICK_DISABLE_UDEV", "1");
+#endif
 
 	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD))
 		throw std::runtime_error(std::string("Unable to initialize SDL:") + SDL_GetError());
