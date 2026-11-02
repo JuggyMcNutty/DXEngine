@@ -315,6 +315,8 @@ launcher's part, which DXEngine leaves to the launchers.
 | `TravelJoinConsole` | either | a client that follows it | `DXNET:` |  |
 | `PickServer` | either | a weapon held before the joined player's eyes on a dedicated server (`dedicated <engine> PickServer DXMP_Cathedral?game=DXCapture.CapDeathMatch`): the player's frob target as the server has it, also in the player's name; it exits 20 s after placing it | `DXPICK:` | the client's log |
 | `PickJoinConsole` | either | a client of it that uses what it looks at 12 s in: its frob target, the server's (its name), whether it holds the weapon | `DXPICK:` |  |
+| `AskServer` | either | calls with a return value across a net game, on a dedicated server (`dedicated <engine> AskServer DXMP_Cathedral?game=DXCapture.CapDeathMatch`): a `CapAsker` owned by the joined player, then its three functions that go to the client, each into a variable set before; what they leave and the client's calls it took, said in the asker's `Saw` too, and the client's lines its `Tell` brings; it exits 20 s after placing the asker | `DXASK:` | either log alone holds every line |
+| `AskJoinConsole` | either | a client of it that calls the asker's functions into variables set before: one of each type that goes to the server, a bool, the asker's own variable, a sum, one its proxy does not run, a simulated one, the game's `GivePlayerAugmentation`; exits 10 s after | `DXASK:` | the lines diffed, but for `the server says` as it comes, which moves with time; the original client's in `LOG=AskJoin.log` (`DXCAP_FLAGS`), its server sharing the game's log |
 
 - `SaveConsole`, `LoadConsole`, `StartConsole`, `LoadingConsole`, `MoverConsole`,
   `SleepConsole` and `CensusConsole` use the game's own `Save\Save0009` and `Save\Current`,

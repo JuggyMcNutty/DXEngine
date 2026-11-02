@@ -1905,18 +1905,20 @@ Every other native the scripted runs compare matches the original
   takes it reads its type's zero, but a native's optional parameter, which
   keeps its default as though left out (a `Spawn` at the spawner's place, a
   `Trace` from the tracer's). A call of a probe's function while the probe
-  is off writes nothing so too. A `Let` has a script function's call write
-  its value into the variable itself, then the call copies its `out`
-  parameters back, the last first, as the original's does: so an `out`
-  parameter that is also the variable assigned ends with the parameter's
-  value, through a `return` of the call too, and of two `out` parameters
-  given one variable the first's; a bool, which `LetBool` sets once the call
-  is done, takes the value returned (read) (`ResultConsole`). Differs: a
-  native's `out` parameter assigned its own result (`I = I++`) keeps the
-  value returned, where the original's post-increment and post-decrement
-  natives write their result before they step the variable, so it ends
-  stepped (VM.15); and a native's vector or struct parameter given such a
-  result reads zero, where the original's reads what its stack held (D.35).
+  is off writes nothing so too, and so does one a net game sends to the
+  other side or does not run ([multiplayer](#multiplayer)). A `Let` has a
+  script function's call write its value into the variable itself, then the
+  call copies its `out` parameters back, the last first, as the original's
+  does: so an `out` parameter that is also the variable assigned ends with
+  the parameter's value, through a `return` of the call too, and of two
+  `out` parameters given one variable the first's; a bool, which `LetBool`
+  sets once the call is done, takes the value returned (read)
+  (`ResultConsole`). Differs: a native's `out` parameter assigned its own
+  result (`I = I++`) keeps the value returned, where the original's
+  post-increment and post-decrement natives write their result before they
+  step the variable, so it ends stepped (VM.15); and a native's vector or
+  struct parameter given such a result reads zero, where the original's
+  reads what its stack held (D.35).
 - **An actor spawned into water** keeps its physics, the spawn setting its
   region alone, as the original's does: an AirBubble, an Effects with
   PHYS_Projectile, rises as a swimming player's breath does
@@ -2511,7 +2513,7 @@ through `Pawn.ClientHearSound`
 `ServeConsole`'s beeps, the client recorded). Each runs against the original
 as client and as server: `ServeConsole`, `JoinConsole`, `RejoinConsole`,
 `TravelServeConsole`, `TravelJoinConsole`, `NetConsole`, `PickServer` with
-`PickJoinConsole`. DXEngine joins live
+`PickJoinConsole`, `AskServer` with `AskJoinConsole`. DXEngine joins live
 public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
 stays in. Differs (bugs.md NET.8): until its pawn arrives, a joining DXEngine
 client has no player and draws no world, where the original's player waits
@@ -2601,6 +2603,21 @@ As in the original:
   takes it, so a weapon or an item is picked up on a net game only so
   (`PickServer` and `PickJoinConsole`, each engine as server and as client).
   Each side keeps what the other last got of each value.
+- A call that goes to the other side, and one a simulated or dumb proxy does
+  not run (a function not simulated), writes nothing: the original's
+  `ProcessInternal` runs none of it
+  ([variables and calls](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#variables-and-calls)),
+  so a variable assigned from it keeps its value, a bool is cleared, and
+  whatever else takes it reads its zero (`AskServer` with `AskJoinConsole`,
+  each engine's server with its own client: a client's call of each type
+  that goes to the server, one its proxy does not run, the game's
+  `GivePlayerAugmentation`, and the server's three that go to the client
+  each leave the variable as it was, every client line alike).
+- **A dedicated server** makes each joining player's own root window, as the
+  original's `Possess` does, and lays its windows out on the base 640 by
+  480, having no viewport, its windows' scripts measuring with the GC as it
+  is, there being no render subsystem; nothing there is drawn
+  (`PickServer`, `AskServer`: a player joined and the server running on).
 - Until a server's first correction gives it its base, a client's player
   rests 2.46 units below the server's, which the correction lifts it by: a
   client runs no level's `SupportActor`, a simulated proxy running only

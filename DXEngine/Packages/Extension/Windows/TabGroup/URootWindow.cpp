@@ -266,8 +266,8 @@ bool URootWindow::ChildRequestedReconfiguration(UWindow* childWin)
 // and top-aligned ones with it.
 void URootWindow::ResizeRoot()
 {
-	int viewportWidth = engine->viewport->ViewportWidth();
-	int viewportHeight = engine->viewport->ViewportHeight();
+	int viewportWidth, viewportHeight;
+	GetScreenSize(viewportWidth, viewportHeight);
 	if (viewportWidth == LaidOutViewportWidth && viewportHeight == LaidOutViewportHeight)
 		return;
 	LaidOutViewportWidth = viewportWidth;
@@ -460,9 +460,11 @@ void URootWindow::SetRootCursorPos(float newMouseX, float newMouseY)
 	newMouseX += UsedX;
 	newMouseY += UsedY;
 
+	int width, height;
+	GetScreenSize(width, height);
 	float scale = GetVirtualScale();
-	float realWidth = std::ceil(engine->viewport->ViewportWidth() / scale);
-	float realHeight = std::ceil(engine->viewport->ViewportHeight() / scale);
+	float realWidth = std::ceil(width / scale);
+	float realHeight = std::ceil(height / scale);
 
 	newMouseX = std::max(newMouseX, 0.0f);
 	newMouseY = std::max(newMouseY, 0.0f);

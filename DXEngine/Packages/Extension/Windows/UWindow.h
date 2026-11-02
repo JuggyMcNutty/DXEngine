@@ -323,6 +323,9 @@ public:
 	static float GetExtendedVirtualWidth();
 	static float GetVirtualHeight();
 	static float GetVirtualScale();
+	// The screen's size in pixels: the viewport's, or on a dedicated server,
+	// which has none and draws nothing, the base 640 by 480
+	static void GetScreenSize(int& width, int& height);
 	static std::string FormatScriptFloat(const std::string& format, double value);
 
 	UTexture*& Background() { return Value<UTexture*>(PropOffsets_Window.Background); }

@@ -237,9 +237,15 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, CallArguments& a
 	TraceCall(func, instance, args);
 
 	// In a net game an actor's call may go to the other side instead, or not
-	// run at all; a native with its own number never does either.
+	// run at all; a native with its own number never does either. Either way
+	// it writes nothing, as the original's: ProcessInternal (Core.dll
+	// 0x1013f690) asks the object's ProcessRemoteFunction first (an actor's,
+	// Engine.dll 0x103e5d90) and, when that takes the call, runs none of it
+	// and steps nothing into the caller's result; CallFunction (0x1013f4e0)
+	// so calls no native without its own number that it takes. A variable
+	// assigned from it keeps its value, a bool is cleared (CallScript).
 	if (engine->LevelNetDriver && !(AllFlags(func->FuncFlags, FunctionFlags::Native) && func->NativeFuncIndex != 0) && NetProcessRemoteFunction(func, instance, args))
-		return func->ReturnParm ? ExpressionValue::DefaultValue(func->ReturnParm) : ExpressionValue::NothingValue();
+		return ExpressionValue::NothingValue(true);
 
 	// Whether func is an event is a property of its name: look it up once
 	if (func->EventIndex == -2)

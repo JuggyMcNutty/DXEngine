@@ -67,7 +67,9 @@ float UWindow::RootOffsetX()
 // centred 21 units off the screen's left edge.
 float UWindow::GetVirtualWidth()
 {
-	float screenWidth = engine->viewport->ViewportWidth() / GetVirtualScale();
+	int width, height;
+	GetScreenSize(width, height);
+	float screenWidth = width / GetVirtualScale();
 	return std::min(std::round(GetVirtualHeight() * 4 / 3), screenWidth);
 }
 
@@ -78,16 +80,19 @@ float UWindow::GetVirtualWidth()
 // extend up to 16:9 instead of staying in the 4:3 box of the root window.
 float UWindow::GetExtendedVirtualWidth()
 {
+	int width, height;
+	GetScreenSize(width, height);
 	float scale = GetVirtualScale();
-	float realWidth = engine->viewport->ViewportWidth() / scale;
+	float realWidth = width / scale;
 	float maxWidth = GetVirtualHeight() * (16.0f / 9.0f);
 	return std::min(realWidth, maxWidth);
 }
 
 float UWindow::GetVirtualHeight()
 {
-	float scale = GetVirtualScale();
-	return engine->viewport->ViewportHeight() / scale;
+	int width, height;
+	GetScreenSize(width, height);
+	return height / GetVirtualScale();
 }
 
 // A number through a script's printf format, as the original's appSprintf
@@ -129,9 +134,26 @@ float UWindow::GetVirtualScale()
 	// 0x1003adf0): the smaller of the viewport's width over 640 and its
 	// height over 480, each truncated, at least 1 -- the largest whole
 	// multiple of 640x480 the viewport holds
-	int width = engine->viewport->ViewportWidth();
-	int height = engine->viewport->ViewportHeight();
+	int width, height;
+	GetScreenSize(width, height);
 	return (float)std::max(std::min(width / 640, height / 480), 1);
+}
+
+// A dedicated server has no viewport: the player's own root's windows, which
+// its Possess makes there as the original's does (UPlayerPawnExt), are laid
+// out on the base 640 by 480 and never drawn
+void UWindow::GetScreenSize(int& width, int& height)
+{
+	if (engine->viewport)
+	{
+		width = engine->viewport->ViewportWidth();
+		height = engine->viewport->ViewportHeight();
+	}
+	else
+	{
+		width = 640;
+		height = 480;
+	}
 }
 
 // The lookup under AddActorRef, RemoveActorRef and IsActorValid, as the
@@ -358,6 +380,13 @@ bool UWindow::ConvertVectorToCoordinates(const vec3& Location, float& relativeX,
 		return false;
 	}
 
+	// No view to project through on a dedicated server
+	if (!engine->render)
+	{
+		relativeX = 0.0f;
+		relativeY = 0.0f;
+		return false;
+	}
 	const SceneNode& view = engine->render->MainView;
 	vec4 viewSpaceLocation = view.WorldToView * vec4(Location, 1.0f);
 	bool inFront = viewSpaceLocation.z > 1.0f;
@@ -579,7 +608,10 @@ UObject* UWindow::GetFocusWindow()
 // own state put in it, its state before kept until ReleaseGC
 UObject* UWindow::GetGC()
 {
-	engine->render->PushWindowGC(this);
+	// A dedicated server has no render subsystem to keep the GC's states,
+	// and draws nothing: its windows' scripts measure with the GC as it is
+	if (engine->render)
+		engine->render->PushWindowGC(this);
 	return engine->dxgc;
 }
 
@@ -1299,7 +1331,7 @@ void UWindow::Raise()
 
 void UWindow::ReleaseGC(UObject* GC)
 {
-	if (GC)
+	if (GC && engine->render)
 		engine->render->PopWindowGC();
 }
 
