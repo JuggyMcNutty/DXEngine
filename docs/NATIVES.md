@@ -2567,7 +2567,15 @@ as client and as server: `ServeConsole`, `JoinConsole`, `RejoinConsole`,
 `TravelServeConsole`, `TravelJoinConsole`, `NetConsole`, `PickServer` with
 `PickJoinConsole`, `AskServer` with `AskJoinConsole`. DXEngine joins live
 public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
-stays in. Until its pawn arrives, a joining client's player waits in the
+stays in. The rate it asks of a server is 20,000 where the ini holds the
+game's stock 2,600 or none, by choice: set at the start as a `SET` sets it,
+the ini, `Engine.Player`'s defaults and the viewport, so a mod's player that
+sets its net speed from it once in asks the same (MTL's `MTLPlayer`); a net
+client runs at most its rate / 64 frames a second, as the original's, 40 at
+2,600 (`tools/dxcap.sh live` on an MTL server: 40 frames a second at 2,600,
+120 at 20,000 on a 120 Hz display), and a server holds a client to its own
+`MaxClientRate`. Any other rate the player set stays, and each `netspeed`
+and `lanspeed` is logged. Until its pawn arrives, a joining client's player waits in the
 Entry level, logged in with the join's URL, its HUD and the console's
 CONNECTING drawn over a black view, and the Entry level is ticked twice a
 frame, after the game's level, as the original's; the player is destroyed

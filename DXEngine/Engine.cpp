@@ -2828,6 +2828,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		// Both keep it as the internet speed, as the original's both do.
 		int rate = std::atoi(args[1].c_str());
 		bool lan = command == "lanspeed";
+		LogMessage("Net: " + command + " " + std::to_string(rate));
 		packages->SetIniValue("system", "Engine.Player", "ConfiguredInternetSpeed", std::to_string(rate));
 		NetConnection* connection = LevelNetDriver ? LevelNetDriver->ServerConnection.get() : nullptr;
 		if (rate >= 500 && connection && LevelInfo->URL.HasOption("LAN") == lan)
@@ -3100,6 +3101,17 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
 
 void Engine::LoadEngineSettings()
 {
+	// The rate a client asks of a server: the game's stock 2,600, or none,
+	// is 20,000, by choice, set as a SET sets it -- the ini, the class's
+	// defaults and the viewport -- for the engine and the scripts alike (a
+	// mod's player sets its net speed from it once in): a net client runs
+	// at most its rate / 64 frames a second, 40 at 2,600, as the original's,
+	// and a server holds a client to its own MaxClientRate. Any other rate
+	// the player set stays.
+	std::string speed = packages->GetIniValue("system", "Engine.Player", "ConfiguredInternetSpeed");
+	if (speed.empty() || speed == "2600")
+		RunCommand(nullptr, "set Engine.Player ConfiguredInternetSpeed 20000");
+
 	if (packages->MissingDXESystemIni())
 	{
 		client->LoadProperties("WinDrv.WindowsClient");
