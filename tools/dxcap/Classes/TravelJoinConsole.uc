@@ -6,11 +6,15 @@
 // exits -- or at 150 s, however far it got. Out of the game 2 s or more once
 // in it (a travel's Entry level lasts a moment), it takes the server as
 // lost: a shot 4 s in, marked for the original's grabber, and an exit.
+// While its player waits in the Entry level for its pawn (the join's map
+// loaded, the level not yet a client's), each tick logs the Entry level's
+// time, how far it stepped and the frame's time, and the frames are marked
+// as shot 2, the first of them shot (bugs.md NET.8).
 //=============================================================================
 class TravelJoinConsole extends Console;
 
-var float RunTime, LogTime, SecondTime, LostTime;
-var int Step;
+var float RunTime, LogTime, SecondTime, LostTime, WaitLast;
+var int Step, WaitTicks, Mark;
 var string FirstMap;
 
 // The map of the level's URL: what follows the last '/', up to the options.
@@ -49,6 +53,21 @@ event Tick(float Delta)
 		P.ConsoleCommand("open 127.0.0.1:7790");
 		Step = 1;
 	}
+	Mark = 0;
+	if (Step == 1 && FirstMap == "" && P.Level.NetMode != NM_Client && InStr(Caps(MapOf(P)), "ENTRY") >= 0)
+	{
+		if (WaitTicks > 0)
+			Log("DXNET: wait tick " $ WaitTicks $ " Entry time " $ P.Level.TimeSeconds $ " step " $ (P.Level.TimeSeconds - WaitLast) $ " delta " $ Delta $ " action " $ P.Level.LevelAction);
+		else
+		{
+			Log("DXNET: waiting in " $ MapOf(P) $ ", Entry time " $ P.Level.TimeSeconds $ " action " $ P.Level.LevelAction);
+			Log("DXCAP: shot 2 in " $ MapOf(P));
+			P.ConsoleCommand("shot");
+		}
+		WaitLast = P.Level.TimeSeconds;
+		WaitTicks++;
+		Mark = 2;
+	}
 	if (RunTime - LogTime >= 1.0)
 	{
 		LogTime = RunTime;
@@ -84,7 +103,7 @@ event Tick(float Delta)
 		if (FirstMap == "")
 		{
 			FirstMap = Map;
-			Log("DXNET: joined " $ Map);
+			Log("DXNET: joined " $ Map $ " after " $ WaitTicks $ " wait ticks");
 		}
 		else if (Map != FirstMap && Step < 2)
 		{
@@ -108,14 +127,17 @@ event Tick(float Delta)
 	}
 }
 
-// The lost server's frame marked as CaptureConsole marks its shots: a
-// magenta block, then shot 1's number in eight blocks.
+// The lost server's frame, and the wait's, marked as CaptureConsole marks
+// its shots: a magenta block, then the shot's number in eight blocks.
 event PostRender(canvas C)
 {
-	local int i;
+	local int i, n;
 
 	Super.PostRender(C);
-	if (Step != 4 || RunTime - LostTime < 3.0)
+	n = Mark;
+	if (Step == 4 && RunTime - LostTime >= 3.0)
+		n = 1;
+	if (n == 0)
 		return;
 	C.Style = 1;
 	C.SetPos(0, 0);
@@ -128,7 +150,7 @@ event PostRender(canvas C)
 		C.DrawColor.R = 0;
 		C.DrawColor.G = 0;
 		C.DrawColor.B = 0;
-		if (i == 0)
+		if ((n & (1 << i)) != 0)
 		{
 			C.DrawColor.R = 255;
 			C.DrawColor.G = 255;
