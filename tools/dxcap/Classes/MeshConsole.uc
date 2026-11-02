@@ -10,7 +10,12 @@
 // detail textures are turned off first, as the Display menu turns them off
 // (set ini:Engine.Engine.GameRenderDevice DetailTextures False). With Enviro
 // all four are drawn environment-mapped (bMeshEnviroMap), in the map their
-// zone or the level gives, or their last slot's texture. The pier's
+// zone or the level gives, or their last slot's texture. With Hold, Paul
+// is held at his sequence's HoldFrame, not playing, his blend slots too,
+// from the tick before each draw: one pose in both engines, each look
+// logging the sequences and frames. With Extra (a class, as
+// DeusEx.Plant1) one more is placed 140 units ahead and 50 to the right,
+// before the crate, and logged with the rest. The pier's
 // floor, compared in NATIVES.md (brightness), is two bands of a 1024x768
 // shot's planks, either side of Paul's feet: x 180 to 460 and 580 to 750,
 // y 640 to 760.
@@ -21,12 +26,15 @@ class MeshConsole extends Console;
 var config float LODBias;
 var config bool NoDetail;
 var config bool Enviro;
+var config bool Hold;
+var config float HoldFrame;
+var config string Extra;
 
 var float MapTime;
 var float StepTime;
 var int Phase;
 var int ShotsTaken;
-var Actor Placed[4];
+var Actor Placed[5];
 
 // The mark for the original's screen grabber, as CaptureConsole's.
 var int MarkShot;
@@ -36,7 +44,10 @@ function LogLook(string Label, Actor A)
 {
 	Log("DXMESH: " $ Label $ " " $ A.Name $ " at " $ A.Location $ " rotation " $ A.Rotation $ " mesh " $ A.Mesh
 		$ " style " $ int(A.Style) $ " unlit " $ A.bUnlit $ " glow " $ A.ScaleGlow $ " ambient " $ A.AmbientGlow
-		$ " zone " $ A.Region.Zone.Name $ " zone ambient " $ A.Region.Zone.AmbientBrightness $ " LOD bias " $ A.LODBias);
+		$ " zone " $ A.Region.Zone.Name $ " zone ambient " $ A.Region.Zone.AmbientBrightness $ " LOD bias " $ A.LODBias
+		$ " anim " $ A.AnimSequence $ " frame " $ A.AnimFrame
+		$ " blends " $ A.BlendAnimSequence[0] $ " " $ A.BlendAnimFrame[0] $ ", " $ A.BlendAnimSequence[1] $ " " $ A.BlendAnimFrame[1]
+		$ ", " $ A.BlendAnimSequence[2] $ " " $ A.BlendAnimFrame[2] $ ", " $ A.BlendAnimSequence[3] $ " " $ A.BlendAnimFrame[3]);
 }
 
 function Actor Place(PlayerPawn P, class<Actor> C, vector Where)
@@ -144,6 +155,8 @@ event Tick(float Delta)
 			Placed[1] = Place(P, class'CrateUnbreakableLarge', P.Location + X * 200 + Y * 130);
 			Placed[2] = Place(P, class'Barrel1', P.Location + X * 170 - Y * 110);
 			Placed[3] = Place(P, class'BoxLarge', P.Location + X * 300 - Y * 40);
+			if (Extra != "")
+				Placed[4] = Place(P, class<Actor>(DynamicLoadObject(Extra, class'Class')), P.Location + X * 140 + Y * 50);
 			if (LODBias > 0)
 				for (i = 0; i < 4; i++)
 					if (Placed[i] != None)
@@ -161,6 +174,16 @@ event Tick(float Delta)
 	}
 	else if (Phase == 2)
 	{
+		if (Hold && Placed[0] != None)
+		{
+			Placed[0].AnimFrame = HoldFrame;
+			Placed[0].AnimRate = 0;
+			for (i = 0; i < 4; i++)
+			{
+				Placed[0].BlendAnimFrame[i] = HoldFrame;
+				Placed[0].BlendAnimRate[i] = 0;
+			}
+		}
 		// Settled after 3 s; a shot every 2 s from then, the mark shown for
 		// the 0.6 s before each.
 		if (StepTime > 3.0 && ShotsTaken < 2)
@@ -173,7 +196,7 @@ event Tick(float Delta)
 			}
 			else
 			{
-				for (i = 0; i < 4; i++)
+				for (i = 0; i < 5; i++)
 					if (Placed[i] != None)
 						LogLook("shot " $ ShotsTaken, Placed[i]);
 				P.ConsoleCommand("shot");

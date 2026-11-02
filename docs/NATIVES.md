@@ -841,7 +841,10 @@ of it. `ViewConsole` with `FovAngle=90`, `HoldAnim=Idle1`,
 Tooth's hand correlated at 0.939 with the original's frame, where at
 654e675d its own light's pick left its thumb black (0.773), and the hilt
 of the one on the floor at 0.870 (0.818); `CrosshairConsole`'s pistol in
-hand at 0.981 (0.711). The `AmbientGlow`
+hand at 0.981 (0.711). A two-sided face's vertex is lit by the cosine's
+size, a light behind its normal as one before it, where the original's
+`Light` (`Render.dll` `0x10b027f0`) lights each vertex once, by its normal,
+whatever its faces' flags (bugs.md REN.30). The `AmbientGlow`
 pulse runs on the viewport's clock, the real time, whatever the level's
 `TimeDilation`. `GlowConsole`'s crate, spawned 3 s into Liberty Island:
 with no glow, 0.171 of the screen's white in both engines, at full speed
@@ -874,11 +877,15 @@ frames: [scripted runs](DEVELOPMENT.md#scripted-runs-of-both-engines).
 Differs (bugs.md REN.24):
 
 - `MeshConsole`'s Liberty Island pier, where nothing is in hand, is 1.7%
-  under `D3DDrv`'s frames with the detail textures on, and 0.7% over with
-  them off in both (`NoDetail`): DXEngine draws the pier's detail texture,
-  the original none ([the menus' settings](#the-menus-settings)). Its crate,
-  box and barrel are within 0.8%, Paul Denton a level over, and
-  `LaserConsole`'s corridor 2% under, within 0.5% with them off.
+  under `D3DDrv`'s frames with the detail textures on, DXEngine drawing the
+  pier's detail texture, the original none
+  ([the menus' settings](#the-menus-settings)), and 0.6% over with them off
+  in both (`NoDetail`), a quarter of a level on its dark floor: as much in
+  DXEngine's window grabbed as the original's is, so not the shots' gamma,
+  and alike at mip biases of 0 to 2 and with the light maps sent as bytes.
+  Its crate, box and barrel are within 0.6%, Paul Denton held at one pose
+  (`Hold`) at a median 1.01 of the original's frame, correlated at 0.984,
+  and `LaserConsole`'s corridor 2% under, within 0.5% with them off.
 
 ### The screen flash
 
