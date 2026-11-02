@@ -370,10 +370,10 @@ bool UEditWindow::IsSingleLineEditingEnabled()
 }
 
 // The original's XEditWindow::MoveInsertionPoint (0x1001d250): up and down
-// a row, and a page of rows -- as many as the window shows, at least one --
-// keeping the column the insertion point was last put in; left and right a
-// character; a word either way within a row; a row's start and end; the
-// text's start and end.
+// a row, and a page of rows -- as many as fit the height its parents leave in
+// view, its clip rectangle's, at least one -- keeping the column the
+// insertion point was last put in; left and right a character; a word either
+// way within a row; a row's start and end; the text's start and end.
 void UEditWindow::MoveInsertionPoint(uint8_t moveInsert, std::optional<bool> bDrag)
 {
 	bool drag = bDrag.value_or(false);
@@ -383,7 +383,7 @@ void UEditWindow::MoveInsertionPoint(uint8_t moveInsert, std::optional<bool> bDr
 	if (count > 0)
 	{
 		PosToRowCol(insertPos(), row, col);
-		page = std::max((int)(int64_t)(VisibleHeight() / (lineHeight() + vSpace())), 1);
+		page = std::max((int)(int64_t)(winClipRect().clipHeight / (lineHeight() + vSpace())), 1);
 	}
 	switch ((EMoveInsert)moveInsert)
 	{
@@ -672,7 +672,9 @@ void UEditWindow::VisibilityChanged(bool bNewVisibility)
 // texture behind it, from half the vertical spacing above the row and a row
 // and its spacing tall, its text in the inverse colour -- then the insertion
 // point while it is blinked on. Otherwise as a large text window draws
-// (XLargeTextWindow::Draw 0x1002e500): the rows within the margins.
+// (XLargeTextWindow::Draw 0x1002e500): the rows within the margins. Either
+// takes only the rows its clip rectangle reaches, from the one its top falls
+// in to the one its bottom does.
 void UEditWindow::DrawWindow(UGC* gc)
 {
 	UWindow::DrawWindow(gc);
@@ -685,11 +687,18 @@ void UEditWindow::DrawWindow(UGC* gc)
 	float step = lineHeight() + vSpace();
 	Color color = gc->TextColor();
 	bool editing = bEditable() && IsFocusWindow();
+	int first = 0, last = count;
+	if (step > 0.0f)
+	{
+		const ClipRect& clip = winClipRect();
+		first = std::max((int)std::floor((clip.clipY + 0.00001f - top) / step), 0);
+		last = std::min((int)std::ceil((clip.clipY + clip.clipHeight - top) / step), count);
+	}
 
 	gc->PushClip(gc->ScaleRect(Rectf::xywh(gc->offsetX + hMargin(), gc->offsetY + vMargin(), Width() - (hMargin() + hMargin()), Height() - (vMargin() + vMargin()))));
 	if (!editing)
 	{
-		for (int i = 0; i < count; i++)
+		for (int i = first; i < last; i++)
 			DrawRow(gc, r[i], RowLeft(r[i].xExtent), top + step * i, color, color, 0.0f, 0.0f);
 		gc->PopClip();
 		return;
@@ -697,7 +706,7 @@ void UEditWindow::DrawWindow(UGC* gc)
 
 	float above = vSpace() - (float)(int64_t)(vSpace() * 0.5f);
 	gc->SetTileColor(selectColor());
-	for (int i = 0; i < count; i++)
+	for (int i = first; i < last; i++)
 	{
 		const TextRow& row = r[i];
 		float rowWidth = std::max(row.xExtent, 4.0f);
@@ -1040,22 +1049,6 @@ void UEditWindow::PosToXY(int pos, float& pointX, float& pointY)
 	PosToRowCol(pos, row, col);
 	pointY = RowToY(row);
 	pointX = ColToX(row, col);
-}
-
-// The window's height its parents leave in view, the original's clip
-// rectangle's (winClipRect), which a page up or down steps by.
-float UEditWindow::VisibleHeight()
-{
-	float top = 0.0f, bottom = Height(), y = 0.0f;
-	UWindow* window = this;
-	for (UWindow* parent = parentOwner(); parent; parent = parent->parentOwner())
-	{
-		y += window->UsedY;
-		top = std::max(top, -y);
-		bottom = std::min(bottom, parent->Height() - y);
-		window = parent;
-	}
-	return std::max(bottom - top, 0.0f);
 }
 
 // The original's XEditWindow::ComputeCursorConfig (0x1001f680): the

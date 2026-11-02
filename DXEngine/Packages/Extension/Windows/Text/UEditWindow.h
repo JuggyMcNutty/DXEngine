@@ -151,7 +151,6 @@ private:
 	void PosToRowCol(int pos, int& row, int& col);
 	int XYToPos(float pointX, float pointY);
 	void PosToXY(int pos, float& pointX, float& pointY);
-	float VisibleHeight();
 
 	void ComputeCursorConfig(bool bSetPrefCol);
 	void ShowCursor();

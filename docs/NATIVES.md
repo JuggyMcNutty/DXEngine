@@ -1237,6 +1237,19 @@ from the original's code:
   windows shows first (`FocusConsole`: a clip window scrolled so that its
   first button lies above the view, then none in view; Tab and Shift+Tab
   from each place, and each button's clip rectangle, every line alike).
+- **What a clip rectangle holds back**
+  ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#drawing-a-window)):
+  a window none of which shows -- scrolled out of its clip window, sized to
+  nothing, past its parent's edge -- draws nothing, no background, no
+  `DrawWindow` or `PostDrawWindow` event and none of its children; one
+  that shows a part draws, each child by what of it shows. A list pages by
+  the rows that fit the part of it in view, an edit field too, each draws
+  only the rows that part reaches, and a list's sounds come from the middle
+  of that part (`ClipDrawConsole`: a window's events counted as its clip
+  window scrolls it in and out of view, a window of no height and one past
+  its parent's edge; the page of a list in a clip window shorter than its
+  parent, of one shorter than its parent and of one its clip window's
+  parent cuts; every line alike).
 - **The windows** tick by real time since their last tick, not the level's,
   and a held button's first repeat counts what of the frame had gone.
 - **Timers**
@@ -1342,13 +1355,6 @@ Differs:
   1600x1001, the root 500.5 units high, and at 1920x1080). On a screen
   narrower than 4:3 (1280x1024) the root is the screen's width, as the
   original's, so the HUD's left and right parts lie at its edges.
-- **What a clip rectangle holds back**: the original draws nothing of a
-  window none of which shows, no background, no `DrawWindow` or
-  `PostDrawWindow` event and none of its children, and takes a list's page
-  size and rows in view, an edit field's and a large text window's from
-  its clip rectangle; DXEngine sends the draw events for every window shown
-  and works those rows out from the parent's height or the window's own
-  clip (EXT.20).
 
 ## The menus' settings
 

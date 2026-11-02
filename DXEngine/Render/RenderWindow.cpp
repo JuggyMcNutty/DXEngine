@@ -196,9 +196,15 @@ void RenderSubsystem::PopWindowGC()
 	WindowGCStack.pop_back();
 }
 
+// The original's XWindow::DrawTree (Extension.dll 0x10051490) draws a window
+// only while it is shown and some of it shows, its clip rectangle's width and
+// height both above 0 (UWindow::ClipTree). Of one scrolled out of its clip
+// window, of no width or height, or past its parent's edge it draws nothing:
+// no background, no DrawWindow or PostDrawWindow, none of its children.
 void RenderSubsystem::DrawWindow(UWindow* window, float offsetX, float offsetY)
 {
-	if (!window->bIsVisible())
+	const ClipRect& clip = window->winClipRect();
+	if (!window->bIsVisible() || clip.clipWidth <= 0.0f || clip.clipHeight <= 0.0f)
 		return;
 
 	offsetX += window->UsedX;

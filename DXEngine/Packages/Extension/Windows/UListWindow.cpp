@@ -489,16 +489,16 @@ int UListWindow::GetNumSelectedRows()
 	return count;
 }
 
+// The original's (XListWindow::GetPageSize 0x100311f0): the rows that fit
+// the height of the list its parents leave in view, its clip rectangle's, at
+// least 1 -- a list shorter than its clip window or its parent pages by its
+// own height, one its clip window's parents cut off by what they show.
 int UListWindow::GetPageSize()
 {
-	// The rows that fit the list's clipped height, at least 1. The list
-	// lives in a clip window, whose height is the visible part.
 	float lineHeight = GetLineHeight();
 	if (lineHeight <= 0.0f)
 		return 1;
-	UWindow* parent = parentOwner();
-	float clippedHeight = parent ? parent->Height() : Height();
-	return std::max(1, (int)(clippedHeight / lineHeight));
+	return std::max(1, (int)(winClipRect().clipHeight / lineHeight));
 }
 
 int UListWindow::GetRowClientInt(int rowId)
@@ -672,7 +672,7 @@ void UListWindow::MoveToRow(int index, bool bSelect, bool bClearRows, bool bInve
 	if (changed)
 		DispatchListSelectionChanged();
 	if (focusLine() != oldFocus && focusLine() >= 0 && moveSound())
-		PlaySound(moveSound(), {}, {}, {}, {});
+		PlayListSound(moveSound(), {}, {});
 }
 
 void UListWindow::SetFocusLine(int index, bool bShow, bool bAnchor)
@@ -684,10 +684,32 @@ void UListWindow::SetFocusLine(int index, bool bShow, bool bAnchor)
 		ShowFocusRow();
 }
 
+// The original's (XListWindow::PlayListSound 0x10031370), which its move and
+// activate sounds take too: a list shown, and every window it is in, plays
+// from the middle across of the part of it in view, its clip rectangle's
+// (all of it when none shows), and down at the focus row's top margin, else
+// that part's middle; a list hidden plays as any window, from its middle.
 void UListWindow::PlayListSound(UObject* listSound, std::optional<float> Volume, std::optional<float> Pitch)
 {
-	if (listSound)
+	if (!listSound)
+		return;
+	UWindow* hidden = this;
+	while (hidden && hidden->bIsVisible())
+		hidden = hidden->parentOwner();
+	if (hidden)
+	{
 		PlaySound(listSound, Volume, Pitch, {}, {});
+		return;
+	}
+	const ClipRect& clip = winClipRect();
+	bool shows = clip.clipWidth > 0.0f && clip.clipHeight > 0.0f;
+	float x = shows ? clip.clipWidth * 0.5f + clip.clipX : Width() * 0.5f;
+	float y;
+	if (focusLine() >= 0)
+		y = focusLine() * GetLineHeight() + rowMargin();
+	else
+		y = shows ? clip.clipHeight * 0.5f + clip.clipY : Height() * 0.5f;
+	PlaySound(listSound, Volume, Pitch, x, y);
 }
 
 void UListWindow::RemoveSortColumn(int colIndex)
@@ -1085,7 +1107,8 @@ void UListWindow::ToggleRowSelection(int rowId)
 // less one over the row's end, clipped to that cell (a long field is cut at
 // the column's inner edge, one line); then, only while the list has the
 // keyboard focus, the focus row's outline, focusThickness thick, in the
-// focus texture.
+// focus texture. Each pass takes only the rows its clip rectangle reaches,
+// from the one its top falls in to the one its bottom does.
 void UListWindow::DrawWindow(UGC* gc)
 {
 	// No font of the window's own draws the columns that have one (the
@@ -1112,15 +1135,17 @@ void UListWindow::DrawWindow(UGC* gc)
 	gc->SetAlignments((uint8_t)EHAlign::Left, (uint8_t)EVAlign::Top);
 	gc->EnableSpecialText(false);
 
+	const ClipRect& clip = winClipRect();
+	int first = std::max((int)std::floor((clip.clipY + 0.00001f) / lineHeight), 0);
+	int last = std::min((int)std::ceil((clip.clipY + clip.clipHeight) / lineHeight), (int)items.size());
+
 	gc->SetTileColor(highlightColor());
 	if (highlightTexture())
 	{
-		float y = 0.0f;
-		for (auto& item : items)
+		for (int i = first; i < last; i++)
 		{
-			if (item.selected)
-				gc->DrawPattern(0.0f, y, w, lineHeight, 0.0f, 0.0f, highlightTexture());
-			y += lineHeight;
+			if (items[i].selected)
+				gc->DrawPattern(0.0f, i * lineHeight, w, lineHeight, 0.0f, 0.0f, highlightTexture());
 		}
 	}
 
@@ -1139,9 +1164,10 @@ void UListWindow::DrawWindow(UGC* gc)
 			continue;
 		}
 		gc->SetFonts(colFont, colFont);
-		float y = 0.0f;
-		for (auto& item : items)
+		float y = first * lineHeight;
+		for (int i = first; i < last; i++)
 		{
+			auto& item = items[i];
 			gc->SetTextColor(item.selected ? inverseColor() : col.color);
 			std::string text = FieldDisplayText(item, colIndex);
 			float textWidth = 0.0f, textHeight = 0.0f;
@@ -1165,7 +1191,7 @@ void UListWindow::DrawWindow(UGC* gc)
 	gc->SetFonts(gcNormal, gcBold);
 	UWindow::DrawWindow(gc);
 
-	if (IsFocusWindow() && focusLine() >= 0 && focusLine() < (int)items.size() && focusTexture())
+	if (IsFocusWindow() && focusLine() >= first && focusLine() < last && focusTexture())
 	{
 		gc->SetTileColor(focusColor());
 		gc->DrawBox(0.0f, focusLine() * lineHeight, w, lineHeight, 0.0f, 0.0f, focusThickness(), focusTexture());
@@ -1344,8 +1370,7 @@ void UListWindow::Tick(float timeElapsed)
 // ListRowActivated up the parents for the focus row.
 void UListWindow::ActivateRow()
 {
-	if (ActivateSound())
-		PlaySound(ActivateSound(), {}, {}, {}, {});
+	PlayListSound(ActivateSound(), {}, {});
 	for (UWindow* cur = this; cur; cur = cur->parentOwner())
 	{
 		if (!cur->bIsVisible())
