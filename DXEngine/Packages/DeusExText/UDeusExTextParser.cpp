@@ -80,54 +80,62 @@ void UDXTextParser::CloseText()
 
 bool UDXTextParser::ProcessText()
 {
-	// One token, as the original's ParseTextBlock: a tag, or the text up to
-	// the next tag with each CR and LF made a space and nothing trimmed, so
-	// a line break alone between two tags is a token of two spaces. The
-	// text's first <P> is swallowed and text before it dropped; false once
-	// the text is used up, on the call after the last token.
-	if (!textObject)
+	// One token, as the original's ParseTextBlock (DeusExText.dll
+	// 0x10001a20): a tag, or the text up to the next tag with each CR and LF
+	// made a space and nothing trimmed, so a line break alone between two
+	// tags is a token of two spaces. The text's first <P> is swallowed and
+	// text before it dropped. Each call starts with no tag, and the text's
+	// end ends a token as a tag does, so a text whose first paragraph never
+	// starts gives a last token after its last tag, empty and with no tag
+	// (TT_None). The call after the last token finds the text used up: an
+	// empty token with no tag, false, and IsEOF true from then on (a
+	// TextPos of -1, the original's textPos none).
+	LastTag() = DeusExTextTags::TT_None;
+	LastText().clear();
+	if (!textObject || TextPos() < 0)
 		return false;
 
 	const std::string& text = textObject->Text();
 	size_t len = text.size();
 	size_t pos = (size_t)TextPos();
+	if (pos >= len)
+	{
+		TextPos() = -1;
+		return false;
+	}
 
+	std::string value;
+	bool gotText = false;
 	while (pos < len)
 	{
 		if (text[pos] == '<')
 		{
+			if (gotText)
+				break;
 			// The token's tag is the last one a tag's name matched (a comment's
 			// end tag, or the last tag a comment with none holds), and its text
 			// the tag's own: a player's name, a bracket, else none.
-			DeusExTextTags tag = DeusExTextTags::TT_None;
-			std::string value = ParseTag(text, pos, tag);
-			if (tag == DeusExTextTags::TT_NewParagraph && !bParagraphStarted())
-			{
-				bParagraphStarted() = true;
-				continue;
-			}
-			LastTag() = tag;
-			LastText() = std::move(value);
-			TextPos() = (int)pos;
-			return true;
+			value += ParseTag(text, pos, LastTag());
+			if (LastTag() != DeusExTextTags::TT_NewParagraph || bParagraphStarted())
+				break;
+			bParagraphStarted() = true;
 		}
-
-		std::string value;
-		while (pos < len && text[pos] != '<')
+		else
 		{
-			char c = text[pos++];
-			value += (c == '\r' || c == '\n') ? ' ' : c;
+			if (bParagraphStarted())
+			{
+				char c = text[pos];
+				value += (c == '\r' || c == '\n') ? ' ' : c;
+				LastTag() = DeusExTextTags::TT_Text;
+				gotText = true;
+			}
+			pos++;
 		}
-		if (!bParagraphStarted())
-			continue;
-		LastTag() = DeusExTextTags::TT_Text;
-		LastText() = std::move(value);
-		TextPos() = (int)pos;
-		return true;
 	}
 
+	LastText() = std::move(value);
 	TextPos() = (int)pos;
-	return false;
+	return true;
 }
 
 std::string UDXTextParser::ParseTag(const std::string& text, size_t& pos, DeusExTextTags& tag)
@@ -265,7 +273,8 @@ Color UDXTextParser::ParseColor(const std::string& fields)
 
 bool UDXTextParser::IsEOF()
 {
-	return !textObject || (size_t)TextPos() >= textObject->Text().size();
+	// The original's (0x100018c0): no text, or a call has found it used up
+	return !textObject || TextPos() < 0;
 }
 
 std::string UDXTextParser::GetText()

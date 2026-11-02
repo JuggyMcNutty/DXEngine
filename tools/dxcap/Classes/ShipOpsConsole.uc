@@ -10,18 +10,21 @@
 // DeusExTextParser of the console's own as ComputerUIWindow's
 // ProcessDeusExText opens one (SetPlayerName, OpenText from DeusExText,
 // ProcessText until it gives false, CloseText, CriticalDelete), three times;
-// then five controls, 09_EmailMenu_KZhao (two emails; its copy as long as
+// then six controls, 09_EmailMenu_KZhao (two emails; its copy as long as
 // ShipOps's within a character), 09_EmailMenu_SDowd (one email),
 // 09_Datacube13 (a comment closed), 00_Datacube01 and 01_Book08 (a <P> and a
-// <B> straight after a text: GetText at the tag); then ShipOps's list once
-// more. Each
-// token is logged: its tag (GetTag, by EDeusExTextTags' name), where the
-// parse stands after it, in characters from the text's start (the
-// original's text and textPos are pointers into its copy, two bytes a
-// character; DXEngine's text is 1 and its textPos a character's index), its
-// text (GetText, at most 60 characters) and, at an EMAIL or a FILE tag, the
-// fields GetEmailInfo or GetFileInfo give; then the number of tokens. The
-// original's copy's address (its text) is logged on a line of its own.
+// <B> straight after a text: GetText at the tag), 04_EmailMenu_klloyd (its
+// first paragraph never started, it ends after its last tag in a line
+// break); then ShipOps's list once more. Each token is logged: its tag
+// (GetTag, by EDeusExTextTags' name), where the parse stands after it, in
+// characters from the text's start (the original's text and textPos are
+// pointers into its copy, two bytes a character; DXEngine's text is 1 and
+// its textPos a character's index, -1 once the text is used up), its text
+// (GetText, at most 60 characters) and, at an EMAIL or a FILE tag, the
+// fields GetEmailInfo or GetFileInfo give; then the number of tokens, and
+// what the call that gave false left: its tag, where the parse stands, its
+// text and IsEOF. The original's copy's address (its text) is logged on a
+// line of its own.
 //
 // Then 09_NYC_Ship is opened (by way of Via first, DXCAP_CONFIG "Via=<map>",
 // a round there 4 s in), and a round there 4 s in. Then the ship's computer
@@ -131,10 +134,14 @@ function string TagName(int Tag)
 // Where the parse stands, in characters from the text's start.
 function string PosOf(DeusExTextParser Parser)
 {
+	if (Parser.text == 1)
+	{
+		if (Parser.textPos < 0)
+			return "none";
+		return string(Parser.textPos);
+	}
 	if (Parser.textPos == 0)
 		return "none";
-	if (Parser.text == 1)
-		return string(Parser.textPos);
 	return string((Parser.textPos - Parser.text) / 2);
 }
 
@@ -178,7 +185,8 @@ function ParseText(string Label, name TextName)
 				break;
 			}
 		}
-		Log("DXSHIPOPS: " $ Label $ " " $ TextName $ " " $ N $ " tokens, IsEOF " $ Parser.IsEOF());
+		Log("DXSHIPOPS: " $ Label $ " " $ TextName $ " " $ N $ " tokens, then tag " $ TagName(Parser.GetTag())
+			$ " at " $ PosOf(Parser) $ " text '" $ Left(Parser.GetText(), 60) $ "', IsEOF " $ Parser.IsEOF());
 		Parser.CloseText();
 	}
 	CriticalDelete(Parser);
@@ -194,6 +202,7 @@ function ReadRound(string Label)
 	ParseText(Label, '09_Datacube13');
 	ParseText(Label, '00_Datacube01');
 	ParseText(Label, '01_Book08');
+	ParseText(Label, '04_EmailMenu_klloyd');
 	ParseText(Label, '09_EmailMenu_ShipOps');
 }
 
