@@ -453,11 +453,12 @@ void NObject::DivideEqual_FloatFloat(float& A, float B, float& ReturnValue)
 
 // The original's (Core.dll 0x10134370): 0 for a divisor of 0.0, else the
 // quotient made an int by _ftol (floating.h's ftol, wrapping past an int's
-// range); a C++ cast is undefined there. The original's x87 runs at 24-bit
-// precision, so the quotient is rounded to a float first (OpsConsole).
+// range); a C++ cast is undefined there. The quotient is as the original's
+// x87 holds it in the tick the script runs in (X87): rounded to a float at
+// 24 bits in the console's tick (OpsConsole), whole in the level's.
 void NObject::DivideEqual_IntFloat(int& A, float B, int& ReturnValue)
 {
-	ReturnValue = A = B != 0.0f ? ftol((float)((double)A / B)) : 0;
+	ReturnValue = A = B != 0.0f ? ftol(X87::Round((double)A / B)) : 0;
 }
 
 void NObject::DivideEqual_RotatorFloat(Rotator& A, float B, Rotator& ReturnValue)
@@ -892,12 +893,14 @@ void NObject::MultiplyEqual_FloatFloat(float& A, float B, float& ReturnValue)
 }
 
 // The original's (Core.dll 0x10134280): the product made an int by _ftol
-// (ftol, wrapping past an int's range), the product rounded to a float
-// first by its x87 at 24-bit precision: 7 *= 3e9 is -474,836,992, 512 under
-// the exact product's low bits (OpsConsole)
+// (ftol, wrapping past an int's range), the product as its x87 holds it in
+// the tick the script runs in (X87): 7 *= 3e9 is -474,836,992 in the
+// console's tick, the product rounded to a float at 24 bits, 512 under the
+// exact product's low bits (OpsConsole), and -474,836,480 in the level's
+// (PrecisionConsole)
 void NObject::MultiplyEqual_IntFloat(int& A, float B, int& ReturnValue)
 {
-	ReturnValue = A = ftol((float)((double)A * B));
+	ReturnValue = A = ftol(X87::Round((double)A * B));
 }
 
 void NObject::MultiplyEqual_RotatorFloat(Rotator& A, float B, Rotator& ReturnValue)

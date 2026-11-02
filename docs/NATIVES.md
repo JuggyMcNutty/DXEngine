@@ -1832,23 +1832,28 @@ Every other native the scripted runs compare matches the original
   (`MeshTexConsole`).
 - **The natives' edges** (`OpsConsole`): an int divided by a float in place
   is 0 for a divisor of 0.0, and multiplied or divided in place past an
-  int's range wraps, as `int` does; `Clamp` and `FClamp` take a value under
-  the lower bound to it, else one under the upper as it is, else the upper,
-  so with the bounds the wrong way round the upper wins, and `FClamp` takes
-  a NaN to the lower, as the original's x87 compare does; a shift takes its count's low 5 bits; a
-  string `switch` matches its cases without regard to case and a float one
-  by its bits (-0.0 is not 0.0); `new` with a flag outside the script's own
-  (Transactional, Public, Transient and the three NotFor) logs `new: Flags
-  %08X not allowed` and leaves it out; every actor iterator given None takes
-  Actor, and walks the caller's own level; `OrthoRotation` is the
-  original's; a destroyed pawn keeps its `nextPawn`, so a walk through it
-  goes on; `PlayBlendAnim` with a slot outside 0..3 logs and does nothing;
-  `StrLen` measures under `STY_None` as under any style, and `DrawText`,
-  `TextSize` and `DrawTextClipped` with no font log and do nothing (`StrLen`
-  with none, which asserts in the original, answers 0 by 0, by choice); `GetNextSkin`
+  int's range wraps, as `int` does, its product or quotient as the
+  original's x87 holds it in the tick the script runs in, rounded to a float
+  at 24 bits in the console's tick and whole in the level's
+  (`PrecisionConsole`: 7 *= 3e9 -474,836,992 in the console's tick and
+  -474,836,480 in an actor's, in both engines); `Clamp` and `FClamp` take a
+  value under the lower bound to it, else one under the upper as it is, else
+  the upper, so with the bounds the wrong way round the upper wins, and
+  `FClamp` takes a NaN to the lower, as the original's x87 compare does; a
+  shift takes its count's low 5 bits; a string `switch` matches its cases
+  without regard to case and a float one by its bits (-0.0 is not 0.0);
+  `new` with a flag outside the script's own (Transactional, Public,
+  Transient and the three NotFor) logs `new: Flags %08X not allowed` and
+  leaves it out; every actor iterator given None takes Actor, and walks the
+  caller's own level; `OrthoRotation` is the original's; a destroyed pawn
+  keeps its `nextPawn`, so a walk through it goes on; `PlayBlendAnim` with a
+  slot outside 0..3 logs and does nothing; `StrLen` measures under
+  `STY_None` as under any style, and `DrawText`, `TextSize` and
+  `DrawTextClipped` with no font log and do nothing (`StrLen` with none,
+  which asserts in the original, answers 0 by 0, by choice); `GetNextSkin`
   walks the `.int` files' Texture objects as the original does, none in the
-  game's. Differs by choice: an int divided by -1 at INT_MIN is INT_MIN on every port,
-  where the original's divide faults (a Critical Error).
+  game's. Differs by choice: an int divided by -1 at INT_MIN is INT_MIN on
+  every port, where the original's divide faults (a Critical Error).
 - **A property's text** (`TextConsole`; `SetPropertyText`,
   `GetPropertyText`, `SET`, `GET`, an ini's or a `.int` file's value, a
   travel's): as the original's import and export have it. A struct's text is
