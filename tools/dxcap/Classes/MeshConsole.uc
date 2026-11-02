@@ -16,7 +16,8 @@
 // one pose in both engines, whichever idle and head turn his script picks,
 // each look logging the sequences and frames. With Extra (a class, as
 // DeusEx.Plant1) one more is placed 140 units ahead and 50 to the right,
-// before the crate, and logged with the rest. The pier's
+// before the crate, turned ExtraYaw from the view's way, and logged with
+// the rest. The pier's
 // floor, compared in NATIVES.md (brightness), is two bands of a 1024x768
 // shot's planks, either side of Paul's feet: x 180 to 460 and 580 to 750,
 // y 640 to 760.
@@ -31,6 +32,7 @@ var config bool Hold;
 var config name HoldAnim;
 var config float HoldFrame;
 var config string Extra;
+var config int ExtraYaw;
 
 var float MapTime;
 var float StepTime;
@@ -158,7 +160,15 @@ event Tick(float Delta)
 			Placed[2] = Place(P, class'Barrel1', P.Location + X * 170 - Y * 110);
 			Placed[3] = Place(P, class'BoxLarge', P.Location + X * 300 - Y * 40);
 			if (Extra != "")
+			{
 				Placed[4] = Place(P, class<Actor>(DynamicLoadObject(Extra, class'Class')), P.Location + X * 140 + Y * 50);
+				if (Placed[4] != None && ExtraYaw != 0)
+				{
+					R.Yaw += ExtraYaw;
+					Placed[4].SetRotation(R);
+					R.Yaw -= ExtraYaw;
+				}
+			}
 			if (LODBias > 0)
 				for (i = 0; i < 4; i++)
 					if (Placed[i] != None)
