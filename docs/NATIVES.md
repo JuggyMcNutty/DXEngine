@@ -141,8 +141,13 @@ named by the player's `ClientinHandPending` and `SelectedItem` alone arrive
 at UNATCO HQ in the belt's slots 5 and 4 in both engines; with the
 binoculars' and the prod's `bTravel` cleared, they stay behind in both, the
 pistol and the two ammo with them, the chain ending at the medkit: 3 items
-arrive). A map opened at a portal (`open <map>#<portal>`) starts the player
-at the teleporter of that tag (`PortalConsole`). A level's URL, which
+arrive). A value is written only where it differs from its class's default,
+as the original's export writes it, so one left at its default arrives as
+the new object's spawn and events left it (`DefaultConsole`: an item's
+travel property set back to its default before a map exit arrives as its new
+spawn set it, 2, in both engines, and one set away from it as it was set). A
+map opened at a portal (`open <map>#<portal>`) starts the player at the
+teleporter of that tag (`PortalConsole`). A level's URL, which
 `Level.GetLocalURL` gives, is the one it was entered by, as the original's
 `LoadMap` sets it: a level returned to from `Current` names the saved file,
 `..\Save\Current\<map>.dxs` with the travel's options, as the original's

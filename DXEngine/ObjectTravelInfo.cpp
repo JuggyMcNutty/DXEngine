@@ -146,13 +146,21 @@ ActorTravelInfo::TravelObject ActorTravelInfo::CreateObject(UObject* travelObjec
 	TravelObject info;
 	info.ClassName = UObject::GetUClassFullName(travelObject).ToString();
 	info.Name = name;
+	// A value is written only where it differs from its class's default, as
+	// the original's export writes it (Engine.dll 0x10391894, its ExportText
+	// against the class's defaults): one left at its default arrives as the
+	// new object's spawn and events left it.
+	UObject* defaults = travelObject->Class->GetDefaultObject<UObject>();
 	for (UProperty* property : travelObject->GetAllTravelProperties())
 	{
+		void* defaultData = defaults->GetProperty(property);
 		if (auto objProperty = UObject::TryCast<UObjectProperty>(property))
 		{
 			void* data = travelObject->GetProperty(objProperty);
 			for (size_t dim = 0; dim < objProperty->ArrayDimension; dim++)
 			{
+				if (objProperty->CompareElement(objProperty->GetElement(data, dim), objProperty->GetElement(defaultData, dim)))
+					continue;
 				UObject* value = *static_cast<UObject**>(objProperty->GetElement(data, dim));
 				std::string name;
 				if (value)
@@ -193,6 +201,8 @@ ActorTravelInfo::TravelObject ActorTravelInfo::CreateObject(UObject* travelObjec
 				if (property->ArrayDimension > 1)
 					key += "[" + std::to_string(dim) + "]";
 				void* element = property->GetElement(data, dim);
+				if (property->CompareElement(element, property->GetElement(defaultData, dim)))
+					continue;
 				info.Properties[key] = isString ? *static_cast<std::string*>(element) : property->PrintValue(element);
 			}
 		}
