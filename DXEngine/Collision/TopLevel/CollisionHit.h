@@ -48,7 +48,9 @@ public:
 	{
 		clear();
 
-		if (capacity > buffercapacity)
+		// Off the buffer only once grown: the test of the pointer itself
+		// lets the compiler see no delete reaches the buffer
+		if (items != (CollisionHit*)buffer)
 			delete[](uint64_t*)items;
 	}
 
@@ -145,7 +147,7 @@ private:
 			CollisionHit* olditems = items;
 			items = newitems;
 
-			if (capacity > buffercapacity)
+			if (olditems != (CollisionHit*)buffer)
 				delete[](uint64_t*)olditems;
 
 			capacity = newcapacity;

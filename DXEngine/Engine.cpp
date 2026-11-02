@@ -489,10 +489,15 @@ void Engine::Run()
 			// and by the real time since the last draw, as the original's
 			// UConsole::PreRender ticks it (dx-reverse-info engine-dll.md,
 			// the loading screen); paused or not, so its messages time out.
+			// The tick and the frame's script events work their sums out at
+			// 24 bits, as the original's render holds its x87 to 24 bits
+			// from before the console's tick to after its PostRender (X87).
+			X87::Single = true;
 			TickConsole(realTimeElapsed);
 
 			viewport->SetViewportRect(0, 0, engine->window->GetPixelWidth(), engine->window->GetPixelHeight());
 			render->DrawGame(levelElapsed);
+			X87::Single = false;
 			if (precaching)
 			{
 				LevelInfo->LevelAction() = action;
@@ -994,9 +999,11 @@ void Engine::PaintProgress()
 	vec3 flashFog = player->FlashFog();
 	player->FlashScale() = vec3(0.1f);
 	player->FlashFog() = vec3(0.0f);
+	X87::Single = true;
 	TickConsole(0.0f);
 	viewport->SetViewportRect(0, 0, window->GetPixelWidth(), window->GetPixelHeight());
 	render->DrawGame(0.0f);
+	X87::Single = false;
 	player->FlashScale() = flashScale;
 	player->FlashFog() = flashFog;
 }

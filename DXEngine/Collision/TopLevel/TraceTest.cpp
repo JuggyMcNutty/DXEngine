@@ -148,6 +148,165 @@ static void CutLine(const vec3& from, const vec3& to, const vec3& levelLocation,
 	nearStart = (double)levelTime < 0.01 && dist < 30.0;
 }
 
+// The original's cylinder check (UPrimitive::LineCheck, Engine.dll
+// 0x103d8af0) of the line from start to end, the box's extent added to the
+// actor's collision size, in its order and the x87's precision (X87). The
+// ends are tested against the cylinder's bounds; the line is clipped to its
+// caps, a cap it comes in through giving the normal, then to its side, from
+// a quadratic whose terms are floats. A start inside -- within the caps, and
+// the radius but for a unit's slack -- stops at once heading in toward the
+// axis, its normal the start's level offset from the axis made a unit (Core's
+// FVector::SafeNormal, 0x10144be0), and passes heading out. Gives the time, a
+// thousandth of the line short of where the line comes in, held to 0..1, and
+// that entry's own; the hit's location, the start moved along the line by
+// the time; and the normal: a cap's, or the side's, level, out from the axis
+// to where the line comes in, made a unit in floats.
+static bool CylinderLineCheck(UActor* actor, const vec3& start, const vec3& end, const vec3& extent, float& time, float& entry, vec3& location, vec3& normal)
+{
+	auto R = X87::Round;
+	vec3 loc = actor->Location();
+	float netHeight = (float)R((double)extent.z + actor->CollisionHeight());
+	float netY = (float)R((double)extent.y + actor->CollisionRadius());
+	double netXSum = R((double)extent.x + actor->CollisionRadius());
+	float netX = (float)netXSum;
+
+	// Both ends past one of the cylinder's bounds
+	double bound = R(netXSum + loc.x);
+	if (start.x > bound && end.x > bound)
+		return false;
+	bound = R((double)loc.x - netX);
+	if (start.x < bound && end.x < bound)
+		return false;
+	bound = R((double)netY + loc.y);
+	if (start.y > bound && end.y > bound)
+		return false;
+	bound = R((double)loc.y - netY);
+	if (start.y < bound && end.y < bound)
+		return false;
+	float top = (float)R((double)netHeight + loc.z);
+	if (start.z > top && end.z > top)
+		return false;
+	float bottom = (float)R((double)loc.z - netHeight);
+	if (start.z < bottom && end.z < bottom)
+		return false;
+
+	// The line clipped to the caps
+	float t0 = 0.0f;
+	float t1 = 1.0f;
+	normal = vec3(0.0f);
+	if (start.z > top && end.z < top)
+	{
+		double t = R(R((double)top - start.z) / R((double)end.z - start.z));
+		if (t > 0.0)
+		{
+			t0 = (float)t;
+			normal = vec3(0.0f, 0.0f, 1.0f);
+		}
+	}
+	else if (start.z < top && end.z > top)
+	{
+		double t = R(R((double)top - start.z) / R((double)end.z - start.z));
+		if (1.0 > t)
+			t1 = (float)t;
+	}
+	if (start.z < bottom && end.z > bottom)
+	{
+		double t = R(R((double)bottom - start.z) / R((double)end.z - start.z));
+		if (t > t0)
+		{
+			t0 = (float)t;
+			normal = vec3(0.0f, 0.0f, -1.0f);
+		}
+	}
+	else if (start.z > bottom && end.z < bottom)
+	{
+		double t = R(R((double)bottom - start.z) / R((double)end.z - start.z));
+		if (t1 > t)
+			t1 = (float)t;
+	}
+	if (!(t0 < t1))
+		return false;
+
+	// The side: the line's level run against the circle
+	double kx = R((double)start.x - loc.x);
+	double ky = R((double)start.y - loc.y);
+	double runX = R((double)end.x - start.x);
+	double runY = R((double)end.y - start.y);
+	float vx = (float)runX;
+	float vy = (float)runY;
+	float a = (float)R(R(runY * runY) + R(runX * runX));
+	double half = R(R(runY * ky) + R(runX * kx));
+	float b = (float)R(half + half);
+	float c = (float)R(R(R(ky * ky) + R(kx * kx)) - R((double)netX * netX));
+	float discrim = (float)R(R((double)b * b) - R(R((double)c * a) * 4.0));
+
+	if (c < 1.0 && start.z > bottom && start.z < top)
+	{
+		if (!(R(R((double)vx * kx) + R((double)vy * ky)) < -0.1))
+			return false;
+		float ox = (float)kx;
+		float oy = (float)ky;
+		double square = R(R((double)ox * ox) + R((double)oy * oy));
+		normal = vec3(0.0f);
+		if (!(square < 1e-8))
+		{
+			double scale = R(1.0 / R(std::sqrt(square)));
+			normal = vec3((float)R(scale * ox), (float)R(scale * oy), 0.0f);
+		}
+		time = 0.0f;
+		entry = 0.0f;
+		location = start;
+		return true;
+	}
+
+	if (discrim < 0.0f)
+		return false;
+	if (a < 1e-8)
+	{
+		// A line along the axis meets the caps alone
+		if (c > 0.0f)
+			return false;
+	}
+	else
+	{
+		double root = R(std::sqrt((double)discrim));
+		double halfOverA = R(0.5 / a);
+		double t = R(R(root - b) * halfOverA);
+		if (t1 > t)
+			t1 = (float)t;
+		t = -R(R(root + b) * halfOverA);
+		if (t > t0)
+		{
+			t0 = (float)t;
+			float nx = (float)R((double)(float)R((double)(float)R(vx * t) + start.x) - loc.x);
+			float ny = (float)R((double)(float)R((double)(float)R(vy * t) + start.y) - loc.y);
+			double square = R(R((double)nx * nx) + R((double)ny * ny));
+			normal = vec3(nx, ny, 0.0f);
+			if (!(square < 1e-8))
+			{
+				double scale = R(1.0 / R(std::sqrt(square)));
+				normal = vec3((float)R(scale * nx), (float)R(scale * ny), 0.0f);
+			}
+		}
+		if (!(t0 < t1))
+			return false;
+	}
+
+	double t = R(t0 - 0.001);
+	if (t < 0.0)
+		t = 0.0;
+	else if (!(t < 1.0))
+		t = 1.0;
+	time = (float)t;
+	entry = t0;
+	float vz = (float)R((double)end.z - start.z);
+	location = vec3(
+		(float)R((double)(float)R(vx * t) + start.x),
+		(float)R((double)(float)R(vy * t) + start.y),
+		(float)R(R(vz * t) + start.z));
+	return true;
+}
+
 // Deus Ex's line meets a mover's brush as the original's walk down its BSP
 // does (UModel::LineCheck with an owner): one hit, where the segment enters
 // its solid space, with the plane of the node crossed there as the mover's
@@ -212,12 +371,14 @@ static bool MoverBoxCheck(UMover* mover, const vec3& start, const vec3& end, con
 // line: a mover's brush walked on it, its time UModel::LineCheck's on it, made
 // the whole line's by the cut (cut x time, a float) -- a mover's hit within 2
 // units of the level's, its normal the level hit's (a float compare), is set
-// 2 units before the level's first --; a cylinder's hit a thousandth of the
-// cut line short. Each hit keeps the place its check found, as the trace
-// natives give it: the level's and a mover's UModel::LineCheck's, a mover's
-// on the cut line, or the pulled one's (DXMP_Silo's BreakableGlass8 at
-// 178.500015, the level's 180.500015 less 2, where the start moved along the
-// whole line by the time lands on 178.5). The hits sorted by those times
+// 2 units before the level's first --; a cylinder by the original's check
+// on the cut line (CylinderLineCheck), a thousandth of it short, its time
+// made the whole line's by the cut. Each hit keeps the place its check
+// found, as the trace natives give it: the level's and a mover's
+// UModel::LineCheck's, a mover's on the cut line, or the pulled one's
+// (DXMP_Silo's BreakableGlass8 at 178.500015, the level's 180.500015 less 2,
+// where the start moved along the whole line by the time lands on 178.5); a
+// cylinder's its check's on the cut line. The hits sorted by those times
 // alone: a mover flush with a wall falls before or after it as the
 // original's two times round (the wall's plane a float step off the door's,
 // or the cut line's end rounded), equal times keeping the actors first, as
@@ -255,8 +416,6 @@ CollisionHitList TraceTester::TraceLine(const vec3& from, const vec3& to, bool t
 
 	// The cells along the whole line, however long (a rifle's 48000 units);
 	// each actor asked along the cut line
-	double cutLen = cut * tmax;
-	double actorBackoff = 0.001 * cutLen;
 	CollisionHitList hits;
 	VisitActorsOnRay(from, to, [&](UActor* actor) {
 		UMover* mover = UObject::TryCast<UMover>(actor);
@@ -284,22 +443,13 @@ CollisionHitList TraceTester::TraceLine(const vec3& from, const vec3& to, bool t
 			if (time < 1.0f)
 				hits.push_back({ time, normal, actor, crossed, crossed, location });
 		}
-		else
+		else if (traceActors && !actor->Brush())
 		{
-			// A cylinder: a hit within the cut line, a thousandth of it short
-			CollisionHitList cylinder;
-			TraceActor(actor, origin, 0.0, direction, tmax, 0.0, 0.0, traceActors, traceWorld, visibilityOnly, cylinder);
-			for (CollisionHit hit : cylinder)
-			{
-				if (hit.Fraction > cutLen)
-					continue;
-				double dist = std::max((double)hit.Fraction - actorBackoff, 0.0);
-				if (dist >= tmax)
-					continue;
-				hit.Fraction = (float)(dist / tmax);
-				hit.Location = from + (to - from) * hit.Fraction;
-				hits.push_back(hit);
-			}
+			// A cylinder, the original's check along the cut line
+			float time, entry;
+			vec3 location, normal;
+			if (CylinderLineCheck(actor, from, cutEnd, vec3(0.0f), time, entry, location, normal))
+				hits.push_back({ cut * time, normal, actor, nullptr, nullptr, location });
 		}
 		return false;
 	});
@@ -321,7 +471,9 @@ CollisionHitList TraceTester::TraceLine(const vec3& from, const vec3& to, bool t
 // backed off a tenth of the cut line, its time made the whole line's by the
 // cut (cut x time, a float) -- a mover's hit within 2 units of the level's,
 // its normal the level hit's, set 2 units before the level's first --; a
-// cylinder's hit on the cut line a thousandth of it short. The level met at
+// cylinder by the original's check on the cut line (CylinderLineCheck), the
+// box's extent added to its size, a thousandth of the cut line short; so a
+// pawn's move meets another pawn or a decoration so. The level met at
 // the start cuts the line to nothing, and a box swept no way enters no hull:
 // no actor is met, the level's hit the first, where a line from inside a
 // mover's solid still meets it (TraceLine). Each hit keeps the place its
@@ -331,11 +483,6 @@ CollisionHitList TraceTester::TraceLine(const vec3& from, const vec3& to, bool t
 // their times alone, equal times keeping the actors first.
 CollisionHitList TraceTester::TraceBox(const vec3& from, const vec3& to, const vec3& extents, bool traceActors, bool traceWorld, bool visibilityOnly)
 {
-	dvec3 origin = to_dvec3(from);
-	dvec3 direction = to_dvec3(to) - origin;
-	double tmax = length(direction);
-	direction *= 1.0 / tmax;
-
 	CollisionHit level;
 	bool levelHit = false;
 	vec3 levelLocation(0.0f);
@@ -360,8 +507,6 @@ CollisionHitList TraceTester::TraceBox(const vec3& from, const vec3& to, const v
 	}
 
 	// The cells the box takes along the cut line; each actor asked along it
-	double cutLen = cut * tmax;
-	double actorBackoff = 0.001 * cutLen;
 	CollisionHitList hits;
 	VisitActorsInBox(GetSweepStartExtents(from, cutEnd, extents), GetSweepEndExtents(from, cutEnd, extents), [&](UActor* actor) {
 		UMover* mover = UObject::TryCast<UMover>(actor);
@@ -389,18 +534,13 @@ CollisionHitList TraceTester::TraceBox(const vec3& from, const vec3& to, const v
 			hit.Actor = actor;
 			hits.push_back(hit);
 		}
-		else
+		else if (traceActors && !actor->Brush())
 		{
-			// A cylinder: a hit on the cut line, a thousandth of it short
-			CollisionHitList cylinder;
-			TraceActor(actor, origin, 0.0, direction, cutLen, extents.z, extents.x, traceActors, traceWorld, visibilityOnly, cylinder);
-			for (CollisionHit hit : cylinder)
-			{
-				double dist = std::max((double)hit.Fraction - actorBackoff, 0.0);
-				hit.Fraction = (float)(dist / tmax);
-				hit.Location = from + (to - from) * hit.Fraction;
-				hits.push_back(hit);
-			}
+			// A cylinder, the original's check along the cut line
+			float time, entry;
+			vec3 location, normal;
+			if (CylinderLineCheck(actor, from, cutEnd, extents, time, entry, location, normal))
+				hits.push_back({ cut * time, normal, actor, nullptr, nullptr, location });
 		}
 		return false;
 	});
@@ -554,37 +694,6 @@ bool TraceTester::SightBlocked(const vec3& from, const vec3& to, const std::func
 	return TraceRayModel::WalkSolid(collision.LineNodes(), collision.LineRootOutside(), to_dvec3(from), to_dvec3(to), NF_NotVisBlocking, fraction, crossed);
 }
 
-// The hit lies on the cylinder the trace actually swept against: the actor's cylinder grown by the
-// moving box's own extents. Center-to-hitpoint is the true surface normal only on the curved side - on
-// the flat end caps it tilts outwards by however far the contact sits from the axis. That is how the
-// flat top of a BlockAll came to report a normal of z=0.69, just under the 0.7071 walkable threshold,
-// flipping a pawn standing on it between walking and falling every single frame.
-//
-// Decided by least penetration rather than by testing the hit point against the cap plane, because a
-// sweep that begins in contact reports fraction 0 and a "hit point" that is simply where it started -
-// which is exactly the case that matters here, a pawn resting on the surface. Least penetration gives
-// the right answer for that and for a clean hit alike: on a true side contact the radial depth is zero,
-// on a true cap contact the vertical depth is.
-static vec3 CylinderHitNormal(const dvec3& hitpos, UActor* actor, double boxHeight, double boxRadius)
-{
-	dvec3 center = to_dvec3(actor->Location());
-	double halfHeight = actor->CollisionHeight() + boxHeight;
-	double radius = actor->CollisionRadius() + boxRadius;
-
-	double dz = hitpos.z - center.z;
-	dvec3 radial(hitpos.x - center.x, hitpos.y - center.y, 0.0);
-	double radialDist = std::sqrt(dot(radial, radial));
-
-	double verticalDepth = halfHeight - std::abs(dz);
-	double radialDepth = radius - radialDist;
-
-	if (verticalDepth <= radialDepth || radialDist < 0.000001)
-		return vec3(0.0f, 0.0f, dz >= 0.0 ? 1.0f : -1.0f);
-
-	radial /= radialDist;
-	return vec3((float)radial.x, (float)radial.y, 0.0f);
-}
-
 void TraceTester::TraceActor(UActor* actor, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, double height, double radius, bool traceActors, bool traceWorld, bool visibilityOnly, CollisionHitList& hits)
 {
 	// A mover with no brush (09_NYC_ShipBelow has one) collides as its
@@ -605,377 +714,17 @@ void TraceTester::TraceActor(UActor* actor, const dvec3& origin, double tmin, co
 	}
 	else
 	{
-		if (!traceActors)
+		// An actor that is no brush meets the line as the original's cylinder
+		// (CylinderLineCheck) along the whole of it, the distance to where
+		// the line comes in and the check's normal; a start inside heading in
+		// stops at its start (TraceConsole). A brush that is no mover is
+		// passed over.
+		if (!traceActors || actor->Brush())
 			return;
 
-		double t = CylinderActorTrace(origin, tmin, dirNormalized, tmax, height, radius, actor);
-		if (t < tmax)
-		{
-			dvec3 hitpos = origin + dirNormalized * t;
-			vec3 normal = CylinderHitNormal(hitpos, actor, height, radius);
-
-			// A line or a box stopped at its start inside the cylinder takes
-			// the original's normal there: out from the axis, level
-			// (UPrimitive::LineCheck; TraceConsole).
-			dvec3 offset(origin.x - actor->Location().x, origin.y - actor->Location().y, 0.0);
-			if (t == 0.0 && dot(offset, offset) > 0.0)
-			{
-				offset /= std::sqrt(dot(offset, offset));
-				normal = vec3((float)offset.x, (float)offset.y, 0.0f);
-			}
-			hits.push_back({ (float)t, normal, actor, nullptr, nullptr });
-		}
+		float time, entry;
+		vec3 location, normal;
+		if (CylinderLineCheck(actor, vec3(origin), vec3(origin + dirNormalized * tmax), vec3((float)radius, (float)radius, (float)height), time, entry, location, normal))
+			hits.push_back({ (float)(entry * tmax), normal, actor, nullptr, nullptr, location });
 	}
-}
-
-double TraceTester::CylinderActorTrace(const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, double cylinderHeight, double cylinderRadius, UActor* actor)
-{
-	if (actor->Brush()) // Ignore brushes for now
-		return tmax;
-
-	dvec3 center = to_dvec3(actor->Location());
-	double height = actor->CollisionHeight();
-	double radius = actor->CollisionRadius();
-
-	if (cylinderHeight > 0.0f && cylinderRadius > 0.0f)
-	{
-		return CylinderCylinderTrace(origin, dirNormalized, tmin, tmax, center, height, radius, cylinderHeight, cylinderRadius);
-	}
-	else
-	{
-		// Downgrade to a ray test if the cylinder is a point
-		return RayCylinderTrace(origin, dirNormalized, tmin, tmax, center, height, radius);
-	}
-}
-
-double TraceTester::CylinderCylinderTrace(const dvec3& origin, const dvec3& dirNormalized, double tmin, double tmax, const dvec3& cylinderCenterA, double cylinderHeightA, double cylinderRadiusA, double cylinderHeightB, double cylinderRadiusB)
-{
-	// A cylinder/cylinder trace is the same as a ray/cylinder trace, except the cylinder's radius and height has been extended by the other cylinder
-
-	return RayCylinderTrace(origin, dirNormalized, tmin, tmax, cylinderCenterA, cylinderHeightA + cylinderHeightB, cylinderRadiusA + cylinderRadiusB);
-}
-
-#if 0 // Shock rifle combo blasts does not work with this version. Why? Does this mean that CylinderCylinderOverlap is broken as it is built upon the same idea?
-
-double CollisionSystem::RayCylinderTrace(const dvec3& origin, const dvec3& dirNormalized, double tmin, double tmax, const dvec3& cylinderCenter, double cylinderHeight, double cylinderRadius)
-{
-	// Find the trace range where the ray can hit the cylinders (ray/planes test):
-	double t0, t1;
-	if (dirNormalized.z > FLT_EPSILON || dirNormalized.z < -FLT_EPSILON)
-	{
-		t0 = (cylinderCenter.z - origin.z - cylinderHeight) / dirNormalized.z;
-		t1 = (cylinderCenter.z - origin.z + cylinderHeight) / dirNormalized.z;
-		if (t1 < t0) std::swap(t0, t1);
-
-		// If the trace range is outside the planes then there is no hit
-		if (t1 < tmin || t0 >= tmax)
-			return tmax;
-	}
-	else // trace is parallel to the plane - either we are always inside or we are always outside
-	{
-		if (std::abs(cylinderCenter.z - origin.z) >= cylinderHeight)
-			return tmax;
-		t0 = 0.0;
-		t1 = tmax;
-	}
-
-	// Test if the first possible hit point is already overlapping. If it is, we hit the top or bottom of the cylinder.
-	if (t0 >= tmin)
-	{
-		dvec2 dist2d = cylinderCenter.xy() + origin.xy() + dirNormalized.xy() * t0;
-		if (dot(dist2d, dist2d) < cylinderRadius * cylinderRadius)
-			return t0;
-	}
-
-	// Find the when the ray might hit the side in the XY plane (ray/circle test):
-	dvec2 l = cylinderCenter.xy() - origin.xy();
-	double s = dot(l, dirNormalized.xy());
-	double l2 = dot(l, l);
-	double r2 = cylinderRadius * cylinderRadius;
-	if (s < 0 && l2 > r2)
-		return tmax;
-	double s2 = s * s;
-	double m2 = l2 - s2;
-	if (m2 > r2)
-		return tmax;
-	double q = std::sqrt(r2 - m2);
-	double t = (l2 > r2) ? s - q : s + q;
-	return (t >= tmin && t >= t0 && t <= t1) ? t : tmax;
-}
-
-#else
-
-static int GetQuadraticRoots(double a, double b, double c, double& root_lower, double& root_upper)
-{
-	double discriminant = (b * b) - (4.0 * a * c);
-	if (discriminant > FLT_EPSILON)
-	{
-		double b_term = b < FLT_EPSILON ? -b + sqrt(discriminant) : -b - sqrt(discriminant);
-
-		root_lower = b_term / (2.0 * a); // quadratic formula
-		root_upper = (2.0 * c) / b_term; // citardauq formula
-
-		if (root_lower > root_upper)
-			std::swap(root_lower, root_upper); // use of both formulae, plus this, avoids catastrophic cancellation due to floating-point limits
-
-		return 2;
-	}
-	else if (discriminant > -FLT_EPSILON && discriminant <= FLT_EPSILON)
-	{
-		root_lower = -b / (2.0 * a); // quadratic formula's double root
-		root_upper = root_lower;
-		return 1;
-	}
-	root_lower = NAN;
-	root_upper = NAN;
-	return 0;
-}
-
-double TraceTester::RayCylinderTrace(const dvec3& rayOrigin, const dvec3& rayDirNormalized, double tmin, double tmax, const dvec3& cylinderCenter, double cylinderHeight, double cylinderRadius)
-{
-	// A line that starts inside the cylinder -- within its height, and its
-	// radius but for a unit's slack -- is stopped at once if it heads in
-	// toward the axis and leaves freely otherwise, as the original's
-	// cylinder check (UPrimitive::LineCheck) counts only a line coming in:
-	// a trace straight down from inside a pawn does not hit the pawn, where
-	// this found where it left through the bottom.
-	double dx = rayOrigin.x - cylinderCenter.x;
-	double dy = rayOrigin.y - cylinderCenter.y;
-	double dz = rayOrigin.z - cylinderCenter.z;
-	if (dx * dx + dy * dy - cylinderRadius * cylinderRadius < 1.0 && dz > -cylinderHeight && dz < cylinderHeight)
-		return (rayDirNormalized.x * dx + rayDirNormalized.y * dy) * tmax < -0.1 ? 0.0 : tmax;
-
-	//
-	// First, identify intersections between a line and an infinite cylinder. An infinite
-	// cylinder has no base and extends in both directions.
-	//
-	dvec3 ct = cylinderCenter;
-	dvec3 cb = cylinderCenter;
-
-	ct.z += cylinderHeight;
-	cb.z -= cylinderHeight;
-
-	dvec3 rl = rayOrigin - cb;  // Ray origin local to centerpoint
-	dvec3 cs = ct - cb;         // Cylinder spine
-	double ch = length(cs);     // Cylinder height
-	dvec3 ca = cs / ch;         // Cylinder axis
-
-	auto caDotRd = dot(ca, rayDirNormalized);
-	auto caDotRl = dot(ca, rl);
-	auto rlDotRl = dot(rl, rl);
-
-	double a = 1 - (caDotRd * caDotRd);
-	double b = 2 * (dot(rayDirNormalized, rl) - caDotRd * caDotRl);
-	double c = rlDotRl - caDotRl * caDotRl - (cylinderRadius * cylinderRadius);
-
-	if (std::abs(a) <= FLT_EPSILON)
-	{
-		// Ray direction is parallel to the cylinder's axis (a == 0 exactly, e.g. a
-		// vertical step-up/step-down trace against a Z-axis-aligned actor): it can never
-		// cross the curved side, only the end caps, and only if it's already within the
-		// radius (c <= 0). Handled directly here since the quadratic degenerates and
-		// carries no usable root in this case.
-		if (c > FLT_EPSILON)
-			return tmax;
-
-		double dTop, dBottom;
-		bool hitTop = RayCircleTrace(rayOrigin, rayDirNormalized, ct, ca, cylinderRadius, dTop);
-		bool hitBottom = RayCircleTrace(rayOrigin, rayDirNormalized, cb, -ca, cylinderRadius, dBottom);
-		if (hitTop && hitBottom)
-			return std::min(dTop, dBottom);
-		else if (hitTop)
-			return dTop;
-		else if (hitBottom)
-			return dBottom;
-		else
-			return tmax;
-	}
-
-	double t0;
-	double t1;
-	int numRoots = GetQuadraticRoots(a, b, c, t0, t1);
-	if (numRoots == 0)
-	{
-		//
-		// There is no intersection between a line (i.e. a "double-sided" ray) and the 
-		// infinite cylinder that matches our finite cylinder. This means that we cannot 
-		// be hitting any part of the cylinder: if we were hitting the base from the 
-		// inside, for example, then the "back of our ray" would be hitting the upper 
-		// part of the infinite cylinder.
-		//
-		return tmax;
-	}
-
-	bool valid1 = true;
-	bool valid2 = true;
-	//
-	dvec3 hp1 = rayOrigin + rayDirNormalized * t0;
-	dvec3 hp2 = rayOrigin + rayDirNormalized * t1;
-	double ho1 = dot(ct - hp1, ca); // height offset
-	double ho2 = dot(ct - hp2, ca);
-	//
-	int validRoots = numRoots;
-	if (t0 < 0.0 || ho1 < DBL_EPSILON || ho1 > ch)
-	{
-		valid1 = false;
-		--validRoots;
-	}
-	if (t1 < 0.0 || ho2 < DBL_EPSILON || ho2 > ch)
-	{
-		valid2 = false;
-		if (numRoots > 1)
-			--validRoots;
-	}
-	double t = tmax;
-	if (validRoots == 0)
-	{
-		//
-		// The ray never hits the bounded cylinder's curved surface. If we're looking 
-		// along the cylinder's axis -- whether from inside or outside -- then the ray 
-		// could still hit an endcap.
-		// 
-		// Let's project the ray origin onto the cylinder's axis, and figure out which
-		// endcap we're nearer to. (Well, actually, we already have that value: it's
-		// Ca_dot_Rl.)
-		//
-		// Rl is measured from cb, the *bottom* of the cylinder, so Ca_dot_Rl is how far the
-		// ray origin sits above the bottom cap: <= 0 means it starts below the cylinder, and
-		// >= ch means it starts above it. The only cap such a ray can enter through is the
-		// one nearest it, so trace that one and not the far one.
-		//
-		if (caDotRl <= 0.0)
-		{
-			// below
-			valid1 = RayCircleTrace(rayOrigin, rayDirNormalized, cb, -ca, cylinderRadius, t0);
-		}
-		else if (caDotRl >= ch)
-		{
-			// above
-			valid2 = RayCircleTrace(rayOrigin, rayDirNormalized, ct, ca, cylinderRadius, t1);
-		}
-
-		if (valid1)
-			return t0;
-		else if (valid2)
-			return t1;
-		else
-			return tmax;
-	}
-	if (validRoots == 1)
-	{
-		//
-		// The ray hits the cylinder's curved surface only once. This can only happen under 
-		// two cases: the ray originates from inside the cylinder, and points outward; or 
-		// the ray passes through the bounded cylinder once and then through an endcap.
-		//
-		if (valid2)
-		{
-			hp1 = hp2;
-			ho1 = ho2;
-			valid1 = true;
-			t0 = t1;
-		}
-
-		double d0;
-		double d1;
-		bool disc1 = RayCircleTrace(rayOrigin, rayDirNormalized, ct, ca, cylinderRadius, d0);
-		bool disc2 = RayCircleTrace(rayOrigin, rayDirNormalized, cb, -ca, cylinderRadius, d1);
-		if (disc1)
-		{
-			if (disc2)
-			{
-				if (d1 < d0)
-					d0 = d1;
-			}
-		}
-		else if (disc2)
-		{
-			d0 = d1; // the bottom disc is the only one we hit, so that is the distance to compare
-			disc1 = disc2;
-		}
-
-		if (disc1)
-		{
-			if (d0 < t0)
-			{
-				t = d0;
-				return t;
-			}
-		}
-		else
-		{
-			return tmax;
-		}
-	}
-	t = std::min(t0, t1);
-	return t;
-}
-
-#endif
-
-double TraceTester::RayActorTrace(const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, UActor* actor)
-{
-	if (actor->Brush()) // Ignore brushes for now
-		return tmax;
-
-	dvec3 center = to_dvec3(actor->Location());
-	double height = actor->CollisionHeight();
-	double radius = actor->CollisionRadius();
-	return RayCylinderTrace(origin, dirNormalized, tmin, tmax, center, height, radius);
-}
-
-double TraceTester::RaySphereTrace(const dvec3& rayOrigin, double tmin, const dvec3& rayDirNormalized, double tmax, const dvec3& sphereCenter, double sphereRadius)
-{
-	dvec3 l = sphereCenter - rayOrigin;
-	double s = dot(l, rayDirNormalized);
-	double l2 = dot(l, l);
-	double r2 = sphereRadius * sphereRadius;
-	if (s < 0 && l2 > r2)
-		return tmax;
-	double s2 = s * s;
-	double m2 = l2 - s2;
-	if (m2 > r2)
-		return tmax;
-	double q = std::sqrt(r2 - m2);
-	double t = (l2 > r2) ? s - q : s + q;
-	return (t >= tmin) ? t : tmax;
-}
-
-// Compute the intersection of a ray and a plane with infinite bounds. The ray direction 
-// must be normalized. Returns the hit distance, from the ray's origin; to get the hit 
-// position, multiply that by the ray's direction and then add the ray's origin.
-bool TraceTester::RayPlaneTrace(const dvec3& rayOrigin, const dvec3& rayDirNormalized, const dvec3& planeOrigin, const dvec3& planeNormal, double& t)
-{
-	double denom = dot(planeNormal, rayDirNormalized);
-	//
-	// Non-zero check (accounting for floating-point imprecision):
-	//
-	if (denom > DBL_EPSILON || denom < -DBL_EPSILON)
-	{
-		double hd = dot(planeOrigin - rayOrigin, planeNormal) / denom;
-		if (hd >= 0)
-		{
-			t = hd;
-			return true;
-		}
-	}
-	return false;
-}
-
-// Compute the intersection of a ray and a disc. The ray direction must be normalized. 
-// Returns the hit distance, from the ray's origin.
-bool TraceTester::RayCircleTrace(const dvec3& rayOrigin, const dvec3& rayDirNormalized, const dvec3& circleCenter, const dvec3& circleNormal, double radius, double& t)
-{
-	double hd;
-	bool plane = RayPlaneTrace(rayOrigin, rayDirNormalized, circleCenter, circleNormal, hd);
-	if (!plane)
-		return false;
-	dvec3 hp = rayOrigin + rayDirNormalized * hd;
-	dvec3 dd = hp - circleCenter;
-	if (dot(dd, dd) > radius * radius)
-		return false;
-	//if (Hd < 0) // redundant with checks done in ray/plane
-	//   return false;
-	t = hd;
-	return true;
 }

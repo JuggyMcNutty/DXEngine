@@ -1574,6 +1574,16 @@ Every other native the scripted runs compare matches the original
   from the axis
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces);
   `TraceConsole`'s boxes started near a decoration's top and at its middle).
+  A cylinder is checked as the original's `UPrimitive::LineCheck` checks
+  it, on the line it is given, the cut line for the multi-hit check, in
+  floats, its normals made units in floats: at the x87's 24 bits in the
+  console's tick and the frame's script events, where the original's
+  render holds its x87 there, and in doubles in the level's tick, the
+  nearest a port has to the original's 64 bits there (`PrecisionConsole`:
+  7 *= 3e9 in the original -474,836,992 in the console's tick and
+  -474,836,480 in the level's; `VisibleConsole`: UNATCO HQ's
+  `DeusExMover24` at `SkillAwardTrigger0` at y -9.699432, Liberty Island's
+  `DeusExMover18` at `DataLinkTrigger21` its normal, the original's).
 - **A line** meets the level as the original's walk down its BSP does
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
   where it enters solid space, a start in solid stopping it there, at time
@@ -1624,8 +1634,7 @@ Every other native the scripted runs compare matches the original
   hit as the original's do -- the level at the start where a grate or
   `BreakableGlass0` lies there too, the level before a grate flush with it,
   a grate a tenth of the cut line short, each hit at the place its check
-  left -- but at 4, where a cage light's cylinder normal is a last digit
-  apart (bugs.md PHYS.19).
+  left, a cage light's cylinder normal to its last digit.
 - **A thrown thing's flight** (`ParabolicTrace`) moves as the original's
   `MoveActor` moves
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
@@ -1686,12 +1695,10 @@ Every other native the scripted runs compare matches the original
   not to collide, then hidden and moved, then saved; a window broken, at
   once and a frame on; `VisibleConsole` there and on UNATCO HQ, the mover
   lines alike, each hit at the place its check left, a pulled one 2 units
-  before the wall it lies at (all 377 on DXMP_Silo), but for a cylinder's
-  hit in its last digit: 1 of 133 on the island, 2 of 177 on UNATCO HQ
-  (bugs.md PHYS.19); `DoorConsole`:
-  the door's leaf found from inside it; `GlassConsole` on WanChai's club
-  glass: 33 in both, its polygon's own flags carrying the editor's
-  processed bit too).
+  before the wall it lies at: all 377 on DXMP_Silo, 133 on the island and
+  177 on UNATCO HQ; `DoorConsole`: the door's leaf found from inside it;
+  `GlassConsole` on WanChai's club glass: 33 in both, its polygon's own
+  flags carrying the editor's processed bit too).
 - **Auto-aim's targets** (`AimConsole`): `PickTarget` takes a live
   projectile-target pawn ahead, nearer than 2000 units, whose aim is
   strictly the best so far and in sight, `PickAnyTarget` such an actor that

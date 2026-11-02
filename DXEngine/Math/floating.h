@@ -19,6 +19,26 @@ inline int ftol(float v)
 	return ftol((double)v);
 }
 
+// The precision the original's x87 works its sums out at: 24 bits from its
+// render's PreRender to its PostRender (Render.dll 0x10b14560 and
+// 0x10b14700, through Core.dll's appEnableFastMath, 0x1016e050), which
+// UGameEngine::Draw calls before the console's PreRender, which ticks the
+// console, and after the console's PostRender (Engine.dll 0x1038f66c to
+// 0x1038f79b): so in the console's tick and the frame's script events; 64
+// bits outside them, in the level's tick. Round gives a step's result as the
+// x87 holds it: a float's at 24 bits; at 64, a double's, within a bit of the
+// original's. What it stores is a float at both.
+class X87
+{
+public:
+	static inline bool Single = false;
+
+	static inline double Round(double v)
+	{
+		return Single ? (double)(float)v : v;
+	}
+};
+
 class Float
 {
 public:
