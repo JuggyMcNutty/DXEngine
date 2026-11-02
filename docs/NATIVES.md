@@ -1894,8 +1894,8 @@ Every other native the scripted runs compare matches the original
   from them as it was; a Let through None stores nothing.
 - **A function that ends without a value** (`ResultConsole`), as any with
   one can by running off its end (UCC takes no bare `return;` in it), writes
-  nothing, as the original's ([variables and
-  calls](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#variables-and-calls)):
+  nothing, as the original's
+  ([variables and calls](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#variables-and-calls)):
   its `Let` has the call write into the variable itself, and the return of
   nothing every function ends with writes nothing. So a variable assigned
   from it keeps what it held, of every type, a struct's member and an
@@ -1905,11 +1905,18 @@ Every other native the scripted runs compare matches the original
   takes it reads its type's zero, but a native's optional parameter, which
   keeps its default as though left out (a `Spawn` at the spawner's place, a
   `Trace` from the tracer's). A call of a probe's function while the probe
-  is off writes nothing so too. Differs: an `out` parameter that is also the
-  variable assigned keeps the value returned, where the original's keeps its
-  own, the original writing the value before it copies the parameters back
-  (VM.13); and a native's vector or struct parameter given such a result
-  reads zero, where the original's reads what its stack held (D.35).
+  is off writes nothing so too. A `Let` has a script function's call write
+  its value into the variable itself, then the call copies its `out`
+  parameters back, the last first, as the original's does: so an `out`
+  parameter that is also the variable assigned ends with the parameter's
+  value, through a `return` of the call too, and of two `out` parameters
+  given one variable the first's; a bool, which `LetBool` sets once the call
+  is done, takes the value returned (read) (`ResultConsole`). Differs: a
+  native's `out` parameter assigned its own result (`I = I++`) keeps the
+  value returned, where the original's post-increment and post-decrement
+  natives write their result before they step the variable, so it ends
+  stepped (VM.15); and a native's vector or struct parameter given such a
+  result reads zero, where the original's reads what its stack held (D.35).
 - **An actor spawned into water** keeps its physics, the spawn setting its
   region alone, as the original's does: an AirBubble, an Effects with
   PHYS_Projectile, rises as a swimming player's breath does

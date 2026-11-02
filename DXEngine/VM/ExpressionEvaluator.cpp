@@ -26,10 +26,11 @@ static bool IsBoolVariable(TypedKind kind)
 	return kind == TypedKind::LocalBool || kind == TypedKind::InstanceBool || kind == TypedKind::LocalBoolVariable || kind == TypedKind::InstanceBoolVariable;
 }
 
-ExpressionEvalResult ExpressionEvaluator::Eval(Expression* expr, UObject* self, UObject* context, void* localVariables)
+ExpressionEvalResult ExpressionEvaluator::Eval(Expression* expr, UObject* self, UObject* context, void* localVariables, ExpressionValue* into)
 {
 	ExpressionEvalResult result;
 	ExpressionEvaluator evaluator(result, self, context, localVariables);
+	evaluator.ReturnInto = into;
 	expr->Visit(&evaluator);
 	return result;
 }
@@ -100,6 +101,29 @@ ExpressionValue ExpressionEvaluator::VisitValue(Expression* expr)
 	return value;
 }
 
+ExpressionValue ExpressionEvaluator::LetValue(Expression* expr, ExpressionValue& variable)
+{
+	// A leaf calls nothing; through None there is no variable, where the
+	// original's Let writes to a scratch of its own
+	if (expr->Leaf != Expression::LeafKind::Other || !variable.IsVariable())
+		return Value(expr);
+
+	// As VisitValue, the call whose value this is given the variable (Call):
+	// a context passes its expression this value's place, as the original's
+	// execContext hands on the Let's buffer (0x101300d0); a nested value has
+	// a place of its own
+	ExpressionValue value;
+	ExpressionValue* out = Out;
+	Out = &value;
+	LetVariable = &variable;
+	LetOut = &value;
+	expr->Visit(this);
+	LetVariable = nullptr;
+	LetOut = nullptr;
+	Out = out;
+	return value;
+}
+
 ExpressionValue ExpressionEvaluator::Value(Expression* expr, UObject* context)
 {
 	UObject* oldContext = Context;
@@ -137,7 +161,13 @@ void ExpressionEvaluator::Expr(DefaultVariableExpression* expr)
 
 void ExpressionEvaluator::Expr(ReturnExpression* expr)
 {
-	if (expr->Value)
+	// A call returned writes its value into the caller's Let's variable
+	// itself, before it copies its out parameters back, as the original's
+	// return steps it into the caller's buffer (ProcessInternal, Core.dll
+	// 0x1013f690)
+	if (expr->Value && ReturnInto && IsStatement())
+		*Out = LetValue(expr->Value, *ReturnInto);
+	else if (expr->Value)
 		*Out = Value(expr->Value);
 	else
 		*Out = ExpressionValue::NothingValue();
@@ -223,7 +253,7 @@ void ExpressionEvaluator::Expr(LetExpression* expr)
 		return;
 
 	ExpressionValue lvalue = Value(expr->LeftSide);
-	ExpressionValue rvalue = Value(expr->RightSide);
+	ExpressionValue rvalue = LetValue(expr->RightSide, lvalue);
 	if (lvalue.GetType() != ExpressionValueType::Nothing)
 	{
 		if (!rvalue.KeepsVariable)
@@ -996,7 +1026,8 @@ void ExpressionEvaluator::Call(UFunction* func, const Array<Expression*>& exprAr
 			args.push_back(std::move(value));
 		}
 		Context = context;
-		*Out = Frame::Call(func, Context, args);
+		// A Let's right side itself writes its value into the variable (LetValue)
+		*Out = Frame::Call(func, Context, args, Out == LetOut ? LetVariable : nullptr);
 	}
 }
 
@@ -1500,10 +1531,13 @@ bool ExpressionEvaluator::Assign(Expression* lhs, Expression* rhs)
 	// None it may leave the variable as it was, which only the value tells;
 	// so is any other's but a variable's, a constant's or an operator's here,
 	// a call's among them: one held off, or ended without a value, leaves it
-	// too. Not a bool: LetBool clears it (Expr(LetBoolExpression*)).
+	// too, and a script function's writes it itself (LetValue). Not a bool:
+	// LetBool clears it, and sets it once the call has copied its out
+	// parameters back (Expr(LetBoolExpression*)).
 	if (rhs->Typed == TypedKind::Context || rhs->Typed == TypedKind::Generic)
 	{
-		ExpressionValue value = Value(rhs);
+		ExpressionValue variable = IsBoolVariable(lhs->Typed) ? ExpressionValue() : Value(lhs);
+		ExpressionValue value = LetValue(rhs, variable);
 		if (!value.KeepsVariable || IsBoolVariable(lhs->Typed))
 			StoreTyped(lhs, value);
 		return true;

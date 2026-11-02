@@ -7,12 +7,12 @@
 // off their end: it runs its Results -- each such function's result into a
 // variable set before, by every way a result is taken (CapResultProbe's
 // header) -- then the console's own lets through it, P.IntOf() and the rest
-// into locals and into the probe's variables, and it goes to its state
-// Coding, whose code's lets run in its next tick; 1 s later an exit. What is
-// compared between the engines: every line, exactly -- but an out parameter
-// assigned a returned value too ("out 3 and return 8"), which DXEngine's
-// call copies back before the Let stores the value, where the original's
-// writes the value first (bugs.md VM.13).
+// into locals and into the probe's variables, and P.OutSet(I) into I, its
+// out parameter, and it goes to its state Coding, whose code's lets run in
+// its next tick; 1 s later an exit. What is compared between the engines:
+// every line, exactly -- but a native's out parameter assigned its own
+// result ("int ++ 6"), which the original's post-increment and decrement
+// natives write before they step the variable (bugs.md VM.15).
 //=============================================================================
 class ResultConsole extends Console;
 
@@ -49,6 +49,11 @@ function ContextLets(CapResultProbe P)
 	P.bHeld = True;
 	P.bHeld = P.BoolOf();
 	Say(P.Kind $ ": through the probe: int " $ I $ ", bool " $ B $ ", string [" $ S $ "], vector " $ V $ ", actor kept " $ (A == P) $ ", its int " $ P.HeldInt $ ", its bool " $ P.bHeld);
+	I = 5;
+	I = P.OutSet(I);
+	P.HeldInt = 5;
+	P.HeldInt = P.OutSet(P.HeldInt);
+	Say(P.Kind $ ": through the probe: out parameter assigned the result: int " $ I $ ", its int " $ P.HeldInt);
 }
 
 event Tick(float Delta)

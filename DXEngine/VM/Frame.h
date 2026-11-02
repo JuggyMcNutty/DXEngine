@@ -125,7 +125,9 @@ class Frame
 {
 public:
 	static ExpressionValue Call(UFunction* func, UObject* instance, Array<ExpressionValue> args);
-	static ExpressionValue Call(UFunction* func, UObject* instance, CallArguments& args);
+	// into: a Let's variable, which a script function writes its value into
+	// itself (CallScript)
+	static ExpressionValue Call(UFunction* func, UObject* instance, CallArguments& args, ExpressionValue* into = nullptr);
 	static const Array<UProperty*>& CallParms(UFunction* func);
 	static std::string GetCallstack();
 	static std::string GetDisassembly(Expression* statement);
@@ -192,6 +194,11 @@ public:
 	size_t StatementIndex = 0;
 	Array<std::unique_ptr<Iterator>> Iterators;
 
+	// A script function's caller's Let's variable (CallScript), which the
+	// original's ProcessInternal (Core.dll 0x1013f690) hands on to the call
+	// the function returns: its return steps the call into the caller's buffer
+	ExpressionValue* Into = nullptr;
+
 private:
 	ExpressionEvalResult Run();
 	bool FindLabel(const NameString& label);
@@ -217,7 +224,7 @@ private:
 	static void ClassifyStatement(Expression* statement, const Bytecode& code);
 
 	static ExpressionValue CallNative(UFunction* func, UObject* instance, CallArguments& args);
-	static ExpressionValue CallScript(UFunction* func, UObject* instance, CallArguments& args);
+	static ExpressionValue CallScript(UFunction* func, UObject* instance, CallArguments& args, ExpressionValue* into);
 	static void TraceCall(UFunction* func, UObject* instance, const CallArguments& args);
 
 	struct ActiveCallStackFrame

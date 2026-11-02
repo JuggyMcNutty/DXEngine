@@ -8,9 +8,10 @@
 // a member and a struct compare; given to a script function's parameter, a
 // native's and a native's optional one (Spawn's location, Trace's start);
 // with them a call held off (a singular one, a disabled probe's), an out
-// parameter that is also the variable assigned, a foreach, a state's
-// function and state code. Each line logged with "DXRESULT:" and the probe's
-// Kind.
+// parameter that is also the variable assigned, part of it or holds it, of
+// each kind of variable, beside an out parameter of a call in the arguments
+// and a bool's result, a foreach, a state's function and state code. Each
+// line logged with "DXRESULT:" and the probe's Kind.
 //=============================================================================
 class CapResultProbe extends Actor;
 
@@ -177,6 +178,67 @@ function int OutSet(out int X)
 function int OutFell(out int X)
 {
 	X = 3;
+}
+
+// The same of a string and of a struct; a struct out parameter of which the
+// variable is a member, and an out parameter that is a member of it
+function string OutStr(out string X)
+{
+	X = "out";
+	return "returned";
+}
+
+function CapPair OutPair(out CapPair X)
+{
+	local CapPair R;
+
+	R.N = 8;
+	R.S = "returned";
+	X.N = 3;
+	X.S = "out";
+	return R;
+}
+
+function int OutWhole(out CapPair X)
+{
+	X.N = 3;
+	return 8;
+}
+
+function CapPair OutPart(out int X)
+{
+	local CapPair R;
+
+	R.N = 8;
+	X = 3;
+	return R;
+}
+
+// A bool's result beside an out parameter
+function bool OutFlag(out int X)
+{
+	X = 3;
+	return True;
+}
+
+function bool OutFellFlag(out int X)
+{
+	X = 3;
+}
+
+// A call returned, given the variable its caller assigns the result to: the
+// original's return steps the call into its caller's buffer
+function int OutChain()
+{
+	return OutSet(HeldInt);
+}
+
+// Two out parameters given one variable: the original copies them back the
+// last first
+function TwoOuts(out int X, out int Y)
+{
+	X = 1;
+	Y = 2;
 }
 
 // Held off while HeldOff runs, singular as they are
@@ -458,11 +520,18 @@ function ProbeCalls()
 	Say("probes enabled: actor self " $ (A == self) $ ", bool " $ B);
 }
 
-// An out parameter that is the variable assigned: the original writes the
-// result, if any, then copies the parameter back over it
+// An out parameter that is the variable assigned, a part of it or holds it:
+// the original's call writes the result, if any, into the variable, then
+// copies the parameter back over it. A call in the arguments writes its
+// result in the parameter it is given; a bool's LetBool sets the bit after
+// the call, from a value of its own.
 function OutAliases()
 {
-	local int I, J;
+	local int I, J, K;
+	local int Arr[3];
+	local string S;
+	local CapPair Pair, Whole, Part;
+	local bool B;
 
 	J = 5;
 	J = OutFell(J);
@@ -470,6 +539,62 @@ function OutAliases()
 	I = 5;
 	I = OutSet(I);
 	Say("out parameter assigned the result: out 3 and return 8 leave " $ I);
+	Pair.N = 5;
+	Pair.N = OutSet(Pair.N);
+	Arr[1] = 5;
+	Arr[1] = OutSet(Arr[1]);
+	HeldInt = 5;
+	HeldInt = OutSet(HeldInt);
+	S = "kept";
+	S = OutStr(S);
+	Say("out parameter assigned the result: struct int " $ Pair.N $ ", element " $ Arr[1] $ ", own int " $ HeldInt $ ", string [" $ S $ "]");
+	Whole.N = 5;
+	Whole = OutPair(Whole);
+	Part.N = 5;
+	Part.N = OutWhole(Part);
+	Pair.N = 5;
+	Pair = OutPart(Pair.N);
+	Say("out parameter assigned the result: struct " $ Whole.N $ " [" $ Whole.S $ "], member of it " $ Part.N $ ", holding it " $ Pair.N);
+	K = 5;
+	K = EchoInt(OutSet(K));
+	Say("out parameter of a call in the arguments: " $ K);
+	J = 5;
+	B = False;
+	B = OutFlag(J);
+	I = 5;
+	Pair.bOn = False;
+	Pair.bOn = OutFlag(I);
+	Say("bool beside an out parameter: " $ B $ " out " $ J $ ", member " $ Pair.bOn $ " out " $ I);
+	J = 5;
+	B = True;
+	B = OutFellFlag(J);
+	Say("bool beside an out parameter, no return: " $ B $ " out " $ J);
+}
+
+// Out parameters past a Let of a call: a call returned, handed its caller's
+// variable; two given one variable; a native's, the post-increment's and
+// post-decrement's, which the original's write their value into the variable
+// assigned and step it after
+function OutExtras()
+{
+	local int I, J;
+	local byte Bt, Bc;
+
+	HeldInt = 5;
+	HeldInt = OutChain();
+	Say("out parameter of a call returned, assigned the result: " $ HeldInt);
+	I = 5;
+	TwoOuts(I, I);
+	Say("two out parameters given one variable: " $ I);
+	I = 5;
+	I = I++;
+	J = 5;
+	J = J--;
+	Bt = 9;
+	Bt = Bt++;
+	Bc = 9;
+	Bc = Bc--;
+	Say("native out parameter assigned the result: int ++ " $ I $ ", -- " $ J $ ", byte ++ " $ Bt $ ", -- " $ Bc);
 }
 
 // After and in a foreach, and a state's function
@@ -510,6 +635,7 @@ function Results()
 	HeldOff();
 	ProbeCalls();
 	OutAliases();
+	OutExtras();
 	Loops();
 	Say("functions run: " $ Calls);
 }

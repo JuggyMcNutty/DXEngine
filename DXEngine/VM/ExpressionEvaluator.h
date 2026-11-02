@@ -34,8 +34,9 @@ struct ExpressionEvalResult
 class ExpressionEvaluator : ExpressionVisitor
 {
 public:
-	// Evaluates a statement: its value, and what the frame does next
-	static ExpressionEvalResult Eval(Expression* expr, UObject* self, UObject* context, void* localVariables);
+	// Evaluates a statement: its value, and what the frame does next. into:
+	// the function's caller's Let's variable, for a return (Frame::Into)
+	static ExpressionEvalResult Eval(Expression* expr, UObject* self, UObject* context, void* localVariables, ExpressionValue* into = nullptr);
 
 	// Frame::RunInPlace's statements: JumpIfNot's condition, an assignment to
 	// a variable kind (Let, LetBool), a call whose value is dropped. Each
@@ -62,6 +63,13 @@ private:
 	ExpressionValue Value(Expression* expr);
 	ExpressionValue Value(Expression* expr, UObject* context);
 	ExpressionValue VisitValue(Expression* expr); // Value, through the visitor
+
+	// A non-bool Let's right side, for variable: the script function it
+	// calls, through a context too, writes its value into the variable itself
+	// (Frame::CallScript), as the original's Let has the call write into the
+	// variable (Core.dll execLet 0x1012fe40); a call nested in it, an
+	// argument's or a context's object's, writes its own
+	ExpressionValue LetValue(Expression* expr, ExpressionValue& variable);
 
 	// Evaluates expr as this expression (Skip, Context): its value is this
 	// one's, and so is what it says the frame does next.
@@ -207,4 +215,12 @@ private:
 	UObject* Context = nullptr;
 	void* LocalVariables = nullptr;
 	ExpressionValue* Out = nullptr; // where the expression being visited leaves its value
+
+	// LetValue's variable, and where its right side leaves its value: a call
+	// that leaves its value there is the right side itself
+	ExpressionValue* LetVariable = nullptr;
+	ExpressionValue* LetOut = nullptr;
+
+	// Eval's into: the variable a return gives the call it returns
+	ExpressionValue* ReturnInto = nullptr;
 };

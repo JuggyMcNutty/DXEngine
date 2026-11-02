@@ -225,7 +225,7 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, Array<Expression
 	return Call(func, instance, callArgs);
 }
 
-ExpressionValue Frame::Call(UFunction* func, UObject* instance, CallArguments& args)
+ExpressionValue Frame::Call(UFunction* func, UObject* instance, CallArguments& args, ExpressionValue* into)
 {
 	if (!instance)
 	{
@@ -268,11 +268,11 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, CallArguments& a
 	}
 	else
 	{
-		return CallScript(func, instance, args);
+		return CallScript(func, instance, args, into);
 	}
 }
 
-ExpressionValue Frame::CallScript(UFunction* func, UObject* instance, CallArguments& args)
+ExpressionValue Frame::CallScript(UFunction* func, UObject* instance, CallArguments& args, ExpressionValue* into)
 {
 	// Deus Ex: a singular function held off gives nothing, a zero to whatever
 	// reads it, and leaves a variable assigned from it as it was, as the
@@ -284,6 +284,7 @@ ExpressionValue Frame::CallScript(UFunction* func, UObject* instance, CallArgume
 		InfiniteRecursion();
 
 	Frame frame(instance, func);
+	frame.Into = into;
 	const Array<UProperty*>& parms = func->CallParms;
 
 	// Store args in function frame local variables. An optional argument the
@@ -313,16 +314,6 @@ ExpressionValue Frame::CallScript(UFunction* func, UObject* instance, CallArgume
 	// Load the result from the frame local result variable
 	result.Load();
 
-	// Copy out params from frame local variables
-	for (size_t i = 0; i < parms.size() && i < args.size(); i++)
-	{
-		if (AllFlags(parms[i]->PropFlags, PropertyFlags::OutParm))
-		{
-			ExpressionValue lvalue = ExpressionValue::Variable(frame.Variables.Data, parms[i]);
-			args[i].Store(lvalue);
-		}
-	}
-
 	// A function that ends without a value -- off its end, or at a bare
 	// return -- writes nothing to its caller's result: the original's
 	// ProcessInternal (Core.dll 0x1013f690) steps the return's expression
@@ -336,6 +327,30 @@ ExpressionValue Frame::CallScript(UFunction* func, UObject* instance, CallArgume
 	if (func->ReturnParm && result.GetType() == ExpressionValueType::Nothing && !result.KeepsVariable)
 	{
 		result = ExpressionValue::DefaultValue(func->ReturnParm);
+	}
+
+	// A Let's call writes its value into the variable itself, then copies
+	// its out parameters back, as the original's CallFunction (Core.dll
+	// 0x1013f4e0) runs the function into the caller's buffer, the variable
+	// for a Let (execLet 0x1012fe40), and copies them back after: an out
+	// parameter that is also the variable ends with the parameter's value.
+	// The Let then stores nothing.
+	if (into && result.GetType() != ExpressionValueType::Nothing)
+	{
+		into->Store(result);
+		result = ExpressionValue::NothingValue(true);
+	}
+
+	// Copy out params from frame local variables, the last first, as the
+	// original's CallFunction (Core.dll 0x1013f4e0) copies them back: of two
+	// given the same variable, the first one's value is the one it keeps
+	for (size_t i = std::min(parms.size(), args.size()); i-- > 0;)
+	{
+		if (AllFlags(parms[i]->PropFlags, PropertyFlags::OutParm))
+		{
+			ExpressionValue lvalue = ExpressionValue::Variable(frame.Variables.Data, parms[i]);
+			args[i].Store(lvalue);
+		}
 	}
 
 	return result;
@@ -658,7 +673,7 @@ ExpressionEvalResult Frame::Run()
 
 		if (statement->Statement == Expression::StatementKind::Jump || statement->Statement == Expression::StatementKind::JumpIfNot)
 			CountJump();
-		ExpressionEvalResult result = ExpressionEvaluator::Eval(statement, Object, Object, Variables.Data);
+		ExpressionEvalResult result = ExpressionEvaluator::Eval(statement, Object, Object, Variables.Data, Into);
 		if (!Func)
 			return result;
 		switch (result.Result)
