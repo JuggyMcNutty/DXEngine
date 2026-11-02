@@ -9,7 +9,9 @@
 // While its player waits in the Entry level for its pawn (the join's map
 // loaded, the level not yet a client's), each tick logs the Entry level's
 // time, how far it stepped and the frame's time, and the frames are marked
-// as shot 2, the first of them shot (bugs.md NET.8).
+// as shot 2, shot at the second wait tick: a shot reads the frame drawn
+// before, and the one before the first is the load's own, the old level's
+// CONNECTING (bugs.md NET.8).
 //=============================================================================
 class TravelJoinConsole extends Console;
 
@@ -57,10 +59,11 @@ event Tick(float Delta)
 	if (Step == 1 && FirstMap == "" && P.Level.NetMode != NM_Client && InStr(Caps(MapOf(P)), "ENTRY") >= 0)
 	{
 		if (WaitTicks > 0)
-			Log("DXNET: wait tick " $ WaitTicks $ " Entry time " $ P.Level.TimeSeconds $ " step " $ (P.Level.TimeSeconds - WaitLast) $ " delta " $ Delta $ " action " $ P.Level.LevelAction);
+			Log("DXNET: wait tick " $ WaitTicks $ " " $ string(P) $ " Entry time " $ P.Level.TimeSeconds $ " step " $ (P.Level.TimeSeconds - WaitLast) $ " delta " $ Delta $ " action " $ P.Level.LevelAction);
 		else
+			Log("DXNET: waiting in " $ MapOf(P) $ ", " $ string(P) $ ", Entry time " $ P.Level.TimeSeconds $ " action " $ P.Level.LevelAction);
+		if (WaitTicks == 1)
 		{
-			Log("DXNET: waiting in " $ MapOf(P) $ ", Entry time " $ P.Level.TimeSeconds $ " action " $ P.Level.LevelAction);
 			Log("DXCAP: shot 2 in " $ MapOf(P));
 			P.ConsoleCommand("shot");
 		}
@@ -71,7 +74,7 @@ event Tick(float Delta)
 	if (RunTime - LogTime >= 1.0)
 	{
 		LogTime = RunTime;
-		Log("DXNET: t=" $ int(RunTime) $ " in " $ MapOf(P) $ " net mode " $ P.Level.NetMode $ " at " $ P.Location);
+		Log("DXNET: t=" $ int(RunTime) $ " in " $ MapOf(P) $ " net mode " $ P.Level.NetMode $ " at " $ P.Location $ " " $ string(P));
 	}
 	if (P.Level.NetMode != NM_Client && FirstMap != "" && Step < 2)
 	{

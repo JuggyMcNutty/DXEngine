@@ -85,8 +85,10 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 		// empty: nothing of the world or the overlays is drawn, and the
 		// windows still are, from PostRenderFlash
 		// (dx-reverse-info/extension-dll.md, the raw background).
-		// Nothing of the world while a joining client waits for its player.
-		if (engine->viewport->Actor() && (!engine->dxRootWindow || engine->dxRootWindow->bRender()))
+		// Nothing of the world while a joining client's player waits in
+		// the Entry level, the renderer's level the game's.
+		UPlayerPawn* viewer = engine->viewport->Actor();
+		if (viewer && viewer->XLevel() == engine->Level && (!engine->dxRootWindow || engine->dxRootWindow->bRender()))
 		{
 			DrawScene();
 			RenderOverlays();

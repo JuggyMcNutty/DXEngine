@@ -2567,12 +2567,18 @@ as client and as server: `ServeConsole`, `JoinConsole`, `RejoinConsole`,
 `TravelServeConsole`, `TravelJoinConsole`, `NetConsole`, `PickServer` with
 `PickJoinConsole`, `AskServer` with `AskJoinConsole`. DXEngine joins live
 public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
-stays in. Differs (bugs.md NET.8): until its pawn arrives, a joining DXEngine
-client has no player and draws no world, where the original's player waits
-in the Entry level, which the original ticks twice a frame meanwhile, and
-draws it: Entry's Eidos logo, dim, with the console's CONNECTING
-(`TravelJoinConsole`, the original joining DXEngine: four wait ticks, the
-Entry level stepping 0.0485 s in a frame of 0.0239).
+stays in. Until its pawn arrives, a joining client's player waits in the
+Entry level, logged in with the join's URL, its HUD and the console's
+CONNECTING drawn over a black view, and the Entry level is ticked twice a
+frame, after the game's level, as the original's; the player is destroyed
+at the next load wherever it stands, and once the pawn arrives it stays in
+Entry, let go, as the original's (`TravelJoinConsole`, each engine joining
+the other: the player `Entry.JCDentonMale1` in the wait, the original's
+Entry level stepping 0.0485 s in a frame of 0.0239, each wait frame black
+but the HUD and the words). Differs (bugs.md NET.8): the original's wait
+frame also shows the join's `Connecting (F10 Cancels):` and
+`deusex://<host>/<map>`, which DXEngine's shows only while the join is
+pending.
 A remote player's pawn destroyed by script (`Kick`) has its connection
 closed instead, as the original's `DestroyActor` has it (`ServeConsole`
 with `Kick`, each engine the server and the other's `TravelJoinConsole` the

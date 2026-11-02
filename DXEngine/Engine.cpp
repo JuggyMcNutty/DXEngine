@@ -408,8 +408,6 @@ void Engine::Run()
 		if (LevelNetDriver)
 			LevelNetDriver->TickDispatch(levelElapsed);
 
-		if (EntryLevel && EntryLevel != Level)
-			EntryLevel->Tick(entryLevelElapsed, m_GamePaused);
 		Level->Tick(levelElapsed, m_GamePaused);
 
 		// A server replicates to its clients before the packets go; a client
@@ -420,6 +418,22 @@ void Engine::Run()
 			ClientLevel->TickNetClient(*LevelNetDriver);
 		if (LevelNetDriver)
 			LevelNetDriver->TickFlush();
+
+		// Then the Entry level, and the viewport's player's level when it is
+		// not the game's, as the original's game engine ticks them
+		// (engine-dll.md, a level's tick): so the Entry level a second time,
+		// its time stepped again, while a joining client's player waits
+		// there for its pawn.
+		if (EntryLevel && EntryLevel != Level)
+		{
+			EntryLevel->Tick(entryLevelElapsed, m_GamePaused);
+			UPlayerPawn* viewer = viewport ? viewport->Actor() : nullptr;
+			if (viewer && viewer->XLevel() == EntryLevel)
+			{
+				EntryLevelInfo->TimeSeconds() += entryLevelElapsed;
+				EntryLevel->Tick(entryLevelElapsed, m_GamePaused);
+			}
+		}
 
 		// A save asked for during the tick, written before a travel takes
 		// its level.
@@ -947,6 +961,16 @@ void Engine::ReturnToEntry(const UnrealURL& url)
 void Engine::UnloadMap()
 {
 	CloseNetDriver();
+
+	// A joining client's player waiting in the Entry level goes as any
+	// other, the original's LoadMap destroying each viewport's actor where
+	// it stands: a failed join, a lost server, a travel in the wait.
+	if (UPlayerPawn* pawn = viewport->Actor(); pawn && Level && pawn->XLevel() != Level)
+	{
+		pawn->Player() = nullptr;
+		viewport->Actor() = nullptr;
+		pawn->Destroy();
+	}
 
 	// The Entry level stays; the player it was given goes, as the original's
 	// LoadMap destroys each viewport's actor where it stands.
@@ -2058,6 +2082,33 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 	render->OnMapLoaded();
 }
 
+void Engine::LoginEntryPlayer(const UnrealURL& url)
+{
+	viewport->Actor() = nullptr;
+	if (!EntryLevel || Level == EntryLevel)
+		return;
+
+	// LoginPlayer logs in to the engine's level: Entry's for the call, as
+	// ReturnToEntry plays it, the game's put back after. Its OnMapLoaded
+	// sets up Entry's lights, which are its own (ULevel::Light).
+	ULevel* level = Level;
+	ULevelInfo* levelInfo = LevelInfo;
+	Package* levelPackage = LevelPackage;
+	UGameInfo* gameInfo = GameInfo;
+	UDeusExLevelInfo* deusExLevelInfo = DeusExLevelInfo;
+	Level = EntryLevel;
+	LevelInfo = EntryLevelInfo;
+	LevelPackage = EntryLevelPackage;
+	GameInfo = EntryGameInfo;
+	DeusExLevelInfo = EntryDeusExLevelInfo;
+	LoginPlayer(url);
+	Level = level;
+	LevelInfo = levelInfo;
+	LevelPackage = levelPackage;
+	GameInfo = gameInfo;
+	DeusExLevelInfo = deusExLevelInfo;
+}
+
 void Engine::BeginConnect(const UnrealURL& url)
 {
 	CancelPending();
@@ -2145,8 +2196,8 @@ void Engine::LoadClientMap(NetPendingLevel* pending)
 		keep.push_back(package.Name);
 	packages->ReleaseNetPackages(keep);
 
-	viewport->Actor() = nullptr;
 	CameraActor = nullptr;
+	LoginEntryPlayer(url);
 	// As after any map's load (LoginPlayer): the sounds stop, the music
 	// plays on.
 	audiodev->StopEffects();

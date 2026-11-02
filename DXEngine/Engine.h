@@ -136,6 +136,10 @@ public:
 	// The local player logged in with a URL's portal and options, as the
 	// original's SpawnPlayActor: the level's own URL, or a save load's.
 	void LoginPlayer(const UnrealURL& url);
+	// A joining client's player while it waits for its pawn: logged in to
+	// the Entry level with the join's URL, as the original's map load logs a
+	// net client's in there (dx-reverse-info/engine-dll.md, a map's load).
+	void LoginEntryPlayer(const UnrealURL& url);
 
 	// Joining a server (dx-reverse-info/network.md, joining): the handshake while the
 	// current level plays on, then the server's map loaded as a client, and
