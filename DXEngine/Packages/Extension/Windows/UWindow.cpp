@@ -2345,7 +2345,7 @@ void UWindow::DescendantRemoved(UWindow* descendant)
 // root's is the screen in its units. DXEngine places windows in its layout
 // pass, so they are clipped after it (RenderSubsystem::PreRenderWindows),
 // and a window SetPos places at once, at once. The tab groups' places read
-// them (MoveTabGroup).
+// them (MoveTabGroup), as the root's next tick seeds the focus.
 void UWindow::ClipTree()
 {
 	ClipRect& clip = winClipRect();
@@ -2386,12 +2386,13 @@ void UWindow::ClipTree()
 // seeds it, unless its focusMode is MFOCUS_EnterLeave (the keypad's): its
 // preferred window if that can take the focus (SetFocusWindow keeps the last
 // focus there), else as a move to the next tab group gives it, from the
-// table's first. This is how a conversation's choices light up as they
-// appear, and a menu's first button too. The original then ticks its modal
-// half (an accelerator-table rebuild DXEngine has no table for). The tab
-// groups go in the order of their windows' places, which the original has
-// as soon as a window is made; DXEngine places windows in its layout pass,
-// so it seeds the focus after that pass (RenderSubsystem::PreRenderWindows).
+// table's first. This is how a conversation's choices light up, the frame
+// after they appear, and a menu's first button too. The original then ticks
+// its modal half (an accelerator-table rebuild DXEngine has no table for).
+// The tab groups go in the order of their windows' places, which the
+// original has as soon as a window is made; DXEngine's layout pass has laid
+// out the windows made in the frame before (RenderSubsystem::PreRenderWindows)
+// by the root's next tick, which seeds it (URootWindow::Tick).
 void UWindow::SeedFocus()
 {
 	URootWindow* root = GetRootWindow();

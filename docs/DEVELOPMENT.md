@@ -258,7 +258,7 @@ launcher's part, which DXEngine leaves to the launchers.
 | `LootConsole` | both | two carcasses searched; the inventory grid; with `Hover`, between the searches, the inventory screen opened by the console, the pointer put on an item's button, then on the screen's corner, a marked shot of each | `DXLOOT:` | with `tools/dxcap/timelines/loot-drags.txt` on DXEngine; with `Hover`, the pointer drawn in both shots, the one `CursorRequested` gives |
 | `CarcassConsole` | both | what carcasses hold, their search, the looted weapon | `DXCARC:` |  |
 | `StatueConsole` | both | on Liberty Island, `StatueMissionComplete` set 6 s in, as the statue's ending sets it: each terrorist's state, health and items as they change and each `TerroristCarcass` as it appears, with its items, every tick for 5 s; then UNATCO HQ, and the island again from `Current`: every carcass's items | `DXSTATUE:` | the two logs' lines, their ticks and times aside |
-| `ChoiceConsole` | both | a conversation's choices and their focus, by the keys and the pointer (`SetCursorPos`) | `DXCHOICE:` |  |
+| `ChoiceConsole` | both | a conversation's choices and their focus, by the keys and the pointer (`SetCursorPos`); the focus as the choices' first two frames are drawn and at the tick between | `DXCHOICE:` | the `drawn` and `tick after` lines: the first frame drawn with no focus, then the first choice's |
 | `KeypadConsole` | both | the root's focus round the keypad; a stray key release | `DXKEYPAD:` | with `tools/dxcap/timelines/stray-release.txt` on DXEngine |
 | `BorderConsole` | both | `GC.DrawBorders` on the inventory screen | `DXBORDER:` |  |
 | `ColorsConsole` | both | `DrawBorders` on the Colors screen | `DXCOLORS:` |  |

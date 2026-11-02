@@ -29,6 +29,7 @@ public:
 
 	void WindowReady() override;
 	void PostDrawWindow(UGC* gc) override;
+	void Tick(float timeElapsed) override;
 
 	bool SetRootFocusWindow(UWindow* NewFocusWindow);
 	void SetRootCursorPos(float newMouseX, float newMouseY);

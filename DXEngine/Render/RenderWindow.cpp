@@ -18,10 +18,10 @@ void RenderSubsystem::PreRenderWindows(UCanvas* canvas)
 		return;
 
 	engine->dxRootWindow->UpdateLayout();
-	// Each window's clip rectangle for the places the layout gave, before the
-	// first focus is seeded by the tab groups' places (UWindow::ClipTree)
+	// Each window's clip rectangle for the places the layout gave
+	// (UWindow::ClipTree): the tab groups' places by which the root's next
+	// tick seeds the first focus (URootWindow::Tick)
 	engine->dxRootWindow->ClipTree();
-	engine->dxRootWindow->SeedFocus();
 }
 
 void RenderSubsystem::PostRenderWindows(UCanvas* canvas)

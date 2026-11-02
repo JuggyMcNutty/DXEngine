@@ -1235,14 +1235,18 @@ from the original's code:
   a tab group's windows in order of where they lie on screen; `MoveFocus`,
   `MoveTabGroup`, `SetFocusWindow` (only a window that can take the focus
   takes it, its modal keeping it to return to), the focus moving off a
-  window hidden, made unselectable or destroyed, and the root seeding it --
-  none while the keypad (`MFOCUS_EnterLeave`) is up, none with no modal up
-  (`KeypadConsole`). Each window keeps the part of it its parents leave in
-  view, as the original's clip rectangle, and a modal's tab groups go in
-  the order of the first of their windows that shows, a group none of whose
-  windows shows first (`FocusConsole`: a clip window scrolled so that its
-  first button lies above the view, then none in view; Tab and Shift+Tab
-  from each place, and each button's clip rectangle, every line alike).
+  window hidden, made unselectable or destroyed, and the root seeding it in
+  its own tick, before every other window's -- none while the keypad
+  (`MFOCUS_EnterLeave`) is up, none with no modal up (`KeypadConsole`). So a
+  conversation's first choice takes it at the windows' tick after the
+  choices are made: the frame they are made is drawn with no focus, the next
+  with the first choice's (`ChoiceConsole`'s `drawn` lines). Each window
+  keeps the part of it its parents leave in view, as the original's clip
+  rectangle, and a modal's tab groups go in the order of the first of their
+  windows that shows, a group none of whose windows shows first
+  (`FocusConsole`: a clip window scrolled so that its first button lies
+  above the view, then none in view; Tab and Shift+Tab from each place, and
+  each button's clip rectangle, every line alike).
 - **What a clip rectangle holds back**
   ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#drawing-a-window)):
   a window none of which shows -- scrolled out of its clip window, sized to
@@ -1336,10 +1340,6 @@ Differs:
   their marks, its window resetting only the engine's input (read from both
   codes), and its Alt stays down to the windows until pressed again, a key
   and a typed letter passing every window over but a modal.
-- **Keyboard focus**: DXEngine places windows in its layout pass, after the
-  level's tick, and seeds the first focus there; the original places them as
-  they are made and seeds it at its windows' next tick, so a conversation's
-  first choice has the focus a frame sooner (`ChoiceConsole`; EXT.9).
 - **Layout** (`MenuConsole`, `ScreenConsole`, `SizeConsole`): DXEngine lays
   windows out once a frame, the original as each asks, so a window made this
   frame is 10 by 10 until the next; a window that shows sits at the margins

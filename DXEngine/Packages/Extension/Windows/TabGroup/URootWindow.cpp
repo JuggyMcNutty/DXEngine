@@ -234,6 +234,18 @@ void URootWindow::WindowReady()
 	UModalWindow::WindowReady();
 }
 
+// The root's own tick (Extension.dll XRootWindow::Tick 0x1003a540), which
+// the original's walk runs before the root's script Tick, its timers and
+// every other window's tick (XRootWindow::TickTree 0x1003bfc0): while nothing
+// has the focus, the first focus is seeded (SeedFocus). So the windows made
+// in a frame -- a conversation's choices, a menu's buttons -- take it at the
+// windows' next tick, a frame on, their places laid out by then.
+void URootWindow::Tick(float timeElapsed)
+{
+	SeedFocus();
+	UModalWindow::Tick(timeElapsed);
+}
+
 bool URootWindow::IsCursorVisible()
 {
 	// The pointer is drawn while the mouse is grabbed -- a modal grabs it as

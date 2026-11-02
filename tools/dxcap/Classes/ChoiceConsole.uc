@@ -4,18 +4,21 @@
 // clock, with marked shots (docs/DEVELOPMENT.md, scripted runs).
 //
 // On Liberty Island: Tech Sergeant Kaplan's MeetKaplan (third-person, with
-// speech), its lines run through quickly to the choices, which are then
-// left to sit: the focus window logged, shots of the choices as displayed,
-// the root window's own VirtualKeyPressed driving Down, Down and Up between
-// them (the keys' own path -- ConWindowActive passes them on and
-// RootWindow moves the focus), the focus logged after each with a shot,
-// then the pointer put on the last choice and back on the one the keys left
-// focused (Window.SetCursorPos, which the original's root takes as a move
-// at once: MFOCUS_Enter gives the focus to the window entered), the focus
+// speech), its lines run through quickly to the choices, which are then left
+// to sit: the focus window logged, then again as the first two frames of the
+// choices are drawn ("drawn 1", "drawn 2", from PostRender) and at the tick
+// between ("tick after") -- the frame the choices are made drawn with no
+// focus, the next with the first choice's --, shots of the choices as
+// displayed, the root window's own VirtualKeyPressed driving Down, Down and
+// Up between them (the keys' own path -- ConWindowActive passes them on and
+// RootWindow moves the focus), the focus logged after each with a shot, then
+// the pointer put on the last choice and back on the one the keys left
+// focused (Window.SetCursorPos, which the original's root takes as a move at
+// once: MFOCUS_Enter gives the focus to the window entered), the focus
 // logged after each with a shot, then the focused choice picked through
-// ConPlay.PlayChoice, the path a click ends in. What is compared between
-// the engines: whether the choice buttons exist and are focusable, whether
-// the focus moves between them by the keys and by the pointer, and what the
+// ConPlay.PlayChoice, the path a click ends in. What is compared between the
+// engines: whether the choice buttons exist and are focusable, whether the
+// focus moves between them by the keys and by the pointer, and what the
 // shots show of the highlighted choice.
 //=============================================================================
 class ChoiceConsole extends Console;
@@ -33,6 +36,11 @@ var bool bSkipping;
 var int ChoiceVisits;
 var int KeySteps;
 var Window KeysFocus;
+
+// The focus logged as the frames after a choice event are drawn, and at the
+// tick between.
+var int DrawnLogs;
+var int TickLogs;
 
 // A mark in the view's corner while a shot is due, as CaptureConsole marks
 // its shots.
@@ -93,7 +101,17 @@ function TickShot(PlayerPawn P, float Delta)
 event PostRender(canvas C)
 {
 	local int i;
+	local DeusExPlayer DXP;
+
 	Super.PostRender(C);
+	if (DrawnLogs > 0)
+	{
+		if (Viewport != None)
+			DXP = DeusExPlayer(Viewport.Actor);
+		if (DXP != None && DXP.rootWindow != None)
+			Log("DXCHOICE: drawn " $ (3 - DrawnLogs) $ ": focus " $ WinName(DXP.rootWindow.GetFocusWindow()));
+		DrawnLogs--;
+	}
 	if (!bMarking)
 		return;
 	C.Style = 1;
@@ -260,6 +278,12 @@ event Tick(float Delta)
 	StepTime += Delta;
 	EventTime += Delta;
 	P.ReducedDamageType = 'All';
+	if (TickLogs > 0)
+	{
+		if (DXP != None && DXP.rootWindow != None)
+			Log("DXCHOICE: tick after: focus " $ WinName(DXP.rootWindow.GetFocusWindow()));
+		TickLogs--;
+	}
 	TickShot(P, Delta);
 	if (bShotPending)
 		return;
@@ -334,6 +358,8 @@ event Tick(float Delta)
 				bSkipping = false;
 				ChoiceVisits++;
 				LogChoices(DXP, "choice event " $ ChoiceVisits);
+				DrawnLogs = 2;
+				TickLogs = 1;
 				KeySteps = 0;
 				StepTime = 0;
 				Phase = 4;
