@@ -21,7 +21,24 @@ public:
 	void ShowWeapons(std::optional<bool> bShow);
 
 	void InitDefaults() override;
+	void DestroyWindow() override;
 	void DrawWindow(UGC* gc) override;
+
+	// The script's CalcView event, which may move and turn the frame
+	void CalcView(vec3& location, Rotator& rotation);
+
+	// The frame the window last drew, for ConvertVectorToCoordinates in it
+	// and in the windows inside it: its view, its projection and its size
+	// in pixels; none until it draws one.
+	struct ViewFrame
+	{
+		bool Drawn = false;
+		mat4 WorldToView;
+		mat4 Projection;
+		float FX = 0.0f;
+		float FY = 0.0f;
+	} LastFrame;
+	bool ProjectThroughFrame(const vec3& location, float& x, float& y) const;
 
 	Color& DefaultColor() { return Value<Color>(PropOffsets_ViewportWindow.DefaultColor); }
 	UTexture*& DefaultTexture() { return Value<UTexture*>(PropOffsets_ViewportWindow.DefaultTexture); }

@@ -634,6 +634,7 @@ static void InitPropertyOffsets_PlayerPawn(PackageManager* packages)
 		memset(&PropOffsets_PlayerPawn, 0xff, sizeof(PropOffsets_PlayerPawn));
 		return;
 	}
+	PropOffsets_PlayerPawn.AdditionalViews = cls->GetPropertyDataOffset("AdditionalViews");
 	PropOffsets_PlayerPawn.AppliedBob = cls->GetPropertyDataOffset("AppliedBob");
 	PropOffsets_PlayerPawn.Bob = cls->GetPropertyDataOffset("Bob");
 	PropOffsets_PlayerPawn.BorrowedMouseX = cls->GetPropertyDataOffset("BorrowedMouseX");

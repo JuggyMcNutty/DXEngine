@@ -66,7 +66,9 @@ public:
 	UTexture* ViewerSprite() { return FrameViewerSprite; }
 	UTexture* FrameViewerSprite = nullptr;
 
-	void DrawViewport(UViewportWindow* viewport);
+	// A ViewportWindow's frame, as the original's XViewportWindow::Draw;
+	// whether one was drawn
+	bool DrawViewport(UViewportWindow* viewport);
 
 	bool ShowRenderStats = false;
 
@@ -140,7 +142,18 @@ public:
 	VisibleFrame MainFrame;
 	VisibleFrame ViewportFrame; // a ViewportWindow's view: the zoom, the drone, a camera's feed
 	VisibleFrame ActorFrame; // Canvas.DrawClippedActor's: the eye at its scene node's origin
+	// The frame Canvas.DrawActor draws through: the main view's, or a
+	// ViewportWindow's while its overlays draw (DrawViewport)
+	VisibleFrame* CanvasScene = &MainFrame;
 	SceneNode MainView; // The main scene's view, which a ViewportWindow's draw leaves alone
+	// While a ViewportWindow's frame is drawn, the rectangle in the screen's
+	// pixels it and its child frames (mirrors, warp zones, the sky) take, in
+	// place of the root's render viewport (DrawViewport)
+	struct
+	{
+		bool Set = false;
+		int X = 0, Y = 0, Width = 0, Height = 0;
+	} ViewportRect;
 
 private:
 	void DrawScene();

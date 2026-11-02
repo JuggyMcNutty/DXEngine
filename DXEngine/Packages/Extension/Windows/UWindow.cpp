@@ -2,6 +2,7 @@
 #include "Precomp.h"
 #include "UWindow.h"
 #include "UGC.h"
+#include "UViewportWindow.h"
 #include "TabGroup/URootWindow.h"
 #include "TabGroup/UModalWindow.h"
 #include "TabGroup/UTabGroupWindow.h"
@@ -368,8 +369,25 @@ std::string UWindow::ConvertScriptString(const std::string& oldStr)
 // each window's place below the root. True when the point is in front of
 // the eye, wherever it lands, so the frob highlight's box takes in a corner
 // off the screen; under no root, the topmost window's middle, and false.
+// In a viewport window, or a window inside one, through the nearest such
+// window's own frame, as each window asks its parent and a viewport window
+// answers itself (XViewportWindow's, 0x1004afc0): in that frame's pixels,
+// less each window's place below it. One that has drawn no frame passes the
+// question on, where the original's fails an assertion.
 bool UWindow::ConvertVectorToCoordinates(const vec3& Location, float& relativeX, float& relativeY)
 {
+	for (UWindow* w = this; w; w = w->parentOwner())
+	{
+		UViewportWindow* viewport = UObject::TryCast<UViewportWindow>(w);
+		if (viewport && viewport->LastFrame.Drawn)
+		{
+			float frameX, frameY;
+			bool inFront = viewport->ProjectThroughFrame(Location, frameX, frameY);
+			ConvertCoordinates(viewport, frameX, frameY, this, relativeX, relativeY);
+			return inFront;
+		}
+	}
+
 	UWindow* top = this;
 	while (top->parentOwner())
 		top = top->parentOwner();

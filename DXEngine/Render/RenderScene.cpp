@@ -12,6 +12,7 @@
 #include "Packages/Engine/URenderIterator.h"
 #include "Packages/Engine/Actors/Pawn/UPawn.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+#include "Packages/Engine/UCanvas.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Resources/Level/UPolys.h"
 #include "Packages/Engine/Actors/Brush/UMover.h"
@@ -317,31 +318,48 @@ void RenderSubsystem::DrawCoronasDX(VisibleFrame* frame)
 	}
 }
 
-// The original's XViewportWindow::Draw (Extension.dll 0x1004a770): the view
-// from the origin actor -- up its EyeHeight for a pawn with bUseEyeHeight,
-// a player's ViewRotation with bUseViewRotation -- or from the window's
-// location; moved by relLocation along the view; turned to the watch actor
-// (up its EyeHeight for a pawn with bWatchEyeHeight), then by relRotation.
-// Drawn as the player's own view but from there: for the draw the player is
-// in behind view (so it and what it owns show as in third person) unless
-// bShowWeapons is on the player's own view, its field of view is the
-// window's, and the origin actor is hidden unless bShowActor; all put back
-// after (dx-reverse-info extension-dll.md, a viewport window).
-void RenderSubsystem::DrawViewport(UViewportWindow* viewport)
+// The original's XViewportWindow::Draw (Extension.dll 0x1004a770). An
+// origin actor gone -- no longer one of the player's actor references
+// (IsActorValid), as a destroyed one is not -- leaves the view where it was
+// last drawn from: the window's location set to the last place, relLocation
+// cleared, its rotation the last turn less relRotation; a watch actor gone,
+// at the last turn, relRotation cleared. Then, the window turned on, the
+// view from the origin actor -- up its EyeHeight for a pawn with
+// bUseEyeHeight, a player's ViewRotation with bUseViewRotation -- or from
+// the window's location; moved by relLocation along the view; turned to the
+// watch actor (up its EyeHeight for a pawn with bWatchEyeHeight), then by
+// relRotation; the script's CalcView may move and turn it, and the place
+// and turn are kept as the last. The frame is the window's clip rectangle,
+// the part of it its parents leave in view, in the screen's pixels: none
+// with no pixel across or down. Drawn as the player's own view but from
+// there: for the draw the player is in behind view (so it and what it owns
+// show as in third person) unless bShowWeapons is on the player's own view,
+// its field of view is the window's, and the origin actor is hidden unless
+// bShowActor; all put back after (dx-reverse-info extension-dll.md, a
+// viewport window). Whether a frame was drawn: with none the window tiles
+// its default texture (UViewportWindow::DrawWindow).
+bool RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 {
 	if (!engine->Level)
-		return;
+		return false;
 
-	// A window of no size shows nothing: its frame had no aspect
-	if (viewport->Width() < 1.0f || viewport->Height() < 1.0f)
-		return;
+	// The actors gone, before anything else (0x1004a7b6, 0x1004a85e)
+	if (viewport->originActor() && !viewport->IsActorValid(viewport->originActor()))
+	{
+		viewport->originActor() = nullptr;
+		viewport->Location() = viewport->lastLocation();
+		viewport->relLocation() = vec3(0.0f);
+		viewport->Rotation() = viewport->lastRotation() - viewport->relRotation();
+	}
+	if (viewport->watchActor() && !viewport->IsActorValid(viewport->watchActor()))
+	{
+		viewport->watchActor() = nullptr;
+		viewport->Rotation() = viewport->lastRotation();
+		viewport->relRotation() = Rotator(0, 0, 0);
+	}
 
-	float x = 0.0f, y = 0.0f;
-	engine->dxRootWindow->ConvertCoordinates(viewport, 0.0f, 0.0f, engine->dxRootWindow, x, y);
-	engine->dxRootWindow->SetRenderViewport(x, y, viewport->Width(), viewport->Height());
-
-	if (viewport->bClearZ())
-		Device->ClearZ();
+	if (!viewport->bEnableViewport())
+		return false;
 
 	UActor* originActor = viewport->originActor();
 	vec3 location;
@@ -380,6 +398,52 @@ void RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 
 	rotation += viewport->relRotation();
 
+	// The script's CalcView, then the place and turn kept (0x1004abb0)
+	viewport->CalcView(location, rotation);
+	viewport->lastLocation() = location;
+	viewport->lastRotation() = rotation;
+
+	// The frame: the window's clip rectangle times the root's multiplier,
+	// each truncated (0x1004ac3c); DXEngine's 4:3 root lies across a wider
+	// screen, so one over the whole root takes the whole screen, as the
+	// scene's does (VisibleFrame::SetupSceneFrame)
+	const ClipRect& clip = viewport->winClipRect();
+	URootWindow* root = engine->dxRootWindow;
+	float scale = UWindow::GetVirtualScale();
+	float clipLeft = clip.originX + clip.clipX;
+	float clipTop = clip.originY + clip.clipY;
+	int frameX, frameY, frameWidth, frameHeight;
+	if (clipLeft <= 0.0f && clip.clipWidth >= root->Width())
+	{
+		frameX = 0;
+		frameWidth = engine->viewport->ViewportWidth();
+	}
+	else
+	{
+		frameX = (int)((root->UsedX + clipLeft) * scale);
+		frameWidth = (int)(clip.clipWidth * scale);
+	}
+	if (clipTop <= 0.0f && clip.clipHeight >= root->Height())
+	{
+		frameY = 0;
+		frameHeight = engine->viewport->ViewportHeight();
+	}
+	else
+	{
+		frameY = (int)((root->UsedY + clipTop) * scale);
+		frameHeight = (int)(clip.clipHeight * scale);
+	}
+	if (frameWidth <= 0 || frameHeight <= 0)
+		return false;
+	ViewportRect.Set = true;
+	ViewportRect.X = frameX;
+	ViewportRect.Y = frameY;
+	ViewportRect.Width = std::min(frameWidth, 16384);
+	ViewportRect.Height = std::min(frameHeight, 16384);
+
+	if (viewport->bClearZ())
+		Device->ClearZ();
+
 	UPlayerPawn* player = engine->viewport->Actor();
 	bool playerWasBehind = false;
 	float playerFov = 0.0f;
@@ -403,12 +467,64 @@ void RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 	ViewportFrame.Draw();
 	if (engine->renderdev->Coronas)
 		ViewportFrame.DrawCoronas();
+
+	// The overlays, as the original's DrawWorld sends RenderOverlays after
+	// each frame it draws (Render.dll 0x10b1ce7f; RenderOverlays): with the
+	// player out of behind view for the draw -- bShowWeapons on the player's
+	// own view -- its weapon draws in the window. The depth buffer cleared,
+	// then the call, through the window's frame, the canvas's frame, size
+	// and clip the window's for it (Extension.dll 0x1004ad81 to 0x1004ade5),
+	// all put back after.
+	const int SHOW_Actors = 8;
+	if (player && !player->bBehindView() && (player->ShowFlags() & SHOW_Actors))
+	{
+		SceneNode canvasFrame = Canvas.Frame;
+		int sizeX = engine->canvas->SizeX();
+		int sizeY = engine->canvas->SizeY();
+		float clipX = engine->canvas->ClipX();
+		float clipY = engine->canvas->ClipY();
+		const SceneNode& frame = ViewportFrame.Frame;
+		Canvas.Frame.XB = frame.XB;
+		Canvas.Frame.YB = frame.YB;
+		Canvas.Frame.X = frame.X;
+		Canvas.Frame.Y = frame.Y;
+		Canvas.Frame.FX = frame.FX;
+		Canvas.Frame.FY = frame.FY;
+		Canvas.Frame.FX2 = frame.FX2;
+		Canvas.Frame.FY2 = frame.FY2;
+		engine->canvas->SizeX() = (int)(frame.X / (float)Canvas.uiscale);
+		engine->canvas->SizeY() = (int)(frame.Y / (float)Canvas.uiscale);
+		engine->canvas->ClipX() = (float)engine->canvas->SizeX();
+		engine->canvas->ClipY() = (float)engine->canvas->SizeY();
+
+		Device->SetSceneNode(&ViewportFrame.Frame);
+		Device->ClearZ();
+		engine->Level->Light.SetEye(ViewportFrame.ViewLocation.xyz(), ViewportFrame.SceneIndex);
+		CanvasScene = &ViewportFrame;
+		UActor* target = player->ViewTarget() ? player->ViewTarget() : player;
+		CallEvent(target, EventName::RenderOverlays, { ExpressionValue::ObjectValue(engine->canvas) });
+		CanvasScene = &MainFrame;
+
+		Canvas.Frame = canvasFrame;
+		engine->canvas->SizeX() = sizeX;
+		engine->canvas->SizeY() = sizeY;
+		engine->canvas->ClipX() = clipX;
+		engine->canvas->ClipY() = clipY;
+	}
+
 	// The main view's eye again, for what the HUD draws after
 	engine->Level->Light.SetEye(MainFrame.ViewLocation.xyz(), MainFrame.SceneIndex);
 
 	Device->SetSceneNode(&Canvas.Frame);
 
-	engine->dxRootWindow->ResetRenderViewport();
+	ViewportRect.Set = false;
+
+	// Kept for ConvertVectorToCoordinates in the window and in those inside it
+	viewport->LastFrame.Drawn = true;
+	viewport->LastFrame.WorldToView = ViewportFrame.Frame.WorldToView;
+	viewport->LastFrame.Projection = ViewportFrame.Frame.Projection;
+	viewport->LastFrame.FX = ViewportFrame.Frame.FX;
+	viewport->LastFrame.FY = ViewportFrame.Frame.FY;
 
 	engine->CameraFovAngle = cameraFov;
 	if (originActor)
@@ -418,4 +534,5 @@ void RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 		player->bBehindView() = playerWasBehind;
 		player->FovAngle() = playerFov;
 	}
+	return true;
 }

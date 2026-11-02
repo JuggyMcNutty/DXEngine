@@ -50,6 +50,46 @@ void UPlayerPawn::ScaleInput(float scale)
 	}
 }
 
+// Deus Ex's (Engine.dll APlayerPawn::AddAdditionalView 0x103ba540): the
+// actor into the first empty one of the three AdditionalViews, whether it
+// is there already or not; whether it went in, None counting as in.
+bool UPlayerPawn::AddAdditionalView(UActor* actor)
+{
+	if (!actor)
+		return true;
+	if (PropOffsets_PlayerPawn.AdditionalViews.DataOffset == ~(size_t)0)
+		return false;
+	for (UActor*& view : AdditionalViews())
+	{
+		if (!view)
+		{
+			view = actor;
+			return true;
+		}
+	}
+	return false;
+}
+
+// Deus Ex's (RemoveAdditionalView 0x103ba4c0): the first of the three that
+// is the actor emptied and those after it moved down a place, the last
+// left as it was.
+void UPlayerPawn::RemoveAdditionalView(UActor* actor)
+{
+	if (!actor || PropOffsets_PlayerPawn.AdditionalViews.DataOffset == ~(size_t)0)
+		return;
+	auto views = AdditionalViews();
+	for (size_t i = 0; i < views.size(); i++)
+	{
+		if (views[i] == actor)
+		{
+			views[i] = nullptr;
+			for (size_t j = i; j + 1 < views.size(); j++)
+				views[j] = views[j + 1];
+			return;
+		}
+	}
+}
+
 bool UPlayerPawn::TickInput(float elapsed)
 {
 	// A server's copy of a client's pawn reads no input here; the client

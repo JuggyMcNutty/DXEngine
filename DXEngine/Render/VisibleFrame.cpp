@@ -528,7 +528,18 @@ void VisibleFrame::SetupSceneFrame(const mat4& worldToView)
 	Frame.FX = (float)engine->viewport->ViewportWidth();
 	Frame.FY = (float)engine->viewport->ViewportHeight();
 
-	if (engine->dxRootWindow && engine->dxRootWindow->RenderViewportSet)
+	if (engine->render->ViewportRect.Set)
+	{
+		// A ViewportWindow's frame, and its mirrors', warp zones' and sky's:
+		// the rectangle RenderSubsystem::DrawViewport takes from the window
+		Frame.XB = engine->render->ViewportRect.X;
+		Frame.YB = engine->render->ViewportRect.Y;
+		Frame.X = engine->render->ViewportRect.Width;
+		Frame.Y = engine->render->ViewportRect.Height;
+		Frame.FX = (float)Frame.X;
+		Frame.FY = (float)Frame.Y;
+	}
+	else if (engine->dxRootWindow && engine->dxRootWindow->RenderViewportSet)
 	{
 		float virtscale = engine->dxRootWindow->GetVirtualScale();
 		float x = engine->dxRootWindow->renderX();
@@ -558,9 +569,8 @@ void VisibleFrame::SetupSceneFrame(const mat4& worldToView)
 			h *= virtscale;
 		}
 
-		// A pixel at the least and 16,384 at the most (DrawViewport passes
-		// over a window of no size): a frame of no width had no aspect, and
-		// one past an int's range no size at all
+		// A pixel at the least and 16,384 at the most: a frame of no width
+		// had no aspect, and one past an int's range no size at all
 		w = clamp(w, 1.0f, 16384.0f);
 		h = clamp(h, 1.0f, 16384.0f);
 

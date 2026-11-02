@@ -19,10 +19,15 @@ public:
 	bool TickInput(float elapsed);
 	void ClearInput();
 	void ScaleInput(float scale);
+	// Deus Ex's other places the player sees from, for the server's relevancy
+	// (a ViewportWindow's origin actor)
+	bool AddAdditionalView(UActor* actor);
+	void RemoveAdditionalView(UActor* actor);
 
 	void Tick(float elapsed) override;
 	void TickRotating(float elapsed) override;
 
+	FixedArrayView<UActor*, 3> AdditionalViews() { return FixedArray<UActor*, 3>(PropOffsets_PlayerPawn.AdditionalViews); }
 	float& AppliedBob() { return Value<float>(PropOffsets_PlayerPawn.AppliedBob); }
 	float& Bob() { return Value<float>(PropOffsets_PlayerPawn.Bob); }
 	float& BorrowedMouseX() { return Value<float>(PropOffsets_PlayerPawn.BorrowedMouseX); }

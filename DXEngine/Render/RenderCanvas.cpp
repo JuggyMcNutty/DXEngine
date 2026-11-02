@@ -108,8 +108,10 @@ void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter, cons
 	// its projection made again for that size about its middle -- the same
 	// angle over the narrower width -- as the original's XGC::DrawActor does
 	// for bConstrain (Extension.dll 0x1002aa60, FSceneNode::ComputeRenderSize;
-	// extension-dll.md, actors in a window), and is put back after
-	SceneNode scene = MainFrame.Frame;
+	// extension-dll.md, actors in a window), and is put back after. The scene
+	// is the main view's, or a viewport window's while its overlays draw.
+	VisibleFrame& sceneFrame = *CanvasScene;
+	SceneNode scene = sceneFrame.Frame;
 	if (constrain)
 	{
 		float left = std::max((float)scene.XB, constrain->left);
@@ -118,7 +120,7 @@ void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter, cons
 		float bottom = std::min((float)(scene.YB + scene.Y), constrain->bottom);
 		if (right <= left || bottom <= top)
 			return;
-		SceneNode& frame = MainFrame.Frame;
+		SceneNode& frame = sceneFrame.Frame;
 		frame.XB = (int)(left - scene.XB);
 		frame.YB = (int)(top - scene.YB);
 		frame.X = (int)(right - left);
@@ -138,17 +140,17 @@ void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter, cons
 		frame.Projection = mat4::frustum(-RProjZ, RProjZ, -Aspect * RProjZ, Aspect * RProjZ, 1.0f, 32768.0f, handedness::left, clipzrange::zero_positive_w);
 	}
 
-	Device->SetSceneNode(&MainFrame.Frame);
+	Device->SetSceneNode(&sceneFrame.Frame);
 	if (ClearZ)
 		Device->ClearZ();
 
 	// Deus Ex's renderer stamps an actor drawn on its own as drawn, as one
 	// the scene draws (Render.dll URender::DrawActor 0x10b262c0): whenever
-	// its sprite has a rectangle on the main view's frame, whatever is in
+	// its sprite has a rectangle on the scene's frame, whatever is in
 	// front of it -- an NPC the vision augmentation draws through a wall
 	// counts as drawn. GC.DrawActor and Canvas.DrawActor both come here.
 	float minX, minY, maxX, maxY, z;
-	if (MainFrame.SpriteRectangle(actor, minX, minY, maxX, maxY, z))
+	if (sceneFrame.SpriteRectangle(actor, minX, minY, maxX, maxY, z))
 		actor->LastRenderTime() = engine->LevelInfo->TimeSeconds();
 
 	// The actor draws as if not hidden. Canvas.DrawActor leaves it hidden,
@@ -161,10 +163,10 @@ void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter, cons
 	actor->bHidden() = false;
 	VisibleMesh vismesh;
 	vismesh.Wire = wire;
-	vismesh.DrawMesh(&MainFrame, actor, MeshPass::FaceOrder);
+	vismesh.DrawMesh(&sceneFrame, actor, MeshPass::FaceOrder);
 	actor->bHidden() = hideAfter || oldHidden;
 
-	MainFrame.Frame = scene;
+	sceneFrame.Frame = scene;
 	Device->SetSceneNode(&Canvas.Frame);
 }
 

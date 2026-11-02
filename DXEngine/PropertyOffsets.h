@@ -579,6 +579,7 @@ extern PropertyOffsets_Inventory PropOffsets_Inventory;
 
 struct PropertyOffsets_PlayerPawn
 {
+	PropertyDataOffset AdditionalViews;
 	PropertyDataOffset AppliedBob;
 	PropertyDataOffset Bob;
 	PropertyDataOffset BorrowedMouseX;

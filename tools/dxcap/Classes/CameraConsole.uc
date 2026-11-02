@@ -11,12 +11,34 @@
 // view, origin) with the player's last render time, and shot. Then the left
 // arrow and the plus key go to the screen's PanCamera, as a player's keys
 // do: the camera's desired turn and the window's field of view are logged,
-// and 3 s later the feed is shot again. The terminal closed, the player is
-// put before Paul Denton on the dock, looking at him, and takes the
-// targeting augmentation at its top level: the HUD's zoom window is logged
-// and shot. Then the spy drone: its window logged and shot. Each shot is
-// marked for the original's grabber (the HUD's hit display, over the mark,
-// hidden); then an exit. Each line is logged with "DXCAM:" in front.
+// and 3 s later the feed is shot again. The feed's default texture and
+// colour, which the game's SetDefaultTexture(None) sets, its clip rectangle
+// and the player's AdditionalViews are logged with it, and the views again
+// once the terminal is closed. The player is then put before Paul Denton on
+// the dock, looking at him, and takes the targeting augmentation at its top
+// level: the HUD's zoom window and its clip rectangle are logged and shot.
+// Then the spy drone: its window, its clip rectangle and the player's
+// AdditionalViews logged and shot; the drone turned off. Then windows of the console's own (CapViewportWindow) on the root:
+// - one at 600, 80, 200 by 150, from one marker 40 units over the player's
+//   location to another 200 units along x from it, and in it a child at
+//   20, 10: where a point beside the watch marker lands in each
+//   (ConvertVectorToCoordinates) logged, the window and the AdditionalViews
+//   logged, then turned 1000 by SetRelativeRotation and shot; then turned a
+//   quarter by its own CalcView, which logs what it was given, and shot;
+// - its origin marker destroyed, the window logged; its watch marker
+//   destroyed, the window logged;
+// - SetWatchActor to a third marker, SetRelativeRotation, then SetRotation
+//   with a turn and with none, the window logged after each;
+//   SetDefaultTexture with nothing and with a texture alone, logged; then
+//   the window turned off with Engine's DefaultTexture in white, and shot;
+// - one 200 by 150 at -100, -70 in a window 100 by 80 at 600, 300, which
+//   clips it, from the first marker's place to a marker 200 units along x:
+//   its clip rectangle and where the point lands logged, and shot;
+// - the first window again, from the player's own eyes with ShowWeapons,
+//   the Dragon's Tooth in the player's hand, logged and shot.
+// Each shot is marked for the original's grabber (the HUD's hit display,
+// over the mark, hidden), the console's own windows' for 1.5 s; then an
+// exit. Each line is logged with "DXCAM:" in front.
 //=============================================================================
 class CameraConsole extends Console;
 
@@ -28,6 +50,10 @@ var SecurityCamera Cam;
 var ComputerSecurity Comp;
 var Pawn Target;
 var Augmentation Aug;
+var CapMarker MarkA, MarkB, MarkC, MarkD;
+var CapViewportWindow Win, Clipped;
+var Window Holder;
+var vector Eye;
 
 // The mark for the original's screen grabber, as CaptureConsole's.
 var int MarkShot;
@@ -97,6 +123,62 @@ function LogWindow(string What, ViewportWindow W)
 		$ " origin " $ W.originActor $ " watch " $ W.watchActor $ " eye level " $ W.bUseEyeHeight
 		$ " watch eye level " $ W.bWatchEyeHeight $ " view rotation " $ W.bUseViewRotation
 		$ " at " $ Place(W.location) $ " size " $ int(W.width) $ "x" $ int(W.height));
+}
+
+// A viewport window's view, as its fields hold it: the original's draw
+// sets them from where it last drew when an actor is gone.
+function LogView(string What, ViewportWindow W)
+{
+	Log("DXCAM: " $ What $ ": enabled " $ W.bEnableViewport $ " origin " $ W.originActor $ " watch " $ W.watchActor
+		$ " at " $ Place(W.location) $ " turned " $ Turn(W.rotation) $ " rel " $ Turn(W.relRotation) $ " fov " $ int(W.fov));
+}
+
+function LogDefault(string What, ViewportWindow W)
+{
+	Log("DXCAM: " $ What $ ": default texture " $ W.defaultTexture $ " colour " $ W.defaultColor.R $ "," $ W.defaultColor.G
+		$ "," $ W.defaultColor.B);
+}
+
+function LogViews(PlayerPawn P, string When)
+{
+	Log("DXCAM: " $ When $ ": the player's additional views " $ P.AdditionalViews[0] $ ", " $ P.AdditionalViews[1] $ ", "
+		$ P.AdditionalViews[2]);
+}
+
+function LogClip(string What, Window W)
+{
+	Log("DXCAM: " $ What $ ": at " $ int(W.x) $ "," $ int(W.y) $ " size " $ int(W.width) $ "x" $ int(W.height)
+		$ ", clip rectangle from " $ int(W.winClipRect.originX) $ "," $ int(W.winClipRect.originY) $ " at "
+		$ int(W.winClipRect.clipX) $ "," $ int(W.winClipRect.clipY) $ " size " $ int(W.winClipRect.clipWidth) $ "x"
+		$ int(W.winClipRect.clipHeight));
+}
+
+function CapMarker Marker(PlayerPawn P, vector Loc)
+{
+	local CapMarker M;
+
+	M = P.Spawn(class'CapMarker', , , Loc);
+	Log("DXCAM: marker " $ M $ " at " $ Place(Loc));
+	return M;
+}
+
+// The Dragon's Tooth, given as ViewConsole gives it and put in hand.
+function GiveSword(DeusExPlayer DXP)
+{
+	local Inventory Item;
+	local DeusExWeapon W;
+
+	Item = DXP.Spawn(class'WeaponNanoSword');
+	Item.Frob(DXP, None);
+	W = DeusExWeapon(DXP.FindInventoryType(class'WeaponNanoSword'));
+	if (W != Item)
+		Item.Destroy();
+	if (W == None)
+	{
+		Log("DXCAM: no sword");
+		return;
+	}
+	DXP.PutInHand(W);
 }
 
 // How long ago the renderer last drew the player: only a window from
@@ -333,6 +415,9 @@ event Tick(float Delta)
 		{
 			Log("DXCAM: the feed's camera " $ Sec.winCameras[0].camera $ ", the selected " $ Sec.selectedCamera.Name $ ", pan step " $ Sec.panMod);
 			LogWindow("the feed's", Sec.winCameras[0].winCamera);
+			LogDefault("the feed's", Sec.winCameras[0].winCamera);
+			LogClip("the feed's window", Sec.winCameras[0].winCamera);
+			LogViews(P, "the feed up");
 			LogPlayerDrawn(P, "the feed up");
 			Mark(0);
 			NextTime = T + 0.6;
@@ -378,6 +463,7 @@ event Tick(float Delta)
 		Phase++;
 		break;
 	case 9:
+		LogViews(P, "the terminal closed");
 		Target = FacePaul(DXP);
 		if (Target == None)
 			Log("DXCAM: no Paul Denton");
@@ -396,6 +482,7 @@ event Tick(float Delta)
 	case 10:
 		Log("DXCAM: targeting active " $ Display.bTargetActive $ " level " $ Display.targetLevel $ " target " $ Display.lastTarget);
 		LogWindow("the targeting zoom's", Display.winZoom);
+		LogClip("the targeting zoom's window", Display.winZoom);
 		Mark(2);
 		NextTime = T + 0.6;
 		Phase++;
@@ -417,6 +504,8 @@ event Tick(float Delta)
 	case 13:
 		Log("DXCAM: drone active " $ DXP.bSpyDroneActive $ " drone " $ DXP.aDrone);
 		LogWindow("the drone's", Display.winDrone);
+		LogClip("the drone's window", Display.winDrone);
+		LogViews(P, "the drone up");
 		Mark(3);
 		NextTime = T + 0.6;
 		Phase++;
@@ -427,6 +516,134 @@ event Tick(float Delta)
 		Phase++;
 		break;
 	case 15:
+		if (Aug != None)
+			Aug.Deactivate();
+		Log("DXCAM: drone active " $ DXP.bSpyDroneActive);
+		NextTime = T + 1.0;
+		Phase++;
+		break;
+	case 16:
+		// The console's own window, from one marker to another along x
+		Eye = P.Location + vect(0,0,40);
+		MarkA = Marker(P, Eye);
+		MarkB = Marker(P, Eye + vect(200,0,0));
+		Win = CapViewportWindow(DeusExRootWindow(DXP.rootWindow).NewChild(class'CapViewportWindow'));
+		Win.SetPos(600, 80);
+		Win.SetSize(200, 150);
+		Win.SetViewportActor(MarkA);
+		Win.SetWatchActor(MarkB);
+		Win.Child = Win.NewChild(class'Window');
+		Win.Child.SetPos(20, 10);
+		Win.Child.SetSize(10, 10);
+		Win.bProject = true;
+		NextTime = T + 0.5;
+		Phase++;
+		break;
+	case 17:
+		LogView("the console's window", Win);
+		LogViews(P, "the console's window up");
+		Win.SetRelativeRotationPYR(0, 1000, 0);
+		LogView("turned 1000 by SetRelativeRotation", Win);
+		Mark(4);
+		NextTime = T + 1.5;
+		Phase++;
+		break;
+	case 18:
+		Shoot(P, "the console's window, from a marker to another, turned 1000");
+		Win.bTurn = true;
+		Mark(5);
+		NextTime = T + 1.5;
+		Phase++;
+		break;
+	case 19:
+		Shoot(P, "the console's window turned a quarter by its CalcView");
+		MarkA.Destroy();
+		Log("DXCAM: the origin marker destroyed");
+		NextTime = T + 0.5;
+		Phase++;
+		break;
+	case 20:
+		LogView("its origin gone", Win);
+		Win.bTurn = false;
+		NextTime = T + 0.5;
+		Phase++;
+		break;
+	case 21:
+		MarkB.Destroy();
+		Log("DXCAM: the watch marker destroyed");
+		NextTime = T + 0.5;
+		Phase++;
+		break;
+	case 22:
+		LogView("its watch gone", Win);
+		MarkC = Marker(P, Eye + vect(200,0,0));
+		Win.SetWatchActor(MarkC);
+		Win.SetRelativeRotationPYR(0, 500, 0);
+		Win.SetRotationPYR(0, 8192, 0);
+		LogView("SetRotation 0,8192,0 after a watch actor and 500", Win);
+		Win.SetRotation();
+		LogView("SetRotation with none given", Win);
+		Win.SetWatchActor(None);
+		Win.SetDefaultTexture();
+		LogDefault("SetDefaultTexture with none given", Win);
+		Win.SetDefaultTexture(Texture'Engine.DefaultTexture');
+		LogDefault("SetDefaultTexture with a texture alone", Win);
+		Win.SetDefaultTextureRGB(Texture'Engine.DefaultTexture', 255, 255, 255);
+		Win.EnableViewport(False);
+		LogView("turned off", Win);
+		Mark(6);
+		NextTime = T + 1.5;
+		Phase++;
+		break;
+	case 23:
+		Shoot(P, "the console's window turned off, its default texture tiled");
+		Win.Hide();
+		// A window its parent clips, from the first marker's place
+		Holder = DeusExRootWindow(DXP.rootWindow).NewChild(class'Window');
+		Holder.SetPos(600, 300);
+		Holder.SetSize(100, 80);
+		Clipped = CapViewportWindow(Holder.NewChild(class'CapViewportWindow'));
+		Clipped.SetPos(-100, -70);
+		Clipped.SetSize(200, 150);
+		MarkD = Marker(P, Eye + vect(200,0,0));
+		Clipped.SetViewportLocation(Eye);
+		Clipped.SetWatchActor(MarkD);
+		Clipped.bProject = true;
+		NextTime = T + 0.5;
+		Phase++;
+		break;
+	case 24:
+		LogClip("the clipped window", Clipped);
+		LogView("the clipped window", Clipped);
+		Mark(7);
+		NextTime = T + 1.5;
+		Phase++;
+		break;
+	case 25:
+		Shoot(P, "a window its parent clips");
+		Holder.Hide();
+		// The player's own view with its weapon
+		GiveSword(DXP);
+		Win.SetViewportActor(P);
+		Win.ShowWeapons(True);
+		Win.EnableViewport(True);
+		Win.Show();
+		NextTime = T + 4.5;
+		Phase++;
+		break;
+	case 26:
+		LogView("the player's own view, ShowWeapons", Win);
+		Log("DXCAM: in hand " $ DXP.inHand $ ", weapon " $ DXP.Weapon $ ", show weapons " $ Win.bShowWeapons);
+		Mark(8);
+		NextTime = T + 1.5;
+		Phase++;
+		break;
+	case 27:
+		Shoot(P, "the player's own view in the console's window, ShowWeapons");
+		NextTime = T + 1.0;
+		Phase++;
+		break;
+	case 28:
 		Log("DXCAM: done, exiting");
 		P.ConsoleCommand("exit");
 		Phase = 99;

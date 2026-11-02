@@ -605,30 +605,43 @@ Matches the original
 ([a viewport window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#a-viewport-window)):
 a new window is enabled, at a field of view of 90, with a player's view
 rotation and both eye heights used, and looks from the player's eyes; each
-setter takes the original's defaults and clears what the original's
-clears. The frame is drawn from the origin actor, up its `EyeHeight`, or
-from the window's own place, at the window's field of view, with the player
-in behind view for it, so the player and what it owns are drawn as in third
-person, and the origin actor hidden unless `bShowActor`. So a security
-computer's feed shows the player in the camera's view, its arrow keys pan
-the camera by `fov / 90` of a step and its plus and minus keys zoom, and
-the spy drone's window and the targeting augmentation's zoom, at its top
-level aimed at the target's eyes, are drawn (`CameraConsole`: every value
-it logs the original's; the feed within 0.5% of the original's frame, the
-zoom and the drone's window within 1% of `D3DDrv`'s). Differs, none of it
-reached by the game (bugs.md EXT.14):
+setter takes the original's defaults, clears what the original's clears and
+keeps the original's references: an origin or a watch actor holds one of the
+player's actor references, and an origin actor other than the player is one
+of the player's `AdditionalViews`. The frame is drawn from the origin actor,
+up its `EyeHeight`, or from the window's own place, and the script's
+`CalcView` may move and turn it; the window keeps where it drew from, so an
+origin or a watch actor gone, destroyed, leaves the view at its last place
+and turn. The frame takes the window's clip rectangle, its corner and size
+truncated to the pixel, at the window's field of view, with the player in
+behind view for it, so the player and what it owns are drawn as in third
+person, and the origin actor hidden unless `bShowActor`; with
+`bShowWeapons` on the player's own view the player is not, and its
+overlays, the first-person weapon, are drawn in the window's frame as in
+the main view's. A window turned off, or with not a pixel in view, tiles
+its default texture instead. `ConvertVectorToCoordinates` in a viewport
+window, or a window inside one, projects through the window's own frame.
+So a security computer's feed shows the player in the camera's view, its
+arrow keys pan the camera by `fov / 90` of a step and its plus and minus
+keys zoom, and the spy drone's window and the targeting augmentation's
+zoom, at its top level aimed at the target's eyes, are drawn
+(`CameraConsole`: every value it logs the original's; the feed within 1%
+of the original's frame, correlated at 0.97, where at 8cde7490 it lay a
+pixel lower, 0.84; the zoom and the drone's window within 0.5% of
+`D3DDrv`'s; the console's own windows' frames correlated at 0.968 or more
+with the original's, turned by a `CalcView`, turned off, clipped by their
+parent, and the Dragon's Tooth drawn in one, its blade's blue as many
+pixels as the original's as it sways). Differs:
 
-- no `CalcView` event is sent, and an origin or watch actor gone leaves the
-  view where the window's fields put it, not at its last place and turn;
-- a window turned off draws nothing, where the original tiles its default
-  texture; `SetRotation` keeps the watch actor, and `SetDefaultTexture`
-  takes no defaults;
-- `bShowWeapons` draws no overlays; `SetViewportActor` adds no network view
-  (`AdditionalViews`);
-- `ConvertVectorToCoordinates` in a viewport window, or a window inside
-  one, projects through the main view, not the window's own;
-- the frame takes the window's whole rectangle, not its clip rectangle, and
-  a window wider than 4:3 sees more at the sides, by choice
+- `ConvertVectorToCoordinates` asked outside a viewport window's draw
+  answers through the frame it last drew, or as a plain window's before it
+  draws one, where the original stops at an assertion (bugs.md D.36);
+- the frame's corner is not moved by the canvas's frame, where the
+  original's is (`0x1004acad`); DXEngine's canvas frame is the screen's,
+  and whether the original's moves under a render viewport, a
+  conversation's letterbox, when no window of the game's shows, is not
+  read (bugs.md EXT.22);
+- a window wider than 4:3 sees more at the sides, by choice
   ([the view's width](#the-views-width)).
 
 ### Mirrors
