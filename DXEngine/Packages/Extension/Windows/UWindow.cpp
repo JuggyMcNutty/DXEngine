@@ -105,8 +105,14 @@ void UWindow::UpdateLayout()
 			root->vMultiplier() = (int)virtualScale;
 		}
 
-		// Center the virtual viewbox
-		UsedX = std::round((engine->viewport->ViewportWidth() - virtualWidth * virtualScale) * 0.5f) / virtualScale;
+		// The 4:3 root centred to a whole unit, as RootOffsetX takes its
+		// children back by whole units: a root child at 0 then lies on a
+		// whole unit at the screen's edge, up to 16:9, as on the original's
+		// root, the viewport, at 0, and each tile the GC puts on whole units
+		// (XGC::DrawTile, Extension.dll 0x1002a820) on the original's pixels:
+		// at 2560x1440 the root 107 units in, not 106.67, and the crosshair
+		// and its accuracy marks where the original draws them.
+		UsedX = std::round((engine->viewport->ViewportWidth() - virtualWidth * virtualScale) * 0.5f / virtualScale);
 		UsedY = 0.0f;
 	}
 
@@ -166,15 +172,19 @@ float UWindow::RootOffsetX()
 // centred 21 units off the screen's left edge.
 float UWindow::GetVirtualWidth()
 {
-	float screenWidth = std::ceil(engine->viewport->ViewportWidth() / GetVirtualScale());
+	float screenWidth = engine->viewport->ViewportWidth() / GetVirtualScale();
 	return std::min(std::round(GetVirtualHeight() * 4 / 3), screenWidth);
 }
 
+// The screen in the root's units, as the original's root is the viewport
+// over its multiplier, unrounded (XRootWindow::ResizeRoot, Extension.dll
+// 0x1003adf0): 853.33 by 533.33 at 2560x1600, so that the HUD's windows,
+// placed and sized from it, lie where the original's do. The children
+// extend up to 16:9 instead of staying in the 4:3 box of the root window.
 float UWindow::GetExtendedVirtualWidth()
 {
-	// Extend up to 16:9 instead of staying in the 4:3 box of the root window
 	float scale = GetVirtualScale();
-	float realWidth = std::ceil(engine->viewport->ViewportWidth() / scale);
+	float realWidth = engine->viewport->ViewportWidth() / scale;
 	float maxWidth = GetVirtualHeight() * (16.0f / 9.0f);
 	return std::min(realWidth, maxWidth);
 }
@@ -182,7 +192,7 @@ float UWindow::GetExtendedVirtualWidth()
 float UWindow::GetVirtualHeight()
 {
 	float scale = GetVirtualScale();
-	return std::ceil(engine->viewport->ViewportHeight() / scale);
+	return engine->viewport->ViewportHeight() / scale;
 }
 
 // A number through a script's printf format, as the original's appSprintf

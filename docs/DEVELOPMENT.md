@@ -71,6 +71,7 @@ are gone.
 | `DX_ROOT=<dir>` | the parent folder, if not the one this clone is in |
 | `DXCAP_DISPLAY=<display>` | another X display than `$DISPLAY`, the desktop's ([the display](#the-display)) |
 | `DXCAP_WINDOW=<w>x<h>` | both engines' window that size ([the display](#the-display)): at 4:3 their views are the same ([the view's width](NATIVES.md#the-views-width)) |
+| `DXCAP_FULLSCREEN=1` | both engines full screen at `DXCAP_WINDOW`'s size, which is the display's own (2560x1440 here): nothing switches the display, and the original's grabber reads the whole frame, where a window that large, its title bar over the display's edge, gives it nothing |
 | `DXCAP_AUDIO=1` | DXEngine with real audio; it is silent otherwise |
 | `DXCAP_RECORD=1` | either engine's sound recorded into the run's `audio.wav` (a private null sink, `PULSE_SINK`, and `parecord`); the music off |
 | `DXCAP_MUSIC=1` | a `DXCAP_RECORD=1` recording with the music on, at the game's `MusicVolume` |
@@ -244,6 +245,7 @@ launcher's part, which DXEngine leaves to the launchers.
 | `MultiEditConsole` | both | an edit field of several lines on the main menu: each move from fourteen places, chains of moves, a drag, a selection put in, a single line's moves; two marked shots of a selection over three rows | `DXROWS:` | the two logs diffed; `shots.py --region --block 4` on the field, at `DXCAP_WINDOW=1024x768`; with `Keys=True`, `tools/dxcap/timelines/note-keys.txt` on DXEngine |
 | `ColumnConsole` | both | a list's columns fitted to fields in fonts that have and lack their characters, and to a field of two lines, on the main menu | `DXCOLUMN:` | the two logs diffed |
 | `PointerConsole` | both | the root's pointer in the middle of the island's view: no modal window, one made hidden, shown, hidden, destroyed; five marked shots | `DXPOINTER:` | the shots' middles against the first, at `DXCAP_WINDOW=1024x768` |
+| `CrosshairConsole` | both | on Liberty Island, a pistol in hand and a still crate ahead, its target, the HUD's crosshair and accuracy marks: three marked shots, the HUD shown, hidden and shown; the root's, the HUD's, the crosshair's and the augmentation display's places and sizes | `DXCROSS:` | `tools/dxcap/hud.py <original run> <dxe run> --region 1200,640,160,160 --with 2`, the HUD's pixels the same in both, at `DXCAP_FULLSCREEN=1 DXCAP_WINDOW=2560x1440`; at 1600x1001, a window (`--region 720,420,160,160`), and 1920x1080 (`--region 880,460,160,160`); shot 0 comes before the weapon's accuracy settles, its marks where each run's accuracy puts them |
 | `GrabConsole` | both | the root's counts of the keyboard's and the mouse's grabs on the menu map, a step every half second: the window stack cleared, the main menu, a message box over it hidden and shown again, the menu under it hidden, the stack cleared, a modal made hidden then shown and destroyed, the root's grabs and ungrabs by script; the pointer under a script's grab of the mouse with no modal up, and after it, two marked shots | `DXGRAB:` | every line; the pointer in the first shot alone, at `DXCAP_WINDOW=1024x768` |
 | `TimerConsole` | both | a window's timers on the main menu: a single one, one looping every millisecond and one at 0, two added in turn, one with no function name | `DXTIMER:` | the two logs diffed, both at `DXCAP_FPS=60` |
 | `SizeConsole` | both | the root's size and scale; the size a new window takes | `DXSIZE:` |  |
@@ -458,6 +460,12 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
 - **The same view.** Two runs' shots compare only from one view: one window size (`DXCAP_WINDOW`)
   and, for `LightConsole`, one `View`, whose distance its `chosen` line logs; a dxe run against
   an original run of another `View` is off by however much the frame differs.
+- **The HUD's own pixels**: `tools/dxcap/hud.py <run> <run> --region x,y,w,h` takes each run's
+  shot with the HUD less its shot without (`--with`, `--without`), so only the HUD's pixels
+  remain, whatever lies behind; DXEngine's shots first go through the original's gamma, so a
+  shadow changes the scene alike. It gives the columns and rows they cover in each run, and the
+  pixels in one run's HUD and not the first's, as they lie and at the move that fits best
+  (`CrosshairConsole`).
 - **Two dxe runs**: `shots.py` takes a dxe run in the original's place, another device's or
   build's, and puts the gamma on neither. `--levels` gives, pixel by pixel, the largest
   difference of a channel and how many pixels are more than a level apart. Two runs' shots differ

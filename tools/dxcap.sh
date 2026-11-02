@@ -493,10 +493,16 @@ if os.environ.get('DXCAP_STATS'):
     if n != 1:
         sys.exit('no [Engine.GameInfo] in ' + src)
 # Both engines take the game's settings from it; both run in a window of
-# the same size.
+# the same size, or with DXCAP_FULLSCREEN=1 full screen at that size, the
+# display's own, so that nothing switches it and the grabber reads all of it.
 put('WindowedViewportX', window_x)
 put('WindowedViewportY', window_y)
-put('StartupFullscreen', 'False')
+if os.environ.get('DXCAP_FULLSCREEN') == '1':
+    put('FullscreenViewportX', window_x)
+    put('FullscreenViewportY', window_y)
+    put('StartupFullscreen', 'True')
+else:
+    put('StartupFullscreen', 'False')
 # A game that has run: an install never started keeps FirstRun 0, and the
 # original's launcher then opens its first-run wizard, which waits for clicks
 put('FirstRun', '1100')

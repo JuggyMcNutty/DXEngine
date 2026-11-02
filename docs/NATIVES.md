@@ -1331,10 +1331,17 @@ Differs:
   wide at 1280x720), where the original's is the whole viewport, by choice:
   the stock `ConWindowActive.CalculateWindowSizes` gives a cutscene's
   subtitles no height on a root 16:9 or wider, the Smart Pro's among them,
-  so a cutscene letterboxes at 16:9. The root's children lie across the screen up to 16:9,
-  their `x` the screen's. On a screen narrower than 4:3 (1280x1024) the root
-  is the screen's width, as the original's, so the HUD's left and right
-  parts lie at its edges.
+  so a cutscene letterboxes at 16:9. The root's children lie across the
+  screen up to 16:9, where the original's lie across all of it (D.34), their
+  `x` the screen's: the screen in units is the original's, the viewport over
+  the scale with its fractions (853.33 by 533.33 at 2560x1600), and the root
+  a whole number of units in, so that a child at 0 lies on a whole unit and
+  each tile the GC puts on whole units lies on the original's pixels at any
+  scale (`CrosshairConsole`: the crosshair and the accuracy marks on the
+  original's pixels at 2560x1440, a scale of 3 and the root 107 units in, at
+  1600x1001, the root 500.5 units high, and at 1920x1080). On a screen
+  narrower than 4:3 (1280x1024) the root is the screen's width, as the
+  original's, so the HUD's left and right parts lie at its edges.
 - **What a clip rectangle holds back**: the original draws nothing of a
   window none of which shows, no background, no `DrawWindow` or
   `PostDrawWindow` event and none of its children, and takes a list's page
