@@ -1937,12 +1937,13 @@ Every other native the scripted runs compare matches the original
   the parameter's value, through a `return` of the call too, and of two
   `out` parameters given one variable the first's; a bool, which `LetBool`
   sets once the call is done, takes the value returned (read)
-  (`ResultConsole`). Differs: a native's `out` parameter assigned its own
-  result (`I = I++`) keeps the value returned, where the original's
-  post-increment and post-decrement natives write their result before they
-  step the variable, so it ends stepped (VM.15); and a native's vector or
-  struct parameter given such a result reads zero, where the original's
-  reads what its stack held (D.35).
+  (`ResultConsole`). The post-increment and post-decrement natives, int and
+  byte, write their result into the variable assigned before they step
+  their own, as the original's: so `I = I++` ends stepped, of a local, an
+  instance variable and an array's element, through a context too
+  (`ResultConsole`). Differs: a native's vector or struct parameter given
+  such a result reads zero, where the original's reads what its stack held
+  (D.35).
 - **An actor spawned into water** keeps its physics, the spawn setting its
   region alone, as the original's does: an AirBubble, an Effects with
   PHYS_Projectile, rises as a swimming player's breath does

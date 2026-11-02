@@ -962,7 +962,15 @@ bool ExpressionEvaluator::CallFastOperator(UFunction* func, const Array<Expressi
 		case TypedKind::Multiply_FloatFloat: *Out = ExpressionValue::FloatValue(a.ToFloat() * b.ToFloat()); break;
 		case TypedKind::Divide_FloatFloat: *Out = ExpressionValue::FloatValue(a.ToFloat() / b.ToFloat()); break;
 		case TypedKind::Subtract_IntInt: *Out = ExpressionValue::IntValue(a.ToInt() - b.ToInt()); break;
-		case TypedKind::AddAdd_Int: { int32_t& A = a.ToType<int32_t&>(); *Out = ExpressionValue::IntValue(A++); break; }
+		case TypedKind::AddAdd_Int:
+			if (Out == LetOut && LetVariable)
+				*Out = PostStep(func, a, *LetVariable);
+			else
+			{
+				int32_t& A = a.ToType<int32_t&>();
+				*Out = ExpressionValue::IntValue(A++);
+			}
+			break;
 		case TypedKind::AddEqual_IntInt: { int32_t& A = a.ToType<int32_t&>(); int32_t B = b.ToInt(); *Out = ExpressionValue::IntValue(A += B); break; }
 		case TypedKind::AddEqual_FloatFloat: { float& A = a.ToType<float&>(); float B = b.ToFloat(); *Out = ExpressionValue::FloatValue(A += B); break; }
 		case TypedKind::SubtractEqual_FloatFloat: { float& A = a.ToType<float&>(); float B = b.ToFloat(); *Out = ExpressionValue::FloatValue(A -= B); break; }
@@ -1027,8 +1035,43 @@ void ExpressionEvaluator::Call(UFunction* func, const Array<Expression*>& exprAr
 		}
 		Context = context;
 		// A Let's right side itself writes its value into the variable (LetValue)
-		*Out = Frame::Call(func, Context, args, Out == LetOut ? LetVariable : nullptr);
+		if (Out == LetOut && LetVariable && IsPostStep(func) && args.size() == 1 && args[0].IsVariable())
+			*Out = PostStep(func, args[0], *LetVariable);
+		else
+			*Out = Frame::Call(func, Context, args, Out == LetOut ? LetVariable : nullptr);
 	}
+}
+
+// The original's post-increment and post-decrement natives (Core.dll
+// 0x101347e0, 0x101348a0; the byte ones 0x10133290, 0x10133350) write their
+// result, the variable's old value, into the caller's buffer before they step
+// the variable: as a Let's right side the buffer is the Let's variable
+// (execLet 0x1012fe40), so of `I = I++` the step is what stays.
+bool ExpressionEvaluator::IsPostStep(UFunction* func)
+{
+	int index = func->NativeFuncIndex;
+	return index == 139 || index == 140 || index == 165 || index == 166;
+}
+
+// The old value into the Let's variable, then the step; the Let then stores
+// nothing
+ExpressionValue ExpressionEvaluator::PostStep(UFunction* func, ExpressionValue& operand, ExpressionValue& variable)
+{
+	int index = func->NativeFuncIndex;
+	uint32_t step = (index == 139 || index == 165) ? 1u : ~0u;
+	if (index == 139 || index == 140)
+	{
+		uint8_t old = operand.ToByte();
+		variable.Store(ExpressionValue::ByteValue(old));
+		operand.Store(ExpressionValue::ByteValue((uint8_t)(old + step)));
+	}
+	else
+	{
+		int32_t old = operand.ToInt();
+		variable.Store(ExpressionValue::IntValue(old));
+		operand.Store(ExpressionValue::IntValue((int32_t)((uint32_t)old + step)));
+	}
+	return ExpressionValue::NothingValue(true);
 }
 
 void ExpressionEvaluator::Expr(FunctionArgumentsExpression* expr)
@@ -1544,7 +1587,16 @@ bool ExpressionEvaluator::Assign(Expression* lhs, Expression* rhs)
 	}
 
 	// The right side first, then the store: the variable's place is the same
-	// either side of it, as the context is
+	// either side of it, as the context is. But for the post-increment, which
+	// writes the old value into the variable before it steps its own (IsPostStep)
+	if (rhs->Typed == TypedKind::AddAdd_Int && Context)
+	{
+		int32_t& a = Target<int32_t>(rhs);
+		int32_t old = a;
+		StoreTyped(lhs, ExpressionValue::IntValue(old));
+		a = (int32_t)((uint32_t)old + 1u);
+		return true;
+	}
 	switch (lhs->Typed)
 	{
 	default: return false;

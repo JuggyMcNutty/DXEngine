@@ -209,6 +209,8 @@ private:
 
 	void Call(UFunction* func, const Array<Expression*>& exprArgs);
 	bool CallFastOperator(UFunction* func, const Array<Expression*>& exprArgs);
+	static bool IsPostStep(UFunction* func);
+	static ExpressionValue PostStep(UFunction* func, ExpressionValue& operand, ExpressionValue& variable);
 
 	ExpressionEvalResult& Result;
 	UObject* Self = nullptr;

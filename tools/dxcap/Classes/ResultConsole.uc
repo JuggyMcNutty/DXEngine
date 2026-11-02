@@ -10,9 +10,7 @@
 // into locals and into the probe's variables, and P.OutSet(I) into I, its
 // out parameter, and it goes to its state Coding, whose code's lets run in
 // its next tick; 1 s later an exit. What is compared between the engines:
-// every line, exactly -- but a native's out parameter assigned its own
-// result ("int ++ 6"), which the original's post-increment and decrement
-// natives write before they step the variable (bugs.md VM.15).
+// every line, exactly.
 //=============================================================================
 class ResultConsole extends Console;
 

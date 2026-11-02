@@ -574,7 +574,8 @@ function OutAliases()
 // Out parameters past a Let of a call: a call returned, handed its caller's
 // variable; two given one variable; a native's, the post-increment's and
 // post-decrement's, which the original's write their value into the variable
-// assigned and step it after
+// assigned and step it after: of locals, int and byte, an instance variable,
+// an array's element, and an element through a context
 function OutExtras()
 {
 	local int I, J;
@@ -595,6 +596,14 @@ function OutExtras()
 	Bc = 9;
 	Bc = Bc--;
 	Say("native out parameter assigned the result: int ++ " $ I $ ", -- " $ J $ ", byte ++ " $ Bt $ ", -- " $ Bc);
+	HeldInt = 5;
+	HeldInt = HeldInt++;
+	HeldArr[1] = 5;
+	HeldArr[1] = HeldArr[1]++;
+	HeldArr[2] = 5;
+	Self.HeldArr[2] = Self.HeldArr[2]--;
+	Say("native out parameter assigned the result, of an instance variable ++ " $ HeldInt $ ", an element ++ " $ HeldArr[1]
+		$ ", an element through a context -- " $ HeldArr[2]);
 }
 
 // After and in a foreach, and a state's function
