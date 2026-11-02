@@ -513,12 +513,26 @@ Array<UProperty*> UObject::GetAllUserEditableProperties()
 Array<UProperty*> UObject::GetAllTravelProperties()
 {
 	// Only DeusEx marks Inventory as a travel property.
+	//
+	// In the original's order, its field iterator's (Engine.dll 0x10392830,
+	// which its travel export at 0x10391740 walks): the class's own
+	// properties first, then each super's in turn, where Properties holds
+	// the supers' first. So the export meets what the player's own classes
+	// name -- DeusExPlayer's KeyRing and inHand, Pawn's SelectedItem --
+	// before Actor's Inventory chain, and the arrival, giving the items
+	// their TravelPreAccept last to first, puts the chain's items back in
+	// their belt slots first: an item off the chain then goes to the belt's
+	// first free slot, not to one a chain item takes back from it.
 
 	Array<UProperty*> result;
-	for (UProperty* prop : PropertyData.Class->Properties)
+	for (UStruct* s = PropertyData.Class; s; s = s->BaseStruct)
 	{
-		if (AllFlags(prop->PropFlags, PropertyFlags::Travel) || prop->Name == "Inventory")
-			result.push_back(prop);
+		for (UField* field = s->Children; field; field = field->Next)
+		{
+			UProperty* prop = UObject::TryCast<UProperty>(field);
+			if (prop && (AllFlags(prop->PropFlags, PropertyFlags::Travel) || prop->Name == "Inventory"))
+				result.push_back(prop);
+		}
 	}
 	return result;
 }

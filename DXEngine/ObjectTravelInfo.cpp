@@ -52,6 +52,18 @@ static std::string UnescapeTravelValue(const std::string& value)
 	return result;
 }
 
+// Whether the original's export writes the object (Engine.dll 0x10391740,
+// its test at 0x103917fe): an object that is no actor always -- the flag
+// base, a goal, a note, a key -- and an actor only with bTravel set. One
+// without it is neither written nor walked: a travel property naming it
+// writes nothing, so the new level keeps its own value there, and what
+// only it names stays behind with it.
+static bool IsTravelled(UObject* object)
+{
+	UActor* actor = UObject::TryCast<UActor>(object);
+	return !actor || actor->bTravel();
+}
+
 std::string ActorTravelInfo::Create(UPlayerPawn* pawn, bool transferItems)
 {
 	// Collect all actors we need to travel and give them a name each
@@ -59,7 +71,7 @@ std::string ActorTravelInfo::Create(UPlayerPawn* pawn, bool transferItems)
 	std::map<UObject*, std::string> travelObjectNames;
 	Array<UObject*> processList;
 
-	if (pawn)
+	if (pawn && IsTravelled(pawn))
 	{
 		travelObjectNames[pawn] = "player";
 		processList.push_back(pawn);
@@ -85,7 +97,7 @@ std::string ActorTravelInfo::Create(UPlayerPawn* pawn, bool transferItems)
 						// beside the new game's (docs/NATIVES.md, saving, loading
 						// and travel)
 						UObject* value = *static_cast<UObject**>(objProperty->GetElement(data, dim));
-						if (value && !value->IsPendingKill() && travelObjectNames.find(value) == travelObjectNames.end())
+						if (value && !value->IsPendingKill() && IsTravelled(value) && travelObjectNames.find(value) == travelObjectNames.end())
 						{
 							std::string name = "item" + std::to_string(processList.size());
 							travelObjectNames[value] = name;

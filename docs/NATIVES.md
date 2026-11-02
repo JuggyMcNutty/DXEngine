@@ -60,12 +60,13 @@ both).
 
 ## Saving, loading and travel
 
-Matches the original
-([travel and saving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-game-engine-travel-and-saving),
-[the save directory](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-save-directory)):
+Matches the original ([travel and
+saving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-game-engine-travel-and-saving),
+[the save
+directory](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-save-directory)):
 each engine loads the other's saves (`SaveConsole`, `LoadConsole`), and a
-level returned to keeps its game (`ReturnConsole`). A level's start
-([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-levels-tick))
+level returned to keeps its game (`ReturnConsole`). A level's start ([the
+original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-levels-tick))
 runs each pass over its actors as the list grows, so a map's carcass holds
 its items hidden in `Idle2` and its search hands them over whole
 (`CarcassConsole`), and after `BeginPlay` finds every actor's zone where it
@@ -75,20 +76,19 @@ fall would take them out of the world (`VisibleConsole` there); every level
 loaded, a save's or one returned to, then calls `PostPostBeginPlay`
 (`LoadConsole`, `ReturnConsole`). A state's `Sleep` keeps its time in the
 actor's `LatentFloat`, as the original's, so a save keeps it and a script
-reads it, and ends once under half a tick is left
-([latent functions](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#latent-functions)):
+reads it, and ends once under half a tick is left ([latent
+functions](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#latent-functions)):
 `SleepConsole` at 60 frames, a 0.105 s sleep over and over waking 31 times
 in 3 s in both engines, and a 10 s one saved and loaded 3 s in sleeping out
-its time after the load. A save loaded in the running game, from
-the menu map or the level it was saved in, and a run started on it, spawn
-what the original's do, class by class, second by second (`CensusConsole`,
-`census.py`), and keep it, the game's decals going as
-[out of sight](#out-of-sight) has them. A save's load logs the saved
-player in as the original's does, with `?loadgame`: the game's `Login` keeps
-it as saved, and its `TravelPostAccept` spawns the level's mission script,
-which no save holds -- an object of a transient class is not written
-(`LoadConsole` over either engine's saves and the original's hub save,
-`ReturnConsole`). The
+its time after the load. A save loaded in the running game, from the menu
+map or the level it was saved in, and a run started on it, spawn what the
+original's do, class by class, second by second (`CensusConsole`,
+`census.py`), and keep it, the game's decals going as [out of
+sight](#out-of-sight) has them. A save's load logs the saved player in as
+the original's does, with `?loadgame`: the game's `Login` keeps it as saved,
+and its `TravelPostAccept` spawns the level's mission script, which no save
+holds -- an object of a transient class is not written (`LoadConsole` over
+either engine's saves and the original's hub save, `ReturnConsole`). The
 console's `open ?loadgame=N` loads the slot as the game's own `LoadGame`
 does (`LoadConsole` with `Open`); a slot that is no number loads nothing in
 either, DXEngine reading it as slot 0. The console's `SAVEGAME n` takes any
@@ -102,67 +102,73 @@ as the original's browse asks for `loadgame=`: the console's `open` of it
 goes to the default map, `Index.dx`, which is not there, so the level's own
 map is loaded again, as for any map not there (below): from the menu map the
 menu again, its URL a load's, `Index.dx` (`URLConsole` with `Bare`: the same
-lines in both engines). Before
-a level is saved into `Current`, the augmentations, skills and flag base
-that travel with the player go from it, a decoration in its hands too
-(`PruneTravelActors`; `ReturnConsole`). The
+lines in both engines). Before a level is saved into `Current`, the
+augmentations, skills and flag base that travel with the player go from it,
+a decoration in its hands too (`PruneTravelActors`; `ReturnConsole`). The
 player's goals, notes and key infos, which the game makes with `new(Self)`,
 are in the level's package, as the original's `new` puts an object in its
-outer
-([the natives](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-natives)):
+outer ([the
+natives](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-natives)):
 a save holds them and either engine's load gives them back, on the island
 and after a map exit's travel (`SaveConsole` and `LoadConsole`, also with
 `Via`). A map exit's travel makes each object a travel property holds anew
-in the new level, held by the new player and named by its class's count,
-its text whole (`ReturnConsole` with `Items`: a goal, a note and a key,
-their texts with `?`, `;` and `%` in them); a console's `open` carries none
-of them, in either engine. Every element of a static array travels, and
-each field of a struct (`ReturnConsole` with `Items`: two canisters'
-`AddAugs`, the inventory grid's `invSlots`, the augmentation slots'
-`AugLocs`, a vector and a rotator flag). The travelled items take their
-`TravelPreAccept`, the game's `AcceptInventory`, then their
-`TravelPostAccept`, last to first, with the player's own pair round them,
-once each, as the original's `SpawnPlayActor` runs them, so each item's
-`GiveTo` links the player's chain in the original's order. A travel
-property's reference to an actor destroyed in the level left does not
-travel, by choice, where the original's export writes it and the actor is
-made anew: in the original a new game begun from the game with a weapon
-drawn brings that weapon to the island beside the new game's, by the
-player's `LastinHand`, which the intro's `Paralyzed` never updates; the
-belt's slot holds the new one, the 1 key draws the old, and no weapon can
-then be put away until the old one is dropped (`NewGameConsole`: the
-original's 9 items, two pistols; DXEngine's 6, one, the belt's 1 then 2
-drawing the pistol and then the prod). A travelled item whose belt slot is
-taken goes to the belt's first free slot in the original, off the belt in
-DXEngine (bugs.md PKG.17). A map
-opened at a portal (`open <map>#<portal>`) starts the player at the
-teleporter of that tag (`PortalConsole`). A level's URL, which
+in the new level, held by the new player and named by its class's count, its
+text whole (`ReturnConsole` with `Items`: a goal, a note and a key, their
+texts with `?`, `;` and `%` in them); a console's `open` carries none of
+them, in either engine. Every element of a static array travels, and each
+field of a struct (`ReturnConsole` with `Items`: two canisters' `AddAugs`,
+the inventory grid's `invSlots`, the augmentation slots' `AugLocs`, a vector
+and a rotator flag). The travelled items take their `TravelPreAccept`, the
+game's `AcceptInventory`, then their `TravelPostAccept`, last to first, with
+the player's own pair round them, once each, as the original's
+`SpawnPlayActor` runs them, so each item's `GiveTo` links the player's chain
+in the original's order. A travel property's reference to an actor destroyed
+in the level left does not travel, by choice, where the original's export
+writes it and the actor is made anew: in the original a new game begun from
+the game with a weapon drawn brings that weapon to the island beside the new
+game's, by the player's `LastinHand`, which the intro's `Paralyzed` never
+updates; the belt's slot holds the new one, the 1 key draws the old, and no
+weapon can then be put away until the old one is dropped (`NewGameConsole`:
+the original's 9 items, two pistols; DXEngine's 6, one, the belt's 1 then 2
+drawing the pistol and then the prod). The export walks a class's own travel
+properties before its super's, `Actor`'s `Inventory` chain last, and writes
+an actor only with `bTravel` set, walking nothing past one it does not
+write, as the original's: so the arrival puts the chain's items back in
+their belt slots before an item that only a property of the player's names
+takes the belt's first free slot, and an actor without `bTravel` stays
+behind with what only it names (`CarryConsole`: binoculars and soy food
+named by the player's `ClientinHandPending` and `SelectedItem` alone arrive
+at UNATCO HQ in the belt's slots 5 and 4 in both engines; with the
+binoculars' and the prod's `bTravel` cleared, they stay behind in both, the
+pistol and the two ammo with them, the chain ending at the medkit: 3 items
+arrive). A map opened at a portal (`open <map>#<portal>`) starts the player
+at the teleporter of that tag (`PortalConsole`). A level's URL, which
 `Level.GetLocalURL` gives, is the one it was entered by, as the original's
 `LoadMap` sets it: a level returned to from `Current` names the saved file,
 `..\Save\Current\<map>.dxs` with the travel's options, as the original's
 browse loads it; a load -- an option starting `load`, `?loadonly` or
-`?loadgame` -- leaves the URL the level holds, a map file's `Index.dx` (every
-stock map's), so a restarted level's is `Index.dx`, or a save's, the URL its
-level was entered by, which a save keeps. A travel builds on the last URL,
-the one the level was entered by, less its `?loadonly` and its portal, as
-the original's game engine takes them off: a map exit's takes its server,
-map and options, the player's name and class among them, a console's `open`
-its options; an absolute travel, the console's `start`, takes the player's
-options it lacks -- `Name`, `Team`, `Class`, `Skin`, `Face`, `Voice`,
-`OverrideClass` --, after its own, logging each (`URL: Adding default
-option`), so a hosted game keeps the player's name (`ServeConsole` with a
-name in the user ini: the host logs in by it in both engines). Nothing else
-is added: the travel after a restart has no option, and none has the game's
-`?Difficulty` (`URLConsole`: the same six URLs in both engines, from the
-menu map through Liberty Island, UNATCO HQ, the island again from `Current`,
-its restart and UNATCO HQ again, and the same logins).
-The saved level is found whatever case the URL spells
-the map in, with or without its `.dx`, as the original's file system finds
-it: the stock exits spell `12_vandenberg_cmd` and `00_training`
-(`RevisitConsole`: the island opened again as `01_nyc_unatcoisland` has the
-crate left there). A travel's `PreTravel` goes to every actor of the level
-that has the function, with no argument, as the original's `SetClientTravel`
-sends it: the mission scripts' among them (`TravelConsole`).
+`?loadgame` -- leaves the URL the level holds, a map file's `Index.dx`
+(every stock map's), so a restarted level's is `Index.dx`, or a save's, the
+URL its level was entered by, which a save keeps. A travel builds on the
+last URL, the one the level was entered by, less its `?loadonly` and its
+portal, as the original's game engine takes them off: a map exit's takes its
+server, map and options, the player's name and class among them, a console's
+`open` its options; an absolute travel, the console's `start`, takes the
+player's options it lacks -- `Name`, `Team`, `Class`, `Skin`, `Face`,
+`Voice`, `OverrideClass` --, after its own, logging each (`URL: Adding
+default option`), so a hosted game keeps the player's name (`ServeConsole`
+with a name in the user ini: the host logs in by it in both engines).
+Nothing else is added: the travel after a restart has no option, and none
+has the game's `?Difficulty` (`URLConsole`: the same six URLs in both
+engines, from the menu map through Liberty Island, UNATCO HQ, the island
+again from `Current`, its restart and UNATCO HQ again, and the same logins).
+The saved level is found whatever case the URL spells the map in, with or
+without its `.dx`, as the original's file system finds it: the stock exits
+spell `12_vandenberg_cmd` and `00_training` (`RevisitConsole`: the island
+opened again as `01_nyc_unatcoisland` has the crate left there). A travel's
+`PreTravel` goes to every actor of the level that has the function, with no
+argument, as the original's `SetClientTravel` sends it: the mission scripts'
+among them (`TravelConsole`).
 
 A travel to a map that is not there fails after the pre-travel, as the
 original's browse does, with its message for 6 s: Core's `Failed launching
