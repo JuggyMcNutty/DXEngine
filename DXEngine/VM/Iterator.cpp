@@ -304,15 +304,18 @@ bool TouchingActorsIterator::Next()
 /////////////////////////////////////////////////////////////////////////////
 
 static CollisionHitList DeusExMultiLineCheck(const vec3& start, const vec3& end, const vec3& extent, bool visibilityOnly);
-static vec3 HitLocationOf(const vec3& start, const vec3& end, float fraction);
 
 // As the Deus Ex trace iterators: the original's MultiLineCheck from Start
 // to End, every hit nearest first, the level's included as the LevelInfo,
-// nothing past the first wall; BaseClass is not used (TraceConsole).
+// nothing past the first wall; BaseClass is not used (TraceConsole). Each
+// hit where its check left it, as the original's give their FCheckResults'
+// Locations (TraceActors 0x103e4dfc, TraceTexture 0x1036e746,
+// TraceVisibleActors 0x1036ee8d), not the start moved along the line by its
+// time.
 TraceActorsIterator::TraceActorsIterator(UActor* SelfActor, UObject* BaseClass, UObject** Actor, vec3* HitLoc, vec3* HitNorm, const vec3& End, const vec3& Start, const vec3& Extent) : SelfActor(SelfActor), BaseClass(BaseClass), Actor(Actor), HitLoc(HitLoc), HitNorm(HitNorm), End(End), Start(Start), Extent(Extent)
 {
 	for (const CollisionHit& hit : DeusExMultiLineCheck(Start, End, Extent, false))
-		tracedActors.push_back({ hit.Actor, HitLocationOf(Start, End, hit.Fraction), hit.Normal });
+		tracedActors.push_back({ hit.Actor, hit.Location, hit.Normal });
 
 	iterator = tracedActors.begin();
 }
@@ -451,13 +454,6 @@ static CollisionHitList DeusExMultiLineCheck(const vec3& start, const vec3& end,
 	return result;
 }
 
-// Where a hit lies: the start along the line, as the original's hit location
-// (Start + Direction * Time), which keeps a coordinate the line does not change
-static vec3 HitLocationOf(const vec3& start, const vec3& end, float fraction)
-{
-	return start + (end - start) * fraction;
-}
-
 TraceTextureIterator::TraceTextureIterator(UObject* BaseClass, UObject** OutActor, NameString* TexName, NameString* TexGroup, int* Flags, vec3* HitLoc, vec3* HitNorm, const vec3& End, const vec3& Start, const vec3& Extent)
 	: OutActor(OutActor), TexName(TexName), TexGroup(TexGroup), flags(Flags), HitLoc(HitLoc), HitNorm(HitNorm), End(End), Start(Start)
 {
@@ -480,7 +476,7 @@ bool TraceTextureIterator::Next()
 	// PolyFlags -- a filed mover's polygon's, where the node met is one
 	// (BrushTracker) --; an actor, no texture and flags 0.
 	*OutActor = hit.Actor;
-	*HitLoc = HitLocationOf(Start, End, hit.Fraction);
+	*HitLoc = hit.Location;
 	*HitNorm = hit.Normal;
 	UTexture* texture = nullptr;
 	*flags = 0;
@@ -524,7 +520,7 @@ bool TraceVisibleActorsIterator::Next()
 	++m_Iterator;
 
 	*OutActor = hit.Actor;
-	*HitLoc = mix(Start, End, hit.Fraction);
+	*HitLoc = hit.Location;
 	*HitNorm = hit.Normal;
 	return true;
 }

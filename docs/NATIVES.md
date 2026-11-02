@@ -1623,10 +1623,9 @@ Every other native the scripted runs compare matches the original
   grates, at the 1,842 places a terrorist walking through does not reach,
   hit as the original's do -- the level at the start where a grate or
   `BreakableGlass0` lies there too, the level before a grate flush with it,
-  a grate a tenth of the cut line short -- but at 7: 4 where a cage light's
-  cylinder normal is a last digit apart, and 3 where `DeusExMover35` is met
-  a float step nearer, the hit's place worked out again from its time
-  (bugs.md PHYS.19).
+  a grate a tenth of the cut line short, each hit at the place its check
+  left -- but at 4, where a cage light's cylinder normal is a last digit
+  apart (bugs.md PHYS.19).
 - **A thrown thing's flight** (`ParabolicTrace`) moves as the original's
   `MoveActor` moves
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
@@ -1686,8 +1685,10 @@ Every other native the scripted runs compare matches the original
   line cut so (`MoverConsole` on Liberty Island and DXMP_Silo: a door made
   not to collide, then hidden and moved, then saved; a window broken, at
   once and a frame on; `VisibleConsole` there and on UNATCO HQ, the mover
-  lines alike but a few a float's step apart: 6 of 377 on DXMP_Silo, 1 of
-  133 on the island, 4 of 177 on UNATCO HQ (bugs.md PHYS.19); `DoorConsole`:
+  lines alike, each hit at the place its check left, a pulled one 2 units
+  before the wall it lies at (all 377 on DXMP_Silo), but for a cylinder's
+  hit in its last digit: 1 of 133 on the island, 2 of 177 on UNATCO HQ
+  (bugs.md PHYS.19); `DoorConsole`:
   the door's leaf found from inside it; `GlassConsole` on WanChai's club
   glass: 33 in both, its polygon's own flags carrying the editor's
   processed bit too).

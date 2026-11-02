@@ -97,9 +97,10 @@ static float BoxCheckTime(const vec3& start, const vec3& end, float entry, vec3&
 }
 
 // MultiLineCheck's pull (Engine.dll 0x1039b55d): a mover's hit set 2 units
-// before the level's along the cut line, its time on that line redone from
-// there, in the original's float order
-static float PullTime(const vec3& start, const vec3& cutEnd, const vec3& levelLocation, float time)
+// before the level's along the cut line, that place its location
+// (0x1039b63b), its time on that line redone from there, in the original's
+// float order
+static float PullTime(const vec3& start, const vec3& cutEnd, const vec3& levelLocation, float time, vec3& location)
 {
 	float dz = (float)((double)cutEnd.z - start.z);
 	float dy = (float)((double)cutEnd.y - start.y);
@@ -113,7 +114,7 @@ static float PullTime(const vec3& start, const vec3& cutEnd, const vec3& levelLo
 	float uz = (float)(dz * inv);
 	float uy = (float)(dy * inv);
 	double ux = inv * dx;
-	vec3 location(
+	location = vec3(
 		(float)((double)levelLocation.x - (double)(float)(ux + ux)),
 		(float)((double)levelLocation.y - (double)(float)((double)uy + uy)),
 		(float)((double)levelLocation.z - (double)(float)((double)uz + uz)));
@@ -212,11 +213,15 @@ static bool MoverBoxCheck(UMover* mover, const vec3& start, const vec3& end, con
 // the whole line's by the cut (cut x time, a float) -- a mover's hit within 2
 // units of the level's, its normal the level hit's (a float compare), is set
 // 2 units before the level's first --; a cylinder's hit a thousandth of the
-// cut line short. The hits sorted by those times alone: a mover flush with a
-// wall falls before or after it as the original's two times round (the
-// wall's plane a float step off the door's, or the cut line's end rounded),
-// equal times keeping the actors first, as the original's sort of two equal
-// times (the CRT's qsort) swaps them.
+// cut line short. Each hit keeps the place its check found, as the trace
+// natives give it: the level's and a mover's UModel::LineCheck's, a mover's
+// on the cut line, or the pulled one's (DXMP_Silo's BreakableGlass8 at
+// 178.500015, the level's 180.500015 less 2, where the start moved along the
+// whole line by the time lands on 178.5). The hits sorted by those times
+// alone: a mover flush with a wall falls before or after it as the
+// original's two times round (the wall's plane a float step off the door's,
+// or the cut line's end rounded), equal times keeping the actors first, as
+// the original's sort of two equal times (the CRT's qsort) swaps them.
 CollisionHitList TraceTester::TraceLine(const vec3& from, const vec3& to, bool traceActors, bool traceWorld, bool visibilityOnly)
 {
 	dvec3 origin = to_dvec3(from);
@@ -239,7 +244,8 @@ CollisionHitList TraceTester::TraceLine(const vec3& from, const vec3& to, bool t
 		if (TraceRayModel::WalkSolid(collision.LineNodes(), collision.LineRootOutside(), origin, rayEnd, visibilityOnly ? NF_NotVisBlocking : 0, fraction, crossed))
 		{
 			vec3 place = to_vec3(origin + (rayEnd - origin) * fraction);
-			level = { LineCheckTime(from, to, place, levelLocation), vec3(crossed->PlaneX, crossed->PlaneY, crossed->PlaneZ), nullptr, crossed, crossed };
+			float time = LineCheckTime(from, to, place, levelLocation);
+			level = { time, vec3(crossed->PlaneX, crossed->PlaneY, crossed->PlaneZ), nullptr, crossed, crossed, levelLocation };
 			if (dot(to_dvec3(level.Normal), direction) > 0.0)
 				level.Normal = -level.Normal;
 			levelHit = true;
@@ -272,11 +278,11 @@ CollisionHitList TraceTester::TraceLine(const vec3& from, const vec3& to, bool t
 				double my = (double)location.y - levelLocation.y;
 				double mz = (double)location.z - levelLocation.z;
 				if ((mx * mx + my * my) + mz * mz < 4.0)
-					time = PullTime(from, cutEnd, levelLocation, time);
+					time = PullTime(from, cutEnd, levelLocation, time, location);
 			}
 			time = (float)((double)cut * time);
 			if (time < 1.0f)
-				hits.push_back({ time, normal, actor, crossed, crossed });
+				hits.push_back({ time, normal, actor, crossed, crossed, location });
 		}
 		else
 		{
@@ -291,6 +297,7 @@ CollisionHitList TraceTester::TraceLine(const vec3& from, const vec3& to, bool t
 				if (dist >= tmax)
 					continue;
 				hit.Fraction = (float)(dist / tmax);
+				hit.Location = from + (to - from) * hit.Fraction;
 				hits.push_back(hit);
 			}
 		}
@@ -317,8 +324,11 @@ CollisionHitList TraceTester::TraceLine(const vec3& from, const vec3& to, bool t
 // cylinder's hit on the cut line a thousandth of it short. The level met at
 // the start cuts the line to nothing, and a box swept no way enters no hull:
 // no actor is met, the level's hit the first, where a line from inside a
-// mover's solid still meets it (TraceLine). The hits sorted by their times
-// alone, equal times keeping the actors first.
+// mover's solid still meets it (TraceLine). Each hit keeps the place its
+// check found, a mover's on the cut line or the pulled one's (TraceLine;
+// GrateConsole's DeusExMover35 at y -1943.540039, where the start moved along
+// the whole line by the time lands a float step off). The hits sorted by
+// their times alone, equal times keeping the actors first.
 CollisionHitList TraceTester::TraceBox(const vec3& from, const vec3& to, const vec3& extents, bool traceActors, bool traceWorld, bool visibilityOnly)
 {
 	dvec3 origin = to_dvec3(from);
@@ -342,7 +352,7 @@ CollisionHitList TraceTester::TraceBox(const vec3& from, const vec3& to, const v
 			float time = BoxCheckTime(from, to, hit.Fraction, levelLocation);
 			if (time < 1.0f)
 			{
-				level = { time, hit.Normal, nullptr, hit.Node, hit.NodeHead };
+				level = { time, hit.Normal, nullptr, hit.Node, hit.NodeHead, levelLocation };
 				levelHit = true;
 				CutLine(from, to, levelLocation, time, cut, cutEnd, nearStart);
 			}
@@ -372,9 +382,10 @@ CollisionHitList TraceTester::TraceBox(const vec3& from, const vec3& to, const v
 				double my = (double)location.y - levelLocation.y;
 				double mz = (double)location.z - levelLocation.z;
 				if ((mx * mx + my * my) + mz * mz < 4.0)
-					time = PullTime(from, cutEnd, levelLocation, time);
+					time = PullTime(from, cutEnd, levelLocation, time, location);
 			}
 			hit.Fraction = (float)((double)cut * time);
+			hit.Location = location;
 			hit.Actor = actor;
 			hits.push_back(hit);
 		}
@@ -387,6 +398,7 @@ CollisionHitList TraceTester::TraceBox(const vec3& from, const vec3& to, const v
 			{
 				double dist = std::max((double)hit.Fraction - actorBackoff, 0.0);
 				hit.Fraction = (float)(dist / tmax);
+				hit.Location = from + (to - from) * hit.Fraction;
 				hits.push_back(hit);
 			}
 		}

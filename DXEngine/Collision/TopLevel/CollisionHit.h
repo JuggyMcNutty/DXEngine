@@ -9,13 +9,20 @@ class CollisionHit
 {
 public:
 	CollisionHit() = default;
-	CollisionHit(float fraction, vec3 normal, UActor* actor, BspNode* node, BspNode* nodeHead) : Fraction(fraction), Normal(normal), Actor(actor), Node(node), NodeHead(nodeHead) { }
+	CollisionHit(float fraction, vec3 normal, UActor* actor, BspNode* node, BspNode* nodeHead, vec3 location = vec3(0.0f)) : Fraction(fraction), Normal(normal), Actor(actor), Node(node), NodeHead(nodeHead), Location(location) { }
 
 	float Fraction = 1.0;
 	vec3 Normal = vec3(0.0);
 	UActor* Actor = nullptr;
 	BspNode* Node = nullptr;
 	BspNode* NodeHead = nullptr;
+
+	// Where the hit lies, as the original's check that found it leaves it in
+	// its FCheckResult and the trace natives give it, not worked out again
+	// from the time: on the line that check was given, the line cut past the
+	// level's hit for an actor; 2 units before the level's for a mover's hit
+	// pulled to it
+	vec3 Location = vec3(0.0f);
 };
 
 class CollisionHitList

@@ -604,8 +604,10 @@ UObject* UActor::Trace(vec3& hitLocation, vec3& hitNormal, const vec3& traceEnd,
 		hitLocation = vec3(0.0f);
 		return nullptr;
 	}
+	// Where the check that found the hit left it, as the original's Trace
+	// gives its FCheckResult's Location (Engine.dll 0x103e3507)
 	hitNormal = hit.Normal;
-	hitLocation = traceStart + (traceEnd - traceStart) * hit.Fraction;
+	hitLocation = hit.Location;
 	return hit.Actor;
 }
 
