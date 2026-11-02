@@ -7,10 +7,9 @@
 // A box takes no node flags, as the original's box check reads none (Engine.dll
 // 0x103f42f0; dx-reverse-info/engine-dll.md, traces): an NF_NotVisBlocking
 // surface stops it as any other, a line's trace alone keeping its flag
-CollisionHitList TraceAABBModel::Trace(UModel* model, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, bool original, bool actorBrush, const mat4* objectToWorld)
+CollisionHitList TraceAABBModel::Trace(UModel* model, const vec3& start, const vec3& end, const vec3& extents, bool actorBrush, const mat4* objectToWorld)
 {
 	Model = model;
-	Original = original;
 	ActorBrush = actorBrush;
 	Placed = objectToWorld != nullptr;
 	if (Placed)
@@ -26,12 +25,11 @@ CollisionHitList TraceAABBModel::Trace(UModel* model, const dvec3& origin, doubl
 		Translation = dvec3(m.matrix[12], m.matrix[13], m.matrix[14]);
 	}
 	// The trace as the original's check is given it, in floats: the start,
-	// the end the caller asked for, and the box
-	Start = vec3(origin);
-	End = vec3(origin + dirNormalized * tmax);
-	Extents = vec3(extents);
-	TMin = tmin;
-	TMax = tmax;
+	// the end the caller asked for (the multi-hit check's cut end for an
+	// actor's brush), and the box
+	Start = start;
+	End = end;
+	Extents = extents;
 	HitTime = 2.0f;
 	CollisionHitList hits;
 	if (!Model || Model->Nodes.empty())
@@ -142,29 +140,18 @@ void TraceAABBModel::TraceHull(BspNode* node, CollisionHitList& hits)
 	bbox.min = bboxStart[0];
 	bbox.max = bboxStart[1];
 
-	// Shave off part of the box, or ammo pickups can fall through the floor
-	if (!Original)
-	{
-		float boxEpsilon = 0.1f;
-		bbox.min += boxEpsilon;
-		bbox.max -= boxEpsilon;
-	}
-
 	// AABB/hull sweep test: the segment of the trace inside the hull's
 	// planes, each pushed out by the box, its start the hit. The original's
 	// box check bounds only the level's hulls by their boxes, after their own
 	// planes; an actor's brush has none.
 	SweepCursor cursor(Start, End, Extents, HitTime);
-	if (!Original && !cursor.ClipBoxPlanes(bbox))
-		return;
-
 	for (int i = 0; i < hullPlanesCount; i++)
 	{
 		if (!cursor.ClipPlane(planes[i]))
 			return;
 	}
 
-	if (Original && !ActorBrush && !cursor.ClipOriginalBoxPlanes(bbox))
+	if (!ActorBrush && !cursor.ClipOriginalBoxPlanes(bbox))
 		return;
 
 	// Bevels at the hull's edges, for each pair of planes on each axis in turn
@@ -184,21 +171,14 @@ void TraceAABBModel::TraceHull(BspNode* node, CollisionHitList& hits)
 
 	// Did we hit anything? The original's hit is where the box touches, and
 	// it counts a hull entered up to twice the trace's length: its caller's
-	// backoff may bring that within the trace. Only the nearest is kept.
+	// backoff may bring that within the trace. Only the nearest is kept, its
+	// time of the trace, one under 0 (a start inside) held to 0.
 	float time;
 	if (cursor.Hit(time))
 	{
 		HitTime = time;
-		double t = time * TMax;
-		if (Original)
-			t = std::max(t, 0.0);
-		else
-			t = std::max(t - 0.1, 0.0);
 		hits.clear();
-		if (t >= TMin && (Original || t < TMax))
-		{
-			CollisionHit hit = { (float)t, cursor.HitNormal(), nullptr, node, node };
-			hits.push_back(hit);
-		}
+		CollisionHit hit = { std::max(time, 0.0f), cursor.HitNormal(), nullptr, node, node };
+		hits.push_back(hit);
 	}
 }

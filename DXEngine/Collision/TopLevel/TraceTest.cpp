@@ -15,115 +15,7 @@ CollisionHitList TraceTester::Trace(const vec3& from, const vec3& to, float heig
 		return {};
 	if (radius == 0.0f && height == 0.0f)
 		return TraceLine(from, to, traceActors, traceWorld, visibilityOnly);
-
-	dvec3 origin = to_dvec3(from);
-	dvec3 direction = to_dvec3(to) - origin;
-	double tmin = 0.0f; // if this goes above 0.0, you will be able to walk through walls!
-	double tmax = length(direction);
-	if (tmax < tmin)
-		return {};
-	direction *= 1.0f / tmax;
-
-	// Deus Ex's hits are given short of what they hit by the original's
-	// backoffs (below).
-
-	CollisionHitList hits;
-
-	double dradius = radius;
-	double dheight = height;
-	vec3 extents = { radius, radius, height };
-
-	// A box asks the cells of its sweep
-	auto traceActor = [&](UActor* actor) {
-		TraceActor(actor, origin, tmin, direction, tmax, dheight, dradius, traceActors, traceWorld, visibilityOnly, hits);
-		return false;
-	};
-	VisitActorsInBox(GetSweepStartExtents(from, to, extents), GetSweepEndExtents(from, to, extents), traceActor);
-
-	if (traceWorld)
-	{
-		// AABB/Triangle intersect
-		TraceAABBModel tracemodel;
-		dvec3 extents = { (double)radius, (double)radius, (double)height };
-		CollisionHitList worldHits = tracemodel.Trace(GetLevel()->Model, origin, tmin, direction, tmax, extents, true, false);
-		hits.push_back(worldHits);
-	}
-
-	// Deus Ex's hits come out as the original's MultiLineCheck hands them on
-	// (dx-reverse-info engine-dll.md, traces), backed off as UModel::LineCheck
-	// and UPrimitive::LineCheck back them off: a hit on the level or a mover's
-	// brush a tenth of the trace short (a tenth of a unit for a trace under
-	// one long), a hit on an actor's cylinder a thousandth of the cut line
-	// short, held to the line; one still at the end or past it is none. The
-	// level's hit is one, the nearest of its own; the actors are asked along
-	// the line cut to 5 units past it, so their hits beyond that are none;
-	// with the level met within a hundredth of the line and 30 units, every
-	// actor's hit but a mover's is dropped. A line's are TraceLine's.
-	double brushBackoff = std::max(0.1, 0.1 * tmax);
-
-	// The level's one hit, the nearest, and the line cut to 5 units past it
-	int levelIndex = -1;
-	double levelDist = 0.0;
-	for (size_t i = 0; i < hits.size(); i++)
-	{
-		const CollisionHit& hit = hits.begin()[i];
-		if (!hit.Actor && (levelIndex < 0 || hit.Fraction < hits.begin()[levelIndex].Fraction))
-			levelIndex = (int)i;
-	}
-	double cutLen = tmax;
-	bool nearStart = false;
-	if (levelIndex >= 0)
-	{
-		const CollisionHit& level = hits.begin()[levelIndex];
-		levelDist = std::max((double)level.Fraction - brushBackoff, 0.0);
-		cutLen = std::min(tmax, levelDist * (levelDist + 5.0) / (levelDist + 0.0001));
-		nearStart = levelDist < 0.01 * tmax && levelDist < 30.0;
-	}
-	// The actors' checks run along the cut line: a cylinder's thousandth is of it
-	double actorBackoff = 0.001 * cutLen;
-
-	CollisionHitList given;
-	for (size_t i = 0; i < hits.size(); i++)
-	{
-		CollisionHit hit = hits.begin()[i];
-		double dist;
-		if (!hit.Actor)
-		{
-			if ((int)i != levelIndex)
-				continue;
-			dist = levelDist;
-		}
-		else
-		{
-			UMover* mover = UObject::TryCast<UMover>(hit.Actor);
-			if (nearStart && !mover)
-				continue;
-			if (hit.Node)
-			{
-				// A brush: its hit backed off, none at the cut line's end or
-				// past it but one at its start, in the brush's solid: the
-				// original's check along a line the level cut to nothing,
-				// its start in solid, still meets that brush (a door's leaf
-				// traced from inside it, the door filed in the BSP too:
-				// DoorConsole)
-				dist = std::max((double)hit.Fraction - brushBackoff, 0.0);
-				if (dist >= cutLen && hit.Fraction > 0.0f)
-					continue;
-			}
-			else
-			{
-				// A cylinder: a hit within the cut line, a thousandth short
-				if (hit.Fraction > cutLen)
-					continue;
-				dist = std::max((double)hit.Fraction - actorBackoff, 0.0);
-			}
-		}
-		if (dist >= tmax)
-			continue;
-		hit.Fraction = (float)(dist / tmax);
-		given.push_back(hit);
-	}
-	return SortedFirstHits(given);
+	return TraceBox(from, to, vec3(radius, radius, height), traceActors, traceWorld, visibilityOnly);
 }
 
 // Sorted by time, nearest first, equal times keeping the order they were
@@ -183,6 +75,27 @@ static float LineCheckTime(const vec3& start, const vec3& end, const vec3& place
 	return (float)t;
 }
 
+// UModel::LineCheck's time for a box's hit (Engine.dll 0x103f403b), in its
+// float order: the walk's time of the trace less a tenth, or less 0.1 over the
+// trace's length where that is more (a trace under one unit long backed off a
+// tenth of a unit), held to 0..1, a float; 1 is no hit (0x103f40f3). The hit's
+// location along the trace from that time, in floats. The trace is the one
+// the box check was given: the whole line for the level, the cut line for an
+// actor's brush.
+static float BoxCheckTime(const vec3& start, const vec3& end, float entry, vec3& location)
+{
+	float dx = (float)((double)end.x - start.x);
+	float dy = (float)((double)end.y - start.y);
+	float dz = (float)((double)end.z - start.z);
+	float size = (float)std::sqrt(((double)dx * dx + (double)dy * dy) + (double)dz * dz);
+	double backoff = 0.1f / (double)size;
+	if (!(0.1f < backoff))
+		backoff = 0.1f;
+	float time = (float)std::clamp((double)entry - backoff, 0.0, 1.0);
+	location = vec3(start.x + dx * time, start.y + dy * time, start.z + dz * time);
+	return time;
+}
+
 // MultiLineCheck's pull (Engine.dll 0x1039b55d): a mover's hit set 2 units
 // before the level's along the cut line, its time on that line redone from
 // there, in the original's float order
@@ -208,6 +121,30 @@ static float PullTime(const vec3& start, const vec3& cutEnd, const vec3& levelLo
 	float vy = (float)((double)location.y - start.y);
 	float vz = (float)((double)location.z - start.z);
 	return (float)(std::sqrt(((double)vz * vz + (double)vy * vy) + (double)vx * vx) / lenf);
+}
+
+// MultiLineCheck's cut (Engine.dll 0x1039b308 to 0x1039b3fc), a line's and a
+// box's alike, in its float order: the line cut to 5 units past the level's
+// hit, (its distance + 5) x its time / (its distance + 0.0001), 1 at most, a
+// float (0x1039b35a); the cut's end a float (0x1039b386), the start itself for
+// the level met at the start; and whether the level was met within a
+// hundredth of the line and 30 units of its start, which drops every actor's
+// hit but a mover's
+static void CutLine(const vec3& from, const vec3& to, const vec3& levelLocation, float levelTime, float& cut, vec3& cutEnd, bool& nearStart)
+{
+	double ex = (double)levelLocation.x - from.x;
+	double ey = (double)levelLocation.y - from.y;
+	double ez = (double)levelLocation.z - from.z;
+	double dist = std::sqrt((ex * ex + ey * ey) + ez * ez);
+	double c = (dist + 5.0) * levelTime / (dist + (double)0.0001f);
+	cut = c < 1.0 ? (float)c : 1.0f;
+	float dx = (float)((double)to.x - from.x);
+	float dy = (float)((double)to.y - from.y);
+	cutEnd = vec3(
+		(float)((double)(float)(dx * (double)cut) + from.x),
+		(float)(from.y + (double)(float)(dy * (double)cut)),
+		(float)(((double)to.z - from.z) * cut + from.z));
+	nearStart = (double)levelTime < 0.01 && dist < 30.0;
 }
 
 // Deus Ex's line meets a mover's brush as the original's walk down its BSP
@@ -240,6 +177,24 @@ static bool MoverLineWalk(UMover* mover, const vec3& start, const vec3& end, boo
 		return false;
 	crossed = &brush->Nodes[hitNode - world.data()];
 	normal = vec3(hitNode->PlaneX, hitNode->PlaneY, hitNode->PlaneZ);
+	return true;
+}
+
+// Deus Ex's box meets a mover's brush as the original's box check meets an
+// actor's (UModel::LineCheck 0x103f3c20 with an owner): the box swept from
+// start to end along the world's axes, as the trace gives it, the brush's
+// planes turned into the world by its owner's coordinates (0x103f42f0) --
+// taken into the brush's own axes, the box would turn with it, a grate
+// pitched on its side meeting a box as deep as the cylinder is tall. Gives
+// the walk's time of that trace, the plane's normal and the node.
+static bool MoverBoxCheck(UMover* mover, const vec3& start, const vec3& end, const vec3& extents, CollisionHit& hit)
+{
+	mat4 objectToWorld = mat4::translate(mover->Location()) * Coords::Rotation(mover->Rotation()).ToMatrix() * mat4::scale(mover->MainScale().Scale) * mat4::translate(-mover->PrePivot());
+	TraceAABBModel tracemodel;
+	CollisionHitList hits = tracemodel.Trace(mover->Brush(), start, end, extents, true, &objectToWorld);
+	if (hits.empty())
+		return false;
+	hit = hits.front();
 	return true;
 }
 
@@ -288,20 +243,7 @@ CollisionHitList TraceTester::TraceLine(const vec3& from, const vec3& to, bool t
 			if (dot(to_dvec3(level.Normal), direction) > 0.0)
 				level.Normal = -level.Normal;
 			levelHit = true;
-
-			double ex = (double)levelLocation.x - from.x;
-			double ey = (double)levelLocation.y - from.y;
-			double ez = (double)levelLocation.z - from.z;
-			double dist = std::sqrt((ex * ex + ey * ey) + ez * ez);
-			double c = (dist + 5.0) * level.Fraction / (dist + (double)0.0001f);
-			cut = c < 1.0 ? (float)c : 1.0f;
-			float dx = (float)((double)to.x - from.x);
-			float dy = (float)((double)to.y - from.y);
-			cutEnd = vec3(
-				(float)((double)(float)(dx * (double)cut) + from.x),
-				(float)(from.y + (double)(float)(dy * (double)cut)),
-				(float)(((double)to.z - from.z) * cut + from.z));
-			nearStart = (double)level.Fraction < 0.01 && dist < 30.0;
+			CutLine(from, to, levelLocation, level.Fraction, cut, cutEnd, nearStart);
 		}
 	}
 
@@ -348,6 +290,102 @@ CollisionHitList TraceTester::TraceLine(const vec3& from, const vec3& to, bool t
 				double dist = std::max((double)hit.Fraction - actorBackoff, 0.0);
 				if (dist >= tmax)
 					continue;
+				hit.Fraction = (float)(dist / tmax);
+				hits.push_back(hit);
+			}
+		}
+		return false;
+	});
+	if (levelHit)
+		hits.push_back(level);
+
+	return SortedFirstHits(hits);
+}
+
+// Deus Ex's box, as the original's MultiLineCheck checks one with an extent
+// (Engine.dll 0x1039b220; dx-reverse-info engine-dll.md, traces), in its
+// float order. The level first: one hit, the nearest hull of its own BSP the
+// box enters (UModel::LineCheck's box check, which no filed mover stops),
+// backed off a tenth of the line, its time and place UModel::LineCheck's; the
+// line cut to 5 units past it as a line's is (CutLine). Then the actors in
+// the cells along the cut line, each checked on the cut line itself, as the
+// original's hash checks them (FCollisionHash::ActorLineCheck, 0x10359160):
+// a mover's brush by the box check from the start to the cut's end, its hit
+// backed off a tenth of the cut line, its time made the whole line's by the
+// cut (cut x time, a float) -- a mover's hit within 2 units of the level's,
+// its normal the level hit's, set 2 units before the level's first --; a
+// cylinder's hit on the cut line a thousandth of it short. The level met at
+// the start cuts the line to nothing, and a box swept no way enters no hull:
+// no actor is met, the level's hit the first, where a line from inside a
+// mover's solid still meets it (TraceLine). The hits sorted by their times
+// alone, equal times keeping the actors first.
+CollisionHitList TraceTester::TraceBox(const vec3& from, const vec3& to, const vec3& extents, bool traceActors, bool traceWorld, bool visibilityOnly)
+{
+	dvec3 origin = to_dvec3(from);
+	dvec3 direction = to_dvec3(to) - origin;
+	double tmax = length(direction);
+	direction *= 1.0 / tmax;
+
+	CollisionHit level;
+	bool levelHit = false;
+	vec3 levelLocation(0.0f);
+	float cut = 1.0f;
+	vec3 cutEnd = to;
+	bool nearStart = false;
+	if (traceWorld)
+	{
+		TraceAABBModel tracemodel;
+		CollisionHitList worldHits = tracemodel.Trace(GetLevel()->Model, from, to, extents, false);
+		if (!worldHits.empty())
+		{
+			const CollisionHit& hit = worldHits.front();
+			float time = BoxCheckTime(from, to, hit.Fraction, levelLocation);
+			if (time < 1.0f)
+			{
+				level = { time, hit.Normal, nullptr, hit.Node, hit.NodeHead };
+				levelHit = true;
+				CutLine(from, to, levelLocation, time, cut, cutEnd, nearStart);
+			}
+		}
+	}
+
+	// The cells the box takes along the cut line; each actor asked along it
+	double cutLen = cut * tmax;
+	double actorBackoff = 0.001 * cutLen;
+	CollisionHitList hits;
+	VisitActorsInBox(GetSweepStartExtents(from, cutEnd, extents), GetSweepEndExtents(from, cutEnd, extents), [&](UActor* actor) {
+		UMover* mover = UObject::TryCast<UMover>(actor);
+		if (nearStart && !mover)
+			return false;
+		if (mover && mover->Brush())
+		{
+			CollisionHit hit;
+			if (!traceWorld || !MoverBoxCheck(mover, from, cutEnd, extents, hit))
+				return false;
+			vec3 location;
+			float time = BoxCheckTime(from, cutEnd, hit.Fraction, location);
+			if (time >= 1.0f)
+				return false;
+			if (levelHit && hit.Normal == level.Normal)
+			{
+				double mx = (double)location.x - levelLocation.x;
+				double my = (double)location.y - levelLocation.y;
+				double mz = (double)location.z - levelLocation.z;
+				if ((mx * mx + my * my) + mz * mz < 4.0)
+					time = PullTime(from, cutEnd, levelLocation, time);
+			}
+			hit.Fraction = (float)((double)cut * time);
+			hit.Actor = actor;
+			hits.push_back(hit);
+		}
+		else
+		{
+			// A cylinder: a hit on the cut line, a thousandth of it short
+			CollisionHitList cylinder;
+			TraceActor(actor, origin, 0.0, direction, cutLen, extents.z, extents.x, traceActors, traceWorld, visibilityOnly, cylinder);
+			for (CollisionHit hit : cylinder)
+			{
+				double dist = std::max((double)hit.Fraction - actorBackoff, 0.0);
 				hit.Fraction = (float)(dist / tmax);
 				hits.push_back(hit);
 			}
@@ -543,39 +581,15 @@ void TraceTester::TraceActor(UActor* actor, const dvec3& origin, double tmin, co
 	UMover* mover = UObject::TryCast<UMover>(actor);
 	if (mover && mover->Brush())
 	{
-		if (!traceWorld)
+		// A line (the AI's sight line): MoverLineWalk's hit, its distance. A
+		// box meets a mover's brush in TraceBox alone, along the cut line.
+		if (!traceWorld || radius != 0.0 || height != 0.0)
 			return;
-
-		CollisionHitList brushHits;
-
-		if (radius == 0.0 && height == 0.0)
-		{
-			// A line (the AI's sight line): MoverLineWalk's hit, its distance
-			double fraction;
-			BspNode* crossed;
-			vec3 normal;
-			if (MoverLineWalk(mover, vec3(origin), vec3(origin + dirNormalized * tmax), visibilityOnly, fraction, crossed, normal))
-				hits.push_back({ (float)(fraction * tmax), normal, actor, crossed, crossed });
-			return;
-		}
-		else
-		{
-			// A box meets the brush in the world's axes, as the original's box
-			// walk turns the brush's planes into the world by its owner's
-			// coordinates (Engine.dll 0x103f42f0): taken into the brush's own
-			// axes, the box would turn with it, a grate pitched on its side
-			// meeting a box as deep as the cylinder is tall
-			TraceAABBModel tracemodel;
-			mat4 objectToWorld = mat4::translate(mover->Location()) * Coords::Rotation(mover->Rotation()).ToMatrix() * mat4::scale(mover->MainScale().Scale) * mat4::translate(-mover->PrePivot());
-			dvec3 extents = { (double)radius, (double)radius, (double)height };
-			brushHits = tracemodel.Trace(mover->Brush(), origin, tmin, dirNormalized, tmax, extents, true, true, &objectToWorld);
-		}
-
-		for (auto& hit : brushHits)
-		{
-			hit.Actor = actor;
-			hits.push_back(hit);
-		}
+		double fraction;
+		BspNode* crossed;
+		vec3 normal;
+		if (MoverLineWalk(mover, vec3(origin), vec3(origin + dirNormalized * tmax), visibilityOnly, fraction, crossed, normal))
+			hits.push_back({ (float)(fraction * tmax), normal, actor, crossed, crossed });
 	}
 	else
 	{

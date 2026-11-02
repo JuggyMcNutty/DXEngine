@@ -13,6 +13,7 @@ public:
 
 private:
 	CollisionHitList TraceLine(const vec3& from, const vec3& to, bool traceActors, bool traceWorld, bool visibilityOnly);
+	CollisionHitList TraceBox(const vec3& from, const vec3& to, const vec3& extents, bool traceActors, bool traceWorld, bool visibilityOnly);
 	static CollisionHitList SortedFirstHits(CollisionHitList& hits);
 	template<typename Visit> bool VisitActorsOnRay(const vec3& from, const vec3& to, Visit&& visit);
 	void TraceActor(UActor* actor, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, double height, double radius, bool traceActors, bool traceWorld, bool visibilityOnly, CollisionHitList& hits);

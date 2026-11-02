@@ -1606,16 +1606,22 @@ Every other native the scripted runs compare matches the original
   its place, rotation and scale, as the original's walk turns its owner's:
   the player walked into and along the grates under Castle Clinton on
   02_NYC_BatteryPark, pitched on their sides, rests where the original's
-  does within a hundredth of a unit (`GrateConsole`). A mover's brush is
-  asked along the whole line, where the original's asks the movers along
-  the line cut 5 units past the level's hit (bugs.md PHYS.18).
-  `GrateConsole`'s 16-unit boxes swept round the five grates, at the 1,842
-  places a terrorist walking through does not reach, hit as the original's
-  do but at 58, where a box starting against both the level and a grate or
-  `BreakableGlass0` meets the mover and the original's the level at the
-  same place, and at 13, where a grate is met 0.06 units nearer (PHYS.18);
-  4 more give a cage light's cylinder normal a last digit apart (bugs.md
-  PHYS.19).
+  does within a hundredth of a unit (`GrateConsole`). The hits come out as
+  the original's multi-hit check hands them on, as a line's do: the level's
+  one, the line cut 5 units past it, and the actors in the cells along the
+  cut line asked along it itself, so a mover's hit is backed off a tenth of
+  the cut line and a cylinder's a thousandth of it; a box the level meets at
+  its start meets no actor, the line cut to nothing and a box swept no way
+  entering no hull, where a line from inside a mover's solid still meets it;
+  and a mover's hit within 2 units of the level's, with its normal, is set 2
+  units before it. `GrateConsole`'s 16-unit boxes swept round the five
+  grates, at the 1,842 places a terrorist walking through does not reach,
+  hit as the original's do -- the level at the start where a grate or
+  `BreakableGlass0` lies there too, the level before a grate flush with it,
+  a grate a tenth of the cut line short -- but at 7: 4 where a cage light's
+  cylinder normal is a last digit apart, and 3 where `DeusExMover35` is met
+  a float step nearer, the hit's place worked out again from its time
+  (bugs.md PHYS.19).
 - **A thrown thing's flight** (`ParabolicTrace`) moves as the original's
   `MoveActor` moves
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):

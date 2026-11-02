@@ -5,17 +5,18 @@
 class TraceAABBModel
 {
 public:
-	// With original, the box check as Deus Ex's UModel::LineCheck makes it,
-	// for the backoff its caller then takes off: each hit where the box
-	// touches, a hull entered up to twice the trace's length counted, and
-	// the level's hulls (not an actorBrush's) bounded by their boxes as the
-	// original's are. Without, the hits a tenth of a unit short, within the
-	// trace, every hull's box shaved.
+	// The box check as Deus Ex's UModel::LineCheck makes it, for the backoff
+	// its caller then takes off (Engine.dll 0x103f3c20): the box swept from
+	// start to end, in floats, the hit where it touches, a hull entered up to
+	// twice the trace's length counted, the level's hulls (not an
+	// actorBrush's) bounded by their boxes as the original's are; the hit's
+	// Fraction the walk's time of this trace, 0 for a start inside. A trace
+	// of no length enters no hull, every plane running along it.
 	// With objectToWorld, the model is an actor's brush placed in the world
 	// by it: each plane is turned into the world, as the original's walk
 	// turns its owner's by the owner's coordinates (Engine.dll 0x103f42f0),
 	// and the box, the trace and the hits' normals are the world's.
-	CollisionHitList Trace(UModel* model, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, const dvec3& extents, bool original, bool actorBrush, const mat4* objectToWorld = nullptr);
+	CollisionHitList Trace(UModel* model, const vec3& start, const vec3& end, const vec3& extents, bool actorBrush, const mat4* objectToWorld = nullptr);
 
 private:
 	dvec4 NodePlane(const BspNode* node) const;
@@ -128,28 +129,6 @@ private:
 			return ClipPlane(vec4(normal, (point.y * normal.y + point.z * normal.z) + point.x * normal.x));
 		}
 
-		bool ClipBoxPlanes(const BBox& box)
-		{
-			// Treat the sides of each AABB as a plane
-			vec4 boxPlanes[] =
-			{
-				{ 1.0f,  0.0f,  0.0f,  box.max.x},
-				{-1.0f,  0.0f,  0.0f, -box.min.x},
-				{ 0.0f,  1.0f,  0.0f,  box.max.y},
-				{ 0.0f, -1.0f,  0.0f, -box.min.y},
-				{ 0.0f,  0.0f,  1.0f,  box.max.z},
-				{ 0.0f,  0.0f, -1.0f, -box.min.z}
-			};
-
-			for (int i = 0; i < 6; i++)
-			{
-				if (!ClipPlane(boxPlanes[i]))
-					return false;
-			}
-
-			return true;
-		}
-
 		// The original's bounds of a level hull (FBoxCheck; dx-reverse-info
 		// engine-dll.md, traces): its box a tenth of a unit bigger at both
 		// ends in Z and toward -X and -Y, and as much smaller at +X and +Y.
@@ -201,16 +180,13 @@ private:
 	};
 
 	UModel* Model = nullptr;
-	bool Original = false;
 	bool ActorBrush = false;
 
 	// The trace in floats, as the original's check is given it: its start,
-	// its end, the box's extent, and its length and least distance
+	// its end and the box's extent
 	vec3 Start = vec3(0.0f);
 	vec3 End = vec3(0.0f);
 	vec3 Extents = vec3(0.0f);
-	double TMin = 0.0;
-	double TMax = 0.0;
 
 	// The time of the nearest hit so far, of the whole trace, as the
 	// original's walk keeps it in its result: a later hull counts only when
