@@ -51,8 +51,9 @@ void UWindow::InvokeWindowReady()
 	}
 }
 
-// The root's children lie across the screen up to 16:9, the 4:3 root centred
-// in it: their x is the screen's, drawn less this.
+// The root's children lie across the whole screen, as the original's root is
+// the viewport, the 4:3 root centred in it: their x is the screen's, drawn
+// less this.
 float UWindow::RootOffsetX()
 {
 	UWindow* parent = parentOwner();
@@ -63,7 +64,7 @@ float UWindow::RootOffsetX()
 
 // The root is 4:3 (ConWindowActive.CalculateWindowSizes lays the
 // conversation window out for it, and a wider screen extends the children
-// to 16:9, RootOffsetX), or the screen where that is narrower, as the
+// across it, RootOffsetX), or the screen where that is narrower, as the
 // original's root is the viewport: at 1280x1024 a 640-unit root, not 683
 // centred 21 units off the screen's left edge.
 float UWindow::GetVirtualWidth()
@@ -78,15 +79,13 @@ float UWindow::GetVirtualWidth()
 // over its multiplier, unrounded (XRootWindow::ResizeRoot, Extension.dll
 // 0x1003adf0): 853.33 by 533.33 at 2560x1600, so that the HUD's windows,
 // placed and sized from it, lie where the original's do. The children
-// extend up to 16:9 instead of staying in the 4:3 box of the root window.
+// extend across all of it instead of staying in the 4:3 box of the root
+// window.
 float UWindow::GetExtendedVirtualWidth()
 {
 	int width, height;
 	GetScreenSize(width, height);
-	float scale = GetVirtualScale();
-	float realWidth = width / scale;
-	float maxWidth = GetVirtualHeight() * (16.0f / 9.0f);
-	return std::min(realWidth, maxWidth);
+	return width / GetVirtualScale();
 }
 
 float UWindow::GetVirtualHeight()
@@ -1823,7 +1822,7 @@ void UWindow::AskParentForReconfigure()
 // its preferred size -- a full side the parent's less both margins, asked for
 // as given -- centred (the half truncated) plus its first margin, right or
 // bottom less it, else at it. Its x and y are that place. The root's children
-// are placed across the screen up to 16:9 (RootOffsetX), a full one that wide.
+// are placed across the whole screen (RootOffsetX), a full one that wide.
 void UWindow::ResizeChild()
 {
 	//LogMessage(GetUClassFullName(this).ToString() + ": ResizeChild");
