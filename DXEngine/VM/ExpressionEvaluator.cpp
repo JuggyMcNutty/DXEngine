@@ -20,6 +20,12 @@ static bool IsVariable(TypedKind kind)
 	return kind >= TypedKind::LocalByte && kind <= TypedKind::InstanceBoolVariable;
 }
 
+// A bool variable's kinds: LetBool alone assigns them
+static bool IsBoolVariable(TypedKind kind)
+{
+	return kind == TypedKind::LocalBool || kind == TypedKind::InstanceBool || kind == TypedKind::LocalBoolVariable || kind == TypedKind::InstanceBoolVariable;
+}
+
 ExpressionEvalResult ExpressionEvaluator::Eval(Expression* expr, UObject* self, UObject* context, void* localVariables)
 {
 	ExpressionEvalResult result;
@@ -235,12 +241,14 @@ void ExpressionEvaluator::Expr(LetBoolExpression* expr)
 	if (IsStatement() && Assign(expr->LeftSide, expr->RightSide))
 		return;
 
+	// The original's LetBool (Core.dll 0x1012ff30) steps the value into a
+	// zeroed int of its own and sets or clears the bit by it: a value that
+	// writes nothing (a call held off, or ended without one) clears it
 	ExpressionValue lvalue = Value(expr->LeftSide);
 	ExpressionValue rvalue = Value(expr->RightSide);
 	if (lvalue.GetType() != ExpressionValueType::Nothing)
 	{
-		if (!rvalue.KeepsVariable)
-			lvalue.Store(rvalue);
+		lvalue.Store(rvalue);
 		*Out = std::move(lvalue);
 	}
 	else
@@ -966,6 +974,7 @@ void ExpressionEvaluator::Call(UFunction* func, const Array<Expression*>& exprAr
 		// Arguments are evaluated in the caller's own context; the call is made in this one
 		CallArguments args(CallArguments::Room(func, exprArgs.size()));
 		const Array<UProperty*>& parms = Frame::CallParms(func);
+		const bool native = AllFlags(func->FuncFlags, FunctionFlags::Native);
 		UObject* context = Context;
 		Context = Self;
 		for (size_t i = 0; i < exprArgs.size(); i++)
@@ -975,8 +984,14 @@ void ExpressionEvaluator::Call(UFunction* func, const Array<Expression*>& exprAr
 			// None) is nothing here, where the original's execContext
 			// zero-fills it: the parameter's type's zero, so that a native
 			// does not take it for an optional argument left out, which only
-			// EX_Nothing (LeafKind::Nothing) is
-			if (value.GetType() == ExpressionValueType::Nothing && exprArgs[i]->Leaf != Expression::LeafKind::Nothing && i < parms.size())
+			// EX_Nothing (LeafKind::Nothing) is. One that writes nothing -- a
+			// call held off or ended without a value, a string through None --
+			// leaves a native's optional parameter its default, as left out:
+			// the original's natives set it before they step the argument into
+			// it (Engine.dll execSpawn 0x103e36d0: the spawner's Location).
+			bool keepsDefault = native && value.KeepsVariable && i < parms.size() &&
+				AllFlags(parms[i]->PropFlags, PropertyFlags::OptionalParm) && !AllFlags(parms[i]->PropFlags, PropertyFlags::OutParm);
+			if (value.GetType() == ExpressionValueType::Nothing && exprArgs[i]->Leaf != Expression::LeafKind::Nothing && i < parms.size() && !keepsDefault)
 				value = ExpressionValue::ZeroValue(parms[i]);
 			args.push_back(std::move(value));
 		}
@@ -1484,11 +1499,12 @@ bool ExpressionEvaluator::Assign(Expression* lhs, Expression* rhs)
 	// A context's value (`X = A.B`, `X = A.B[i]`) is taken whole: through
 	// None it may leave the variable as it was, which only the value tells;
 	// so is any other's but a variable's, a constant's or an operator's here,
-	// a call's among them: a singular one held off leaves it too
+	// a call's among them: one held off, or ended without a value, leaves it
+	// too. Not a bool: LetBool clears it (Expr(LetBoolExpression*)).
 	if (rhs->Typed == TypedKind::Context || rhs->Typed == TypedKind::Generic)
 	{
 		ExpressionValue value = Value(rhs);
-		if (!value.KeepsVariable)
+		if (!value.KeepsVariable || IsBoolVariable(lhs->Typed))
 			StoreTyped(lhs, value);
 		return true;
 	}

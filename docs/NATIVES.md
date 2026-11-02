@@ -1857,6 +1857,24 @@ Every other native the scripted runs compare matches the original
   A string, of which the bytecode has it zero-fill no byte, and an array's
   element, of which the original copies nothing, leave a variable assigned
   from them as it was; a Let through None stores nothing.
+- **A function that ends without a value** (`ResultConsole`), as any with
+  one can by running off its end (UCC takes no bare `return;` in it), writes
+  nothing, as the original's ([variables and
+  calls](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#variables-and-calls)):
+  its `Let` has the call write into the variable itself, and the return of
+  nothing every function ends with writes nothing. So a variable assigned
+  from it keeps what it held, of every type, a struct's member and an
+  array's element too, through a `return` of the call, after a foreach, in a
+  state's function and in state code; a bool is cleared, the original's
+  `LetBool` reading the value into a zeroed int of its own; whatever else
+  takes it reads its type's zero, but a native's optional parameter, which
+  keeps its default as though left out (a `Spawn` at the spawner's place, a
+  `Trace` from the tracer's). A call of a probe's function while the probe
+  is off writes nothing so too. Differs: an `out` parameter that is also the
+  variable assigned keeps the value returned, where the original's keeps its
+  own, the original writing the value before it copies the parameters back
+  (VM.13); and a native's vector or struct parameter given such a result
+  reads zero, where the original's reads what its stack held (D.35).
 - **An actor spawned into water** keeps its physics, the spawn setting its
   region alone, as the original's does: an AirBubble, an Effects with
   PHYS_Projectile, rises as a swimming player's breath does
@@ -2154,9 +2172,10 @@ not deleted (the log says so).
   itself, its object's others directly and through a function that is not
   singular, and its object touched while it runs, all held off; another
   object's run). A call held off gives nothing: a variable assigned from it
-  keeps what it held, as the original's Let has the call write into it, and
+  keeps what it held, as the original's Let has the call write into it, a
+  bool is cleared, as its `LetBool` reads into a zeroed int of its own, and
   an expression reads it as zero (`CallConsole`: `Answer()` held off into 5
-  leaves 5, and tests as 0, in both).
+  leaves 5, and tests as 0, in both; `ResultConsole`: a bool cleared).
 - **The windows' icon** is the original's, `DeusEx.exe`'s icon group 128
   ([the frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#the-frame)):
   the original's window under Proton and

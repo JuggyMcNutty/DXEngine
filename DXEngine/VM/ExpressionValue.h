@@ -186,7 +186,10 @@ public:
 	// Nothing: no value, a zero to whatever reads it. With keepsVariable, a
 	// Let from it leaves the variable as it was: the original's execContext
 	// zero-fills as many bytes of the result as the bytecode says, none for a
-	// string, and its execArrayElement copies nothing through None.
+	// string, its execArrayElement copies nothing through None, and a call
+	// held off, or ended without a value, writes nothing (Frame::CallScript).
+	// A LetBool clears its bool all the same, and a native's optional
+	// parameter keeps its default (ExpressionEvaluator).
 	static ExpressionValue NothingValue(bool keepsVariable = false) { ExpressionValue v; v.KeepsVariable = keepsVariable; return v; }
 	static ExpressionValue ByteValue(uint8_t value) { ExpressionValue v(ExpressionValueType::ValueByte); *v.PtrByte = value; return v; }
 	static ExpressionValue IntValue(int32_t value) { ExpressionValue v(ExpressionValueType::ValueInt); *v.PtrInt = value; return v; }

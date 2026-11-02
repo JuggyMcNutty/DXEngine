@@ -248,11 +248,13 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, CallArguments& a
 		func->EventIndex = NameStringToEventName(func->Name, eventName) ? (int)eventName : -1;
 	}
 	// A script call of a function named after a probe runs only with its
-	// bit set; any other call runs, nothing checked, as the original's.
+	// bit set; any other call runs, nothing checked, as the original's. One
+	// held off writes nothing, as the original's ProcessInternal (Core.dll
+	// 0x1013f690) skips the run: a variable assigned from it keeps its value.
 	bool enabled = func->EventIndex >= 0 ? instance->IsEventEnabled((EventName)func->EventIndex) : true;
 	if (!enabled)
 	{
-		return ExpressionValue::NothingValue();
+		return ExpressionValue::NothingValue(true);
 	}
 
 	// Trailing optional args may be missing. Add nothing values so the args list matches the function signature.
@@ -321,7 +323,17 @@ ExpressionValue Frame::CallScript(UFunction* func, UObject* instance, CallArgume
 		}
 	}
 
-	if (func->ReturnParm && result.GetType() == ExpressionValueType::Nothing)
+	// A function that ends without a value -- off its end, or at a bare
+	// return -- writes nothing to its caller's result: the original's
+	// ProcessInternal (Core.dll 0x1013f690) steps the return's expression
+	// into the caller's own buffer, the variable itself for a Let (execLet,
+	// 0x1012fe40), and its EX_Nothing (execNothing, 0x10102095) writes
+	// nothing. So the variable keeps its value, and whatever else reads the
+	// result reads its own zero (ExpressionEvaluator: a bool's LetBool, a
+	// condition, an argument). A value the return zero-fills, a None
+	// context's, is the type's zero; a string's through None, which it does
+	// not fill, keeps the variable too.
+	if (func->ReturnParm && result.GetType() == ExpressionValueType::Nothing && !result.KeepsVariable)
 	{
 		result = ExpressionValue::DefaultValue(func->ReturnParm);
 	}
@@ -619,8 +631,12 @@ ExpressionEvalResult Frame::Run()
 				break;
 			case Expression::StatementKind::ReturnNothing:
 				{
+					// A bare return, and the one every function ends with:
+					// its EX_Nothing writes nothing to the caller's result
+					// (CallScript)
 					ExpressionEvalResult result;
 					result.Result = StatementResult::Return;
+					result.Value = ExpressionValue::NothingValue(true);
 					return result;
 				}
 			case Expression::StatementKind::IteratorNext:
