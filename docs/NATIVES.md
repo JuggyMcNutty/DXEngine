@@ -636,11 +636,6 @@ pixels as the original's as it sways). Differs:
 - `ConvertVectorToCoordinates` asked outside a viewport window's draw
   answers through the frame it last drew, or as a plain window's before it
   draws one, where the original stops at an assertion (bugs.md D.36);
-- the frame's corner is not moved by the canvas's frame, where the
-  original's is (`0x1004acad`); DXEngine's canvas frame is the screen's,
-  and whether the original's moves under a render viewport, a
-  conversation's letterbox, when no window of the game's shows, is not
-  read (bugs.md EXT.22);
 - a window wider than 4:3 sees more at the sides, by choice
   ([the view's width](#the-views-width)).
 
