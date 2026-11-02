@@ -1020,10 +1020,13 @@ void VisibleFrame::DrawCoronas()
 
 void VisibleFrame::DrawOpaqueNodes()
 {
-	// By zone, then texture, as the original's draw list sorts its solid
-	// surfaces (dx-reverse-info render-dll.md, a frame), then by light map:
-	// a run of one texture and one page of light maps is one batch
-	// (LightmapAtlas). The depth test makes their order free.
+	// By zone, then texture, then light map: a run of one texture and one
+	// page of light maps is one batch (LightmapAtlas). The original's draw
+	// list sorts its solid surfaces by a key of its objects' indices, the
+	// zone actor's, the texture's and its palette's, in a sort that keeps no
+	// order among equal keys (dx-reverse-info render-dll.md, a frame), which
+	// no run can give: where two surfaces overlap at one depth, which shows
+	// can differ (bugs.md D.37). Elsewhere the depth test makes the order free.
 	UModel* model = engine->Level->Model;
 	auto key = [&](const VisibleNode& node)
 	{

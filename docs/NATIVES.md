@@ -945,11 +945,15 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
 
 - **Back to front** by the distance of one point of each, where the
   original's lists run in the order its BSP walk met them, by choice.
-- **The opaque surfaces** go by zone, texture and light map, as the
-  original sorts them by zone and texture, its order among one texture its
-  sort's own: where two of them overlap at one depth, which shows can
-  differ (the gaps between the Liberty Island pier's planks, a few hundred
-  pixels of `MeshConsole`'s frame; bugs.md REN.14).
+- **The opaque surfaces** go by zone, the material's address and the light
+  map, a stable sort over DXEngine's walk, where the original's key adds
+  the zone actor's, the texture's and its palette's object indices and its
+  sort keeps no order among equal keys
+  ([a frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-frame)):
+  where two of them overlap at one depth, which shows can differ, as the
+  indices the original's loads and frees gave its objects decide there (the
+  gaps between the Liberty Island pier's planks, a few hundred pixels of
+  `MeshConsole`'s frame; bugs.md D.37).
 - **A mesh's translucent faces** are drawn after its opaque ones, back to
   front with the scene's translucent parts, where the original draws a
   mesh's faces in their order as its walk meets the mesh: by choice, the
