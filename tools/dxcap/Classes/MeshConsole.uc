@@ -11,9 +11,10 @@
 // (set ini:Engine.Engine.GameRenderDevice DetailTextures False). With Enviro
 // all four are drawn environment-mapped (bMeshEnviroMap), in the map their
 // zone or the level gives, or their last slot's texture. With Hold, Paul
-// is held at his sequence's HoldFrame, not playing, his blend slots too,
-// from the tick before each draw: one pose in both engines, each look
-// logging the sequences and frames. With Extra (a class, as
+// is held at HoldAnim's HoldFrame (his sequence as it is with none named),
+// not playing, his blend slots emptied, from the tick before each draw:
+// one pose in both engines, whichever idle and head turn his script picks,
+// each look logging the sequences and frames. With Extra (a class, as
 // DeusEx.Plant1) one more is placed 140 units ahead and 50 to the right,
 // before the crate, and logged with the rest. The pier's
 // floor, compared in NATIVES.md (brightness), is two bands of a 1024x768
@@ -27,6 +28,7 @@ var config float LODBias;
 var config bool NoDetail;
 var config bool Enviro;
 var config bool Hold;
+var config name HoldAnim;
 var config float HoldFrame;
 var config string Extra;
 
@@ -176,11 +178,14 @@ event Tick(float Delta)
 	{
 		if (Hold && Placed[0] != None)
 		{
+			if (HoldAnim != '')
+				Placed[0].AnimSequence = HoldAnim;
 			Placed[0].AnimFrame = HoldFrame;
 			Placed[0].AnimRate = 0;
 			for (i = 0; i < 4; i++)
 			{
-				Placed[0].BlendAnimFrame[i] = HoldFrame;
+				Placed[0].BlendAnimSequence[i] = '';
+				Placed[0].BlendAnimFrame[i] = 0;
 				Placed[0].BlendAnimRate[i] = 0;
 			}
 		}
