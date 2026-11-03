@@ -1636,10 +1636,7 @@ Every other native the scripted runs compare matches the original
   level's list at each step, so an actor spawned in reach during the loop's
   body is reached and one destroyed passed over, in the level's order, and
   `ChildActors` gives every actor whose owner chain reaches the caller, the
-  caller among them (`WalkConsole`). Differs (bugs.md VM.16):
-  `VisibleActors(None, 300)` round the menu map's first `PlayerStart` finds
-  one actor where the original's finds none (`OpsConsole`), its cause not
-  yet read. A line or a box started inside an
+  caller among them (`WalkConsole`). A line or a box started inside an
   actor's cylinder, heading in, stops at its start, its normal level, out
   from the axis
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces);
