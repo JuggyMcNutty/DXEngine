@@ -237,6 +237,15 @@ time, not the level's, and a join under way ticks after the level's tick in
 a frame that takes no travel, its connecting message shown at each frame's
 draw, as the original's.
 
+Differs (bugs.md PKG.20): a map's name with a space after it, as Mission
+14's five travels have it (`14_OceanLab_Lab.dx #Sunkenlab`), is looked for
+with the space, which a Linux file system keeps, so the travel fails there,
+where the original's Windows file system drops it. Differs (bugs.md VM.18):
+a string property apart from its default in case alone travels and saves,
+where the original's compares without case and lets it go back to the
+default. Differs (bugs.md PKG.22): a struct extending another, a Plane, is
+saved base first, the original's own members first.
+
 ## Flags
 
 Matches the original
@@ -265,6 +274,10 @@ decoded samples make 2.847 s), `CaptureConsole` a jump to a comment's label,
 conversation stopped, its Played flag, the mission script's timer and quote,
 and the credits up at the level's fifteenth second, alike.
 
+Differs (bugs.md DX.5, DX.6, DX.7): `ConBindEvents` with an empty or a
+missing conversation package; a random label event with both `bCycleOnce`
+and `bCycleRandom`; the ConListItems' and the conversation camera's names.
+
 ## What the player reads
 
 Matches the original's parser
@@ -288,6 +301,9 @@ its menu map and after a map's load, every read and the ship's computer
 logged in to as ShipOps alike, and DXEngine's the same, every line of the
 controls' reads alike).
 
+Differs (bugs.md DX.4): the text parser's `GetName` and `GetColor` and its
+G, F, GOAL, DC and FILE tags, which no stock text reaches.
+
 ## Every NPC
 
 What `DeusEx.dll` and `Engine.dll` do for every NPC, piece by piece.
@@ -300,6 +316,10 @@ run before the actor tick, in the original's order. A wound drips a drop
 each 0.1 s at the most, however hard it bleeds, its `BleedRate` held
 between 0 and 1 for the drop's period as the original holds it
 (`CensusConsole`).
+
+Differs (bugs.md DX.7): `burnTimer` puts the fire out a tick later at an
+exact equality. For the owner (bugs.md D.39): bleeding with `ClotPeriod` at
+0 or under stops, where the original divides by it.
 
 ### Starting up
 
@@ -370,6 +390,16 @@ toward the spot's side at 120 frames and 0.1 away from it at the original's
 227 with vsync off, where he meets the wall half a unit further along.
 DXEngine uncapped, at some 300, meets it further along again, and there in
 some runs he slips past within two seconds.
+
+Differs (bugs.md AI.9): `ActorReachable` of a navigation point, 5 of 87
+answers on Liberty Island apart, the original's asking the path network for
+a pawn standing at a node. Differs (bugs.md AI.10): `FindPathToward`'s
+second way, 10 of 24 tries apart. Differs (bugs.md AI.11):
+`AIPickRandomDestination`'s second try a step nearer. Differs (bugs.md
+AI.13, AI.14): `GetPathnodeList`'s 32 nodes, the pick's pitch,
+`ReachableFromAnchor`'s direction. Differs (bugs.md PHYS.20, PHYS.21): the
+reach tests' moves pass through the pawn's base, and `JumpLanding`'s steps
+are raw traces.
 
 ## Out of sight
 
@@ -483,6 +513,11 @@ the mirrors and the light maps register so too ([mesh detail](#mesh-detail),
 [mirrors](#mirrors), [lighting](#lighting)), as a sprite and the canvas's
 tiles do ([sprites](#sprites), [tiles](#tiles)).
 
+Differs (bugs.md REN.31): auto-panned surfaces, the sky's cloud banks,
+scroll 1.83 times as fast, from the engine's start. For the owner (bugs.md
+D.40, D.41): NoSmooth textures sampled with anisotropy; GL ES with no mip
+bias.
+
 ### The software device
 
 Matches `D3DDrv`'s picture as the GPU devices draw it without their
@@ -515,6 +550,9 @@ device does not start, as the original's `WindowedRenderDevice` takes
   wait for it, and the engine's own Wayland window (a dev build's) copies
   the frame into its buffer and commits nothing of itself: untried with the
   software device.
+
+Differs (bugs.md REN.37): at the near plane the software device and D3D11
+clip at 1, Vulkan and desktop GL clamp the depth.
 
 ### Sprites
 
@@ -865,6 +903,12 @@ apart run 0.18 to 0.26 in both. A mesh in a fog zone is drawn unfogged, as
 `FogConsole`'s crate 220 units into 02_NYC_Underground's fog at 0.089 of the
 floor and walls beside it, the original's 0.087.
 
+Differs (bugs.md REN.32): a light's texels are not held to the rectangle
+Render.dll lights, a cylinder light's to none. Differs (bugs.md REN.33): an
+`LE_OmniBumpMap` light lights surfaces. Differs (bugs.md REN.35):
+`PF_SmallWavy`, the detail and macro textures' frames, `NoLighting` on
+meshes, a pawn's spotlight's aim.
+
 ### Brightness
 
 Matches the original's picture
@@ -1013,6 +1057,9 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   destroyed actors are cleaned up; the game's movers are `bNoDelete`, and
   refuse (`GlassConsole` with `Destroy`, in both engines).
 
+Differs (bugs.md REN.34): a mover's faces all take the mover's zone, the
+original's each its node's.
+
 ### Fire, water and ice textures
 
 Matches `Fire.dll` step for step
@@ -1075,6 +1122,12 @@ the velocity's rate after a velocity-scaled one), none from nothing playing;
 a frame over the time given; none with 0, the frame set a shade past 0; a
 one-frame sequence tweened whole over the time, or in 0.1 s; and the same
 sequence looping on takes its new rate alone (`TweenConsole`).
+
+Differs (bugs.md AI.8): `PlayBlendAnim` of a one-frame sequence sets it at
+once, so a head turn snaps where the original's turns; a slot with no
+sequence tweens; a tween time of -1; `SimBlendAnim`'s packing. Differs
+(bugs.md AI.12): the slots' passes and time a tick are their own, not what
+the main animation's leave.
 
 ### Lists
 
@@ -1206,7 +1259,9 @@ from the original's code:
   characters, a carriage return left out. `PlayerPawn.PasteFromClipboard`
   and `CopyToClipboard` take the desktop's clipboard as UTF-8 so too
   (`PasteConsole`, the clipboard holding "dxcap paste é Ω €": its codes
-  233, 937, 8364 alike with the original's).
+  233, 937, 8364 alike with the original's). On X11 the paste asks for
+  `STRING`, so a character past Latin-1 copied and pasted there comes back
+  `?` (bugs.md WIN.12).
 - **Edit fields** (`MultiEditConsole`): rows as a large text window breaks
   them, within the margins. Up and down a row or a page keep the column
   the insertion point was last put at; a word either way within a row, a
@@ -1434,6 +1489,15 @@ Differs:
   screen's width, as the original's, so the HUD's left and right parts lie
   at its edges.
 
+Differs (bugs.md EXT.23): five window classes' own ticks run after their
+script's, timers and children. Differs (bugs.md EXT.24): the computer window
+makes neither of its children. Differs (bugs.md EXT.25): `LockMouse`,
+`SetBaselineData` and the button setters' left-out arguments. Differs
+(bugs.md WIN.10): a high-resolution wheel presses once per fraction. Differs
+(bugs.md WIN.12): Alt+Enter back to a window on X11 puts it at the display's
+corner. For the owner (bugs.md D.42): full screen kept as the window loses
+the focus.
+
 ## The menus' settings
 
 Matches the original: every setting the Controls, Game Options, Display,
@@ -1548,7 +1612,7 @@ other is not play on at it, and only both sliders at 0 silence a sound.
 `AmbientConsole` with `Factor=0.01`: the fan 14.7 dB under its level at 0.7
 in the original and 14.8 dB in DXEngine (37.9 dB without the floor); with
 `Volume=1` too, 0.6 and 0.7 dB under, the floor holding the fan at
--60.1 dB in both either way. `UseStereo=False` is mono; `UseFilter`,
+-60.1 dB in both either way. `UseStereo=False` makes the sounds mono, the music staying stereo (bugs.md AUD.14); `UseFilter`,
 `UseCDMusic` and `UseSpatial` are read, saved and `SET` and change nothing,
 as in the original. An MP3 -- the game's speech -- plays as Galaxy's
 decoder fills its ring, 32,768 frames of each channel
@@ -1621,6 +1685,15 @@ alike. Differs:
   never given out twice, by choice, where the original packs the object's index
   ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds));
   the slot and `bNoOverride` are packed alike.
+
+Differs (bugs.md AUD.9): the music's slider and fades are linear, Galaxy's
+squared, so the music is louder. Differs (bugs.md AUD.10): a song's mix
+volume, pan law and resampling are OpenMPT's. Differs (bugs.md AUD.11): with
+no audio output the engine does not start, the original playing silent.
+Differs (bugs.md AUD.12): a burst of the old song can sound at a fade's end.
+Differs (bugs.md AUD.13): the music goes through HRTF on headphones. Differs
+(bugs.md AUD.14): `UseSound=False` is read nowhere, and a song that fails to
+load stops the game.
 
 ## Implemented, not as the original
 
@@ -2042,6 +2115,10 @@ Differs:
   DXEngine's swimmer goes by the real time, 3.4 units out at 0.2 s and 37 at
   0.75 s, a float step each of its first ticks, whose moves are under one.
 
+Differs (bugs.md PHYS.22): the line checks' edges and precision:
+`VisibleActors`' radius, a line under 0.01, `FastWalkNode` in doubles,
+`FastTrace`'s direction, `FindRegion`'s sums.
+
 ## Housekeeping, not seen directly
 
 **The level's tick** is the original's
@@ -2293,6 +2370,22 @@ not deleted (the log says so).
   [DXEngine's](ENGINE.md#running-on-our-devices) game and error windows,
   through X11 and SDL3, give the window manager its 32x32 of 256 colours
   (their `_NET_WM_ICON`).
+
+Differs (bugs.md VM.17): a variable as an operand or argument is read after
+the later arguments run, the original's as it is reached. Differs (bugs.md
+VM.19): a `GotoState` to no state, or to one the class has not, inside
+`EndState` preempts the outer one. Differs (bugs.md VM.20): a property a
+subclass names again is the base class's to `GetPropertyText`,
+`SetPropertyText` and `SET`. Differs (bugs.md VM.21): property text takes an
+enum from a number, an int from `+5` and a bool from a quoted or followed
+token, unlike the original's import. Differs (bugs.md VM.22): `bool(string)`
+reads a float, the original an int. Differs (bugs.md VM.23): `VSize`, `Dot`,
+`Lerp` and a rotator over a float in floats, the original's on the x87, a
+last bit apart. Differs (bugs.md VM.25): a string constant as UTF-8, classes
+matched by name, a name kept in each spelling. Differs (bugs.md PKG.21): an
+ini value's quotes are kept and its whitespace trimmed. Differs (bugs.md
+ENG.17): an exec function's parameters: with cheats on, `killall` and
+`augadd` do nothing and `behindview True` turns it off.
 
 ## The command line
 
@@ -2689,7 +2782,9 @@ As in the original:
   with no client or viewport, and `AttachDecal` attaches none, as the
   original's with no client.
 - In a URL a '/' is a character of a map's name or an option's value
-  (`?Name=AC/DC` keeps its slash), '#' alone marking the portal; a relative
+  (`?Name=AC/DC` keeps its slash), '#' alone marking the portal, where the
+  original's takes a '/' in the map's part for the portal's mark (bugs.md
+  NET.13, with the URL's other departures); a relative
   travel that names a server's address goes there; a URL cleared is empty
   whole, its port the game's default again.
 - Entry's actors find their regions in Entry's own model, with its zone
@@ -2739,6 +2834,11 @@ As in the original:
 - The Join Internet screen lists servers only once `MasterServerAddress`
   (`[DeusEx.MenuScreenJoinGame]` in `DeusEx.ini`) names a live master; the
   game's names GameSpy's, which is closed.
+
+Differs (bugs.md NET.11): a server's FAILCODE takes the place of the join's
+failure text. Differs (bugs.md NET.12): a login's value ends at `)`. Differs
+(bugs.md NET.14): a login with a FailCode and no Error, `SendText`'s answer,
+a client travel's info, `open`'s one word.
 
 ## Not needed for single player
 
