@@ -4,12 +4,24 @@
 // exit. The run's clipboard holds "dxcap paste" (wl-copy before the run, or
 // the desktop's own). DXEngine's X11 window once asked the selection for no
 // data and waited for the rest for ever, hanging the game on a paste
-// (bugs.md E16b.11). Each line starts "DXPASTE:".
+// (bugs.md E16b.11). The text's characters are logged by their codes too, the
+// log being 8-bit. Each line starts "DXPASTE:".
 //=============================================================================
 class PasteConsole extends Console;
 
 var float RunTime;
 var int Step;
+
+// Each character's code, the log being 8-bit
+function string Codes(string S)
+{
+	local string R;
+	local int i;
+
+	for (i = 0; i < Len(S); i++)
+		R = R $ " " $ Asc(Mid(S, i, 1));
+	return R;
+}
 
 event Tick(float Delta)
 {
@@ -26,7 +38,7 @@ event Tick(float Delta)
 	{
 		Log("DXPASTE: asking the clipboard");
 		T = P.PasteFromClipboard();
-		Log("DXPASTE: " $ Len(T) $ " character(s): '" $ T $ "'");
+		Log("DXPASTE: " $ Len(T) $ " character(s): '" $ T $ "', codes" $ Codes(T));
 		Step = 1;
 	}
 	else if (Step == 1 && RunTime > 4.0)

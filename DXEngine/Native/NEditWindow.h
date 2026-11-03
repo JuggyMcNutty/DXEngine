@@ -18,7 +18,7 @@ public:
 	static void GetInsertionPoint(UObject* Self, int& ReturnValue);
 	static void GetSelectedArea(UObject* Self, int& startPos, int& Count);
 	static void HasTextChanged(UObject* Self, BitfieldBool& ReturnValue);
-	static void InsertText(UObject* Self, std::optional<std::string> InsertText, std::optional<bool> bUndo, std::optional<bool> bSelect, BitfieldBool& ReturnValue);
+	static void InsertText(UObject* Self, std::optional<ScriptString> InsertText, std::optional<bool> bUndo, std::optional<bool> bSelect, BitfieldBool& ReturnValue);
 	static void IsEditingEnabled(UObject* Self, BitfieldBool& ReturnValue);
 	static void IsSingleLineEditingEnabled(UObject* Self, BitfieldBool& ReturnValue);
 	static void MoveInsertionPoint(UObject* Self, uint8_t moveInsert, std::optional<bool> bDrag);

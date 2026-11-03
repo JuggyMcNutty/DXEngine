@@ -15,7 +15,7 @@ public:
 	static void ChangeStyle(UObject* Self);
 	static void ConfigureChild(UObject* Self, float newX, float newY, float newWidth, float NewHeight);
 	static void ConvertCoordinates(UObject* Self, UObject* fromWin, float fromX, float fromY, UObject* toWin, float& toX, float& toY);
-	static void ConvertScriptString(UObject* Self, const std::string& oldStr, std::string& ReturnValue);
+	static void ConvertScriptString(UObject* Self, const ScriptString& oldStr, ScriptString& ReturnValue);
 	static void ConvertVectorToCoordinates(UObject* Self, const vec3& Location, float& relativeX, float& relativeY, BitfieldBool& ReturnValue);
 	static void Destroy(UObject* Self);
 	static void DestroyAllChildren(UObject* Self);

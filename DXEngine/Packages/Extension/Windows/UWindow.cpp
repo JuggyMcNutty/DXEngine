@@ -339,9 +339,9 @@ void UWindow::ConvertCoordinates(UWindow* fromWin, float fromX, float fromY, UWi
 // script's |n is a line break; every other | stays. The script natives that
 // take text (SetText, AppendText, InsertText) pass it through this, so a
 // window holds and GetText gives the break itself.
-std::string UWindow::ConvertScriptString(const std::string& oldStr)
+ScriptString UWindow::ConvertScriptString(const ScriptString& oldStr)
 {
-	std::string out;
+	ScriptString out;
 	out.reserve(oldStr.size());
 	for (size_t i = 0; i < oldStr.size(); i++)
 	{
@@ -2122,12 +2122,12 @@ bool UWindow::MouseButtonReleased(float pointX, float pointY, EInputKey button, 
 		}).ToBool();
 }
 
-bool UWindow::KeyPressed(std::string key)
+bool UWindow::KeyPressed(const ScriptString& key)
 {
 	return CallEvent(this, "KeyPressed", { ExpressionValue::StringValue(key) }).ToBool();
 }
 
-bool UWindow::AcceleratorKeyPressed(std::string key)
+bool UWindow::AcceleratorKeyPressed(const ScriptString& key)
 {
 	return CallEvent(this, "AcceleratorKeyPressed", { ExpressionValue::StringValue(key) }).ToBool();
 }

@@ -96,3 +96,16 @@ std::string ScriptToUTF8(std::u16string_view text)
 	}
 	return result;
 }
+
+bool ScriptEqualsIgnoreCase(std::u16string_view a, std::u16string_view b)
+{
+	if (a.size() != b.size())
+		return false;
+	auto fold = [](char16_t c) { return c >= 'a' && c <= 'z' ? (char16_t)(c - 'a' + 'A') : c; };
+	for (size_t i = 0; i < a.size(); i++)
+	{
+		if (fold(a[i]) != fold(b[i]))
+			return false;
+	}
+	return true;
+}

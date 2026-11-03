@@ -32,7 +32,7 @@ namespace
 // removed and the text put in -- capped at maxUndos, with typing straight
 // after the last change joining it; the script's Ctrl+Z and Ctrl+Y call Undo
 // and Redo (extension-dll.md, Small).
-void UEditWindow::AddUndo(int pos, std::string removed, std::string inserted)
+void UEditWindow::AddUndo(int pos, ScriptString removed, ScriptString inserted)
 {
 	undoList.resize(undoIndex);   // a new change drops what redo held
 
@@ -54,9 +54,9 @@ void UEditWindow::AddUndo(int pos, std::string removed, std::string inserted)
 
 // An undo or a redo: the change made again, the insertion point after what
 // it put in, nothing selected.
-void UEditWindow::ApplyChange(int pos, const std::string& from, const std::string& to)
+void UEditWindow::ApplyChange(int pos, const ScriptString& from, const ScriptString& to)
 {
-	std::string text = ScriptToLatin1(Text());
+	ScriptString text = Text();
 	if (pos < 0 || pos + (int)from.size() > (int)text.size())
 		return;
 	text = text.substr(0, pos) + to + text.substr(pos + from.size());
@@ -99,32 +99,15 @@ void UEditWindow::SetMaxUndos(int newMaxUndos)
 // The original's (XEditWindow::CopyToTextBuffer 0x1001e5f0 and
 // PasteFromTextBuffer 0x1001e6b0): a copy or cut takes the selection,
 // nothing with none; a paste inserts the buffer. The buffer is the desktop's
-// clipboard, by choice (NATIVES.md, the UI): the Latin-1 the text holds goes
-// out as UTF-8 and comes back as Latin-1, a character past it dropped and a
-// carriage return left out.
-static std::string Latin1ToUTF8(const std::string& text)
-{
-	std::string utf8;
-	for (char c : text)
-	{
-		uint8_t b = (uint8_t)c;
-		if (b < 0x80)
-			utf8.push_back((char)b);
-		else
-		{
-			utf8.push_back((char)(0xc0 | (b >> 6)));
-			utf8.push_back((char)(0x80 | (b & 0x3f)));
-		}
-	}
-	return utf8;
-}
+// clipboard, by choice (NATIVES.md, the UI): the 16-bit text goes out as
+// UTF-8 and comes back as 16-bit characters, a carriage return left out.
 
 void UEditWindow::Copy()
 {
 	int selStart = 0, selCount = 0;
 	GetSelectedArea(selStart, selCount);
 	if (selCount > 0)
-		engine->window->SetClipboardText(Latin1ToUTF8(GetText().substr(selStart, selCount)));
+		engine->window->SetClipboardText(ScriptToUTF8(Text().substr(selStart, selCount)));
 }
 
 void UEditWindow::Cut()
@@ -133,22 +116,18 @@ void UEditWindow::Cut()
 	GetSelectedArea(selStart, selCount);
 	if (selCount > 0)
 	{
-		engine->window->SetClipboardText(Latin1ToUTF8(GetText().substr(selStart, selCount)));
+		engine->window->SetClipboardText(ScriptToUTF8(Text().substr(selStart, selCount)));
 		DeleteChar(false, true);
 	}
 }
 
 void UEditWindow::Paste()
 {
-	std::string clipboard = engine->window->GetClipboardText();
-	std::string text;
-	UTF8Reader reader(clipboard.data(), clipboard.size());
-	for (; !reader.is_end(); reader.next())
+	ScriptString text;
+	for (char16_t c : UTF8ToScript(engine->window->GetClipboardText()))
 	{
-		unsigned int c = reader.character();
-		if (c == '\r' || c > 0xff)
-			continue;
-		text.push_back((char)(uint8_t)c);
+		if (c != '\r')
+			text.push_back(c);
 	}
 	InsertText(text, true, {});
 }
@@ -201,7 +180,7 @@ void UEditWindow::EnableSingleLineEditing(std::optional<bool> bSingle)
 	bSingleLine() = single;
 	if (single)
 	{
-		std::string text = ScriptToLatin1(Text());
+		ScriptString text = Text();
 		SetText(text);
 		SetWordWrap(false);
 	}
@@ -237,7 +216,7 @@ bool UEditWindow::HasTextChanged()
 // The original's (XEditWindow::SetText 0x1001e260): the whole text selected
 // and replaced as typing replaces it -- the undo list cleared, the change
 // announced (TextChanged) -- then the insertion point at the start.
-void UEditWindow::SetText(const std::string& NewText)
+void UEditWindow::SetText(const ScriptString& NewText)
 {
 	selectStart() = 0;
 	selectEnd() = (int)Text().size();
@@ -248,7 +227,7 @@ void UEditWindow::SetText(const std::string& NewText)
 
 // The original's (XEditWindow::AppendText 0x1001e310): put in at the end as
 // typing puts it, then the insertion point at the start.
-void UEditWindow::AppendText(const std::string& NewText)
+void UEditWindow::AppendText(const ScriptString& NewText)
 {
 	insertPos() = (int)Text().size();
 	selectStart() = insertPos();
@@ -259,11 +238,11 @@ void UEditWindow::AppendText(const std::string& NewText)
 
 // The text an edit leaves, laid out again (XEditWindow::ReplaceText
 // 0x1001fe20); the insertion point stays where the edit put it.
-void UEditWindow::StoreText(const std::string& text)
+void UEditWindow::StoreText(const ScriptString& text)
 {
-	if (Text() != Latin1ToScript(text))
+	if (Text() != text)
 	{
-		Text() = Latin1ToScript(text);
+		Text() = text;
 		AskParentForReconfigure();
 	}
 }
@@ -273,15 +252,15 @@ void UEditWindow::StoreText(const std::string& text)
 // change or refuse one -- and nothing done when none passes; a change
 // without undo clears the undo list. What passes replaces the selection
 // (ReplaceText).
-bool UEditWindow::InsertText(std::optional<std::string> InsertText, std::optional<bool> bUndo, std::optional<bool> bSelect)
+bool UEditWindow::InsertText(std::optional<ScriptString> InsertText, std::optional<bool> bUndo, std::optional<bool> bSelect)
 {
-	const std::string& input = InsertText.value_or("");
-	std::string filtered;
-	for (char c : input)
+	const ScriptString input = InsertText.value_or(ScriptString());
+	ScriptString filtered;
+	for (char16_t c : input)
 	{
 		if (bSingleLine() && c == '\n')
 			continue;
-		std::string ch(1, c);
+		ScriptString ch(1, c);
 		if (FilterChar(ch) && !ch.empty())
 			filtered += ch[0];
 	}
@@ -303,9 +282,9 @@ bool UEditWindow::InsertText(std::optional<std::string> InsertText, std::optiona
 // an undo when asked. The change is announced up the parents (TextChanged)
 // before the insertion point moves past what was put in, the hook at its
 // start, so that with bSelect it is selected.
-void UEditWindow::ReplaceText(std::string newText, bool bUndo, bool bSelect)
+void UEditWindow::ReplaceText(ScriptString newText, bool bUndo, bool bSelect)
 {
-	std::string text = ScriptToLatin1(Text());
+	ScriptString text = Text();
 	int selCount = selectEnd() > selectStart() ? selectEnd() - selectStart() : 0;
 	int insertLength = (int)newText.size();
 	if (maxSize() > 0)
@@ -336,7 +315,7 @@ void UEditWindow::ReplaceText(std::string newText, bool bUndo, bool bSelect)
 		insertPos() = selectStart();
 	int pos = std::clamp(insertPos(), 0, (int)text.size());
 	selCount = std::min(selCount, (int)text.size() - pos);
-	std::string inserted = newText.substr(0, insertLength);
+	ScriptString inserted = newText.substr(0, insertLength);
 	if (bUndo)
 		AddUndo(pos, text.substr(pos, selCount), inserted);
 	StoreText(text.substr(0, pos) + inserted + text.substr(pos + selCount));
@@ -349,7 +328,7 @@ void UEditWindow::ReplaceText(std::string newText, bool bUndo, bool bSelect)
 // The original's XEditWindow::FilterChar (0x10021830): upper case when only
 // upper case is allowed, then the script's FilterChar, which may refuse the
 // character or give another; with none, every character passes.
-bool UEditWindow::FilterChar(std::string& ch)
+bool UEditWindow::FilterChar(ScriptString& ch)
 {
 	if (bUppercaseOnly() && ch[0] >= 'a' && ch[0] <= 'z')
 		ch[0] -= 32;
@@ -742,10 +721,10 @@ void UEditWindow::DrawWindow(UGC* gc)
 // The original's XEditWindow::KeyPressed (0x10021290): the script's first;
 // then, editing on, a typed character other than the console's ` and ~ is
 // inserted with undo, and plays the type sound.
-bool UEditWindow::KeyPressed(std::string key)
+bool UEditWindow::KeyPressed(const ScriptString& key)
 {
 	bool handled = ULargeTextWindow::KeyPressed(key);
-	if (bEditable() && key.size() == 1 && key[0] != '`' && key[0] != '~' && (uint8_t)key[0] >= 0x20)
+	if (bEditable() && key.size() == 1 && key[0] != '`' && key[0] != '~' && key[0] >= 0x20)
 	{
 		if (InsertText(key, true, false))
 		{

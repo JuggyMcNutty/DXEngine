@@ -226,7 +226,7 @@ public:
 	// device's, the error logged
 	std::unique_ptr<GameWindow> CreateGameWindow(RenderDeviceType type);
 
-	void Key(std::string key);
+	bool Key(char16_t key);
 	void InputEvent(EInputKey key, EInputType type, int delta = 0);
 	void ReleaseHeldInputKeys();
 	void ReleaseFireButtons();

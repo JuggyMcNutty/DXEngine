@@ -10,9 +10,9 @@
 
 // The original's (XTextWindow::AppendText 0x10045e60): laid out again even
 // for nothing appended, the accelerator following the text.
-void UTextWindow::AppendText(const std::string& NewText)
+void UTextWindow::AppendText(const ScriptString& NewText)
 {
-	Text() += Latin1ToScript(NewText);
+	Text() += NewText;
 	if (bTextIsAccelerator())
 		SetAcceleratorText(ScriptToLatin1(Text()));
 	AskParentForReconfigure();
@@ -31,9 +31,9 @@ void UTextWindow::EnableTextAsAccelerator(std::optional<bool> bEnable)
 	}
 }
 
-std::string UTextWindow::GetText()
+ScriptString UTextWindow::GetText()
 {
-	return ScriptToLatin1(Text());
+	return Text();
 }
 
 int UTextWindow::GetTextLength()
@@ -41,14 +41,14 @@ int UTextWindow::GetTextLength()
 	return (int)Text().size();
 }
 
-int UTextWindow::GetTextPart(int startPos, int Count, std::string& OutText)
+int UTextWindow::GetTextPart(int startPos, int Count, ScriptString& OutText)
 {
 	// A part past the text's end, or of no length, is empty
 	int size = (int)Text().size();
 	int start = std::clamp(startPos, 0, size);
 	// The sum in 64 bits: a count near an int's limit overflowed it
 	int end = (int)std::clamp((int64_t)startPos + Count, (int64_t)start, (int64_t)size);
-	OutText = ScriptToLatin1(Text().substr(start, end - start));
+	OutText = Text().substr(start, end - start);
 	return (int)OutText.size();
 }
 
@@ -103,11 +103,11 @@ void UTextWindow::SetMinWidth(float newMinWidth)
 
 // The original's (XTextWindow::SetText 0x10045d50): a text that differs
 // only in case is no change; the accelerator follows the text.
-void UTextWindow::SetText(const std::string& NewText)
+void UTextWindow::SetText(const ScriptString& NewText)
 {
-	if (!StrTools::equals_ignore_case(ScriptToLatin1(Text()), NewText))
+	if (!ScriptEqualsIgnoreCase(Text(), NewText))
 	{
-		Text() = Latin1ToScript(NewText);
+		Text() = NewText;
 		if (bTextIsAccelerator())
 			SetAcceleratorText(ScriptToLatin1(Text()));
 		AskParentForReconfigure();

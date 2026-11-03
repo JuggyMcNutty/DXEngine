@@ -351,10 +351,7 @@ void NObject::ComplementEqual_FloatFloat(float A, float B, BitfieldBool& ReturnV
 
 void NObject::ComplementEqual_StrStr(const ScriptString& A, const ScriptString& B, BitfieldBool& ReturnValue)
 {
-	// a to z without case, every other character as it is, as the original's
-	// C-locale compare
-	auto fold = [](char16_t c) { return c >= 'a' && c <= 'z' ? (char16_t)(c - 'a' + 'A') : c; };
-	ReturnValue = A.size() == B.size() && std::equal(A.begin(), A.end(), B.begin(), [&](char16_t a, char16_t b) { return fold(a) == fold(b); });
+	ReturnValue = ScriptEqualsIgnoreCase(A, B);
 }
 
 void NObject::Complement_PreInt(int A, int& ReturnValue)

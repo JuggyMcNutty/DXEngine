@@ -19,7 +19,7 @@ public:
 	int GetInsertionPoint();
 	void GetSelectedArea(int& startPos, int& Count);
 	bool HasTextChanged();
-	bool InsertText(std::optional<std::string> InsertText, std::optional<bool> bUndo, std::optional<bool> bSelect);
+	bool InsertText(std::optional<ScriptString> InsertText, std::optional<bool> bUndo, std::optional<bool> bSelect);
 	bool IsEditingEnabled();
 	bool IsSingleLineEditingEnabled();
 	void MoveInsertionPoint(uint8_t moveInsert, std::optional<bool> bDrag);
@@ -42,19 +42,19 @@ public:
 
 	void InitDefaults() override;
 	void ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight) override;
-	bool FilterChar(std::string& ch);
+	bool FilterChar(ScriptString& ch);
 	void Tick(float timeElapsed) override;
 	void ConfigurationChanged() override;
 	void VisibilityChanged(bool bNewVisibility) override;
 	void DrawWindow(UGC* gc) override;
-	bool KeyPressed(std::string key) override;
+	bool KeyPressed(const ScriptString& key) override;
 	bool VirtualKeyPressed(EInputKey key, bool bRepeat) override;
 	bool MouseButtonPressed(float pointX, float pointY, EInputKey button, int numClicks) override;
 	void MouseMoved(float newX, float newY) override;
 	bool MouseButtonReleased(float pointX, float pointY, EInputKey button, int numClicks) override;
-	void SetText(const std::string& NewText) override;
-	void AppendText(const std::string& NewText) override;
-	void StoreText(const std::string& text);
+	void SetText(const ScriptString& NewText) override;
+	void AppendText(const ScriptString& NewText) override;
+	void StoreText(const ScriptString& text);
 
 	// One row of the text as the GC breaks it (the original's XTextRowData):
 	// its width, where it starts, its characters without and with the spaces
@@ -75,14 +75,14 @@ public:
 	struct EditChange
 	{
 		int pos = 0;
-		std::string removed;
-		std::string inserted;
+		ScriptString removed;
+		ScriptString inserted;
 	};
 	Array<EditChange> undoList;
 	int undoIndex = 0;
 
-	void AddUndo(int pos, std::string removed, std::string inserted);
-	void ApplyChange(int pos, const std::string& from, const std::string& to);
+	void AddUndo(int pos, ScriptString removed, ScriptString inserted);
+	void ApplyChange(int pos, const ScriptString& from, const ScriptString& to);
 
 	BitfieldBool bCursorShowing() { return BoolValue(PropOffsets_EditWindow.bCursorShowing); }
 	BitfieldBool bDragging() { return BoolValue(PropOffsets_EditWindow.bDragging); }
@@ -136,7 +136,7 @@ public:
 
 private:
 	void DispatchTextChanged(bool modified);
-	void ReplaceText(std::string newText, bool bUndo, bool bSelect);
+	void ReplaceText(ScriptString newText, bool bUndo, bool bSelect);
 
 	const Array<TextRow>& Rows();
 	float RowsTop(int count);

@@ -19,3 +19,7 @@ std::string ScriptToLatin1(std::u16string_view text, char bad = '?');
 // surrogate pair, and a lone surrogate kept as itself.
 ScriptString UTF8ToScript(std::string_view text);
 std::string ScriptToUTF8(std::u16string_view text);
+
+// Alike but for the case of a to z, every other character as it is, as the
+// original's C-locale compare takes them
+bool ScriptEqualsIgnoreCase(std::u16string_view a, std::u16string_view b);

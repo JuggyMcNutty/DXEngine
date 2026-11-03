@@ -1201,9 +1201,12 @@ from the original's code:
 - **An edit field's copy, cut and paste** go through the desktop's
   clipboard, by choice, so they reach other programs, where the original
   keeps a text buffer of its own: a copy or cut takes the selection and
-  nothing with none, as there; the Latin-1 the text holds goes out as
-  UTF-8, and a paste reads the clipboard's UTF-8 as Latin-1, a character
-  past it dropped and a carriage return left out.
+  nothing with none, as there; the text's 16-bit characters go out as
+  UTF-8, and a paste reads the clipboard's UTF-8 back as 16-bit
+  characters, a carriage return left out. `PlayerPawn.PasteFromClipboard`
+  and `CopyToClipboard` take the desktop's clipboard as UTF-8 so too
+  (`PasteConsole`, the clipboard holding "dxcap paste é Ω €": its codes
+  233, 937, 8364 alike with the original's).
 - **Edit fields** (`MultiEditConsole`): rows as a large text window breaks
   them, within the margins. Up and down a row or a page keep the column
   the insertion point was last put at; a word either way within a row, a
@@ -1396,9 +1399,14 @@ undrawn in both, and drawn solid with `Solid`).
 
 Differs:
 
-- **A typed character past Latin-1** (U+0100 on) goes nowhere, DXEngine's
-  typing being 8-bit; the original's windows take it, and the game's fonts
-  draw it as nothing (read from `WinDrv.dll`'s code) (VM.5).
+- **A typed character** goes on as a 16-bit character, one past 16 bits as
+  its surrogate pair, the console's `KeyType` first with its low byte and,
+  should the console leave it, the root window's focus window with the
+  whole of it, as the original's (`TypeConsole`: U+0100 and U+20AC typed
+  into an edit field, 256 and 8364 in both engines, the original's typed
+  by `xdotool`; U+1F600 two characters). The game's fonts draw one past
+  their pages as nothing in the original (read from `WinDrv.dll`'s code),
+  and DXEngine's as a `?` (VM.5).
 - **Keys held as the window loses the keyboard** are forgotten, by choice,
   so an Alt held into Alt+Tab does not stick: the original's root keeps
   their marks, its window resetting only the engine's input (read from both

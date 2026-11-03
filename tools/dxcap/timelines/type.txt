@@ -1,8 +1,10 @@
 # TypeConsole's typing, on its schedule (its header): text typed into its
 # edit field as the window sends it, UTF-8 -- an e acute, n tilde and u
-# umlaut, two letters in one go, and a character past 8 bits.
+# umlaut, two letters in one go, a character past 8 bits, the euro sign and
+# one past 16 bits (U+1F600), which goes as its surrogate pair.
 # DXCAP_TIMELINE=<this> tools/dxcap.sh dxe TypeConsole DX.dx 40
 start 9 chars Café
 start 9.5 chars ñü
 start 10 chars ab
 start 10.5 chars Ā
+start 11 chars €😀

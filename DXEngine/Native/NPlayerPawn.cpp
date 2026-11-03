@@ -39,9 +39,11 @@ void NPlayerPawn::ConsoleCommand(UObject* Self, const std::string& Command, std:
 	ReturnValue = engine->ConsoleCommand(Self, Command, found.ToType<BitfieldBool&>());
 }
 
-void NPlayerPawn::CopyToClipboard(UObject* Self, const std::string& Text)
+// The desktop's clipboard, by choice (NATIVES.md, the UI): the 16-bit text
+// as UTF-8, both ways
+void NPlayerPawn::CopyToClipboard(UObject* Self, const ScriptString& Text)
 {
-	engine->window->SetClipboardText(Text);
+	engine->window->SetClipboardText(ScriptToUTF8(Text));
 }
 
 void NPlayerPawn::GetDefaultURL(UObject* Self, const std::string& Option, std::string& ReturnValue)
@@ -63,9 +65,9 @@ void NPlayerPawn::GetPlayerNetworkAddress(UObject* Self, std::string& ReturnValu
 	ReturnValue = connection ? connection->RemoteAddressString() : "";
 }
 
-void NPlayerPawn::PasteFromClipboard(UObject* Self, std::string& ReturnValue)
+void NPlayerPawn::PasteFromClipboard(UObject* Self, ScriptString& ReturnValue)
 {
-	ReturnValue = engine->window->GetClipboardText();
+	ReturnValue = UTF8ToScript(engine->window->GetClipboardText());
 }
 
 void NPlayerPawn::ResetKeyboard(UObject* Self)

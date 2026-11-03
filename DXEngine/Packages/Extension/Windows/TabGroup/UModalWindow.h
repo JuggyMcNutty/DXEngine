@@ -12,7 +12,7 @@ public:
 	void SetMouseFocusMode(uint8_t newFocusMode);
 	UWindow* GetAcceleratorWindow(int key);
 
-	bool KeyPressed(std::string key) override;
+	bool KeyPressed(const ScriptString& key) override;
 	void VisibilityChanged(bool bNewVisibility) override;
 
 	UWindow*& acceleratorTable() { return Value<UWindow*>(PropOffsets_ModalWindow.acceleratorTable); }

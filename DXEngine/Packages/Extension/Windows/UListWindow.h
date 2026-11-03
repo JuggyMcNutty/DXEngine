@@ -89,7 +89,7 @@ public:
 	void MouseMoved(float newX, float newY) override;
 	bool MouseButtonPressed(float pointX, float pointY, EInputKey button, int numClicks) override;
 	bool MouseButtonReleased(float pointX, float pointY, EInputKey button, int numClicks) override;
-	bool KeyPressed(std::string key) override;
+	bool KeyPressed(const ScriptString& key) override;
 	bool VirtualKeyPressed(EInputKey key, bool bRepeat) override;
 	void Tick(float timeElapsed) override;
 

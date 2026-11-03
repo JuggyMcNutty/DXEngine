@@ -47,7 +47,7 @@ public:
 	UWindow* MouseHolder();
 	bool OnWindowMouseWheel(const Point& pos, EInputKey key);
 	bool OnWindowRawMouseMove(int dx, int dy);
-	bool OnWindowKeyChar(std::string chars);
+	bool OnWindowKeyChar(const ScriptString& chars);
 	bool OnWindowKeyDown(EInputKey key);
 	bool OnWindowKeyUp(EInputKey key);
 

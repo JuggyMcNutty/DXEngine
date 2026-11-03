@@ -165,7 +165,7 @@ public:
 	void ChangeStyle();
 	void ConfigureChild(float newX, float newY, float newWidth, float NewHeight);
 	void ConvertCoordinates(UWindow* fromWin, float fromX, float fromY, UWindow* toWin, float& toX, float& toY);
-	std::string ConvertScriptString(const std::string& oldStr);
+	ScriptString ConvertScriptString(const ScriptString& oldStr);
 	bool ConvertVectorToCoordinates(const vec3& Location, float& relativeX, float& relativeY);
 	void Destroy();
 	void DestroyAllChildren();
@@ -287,8 +287,8 @@ public:
 	virtual bool RawKeyPressed(EInputKey key, EInputType iState, bool bRepeat);
 	virtual bool MouseButtonPressed(float pointX, float pointY, EInputKey button, int numClicks);
 	virtual bool MouseButtonReleased(float pointX, float pointY, EInputKey button, int numClicks);
-	virtual bool KeyPressed(std::string key);
-	virtual bool AcceleratorKeyPressed(std::string key);
+	virtual bool KeyPressed(const ScriptString& key);
+	virtual bool AcceleratorKeyPressed(const ScriptString& key);
 	virtual bool VirtualKeyPressed(EInputKey key, bool bRepeat);
 	virtual void MouseEnteredWindow();
 	virtual void MouseLeftWindow();

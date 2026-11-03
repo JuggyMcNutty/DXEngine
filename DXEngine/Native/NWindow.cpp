@@ -155,7 +155,7 @@ void NWindow::ConvertCoordinates(UObject* Self, UObject* fromWin, float fromX, f
 	selfWindow->ConvertCoordinates(UObject::Cast<UWindow>(fromWin), fromX, fromY, UObject::Cast<UWindow>(toWin), toX, toY);
 }
 
-void NWindow::ConvertScriptString(UObject* Self, const std::string& oldStr, std::string& ReturnValue)
+void NWindow::ConvertScriptString(UObject* Self, const ScriptString& oldStr, ScriptString& ReturnValue)
 {
 	UWindow* selfWindow = UObject::Cast<UWindow>(Self);
 	ReturnValue = selfWindow->ConvertScriptString(oldStr);

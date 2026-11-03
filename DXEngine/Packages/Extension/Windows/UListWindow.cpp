@@ -1268,12 +1268,12 @@ bool UListWindow::MouseButtonReleased(float pointX, float pointY, EInputKey butt
 // Hot keys: letters, digits and _ typed within a second of each other find
 // the next row whose hot key column starts with them, case-blind; the same
 // letter again steps on to the next row starting with it.
-bool UListWindow::KeyPressed(std::string key)
+bool UListWindow::KeyPressed(const ScriptString& key)
 {
 	bool handled = UWindow::KeyPressed(key);
-	if (key.size() == 1 && IsHotKeyValid(key[0]) && bHotKeys())
+	if (key.size() == 1 && key[0] <= 0xFF && IsHotKeyValid((char)key[0]) && bHotKeys())
 	{
-		int index = FindRowByKey(key[0]);
+		int index = FindRowByKey((char)key[0]);
 		if (index >= 0)
 			SetRow(items[index].id, true, true, false);
 		return true;

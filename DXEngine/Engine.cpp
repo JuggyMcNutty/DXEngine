@@ -1275,14 +1275,14 @@ void Engine::BeginPlay(const UnrealURL& url)
 		std::string options = url.GetOptions();
 
 		auto stringProp = GC::Alloc<UStringProperty>("", nullptr, ObjectFlags::NoFlags);
-		std::string error;
+		ScriptString error;
 
 		LevelInfo->bStartup() = true;
 		if (GameInfo)
 		{
 			CallEvent(GameInfo, EventName::InitGame, { ExpressionValue::StringValue(options), ExpressionValue::Variable(&error, stringProp) });
 			if (!error.empty())
-				Exception::Throw("InitGame failed: " + error);
+				Exception::Throw("InitGame failed: " + ScriptToUTF8(error));
 		}
 
 		// Each pass runs over the list as it grows, as the original's level
@@ -1968,7 +1968,7 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 	std::map<std::string, std::string> travelInfo = Level->TravelInfo;
 
 	auto stringProp = GC::Alloc<UStringProperty>("", nullptr, ObjectFlags::NoFlags);
-	std::string error, failcode;
+	ScriptString error;
 
 	std::string portal = url.GetPortal();
 	std::string options = url.GetOptions();
@@ -1992,7 +1992,7 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 		ExpressionValue::ObjectValue(pawnClass)
 		}).ToObject());
 	if (!pawn || !error.empty())
-		Exception::Throw("GameInfo login failed: " + error);
+		Exception::Throw("GameInfo login failed: " + ScriptToUTF8(error));
 
 	pawn->LoadProperties();
 
@@ -2388,25 +2388,29 @@ void Engine::Listen(const UnrealURL& url)
 
 bool Engine::PreLogin(const std::string& options, const std::string& address, std::string& error, std::string& failcode)
 {
+	// The script's out strings are 16-bit: its own, made 8-bit after
 	auto stringProp = GC::Alloc<UStringProperty>("", nullptr, ObjectFlags::NoFlags);
+	ScriptString scriptError = Latin1ToScript(error), scriptFailcode = Latin1ToScript(failcode);
 	UFunction* func = FindEventFunction(LevelInfo->Game(), "PreLogin");
 	if (func && Frame::CallParms(func).size() >= 4)
 	{
 		CallEvent(LevelInfo->Game(), EventName::PreLogin, {
 			ExpressionValue::StringValue(options),
 			ExpressionValue::StringValue(address),
-			ExpressionValue::Variable(&error, stringProp),
-			ExpressionValue::Variable(&failcode, stringProp),
+			ExpressionValue::Variable(&scriptError, stringProp),
+			ExpressionValue::Variable(&scriptFailcode, stringProp),
 			});
 	}
 	else
 	{
 		CallEvent(LevelInfo->Game(), EventName::PreLogin, {
 			ExpressionValue::StringValue(options),
-			ExpressionValue::Variable(&error, stringProp),
-			ExpressionValue::Variable(&failcode, stringProp),
+			ExpressionValue::Variable(&scriptError, stringProp),
+			ExpressionValue::Variable(&scriptFailcode, stringProp),
 			});
 	}
+	error = ScriptToLatin1(scriptError);
+	failcode = ScriptToLatin1(scriptFailcode);
 	return error.empty() && failcode.empty();
 }
 
@@ -2418,12 +2422,14 @@ UPlayerPawn* Engine::SpawnPlayActor(UObject* player, uint8_t remoteRole, const U
 		playerPawnClass = packages->GetIniValue("system", "URL", "Class");
 	UClass* pawnClass = packages->FindClass(playerPawnClass);
 
+	ScriptString scriptError = Latin1ToScript(error);
 	UPlayerPawn* pawn = UObject::Cast<UPlayerPawn>(CallEvent(LevelInfo->Game(), EventName::Login, {
 		ExpressionValue::StringValue(url.GetPortal()),
 		ExpressionValue::StringValue(url.GetOptions()),
-		ExpressionValue::Variable(&error, stringProp),
+		ExpressionValue::Variable(&scriptError, stringProp),
 		ExpressionValue::ObjectValue(pawnClass)
 		}).ToObject());
+	error = ScriptToLatin1(scriptError);
 	if (!pawn)
 	{
 		LogMessage("Net: login failed: " + error);
@@ -3427,25 +3433,25 @@ void Engine::OnWindowRawMouseMove(int dx, int dy)
 	MouseMoveY += dy;
 }
 
-// Typed text comes as UTF-8; it goes on a character at a time, as Windows
-// sends the original's WM_CHAR (WinDrv.dll UWindowsViewport::ViewportWndProc
-// 0x11109b30, to the engine's Key, a carriage return passed over), each a
-// byte of the game's 8-bit text: one past it has no place there and goes
-// nowhere.
+// Typed text comes as UTF-8; it goes on a 16-bit character at a time, as
+// Windows sends the original's WM_CHAR (WinDrv.dll UWindowsViewport::
+// ViewportWndProc 0x11109b30, to the engine's Key, a carriage return passed
+// over): one past 16 bits as its surrogate pair, two. The console takes each
+// first, its KeyType given the character's low byte (UEngine::Key, Engine.dll
+// 0x103813d0); one it leaves goes to the root window whole, to the window
+// with the keyboard's focus (XGameEngineExt::Key, Extension.dll 0x10026650).
 void Engine::OnWindowKeyChar(std::string chars)
 {
 	if (Timeline::LogKeys)
 		LogMessage("DXKEY: char " + chars);
-	UTF8Reader reader(chars.data(), chars.size());
-	for (; !reader.is_end(); reader.next())
+	for (char16_t c : UTF8ToScript(chars))
 	{
-		unsigned int c = reader.character();
-		if (c == '\r' || c > 0xff)
+		if (c == '\r')
 			continue;
-		std::string key(1, (char)(uint8_t)c);
-		if (engine->dxRootWindow && engine->dxRootWindow->OnWindowKeyChar(key))
+		if (Key(c))
 			continue;
-		Key(key);
+		if (engine->dxRootWindow)
+			engine->dxRootWindow->OnWindowKeyChar(ScriptString(1, c));
 	}
 }
 
@@ -3536,21 +3542,18 @@ void Engine::UnlockCursor()
 		window->UnlockCursor();
 }
 
-void Engine::Key(std::string key)
+bool Engine::Key(char16_t key)
 {
 	if (Frame::Halted)
-		return;
+		return false;
 
-	if (key == "~" && window->GetKeyState(IK_Shift))
+	if (key == '~' && window->GetKeyState(IK_Shift))
 	{
 		// Did they REALLY hack UE1 to do something as lame as this??
 		console->GotoState("Typing", {});
 	}
 
-	for (char c : key)
-	{
-		CallEvent(console, EventName::KeyType, { ExpressionValue::ByteValue(c) });
-	}
+	return CallEvent(console, EventName::KeyType, { ExpressionValue::ByteValue((uint8_t)key) }).ToBool();
 }
 
 // When the UI takes a key, every key the input holds down is released, so

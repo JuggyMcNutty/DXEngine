@@ -110,12 +110,12 @@ void UModalWindow::VisibilityChanged(bool bNewVisibility)
 // first; a key it leaves, while Alt is down and this modal is on top, goes to
 // the window whose accelerator it is (AcceleratorKeyPressed: a button
 // presses itself).
-bool UModalWindow::KeyPressed(std::string key)
+bool UModalWindow::KeyPressed(const ScriptString& key)
 {
 	if (UTabGroupWindow::KeyPressed(key))
 		return true;
 	if (key.empty() || !IsCurrentModal() || !IsKeyDown(IK_Alt))
 		return false;
-	UWindow* window = GetAcceleratorWindow((unsigned char)key[0]);
+	UWindow* window = key[0] <= 0xFF ? GetAcceleratorWindow((unsigned char)key[0]) : nullptr;
 	return window && window->AcceleratorKeyPressed(key);
 }

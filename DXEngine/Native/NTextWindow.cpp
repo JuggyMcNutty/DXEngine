@@ -22,7 +22,7 @@ void NTextWindow::RegisterFunctions()
 	RegisterVMNativeFunc_1("TextWindow", "SetWordWrap", &NTextWindow::SetWordWrap, 1555);
 }
 
-void NTextWindow::AppendText(UObject* Self, const std::string& NewText)
+void NTextWindow::AppendText(UObject* Self, const ScriptString& NewText)
 {
 	UTextWindow* textWindow = UObject::Cast<UTextWindow>(Self);
 	textWindow->AppendText(textWindow->ConvertScriptString(NewText));
@@ -34,7 +34,7 @@ void NTextWindow::EnableTextAsAccelerator(UObject* Self, std::optional<bool> bEn
 	textWindow->EnableTextAsAccelerator(bEnable);
 }
 
-void NTextWindow::GetText(UObject* Self, std::string& ReturnValue)
+void NTextWindow::GetText(UObject* Self, ScriptString& ReturnValue)
 {
 	UTextWindow* textWindow = UObject::Cast<UTextWindow>(Self);
 	ReturnValue = textWindow->GetText();
@@ -46,7 +46,7 @@ void NTextWindow::GetTextLength(UObject* Self, int& ReturnValue)
 	ReturnValue = textWindow->GetTextLength();
 }
 
-void NTextWindow::GetTextPart(UObject* Self, int startPos, int Count, std::string& OutText, int& ReturnValue)
+void NTextWindow::GetTextPart(UObject* Self, int startPos, int Count, ScriptString& OutText, int& ReturnValue)
 {
 	UTextWindow* textWindow = UObject::Cast<UTextWindow>(Self);
 	ReturnValue = textWindow->GetTextPart(startPos, Count, OutText);
@@ -88,7 +88,7 @@ void NTextWindow::SetMinWidth(UObject* Self, float newMinWidth)
 	textWindow->SetMinWidth(newMinWidth);
 }
 
-void NTextWindow::SetText(UObject* Self, const std::string& NewText)
+void NTextWindow::SetText(UObject* Self, const ScriptString& NewText)
 {
 	UTextWindow* textWindow = UObject::Cast<UTextWindow>(Self);
 	textWindow->SetText(textWindow->ConvertScriptString(NewText));

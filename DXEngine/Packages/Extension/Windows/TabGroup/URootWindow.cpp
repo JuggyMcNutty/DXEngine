@@ -761,7 +761,7 @@ bool URootWindow::RouteKey(const std::function<bool(UWindow*)>& handle)
 // Win32 one that message, the X11, Wayland and SDL2 ones their text, the
 // SDL3 one the layout's character), and a modal on top presses the window
 // whose accelerator it is (UModalWindow::KeyPressed).
-bool URootWindow::OnWindowKeyChar(std::string chars)
+bool URootWindow::OnWindowKeyChar(const ScriptString& chars)
 {
 	return RouteKey([&](UWindow* w) { return w->KeyPressed(chars); });
 }

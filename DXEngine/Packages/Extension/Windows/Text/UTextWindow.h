@@ -7,18 +7,18 @@ class UTextWindow : public UWindow
 public:
 	using UWindow::UWindow;
 
-	virtual void AppendText(const std::string& NewText);
+	virtual void AppendText(const ScriptString& NewText);
 	void EnableTextAsAccelerator(std::optional<bool> bEnable);
-	std::string GetText();
+	ScriptString GetText();
 	int GetTextLength();
-	int GetTextPart(int startPos, int Count, std::string& OutText);
+	int GetTextPart(int startPos, int Count, ScriptString& OutText);
 	void ResetLines();
 	void ResetMinWidth();
 	void SetLines(int newMinLines, int newMaxLines);
 	void SetMaxLines(int newMaxLines);
 	void SetMinLines(int newMinLines);
 	void SetMinWidth(float newMinWidth);
-	virtual void SetText(const std::string& NewText);
+	virtual void SetText(const ScriptString& NewText);
 	void SetTextAlignments(uint8_t newHAlign, uint8_t newVAlign);
 	void SetTextMargins(float newHMargin, float newVMargin);
 	void SetWordWrap(bool bNewWordWrap);
