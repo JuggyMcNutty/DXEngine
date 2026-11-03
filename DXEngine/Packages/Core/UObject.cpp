@@ -275,7 +275,7 @@ std::string UObject::ExportPropertyText(UProperty* prop)
 {
 	void* data = PropertyData.Ptr(prop);
 	if (UObject::TryCast<UStrProperty>(prop) || UObject::TryCast<UStringProperty>(prop))
-		return *static_cast<std::string*>(data);
+		return ScriptToLatin1(*static_cast<ScriptString*>(data));
 	if (UObject::TryCast<UObjectProperty>(prop))
 	{
 		UObject* value = *static_cast<UObject**>(data);
@@ -327,9 +327,9 @@ Rotator UObject::GetRotator(const NameString& name) const
 	return *static_cast<const Rotator*>(GetProperty(name));
 }
 
-const std::string& UObject::GetString(const NameString& name) const
+const ScriptString& UObject::GetString(const NameString& name) const
 {
-	return *static_cast<const std::string*>(GetProperty(name));
+	return *static_cast<const ScriptString*>(GetProperty(name));
 }
 
 const NameString& UObject::GetName(const NameString& name) const
@@ -388,9 +388,9 @@ void UObject::SetRotator(const NameString& name, const Rotator& value)
 	*static_cast<Rotator*>(GetProperty(name)) = value;
 }
 
-void UObject::SetString(const NameString& name, const std::string& value)
+void UObject::SetString(const NameString& name, const ScriptString& value)
 {
-	*static_cast<std::string*>(GetProperty(name)) = value;
+	*static_cast<ScriptString*>(GetProperty(name)) = value;
 }
 
 void UObject::SetName(const NameString& name, const NameString& value)

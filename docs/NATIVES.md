@@ -2592,7 +2592,9 @@ client runs at most its rate / 64 frames a second, as the original's, 40 at
 2,600 (`tools/dxcap.sh live` on an MTL server: 40 frames a second at 2,600,
 120 at 20,000 on a 120 Hz display), and a server holds a client to its own
 `MaxClientRate`. Any other rate the player set stays, and each `netspeed`
-and `lanspeed` is logged. Until its pawn arrives, a joining client's player waits in the
+and `lanspeed` is logged. The multiplayer Player Setup's connection shows
+it as the game's own "DSL or better" (`SettingsConsole`), where the
+original's shows "Modem" for 2,600. Until its pawn arrives, a joining client's player waits in the
 Entry level, logged in with the join's URL, its HUD and the console's
 CONNECTING drawn over a black view, and the Entry level is ticked twice a
 frame, after the game's level, as the original's; the player is destroyed

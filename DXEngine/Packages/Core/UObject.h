@@ -314,7 +314,7 @@ public:
 	float GetFloat(const NameString& name) const;
 	vec3 GetVector(const NameString& name) const;
 	Rotator GetRotator(const NameString& name) const;
-	const std::string& GetString(const NameString& name) const;
+	const ScriptString& GetString(const NameString& name) const;
 	const NameString& GetName(const NameString& name) const;
 	UObject* GetUObject(const NameString& name);
 	Color GetColor(const NameString& name);
@@ -325,7 +325,7 @@ public:
 	void SetFloat(const NameString& name, float value);
 	void SetVector(const NameString& name, const vec3& value);
 	void SetRotator(const NameString& name, const Rotator& value);
-	void SetString(const NameString& name, const std::string& value);
+	void SetString(const NameString& name, const ScriptString& value);
 	void SetName(const NameString& name, const NameString& value);
 	void SetObject(const NameString& name, const UObject* value);
 

@@ -203,7 +203,7 @@ ActorTravelInfo::TravelObject ActorTravelInfo::CreateObject(UObject* travelObjec
 				void* element = property->GetElement(data, dim);
 				if (property->CompareElement(element, property->GetElement(defaultData, dim)))
 					continue;
-				info.Properties[key] = isString ? *static_cast<std::string*>(element) : property->PrintValue(element);
+				info.Properties[key] = isString ? ScriptToLatin1(*static_cast<ScriptString*>(element)) : property->PrintValue(element);
 			}
 		}
 	}

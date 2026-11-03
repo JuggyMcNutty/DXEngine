@@ -197,7 +197,7 @@ void UClass::LoadProperties(PropertyDataBlock* propertyBlock)
 					// float 0, and leaves an int, byte, bool or struct as it was
 					// (dx-reverse-info/core-dll.md, configuration) -- a server's
 					// empty ServerName= is its name.
-					if (UObject::IsType<UStrProperty>(prop) || UObject::IsType<UStringProperty>(prop)) *static_cast<std::string*>(ptr) = std::string();
+					if (UObject::IsType<UStrProperty>(prop) || UObject::IsType<UStringProperty>(prop)) *static_cast<ScriptString*>(ptr) = ScriptString();
 					else if (UObject::IsType<UNameProperty>(prop)) *static_cast<NameString*>(ptr) = NameString();
 					else if (UObject::IsType<UFloatProperty>(prop)) *static_cast<float*>(ptr) = 0.0f;
 					else if (UObject::IsType<UObjectProperty>(prop)) *static_cast<UObject**>(ptr) = nullptr;
@@ -224,7 +224,7 @@ void UClass::LoadProperties(PropertyDataBlock* propertyBlock)
 						}
 					}
 					else if (UObject::IsType<UStringProperty>(prop))
-						*static_cast<std::string*>(ptr) = value;
+						*static_cast<ScriptString*>(ptr) = Latin1ToScript(value);
 					else
 						prop->SetValueFromString(ptr, value);
 				}
@@ -241,7 +241,7 @@ void UClass::LoadProperties(PropertyDataBlock* propertyBlock)
 static std::string ConfigText(UProperty* prop, void* ptr)
 {
 	if (UObject::IsType<UStrProperty>(prop) || UObject::IsType<UStringProperty>(prop))
-		return *static_cast<std::string*>(ptr);
+		return ScriptToLatin1(*static_cast<ScriptString*>(ptr));
 	return prop->PrintValue(ptr);
 }
 
