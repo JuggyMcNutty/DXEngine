@@ -167,7 +167,7 @@ The build's own switches:
 
 ## Status
 
-An alpha: the engine runs the game, which is not fully playable:
+The engine plays the game, which is not yet played through end to end:
 [`docs/NATIVES.md`](docs/NATIVES.md) lists where it differs from the original. Where each
 platform stands:
 [the ports](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#engine-ports).
