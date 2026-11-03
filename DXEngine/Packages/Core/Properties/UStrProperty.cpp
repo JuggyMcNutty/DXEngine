@@ -12,7 +12,7 @@ void UStrProperty::LoadValue(void* data, ObjectStream* stream, const PropertyHea
 {
 	if (header.type == UPT_Str)
 	{
-		*static_cast<ScriptString*>(data) = Latin1ToScript(stream->ReadString());
+		*static_cast<ScriptString*>(data) = stream->ReadScriptString();
 	}
 	else if (header.type == UPT_String)
 	{
@@ -34,7 +34,7 @@ void UStrProperty::LoadValue(void* data, ObjectStream* stream, const PropertyHea
 
 void UStrProperty::LoadStructMemberValue(void* data, ObjectStream* stream)
 {
-	*static_cast<ScriptString*>(data) = Latin1ToScript(stream->ReadString());
+	*static_cast<ScriptString*>(data) = stream->ReadScriptString();
 }
 
 void UStrProperty::SaveHeader(void* data, PropertyHeader& header)
@@ -44,7 +44,7 @@ void UStrProperty::SaveHeader(void* data, PropertyHeader& header)
 
 void UStrProperty::SaveValue(void* data, PackageStreamWriter* stream)
 {
-	stream->WriteString(ScriptToLatin1(*static_cast<ScriptString*>(data)));
+	stream->WriteScriptString(*static_cast<ScriptString*>(data));
 }
 
 void UStrProperty::SetValueFromString(void* data, const std::string& valueString)

@@ -254,6 +254,34 @@ void PackageStreamWriter::WriteString(const std::string& v)
 	}
 }
 
+void PackageStreamWriter::WriteScriptString(const ScriptString& v)
+{
+	size_t len = v.find(u'\0');
+	if (len == ScriptString::npos)
+		len = v.size();
+	bool wide = false;
+	for (size_t i = 0; i < len && !wide; i++)
+		wide = v[i] > 0xFF;
+	if (GetVersion() < 64)
+	{
+		WriteAsciiZ(ScriptToLatin1(v.substr(0, len)));
+	}
+	else if (wide)
+	{
+		WriteIndex(-(int)(len + 1));
+		for (size_t i = 0; i < len; i++)
+			WriteUInt16(v[i]);
+		WriteUInt16(0);
+	}
+	else
+	{
+		WriteIndex((int)len + 1);
+		for (size_t i = 0; i < len; i++)
+			WriteUInt8((uint8_t)v[i]);
+		WriteUInt8(0);
+	}
+}
+
 void PackageStreamWriter::WriteAsciiZ(const std::string& v)
 {
 	WriteBytes(v.c_str(), (uint32_t)(v.size() + 1));

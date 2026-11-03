@@ -56,6 +56,10 @@ public:
 	void WriteUInt64(uint64_t v);
 	void WriteIndex(int32_t v);
 	void WriteString(const std::string& v);
+	// A script's string as the original's FString saves (Core.dll 0x101459b0):
+	// 16-bit characters, the count negative, when one before the terminator
+	// is past 0xFF, else a byte each, the count with the terminator
+	void WriteScriptString(const ScriptString& v);
 	void WriteAsciiZ(const std::string& v);
 	void WriteUnicodeZ(const std::wstring& v);
 	void WriteName(NameString name);

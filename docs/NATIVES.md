@@ -64,8 +64,13 @@ Matches the original ([travel and
 saving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-game-engine-travel-and-saving),
 [the save
 directory](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-save-directory)):
-each engine loads the other's saves (`SaveConsole`, `LoadConsole`), and a
-level returned to keeps its game (`ReturnConsole`). A level's start ([the
+each engine loads the other's saves (`SaveConsole`, `LoadConsole`), a
+string written as the original writes it, 16-bit when a character in it is
+past Latin-1 and else 8-bit, and read either way whole ([a string's
+bytes](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers):
+a note of U+0100, U+03A9 and U+2122 saved by each engine and loaded by each,
+its characters' codes alike), as a package's are; and a level returned to
+keeps its game (`ReturnConsole`). A level's start ([the
 original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-levels-tick))
 runs each pass over its actors as the list grows, so a map's carcass holds
 its items hidden in `Idle2` and its search hands them over whole
@@ -1392,11 +1397,8 @@ undrawn in both, and drawn solid with `Solid`).
 Differs:
 
 - **A typed character past Latin-1** (U+0100 on) goes nowhere, DXEngine's
-  text being 8-bit; the original's windows take it, and the game's fonts
-  draw it as nothing (read from `WinDrv.dll`'s code). A string the original
-  stored as wide characters (such a note in its save; every conversation
-  comment of `DeusExConText.u`) loads, each character past Latin-1 a `?`
-  (VM.5).
+  typing being 8-bit; the original's windows take it, and the game's fonts
+  draw it as nothing (read from `WinDrv.dll`'s code) (VM.5).
 - **Keys held as the window loses the keyboard** are forgotten, by choice,
   so an Alt held into Alt+Tab does not stick: the original's root keeps
   their marks, its window resetting only the engine's input (read from both

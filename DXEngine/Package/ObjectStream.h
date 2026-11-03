@@ -122,6 +122,35 @@ public:
 		}
 	}
 
+	// A script's string, as the original's FString loads (Core.dll
+	// 0x101459b0): a count with its terminator, negative for 16-bit
+	// characters, else a byte each; the text ends at its terminator
+	ScriptString ReadScriptString()
+	{
+		if (GetVersion() < 64)
+			return Latin1ToScript(ReadAsciiZ());
+		int len = ReadIndex();
+		if (len < -1024 * 1024 || len > 1024 * 1024)
+			Exception::Throw("ObjectStream::ReadScriptString: Invalid size in " + package->GetPackageName().ToString());
+		ScriptString s;
+		if (len < 0)
+		{
+			s.reserve(-len);
+			for (int i = 0; i < -len; i++)
+				s.push_back((char16_t)ReadUInt16());
+		}
+		else
+		{
+			s.reserve(len);
+			for (int i = 0; i < len; i++)
+				s.push_back((char16_t)ReadUInt8());
+		}
+		size_t end = s.find(u'\0');
+		if (end != ScriptString::npos)
+			s.resize(end);
+		return s;
+	}
+
 	std::string ReadAsciiZ()
 	{
 		std::string s;

@@ -1,7 +1,8 @@
 //=============================================================================
 // SaveConsole: a save for the other engine to load -- Liberty Island opened
 // from wherever the run starts; 8 s in, a LoadMarker is spawned, the player
-// is given a goal, a note and a nano key as the game gives them (AddGoal,
+// is given a goal, two notes (the second's text past Latin-1: U+0100, U+03A9
+// and U+2122, saved as 16-bit characters) and a nano key as the game gives them (AddGoal,
 // AddNote, the key ring's GiveKey: each new(Self) on the player) and two HUD
 // messages (a log object each, CreateLogObject), and what the level holds
 // is logged (the player, its place and inventory, its goals, notes, keys
@@ -25,6 +26,24 @@ var config bool Fresh;
 var float MapTime;
 var int Step;
 var string CurrentMap;
+
+
+// A string's characters as their codes, the log's being 8-bit: its length,
+// then each one's code
+function string Codes(string S)
+{
+	local string R;
+	local int i;
+
+	R = Len(S) $ ":";
+	for (i = 0; i < Len(S); i++)
+	{
+		if (i > 0)
+			R = R $ ",";
+		R = R $ Asc(Mid(S, i, 1));
+	}
+	return R;
+}
 
 function string MapOf(PlayerPawn P)
 {
@@ -92,7 +111,7 @@ function Census(PlayerPawn P, string Label)
 			Log("DXSAVE: " $ Label $ " goal " $ string(Goal) $ " " $ Goal.goalName $ " primary " $ Goal.bPrimaryGoal
 				$ " completed " $ Goal.bCompleted $ ": " $ Goal.text);
 		for (Note = DP.FirstNote; Note != None; Note = Note.next)
-			Log("DXSAVE: " $ Label $ " note " $ string(Note) $ " user " $ Note.bUserNote $ ": " $ Note.text);
+			Log("DXSAVE: " $ Label $ " note " $ string(Note) $ " user " $ Note.bUserNote $ ": " $ Note.text $ " (codes " $ Codes(Note.text) $ ")");
 		for (Key = DP.KeyList; Key != None; Key = Key.NextKey)
 			Log("DXSAVE: " $ Label $ " key " $ string(Key) $ " " $ Key.KeyID $ ": " $ Key.Description);
 		for (LogEntry = DP.FirstLog; LogEntry != None; LogEntry = LogEntry.next)
@@ -151,6 +170,7 @@ event Tick(float Delta)
 			Goal = DeusExPlayer(P).AddGoal('DXSaveGoal', True);
 			Goal.SetText("DXCapture goal");
 			DeusExPlayer(P).AddNote("DXCapture note", False, False);
+			DeusExPlayer(P).AddNote("DXCapture wide " $ Chr(256) $ Chr(937) $ Chr(8482), False, False);
 			if (DeusExPlayer(P).KeyRing != None)
 				DeusExPlayer(P).KeyRing.GiveKey('DXSaveKey', "DXCapture key");
 			// Two HUD messages: a log object each (DeusExPlayer.AddLog),

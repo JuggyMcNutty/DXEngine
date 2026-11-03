@@ -7,10 +7,10 @@ void UDXExtString::Load(ObjectStream* stream)
 {
 	UObject::Load(stream);
 
-	std::string text = stream->ReadString();
+	ScriptString text = stream->ReadScriptString();
 	if (!Text().empty())
 		LogMessage("ExtString already has text content in its Text property!");
-	Text() = Latin1ToScript(text);
+	Text() = text;
 	stream->ThrowIfNotEnd();
 }
 
