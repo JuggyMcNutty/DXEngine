@@ -2387,6 +2387,9 @@ ini value's quotes are kept and its whitespace trimmed. Differs (bugs.md
 ENG.17): an exec function's parameters: with cheats on, `killall` and
 `augadd` do nothing and `behindview True` turns it off.
 
+Differs (bugs.md PKG.24): an ini made anew is written with LF line ends, the
+original's with CR LF.
+
 ## The command line
 
 The original's command line reaches DXEngine as one string, `--cmdline=`,
@@ -2454,6 +2457,9 @@ What DXEngine does with each:
     `-nokni` and `-nok6` (the original's mixer picks its routines by them),
     and `-safe`'s no DirectInput (DXEngine's input is its window's, SDL's
     under the launchers).
+
+Differs (bugs.md ENG.19): an unquoted `X=` value is cut at white space
+alone, where the original's `Parse` cuts it at a comma too.
 
 ## Mods
 
