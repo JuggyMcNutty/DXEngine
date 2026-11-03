@@ -248,7 +248,7 @@ is. DXEngine's keys:
 | `"Type": "Vulkan"`, `"OpenGL"` or `"D3D11"` in `RenderDevice` | The Vulkan device, the GL device on a desktop GL context, or the D3D11 device, Windows' own, which no launcher offers ([for advanced users](../README.md#for-advanced-users)). |
 | `"Antialias"`, `"Light"`, `"Gamma"` in `RenderDevice` | `Off`, `MSAA2x` or `MSAA4x`; `Normal`, `OneX` or `BrighterActors`; `D3D9` or `XOpenGL` ([rendering](#rendering)). |
 | `"UseVSync"`, `"Hdr"`, `"HdrScale"`, `"Bloom"`, `"BloomAmount"`, `"GammaCorrectScreenshots"`, `"UseDebugLayer"` in `RenderDevice` | Vsync (on unless the key says otherwise), HDR and its scale, bloom and its amount (128 each), screenshots written gamma-corrected, and the Vulkan validation layer or D3D11's debug layer where the machine has it; a key left out keeps its default. |
-| `"Contrast"`, `"Saturation"`, `"GammaOffset"`, `"GammaOffsetRed"`, `"GammaOffsetGreen"`, `"GammaOffsetBlue"`, `"LODBias"` in `RenderDevice` | On every device: the present's colour correction, the picture unchanged at 1 each, contrast about the middle grey (0.1 to 4) and saturation toward the pixel's grey (0 to 1); its gamma's offsets, every channel's and each one's, added to the gamma (-1 to 1, 0 each by default); and the textures' mip bias (-2 to 2, -0.5 by default, `D3DDrv`'s as Wine draws it), fixed for the run, but on GL ES, whose samplers take none. |
+| `"Contrast"`, `"Saturation"`, `"GammaOffset"`, `"GammaOffsetRed"`, `"GammaOffsetGreen"`, `"GammaOffsetBlue"`, `"LODBias"` in `RenderDevice` | On every device: the present's colour correction, the picture unchanged at 1 each, contrast about the middle grey (0.1 to 4) and saturation toward the pixel's grey (0 to 1); its gamma's offsets, every channel's and each one's, added to the gamma (-1 to 1, 0 each by default); and the textures' mip bias (-2 to 2, -0.5 by default, `D3DDrv`'s as Wine draws it), fixed for the run, but on GL ES, which draws with none, its mips half a level coarser than `D3DDrv`'s (for the owner, bugs.md D.41). |
 | `"CPUDriver": true` in `RenderDevice` | The Vulkan device on Mesa's lavapipe, or the GL device on llvmpipe, a GPU passed over (DXLauncher's `[VulkanCPU]` and `[OpenGLCPU]` renderers; [rendering](#rendering)). |
 | `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)); in a rootless container (podman's: distrobox, toolbox), where the host's root is unmapped and libudev drops its messages, SDL watches `/dev/input` itself (`SDL_JOYSTICK_DISABLE_UDEV`), so a pad plugged in after the start is found. |
 
@@ -534,7 +534,8 @@ wherever else that state is set.
   (`DrawEntry`): without its own, the render-scale upscale would take the last draw's,
   point-sampled after the HUD's text.
 - **Anisotropy** (8) goes on every scene sampler, as the Vulkan device's, where the driver has
-  it (`CreateSceneSamplers`).
+  it (`CreateSceneSamplers`), on the NoSmooth ones too, where `D3DDrv` points them (for the
+  owner, bugs.md D.40).
 - **Depth is clamped** at the near and far planes on desktop GL, as the Vulkan device clamps it
   (the weapon close up): `DepthClipEnable` is D3D11's, off meaning a clamp. ES has no clamp and
   clips there.
@@ -569,14 +570,15 @@ what is recorded before it lets the textures go; and a quad's lanes outside its 
 where one inside does, so a draw reads no texel but its pixels'.
 
 - **Triangles**, as the Vulkan device's: each in clip space by its scene node's transforms,
-  clipped where a corner lies behind the node's clip plane (the Vulkan device's clip distance,
-  a mirror's plane in a mirror's frame) or outside a guard band of 8192 pixels (the frame kept
-  within it: a window over 8000 pixels a side is drawn smaller and scaled up at the present),
-  and held to the viewport; a polygon a fan, (0, i - 1, i). Snapped to 1/256 pixel, its pixels
-  by the top-left rule, as RADV and lavapipe cover them; its attributes over w, at each pixel's
-  centre. Depth float, tested LEQUAL, clamped to the pipeline's range (the scene's 0.1 to 1, a
-  line not depth cued 0 to 0.1); a mover's surfaces biased as the Vulkan device biases them,
-  constant -1 and slope -1 on a float buffer. A line is a pixel wide.
+  clipped where a corner lies behind the node's clip plane (every frame's near plane at view z
+  1, and a mirror's plane in a mirror's frame, where the Vulkan device clips a mirror's frame
+  alone and clamps the depth: bugs.md REN.37) or outside a guard band of 8192 pixels (the frame
+  kept within it: a window over 8000 pixels a side is drawn smaller and scaled up at the
+  present), and held to the viewport; a polygon a fan, (0, i - 1, i). Snapped to 1/256 pixel,
+  its pixels by the top-left rule, as RADV and lavapipe cover them; its attributes over w, at
+  each pixel's centre. Depth float, tested LEQUAL, clamped to the pipeline's range (the scene's
+  0.1 to 1, a line not depth cued 0 to 0.1); a mover's surfaces biased as the Vulkan device
+  biases them, constant -1 and slope -1 on a float buffer. A line is a pixel wide.
 - **Textures**: a copy of its own of each, by cache ID, its colour 0 cleared or not as the
   draw that made it was masked or not, as every device keeps one
   ([one copy a texture](NATIVES.md#sprites)): BGRA8, each format converted as the Vulkan device's uploads and CPU
@@ -712,8 +714,8 @@ by holder, and with glibc a map load's gives the freed memory back to the system
   class's count; the event manager in its `LevelInfo`'s; an object a script makes with `new` in
   its outer's (`new(Self)` on the player: its goals, notes and key infos), or with none in the
   transient package. A conversation's camera and flag refs are in the conversation's package,
-  which outlives any level, as the original's are in `DeusEx`'s. A package played as a level is
-  tagged so (`Package::IsLevel`).
+  which outlives any level, unnamed and transient, where the original's are in `DeusEx`'s, named
+  and public (bugs.md DX.7). A package played as a level is tagged so (`Package::IsLevel`).
 - **A class's defaults** are its own property block, which scripts read and write as `default.`
   values. The engine reads them through the class's defaults object
   (`UClass::GetDefaultObject`), made once, of the class's nearest native class, its block a view
@@ -759,19 +761,22 @@ its code is:
 
 - **The path search and reachability tests**: the script's `FindPathToward`, `FindPathTo` and
   the `pointReachable`, `actorReachable` and `Reachable` they ask are `Engine.dll`'s, walking
-  its own moves (`UPawn_Path.cpp`, `UPawn_ReachDeusEx.cpp`); `RouteCache` stays empty, as the
-  original never fills it ([moving](NATIVES.md#moving-wandering-and-tactical-movement)).
-  `FindRandomDest` answers None, as the original's; Surreal Engine's own search serves only
-  `FindBestInventoryPath`, which no stock script calls ([mods](NATIVES.md#mods)).
+  its own moves (`UPawn_Path.cpp`, `UPawn_ReachDeusEx.cpp`), but for `actorReachable`'s path
+  network, the search's second way, and the moves' base and landing (bugs.md AI.9, AI.10,
+  PHYS.20, PHYS.21); `RouteCache` stays empty, as the original never fills it
+  ([moving](NATIVES.md#moving-wandering-and-tactical-movement)). `FindRandomDest` answers None,
+  as the original's; Surreal Engine's own search serves only `FindBestInventoryPath`, which no
+  stock script calls ([mods](NATIVES.md#mods)).
 - **The audio mixer**: `GalaxyMixer` (`DXEngine/Audio/GalaxyMixer.cpp`) mixes Deus Ex's sounds
   as `Galaxy.dll` does (pan, fall-off, sliders, resampling, its reverb) and streams them through
   one OpenAL source at `OutputRate`; the music streams through one of its own, from a thread of
-  its own, where a song that fails stops and the game goes on, the main thread logging why
-  (`Music: the song stopped:`). DXEngine's audio device adds `SpeechVolume` and
-  `DopplerSpeed` to its ini section, and keeps Deus Ex's channel count under Galaxy's name,
-  `EffectsChannels` ([sound](NATIVES.md#sound)). DXEngine's render device keeps `DetailTextures`
-  beside Surreal Engine's keys; on a first run (no `DXE-DeusEx.ini`, or an `--ini` without the
-  engine's sections) it takes them from the section of the device the game's ini names
+  its own, where a song that fails as it plays stops and the game goes on, the main thread
+  logging why (`Music: the song stopped:`), and one that fails to load stops the game (bugs.md
+  AUD.14). DXEngine's audio device adds `SpeechVolume` and `DopplerSpeed` to its ini section,
+  and keeps Deus Ex's channel count under Galaxy's name, `EffectsChannels`
+  ([sound](NATIVES.md#sound)). DXEngine's render device keeps `DetailTextures` beside Surreal
+  Engine's keys; on a first run (no `DXE-DeusEx.ini`, or an `--ini` without the engine's
+  sections) it takes them from the section of the device the game's ini names
   (`GameRenderDevice`) ([the menus' settings](NATIVES.md#the-menus-settings)). Who hears a sound
   an actor plays, a remote player through its client, is `UActor::HearSound` and
   `CheckHearSound` (`UActor.cpp`), from Deus Ex's `PlaySound`, `PlayOwnedSound` and

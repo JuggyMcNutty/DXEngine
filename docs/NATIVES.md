@@ -30,20 +30,21 @@ engines, what matches, and what differs. What else it changes:
 
 ## Stops the game
 
-Differs by choice. An error DXEngine does not catch -- a script error, an unknown
-native, a failed save -- exits the engine with 1, which the launcher takes
-for a crash. No map or action is known to reach one; the audit lists the
-natives whose call would. A `foreach` on a None context, and state code's
-`goto` to a label its state has not, stop both engines alike (the
-original's Critical Error); a None class's `default` is 0 in both, and
-`AllActors(None)` every actor. A dynamic array's element, on which the
-original asserts (no Deus Ex script indexes one), grows the array to the
-index in DXEngine, by choice, a negative index a script error. A modal
-window made inside another window stops the original as it is destroyed:
-its cleanup takes it out of the table of tab groups of the modal it lies
-in, which never held it, and the table's index asserts (as it was made,
-only "Modal window must be a child of Root!" was logged; no Deus Ex script
-makes one). DXEngine destroys it, by choice.
+Differs by choice. An error DXEngine does not catch -- a script error, an
+unknown native, a failed save -- exits the engine with 1, which the launcher
+takes for a crash; a call to a function import that did not load crashes it
+instead, as the error is reported (bugs.md VM.24). No map or action is known
+to reach one; the audit lists the natives whose call would. A `foreach` on a
+None context, and state code's `goto` to a label its state has not, stop
+both engines alike (the original's Critical Error); a None class's `default`
+is 0 in both, and `AllActors(None)` every actor. A dynamic array's element,
+on which the original asserts (no Deus Ex script indexes one), grows the
+array to the index in DXEngine, by choice, a negative index a script error.
+A modal window made inside another window stops the original as it is
+destroyed: its cleanup takes it out of the table of tab groups of the modal
+it lies in, which never held it, and the table's index asserts (as it was
+made, only "Modal window must be a child of Root!" was logged; no Deus Ex
+script makes one). DXEngine destroys it, by choice.
 
 A runaway script stops both engines alike, with an error no native's call
 catches
@@ -64,9 +65,9 @@ Matches the original ([travel and
 saving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-game-engine-travel-and-saving),
 [the save
 directory](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-save-directory)):
-each engine loads the other's saves (`SaveConsole`, `LoadConsole`), a
-string written as the original writes it, 16-bit when a character in it is
-past Latin-1 and else 8-bit, and read either way whole ([a string's
+each engine loads the other's saves (`SaveConsole`, `LoadConsole`), a string
+written as the original writes it, 16-bit when a character in it is past
+Latin-1 and else 8-bit, and read either way whole ([a string's
 bytes](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers):
 a note of U+0100, U+03A9 and U+2122 saved by each engine and loaded by each,
 its characters' codes alike), as a package's are; and a level returned to
@@ -101,7 +102,9 @@ number as the original's `SaveGame` does: -1 the quick save, 0 a new slot,
 and any other `Save%04d`, a negative one too -- `savegame -3` writes
 Save-003, and `savegame -2` its SaveInfo to Save-002 with the level saved
 into Current -- and the Load Game screen lists every `Save*` folder, both of
-those among them, by name, as the original's `FindFiles` on NTFS gives them
+those among them, by name, as the original's `FindFiles` on NTFS gives them,
+but for a name with `[`, `\`, `]`, `^` or `_` where another has a letter,
+sorted by lower case where NTFS sorts by upper (bugs.md DX.7)
 (`SlotConsole`). A bare `?loadgame`, a slot named by no number, is no load,
 as the original's browse asks for `loadgame=`: the console's `open` of it
 goes to the default map, `Index.dx`, which is not there, so the level's own
@@ -243,8 +246,7 @@ with the space, which a Linux file system keeps, so the travel fails there,
 where the original's Windows file system drops it. Differs (bugs.md VM.18):
 a string property apart from its default in case alone travels and saves,
 where the original's compares without case and lets it go back to the
-default. Differs (bugs.md PKG.22): a struct extending another, a Plane, is
-saved base first, the original's own members first.
+default.
 
 ## Flags
 
@@ -359,37 +361,39 @@ the manager in a layout of its own, which some of its saves carry.
 Matches the original
 ([moving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#moving),
 [reaching](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#reaching),
-[the search](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-search)):
+[the
+search](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-search)):
 `MoveConsole` (`move.py`) has all 52 of Liberty Island's pawns move within
 15% (or 200 units) of the original's distance. Each that walks to a spot and
 stops there ends where the original's does, within a unit and a half, though
 25 to 110 units short of its distance: the console counts from its first
 line, 2 s in by its own clock, which takes in the island's first frame, the
 load's, longer in the original's ([a long frame](#small)): by then
-DXEngine's pawns are further along their first walk. `ReachConsole`'s
-144 answers, twelve pawns each asked from its home spot, are the original's
-to the unit. A strafe's move timer counts at the speed the strafe sets, all
-of `MaxDesiredSpeed` held to the speed asked, as the original's `StrafeTo`
-sets it before the timer; the timer takes a pawn with no physics at 200
-units a second and counts only while the pawn's physics run, as the
-original's `setMoveTimer` and `performPhysics` have it, so a strafe or move
-of a pawn with no physics never runs out (`StrafeConsole`). A jumper's
-landing is judged by the zone its feet land in, each test move of the
-jump's fall setting its feet's and head's regions as the original's test
-moves set them, so a jump into a pain zone the pawn does not resist is
-refused. A dead robot frozen in `Dying` for good is the original's own
-behaviour, and the rest of a death is alike too (`DeathConsole`).
-`Terrorist34`, walking west to `PatrolPoint86`, comes to a stop at x 1510
-some 8 s in, still walking at it, and stands there until his move's time
-runs out (`MoveTimer`) some 12 s later, then steps back and goes on: in
-every original run, and in every one of DXEngine's held to the original's
-120 frames a second, or to 60 (`MoveConsole`'s `Watch`, `move.py --pawn`). A
-walker's heading drifts with the frame rate, in both engines alike: after
-his turn toward the spot he drifts across his way, 0.06 units a second
-toward the spot's side at 120 frames and 0.1 away from it at the original's
-227 with vsync off, where he meets the wall half a unit further along.
-DXEngine uncapped, at some 300, meets it further along again, and there in
-some runs he slips past within two seconds.
+DXEngine's pawns are further along their first walk. `ReachConsole`'s 144
+answers, twelve pawns each asked from its home spot, are the original's to
+the unit. A strafe's move timer counts at the speed the strafe sets, all of
+`MaxDesiredSpeed` held to the speed asked, as the original's `StrafeTo` sets
+it before the timer; the timer takes a pawn with no physics at 200 units a
+second and counts only while the pawn's physics run, as the original's
+`setMoveTimer` and `performPhysics` have it, so a strafe or move of a pawn
+with no physics never runs out (`StrafeConsole`). A jumper's landing is
+judged by the zone its feet land in, each test move of the jump's fall
+setting its feet's and head's regions as the original's test moves set them,
+so a jump into a pain zone the pawn does not resist is refused. A dead robot
+frozen in `Dying` for good is the original's own behaviour, and the rest of
+a death is alike too (`DeathConsole`). `Terrorist34`, walking west to
+`PatrolPoint86`, comes to a stop at x 1510 some 8 s in, still walking at it,
+and stands there until his move's time runs out (`MoveTimer`) some 12 s
+later, then steps back and goes on: in every original run, and in every one
+of DXEngine's held to the original's 120 frames a second, or to 60
+(`MoveConsole`'s `Watch`; `move.py --pawn`, which flags no tick before the
+reference's start or past its end: bugs.md X.6). A walker's heading drifts
+with the frame rate, in both engines alike: after his turn toward the spot
+he drifts across his way, 0.06 units a second toward the spot's side at 120
+frames and 0.1 away from it at the original's 227 with vsync off, where he
+meets the wall half a unit further along. DXEngine uncapped, at some 300,
+meets it further along again, and there in some runs he slips past within
+two seconds.
 
 Differs (bugs.md AI.9): `ActorReachable` of a navigation point, 5 of 87
 answers on Liberty Island apart, the original's asking the path network for
@@ -769,62 +773,62 @@ reach -- and a spotlight that turns, or whose cone, period or phase a script
 changes, build the surface's map again, as the original's dynamic map, built
 every frame from the lights then over it, has them (`SwitchConsole`: a
 lamp's pool gone as it is switched off, a spotlight's beam moved as it
-turns). A light with `bDynamicLight` is a moving one before all else, lighting a
-surface with no shadow and left out with `NoDynamicLights`, as the original's
-`AddLight` takes it ([light maps](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps));
+turns). A light with `bDynamicLight` is a moving one before all else,
+lighting a surface with no shadow and left out with `NoDynamicLights`, as
+the original's `AddLight` takes it ([light
+maps](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps));
 the stock maps' few, on 02_NYC_Street, 02_NYC_Warehouse, 08_NYC_Underground
-and 99_Endgame1, are moving ones anyway, neither static nor no-delete.
-A mover's polygons are lit where the mover is, as the original's brush
-tracker files them into the level
-([the movers in the BSP](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
+and 99_Endgame1, are moving ones anyway, neither static nor no-delete. A
+mover's polygons are lit where the mover is, as the original's brush tracker
+files them into the level ([the movers in the
+BSP](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
 its static lights through the shadows raytraced at its `BrushRaytraceKey`,
-the moving ones over it there, its map built again when it moves or turns.
+the moving ones over it there, its map built again when it moves or turns,
+its zone's ambient light the mover's own (bugs.md REN.34).
 `MoverLightConsole` at 1024x768, Liberty Island's `DeusExMover10` moved 100
-units off its place: the door at 1.003 of the original's frame under its
-own lights and 1.000 with a lamp 48 units before it, where it was 0.82 and
-0.43, lit as if still at its key.
-A spotlight's cone is the
-original's, its cosine `1 − LightCone ÷ 256`, its value rounded down, and a
-light or fog map lights texel i at its centre, `Pan.X + i × UScale` along U,
-where both engines draw it
-([a texel's place](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps)):
+units off its place: the door at 1.003 of the original's frame under its own
+lights and 1.000 with a lamp 48 units before it, where it was 0.82 and 0.43,
+lit as if still at its key. A spotlight's cone is the original's, its cosine
+`1 − LightCone ÷ 256`, its value rounded down, and a light or fog map lights
+texel i at its centre, `Pan.X + i × UScale` along U, where both engines draw
+it ([a texel's
+place](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps)):
 `LightConsole` has 03_NYC_Airfield's `Spotlight7` and Liberty Island's
 `Spotlight0` at 1.00 of `D3DDrv`'s frames, with DXEngine's detail textures
 off as the original draws none (`NoDetail`), in blocks of 16 pixels within
 0.98 to 1.03 across `Spotlight7`'s wall and `Spotlight0`'s world map, inside
-its border ([brightness](#brightness)). A surface's light map holds
-the ambient of the zone it is seen from, and pans at that zone's speeds, as
-the original's draw list has it: 06_HongKong_WanChai_Underworld's floor
-under its disco lights `Light2` and `Light21`, lit by its zone's ambient and
-one steady light, comes out at 0.99 of `D3DDrv`'s frames. A surface on a
-plane's other coplanar nodes, which may face the other way, takes the zone
-on its own side, as the original's: the wall left of that map's start takes
-its own zone's ambient, not the LevelInfo's of the first node's side
-(`OpeningConsole`). Its fog map is
-drawn only with the render device's `VolumetricLighting` on and the
-viewport's actor in a fog zone, for a surface not translucent whose zone is
-a fog zone too, as the original's renderer has it: 02_NYC_Underground's
-floor under the water below `Light33`'s grating, seen from the fog zone
-above, is unfogged in both, the frame within 1.02 of `D3DDrv`'s
-(`LightConsole`). The other effects' shapes are Render.dll's own, on the
-level's time. `LightConsole`, shooting both engines at one moment of it
-(`ShotAt`), has 06_HongKong_WanChai_Canal's disco `Light343`,
-02_NYC_BatteryPark's cylinder `Light81` and 09_NYC_ShipBelow's slow wave
-`Light16` within 0.99 to 1.01 of `D3DDrv`'s frames, correlated at up to
-0.997, 0.998 and 0.98 (`NoDetail`). The rest, whose stock views come out
-the same under other shapes (the searchlight, non-incidence, the rotor) or
-which no stock light shows (fast wave, shock, shell, interference), with
-`Spawn`: a lamp of each made 64 units over Liberty Island's dock, the dock
-alone in the view, `D3DDrv`'s frames correlated with DXEngine's at 0.993
-(the searchlight) to 0.999, RMSE under 1. `D3DDrv` holds that lamp's map at
-the frame it was first lit, 6.02 s into the level, a defect of its cache
+its border ([brightness](#brightness)). A surface's light map holds the
+ambient of the zone it is seen from, and pans at that zone's speeds, as the
+original's draw list has it: 06_HongKong_WanChai_Underworld's floor under
+its disco lights `Light2` and `Light21`, lit by its zone's ambient and one
+steady light, comes out at 0.99 of `D3DDrv`'s frames. A surface on a plane's
+other coplanar nodes, which may face the other way, takes the zone on its
+own side, as the original's: the wall left of that map's start takes its own
+zone's ambient, not the LevelInfo's of the first node's side
+(`OpeningConsole`). Its fog map is drawn only with the render device's
+`VolumetricLighting` on and the viewport's actor in a fog zone, for a
+surface not translucent whose zone is a fog zone too, as the original's
+renderer has it: 02_NYC_Underground's floor under the water below
+`Light33`'s grating, seen from the fog zone above, is unfogged in both, the
+frame within 1.02 of `D3DDrv`'s (`LightConsole`). The other effects' shapes
+are Render.dll's own, on the level's time. `LightConsole`, shooting both
+engines at one moment of it (`ShotAt`), has 06_HongKong_WanChai_Canal's
+disco `Light343`, 02_NYC_BatteryPark's cylinder `Light81` and
+09_NYC_ShipBelow's slow wave `Light16` within 0.99 to 1.01 of `D3DDrv`'s
+frames, correlated at up to 0.997, 0.998 and 0.98 (`NoDetail`). The rest,
+whose stock views come out the same under other shapes (the searchlight,
+non-incidence, the rotor) or which no stock light shows (fast wave, shock,
+shell, interference), with `Spawn`: a lamp of each made 64 units over
+Liberty Island's dock, the dock alone in the view, `D3DDrv`'s frames
+correlated with DXEngine's at 0.993 (the searchlight) to 0.999, RMSE under
+1. `D3DDrv` holds that lamp's map at the frame it was first lit, 6.02 s into
+the level, a defect of its cache
 ([textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#textures))
 that DXEngine does not carry, by choice, the map changing as `OpenGLDrv`
 shows it; so DXEngine's is shot a whole number of each shape's periods on
 (`ShotAt`); through `OpenGLDrv`, which shows them changing, each at one
 moment of both at 0.96 to 0.98, as its frame of non-incidence, which holds
-still, is.
-DXEngine's own, by choice where no ID is named:
+still, is. DXEngine's own, by choice where no ID is named:
 
 - **Light maps**
   - floats, converted on the CPU for a GPU that cannot filter them (the
@@ -1254,14 +1258,14 @@ from the original's code:
 - **An edit field's copy, cut and paste** go through the desktop's
   clipboard, by choice, so they reach other programs, where the original
   keeps a text buffer of its own: a copy or cut takes the selection and
-  nothing with none, as there; the text's 16-bit characters go out as
-  UTF-8, and a paste reads the clipboard's UTF-8 back as 16-bit
-  characters, a carriage return left out. `PlayerPawn.PasteFromClipboard`
-  and `CopyToClipboard` take the desktop's clipboard as UTF-8 so too
-  (`PasteConsole`, the clipboard holding "dxcap paste é Ω €": its codes
-  233, 937, 8364 alike with the original's). On X11 the paste asks for
-  `STRING`, so a character past Latin-1 copied and pasted there comes back
-  `?` (bugs.md WIN.12).
+  nothing with none, as there; the text's 16-bit characters go out as UTF-8,
+  and a paste reads the clipboard's UTF-8 back as 16-bit characters, a
+  carriage return left out. `PlayerPawn.PasteFromClipboard` and
+  `CopyToClipboard` take the desktop's clipboard as UTF-8 so too
+  (`PasteConsole`, the clipboard holding "dxcap paste é Ω €": its codes 233,
+  937, 8364 alike with the original's). On X11 the paste asks for `STRING`
+  and the copy serves Latin-1, so a character past it comes back `?`
+  (bugs.md WIN.12).
 - **Edit fields** (`MultiEditConsole`): rows as a large text window breaks
   them, within the margins. Up and down a row or a page keep the column
   the insertion point was last put at; a word either way within a row, a
@@ -1844,14 +1848,14 @@ Every other native the scripted runs compare matches the original
   strictly the best so far and in sight, `PickAnyTarget` such an actor that
   is no pawn, and neither any without a `Game` (a client's level).
 - **Sight** (`SightConsole`), and the pawns' in the tick (`SeeConsole`:
-  `SeePlayer` sent only a player, each 0.2 s,
-  [the senses](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-senses)),
+  `SeePlayer` sent only a player, each 0.2 s, [the
+  senses](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-senses)),
   **a pawn's pain and speech timers**, each due once under a thousandth of a
   second (`PainConsole`, both at half speed: the tick each fires in alike),
-  **the reach tests** (`ReachConsole`), and
-  **the look up and down stairs** (`StairConsole`: every answer of
-  `Pawn.FindStairRotation` alike on Liberty Island's pier and
-  `SlideConsole`'s slope,
+  **the reach tests** from a pawn's home spot (`ReachConsole`; the others
+  not: bugs.md AI.9, PHYS.20, PHYS.21), and **the look up and down stairs**
+  (`StairConsole`: every answer of `Pawn.FindStairRotation` alike on Liberty
+  Island's pier and `SlideConsole`'s slope,
   [small](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#small)).
 - **Falls**, a whole frame at once in the original's steps, each by its mean
   velocity (a pawn's air control, a bounce left to the script, a wall slid
@@ -1936,35 +1940,37 @@ Every other native the scripted runs compare matches the original
   original's FarMoveActor makes them, so a Touch handler sees the actor
   where it was, and what it no longer overlaps there untouched, not what it
   leaves behind (`TeleportConsole`); a touch linking each side on its own,
-  its Touch sent as it is linked and the other side linked unless that
-  undid it, the last free of the four slots taken, and a full four freed of
-  their touchers with no physics, or for a pawn of a non-pawn, or for a
-  player of a non-player, as the original's BeginTouch links
-  (`TouchConsole`); the rotators' conversions, `<<` and `>>`
-  by the sine table, a rotator's `*=`, float `==` exact, a rotator's `==`
-  and `!=` every bit of each angle, `GetEnum` from index 0, `Normal` zero
-  under a length of 0.0001, `Chr(0)` the empty string, `IsInState` true for
-  a state the state extends, whose labels and functions the extending state
-  has too (`ExtendConsole`), and a float made an int past an int's range,
-  wrapping, by `int`, `byte` and a rotator's scaling (`RotatorConsole`);
-  the string natives on 16-bit characters, a script's strings being UTF-16
-  as the original's: `Chr` its low 16 bits, `Asc`, `Len`, `Mid`, `Left`,
-  `Right` and `InStr` by those characters, `Caps` a to z alone and `~=`
-  without their case alone, the comparisons by each character's code
-  (`OpsConsole`'s wide lines, alike with the original's); `Object.Mid` 127
-  at its edges, its end's clamp known from `MidConsole`'s ten probes of both;
-  `Object.DynamicLoadObject` with a group in the name, its own, another or
-  none, and a class that is not the object's own (`DynLoadConsole`); and
-  `Object.GetPropertyText` and `SetPropertyText`, through which the server's
-  query answerer reads what a remote asks for: a public property's text as
-  `GET` writes it, a const one never set, a private one or a name the class
-  has not read empty and set nothing (`GetConsole`); text that is no value
-  of the property, by `SetPropertyText` or the console's `SET`, leaves an
-  int, a byte or a bool as it was and makes a float 0, as the original's
-  import does, an int read as far as it is a number and a name its first
-  token -- quoted, or a run of letters, digits, `_` and `-`, or else one
-  character (`JunkConsole`). `LevelInfo`'s clock is
-  the original's
+  its Touch sent as it is linked and the other side linked unless that undid
+  it, the last free of the four slots taken, and a full four freed of their
+  touchers with no physics, or for a pawn of a non-pawn, or for a player of
+  a non-player, as the original's BeginTouch links (`TouchConsole`); the
+  rotators' conversions, `<<` and `>>` by the sine table, a rotator's `*=`,
+  float `==` exact, a rotator's `==` and `!=` every bit of each angle,
+  `GetEnum` from index 0, `Normal` zero under a length of 0.0001, `Chr(0)`
+  the empty string, `IsInState` true for a state the state extends, whose
+  labels and functions the extending state has too (`ExtendConsole`), and a
+  float made an int past an int's range, wrapping, by `int`, `byte` and a
+  rotator's scaling (`RotatorConsole`); the string natives on 16-bit
+  characters, a script's strings being UTF-16 as the original's: `Chr` its
+  low 16 bits, `Asc`, `Len`, `Mid`, `Left`, `Right` and `InStr` by those
+  characters, `Caps` a to z alone and `~=` without their case alone, the
+  comparisons by each character's code (`OpsConsole`'s wide lines, alike
+  with the original's); `Object.Mid` 127 at its edges, its end's clamp known
+  from `MidConsole`'s ten probes of both; `Object.DynamicLoadObject` with a
+  group in the name, its own, another or none, and a class that is not the
+  object's own (`DynLoadConsole`); and `Object.GetPropertyText` and
+  `SetPropertyText`, through which the server's query answerer reads what a
+  remote asks for: a public property's text as `GET` writes it, a const one
+  never set, a private one or a name the class has not read empty and set
+  nothing (`GetConsole`); text that is no value of the property, by
+  `SetPropertyText` or the console's `SET`, leaves an int, a byte or a bool
+  as it was and makes a float 0, as the original's import does, an int read
+  as far as it is a number and a name its first token -- quoted, or a run of
+  letters, digits, `_` and `-`, or else one character (`JunkConsole`), but
+  for a property a subclass names again, found as the base class's, and an
+  enum taken from a number, an int from `+5` and a bool from no token with
+  more after it (bugs.md VM.20, VM.21). `LevelInfo`'s clock is the
+  original's
   ([small](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#small)).
   `Actor.GetBoundingBox` with no test place is the box where the actor is
   now, a dedicated server's too, as the original takes its primitive's
@@ -2008,20 +2014,24 @@ Every other native the scripted runs compare matches the original
   (`ImportText: Illegal array element`), the members before it set, as the
   original's index reader starts on the bracket and finds none, though its
   own export writes them (`TextConsole`: `N[1]` left 0 after `Text` and
-  `Key` are set, in both engines). A dynamic array
-  is `(1,2,3)`. An object is `Type'Package.Group.Name'`, set from that, from
-  `Package.Name` or from a bare name among the loaded objects of its class;
-  a class is held to its metaclass (an Actor class from `Engine.Texture` is
-  None). A bool takes `1`, `True`, `0` and `False` alone, an int the number
-  its text starts with. A float's text, a vector's and `string()`'s too, is
-  the original's `%f`, its runtime's: every digit exact to six decimals, a
-  tie rounding up, infinity `1.#INF00` (`OpsConsole`: 813.1953125 as
-  `813.195313`, 2 to the 70th whole, alike in both engines).
+  `Key` are set, in both engines). A dynamic array is `(1,2,3)`. An object
+  is `Type'Package.Group.Name'`, set from that, from `Package.Name` or from
+  a bare name among the loaded objects of its class; a class is held to its
+  metaclass (an Actor class from `Engine.Texture` is None). A bool takes
+  `1`, `True`, `0` and `False` alone, an int the number its text starts
+  with, `+` too, where the original's import takes a bool's first token and
+  an int from a `-` or a digit alone (bugs.md VM.21). A float's text, a
+  vector's and `string()`'s too, is the original's `%f`, its runtime's:
+  every digit exact to six decimals, a tie rounding up, infinity `1.#INF00`
+  (`OpsConsole`: 813.1953125 as `813.195313`, 2 to the 70th whole, alike in
+  both engines).
 - **A `GotoState` from within `EndState` or `BeginState`**
   (`PreemptConsole`): preempts the one under way, as the original's
   `RF_InEndState` and `RF_StateChanged` have it: the actor stays where the
   inner one took it, the outer one's state and label forgotten, and
-  `EndState` is not sent again from within `EndState`.
+  `EndState` is not sent again from within `EndState`; one to no state, or
+  to a state the class has not, preempts it too, where the original's lets
+  the outer one go on into its state (bugs.md VM.19).
 - **A None context** (`A.X` with `A` None; `NoneConsole`): the zero of
   `X`'s type, as the original's `execContext` zero-fills the result -- a
   `switch (A.Physics)` takes `case PHYS_None`, a struct copied through None
@@ -2373,22 +2383,12 @@ not deleted (the log says so).
 
 Differs (bugs.md VM.17): a variable as an operand or argument is read after
 the later arguments run, the original's as it is reached. Differs (bugs.md
-VM.19): a `GotoState` to no state, or to one the class has not, inside
-`EndState` preempts the outer one. Differs (bugs.md VM.20): a property a
-subclass names again is the base class's to `GetPropertyText`,
-`SetPropertyText` and `SET`. Differs (bugs.md VM.21): property text takes an
-enum from a number, an int from `+5` and a bool from a quoted or followed
-token, unlike the original's import. Differs (bugs.md VM.22): `bool(string)`
-reads a float, the original an int. Differs (bugs.md VM.23): `VSize`, `Dot`,
-`Lerp` and a rotator over a float in floats, the original's on the x87, a
-last bit apart. Differs (bugs.md VM.25): a string constant as UTF-8, classes
-matched by name, a name kept in each spelling. Differs (bugs.md PKG.21): an
-ini value's quotes are kept and its whitespace trimmed. Differs (bugs.md
-ENG.17): an exec function's parameters: with cheats on, `killall` and
-`augadd` do nothing and `behindview True` turns it off.
-
-Differs (bugs.md PKG.24): an ini made anew is written with LF line ends, the
-original's with CR LF.
+VM.22): `bool(string)` reads a float, the original an int. Differs (bugs.md
+VM.23): `VSize`, `Dot`, `Lerp` and a rotator over a float in floats, the
+original's on the x87, a last bit apart. Differs (bugs.md VM.25): a string
+constant as UTF-8, classes matched by name, a name kept in each spelling.
+Differs (bugs.md ENG.17): an exec function's parameters: with cheats on,
+`killall` and `augadd` do nothing and `behindview True` turns it off.
 
 ## The command line
 
@@ -2475,10 +2475,12 @@ A mod gets the original's loader and natives:
   ([textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#textures)).
 - **Its folders.** Its packages and maps are found by the `Paths` of its own
   ini (`--ini`), relative to `System` and written with backslashes as the
-  game's are, their folders and extensions in any case, as the original's
-  on Windows; so are the game folder's own `System` and `Maps` and the
+  game's are, their folders and extensions in any case, as the original's on
+  Windows, but not a map's name with a space after it, which Windows drops
+  (bugs.md PKG.20); so are the game folder's own `System` and `Maps` and the
   `SavePath` and `CachePath` folders, as a copy recased on Linux leaves them
-  ([a package's file](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)).
+  ([a package's
+  file](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)).
 - **Its text.** Differs by choice: the `.int` files are read from each
   folder of the paths, in their order, and from `System` after them when
   they do not name it, where the original reads them from `System` alone
@@ -2501,18 +2503,22 @@ A mod gets the original's loader and natives:
   element past its static array, of another type or of another struct is
   logged and skipped, as the original's loader skips it, the object loading
   on; a struct's static-array members are read every element, its native and
-  transient members passed over on disk, as the original's binary has them;
-  a script's Unicode string constant of more than one character loads on the
+  transient members passed over on disk, as the original's binary has them,
+  but a struct extending another written base first, the original's own
+  members first (bugs.md PKG.22), and a native or transient property's tag
+  loaded, where the original's loader refuses it (bugs.md PKG.23); a
+  script's Unicode string constant of more than one character loads on the
   Linux ports; an expression 1,024 deep loads (`DepthConsole`'s 100); a mesh
   whose faces run past its vertices or wedges loads, those faces passed
   over; a mesh DXEngine saves loads back; a palette short of 256 colours is
-  padded with black; a texture whose mip data is shorter than its size is
-  padded with black; a map whose surfaces or nodes point outside its arrays
-  -- a node's links, zones, surface, render bound, vertices and their
-  points, and its collision hull's list -- is refused with their numbers,
-  the vertex pool's entries no node names left alone, every map of the game
-  having thousands past its points (`MapWalkConsole`: every map of the game
-  loads); a fire texture's sparks and drops outside it are masked into it; a
+  padded with black; an uncompressed mip shorter than its size is padded
+  with black, a compressed one not, which GL and GL ES read past (bugs.md
+  REN.38); a map whose surfaces or nodes point outside its arrays -- a
+  node's links, zones, surface, render bound, vertices and their points, and
+  its collision hull's list -- is refused with their numbers, the vertex
+  pool's entries no node names left alone, every map of the game having
+  thousands past its points (`MapWalkConsole`: every map of the game loads);
+  a fire texture's sparks and drops outside it are masked into it; a
   scripted texture drawn from outside its source wraps, and one drawn with a
   size of 0 or a float that is no number draws nothing; an animation chain
   that never comes back ends at 2,048 textures; an import whose outers never
@@ -2587,33 +2593,37 @@ A mod gets the original's loader and natives:
   config, the default URL, the settings it reads again by hand -- the
   player's as it spawns one, the client's, the audio and render devices'
   (`IniConsole`). Those read by hand do the same: an empty float is 0, and
-  an empty texture or skin detail, an enum's byte in the original, keeps
-  its default (`IniConsole`: the player's `MouseSensitivity`, `Bob`,
+  an empty texture or skin detail, an enum's byte in the original, keeps its
+  default (`IniConsole`: the player's `MouseSensitivity`, `Bob`,
   `DodgeClickTime`, `Handedness` and `MouseSmoothThreshold` given empty, 0
   in both engines). An ini or a `.int` file is read as the original's
   `appLoadFileToString` reads it, UTF-16 after a byte-order mark and else a
   byte a character, and an ini written back is written as its
   `appSaveStringToFile` writes one, UTF-16 after `FF FE` when a character in
-  it is past Latin-1 and else a byte a character ([the configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration);
+  it is past Latin-1 and else a byte a character ([the
+  configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration);
   `ConfigConsole`: a config string of U+03A9, U+2122 and e acute written by
   each engine as UTF-16 and read back whole by each; `LocalizeConsole`: a
   UTF-16 `.int` of a mod's folder, U+03A9, U+2122 and e acute, and a Latin-1
   one's e acute, whole). A script's console command takes its text so too,
   16-bit (`OpsConsole`: `set` of U+03A9, U+2122, a, alike in both). An ini
-  written back, at a clean exit, has a changed value changed
-  in its own line, a key new to a section added after the section's last
-  key, a section new to the file at its end, and the rest of the file as it
-  was, a CR LF file's line endings with it, by choice, so a player's or a
-  mod's comments and layout stay; a file not there yet is written whole. The
-  original rewrites each file whole, CR LF, comments gone (`ConfigConsole`:
-  a class's own `DXCapConfig.ini`, CR LF or not there, read and written back
-  alike). `StaticSaveConfig` from an object writes the class's defaults, as
-  from the class (`ConfigConsole`). A config value of any type is read and
-  written as the original's import and export have it (a property's text,
-  above): a struct's members, a class or an object as `Type'Path'`, a
-  dynamic array one line of its name per element, a bool's four words alone,
-  an int as far as it is a number (`ConfigConsole`: a vector, a class and
-  two strings written and read back).
+  written back, at a clean exit, has a changed value changed in its own
+  line, a key new to a section added after the section's last key, a section
+  new to the file at its end, and the rest of the file as it was, a CR LF
+  file's line endings with it, by choice, so a player's or a mod's comments
+  and layout stay; a file not there yet is written whole, with LF line ends,
+  where the original's are CR LF (bugs.md PKG.24). The original rewrites
+  each file whole, CR LF, comments gone (`ConfigConsole`: a class's own
+  `DXCapConfig.ini`, CR LF, read and written back alike). `StaticSaveConfig`
+  from an object writes the class's defaults, as from the class
+  (`ConfigConsole`). A config value of any type is read and written as the
+  original's import and export have it (a property's text, above): a
+  struct's members, a class or an object as `Type'Path'`, a dynamic array
+  one line of its name per element, a bool's four words alone, an int as far
+  as it is a number (`ConfigConsole`: a vector, a class and two strings
+  written and read back), but for the import's departures (bugs.md VM.21)
+  and the reader's: a value's quotes kept, a key's and a value's white space
+  trimmed (bugs.md PKG.21).
 - **The natives no stock script calls** (`ModConsole`): `ResetConfig`, a
   System or User class's section copied from `Default.ini` or `DefUser.ini`
   and its config read again into the class, its subclasses and their
