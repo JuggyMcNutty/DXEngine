@@ -1252,8 +1252,18 @@ from the original's code:
   DXEngine's alone; with no grab the game gets it).
   `IsKeyDown` reads those marks. Typed text reaches the console and the
   windows a character at a time, as the original's comes (a `WM_CHAR`
-  each), one past ASCII by its Latin-1 code: `TypeConsole`'s edit field
-  takes "Café", "ñü" and "ab" typed whole (`type.txt`, DXEngine's alone).
+  each), a 16-bit character, one past 16 bits as its surrogate pair, the
+  console's `KeyType` first with its low byte and, should the console
+  leave it, the root window's focus window with the whole of it
+  (`TypeConsole` with `type.txt`: "Café", "ñü", U+0100 and U+20AC typed
+  whole into an edit field, 256 and 8364 in both engines, the original's
+  typed by `xdotool`; U+1F600 two characters). The text windows, the
+  canvas, the GC, a computer's screen, a list's cells and a scripted
+  texture take and draw text as 16-bit characters, a font's glyph found on
+  its page; one past every page is drawn as nothing and takes no room
+  (`TileConsole`: U+0100 and U+03A9 of `FontMenuHeaders` 0 wide on the
+  canvas and in a window, `A`, U+0100, `A` as wide as two A's, in both
+  engines).
   `LootConsole` searches two carcasses alike in both engines; the keys and
   the drags between the searches (`loot-drags.txt`) are a timeline's, so
   DXEngine's alone, as are `ScrollConsole`'s clicks, drags and wheel
@@ -1399,18 +1409,6 @@ undrawn in both, and drawn solid with `Solid`).
 
 Differs:
 
-- **A typed character** goes on as a 16-bit character, one past 16 bits as
-  its surrogate pair, the console's `KeyType` first with its low byte and,
-  should the console leave it, the root window's focus window with the
-  whole of it, as the original's (`TypeConsole`: U+0100 and U+20AC typed
-  into an edit field, 256 and 8364 in both engines, the original's typed
-  by `xdotool`; U+1F600 two characters). The text windows, the canvas, the
-  GC, a computer's screen, a list's cells and a scripted texture take and
-  draw text as 16-bit characters, a font's glyph found on its page; one past
-  every page is drawn as nothing and takes no room, as the original's
-  (`TileConsole`: U+0100 and U+03A9 of `FontMenuHeaders` 0 wide on the
-  canvas and in a window, `A`, U+0100, `A` as wide as two A's, in both
-  engines).
 - **Keys held as the window loses the keyboard** are forgotten, by choice,
   so an Alt held into Alt+Tab does not stick: the original's root keeps
   their marks, its window resetting only the engine's input (read from both
@@ -1638,7 +1636,10 @@ Every other native the scripted runs compare matches the original
   level's list at each step, so an actor spawned in reach during the loop's
   body is reached and one destroyed passed over, in the level's order, and
   `ChildActors` gives every actor whose owner chain reaches the caller, the
-  caller among them (`WalkConsole`). A line or a box started inside an
+  caller among them (`WalkConsole`). Differs (bugs.md VM.16):
+  `VisibleActors(None, 300)` round the menu map's first `PlayerStart` finds
+  one actor where the original's finds none (`OpsConsole`), its cause not
+  yet read. A line or a box started inside an
   actor's cylinder, heading in, stops at its start, its normal level, out
   from the axis
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces);

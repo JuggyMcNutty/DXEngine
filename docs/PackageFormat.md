@@ -9,6 +9,7 @@ All types are little endian.
 - `uint64` unsigned 64-bit integer
 - `index` 32-bit integer encoded as described below
 - `name` 8-bit text string encoded as described below
+- `string` a script's text string, 8-bit or 16-bit, encoded as described below
 
 ### Index Data Type
 A compressed 32 bit integer. Uses the two high bits of the first byte to indicate if it's a negative
@@ -63,6 +64,14 @@ std::string ReadString()
 	}
 }
 ```
+
+### String Data Type
+A string property's value, as the original's `FString` saves it (Core.dll `0x101459b0`). In a
+package of version under 64 it is zero terminated, a byte a character, as a name. From 64 it is
+an `index` count of characters, its terminator among them, then the characters: a byte each
+when the count is positive, a `uint16` each (UTF-16) when it is negative. A string of the
+terminator alone is empty. Written 16-bit when any character before the terminator is past
+0xFF, else 8-bit (`ObjectStream::ReadScriptString`, `PackageStreamWriter::WriteScriptString`).
 
 ## File Header
 ```
@@ -311,7 +320,7 @@ data follows the header:
 - UPT_Struct: `header.structName` is the struct name of the data that follows
 - UPT_Vector: `float x,y,z` follows
 - UPT_Rotator: `uint32 pitch,yaw,roll` follows
-- UPT_Str: `name` follows
+- UPT_Str: `string` follows
 - UPT_Map: `header.size` bytes follows
 - UPT_FixedArray: `header.size` bytes follows
 

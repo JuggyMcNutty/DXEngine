@@ -5,7 +5,7 @@
 // the desktop's own). DXEngine's X11 window once asked the selection for no
 // data and waited for the rest for ever, hanging the game on a paste
 // (bugs.md E16b.11). The text's characters are logged by their codes too, the
-// log being 8-bit. Each line starts "DXPASTE:".
+// original's log being 8-bit. Each line starts "DXPASTE:".
 //=============================================================================
 class PasteConsole extends Console;
 
