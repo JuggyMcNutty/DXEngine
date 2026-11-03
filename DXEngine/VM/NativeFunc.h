@@ -26,17 +26,17 @@ public:
 void RegisterLatentAction(int nativeIndex, LatentRunState latentAction);
 
 // A native's argument from its value. A script's string is 16-bit
-// (ScriptString), and a native that still takes 8-bit text gets a copy: by
-// value or const reference the text, Latin-1, and by reference a copy that
+// (ScriptString), and a native that takes the engine's own text gets it as
+// UTF-8: by value or const reference a copy, and by reference a copy that
 // goes back into the value once the call is done, the temporary lasting the
 // call's whole expression.
 class NativeStringRef
 {
 public:
-	NativeStringRef(ExpressionValue& value) : Target(&value.ToType<ScriptString&>()), Text(ScriptToLatin1(*Target)) {}
+	NativeStringRef(ExpressionValue& value) : Target(&value.ToType<ScriptString&>()), Text(ScriptToUTF8(*Target)) {}
 	NativeStringRef(const NativeStringRef&) = delete;
 	NativeStringRef& operator=(const NativeStringRef&) = delete;
-	~NativeStringRef() { *Target = Latin1ToScript(Text); }
+	~NativeStringRef() { *Target = UTF8ToScript(Text); }
 	operator std::string&() { return Text; }
 
 private:

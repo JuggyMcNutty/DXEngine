@@ -4,8 +4,10 @@
 #include <string_view>
 
 // A script's string: 16-bit characters, as the original's are (its build is
-// Unicode, each TCHAR a UTF-16 code unit: core-dll.md, strings). Names, paths,
-// logs, ini text and the engine's own text stay 8-bit, converted at the edges.
+// Unicode, each TCHAR a UTF-16 code unit: core-dll.md, strings). The engine's
+// own text -- paths, logs, ini and property text, URLs -- is UTF-8, converted
+// at the edges; names, and the bytes of packages, saves and the network, are
+// a byte a character (Latin-1).
 using ScriptString = std::u16string;
 
 // Each byte a character, as the original widens 8-bit text.

@@ -6,7 +6,8 @@
 // first by its absolute path, the second by one relative to the game's
 // System folder. Logged: Localize of a key the game's DeusEx.int and the
 // first folder's both give, of one only the game's gives, of a package
-// whose .int is only in either folder, and of one with no .int at all; this
+// whose .int is only in either folder, and of one with no .int at all, and
+// by their characters' codes of a UTF-16 .int's and a Latin-1 one's; this
 // class's localized Greeting, which only the first folder's DXCapture.int
 // gives; the objects the folders' .int files register for this class, and
 // the render devices the game's register (docs/DEVELOPMENT.md, scripted
@@ -39,6 +40,19 @@ function LogRegistry(string MetaClass)
 	Log("DXLOC: " $ MetaClass $ ", " $ i $ " registered");
 }
 
+// A key's text by its characters' codes, the log being 8-bit: a UTF-16 .int
+// and a Latin-1 one
+function LogCodes(string Section, string Key, string Package)
+{
+	local string T, R;
+	local int i;
+
+	T = Localize(Section, Key, Package);
+	for (i = 0; i < Len(T); i++)
+		R = R $ " " $ Asc(Mid(T, i, 1));
+	Log("DXLOC: " $ Package $ "." $ Section $ "." $ Key $ " codes" $ R);
+}
+
 event Tick(float Delta)
 {
 	Super.Tick(Delta);
@@ -53,6 +67,8 @@ event Tick(float Delta)
 	LogLocalized("Strings", "Hello", "DXCapFirst");
 	LogLocalized("Strings", "Hello", "DXCapSecond");
 	LogLocalized("Strings", "Hello", "DXCapNone");
+	LogCodes("Strings", "Hello", "DXCapWide");
+	LogCodes("Strings", "Hello", "DXCapLatin");
 	Log("DXLOC: Greeting '" $ Greeting $ "'");
 	LogRegistry("DXCapture.LocalizeConsole");
 	LogRegistry("Engine.RenderDevice");

@@ -2493,7 +2493,17 @@ A mod gets the original's loader and natives:
   an empty texture or skin detail, an enum's byte in the original, keeps
   its default (`IniConsole`: the player's `MouseSensitivity`, `Bob`,
   `DodgeClickTime`, `Handedness` and `MouseSmoothThreshold` given empty, 0
-  in both engines). An ini written back, at a clean exit, has a changed value changed
+  in both engines). An ini or a `.int` file is read as the original's
+  `appLoadFileToString` reads it, UTF-16 after a byte-order mark and else a
+  byte a character, and an ini written back is written as its
+  `appSaveStringToFile` writes one, UTF-16 after `FF FE` when a character in
+  it is past Latin-1 and else a byte a character ([the configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration);
+  `ConfigConsole`: a config string of U+03A9, U+2122 and e acute written by
+  each engine as UTF-16 and read back whole by each; `LocalizeConsole`: a
+  UTF-16 `.int` of a mod's folder, U+03A9, U+2122 and e acute, and a Latin-1
+  one's e acute, whole). A script's console command takes its text so too,
+  16-bit (`OpsConsole`: `set` of U+03A9, U+2122, a, alike in both). An ini
+  written back, at a clean exit, has a changed value changed
   in its own line, a key new to a section added after the section's last
   key, a section new to the file at its end, and the rest of the file as it
   was, a CR LF file's line endings with it, by choice, so a player's or a

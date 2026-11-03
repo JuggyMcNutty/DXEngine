@@ -49,7 +49,7 @@ void UStrProperty::SaveValue(void* data, PackageStreamWriter* stream)
 
 void UStrProperty::SetValueFromString(void* data, const std::string& valueString)
 {
-	*(ScriptString*)data = Latin1ToScript(valueString);
+	*(ScriptString*)data = UTF8ToScript(valueString);
 }
 
 // A struct member's or an array element's text, as the original's delimited
@@ -66,7 +66,7 @@ void UStrProperty::SetDelimitedValueFromString(void* data, const std::string& va
 	}
 	if (valueString[p] == '"')
 	{
-		*(ScriptString*)data = Latin1ToScript(Unquote(valueString));
+		*(ScriptString*)data = UTF8ToScript(Unquote(valueString));
 		return;
 	}
 	size_t q = p;
@@ -74,12 +74,12 @@ void UStrProperty::SetDelimitedValueFromString(void* data, const std::string& va
 		q++;
 	if (q == p)
 		q = p + 1;
-	*(ScriptString*)data = Latin1ToScript(valueString.substr(p, q - p));
+	*(ScriptString*)data = UTF8ToScript(valueString.substr(p, q - p));
 }
 
 std::string UStrProperty::PrintValue(const void* data)
 {
-	return '"' + ScriptToLatin1(*(const ScriptString*)data) + '"';
+	return '"' + ScriptToUTF8(*(const ScriptString*)data) + '"';
 }
 
 bool UStrProperty::IsDefaultValue(void* val)

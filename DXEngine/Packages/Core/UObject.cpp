@@ -275,7 +275,7 @@ std::string UObject::ExportPropertyText(UProperty* prop)
 {
 	void* data = PropertyData.Ptr(prop);
 	if (UObject::TryCast<UStrProperty>(prop) || UObject::TryCast<UStringProperty>(prop))
-		return ScriptToLatin1(*static_cast<ScriptString*>(data));
+		return ScriptToUTF8(*static_cast<ScriptString*>(data));
 	if (UObject::TryCast<UObjectProperty>(prop))
 	{
 		UObject* value = *static_cast<UObject**>(data);

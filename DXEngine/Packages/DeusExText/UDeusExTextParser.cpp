@@ -95,7 +95,7 @@ bool UDXTextParser::ProcessText()
 	if (!textObject || TextPos() < 0)
 		return false;
 
-	const std::string text = ScriptToLatin1(textObject->Text());
+	const std::string text = ScriptToUTF8(textObject->Text());
 	size_t len = text.size();
 	size_t pos = (size_t)TextPos();
 	if (pos >= len)
@@ -133,7 +133,7 @@ bool UDXTextParser::ProcessText()
 		}
 	}
 
-	LastText() = Latin1ToScript(value);
+	LastText() = UTF8ToScript(value);
 	TextPos() = (int)pos;
 	return true;
 }
@@ -181,9 +181,9 @@ std::string UDXTextParser::ParseTag(const std::string& text, size_t& pos, DeusEx
 		FindEndTag(text, pos, DeusExTextTags::TT_EndComment, tag);
 		break;
 	case DeusExTextTags::TT_PlayerName:
-		return ScriptToLatin1(PlayerName());
+		return ScriptToUTF8(PlayerName());
 	case DeusExTextTags::TT_PlayerFirstName:
-		return ScriptToLatin1(PlayerFirstName());
+		return ScriptToUTF8(PlayerFirstName());
 	case DeusExTextTags::TT_DefaultColor:
 		DefaultColor() = ParseColor(fields);
 		LastColor() = DefaultColor();
@@ -242,8 +242,8 @@ void UDXTextParser::ParseFile(const std::string& fields)
 {
 	// FILE=name,description; the last ones read stay, whatever the token.
 	Array<std::string> f = ParseFields(fields);
-	LastFileName() = f.size() > 0 ? Latin1ToScript(f[0]) : ScriptString();
-	LastFileDescription() = f.size() > 1 ? Latin1ToScript(f[1]) : ScriptString();
+	LastFileName() = f.size() > 0 ? UTF8ToScript(f[0]) : ScriptString();
+	LastFileDescription() = f.size() > 1 ? UTF8ToScript(f[1]) : ScriptString();
 }
 
 void UDXTextParser::ParseEmail(const std::string& fields)
@@ -251,11 +251,11 @@ void UDXTextParser::ParseEmail(const std::string& fields)
 	// EMAIL=name,subject,from,to,cc; the last ones read stay, whatever the
 	// token.
 	Array<std::string> f = ParseFields(fields);
-	LastEmailName() = f.size() > 0 ? Latin1ToScript(f[0]) : ScriptString();
-	LastEmailSubject() = f.size() > 1 ? Latin1ToScript(f[1]) : ScriptString();
-	LastEmailFrom() = f.size() > 2 ? Latin1ToScript(f[2]) : ScriptString();
-	LastEmailTo() = f.size() > 3 ? Latin1ToScript(f[3]) : ScriptString();
-	LastEmailCC() = f.size() > 4 ? Latin1ToScript(f[4]) : ScriptString();
+	LastEmailName() = f.size() > 0 ? UTF8ToScript(f[0]) : ScriptString();
+	LastEmailSubject() = f.size() > 1 ? UTF8ToScript(f[1]) : ScriptString();
+	LastEmailFrom() = f.size() > 2 ? UTF8ToScript(f[2]) : ScriptString();
+	LastEmailTo() = f.size() > 3 ? UTF8ToScript(f[3]) : ScriptString();
+	LastEmailCC() = f.size() > 4 ? UTF8ToScript(f[4]) : ScriptString();
 }
 
 Color UDXTextParser::ParseColor(const std::string& fields)
@@ -279,7 +279,7 @@ bool UDXTextParser::IsEOF()
 
 std::string UDXTextParser::GetText()
 {
-	return ScriptToLatin1(LastText());
+	return ScriptToUTF8(LastText());
 }
 
 void UDXTextParser::GotoLabel(const std::string& label)
@@ -316,23 +316,23 @@ Color UDXTextParser::GetColor()
 void UDXTextParser::GetEmailInfo(std::string& name, std::string& subject, std::string& from, std::string& to, std::string& cc)
 {
 	// The last ones read, whatever the token, as the original's.
-	name = ScriptToLatin1(LastEmailName());
-	subject = ScriptToLatin1(LastEmailSubject());
-	from = ScriptToLatin1(LastEmailFrom());
-	to = ScriptToLatin1(LastEmailTo());
-	cc = ScriptToLatin1(LastEmailCC());
+	name = ScriptToUTF8(LastEmailName());
+	subject = ScriptToUTF8(LastEmailSubject());
+	from = ScriptToUTF8(LastEmailFrom());
+	to = ScriptToUTF8(LastEmailTo());
+	cc = ScriptToUTF8(LastEmailCC());
 }
 
 void UDXTextParser::GetFileInfo(std::string& fileName, std::string& fileDescription)
 {
-	fileName = ScriptToLatin1(LastFileName());
-	fileDescription = ScriptToLatin1(LastFileDescription());
+	fileName = ScriptToUTF8(LastFileName());
+	fileDescription = ScriptToUTF8(LastFileDescription());
 }
 
 void UDXTextParser::SetPlayerName(const std::string& newPlayerName)
 {
-	PlayerName() = Latin1ToScript(newPlayerName);
-	PlayerFirstName() = Latin1ToScript(newPlayerName.substr(0, newPlayerName.find(' ')));
+	PlayerName() = UTF8ToScript(newPlayerName);
+	PlayerFirstName() = UTF8ToScript(newPlayerName.substr(0, newPlayerName.find(' ')));
 }
 
 void UDXTextParser::Mark(GCMarker& marker)

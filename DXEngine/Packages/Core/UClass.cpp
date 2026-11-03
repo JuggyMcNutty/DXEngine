@@ -224,7 +224,7 @@ void UClass::LoadProperties(PropertyDataBlock* propertyBlock)
 						}
 					}
 					else if (UObject::IsType<UStringProperty>(prop))
-						*static_cast<ScriptString*>(ptr) = Latin1ToScript(value);
+						*static_cast<ScriptString*>(ptr) = UTF8ToScript(value);
 					else
 						prop->SetValueFromString(ptr, value);
 				}
@@ -241,7 +241,7 @@ void UClass::LoadProperties(PropertyDataBlock* propertyBlock)
 static std::string ConfigText(UProperty* prop, void* ptr)
 {
 	if (UObject::IsType<UStrProperty>(prop) || UObject::IsType<UStringProperty>(prop))
-		return ScriptToLatin1(*static_cast<ScriptString*>(ptr));
+		return ScriptToUTF8(*static_cast<ScriptString*>(ptr));
 	return prop->PrintValue(ptr);
 }
 

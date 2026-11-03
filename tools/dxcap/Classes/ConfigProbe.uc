@@ -11,3 +11,5 @@ var config int Runs;
 var config vector Spot;
 var config class<Actor> Kind;
 var config string Words[2];
+// A string past Latin-1, which the original's file write makes UTF-16
+var config string Wide;

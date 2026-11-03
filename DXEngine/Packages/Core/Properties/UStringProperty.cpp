@@ -34,12 +34,12 @@ void UStringProperty::SaveValue(void* data, PackageStreamWriter* stream)
 
 void UStringProperty::SetValueFromString(void* data, const std::string& valueString)
 {
-	*(ScriptString*)data = Latin1ToScript(valueString);
+	*(ScriptString*)data = UTF8ToScript(valueString);
 }
 
 std::string UStringProperty::PrintValue(const void* data)
 {
-	return '"' + ScriptToLatin1(*(const ScriptString*)data) + '"';
+	return '"' + ScriptToUTF8(*(const ScriptString*)data) + '"';
 }
 
 bool UStringProperty::IsDefaultValue(void* val)

@@ -29,6 +29,7 @@ var config bool ListRadius;
 var float RunTime;
 var float TieValue;
 var int Phase;
+var string WideSet;
 var bool bCanvasDone;
 
 function IntOps()
@@ -118,6 +119,9 @@ function WideOps()
 	Log("DXOPS: wide Caps " $ Codes(Caps(Chr(233) $ "a" $ Chr(257) $ Chr(945))));
 	Log("DXOPS: wide ~= " $ (Chr(257) ~= Chr(256)) $ " " $ (("A" $ Chr(256)) ~= ("a" $ Chr(256))) $ ", < " $ (Chr(255) < Chr(256)) $ " " $ (Chr(256) < Chr(255)) $ ", == " $ (Chr(256) == Chr(256)));
 	Log("DXOPS: wide literal " $ Codes("été"));
+	// A console command's text past Latin-1: set writes the property from it
+	ConsoleCommand("set DXCapture.OpsConsole WideSet " $ Chr(937) $ Chr(8482) $ "a");
+	Log("DXOPS: wide set " $ Codes(WideSet) $ ", the default " $ Codes(default.WideSet));
 }
 
 function SwitchOps()

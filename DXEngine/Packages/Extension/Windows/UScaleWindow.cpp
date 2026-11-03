@@ -323,7 +323,7 @@ void UScaleWindow::GetValues(float& outFromValue, float& outToValue)
 
 void UScaleWindow::SetValueFormat(const std::string& newFmt)
 {
-	valueFmt() = Latin1ToScript(newFmt);
+	valueFmt() = UTF8ToScript(newFmt);
 	ChangeScalePosition(true);
 }
 
@@ -334,7 +334,7 @@ std::string UScaleWindow::GetValueString()
 	int pos = currentPos();
 	if (pos >= 0 && (size_t)pos < enumStrings.size() && !enumStrings[pos].empty())
 		return enumStrings[pos];
-	return FormatScriptFloat(ScriptToLatin1(valueFmt()), GetValue());
+	return FormatScriptFloat(ScriptToUTF8(valueFmt()), GetValue());
 }
 
 // The original's (XScaleWindow::SetEnumeration 0x1003e580): ticks 0 to 511

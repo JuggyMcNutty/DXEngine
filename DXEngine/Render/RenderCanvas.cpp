@@ -600,10 +600,10 @@ void RenderSubsystem::DrawTimedemoStats()
 	if (ShowRenderStats)
 	{
 		Array<ScriptString> lines;
-		lines.push_back(Latin1ToScript(std::to_string(Canvas.fps) + " FPS"));
-		lines.push_back(Latin1ToScript(std::to_string(engine->Level->Actors.size()) + " actors"));
-		lines.push_back(Latin1ToScript(std::to_string(GC::GetStats().numObjects) + " GC objects"));
-		lines.push_back(Latin1ToScript(std::to_string(GC::GetStats().memoryUsage / (1024 * 1024)) + " mb memory used"));
+		lines.push_back(UTF8ToScript(std::to_string(Canvas.fps) + " FPS"));
+		lines.push_back(UTF8ToScript(std::to_string(engine->Level->Actors.size()) + " actors"));
+		lines.push_back(UTF8ToScript(std::to_string(GC::GetStats().numObjects) + " GC objects"));
+		lines.push_back(UTF8ToScript(std::to_string(GC::GetStats().memoryUsage / (1024 * 1024)) + " mb memory used"));
 
 		UFont* font = engine->canvas->MedFont();
 		if (font)

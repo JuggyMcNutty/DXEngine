@@ -37,11 +37,11 @@ public:
 	uint8_t GetStyle();
 	void GetTextColor(Color& TextColor);
 	void GetTextExtent(float destWidth, float& xExtent, float& yExtent, const ScriptString& textStr);
-	// The engine's own 8-bit text, each byte a character
-	void DrawText(float DestX, float DestY, float destWidth, float destHeight, const std::string& textStr) { DrawText(DestX, DestY, destWidth, destHeight, Latin1ToScript(textStr)); }
-	void DrawTextBlock(float DestX, float DestY, float destWidth, float destHeight, const std::string& textStr, float blockY) { DrawTextBlock(DestX, DestY, destWidth, destHeight, Latin1ToScript(textStr), blockY); }
-	void DrawTextClipped(float ClipX, float ClipY, float clipWidth, float clipHeight, float x, float y, const std::string& textStr) { DrawTextClipped(ClipX, ClipY, clipWidth, clipHeight, x, y, Latin1ToScript(textStr)); }
-	void GetTextExtent(float destWidth, float& xExtent, float& yExtent, const std::string& textStr) { GetTextExtent(destWidth, xExtent, yExtent, Latin1ToScript(textStr)); }
+	// The engine's own text, UTF-8
+	void DrawText(float DestX, float DestY, float destWidth, float destHeight, const std::string& textStr) { DrawText(DestX, DestY, destWidth, destHeight, UTF8ToScript(textStr)); }
+	void DrawTextBlock(float DestX, float DestY, float destWidth, float destHeight, const std::string& textStr, float blockY) { DrawTextBlock(DestX, DestY, destWidth, destHeight, UTF8ToScript(textStr), blockY); }
+	void DrawTextClipped(float ClipX, float ClipY, float clipWidth, float clipHeight, float x, float y, const std::string& textStr) { DrawTextClipped(ClipX, ClipY, clipWidth, clipHeight, x, y, UTF8ToScript(textStr)); }
+	void GetTextExtent(float destWidth, float& xExtent, float& yExtent, const std::string& textStr) { GetTextExtent(destWidth, xExtent, yExtent, UTF8ToScript(textStr)); }
 	float GetTextVSpacing();
 	void GetTileColor(Color& tileColor);
 	uint8_t GetVerticalAlignment();

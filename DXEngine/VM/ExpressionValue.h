@@ -152,7 +152,7 @@ public:
 	UObject* ToObject() const;
 	const vec3& ToVector() const;
 	const Rotator& ToRotator() const;
-	// A string's text, 8-bit (Latin-1, a character past it '?'), or a name's
+	// A string's text as the engine's own, UTF-8, or a name's
 	std::string ToString() const;
 	// A string's 16-bit text, or a name's widened
 	ScriptString ToScriptString() const;
@@ -203,9 +203,9 @@ public:
 	static ExpressionValue VectorValue(vec3 value) { ExpressionValue v(ExpressionValueType::ValueVector); *v.PtrVector = value; return v; }
 	static ExpressionValue RotatorValue(Rotator value) { ExpressionValue v(ExpressionValueType::ValueRotator); *v.PtrRotator = value; return v; }
 	static ExpressionValue StringValue(ScriptString value) { ExpressionValue v(ExpressionValueType::ValueString); *v.PtrString = std::move(value); return v; }
-	// From 8-bit text, each byte a character
-	static ExpressionValue StringValue(const std::string& value) { return StringValue(Latin1ToScript(value)); }
-	static ExpressionValue StringValue(const char* value) { return StringValue(Latin1ToScript(value)); }
+	// From the engine's own text, UTF-8
+	static ExpressionValue StringValue(const std::string& value) { return StringValue(UTF8ToScript(value)); }
+	static ExpressionValue StringValue(const char* value) { return StringValue(UTF8ToScript(value)); }
 	static ExpressionValue NameValue(NameString value) { ExpressionValue v(ExpressionValueType::ValueName); *v.PtrName = value; return v; }
 	static ExpressionValue ColorValue(Color value) { ExpressionValue v(ExpressionValueType::ValueColor); *v.PtrColor = value; return v; }
 	static ExpressionValue CoordsValue(Coords value) { ExpressionValue v(ExpressionValueType::ValueCoords); *v.PtrCoords = value; return v; }
@@ -745,7 +745,7 @@ inline std::string ExpressionValue::ToString() const
 {
 	if (Type == ExpressionValueType::ValueString)
 	{
-		return ScriptToLatin1(*PtrString);
+		return ScriptToUTF8(*PtrString);
 	}
 	else if (Type == ExpressionValueType::ValueName)
 	{

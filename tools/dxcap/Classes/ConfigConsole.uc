@@ -3,7 +3,8 @@
 // read and written back: logs "DXCONFIG: Runs <n>" as the class was given
 // it (with its Spot, Kind and Words), saves n + 1 with a vector, a class and
 // two strings (StaticSaveConfig: the file as the original writes those
-// types, bugs.md E5a.18), then an exit, from the menu map. The
+// types, bugs.md E5a.18), and Wide, U+03A9, U+2122 and e acute (the file
+// written UTF-16), its codes as read logged, then an exit, from the menu map. The
 // engine writes the file as it exits: the game's System folder, or with
 // DXEngine's --userdir (DXCAP_USERDIR) that folder, which a read takes first.
 // Then the console itself, an object of a config class, sets its own
@@ -18,6 +19,17 @@ class ConfigConsole extends Console;
 var config int ObjectRuns;
 var float RunTime;
 var bool bDone;
+
+// Each character's code, the log being 8-bit
+function string Codes(string S)
+{
+	local string R;
+	local int i;
+
+	for (i = 0; i < Len(S); i++)
+		R = R $ " " $ Asc(Mid(S, i, 1));
+	return R;
+}
 
 event Tick(float Delta)
 {
@@ -34,6 +46,8 @@ event Tick(float Delta)
 	class'ConfigProbe'.default.Kind = class'Light';
 	class'ConfigProbe'.default.Words[0] = "two words";
 	class'ConfigProbe'.default.Words[1] = "";
+	Log("DXCONFIG: Wide codes" $ Codes(class'ConfigProbe'.default.Wide));
+	class'ConfigProbe'.default.Wide = Chr(937) $ Chr(8482) $ Chr(233);
 	class'ConfigProbe'.static.StaticSaveConfig();
 	Log("DXCONFIG: saved Runs " $ class'ConfigProbe'.default.Runs);
 	ObjectRuns = 1000;

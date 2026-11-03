@@ -127,7 +127,7 @@ void UScaleManagerWindow::StretchValueField(std::optional<bool> bNewStretch)
 void UScaleManagerWindow::ChangeValueField()
 {
 	if (valueField() && Scale())
-		valueField()->SetText(Latin1ToScript(Scale()->GetValueString()));
+		valueField()->SetText(UTF8ToScript(Scale()->GetValueString()));
 }
 
 // The original's (XScaleManagerWindow::AddToBoundingBox 0x10041e40): along

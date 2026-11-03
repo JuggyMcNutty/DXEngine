@@ -68,16 +68,10 @@ void NetBitWriter::WriteCompactIndex(int32_t value)
 	}
 }
 
+// The engine's own text, UTF-8, as a script's string goes
 void NetBitWriter::WriteString(const std::string& text)
 {
-	if (text.empty())
-	{
-		WriteCompactIndex(0);
-		return;
-	}
-	WriteCompactIndex((int32_t)text.size() + 1);
-	WriteBytes(text.data(), (int)text.size());
-	WriteByte(0);
+	WriteScriptString(UTF8ToScript(text));
 }
 
 void NetBitWriter::WriteScriptString(const ScriptString& text)
@@ -221,38 +215,10 @@ int32_t NetBitReader::ReadCompactIndex()
 	return (b0 & 0x80) ? (int32_t)(0u - value) : (int32_t)value;
 }
 
+// A string as the engine's own text, UTF-8
 std::string NetBitReader::ReadString()
 {
-	int32_t count = ReadCompactIndex();
-	if (Error || count == 0)
-		return {};
-	if (count < -1024 * 1024 || count > 1024 * 1024)
-	{
-		Error = true;
-		return {};
-	}
-	std::string text;
-	if (count > 0)
-	{
-		for (int32_t i = 0; i < count && !Error; i++)
-		{
-			char c = (char)ReadByte();
-			if (c)
-				text.push_back(c);
-		}
-	}
-	else
-	{
-		for (int32_t i = 0; i < -count && !Error; i++)
-		{
-			uint8_t lo = ReadByte();
-			uint8_t hi = ReadByte();
-			uint16_t c = lo | (hi << 8);
-			if (c)
-				text.push_back(c < 256 ? (char)c : '?');
-		}
-	}
-	return text;
+	return ScriptToUTF8(ReadScriptString());
 }
 
 ScriptString NetBitReader::ReadScriptString()

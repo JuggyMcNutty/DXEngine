@@ -94,7 +94,7 @@ void UListWindow::SetFieldByString(Item& item, int colIndex, const ScriptString&
 	if (col.type == ColTypeFloat || col.type == ColTypeTime)
 	{
 		cell.value = StringToFloat(fieldStr);
-		cell.text = Latin1ToScript(FieldConvertToString(col, cell.value));
+		cell.text = UTF8ToScript(FieldConvertToString(col, cell.value));
 	}
 	else
 	{
@@ -111,7 +111,7 @@ void UListWindow::SetFieldByValue(Item& item, int colIndex, float value)
 		item.cells.resize(columns.size());
 	const Column& col = columns[colIndex];
 	Cell& cell = item.cells[colIndex];
-	cell.text = Latin1ToScript(FieldConvertToString(col, value));
+	cell.text = UTF8ToScript(FieldConvertToString(col, value));
 	cell.value = (col.type == ColTypeFloat || col.type == ColTypeTime) ? value : 0.0f;
 }
 

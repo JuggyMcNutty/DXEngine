@@ -360,7 +360,8 @@ crlf() { sed 's/$/\r/' > "$1"; }
 # LocalizeConsole's two folders, made afresh, each with .int files of the
 # harness's own: build/dxcap/mods/first/System, with a DeusEx.int giving one
 # of the game's keys, a DXCapture.int giving the console's Greeting and
-# DXCapFirst.int; mods/second/System, with DXCapSecond.int; those two each
+# DXCapFirst.int; mods/second/System, with DXCapSecond.int, DXCapWide.int
+# (UTF-16) and DXCapLatin.int (Latin-1); DXCapFirst and DXCapSecond each
 # registering an object for the console and giving a text. Prints the paths
 # that name them first in an <engine>'s run, as a mod's ini names its
 # folders: the first by its absolute path, the second by one relative to
@@ -391,6 +392,11 @@ Object=(Name=DXCapSecond.Registered,Class=Class,MetaClass=DXCapture.LocalizeCons
 [Strings]
 Hello="the second folder's DXCapSecond.int"
 EOF
+    # DXCapWide.int as Notepad's "Unicode" saves one, UTF-16 with its
+    # byte-order mark, holding characters past Latin-1; DXCapLatin.int a byte
+    # a character, holding Latin-1's e acute
+    { printf '\xff\xfe'; printf '[Strings]\r\nHello="wide \xce\xa9\xe2\x84\xa2\xc3\xa9"\r\n' | iconv -f UTF-8 -t UTF-16LE; } > "$second/DXCapWide.int"
+    printf '[Strings]\r\nHello="caf\xe9"\r\n' > "$second/DXCapLatin.int"
     if [ "$engine" = original ]; then
         system="$CAP/game/System"
     else

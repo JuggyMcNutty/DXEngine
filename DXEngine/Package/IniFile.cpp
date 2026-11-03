@@ -19,6 +19,55 @@ static uint32_t HashIniString(const std::string& str)
 	return hash;
 }
 
+// A file's bytes as the engine's text, UTF-8, as the original's
+// appLoadFileToString reads them (Core.dll 0x101488c0): a file of even size
+// beginning FF FE UTF-16 little-endian, FE FF big-endian, the byte-order mark
+// dropped; any other a byte a character, Latin-1.
+static std::string ReadIniText(const std::string& filename)
+{
+	std::string bytes = File::read_all_text(filename);
+	bool le = bytes.size() >= 2 && bytes.size() % 2 == 0 && (uint8_t)bytes[0] == 0xFF && (uint8_t)bytes[1] == 0xFE;
+	bool be = bytes.size() >= 2 && bytes.size() % 2 == 0 && (uint8_t)bytes[0] == 0xFE && (uint8_t)bytes[1] == 0xFF;
+	ScriptString text;
+	if (le || be)
+	{
+		for (size_t i = 2; i + 1 < bytes.size(); i += 2)
+		{
+			uint8_t a = (uint8_t)bytes[i], b = (uint8_t)bytes[i + 1];
+			text.push_back(le ? (char16_t)(a | (b << 8)) : (char16_t)((a << 8) | b));
+		}
+	}
+	else
+	{
+		text = Latin1ToScript(bytes);
+	}
+	return ScriptToUTF8(text);
+}
+
+// The engine's text, UTF-8, as the original's appSaveStringToFile writes a
+// file (Core.dll 0x10148c40): a byte a character when every one is below
+// 0x100, else UTF-16 little-endian after the byte-order mark FF FE.
+static void WriteIniText(const std::string& filename, const std::string& utf8)
+{
+	ScriptString text = UTF8ToScript(utf8);
+	bool wide = false;
+	for (char16_t c : text)
+		wide = wide || c > 0xFF;
+	if (!wide)
+	{
+		File::write_all_text(filename, ScriptToLatin1(text));
+		return;
+	}
+	std::string bytes = "\xFF\xFE";
+	bytes.reserve(2 + text.size() * 2);
+	for (char16_t c : text)
+	{
+		bytes.push_back((char)(c & 0xFF));
+		bytes.push_back((char)(c >> 8));
+	}
+	File::write_all_text(filename, bytes);
+}
+
 IniFile::IniFile(const std::string& filename)
 {
 	// A file that is not there yet (an --ini or --userini named before its
@@ -30,7 +79,7 @@ IniFile::IniFile(const std::string& filename)
 		ini_file_path = filename;
 		return;
 	}
-	std::string text = File::read_all_text(filename);
+	std::string text = ReadIniText(filename);
 	size_t pos = 0;
 	std::string line;
 	std::string sectionName;
@@ -220,7 +269,7 @@ void IniFile::SaveTo(const std::string& filename)
 	}
 
 	// Overwrite whatever is there
-	File::write_all_text(filename, ini_text);
+	WriteIniText(filename, ini_text);
 
 	if (filename != ini_file_path)
 		ini_file_path = filename;
@@ -252,7 +301,19 @@ void IniFile::UpdateFile(const std::string& filename)
 		return;
 	}
 
-	auto lines = File::read_all_lines(filename);
+	Array<std::string> lines;
+	{
+		std::string text = ReadIniText(filename);
+		size_t start = 0;
+		while (start < text.size())
+		{
+			size_t end = text.find('\n', start);
+			if (end == std::string::npos)
+				end = text.size();
+			lines.push_back(text.substr(start, end - start));
+			start = end + 1;
+		}
+	}
 
 	// A file written on Windows -- the game's own -- ends its lines with CR
 	// LF: matched without the CR, and written back with it.
@@ -415,7 +476,7 @@ void IniFile::UpdateFile(const std::string& filename)
 		final_text += line;
 		final_text += crlf ? "\r\n" : "\n";
 	}
-	File::write_all_text(filename, final_text);
+	WriteIniText(filename, final_text);
 
 	if (filename != ini_file_path)
 		ini_file_path = filename;

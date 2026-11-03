@@ -241,17 +241,10 @@ void PackageStreamWriter::WriteIndex(int32_t v)
 	}
 }
 
+// The engine's own text, UTF-8, as a script's string is saved
 void PackageStreamWriter::WriteString(const std::string& v)
 {
-	if (GetVersion() >= 64)
-	{
-		WriteIndex((int)v.size() + 1);
-		WriteBytes(v.data(), (int)v.size() + 1);
-	}
-	else
-	{
-		WriteBytes(v.c_str(), (int)v.size() + 1);
-	}
+	WriteScriptString(UTF8ToScript(v));
 }
 
 void PackageStreamWriter::WriteScriptString(const ScriptString& v)

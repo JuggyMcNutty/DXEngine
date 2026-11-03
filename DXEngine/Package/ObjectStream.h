@@ -85,41 +85,11 @@ public:
 		return index;
 	}
 
+	// A string as the engine's own text, UTF-8: the script's string the file
+	// holds (ReadScriptString)
 	std::string ReadString()
 	{
-		if (GetVersion() >= 64)
-		{
-			int len = ReadIndex();
-			// A negative count is a string stored as UTF-16 (the original's
-			// FString of wide characters: a conversation's comments, a note
-			// typed past Latin-1): read as the engine's Latin-1, a character
-			// past it a '?'
-			if (len < 0)
-			{
-				if (len < -1024 * 1024)
-					Exception::Throw("ObjectStream::ReadString: Invalid size in " + package->GetPackageName().ToString());
-				std::string s;
-				for (int i = 0; i < -len; i++)
-				{
-					uint16_t c = ReadUInt16();
-					if (c == 0)
-						continue;
-					s.push_back(c < 256 ? (char)c : '?');
-				}
-				return s;
-			}
-			if (len > 1024 * 1024)
-				Exception::Throw("ObjectStream::ReadString: Invalid size in " + package->GetPackageName().ToString());
-			Array<char> s;
-			s.resize(len);
-			ReadBytes(s.data(), (int)s.size());
-			s.push_back(0);
-			return s.data();
-		}
-		else
-		{
-			return ReadAsciiZ();
-		}
+		return ScriptToUTF8(ReadScriptString());
 	}
 
 	// A script's string, as the original's FString loads (Core.dll
