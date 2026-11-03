@@ -15,7 +15,7 @@ public:
 	static void DrawIcon(UObject* Self, float DestX, float DestY, UObject* tX);
 	static void DrawPattern(UObject* Self, float DestX, float DestY, float destWidth, float destHeight, float OrgX, float OrgY, UObject* tX);
 	static void DrawStretchedTexture(UObject* Self, float DestX, float DestY, float destWidth, float destHeight, float srcX, float srcY, float srcWidth, float srcHeight, UObject* tX);
-	static void DrawText(UObject* Self, float DestX, float DestY, float destWidth, float destHeight, const std::string& textStr);
+	static void DrawText(UObject* Self, float DestX, float DestY, float destWidth, float destHeight, const ScriptString& textStr);
 	static void DrawTexture(UObject* Self, float DestX, float DestY, float destWidth, float destHeight, float srcX, float srcY, UObject* tX);
 	static void EnableDrawing(UObject* Self, bool bDrawEnabled);
 	static void EnableMasking(UObject* Self, bool bNewMasking);
@@ -31,7 +31,7 @@ public:
 	static void GetHorizontalAlignment(UObject* Self, uint8_t& ReturnValue);
 	static void GetStyle(UObject* Self, uint8_t& ReturnValue);
 	static void GetTextColor(UObject* Self, Color& TextColor);
-	static void GetTextExtent(UObject* Self, float destWidth, float& xExtent, float& yExtent, const std::string& textStr);
+	static void GetTextExtent(UObject* Self, float destWidth, float& xExtent, float& yExtent, const ScriptString& textStr);
 	static void GetTextVSpacing(UObject* Self, float& ReturnValue);
 	static void GetTileColor(UObject* Self, Color& tileColor);
 	static void GetVerticalAlignment(UObject* Self, uint8_t& ReturnValue);

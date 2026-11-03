@@ -13,10 +13,10 @@ public:
 	static void DrawActor(UObject* Self, UObject* A, bool WireFrame, std::optional<bool> ClearZ);
 	static void DrawClippedActor(UObject* Self, UObject* A, bool WireFrame, int X, int Y, int XB, int YB, std::optional<bool> ClearZ);
 	static void DrawPortal(UObject* Self, int X, int Y, int Width, int Height, UObject* CamActor, const vec3& CamLocation, const Rotator& CamRotation, std::optional<int> FOV, std::optional<bool> ClearZ);
-	static void DrawText(UObject* Self, const std::string& Text, std::optional<bool> CR);
-	static void DrawTextClipped(UObject* Self, const std::string& Text, std::optional<bool> bCheckHotKey);
+	static void DrawText(UObject* Self, const ScriptString& Text, std::optional<bool> CR);
+	static void DrawTextClipped(UObject* Self, const ScriptString& Text, std::optional<bool> bCheckHotKey);
 	static void DrawTile(UObject* Self, UObject* Tex, float XL, float YL, float U, float V, float UL, float VL);
 	static void DrawTileClipped(UObject* Self, UObject* Tex, float XL, float YL, float U, float V, float UL, float VL);
-	static void StrLen(UObject* Self, const std::string& String, float& XL, float& YL);
-	static void TextSize(UObject* Self, const std::string& String, float& XL, float& YL);
+	static void StrLen(UObject* Self, const ScriptString& String, float& XL, float& YL);
+	static void TextSize(UObject* Self, const ScriptString& String, float& XL, float& YL);
 };

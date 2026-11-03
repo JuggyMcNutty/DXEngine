@@ -45,7 +45,7 @@ void NCanvas::DrawPortal(UObject* Self, int X, int Y, int Width, int Height, UOb
 {
 }
 
-void NCanvas::DrawText(UObject* Self, const std::string& Text, std::optional<bool> CR)
+void NCanvas::DrawText(UObject* Self, const ScriptString& Text, std::optional<bool> CR)
 {
 	UCanvas* SelfCanvas = UObject::Cast<UCanvas>(Self);
 	float& orgX = SelfCanvas->OrgX();
@@ -94,7 +94,7 @@ void NCanvas::DrawText(UObject* Self, const std::string& Text, std::optional<boo
 	}
 }
 
-void NCanvas::DrawTextClipped(UObject* Self, const std::string& Text, std::optional<bool> bCheckHotKey)
+void NCanvas::DrawTextClipped(UObject* Self, const ScriptString& Text, std::optional<bool> bCheckHotKey)
 {
 	UCanvas* SelfCanvas = UObject::Cast<UCanvas>(Self);
 	float& orgX = SelfCanvas->OrgX();
@@ -210,7 +210,7 @@ void NCanvas::DrawTileClipped(UObject* Self, UObject* Tex, float XL, float YL, f
 	curYL = std::max(curYL, YL + spaceY);
 }
 
-void NCanvas::StrLen(UObject* Self, const std::string& String, float& XL, float& YL)
+void NCanvas::StrLen(UObject* Self, const ScriptString& String, float& XL, float& YL)
 {
 	UCanvas* SelfCanvas = UObject::Cast<UCanvas>(Self);
 	float& orgX = SelfCanvas->OrgX();
@@ -242,7 +242,7 @@ void NCanvas::StrLen(UObject* Self, const std::string& String, float& XL, float&
 	YL = curYL;
 }
 
-void NCanvas::TextSize(UObject* Self, const std::string& String, float& XL, float& YL)
+void NCanvas::TextSize(UObject* Self, const ScriptString& String, float& XL, float& YL)
 {
 	UCanvas* SelfCanvas = UObject::Cast<UCanvas>(Self);
 	UFont*& font = SelfCanvas->Font();

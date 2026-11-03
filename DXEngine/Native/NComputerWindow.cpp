@@ -106,7 +106,7 @@ void NComputerWindow::PlaySoundLater(UObject* Self, UObject* newsound)
 	window->PlaySoundLater(newsound);
 }
 
-void NComputerWindow::Print(UObject* Self, const std::string& printText, std::optional<bool> bNewLine)
+void NComputerWindow::Print(UObject* Self, const ScriptString& printText, std::optional<bool> bNewLine)
 {
 	UComputerWindow* window = UObject::Cast<UComputerWindow>(Self);
 	window->Print(printText, bNewLine);

@@ -22,7 +22,7 @@ namespace
 		~WindowTextGC() { if (gc) gc->RestoreTextSettings(saved); }
 	};
 
-	bool IsSpace(uint8_t c)
+	bool IsSpace(char16_t c)
 	{
 		return (c >= 9 && c <= 13) || c == ' ';
 	}
@@ -815,7 +815,7 @@ void UEditWindow::DispatchTextChanged(bool modified)
 const Array<UEditWindow::TextRow>& UEditWindow::Rows()
 {
 	float wrap = bWordWrap() ? Width() - (hMargin() + hMargin()) : 0.0f;
-	if (rowsMade && rowsText == ScriptToLatin1(Text()) && rowsWrap == wrap && rowsNormalFont == normalFont() && rowsBoldFont == boldFont() && rowsSpecialText == bSpecialText())
+	if (rowsMade && rowsText == Text() && rowsWrap == wrap && rowsNormalFont == normalFont() && rowsBoldFont == boldFont() && rowsSpecialText == bSpecialText())
 		return rows;
 
 	WindowTextGC g(this);
@@ -823,16 +823,16 @@ const Array<UEditWindow::TextRow>& UEditWindow::Rows()
 		return rows;
 
 	rows.clear();
-	// The rows are laid out over an 8-bit copy of the text, which the rows'
-	// places index until the edit window draws 16-bit characters
-	rowsText = ScriptToLatin1(Text());
-	const uint8_t* start = (const uint8_t*)rowsText.data();
-	const uint8_t* end = start + rowsText.size();
-	const uint8_t* text = start;
+	// The rows are laid out over a copy of the text, which the rows' places
+	// index
+	rowsText = Text();
+	const char16_t* start = rowsText.data();
+	const char16_t* end = start + rowsText.size();
+	const char16_t* text = start;
 	UGC::TextState state;
 	while (true)
 	{
-		const uint8_t* next = nullptr;
+		const char16_t* next = nullptr;
 		UGC::TextState nextState;
 		int length = 0;
 		float width = 0.0f;
@@ -897,15 +897,15 @@ float UEditWindow::RowLeft(float rowWidth)
 // (XGC::CharToPixel 0x10027fc0).
 float UEditWindow::CharToPixel(UGC* gc, const TextRow& row, int col)
 {
-	const uint8_t* start = (const uint8_t*)rowsText.data() + row.startPos;
-	const uint8_t* end = start + row.count;
-	const uint8_t* p = start;
+	const char16_t* start = rowsText.data() + row.startPos;
+	const char16_t* end = start + row.count;
+	const char16_t* p = start;
 	UGC::TextState state = row.state;
 	int index = 0;
 	float x = 0.0f;
 	while (true)
 	{
-		uint8_t ch = gc->GetNextChar(p, state, end);
+		char16_t ch = gc->GetNextChar(p, state, end);
 		if (ch == 0 || ch == '\n' || index >= col)
 			break;
 		index = (int)(p - start);
@@ -919,15 +919,15 @@ float UEditWindow::CharToPixel(UGC* gc, const TextRow& row, int col)
 // middle lies past it (XGC::PixelToChar 0x10028050).
 int UEditWindow::PixelToChar(UGC* gc, const TextRow& row, float x)
 {
-	const uint8_t* start = (const uint8_t*)rowsText.data() + row.startPos;
-	const uint8_t* end = start + row.count;
-	const uint8_t* p = start;
+	const char16_t* start = rowsText.data() + row.startPos;
+	const char16_t* end = start + row.count;
+	const char16_t* p = start;
 	UGC::TextState state = row.state;
 	int index = 0;
 	float pos = 0.0f;
 	do
 	{
-		uint8_t ch = gc->GetNextChar(p, state, end);
+		char16_t ch = gc->GetNextChar(p, state, end);
 		if (ch == 0 || ch == '\n')
 			break;
 		UFont* font = state.bold ? gc->boldFont() : gc->normalFont();
@@ -1045,13 +1045,13 @@ void UEditWindow::ComputeCursorConfig(bool bSetPrefCol)
 	Rows();
 	float charWidth = 8.0f;
 	float charHeight = lineHeight();
-	uint8_t ch = insertPos() >= 0 && insertPos() < (int)Text().size() ? (uint8_t)Text()[insertPos()] : 0;
+	char16_t ch = insertPos() >= 0 && insertPos() < (int)Text().size() ? Text()[insertPos()] : 0;
 	if (ch == 0 || IsSpace(ch))
 		ch = ' ';
 	{
 		WindowTextGC g(this);
 		if (g.gc)
-			g.gc->GetTextExtent(0.0f, charWidth, charHeight, std::string(1, (char)ch));
+			g.gc->GetTextExtent(0.0f, charWidth, charHeight, ScriptString(1, ch));
 	}
 
 	auto type = (EInsertionPointType)insertType();
@@ -1192,9 +1192,9 @@ void UEditWindow::SetCursorRow(int row, bool bDrag)
 // Back to the whitespace before a word (XEditWindow::StartOfWord 0x1001f300).
 int UEditWindow::StartOfWord(int pos)
 {
-	const std::string text = ScriptToLatin1(Text());
+	const ScriptString& text = Text();
 	int i = std::min(pos, (int)text.size()) - 1;
-	while (i >= 0 && !IsSpace((uint8_t)text[i]))
+	while (i >= 0 && !IsSpace(text[i]))
 		i--;
 	return i + 1;
 }
@@ -1202,9 +1202,9 @@ int UEditWindow::StartOfWord(int pos)
 // On to the whitespace after a word (XEditWindow::EndOfWord 0x1001f350).
 int UEditWindow::EndOfWord(int pos)
 {
-	const std::string text = ScriptToLatin1(Text());
+	const ScriptString& text = Text();
 	int i = std::max(pos, 0);
-	while (i < (int)text.size() && !IsSpace((uint8_t)text[i]))
+	while (i < (int)text.size() && !IsSpace(text[i]))
 		i++;
 	return i;
 }
@@ -1221,7 +1221,7 @@ int UEditWindow::NextWord(int pos)
 	if (row < 0 || row >= (int)r.size())
 		return 0;
 	const TextRow& line = r[row];
-	const std::string text = ScriptToLatin1(Text());
+	const ScriptString& text = Text();
 	int end = line.startPos + line.count;
 	if (pos >= end)
 		return line.startPos + line.totalCount;
@@ -1231,7 +1231,7 @@ int UEditWindow::NextWord(int pos)
 	{
 		if (i >= end)
 			return line.startPos + line.totalCount - 1;
-		if (IsSpace((uint8_t)text[i]))
+		if (IsSpace(text[i]))
 			sawSpace = true;
 		else if (sawSpace)
 			return i;
@@ -1253,12 +1253,12 @@ int UEditWindow::PrevWord(int pos)
 	int result = pos - 1;
 	if (pos != rowStart)
 	{
-		const std::string text = ScriptToLatin1(Text());
+		const ScriptString& text = Text();
 		bool sawWord = false;
 		int i = pos;
 		while (--i >= rowStart)
 		{
-			if (!IsSpace((uint8_t)text[i]))
+			if (!IsSpace(text[i]))
 				sawWord = true;
 			else if (sawWord)
 				break;
@@ -1273,14 +1273,14 @@ int UEditWindow::PrevWord(int pos)
 // while the pen is within [selectedFrom, selectedTo).
 void UEditWindow::DrawRow(UGC* gc, const TextRow& row, float x, float y, const Color& color, const Color& selectedColor, float selectedFrom, float selectedTo)
 {
-	const uint8_t* start = (const uint8_t*)rowsText.data() + row.startPos;
-	const uint8_t* end = start + row.count;
-	const uint8_t* p = start;
+	const char16_t* start = rowsText.data() + row.startPos;
+	const char16_t* end = start + row.count;
+	const char16_t* p = start;
 	UGC::TextState state = row.state;
 	while (true)
 	{
 		bool selected = x >= selectedFrom && x < selectedTo;
-		uint8_t ch = gc->GetNextChar(p, state, end);
+		char16_t ch = gc->GetNextChar(p, state, end);
 		if (ch == 0 || ch == '\n')
 			break;
 		UFont* font = state.bold ? gc->boldFont() : gc->normalFont();

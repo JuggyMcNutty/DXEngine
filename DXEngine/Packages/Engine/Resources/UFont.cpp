@@ -86,11 +86,15 @@ void UFont::Save(PackageStreamWriter* stream)
 	}
 }
 
-// The character is a byte: a char, signed on x86-64, sent a Latin-1 letter
-// past every page, and the canvas drew it as a space.
-FontGlyph UFont::GetGlyph(uint8_t c) const
+// A 16-bit character through the pages in turn; an 8-bit one in none, a to z
+// as A to Z, and else a space. One past 8 bits in none is nothing, no room
+// taken, as the original's canvas measures it (TileConsole: U+0100 and
+// U+03A9 of FontMenuHeaders 0 wide).
+FontGlyph UFont::GetGlyph(char16_t c) const
 {
 	FontGlyph glyph = FindGlyph(c);
+	if (glyph.USize == 0 && c > 0xFF)
+		return {};
 	if (glyph.USize == 0)
 	{
 		if (c >= 'a' && c <= 'z')
@@ -108,7 +112,7 @@ FontGlyph UFont::GetGlyph(uint8_t c) const
 // A character as Extension's GC finds it (XGC's glyph lookup, Extension.dll
 // 0x10026880): on page c / CharactersPerPage at c % CharactersPerPage, and
 // one not there has no size -- it draws nothing and takes no room.
-FontGlyph UFont::GetPageGlyph(uint8_t c) const
+FontGlyph UFont::GetPageGlyph(char16_t c) const
 {
 	if (charactersPerPage <= 0)
 		return {};
@@ -119,7 +123,7 @@ FontGlyph UFont::GetPageGlyph(uint8_t c) const
 	return { pages[page].Texture, pages[page].Characters[index] };
 }
 
-FontGlyph UFont::FindGlyph(uint8_t c) const
+FontGlyph UFont::FindGlyph(char16_t c) const
 {
 	size_t index = c;
 	for (auto& page : pages)

@@ -20,7 +20,7 @@ public:
 	bool IsPaused();
 	void Pause(std::optional<float> pauseLength);
 	void PlaySoundLater(UObject* newsound);
-	void Print(const std::string& printText, std::optional<bool> bNewLine);
+	void Print(const ScriptString& printText, std::optional<bool> bNewLine);
 	void PrintGraphic(UObject* Graphic, int Width, int Height, std::optional<int> posX, std::optional<int> posY, std::optional<bool> bStatic, std::optional<bool> bPixelPos);
 	void PrintLn();
 	void ResetThrottle();
@@ -106,13 +106,13 @@ private:
 	struct QueuedItem
 	{
 		ItemType Type = ItemType::Text;
-		char Char = 0;
+		char16_t Char = 0;
 		Color Colour = {};
 		float Time = 0.0f;
 	};
 	struct TypedChar
 	{
-		char Char = 0;
+		char16_t Char = 0;
 		int X = 0;
 		int Y = 0;
 		Color Colour = {};

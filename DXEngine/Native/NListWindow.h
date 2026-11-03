@@ -7,7 +7,7 @@ class NListWindow
 public:
 	static void RegisterFunctions();
 
-	static void AddRow(UObject* Self, const std::string& rowStr, std::optional<int> clientData, int& ReturnValue);
+	static void AddRow(UObject* Self, const ScriptString& rowStr, std::optional<int> clientData, int& ReturnValue);
 	static void AddSortColumn(UObject* Self, int colIndex, std::optional<bool> bReverse, std::optional<bool> bCaseSensitive);
 	static void DeleteAllRows(UObject* Self);
 	static void DeleteRow(UObject* Self, int rowId);
@@ -18,10 +18,10 @@ public:
 	static void GetColumnAlignment(UObject* Self, int colIndex, uint8_t& ReturnValue);
 	static void GetColumnColor(UObject* Self, int colIndex, Color& colColor);
 	static void GetColumnFont(UObject* Self, int colIndex, UObject*& ReturnValue);
-	static void GetColumnTitle(UObject* Self, int colIndex, std::string& ReturnValue);
+	static void GetColumnTitle(UObject* Self, int colIndex, ScriptString& ReturnValue);
 	static void GetColumnType(UObject* Self, int colIndex, uint8_t& ReturnValue);
 	static void GetColumnWidth(UObject* Self, int colIndex, float& ReturnValue);
-	static void GetField(UObject* Self, int rowId, int colIndex, std::string& ReturnValue);
+	static void GetField(UObject* Self, int rowId, int colIndex, ScriptString& ReturnValue);
 	static void GetFieldMargins(UObject* Self, float& marginWidth, float& marginHeight);
 	static void GetFieldValue(UObject* Self, int rowId, int colIndex, float& ReturnValue);
 	static void GetFocusRow(UObject* Self, int& ReturnValue);
@@ -39,7 +39,7 @@ public:
 	static void IsColumnHidden(UObject* Self, int colIndex, BitfieldBool& ReturnValue);
 	static void IsMultiSelectEnabled(UObject* Self, BitfieldBool& ReturnValue);
 	static void IsRowSelected(UObject* Self, int rowId, BitfieldBool& ReturnValue);
-	static void ModifyRow(UObject* Self, int rowId, const std::string& rowStr);
+	static void ModifyRow(UObject* Self, int rowId, const ScriptString& rowStr);
 	static void MoveRow(UObject* Self, uint8_t Move, std::optional<bool> bSelect, std::optional<bool> bClearRows, std::optional<bool> bDrag);
 	static void PlayListSound(UObject* Self, UObject* listSound, std::optional<float> Volume, std::optional<float> Pitch);
 	static void RemoveSortColumn(UObject* Self, int colIndex);
@@ -52,11 +52,11 @@ public:
 	static void SetColumnAlignment(UObject* Self, int colIndex, uint8_t newAlign);
 	static void SetColumnColor(UObject* Self, int colIndex, const Color& NewColor);
 	static void SetColumnFont(UObject* Self, int colIndex, UObject* NewFont);
-	static void SetColumnTitle(UObject* Self, int colIndex, const std::string& Title);
+	static void SetColumnTitle(UObject* Self, int colIndex, const ScriptString& Title);
 	static void SetColumnType(UObject* Self, int colIndex, uint8_t newType, std::optional<std::string> newFmt);
 	static void SetColumnWidth(UObject* Self, int colIndex, float newWidth);
-	static void SetDelimiter(UObject* Self, const std::string& newDelimiter);
-	static void SetField(UObject* Self, int rowId, int colIndex, const std::string& fieldStr);
+	static void SetDelimiter(UObject* Self, const ScriptString& newDelimiter);
+	static void SetField(UObject* Self, int rowId, int colIndex, const ScriptString& fieldStr);
 	static void SetFieldMargins(UObject* Self, float newMarginWidth, float newMarginHeight);
 	static void SetFieldValue(UObject* Self, int rowId, int colIndex, float NewValue);
 	static void SetFocusColor(UObject* Self, const Color& NewColor);

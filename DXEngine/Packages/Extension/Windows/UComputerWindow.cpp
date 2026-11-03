@@ -175,9 +175,9 @@ void UComputerWindow::EnableWordWrap(std::optional<bool> bNewWordWrap)
 
 // Each character queued a time step after the last (0x10011810), a ^ a
 // line break; then a line break unless bNewLine is False.
-void UComputerWindow::Print(const std::string& printText, std::optional<bool> bNewLine)
+void UComputerWindow::Print(const ScriptString& printText, std::optional<bool> bNewLine)
 {
-	for (char c : printText)
+	for (char16_t c : printText)
 	{
 		QueuedItem item;
 		item.Type = c == '^' ? ItemType::NewLine : ItemType::Text;
@@ -417,7 +417,7 @@ void UComputerWindow::DrawWindow(UGC* gc)
 				colour.B = (uint8_t)(colour.B * f);
 			}
 			gc->SetTextColor(colour);
-			gc->DrawText((float)(c.X * fontWidth()), (float)(c.Y * fontHeight()), (float)fontWidth(), (float)fontHeight(), std::string(1, c.Char));
+			gc->DrawText((float)(c.X * fontWidth()), (float)(c.Y * fontHeight()), (float)fontWidth(), (float)fontHeight(), ScriptString(1, c.Char));
 		}
 	}
 

@@ -76,7 +76,7 @@ void NListWindow::RegisterFunctions()
 	RegisterVMNativeFunc_1("ListWindow", "ToggleRowSelection", &NListWindow::ToggleRowSelection, 1745);
 }
 
-void NListWindow::AddRow(UObject* Self, const std::string& rowStr, std::optional<int> clientData, int& ReturnValue)
+void NListWindow::AddRow(UObject* Self, const ScriptString& rowStr, std::optional<int> clientData, int& ReturnValue)
 {
 	UListWindow* window = UObject::Cast<UListWindow>(Self);
 	ReturnValue = window->AddRow(rowStr, clientData);
@@ -142,7 +142,7 @@ void NListWindow::GetColumnFont(UObject* Self, int colIndex, UObject*& ReturnVal
 	ReturnValue = window->GetColumnFont(colIndex);
 }
 
-void NListWindow::GetColumnTitle(UObject* Self, int colIndex, std::string& ReturnValue)
+void NListWindow::GetColumnTitle(UObject* Self, int colIndex, ScriptString& ReturnValue)
 {
 	UListWindow* window = UObject::Cast<UListWindow>(Self);
 	ReturnValue = window->GetColumnTitle(colIndex);
@@ -160,7 +160,7 @@ void NListWindow::GetColumnWidth(UObject* Self, int colIndex, float& ReturnValue
 	ReturnValue = window->GetColumnWidth(colIndex);
 }
 
-void NListWindow::GetField(UObject* Self, int rowId, int colIndex, std::string& ReturnValue)
+void NListWindow::GetField(UObject* Self, int rowId, int colIndex, ScriptString& ReturnValue)
 {
 	UListWindow* window = UObject::Cast<UListWindow>(Self);
 	ReturnValue = window->GetField(rowId, colIndex);
@@ -268,7 +268,7 @@ void NListWindow::IsRowSelected(UObject* Self, int rowId, BitfieldBool& ReturnVa
 	ReturnValue = window->IsRowSelected(rowId);
 }
 
-void NListWindow::ModifyRow(UObject* Self, int rowId, const std::string& rowStr)
+void NListWindow::ModifyRow(UObject* Self, int rowId, const ScriptString& rowStr)
 {
 	UListWindow* window = UObject::Cast<UListWindow>(Self);
 	window->ModifyRow(rowId, rowStr);
@@ -346,7 +346,7 @@ void NListWindow::SetColumnFont(UObject* Self, int colIndex, UObject* NewFont)
 	window->SetColumnFont(colIndex, NewFont);
 }
 
-void NListWindow::SetColumnTitle(UObject* Self, int colIndex, const std::string& Title)
+void NListWindow::SetColumnTitle(UObject* Self, int colIndex, const ScriptString& Title)
 {
 	UListWindow* window = UObject::Cast<UListWindow>(Self);
 	window->SetColumnTitle(colIndex, Title);
@@ -364,13 +364,13 @@ void NListWindow::SetColumnWidth(UObject* Self, int colIndex, float newWidth)
 	window->SetColumnWidth(colIndex, newWidth);
 }
 
-void NListWindow::SetDelimiter(UObject* Self, const std::string& newDelimiter)
+void NListWindow::SetDelimiter(UObject* Self, const ScriptString& newDelimiter)
 {
 	UListWindow* window = UObject::Cast<UListWindow>(Self);
 	window->SetDelimiter(newDelimiter);
 }
 
-void NListWindow::SetField(UObject* Self, int rowId, int colIndex, const std::string& fieldStr)
+void NListWindow::SetField(UObject* Self, int rowId, int colIndex, const ScriptString& fieldStr)
 {
 	UListWindow* window = UObject::Cast<UListWindow>(Self);
 	window->SetField(rowId, colIndex, fieldStr);

@@ -8,7 +8,7 @@ public:
 	void Mark(GCMarker& marker) override;
 	using UWindow::UWindow;
 
-	int AddRow(const std::string& rowStr, std::optional<int> clientData);
+	int AddRow(const ScriptString& rowStr, std::optional<int> clientData);
 	void AddSortColumn(int colIndex, std::optional<bool> bReverse, std::optional<bool> bCaseSensitive);
 	void DeleteAllRows();
 	void DeleteRow(int rowId);
@@ -19,10 +19,10 @@ public:
 	uint8_t GetColumnAlignment(int colIndex);
 	void GetColumnColor(int colIndex, Color& colColor);
 	UObject* GetColumnFont(int colIndex);
-	std::string GetColumnTitle(int colIndex);
+	ScriptString GetColumnTitle(int colIndex);
 	uint8_t GetColumnType(int colIndex);
 	float GetColumnWidth(int colIndex);
-	std::string GetField(int rowId, int colIndex);
+	ScriptString GetField(int rowId, int colIndex);
 	void GetFieldMargins(float& marginWidth, float& marginHeight);
 	float GetFieldValue(int rowId, int colIndex);
 	int GetFocusRow();
@@ -40,7 +40,7 @@ public:
 	bool IsColumnHidden(int colIndex);
 	bool IsMultiSelectEnabled();
 	bool IsRowSelected(int rowId);
-	void ModifyRow(int rowId, const std::string& rowStr);
+	void ModifyRow(int rowId, const ScriptString& rowStr);
 	void MoveRow(uint8_t Move, std::optional<bool> bSelect, std::optional<bool> bClearRows, std::optional<bool> bDrag);
 	void PlayListSound(UObject* listSound, std::optional<float> Volume, std::optional<float> Pitch);
 	void RemoveSortColumn(int colIndex);
@@ -53,11 +53,11 @@ public:
 	void SetColumnAlignment(int colIndex, uint8_t newAlign);
 	void SetColumnColor(int colIndex, const Color& NewColor);
 	void SetColumnFont(int colIndex, UObject* NewFont);
-	void SetColumnTitle(int colIndex, const std::string& Title);
+	void SetColumnTitle(int colIndex, const ScriptString& Title);
 	void SetColumnType(int colIndex, uint8_t newType, std::optional<std::string> newFmt);
 	void SetColumnWidth(int colIndex, float newWidth);
-	void SetDelimiter(const std::string& newDelimiter);
-	void SetField(int rowId, int colIndex, const std::string& fieldStr);
+	void SetDelimiter(const ScriptString& newDelimiter);
+	void SetField(int rowId, int colIndex, const ScriptString& fieldStr);
 	void SetFieldMargins(float newMarginWidth, float newMarginHeight);
 	void SetFieldValue(int rowId, int colIndex, float NewValue);
 	void SetFocusColor(const Color& NewColor);
@@ -98,7 +98,7 @@ public:
 		EHAlign align = EHAlign::Left;
 		Color color;
 		UFont* font = nullptr;
-		std::string title;
+		ScriptString title;
 		uint8_t type = 0;
 		std::string format;
 		float width = 0.0f;
@@ -110,7 +110,7 @@ public:
 
 	struct Cell
 	{
-		std::string text;
+		ScriptString text;
 		float value = 0.0f;
 	};
 
@@ -158,14 +158,14 @@ public:
 	//DynamicArray& rows() { return Value<DynamicArray>(PropOffsets_ListWindow.rows); }
 
 private:
-	bool FillRow(Item& item, const std::string& rowStr);
-	void SetFieldByString(Item& item, int colIndex, const std::string& fieldStr);
+	bool FillRow(Item& item, const ScriptString& rowStr);
+	void SetFieldByString(Item& item, int colIndex, const ScriptString& fieldStr);
 	void SetFieldByValue(Item& item, int colIndex, float value);
 	std::string FieldConvertToString(const Column& col, float value);
-	std::string FieldDisplayText(const Item& item, int colIndex);
-	float MeasureText(UFont* colFont, const std::string& text);
+	ScriptString FieldDisplayText(const Item& item, int colIndex);
+	float MeasureText(UFont* colFont, const ScriptString& text);
 	float GetLineHeight();
-	bool AutoExpandColumn(int colIndex, const std::string& displayText);
+	bool AutoExpandColumn(int colIndex, const ScriptString& displayText);
 	void ChangeSelectRow(int index, bool bSelect, bool& changed);
 	void MoveToRow(int index, bool bSelect, bool bClearRows, bool bInvert, bool bSpan, bool bMoveFocus);
 	void SetFocusLine(int index, bool bShow, bool bAnchor);
@@ -175,5 +175,5 @@ private:
 	void ActivateRow();
 	bool RowLess(const Item& a, const Item& b);
 	void SortChanged();
-	static float StringToFloat(const std::string& text);
+	static float StringToFloat(const ScriptString& text);
 };

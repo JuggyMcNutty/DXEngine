@@ -168,7 +168,7 @@ private:
 	// The rows, made again when the text, the wrap width or the fonts change.
 	Array<TextRow> rows;
 	bool rowsMade = false;
-	std::string rowsText;
+	ScriptString rowsText;
 	float rowsWrap = 0.0f;
 	UFont* rowsNormalFont = nullptr;
 	UFont* rowsBoldFont = nullptr;

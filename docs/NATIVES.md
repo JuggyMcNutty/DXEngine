@@ -1404,9 +1404,13 @@ Differs:
   should the console leave it, the root window's focus window with the
   whole of it, as the original's (`TypeConsole`: U+0100 and U+20AC typed
   into an edit field, 256 and 8364 in both engines, the original's typed
-  by `xdotool`; U+1F600 two characters). The game's fonts draw one past
-  their pages as nothing in the original (read from `WinDrv.dll`'s code),
-  and DXEngine's as a `?` (VM.5).
+  by `xdotool`; U+1F600 two characters). The text windows, the canvas, the
+  GC, a computer's screen, a list's cells and a scripted texture take and
+  draw text as 16-bit characters, a font's glyph found on its page; one past
+  every page is drawn as nothing and takes no room, as the original's
+  (`TileConsole`: U+0100 and U+03A9 of `FontMenuHeaders` 0 wide on the
+  canvas and in a window, `A`, U+0100, `A` as wide as two A's, in both
+  engines).
 - **Keys held as the window loses the keyboard** are forgotten, by choice,
   so an Alt held into Alt+Tab does not stick: the original's root keeps
   their marks, its window resetting only the engine's input (read from both

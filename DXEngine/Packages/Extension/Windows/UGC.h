@@ -17,10 +17,10 @@ public:
 	void DrawIconPattern(float DestX, float DestY, float destWidth, float destHeight, float OrgX, float OrgY, float srcWidth, float srcHeight, UTexture* tex);
 	void DrawPattern(float DestX, float DestY, float destWidth, float destHeight, float OrgX, float OrgY, UObject* tX);
 	void DrawStretchedTexture(float DestX, float DestY, float destWidth, float destHeight, float srcX, float srcY, float srcWidth, float srcHeight, UObject* tX);
-	void DrawText(float DestX, float DestY, float destWidth, float destHeight, const std::string& textStr);
+	void DrawText(float DestX, float DestY, float destWidth, float destHeight, const ScriptString& textStr);
 	// The lines from blockY down within the box, its alignment across alone
-	void DrawTextBlock(float DestX, float DestY, float destWidth, float destHeight, const std::string& textStr, float blockY);
-	void DrawTextClipped(float ClipX, float ClipY, float clipWidth, float clipHeight, float x, float y, const std::string& textStr);
+	void DrawTextBlock(float DestX, float DestY, float destWidth, float destHeight, const ScriptString& textStr, float blockY);
+	void DrawTextClipped(float ClipX, float ClipY, float clipWidth, float clipHeight, float x, float y, const ScriptString& textStr);
 	void DrawTexture(float DestX, float DestY, float destWidth, float destHeight, float srcX, float srcY, UObject* tX);
 	void EnableDrawing(bool bDrawEnabled);
 	void EnableMasking(bool bNewMasking);
@@ -36,13 +36,12 @@ public:
 	uint8_t GetHorizontalAlignment();
 	uint8_t GetStyle();
 	void GetTextColor(Color& TextColor);
-	void GetTextExtent(float destWidth, float& xExtent, float& yExtent, const std::string& textStr);
-	// A script's text, drawn and measured as 8-bit text until the GC draws
-	// 16-bit characters
-	void DrawText(float DestX, float DestY, float destWidth, float destHeight, const ScriptString& textStr) { DrawText(DestX, DestY, destWidth, destHeight, ScriptToLatin1(textStr)); }
-	void DrawTextBlock(float DestX, float DestY, float destWidth, float destHeight, const ScriptString& textStr, float blockY) { DrawTextBlock(DestX, DestY, destWidth, destHeight, ScriptToLatin1(textStr), blockY); }
-	void DrawTextClipped(float ClipX, float ClipY, float clipWidth, float clipHeight, float x, float y, const ScriptString& textStr) { DrawTextClipped(ClipX, ClipY, clipWidth, clipHeight, x, y, ScriptToLatin1(textStr)); }
-	void GetTextExtent(float destWidth, float& xExtent, float& yExtent, const ScriptString& textStr) { GetTextExtent(destWidth, xExtent, yExtent, ScriptToLatin1(textStr)); }
+	void GetTextExtent(float destWidth, float& xExtent, float& yExtent, const ScriptString& textStr);
+	// The engine's own 8-bit text, each byte a character
+	void DrawText(float DestX, float DestY, float destWidth, float destHeight, const std::string& textStr) { DrawText(DestX, DestY, destWidth, destHeight, Latin1ToScript(textStr)); }
+	void DrawTextBlock(float DestX, float DestY, float destWidth, float destHeight, const std::string& textStr, float blockY) { DrawTextBlock(DestX, DestY, destWidth, destHeight, Latin1ToScript(textStr), blockY); }
+	void DrawTextClipped(float ClipX, float ClipY, float clipWidth, float clipHeight, float x, float y, const std::string& textStr) { DrawTextClipped(ClipX, ClipY, clipWidth, clipHeight, x, y, Latin1ToScript(textStr)); }
+	void GetTextExtent(float destWidth, float& xExtent, float& yExtent, const std::string& textStr) { GetTextExtent(destWidth, xExtent, yExtent, Latin1ToScript(textStr)); }
 	float GetTextVSpacing();
 	void GetTileColor(Color& tileColor);
 	uint8_t GetVerticalAlignment();
@@ -120,11 +119,11 @@ public:
 		bool accel = false;
 		Color color = { 0, 0, 0, 255 };
 	};
-	uint8_t GetNextChar(const uint8_t*& p, TextState& state, const uint8_t* end);
-	void ReadColor(const uint8_t*& p, Color& color, const uint8_t* end);
-	bool ParseLine(const uint8_t* text, TextState state, const uint8_t* end, float wrap, const uint8_t*& next, TextState& stateOut, int& length, float& width);
-	const uint8_t* GetLine(TextState& state, float wrap, const uint8_t*& text, const uint8_t* end, float& width, int& length);
-	void DrawChar(UFont* font, uint8_t ch, const Color& color, bool accel, float x, float y, float& outX, float& outHeight);
+	char16_t GetNextChar(const char16_t*& p, TextState& state, const char16_t* end);
+	void ReadColor(const char16_t*& p, Color& color, const char16_t* end);
+	bool ParseLine(const char16_t* text, TextState state, const char16_t* end, float wrap, const char16_t*& next, TextState& stateOut, int& length, float& width);
+	const char16_t* GetLine(TextState& state, float wrap, const char16_t*& text, const char16_t* end, float& width, int& length);
+	void DrawChar(UFont* font, char16_t ch, const Color& color, bool accel, float x, float y, float& outX, float& outHeight);
 
 	void ResetClip(Rectf box);
 	void PushClip(Rectf box);

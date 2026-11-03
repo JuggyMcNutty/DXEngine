@@ -14,7 +14,7 @@ enum { ColTypeString = 0, ColTypeFloat = 1, ColTypeTime = 2 };
 // MOVELIST_Up .. MOVELIST_End
 enum { MoveListUp = 0, MoveListDown = 1, MoveListPageUp = 2, MoveListPageDown = 3, MoveListHome = 4, MoveListEnd = 5 };
 
-static int CompareText(const std::string& a, const std::string& b, bool caseSensitive)
+static int CompareText(const ScriptString& a, const ScriptString& b, bool caseSensitive)
 {
 	if (caseSensitive)
 	{
@@ -24,8 +24,8 @@ static int CompareText(const std::string& a, const std::string& b, bool caseSens
 	size_t n = std::min(a.size(), b.size());
 	for (size_t i = 0; i < n; i++)
 	{
-		int ca = std::tolower((unsigned char)a[i]);
-		int cb = std::tolower((unsigned char)b[i]);
+		int ca = a[i] >= 'A' && a[i] <= 'Z' ? a[i] + 32 : a[i];
+		int cb = b[i] >= 'A' && b[i] <= 'Z' ? b[i] + 32 : b[i];
 		if (ca != cb)
 			return ca < cb ? -1 : 1;
 	}
@@ -64,10 +64,10 @@ void UListWindow::InitDefaults()
 // gets an empty one, and a field is at most 2,047 characters (the
 // original's FillRow, dx-reverse-info/extension-dll.md, lists). True when a
 // column widened to a field.
-bool UListWindow::FillRow(Item& item, const std::string& rowStr)
+bool UListWindow::FillRow(Item& item, const ScriptString& rowStr)
 {
 	item.cells.resize(columns.size());
-	char delim = Delimiter().empty() ? '\0' : Delimiter()[0];
+	char16_t delim = Delimiter().empty() ? u'\0' : Delimiter()[0];
 	size_t pos = 0;
 	bool expanded = false;
 	for (int colIndex = 0; colIndex < (int)columns.size(); colIndex++)
@@ -75,7 +75,7 @@ bool UListWindow::FillRow(Item& item, const std::string& rowStr)
 		size_t end = rowStr.size();
 		if (delim != '\0')
 			end = std::min(rowStr.find(delim, pos), rowStr.size());
-		std::string field = pos < end ? rowStr.substr(pos, std::min<size_t>(end - pos, 2047)) : std::string();
+		ScriptString field = pos < end ? rowStr.substr(pos, std::min<size_t>(end - pos, 2047)) : ScriptString();
 		pos = end < rowStr.size() ? end + 1 : end;
 		SetFieldByString(item, colIndex, field);
 		expanded |= AutoExpandColumn(colIndex, item.cells[colIndex].text);
@@ -85,7 +85,7 @@ bool UListWindow::FillRow(Item& item, const std::string& rowStr)
 
 // A field set from text: a float or time column keeps the number read from
 // it and shows that number; a string column keeps the text, its number 0.
-void UListWindow::SetFieldByString(Item& item, int colIndex, const std::string& fieldStr)
+void UListWindow::SetFieldByString(Item& item, int colIndex, const ScriptString& fieldStr)
 {
 	if (item.cells.size() < columns.size())
 		item.cells.resize(columns.size());
@@ -94,7 +94,7 @@ void UListWindow::SetFieldByString(Item& item, int colIndex, const std::string& 
 	if (col.type == ColTypeFloat || col.type == ColTypeTime)
 	{
 		cell.value = StringToFloat(fieldStr);
-		cell.text = FieldConvertToString(col, cell.value);
+		cell.text = Latin1ToScript(FieldConvertToString(col, cell.value));
 	}
 	else
 	{
@@ -111,7 +111,7 @@ void UListWindow::SetFieldByValue(Item& item, int colIndex, float value)
 		item.cells.resize(columns.size());
 	const Column& col = columns[colIndex];
 	Cell& cell = item.cells[colIndex];
-	cell.text = FieldConvertToString(col, value);
+	cell.text = Latin1ToScript(FieldConvertToString(col, value));
 	cell.value = (col.type == ColTypeFloat || col.type == ColTypeTime) ? value : 0.0f;
 }
 
@@ -122,7 +122,7 @@ std::string UListWindow::FieldConvertToString(const Column& col, float value)
 	return FormatScriptFloat(col.type == ColTypeFloat ? col.format : "%f", value);
 }
 
-float UListWindow::StringToFloat(const std::string& text)
+float UListWindow::StringToFloat(const ScriptString& text)
 {
 	// The original's: a sign; octal after a leading 0 and hex after 0x; a
 	// decimal point or comma; ' adds the number so far as hours, : or " as
@@ -200,7 +200,7 @@ float UListWindow::StringToFloat(const std::string& text)
 	return (float)(sign * (total + value));
 }
 
-std::string UListWindow::FieldDisplayText(const Item& item, int colIndex)
+ScriptString UListWindow::FieldDisplayText(const Item& item, int colIndex)
 {
 	if (colIndex < 0 || (size_t)colIndex >= item.cells.size())
 		return {};
@@ -212,7 +212,7 @@ std::string UListWindow::FieldDisplayText(const Item& item, int colIndex)
 // widest line, each character as the GC finds it, one the font lacks taking
 // no room. The GC is the list's, released after, as the original's callers
 // take it (SetField, FillRow and the rest): its state comes back whole.
-float UListWindow::MeasureText(UFont* colFont, const std::string& text)
+float UListWindow::MeasureText(UFont* colFont, const ScriptString& text)
 {
 	UFont* font = colFont ? colFont : normalFont();
 	UGC* gc = UObject::Cast<UGC>(GetGC());
@@ -276,7 +276,7 @@ void UListWindow::ParentRequestedGranularity(float& hGranularity, float& vGranul
 
 // With auto-expanding columns, each field set widens its column to the
 // field's text plus both margins; true when it widened.
-bool UListWindow::AutoExpandColumn(int colIndex, const std::string& displayText)
+bool UListWindow::AutoExpandColumn(int colIndex, const ScriptString& displayText)
 {
 	if (!bAutoExpandColumns())
 		return false;
@@ -290,7 +290,7 @@ bool UListWindow::AutoExpandColumn(int colIndex, const std::string& displayText)
 	return true;
 }
 
-int UListWindow::AddRow(const std::string& rowStr, std::optional<int> clientData)
+int UListWindow::AddRow(const ScriptString& rowStr, std::optional<int> clientData)
 {
 	int id = nextRowId++;
 	Item item;
@@ -413,7 +413,7 @@ UObject* UListWindow::GetColumnFont(int colIndex)
 	return columns[colIndex].font;
 }
 
-std::string UListWindow::GetColumnTitle(int colIndex)
+ScriptString UListWindow::GetColumnTitle(int colIndex)
 {
 	if (colIndex < 0 || (size_t)colIndex >= columns.size())
 		return {};
@@ -435,7 +435,7 @@ float UListWindow::GetColumnWidth(int colIndex)
 	return columns[colIndex].width;
 }
 
-std::string UListWindow::GetField(int rowId, int colIndex)
+ScriptString UListWindow::GetField(int rowId, int colIndex)
 {
 	int rowIndex = RowIdToIndex(rowId);
 	if (rowIndex == -1)
@@ -577,7 +577,7 @@ bool UListWindow::IsRowSelected(int rowId)
 	return items[rowIndex].selected;
 }
 
-void UListWindow::ModifyRow(int rowId, const std::string& rowStr)
+void UListWindow::ModifyRow(int rowId, const ScriptString& rowStr)
 {
 	int rowIndex = RowIdToIndex(rowId);
 	if (rowIndex == -1)
@@ -831,7 +831,7 @@ void UListWindow::SetColumnFont(int colIndex, UObject* NewFont)
 	AskParentForReconfigure();
 }
 
-void UListWindow::SetColumnTitle(int colIndex, const std::string& Title)
+void UListWindow::SetColumnTitle(int colIndex, const ScriptString& Title)
 {
 	if (colIndex < 0 || (size_t)colIndex >= columns.size())
 		return;
@@ -853,7 +853,7 @@ void UListWindow::SetColumnType(int colIndex, uint8_t newType, std::optional<std
 		col.format = newType == ColTypeFloat ? "%f" : (newType == ColTypeTime ? "%02h:%02m" : "");
 	for (auto& item : items)
 	{
-		std::string text = (size_t)colIndex < item.cells.size() ? item.cells[colIndex].text : std::string();
+		ScriptString text = (size_t)colIndex < item.cells.size() ? item.cells[colIndex].text : ScriptString();
 		SetFieldByString(item, colIndex, text);
 	}
 	if (bAutoExpandColumns())
@@ -868,12 +868,12 @@ void UListWindow::SetColumnWidth(int colIndex, float newWidth)
 	AskParentForReconfigure();
 }
 
-void UListWindow::SetDelimiter(const std::string& newDelimiter)
+void UListWindow::SetDelimiter(const ScriptString& newDelimiter)
 {
-	Delimiter() = Latin1ToScript(newDelimiter);
+	Delimiter() = newDelimiter;
 }
 
-void UListWindow::SetField(int rowId, int colIndex, const std::string& fieldStr)
+void UListWindow::SetField(int rowId, int colIndex, const ScriptString& fieldStr)
 {
 	if (colIndex < 0 || (size_t)colIndex >= columns.size())
 		return;
@@ -1062,8 +1062,8 @@ bool UListWindow::RowLess(const Item& a, const Item& b)
 		}
 		else
 		{
-			const std::string& at = (size_t)colIndex < a.cells.size() ? a.cells[colIndex].text : std::string();
-			const std::string& bt = (size_t)colIndex < b.cells.size() ? b.cells[colIndex].text : std::string();
+			const ScriptString& at = (size_t)colIndex < a.cells.size() ? a.cells[colIndex].text : ScriptString();
+			const ScriptString& bt = (size_t)colIndex < b.cells.size() ? b.cells[colIndex].text : ScriptString();
 			cmp = CompareText(at, bt, col.sortCaseSensitive);
 		}
 		if (col.sortReverse)
@@ -1169,7 +1169,7 @@ void UListWindow::DrawWindow(UGC* gc)
 		{
 			auto& item = items[i];
 			gc->SetTextColor(item.selected ? inverseColor() : col.color);
-			std::string text = FieldDisplayText(item, colIndex);
+			ScriptString text = FieldDisplayText(item, colIndex);
 			float textWidth = 0.0f, textHeight = 0.0f;
 			gc->GetTextExtent(0.0f, textWidth, textHeight, text);
 			float tx;
@@ -1313,7 +1313,7 @@ int UListWindow::FindRowByKey(char key)
 	{
 		if (++index >= (int)items.size())
 			index = 0;
-		const std::string& text = (size_t)hotKeyCol() < items[index].cells.size() ? items[index].cells[hotKeyCol()].text : std::string();
+		const ScriptString& text = (size_t)hotKeyCol() < items[index].cells.size() ? items[index].cells[hotKeyCol()].text : ScriptString();
 		bool match = true;
 		for (int i = 0; i < matchLen && match; i++)
 		{

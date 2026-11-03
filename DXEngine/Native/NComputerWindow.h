@@ -18,7 +18,7 @@ public:
 	static void IsPaused(UObject* Self, BitfieldBool& ReturnValue);
 	static void Pause(UObject* Self, std::optional<float> pauseLength);
 	static void PlaySoundLater(UObject* Self, UObject* newsound);
-	static void Print(UObject* Self, const std::string& printText, std::optional<bool> bNewLine);
+	static void Print(UObject* Self, const ScriptString& printText, std::optional<bool> bNewLine);
 	static void PrintGraphic(UObject* Self, UObject* Graphic, int Width, int Height, std::optional<int> posX, std::optional<int> posY, std::optional<bool> bStatic, std::optional<bool> bPixelPos);
 	static void PrintLn(UObject* Self);
 	static void ResetThrottle(UObject* Self);

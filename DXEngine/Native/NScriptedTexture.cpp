@@ -15,12 +15,12 @@ void NScriptedTexture::RegisterFunctions()
 	RegisterVMNativeFunc_4("ScriptedTexture", "TextSize", &NScriptedTexture::TextSize, 476);
 }
 
-void NScriptedTexture::DrawColoredText(UObject* Self, float X, float Y, const std::string& Text, UObject* Font, const Color& FontColor)
+void NScriptedTexture::DrawColoredText(UObject* Self, float X, float Y, const ScriptString& Text, UObject* Font, const Color& FontColor)
 {
 	UObject::Cast<UScriptedTexture>(Self)->DrawColoredText(X, Y, Text, UObject::Cast<UFont>(Font), FontColor);
 }
 
-void NScriptedTexture::DrawText(UObject* Self, float X, float Y, const std::string& Text, UObject* Font)
+void NScriptedTexture::DrawText(UObject* Self, float X, float Y, const ScriptString& Text, UObject* Font)
 {
 	UObject::Cast<UScriptedTexture>(Self)->DrawText(X, Y, Text, UObject::Cast<UFont>(Font));
 }
@@ -35,7 +35,7 @@ void NScriptedTexture::ReplaceTexture(UObject* Self, UObject* Tex)
 	UObject::Cast<UScriptedTexture>(Self)->ReplaceTexture(UObject::Cast<UTexture>(Tex));
 }
 
-void NScriptedTexture::TextSize(UObject* Self, const std::string& Text, float& XL, float& YL, UObject* Font)
+void NScriptedTexture::TextSize(UObject* Self, const ScriptString& Text, float& XL, float& YL, UObject* Font)
 {
 	UObject::Cast<UScriptedTexture>(Self)->TextSize(Text, XL, YL, UObject::Cast<UFont>(Font));
 }

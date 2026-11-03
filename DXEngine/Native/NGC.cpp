@@ -106,7 +106,7 @@ void NGC::DrawStretchedTexture(UObject* Self, float DestX, float DestY, float de
 	gc->DrawStretchedTexture(DestX, DestY, destWidth, destHeight, srcX, srcY, srcWidth, srcHeight, tX);
 }
 
-void NGC::DrawText(UObject* Self, float DestX, float DestY, float destWidth, float destHeight, const std::string& textStr)
+void NGC::DrawText(UObject* Self, float DestX, float DestY, float destWidth, float destHeight, const ScriptString& textStr)
 {
 	UGC* gc = UObject::Cast<UGC>(Self);
 	gc->DrawText(DestX, DestY, destWidth, destHeight, textStr);
@@ -202,7 +202,7 @@ void NGC::GetTextColor(UObject* Self, Color& TextColor)
 	gc->GetTextColor(TextColor);
 }
 
-void NGC::GetTextExtent(UObject* Self, float destWidth, float& xExtent, float& yExtent, const std::string& textStr)
+void NGC::GetTextExtent(UObject* Self, float destWidth, float& xExtent, float& yExtent, const ScriptString& textStr)
 {
 	UGC* gc = UObject::Cast<UGC>(Self);
 	gc->GetTextExtent(destWidth, xExtent, yExtent, textStr);

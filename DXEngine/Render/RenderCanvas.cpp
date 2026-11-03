@@ -274,27 +274,27 @@ void RenderSubsystem::DrawTileClipped(UTexture* Tex, float orgX, float orgY, flo
 	DrawTile(texinfo, dest, src, clipBox, Z, color, fog, flags);
 }
 
-Array<std::string> RenderSubsystem::FindTextBlocks(const std::string& text)
+Array<ScriptString> RenderSubsystem::FindTextBlocks(const ScriptString& text)
 {
 	// Split text into words, whitespace or newline
-	Array<std::string> textBlocks;
+	Array<ScriptString> textBlocks;
 	size_t pos = 0;
 	while (pos < text.size())
 	{
 		if (text[pos] == '\n')
 		{
-			textBlocks.push_back("\n");
+			textBlocks.push_back(u"\n");
 			pos++;
 		}
 		else if (text[pos] == ' ')
 		{
-			size_t end = std::min(text.find_first_not_of(' ', pos + 1), text.size());
+			size_t end = std::min(text.find_first_not_of(u' ', pos + 1), text.size());
 			textBlocks.push_back(text.substr(pos, end - pos));
 			pos = end;
 		}
 		else
 		{
-			size_t end = std::min(text.find_first_of(" \n", pos + 1), text.size());
+			size_t end = std::min(text.find_first_of(u" \n", pos + 1), text.size());
 			textBlocks.push_back(text.substr(pos, end - pos));
 			pos = end;
 		}
@@ -318,11 +318,11 @@ static void GlyphTextureInfo(const FontGlyph& glyph, TextureInfo& texinfo)
 		texinfo.Palette = (TextureColor*)glyph.Texture->Palette()->Colors.data();
 }
 
-void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::string>& textBlocks, size_t start, size_t end, UFont* font, vec4 color, uint32_t polyflags, float spaceX)
+void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<ScriptString>& textBlocks, size_t start, size_t end, UFont* font, vec4 color, uint32_t polyflags, float spaceX)
 {
 	for (size_t i = start; i < end; i++)
 	{
-		for (char c : textBlocks[i])
+		for (char16_t c : textBlocks[i])
 		{
 			FontGlyph glyph = font->GetGlyph(c);
 
@@ -353,13 +353,13 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
 // leaves, centred) and its Y CurY, each truncated; the line wraps where
 // CurX's whole pixels and its glyphs pass ClipX, and CurX is where the last
 // line ended (dx-reverse-info engine-dll.md, the loading screen).
-void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const std::string& text, uint32_t polyflags, bool center, float spaceX, float spaceY, float clipX, float clipY, bool noDraw)
+void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const ScriptString& text, uint32_t polyflags, bool center, float spaceX, float spaceY, float clipX, float clipY, bool noDraw)
 {
 	float totalWidth = 0.0f;
 	float totalHeight = 0.0f;
 	auto lineX = [&](float lineWidth) { return (float)(int)(center ? curX + (clipX - lineWidth) * 0.5f : curX); };
 
-	Array<std::string> textBlocks = FindTextBlocks(text);
+	Array<ScriptString> textBlocks = FindTextBlocks(text);
 	size_t lineBegin = 0;
 	float lineWidth = 0.0f;
 	float lineHeight = 0.0f;
@@ -442,7 +442,7 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY, 
 // The original's execDrawTextClipped (Engine.dll 0x10378890): one line from
 // CurX and CurY each truncated to a whole pixel, never centred -- its line
 // drawer (0x10376d20) takes the place it is given and reads no bCenter.
-void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float orgY, float curX, float curY, const std::string& text, uint32_t polyflags, bool checkHotKey, float clipX, float clipY)
+void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float orgY, float curX, float curY, const ScriptString& text, uint32_t polyflags, bool checkHotKey, float clipX, float clipY)
 {
 	curX = (float)(int)curX;
 	curY = (float)(int)curY;
@@ -459,7 +459,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
 
 	bool foundAmpersand = false;
 	int maxY = 0;
-	for (char c : text)
+	for (char16_t c : text)
 	{
 		if (checkHotKey && c == '&' && !foundAmpersand)
 		{
@@ -574,11 +574,11 @@ void RenderSubsystem::DrawTile(TextureInfo& Info, float X, float Y, float XL, fl
 	Device->DrawTile(&Canvas.Frame, Info, X, Y, XL, YL, U, V, UL, VL, Z, Color, Fog, PolyFlags);
 }
 
-vec2 RenderSubsystem::GetTextSize(UFont* font, const std::string& text, float spaceX, float spaceY)
+vec2 RenderSubsystem::GetTextSize(UFont* font, const ScriptString& text, float spaceX, float spaceY)
 {
 	float x = 0.0f;
 	float y = 0.0f;
-	for (char c : text)
+	for (char16_t c : text)
 	{
 		FontGlyph glyph = font->GetGlyph(c);
 		x += (float)(int)((float)glyph.USize + spaceX);
@@ -599,17 +599,17 @@ void RenderSubsystem::DrawTimedemoStats()
 
 	if (ShowRenderStats)
 	{
-		Array<std::string> lines;
-		lines.push_back(std::to_string(Canvas.fps) + " FPS");
-		lines.push_back(std::to_string(engine->Level->Actors.size()) + " actors");
-		lines.push_back(std::to_string(GC::GetStats().numObjects) + " GC objects");
-		lines.push_back(std::to_string(GC::GetStats().memoryUsage / (1024 * 1024)) + " mb memory used");
+		Array<ScriptString> lines;
+		lines.push_back(Latin1ToScript(std::to_string(Canvas.fps) + " FPS"));
+		lines.push_back(Latin1ToScript(std::to_string(engine->Level->Actors.size()) + " actors"));
+		lines.push_back(Latin1ToScript(std::to_string(GC::GetStats().numObjects) + " GC objects"));
+		lines.push_back(Latin1ToScript(std::to_string(GC::GetStats().memoryUsage / (1024 * 1024)) + " mb memory used"));
 
 		UFont* font = engine->canvas->MedFont();
 		if (font)
 		{
 			float curY = 180;
-			for (const std::string& text : lines)
+			for (const ScriptString& text : lines)
 			{
 				float curX = engine->viewport->ViewportWidth() / (float)Canvas.uiscale - GetTextSize(font, text).x - 16;
 				float curXL = 0.0f;

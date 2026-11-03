@@ -86,6 +86,16 @@ function LogWidths(canvas C)
 	Log("DXTILE: E acute " $ XL);
 	C.TextSize("Caf" $ Chr(233), XL, YL);
 	Log("DXTILE: Cafe with the accent " $ XL);
+	// Characters past the font's page
+	C.TextSize("A", SL, YL);
+	C.TextSize(Chr(256), XL, YL);
+	Log("DXTILE: canvas widths: A " $ SL $ ", U+0100 " $ XL);
+	C.TextSize(Chr(937), XL, YL);
+	Log("DXTILE: U+03A9 " $ XL);
+	C.TextSize("A" $ Chr(256) $ "A", XL, YL);
+	Log("DXTILE: A U+0100 A " $ XL);
+	C.StrLen("A" $ Chr(256) $ "A", XL, YL);
+	Log("DXTILE: StrLen A U+0100 A " $ XL);
 }
 
 event PostRender(canvas C)

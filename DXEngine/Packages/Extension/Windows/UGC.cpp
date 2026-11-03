@@ -85,7 +85,7 @@ void UGC::DrawActor(UObject* Actor, std::optional<bool> bClearZ, std::optional<b
 // with it off), each line placed across by the horizontal alignment (a
 // centred one by whole pixels), a line as tall as its tallest character or
 // a space, plus the GC's line spacing.
-void UGC::DrawText(float DestX, float DestY, float destWidth, float destHeight, const std::string& textStr)
+void UGC::DrawText(float DestX, float DestY, float destWidth, float destHeight, const ScriptString& textStr)
 {
 	if (!bDrawEnabled())
 		return;
@@ -105,7 +105,7 @@ void UGC::DrawText(float DestX, float DestY, float destWidth, float destHeight, 
 	DrawTextBlock(DestX, DestY, destWidth, destHeight, textStr, blockY);
 }
 
-void UGC::DrawTextBlock(float DestX, float DestY, float destWidth, float destHeight, const std::string& textStr, float blockY)
+void UGC::DrawTextBlock(float DestX, float DestY, float destWidth, float destHeight, const ScriptString& textStr, float blockY)
 {
 	if (!bDrawEnabled())
 		return;
@@ -120,14 +120,14 @@ void UGC::DrawTextBlock(float DestX, float DestY, float destWidth, float destHei
 	bool bold = false;
 	UFont* font = normalFont();
 	auto halign = (EHAlign)HAlign();
-	const uint8_t* text = (const uint8_t*)textStr.data();
-	const uint8_t* end = text + textStr.size();
+	const char16_t* text = textStr.data();
+	const char16_t* end = text + textStr.size();
 	while (true)
 	{
 		TextState lineState = state;
 		float lineWidth = 0.0f;
 		int lineLength = 0;
-		const uint8_t* line = GetLine(lineState, wrap, text, end, lineWidth, lineLength);
+		const char16_t* line = GetLine(lineState, wrap, text, end, lineWidth, lineLength);
 		if (!line)
 			break;
 
@@ -138,9 +138,9 @@ void UGC::DrawTextBlock(float DestX, float DestY, float destWidth, float destHei
 			x = DestX + destWidth - lineWidth;
 
 		float lineHeight = 0.0f;
-		const uint8_t* c = line;
-		const uint8_t* lineEnd = line + lineLength;
-		while (uint8_t ch = GetNextChar(c, state, lineEnd))
+		const char16_t* c = line;
+		const char16_t* lineEnd = line + lineLength;
+		while (char16_t ch = GetNextChar(c, state, lineEnd))
 		{
 			if (state.bold != bold)
 			{
@@ -166,7 +166,7 @@ void UGC::DrawTextBlock(float DestX, float DestY, float destWidth, float destHei
 // Text at a point, clipped to a box of its own (the original's DrawText
 // after an Intersect of the clip): the lines from (x, y) down, left and top
 // aligned, never wrapped, each character as DrawText draws it.
-void UGC::DrawTextClipped(float ClipX, float ClipY, float clipWidth, float clipHeight, float x, float y, const std::string& textStr)
+void UGC::DrawTextClipped(float ClipX, float ClipY, float clipWidth, float clipHeight, float x, float y, const ScriptString& textStr)
 {
 	if (!bDrawEnabled())
 		return;
@@ -177,8 +177,8 @@ void UGC::DrawTextClipped(float ClipX, float ClipY, float clipWidth, float clipH
 	state.color = TextColor();
 	bool bold = false;
 	UFont* font = normalFont();
-	const uint8_t* text = (const uint8_t*)textStr.data();
-	const uint8_t* end = text + textStr.size();
+	const char16_t* text = textStr.data();
+	const char16_t* end = text + textStr.size();
 	float lineX = x;
 	float lineY = y;
 	while (true)
@@ -186,15 +186,15 @@ void UGC::DrawTextClipped(float ClipX, float ClipY, float clipWidth, float clipH
 		TextState lineState = state;
 		float lineWidth = 0.0f;
 		int lineLength = 0;
-		const uint8_t* line = GetLine(lineState, 0.0f, text, end, lineWidth, lineLength);
+		const char16_t* line = GetLine(lineState, 0.0f, text, end, lineWidth, lineLength);
 		if (!line)
 			break;
 
 		float cx = lineX;
 		float lineHeight = 0.0f;
-		const uint8_t* c = line;
-		const uint8_t* lineEnd = line + lineLength;
-		while (uint8_t ch = GetNextChar(c, state, lineEnd))
+		const char16_t* c = line;
+		const char16_t* lineEnd = line + lineLength;
+		while (char16_t ch = GetNextChar(c, state, lineEnd))
 		{
 			if (state.bold != bold)
 			{
@@ -500,24 +500,24 @@ void UGC::GetTextColor(Color& outTextColor)
 // The text's size as DrawText lays it out at that wrap width (0 for none):
 // its widest line, and its lines' heights each with the line spacing
 // (XGC::GetTextExtent, 0x10027bb0).
-void UGC::GetTextExtent(float destWidth, float& xExtent, float& yExtent, const std::string& textStr)
+void UGC::GetTextExtent(float destWidth, float& xExtent, float& yExtent, const ScriptString& textStr)
 {
 	TextState state;
 	bool bold = false;
 	UFont* font = normalFont();
 	float width = 0.0f, height = 0.0f, lineHeight = 0.0f;
-	const uint8_t* text = (const uint8_t*)textStr.data();
-	const uint8_t* end = text + textStr.size();
+	const char16_t* text = textStr.data();
+	const char16_t* end = text + textStr.size();
 	while (true)
 	{
 		float lineWidth = 0.0f;
 		int lineLength = 0;
-		const uint8_t* line = GetLine(state, destWidth, text, end, lineWidth, lineLength);
+		const char16_t* line = GetLine(state, destWidth, text, end, lineWidth, lineLength);
 		if (!line)
 			break;
-		const uint8_t* c = line;
-		const uint8_t* lineEnd = line + lineLength;
-		while (uint8_t ch = GetNextChar(c, state, lineEnd))
+		const char16_t* c = line;
+		const char16_t* lineEnd = line + lineLength;
+		while (char16_t ch = GetNextChar(c, state, lineEnd))
 		{
 			if (bold != state.bold)
 			{
@@ -798,9 +798,9 @@ void UGC::DrawTile(UTexture* tex, const Rectf& dest, const Rectf& src, const Col
 // to three hex bytes a colour, |p0 to |p7 a palette colour, |& the next
 // character an accelerator (underlined), each undone by |! (|!c and |!p
 // back to the GC's text colour); any other |x is x itself. 0 at the end.
-uint8_t UGC::GetNextChar(const uint8_t*& p, TextState& state, const uint8_t* end)
+char16_t UGC::GetNextChar(const char16_t*& p, TextState& state, const char16_t* end)
 {
-	auto lower = [](uint8_t c) -> uint8_t { return (c >= 'A' && c <= 'Z') ? c + 32 : c; };
+	auto lower = [](char16_t c) -> char16_t { return (c >= 'A' && c <= 'Z') ? (char16_t)(c + 32) : c; };
 
 	state.accel = false;
 	while (p < end)
@@ -811,7 +811,7 @@ uint8_t UGC::GetNextChar(const uint8_t*& p, TextState& state, const uint8_t* end
 		if (p >= end)
 			break;
 		bool inverse = false;
-		uint8_t code = lower(*p);
+		char16_t code = lower(*p);
 		if (code == '!')
 		{
 			inverse = true;
@@ -866,9 +866,9 @@ uint8_t UGC::GetNextChar(const uint8_t*& p, TextState& state, const uint8_t* end
 // |c's colour: up to three bytes of two hex digits each, red, green, blue;
 // a byte cut short ends it (XGC::ReadColor and GetColorByte, 0x100293d0,
 // 0x100292f0).
-void UGC::ReadColor(const uint8_t*& p, Color& color, const uint8_t* end)
+void UGC::ReadColor(const char16_t*& p, Color& color, const char16_t* end)
 {
-	auto hex = [](uint8_t c, int& value) -> bool
+	auto hex = [](char16_t c, int& value) -> bool
 	{
 		if (c >= '0' && c <= '9') { value = c - '0'; return true; }
 		if (c >= 'a' && c <= 'f') { value = c - 'a' + 10; return true; }
@@ -904,11 +904,11 @@ void UGC::ReadColor(const uint8_t*& p, Color& color, const uint8_t* end)
 // Its width counts the spaces it ends with, but for a line broken at them.
 // False when no line is left: the text's end, unless a line break came
 // last.
-bool UGC::ParseLine(const uint8_t* text, TextState state, const uint8_t* end, float wrap, const uint8_t*& next, TextState& stateOut, int& length, float& width)
+bool UGC::ParseLine(const char16_t* text, TextState state, const char16_t* end, float wrap, const char16_t*& next, TextState& stateOut, int& length, float& width)
 {
-	const uint8_t* lineStart = text;
-	const uint8_t* wordStart = nullptr;
-	const uint8_t* spaceStart = nullptr;
+	const char16_t* lineStart = text;
+	const char16_t* wordStart = nullptr;
+	const char16_t* spaceStart = nullptr;
 	TextState wordState;
 	bool wrapped = false;
 	bool firstChar = true;
@@ -921,10 +921,10 @@ bool UGC::ParseLine(const uint8_t* text, TextState state, const uint8_t* end, fl
 	float lineWidth = 0.0f;
 	float widthAtSpace = 0.0f;
 
-	const uint8_t* charStart = text;
-	const uint8_t* lineEnd = nullptr;
+	const char16_t* charStart = text;
+	const char16_t* lineEnd = nullptr;
 	float resultWidth = 0.0f;
-	uint8_t ch = 0;
+	char16_t ch = 0;
 	while (true)
 	{
 		charStart = text;
@@ -1008,11 +1008,11 @@ done:
 }
 
 // The next line, its start, or none (XGC::GetLine, 0x10029d80).
-const uint8_t* UGC::GetLine(TextState& state, float wrap, const uint8_t*& text, const uint8_t* end, float& width, int& length)
+const char16_t* UGC::GetLine(TextState& state, float wrap, const char16_t*& text, const char16_t* end, float& width, int& length)
 {
 	if (!text)
 		return nullptr;
-	const uint8_t* lineStart = text;
+	const char16_t* lineStart = text;
 	if (!ParseLine(lineStart, state, end, wrap, text, state, length, width))
 		return nullptr;
 	return lineStart;
@@ -1028,7 +1028,7 @@ const uint8_t* UGC::GetLine(TextState& state, float wrap, const uint8_t*& text, 
 // character drawn, an accelerator's is underlined so with the underline
 // texture, underlineHeight tall, baselineOffset up from the character's
 // foot, one unit short of its width.
-void UGC::DrawChar(UFont* font, uint8_t ch, const Color& color, bool accel, float x, float y, float& outX, float& outHeight)
+void UGC::DrawChar(UFont* font, char16_t ch, const Color& color, bool accel, float x, float y, float& outX, float& outHeight)
 {
 	FontGlyph glyph = font->GetPageGlyph(ch);
 	float px = x + offsetX;

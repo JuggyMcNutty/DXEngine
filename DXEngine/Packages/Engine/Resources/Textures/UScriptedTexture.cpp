@@ -94,14 +94,14 @@ uint8_t UScriptedTexture::BestColor(const Color& color)
 	return Palette() ? Palette()->FindBestColor(color) : 0;
 }
 
-void UScriptedTexture::DrawColoredText(float X, float Y, const std::string& Text, UFont* Font, const Color& FontColor)
+void UScriptedTexture::DrawColoredText(float X, float Y, const ScriptString& Text, UFont* Font, const Color& FontColor)
 {
 	if (!Font)
 		return;
 
 	uint8_t color = BestColor(FontColor);
 
-	for (char c : Text)
+	for (char16_t c : Text)
 	{
 		FontGlyph glyph = Font->GetGlyph(c);
 		if (!glyph.Texture)
@@ -116,12 +116,12 @@ void UScriptedTexture::DrawColoredText(float X, float Y, const std::string& Text
 	}
 }
 
-void UScriptedTexture::DrawText(float X, float Y, const std::string& Text, UFont* Font)
+void UScriptedTexture::DrawText(float X, float Y, const ScriptString& Text, UFont* Font)
 {
 	if (!Font)
 		return;
 
-	for (char c : Text)
+	for (char16_t c : Text)
 	{
 		FontGlyph glyph = Font->GetGlyph(c);
 		if (!glyph.Texture)
@@ -174,14 +174,14 @@ void UScriptedTexture::ReplaceTexture(UTexture* Tex)
 	TextureModified = true;
 }
 
-void UScriptedTexture::TextSize(const std::string& Text, float& XL, float& YL, UFont* Font)
+void UScriptedTexture::TextSize(const ScriptString& Text, float& XL, float& YL, UFont* Font)
 {
 	if (!Font)
 		return;
 
 	int x = 0;
 	int y = 0;
-	for (char c : Text)
+	for (char16_t c : Text)
 	{
 		FontGlyph glyph = Font->GetGlyph(c);
 		x += glyph.USize;
