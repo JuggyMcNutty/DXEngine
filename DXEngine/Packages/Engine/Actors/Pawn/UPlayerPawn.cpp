@@ -144,7 +144,7 @@ void UPlayerPawn::LoadProperties()
 	bNoVoices() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bNoVoices", false);
 	bMessageBeep() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bMessageBeep", true);
 	MouseSmoothThreshold() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "MouseSmoothThreshold", 0.16f);
-	ngWorldSecret() = IniPropertyConverter<std::string>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "ngWorldSecret", "");
+	ngWorldSecret() = Latin1ToScript(IniPropertyConverter<std::string>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "ngWorldSecret", ""));
 }
 
 void UPlayerPawn::SaveConfig()
@@ -166,5 +166,5 @@ void UPlayerPawn::SaveConfig()
 	engine->packages->SetIniValue("user", "Engine.PlayerPawn", "bNoVoices", IniPropertyConverter<bool>::ToString(bNoVoices()));
 	engine->packages->SetIniValue("user", "Engine.PlayerPawn", "bMessageBeep", IniPropertyConverter<bool>::ToString(bMessageBeep()));
 	engine->packages->SetIniValue("user", "Engine.PlayerPawn", "MouseSmoothThreshold", IniPropertyConverter<float>::ToString(MouseSmoothThreshold()));
-	engine->packages->SetIniValue("user", "Engine.PlayerPawn", "ngWorldSecret", ngWorldSecret());
+	engine->packages->SetIniValue("user", "Engine.PlayerPawn", "ngWorldSecret", ScriptToLatin1(ngWorldSecret()));
 }

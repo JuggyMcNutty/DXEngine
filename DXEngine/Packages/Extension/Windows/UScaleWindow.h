@@ -127,7 +127,7 @@ public:
 	float& tickX() { return Value<float>(PropOffsets_ScaleWindow.tickX); }
 	float& tickY() { return Value<float>(PropOffsets_ScaleWindow.tickY); }
 	float& toValue() { return Value<float>(PropOffsets_ScaleWindow.toValue); }
-	std::string& valueFmt() { return Value<std::string>(PropOffsets_ScaleWindow.valueFmt); }
+	ScriptString& valueFmt() { return Value<ScriptString>(PropOffsets_ScaleWindow.valueFmt); }
 
 private:
 	float TickToValue(int tick);

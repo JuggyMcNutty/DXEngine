@@ -37,6 +37,12 @@ public:
 	uint8_t GetStyle();
 	void GetTextColor(Color& TextColor);
 	void GetTextExtent(float destWidth, float& xExtent, float& yExtent, const std::string& textStr);
+	// A script's text, drawn and measured as 8-bit text until the GC draws
+	// 16-bit characters
+	void DrawText(float DestX, float DestY, float destWidth, float destHeight, const ScriptString& textStr) { DrawText(DestX, DestY, destWidth, destHeight, ScriptToLatin1(textStr)); }
+	void DrawTextBlock(float DestX, float DestY, float destWidth, float destHeight, const ScriptString& textStr, float blockY) { DrawTextBlock(DestX, DestY, destWidth, destHeight, ScriptToLatin1(textStr), blockY); }
+	void DrawTextClipped(float ClipX, float ClipY, float clipWidth, float clipHeight, float x, float y, const ScriptString& textStr) { DrawTextClipped(ClipX, ClipY, clipWidth, clipHeight, x, y, ScriptToLatin1(textStr)); }
+	void GetTextExtent(float destWidth, float& xExtent, float& yExtent, const ScriptString& textStr) { GetTextExtent(destWidth, xExtent, yExtent, ScriptToLatin1(textStr)); }
 	float GetTextVSpacing();
 	void GetTileColor(Color& tileColor);
 	uint8_t GetVerticalAlignment();

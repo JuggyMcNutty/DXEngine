@@ -79,6 +79,8 @@ set(DXCOMMON_SOURCES
 	DXEngine/Utils/MD5.h
 	DXEngine/Utils/StrTools.cpp
 	DXEngine/Utils/StrTools.h
+	DXEngine/Utils/ScriptString.cpp
+	DXEngine/Utils/ScriptString.h
 	DXEngine/Utils/Random.cpp
 	DXEngine/Utils/Random.h
 	DXEngine/Utils/UTF16.cpp

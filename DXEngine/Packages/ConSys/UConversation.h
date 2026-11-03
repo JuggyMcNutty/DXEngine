@@ -20,9 +20,9 @@ public:
 	UObject* GetSpeechAudio(int soundID);
 	float GetSpeechLength(int soundID);
 
-	std::string& CreatedBy() { return Value<std::string>(PropOffsets_Conversation.CreatedBy); }
-	std::string& Description() { return Value<std::string>(PropOffsets_Conversation.Description); }
-	std::string& audioPackageName() { return Value<std::string>(PropOffsets_Conversation.audioPackageName); }
+	ScriptString& CreatedBy() { return Value<ScriptString>(PropOffsets_Conversation.CreatedBy); }
+	ScriptString& Description() { return Value<ScriptString>(PropOffsets_Conversation.Description); }
+	ScriptString& audioPackageName() { return Value<ScriptString>(PropOffsets_Conversation.audioPackageName); }
 	BitfieldBool bCanBeInterrupted() { return BoolValue(PropOffsets_Conversation.bCanBeInterrupted); }
 	BitfieldBool bCannotBeInterrupted() { return BoolValue(PropOffsets_Conversation.bCannotBeInterrupted); }
 	BitfieldBool bDataLinkCon() { return BoolValue(PropOffsets_Conversation.bDataLinkCon); }
@@ -36,7 +36,7 @@ public:
 	BitfieldBool bNonInteractive() { return BoolValue(PropOffsets_Conversation.bNonInteractive); }
 	BitfieldBool bRandomCamera() { return BoolValue(PropOffsets_Conversation.bRandomCamera); }
 	NameString& conName() { return Value<NameString>(PropOffsets_Conversation.conName); }
-	std::string& conOwnerName() { return Value<std::string>(PropOffsets_Conversation.conOwnerName); }
+	ScriptString& conOwnerName() { return Value<ScriptString>(PropOffsets_Conversation.conOwnerName); }
 	int& conversationID() { return Value<int>(PropOffsets_Conversation.conversationID); }
 	UConEvent*& eventList() { return Value<UConEvent*>(PropOffsets_Conversation.eventList); }
 	UConFlagRef*& flagRefList() { return Value<UConFlagRef*>(PropOffsets_Conversation.flagRefList); }

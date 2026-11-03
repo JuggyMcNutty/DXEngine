@@ -18,7 +18,7 @@ void UStringProperty::LoadValue(void* data, ObjectStream* stream, const Property
 	s.resize(len);
 	stream->ReadBytes(s.data(), (int)s.size());
 	s.push_back(0);
-	*static_cast<std::string*>(data) = s.data();
+	*static_cast<ScriptString*>(data) = Latin1ToScript(s.data());
 }
 
 void UStringProperty::SaveHeader(void* data, PropertyHeader& header)
@@ -28,21 +28,21 @@ void UStringProperty::SaveHeader(void* data, PropertyHeader& header)
 
 void UStringProperty::SaveValue(void* data, PackageStreamWriter* stream)
 {
-	const std::string& value = *static_cast<std::string*>(data);
+	const std::string value = ScriptToLatin1(*static_cast<ScriptString*>(data));
 	stream->WriteBytes(value.c_str(), (uint32_t)value.size() + 1);
 }
 
 void UStringProperty::SetValueFromString(void* data, const std::string& valueString)
 {
-	*(std::string*)data = valueString;
+	*(ScriptString*)data = Latin1ToScript(valueString);
 }
 
 std::string UStringProperty::PrintValue(const void* data)
 {
-	return '"' + *(std::string*)data + '"';
+	return '"' + ScriptToLatin1(*(const ScriptString*)data) + '"';
 }
 
 bool UStringProperty::IsDefaultValue(void* val)
 {
-	return ((std::string*)val)->length() == 0;
+	return ((ScriptString*)val)->length() == 0;
 }

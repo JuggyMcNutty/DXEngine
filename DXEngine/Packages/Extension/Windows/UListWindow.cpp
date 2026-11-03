@@ -43,7 +43,7 @@ void UListWindow::InitDefaults()
 	// The original's defaults: the delimiter ';'; auto sort off,
 	// auto-expanding columns, multiple selection and hot keys (column 0) on;
 	// a column margin of 3 and a row margin of 1; one column.
-	Delimiter() = ";";
+	Delimiter() = u";";
 	bMultiSelect() = true;
 	bAutoExpandColumns() = true;
 	bHotKeys() = true;
@@ -870,7 +870,7 @@ void UListWindow::SetColumnWidth(int colIndex, float newWidth)
 
 void UListWindow::SetDelimiter(const std::string& newDelimiter)
 {
-	Delimiter() = newDelimiter;
+	Delimiter() = Latin1ToScript(newDelimiter);
 }
 
 void UListWindow::SetField(int rowId, int colIndex, const std::string& fieldStr)
@@ -1297,12 +1297,12 @@ int UListWindow::FindRowByKey(char key)
 	if (!bHotKeys() || hotKeyCol() < 0 || hotKeyCol() >= (int)columns.size() || !IsHotKeyValid(key) || items.empty())
 		return -1;
 
-	std::string& typed = hotKeyString();
-	typed += key;
+	ScriptString& typed = hotKeyString();
+	typed += (char16_t)(uint8_t)key;
 	hotKeyTimer() = 1.0f;
 
 	bool sameLetter = true;
-	for (char c : typed)
+	for (char16_t c : typed)
 		sameLetter &= (c == typed[0]);
 	int matchLen = sameLetter ? 1 : (int)typed.size();
 

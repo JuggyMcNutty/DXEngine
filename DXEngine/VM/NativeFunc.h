@@ -25,6 +25,36 @@ public:
 
 void RegisterLatentAction(int nativeIndex, LatentRunState latentAction);
 
+// A native's argument from its value. A script's string is 16-bit
+// (ScriptString), and a native that still takes 8-bit text gets a copy: by
+// value or const reference the text, Latin-1, and by reference a copy that
+// goes back into the value once the call is done, the temporary lasting the
+// call's whole expression.
+class NativeStringRef
+{
+public:
+	NativeStringRef(ExpressionValue& value) : Target(&value.ToType<ScriptString&>()), Text(ScriptToLatin1(*Target)) {}
+	NativeStringRef(const NativeStringRef&) = delete;
+	NativeStringRef& operator=(const NativeStringRef&) = delete;
+	~NativeStringRef() { *Target = Latin1ToScript(Text); }
+	operator std::string&() { return Text; }
+
+private:
+	ScriptString* Target;
+	std::string Text;
+};
+
+template<typename T>
+decltype(auto) NativeArg(ExpressionValue& value)
+{
+	if constexpr (std::is_same_v<T, const std::string&>)
+		return value.ToString();
+	else if constexpr (std::is_same_v<T, std::string&>)
+		return NativeStringRef(value);
+	else
+		return value.ToType<T>();
+}
+
 // Static native functions:
 
 inline void RegisterVMNativeFunc_0(const std::string& className, const std::string& funcName, void(*func)(), int nativeIndex)
@@ -40,7 +70,7 @@ void RegisterVMNativeFunc_1(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(Args[0].ToType<Arg1>());
+		func(NativeArg<Arg1>(Args[0]));
 	});
 }
 
@@ -49,7 +79,7 @@ void RegisterVMNativeFunc_2(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>());
+		func(NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]));
 	});
 }
 
@@ -58,7 +88,7 @@ void RegisterVMNativeFunc_3(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>());
+		func(NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]));
 	});
 }
 
@@ -67,7 +97,7 @@ void RegisterVMNativeFunc_4(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>());
+		func(NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]));
 	});
 }
 
@@ -76,7 +106,7 @@ void RegisterVMNativeFunc_5(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>());
+		func(NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]));
 	});
 }
 
@@ -85,7 +115,7 @@ void RegisterVMNativeFunc_6(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>());
+		func(NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]));
 	});
 }
 
@@ -94,7 +124,7 @@ void RegisterVMNativeFunc_7(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>());
+		func(NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]));
 	});
 }
 
@@ -103,7 +133,7 @@ void RegisterVMNativeFunc_8(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>());
+		func(NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]));
 	});
 }
 
@@ -112,7 +142,7 @@ void RegisterVMNativeFunc_9(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>(), Args[8].ToType<Arg9>());
+		func(NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]), NativeArg<Arg9>(Args[8]));
 	});
 }
 
@@ -121,7 +151,7 @@ void RegisterVMNativeFunc_10(const std::string& className, const std::string& fu
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>(), Args[8].ToType<Arg9>(), Args[9].ToType<Arg10>());
+		func(NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]), NativeArg<Arg9>(Args[8]), NativeArg<Arg10>(Args[9]));
 	});
 }
 
@@ -130,7 +160,7 @@ void RegisterVMNativeFunc_11(const std::string& className, const std::string& fu
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 		{
-			func(Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>(), Args[8].ToType<Arg9>(), Args[9].ToType<Arg10>(), Args[10].ToType<Arg11>());
+			func(NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]), NativeArg<Arg9>(Args[8]), NativeArg<Arg10>(Args[9]), NativeArg<Arg11>(Args[10]));
 		});
 }
 
@@ -139,7 +169,7 @@ void RegisterVMNativeFunc_12(const std::string& className, const std::string& fu
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 		{
-			func(Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>(), Args[8].ToType<Arg9>(), Args[9].ToType<Arg10>(), Args[10].ToType<Arg11>(), Args[11].ToType<Arg12>());
+			func(NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]), NativeArg<Arg9>(Args[8]), NativeArg<Arg10>(Args[9]), NativeArg<Arg11>(Args[10]), NativeArg<Arg12>(Args[11]));
 		});
 }
 
@@ -148,7 +178,7 @@ void RegisterVMNativeFunc_13(const std::string& className, const std::string& fu
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 		{
-			func(Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>(), Args[8].ToType<Arg9>(), Args[9].ToType<Arg10>(), Args[10].ToType<Arg11>(), Args[11].ToType<Arg12>(), Args[12].ToType<Arg13>());
+			func(NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]), NativeArg<Arg9>(Args[8]), NativeArg<Arg10>(Args[9]), NativeArg<Arg11>(Args[10]), NativeArg<Arg12>(Args[11]), NativeArg<Arg13>(Args[12]));
 		});
 }
 
@@ -157,7 +187,7 @@ void RegisterVMNativeFunc_14(const std::string& className, const std::string& fu
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 		{
-			func(Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>(), Args[8].ToType<Arg9>(), Args[9].ToType<Arg10>(), Args[10].ToType<Arg11>(), Args[11].ToType<Arg12>(), Args[12].ToType<Arg13>(), Args[13].ToType<Arg14>());
+			func(NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]), NativeArg<Arg9>(Args[8]), NativeArg<Arg10>(Args[9]), NativeArg<Arg11>(Args[10]), NativeArg<Arg12>(Args[11]), NativeArg<Arg13>(Args[12]), NativeArg<Arg14>(Args[13]));
 		});
 }
 
@@ -166,7 +196,7 @@ void RegisterVMNativeFunc_15(const std::string& className, const std::string& fu
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 		{
-			func(Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>(), Args[8].ToType<Arg9>(), Args[9].ToType<Arg10>(), Args[10].ToType<Arg11>(), Args[11].ToType<Arg12>(), Args[12].ToType<Arg13>(), Args[13].ToType<Arg14>(), Args[14].ToType<Arg15>());
+			func(NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]), NativeArg<Arg9>(Args[8]), NativeArg<Arg10>(Args[9]), NativeArg<Arg11>(Args[10]), NativeArg<Arg12>(Args[11]), NativeArg<Arg13>(Args[12]), NativeArg<Arg14>(Args[13]), NativeArg<Arg15>(Args[14]));
 		});
 }
 
@@ -185,7 +215,7 @@ void RegisterVMNativeFunc_1(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(self, Args[0].ToType<Arg1>());
+		func(self, NativeArg<Arg1>(Args[0]));
 	});
 }
 
@@ -194,7 +224,7 @@ void RegisterVMNativeFunc_2(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(self, Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>());
+		func(self, NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]));
 	});
 }
 
@@ -203,7 +233,7 @@ void RegisterVMNativeFunc_3(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(self, Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>());
+		func(self, NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]));
 	});
 }
 
@@ -212,7 +242,7 @@ void RegisterVMNativeFunc_4(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(self, Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>());
+		func(self, NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]));
 	});
 }
 
@@ -221,7 +251,7 @@ void RegisterVMNativeFunc_5(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(self, Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>());
+		func(self, NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]));
 	});
 }
 
@@ -230,7 +260,7 @@ void RegisterVMNativeFunc_6(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(self, Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>());
+		func(self, NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]));
 	});
 }
 
@@ -239,7 +269,7 @@ void RegisterVMNativeFunc_7(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(self, Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>());
+		func(self, NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]));
 	});
 }
 
@@ -248,7 +278,7 @@ void RegisterVMNativeFunc_8(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(self, Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>());
+		func(self, NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]));
 	});
 }
 
@@ -257,7 +287,7 @@ void RegisterVMNativeFunc_9(const std::string& className, const std::string& fun
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(self, Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>(), Args[8].ToType<Arg9>());
+		func(self, NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]), NativeArg<Arg9>(Args[8]));
 	});
 }
 
@@ -266,7 +296,7 @@ void RegisterVMNativeFunc_10(const std::string& className, const std::string& fu
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 	{
-		func(self, Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>(), Args[8].ToType<Arg9>(), Args[9].ToType<Arg10>());
+		func(self, NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]), NativeArg<Arg9>(Args[8]), NativeArg<Arg10>(Args[9]));
 	});
 }
 
@@ -275,7 +305,7 @@ void RegisterVMNativeFunc_11(const std::string& className, const std::string& fu
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 		{
-			func(self, Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>(), Args[8].ToType<Arg9>(), Args[9].ToType<Arg10>(), Args[10].ToType<Arg11>());
+			func(self, NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]), NativeArg<Arg9>(Args[8]), NativeArg<Arg10>(Args[9]), NativeArg<Arg11>(Args[10]));
 		});
 }
 
@@ -284,7 +314,7 @@ void RegisterVMNativeFunc_12(const std::string& className, const std::string& fu
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 		{
-			func(self, Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>(), Args[8].ToType<Arg9>(), Args[9].ToType<Arg10>(), Args[10].ToType<Arg11>(), Args[11].ToType<Arg12>());
+			func(self, NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]), NativeArg<Arg9>(Args[8]), NativeArg<Arg10>(Args[9]), NativeArg<Arg11>(Args[10]), NativeArg<Arg12>(Args[11]));
 		});
 }
 
@@ -293,7 +323,7 @@ void RegisterVMNativeFunc_13(const std::string& className, const std::string& fu
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 		{
-			func(self, Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>(), Args[8].ToType<Arg9>(), Args[9].ToType<Arg10>(), Args[10].ToType<Arg11>(), Args[11].ToType<Arg12>(), Args[12].ToType<Arg13>());
+			func(self, NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]), NativeArg<Arg9>(Args[8]), NativeArg<Arg10>(Args[9]), NativeArg<Arg11>(Args[10]), NativeArg<Arg12>(Args[11]), NativeArg<Arg13>(Args[12]));
 		});
 }
 
@@ -302,7 +332,7 @@ void RegisterVMNativeFunc_14(const std::string& className, const std::string& fu
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 		{
-			func(self, Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>(), Args[8].ToType<Arg9>(), Args[9].ToType<Arg10>(), Args[10].ToType<Arg11>(), Args[11].ToType<Arg12>(), Args[12].ToType<Arg13>(), Args[13].ToType<Arg14>());
+			func(self, NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]), NativeArg<Arg9>(Args[8]), NativeArg<Arg10>(Args[9]), NativeArg<Arg11>(Args[10]), NativeArg<Arg12>(Args[11]), NativeArg<Arg13>(Args[12]), NativeArg<Arg14>(Args[13]));
 		});
 }
 
@@ -311,6 +341,6 @@ void RegisterVMNativeFunc_15(const std::string& className, const std::string& fu
 {
 	NativeFunctions::RegisterHandler(className, funcName, nativeIndex, [=](UObject* self, ExpressionValue* Args)
 		{
-			func(self, Args[0].ToType<Arg1>(), Args[1].ToType<Arg2>(), Args[2].ToType<Arg3>(), Args[3].ToType<Arg4>(), Args[4].ToType<Arg5>(), Args[5].ToType<Arg6>(), Args[6].ToType<Arg7>(), Args[7].ToType<Arg8>(), Args[8].ToType<Arg9>(), Args[9].ToType<Arg10>(), Args[10].ToType<Arg11>(), Args[11].ToType<Arg12>(), Args[12].ToType<Arg13>(), Args[13].ToType<Arg14>(), Args[14].ToType<Arg15>());
+			func(self, NativeArg<Arg1>(Args[0]), NativeArg<Arg2>(Args[1]), NativeArg<Arg3>(Args[2]), NativeArg<Arg4>(Args[3]), NativeArg<Arg5>(Args[4]), NativeArg<Arg6>(Args[5]), NativeArg<Arg7>(Args[6]), NativeArg<Arg8>(Args[7]), NativeArg<Arg9>(Args[8]), NativeArg<Arg10>(Args[9]), NativeArg<Arg11>(Args[10]), NativeArg<Arg12>(Args[11]), NativeArg<Arg13>(Args[12]), NativeArg<Arg14>(Args[13]), NativeArg<Arg15>(Args[14]));
 		});
 }

@@ -8,23 +8,23 @@ public:
 	using UInfo::UInfo;
 
 	int& Context() { return Value<int>(PropOffsets_StatLog.Context); }
-	std::string& DecoderRingURL() { return Value<std::string>(PropOffsets_StatLog.DecoderRingURL); }
-	std::string& GameCreator() { return Value<std::string>(PropOffsets_StatLog.GameCreator); }
-	std::string& GameCreatorURL() { return Value<std::string>(PropOffsets_StatLog.GameCreatorURL); }
-	std::string& GameName() { return Value<std::string>(PropOffsets_StatLog.GameName); }
-	std::string& LocalBatcherParams() { return Value<std::string>(PropOffsets_StatLog.LocalBatcherParams); }
-	std::string& LocalBatcherURL() { return Value<std::string>(PropOffsets_StatLog.LocalBatcherURL); }
-	std::string& LocalLogDir() { return Value<std::string>(PropOffsets_StatLog.LocalLogDir); }
-	std::string& LocalStandard() { return Value<std::string>(PropOffsets_StatLog.LocalStandard); }
-	std::string& LocalStatsURL() { return Value<std::string>(PropOffsets_StatLog.LocalStatsURL); }
-	std::string& LogInfoURL() { return Value<std::string>(PropOffsets_StatLog.LogInfoURL); }
-	std::string& LogVersion() { return Value<std::string>(PropOffsets_StatLog.LogVersion); }
+	ScriptString& DecoderRingURL() { return Value<ScriptString>(PropOffsets_StatLog.DecoderRingURL); }
+	ScriptString& GameCreator() { return Value<ScriptString>(PropOffsets_StatLog.GameCreator); }
+	ScriptString& GameCreatorURL() { return Value<ScriptString>(PropOffsets_StatLog.GameCreatorURL); }
+	ScriptString& GameName() { return Value<ScriptString>(PropOffsets_StatLog.GameName); }
+	ScriptString& LocalBatcherParams() { return Value<ScriptString>(PropOffsets_StatLog.LocalBatcherParams); }
+	ScriptString& LocalBatcherURL() { return Value<ScriptString>(PropOffsets_StatLog.LocalBatcherURL); }
+	ScriptString& LocalLogDir() { return Value<ScriptString>(PropOffsets_StatLog.LocalLogDir); }
+	ScriptString& LocalStandard() { return Value<ScriptString>(PropOffsets_StatLog.LocalStandard); }
+	ScriptString& LocalStatsURL() { return Value<ScriptString>(PropOffsets_StatLog.LocalStatsURL); }
+	ScriptString& LogInfoURL() { return Value<ScriptString>(PropOffsets_StatLog.LogInfoURL); }
+	ScriptString& LogVersion() { return Value<ScriptString>(PropOffsets_StatLog.LogVersion); }
 	float& TimeStamp() { return Value<float>(PropOffsets_StatLog.TimeStamp); }
-	std::string& WorldBatcherParams() { return Value<std::string>(PropOffsets_StatLog.WorldBatcherParams); }
-	std::string& WorldBatcherURL() { return Value<std::string>(PropOffsets_StatLog.WorldBatcherURL); }
-	std::string& WorldLogDir() { return Value<std::string>(PropOffsets_StatLog.WorldLogDir); }
-	std::string& WorldStandard() { return Value<std::string>(PropOffsets_StatLog.WorldStandard); }
-	std::string& WorldStatsURL() { return Value<std::string>(PropOffsets_StatLog.WorldStatsURL); }
+	ScriptString& WorldBatcherParams() { return Value<ScriptString>(PropOffsets_StatLog.WorldBatcherParams); }
+	ScriptString& WorldBatcherURL() { return Value<ScriptString>(PropOffsets_StatLog.WorldBatcherURL); }
+	ScriptString& WorldLogDir() { return Value<ScriptString>(PropOffsets_StatLog.WorldLogDir); }
+	ScriptString& WorldStandard() { return Value<ScriptString>(PropOffsets_StatLog.WorldStandard); }
+	ScriptString& WorldStatsURL() { return Value<ScriptString>(PropOffsets_StatLog.WorldStatsURL); }
 	BitfieldBool bWorld() { return BoolValue(PropOffsets_StatLog.bWorld); }
 	BitfieldBool bWorldBatcherError() { return BoolValue(PropOffsets_StatLog.bWorldBatcherError); }
 };

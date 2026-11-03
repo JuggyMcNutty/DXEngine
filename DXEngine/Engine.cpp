@@ -1041,7 +1041,7 @@ void Engine::PaintProgress()
 void Engine::PaintLoading(bool connecting)
 {
 	LevelInfo->LevelAction() = connecting ? LEVACT_Connecting : LEVACT_Loading;
-	LevelInfo->Pauser() = "";
+	LevelInfo->Pauser() = u"";
 	if (viewport && viewport->Actor())
 		viewport->Actor()->bShowMenu() = false;
 	PaintProgress();
@@ -1137,7 +1137,7 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 
 	GetLevelInfoObject();
 
-	LevelInfo->ComputerName() = ComputerName();
+	LevelInfo->ComputerName() = Latin1ToScript(ComputerName());
 	LevelInfo->HubStackLevel() = 0; // To do: handle level hubs
 	SetEngineVersion();
 	LevelInfo->bHighDetailMode() = true;
@@ -1396,7 +1396,7 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 		{
 			if (auto info = UObject::Cast<UDXSaveInfo>(infoPkg->GetUObject("DeusExSaveInfo", "MyDeusExSaveInfo")))
 			{
-				deusExMapName = info->MapName();
+				deusExMapName = ScriptToLatin1(info->MapName());
 				DeleteSaveGameFiles("Current");
 				CopySaveGameFiles(folder, "Current");
 				savefilePackage = packages->LoadSaveFile("Current/" + deusExMapName + "." + packages->GetSaveExtension());
@@ -1426,7 +1426,7 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 
 	// Same as LoadMap: these are session/engine identity, not save data, and must be
 	// re-established on every load regardless of what the package/save file contains.
-	LevelInfo->ComputerName() = ComputerName();
+	LevelInfo->ComputerName() = Latin1ToScript(ComputerName());
 	LevelInfo->HubStackLevel() = 0; // To do: handle level hubs
 	SetEngineVersion();
 	LevelInfo->bHighDetailMode() = true;
@@ -1472,8 +1472,8 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 // server's query answer reports and the Join screens compare with their own.
 void Engine::SetEngineVersion()
 {
-	LevelInfo->EngineVersion() = "1100";
-	LevelInfo->MinNetVersion() = "1100";
+	LevelInfo->EngineVersion() = u"1100";
+	LevelInfo->MinNetVersion() = u"1100";
 }
 
 static void ClearIgnoreNextShowMenu(UObject* player)
@@ -1515,9 +1515,9 @@ void Engine::SaveGameToSlot(int32_t slotNum, const std::string& saveDescription)
 	CopySaveGameFiles("Current", slotFolderName);
 
 	dxSaveInfo->DirectoryIndex() = slotNum;
-	dxSaveInfo->Description() = !saveDescription.empty() ? saveDescription : LevelInfo->Title();
-	dxSaveInfo->MissionLocation() = DeusExLevelInfo ? DeusExLevelInfo->MissionLocation() : "";
-	dxSaveInfo->MapName() = Level->package->GetPackageName().ToString();
+	dxSaveInfo->Description() = !saveDescription.empty() ? Latin1ToScript(saveDescription) : LevelInfo->Title();
+	dxSaveInfo->MissionLocation() = DeusExLevelInfo ? DeusExLevelInfo->MissionLocation() : ScriptString();
+	dxSaveInfo->MapName() = Latin1ToScript(Level->package->GetPackageName().ToString());
 	if (auto player = UObject::TryCast<UDeusExPlayer>(viewport->Actor()))
 	{
 		dxSaveInfo->SaveCount() = ++player->saveCount();
@@ -1787,7 +1787,7 @@ UnrealURL Engine::RestartURL()
 {
 	if (!DeusExLevelInfo)
 		return LastURL;
-	UnrealURL url(DeusExLevelInfo->MapName());
+	UnrealURL url(ScriptToLatin1(DeusExLevelInfo->MapName()));
 	url.Portal = LastURL.Portal;
 	url.Options.clear();
 	url.AddOrReplaceOption("loadonly");
@@ -1933,7 +1933,7 @@ std::map<std::string, std::string> Engine::CreateTravelInfo(bool transferItems)
 		UPlayerPawn* pawn = UObject::TryCast<UPlayerPawn>(actor);
 		if (pawn && pawn->Player() && pawn->PlayerReplicationInfo())
 		{
-			std::string playerName = pawn->PlayerReplicationInfo()->PlayerName(); // To do: how to get the travel player name?
+			std::string playerName = ScriptToLatin1(pawn->PlayerReplicationInfo()->PlayerName()); // To do: how to get the travel player name?
 			travelInfo[playerName] = ActorTravelInfo::Create(pawn, transferItems);
 		}
 	}
@@ -2535,7 +2535,7 @@ bool Engine::TakeTravel(float realTimeElapsed)
 		if (LevelInfo->NextSwitchCountdown() <= 0.0f)
 		{
 			if (LevelNetDriver)
-				LogMessage("Net: server switch level: " + LevelInfo->NextURL());
+				LogMessage("Net: server switch level: " + ScriptToLatin1(LevelInfo->NextURL()));
 			// LoginPlayer only transfers travel actors when ClientTravelInfo.TravelType is
 			// TRAVEL_Relative, and TravelType is otherwise assigned only in ClientTravel. These
 			// NextURL routes never go through ClientTravel, so without setting it here they
@@ -2543,7 +2543,7 @@ bool Engine::TakeTravel(float realTimeElapsed)
 			// default) - which silently discarded the inventory the bNextItems branch exists
 			// specifically to carry. State the intent explicitly on each branch instead of
 			// depending on leftover state.
-			if (UnrealURL(LevelInfo->NextURL()).HasOption("restart"))
+			if (UnrealURL(ScriptToLatin1(LevelInfo->NextURL())).HasOption("restart"))
 			{
 				DeleteSaveGameFiles("Current"); // the original's ?restart empties Current
 				// Carries nothing: the original's Browse loads the map with no
@@ -2566,7 +2566,7 @@ bool Engine::TakeTravel(float realTimeElapsed)
 				// the browse, failed or not.
 				ClientTravelInfo.TravelType = LevelInfo->bNextItems() ? ETravelType::TRAVEL_Relative : ETravelType::TRAVEL_Absolute;
 				auto travelInfo = LevelInfo->bNextItems() ? CreateTravelInfo(true) : std::map<std::string, std::string>();
-				if (!BrowseMap(UnrealURL(LastURL, LevelInfo->NextURL()), travelInfo))
+				if (!BrowseMap(UnrealURL(LastURL, ScriptToLatin1(LevelInfo->NextURL())), travelInfo))
 					LevelInfo->NextURL().clear();
 			}
 			return true;

@@ -35,7 +35,7 @@ void NExtString::GetNextTextPart(UObject* Self, std::string& OutText, int& Retur
 void NExtString::GetText(UObject* Self, std::string& ReturnValue)
 {
 	auto ESSelf = UObject::Cast<UDXExtString>(Self);
-	ReturnValue = ESSelf->GetText();
+	ReturnValue = ScriptToLatin1(ESSelf->GetText());
 }
 
 void NExtString::GetTextLength(UObject* Self, int& ReturnValue)

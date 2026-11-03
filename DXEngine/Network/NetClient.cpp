@@ -47,11 +47,11 @@ namespace
 			return "Checksum=NoChecksum";
 
 		MD5 md5;
-		auto hash = [&](const std::string& text)
+		auto hash = [&](const ScriptString& text)
 		{
-			for (char c : text)
+			for (char16_t c : text)
 			{
-				uint8_t wide[2] = { (uint8_t)c, 0 };
+				uint8_t wide[2] = { (uint8_t)(c & 0xFF), (uint8_t)(c >> 8) };
 				md5.Update(wide, 2);
 			}
 		};

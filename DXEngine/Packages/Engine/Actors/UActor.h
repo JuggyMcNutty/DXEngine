@@ -722,16 +722,16 @@ public:
 	BitfieldBool bUnlit() { return BoolValue(PropOffsets_Actor.bUnlit); }
 
 	// Deus Ex exclusive properties
-	std::string& BindName() { return Value<std::string>(PropOffsets_Actor.BindName); }
-	std::string& BarkBindName() { return Value<std::string>(PropOffsets_Actor.BarkBindName); }
+	ScriptString& BindName() { return Value<ScriptString>(PropOffsets_Actor.BindName); }
+	ScriptString& BarkBindName() { return Value<ScriptString>(PropOffsets_Actor.BarkBindName); }
 
 	FixedArrayView<float, 4> BlendAnimLast() { return FixedArray<float, 4>(PropOffsets_Actor.BlendAnimLast); }
 	FixedArrayView<float, 4> BlendAnimMinRate() { return FixedArray<float, 4>(PropOffsets_Actor.BlendAnimMinRate); }
 	FixedArrayView<float, 4> OldBlendAnimRate() { return FixedArray<float, 4>(PropOffsets_Actor.OldBlendAnimRate); }
 	FixedArrayView<vec4, 4> SimBlendAnim() { return FixedArray<vec4, 4>(PropOffsets_Actor.SimBlendAnim); }
 
-	std::string& FamiliarName() { return Value<std::string>(PropOffsets_Actor.FamiliarName); }
-	std::string& UnfamiliarName() { return Value<std::string>(PropOffsets_Actor.FamiliarName); }
+	ScriptString& FamiliarName() { return Value<ScriptString>(PropOffsets_Actor.FamiliarName); }
+	ScriptString& UnfamiliarName() { return Value<ScriptString>(PropOffsets_Actor.FamiliarName); }
 	UObject*& ConListItems() { return Value<UObject*>(PropOffsets_Actor.ConListItems); }
 	float& LastConEndTime() { return Value<float>(PropOffsets_Actor.LastConEndTime); }
 	float& ConStartInterval() { return Value<float>(PropOffsets_Actor.ConStartInterval); }

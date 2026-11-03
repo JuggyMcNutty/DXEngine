@@ -10,7 +10,7 @@ void UDXExtString::Load(ObjectStream* stream)
 	std::string text = stream->ReadString();
 	if (!Text().empty())
 		LogMessage("ExtString already has text content in its Text property!");
-	Text() = text;
+	Text() = Latin1ToScript(text);
 	stream->ThrowIfNotEnd();
 }
 
@@ -21,13 +21,13 @@ void UDXExtString::Load(ObjectStream* stream)
 
 void UDXExtString::AppendText(const std::string& newText)
 {
-	Text() += newText;
+	Text() += Latin1ToScript(newText);
 }
 
 int UDXExtString::GetFirstTextPart(std::string& outText)
 {
 	int count = std::min((int)Text().size(), 239);
-	outText = Text().substr(0, count);
+	outText = ScriptToLatin1(Text().substr(0, count));
 	SpeechPage() = 0;
 	return count;
 }
@@ -42,11 +42,11 @@ int UDXExtString::GetNextTextPart(std::string& outText)
 	if (page > len / 239)
 		return 0;
 	int count = std::min(len - 239 * page, 239);
-	outText = Text().substr(239 * page, count);
+	outText = ScriptToLatin1(Text().substr(239 * page, count));
 	return count;
 }
 
-std::string& UDXExtString::GetText()
+ScriptString& UDXExtString::GetText()
 {
 	return Text();
 }
@@ -64,11 +64,11 @@ int UDXExtString::GetTextPart(int startPos, int count, std::string& outText)
 		count = 0;
 	count = std::min(count, len - startPos);
 	count = std::clamp(count, 0, 240);
-	outText = count > 0 ? Text().substr(startPos, count) : std::string();
+	outText = count > 0 ? ScriptToLatin1(Text().substr(startPos, count)) : std::string();
 	return count;
 }
 
 void UDXExtString::SetText(const std::string& newText)
 {
-	Text() = newText;
+	Text() = Latin1ToScript(newText);
 }

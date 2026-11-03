@@ -266,7 +266,7 @@ void UDXEngineAudioDevice::StartAmbience()
 	if (!m_Viewport || !m_Viewport->Actor())
 		return;
 
-	bool Realtime = m_Viewport->IsRealtime() && m_Viewport->Actor()->Level()->Pauser() == "";
+	bool Realtime = m_Viewport->IsRealtime() && m_Viewport->Actor()->Level()->Pauser().empty();
 	if (Realtime)
 	{
 		UActor* ViewActor = m_Viewport->Actor()->ViewTarget() ? m_Viewport->Actor()->ViewTarget() : m_Viewport->Actor();
@@ -297,7 +297,7 @@ void UDXEngineAudioDevice::UpdateAmbience()
 		return;
 
 	UActor* ViewActor = m_Viewport->Actor()->ViewTarget() ? m_Viewport->Actor()->ViewTarget() : m_Viewport->Actor();
-	bool Realtime = m_Viewport->IsRealtime() && m_Viewport->Actor()->Level()->Pauser() == "";
+	bool Realtime = m_Viewport->IsRealtime() && m_Viewport->Actor()->Level()->Pauser().empty();
 	for (size_t i = 0; i < PlayingSounds.size(); i++)
 	{
 		PlayingSound& Playing = PlayingSounds[i];
@@ -466,7 +466,7 @@ void UDXEngineAudioDevice::UpdateLipSync(PlayingSound& Playing, int channel)
 		}
 	}
 
-	pawn->nextPhoneme() = std::string(1, LipSyncShape(rate));
+	pawn->nextPhoneme() = ScriptString(1, (char16_t)(uint8_t)LipSyncShape(rate));
 	Playing.NextLipSync += 0.1f;
 }
 

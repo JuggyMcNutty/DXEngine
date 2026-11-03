@@ -182,11 +182,11 @@ public:
 	float& MaxDesiredSpeed() { return Value<float>(PropOffsets_Pawn.MaxDesiredSpeed); }
 	float& MaxStepHeight() { return Value<float>(PropOffsets_Pawn.MaxStepHeight); }
 	float& MeleeRange() { return Value<float>(PropOffsets_Pawn.MeleeRange); }
-	std::string& MenuName() { return Value<std::string>(PropOffsets_Pawn.MenuName); }
+	ScriptString& MenuName() { return Value<ScriptString>(PropOffsets_Pawn.MenuName); }
 	float& MinHitWall() { return Value<float>(PropOffsets_Pawn.MinHitWall); }
 	UActor*& MoveTarget() { return Value<UActor*>(PropOffsets_Pawn.MoveTarget); }
 	float& MoveTimer() { return Value<float>(PropOffsets_Pawn.MoveTimer); }
-	std::string& NameArticle() { return Value<std::string>(PropOffsets_Pawn.NameArticle); }
+	ScriptString& NameArticle() { return Value<ScriptString>(PropOffsets_Pawn.NameArticle); }
 	NameString& NextLabel() { return Value<NameString>(PropOffsets_Pawn.NextLabel); }
 	NameString& NextState() { return Value<NameString>(PropOffsets_Pawn.NextState); }
 	float& OldMessageTime() { return Value<float>(PropOffsets_Pawn.OldMessageTime); }
@@ -202,7 +202,7 @@ public:
 	FixedArrayView<UNavigationPoint*, 16> RouteCache() { return FixedArray<UNavigationPoint*, 16>(PropOffsets_Pawn.RouteCache); }
 	int& SecretCount() { return Value<int>(PropOffsets_Pawn.SecretCount); }
 	UInventory*& SelectedItem() { return Value<UInventory*>(PropOffsets_Pawn.SelectedItem); }
-	std::string& SelectionMesh() { return Value<std::string>(PropOffsets_Pawn.SelectionMesh); }
+	ScriptString& SelectionMesh() { return Value<ScriptString>(PropOffsets_Pawn.SelectionMesh); }
 	UDecal*& Shadow() { return Value<UDecal*>(PropOffsets_Pawn.Shadow); }
 	NameString& SharedAlarmTag() { return Value<NameString>(PropOffsets_Pawn.SharedAlarmTag); }
 	float& SightCounter() { return Value<float>(PropOffsets_Pawn.SightCounter); }
@@ -210,7 +210,7 @@ public:
 	float& Skill() { return Value<float>(PropOffsets_Pawn.Skill); }
 	float& SoundDampening() { return Value<float>(PropOffsets_Pawn.SoundDampening); }
 	UActor*& SpecialGoal() { return Value<UActor*>(PropOffsets_Pawn.SpecialGoal); }
-	std::string& SpecialMesh() { return Value<std::string>(PropOffsets_Pawn.SpecialMesh); }
+	ScriptString& SpecialMesh() { return Value<ScriptString>(PropOffsets_Pawn.SpecialMesh); }
 	float& SpecialPause() { return Value<float>(PropOffsets_Pawn.SpecialPause); }
 	float& SpeechTime() { return Value<float>(PropOffsets_Pawn.SpeechTime); }
 	float& SplashTime() { return Value<float>(PropOffsets_Pawn.SplashTime); }
@@ -220,7 +220,7 @@ public:
 	Rotator& ViewRotation() { return Value<Rotator>(PropOffsets_Pawn.ViewRotation); }
 	uint8_t& Visibility() { return Value<uint8_t>(PropOffsets_Pawn.Visibility); }
 	uint8_t& VoicePitch() { return Value<uint8_t>(PropOffsets_Pawn.VoicePitch); }
-	std::string& VoiceType() { return Value<std::string>(PropOffsets_Pawn.VoiceType); }
+	ScriptString& VoiceType() { return Value<ScriptString>(PropOffsets_Pawn.VoiceType); }
 	vec3& WalkBob() { return Value<vec3>(PropOffsets_Pawn.WalkBob); }
 	float& WaterSpeed() { return Value<float>(PropOffsets_Pawn.WaterSpeed); }
 	USound*& WaterStep() { return Value<USound*>(PropOffsets_Pawn.WaterStep); }
@@ -293,8 +293,8 @@ public:
 	int& HealthArmRight() { return Value<int>(PropOffsets_Pawn.HealthArmRight); }
 	BitfieldBool bIsSpeaking() { return BoolValue(PropOffsets_Pawn.bIsSpeaking); }
 	BitfieldBool bWasSpeaking() { return BoolValue(PropOffsets_Pawn.bWasSpeaking); }
-	std::string& lastPhoneme() { return Value<std::string>(PropOffsets_Pawn.lastPhoneme); }
-	std::string& nextPhoneme() { return Value<std::string>(PropOffsets_Pawn.nextPhoneme); }
+	ScriptString& lastPhoneme() { return Value<ScriptString>(PropOffsets_Pawn.lastPhoneme); }
+	ScriptString& nextPhoneme() { return Value<ScriptString>(PropOffsets_Pawn.nextPhoneme); }
 	FixedArrayView<float, 4> animTimer() { return FixedArray<float, 4>(PropOffsets_Pawn.animTimer); }
 	BitfieldBool bOnFire() { return BoolValue(PropOffsets_Pawn.bOnFire); }
 	float& burnTimer() { return Value<float>(PropOffsets_Pawn.burnTimer); }

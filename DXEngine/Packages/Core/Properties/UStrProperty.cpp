@@ -12,7 +12,7 @@ void UStrProperty::LoadValue(void* data, ObjectStream* stream, const PropertyHea
 {
 	if (header.type == UPT_Str)
 	{
-		*static_cast<std::string*>(data) = stream->ReadString();
+		*static_cast<ScriptString*>(data) = Latin1ToScript(stream->ReadString());
 	}
 	else if (header.type == UPT_String)
 	{
@@ -24,7 +24,7 @@ void UStrProperty::LoadValue(void* data, ObjectStream* stream, const PropertyHea
 		s.resize(len);
 		stream->ReadBytes(s.data(), (int)s.size());
 		s.push_back(0);
-		*static_cast<std::string*>(data) = s.data();
+		*static_cast<ScriptString*>(data) = Latin1ToScript(s.data());
 	}
 	else
 	{
@@ -34,7 +34,7 @@ void UStrProperty::LoadValue(void* data, ObjectStream* stream, const PropertyHea
 
 void UStrProperty::LoadStructMemberValue(void* data, ObjectStream* stream)
 {
-	*static_cast<std::string*>(data) = stream->ReadString();
+	*static_cast<ScriptString*>(data) = Latin1ToScript(stream->ReadString());
 }
 
 void UStrProperty::SaveHeader(void* data, PropertyHeader& header)
@@ -44,12 +44,12 @@ void UStrProperty::SaveHeader(void* data, PropertyHeader& header)
 
 void UStrProperty::SaveValue(void* data, PackageStreamWriter* stream)
 {
-	stream->WriteString(*static_cast<std::string*>(data));
+	stream->WriteString(ScriptToLatin1(*static_cast<ScriptString*>(data)));
 }
 
 void UStrProperty::SetValueFromString(void* data, const std::string& valueString)
 {
-	*(std::string*)data = valueString;
+	*(ScriptString*)data = Latin1ToScript(valueString);
 }
 
 // A struct member's or an array element's text, as the original's delimited
@@ -61,12 +61,12 @@ void UStrProperty::SetDelimitedValueFromString(void* data, const std::string& va
 	size_t p = valueString.find_first_not_of(' ');
 	if (p == std::string::npos)
 	{
-		*(std::string*)data = std::string();
+		*(ScriptString*)data = ScriptString();
 		return;
 	}
 	if (valueString[p] == '"')
 	{
-		*(std::string*)data = Unquote(valueString);
+		*(ScriptString*)data = Latin1ToScript(Unquote(valueString));
 		return;
 	}
 	size_t q = p;
@@ -74,15 +74,15 @@ void UStrProperty::SetDelimitedValueFromString(void* data, const std::string& va
 		q++;
 	if (q == p)
 		q = p + 1;
-	*(std::string*)data = valueString.substr(p, q - p);
+	*(ScriptString*)data = Latin1ToScript(valueString.substr(p, q - p));
 }
 
 std::string UStrProperty::PrintValue(const void* data)
 {
-	return '"' + *(std::string*)data + '"';
+	return '"' + ScriptToLatin1(*(const ScriptString*)data) + '"';
 }
 
 bool UStrProperty::IsDefaultValue(void* val)
 {
-	return ((std::string*)val)->length() == 0;
+	return ((ScriptString*)val)->length() == 0;
 }

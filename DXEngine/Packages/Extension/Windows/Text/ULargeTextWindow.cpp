@@ -27,8 +27,9 @@ int ULargeTextWindow::CountRows(UGC* gc, float wrap, float& widest)
 	int rows = 0;
 	widest = 0.0f;
 	UGC::TextState state;
-	const uint8_t* text = (const uint8_t*)Text().data();
-	const uint8_t* end = text + Text().size();
+	std::string latin1 = ScriptToLatin1(Text());
+	const uint8_t* text = (const uint8_t*)latin1.data();
+	const uint8_t* end = text + latin1.size();
 	while (true)
 	{
 		float lineWidth = 0.0f;

@@ -39,7 +39,7 @@ public:
 	float& ConstantGlowScale() { return Value<float>(PropOffsets_PlayerPawn.ConstantGlowScale); }
 	float& CurrentTimeStamp() { return Value<float>(PropOffsets_PlayerPawn.CurrentTimeStamp); }
 	float& DefaultFOV() { return Value<float>(PropOffsets_PlayerPawn.DefaultFOV); }
-	std::string& DelayedCommand() { return Value<std::string>(PropOffsets_PlayerPawn.DelayedCommand); }
+	ScriptString& DelayedCommand() { return Value<ScriptString>(PropOffsets_PlayerPawn.DelayedCommand); }
 	int& DemoViewPitch() { return Value<int>(PropOffsets_PlayerPawn.DemoViewPitch); }
 	int& DemoViewYaw() { return Value<int>(PropOffsets_PlayerPawn.DemoViewYaw); }
 	float& DesiredFOV() { return Value<float>(PropOffsets_PlayerPawn.DesiredFOV); }
@@ -47,7 +47,7 @@ public:
 	float& DesiredFlashScale() { return Value<float>(PropOffsets_PlayerPawn.DesiredFlashScale); }
 	float& DodgeClickTime() { return Value<float>(PropOffsets_PlayerPawn.DodgeClickTime); }
 	float& DodgeClickTimer() { return Value<float>(PropOffsets_PlayerPawn.DodgeClickTimer); }
-	std::string& FailedView() { return Value<std::string>(PropOffsets_PlayerPawn.FailedView); }
+	ScriptString& FailedView() { return Value<ScriptString>(PropOffsets_PlayerPawn.FailedView); }
 	vec3& FlashFog() { return Value<vec3>(PropOffsets_PlayerPawn.FlashFog); }
 	vec3& FlashScale() { return Value<vec3>(PropOffsets_PlayerPawn.FlashScale); }
 	USavedMove*& FreeMoves() { return Value<USavedMove*>(PropOffsets_PlayerPawn.FreeMoves); }
@@ -68,15 +68,15 @@ public:
 	float& MouseSmoothThreshold() { return Value<float>(PropOffsets_PlayerPawn.MouseSmoothThreshold); }
 	float& MouseZeroTime() { return Value<float>(PropOffsets_PlayerPawn.MouseZeroTime); }
 	float& MyAutoAim() { return Value<float>(PropOffsets_PlayerPawn.MyAutoAim); }
-	std::string& NoPauseMessage() { return Value<std::string>(PropOffsets_PlayerPawn.NoPauseMessage); }
-	std::string& OwnCamera() { return Value<std::string>(PropOffsets_PlayerPawn.OwnCamera); }
-	std::string& Password() { return Value<std::string>(PropOffsets_PlayerPawn.Password); }
+	ScriptString& NoPauseMessage() { return Value<ScriptString>(PropOffsets_PlayerPawn.NoPauseMessage); }
+	ScriptString& OwnCamera() { return Value<ScriptString>(PropOffsets_PlayerPawn.OwnCamera); }
+	ScriptString& Password() { return Value<ScriptString>(PropOffsets_PlayerPawn.Password); }
 	USavedMove*& PendingMove() { return Value<USavedMove*>(PropOffsets_PlayerPawn.PendingMove); }
 	UPlayer*& Player() { return Value<UPlayer*>(PropOffsets_PlayerPawn.Player); }
 	FixedArrayView<Color*, 5> ProgressColor() { return FixedArray<Color*, 5>(PropOffsets_PlayerPawn.ProgressColor); }
 	FixedArrayView<std::optional<std::string>, 5> ProgressMessage() { return FixedArray<std::optional<std::string>, 5>(PropOffsets_PlayerPawn.ProgressMessage); }
 	float& ProgressTimeOut() { return Value<float>(PropOffsets_PlayerPawn.ProgressTimeOut); }
-	std::string& QuickSaveString() { return Value<std::string>(PropOffsets_PlayerPawn.QuickSaveString); }
+	ScriptString& QuickSaveString() { return Value<ScriptString>(PropOffsets_PlayerPawn.QuickSaveString); }
 	BitfieldBool ReceivedSecretChecksum() { return BoolValue(PropOffsets_PlayerPawn.ReceivedSecretChecksum); }
 	int& RendMap() { return Value<int>(PropOffsets_PlayerPawn.RendMap); }
 	USavedMove*& SavedMoves() { return Value<USavedMove*>(PropOffsets_PlayerPawn.SavedMoves); }
@@ -95,7 +95,7 @@ public:
 	float& TimeMargin() { return Value<float>(PropOffsets_PlayerPawn.TimeMargin); }
 	uint8_t& Transition() { return Value<uint8_t>(PropOffsets_PlayerPawn.Transition); }
 	UActor*& ViewTarget() { return Value<UActor*>(PropOffsets_PlayerPawn.ViewTarget); }
-	std::string& ViewingFrom() { return Value<std::string>(PropOffsets_PlayerPawn.ViewingFrom); }
+	ScriptString& ViewingFrom() { return Value<ScriptString>(PropOffsets_PlayerPawn.ViewingFrom); }
 	FixedArrayView<NameString*, 20> WeaponPriority() { return FixedArray<NameString*, 20>(PropOffsets_PlayerPawn.WeaponPriority); }
 	float& ZoomLevel() { return Value<float>(PropOffsets_PlayerPawn.ZoomLevel); }
 	float& aBaseX() { return Value<float>(PropOffsets_PlayerPawn.aBaseX); }
@@ -163,7 +163,7 @@ public:
 	float& maxshake() { return Value<float>(PropOffsets_PlayerPawn.maxshake); }
 	UHUD*& myHUD() { return Value<UHUD*>(PropOffsets_PlayerPawn.myHUD); }
 	BitfieldBool ngSecretSet() { return BoolValue(PropOffsets_PlayerPawn.ngSecretSet); }
-	std::string& ngWorldSecret() { return Value<std::string>(PropOffsets_PlayerPawn.ngWorldSecret); }
+	ScriptString& ngWorldSecret() { return Value<ScriptString>(PropOffsets_PlayerPawn.ngWorldSecret); }
 	int& shakemag() { return Value<int>(PropOffsets_PlayerPawn.shakemag); }
 	float& shaketimer() { return Value<float>(PropOffsets_PlayerPawn.shaketimer); }
 	float& shakevert() { return Value<float>(PropOffsets_PlayerPawn.shakevert); }

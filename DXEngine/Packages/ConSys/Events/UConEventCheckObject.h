@@ -7,7 +7,7 @@ class UConEventCheckObject : public UConEvent
 public:
 	using UConEvent::UConEvent;
 
-	std::string& ObjectName() { return Value<std::string>(PropOffsets_ConEventCheckObject.ObjectName); }
+	ScriptString& ObjectName() { return Value<ScriptString>(PropOffsets_ConEventCheckObject.ObjectName); }
 	UClass*& checkObject() { return Value<UClass*>(PropOffsets_ConEventCheckObject.checkObject); }
-	std::string& failLabel() { return Value<std::string>(PropOffsets_ConEventCheckObject.failLabel); }
+	ScriptString& failLabel() { return Value<ScriptString>(PropOffsets_ConEventCheckObject.failLabel); }
 };

@@ -48,7 +48,7 @@ void UTextLogWindow::RegenerateText()
 			text += "\n";
 		text += logs[i].text;
 	}
-	Text() = text;
+	Text() = Latin1ToScript(text);
 	AskParentForReconfigure();
 }
 

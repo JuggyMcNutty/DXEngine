@@ -8,5 +8,5 @@ public:
 	using UConEvent::UConEvent;
 
 	BitfieldBool bNoteAdded() { return BoolValue(PropOffsets_ConEventAddNote.bNoteAdded); }
-	std::string& noteText() { return Value<std::string>(PropOffsets_ConEventAddNote.noteText); }
+	ScriptString& noteText() { return Value<ScriptString>(PropOffsets_ConEventAddNote.noteText); }
 };

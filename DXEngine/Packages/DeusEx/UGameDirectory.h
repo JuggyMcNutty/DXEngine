@@ -19,8 +19,8 @@ public:
 	using UObject::UObject;
 
 	EGameDirectoryTypes& GameDirectoryType() { return Value<EGameDirectoryTypes>(PropOffsets_GameDirectory.gameDirectoryType); }
-	std::string& CurrentFilter() { return Value<std::string>(PropOffsets_GameDirectory.currentFilter); }
-	TypedScriptArray<std::string> DirectoryList() { return DynamicArray<std::string>(PropOffsets_GameDirectory.directoryList); }
+	ScriptString& CurrentFilter() { return Value<ScriptString>(PropOffsets_GameDirectory.currentFilter); }
+	TypedScriptArray<ScriptString> DirectoryList() { return DynamicArray<ScriptString>(PropOffsets_GameDirectory.directoryList); }
 	TypedScriptArray<UDXSaveInfo*> LoadedSaveInfoPointers() { return DynamicArray<UDXSaveInfo*>(PropOffsets_GameDirectory.loadedSaveInfoPointers); }
 	UDXSaveInfo*& TempSaveInfo() { return Value<UDXSaveInfo*>(PropOffsets_GameDirectory.tempSaveInfo); }
 

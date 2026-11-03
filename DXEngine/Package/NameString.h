@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Utils/ScriptString.h"
+
 #include <vector>
 #include <unordered_map>
 #include <cstdint>
@@ -11,6 +13,8 @@ public:
 	NameString() { }
 	NameString(const char* str) { GetIndex(str); }
 	NameString(const std::string& str) { GetIndex(str); }
+	// A name from a script's string, 8-bit, each character past Latin-1 a '?'
+	NameString(const ScriptString& str) { GetIndex(ScriptToLatin1(str)); }
 	NameString(const NameString& other) = default;
 	NameString& operator=(const NameString&) = default;
 

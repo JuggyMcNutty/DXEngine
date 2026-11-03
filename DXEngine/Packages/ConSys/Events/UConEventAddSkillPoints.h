@@ -7,6 +7,6 @@ class UConEventAddSkillPoints : public UConEvent
 public:
 	using UConEvent::UConEvent;
 
-	std::string& awardMessage() { return Value<std::string>(PropOffsets_ConEventAddSkillPoints.awardMessage); }
+	ScriptString& awardMessage() { return Value<ScriptString>(PropOffsets_ConEventAddSkillPoints.awardMessage); }
 	int& pointsToAdd() { return Value<int>(PropOffsets_ConEventAddSkillPoints.pointsToAdd); }
 };

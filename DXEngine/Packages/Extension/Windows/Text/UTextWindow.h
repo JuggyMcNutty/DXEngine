@@ -32,7 +32,7 @@ public:
 	uint8_t& HAlign() { return Value<uint8_t>(PropOffsets_TextWindow.HAlign); }
 	int& MaxLines() { return Value<int>(PropOffsets_TextWindow.MaxLines); }
 	float& MinWidth() { return Value<float>(PropOffsets_TextWindow.MinWidth); }
-	std::string& Text() { return Value<std::string>(PropOffsets_TextWindow.Text); }
+	ScriptString& Text() { return Value<ScriptString>(PropOffsets_TextWindow.Text); }
 	uint8_t& VAlign() { return Value<uint8_t>(PropOffsets_TextWindow.VAlign); }
 	BitfieldBool bTextIsAccelerator() { return BoolValue(PropOffsets_TextWindow.bTextIsAccelerator); }
 	BitfieldBool bWordWrap() { return BoolValue(PropOffsets_TextWindow.bWordWrap); }

@@ -37,32 +37,32 @@ public:
 	UnrealURL URL;
 
 	FixedArrayView<int, 8> AIProfile() { return FixedArray<int, 8>(PropOffsets_LevelInfo.AIProfile); }
-	std::string& Author() { return Value<std::string>(PropOffsets_LevelInfo.Author); }
+	ScriptString& Author() { return Value<ScriptString>(PropOffsets_LevelInfo.Author); }
 	float& AvgAITime() { return Value<float>(PropOffsets_LevelInfo.AvgAITime); }
 	float& Brightness() { return Value<float>(PropOffsets_LevelInfo.Brightness); }
 	uint8_t& CdTrack() { return Value<uint8_t>(PropOffsets_LevelInfo.CdTrack); }
-	std::string& ComputerName() { return Value<std::string>(PropOffsets_LevelInfo.ComputerName); }
+	ScriptString& ComputerName() { return Value<ScriptString>(PropOffsets_LevelInfo.ComputerName); }
 	int& Day() { return Value<int>(PropOffsets_LevelInfo.Day); }
 	int& DayOfWeek() { return Value<int>(PropOffsets_LevelInfo.DayOfWeek); }
 	UClass*& DefaultGameType() { return Value<UClass*>(PropOffsets_LevelInfo.DefaultGameType); }
 	UTexture*& DefaultTexture() { return Value<UTexture*>(PropOffsets_LevelInfo.DefaultTexture); }
-	std::string& EngineVersion() { return Value<std::string>(PropOffsets_LevelInfo.EngineVersion); }
+	ScriptString& EngineVersion() { return Value<ScriptString>(PropOffsets_LevelInfo.EngineVersion); }
 	UGameInfo*& Game() { return Value<UGameInfo*>(PropOffsets_LevelInfo.Game); }
 	int& Hour() { return Value<int>(PropOffsets_LevelInfo.Hour); }
 	int& HubStackLevel() { return Value<int>(PropOffsets_LevelInfo.HubStackLevel); }
-	std::string& IdealPlayerCount() { return Value<std::string>(PropOffsets_LevelInfo.IdealPlayerCount); }
+	ScriptString& IdealPlayerCount() { return Value<ScriptString>(PropOffsets_LevelInfo.IdealPlayerCount); }
 	uint8_t& LevelAction() { return Value<uint8_t>(PropOffsets_LevelInfo.LevelAction); }
-	std::string& LevelEnterText() { return Value<std::string>(PropOffsets_LevelInfo.LevelEnterText); }
-	std::string& LocalizedPkg() { return Value<std::string>(PropOffsets_LevelInfo.LocalizedPkg); }
+	ScriptString& LevelEnterText() { return Value<ScriptString>(PropOffsets_LevelInfo.LevelEnterText); }
+	ScriptString& LocalizedPkg() { return Value<ScriptString>(PropOffsets_LevelInfo.LocalizedPkg); }
 	int& Millisecond() { return Value<int>(PropOffsets_LevelInfo.Millisecond); }
-	std::string& MinNetVersion() { return Value<std::string>(PropOffsets_LevelInfo.MinNetVersion); }
+	ScriptString& MinNetVersion() { return Value<ScriptString>(PropOffsets_LevelInfo.MinNetVersion); }
 	int& Minute() { return Value<int>(PropOffsets_LevelInfo.Minute); }
 	int& Month() { return Value<int>(PropOffsets_LevelInfo.Month); }
 	UNavigationPoint*& NavigationPointList() { return Value<UNavigationPoint*>(PropOffsets_LevelInfo.NavigationPointList); }
 	uint8_t& NetMode() { return Value<uint8_t>(PropOffsets_LevelInfo.NetMode); }
 	float& NextSwitchCountdown() { return Value<float>(PropOffsets_LevelInfo.NextSwitchCountdown); }
-	std::string& NextURL() { return Value<std::string>(PropOffsets_LevelInfo.NextURL); }
-	std::string& Pauser() { return Value<std::string>(PropOffsets_LevelInfo.Pauser); }
+	ScriptString& NextURL() { return Value<ScriptString>(PropOffsets_LevelInfo.NextURL); }
+	ScriptString& Pauser() { return Value<ScriptString>(PropOffsets_LevelInfo.Pauser); }
 	UPawn*& PawnList() { return Value<UPawn*>(PropOffsets_LevelInfo.PawnList); }
 	float& PlayerDoppler() { return Value<float>(PropOffsets_LevelInfo.PlayerDoppler); }
 	int& RecommendedEnemies() { return Value<int>(PropOffsets_LevelInfo.RecommendedEnemies); }
@@ -75,8 +75,8 @@ public:
 	ULevelSummary*& Summary() { return Value<ULevelSummary*>(PropOffsets_LevelInfo.Summary); }
 	float& TimeDilation() { return Value<float>(PropOffsets_LevelInfo.TimeDilation); }
 	float& TimeSeconds() { return Value<float>(PropOffsets_LevelInfo.TimeSeconds); }
-	std::string& Title() { return Value<std::string>(PropOffsets_LevelInfo.Title); }
-	std::string& VisibleGroups() { return Value<std::string>(PropOffsets_LevelInfo.VisibleGroups); }
+	ScriptString& Title() { return Value<ScriptString>(PropOffsets_LevelInfo.Title); }
+	ScriptString& VisibleGroups() { return Value<ScriptString>(PropOffsets_LevelInfo.VisibleGroups); }
 	int& Year() { return Value<int>(PropOffsets_LevelInfo.Year); }
 	BitfieldBool bAggressiveLOD() { return BoolValue(PropOffsets_LevelInfo.bAggressiveLOD); }
 	BitfieldBool bAllowFOV() { return BoolValue(PropOffsets_LevelInfo.bAllowFOV); }

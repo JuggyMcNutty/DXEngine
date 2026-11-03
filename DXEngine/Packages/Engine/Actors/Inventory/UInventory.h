@@ -22,12 +22,12 @@ public:
 	uint8_t& FlashCount() { return Value<uint8_t>(PropOffsets_Inventory.FlashCount); }
 	UTexture*& Icon() { return Value<UTexture*>(PropOffsets_Inventory.Icon); }
 	uint8_t& InventoryGroup() { return Value<uint8_t>(PropOffsets_Inventory.InventoryGroup); }
-	std::string& ItemArticle() { return Value<std::string>(PropOffsets_Inventory.ItemArticle); }
+	ScriptString& ItemArticle() { return Value<ScriptString>(PropOffsets_Inventory.ItemArticle); }
 	UClass*& ItemMessageClass() { return Value<UClass*>(PropOffsets_Inventory.ItemMessageClass); }
-	std::string& ItemName() { return Value<std::string>(PropOffsets_Inventory.ItemName); }
-	std::string& M_Activated() { return Value<std::string>(PropOffsets_Inventory.M_Activated); }
-	std::string& M_Deactivated() { return Value<std::string>(PropOffsets_Inventory.M_Deactivated); }
-	std::string& M_Selected() { return Value<std::string>(PropOffsets_Inventory.M_Selected); }
+	ScriptString& ItemName() { return Value<ScriptString>(PropOffsets_Inventory.ItemName); }
+	ScriptString& M_Activated() { return Value<ScriptString>(PropOffsets_Inventory.M_Activated); }
+	ScriptString& M_Deactivated() { return Value<ScriptString>(PropOffsets_Inventory.M_Deactivated); }
+	ScriptString& M_Selected() { return Value<ScriptString>(PropOffsets_Inventory.M_Selected); }
 	float& MaxDesireability() { return Value<float>(PropOffsets_Inventory.MaxDesireability); }
 	UMesh*& MuzzleFlashMesh() { return Value<UMesh*>(PropOffsets_Inventory.MuzzleFlashMesh); }
 	float& MuzzleFlashScale() { return Value<float>(PropOffsets_Inventory.MuzzleFlashScale); }
@@ -35,7 +35,7 @@ public:
 	UTexture*& MuzzleFlashTexture() { return Value<UTexture*>(PropOffsets_Inventory.MuzzleFlashTexture); }
 	UInventory*& NextArmor() { return Value<UInventory*>(PropOffsets_Inventory.NextArmor); }
 	uint8_t& OldFlashCount() { return Value<uint8_t>(PropOffsets_Inventory.OldFlashCount); }
-	std::string& PickupMessage() { return Value<std::string>(PropOffsets_Inventory.PickupMessage); }
+	ScriptString& PickupMessage() { return Value<ScriptString>(PropOffsets_Inventory.PickupMessage); }
 	UClass*& PickupMessageClass() { return Value<UClass*>(PropOffsets_Inventory.PickupMessageClass); }
 	USound*& PickupSound() { return Value<USound*>(PropOffsets_Inventory.PickupSound); }
 	UMesh*& PickupViewMesh() { return Value<UMesh*>(PropOffsets_Inventory.PickupViewMesh); }

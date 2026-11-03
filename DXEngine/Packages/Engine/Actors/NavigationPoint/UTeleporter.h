@@ -12,7 +12,7 @@ public:
 	vec3& TargetVelocity() { return Value<vec3>(PropOffsets_Teleporter.TargetVelocity); }
 	UActor*& TriggerActor() { return Value<UActor*>(PropOffsets_Teleporter.TriggerActor); }
 	UActor*& TriggerActor2() { return Value<UActor*>(PropOffsets_Teleporter.TriggerActor2); }
-	std::string& URL() { return Value<std::string>(PropOffsets_Teleporter.URL); }
+	ScriptString& URL() { return Value<ScriptString>(PropOffsets_Teleporter.URL); }
 	BitfieldBool bChangesVelocity() { return BoolValue(PropOffsets_Teleporter.bChangesVelocity); }
 	BitfieldBool bChangesYaw() { return BoolValue(PropOffsets_Teleporter.bChangesYaw); }
 	BitfieldBool bEnabled() { return BoolValue(PropOffsets_Teleporter.bEnabled); }

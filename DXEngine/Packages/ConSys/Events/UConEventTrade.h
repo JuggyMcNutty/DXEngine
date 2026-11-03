@@ -10,5 +10,5 @@ public:
 	using UConEvent::UConEvent;
 
 	UActor*& eventOwner() { return Value<UActor*>(PropOffsets_ConEventTrade.eventOwner); }
-	std::string& eventOwnerName() { return Value<std::string>(PropOffsets_ConEventTrade.eventOwnerName); }
+	ScriptString& eventOwnerName() { return Value<ScriptString>(PropOffsets_ConEventTrade.eventOwnerName); }
 };

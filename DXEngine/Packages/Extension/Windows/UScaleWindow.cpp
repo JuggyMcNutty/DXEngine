@@ -63,7 +63,7 @@ void UScaleWindow::InitDefaults()
 	thumbStep() = 1;
 	fromValue() = 0.0f;
 	toValue() = 1.0f;
-	valueFmt() = "%1.2f";
+	valueFmt() = u"%1.2f";
 	bDraggingThumb() = false;
 	initialDelay() = 0.5f;
 	repeatRate() = 0.1f;
@@ -323,7 +323,7 @@ void UScaleWindow::GetValues(float& outFromValue, float& outToValue)
 
 void UScaleWindow::SetValueFormat(const std::string& newFmt)
 {
-	valueFmt() = newFmt;
+	valueFmt() = Latin1ToScript(newFmt);
 	ChangeScalePosition(true);
 }
 
@@ -334,7 +334,7 @@ std::string UScaleWindow::GetValueString()
 	int pos = currentPos();
 	if (pos >= 0 && (size_t)pos < enumStrings.size() && !enumStrings[pos].empty())
 		return enumStrings[pos];
-	return FormatScriptFloat(valueFmt(), GetValue());
+	return FormatScriptFloat(ScriptToLatin1(valueFmt()), GetValue());
 }
 
 // The original's (XScaleWindow::SetEnumeration 0x1003e580): ticks 0 to 511

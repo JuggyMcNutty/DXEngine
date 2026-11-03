@@ -12,7 +12,7 @@ public:
 	using UActor::UActor;
 
 	int& Crosshair() { return Value<int>(PropOffsets_HUD.Crosshair); }
-	std::string& HUDConfigWindowType() { return Value<std::string>(PropOffsets_HUD.HUDConfigWindowType); }
+	ScriptString& HUDConfigWindowType() { return Value<ScriptString>(PropOffsets_HUD.HUDConfigWindowType); }
 	UMutator*& HUDMutator() { return Value<UMutator*>(PropOffsets_HUD.HUDMutator); }
 	int& HudMode() { return Value<int>(PropOffsets_HUD.HudMode); }
 	UMenu*& MainMenu() { return Value<UMenu*>(PropOffsets_HUD.MainMenu); }

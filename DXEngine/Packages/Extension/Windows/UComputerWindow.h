@@ -82,8 +82,8 @@ public:
 	float& fadeSpeed() { return Value<float>(PropOffsets_ComputerWindow.fadeSpeed); }
 	int& fontHeight() { return Value<int>(PropOffsets_ComputerWindow.fontHeight); }
 	int& fontWidth() { return Value<int>(PropOffsets_ComputerWindow.fontWidth); }
-	std::string& inputKey() { return Value<std::string>(PropOffsets_ComputerWindow.inputKey); }
-	std::string& inputMask() { return Value<std::string>(PropOffsets_ComputerWindow.inputMask); }
+	ScriptString& inputKey() { return Value<ScriptString>(PropOffsets_ComputerWindow.inputKey); }
+	ScriptString& inputMask() { return Value<ScriptString>(PropOffsets_ComputerWindow.inputMask); }
 	UEditWindow*& inputWindow() { return Value<UEditWindow*>(PropOffsets_ComputerWindow.inputWindow); }
 	//DynamicArray& queuedBuffer() { return Value<DynamicArray>(PropOffsets_ComputerWindow.queuedBuffer); }
 	int& queuedBufferStart() { return Value<int>(PropOffsets_ComputerWindow.queuedBufferStart); }

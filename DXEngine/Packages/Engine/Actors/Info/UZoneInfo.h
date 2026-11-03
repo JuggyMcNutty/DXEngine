@@ -17,7 +17,7 @@ public:
 	uint8_t& AmbientSaturation() { return Value<uint8_t>(PropOffsets_ZoneInfo.AmbientSaturation); }
 	int& CutoffHz() { return Value<int>(PropOffsets_ZoneInfo.CutoffHz); }
 	int& DamagePerSec() { return Value<int>(PropOffsets_ZoneInfo.DamagePerSec); }
-	std::string& DamageString() { return Value<std::string>(PropOffsets_ZoneInfo.DamageString); }
+	ScriptString& DamageString() { return Value<ScriptString>(PropOffsets_ZoneInfo.DamageString); }
 	NameString& DamageType() { return Value<NameString>(PropOffsets_ZoneInfo.DamageType); }
 	FixedArrayView<uint8_t, 6> Delay() { return FixedArray<uint8_t, 6>(PropOffsets_ZoneInfo.Delay); }
 	UClass*& EntryActor() { return Value<UClass*>(PropOffsets_ZoneInfo.EntryActor); }
@@ -47,7 +47,7 @@ public:
 	float& ZoneFluidFriction() { return Value<float>(PropOffsets_ZoneInfo.ZoneFluidFriction); }
 	vec3& ZoneGravity() { return Value<vec3>(PropOffsets_ZoneInfo.ZoneGravity); }
 	float& ZoneGroundFriction() { return Value<float>(PropOffsets_ZoneInfo.ZoneGroundFriction); }
-	std::string& ZoneName() { return Value<std::string>(PropOffsets_ZoneInfo.ZoneName); }
+	ScriptString& ZoneName() { return Value<ScriptString>(PropOffsets_ZoneInfo.ZoneName); }
 	int& ZonePlayerCount() { return Value<int>(PropOffsets_ZoneInfo.ZonePlayerCount); }
 	NameString& ZonePlayerEvent() { return Value<NameString>(PropOffsets_ZoneInfo.ZonePlayerEvent); }
 	NameString& ZoneTag() { return Value<NameString>(PropOffsets_ZoneInfo.ZoneTag); }

@@ -17,7 +17,7 @@ public:
 	UClass*& AmmoName() { return Value<UClass*>(PropOffsets_Weapon.AmmoName); }
 	//UAmmo*& AmmoType() { return Value<UAmmo*>(PropOffsets_Weapon.AmmoType); }
 	USound*& CockingSound() { return Value<USound*>(PropOffsets_Weapon.CockingSound); }
-	std::string& DeathMessage() { return Value<std::string>(PropOffsets_Weapon.DeathMessage); }
+	ScriptString& DeathMessage() { return Value<ScriptString>(PropOffsets_Weapon.DeathMessage); }
 	vec3& FireOffset() { return Value<vec3>(PropOffsets_Weapon.FireOffset); }
 	USound*& FireSound() { return Value<USound*>(PropOffsets_Weapon.FireSound); }
 	float& FiringSpeed() { return Value<float>(PropOffsets_Weapon.FiringSpeed); }
@@ -30,7 +30,7 @@ public:
 	float& FlashY() { return Value<float>(PropOffsets_Weapon.FlashY); }
 	UTexture*& MFTexture() { return Value<UTexture*>(PropOffsets_Weapon.MFTexture); }
 	float& MaxTargetRange() { return Value<float>(PropOffsets_Weapon.MaxTargetRange); }
-	std::string& MessageNoAmmo() { return Value<std::string>(PropOffsets_Weapon.MessageNoAmmo); }
+	ScriptString& MessageNoAmmo() { return Value<ScriptString>(PropOffsets_Weapon.MessageNoAmmo); }
 	USound*& Misc1Sound() { return Value<USound*>(PropOffsets_Weapon.Misc1Sound); }
 	USound*& Misc2Sound() { return Value<USound*>(PropOffsets_Weapon.Misc2Sound); }
 	USound*& Misc3Sound() { return Value<USound*>(PropOffsets_Weapon.Misc3Sound); }

@@ -23,6 +23,7 @@
 #include <memory>
 #include "Utils/Array.h"
 #include "Utils/Exception.h"
+#include "Utils/ScriptString.h"
 
 // Every port is little endian, as the packages are: nothing to swap
 #define BSWAP16(i) i

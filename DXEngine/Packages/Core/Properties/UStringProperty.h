@@ -2,7 +2,7 @@
 
 #include "UProperty.h"
 
-class UStringProperty : public UPropertyT<std::string>
+class UStringProperty : public UPropertyT<ScriptString>
 {
 public:
 	UStringProperty(NameString name, UClass* base, ObjectFlags flags);

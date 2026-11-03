@@ -56,7 +56,7 @@ void UEditWindow::AddUndo(int pos, std::string removed, std::string inserted)
 // it put in, nothing selected.
 void UEditWindow::ApplyChange(int pos, const std::string& from, const std::string& to)
 {
-	std::string text = Text();
+	std::string text = ScriptToLatin1(Text());
 	if (pos < 0 || pos + (int)from.size() > (int)text.size())
 		return;
 	text = text.substr(0, pos) + to + text.substr(pos + from.size());
@@ -201,7 +201,7 @@ void UEditWindow::EnableSingleLineEditing(std::optional<bool> bSingle)
 	bSingleLine() = single;
 	if (single)
 	{
-		std::string text = Text();
+		std::string text = ScriptToLatin1(Text());
 		SetText(text);
 		SetWordWrap(false);
 	}
@@ -261,9 +261,9 @@ void UEditWindow::AppendText(const std::string& NewText)
 // 0x1001fe20); the insertion point stays where the edit put it.
 void UEditWindow::StoreText(const std::string& text)
 {
-	if (Text() != text)
+	if (Text() != Latin1ToScript(text))
 	{
-		Text() = text;
+		Text() = Latin1ToScript(text);
 		AskParentForReconfigure();
 	}
 }
@@ -305,7 +305,7 @@ bool UEditWindow::InsertText(std::optional<std::string> InsertText, std::optiona
 // start, so that with bSelect it is selected.
 void UEditWindow::ReplaceText(std::string newText, bool bUndo, bool bSelect)
 {
-	std::string text = Text();
+	std::string text = ScriptToLatin1(Text());
 	int selCount = selectEnd() > selectStart() ? selectEnd() - selectStart() : 0;
 	int insertLength = (int)newText.size();
 	if (maxSize() > 0)
@@ -836,7 +836,7 @@ void UEditWindow::DispatchTextChanged(bool modified)
 const Array<UEditWindow::TextRow>& UEditWindow::Rows()
 {
 	float wrap = bWordWrap() ? Width() - (hMargin() + hMargin()) : 0.0f;
-	if (rowsMade && rowsText == Text() && rowsWrap == wrap && rowsNormalFont == normalFont() && rowsBoldFont == boldFont() && rowsSpecialText == bSpecialText())
+	if (rowsMade && rowsText == ScriptToLatin1(Text()) && rowsWrap == wrap && rowsNormalFont == normalFont() && rowsBoldFont == boldFont() && rowsSpecialText == bSpecialText())
 		return rows;
 
 	WindowTextGC g(this);
@@ -844,8 +844,11 @@ const Array<UEditWindow::TextRow>& UEditWindow::Rows()
 		return rows;
 
 	rows.clear();
-	const uint8_t* start = (const uint8_t*)Text().data();
-	const uint8_t* end = start + Text().size();
+	// The rows are laid out over an 8-bit copy of the text, which the rows'
+	// places index until the edit window draws 16-bit characters
+	rowsText = ScriptToLatin1(Text());
+	const uint8_t* start = (const uint8_t*)rowsText.data();
+	const uint8_t* end = start + rowsText.size();
 	const uint8_t* text = start;
 	UGC::TextState state;
 	while (true)
@@ -871,7 +874,6 @@ const Array<UEditWindow::TextRow>& UEditWindow::Rows()
 	lineHeight() = std::max(g.gc->GetFontHeight(false), 1.0f);
 
 	rowsMade = true;
-	rowsText = Text();
 	rowsWrap = wrap;
 	rowsNormalFont = normalFont();
 	rowsBoldFont = boldFont();
@@ -916,7 +918,7 @@ float UEditWindow::RowLeft(float rowWidth)
 // (XGC::CharToPixel 0x10027fc0).
 float UEditWindow::CharToPixel(UGC* gc, const TextRow& row, int col)
 {
-	const uint8_t* start = (const uint8_t*)Text().data() + row.startPos;
+	const uint8_t* start = (const uint8_t*)rowsText.data() + row.startPos;
 	const uint8_t* end = start + row.count;
 	const uint8_t* p = start;
 	UGC::TextState state = row.state;
@@ -938,7 +940,7 @@ float UEditWindow::CharToPixel(UGC* gc, const TextRow& row, int col)
 // middle lies past it (XGC::PixelToChar 0x10028050).
 int UEditWindow::PixelToChar(UGC* gc, const TextRow& row, float x)
 {
-	const uint8_t* start = (const uint8_t*)Text().data() + row.startPos;
+	const uint8_t* start = (const uint8_t*)rowsText.data() + row.startPos;
 	const uint8_t* end = start + row.count;
 	const uint8_t* p = start;
 	UGC::TextState state = row.state;
@@ -1211,7 +1213,7 @@ void UEditWindow::SetCursorRow(int row, bool bDrag)
 // Back to the whitespace before a word (XEditWindow::StartOfWord 0x1001f300).
 int UEditWindow::StartOfWord(int pos)
 {
-	const std::string& text = Text();
+	const std::string text = ScriptToLatin1(Text());
 	int i = std::min(pos, (int)text.size()) - 1;
 	while (i >= 0 && !IsSpace((uint8_t)text[i]))
 		i--;
@@ -1221,7 +1223,7 @@ int UEditWindow::StartOfWord(int pos)
 // On to the whitespace after a word (XEditWindow::EndOfWord 0x1001f350).
 int UEditWindow::EndOfWord(int pos)
 {
-	const std::string& text = Text();
+	const std::string text = ScriptToLatin1(Text());
 	int i = std::max(pos, 0);
 	while (i < (int)text.size() && !IsSpace((uint8_t)text[i]))
 		i++;
@@ -1240,7 +1242,7 @@ int UEditWindow::NextWord(int pos)
 	if (row < 0 || row >= (int)r.size())
 		return 0;
 	const TextRow& line = r[row];
-	const std::string& text = Text();
+	const std::string text = ScriptToLatin1(Text());
 	int end = line.startPos + line.count;
 	if (pos >= end)
 		return line.startPos + line.totalCount;
@@ -1272,7 +1274,7 @@ int UEditWindow::PrevWord(int pos)
 	int result = pos - 1;
 	if (pos != rowStart)
 	{
-		const std::string& text = Text();
+		const std::string text = ScriptToLatin1(Text());
 		bool sawWord = false;
 		int i = pos;
 		while (--i >= rowStart)
@@ -1292,7 +1294,7 @@ int UEditWindow::PrevWord(int pos)
 // while the pen is within [selectedFrom, selectedTo).
 void UEditWindow::DrawRow(UGC* gc, const TextRow& row, float x, float y, const Color& color, const Color& selectedColor, float selectedFrom, float selectedTo)
 {
-	const uint8_t* start = (const uint8_t*)Text().data() + row.startPos;
+	const uint8_t* start = (const uint8_t*)rowsText.data() + row.startPos;
 	const uint8_t* end = start + row.count;
 	const uint8_t* p = start;
 	UGC::TextState state = row.state;

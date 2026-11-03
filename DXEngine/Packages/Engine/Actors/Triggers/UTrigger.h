@@ -9,7 +9,7 @@ public:
 
 	UClass*& ClassProximityType() { return Value<UClass*>(PropOffsets_Trigger.ClassProximityType); }
 	float& DamageThreshold() { return Value<float>(PropOffsets_Trigger.DamageThreshold); }
-	std::string& Message() { return Value<std::string>(PropOffsets_Trigger.Message); }
+	ScriptString& Message() { return Value<ScriptString>(PropOffsets_Trigger.Message); }
 	float& ReTriggerDelay() { return Value<float>(PropOffsets_Trigger.ReTriggerDelay); }
 	float& RepeatTriggerTime() { return Value<float>(PropOffsets_Trigger.RepeatTriggerTime); }
 	UActor*& TriggerActor() { return Value<UActor*>(PropOffsets_Trigger.TriggerActor); }

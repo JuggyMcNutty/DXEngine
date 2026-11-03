@@ -9,6 +9,6 @@ public:
 
 	int& Value() { return UObject::Value<int>(PropOffsets_ConEventCheckPersona.Value); }
 	uint8_t& condition() { return UObject::Value<uint8_t>(PropOffsets_ConEventCheckPersona.condition); }
-	std::string& jumpLabel() { return UObject::Value<std::string>(PropOffsets_ConEventCheckPersona.jumpLabel); }
+	ScriptString& jumpLabel() { return UObject::Value<ScriptString>(PropOffsets_ConEventCheckPersona.jumpLabel); }
 	uint8_t& personaType() { return UObject::Value<uint8_t>(PropOffsets_ConEventCheckPersona.personaType); }
 };

@@ -10,8 +10,8 @@ public:
 	using UConObject::UConObject;
 
 	BitfieldBool bDisplayAsSpeech() { return BoolValue(PropOffsets_ConChoice.bDisplayAsSpeech); }
-	std::string& choiceLabel() { return Value<std::string>(PropOffsets_ConChoice.choiceLabel); }
-	std::string& choiceText() { return Value<std::string>(PropOffsets_ConChoice.choiceText); }
+	ScriptString& choiceLabel() { return Value<ScriptString>(PropOffsets_ConChoice.choiceLabel); }
+	ScriptString& choiceText() { return Value<ScriptString>(PropOffsets_ConChoice.choiceText); }
 	UConFlagRef*& flagRef() { return Value<UConFlagRef*>(PropOffsets_ConChoice.flagRef); }
 	UConChoice*& nextChoice() { return Value<UConChoice*>(PropOffsets_ConChoice.nextChoice); }
 	int& skillLevelNeeded() { return Value<int>(PropOffsets_ConChoice.skillLevelNeeded); }

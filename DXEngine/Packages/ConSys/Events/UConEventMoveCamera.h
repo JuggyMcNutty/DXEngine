@@ -11,7 +11,7 @@ public:
 
 	Rotator& Rotation() { return Value<Rotator>(PropOffsets_ConEventMoveCamera.Rotation); }
 	UActor*& cameraActor() { return Value<UActor*>(PropOffsets_ConEventMoveCamera.cameraActor); }
-	std::string& cameraActorName() { return Value<std::string>(PropOffsets_ConEventMoveCamera.cameraActorName); }
+	ScriptString& cameraActorName() { return Value<ScriptString>(PropOffsets_ConEventMoveCamera.cameraActorName); }
 	vec3& cameraOffset() { return Value<vec3>(PropOffsets_ConEventMoveCamera.cameraOffset); }
 	uint8_t& cameraPosition() { return Value<uint8_t>(PropOffsets_ConEventMoveCamera.cameraPosition); }
 	uint8_t& cameraTransition() { return Value<uint8_t>(PropOffsets_ConEventMoveCamera.cameraTransition); }

@@ -13,5 +13,5 @@ public:
 	BitfieldBool bFinishAnim() { return BoolValue(PropOffsets_ConEventAnimation.bFinishAnim); }
 	BitfieldBool bLoopAnim() { return BoolValue(PropOffsets_ConEventAnimation.bLoopAnim); }
 	UActor*& eventOwner() { return Value<UActor*>(PropOffsets_ConEventAnimation.eventOwner); }
-	std::string& eventOwnerName() { return Value<std::string>(PropOffsets_ConEventAnimation.eventOwnerName); }
+	ScriptString& eventOwnerName() { return Value<ScriptString>(PropOffsets_ConEventAnimation.eventOwnerName); }
 };

@@ -12,9 +12,9 @@
 // for nothing appended, the accelerator following the text.
 void UTextWindow::AppendText(const std::string& NewText)
 {
-	Text() += NewText;
+	Text() += Latin1ToScript(NewText);
 	if (bTextIsAccelerator())
-		SetAcceleratorText(Text());
+		SetAcceleratorText(ScriptToLatin1(Text()));
 	AskParentForReconfigure();
 }
 
@@ -27,13 +27,13 @@ void UTextWindow::EnableTextAsAccelerator(std::optional<bool> bEnable)
 	if (bTextIsAccelerator() != enable)
 	{
 		bTextIsAccelerator() = enable;
-		SetAcceleratorText(enable ? Text() : "");
+		SetAcceleratorText(enable ? ScriptToLatin1(Text()) : std::string());
 	}
 }
 
 std::string UTextWindow::GetText()
 {
-	return Text();
+	return ScriptToLatin1(Text());
 }
 
 int UTextWindow::GetTextLength()
@@ -48,7 +48,7 @@ int UTextWindow::GetTextPart(int startPos, int Count, std::string& OutText)
 	int start = std::clamp(startPos, 0, size);
 	// The sum in 64 bits: a count near an int's limit overflowed it
 	int end = (int)std::clamp((int64_t)startPos + Count, (int64_t)start, (int64_t)size);
-	OutText = Text().substr(start, end - start);
+	OutText = ScriptToLatin1(Text().substr(start, end - start));
 	return (int)OutText.size();
 }
 
@@ -105,11 +105,11 @@ void UTextWindow::SetMinWidth(float newMinWidth)
 // only in case is no change; the accelerator follows the text.
 void UTextWindow::SetText(const std::string& NewText)
 {
-	if (!StrTools::equals_ignore_case(Text(), NewText))
+	if (!StrTools::equals_ignore_case(ScriptToLatin1(Text()), NewText))
 	{
-		Text() = NewText;
+		Text() = Latin1ToScript(NewText);
 		if (bTextIsAccelerator())
-			SetAcceleratorText(Text());
+			SetAcceleratorText(ScriptToLatin1(Text()));
 		AskParentForReconfigure();
 	}
 }
@@ -156,7 +156,7 @@ void UTextWindow::InitDefaults()
 	bWordWrap() = true;
 	minLines() = -1;
 	MaxLines() = -1;
-	Text() = "";
+	Text().clear();
 	EnableTextAsAccelerator(true);
 }
 

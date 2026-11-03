@@ -25,7 +25,7 @@ void UActor::DeusExConBindEvents()
 	if (info->MissionNumber() < 0)
 		return;
 
-	std::string pkgPrefix = info->ConversationPackage();
+	std::string pkgPrefix = ScriptToLatin1(info->ConversationPackage());
 	if (pkgPrefix.empty() || NameString(pkgPrefix) == "DeusExConversations")
 		pkgPrefix = "DeusExCon";
 
@@ -44,8 +44,8 @@ void UActor::DeusExConBindEvents()
 	ConListItems() = nullptr;
 
 	UClass* clsConListItem = engine->packages->FindClass("ConSys.ConListItem");
-	NameString bindName = BindName();
-	NameString barkBindName = BarkBindName();
+	NameString bindName = ScriptToLatin1(BindName());
+	NameString barkBindName = ScriptToLatin1(BarkBindName());
 
 	for (UConItem* item = mission->conversations(); item; item = item->Next())
 	{
@@ -58,7 +58,7 @@ void UActor::DeusExConBindEvents()
 		// conversation by its name, never its bark name.
 		bool isBark = conversation->conName().ToString().find("_Bark") != std::string::npos;
 		NameString wanted = (isBark && !barkBindName.IsNone()) ? barkBindName : bindName;
-		if (wanted.IsNone() || NameString(conversation->conOwnerName()) != wanted)
+		if (wanted.IsNone() || NameString(ScriptToLatin1(conversation->conOwnerName())) != wanted)
 			continue;
 
 		// Each goes to the front, so the list runs from the mission list's

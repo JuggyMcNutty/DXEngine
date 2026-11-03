@@ -42,15 +42,15 @@ public:
 	void UnloadTexture(UObject* Texture);
 
 	//UComputers*& ActiveComputer() { return Value<UComputers*>(PropOffsets_DeusExPlayer.ActiveComputer); }
-	std::string& AddedNanoKey() { return Value<std::string>(PropOffsets_DeusExPlayer.AddedNanoKey); }
+	ScriptString& AddedNanoKey() { return Value<ScriptString>(PropOffsets_DeusExPlayer.AddedNanoKey); }
 	NameString& AugPrefs() { return Value<NameString>(PropOffsets_DeusExPlayer.AugPrefs); }
 	//UAugmentationManager*& AugmentationSystem() { return Value<UAugmentationManager*>(PropOffsets_DeusExPlayer.AugmentationSystem); }
 	//UBarkManager*& BarkManager() { return Value<UBarkManager*>(PropOffsets_DeusExPlayer.BarkManager); }
 	float& BleedRate() { return Value<float>(PropOffsets_DeusExPlayer.BleedRate); }
-	std::string& BurnString() { return Value<std::string>(PropOffsets_DeusExPlayer.BurnString); }
-	std::string& CanCarryOnlyOne() { return Value<std::string>(PropOffsets_DeusExPlayer.CanCarryOnlyOne); }
-	std::string& CannotDropHere() { return Value<std::string>(PropOffsets_DeusExPlayer.CannotDropHere); }
-	std::string& CannotLift() { return Value<std::string>(PropOffsets_DeusExPlayer.CannotLift); }
+	ScriptString& BurnString() { return Value<ScriptString>(PropOffsets_DeusExPlayer.BurnString); }
+	ScriptString& CanCarryOnlyOne() { return Value<ScriptString>(PropOffsets_DeusExPlayer.CanCarryOnlyOne); }
+	ScriptString& CannotDropHere() { return Value<ScriptString>(PropOffsets_DeusExPlayer.CannotDropHere); }
+	ScriptString& CannotLift() { return Value<ScriptString>(PropOffsets_DeusExPlayer.CannotLift); }
 	UInventory*& ClientinHandPending() { return Value<UInventory*>(PropOffsets_DeusExPlayer.ClientinHandPending); }
 	float& ClotPeriod() { return Value<float>(PropOffsets_DeusExPlayer.ClotPeriod); }
 	float& CombatDifficulty() { return Value<float>(PropOffsets_DeusExPlayer.CombatDifficulty); }
@@ -63,7 +63,7 @@ public:
 	//UDataLinkPlay*& DataLinkPlay() { return Value<UDataLinkPlay*>(PropOffsets_DeusExPlayer.DataLinkPlay); }
 	float& DropCounter() { return Value<float>(PropOffsets_DeusExPlayer.DropCounter); }
 	float& Energy() { return Value<float>(PropOffsets_DeusExPlayer.Energy); }
-	std::string& EnergyDepleted() { return Value<std::string>(PropOffsets_DeusExPlayer.EnergyDepleted); }
+	ScriptString& EnergyDepleted() { return Value<ScriptString>(PropOffsets_DeusExPlayer.EnergyDepleted); }
 	float& EnergyDrain() { return Value<float>(PropOffsets_DeusExPlayer.EnergyDrain); }
 	float& EnergyDrainTotal() { return Value<float>(PropOffsets_DeusExPlayer.EnergyDrainTotal); }
 	float& EnergyMax() { return Value<float>(PropOffsets_DeusExPlayer.EnergyMax); }
@@ -76,13 +76,13 @@ public:
 	UActor*& FrobTarget() { return Value<UActor*>(PropOffsets_DeusExPlayer.FrobTarget); }
 	float& FrobTime() { return Value<float>(PropOffsets_DeusExPlayer.FrobTime); }
 	//UDebugInfo*& GlobalDebugObj() { return Value<UDebugInfo*>(PropOffsets_DeusExPlayer.GlobalDebugObj); }
-	std::string& GoalAdded() { return Value<std::string>(PropOffsets_DeusExPlayer.GoalAdded); }
-	std::string& HUDThemeName() { return Value<std::string>(PropOffsets_DeusExPlayer.HUDThemeName); }
-	std::string& HandsFull() { return Value<std::string>(PropOffsets_DeusExPlayer.HandsFull); }
-	std::string& HeadString() { return Value<std::string>(PropOffsets_DeusExPlayer.HeadString); }
-	std::string& HealedPointLabel() { return Value<std::string>(PropOffsets_DeusExPlayer.HealedPointLabel); }
-	std::string& HealedPointsLabel() { return Value<std::string>(PropOffsets_DeusExPlayer.HealedPointsLabel); }
-	std::string& InventoryFull() { return Value<std::string>(PropOffsets_DeusExPlayer.InventoryFull); }
+	ScriptString& GoalAdded() { return Value<ScriptString>(PropOffsets_DeusExPlayer.GoalAdded); }
+	ScriptString& HUDThemeName() { return Value<ScriptString>(PropOffsets_DeusExPlayer.HUDThemeName); }
+	ScriptString& HandsFull() { return Value<ScriptString>(PropOffsets_DeusExPlayer.HandsFull); }
+	ScriptString& HeadString() { return Value<ScriptString>(PropOffsets_DeusExPlayer.HeadString); }
+	ScriptString& HealedPointLabel() { return Value<ScriptString>(PropOffsets_DeusExPlayer.HealedPointLabel); }
+	ScriptString& HealedPointsLabel() { return Value<ScriptString>(PropOffsets_DeusExPlayer.HealedPointsLabel); }
+	ScriptString& InventoryFull() { return Value<ScriptString>(PropOffsets_DeusExPlayer.InventoryFull); }
 	float& JoltMagnitude() { return Value<float>(PropOffsets_DeusExPlayer.JoltMagnitude); }
 	//UNanoKeyInfo*& KeyList() { return Value<UNanoKeyInfo*>(PropOffsets_DeusExPlayer.KeyList); }
 	//UNanoKeyRing*& KeyRing() { return Value<UNanoKeyRing*>(PropOffsets_DeusExPlayer.KeyRing); }
@@ -91,47 +91,47 @@ public:
 	//UDeusExNote*& LastNote() { return Value<UDeusExNote*>(PropOffsets_DeusExPlayer.LastNote); }
 	float& LastRefreshTime() { return Value<float>(PropOffsets_DeusExPlayer.LastRefreshTime); }
 	UInventory*& LastinHand() { return Value<UInventory*>(PropOffsets_DeusExPlayer.LastinHand); }
-	std::string& LegsString() { return Value<std::string>(PropOffsets_DeusExPlayer.LegsString); }
+	ScriptString& LegsString() { return Value<ScriptString>(PropOffsets_DeusExPlayer.LegsString); }
 	float& MPDamageMult() { return Value<float>(PropOffsets_DeusExPlayer.MPDamageMult); }
 	float& MaxFrobDistance() { return Value<float>(PropOffsets_DeusExPlayer.MaxFrobDistance); }
 	float& MaxRegenPoint() { return Value<float>(PropOffsets_DeusExPlayer.MaxRegenPoint); }
-	std::string& MenuThemeName() { return Value<std::string>(PropOffsets_DeusExPlayer.MenuThemeName); }
-	std::string& NextMap() { return Value<std::string>(PropOffsets_DeusExPlayer.NextMap); }
+	ScriptString& MenuThemeName() { return Value<ScriptString>(PropOffsets_DeusExPlayer.MenuThemeName); }
+	ScriptString& NextMap() { return Value<ScriptString>(PropOffsets_DeusExPlayer.NextMap); }
 	float& NintendoImmunityTime() { return Value<float>(PropOffsets_DeusExPlayer.NintendoImmunityTime); }
 	float& NintendoImmunityTimeLeft() { return Value<float>(PropOffsets_DeusExPlayer.NintendoImmunityTimeLeft); }
-	std::string& NoRoomToLift() { return Value<std::string>(PropOffsets_DeusExPlayer.NoRoomToLift); }
-	std::string& NoneString() { return Value<std::string>(PropOffsets_DeusExPlayer.NoneString); }
-	std::string& NoteAdded() { return Value<std::string>(PropOffsets_DeusExPlayer.NoteAdded); }
+	ScriptString& NoRoomToLift() { return Value<ScriptString>(PropOffsets_DeusExPlayer.NoRoomToLift); }
+	ScriptString& NoneString() { return Value<ScriptString>(PropOffsets_DeusExPlayer.NoneString); }
+	ScriptString& NoteAdded() { return Value<ScriptString>(PropOffsets_DeusExPlayer.NoteAdded); }
 	int& PlayerSkin() { return Value<int>(PropOffsets_DeusExPlayer.PlayerSkin); }
-	std::string& PoisonString() { return Value<std::string>(PropOffsets_DeusExPlayer.PoisonString); }
-	std::string& PrimaryGoalCompleted() { return Value<std::string>(PropOffsets_DeusExPlayer.PrimaryGoalCompleted); }
-	std::string& QuickSaveGameTitle() { return Value<std::string>(PropOffsets_DeusExPlayer.QuickSaveGameTitle); }
+	ScriptString& PoisonString() { return Value<ScriptString>(PropOffsets_DeusExPlayer.PoisonString); }
+	ScriptString& PrimaryGoalCompleted() { return Value<ScriptString>(PropOffsets_DeusExPlayer.PrimaryGoalCompleted); }
+	ScriptString& QuickSaveGameTitle() { return Value<ScriptString>(PropOffsets_DeusExPlayer.QuickSaveGameTitle); }
 	float& RegenRate() { return Value<float>(PropOffsets_DeusExPlayer.RegenRate); }
 	float& RunSilentValue() { return Value<float>(PropOffsets_DeusExPlayer.RunSilentValue); }
-	std::string& SecondaryGoalCompleted() { return Value<std::string>(PropOffsets_DeusExPlayer.SecondaryGoalCompleted); }
+	ScriptString& SecondaryGoalCompleted() { return Value<ScriptString>(PropOffsets_DeusExPlayer.SecondaryGoalCompleted); }
 	float& ServerTimeDiff() { return Value<float>(PropOffsets_DeusExPlayer.ServerTimeDiff); }
 	float& ServerTimeLastRefresh() { return Value<float>(PropOffsets_DeusExPlayer.ServerTimeLastRefresh); }
 	uint8_t& ShieldStatus() { return Value<uint8_t>(PropOffsets_DeusExPlayer.ShieldStatus); }
 	float& ShieldTimer() { return Value<float>(PropOffsets_DeusExPlayer.ShieldTimer); }
 	int& SkillPointsAvail() { return Value<int>(PropOffsets_DeusExPlayer.SkillPointsAvail); }
-	std::string& SkillPointsAward() { return Value<std::string>(PropOffsets_DeusExPlayer.SkillPointsAward); }
+	ScriptString& SkillPointsAward() { return Value<ScriptString>(PropOffsets_DeusExPlayer.SkillPointsAward); }
 	int& SkillPointsTotal() { return Value<int>(PropOffsets_DeusExPlayer.SkillPointsTotal); }
 	//USkillManager*& SkillSystem() { return Value<USkillManager*>(PropOffsets_DeusExPlayer.SkillSystem); }
-	std::string& TakenOverString() { return Value<std::string>(PropOffsets_DeusExPlayer.TakenOverString); }
+	ScriptString& TakenOverString() { return Value<ScriptString>(PropOffsets_DeusExPlayer.TakenOverString); }
 	//UColorThemeManager*& ThemeManager() { return Value<UColorThemeManager*>(PropOffsets_DeusExPlayer.ThemeManager); }
-	std::string& TooHeavyToLift() { return Value<std::string>(PropOffsets_DeusExPlayer.TooHeavyToLift); }
-	std::string& TooMuchAmmo() { return Value<std::string>(PropOffsets_DeusExPlayer.TooMuchAmmo); }
-	std::string& TorsoString() { return Value<std::string>(PropOffsets_DeusExPlayer.TorsoString); }
-	std::string& TruePlayerName() { return Value<std::string>(PropOffsets_DeusExPlayer.TruePlayerName); }
+	ScriptString& TooHeavyToLift() { return Value<ScriptString>(PropOffsets_DeusExPlayer.TooHeavyToLift); }
+	ScriptString& TooMuchAmmo() { return Value<ScriptString>(PropOffsets_DeusExPlayer.TooMuchAmmo); }
+	ScriptString& TorsoString() { return Value<ScriptString>(PropOffsets_DeusExPlayer.TorsoString); }
+	ScriptString& TruePlayerName() { return Value<ScriptString>(PropOffsets_DeusExPlayer.TruePlayerName); }
 	int& UIBackground() { return Value<int>(PropOffsets_DeusExPlayer.UIBackground); }
 	UActor*& ViewModelActor() { return Value<UActor*>(PropOffsets_DeusExPlayer.ViewModelActor); }
 	NameString& WallMaterial() { return Value<NameString>(PropOffsets_DeusExPlayer.WallMaterial); }
 	vec3& WallNormal() { return Value<vec3>(PropOffsets_DeusExPlayer.WallNormal); }
 	int& WarrenSlot() { return Value<int>(PropOffsets_DeusExPlayer.WarrenSlot); }
 	float& WarrenTimer() { return Value<float>(PropOffsets_DeusExPlayer.WarrenTimer); }
-	std::string& WeaponUnCloak() { return Value<std::string>(PropOffsets_DeusExPlayer.WeaponUnCloak); }
-	std::string& WithString() { return Value<std::string>(PropOffsets_DeusExPlayer.WithString); }
-	std::string& WithTheString() { return Value<std::string>(PropOffsets_DeusExPlayer.WithTheString); }
+	ScriptString& WeaponUnCloak() { return Value<ScriptString>(PropOffsets_DeusExPlayer.WeaponUnCloak); }
+	ScriptString& WithString() { return Value<ScriptString>(PropOffsets_DeusExPlayer.WithString); }
+	ScriptString& WithTheString() { return Value<ScriptString>(PropOffsets_DeusExPlayer.WithTheString); }
 	//USpyDrone*& aDrone() { return Value<USpyDrone*>(PropOffsets_DeusExPlayer.aDrone); }
 	BitfieldBool bAlwaysRun() { return BoolValue(PropOffsets_DeusExPlayer.bAlwaysRun); }
 	BitfieldBool bAmmoDisplayVisible() { return BoolValue(PropOffsets_DeusExPlayer.bAmmoDisplayVisible); }
@@ -196,7 +196,7 @@ public:
 	int& mpMsgCode() { return Value<int>(PropOffsets_DeusExPlayer.mpMsgCode); }
 	int& mpMsgFlags() { return Value<int>(PropOffsets_DeusExPlayer.mpMsgFlags); }
 	int& mpMsgOptionalParam() { return Value<int>(PropOffsets_DeusExPlayer.mpMsgOptionalParam); }
-	std::string& mpMsgOptionalString() { return Value<std::string>(PropOffsets_DeusExPlayer.mpMsgOptionalString); }
+	ScriptString& mpMsgOptionalString() { return Value<ScriptString>(PropOffsets_DeusExPlayer.mpMsgOptionalString); }
 	int& mpMsgServerFlags() { return Value<int>(PropOffsets_DeusExPlayer.mpMsgServerFlags); }
 	float& mpMsgTime() { return Value<float>(PropOffsets_DeusExPlayer.mpMsgTime); }
 	float& musicChangeTimer() { return Value<float>(PropOffsets_DeusExPlayer.musicChangeTimer); }
@@ -216,7 +216,7 @@ public:
 	uint8_t& savedSection() { return Value<uint8_t>(PropOffsets_DeusExPlayer.savedSection); }
 	int& spyDroneLevel() { return Value<int>(PropOffsets_DeusExPlayer.spyDroneLevel); }
 	float& spyDroneLevelValue() { return Value<float>(PropOffsets_DeusExPlayer.spyDroneLevelValue); }
-	std::string& strStartMap() { return Value<std::string>(PropOffsets_DeusExPlayer.strStartMap); }
+	ScriptString& strStartMap() { return Value<ScriptString>(PropOffsets_DeusExPlayer.strStartMap); }
 	float& swimBubbleTimer() { return Value<float>(PropOffsets_DeusExPlayer.swimBubbleTimer); }
 	float& swimDuration() { return Value<float>(PropOffsets_DeusExPlayer.swimDuration); }
 	float& swimTimer() { return Value<float>(PropOffsets_DeusExPlayer.swimTimer); }

@@ -130,7 +130,7 @@ public:
 
 
 	USound*& ActivateSound() { return Value<USound*>(PropOffsets_ListWindow.ActivateSound); }
-	std::string& Delimiter() { return Value<std::string>(PropOffsets_ListWindow.Delimiter); }
+	ScriptString& Delimiter() { return Value<ScriptString>(PropOffsets_ListWindow.Delimiter); }
 	int& anchorLine() { return Value<int>(PropOffsets_ListWindow.anchorLine); }
 	BitfieldBool bAutoExpandColumns() { return BoolValue(PropOffsets_ListWindow.bAutoExpandColumns); }
 	BitfieldBool bAutoSort() { return BoolValue(PropOffsets_ListWindow.bAutoSort); }
@@ -146,7 +146,7 @@ public:
 	Color& highlightColor() { return Value<Color>(PropOffsets_ListWindow.highlightColor); }
 	UTexture*& highlightTexture() { return Value<UTexture*>(PropOffsets_ListWindow.highlightTexture); }
 	int& hotKeyCol() { return Value<int>(PropOffsets_ListWindow.hotKeyCol); }
-	std::string& hotKeyString() { return Value<std::string>(PropOffsets_ListWindow.hotKeyString); }
+	ScriptString& hotKeyString() { return Value<ScriptString>(PropOffsets_ListWindow.hotKeyString); }
 	float& hotKeyTimer() { return Value<float>(PropOffsets_ListWindow.hotKeyTimer); }
 	Color& inverseColor() { return Value<Color>(PropOffsets_ListWindow.inverseColor); }
 	int& lastIndex() { return Value<int>(PropOffsets_ListWindow.lastIndex); }

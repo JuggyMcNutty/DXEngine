@@ -18,7 +18,7 @@
 
 // An event's name matches an actor's when both are set and spell the same,
 // ignoring case; two empty names never match.
-static bool MatchesName(const std::string& eventName, const NameString& actorName)
+static bool MatchesName(const ScriptString& eventName, const NameString& actorName)
 {
 	NameString n(eventName);
 	return !n.IsNone() && n == actorName;
@@ -115,9 +115,9 @@ bool UConversation::BindEventsToActor(UActor* actor, UActor* invokeActor)
 				}
 				if (bound)
 				{
-					transfer->giveObject() = engine->packages->FindClass("DeusEx." + transfer->ObjectName());
+					transfer->giveObject() = engine->packages->FindClass("DeusEx." + ScriptToLatin1(transfer->ObjectName()));
 					if (!transfer->giveObject())
-						LogMessage("Could not find class for TransferObject: " + transfer->ObjectName());
+						LogMessage("Could not find class for TransferObject: " + ScriptToLatin1(transfer->ObjectName()));
 					taken = true;
 				}
 			}
@@ -128,15 +128,15 @@ bool UConversation::BindEventsToActor(UActor* actor, UActor* invokeActor)
 			{
 				// Binds no actor; loads the class, or none for a nano key,
 				// which the script looks for on the key ring.
-				if (check->ObjectName().starts_with("NK_"))
+				if (check->ObjectName().starts_with(u"NK_"))
 				{
 					check->checkObject() = nullptr;
 				}
 				else
 				{
-					check->checkObject() = engine->packages->FindClass("DeusEx." + check->ObjectName());
+					check->checkObject() = engine->packages->FindClass("DeusEx." + ScriptToLatin1(check->ObjectName()));
 					if (!check->checkObject())
-						LogMessage("Could not find class for CheckObject: " + check->ObjectName());
+						LogMessage("Could not find class for CheckObject: " + ScriptToLatin1(check->ObjectName()));
 				}
 			}
 			break;
@@ -216,16 +216,16 @@ UObject* UConversation::GetSpeechAudio(int soundID)
 	Package* audioPackage = nullptr;
 	try
 	{
-		audioPackage = engine->packages->GetPackage(prefix + "Audio" + audioPackageName());
+		audioPackage = engine->packages->GetPackage(prefix + "Audio" + ScriptToLatin1(audioPackageName()));
 	}
 	catch (const std::exception&)
 	{
-		LogMessage("Could not load package " + prefix + "Audio" + audioPackageName() + " in Conversation.GetSpeechAudio");
+		LogMessage("Could not load package " + prefix + "Audio" + ScriptToLatin1(audioPackageName()) + " in Conversation.GetSpeechAudio");
 		return nullptr;
 	}
-	UObject* sound = audioPackage->GetUObject("Sound", "ConAudio" + audioPackageName() + "_" + std::to_string(soundID));
+	UObject* sound = audioPackage->GetUObject("Sound", "ConAudio" + ScriptToLatin1(audioPackageName()) + "_" + std::to_string(soundID));
 	if (!sound)
-		LogMessage("Could not find sound ConAudio" + audioPackageName() + "_" + std::to_string(soundID) + " in Conversation.GetSpeechAudio");
+		LogMessage("Could not find sound ConAudio" + ScriptToLatin1(audioPackageName()) + "_" + std::to_string(soundID) + " in Conversation.GetSpeechAudio");
 	return sound;
 }
 

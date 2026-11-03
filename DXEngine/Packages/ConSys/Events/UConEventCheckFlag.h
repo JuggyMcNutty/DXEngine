@@ -10,5 +10,5 @@ public:
 	using UConEvent::UConEvent;
 
 	UConFlagRef*& flagRef() { return Value<UConFlagRef*>(PropOffsets_ConEventCheckFlag.flagRef); }
-	std::string& setLabel() { return Value<std::string>(PropOffsets_ConEventCheckFlag.setLabel); }
+	ScriptString& setLabel() { return Value<ScriptString>(PropOffsets_ConEventCheckFlag.setLabel); }
 };
