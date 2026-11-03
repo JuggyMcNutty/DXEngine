@@ -8,7 +8,8 @@
 // lost: a shot 4 s in, marked for the original's grabber, and an exit.
 // While its player waits in the Entry level for its pawn (the join's map
 // loaded, the level not yet a client's), each tick logs the Entry level's
-// time, how far it stepped and the frame's time, and the frames are marked
+// time, how far it stepped and the frame's time, and the player's two
+// progress lines and the time they show until, and the frames are marked
 // as shot 2, shot at the second wait tick: a shot reads the frame drawn
 // before, and the one before the first is the load's own, the old level's
 // CONNECTING (bugs.md NET.8).
@@ -59,9 +60,9 @@ event Tick(float Delta)
 	if (Step == 1 && FirstMap == "" && P.Level.NetMode != NM_Client && InStr(Caps(MapOf(P)), "ENTRY") >= 0)
 	{
 		if (WaitTicks > 0)
-			Log("DXNET: wait tick " $ WaitTicks $ " " $ string(P) $ " Entry time " $ P.Level.TimeSeconds $ " step " $ (P.Level.TimeSeconds - WaitLast) $ " delta " $ Delta $ " action " $ P.Level.LevelAction);
+			Log("DXNET: wait tick " $ WaitTicks $ " " $ string(P) $ " Entry time " $ P.Level.TimeSeconds $ " step " $ (P.Level.TimeSeconds - WaitLast) $ " delta " $ Delta $ " action " $ P.Level.LevelAction $ " progress '" $ P.ProgressMessage[0] $ "' '" $ P.ProgressMessage[1] $ "' until " $ P.ProgressTimeOut);
 		else
-			Log("DXNET: waiting in " $ MapOf(P) $ ", " $ string(P) $ ", Entry time " $ P.Level.TimeSeconds $ " action " $ P.Level.LevelAction);
+			Log("DXNET: waiting in " $ MapOf(P) $ ", " $ string(P) $ ", Entry time " $ P.Level.TimeSeconds $ " action " $ P.Level.LevelAction $ " progress '" $ P.ProgressMessage[0] $ "' '" $ P.ProgressMessage[1] $ "' until " $ P.ProgressTimeOut);
 		if (WaitTicks == 1)
 		{
 			Log("DXCAP: shot 2 in " $ MapOf(P));

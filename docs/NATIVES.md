@@ -2609,17 +2609,19 @@ client runs at most its rate / 64 frames a second, as the original's, 40 at
 and `lanspeed` is logged. The multiplayer Player Setup's connection shows
 it as the game's own "DSL or better" (`SettingsConsole`), where the
 original's shows "Modem" for 2,600. Until its pawn arrives, a joining client's player waits in the
-Entry level, logged in with the join's URL, its HUD and the console's
-CONNECTING drawn over a black view, and the Entry level is ticked twice a
-frame, after the game's level, as the original's; the player is destroyed
-at the next load wherever it stands, and once the pawn arrives it stays in
-Entry, let go, as the original's (`TravelJoinConsole`, each engine joining
-the other: the player `Entry.JCDentonMale1` in the wait, the original's
-Entry level stepping 0.0485 s in a frame of 0.0239, each wait frame black
-but the HUD and the words). Differs (bugs.md NET.8): the original's wait
-frame also shows the join's `Connecting (F10 Cancels):` and
-`deusex://<host>/<map>`, which DXEngine's shows only while the join is
-pending.
+Entry level, logged in with the join's URL, its HUD, the console's
+CONNECTING and the join's `Connecting (F10 Cancels):` and
+`deusex://<host>/<map>` drawn over a black view: the frame that loads the
+map draws once more before the `JOIN` goes, the join still pending, which
+gives the waiting player the join's lines for a minute, and the
+connecting message's time is the player's own level's, as the original's;
+the Entry level is ticked twice a frame, after the game's level, as the
+original's; the player is destroyed at the next load wherever it stands,
+and once the pawn arrives it stays in Entry, let go, as the original's
+(`TravelJoinConsole`, each engine joining the other: the player
+`Entry.JCDentonMale1` in the wait, its first two wait ticks in the load's
+frame at one Entry time, the original's Entry level stepping 0.0485 s in a
+frame of 0.0239, each wait frame black but the HUD and the words).
 A remote player's pawn destroyed by script (`Kick`) has its connection
 closed instead, as the original's `DestroyActor` has it (`ServeConsole`
 with `Kick`, each engine the server and the other's `TravelJoinConsole` the

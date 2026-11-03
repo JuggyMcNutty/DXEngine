@@ -454,70 +454,12 @@ void Engine::Run()
 		}
 
 		// A join under way, ticked in a frame that takes no travel, as the
-		// original's: the frame that loads its map draws it.
+		// original's: the frame that loads its map draws it twice, first
+		// before the JOIN goes (LoadClientMap).
 		if (PendingLevel)
 			TickPendingLevel(realTimeElapsed);
 
-		// While a join is pending, each frame drawn shows its message
-		// (UGameEngine::Draw's UpdateConnectingMessage).
-		if (PendingLevel)
-			UpdateConnectingMessage();
-
-		// To do: improve CallEvent so parameter passing isn't this painful
-		UFunction* funcPlayerCalcView = viewport->Actor() ? FindEventFunction(viewport->Actor(), "PlayerCalcView") : nullptr;
-		if (funcPlayerCalcView)
-		{
-			vecprop->Struct = UObject::Cast<UStructProperty>(funcPlayerCalcView->Properties[1])->Struct;
-			rotprop->Struct = UObject::Cast<UStructProperty>(funcPlayerCalcView->Properties[2])->Struct;
-			CameraActor = viewport->Actor();
-			CameraLocation = viewport->Actor()->Location();
-			CameraRotation = viewport->Actor()->Rotation();
-			CameraFovAngle = viewport->Actor()->FovAngle();
-			CallEvent(viewport->Actor(), EventName::PlayerCalcView, {
-				ExpressionValue::Variable(&CameraActor, objprop),
-				ExpressionValue::Variable(&CameraLocation, vecprop),
-				ExpressionValue::Variable(&CameraRotation, rotprop)
-				});
-		}
-
-		if (!dedicated)
-		{
-			UpdateAudio();
-
-			// After a map's load with the render device's UsePrecache on, a
-			// frame under the level action Precaching, its console's tick too
-			// -- the console's PRECACHING --, the old action back after it, as
-			// the original's Draw gives it while the device's PrecacheOnFlip
-			// is set and the viewport's bSuspendPrecaching is not
-			// (UGameEngine::Draw, Engine.dll 0x1038f110); nothing to
-			// precache, DXEngine's textures uploading as they are drawn.
-			const bool precaching = PrecacheOnFlip && LevelInfo && !viewport->bSuspendPrecaching();
-			uint8_t action = 0;
-			if (precaching)
-			{
-				action = LevelInfo->LevelAction();
-				LevelInfo->LevelAction() = LEVACT_Precaching;
-			}
-
-			// The console ticks as the draw begins, after the level's tick
-			// and by the real time since the last draw, as the original's
-			// UConsole::PreRender ticks it (dx-reverse-info engine-dll.md,
-			// the loading screen); paused or not, so its messages time out.
-			// The tick and the frame's script events work their sums out at
-			// 24 bits, as the original's render holds its x87 to 24 bits
-			// from before the console's tick to after its PostRender (X87).
-			X87::Single = true;
-			TickConsole(realTimeElapsed);
-
-			viewport->SetViewportRect(0, 0, engine->window->GetPixelWidth(), engine->window->GetPixelHeight());
-			render->DrawGame(levelElapsed);
-			X87::Single = false;
-			if (precaching)
-			{
-				LevelInfo->LevelAction() = action;
-				PrecacheOnFlip = false;
-			}
-		}
+		Draw(realTimeElapsed, levelElapsed, PendingLevel.get());
 
 		// A save asked for during the draw: a console's tick
 		WritePendingSave();
@@ -1003,6 +945,72 @@ void Engine::UnloadMap()
 	CameraActor = nullptr;
 	packages->UnloadPackage(LevelPackage);
 	LevelPackage = nullptr;
+}
+
+// The viewport drawn, as the original's game engine draws it
+// (UGameEngine::Draw, Engine.dll 0x1038f110): with a join pending, its
+// message first (UpdateConnectingMessage); the player's PlayerCalcView; the
+// audio from the view; then the console's tick and the frame.
+void Engine::Draw(float realTimeElapsed, float levelElapsed, const NetPendingLevel* pending)
+{
+	if (pending)
+		UpdateConnectingMessage(*pending);
+
+	// To do: improve CallEvent so parameter passing isn't this painful
+	UFunction* funcPlayerCalcView = viewport->Actor() ? FindEventFunction(viewport->Actor(), "PlayerCalcView") : nullptr;
+	if (funcPlayerCalcView)
+	{
+		vecprop->Struct = UObject::Cast<UStructProperty>(funcPlayerCalcView->Properties[1])->Struct;
+		rotprop->Struct = UObject::Cast<UStructProperty>(funcPlayerCalcView->Properties[2])->Struct;
+		CameraActor = viewport->Actor();
+		CameraLocation = viewport->Actor()->Location();
+		CameraRotation = viewport->Actor()->Rotation();
+		CameraFovAngle = viewport->Actor()->FovAngle();
+		CallEvent(viewport->Actor(), EventName::PlayerCalcView, {
+			ExpressionValue::Variable(&CameraActor, objprop),
+			ExpressionValue::Variable(&CameraLocation, vecprop),
+			ExpressionValue::Variable(&CameraRotation, rotprop)
+			});
+	}
+
+	if (LaunchInfo.dedicatedServer)
+		return;
+
+	UpdateAudio();
+
+	// After a map's load with the render device's UsePrecache on, a frame
+	// under the level action Precaching, its console's tick too -- the
+	// console's PRECACHING --, the old action back after it, as the
+	// original's Draw gives it while the device's PrecacheOnFlip is set and
+	// the viewport's bSuspendPrecaching is not (UGameEngine::Draw, Engine.dll
+	// 0x1038f110); nothing to precache, DXEngine's textures uploading as they
+	// are drawn.
+	const bool precaching = PrecacheOnFlip && LevelInfo && !viewport->bSuspendPrecaching();
+	uint8_t action = 0;
+	if (precaching)
+	{
+		action = LevelInfo->LevelAction();
+		LevelInfo->LevelAction() = LEVACT_Precaching;
+	}
+
+	// The console ticks as the draw begins, after the level's tick and by
+	// the real time since the last draw, as the original's
+	// UConsole::PreRender ticks it (dx-reverse-info engine-dll.md, the
+	// loading screen); paused or not, so its messages time out. The tick and
+	// the frame's script events work their sums out at 24 bits, as the
+	// original's render holds its x87 to 24 bits from before the console's
+	// tick to after its PostRender (X87).
+	X87::Single = true;
+	TickConsole(realTimeElapsed);
+
+	viewport->SetViewportRect(0, 0, window->GetPixelWidth(), window->GetPixelHeight());
+	render->DrawGame(levelElapsed);
+	X87::Single = false;
+	if (precaching)
+	{
+		LevelInfo->LevelAction() = action;
+		PrecacheOnFlip = false;
+	}
 }
 
 // The original's PaintProgress (Engine.dll 0x10388740): the viewport's
@@ -2173,13 +2181,16 @@ void Engine::SetProgress(const std::string& line1, const std::string& line2, flo
 	CallEvent(pawn, "SetProgressTime", { ExpressionValue::FloatValue(seconds) });
 }
 
-void Engine::UpdateConnectingMessage()
+void Engine::UpdateConnectingMessage(const NetPendingLevel& pending)
 {
+	// The viewport's player's time against its own level's, as the
+	// original's (Engine.dll 0x1038895f): a player waiting in the Entry
+	// level for its pawn by the Entry level's clock, not the game's.
 	UPlayerPawn* pawn = viewport ? viewport->Actor() : nullptr;
-	if (!PendingLevel || !pawn || !LevelInfo || pawn->ProgressTimeOut() >= LevelInfo->TimeSeconds())
+	if (!pawn || !pawn->Level() || pawn->ProgressTimeOut() >= pawn->Level()->TimeSeconds())
 		return;
 	std::string line1 = LocalizeMessage("Engine", "Progress", "ConnectingText", "Connecting (F10 Cancels):");
-	std::string line2 = LocalizeMessage("Engine", "Progress", "ConnectingURL", "unreal://%s/%s", { PendingLevel->URL.Host, PendingLevel->URL.Map });
+	std::string line2 = LocalizeMessage("Engine", "Progress", "ConnectingURL", "unreal://%s/%s", { pending.URL.Host, pending.URL.Map });
 	SetProgress(line1, line2, 60.0f);
 }
 
@@ -2240,6 +2251,15 @@ void Engine::LoadClientMap(NetPendingLevel* pending)
 		LevelInfo->LevelAction() = LEVACT_Connecting;
 		if (EntryLevelInfo)
 			EntryLevelInfo->LevelAction() = LEVACT_Connecting;
+
+		// A frame drawn before the JOIN goes, the join still pending, as the
+		// original's game engine draws one there (UGameEngine::Tick,
+		// Engine.dll 0x1039106e, its client's tick), then the frame's own
+		// after it: so the player waiting in the Entry level is given the
+		// join's lines (UpdateConnectingMessage) for the next 60 s, and the
+		// console's tick in this draw opens the game's window for them.
+		Draw(0.0f, 0.0f, pending);
+
 		connection->SendText("JOIN");
 		connection->FlushNet();
 	}

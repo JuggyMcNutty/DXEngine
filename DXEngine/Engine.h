@@ -99,6 +99,10 @@ public:
 	// CONNECTING for a join's map.
 	void PaintProgress();
 	void PaintLoading(bool connecting);
+	// A frame drawn (the original's UGameEngine::Draw): a pending join's
+	// message first, then the view, the console's tick and the frame. The
+	// frame's own, and the one a join's map load draws before its JOIN.
+	void Draw(float realTimeElapsed, float levelElapsed, const NetPendingLevel* pending);
 	void SaveGameToSlot(int32_t slotNum, const std::string& saveDescription);
 	// Deus Ex's save picture, taken when the save is asked for: of the frame
 	// the player last saw, where the save itself waits for the next one.
@@ -153,8 +157,8 @@ public:
 	// is the game's upgrade menu (the original's SetProgress).
 	void SetProgress(const std::string& line1, const std::string& line2, float seconds);
 	// While joining, what shows when nothing else does: the server's address
-	// and map, for a minute at a time (the original's each frame).
-	void UpdateConnectingMessage();
+	// and map, for a minute at a time (the original's each frame drawn).
+	void UpdateConnectingMessage(const NetPendingLevel& pending);
 	void SetEngineVersion();
 	void LoadClientMap(NetPendingLevel* pending);
 	void HandleClientPlayer(NetConnection* connection, UPlayerPawn* pawn);
