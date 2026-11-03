@@ -49,6 +49,8 @@ decltype(auto) NativeArg(ExpressionValue& value)
 {
 	if constexpr (std::is_same_v<T, const std::string&>)
 		return value.ToString();
+	else if constexpr (std::is_same_v<T, const ScriptString&>)
+		return value.ToScriptString();
 	else if constexpr (std::is_same_v<T, std::string&>)
 		return NativeStringRef(value);
 	else

@@ -14,28 +14,28 @@ void NExtString::RegisterFunctions()
 	RegisterVMNativeFunc_1("ExtString", "SetText", &NExtString::SetText, 1140);
 }
 
-void NExtString::AppendText(UObject* Self, const std::string& NewText)
+void NExtString::AppendText(UObject* Self, const ScriptString& NewText)
 {
 	auto ESSelf = UObject::Cast<UDXExtString>(Self);
 	ESSelf->AppendText(NewText);
 }
 
-void NExtString::GetFirstTextPart(UObject* Self, std::string& OutText, int& ReturnValue)
+void NExtString::GetFirstTextPart(UObject* Self, ScriptString& OutText, int& ReturnValue)
 {
 	auto ESSelf = UObject::Cast<UDXExtString>(Self);
 	ReturnValue = ESSelf->GetFirstTextPart(OutText);
 }
 
-void NExtString::GetNextTextPart(UObject* Self, std::string& OutText, int& ReturnValue)
+void NExtString::GetNextTextPart(UObject* Self, ScriptString& OutText, int& ReturnValue)
 {
 	auto ESSelf = UObject::Cast<UDXExtString>(Self);
 	ReturnValue = ESSelf->GetNextTextPart(OutText);
 }
 
-void NExtString::GetText(UObject* Self, std::string& ReturnValue)
+void NExtString::GetText(UObject* Self, ScriptString& ReturnValue)
 {
 	auto ESSelf = UObject::Cast<UDXExtString>(Self);
-	ReturnValue = ScriptToLatin1(ESSelf->GetText());
+	ReturnValue = ESSelf->GetText();
 }
 
 void NExtString::GetTextLength(UObject* Self, int& ReturnValue)
@@ -44,13 +44,13 @@ void NExtString::GetTextLength(UObject* Self, int& ReturnValue)
 	ReturnValue = ESSelf->GetTextLength();
 }
 
-void NExtString::GetTextPart(UObject* Self, int startPos, int Count, std::string& OutText, int& ReturnValue)
+void NExtString::GetTextPart(UObject* Self, int startPos, int Count, ScriptString& OutText, int& ReturnValue)
 {
 	auto ESSelf = UObject::Cast<UDXExtString>(Self);
 	ReturnValue = ESSelf->GetTextPart(startPos, Count, OutText);
 }
 
-void NExtString::SetText(UObject* Self, const std::string& NewText)
+void NExtString::SetText(UObject* Self, const ScriptString& NewText)
 {
 	auto ESSelf = UObject::Cast<UDXExtString>(Self);
 	ESSelf->SetText(NewText);

@@ -1861,10 +1861,13 @@ Every other native the scripted runs compare matches the original
   under a length of 0.0001, `Chr(0)` the empty string, `IsInState` true for
   a state the state extends, whose labels and functions the extending state
   has too (`ExtendConsole`), and a float made an int past an int's range,
-  wrapping, by `int`, `byte` and a rotator's scaling (`RotatorConsole`;
-  differs: `Chr` keeps the low 8 bits, DXEngine's strings being of bytes,
-  where the original's makes a 16-bit character: bugs.md VM.5); `Object.Mid` 127 at its
-  edges, its end's clamp known from `MidConsole`'s ten probes of both;
+  wrapping, by `int`, `byte` and a rotator's scaling (`RotatorConsole`);
+  the string natives on 16-bit characters, a script's strings being UTF-16
+  as the original's: `Chr` its low 16 bits, `Asc`, `Len`, `Mid`, `Left`,
+  `Right` and `InStr` by those characters, `Caps` a to z alone and `~=`
+  without their case alone, the comparisons by each character's code
+  (`OpsConsole`'s wide lines, alike with the original's); `Object.Mid` 127
+  at its edges, its end's clamp known from `MidConsole`'s ten probes of both;
   `Object.DynamicLoadObject` with a group in the name, its own, another or
   none, and a class that is not the object's own (`DynLoadConsole`); and
   `Object.GetPropertyText` and `SetPropertyText`, through which the server's

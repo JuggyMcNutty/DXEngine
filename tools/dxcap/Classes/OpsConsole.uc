@@ -7,7 +7,8 @@
 // decimal (813.1953125, 0.0078125 and its negative, a vector of them, a
 // float property's text), 2 to the 70th and both infinities; a switch on a
 // string against a case of the
-// other case, and on -0.0 against 0.0; new with a flag outside the script's
+// other case, and on -0.0 against 0.0; the string natives on characters
+// past 8 and 16 bits, each string logged as its characters' codes; new with a flag outside the script's
 // (the engine logs "new: Flags 04000000 not allowed"); each actor iterator
 // given None for its class, counted, the radius ones round the level's
 // first PlayerStart (DX.dx's player rides the menu's flyby, its own place
@@ -83,6 +84,40 @@ function FloatTextOps()
 	TieValue = 123456.7890625;
 	Log("DXOPS: float text " $ 813.1953125 $ " " $ 0.0078125 $ " " $ -0.0078125 $ " " $ Big $ " " $ (1.0 / Zero) $ " " $ (-1.0 / Zero));
 	Log("DXOPS: vector text " $ string(V) $ ", property text " $ GetPropertyText("TieValue"));
+}
+
+// A string's characters as their codes, the log's being 8-bit: its length,
+// then each one's code
+function string Codes(string S)
+{
+	local string R;
+	local int i;
+
+	R = Len(S) $ ":";
+	for (i = 0; i < Len(S); i++)
+	{
+		if (i > 0)
+			R = R $ ",";
+		R = R $ Asc(Mid(S, i, 1));
+	}
+	return R;
+}
+
+// The string natives on 16-bit characters: Chr past 8 bits and past 16,
+// Asc, Len, Mid, Left, Right, InStr, Caps, ~=, the comparisons and a literal
+// past ASCII (Latin-1, an 8-bit constant: the original's UCC fails to save a
+// Unicode one, "Script serialization mismatch")
+function WideOps()
+{
+	local string S;
+
+	S = Chr(256) $ Chr(937) $ Chr(8482) $ Chr(65535) $ "a";
+	Log("DXOPS: wide " $ Codes(S));
+	Log("DXOPS: wide Chr(74565) " $ Codes(Chr(74565)) $ ", Chr(65536) " $ Codes(Chr(65536)) $ ", Asc of the empty " $ Asc(""));
+	Log("DXOPS: wide Left 2 " $ Codes(Left(S, 2)) $ ", Right 2 " $ Codes(Right(S, 2)) $ ", Mid 1 2 " $ Codes(Mid(S, 1, 2)) $ ", InStr " $ InStr(S, Chr(8482)));
+	Log("DXOPS: wide Caps " $ Codes(Caps(Chr(233) $ "a" $ Chr(257) $ Chr(945))));
+	Log("DXOPS: wide ~= " $ (Chr(257) ~= Chr(256)) $ " " $ (("A" $ Chr(256)) ~= ("a" $ Chr(256))) $ ", < " $ (Chr(255) < Chr(256)) $ " " $ (Chr(256) < Chr(255)) $ ", == " $ (Chr(256) == Chr(256)));
+	Log("DXOPS: wide literal " $ Codes("été"));
 }
 
 function SwitchOps()
@@ -309,6 +344,7 @@ event Tick(float Delta)
 		ClampOps();
 		FloatTextOps();
 		SwitchOps();
+		WideOps();
 		NewOps();
 		IterOps(P);
 		OrthoOps();

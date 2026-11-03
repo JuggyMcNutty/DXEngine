@@ -19,15 +19,15 @@ void UDXExtString::Load(ObjectStream* stream)
 // the text in parts of 239 characters, GetFirstTextPart giving the first and
 // GetNextTextPart each next one, and GetTextPart at most 240 from a place.
 
-void UDXExtString::AppendText(const std::string& newText)
+void UDXExtString::AppendText(const ScriptString& newText)
 {
-	Text() += Latin1ToScript(newText);
+	Text() += newText;
 }
 
-int UDXExtString::GetFirstTextPart(std::string& outText)
+int UDXExtString::GetFirstTextPart(ScriptString& outText)
 {
 	int count = std::min((int)Text().size(), 239);
-	outText = ScriptToLatin1(Text().substr(0, count));
+	outText = Text().substr(0, count);
 	SpeechPage() = 0;
 	return count;
 }
@@ -35,14 +35,14 @@ int UDXExtString::GetFirstTextPart(std::string& outText)
 // The next part, or 0 once none is left, the argument left as it was; but
 // for a text a multiple of 239 long the first call past its end empties it
 // (Extension.dll 0x10044ad0).
-int UDXExtString::GetNextTextPart(std::string& outText)
+int UDXExtString::GetNextTextPart(ScriptString& outText)
 {
 	int page = ++SpeechPage();
 	int len = (int)Text().size();
 	if (page > len / 239)
 		return 0;
 	int count = std::min(len - 239 * page, 239);
-	outText = ScriptToLatin1(Text().substr(239 * page, count));
+	outText = Text().substr(239 * page, count);
 	return count;
 }
 
@@ -57,18 +57,18 @@ int UDXExtString::GetTextLength()
 }
 
 // At most 240 characters from startPos, none from a negative one.
-int UDXExtString::GetTextPart(int startPos, int count, std::string& outText)
+int UDXExtString::GetTextPart(int startPos, int count, ScriptString& outText)
 {
 	int len = (int)Text().size();
 	if (startPos < 0)
 		count = 0;
 	count = std::min(count, len - startPos);
 	count = std::clamp(count, 0, 240);
-	outText = count > 0 ? ScriptToLatin1(Text().substr(startPos, count)) : std::string();
+	outText = count > 0 ? Text().substr(startPos, count) : ScriptString();
 	return count;
 }
 
-void UDXExtString::SetText(const std::string& newText)
+void UDXExtString::SetText(const ScriptString& newText)
 {
-	Text() = Latin1ToScript(newText);
+	Text() = newText;
 }

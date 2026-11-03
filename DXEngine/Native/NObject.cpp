@@ -289,14 +289,14 @@ void NObject::And_IntInt(int A, int B, int& ReturnValue)
 	ReturnValue = A & B;
 }
 
-void NObject::Asc(const std::string& S, int& ReturnValue)
+void NObject::Asc(const ScriptString& S, int& ReturnValue)
 {
-	ReturnValue = !S.empty() ? static_cast<uint8_t>(S.front()) : static_cast<uint8_t>(0);
+	ReturnValue = !S.empty() ? (int)S.front() : 0;
 }
 
-void NObject::At_StrStr(const std::string& A, const std::string& B, std::string& ReturnValue)
+void NObject::At_StrStr(const ScriptString& A, const ScriptString& B, ScriptString& ReturnValue)
 {
-	ReturnValue = A + " " + B;
+	ReturnValue = A + u" " + B;
 }
 
 void NObject::Atan(float A, float& ReturnValue)
@@ -304,25 +304,24 @@ void NObject::Atan(float A, float& ReturnValue)
 	ReturnValue = std::atan(A);
 }
 
-void NObject::Caps(const std::string& S, std::string& ReturnValue)
+void NObject::Caps(const ScriptString& S, ScriptString& ReturnValue)
 {
-	// toupper takes an unsigned char's value: a byte past 127, a Latin-1
-	// letter, as a signed char is outside its domain. In the C locale it
-	// stays as it is, as the original's towupper leaves it.
+	// a to z alone, as the original's towupper in the C locale changes them
+	// and leaves every other character, Latin-1's letters among them
 	ReturnValue.clear();
 	ReturnValue.reserve(S.size());
-	for (char c : S)
-		ReturnValue.push_back((char)std::toupper((unsigned char)c));
+	for (char16_t c : S)
+		ReturnValue.push_back(c >= 'a' && c <= 'z' ? (char16_t)(c - 'a' + 'A') : c);
 }
 
-// The original's is one 16-bit character, and 0 the empty string. Ours
-// keeps the low 8 bits (NATIVES.md, implemented, not as the original).
-void NObject::Chr(int i, std::string& ReturnValue)
+// One 16-bit character, the low 16 bits, and 0 the empty string, as the
+// original's (Core.dll 0x1013c520)
+void NObject::Chr(int i, ScriptString& ReturnValue)
 {
 	if ((i & 0xffff) == 0)
 		ReturnValue.clear();
 	else
-		ReturnValue = std::string(1, (char)i);
+		ReturnValue = ScriptString(1, (char16_t)i);
 }
 
 // UE1's Clamp (UnTemplate.h, Core.dll's execClamp): under A gives A, else
@@ -350,9 +349,12 @@ void NObject::ComplementEqual_FloatFloat(float A, float B, BitfieldBool& ReturnV
 	ReturnValue = std::abs(A - B) < 0.0001;
 }
 
-void NObject::ComplementEqual_StrStr(const std::string& A, const std::string& B, BitfieldBool& ReturnValue)
+void NObject::ComplementEqual_StrStr(const ScriptString& A, const ScriptString& B, BitfieldBool& ReturnValue)
 {
-	ReturnValue = StrTools::equals_ignore_case(A, B);
+	// a to z without case, every other character as it is, as the original's
+	// C-locale compare
+	auto fold = [](char16_t c) { return c >= 'a' && c <= 'z' ? (char16_t)(c - 'a' + 'A') : c; };
+	ReturnValue = A.size() == B.size() && std::equal(A.begin(), A.end(), B.begin(), [&](char16_t a, char16_t b) { return fold(a) == fold(b); });
 }
 
 void NObject::Complement_PreInt(int A, int& ReturnValue)
@@ -360,7 +362,7 @@ void NObject::Complement_PreInt(int A, int& ReturnValue)
 	ReturnValue = ~A;
 }
 
-void NObject::Concat_StrStr(const std::string& A, const std::string& B, std::string& ReturnValue)
+void NObject::Concat_StrStr(const ScriptString& A, const ScriptString& B, ScriptString& ReturnValue)
 {
 	ReturnValue = A + B;
 }
@@ -575,7 +577,7 @@ void NObject::EqualEqual_RotatorRotator(const Rotator& A, const Rotator& B, Bitf
 	ReturnValue = identical(A, B);
 }
 
-void NObject::EqualEqual_StrStr(const std::string& A, const std::string& B, BitfieldBool& ReturnValue)
+void NObject::EqualEqual_StrStr(const ScriptString& A, const ScriptString& B, BitfieldBool& ReturnValue)
 {
 	ReturnValue = (A == B);
 }
@@ -690,7 +692,7 @@ void NObject::GreaterEqual_IntInt(int A, int B, BitfieldBool& ReturnValue)
 	ReturnValue = A >= B;
 }
 
-void NObject::GreaterEqual_StrStr(const std::string& A, const std::string& B, BitfieldBool& ReturnValue)
+void NObject::GreaterEqual_StrStr(const ScriptString& A, const ScriptString& B, BitfieldBool& ReturnValue)
 {
 	ReturnValue = A >= B;
 }
@@ -723,15 +725,15 @@ void NObject::Greater_IntInt(int A, int B, BitfieldBool& ReturnValue)
 	ReturnValue = A > B;
 }
 
-void NObject::Greater_StrStr(const std::string& A, const std::string& B, BitfieldBool& ReturnValue)
+void NObject::Greater_StrStr(const ScriptString& A, const ScriptString& B, BitfieldBool& ReturnValue)
 {
 	ReturnValue = A > B;
 }
 
-void NObject::InStr(const std::string& S, const std::string& t, int& ReturnValue)
+void NObject::InStr(const ScriptString& S, const ScriptString& t, int& ReturnValue)
 {
 	auto pos = S.find(t);
-	ReturnValue = (pos != std::string::npos) ? (int)pos : -1;
+	ReturnValue = (pos != ScriptString::npos) ? (int)pos : -1;
 }
 
 void NObject::Invert(vec3& X, vec3& Y, vec3& Z)
@@ -767,12 +769,12 @@ void NObject::IsInState(UObject* Self, const NameString& TestState, BitfieldBool
 	}
 }
 
-void NObject::Left(const std::string& S, int i, std::string& ReturnValue)
+void NObject::Left(const ScriptString& S, int i, ScriptString& ReturnValue)
 {
 	ReturnValue = S.substr(0, clamp(i, 0, (int)S.size()));
 }
 
-void NObject::Len(const std::string& S, int& ReturnValue)
+void NObject::Len(const ScriptString& S, int& ReturnValue)
 {
 	ReturnValue = (int)S.size();
 }
@@ -792,7 +794,7 @@ void NObject::LessEqual_IntInt(int A, int B, BitfieldBool& ReturnValue)
 	ReturnValue = A <= B;
 }
 
-void NObject::LessEqual_StrStr(const std::string& A, const std::string& B, BitfieldBool& ReturnValue)
+void NObject::LessEqual_StrStr(const ScriptString& A, const ScriptString& B, BitfieldBool& ReturnValue)
 {
 	ReturnValue = A <= B;
 }
@@ -818,7 +820,7 @@ void NObject::Less_IntInt(int A, int B, BitfieldBool& ReturnValue)
 	ReturnValue = A < B;
 }
 
-void NObject::Less_StrStr(const std::string& A, const std::string& B, BitfieldBool& ReturnValue)
+void NObject::Less_StrStr(const ScriptString& A, const ScriptString& B, BitfieldBool& ReturnValue)
 {
 	ReturnValue = A < B;
 }
@@ -853,7 +855,7 @@ void NObject::Max(int A, int B, int& ReturnValue)
 	ReturnValue = std::max(A, B);
 }
 
-void NObject::Mid(const std::string& S, int i, std::optional<int> j, std::string& ReturnValue)
+void NObject::Mid(const ScriptString& S, int i, std::optional<int> j, ScriptString& ReturnValue)
 {
 	// As the original's FString::Mid (Core.dll 0x101086e0; core-dll.md,
 	// Conversions): up to 65,535 characters by default, and both ends clamped
@@ -1007,7 +1009,7 @@ void NObject::NotEqual_RotatorRotator(const Rotator& A, const Rotator& B, Bitfie
 	ReturnValue = !identical(A, B);
 }
 
-void NObject::NotEqual_StrStr(const std::string& A, const std::string& B, BitfieldBool& ReturnValue)
+void NObject::NotEqual_StrStr(const ScriptString& A, const ScriptString& B, BitfieldBool& ReturnValue)
 {
 	ReturnValue = A != B;
 }
@@ -1115,7 +1117,7 @@ void NObject::ResetConfig(UObject* Self)
 	}
 }
 
-void NObject::Right(const std::string& S, int i, std::string& ReturnValue)
+void NObject::Right(const ScriptString& S, int i, ScriptString& ReturnValue)
 {
 	int count = clamp(i, 0, (int)S.size());
 	ReturnValue = S.substr(S.size() - count);

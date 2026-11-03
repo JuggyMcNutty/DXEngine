@@ -586,13 +586,14 @@ void ExpressionEvaluator::Expr(StructMemberExpression* expr)
 	*Out = std::move(member);
 }
 
+// Its 16-bit units, each a character, as the original's
 void ExpressionEvaluator::Expr(UnicodeStringConstExpression* expr)
 {
-	std::string s;
+	ScriptString s;
 	s.reserve(expr->Value.size());
 	for (wchar_t c : expr->Value)
-		s.push_back(c < 128 ? c : '?');
-	*Out = ExpressionValue::StringValue(s);
+		s.push_back((char16_t)c);
+	*Out = ExpressionValue::StringValue(std::move(s));
 }
 
 void ExpressionEvaluator::Expr(RotatorToVectorExpression* expr)
