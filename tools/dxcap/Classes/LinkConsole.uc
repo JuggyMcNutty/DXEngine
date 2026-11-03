@@ -6,13 +6,16 @@
 // logged, then an exit. The original's AInternetLink::Destroy closes the
 // socket at once, so the second round binds every port; DXEngine's once
 // closed it only when the collector freed the object, the ports held until
-// then (bugs.md E8.19). Each line starts "DXLINK:".
+// then (bugs.md E8.19). Then a link of the package's own (CapUdpEcho) sends
+// A, U+03A9 and e acute to itself on 127.0.0.1 and logs what it receives,
+// by its characters' codes. Each line starts "DXLINK:".
 //=============================================================================
 class LinkConsole extends Console;
 
 var float RunTime;
 var int Step;
 var UdpLink Links[20];
+var CapUdpEcho Echo;
 
 function int BindRound(PlayerPawn P, string Name)
 {
@@ -29,6 +32,12 @@ function int BindRound(PlayerPawn P, string Name)
 	}
 	Log("DXLINK: " $ Name $ ": " $ bound $ " of 20 bound");
 	return bound;
+}
+
+function SendEcho(PlayerPawn P)
+{
+	Echo = P.Spawn(class'CapUdpEcho');
+	Echo.SendSelf("A" $ Chr(937) $ Chr(233));
 }
 
 function DestroyAll()
@@ -67,6 +76,11 @@ event Tick(float Delta)
 		Step = 2;
 	}
 	else if (Step == 2 && RunTime > 4.0)
+	{
+		SendEcho(P);
+		Step = 4;
+	}
+	else if (Step == 4 && RunTime > 5.0)
 	{
 		Log("DXLINK: exiting");
 		P.ConsoleCommand("exit");

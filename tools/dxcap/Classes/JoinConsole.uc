@@ -8,15 +8,28 @@
 // the other's animation: sequence, frame, rate --, is logged each second,
 // and shot at the stops, with its base. A move of its own that its velocity
 // does not account for by more than a unit -- a server's correction -- is
-// logged as a jump, the time and how far. Exits 25 s into the game -- or back
-// in the menu, dropped or never in after 40 s.
+// logged as a jump, the time and how far. 2 s in it renames its player past
+// Latin-1 (DXCapture, U+03A9, U+2122), which goes to the server and comes
+// back in its replication info, the name's codes logged at 20 s. Exits 25 s
+// into the game -- or back in the menu, dropped or never in after 40 s.
 //=============================================================================
 class JoinConsole extends Console;
 
 var float MenuTime, GameTime, LogTime;
 var int Step;
 var vector LastLocation, LastVelocity;
-var bool bTracking;
+var bool bTracking, bRenamed, bNameLogged;
+
+// Each character's code, the log being 8-bit
+function string NameCodes(string S)
+{
+	local string R;
+	local int i;
+
+	for (i = 0; i < Len(S); i++)
+		R = R $ " " $ Asc(Mid(S, i, 1));
+	return R;
+}
 
 event Tick(float Delta)
 {
@@ -72,6 +85,17 @@ event Tick(float Delta)
 		foreach P.AllActors(class'Pawn', Other)
 			if (Other != P)
 				Log("DXNET: t=" $ int(GameTime) $ " other " $ Other.Name $ " at " $ Other.Location $ " velocity " $ Other.Velocity $ " anim " $ Other.AnimSequence $ " frame " $ Other.AnimFrame $ " rate " $ Other.AnimRate);
+	}
+
+	if (!bRenamed && GameTime > 2.0)
+	{
+		bRenamed = true;
+		P.SetName("DXCapture" $ Chr(937) $ Chr(8482));
+	}
+	if (!bNameLogged && GameTime > 20.0 && P.PlayerReplicationInfo != None)
+	{
+		bNameLogged = true;
+		Log("DXNET: name codes" $ NameCodes(P.PlayerReplicationInfo.PlayerName));
 	}
 
 	if (Step == 1 && GameTime > 5.0)

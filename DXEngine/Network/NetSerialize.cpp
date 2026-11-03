@@ -85,7 +85,7 @@ void NetReadItem(UProperty* prop, NetBitReader& reader, NetPackageMap& map, void
 	}
 	else if (UObject::TryCast<UStrProperty>(prop) || UObject::TryCast<UStringProperty>(prop))
 	{
-		*static_cast<ScriptString*>(data) = Latin1ToScript(reader.ReadString());
+		*static_cast<ScriptString*>(data) = reader.ReadScriptString();
 	}
 	else if (auto structProp = UObject::TryCast<UStructProperty>(prop))
 	{
@@ -173,7 +173,7 @@ bool NetWriteItem(UProperty* prop, NetBitWriter& writer, NetPackageMap& map, con
 	}
 	else if (UObject::TryCast<UStrProperty>(prop) || UObject::TryCast<UStringProperty>(prop))
 	{
-		writer.WriteString(ScriptToLatin1(*static_cast<const ScriptString*>(data)));
+		writer.WriteScriptString(*static_cast<const ScriptString*>(data));
 	}
 	else if (auto structProp = UObject::TryCast<UStructProperty>(prop))
 	{

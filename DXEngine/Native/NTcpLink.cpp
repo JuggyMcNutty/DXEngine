@@ -47,9 +47,13 @@ void NTcpLink::ReadBinary(UObject* Self, int Count, uint8_t& B, int& ReturnValue
 	ReturnValue = UObject::Cast<UTcpLink>(Self)->ReadBinary(Count, &B);
 }
 
-void NTcpLink::ReadText(UObject* Self, std::string& Str, int& ReturnValue)
+// The bytes come and go as 8-bit text: each byte a character, and a
+// character past 0xFF sent as 0x7F, as the original's ToAnsi narrows it
+void NTcpLink::ReadText(UObject* Self, ScriptString& Str, int& ReturnValue)
 {
-	ReturnValue = UObject::Cast<UTcpLink>(Self)->ReadText(Str);
+	std::string text;
+	ReturnValue = UObject::Cast<UTcpLink>(Self)->ReadText(text);
+	Str = Latin1ToScript(text);
 }
 
 void NTcpLink::SendBinary(UObject* Self, int Count, uint8_t& B, int& ReturnValue)
@@ -57,7 +61,7 @@ void NTcpLink::SendBinary(UObject* Self, int Count, uint8_t& B, int& ReturnValue
 	ReturnValue = UObject::Cast<UTcpLink>(Self)->SendBinary(Count, &B);
 }
 
-void NTcpLink::SendText(UObject* Self, const std::string& Str, int& ReturnValue)
+void NTcpLink::SendText(UObject* Self, const ScriptString& Str, int& ReturnValue)
 {
-	ReturnValue = UObject::Cast<UTcpLink>(Self)->SendText(Str);
+	ReturnValue = UObject::Cast<UTcpLink>(Self)->SendText(ScriptToLatin1(Str, 0x7F));
 }

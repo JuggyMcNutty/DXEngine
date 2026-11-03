@@ -80,6 +80,39 @@ void NetBitWriter::WriteString(const std::string& text)
 	WriteByte(0);
 }
 
+void NetBitWriter::WriteScriptString(const ScriptString& text)
+{
+	size_t len = text.find(u'\0');
+	if (len == ScriptString::npos)
+		len = text.size();
+	if (len == 0)
+	{
+		WriteCompactIndex(0);
+		return;
+	}
+	bool wide = false;
+	for (size_t i = 0; i < len && !wide; i++)
+		wide = text[i] > 0xFF;
+	if (wide)
+	{
+		WriteCompactIndex(-(int32_t)(len + 1));
+		for (size_t i = 0; i < len; i++)
+		{
+			WriteByte((uint8_t)(text[i] & 0xFF));
+			WriteByte((uint8_t)(text[i] >> 8));
+		}
+		WriteByte(0);
+		WriteByte(0);
+	}
+	else
+	{
+		WriteCompactIndex((int32_t)len + 1);
+		for (size_t i = 0; i < len; i++)
+			WriteByte((uint8_t)text[i]);
+		WriteByte(0);
+	}
+}
+
 void NetBitWriter::SetNumBits(int numBits)
 {
 	if (numBits > NumBits)
@@ -218,6 +251,37 @@ std::string NetBitReader::ReadString()
 			if (c)
 				text.push_back(c < 256 ? (char)c : '?');
 		}
+	}
+	return text;
+}
+
+ScriptString NetBitReader::ReadScriptString()
+{
+	int32_t count = ReadCompactIndex();
+	if (Error || count == 0)
+		return {};
+	if (count < -1024 * 1024 || count > 1024 * 1024)
+	{
+		Error = true;
+		return {};
+	}
+	ScriptString text;
+	bool ended = false;
+	for (int32_t i = 0; i < (count > 0 ? count : -count) && !Error; i++)
+	{
+		char16_t c;
+		if (count > 0)
+			c = ReadByte();
+		else
+		{
+			uint8_t lo = ReadByte();
+			uint8_t hi = ReadByte();
+			c = (char16_t)(lo | (hi << 8));
+		}
+		if (c == 0)
+			ended = true;
+		else if (!ended)
+			text.push_back(c);
 	}
 	return text;
 }

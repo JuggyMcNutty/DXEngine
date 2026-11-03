@@ -2584,7 +2584,13 @@ as client and as server: `ServeConsole`, `JoinConsole`, `RejoinConsole`,
 `TravelServeConsole`, `TravelJoinConsole`, `NetConsole`, `PickServer` with
 `PickJoinConsole`, `AskServer` with `AskJoinConsole`. DXEngine joins live
 public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
-stays in. The rate it asks of a server is 20,000 where the ini holds the
+stays in. A replicated string goes as the original's does, 16-bit when a
+character in it is past 0xFF, else 8-bit (`JoinConsole`: its player renamed
+DXCapture, U+03A9, U+2122 through `SetName`, the name back whole from each
+engine's server to the other's client); a `TcpLink`'s and a `UdpLink`'s
+text goes 8-bit, a character past 0xFF as 0x7F, as the original's `ToAnsi`
+narrows it, and comes in a byte a character (`LinkConsole`: A, U+03A9, e
+acute sent to itself received as 65, 127, 233 in both engines). The rate it asks of a server is 20,000 where the ini holds the
 game's stock 2,600 or none, by choice: set at the start as a `SET` sets it,
 the ini, `Engine.Player`'s defaults and the viewport, so a mod's player that
 sets its net speed from it once in asks the same (MTL's `MTLPlayer`); a net

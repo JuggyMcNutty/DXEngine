@@ -23,9 +23,12 @@ void NUdpLink::ReadBinary(UObject* Self, IpAddr& Addr, int Count, uint8_t& B, in
 	ReturnValue = UObject::Cast<UUdpLink>(Self)->ReadBinary(Addr, Count, &B);
 }
 
-void NUdpLink::ReadText(UObject* Self, IpAddr& Addr, std::string& Str, int& ReturnValue)
+// As TcpLink's: 8-bit text both ways, a character past 0xFF sent as 0x7F
+void NUdpLink::ReadText(UObject* Self, IpAddr& Addr, ScriptString& Str, int& ReturnValue)
 {
-	ReturnValue = UObject::Cast<UUdpLink>(Self)->ReadText(Addr, Str);
+	std::string text;
+	ReturnValue = UObject::Cast<UUdpLink>(Self)->ReadText(Addr, text);
+	Str = Latin1ToScript(text);
 }
 
 void NUdpLink::SendBinary(UObject* Self, const IpAddr& Addr, int Count, uint8_t& B, BitfieldBool& ReturnValue)
@@ -33,7 +36,7 @@ void NUdpLink::SendBinary(UObject* Self, const IpAddr& Addr, int Count, uint8_t&
 	ReturnValue = UObject::Cast<UUdpLink>(Self)->SendBinary(Addr, Count, &B);
 }
 
-void NUdpLink::SendText(UObject* Self, const IpAddr& Addr, const std::string& Str, BitfieldBool& ReturnValue)
+void NUdpLink::SendText(UObject* Self, const IpAddr& Addr, const ScriptString& Str, BitfieldBool& ReturnValue)
 {
-	ReturnValue = UObject::Cast<UUdpLink>(Self)->SendText(Addr, Str);
+	ReturnValue = UObject::Cast<UUdpLink>(Self)->SendText(Addr, ScriptToLatin1(Str, 0x7F));
 }

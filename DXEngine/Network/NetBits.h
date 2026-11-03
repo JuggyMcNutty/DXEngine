@@ -24,6 +24,10 @@ public:
 	// An FString: its length with the terminator as a compact index, then
 	// its characters and the terminator; none for an empty string.
 	void WriteString(const std::string& text);
+	// A script's string as the original's FString goes over the net, as it is
+	// saved (Core.dll 0x101459b0): 16-bit characters, the count negative,
+	// when one is past 0xFF, else a byte each
+	void WriteScriptString(const ScriptString& text);
 
 	int GetNumBits() const { return NumBits; }
 	int GetNumBytes() const { return (NumBits + 7) >> 3; }
@@ -57,6 +61,8 @@ public:
 	float ReadFloat();
 	int32_t ReadCompactIndex();
 	std::string ReadString();
+	// A script's string whole, 16-bit or 8-bit by its count's sign
+	ScriptString ReadScriptString();
 
 	// The next numBits as a reader of their own.
 	NetBitReader ReadSub(int numBits);
