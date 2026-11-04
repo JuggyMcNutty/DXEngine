@@ -1695,14 +1695,21 @@ alike. Differs:
   ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds));
   the slot and `bNoOverride` are packed alike.
 
+With no audio output -- no sound card, server or endpoint -- the engine logs
+`Audio initialization failed.` and plays on silent, as the original's drops
+its audio subsystem
+([starting the game engine](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#starting-the-game-engine)):
+a sound's ID is still given, and none is heard (`ProveConsole` with OpenAL
+Soft's wave driver given no file). A song that fails to load is logged and
+none plays, the game going on, as Galaxy's `glxLoadMusic` failing is a
+warning.
+
 Differs (bugs.md AUD.9): the music's slider and fades are linear, Galaxy's
 squared, so the music is louder. Differs (bugs.md AUD.10): a song's mix
-volume, pan law and resampling are OpenMPT's. Differs (bugs.md AUD.11): with
-no audio output the engine does not start, the original playing silent.
-Differs (bugs.md AUD.12): a burst of the old song can sound at a fade's end.
-Differs (bugs.md AUD.13): the music goes through HRTF on headphones. Differs
-(bugs.md AUD.14): `UseSound=False` is read nowhere, and a song that fails to
-load stops the game.
+volume, pan law and resampling are OpenMPT's. Differs (bugs.md AUD.12): a
+burst of the old song can sound at a fade's end. Differs (bugs.md AUD.13):
+the music goes through HRTF on headphones. Differs (bugs.md AUD.14):
+`UseSound=False` is read nowhere.
 
 ## Implemented, not as the original
 

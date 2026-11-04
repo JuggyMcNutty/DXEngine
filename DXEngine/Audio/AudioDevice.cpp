@@ -55,12 +55,21 @@ public:
 			0
 		};
 
+		// The device closed again before a failure is thrown: the engine
+		// plays on without it (UDXEngineAudioDevice::InitDevice)
 		alContext = alcCreateContext(alDevice, ctxAttribs);
 		if (alContext == nullptr)
+		{
+			alcCloseDevice(alDevice);
 			Exception::Throw("Failed to initialize OpenAL context");
+		}
 
 		if (alcMakeContextCurrent(alContext) == ALC_FALSE)
+		{
+			alcDestroyContext(alContext);
+			alcCloseDevice(alDevice);
 			Exception::Throw("Failed to make OpenAL context current");
+		}
 
 		// Deus Ex's sounds are mixed as Galaxy mixes them, in Galaxy's 32
 		// channel records, the mix streamed through one source at OutputRate,
@@ -675,4 +684,41 @@ public:
 std::unique_ptr<AudioDevice> AudioDevice::Create(int frequency, int numVoices, int musicBufferCount, int musicBufferSize, int mixAheadMs, bool stereo)
 {
 	return std::make_unique<OpenALAudioDevice>(frequency, numVoices, musicBufferCount, musicBufferSize, mixAheadMs, stereo);
+}
+
+// The device of a machine with no sound output: nothing is mixed or heard,
+// and every voice is free, as no sound plays where the original's engine
+// has dropped its audio subsystem (UEngine::InitAudio, Engine.dll
+// 0x1037fe50). The subsystem's own work -- a sound's ID, which a script
+// gets, the music's changes -- goes on as with a device.
+class SilentAudioDevice : public AudioDevice
+{
+public:
+	SilentAudioDevice(int numVoices) : numVoices(numVoices) {}
+
+	void AddSound(USound* sound) override {}
+	void RemoveSound(USound* sound) override {}
+	bool IsPlaying(int channel) override { return false; }
+	int GetTotalChannels() override { return numVoices; }
+	void PlayMusic(std::unique_ptr<AudioSource> source) override {}
+	void PlayMixedSound(int channel, USound* sound, int volume, int panning, float pitch) override {}
+	void UpdateMixedSound(int channel, int volume, int panning, float pitch) override {}
+	void StopSound(int channel) override {}
+	bool GetMixedSoundPosition(int channel, uint64_t& frame) override { return false; }
+	bool ReadMixedSound(int channel, uint64_t frame, int16_t* frames, int count) override { return false; }
+	void SetMusicVolume(float volume) override {}
+	void SetSoundVolume(float volume) override {}
+	void SetSpeechVolume(float volume) override {}
+	int GetMusicOrder() override { return -1; }
+	void SetMusicOrder(int order) override {}
+	void SetReverb(const ReverbSettings* settings) override {}
+	void Update() override {}
+
+private:
+	int numVoices;
+};
+
+std::unique_ptr<AudioDevice> AudioDevice::CreateSilent(int numVoices)
+{
+	return std::make_unique<SilentAudioDevice>(numVoices);
 }

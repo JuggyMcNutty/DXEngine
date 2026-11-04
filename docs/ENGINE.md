@@ -771,8 +771,10 @@ its code is:
   as `Galaxy.dll` does (pan, fall-off, sliders, resampling, its reverb) and streams them through
   one OpenAL source at `OutputRate`; the music streams through one of its own, from a thread of
   its own, where a song that fails as it plays stops and the game goes on, the main thread
-  logging why (`Music: the song stopped:`), and one that fails to load stops the game (bugs.md
-  AUD.14). DXEngine's audio device adds `SpeechVolume` and `DopplerSpeed` to its ini section,
+  logging why (`Music: the song stopped:`), and one that fails to load plays none, logged
+  (`glxLoadMusic(&Mem, GLX_LOADFROMMEMORY ) failed:`). With no output that starts, a device
+  that plays nothing takes OpenAL's place (`Audio initialization failed.`). DXEngine's audio
+  device adds `SpeechVolume` and `DopplerSpeed` to its ini section,
   and keeps Deus Ex's channel count under Galaxy's name, `EffectsChannels`
   ([sound](NATIVES.md#sound)). DXEngine's render device keeps `DetailTextures` beside Surreal
   Engine's keys; on a first run (no `DXE-DeusEx.ini`, or an `--ini` without the engine's

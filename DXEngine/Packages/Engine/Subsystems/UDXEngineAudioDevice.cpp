@@ -190,8 +190,24 @@ void UDXEngineAudioDevice::InitDevice()
 	// The rate is OutputRate's, the mix-ahead Latency's and the channels
 	// UseStereo's; the rest is fixed, as the original's Galaxy has no key for
 	// a device, its voices or its music buffers.
-	m_Device = AudioDevice::Create(OutputRate.frequency, 256, 16, 256, Latency, UseStereo);
-	LogMessage("Audio device initialized");
+	//
+	// An output that will not start -- no sound card, server or endpoint --
+	// is logged and the game plays on silent, as the original's
+	// UEngine::InitAudio drops its audio subsystem (Engine.dll 0x1037fe50,
+	// "Audio initialization failed."): here a device that plays nothing
+	// (bugs.md AUD.11).
+	try
+	{
+		m_Device = AudioDevice::Create(OutputRate.frequency, 256, 16, 256, Latency, UseStereo);
+		LogMessage("Audio device initialized");
+	}
+	catch (const std::exception& e)
+	{
+		std::string reason = e.what();
+		LogMessage("Audio device not started: " + reason.substr(0, reason.find('\n')));
+		LogMessage("Audio initialization failed.");
+		m_Device = AudioDevice::CreateSilent(256);
+	}
 }
 
 void UDXEngineAudioDevice::ShutdownDevice()
@@ -676,7 +692,19 @@ void UDXEngineAudioDevice::UpdateMusic(float timeStep)
 		}
 		else
 		{
-			auto source = CreateMusicSource(song, section);
+			// A song that will not load is logged and none plays, the game
+			// going on, as Galaxy's glxLoadMusic failing is a warning
+			// (Galaxy.dll's "%s failed: %i"; bugs.md AUD.14)
+			std::unique_ptr<AudioSource> source;
+			try
+			{
+				source = CreateMusicSource(song, section);
+			}
+			catch (const std::exception& e)
+			{
+				std::string reason = e.what();
+				LogMessage("glxLoadMusic(&Mem, GLX_LOADFROMMEMORY ) failed: " + song->Name.ToString() + ": " + reason.substr(0, reason.find('\n')));
+			}
 			m_Device->PlayMusic(std::move(source));
 			CurrentSong = song;
 		}
