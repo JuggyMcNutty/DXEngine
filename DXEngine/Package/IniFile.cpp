@@ -243,11 +243,12 @@ void IniFile::SaveTo(const std::string& filename)
 
 	std::string ini_text = "";
 
-	// Start with sections first
+	// Each section, its keys and a blank line, each line ending in CR LF, as
+	// the original's config cache writes an ini whole
 	for (auto& section : sections)
 	{
 		// Section header (i.e. [Engine.Engine])
-		std::string section_text = "[" + section.GetName() + "]\n";
+		std::string section_text = "[" + section.GetName() + "]\r\n";
 
 		// key=value pairs
 		auto& keys = section.GetKeys();
@@ -260,12 +261,12 @@ void IniFile::SaveTo(const std::string& filename)
 			auto& values = key.GetValues();
 			for (auto& value : values)
 			{
-				section_text += key.GetName() + "=" + value + "\n";
+				section_text += key.GetName() + "=" + value + "\r\n";
 			}
 		}
 		section.SetHasNewKey(false); // New key in section won't be new anymore after saving.
 
-		ini_text += section_text + "\n";
+		ini_text += section_text + "\r\n";
 	}
 
 	// Overwrite whatever is there

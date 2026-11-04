@@ -2692,9 +2692,10 @@ A mod gets the original's loader and natives:
   line, a key new to a section added after the section's last key, a section
   new to the file at its end, and the rest of the file as it was, a CR LF
   file's line endings with it, by choice, so a player's or a mod's comments
-  and layout stay; a file not there yet is written whole, with LF line ends,
-  where the original's are CR LF (bugs.md PKG.24). The original rewrites
-  each file whole, CR LF, comments gone (`ConfigConsole`: a class's own
+  and layout stay; a file not there yet is written whole, CR LF, as the
+  original writes it (`ConfigConsole` with no `DXCapConfig.ini`: the file
+  each engine makes the same to the byte). The original rewrites each file
+  whole, CR LF, comments gone (`ConfigConsole`: a class's own
   `DXCapConfig.ini`, CR LF, read and written back alike). `StaticSaveConfig`
   from an object writes the class's defaults, as from the class
   (`ConfigConsole`). A config value of any type is read and written as the
