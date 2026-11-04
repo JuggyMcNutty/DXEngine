@@ -1139,8 +1139,12 @@ one-frame sequence -- every head turn and mouth shape -- tweened whole from
 slot's first sequence untweened at 0.001; a tween time of -1 at the slot's
 last rate; `SimBlendAnim` packed as the original packs it, the same
 animation again marked new (`BlendFieldsConsole`: every field after each
-call alike in both engines). Differs (bugs.md AI.12): the slots' passes and
-time a tick are their own, not what the main animation's leave.
+call alike in both engines). The slots move after the main animation, with
+the passes and the time it leaves them: three passes of a tick its step
+ends in its first, none on a tick that stopped it, spent its four passes,
+or whose loop ended its step between `AnimLast` and 1.0 (`BlendFieldsConsole`'s
+stage e: a head turn 0.4 s still while Paul Denton's breathing runs from
+`AnimLast` to its wrap, at 0 some 1.41 s in, in both engines).
 
 ### Lists
 

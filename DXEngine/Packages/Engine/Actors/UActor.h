@@ -238,8 +238,10 @@ public:
 	// the original's AInternetLink::Destroy does, not at the collection.
 	virtual void ActorDestroyed() {}
 
+	// The main animation's passes, then the blend slots' with the passes and
+	// the time it leaves them, as the original's AActor::Tick runs both
 	void TickAnimation(float elapsed);
-	void TickBlendAnimation(float elapsed);
+	void TickBlendAnimation(float elapsed, int passes);
 
 	void TickPhysics(float elapsed);
 	void TickWalking(float elapsed);

@@ -403,11 +403,9 @@ void UActor::Tick(float elapsed)
 	if (!bIsPawn() && !StartTick())
 		return;
 
-	// The slots move only while the main animation plays or tweens
-	bool mainAnimMoving = IsAnimating() || (AnimFrame() < 0.0f && TweenRate() != 0.0f);
+	// The main animation, then the blend slots with the passes and the time
+	// it leaves them (TickAnimation)
 	TickAnimation(elapsed);
-	if (mainAnimMoving)
-		TickBlendAnimation(elapsed);
 
 	// A net game's copies tick as the original's do by their roles: another
 	// player's pawn moves along its velocity, falling at half the zone's

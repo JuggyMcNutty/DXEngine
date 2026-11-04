@@ -399,12 +399,19 @@ void UActor::TickAnimation(float elapsed)
 	if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim && bAnimFinished())
 		StateFrame->LatentState = LatentRunState::Continue;
 
+	// The main animation moves while a sequence is set and it tweens at a
+	// rate or plays at one, as the original checks it before each pass and,
+	// for the blend slots, after them (0x103a1bf9, 0x103a1fa1)
+	auto moving = [this]() { return !AnimSequence().IsNone() && (AnimFrame() < 0.0f ? TweenRate() != 0.0f : AnimRate() != 0.0f); };
+
 	// Four passes a tick, as the original's AActor::Tick runs them (Engine.dll
 	// 0x103a1aa0; engine-dll.md, the main animation's tick): each ends at a
 	// notify, a loop's wrap or the sequence's end, so a long tick through a
 	// fast loop plays four loops of it and leaves the rest of its time
-	// unplayed
-	for (int i = 0; elapsed > 0.0f && i < 4; i++)
+	// unplayed. A step that ends the tick's animation leaves the time as it
+	// was, for the blend slots after it.
+	int passes = 0;
+	while (moving() && elapsed > 0.0f && ++passes <= 4)
 	{
 		// If AnimFrame is positive we are doing a normal animation. If it is negative we are doing a tween animation.
 		float fromAnimTime = AnimFrame();
@@ -500,96 +507,91 @@ void UActor::TickAnimation(float elapsed)
 		}
 		else
 		{
-			float tweenRate = TweenRate();
-			if (tweenRate == 0.0f)
+			// A tween up from a negative frame: short of 0 it ends the tick's
+			// animation, the time as it was; reaching 0 it goes on with the
+			// time past it, finished with AnimEnd when there is no rate to go
+			// on at (0x103a1f26)
+			float toAnimTime = fromAnimTime + TweenRate() * elapsed;
+			if (toAnimTime < 0.0f)
+			{
+				AnimFrame() = toAnimTime;
 				break;
-
-			float toAnimTime = fromAnimTime + tweenRate * elapsed;
-
-			float animEndTime = 0.0f;
-			if (toAnimTime >= animEndTime)
-			{
-				elapsed -= (animEndTime - fromAnimTime) / tweenRate;
-				toAnimTime = animEndTime;
 			}
-			else
-			{
-				elapsed = 0.0f;
-			}
+			elapsed = elapsed * toAnimTime / (toAnimTime - fromAnimTime);
+			AnimFrame() = 0.0f;
 
-			AnimFrame() = toAnimTime;
-
-			if (toAnimTime == animEndTime && AnimRate() == 0.0f)
+			if (AnimRate() == 0.0f)
 			{
 				if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim)
 					StateFrame->LatentState = LatentRunState::Continue;
 
 				bAnimFinished() = true;
-				//engine->LogMessage("CallEvent(AnimEnd) for " + Class->FriendlyName.ToString() + "");
 				CallEvent(this, EventName::AnimEnd);
 			}
 		}
 	}
+
+	// The blend slots go on after it with the passes and the time it left,
+	// as the original's (0x103a1fa1): only while it is still set and moving,
+	// so not on a tick that stopped it or spent the four passes, nor, with
+	// no time left, on one whose loop ended its step between AnimLast and
+	// 1.0
+	if (moving())
+		TickBlendAnimation(elapsed, passes);
 }
 
-void UActor::TickBlendAnimation(float elapsed)
+// The blend slots' passes, as the original's AActor::Tick runs them after
+// the main animation's (Engine.dll 0x103a21d0; engine-dll.md, blend
+// animations): the four passes go on from those the main animation took --
+// three when its step ended the tick in its first, as it mostly does --,
+// each with the time it left, while there is time. Each pass moves the
+// slots in order: a tween up from a negative frame, then the rate (or a
+// velocity-scaled one) up to the last frame, where the slot stops. A slot
+// that ends its tween or reaches its last frame leaves the slots after it,
+// and the passes after, only the time past that; one that stops is packed
+// for a client that does not simulate the actor (a weapon aside), as the
+// main animation's end is (0x103a2348).
+void UActor::TickBlendAnimation(float elapsed, int passes)
 {
-	// The original moves the slots inside the main animation's tick loop
-	// (dx-reverse-info/engine-dll.md, blend animations): each iteration moves
-	// every slot by the frame's time, a slot that ends or finishes its
-	// tween leaves the rest only the time over, and the iterations repeat
-	// until spent -- three moves in a frame whose main animation had no
-	// notify or end, so up to three times the slot's rate. The caller
-	// gates on the main animation playing or tweening.
-	for (int iteration = 0; iteration < 3 && elapsed > 0.0f; iteration++)
+	while (elapsed > 0.0f && ++passes <= 4)
 	{
 		for (int slot = 0; slot < 4; slot++)
 		{
-			if (BlendAnimSequence()[slot].IsNone())
+			float from = BlendAnimFrame()[slot];
+			float last = BlendAnimLast()[slot];
+			if (BlendAnimSequence()[slot].IsNone() || !(from < last))
 				continue;
 
-			float frame = BlendAnimFrame()[slot];
-			if (frame < 0.0f)
+			if (from < 0.0f)
 			{
-				// A tween up from a negative frame
-				float tweenRate = BlendTweenRate()[slot];
-				if (tweenRate == 0.0f)
-					continue;
-				float to = frame + tweenRate * elapsed;
-				if (to >= 0.0f)
-				{
-					elapsed -= (0.0f - frame) / tweenRate;
-					BlendAnimFrame()[slot] = 0.0f;
-				}
-				else
+				float to = from + BlendTweenRate()[slot] * elapsed;
+				if (to < 0.0f)
 				{
 					BlendAnimFrame()[slot] = to;
+					continue;
 				}
+				elapsed = elapsed * to / (to - from);
+				BlendAnimFrame()[slot] = 0.0f;
 				continue;
 			}
-
-			float last = BlendAnimLast()[slot];
-			if (frame >= last)
-				continue;
 
 			// The rate, or a velocity-scaled one
 			float rate = BlendAnimRate()[slot];
 			if (rate < 0.0f)
 				rate = std::max(BlendAnimMinRate()[slot], -rate * length(Velocity()));
-			if (rate == 0.0f)
-				continue;
-
-			float to = frame + rate * elapsed;
-			if (to >= last)
-			{
-				// The slot stops at the last frame
-				elapsed -= (last - frame) / rate;
-				BlendAnimFrame()[slot] = last;
-				BlendAnimRate()[slot] = 0.0f;
-			}
-			else
+			float to = from + rate * elapsed;
+			if (to < last)
 			{
 				BlendAnimFrame()[slot] = to;
+				continue;
+			}
+			elapsed = elapsed * (to - last) / (to - from);
+			BlendAnimFrame()[slot] = last;
+			BlendAnimRate()[slot] = 0.0f;
+			if (RemoteRole() < ROLE_SimulatedProxy && !IsA("Weapon"))
+			{
+				SimBlendAnim()[slot].x = BlendAnimFrame()[slot] * 10000.0f;
+				SimBlendAnim()[slot].y = std::min(BlendAnimRate()[slot] * 5000.0f, 32767.0f);
 			}
 		}
 	}
