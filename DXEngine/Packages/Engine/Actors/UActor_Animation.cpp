@@ -404,6 +404,14 @@ void UActor::TickAnimation(float elapsed)
 	// for the blend slots, after them (0x103a1bf9, 0x103a1fa1)
 	auto moving = [this]() { return !AnimSequence().IsNone() && (AnimFrame() < 0.0f ? TweenRate() != 0.0f : AnimRate() != 0.0f); };
 
+	// A simulated proxy pawn -- another player's or an NPC on a net client
+	// -- is sent no AnimEnd, as the original's AActor::Tick decides it once
+	// before the passes (0x103a1ba8-0x103a1bed: bIsPawn, a Pawn, its own
+	// Role simulated proxy) and skips the three sends by it (0x103a1e34,
+	// 0x103a1e88, 0x103a1f6c): its frame, its end, its finish, a loop's
+	// wrap, a FinishAnim let go and its notifies all as any other's.
+	bool sendAnimEnd = !(Role() == ROLE_SimulatedProxy && bIsPawn() && IsA("Pawn"));
+
 	// Four passes a tick, as the original's AActor::Tick runs them (Engine.dll
 	// 0x103a1aa0; engine-dll.md, the main animation's tick): each ends at a
 	// notify, a loop's wrap or the sequence's end, so a long tick through a
@@ -480,7 +488,8 @@ void UActor::TickAnimation(float elapsed)
 				{
 					if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim)
 						StateFrame->LatentState = LatentRunState::Continue;
-					CallEvent(this, EventName::AnimEnd);
+					if (sendAnimEnd)
+						CallEvent(this, EventName::AnimEnd);
 				}
 				continue;
 			}
@@ -495,7 +504,8 @@ void UActor::TickAnimation(float elapsed)
 			if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim)
 				StateFrame->LatentState = LatentRunState::Continue;
 
-			CallEvent(this, EventName::AnimEnd);
+			if (sendAnimEnd)
+				CallEvent(this, EventName::AnimEnd);
 
 			// A client that does not simulate the actor (a weapon aside) is
 			// told where its animation stopped.
@@ -526,7 +536,8 @@ void UActor::TickAnimation(float elapsed)
 					StateFrame->LatentState = LatentRunState::Continue;
 
 				bAnimFinished() = true;
-				CallEvent(this, EventName::AnimEnd);
+				if (sendAnimEnd)
+					CallEvent(this, EventName::AnimEnd);
 			}
 		}
 	}

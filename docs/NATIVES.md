@@ -2736,7 +2736,8 @@ through `Pawn.ClientHearSound`
 `ServeConsole`'s beeps, the client recorded). Each runs against the original
 as client and as server: `ServeConsole`, `JoinConsole`, `RejoinConsole`,
 `TravelServeConsole`, `TravelJoinConsole`, `NetConsole`, `PickServer` with
-`PickJoinConsole`, `AskServer` with `AskJoinConsole`. DXEngine joins live
+`PickJoinConsole`, `AskServer` with `AskJoinConsole`, `AnimEndServeConsole`
+with `AnimEndJoinConsole`. DXEngine joins live
 public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
 stays in. A replicated string goes as the original's does, 16-bit when a
 character in it is past 0xFF, else 8-bit (`JoinConsole`: its player renamed
@@ -2865,6 +2866,15 @@ As in the original:
   that goes to the server, one its proxy does not run, the game's
   `GivePlayerAugmentation`, and the server's three that go to the client
   each leave the variable as it was, every client line alike).
+- A simulated proxy pawn -- another player's or an NPC on a client -- is
+  sent no `AnimEnd`, as the original's actor tick has it
+  ([the main animation's tick](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#blend-animations)):
+  its animation plays, ends, finishes, loops and calls its notifies as any
+  other's. Only a simulated `AnimEnd` would run there, and no stock pawn
+  has one, only `DeusExWeapon`'s `ClientFiring` (`AnimEndServeConsole` with
+  `AnimEndJoinConsole`, each engine the server and the other's client: the
+  server's pawn sent 3, 5 and 3 by stage, the client none, its stops and
+  wraps the server's).
 - **A dedicated server** makes each joining player's own root window, as the
   original's `Possess` does, and lays its windows out on the base 640 by
   480, having no viewport, its windows' scripts measuring with the GC as it
@@ -2891,8 +2901,7 @@ As in the original:
 Differs (bugs.md NET.11): a server's FAILCODE takes the place of the join's
 failure text. Differs (bugs.md NET.12): a login's value ends at `)`. Differs
 (bugs.md NET.14): a login with a FailCode and no Error, `SendText`'s answer,
-a client travel's info, `open`'s one word. Differs (bugs.md NET.15): a
-simulated proxy pawn's animation sends `AnimEnd`.
+a client travel's info, `open`'s one word.
 
 ## Not needed for single player
 
