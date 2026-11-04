@@ -98,9 +98,27 @@ int GameApp::main(Array<std::string> args)
 		if (ErrorWindow::CheckCrashReporter())
 			return 0;
 
+		// Every option the engine takes but --showcrashreport, its own crash
+		// report's relaunch (ENGINE.md, running it)
 		if (commandline->HasArg("-h", "--help"))
 		{
-			std::cout << "DXEngine [--url=<mapname>] [--server [--lanplay]] [--cmdline=<the original's>] [--userdir=<dir>] [--version] [Path to game folder]\n";
+			std::cout <<
+				"DXEngine [<options>] [<game folder>]\n"
+				"  -u, --url=<map>       the map to start, or a server's address\n"
+				"  --server              a dedicated server of the --url map\n"
+				"  --lanplay             with --server, the LAN tick rate\n"
+				"  --ini=<file>          the ini read and written back, as the original's INI=\n"
+				"  --userini=<file>      the user ini, as the original's USERINI=\n"
+				"  --cmdline=<line>      the original's command line, as a launcher passes it\n"
+				"  --userdir=<dir>       the engine's own folder: its settings, log and shots\n"
+				"  --timeline=<file>     keys, text, a pad, the pointer and commands at set times\n"
+				"  -n, --no-launcher     the log on stderr, an error there alone, no error window\n"
+				"  -v, --verbose         the log on stderr\n"
+				"  --version             the engine's version and features\n"
+				"  -h, --help            these options\n"
+				"An option that takes a value takes the next word when it has no '='.\n"
+				"With no game folder, the game whose System folder it starts in (on Windows,\n"
+				"else the registry's).\n";
 			return 0;
 		}
 

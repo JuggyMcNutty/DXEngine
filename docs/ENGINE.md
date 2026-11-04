@@ -94,6 +94,7 @@ directory:
 DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
 ```
 
+- `--help` (`-h`) lists the options below.
 - `--no-launcher` (`-n`) puts the log on stderr, as `--verbose` (`-v`) does, and opens no error
   window: an error goes to stderr alone. With no game folder given, the engine runs the game
   whose `System` folder (in any case) it starts in, or on Windows the Deus Ex the registry
