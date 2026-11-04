@@ -150,6 +150,7 @@ launcher's part, which DXEngine leaves to the launchers.
 | `AIConsole` | both | every NPC's state, orders, enemy and render time; the camera | `DXAI:`, `DXAISTATE:` |  |
 | `SitConsole` | both | Private Lloyd's way into his chair and his sitting, in view: state, animation, `bSitting`, place; two marked shots | `DXSIT:` | the two logs' lines |
 | `OpeningConsole` | both | `TargetMap`'s opening view, held, the HUD off: two marked shots | `DXOPEN:` | `shots.py`, at `DXCAP_WINDOW=1024x768` |
+| `PanConsole` | both | `TargetMap`'s sky looked up at (`Pitch`), the HUD off; at `ShotA` and `ShotB` of the level's time (6 and 8 s) the time all but held by a `TimeDilation` of 0.0025, which a pause does not, and a marked shot: the sky zone's pan speeds, each shot's time | `DXPAN:` | each engine's shot of one time registered on the other's, the clouds' band of scales, at `DXCAP_WINDOW=1024x768` |
 | `StaticConsole` | both | `TargetMap`'s static actors at 5 s and 15 s | `DXSTATIC:` |  |
 | `MoveConsole` | both | every pawn's moves, every 2 s for 120 s; with `Watch`, one pawn each tick (`WatchFrom`, `WatchTo`) | `DXMOVE:` | `move.py <original run> <dxe run>`; `move.py --pawn <name>`, where two runs' paths part, by place, within the stretch the reference walked alone (bugs.md X.6) |
 | `ReachConsole` | both | the reach tests, each pawn asked from its home spot | `DXREACH:` |  |

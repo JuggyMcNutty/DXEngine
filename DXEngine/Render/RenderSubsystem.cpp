@@ -33,7 +33,7 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 	// DetailTextures is on and the client's TextureDetail is High, as
 	// Render.dll hands it over (dx-reverse-info render-dll.md, a frame).
 	DetailTexturesDrawn = engine->renderdev->DetailTextures && NameString(engine->client->TextureDetail) == NameString("High");
-	AutoUV += levelTimeElapsed * 64.0f;
+	LevelTime = engine->LevelInfo ? engine->LevelInfo->TimeSeconds() : 0.0f;
 	// The viewport's clock, which the meshes' lighting takes: the real time
 	// since the last frame drawn, a load's painted frame among them, as the
 	// original's viewport takes it at each lock (Engine.dll UViewport::Lock
@@ -136,14 +136,27 @@ void RenderSubsystem::UpdateTexture(UTexture* tex)
 	}
 }
 
+// A zone's auto-pan on one axis as Render.dll works it out (0x10b1a628-
+// 0x10b1a652, V at 0x10b1a6f6): the zone's pan speed x the level's
+// TimeSeconds x 35 x 256, made an int as _ftol truncates it (0x10b278a4; one
+// past the int's range its 0x80000000), masked to 18 bits, x 1/256 -- 35
+// texels a second at a speed of 1, wrapping at 1,024, from the level's own
+// time, paused with it -- added to the surface's pan (bugs.md REN.31).
+static float AutoPan(float zoneSpeed, float levelTime)
+{
+	double v = (double)zoneSpeed * (double)levelTime * 35.0 * 256.0;
+	int32_t i = (v < 2147483648.0 && v > -2147483649.0) ? (int32_t)v : INT32_MIN;
+	return (float)((i & 0x3ffff) * (1.0 / 256.0));
+}
+
 void RenderSubsystem::UpdateTextureInfo(TextureInfo& info, BspSurface& surface, UTexture* texture, float ZoneUPanSpeed, float ZoneVPanSpeed)
 {
 	UpdateTextureInfo(info, texture);
 
 	info.Pan.x = -(float)surface.PanU;
 	info.Pan.y = -(float)surface.PanV;
-	if (surface.PolyFlags & PF_AutoUPan) info.Pan.x -= AutoUV * ZoneUPanSpeed;
-	if (surface.PolyFlags & PF_AutoVPan) info.Pan.y -= AutoUV * ZoneVPanSpeed;
+	if (surface.PolyFlags & PF_AutoUPan) info.Pan.x -= AutoPan(ZoneUPanSpeed, LevelTime);
+	if (surface.PolyFlags & PF_AutoVPan) info.Pan.y -= AutoPan(ZoneVPanSpeed, LevelTime);
 }
 
 void RenderSubsystem::UpdateTextureInfo(TextureInfo& info, const Poly& poly, UTexture* texture, float ZoneUPanSpeed, float ZoneVPanSpeed)
@@ -152,8 +165,8 @@ void RenderSubsystem::UpdateTextureInfo(TextureInfo& info, const Poly& poly, UTe
 
 	info.Pan.x = -(float)poly.PanU;
 	info.Pan.y = -(float)poly.PanV;
-	if (poly.PolyFlags & PF_AutoUPan) info.Pan.x -= AutoUV * ZoneUPanSpeed;
-	if (poly.PolyFlags & PF_AutoVPan) info.Pan.y -= AutoUV * ZoneVPanSpeed;
+	if (poly.PolyFlags & PF_AutoUPan) info.Pan.x -= AutoPan(ZoneUPanSpeed, LevelTime);
+	if (poly.PolyFlags & PF_AutoVPan) info.Pan.y -= AutoPan(ZoneVPanSpeed, LevelTime);
 }
 
 void RenderSubsystem::UpdateTextureInfo(TextureInfo& info, UTexture* texture)

@@ -521,10 +521,12 @@ the mirrors and the light maps register so too ([mesh detail](#mesh-detail),
 [mirrors](#mirrors), [lighting](#lighting)), as a sprite and the canvas's
 tiles do ([sprites](#sprites), [tiles](#tiles)).
 
-Differs (bugs.md REN.31): auto-panned surfaces, the sky's cloud banks,
-scroll 1.83 times as fast, from the engine's start. Differs (bugs.md D.40,
-D.41, ruled to change): NoSmooth textures sampled with anisotropy; GL ES
-with no mip bias.
+Auto-panned surfaces scroll by their zone's pan speed and the level's own
+time as Render.dll pans them, 35 texels a second at a speed of 1, wrapping
+at 1,024, truncated to 1/256 of a texel (`PanConsole`: Liberty Island's
+cloud banks where the original's are at 6 s and 8 s of the level's time,
+within 2 pixels at 1024x768). Differs (bugs.md D.40, D.41, ruled to
+change): NoSmooth textures sampled with anisotropy; GL ES with no mip bias.
 
 ### The software device
 

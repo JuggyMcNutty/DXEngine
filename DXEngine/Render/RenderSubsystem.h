@@ -174,7 +174,7 @@ private:
 
 	float LevelTimeElapsed = 0.0f;
 	double TextureClock = 0.0; // the textures' clock at this frame (UTexture::ClockNow)
-	float AutoUV = 0.0f;
+	float LevelTime = 0.0f; // the level's TimeSeconds at this frame, which the zones' auto-pan goes by
 
 	bool FrameInProgress = false;
 	bool FrameDrawn = false;
