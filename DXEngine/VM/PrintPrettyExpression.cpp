@@ -598,7 +598,9 @@ void PrintPrettyExpression::Expr(VirtualFunctionExpression* expr)
 
 void PrintPrettyExpression::Expr(FinalFunctionExpression* expr)
 {
-	writeOutput(expr->Func->Name.ToString() + "(");
+	// A call to an import that did not load is the script error being
+	// reported, its statement printed in the call stack
+	writeOutput((expr->Func ? expr->Func->Name.ToString() : std::string("(null)")) + "(");
 	int index = 0;
 	for (auto arg : expr->Args)
 	{

@@ -31,20 +31,19 @@ engines, what matches, and what differs. What else it changes:
 ## Stops the game
 
 Differs by choice. An error DXEngine does not catch -- a script error, an
-unknown native, a failed save -- exits the engine with 1, which the launcher
-takes for a crash; a call to a function import that did not load crashes it
-instead, as the error is reported (bugs.md VM.24). No map or action is known
-to reach one; the audit lists the natives whose call would. A `foreach` on a
-None context, and state code's `goto` to a label its state has not, stop
-both engines alike (the original's Critical Error); a None class's `default`
-is 0 in both, and `AllActors(None)` every actor. A dynamic array's element,
-on which the original asserts (no Deus Ex script indexes one), grows the
-array to the index in DXEngine, by choice, a negative index a script error.
-A modal window made inside another window stops the original as it is
-destroyed: its cleanup takes it out of the table of tab groups of the modal
-it lies in, which never held it, and the table's index asserts (as it was
-made, only "Modal window must be a child of Root!" was logged; no Deus Ex
-script makes one). DXEngine destroys it, by choice.
+unknown native, a call to a function import that did not load, a failed save
+-- exits the engine with 1, which the launcher takes for a crash. No map or
+action is known to reach one; the audit lists the natives whose call would.
+A `foreach` on a None context, and state code's `goto` to a label its state
+has not, stop both engines alike (the original's Critical Error); a None
+class's `default` is 0 in both, and `AllActors(None)` every actor. A dynamic
+array's element, on which the original asserts (no Deus Ex script indexes
+one), grows the array to the index in DXEngine, by choice, a negative index
+a script error. A modal window made inside another window stops the original
+as it is destroyed: its cleanup takes it out of the table of tab groups of
+the modal it lies in, which never held it, and the table's index asserts (as
+it was made, only "Modal window must be a child of Root!" was logged; no
+Deus Ex script makes one). DXEngine destroys it, by choice.
 
 A runaway script stops both engines alike, with an error no native's call
 catches
