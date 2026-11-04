@@ -15,8 +15,12 @@
 // teleporter's URL; Which=3, opened on 14_Oceanlab_Silo, its map exit to
 // Area 51, "15_area51_bunker.dx #bunker_start" (a new mission: DXEngine
 // empties Current and loads the silo again); Which=4, opened on
-// 14_OceanLab_UC, its teleporter back, "14_OceanLab_Lab.dx #Sunkentunnel".
-// Each line starts "DXSPACE:".
+// 14_OceanLab_UC, its teleporter back, "14_OceanLab_Lab.dx #Sunkentunnel";
+// Which=5, opened on 14_OceanLab_Lab, the UC teleporter's URL and, 5 s on the
+// UC, its teleporter back: the lab, saved into Current as the travel left it
+// within the mission, comes back from there, its URL Current's file (the
+// original's Browse, DeusEx.dll 0x10010b90, cuts the map's name at its first
+// ".dx" for it). Each line starts "DXSPACE:".
 //=============================================================================
 class SpaceURLConsole extends Console;
 
@@ -60,7 +64,7 @@ function string MapOf(PlayerPawn P)
 
 function string StartMap()
 {
-	if (Which == 2)
+	if (Which == 2 || Which == 5)
 		return "14_OceanLab_Lab";
 	if (Which == 3)
 		return "14_Oceanlab_Silo";
@@ -73,7 +77,7 @@ function string TravelURL()
 {
 	if (Which == 1)
 		return "14_Oceanlab_silo.dx #frontgate";
-	if (Which == 2)
+	if (Which == 2 || Which == 5)
 		return "14_OceanLab_UC.dx #UC";
 	if (Which == 3)
 		return "15_area51_bunker.dx #bunker_start";
@@ -134,7 +138,15 @@ event Tick(float Delta)
 		Step = 1;
 		MapTime = 0;
 	}
-	else if (Step == 1 && MapTime > 5.0)
+	else if (Step == 1 && MapTime > 5.0 && Which == 5)
+	{
+		Log("DXSPACE: on " $ CurrentMap $ ", URL [" $ P.Level.GetLocalURL() $ "]");
+		Log("DXSPACE: travelling back to [14_OceanLab_Lab.dx #Sunkentunnel]");
+		P.Level.Game.SendPlayer(P, "14_OceanLab_Lab.dx #Sunkentunnel");
+		Step = 3;
+		MapTime = 0;
+	}
+	else if ((Step == 1 || Step == 3) && MapTime > 5.0)
 	{
 		Log("DXSPACE: on " $ CurrentMap $ ", URL [" $ P.Level.GetLocalURL() $ "]");
 		LogSystems(P, "after");

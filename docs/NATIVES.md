@@ -240,10 +240,13 @@ time, not the level's, and a join under way ticks after the level's tick in
 a frame that takes no travel, its connecting message shown at each frame's
 draw, as the original's.
 
-Differs (bugs.md PKG.20): a map's name with a space after it, as Mission
-14's five travels have it (`14_OceanLab_Lab.dx #Sunkenlab`), is looked for
-with the space, which a Linux file system keeps, so the travel fails there,
-where the original's Windows file system drops it. Differs (bugs.md VM.18):
+A map's name with a space after it, as Mission 14's five travels have it
+(`14_OceanLab_Lab.dx #Sunkenlab`), finds its map as the original's Windows
+file system finds it, a name's trailing spaces and dots dropped, and its
+save in `Current` by the name cut at its first `.dx`, as the original's
+Browse cuts it; the level's URL keeps the space, as the original's does
+(`SpaceURLConsole`: the five travels, and the lab left for the UC and come
+back to from `Current`, alike in both engines). Differs (bugs.md VM.18):
 a string property apart from its default in case alone travels and saves,
 where the original's compares without case and lets it go back to the
 default.
@@ -2477,10 +2480,10 @@ A mod gets the original's loader and natives:
   ([textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#textures)).
 - **Its folders.** Its packages and maps are found by the `Paths` of its own
   ini (`--ini`), relative to `System` and written with backslashes as the
-  game's are, their folders and extensions in any case, as the original's on
-  Windows, but not a map's name with a space after it, which Windows drops
-  (bugs.md PKG.20); so are the game folder's own `System` and `Maps` and the
-  `SavePath` and `CachePath` folders, as a copy recased on Linux leaves them
+  game's are, their folders and extensions in any case and a map's name's
+  trailing spaces and dots dropped, as the original's on Windows; so are the
+  game folder's own `System` and `Maps` and the `SavePath` and `CachePath`
+  folders, as a copy recased on Linux leaves them
   ([a package's
   file](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)).
 - **Its text.** Differs by choice: the `.int` files are read from each

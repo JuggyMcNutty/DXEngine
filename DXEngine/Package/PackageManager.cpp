@@ -363,6 +363,19 @@ bool PackageManager::MapExists(const std::string& path) const
 	return fs::is_regular_file(FindMapFile(path), ec);
 }
 
+// A file's name as Windows' file system opens it: its trailing spaces and
+// dots dropped (Win32's normalisation of a path's last part), so the
+// original's appFindPackageFile (Core.dll 0x10148ec0) finds Mission 14's
+// "14_OceanLab_Lab.dx " -- five travels with a space before their '#' -- as
+// 14_OceanLab_Lab.dx, where Linux's would find no file (bugs.md PKG.20).
+// "Foo .dx" keeps its space, and fails there as here.
+static std::string WindowsFileName(std::string name)
+{
+	size_t end = name.find_last_not_of(" .");
+	name.resize(end == std::string::npos ? 0 : end + 1);
+	return name;
+}
+
 fs::path PackageManager::FindMapFile(const std::string& path) const
 {
 	const auto mapPath = convert_path_separators(path);
@@ -371,6 +384,7 @@ fs::path PackageManager::FindMapFile(const std::string& path) const
 
 	if (!mapFilename.has_extension())
 		mapFilename.replace_extension(GetMapExtension());
+	mapFilename = WindowsFileName(mapFilename.string());
 
 	// Check if the map is in the map list
 	for (auto& mapName : maps)
@@ -653,13 +667,17 @@ Package* PackageManager::LoadSaveFile(const std::string& path)
 }
 
 // Current's save of a map, the map named in any case, with or without its
-// extension: the path LoadSaveFile takes, or empty where there is none.
+// extension: the path LoadSaveFile takes, or empty where there is none. The
+// name cut at its first .dx, with case, as the original's Browse cuts it
+// (DeusEx.dll 0x100119dd, appStrstr), so Mission 14's "14_OceanLab_Lab.dx "
+// is Current's 14_OceanLab_Lab (bugs.md PKG.20); the file found in any case,
+// as Windows' file system finds it.
 std::string PackageManager::FindCurrentSave(const std::string& mapName) const
 {
 	std::string name = mapName;
-	const std::string mapExt = "." + GetMapExtension();
-	if (name.size() > mapExt.size() && StrTools::equals_ignore_case(name.substr(name.size() - mapExt.size()), mapExt))
-		name.resize(name.size() - mapExt.size());
+	size_t dx = name.find("." + GetMapExtension());
+	if (dx != std::string::npos)
+		name.resize(dx);
 	const std::string saveExt = "." + GetSaveExtension();
 	std::error_code ec;
 	for (const auto& entry : fs::directory_iterator{gameSaveFolderPath / "Current", ec})

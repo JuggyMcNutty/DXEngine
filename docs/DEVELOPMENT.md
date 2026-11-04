@@ -217,7 +217,7 @@ launcher's part, which DXEngine leaves to the launchers.
 | `EndgameConsole` | both | an ending's way to the credits (`TargetMap`) | `DXEND:` |  |
 | `AugVisionConsole` | both | an NPC behind a wall under the vision augmentation | `DXAUGVIS:` |  |
 | `PortalConsole` | both | a map opened at a portal | `DXPORTAL:` |  |
-| `SpaceURLConsole` | both | a stock travel URL with a space before its `#`, by the map exit's own `SendPlayer` (`Which` 0 to 4: the sub's two exits, the lab's and the UC's teleporters, the silo's exit to Area 51), the map reached, its URL and the player's systems | `DXSPACE:` | the map reached (bugs.md PKG.20) |
+| `SpaceURLConsole` | both | a stock travel URL with a space before its `#`, by the map exit's own `SendPlayer` (`Which` 0 to 4: the sub's two exits, the lab's and the UC's teleporters, the silo's exit to Area 51; 5: the lab to the UC and back, the lab from `Current`), the map reached, its URL and the player's systems | `DXSPACE:` | the map reached, its URL |
 | `PasswordConsole` | both | the island opened with `GamePassword=dxcap` on its URL from another mission's map (a dxe run started on `02_NYC_BatteryPark`, the original on its menu map): the local login under the password | `DXPASS:` | the two logs' lines |
 | `RevisitConsole` | both | a crate left on the island, UNATCO HQ opened, then the island opened as `01_nyc_unatcoisland`: whether the crate is there, the level as left from Current, or the map loaded fresh | `DXREVISIT:` | the two logs' lines |
 | `DeleteSaveConsole` | both | a quick save on the island, then `DeleteGame -1`, as the Save Game screen's Delete sends on the quick save's row | `DXDELSAVE:` | the game's quick save folder after each run: there, as the original leaves it |
