@@ -1,5 +1,6 @@
 
 #include "Precomp.h"
+#include "Utils/StrTools.h"
 #include "UBoolProperty.h"
 
 UBoolProperty::UBoolProperty(NameString name, UClass* base, ObjectFlags flags) : UProperty(std::move(name), base, flags)
@@ -94,13 +95,27 @@ void UBoolProperty::SetBool(void* data, bool value)
 
 void UBoolProperty::SetValueFromString(void* data, const std::string& valueString)
 {
-	// 1, True, 0 and False in any case, as the original's import takes
-	// them; any other text leaves the value as it was
-	NameString valueName(valueString);
-	if (valueName == "true" || valueName == "1")
+	ImportText(valueString, 0, data);
+}
+
+// The original's UBoolProperty::ImportText (Core.dll 0x10166380): the text's
+// first token (ReadToken), so "True,", "1.0" and a quoted "True" are true: 1
+// or True in any case sets it, 0 or False clears it, the position past the
+// token; any other token, an empty one too, is refused, the value kept
+// (bugs.md VM.21). It takes Core.int's localized words too ([General] True
+// and False), which in the game's int are True and False.
+size_t UBoolProperty::ImportText(const std::string& text, size_t pos, void* data)
+{
+	std::string token;
+	if (!ReadToken(text, pos, token))
+		return ImportFailed;
+	if (token == "1" || StrTools::equals_ignore_case(token, "True"))
 		SetBool(data, true);
-	else if (valueName == "false" || valueName == "0")
+	else if (token == "0" || StrTools::equals_ignore_case(token, "False"))
 		SetBool(data, false);
+	else
+		return ImportFailed;
+	return pos;
 }
 
 bool UBoolProperty::IsDefaultValue(void* val)

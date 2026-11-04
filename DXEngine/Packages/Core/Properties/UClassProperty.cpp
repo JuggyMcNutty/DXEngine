@@ -24,32 +24,28 @@ std::string UClassProperty::PrintValue(const void* data)
 		return "None";
 }
 
-// The original's UClassProperty::ImportText (Core.dll 0x10167110): the
-// object's import, then None unless it is a class deriving from MetaClass
 void UClassProperty::SetValueFromString(void* data, const std::string& valueString)
 {
-	UObjectProperty::SetValueFromString(data, valueString);
+	ImportText(valueString, 0, data);
+}
+
+// The original's UClassProperty::ImportText (Core.dll 0x10167110): the
+// object's import, then what it set None, though not refused, unless it is a
+// class deriving from MetaClass (Object's own Class, which DXEngine makes
+// without one, any class)
+size_t UClassProperty::ImportText(const std::string& text, size_t pos, void* data)
+{
+	pos = UObjectProperty::ImportText(text, pos, data);
+	if (pos == ImportFailed)
+		return ImportFailed;
 	UObject*& value = *(UObject**)data;
 	UClass* cls = UObject::TryCast<UClass>(value);
-	if (!cls)
-	{
+	bool derived = cls && !MetaClass;
+	for (UStruct* s = cls; s && !derived; s = s->BaseStruct)
+		derived = s == MetaClass;
+	if (!derived)
 		value = nullptr;
-		return;
-	}
-	if (MetaClass)
-	{
-		bool derived = false;
-		for (UStruct* s = cls; s; s = s->BaseStruct)
-		{
-			if (s == MetaClass)
-			{
-				derived = true;
-				break;
-			}
-		}
-		if (!derived)
-			value = nullptr;
-	}
+	return pos;
 }
 
 void UClassProperty::Mark(GCMarker& marker)

@@ -41,9 +41,19 @@ bool UIntProperty::IsDefaultValue(void* val)
 
 void UIntProperty::SetValueFromString(void* data, const std::string& valueString)
 {
-	// As the original's import (core-dll.md, configuration): text that
-	// starts with a digit or a sign is read as far as it is a number, and
-	// any other text, an empty one too, leaves the value as it was
-	if (!valueString.empty() && (valueString.front() == '-' || valueString.front() == '+' || (valueString.front() >= '0' && valueString.front() <= '9')))
-		*(int32_t*)data = (int32_t)strtol(valueString.c_str(), nullptr, 10);
+	ImportText(valueString, 0, data);
+}
+
+// The original's UIntProperty::ImportText (Core.dll 0x10165f00): text whose
+// first character is a '-' or a digit read by appAtoi ("-" and "--5" are 0),
+// then the run of '-' and digits passed; any other start, a '+', a blank or
+// no text, leaves the value as it was (bugs.md VM.21). It refuses nothing.
+size_t UIntProperty::ImportText(const std::string& text, size_t pos, void* data)
+{
+	auto number = [](char c) { return c == '-' || (c >= '0' && c <= '9'); };
+	if (pos < text.size() && number(text[pos]))
+		*(int32_t*)data = (int32_t)strtol(text.c_str() + pos, nullptr, 10);
+	while (pos < text.size() && number(text[pos]))
+		pos++;
+	return pos;
 }

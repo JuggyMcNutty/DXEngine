@@ -133,6 +133,22 @@ public:
 	// takes a quoted token or one bare token there
 	virtual void SetDelimitedValueFromString(void* data, const std::string& valueString) { SetValueFromString(data, valueString); }
 
+	// The original's ImportText (Core.dll, each property class's), undelimited:
+	// the value read from text at pos and the position past what was read, or
+	// ImportFailed when the text is refused, the value then as the import left
+	// it. A type without its own takes the rest of the text by
+	// SetValueFromString and refuses nothing.
+	static constexpr size_t ImportFailed = std::string::npos;
+	virtual size_t ImportText(const std::string& text, size_t pos, void* data);
+
+	// The original's token reader (Core.dll 0x10164cb0, ReadToken) at pos: a
+	// quoted string, with \\ and \xx escapes (two hex digits, one that is
+	// none counting 0), pos then past its closing quote; else, from a letter
+	// or digit, the run of letters, digits, _ and - (and . with dots), pos
+	// past it; else the character at pos alone, pos left on it (an empty
+	// token at the text's end). False, logged, for a quoted string left open.
+	static bool ReadToken(const std::string& text, size_t& pos, std::string& token, bool dots = false);
+
 	// A struct's text, "(key=value,key[i]=value,...)", read as the original's
 	// UStructProperty::ImportText reads it (Core.dll 0x101698b0): a value runs
 	// to the next ',' or ')' outside quotes and nested parentheses, and is left

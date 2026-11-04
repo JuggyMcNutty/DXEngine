@@ -52,6 +52,15 @@ void UStrProperty::SetValueFromString(void* data, const std::string& valueString
 	*(ScriptString*)data = UTF8ToScript(valueString);
 }
 
+// The original's UStrProperty::ImportText (Core.dll 0x10167980), undelimited:
+// the text from pos to its end, the position left where it was, so that an
+// exec function's next parameter reads the same text again
+size_t UStrProperty::ImportText(const std::string& text, size_t pos, void* data)
+{
+	*(ScriptString*)data = UTF8ToScript(pos < text.size() ? text.substr(pos) : std::string());
+	return pos;
+}
+
 // A struct member's or an array element's text, as the original's delimited
 // import reads it (UStrProperty::ImportText, Core.dll 0x10167980, by
 // ParseToken): a quoted string's content, its escapes undone, else one bare

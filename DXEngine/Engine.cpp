@@ -61,6 +61,7 @@
 #include "GameWindow.h"
 #include "RenderDevice/RenderDevice.h"
 #include "VM/Frame.h"
+#include "Utils/AlignedAlloc.h"
 #include "VM/ScriptCall.h"
 #include "Utils/Convert.h"
 #include "Network/NetClient.h"
@@ -2743,8 +2744,12 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	if (InputExec(commandline, IK_None, EInputType::IST_Press, 20))
 		return {};
 	bool viewportWord = viewportWords.count(command) != 0;
-	if (!viewportWord && ExecCommand(args, commandline))
-		return {};
+	// An exec function's refusal, Core's BadProperty, is the command's output,
+	// as the original writes it to the command's output device: the console's
+	// message, or what ConsoleCommand returns (Engine.dll 0x103ba200's string)
+	std::string output;
+	if (!viewportWord && ExecCommand(args, commandline, output))
+		return output;
 
 	if (command == "exit" || command == "quit")
 	{
@@ -3079,12 +3084,12 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		engine->render->Device->Flush(1);
 		return {};
 	}
-	else if (!viewportWord || !ExecCommand(args, commandline))
+	else if (!viewportWord || !ExecCommand(args, commandline, output))
 	{
 		LogMessage("Unknown command: " + commandline);
 		found = false;
 	}
-	return {};
+	return output;
 }
 
 Array<std::string> Engine::GetArgs(const std::string& commandline)
@@ -3683,10 +3688,62 @@ static std::string LineFromWord(const std::string& line, size_t word)
 	return i == std::string::npos ? std::string() : line.substr(i);
 }
 
+// The original's ParseNext (Core.dll 0x10147b50) from pos: blanks, tabs, CRs
+// and LFs passed, and a ';' comment with them to the line's end
+static size_t ParseNext(const std::string& line, size_t pos)
+{
+	while (true)
+	{
+		while (pos < line.size() && (line[pos] == ' ' || line[pos] == '\t' || line[pos] == '\r' || line[pos] == '\n'))
+			pos++;
+		if (pos >= line.size() || line[pos] != ';')
+			return pos;
+		while (pos < line.size() && line[pos] != '\r' && line[pos] != '\n')
+			pos++;
+	}
+}
+
+namespace
+{
+	// An exec function's parameters in a block of its own layout, zeroed and
+	// each made, then each destroyed, as the original's ScriptConsoleExec has
+	// them (ParmsSize on the stack, zeroed): two bools in a row share a word
+	// there, each its own bit
+	struct ExecFunctionParms
+	{
+		ExecFunctionParms(UFunction* func) : Parms(Frame::CallParms(func)), Size(std::max(func->StructSize, (size_t)1))
+		{
+			Data = static_cast<uint8_t*>(AlignedAlloc(func->StructAlignment, Size));
+			memset(Data, 0, Size);
+			for (UProperty* prop : Parms)
+				prop->ConstructArray(Data + prop->DataOffset.DataOffset);
+		}
+		~ExecFunctionParms()
+		{
+			for (UProperty* prop : Parms)
+				prop->DestructArray(Data + prop->DataOffset.DataOffset);
+			AlignedFree(Data);
+		}
+		const Array<UProperty*>& Parms;
+		size_t Size;
+		uint8_t* Data;
+	};
+}
+
 // The exec functions in the original's order: the console's (UViewport::
 // Exec), then the game's, the HUD's, the player pawn's and each item of its
-// inventory in turn (UPlayer::Exec, Engine.dll 0x103d7ed0).
-bool Engine::ExecCommand(const Array<std::string>& args, const std::string& line)
+// inventory in turn (UPlayer::Exec, Engine.dll 0x103d7ed0), each with the
+// viewport's actor as the command's executor. The parameters as the
+// original's ScriptConsoleExec takes them (Core.dll 0x10150860; bugs.md
+// ENG.17): a first one that is an object the executor is, the executor; each
+// other in turn, past blanks and a ';' comment (ParseNext), by its
+// property's ImportText from where the last one stopped: a string the rest of
+// the line, its position left where it was; a float to the next ',' or ')';
+// an object one character past its name. A refused import ends them: for an
+// optional parameter the call is made, the rest zero; for any other Core's
+// BadProperty is the command's output and no call is made. The command is
+// taken either way.
+bool Engine::ExecCommand(const Array<std::string>& args, const std::string& line, std::string& output)
 {
 	Array<UObject*> targets;
 	targets.push_back(console);
@@ -3701,71 +3758,64 @@ bool Engine::ExecCommand(const Array<std::string>& args, const std::string& line
 		for (UInventory* item = player->Inventory(); item; item = item->Inventory())
 			targets.push_back(item);
 	}
+
+	// The parameters' text, past the command's word as ParseToken leaves it
+	size_t start = line.find_first_not_of(" \t");
+	if (start != std::string::npos)
+		start = line.find_first_of(" \t", start);
+	if (start == std::string::npos)
+		start = line.size();
+
+	UObject* executor = viewport->Actor();
 	for (UObject* target : targets)
 	{
 		if (!target)
 			continue;
 
 		UFunction* func = FindEventFunction(target, args[0]);
-		if (func && AllFlags(func->FuncFlags, FunctionFlags::Exec))
+		if (!func || !AllFlags(func->FuncFlags, FunctionFlags::Exec))
+			continue;
+
+		ExecFunctionParms parms(func);
+		size_t pos = start;
+		bool refused = false;
+		for (size_t i = 0; i < parms.Parms.size() && !AllFlags(parms.Parms[i]->PropFlags, PropertyFlags::ReturnParm); i++)
+		{
+			UProperty* prop = parms.Parms[i];
+			void* data = parms.Data + prop->DataOffset.DataOffset;
+			UObjectProperty* objprop = UObject::TryCast<UObjectProperty>(prop);
+			if (i == 0 && executor && objprop && objprop->ObjectClass && executor->IsA(objprop->ObjectClass->Name))
+			{
+				*static_cast<UObject**>(data) = executor;
+				continue;
+			}
+			pos = ParseNext(line, pos);
+			size_t next = prop->ImportText(line, pos, data);
+			if (next == UProperty::ImportFailed)
+			{
+				if (!AllFlags(prop->PropFlags, PropertyFlags::OptionalParm))
+				{
+					output = LocalizeMessage("Core", "Errors", "BadProperty", "'%s': Bad or missing property '%s'", { func->Name.ToString(), prop->Name.ToString() });
+					refused = true;
+				}
+				break;
+			}
+			pos = next;
+		}
+		if (!refused)
 		{
 			Array<ExpressionValue> vmArgs;
-			int argindex = 0;
-			for (UField* field = func->Children; field != nullptr; field = field->Next)
+			for (UProperty* prop : parms.Parms)
 			{
-				UProperty* prop = UObject::TryCast<UProperty>(field);
-				if (!prop)
-					continue;
-
 				if (AllFlags(prop->PropFlags, PropertyFlags::ReturnParm))
-					continue;
-
-				if (!AllFlags(prop->PropFlags, PropertyFlags::Parm))
-					continue;
-
-				if (argindex + 1 < args.size())
-				{
-					const std::string& arg = args[1 + argindex];
-					switch (prop->ValueType)
-					{
-					case ExpressionValueType::Nothing: vmArgs.push_back(ExpressionValue::NothingValue()); break;
-					case ExpressionValueType::ValueByte: vmArgs.push_back(ExpressionValue::ByteValue(std::atoi(arg.c_str()))); break;
-					case ExpressionValueType::ValueInt: vmArgs.push_back(ExpressionValue::IntValue(std::atoi(arg.c_str()))); break;
-					case ExpressionValueType::ValueBool: vmArgs.push_back(ExpressionValue::BoolValue(arg == "1" || arg == "true")); break;
-					case ExpressionValueType::ValueFloat: vmArgs.push_back(ExpressionValue::FloatValue((float)std::atof(arg.c_str()))); break;
-					// A string takes the rest of the line, as the original's
-					// ScriptConsoleExec imports it (Core.dll UStrProperty::ImportText
-					// 0x10167980, undelimited: the whole string): a chat line goes
-					// out whole, and Admin's CommandLine is the whole command
-					case ExpressionValueType::ValueString: vmArgs.push_back(ExpressionValue::StringValue(line.empty() ? arg : LineFromWord(line, 1 + argindex))); break;
-					case ExpressionValueType::ValueName: vmArgs.push_back(ExpressionValue::NameValue(arg)); break;
-					default: LogMessage("Unsupported value type found in Engine.ExecCommand"); return false;
-					}
-				}
-				else if (AllFlags(prop->PropFlags, PropertyFlags::OptionalParm))
-				{
-					vmArgs.push_back(ExpressionValue::NothingValue());
-				}
-				else
-				{
-					switch (prop->ValueType)
-					{
-					case ExpressionValueType::Nothing: vmArgs.push_back(ExpressionValue::NothingValue()); break;
-					case ExpressionValueType::ValueByte: vmArgs.push_back(ExpressionValue::ByteValue(0)); break;
-					case ExpressionValueType::ValueInt: vmArgs.push_back(ExpressionValue::IntValue(0)); break;
-					case ExpressionValueType::ValueBool: vmArgs.push_back(ExpressionValue::BoolValue(false)); break;
-					case ExpressionValueType::ValueFloat: vmArgs.push_back(ExpressionValue::FloatValue(0.0f)); break;
-					case ExpressionValueType::ValueString: vmArgs.push_back(ExpressionValue::StringValue({})); break;
-					case ExpressionValueType::ValueName: vmArgs.push_back(ExpressionValue::NameValue({})); break;
-					default: LogMessage("Unsupported value type found in Engine.ExecCommand"); return false;
-					}
-				}
-				argindex++;
+					break;
+				ExpressionValue value = ExpressionValue::Variable(parms.Data, prop);
+				value.Load();
+				vmArgs.push_back(std::move(value));
 			}
-
-			CallEvent(target, func->Name, vmArgs);
-			return true;
+			CallEvent(target, func->Name, std::move(vmArgs));
 		}
+		return true;
 	}
 
 	return false;

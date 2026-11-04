@@ -172,6 +172,58 @@ void UProperty::SetValueFromString(void* data, const std::string& valueString)
 	//Exception::Throw("SetValueFromString() is unimplemented on this Property type!");
 }
 
+size_t UProperty::ImportText(const std::string& text, size_t pos, void* data)
+{
+	SetValueFromString(data, pos < text.size() ? text.substr(pos) : std::string());
+	return text.size();
+}
+
+bool UProperty::ReadToken(const std::string& text, size_t& pos, std::string& token, bool dots)
+{
+	auto alnum = [](char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'); };
+	auto hex = [](char c) { return (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'f') ? c - 'a' + 10 : (c >= 'A' && c <= 'F') ? c - 'A' + 10 : 0; };
+	size_t i = pos, n = text.size();
+	token.clear();
+	if (i < n && text[i] == '"')
+	{
+		i++;
+		while (i < n && text[i] != '"' && text[i] != '\r' && text[i] != '\n')
+		{
+			if (text[i] != '\\')
+				token.push_back(text[i++]);
+			else if (i + 1 < n && text[i + 1] == '\\')
+			{
+				token.push_back('\\');
+				i += 2;
+			}
+			else
+			{
+				int high = i + 1 < n ? hex(text[i + 1]) : 0;
+				int low = i + 2 < n ? hex(text[i + 2]) : 0;
+				token.push_back((char)(16 * high + low));
+				i += 3;
+			}
+		}
+		if (i >= n || text[i] != '"')
+		{
+			LogMessage("ReadToken: Bad quoted string");
+			return false;
+		}
+		pos = i + 1;
+		return true;
+	}
+	if (i >= n || !alnum(text[i]))
+	{
+		if (i < n)
+			token.assign(1, text[i]);
+		return true;
+	}
+	while (i < n && (alnum(text[i]) || text[i] == '_' || text[i] == '-' || (dots && text[i] == '.')))
+		token.push_back(text[i++]);
+	pos = i;
+	return true;
+}
+
 bool UProperty::ParseStructText(const std::string& text, Array<TextPair>& pairs)
 {
 	size_t p = 0, n = text.size();

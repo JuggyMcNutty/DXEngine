@@ -1993,9 +1993,8 @@ Every other native the scripted runs compare matches the original
   as it was and makes a float 0, as the original's import does, an int read
   as far as it is a number and a name its first token -- quoted, or a run of
   letters, digits, `_` and `-`, or else one character (`JunkConsole`), but
-  for a property a subclass names again, found as the base class's, and an
-  enum taken from a number, an int from `+5` and a bool from no token with
-  more after it (bugs.md VM.20, VM.21). `LevelInfo`'s clock is the
+  for a property a subclass names again, found as the base class's
+  (bugs.md VM.20). `LevelInfo`'s clock is the
   original's
   ([small](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#small)).
   `Actor.GetBoundingBox` with no test place is the box where the actor is
@@ -2044,9 +2043,10 @@ Every other native the scripted runs compare matches the original
   is `Type'Package.Group.Name'`, set from that, from `Package.Name` or from
   a bare name among the loaded objects of its class; a class is held to its
   metaclass (an Actor class from `Engine.Texture` is None). A bool takes
-  `1`, `True`, `0` and `False` alone, an int the number its text starts
-  with, `+` too, where the original's import takes a bool's first token and
-  an int from a `-` or a digit alone (bugs.md VM.21). A float's text, a
+  its first token, `1`, `True`, `0` or `False` (`True,` and a quoted
+  `"True"` among them), an int the number its text starts with from a `-`
+  or a digit (`+5` none), an enum its name alone, never a number, its text
+  after it passed over, as the original's imports (`SweepVmConsole`). A float's text, a
   vector's and `string()`'s too, is the original's `%f`, its runtime's:
   every digit exact to six decimals, a tie rounding up, infinity `1.#INF00`
   (`OpsConsole`: 813.1953125 as `813.195313`, 2 to the 70th whole, alike in
@@ -2413,8 +2413,13 @@ VM.22): `bool(string)` reads a float, the original an int. Differs (bugs.md
 VM.23): `VSize`, `Dot`, `Lerp` and a rotator over a float in floats, the
 original's on the x87, a last bit apart. Differs (bugs.md VM.25): a string
 constant as UTF-8, classes matched by name, a name kept in each spelling.
-Differs (bugs.md ENG.17): an exec function's parameters: with cheats on,
-`killall` and `augadd` do nothing and `behindview True` turns it off.
+An exec function's parameters are taken as the original's: each by its
+property's import from where the last one stopped, a class or an object by
+its name, a refused one Core's BadProperty as the command's output and no
+call made, a missing optional one zero (`ExecParmConsole`: with cheats on
+`killall Terrorist` kills, `behindview True` turns it on, a bare
+`behindview` is refused, `augadd AugSpeed` gives it, alike in both
+engines).
 
 ## The command line
 
@@ -2647,9 +2652,8 @@ A mod gets the original's loader and natives:
   struct's members, a class or an object as `Type'Path'`, a dynamic array
   one line of its name per element, a bool's four words alone, an int as far
   as it is a number (`ConfigConsole`: a vector, a class and two strings
-  written and read back), but for the import's departures (bugs.md VM.21)
-  and the reader's: a value's quotes kept, a key's and a value's white space
-  trimmed (bugs.md PKG.21).
+  written and read back), but for the reader's: a value's quotes kept, a
+  key's and a value's white space trimmed (bugs.md PKG.21).
 - **The natives no stock script calls** (`ModConsole`): `ResetConfig`, a
   System or User class's section copied from `Default.ini` or `DefUser.ini`
   and its config read again into the class, its subclasses and their

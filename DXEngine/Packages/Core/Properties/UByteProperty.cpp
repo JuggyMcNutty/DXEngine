@@ -1,5 +1,6 @@
 
 #include "Precomp.h"
+#include "Utils/StrTools.h"
 #include "UByteProperty.h"
 #include "Packages/Core/UEnum.h"
 #include "Utils/Convert.h"
@@ -58,23 +59,43 @@ bool UByteProperty::IsDefaultValue(void* val)
 
 void UByteProperty::SetValueFromString(void* data, const std::string& valueString)
 {
-	if (!valueString.empty() && valueString.front() >= '0' && valueString.front() <= '9')
+	ImportText(valueString, 0, data);
+}
+
+// The original's UByteProperty::ImportText (Core.dll 0x10165aa0): an enum's
+// byte by the text's first token (ReadToken), one of the enum's names in any
+// case, the position past it: "SK_Two junk" is SK_Two. A byte's number from
+// digits at pos alone, no blank or sign before them, truncated to a byte
+// (appAtoi), the position past them. For an enum the digits are looked for
+// past the token, where a number's token leaves none: an enum is never set
+// from a number (bugs.md VM.21). Anything else is refused, the value kept.
+size_t UByteProperty::ImportText(const std::string& text, size_t pos, void* data)
+{
+	if (EnumType)
 	{
-		*(uint8_t*)data = Convert::to_uint8(valueString);
-	}
-	else if (EnumType)
-	{
-		int index = 0;
-		for (const NameString& elementName : EnumType->ElementNames)
+		std::string token;
+		if (!ReadToken(text, pos, token))
+			return ImportFailed;
+		// FName(token, FNAME_Find): no name for an empty token or None
+		if (!token.empty() && !StrTools::equals_ignore_case(token, "None"))
 		{
-			if (elementName == valueString)
+			for (size_t i = 0; i < EnumType->ElementNames.size(); i++)
 			{
-				*(uint8_t*)data = index;
-				break;
+				if (StrTools::equals_ignore_case(EnumType->ElementNames[i].ToString(), token))
+				{
+					*(uint8_t*)data = (uint8_t)i;
+					return pos;
+				}
 			}
-			index++;
 		}
 	}
+	if (pos >= text.size() || text[pos] < '0' || text[pos] > '9')
+		return ImportFailed;
+	uint8_t value = 0;
+	while (pos < text.size() && text[pos] >= '0' && text[pos] <= '9')
+		value = (uint8_t)(value * 10 + (text[pos++] - '0'));
+	*(uint8_t*)data = value;
+	return pos;
 }
 
 void UByteProperty::Mark(GCMarker& marker)

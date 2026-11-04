@@ -19,6 +19,7 @@ public:
 	std::string PrintValue(const void* data) override;
 	bool IsDefaultValue(void* val) override;
 	void SetValueFromString(void* data, const std::string& valueString) override;
+	size_t ImportText(const std::string& text, size_t pos, void* data) override;
 
 	void MarkValue(GCMarker& marker, void* data) override;
 	void Mark(GCMarker& marker) override;

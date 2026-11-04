@@ -59,41 +59,53 @@ bool UObjectProperty::IsDefaultValue(void* val)
 	return *(UObject**)val == nullptr;
 }
 
-// The original's UObjectProperty::ImportText (Core.dll 0x10166e20): None;
-// Type'Name' an object of the class Type, else of the property's class, the
-// name a path (Package.Group.Name) or bare, found among the loaded objects
-// of that class (StaticFindObject in any package); nothing found leaves
-// None. DXEngine loads a Package.Name not loaded yet, as its SET has always
-// done; it once took a bare name for a property list to write into the
-// object the property held.
 void UObjectProperty::SetValueFromString(void* data, const std::string& valueString)
 {
-	size_t first = valueString.find_first_not_of(' ');
-	if (first == std::string::npos)
-		return;
-	std::string text = valueString.substr(first, valueString.find_last_not_of(' ') - first + 1);
-	UObject** propertyValue = (UObject**)data;
+	ImportText(valueString, 0, data);
+}
 
-	if (StrTools::equals_ignore_case(text, "None"))
+// The original's UObjectProperty::ImportText (Core.dll 0x10166e20): the
+// text's first token, dots allowed (ReadToken); None sets None. Else, past
+// the blanks after it, Type'Name' is an object of the class Type, other text
+// the token an object of the property's class, a path (Package.Group.Name)
+// or bare, among the loaded objects of that class (StaticFindObject in any
+// package): what is found is set, and nothing found sets None and is
+// refused; a Type'Name' left open, or a Type no class names, is refused with
+// the value kept. The character after those blanks is passed whatever it is
+// (its *Buffer++ == '\'', 0x10166eba), so an unquoted object's text ends one
+// past it: of "Terrorist 1" nothing of the 1 is left for a next parameter
+// (bugs.md VM.21). DXEngine loads a Package.Name not loaded yet, as its SET
+// has always done.
+size_t UObjectProperty::ImportText(const std::string& text, size_t pos, void* data)
+{
+	std::string token;
+	if (!ReadToken(text, pos, token, true))
+		return ImportFailed;
+	UObject*& value = *(UObject**)data;
+	if (StrTools::equals_ignore_case(token, "None"))
 	{
-		*propertyValue = nullptr;
-		return;
+		value = nullptr;
+		return pos;
 	}
+	while (pos < text.size() && text[pos] == ' ')
+		pos++;
+	bool quoted = pos < text.size() && text[pos] == '\'';
+	pos = std::min(pos + 1, text.size());
 	UClass* cls = ObjectClass;
-	std::string path = text;
-	size_t quote = text.find('\'');
-	if (quote != std::string::npos && text.size() > quote + 1 && text.back() == '\'')
+	if (quoted)
 	{
-		path = text.substr(quote + 1, text.size() - quote - 2);
-		UClass* named = package->GetPackageManager()->FindClassAnyPackage(text.substr(0, quote));
-		if (!named)
-		{
-			*propertyValue = nullptr;
-			return;
-		}
-		cls = named;
+		std::string path;
+		if (!ReadToken(text, pos, path, true) || pos >= text.size() || text[pos] != '\'')
+			return ImportFailed;
+		pos++;
+		cls = token.empty() ? nullptr : package->GetPackageManager()->FindClassAnyPackage(token);
+		if (!cls)
+			return ImportFailed;
+		token = path;
 	}
-	*propertyValue = package->GetPackageManager()->FindObjectAnyPackage(cls, path);
+	// No object has an empty name (StaticFindObject finds no such name)
+	value = token.empty() ? nullptr : package->GetPackageManager()->FindObjectAnyPackage(cls, token);
+	return value ? pos : ImportFailed;
 }
 
 bool UObjectProperty::ComputeContainsRefs()
