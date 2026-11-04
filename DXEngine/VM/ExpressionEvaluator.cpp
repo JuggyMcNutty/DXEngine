@@ -677,20 +677,24 @@ void ExpressionEvaluator::Expr(NameToBoolExpression* expr)
 	*Out = ExpressionValue::BoolValue(Value(expr->Value).ToName().IsNone() == false); // "None" is name index 0: no lookup by spelling
 }
 
+// A byte from text is the low 8 bits of the int appAtoi reads (Core.dll
+// execStringToByte 0x101321b0): 300 is 44.
 void ExpressionEvaluator::Expr(StringToByteExpression* expr)
 {
-	*Out = ExpressionValue::ByteValue(std::atoi(Value(expr->Value).ToString().c_str()));
+	*Out = ExpressionValue::ByteValue((uint8_t)StrTools::ue1_atoi(Value(expr->Value).ToString()));
 }
 
 void ExpressionEvaluator::Expr(StringToIntExpression* expr)
 {
-	*Out = ExpressionValue::IntValue(std::atoi(Value(expr->Value).ToString().c_str()));
+	*Out = ExpressionValue::IntValue(StrTools::ue1_atoi(Value(expr->Value).ToString()));
 }
 
 void ExpressionEvaluator::Expr(StringToBoolExpression* expr)
 {
-	// The original: true for "True", false for "False" in any case, and
-	// otherwise true for a number other than 0.
+	// The original's execStringToBool (Core.dll 0x10132490): true for "True",
+	// false for "False" in any case (Core.int's words too, the same in the
+	// game's), and otherwise true for an int other than 0 by appAtoi, so
+	// "0.5", "-0.5" and "0x1" are false.
 	std::string v = Value(expr->Value).ToString();
 	bool result;
 	if (StrTools::equals_ignore_case(v, "True"))
@@ -698,7 +702,7 @@ void ExpressionEvaluator::Expr(StringToBoolExpression* expr)
 	else if (StrTools::equals_ignore_case(v, "False"))
 		result = false;
 	else
-		result = std::atof(v.c_str()) != 0.0;
+		result = StrTools::ue1_atoi(v) != 0;
 	*Out = ExpressionValue::BoolValue(result);
 }
 
@@ -727,13 +731,14 @@ void ExpressionEvaluator::Expr(StringToVectorExpression* expr)
 
 void ExpressionEvaluator::Expr(StringToRotatorExpression* expr)
 {
-	// As the vector: what is there is read, and a missing part is 0.
+	// As the vector, each part by appAtoi (Core.dll execStringToRotator
+	// 0x10136b10): what is there is read, and a missing part is 0.
 	std::string v = Value(expr->Value).ToString();
 	int parts[3] = { 0, 0, 0 };
 	size_t pos = 0;
 	for (int i = 0; i < 3; i++)
 	{
-		parts[i] = std::atoi(v.c_str() + pos);
+		parts[i] = StrTools::ue1_atoi(std::string_view(v).substr(pos));
 		pos = v.find(',', pos);
 		if (pos == std::string::npos)
 			break;

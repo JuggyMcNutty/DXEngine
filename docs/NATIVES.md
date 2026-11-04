@@ -2023,11 +2023,14 @@ Every other native the scripted runs compare matches the original
   the empty string, `IsInState` true for a state the state extends, whose
   labels and functions the extending state has too (`ExtendConsole`), and a
   float made an int past an int's range, wrapping, by `int`, `byte` and a
-  rotator's scaling (`RotatorConsole`); the string natives on 16-bit
-  characters, a script's strings being UTF-16 as the original's: `Chr` its
-  low 16 bits, `Asc`, `Len`, `Mid`, `Left`, `Right` and `InStr` by those
-  characters, `Caps` a to z alone and `~=` without their case alone, the
-  comparisons by each character's code (`OpsConsole`'s wide lines, alike
+  rotator's scaling (`RotatorConsole`); a string made a `bool`, an `int`, a
+  `byte` or a rotator's angles by the original's `appAtoi`, blanks and a
+  sign taken, a number past an int's range held to its ends, a byte its low
+  8 bits, `0.5` and `0x1` false (`SweepVmConsole`); the string natives on
+  16-bit characters, a script's strings being UTF-16 as the original's:
+  `Chr` its low 16 bits, `Asc`, `Len`, `Mid`, `Left`, `Right` and `InStr` by
+  those characters, `Caps` a to z alone and `~=` without their case alone,
+  the comparisons by each character's code (`OpsConsole`'s wide lines, alike
   with the original's); `Object.Mid` 127 at its edges, its end's clamp known
   from `MidConsole`'s ten probes of both; `Object.DynamicLoadObject` with a
   group in the name, its own, another or none, and a class that is not the
@@ -2464,7 +2467,6 @@ engines).
 
 Differs (bugs.md VM.17): a variable as an operand or argument is read after
 the later arguments run, the original's as it is reached. Differs (bugs.md
-VM.22): `bool(string)` reads a float, the original an int. Differs (bugs.md
 VM.23): `VSize`, `Dot`, `Lerp` and a rotator over a float in floats, the
 original's on the x87, a last bit apart. Differs (bugs.md VM.25): a string
 constant as UTF-8, classes matched by name, a name kept in each spelling.

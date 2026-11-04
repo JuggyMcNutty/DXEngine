@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "StrTools.h"
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -65,6 +66,23 @@ bool StrTools::equals_ignore_case(const std::string_view& str1, const std::strin
 			return false;
 	}
 	return true;
+}
+
+int32_t StrTools::ue1_atoi(const std::string_view& str)
+{
+	size_t pos = 0;
+	while (pos < str.size() && (str[pos] == ' ' || (str[pos] >= '\t' && str[pos] <= '\r')))
+		pos++;
+	bool negative = false;
+	if (pos < str.size() && (str[pos] == '+' || str[pos] == '-'))
+		negative = str[pos++] == '-';
+	// Held at one past an int's top as it is read: no sum can overflow
+	int64_t value = 0;
+	for (; pos < str.size() && str[pos] >= '0' && str[pos] <= '9'; pos++)
+		value = std::min(value * 10 + (str[pos] - '0'), (int64_t)INT32_MAX + 1);
+	if (negative)
+		value = -value;
+	return (int32_t)std::clamp(value, (int64_t)INT32_MIN, (int64_t)INT32_MAX);
 }
 
 bool StrTools::startswith(const std::string_view& str, const std::string_view& cmp, bool ignoreCase)

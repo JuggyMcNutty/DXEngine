@@ -16,6 +16,11 @@ public:
 	// each character's two bytes, a-z in upper case. The flag base's 64
 	// buckets and the AI event manager's 256 are chosen by it.
 	static uint32_t ue1_strihash(const std::string_view& str);
+	// An int as the original's appAtoi reads one (Core.dll 0x101235b0,
+	// MSVCRT's _wtoi): blanks skipped, a sign, then the digits up to the
+	// first that is not one, 0 without any; past an int's range held to its
+	// ends (SweepVmConsole: 4294967297 is 2147483647).
+	static int32_t ue1_atoi(const std::string_view& str);
 	// A float as the original's "%f" writes it, the MSVC runtime's it links:
 	// its digits exact to the sixth decimal, a 5 after the sixth rounding up
 	// -- a tie away from zero, where the C library's rounds it to even --,

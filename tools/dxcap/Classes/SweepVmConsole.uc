@@ -9,7 +9,9 @@
 //   operand changes it (the original's natives and calls copy each argument
 //   as they step it: Core.dll execLocalVariable 0x1012ebc0, P_GET_*).
 // - bool(string): the original's execStringToBool (0x10132490) takes a
-//   number by appAtoi.
+//   number by appAtoi; int(string) and byte(string) (0x10132320,
+//   0x101321b0) too, an out-of-range number, blanks and a sign among them
+//   in the console alone.
 // - A struct's ==: the original's execStructCmpEq (0x101303a0) compares a
 //   string member by UStrProperty::Identical (0x101676f0), appStricmp.
 // - Property text: an enum byte from a number (UByteProperty::ImportText,
@@ -144,6 +146,11 @@ function TextChecks()
 	BoolValue = False;
 	SetPropertyText("BoolValue", Chr(34) $ "True" $ Chr(34));
 	Say("bool from a quoted True: " $ BoolValue);
+
+	// int, byte and bool from text by appAtoi (MSVCRT's _wtoi, Core.dll
+	// 0x101235b0): blanks and a sign first, the digits up to the first
+	// that is not one, and past an int's range
+	Say("appAtoi: int 2147483648 " $ int("2147483648") $ ", -2147483649 " $ int("-2147483649") $ ", 4294967297 " $ int("4294967297") $ ", ' +12x' " $ int(" +12x") $ ", tab 7 " $ int(Chr(9) $ "7") $ ", byte 300 " $ byte("300") $ ", bool 4294967296 " $ bool("4294967296") $ ", ' 5' " $ bool(" 5"));
 }
 
 event Tick(float Delta)
