@@ -1736,7 +1736,7 @@ for the others, holds it silent for twice `Latency`, then starts the
 player's song at full volume, the old song's sound dropped before the volume
 rises. The music goes to the speakers as it is, as the sounds' mix does,
 never through OpenAL's HRTF, UHJ or a surround layout. A song plays as
-Galaxy's IT loader converts it (`Audio/GalaxyMusic.cpp`): none of its mix
+Galaxy's IT loader converts it (`DXEngine/Audio/GalaxyMusic.cpp`): none of its mix
 volume, its channels' volumes or its samples' and instruments' global
 volumes; the commands Galaxy drops dropped, one effect memory a channel for
 every command, a speed over 32 at 32, an order whose pattern is empty
