@@ -1131,11 +1131,14 @@ a frame over the time given; none with 0, the frame set a shade past 0; a
 one-frame sequence tweened whole over the time, or in 0.1 s; and the same
 sequence looping on takes its new rate alone (`TweenConsole`).
 
-Differs (bugs.md AI.8): `PlayBlendAnim` of a one-frame sequence sets it at
-once, so a head turn snaps where the original's turns; a slot with no
-sequence tweens; a tween time of -1; `SimBlendAnim`'s packing. Differs
-(bugs.md AI.12): the slots' passes and time a tick are their own, not what
-the main animation's leave.
+`PlayBlendAnim` and `TweenBlendAnim` set a slot as the original's do: a
+one-frame sequence -- every head turn and mouth shape -- tweened whole from
+-1, over the time given or in 0.1 s, so a head turns where it would snap; a
+slot's first sequence untweened at 0.001; a tween time of -1 at the slot's
+last rate; `SimBlendAnim` packed as the original packs it, the same
+animation again marked new (`BlendFieldsConsole`: every field after each
+call alike in both engines). Differs (bugs.md AI.12): the slots' passes and
+time a tick are their own, not what the main animation's leave.
 
 ### Lists
 

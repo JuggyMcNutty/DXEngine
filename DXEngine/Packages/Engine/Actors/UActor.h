@@ -344,6 +344,7 @@ public:
 	void LoopAnim(const NameString& sequence, float rate, float tweenTime, float minRate);
 	void TweenAnim(const NameString& sequence, float tweenTime);
 	void PackSimAnim(float last);
+	void PackSimBlendAnim(int slot);
 
 	void MakeNoise(float loudness);
 	bool PlayerCanSeeMe();
