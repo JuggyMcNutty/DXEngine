@@ -248,7 +248,7 @@ is. DXEngine's keys:
 | `"Type": "Vulkan"`, `"OpenGL"` or `"D3D11"` in `RenderDevice` | The Vulkan device, the GL device on a desktop GL context, or the D3D11 device, Windows' own, which no launcher offers ([for advanced users](../README.md#for-advanced-users)). |
 | `"Antialias"`, `"Light"`, `"Gamma"` in `RenderDevice` | `Off`, `MSAA2x` or `MSAA4x`; `Normal`, `OneX` or `BrighterActors`; `D3D9` or `XOpenGL` ([rendering](#rendering)). |
 | `"UseVSync"`, `"Hdr"`, `"HdrScale"`, `"Bloom"`, `"BloomAmount"`, `"GammaCorrectScreenshots"`, `"UseDebugLayer"` in `RenderDevice` | Vsync (on unless the key says otherwise), HDR and its scale, bloom and its amount (128 each), screenshots written gamma-corrected, and the Vulkan validation layer or D3D11's debug layer where the machine has it; a key left out keeps its default. |
-| `"Contrast"`, `"Saturation"`, `"GammaOffset"`, `"GammaOffsetRed"`, `"GammaOffsetGreen"`, `"GammaOffsetBlue"`, `"LODBias"` in `RenderDevice` | On every device: the present's colour correction, the picture unchanged at 1 each, contrast about the middle grey (0.1 to 4) and saturation toward the pixel's grey (0 to 1); its gamma's offsets, every channel's and each one's, added to the gamma (-1 to 1, 0 each by default); and the textures' mip bias (-2 to 2, -0.5 by default, `D3DDrv`'s as Wine draws it), fixed for the run, but on GL ES, which draws with none, its mips half a level coarser than `D3DDrv`'s (bugs.md D.41, ruled to change). |
+| `"Contrast"`, `"Saturation"`, `"GammaOffset"`, `"GammaOffsetRed"`, `"GammaOffsetGreen"`, `"GammaOffsetBlue"`, `"LODBias"` in `RenderDevice` | On every device: the present's colour correction, the picture unchanged at 1 each, contrast about the middle grey (0.1 to 4) and saturation toward the pixel's grey (0 to 1); its gamma's offsets, every channel's and each one's, added to the gamma (-1 to 1, 0 each by default); and the textures' mip bias (-2 to 2, -0.5 by default, `D3DDrv`'s as Wine draws it: each draw's mip the floor of log2 of its texels to a pixel), fixed for the run, GL ES's in its scene shader, which no ES sampler takes. |
 | `"CPUDriver": true` in `RenderDevice` | The Vulkan device on Mesa's lavapipe, or the GL device on llvmpipe, a GPU passed over (DXLauncher's `[VulkanCPU]` and `[OpenGLCPU]` renderers; [rendering](#rendering)). |
 | `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)); in a rootless container (podman's: distrobox, toolbox), where the host's root is unmapped and libudev drops its messages, SDL watches `/dev/input` itself (`SDL_JOYSTICK_DISABLE_UDEV`), so a pad plugged in after the start is found. |
 
@@ -460,9 +460,8 @@ reads a texture at the pixel's centre, as without multisampling: `TileConsole` o
 and 4x, draws its grey boxes pixel for pixel as without it, the `FontMenuHeaders` text at 1.00
 of `D3DDrv`'s brightness block for block. Read at a covered sample (`centroid`), as the GL
 device's shader reads it, a pixel two triangles share, along a tile's diagonal, takes skewed
-derivatives on RADV, whose anisotropic filter blends a point-sampled glyph's texels with its
-colour 0 into dark ones; on Mesa's radeonsi the GL device's tiles stay within a level of their
-picture without multisampling.
+derivatives on RADV, and with them another mip; on Mesa's radeonsi the GL device's tiles stay
+within a level of their picture without multisampling.
 
 **The GL device** runs desktop GL 4.2+ and OpenGL ES 3.2 from one code path: `RenderAPI::GLES`
 and `RenderDeviceType::GLES`, an ES 3.2 context from every Linux window backend (SDL2 and SDL3
@@ -514,7 +513,9 @@ wherever else that state is set.
   size; a level with no mip of its own, or a misfit one, is zeros -- a DXT1 texture's levels
   made by their uploads (`glCompressedTexImage2D`), as ES takes no compressed format in
   `glTexImage2D`, zero blocks there -- so the chain is whole.
-- **The samplers** set no `GL_TEXTURE_LOD_BIAS` on ES (no ES sampler has it), anisotropy only
+- **The samplers** set no `GL_TEXTURE_LOD_BIAS` on ES (no ES sampler has it), the scene shader
+  taking `LODBias` in its lookups there instead (`LOD_BIAS`: `texture()`'s bias, the detail
+  texture's `textureGrad` gradients scaled by 2 to its power), anisotropy only
   with `EXT_texture_filter_anisotropic` or `ARB_texture_filter_anisotropic`, or GL 4.6, on
   desktop GL as on ES, and `GL_MIRROR_CLAMP_TO_EDGE` only where a probe at init finds the
   driver takes it (else `CLAMP_TO_EDGE`).
@@ -533,9 +534,9 @@ wherever else that state is set.
   on a unit overrides the texture's own state, and the scene's draws leave theirs bound
   (`DrawEntry`): without its own, the render-scale upscale would take the last draw's,
   point-sampled after the HUD's text.
-- **Anisotropy** (8) goes on every scene sampler, as the Vulkan device's, where the driver has
-  it (`CreateSceneSamplers`), on the NoSmooth ones too, where `D3DDrv` points them (bugs.md
-  D.40, ruled to change).
+- **Anisotropy** (8) goes on the smooth scene samplers, as the Vulkan device's, where the driver
+  has it (`CreateSceneSamplers`); the NoSmooth ones point-sample with none, as `D3DDrv` does,
+  where a driver's anisotropy on a nearest filter averages several texels from a finer mip.
 - **Depth is clamped** at the near and far planes on desktop GL, as the Vulkan device clamps it
   (the weapon close up): `DepthClipEnable` is D3D11's, off meaning a clamp. ES has no clamp and
   clips there.

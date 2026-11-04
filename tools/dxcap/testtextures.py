@@ -12,6 +12,14 @@ the game ships none of, made here rather than kept as files.
                    saves a scripted texture: the engine makes its pixels.
     CapSourced     the same with CoreTexMisc.plaque_b, 64 by 64, its source
                    texture.
+    CapMipHues     a palette of a colour of its own for each of CapMips' nine
+                   mips (HUES), entry 1 + 2m mip m's at full, entry 2 + 2m at
+                   half; the rest black.
+    CapMips        a Texture of 256 by 256 in CapMipHues whose nine mips are
+                   each a chequer of texels of its own colour, full and half
+                   by turns: a pixel's colour names the mip it was drawn from,
+                   and a colour between full and half one that took more
+                   than one texel (MipConsole, tools/dxcap/mips.py).
 """
 import os
 import struct
@@ -37,7 +45,12 @@ def compact(v):
 
 NAMES = ['None', 'Core', 'Engine', 'Package', 'Class', 'Palette', 'ScriptedTexture', 'CapTextures',
          'CapGrey', 'CapScripted', 'bParametric', 'bRealtime', 'UBits', 'VBits', 'USize', 'VSize',
-         'UClamp', 'VClamp', 'CapSourced', 'SourceTexture', 'Texture', 'CoreTexMisc', 'Metal', 'plaque_b']
+         'UClamp', 'VClamp', 'CapSourced', 'SourceTexture', 'Texture', 'CoreTexMisc', 'Metal', 'plaque_b',
+         'CapMips', 'CapMipHues']
+
+# CapMips' mips' colours, mip 0 first (mips.py names a pixel's mip by them)
+HUES = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255),
+        (255, 255, 255), (255, 128, 0), (128, 0, 255)]
 
 
 def name(n):
@@ -66,8 +79,28 @@ def package():
     # an import is referred to as -(its index + 1).
     imports = [('Core', 'Package', 0, 'Engine'), ('Core', 'Class', -1, 'Palette'),
                ('Core', 'Class', -1, 'ScriptedTexture'), ('Core', 'Package', 0, 'CoreTexMisc'),
-               ('Core', 'Package', -4, 'Metal'), ('Engine', 'Texture', -5, 'plaque_b')]
+               ('Core', 'Package', -4, 'Metal'), ('Engine', 'Texture', -5, 'plaque_b'),
+               ('Core', 'Class', -1, 'Texture')]
     grey = name('None') + compact(256) + b''.join(bytes([n, n, n, 0]) for n in range(256))
+    hues = [(0, 0, 0)] * 256
+    for m, (r, g, b) in enumerate(HUES):
+        hues[1 + 2 * m] = (r, g, b)
+        hues[2 + 2 * m] = ((r + 1) // 2, (g + 1) // 2, (b + 1) // 2)
+    hue_palette = name('None') + compact(256) + b''.join(bytes([r, g, b, 255]) for r, g, b in hues)
+
+    def mips_texture(at):
+        # Palette CapMipHues (export 4); nine mips, 256 down to 1, each a
+        # chequer of its colour's two entries
+        props = (prop_object('Palette', 4) + prop_byte('UBits', 8) + prop_byte('VBits', 8) +
+                 prop_int('USize', 256) + prop_int('VSize', 256) + prop_int('UClamp', 256) +
+                 prop_int('VClamp', 256) + name('None'))
+        out = props + compact(len(HUES))
+        for m in range(len(HUES)):
+            size, bits = 256 >> m, 8 - m
+            data = bytes(1 + 2 * m + ((u + v) & 1) for v in range(size) for u in range(size))
+            body = compact(len(data)) + data
+            out += struct.pack('<i', at + len(out) + 4 + len(body)) + body + struct.pack('<ii', size, size) + bytes([bits, bits])
+        return out
 
     def scripted(at, source=None):
         size = 64
@@ -93,17 +126,25 @@ def package():
     scripted_data = scripted(scripted_at)
     sourced_at = scripted_at + len(scripted_data)
     sourced_data = scripted(sourced_at, source=-6)
-    export_at = sourced_at + len(sourced_data)
+    hues_at = sourced_at + len(sourced_data)
+    mips_at = hues_at + len(hue_palette)
+    mips_data = mips_texture(mips_at)
+    export_at = mips_at + len(mips_data)
+    # Flags: public, loaded for client, server and editor; the textures
+    # standalone too, so that UCC keeps them in DXCapture.u with nothing of
+    # the package's referring to them (the palettes are kept by theirs)
     exports = [(-2, 'CapGrey', 0x70004, grey_at, len(grey)),
                (-3, 'CapScripted', 0xf0004, scripted_at, len(scripted_data)),
-               (-3, 'CapSourced', 0xf0004, sourced_at, len(sourced_data))]
+               (-3, 'CapSourced', 0xf0004, sourced_at, len(sourced_data)),
+               (-2, 'CapMipHues', 0x70004, hues_at, len(hue_palette)),
+               (-7, 'CapMips', 0xf0004, mips_at, len(mips_data))]
     export_table = b''.join(compact(cls) + compact(0) + struct.pack('<i', 0) + name(n) + struct.pack('<I', flags) +
                             compact(size) + compact(at) for cls, n, flags, at, size in exports)
     header = (struct.pack('<IHHI', 0x9e2a83c1, 68, 0, 1) +
               struct.pack('<iiiiii', len(NAMES), name_at, len(exports), export_at, len(imports), import_at) +
               bytes(range(16)) + struct.pack('<i', 1) + struct.pack('<ii', len(exports), len(NAMES)))
     assert len(header) == header_size
-    return header + name_table + import_table + grey + scripted_data + sourced_data + export_table
+    return header + name_table + import_table + grey + scripted_data + sourced_data + hue_palette + mips_data + export_table
 
 
 def main():

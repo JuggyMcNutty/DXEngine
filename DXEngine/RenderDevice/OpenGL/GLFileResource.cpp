@@ -84,11 +84,22 @@ std::string GLFileResource::readAllText(const std::string& filename)
 			#endif
 			}
 
+			#if defined(LOD_BIAS)
+			// GL ES has no sampler LOD bias: the textures' mip bias given each
+			// lookup, as desktop GL's samplers give it, textureGrad's by its
+			// gradients (bugs.md D.41)
+			vec4 textureTex(vec2 uv) { return texture(tex, uv, LOD_BIAS); }
+			vec4 textureMacro(vec2 uv) { return texture(macro, uv, LOD_BIAS); }
+			vec4 textureDetail(vec2 uv) { return texture(detail, uv, LOD_BIAS); }
+			vec4 textureDetailGrad(vec2 uv, vec2 dx, vec2 dy) { return textureGrad(detail, uv, dx * exp2(LOD_BIAS), dy * exp2(LOD_BIAS)); }
+			vec4 textureLightmap(vec2 uv) { return texture(lightmap, uv, LOD_BIAS); }
+			#else
 			vec4 textureTex(vec2 uv) { return texture(tex, uv); }
 			vec4 textureMacro(vec2 uv) { return texture(macro, uv); }
 			vec4 textureDetail(vec2 uv) { return texture(detail, uv); }
 			vec4 textureDetailGrad(vec2 uv, vec2 dx, vec2 dy) { return textureGrad(detail, uv, dx, dy); }
 			vec4 textureLightmap(vec2 uv) { return texture(lightmap, uv); }
+			#endif
 
 			void main()
 			{

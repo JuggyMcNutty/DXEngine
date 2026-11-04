@@ -29,7 +29,11 @@ void SamplerManager::CreateSceneSamplers()
 	for (int i = 0; i < 4; i++)
 	{
 		SamplerBuilder builder;
-		builder.Anisotropy(8.0f);
+		// Anisotropy on the smooth samplers alone: a NoSmooth texture is
+		// point-sampled, pixel-exact at a slant as D3DDrv draws it, where a
+		// driver's anisotropy averages its nearest texels (bugs.md D.40)
+		if ((i & 1) == 0)
+			builder.Anisotropy(8.0f);
 		builder.MipLodBias(renderer->LODBias);
 
 		if ((i & 1) != 0)

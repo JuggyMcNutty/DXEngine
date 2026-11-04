@@ -6,8 +6,8 @@
 #
 #   tools/dxcap.sh setup                      build/dxcap: the SDK's UCC among links to the game's files
 #   tools/dxcap.sh compile                    tools/dxcap -> build/dxcap/System/DXCapture.u (UCC, under Proton),
-#                                             its test sounds and textures written by
-#                                             tools/dxcap/testsounds.py and testtextures.py
+#                                             its test sounds, textures and mesh written by
+#                                             tools/dxcap/testsounds.py, testtextures.py and testmeshes.py
 #   tools/dxcap.sh original <console> [<secs>] the original, from its menu map (or DXCAP_START's URL)
 #   tools/dxcap.sh dxe <console> <map> [<secs>]  DXEngine's linux-x86_64 build, straight into <map>
 #                                                  (or joining a server: <map> an address, as 127.0.0.1:7790);
@@ -603,6 +603,7 @@ cmd_compile() {
     rm -f "$CAP/System/DXCapture.u"
     python3 "$HERE/dxcap/testsounds.py" "$CAP/DXCapture/Sounds" || die "testsounds.py failed"
     python3 "$HERE/dxcap/testtextures.py" "$CAP/DXCapture/Textures" || die "testtextures.py failed"
+    python3 "$HERE/dxcap/testmeshes.py" "$CAP/DXCapture/Models" || die "testmeshes.py failed"
     (cd "$CAP/System" && wine_run UCC.exe make > "$CAP/ucc.out" 2>&1) || true
     grep -E "Error|error\(s\)" "$CAP/System/UCC.log" >&2 || true
     [ -f "$CAP/System/DXCapture.u" ] || die "UCC made no DXCapture.u -- build/dxcap/System/UCC.log"

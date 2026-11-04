@@ -422,6 +422,11 @@ void GLRenderDevice::CreateScenePass()
 	std::vector<std::string> sceneDefines;
 	if (!DarkClamp)
 		sceneDefines.push_back("NO_DARKCLAMP");
+	// GL ES's mip bias, which its samplers cannot take, in the scene's lookups
+	// (Scene.frag), as desktop GL's samplers take it (CreateSceneSamplers;
+	// bugs.md D.41)
+	if (IsGLES && LODBias != 0.0f)
+		sceneDefines.push_back("LOD_BIAS " + std::to_string(LODBias));
 	if (MacroTwoPass)
 		sceneDefines.push_back("MACRO_TWO_PASS");
 	if (DetailBands)
@@ -619,7 +624,10 @@ void GLRenderDevice::CreateSceneSamplers()
 #else
 		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (i & 1) ? GL_NEAREST_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR);
 		glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, (i & 1) ? GL_NEAREST : GL_LINEAR);
-		if (SamplerAnisotropy) // every scene sampler, as the Vulkan device's; needs EXT_texture_filter_anisotropic
+		// The smooth scene samplers, as the Vulkan device's, a NoSmooth
+		// texture point-sampled as D3DDrv draws it (bugs.md D.40); needs
+		// EXT_texture_filter_anisotropic
+		if (SamplerAnisotropy && (i & 1) == 0)
 			glSamplerParameterf(sampler, GL_TEXTURE_MAX_ANISOTROPY_EXT, 8.0f);
 #endif
 		glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, addressmode);

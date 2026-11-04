@@ -525,8 +525,15 @@ Auto-panned surfaces scroll by their zone's pan speed and the level's own
 time as Render.dll pans them, 35 texels a second at a speed of 1, wrapping
 at 1,024, truncated to 1/256 of a texel (`PanConsole`: Liberty Island's
 cloud banks where the original's are at 6 s and 8 s of the level's time,
-within 2 pixels at 1024x768). Differs (bugs.md D.40, D.41, ruled to
-change): NoSmooth textures sampled with anisotropy; GL ES with no mip bias.
+within 2 pixels at 1024x768).
+
+A NoSmooth texture is point-sampled from one mip, with no anisotropy, as
+`D3DDrv` samples one, on Vulkan, GL and GL ES alike, `LODBias` given GL ES's
+draws in its scene shader: its mip the floor of log2 of its texels to a
+pixel, where a driver's anisotropy took a finer one at a slant and averaged
+its texels (`MipConsole`: a floor of `CapMips` laid under the view, drawn
+NoSmooth, one texel to a pixel and each mip from `D3DDrv`'s rows, 0 of 362
+apart at 1024x768; smooth, GL ES's mips GL's, 0 rows apart).
 
 ### The software device
 
