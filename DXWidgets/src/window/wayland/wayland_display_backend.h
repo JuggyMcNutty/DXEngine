@@ -218,6 +218,8 @@ private:
 	xkb_state* m_KeyboardState = nullptr;
 
 	WaylandPointerEvent currentPointerEvent = {0};
+	double m_WheelScroll = 0.0;   // the vertical scroll added up since it last turned
+	long m_WheelPressed = 0;      // ...and the notches of it pressed
 
 	wayland::data_device_t m_DataDevice;
 	std::unordered_map<wayland::data_offer_t, std::set<std::string>, hash_proxy_t> m_DataOfferMimeTypes;

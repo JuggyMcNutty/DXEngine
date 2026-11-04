@@ -1015,10 +1015,32 @@ void SDL3DisplayWindow::OnMouseWheel(const SDL_MouseWheelEvent& event)
 	double units = UnitsPerDip();
 	Point mousepos(x / units, y / units);
 
-	if (event.y > 0)
+	// A press a notch: the original presses one a WM_MOUSEWHEEL message
+	// whatever its delta (WinDrv 0x1110b2bd), which Windows sends a notch of
+	// a wheel, where X11's XI2 and Wayland send a high-resolution wheel's and
+	// a touchpad's fractions as events of their own (bugs.md WIN.10). Each
+	// event's y is added up and pressed as the sum reaches a notch's nearest
+	// half, the sum begun again where the scroll turns: a classic notch at
+	// once, a fraction's notch half-way into it, so one is pressed though
+	// SDL's XI2 drops a device's first scroll event, a fraction. SDL's own
+	// integer_y keeps what is left over across a turn, and loses a notch so.
+	double scroll = event.y;
+	if ((scroll > 0.0 && WheelScroll < 0.0) || (scroll < 0.0 && WheelScroll > 0.0))
+	{
+		WheelScroll = 0.0;
+		WheelPressed = 0;
+	}
+	WheelScroll += scroll;
+	long notches = std::lround(WheelScroll);
+	for (; WheelPressed < notches; WheelPressed++)
 		WindowHost->OnWindowMouseWheel(mousepos, InputKey::MouseWheelUp);
-	else if (event.y < 0)
+	for (; WheelPressed > notches; WheelPressed--)
 		WindowHost->OnWindowMouseWheel(mousepos, InputKey::MouseWheelDown);
+	if (WheelPressed > 1000 || WheelPressed < -1000)
+	{
+		WheelScroll -= WheelPressed;
+		WheelPressed = 0;
+	}
 }
 
 void SDL3DisplayWindow::OnMouseMotion(const SDL_MouseMotionEvent& event)

@@ -1505,8 +1505,13 @@ Differs:
 Differs (bugs.md EXT.23): five window classes' own ticks run after their
 script's, timers and children. Differs (bugs.md EXT.24): the computer window
 makes neither of its children. Differs (bugs.md EXT.25): `LockMouse`,
-`SetBaselineData` and the button setters' left-out arguments. Differs
-(bugs.md WIN.10): a high-resolution wheel presses once per fraction. Differs
+`SetBaselineData` and the button setters' left-out arguments. A wheel
+presses once a notch, as the original presses once a `WM_MOUSEWHEEL`, which
+Windows sends a notch: a high-resolution wheel's and a touchpad's fractions,
+which X11 and Wayland send as events of their own, added up and pressed at
+each notch's half, the sum begun again where the scroll turns
+(`WheelConsole` with `tools/dxcap/wheel.py`'s eighths of a notch, the SDL3
+window's and the X11 window's alike). Differs
 (bugs.md WIN.12): Alt+Enter back to a window on X11 puts it at the display's
 corner. Differs by choice: full screen kept as the window loses the focus,
 where the original leaves it and minimises; SDL3 minimises a real exclusive

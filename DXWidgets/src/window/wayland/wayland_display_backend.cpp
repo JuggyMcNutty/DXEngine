@@ -7,6 +7,7 @@
 #include "window/dbus/dbus_open_file_dialog.h"
 #include "window/dbus/dbus_save_file_dialog.h"
 #include "window/dbus/dbus_open_folder_dialog.h"
+#include <cmath>
 #endif
 
 WaylandDisplayBackend::WaylandDisplayBackend()
@@ -392,22 +393,35 @@ void WaylandDisplayBackend::ConnectMouseEvents()
 				if (!currentPointerEvent.axes[idx].valid)
 					continue;
 
-				// Each branch by its own field: value120 with AXIS_120 in the
-				// frame (a wheel's notches in 120ths), the continuous value
-				// without (a touchpad's scroll)
+				if (idx != uint32_t(wayland::pointer_axis::vertical_scroll))
+					continue;
+
+				// A press a notch, as the SDL3 window's (bugs.md WIN.10): each
+				// branch by its own field, value120 with AXIS_120 in the frame
+				// (a wheel's notches in 120ths), the continuous value without
+				// (a touchpad's scroll, 10 units a notch, as SDL counts one),
+				// added up and pressed as the sum reaches a notch's nearest
+				// half, the sum begun again where the scroll turns
+				double scroll = 0.0;
 				if (currentPointerEvent.event_mask & POINTER_EVENT_AXIS_120)
-				{
-					if (idx == uint32_t(wayland::pointer_axis::vertical_scroll) && currentPointerEvent.axes[idx].value120 > 0)
-						OnMouseWheelEvent(InputKey::MouseWheelDown);
-					if (idx == uint32_t(wayland::pointer_axis::vertical_scroll) && currentPointerEvent.axes[idx].value120 < 0)
-						OnMouseWheelEvent(InputKey::MouseWheelUp);
-				}
+					scroll = currentPointerEvent.axes[idx].value120 / 120.0;
 				else if (currentPointerEvent.event_mask & POINTER_EVENT_AXIS)
+					scroll = currentPointerEvent.axes[idx].value / 10.0;
+				if ((scroll > 0.0 && m_WheelScroll < 0.0) || (scroll < 0.0 && m_WheelScroll > 0.0))
 				{
-					if (idx == uint32_t(wayland::pointer_axis::vertical_scroll) && currentPointerEvent.axes[idx].value > 0)
-						OnMouseWheelEvent(InputKey::MouseWheelDown);
-					if (idx == uint32_t(wayland::pointer_axis::vertical_scroll) && currentPointerEvent.axes[idx].value < 0)
-						OnMouseWheelEvent(InputKey::MouseWheelUp);
+					m_WheelScroll = 0.0;
+					m_WheelPressed = 0;
+				}
+				m_WheelScroll += scroll;
+				long notches = std::lround(m_WheelScroll);
+				for (; m_WheelPressed < notches; m_WheelPressed++)
+					OnMouseWheelEvent(InputKey::MouseWheelDown);
+				for (; m_WheelPressed > notches; m_WheelPressed--)
+					OnMouseWheelEvent(InputKey::MouseWheelUp);
+				if (m_WheelPressed > 1000 || m_WheelPressed < -1000)
+				{
+					m_WheelScroll -= m_WheelPressed;
+					m_WheelPressed = 0;
 				}
 			}
 		}

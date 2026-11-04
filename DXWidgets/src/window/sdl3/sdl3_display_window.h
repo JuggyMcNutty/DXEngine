@@ -127,6 +127,10 @@ public:
 	// The relative motion's fractions not yet passed on
 	float RawMoveFractionX = 0.0f;
 	float RawMoveFractionY = 0.0f;
+	// The wheel's scroll added up since it last turned, and the notches of it
+	// pressed (OnMouseWheel)
+	double WheelScroll = 0.0;
+	long WheelPressed = 0;
 	bool isFullscreen = false;
 	bool placed = false;   // put somewhere by SetClientFrame
 
