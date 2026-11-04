@@ -16,7 +16,7 @@
 
 namespace
 {
-	static std::string from_utf16(const std::wstring& str)
+	[[maybe_unused]] static std::string from_utf16(const std::wstring& str)
 	{
 		if (str.empty()) return {};
 		int needed = WideCharToMultiByte(CP_UTF8, 0, str.data(), (int)str.size(), nullptr, 0, nullptr, nullptr);
@@ -30,7 +30,7 @@ namespace
 		return result;
 	}
 
-	static std::wstring to_utf16(const std::string& str)
+	[[maybe_unused]] static std::wstring to_utf16(const std::string& str)
 	{
 		if (str.empty()) return {};
 		int needed = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), nullptr, 0);

@@ -174,8 +174,6 @@ void Slider::OnPaint(Canvas* canvas)
 
     auto knobImage = GetStyleImage("knob-image");
 
-    double track_height = 4.0;
-
     // Draw the track
     auto trackImage = GetStyleImage("track-image");
 
@@ -221,8 +219,6 @@ void Slider::OnPaint(Canvas* canvas)
     // Draw ticks
     if (m_TickPosition != NoTicks)
     {
-        auto numTicks = m_maxValue - m_minValue + 1;
-
         if (m_Orientation == Orientation::Horizontal)
         {
             double tickLength = kh / 4;

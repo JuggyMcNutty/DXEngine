@@ -272,7 +272,6 @@ void LightEffect::SpotlightEffect(LightEffectArgs* args)
 	// Deus Ex's cone is Render.dll's, its cosine 1 - LightCone / 256
 	// (dx-reverse-info/render-dll.md, light maps)
 	float lightCosOuterAngle = 1.0f - args->light->LightCone() * (1.0f / 256.0f);
-	float lightCosInnerAngle = 1.0f;
 	if (lightCosOuterAngle < 1.0f)
 	{
 		for (int i = 0; i < size; i++)
@@ -540,10 +539,6 @@ void LightEffect::InitTables()
 {
 	for (int i = 0; i < FalloffTableSize; i++)
 	{
-		float v = std::sqrt(i + 0.0001f);
-		float v2 = v * v;
-		float v3 = v2 * v;
-		float falloff = std::min((1.0f + 2.0f * v3 - 3.0f * v2) / v, 1.0f);
 		FalloffTable[i] = CalcLightDistanceFalloff(i / (float)FalloffTableSize);
 	}
 

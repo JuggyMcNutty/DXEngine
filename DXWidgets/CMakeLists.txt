@@ -416,3 +416,8 @@ if(SDL2_FOUND AND NOT SDL3_FOUND)
 endif()
 set_target_properties(dxwidgets PROPERTIES CXX_STANDARD 20)
 target_compile_options(dxwidgets PRIVATE ${CXX_WARNING_FLAGS})
+# picoPNG, third-party: GCC takes its decoder's header, read after a decode
+# that failed early, for one that may be unset
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	set_property(SOURCE src/core/picopng/picopng.cpp APPEND PROPERTY COMPILE_OPTIONS -Wno-maybe-uninitialized)
+endif()

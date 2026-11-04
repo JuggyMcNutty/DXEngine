@@ -16,7 +16,6 @@ private:
 	void set_active();
 	void reset_active();
 
-	HWND window = 0;
 	HDC hdc = 0;
 	HWND query_window = 0;
 	HDC query_dc = 0;

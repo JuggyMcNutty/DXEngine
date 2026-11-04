@@ -22,7 +22,6 @@ void UActor::UpdateBspInfo()
 	if (dt == DT_Mesh && Mesh())
 	{
 		UMesh* mesh = Mesh();
-		Coords rotation = Coords::Rotation(Rotation());
 		mat4 objectToWorld = mat4::translate(Location() + PrePivot()) * Coords::Rotation(Rotation()).ToMatrix() * mat4::scale(DrawScale());
 		mat4 meshToWorld = objectToWorld * mesh->meshToObject;
 		bbox = mesh->BoundingBox.transform(meshToWorld);

@@ -87,7 +87,7 @@ std::string ActorTravelInfo::Create(UPlayerPawn* pawn, bool transferItems)
 				if (auto objProperty = UObject::TryCast<UObjectProperty>(property))
 				{
 					void* data = cur->GetProperty(objProperty);
-					for (size_t dim = 0; dim < objProperty->ArrayDimension; dim++)
+					for (size_t dim = 0; dim < (size_t)objProperty->ArrayDimension; dim++)
 					{
 						// A destroyed actor stays behind, by choice, where the
 						// original's export (Engine.dll 0x10391740) writes it as
@@ -157,7 +157,7 @@ ActorTravelInfo::TravelObject ActorTravelInfo::CreateObject(UObject* travelObjec
 		if (auto objProperty = UObject::TryCast<UObjectProperty>(property))
 		{
 			void* data = travelObject->GetProperty(objProperty);
-			for (size_t dim = 0; dim < objProperty->ArrayDimension; dim++)
+			for (size_t dim = 0; dim < (size_t)objProperty->ArrayDimension; dim++)
 			{
 				if (objProperty->CompareElement(objProperty->GetElement(data, dim), objProperty->GetElement(defaultData, dim)))
 					continue;
@@ -195,7 +195,7 @@ ActorTravelInfo::TravelObject ActorTravelInfo::CreateObject(UObject* travelObjec
 			// were kept, one more pair each travel.
 			bool isString = UObject::TryCast<UStrProperty>(property) != nullptr;
 			void* data = travelObject->GetProperty(property);
-			for (size_t dim = 0; dim < property->ArrayDimension; dim++)
+			for (size_t dim = 0; dim < (size_t)property->ArrayDimension; dim++)
 			{
 				std::string key = property->Name.ToString();
 				if (property->ArrayDimension > 1)
@@ -291,7 +291,7 @@ Array<UObject*> ActorTravelInfo::Accept(UPlayerPawn* pawn, const std::string& tr
 			if (auto objProperty = UObject::TryCast<UObjectProperty>(property))
 			{
 				void* data = acceptedObject->GetProperty(objProperty);
-				for (size_t dim = 0; dim < objProperty->ArrayDimension; dim++)
+				for (size_t dim = 0; dim < (size_t)objProperty->ArrayDimension; dim++)
 				{
 					std::string key = property->Name.ToString();
 					if (objProperty->ArrayDimension > 1)
@@ -323,7 +323,7 @@ Array<UObject*> ActorTravelInfo::Accept(UPlayerPawn* pawn, const std::string& tr
 			else
 			{
 				void* data = acceptedObject->GetProperty(property);
-				for (size_t dim = 0; dim < property->ArrayDimension; dim++)
+				for (size_t dim = 0; dim < (size_t)property->ArrayDimension; dim++)
 				{
 					std::string key = property->Name.ToString();
 					if (property->ArrayDimension > 1)

@@ -400,7 +400,7 @@ public:
 							musicThreadData.currentOrder.store(currentMusic->GetOrder());
 					}
 
-					while (musicQueue.Size() < musicBufferCount)
+					while (musicQueue.Size() < (size_t)musicBufferCount)
 					{
 						// render a chunk of music; what a source that ends or reads
 						// short leaves is silence, not what the chunk held 16

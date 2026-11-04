@@ -135,7 +135,6 @@ void NCanvas::DrawTile(UObject* Self, UObject* Tex, float XL, float YL, float U,
 	float& orgY = SelfCanvas->OrgY();
 	float& curX = SelfCanvas->CurX();
 	float& curY = SelfCanvas->CurY();
-	float& z = SelfCanvas->Z();
 	uint8_t& style = SelfCanvas->Style();
 	Color& color = SelfCanvas->DrawColor();
 	float& spaceX = SelfCanvas->SpaceX();
@@ -172,7 +171,6 @@ void NCanvas::DrawTileClipped(UObject* Self, UObject* Tex, float XL, float YL, f
 	float& orgY = SelfCanvas->OrgY();
 	float& curX = SelfCanvas->CurX();
 	float& curY = SelfCanvas->CurY();
-	float& z = SelfCanvas->Z();
 	uint8_t& style = SelfCanvas->Style();
 	Color& color = SelfCanvas->DrawColor();
 	float& spaceX = SelfCanvas->SpaceX();

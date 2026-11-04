@@ -1171,7 +1171,6 @@ void GLRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 	FlashFog = InFlashFog;
 
 	float color[4] = { ScreenClear.x, ScreenClear.y, ScreenClear.z, ScreenClear.w };
-	float zero[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.Framebuffer->Handle);
 	{ GLenum glAtt = GL_COLOR_ATTACHMENT0; glDrawBuffers(1, &glAtt); } // ES has only glDrawBuffers
 

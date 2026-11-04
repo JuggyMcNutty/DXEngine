@@ -13,7 +13,9 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 typedef unsigned long in_addr_t;
+#ifdef _MSC_VER
 #pragma comment(lib, "ws2_32.lib")
+#endif
 #else
 #include <sys/socket.h>
 #include <sys/ioctl.h>

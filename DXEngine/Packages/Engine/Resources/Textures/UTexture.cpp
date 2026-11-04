@@ -15,9 +15,9 @@ void UTexture::Load(ObjectStream* stream)
 	UncompressedMipmaps.resize(mipsCount);
 	for (UnrealMipmap& mipmap : UncompressedMipmaps)
 	{
-		uint32_t widthoffset = 0;
+		// The mip's skip offset (a lazy array's), unused
 		if (stream->GetVersion() >= 63)
-			widthoffset = stream->ReadInt32();
+			stream->ReadInt32();
 		int bytes = stream->ReadIndex();
 		mipmap.Data.resize(bytes);
 		stream->ReadBytes(mipmap.Data.data(), bytes);
@@ -60,9 +60,8 @@ void UTexture::Load(ObjectStream* stream)
 		CompressedMipmaps.resize(mipsCount);
 		for (UnrealMipmap& mipmap : CompressedMipmaps)
 		{
-			uint32_t widthoffset = 0;
 			if (stream->GetVersion() >= 68)
-				widthoffset = stream->ReadInt32();
+				stream->ReadInt32(); // its skip offset
 			int bytes = stream->ReadIndex();
 			mipmap.Data.resize(bytes);
 			stream->ReadBytes(mipmap.Data.data(), bytes);

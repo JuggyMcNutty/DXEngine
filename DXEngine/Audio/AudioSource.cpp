@@ -325,7 +325,7 @@ public:
 				pcm_samples = 0;
 				int bytes_used = stb_vorbis_decode_frame_pushdata(handle, filedata.data() + stream_byte_offset, filedata.size() - stream_byte_offset, nullptr, &pcm, &pcm_samples);
 				stream_byte_offset += bytes_used;
-				if (bytes_used == 0 || stream_byte_offset == filedata.size())
+				if (bytes_used == 0 || (size_t)stream_byte_offset == filedata.size())
 				{
 					stream_eof = true;
 					break;

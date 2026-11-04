@@ -128,10 +128,10 @@ void UArrayProperty::GetExportText(std::string& buf, const std::string& whitespa
 	ScriptArray* objarray = static_cast<ScriptArray*>(obj->GetProperty(Name)) + offset;
 	ScriptArray* defarray = (defobj) ? static_cast<ScriptArray*>(defobj->GetProperty(Name)) + offset : nullptr;
 
-	for (int k = 0; k < objarray->GetSize(); k++)
+	for (int k = 0; k < (int)objarray->GetSize(); k++)
 	{
 		void* objval = objarray->GetItem(k);
-		void* defval = (defarray && k < defarray->GetSize()) ? defarray->GetItem(k) : nullptr;
+		void* defval = (defarray && (size_t)k < defarray->GetSize()) ? defarray->GetItem(k) : nullptr;
 
 		Inner->GetExportText(buf, whitespace, objval, defval, i);
 	}

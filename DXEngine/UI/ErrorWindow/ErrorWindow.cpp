@@ -208,7 +208,6 @@ void ErrorWindow::OnClose()
 void ErrorWindow::OnGeometryChanged()
 {
 	double w = GetWidth();
-	double h = GetHeight();
 
 	double buttonheight = ClipboardButton->GetPreferredHeight() + ClipboardButton->GetNoncontentTop() + ClipboardButton->GetNoncontentBottom();
 	double y = GetHeight() - 15.0 - buttonheight;
@@ -299,7 +298,6 @@ void LogViewer::OnPaintFrame(Canvas* canvas)
 {
 	double w = GetFrameGeometry().width;
 	double h = GetFrameGeometry().height;
-	Colorf bordercolor = Colorf::fromRgba8(100, 100, 100);
 	canvas->fillRect(Rect::xywh(0.0, 0.0, w, h), Colorf::fromRgba8(38, 38, 38));
 	//canvas->fillRect(Rect::xywh(0.0, 0.0, w, 1.0), bordercolor);
 	//canvas->fillRect(Rect::xywh(0.0, h - 1.0, w, 1.0), bordercolor);

@@ -170,8 +170,6 @@ void RenderDeviceCanvas::begin(const Colorf& color)
 	frame.WorldToView = mat4::identity();
 	float Aspect = frame.FY / frame.FX;
 	float RProjZ = (float)std::tan(radians(frame.FovAngle) * 0.5f);
-	float RFX2 = 2.0f * RProjZ / frame.FX;
-	float RFY2 = 2.0f * RProjZ * Aspect / frame.FY;
 	frame.Projection = mat4::frustum(-RProjZ, RProjZ, -Aspect * RProjZ, Aspect * RProjZ, 1.0f, 32768.0f, handedness::left, clipzrange::zero_positive_w);
 	device->SetSceneNode(&frame);
 }

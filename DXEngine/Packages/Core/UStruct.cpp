@@ -33,12 +33,12 @@ void UStruct::Load(ObjectStream* stream)
 
 	int ScriptSize = stream->ReadUInt32();
 	uint32_t rawStart = stream->Tell();
-	while (Bytecode.size() < ScriptSize)
+	while (Bytecode.size() < (size_t)ScriptSize)
 	{
 		ReadToken(stream, 0);
 	}
 
-	if (Bytecode.size() != ScriptSize)
+	if (Bytecode.size() != (size_t)ScriptSize)
 		Exception::Throw("Bytecode load failed");
 	uint32_t rawEnd = stream->Tell();
 

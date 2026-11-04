@@ -6,7 +6,7 @@
 #include "VulkanRenderDevice.h"
 #include <dxgpu/vulkanbuilders.h>
 
-ShaderManager::ShaderManager(VulkanRenderDevice* renderer) : renderer(renderer)
+ShaderManager::ShaderManager(VulkanRenderDevice* renderer)
 {
 	GLSLCompiler::Init();
 

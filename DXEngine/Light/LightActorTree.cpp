@@ -45,7 +45,7 @@ void LightActorTree::CreateTLAS()
 	Scratch.leafs.reserve(Lights.size());
 	Scratch.centroids.clear();
 	Scratch.centroids.reserve(Lights.size());
-	for (int i = 0; i < Lights.size(); i++)
+	for (int i = 0; i < (int)Lights.size(); i++)
 	{
 		Scratch.leafs.push_back(i);
 		Scratch.centroids.push_back(vec4(Lights[i]->Location(), 1.0f));

@@ -215,6 +215,9 @@ bool BspClipper::DrawPolygon(const vec3* vertices, uint32_t count, bool solid)
 		}
 	}
 
+	if (n < 1)
+		return false;
+
 	// To the viewport, as DrawTriangle maps a vertex
 	float halfWidth = (float)ViewportWidth * 0.5f;
 	float halfHeight = (float)ViewportHeight * 0.5f;

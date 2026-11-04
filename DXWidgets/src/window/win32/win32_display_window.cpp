@@ -11,7 +11,9 @@
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
 
+#ifdef _MSC_VER
 #pragma comment(lib, "dwmapi.lib")
+#endif
 
 #ifndef HID_USAGE_PAGE_GENERIC
 #define HID_USAGE_PAGE_GENERIC		((USHORT) 0x01)

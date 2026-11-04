@@ -8,7 +8,7 @@ void UBspNodes::Load(ObjectStream* stream)
 {
 	UObject::Load(stream);
 	int count = stream->ReadInt32();
-	int maxcount = stream->ReadInt32();
+	stream->ReadInt32(); // the array's capacity
 	for (int i = 0; i < count; i++)
 	{
 		BspNode node;

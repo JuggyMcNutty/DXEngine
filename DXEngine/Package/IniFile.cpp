@@ -501,7 +501,7 @@ IniSection& IniFile::AddUniqueSection(const std::string& sectionName)
 			return section;
 	}
 
-	sections.push_back(std::move(IniSection(sectionName, sectionHash)));
+	sections.push_back(IniSection(sectionName, sectionHash));
 	return sections.back();
 }
 
@@ -685,7 +685,7 @@ bool IniKey::GetIndexed() const
 std::string IniKey::GetValue(const int index) const
 {
 	std::string value = "";
-	if (index < values.size())
+	if ((size_t)index < values.size())
 		value = values[index];
 	return value;
 }
@@ -697,7 +697,7 @@ int IniKey::SetValue(const std::string& newValue, const int index)
 		values.push_back(newValue);
 		return 1;
 	}
-	else if (index < values.size())
+	else if ((size_t)index < values.size())
 	{
 		if (values[index] == newValue)
 			return 0;

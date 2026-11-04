@@ -71,7 +71,4 @@ public:
 	} Bloom;
 
 	static std::string LoadShaderCode(const std::string& filename, const std::string& defines = {});
-
-private:
-	VulkanRenderDevice* renderer = nullptr;
 };

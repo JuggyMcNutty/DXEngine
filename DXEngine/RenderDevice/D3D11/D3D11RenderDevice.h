@@ -331,7 +331,6 @@ private:
 	float RFY2 = 0.0f;
 	D3D11ScenePushConstants SceneConstants = {};
 	D3D11_VIEWPORT SceneViewport = {};
-	bool DepthCuedActive = false;
 
 	bool IsLocked = false;
 	bool ActiveHdr = false;

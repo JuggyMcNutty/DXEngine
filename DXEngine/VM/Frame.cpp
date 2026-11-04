@@ -829,7 +829,6 @@ static bool CaseMatches(const ExpressionValue& condition, const ExpressionValue&
 
 void Frame::ProcessSwitch(const ExpressionValue& condition)
 {
-	SwitchExpression* switchexpr = static_cast<SwitchExpression*>(Func->Code->Statements[StatementIndex - 1]);
 	while (true)
 	{
 		CaseExpression* caseexpr = static_cast<CaseExpression*>(Func->Code->Statements[StatementIndex++]);

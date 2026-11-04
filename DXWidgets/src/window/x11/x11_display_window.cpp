@@ -367,7 +367,6 @@ void X11DisplayWindow::ShowNormal()
 
 void X11DisplayWindow::SetWindowResizable(bool enable)
 {
-	auto rect = GetClientFrame();
 	XSizeHints* size_hints = XAllocSizeHints();
 	long user_hints;
 	XGetWMNormalHints(display, window, size_hints, &user_hints);
@@ -1542,11 +1541,6 @@ void X11DisplayWindow::CreateGLContext()
 
 	for (EGLint i = 0 ; i < config_count ; i++)
 	{
-		EGLAttrib attrs[] = {
-			EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
-			EGL_NONE
-		};
-
 		m_EGLSurface = eglCreateWindowSurface(m_EGLDisplay, configs[i], window, nullptr);
 		if (m_EGLSurface != EGL_NO_SURFACE)
 			break;

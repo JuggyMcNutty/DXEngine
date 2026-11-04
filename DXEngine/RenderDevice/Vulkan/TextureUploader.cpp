@@ -296,7 +296,6 @@ static void UploadDecoded(void* d, UnrealMipmap* mip, int x, int y, int w, int h
 	int bx1 = (x + w + blockX - 1) / blockX;
 	int by1 = (y + h + blockY - 1) / blockY;
 	int blockCols = (mip->Width + blockX - 1) / blockX;
-	int pitch = blockCols * blockBytes;
 	uint8_t* dst = (uint8_t*)d;
 	for (int by = by0; by < by1; by++)
 	{

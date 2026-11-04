@@ -97,7 +97,7 @@ void UFireTexture::UpdateFrame()
 	// The row shift from the width itself: the package's UBits is not
 	// checked against it, and a wrong one indexed outside the image
 	int ubits = 0;
-	while ((1u << ubits) < mipmap.Width && ubits < 16)
+	while ((1u << ubits) < (unsigned)mipmap.Width && ubits < 16)
 		ubits++;
 	fire.UBits = ubits;
 	fire.UMask = mipmap.Width - 1;

@@ -16,7 +16,7 @@ class AudioDevice;
 struct PlayingSound
 {
 	PlayingSound() = default;
-	PlayingSound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, float Priority) : Actor(Actor), Id(Id), Sound(Sound), Location(Location), Volume(Volume), Radius(Radius), Pitch(Pitch), Priority(Priority) {}
+	PlayingSound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, float Priority) : Id(Id), Priority(Priority), Actor(Actor), Sound(Sound), Location(Location), Volume(Volume), Radius(Radius), Pitch(Pitch) {}
 
 	int Id = 0;
 	bool IsActive = false;

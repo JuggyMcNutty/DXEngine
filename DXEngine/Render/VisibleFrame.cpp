@@ -590,8 +590,6 @@ void VisibleFrame::SetupSceneFrame(const mat4& worldToView)
 	Frame.FovAngle = HorPlusFovAngle(engine->CameraFovAngle, Frame.FX, Frame.FY);
 	float Aspect = Frame.FY / Frame.FX;
 	float RProjZ = (float)std::tan(radians(Frame.FovAngle) * 0.5f);
-	float RFX2 = 2.0f * RProjZ / Frame.FX;
-	float RFY2 = 2.0f * RProjZ * Aspect / Frame.FY;
 	Frame.Projection = mat4::frustum(-RProjZ, RProjZ, -Aspect * RProjZ, Aspect * RProjZ, 1.0f, 32768.0f, handedness::left, clipzrange::zero_positive_w);
 	FrustumTanX = RProjZ;
 	FrustumTanY = Aspect * RProjZ;
@@ -1293,7 +1291,6 @@ Coords VisibleFrame::WarpRotationToOtherSide(UWarpZoneInfo* warpZone, Coords rot
 
 	// Transform to warp space:
 	{
-		vec3 origin = warpZone->WarpCoords().Origin;
 		mat3 rotate = warpZone->WarpCoords().ToMatrix();
 		//mat3 invrotate = mat3::transpose(rotate);
 		newRotation = rotate * newRotation;
@@ -1301,7 +1298,6 @@ Coords VisibleFrame::WarpRotationToOtherSide(UWarpZoneInfo* warpZone, Coords rot
 
 	// Transform from warp space:
 	{
-		vec3 origin = warpZone->OtherSideActor()->WarpCoords().Origin;
 		mat3 rotate = warpZone->OtherSideActor()->WarpCoords().ToMatrix();
 		mat3 invrotate = mat3::transpose(rotate);
 		newRotation = invrotate * newRotation;

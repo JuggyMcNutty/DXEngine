@@ -197,7 +197,7 @@ Color IniPropertyConverter<Color>::FromString(const std::string& valueString)
 	{
 		size_t equals = t.find('=');
 
-		if (equals == -1)
+		if (equals == std::string::npos)
 			Exception::Throw("Malformed Color String: " + valueString);
 
 		auto lhs = t.substr(0, equals);

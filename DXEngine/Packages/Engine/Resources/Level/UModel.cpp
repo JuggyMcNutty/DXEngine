@@ -288,8 +288,6 @@ void UModel::Load(ObjectStream* stream)
 		const LightMapIndex& lmindex = LightMap[surface.LightMap];
 		int width = lmindex.UClamp;
 		int height = lmindex.VClamp;
-		vec3 normal = mapCoords.ZAxis;
-		vec3 base = mapCoords.Origin;
 
 		float UDot = dot(mapCoords.XAxis, mapCoords.Origin);
 		float VDot = dot(mapCoords.YAxis, mapCoords.Origin);

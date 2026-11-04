@@ -3,8 +3,8 @@
 #include <stddef.h>
 #include "gl_load.h"
 
-#ifdef __clang__
-#pragma clang diagnostic ignored "-Wpointer-sign"
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Wpointer-sign"
 #endif
 
 void* IntGetProcAddress(const GLubyte* name);

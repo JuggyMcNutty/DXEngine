@@ -314,8 +314,6 @@ void Engine::Run()
 	colorprop->ValueType = ExpressionValueType::ValueColor;
 	rotprop = GC::Alloc<UStructProperty>(NameString(), nullptr, ObjectFlags::NoFlags);
 
-	bool firstCall = true;
-
 	if (const char* stress = std::getenv("DXE_GC_STRESS"))
 		GarbageStressFrames = std::max(std::atoi(stress), 0);
 

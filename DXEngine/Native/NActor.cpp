@@ -201,7 +201,6 @@ void NActor::FinishAnim(UObject* Self)
 
 void NActor::FinishInterpolation(UObject* Self)
 {
-	UActor* SelfActor = UObject::Cast<UActor>(Self);
 	if (Self->StateFrame)
 		Self->StateFrame->LatentState = LatentRunState::FinishInterpolation;
 }
@@ -367,7 +366,6 @@ void NActor::GetNextSkin(UObject* Self, const std::string& Prefix, const std::st
 
 void NActor::GetSoundDuration(UObject* Self, UObject* Sound, float& ReturnValue)
 {
-	UActor* SelfActor = UObject::Cast<UActor>(Self);
 	USound* s = UObject::Cast<USound>(Sound);
 	ReturnValue = s->GetPeriod();
 }

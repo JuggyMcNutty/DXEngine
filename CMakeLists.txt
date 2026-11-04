@@ -2,6 +2,15 @@ cmake_minimum_required(VERSION 3.15)
 
 project(DXEngine)
 
+# The warnings DXCommon, DXEngine, DXWidgets and DXGPU are built with: -Wall
+# on GCC and Clang, the third-party code in them too where it builds clean;
+# glslang and VMA at the compilers' defaults, picoPNG without its one
+# maybe-uninitialized, OpenMPT and OpenAL Soft projects of their own
+# (bugs.md D.45).
+if(NOT MSVC)
+	set(CXX_WARNING_FLAGS -Wall)
+endif()
+
 add_subdirectory(Thirdparty/openmpt)
 add_subdirectory(DXGPU)
 add_subdirectory(DXWidgets)
@@ -907,6 +916,7 @@ if(NOT MSVC)
 endif()
 
 add_library(DXCommon STATIC ${DXCOMMON_SOURCES} ${THIRDPARTY_SOURCES})
+target_compile_options(DXCommon PRIVATE ${CXX_WARNING_FLAGS})
 set_target_properties(DXCommon PROPERTIES CXX_STANDARD 20)
 target_precompile_headers(DXCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/Precomp.h>)
 include(cmake/version.cmake)
@@ -917,6 +927,7 @@ if(MINGW)
 	target_link_options(DXEngine PRIVATE -municode)
 endif()
 target_link_libraries(DXEngine DXCommon ${DXCOMMON_LIBS})
+target_compile_options(DXEngine PRIVATE ${CXX_WARNING_FLAGS})
 set_target_properties(DXEngine PROPERTIES CXX_STANDARD 20)
 
 function( create_zip_source_groups FOLDER_NAME ZIP_DIR )

@@ -37,8 +37,6 @@ void RenderSubsystem::ResetCanvas()
 	Canvas.Frame.FovAngle = HorPlusFovAngle(engine->CameraFovAngle, Canvas.Frame.FX, Canvas.Frame.FY);
 	float Aspect = Canvas.Frame.FY / Canvas.Frame.FX;
 	float RProjZ = (float)std::tan(radians(Canvas.Frame.FovAngle) * 0.5f);
-	float RFX2 = 2.0f * RProjZ / Canvas.Frame.FX;
-	float RFY2 = 2.0f * RProjZ * Aspect / Canvas.Frame.FY;
 	Canvas.Frame.Projection = mat4::frustum(-RProjZ, RProjZ, -Aspect * RProjZ, Aspect * RProjZ, 1.0f, 32768.0f, handedness::left, clipzrange::zero_positive_w);
 
 	int sizeX = (int)(engine->viewport->ViewportWidth() / (float)Canvas.uiscale);
@@ -188,8 +186,6 @@ void RenderSubsystem::DrawClippedActor(UActor* actor, int X, int Y, int XB, int 
 	frame.FovAngle = HorPlusFovAngle(engine->CameraFovAngle, frame.FX, frame.FY);
 	float Aspect = frame.FY / frame.FX;
 	float RProjZ = (float)std::tan(radians(frame.FovAngle) * 0.5f);
-	float RFX2 = 2.0f * RProjZ / frame.FX;
-	float RFY2 = 2.0f * RProjZ * Aspect / frame.FY;
 	frame.Projection = mat4::frustum(-RProjZ, RProjZ, -Aspect * RProjZ, Aspect * RProjZ, 1.0f, 32768.0f, handedness::left, clipzrange::zero_positive_w);
 	Device->SetSceneNode(&frame);
 

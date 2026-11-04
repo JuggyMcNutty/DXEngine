@@ -491,7 +491,6 @@ void UDXEngineAudioDevice::UpdateSounds(float timeStep)
 	if (!m_Viewport || !m_Viewport->Actor())
 		return;
 
-	UActor* ViewActor = m_Viewport->Actor()->ViewTarget() ? m_Viewport->Actor()->ViewTarget() : m_Viewport->Actor();
 	for (size_t i = 0; i < PlayingSounds.size(); i++)
 	{
 		PlayingSound& Playing = PlayingSounds[i];

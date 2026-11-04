@@ -8,7 +8,7 @@ void ULevelBase::Load(ObjectStream* stream)
 	UObject::Load(stream);
 
 	int32_t count = stream->ReadInt32();
-	int32_t maxcount = stream->ReadInt32();
+	stream->ReadInt32(); // the array's capacity
 	for (int32_t i = 0; i < count; i++)
 	{
 		auto actor = stream->ReadObject<UActor>();

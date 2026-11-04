@@ -403,7 +403,6 @@ private:
 	float RFY2 = 0.0f;
 	GLScenePushConstants SceneConstants = {};
 	GLViewport SceneViewport = {};
-	bool DepthCuedActive = false;
 
 	bool IsLocked = false;
 	std::string LastResizeError; // the last failed resize's reason, said once
@@ -468,8 +467,8 @@ inline void GLRenderDevice::SetDescriptorSet(uint32_t PolyFlags, const ComplexSu
 	uint32_t samplermode = 0;
 	if (PolyFlags & PF_NoSmooth) samplermode |= 1;
 
-	int detailsamplermode = 0;
-	int macrosamplermode = 0;
+	uint32_t detailsamplermode = 0;
+	uint32_t macrosamplermode = 0;
 
 	if (Batch.Tex != info.tex || Batch.TexSamplerMode != samplermode || Batch.Lightmap != info.lightmap || Batch.Detailtex != info.detailtex || Batch.DetailtexSamplerMode != detailsamplermode || Batch.Macrotex != info.macrotex || Batch.MacrotexSamplerMode != macrosamplermode)
 	{

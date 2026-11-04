@@ -212,5 +212,12 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_
 endif()
 
 add_library(dxgpu STATIC ${DXGPU_SOURCES} ${DXGPU_INCLUDES} ${VULKAN_INCLUDES})
+# Its own sources at the engine's warnings (CXX_WARNING_FLAGS); glslang's and
+# VMA's, third-party, at the compilers' defaults
+if(CXX_WARNING_FLAGS)
+	set(DXGPU_OWN_SOURCES ${DXGPU_SOURCES})
+	list(FILTER DXGPU_OWN_SOURCES EXCLUDE REGEX "src/glslang/|src/vk_mem_alloc/")
+	set_property(SOURCE ${DXGPU_OWN_SOURCES} APPEND PROPERTY COMPILE_OPTIONS ${CXX_WARNING_FLAGS})
+endif()
 target_link_libraries(dxgpu ${DXGPU_LIBS})
 set_target_properties(dxgpu PROPERTIES CXX_STANDARD 17)

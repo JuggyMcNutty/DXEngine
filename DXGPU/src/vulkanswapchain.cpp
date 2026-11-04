@@ -103,7 +103,6 @@ bool VulkanSwapChain::CreateSwapchain(int width, int height, int imageCount, boo
 		VulkanError("No surface present modes supported");
 
 	bool supportsFifoRelaxed = std::find(caps.PresentModes.begin(), caps.PresentModes.end(), VK_PRESENT_MODE_FIFO_RELAXED_KHR) != caps.PresentModes.end();
-	bool supportsMailbox = std::find(caps.PresentModes.begin(), caps.PresentModes.end(), VK_PRESENT_MODE_MAILBOX_KHR) != caps.PresentModes.end();
 	bool supportsImmediate = std::find(caps.PresentModes.begin(), caps.PresentModes.end(), VK_PRESENT_MODE_IMMEDIATE_KHR) != caps.PresentModes.end();
 
 	presentMode = VK_PRESENT_MODE_FIFO_KHR;
@@ -270,10 +269,7 @@ VulkanSurfaceCapabilities VulkanSwapChain::GetSurfaceCapabilities()
 
 	if (device->SupportsExtension(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME))
 	{
-		const void** next = &surfaceInfo.pNext;
-
 		VkSurfaceCapabilities2KHR caps2 = { VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR };
-		next = const_cast<const void**>(&caps2.pNext);
 
 		VkResult result = vkGetPhysicalDeviceSurfaceCapabilities2KHR(device->PhysicalDevice.Device, &surfaceInfo, &caps2);
 		if (result != VK_SUCCESS)

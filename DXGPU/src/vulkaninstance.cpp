@@ -355,17 +355,15 @@ std::vector<VkLayerProperties> VulkanInstance::GetAvailableLayers()
 std::vector<VkExtensionProperties> VulkanInstance::GetExtensions()
 {
 	uint32_t extensionCount = 0;
-	VkResult result = vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
 
 	std::vector<VkExtensionProperties> extensions(extensionCount);
-	result = vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
+	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
 	return extensions;
 }
 
 VkBool32 VulkanInstance::DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* callbackData, void* userData)
 {
-	VulkanInstance* instance = (VulkanInstance*)userData;
-
 	static std::mutex mtx;
 	static std::set<std::string> seenMessages;
 	static int totalMessages;
@@ -411,11 +409,9 @@ VkBool32 VulkanInstance::DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT me
 			seenMessages.insert(msg);
 
 			const char* typestr;
-			bool showcallstack = false;
 			if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 			{
 				typestr = "vulkan error";
-				showcallstack = true;
 			}
 			else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
 			{

@@ -4,9 +4,11 @@
 #include <stdexcept>
 #include <vector>
 
+#ifdef _MSC_VER
 #pragma comment(lib, "Opengl32.lib")
+#endif
 
-OpenGLCreationHelper::OpenGLCreationHelper(HWND window, HDC hdc) : window(window), hdc(hdc)
+OpenGLCreationHelper::OpenGLCreationHelper(HWND window, HDC hdc) : hdc(hdc)
 {
 	WINDOWINFO window_info = {};
 	window_info.cbSize = sizeof(WINDOWINFO);

@@ -197,7 +197,8 @@ public:
 	static ExpressionValue NothingValue(bool keepsVariable = false) { ExpressionValue v; v.KeepsVariable = keepsVariable; return v; }
 	static ExpressionValue ByteValue(uint8_t value) { ExpressionValue v(ExpressionValueType::ValueByte); *v.PtrByte = value; return v; }
 	static ExpressionValue IntValue(int32_t value) { ExpressionValue v(ExpressionValueType::ValueInt); *v.PtrInt = value; return v; }
-	static ExpressionValue BoolValue(bool value) { ExpressionValue v(ExpressionValueType::ValueBool); v.BoolInfo.Set(value); return v; }
+	// A new bool's word written whole, nothing in it to keep (as Load's copy)
+	static ExpressionValue BoolValue(bool value) { ExpressionValue v(ExpressionValueType::ValueBool); *v.BoolInfo.Ptr = value ? v.BoolInfo.Mask : 0; return v; }
 	static ExpressionValue FloatValue(float value) { ExpressionValue v(ExpressionValueType::ValueFloat); *v.PtrFloat = value; return v; }
 	static ExpressionValue ObjectValue(UObject* value) { ExpressionValue v(ExpressionValueType::ValueObject); *v.PtrObject = value; return v; }
 	static ExpressionValue VectorValue(vec3 value) { ExpressionValue v(ExpressionValueType::ValueVector); *v.PtrVector = value; return v; }
@@ -239,7 +240,7 @@ public:
 		// one the array cannot grow to, is a script error
 		if (index < 0 || index >= 0x7FFFFFFF)
 			Exception::Throw("Accessed array out of bounds (" + std::to_string(index) + "/" + std::to_string(v->GetSize()) + ")");
-		if (v->GetSize() <= index)
+		if (v->GetSize() <= (size_t)index)
 			v->Resize(index + 1);
 		return ExpressionValue(v->GetItem(index), v->GetType());
 	}
@@ -442,7 +443,7 @@ inline ExpressionValue ExpressionValue::DefaultValue(UProperty* prop)
 	}
 	case ExpressionValueType::ValueVector: return VectorValue(vec3(0.0f));
 	case ExpressionValueType::ValueRotator: return RotatorValue(Rotator(0, 0, 0));
-	case ExpressionValueType::ValueString: return StringValue({});
+	case ExpressionValueType::ValueString: return StringValue(ScriptString());
 	case ExpressionValueType::ValueName: return NameValue({});
 	case ExpressionValueType::ValueColor: { Color c; c.R = c.G = c.B = c.A = 0; return ColorValue(c); }
 	case ExpressionValueType::ValueStruct:
@@ -552,7 +553,8 @@ inline void ExpressionValue::Load()
 		case ExpressionValueType::Nothing: break;
 		case ExpressionValueType::ValueByte: *value.PtrByte = *PtrByte; break;
 		case ExpressionValueType::ValueInt: *value.PtrInt = *PtrInt; break;
-		case ExpressionValueType::ValueBool: value.BoolInfo.Set(BoolInfo.Get()); break;
+		// Its own word, written whole, as BoolValue's
+		case ExpressionValueType::ValueBool: *value.BoolInfo.Ptr = BoolInfo.Get() ? value.BoolInfo.Mask : 0; break;
 		case ExpressionValueType::ValueFloat: *value.PtrFloat = *PtrFloat; break;
 		case ExpressionValueType::ValueObject: *value.PtrObject = *PtrObject; break;
 		case ExpressionValueType::ValueVector: *value.PtrVector = *PtrVector; break;

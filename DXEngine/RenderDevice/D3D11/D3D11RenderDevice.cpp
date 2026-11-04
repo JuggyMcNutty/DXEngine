@@ -11,8 +11,10 @@
 #include <dxwidgets/window/sdlnativehandle.h>
 #include <comdef.h>
 
+#ifdef _MSC_VER
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dcompiler.lib")
+#endif
 
 #include <initguid.h>
 DEFINE_GUID(WKPDID_D3DDebugObjectName, 0x429b8c22, 0x9188, 0x4b0c, 0x87, 0x42, 0xac, 0xb0, 0xbf, 0x85, 0xc2, 0x00);

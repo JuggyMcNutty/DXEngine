@@ -419,7 +419,7 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 	GouraudVertex vertices[3];
 	for (const MeshTri& tri : mesh->Tris)
 	{
-		if (tri.TextureIndex >= mesh->Textures.size())
+		if ((size_t)tri.TextureIndex >= mesh->Textures.size())
 			continue;
 
 		uint32_t renderflags = tri.PolyFlags | polyflags;

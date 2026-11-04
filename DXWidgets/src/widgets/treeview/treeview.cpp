@@ -86,14 +86,14 @@ int TreeView::GetColumnCount() const
 
 double TreeView::GetColumnWidth(const int index) const
 {
-    if (index >= 0 && index < m_Header->GetColumnCount())
+    if (index >= 0 && (size_t)index < m_Header->GetColumnCount())
         return m_Header->GetColumnWidth(index);
     return 0.0;
 }
 
 const std::string& TreeView::GetColumnText(const int index) const
 {
-    if (index >= 0 && index < m_Header->GetColumnCount())
+    if (index >= 0 && (size_t)index < m_Header->GetColumnCount())
         return m_Header->GetColumnText(index);
     static std::string empty;
     return empty;
@@ -376,7 +376,7 @@ void TreeViewBody::OnPaint(Canvas* canvas)
 			for (int colIndex = 0; colIndex < colCount; ++colIndex)
 			{
 				double colwidth = m_TreeView->m_Header->GetColumnWidth(colIndex);
-				if (colIndex + 1 == m_TreeView->m_Header->GetColumnCount())
+				if ((size_t)(colIndex + 1) == m_TreeView->m_Header->GetColumnCount())
 					colwidth = std::max(w - cx, 0.0);
 				canvas->pushClip(Rect::xywh(cx, itemY, std::max(colwidth - 5.0, 0.0), itemHeight));
 			    if (colIndex == 0)

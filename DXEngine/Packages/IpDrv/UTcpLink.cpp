@@ -9,7 +9,9 @@
 
 #ifdef WIN32
 #include <winsock2.h>
+#ifdef _MSC_VER
 #pragma comment(lib, "ws2_32.lib")
+#endif
 #define SHUT_WR SD_SEND
 static bool WouldBlock(int error) { return error == WSAEWOULDBLOCK; }
 static bool InProgress(int error) { return error == WSAEWOULDBLOCK || error == WSAEINPROGRESS; }

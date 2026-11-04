@@ -12,7 +12,7 @@ static void InitPropertyOffsets_Object(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Core")->GetUObject("Class", "Object"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Object, 0xff, sizeof(PropOffsets_Object));
+		memset((void*)&PropOffsets_Object, 0xff, sizeof(PropOffsets_Object));
 		return;
 	}
 	PropOffsets_Object.Class = cls->GetPropertyDataOffset("Class");
@@ -29,7 +29,7 @@ static void InitPropertyOffsets_Commandlet(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Core")->GetUObject("Class", "Commandlet"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Commandlet, 0xff, sizeof(PropOffsets_Commandlet));
+		memset((void*)&PropOffsets_Commandlet, 0xff, sizeof(PropOffsets_Commandlet));
 		return;
 	}
 	PropOffsets_Commandlet.HelpCmd = cls->GetPropertyDataOffset("HelpCmd");
@@ -54,7 +54,7 @@ static void InitPropertyOffsets_Subsystem(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Core")->GetUObject("Class", "Subsystem"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Subsystem, 0xff, sizeof(PropOffsets_Subsystem));
+		memset((void*)&PropOffsets_Subsystem, 0xff, sizeof(PropOffsets_Subsystem));
 		return;
 	}
 	PropOffsets_Subsystem.ExecVtbl = cls->GetPropertyDataOffset("ExecVtbl");
@@ -67,7 +67,7 @@ static void InitPropertyOffsets_HelloWorldCommandlet(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Core")->GetUObject("Class", "HelloWorldCommandlet"));
 	if (!cls)
 	{
-		memset(&PropOffsets_HelloWorldCommandlet, 0xff, sizeof(PropOffsets_HelloWorldCommandlet));
+		memset((void*)&PropOffsets_HelloWorldCommandlet, 0xff, sizeof(PropOffsets_HelloWorldCommandlet));
 		return;
 	}
 	PropOffsets_HelloWorldCommandlet.intparm = cls->GetPropertyDataOffset("intparm");
@@ -81,7 +81,7 @@ static void InitPropertyOffsets_SimpleCommandlet(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Core")->GetUObject("Class", "SimpleCommandlet"));
 	if (!cls)
 	{
-		memset(&PropOffsets_SimpleCommandlet, 0xff, sizeof(PropOffsets_SimpleCommandlet));
+		memset((void*)&PropOffsets_SimpleCommandlet, 0xff, sizeof(PropOffsets_SimpleCommandlet));
 		return;
 	}
 	PropOffsets_SimpleCommandlet.intparm = cls->GetPropertyDataOffset("intparm");
@@ -94,7 +94,7 @@ static void InitPropertyOffsets_Pawn(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Pawn"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Pawn, 0xff, sizeof(PropOffsets_Pawn));
+		memset((void*)&PropOffsets_Pawn, 0xff, sizeof(PropOffsets_Pawn));
 		return;
 	}
 	PropOffsets_Pawn.AccelRate = cls->GetPropertyDataOffset("AccelRate");
@@ -269,7 +269,7 @@ static void InitPropertyOffsets_Actor(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Actor"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Actor, 0xff, sizeof(PropOffsets_Actor));
+		memset((void*)&PropOffsets_Actor, 0xff, sizeof(PropOffsets_Actor));
 		return;
 	}
 	PropOffsets_Actor.Acceleration = cls->GetPropertyDataOffset("Acceleration");
@@ -496,7 +496,7 @@ static void InitPropertyOffsets_LevelInfo(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "LevelInfo"));
 	if (!cls)
 	{
-		memset(&PropOffsets_LevelInfo, 0xff, sizeof(PropOffsets_LevelInfo));
+		memset((void*)&PropOffsets_LevelInfo, 0xff, sizeof(PropOffsets_LevelInfo));
 		return;
 	}
 	PropOffsets_LevelInfo.AIProfile = cls->GetPropertyDataOffset("AIProfile");
@@ -564,7 +564,7 @@ static void InitPropertyOffsets_Inventory(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Inventory"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Inventory, 0xff, sizeof(PropOffsets_Inventory));
+		memset((void*)&PropOffsets_Inventory, 0xff, sizeof(PropOffsets_Inventory));
 		return;
 	}
 	PropOffsets_Inventory.AbsorptionPriority = cls->GetPropertyDataOffset("AbsorptionPriority");
@@ -631,7 +631,7 @@ static void InitPropertyOffsets_PlayerPawn(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "PlayerPawn"));
 	if (!cls)
 	{
-		memset(&PropOffsets_PlayerPawn, 0xff, sizeof(PropOffsets_PlayerPawn));
+		memset((void*)&PropOffsets_PlayerPawn, 0xff, sizeof(PropOffsets_PlayerPawn));
 		return;
 	}
 	PropOffsets_PlayerPawn.AdditionalViews = cls->GetPropertyDataOffset("AdditionalViews");
@@ -784,7 +784,7 @@ static void InitPropertyOffsets_PlayerReplicationInfo(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "PlayerReplicationInfo"));
 	if (!cls)
 	{
-		memset(&PropOffsets_PlayerReplicationInfo, 0xff, sizeof(PropOffsets_PlayerReplicationInfo));
+		memset((void*)&PropOffsets_PlayerReplicationInfo, 0xff, sizeof(PropOffsets_PlayerReplicationInfo));
 		return;
 	}
 	PropOffsets_PlayerReplicationInfo.Deaths = cls->GetPropertyDataOffset("Deaths");
@@ -819,7 +819,7 @@ static void InitPropertyOffsets_Weapon(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Weapon"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Weapon, 0xff, sizeof(PropOffsets_Weapon));
+		memset((void*)&PropOffsets_Weapon, 0xff, sizeof(PropOffsets_Weapon));
 		return;
 	}
 	PropOffsets_Weapon.AIRating = cls->GetPropertyDataOffset("AIRating");
@@ -893,7 +893,7 @@ static void InitPropertyOffsets_GameInfo(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "GameInfo"));
 	if (!cls)
 	{
-		memset(&PropOffsets_GameInfo, 0xff, sizeof(PropOffsets_GameInfo));
+		memset((void*)&PropOffsets_GameInfo, 0xff, sizeof(PropOffsets_GameInfo));
 		return;
 	}
 	PropOffsets_GameInfo.AdminPassword = cls->GetPropertyDataOffset("AdminPassword");
@@ -991,7 +991,7 @@ static void InitPropertyOffsets_ZoneInfo(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "ZoneInfo"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ZoneInfo, 0xff, sizeof(PropOffsets_ZoneInfo));
+		memset((void*)&PropOffsets_ZoneInfo, 0xff, sizeof(PropOffsets_ZoneInfo));
 		return;
 	}
 	PropOffsets_ZoneInfo.AmbientBrightness = cls->GetPropertyDataOffset("AmbientBrightness");
@@ -1057,7 +1057,7 @@ static void InitPropertyOffsets_Canvas(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Canvas"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Canvas, 0xff, sizeof(PropOffsets_Canvas));
+		memset((void*)&PropOffsets_Canvas, 0xff, sizeof(PropOffsets_Canvas));
 		return;
 	}
 	PropOffsets_Canvas.BigFont = cls->GetPropertyDataOffset("BigFont");
@@ -1093,7 +1093,7 @@ static void InitPropertyOffsets_SavedMove(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "SavedMove"));
 	if (!cls)
 	{
-		memset(&PropOffsets_SavedMove, 0xff, sizeof(PropOffsets_SavedMove));
+		memset((void*)&PropOffsets_SavedMove, 0xff, sizeof(PropOffsets_SavedMove));
 		return;
 	}
 	PropOffsets_SavedMove.Delta = cls->GetPropertyDataOffset("Delta");
@@ -1116,7 +1116,7 @@ static void InitPropertyOffsets_StatLog(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "StatLog"));
 	if (!cls)
 	{
-		memset(&PropOffsets_StatLog, 0xff, sizeof(PropOffsets_StatLog));
+		memset((void*)&PropOffsets_StatLog, 0xff, sizeof(PropOffsets_StatLog));
 		return;
 	}
 	PropOffsets_StatLog.Context = cls->GetPropertyDataOffset("Context");
@@ -1148,7 +1148,7 @@ static void InitPropertyOffsets_Texture(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Texture"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Texture, 0xff, sizeof(PropOffsets_Texture));
+		memset((void*)&PropOffsets_Texture, 0xff, sizeof(PropOffsets_Texture));
 		return;
 	}
 	PropOffsets_Texture.Accumulator = cls->GetPropertyDataOffset("Accumulator");
@@ -1220,7 +1220,7 @@ static void InitPropertyOffsets_Ammo(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Ammo"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Ammo, 0xff, sizeof(PropOffsets_Ammo));
+		memset((void*)&PropOffsets_Ammo, 0xff, sizeof(PropOffsets_Ammo));
 		return;
 	}
 	PropOffsets_Ammo.AmmoAmount = cls->GetPropertyDataOffset("AmmoAmount");
@@ -1237,7 +1237,7 @@ static void InitPropertyOffsets_NavigationPoint(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "NavigationPoint"));
 	if (!cls)
 	{
-		memset(&PropOffsets_NavigationPoint, 0xff, sizeof(PropOffsets_NavigationPoint));
+		memset((void*)&PropOffsets_NavigationPoint, 0xff, sizeof(PropOffsets_NavigationPoint));
 		return;
 	}
 	PropOffsets_NavigationPoint.ExtraCost = cls->GetPropertyDataOffset("ExtraCost");
@@ -1273,7 +1273,7 @@ static void InitPropertyOffsets_Mutator(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Mutator"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Mutator, 0xff, sizeof(PropOffsets_Mutator));
+		memset((void*)&PropOffsets_Mutator, 0xff, sizeof(PropOffsets_Mutator));
 		return;
 	}
 	PropOffsets_Mutator.DefaultWeapon = cls->GetPropertyDataOffset("DefaultWeapon");
@@ -1291,7 +1291,7 @@ static void InitPropertyOffsets_Mover(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Mover"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Mover, 0xff, sizeof(PropOffsets_Mover));
+		memset((void*)&PropOffsets_Mover, 0xff, sizeof(PropOffsets_Mover));
 		return;
 	}
 	PropOffsets_Mover.BasePos = cls->GetPropertyDataOffset("BasePos");
@@ -1360,7 +1360,7 @@ static void InitPropertyOffsets_HUD(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "HUD"));
 	if (!cls)
 	{
-		memset(&PropOffsets_HUD, 0xff, sizeof(PropOffsets_HUD));
+		memset((void*)&PropOffsets_HUD, 0xff, sizeof(PropOffsets_HUD));
 		return;
 	}
 	PropOffsets_HUD.Crosshair = cls->GetPropertyDataOffset("Crosshair");
@@ -1380,7 +1380,7 @@ static void InitPropertyOffsets_Decoration(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Decoration"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Decoration, 0xff, sizeof(PropOffsets_Decoration));
+		memset((void*)&PropOffsets_Decoration, 0xff, sizeof(PropOffsets_Decoration));
 		return;
 	}
 	PropOffsets_Decoration.EffectWhenDestroyed = cls->GetPropertyDataOffset("EffectWhenDestroyed");
@@ -1405,7 +1405,7 @@ static void InitPropertyOffsets_TestInfo(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "TestInfo"));
 	if (!cls)
 	{
-		memset(&PropOffsets_TestInfo, 0xff, sizeof(PropOffsets_TestInfo));
+		memset((void*)&PropOffsets_TestInfo, 0xff, sizeof(PropOffsets_TestInfo));
 		return;
 	}
 	PropOffsets_TestInfo.MyArray = cls->GetPropertyDataOffset("MyArray");
@@ -1431,7 +1431,7 @@ static void InitPropertyOffsets_GameReplicationInfo(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "GameReplicationInfo"));
 	if (!cls)
 	{
-		memset(&PropOffsets_GameReplicationInfo, 0xff, sizeof(PropOffsets_GameReplicationInfo));
+		memset((void*)&PropOffsets_GameReplicationInfo, 0xff, sizeof(PropOffsets_GameReplicationInfo));
 		return;
 	}
 	PropOffsets_GameReplicationInfo.AdminEmail = cls->GetPropertyDataOffset("AdminEmail");
@@ -1466,7 +1466,7 @@ static void InitPropertyOffsets_Menu(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Menu"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Menu, 0xff, sizeof(PropOffsets_Menu));
+		memset((void*)&PropOffsets_Menu, 0xff, sizeof(PropOffsets_Menu));
 		return;
 	}
 	PropOffsets_Menu.CenterString = cls->GetPropertyDataOffset("CenterString");
@@ -1494,7 +1494,7 @@ static void InitPropertyOffsets_LiftExit(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "LiftExit"));
 	if (!cls)
 	{
-		memset(&PropOffsets_LiftExit, 0xff, sizeof(PropOffsets_LiftExit));
+		memset((void*)&PropOffsets_LiftExit, 0xff, sizeof(PropOffsets_LiftExit));
 		return;
 	}
 	PropOffsets_LiftExit.LastTriggerTime = cls->GetPropertyDataOffset("LastTriggerTime");
@@ -1511,7 +1511,7 @@ static void InitPropertyOffsets_Trigger(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Trigger"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Trigger, 0xff, sizeof(PropOffsets_Trigger));
+		memset((void*)&PropOffsets_Trigger, 0xff, sizeof(PropOffsets_Trigger));
 		return;
 	}
 	PropOffsets_Trigger.ClassProximityType = cls->GetPropertyDataOffset("ClassProximityType");
@@ -1534,7 +1534,7 @@ static void InitPropertyOffsets_Player(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Player"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Player, 0xff, sizeof(PropOffsets_Player));
+		memset((void*)&PropOffsets_Player, 0xff, sizeof(PropOffsets_Player));
 		return;
 	}
 	PropOffsets_Player.Actor = cls->GetPropertyDataOffset("Actor");
@@ -1559,7 +1559,7 @@ static void InitPropertyOffsets_LocalMessage(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "LocalMessage"));
 	if (!cls)
 	{
-		memset(&PropOffsets_LocalMessage, 0xff, sizeof(PropOffsets_LocalMessage));
+		memset((void*)&PropOffsets_LocalMessage, 0xff, sizeof(PropOffsets_LocalMessage));
 		return;
 	}
 	PropOffsets_LocalMessage.ChildMessage = cls->GetPropertyDataOffset("ChildMessage");
@@ -1585,7 +1585,7 @@ static void InitPropertyOffsets_locationid(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "locationid"));
 	if (!cls)
 	{
-		memset(&PropOffsets_locationid, 0xff, sizeof(PropOffsets_locationid));
+		memset((void*)&PropOffsets_locationid, 0xff, sizeof(PropOffsets_locationid));
 		return;
 	}
 	PropOffsets_locationid.LocationName = cls->GetPropertyDataOffset("LocationName");
@@ -1600,7 +1600,7 @@ static void InitPropertyOffsets_Carcass(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Carcass"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Carcass, 0xff, sizeof(PropOffsets_Carcass));
+		memset((void*)&PropOffsets_Carcass, 0xff, sizeof(PropOffsets_Carcass));
 		return;
 	}
 	PropOffsets_Carcass.Bugs = cls->GetPropertyDataOffset("Bugs");
@@ -1621,7 +1621,7 @@ static void InitPropertyOffsets_InterpolationPoint(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "InterpolationPoint"));
 	if (!cls)
 	{
-		memset(&PropOffsets_InterpolationPoint, 0xff, sizeof(PropOffsets_InterpolationPoint));
+		memset((void*)&PropOffsets_InterpolationPoint, 0xff, sizeof(PropOffsets_InterpolationPoint));
 		return;
 	}
 	PropOffsets_InterpolationPoint.FovModifier = cls->GetPropertyDataOffset("FovModifier");
@@ -1643,7 +1643,7 @@ static void InitPropertyOffsets_Projectile(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Projectile"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Projectile, 0xff, sizeof(PropOffsets_Projectile));
+		memset((void*)&PropOffsets_Projectile, 0xff, sizeof(PropOffsets_Projectile));
 		return;
 	}
 	PropOffsets_Projectile.Damage = cls->GetPropertyDataOffset("Damage");
@@ -1665,7 +1665,7 @@ static void InitPropertyOffsets_Teleporter(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Teleporter"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Teleporter, 0xff, sizeof(PropOffsets_Teleporter));
+		memset((void*)&PropOffsets_Teleporter, 0xff, sizeof(PropOffsets_Teleporter));
 		return;
 	}
 	PropOffsets_Teleporter.LastFired = cls->GetPropertyDataOffset("LastFired");
@@ -1689,7 +1689,7 @@ static void InitPropertyOffsets_Palette(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Palette"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Palette, 0xff, sizeof(PropOffsets_Palette));
+		memset((void*)&PropOffsets_Palette, 0xff, sizeof(PropOffsets_Palette));
 		return;
 	}
 	PropOffsets_Palette.Colors = cls->GetPropertyDataOffset("Colors");
@@ -1702,7 +1702,7 @@ static void InitPropertyOffsets_SpawnNotify(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "SpawnNotify"));
 	if (!cls)
 	{
-		memset(&PropOffsets_SpawnNotify, 0xff, sizeof(PropOffsets_SpawnNotify));
+		memset((void*)&PropOffsets_SpawnNotify, 0xff, sizeof(PropOffsets_SpawnNotify));
 		return;
 	}
 	PropOffsets_SpawnNotify.ActorClass = cls->GetPropertyDataOffset("ActorClass");
@@ -1716,7 +1716,7 @@ static void InitPropertyOffsets_Fragment(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Fragment"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Fragment, 0xff, sizeof(PropOffsets_Fragment));
+		memset((void*)&PropOffsets_Fragment, 0xff, sizeof(PropOffsets_Fragment));
 		return;
 	}
 	PropOffsets_Fragment.Fragments = cls->GetPropertyDataOffset("Fragments");
@@ -1731,7 +1731,7 @@ static void InitPropertyOffsets_WarpZoneInfo(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "WarpZoneInfo"));
 	if (!cls)
 	{
-		memset(&PropOffsets_WarpZoneInfo, 0xff, sizeof(PropOffsets_WarpZoneInfo));
+		memset((void*)&PropOffsets_WarpZoneInfo, 0xff, sizeof(PropOffsets_WarpZoneInfo));
 		return;
 	}
 	PropOffsets_WarpZoneInfo.Destinations = cls->GetPropertyDataOffset("Destinations");
@@ -1752,7 +1752,7 @@ static void InitPropertyOffsets_Console(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Console"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Console, 0xff, sizeof(PropOffsets_Console));
+		memset((void*)&PropOffsets_Console, 0xff, sizeof(PropOffsets_Console));
 		return;
 	}
 	PropOffsets_Console.AvgText = cls->GetPropertyDataOffset("AvgText");
@@ -1821,7 +1821,7 @@ static void InitPropertyOffsets_PlayerStart(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "PlayerStart"));
 	if (!cls)
 	{
-		memset(&PropOffsets_PlayerStart, 0xff, sizeof(PropOffsets_PlayerStart));
+		memset((void*)&PropOffsets_PlayerStart, 0xff, sizeof(PropOffsets_PlayerStart));
 		return;
 	}
 	PropOffsets_PlayerStart.TeamNumber = cls->GetPropertyDataOffset("TeamNumber");
@@ -1837,7 +1837,7 @@ static void InitPropertyOffsets_Pickup(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Pickup"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Pickup, 0xff, sizeof(PropOffsets_Pickup));
+		memset((void*)&PropOffsets_Pickup, 0xff, sizeof(PropOffsets_Pickup));
 		return;
 	}
 	PropOffsets_Pickup.ExpireMessage = cls->GetPropertyDataOffset("ExpireMessage");
@@ -1855,7 +1855,7 @@ static void InitPropertyOffsets_Brush(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Brush"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Brush, 0xff, sizeof(PropOffsets_Brush));
+		memset((void*)&PropOffsets_Brush, 0xff, sizeof(PropOffsets_Brush));
 		return;
 	}
 	PropOffsets_Brush.BrushColor = cls->GetPropertyDataOffset("BrushColor");
@@ -1876,7 +1876,7 @@ static void InitPropertyOffsets_ScoreBoard(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "ScoreBoard"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ScoreBoard, 0xff, sizeof(PropOffsets_ScoreBoard));
+		memset((void*)&PropOffsets_ScoreBoard, 0xff, sizeof(PropOffsets_ScoreBoard));
 		return;
 	}
 	PropOffsets_ScoreBoard.OwnerHUD = cls->GetPropertyDataOffset("OwnerHUD");
@@ -1890,7 +1890,7 @@ static void InitPropertyOffsets_Spectator(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Spectator"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Spectator, 0xff, sizeof(PropOffsets_Spectator));
+		memset((void*)&PropOffsets_Spectator, 0xff, sizeof(PropOffsets_Spectator));
 		return;
 	}
 	PropOffsets_Spectator.bChaseCam = cls->GetPropertyDataOffset("bChaseCam");
@@ -1903,7 +1903,7 @@ static void InitPropertyOffsets_InventorySpot(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "InventorySpot"));
 	if (!cls)
 	{
-		memset(&PropOffsets_InventorySpot, 0xff, sizeof(PropOffsets_InventorySpot));
+		memset((void*)&PropOffsets_InventorySpot, 0xff, sizeof(PropOffsets_InventorySpot));
 		return;
 	}
 	PropOffsets_InventorySpot.markedItem = cls->GetPropertyDataOffset("markedItem");
@@ -1916,7 +1916,7 @@ static void InitPropertyOffsets_Decal(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Decal"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Decal, 0xff, sizeof(PropOffsets_Decal));
+		memset((void*)&PropOffsets_Decal, 0xff, sizeof(PropOffsets_Decal));
 		return;
 	}
 	PropOffsets_Decal.LastRenderedTime = cls->GetPropertyDataOffset("LastRenderedTime");
@@ -1931,7 +1931,7 @@ static void InitPropertyOffsets_PatrolPoint(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "PatrolPoint"));
 	if (!cls)
 	{
-		memset(&PropOffsets_PatrolPoint, 0xff, sizeof(PropOffsets_PatrolPoint));
+		memset((void*)&PropOffsets_PatrolPoint, 0xff, sizeof(PropOffsets_PatrolPoint));
 		return;
 	}
 	PropOffsets_PatrolPoint.AnimCount = cls->GetPropertyDataOffset("AnimCount");
@@ -1951,7 +1951,7 @@ static void InitPropertyOffsets_Counter(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Counter"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Counter, 0xff, sizeof(PropOffsets_Counter));
+		memset((void*)&PropOffsets_Counter, 0xff, sizeof(PropOffsets_Counter));
 		return;
 	}
 	PropOffsets_Counter.CompleteMessage = cls->GetPropertyDataOffset("CompleteMessage");
@@ -1968,7 +1968,7 @@ static void InitPropertyOffsets_Bitmap(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Bitmap"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Bitmap, 0xff, sizeof(PropOffsets_Bitmap));
+		memset((void*)&PropOffsets_Bitmap, 0xff, sizeof(PropOffsets_Bitmap));
 		return;
 	}
 	PropOffsets_Bitmap.Format = cls->GetPropertyDataOffset("Format");
@@ -1991,7 +1991,7 @@ static void InitPropertyOffsets_MapList(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "MapList"));
 	if (!cls)
 	{
-		memset(&PropOffsets_MapList, 0xff, sizeof(PropOffsets_MapList));
+		memset((void*)&PropOffsets_MapList, 0xff, sizeof(PropOffsets_MapList));
 		return;
 	}
 	PropOffsets_MapList.MapNum = cls->GetPropertyDataOffset("MapNum");
@@ -2005,7 +2005,7 @@ static void InitPropertyOffsets_Effects(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Effects"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Effects, 0xff, sizeof(PropOffsets_Effects));
+		memset((void*)&PropOffsets_Effects, 0xff, sizeof(PropOffsets_Effects));
 		return;
 	}
 	PropOffsets_Effects.EffectSound1 = cls->GetPropertyDataOffset("EffectSound1");
@@ -2020,7 +2020,7 @@ static void InitPropertyOffsets_StatLogFile(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "StatLogFile"));
 	if (!cls)
 	{
-		memset(&PropOffsets_StatLogFile, 0xff, sizeof(PropOffsets_StatLogFile));
+		memset((void*)&PropOffsets_StatLogFile, 0xff, sizeof(PropOffsets_StatLogFile));
 		return;
 	}
 	PropOffsets_StatLogFile.LogAr = cls->GetPropertyDataOffset("LogAr");
@@ -2036,7 +2036,7 @@ static void InitPropertyOffsets_LevelSummary(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "LevelSummary"));
 	if (!cls)
 	{
-		memset(&PropOffsets_LevelSummary, 0xff, sizeof(PropOffsets_LevelSummary));
+		memset((void*)&PropOffsets_LevelSummary, 0xff, sizeof(PropOffsets_LevelSummary));
 		return;
 	}
 	PropOffsets_LevelSummary.Author = cls->GetPropertyDataOffset("Author");
@@ -2054,7 +2054,7 @@ static void InitPropertyOffsets_ScriptedTexture(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "ScriptedTexture"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ScriptedTexture, 0xff, sizeof(PropOffsets_ScriptedTexture));
+		memset((void*)&PropOffsets_ScriptedTexture, 0xff, sizeof(PropOffsets_ScriptedTexture));
 		return;
 	}
 	PropOffsets_ScriptedTexture.Junk1 = cls->GetPropertyDataOffset("Junk1");
@@ -2072,7 +2072,7 @@ static void InitPropertyOffsets_Engine(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Engine"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Engine, 0xff, sizeof(PropOffsets_Engine));
+		memset((void*)&PropOffsets_Engine, 0xff, sizeof(PropOffsets_Engine));
 		return;
 	}
 	PropOffsets_Engine.Audio = cls->GetPropertyDataOffset("Audio");
@@ -2099,7 +2099,7 @@ static void InitPropertyOffsets_TriggerLight(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "TriggerLight"));
 	if (!cls)
 	{
-		memset(&PropOffsets_TriggerLight, 0xff, sizeof(PropOffsets_TriggerLight));
+		memset((void*)&PropOffsets_TriggerLight, 0xff, sizeof(PropOffsets_TriggerLight));
 		return;
 	}
 	PropOffsets_TriggerLight.Alpha = cls->GetPropertyDataOffset("Alpha");
@@ -2120,7 +2120,7 @@ static void InitPropertyOffsets_SpecialEvent(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "SpecialEvent"));
 	if (!cls)
 	{
-		memset(&PropOffsets_SpecialEvent, 0xff, sizeof(PropOffsets_SpecialEvent));
+		memset((void*)&PropOffsets_SpecialEvent, 0xff, sizeof(PropOffsets_SpecialEvent));
 		return;
 	}
 	PropOffsets_SpecialEvent.Damage = cls->GetPropertyDataOffset("Damage");
@@ -2139,7 +2139,7 @@ static void InitPropertyOffsets_RoundRobin(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "RoundRobin"));
 	if (!cls)
 	{
-		memset(&PropOffsets_RoundRobin, 0xff, sizeof(PropOffsets_RoundRobin));
+		memset((void*)&PropOffsets_RoundRobin, 0xff, sizeof(PropOffsets_RoundRobin));
 		return;
 	}
 	PropOffsets_RoundRobin.OutEvents = cls->GetPropertyDataOffset("OutEvents");
@@ -2154,7 +2154,7 @@ static void InitPropertyOffsets_MusicEvent(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "MusicEvent"));
 	if (!cls)
 	{
-		memset(&PropOffsets_MusicEvent, 0xff, sizeof(PropOffsets_MusicEvent));
+		memset((void*)&PropOffsets_MusicEvent, 0xff, sizeof(PropOffsets_MusicEvent));
 		return;
 	}
 	PropOffsets_MusicEvent.CdTrack = cls->GetPropertyDataOffset("CdTrack");
@@ -2173,7 +2173,7 @@ static void InitPropertyOffsets_HomeBase(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "HomeBase"));
 	if (!cls)
 	{
-		memset(&PropOffsets_HomeBase, 0xff, sizeof(PropOffsets_HomeBase));
+		memset((void*)&PropOffsets_HomeBase, 0xff, sizeof(PropOffsets_HomeBase));
 		return;
 	}
 	PropOffsets_HomeBase.Extent = cls->GetPropertyDataOffset("Extent");
@@ -2187,7 +2187,7 @@ static void InitPropertyOffsets_Dispatcher(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Dispatcher"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Dispatcher, 0xff, sizeof(PropOffsets_Dispatcher));
+		memset((void*)&PropOffsets_Dispatcher, 0xff, sizeof(PropOffsets_Dispatcher));
 		return;
 	}
 	PropOffsets_Dispatcher.OutDelays = cls->GetPropertyDataOffset("OutDelays");
@@ -2202,7 +2202,7 @@ static void InitPropertyOffsets_DemoRecSpectator(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "DemoRecSpectator"));
 	if (!cls)
 	{
-		memset(&PropOffsets_DemoRecSpectator, 0xff, sizeof(PropOffsets_DemoRecSpectator));
+		memset((void*)&PropOffsets_DemoRecSpectator, 0xff, sizeof(PropOffsets_DemoRecSpectator));
 		return;
 	}
 	PropOffsets_DemoRecSpectator.PlaybackActor = cls->GetPropertyDataOffset("PlaybackActor");
@@ -2216,7 +2216,7 @@ static void InitPropertyOffsets_DamageType(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "DamageType"));
 	if (!cls)
 	{
-		memset(&PropOffsets_DamageType, 0xff, sizeof(PropOffsets_DamageType));
+		memset((void*)&PropOffsets_DamageType, 0xff, sizeof(PropOffsets_DamageType));
 		return;
 	}
 	PropOffsets_DamageType.AltName = cls->GetPropertyDataOffset("AltName");
@@ -2233,7 +2233,7 @@ static void InitPropertyOffsets_Ambushpoint(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "Ambushpoint"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Ambushpoint, 0xff, sizeof(PropOffsets_Ambushpoint));
+		memset((void*)&PropOffsets_Ambushpoint, 0xff, sizeof(PropOffsets_Ambushpoint));
 		return;
 	}
 	PropOffsets_Ambushpoint.SightRadius = cls->GetPropertyDataOffset("SightRadius");
@@ -2249,7 +2249,7 @@ static void InitPropertyOffsets_WarpZoneMarker(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "WarpZoneMarker"));
 	if (!cls)
 	{
-		memset(&PropOffsets_WarpZoneMarker, 0xff, sizeof(PropOffsets_WarpZoneMarker));
+		memset((void*)&PropOffsets_WarpZoneMarker, 0xff, sizeof(PropOffsets_WarpZoneMarker));
 		return;
 	}
 	PropOffsets_WarpZoneMarker.TriggerActor = cls->GetPropertyDataOffset("TriggerActor");
@@ -2264,7 +2264,7 @@ static void InitPropertyOffsets_LiftCenter(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "LiftCenter"));
 	if (!cls)
 	{
-		memset(&PropOffsets_LiftCenter, 0xff, sizeof(PropOffsets_LiftCenter));
+		memset((void*)&PropOffsets_LiftCenter, 0xff, sizeof(PropOffsets_LiftCenter));
 		return;
 	}
 	PropOffsets_LiftCenter.LastTriggerTime = cls->GetPropertyDataOffset("LastTriggerTime");
@@ -2284,7 +2284,7 @@ static void InitPropertyOffsets_RenderIterator(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "RenderIterator"));
 	if (!cls)
 	{
-		memset(&PropOffsets_RenderIterator, 0xff, sizeof(PropOffsets_RenderIterator));
+		memset((void*)&PropOffsets_RenderIterator, 0xff, sizeof(PropOffsets_RenderIterator));
 		return;
 	}
 	PropOffsets_RenderIterator.Frame = cls->GetPropertyDataOffset("Frame");
@@ -2300,7 +2300,7 @@ static void InitPropertyOffsets_FractalTexture(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Fire")->GetUObject("Class", "FractalTexture"));
 	if (!cls)
 	{
-		memset(&PropOffsets_FractalTexture, 0xff, sizeof(PropOffsets_FractalTexture));
+		memset((void*)&PropOffsets_FractalTexture, 0xff, sizeof(PropOffsets_FractalTexture));
 		return;
 	}
 	PropOffsets_FractalTexture.AuxPhase = cls->GetPropertyDataOffset("AuxPhase");
@@ -2319,7 +2319,7 @@ static void InitPropertyOffsets_WaterTexture(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Fire")->GetUObject("Class", "WaterTexture"));
 	if (!cls)
 	{
-		memset(&PropOffsets_WaterTexture, 0xff, sizeof(PropOffsets_WaterTexture));
+		memset((void*)&PropOffsets_WaterTexture, 0xff, sizeof(PropOffsets_WaterTexture));
 		return;
 	}
 	PropOffsets_WaterTexture.DropType = cls->GetPropertyDataOffset("DropType");
@@ -2348,7 +2348,7 @@ static void InitPropertyOffsets_WaveTexture(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Fire")->GetUObject("Class", "WaveTexture"));
 	if (!cls)
 	{
-		memset(&PropOffsets_WaveTexture, 0xff, sizeof(PropOffsets_WaveTexture));
+		memset((void*)&PropOffsets_WaveTexture, 0xff, sizeof(PropOffsets_WaveTexture));
 		return;
 	}
 	PropOffsets_WaveTexture.BumpMapAngle = cls->GetPropertyDataOffset("BumpMapAngle");
@@ -2364,7 +2364,7 @@ static void InitPropertyOffsets_FireTexture(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Fire")->GetUObject("Class", "FireTexture"));
 	if (!cls)
 	{
-		memset(&PropOffsets_FireTexture, 0xff, sizeof(PropOffsets_FireTexture));
+		memset((void*)&PropOffsets_FireTexture, 0xff, sizeof(PropOffsets_FireTexture));
 		return;
 	}
 	PropOffsets_FireTexture.DrawMode = cls->GetPropertyDataOffset("DrawMode");
@@ -2396,7 +2396,7 @@ static void InitPropertyOffsets_WetTexture(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Fire")->GetUObject("Class", "WetTexture"));
 	if (!cls)
 	{
-		memset(&PropOffsets_WetTexture, 0xff, sizeof(PropOffsets_WetTexture));
+		memset((void*)&PropOffsets_WetTexture, 0xff, sizeof(PropOffsets_WetTexture));
 		return;
 	}
 	PropOffsets_WetTexture.LocalSourceBitmap = cls->GetPropertyDataOffset("LocalSourceBitmap");
@@ -2411,7 +2411,7 @@ static void InitPropertyOffsets_IceTexture(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Fire")->GetUObject("Class", "IceTexture"));
 	if (!cls)
 	{
-		memset(&PropOffsets_IceTexture, 0xff, sizeof(PropOffsets_IceTexture));
+		memset((void*)&PropOffsets_IceTexture, 0xff, sizeof(PropOffsets_IceTexture));
 		return;
 	}
 	PropOffsets_IceTexture.Amplitude = cls->GetPropertyDataOffset("Amplitude");
@@ -2444,7 +2444,7 @@ static void InitPropertyOffsets_InternetLink(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("IpDrv")->GetUObject("Class", "InternetLink"));
 	if (!cls)
 	{
-		memset(&PropOffsets_InternetLink, 0xff, sizeof(PropOffsets_InternetLink));
+		memset((void*)&PropOffsets_InternetLink, 0xff, sizeof(PropOffsets_InternetLink));
 		return;
 	}
 	PropOffsets_InternetLink.DataPending = cls->GetPropertyDataOffset("DataPending");
@@ -2463,7 +2463,7 @@ static void InitPropertyOffsets_UdpLink(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("IpDrv")->GetUObject("Class", "UdpLink"));
 	if (!cls)
 	{
-		memset(&PropOffsets_UdpLink, 0xff, sizeof(PropOffsets_UdpLink));
+		memset((void*)&PropOffsets_UdpLink, 0xff, sizeof(PropOffsets_UdpLink));
 		return;
 	}
 	PropOffsets_UdpLink.BroadcastAddr = cls->GetPropertyDataOffset("BroadcastAddr");
@@ -2476,7 +2476,7 @@ static void InitPropertyOffsets_TcpLink(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("IpDrv")->GetUObject("Class", "TcpLink"));
 	if (!cls)
 	{
-		memset(&PropOffsets_TcpLink, 0xff, sizeof(PropOffsets_TcpLink));
+		memset((void*)&PropOffsets_TcpLink, 0xff, sizeof(PropOffsets_TcpLink));
 		return;
 	}
 	PropOffsets_TcpLink.AcceptClass = cls->GetPropertyDataOffset("AcceptClass");
@@ -2495,7 +2495,7 @@ static void InitPropertyOffsets_ConEvent(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEvent"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEvent, 0xff, sizeof(PropOffsets_ConEvent));
+		memset((void*)&PropOffsets_ConEvent, 0xff, sizeof(PropOffsets_ConEvent));
 		return;
 	}
 	PropOffsets_ConEvent.Conversation = cls->GetPropertyDataOffset("Conversation");
@@ -2511,7 +2511,7 @@ static void InitPropertyOffsets_ConEventRandomLabel(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventRandomLabel"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventRandomLabel, 0xff, sizeof(PropOffsets_ConEventRandomLabel));
+		memset((void*)&PropOffsets_ConEventRandomLabel, 0xff, sizeof(PropOffsets_ConEventRandomLabel));
 		return;
 	}
 	PropOffsets_ConEventRandomLabel.bCycleEvents = cls->GetPropertyDataOffset("bCycleEvents");
@@ -2529,7 +2529,7 @@ static void InitPropertyOffsets_Conversation(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "Conversation"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Conversation, 0xff, sizeof(PropOffsets_Conversation));
+		memset((void*)&PropOffsets_Conversation, 0xff, sizeof(PropOffsets_Conversation));
 		return;
 	}
 	PropOffsets_Conversation.CreatedBy = cls->GetPropertyDataOffset("CreatedBy");
@@ -2564,7 +2564,7 @@ static void InitPropertyOffsets_DeusExDecoration(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusEx")->GetUObject("Class", "DeusExDecoration"));
 	if (!cls)
 	{
-		memset(&PropOffsets_DeusExDecoration, 0xff, sizeof(PropOffsets_DeusExDecoration));
+		memset((void*)&PropOffsets_DeusExDecoration, 0xff, sizeof(PropOffsets_DeusExDecoration));
 		return;
 	}
 	PropOffsets_DeusExDecoration.Flammability = cls->GetPropertyDataOffset("Flammability");
@@ -2599,7 +2599,7 @@ static void InitPropertyOffsets_DeusExPlayer(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusEx")->GetUObject("Class", "DeusExPlayer"));
 	if (!cls)
 	{
-		memset(&PropOffsets_DeusExPlayer, 0xff, sizeof(PropOffsets_DeusExPlayer));
+		memset((void*)&PropOffsets_DeusExPlayer, 0xff, sizeof(PropOffsets_DeusExPlayer));
 		return;
 	}
 	PropOffsets_DeusExPlayer.ActiveComputer = cls->GetPropertyDataOffset("ActiveComputer");
@@ -2791,7 +2791,7 @@ static void InitPropertyOffsets_DeusExSaveInfo(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusEx")->GetUObject("Class", "DeusExSaveInfo"));
 	if (!cls)
 	{
-		memset(&PropOffsets_DeusExSaveInfo, 0xff, sizeof(PropOffsets_DeusExSaveInfo));
+		memset((void*)&PropOffsets_DeusExSaveInfo, 0xff, sizeof(PropOffsets_DeusExSaveInfo));
 		return;
 	}
 	PropOffsets_DeusExSaveInfo.Day = cls->GetPropertyDataOffset("Day");
@@ -2817,7 +2817,7 @@ static void InitPropertyOffsets_DumpLocation(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusEx")->GetUObject("Class", "DumpLocation"));
 	if (!cls)
 	{
-		memset(&PropOffsets_DumpLocation, 0xff, sizeof(PropOffsets_DumpLocation));
+		memset((void*)&PropOffsets_DumpLocation, 0xff, sizeof(PropOffsets_DumpLocation));
 		return;
 	}
 	PropOffsets_DumpLocation.Player = cls->GetPropertyDataOffset("Player");
@@ -2838,7 +2838,7 @@ static void InitPropertyOffsets_GameDirectory(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusEx")->GetUObject("Class", "GameDirectory"));
 	if (!cls)
 	{
-		memset(&PropOffsets_GameDirectory, 0xff, sizeof(PropOffsets_GameDirectory));
+		memset((void*)&PropOffsets_GameDirectory, 0xff, sizeof(PropOffsets_GameDirectory));
 		return;
 	}
 	PropOffsets_GameDirectory.currentFilter = cls->GetPropertyDataOffset("currentFilter");
@@ -2855,7 +2855,7 @@ static void InitPropertyOffsets_ParticleIterator(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusEx")->GetUObject("Class", "ParticleIterator"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ParticleIterator, 0xff, sizeof(PropOffsets_ParticleIterator));
+		memset((void*)&PropOffsets_ParticleIterator, 0xff, sizeof(PropOffsets_ParticleIterator));
 		return;
 	}
 	PropOffsets_ParticleIterator.OwnerDrawScale = cls->GetPropertyDataOffset("OwnerDrawScale");
@@ -2877,7 +2877,7 @@ static void InitPropertyOffsets_ScriptedPawn(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusEx")->GetUObject("Class", "ScriptedPawn"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ScriptedPawn, 0xff, sizeof(PropOffsets_ScriptedPawn));
+		memset((void*)&PropOffsets_ScriptedPawn, 0xff, sizeof(PropOffsets_ScriptedPawn));
 		return;
 	}
 	PropOffsets_ScriptedPawn.ActorAvoiding = cls->GetPropertyDataOffset("ActorAvoiding");
@@ -3124,7 +3124,7 @@ static void InitPropertyOffsets_DeusExTextParser(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusExText")->GetUObject("Class", "DeusExTextParser"));
 	if (!cls)
 	{
-		memset(&PropOffsets_DeusExTextParser, 0xff, sizeof(PropOffsets_DeusExTextParser));
+		memset((void*)&PropOffsets_DeusExTextParser, 0xff, sizeof(PropOffsets_DeusExTextParser));
 		return;
 	}
 	PropOffsets_DeusExTextParser.DefaultColor = cls->GetPropertyDataOffset("DefaultColor");
@@ -3154,7 +3154,7 @@ static void InitPropertyOffsets_BorderWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "BorderWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_BorderWindow, 0xff, sizeof(PropOffsets_BorderWindow));
+		memset((void*)&PropOffsets_BorderWindow, 0xff, sizeof(PropOffsets_BorderWindow));
 		return;
 	}
 	PropOffsets_BorderWindow.BottomMargin = cls->GetPropertyDataOffset("BottomMargin");
@@ -3203,7 +3203,7 @@ static void InitPropertyOffsets_ButtonWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "ButtonWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ButtonWindow, 0xff, sizeof(PropOffsets_ButtonWindow));
+		memset((void*)&PropOffsets_ButtonWindow, 0xff, sizeof(PropOffsets_ButtonWindow));
 		return;
 	}
 	PropOffsets_ButtonWindow.Info = cls->GetPropertyDataOffset("Info");
@@ -3231,7 +3231,7 @@ static void InitPropertyOffsets_CheckboxWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "CheckboxWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_CheckboxWindow, 0xff, sizeof(PropOffsets_CheckboxWindow));
+		memset((void*)&PropOffsets_CheckboxWindow, 0xff, sizeof(PropOffsets_CheckboxWindow));
 		return;
 	}
 	PropOffsets_CheckboxWindow.bRightSide = cls->GetPropertyDataOffset("bRightSide");
@@ -3251,7 +3251,7 @@ static void InitPropertyOffsets_ClipWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "ClipWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ClipWindow, 0xff, sizeof(PropOffsets_ClipWindow));
+		memset((void*)&PropOffsets_ClipWindow, 0xff, sizeof(PropOffsets_ClipWindow));
 		return;
 	}
 	PropOffsets_ClipWindow.areaHSize = cls->GetPropertyDataOffset("areaHSize");
@@ -3277,7 +3277,7 @@ static void InitPropertyOffsets_ComputerWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "ComputerWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ComputerWindow, 0xff, sizeof(PropOffsets_ComputerWindow));
+		memset((void*)&PropOffsets_ComputerWindow, 0xff, sizeof(PropOffsets_ComputerWindow));
 		return;
 	}
 	PropOffsets_ComputerWindow.FontColor = cls->GetPropertyDataOffset("FontColor");
@@ -3337,7 +3337,7 @@ static void InitPropertyOffsets_EditWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "EditWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_EditWindow, 0xff, sizeof(PropOffsets_EditWindow));
+		memset((void*)&PropOffsets_EditWindow, 0xff, sizeof(PropOffsets_EditWindow));
 		return;
 	}
 	PropOffsets_EditWindow.bCursorShowing = cls->GetPropertyDataOffset("bCursorShowing");
@@ -3398,7 +3398,7 @@ static void InitPropertyOffsets_ExtString(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "ExtString"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ExtString, 0xff, sizeof(PropOffsets_ExtString));
+		memset((void*)&PropOffsets_ExtString, 0xff, sizeof(PropOffsets_ExtString));
 		return;
 	}
 	PropOffsets_ExtString.Text = cls->GetPropertyDataOffset("Text");
@@ -3412,7 +3412,7 @@ static void InitPropertyOffsets_ExtensionObject(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "ExtensionObject"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ExtensionObject, 0xff, sizeof(PropOffsets_ExtensionObject));
+		memset((void*)&PropOffsets_ExtensionObject, 0xff, sizeof(PropOffsets_ExtensionObject));
 		return;
 	}
 }
@@ -3424,7 +3424,7 @@ static void InitPropertyOffsets_FlagBase(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "FlagBase"));
 	if (!cls)
 	{
-		memset(&PropOffsets_FlagBase, 0xff, sizeof(PropOffsets_FlagBase));
+		memset((void*)&PropOffsets_FlagBase, 0xff, sizeof(PropOffsets_FlagBase));
 		return;
 	}
 	PropOffsets_FlagBase.defaultFlagExpiration = cls->GetPropertyDataOffset("defaultFlagExpiration");
@@ -3438,7 +3438,7 @@ static void InitPropertyOffsets_GC(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "GC"));
 	if (!cls)
 	{
-		memset(&PropOffsets_GC, 0xff, sizeof(PropOffsets_GC));
+		memset((void*)&PropOffsets_GC, 0xff, sizeof(PropOffsets_GC));
 		return;
 	}
 	PropOffsets_GC.Canvas = cls->GetPropertyDataOffset("Canvas");
@@ -3482,7 +3482,7 @@ static void InitPropertyOffsets_LargeTextWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "LargeTextWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_LargeTextWindow, 0xff, sizeof(PropOffsets_LargeTextWindow));
+		memset((void*)&PropOffsets_LargeTextWindow, 0xff, sizeof(PropOffsets_LargeTextWindow));
 		return;
 	}
 	PropOffsets_LargeTextWindow.lineHeight = cls->GetPropertyDataOffset("lineHeight");
@@ -3501,7 +3501,7 @@ static void InitPropertyOffsets_ListWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "ListWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ListWindow, 0xff, sizeof(PropOffsets_ListWindow));
+		memset((void*)&PropOffsets_ListWindow, 0xff, sizeof(PropOffsets_ListWindow));
 		return;
 	}
 	PropOffsets_ListWindow.ActivateSound = cls->GetPropertyDataOffset("ActivateSound");
@@ -3540,7 +3540,7 @@ static void InitPropertyOffsets_ModalWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "ModalWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ModalWindow, 0xff, sizeof(PropOffsets_ModalWindow));
+		memset((void*)&PropOffsets_ModalWindow, 0xff, sizeof(PropOffsets_ModalWindow));
 		return;
 	}
 	PropOffsets_ModalWindow.acceleratorTable = cls->GetPropertyDataOffset("acceleratorTable");
@@ -3557,7 +3557,7 @@ static void InitPropertyOffsets_PlayerPawnExt(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "PlayerPawnExt"));
 	if (!cls)
 	{
-		memset(&PropOffsets_PlayerPawnExt, 0xff, sizeof(PropOffsets_PlayerPawnExt));
+		memset((void*)&PropOffsets_PlayerPawnExt, 0xff, sizeof(PropOffsets_PlayerPawnExt));
 		return;
 	}
 	PropOffsets_PlayerPawnExt.FlagBase = cls->GetPropertyDataOffset("FlagBase");
@@ -3573,7 +3573,7 @@ static void InitPropertyOffsets_RadioBoxWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "RadioBoxWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_RadioBoxWindow, 0xff, sizeof(PropOffsets_RadioBoxWindow));
+		memset((void*)&PropOffsets_RadioBoxWindow, 0xff, sizeof(PropOffsets_RadioBoxWindow));
 		return;
 	}
 	PropOffsets_RadioBoxWindow.bOneCheck = cls->GetPropertyDataOffset("bOneCheck");
@@ -3588,7 +3588,7 @@ static void InitPropertyOffsets_RootWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "RootWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_RootWindow, 0xff, sizeof(PropOffsets_RootWindow));
+		memset((void*)&PropOffsets_RootWindow, 0xff, sizeof(PropOffsets_RootWindow));
 		return;
 	}
 	PropOffsets_RootWindow.DefaultMoveCursor = cls->GetPropertyDataOffset("DefaultMoveCursor");
@@ -3654,7 +3654,7 @@ static void InitPropertyOffsets_ScaleManagerWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "ScaleManagerWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ScaleManagerWindow, 0xff, sizeof(PropOffsets_ScaleManagerWindow));
+		memset((void*)&PropOffsets_ScaleManagerWindow, 0xff, sizeof(PropOffsets_ScaleManagerWindow));
 		return;
 	}
 	PropOffsets_ScaleManagerWindow.Scale = cls->GetPropertyDataOffset("Scale");
@@ -3678,7 +3678,7 @@ static void InitPropertyOffsets_ScaleWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "ScaleWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ScaleWindow, 0xff, sizeof(PropOffsets_ScaleWindow));
+		memset((void*)&PropOffsets_ScaleWindow, 0xff, sizeof(PropOffsets_ScaleWindow));
 		return;
 	}
 	PropOffsets_ScaleWindow.RemainingTime = cls->GetPropertyDataOffset("RemainingTime");
@@ -3766,7 +3766,7 @@ static void InitPropertyOffsets_ScrollAreaWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "ScrollAreaWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ScrollAreaWindow, 0xff, sizeof(PropOffsets_ScrollAreaWindow));
+		memset((void*)&PropOffsets_ScrollAreaWindow, 0xff, sizeof(PropOffsets_ScrollAreaWindow));
 		return;
 	}
 	PropOffsets_ScrollAreaWindow.ClipWindow = cls->GetPropertyDataOffset("ClipWindow");
@@ -3793,7 +3793,7 @@ static void InitPropertyOffsets_TextLogWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "TextLogWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_TextLogWindow, 0xff, sizeof(PropOffsets_TextLogWindow));
+		memset((void*)&PropOffsets_TextLogWindow, 0xff, sizeof(PropOffsets_TextLogWindow));
 		return;
 	}
 	PropOffsets_TextLogWindow.Lines = cls->GetPropertyDataOffset("Lines");
@@ -3809,7 +3809,7 @@ static void InitPropertyOffsets_TextWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "TextWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_TextWindow, 0xff, sizeof(PropOffsets_TextWindow));
+		memset((void*)&PropOffsets_TextWindow, 0xff, sizeof(PropOffsets_TextWindow));
 		return;
 	}
 	PropOffsets_TextWindow.HAlign = cls->GetPropertyDataOffset("HAlign");
@@ -3831,7 +3831,7 @@ static void InitPropertyOffsets_TileWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "TileWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_TileWindow, 0xff, sizeof(PropOffsets_TileWindow));
+		memset((void*)&PropOffsets_TileWindow, 0xff, sizeof(PropOffsets_TileWindow));
 		return;
 	}
 	PropOffsets_TileWindow.bEqualHeight = cls->GetPropertyDataOffset("bEqualHeight");
@@ -3857,7 +3857,7 @@ static void InitPropertyOffsets_ToggleWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "ToggleWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ToggleWindow, 0xff, sizeof(PropOffsets_ToggleWindow));
+		memset((void*)&PropOffsets_ToggleWindow, 0xff, sizeof(PropOffsets_ToggleWindow));
 		return;
 	}
 	PropOffsets_ToggleWindow.disableSound = cls->GetPropertyDataOffset("disableSound");
@@ -3871,7 +3871,7 @@ static void InitPropertyOffsets_ViewportWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "ViewportWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ViewportWindow, 0xff, sizeof(PropOffsets_ViewportWindow));
+		memset((void*)&PropOffsets_ViewportWindow, 0xff, sizeof(PropOffsets_ViewportWindow));
 		return;
 	}
 	PropOffsets_ViewportWindow.DefaultColor = cls->GetPropertyDataOffset("DefaultColor");
@@ -3903,7 +3903,7 @@ static void InitPropertyOffsets_Window(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "Window"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Window, 0xff, sizeof(PropOffsets_Window));
+		memset((void*)&PropOffsets_Window, 0xff, sizeof(PropOffsets_Window));
 		return;
 	}
 	PropOffsets_Window.Background = cls->GetPropertyDataOffset("Background");
@@ -3989,7 +3989,7 @@ static void InitPropertyOffsets_ConCamera(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConCamera"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConCamera, 0xff, sizeof(PropOffsets_ConCamera));
+		memset((void*)&PropOffsets_ConCamera, 0xff, sizeof(PropOffsets_ConCamera));
 		return;
 	}
 	PropOffsets_ConCamera.Rotation = cls->GetPropertyDataOffset("Rotation");
@@ -4030,7 +4030,7 @@ static void InitPropertyOffsets_ConChoice(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConChoice"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConChoice, 0xff, sizeof(PropOffsets_ConChoice));
+		memset((void*)&PropOffsets_ConChoice, 0xff, sizeof(PropOffsets_ConChoice));
 		return;
 	}
 	PropOffsets_ConChoice.bDisplayAsSpeech = cls->GetPropertyDataOffset("bDisplayAsSpeech");
@@ -4050,7 +4050,7 @@ static void InitPropertyOffsets_ConEventAddCredits(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventAddCredits"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventAddCredits, 0xff, sizeof(PropOffsets_ConEventAddCredits));
+		memset((void*)&PropOffsets_ConEventAddCredits, 0xff, sizeof(PropOffsets_ConEventAddCredits));
 		return;
 	}
 	PropOffsets_ConEventAddCredits.creditsToAdd = cls->GetPropertyDataOffset("creditsToAdd");
@@ -4063,7 +4063,7 @@ static void InitPropertyOffsets_ConEventAddGoal(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventAddGoal"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventAddGoal, 0xff, sizeof(PropOffsets_ConEventAddGoal));
+		memset((void*)&PropOffsets_ConEventAddGoal, 0xff, sizeof(PropOffsets_ConEventAddGoal));
 		return;
 	}
 	PropOffsets_ConEventAddGoal.bGoalCompleted = cls->GetPropertyDataOffset("bGoalCompleted");
@@ -4079,7 +4079,7 @@ static void InitPropertyOffsets_ConEventAddNote(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventAddNote"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventAddNote, 0xff, sizeof(PropOffsets_ConEventAddNote));
+		memset((void*)&PropOffsets_ConEventAddNote, 0xff, sizeof(PropOffsets_ConEventAddNote));
 		return;
 	}
 	PropOffsets_ConEventAddNote.bNoteAdded = cls->GetPropertyDataOffset("bNoteAdded");
@@ -4093,7 +4093,7 @@ static void InitPropertyOffsets_ConEventAddSkillPoints(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventAddSkillPoints"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventAddSkillPoints, 0xff, sizeof(PropOffsets_ConEventAddSkillPoints));
+		memset((void*)&PropOffsets_ConEventAddSkillPoints, 0xff, sizeof(PropOffsets_ConEventAddSkillPoints));
 		return;
 	}
 	PropOffsets_ConEventAddSkillPoints.awardMessage = cls->GetPropertyDataOffset("awardMessage");
@@ -4107,7 +4107,7 @@ static void InitPropertyOffsets_ConEventAnimation(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventAnimation"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventAnimation, 0xff, sizeof(PropOffsets_ConEventAnimation));
+		memset((void*)&PropOffsets_ConEventAnimation, 0xff, sizeof(PropOffsets_ConEventAnimation));
 		return;
 	}
 	PropOffsets_ConEventAnimation.Sequence = cls->GetPropertyDataOffset("Sequence");
@@ -4124,7 +4124,7 @@ static void InitPropertyOffsets_ConEventCheckFlag(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventCheckFlag"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventCheckFlag, 0xff, sizeof(PropOffsets_ConEventCheckFlag));
+		memset((void*)&PropOffsets_ConEventCheckFlag, 0xff, sizeof(PropOffsets_ConEventCheckFlag));
 		return;
 	}
 	PropOffsets_ConEventCheckFlag.flagRef = cls->GetPropertyDataOffset("flagRef");
@@ -4138,7 +4138,7 @@ static void InitPropertyOffsets_ConEventCheckObject(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventCheckObject"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventCheckObject, 0xff, sizeof(PropOffsets_ConEventCheckObject));
+		memset((void*)&PropOffsets_ConEventCheckObject, 0xff, sizeof(PropOffsets_ConEventCheckObject));
 		return;
 	}
 	PropOffsets_ConEventCheckObject.ObjectName = cls->GetPropertyDataOffset("ObjectName");
@@ -4153,7 +4153,7 @@ static void InitPropertyOffsets_ConEventCheckPersona(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventCheckPersona"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventCheckPersona, 0xff, sizeof(PropOffsets_ConEventCheckPersona));
+		memset((void*)&PropOffsets_ConEventCheckPersona, 0xff, sizeof(PropOffsets_ConEventCheckPersona));
 		return;
 	}
 	PropOffsets_ConEventCheckPersona.Value = cls->GetPropertyDataOffset("Value");
@@ -4169,7 +4169,7 @@ static void InitPropertyOffsets_ConEventChoice(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventChoice"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventChoice, 0xff, sizeof(PropOffsets_ConEventChoice));
+		memset((void*)&PropOffsets_ConEventChoice, 0xff, sizeof(PropOffsets_ConEventChoice));
 		return;
 	}
 	PropOffsets_ConEventChoice.ChoiceList = cls->GetPropertyDataOffset("ChoiceList");
@@ -4183,7 +4183,7 @@ static void InitPropertyOffsets_ConEventComment(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventComment"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventComment, 0xff, sizeof(PropOffsets_ConEventComment));
+		memset((void*)&PropOffsets_ConEventComment, 0xff, sizeof(PropOffsets_ConEventComment));
 		return;
 	}
 	PropOffsets_ConEventComment.commentText = cls->GetPropertyDataOffset("commentText");
@@ -4196,7 +4196,7 @@ static void InitPropertyOffsets_ConEventJump(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventJump"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventJump, 0xff, sizeof(PropOffsets_ConEventJump));
+		memset((void*)&PropOffsets_ConEventJump, 0xff, sizeof(PropOffsets_ConEventJump));
 		return;
 	}
 	PropOffsets_ConEventJump.conID = cls->GetPropertyDataOffset("conID");
@@ -4211,7 +4211,7 @@ static void InitPropertyOffsets_ConEventMoveCamera(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventMoveCamera"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventMoveCamera, 0xff, sizeof(PropOffsets_ConEventMoveCamera));
+		memset((void*)&PropOffsets_ConEventMoveCamera, 0xff, sizeof(PropOffsets_ConEventMoveCamera));
 		return;
 	}
 	PropOffsets_ConEventMoveCamera.Rotation = cls->GetPropertyDataOffset("Rotation");
@@ -4233,7 +4233,7 @@ static void InitPropertyOffsets_ConEventSetFlag(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventSetFlag"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventSetFlag, 0xff, sizeof(PropOffsets_ConEventSetFlag));
+		memset((void*)&PropOffsets_ConEventSetFlag, 0xff, sizeof(PropOffsets_ConEventSetFlag));
 		return;
 	}
 	PropOffsets_ConEventSetFlag.flagRef = cls->GetPropertyDataOffset("flagRef");
@@ -4246,7 +4246,7 @@ static void InitPropertyOffsets_ConEventSpeech(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventSpeech"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventSpeech, 0xff, sizeof(PropOffsets_ConEventSpeech));
+		memset((void*)&PropOffsets_ConEventSpeech, 0xff, sizeof(PropOffsets_ConEventSpeech));
 		return;
 	}
 	PropOffsets_ConEventSpeech.ConSpeech = cls->GetPropertyDataOffset("ConSpeech");
@@ -4266,7 +4266,7 @@ static void InitPropertyOffsets_ConEventTrade(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventTrade"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventTrade, 0xff, sizeof(PropOffsets_ConEventTrade));
+		memset((void*)&PropOffsets_ConEventTrade, 0xff, sizeof(PropOffsets_ConEventTrade));
 		return;
 	}
 	PropOffsets_ConEventTrade.eventOwner = cls->GetPropertyDataOffset("eventOwner");
@@ -4280,7 +4280,7 @@ static void InitPropertyOffsets_ConEventTransferObject(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventTransferObject"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventTransferObject, 0xff, sizeof(PropOffsets_ConEventTransferObject));
+		memset((void*)&PropOffsets_ConEventTransferObject, 0xff, sizeof(PropOffsets_ConEventTransferObject));
 		return;
 	}
 	PropOffsets_ConEventTransferObject.ObjectName = cls->GetPropertyDataOffset("ObjectName");
@@ -4300,7 +4300,7 @@ static void InitPropertyOffsets_ConEventTrigger(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConEventTrigger"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConEventTrigger, 0xff, sizeof(PropOffsets_ConEventTrigger));
+		memset((void*)&PropOffsets_ConEventTrigger, 0xff, sizeof(PropOffsets_ConEventTrigger));
 		return;
 	}
 	PropOffsets_ConEventTrigger.triggerTag = cls->GetPropertyDataOffset("triggerTag");
@@ -4313,7 +4313,7 @@ static void InitPropertyOffsets_ConFlagRef(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConFlagRef"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConFlagRef, 0xff, sizeof(PropOffsets_ConFlagRef));
+		memset((void*)&PropOffsets_ConFlagRef, 0xff, sizeof(PropOffsets_ConFlagRef));
 		return;
 	}
 	PropOffsets_ConFlagRef.FlagName = cls->GetPropertyDataOffset("FlagName");
@@ -4329,7 +4329,7 @@ static void InitPropertyOffsets_ConHistory(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConHistory"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConHistory, 0xff, sizeof(PropOffsets_ConHistory));
+		memset((void*)&PropOffsets_ConHistory, 0xff, sizeof(PropOffsets_ConHistory));
 		return;
 	}
 	PropOffsets_ConHistory.Next = cls->GetPropertyDataOffset("Next");
@@ -4348,7 +4348,7 @@ static void InitPropertyOffsets_ConHistoryEvent(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConHistoryEvent"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConHistoryEvent, 0xff, sizeof(PropOffsets_ConHistoryEvent));
+		memset((void*)&PropOffsets_ConHistoryEvent, 0xff, sizeof(PropOffsets_ConHistoryEvent));
 		return;
 	}
 	PropOffsets_ConHistoryEvent.Next = cls->GetPropertyDataOffset("Next");
@@ -4364,7 +4364,7 @@ static void InitPropertyOffsets_ConItem(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConItem"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConItem, 0xff, sizeof(PropOffsets_ConItem));
+		memset((void*)&PropOffsets_ConItem, 0xff, sizeof(PropOffsets_ConItem));
 		return;
 	}
 	PropOffsets_ConItem.ConObject = cls->GetPropertyDataOffset("ConObject");
@@ -4378,7 +4378,7 @@ static void InitPropertyOffsets_ConListItem(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConListItem"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConListItem, 0xff, sizeof(PropOffsets_ConListItem));
+		memset((void*)&PropOffsets_ConListItem, 0xff, sizeof(PropOffsets_ConListItem));
 		return;
 	}
 	PropOffsets_ConListItem.Next = cls->GetPropertyDataOffset("Next");
@@ -4392,7 +4392,7 @@ static void InitPropertyOffsets_ConSpeech(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConSpeech"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConSpeech, 0xff, sizeof(PropOffsets_ConSpeech));
+		memset((void*)&PropOffsets_ConSpeech, 0xff, sizeof(PropOffsets_ConSpeech));
 		return;
 	}
 	PropOffsets_ConSpeech.Speech = cls->GetPropertyDataOffset("Speech");
@@ -4406,7 +4406,7 @@ static void InitPropertyOffsets_ConversationList(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConversationList"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConversationList, 0xff, sizeof(PropOffsets_ConversationList));
+		memset((void*)&PropOffsets_ConversationList, 0xff, sizeof(PropOffsets_ConversationList));
 		return;
 	}
 	PropOffsets_ConversationList.conversations = cls->GetPropertyDataOffset("conversations");
@@ -4421,7 +4421,7 @@ static void InitPropertyOffsets_ConversationMissionList(PackageManager* packages
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConversationMissionList"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConversationMissionList, 0xff, sizeof(PropOffsets_ConversationMissionList));
+		memset((void*)&PropOffsets_ConversationMissionList, 0xff, sizeof(PropOffsets_ConversationMissionList));
 		return;
 	}
 	PropOffsets_ConversationMissionList.missions = cls->GetPropertyDataOffset("missions");
@@ -4435,7 +4435,7 @@ static void InitPropertyOffsets_ConAudioList(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("ConSys")->GetUObject("Class", "ConAudioList"));
 	if (!cls)
 	{
-		memset(&PropOffsets_ConAudioList, 0xff, sizeof(PropOffsets_ConAudioList));
+		memset((void*)&PropOffsets_ConAudioList, 0xff, sizeof(PropOffsets_ConAudioList));
 		return;
 	}
 	PropOffsets_ConAudioList.ConAudioList = cls->GetPropertyDataOffset("ConAudioList");
@@ -4449,7 +4449,7 @@ static void InitPropertyOffsets_Augmentation(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusEx")->GetUObject("Class", "Augmentation"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Augmentation, 0xff, sizeof(PropOffsets_Augmentation));
+		memset((void*)&PropOffsets_Augmentation, 0xff, sizeof(PropOffsets_Augmentation));
 		return;
 	}
 	PropOffsets_Augmentation.ActivateSound = cls->GetPropertyDataOffset("ActivateSound");
@@ -4498,7 +4498,7 @@ static void InitPropertyOffsets_AugmentationManager(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusEx")->GetUObject("Class", "AugmentationManager"));
 	if (!cls)
 	{
-		memset(&PropOffsets_AugmentationManager, 0xff, sizeof(PropOffsets_AugmentationManager));
+		memset((void*)&PropOffsets_AugmentationManager, 0xff, sizeof(PropOffsets_AugmentationManager));
 		return;
 	}
 	PropOffsets_AugmentationManager.AugLocationFull = cls->GetPropertyDataOffset("AugLocationFull");
@@ -4517,7 +4517,7 @@ static void InitPropertyOffsets_DataVaultImageNote(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusEx")->GetUObject("Class", "DataVaultImageNote"));
 	if (!cls)
 	{
-		memset(&PropOffsets_DataVaultImageNote, 0xff, sizeof(PropOffsets_DataVaultImageNote));
+		memset((void*)&PropOffsets_DataVaultImageNote, 0xff, sizeof(PropOffsets_DataVaultImageNote));
 		return;
 	}
 	PropOffsets_DataVaultImageNote.bExpanded = cls->GetPropertyDataOffset("bExpanded");
@@ -4534,7 +4534,7 @@ static void InitPropertyOffsets_DeusExLevelInfo(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusEx")->GetUObject("Class", "DeusExLevelInfo"));
 	if (!cls)
 	{
-		memset(&PropOffsets_DeusExLevelInfo, 0xff, sizeof(PropOffsets_DeusExLevelInfo));
+		memset((void*)&PropOffsets_DeusExLevelInfo, 0xff, sizeof(PropOffsets_DeusExLevelInfo));
 		return;
 	}
 	PropOffsets_DeusExLevelInfo.ConversationPackage = cls->GetPropertyDataOffset("ConversationPackage");
@@ -4555,7 +4555,7 @@ static void InitPropertyOffsets_DeusExLog(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusEx")->GetUObject("Class", "DeusExLog"));
 	if (!cls)
 	{
-		memset(&PropOffsets_DeusExLog, 0xff, sizeof(PropOffsets_DeusExLog));
+		memset((void*)&PropOffsets_DeusExLog, 0xff, sizeof(PropOffsets_DeusExLog));
 		return;
 	}
 	PropOffsets_DeusExLog.Next = cls->GetPropertyDataOffset("Next");
@@ -4569,7 +4569,7 @@ static void InitPropertyOffsets_LaserIterator(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusEx")->GetUObject("Class", "LaserIterator"));
 	if (!cls)
 	{
-		memset(&PropOffsets_LaserIterator, 0xff, sizeof(PropOffsets_LaserIterator));
+		memset((void*)&PropOffsets_LaserIterator, 0xff, sizeof(PropOffsets_LaserIterator));
 		return;
 	}
 	PropOffsets_LaserIterator.Beams = cls->GetPropertyDataOffset("Beams");
@@ -4589,7 +4589,7 @@ static void InitPropertyOffsets_Skill(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusEx")->GetUObject("Class", "Skill"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Skill, 0xff, sizeof(PropOffsets_Skill));
+		memset((void*)&PropOffsets_Skill, 0xff, sizeof(PropOffsets_Skill));
 		return;
 	}
 	PropOffsets_Skill.CurrentLevel = cls->GetPropertyDataOffset("CurrentLevel");
@@ -4614,7 +4614,7 @@ static void InitPropertyOffsets_SkillManager(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("DeusEx")->GetUObject("Class", "SkillManager"));
 	if (!cls)
 	{
-		memset(&PropOffsets_SkillManager, 0xff, sizeof(PropOffsets_SkillManager));
+		memset((void*)&PropOffsets_SkillManager, 0xff, sizeof(PropOffsets_SkillManager));
 		return;
 	}
 	PropOffsets_SkillManager.FirstSkill = cls->GetPropertyDataOffset("FirstSkill");
@@ -4634,7 +4634,7 @@ static void InitPropertyOffsets_Flag(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "Flag"));
 	if (!cls)
 	{
-		memset(&PropOffsets_Flag, 0xff, sizeof(PropOffsets_Flag));
+		memset((void*)&PropOffsets_Flag, 0xff, sizeof(PropOffsets_Flag));
 		return;
 	}
 	PropOffsets_Flag.FlagBase = cls->GetPropertyDataOffset("FlagBase");
@@ -4652,7 +4652,7 @@ static void InitPropertyOffsets_FlagBool(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "FlagBool"));
 	if (!cls)
 	{
-		memset(&PropOffsets_FlagBool, 0xff, sizeof(PropOffsets_FlagBool));
+		memset((void*)&PropOffsets_FlagBool, 0xff, sizeof(PropOffsets_FlagBool));
 		return;
 	}
 	PropOffsets_FlagBool.bValue = cls->GetPropertyDataOffset("bValue");
@@ -4665,7 +4665,7 @@ static void InitPropertyOffsets_FlagByte(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "FlagByte"));
 	if (!cls)
 	{
-		memset(&PropOffsets_FlagByte, 0xff, sizeof(PropOffsets_FlagByte));
+		memset((void*)&PropOffsets_FlagByte, 0xff, sizeof(PropOffsets_FlagByte));
 		return;
 	}
 	PropOffsets_FlagByte.byteValue = cls->GetPropertyDataOffset("byteValue");
@@ -4678,7 +4678,7 @@ static void InitPropertyOffsets_FlagFloat(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "FlagFloat"));
 	if (!cls)
 	{
-		memset(&PropOffsets_FlagFloat, 0xff, sizeof(PropOffsets_FlagFloat));
+		memset((void*)&PropOffsets_FlagFloat, 0xff, sizeof(PropOffsets_FlagFloat));
 		return;
 	}
 	PropOffsets_FlagFloat.floatValue = cls->GetPropertyDataOffset("floatValue");
@@ -4691,7 +4691,7 @@ static void InitPropertyOffsets_FlagInt(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "FlagInt"));
 	if (!cls)
 	{
-		memset(&PropOffsets_FlagInt, 0xff, sizeof(PropOffsets_FlagInt));
+		memset((void*)&PropOffsets_FlagInt, 0xff, sizeof(PropOffsets_FlagInt));
 		return;
 	}
 	PropOffsets_FlagInt.intValue = cls->GetPropertyDataOffset("intValue");
@@ -4704,7 +4704,7 @@ static void InitPropertyOffsets_FlagName(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "FlagName"));
 	if (!cls)
 	{
-		memset(&PropOffsets_FlagName, 0xff, sizeof(PropOffsets_FlagName));
+		memset((void*)&PropOffsets_FlagName, 0xff, sizeof(PropOffsets_FlagName));
 		return;
 	}
 	PropOffsets_FlagName.nameValue = cls->GetPropertyDataOffset("nameValue");
@@ -4717,7 +4717,7 @@ static void InitPropertyOffsets_FlagRotator(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "FlagRotator"));
 	if (!cls)
 	{
-		memset(&PropOffsets_FlagRotator, 0xff, sizeof(PropOffsets_FlagRotator));
+		memset((void*)&PropOffsets_FlagRotator, 0xff, sizeof(PropOffsets_FlagRotator));
 		return;
 	}
 	PropOffsets_FlagRotator.rotatorValue = cls->GetPropertyDataOffset("rotatorValue");
@@ -4730,7 +4730,7 @@ static void InitPropertyOffsets_FlagVector(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "FlagVector"));
 	if (!cls)
 	{
-		memset(&PropOffsets_FlagVector, 0xff, sizeof(PropOffsets_FlagVector));
+		memset((void*)&PropOffsets_FlagVector, 0xff, sizeof(PropOffsets_FlagVector));
 		return;
 	}
 	PropOffsets_FlagVector.vectorValue = cls->GetPropertyDataOffset("vectorValue");
@@ -4743,7 +4743,7 @@ static void InitPropertyOffsets_TabGroupWindow(PackageManager* packages)
 	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("Extension")->GetUObject("Class", "TabGroupWindow"));
 	if (!cls)
 	{
-		memset(&PropOffsets_TabGroupWindow, 0xff, sizeof(PropOffsets_TabGroupWindow));
+		memset((void*)&PropOffsets_TabGroupWindow, 0xff, sizeof(PropOffsets_TabGroupWindow));
 		return;
 	}
 	PropOffsets_TabGroupWindow.bSizeChildrenToParent = cls->GetPropertyDataOffset("bSizeChildrenToParent");
@@ -4757,52 +4757,8 @@ static void InitPropertyOffsets_TabGroupWindow(PackageManager* packages)
 
 PropertyDataOffsets_SkeletalMeshInstance PropOffsets_SkeletalMeshInstance;
 
-static void InitPropertyOffsets_SkeletalMeshInstance(PackageManager* packages)
-{
-	auto cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "SkeletalMeshInstance"));
-	if (!cls)
-	{
-		memset(&PropOffsets_SkeletalMeshInstance, 0xff, sizeof(PropOffsets_SkeletalMeshInstance));
-		return;
-	}
-	
-	PropOffsets_SkeletalMeshInstance.SpaceBases = cls->GetPropertyDataOffset("SpaceBases");
-	PropOffsets_SkeletalMeshInstance.CachedLinks = cls->GetPropertyDataOffset("CachedLinks");
-	PropOffsets_SkeletalMeshInstance.bHasUpdated = cls->GetPropertyDataOffset("bHasUpdated");
-	PropOffsets_SkeletalMeshInstance.LastDrawnMesh = cls->GetPropertyDataOffset("LastDrawnMesh");
-	PropOffsets_SkeletalMeshInstance.CachedAnim = cls->GetPropertyDataOffset("CachedAnim");
-	PropOffsets_SkeletalMeshInstance.CachedOrientations = cls->GetPropertyDataOffset("CachedOrientations");
-	PropOffsets_SkeletalMeshInstance.CachedPositions = cls->GetPropertyDataOffset("CachedPositions");
-	PropOffsets_SkeletalMeshInstance.TweenStartFrame = cls->GetPropertyDataOffset("TweenStartFrame");
-	PropOffsets_SkeletalMeshInstance.Base = cls->GetPropertyDataOffset("Base");
-	PropOffsets_SkeletalMeshInstance.bHasCachedFrame = cls->GetPropertyDataOffset("bHasCachedFrame");
-	PropOffsets_SkeletalMeshInstance.bWasTweening = cls->GetPropertyDataOffset("bWasTweening");
-	PropOffsets_SkeletalMeshInstance.CachedTweenSeq = cls->GetPropertyDataOffset("CachedTweenSeq");
-	PropOffsets_SkeletalMeshInstance.Modifiers = cls->GetPropertyDataOffset("Modifiers");
-	PropOffsets_SkeletalMeshInstance.Channels = cls->GetPropertyDataOffset("Channels");
-	PropOffsets_SkeletalMeshInstance.TChannelPtr = cls->GetPropertyDataOffset("TChannelPtr");
-	PropOffsets_SkeletalMeshInstance.AttachedActors = cls->GetPropertyDataOffset("AttachedActors");
-	PropOffsets_SkeletalMeshInstance.AttachedBoneIndex = cls->GetPropertyDataOffset("AttachedBoneIndex");
-	PropOffsets_SkeletalMeshInstance.AttachedBoneName = cls->GetPropertyDataOffset("AttachedBoneName");
-	PropOffsets_SkeletalMeshInstance.MyAttachment = cls->GetPropertyDataOffset("MyAttachment");
-	PropOffsets_SkeletalMeshInstance.HardAttachFlags = cls->GetPropertyDataOffset("HardAttachFlags");
-}
-
 PropertyDataOffsets_StaticMeshActor PropOffsets_StaticMeshActor;
 
-static void InitPropertyOffsets_StaticMeshActor(PackageManager* packages)
-{
-	auto cls = UObject::TryCast<UClass>(packages->GetPackage("Engine")->GetUObject("Class", "StaticMeshActor"));
-	if (!cls)
-	{
-		memset(&PropOffsets_StaticMeshActor, 0xff, sizeof(PropOffsets_StaticMeshActor));
-		return;
-	}
-
-	PropOffsets_StaticMeshActor.StaticLightD = cls->GetPropertyDataOffset("StaticLightD");
-	PropOffsets_StaticMeshActor.bBuildStaticLights = cls->GetPropertyDataOffset("bBuildStaticLights");
-	PropOffsets_StaticMeshActor.bComputeUnlitColor = cls->GetPropertyDataOffset("bComputeUnlitColor");
-}
 
 //////////////////////////////////////////
 

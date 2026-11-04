@@ -72,7 +72,7 @@ unsigned int UTF8Reader::character()
 	else
 	{
 		unsigned int ucs4 = (data[current_position] & bitmask_leadbyte_for_utf8[trailing_bytes]);
-		for (std::string::size_type i = 0; i < trailing_bytes; i++)
+		for (std::string::size_type i = 0; i < (std::string::size_type)trailing_bytes; i++)
 		{
 			if ((data[current_position + 1 + i] & 0xC0) == 0x80)
 				ucs4 = (ucs4 << 6) + (data[current_position + 1 + i] & 0x3f);
@@ -95,7 +95,7 @@ std::string::size_type UTF8Reader::char_length()
 		if (current_position + 1 + trailing_bytes > length)
 			return 1;
 
-		for (std::string::size_type i = 0; i < trailing_bytes; i++)
+		for (std::string::size_type i = 0; i < (std::string::size_type)trailing_bytes; i++)
 		{
 			if ((data[current_position + 1 + i] & 0xC0) != 0x80)
 				return 1;
@@ -137,7 +137,7 @@ void UTF8Reader::move_to_leadbyte()
 			lead_position--;
 
 		int trailing_bytes = trailing_bytes_for_utf8[data[lead_position]];
-		if (lead_position + trailing_bytes >= current_position)
+		if ((std::string::size_type)(lead_position + trailing_bytes) >= current_position)
 			current_position = lead_position;
 	}
 

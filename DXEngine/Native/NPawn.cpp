@@ -249,7 +249,6 @@ void NPawn::RemovePawn(UObject* Self)
 	}
 	else
 	{
-		UPawn* prevPawn = nullptr;
 		for (UPawn* cur = SelfPawn->Level()->PawnList(); cur != nullptr; cur = cur->nextPawn())
 		{
 			if (cur->nextPawn() == SelfPawn)
