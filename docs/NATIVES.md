@@ -25,8 +25,8 @@ engines, what matches, and what differs. What else it changes:
 - **What differs** is the owner's choice, said "by choice" with its reason,
   or open, named by its ID in Port Ex Machina's
   [bugs list](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md):
-  a `D` one made on purpose and the owner's to rule on, any other to be
-  made the original's.
+  a `D` one made on purpose, the owner's to rule on or ruled to change, any
+  other to be made the original's.
 
 ## Stops the game
 
@@ -320,8 +320,9 @@ between 0 and 1 for the drop's period as the original holds it
 (`CensusConsole`).
 
 Differs (bugs.md DX.7): `burnTimer` puts the fire out a tick later at an
-exact equality. For the owner (bugs.md D.39): bleeding with `ClotPeriod` at
-0 or under stops, where the original divides by it.
+exact equality. Differs by choice: bleeding with `ClotPeriod` at 0 or under
+stops, where the original divides by it, a 0 s frame's NaN sticking; no map
+sets it.
 
 ### Starting up
 
@@ -518,9 +519,9 @@ the mirrors and the light maps register so too ([mesh detail](#mesh-detail),
 tiles do ([sprites](#sprites), [tiles](#tiles)).
 
 Differs (bugs.md REN.31): auto-panned surfaces, the sky's cloud banks,
-scroll 1.83 times as fast, from the engine's start. For the owner (bugs.md
-D.40, D.41): NoSmooth textures sampled with anisotropy; GL ES with no mip
-bias.
+scroll 1.83 times as fast, from the engine's start. Differs (bugs.md D.40,
+D.41, ruled to change): NoSmooth textures sampled with anisotropy; GL ES
+with no mip bias.
 
 ### The software device
 
@@ -1499,8 +1500,9 @@ makes neither of its children. Differs (bugs.md EXT.25): `LockMouse`,
 `SetBaselineData` and the button setters' left-out arguments. Differs
 (bugs.md WIN.10): a high-resolution wheel presses once per fraction. Differs
 (bugs.md WIN.12): Alt+Enter back to a window on X11 puts it at the display's
-corner. For the owner (bugs.md D.42): full screen kept as the window loses
-the focus.
+corner. Differs by choice: full screen kept as the window loses the focus,
+where the original leaves it and minimises; SDL3 minimises a real exclusive
+mode alone, never on Wayland nor in a desktop's full screen.
 
 ## The menus' settings
 

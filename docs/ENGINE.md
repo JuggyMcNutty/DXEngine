@@ -248,7 +248,7 @@ is. DXEngine's keys:
 | `"Type": "Vulkan"`, `"OpenGL"` or `"D3D11"` in `RenderDevice` | The Vulkan device, the GL device on a desktop GL context, or the D3D11 device, Windows' own, which no launcher offers ([for advanced users](../README.md#for-advanced-users)). |
 | `"Antialias"`, `"Light"`, `"Gamma"` in `RenderDevice` | `Off`, `MSAA2x` or `MSAA4x`; `Normal`, `OneX` or `BrighterActors`; `D3D9` or `XOpenGL` ([rendering](#rendering)). |
 | `"UseVSync"`, `"Hdr"`, `"HdrScale"`, `"Bloom"`, `"BloomAmount"`, `"GammaCorrectScreenshots"`, `"UseDebugLayer"` in `RenderDevice` | Vsync (on unless the key says otherwise), HDR and its scale, bloom and its amount (128 each), screenshots written gamma-corrected, and the Vulkan validation layer or D3D11's debug layer where the machine has it; a key left out keeps its default. |
-| `"Contrast"`, `"Saturation"`, `"GammaOffset"`, `"GammaOffsetRed"`, `"GammaOffsetGreen"`, `"GammaOffsetBlue"`, `"LODBias"` in `RenderDevice` | On every device: the present's colour correction, the picture unchanged at 1 each, contrast about the middle grey (0.1 to 4) and saturation toward the pixel's grey (0 to 1); its gamma's offsets, every channel's and each one's, added to the gamma (-1 to 1, 0 each by default); and the textures' mip bias (-2 to 2, -0.5 by default, `D3DDrv`'s as Wine draws it), fixed for the run, but on GL ES, which draws with none, its mips half a level coarser than `D3DDrv`'s (for the owner, bugs.md D.41). |
+| `"Contrast"`, `"Saturation"`, `"GammaOffset"`, `"GammaOffsetRed"`, `"GammaOffsetGreen"`, `"GammaOffsetBlue"`, `"LODBias"` in `RenderDevice` | On every device: the present's colour correction, the picture unchanged at 1 each, contrast about the middle grey (0.1 to 4) and saturation toward the pixel's grey (0 to 1); its gamma's offsets, every channel's and each one's, added to the gamma (-1 to 1, 0 each by default); and the textures' mip bias (-2 to 2, -0.5 by default, `D3DDrv`'s as Wine draws it), fixed for the run, but on GL ES, which draws with none, its mips half a level coarser than `D3DDrv`'s (bugs.md D.41, ruled to change). |
 | `"CPUDriver": true` in `RenderDevice` | The Vulkan device on Mesa's lavapipe, or the GL device on llvmpipe, a GPU passed over (DXLauncher's `[VulkanCPU]` and `[OpenGLCPU]` renderers; [rendering](#rendering)). |
 | `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)); in a rootless container (podman's: distrobox, toolbox), where the host's root is unmapped and libudev drops its messages, SDL watches `/dev/input` itself (`SDL_JOYSTICK_DISABLE_UDEV`), so a pad plugged in after the start is found. |
 
@@ -534,8 +534,8 @@ wherever else that state is set.
   (`DrawEntry`): without its own, the render-scale upscale would take the last draw's,
   point-sampled after the HUD's text.
 - **Anisotropy** (8) goes on every scene sampler, as the Vulkan device's, where the driver has
-  it (`CreateSceneSamplers`), on the NoSmooth ones too, where `D3DDrv` points them (for the
-  owner, bugs.md D.40).
+  it (`CreateSceneSamplers`), on the NoSmooth ones too, where `D3DDrv` points them (bugs.md
+  D.40, ruled to change).
 - **Depth is clamped** at the near and far planes on desktop GL, as the Vulkan device clamps it
   (the weapon close up): `DepthClipEnable` is D3D11's, off meaning a clamp. ES has no clamp and
   clips there.
