@@ -141,8 +141,6 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   (DXLauncher's alike:
   [the game and the launcher](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-game-and-the-launcher)).
   Started by hand, with nothing set, nothing changes.
-- Where there is no audio device (a container), give OpenAL Soft the null driver
-  ([linux-x86_64's README](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/ports/linux-x86_64/README.md#audio)).
 
 ## Measuring it
 
@@ -765,9 +763,8 @@ its code is:
   its own moves (`UPawn_Path.cpp`, `UPawn_ReachDeusEx.cpp`), but for `actorReachable`'s path
   network, the search's second way, and the moves' base and landing (bugs.md AI.9, AI.10,
   PHYS.20, PHYS.21); `RouteCache` stays empty, as the original never fills it
-  ([moving](NATIVES.md#moving-wandering-and-tactical-movement)). `FindRandomDest` answers None,
-  as the original's; Surreal Engine's own search serves only `FindBestInventoryPath`, which no
-  stock script calls ([mods](NATIVES.md#mods)).
+  ([moving](NATIVES.md#moving-wandering-and-tactical-movement)). `FindRandomDest` answers None
+  and `FindBestInventoryPath` searches as the original's ([mods](NATIVES.md#mods)).
 - **The audio mixer**: `GalaxyMixer` (`DXEngine/Audio/GalaxyMixer.cpp`) mixes Deus Ex's sounds
   as `Galaxy.dll` does (pan, fall-off, sliders, resampling, its reverb) and streams them through
   one OpenAL source at `OutputRate`; the music streams through one of its own, from a thread of

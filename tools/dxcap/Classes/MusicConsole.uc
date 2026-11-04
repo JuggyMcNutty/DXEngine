@@ -10,10 +10,10 @@
 // beeps half a second apart, by which a recording is laid against the log;
 // then, a beep a second before each step:
 // 0. CapTone loaded straight into the pair's order, the slider at 255, 4 s:
-//    by our reading Galaxy gives a song's channels their pans (and its speed
-//    and tempo) only as its order count turns to order 0 (Galaxy.dll
-//    0x10615710), its load leaving every music voice centred (0x1060e850),
-//    so the original should play both tones in the middle here.
+//    Galaxy gives a song's channels their pans (and its speed and tempo)
+//    only as its order count turns to order 0 (Galaxy.dll 0x10615710), its
+//    load leaving every music voice centred (0x1060e850), so the original
+//    plays both tones in the middle here (bugs.md AUD.16).
 // 1. tone A, order 0, with the Music slider at 255 (SetInstantMusicVolume,
 //    as the Sound menu's slider sets it as it moves), 4 s; at 153, the
 //    game's default, 4 s; at 64, 4 s; at 255 again, 3 s.

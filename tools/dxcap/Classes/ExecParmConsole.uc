@@ -7,9 +7,8 @@
 // call made (UBoolProperty::ImportText 0x10166380); a class or object is
 // found by name among the loaded objects (UObjectProperty::ImportText
 // 0x10166e20, UClassProperty 0x10167110). DXEngine's Engine::ExecCommand
-// takes a bool as 1 or "true" alone, calls with false where none is given,
-// and answers a class parameter "Unsupported value type", the command then
-// unknown.
+// takes them as ScriptConsoleExec does, each by its property's ImportText
+// from where the last one stopped.
 //
 // From whatever map the run starts on, Liberty Island opened; 3 s in, with
 // cheats on (bCheatsEnabled set as "set DeusEx.JCDentonMale bCheatsEnabled

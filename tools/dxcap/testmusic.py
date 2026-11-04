@@ -29,7 +29,8 @@ tones, of a kind the game ships none of, made here rather than kept as a file.
 Galaxy's IT loader (Galaxy.dll 0x10628990) and OpenMPT both read it: the
 header's orders, sample and pattern offsets in IT's order, IMPS samples, IT's
 packed patterns; Galaxy reads neither the mix volume, the channel volumes nor
-a sample's global volume, which OpenMPT applies (bugs.md AUD.10).
+a sample's global volume, which OpenMPT applies and DXEngine's rewrite of a
+song takes out (DXEngine/Audio/GalaxyMusic.cpp).
 """
 import math
 import os

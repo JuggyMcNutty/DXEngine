@@ -246,8 +246,10 @@ file system finds it, a name's trailing spaces and dots dropped, and its
 save in `Current` by the name cut at its first `.dx`, as the original's
 Browse cuts it; the level's URL keeps the space, as the original's does
 (`SpaceURLConsole`: the five travels, and the lab left for the UC and come
-back to from `Current`, alike in both engines). Differs (bugs.md VM.18):
-a string property apart from its default in case alone travels and saves,
+back to from `Current`, alike in both engines).
+
+Differs (bugs.md VM.18): a string property apart from its default in case
+alone travels and saves,
 where the original's compares without case and lets it go back to the
 default.
 
@@ -530,8 +532,7 @@ within 2 pixels at 1024x768).
 A NoSmooth texture is point-sampled from one mip, with no anisotropy, as
 `D3DDrv` samples one, on Vulkan, GL and GL ES alike, `LODBias` given GL ES's
 draws in its scene shader: its mip the floor of log2 of its texels to a
-pixel, where a driver's anisotropy took a finer one at a slant and averaged
-its texels (`MipConsole`: a floor of `CapMips` laid under the view, drawn
+pixel (`MipConsole`: a floor of `CapMips` laid under the view, drawn
 NoSmooth, one texel to a pixel and each mip from `D3DDrv`'s rows, 0 of 362
 apart at 1024x768; smooth, GL ES's mips GL's, 0 rows apart).
 
@@ -542,8 +543,8 @@ multisampling, bloom and HDR, settings the original lacks, by choice
 ([rendering](ENGINE.md#rendering)), into an 8-bit frame as `D3DDrv`'s, its
 textures sampled as `D3DDrv` samples them with the game's ini, `LODBias` at
 its default: bilinear, from the one mip whose texels are no larger than the
-screen's pixels, where the GPU devices filter trilinearly with 8x
-anisotropy, by choice: no seam between mips, sharp at a slant. Against
+screen's pixels, where the GPU devices filter a smooth texture trilinearly
+with 8x anisotropy, by choice: no seam between mips, sharp at a slant. Against
 `D3DDrv`'s frames: `LightConsole`'s `Spotlight0`, with its macro texture and
 without, and `Spotlight7` at 1.00, as the GPU devices'
 ([lighting](#lighting)), and `Light33`'s floor within 1.02; `LaserConsole`'s
@@ -1153,6 +1154,9 @@ or whose loop ended its step between `AnimLast` and 1.0 (`BlendFieldsConsole`'s
 stage e: a head turn 0.4 s still while Paul Denton's breathing runs from
 `AnimLast` to its wrap, at 0 some 1.41 s in, in both engines).
 
+Differs (bugs.md AI.15): a loop that wraps with a `FinishAnim` waiting lets
+the wait go with `bAnimFinished` as it was, where the original's sets it.
+
 ### Lists
 
 Matches the original
@@ -1512,21 +1516,23 @@ Differs:
   space). On a screen narrower than 4:3 (1280x1024) the root is the
   screen's width, as the original's, so the HUD's left and right parts lie
   at its edges.
+- **Full screen as the window loses the focus** is kept, by choice, where
+  the original leaves it and minimises; SDL3 minimises a real exclusive mode
+  alone, never on Wayland nor in a desktop's full screen.
+
+In the SDL3 and X11 windows a wheel presses once a notch, as the original
+presses once a `WM_MOUSEWHEEL`, which Windows sends a notch: a
+high-resolution wheel's and a touchpad's fractions, which X11 and Wayland
+send as events of their own, added up and pressed at each notch's half, the
+sum begun again where the scroll turns (`WheelConsole` with
+`tools/dxcap/wheel.py`'s eighths of a notch, the two windows alike).
 
 Differs (bugs.md EXT.23): five window classes' own ticks run after their
 script's, timers and children. Differs (bugs.md EXT.24): the computer window
 makes neither of its children. Differs (bugs.md EXT.25): `LockMouse`,
-`SetBaselineData` and the button setters' left-out arguments. A wheel
-presses once a notch, as the original presses once a `WM_MOUSEWHEEL`, which
-Windows sends a notch: a high-resolution wheel's and a touchpad's fractions,
-which X11 and Wayland send as events of their own, added up and pressed at
-each notch's half, the sum begun again where the scroll turns
-(`WheelConsole` with `tools/dxcap/wheel.py`'s eighths of a notch, the SDL3
-window's and the X11 window's alike). Differs
+`SetBaselineData` and the button setters' left-out arguments. Differs
 (bugs.md WIN.12): Alt+Enter back to a window on X11 puts it at the display's
-corner. Differs by choice: full screen kept as the window loses the focus,
-where the original leaves it and minimises; SDL3 minimises a real exclusive
-mode alone, never on Wayland nor in a desktop's full screen.
+corner.
 
 ## The menus' settings
 
@@ -1742,8 +1748,7 @@ volumes; the commands Galaxy drops dropped, one effect memory a channel for
 every command, a speed over 32 at 32, an order whose pattern is empty
 passed over; read between samples linearly, unramped; each channel panned as
 Galaxy pans it, each side the square root of its share of a pan held to 127
-of 128, libopenmpt's mixer given Galaxy's law (`render.panning.galaxy`, a
-change of DXEngine's own to `Thirdparty/openmpt`). `MusicConsole` on the
+of 128 ([the audio mixer](ENGINE.md#gameplay)). `MusicConsole` on the
 harness's `CapTone`, recorded on both engines: tone A at 255 -16.5 dBFS in
 the original and in DXEngine; at 153 and 64 8.75 and 24.4 dB under in
 the original, 8.92 and 24.5 in DXEngine; a fade's 3 to 12 and 12 to 24 dB
@@ -1761,7 +1766,11 @@ LibertyIsland, UNATCO, VersaLife and NavalBase (Title, the menu map's own,
 BatteryPark's from its onset -16.3 dB in the original, -16.4 in DXEngine.
 Differs (bugs.md AUD.15): the music is heard as it changes, where the
 original's comes some 0.9 s after its sounds. Differs (bugs.md AUD.16): a
-song's channels take their pans from its start whatever its order. Differs
+song started past its first order takes its pans, speed and tempo from its
+start, and a loop keeps the pans its patterns set, where Galaxy's sets them
+only at order 0; a section is reached by playing the song to it, where
+Galaxy's silences the voices and plays on from there; the music is not held
+to 16 bits before the sounds are added. Differs
 (bugs.md AUD.14): `UseSound=False` is read nowhere.
 
 ## Implemented, not as the original
@@ -2446,12 +2455,6 @@ not deleted (the log says so).
   through X11 and SDL3, give the window manager its 32x32 of 256 colours
   (their `_NET_WM_ICON`).
 
-Differs (bugs.md VM.17): a variable as an operand or argument is read after
-the later arguments run, the original's as it is reached. Differs (bugs.md
-VM.22): `bool(string)` reads a float, the original an int. Differs (bugs.md
-VM.23): `VSize`, `Dot`, `Lerp` and a rotator over a float in floats, the
-original's on the x87, a last bit apart. Differs (bugs.md VM.25): a string
-constant as UTF-8, classes matched by name, a name kept in each spelling.
 An exec function's parameters are taken as the original's: each by its
 property's import from where the last one stopped, a class or an object by
 its name, a refused one Core's BadProperty as the command's output and no
@@ -2459,6 +2462,13 @@ call made, a missing optional one zero (`ExecParmConsole`: with cheats on
 `killall Terrorist` kills, `behindview True` turns it on, a bare
 `behindview` is refused, `augadd AugSpeed` gives it, alike in both
 engines).
+
+Differs (bugs.md VM.17): a variable as an operand or argument is read after
+the later arguments run, the original's as it is reached. Differs (bugs.md
+VM.22): `bool(string)` reads a float, the original an int. Differs (bugs.md
+VM.23): `VSize`, `Dot`, `Lerp` and a rotator over a float in floats, the
+original's on the x87, a last bit apart. Differs (bugs.md VM.25): a string
+constant as UTF-8, classes matched by name, a name kept in each spelling.
 
 ## The command line
 
@@ -2689,10 +2699,9 @@ A mod gets the original's loader and natives:
   (`ConfigConsole`). A config value of any type is read and written as the
   original's import and export have it (a property's text, above): a
   struct's members, a class or an object as `Type'Path'`, a dynamic array
-  one line of its name per element, a bool's four words alone, an int as far
-  as it is a number (`ConfigConsole`: a vector, a class and two strings
-  written and read back), but for the reader's: a value's quotes kept, a
-  key's and a value's white space trimmed (bugs.md PKG.21).
+  one line of its name per element (`ConfigConsole`: a vector, a class and
+  two strings written and read back), but for the reader's: a value's quotes
+  kept, a key's and a value's white space trimmed (bugs.md PKG.21).
 - **The natives no stock script calls** (`ModConsole`): `ResetConfig`, a
   System or User class's section copied from `Default.ini` or `DefUser.ini`
   and its config read again into the class, its subclasses and their
@@ -2731,7 +2740,7 @@ A mod gets the original's loader and natives:
   anchored given its nearest node at a weight of 0.00005. No stock map has an
   inventory spot: `InventoryPathConsole` on Liberty Island, each pawn asked
   three ways, the 48 that stood at one place in both engines answered alike,
-  routes and weights, where DXEngine, Surreal Engine's search, answered None.
+  routes and weights.
 
 A macro texture, which no stock texture has, is drawn as `D3DDrv` draws it
 ([the light maps' brightness](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-light-maps-brightness)):
@@ -2933,7 +2942,10 @@ As in the original:
 Differs (bugs.md NET.11): a server's FAILCODE takes the place of the join's
 failure text. Differs (bugs.md NET.12): a login's value ends at `)`. Differs
 (bugs.md NET.14): a login with a FailCode and no Error, `SendText`'s answer,
-a client travel's info, `open`'s one word.
+a client travel's info, `open`'s one word. Differs (bugs.md NET.16): a
+simulated proxy pawn's own path, its move along its velocity and its `Tick`
+alone, runs only in a net game, where the original's runs whatever the net
+mode; no stock actor is one outside a net game.
 
 ## Not needed for single player
 
