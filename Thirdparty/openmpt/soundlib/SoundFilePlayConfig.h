@@ -39,6 +39,9 @@ enum class PanningMode : uint8
 	SoftPanning,
 	NoSoftPanning,
 	FT2Panning,
+	// DXEngine (bugs.md AUD.16): Galaxy.dll's, set by the ctl
+	// render.panning.galaxy
+	GalaxyPanning,
 };
 
 // Class used to store settings for a song file.

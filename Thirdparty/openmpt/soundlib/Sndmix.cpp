@@ -2547,6 +2547,19 @@ bool CSoundFile::ReadNote()
 					const int panR = XMPanningTable[pan];
 					chn.newLeftVol = (realvol * panL) / 65536;
 					chn.newRightVol = (realvol * panR) / 65536;
+				} else if(panningMode == PanningMode::GalaxyPanning)
+				{
+					// DXEngine (bugs.md AUD.16): Galaxy.dll's pan law. Galaxy's
+					// pan is this one x 128, held to 127 of 128, 32,512
+					// (Galaxy.dll 0x10617770); each side's gain is the square
+					// root of its share of 32,767, cut to a whole number as
+					// glxInit's table has it (0x1060df30, read at 0x106153d4).
+					LimitMax(pan, 254);
+					const int32 share = pan * 128;
+					const int32 panL = static_cast<int32>(std::sqrt((32767 - share) * (1.0 / 32767.0)) * 32767.0);
+					const int32 panR = static_cast<int32>(std::sqrt(share * (1.0 / 32767.0)) * 32767.0);
+					chn.newLeftVol = (realvol * panL) / 32768;
+					chn.newRightVol = (realvol * panR) / 32768;
 				} else
 				{
 					chn.newLeftVol = (realvol * (256 - pan)) / 256;

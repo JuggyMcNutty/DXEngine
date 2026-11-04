@@ -1740,23 +1740,28 @@ Galaxy's IT loader converts it (`DXEngine/Audio/GalaxyMusic.cpp`): none of its m
 volume, its channels' volumes or its samples' and instruments' global
 volumes; the commands Galaxy drops dropped, one effect memory a channel for
 every command, a speed over 32 at 32, an order whose pattern is empty
-passed over; read between samples linearly, unramped; played 3 dB up, so a
-centred channel sounds as Galaxy's square-root pan has it. `MusicConsole` on
-the harness's `CapTone`, recorded on both engines: tone A at 255 -16.5 dBFS
-in the original, -16.4 in DXEngine; at 153 and 64 8.75 and 24.4 dB under in
+passed over; read between samples linearly, unramped; each channel panned as
+Galaxy pans it, each side the square root of its share of a pan held to 127
+of 128, libopenmpt's mixer given Galaxy's law (`render.panning.galaxy`, a
+change of DXEngine's own to `Thirdparty/openmpt`). `MusicConsole` on the
+harness's `CapTone`, recorded on both engines: tone A at 255 -16.5 dBFS in
+the original and in DXEngine; at 153 and 64 8.75 and 24.4 dB under in
 the original, 8.92 and 24.5 in DXEngine; a fade's 3 to 12 and 12 to 24 dB
 steps 0.32 and 0.26 s in the original, 0.34 and 0.25 in DXEngine
 (`MTRAN_FastFade` 0.12 and 0.08, 0.11 and 0.09; `MTRAN_SlowFade` 1.67 and
 1.27, 1.70 and 1.24); silent 0.09 to 0.34 s before the new tone in each, no
-burst of the old one; with `DXCAP_HRTF=1` the pair's crossfeed 110 dB under,
-as without. The stock songs from their first order are within 0.5 dB of
-the original's mean level, LibertyIsland, UNATCO, VersaLife, NavalBase and
-BatteryPark (Title, the menu map's own, -12.0 and -13.5 dB in two runs of
-the original, -11.8 in DXEngine), where they were 0.7 to 6.9 dB under.
+burst of the old one; the pair after order 0, a tone hard left and one hard
+right, -13.6 dBFS in the original and -13.5 in DXEngine, the right one 21.1
+dB under in the left channel in both, the left one none in the right; with
+`DXCAP_HRTF=1` the same. The stock songs from their first order, each laid
+against the original's run by its levels, are within 0.1 dB of the
+original's mean power in each channel over the same 6.5 s: Title,
+LibertyIsland, UNATCO, VersaLife and NavalBase (Title, the menu map's own,
+-12.0 and -13.5 dB in two runs of the original, -12.0 in DXEngine);
+BatteryPark's from its onset -16.3 dB in the original, -16.4 in DXEngine.
 Differs (bugs.md AUD.15): the music is heard as it changes, where the
 original's comes some 0.9 s after its sounds. Differs (bugs.md AUD.16): a
-song's channels pan linearly, a hard-panned one 3 dB over the original's,
-and they take their pans from the start whatever its order. Differs
+song's channels take their pans from its start whatever its order. Differs
 (bugs.md AUD.14): `UseSound=False` is read nowhere.
 
 ## Implemented, not as the original

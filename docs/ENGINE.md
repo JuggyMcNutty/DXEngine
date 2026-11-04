@@ -773,7 +773,9 @@ its code is:
   one OpenAL source at `OutputRate`; the music streams through one of its own, from a thread of
   its own, where a song that fails as it plays stops and the game goes on, the main thread
   logging why (`Music: the song stopped:`), and one that fails to load plays none, logged
-  (`glxLoadMusic(&Mem, GLX_LOADFROMMEMORY ) failed:`). With no output that starts, a device
+  (`glxLoadMusic(&Mem, GLX_LOADFROMMEMORY ) failed:`). A song is played by libopenmpt
+  (`Thirdparty/openmpt`), its mixer given Galaxy's pan law, a change of DXEngine's own to it
+  (`render.panning.galaxy`). With no output that starts, a device
   that plays nothing takes OpenAL's place (`Audio initialization failed.`). DXEngine's audio
   device adds `SpeechVolume` and `DopplerSpeed` to its ini section,
   and keeps Deus Ex's channel count under Galaxy's name, `EffectsChannels`

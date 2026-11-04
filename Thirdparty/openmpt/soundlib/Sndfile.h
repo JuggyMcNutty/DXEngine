@@ -710,6 +710,9 @@ public:
 	void SetMixLevels(MixLevels levels);
 	MixLevels GetMixLevels() const noexcept { return m_nMixLevels; }
 	const CSoundFilePlayConfig &GetPlayConfig() const noexcept { return m_PlayConfig; }
+	// DXEngine (bugs.md AUD.16): a pan law other than the mix levels', which
+	// stays until they are set again
+	void SetPanningMode(PanningMode mode) noexcept { m_PlayConfig.setPanningMode(mode); }
 
 	constexpr INSTRUMENTINDEX GetNumInstruments() const noexcept { return m_nInstruments; }
 	constexpr SAMPLEINDEX GetNumSamples() const noexcept { return m_nSamples; }

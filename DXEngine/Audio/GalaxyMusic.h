@@ -12,12 +12,10 @@ namespace GalaxyMusic
 	// none, which plays as it is.
 	Array<uint8_t> ConvertIT(const Array<uint8_t>& song);
 
-	// Galaxy pans a song's voices by the square roots of the pan
-	// (0x106153d4), a centred channel at 0.707 a side, its gain the Music
-	// slider's squared with the voice's own 100 (UDXEngineAudioDevice's
-	// GalaxyMusicGain). OpenMPT, the mix volume made 128, pans linearly, a
-	// centred channel at 0.5 a side: the song is played 3.01 dB up, so its
-	// centred channels sound as Galaxy's. A channel panned hard to one side
-	// then plays 3 dB over Galaxy's (bugs.md AUD.10).
-	constexpr int GainMillibel = 301;
+	// Galaxy pans a song's voices by the square roots of the pan, held to
+	// 127 of 128 (0x106153d4, 0x10617770): OpenMPT's render.panning.galaxy,
+	// DXEngine's own in Thirdparty/openmpt (bugs.md AUD.16). Its gain is the
+	// Music slider's squared with the voice's own 100 (UDXEngineAudioDevice's
+	// GalaxyMusicGain), the song's mix volume made 128.
+	constexpr const char* PanningCtl = "render.panning.galaxy";
 }

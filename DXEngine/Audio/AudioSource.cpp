@@ -405,7 +405,7 @@ public:
 		module->set_render_param(openmpt::module::RENDER_INTERPOLATIONFILTER_LENGTH, 2);
 		module->set_render_param(openmpt::module::RENDER_VOLUMERAMPING_STRENGTH, 0);
 		if (galaxy)
-			module->set_render_param(openmpt::module::RENDER_MASTERGAIN_MILLIBEL, GalaxyMusic::GainMillibel);
+			module->ctl_set_boolean(GalaxyMusic::PanningCtl, true);
 
 		subsong = clamp(subsong, 0, module->get_num_subsongs() - 1);
 		if (subsong != 0)
