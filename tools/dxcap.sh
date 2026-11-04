@@ -77,27 +77,10 @@
 # DXCAP_FLAGS="<flags>" puts the original's flags (-norunaway) on its command
 # line, and on DXEngine's by --cmdline.
 # DXCAP_CONFIG="<key>=<value> ..." gives the run's console class those keys
-# in its section of the ini, as
-# DXCAP_MISSION_MAP gives TargetMap (LightConsole's Effect, Pick, LightName,
-# View, Aim, ShotAt, Macro and NoDetail; GlassConsole's Pick, GlassName, View,
-# Behind and Flip; FlushConsole's Pick, DoorName, View and Angle; MirrorConsole's
-# MarkTime, ShinyOff and Straddle; FaceConsole's MeshOf, Ahead and Distance;
-# MeshConsole's LODBias, NoDetail and Enviro; LaserConsole's NoDetail;
-# SpriteConsole's Styles and NoParticles; CanisterConsole's Distances and
-# MarkTime; LoopConsole's Jumps; CallConsole's Depth; ReturnConsole's Items;
-# SaveConsole's, LoadConsole's and StartConsole's Via; LoadConsole's Open;
-# ThemeConsole's Direct;
-# CensusConsole's From, Wait, Load, Seconds, Notify and Open; DetailConsole's
-# Heights; MoveConsole's Watch, WatchFrom and WatchTo; SwimConsole's Only;
-# MultiEditConsole's Keys).
-# DXCAP_MISSION_MAP=<map> names, through the run's ini, the map a run's
-# console travels to, its TargetMap (MissionConsole's, StaticConsole's,
-# WadeConsole's, ScreenConsole's, PerfConsole's and PerfTurnConsole's,
-# EndgameConsole's,
-# VisibleConsole's, MoverConsole's, LightConsole's, GlassConsole's,
-# FlushConsole's, WallConsole's, MirrorConsole's, DoorConsole's,
-# OpeningConsole's): an original run starts at its menu map, a dxe run at
-# the map it is given.
+# in its section of the ini, and DXCAP_MISSION_MAP=<map> its TargetMap, the
+# map it travels to: an original run starts at its menu map, a dxe run at
+# the map it is given (each console's keys: docs/DEVELOPMENT.md, scripted
+# runs).
 # DXCAP_START=<url> starts an original run there, not at its menu map: its
 # command line's first word, which the original takes only with -hax0r
 # (?loadgame=9 for StartConsole, a run started on slot 9's save, and for
