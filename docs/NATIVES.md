@@ -278,11 +278,16 @@ the script waits for, read from the sound's header as the original reads it
 decoded samples make 2.847 s), `CaptureConsole` a jump to a comment's label,
 `EndgameConsole` an ending skipped to its credits: 99_Endgame2's
 conversation stopped, its Played flag, the mission script's timer and quote,
-and the credits up at the level's fifteenth second, alike.
+and the credits up at the level's fifteenth second, alike. A random label
+event picks as the original's, its `cycleIndex` and `bLabelsCycled` too:
+cycling, the labels in turn round and round, the index counted on; with
+`bCycleOnce` the last label for good, the index on it, never cycled, so
+`bCycleRandom` with it never picks; with `bCycleRandom` alone a random label
+once the labels have cycled (`RandomLabelConsole`: `BoatWaitingForBriefing`'s
+event under each, every line alike but a random pick's label).
 
-Differs (bugs.md DX.5, DX.6, DX.7): `ConBindEvents` with an empty or a
-missing conversation package; a random label event with both `bCycleOnce`
-and `bCycleRandom`; the ConListItems' and the conversation camera's names.
+Differs (bugs.md DX.5, DX.7): `ConBindEvents` with an empty or a missing
+conversation package; the ConListItems' and the conversation camera's names.
 
 ## What the player reads
 
