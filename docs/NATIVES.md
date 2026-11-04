@@ -2869,7 +2869,8 @@ As in the original:
 Differs (bugs.md NET.11): a server's FAILCODE takes the place of the join's
 failure text. Differs (bugs.md NET.12): a login's value ends at `)`. Differs
 (bugs.md NET.14): a login with a FailCode and no Error, `SendText`'s answer,
-a client travel's info, `open`'s one word.
+a client travel's info, `open`'s one word. Differs (bugs.md NET.15): a
+simulated proxy pawn's animation sends `AnimEnd`.
 
 ## Not needed for single player
 
