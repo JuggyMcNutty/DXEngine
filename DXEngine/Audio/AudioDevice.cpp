@@ -78,9 +78,15 @@ public:
 		mixer = std::make_unique<GalaxyMixer>(frequency, 32);
 		StartMixStream();
 
-		// init music source/buffer
+		// init music source/buffer: the song's two channels straight to the
+		// speakers, as the mix's source goes, where without direct channels
+		// OpenAL's HRTF (its own choice on headphones), UHJ or a surround
+		// layout made them two virtual speakers at 30 degrees; Galaxy adds
+		// the music to its output as it is (bugs.md AUD.13)
 		alGenSources(1, &alMusicSource);
 		alSourcei(alMusicSource, AL_SOURCE_SPATIALIZE_SOFT, AL_FALSE);
+		if (alIsExtensionPresent("AL_SOFT_direct_channels"))
+			alSourcei(alMusicSource, AL_DIRECT_CHANNELS_SOFT, AL_TRUE);
 
 		alMusicBuffers.resize(musicBufferCount);
 		alGenBuffers(musicBufferCount, &alMusicBuffers[0]);
@@ -150,11 +156,12 @@ public:
 		return mixer->IsPlaying(channel);
 	}
 
-	void PlayMusic(std::unique_ptr<AudioSource> source) override
+	void PlayMusic(std::unique_ptr<AudioSource> source, float volume) override
 	{
 		std::unique_lock lock(musicThreadData.mutex);
 		musicThreadData.music = std::move(source);
 		musicThreadData.musicUpdate = true;
+		musicThreadData.volume = volume;
 		musicThreadData.generation++;
 		musicThreadData.currentOrder.store(-1);
 	}
@@ -172,10 +179,11 @@ public:
 	// A jump is the order at once, as Galaxy's Update jumps and writes the
 	// order back in one step: the main thread reads it that frame, not the
 	// pre-jump order until the music thread's next pass
-	void SetMusicOrder(int order) override
+	void SetMusicOrder(int order, float volume) override
 	{
 		std::unique_lock lock(musicThreadData.mutex);
 		musicThreadData.jumpOrder = order;
+		musicThreadData.volume = volume;
 		if (order >= 0)
 			musicThreadData.currentOrder.store(order);
 	}
@@ -327,9 +335,12 @@ public:
 		}
 	}
 
+	// Set on the source by the music thread, after any change of song or
+	// order handed over before it (MusicThreadMain)
 	void SetMusicVolume(float volume) override
 	{
-		alSourcef(alMusicSource, AL_GAIN, volume);
+		std::unique_lock lock(musicThreadData.mutex);
+		musicThreadData.volume = volume;
 	}
 
 	void SetSoundVolume(float volume) override
@@ -359,6 +370,7 @@ public:
 	{
 		std::unique_ptr<AudioSource> currentMusic;
 		bool musicPlaying = false;
+		float sourceVolume = -1.0f;   // the gain last set on the source, none yet
 
 		while (true)
 		{
@@ -375,6 +387,7 @@ public:
 			}
 			int jumpOrder = musicThreadData.jumpOrder;
 			int generation = musicThreadData.generation;
+			float volume = musicThreadData.volume;
 			musicThreadData.jumpOrder = -1;
 			lock.unlock();
 			// Nothing of musicThreadData is touched past this point but under
@@ -386,6 +399,18 @@ public:
 				// What was rendered from the old position is not played
 				StopMusicBuffers(musicPlaying);
 				currentMusic->SetOrder(jumpOrder);
+			}
+
+			// The gain taken with the change it came with reaches the source
+			// only now, the old song's or order's queued buffers gone: the
+			// main thread setting it at once played them at the new song's
+			// full volume until this thread stopped them, where Galaxy's
+			// change is one locked step after a hold in silence (bugs.md
+			// AUD.12)
+			if (volume != sourceVolume)
+			{
+				alSourcef(alMusicSource, AL_GAIN, volume);
+				sourceVolume = volume;
 			}
 
 			if (currentMusic)
@@ -667,6 +692,7 @@ public:
 		int jumpOrder = -1;                     // an order to jump the playing song to
 		std::atomic<int> currentOrder{ -1 };    // the order playing: a jump's at once, else the music thread's
 		int generation = 0;                     // counts the songs set, so the thread's order is its own song's
+		float volume = 0.0f;                    // the music's gain, for the thread to set on the source
 		std::string failure;                    // why the song stopped, for the main thread to log
 	} musicThreadData;
 
@@ -700,7 +726,7 @@ public:
 	void RemoveSound(USound* sound) override {}
 	bool IsPlaying(int channel) override { return false; }
 	int GetTotalChannels() override { return numVoices; }
-	void PlayMusic(std::unique_ptr<AudioSource> source) override {}
+	void PlayMusic(std::unique_ptr<AudioSource> source, float volume) override {}
 	void PlayMixedSound(int channel, USound* sound, int volume, int panning, float pitch) override {}
 	void UpdateMixedSound(int channel, int volume, int panning, float pitch) override {}
 	void StopSound(int channel) override {}
@@ -710,7 +736,7 @@ public:
 	void SetSoundVolume(float volume) override {}
 	void SetSpeechVolume(float volume) override {}
 	int GetMusicOrder() override { return -1; }
-	void SetMusicOrder(int order) override {}
+	void SetMusicOrder(int order, float volume) override {}
 	void SetReverb(const ReverbSettings* settings) override {}
 	void Update() override {}
 

@@ -51,6 +51,16 @@ public:
 	// 0 to 1.
 	void SetMasterVolume(float louderSlider);
 
+	// Galaxy's gain, 0-32767, for a volume of 0-127 it is handed -- the
+	// samples' (glxSetSampleVolume) or the music's (glxSetMusicVolume) --,
+	// as its mixer squares it on every voice (Galaxy.dll 0x106152df): twice
+	// it squared, times the voice's own volume, twice its own byte of 0-127
+	// squared (0x10617f50), then through four more full-scale factors of
+	// 32767. A sound's voice is at 127, 32,258, as glxInit sets every voice;
+	// a song's at 100, 20,000, as its load leaves every music voice
+	// (0x1060e850): 31,751 and 19,684 at 127.
+	static int SquaredGain(int volume, int voiceVolume);
+
 	// The tempo of the module the music plays, which times Galaxy's tick;
 	// 0 with none.
 	void SetMusicTempo(double tempo);

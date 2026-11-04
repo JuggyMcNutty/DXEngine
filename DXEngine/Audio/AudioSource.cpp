@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "AudioSource.h"
+#include "GalaxyMusic.h"
 #include "Math/vec.h"
 #include "Utils/Exception.h"
 #include "Utils/File.h"
@@ -379,6 +380,13 @@ class OpenMPTAudioSource : public AudioSource
 public:
 	OpenMPTAudioSource(Array<uint8_t> initfiledata, bool loop, int subsong)
 	{
+		// An IT song as Galaxy's player plays it (GalaxyMusic.h; bugs.md
+		// AUD.10)
+		Array<uint8_t> galaxySong = GalaxyMusic::ConvertIT(initfiledata);
+		bool galaxy = !galaxySong.empty();
+		if (galaxy)
+			initfiledata = std::move(galaxySong);
+
 		uint8_t* data = initfiledata.begin();
 		size_t size = initfiledata.size();
 		int probe_result = openmpt::probe_file_header(openmpt::probe_file_header_flags_default2, data, size);
@@ -389,6 +397,15 @@ public:
 
 		// TODO: log param defaults to std::clog, do we want to keep it that way?
 		module = new openmpt::module(data, size);
+
+		// Galaxy's mixer, whatever the module: a voice read between a sample
+		// and the next linearly (its SSE routine, Galaxy.dll 0x10622730), and
+		// its gains set anew at each tick of the song, never ramped
+		// (0x10614920)
+		module->set_render_param(openmpt::module::RENDER_INTERPOLATIONFILTER_LENGTH, 2);
+		module->set_render_param(openmpt::module::RENDER_VOLUMERAMPING_STRENGTH, 0);
+		if (galaxy)
+			module->set_render_param(openmpt::module::RENDER_MASTERGAIN_MILLIBEL, GalaxyMusic::GainMillibel);
 
 		subsong = clamp(subsong, 0, module->get_num_subsongs() - 1);
 		if (subsong != 0)

@@ -1725,12 +1725,39 @@ Soft's wave driver given no file). A song that fails to load is logged and
 none plays, the game going on, as Galaxy's `glxLoadMusic` failing is a
 warning.
 
-Differs (bugs.md AUD.9): the music's slider and fades are linear, Galaxy's
-squared, so the music is louder. Differs (bugs.md AUD.10): a song's mix
-volume, pan law and resampling are OpenMPT's. Differs (bugs.md AUD.12): a
-burst of the old song can sound at a fade's end. Differs (bugs.md AUD.13):
-the music goes through HRTF on headphones. Differs (bugs.md AUD.14):
-`UseSound=False` is read nowhere.
+The music's volume is Galaxy's
+([music](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#music)):
+127 x the fade x the Music slider / 255, cut to a whole number, squared as
+Galaxy's mixer squares it with a music voice's own volume, the 100 of 127 a
+song's load leaves it at: 0.601 of full at 255, 0.215 at the game's 153 and
+0.036 at 64. A transition fades the song out by that square, over 1 s
+(`MTRAN_Fade`), 1/3 s (`MTRAN_FastFade`) or 5 s (`MTRAN_SlowFade`), at once
+for the others, holds it silent for twice `Latency`, then starts the
+player's song at full volume, the old song's sound dropped before the volume
+rises. The music goes to the speakers as it is, as the sounds' mix does,
+never through OpenAL's HRTF, UHJ or a surround layout. A song plays as
+Galaxy's IT loader converts it (`Audio/GalaxyMusic.cpp`): none of its mix
+volume, its channels' volumes or its samples' and instruments' global
+volumes; the commands Galaxy drops dropped, one effect memory a channel for
+every command, a speed over 32 at 32, an order whose pattern is empty
+passed over; read between samples linearly, unramped; played 3 dB up, so a
+centred channel sounds as Galaxy's square-root pan has it. `MusicConsole` on
+the harness's `CapTone`, recorded on both engines: tone A at 255 -16.5 dBFS
+in the original, -16.4 in DXEngine; at 153 and 64 8.75 and 24.4 dB under in
+the original, 8.92 and 24.5 in DXEngine; a fade's 3 to 12 and 12 to 24 dB
+steps 0.32 and 0.26 s in the original, 0.34 and 0.25 in DXEngine
+(`MTRAN_FastFade` 0.12 and 0.08, 0.11 and 0.09; `MTRAN_SlowFade` 1.67 and
+1.27, 1.70 and 1.24); silent 0.09 to 0.34 s before the new tone in each, no
+burst of the old one; with `DXCAP_HRTF=1` the pair's crossfeed 110 dB under,
+as without. The stock songs from their first order are within 0.5 dB of
+the original's mean level, LibertyIsland, UNATCO, VersaLife, NavalBase and
+BatteryPark (Title, the menu map's own, -12.0 and -13.5 dB in two runs of
+the original, -11.8 in DXEngine), where they were 0.7 to 6.9 dB under.
+Differs (bugs.md AUD.15): the music is heard as it changes, where the
+original's comes some 0.9 s after its sounds. Differs (bugs.md AUD.16): a
+song's channels pan linearly, a hard-panned one 3 dB over the original's,
+and they take their pans from the start whatever its order. Differs
+(bugs.md AUD.14): `UseSound=False` is read nowhere.
 
 ## Implemented, not as the original
 

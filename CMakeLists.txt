@@ -153,6 +153,8 @@ set(DXCOMMON_SOURCES
 	DXEngine/Audio/AudioDevice.h
 	DXEngine/Audio/GalaxyMixer.cpp
 	DXEngine/Audio/GalaxyMixer.h
+	DXEngine/Audio/GalaxyMusic.cpp
+	DXEngine/Audio/GalaxyMusic.h
 	DXEngine/Native/NStatLog.h
 	DXEngine/Native/NZoneInfo.cpp
 	DXEngine/Native/NNavigationPoint.cpp

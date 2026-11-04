@@ -134,11 +134,10 @@ private:
 	int NextSoundSerial = 1;
 	std::chrono::steady_clock::time_point m_LastUpdateTime;
 
-	// Deus Ex's music transition: the playing song fades out first, then the
-	// new one starts at full volume (galaxy-dll.md, Music).
-	bool m_MusicTransition = false;
-	float m_MusicFadeLength = 0.0f;
-	float m_MusicFadeLeft = 0.0f;
+	// Galaxy's music fade (its subsystem's at 0x900): 1, but while a
+	// transition fades the song out, falling past 0 through the hold after it
+	// (UpdateMusic; galaxy-dll.md, Music).
+	float m_MusicFade = 1.0f;
 
 	// The reverb zone last set on the device, so it is set again only when it
 	// changes (galaxy-dll.md, Reverb).

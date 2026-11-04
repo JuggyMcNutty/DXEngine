@@ -6,8 +6,9 @@
 #
 #   tools/dxcap.sh setup                      build/dxcap: the SDK's UCC among links to the game's files
 #   tools/dxcap.sh compile                    tools/dxcap -> build/dxcap/System/DXCapture.u (UCC, under Proton),
-#                                             its test sounds, textures and mesh written by
-#                                             tools/dxcap/testsounds.py, testtextures.py and testmeshes.py
+#                                             its test sounds, textures, mesh and song written by
+#                                             tools/dxcap/testsounds.py, testtextures.py, testmeshes.py
+#                                             and testmusic.py
 #   tools/dxcap.sh original <console> [<secs>] the original, from its menu map (or DXCAP_START's URL)
 #   tools/dxcap.sh dxe <console> <map> [<secs>]  DXEngine's linux-x86_64 build, straight into <map>
 #                                                  (or joining a server: <map> an address, as 127.0.0.1:7790);
@@ -43,7 +44,9 @@
 # DXCAP_AUDIO=1 gives DXEngine real audio; it is silent otherwise.
 # DXCAP_RECORD=1 sends either engine's audio to a private sink instead of the
 # speakers and records it into the run's audio.wav, with the music off, or on
-# with DXCAP_MUSIC=1 (tools/dxcap/sound.py reads it).
+# with DXCAP_MUSIC=1 (tools/dxcap/sound.py reads it). DXCAP_HRTF=1 has a dxe
+# run's recording made through OpenAL Soft's HRTF, as OpenAL Soft turns it on
+# by itself on headphones (its stereo-encoding).
 # DXCAP_UPLINK=<host>:<port> has a run's server announce itself there -- a
 # master on this machine (tools/dxcap/fakemaster.py), its uplink's
 # DoUplink set --, where it otherwise announces itself nowhere. DXCAP_PORT=<port> has a run's server
@@ -604,6 +607,7 @@ cmd_compile() {
     python3 "$HERE/dxcap/testsounds.py" "$CAP/DXCapture/Sounds" || die "testsounds.py failed"
     python3 "$HERE/dxcap/testtextures.py" "$CAP/DXCapture/Textures" || die "testtextures.py failed"
     python3 "$HERE/dxcap/testmeshes.py" "$CAP/DXCapture/Models" || die "testmeshes.py failed"
+    python3 "$HERE/dxcap/testmusic.py" "$CAP/DXCapture/Music" || die "testmusic.py failed"
     (cd "$CAP/System" && wine_run UCC.exe make > "$CAP/ucc.out" 2>&1) || true
     grep -E "Error|error\(s\)" "$CAP/System/UCC.log" >&2 || true
     [ -f "$CAP/System/DXCapture.u" ] || die "UCC made no DXCapture.u -- build/dxcap/System/UCC.log"
@@ -864,6 +868,7 @@ run_dxe() {
         fi
         if [ "${DXCAP_RECORD:-0}" = 1 ]; then
             printf '[general]\ndrivers = pulse\n' > "$CAP/alsoft-pulse.conf"
+            [ "${DXCAP_HRTF:-0}" != 1 ] || printf 'stereo-encoding = hrtf\n' >> "$CAP/alsoft-pulse.conf"
             export ALSOFT_CONF="$CAP/alsoft-pulse.conf" PULSE_SINK=dxcap
         elif windows_engine && [ "${DXCAP_AUDIO:-0}" != 1 ]; then
             # OpenAL Soft on Windows reads no file by a Unix name.

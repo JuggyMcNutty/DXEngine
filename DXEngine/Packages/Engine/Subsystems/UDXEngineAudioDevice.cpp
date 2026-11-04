@@ -15,6 +15,7 @@
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Collision/BottomLevel/TraceRayModel.h"
 #include "Light/LightmapBuilder.h"
+#include "Audio/GalaxyMixer.h"
 #include "kissfft/kiss_fftr.h"
 
 static float square(float x) { return x * x; }
@@ -251,10 +252,25 @@ void UDXEngineAudioDevice::SetChannelCount()
 	PlayingSounds.resize(count);
 }
 
+// The music's gain as Galaxy sets it (SetVolumes, Galaxy.dll 0x106061b0):
+// 127 x the fade, never below 0, x the Music slider / 255, cut to a whole
+// number, which its mixer squares on every music voice, the voice's own
+// volume the 100 a song's load leaves it at (GalaxyMixer::SquaredGain):
+// 0.601 with the slider full, 0.215 at the game's 153 and 0.036 at 64, 8.9
+// and 24.5 dB under full, and a fade's quarter, half and three quarters 5,
+// 12 and 24.5 dB down (bugs.md AUD.9). The note's own volume and its pan are
+// the song's.
+static float GalaxyMusicGain(uint8_t slider, float fade)
+{
+	float music = (float)std::clamp(slider * 0.00392156862745098, 0.0, 1.0);
+	int volume = (int)(int64_t)((double)std::max(fade, 0.0f) * music * 127.0);
+	return GalaxyMixer::SquaredGain(volume, 100) / 32768.0f;
+}
+
 void UDXEngineAudioDevice::Update()
 {
 	// The update's own time step, 0 to 1 s, as Galaxy's (galaxy-dll.md, Each
-	// frame); the obstruction fade runs on it.
+	// frame); the obstruction fade and the music's run on it.
 	auto now = std::chrono::steady_clock::now();
 	float timeStep = std::clamp(std::chrono::duration<float>(now - m_LastUpdateTime).count(), 0.0f, 1.0f);
 	m_LastUpdateTime = now;
@@ -265,10 +281,7 @@ void UDXEngineAudioDevice::Update()
 	UpdateMusic(timeStep);
 	UpdateReverb();
 
-	float musicFade = 1.0f;
-	if (m_MusicTransition && m_MusicFadeLength > 0.0f)
-		musicFade = std::max(m_MusicFadeLeft, 0.0f) / m_MusicFadeLength;
-	m_Device->SetMusicVolume(MusicVolume / 255.0f * musicFade);
+	m_Device->SetMusicVolume(GalaxyMusicGain(MusicVolume, m_MusicFade));
 	// Galaxy's sample volume is the louder of the two sliders, squared in its
 	// mixer; each sound's own share of the sliders is its voice's
 	// (GalaxyVoice, galaxy-dll.md, Volume).
@@ -647,47 +660,60 @@ void UDXEngineAudioDevice::UpdateMusic(float timeStep)
 
 	auto* player = m_Viewport->Actor();
 
-	if (!m_MusicTransition && player->Transition() != MTRAN_None)
+	if (player->Transition() != MTRAN_None)
 	{
-		// The playing music fades out first: 1 s for MTRAN_Fade, 5 s for
-		// MTRAN_SlowFade, 1/3 s for MTRAN_FastFade, at once for the others,
-		// plus twice Latency (galaxy-dll.md, Music).
-		float length = 0.0f;
-		switch (player->Transition())
+		// The music changes as Galaxy's Update changes it (Galaxy.dll
+		// 0x10609510; galaxy-dll.md, Music), the transition read at each
+		// update, so one changed mid-way goes on from the fade as it stands.
+		// While a song plays, the fade falls by the update's time step --
+		// three times that for MTRAN_FastFade, a fifth for MTRAN_SlowFade --
+		// the song playing on at its square (GalaxyMusicGain), silent once
+		// it is 0, and the change comes once it has fallen twice Latency's
+		// milliseconds past 0 at that pace: 1 s, 1/3 s or 5 s, then a hold
+		// in silence, 80 ms at the game's 40. MTRAN_Instant, MTRAN_Segue and
+		// any other transition change at once, as one with nothing playing
+		// does.
+		if (CurrentSong)
 		{
-		case MTRAN_Fade: length = 1.0f; break;
-		case MTRAN_SlowFade: length = 5.0f; break;
-		case MTRAN_FastFade: length = 1.0f / 3.0f; break;
-		default: break;
+			bool done = true;
+			switch (player->Transition())
+			{
+			case MTRAN_Fade:
+				m_MusicFade = (float)(m_MusicFade - (double)timeStep);
+				done = Latency * -0.002 > m_MusicFade;
+				break;
+			case MTRAN_SlowFade:
+				m_MusicFade = (float)(m_MusicFade - timeStep * 0.2);
+				done = Latency * -0.0004 > m_MusicFade;
+				break;
+			case MTRAN_FastFade:
+				m_MusicFade = (float)(m_MusicFade - timeStep * 3.0);
+				done = Latency * -0.006 > m_MusicFade;
+				break;
+			default:
+				break;
+			}
+			if (!done)
+				return;
 		}
-		if (length > 0.0f)
-			length += 2.0f * Latency / 1000.0f;
-		if (!CurrentSong)
-			length = 0.0f;   // nothing plays, nothing to fade
-		m_MusicTransition = true;
-		m_MusicFadeLength = length;
-		m_MusicFadeLeft = length;
-	}
 
-	if (m_MusicTransition)
-	{
-		m_MusicFadeLeft -= timeStep;
-		if (m_MusicFadeLeft > 0.0f)
-			return;
-
-		// The fade is done: the player's Song starts at full volume at the
-		// order SongSection -- a different song is loaded, the same one only
-		// jumps -- and section 255 is silence (galaxy-dll.md, Music).
+		// The change: the player's Song at the order SongSection at full
+		// volume -- a different song is loaded, the same one only jumps --
+		// and section 255 is silence (galaxy-dll.md, Music). The full volume
+		// goes to the device with the change, never on the old song's sound
+		// (bugs.md AUD.12).
+		m_MusicFade = 1.0f;
+		float volume = GalaxyMusicGain(MusicVolume, m_MusicFade);
 		UMusic* song = player->Song();
 		int section = player->SongSection();
 		if (!song || section == 255 || !UseDigitalMusic)
 		{
-			m_Device->PlayMusic({});
+			m_Device->PlayMusic({}, volume);
 			CurrentSong = nullptr;
 		}
 		else if (song == CurrentSong)
 		{
-			m_Device->SetMusicOrder(section);
+			m_Device->SetMusicOrder(section, volume);
 		}
 		else
 		{
@@ -704,13 +730,10 @@ void UDXEngineAudioDevice::UpdateMusic(float timeStep)
 				std::string reason = e.what();
 				LogMessage("glxLoadMusic(&Mem, GLX_LOADFROMMEMORY ) failed: " + song->Name.ToString() + ": " + reason.substr(0, reason.find('\n')));
 			}
-			m_Device->PlayMusic(std::move(source));
+			m_Device->PlayMusic(std::move(source), volume);
 			CurrentSong = song;
 		}
 		CurrentSection = section;
-		m_MusicTransition = false;
-		m_MusicFadeLength = 0.0f;
-		m_MusicFadeLeft = 0.0f;
 		player->Transition() = MTRAN_None;
 	}
 	else if (CurrentSong)
@@ -911,7 +934,7 @@ void UDXEngineAudioDevice::StopSounds()
 
 	// The song goes with the music: a level of the same song starts it
 	// again, where it would only jump the order of music stopped.
-	m_Device->PlayMusic(nullptr);
+	m_Device->PlayMusic(nullptr, 0.0f);
 	CurrentSong = nullptr;
 	m_Viewport = nullptr;
 }

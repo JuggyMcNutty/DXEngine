@@ -128,15 +128,21 @@ void GalaxyMixer::FillRing(Voice& voice)
 	voice.fill += room;
 }
 
-// SetVolumes hands Galaxy 127 times the louder slider; its mixer gains every
-// voice by twice that squared, times the voice's own full volume of 32258,
-// then through four more full-scale factors of 32767.
-void GalaxyMixer::SetMasterVolume(float louderSlider)
+int GalaxyMixer::SquaredGain(int volume, int voiceVolume)
 {
-	int volume = std::clamp((int)(int64_t)(louderSlider * 127.0), 0, 127);
-	int gain = (2 * volume * volume * 32258) >> 15;
+	volume = std::clamp(volume, 0, 127);
+	voiceVolume = std::clamp(voiceVolume, 0, 127);
+	int gain = (2 * volume * volume * (2 * voiceVolume * voiceVolume)) >> 15;
 	for (int i = 0; i < 4; i++)
 		gain = (0x7fff * gain) >> 15;
+	return gain;
+}
+
+// SetVolumes hands Galaxy 127 times the louder slider, which its mixer
+// squares on every voice, a sound's own volume full (SquaredGain).
+void GalaxyMixer::SetMasterVolume(float louderSlider)
+{
+	int gain = SquaredGain((int)(int64_t)(louderSlider * 127.0), 127);
 	std::unique_lock lock(mutex);
 	master = gain;
 }

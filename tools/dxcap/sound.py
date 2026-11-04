@@ -4,6 +4,7 @@
     sound.py <run dir>
     sound.py --onsets <run dir>
     sound.py --levels <run dir>
+    sound.py --music <run dir>
 
 The run's audio.wav is laid against its log (engine.log or DeusEx.log) by
 each scenario's three beeps, half a second apart, which SoundConsole plays
@@ -31,6 +32,25 @@ test's client hearing the server's beeps (ServeConsole).
 over the tenth -- the music through a map's load, against the beeps'
 onsets (LoadingConsole, with DXCAP_MUSIC=1).
 
+--music reads a MusicConsole run (DXCAP_RECORD=1 DXCAP_MUSIC=1), laid by
+its three beeps, each step by the beep a second before it:
+
+  segment: the tone's level at each Music slider -- the median of its 5 ms
+           frames, and the tone's own by a windowed DFT at its frequency --
+           against the first at 255, beside Galaxy's square of the slider
+           and a linear law;
+  fade:    each fade's 5 ms frames against the level before it: when it
+           passes 3, 6, 12 and 24 dB down, the steps between those (Galaxy's
+           square and a linear fade over the time and twice Latency, 40 ms,
+           beside them), when it falls silent (60 dB down), how long it is
+           silent, the old tone's frames at 20 dB down or louder after the
+           24 dB point (a burst) and when the new tone starts, each frame
+           told by its brightness, a pure tone's own frequency;
+  stereo:  the pair's tones in each channel by the DFT, and each one's
+           level in the other side's channel (crossfeed): first as the song
+           loads straight into the pair's order, then after order 0 has
+           played.
+
 Levels are dB of full scale. Brightness is the frequency of a sine with the
 same share of first-difference energy -- a low-pass filter lowers it.
 """
@@ -57,6 +77,9 @@ class Recording:
         self.data = data
         self.frames = len(data) // self.channels
         self.hop = int(self.rate * HOP)
+        # A frame's own length: 220 frames at 44,100 Hz are 4.989 ms, so a
+        # time taken as 5 ms frames is 113 ms late at 50 s
+        self.step = self.hop / self.rate
         # The energy envelope, both channels together, and each channel's.
         env = []
         per = [[] for _ in range(self.channels)]
@@ -79,7 +102,7 @@ class Recording:
         return 10 * math.log10(max(energy, 1e-3) / (32768.0 * 32768.0))
 
     def frame(self, t):
-        return int(round(t / HOP))
+        return int(round(t / self.step))
 
     def level(self, start, end):
         """Median level (dB) and brightness (Hz) between two recording times."""
@@ -105,10 +128,10 @@ def read_log(run):
     sys.exit('%s: no engine.log or DeusEx.log' % run)
 
 
-def events(log):
-    """(time, what) for each timed DXCAP line, in order."""
+def events(log, tag='DXCAP'):
+    """(time, what) for each timed line of the tag's, in order."""
     out = []
-    for m in re.finditer(r'DXCAP: (.*?) at (-?\d+\.\d+)', log):
+    for m in re.finditer(re.escape(tag) + r': (.*?) at (-?\d+\.\d+)', log):
         out.append((float(m.group(2)), m.group(1)))
     return out
 
@@ -232,7 +255,7 @@ def report_onsets(rec, strength):
     while f < len(strength):
         if strength[f] >= 15.0:
             top = max(range(f, min(len(strength), f + rec.frame(0.3))), key=lambda i: rec.env[i])
-            found.append((f * HOP, rec.db(rec.env[top])))
+            found.append((f * rec.step, rec.db(rec.env[top])))
             f += rec.frame(0.3)
         else:
             f += 1
@@ -274,7 +297,7 @@ def shot(rec, t):
     ring = max((f for f in range(peak_f, peak_f + rec.frame(2.8)) if rec.db(env[f]) > peak - 60), default=peak_f)
     body = sum(env[peak_f:peak_f + rec.frame(0.45)])
     tail = sum(env[peak_f + rec.frame(0.5):peak_f + rec.frame(1.5)])
-    return peak, (ring - peak_f) * HOP, 10 * math.log10(max(tail, 1e-3) / max(body, 1e-3))
+    return peak, (ring - peak_f) * rec.step, 10 * math.log10(max(tail, 1e-3) / max(body, 1e-3))
 
 
 def report_reverb(rec, strength, evts, after):
@@ -325,9 +348,223 @@ def report_pan(rec, offset, rest):
             what, t, peaks[0], peaks[1], peaks[1] - peaks[0]))
 
 
+# MusicConsole's song, tools/dxcap/testmusic.py's CapTone: its tones, and the
+# pair's, hard left and hard right.
+MUSIC_TONES = {'A': 441.0, 'B': 630.0}
+MUSIC_PAIR = (551.25, 882.0)
+MUSIC_LATENCY = 0.040  # the game's Latency, whose twice the fade's hold is
+
+
+def galaxy_music_gain(slider, fade=1.0):
+    """Galaxy's music gain (SetVolumes and its mixer, a music voice's own
+    volume the 100 a song's load leaves it at; bugs.md AUD.9)."""
+    v = int(max(fade, 0.0) * min(max(slider * 0.00392156862745098, 0.0), 1.0) * 127.0)
+    g = (2 * v * v * 20000) >> 15
+    for _ in range(4):
+        g = (0x7fff * g) >> 15
+    return g / 32768.0
+
+
+def frame_brightness(rec, f):
+    """A 5 ms frame's brightness (Hz), both channels: a pure tone's own
+    frequency."""
+    c = rec.channels
+    a = f * rec.hop * c
+    chunk = rec.data[a:a + rec.hop * c]
+    e = sum(x * x for x in chunk)
+    d = sum((chunk[i] - chunk[i - c]) ** 2 for i in range(c, len(chunk)))
+    if e <= 0:
+        return 0.0
+    return rec.rate / math.pi * math.asin(math.sqrt(min(4.0, d / e)) / 2)
+
+
+def tone_db(rec, start, end, hz, channel=None):
+    """A tone's level (dB, as an RMS) between two recording times by a
+    Hann-windowed DFT at its frequency, other sounds -- the beeps, at 4 kHz,
+    the other tones -- left out; channel None, both channels' mean."""
+    a = max(0, int(start * rec.rate))
+    b = min(rec.frames, int(end * rec.rate))
+    n = b - a
+    if n < 256:
+        return None
+    coeff = 2 * math.cos(2 * math.pi * hz / rec.rate)
+    window = [0.5 - 0.5 * math.cos(2 * math.pi * i / (n - 1)) for i in range(n)]
+    energy = []
+    for c in (range(rec.channels) if channel is None else [channel]):
+        s1 = s2 = 0.0
+        data = rec.data[a * rec.channels + c:b * rec.channels:rec.channels]
+        for x, w in zip(data, window):
+            s1, s2 = x * w + coeff * s1 - s2, s1
+        power = max(s1 * s1 + s2 * s2 - coeff * s1 * s2, 0.0)
+        peak = 2 * math.sqrt(power) / ((n - 1) / 2.0)
+        energy.append(peak * peak / 2)
+    return rec.db(sum(energy) / len(energy))
+
+
+def hf_strength(rec):
+    """Onset strength of the first differences' energy, which holds the
+    beeps (4 kHz) some 19 dB further over the songs' tones than the energy."""
+    c = rec.channels
+    step = rec.hop * c
+    dbs = []
+    for i in range(0, len(rec.data) - step + 1, step):
+        chunk = rec.data[i:i + step]
+        d = sum((chunk[k] - chunk[k - c]) ** 2 for k in range(c, len(chunk)))
+        dbs.append(rec.db(d / len(chunk)))
+    out = [0.0] * len(dbs)
+    for i in range(10, len(dbs)):
+        out[i] = max(0.0, dbs[i] - min(dbs[i - 10:i]))
+    return out
+
+
+def beep_offset(rec, hf, t, around):
+    """The offset laying a beep logged at t on its onset, within 0.25 s of
+    around, the run's offset."""
+    best, best_offset = -1.0, around
+    for s in range(-50, 51):
+        offset = around + s * HOP
+        f = rec.frame(t + offset)
+        if 3 <= f < len(hf) - 3:
+            onset = max(hf[f - 2:f + 3])
+            if onset > best:
+                best, best_offset = onset, offset
+    return best_offset
+
+
+def report_music(rec, log):
+    evts = events(log, 'DXMUSIC')
+    beeps = [t for t, what in evts if what == 'beep']
+    if len(beeps) < 3:
+        print('music: not in the log')
+        return
+    offset, score = align(rec, onsets(rec), beeps[:3], -5.0, 60.0)
+    print('music: beeps found at %+.3f s from the log (onset %.1f dB)' % (offset, score))
+    hf = hf_strength(rec)
+
+    def local(t):
+        """The offset by the beep a second before t, or the run's."""
+        before = [b for b in beeps if t - 1.3 <= b < t]
+        return beep_offset(rec, hf, before[-1], offset) if before else offset
+
+    steps = [(t, what.split()) for t, what in evts if what.split()[0] in ('segment', 'fade', 'stereo', 'stop', 'song', 'end')]
+    nexts = [t for t, _ in steps[1:]] + [steps[-1][0] + 5.0]
+
+    print('segments: the median of 5 ms frames, and the tone by DFT, each against the first at 255')
+    first = None
+    for (t, words), t_next in zip(steps, nexts):
+        if words[0] != 'segment':
+            continue
+        slider, tone = int(words[1]), words[2]
+        at = local(t)
+        end = min([b for b in beeps if b > t] + [t_next]) - 0.1
+        lvl, bright = rec.level(t + 0.5 + at, end + at)
+        tlvl = tone_db(rec, t + 0.5 + at, end + at, MUSIC_TONES[tone])
+        if lvl is None or tlvl is None:
+            print('  %s %3d  %6.2f s  not in the recording' % (tone, slider, t))
+            continue
+        if first is None and slider == 255:
+            first = (lvl, tlvl)
+        rel = '' if first is None else '  %+6.2f / %+6.2f' % (lvl - first[0], tlvl - first[1])
+        print('  %s %3d  %6.2f-%6.2f s  %6.1f dB  %4.0f Hz  tone %6.1f dB%s   (Galaxy %+6.2f, linear %+6.2f)' % (
+            tone, slider, t + 0.5, end, lvl, bright, tlvl, rel,
+            20 * math.log10(max(galaxy_music_gain(slider), 1e-9) / galaxy_music_gain(255)),
+            20 * math.log10(max(slider, 1e-9) / 255.0)))
+
+    print('fades: 5 ms frames against the 0.4 s before; times from the logged one')
+    for (t, words), t_next in zip(steps, nexts):
+        if words[0] != 'fade':
+            continue
+        how, length, old, new, slider = words[1], float(words[2]), words[3], words[4], int(words[5])
+        at = local(t)
+        t0 = t + at
+        before = sorted(rec.env[rec.frame(t0 - 0.45):rec.frame(t0 - 0.05)])
+        if not before:
+            print('  %s at %.2f s: not in the recording' % (how, t))
+            continue
+        ref = rec.db(before[len(before) // 2])
+        f0, f1 = rec.frame(t0 - 0.1), min(len(rec.env), rec.frame(t_next + at - 1.1))
+        dbs = [rec.db(e) - ref for e in rec.env[f0:f1]]
+
+        def when(cond, start=0):
+            for i in range(max(start, 0), len(dbs) - 1):
+                if cond(i) and cond(i + 1):
+                    return i
+            return None
+
+        cross = {x: when(lambda i, x=x: dbs[i] <= -x) for x in (3, 6, 12, 24)}
+        newhz = MUSIC_TONES[new]
+        start = cross[12] if cross[12] is not None else 0
+        onset = when(lambda i: dbs[i] >= -12 and abs(frame_brightness(rec, f0 + i) - newhz) < 0.1 * newhz, start)
+        quiet_from = cross[24] if cross[24] is not None else start
+        end = onset if onset is not None else len(dbs)
+        silent = [i for i in range(quiet_from, end) if dbs[i] <= -60]
+        oldhz = MUSIC_TONES[old]
+        # the old tone 20 dB down or louder after its fade, the frame the
+        # new one starts in left out
+        burst = [i for i in range(quiet_from, end - 1) if dbs[i] >= -20 and
+                 abs(frame_brightness(rec, f0 + i) - oldhz) < abs(frame_brightness(rec, f0 + i) - newhz)]
+        sec = lambda i: (f0 + i) * rec.step - t0 if i is not None else float('nan')
+        quiet = ('silent from %+.3f s, %.3f s of it' % (sec(silent[0]), len(silent) * rec.step)) if silent else 'never silent'
+        print('  %s %.3g s %s->%s at %d, %.2f s: ref %.1f dB; -3 dB %+.3f s, -6 %+.3f, -12 %+.3f, -24 %+.3f; '
+              '%s; %s from %+.3f s' % (
+                  how, length, old, new, slider, t, ref, sec(cross[3]), sec(cross[6]), sec(cross[12]), sec(cross[24]),
+                  quiet, new, sec(onset)))
+        sq = lambda x: length * (1 - 10 ** (-x / 40.0))
+        lin = lambda x: (length + 2 * MUSIC_LATENCY) * (1 - 10 ** (-x / 20.0))
+        if None not in (cross[3], cross[12], cross[24]):
+            print('      -3..-12 dB %.3f s, -12..-24 dB %.3f s (Galaxy\'s square %.3f, %.3f; linear %.3f, %.3f)' % (
+                (cross[12] - cross[3]) * rec.step, (cross[24] - cross[12]) * rec.step,
+                sq(12) - sq(3), sq(24) - sq(12), lin(12) - lin(3), lin(24) - lin(12)))
+        if burst:
+            hz = sum(frame_brightness(rec, f0 + i) for i in burst) / len(burst)
+            print('      burst: %d frames, %.3f s, from %+.3f s, up to %+.1f dB, at %.0f Hz (%s %.0f Hz, %s %.0f Hz)' % (
+                len(burst), len(burst) * rec.step, sec(burst[0]), max(dbs[i] for i in burst), hz,
+                old, oldhz, new, newhz))
+        else:
+            print('      burst: none (no frame of %s 20 dB down or louder between its 24 dB point and %s)' % (old, new))
+
+    for (t, words), t_next in zip(steps, nexts):
+        if words[0] != 'stereo':
+            continue
+        at = local(t)
+        a, b = t + 0.5 + at, min([bp for bp in beeps if bp > t] + [t_next, t + 4.6]) - 0.1 + at
+        left, right = MUSIC_PAIR
+        ll, lr = tone_db(rec, a, b, left, 0), tone_db(rec, a, b, left, 1)
+        rl, rr = tone_db(rec, a, b, right, 0), tone_db(rec, a, b, right, 1)
+        if None in (ll, lr, rl, rr) or rec.channels != 2:
+            print('stereo: not in the recording')
+            continue
+        print('stereo%s %.2f-%.2f s: left channel %.2f Hz %6.1f dB, %.0f Hz %6.1f dB; right channel %.2f Hz %6.1f dB, %.0f Hz %6.1f dB' % (
+            ' (' + ' '.join(words[2:]) + ')' if len(words) > 2 else '', t + 0.5, b - at, left, ll, right, rl, left, lr, right, rr))
+        print('  crossfeed: the left tone in the right channel %+.1f dB, the right tone in the left %+.1f dB' % (
+            lr - ll, rl - rr))
+
+    if any(words[0] == 'song' for _, words in steps):
+        print('songs: each from its onset after the change, 0.5 to 7 s of it: the median of 5 ms frames and the mean power')
+    for (t, words), t_next in zip(steps, nexts):
+        if words[0] != 'song':
+            continue
+        name = words[1]
+        at = local(t)
+        f0 = rec.frame(t + at - 0.1)
+        f1 = min(len(rec.env) - 1, rec.frame(t_next + at))
+        # The song's onset, the first two frames 45 dB under full scale or louder
+        onset = next((f for f in range(f0, f1) if rec.db(rec.env[f]) > -45 and rec.db(rec.env[f + 1]) > -45), None)
+        if onset is None:
+            print('  %-42s at %6.2f s: silent' % (name, t))
+            continue
+        a = onset * rec.step + 0.5
+        b = min(onset * rec.step + 7.0, t_next + at)
+        lvl, bright = rec.level(a, b)
+        frames = rec.env[rec.frame(a):rec.frame(b)]
+        power = rec.db(sum(frames) / len(frames)) if frames else float('nan')
+        print('  %-42s at %6.2f s: onset %+.3f s, median %6.1f dB, power %6.1f dB, %4.0f Hz' % (
+            name, t, onset * rec.step - (t + at), lvl, power, bright))
+
+
 def main():
     args = sys.argv[1:]
-    mode = args[0] if args and args[0] in ('--onsets', '--levels') else None
+    mode = args[0] if args and args[0] in ('--onsets', '--levels', '--music') else None
     if mode:
         args = args[1:]
     if len(args) != 1:
@@ -337,6 +574,9 @@ def main():
     print('%s: %.1f s of audio' % (run, rec.frames / rec.rate))
     if mode == '--levels':
         report_levels(rec)
+        return
+    if mode == '--music':
+        report_music(rec, read_log(run))
         return
     strength = onsets(rec)
     if mode == '--onsets':
