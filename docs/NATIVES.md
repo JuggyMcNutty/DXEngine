@@ -1759,7 +1759,7 @@ burst of the old one; the pair after order 0, a tone hard left and one hard
 right, -13.6 dBFS in the original and -13.5 in DXEngine, the right one 21.1
 dB under in the left channel in both, the left one none in the right; with
 `DXCAP_HRTF=1` the same. The stock songs from their first order, each laid
-against the original's run by its levels, are within 0.1 dB of the
+against the original's run by its levels, are within 0.11 dB of the
 original's mean power in each channel over the same 6.5 s: Title,
 LibertyIsland, UNATCO, VersaLife and NavalBase (Title, the menu map's own,
 -12.0 and -13.5 dB in two runs of the original, -12.0 in DXEngine);
