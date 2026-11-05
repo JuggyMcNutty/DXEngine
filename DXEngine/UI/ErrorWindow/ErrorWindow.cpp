@@ -4,6 +4,7 @@
 #include "Utils/File.h"
 #include "Utils/CrashReporter.h"
 #include "Utils/CommandLine.h"
+#include "Utils/ScriptString.h"
 #include "Engine.h"
 #include <dxwidgets/core/image.h>
 #include <dxwidgets/widgets/pushbutton/pushbutton.h>
@@ -103,25 +104,12 @@ ErrorWindow::ErrorWindow(Array<uint8_t> initminidump, const std::vector<std::sha
 }
 
 
-// The engine's text is Latin-1 bytes, the game's strings' (NATIVES.md, the
-// UI); the widgets and the clipboard take UTF-8
-static std::string Latin1ToUtf8(const std::string& text)
+// The engine's text is UTF-8, as the widgets and the clipboard take it
+// (Utils/ScriptString.h): it goes as it is, a byte that is not UTF-8 as the
+// character of its value, as the engine reads such text
+static std::string WidgetText(const std::string& text)
 {
-	std::string utf8;
-	utf8.reserve(text.size());
-	for (unsigned char c : text)
-	{
-		if (c < 0x80)
-		{
-			utf8.push_back((char)c);
-		}
-		else
-		{
-			utf8.push_back((char)(0xC0 | (c >> 6)));
-			utf8.push_back((char)(0x80 | (c & 0x3F)));
-		}
-	}
-	return utf8;
+	return ScriptToUTF8(UTF8ToScript(text));
 }
 
 void ErrorWindow::SetText(const std::string& text, const std::list<LogMessageLine>& log)
@@ -141,13 +129,13 @@ void ErrorWindow::SetText(const std::string& text, const std::list<LogMessageLin
 
 		clipboardtext += timeText;
 		clipboardtext += " ";
-		clipboardtext += Latin1ToUtf8(sourceText);
+		clipboardtext += WidgetText(sourceText);
 		clipboardtext += " ";
-		clipboardtext += Latin1ToUtf8(line.Text);
+		clipboardtext += WidgetText(line.Text);
 		clipboardtext += "\n";
 	}
 	clipboardtext += "\nExecution could not continue.\n";
-	clipboardtext += Latin1ToUtf8(text);
+	clipboardtext += WidgetText(text);
 	clipboardtext += "\n";
 }
 
@@ -265,7 +253,7 @@ void LogViewer::SetText(const std::string& text, const std::list<LogMessageLine>
 			line.pop_back();
 		if (line.empty())
 			line.push_back(' ');
-		line = Latin1ToUtf8(line);
+		line = WidgetText(line);
 
 		layout.Clear();
 		layout.AddText(line, font, Colorf::fromRgba8(255, 255, 170));
@@ -290,8 +278,8 @@ LogViewer::LogLine LogViewer::CreateLineLayout(const LogMessageLine& line)
 {
 	LogLine logline;
 	logline.time.AddText(ToFixed(line.Time), font, Colorf::fromRgba8(200, 200, 200));
-	logline.source.AddText(Latin1ToUtf8(line.Source), font, Colorf::fromRgba8(170, 170, 255));
-	logline.text.AddText(Latin1ToUtf8(line.Text), font, Colorf::fromRgba8(255, 255, 255));
+	logline.source.AddText(WidgetText(line.Source), font, Colorf::fromRgba8(170, 170, 255));
+	logline.text.AddText(WidgetText(line.Text), font, Colorf::fromRgba8(255, 255, 255));
 	return logline;
 }
 
