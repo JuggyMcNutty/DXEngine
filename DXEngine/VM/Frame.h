@@ -197,7 +197,8 @@ public:
 
 	void SetState(UStruct* func);
 
-	void GotoLabel(const NameString& label);
+	// Whether the label, Begin for none, was found: none stops the state code
+	bool GotoLabel(const NameString& label);
 	void Tick();
 
 	// What a state frame keeps alive: its function and the references its

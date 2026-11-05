@@ -542,12 +542,11 @@ bool Frame::FindLabel(const NameString& label)
 	return false;
 }
 
-void Frame::GotoLabel(const NameString& label)
+bool Frame::GotoLabel(const NameString& label)
 {
-	if (FindLabel(label.IsNone() ? NameString("Begin") : label))
-		LatentState = LatentRunState::Continue;
-	else
-		LatentState = LatentRunState::Stop;
+	bool found = FindLabel(label.IsNone() ? NameString("Begin") : label);
+	LatentState = found ? LatentRunState::Continue : LatentRunState::Stop;
+	return found;
 }
 
 void Frame::Tick()

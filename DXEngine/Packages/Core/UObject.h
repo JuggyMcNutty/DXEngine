@@ -359,7 +359,17 @@ public:
 	uint64_t CurrentProbeMask = ~0ULL;
 
 	NameString GetStateName() const;
-	void GotoState(NameString stateName, const NameString& labelName);
+	// As the original's UObject::GotoState (Core.dll 0x1012e8f0): 1 for a
+	// state reached, its label found or not (labelFound), 0 for none -- no
+	// state, a state the class has not, or no state frame --, 2 preempted by
+	// a GotoState in EndState or BeginState
+	int GotoState(NameString stateName, const NameString& labelName, bool* labelFound = nullptr);
+	// Whether the original gives the object a state frame: an actor and the
+	// console from their start (InitExecution, Core.dll 0x10150750), an object
+	// loaded with a stack from its load; DXEngine makes theirs at the first
+	// GotoState. Any other, an object new makes, has none, its GotoState
+	// doing nothing.
+	virtual bool TakesStateFrame() const { return AnyFlags(Flags, ObjectFlags::HasStack); }
 
 	std::string PrintProperties();
 	Array<UProperty*> GetAllProperties();

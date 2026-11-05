@@ -213,6 +213,7 @@ enum class EDodgeDir : uint8_t
 class UActor : public UObject
 {
 public:
+	bool TakesStateFrame() const override { return true; }
 	using UObject::UObject;
 
 	UActor* Spawn(UClass* SpawnClass, std::optional<UActor*> SpawnOwner, std::optional<NameString> SpawnTag, std::optional<vec3> SpawnLocation, std::optional<Rotator> SpawnRotation, bool noCollisionFail = false, bool remoteOwned = false);

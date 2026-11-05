@@ -689,16 +689,24 @@ void NObject::GotoState(UObject* Self, std::optional<NameString> NewState, std::
 	// as they are, so a Disable in BeginState holds (a sitting NPC's
 	// AnimEnd, which its Bump on the chair's way sends to CircleToFront).
 	// UObject::GotoState, which sets the probe mask, only for another state.
+	// It logs a named label not found, and a state not found but for None
+	// and Auto, as script warnings.
 	NameString current = Self->GetStateName();
 	NameString stateName = NewState ? *NewState : current;
 	NameString labelName = Label ? *Label : NameString();
+	std::string what = "GotoState (" + stateName.ToString() + " " + labelName.ToString() + "): ";
 	if (stateName == current)
 	{
-		if (Self->StateFrame && Self->StateFrame->Func)
-			Self->StateFrame->GotoLabel(labelName);
+		if (Self->StateFrame && Self->StateFrame->Func && !Self->StateFrame->GotoLabel(labelName) && !labelName.IsNone())
+			LogMessage(what + "Label not found");
 		return;
 	}
-	Self->GotoState(stateName, labelName);
+	bool labelFound = true;
+	int result = Self->GotoState(stateName, labelName, &labelFound);
+	if (result == 1 && !labelFound && !labelName.IsNone())
+		LogMessage(what + "Label not found");
+	else if (result == 0 && !stateName.IsNone() && stateName != "Auto")
+		LogMessage(what + "State not found");
 }
 
 void NObject::GreaterEqual_FloatFloat(float A, float B, BitfieldBool& ReturnValue)

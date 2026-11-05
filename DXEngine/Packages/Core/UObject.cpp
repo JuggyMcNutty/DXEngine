@@ -552,7 +552,7 @@ NameString UObject::GetStateName() const
 	return StateFrame && StateFrame->State ? StateFrame->State->Name : NameString();
 }
 
-void UObject::GotoState(NameString stateName, const NameString& labelName)
+int UObject::GotoState(NameString stateName, const NameString& labelName, bool* labelFound)
 {
 	if (stateName == "Auto")
 	{
@@ -588,7 +588,11 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
 	}
 
 	if (!StateFrame)
+	{
+		if (!TakesStateFrame())
+			return 0;
 		StateFrame = std::make_shared<Frame>(this, nullptr);
+	}
 
 	UState* oldState = (UState*)StateFrame->State;
 
@@ -607,7 +611,7 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
 		CallEvent(this, EventName::EndState);
 		Flags &= ~ObjectFlags::InEndState;
 		if (AnyFlags(Flags, ObjectFlags::StateChanged))
-			return;
+			return 2;
 	}
 
 	if (oldState != newState)
@@ -631,11 +635,15 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
 			Flags &= ~ObjectFlags::StateChanged;
 			CallEvent(this, EventName::BeginState);
 			if (AnyFlags(Flags, ObjectFlags::StateChanged))
-				return;
+				return 2;
 		}
-		StateFrame->GotoLabel(labelName);
+		bool found = StateFrame->GotoLabel(labelName);
+		if (labelFound)
+			*labelFound = found;
 		Flags |= ObjectFlags::StateChanged;
+		return 1;
 	}
+	return 0;
 }
 
 void UObject::Mark(GCMarker& marker)

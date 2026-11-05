@@ -373,7 +373,13 @@ the original's state frame has it: `GetStateName` gives the class's name,
 and `IsInState` is true for the class and its supers, while a script's
 `GotoState` compares with None there (`NonePreemptConsole`:
 `CapNonePreempter` sent to no state from within its `EndState` gives
-`CapNonePreempter`, in both engines).
+`CapNonePreempter`, in both engines). An object `new` makes has no state
+frame, as the original's, so its `GotoState` does nothing; the script's
+`GotoState` logs `GotoState (<state> <label>): State not found` for a state
+not reached but None and `Auto`, and `Label not found` for a named label
+not found (`StateObjectConsole`: a new object's `GotoState('Foo')` leaves it
+in no state, its own `Which` run, the warning logged, in both engines;
+`NonePreemptConsole`'s `NoSuchState` the same).
 
 A state's code runs in its actor's tick alone, never within the
 `GotoState` that sets it: the terrorists Liberty Island's script kills as
@@ -2544,8 +2550,8 @@ was made in (`SpellingConsole`: `ANNADIES` where the original's gives
 DeusEx.u's `annadies`), and the cheats' EditFlags lists a flag as its setter
 spelt it; lookups take any case in both. Differs (bugs.md VM.29): small edges no stock path reaches -- a static array
 argument read when the call reads it, a call held off copying no `out`
-argument back, the original's `GotoState` warnings not logged, an object
-made by `new` able to take a state.
+argument back, `new(None)`'s object with no `Outer` where the original's is
+the package Transient.
 
 ## The command line
 

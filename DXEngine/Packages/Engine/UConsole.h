@@ -11,6 +11,7 @@ class UConsole : public UObject
 {
 public:
 	using UObject::UObject;
+	bool TakesStateFrame() const override { return true; }
 
 	ScriptString& AvgText() { return Value<ScriptString>(PropOffsets_Console.AvgText); }
 	UTexture*& Border() { return Value<UTexture*>(PropOffsets_Console.Border); }
