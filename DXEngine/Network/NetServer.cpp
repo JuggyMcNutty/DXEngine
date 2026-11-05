@@ -351,10 +351,11 @@ void NetServerLevel::NotifyReceivedText(NetConnection* connection, const std::st
 		RequestURLs[connection] = UnrealURL(url);
 
 		// The game may refuse: its message, and a code the client's menu
-		// acts on.
+		// acts on, logged as the original's server logs them.
 		std::string error, failcode;
 		if (!engine->PreLogin(RequestURLs[connection].GetOptions(), connection->RemoteAddressString(), error, failcode))
 		{
+			LogMessage("Net: PreLogin failure: " + error + " (" + failcode + ")");
 			connection->SendText("FAILURE " + error);
 			if (!failcode.empty())
 				connection->SendText("FAILCODE " + failcode);

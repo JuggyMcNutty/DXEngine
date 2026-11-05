@@ -421,14 +421,20 @@ int UTcpLink::ReadText(std::string& Str)
 
 int UTcpLink::SendText(const std::string& Str)
 {
-	// Queued whole and sent as the connection takes it; the script is told
-	// all of it went.
+	// Queued whole, a CR LF after it in line mode, and sent as the
+	// connection takes it; the script is told all of it went, the line
+	// end's two bytes too, as the original's answers (ATcpLink::
+	// execSendText, IpDrv.dll 0x10708870). A link with no socket yet, or
+	// whose connection went, queues it alike: the original's answers 0 only
+	// where its Socket is 0, which a failed BindPort leaves.
 	sendBuffer.insert(sendBuffer.end(), Str.begin(), Str.end());
+	size_t length = Str.size();
 	if (LinkMode() == MODE_Line)
 	{
 		sendBuffer.push_back('\r');
 		sendBuffer.push_back('\n');
+		length += 2;
 	}
 	FlushSendBuffer();
-	return (int)Str.size();
+	return (int)length;
 }

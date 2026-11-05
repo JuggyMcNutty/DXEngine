@@ -394,7 +394,8 @@ public:
 	bool getDXWindowDebugMode() const { return m_DrawDebugDXWindowHierarchy; }
 
 private:
-	std::map<std::string, std::string> CreateTravelInfo(bool transferItems);
+	std::map<std::string, std::string> CreateServerTravelInfo();
+	std::map<std::string, std::string> CreateClientTravelInfo(bool transferItems);
 
 	// What the original's command line changes for this run alone
 	// (OriginalCommandLine): -defaultres's 640x480 and the window -noddraw

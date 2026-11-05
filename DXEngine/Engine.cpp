@@ -727,8 +727,39 @@ static std::string ArgsFrom(const std::string& commandline, size_t skip)
 	return i == std::string::npos ? std::string() : commandline.substr(i);
 }
 
+// PreTravel to every actor of the level that has the function, with no
+// argument, as the original's UGameEngine::SetClientTravel (Engine.dll
+// 0x1038fa10) sends it: the mission scripts' (the intro's sound volume put
+// back, Mission02's flags), not the travelling player's alone.
+static void SendPreTravel(ULevel* level)
+{
+	if (!level)
+		return;
+	Array<UActor*> actors = level->Actors;
+	for (UActor* actor : actors)
+	{
+		if (actor && !actor->bDeleteMe())
+			CallEvent(actor, "PreTravel", {});
+	}
+}
+
 void Engine::ClientTravel(const std::string& newURL, ETravelType travelType, bool transferItems)
 {
+	// No URL is no travel, as the original's SetClientTravel sets it and its
+	// game engine's tick takes it (Engine.dll 0x1038fa10, 0x1038fe90): the
+	// viewport's travel set to nothing, which the tick takes none of, one
+	// asked for before it gone, PreTravel sent all the same -- a console's
+	// open with nothing after it, or a script's ClientTravel("") (a mission
+	// script's PreTravel stops its timer for the level).
+	if (newURL.empty())
+	{
+		ClientTravelInfo.URL.Clear();
+		ClientTravelInfo.TravelType = travelType;
+		ClientTravelInfo.TransferItems = transferItems;
+		SendPreTravel(Level);
+		return;
+	}
+
 	UnrealURL url(newURL);
 
 	// The seven keys the URL has are written to the ini, as the original's
@@ -822,20 +853,7 @@ void Engine::ClientTravel(const std::string& newURL, ETravelType travelType, boo
 
 	ClientTravelInfo.TravelType = travelType;
 	ClientTravelInfo.TransferItems = transferItems;
-
-	// PreTravel to every actor of the level that has the function, with no
-	// argument, as the original's UGameEngine::SetClientTravel (Engine.dll
-	// 0x1038fa10) sends it: the mission scripts' (the intro's sound volume
-	// put back, Mission02's flags), not the travelling player's alone.
-	if (Level)
-	{
-		Array<UActor*> actors = Level->Actors;
-		for (UActor* actor : actors)
-		{
-			if (actor && !actor->bDeleteMe())
-				CallEvent(actor, "PreTravel", {});
-		}
-	}
+	SendPreTravel(Level);
 }
 
 UnrealURL Engine::GetDefaultURL(const std::string& map)
@@ -1952,21 +1970,34 @@ UnrealURL Engine::LevelHeldURL() const
 	return url;
 }
 
-std::map<std::string, std::string> Engine::CreateTravelInfo(bool transferItems)
+// A server's travel with its items, as the original's game engine's tick
+// takes it (UGameEngine::Tick, Engine.dll 0x1038fe90): the level's own
+// travel info, and over it each player's by its name, every pawn with a
+// player, a remote one's too.
+std::map<std::string, std::string> Engine::CreateServerTravelInfo()
 {
 	auto travelInfo = Level->TravelInfo;
-	// A net client's player is the server's: nothing of it travels.
-	if (LevelInfo->NetMode() == NM_Client)
-		return travelInfo;
 	for (UActor* actor : Level->Actors)
 	{
 		UPlayerPawn* pawn = UObject::TryCast<UPlayerPawn>(actor);
 		if (pawn && pawn->Player() && pawn->PlayerReplicationInfo())
-		{
-			std::string playerName = ScriptToUTF8(pawn->PlayerReplicationInfo()->PlayerName()); // To do: how to get the travel player name?
-			travelInfo[playerName] = ActorTravelInfo::Create(pawn, transferItems);
-		}
+			travelInfo[ScriptToUTF8(pawn->PlayerReplicationInfo()->PlayerName())] = ActorTravelInfo::Create(pawn, true);
 	}
+	return travelInfo;
+}
+
+// A client's travel, as the same tick takes it: with its items the
+// viewport's player alone, by its name, a net client's too; none of the
+// level's own travel info, nor another player's; without its items,
+// nothing, the player's own travel properties neither. A player whose
+// replication info has not come is left out, where the original's reads
+// it.
+std::map<std::string, std::string> Engine::CreateClientTravelInfo(bool transferItems)
+{
+	std::map<std::string, std::string> travelInfo;
+	UPlayerPawn* pawn = viewport ? viewport->Actor() : nullptr;
+	if (transferItems && pawn && pawn->PlayerReplicationInfo())
+		travelInfo[ScriptToUTF8(pawn->PlayerReplicationInfo()->PlayerName())] = ActorTravelInfo::Create(pawn, true);
 	return travelInfo;
 }
 
@@ -2449,7 +2480,10 @@ bool Engine::PreLogin(const std::string& options, const std::string& address, st
 	}
 	error = ScriptToUTF8(scriptError);
 	failcode = ScriptToUTF8(scriptFailcode);
-	return error.empty() && failcode.empty();
+	// Refused by its error alone, as the original's server takes it
+	// (ULevel::NotifyReceivedText, Engine.dll 0x1039f780): a fail code with
+	// no error lets the player on.
+	return error.empty();
 }
 
 UPlayerPawn* Engine::SpawnPlayActor(UObject* player, uint8_t remoteRole, const UnrealURL& url, std::string& error)
@@ -2609,7 +2643,7 @@ bool Engine::TakeTravel(float realTimeElapsed)
 				// level clears NextURL, as the original's clears it after
 				// the browse, failed or not.
 				ClientTravelInfo.TravelType = LevelInfo->bNextItems() ? ETravelType::TRAVEL_Relative : ETravelType::TRAVEL_Absolute;
-				auto travelInfo = LevelInfo->bNextItems() ? CreateTravelInfo(true) : std::map<std::string, std::string>();
+				auto travelInfo = LevelInfo->bNextItems() ? CreateServerTravelInfo() : std::map<std::string, std::string>();
 				if (!BrowseMap(UnrealURL(LastURL, ScriptToUTF8(LevelInfo->NextURL())), travelInfo))
 					LevelInfo->NextURL().clear();
 			}
@@ -2666,7 +2700,7 @@ bool Engine::TakeTravel(float realTimeElapsed)
 		LogMessage("Client travel to " + url.ToString());
 		// Captured before the pre-travel prune deletes what crosses in
 		// the pawn's graph.
-		auto travelInfo = CreateTravelInfo(ClientTravelInfo.TransferItems);
+		auto travelInfo = CreateClientTravelInfo(ClientTravelInfo.TransferItems);
 		if (!BrowseMap(url, travelInfo))
 			ClientTravelInfo.URL.Clear();
 		return true;
@@ -2859,15 +2893,21 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		const std::string& name = args[1];
 		return keybindings[name];
 	}
-	else if ((command == "open" || command == "start") && args.size() == 2)
+	else if (command == "open" || command == "start")
 	{
-		// The URL as given becomes the next travel, as the original's
-		// UGameEngine::Exec sets the viewport's (engine-dll.md, OPEN and
-		// START): OPEN partial, on the last URL's options (a listen server's
-		// keeps ?listen and ?game=), START absolute -- a map, a server's
-		// address or a slot's ?loadgame=N alike. A map that is not there is
-		// the browse's to find, as the original's.
-		ClientTravel(args[1], command == "open" ? ETravelType::TRAVEL_Partial : ETravelType::TRAVEL_Absolute, false);
+		// The rest of the line becomes the next travel, as the original's
+		// UGameEngine::Exec sets the viewport's (Engine.dll 0x1038a030;
+		// engine-dll.md, OPEN and START): past the word and the blanks
+		// after it, whole -- the Join screen's address typed with a blank
+		// after it, "open 1.2.3.4 ?lan", is the URL's to read --, and
+		// nothing after the word no travel. OPEN partial, on the last URL's
+		// options (a listen server's keeps ?listen and ?game=), START
+		// absolute -- a map, a server's address or a slot's ?loadgame=N
+		// alike. A map that is not there is the browse's to find, as the
+		// original's.
+		size_t word = commandline.find_first_not_of(" \t");
+		size_t rest = commandline.find_first_not_of(" \t", commandline.find_first_of(" \t", word));
+		ClientTravel(rest == std::string::npos ? std::string() : commandline.substr(rest), command == "open" ? ETravelType::TRAVEL_Partial : ETravelType::TRAVEL_Absolute, false);
 	}
 	else if ((command == "netspeed" || command == "lanspeed") && args.size() == 2)
 	{

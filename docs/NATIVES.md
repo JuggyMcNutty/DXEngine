@@ -192,7 +192,16 @@ spell `12_vandenberg_cmd` and `00_training` (`RevisitConsole`: the island
 opened again as `01_nyc_unatcoisland` has the crate left there). A travel's
 `PreTravel` goes to every actor of the level that has the function, with no
 argument, as the original's `SetClientTravel` sends it: the mission scripts'
-among them (`TravelConsole`).
+among them (`TravelConsole`). A console's `open` or `start` takes the rest
+of its line, past the word and its blanks, as the URL, as the original's
+`Exec` takes it, and one with nothing after it travels nowhere but sends
+`PreTravel` all the same (`OpenLineConsole`: an `open` alone and one of
+`DX.dx?Name=Two Words` each send it in both engines, the first staying in
+the level; the second's travel is bugs.md NET.13's). A client's travel
+exports the viewport's player alone, by its name, and only with its items,
+a server's with its items the level's own travel info and every pawn with a
+player, as the original's game engine's tick exports them (read: Engine.dll
+`0x1038fe90`).
 
 A travel to a map that is not there fails after the pre-travel, as the
 original's browse does, with its message for 6 s: Core's `Failed launching
@@ -3069,6 +3078,13 @@ As in the original:
   alone, with the URL less its password, for the menu to ask again
   (`PassJoinConsole` against a server with `?GamePassword=dxcap`, each
   engine the other's client: the two refusals' and the join's lines alike).
+- A login is refused by the game's `PreLogin` error alone, a fail code with
+  no error letting the player on, and the server logs each refusal,
+  `PreLogin failure: <error> (<code>)`, as the original's does
+  (`PassJoinConsole` against DXEngine's server: NEEDPW's and WRONGPW's
+  lines). A `TcpLink`'s `SendText` answers all it queued, the CR LF of line
+  mode counted, a link with no connection yet queuing too (read: Engine.dll
+  `0x1039f780`, IpDrv.dll `0x10708870`).
 - The handshake's values are read as Core's `Parse` reads the command
   line's ([the command line](#the-command-line)): a key in any case, but
   not straight after a letter or digit, so `HELLO`'s `VER=` is not
@@ -3077,14 +3093,12 @@ As in the original:
   server: a login as `JC(1)` with a class and a password taken whole, the
   two servers' lines alike).
 
-Differs (bugs.md NET.14): a login with a FailCode and no Error,
-`SendText`'s answer, a client travel's info, `open`'s one word. Differs
-(bugs.md NET.16): a simulated proxy pawn's own path, its move along its
-velocity and its `Tick` alone, runs only in a net game, where the original's
-runs whatever the net mode; no stock actor is one outside a net game.
-Differs (bugs.md NET.17): the native replication lists' floats compared by
-value, the original's by their bits, so a change from 0.0 to -0.0 does not
-go.
+Differs (bugs.md NET.16): a simulated proxy pawn's own path, its move along
+its velocity and its `Tick` alone, runs only in a net game, where the
+original's runs whatever the net mode; no stock actor is one outside a net
+game. Differs (bugs.md NET.17): the native replication lists' floats
+compared by value, the original's by their bits, so a change from 0.0 to
+-0.0 does not go.
 
 ## Not needed for single player
 
