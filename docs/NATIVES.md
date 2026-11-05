@@ -1424,7 +1424,13 @@ from the original's code:
   the next row whole; past the last row the text scrolls. The cursor, a bar
   under the next cell in the header text's colour, is lit by each character
   and blinks every 0.5 s. A clear waits its turn, so a speech stays up
-  until the next starts typing (`ThemeConsole`).
+  until the next starts typing (`ThemeConsole`). The window has the
+  original's two children, a plain window that fills it, its `textWindow`,
+  and a hidden edit field, its `inputWindow`, whose insertion point blinks
+  as the cursor does; the cursor draws while that field is hidden, the
+  text and the cursor being the computer window's own drawing, and its
+  `player` is the root's (`ComputerTreeConsole`: the InfoLink's window and
+  its children alike in both engines).
 - **Accelerators**: a text's `|&` marks its window's key while the text is
   its accelerator -- every text window's from its start, but a large text
   window's. Alt and a key the scripts leave press, in the modal on top, the
@@ -1587,9 +1593,8 @@ green, white or None (`ButtonDefaultsConsole`: a button's six slots set
 apart, then each call with its first slot alone, its insensitive and focused
 look alike in both engines).
 
-Differs (bugs.md EXT.24): the computer window makes neither of its
-children. Differs (bugs.md WIN.12): Alt+Enter back to a window on X11 puts it
-at the display's corner.
+Differs (bugs.md WIN.12): Alt+Enter back to a window on X11 puts it at the
+display's corner.
 
 ## The menus' settings
 

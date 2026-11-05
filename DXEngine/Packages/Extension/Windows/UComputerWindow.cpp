@@ -2,7 +2,10 @@
 #include "Precomp.h"
 #include "UComputerWindow.h"
 #include "Engine.h"
+#include "Package/PackageManager.h"
+#include "Packages/Core/UClass.h"
 #include "Packages/Engine/Resources/UFont.h"
+#include "Packages/Extension/UPlayerPawnExt.h"
 #include "Packages/Extension/Windows/UGC.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Extension/Windows/Text/UEditWindow.h"
@@ -103,10 +106,14 @@ void UComputerWindow::SetComputerSoundVolume(float newSoundVolume)
 	LogUnimplemented("ComputerWindow.SetComputerSoundVolume");
 }
 
+// The input field's insertion point blinks as the cursor does, a flip each
+// cursorBlinkSpeed and none held off first, as Init sets it (0x1000dac0)
 void UComputerWindow::SetCursorBlinkSpeed(float newBlinkSpeed)
 {
 	// UNUSED from scripts.
 	cursorBlinkSpeed() = newBlinkSpeed;
+	if (inputWindow())
+		inputWindow()->SetInsertionPointBlinkRate(0.0f, newBlinkSpeed + newBlinkSpeed);
 }
 
 void UComputerWindow::SetCursorTexture(UObject* newCursorTexture, std::optional<int> newCursorWidth, std::optional<int> newCursorHeight)
@@ -216,9 +223,11 @@ void UComputerWindow::SetTextSize(int newCols, int newRows)
 	FitToText();
 }
 
+// Sized to the grid once it has a font and its text window
+// (CalculateTextWindowSize 0x1000e2d0)
 void UComputerWindow::FitToText()
 {
-	if (textFont())
+	if (textFont() && TextWindow())
 		SetSize((float)(textCols() * fontWidth()), (float)(textRows() * fontHeight()));
 }
 
@@ -232,16 +241,34 @@ void UComputerWindow::ShowTextCursor(std::optional<bool> bShow)
 	bShowCursor() = !bShow.has_value() ? true : bShow.value();
 }
 
-// The original's XComputerWindow::Init (0x1000d530): selectable, its first
-// tick passed over, the blink's count started; one made while the game is
-// paused goes on through pauses. The rest is the class's defaults.
+// The original's XComputerWindow::Init (0x1000d530): the root's player its
+// player; one made while the game is paused goes on through pauses; the
+// blink's count started; its two children made -- a plain window that fills
+// it, shown, the script's textWindow (CreateTextWindow 0x1000e250), then a
+// hidden edit field with no margins, inputWindow, its insertion point
+// blinking as the cursor does (SetCursorBlinkSpeed) --; selectable. Its
+// first tick passed over (bFirstTick, which its constructor sets,
+// 0x1000d4d0). The rest is the class's defaults.
 void UComputerWindow::InitDefaults()
 {
 	UWindow::InitDefaults();
+	Player() = UObject::TryCast<UPlayerPawnExt>(GetPlayerPawn());
+	bIgnoreGamePaused() = engine->LevelInfo && !engine->LevelInfo->Pauser().empty();
+	cursorNextEvent() = cursorBlinkSpeed();
+
+	TextWindow() = UObject::Cast<UWindow>(NewChild(engine->packages->FindClass("Extension.Window"), true));
+	FitToText();
+	if (TextWindow())
+		TextWindow()->SetWindowAlignments((uint8_t)EHAlign::Full, (uint8_t)EVAlign::Full, 0.0f, 0.0f, 0.0f, 0.0f);
+	inputWindow() = UObject::Cast<UEditWindow>(NewChild(engine->packages->FindClass("Extension.EditWindow"), false));
+	if (inputWindow())
+	{
+		inputWindow()->SetTextMargins(0.0f, 0.0f);
+		inputWindow()->SetInsertionPointBlinkRate(0.0f, cursorBlinkSpeed() + cursorBlinkSpeed());
+	}
+
 	bIsSelectable() = true;
 	bFirstTick() = true;
-	cursorNextEvent() = cursorBlinkSpeed();
-	bIgnoreGamePaused() = engine->LevelInfo && !engine->LevelInfo->Pauser().empty();
 }
 
 void UComputerWindow::ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight)
@@ -393,7 +420,9 @@ void UComputerWindow::NewRow()
 // script's DrawWindow, then each typed character alone in its cell, in its
 // own colour faded in from black over fadeSpeed, then the cursor -- its
 // texture as a bar under the next cell, in the cursor's colour, while lit
-// and no input field shows.
+// and shown, and while the input field or a window it is in is hidden; with
+// no input field (a script's inputWindow None), none. The text window draws
+// nothing of its own.
 void UComputerWindow::DrawWindow(UGC* gc)
 {
 	UWindow::DrawWindow(gc);
@@ -419,8 +448,7 @@ void UComputerWindow::DrawWindow(UGC* gc)
 		}
 	}
 
-	bool inputShown = inputWindow() && inputWindow()->IsVisible(true);
-	if (cursorTexture() && bShowCursor() && bCursorVisible() && !inputShown)
+	if (cursorTexture() && inputWindow() && !inputWindow()->IsVisible(true) && bCursorVisible() && bShowCursor())
 	{
 		gc->SetStyle(EDrawStyle::Masked);
 		gc->SetTileColor(cursorColor());
