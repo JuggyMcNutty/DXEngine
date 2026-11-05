@@ -312,9 +312,15 @@ void ExpressionEvaluator::Expr(DynArrayElementExpression* expr)
 void ExpressionEvaluator::Expr(NewExpression* expr)
 {
 	// Each argument read as it is evaluated, as the original's execNew
-	// (Core.dll 0x1013d9f0) steps each into a value of its own
+	// (Core.dll 0x1013d9f0) steps each into a value of its own. The outer
+	// starts as the calling object, so left out (new class'X') the object
+	// is made in the caller, a class's defaults (a static function's Self),
+	// which the original's object table does not hold, giving none; one
+	// given takes its place, None too.
+	UObject* outerObj = Self && !Self->IsDefaultsObject() ? Self : nullptr;
 	ExpressionValue outer = Value(expr->ParentExpr);
-	UObject* outerObj = outer.GetType() != ExpressionValueType::Nothing ? outer.ToObject() : nullptr;
+	if (outer.GetType() != ExpressionValueType::Nothing)
+		outerObj = outer.ToObject();
 	ExpressionValue name = Value(expr->NameExpr);
 	NameString objName = name.GetType() == ExpressionValueType::Nothing ? NameString() : name.ToName();
 	ExpressionValue flags = Value(expr->FlagsExpr);

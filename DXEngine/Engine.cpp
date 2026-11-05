@@ -195,7 +195,10 @@ Engine::Engine(GameLaunchInfo launchinfo) : LaunchInfo(launchinfo)
 	std::string consolestr = packages->GetIniValue("system", "Engine.Engine", "Console");
 	std::string consolepkg = consolestr.substr(0, consolestr.find('.'));
 	std::string consolecls = consolestr.substr(consolestr.find('.') + 1);
-	console = UObject::Cast<UConsole>(transientpkg->NewObject("console", packages->GetPackage(consolepkg)->GetClass(consolecls), ObjectFlags::Transient));
+	// Named after its class and a number, as the original's console object is
+	// made with no name (StaticConstructObject: DeusExConsole0)
+	UClass* consoleClass = packages->GetPackage(consolepkg)->GetClass(consolecls);
+	console = UObject::Cast<UConsole>(transientpkg->NewObject(transientpkg->MakeUniqueObjectName(consoleClass), consoleClass, ObjectFlags::Transient));
 
 	console->Viewport() = viewport;
 	canvas->Viewport() = viewport;

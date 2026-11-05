@@ -258,9 +258,13 @@ Browse cuts it; the level's URL keeps the space, as the original's does
 (`SpaceURLConsole`: the five travels, and the lab left for the UC and come
 back to from `Current`, alike in both engines).
 
-Differs (bugs.md VM.27): `new` with no outer makes the object in the
-transient package, where the original's makes it in the caller's, as
-`new(Self)` does; Deus Ex's own scripts write `new(None)` or `new(Self)`.
+An object `new` makes with no outer is made in the calling object, as the
+original's (`NewOuterConsole`: the console's and an actor's
+`new class'CapNewProbe'` in each, `Transient.NewOuterConsole0.CapNewProbe0`
+and `DX.CapNewMaker0.CapNewProbe3` in both engines), `new(None)` in the
+transient package; Deus Ex's own scripts write `new(None)` or
+`new(Self)`. The console object is named after its class and a number, as
+the original's.
 
 ## Flags
 

@@ -299,6 +299,7 @@ launcher's part, which DXEngine leaves to the launchers.
 | `StateConsole` | both | state code's limits in a tick: an actor whose state code destroys it and logs on, and one bouncing between two states by `GotoState` alone, its count each second | `DXSTATE:` | the two logs' lines |
 | `ExtendConsole` | both | a state extending another (`CapExtender`): the extended state's `Begin` and a named label run on `GotoState` into the extending one, its function called from it, the state's name kept | `DXEXTEND:` |  |
 | `PreemptConsole` | both | a `GotoState` from within `EndState` and from within `BeginState` (`CapPreempter`): the state the actor ends in, the labels run | `DXPREEMPT:` |  |
+| `NewOuterConsole` | both | objects `new` makes with no outer, with None and with Self, from the console and from an actor (`CapNewMaker`) | `DXNEWOUTER:` | each one's path and `Outer` |
 | `NonePreemptConsole` | both | a `GotoState` to no state, and to one the class has not, from within `EndState` (`CapNonePreempter`) | `DXNONEPREEMPT:` | the state after, and `GetStateName` in no state |
 | `MidConsole` | both | `Object.Mid` at its edges | `DXMID:` |  |
 | `SpellingConsole` | both | names `StringToName` makes in another case than the packages' spelling (`ANNADIES`, `LOCATION`) and one made in two cases (`DxSpellOne`, `DXSPELLONE`): each one's text and whether it is the packages' name; the flag `COOLANTCUT` set and the name the flag base lists it by | `DXSPELL:` | the lines diffed: the spellings the original's first, DXEngine's each its own (bugs.md VM.25) |
