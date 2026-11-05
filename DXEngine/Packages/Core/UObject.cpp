@@ -881,6 +881,10 @@ void PropertyDataBlock::Save(PackageStreamWriter* stream, PropertyDataBlock* def
 			size_t offset = prop->ElementPitch() * arrayIndex;
 			void* data = static_cast<uint8_t*>(Ptr(prop)) + offset;
 
+			// Written only where the property's compare takes it apart from
+			// the class's default, as the original's SerializeTaggedProperties
+			// (Core.dll 0x10126730) by Identical: a string apart from it in
+			// case alone is not, and loads as the default
 			if (defaultBlock)
 			{
 				void* defaultdata = static_cast<uint8_t*>(defaultBlock->Ptr(prop)) + offset;

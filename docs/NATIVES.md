@@ -153,7 +153,13 @@ as the original's export writes it, so one left at its default arrives as
 the new object's spawn and events left it (`DefaultConsole`: an item's
 travel property set back to its default before a map exit arrives as its new
 spawn set it, 2, in both engines, and one set away from it as it was set). A
-map opened at a portal (`open <map>#<portal>`) starts the player at the
+string is compared with its default without case, A to Z alone, as the
+original's `UStrProperty::Identical` (`appStricmp`) compares it, in the
+travel's export and a save alike: one apart from its default in case alone
+neither travels nor saves, and arrives or loads as the default
+(`CaseTravelConsole`: `TruePlayerName` set to `JC DENTON`, its default `JC
+Denton`, arrives at UNATCO HQ as `JC Denton` in both engines). A map opened
+at a portal (`open <map>#<portal>`) starts the player at the
 teleporter of that tag (`PortalConsole`). A level's URL, which
 `Level.GetLocalURL` gives, is the one it was entered by, as the original's
 `LoadMap` sets it: a level returned to from `Current` names the saved file,
@@ -246,11 +252,6 @@ save in `Current` by the name cut at its first `.dx`, as the original's
 Browse cuts it; the level's URL keeps the space, as the original's does
 (`SpaceURLConsole`: the five travels, and the lab left for the UC and come
 back to from `Current`, alike in both engines).
-
-Differs (bugs.md VM.18): a string property apart from its default in case
-alone travels and saves,
-where the original's compares without case and lets it go back to the
-default.
 
 ## Flags
 
@@ -2046,7 +2047,10 @@ Every other native the scripted runs compare matches the original
   `Chr` its low 16 bits, `Asc`, `Len`, `Mid`, `Left`, `Right` and `InStr` by
   those characters, `Caps` a to z alone and `~=` without their case alone,
   the comparisons by each character's code (`OpsConsole`'s wide lines, alike
-  with the original's); `Object.Mid` 127 at its edges, its end's clamp known
+  with the original's); a struct's `==` and `!=` each member by its
+  property's compare, a string member without case, as the original's
+  `execStructCmpEq` (`SweepVmConsole`: a struct of `abc` equal to one of
+  `ABC` in both ticks); `Object.Mid` 127 at its edges, its end's clamp known
   from `MidConsole`'s ten probes of both; `Object.DynamicLoadObject` with a
   group in the name, its own, another or none, and a class that is not the
   object's own (`DynLoadConsole`); and `Object.GetPropertyText` and
@@ -2913,7 +2917,11 @@ As in the original:
   client finds what the player looks at, and the server's `ParseRightClick`
   takes it, so a weapon or an item is picked up on a net game only so
   (`PickServer` and `PickJoinConsole`, each engine as server and as client).
-  Each side keeps what the other last got of each value.
+  Each side keeps what the other last got of each value, and a value goes
+  when its property's compare finds it apart from that, a string's without
+  case, as the original's `Identical` and its native lists' `appStricmp`
+  take it: a name changed in case alone does not go (read: Engine.dll
+  `0x103fead0`, `0x103616e0`).
 - A call that goes to the other side, and one a simulated or dumb proxy does
   not run (a function not simulated), writes nothing: the original's
   `ProcessInternal` runs none of it

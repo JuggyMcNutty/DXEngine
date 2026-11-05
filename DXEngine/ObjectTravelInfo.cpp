@@ -146,10 +146,11 @@ ActorTravelInfo::TravelObject ActorTravelInfo::CreateObject(UObject* travelObjec
 	TravelObject info;
 	info.ClassName = UObject::GetUClassFullName(travelObject).ToString();
 	info.Name = name;
-	// A value is written only where it differs from its class's default, as
-	// the original's export writes it (Engine.dll 0x10391894, its ExportText
-	// against the class's defaults): one left at its default arrives as the
-	// new object's spawn and events left it.
+	// A value is written only where it differs from its class's default by
+	// the property's compare, as the original's export writes it (Engine.dll
+	// 0x10391894, its ExportText against the class's defaults, by Identical):
+	// one left at its default, or a string apart from it in case alone,
+	// arrives as the new object's spawn and events left it.
 	UObject* defaults = travelObject->Class->GetDefaultObject<UObject>();
 	for (UProperty* property : travelObject->GetAllTravelProperties())
 	{

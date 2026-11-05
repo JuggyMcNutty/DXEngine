@@ -47,6 +47,19 @@ void UStrProperty::SaveValue(void* data, PackageStreamWriter* stream)
 	stream->WriteScriptString(*static_cast<ScriptString*>(data));
 }
 
+// The original's UStrProperty::Identical (Core.dll 0x101676f0): appStricmp
+// (0x10123560), the C library's _wcsicmp, which in the C locale, the one the
+// game runs in, takes A to Z as a to z and every other character as it is.
+// What compares a property's values by it -- a save's and the travel's
+// against the class's defaults, replication's against what the other side
+// last got, a struct's == and != member by member -- takes two strings apart
+// in case alone as the same; the script's own == takes them by each
+// character (EqualEqual_StrStr).
+bool UStrProperty::CompareElement(const void* v1, const void* v2)
+{
+	return ScriptEqualsIgnoreCase(*static_cast<const ScriptString*>(v1), *static_cast<const ScriptString*>(v2));
+}
+
 void UStrProperty::SetValueFromString(void* data, const std::string& valueString)
 {
 	*(ScriptString*)data = UTF8ToScript(valueString);

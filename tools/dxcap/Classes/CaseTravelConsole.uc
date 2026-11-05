@@ -9,7 +9,8 @@
 // exits. The original's export writes a value only where it is not
 // Identical to the default, and UStrProperty::Identical is appStricmp
 // (Core.dll 0x101676f0): the name arrives as the new player's default.
-// DXEngine's compare is exact (ObjectTravelInfo.cpp, CompareElement).
+// DXEngine's export compares by the property's CompareElement, a string's
+// without case as Identical's (UStrProperty.cpp).
 //=============================================================================
 class CaseTravelConsole extends Console;
 

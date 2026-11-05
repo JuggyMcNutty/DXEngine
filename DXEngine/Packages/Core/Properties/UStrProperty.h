@@ -13,6 +13,9 @@ public:
 	void SaveHeader(void* data, PropertyHeader& header) override;
 	void SaveValue(void* data, PackageStreamWriter* stream) override;
 
+	// Without case, as the original's Identical (UStrProperty.cpp)
+	bool CompareElement(const void* v1, const void* v2) override;
+
 	void SetValueFromString(void* data, const std::string& valueString) override;
 	void SetDelimitedValueFromString(void* data, const std::string& valueString) override;
 	size_t ImportText(const std::string& text, size_t pos, void* data) override;
