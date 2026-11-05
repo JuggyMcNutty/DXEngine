@@ -261,12 +261,16 @@ void Engine::Run()
 		ApplyRunOnlySettings();
 		OpenWindow();
 
-		// -nosound: no sound and no music, as the original's engine makes no
-		// audio subsystem then. DXEngine keeps its device, on OpenAL Soft's
-		// null driver, which plays nothing.
-		if (OriginalCommandLine::Get().Param("nosound"))
+		// -nosound, or the game engine's UseSound off: no sound and no music,
+		// as the original's engine makes no audio subsystem then
+		// (UEngine::InitAudio, Engine.dll 0x1037fe50). DXEngine keeps its
+		// device, on OpenAL Soft's null driver, which plays nothing.
+		std::string gameEngineClass = packages->GetIniValue("system", "Engine.Engine", "GameEngine", "Engine.GameEngine");
+		std::string useSound = packages->GetIniValue("system", gameEngineClass, "UseSound", "True");
+		bool soundOff = useSound == "0" || StrTools::equals_ignore_case(useSound, "False");
+		if (OriginalCommandLine::Get().Param("nosound") || soundOff)
 		{
-			LogMessage("-nosound: no sound");
+			LogMessage(soundOff ? "UseSound off: no sound" : "-nosound: no sound");
 #ifdef _WIN32
 			_putenv_s("ALSOFT_DRIVERS", "null");
 #else

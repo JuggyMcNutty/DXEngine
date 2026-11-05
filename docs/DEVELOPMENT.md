@@ -103,6 +103,7 @@ are gone.
 | `DXCAP_STATS=<password>` | on both runs: the server logs world stats (`bWorldLog`); the player holds that world stats password, so its login carries the checksum (a dxe server logs the login's URL: `login request`) |
 | `DXCAP_PRECACHE=1` | the run's render device's `UsePrecache` on (`D3DDrv`'s): the frame after each map's load shows `PRECACHING` (the original's with `DXCAP_RENDERER=D3D`) |
 | `DXCAP_CACHEEXT=<ext>` | the run's `[Core.System]` `CacheExt`, the extension its download cache looks packages up by |
+| `DXCAP_INI="<Section>:<Key>=<Value> ..."` | each key set in its section of the run's ini, added where the section has none, the section where the ini has none: `Galaxy.GalaxyAudioSubsystem:UseStereo=False` |
 | `DXCAP_SERVERPKGS=<dir>` | the server offers the packages in `<dir>` (`ServerPackages`) for a client to download |
 
 A `dedicated original` takes none of `DXCAP_USERINI_FIRST`, `DXCAP_FLAGS`, `DXCAP_INI_CASE`,

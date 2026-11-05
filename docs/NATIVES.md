@@ -2604,7 +2604,10 @@ What DXEngine does with each:
   ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md#flags-the-launcher-emits-safe-mode)):
   - `-nosound`: no sound and no music. The original makes no audio
     subsystem; DXEngine keeps its device, on OpenAL Soft's null driver, by
-    choice.
+    choice. The game engine's `UseSound=False` (`[DeusEx.DeusExGameEngine]`)
+    does the same, as the original's `InitAudio` takes it (`MusicConsole`
+    with `DXCAP_INI=DeusEx.DeusExGameEngine:UseSound=False`: silent
+    throughout in both engines).
   - `-defaultres`: the window and fullscreen sizes 640x480 for the run, not
     saved.
   - `-nohard`: the software device for the run, as the original's software

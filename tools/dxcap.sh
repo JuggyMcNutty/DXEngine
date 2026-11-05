@@ -58,6 +58,8 @@
 # a map's load shows PRECACHING.
 # DXCAP_CACHEEXT=<ext> gives a run's ini that [Core.System] CacheExt, the
 # extension its download cache looks packages up by.
+# DXCAP_INI="<Section>:<Key>=<Value> ..." sets each key in its section of a
+# run's ini, adding it, or the section, where there is none.
 # DXCAP_SERVERPKGS=<dir> has a run's server find packages in <dir> too, each
 # named in its ServerPackages, so that a client, whose paths lack <dir>,
 # downloads them.
@@ -457,6 +459,24 @@ if os.environ.get('DXCAP_PRECACHE') == '1':
 # A run's download cache names its packages by DXCAP_CACHEEXT's extension.
 if os.environ.get('DXCAP_CACHEEXT'):
     put('CacheExt', os.environ['DXCAP_CACHEEXT'])
+# DXCAP_INI="<Section>:<Key>=<Value> ...": each key set in its section, added
+# at the section's end where it has none, the section at the file's end
+for item in os.environ.get('DXCAP_INI', '').split():
+    sect, _, kv = item.partition(':')
+    key, eq, value = kv.partition('=')
+    if not sect or not key or not eq:
+        sys.exit('DXCAP_INI: %s is not <Section>:<Key>=<Value>' % item)
+    m = re.search(r'^\[%s\]\r?$' % re.escape(sect), s, flags=re.M | re.I)
+    if not m:
+        s = s.rstrip('\r\n') + nl + nl + '[%s]%s%s=%s%s' % (sect, nl, key, value, nl)
+        continue
+    start = m.end()
+    nxt = re.search(r'^\[', s[start:], flags=re.M)
+    end = start + nxt.start() if nxt else len(s)
+    body, n = re.subn(r'^%s=.*?(?=\r?$)' % re.escape(key), lambda _: '%s=%s' % (key, value), s[start:end], count=1, flags=re.M | re.I)
+    if n == 0:
+        body = body.rstrip('\r\n') + nl + '%s=%s%s' % (key, value, nl) + (nl if nxt else '')
+    s = s[:start] + body + s[end:]
 # A run's server offers the packages of DXCAP_SERVERPKGS's folder, found
 # there by its paths.
 serverpkgs = os.environ.get('DXCAP_SERVERPKGS', '')
