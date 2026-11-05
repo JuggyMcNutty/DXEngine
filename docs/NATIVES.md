@@ -1832,8 +1832,7 @@ song started past its first order takes its pans, speed and tempo from its
 start, and a loop keeps the pans its patterns set, where Galaxy's sets them
 only at order 0; a section is reached by playing the song to it, where
 Galaxy's silences the voices and plays on from there; the music is not held
-to 16 bits before the sounds are added. Differs
-(bugs.md AUD.14): `UseSound=False` is read nowhere.
+to 16 bits before the sounds are added.
 
 ## Implemented, not as the original
 
