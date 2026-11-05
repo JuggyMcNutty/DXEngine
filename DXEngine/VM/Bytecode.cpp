@@ -249,12 +249,6 @@ Expression* Bytecode::ReadToken(BytecodeStream* stream, int depth)
 			expr->RightSide = ReadToken(stream, depth);
 			return expr;
 		}
-		case ExprToken::Unknown0x15:
-		{
-			Unknown0x15Expression* expr = Create<Unknown0x15Expression>(exproffset);
-			//expr->Value = ReadToken(stream, depth);
-			return expr;
-		}
 		case ExprToken::Skip:
 		{
 			SkipExpression* expr = Create<SkipExpression>(exproffset);
@@ -447,7 +441,6 @@ Expression* Bytecode::ReadToken(BytecodeStream* stream, int depth)
 		case ExprToken::NameToString: { auto expr = Create<NameToStringExpression>(exproffset); expr->Value = ReadToken(stream, depth); return expr; }
 		case ExprToken::VectorToString: { auto expr = Create<VectorToStringExpression>(exproffset); expr->Value = ReadToken(stream, depth); return expr; }
 		case ExprToken::RotatorToString: { auto expr = Create<RotatorToStringExpression>(exproffset); expr->Value = ReadToken(stream, depth); return expr; }
-		case ExprToken::StringToName: { auto expr = Create<StringToNameExpression>(exproffset); expr->Value = ReadToken(stream, depth); return expr; }
 		default:
 			Exception::Throw("Unknown script bytecode token encountered");
 		}

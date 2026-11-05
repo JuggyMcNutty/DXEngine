@@ -521,7 +521,7 @@ PointRegion UModel::FindRegion(const vec3& point, UZoneInfo* levelZoneInfo)
 		return levelZoneInfo ? levelZoneInfo : engine->GetZoneActor(n);
 	};
 
-	if (Nodes.empty()) // This happens in Harry Potter! Probably a load problem
+	if (Nodes.empty()) // A model with no nodes has no region to find
 	{
 		static bool messageShown = false;
 		if (!messageShown)

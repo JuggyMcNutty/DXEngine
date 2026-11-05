@@ -386,14 +386,6 @@ void ExpressionEvaluator::Expr(MetaCastExpression* expr)
 	*Out = ExpressionValue::ObjectValue(value);
 }
 
-void ExpressionEvaluator::Expr(Unknown0x15Expression* expr)
-{
-	// Klingon honor guard has this! (UE 251)
-	//Frame::ThrowException("Unknown0x15 expression encountered");
-	if (IsStatement())
-		Result.Result = StatementResult::Stop;
-}
-
 void ExpressionEvaluator::Expr(SelfExpression* expr)
 {
 	*Out = ExpressionValue::ObjectValue(Self);
@@ -824,12 +816,6 @@ void ExpressionEvaluator::Expr(RotatorToStringExpression* expr)
 	// The original prints each part wrapped to 0-65535 (RotatorConsole).
 	Rotator v = Value(expr->Value).ToRotator();
 	*Out = ExpressionValue::StringValue(std::to_string(v.Pitch & 0xffff) + "," + std::to_string(v.Yaw & 0xffff) + "," + std::to_string(v.Roll & 0xffff));
-}
-
-void ExpressionEvaluator::Expr(StringToNameExpression* expr)
-{
-	std::string v = Value(expr->Value).ToString();
-	*Out = ExpressionValue::NameValue(v);
 }
 
 void ExpressionEvaluator::Expr(VirtualFunctionExpression* expr)
@@ -1443,7 +1429,7 @@ bool ExpressionEvaluator::FindChange(Expression* expr)
 		ObjectToBoolExpression, NameToBoolExpression, StringToByteExpression, StringToIntExpression, StringToBoolExpression, StringToFloatExpression,
 		StringToVectorExpression, StringToRotatorExpression, VectorToBoolExpression, VectorToRotatorExpression, RotatorToBoolExpression,
 		ByteToStringExpression, IntToStringExpression, BoolToStringExpression, FloatToStringExpression, ObjectToStringExpression,
-		NameToStringExpression, VectorToStringExpression, RotatorToStringExpression, StringToNameExpression>(expr);
+		NameToStringExpression, VectorToStringExpression, RotatorToStringExpression>(expr);
 	return !operand || MayChange(operand);
 }
 

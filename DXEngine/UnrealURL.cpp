@@ -54,10 +54,8 @@ UnrealURL::UnrealURL(std::string urlString)
 	// marks the portal (network.md, the address): another game's '/' cut an
 	// option's value at a slash.
 
-	// Trim the url string of whitespaces
-	// Fixes the crash during the transition from Temple of Vandora to The Trench in Unreal
-	// Due to the exit teleporter pointing to " trench" (with the whitespace at the beginning)
-	urlString.erase(urlString.find_last_not_of(' ') + 1);
+	// Its leading spaces passed over, its trailing ones kept, as the
+	// original's FURL takes it (Engine.dll 0x103f7b60)
 	urlString.erase(0, urlString.find_first_not_of(' '));
 
 	ParseAddress(urlString);

@@ -3,19 +3,17 @@
 #include "UFont.h"
 #include "Textures/UTexture.h"
 
+// The original's (Engine.dll UFont::Serialize 0x10385400): the object's
+// properties, its pages (each a texture and its characters), then
+// CharactersPerPage
 void UFont::Load(ObjectStream* stream)
 {
-	// Note: 63 package and older inherited from UTexture. Newer versions inherit from UObject
-	// We must keep the old relationship intact to load the older games.
-	// If the game is newer then this is not a valid texture and any properties on UTexture do not exist.
+	UObject::Load(stream);
 
-	if (stream->GetVersion() <= 63)
+	pages.resize(stream->ReadIndex());
+	for (FontPage& page : pages)
 	{
-		UTexture::Load(stream);
-
-		pages.resize(1);
-		FontPage& page = pages.front();
-		page.Texture = this;
+		page.Texture = stream->ReadObject<UTexture>();
 		page.Characters.resize(stream->ReadIndex());
 		for (FontCharacter& character : page.Characters)
 		{
@@ -24,37 +22,19 @@ void UFont::Load(ObjectStream* stream)
 			character.USize = stream->ReadInt32();
 			character.VSize = stream->ReadInt32();
 		}
-		charactersPerPage = (int)page.Characters.size();
 	}
-	else
-	{
-		UObject::Load(stream);
 
-		pages.resize(stream->ReadIndex());
-		for (FontPage& page : pages)
-		{
-			page.Texture = stream->ReadObject<UTexture>();
-			page.Characters.resize(stream->ReadIndex());
-			for (FontCharacter& character : page.Characters)
-			{
-				character.StartU = stream->ReadInt32();
-				character.StartV = stream->ReadInt32();
-				character.USize = stream->ReadInt32();
-				character.VSize = stream->ReadInt32();
-			}
-		}
-
-		charactersPerPage = stream->ReadUInt32();
-	}
+	charactersPerPage = stream->ReadUInt32();
 }
 
 void UFont::Save(PackageStreamWriter* stream)
 {
-	if (stream->GetVersion() <= 63)
-	{
-		UTexture::Save(stream);
+	UObject::Save(stream);
 
-		FontPage& page = pages.front();
+	stream->WriteIndex((int)pages.size());
+	for (FontPage& page : pages)
+	{
+		stream->WriteObject(page.Texture);
 		stream->WriteIndex((int)page.Characters.size());
 		for (FontCharacter& character : page.Characters)
 		{
@@ -64,26 +44,8 @@ void UFont::Save(PackageStreamWriter* stream)
 			stream->WriteInt32(character.VSize);
 		}
 	}
-	else
-	{
-		UObject::Save(stream);
 
-		stream->WriteIndex((int)pages.size());
-		for (FontPage& page : pages)
-		{
-			stream->WriteObject(page.Texture);
-			stream->WriteIndex((int)page.Characters.size());
-			for (FontCharacter& character : page.Characters)
-			{
-				stream->WriteInt32(character.StartU);
-				stream->WriteInt32(character.StartV);
-				stream->WriteInt32(character.USize);
-				stream->WriteInt32(character.VSize);
-			}
-		}
-
-		stream->WriteUInt32(charactersPerPage);
-	}
+	stream->WriteUInt32(charactersPerPage);
 }
 
 // A 16-bit character through the pages in turn; an 8-bit one in none, a to z
@@ -139,7 +101,7 @@ FontGlyph UFont::FindGlyph(char16_t c) const
 
 void UFont::Mark(GCMarker& marker)
 {
-	UTexture::Mark(marker);
+	UObject::Mark(marker);
 	marker.SetField("pages");
 	for (FontPage& page : pages)
 		marker.Mark(page.Texture);

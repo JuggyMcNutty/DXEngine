@@ -126,7 +126,6 @@ enum class ExprToken : uint8_t
 	ClassContext = 0x12, // Class default metaobject context
 	MetaCast = 0x13, // Metaclass cast
 	LetBool = 0x14, // Let boolean variable
-	Unknown0x15 = 0x15,
 	EndFunctionParms = 0x16,	// End of function call parameters
 	Self = 0x17,	// Self object
 	Skip = 0x18,	// Skippable expression
@@ -197,7 +196,6 @@ enum class ExprToken : uint8_t
 	NameToString = 0x57,
 	VectorToString = 0x58,
 	RotatorToString = 0x59,
-	StringToName = 0x5A, // Added in Harry Potter
 	MaxConversion = 0x60,	// Maximum conversion token
 
 	ExtendedNative = 0x60,

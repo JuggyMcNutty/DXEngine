@@ -169,11 +169,6 @@ void PrintPrettyExpression::Expr(LetBoolExpression* expr)
 	Print(writeOutput, expr->RightSide);
 }
 
-void PrintPrettyExpression::Expr(Unknown0x15Expression* expr)
-{
-	writeOutput("unknown(0x15)");
-}
-
 void PrintPrettyExpression::Expr(SelfExpression* expr)
 {
 	writeOutput("this");
@@ -571,13 +566,6 @@ void PrintPrettyExpression::Expr(VectorToStringExpression* expr)
 void PrintPrettyExpression::Expr(RotatorToStringExpression* expr)
 {
 	writeOutput("rotatorToString(");
-	Print(writeOutput, expr->Value);
-	writeOutput(")");
-}
-
-void PrintPrettyExpression::Expr(StringToNameExpression* expr)
-{
-	writeOutput("stringToName(");
 	Print(writeOutput, expr->Value);
 	writeOutput(")");
 }

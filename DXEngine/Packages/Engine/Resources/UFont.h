@@ -33,10 +33,13 @@ public:
 	int VSize = 0;
 };
 
-class UFont : public UTexture
+// The original's Font is an Object: its pages and their characters, each
+// page's texture an object of its own (Engine.dll UFont::Serialize
+// 0x10385400)
+class UFont : public UObject
 {
 public:
-	using UTexture::UTexture;
+	using UObject::UObject;
 
 	void Load(ObjectStream* stream) override;
 	void Save(PackageStreamWriter* stream) override;

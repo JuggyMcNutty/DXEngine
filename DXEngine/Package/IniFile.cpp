@@ -86,8 +86,7 @@ IniFile::IniFile(const std::string& filename)
 	while (ReadLine(text, pos, line))
 	{
 		// Skip comments and empty lines
-		// While ini files have ; as their comment indicator, some files in Wheel of Time use the good ol' // for some reason
-		if (line.empty() || line[0] == ';' || (line[0] == '/' && line[1] == '/'))
+		if (line.empty() || line[0] == ';')
 			continue;
 
 		if (line.size() >= 2 && line.front() == '[' && line.back() == ']')

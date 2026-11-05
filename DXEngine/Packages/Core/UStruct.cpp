@@ -298,7 +298,7 @@ static const char* tokennames[256] =
 {
 	"LocalVariable", "InstanceVariable", "DefaultVariable", "0x03", "Return", "Switch", "Jump", "JumpIfNot",
 	"Stop", "Assert", "Case", "Nothing", "LabelTable", "GotoLabel", "EatString", "Let",
-	"DynArrayElement", "New", "ClassContext", "MetaCast", "LetBool", "Unknown0x15", "EndFunctionParms", "Self",
+	"DynArrayElement", "New", "ClassContext", "MetaCast", "LetBool", "0x15", "EndFunctionParms", "Self",
 	"Skip", "Context", "ArrayElement", "VirtualFunction", "FinalFunction", "IntConst", "FloatConst", "StringConst",
 	"ObjectConst", "NameConst", "RotationConst", "VectorConst", "ByteConst", "IntZero", "IntOne", "True",
 	"False", "NativeParm", "NoObject", "Unknown0x2b", "IntConstByte", "BoolVariable", "DynamicCast", "Iterator",
@@ -307,7 +307,7 @@ static const char* tokennames[256] =
 	"BoolToByte", "BoolToInt", "BoolToFloat", "FloatToByte", "FloatToInt", "FloatToBool", "Unknown0x46", "ObjectToBool",
 	"NameToBool", "StringToByte", "StringToInt", "StringToBool", "StringToFloat", "StringToVector", "StringToRotator", "VectorToBool",
 	"VectorToRotator", "RotatorToBool", "ByteToString", "IntToString", "BoolToString", "FloatToString", "ObjectToString", "NameToString",
-	"VectorToString", "RotatorToString", "StringToName", "0x5b", "0x5c", "0x5d", "0x5e", "0x5f",
+	"VectorToString", "RotatorToString", "0x5a", "0x5b", "0x5c", "0x5d", "0x5e", "0x5f",
 	"ExtendedNative60", "ExtendedNative61", "ExtendedNative62", "ExtendedNative63", "ExtendedNative64", "ExtendedNative65", "ExtendedNative66", "ExtendedNative67",
 	"ExtendedNative68", "ExtendedNative69", "ExtendedNative6A", "ExtendedNative6B", "ExtendedNative6C", "ExtendedNative6D", "ExtendedNative6E", "ExtendedNative6F",
 	"Native70", "Native71", "Native72", "Native73", "Native74", "Native75", "Native76", "Native77",
@@ -419,7 +419,6 @@ ExprToken UStruct::ReadToken(ObjectStream* stream, int depth)
 		case ExprToken::ClassContext: ReadToken(stream, depth); PushUInt16(stream->ReadUInt16()); PushUInt8(stream->ReadUInt8()); ReadToken(stream, depth); break;
 		case ExprToken::MetaCast: PushIndex(stream->ReadIndex()); ReadToken(stream, depth); break;
 		case ExprToken::LetBool: ReadToken(stream, depth); ReadToken(stream, depth); break;
-		case ExprToken::Unknown0x15: /*ReadToken(stream, depth);*/ break;
 		case ExprToken::EndFunctionParms: break;
 		case ExprToken::Self: break;
 		case ExprToken::Skip: PushUInt16(stream->ReadUInt16()); ReadToken(stream, depth); break;

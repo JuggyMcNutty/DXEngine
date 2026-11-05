@@ -31,7 +31,6 @@ private:
 	void Expr(ClassContextExpression* expr) override;
 	void Expr(MetaCastExpression* expr) override;
 	void Expr(LetBoolExpression* expr) override;
-	void Expr(Unknown0x15Expression* expr) override;
 	void Expr(SelfExpression* expr) override;
 	void Expr(SkipExpression* expr) override;
 	void Expr(ContextExpression* expr) override;
@@ -94,7 +93,6 @@ private:
 	void Expr(NameToStringExpression* expr) override;
 	void Expr(VectorToStringExpression* expr) override;
 	void Expr(RotatorToStringExpression* expr) override;
-	void Expr(StringToNameExpression* expr) override;
 	void Expr(VirtualFunctionExpression* expr) override;
 	void Expr(FinalFunctionExpression* expr) override;
 	void Expr(GlobalFunctionExpression* expr) override;
