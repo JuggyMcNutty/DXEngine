@@ -218,7 +218,13 @@ void NetPendingLevel::NotifyReceivedText(NetConnection* connection, const std::s
 	else if (NetParseCommand(text, "FAILCODE", &rest))
 	{
 		// The console asks again (a password wanted), from the URL without
-		// the one tried.
+		// the one tried; nothing else, as the original's pending level only
+		// calls the console's ConnectFailure (UNetPendingLevel::
+		// NotifyReceivedText, Engine.dll 0x1040a880): the join's error stays
+		// the FAILURE's before it, "Rejected By Server: You need to enter a
+		// password to join this game.", not the code, and a FAILCODE with
+		// no FAILURE ends no join. The stock console's ConnectFailure does
+		// nothing.
 		UnrealURL retry = URL;
 		Array<std::string> options;
 		for (const std::string& option : retry.Options)
@@ -229,8 +235,6 @@ void NetPendingLevel::NotifyReceivedText(NetConnection* connection, const std::s
 		retry.Options = options;
 		if (engine->console)
 			CallEvent(engine->console, "ConnectFailure", { ExpressionValue::StringValue(rest), ExpressionValue::StringValue(retry.ToString()) });
-		Error = "Rejected by the server: " + rest;
-		connection->State = ConnectionState::Closed;
 	}
 	else if (NetParseCommand(text, "USES"))
 	{

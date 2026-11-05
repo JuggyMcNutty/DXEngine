@@ -3065,9 +3065,13 @@ As in the original:
 - The Join Internet screen lists servers only once `MasterServerAddress`
   (`[DeusEx.MenuScreenJoinGame]` in `DeusEx.ini`) names a live master; the
   game's names GameSpy's, which is closed.
+- A refused join shows the server's `FAILURE`, `Rejected By Server:` and its
+  text, and a `FAILCODE` after it goes to the console's `ConnectFailure`
+  alone, with the URL less its password, for the menu to ask again
+  (`PassJoinConsole` against a server with `?GamePassword=dxcap`, each
+  engine the other's client: the two refusals' and the join's lines alike).
 
-Differs (bugs.md NET.11): a server's FAILCODE takes the place of the join's
-failure text. Differs (bugs.md NET.12): a login's value ends at `)`. Differs
+Differs (bugs.md NET.12): a login's value ends at `)`. Differs
 (bugs.md NET.14): a login with a FailCode and no Error, `SendText`'s answer,
 a client travel's info, `open`'s one word. Differs (bugs.md NET.16): a
 simulated proxy pawn's own path, its move along its velocity and its `Tick`
