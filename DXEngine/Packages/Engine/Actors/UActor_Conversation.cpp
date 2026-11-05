@@ -25,13 +25,20 @@ void UActor::DeusExConBindEvents()
 	if (info->MissionNumber() < 0)
 		return;
 
+	// <package>Text.ConList_MissionNN, loaded without a warning (LOAD_NoWarn,
+	// ADeusExPlayer::ConBindEvents DeusEx.dll 0x10014320): a package or a
+	// list that is not there binds nothing and keeps the old list, an empty
+	// ConversationPackage too, as Text.ConList_MissionNN is none.
 	std::string pkgPrefix = ScriptToLatin1(info->ConversationPackage());
-	if (pkgPrefix.empty() || NameString(pkgPrefix) == "DeusExConversations")
+	if (NameString(pkgPrefix) == "DeusExConversations")
 		pkgPrefix = "DeusExCon";
+	NameString pkgName(pkgPrefix + "Text");
+	if (!engine->packages->HasPackage(pkgName))
+		return;
 
 	char listName[32];
 	snprintf(listName, sizeof(listName), "ConList_Mission%02d", info->MissionNumber());
-	auto mission = UObject::Cast<UConversationList>(engine->packages->GetPackage(pkgPrefix + "Text")->GetUObject("ConversationList", listName));
+	auto mission = UObject::Cast<UConversationList>(engine->packages->GetPackage(pkgName)->GetUObject("ConversationList", listName));
 	if (!mission)
 		return;
 

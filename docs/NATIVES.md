@@ -285,9 +285,14 @@ cycling, the labels in turn round and round, the index counted on; with
 `bCycleRandom` with it never picks; with `bCycleRandom` alone a random label
 once the labels have cycled (`RandomLabelConsole`: `BoatWaitingForBriefing`'s
 event under each, every line alike but a random pick's label).
+`ConBindEvents` binds from the level's `ConversationPackage`, an empty one
+or one that is not there binding nothing and keeping the actor's list, as
+the original's (`ConPackageConsole`: Paul Denton's ten under the stock
+package and `deusexconversations`, none under an empty one or
+`NoSuchConPackage`, in both engines).
 
-Differs (bugs.md DX.5, DX.7): `ConBindEvents` with an empty or a missing
-conversation package; the ConListItems' and the conversation camera's names.
+Differs (bugs.md DX.7): the ConListItems' and the conversation camera's
+names.
 
 ## What the player reads
 
