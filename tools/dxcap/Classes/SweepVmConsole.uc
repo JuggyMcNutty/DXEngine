@@ -25,7 +25,8 @@
 //   (0x10166380, ReadToken first), and GetPropertyText of a name PlayerPawn
 //   declares again over Actor's, bSinglePlayer (0x1013e0b0: own fields first).
 // - VSize, Dot and Lerp to their last bit: (F - 1) * 2^23 of results in
-//   [1, 2); a rotator times a float and over one, both ways round and in
+//   [1, 2); Normal's axes so, each scaled into [1, 2) (SafeNormal,
+//   Core.dll 0x10144be0); a rotator times a float and over one, both ways round and in
 //   place (each angle by _ftol of the x87's product: Core.dll 0x101395e0,
 //   0x101397c0).
 //=============================================================================
@@ -89,6 +90,19 @@ function SweepPair BumpPair(out SweepPair P)
 	return Old;
 }
 
+function int Mant(float F)
+{
+	if (F < 0)
+		F = -F;
+	if (F == 0)
+		return 0;
+	while (F < 1.0)
+		F *= 2.0;
+	while (F >= 2.0)
+		F *= 0.5;
+	return int((F - 1.0) * 8388608.0);
+}
+
 function int Mantissa(float F)
 {
 	return int((F - 1.0) * 8388608.0);
@@ -101,6 +115,7 @@ function Checks(string Where)
 	local vector V, W;
 	local string R;
 	local rotator Angles;
+	local vector N;
 
 	// Operand order
 	I = 1;
@@ -161,6 +176,10 @@ function Checks(string Where)
 	V = vect(0.8559, 0.8916, 0.8685); W = vect(0.4552, 0.3543, 0.3588);
 	Say(Where $ " Dot c " $ Mantissa(V dot W));
 	Say(Where $ " Lerp " $ Mantissa(Lerp(0.1273, 1.6448, 1.9779)));
+	N = Normal(vect(0.1616, 0.5555, 0.4108));
+	Say(Where $ " Normal a " $ Mant(N.X) $ " " $ Mant(N.Y) $ " " $ Mant(N.Z));
+	N = Normal(vect(0.4686, 0.1594, 0.1771));
+	Say(Where $ " Normal b " $ Mant(N.X) $ " " $ Mant(N.Y) $ " " $ Mant(N.Z));
 
 	// A rotator times a float and over one
 	Angles = rot(10, 20, 30) * 0.7;

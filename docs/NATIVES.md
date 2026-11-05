@@ -2101,13 +2101,14 @@ Every other native the scripted runs compare matches the original
   original's x87 holds it in the tick the script runs in, rounded to a float
   at 24 bits in the console's tick and whole in the level's
   (`PrecisionConsole`: 7 *= 3e9 -474,836,992 in the console's tick and
-  -474,836,480 in an actor's, in both engines); `VSize`, `Dot` and `Lerp`
-  worked out as the original's x87 does, in its order -- `VSize`'s squares
-  and `Dot`'s products Z's and Y's first, then X's, `Lerp` (B − A) × Alpha +
-  A -- at its precision in that tick, stored once as a float, `VSize`'s sum
-  as a double for its root; a rotator times or over a float each angle by
+  -474,836,480 in an actor's, in both engines); `VSize`, `Dot`, `Lerp` and
+  `Normal` worked out as the original's x87 does, in its order -- `VSize`'s
+  squares and `Dot`'s products Z's and Y's first, then X's, `Normal`'s X's
+  first, `Lerp` (B − A) × Alpha + A -- at its precision in that tick, stored
+  once as a float, `VSize`'s and `Normal`'s sums as a double for the root; a rotator times or over a float each angle by
   `_ftol` of the angle times the float, or times one over it, at that
-  precision (`SweepVmConsole`'s mantissas alike in both ticks; rot(10, 20,
+  precision (`SweepVmConsole`'s mantissas alike in both ticks, `Normal`'s
+  apart in two of three at 24 bits from a double's; rot(10, 20,
   30) × 0.7 is (7, 14, 21) in the console's tick and (6, 13, 20) in the
   level's, rot(90, 180, 270) / 90 (1, 2, 3) and (0, 1, 3)); `Clamp` and
   `FClamp` take a
@@ -2541,9 +2542,7 @@ Differs (bugs.md VM.25): a name keeps each spelling it is made in, where the
 original's keeps the first made in the session: `string()` gives the case it
 was made in (`SpellingConsole`: `ANNADIES` where the original's gives
 DeusEx.u's `annadies`), and the cheats' EditFlags lists a flag as its setter
-spelt it; lookups take any case in both. Differs (bugs.md VM.28): `Normal`
-in doubles in both ticks, the original's at 24 bits in the console's.
-Differs (bugs.md VM.29): small edges no stock path reaches -- a static array
+spelt it; lookups take any case in both. Differs (bugs.md VM.29): small edges no stock path reaches -- a static array
 argument read when the call reads it, a call held off copying no `out`
 argument back, the original's `GotoState` warnings not logged, an object
 made by `new` able to take a state.

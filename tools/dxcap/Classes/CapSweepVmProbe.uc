@@ -58,6 +58,19 @@ function SweepPair BumpPair(out SweepPair P)
 	return Old;
 }
 
+function int Mant(float F)
+{
+	if (F < 0)
+		F = -F;
+	if (F == 0)
+		return 0;
+	while (F < 1.0)
+		F *= 2.0;
+	while (F >= 2.0)
+		F *= 0.5;
+	return int((F - 1.0) * 8388608.0);
+}
+
 function int Mantissa(float F)
 {
 	return int((F - 1.0) * 8388608.0);
@@ -70,6 +83,7 @@ event Tick(float DeltaTime)
 	local vector V, W;
 	local string R;
 	local rotator Angles;
+	local vector N;
 
 	if (bDone)
 		return;
@@ -127,6 +141,10 @@ event Tick(float DeltaTime)
 	V = vect(0.8559, 0.8916, 0.8685); W = vect(0.4552, 0.3543, 0.3588);
 	Say("level's tick: Dot c " $ Mantissa(V dot W));
 	Say("level's tick: Lerp " $ Mantissa(Lerp(0.1273, 1.6448, 1.9779)));
+	N = Normal(vect(0.1616, 0.5555, 0.4108));
+	Say("level's tick: Normal a " $ Mant(N.X) $ " " $ Mant(N.Y) $ " " $ Mant(N.Z));
+	N = Normal(vect(0.4686, 0.1594, 0.1771));
+	Say("level's tick: Normal b " $ Mant(N.X) $ " " $ Mant(N.Y) $ " " $ Mant(N.Z));
 	Angles = rot(10, 20, 30) * 0.7;
 	Say("level's tick: rot * 0.7 " $ Angles.Pitch $ "," $ Angles.Yaw $ "," $ Angles.Roll);
 	Angles = 0.7 * rot(10, 20, 30);
