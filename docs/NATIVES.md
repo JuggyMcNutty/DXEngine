@@ -1602,8 +1602,12 @@ green, white or None (`ButtonDefaultsConsole`: a button's six slots set
 apart, then each call with its first slot alone, its insensitive and focused
 look alike in both engines).
 
-Differs (bugs.md WIN.12): Alt+Enter back to a window on X11 puts it at the
-display's corner.
+Differs (bugs.md EXT.26): a computer window's `ComputerStart` goes to it
+alone once it shows and the game is not paused, where the original's goes up
+its parents at its next tick, paused or not; a text log line leaves up to a
+frame's part early; an edit field's first blink comes without the tick's
+offset. Differs (bugs.md WIN.12): Alt+Enter back to a window on X11 puts it
+at the display's corner.
 
 ## The menus' settings
 
@@ -2661,6 +2665,10 @@ What DXEngine does with each:
     and `-safe`'s no DirectInput (DXEngine's input is its window's, SDL's
     under the launchers).
 
+Differs (bugs.md ENG.21): `EXEC=`'s file is its whole value, where the
+original's `exec` takes its first token, 63 characters at most; an empty
+`INI=` or `USERINI=` is none, where the original's uses the empty name.
+
 ## Mods
 
 A mod gets the original's loader and natives:
@@ -2832,7 +2840,10 @@ A mod gets the original's loader and natives:
   first token, as the import does (`ConfigConsole` seeded with `Runs = 5`,
   `Words[0]="quoted"` and `Words[1]=two `, the file written back the same to
   the byte; `LocalizeConsole`'s Engine.int lines; `IniConsole` with a
-  `User.ini` of `Name="Quoted"`: alike in both engines).
+  `User.ini` of `Name="Quoted"`: alike in both engines). A value changed in
+  case alone is written, where the original's keeps the old; a file whose
+  lines end in a CR alone grows at each write; a key with no name is
+  dropped, where the original's keeps it (bugs.md PKG.25).
 - **The natives no stock script calls** (`ModConsole`): `ResetConfig`, a
   System or User class's section copied from `Default.ini` or `DefUser.ini`
   and its config read again into the class, its subclasses and their
@@ -3093,6 +3104,13 @@ As in the original:
   server: a login as `JC(1)` with a class and a password taken whole, the
   two servers' lines alike).
 
+Differs (bugs.md NET.18): a login whose challenge response is wrong is
+refused, where the original's refuses a response of 0 alone. Differs
+(bugs.md NET.19): a server's `UPGRADE` ends the join with an error, where
+the original's shows its progress alone; the handshake's values are read
+whole; an arriving player takes its travel info on a relative travel alone.
+Differs (bugs.md NET.20): a `TcpLink` whose `BindPort` failed goes on as any
+other; its `ReadText` reads 999 bytes, the original's 255.
 Differs (bugs.md NET.16): a simulated proxy pawn's own path, its move along
 its velocity and its `Tick` alone, runs only in a net game, where the
 original's runs whatever the net mode; no stock actor is one outside a net
