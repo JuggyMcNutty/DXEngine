@@ -2349,7 +2349,9 @@ not deleted (the log says so).
   logos in a tenth of a second, where held to 60 frames both engines' keep
   together (`IntroConsole`). The level's `TimeDilation` is held to 0.0025
   to 25, by choice, where the original's is not held; the game sets it only
-  through `SetGameSpeed`, to 0.1 or more.
+  through `SetGameSpeed`, to 0.1 or more (`DilationConsole`: at 0, over half
+  a second, the original's level time stands, its actors' ticks 5 ms each,
+  0.155 s in all, and DXEngine's moves 0.000645 s, its actors' with it).
 - **A travel's items**: the travel is taken whether or not the game's Login
   spawned a new pawn, as the original's SpawnPlayActor takes it; its info is
   looked up by the URL's name, then by its first 20 characters (the stock
