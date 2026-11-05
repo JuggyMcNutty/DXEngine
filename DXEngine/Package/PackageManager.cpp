@@ -1356,14 +1356,13 @@ bool PackageManager::FindLocalized(NameString packageName, const NameString& sec
 		}
 	}
 
+	// The value as the reader gives it, its quotes taken off there: the
+	// original's one config reader reads a .int as an ini (Localize, Core.dll
+	// 0x10148430), its blanks kept
 	for (const auto& intFile : it->second)
 	{
 		if (intFile->FindValue(sectionName, keyName, value))
-		{
-			if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
-				value = value.substr(1, value.size() - 2);
 			return true;
-		}
 	}
 	value.clear();
 	return false;

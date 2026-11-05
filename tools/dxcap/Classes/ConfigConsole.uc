@@ -1,7 +1,10 @@
 //=============================================================================
 // ConfigConsole: a class's own config file, ConfigProbe's DXCapConfig.ini,
 // read and written back: logs "DXCONFIG: Runs <n>" as the class was given
-// it (with its Spot, Kind and Words), saves n + 1 with a vector, a class and
+// it (with its Spot, Kind and Words, each word between bars so that a blank
+// at either end shows: a file written by hand with "Runs = 5", a quoted word
+// and a word ending in a blank reads as each engine's reader takes those
+// lines, bugs.md PKG.21), saves n + 1 with a vector, a class and
 // two strings (StaticSaveConfig: the file as the original writes those
 // types, bugs.md E5a.18), and Wide, U+03A9, U+2122 and e acute (the file
 // written UTF-16), its codes as read logged, then an exit, from the menu map. The
@@ -40,7 +43,7 @@ event Tick(float Delta)
 	if (RunTime < 2.0)
 		return;
 	bDone = true;
-	Log("DXCONFIG: Runs " $ class'ConfigProbe'.default.Runs $ ", Spot " $ class'ConfigProbe'.default.Spot $ ", Kind " $ class'ConfigProbe'.default.Kind $ ", Words " $ class'ConfigProbe'.default.Words[0] $ "|" $ class'ConfigProbe'.default.Words[1]);
+	Log("DXCONFIG: Runs " $ class'ConfigProbe'.default.Runs $ ", Spot " $ class'ConfigProbe'.default.Spot $ ", Kind " $ class'ConfigProbe'.default.Kind $ ", Words |" $ class'ConfigProbe'.default.Words[0] $ "|" $ class'ConfigProbe'.default.Words[1] $ "|");
 	class'ConfigProbe'.default.Runs = class'ConfigProbe'.default.Runs + 1;
 	class'ConfigProbe'.default.Spot = vect(1, 2.5, -3);
 	class'ConfigProbe'.default.Kind = class'Light';

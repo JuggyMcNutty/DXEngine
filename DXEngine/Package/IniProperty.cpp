@@ -5,6 +5,7 @@
 #include "Utils/Exception.h"
 #include "Utils/Convert.h"
 #include "Packages/Core/UObject.h"
+#include "Packages/Core/Properties/UProperty.h"
 #include <cstdlib>
 #include <sstream>
 
@@ -95,8 +96,13 @@ uint8_t IniPropertyConverter<uint8_t>::FromIniFile(const IniFile& iniFile, const
 template<>
 bool IniPropertyConverter<bool>::FromString(const std::string& valueString)
 {
-	// In any case, as a class's config is read (UClass)
-	std::string value = valueString;
+	// Its first token, in any case, as a class's config reads a bool
+	// (UBoolProperty::ImportText, Core.dll 0x10166380): an ini's "False "
+	// is false, the blank after it the value's own as the file is read
+	std::string value;
+	size_t pos = 0;
+	if (!UProperty::ReadToken(valueString, pos, value))
+		Exception::Throw("Encountered a non-boolean value: " + valueString);
 	for (char& c : value)
 		if (c >= 'A' && c <= 'Z')
 			c += 'a' - 'A';

@@ -4,6 +4,7 @@
 #include "Engine.h"
 #include "Package/PackageManager.h"
 #include "Package/IniProperty.h"
+#include "Packages/Core/Properties/UProperty.h"
 #include "Utils/StrTools.h"
 
 void UDXEngineClient::LoadProperties(const NameString& from)
@@ -35,12 +36,19 @@ void UDXEngineClient::LoadProperties(const NameString& from)
 
 void UDXEngineClient::UpdateDetailLevels()
 {
+	// A detail by its name's token, as the original's import reads the enum
+	// byte (UByteProperty::ImportText, Core.dll 0x10165aa0): an ini's
+	// "Medium " is Medium, the blank after it the value's own as the file is
+	// read
 	auto level = [](const std::string& detail)
 	{
 		static const char* names[] = { "High", "Medium", "Low", "UltraLow" };
+		std::string token;
+		size_t pos = 0;
+		UProperty::ReadToken(detail, pos, token);
 		for (int i = 0; i < 4; i++)
 		{
-			if (StrTools::equals_ignore_case(detail, names[i]))
+			if (StrTools::equals_ignore_case(token, names[i]))
 				return i;
 		}
 		return 0;

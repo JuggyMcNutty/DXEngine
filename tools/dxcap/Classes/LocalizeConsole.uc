@@ -9,7 +9,10 @@
 // whose .int is only in either folder, and of one with no .int at all, and
 // by their characters' codes of a UTF-16 .int's and a Latin-1 one's; this
 // class's localized Greeting, which only the first folder's DXCapture.int
-// gives; the objects the folders' .int files register for this class, and
+// gives; the game's Engine.int's ViewingFrom and NameChangedMessage, whose
+// text ends in a blank, and NameArticle, quoted with a blank each side,
+// and GameInfo's localized NameChangedMessage as its default has it (bugs.md
+// PKG.21); the objects the folders' .int files register for this class, and
 // the render devices the game's register (docs/DEVELOPMENT.md, scripted
 // runs).
 //=============================================================================
@@ -70,6 +73,10 @@ event Tick(float Delta)
 	LogCodes("Strings", "Hello", "DXCapWide");
 	LogCodes("Strings", "Hello", "DXCapLatin");
 	Log("DXLOC: Greeting '" $ Greeting $ "'");
+	LogLocalized("PlayerPawn", "ViewingFrom", "Engine");
+	LogLocalized("GameInfo", "NameChangedMessage", "Engine");
+	LogLocalized("Pawn", "NameArticle", "Engine");
+	Log("DXLOC: GameInfo default NameChangedMessage '" $ class'GameInfo'.default.NameChangedMessage $ "'");
 	LogRegistry("DXCapture.LocalizeConsole");
 	LogRegistry("Engine.RenderDevice");
 	Log("DXLOC: done");

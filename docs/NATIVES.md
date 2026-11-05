@@ -2797,8 +2797,18 @@ A mod gets the original's loader and natives:
   original's import and export have it (a property's text, above): a
   struct's members, a class or an object as `Type'Path'`, a dynamic array
   one line of its name per element (`ConfigConsole`: a vector, a class and
-  two strings written and read back), but for the reader's: a value's quotes
-  kept, a key's and a value's white space trimmed (bugs.md PKG.21).
+  two strings written and read back). A file's lines are read as the
+  original's reader reads them: a header a line that begins `[` and ends `]`
+  as it stands, a key up to the line's first `=` and its value after it,
+  nothing trimmed, so `Runs = 5` is a key `Runs ` no property reads and a
+  value's last blank stays (Engine.int's `ViewingFrom`,
+  `NameChangedMessage`), a value that begins and ends with `"` read without
+  them, an ini's and a `.int`'s alike; `;` and `//` begin no comment. A
+  setting read by hand takes a bool and a texture or skin detail by its
+  first token, as the import does (`ConfigConsole` seeded with `Runs = 5`,
+  `Words[0]="quoted"` and `Words[1]=two `, the file written back the same to
+  the byte; `LocalizeConsole`'s Engine.int lines; `IniConsole` with a
+  `User.ini` of `Name="Quoted"`: alike in both engines).
 - **The natives no stock script calls** (`ModConsole`): `ResetConfig`, a
   System or User class's section copied from `Default.ini` or `DefUser.ini`
   and its config read again into the class, its subclasses and their

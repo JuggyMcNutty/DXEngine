@@ -2,7 +2,6 @@
 #include "Precomp.h"
 #include "IniFile.h"
 #include "Utils/File.h"
-#include "Utils/Convert.h"
 #include "MurmurHash3/MurmurHash3.h"
 #include <algorithm>
 #include <map>
@@ -68,6 +67,32 @@ static void WriteIniText(const std::string& filename, const std::string& utf8)
 	File::write_all_text(filename, bytes);
 }
 
+// A line as the original's config reader takes it (FConfigFile::Read, GOG
+// DeusEx.exe 0x10916780; dx-reverse-info core-dll.md, configuration): a
+// section's header when it begins with [ and ends with ], else a key up to
+// its first = and its value after it, nothing trimmed -- a blank before or
+// after the = is the key's or the value's own, and a line beginning ; or //
+// is a key of that name -- and a value that begins and ends with " (a lone "
+// too) taken without them, an ini's as a .int's. A line with no = is none.
+enum class IniLine { None, Header, Key };
+
+static IniLine ParseIniLine(const std::string& line, std::string& name, std::string& value)
+{
+	if (line.size() >= 2 && line.front() == '[' && line.back() == ']')
+	{
+		name = line.substr(1, line.size() - 2);
+		return IniLine::Header;
+	}
+	size_t equalpos = line.find('=');
+	if (equalpos == std::string::npos)
+		return IniLine::None;
+	name = line.substr(0, equalpos);
+	value = line.substr(equalpos + 1);
+	if (!value.empty() && value.front() == '"' && value.back() == '"')
+		value = value.size() >= 2 ? value.substr(1, value.size() - 2) : std::string();
+	return IniLine::Key;
+}
+
 IniFile::IniFile(const std::string& filename)
 {
 	// A file that is not there yet (an --ini or --userini named before its
@@ -81,58 +106,27 @@ IniFile::IniFile(const std::string& filename)
 	}
 	std::string text = ReadIniText(filename);
 	size_t pos = 0;
-	std::string line;
-	std::string sectionName;
+	std::string line, name, value, sectionName;
+	bool inSection = false;
 	while (ReadLine(text, pos, line))
 	{
-		// Skip comments and empty lines
-		if (line.empty() || line[0] == ';')
-			continue;
-
-		if (line.size() >= 2 && line.front() == '[' && line.back() == ']')
+		IniLine kind = ParseIniLine(line, name, value);
+		if (kind == IniLine::Header)
 		{
-			sectionName = line.substr(1, line.size() - 2);
+			// [] too, a section named empty, as the original's
+			sectionName = name;
+			inSection = true;
 		}
-		else
+		else if (kind == IniLine::Key && inSection && !name.empty())
 		{
-			size_t equalpos = line.find('=');
-			if (equalpos != std::string::npos)
-			{
-				std::string name = line.substr(0, equalpos);
-				while (!name.empty() && (name.back() == ' ' || name.back() == '\t'))
-					name.pop_back();
-
-				std::string value;
-				size_t valuepos = line.find_first_not_of(" \t", equalpos + 1);
-				if (valuepos != std::string::npos)
-					value = line.substr(valuepos);
-
-				// A key above the first section header belongs to no section
-				// and is dropped, as the original's config reader drops it:
-				// kept, it was written back at the file's end under an empty
-				// header, and once more at every write
-				if (!name.empty() && !sectionName.empty())
-				{
-					int index = -1;
-					bool indexed = false;
-					/* This doesn't work
-					size_t bracket = name.find('[');
-					if (bracket != std::string::npos)
-					{
-						size_t rightBracket = name.find(']');
-						if (rightBracket == std::string::npos)
-							Exception::Throw("malformed INI array index");
-
-						indexed = true;
-						index = Convert::to_int32(name.substr(bracket + 1, rightBracket - bracket - 1));
-						name = name.substr(0, bracket);
-					}
-					*/
-
-					IniSection& section = AddUniqueSection(sectionName);
-					section.SetValue(name, value, index, indexed);
-				}
-			}
+			// A key above the first section header belongs to no section
+			// and is dropped, as the original's config reader drops it:
+			// kept, it was written back at the file's end under an empty
+			// header, and once more at every write. A key with no name
+			// (=value) is dropped too, where the original keeps one: a
+			// NameString of it is None. No file has one
+			IniSection& section = AddUniqueSection(sectionName);
+			section.SetValue(name, value, -1);
 		}
 	}
 
@@ -145,31 +139,21 @@ IniFile::IniFile(const IniFile& other)
 	sections = other.sections;
 }
 
+// The original's line (FConfigFile::Read, GOG DeusEx.exe 0x10916780): the
+// CRs and LFs before it passed over, then the text up to the next CR or LF,
+// its blanks and tabs kept
 bool IniFile::ReadLine(const std::string& text, size_t& pos, std::string& line)
 {
-	// Skip whitespace
-	while (pos < text.size() && (text[pos] == ' ' || text[pos] == '\t' || text[pos] == '\r' || text[pos] == '\n'))
+	while (pos < text.size() && (text[pos] == '\r' || text[pos] == '\n'))
 		pos++;
 	if (pos >= text.size())
 		return false;
 
 	size_t startpos = pos;
-
-	// Read until end of line
 	while (pos < text.size() && text[pos] != '\r' && text[pos] != '\n')
 		pos++;
 
-	size_t endpos = pos;
-
-	// Skip whitespace at end of line
-	while (endpos > startpos && (text[endpos - 1] == ' ' || text[endpos - 1] == '\t' || text[endpos - 1] == '\r' || text[endpos - 1] == '\n'))
-		endpos--;
-
-	// Read newline
-	while (pos < text.size() && (text[pos] == '\r' || text[pos] == '\n'))
-		pos++;
-
-	line = text.substr(startpos, endpos - startpos);
+	line = text.substr(startpos, pos - startpos);
 	return true;
 }
 
@@ -337,26 +321,18 @@ void IniFile::UpdateFile(const std::string& filename)
 	Array<SeenSection> seen;
 	size_t currentIndex = (size_t)-1;
 
-	auto trim = [](const std::string& str) {
-		size_t start = str.find_first_not_of(" \t");
-		if (start == std::string::npos)
-			return std::string();
-		size_t end = str.find_last_not_of(" \t");
-		return str.substr(start, end - start + 1);
-	};
-
+	// Each line taken as the file is read (ParseIniLine), so that each meets
+	// its own value: a ; or // line with an = a key, a value's quotes off
+	std::string name, valueInFile;
 	for (size_t i = 0; i < lines.size(); i++)
 	{
-		std::string line = trim(lines[i]);
-		if (line.empty() || line[0] == ';' || (line.size() >= 2 && line[0] == '/' && line[1] == '/'))
-			continue;
-
-		if (line.size() >= 2 && line.front() == '[' && line.back() == ']')
+		IniLine kind = ParseIniLine(lines[i], name, valueInFile);
+		if (kind == IniLine::Header)
 		{
 			// A section given twice in the file is one section in memory, its
 			// keys' values in the file's order: the second header goes on
 			// with the first's counts, so each line meets its own value
-			const IniSection* section = FindSection(line.substr(1, line.size() - 2));
+			const IniSection* section = FindSection(name);
 			currentIndex = (size_t)-1;
 			for (size_t j = 0; section && j < seen.size(); j++)
 			{
@@ -374,22 +350,9 @@ void IniFile::UpdateFile(const std::string& filename)
 			continue;
 		}
 
-		if (currentIndex == (size_t)-1 || !seen[currentIndex].Section)
+		if (kind != IniLine::Key || name.empty() || currentIndex == (size_t)-1 || !seen[currentIndex].Section)
 			continue;
 		SeenSection& current = seen[currentIndex];
-
-		size_t equalpos = line.find('=');
-		if (equalpos == std::string::npos)
-			continue;
-		std::string name = line.substr(0, equalpos);
-		while (!name.empty() && (name.back() == ' ' || name.back() == '\t'))
-			name.pop_back();
-		if (name.empty())
-			continue;
-		std::string valueInFile;
-		size_t valuepos = line.find_first_not_of(" \t", equalpos + 1);
-		if (valuepos != std::string::npos)
-			valueInFile = line.substr(valuepos);
 
 		uint32_t keyHash = HashIniString(name);
 		int occurrence = current.Occurrences[keyHash]++;
