@@ -492,8 +492,8 @@ bool RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 		Canvas.Frame.FY = frame.FY;
 		Canvas.Frame.FX2 = frame.FX2;
 		Canvas.Frame.FY2 = frame.FY2;
-		engine->canvas->SizeX() = (int)(frame.X / (float)Canvas.uiscale);
-		engine->canvas->SizeY() = (int)(frame.Y / (float)Canvas.uiscale);
+		engine->canvas->SizeX() = frame.X;
+		engine->canvas->SizeY() = frame.Y;
 		engine->canvas->ClipX() = (float)engine->canvas->SizeX();
 		engine->canvas->ClipY() = (float)engine->canvas->SizeY();
 

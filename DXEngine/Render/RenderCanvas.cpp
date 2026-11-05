@@ -18,11 +18,8 @@
 
 void RenderSubsystem::ResetCanvas()
 {
-	// Scale the UI so it matches what you saw on a 1024x768 CRT monitor for Unreal and other older games.
-	// Assume 1280x960 for UT and newer.
-	int vertResolution = 960;
-	Canvas.uiscale = std::max((engine->viewport->ViewportHeight() + vertResolution / 2) / vertResolution, 1);
-
+	// The canvas is the viewport, pixel for pixel, as the original's: the
+	// console and the level's big messages drawn at their fonts' own size
 	SceneNode frame;
 	Canvas.Frame.XB = 0;
 	Canvas.Frame.YB = 0;
@@ -39,8 +36,8 @@ void RenderSubsystem::ResetCanvas()
 	float RProjZ = (float)std::tan(radians(Canvas.Frame.FovAngle) * 0.5f);
 	Canvas.Frame.Projection = mat4::frustum(-RProjZ, RProjZ, -Aspect * RProjZ, Aspect * RProjZ, 1.0f, 32768.0f, handedness::left, clipzrange::zero_positive_w);
 
-	int sizeX = (int)(engine->viewport->ViewportWidth() / (float)Canvas.uiscale);
-	int sizeY = (int)(engine->viewport->ViewportHeight() / (float)Canvas.uiscale);
+	int sizeX = engine->viewport->ViewportWidth();
+	int sizeY = engine->viewport->ViewportHeight();
 	engine->canvas->CurX() = 0.0f;
 	engine->canvas->CurY() = 0.0f;
 	engine->console->FrameX() = (float)sizeX;
@@ -172,12 +169,12 @@ void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter, cons
 void RenderSubsystem::DrawClippedActor(UActor* actor, int X, int Y, int XB, int YB, bool ClearZ, bool wire)
 {
 	SceneNode frame;
-	frame.XB = XB * Canvas.uiscale;
-	frame.YB = YB * Canvas.uiscale;
-	frame.X = X * Canvas.uiscale;
-	frame.Y = Y * Canvas.uiscale;
-	frame.FX = (float)X * Canvas.uiscale;
-	frame.FY = (float)Y * Canvas.uiscale;
+	frame.XB = XB;
+	frame.YB = YB;
+	frame.X = X;
+	frame.Y = Y;
+	frame.FX = (float)X;
+	frame.FY = (float)Y;
 	frame.FX2 = frame.FX * 0.5f;
 	frame.FY2 = frame.FY * 0.5f;
 	frame.PolygonsAtFX15 = true;
@@ -237,7 +234,7 @@ void RenderSubsystem::DrawTile(UTexture* Tex, float x, float y, float XL, float 
 	if (Tex->bMasked())
 		flags |= PF_Masked;
 
-	Device->DrawTile(&Canvas.Frame, texinfo, x * Canvas.uiscale, y * Canvas.uiscale, XL * Canvas.uiscale, YL * Canvas.uiscale, U, V, UL, VL, Z, color, fog, flags);
+	Device->DrawTile(&Canvas.Frame, texinfo, x, y, XL, YL, U, V, UL, VL, Z, color, fog, flags);
 }
 
 void RenderSubsystem::DrawTileClipped(UTexture* Tex, float orgX, float orgY, float curX, float curY, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 color, vec4 fog, uint32_t flags, float clipX, float clipY)
@@ -335,7 +332,7 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<ScriptStr
 			float USize = (float)glyph.USize;
 			float VSize = (float)glyph.VSize;
 
-			Device->DrawTile(&Canvas.Frame, texinfo, x * Canvas.uiscale, y * Canvas.uiscale, (float)width * Canvas.uiscale, (float)height * Canvas.uiscale, StartU, StartV, USize, VSize, 1.0f, color, vec4(0.0f), polyflags);
+			Device->DrawTile(&Canvas.Frame, texinfo, x, y, (float)width, (float)height, StartU, StartV, USize, VSize, 1.0f, color, vec4(0.0f), polyflags);
 
 			// A whole pixel's step, the glyph's width and SpaceX truncated, as
 			// the original's WrappedPrint steps (Engine.dll 0x10376790)
@@ -523,7 +520,7 @@ void RenderSubsystem::DrawTile(TextureInfo& texinfo, const Rectf& dest, const Re
 
 	if (dest.left >= clipBox.left && dest.top >= clipBox.top && dest.right <= clipBox.right && dest.bottom <= clipBox.bottom)
 	{
-		Device->DrawTile(&Canvas.Frame, texinfo, dest.left * Canvas.uiscale, dest.top * Canvas.uiscale, (dest.right - dest.left) * Canvas.uiscale, (dest.bottom - dest.top) * Canvas.uiscale, src.left, src.top, src.right - src.left, src.bottom - src.top, Z, color, fog, flags);
+		Device->DrawTile(&Canvas.Frame, texinfo, dest.left, dest.top, dest.right - dest.left, dest.bottom - dest.top, src.left, src.top, src.right - src.left, src.bottom - src.top, Z, color, fog, flags);
 	}
 	else
 	{
@@ -555,14 +552,13 @@ void RenderSubsystem::DrawTile(TextureInfo& texinfo, const Rectf& dest, const Re
 		}
 
 		if (d.left < d.right && d.top < d.bottom)
-			Device->DrawTile(&Canvas.Frame, texinfo, d.left * Canvas.uiscale, d.top * Canvas.uiscale, (d.right - d.left) * Canvas.uiscale, (d.bottom - d.top) * Canvas.uiscale, s.left, s.top, s.right - s.left, s.bottom - s.top, Z, color, fog, flags);
+			Device->DrawTile(&Canvas.Frame, texinfo, d.left, d.top, d.right - d.left, d.bottom - d.top, s.left, s.top, s.right - s.left, s.bottom - s.top, Z, color, fog, flags);
 	}
 }
 
-void RenderSubsystem::Draw2DLine(vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2, bool useUIScale)
+void RenderSubsystem::Draw2DLine(vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2)
 {
-	auto uiscale = useUIScale ? static_cast<float>(Canvas.uiscale) : 1.0f;
-	Device->Draw2DLine(&Canvas.Frame, Color, LineFlags, vec3(P1.xy() * uiscale, P1.z), vec3(P2.xy() * uiscale, P2.z));
+	Device->Draw2DLine(&Canvas.Frame, Color, LineFlags, P1, P2);
 }
 
 void RenderSubsystem::DrawTile(TextureInfo& Info, float X, float Y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 Color, vec4 Fog, uint32_t PolyFlags)
@@ -607,7 +603,7 @@ void RenderSubsystem::DrawTimedemoStats()
 			float curY = 180;
 			for (const ScriptString& text : lines)
 			{
-				float curX = engine->viewport->ViewportWidth() / (float)Canvas.uiscale - GetTextSize(font, text).x - 16;
+				float curX = engine->viewport->ViewportWidth() - GetTextSize(font, text).x - 16;
 				float curXL = 0.0f;
 				float curYL = 0.0f;
 				DrawText(font, vec4(1.0f), 0.0f, 0.0f, curX, curY, curXL, curYL, false, text, PF_NoSmooth | PF_Masked, false);

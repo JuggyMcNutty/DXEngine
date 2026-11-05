@@ -223,7 +223,10 @@ within 1% of the original's). The word, which the console centres at a half
 pixel for an odd size, lies on the original's rows, the canvas's text
 truncated to whole pixels ([tiles](#tiles); `LoadingConsole` at 1024x768
 against `D3DDrv`: `LOADING` on rows 371 to 393 and columns 439 to 584 in
-both). The painted frame ticks the console as every frame's draw does
+both). The canvas is the viewport's pixels at any size, as the original's,
+so the console and the word are drawn at their font's own size
+(`LoadingConsole` full screen at 2560x1440: `LOADING` 146 by 23 at 1207,
+707 in both engines). The painted frame ticks the console as every frame's draw does
 (`UConsole::PreRender`), by the time since the last draw, after the level's
 tick (`HopConsole`, `SpinConsole`: an actor's ticks after the console's exit
 as the original's): `LoadingConsole`'s log, a tick under each level action

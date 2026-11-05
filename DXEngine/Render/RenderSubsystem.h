@@ -57,7 +57,7 @@ public:
 	vec2 GetTextSize(UFont* font, const ScriptString& text, float spaceX = 0.0f, float spaceY = 0.0f);
 
 	void DrawTile(TextureInfo& Info, float X, float Y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 Color, vec4 Fog, uint32_t PolyFlags);
-	void Draw2DLine(vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2, bool useUIScale);
+	void Draw2DLine(vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2);
 	void UpdateTexture(UTexture* tex);
 	// The Matrix cheat's texture: the viewing player's Sprite, which the
 	// original draws every surface, decal and corona of a frame in, as
@@ -181,7 +181,6 @@ private:
 
 	struct
 	{
-		int uiscale = 1;
 		int fps = 0;
 		int framesDrawn = 0;
 		uint64_t startFPSTime = 0;
