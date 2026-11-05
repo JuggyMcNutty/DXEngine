@@ -43,6 +43,7 @@ class UDXTextParser : public UObject
 {
 public:
 	void Mark(GCMarker& marker) override;
+	void InitNativeDefaults() override;
 	using UObject::UObject;
 
 	int& Text() { return Value<int>(PropOffsets_DeusExTextParser.Text); }
@@ -86,5 +87,6 @@ private:
 	void FindEndTag(const std::string& text, size_t& pos, DeusExTextTags endTag, DeusExTextTags& tag);
 	void ParseFile(const std::string& fields);
 	void ParseEmail(const std::string& fields);
+	void ParseName(const std::string& fields);
 	static Color ParseColor(const std::string& fields);
 };

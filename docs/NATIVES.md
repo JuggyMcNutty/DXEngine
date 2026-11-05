@@ -46,7 +46,11 @@ it was made, only "Modal window must be a child of Root!" was logged; no
 Deus Ex script makes one). DXEngine destroys it, by choice. `StringToName`
 of text with a character other than A to Z, a to z, 0 to 9, `_` or `-` stops
 the original (Extension.dll `0x10037940`); DXEngine makes the name, by
-choice. The game's 26 calls pass identifiers alone.
+choice. The game's 26 calls pass identifiers alone. The text parser's
+`GetName` at a token other than a NOTE, G, F or L stops the original, a name
+made of a null string failing FName's assertion (DeusExText.dll
+`0x10001980`); DXEngine gives None, by choice. An `EMAIL` tag with no `=`
+crashes it (`0x10002560`); DXEngine empties the fields, by choice.
 
 A runaway script stops both engines alike, with an error no native's call
 catches
@@ -331,8 +335,14 @@ its menu map and after a map's load, every read and the ship's computer
 logged in to as ShipOps alike, and DXEngine's the same, every line of the
 controls' reads alike).
 
-Differs (bugs.md DX.4): the text parser's `GetName` and `GetColor` and its
-G, F, GOAL, DC and FILE tags, which no stock text reaches.
+Its names and colours match too (`TextTagConsole`, texts of its own, every
+line alike in both engines): `GetName` the last name at a NOTE, G, F or L
+token, which G, F and GOAL set to what follows the tag's first `=`, None
+without one; `GetColor` the last colour at DC or C, at /C the parser's
+default, which nothing sets, black at any other, DC, C and /C each setting
+the last colour alone; a tag's fields what follows its first `=`, a FILE
+with none keeping the last ones; a new parser's tag `TT_None`. No stock text
+has these forms, and no stock script calls `GetName`.
 
 ## Every NPC
 

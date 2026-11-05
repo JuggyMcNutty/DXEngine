@@ -18,15 +18,20 @@ static const char* const DeusExTextTagNames[] =
 	"/<", "/>"
 };
 
-// A tag's fields: the text after its '=', split at commas and trimmed of
-// spaces. No '=' means no fields, and a missing field is empty.
+// A tag's fields: the text after its first '=', anywhere after the tag's
+// name, as the original's ParseFile, ParseEmail and ParseColor find it (an
+// appStrchr), split at commas (ParseSubToken 0x10002960) and trimmed of
+// spaces (TrimSpaces 0x100029c0; a colour's numbers go to appAtoi, which
+// passes over them). No '=' means no fields; with one there is at least
+// one, and a missing field is empty.
 static Array<std::string> ParseFields(const std::string& content)
 {
 	Array<std::string> fields;
-	if (content.empty() || content[0] != '=')
+	size_t eq = content.find('=');
+	if (eq == std::string::npos)
 		return fields;
 
-	size_t pos = 1;
+	size_t pos = eq + 1;
 	while (true)
 	{
 		size_t comma = content.find(',', pos);
@@ -42,6 +47,17 @@ static Array<std::string> ParseFields(const std::string& content)
 		pos = comma + 1;
 	}
 	return fields;
+}
+
+void UDXTextParser::InitNativeDefaults()
+{
+	// The original's constructor (0x10001100): no tag (TT_None), no name, and
+	// the last and the default colour black, their alpha whatever byte was
+	// left there, ours opaque.
+	LastTag() = DeusExTextTags::TT_None;
+	LastName() = NameString();
+	LastColor() = { 0, 0, 0, 255 };
+	DefaultColor() = { 0, 0, 0, 255 };
 }
 
 bool UDXTextParser::OpenText(NameString textName, std::string textPackage)
@@ -175,6 +191,8 @@ std::string UDXTextParser::ParseTag(const std::string& text, size_t& pos, DeusEx
 		FindEndTag(text, pos, DeusExTextTags::TT_EndNote, tag);
 		break;
 	case DeusExTextTags::TT_Goal:
+		// Its name first, then on to its end tag (ParseToken 0x10001f80)
+		ParseName(fields);
 		FindEndTag(text, pos, DeusExTextTags::TT_EndGoal, tag);
 		break;
 	case DeusExTextTags::TT_Comment:
@@ -185,16 +203,15 @@ std::string UDXTextParser::ParseTag(const std::string& text, size_t& pos, DeusEx
 	case DeusExTextTags::TT_PlayerFirstName:
 		return ScriptToUTF8(PlayerFirstName());
 	case DeusExTextTags::TT_DefaultColor:
-		DefaultColor() = ParseColor(fields);
-		LastColor() = DefaultColor();
-		break;
 	case DeusExTextTags::TT_TextColor:
+	case DeusExTextTags::TT_RevertColor:
+		// All three set the last colour alone (ParseToken 0x10001f80, ParseColor
+		// 0x100028c0): the default is the constructor's, which nothing changes
 		LastColor() = ParseColor(fields);
 		break;
 	case DeusExTextTags::TT_Graphic:
 	case DeusExTextTags::TT_Font:
-		if (!fields.empty() && fields[0] == '=')
-			LastName() = NameString(fields.substr(1));
+		ParseName(fields);
 		break;
 	case DeusExTextTags::TT_OpenBracket:
 		return "<";
@@ -240,16 +257,21 @@ void UDXTextParser::FindEndTag(const std::string& text, size_t& pos, DeusExTextT
 
 void UDXTextParser::ParseFile(const std::string& fields)
 {
-	// FILE=name,description; the last ones read stay, whatever the token.
+	// FILE=name,description; the last ones read stay, whatever the token,
+	// and a FILE with no '=' leaves them as they are (ParseFile 0x10002380).
 	Array<std::string> f = ParseFields(fields);
-	LastFileName() = f.size() > 0 ? UTF8ToScript(f[0]) : ScriptString();
+	if (f.empty())
+		return;
+	LastFileName() = UTF8ToScript(f[0]);
 	LastFileDescription() = f.size() > 1 ? UTF8ToScript(f[1]) : ScriptString();
 }
 
 void UDXTextParser::ParseEmail(const std::string& fields)
 {
 	// EMAIL=name,subject,from,to,cc; the last ones read stay, whatever the
-	// token.
+	// token. With no '=' they are emptied, where the original's crashes: it
+	// tests the tag, not the '=' it looked for, and reads its fields from
+	// address 2 (ParseEmail 0x10002560).
 	Array<std::string> f = ParseFields(fields);
 	LastEmailName() = f.size() > 0 ? UTF8ToScript(f[0]) : ScriptString();
 	LastEmailSubject() = f.size() > 1 ? UTF8ToScript(f[1]) : ScriptString();
@@ -258,10 +280,20 @@ void UDXTextParser::ParseEmail(const std::string& fields)
 	LastEmailCC() = f.size() > 4 ? UTF8ToScript(f[4]) : ScriptString();
 }
 
+void UDXTextParser::ParseName(const std::string& fields)
+{
+	// G=name, F=name and GOAL=name (ParseName 0x10002880): what follows the
+	// tag's first '=', anywhere after its name, as a name; None without one,
+	// or with nothing after it.
+	size_t eq = fields.find('=');
+	LastName() = eq == std::string::npos ? NameString() : NameString(fields.substr(eq + 1));
+}
+
 Color UDXTextParser::ParseColor(const std::string& fields)
 {
-	// The three numbers after '=', or black without one. The original's
-	// alpha is whatever byte was left there; ours is opaque.
+	// The three numbers after the tag's first '=', or black without one
+	// (ParseColor 0x100028c0). The original's alpha is whatever byte was
+	// left there; ours is opaque.
 	Array<std::string> f = ParseFields(fields);
 	Color color;
 	color.R = f.size() > 0 ? (uint8_t)std::atoi(f[0].c_str()) : 0;
@@ -294,23 +326,36 @@ uint8_t UDXTextParser::GetTag()
 
 NameString UDXTextParser::GetName()
 {
-	return LastName();
+	// The last name at a NOTE, G, F or L token alone (GetName 0x10001980). At
+	// any other the original's makes a name of a null string, which fails
+	// FName's assertion (Core.dll 0x1014b950: "Assertion failed: Name",
+	// UnName.cpp line 55) and stops the game; this gives None.
+	switch (LastTag())
+	{
+	case DeusExTextTags::TT_Note:
+	case DeusExTextTags::TT_Graphic:
+	case DeusExTextTags::TT_Font:
+	case DeusExTextTags::TT_Label:
+		return LastName();
+	default:
+		return NameString();
+	}
 }
 
 Color UDXTextParser::GetColor()
 {
-	// After /C, the colour the parser was made with: black, as nothing
-	// sets it.
-	if (LastTag() == DeusExTextTags::TT_RevertColor)
+	// The last colour at a DC or C token, at /C the parser's default, the
+	// constructor's black, and black at any other (GetColor 0x100019c0).
+	switch (LastTag())
 	{
-		Color black;
-		black.R = 0;
-		black.G = 0;
-		black.B = 0;
-		black.A = 255;
-		return black;
+	case DeusExTextTags::TT_DefaultColor:
+	case DeusExTextTags::TT_TextColor:
+		return LastColor();
+	case DeusExTextTags::TT_RevertColor:
+		return DefaultColor();
+	default:
+		return Color{ 0, 0, 0, 255 };
 	}
-	return LastColor();
 }
 
 void UDXTextParser::GetEmailInfo(std::string& name, std::string& subject, std::string& from, std::string& to, std::string& cc)
