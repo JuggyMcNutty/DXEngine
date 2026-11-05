@@ -460,9 +460,11 @@ void NObject::DivideEqual_IntFloat(int& A, float B, int& ReturnValue)
 	ReturnValue = A = B != 0.0f ? ftol(X87::Round((double)A / B)) : 0;
 }
 
+// The original's (Core.dll 0x101399c0): as a rotator over a float
+// (Divide_RotatorFloat), each angle in place.
 void NObject::DivideEqual_RotatorFloat(Rotator& A, float B, Rotator& ReturnValue)
 {
-	ReturnValue = A /= B;
+	ReturnValue = A = Rotator(X87::OverFloat(A.Pitch, B), X87::OverFloat(A.Yaw, B), X87::OverFloat(A.Roll, B));
 }
 
 void NObject::DivideEqual_VectorFloat(vec3& A, float B, vec3& ReturnValue)
@@ -489,9 +491,11 @@ void NObject::Divide_IntInt(int A, int B, int& ReturnValue)
 		ReturnValue = A / B;
 }
 
+// The original's (Core.dll 0x101397c0): each angle times one over the float
+// as the x87 works it out in the tick the script runs in (X87::OverFloat).
 void NObject::Divide_RotatorFloat(const Rotator& A, float B, Rotator& ReturnValue)
 {
-	ReturnValue = A / B;
+	ReturnValue = Rotator(X87::OverFloat(A.Pitch, B), X87::OverFloat(A.Yaw, B), X87::OverFloat(A.Roll, B));
 }
 
 void NObject::Divide_VectorFloat(const vec3& A, float B, vec3& ReturnValue)
@@ -499,9 +503,13 @@ void NObject::Divide_VectorFloat(const vec3& A, float B, vec3& ReturnValue)
 	ReturnValue = A / B;
 }
 
+// The original's (Core.dll 0x10138630): the products summed on the x87, Z's
+// and Y's first, then X's, at its precision in the tick the script runs in
+// (X87), and stored once as a float (SweepVmConsole).
 void NObject::Dot_VectorVector(const vec3& A, const vec3& B, float& ReturnValue)
 {
-	ReturnValue = dot(A, B);
+	auto R = X87::Round;
+	ReturnValue = (float)R(R(R((double)A.z * B.z) + R((double)A.y * B.y)) + R((double)A.x * B.x));
 }
 
 void NObject::DynamicLoadObject(const std::string& ObjectName, UObject* ObjectClass, std::optional<bool> MayFail, UObject*& ReturnValue)
@@ -790,9 +798,13 @@ void NObject::Len(const ScriptString& S, int& ReturnValue)
 	ReturnValue = (int)S.size();
 }
 
+// The original's (Core.dll 0x10136610): (B - A) * Alpha + A on the x87, each
+// step at its precision in the tick the script runs in (X87), and stored once
+// as a float (SweepVmConsole).
 void NObject::Lerp(float Alpha, float A, float B, float& ReturnValue)
 {
-	ReturnValue = mix(A, B, Alpha);
+	auto R = X87::Round;
+	ReturnValue = (float)R(R(R((double)B - A) * Alpha) + A);
 }
 
 void NObject::LessEqual_FloatFloat(float A, float B, BitfieldBool& ReturnValue)
@@ -916,9 +928,11 @@ void NObject::MultiplyEqual_IntFloat(int& A, float B, int& ReturnValue)
 	ReturnValue = A = ftol(X87::Round((double)A * B));
 }
 
+// The original's (Core.dll 0x101398b0): as a rotator times a float
+// (Multiply_RotatorFloat), each angle in place.
 void NObject::MultiplyEqual_RotatorFloat(Rotator& A, float B, Rotator& ReturnValue)
 {
-	ReturnValue = A *= B;
+	ReturnValue = A = Rotator(X87::TimesFloat(A.Pitch, B), X87::TimesFloat(A.Yaw, B), X87::TimesFloat(A.Roll, B));
 }
 
 void NObject::MultiplyEqual_VectorFloat(vec3& A, float B, vec3& ReturnValue)
@@ -941,9 +955,11 @@ void NObject::Multiply_FloatFloat(float A, float B, float& ReturnValue)
 	ReturnValue = A * B;
 }
 
+// The original's (Core.dll 0x101396d0): as a rotator times a float
+// (Multiply_RotatorFloat).
 void NObject::Multiply_FloatRotator(float A, const Rotator& B, Rotator& ReturnValue)
 {
-	ReturnValue = A * B;
+	ReturnValue = Rotator(X87::TimesFloat(B.Pitch, A), X87::TimesFloat(B.Yaw, A), X87::TimesFloat(B.Roll, A));
 }
 
 void NObject::Multiply_FloatVector(float A, const vec3& B, vec3& ReturnValue)
@@ -956,9 +972,11 @@ void NObject::Multiply_IntInt(int A, int B, int& ReturnValue)
 	ReturnValue = A * B;
 }
 
+// The original's (Core.dll 0x101395e0): each angle times the float as the
+// x87 works it out in the tick the script runs in (X87::TimesFloat).
 void NObject::Multiply_RotatorFloat(const Rotator& A, float B, Rotator& ReturnValue)
 {
-	ReturnValue = A * B;
+	ReturnValue = Rotator(X87::TimesFloat(A.Pitch, B), X87::TimesFloat(A.Yaw, B), X87::TimesFloat(A.Roll, B));
 }
 
 void NObject::Multiply_VectorFloat(const vec3& A, float B, vec3& ReturnValue)
@@ -1285,9 +1303,15 @@ void NObject::VRand(vec3& ReturnValue)
 	}
 }
 
+// The original's (Core.dll 0x10138d10): the squares summed on the x87, Z's
+// and Y's first, then X's, at its precision in the tick the script runs in
+// (X87); the sum stored as a double for appSqrt (0x10123290: fsqrt at that
+// precision), and the root stored as a float (SweepVmConsole).
 void NObject::VSize(const vec3& A, float& ReturnValue)
 {
-	ReturnValue = length(A);
+	auto R = X87::Round;
+	double x = A.x, y = A.y, z = A.z;
+	ReturnValue = (float)R(std::sqrt(R(R(R(z * z) + R(y * y)) + R(x * x))));
 }
 
 void NObject::Warn(const std::string& S)

@@ -46,6 +46,18 @@ public:
 	static void CallStatement(Expression* statement, UObject* self, void* localVariables);
 	static bool IsAssignable(Expression* lhs); // Assign takes it
 
+	// Whether evaluating expr may change a variable (FindChange). The
+	// original steps each argument and operand into a value of its own as it
+	// comes to it, a variable's copied there and then (Core.dll
+	// execLocalVariable 0x1012ebc0): a variable before expr is read before
+	// expr runs, where expr may change it.
+	static bool MayChange(Expression* expr)
+	{
+		if (expr->Changes == Expression::ChangeKind::Unknown)
+			expr->Changes = FindChange(expr) ? Expression::ChangeKind::May : Expression::ChangeKind::None;
+		return expr->Changes == Expression::ChangeKind::May;
+	}
+
 private:
 	ExpressionEvaluator(ExpressionEvalResult& result, UObject* self, UObject* context, void* localVariables)
 		: Result(result), Self(self), Context(context), LocalVariables(localVariables), Out(&result.Value) {}
@@ -94,7 +106,8 @@ private:
 	UObject* GenericObject(Expression* expr);
 	NameString GenericName(Expression* expr);
 
-	// A typed operator's operands, evaluated in the caller's own context
+	// A typed operator's operands, evaluated in the caller's own context, the
+	// first read before the second is evaluated
 	template<typename T> void Operands(Expression* expr, T& a, T& b);
 	void ObjectOperands(Expression* expr, UObject*& a, UObject*& b);
 	void NameOperands(Expression* expr, NameString& a, NameString& b);
@@ -116,6 +129,10 @@ private:
 
 	static void Classify(Expression* expr);
 	static Expression::TypedKind OperatorKind(NativeFunctionExpression* expr);
+	static bool FindChange(Expression* expr);
+
+	// A struct ==: both structs, each read as it is evaluated
+	bool StructsEqual(Expression* value1, Expression* value2);
 
 	void Expr(LocalVariableExpression* expr) override;
 	void Expr(InstanceVariableExpression* expr) override;

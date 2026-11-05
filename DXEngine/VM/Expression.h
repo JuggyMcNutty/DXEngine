@@ -72,6 +72,15 @@ public:
 		Unknown, General, Jump, JumpIfNot, Let, LetBool, Call, ReturnNothing, IteratorNext
 	};
 	StatementKind Statement = StatementKind::Unknown;
+
+	// Whether evaluating this node may change a variable, so that a variable
+	// argument or operand before it is read first (ExpressionEvaluator::
+	// MayChange); decided when first asked.
+	enum class ChangeKind : uint8_t
+	{
+		Unknown, None, May
+	};
+	ChangeKind Changes = ChangeKind::Unknown;
 };
 
 class LocalVariableExpression : public Expression

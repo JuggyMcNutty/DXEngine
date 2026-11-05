@@ -311,28 +311,30 @@ void ExpressionEvaluator::Expr(DynArrayElementExpression* expr)
 
 void ExpressionEvaluator::Expr(NewExpression* expr)
 {
+	// Each argument read as it is evaluated, as the original's execNew
+	// (Core.dll 0x1013d9f0) steps each into a value of its own
 	ExpressionValue outer = Value(expr->ParentExpr);
+	UObject* outerObj = outer.GetType() != ExpressionValueType::Nothing ? outer.ToObject() : nullptr;
 	ExpressionValue name = Value(expr->NameExpr);
+	NameString objName = name.GetType() == ExpressionValueType::Nothing ? NameString() : name.ToName();
 	ExpressionValue flags = Value(expr->FlagsExpr);
+	uint32_t newFlags = flags.GetType() == ExpressionValueType::Nothing ? 0 : (uint32_t)flags.ToInt();
 	UClass* cls = UObject::Cast<UClass>(Value(expr->ClassExpr).ToObject());
 
-	// As the original's execNew (Core.dll 0x1013d9f0): the object is made
-	// in its outer, or with none in the transient package. So new(Self) on
-	// the player -- its goals, notes and key infos -- is in the level's
-	// package, which a save writes and a level left behind takes with it.
-	UObject* outerObj = outer.GetType() != ExpressionValueType::Nothing ? outer.ToObject() : nullptr;
+	// As the original's execNew: the object is made in its outer, or with
+	// none in the transient package. So new(Self) on the player -- its
+	// goals, notes and key infos -- is in the level's package, which a save
+	// writes and a level left behind takes with it.
 	Package* package = outerObj && outerObj->package ? outerObj->package : engine->packages->GetTransientPackage();
 
 	// An object given no name is named after its class and a number, as
 	// the original's StaticConstructObject names it (DeusExNote0).
-	NameString objName = name.GetType() == ExpressionValueType::Nothing ? NameString() : name.ToName();
 	if (objName.IsNone() && cls)
 		objName = package->MakeUniqueObjectName(cls);
 
 	// A flag outside the script's own, RF_ScriptMask (Transactional, Public,
 	// Transient, NotForClient, NotForServer and NotForEdit), is logged and
 	// left out, as the original's execNew does (core-dll.md, the natives)
-	uint32_t newFlags = flags.GetType() == ExpressionValueType::Nothing ? 0 : (uint32_t)flags.ToInt();
 	const uint32_t scriptMask = 0x00704005;
 	if (newFlags & ~scriptMask)
 	{
@@ -558,18 +560,26 @@ void ExpressionEvaluator::Expr(IteratorNextExpression* expr)
 		Result.Result = StatementResult::IteratorNext;
 }
 
+// The first struct read before the second is evaluated, where that may change
+// it, as the original's execStructCmpEq and execStructCmpNe (Core.dll
+// 0x101303a0, 0x101305a0) step each into a buffer of its own
+bool ExpressionEvaluator::StructsEqual(Expression* value1, Expression* value2)
+{
+	ExpressionValue val1 = Value(value1);
+	if (val1.IsVariable() && MayChange(value2))
+		val1.Load();
+	ExpressionValue val2 = Value(value2);
+	return val1.IsEqual(val2);
+}
+
 void ExpressionEvaluator::Expr(StructCmpEqExpression* expr)
 {
-	ExpressionValue val1 = Value(expr->Value1);
-	ExpressionValue val2 = Value(expr->Value2);
-	*Out = ExpressionValue::BoolValue(val1.IsEqual(val2));
+	*Out = ExpressionValue::BoolValue(StructsEqual(expr->Value1, expr->Value2));
 }
 
 void ExpressionEvaluator::Expr(StructCmpNeExpression* expr)
 {
-	ExpressionValue val1 = Value(expr->Value1);
-	ExpressionValue val2 = Value(expr->Value2);
-	*Out = ExpressionValue::BoolValue(!val1.IsEqual(val2));
+	*Out = ExpressionValue::BoolValue(!StructsEqual(expr->Value1, expr->Value2));
 }
 
 void ExpressionEvaluator::Expr(StructMemberExpression* expr)
@@ -883,10 +893,10 @@ void ExpressionEvaluator::Expr(NativeFunctionExpression* expr)
 // The operators most script calls go to -- about 83% of the native calls on
 // Liberty Island, and natives are 84% of all calls -- evaluated here instead
 // of through Frame::Call, CallNative and a handler. Each does what its native
-// in NObject.cpp does, with the same conversions, after every argument has
-// been evaluated (in the caller's context), as the general path reads them.
-// A function is matched by its native index and its name, so a game whose
-// indexes differ keeps the general path.
+// in NObject.cpp does, with the same conversions, its arguments evaluated in
+// the caller's context and read as the general path reads them. A function is
+// matched by its native index and its name, so a game whose indexes differ
+// keeps the general path.
 static TypedKind FindFastOperator(UFunction* func)
 {
 	struct Entry { int index; const char* name; TypedKind op; };
@@ -941,6 +951,11 @@ bool ExpressionEvaluator::CallFastOperator(UFunction* func, const Array<Expressi
 	UObject* context = Context;
 	Context = Self;
 	ExpressionValue a = Value(exprArgs[0]);
+	// A variable's value before b may change it, as the original's native
+	// copies it (P_GET_*); += and -= take the variable itself (P_GET_*_REF)
+	bool inPlace = op == TypedKind::AddEqual_IntInt || op == TypedKind::AddEqual_FloatFloat || op == TypedKind::SubtractEqual_FloatFloat;
+	if (arity == 2 && !inPlace && a.IsVariable() && MayChange(exprArgs[1]))
+		a.Load();
 	ExpressionValue b = arity == 2 ? Value(exprArgs[1]) : ExpressionValue();
 	Context = context;
 
@@ -1019,6 +1034,23 @@ void ExpressionEvaluator::Call(UFunction* func, const Array<Expression*>& exprAr
 		CallArguments args(CallArguments::Room(func, exprArgs.size()));
 		const Array<UProperty*>& parms = Frame::CallParms(func);
 		const bool native = AllFlags(func->FuncFlags, FunctionFlags::Native);
+		// The original steps each argument into the callee's frame, or a
+		// native into a value of its own (P_GET_*), as it comes to it, a
+		// variable's value copied there and then (Core.dll execLocalVariable
+		// 0x1012ebc0, CallFunction 0x1013f4e0): `I + Bump(I)`, Bump setting
+		// its out I to 10, adds I as it was, 1. A variable before the last
+		// argument that may change one (lastChange) is read as it is
+		// evaluated; any other is taken in place, as nothing evaluated after
+		// it changes it.
+		size_t lastChange = 0;
+		for (size_t i = exprArgs.size(); i-- > 1;)
+		{
+			if (MayChange(exprArgs[i]))
+			{
+				lastChange = i;
+				break;
+			}
+		}
 		UObject* context = Context;
 		Context = Self;
 		for (size_t i = 0; i < exprArgs.size(); i++)
@@ -1037,6 +1069,25 @@ void ExpressionEvaluator::Call(UFunction* func, const Array<Expression*>& exprAr
 				AllFlags(parms[i]->PropFlags, PropertyFlags::OptionalParm) && !AllFlags(parms[i]->PropFlags, PropertyFlags::OutParm);
 			if (value.GetType() == ExpressionValueType::Nothing && exprArgs[i]->Leaf != Expression::LeafKind::Nothing && i < parms.size() && !keepsDefault)
 				value = ExpressionValue::ZeroValue(parms[i]);
+			// An out parameter's stays the variable: a native reads and
+			// writes it there (P_GET_*_REF, by GPropAddr), and a script
+			// function's is copied back to it, the function starting with its
+			// value as it is here (CallArguments::SetStart). A static array
+			// stays the variable too, the call taking it whole from there
+			// (Frame::CallScript; DrawBorders' textures, SendBinary's bytes).
+			if (i < lastChange && value.IsVariable() && i < parms.size() && parms[i]->ArrayDimension == 1)
+			{
+				if (!AllFlags(parms[i]->PropFlags, PropertyFlags::OutParm))
+				{
+					value.Load();
+				}
+				else if (!native)
+				{
+					ExpressionValue start = value;
+					start.Load();
+					args.SetStart(i, std::move(start));
+				}
+			}
 			args.push_back(std::move(value));
 		}
 		Context = context;
@@ -1100,9 +1151,9 @@ void ExpressionEvaluator::Expr(FunctionArgumentsExpression* expr)
 //
 // Operators get typed kinds only when that changes nothing: every operand's
 // type is one the operator's conversions accept, so nothing can throw where
-// the general path would have caught it. And the general path reads every
-// operand once all of them are evaluated, so a variable operand is read after
-// the operand after it is evaluated (which might change it).
+// the general path would have caught it. Each operand is read as it is
+// evaluated, a variable before the operand after it runs (which might change
+// it), as the original's natives copy each (Call).
 
 // The type of value a typed kind yields; Nothing for Generic
 static ExpressionValueType TypedValueType(TypedKind kind)
@@ -1308,6 +1359,92 @@ void ExpressionEvaluator::Classify(Expression* expr)
 	expr->Typed = kind;
 }
 
+// The operand of a conversion or a cast, which changes nothing itself
+template<typename E, typename... Rest> static Expression* UnaryOperand(Expression* expr)
+{
+	if (auto e = dynamic_cast<E*>(expr))
+		return e->Value;
+	if constexpr (sizeof...(Rest) > 0)
+		return UnaryOperand<Rest...>(expr);
+	else
+		return nullptr;
+}
+
+// Object's operators and its math, string and log functions, its static
+// natives numbered 112 to 320 in Core.u, change no variable but an out
+// parameter. Any other function may: a script function, or a native that runs
+// one (Spawn's events, GotoState's, CriticalDelete's Destroy).
+static bool ChangesNothing(UFunction* func)
+{
+	if (!func || !AllFlags(func->FuncFlags, FunctionFlags::Native | FunctionFlags::Static) || func->NativeFuncIndex < 112 || func->NativeFuncIndex > 320)
+		return false;
+	for (UProperty* parm : Frame::CallParms(func))
+	{
+		if (AllFlags(parm->PropFlags, PropertyFlags::OutParm))
+			return false;
+	}
+	return true;
+}
+
+// A variable, a constant, an argument left out, and what is made of them
+// alone -- a context's, an element's or a member's variable, a conversion, a
+// cast, a struct ==, a call to one of Object's operators or math, string and
+// log functions with no out parameter -- change nothing. Anything else may:
+// any other call, new, a dynamic array's element (which grows the array).
+bool ExpressionEvaluator::FindChange(Expression* expr)
+{
+	if (expr->Leaf != Expression::LeafKind::Other)
+		return false;
+	if (dynamic_cast<DefaultVariableExpression*>(expr) || dynamic_cast<StringConstExpression*>(expr) || dynamic_cast<UnicodeStringConstExpression*>(expr) ||
+		dynamic_cast<VectorConstExpression*>(expr) || dynamic_cast<RotationConstExpression*>(expr))
+		return false;
+	if (auto e = dynamic_cast<ContextExpression*>(expr))
+		return MayChange(e->ObjectExpr) || MayChange(e->ContextExpr);
+	if (auto e = dynamic_cast<ClassContextExpression*>(expr))
+		return MayChange(e->ObjectExpr) || MayChange(e->ContextExpr);
+	if (auto e = dynamic_cast<ArrayElementExpression*>(expr))
+		return MayChange(e->Index) || MayChange(e->Array);
+	if (auto e = dynamic_cast<StructMemberExpression*>(expr))
+		return MayChange(e->Value);
+	if (auto e = dynamic_cast<StructCmpEqExpression*>(expr))
+		return MayChange(e->Value1) || MayChange(e->Value2);
+	if (auto e = dynamic_cast<StructCmpNeExpression*>(expr))
+		return MayChange(e->Value1) || MayChange(e->Value2);
+
+	UFunction* func = nullptr;
+	const Array<Expression*>* args = nullptr;
+	if (auto e = dynamic_cast<NativeFunctionExpression*>(expr))
+	{
+		func = e->nativeindex >= 0 && (size_t)e->nativeindex < NativeFunctions::FuncByIndex.size() ? NativeFunctions::FuncByIndex[e->nativeindex] : nullptr;
+		args = &e->Args;
+	}
+	else if (auto e = dynamic_cast<FinalFunctionExpression*>(expr))
+	{
+		func = e->Func;
+		args = &e->Args;
+	}
+	if (args)
+	{
+		if (!ChangesNothing(func))
+			return true;
+		for (Expression* arg : *args)
+		{
+			if (MayChange(arg))
+				return true;
+		}
+		return false;
+	}
+
+	Expression* operand = UnaryOperand<SkipExpression, DynamicCastExpression, MetaCastExpression, RotatorToVectorExpression,
+		ByteToIntExpression, ByteToBoolExpression, ByteToFloatExpression, IntToByteExpression, IntToBoolExpression, IntToFloatExpression,
+		BoolToByteExpression, BoolToIntExpression, BoolToFloatExpression, FloatToByteExpression, FloatToIntExpression, FloatToBoolExpression,
+		ObjectToBoolExpression, NameToBoolExpression, StringToByteExpression, StringToIntExpression, StringToBoolExpression, StringToFloatExpression,
+		StringToVectorExpression, StringToRotatorExpression, VectorToBoolExpression, VectorToRotatorExpression, RotatorToBoolExpression,
+		ByteToStringExpression, IntToStringExpression, BoolToStringExpression, FloatToStringExpression, ObjectToStringExpression,
+		NameToStringExpression, VectorToStringExpression, RotatorToStringExpression, StringToNameExpression>(expr);
+	return !operand || MayChange(operand);
+}
+
 
 #if defined(_MSC_VER)
 #define VM_NOINLINE __declspec(noinline)
@@ -1497,16 +1634,8 @@ template<typename T> void ExpressionEvaluator::Operands(Expression* expr, T& a, 
 	Expression* const* args = OperandsOf(expr);
 	UObject* context = Context;
 	Context = Self;
-	if (IsVariable(args[0]->Typed))
-	{
-		b = EvalNumber<T>(args[1]);
-		a = EvalNumber<T>(args[0]);
-	}
-	else
-	{
-		a = EvalNumber<T>(args[0]);
-		b = EvalNumber<T>(args[1]);
-	}
+	a = EvalNumber<T>(args[0]);
+	b = EvalNumber<T>(args[1]);
 	Context = context;
 }
 
@@ -1515,16 +1644,8 @@ void ExpressionEvaluator::ObjectOperands(Expression* expr, UObject*& a, UObject*
 	Expression* const* args = OperandsOf(expr);
 	UObject* context = Context;
 	Context = Self;
-	if (IsVariable(args[0]->Typed))
-	{
-		b = EvalObject(args[1]);
-		a = EvalObject(args[0]);
-	}
-	else
-	{
-		a = EvalObject(args[0]);
-		b = EvalObject(args[1]);
-	}
+	a = EvalObject(args[0]);
+	b = EvalObject(args[1]);
 	Context = context;
 }
 
@@ -1533,16 +1654,8 @@ void ExpressionEvaluator::NameOperands(Expression* expr, NameString& a, NameStri
 	Expression* const* args = OperandsOf(expr);
 	UObject* context = Context;
 	Context = Self;
-	if (IsVariable(args[0]->Typed))
-	{
-		b = EvalName(args[1]);
-		a = EvalName(args[0]);
-	}
-	else
-	{
-		a = EvalName(args[0]);
-		b = EvalName(args[1]);
-	}
+	a = EvalName(args[0]);
+	b = EvalName(args[1]);
 	Context = context;
 }
 

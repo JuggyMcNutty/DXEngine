@@ -1,4 +1,5 @@
 #pragma once
+#include <bit>
 #include <cmath>
 #include <cfloat>
 #include <cstdint>
@@ -26,8 +27,10 @@ inline int ftol(float v)
 // console, and after the console's PostRender (Engine.dll 0x1038f66c to
 // 0x1038f79b): so in the console's tick and the frame's script events; 64
 // bits outside them, in the level's tick. Round gives a step's result as the
-// x87 holds it: a float's at 24 bits; at 64, a double's, within a bit of the
-// original's. What it stores is a float at both.
+// x87 holds it: at 24 bits, a float's, and past a float's range its 24 bits
+// under the x87's own exponent, which holds the square of 2^64 or more
+// (VSize); at 64, a double's, within a bit of the original's. What it stores
+// is a float at both.
 class X87
 {
 public:
@@ -35,7 +38,64 @@ public:
 
 	static inline double Round(double v)
 	{
-		return Single ? (double)(float)v : v;
+		if (!Single)
+			return v;
+		if (std::fabs(v) >= FLT_MIN && std::fabs(v) <= FLT_MAX)
+			return (double)(float)v;
+		// The significand to 24 bits, to nearest and ties to even, the
+		// exponent kept
+		uint64_t bits = std::bit_cast<uint64_t>(v);
+		bits += 0x0fffffff + ((bits >> 29) & 1);
+		return std::bit_cast<double>(bits & ~(uint64_t)0x1fffffff);
+	}
+
+	// An int times a float made an int by _ftol (ftol), the product as the
+	// x87 holds it: the original's rotator times a float (Core.dll
+	// 0x101395e0: fild, fmul, _ftol). rot(10, 20, 30) * 0.7 is (7, 14, 21)
+	// in the console's tick, each product rounded to 24 bits, and (6, 13, 20)
+	// in the level's, each whole (SweepVmConsole).
+	static inline int TimesFloat(int a, float b)
+	{
+		return ftol(Round((double)a * b));
+	}
+
+	// An int times one over a float made an int by _ftol (ftol), the
+	// reciprocal and the product as the x87 holds them: the original's
+	// rotator over a float (Core.dll 0x101397c0: fdivr of 1.0, then fild,
+	// fmul, _ftol). At 64 bits the two roundings, each within 2^-64, take no
+	// quotient within an int's range past a whole number, but a whole one, k,
+	// comes out k - 1 where the reciprocal rounds down by enough: 1 / m to 64
+	// bits, m the float's odd mantissa, is under it by rem / 2^s when rem, 2^s
+	// mod m for s of 63 and m's bits, is under half m, and k times it rounds
+	// under k past half the 64-bit step under k. rot(90, 180, 270) / 90 is
+	// (1, 2, 3) in the console's tick and (0, 1, 3) in the level's
+	// (SweepVmConsole). Past an int's range, where _ftol wraps, the low bits
+	// are a double quotient's.
+	static inline int OverFloat(int a, float b)
+	{
+		if (Single)
+			return ftol(Round(a * Round(1.0 / b)));
+		double q = (double)a / b;
+		if (!(std::fabs(q) >= 1.0 && std::fabs(q) < 2147483648.0))
+			return ftol(q);
+		// The quotient's whole part: |a| 2^-e over m, the float being m 2^e
+		int e;
+		uint64_t m = (uint64_t)std::ldexp(std::frexp(std::fabs(b), &e), 24);
+		int zeros = std::countr_zero(m);
+		m >>= zeros;
+		e += zeros - 24;
+		uint64_t num = (uint64_t)(a < 0 ? -(int64_t)a : (int64_t)a) << (e < 0 ? -e : 0);
+		uint64_t den = m << (e > 0 ? e : 0);
+		uint64_t whole = num / den;
+		if (num % den == 0 && m > 1)
+		{
+			int bits = std::bit_width(m);
+			uint64_t rem = (((UINT64_MAX % m + 1) % m) << (bits - 1)) % m;
+			int half = bits - 2 + std::bit_width(whole) - (std::has_single_bit(whole) ? 1 : 0);
+			if (2 * rem < m && whole * rem > (uint64_t)1 << half)
+				whole--;
+		}
+		return q < 0.0 ? -(int)whole : (int)whole;
 	}
 };
 

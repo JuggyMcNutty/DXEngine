@@ -7,7 +7,12 @@
 //
 // - Operand order: an operand that is a variable, read after a later
 //   operand changes it (the original's natives and calls copy each argument
-//   as they step it: Core.dll execLocalVariable 0x1012ebc0, P_GET_*).
+//   as they step it: Core.dll execLocalVariable 0x1012ebc0, P_GET_*): a
+//   native's, a script function's, an instance variable, a string, a fast
+//   operator's (-), a typed one's (- of a byte), a script function's out
+//   parameter (CallFunction 0x1013f4e0 steps it in as it is), +=, which
+//   takes the variable itself (P_GET_INT_REF), a struct's == (0x101303a0)
+//   and a switch's condition (0x1012f850).
 // - bool(string): the original's execStringToBool (0x10132490) takes a
 //   number by appAtoi; int(string) and byte(string) (0x10132320,
 //   0x101321b0) too, an out-of-range number, blanks and a sign among them
@@ -19,7 +24,10 @@
 //   "+5" (0x10165f00 takes '-' or a digit first), a bool from a token
 //   (0x10166380, ReadToken first), and GetPropertyText of a name PlayerPawn
 //   declares again over Actor's, bSinglePlayer (0x1013e0b0: own fields first).
-// - VSize and Dot to their last bit: (F - 1) * 2^23 of results in [1, 2).
+// - VSize, Dot and Lerp to their last bit: (F - 1) * 2^23 of results in
+//   [1, 2); a rotator times a float and over one, both ways round and in
+//   place (each angle by _ftol of the x87's product: Core.dll 0x101395e0,
+//   0x101397c0).
 //=============================================================================
 class SweepVmConsole extends Console;
 
@@ -67,6 +75,20 @@ function string Pair(int A, int B)
 	return A $ "," $ B;
 }
 
+function AddInto(out int X, int Y)
+{
+	X = X + Y;
+}
+
+function SweepPair BumpPair(out SweepPair P)
+{
+	local SweepPair Old;
+
+	Old = P;
+	P.N = 10;
+	return Old;
+}
+
 function int Mantissa(float F)
 {
 	return int((F - 1.0) * 8388608.0);
@@ -77,6 +99,8 @@ function Checks(string Where)
 	local int I;
 	local SweepPair A, B;
 	local vector V, W;
+	local string R;
+	local rotator Angles;
 
 	// Operand order
 	I = 1;
@@ -87,6 +111,33 @@ function Checks(string Where)
 	Say(Where $ " Counter + BumpCounter(), Counter 1: " $ (Counter + BumpCounter()));
 	Text = "a";
 	Say(Where $ " Text $ AppendText(), Text a: " $ (Text $ AppendText()));
+	I = 1;
+	Say(Where $ " I - SweepBump(I), I 1: " $ (I - SweepBump(I)));
+	I = 1;
+	Say(Where $ " I - byte(SweepBump(I)), I 1: " $ (I - byte(SweepBump(I))));
+	I = 1;
+	AddInto(I, SweepBump(I));
+	Say(Where $ " AddInto(I, SweepBump(I)), I 1: " $ I);
+	I = 1;
+	Say(Where $ " I += SweepBump(I), I 1: " $ (I += SweepBump(I)));
+	A.S = "abc"; A.N = 1;
+	Say(Where $ " A == BumpPair(A), A.N 1: " $ (A == BumpPair(A)));
+	I = 1;
+	switch (I)
+	{
+		case SweepBump(I):
+			R = "0";
+			break;
+		case 10:
+			R = "10";
+			break;
+		case 1:
+			R = "1";
+			break;
+		default:
+			R = "none";
+	}
+	Say(Where $ " switch (I), case SweepBump(I) first, I 1: " $ R);
 
 	// bool(string)
 	Say(Where $ " bool 0.5 " $ bool("0.5") $ ", -0.5 " $ bool("-0.5") $ ", 0x1 " $ bool("0x1") $ ", 1e3 " $ bool("1e3") $ ", 7 " $ bool("7"));
@@ -109,6 +160,21 @@ function Checks(string Where)
 	Say(Where $ " Dot b " $ Mantissa(V dot W));
 	V = vect(0.8559, 0.8916, 0.8685); W = vect(0.4552, 0.3543, 0.3588);
 	Say(Where $ " Dot c " $ Mantissa(V dot W));
+	Say(Where $ " Lerp " $ Mantissa(Lerp(0.1273, 1.6448, 1.9779)));
+
+	// A rotator times a float and over one
+	Angles = rot(10, 20, 30) * 0.7;
+	Say(Where $ " rot * 0.7 " $ Angles.Pitch $ "," $ Angles.Yaw $ "," $ Angles.Roll);
+	Angles = 0.7 * rot(10, 20, 30);
+	Say(Where $ " 0.7 * rot " $ Angles.Pitch $ "," $ Angles.Yaw $ "," $ Angles.Roll);
+	Angles = rot(10, 20, 30);
+	Angles *= 0.9;
+	Say(Where $ " rot *= 0.9 " $ Angles.Pitch $ "," $ Angles.Yaw $ "," $ Angles.Roll);
+	Angles = rot(90, 180, 270) / 90.0;
+	Say(Where $ " rot / 90 " $ Angles.Pitch $ "," $ Angles.Yaw $ "," $ Angles.Roll);
+	Angles = rot(90, 180, 270);
+	Angles /= 90.0;
+	Say(Where $ " rot /= 90 " $ Angles.Pitch $ "," $ Angles.Yaw $ "," $ Angles.Roll);
 }
 
 function TextChecks()

@@ -98,6 +98,31 @@ public:
 	const ExpressionValue* begin() const { return Values; }
 	const ExpressionValue* end() const { return Values + Count; }
 
+	// What a script function's parameter starts with (Frame::CallScript):
+	// its argument, but for an out parameter whose variable a later argument
+	// may have changed, the variable's value as it was evaluated, as the
+	// original steps each argument into the frame in turn (Core.dll
+	// CallFunction 0x1013f4e0). The argument stays the variable, which the
+	// parameter is copied back to.
+	void SetStart(size_t index, ExpressionValue&& value)
+	{
+		if (!Starts)
+			Starts = std::make_unique<Array<std::pair<size_t, ExpressionValue>>>();
+		Starts->push_back({ index, std::move(value) });
+	}
+	ExpressionValue& Start(size_t index)
+	{
+		if (Starts)
+		{
+			for (auto& start : *Starts)
+			{
+				if (start.first == index)
+					return start.second;
+			}
+		}
+		return Values[index];
+	}
+
 private:
 	void Grow()
 	{
@@ -119,6 +144,7 @@ private:
 	ExpressionValue* Values = reinterpret_cast<ExpressionValue*>(Inline);
 	size_t Count = 0;
 	size_t Capacity = InlineCount;
+	std::unique_ptr<Array<std::pair<size_t, ExpressionValue>>> Starts; // SetStart's, made at the first
 };
 
 class Frame
@@ -202,7 +228,7 @@ public:
 private:
 	ExpressionEvalResult Run();
 	bool FindLabel(const NameString& label);
-	void ProcessSwitch(const ExpressionValue& condition);
+	void ProcessSwitch(ExpressionValue& condition);
 	static void CountJump()
 	{
 		if (Guards && ++Jumps > 10'000'000)

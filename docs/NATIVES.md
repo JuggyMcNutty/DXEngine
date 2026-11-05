@@ -2087,7 +2087,16 @@ Every other native the scripted runs compare matches the original
   original's x87 holds it in the tick the script runs in, rounded to a float
   at 24 bits in the console's tick and whole in the level's
   (`PrecisionConsole`: 7 *= 3e9 -474,836,992 in the console's tick and
-  -474,836,480 in an actor's, in both engines); `Clamp` and `FClamp` take a
+  -474,836,480 in an actor's, in both engines); `VSize`, `Dot` and `Lerp`
+  worked out as the original's x87 does, in its order -- `VSize`'s squares
+  and `Dot`'s products Z's and Y's first, then X's, `Lerp` (B − A) × Alpha +
+  A -- at its precision in that tick, stored once as a float, `VSize`'s sum
+  as a double for its root; a rotator times or over a float each angle by
+  `_ftol` of the angle times the float, or times one over it, at that
+  precision (`SweepVmConsole`'s mantissas alike in both ticks; rot(10, 20,
+  30) × 0.7 is (7, 14, 21) in the console's tick and (6, 13, 20) in the
+  level's, rot(90, 180, 270) / 90 (1, 2, 3) and (0, 1, 3)); `Clamp` and
+  `FClamp` take a
   value under the lower bound to it, else one under the upper as it is, else
   the upper, so with the bounds the wrong way round the upper wins, and
   `FClamp` takes a NaN to the lower, as the original's x87 compare does; a
@@ -2495,11 +2504,19 @@ call made, a missing optional one zero (`ExecParmConsole`: with cheats on
 `behindview` is refused, `augadd AugSpeed` gives it, alike in both
 engines).
 
-Differs (bugs.md VM.17): a variable as an operand or argument is read after
-the later arguments run, the original's as it is reached. Differs (bugs.md
-VM.23): `VSize`, `Dot`, `Lerp` and a rotator over a float in floats, the
-original's on the x87, a last bit apart. Differs (bugs.md VM.25): a string
-constant as UTF-8, classes matched by name, a name kept in each spelling.
+Each argument and operand is taken as the original takes it, as it is
+reached: a variable's value before a later argument runs, and an `out`
+argument the variable itself, which a native reads and writes there, and
+which a script function's parameter, starting with its value as it was
+reached, is copied back to after the call; a struct `==` and a `switch`
+condition alike (`SweepVmConsole`, both ticks, alike in both engines:
+`I + SweepBump(I)` 1, `Pair` 1,0, `Text $ AppendText()` ab,
+`I - SweepBump(I)` and `I - byte(SweepBump(I))` 1, `AddInto(I,
+SweepBump(I))` 1, `I += SweepBump(I)` 10, `A == BumpPair(A)` True, a
+`switch` taking `case 1`).
+
+Differs (bugs.md VM.25): a string constant as UTF-8, classes matched by
+name, a name kept in each spelling.
 
 ## The command line
 

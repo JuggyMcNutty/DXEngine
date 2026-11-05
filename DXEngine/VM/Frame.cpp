@@ -298,19 +298,20 @@ ExpressionValue Frame::CallScript(UFunction* func, UObject* instance, CallArgume
 	// struct or an array would be copied from nothing.
 	for (size_t i = 0; i < parms.size() && i < args.size(); i++)
 	{
-		if (args[i].GetType() == ExpressionValueType::Nothing)
+		ExpressionValue& arg = args.Start(i);
+		if (arg.GetType() == ExpressionValueType::Nothing)
 			continue;
 		ExpressionValue lvalue = ExpressionValue::Variable(frame.Variables.Data, parms[i]);
 		// A static array goes whole, element by element, when the caller
 		// gives one (a native's buffer: ReceivedBinary's bytes)
-		if (parms[i]->ArrayDimension > 1 && args[i].IsVariable())
+		if (parms[i]->ArrayDimension > 1 && arg.IsVariable())
 		{
 			for (int element = 0; element < parms[i]->ArrayDimension; element++)
-				lvalue.ItemAt(element).Store(args[i].ItemAt(element));
+				lvalue.ItemAt(element).Store(arg.ItemAt(element));
 		}
 		else
 		{
-			lvalue.Store(args[i]);
+			lvalue.Store(arg);
 		}
 	}
 
@@ -827,13 +828,18 @@ static bool CaseMatches(const ExpressionValue& condition, const ExpressionValue&
 	}
 }
 
-void Frame::ProcessSwitch(const ExpressionValue& condition)
+void Frame::ProcessSwitch(ExpressionValue& condition)
 {
 	while (true)
 	{
 		CaseExpression* caseexpr = static_cast<CaseExpression*>(Func->Code->Statements[StatementIndex++]);
 		if (caseexpr->Value)
 		{
+			// The original's execSwitch (Core.dll 0x1012f850) steps the
+			// condition into a buffer of its own, once: a variable is read
+			// before a case that may change it
+			if (condition.IsVariable() && ExpressionEvaluator::MayChange(caseexpr->Value))
+				condition.Load();
 			ExpressionValue casevalue = ExpressionEvaluator::Eval(caseexpr->Value, Object, Object, Variables.Data).Value;
 			if (CaseMatches(condition, casevalue))
 				break;
