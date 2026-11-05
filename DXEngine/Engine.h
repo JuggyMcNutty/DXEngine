@@ -75,6 +75,10 @@ public:
 	~Engine();
 
 	void Run();
+	// Whether a SIGTERM, SIGINT or SIGHUP has come since the engine took
+	// them (InstallStopSignal), which the frame loop and the Fatal Error
+	// window quit on; never on Windows, which has none
+	static bool IsStopSignalled();
 	void ClientTravel(const std::string& URL, ETravelType travelType, bool transferItems);
 	UnrealURL GetDefaultURL(const std::string& map);
 	// The player's options in the URL: Deus Ex's every key of the user ini's

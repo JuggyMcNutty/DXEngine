@@ -109,7 +109,9 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   written back, exit 0, whatever the window (a dedicated server too). A second signal kills at
   once, as a stuck engine needs. The crash report window, up before the engine installs its
   handler, closes on one too, through SDL's own (an SDL window) or the signal's default (the X11
-  window). Windows has no such signals: there a launcher's `Quit` (below) does so.
+  window), and the Fatal Error window within a tenth of a second, the engine exiting with 1.
+  Windows has no such signals: there a launcher's `Quit` (below) does so, the Fatal Error
+  window's too.
 - `Running.ini` is the launcher's crash sentinel, not the engine's: a run under a launcher that
   is killed leaves it behind like any crash; a run by hand has none.
 - `--ini=<file>` and `--userini=<file>` name the inis to read and write back, as the original's

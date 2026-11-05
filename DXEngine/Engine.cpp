@@ -108,7 +108,18 @@ static void OnStopSignal(int)
 {
 	StopSignalled = 1;
 }
+#endif
 
+bool Engine::IsStopSignalled()
+{
+#ifndef WIN32
+	return StopSignalled != 0;
+#else
+	return false;
+#endif
+}
+
+#ifndef WIN32
 static void InstallStopSignal()
 {
 	struct sigaction action = {};

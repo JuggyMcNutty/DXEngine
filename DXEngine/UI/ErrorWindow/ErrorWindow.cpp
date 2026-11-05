@@ -6,7 +6,9 @@
 #include "Utils/CommandLine.h"
 #include "Utils/ScriptString.h"
 #include "Engine.h"
+#include "LauncherLine.h"
 #include <dxwidgets/core/image.h>
+#include <dxwidgets/core/timer.h>
 #include <dxwidgets/widgets/pushbutton/pushbutton.h>
 #include <dxwidgets/widgets/scrollbar/scrollbar.h>
 #include <dxwidgets/systemdialogs/save_file_dialog.h>
@@ -68,6 +70,18 @@ void ErrorWindow::ExecModal(const std::string& text, const std::list<LogMessageL
 	window->SetText(text, log);
 	window->SetFrameGeometry((screenSize.width - windowWidth) * 0.5, (screenSize.height - windowHeight) * 0.5, windowWidth, windowHeight);
 	window->Show();
+
+	// A stop as the game takes one closes the window as its Close does: a
+	// signal on POSIX (ENGINE.md, running it), or the launcher's Quit, the
+	// stop where there are no signals, which the frame loop alone read
+	Timer stopTimer(window.get());
+	stopTimer.FuncExpired = []() {
+		bool stop = Engine::IsStopSignalled();
+		LauncherLine::Get().Poll([&](const std::string& line) { stop = stop || line == "Quit"; });
+		if (stop)
+			DisplayWindow::ExitLoop();
+	};
+	stopTimer.Start(100, true);
 
 	DisplayWindow::RunLoop();
 }
