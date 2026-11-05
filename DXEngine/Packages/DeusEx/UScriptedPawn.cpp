@@ -3,6 +3,7 @@
 #include "UScriptedPawn.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "VM/ScriptCall.h"
+#include "Math/floating.h"
 
 void UScriptedPawn::AddCarcass(const NameString& CarcassName)
 {
@@ -276,11 +277,15 @@ void UScriptedPawn::Tick(float elapsed)
 			}
 		}
 
-		// A burning pawn goes out past its BurnPeriod.
+		// A burning pawn goes out once its burnTimer reaches its BurnPeriod,
+		// as the original's AScriptedPawn::Tick (DeusEx.dll 0x10019c29): the
+		// sum stored as a float and compared as the x87 holds it, a NaN never
+		// reaching it.
 		if (bOnFire())
 		{
-			burnTimer() += elapsed;
-			if (burnTimer() > BurnPeriod())
+			double burnt = X87::Round((double)burnTimer() + elapsed);
+			burnTimer() = (float)burnt;
+			if (burnt >= BurnPeriod())
 				CallEvent(this, "ExtinguishFire");
 		}
 

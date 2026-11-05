@@ -196,12 +196,14 @@ std::string UDXGameDirectory::GetSaveIndexFolderName(int saveIndex)
 }
 
 // A folder's names in the order the original's FindFiles gives them on NTFS,
-// by name without regard to case: a directory's own order on Linux is none.
+// by name without regard to case, a to z taken as upper case, as NTFS orders
+// a folder: so the five of [\]^_ come after the letters, where lower case
+// would put them before. A directory's own order on Linux is none.
 static void SortAsFound(std::vector<std::string>& names)
 {
 	std::sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) {
 		return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(),
-			[](char x, char y) { return std::tolower((unsigned char)x) < std::tolower((unsigned char)y); });
+			[](char x, char y) { return std::toupper((unsigned char)x) < std::toupper((unsigned char)y); });
 	});
 }
 

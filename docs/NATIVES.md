@@ -102,8 +102,7 @@ and any other `Save%04d`, a negative one too -- `savegame -3` writes
 Save-003, and `savegame -2` its SaveInfo to Save-002 with the level saved
 into Current -- and the Load Game screen lists every `Save*` folder, both of
 those among them, by name, as the original's `FindFiles` on NTFS gives them,
-but for a name with `[`, `\`, `]`, `^` or `_` where another has a letter,
-sorted by lower case where NTFS sorts by upper (bugs.md DX.7)
+by upper case, `[`, `\`, `]`, `^`, `_` and `` ` `` after the letters
 (`SlotConsole`). A bare `?loadgame`, a slot named by no number, is no load,
 as the original's browse asks for `loadgame=`: the console's `open` of it
 goes to the default map, `Index.dx`, which is not there, so the level's own
@@ -332,10 +331,10 @@ Matches the original
 run before the actor tick, in the original's order. A wound drips a drop
 each 0.1 s at the most, however hard it bleeds, its `BleedRate` held
 between 0 and 1 for the drop's period as the original holds it
-(`CensusConsole`).
-
-Differs (bugs.md DX.7): `burnTimer` puts the fire out a tick later at an
-exact equality. Differs by choice: bleeding with `ClotPeriod` at 0 or under
+(`CensusConsole`). A burning pawn's fire goes out as its `burnTimer`
+reaches its `BurnPeriod`, the sum compared as the x87 holds it (read: the
+original's at `>=`, as the game's script source has it). Differs by choice:
+bleeding with `ClotPeriod` at 0 or under
 stops, where the original divides by it, a 0 s frame's NaN sticking; no map
 sets it.
 
