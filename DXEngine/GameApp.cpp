@@ -98,8 +98,8 @@ int GameApp::main(Array<std::string> args)
 		if (ErrorWindow::CheckCrashReporter())
 			return 0;
 
-		// Every option the engine takes but --showcrashreport, its own crash
-		// report's relaunch (ENGINE.md, running it)
+		// Every option the engine takes but MSVC's build's --showcrashreport,
+		// its crash reporter's relaunch (ENGINE.md, running it)
 		if (commandline->HasArg("-h", "--help"))
 		{
 			std::cout <<

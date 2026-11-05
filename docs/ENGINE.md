@@ -292,8 +292,9 @@ By area, as the code stands. Each device's numbers are its port's, such as
   where MSVC's `#pragma comment(lib)` named them. It waits as long as it asks
   (`timeBeginPeriod(1)`, where Windows' timer otherwise ticks every 15.6 ms), its log's lines
   end in `\n` alone, as Linux' do, and a dedicated server's `RELAUNCH` starts it again as a new
-  process, its standard handles and no others handed on. The crash reporter is MSVC's alone: a
-  crash under MinGW's build leaves its exception's code, which the launcher names.
+  process, its standard handles and no others handed on. The crash reporter is MSVC's alone, its
+  relaunch to show a report (`--showcrashreport`) too: a crash under MinGW's build leaves its
+  exception's code, which the launcher names.
 - **The gamepad**: the SDL2 and SDL3 display backends give the pad as polled state
   (`GetGamepadState`), and `GamepadInput` turns it into UE1 joystick keys and axes that
   `User.ini` binds; menus get their own controls. DXWidgets builds one SDL backend, SDL3's

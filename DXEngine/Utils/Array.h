@@ -176,13 +176,18 @@ public:
 		}
 	}
 
+	// Checked, as std::vector's: one past the end throws
 	reference at(size_type pos)
 	{
+		if (pos >= _size)
+			throw std::out_of_range("Array::at");
 		return _data[pos];
 	}
 
 	const_reference at(size_type pos) const
 	{
+		if (pos >= _size)
+			throw std::out_of_range("Array::at");
 		return _data[pos];
 	}
 

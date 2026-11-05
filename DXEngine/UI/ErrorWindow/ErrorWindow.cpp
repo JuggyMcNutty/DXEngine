@@ -13,6 +13,9 @@
 
 bool ErrorWindow::CheckCrashReporter()
 {
+#ifdef _MSC_VER
+	// The crash reporter's relaunch to show its report, MSVC's alone, as the
+	// reporter is (ENGINE.md): no other build writes a report to show
 	if (commandline->HasArg("", "--showcrashreport") && commandline->GetItems().size() == 2)
 	{
 		std::string dumpFilename = commandline->GetItems()[0];
@@ -47,13 +50,11 @@ bool ErrorWindow::CheckCrashReporter()
 		}
 		return true;
 	}
-	else
-	{
-		const auto reportsDirectory = Directory::engineUserDir() / "CrashReports";
-		Directory::create(reportsDirectory.string());
-		CrashReporter::Init(reportsDirectory.string(), [](const std::string& logFilename) { Logger::Get()->SaveLog(logFilename); });
-		return false;
-	}
+#endif
+	const auto reportsDirectory = Directory::engineUserDir() / "CrashReports";
+	Directory::create(reportsDirectory.string());
+	CrashReporter::Init(reportsDirectory.string(), [](const std::string& logFilename) { Logger::Get()->SaveLog(logFilename); });
+	return false;
 }
 
 void ErrorWindow::ExecModal(const std::string& text, const std::list<LogMessageLine>& log, Array<uint8_t> minidump, const std::vector<std::shared_ptr<Image>>& icon)
