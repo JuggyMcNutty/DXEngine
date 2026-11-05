@@ -255,6 +255,10 @@ Browse cuts it; the level's URL keeps the space, as the original's does
 (`SpaceURLConsole`: the five travels, and the lab left for the UC and come
 back to from `Current`, alike in both engines).
 
+Differs (bugs.md VM.27): `new` with no outer makes the object in the
+transient package, where the original's makes it in the caller's, as
+`new(Self)` does; Deus Ex's own scripts write `new(None)` or `new(Self)`.
+
 ## Flags
 
 Matches the original
@@ -2530,7 +2534,12 @@ Differs (bugs.md VM.25): a name keeps each spelling it is made in, where the
 original's keeps the first made in the session: `string()` gives the case it
 was made in (`SpellingConsole`: `ANNADIES` where the original's gives
 DeusEx.u's `annadies`), and the cheats' EditFlags lists a flag as its setter
-spelt it; lookups take any case in both.
+spelt it; lookups take any case in both. Differs (bugs.md VM.28): `Normal`
+in doubles in both ticks, the original's at 24 bits in the console's.
+Differs (bugs.md VM.29): small edges no stock path reaches -- a static array
+argument read when the call reads it, a call held off copying no `out`
+argument back, the original's `GotoState` warnings not logged, an object
+made by `new` able to take a state.
 
 ## The command line
 
@@ -3012,7 +3021,9 @@ failure text. Differs (bugs.md NET.12): a login's value ends at `)`. Differs
 a client travel's info, `open`'s one word. Differs (bugs.md NET.16): a
 simulated proxy pawn's own path, its move along its velocity and its `Tick`
 alone, runs only in a net game, where the original's runs whatever the net
-mode; no stock actor is one outside a net game.
+mode; no stock actor is one outside a net game. Differs (bugs.md NET.17):
+the native replication lists' floats compared by value, the original's by
+their bits, so a change from 0.0 to -0.0 does not go.
 
 ## Not needed for single player
 
