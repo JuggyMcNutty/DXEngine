@@ -34,10 +34,12 @@ static const Array<int>& ActorSlots(std::map<Key, ULevelBase::ClassSlots>& index
 	return index.Slots;
 }
 
-// The slots of actors whose class, or a parent of it, has the name
-static const Array<int>& ActorSlotsByName(ULevel* level, const NameString& className)
+// The slots of actors whose class is the one given or extends it, by
+// pointer, as the original's iterators test it (UObject::IsA, Core.dll
+// 0x101155f0)
+static const Array<int>& ActorSlotsOfClass(ULevel* level, UStruct* cls)
 {
-	return ActorSlots(level->ActorsByClassName, level, className.GetCompareIndex(), [&](UActor* actor) { return actor->IsA(className); });
+	return ActorSlots(level->ActorsByClass, level, cls, [&](UActor* actor) { return actor->IsA(cls); });
 }
 
 // The caller's own level, whose actors the original's iterators walk (the
@@ -64,7 +66,7 @@ bool AllObjectsIterator::Next()
 		// An object deleted (CriticalDelete) is gone to the script, as the
 		// original's leaves the object table; a class's defaults object was
 		// never in it.
-		if (currentObject && !AnyFlags(currentObject->Flags, ObjectFlags::EliminateObject) && !currentObject->IsDefaultsObject() && currentObject->IsA(BaseClass->Name))
+		if (currentObject && !AnyFlags(currentObject->Flags, ObjectFlags::EliminateObject) && !currentObject->IsDefaultsObject() && currentObject->IsA(BaseClass))
 		{
 			*ReturnValue = currentObject;
 			return true;
@@ -87,7 +89,7 @@ bool AllActorsIterator::Next()
 	bool matchTag = !MatchTag.IsNone();
 
 	const Array<UActor*>& actors = Level->Actors;
-	const Array<int>& slots = ActorSlotsByName(Level, BaseClass->Name);
+	const Array<int>& slots = ActorSlotsOfClass(Level, UObject::TryCast<UStruct>(BaseClass));
 	for (auto it = std::lower_bound(slots.begin(), slots.end(), (int)index); it != slots.end(); ++it)
 	{
 		UActor* actor = actors[*it];
@@ -120,7 +122,7 @@ bool BasedActorsIterator::Next()
 	while (index < actors.size())
 	{
 		UActor* actor = actors[index++];
-		if (actor && !actor->bDeleteMe() && actor->ActorBase() == Caller && actor->IsA(BaseClass->Name))
+		if (actor && !actor->bDeleteMe() && actor->ActorBase() == Caller && actor->IsA(BaseClass))
 		{
 			*Actor = actor;
 			return true;
@@ -146,7 +148,7 @@ bool ChildActorsIterator::Next()
 	while (index < actors.size())
 	{
 		UActor* actor = actors[index++];
-		if (actor && !actor->bDeleteMe() && actor->IsOwnedBy(Caller) && actor->IsA(BaseClass->Name))
+		if (actor && !actor->bDeleteMe() && actor->IsOwnedBy(Caller) && actor->IsA(BaseClass))
 		{
 			*Actor = actor;
 			return true;
@@ -178,15 +180,7 @@ bool CycleActorsIterator::Next()
 	if (!BaseClass || size == 0 || position >= size)
 		return NextByScan();
 
-	// Class pointers along the BaseStruct chain, as the scan tests them
-	const Array<int>& slots = ActorSlots(level->ActorsByClass, level, BaseClass, [&](UActor* actor) {
-		for (UStruct* cls = actor->Class; cls; cls = cls->BaseStruct)
-		{
-			if (cls == BaseClass)
-				return true;
-		}
-		return false;
-	});
+	const Array<int>& slots = ActorSlotsOfClass(level, BaseClass);
 
 	while (visited < size && !slots.empty())
 	{
@@ -228,17 +222,12 @@ bool CycleActorsIterator::NextByScan()
 		if (!candidate || candidate->bDeleteMe())
 			continue;
 
-		// Class pointers along the BaseStruct chain: the same test as
-		// IsA(BaseClass->Name) without a name comparison per level.
-		for (UStruct* cls = candidate->Class; cls; cls = cls->BaseStruct)
+		if (candidate->IsA(BaseClass))
 		{
-			if (cls == BaseClass)
-			{
-				*Actor = candidate;
-				if (outIndex)
-					*outIndex = (int)position;
-				return true;
-			}
+			*Actor = candidate;
+			if (outIndex)
+				*outIndex = (int)position;
+			return true;
 		}
 	}
 	*Actor = nullptr;
@@ -262,7 +251,7 @@ bool RadiusActorsIterator::Next()
 	while (index < actors.size())
 	{
 		UActor* actor = actors[index++];
-		if (!actor || actor->bDeleteMe() || !actor->IsA(BaseClass->Name))
+		if (!actor || actor->bDeleteMe() || !actor->IsA(BaseClass))
 			continue;
 		vec3 d = actor->Location() - Location;
 		float reach = Radius + actor->CollisionRadius();
@@ -291,7 +280,7 @@ bool TouchingActorsIterator::Next()
 	while (index < UActor::TouchingArraySize)
 	{
 		UActor* actor = Caller->Touching()[index++];
-		if (actor && !actor->bDeleteMe() && actor->IsA(BaseClass->Name))
+		if (actor && !actor->bDeleteMe() && actor->IsA(BaseClass))
 		{
 			*outActor = actor;
 			return true;
@@ -354,7 +343,7 @@ bool VisibleActorsIterator::Next()
 	while (index < actors.size())
 	{
 		UActor* actor = actors[index++];
-		if (!actor || actor->bDeleteMe() || actor->bHidden() || !actor->IsA(BaseClass->Name))
+		if (!actor || actor->bDeleteMe() || actor->bHidden() || !actor->IsA(BaseClass))
 			continue;
 		float dist = length(actor->Location() - Location);
 		if ((Radius == 0.0f || dist < Radius) && Caller->FastTrace(actor->Location(), Location))
@@ -392,7 +381,7 @@ bool VisibleCollidingActorsIterator::Next()
 	while (index < size)
 	{
 		UActor* actor = HitActors[index++];
-		if (!actor || !actor->IsA(BaseClass->Name))
+		if (!actor || !actor->IsA(BaseClass))
 			continue;
 		if (DeusEx ? (IgnoreHidden && actor->bHidden()) || Level->Collision.TraceAnyHit(Location, actor->Location(), nullptr, false, true, false) : !(IgnoreHidden || !actor->bHidden()))
 			continue;
@@ -417,7 +406,7 @@ bool ZoneActorsIterator::Next()
 	while (index < actors.size())
 	{
 		UActor* actor = actors[index++];
-		if (actor && !actor->bDeleteMe() && actor->Region().Zone == Zone && actor->IsA(BaseClass->Name))
+		if (actor && !actor->bDeleteMe() && actor->Region().Zone == Zone && actor->IsA(BaseClass))
 		{
 			*Actor = actor;
 			return true;

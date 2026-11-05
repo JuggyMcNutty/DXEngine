@@ -909,12 +909,14 @@ UObject* PackageManager::FindObjectAnyPackage(UClass* cls, const std::string& pa
 			return nullptr;
 		}
 	}
+	// Of the class itself or one extending it, as the original's
+	// StaticFindObject tests it (Core.dll 0x10151de0)
 	NameString name(path);
 	GCObjectList objects = GC::GetObjects();
 	for (auto it = objects.begin(); it != objects.end(); ++it)
 	{
 		UObject* obj = dynamic_cast<UObject*>(*it);
-		if (obj && obj->Name == name && !obj->IsDefaultsObject() && (!cls || obj->IsA(cls->Name)))
+		if (obj && obj->Name == name && !obj->IsDefaultsObject() && (!cls || obj->IsA(cls)))
 			return obj;
 	}
 	return nullptr;

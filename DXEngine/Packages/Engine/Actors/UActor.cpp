@@ -137,11 +137,13 @@ UActor* UActor::Spawn(UClass* SpawnClass, std::optional<UActor*> SpawnOwner, std
 			// Each notification's answer stands for the actor from then on, as
 			// the original's SpawnActor has it: the next one is asked about it
 			// and the spawn returns it. A None answer ends the walk, where the
-			// original's next notification with a class faults on it.
+			// original's next notification with a class faults on it. A
+			// notification's class is the actor's or one it extends, by
+			// pointer (ULevel::SpawnActor, Engine.dll 0x10394f60).
 			for (USpawnNotify* notifyObj = Level()->SpawnNotify(); notifyObj != nullptr && actor; notifyObj = notifyObj->Next())
 			{
 				UClass* cls = notifyObj->ActorClass();
-				if (cls && actor->IsA(cls->Name))
+				if (cls && actor->IsA(cls))
 					actor = UObject::Cast<UActor>(CallEvent(notifyObj, EventName::SpawnNotification, { ExpressionValue::ObjectValue(actor) }).ToObject());
 			}
 		}

@@ -640,9 +640,9 @@ in `Frame::CallScript`.
   `ULevel::TickDeusEx`, `UActor::StartTick`;
   [housekeeping](NATIVES.md#housekeeping-not-seen-directly)).
 - **`AllActors` and `CycleActors`** find a class's actors from an index of the level's slots
-  (`ULevelBase::ActorsByClassName`, `ActorsByClass`), made again when the list changes, not a
-  scan of the level; the other iterators walk the level's list at each step, as the original's
-  do ([the traces](NATIVES.md#implemented-not-as-the-original)).
+  by the class (`ULevelBase::ActorsByClass`), made again when the list changes, not a scan of
+  the level; the other iterators walk the level's list at each step, as the original's do
+  ([the traces](NATIVES.md#implemented-not-as-the-original)).
 - **Collision**: a ray trace hands each BSP child only its part of the segment and tests a
   polygon's plane before its vertex count and surface; a line tests the actors of only the
   cells it crosses, however long; a box of 100 cells or more on an axis tests every actor in

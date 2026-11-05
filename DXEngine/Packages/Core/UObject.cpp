@@ -415,6 +415,16 @@ bool UObject::IsA(const NameString& className) const
 	return false;
 }
 
+bool UObject::IsA(const UObject* cls) const
+{
+	for (const UStruct* c = Class; c; c = c->BaseStruct)
+	{
+		if (c == cls)
+			return true;
+	}
+	return cls == nullptr;
+}
+
 bool UObject::IsDefaultsObject() const
 {
 	return Class && Class->DefaultsObject == this;

@@ -292,8 +292,14 @@ Expression* Bytecode::ReadToken(BytecodeStream* stream, int depth)
 		}
 		case ExprToken::StringConst:
 		{
+			// Each byte a character, at most 1023 of them, as the original's
+			// execStringConst widens the code's text (appFromAnsi into its
+			// 1024-character buffer, Core.dll 0x10130890, 0x1014a0c0): C3 A9
+			// is two characters, A tilde and the copyright sign, not UTF-8's
+			// e acute
 			StringConstExpression* expr = Create<StringConstExpression>(exproffset);
-			expr->Value = stream->ReadAsciiZ();
+			std::string bytes = stream->ReadAsciiZ();
+			expr->Value = Latin1ToScript(std::string_view(bytes).substr(0, 1023));
 			return expr;
 		}
 		case ExprToken::ObjectConst:

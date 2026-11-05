@@ -8,7 +8,7 @@
 #   tools/dxcap.sh compile                    tools/dxcap -> build/dxcap/System/DXCapture.u (UCC, under Proton),
 #                                             its test sounds, textures, mesh and song written by
 #                                             tools/dxcap/testsounds.py, testtextures.py, testmeshes.py
-#                                             and testmusic.py
+#                                             and testmusic.py; DXCapTwin.u a copy of it (CastConsole)
 #   tools/dxcap.sh original <console> [<secs>] the original, from its menu map (or DXCAP_START's URL)
 #   tools/dxcap.sh dxe <console> <map> [<secs>]  DXEngine's linux-x86_64 build, straight into <map>
 #                                                  (or joining a server: <map> an address, as 127.0.0.1:7790);
@@ -586,7 +586,7 @@ EOF
 cmd_compile() {
     [ -f "$CAP/System/UCC.exe" ] || die "tools/dxcap.sh setup first"
     ensure_prefix
-    rm -f "$CAP/System/DXCapture.u"
+    rm -f "$CAP/System/DXCapture.u" "$CAP/System/DXCapTwin.u"
     python3 "$HERE/dxcap/testsounds.py" "$CAP/DXCapture/Sounds" || die "testsounds.py failed"
     python3 "$HERE/dxcap/testtextures.py" "$CAP/DXCapture/Textures" || die "testtextures.py failed"
     python3 "$HERE/dxcap/testmeshes.py" "$CAP/DXCapture/Models" || die "testmeshes.py failed"
@@ -594,6 +594,9 @@ cmd_compile() {
     (cd "$CAP/System" && wine_run UCC.exe make > "$CAP/ucc.out" 2>&1) || true
     grep -E "Error|error\(s\)" "$CAP/System/UCC.log" >&2 || true
     [ -f "$CAP/System/DXCapture.u" ] || die "UCC made no DXCapture.u -- build/dxcap/System/UCC.log"
+    # CastConsole's twin: the package again under another name, each class
+    # in it one of a DXCapture class's name and not it
+    cp "$CAP/System/DXCapture.u" "$CAP/System/DXCapTwin.u"
     say "compiled: build/dxcap/System/DXCapture.u"
 }
 

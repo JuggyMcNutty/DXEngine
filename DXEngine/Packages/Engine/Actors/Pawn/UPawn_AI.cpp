@@ -174,7 +174,7 @@ bool UPawn::CanHearNoise(UActor* source, float loudness)
 	UPawn* noisePawn = UObject::Cast<UPawn>(source->Instigator());
 	if (!noisePawn->bIsPlayer() && (!noisePawn->Enemy() || !noisePawn->Enemy()->bIsPlayer()))
 	{
-		if (!IsA(source->Class->Name) && !source->IsA(Class->Name))
+		if (!IsA(source->Class) && !source->IsA(Class))
 			return false;
 	}
 	else if (UObject::TryCast<UPlayerPawn>(this))

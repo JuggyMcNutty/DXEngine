@@ -329,7 +329,15 @@ public:
 	void SetName(const NameString& name, const NameString& value);
 	void SetObject(const NameString& name, const UObject* value);
 
+	// Its class, or one it extends, by name: the script's IsA(name), as the
+	// original's execIsA (Core.dll 0x1013ee60), and C++'s tests of a class it
+	// names
 	bool IsA(const NameString& className) const;
+
+	// Its class, or one it extends, the very class given -- a mod's class of
+	// another's name is not it -- and a null class every object's, as the
+	// original's UObject::IsA (Core.dll 0x101155f0): a cast, the iterators
+	bool IsA(const UObject* cls) const;
 
 	// Its class's defaults as an object (UClass::GetDefaultObject), which the
 	// original's object table does not hold: not iterated, set, looked up,

@@ -43,7 +43,10 @@ a script error. A modal window made inside another window stops the original
 as it is destroyed: its cleanup takes it out of the table of tab groups of
 the modal it lies in, which never held it, and the table's index asserts (as
 it was made, only "Modal window must be a child of Root!" was logged; no
-Deus Ex script makes one). DXEngine destroys it, by choice.
+Deus Ex script makes one). DXEngine destroys it, by choice. `StringToName`
+of text with a character other than A to Z, a to z, 0 to 9, `_` or `-` stops
+the original (Extension.dll `0x10037940`); DXEngine makes the name, by
+choice. The game's 26 calls pass identifiers alone.
 
 A runaway script stops both engines alike, with an error no native's call
 catches
@@ -2515,8 +2518,19 @@ condition alike (`SweepVmConsole`, both ticks, alike in both engines:
 SweepBump(I))` 1, `I += SweepBump(I)` 10, `A == BumpPair(A)` True, a
 `switch` taking `case 1`).
 
-Differs (bugs.md VM.25): a string constant as UTF-8, classes matched by
-name, a name kept in each spelling.
+A string constant is the original's: its 8-bit text a byte a character, at
+most 1,023, as `execStringConst` widens it (Core.dll `0x10130890`), so bytes
+that read as UTF-8 are their own characters (`OpsConsole`: C3 A9 t C2 A9 as
+195, 169, 116, 194, 169 in both). A cast and every iterator take the very
+class, a mod's class of another's name not it, and `IsA` a class by its name
+(`CastConsole`: `DXCapTwin.u`'s `CapMarker` cast and iterated as none of
+`DXCapture.u`'s, its `IsA('CapMarker')` true, in both engines).
+
+Differs (bugs.md VM.25): a name keeps each spelling it is made in, where the
+original's keeps the first made in the session: `string()` gives the case it
+was made in (`SpellingConsole`: `ANNADIES` where the original's gives
+DeusEx.u's `annadies`), and the cheats' EditFlags lists a flag as its setter
+spelt it; lookups take any case in both.
 
 ## The command line
 

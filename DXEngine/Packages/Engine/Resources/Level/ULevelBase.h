@@ -26,15 +26,15 @@ public:
 	bool ActorsHaveHoles = true;
 
 	// The actor iterators' indexes: the slots of Actors holding an actor of
-	// a class (destroyed or not), as of ActorsVersion. CycleActors tests the
-	// class by pointer, the others by name, as they always did.
+	// a class or one extending it (destroyed or not), as of ActorsVersion,
+	// the class tested by pointer, as the original's IsA (Core.dll
+	// 0x101155f0): AllActors' and CycleActors'.
 	struct ClassSlots
 	{
 		uint64_t Version = ~0ull;
 		Array<int> Slots;
 	};
 	std::map<UStruct*, ClassSlots> ActorsByClass;
-	std::map<int, ClassSlots> ActorsByClassName; // by the name's compare index
 
 	std::string Protocol;
 	std::string Host;

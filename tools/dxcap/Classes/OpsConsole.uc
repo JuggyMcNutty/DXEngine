@@ -123,6 +123,9 @@ function WideOps()
 	Log("DXOPS: wide Caps " $ Codes(Caps(Chr(233) $ "a" $ Chr(257) $ Chr(945))));
 	Log("DXOPS: wide ~= " $ (Chr(257) ~= Chr(256)) $ " " $ (("A" $ Chr(256)) ~= ("a" $ Chr(256))) $ ", < " $ (Chr(255) < Chr(256)) $ " " $ (Chr(256) < Chr(255)) $ ", == " $ (Chr(256) == Chr(256)));
 	Log("DXOPS: wide literal " $ Codes("été"));
+	// Bytes that read as UTF-8 too (C3 A9, C2 A9): each a character, as
+	// the original widens an 8-bit constant (execStringConst)
+	Log("DXOPS: wide literal pair " $ Codes("Ã©tÂ©"));
 	// A console command's text past Latin-1: set writes the property from it
 	ConsoleCommand("set DXCapture.OpsConsole WideSet " $ Chr(937) $ Chr(8482) $ "a");
 	Log("DXOPS: wide set " $ Codes(WideSet) $ ", the default " $ Codes(default.WideSet));

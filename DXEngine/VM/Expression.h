@@ -340,7 +340,7 @@ class StringConstExpression : public Expression
 public:
 	void Visit(ExpressionVisitor* visitor) override { visitor->Expr(this); }
 
-	std::string Value;
+	ScriptString Value; // the bytecode's 8-bit text, a byte a character
 };
 
 class ObjectConstExpression : public Expression

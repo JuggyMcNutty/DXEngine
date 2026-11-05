@@ -213,7 +213,7 @@ void PrintPrettyExpression::Expr(FloatConstExpression* expr)
 
 void PrintPrettyExpression::Expr(StringConstExpression* expr)
 {
-	writeOutput("\"" + expr->Value + "\"");
+	writeOutput("\"" + ScriptToUTF8(expr->Value) + "\"");
 }
 
 void PrintPrettyExpression::Expr(ObjectConstExpression* expr)

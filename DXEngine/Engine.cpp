@@ -3794,7 +3794,10 @@ bool Engine::ExecCommand(const Array<std::string>& args, const std::string& line
 			UProperty* prop = parms.Parms[i];
 			void* data = parms.Data + prop->DataOffset.DataOffset;
 			UObjectProperty* objprop = UObject::TryCast<UObjectProperty>(prop);
-			if (i == 0 && executor && objprop && objprop->ObjectClass && executor->IsA(objprop->ObjectClass->Name))
+			// The executor for a first object parameter of its class, the
+			// class itself or one it extends (UObject::ScriptConsoleExec,
+			// Core.dll 0x10150860)
+			if (i == 0 && executor && objprop && objprop->ObjectClass && executor->IsA(objprop->ObjectClass))
 			{
 				*static_cast<UObject**>(data) = executor;
 				continue;
