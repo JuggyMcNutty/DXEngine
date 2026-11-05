@@ -371,7 +371,7 @@ void Engine::Run()
 		// They tick by real seconds since their last tick, not the level's
 		// time (XRootWindow::TickWindows 0x1003a4a0).
 		if (dxRootWindow)
-			dxRootWindow->Tick(UWindow::GetWindowsTickOffset(true));
+			dxRootWindow->TickTree(UWindow::GetWindowsTickOffset(true));
 
 		TotalTime += realTimeElapsed;
 

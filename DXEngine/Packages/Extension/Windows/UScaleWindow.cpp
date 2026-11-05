@@ -858,7 +858,6 @@ bool UScaleWindow::MouseButtonReleased(float pointX, float pointY, EInputKey but
 // measures the far side by the thumb's height.
 void UScaleWindow::Tick(float timeElapsed)
 {
-	UWindow::Tick(timeElapsed);
 	if (repeatDir() == 0)
 		return;
 	RemainingTime() -= timeElapsed;

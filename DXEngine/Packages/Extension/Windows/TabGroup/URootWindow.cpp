@@ -244,7 +244,6 @@ void URootWindow::WindowReady()
 void URootWindow::Tick(float timeElapsed)
 {
 	SeedFocus();
-	UModalWindow::Tick(timeElapsed);
 }
 
 // The root asks its script of a child's request, where every other tab group

@@ -114,12 +114,15 @@ void UButtonWindow::EnableRightMouseClick(std::optional<bool> bEnable)
 
 // The original's (XButtonWindow::PressButton 0x10007b20): a press from the
 // keyboard or a script -- shown pressed for the activate delay, the click
-// sound, then the activation.
+// sound, then the activation. The delay is a timer of the window's with no
+// function name, one press's taking the last's place (AddActivateTimer
+// 0x10008510), which ends the show among the window's timers (Timer).
 void UButtonWindow::PressButton(EInputKey key)
 {
 	bButtonPressed() = true;
-	ActivateTimeLeft = GetTickOffset() + activateDelay();
-	activateTimer() = 1;
+	if (activateTimer())
+		RemoveTimer(activateTimer());
+	activateTimer() = AddTimer(activateDelay(), false, 0, {});
 	PlaySound(clickSound(), {}, {}, {}, {});
 	lastInputKey() = key;
 	ActivateButton(key);
@@ -246,23 +249,23 @@ void UButtonWindow::SensitivityChanged(bool bNewSensitivity)
 	}
 }
 
-// The original's (XButtonWindow::Tick 0x10008190, Timer 0x100080e0): a
-// pressed show ends after the activate delay; held, a repeating button
-// activates again every repeatRate while the pointer is over it.
+// The original's (XButtonWindow::Timer 0x100080e0): the activate delay's
+// timer up, the press shows no more.
+void UButtonWindow::Timer(int timerId, int invocations, int clientData)
+{
+	UTextWindow::Timer(timerId, invocations, clientData);
+	if (timerId == activateTimer())
+	{
+		bButtonPressed() = false;
+		RemoveTimer(activateTimer());
+		activateTimer() = 0;
+	}
+}
+
+// The original's (XButtonWindow::Tick 0x10008190): held, a repeating
+// button activates again every repeatRate while the pointer is over it.
 void UButtonWindow::Tick(float timeElapsed)
 {
-	UTextWindow::Tick(timeElapsed);
-
-	if (activateTimer())
-	{
-		ActivateTimeLeft -= timeElapsed;
-		if (ActivateTimeLeft <= 0.0f)
-		{
-			bButtonPressed() = false;
-			activateTimer() = 0;
-		}
-	}
-
 	if (bMousePressed() && bAutoRepeat())
 	{
 		repeatTime() -= timeElapsed;

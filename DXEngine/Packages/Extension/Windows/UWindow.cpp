@@ -34,7 +34,7 @@ void UWindow::InvokeWindowReady()
 	if (!bIsVisible())
 		return;
 
-	// The children as they were, as Tick walks them
+	// The children as they were, as TickTree walks them
 	Array<UWindow*> children;
 	for (UWindow* child = firstChild(); child; child = child->nextSibling())
 		children.push_back(child);
@@ -2412,15 +2412,39 @@ void UWindow::SeedFocus()
 	}
 }
 
+// A window's own tick, its class's work, which the walk runs first
+// (TickTree): a plain window has none (XWindow::Tick 0x10003be0).
 void UWindow::Tick(float timeElapsed)
 {
+}
+
+// A window's own timer, which a timer with no function name calls
+// (TickTree): a plain window has none (XWindow::Timer 0x100504f0), a button
+// its press's (UButtonWindow::Timer).
+void UWindow::Timer(int timerId, int invocations, int clientData)
+{
+}
+
+// The original's walk (Extension.dll XRootWindow::TickTree 0x1003bfc0), the
+// root first: each window, shown or not, its own tick (Tick: a button's or a
+// scale's repeat, a list's drag and hot keys, an edit field's blink and
+// drag, a text log's expiry, a computer window's typing, the root's focus),
+// then its script's Tick while bTickEnabled, then its timers, then its
+// children, each step while the window is not being destroyed.
+void UWindow::TickTree(float timeElapsed)
+{
+	Tick(timeElapsed);
+	if (Destroyed)
+		return;
+
 	if (bTickEnabled())
 		CallEvent(this, "Tick", { ExpressionValue::FloatValue(timeElapsed) });
 
 	// The original's (XWindow::InvokeTimers 0x10051340): each timer once a
 	// tick, the newest first; one past its time calls its function once with
 	// its id, how many of its time outs have passed (a single one 1, and then
-	// gone) and its client data. One added meanwhile waits for the next tick.
+	// gone) and its client data, one with no function name the window's own
+	// Timer. One added meanwhile waits for the next tick.
 	std::vector<int> timerIds;
 	for (auto it = ActiveTimers.rbegin(); it != ActiveTimers.rend(); ++it)
 		timerIds.push_back(it->first);
@@ -2450,6 +2474,8 @@ void UWindow::Tick(float timeElapsed)
 
 		if (!functionName.IsNone())
 			CallEvent(this, functionName, { ExpressionValue::IntValue(timerId), ExpressionValue::IntValue(invocations), ExpressionValue::IntValue(clientData) });
+		else
+			Timer(timerId, invocations, clientData);
 	}
 
 	// The children as they were, the top one first, as the original's walk
@@ -2465,7 +2491,7 @@ void UWindow::Tick(float timeElapsed)
 	for (UWindow* child : children)
 	{
 		if (!child->Destroyed)
-			child->Tick(timeElapsed);
+			child->TickTree(timeElapsed);
 	}
 }
 

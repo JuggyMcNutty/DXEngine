@@ -317,7 +317,11 @@ public:
 	virtual void DescendantAdded(UWindow* descendant);
 	virtual void DescendantRemoved(UWindow* descendant);
 
+	// A class's own tick and its own timer, which the walk of the windows
+	// runs (TickTree)
 	virtual void Tick(float timeElapsed);
+	virtual void Timer(int timerId, int invocations, int clientData);
+	void TickTree(float timeElapsed);
 
 	static float GetVirtualWidth();
 	static float GetExtendedVirtualWidth();

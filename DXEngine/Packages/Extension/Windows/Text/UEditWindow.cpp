@@ -592,8 +592,6 @@ void UEditWindow::InitDefaults()
 // moves it again every 0.1 s, as far as the pointer has gone.
 void UEditWindow::Tick(float timeElapsed)
 {
-	ULargeTextWindow::Tick(timeElapsed);
-
 	if (bEditable())
 	{
 		blinkDelay() -= timeElapsed;

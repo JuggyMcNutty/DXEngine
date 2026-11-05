@@ -1341,9 +1341,9 @@ bool UListWindow::VirtualKeyPressed(EInputKey key, bool bRepeat)
 	return handled;
 }
 
-// While dragging, the pointer's place is taken again every 0.1 s, so a
-// drag held past the list's edge scrolls on; the hot keys typed are let go
-// after a second.
+// The original's (XListWindow::Tick 0x10033e50): while dragging, the
+// pointer's place is taken again every 0.1 s, so a drag held past the
+// list's edge scrolls on; the hot keys typed are let go after a second.
 void UListWindow::Tick(float timeElapsed)
 {
 	if (bDragging())
@@ -1363,7 +1363,6 @@ void UListWindow::Tick(float timeElapsed)
 		if (hotKeyTimer() <= 0.0f)
 			ClearHotKeyString();
 	}
-	UWindow::Tick(timeElapsed);
 }
 
 // The activate sound, then, when the list and its parents show,

@@ -273,8 +273,6 @@ void UComputerWindow::Queue(QueuedItem item, bool advance)
 // due items run in order, then the typed characters' fade-in.
 void UComputerWindow::Tick(float timeElapsed)
 {
-	UWindow::Tick(timeElapsed);
-
 	if (bIgnoreTick())
 		return;
 	if (bFirstTick())

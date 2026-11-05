@@ -1468,13 +1468,22 @@ from the original's code:
   parent, of one shorter than its parent and of one its clip window's
   parent cuts; every line alike).
 - **The windows** tick by real time since their last tick, not the level's,
-  and a held button's first repeat counts what of the frame had gone.
+  and a held button's first repeat counts what of the frame had gone. Each
+  window, shown or not, from the root down, its higher siblings first, does
+  its own work first -- a button's or a scale's repeat, a list's drag and
+  hot keys, an edit field's blink and drag, a text log's expiry, a computer
+  window's typing and `ComputerStart`, the root's first focus -- then its
+  script's `Tick`, then its timers, then its children (`TickOrderConsole`:
+  a computer window's, a button's and a text log's script `Tick`, timer and
+  child, every line alike in both engines).
 - **Timers**
   ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#timers)):
   each is due its time out after it was added, the frame already gone
   counted in, and calls its function once a tick, the newest first, with
   its id, how many of its time outs have passed and its client data
-  (`TimerConsole`'s logs alike, both engines at 60 frames a second).
+  (`TimerConsole`'s logs alike, both engines at 60 frames a second); one
+  with no function name calls the window's own, a button's ending its
+  press's show, which is such a timer (`TickOrderConsole`).
 - **A GC's style** sets only how tiles draw: text stays masked, translucent
   only by `EnableTranslucentText`, so the frob label over its modulated
   backing reads as the original's (`FrobConsole`'s shots). A box
@@ -1578,10 +1587,9 @@ green, white or None (`ButtonDefaultsConsole`: a button's six slots set
 apart, then each call with its first slot alone, its insensitive and focused
 look alike in both engines).
 
-Differs (bugs.md EXT.23): five window classes' own ticks run after their
-script's, timers and children. Differs (bugs.md EXT.24): the computer window
-makes neither of its children. Differs (bugs.md WIN.12): Alt+Enter back to a
-window on X11 puts it at the display's corner.
+Differs (bugs.md EXT.24): the computer window makes neither of its
+children. Differs (bugs.md WIN.12): Alt+Enter back to a window on X11 puts it
+at the display's corner.
 
 ## The menus' settings
 

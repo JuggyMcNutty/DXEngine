@@ -24,6 +24,7 @@ public:
 	bool MouseButtonReleased(float pointX, float pointY, EInputKey button, int numClicks) override;
 	void SensitivityChanged(bool bNewSensitivity) override;
 	void Tick(float timeElapsed) override;
+	void Timer(int timerId, int invocations, int clientData) override;
 
 	void DrawWindow(UGC* gc) override;
 	void InitDefaults() override;
@@ -66,7 +67,4 @@ public:
 		UTexture* NormalInsensitive = nullptr;
 		UTexture* PressedInsensitive = nullptr;
 	} ButtonTextures;
-
-	// What is left of a press's show (the original's activate timer).
-	float ActivateTimeLeft = 0.0f;
 };

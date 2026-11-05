@@ -62,9 +62,10 @@ void UTextLogWindow::SetTextTimeout(float newTimeout)
 	textTimeout() = newTimeout;
 }
 
+// The original's (XTextLogWindow::Tick 0x10047c30): unless paused, the
+// lines whose time is up leave, the oldest first.
 void UTextLogWindow::Tick(float timeElapsed)
 {
-	UTextWindow::Tick(timeElapsed);
 	if (!bPaused())
 	{
 		totalTime += timeElapsed;
