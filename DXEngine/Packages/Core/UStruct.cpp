@@ -176,6 +176,17 @@ bool UStruct::IsEqual(const void* v1, const void* v2)
 	return true;
 }
 
+UProperty* UStruct::FindProperty(const NameString& name)
+{
+	// Properties holds the supers' first, each struct's own after them
+	for (auto it = Properties.rbegin(); it != Properties.rend(); ++it)
+	{
+		if ((*it)->Name == name)
+			return *it;
+	}
+	return nullptr;
+}
+
 const Array<UProperty*>& UStruct::RefProps()
 {
 	if (RefPropsBuiltFrom != Properties.size())

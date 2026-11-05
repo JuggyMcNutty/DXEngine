@@ -678,13 +678,17 @@ void Engine::UpdateAudio()
 }
 
 // A class default as the original's GET gives it (Core.dll's
-// UObject::StaticExec, 0x101531b0: ExportText localized, not delimited): a
-// string bare, where PrintValue quotes it, and an object as its class and
-// path name. The game's menus compare what they get: the Host screen's
-// victory condition is "Frags", not "\"Frags\"".
+// UObject::StaticExec, 0x101531b0: the property the class's field walk
+// finds, its own first, ExportText localized, not delimited): a string
+// bare, where PrintValue quotes it, and an object as its class and path
+// name. The game's menus compare what they get: the Host screen's victory
+// condition is "Frags", not "\"Frags\"".
 static std::string ExportForGet(UObject* defaults, const NameString& propertyName)
 {
-	return defaults->ExportPropertyText(defaults->GetMemberProperty(propertyName));
+	UProperty* prop = defaults->PropertyData.Class->FindProperty(propertyName);
+	if (!prop)
+		Exception::Throw("Class Property '" + defaults->Name.ToString() + "." + propertyName.ToString() + "' not found");
+	return defaults->ExportPropertyText(prop);
 }
 
 // The command line past its first `skip` words, less the spaces before it.
@@ -3022,11 +3026,16 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		{
 			try
 			{
-				// As the original's GlobalSetProperty: every object of the
-				// class or a subclass takes the value, each then told of it
-				// (PostEditChange), then the class's defaults, and the
-				// class's config is saved.
-				cls->GetMemberProperty(propertyName);
+				// As the original's GlobalSetProperty (Core.dll 0x101523a0):
+				// the property the class's field walk finds, its own first,
+				// set in every object of the class or a subclass, each then
+				// told of it (PostEditChange), then in the class's defaults,
+				// and the class's config is saved. The devices and the
+				// client keep their values in members of their own, set by
+				// name.
+				UProperty* prop = cls->FindProperty(propertyName);
+				if (!prop)
+					Exception::Throw("Class Property '" + cls->Name.ToString() + "." + propertyName.ToString() + "' not found");
 				for (GCObject* gcObj : GC::GetObjects())
 				{
 					UObject* obj = dynamic_cast<UObject*>(gcObj);
@@ -3036,13 +3045,16 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 					{
 						if (objClass == cls)
 						{
-							obj->SetPropertyFromString(propertyName, value);
+							if (obj == renderdev || obj == audiodev || obj == netdev || obj == client)
+								obj->SetPropertyFromString(propertyName, value);
+							else
+								prop->SetValueFromString(obj->PropertyData.Ptr(prop), value);
 							obj->PostEditChange();
 							break;
 						}
 					}
 				}
-				cls->SetPropertyFromString(propertyName, value);
+				prop->SetValueFromString(cls->PropertyData.Ptr(prop), value);
 				cls->SaveConfig();
 			}
 			catch (const std::exception&)

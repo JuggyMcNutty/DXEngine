@@ -584,13 +584,13 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
 
 	// As the original's UObject::GotoState (Core.dll 0x1012e8f0): EndState
 	// under InEndState, so a GotoState from within it sends no EndState
-	// again, and a state change during it (StateChanged, set by every
-	// finished GotoState) preempts the rest -- the object stays where that
+	// again, and a state change during it (StateChanged, set by a GotoState
+	// that ends in a state) preempts the rest -- the object stays where that
 	// GotoState took it, this one's state and label forgotten; a change
-	// during BeginState likewise keeps that state and skips this label.
-	// DXEngine sent EndState again from within EndState, recursing on an
-	// unconditional GotoState there, and let this one's state override a
-	// conditional one's.
+	// during BeginState likewise keeps that state and skips this label. A
+	// GotoState that ends in no state, to None or to a name the class has
+	// not, does not set it: from within EndState it preempts nothing, and
+	// the outer one goes on into its state.
 	if (oldState && oldState != newState && !AnyFlags(Flags, ObjectFlags::InEndState))
 	{
 		Flags = (Flags & ~ObjectFlags::StateChanged) | ObjectFlags::InEndState;
@@ -624,8 +624,8 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
 				return;
 		}
 		StateFrame->GotoLabel(labelName);
+		Flags |= ObjectFlags::StateChanged;
 	}
-	Flags |= ObjectFlags::StateChanged;
 }
 
 void UObject::Mark(GCMarker& marker)

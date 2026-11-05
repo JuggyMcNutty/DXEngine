@@ -7,7 +7,10 @@
 // value, a value with spaces and a value the player has too, each read
 // back; then the audio device's EffectsChannels, as the Sound menu reads
 // and writes it, set within its range, above it and below it, each read
-// back, and put back; then GetPropertyText of a public property, a public
+// back, and put back; then GET of names a subclass declares again
+// (PlayerPawn's bSinglePlayer over Actor's, GameReplicationInfo's Region),
+// the class's own found first, and a SET of PlayerPawn's, the player's own
+// and its Actor's read back and put back; then GetPropertyText of a public property, a public
 // array, a private property, a missing one and a const one, and
 // SetPropertyText of a const, a missing and a public property, each read
 // back; then the main menu opened and shot 2 s later, its pointer drawn,
@@ -26,6 +29,8 @@ function LogGet(PlayerPawn P, string Setting)
 event Tick(float Delta)
 {
 	local PlayerPawn P;
+	local Actor AP;
+	local bool bOld;
 
 	Super.Tick(Delta);
 	if (Viewport == None || Viewport.Actor == None || bDone)
@@ -71,6 +76,14 @@ event Tick(float Delta)
 	P.ConsoleCommand("set ini:Engine.Engine.AudioDevice EffectsChannels -5");
 	LogGet(P, "ini:Engine.Engine.AudioDevice EffectsChannels");
 	P.ConsoleCommand("set ini:Engine.Engine.AudioDevice EffectsChannels 16");
+	LogGet(P, "PlayerPawn bSinglePlayer");
+	LogGet(P, "Actor bSinglePlayer");
+	LogGet(P, "GameReplicationInfo Region");
+	AP = P;
+	bOld = P.bSinglePlayer;
+	P.ConsoleCommand("set PlayerPawn bSinglePlayer " $ !bOld);
+	Log("DXGET: after set PlayerPawn bSinglePlayer " $ !bOld $ ": the player's own " $ P.bSinglePlayer $ ", its Actor's " $ AP.bSinglePlayer);
+	P.ConsoleCommand("set PlayerPawn bSinglePlayer " $ bOld);
 	Log("DXGET: GetPropertyText MouseSensitivity '" $ P.GetPropertyText("MouseSensitivity") $ "'");
 	Log("DXGET: GetPropertyText WeaponPriority '" $ P.GetPropertyText("WeaponPriority") $ "'");
 	if (DeusExPlayer(P) != None && DeusExPlayer(P).rootWindow != None)

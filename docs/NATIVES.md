@@ -354,7 +354,12 @@ label, with no `EndState` or `BeginState` and its probes as they are, so a
 `Disable` in `BeginState` holds. Private Lloyd's walk to his chair on
 Liberty Island meets it, and the chair's `Bump` sends him to his own
 state's `CircleToFront`: he sits in `SitBreathe` from then on in both
-engines (`SitConsole`).
+engines (`SitConsole`). In no state an actor's state node is its class, as
+the original's state frame has it: `GetStateName` gives the class's name,
+and `IsInState` is true for the class and its supers, while a script's
+`GotoState` compares with None there (`NonePreemptConsole`:
+`CapNonePreempter` sent to no state from within its `EndState` gives
+`CapNonePreempter`, in both engines).
 
 A state's code runs in its actor's tick alone, never within the
 `GotoState` that sets it: the terrorists Liberty Island's script kills as
@@ -2060,9 +2065,13 @@ Every other native the scripted runs compare matches the original
   `SetPropertyText` or the console's `SET`, leaves an int, a byte or a bool
   as it was and makes a float 0, as the original's import does, an int read
   as far as it is a number and a name its first token -- quoted, or a run of
-  letters, digits, `_` and `-`, or else one character (`JunkConsole`), but
-  for a property a subclass names again, found as the base class's
-  (bugs.md VM.20). `LevelInfo`'s clock is the
+  letters, digits, `_` and `-`, or else one character (`JunkConsole`); a
+  property a subclass names again is the subclass's, as the original's field
+  walk takes the class's own first, the console's `GET` and `SET` too, `SET`
+  setting the one found on the class it names in every object of it
+  (`SweepVmConsole`'s `bSinglePlayer`; `GetConsole`'s `GET` of
+  `PlayerPawn`'s and `GameReplicationInfo`'s `Region`, and a `SET` of
+  `PlayerPawn`'s). `LevelInfo`'s clock is the
   original's
   ([small](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#small)).
   `Actor.GetBoundingBox` with no test place is the box where the actor is
@@ -2124,8 +2133,9 @@ Every other native the scripted runs compare matches the original
   `RF_InEndState` and `RF_StateChanged` have it: the actor stays where the
   inner one took it, the outer one's state and label forgotten, and
   `EndState` is not sent again from within `EndState`; one to no state, or
-  to a state the class has not, preempts it too, where the original's lets
-  the outer one go on into its state (bugs.md VM.19).
+  to a state the class has not, sets no `RF_StateChanged`, as the
+  original's, and preempts nothing: the outer one goes on into its state,
+  its `BeginState` and its label run (`NonePreemptConsole`, both kinds).
 - **A None context** (`A.X` with `A` None; `NoneConsole`): the zero of
   `X`'s type, as the original's `execContext` zero-fills the result -- a
   `switch (A.Physics)` takes `case PHYS_None`, a struct copied through None

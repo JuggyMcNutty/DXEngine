@@ -627,27 +627,41 @@ void NObject::GetEnum(UObject* E, int i, NameString& ReturnValue)
 		ReturnValue = {};
 }
 
-// Deus Ex's are the original's (Core.dll 0x1013e0b0, 0x1013e320): only a
-// public property is read, as ExportText writes its first element, and only
-// one that is not const is set; a private one, or a name the class has not,
-// reads empty and sets nothing.
+// Deus Ex's are the original's (Core.dll 0x1013e0b0, 0x1013e320): the
+// property the class's field walk finds, its own first
+// (UStruct::FindProperty), read only if public, as ExportText writes its
+// first element, and set only if not const; a private one, or a name the
+// class has not, reads empty and sets nothing.
 void NObject::GetPropertyText(UObject* Self, const std::string& PropName, std::string& ReturnValue)
 {
 	ReturnValue = "";
-	for (UProperty* prop : Self->PropertyData.Class->Properties)
-	{
-		if (prop->Name == PropName)
-		{
-			if (AllFlags(prop->Flags, ObjectFlags::Public))
-				ReturnValue = Self->ExportPropertyText(prop);
-			return;
-		}
-	}
+	UProperty* prop = Self->PropertyData.Class->FindProperty(PropName);
+	if (prop && AllFlags(prop->Flags, ObjectFlags::Public))
+		ReturnValue = Self->ExportPropertyText(prop);
 }
 
+// The node a script's state natives start from, as the original's state
+// frame has it (Core.dll's execGetStateName 0x1013edb0, execIsInState
+// 0x1013ece0): the state; in no state the class, as the frame starts so
+// (UObject::InitExecution 0x10150750, every actor's and the console's) and a
+// GotoState to no state sets it (0x1012e8f0); none for another object with no
+// frame, which the original never gives one. DXEngine makes a frame at the
+// first GotoState, so an actor without one is in no state.
+static UStruct* StateNode(UObject* Self)
+{
+	if (Self->StateFrame && Self->StateFrame->State)
+		return Self->StateFrame->State;
+	if (Self->StateFrame || UObject::TryCast<UActor>(Self) || UObject::TryCast<UConsole>(Self))
+		return Self->Class;
+	return nullptr;
+}
+
+// The GotoState native compares with UObject::GetStateName, None in no
+// state, as execGotoState does.
 void NObject::GetStateName(UObject* Self, NameString& ReturnValue)
 {
-	ReturnValue = Self->GetStateName();
+	UStruct* node = StateNode(Self);
+	ReturnValue = node ? node->Name : NameString();
 }
 
 void NObject::GetUnAxes(const Rotator& A, vec3& X, vec3& Y, vec3& Z)
@@ -750,13 +764,13 @@ void NObject::IsA(UObject* Self, const NameString& ClassName, BitfieldBool& Retu
 	ReturnValue = Self->IsA(ClassName);
 }
 
-// The original's (Core.dll's execIsInState): the state or any it extends.
+// The original's (Core.dll's execIsInState 0x1013ece0): the state frame's
+// node or any it extends -- in no state the class and its supers, the class
+// being the node there (StateNode).
 void NObject::IsInState(UObject* Self, const NameString& TestState, BitfieldBool& ReturnValue)
 {
 	ReturnValue = false;
-	if (!Self->StateFrame)
-		return;
-	for (UStruct* state = Self->StateFrame->State; state; state = state->BaseStruct)
+	for (UStruct* state = StateNode(Self); state; state = state->BaseStruct)
 	{
 		if (state->Name == TestState)
 		{
@@ -1134,15 +1148,9 @@ void NObject::SaveConfig(UObject* Self)
 
 void NObject::SetPropertyText(UObject* Self, const std::string& PropName, const std::string& PropValue)
 {
-	for (UProperty* prop : Self->PropertyData.Class->Properties)
-	{
-		if (prop->Name == PropName)
-		{
-			if (AllFlags(prop->Flags, ObjectFlags::Public) && !AnyFlags(prop->PropFlags, PropertyFlags::Const))
-				prop->SetValueFromString(Self->PropertyData.Ptr(prop), PropValue);
-			return;
-		}
-	}
+	UProperty* prop = Self->PropertyData.Class->FindProperty(PropName);
+	if (prop && AllFlags(prop->Flags, ObjectFlags::Public) && !AnyFlags(prop->PropFlags, PropertyFlags::Const))
+		prop->SetValueFromString(Self->PropertyData.Ptr(prop), PropValue);
 }
 
 void NObject::Sin(float A, float& ReturnValue)
