@@ -3070,15 +3070,22 @@ As in the original:
   alone, with the URL less its password, for the menu to ask again
   (`PassJoinConsole` against a server with `?GamePassword=dxcap`, each
   engine the other's client: the two refusals' and the join's lines alike).
+- The handshake's values are read as Core's `Parse` reads the command
+  line's ([the command line](#the-command-line)): a key in any case, but
+  not straight after a letter or digit, so `HELLO`'s `VER=` is not
+  `MINVER=`'s, its value in double quotes or up to a space, tab, CR, LF or
+  comma (`ParenJoinConsole` against `LoginServer`, each engine the other's
+  server: a login as `JC(1)` with a class and a password taken whole, the
+  two servers' lines alike).
 
-Differs (bugs.md NET.12): a login's value ends at `)`. Differs
-(bugs.md NET.14): a login with a FailCode and no Error, `SendText`'s answer,
-a client travel's info, `open`'s one word. Differs (bugs.md NET.16): a
-simulated proxy pawn's own path, its move along its velocity and its `Tick`
-alone, runs only in a net game, where the original's runs whatever the net
-mode; no stock actor is one outside a net game. Differs (bugs.md NET.17):
-the native replication lists' floats compared by value, the original's by
-their bits, so a change from 0.0 to -0.0 does not go.
+Differs (bugs.md NET.14): a login with a FailCode and no Error,
+`SendText`'s answer, a client travel's info, `open`'s one word. Differs
+(bugs.md NET.16): a simulated proxy pawn's own path, its move along its
+velocity and its `Tick` alone, runs only in a net game, where the original's
+runs whatever the net mode; no stock actor is one outside a net game.
+Differs (bugs.md NET.17): the native replication lists' floats compared by
+value, the original's by their bits, so a change from 0.0 to -0.0 does not
+go.
 
 ## Not needed for single player
 

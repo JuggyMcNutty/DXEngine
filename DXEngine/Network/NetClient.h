@@ -70,6 +70,7 @@ public:
 // The engine's answer to a server's challenge.
 int NetChallengeResponse(int challenge);
 
-// The handshake's text: a leading command word, a KEY=value anywhere.
+// The handshake's text: a leading command word; a KEY=value anywhere but
+// straight after a letter or digit, as Core's Parse finds it.
 bool NetParseCommand(const std::string& text, const char* command, std::string* rest = nullptr);
 bool NetParseValue(const std::string& text, const char* key, std::string& value);

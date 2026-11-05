@@ -85,6 +85,56 @@ int32_t StrTools::ue1_atoi(const std::string_view& str)
 	return (int32_t)std::clamp(value, (int64_t)INT32_MIN, (int64_t)INT32_MAX);
 }
 
+// The original's appStrfind (Core.dll 0x10145ca0): ASCII letters in any
+// case, a match straight after an ASCII letter or digit passed over, the
+// first left
+size_t StrTools::ue1_strfind(const std::string_view& str, const std::string_view& token, size_t pos)
+{
+	auto upper = [](char c) { return c >= 'a' && c <= 'z' ? (char)(c - 'a' + 'A') : c; };
+	auto alnum = [](char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'); };
+	if (token.empty())
+		return std::string::npos;
+	for (size_t i = pos; i + token.size() <= str.size(); i++)
+	{
+		if (i > 0 && alnum(str[i - 1]))
+			continue;
+		size_t k = 0;
+		while (k < token.size() && upper(str[i + k]) == upper(token[k]))
+			k++;
+		if (k == token.size())
+			return i;
+	}
+	return std::string::npos;
+}
+
+// The original's Parse of a string (Core.dll 0x10146bc0): copied first,
+// maxLen - 1 characters at most (appStrncpy 0x101233c0), past the quote of
+// a quoted value, then cut at its first quote, or one not quoted at its
+// first space, CR, LF, tab or comma (0x10146c4e to 0x10146c96)
+bool StrTools::ue1_parse(const std::string_view& str, const std::string_view& key, std::string& value, size_t maxLen)
+{
+	size_t at = ue1_strfind(str, key);
+	if (at == std::string::npos)
+		return false;
+	size_t pos = at + key.size();
+	bool quoted = pos < str.size() && str[pos] == '"';
+	if (quoted)
+		pos++;
+	const std::string_view stops = quoted ? std::string_view("\"") : std::string_view(" \r\n\t,");
+	value.clear();
+	for (size_t units = 0; pos < str.size() && stops.find(str[pos]) == std::string_view::npos; pos++)
+	{
+		// A character's length in the original's UTF-16, at its UTF-8 lead
+		// byte: a continuation byte none, a four-byte character two
+		unsigned char c = (unsigned char)str[pos];
+		units += (c & 0xc0) == 0x80 ? 0 : c >= 0xf0 ? 2 : 1;
+		if (maxLen && units >= maxLen)
+			break;
+		value += str[pos];
+	}
+	return true;
+}
+
 bool StrTools::startswith(const std::string_view& str, const std::string_view& cmp, bool ignoreCase)
 {
 	if (str.size() < cmp.size())

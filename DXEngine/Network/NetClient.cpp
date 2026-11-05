@@ -81,26 +81,15 @@ bool NetParseCommand(const std::string& text, const char* command, std::string* 
 	return true;
 }
 
+// A key's value as Core's Parse finds it (Core.dll 0x10146bc0): the key in
+// any case, but none straight after a letter or digit (appStrfind,
+// 0x10145ca0), so HELLO's VER= is not the one in MINVER=; a value in double
+// quotes up to the next one, any other up to a space, CR, LF, tab or comma
+// -- a login's URL=Index.dx?Name=JC(1)?Class=... keeps the name's brackets
+// and every option after them.
 bool NetParseValue(const std::string& text, const char* key, std::string& value)
 {
-	for (size_t pos = 0; pos < text.size(); pos++)
-	{
-		if (!EqualsIgnoreCase(text, pos, key))
-			continue;
-		size_t start = pos + strlen(key);
-		if (start < text.size() && text[start] == '"')
-		{
-			size_t end = text.find('"', start + 1);
-			value = text.substr(start + 1, end == std::string::npos ? std::string::npos : end - start - 1);
-		}
-		else
-		{
-			size_t end = text.find_first_of(" ,)\r\n", start);
-			value = text.substr(start, end == std::string::npos ? std::string::npos : end - start);
-		}
-		return true;
-	}
-	return false;
+	return StrTools::ue1_parse(text, key, value);
 }
 
 /////////////////////////////////////////////////////////////////////////////

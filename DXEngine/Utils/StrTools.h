@@ -21,6 +21,19 @@ public:
 	// first that is not one, 0 without any; past an int's range held to its
 	// ends (SweepVmConsole: 4294967297 is 2147483647).
 	static int32_t ue1_atoi(const std::string_view& str);
+	// A substring as the original's appStrfind finds one (Core.dll
+	// 0x10145ca0): from pos, its ASCII letters in any case, but none straight
+	// after an ASCII letter or digit -- INI= is not within USERINI=, nor VER=
+	// within MINVER=; npos when there is none, or the token is empty.
+	static size_t ue1_strfind(const std::string_view& str, const std::string_view& token, size_t pos = 0);
+	// A value as the original's Parse takes one (Core.dll 0x10146bc0): after
+	// the first key ue1_strfind finds (its "X="), in double quotes to the
+	// closing one, else to the first space, tab, CR, LF or comma, of its
+	// first maxLen - 1 characters at most, maxLen the original's buffer for
+	// it -- one past U+FFFF counting two, as the original's UTF-16 has it --
+	// or all of it with a maxLen of 0. True whenever the key is found, the
+	// value empty or not.
+	static bool ue1_parse(const std::string_view& str, const std::string_view& key, std::string& value, size_t maxLen = 0);
 	// A float as the original's "%f" writes it, the MSVC runtime's it links:
 	// its digits exact to the sixth decimal, a 5 after the sixth rounding up
 	// -- a tie away from zero, where the C library's rounds it to even --,
