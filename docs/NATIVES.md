@@ -1536,12 +1536,17 @@ send as events of their own, added up and pressed at each notch's half, the
 sum begun again where the scroll turns (`WheelConsole` with
 `tools/dxcap/wheel.py`'s eighths of a notch, the two windows alike).
 
+An optional argument left out takes the original's default: `LockMouse`
+locks, `SetBaselineData` gives 2 and 1, and a button's `SetTextColors`,
+`SetButtonColors` and `SetButtonTextures` set all six slots, one left out
+green, white or None (`ButtonDefaultsConsole`: a button's six slots set
+apart, then each call with its first slot alone, its insensitive and focused
+look alike in both engines).
+
 Differs (bugs.md EXT.23): five window classes' own ticks run after their
 script's, timers and children. Differs (bugs.md EXT.24): the computer window
-makes neither of its children. Differs (bugs.md EXT.25): `LockMouse`,
-`SetBaselineData` and the button setters' left-out arguments. Differs
-(bugs.md WIN.12): Alt+Enter back to a window on X11 puts it at the display's
-corner.
+makes neither of its children. Differs (bugs.md WIN.12): Alt+Enter back to a
+window on X11 puts it at the display's corner.
 
 ## The menus' settings
 

@@ -1416,12 +1416,12 @@ void UWindow::SetBackgroundStyle(uint8_t NewStyle)
 	backgroundStyle() = NewStyle;
 }
 
+// One left out its default, 2 and 1, as the original's execSetBaselineData
+// (Extension.dll 0x10053de0) takes them
 void UWindow::SetBaselineData(std::optional<float> newBaselineOffset, std::optional<float> newUnderlineHeight)
 {
-	if (newBaselineOffset)
-		BaselineOffset = *newBaselineOffset;
-	if (newUnderlineHeight)
-		UnderlineHeight = *newUnderlineHeight;
+	BaselineOffset = newBaselineOffset.value_or(2.0f);
+	UnderlineHeight = newUnderlineHeight.value_or(1.0f);
 }
 
 void UWindow::SetBoldFont(UObject* fn)

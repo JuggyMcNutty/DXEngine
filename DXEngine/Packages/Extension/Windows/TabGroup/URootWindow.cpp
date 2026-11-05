@@ -154,11 +154,12 @@ bool URootWindow::IsRenderingEnabled()
 
 // With movement locked the pointer stays where it is; with buttons locked the
 // UI takes and ignores them. The Customize Keys screen locks movement while
-// it waits for a key (extension-dll.md, The root window).
+// it waits for a key (extension-dll.md, The root window). One left out locks,
+// as the original's execLockMouse (Extension.dll 0x1003ce30) takes it.
 void URootWindow::LockMouse(std::optional<bool> bLockMove, std::optional<bool> bLockButton)
 {
-	bMouseMoveLocked() = bLockMove.value_or(false);
-	bMouseButtonLocked() = bLockButton.value_or(false);
+	bMouseMoveLocked() = bLockMove.value_or(true);
+	bMouseButtonLocked() = bLockButton.value_or(true);
 }
 
 void URootWindow::SetDefaultEditCursor(std::optional<UObject*> newEditCursor)

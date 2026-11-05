@@ -281,6 +281,7 @@ launcher's part, which DXEngine leaves to the launchers.
 | `ChoiceConsole` | both | a conversation's choices and their focus, by the keys and the pointer (`SetCursorPos`); the focus as the choices' first two frames are drawn and at the tick between | `DXCHOICE:` | the `drawn` and `tick after` lines: the first frame drawn with no focus, then the first choice's |
 | `KeypadConsole` | both | the root's focus round the keypad; a stray key release | `DXKEYPAD:` | with `tools/dxcap/timelines/stray-release.txt` on DXEngine |
 | `BorderConsole` | both | `GC.DrawBorders` on the inventory screen | `DXBORDER:` |  |
+| `ButtonDefaultsConsole` | both | a button's text colours, tile colours and textures, each call made again with its first slot alone, from the menu map | `DXBUTTON:` | its look insensitive and focused |
 | `ColorsConsole` | both | `DrawBorders` on the Colors screen | `DXCOLORS:` |  |
 | `RotatorConsole` | both | the rotator and vector conversions; floats past an int's range to ints and bytes, by the VM's generic path and, stored in variables, its typed one | `DXROT:` |  |
 | `DepthConsole` | both | an expression 100 operators deep, the sum of a hundred ones, from the menu map | `DXDEPTH:` | the one line |

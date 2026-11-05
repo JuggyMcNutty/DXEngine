@@ -130,20 +130,18 @@ void UButtonWindow::SetActivateDelay(std::optional<float> newDelay)
 	activateDelay() = newDelay.value_or(0.3f);
 }
 
+// Each of the six set, one left out white, as the original's
+// execSetButtonColors (Extension.dll 0x100087b0) gives SetButtonColors all
+// six (0x10007940)
 void UButtonWindow::SetButtonColors(std::optional<Color> Normal, std::optional<Color> pressed, std::optional<Color> normalFocus, std::optional<Color> pressedFocus, std::optional<Color> normalInsensitive, std::optional<Color> pressedInsensitive)
 {
-	if (Normal)
-		ButtonColors.Normal = *Normal;
-	if (pressed)
-		ButtonColors.Pressed = *pressed;
-	if (normalFocus)
-		ButtonColors.NormalFocus = *normalFocus;
-	if (pressedFocus)
-		ButtonColors.PressedFocus = *pressedFocus;
-	if (normalInsensitive)
-		ButtonColors.NormalInsensitive = *normalInsensitive;
-	if (pressedInsensitive)
-		ButtonColors.PressedInsensitive = *pressedInsensitive;
+	Color white = { 255, 255, 255, 255 };
+	ButtonColors.Normal = Normal.value_or(white);
+	ButtonColors.Pressed = pressed.value_or(white);
+	ButtonColors.NormalFocus = normalFocus.value_or(white);
+	ButtonColors.PressedFocus = pressedFocus.value_or(white);
+	ButtonColors.NormalInsensitive = normalInsensitive.value_or(white);
+	ButtonColors.PressedInsensitive = pressedInsensitive.value_or(white);
 }
 
 void UButtonWindow::SetButtonSounds(std::optional<UObject*> newPressSound, std::optional<UObject*> newClickSound)
@@ -154,36 +152,29 @@ void UButtonWindow::SetButtonSounds(std::optional<UObject*> newPressSound, std::
 		clickSound() = UObject::Cast<USound>(*newClickSound);
 }
 
+// Each of the six set, one left out None, as the original's
+// execSetButtonTextures (0x10008690, SetButtonTextures 0x10007890)
 void UButtonWindow::SetButtonTextures(std::optional<UObject*> Normal, std::optional<UObject*> pressed, std::optional<UObject*> normalFocus, std::optional<UObject*> pressedFocus, std::optional<UObject*> normalInsensitive, std::optional<UObject*> pressedInsensitive)
 {
-	if (Normal)
-		ButtonTextures.Normal = UObject::Cast<UTexture>(*Normal);
-	if (pressed)
-		ButtonTextures.Pressed = UObject::Cast<UTexture>(*pressed);
-	if (normalFocus)
-		ButtonTextures.NormalFocus = UObject::Cast<UTexture>(*normalFocus);
-	if (pressedFocus)
-		ButtonTextures.PressedFocus = UObject::Cast<UTexture>(*pressedFocus);
-	if (normalInsensitive)
-		ButtonTextures.NormalInsensitive = UObject::Cast<UTexture>(*normalInsensitive);
-	if (pressedInsensitive)
-		ButtonTextures.PressedInsensitive = UObject::Cast<UTexture>(*pressedInsensitive);
+	ButtonTextures.Normal = UObject::Cast<UTexture>(Normal.value_or(nullptr));
+	ButtonTextures.Pressed = UObject::Cast<UTexture>(pressed.value_or(nullptr));
+	ButtonTextures.NormalFocus = UObject::Cast<UTexture>(normalFocus.value_or(nullptr));
+	ButtonTextures.PressedFocus = UObject::Cast<UTexture>(pressedFocus.value_or(nullptr));
+	ButtonTextures.NormalInsensitive = UObject::Cast<UTexture>(normalInsensitive.value_or(nullptr));
+	ButtonTextures.PressedInsensitive = UObject::Cast<UTexture>(pressedInsensitive.value_or(nullptr));
 }
 
+// Each of the six set, one left out green, as the original's
+// execSetTextColors (0x10008940, SetTextColors 0x100079f0)
 void UButtonWindow::SetTextColors(std::optional<Color> Normal, std::optional<Color> pressed, std::optional<Color> normalFocus, std::optional<Color> pressedFocus, std::optional<Color> normalInsensitive, std::optional<Color> pressedInsensitive)
 {
-	if (Normal)
-		TextColors.Normal = *Normal;
-	if (pressed)
-		TextColors.Pressed = *pressed;
-	if (normalFocus)
-		TextColors.NormalFocus = *normalFocus;
-	if (pressedFocus)
-		TextColors.PressedFocus = *pressedFocus;
-	if (normalInsensitive)
-		TextColors.NormalInsensitive = *normalInsensitive;
-	if (pressedInsensitive)
-		TextColors.PressedInsensitive = *pressedInsensitive;
+	Color green = { 0, 255, 0, 255 };
+	TextColors.Normal = Normal.value_or(green);
+	TextColors.Pressed = pressed.value_or(green);
+	TextColors.NormalFocus = normalFocus.value_or(green);
+	TextColors.PressedFocus = pressedFocus.value_or(green);
+	TextColors.NormalInsensitive = normalInsensitive.value_or(green);
+	TextColors.PressedInsensitive = pressedInsensitive.value_or(green);
 }
 
 // The original's (XButtonWindow::MouseMoved 0x10007e30): while the mouse

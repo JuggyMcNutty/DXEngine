@@ -617,12 +617,12 @@ void UGC::SetAlignments(uint8_t newHAlign, uint8_t newVAlign)
 	VAlign() = newVAlign;
 }
 
+// One left out its default, 2 and 1, as the original's execSetBaselineData
+// (Extension.dll 0x1002b970) takes them
 void UGC::SetBaselineData(std::optional<float> newBaselineOffset, std::optional<float> newUnderlineHeight)
 {
-	if (newBaselineOffset)
-		baselineOffset() = *newBaselineOffset;
-	if (newUnderlineHeight)
-		underlineHeight() = *newUnderlineHeight;
+	baselineOffset() = newBaselineOffset.value_or(2.0f);
+	underlineHeight() = newUnderlineHeight.value_or(1.0f);
 }
 
 void UGC::SetBoldFont(UObject* newBoldFont)
