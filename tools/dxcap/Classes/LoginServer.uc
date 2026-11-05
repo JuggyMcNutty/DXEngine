@@ -6,7 +6,7 @@
 // for PassJoinConsole). Each player that comes in is logged once, as the
 // server has it: its name, its class, its team and the password its login
 // gave (GameInfo.Login sets PlayerPawn.Password from the URL's). The
-// engine's own lines tell the rest: the login's URL (Login request), a
+// engine's own lines tell the rest: the login's URL (login request), a
 // refusal (PreLogin failure), the game's GamePassword and Login lines. It
 // exits 10 s after the first player came in, so its log is written whole,
 // or after 150 s with none. Each line starts "DXLOGINSRV:".

@@ -423,8 +423,10 @@ The palette used by an 8-bit texture.
 ```
 struct Font : ObjectHeader
 {
-  if FileHeader.PackageVersion <= 63 // the font is a texture, its one page itself
-    struct Texture TextureData // as a Texture object's, after its ObjectHeader
+  index PageCount
+  struct Page
+  {
+    index Texture // object reference to a Texture object
     index CharacterCount
     struct Character
     {
@@ -433,22 +435,8 @@ struct Font : ObjectHeader
       uint32 USize
       uint32 VSize
     } Characters[CharacterCount]
-  else
-    index PageCount
-    struct Page
-    {
-      index Texture // object reference to a Texture object
-      index CharacterCount
-      struct Character
-      {
-        uint32 StartU
-        uint32 StartV
-        uint32 USize
-        uint32 VSize
-      } Characters[CharacterCount]
-    } Pages[PageCount]
-    uint32 CharactersPerPage
-  endif
+  } Pages[PageCount]
+  uint32 CharactersPerPage
 }
 ```
 The font object describes where each character glyph is positioned in font textures.
@@ -472,7 +460,7 @@ Sound effects. `Format` is the file extension for the sound.
 struct Music : ObjectHeader
 {
   index Format // Index into NameTable
-  if FileHeader.PackageVersion >= 61
+  if FileHeader.PackageVersion > 61
     uint32 SkipOffset
   endif
   index Size

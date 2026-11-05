@@ -38,7 +38,9 @@
 # Both engines draw on the desktop's X display, Xwayland ($DISPLAY, or
 # DXCAP_DISPLAY), each in a 1280x720 window (DXCAP_WINDOW=<w>x<h> another
 # size), DXEngine through its window's X11 backend: one X server and the GPU
-# for both. DXCAP_RENDERER=D3D draws the original through D3DDrv, the game's
+# for both. DXCAP_FULLSCREEN=1 runs both full screen at that size, the
+# display's own: nothing switches the display, and the original's grabber
+# reads the whole frame. DXCAP_RENDERER=D3D draws the original through D3DDrv, the game's
 # own renderer, instead of OpenGLDrv: the same picture, gamma ramp and all,
 # though the grabber can miss its shots (docs/DEVELOPMENT.md, shots).
 # DXCAP_AUDIO=1 gives DXEngine real audio; it is silent otherwise.

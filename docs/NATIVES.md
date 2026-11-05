@@ -311,7 +311,9 @@ cycling, the labels in turn round and round, the index counted on; with
 `bCycleOnce` the last label for good, the index on it, never cycled, so
 `bCycleRandom` with it never picks; with `bCycleRandom` alone a random label
 once the labels have cycled (`RandomLabelConsole`: `BoatWaitingForBriefing`'s
-event under each, every line alike but a random pick's label).
+event under each, every line alike but a random pick's label). A
+`cycleIndex` a script sets below 0 gives no label, where the original's
+reads before its labels (bugs.md DX.7).
 `ConBindEvents` binds from the level's `ConversationPackage`, an empty one
 or one that is not there binding nothing and keeping the actor's list, as
 the original's (`ConPackageConsole`: Paul Denton's ten under the stock
@@ -740,8 +742,8 @@ arrow keys pan the camera by `fov / 90` of a step and its plus and minus
 keys zoom, and the spy drone's window and the targeting augmentation's
 zoom, at its top level aimed at the target's eyes, are drawn
 (`CameraConsole`: every value it logs the original's; the feed within 1%
-of the original's frame, correlated at 0.97, where at 8cde7490 it lay a
-pixel lower, 0.84; the zoom and the drone's window within 0.5% of
+of the original's frame, correlated at 0.97; the zoom and the drone's window
+within 0.5% of
 `D3DDrv`'s; the console's own windows' frames correlated at 0.968 or more
 with the original's, turned by a `CalcView`, turned off, clipped by their
 parent, and the Dragon's Tooth drawn in one, its blade's blue as many
@@ -956,13 +958,11 @@ the original's `Light` (`Render.dll` `0x10b027f0`) lights each once: a
 two-sided face shows on both sides the light its normal gets.
 `ViewConsole` with `FovAngle=90`, `HoldAnim=Idle1`, `HoldFrame=0.875` and
 `Floor`, both engines at 1024x768: the Dragon's Tooth's hand correlated
-at 0.973 with the original's frame, where at 654e675d its own light's pick
-left its thumb black (0.773), and the hilt of the one on the floor at
-0.897 (0.818); `CrosshairConsole`'s pistol in hand at 0.981 (0.711).
+at 0.973 with the original's frame, and the hilt of the one on the floor
+at 0.897; `CrosshairConsole`'s pistol in hand at 0.981.
 `MeshConsole` with `Hold` and `Extra=DeusEx.Plant1`: the plant's leaves
-at 0.997 of the original's brightness, where at 724acfd9 the cosine's size
-lit them from behind as from before, 1.113; Paul Denton at a median 1.01
-(1.03); `HeldConsole`'s JC from behind, his coat at 1.009 (1.095). The
+at 0.997 of the original's brightness; Paul Denton at a median 1.01;
+`HeldConsole`'s JC from behind, his coat at 1.009. The
 `AmbientGlow`
 pulse runs on the viewport's clock, the real time, whatever the level's
 `TimeDilation`. `GlowConsole`'s crate, spawned 3 s into Liberty Island:
@@ -1055,15 +1055,14 @@ whose texture alone is masked (`CoreTexMetal.Metal.metalgrate_a`, the five
 under 02_NYC_BatteryPark's Castle Clinton; 93 movers of 29 stock maps
 draw such a polygon) shows what lies behind it (`GlassConsole` with
 `GlassName=DeusExMover31`: a crate and a sprite behind the grate correlated
-at 0.96 with the original's frame on Vulkan, GL and the software device,
-where at 94968ca9 its gaps were black, 0.64). A one-sided surface of the
+at 0.96 with the original's frame on Vulkan, GL and the software device). A
+one-sided surface of the
 level's own seen from behind is passed over by its own flags, its
 texture's taken only after, as the original's walk does: a texture made
 two-sided shows none from behind (`BackFaceConsole`: Liberty Island's
 chain-link sheet over the statue's pedestal room, its texture
 `CoreTexMetal.Metal.ClenChainlink_B` given `bTwoSided`, seen from behind
-as with it one-sided in both engines, where at cc9b9ef0 DXEngine drew the
-sheet, 31% of the frame's pixels changed). Neither engine draws one the
+as with it one-sided in both engines). Neither engine draws one the
 eye is within a unit behind, which the original's walk passes on where
 it passes over one farther (the sheet and a door's face from 0.9 units
 behind, correlated at 0.987 and 0.993 with the original's frames on
@@ -2583,10 +2582,12 @@ Differs (bugs.md VM.25): a name keeps each spelling it is made in, where the
 original's keeps the first made in the session: `string()` gives the case it
 was made in (`SpellingConsole`: `ANNADIES` where the original's gives
 DeusEx.u's `annadies`), and the cheats' EditFlags lists a flag as its setter
-spelt it; lookups take any case in both. Differs (bugs.md VM.29): small edges no stock path reaches -- a static array
-argument read when the call reads it, a call held off copying no `out`
-argument back, `new(None)`'s object with no `Outer` where the original's is
-the package Transient.
+spelt it; lookups take any case in both. Differs (bugs.md VM.29): small
+edges no stock path reaches -- a static array argument read when the call
+reads it, a call held off copying no `out` argument back, `StateChanged`
+cleared before an `EndState` not sent, and an object a package holds,
+`new(None)`'s or a level, with no `Outer`, where the original's names the
+package.
 
 ## The command line
 
@@ -2999,8 +3000,8 @@ client: the connection closed, the client back on Entry by
   came, each element of its array, by choice. The original's gives it
   others, the count right: 20 bytes sent to a `UdpLink` in binary mode reach
   its script as 20 bytes of what else is there, whatever was sent, and its
-  `SendBinary` answers False; no mod can have counted on them. DXEngine's
-  `SendText` and `SendBinary` answer False when nothing went.
+  `SendBinary` answers False; no mod can have counted on them. A
+  `UdpLink`'s `SendText` and `SendBinary` answer False when nothing went.
 - **The player's name in a net game**: a name the player never chose --
   none, or the game's stock `Player` -- logs in as `DXEnginePlayer`, a
   client's to its server and a listen server's host's, by choice, so
@@ -3018,12 +3019,8 @@ As in the original:
 - On a dedicated server `GetPlayerPawn` answers None, as the original's
   with no client or viewport, and `AttachDecal` attaches none, as the
   original's with no client.
-- In a URL a '/' is a character of a map's name or an option's value
-  (`?Name=AC/DC` keeps its slash), '#' alone marking the portal, where the
-  original's takes a '/' in the map's part for the portal's mark (bugs.md
-  NET.13, with the URL's other departures); a relative
-  travel that names a server's address goes there; a URL cleared is empty
-  whole, its port the game's default again.
+- A relative travel that names a server's address goes there; a URL
+  cleared is empty whole, its port the game's default again.
 - Entry's actors find their regions in Entry's own model, with its zone
   actors and its LevelInfo, while a map is current, as the original's
   (`EntryConsole`: markers spawned into Entry from Liberty Island, as the
@@ -3104,19 +3101,26 @@ As in the original:
   server: a login as `JC(1)` with a class and a password taken whole, the
   two servers' lines alike).
 
-Differs (bugs.md NET.18): a login whose challenge response is wrong is
-refused, where the original's refuses a response of 0 alone. Differs
-(bugs.md NET.19): a server's `UPGRADE` ends the join with an error, where
-the original's shows its progress alone; the handshake's values are read
-whole; an arriving player takes its travel info on a relative travel alone.
-Differs (bugs.md NET.20): a `TcpLink` whose `BindPort` failed goes on as any
-other; its `ReadText` reads 999 bytes, the original's 255.
-Differs (bugs.md NET.16): a simulated proxy pawn's own path, its move along
-its velocity and its `Tick` alone, runs only in a net game, where the
-original's runs whatever the net mode; no stock actor is one outside a net
-game. Differs (bugs.md NET.17): the native replication lists' floats
-compared by value, the original's by their bits, so a change from 0.0 to
--0.0 does not go.
+Differs (bugs.md NET.13): in a URL a `/` is a character of a map's name or
+an option's value (`?Name=AC/DC` keeps its slash), `#` alone marking the
+portal, where the original's takes a `/` in the map's part for the portal's
+mark, and no URL is refused, where the original's refuses a blank in an
+option (`OpenLineConsole`). Differs (bugs.md NET.18): a login whose
+challenge response is wrong is refused, where the original's refuses a
+response of 0 alone. Differs (bugs.md NET.19): a server's `UPGRADE` ends the
+join with an error, where the original's shows its progress alone; the
+handshake's values are read at any length, where Core's `Parse` holds `URL=`
+to 1,023 characters and `PKG=` to 63, and `VER=` and `LONE=` not by its
+number and bool forms; an arriving player takes its travel info on a
+relative travel alone, and a client's travel leaves out a player whose
+replication info has not come, where the original's reads it. Differs
+(bugs.md NET.20): a `TcpLink` whose `BindPort` failed goes on as any other;
+its `ReadText` reads 999 bytes, the original's 255. Differs (bugs.md
+NET.16): a simulated proxy pawn's own path, its move along its velocity and
+its `Tick` alone, runs only in a net game, where the original's runs
+whatever the net mode; no stock actor is one outside a net game. Differs
+(bugs.md NET.17): the native replication lists' floats compared by value,
+the original's by their bits, so a change from 0.0 to -0.0 does not go.
 
 ## Not needed for single player
 

@@ -22,8 +22,8 @@ What matches the original and what differs is
 - **A hard fork.** Not in Surreal Engine's fork network; nothing is merged from it or sent to
   it; a fix worth having is ported by hand, as a commit of DXEngine's own. The two differ at the
   core, and Surreal Engine's contribution rules do not apply here.
-- **Deus Ex only.** The engine is stripped back to focus only on Deus Ex, so other UE1 games do
-  not launch, sorry.
+- **Deus Ex's alone.** No other game's code, nor Surreal Engine's platforms and tools that Deus
+  Ex does not use: other UE1 games do not start.
 
 ## The engine's tools
 
@@ -107,9 +107,9 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   ([multiplayer](NATIVES.md#multiplayer)).
 - **SIGTERM, SIGINT or SIGHUP quits as a closed window does**: at the next frame, the inis
   written back, exit 0, whatever the window (a dedicated server too). A second signal kills at
-  once, as a stuck engine needs. The crash report window, up before the engine installs its
-  handler, closes on one too, through SDL's own (an SDL window) or the signal's default (the X11
-  window), and the Fatal Error window within a tenth of a second, the engine exiting with 1.
+  once, as a stuck engine needs. The Fatal Error window closes on one within a tenth of a
+  second, the engine exiting with 1, or, up before the engine installs its handler (an error as
+  it starts), through SDL's own (an SDL window) or the signal's default (the X11 window).
   Windows has no such signals: there a launcher's `Quit` (below) does so, the Fatal Error
   window's too.
 - `Running.ini` is the launcher's crash sentinel, not the engine's: a run under a launcher that
@@ -131,7 +131,8 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   its own folders: [mods](NATIVES.md#mods)), and exits before anything is loaded.
 - **`--cmdline=<line>`** is the original's command line, which the launchers pass on (the
   recreated one, deusex-launcher's `main`, and DXLauncher): its start URL, `-server`,
-  `-lanplay`, `INI=`, `USERINI=`, `EXEC=` and safe mode's flags, over the options above
+  `-lanplay`, `PORT=`, `MULTIHOME=`, `-PRIMARYNET`, `INI=`, `USERINI=`, `EXEC=`, `-norunaway`
+  and safe mode's flags, over the options above
   ([the command line](NATIVES.md#the-command-line)).
 - **`DXL_LAUNCHER_FD`** in the environment is the line to the engine of the launcher that
   started it, which stays for the game's run as the original's process does: a socket's
@@ -305,8 +306,9 @@ By area, as the code stands. Each device's numbers are its port's, such as
   SDL2's alone. Each backend also has a virtual pad of its own for the harness's timelines
   ([timelines](DEVELOPMENT.md#timelines)).
 - **The launchers' lines**: `--cmdline=` (`OriginalCommandLine`) and `DXL_LAUNCHER_FD`
-  (`LauncherLine`) ([running it](#running-it)), with the console's `exec` and an `open` that
-  takes a map's file name; `RELAUNCH` passed to the launcher, or a dedicated server started
+  (`LauncherLine`) ([running it](#running-it)), with the console's `exec`, and its `open`,
+  which takes the rest of its line as the URL, a map's file name among them; `RELAUNCH` passed
+  to the launcher, or a dedicated server started
   again by the engine itself (`Engine::Relaunch`, `GameApp::Relaunch`;
   [the menus' settings](NATIVES.md#the-menus-settings)).
 - **Fullscreen under SDL** takes the display's mode nearest the size asked for
@@ -715,10 +717,12 @@ by holder, and with glibc a map load's gives the freed memory back to the system
   a spawned actor in its level's (the Entry level's own pawn in Entry's), the flag base in the
   player's, and what travels with the player there too, held by the player and named by its
   class's count; the event manager in its `LevelInfo`'s; an object a script makes with `new` in
-  its outer's (`new(Self)` on the player: its goals, notes and key infos), or with none in the
-  transient package. A conversation's camera and flag refs are in the conversation's package,
-  which outlives any level, unnamed and transient, where the original's are in `DeusEx`'s, named
-  and public (bugs.md DX.7). A package played as a level is tagged so (`Package::IsLevel`).
+  its outer's, the calling object's when it names none (`new(Self)` on the player: its goals,
+  notes and key infos), and with `new(None)` in the transient package. A conversation's camera
+  and flag refs are in the conversation's package, which outlives any level, unnamed and
+  transient, and an actor's ConListItems in its level's, where the original's camera is in
+  `DeusEx`'s and its ConListItems in the conversation list's package, named and public (bugs.md
+  DX.7). A package played as a level is tagged so (`Package::IsLevel`).
 - **A class's defaults** are its own property block, which scripts read and write as `default.`
   values. The engine reads them through the class's defaults object
   (`UClass::GetDefaultObject`), made once, of the class's nearest native class, its block a view
