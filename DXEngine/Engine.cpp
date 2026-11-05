@@ -315,10 +315,11 @@ void Engine::Run()
 	if (launchServer)
 		ClientTravel(LaunchInfo.url, ETravelType::TRAVEL_Absolute, false);
 
-	// The original's EXEC=, on the client's viewport once the engine is up;
-	// then the launcher's splash can go.
+	// The original's EXEC=, read into an FString's 4,096 characters
+	// (DeusEx.exe WinMain 0x1090947a, Core.dll 0x10146e0e), on the client's
+	// viewport once the engine is up; then the launcher's splash can go.
 	std::string execFile;
-	if (!dedicated && viewport->Actor() && OriginalCommandLine::Get().Value("EXEC", execFile))
+	if (!dedicated && viewport->Actor() && OriginalCommandLine::Get().Value("EXEC", execFile, 4096))
 		ExecFile(viewport->Actor(), execFile);
 	LauncherLine::Get().Ready();
 
@@ -2344,17 +2345,13 @@ void Engine::Listen(const UnrealURL& url)
 {
 	// The URL's port -- the game's [URL] Port unless the URL names one -- or
 	// the next free of the 20 from it, as the original's server binds; with
-	// PORT= on the command line that port alone, its number read as
-	// appAtoi reads it (IpDrv.dll UTcpNetDriver::InitBase 0x1070abb0, Core's
-	// Parse true whenever it finds the name)
+	// PORT= on the command line that port alone, appAtoi of the text after
+	// it (IpDrv.dll UTcpNetDriver::InitBase 0x1070abb0, Core's int Parse
+	// 0x10147730, true whenever it finds the name)
 	int port = url.Port;
 	int tries = 20;
-	std::string portText;
-	if (OriginalCommandLine::Get().Value("PORT", portText))
-	{
-		port = std::atoi(portText.c_str());
+	if (OriginalCommandLine::Get().Number("PORT", port))
 		tries = 1;
-	}
 	ServerLevel = std::make_unique<NetServerLevel>(LevelPackage);
 	LevelNetDriver = std::make_unique<NetDriver>();
 	std::string error;

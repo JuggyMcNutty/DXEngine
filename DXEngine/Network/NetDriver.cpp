@@ -202,15 +202,15 @@ bool NetDriver::InitListen(NetNotify* notify, int port, int tries, std::string& 
 
 // The address a socket binds, in host order, as the original's
 // getlocalbindaddr chooses it (IpDrv.dll 0x10708e40, getlocalhostaddr
-// 0x10703eb0): MULTIHOME='s a.b.c.d when it has four parts, each part's
-// number, and every address when it has not, logged; with -PRIMARYNET the
-// first address of the machine's own name; else every one of the machine's
-// (0.0.0.0).
+// 0x10703eb0): MULTIHOME='s a.b.c.d, read into 256 characters (0x10703fb1),
+// when it has four parts, each part's number, and every address when it has
+// not, logged; with -PRIMARYNET the first address of the machine's own name;
+// else every one of the machine's (0.0.0.0).
 static uint32_t LocalBindAddress()
 {
 	const OriginalCommandLine& commandLine = OriginalCommandLine::Get();
 	std::string multihome;
-	if (commandLine.Value("MULTIHOME", multihome))
+	if (commandLine.Value("MULTIHOME", multihome, 256))
 	{
 		size_t first = multihome.find('.');
 		size_t second = first != std::string::npos ? multihome.find('.', first + 1) : std::string::npos;

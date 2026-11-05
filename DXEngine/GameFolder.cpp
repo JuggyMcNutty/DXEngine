@@ -72,8 +72,9 @@ GameLaunchInfo GameFolderSelection::GetLaunchInfo(int selectedGame)
 
 	// The original's command line, when the launcher gave one: its start
 	// URL, -server, -lanplay (a dedicated server's LanServerMaxTickRate,
-	// network.md), and the inis its INI= and USERINI= name, over DXEngine's
-	// own options.
+	// network.md), and the inis its INI= and USERINI= name, each read into
+	// appInit's 256 characters (Core.dll 0x10149a68, 0x10149b96), over
+	// DXEngine's own options.
 	const OriginalCommandLine& original = OriginalCommandLine::Get();
 	if (original.Given())
 	{
@@ -85,9 +86,9 @@ GameLaunchInfo GameFolderSelection::GetLaunchInfo(int selectedGame)
 		if (original.Param("lanplay"))
 			info.lanPlay = true;
 		std::string ini;
-		if (original.Value("INI", ini) && !ini.empty())
+		if (original.Value("INI", ini, 256) && !ini.empty())
 			info.systemIniPath = OriginalIniPath(info, ini);
-		if (original.Value("USERINI", ini) && !ini.empty())
+		if (original.Value("USERINI", ini, 256) && !ini.empty())
 			info.userIniPath = OriginalIniPath(info, ini);
 	}
 	return info;

@@ -1,12 +1,23 @@
 #include "Precomp.h"
 #include "OriginalCommandLine.h"
+#include "Utils/StrTools.h"
 #include <cctype>
+#include <cstring>
 
 namespace
 {
 	bool IsSpace(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; }
 
 	bool IsAsciiAlnum(char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'); }
+
+	// A character's length in the original's wide line, at its UTF-8 lead
+	// byte: a continuation byte none, a four-byte character two (its UTF-16
+	// pair).
+	size_t Utf16Units(char c)
+	{
+		unsigned char u = (unsigned char)c;
+		return (u & 0xc0) == 0x80 ? 0 : u >= 0xf0 ? 2 : 1;
+	}
 
 	// appStrfind: a substring in any case, from pos, but none straight after a
 	// letter or digit -- INI= is not found within USERINI= (dx-reverse-info
@@ -80,24 +91,37 @@ bool OriginalCommandLine::Param(const std::string& name) const
 	return false;
 }
 
-bool OriginalCommandLine::Value(const std::string& name, std::string& value) const
+bool OriginalCommandLine::Value(const std::string& name, std::string& value, size_t maxLen) const
 {
 	size_t at = FindNoCase(line, name + "=", 0);
 	if (at == std::string::npos)
 		return false;
+	// Parse copies the value's first maxLen - 1 characters (appStrncpy,
+	// Core.dll 0x101233c0), past the quote of a quoted one, then cuts it at
+	// its first quote, or one not quoted at its first space, CR, LF, tab or
+	// comma (0x10146c4e to 0x10146c96).
 	size_t pos = at + name.size() + 1;
-	value.clear();
-	if (pos < line.size() && line[pos] == '"')
-	{
+	bool quoted = pos < line.size() && line[pos] == '"';
+	if (quoted)
 		pos++;
-		while (pos < line.size() && line[pos] != '"')
-			value += line[pos++];
-	}
-	else
+	const char* stops = quoted ? "\"" : " \r\n\t,";
+	value.clear();
+	for (size_t units = 0; pos < line.size() && !std::strchr(stops, line[pos]); pos++)
 	{
-		while (pos < line.size() && !IsSpace(line[pos]))
-			value += line[pos++];
+		units += Utf16Units(line[pos]);
+		if (units >= maxLen)
+			break;
+		value += line[pos];
 	}
+	return true;
+}
+
+bool OriginalCommandLine::Number(const std::string& name, int& value) const
+{
+	size_t at = FindNoCase(line, name + "=", 0);
+	if (at == std::string::npos)
+		return false;
+	value = StrTools::ue1_atoi(std::string_view(line).substr(at + name.size() + 1));
 	return true;
 }
 

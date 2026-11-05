@@ -2570,12 +2570,16 @@ which main's launcher and DXLauncher pass on as given
 ([running it](ENGINE.md#running-it)).
 Its flags are found as the original finds them
 ([cli-flags.md](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md)),
-with one exception, by choice: a flag's name (`-X` or `/X`) must end at a
-space, a `?` (a URL's next option, where the Host screen's
-[`RELAUNCH`](#the-menus-settings) puts `-server`) or the line's end, where
-the original's `ParseParam` checks nothing after it. Both take `/` as a
-switch, and a Linux path is full of them: the original's would find
-`-server` in `INI=/srv/server/x.ini`. The launchers parse alike
+an `X=` value as its `Parse` takes it: in double quotes to the closing
+one, else to a space, tab, CR, LF or comma, no more of it than the
+original's buffer holds (255 characters for `INI=`, `USERINI=` and
+`MULTIHOME=`, 4,095 for `EXEC=`), and `PORT=`'s number from the text
+straight after it. There is one exception, by choice: a flag's name (`-X`
+or `/X`) must end at a space, a `?` (a URL's next option, where the Host
+screen's [`RELAUNCH`](#the-menus-settings) puts `-server`) or the line's
+end, where the original's `ParseParam` checks nothing after it. Both take
+`/` as a switch, and a Linux path is full of them: the original's would
+find `-server` in `INI=/srv/server/x.ini`. The launchers parse alike
 ([where it differs](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md#where-it-differs-from-the-original)).
 What DXEngine does with each:
 
@@ -2609,7 +2613,9 @@ What DXEngine does with each:
   finds them (`DXCAP_INI_CASE`: `MidConsole` with both named in capitals,
   its lines alike in both engines).
 - **`EXEC=<file>`**: `exec <file>` on the player once the first map is in;
-  `exec` runs a file's lines as commands, as the original's does.
+  `exec` runs a file's lines as commands, as the original's does
+  (`DXCAP_FLAGS="EXEC=ENG19.txt,x"`: `Execing ENG19.txt` in both engines,
+  `MidConsole`'s lines alike).
 - **Safe mode's flags**
   ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md#flags-the-launcher-emits-safe-mode)):
   - `-nosound`: no sound and no music. The original makes no audio
@@ -2633,9 +2639,6 @@ What DXEngine does with each:
     `-nokni` and `-nok6` (the original's mixer picks its routines by them),
     and `-safe`'s no DirectInput (DXEngine's input is its window's, SDL's
     under the launchers).
-
-Differs (bugs.md ENG.19): an unquoted `X=` value is cut at white space
-alone, where the original's `Parse` cuts it at a comma too.
 
 ## Mods
 
