@@ -13,7 +13,8 @@
 //    Galaxy gives a song's channels their pans (and its speed and tempo)
 //    only as its order count turns to order 0 (Galaxy.dll 0x10615710), its
 //    load leaving every music voice centred (0x1060e850), so the original
-//    plays both tones in the middle here (bugs.md AUD.16).
+//    plays both tones in the middle here, where DXEngine plays each to its
+//    side, by choice (docs/NATIVES.md, sound).
 // 1. tone A, order 0, with the Music slider at 255 (SetInstantMusicVolume,
 //    as the Sound menu's slider sets it as it moves), 4 s; at 153, the
 //    game's default, 4 s; at 64, 4 s; at 255 again, 3 s.

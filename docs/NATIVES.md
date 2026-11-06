@@ -1762,6 +1762,18 @@ alike between the two engines' runs, where the original's own runs are 79.7%
 alike. Differs:
 
 - The music plays on an OpenAL source of its own, by choice.
+- The music is heard as it changes, by choice, where the original's comes
+  some 0.9 s after the sounds of the same moment, the Sound menu's music
+  slider too (`MusicConsole` under Wine): a buffer's lag, Galaxy's or
+  Wine's, that no player misses, and which copied would leave the slider a
+  second behind.
+- Not carried, by choice: Galaxy's start of a song past its first order,
+  every voice centred and 48 ticks a row until the song reaches order 0 or
+  a speed command
+  ([music](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#music)),
+  a defect of Galaxy's. DXEngine's song takes its own pans, speed and
+  tempo from its start (`MusicConsole`'s first pair: centred in the
+  original, each tone to its side in DXEngine).
 - Not carried, by choice: Galaxy's quirk with the Sound and Speech sliders
   equal, both kinds of sound scaled by the slider once more, everything at
   an eighth with both at half.
@@ -1838,13 +1850,11 @@ original's mean power in each channel over the same 6.5 s: Title,
 LibertyIsland, UNATCO, VersaLife and NavalBase (Title, the menu map's own,
 -12.0 and -13.5 dB in two runs of the original, -12.0 in DXEngine);
 BatteryPark's from its onset -16.3 dB in the original, -16.4 in DXEngine.
-Differs (bugs.md AUD.15): the music is heard as it changes, where the
-original's comes some 0.9 s after its sounds. Differs (bugs.md AUD.16): a
-song started past its first order takes its pans, speed and tempo from its
-start, and a loop keeps the pans its patterns set, where Galaxy's sets them
-only at order 0; a section is reached by playing the song to it, where
-Galaxy's silences the voices and plays on from there; the music is not held
-to 16 bits before the sounds are added.
+Differs (bugs.md AUD.16): a loop keeps the pans the song's patterns set,
+where Galaxy's gives each channel the song's own pan again as it enters
+order 0; a section is reached by playing the song to it, where Galaxy's
+silences the voices and plays on from there; the music is not held to 16
+bits before the sounds are added.
 
 ## Implemented, not as the original
 
@@ -2962,17 +2972,25 @@ client: the connection closed, the client back on Entry by
 
 - **The net driver** is DXEngine's own, by choice, over UDP with
   `[IpDrv.TcpNetDriver]`'s timeouts; the connection, its channels and the
-  handshake are the original's, and so is its socket: broadcast and address
-  reuse on, 32 KB buffers for a client's and 128 KB for a server's, a
-  server's port the URL's or the next free of the 20 from it, or with
-  `PORT=` on the command line that port alone, its address every one of the
-  machine's but the one `MULTIHOME=` names or, with `-PRIMARYNET`, the first
-  of the machine's own name (`ServeConsole` with `PORT=7795`, then with
-  `MULTIHOME=127.0.0.1`: the serving URL's address `0.0.0.0:7795`, then
-  `127.0.0.1` with no port, alike in both engines); a server's host name is looked up on a
-  thread, the game going on; `GETPING` and `GETLOSS` answer the server
-  connection's best lag of the last second in ms and its incoming packet
-  loss in percent, as the original's do.
+  handshake are the original's, but for the challenge's check (below), and
+  so is its socket: broadcast and address reuse on, 32 KB buffers for a
+  client's and 128 KB for a server's, a server's port the URL's or the next
+  free of the 20 from it, or with `PORT=` on the command line that port
+  alone, its address every one of the machine's but the one `MULTIHOME=`
+  names or, with `-PRIMARYNET`, the first of the machine's own name
+  (`ServeConsole` with `PORT=7795`, then with `MULTIHOME=127.0.0.1`: the
+  serving URL's address `0.0.0.0:7795`, then `127.0.0.1` with no port, alike
+  in both engines); a server's host name is looked up on a thread, the game
+  going on; `GETPING` and `GETLOSS` answer the server connection's best lag
+  of the last second in ms and its incoming packet loss in percent, as the
+  original's do.
+- **The challenge's check**: a login whose answer to the challenge is wrong
+  is refused, by choice, where the original's server compares the answer
+  with whether the right one is 0, a slip, and so refuses only a missing
+  answer or a 0
+  ([joining](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md#joining)).
+  DXEngine's makes the comparison the original's means, which a login that
+  never saw the challenge fails; no stock client answers wrong.
 - **`InternetLink.GetLocalIP`** answers the address this machine reaches the
   network from (a UDP socket's local end toward 8.8.8.8; 127.0.0.1 with no
   route), by choice, where the original answers the first address of the
@@ -3105,13 +3123,11 @@ Differs (bugs.md NET.13): in a URL a `/` is a character of a map's name or
 an option's value (`?Name=AC/DC` keeps its slash), `#` alone marking the
 portal, where the original's takes a `/` in the map's part for the portal's
 mark, and no URL is refused, where the original's refuses a blank in an
-option (`OpenLineConsole`). Differs (bugs.md NET.18): a login whose
-challenge response is wrong is refused, where the original's refuses a
-response of 0 alone. Differs (bugs.md NET.19): a server's `UPGRADE` ends the
-join with an error, where the original's shows its progress alone; the
-handshake's values are read at any length, where Core's `Parse` holds `URL=`
-to 1,023 characters and `PKG=` to 63, and `VER=` and `LONE=` not by its
-number and bool forms; an arriving player takes its travel info on a
+option (`OpenLineConsole`). Differs (bugs.md NET.19): a server's `UPGRADE`
+ends the join with an error, where the original's shows its progress alone;
+the handshake's values are read at any length, where Core's `Parse` holds
+`URL=` to 1,023 characters and `PKG=` to 63, and `VER=` and `LONE=` not by
+its number and bool forms; an arriving player takes its travel info on a
 relative travel alone, and a client's travel leaves out a player whose
 replication info has not come, where the original's reads it. Differs
 (bugs.md NET.20): a `TcpLink` whose `BindPort` failed goes on as any other;
