@@ -1711,10 +1711,10 @@ it. Differs:
 - **Full screen in a Wayland session**, a size chosen is drawn at its size
   and scaled to the display by the compositor, the display's mode as it was,
   by choice: Wayland lets no program switch the display's mode.
-- **Full screen on another display** (bugs.md D.48): a window moved off the
-  primary display goes full screen on the display it is on, Screen
-  Resolution offering that display's modes, where the original's goes to
-  the primary display wherever the window was
+- **Full screen on another display**: a window moved off the primary
+  display goes full screen on the display it is on, Screen Resolution
+  offering that display's modes, by choice, as a desktop program does,
+  where the original's goes to the primary display wherever the window was
   ([the display](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-display)).
 - **Detail Textures** draws the world's detail textures as `D3DDrv`'s passes
   draw them, all three in the scene shader's one pass
@@ -2901,7 +2901,11 @@ A mod gets the original's loader and natives:
   and ten of the game's maps and the original's saves carry, and its surfaces
   and brush polygons the editor's `PF_Highlighted`, as the original's load
   clears them; a tag's element index past 16,383 is written in four bytes, as
-  the original writes it; a script's Unicode string constant of more than
+  the original writes it; a tag of exactly 65,536 bytes is written with its
+  size, by choice, where the original's writer gives it the size 0, which
+  no load reads back
+  ([packages](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)),
+  no stock property being that large; a script's Unicode string constant of more than
   one character loads on the Linux ports; an expression 1,024 deep loads
   (`DepthConsole`'s 100); a mesh whose faces run past its vertices or wedges
   loads, those faces passed over; a mesh DXEngine saves loads back; a palette short of 256 colours is
