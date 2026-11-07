@@ -1984,6 +1984,17 @@ void Engine::SetMultiplayerName(UnrealURL& url)
 		url.AddOrReplaceOption("Name=DXEnginePlayer");
 }
 
+// A player logged in with no net driver -- single player, the Entry level
+// -- is made an admin, and with -alladmin any player, a server's too, as the
+// original's SpawnPlayActor makes one after its roles (Engine.dll
+// 0x103971ad), the game's Login having set it by the admin password: never
+// unmade here. So the player's admin command runs in single player.
+static void MakeAdmin(UPlayerPawn* pawn, bool netDriver)
+{
+	if (!netDriver || OriginalCommandLine::Get().Param("alladmin"))
+		pawn->bAdmin() = true;
+}
+
 void Engine::LoginPlayer(const UnrealURL& loginURL)
 {
 	// A listen server's host is a player of the net game too.
@@ -2033,6 +2044,7 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 	pawn->RemoteRole() = ROLE_SimulatedProxy;
 	pawn->ShowFlags() = 0x480c;
 	pawn->RendMap() = 5;
+	MakeAdmin(pawn, LevelNetDriver != nullptr);
 
 	// Transfer travel actors to the new map
 
@@ -2487,6 +2499,7 @@ UPlayerPawn* Engine::SpawnPlayActor(UObject* player, uint8_t remoteRole, const U
 	pawn->RemoteRole() = remoteRole;
 	pawn->ShowFlags() = 0x480c;
 	pawn->RendMap() = 5;
+	MakeAdmin(pawn, LevelNetDriver != nullptr);
 
 	CallEvent(pawn, EventName::TravelPreAccept);
 	AcceptTravel(pawn, url);

@@ -9,6 +9,7 @@
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Actors/Info/UGameInfo.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+#include "Packages/Engine/Actors/Inventory/UWeapon.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Subsystems/UDXEngineAudioDevice.h"
@@ -418,14 +419,12 @@ void UActor::Tick(float elapsed)
 	// it leaves them (TickAnimation)
 	TickAnimation(elapsed);
 
-	// Copies tick as the original's do by their roles: a pawn that is a
-	// simulated proxy, whatever the net mode (AActor::Tick 0x103a1fd2) --
-	// on a client another player's pawn -- moves along its velocity
+	// Copies tick as the original's do, by their roles alone, whatever the
+	// net mode: a pawn that is a simulated proxy (AActor::Tick 0x103a1fd2)
+	// -- on a client another player's pawn -- moves along its velocity
 	// (moveSmooth, its bJustTeleported kept, 0x103a2172), falling at half
 	// the zone's gravity when off the ground, and runs its Tick, nothing
-	// more; in a net game a dumb proxy only falls; the local player's
-	// physics run in its own moves (AutonomousPhysics), not here.
-	bool netGame = Level()->NetMode() != NM_Standalone;
+	// more.
 	if (Role() == ROLE_SimulatedProxy && bIsPawn())
 	{
 		if (UPawn* pawn = UObject::TryCast<UPawn>(this))
@@ -447,16 +446,37 @@ void UActor::Tick(float elapsed)
 			return;
 		}
 	}
-	if (netGame && Role() < ROLE_SimulatedProxy)
+
+	// An actor whose remote role is autonomous (0x103a23ce) -- on a server a
+	// client's own pawn, whose Player is its connection; a viewport's player
+	// is spawned with the remote role simulated (0x1038bf92) -- runs its
+	// state code and timer, nothing more: it moves by the client's moves
+	// (ServerMove). With any role but the authority it runs none of it
+	// (0x103a23de). A player viewing a pawn first takes that pawn's view
+	// rotation, eye height and weapon's offset (0x103a23e6-0x103a249c),
+	// which go to its client for PlayerCalcView to put on the pawn there:
+	// with no weapon the offset stays as it was.
+	bool clientsPawn = RemoteRole() == ROLE_AutonomousProxy;
+	if (clientsPawn)
+	{
+		if (Role() != ROLE_Authority)
+			return;
+		UPlayerPawn* viewer = UObject::TryCast<UPlayerPawn>(this);
+		if (UPawn* viewed = viewer ? UObject::TryCast<UPawn>(viewer->ViewTarget()) : nullptr)
+		{
+			viewer->TargetViewRotation() = viewed->ViewRotation();
+			viewer->TargetEyeHeight() = viewed->EyeHeight();
+			if (UWeapon* weapon = viewed->Weapon())
+				viewer->TargetWeaponViewOffset() = weapon->PlayerViewOffset();
+		}
+	}
+	// Else a dumb proxy only falls (0x103a2524).
+	else if (Role() < ROLE_SimulatedProxy)
 	{
 		if (Physics() == PHYS_Falling)
 			TickPhysics(elapsed);
 		return;
 	}
-
-	// A server's copy of a client's own pawn runs its state code and timer,
-	// nothing more: it moves by the client's moves (ServerMove).
-	bool clientsPawn = netGame && Role() == ROLE_Authority && RemoteRole() == ROLE_AutonomousProxy;
 
 	// Deus Ex's local player reads its input and runs PlayerTick here, before
 	// its state code and physics, in place of Tick, as the original's actor
@@ -476,11 +496,21 @@ void UActor::Tick(float elapsed)
 		// The pending latent action ticks first, then the state code runs,
 		// as the original's ProcessState (Engine.dll 0x103e5b60) follows the
 		// animation and the script's Tick: a Tick, an AnimEnd or a notify
-		// that changes state or the move's goal moves the pawn by it at once
-		if (!bDeleteMe())
+		// that changes state or the move's goal moves the pawn by it at once.
+		// Both with the authority, or in a simulated state alone
+		// (0x103e5b9c-0x103e5ba9): a proxy in any other state -- on a client
+		// its own player's pawn too -- neither counts down its latent action
+		// nor runs its code.
+		bool runs = Role() == ROLE_Authority;
+		if (!runs)
+		{
+			UState* state = UObject::TryCast<UState>(StateFrame->State);
+			runs = state && AllFlags(state->StateFlags, ScriptStateFlags::Simulated);
+		}
+		if (runs && !bDeleteMe())
 			PollLatentAction(elapsed);
 
-		if (Role() >= ROLE_SimulatedProxy && StateFrame->LatentState == LatentRunState::Continue)
+		if (runs && StateFrame->LatentState == LatentRunState::Continue)
 		{
 			StateFrame->Tick();
 		}
@@ -517,7 +547,9 @@ void UActor::Tick(float elapsed)
 	if (bDeleteMe())
 		return;
 
-	if (!(netGame && Role() == ROLE_AutonomousProxy) && !clientsPawn)
+	// An autonomous proxy -- on a client its own player's pawn -- has its
+	// physics in its own moves (AutonomousPhysics), not here (0x103a2763).
+	if (Role() != ROLE_AutonomousProxy && !clientsPawn)
 		TickPhysics(elapsed);
 }
 

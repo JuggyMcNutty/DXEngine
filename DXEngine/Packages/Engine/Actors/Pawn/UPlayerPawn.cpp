@@ -93,8 +93,9 @@ void UPlayerPawn::RemoveAdditionalView(UActor* actor)
 bool UPlayerPawn::TickInput(float elapsed)
 {
 	// A server's copy of a client's pawn reads no input here; the client
-	// does, and sends its moves.
-	bool clientsPawn = Level()->NetMode() != NM_Standalone && Role() == ROLE_Authority && RemoteRole() == ROLE_AutonomousProxy;
+	// does, and sends its moves. Told by its roles alone, as the original's
+	// actor tick tells it (Engine.dll 0x103a23ce).
+	bool clientsPawn = Role() == ROLE_Authority && RemoteRole() == ROLE_AutonomousProxy;
 	if (Role() < ROLE_SimulatedProxy || clientsPawn || !Player() || UObject::TryCast<UCamera>(this))
 		return false;
 

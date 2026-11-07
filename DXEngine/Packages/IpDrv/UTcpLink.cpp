@@ -51,6 +51,14 @@ void UTcpLink::ActorDestroyed()
 	handle = invalid_socket_value;
 }
 
+// The socket BindPort makes, as the original's (ATcpLink::execBindPort,
+// IpDrv.dll 0x10706960): address reuse on, and its close abortive -- SO_LINGER
+// on with 0 s (0x10706a22) --, so closing it resets the connection it holds
+// where a FIN would end it: a link destroyed while connected, one whose peer
+// closed first, and a scripted Close, whose shutdown has sent its FIN
+// first (ShutdownConnection). The connections a listening link accepts
+// inherit it. An option that does not set fails the bind, the socket
+// closed, as the original's.
 bool UTcpLink::EnsureSocket()
 {
 	if (handle != invalid_socket_value)
@@ -59,10 +67,22 @@ bool UTcpLink::EnsureSocket()
 	if (handle == invalid_socket_value)
 	{
 		LastError = LastSocketError();
+		LogMessage("BindPort: socket failed");
 		return false;
 	}
 	int on = 1;
 	setsockopt(handle, SOL_SOCKET, SO_REUSEADDR, (const char*)&on, sizeof(on));
+	linger abortive = {};
+	abortive.l_onoff = 1;
+	abortive.l_linger = 0;
+	if (setsockopt(handle, SOL_SOCKET, SO_LINGER, (const char*)&abortive, sizeof(abortive)) != 0)
+	{
+		LastError = LastSocketError();
+		LogMessage("BindPort: setsockopt failed");
+		CloseSocket(handle);
+		handle = invalid_socket_value;
+		return false;
+	}
 	SetNonBlocking(handle);
 	Socket() = (int)handle;
 	return true;
@@ -96,6 +116,18 @@ void UTcpLink::Tick(float elapsed)
 		PollConnections();
 		if (FlushSendBuffer() == 0)
 			ShutdownConnection();
+		break;
+	case STATE_ListenClosing:
+	case STATE_ConnectClosing:
+		// What the peer sends after the FIN read and let go, no event raised,
+		// as the original's closing link takes it (LingerConsole: no
+		// ReceivedText of the peer's bye), so its end is found as it comes
+		if (DataSocket() != invalid_socket_value && Readable(DataSocket()))
+		{
+			char data[1000];
+			if (recv(DataSocket(), data, sizeof(data), MSG_PEEK) > 0)
+				(void)recv(DataSocket(), data, sizeof(data), 0);
+		}
 		break;
 	default:
 		break;
@@ -300,6 +332,10 @@ void UTcpLink::ShutdownConnection()
 		CallEvent(this, "Closed");
 		return;
 	}
+	// The sending side shut, a FIN, the link reading on until the peer's
+	// end (the tick reads a closing link), then closed -- abortively -- with
+	// Closed: as the original's under Wine, whose closing link takes the
+	// peer's last words and closes as its end comes (LingerConsole).
 	socket_t s = DataSocket();
 	if (s != invalid_socket_value)
 		shutdown(s, SHUT_WR);
@@ -316,9 +352,7 @@ int UTcpLink::BindPort(int port, bool bUseNextAvailable)
 		return 0;
 	}
 	int bound = 0;
-	if (!EnsureSocket())
-		LogMessage("BindPort: socket failed");
-	else if ((bound = BindSocket(handle, port, bUseNextAvailable)) == 0)
+	if (EnsureSocket() && (bound = BindSocket(handle, port, bUseNextAvailable)) == 0)
 	{
 		LastError = LastSocketError();
 		LogMessage("BindPort: bind failed");

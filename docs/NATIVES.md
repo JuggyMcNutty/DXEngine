@@ -2736,6 +2736,8 @@ What DXEngine does with each:
 - **`-lanplay`**: a dedicated server ticking at `LanServerMaxTickRate`, as
   `--lanplay`
   ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md#packets)).
+- **`-alladmin`**: every player an admin, a server's clients too, as the
+  original's `SpawnPlayActor` makes them ([multiplayer](#multiplayer)).
 - **`PORT=`, `MULTIHOME=` and `-PRIMARYNET`**: a server's port, and the
   address a net socket binds, as the original's net driver takes them
   ([multiplayer](#multiplayer)).
@@ -3062,7 +3064,8 @@ through `Pawn.ClientHearSound`
 as client and as server: `ServeConsole`, `JoinConsole`, `RejoinConsole`,
 `TravelServeConsole`, `TravelJoinConsole`, `NetConsole`, `PickServer` with
 `PickJoinConsole`, `AskServer` with `AskJoinConsole`, `AnimEndServeConsole`
-with `AnimEndJoinConsole`. DXEngine joins live
+with `AnimEndJoinConsole`, `ViewServeConsole` with `ViewJoinConsole`.
+DXEngine joins live
 public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
 stays in. A replicated string goes as the original's does, 16-bit when a
 character in it is past 0xFF, else 8-bit (`JoinConsole`: its player renamed
@@ -3235,6 +3238,34 @@ As in the original:
   physics --, whatever the net mode, as the original's actor tick has it
   (`SimRoleConsole`: a pawn made one in single player moves 120 units in
   3 s, its timer, state code and life span never run, in both engines).
+- Every other actor ticks by its roles alone too, whatever the net mode, as
+  the original's actor tick has them
+  ([ticking by role](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md#replication)):
+  a dumb proxy only falls; an autonomous proxy -- a client's own player --
+  moves only in its moves; a proxy runs its state code, and counts down its
+  latent action, in a simulated state alone, so a client runs none of its
+  player's, a weapon's or a mover's other state code; an actor whose remote
+  role is autonomous -- a server's copy of a client's pawn -- runs its state
+  code and timer alone, and with any role but the authority nothing
+  (`RoleGatesConsole`: in single player each kind's ticks, timers, state
+  code passes, moves and expiry alike in both engines, the one made a proxy
+  mid-sleep waking half a second after it has the authority again). A
+  viewport's player has the remote role simulated, so single player is
+  untouched.
+- A server's copy of a client's player viewing a pawn takes that pawn's view
+  rotation, eye height and weapon's `PlayerViewOffset` into its
+  `TargetViewRotation`, `TargetEyeHeight` and `TargetWeaponViewOffset` each
+  tick, the offset kept while the pawn holds no weapon, as the original's
+  server does; they go to the client, whose `PlayerCalcView` puts them on
+  its copy of the viewed pawn (`RoleGatesConsole`'s viewers;
+  `ViewServeConsole` with `ViewJoinConsole`, each engine the server and the
+  other's client: the targets the host's on both sides).
+- A player logged in with no net driver -- in single player, or waiting in
+  the Entry level -- is an admin, and with `-alladmin` every player, a
+  server's host and its clients too, as the original's `SpawnPlayActor`
+  makes them, so `admin <command>` runs in single player (`AdminConsole`,
+  plain and with `-alladmin`; `ViewServeConsole`'s joined player with
+  `-alladmin`, alike in both engines).
 - **A dedicated server** makes each joining player's own root window, as the
   original's `Possess` does, and lays its windows out on the base 640 by
   480, having no viewport, its windows' scripts measuring with the GC as it
@@ -3278,6 +3309,15 @@ As in the original:
   the link bound to port 1 alike in both engines, its string still `kept`;
   the queued `lost` and `early` never sent; the 600 characters read as 255,
   255 and 90; `ss` showing the listen's backlog 1).
+- A `TcpLink`'s connection ends as the original's: `BindPort` makes its
+  socket's close abortive (`SO_LINGER` on, 0 s), so a link destroyed while
+  connected resets its connection; `Close`, once the queue is sent, ends
+  its side and goes on taking what the peer sends, raising nothing for it,
+  until the peer's end comes, then closes the link and raises `Closed`
+  ([the script's links](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/ipdrv-dll.md#the-scripts-links);
+  `LingerConsole` with `lingerpeer.py`: the destroyed link's peer reset;
+  the closed link's peer reading the end, its `bye` sent, the link closed
+  as the peer's end came, 2.02 s after opening, in both engines).
 - A server of another version's `UPGRADE` is shown as the original's
   pending level shows it: for a `MINVER` above 1100 the player's upgrade
   menu (`ShowUpgradeMenu`, empty in the stock game), else `Connection
@@ -3305,17 +3345,15 @@ As in the original:
 A client's travel with its items, its
 player's replication info not come yet, leaves the player out, by choice:
 the original's export reads the info regardless and faults (Engine.dll
-`0x10390951`). Differs (bugs.md NET.21): state code runs for a proxy in
-any state, and the tick tests the net mode for a dumb proxy's fall and a
-client's pawn, where the original's tests the roles alone. Differs (bugs.md
-NET.22): a spectating client's view targets are never filled, so it looks
-from rotation 0. Differs (bugs.md NET.23): no player is made admin, where
-the original's makes one in single player or with `-alladmin`; a `TcpLink`
-closes gracefully, the original's abortively. Differs (bugs.md NET.24): a
-map loaded again is made anew, where the original's keeps its level's
-objects; a URL of another protocol is joined, where the original's opens it
-in the browser; `?load=N` loads a save's slot; a URL is kept whole, the
-original's to 1,023 characters.
+`0x10390951`). Differs (bugs.md NET.24): a map loaded again is made anew,
+where the original's keeps its level's objects; a URL of another protocol
+is joined, where the original's opens it in the browser; `?load=N` loads a
+save's slot; a URL is kept whole, the original's to 1,023 characters.
+Differs (bugs.md NET.25): a paused listen server reads the host's input into
+the remote players' pawns too, and an actor's pending touch runs with no
+physics. Differs (bugs.md NET.26): a proxy whose life span runs out is
+destroyed, where the original's refuses to destroy it, so its `Expired`
+comes again each tick (`RoleGatesConsole`).
 
 ## Not needed for single player
 
