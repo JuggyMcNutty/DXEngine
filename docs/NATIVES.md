@@ -630,19 +630,32 @@ the intro's scenes at 1024x768 some 92 degrees across, the original's 75
 Matches the original
 ([the depth](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-screens-pixels)):
 what lies nearer than a unit before the eye is cut at view depth 1 on every
-device, as `D3DDrv` cuts it, its depth under 0, where `Render.dll` clips a
-frame at the view's four sides alone, which meet at the eye, and hands it
-over
+device and in every frame, a mirror's too, as `D3DDrv` cuts it, its depth
+under 0, where `Render.dll` clips a frame at the view's four sides alone,
+which meet at the eye, and hands it over
 ([which faces are drawn](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#meshes)):
 `NearConsole`'s quad half a unit before the eye drawn by none, the slanted
 one cut at the screen's middle row, by `D3DDrv` and by the Vulkan, GL, GL ES
 and software devices alike, where Vulkan's and GL's depth clamp drew both
 whole. A mesh corner within a unit of the eye is drawn where it is, by
 choice, where `Render.dll` skips projecting it and draws it at the screen
-place and depth last left in memory, a stray vertex. Differs (bugs.md
-REN.42): Vulkan, GL and GL ES clip past 32,768 units, the software device
-and D3D11 draw past it, where `D3DDrv` clips at 32,767, and at 8,192 at its
-16-bit colour.
+place and depth last left in memory, a stray vertex. What lies past 32,769
+units is cut on every device, as `D3DDrv` cuts it at 32-bit colour, its
+depth over 1: each keeps F ÷ (F − 1) as a float, 1 + 1/32,768, for
+`D3DDrv`'s F of 32,767 and DXEngine's 32,768 alike. No stock view reaches
+it: the farthest surface a player sees lies some 24,000 units off, across
+Liberty Island, whose start's view Vulkan, GL, GL ES, the software device
+and D3D11 draw as `D3DDrv` does in a window, each within 1% of its frame's
+brightness (`FarConsole`).
+
+Differs by choice: DXEngine draws at 32-bit colour whatever the Texture
+Color Depth ([the menus' settings](#the-menus-settings)), and so as far as
+`D3DDrv` does at 32 bits. `D3DDrv` at 16-bit colour, full screen at the
+game's own setting, cuts what lies past 8,193 units, which a view passes on
+19 of the stock maps and in Hong Kong's skies -- a band of Liberty Island's
+first view, the Statue of Liberty itself gone from the original's frame at
+16 bits and there at 32 (`FarConsole` full screen at both) -- and draws the
+first-person weapon with its near plane at a quarter of a unit.
 
 ### Tiles
 
@@ -923,7 +936,13 @@ first person. `MirrorConsole`, at 4:3, on GL and on Vulkan:
   `BreakableGlass0`, an opaque one, its reflection, the frame's middle, at a
   correlation of 0.985 to `D3DDrv`'s frame, and on 02_NYC_Smug's
   `DeusExMover7`, a translucent one, 0.997; `OpeningConsole`'s view of the
-  club, a doorway's glass in it, 0.987 over the frame.
+  club, a doorway's glass in it, 0.987 over the frame. A face the tracker
+  files nowhere, in solid, opens no frame, as the original's walk never
+  meets it: 06_HongKong_WanChai_Underworld's six glass faces buried in
+  solid, `BreakableGlass9` to `14`, passed over, the three beside them that
+  the tracker files still reflecting (`FarConsole` turned to them from the
+  start: three mover mirror frames a scene, where two buried ones made it
+  five, counted by a tool not kept), the frame unchanged.
 
 Differs by choice:
 
@@ -956,9 +975,16 @@ the eye's line in its normals in the world's axes, as the original's
 bytes ÷ 256 of the texture's size: `FaceConsole`'s UNATCO troop at a
 correlation of 0.997 to `D3DDrv`'s frame, its chest 0.999.
 A budget past an int's range (a script's `LODBias` or `DrawScale`) is held
-to the mesh's vertices. Differs (bugs.md REN.40): a plain mesh's back faces
-are drawn, where the original culls them, a translucent or open one showing
-its far side.
+to the mesh's vertices. A plain mesh's face turned away is culled unless it
+is two-sided, as the original's `DrawMesh` culls it whatever `bMeshCurvy`,
+and its weapon triangle is not drawn
+([which faces are drawn](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#meshes)):
+`MeshConsole` with `Plain`, `DXText`'s one-sided quad unseen from behind in
+both engines, the frame there at a correlation of 0.990 to `D3DDrv`'s
+(0.112 while DXEngine drew the quad's back), and its front alike, 1.000;
+`IonStormLogo` drawn translucent showing its near side alone, 0.998 (0.975,
+1.37 times as bright, while DXEngine drew its far side too). Five of the
+game's meshes are plain: the menu maps' logos and text, and the fly.
 
 ### Lighting
 

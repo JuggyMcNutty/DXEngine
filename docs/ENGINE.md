@@ -605,11 +605,11 @@ what is recorded before it lets the textures go; and a quad's lanes outside its 
 where one inside does, so a draw reads no texel but its pixels'.
 
 - **Triangles**, as the Vulkan device's: each in clip space by its scene node's transforms,
-  clipped where a corner lies behind the node's clip plane (every frame's near plane at view z
-  1, as every device's, and a mirror's plane in a mirror's frame) or outside a guard band of
-  8192 pixels (the frame
-  kept within it: a window over 8000 pixels a side is drawn smaller and scaled up at the
-  present), and held to the viewport; a polygon a fan, (0, i - 1, i). Snapped to 1/256 pixel,
+  clipped at the near and far planes (z/w from 0 to 1, view z 1 to 32,769, in every frame, as
+  every device clips), where a corner lies behind the node's clip plane (a mirror's plane in a
+  mirror's frame) or outside a guard band of 8192 pixels (the frame kept within it: a window
+  over 8000 pixels a side is drawn smaller and scaled up at the present), and held to the
+  viewport; a polygon a fan, (0, i - 1, i). Snapped to 1/256 pixel,
   its pixels by the top-left rule, as RADV and lavapipe cover them; its attributes over w, at
   each pixel's centre. Depth float, tested LEQUAL, clamped to the pipeline's range (the scene's
   0.1 to 1, a line not depth cued 0 to 0.1); a mover's surfaces biased as the Vulkan device

@@ -108,8 +108,11 @@ namespace
 	}
 
 	// The planes a primitive is clipped against, each a function of a vertex
-	// not negative inside: the scene node's clip plane, w above nothing, and
-	// the guard band's four sides, on x/w and y/w
+	// not negative inside: the scene node's clip plane, w above nothing, the
+	// guard band's four sides, on x/w and y/w, and the near and far planes,
+	// z/w from 0 to 1, in every frame, a mirror's too, as the GPU devices clip
+	// the depth and D3DDrv's under 0 and over 1 is cut (dx-reverse-info
+	// d3ddrv-dll.md, the screen's pixels)
 	struct ClipPlanes
 	{
 		float Left, Right, Top, Bottom;
@@ -124,7 +127,7 @@ namespace
 			Bottom = (ClipGuardBand - state.ViewportY - halfHeight) / halfHeight;
 		}
 
-		static constexpr int Count = 6;
+		static constexpr int Count = 8;
 
 		float Distance(const ClipVertex& v, int plane) const
 		{
@@ -135,7 +138,9 @@ namespace
 			case 2: return v.Clip.x - Left * v.Clip.w;
 			case 3: return Right * v.Clip.w - v.Clip.x;
 			case 4: return v.Clip.y - Top * v.Clip.w;
-			default: return Bottom * v.Clip.w - v.Clip.y;
+			case 5: return Bottom * v.Clip.w - v.Clip.y;
+			case 6: return v.Clip.z;
+			default: return v.Clip.w - v.Clip.z;
 			}
 		}
 
@@ -159,7 +164,7 @@ namespace
 	}
 
 	// A convex polygon clipped against each plane in turn (Sutherland and
-	// Hodgman): the vertices left, at most 3 + 6 of a triangle's
+	// Hodgman): the vertices left, at most 3 + 8 of a triangle's
 	constexpr int MaxClipVertices = 16;
 
 	int ClipPolygon(ClipVertex* vertices, int count, ClipVertex* scratch, const ClipPlanes& planes)

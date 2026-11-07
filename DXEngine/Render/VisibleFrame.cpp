@@ -98,7 +98,12 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const 
 // all of the face the frame shows: the depth test leaves out what lies in
 // front of it. Each face a frame of its own, three frames deep at most; one
 // seen from behind passed over, and a translucent one reflecting only while
-// the render device's ShinySurfaces is on, as the BSP's mirrors.
+// the render device's ShinySurfaces is on, as the BSP's mirrors. A face the
+// brush tracker dropped whole, in solid or for want of room, lies in no node
+// of the BSP: the original's walk never meets it, and it opens none, as it
+// is not drawn (VisibleBrush::DrawBrushPoly). Six of the stock maps' 24
+// mirrored mover faces are so, glass buried in solid on
+// 06_HongKong_WanChai_Underworld.
 void VisibleFrame::ProcessMoverMirrors()
 {
 	if (PortalDepth >= 3)
@@ -110,11 +115,18 @@ void VisibleFrame::ProcessMoverMirrors()
 		if (mover->bDeleteMe() || (!mover->Filed && mover->bHidden()) || mover->DrawType() != DT_Brush || !mover->Brush() || !mover->Brush()->Polys)
 			continue;
 
+		// Its polygons as the tracker last filed them; none for a mover it
+		// does not file (spawned after the load)
+		const Array<Array<BrushTracker::FiledFragment>>* filed = engine->Level->Collision.FiledFragments(mover);
+		const Array<Poly>& polys = mover->Brush()->Polys->Polys;
 		mat4 toWorld = VisibleBrush::MoverToWorld(mover);
-		for (const Poly& poly : mover->Brush()->Polys->Polys)
+		for (size_t index = 0; index < polys.size(); index++)
 		{
+			const Poly& poly = polys[index];
 			uint32_t flags = poly.PolyFlags;
 			if (!(flags & PF_Mirrored) || (flags & PF_Invisible) || poly.Vertices.size() < 3 || poly.Vertices.size() > 32)
+				continue;
+			if (filed && index < filed->size() && (*filed)[index].empty())
 				continue;
 			if ((flags & PF_Translucent) && !engine->renderdev->ShinySurfaces)
 				continue;

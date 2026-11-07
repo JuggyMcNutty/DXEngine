@@ -662,7 +662,11 @@ void D3D11RenderDevice::CreateScenePass()
 		rasterizerDesc.FillMode = D3D11_FILL_SOLID;
 		rasterizerDesc.CullMode = D3D11_CULL_NONE;
 		rasterizerDesc.FrontCounterClockwise = FALSE;
-		rasterizerDesc.DepthClipEnable = FALSE; // Avoid clipping the weapon. The UE1 engine clips the geometry anyway.
+		// Clipped at the near and far planes, as D3DDrv's depth under 0 and
+		// over 1 is cut (dx-reverse-info d3ddrv-dll.md, the screen's pixels),
+		// as on the Vulkan and GL devices: past 32,769 units, the float
+		// projection's far plane, as D3DDrv's at 32-bit colour
+		rasterizerDesc.DepthClipEnable = TRUE;
 		rasterizerDesc.MultisampleEnable = i == 1 ? TRUE : FALSE;
 		HRESULT result = Device->CreateRasterizerState(&rasterizerDesc, ScenePass.RasterizerState[i].TypedInitPtr());
 		ThrowIfFailed(result, "CreateRasterizerState(ScenePass.Pipelines.RasterizerState) failed");

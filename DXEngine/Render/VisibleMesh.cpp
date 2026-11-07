@@ -348,7 +348,14 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 	if (actor->bNoSmooth()) polyflags |= PF_NoSmooth;
 	if (actor->bSelected()) polyflags |= PF_Selected;
 	if (actor->bMeshEnviroMap()) polyflags |= PF_Environment;
-	if (actor->bMeshCurvy()) polyflags |= PF_Flat;
+	// Every face PF_Flat, whatever bMeshCurvy: the original's actor flags
+	// give it unless bMeshCurvy (Render.dll 0x10b26284), but its DrawMesh
+	// ORs it into the flags it is given (0x10b0d1c9), a LOD mesh's too before
+	// it goes on to DrawLodMesh. The plain mesh's cull reads it (below), and
+	// the face's draw, which would cut a face without it, a curved mesh's,
+	// into four (0x10b0bc13), so never does; D3DDrv and our devices read none
+	// of it.
+	polyflags |= PF_Flat;
 	if (actor->bNoSmooth()) polyflags |= PF_NoSmooth;
 	// Unlit as the original's actor flags have it (Render.dll 0x10b2628c-
 	// 0x10b262b7): bUnlit, an actor in zone 0, or a frame not lit, the
@@ -423,6 +430,12 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 	GouraudVertex vertices[3];
 	for (const MeshTri& tri : mesh->Tris)
 	{
+		// A face of its own PF_Invisible is the weapon triangle, which the
+		// original's DrawMesh takes for the weapon's place and never draws
+		// (Render.dll 0x10b0e329)
+		if (tri.PolyFlags & PF_Invisible)
+			continue;
+
 		if ((size_t)tri.TextureIndex >= mesh->Textures.size())
 			continue;
 
@@ -516,9 +529,11 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 			normals[i] = normalize(ObjectNormalToWorld * normal);
 		}
 
-		// The original's DrawMesh culls a face that faces away only when its
-		// own flags are PF_Flat without PF_TwoSided or PF_Invisible
-		if ((tri.PolyFlags & (PF_Flat | PF_TwoSided | PF_Invisible)) == PF_Flat && !FacesEye(vertices, eye))
+		// The original's DrawMesh culls a face that faces away when its own
+		// flags with the actor's are PF_Flat without PF_TwoSided or
+		// PF_Invisible (Render.dll 0x10b0dbac, 0x10b0dc8a): every face but a
+		// two-sided one, the actor's flags holding PF_Flat
+		if (((tri.PolyFlags | polyflags) & (PF_Flat | PF_TwoSided | PF_Invisible)) == PF_Flat && !FacesEye(vertices, eye))
 			continue;
 
 		if (renderflags & PF_Environment)
@@ -652,7 +667,8 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 	if (actor->bNoSmooth()) polyFlags |= PF_NoSmooth;
 	if (actor->bSelected()) polyFlags |= PF_Selected;
 	if (actor->bMeshEnviroMap()) polyFlags |= PF_Environment;
-	if (actor->bMeshCurvy()) polyFlags |= PF_Flat;
+	// PF_Flat as DrawMeshDX's: the original's DrawMesh hands it on
+	polyFlags |= PF_Flat;
 	if (actor->bNoSmooth()) polyFlags |= PF_NoSmooth;
 	// Unlit as DrawMeshDX's
 	if (actor->bUnlit() || actor->Region().ZoneNumber == 0 || !engine->render->SceneLit) polyFlags |= PF_Unlit;

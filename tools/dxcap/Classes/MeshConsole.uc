@@ -17,7 +17,14 @@
 // each look logging the sequences and frames. With Extra (a class, as
 // DeusEx.Plant1) one more is placed 140 units ahead and 50 to the right,
 // before the crate, turned ExtraYaw from the view's way, and logged with
-// the rest. The pier's
+// the rest. With Plain (a mesh, as DeusExDeco.DXText) one more actor, a bare
+// Effects, is placed 120 units ahead at the eye's height, its mesh that one
+// alone, no skin, turned PlainYaw from the view's way, drawn in PlainStyle
+// (1 normal, 2 masked, 3 translucent, 4 modulated; else normal) at
+// PlainScale (else 1), unlit and still, logged with the rest: a plain
+// mesh's faces culled or not as the renderer culls them (dx-reverse-info
+// render-dll.md, meshes). DXText, a one-sided quad, shows its back at a
+// PlainYaw of 16384 and its front at -16384. The pier's
 // floor, compared in NATIVES.md (brightness), is two bands of a 1024x768
 // shot's planks, either side of Paul's feet: x 180 to 460 and 580 to 750,
 // y 640 to 760.
@@ -33,12 +40,16 @@ var config name HoldAnim;
 var config float HoldFrame;
 var config string Extra;
 var config int ExtraYaw;
+var config string Plain;
+var config int PlainYaw;
+var config int PlainStyle;
+var config float PlainScale;
 
 var float MapTime;
 var float StepTime;
 var int Phase;
 var int ShotsTaken;
-var Actor Placed[5];
+var Actor Placed[6];
 
 // The mark for the original's screen grabber, as CaptureConsole's.
 var int MarkShot;
@@ -60,6 +71,49 @@ function Actor Place(PlayerPawn P, class<Actor> C, vector Where)
 	A = P.Spawn(C,,, Where, P.Rotation);
 	if (A == None)
 		Log("DXMESH: no room for " $ C $ " at " $ Where);
+	return A;
+}
+
+// Plain's mesh on a bare actor, R the view's way, X ahead
+function Actor PlacePlain(PlayerPawn P, rotator R, vector X)
+{
+	local Actor A;
+	local vector Where;
+	local int i;
+
+	Where = P.Location + X * 120 + vect(0,0,1) * P.BaseEyeHeight;
+	R.Yaw += PlainYaw;
+	A = P.Spawn(class'Effects',,, Where, R);
+	if (A == None)
+	{
+		Log("DXMESH: no room for " $ Plain $ " at " $ Where);
+		return None;
+	}
+	A.SetCollision(false, false, false);
+	A.bCollideWorld = false;
+	A.SetPhysics(PHYS_None);
+	A.LifeSpan = 0;
+	A.bHidden = false;
+	A.DrawType = DT_Mesh;
+	A.Mesh = Mesh(DynamicLoadObject(Plain, class'Mesh'));
+	A.Skin = None;
+	A.Texture = None;
+	for (i = 0; i < 8; i++)
+		A.MultiSkins[i] = None;
+	if (PlainStyle == 2)
+		A.Style = STY_Masked;
+	else if (PlainStyle == 3)
+		A.Style = STY_Translucent;
+	else if (PlainStyle == 4)
+		A.Style = STY_Modulated;
+	else
+		A.Style = STY_Normal;
+	if (PlainScale > 0)
+		A.DrawScale = PlainScale;
+	else
+		A.DrawScale = 1.0;
+	A.bUnlit = true;
+	A.SetRotation(R);
 	return A;
 }
 
@@ -169,6 +223,8 @@ event Tick(float Delta)
 					R.Yaw -= ExtraYaw;
 				}
 			}
+			if (Plain != "")
+				Placed[5] = PlacePlain(P, R, X);
 			if (LODBias > 0)
 				for (i = 0; i < 4; i++)
 					if (Placed[i] != None)
@@ -211,7 +267,7 @@ event Tick(float Delta)
 			}
 			else
 			{
-				for (i = 0; i < 5; i++)
+				for (i = 0; i < 6; i++)
 					if (Placed[i] != None)
 						LogLook("shot " $ ShotsTaken, Placed[i]);
 				P.ConsoleCommand("shot");

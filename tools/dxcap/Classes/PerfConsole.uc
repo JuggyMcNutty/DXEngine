@@ -3,7 +3,8 @@
 // (docs/DEVELOPMENT.md, scripted runs). The map is the ini's TargetMap
 // ([DXCapture.<console>]), Liberty Island by default, from its start: the
 // player left there with no input, invulnerable, its view held where the
-// start set it (PerfTurnConsole turns it).
+// start set it (PerfTurnConsole turns it), or with Face at FaceYaw and
+// FacePitch (the map's units, 65,536 a turn).
 //
 // From 15 s after the map is in, sixty one-second windows, each a "DXPERF:"
 // line: its span on the wall clock (milliseconds of the day, from the
@@ -19,6 +20,8 @@
 class PerfConsole extends Console;
 
 var config string TargetMap;
+var config bool Face;
+var config int FaceYaw, FacePitch;
 
 var string CurrentMap;
 var float MapTime;
@@ -217,6 +220,12 @@ event Tick(float Delta)
 		else if (MapTime > 1.0)
 		{
 			StartRot = P.ViewRotation;
+			if (Face)
+			{
+				StartRot.Yaw = FaceYaw;
+				StartRot.Pitch = FacePitch;
+				StartRot.Roll = 0;
+			}
 			ViewTime = 0;
 			Phase = 1;
 		}
