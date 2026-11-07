@@ -71,13 +71,29 @@ int NetChallengeResponse(int challenge)
 	return (int)((c * 237u) ^ (uint32_t)(challenge >> 16) ^ (c << 16) ^ 0x93fe92ceu);
 }
 
+// A line's command as Core's ParseCommand takes it (Core.dll 0x10147a20):
+// past any spaces and tabs, the word in any case and no ASCII letter or
+// digit straight after it; the rest of the line past the spaces and tabs
+// after it.
 bool NetParseCommand(const std::string& text, const char* command, std::string* rest)
 {
-	size_t length = strlen(command);
-	if (!EqualsIgnoreCase(text, 0, command) || (text.size() > length && text[length] != ' '))
+	auto blank = [&](size_t pos) { return pos < text.size() && (text[pos] == ' ' || text[pos] == '\t'); };
+	size_t pos = 0;
+	while (blank(pos))
+		pos++;
+	if (!EqualsIgnoreCase(text, pos, command))
 		return false;
+	pos += strlen(command);
+	if (pos < text.size())
+	{
+		char c = text[pos];
+		if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))
+			return false;
+	}
+	while (blank(pos))
+		pos++;
 	if (rest)
-		*rest = text.size() > length ? text.substr(length + 1) : std::string();
+		*rest = text.substr(pos);
 	return true;
 }
 
@@ -86,10 +102,46 @@ bool NetParseCommand(const std::string& text, const char* command, std::string* 
 // 0x10145ca0), so HELLO's VER= is not the one in MINVER=; a value in double
 // quotes up to the next one, any other up to a space, CR, LF, tab or comma
 // -- a login's URL=Index.dx?Name=JC(1)?Class=... keeps the name's brackets
-// and every option after them.
-bool NetParseValue(const std::string& text, const char* key, std::string& value)
+// and every option after them --, of the first maxLen - 1 characters at
+// most: the original's buffers hold a login's URL= to 1,023 characters, a
+// USES's PKG= to 63 and a WELCOME's LEVEL= to 4,095.
+bool NetParseValue(const std::string& text, const char* key, std::string& value, size_t maxLen)
 {
-	return StrTools::ue1_parse(text, key, value);
+	return StrTools::ue1_parse(text, key, value, maxLen);
+}
+
+// A key's number as Parse's int form reads it (Core.dll 0x10147730):
+// appAtoi of all that follows the key, nothing cut, so VER= 1100 is 1100
+// and a quoted number 0; true whenever the key is found.
+bool NetParseInt(const std::string& text, const char* key, int& value)
+{
+	size_t at = StrTools::ue1_strfind(text, key);
+	if (at == std::string::npos)
+		return false;
+	value = StrTools::ue1_atoi(std::string_view(text).substr(at + strlen(key)));
+	return true;
+}
+
+// A DWORD's (0x10147270): appStrtoi of all that follows, in base 10.
+bool NetParseInt(const std::string& text, const char* key, uint32_t& value)
+{
+	size_t at = StrTools::ue1_strfind(text, key);
+	if (at == std::string::npos)
+		return false;
+	value = StrTools::ue1_strtoul(std::string_view(text).substr(at + strlen(key)));
+	return true;
+}
+
+// A bool as ParseUBOOL reads one (Core.dll 0x101477e0): Parse's text into
+// its 16 characters, true for On, True or 1 in any case and false for
+// anything else, 2 and Yes among them; true whenever the key is found.
+bool NetParseBool(const std::string& text, const char* key, bool& value)
+{
+	std::string word;
+	if (!StrTools::ue1_parse(text, key, word, 16))
+		return false;
+	value = StrTools::equals_ignore_case(word, "On") || StrTools::equals_ignore_case(word, "True") || word == "1";
+	return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -187,15 +239,22 @@ void NetPendingLevel::NotifyReceivedText(NetConnection* connection, const std::s
 	std::string rest, value;
 	if (NetParseCommand(text, "UPGRADE"))
 	{
-		// A server too old for this side, or this side too old for it (the
-		// game's upgrade menu).
+		// A server of another version, shown as the original's pending
+		// level shows it (UNetPendingLevel::NotifyReceivedText, Engine.dll
+		// 0x1040a880) -- this side too old for a MINVER above its 1100, the
+		// player's upgrade menu (-1 s: ShowUpgradeMenu, empty in the stock
+		// game), else Connection failed over Server's version is outdated for
+		// 6 s --, then the join ended, that shown left as it is, by the
+		// owner's choice: the original's stays pending, connecting again,
+		// until the player cancels it.
 		int minVer = 0;
-		if (NetParseValue(text, "MINVER=", value))
-			minVer = std::atoi(value.c_str());
-		if (minVer <= 1100)
-			Error = LocalizeMessage("Engine", "Errors", "ServerOutdated", "Server's version is outdated");
-		else
+		NetParseInt(text, "MINVER=", minVer);
+		if (minVer > 1100)
 			engine->SetProgress("", "", -1.0f);
+		else
+			engine->SetProgress(LocalizeMessage("Engine", "Errors", "ConnectionFailed", "Connection failed"), LocalizeMessage("Engine", "Errors", "ServerOutdated", "Server's version is outdated"), 6.0f);
+		Error = LocalizeMessage("Engine", "Errors", "ServerOutdated", "Server's version is outdated");
+		ErrorShown = true;
 		connection->State = ConnectionState::Closed;
 	}
 	else if (NetParseCommand(text, "FAILURE", &rest))
@@ -228,7 +287,7 @@ void NetPendingLevel::NotifyReceivedText(NetConnection* connection, const std::s
 	else if (NetParseCommand(text, "USES"))
 	{
 		UsedPackage package;
-		if (NetParseValue(text, "PKG=", value))
+		if (NetParseValue(text, "PKG=", value, 64))
 			package.Name = value;
 		NetParseValue(text, "GUID=", package.Guid);
 		if (!PackageManager::IsPackageGuid(package.Guid))
@@ -240,21 +299,17 @@ void NetPendingLevel::NotifyReceivedText(NetConnection* connection, const std::s
 			connection->State = ConnectionState::Closed;
 			return;
 		}
-		if (NetParseValue(text, "FLAGS=", value))
-			package.Flags = (uint32_t)std::strtoul(value.c_str(), nullptr, 10);
-		if (NetParseValue(text, "SIZE=", value))
-			package.Size = std::atoi(value.c_str());
-		if (NetParseValue(text, "GEN=", value))
-			package.Generation = std::atoi(value.c_str());
+		NetParseInt(text, "FLAGS=", package.Flags);
+		NetParseInt(text, "SIZE=", package.Size);
+		NetParseInt(text, "GEN=", package.Generation);
 		Uses.push_back(package);
 	}
 	else if (NetParseCommand(text, "WELCOME"))
 	{
 		LogMessage("Net: welcomed by server: " + text);
-		if (NetParseValue(text, "LEVEL=", value))
+		if (NetParseValue(text, "LEVEL=", value, 4096))
 			URL.Map = value;
-		if (NetParseValue(text, "LONE=", value))
-			LonePlayer = std::atoi(value.c_str()) != 0 || StrTools::equals_ignore_case(value, "True");
+		NetParseBool(text, "LONE=", LonePlayer);
 
 		// Each package is on the paths by its name, or in the cache by its
 		// GUID -- then loaded from there under its name --, or it is to be
@@ -284,12 +339,11 @@ void NetPendingLevel::NotifyReceivedText(NetConnection* connection, const std::s
 	}
 	else if (NetParseCommand(text, "CHALLENGE"))
 	{
-		if (NetParseValue(text, "VER=", value))
-			connection->NegotiatedVer = std::atoi(value.c_str());
-		if (NetParseValue(text, "CHALLENGE=", value))
-			connection->Challenge = (int)std::strtol(value.c_str(), nullptr, 10);
-		bool stats = NetParseValue(text, "STATS=", value) && std::atoi(value.c_str()) == 1;
-		if (stats)
+		NetParseInt(text, "VER=", connection->NegotiatedVer);
+		NetParseInt(text, "CHALLENGE=", connection->Challenge);
+		int stats = 0;
+		NetParseInt(text, "STATS=", stats);
+		if (stats == 1)
 			URL.AddOrReplaceOption(WorldStatsChecksum());
 
 		// The URL the server logs in: the map and options, without the
@@ -310,15 +364,15 @@ void NetPendingLevel::NotifyReceivedText(NetConnection* connection, const std::s
 	}
 	else if (NetParseCommand(text, "DYNAMICRATE", &rest))
 	{
-		connection->DynamicUpdateInterval = RateInterval(std::atoi(rest.c_str()));
+		connection->DynamicUpdateInterval = RateInterval(StrTools::ue1_atoi(rest));
 	}
 	else if (NetParseCommand(text, "STATICRATE", &rest))
 	{
-		connection->StaticUpdateInterval = RateInterval(std::atoi(rest.c_str()));
+		connection->StaticUpdateInterval = RateInterval(StrTools::ue1_atoi(rest));
 	}
 	else if (NetParseCommand(text, "USERFLAG", &rest))
 	{
-		connection->UserFlags = std::atoi(rest.c_str());
+		connection->UserFlags = StrTools::ue1_atoi(rest);
 	}
 }
 
@@ -397,7 +451,7 @@ void NetClientLevel::NotifyReceivedText(NetConnection* connection, const std::st
 	if (NetParseCommand(text, "FAILURE", &rest))
 		engine->NetFailure = rest.empty() ? "Rejected by the server" : rest;
 	else if (NetParseCommand(text, "USERFLAG", &rest))
-		connection->UserFlags = std::atoi(rest.c_str());
+		connection->UserFlags = StrTools::ue1_atoi(rest);
 }
 
 void NetClientLevel::NotifyClientPlayer(NetConnection* connection, UPlayerPawn* pawn)

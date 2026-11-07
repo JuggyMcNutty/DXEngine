@@ -284,15 +284,13 @@ void NetServerLevel::NotifyReceivedText(NetConnection* connection, const std::st
 {
 	LogMessage("Net: level server received: " + text);
 
-	std::string rest, value;
+	std::string rest;
 	if (NetParseCommand(text, "HELLO"))
 	{
 		// A version missing counts as 219's, the first networked engine's.
 		int remoteMinVer = 219, remoteVer = 219;
-		if (NetParseValue(text, "MINVER=", value))
-			remoteMinVer = std::atoi(value.c_str());
-		if (NetParseValue(text, "VER=", value))
-			remoteVer = std::atoi(value.c_str());
+		NetParseInt(text, "MINVER=", remoteMinVer);
+		NetParseInt(text, "VER=", remoteVer);
 		if (remoteVer < 1100 || remoteMinVer > 1100)
 		{
 			Refuse(connection, "UPGRADE MINVER=1100 VER=1100");
@@ -314,7 +312,7 @@ void NetServerLevel::NotifyReceivedText(NetConnection* connection, const std::st
 	}
 	else if (NetParseCommand(text, "NETSPEED", &rest))
 	{
-		int rate = std::atoi(rest.c_str());
+		int rate = StrTools::ue1_atoi(rest);
 		if (rate >= 500)
 		{
 			connection->CurrentNetSpeed = std::min(rate, connection->Driver->MaxClientRate);
@@ -328,21 +326,26 @@ void NetServerLevel::NotifyReceivedText(NetConnection* connection, const std::st
 		// The client's generation of a package: both sides count only what
 		// it has.
 		std::string guid;
-		if (NetParseValue(text, "GUID=", guid) && NetParseValue(text, "GEN=", value))
+		int generation = 0;
+		if (NetParseValue(text, "GUID=", guid) && NetParseInt(text, "GEN=", generation))
 		{
 			for (NetPackageMap::PackageInfo& info : connection->PackageMap.List)
 			{
 				if (StrTools::equals_ignore_case(info.Guid, guid))
-					info.RemoteGeneration = std::clamp(std::atoi(value.c_str()), 1, std::max(info.LocalGeneration, 1));
+					info.RemoteGeneration = std::clamp(generation, 1, std::max(info.LocalGeneration, 1));
 			}
 		}
 	}
 	else if (NetParseCommand(text, "LOGIN"))
 	{
-		std::string response, url;
-		NetParseValue(text, "RESPONSE=", response);
-		NetParseValue(text, "URL=", url);
-		if (std::atoi(response.c_str()) != NetChallengeResponse(connection->Challenge))
+		// The URL to 1,023 characters, the original's buffer (ULevel::
+		// NotifyReceivedText, Engine.dll 0x1039f780); a login with no
+		// RESPONSE= refused, as there
+		int response = 0;
+		std::string url;
+		bool answered = NetParseInt(text, "RESPONSE=", response);
+		NetParseValue(text, "URL=", url, 1024);
+		if (!answered || response != NetChallengeResponse(connection->Challenge))
 		{
 			Refuse(connection, "FAILURE CHALLENGE");
 			return;
@@ -372,7 +375,7 @@ void NetServerLevel::NotifyReceivedText(NetConnection* connection, const std::st
 	}
 	else if (NetParseCommand(text, "USERFLAG", &rest))
 	{
-		connection->UserFlags = std::atoi(rest.c_str());
+		connection->UserFlags = StrTools::ue1_atoi(rest);
 	}
 }
 

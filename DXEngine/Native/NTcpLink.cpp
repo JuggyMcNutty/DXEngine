@@ -3,6 +3,7 @@
 #include "NTcpLink.h"
 #include "VM/NativeFunc.h"
 #include "Packages/IpDrv/UTcpLink.h"
+#include <algorithm>
 
 void NTcpLink::RegisterFunctions()
 {
@@ -48,12 +49,16 @@ void NTcpLink::ReadBinary(UObject* Self, int Count, uint8_t& B, int& ReturnValue
 }
 
 // The bytes come and go as 8-bit text: each byte a character, and a
-// character past 0xFF sent as 0x7F, as the original's ToAnsi narrows it
+// character past 0xFF sent as 0x7F, as the original's ToAnsi narrows it.
+// Where nothing was read the string stays as it was, as the original's
+// leaves it (IpDrv.dll 0x107081b0).
 void NTcpLink::ReadText(UObject* Self, ScriptString& Str, int& ReturnValue)
 {
 	std::string text;
-	ReturnValue = UObject::Cast<UTcpLink>(Self)->ReadText(text);
-	Str = Latin1ToScript(text);
+	int count = UObject::Cast<UTcpLink>(Self)->ReadText(text);
+	if (count >= 0)
+		Str = Latin1ToScript(text);
+	ReturnValue = std::max(count, 0);
 }
 
 void NTcpLink::SendBinary(UObject* Self, int Count, uint8_t& B, int& ReturnValue)

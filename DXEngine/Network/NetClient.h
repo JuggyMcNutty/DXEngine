@@ -42,6 +42,7 @@ public:
 	std::unique_ptr<NetDriver> Driver;
 	Array<UsedPackage> Uses;
 	std::string Error;
+	bool ErrorShown = false;   // the error's own progress shown already
 	bool Success = false;
 	bool LonePlayer = false;
 	// The downloads still to come (the packages flagged Need): the map
@@ -70,7 +71,13 @@ public:
 // The engine's answer to a server's challenge.
 int NetChallengeResponse(int challenge);
 
-// The handshake's text: a leading command word; a KEY=value anywhere but
-// straight after a letter or digit, as Core's Parse finds it.
+// The handshake's text as Core reads it: a leading command word, as
+// ParseCommand takes it; a KEY= anywhere but straight after a letter or
+// digit, as Parse finds it, and its value as Parse's text, into the
+// original's buffer of maxLen characters (0 for none), its int, its DWORD,
+// or ParseUBOOL's bool.
 bool NetParseCommand(const std::string& text, const char* command, std::string* rest = nullptr);
-bool NetParseValue(const std::string& text, const char* key, std::string& value);
+bool NetParseValue(const std::string& text, const char* key, std::string& value, size_t maxLen = 0);
+bool NetParseInt(const std::string& text, const char* key, int& value);
+bool NetParseInt(const std::string& text, const char* key, uint32_t& value);
+bool NetParseBool(const std::string& text, const char* key, bool& value);

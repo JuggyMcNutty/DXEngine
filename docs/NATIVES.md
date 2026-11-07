@@ -2460,10 +2460,15 @@ not deleted (the log says so).
   through `SetGameSpeed`, to 0.1 or more (`DilationConsole`: at 0, over half
   a second, the original's level time stands, its actors' ticks 5 ms each,
   0.155 s in all, and DXEngine's moves 0.000645 s, its actors' with it).
-- **A travel's items**: the travel is taken whether or not the game's Login
-  spawned a new pawn, as the original's SpawnPlayActor takes it; its info is
-  looked up by the URL's name, then by its first 20 characters (the stock
-  Login's cut), and standalone with none found the first entry is taken; a
+- **A travel's items**: the travel is taken on any login but a `?loadonly`
+  one, whatever the travel, and whether or not the game's Login spawned a
+  new pawn, as the original's SpawnPlayActor takes it (`URLConsole` with
+  `Absolute`: an absolute travel's items arrive in both engines); its info is
+  looked up by the URL's name in any case, as the original's, then, by
+  choice, by its first 20 characters, the stock Login's cut of the name the
+  info is kept by, which the original's never tries, so a player of a
+  longer name loses its items at a net game's travel there; standalone with
+  none found the first entry is taken; a
   travelling actor is spawned at the player's place whatever stands there,
   as the original's SpawnPlayActor spawns them.
 - **The first frame** is a microsecond at the shortest, never 0 s
@@ -3169,27 +3174,47 @@ As in the original:
   lines). A `TcpLink`'s `SendText` answers all it queued, the CR LF of line
   mode counted, a link with no connection yet queuing too (read: Engine.dll
   `0x1039f780`, IpDrv.dll `0x10708870`).
-- The handshake's values are read as Core's `Parse` reads the command
-  line's ([the command line](#the-command-line)): a key in any case, but
-  not straight after a letter or digit, so `HELLO`'s `VER=` is not
-  `MINVER=`'s, its value in double quotes or up to a space, tab, CR, LF or
-  comma (`ParenJoinConsole` against `LoginServer`, each engine the other's
-  server: a login as `JC(1)` with a class and a password taken whole, the
-  two servers' lines alike).
+- A `TcpLink` whose `BindPort` failed is left as the original's, its
+  `Socket` 0: a second `BindPort` answers 0, logged as already bound;
+  `Open`, `Listen` and `Close` answer true and do nothing; the sends and
+  reads answer 0. `Open` and `Listen` empty the send queue, `Listen`'s
+  backlog is 1, and `ReadText` reads 255 bytes at most and leaves its
+  string as it was where it reads nothing (`TcpLinkConsole`: each answer of
+  the link bound to port 1 alike in both engines, its string still `kept`;
+  the queued `lost` and `early` never sent; the 600 characters read as 255,
+  255 and 90; `ss` showing the listen's backlog 1).
+- A server of another version's `UPGRADE` is shown as the original's
+  pending level shows it: for a `MINVER` above 1100 the player's upgrade
+  menu (`ShowUpgradeMenu`, empty in the stock game), else `Connection
+  failed` over `Server's version is outdated` for 6 s (`HandshakeConsole`
+  against `handshakeserver.py`, `--minver 400` and `1200`). The join then
+  ends, that shown left as it is, by choice, where the original's stays
+  pending, its `Connecting` lines back once those run out, until the
+  player cancels it.
+- The handshake's lines are read as Core reads the command line's
+  ([the command line](#the-command-line)): the command word as its
+  `ParseCommand` takes it, past spaces and tabs before and after it; a key
+  in any case, but not straight after a letter or digit, so `HELLO`'s
+  `VER=` is not `MINVER=`'s; its value as `Parse` takes it, in double
+  quotes or up to a space, tab, CR, LF or comma, into the original's
+  buffers, a login's `URL=` 1,023 characters, a package's `PKG=` 63 and a
+  level's `LEVEL=` 4,095; a number `appAtoi` of all that follows the key,
+  so `VER= 1100` is 1100 (`FLAGS=` its `wcstoul`), and `LONE=` true for
+  `On`, `True` or `1` alone (`ParenJoinConsole` against `LoginServer`, each
+  engine the other's server: a login as `JC(1)` with a class and a password
+  taken whole, the two servers' lines alike; `HandshakeConsole` against
+  `handshakeserver.py --mode values`: the login answering challenge 7 with
+  its `Checksum=`, and `Connection failed` over `Rejected By Server: spaced
+  text`, in both engines).
 
 Differs (bugs.md NET.13): in a URL a `/` is a character of a map's name or
 an option's value (`?Name=AC/DC` keeps its slash), `#` alone marking the
 portal, where the original's takes a `/` in the map's part for the portal's
 mark, and no URL is refused, where the original's refuses a blank in an
-option (`OpenLineConsole`). Differs (bugs.md NET.19): a server's `UPGRADE`
-ends the join with an error, where the original's shows its progress alone;
-the handshake's values are read at any length, where Core's `Parse` holds
-`URL=` to 1,023 characters and `PKG=` to 63, and `VER=` and `LONE=` not by
-its number and bool forms; an arriving player takes its travel info on a
-relative travel alone, and a client's travel leaves out a player whose
-replication info has not come, where the original's reads it. Differs
-(bugs.md NET.20): a `TcpLink` whose `BindPort` failed goes on as any other;
-its `ReadText` reads 999 bytes, the original's 255.
+option (`OpenLineConsole`). A client's travel with its items, its
+player's replication info not come yet, leaves the player out, by choice:
+the original's export reads the info regardless and faults (Engine.dll
+`0x10390951`).
 
 ## Not needed for single player
 

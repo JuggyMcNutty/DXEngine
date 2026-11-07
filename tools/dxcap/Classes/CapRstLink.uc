@@ -1,8 +1,8 @@
 //=============================================================================
-// CapRstLink: RstConsole's link -- a TcpLink to 127.0.0.1:7877, a peer that
-// resets the connection a second after it opens; a line sent as it opens
-// and two more, a second apart, after the reset, each send's answer and the
-// link's error logged ("DXRST:").
+// CapRstLink: RstConsole's link -- a TcpLink, bound first as an Open needs,
+// to 127.0.0.1:7877, a peer that resets the connection a second after it
+// opens; a line sent as it opens and two more, a second apart, after the
+// reset, each send's answer and the link's error logged ("DXRST:").
 //=============================================================================
 class CapRstLink extends TcpLink;
 
@@ -12,6 +12,7 @@ function Start()
 {
 	local IpAddr Addr;
 
+	BindPort();
 	StringToIpAddr("127.0.0.1", Addr);
 	Addr.Port = 7877;
 	Log("DXRST: opening " $ IpAddrToString(Addr) $ ": " $ Open(Addr));

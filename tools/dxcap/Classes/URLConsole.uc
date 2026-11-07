@@ -14,11 +14,14 @@
 // (its mission number, the name it saves the level under). With Bare
 // (DXCAP_CONFIG "Bare=True") the menu map's console opens a bare ?loadgame
 // instead, a slot named by no number, and the level that comes of it is
-// logged the same way; with none 15 s on it says so.
+// logged the same way; with none 15 s on it says so. With Absolute
+// (DXCAP_CONFIG "Absolute=True") the first travel to UNATCO HQ is an
+// absolute one with the items, which the original's login takes as any
+// travel but a ?loadonly one (bugs.md NET.19): the items arrive all the same.
 //=============================================================================
 class URLConsole extends Console;
 
-var config bool Bare;
+var config bool Bare, Absolute;
 var float WaitTime;
 var float LevelTime;
 var float LastSeconds;
@@ -75,6 +78,8 @@ event Tick(float Delta)
 	}
 	else if (Step == 0)
 		P.ConsoleCommand("open 01_NYC_UNATCOIsland");
+	else if (Step == 1 && Absolute)
+		P.ClientTravel("01_NYC_UNATCOHQ", TRAVEL_Absolute, true);
 	else if (Step == 1)
 		P.ClientTravel("01_NYC_UNATCOHQ", TRAVEL_Relative, true);
 	else if (Step == 2)

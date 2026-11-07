@@ -67,6 +67,7 @@
 #include "Network/NetClient.h"
 #include "Network/NetChannel.h"
 #include "Network/NetServer.h"
+#include <algorithm>
 #include <chrono>
 #include <set>
 #include <thread>
@@ -139,6 +140,18 @@ static bool HasValueOption(const UnrealURL& url, const std::string& name)
 	for (const std::string& option : url.Options)
 	{
 		if (option.size() > name.size() && option[name.size()] == '=' && StrTools::equals_ignore_case(option.substr(0, name.size()), name))
+			return true;
+	}
+	return false;
+}
+
+// An option that is the name alone, in any case: the original's
+// FURL::HasOption (Engine.dll 0x103f9df0), which ?loadonly=1 does not match.
+static bool HasWholeOption(const UnrealURL& url, const std::string& name)
+{
+	for (const std::string& option : url.Options)
+	{
+		if (StrTools::equals_ignore_case(option, name))
 			return true;
 	}
 	return false;
@@ -756,7 +769,6 @@ void Engine::ClientTravel(const std::string& newURL, ETravelType travelType, boo
 	if (newURL.empty())
 	{
 		ClientTravelInfo.URL.Clear();
-		ClientTravelInfo.TravelType = travelType;
 		ClientTravelInfo.TransferItems = transferItems;
 		SendPreTravel(Level);
 		return;
@@ -853,7 +865,6 @@ void Engine::ClientTravel(const std::string& newURL, ETravelType travelType, boo
 	if (url.Map.empty())
 		ClientTravelInfo.URL.Map = travelType == ETravelType::TRAVEL_Relative ? LastURL.Map : packages->GetIniValue("system", "URL", "Map");
 
-	ClientTravelInfo.TravelType = travelType;
 	ClientTravelInfo.TransferItems = transferItems;
 	SendPreTravel(Level);
 }
@@ -2028,8 +2039,6 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 	if (LevelInfo && LevelInfo->NetMode() == NM_ListenServer)
 		SetMultiplayerName(url);
 
-	std::map<std::string, std::string> travelInfo = Level->TravelInfo;
-
 	auto stringProp = GC::Alloc<UStringProperty>("", nullptr, ObjectFlags::NoFlags);
 	ScriptString error;
 
@@ -2076,47 +2085,65 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 	// Transfer travel actors to the new map
 
 	CallEvent(pawn, EventName::TravelPreAccept);
+	AcceptTravel(pawn, url);
+	CallEvent(pawn, EventName::TravelPostAccept);
+	CallEvent(LevelInfo->Game(), EventName::PostLogin, { ExpressionValue::ObjectValue(pawn) });
 
-	// The travel is taken whether or not Login spawned a pawn, as the
-	// original's SpawnPlayActor takes it (its one test is ?loadonly, Engine.dll
-	// 0x10396bd0): a Login that reuses a pawn keeps its travelling items.
-	// The travel info is keyed by the player's PlayerName, which the stock
-	// Login cuts to 20 characters: the URL's name is looked up whole, then
-	// cut, and standalone with none found the first entry is taken, as the
-	// original's does.
+	ClearIgnoreNextShowMenu(pawn);
+
+	// The sounds the load and the login started stop, the music playing on:
+	// the original's map load hands its audio the viewport it has once the
+	// players are in (UGameEngine::LoadMap, 0x1038dfc6). The new player's
+	// PostLogin has asked for the level's song: the one playing fades out
+	// first.
+	audiodev->StopEffects();
+	render->OnMapLoaded();
+}
+
+// What an arriving player takes of the level's travel info, as the
+// original's SpawnPlayActor takes it (Engine.dll 0x10396bd0), a local
+// player's and a remote one's alike: on any login but a ?loadonly one,
+// whatever the travel, and whether or not Login spawned a pawn -- a Login
+// that reuses a pawn keeps its travelling items; a save's load, a restart
+// and the LoadMap window's map log in with ?loadonly and take none. The
+// level holds travel info only after a travel with items. The info is
+// keyed by the player's PlayerName, which the stock Login cuts to 20
+// characters: the URL's name is looked up whole and in any case, as the
+// original's TMap finds it; then, DXEngine's own, cut to 20; standalone,
+// with none found, the first entry, as the original's. Then the travelled
+// items' TravelPreAccept, the game's AcceptInventory and the items'
+// TravelPostAccept, each run over the items last to first, inside the
+// player's own pair, as the original's SpawnPlayActor runs them: an item's
+// GiveTo then links the chain in the original's order, and the player, whose
+// travel entry is among the accepted, gets each of its events once.
+void Engine::AcceptTravel(UPlayerPawn* pawn, const UnrealURL& url)
+{
+	const std::map<std::string, std::string>& travelInfo = Level->TravelInfo;
+	auto find = [&](const std::string& name)
+	{
+		return std::find_if(travelInfo.begin(), travelInfo.end(), [&](const auto& entry) { return StrTools::equals_ignore_case(entry.first, name); });
+	};
+
 	Array<UObject*> acceptedObjects;
-	if (ClientTravelInfo.TravelType == ETravelType::TRAVEL_Relative)
+	if (!HasWholeOption(url, "loadonly") && !travelInfo.empty())
 	{
 		std::string playerName = url.GetOption("Name");
 		if (playerName.empty())
 			playerName = packages->GetIniValue("system", "URL", "Name");
 
-		auto it = travelInfo.find(playerName);
+		auto it = find(playerName);
 		if (it == travelInfo.end() && playerName.size() > 20)
-			it = travelInfo.find(playerName.substr(0, 20));
-		if (it == travelInfo.end() && !travelInfo.empty() && LevelInfo->NetMode() == NM_Standalone)
+			it = find(playerName.substr(0, 20));
+		if (it == travelInfo.end() && LevelInfo->NetMode() == NM_Standalone)
 			it = travelInfo.begin();
 		if (!playerName.empty() && it != travelInfo.end())
-		{
 			acceptedObjects = ActorTravelInfo::Accept(pawn, it->second);
-		}
+		else if (playerName.empty())
+			LogMessage("Skipping travel transfer. Player name is empty");
 		else
-		{
-			if (travelInfo.empty())
-				LogMessage("Skipping travel transfer. No travel data");
-			else if (playerName.empty())
-				LogMessage("Skipping travel transfer. Player name is empty");
-			else
-				LogMessage("Skipping travel transfer. Player '" + playerName + "' not found in travel info");
-		}
+			LogMessage("Skipping travel transfer. Player '" + playerName + "' not found in travel info");
 	}
 
-	// The travelled items' TravelPreAccept, the game's AcceptInventory, the
-	// items' TravelPostAccept, each run over the items last to first and the
-	// player's own pair round them, as the original's SpawnPlayActor runs
-	// them (Engine.dll 0x10396bd0): an item's GiveTo then links the chain in
-	// the original's order, and the player, whose travel entry is among the
-	// accepted, gets each of its events once
 	for (size_t i = acceptedObjects.size(); i-- > 0;)
 	{
 		if (acceptedObjects[i] != pawn)
@@ -2130,19 +2157,6 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 		if (acceptedObjects[i] != pawn)
 			CallEvent(acceptedObjects[i], EventName::TravelPostAccept);
 	}
-
-	CallEvent(pawn, EventName::TravelPostAccept);
-	CallEvent(LevelInfo->Game(), EventName::PostLogin, { ExpressionValue::ObjectValue(pawn) });
-
-	ClearIgnoreNextShowMenu(pawn);
-
-	// The sounds the load and the login started stop, the music playing on:
-	// the original's map load hands its audio the viewport it has once the
-	// players are in (UGameEngine::LoadMap, 0x1038dfc6). The new player's
-	// PostLogin has asked for the level's song: the one playing fades out
-	// first.
-	audiodev->StopEffects();
-	render->OnMapLoaded();
 }
 
 void Engine::LoginEntryPlayer(const UnrealURL& url)
@@ -2200,7 +2214,8 @@ void Engine::TickPendingLevel(float realTimeElapsed)
 		PendingLevel->VerifyPackages(error);
 	if (!error.empty())
 	{
-		SetProgress(LocalizeMessage("Engine", "Errors", "ConnectionFailed", "Connection failed"), error, 4.0f);
+		if (!PendingLevel->ErrorShown)
+			SetProgress(LocalizeMessage("Engine", "Errors", "ConnectionFailed", "Connection failed"), error, 4.0f);
 		LogMessage("Net: " + LocalizeMessage("Engine", "Errors", "Pending", "Pending connect to '%s' failed; %s", { PendingLevel->URL.ToString(), error }));
 		CancelPending();
 	}
@@ -2522,7 +2537,7 @@ UPlayerPawn* Engine::SpawnPlayActor(UObject* player, uint8_t remoteRole, const U
 	pawn->RendMap() = 5;
 
 	CallEvent(pawn, EventName::TravelPreAccept);
-	CallEvent(LevelInfo->Game(), EventName::AcceptInventory, { ExpressionValue::ObjectValue(pawn) });
+	AcceptTravel(pawn, url);
 	CallEvent(pawn, EventName::TravelPostAccept);
 	CallEvent(LevelInfo->Game(), EventName::PostLogin, { ExpressionValue::ObjectValue(pawn) });
 	return pawn;
@@ -2616,13 +2631,6 @@ bool Engine::TakeTravel(float realTimeElapsed)
 		{
 			if (LevelNetDriver)
 				LogMessage("Net: server switch level: " + ScriptToUTF8(LevelInfo->NextURL()));
-			// LoginPlayer only transfers travel actors when ClientTravelInfo.TravelType is
-			// TRAVEL_Relative, and TravelType is otherwise assigned only in ClientTravel. These
-			// NextURL routes never go through ClientTravel, so without setting it here they
-			// inherit whatever the last ClientTravel left behind (or TRAVEL_Absolute, the
-			// default) - which silently discarded the inventory the bNextItems branch exists
-			// specifically to carry. State the intent explicitly on each branch instead of
-			// depending on leftover state.
 			if (UnrealURL(ScriptToUTF8(LevelInfo->NextURL())).HasOption("restart"))
 			{
 				DeleteSaveGameFiles("Current"); // the original's ?restart empties Current
@@ -2630,7 +2638,6 @@ bool Engine::TakeTravel(float realTimeElapsed)
 				// travel info and ?loadonly, whose login takes none of it, the
 				// player's own or its items' (Engine.dll's SpawnPlayActor,
 				// 0x10396bd0)
-				ClientTravelInfo.TravelType = ETravelType::TRAVEL_Absolute;
 				UnrealURL restartURL = RestartURL();
 				LoadMap(restartURL, {});
 				if (!dedicated)
@@ -2644,7 +2651,6 @@ bool Engine::TakeTravel(float realTimeElapsed)
 				// its Browse; without it none. A browse that loads no
 				// level clears NextURL, as the original's clears it after
 				// the browse, failed or not.
-				ClientTravelInfo.TravelType = LevelInfo->bNextItems() ? ETravelType::TRAVEL_Relative : ETravelType::TRAVEL_Absolute;
 				auto travelInfo = LevelInfo->bNextItems() ? CreateServerTravelInfo() : std::map<std::string, std::string>();
 				if (!BrowseMap(UnrealURL(LastURL, ScriptToUTF8(LevelInfo->NextURL())), travelInfo))
 					LevelInfo->NextURL().clear();
@@ -2657,7 +2663,6 @@ bool Engine::TakeTravel(float realTimeElapsed)
 	{
 		DeleteSaveGameFiles("Current"); // the original's ?restart empties Current
 		// Carries nothing, as the NextURL's ?restart above
-		ClientTravelInfo.TravelType = ETravelType::TRAVEL_Absolute;
 		UnrealURL restartURL = RestartURL();
 		LoadMap(restartURL, {});
 		if (!dedicated)

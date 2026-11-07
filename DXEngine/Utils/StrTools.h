@@ -21,6 +21,10 @@ public:
 	// first that is not one, 0 without any; past an int's range held to its
 	// ends (SweepVmConsole: 4294967297 is 2147483647).
 	static int32_t ue1_atoi(const std::string_view& str);
+	// An unsigned number as the original's appStrtoi reads one in base 10
+	// (Core.dll 0x101235e0, MSVCRT's wcstoul): blanks skipped, a sign, then
+	// the digits; past 32 bits all ones, and a minus negating what was read.
+	static uint32_t ue1_strtoul(const std::string_view& str);
 	// A substring as the original's appStrfind finds one (Core.dll
 	// 0x10145ca0): from pos, its ASCII letters in any case, but none straight
 	// after an ASCII letter or digit -- INI= is not within USERINI=, nor VER=

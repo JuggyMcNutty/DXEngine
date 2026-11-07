@@ -313,7 +313,6 @@ public:
 	struct
 	{
 		UnrealURL URL;
-		ETravelType TravelType = ETravelType::TRAVEL_Absolute;
 		bool TransferItems = false;
 	} ClientTravelInfo;
 
@@ -396,6 +395,9 @@ public:
 private:
 	std::map<std::string, std::string> CreateServerTravelInfo();
 	std::map<std::string, std::string> CreateClientTravelInfo(bool transferItems);
+	// An arriving player's travel, a local or a remote one's, between its
+	// own TravelPreAccept and TravelPostAccept.
+	void AcceptTravel(UPlayerPawn* pawn, const UnrealURL& url);
 
 	// What the original's command line changes for this run alone
 	// (OriginalCommandLine): -defaultres's 640x480 and the window -noddraw

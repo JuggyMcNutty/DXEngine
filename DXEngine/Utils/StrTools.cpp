@@ -85,6 +85,21 @@ int32_t StrTools::ue1_atoi(const std::string_view& str)
 	return (int32_t)std::clamp(value, (int64_t)INT32_MIN, (int64_t)INT32_MAX);
 }
 
+uint32_t StrTools::ue1_strtoul(const std::string_view& str)
+{
+	size_t pos = 0;
+	while (pos < str.size() && (str[pos] == ' ' || (str[pos] >= '\t' && str[pos] <= '\r')))
+		pos++;
+	bool negative = false;
+	if (pos < str.size() && (str[pos] == '+' || str[pos] == '-'))
+		negative = str[pos++] == '-';
+	uint64_t value = 0;
+	for (; pos < str.size() && str[pos] >= '0' && str[pos] <= '9'; pos++)
+		value = std::min(value * 10 + (str[pos] - '0'), (uint64_t)UINT32_MAX + 1);
+	uint32_t result = (uint32_t)std::min(value, (uint64_t)UINT32_MAX);
+	return negative ? 0u - result : result;
+}
+
 // The original's appStrfind (Core.dll 0x10145ca0): ASCII letters in any
 // case, a match straight after an ASCII letter or digit passed over, the
 // first left

@@ -35,7 +35,7 @@ public:
 	int ReadBinary(int Count, uint8_t* B);
 	int SendBinary(int Count, const uint8_t* B);
 
-	int ReadText(std::string& Str);
+	int ReadText(std::string& Str); // -1 where nothing was read
 	int SendText(const std::string& Str);
 
 	UClass*& AcceptClass() { return Value<UClass*>(PropOffsets_TcpLink.AcceptClass); }
@@ -62,4 +62,7 @@ private:
 	// A connect that failed: Linux reports it once (SO_ERROR cleared by the
 	// read) and the socket stays writable, so it is remembered
 	bool connectFailed = false;
+	// A BindPort that failed: the original's Socket 0, a link that does
+	// nothing for good
+	bool bindFailed = false;
 };

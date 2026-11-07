@@ -308,12 +308,30 @@ void UTcpLink::ShutdownConnection()
 
 int UTcpLink::BindPort(int port, bool bUseNextAvailable)
 {
-	if (!EnsureSocket())
+	// One bind a link: a second, or one after a failed bind, answers 0, as
+	// the original's (ATcpLink::execBindPort, IpDrv.dll 0x10706960)
+	if (bindFailed || handle != invalid_socket_value)
+	{
+		LogMessage("BindPort: already bound");
 		return 0;
-	int bound = BindSocket(handle, port, bUseNextAvailable);
-	if (bound == 0)
+	}
+	int bound = 0;
+	if (!EnsureSocket())
+		LogMessage("BindPort: socket failed");
+	else if ((bound = BindSocket(handle, port, bUseNextAvailable)) == 0)
 	{
 		LastError = LastSocketError();
+		LogMessage("BindPort: bind failed");
+		CloseSocket(handle);
+		handle = invalid_socket_value;
+	}
+	if (bound == 0)
+	{
+		// The socket gone and Socket 0, as the original's leaves it: a link
+		// that does nothing from then on, its Open, Listen and Close true
+		// and its sends and reads 0
+		Socket() = 0;
+		bindFailed = true;
 		return 0;
 	}
 	Port() = bound;
@@ -323,21 +341,40 @@ int UTcpLink::BindPort(int port, bool bUseNextAvailable)
 
 bool UTcpLink::Listen()
 {
-	if (handle == invalid_socket_value || LinkState() == STATE_Listening)
-		return false;
-	if (listen(handle, SOMAXCONN) != 0)
+	// A backlog of one, and the send queue emptied, as the original's
+	// (0x10706df0): from Ready alone, or again as the last connection
+	// closes; a link whose BindPort failed true and nothing done
+	if (bindFailed)
+		return true;
+	if (LinkState() != STATE_ListenClosing)
 	{
-		LastError = LastSocketError();
-		return false;
+		if (LinkState() != STATE_Ready)
+			return false;
+		if (listen(handle, 1) != 0)
+		{
+			LastError = LastSocketError();
+			LogMessage("Listen: listen failed");
+			return false;
+		}
 	}
 	LinkState() = STATE_Listening;
+	sendBuffer.clear();
 	return true;
 }
 
 bool UTcpLink::Open(const IpAddr& Addr)
 {
-	if (!EnsureSocket())
+	// The send queue emptied, as the original's (0x10707c90); a link whose
+	// BindPort failed true and nothing done
+	if (bindFailed)
+		return true;
+	// A link never bound has no socket to connect, as the original's
+	// Socket -1 fails to
+	if (handle == invalid_socket_value)
+	{
+		LogMessage("Open: An error occured while attempting to connect: no socket");
 		return false;
+	}
 	// A new connect: the failure kept was the last one's (a script opens a
 	// link again after closing it, UBrowser's HTTP client among them)
 	connectFailed = false;
@@ -348,14 +385,19 @@ bool UTcpLink::Open(const IpAddr& Addr)
 	if (connect(handle, (const sockaddr*)&addr, sizeof(addr)) != 0 && !InProgress(LastSocketError()))
 	{
 		LastError = LastSocketError();
+		LogMessage("Open: An error occured while attempting to connect: " + std::to_string(LastError));
 		return false;
 	}
 	LinkState() = STATE_Connecting;
+	sendBuffer.clear();
 	return true;
 }
 
 bool UTcpLink::Close()
 {
+	// A link whose BindPort failed: true, and nothing done (0x10707fb0)
+	if (bindFailed)
+		return true;
 	switch (LinkState())
 	{
 	case STATE_Listening:
@@ -390,8 +432,9 @@ bool UTcpLink::IsConnected()
 
 int UTcpLink::ReadBinary(int Count, uint8_t* B)
 {
+	// Read only while listening or connected, as the original's (0x10708b40)
 	socket_t s = DataSocket();
-	if (s == invalid_socket_value)
+	if (s == invalid_socket_value || (LinkState() != STATE_Listening && LinkState() != STATE_Connected))
 		return 0;
 	int count = (int)recv(s, (char*)B, std::clamp(Count, 0, 255), 0);
 	return count > 0 ? count : 0;
@@ -399,6 +442,9 @@ int UTcpLink::ReadBinary(int Count, uint8_t* B)
 
 int UTcpLink::SendBinary(int Count, const uint8_t* B)
 {
+	// Nothing queued on a link whose BindPort failed (0x10708670)
+	if (bindFailed)
+		return 0;
 	Count = std::clamp(Count, 0, 255);
 	sendBuffer.insert(sendBuffer.end(), B, B + Count);
 	FlushSendBuffer();
@@ -407,13 +453,16 @@ int UTcpLink::SendBinary(int Count, const uint8_t* B)
 
 int UTcpLink::ReadText(std::string& Str)
 {
+	// 255 bytes at most, and only while listening or connected, as the
+	// original's (0x107081b0); -1 where nothing was read, the script's
+	// string left as it was
 	socket_t s = DataSocket();
-	if (s == invalid_socket_value)
-		return 0;
-	char data[1000];
-	int count = (int)recv(s, data, 999, 0);
-	if (count <= 0)
-		return 0;
+	if (s == invalid_socket_value || (LinkState() != STATE_Listening && LinkState() != STATE_Connected))
+		return -1;
+	char data[256];
+	int count = (int)recv(s, data, 255, 0);
+	if (count < 0)
+		return -1;
 	data[count] = 0;
 	Str = data;
 	return count;
@@ -427,6 +476,8 @@ int UTcpLink::SendText(const std::string& Str)
 	// execSendText, IpDrv.dll 0x10708870). A link with no socket yet, or
 	// whose connection went, queues it alike: the original's answers 0 only
 	// where its Socket is 0, which a failed BindPort leaves.
+	if (bindFailed)
+		return 0;
 	sendBuffer.insert(sendBuffer.end(), Str.begin(), Str.end());
 	size_t length = Str.size();
 	if (LinkMode() == MODE_Line)
