@@ -1030,6 +1030,20 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 		WindowHost->OnWindowClose();
 		return 0;
 	}
+	else if (msg == WM_SYSCOMMAND && (wparam & 0xFFF0) == SC_MAXIMIZE)
+	{
+		// Maximize -- the caption's box, a double click on the caption
+		// (SC_MAXIMIZE with the caption's hit in the four low bits Windows
+		// keeps), the window menu's, Wine's for its window manager's -- is
+		// the host's before Windows maximizes the window: the game's window
+		// toggles full screen and is never maximized, as the original's
+		// takes the command (dx-reverse-info/windrv-dll.md, the window's
+		// commands); a widget window, the error window, leaves it to
+		// DefWindowProc. A maximize no command carries (ShowWindow's)
+		// maximizes either window, as the original's (WM_SIZE)
+		if (WindowHost->OnWindowMaximize())
+			return 0;
+	}
 	else if (msg == WM_SIZE)
 	{
 		WindowHost->OnWindowGeometryChanged();

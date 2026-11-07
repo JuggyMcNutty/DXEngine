@@ -306,6 +306,16 @@ public:
 	virtual void OnWindowActivated() = 0;
 	virtual void OnWindowDeactivated() = 0;
 	virtual void OnWindowDpiScaleChanged() = 0;
+	// Maximize asked of the window -- its title bar's button, a double click
+	// on its title bar, its window menu's: true where the host takes it as a
+	// command of its own (the game's window toggles full screen, as the
+	// original's), false where the window is maximized. The Win32 window,
+	// and SDL3's on Windows, ask before Windows maximizes the window, and
+	// one taken is never maximized; SDL2's, SDL3's elsewhere, the X11 and
+	// Wayland windows ask once the window manager has maximized it, never
+	// in full screen, and come out of it as they go full screen
+	// (ShowFullscreen)
+	virtual bool OnWindowMaximize() = 0;
 };
 
 class DisplayWindow

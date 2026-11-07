@@ -439,6 +439,9 @@ console with `DXCAP_BACKEND=SDL3`, `bad-keys.txt`, a `Button` and an
 `Axis` the pawn lacks pressed on the stock console (`DXCAP_USERINI` binding them), and, each one
 console's input, `loot-drags.txt` (`LootConsole`), `stray-release.txt` (`KeypadConsole`),
 `scroll.txt` (`ScrollConsole`), `clicks.txt` (`ClickConsole`), `pad.txt` (`PadConsole`),
+`maximize-back.txt` (`PadConsole`: the console's `togglefullscreen` at 30 s, beside
+`tools/dxcap/maximize.py :0 ' - DXEngine$' 20 12`, which asks the window manager to maximize the
+game's window at 20 s and logs its state and size; `'^Deus Ex$'` the original's),
 `type.txt` (`TypeConsole`), `note-keys.txt` (`MultiEditConsole`), `bind-keys.txt` (`BindConsole`), `held-keys.txt`
 (`KeysConsole`), `resize-drags.txt` (`ResizeConsole`) and `axis-keys.txt` (`PadConsole`: two keys
 on one axis, a key bound in lower case, Enter with Alt held).

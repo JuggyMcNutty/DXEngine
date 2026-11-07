@@ -134,6 +134,9 @@ public:
 	bool isFullscreen = false;
 	bool placed = false;   // put somewhere by SetClientFrame
 	bool SystemKeys = false;   // a widget window's, not a device's: Alt+F4 and Alt+Space Windows' own
+	// On Windows, the window procedure SDL made the window with, under the
+	// one that takes Maximize before Windows does (MaximizeCommandProc)
+	intptr_t SDLWindowProc = 0;
 
 	static bool ExitRunLoop;
 	static Uint32 PaintEventNumber;

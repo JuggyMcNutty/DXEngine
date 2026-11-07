@@ -103,6 +103,8 @@ public:
 	virtual void OnWindowActivated() = 0;
 	virtual void OnWindowDeactivated() = 0;
 	virtual void OnWindowDpiScaleChanged() = 0;
+	// Maximize asked of the window (GameWindow::OnWindowMaximize)
+	virtual void OnWindowMaximize() = 0;
 };
 
 class GameWindow : public Widget
@@ -151,6 +153,7 @@ protected:
 	void OnClose() override;
 	void OnWindowActivated() override;
 	void OnWindowDeactivated() override;
+	bool OnWindowMaximize() override;
 
 private:
 	Array<Size> QueryAvailableResolutions() const;

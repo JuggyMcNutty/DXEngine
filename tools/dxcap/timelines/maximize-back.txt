@@ -1,0 +1,6 @@
+# WIN.15's proof, DXEngine's side: maximize.py asks the window maximized at
+# 20 s; the console's togglefullscreen, the toggle Alt+Enter runs, brings it
+# back at 30 s; then an exit. PadConsole logs the root window's size
+# (DXPAD:), maximize.py the window's _NET_WM_STATE and size.
+start 30 togglefullscreen
+start 36 exit

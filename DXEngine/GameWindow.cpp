@@ -160,6 +160,14 @@ void GameWindow::OnWindowDeactivated()
 	windowHost->OnWindowDeactivated();
 }
 
+// Maximize is the engine's, never the window's: it toggles full screen, as
+// Alt+Enter does (Engine::OnWindowMaximize)
+bool GameWindow::OnWindowMaximize()
+{
+	windowHost->OnWindowMaximize();
+	return true;
+}
+
 std::unique_ptr<GameWindow> GameWindow::Create(GameWindowHost* windowHost, RenderDeviceType type)
 {
 	RenderAPI api;

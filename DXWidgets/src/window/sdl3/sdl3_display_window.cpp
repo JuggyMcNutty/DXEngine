@@ -26,6 +26,26 @@ std::string SDL3DisplayWindow::SimulatedLayout;
 InputKey SDL3DisplayWindow::PressedAs[SDL_SCANCODE_COUNT];
 std::unordered_map<unsigned int, SDL3DisplayWindow*> SDL3DisplayWindow::WindowList;
 
+#ifdef _WIN32
+// Maximize -- the caption's box, a double click on the caption, the window
+// menu's, Wine's for its window manager's -- as Windows asks it of the
+// window, before it is maximized: the host's to take, the game's window
+// toggling full screen and never maximized, as the original's takes the
+// command (dx-reverse-info/windrv-dll.md, the window's commands), as the
+// Win32 window takes it; a widget window's goes on to SDL and Windows. SDL
+// itself tells of a maximize only once it is done (OnWindowEvent). SDL
+// leaves a procedure the program puts over its own in place
+static LRESULT CALLBACK MaximizeCommandProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+{
+	auto window = (SDL3DisplayWindow*)GetPropW(hwnd, L"DXWidgets.SDL3DisplayWindow");
+	if (!window || !window->SDLWindowProc)
+		return DefWindowProcW(hwnd, msg, wparam, lparam);
+	if (msg == WM_SYSCOMMAND && (wparam & 0xFFF0) == SC_MAXIMIZE && window->WindowHost->OnWindowMaximize())
+		return 0;
+	return CallWindowProcW(reinterpret_cast<WNDPROC>(window->SDLWindowProc), hwnd, msg, wparam, lparam);
+}
+#endif
+
 SDL3DisplayWindow::SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, SDL3DisplayWindow* owner, RenderAPI renderAPI) : WindowHost(windowHost), SystemKeys(renderAPI == RenderAPI::Unspecified)
 {
 	m_GLIsES = renderAPI == RenderAPI::GLES;
@@ -54,6 +74,15 @@ SDL3DisplayWindow::SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType t
 
 	SDL_StartTextInput(Handle.window);
 
+#ifdef _WIN32
+	// Maximize taken as Windows asks it (MaximizeCommandProc)
+	if (HWND hwnd = (HWND)GetWin32Handle())
+	{
+		SetPropW(hwnd, L"DXWidgets.SDL3DisplayWindow", this);
+		SDLWindowProc = SetWindowLongPtrW(hwnd, GWLP_WNDPROC, (LONG_PTR)&MaximizeCommandProc);
+	}
+#endif
+
 	WindowList[SDL_GetWindowID(Handle.window)] = this;
 }
 
@@ -79,6 +108,15 @@ SDL3DisplayWindow::~SDL3DisplayWindow()
 
 	if (RendererHandle)
 		SDL_DestroyRenderer(RendererHandle);
+#ifdef _WIN32
+	// SDL's own procedure back for the window's last messages
+	if (HWND hwnd = (HWND)GetWin32Handle())
+	{
+		if (SDLWindowProc)
+			SetWindowLongPtrW(hwnd, GWLP_WNDPROC, SDLWindowProc);
+		RemovePropW(hwnd, L"DXWidgets.SDL3DisplayWindow");
+	}
+#endif
 	SDL_DestroyWindow(Handle.window);
 	RendererHandle = nullptr;
 	Handle.window = nullptr;
@@ -197,9 +235,17 @@ void SDL3DisplayWindow::Show()
 	SDL_ShowWindow(Handle.window);
 }
 
+// A maximized window is restored first, the window manager's answer waited
+// for: SDL brings a window back from full screen maximized as it went, which
+// the game's window would take as Maximize again (OnWindowEvent)
 void SDL3DisplayWindow::ShowFullscreen()
 {
 	SDL_ShowWindow(Handle.window);
+	if (SDL_GetWindowFlags(Handle.window) & SDL_WINDOW_MAXIMIZED)
+	{
+		SDL_RestoreWindow(Handle.window);
+		SDL_SyncWindow(Handle.window);
+	}
 	SDL_SetWindowFullscreen(Handle.window, true);
 	isFullscreen = true;
 }
@@ -233,10 +279,13 @@ void SDL3DisplayWindow::ShowMinimized()
 	SDL_MinimizeWindow(Handle.window);
 }
 
+// Out of full screen and not maximized, as Win32's normal window
 void SDL3DisplayWindow::ShowNormal()
 {
 	SDL_ShowWindow(Handle.window);
 	SDL_SetWindowFullscreen(Handle.window, false);
+	if (SDL_GetWindowFlags(Handle.window) & SDL_WINDOW_MAXIMIZED)
+		SDL_RestoreWindow(Handle.window);
 	isFullscreen = false;
 }
 
@@ -714,6 +763,21 @@ void SDL3DisplayWindow::OnWindowEvent(const SDL_WindowEvent& event)
 		WindowHost->OnWindowDeactivated();
 	else if (event.type == SDL_EVENT_WINDOW_MOUSE_LEAVE)
 		WindowHost->OnWindowMouseLeave();
+#ifndef _WIN32
+	else if (event.type == SDL_EVENT_WINDOW_MAXIMIZED && !isFullscreen)
+	{
+		// Maximize -- the title bar's button, a double click on it, the
+		// window menu's -- which SDL tells of once the window manager has
+		// maximized the window: the host's to take, the game's window
+		// toggling full screen, restored as it goes (ShowFullscreen), as the
+		// original's takes the command (dx-reverse-info/windrv-dll.md, the
+		// window's commands). None is taken in full screen: one queued as
+		// the toggle went is stale. On Windows the command is taken before
+		// Windows maximizes the window (MaximizeCommandProc), and a maximize
+		// no command carries stays one, as the original's
+		WindowHost->OnWindowMaximize();
+	}
+#endif
 }
 
 void SDL3DisplayWindow::OnTextInput(const SDL_TextInputEvent& event)

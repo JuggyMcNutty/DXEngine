@@ -240,6 +240,7 @@ protected:
 	void OnWindowActivated() override;
 	void OnWindowDeactivated() override;
 	void OnWindowDpiScaleChanged() override;
+	bool OnWindowMaximize() override;
 	
 private:
 	void Paint(Canvas* canvas);

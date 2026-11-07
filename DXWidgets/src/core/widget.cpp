@@ -1029,6 +1029,12 @@ void Widget::OnWindowDpiScaleChanged()
 {
 }
 
+// A widget window, the Fatal Error window, is maximized as the system has it
+bool Widget::OnWindowMaximize()
+{
+	return false;
+}
+
 double Widget::GetDpiScale() const
 {
 	Widget* w = Window();

@@ -331,6 +331,14 @@ By area, as the code stands. Each device's numbers are its port's, such as
   middle again for their size, not at Windows' default place. Back from full screen
   (Alt+Enter) it takes its windowed size alone, where the window manager or SDL puts it back,
   the Win32 window where it was, as the original's viewport moves its window back.
+- **Maximize** in the game's window toggles full screen, as the original's
+  ([Maximize](NATIVES.md#small)); the Fatal Error window maximizes (the host's answer,
+  `OnWindowMaximize`). The Win32 window, and SDL3's on Windows by a window procedure over SDL's,
+  take Windows' `SC_MAXIMIZE` before the window is maximized; SDL2's, SDL3's elsewhere, the X11
+  one (`_NET_WM_STATE`, maximized both ways) and the Wayland one (its toplevel's configure) take
+  the window manager's maximize once it is done, outside full screen. Those restore a maximized
+  window as it goes full screen and as it comes back: SDL brings a window back from full screen
+  maximized as it went, which would be read as Maximize again.
 - **The Fatal Error window** is 1500x800 DIPs, or less to fit the work area of the screen it
   opens on, the primary one (its taskbar left out under SDL3, SDL2 and Win32, the whole screen
   elsewhere), centred there. Esc closes it as its close box does; in SDL3's and the Win32

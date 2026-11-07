@@ -3622,6 +3622,16 @@ void Engine::OnWindowDpiScaleChanged()
 {
 }
 
+// Maximize asked of the game's window -- its title bar's button, a double
+// click on the title bar, the window menu's -- toggles full screen as
+// Alt+Enter does, as the original's window takes the command: SC_MAXIMIZE,
+// its low four bits masked off, goes to ToggleFullscreen and no further, so
+// the window is never maximized (WinDrv.dll 0x1110b149-0x1110b177)
+void Engine::OnWindowMaximize()
+{
+	ToggleFullscreen();
+}
+
 void Engine::LockCursor()
 {
 	if (window)

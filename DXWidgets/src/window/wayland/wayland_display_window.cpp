@@ -231,10 +231,19 @@ void WaylandDisplayWindow::Show()
 	m_WindowSurface.commit();
 }
 
+// A maximized window is unset first: one maximized under full screen comes
+// back from it maximized, which the game's window would take as Maximize
+// again (OnXDGToplevelConfigureEvent)
 void WaylandDisplayWindow::ShowFullscreen()
 {
 	if (m_XDGToplevel)
 	{
+		if (isMaximized)
+		{
+			m_XDGToplevel.unset_maximized();
+			isMaximized = false;
+			unmaximizing = true;
+		}
 		m_XDGToplevel.set_fullscreen(backend->m_waylandOutput);
 		isFullscreen = true;
 	}
@@ -258,19 +267,23 @@ void WaylandDisplayWindow::ShowMinimized()
 	}
 }
 
+// Out of full screen and not maximized: a compositor that keeps a full
+// screen window maximized brings it back so
 void WaylandDisplayWindow::ShowNormal()
 {
 	if (m_XDGToplevel)
 	{
+		bool wasFullscreen = isFullscreen;
 		if (isFullscreen)
 		{
 			m_XDGToplevel.unset_fullscreen();
 			isFullscreen = false;
 		}
-		else if (isMaximized)
+		if (wasFullscreen || isMaximized)
 		{
 			m_XDGToplevel.unset_maximized();
 			isMaximized = false;
+			unmaximizing = true;
 		}
 	}
 }
@@ -544,6 +557,20 @@ void WaylandDisplayWindow::OnXDGToplevelConfigureEvent(int32_t width, int32_t he
 	rect.width = width;
 	rect.height = height;
 	SetClientFrame(rect);
+
+	// Maximized where the last configure had it not is Maximize asked of the
+	// window -- its title bar's button, a double click on it, its window
+	// menu's -- which the host takes or leaves (DisplayWindowHost::
+	// OnWindowMaximize), the game's window toggling full screen, unset as it
+	// goes (ShowFullscreen). None is read in full screen, nor between an
+	// unset asked and its configure
+	bool maximized = isMaximized && !isFullscreen;
+	bool asked = maximized && !configuredMaximized && !unmaximizing;
+	configuredMaximized = maximized;
+	if (!isMaximized)
+		unmaximizing = false;
+	if (asked)
+		windowHost->OnWindowMaximize();
 }
 
 void WaylandDisplayWindow::OnExportHandleEvent(std::string exportedHandle)

@@ -149,6 +149,11 @@ void SDL2DisplayWindow::Show()
 
 void SDL2DisplayWindow::ShowFullscreen()
 {
+	// A maximized window is restored first: SDL brings a window back from
+	// full screen maximized as it went, which the game's window would take
+	// as Maximize again (OnWindowEvent)
+	if (SDL_GetWindowFlags(Handle.window) & SDL_WINDOW_MAXIMIZED)
+		SDL_RestoreWindow(Handle.window);
 #ifdef DXE_SDL2_BORDERLESS_FULLSCREEN
 	// Not SDL_SetWindowFullscreen: on some vendor SDL2 builds (the Smart
 	// Pro's mali backend) switching a GL window to fullscreen deadlocks --
@@ -228,6 +233,9 @@ void SDL2DisplayWindow::ShowNormal()
 	SDL_ShowWindow(Handle.window);
 	SDL_SetWindowFullscreen(Handle.window, 0);
 #endif
+	// Not maximized either, as Win32's normal window
+	if (SDL_GetWindowFlags(Handle.window) & SDL_WINDOW_MAXIMIZED)
+		SDL_RestoreWindow(Handle.window);
 	isFullscreen = false;
 }
 
@@ -683,10 +691,17 @@ void SDL2DisplayWindow::OnWindowEvent(const SDL_WindowEvent& event)
 			WindowHost->OnWindowDeactivated();
 			break;
 
+		case SDL_WINDOWEVENT_MAXIMIZED:
+			// Maximize, which SDL tells of once the window is maximized: the
+			// host's to take, as SDL3's window has it (SDL3DisplayWindow::
+			// OnWindowEvent), never in full screen
+			if (!isFullscreen)
+				WindowHost->OnWindowMaximize();
+			break;
+
 		case SDL_WINDOWEVENT_NONE:
 		case SDL_WINDOWEVENT_HIDDEN:
 		case SDL_WINDOWEVENT_MINIMIZED:
-		case SDL_WINDOWEVENT_MAXIMIZED:
 		case SDL_WINDOWEVENT_RESTORED:
 		case SDL_WINDOWEVENT_ENTER:
 		case SDL_WINDOWEVENT_LEAVE:

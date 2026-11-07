@@ -2821,6 +2821,24 @@ not deleted (the log says so).
   desktop (a dev build's, no port's), names each key by its first level, the
   key below Escape `` ` `` whatever the layout, and lacks only the Windows
   and menu keys.
+- **Maximize** -- the title bar's button, a double click on the title bar,
+  the window menu's -- toggles full screen in the game's window, as
+  Alt+Enter does, as the original's window takes the command
+  ([the window's commands](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-windows-commands)):
+  full screen at `FullscreenViewportX` by `Y`, back at the window's size,
+  the window never left maximized (`PadConsole`, the window maximized from
+  outside through the window manager: DXEngine's X11 and SDL3 windows and a
+  Windows build's under Wine full screen, the root window at full screen's
+  size, and toggled back at the window's size, where each was maximized; the
+  original's log the maximize's `WM_SYSCOMMAND` calling `ToggleFullscreen`,
+  `AttemptFullscreen`, its OpenGL renderer then failing to start again
+  under Wine). On Windows the window takes it before Windows maximizes the
+  window, as the original's; on Linux the window manager maximizes the
+  window first, as it does the original's under Wine before Wine passes the
+  command on, and the window is restored as it goes full screen. The Fatal
+  Error window maximizes. Full screen the game's window has no menu to ask
+  it, by choice (above), where the original's menu's Maximize goes back to
+  a window.
 - **The field of view** is the original's setting: the player's `DefaultFOV`
   is Deus Ex's own config, 75 (`[Engine.PlayerPawn]` in `User.ini`), the
   angle across a 4:3 view ([the view's width](#the-views-width)).

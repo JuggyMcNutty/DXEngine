@@ -332,8 +332,36 @@ void X11DisplayWindow::SetFullscreenState(bool fullscreen)
 	isFullscreen = fullscreen;
 }
 
+// Out of the window manager's maximize, asked as a mapped window's state is;
+// the state read until the answer is the old one (OnPropertyNotify)
+void X11DisplayWindow::Unmaximize()
+{
+	auto connection = GetX11Connection();
+	Atom stateAtom = connection->GetAtom("_NET_WM_STATE");
+	Atom vertAtom = connection->GetAtom("_NET_WM_STATE_MAXIMIZED_VERT");
+	Atom horzAtom = connection->GetAtom("_NET_WM_STATE_MAXIMIZED_HORZ");
+	if (!isMapped || stateAtom == None || vertAtom == None || horzAtom == None)
+		return;
+	XEvent message = {};
+	message.xclient.type = ClientMessage;
+	message.xclient.window = window;
+	message.xclient.message_type = stateAtom;
+	message.xclient.format = 32;
+	message.xclient.data.l[0] = 0; // _NET_WM_STATE_REMOVE
+	message.xclient.data.l[1] = vertAtom;
+	message.xclient.data.l[2] = horzAtom;
+	message.xclient.data.l[3] = 1; // a normal application's request
+	XSendEvent(display, RootWindow(display, screen), False, SubstructureRedirectMask | SubstructureNotifyMask, &message);
+	unmaximizing = true;
+}
+
+// A maximized window is un-maximized first: one maximized under full screen
+// may come back from it maximized, which the game's window would take as
+// Maximize again (OnPropertyNotify)
 void X11DisplayWindow::ShowFullscreen()
 {
+	if (isMaximized)
+		Unmaximize();
 	SetFullscreenState(true);
 	Show();
 }
@@ -358,10 +386,15 @@ void X11DisplayWindow::ShowMinimized()
 	}
 }
 
+// Out of full screen and not maximized: a window manager that marks a full
+// screen window maximized may leave it so (SDL asks the same as it leaves)
 void X11DisplayWindow::ShowNormal()
 {
+	bool wasFullscreen = isFullscreen;
 	if (isFullscreen)
 		SetFullscreenState(false);
+	if (wasFullscreen || isMaximized)
+		Unmaximize();
 	Show();
 }
 
@@ -997,9 +1030,52 @@ void X11DisplayWindow::OnFocusOut(XEvent* event)
 	windowHost->OnWindowDeactivated();
 }
 
+// The window manager's state: maximized both ways where it was not is
+// Maximize asked of the window -- its title bar's button, a double click on
+// it, its window menu's -- which the host takes or leaves (DisplayWindowHost::
+// OnWindowMaximize), the game's window toggling full screen, un-maximized as
+// it goes (ShowFullscreen). None is read in full screen, ours or the window
+// manager's (some mark a full screen window maximized), nor between an
+// un-maximize asked and its answer
 void X11DisplayWindow::OnPropertyNotify(XEvent* event)
 {
-	// Sent when window is minimized, maximized, etc.
+	auto connection = GetX11Connection();
+	Atom stateAtom = connection->GetAtom("_NET_WM_STATE");
+	if (stateAtom == None || event->xproperty.atom != stateAtom)
+		return;
+
+	Atom vertAtom = connection->GetAtom("_NET_WM_STATE_MAXIMIZED_VERT");
+	Atom horzAtom = connection->GetAtom("_NET_WM_STATE_MAXIMIZED_HORZ");
+	Atom fullscreenAtom = connection->GetAtom("_NET_WM_STATE_FULLSCREEN");
+	bool vert = false, horz = false, fullscreen = false;
+	Atom type = None;
+	int format = 0;
+	unsigned long count = 0;
+	std::vector<uint8_t> state = GetWindowProperty(stateAtom, type, format, count);
+	if (type == XA_ATOM && format == 32)
+	{
+		const long* atoms = reinterpret_cast<const long*>(state.data());
+		for (unsigned long i = 0; i < count; i++)
+		{
+			Atom atom = (Atom)atoms[i];
+			vert = vert || (vertAtom != None && atom == vertAtom);
+			horz = horz || (horzAtom != None && atom == horzAtom);
+			fullscreen = fullscreen || (fullscreenAtom != None && atom == fullscreenAtom);
+		}
+	}
+
+	if (fullscreen)
+		return;
+	if (!vert || !horz)
+	{
+		isMaximized = false;
+		unmaximizing = false;
+		return;
+	}
+	bool asked = !isMaximized && !unmaximizing && !isFullscreen;
+	isMaximized = true;
+	if (asked)
+		windowHost->OnWindowMaximize();
 }
 
 InputKey X11DisplayWindow::GetInputKey(XEvent* event)

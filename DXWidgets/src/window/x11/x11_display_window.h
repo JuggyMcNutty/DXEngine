@@ -96,6 +96,7 @@ private:
 	void OnSelectionRequest(XEvent* event);
 	bool OnXInputEvent(XEvent* event);
 	void SetFullscreenState(bool fullscreen);
+	void Unmaximize();
 
 	void CreateBackbuffer(int width, int height);
 	void DestroyBackbuffer();
@@ -119,6 +120,11 @@ private:
 	bool isMapped = false;
 	bool isMinimized = false;
 	bool isFullscreen = false;
+	// The window manager's _NET_WM_STATE as last read: maximized both ways
+	// outside full screen (OnPropertyNotify); and an un-maximize asked of it,
+	// not yet read
+	bool isMaximized = false;
+	bool unmaximizing = false;
 	bool keyboardLocked = false;
 	double dpiScale = 1.0;
 

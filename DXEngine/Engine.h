@@ -255,6 +255,7 @@ public:
 	void OnWindowActivated() override;
 	void OnWindowDeactivated() override;
 	void OnWindowDpiScaleChanged() override;
+	void OnWindowMaximize() override;
 
 	void SetPause(bool value);
 

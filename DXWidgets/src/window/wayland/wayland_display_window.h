@@ -223,6 +223,10 @@ public:
 private:
 	bool keyboardLocked = false;
 	bool isMaximized = false;
+	// The last configure's maximized state outside full screen, and an unset
+	// asked of the compositor, not yet configured (OnXDGToplevelConfigureEvent)
+	bool configuredMaximized = false;
+	bool unmaximizing = false;
 	bool isResizable = true;
 
 	int m_minWindowWidth = 0;
