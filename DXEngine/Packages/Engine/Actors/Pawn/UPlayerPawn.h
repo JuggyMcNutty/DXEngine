@@ -13,10 +13,15 @@ class UPlayerPawn : public UPawn
 public:
 	using UPawn::UPawn;
 
+	// A paused level's tick of a player pawn with a Player: its Player's
+	// input, PlayerInput, its input cleared.
 	void PausedInput(float elapsed);
 	// Reads the player's input and runs its PlayerTick, when it has a player
 	// here; whether it did.
 	bool TickInput(float elapsed);
+	// The input its Player gives: the viewport's keys and mouse, a net
+	// connection's none.
+	void ReadPlayerInput(float elapsed);
 	void ClearInput();
 	void ScaleInput(float scale);
 	// Deus Ex's other places the player sees from, for the server's relevancy

@@ -127,13 +127,16 @@ void ULevel::TickDeusEx(float elapsed, bool gamePaused)
 {
 	ownerWait.clear();
 
-	// Paused: the players' input, and the actors with bAlwaysTick.
+	// Paused: the input of each player pawn with a Player, and any other
+	// actor with bAlwaysTick -- a player pawn with none among them -- ticked,
+	// as the original's (ULevel::Tick, Engine.dll 0x103a57b8-0x103a58c2).
 	if (gamePaused)
 	{
 		for (size_t i = FirstDynamicActor; i < Actors.size(); i++)
 		{
 			UActor* actor = Actors[i];
-			if (auto playerPawn = UObject::TryCast<UPlayerPawn>(actor))
+			auto playerPawn = UObject::TryCast<UPlayerPawn>(actor);
+			if (playerPawn && playerPawn->Player())
 				playerPawn->PausedInput(elapsed);
 			else if (actor && actor->bAlwaysTick())
 				TickActorDeusEx(elapsed, actor);

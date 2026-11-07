@@ -1,12 +1,12 @@
 //=============================================================================
-// CapRoleActor: RoleGatesConsole's actors (bugs.md NET.21) -- an Info of the
-// package's own, touching nothing, that Setup makes one of the console's
-// kinds, its roles set last: moving 40 along X (DumbFall falling), with a
-// life span of 2.2 s, a timer every 0.5 s and state code that passes every
-// 0.5 s in a state that is not simulated (SimState's in one that is); Lapse
-// has only state code, a pass a second. It counts its Ticks, Timers and
-// state code passes, and logs with "DXROLES:" each pass and its expiry, at
-// the time from its setup.
+// CapRoleActor: RoleGatesConsole's actors (bugs.md NET.21, NET.26) -- an
+// Info of the package's own, touching nothing, that Setup makes one of the
+// console's kinds, its roles set last: moving 40 along X (DumbFall
+// falling), with a life span of 2.2 s, a timer every 0.5 s and state code
+// that passes every 0.5 s in a state that is not simulated (SimState's in
+// one that is); Lapse has only state code, a pass a second. It counts its
+// Ticks, Timers and state code passes, and logs with "DXROLES:" each pass,
+// each expiry and its fall out of the world, at the time from its setup.
 //=============================================================================
 class CapRoleActor extends Info;
 
@@ -111,6 +111,14 @@ function Timer()
 event Expired()
 {
 	Note("expired: " $ Did());
+}
+
+// Actor's sets no physics and destroys it, which DestroyActor refuses
+// without the authority (DumbFall's)
+event FellOutOfWorld()
+{
+	Note("fell out of the world");
+	Super.FellOutOfWorld();
 }
 
 auto state Probing

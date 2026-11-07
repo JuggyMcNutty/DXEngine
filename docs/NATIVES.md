@@ -120,7 +120,12 @@ as the original's browse asks for `loadgame=`: the console's `open` of it
 goes to the default map, `Index.dx`, which is not there, so the level's own
 map is loaded again, as for any map not there (below): from the menu map the
 menu again, its URL a load's, `Index.dx` (`URLConsole` with `Bare`: the same
-lines in both engines). Before a level is saved into `Current`, the
+lines in both engines). Differs (bugs.md NET.24): a `?load=N` loads save
+slot N, where the original's browses the map the URL names: from Liberty
+Island `open 01_NYC_UNATCOHQ?load=9` loads UNATCO HQ, and from there
+`open 01_NYC_UNATCOIsland?load=01_NYC_UNATCOHQ` the island, where DXEngine
+loads no level (`URLEdgesConsole` with `Short`).
+Before a level is saved into `Current`, the
 augmentations, skills and flag base that travel with the player go from it,
 a decoration in its hands too (`PruneTravelActors`; `ReturnConsole`). The
 player's goals, notes and key infos, which the game makes with `new(Self)`,
@@ -2518,6 +2523,10 @@ for single player only. An actor's own tick runs its state code, its timer,
 its `LifeSpan` and then its physics; the timer calls `Timer` once a tick
 however many of its periods passed, and a life span run out ends the tick
 (a 0.05 s timer over `FrameConsole`'s held frame: one call in each engine).
+An actor with no physics runs none, its pending touch's `PostTouch` with it,
+which waits for it to have some, and so does its `AutonomousPhysics`
+(`PendingTouchConsole`: none with no physics, one once it has rotating
+physics, in both engines).
 Before each level tick the level's `bDropDetail` and `bAggressiveLOD` are
 cleared, as the original's game engine clears them with a client: nothing
 drops detail for the frame rate.
@@ -3243,7 +3252,8 @@ through `Pawn.ClientHearSound`
 as client and as server: `ServeConsole`, `JoinConsole`, `RejoinConsole`,
 `TravelServeConsole`, `TravelJoinConsole`, `NetConsole`, `PickServer` with
 `PickJoinConsole`, `AskServer` with `AskJoinConsole`, `AnimEndServeConsole`
-with `AnimEndJoinConsole`, `ViewServeConsole` with `ViewJoinConsole`.
+with `AnimEndJoinConsole`, `ViewServeConsole` with `ViewJoinConsole`,
+`PauseServeConsole` with `JoinConsole`.
 DXEngine joins live
 public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
 stays in. A replicated string goes as the original's does, 16-bit when a
@@ -3352,7 +3362,12 @@ As in the original:
   original's with no client.
 - A URL is read as the original's reads it (Engine.dll `0x103f7b60`;
   [addresses](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md#addresses)):
-  its options and a `#` portal first, then a drive letter's file, a
+  its first 1,023 characters, as its buffer holds them (`0x103f7d00`), one
+  past U+FFFF counting two (`URLEdgesConsole`: `DX.dx#`, a portal of 1,007
+  `p`s and `?Name=Cut1234`, the player `Cut1`; the original's process ends
+  at that open, its log unflushed, a crash not copied, by choice); then its
+  options and
+  a `#` portal, then a drive letter's file, a
   protocol, the game's in any case, a host and its port, and the map, a `/`
   after it marking a portal for the game's protocol; a relative travel on
   the last URL's protocol, server, port, map and options, a partial one on
@@ -3431,6 +3446,22 @@ As in the original:
   mid-sleep waking half a second after it has the authority again). A
   viewport's player has the remote role simulated, so single player is
   untouched.
+- An actor this side has no authority over goes only with its channel or its
+  player's connection, unless it was sent once to keep, as the original's
+  `DestroyActor` refuses the rest whatever the net mode ([destroyed
+  actors](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#destroyed-actors)):
+  a proxy whose life span runs out stays, its `Expired` again each tick, its
+  timer and state code going on and its physics stopped; one that falls out
+  of the world stays, its physics none; its script `Destroy` answers False
+  (`RoleGatesConsole`: the simulated and autonomous proxies expiring tick
+  after tick and there at 3.25 s, the falling dumb proxy out of the world
+  and there, each one's `Destroy` False, in both engines).
+- A paused level reads each player's input through its `Player`: the
+  viewport's keys and mouse for its own pawn, nothing for a remote player's,
+  whose `PlayerInput` takes its input as it stands, as the original's paused
+  tick has it (`PauseServeConsole` with `JoinConsole`, each engine the
+  server and the other's client: the remote pawn's `aMouseX` of 1 taken as
+  1, the host's 0, in both).
 - A server's copy of a client's player viewing a pawn takes that pawn's view
   rotation, eye height and weapon's `PlayerViewOffset` into its
   `TargetViewRotation`, `TargetEyeHeight` and `TargetWeaponViewOffset` each
@@ -3524,15 +3555,15 @@ As in the original:
 A client's travel with its items, its
 player's replication info not come yet, leaves the player out, by choice:
 the original's export reads the info regardless and faults (Engine.dll
-`0x10390951`). Differs (bugs.md NET.24): a map loaded again is made anew,
-where the original's keeps its level's objects; a URL of another protocol
-is joined, where the original's opens it in the browser; `?load=N` loads a
-save's slot; a URL is kept whole, the original's to 1,023 characters.
-Differs (bugs.md NET.25): a paused listen server reads the host's input into
-the remote players' pawns too, and an actor's pending touch runs with no
-physics. Differs (bugs.md NET.26): a proxy whose life span runs out is
-destroyed, where the original's refuses to destroy it, so its `Expired`
-comes again each tick (`RoleGatesConsole`).
+`0x10390951`). A map loaded again is made anew, by choice, where the
+original's makes the same objects anew in place, so a reference held across
+the load names the level's object of that name, where DXEngine's is None
+([a level left behind](#housekeeping-not-seen-directly); `URLEdgesConsole`:
+the menu's `LevelInfo` held across its own load is the level's in the
+original); a URL of another protocol is logged as the original's logs it,
+`LaunchURL <url>`, and opened nowhere, by choice, the level playing on,
+where the original's hands it to the system to open, so that a server's
+travel would open any handler on its clients' systems.
 
 ## Not needed for single player
 

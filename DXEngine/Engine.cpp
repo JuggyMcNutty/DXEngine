@@ -311,7 +311,10 @@ void Engine::Run()
 	UnrealURL startURL(&defaultURL, LaunchInfo.url, ETravelType::TRAVEL_Partial);
 	if (!LaunchInfo.url.empty() && !startURL.Valid)
 		Exception::Throw(LocalizeMessage("Engine", "Errors", "InvalidUrl", "Invalid URL: %s", { LaunchInfo.url }));
-	bool launchServer = !LaunchInfo.url.empty() && !startURL.Host.empty() && !dedicated;
+	// A server's address, or a URL of another protocol, which the original's
+	// first browse hands to the system before it loads the menu's map: both
+	// taken as a travel from the menu's map.
+	bool launchServer = !LaunchInfo.url.empty() && (!startURL.Host.empty() || !startURL.IsInternal()) && !dedicated;
 	// A save to start in, ?loadgame=N, whatever map the URL names: the slot
 	// loaded before any map, as the original's first browse loads it
 	// (DeusExGameEngine's Browse, dx-reverse-info's deusex-dll.md); the
@@ -2678,6 +2681,20 @@ bool Engine::TakeTravel(float realTimeElapsed)
 		// The viewport's next travel, absolute, as the original's sets it:
 		// the player's options from the last URL, the server's, on it
 		ClientTravel("?failed", ETravelType::TRAVEL_Absolute, false);
+	}
+
+	// A URL of another protocol than the game's is no map and no server: the
+	// original's browse hands it to the system to open (UGameEngine::Browse,
+	// Engine.dll 0x1038b85f-0x1038b890; appLaunchURL, Core.dll 0x1016c770,
+	// logs LaunchURL and the URL and opens it with ShellExecute), any error
+	// dropped, the level playing on. DXEngine logs it alike and opens
+	// nothing, by choice: a server's ClientTravel would open any URL, any
+	// protocol's handler, on its clients' systems.
+	if (!ClientTravelInfo.URL.IsInternal() && !ClientTravelInfo.URL.HasOption("failed") && !ClientTravelInfo.URL.HasOption("entry"))
+	{
+		LogMessage("LaunchURL " + ClientTravelInfo.URL.ToString() + " ");
+		ClientTravelInfo.URL.Clear();
+		return true;
 	}
 
 	if (!ClientTravelInfo.URL.Host.empty())

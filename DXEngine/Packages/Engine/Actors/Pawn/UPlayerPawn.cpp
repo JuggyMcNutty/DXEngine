@@ -2,6 +2,7 @@
 #include "Precomp.h"
 #include "UPlayerPawn.h"
 #include "UCamera.h"
+#include "Packages/Engine/UViewport.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Engine.h"
 #include "Package/PackageManager.h"
@@ -10,14 +11,24 @@
 #include "Packages/Core/UClass.h"
 #include "Packages/Core/Properties/UFloatProperty.h"
 
+// The pawn's Player's input read, as the original's Player->ReadInput reads
+// it: a viewport's keys and mouse (UInput::ReadInput, Engine.dll
+// 0x10394580); a net connection's nothing (UNetConnection::ReadInput,
+// 0x1030262b), a server's copy of a remote player keeping its input as it is.
+void UPlayerPawn::ReadPlayerInput(float elapsed)
+{
+	if (Player() == engine->viewport)
+		engine->ReadInput(this, elapsed);
+}
+
+// A paused level's tick of a player pawn with a Player, as the original's
+// (ULevel::Tick, Engine.dll 0x103a57e6-0x103a58a6), whatever its roles or
+// class: its Player's input read, PlayerInput, its input floats cleared.
 void UPlayerPawn::PausedInput(float elapsed)
 {
-	if (Role() >= ROLE_SimulatedProxy && Player() && !UObject::TryCast<UCamera>(this))
-	{
-		engine->ReadInput(this, elapsed);
-		CallEvent(this, EventName::PlayerInput, { ExpressionValue::FloatValue(elapsed) });
-		ClearInput();
-	}
+	ReadPlayerInput(elapsed);
+	CallEvent(this, EventName::PlayerInput, { ExpressionValue::FloatValue(elapsed) });
+	ClearInput();
 }
 
 // Every input float (aBaseX, aTurn, aMouseX...) back to 0 once the script has
@@ -99,7 +110,7 @@ bool UPlayerPawn::TickInput(float elapsed)
 	if (Role() < ROLE_SimulatedProxy || clientsPawn || !Player() || UObject::TryCast<UCamera>(this))
 		return false;
 
-	engine->ReadInput(this, elapsed);
+	ReadPlayerInput(elapsed);
 	CallEvent(this, EventName::PlayerInput, { ExpressionValue::FloatValue(elapsed) });
 	CallEvent(this, EventName::PlayerTick, { ExpressionValue::FloatValue(elapsed) });
 	ClearInput();

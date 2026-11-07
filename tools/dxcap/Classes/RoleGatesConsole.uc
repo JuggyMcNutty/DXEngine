@@ -1,13 +1,17 @@
 //=============================================================================
 // RoleGatesConsole: actors given the roles a net game gives them, in single
-// player (bugs.md NET.21, NET.22; docs/DEVELOPMENT.md, scripted runs),
-// logged with "DXROLES:". The original's AActor::Tick goes by the roles
-// alone, whatever the net mode (Engine.dll 0x103a1aa0): an actor whose remote
-// role is autonomous runs its state code and timer, nothing more, and with
-// any role but the authority nothing (0x103a23ce); a dumb proxy only falls
-// (0x103a2524); an autonomous proxy has no physics (0x103a2763); a proxy
-// runs its state code, and counts down its latent action, in a simulated
-// state alone (ProcessState, 0x103e5b9c).
+// player (bugs.md NET.21, NET.22, NET.26; docs/DEVELOPMENT.md, scripted
+// runs), logged with "DXROLES:". The original's AActor::Tick goes by the
+// roles alone, whatever the net mode (Engine.dll 0x103a1aa0): an actor whose
+// remote role is autonomous runs its state code and timer, nothing more, and
+// with any role but the authority nothing (0x103a23ce); a dumb proxy only
+// falls (0x103a2524); an autonomous proxy has no physics (0x103a2763); a
+// proxy runs its state code, and counts down its latent action, in a
+// simulated state alone (ProcessState, 0x103e5b9c). Its DestroyActor
+// refuses an actor without the authority (0x10395c32-0x10395c44): a proxy
+// whose life span runs out stays, and expires again each tick, its tick
+// ending there before its physics; one that falls out of the world stays,
+// its physics none; its script Destroy answers False.
 //
 // From wherever the run starts, 2 s in, nine CapRoleActors over the player,
 // each moving 40 along X with a life span of 2.2 s, a timer every 0.5 s and
@@ -29,14 +33,19 @@
 // role autonomous, Control with the remote role simulated. At 1.5 s the
 // target's view rotation becomes 2000,30000,0, its eye height 20 and its
 // weapon None. The viewers' targets logged at 1 s and 3 s; at 3.25 s what
-// each actor did, the ones not expired destroyed, and an exit.
+// each actor did, the ones still there destroyed, with what each Destroy
+// answers, and an exit.
 //
 // The original's, so DXEngine's once fixed:
 //   Auth, SimState: ticked, 4 Timers, 4 passes, expired at 2.2 after 88
-//     along X; Sim the same with no pass; Auto too, not moving;
-//   Dumb and Odd: nothing at all, not expired; DumbFall: fell, nothing more;
+//     along X; Sim the same with no pass; Auto too, not moving; Auth gone,
+//     Sim, SimState and Auto expiring again each tick and there at 3.25,
+//     6 Timers, SimState 6 passes, none moved since, Destroy False;
+//   Dumb and Odd: nothing at all, not expired, Destroy False; DumbFall:
+//     fell out of the world, nothing more, there at 3.25, Destroy False;
 //   Served: not ticked, 6 Timers, 6 passes, not moving, not expired;
-//   Lapse: one pass, at 3.0 (its sleep's second half after 2.5);
+//   Lapse: one pass, at 3.0 (its sleep's second half after 2.5); both
+//     Destroy True;
 //   Viewer: not ticked, its targets the target's -- at 3 s 2000,30000,0, 20
 //     and the weapon's 11,22,33 kept; Control: ticked, its targets 0.
 //=============================================================================
@@ -182,7 +191,7 @@ event Tick(float Delta)
 			else
 			{
 				Log("DXROLES: " $ Kinds[i] $ " at 3.25: " $ A[i].Did() $ ", role " $ A[i].Role);
-				A[i].Destroy();
+				Log("DXROLES: " $ Kinds[i] $ " Destroy " $ A[i].Destroy());
 			}
 		}
 		if (Viewer != None)

@@ -568,12 +568,13 @@ void NetServerLevel::NotifyConnectionClosed(NetConnection* connection)
 	if (connection->PlayerObject)
 		PlayerConnections.erase(connection->PlayerObject);
 
-	// Its player goes with it.
+	// Its player goes with it, forced, as the original's UPlayer::Destroy
+	// destroys its actor (Engine.dll 0x103d7e3a-0x103d7e4e).
 	if (UPlayerPawn* pawn = connection->Actor)
 	{
 		connection->Actor = nullptr;
 		pawn->Player() = nullptr;
-		pawn->Destroy();
+		pawn->Destroy(true);
 	}
 }
 

@@ -217,7 +217,10 @@ public:
 	using UObject::UObject;
 
 	UActor* Spawn(UClass* SpawnClass, std::optional<UActor*> SpawnOwner, std::optional<NameString> SpawnTag, std::optional<vec3> SpawnLocation, std::optional<Rotator> SpawnRotation, bool noCollisionFail = false, bool remoteOwned = false);
-	bool Destroy();
+	// The original's DestroyActor(actor, bNetForce): netForce destroys an
+	// actor this side has no authority over, as a client's actor channel
+	// and a player's going do; every other call refuses one.
+	bool Destroy(bool netForce = false);
 	void InitBase();
 
 	void SetBase(UActor* newBase, bool sendBaseChangeEvent);

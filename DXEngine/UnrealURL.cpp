@@ -51,6 +51,29 @@ UnrealURL::UnrealURL(std::string urlString) : UnrealURL(nullptr, std::move(urlSt
 {
 }
 
+// The text as the original's parse copies it into its buffer of 1,024
+// characters (appStrncpy, Engine.dll 0x103f7d00-0x103f7d16): its first
+// 1,023, one past U+FFFF counting two, as its UTF-16 has it -- such a
+// character at the end dropped whole --, before anything is read of it.
+static void CutToParseBuffer(std::string& text)
+{
+	const size_t bufferLen = 1024;
+	size_t units = 0;
+	for (size_t pos = 0; pos < text.size(); pos++)
+	{
+		// A character's length in UTF-16, at its UTF-8 lead byte
+		unsigned char c = (unsigned char)text[pos];
+		if ((c & 0xc0) == 0x80)
+			continue;
+		units += c >= 0xf0 ? 2 : 1;
+		if (units >= bufferLen)
+		{
+			text.resize(pos);
+			return;
+		}
+	}
+}
+
 // The original's parse, step by step: a URL is
 // [protocol:][//][host[:port]/][map[/portal]][?option...][#portal]
 UnrealURL::UnrealURL(const UnrealURL* baseURL, std::string urlString, ETravelType travelType) : UnrealURL()
@@ -75,7 +98,9 @@ UnrealURL::UnrealURL(const UnrealURL* baseURL, std::string urlString, ETravelTyp
 		}
 	}
 
-	// Its leading spaces passed over, its trailing ones kept
+	// Its first 1,023 characters (CutToParseBuffer); its leading spaces
+	// passed over, its trailing ones kept
+	CutToParseBuffer(urlString);
 	urlString.erase(0, urlString.find_first_not_of(' '));
 
 	// The options and a '#' portal first, each up to the next '?' or '#',

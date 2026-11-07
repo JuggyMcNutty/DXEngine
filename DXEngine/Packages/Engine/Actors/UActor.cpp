@@ -158,12 +158,19 @@ UActor* UActor::Spawn(UClass* SpawnClass, std::optional<UActor*> SpawnOwner, std
 // actor still takes its events while it goes -- EndState, BaseChange, the
 // Detach and LostChild of what stands on it and what it owns. A script that
 // destroys it within any of them finishes the job, and this one stops there.
-bool UActor::Destroy()
+bool UActor::Destroy(bool netForce)
 {
 	if (bStatic() || bNoDelete())
 		return false;
 	if (bDeleteMe())
 		return true;
+
+	// Only an actor this side has the authority over goes, whatever the net
+	// mode, unless forced or sent once to keep (bNetTemporary)
+	// (0x10395c32-0x10395c44): a proxy's own Destroy, its life span's end
+	// and its fall out of the world are refused, and it stays.
+	if (Role() != ROLE_Authority && !netForce && !bNetTemporary())
+		return false;
 
 	// A player pawn with a live net connection has the connection closed
 	// instead, as the original's DestroyActor has it (engine-dll.md,
@@ -361,10 +368,11 @@ bool UActor::StartTick()
 
 	// Nothing else for an actor in stasis -- no script tick, physics,
 	// animation or timers -- and a transient one (the rats a container lets
-	// out) destroyed. It counts as ticked, its mark left as it was.
+	// out) of a role of simulated proxy or more destroyed (0x103a1ad1-
+	// 0x103a1ae7). It counts as ticked, its mark left as it was.
 	if (InStasis())
 	{
-		if (IsTransient())
+		if (IsTransient() && Role() >= ROLE_SimulatedProxy)
 			Destroy();
 		level->TickStarted(this, ULevel::TickStart::Stasis);
 		return false;
@@ -519,7 +527,10 @@ void UActor::Tick(float elapsed)
 	// Then, as the original's (Engine.dll AActor::Tick 0x103a1aa0): the
 	// timer, once a tick however many of its periods passed, the counter
 	// keeping what is left; the life span, which destroys the actor when it
-	// runs out, and the tick ends there; then physics.
+	// runs out, and the tick ends there, destroyed or not (0x103a2731-
+	// 0x103a2757): a proxy, which Destroy refuses, stays, and expires again
+	// each tick, its state code and timer going on and its physics stopped;
+	// then physics.
 	if (TimerRate() > 0.0f)
 	{
 		TimerCounter() += elapsed;

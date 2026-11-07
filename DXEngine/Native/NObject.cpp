@@ -390,11 +390,12 @@ void NObject::Disable(UObject* Self, const NameString& ProbeFunc)
 // the next collection, which makes every reference to it None: until then
 // it is as it was, so a script that reads the object it just deleted (as
 // NanoKeyRing.RemoveAllKeys does) reads it whole. An actor is destroyed
-// instead, and goes with the destroyed actors (ULevel::CleanupDestroyed):
-// flagged at once, its link in their chain was made None at the next
-// collection, cutting the chain behind it; one whose Destroy refuses
-// (bStatic, bNoDelete) stays, logged, where the original frees it with the
-// level's list, its BSP node and the collision hash still pointing at it.
+// instead, forced, as the original's delete takes it whatever its role,
+// and goes with the destroyed actors (ULevel::CleanupDestroyed): flagged at
+// once, its link in their chain was made None at the next collection,
+// cutting the chain behind it; one whose Destroy refuses (bStatic,
+// bNoDelete) stays, logged, where the original frees it with the level's
+// list, its BSP node and the collision hash still pointing at it.
 // Code, a package and the engine's own objects -- the levels, their infos
 // and games, the save info and the root window among them -- are not
 // deleted: the main loop reads them unchecked.
@@ -413,7 +414,7 @@ void NObject::CriticalDelete(UObject* Self, UObject* myObject)
 	}
 	if (UActor* actor = UObject::TryCast<UActor>(myObject))
 	{
-		if (!actor->Destroy())
+		if (!actor->Destroy(true))
 			LogMessage("CriticalDelete: Destroy refused " + UObject::GetUClassName(myObject).ToString() + " " + myObject->Name.ToString());
 		return;
 	}

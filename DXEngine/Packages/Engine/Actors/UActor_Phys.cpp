@@ -57,7 +57,12 @@ void UActor::TickPhysics(float elapsed)
 			TickRotating(elapsed);
 	}
 
-	CheckPendingTouch();
+	// The pending touch ends performPhysics (0x103c9917; APawn's,
+	// 0x103c9c29), which the original's tick and AutonomousPhysics call only
+	// for an actor with physics (AActor::Tick 0x103a275c,
+	// execAutonomousPhysics 0x103c8fd4): one with none keeps it.
+	if (hadPhysics)
+		CheckPendingTouch();
 	PhysicsFrameLeft = 0.0f;
 	PhysicsFrameEnded = false;
 

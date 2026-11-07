@@ -147,9 +147,19 @@ void NActor::AllActors(UObject* Self, UObject* BaseClass, UObject*& Actor, std::
 	Frame::CreatedIterator = std::make_unique<AllActorsIterator>(Self, ActorClassOrGiven(Self, BaseClass), &Actor, MatchTag ? *MatchTag : std::string());
 }
 
+// The original's (execAutonomousPhysics, Engine.dll 0x103c8f30): the
+// acceleration first cut toward zero to a tenth, 0.1 x int(10 x each), in
+// doubles as its x87 works them (0x103c8f60-0x103c8fce), physics or not --
+// the tenths a client's moves send the server, ServerMove's acceleration
+// ten times over in whole numbers --; then the physics, for an actor with
+// any (TickPhysics).
 void NActor::AutonomousPhysics(UObject* Self, float DeltaSeconds)
 {
 	UActor* SelfActor = UObject::Cast<UActor>(Self);
+	vec3& acceleration = SelfActor->Acceleration();
+	acceleration.x = (float)(0.1 * (double)(int)(10.0 * (double)acceleration.x));
+	acceleration.y = (float)(0.1 * (double)(int)(10.0 * (double)acceleration.y));
+	acceleration.z = (float)(0.1 * (double)(int)(10.0 * (double)acceleration.z));
 	SelfActor->TickPhysics(DeltaSeconds);
 }
 

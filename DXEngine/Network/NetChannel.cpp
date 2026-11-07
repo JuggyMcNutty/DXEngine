@@ -1285,12 +1285,14 @@ void NetActorChannel::CleanUp()
 		Connection->ActorChannels.erase(it);
 
 	// A client lets go of the actor with its channel, unless it was sent
-	// once to keep (bNetTemporary). A map's actor stays either way. A
-	// server whose one-time send never arrived sends it again.
+	// once to keep (bNetTemporary): forced, the actor being the server's,
+	// as the original's UActorChannel::Destroy destroys it (Engine.dll
+	// 0x103fd2d6-0x103fd2ea). A map's actor stays either way. A server
+	// whose one-time send never arrived sends it again.
 	if (Connection->Driver->ServerConnection.get() == Connection)
 	{
 		if (!Actor->bNetTemporary())
-			Actor->Destroy();
+			Actor->Destroy(true);
 	}
 	else if (!OpenAcked)
 	{
