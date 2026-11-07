@@ -338,6 +338,10 @@ original's copies a string from before its labels, and crashes the game
 there (`RandomLabelBelowConsole`: a Critical at -1, ConSys.dll
 `0x1000a270`); no stock event or script sets one.
 
+Differs (bugs.md DX.8): an actor whose `BindName` is empty binds no
+conversation, where the original's binds it one with no owner; every stock
+conversation has one.
+
 ## What the player reads
 
 Matches the original's parser
@@ -478,7 +482,8 @@ second way, 10 of 24 tries apart. Differs (bugs.md AI.11):
 AI.13, AI.14): `GetPathnodeList`'s 32 nodes, the pick's pitch,
 `ReachableFromAnchor`'s direction. Differs (bugs.md PHYS.20, PHYS.21): the
 reach tests' moves pass through the pawn's base, and `JumpLanding`'s steps
-are raw traces.
+are raw traces. Differs (bugs.md PHYS.23): the ladder probe stops at a
+texture in no group, where the original's goes on past it.
 
 ## Out of sight
 
@@ -2632,7 +2637,9 @@ spelt it; lookups take any case in both. Differs (bugs.md VM.29): an
 object a package holds, `new(None)`'s, a level, a `ConListItem` or a
 conversation camera, has no `Outer`, where the original's names the package
 (`Vm29Console`: the level's `Outer` None, the original's `DX`); no stock
-script reads one.
+script reads one. Differs (bugs.md VM.30): a NaN compares unequal to
+anything, where the original's script compare, a vector's and `Identical`
+take it as equal.
 
 ## The command line
 
@@ -2719,6 +2726,12 @@ What DXEngine does with each:
     `-nokni` and `-nok6` (the original's mixer picks its routines by them),
     and `-safe`'s no DirectInput (DXEngine's input is its window's, SDL's
     under the launchers).
+
+Differs (bugs.md PKG.27): `exec` runs each line of its file whole, where
+the original's takes a `//` comment off and `|`'s chained commands apart and
+reads 255 characters a line; an `INI=` name with no extension is one file,
+the original's two; a class's `SaveConfig` does not read its defaults again,
+so a value changed in case alone stays in them for the run.
 
 ## Mods
 
@@ -2958,6 +2971,10 @@ given itself as its macro texture, has the GL and Vulkan devices' frames at
 border, within 0.94 to 1.04 (without the macro, [lighting](#lighting)). The
 D3D11 device keeps Surreal Engine's
 ([where it stands](../README.md#for-advanced-users)).
+
+Differs (bugs.md PKG.26): a tag of a property a class declares again is
+loaded into the first of its name, where the original's goes to the class's
+own and skips a tag of another type (`GameReplicationInfo`'s `Region`).
 
 ## Multiplayer
 
@@ -3214,7 +3231,13 @@ mark, and no URL is refused, where the original's refuses a blank in an
 option (`OpenLineConsole`). A client's travel with its items, its
 player's replication info not come yet, leaves the player out, by choice:
 the original's export reads the info regardless and faults (Engine.dll
-`0x10390951`).
+`0x10390951`). Differs (bugs.md NET.21): state code runs for a proxy in
+any state, and the tick tests the net mode for a dumb proxy's fall and a
+client's pawn, where the original's tests the roles alone. Differs (bugs.md
+NET.22): a spectating client's view targets are never filled, so it looks
+from rotation 0. Differs (bugs.md NET.23): no player is made admin, where
+the original's makes one in single player or with `-alladmin`; a `TcpLink`
+closes gracefully, the original's abortively.
 
 ## Not needed for single player
 
