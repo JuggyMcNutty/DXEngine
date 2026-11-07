@@ -49,8 +49,9 @@ void UActor::TickProjectile(float deltaTime, int iterations)
 		if (projectile)
 		{
 			float maxSpeed = projectile->MaxSpeed();
+			// Core's SafeNormal of the velocity times it (0x103d4821)
 			if (dot(Velocity(), Velocity()) > maxSpeed * maxSpeed)
-				Velocity() = normalize(Velocity()) * maxSpeed;
+				Velocity() = X87::SafeNormal(Velocity()) * maxSpeed;
 		}
 
 		CollisionHit hit = TryMoveHeldOff(Velocity() * deltaTime);

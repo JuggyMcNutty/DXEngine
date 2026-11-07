@@ -41,10 +41,9 @@ void UActor::DeusExTickFalling(float deltaTime, int iterations)
 	UDecoration* decor = UObject::TryCast<UDecoration>(this);
 	bool player = UObject::TryCast<UPlayerPawn>(this) != nullptr;
 
-	auto safeNormal = [](const vec3& v) {
-		float len = length(v);
-		return len > 0.0f ? v / len : vec3(0.0f);
-	};
+	// Each direction below is Core's SafeNormal, none under 1e-8 squared
+	// (0x103d0c02, 0x103d0dc9, 0x103d1ad0, 0x103d2114, 0x103d2425)
+	auto safeNormal = [](const vec3& v) { return X87::SafeNormal(v); };
 
 	// A pawn's air control: AirControl, 0.05 when over 0.15 and a box its
 	// size meets the world along its move this tick. The acceleration, made
@@ -145,7 +144,7 @@ void UActor::DeusExTickFalling(float deltaTime, int iterations)
 
 		if (maxAirSpeed > 0.0f && dot(Velocity().xy(), Velocity().xy()) > maxAirSpeed * maxAirSpeed)
 		{
-			vec2 across = normalize(Velocity().xy()) * maxAirSpeed;
+			vec3 across = safeNormal(vec3(Velocity().x, Velocity().y, 0.0f)) * maxAirSpeed;
 			Velocity().x = across.x;
 			Velocity().y = across.y;
 		}

@@ -960,9 +960,7 @@ void NActor::ParabolicTrace(UObject* Self, vec3& finalLocation, std::optional<ve
 						if (landing(hitNormal, dot(velocity, velocity)))
 							done = true;
 						vec3 secondNormal = hitNormal;
-						float deltaLength = length(delta);
-						vec3 desiredDir = deltaLength > 0.0f ? delta * (1.0f / deltaLength) : vec3(0.0f);
-						UActor::TwoWallAdjust(desiredDir, slide, secondNormal, firstNormal, hitTime);
+						UActor::TwoWallAdjust(X87::SafeNormal(delta), slide, secondNormal, firstNormal, hitTime);
 						move(slide);
 						// The original holds the landing speed against the turned
 						// slide's length, a distance of a few units: a floor met
@@ -978,7 +976,7 @@ void NActor::ParabolicTrace(UObject* Self, vec3& finalLocation, std::optional<ve
 			float terminal = zone->ZoneTerminalVelocity();
 			float speedSquared = dot(velocity, velocity);
 			if (speedSquared > terminal * terminal)
-				velocity = speedSquared > 0.0f ? velocity * (terminal / std::sqrt(speedSquared)) : vec3(0.0f);
+				velocity = X87::SafeNormal(velocity) * terminal;
 		}
 		steps++;
 		if (region.ZoneNumber == 0 || (float)steps * step > timeLimit || dot(delta, delta) > 2500000.0f)

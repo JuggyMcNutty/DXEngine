@@ -134,6 +134,9 @@ public:
 	// A travel to a map as the original's Browse makes it: the pre-travel,
 	// then the load, or a missing map's fallback; false when no level loads.
 	bool BrowseMap(const UnrealURL& url, const std::map<std::string, std::string>& travelInfo);
+	// The start's browse of a map: Current emptied, the load, or Dx.Dx for
+	// a map not there; false, the error's text given, when no level loads.
+	bool BrowseStartMap(const UnrealURL& url, std::string& error);
 	// The map a ?restart reloads, as the original's Browse makes it.
 	UnrealURL RestartURL();
 	void PruneTravelActors() const;
@@ -222,6 +225,9 @@ public:
 	// Between the window and full screen, each at the ini's size for it:
 	// the console's togglefullscreen, and Enter with Alt held.
 	void ToggleFullscreen();
+	// The console's endfullscreen: back in a window as the toggle comes
+	// back, in any state, EndFullscreen logged.
+	void EndFullscreen();
 	void CloseWindow();
 	void TickWindow();
 

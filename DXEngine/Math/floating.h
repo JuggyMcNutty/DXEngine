@@ -88,6 +88,24 @@ public:
 		return Under(std::fabs((double)v.x), 0.0001) && Under(std::fabs((double)v.y), 0.0001) && Under(std::fabs((double)v.z), 0.0001);
 	}
 
+	// A direction as the original's FVector::SafeNormal makes it (Core.dll
+	// 0x10144be0), which the script's Normal and the physics, sight, reach
+	// and net priority call: the squares summed X's and Y's first, then
+	// Z's, at the x87's precision (Round); under 1e-8 -- a vector shorter
+	// than 0.0001, or a NaN's (Under) -- none; else each axis times one over
+	// the sum's root (appSqrt's fsqrt of the sum stored as a double, an
+	// fdivr), each stored as a float (SweepVmConsole, SafeNormalConsole).
+	template<typename V>
+	static inline V SafeNormal(const V& v)
+	{
+		double x = v.x, y = v.y, z = v.z;
+		double squared = Round(Round(Round(x * x) + Round(y * y)) + Round(z * z));
+		if (Under(squared, 0.00000001))
+			return V(0.0f, 0.0f, 0.0f);
+		double scale = Round(1.0 / Round(std::sqrt(squared)));
+		return V((float)Round(scale * x), (float)Round(scale * y), (float)Round(scale * z));
+	}
+
 	// An int times a float made an int by _ftol (ftol), the product as the
 	// x87 holds it: the original's rotator times a float (Core.dll
 	// 0x101395e0: fild, fmul, _ftol). rot(10, 20, 30) * 0.7 is (7, 14, 21)

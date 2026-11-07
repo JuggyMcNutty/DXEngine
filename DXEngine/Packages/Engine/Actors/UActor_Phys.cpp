@@ -370,15 +370,14 @@ void UActor::DeusExPhysLanded(UActor* hitActor, const vec3& hitNormal, float rem
 
 	// It lands: the hit actor, the level's LevelInfo for the world, is the
 	// floor setPhysics is given. A pawn walking walks out the rest of the
-	// tick, its acceleration made unit length first.
+	// tick, its acceleration made a direction first: Core's SafeNormal,
+	// none under 1e-8 squared (0x103d043d).
 	CallEvent(this, EventName::Landed, { ExpressionValue::VectorValue(hitNormal) });
 	if (Physics() == PHYS_Falling)
 		SetPhysics(pawn ? PHYS_Walking : PHYS_None, hitActor ? hitActor : Level());
 	if (pawn && Physics() == PHYS_Walking)
 	{
-		vec3& acceleration = Acceleration();
-		float squareSum = dot(acceleration, acceleration);
-		acceleration = squareSum < 1e-8f ? vec3(0.0f) : acceleration * (1.0f / std::sqrt(squareSum));
+		Acceleration() = X87::SafeNormal(Acceleration());
 		if (remaining > 0.01f)
 			TickWalking(remaining);
 	}
@@ -410,11 +409,13 @@ void UActor::ProcessHitWall(vec3 hitNormal, UActor* hitActor)
 		return;
 	if (UPawn* pawn = UObject::TryCast<UPawn>(this))
 	{
-		if (Acceleration() == vec3(0.0f))
+		// No acceleration, each axis equal to 0 to the x87's compare, a NaN
+		// axis too (0x103ced3d)
+		if (X87::Equal3(Acceleration(), vec3(0.0f)))
 			return;
-		vec3 dir = pawn->Destination() - Location();
-		float len = length(dir);
-		dir = len > 0.0f ? dir / len : vec3(0.0f);
+		// Core's SafeNormal: none for a Destination nearer than 0.0001
+		// (0x103cedae)
+		vec3 dir = X87::SafeNormal(pawn->Destination() - Location());
 		if (Physics() == PHYS_Walking)
 		{
 			hitNormal.z = 0.0f;
@@ -437,14 +438,22 @@ void UActor::ProcessHitWall(vec3 hitNormal, UActor* hitActor)
 }
 
 // AActor::TwoWallAdjust (Engine.dll 0x10323770): a move stopped by a second
-// wall slides along the corner where the two meet, or along the second.
+// wall slides along the corner where the two meet, or along the second. The
+// corner's line is the normals' cross, each axis's two products and their
+// difference as the x87 holds them, stored as floats (0x103237c3-
+// 0x103237f6), made a direction by Core's SafeNormal (0x103237f9): none
+// under 1e-8 squared, so between two walls all but facing it slides nowhere.
 void UActor::TwoWallAdjust(const vec3& desiredDir, vec3& delta, const vec3& hitNormal, const vec3& oldHitNormal, float hitTime)
 {
 	if (dot(oldHitNormal, hitNormal) <= 0.0f)
 	{
-		vec3 newDir = cross(hitNormal, oldHitNormal);
-		float len = length(newDir);
-		newDir = len > 0.0f ? newDir / len : vec3(0.0f);
+		auto R = X87::Round;
+		const vec3& h = hitNormal;
+		const vec3& o = oldHitNormal;
+		vec3 newDir = X87::SafeNormal(vec3(
+			(float)R(R((double)h.y * o.z) - R((double)h.z * o.y)),
+			(float)R(R((double)o.x * h.z) - R((double)h.x * o.z)),
+			(float)R(R((double)h.x * o.y) - R((double)h.y * o.x))));
 		delta = newDir * (dot(delta, newDir) * (1.0f - hitTime));
 		if (dot(desiredDir, delta) < 0.0f)
 			delta = -delta;
@@ -876,8 +885,7 @@ CollisionHit UActor::TryMoveSmooth(const vec3& delta)
 		if (dot(adjusted, delta) >= 0.0f)
 		{
 			vec3 oldHitNormal = first.Normal;
-			float size = length(delta);
-			vec3 desiredDir = size > 0.0f ? delta / size : vec3(0.0f);
+			vec3 desiredDir = X87::SafeNormal(delta);
 			CollisionHit hit = nothing(adjusted) ? first : TryMoveHeldOff(adjusted);
 			if (hit.Fraction < 1.0f && !bDeleteMe())
 			{

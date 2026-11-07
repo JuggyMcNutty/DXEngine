@@ -1013,26 +1013,12 @@ void NObject::Multiply_VectorVector(const vec3& A, const vec3& B, vec3& ReturnVa
 	ReturnValue = A * B;
 }
 
-// The original's FVector::SafeNormal (Core.dll): zero under a squared
-// length of 1e-8, otherwise scaled by one over the root, in double.
-// The original's FVector::SafeNormal (Core.dll 0x10144be0): the squares
-// summed on the x87, X's and Y's first, then Z's, at its precision in the
-// tick the script runs in (X87), stored as a double: zero under 1e-8, else
-// one over its root (appSqrt's fsqrt, an fdivr) times each axis, each stored
-// as a float (SweepVmConsole). A NaN's sum is under 1e-8 to its compare
-// (X87::Under): zero.
+// The original's (Core.dll 0x10138de0): FVector::SafeNormal at the x87's
+// precision in the tick the script runs in (X87::SafeNormal), none under a
+// squared length of 1e-8, a NaN's among that (SweepVmConsole).
 void NObject::Normal(const vec3& A, vec3& ReturnValue)
 {
-	auto R = X87::Round;
-	double x = A.x, y = A.y, z = A.z;
-	double squared = R(R(R(x * x) + R(y * y)) + R(z * z));
-	if (X87::Under(squared, 0.00000001))
-	{
-		ReturnValue = vec3(0.0f);
-		return;
-	}
-	double scale = R(1.0 / R(std::sqrt(squared)));
-	ReturnValue = vec3((float)R(scale * x), (float)R(scale * y), (float)R(scale * z));
+	ReturnValue = X87::SafeNormal(A);
 }
 
 void NObject::Normalize(const Rotator& Rot, Rotator& ReturnValue)

@@ -171,9 +171,7 @@ namespace
 		result.Actor = actor;
 		result.Channel = connection->FindActorChannel(actor);
 		float time = result.Channel ? (float)(connection->Driver->Time - result.Channel->LastUpdateTime) : connection->Driver->SpawnPrioritySeconds;
-		vec3 dir = actor->Location() - viewLocation;
-		float lengthSq = dot(dir, dir);
-		dir = lengthSq >= 1e-8f ? dir * (1.0f / std::sqrt(lengthSq)) : vec3(0.0f);
+		vec3 dir = X87::SafeNormal(actor->Location() - viewLocation);
 		float worth = GetNetPriority(actor, result.Channel ? result.Channel->Recent() : nullptr, time, connection->BestLag);
 		result.Priority = (int)std::lrint((dot(dir, viewDir) + 3.0f) * worth * 65536.0f);
 		if (actor->bNetOptional())

@@ -23,10 +23,12 @@ void UActor::TickSwimming(float elapsed)
 
 namespace
 {
-	vec3 SafeNormal(const vec3& v)
+	// The direction calcVelocity is given, as physWalking's (0x103d3d85-
+	// 0x103d3dc5): the acceleration where each axis compares equal to 0,
+	// else Core's SafeNormal of it, none under 1e-8 squared
+	vec3 AccelDir(const vec3& acceleration)
 	{
-		float len = length(v);
-		return len > 0.0f ? v / len : vec3(0.0f);
+		return X87::Equal3(acceleration, vec3(0.0f)) ? acceleration : X87::SafeNormal(acceleration);
 	}
 
 	bool InWater(UZoneInfo* zone)
@@ -55,7 +57,7 @@ void UPawn::DeusExPhysSwimming(float deltaTime, int iterations)
 
 	OldLocation() = Location();
 	bJustTeleported() = false;
-	DeusExCalcVelocity(SafeNormal(Acceleration()), deltaTime, WaterSpeed(), zone->ZoneFluidFriction(), true, false, true);
+	DeusExCalcVelocity(AccelDir(Acceleration()), deltaTime, WaterSpeed(), zone->ZoneFluidFriction(), true, false, true);
 	float velZ = Velocity().z;
 
 	// The zone's velocity for a player, and for another pawn in a zone moving
@@ -71,8 +73,8 @@ void UPawn::DeusExPhysSwimming(float deltaTime, int iterations)
 	if (hit.Fraction < 1.0f)
 	{
 		vec3 gravDir(0.0f, 0.0f, zone->ZoneGravity().z > 0.0f ? 1.0f : -1.0f);
-		vec3 desiredDir = SafeNormal(adjusted);
-		float upDown = dot(gravDir, SafeNormal(Velocity()));
+		vec3 desiredDir = X87::SafeNormal(adjusted);
+		float upDown = dot(gravDir, X87::SafeNormal(Velocity()));
 		if (std::abs(hit.Normal.z) < 0.2f && upDown < 0.5f && upDown > -0.2f)
 		{
 			// A wall met swimming level is stepped up, the step's rise kept
@@ -157,7 +159,7 @@ void UPawn::DeusExStartSwimming(const vec3& oldVelocity, float timeTick, float r
 	{
 		vec3 velocity = (Location() - OldLocation()) / (timeTick - waterTime) * 2.0f - oldVelocity;
 		if (dot(velocity, velocity) > 16000000.0f)
-			velocity = SafeNormal(velocity) * 4000.0f;
+			velocity = X87::SafeNormal(velocity) * 4000.0f;
 		Velocity() = velocity;
 	}
 	if (Velocity().z > -160.0f && Velocity().z < 0.0f)

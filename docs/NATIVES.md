@@ -2896,16 +2896,33 @@ not deleted (the log says so).
   a window. Each toggle logs `AttemptFullscreen` or `EndFullscreen`, as the
   original's (`PadConsole` with `maximize-back.txt`: both lines in
   DXEngine's log; the original's `AttemptFullscreen` as `maximize.py` takes
-  it full screen). Differs (bugs.md WIN.17): the console's `ENDFULLSCREEN`,
-  which the original's takes in any state, is no command here; no stock
-  script sends it.
+  it full screen). The console's `ENDFULLSCREEN` is taken in any state,
+  after the exec functions and the engine's words, as the original's window
+  takes it
+  ([the window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-window)):
+  `EndFullscreen` logged; full screen, the toggle's way back to a window;
+  in a window, the window as it is, where the original's is sized again at
+  its windowed size, the window's own (`EndFullscreenConsole` in a 1280x720
+  window, full screen 2560x1440: `EndFullscreen`, `AttemptFullscreen` and
+  `EndFullscreen` logged in that order in both engines, the window as it
+  was after the first `endfullscreen` and back at its size after the
+  second; the root's own size each engine's, 4:3 in DXEngine's). No stock
+  script sends it. Differs (bugs.md
+  WIN.19): the window's own words (`togglefullscreen`, `setres`, `getres`
+  and the rest) are taken before the exec functions, where the original's
+  window takes them after the exec functions and the engine's words; no
+  stock exec function shares one.
 - **The window's least size** is the original's 640x480 as it is dragged
   ([the window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-window)):
   on Windows the whole window, its frame too, as the original's; on Linux,
   where the desktop draws the frame, the window's own area, by choice
   (`maximize.py --size 320x240` beside a run: DXEngine's X11, SDL3 and SDL2
   windows held at 640x480, its Windows build under Wine at 632x446 as the
-  original's, where they went to 320x240).
+  original's, where they went to 320x240). Differs (bugs.md WIN.18): a
+  size the window is dragged to is not kept, where the original's client
+  takes each size its window is given for its windowed size and saves it
+  to the ini at once, its width made even, so the way back from full
+  screen and the next start come at it.
 - **The field of view** is the original's setting: the player's `DefaultFOV`
   is Deus Ex's own config, 75 (`[Engine.PlayerPawn]` in `User.ini`), the
   angle across a 4:3 view ([the view's width](#the-views-width)).
@@ -3002,12 +3019,28 @@ float's 0.0001 and a NaN under it too, is none, however long -- a script's
 turn, a thrown thing's flight, the reach tests' moves and a net client's
 smoothing alike (`NothingMoveConsole`: 0.0001 along X and Y moved by
 neither engine, a mover's 0.0001 none, a trailer of an owner moving 0.0001
-turned straight up, in both engines). Differs (bugs.md PHYS.25): a life
-span ends at 0.0001 or less of the float as stored, where the original's
-compares the value before it is stored with the double, within a float
-step of it; and a walk's and a roll's direction is made of any length
-above 0, where the original's `SafeNormal` makes one under 1e-8 squared
-none.
+turned straight up, in both engines). A direction is the original's
+`SafeNormal`'s wherever its physics, sight, reach tests and net priority
+take one: none for a vector under 0.0001 long (1e-8 squared), a NaN's
+too, else each axis over the length as the x87 works it out. So a walk, a
+flight or a swim toward an acceleration that short turns toward none and
+only slows, the acceleration itself taken where each axis is 0; and a
+slide into the corner of two walls all but facing goes nowhere
+(`SafeNormalConsole` at 60 frames a second: walkers and fliers heading
+out at 200 units/s, an acceleration 0.00009 long to their left turning
+neither in either engine -- under 0.1 to the left each tenth of a second,
+a walker along its heading 73, 31, 13, 5.6 and 2.4, a flier 151, 118, 93,
+73 and 57 --, one 0.00011 long turning both, to 105 to the left walking
+and 38 flying; DXEngine's before turning the first as the second). A life span ends when what is
+left, the tick taken from it as the x87 holds it, is 0.0001 or less to
+the double's compare, the float stored after; with the original's ticks
+of 5 ms or more no test of the float tells the two apart, so no run does
+([a level's tick](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-levels-tick)).
+Differs (bugs.md PHYS.26): `PHYS_Spider` moves nothing, where the
+original's `physSpider` walks a pawn on walls and ceilings; no stock script
+sets it. Differs (bugs.md PHYS.27): `PickWallAdjust` is Surreal Engine's
+own, not the original's (Engine.dll `0x103c4150`); no stock script calls
+it.
 
 ## The command line
 
@@ -3039,9 +3072,23 @@ What DXEngine does with each:
   loaded before any map but Entry, as the original's first browse loads it
   (`StartConsole`, the original's with `DXCAP_START`), whatever map it
   names; a slot with none starts at `DX.dx`. A start URL that does not
-  read is fatal, `Invalid URL: <url>`, as the original's. Differs (bugs.md
-  ENG.26): a start URL whose browse fails with no error's text is not tried
-  again at `DX.dx`, where the original's tries it once more. The start
+  read is fatal, `Invalid URL: <url>`, as the original's. A start whose
+  browse fails with no error's text -- a server's address, its join begun,
+  a URL of another protocol, a slot with no save or whose level does not
+  load -- is browsed once more at `DX.dx` on the player's options, unless
+  the URL was `DX.dx`, as the original's Init does, so the menu's map plays
+  meanwhile; one that fails with a text, or fails again, is fatal,
+  `Failed to enter <url>: <error>`, a dedicated server's of a server's
+  address with `Servers can't open network URLs`
+  ([starting the game engine](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#starting-the-game-engine)).
+  A start map that is not there is followed by `Dx.Dx` on the same URL, as
+  the original's first browse loads it, having no level whose map to load
+  again (`LocalMapConsole`, DXEngine's map and the original's `DXCAP_START`:
+  `NoSuchMap.dx` starts on `Dx.Dx`, `?loadgame=9990` and `127.0.0.1:7799` on
+  `DX.dx`, each line alike in both engines). Differs (bugs.md ENG.28): a
+  start in a save whose file does not read, or on a map whose package does
+  not load, ends with the error thrown, where the original's browses
+  `DX.dx` or `Dx.Dx` in its place. The start
   empties `Current`, as the original's first browse does from the Entry
   level, which holds no `DeusExLevelInfo` and so is in no mission: no level
   an earlier run left there comes back (`RevisitConsole` begun on UNATCO HQ
@@ -3299,11 +3346,20 @@ A mod gets the original's loader and natives:
   with it (CR LF, LF or a CR alone), by choice, so a player's or a mod's
   comments and layout stay; a file not there yet is written whole, CR LF, as
   the original writes it (`ConfigConsole` with no `DXCapConfig.ini`: the file
-  each engine makes the same to the byte). Differs (bugs.md ENG.25): the
-  write of a read-only ini throws `Could not create <file>`, where the
-  original's fails quietly, and run as root DXEngine writes one whose every
-  write bit is off, which Windows' read-only attribute refuses an
-  administrator. The original rewrites each file
+  each engine makes the same to the byte). An ini whose write fails fails
+  quietly, as the original's config cache's does
+  ([configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration)):
+  nothing logged or shown, the game playing on, the values saved kept for
+  the rest of the run. A read-only one, every write bit off, is left as it
+  is, to root too, the Smart Pro's user, as Windows' read-only attribute
+  holds for an administrator (`ReadOnlyConsole` with `DXCAP_READONLY=1`:
+  `CacheSizeMegs` 5 and the default `MouseSensitivity` 4.25 after the
+  saves, both inis the same to the byte after the run, and a clean exit, in
+  both engines; DXEngine's as root in a user namespace too). Differs
+  (bugs.md ENG.27): an ini is written only at a clean exit, where the
+  original's writes each changed file at every `SaveConfig` and every
+  resize of the viewport, so a setting changed in play is lost to a crash
+  or a kill. The original rewrites each file
   whole, CR LF, comments gone (`ConfigConsole`: a class's own
   `DXCapConfig.ini`, CR LF, read and written back alike). `StaticSaveConfig`
   from an object writes the class's defaults, as from the class
@@ -3433,7 +3489,8 @@ as client and as server: `ServeConsole`, `JoinConsole`, `RejoinConsole`,
 `TravelServeConsole`, `TravelJoinConsole`, `NetConsole`, `PickServer` with
 `PickJoinConsole`, `AskServer` with `AskJoinConsole`, `AnimEndServeConsole`
 with `AnimEndJoinConsole`, `ViewServeConsole` with `ViewJoinConsole`,
-`PauseServeConsole` with `JoinConsole`.
+`PauseServeConsole` with `JoinConsole`, `UnpackServeConsole` with
+`UnpackJoinConsole`.
 DXEngine joins live
 public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
 stays in. A replicated string goes as the original's does, 16-bit when a
@@ -3442,10 +3499,15 @@ DXCapture, U+03A9, U+2122 through `SetName`, the name back whole from each
 engine's server to the other's client); a `TcpLink`'s and a `UdpLink`'s
 text goes 8-bit, a character past 0xFF as 0x7F, as the original's `ToAnsi`
 narrows it, and comes in a byte a character (`LinkConsole`: A, U+03A9, e
-acute sent to itself received as 65, 127, 233 in both engines). Differs
-(bugs.md NET.27): a client's animation rate and frame from its server are
-scaled by float constants, where the original's multiplies by doubles, at
-most one ulp apart. The rate it asks of a server is 20,000 where the ini holds the
+acute sent to itself received as 65, 127, 233 in both engines). A client
+unpacks an actor's animation as the original's does: its frame, rate,
+tween rate and last frame each the 16-bit number sent times the double
+0.0001, 0.0002, 0.001 and 0.0001, rounded once to a float, and a mover's
+alpha and rate the number times the double 0.01 (`UnpackServeConsole`
+with `UnpackJoinConsole`: each value of the first two stages the original
+client's to the bit, an original server's to DXEngine's client and
+DXEngine's server's to the original's, where DXEngine's client was a float
+step off each; the third stage's alike in all). The rate it asks of a server is 20,000 where the ini holds the
 game's stock 2,600 or none, by choice: set at the start as a `SET` sets it,
 the ini, `Engine.Player`'s defaults and the viewport, so a mod's player that
 sets its net speed from it once in asks the same (MTL's `MTLPlayer`); a net

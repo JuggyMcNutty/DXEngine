@@ -548,11 +548,13 @@ namespace
 
 		if (UMover* mover = UObject::TryCast<UMover>(actor))
 		{
+			// Its alpha and rate each the value sent times the double 0.01,
+			// as the x87 holds it, stored as a float (0x10368277-0x103682ae)
 			vec3 sim = mover->SimInterpolate();
 			if (sim != old.SimInterpolate)
 			{
-				mover->PhysAlpha() = sim.x * 0.01f;
-				mover->PhysRate() = sim.y * 0.01f;
+				mover->PhysAlpha() = (float)X87::Round(sim.x * 0.01);
+				mover->PhysRate() = (float)X87::Round(sim.y * 0.01);
 				mover->OldPos() = mover->SimOldPos();
 				mover->OldRot() = Rotator(mover->SimOldRotPitch(), mover->SimOldRotYaw(), mover->SimOldRotRoll());
 				int keys = (int)sim.z;
@@ -563,13 +565,18 @@ namespace
 			}
 		}
 
+		// The animation: the frame, rate, tween rate and last frame each the
+		// value sent times the double 0.0001, 0.0002, 0.001 and 0.0001, as
+		// the x87 holds it, stored as a float (0x103683cc-0x1036840b): a
+		// float constant's product is a float step off it for some of the
+		// 16-bit values a plane goes as (UnpackServeConsole)
 		vec4 sim = actor->SimAnim();
 		if (!(sim == old.SimAnim))
 		{
-			actor->AnimFrame() = sim.x * 0.0001f;
-			actor->AnimRate() = sim.y * 0.0002f;
-			actor->TweenRate() = sim.z * 0.001f;
-			actor->AnimLast() = sim.w * 0.0001f;
+			actor->AnimFrame() = (float)X87::Round(sim.x * 0.0001);
+			actor->AnimRate() = (float)X87::Round(sim.y * 0.0002);
+			actor->TweenRate() = (float)X87::Round(sim.z * 0.001);
+			actor->AnimLast() = (float)X87::Round(sim.w * 0.0001);
 			if (actor->AnimLast() < 0.0f)
 			{
 				actor->AnimLast() = -actor->AnimLast();

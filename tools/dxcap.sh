@@ -81,6 +81,11 @@
 # DXCAP_INI_CASE=1 gives the original's INI= and USERINI=, and DXEngine's by
 # --cmdline, their names in capitals, the files on disk as they are: each
 # engine finds them in any case, as Windows' file system does.
+# DXCAP_READONLY=1 makes the run's two inis read-only once made, every write
+# bit off (chmod a-w), so that the original's open for writing is refused
+# under Wine as on Windows (ReadOnlyConsole): their SHA-256 sums before and
+# after the run go into its readonly-before.txt and readonly-after.txt, the
+# same when neither was written, and the owner's write bit comes back after.
 # DXCAP_FLAGS="<flags>" puts the original's flags (-norunaway) on its command
 # line, and on DXEngine's by --cmdline.
 # DXCAP_CONFIG="<key>=<value> ..." gives the run's console class those keys
@@ -429,6 +434,8 @@ EOF
 # from; for LocalizeConsole its folders first in the paths.
 make_ini() {
     local engine="$1" console="$2" out="$3" path mods="" winpaths=0
+    # A read-only one a DXCAP_READONLY run left behind made afresh
+    rm -f "$out"
     if [ "$engine" = original ] || windows_engine; then winpaths=1; fi
     if [ "$winpaths" = 1 ]; then
         path="$(winpath "$CAP/System")\\*.u"
@@ -586,6 +593,7 @@ console_keys() {
 user_ini() {
     local src="${DXCAP_USERINI:-$GAME/System/User.ini}"
     [ -f "$src" ] || die "no user ini $src"
+    rm -f "$1"
     cp "$src" "$1"
     [ -n "${DXCAP_STATS:-}" ] || return 0
     python3 - "$1" "$DXCAP_STATS" <<'EOF'
@@ -601,6 +609,31 @@ for key, value in (('ngWorldSecret', secret), ('ngSecretSet', 'True')):
         sys.exit('no %s= in %s' % (key, path))
 open(path, 'w', encoding='latin1', newline='').write(s)
 EOF
+}
+
+# DXCAP_READONLY=1: readonly_before <dir> <ini>... takes every write bit off
+# the run's inis, their sums into the run's readonly-before.txt;
+# readonly_after <dir> <ini>... takes their sums after the run, says whether
+# either was written and gives the owner's write bit back.
+readonly_before() {
+    [ "${DXCAP_READONLY:-0}" = 1 ] || return 0
+    local dir="$1"
+    shift
+    mkdir -p "$dir"
+    chmod a-w "$@"
+    sha256sum "$@" > "$dir/readonly-before.txt"
+}
+readonly_after() {
+    [ "${DXCAP_READONLY:-0}" = 1 ] || return 0
+    local dir="$1"
+    shift
+    sha256sum "$@" > "$dir/readonly-after.txt"
+    chmod u+w "$@"
+    if cmp -s "$dir/readonly-before.txt" "$dir/readonly-after.txt"; then
+        say "read-only inis: neither written"
+    else
+        say "read-only inis: written ($dir/readonly-after.txt)"
+    fi
 }
 
 cmd_setup() {
@@ -765,6 +798,7 @@ cmd_original() {
     console_keys "$console" >> "$ini"
     make_view
     mkdir -p "$dir"
+    readonly_before "$dir" "$ini" "$userini"
 
     local gpid=""
     if [ "${DXCAP_BURST:-0}" = 1 ]; then
@@ -782,6 +816,7 @@ cmd_original() {
     original_inis "$ini" "$userini"
     original_process "$dir" "$secs" "${DXCAP_START:-DX.dx}" ${DXCAP_START:+-hax0r} "${inis[@]}"
     [ "${DXCAP_RECORD:-0}" != 1 ] || rec_stop
+    readonly_after "$dir" "$ini" "$userini"
 
     kill "$gpid" 2>/dev/null || true
     wait "$gpid" 2>/dev/null || true
@@ -1031,7 +1066,9 @@ cmd_dxe() {
         cp "$DXCAP_TIMELINE" "$dir/timeline.txt"
         args=(--timeline="$dir/timeline.txt")
     fi
+    readonly_before "$dir" "$ini" "$userini"
     run_dxe "$dir" "$ini" "$userini" "$map" "$secs" "${args[@]}"
+    readonly_after "$dir" "$ini" "$userini"
 }
 
 # DXEngine on a live server: the stock console, and a timeline for what a

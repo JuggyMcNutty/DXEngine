@@ -544,10 +544,19 @@ void UActor::Tick(float elapsed)
 		}
 	}
 
-	if (!clientsPawn && LifeSpan() != 0.0f)
+	// The life span less the tick, as the x87 holds it, is stored as a
+	// float, and that difference -- not the float -- 0.0001 or less to the
+	// double's compare (C0 or C3, a NaN too) expires the actor; a NaN life
+	// span compares equal to 0 and is never counted down (0x103a270b-
+	// 0x103a272f). With the original's ticks of 5 ms or more a difference
+	// near 0.0001 is a multiple of 2^-31, none of which lies between 0.0001
+	// and the float above it, so there the float's test agrees; a tick
+	// under 2^-16 s, which DXEngine's have no floor against, can fall there.
+	if (!clientsPawn && !X87::Equal(LifeSpan(), 0.0))
 	{
-		LifeSpan() -= elapsed;
-		if (LifeSpan() <= 0.0001f)
+		double left = X87::Round((double)LifeSpan() - elapsed);
+		LifeSpan() = (float)left;
+		if (X87::Under(left, 0.0001) || X87::Equal(left, 0.0001))
 		{
 			CallEvent(this, EventName::Expired);
 			Destroy();

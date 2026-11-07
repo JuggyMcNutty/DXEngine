@@ -269,8 +269,7 @@ bool UPawn::DeusExMoveToward(const vec3& dest)
 		if (!zone || !defaultZone || defaultZone->ZoneGravity().z * 0.9f >= zone->ZoneGravity().z)
 			return false;
 		dir.z = 0.0f;
-		float across = length(dir);
-		Acceleration() = (across > 0.0f ? dir * (1.0f / across) : vec3(0.0f)) * AccelRate();
+		Acceleration() = X87::SafeNormal(dir) * AccelRate();
 		if (Velocity().z >= 0.0f)
 			return false;
 		return Location().z + 100.0f < dest.z;

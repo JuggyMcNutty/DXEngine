@@ -49,9 +49,44 @@ static std::string ReadIniText(const std::string& filename)
 	return ScriptToUTF8(text);
 }
 
+// A file whose every write bit is off: Windows' read-only attribute, as
+// Wine shows a Unix file and the C++ library a Windows one. Windows'
+// CreateFile refuses one to an administrator too, where root, the Smart
+// Pro's user, may write any file.
+static bool IsReadOnly(const std::string& filename)
+{
+	std::error_code ec;
+	fs::file_status status = fs::status(filename, ec);
+	if (ec || !fs::is_regular_file(status))
+		return false;
+	const fs::perms writeBits = fs::perms::owner_write | fs::perms::group_write | fs::perms::others_write;
+	return (status.permissions() & writeBits) == fs::perms::none;
+}
+
+// A file that cannot be written -- read-only, its folder not writable, the
+// disk full -- left as it is, quietly, as the original's: its file
+// manager's writer, asked with no flags (CreateFileWriter, GOG DeusEx.exe
+// 0x109067b0), logs nothing and gives none; appSaveStringToFile then writes
+// nothing, and the config cache's Write (0x10915760) and Flush (0x10915250)
+// go on, the values kept in memory, nothing logged or shown (bugs.md
+// ENG.25).
+static void WriteQuietly(const std::string& filename, const std::string& bytes)
+{
+	if (IsReadOnly(filename))
+		return;
+	try
+	{
+		File::write_all_text(filename, bytes);
+	}
+	catch (const std::exception&)
+	{
+	}
+}
+
 // The engine's text, UTF-8, as the original's appSaveStringToFile writes a
 // file (Core.dll 0x10148c40): a byte a character when every one is below
-// 0x100, else UTF-16 little-endian after the byte-order mark FF FE.
+// 0x100, else UTF-16 little-endian after the byte-order mark FF FE; one that
+// cannot be written left as it is (WriteQuietly).
 static void WriteIniText(const std::string& filename, const std::string& utf8)
 {
 	ScriptString text = UTF8ToScript(utf8);
@@ -60,7 +95,7 @@ static void WriteIniText(const std::string& filename, const std::string& utf8)
 		wide = wide || c > 0xFF;
 	if (!wide)
 	{
-		File::write_all_text(filename, ScriptToLatin1(text));
+		WriteQuietly(filename, ScriptToLatin1(text));
 		return;
 	}
 	std::string bytes = "\xFF\xFE";
@@ -70,7 +105,7 @@ static void WriteIniText(const std::string& filename, const std::string& utf8)
 		bytes.push_back((char)(c & 0xFF));
 		bytes.push_back((char)(c >> 8));
 	}
-	File::write_all_text(filename, bytes);
+	WriteQuietly(filename, bytes);
 }
 
 // A line as the original's config reader takes it (FConfigFile::Read, GOG

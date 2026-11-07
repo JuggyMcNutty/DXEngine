@@ -21,10 +21,12 @@ void UActor::TickFlying(float elapsed)
 
 namespace
 {
-	vec3 SafeNormal(const vec3& v)
+	// The direction calcVelocity is given, as physWalking's (0x103d30da-
+	// 0x103d3121): the acceleration where each axis compares equal to 0,
+	// else Core's SafeNormal of it, none under 1e-8 squared
+	vec3 AccelDir(const vec3& acceleration)
 	{
-		float len = length(v);
-		return len > 0.0f ? v / len : vec3(0.0f);
+		return X87::Equal3(acceleration, vec3(0.0f)) ? acceleration : X87::SafeNormal(acceleration);
 	}
 
 	// A texture's group: its outer's name, as spelled (ladderProbe's test is
@@ -56,7 +58,7 @@ void UPawn::DeusExPhysFlying(float deltaTime)
 	if (!zone)
 		return;
 
-	DeusExCalcVelocity(SafeNormal(Acceleration()), deltaTime, AirSpeed(), zone->ZoneFluidFriction(), true, false, false);
+	DeusExCalcVelocity(AccelDir(Acceleration()), deltaTime, AirSpeed(), zone->ZoneFluidFriction(), true, false, false);
 	OldLocation() = Location();
 	bJustTeleported() = false;
 
@@ -68,8 +70,8 @@ void UPawn::DeusExPhysFlying(float deltaTime)
 	if (hit.Fraction < 1.0f)
 	{
 		vec3 gravDir(0.0f, 0.0f, zone->ZoneGravity().z > 0.0f ? 1.0f : -1.0f);
-		vec3 desiredDir = SafeNormal(adjusted);
-		float upDown = dot(gravDir, SafeNormal(Velocity()));
+		vec3 desiredDir = X87::SafeNormal(adjusted);
+		float upDown = dot(gravDir, X87::SafeNormal(Velocity()));
 		if (std::abs(hit.Normal.z) < 0.2f && upDown < 0.5f && upDown > -0.2f)
 		{
 			float stepZ = Location().z;

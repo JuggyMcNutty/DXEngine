@@ -330,26 +330,29 @@ void Engine::Run()
 	bool launchServer = !LaunchInfo.url.empty() && (!startURL.Host.empty() || !startURL.IsInternal()) && !dedicated;
 	// A save to start in, ?loadgame=N, whatever map the URL names: the slot
 	// loaded before any map, as the original's first browse loads it
-	// (DeusExGameEngine's Browse, dx-reverse-info's deusex-dll.md); the
-	// menu's map, as with no URL, for a slot with no save.
+	// (DeusExGameEngine's Browse, dx-reverse-info's deusex-dll.md).
 	bool launchSave = !LaunchInfo.url.empty() && startURL.Host.empty() && HasValueOption(startURL, "loadgame") && !dedicated;
-	if (!launchSave || !LoadSavedGame(startURL))
-	{
-		// Current emptied, as the original's first browse empties it: from
-		// the Entry level, which holds no DeusExLevelInfo, or from no level,
-		// a dedicated server's, the map is outside any mission or of a new
-		// one (DeusEx.dll's Browse, dx-reverse-info deusex-dll.md, travel and
-		// saving), so no level an earlier run left there comes back. A start
-		// in a save empties it as its load does.
-		DeleteSaveGameFiles("Current");
-		if (LaunchInfo.url.empty() || launchServer || launchSave)
-			LoadMap(defaultURL);
-		else
-			LoadMap(startURL);
-
-		if (!dedicated)
-			LoginPlayer();
-	}
+	// The start's browse, as the original's Init browses (0x103895db-
+	// 0x10389697): one that fails with no error's text is browsed once more
+	// at DX.dx on the player's options, unless the URL was DX.dx, so the
+	// menu's map plays meanwhile; one that fails with a text, or fails
+	// again, is fatal, Engine.int's FailedBrowse. The first browse fails so
+	// for a server's address, whose join it begins, a URL of another
+	// protocol, which it hands to the system, and a slot with no save or
+	// whose level does not load; a dedicated server's of a server's address
+	// with Engine.int's ServerOpen (engine-dll.md, starting the game engine;
+	// bugs.md ENG.26).
+	const std::string startText = LaunchInfo.url.empty() ? std::string("DX.dx") : LaunchInfo.url;
+	std::string browseError;
+	bool browsed = false;
+	if (dedicated && !startURL.Host.empty())
+		browseError = LocalizeMessage("Engine", "Errors", "ServerOpen", "Servers can't open network URLs");
+	else if (launchSave)
+		browsed = LoadSavedGame(startURL);
+	else if (!launchServer)
+		browsed = BrowseStartMap(LaunchInfo.url.empty() ? defaultURL : startURL, browseError);
+	if (!browsed && (!browseError.empty() || StrTools::equals_ignore_case(startText, "DX.dx") || !BrowseStartMap(defaultURL, browseError)))
+		Exception::Throw(LocalizeMessage("Engine", "Errors", "FailedBrowse", "Failed to enter %s: %s", { startText, browseError }));
 
 	// A server's address to start with: joined from the menu's map, as the
 	// original's first browse does.
@@ -1793,6 +1796,37 @@ bool Engine::BrowseFinds(const UnrealURL& url)
 	return false;
 }
 
+// The start's browse of a map, as Deus Ex's first browse takes one (DeusEx.dll
+// 0x10010b90): Current emptied, as from the Entry level, which holds no
+// DeusExLevelInfo, or from no level, a dedicated server's, the map is
+// outside any mission or of a new one (dx-reverse-info deusex-dll.md, travel
+// and saving), so no level an earlier run left there comes back; then the
+// load, the player logged in. A map that is not there is followed by Dx.Dx
+// on the same URL, as a travel's by the level's own map (BrowseMap), there
+// being no level yet; one that is not there either fails the browse with
+// its text, Core's FileNotFound.
+bool Engine::BrowseStartMap(const UnrealURL& url, std::string& error)
+{
+	DeleteSaveGameFiles("Current");
+	UnrealURL loadURL = url;
+	if (!packages->MapExists(loadURL.Map))
+	{
+		error = LocalizeMessage("Core", "Errors", "FileNotFound", "Can't find file '%s'", { loadURL.Map });
+		LogMessage("Failed to load '" + loadURL.Map + "': " + error);
+		loadURL.Map = "Dx.Dx";
+		if (!packages->MapExists(loadURL.Map))
+		{
+			error = LocalizeMessage("Core", "Errors", "FileNotFound", "Can't find file '%s'", { loadURL.Map });
+			return false;
+		}
+		error.clear();
+	}
+	LoadMap(loadURL);
+	if (!LaunchInfo.dedicatedServer)
+		LoginPlayer();
+	return true;
+}
+
 // The original's Browse of a map (DeusEx.dll 0x10010b90): the pre-travel
 // first, then the load. A map that is not there leaves the level playing --
 // within the mission pruned and saved into Current, as the pre-travel left
@@ -2827,7 +2861,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	// A dedicated server has no window and no renderer: the commands that
 	// take them do nothing there (a logged-in admin's "admin getres" or
 	// "admin flush" came through PlayerPawn.Admin)
-	if ((!window || !render) && (command == "getres" || command == "getcurrentres" || command == "setres" || command == "togglefullscreen" || command == "flush" || command == "stat" || command == "shot"))
+	if ((!window || !render) && (command == "getres" || command == "getcurrentres" || command == "setres" || command == "togglefullscreen" || command == "endfullscreen" || command == "flush" || command == "stat" || command == "shot"))
 		return {};
 
 	// The original's order (UViewport::Exec, Engine.dll 0x10373a60;
@@ -3193,6 +3227,11 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	else if (command == "togglefullscreen")
 	{
 		ToggleFullscreen();
+		return {};
+	}
+	else if (command == "endfullscreen")
+	{
+		EndFullscreen();
 		return {};
 	}
 	else if (command == "flush")
@@ -3601,6 +3640,22 @@ void Engine::ToggleFullscreen()
 
 	window->ToggleWindowFullscreen(resolution);
 	viewport->SetViewportRect(0, 0, width, height);
+}
+
+// The console's ENDFULLSCREEN, which the original's window takes in any
+// state, after the exec functions and the engine's words
+// (UWindowsViewport::Exec, WinDrv.dll 0x11106dcf-0x11106dea): its
+// EndFullscreen (0x1110d380) logs EndFullscreen and sizes the viewport in a
+// window at the client's windowed size (bugs.md WIN.17). Full screen, that is
+// the toggle's way back, as its toggle calls it; in a window it is the
+// window's own size, which the original's client keeps as the window is
+// sized (WM_SIZE, 0x11109f82), so the window stays as it is.
+void Engine::EndFullscreen()
+{
+	if (window->IsFullscreen())
+		ToggleFullscreen();
+	else
+		LogMessage("EndFullscreen");
 }
 
 void Engine::OnWindowKeyDown(EInputKey key)

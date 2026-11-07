@@ -7,19 +7,10 @@
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Engine.h"
 
-namespace
-{
-	// FVector::SafeNormal: zero under a squared length of 1e-8.
-	vec3 SafeNormal(const vec3& v)
-	{
-		float squared = dot(v, v);
-		return squared >= 0.00000001f ? v / std::sqrt(squared) : vec3(0.0f);
-	}
-}
-
 // AActor::physRolling (Engine.dll 0x103d4b80; dx-reverse-info/engine-dll.md,
 // moving: rolling), as a pushed decoration rolls. The velocity turned toward
-// the acceleration by the zone's ground friction, slowed by its fluid
+// the acceleration by the zone's ground friction (each a direction by
+// Core's SafeNormal, none under 1e-8 squared), slowed by its fluid
 // friction and given the acceleration; the move, with the zone's velocity, in
 // steps of at most 0.1 s (half the time left), up to 8: each moved, HitWall
 // for a wall and slid along it (a second wall through TwoWallAdjust), or with
@@ -37,7 +28,7 @@ void UActor::TickRolling(float deltaTime, int iterations)
 		return;
 
 	float speed = length(Velocity());
-	Velocity() -= (SafeNormal(Velocity()) - SafeNormal(Acceleration())) * speed * deltaTime * zone->ZoneGroundFriction();
+	Velocity() -= (X87::SafeNormal(Velocity()) - X87::SafeNormal(Acceleration())) * speed * deltaTime * zone->ZoneGroundFriction();
 	Velocity() = Velocity() * (1.0f - deltaTime * zone->ZoneFluidFriction()) + Acceleration() * deltaTime;
 	vec3 desiredMove = Velocity() + zone->ZoneVelocity();
 
@@ -88,7 +79,7 @@ void UActor::TickRolling(float deltaTime, int iterations)
 						if (hit.Fraction < 1.0f)
 						{
 							FireHitWall(hit);
-							TwoWallAdjust(SafeNormal(desiredMove), delta, hit.Normal, oldHitNormal, hit.Fraction);
+							TwoWallAdjust(X87::SafeNormal(desiredMove), delta, hit.Normal, oldHitNormal, hit.Fraction);
 							if (!move(delta))
 								return;
 						}

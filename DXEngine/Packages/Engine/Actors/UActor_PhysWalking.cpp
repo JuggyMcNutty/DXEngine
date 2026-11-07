@@ -19,10 +19,14 @@ void UActor::TickWalking(float elapsed)
 
 namespace
 {
-	vec3 SafeNormal(const vec3& v)
+	// The direction calcVelocity is given: the acceleration itself where
+	// each axis compares equal to 0 (X87::Equal, a NaN axis too), else
+	// Core's SafeNormal of it, none under a squared length of 1e-8, so a
+	// pawn whose acceleration is shorter than 0.0001 turns toward none
+	// (0x103ca5fc-0x103ca63c)
+	vec3 AccelDir(const vec3& acceleration)
 	{
-		float len = length(v);
-		return len > 0.0f ? v / len : vec3(0.0f);
+		return X87::Equal3(acceleration, vec3(0.0f)) ? acceleration : X87::SafeNormal(acceleration);
 	}
 
 	// A wall too steep to walk up: hit, its normal's Z over 0.01 and under
@@ -63,7 +67,7 @@ void UPawn::DeusExPhysWalking(float deltaTime)
 
 	Velocity().z = 0.0f;
 	Acceleration().z = 0.0f;
-	DeusExCalcVelocity(SafeNormal(Acceleration()), deltaTime, GroundSpeed(), zone->ZoneGroundFriction(), false, true, false);
+	DeusExCalcVelocity(AccelDir(Acceleration()), deltaTime, GroundSpeed(), zone->ZoneGroundFriction(), false, true, false);
 
 	vec3 desiredMove = Velocity();
 	if (player || dot(zone->ZoneVelocity(), zone->ZoneVelocity()) > 90000.0f)
@@ -126,13 +130,13 @@ void UPawn::DeusExPhysWalking(float deltaTime)
 				bHitSlopedWall() = SlopedWall(ahead);
 				if (bHitSlopedWall())
 				{
-					vec3 normal = SafeNormal(vec3(ahead.Normal.x, ahead.Normal.y, 0.0f));
+					vec3 normal = X87::SafeNormal(vec3(ahead.Normal.x, ahead.Normal.y, 0.0f));
 					delta -= normal * dot(delta, normal);
 				}
 				else if (player)
 				{
 					vec3 eye(Location().x, Location().y, Location().z - CollisionHeight() + MaxStepHeight() + 4.0f);
-					vec3 dirs[3] = { dir, SafeNormal(vec3(dir.y + dir.x, dir.y - dir.x, dir.z)), SafeNormal(vec3(dir.x - dir.y, dir.x + dir.y, dir.z)) };
+					vec3 dirs[3] = { dir, X87::SafeNormal(vec3(dir.y + dir.x, dir.y - dir.x, dir.z)), X87::SafeNormal(vec3(dir.x - dir.y, dir.x + dir.y, dir.z)) };
 					for (const vec3& d : dirs)
 					{
 						bHitSlopedWall() = SlopedWall(XLevel()->Collision.TraceFirstHit(eye, eye + d * 100.0f, this, vec3(0.0f), levelFlags));
@@ -152,7 +156,7 @@ void UPawn::DeusExPhysWalking(float deltaTime)
 
 			if (hit.Fraction < 1.0f)
 			{
-				DeusExStepUp(gravDir, SafeNormal(delta), delta * (1.0f - hit.Fraction), hit);
+				DeusExStepUp(gravDir, X87::SafeNormal(delta), delta * (1.0f - hit.Fraction), hit);
 				if (bDeleteMe())
 					return;
 				if (Physics() == PHYS_Falling)
@@ -304,7 +308,9 @@ void UPawn::DeusExCalcVelocity(const vec3& accelDir, float deltaTime, float maxS
 	bool player = UObject::TryCast<UPlayerPawn>(this) != nullptr;
 	bool walkingPlayer = player && bIsWalking();
 
-	if (brake && Acceleration() == vec3(0.0f))
+	// Braking with no acceleration, each axis equal to 0 to the x87's
+	// compare, a NaN axis too (0x103cd886)
+	if (brake && X87::Equal3(Acceleration(), vec3(0.0f)))
 	{
 		vec3 oldVelocity = Velocity();
 		vec3 sumVelocity(0.0f);
@@ -354,6 +360,8 @@ void UPawn::DeusExCalcVelocity(const vec3& accelDir, float deltaTime, float maxS
 			return;
 		}
 	}
+	// Held to maxSpeed: Core's SafeNormal of the velocity times it
+	// (0x103ce090, 0x103ce1a6)
 	if (squared > maxSpeed * maxSpeed)
-		Velocity() = Velocity() * (maxSpeed / std::sqrt(squared));
+		Velocity() = X87::SafeNormal(Velocity()) * maxSpeed;
 }

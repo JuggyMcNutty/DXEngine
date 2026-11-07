@@ -54,7 +54,7 @@ bool UPawn::DeusExLineOfSightTo(UActor* other, bool useLOSFlag, bool ignoreDista
 		if (distSq > maxDistSq)
 			return false;
 
-		vec3 dir = distSq > 1.0e-8f ? delta * (1.0f / std::sqrt(distSq)) : vec3(0.0f);
+		vec3 dir = X87::SafeNormal(delta);
 		float facing = dot(Coords::Rotation(Rotation()).XAxis, dir) - PeripheralVision();
 		Stimulus() = (facing > 0.0f ? facing * 0.8f : facing * 0.17f) + 0.2f;
 		if (Stimulus() <= 0.0f)
@@ -434,9 +434,7 @@ float UPawn::AICanSee(UActor* other, std::optional<float> visibilityArg, std::op
 			if (!player && !seen)
 			{
 				// Its sides, square to the line to it
-				vec3 across = { delta.x, delta.y, 0.0f };
-				float lengthSq = dot(across, across);
-				across = lengthSq < 1e-8f ? vec3(0.0f) : across * (1.0f / std::sqrt(lengthSq));
+				vec3 across = X87::SafeNormal(vec3(delta.x, delta.y, 0.0f));
 				float radius = other->CollisionRadius();
 				seen = reaches(center + vec3(across.y * radius, -across.x * radius, 0.0f)) ||
 					reaches(center + vec3(-across.y * radius, across.x * radius, 0.0f));

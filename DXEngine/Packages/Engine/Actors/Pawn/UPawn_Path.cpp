@@ -592,9 +592,7 @@ vec3 UPawn::JumpLanding(vec3 velocity, bool movePawn)
 					{
 						if (hit.Normal.z > 0.7f)
 							landed = true;
-						float len = length(delta);
-						vec3 desiredDir = len > 0.0f ? delta / len : vec3(0.0f);
-						TwoWallAdjust(desiredDir, slide, hit.Normal, oldHitNormal, hit.Fraction);
+						TwoWallAdjust(X87::SafeNormal(delta), slide, hit.Normal, oldHitNormal, hit.Fraction);
 						ReachTestMove(slide, hit);
 						if (hit.Normal.z > 0.7f)
 							landed = true;

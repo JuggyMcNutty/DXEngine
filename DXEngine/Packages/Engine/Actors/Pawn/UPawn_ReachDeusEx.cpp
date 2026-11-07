@@ -34,12 +34,6 @@ namespace
 		return zone && zone->bWaterZone();
 	}
 
-	vec3 SafeNormal(const vec3& v)
-	{
-		float len = length(v);
-		return len > 0.0f ? v / len : vec3(0.0f);
-	}
-
 	// ClassifyDistanceSq (Engine.dll 0x103c7f80): -1 nearer than the range,
 	// 1 beyond it, 0 in it.
 	int ClassifyDistanceSq(float minSq, float distSq, float maxSq)
@@ -285,15 +279,7 @@ void UPawn::SuggestJumpVelocity(vec3 dest, vec3& vel)
 	}
 	else
 	{
-		double x = vel.x, y = vel.y, z = vel.z;
-		double squared = R(R(R(x * x) + R(y * y)) + R(z * z));
-		if (X87::Under(squared, 0.00000001))
-			vel = vec3(0.0f);
-		else
-		{
-			double scale = R(1.0 / R(std::sqrt(squared)));
-			vel = vec3((float)R(scale * x), (float)R(scale * y), (float)R(scale * z));
-		}
+		vel = X87::SafeNormal(vel);
 		speed = GroundSpeed();
 	}
 	vel.x = (float)R(speed * vel.x);
@@ -390,7 +376,7 @@ int UPawn::DeusExWalkReachable(vec3 dest, float threshold, int reachFlags, UActo
 		}
 		else
 		{
-			vec3 delta = (acrossSq >= moveSizeSq) ? SafeNormal(direction) * moveSize : direction;
+			vec3 delta = (acrossSq >= moveSizeSq) ? X87::SafeNormal(direction) * moveSize : direction;
 			stillMoving = DeusExWalkMove(delta, hit, goalActor, MinMoveThreshold, false);
 			if (stillMoving != 1)
 			{
@@ -413,7 +399,7 @@ int UPawn::DeusExWalkReachable(vec3 dest, float threshold, int reachFlags, UActo
 						if (stillMoving == -1)
 						{
 							vec3 landing;
-							stillMoving = FindBestJump(dest, SafeNormal(direction) * GroundSpeed(), landing, true) ? 1 : 0;
+							stillMoving = FindBestJump(dest, X87::SafeNormal(direction) * GroundSpeed(), landing, true) ? 1 : 0;
 						}
 					}
 					else if (stillMoving == -1 && moveSize > MaxStepHeight())
@@ -480,7 +466,7 @@ int UPawn::DeusExFlyReachable(vec3 dest, float threshold, int reachFlags, UActor
 		float distSq = dot(direction, direction);
 		if (distSq > thresholdSq || std::abs(direction.z) > CollisionHeight())
 		{
-			vec3 delta = (distSq >= moveSizeSq) ? SafeNormal(direction) * moveSize : direction;
+			vec3 delta = (distSq >= moveSizeSq) ? X87::SafeNormal(direction) * moveSize : direction;
 			stillMoving = DeusExFlyMove(delta, goalActor, MinMoveThreshold, false);
 			if (stillMoving == 5)
 			{
@@ -541,7 +527,7 @@ int UPawn::DeusExSwimReachable(vec3 dest, float threshold, int reachFlags, UActo
 		float distSq = dot(direction, direction);
 		if (distSq > thresholdSq || std::abs(direction.z) > CollisionHeight())
 		{
-			vec3 delta = (distSq >= moveSizeSq) ? SafeNormal(direction) * moveSize : direction;
+			vec3 delta = (distSq >= moveSizeSq) ? X87::SafeNormal(direction) * moveSize : direction;
 			stillMoving = DeusExSwimMove(delta, goalActor, MinMoveThreshold, false);
 			if (stillMoving == 5)
 			{
