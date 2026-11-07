@@ -179,19 +179,21 @@ void UConversation::ClearBindEvents()
 	// so an event keeps the last actor bound to it.
 }
 
+// In package DeusEx, which outlives any level, named ConCameraN and
+// public, as the original's (ConSys.dll 0x100106f0)
 UObject* UConversation::CreateConCamera()
 {
 	UClass* cls = engine->packages->FindClass("ConSys.ConCamera");
-	NameString name;
-	// In the conversation's package, which outlives any level.
-	return package->NewObject(name, cls, ObjectFlags::Transient, true);
+	Package* deusEx = engine->packages->GetPackage("DeusEx");
+	return deusEx->NewObject(deusEx->MakeUniqueObjectName(cls), cls, ObjectFlags::Public, true);
 }
 
+// The same for a flag reference, ConFlagRefN (0x10010600)
 UObject* UConversation::CreateFlagRef(const NameString& FlagName, bool flagValue)
 {
 	UClass* cls = engine->packages->FindClass("ConSys.ConFlagRef");
-	NameString name;
-	UObject* obj = package->NewObject(name, cls, ObjectFlags::Transient, true);
+	Package* deusEx = engine->packages->GetPackage("DeusEx");
+	UObject* obj = deusEx->NewObject(deusEx->MakeUniqueObjectName(cls), cls, ObjectFlags::Public, true);
 	UConFlagRef* flagObj = UObject::Cast<UConFlagRef>(obj);
 	flagObj->FlagName() = FlagName;
 	flagObj->Value() = flagValue;

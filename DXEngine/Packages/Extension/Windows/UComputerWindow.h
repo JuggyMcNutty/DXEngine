@@ -44,7 +44,7 @@ public:
 	void ShowTextCursor(std::optional<bool> bShow);
 
 	void InitDefaults() override;
-	void ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight) override;
+	void VisibilityChanged(bool bNewVisibility) override;
 	void DrawWindow(UGC* gc) override;
 	void Tick(float timeElapsed) override;
 

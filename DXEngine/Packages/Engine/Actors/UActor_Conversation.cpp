@@ -42,15 +42,19 @@ void UActor::DeusExConBindEvents()
 	if (!mission)
 		return;
 
-	// PurgeBoundConversations: the old list's conversations lose this owner.
+	// PurgeBoundConversations (ConSys.dll 0x10010cf0): the old list's
+	// conversations lose this owner, and its items are deleted at once,
+	// gone to the script as CriticalDelete's are.
 	for (UConListItem* item = UObject::Cast<UConListItem>(ConListItems()); item; item = item->Next())
 	{
 		if (item->con())
 			item->con()->ownerRefCount()--;
+		item->Flags |= ObjectFlags::EliminateObject;
 	}
 	ConListItems() = nullptr;
 
 	UClass* clsConListItem = engine->packages->FindClass("ConSys.ConListItem");
+	Package* listPackage = mission->package;
 	NameString bindName = ScriptToLatin1(BindName());
 	NameString barkBindName = ScriptToLatin1(BarkBindName());
 
@@ -69,10 +73,9 @@ void UActor::DeusExConBindEvents()
 			continue;
 
 		// Each goes to the front, so the list runs from the mission list's
-		// last conversation to its first.
-		NameString name;
-		// In the actor's own package: the list goes with its level.
-		UConListItem* newItem = UObject::Cast<UConListItem>(package->NewObject(name, clsConListItem, ObjectFlags::Transient, true));
+		// last conversation to its first. Made in the list's package,
+		// ConListItemN and public, as the original's (0x10010b70).
+		UConListItem* newItem = UObject::Cast<UConListItem>(listPackage->NewObject(listPackage->MakeUniqueObjectName(clsConListItem), clsConListItem, ObjectFlags::Public, true));
 		newItem->con() = conversation;
 		newItem->Next() = UObject::Cast<UConListItem>(ConListItems());
 		ConListItems() = newItem;

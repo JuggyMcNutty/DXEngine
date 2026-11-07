@@ -311,17 +311,27 @@ cycling, the labels in turn round and round, the index counted on; with
 `bCycleOnce` the last label for good, the index on it, never cycled, so
 `bCycleRandom` with it never picks; with `bCycleRandom` alone a random label
 once the labels have cycled (`RandomLabelConsole`: `BoatWaitingForBriefing`'s
-event under each, every line alike but a random pick's label). A
-`cycleIndex` a script sets below 0 gives no label, where the original's
-reads before its labels (bugs.md DX.7).
+event under each, every line alike but a random pick's label).
 `ConBindEvents` binds from the level's `ConversationPackage`, an empty one
 or one that is not there binding nothing and keeping the actor's list, as
 the original's (`ConPackageConsole`: Paul Denton's ten under the stock
 package and `deusexconversations`, none under an empty one or
-`NoSuchConPackage`, in both engines).
+`NoSuchConPackage`, in both engines). Each of an actor's `ConListItems` is
+made in the list's package, named after its class and a number
+(`ConListItem0`) and public, the old list's deleted as the actor binds
+again, as `CriticalDelete` deletes
+([housekeeping](#housekeeping-not-seen-directly)): gone from `AllObjects`
+at once, a reference to one None at the next collection, where the
+original's frees them; `CreateConCamera` and
+`CreateFlagRef` make theirs in package `DeusEx`, named and public
+(`ConObjectsConsole`: Paul Denton's first item, the counts around a second
+bind, two cameras and a flag reference, each one's path, name and flags
+alike in both engines, its `Outer` bugs.md VM.29's).
 
-Differs (bugs.md DX.7): the ConListItems' and the conversation camera's
-names.
+A `cycleIndex` a script sets below 0 gives no label, by choice: the
+original's copies a string from before its labels, and crashes the game
+there (`RandomLabelBelowConsole`: a Critical at -1, ConSys.dll
+`0x1000a270`); no stock event or script sets one.
 
 ## What the player reads
 
@@ -1490,7 +1500,14 @@ from the original's code:
   window's typing and `ComputerStart`, the root's first focus -- then its
   script's `Tick`, then its timers, then its children (`TickOrderConsole`:
   a computer window's, a button's and a text log's script `Tick`, timer and
-  child, every line alike in both engines).
+  child, every line alike in both engines). A computer window shown is
+  marked to start, and its next tick sends `ComputerStart` to it and each
+  parent until one takes it, shown by then or not, paused or not; its first
+  tick in a pause sets `bGamePaused` and `bPauseProcessing` and goes no
+  further, the pause's end clearing both, and `bPauseProcessing` alone stops
+  its typing (`ComputerStartConsole`). A text log's line lasts its whole
+  time out from when it came, the frame already gone counted in
+  (`LogTimeoutConsole`), as an edit field's first blink waits.
 - **Timers**
   ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#timers)):
   each is due its time out after it was added, the frame already gone
@@ -1602,12 +1619,8 @@ green, white or None (`ButtonDefaultsConsole`: a button's six slots set
 apart, then each call with its first slot alone, its insensitive and focused
 look alike in both engines).
 
-Differs (bugs.md EXT.26): a computer window's `ComputerStart` goes to it
-alone once it shows and the game is not paused, where the original's goes up
-its parents at its next tick, paused or not; a text log line leaves up to a
-frame's part early; an edit field's first blink comes without the tick's
-offset. Differs (bugs.md WIN.12): Alt+Enter back to a window on X11 puts it
-at the display's corner.
+Differs (bugs.md WIN.12): Alt+Enter back to a window on X11 puts it at the
+display's corner.
 
 ## The menus' settings
 
@@ -2606,9 +2619,10 @@ original's keeps the first made in the session: `string()` gives the case it
 was made in (`SpellingConsole`: `ANNADIES` where the original's gives
 DeusEx.u's `annadies`), and the cheats' EditFlags lists a flag as its setter
 spelt it; lookups take any case in both. Differs (bugs.md VM.29): an
-object a package holds, `new(None)`'s or a level, has no `Outer`, where the
-original's names the package (`Vm29Console`: the level's `Outer` None, the
-original's `DX`); no stock script reads one.
+object a package holds, `new(None)`'s, a level, a `ConListItem` or a
+conversation camera, has no `Outer`, where the original's names the package
+(`Vm29Console`: the level's `Outer` None, the original's `DX`); no stock
+script reads one.
 
 ## The command line
 

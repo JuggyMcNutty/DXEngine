@@ -561,7 +561,8 @@ void UEditWindow::InitDefaults()
 	blinkStart() = 0.75f;
 	blinkPeriod() = 1.0f;
 	dragDelay() = 0.0f;
-	blinkDelay() = blinkStart();
+	// The first blink's wait counts what of the frame has gone, as ShowCursor's
+	blinkDelay() = GetTickOffset() + blinkStart();
 	bCursorShowing() = true;
 	bDragging() = false;
 	bSelectWords() = false;

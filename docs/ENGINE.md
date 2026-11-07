@@ -719,10 +719,10 @@ by holder, and with glibc a map load's gives the freed memory back to the system
   class's count; the event manager in its `LevelInfo`'s; an object a script makes with `new` in
   its outer's, the calling object's when it names none (`new(Self)` on the player: its goals,
   notes and key infos), and with `new(None)` in the transient package. A conversation's camera
-  and flag refs are in the conversation's package, which outlives any level, unnamed and
-  transient, and an actor's ConListItems in its level's, where the original's camera is in
-  `DeusEx`'s and its ConListItems in the conversation list's package, named and public (bugs.md
-  DX.7). A package played as a level is tagged so (`Package::IsLevel`).
+  and flag refs are in package `DeusEx`, which outlives any level, and an actor's ConListItems
+  in the conversation list's, each named by its class's count and public, as the original's;
+  an actor's old ConListItems are deleted as it binds again, as `CriticalDelete` deletes. A
+  package played as a level is tagged so (`Package::IsLevel`).
 - **A class's defaults** are its own property block, which scripts read and write as `default.`
   values. The engine reads them through the class's defaults object
   (`UClass::GetDefaultObject`), made once, of the class's nearest native class, its block a view

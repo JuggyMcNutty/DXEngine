@@ -12,13 +12,14 @@
 // text window's does; at each configuration, bTooTall if that text is taller
 // than the window less its margins (ConfigurationChanged 0x10047910); drawn
 // line by line (Draw 0x10047a10), from the newest up when too tall, so the
-// oldest leave at the top.
+// oldest leave at the top. A line's time left is the timeout and what of
+// the frame has gone (AddLog 0x100476a0), which the next tick takes back.
 void UTextLogWindow::AddLog(const std::string& NewText, const Color& linecol)
 {
 	LogEntry entry;
 	entry.text = NewText;
 	entry.color = linecol;
-	entry.timestamp = totalTime + textTimeout();
+	entry.timeLeft = GetTickOffset() + textTimeout();
 	logs.push_back(entry);
 	RegenerateText();
 }
@@ -62,16 +63,18 @@ void UTextLogWindow::SetTextTimeout(float newTimeout)
 	textTimeout() = newTimeout;
 }
 
-// The original's (XTextLogWindow::Tick 0x10047c30): unless paused, the
-// lines whose time is up leave, the oldest first.
+// The original's (XTextLogWindow::Tick 0x10047c30): unless paused, each
+// line's time counts down, and the lines whose time is up leave, the
+// oldest first.
 void UTextLogWindow::Tick(float timeElapsed)
 {
 	if (!bPaused())
 	{
-		totalTime += timeElapsed;
+		for (LogEntry& entry : logs)
+			entry.timeLeft -= timeElapsed;
 
 		size_t expired = 0;
-		while (expired < logs.size() && logs[expired].timestamp <= totalTime)
+		while (expired < logs.size() && logs[expired].timeLeft <= 0.0f)
 			expired++;
 		if (expired > 0)
 		{

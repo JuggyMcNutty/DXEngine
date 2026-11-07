@@ -27,10 +27,9 @@ private:
 	{
 		std::string text;
 		Color color;
-		float timestamp = 0.0f;
+		float timeLeft = 0.0f;
 	};
 	void RegenerateText();
 
 	Array<LogEntry> logs;
-	float totalTime = 0.0f;
 };

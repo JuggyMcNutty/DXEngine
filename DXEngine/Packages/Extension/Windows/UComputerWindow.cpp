@@ -271,17 +271,13 @@ void UComputerWindow::InitDefaults()
 	bFirstTick() = true;
 }
 
-void UComputerWindow::ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight)
+// Shown, marked to send ComputerStart at its next tick, if it has not
+// (XComputerWindow::VisibilityChanged 0x1000ee70)
+void UComputerWindow::VisibilityChanged(bool bNewVisibility)
 {
-	if (textFont())
-	{
-		if (!bWidthSpecified)
-			preferredWidth = (float)(textCols() * fontWidth());
-		if (!bHeightSpecified)
-			preferredHeight = (float)(textRows() * fontHeight());
-	}
-
-	UWindow::ParentRequestedPreferredSize(bWidthSpecified, preferredWidth, bHeightSpecified, preferredHeight);
+	UWindow::VisibilityChanged(bNewVisibility);
+	if (bNewVisibility && !bComputerStartInvoked())
+		bInvokeComputerStart() = true;
 }
 
 // Every add stamped with the next event's time, which a character or line
@@ -295,9 +291,14 @@ void UComputerWindow::Queue(QueuedItem item, bool advance)
 	timeLastEvent() = timeCurrent();
 }
 
-// The original's Tick (0x1000f7b0), by the windows' real time: the cursor's
-// blink, then the queue's clock (ProcessQueuedBuffer, 0x1000fe20), whose
-// due items run in order, then the typed characters' fade-in.
+// The original's Tick (0x1000f7b0), by the windows' real time: its first
+// tick passed over; unless it ignores the game's pause, the first tick in
+// one sets bGamePaused and bPauseProcessing and goes no further, and the
+// game going on clears both; ComputerStart, once shown (VisibilityChanged),
+// to the window and each parent until one takes it, paused or not (as
+// InvokeComputerStart 0x1000ef10); then, not paused, the cursor's blink, the
+// queue's clock unless bPauseProcessing (ProcessQueuedBuffer, 0x1000fe20),
+// whose due items run in order, and the typed characters' fade-in.
 void UComputerWindow::Tick(float timeElapsed)
 {
 	if (bIgnoreTick())
@@ -307,16 +308,36 @@ void UComputerWindow::Tick(float timeElapsed)
 		bFirstTick() = false;
 		return;
 	}
-	bGamePaused() = engine->LevelInfo && !engine->LevelInfo->Pauser().empty() && !bIgnoreGamePaused();
+	if (!bIgnoreGamePaused())
+	{
+		bool paused = engine->LevelInfo && !engine->LevelInfo->Pauser().empty();
+		if (paused && !bGamePaused())
+		{
+			bGamePaused() = true;
+			bPauseProcessing() = true;
+			return;
+		}
+		if (!paused && bGamePaused())
+		{
+			bGamePaused() = false;
+			bPauseProcessing() = false;
+		}
+	}
+
+	if (bInvokeComputerStart())
+	{
+		bInvokeComputerStart() = false;
+		bComputerStartInvoked() = true;
+		for (UWindow* w = this; w; w = w->parentOwner())
+		{
+			ExpressionValue taken = CallEvent(w, "ComputerStart");
+			if (taken.GetType() == ExpressionValueType::ValueBool && taken.ToBool())
+				break;
+		}
+	}
+
 	if (bGamePaused())
 		return;
-
-	if (!bComputerStartInvoked() && bIsVisible())
-	{
-		bComputerStartInvoked() = true;
-		if (FindEventFunction(this, "ComputerStart"))
-			CallEvent(this, "ComputerStart");
-	}
 
 	if (cursorBlinkSpeed() > 0.0f)
 	{
@@ -328,10 +349,13 @@ void UComputerWindow::Tick(float timeElapsed)
 		}
 	}
 
-	timeCurrent() += timeElapsed * throttle();
-	if (timeCurrent() - timeLastEvent() > eventTimeInterval())
-		timeNextEvent() = timeCurrent() + eventTimeInterval();
-	ProcessQueue();
+	if (!bPauseProcessing())
+	{
+		timeCurrent() += timeElapsed * throttle();
+		if (timeCurrent() - timeLastEvent() > eventTimeInterval())
+			timeNextEvent() = timeCurrent() + eventTimeInterval();
+		ProcessQueue();
+	}
 
 	if (fadeSpeed() > 0.0f)
 	{
