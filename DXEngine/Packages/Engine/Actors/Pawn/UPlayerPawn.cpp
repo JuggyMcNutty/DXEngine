@@ -136,29 +136,6 @@ void UPlayerPawn::TickRotating(float elapsed)
 		SetRotation(Rotator(Rotation().Pitch, Rotation().Yaw, 0));
 }
 
-// The player's config, as Deus Ex's Engine.u declares it: all globalconfig
-// but MyAutoAim (travel) and bNoFlash (neither), which the original never
-// reads from an ini. So bNoFlash stays DeusExPlayer's default, True: its
-// ViewFlash drops every instant flash and fog, the death's fade among them,
-// though the game's User.ini lists bNoFlash=False.
-void UPlayerPawn::LoadProperties()
-{
-	bInvertMouse() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bInvertMouse", true);
-	MouseSensitivity() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "MouseSensitivity", 5.0f);
-	DodgeClickTime() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "DodgeClickTime", 0.25f);
-	Bob() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "Bob", 0.016f);
-	Handedness() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "Handedness", -1.0f);
-	bLookUpStairs() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bLookUpStairs", false);
-	bSnapToLevel() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bSnapToLevel", false);
-	bAlwaysMouseLook() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bAlwaysMouseLook", true);
-	bKeyboardLook() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bKeyboardLook", false);
-	bMaxMouseSmoothing() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bMaxMouseSmoothing", false);
-	bNoVoices() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bNoVoices", false);
-	bMessageBeep() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bMessageBeep", true);
-	MouseSmoothThreshold() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "MouseSmoothThreshold", 0.16f);
-	ngWorldSecret() = UTF8ToScript(IniPropertyConverter<std::string>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "ngWorldSecret", ""));
-}
-
 void UPlayerPawn::SaveConfig()
 {
 	UPawn::SaveConfig();

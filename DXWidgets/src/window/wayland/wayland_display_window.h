@@ -231,6 +231,10 @@ private:
 
 	int m_minWindowWidth = 0;
 	int m_minWindowHeight = 0;
+	// SetWindowMinSize's pixels, the toplevel's minimum in surface units
+	// worked out from them again as the scale changes
+	int m_minPixelWidth = 0;
+	int m_minPixelHeight = 0;
 	int m_maxWindowWidth = 0;
 	int m_maxWindowHeight = 0;
 

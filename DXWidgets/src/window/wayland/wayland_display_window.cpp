@@ -29,6 +29,8 @@ WaylandDisplayWindow::WaylandDisplayWindow(WaylandDisplayBackend* backend, Displ
 			m_FractionalScale.on_preferred_scale() = [&](uint32_t scale_numerator) {
 				// parameter is the numerator of a fraction with the denominator of 120
 				m_ScaleFactor = scale_numerator / 120.0;
+				if (m_minPixelWidth > 0)
+					SetWindowMinSize(m_minPixelWidth, m_minPixelHeight);
 
 				m_NeedsUpdate = true;
 				windowHost->OnWindowDpiScaleChanged();
@@ -304,13 +306,17 @@ void WaylandDisplayWindow::SetWindowResizable(bool enable)
 	}
 }
 
+// The pixels in the toplevel's surface units, the scale's
 void WaylandDisplayWindow::SetWindowMinSize(int width, int height)
 {
+	m_minPixelWidth = width;
+	m_minPixelHeight = height;
 	if (m_XDGToplevel)
 	{
-		m_XDGToplevel.set_min_size(width, height);
-		m_minWindowWidth = width;
-		m_minWindowHeight = height;
+		m_minWindowWidth = (int)std::ceil(width / m_ScaleFactor);
+		m_minWindowHeight = (int)std::ceil(height / m_ScaleFactor);
+		if (isResizable)
+			m_XDGToplevel.set_min_size(m_minWindowWidth, m_minWindowHeight);
 	}
 }
 

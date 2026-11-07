@@ -347,6 +347,10 @@ public:
 	virtual void ShowMinimized() = 0;
 	virtual void ShowNormal() = 0;
 	virtual void SetWindowResizable(bool enable) = 0;
+	// The smallest the window may be dragged to, in the display's pixels:
+	// the whole window, its frame too, where the window has a frame of its
+	// own (Windows' WM_GETMINMAXINFO), else the window's own area, the
+	// desktop's frame round it
 	virtual void SetWindowMinSize(int width, int height) = 0;
 	virtual void SetWindowMaxSize(int width, int height) = 0;
 	virtual bool IsWindowFullscreen() = 0;

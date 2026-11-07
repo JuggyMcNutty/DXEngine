@@ -316,8 +316,11 @@ void Engine::Run()
 
 	// The start URL a partial travel's on the player's options, as the
 	// original's game engine reads it (UGameEngine::Init, Engine.dll
-	// 0x103891c0): one its URL refuses is fatal.
-	UnrealURL defaultURL = GetDefaultURL(packages->GetIniValue("system", "URL", "LocalMap"));
+	// 0x103891c0): one its URL refuses is fatal. Its default, with no URL,
+	// is DX.dx whatever the ini's [URL] LocalMap names, as Deus Ex's Init
+	// sets FURL::DefaultLocalMap to DX.dx before it reads the command line
+	// (0x10389429-0x103894a4)
+	UnrealURL defaultURL = GetDefaultURL("DX.dx");
 	UnrealURL startURL(&defaultURL, LaunchInfo.url, ETravelType::TRAVEL_Partial);
 	if (!LaunchInfo.url.empty() && !startURL.Valid)
 		Exception::Throw(LocalizeMessage("Engine", "Errors", "InvalidUrl", "Invalid URL: %s", { LaunchInfo.url }));
@@ -1212,15 +1215,10 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 
 	Level->TravelInfo = travelInfo; // Initially used travel info for level restart
 
-	// Remove the actors meant for the editor (to do: should we do this at the package manager level?)
-	for (UActor*& actor : Level->Actors)
-	{
-		if (actor && AllFlags(actor->Flags, ObjectFlags::NotForServer))
-		{
-			actor->bDeleteMe() = true;
-			actor = nullptr;
-		}
-	}
+	// The map's actors outside the load's context were never made, their
+	// places in the list None (Package::LoadContext): the editor's, and on a
+	// dedicated server those for the client alone. A game with a client
+	// keeps its client-only actors, as the original's does in single player.
 
 	// A level from Current still holds the pawn that left it, as the
 	// original's does: GameInfo.Login finds and reuses it (its Player is
@@ -2081,7 +2079,10 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 	if (!pawn || !error.empty())
 		Exception::Throw("GameInfo login failed: " + ScriptToUTF8(error));
 
-	pawn->LoadProperties();
+	// The player's settings are its class's config, its defaults as the
+	// class read them from the user ini and each SaveConfig read them again
+	// (UClass::LoadProperties), as the original's spawned pawn has them;
+	// nothing reads the ini again here (bugs.md ENG.24).
 
 	// Assign the pawn to the viewport
 	viewport->Actor() = pawn;
@@ -2372,7 +2373,6 @@ void Engine::HandleClientPlayer(NetConnection* connection, UPlayerPawn* pawn)
 	pawn->Role() = ROLE_AutonomousProxy;
 	pawn->ShowFlags() = 0x480c;
 	pawn->RendMap() = 5;
-	pawn->LoadProperties();
 
 	viewport->Actor() = pawn;
 	pawn->Player() = viewport;
@@ -3392,6 +3392,11 @@ void Engine::OpenWindow()
 		window = CreateGameWindow(chosenRenderDevice);
 		// The software device in a GPU device's place: -noddraw's window
 		ApplyNoDDraw();
+		// Held to 640x480 as it is dragged, as the original's window is
+		// (WM_GETMINMAXINFO, WinDrv.dll 0x1110a812): on Windows the whole
+		// window, its frame too, as the original's; elsewhere, where the
+		// desktop draws the frame, the window's own area
+		window->SetWindowMinSize(640, 480);
 
 		// The game's own icon (PEIcon.h); none if its executable gives none.
 		auto icon = PEIcon::OfGame(LaunchInfo.gameRootFolder, LaunchInfo.gameExecutableName);
@@ -3578,9 +3583,13 @@ void Engine::OnWindowKeyChar(std::string chars)
 	}
 }
 
+// Logged as the original's toggle logs it (WinDrv.dll's ToggleFullscreen
+// 0x1110d500): EndFullscreen as full screen ends (0x1110d380), else
+// AttemptFullscreen.
 void Engine::ToggleFullscreen()
 {
 	bool isFullscreen = window->IsFullscreen();
+	LogMessage(isFullscreen ? "EndFullscreen" : "AttemptFullscreen");
 
 	// Get the resolution to SWITCH TO
 	int width = isFullscreen ? client->WindowedViewportX : client->FullscreenViewportX;

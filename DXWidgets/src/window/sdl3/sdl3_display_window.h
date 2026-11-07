@@ -137,6 +137,13 @@ public:
 	// On Windows, the window procedure SDL made the window with, under the
 	// one that takes Maximize before Windows does (MaximizeCommandProc)
 	intptr_t SDLWindowProc = 0;
+	// The smallest the window may be dragged to, in pixels
+	// (SetWindowMinSize), 0 for none: on Windows the whole window, which
+	// MaximizeCommandProc answers WM_GETMINMAXINFO with over SDL's answer;
+	// elsewhere SDL's minimum, in its units (ApplyMinSize)
+	int MinPixelWidth = 0;
+	int MinPixelHeight = 0;
+	void ApplyMinSize();
 
 	static bool ExitRunLoop;
 	static Uint32 PaintEventNumber;

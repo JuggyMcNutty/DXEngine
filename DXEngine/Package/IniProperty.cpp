@@ -96,19 +96,18 @@ uint8_t IniPropertyConverter<uint8_t>::FromIniFile(const IniFile& iniFile, const
 template<>
 bool IniPropertyConverter<bool>::FromString(const std::string& valueString)
 {
-	// Its first token, in any case, as a class's config reads a bool
-	// (UBoolProperty::ImportText, Core.dll 0x10166380): an ini's "False "
-	// is false, the blank after it the value's own as the file is read
+	// Its first token as a class's config reads a bool
+	// (UBoolProperty::ImportText, Core.dll 0x10166380): 1 or True in any
+	// case, 0 or False, so an ini's "False " is false, the blank after it
+	// the value's own as the file is read; any other word, Yes and No among
+	// them, refused (bugs.md ENG.24), the setting keeping its value
 	std::string value;
 	size_t pos = 0;
 	if (!UProperty::ReadToken(valueString, pos, value))
 		Exception::Throw("Encountered a non-boolean value: " + valueString);
-	for (char& c : value)
-		if (c >= 'A' && c <= 'Z')
-			c += 'a' - 'A';
-	if (value == "true" || value == "1" || value == "yes")
+	if (value == "1" || StrTools::equals_ignore_case(value, "True"))
 		return true;
-	else if (value == "false" || value == "0" || value == "no")
+	else if (value == "0" || StrTools::equals_ignore_case(value, "False"))
 		return false;
 	else
 		Exception::Throw("Encountered a non-boolean value: " + valueString);

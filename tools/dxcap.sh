@@ -11,7 +11,8 @@
 #                                             and testmusic.py; DXCapTwin.u a copy of it (CastConsole)
 #   tools/dxcap.sh original <console> [<secs>] the original, from its menu map (or DXCAP_START's URL)
 #   tools/dxcap.sh dxe <console> <map> [<secs>]  DXEngine's linux-x86_64 build, straight into <map>
-#                                                  (or joining a server: <map> an address, as 127.0.0.1:7790);
+#                                                  (or joining a server: <map> an address, as 127.0.0.1:7790;
+#                                                  <map> - its own start, no URL given, as the original's);
 #                                                  <console> - keeps the stock console, and DXCAP_TIMELINE=<file>
 #                                                  drives the run (tools/dxcap/timelines)
 #   tools/dxcap.sh prove <map>                DXEngine's proving run: shots at 20 s and 60 s, exit at 65 s
@@ -65,6 +66,8 @@
 # DXCAP_SERVERPKGS=<dir> has a run's server find packages in <dir> too, each
 # named in its ServerPackages, so that a client, whose paths lack <dir>,
 # downloads them.
+# DXCAP_MAPS=<dir> has a run find the maps in <dir> too, by their names
+# (tools/dxcap/clientonly.py's): the game's Maps are its own.
 # DXCAP_BACKEND=SDL3 gives a dxe run DXWidgets' SDL3 window, the one
 # linux-x86_64's launchers start its engine with, in place of its X11 one;
 # DXCAP_BACKEND=SDL2 its SDL2 window, linux-aarch64's and the Smart Pro's
@@ -520,6 +523,18 @@ if serverpkgs:
     s, n = re.subn(r'^\[DeusEx\.DeusExGameEngine\]\r?\n', lambda m: m.group(0) + names, s, count=1, flags=re.M)
     if n != 1:
         sys.exit('no [DeusEx.DeusExGameEngine] in ' + src)
+# A run finds the maps of DXCAP_MAPS's folder by its paths, as a map of
+# the game's.
+maps = os.environ.get('DXCAP_MAPS', '')
+if maps:
+    folder = os.path.abspath(maps)
+    if os.environ.get('DXCAP_WINPATHS') == '1':
+        line = 'Paths=Z:%s\\*.dx%s' % (folder.replace('/', '\\'), nl)
+    else:
+        line = 'Paths=%s/*.dx%s' % (folder, nl)
+    s, n = re.subn(r'^(Paths=\.\.\\System\\\*\.u\r?\n)', lambda m: m.group(1) + line, s, count=1, flags=re.M)
+    if n != 1:
+        sys.exit('no Paths=..\\System\\*.u in ' + src)
 # A run's server logs world stats only with DXCAP_STATS.
 if os.environ.get('DXCAP_STATS'):
     s, n = re.subn(r'^\[Engine\.GameInfo\]\r?\n', lambda m: m.group(0) + 'bWorldLog=True' + nl, s, count=1, flags=re.M)
@@ -941,7 +956,10 @@ run_dxe() {
         fi
         ! windows_engine || run=(env WINEPREFIX="$PREFIX" WINEDEBUG=-all WINEDLLOVERRIDES="$overrides" "$WINE" "$ENGINE_BIN")
         local others; others="$(pgrep -x DXEngine.exe || true)"
-        timeout -s KILL "$secs" "${run[@]}" --no-launcher "$(enginepath "$GAME")" "${inis[@]}" --url="$map" "${userdir[@]}" "${args[@]}" > "$dir/engine.log" 2>&1 &
+        # A map of - is no URL: the engine's own start (LocalMapConsole)
+        local url=(--url="$map")
+        [ "$map" != - ] || url=()
+        timeout -s KILL "$secs" "${run[@]}" --no-launcher "$(enginepath "$GAME")" "${inis[@]}" "${url[@]}" "${userdir[@]}" "${args[@]}" > "$dir/engine.log" 2>&1 &
         local tpid=$! mpid="" perfpid="" epid="" wpid="" i=0
         # Under wine, timeout's child is start.exe, which starts the engine
         # as a process of its own, passes on its exit code, and leaves it

@@ -244,9 +244,15 @@ void SDL2DisplayWindow::SetWindowResizable(bool enable)
 	SDL_SetWindowResizable(Handle.window, enable ? SDL_TRUE : SDL_FALSE);
 }
 
+// The window's own area, in SDL's units: the pixels over the drawable's
+// pixels per unit, 1 on X11 and KMSDRM
 void SDL2DisplayWindow::SetWindowMinSize(int width, int height)
 {
-	SDL_SetWindowMinimumSize(Handle.window, width, height);
+	int w = 0, h = 0;
+	SDL_GetWindowSize(Handle.window, &w, &h);
+	int pixels = GetPixelWidth();
+	double density = w > 0 && pixels > 0 ? (double)pixels / w : 1.0;
+	SDL_SetWindowMinimumSize(Handle.window, (int)std::ceil(width / density), (int)std::ceil(height / density));
 }
 
 void SDL2DisplayWindow::SetWindowMaxSize(int width, int height)

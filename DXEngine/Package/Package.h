@@ -111,6 +111,13 @@ private:
 	// flags.
 	bool IsSaveFile() const;
 
+	// The flags an export or a name must share one of to be made, as the
+	// original's linker takes its context (Core.dll 0x101600d5-0x10160101):
+	// the game's client's and server's, a dedicated server's alone, -server
+	// clearing GIsClient (DeusEx.exe 0x10908d79-0x10908dc0); the editor's
+	// never.
+	ObjectFlags LoadContext() const;
+
 	void ReadTables();
 	std::unique_ptr<ObjectStream> OpenObjectStream(int index, const NameString& name, UClass* base);
 	void LoadExportObject(int index);

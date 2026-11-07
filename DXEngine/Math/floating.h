@@ -77,6 +77,17 @@ public:
 		return Equal(a.x, b.x) && Equal(a.y, b.y) && Equal(a.z, b.z);
 	}
 
+	// A vector of nothing as the original's FVector::IsNearlyZero makes it
+	// (MoveActor, Engine.dll 0x1039915a; physWalking, physRolling,
+	// physTrailer): each axis, the float as stored, made positive by an
+	// fchs where it is Under 0, then Under the double 0.0001. So a float of
+	// exactly 0.0001, 9.99999975e-5, is under it, as a NaN is.
+	template<typename V>
+	static inline bool NearlyZero3(const V& v)
+	{
+		return Under(std::fabs((double)v.x), 0.0001) && Under(std::fabs((double)v.y), 0.0001) && Under(std::fabs((double)v.z), 0.0001);
+	}
+
 	// An int times a float made an int by _ftol (ftol), the product as the
 	// x87 holds it: the original's rotator times a float (Core.dll
 	// 0x101395e0: fild, fmul, _ftol). rot(10, 20, 30) * 0.7 is (7, 14, 21)

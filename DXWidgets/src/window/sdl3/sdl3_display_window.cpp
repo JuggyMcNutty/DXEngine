@@ -42,6 +42,17 @@ static LRESULT CALLBACK MaximizeCommandProc(HWND hwnd, UINT msg, WPARAM wparam, 
 		return DefWindowProcW(hwnd, msg, wparam, lparam);
 	if (msg == WM_SYSCOMMAND && (wparam & 0xFFF0) == SC_MAXIMIZE && window->WindowHost->OnWindowMaximize())
 		return 0;
+	// The window's minimum, its frame too, over SDL's own (which, with no
+	// minimum of SDL's, is the frame alone), as the original's window
+	// answers it (WinDrv.dll 0x1110a812)
+	if (msg == WM_GETMINMAXINFO && window->MinPixelWidth > 0)
+	{
+		LRESULT result = CallWindowProcW(reinterpret_cast<WNDPROC>(window->SDLWindowProc), hwnd, msg, wparam, lparam);
+		MINMAXINFO* info = (MINMAXINFO*)lparam;
+		info->ptMinTrackSize.x = window->MinPixelWidth;
+		info->ptMinTrackSize.y = window->MinPixelHeight;
+		return result;
+	}
 	return CallWindowProcW(reinterpret_cast<WNDPROC>(window->SDLWindowProc), hwnd, msg, wparam, lparam);
 }
 #endif
@@ -296,7 +307,25 @@ void SDL3DisplayWindow::SetWindowResizable(bool enable)
 
 void SDL3DisplayWindow::SetWindowMinSize(int width, int height)
 {
-	SDL_SetWindowMinimumSize(Handle.window, width, height);
+	MinPixelWidth = width;
+	MinPixelHeight = height;
+	ApplyMinSize();
+}
+
+// SDL's minimum of the window's own area, in SDL's units, points on a
+// scaled Wayland desktop: the pixels over the pixel density, again as the
+// density changes (OnWindowEvent). On Windows the window procedure answers
+// with the whole window's (MaximizeCommandProc)
+void SDL3DisplayWindow::ApplyMinSize()
+{
+#ifndef _WIN32
+	if (MinPixelWidth <= 0 || MinPixelHeight <= 0)
+		return;
+	double density = SDL_GetWindowPixelDensity(Handle.window);
+	if (density <= 0.0)
+		density = 1.0;
+	SDL_SetWindowMinimumSize(Handle.window, (int)std::ceil(MinPixelWidth / density), (int)std::ceil(MinPixelHeight / density));
+#endif
 }
 
 void SDL3DisplayWindow::SetWindowMaxSize(int width, int height)
@@ -763,6 +792,8 @@ void SDL3DisplayWindow::OnWindowEvent(const SDL_WindowEvent& event)
 		WindowHost->OnWindowDeactivated();
 	else if (event.type == SDL_EVENT_WINDOW_MOUSE_LEAVE)
 		WindowHost->OnWindowMouseLeave();
+	else if (event.type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED)
+		ApplyMinSize();
 #ifndef _WIN32
 	else if (event.type == SDL_EVENT_WINDOW_MAXIMIZED && !isFullscreen)
 	{

@@ -884,7 +884,9 @@ void NActor::ParabolicTrace(UObject* Self, vec3& finalLocation, std::optional<ve
 
 	auto move = [&](const vec3& delta)
 	{
-		if (std::abs(delta.x) < 0.0001f && std::abs(delta.y) < 0.0001f && std::abs(delta.z) < 0.0001f)
+		// A move of nothing, each axis under the double 0.0001
+		// (X87::NearlyZero3; 0x1036caae-0x1036cb1d), is not made
+		if (X87::NearlyZero3(delta))
 			return;
 		float dist = length(delta);
 		vec3 dir = delta * (1.0f / dist);

@@ -1901,9 +1901,13 @@ BSP muffled -- a closed door's too, the movers in it where it filed them
 wall test is the solid-space walk the original's `FastLineCheck` makes
 (`FastWalk`, the hearing test's): a solid brush muffles through its
 invisible faces too, open space on both sides of a polygon does not
-(`SoundConsole`'s wall, recorded on both engines). Differs (bugs.md AUD.18):
-a line of 0.01 or shorter is not walked, so a listener inside solid hears a
-sound that close unmuffled. Who hears
+(`SoundConsole`'s wall, recorded on both engines). The line is walked from
+the sound's actor to the eyes, as the mixer asks it
+([sounds behind walls](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#sounds-behind-walls)),
+whatever its length: a sound at the eyes of a listener inside solid is
+muffled (`SolidSoundConsole`, recorded on both engines: a fan at the eyes
+10 dB down in the solid under Liberty Island's pier, and up again in the
+open). Who hears
 a sound an actor plays is the original's too
 ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds)):
 the player within the radius ÷ √1.3, and with the level's BSP between, at
@@ -2889,10 +2893,19 @@ not deleted (the log says so).
   command on, and the window is restored as it goes full screen. The Fatal
   Error window maximizes. Full screen the game's window has no menu to ask
   it, by choice (above), where the original's menu's Maximize goes back to
-  a window. Differs (bugs.md WIN.16): the window can be dragged smaller than
-  640x480, where the original's holds it at 640x480 or more, and a toggle
-  logs nothing, where the original's logs `AttemptFullscreen` and
-  `EndFullscreen`.
+  a window. Each toggle logs `AttemptFullscreen` or `EndFullscreen`, as the
+  original's (`PadConsole` with `maximize-back.txt`: both lines in
+  DXEngine's log; the original's `AttemptFullscreen` as `maximize.py` takes
+  it full screen). Differs (bugs.md WIN.17): the console's `ENDFULLSCREEN`,
+  which the original's takes in any state, is no command here; no stock
+  script sends it.
+- **The window's least size** is the original's 640x480 as it is dragged
+  ([the window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-window)):
+  on Windows the whole window, its frame too, as the original's; on Linux,
+  where the desktop draws the frame, the window's own area, by choice
+  (`maximize.py --size 320x240` beside a run: DXEngine's X11, SDL3 and SDL2
+  windows held at 640x480, its Windows build under Wine at 632x446 as the
+  original's, where they went to 320x240).
 - **The field of view** is the original's setting: the player's `DefaultFOV`
   is Deus Ex's own config, 75 (`[Engine.PlayerPawn]` in `User.ini`), the
   angle across a 4:3 view ([the view's width](#the-views-width)).
@@ -2963,20 +2976,38 @@ is None and makes no name, as the original's linker maps it (Core.dll
 `0x10160543`), and an export for neither is not made: so
 06_HongKong_WanChai_Garage's `Barricade` is spelt so after
 02_NYC_BatteryPark, whose editor's brushes are grouped `BArricade`
-(`NameFirstConsole`, alike in both engines). A package's names are its
-characters, a byte each or, saved 16-bit, two, as the original's reads them
-(`0x101459b0`), and a name's text is the same characters whether a package,
-a file name, a URL, the ini, a script's string or `StringToName` made it, so
-`string()` and `GetPropertyText` give them as the original's do.
+(`NameFirstConsole`, alike in both engines). A dedicated server's context
+is the server's alone, so there one for the client alone is not made
+either, where a game with a client makes it: a single-player level keeps
+a client-only actor, which no package of the game's has
+(`ClientOnlyConsole` and `ClientOnlyServer` on a copy of Liberty Island
+whose `CrateUnbreakableSmall0` is client-only, `tools/dxcap/clientonly.py`:
+there in single player, not on a dedicated server, in both engines). A
+package's names are its characters, a byte each or, saved 16-bit, two, as
+the original's reads them (`0x101459b0`), and a name's text is the same
+characters whether a package, a file name, a URL, the ini, a script's
+string or `StringToName` made it, so `string()` and `GetPropertyText` give
+them as the original's do.
 A package is an object of Core's class `Package`, the `Outer` of each of its
 objects that has none of its own, as the original's: `new(None)`'s the
 package `Transient`, a level's and its actors' their map's, a texture in no
 group its package's (`Vm29Console`, `NewOuterConsole`, `ConObjectsConsole`:
 every `Outer` alike in both engines; each engine's save loads in the other).
 
-Differs (bugs.md PHYS.24): a physics move of exactly 0.0001 on an axis,
-as a float, is a move, where the original's `MoveActor`, comparing with the
-double 0.0001, takes it as none.
+A move of nothing is the original's
+([moving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#moving)):
+one whose every axis is under the double 0.0001 as the x87 compares it, a
+float's 0.0001 and a NaN under it too, is none, however long -- a script's
+`Move` and `MoveSmooth`, a mover's, a walking step, a roll, a trailer's
+turn, a thrown thing's flight, the reach tests' moves and a net client's
+smoothing alike (`NothingMoveConsole`: 0.0001 along X and Y moved by
+neither engine, a mover's 0.0001 none, a trailer of an owner moving 0.0001
+turned straight up, in both engines). Differs (bugs.md PHYS.25): a life
+span ends at 0.0001 or less of the float as stored, where the original's
+compares the value before it is stored with the double, within a float
+step of it; and a walk's and a roll's direction is made of any length
+above 0, where the original's `SafeNormal` makes one under 1e-8 squared
+none.
 
 ## The command line
 
@@ -3000,15 +3031,17 @@ What DXEngine does with each:
 
 - **The start URL**: with `-hax0r` or `-server`, the first word (the second
   after `SERVER`) unless it starts with `-`; else the game's own start,
-  `DX.dx`
-  ([starting the game engine](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#starting-the-game-engine)).
-  Differs (bugs.md ENG.22): an ini whose `[URL] LocalMap` names another map
-  starts there, where the original's starts at `DX.dx` whatever it names.
+  `DX.dx`, whatever the ini's `[URL] LocalMap` names
+  ([starting the game engine](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#starting-the-game-engine);
+  `LocalMapConsole` with `LocalMap=01_NYC_UNATCOIsland.dx`: `DX.dx` in both
+  engines).
   `?loadgame=N` there, or as `--url`, starts a client on slot N's save,
   loaded before any map but Entry, as the original's first browse loads it
   (`StartConsole`, the original's with `DXCAP_START`), whatever map it
   names; a slot with none starts at `DX.dx`. A start URL that does not
-  read is fatal, `Invalid URL: <url>`, as the original's. The start
+  read is fatal, `Invalid URL: <url>`, as the original's. Differs (bugs.md
+  ENG.26): a start URL whose browse fails with no error's text is not tried
+  again at `DX.dx`, where the original's tries it once more. The start
   empties `Current`, as the original's first browse does from the Entry
   level, which holds no `DeusExLevelInfo` and so is in no mission: no level
   an earlier run left there comes back (`RevisitConsole` begun on UNATCO HQ
@@ -3078,10 +3111,6 @@ What DXEngine does with each:
     `-nokni` and `-nok6` (the original's mixer picks its routines by them),
     and `-safe`'s no DirectInput (DXEngine's input is its window's, SDL's
     under the launchers).
-
-Differs (bugs.md ENG.24): the player's settings read again from the user
-ini take `yes` and `no` for a bool, where the original's take 1, `True`, 0
-and `False` alone.
 
 An `INI=` name with no extension is one file, by choice, where the
 original's is two, a defect that sends the launcher's choices where the
@@ -3243,13 +3272,18 @@ A mod gets the original's loader and natives:
   byte or bool its default. Of a key given twice in a section the last is
   read and the last written, wherever the engine reads the ini: a class's
   config, the default URL, the settings it reads again by hand -- the
-  player's as it spawns one, the client's, the audio and render devices'
-  (`IniConsole`). Those read by hand do the same: an empty float is 0, and
-  an empty texture or skin detail, an enum's byte in the original, keeps its
-  default (`IniConsole`: the player's `MouseSensitivity`, `Bob`,
-  `DodgeClickTime`, `Handedness` and `MouseSmoothThreshold` given empty, 0
-  in both engines). An ini or a `.int` file is read as the original's
-  `appLoadFileToString` reads it, UTF-16 after a byte-order mark and else a
+  client's, the audio and render devices' (`IniConsole`). The player's
+  settings are its class's config, as the original's: a pawn spawned takes
+  its class's defaults, which the user ini came into by the import, so a
+  bool's `Yes` and a key not there leave Engine.u's default (`IniConsole`
+  with `bInvertMouse=Yes`, `bMaxMouseSmoothing=No` and no `MouseSensitivity`
+  nor `MouseSmoothThreshold`: False, True, 3 and 0.07 in both engines; its
+  `MouseSensitivity`, `Bob`, `DodgeClickTime`, `Handedness` and
+  `MouseSmoothThreshold` given empty, 0 in both). Those read by hand do the
+  same: an empty float is 0, and an empty texture or skin detail, an enum's
+  byte in the original, keeps its default. An ini or a `.int` file is read
+  as the original's `appLoadFileToString` reads it, UTF-16 after a
+  byte-order mark and else a
   byte a character, and an ini written back is written as its
   `appSaveStringToFile` writes one, UTF-16 after `FF FE` when a character in
   it is past Latin-1 and else a byte a character ([the
@@ -3265,7 +3299,11 @@ A mod gets the original's loader and natives:
   with it (CR LF, LF or a CR alone), by choice, so a player's or a mod's
   comments and layout stay; a file not there yet is written whole, CR LF, as
   the original writes it (`ConfigConsole` with no `DXCapConfig.ini`: the file
-  each engine makes the same to the byte). The original rewrites each file
+  each engine makes the same to the byte). Differs (bugs.md ENG.25): the
+  write of a read-only ini throws `Could not create <file>`, where the
+  original's fails quietly, and run as root DXEngine writes one whose every
+  write bit is off, which Windows' read-only attribute refuses an
+  administrator. The original rewrites each file
   whole, CR LF, comments gone (`ConfigConsole`: a class's own
   `DXCapConfig.ini`, CR LF, read and written back alike). `StaticSaveConfig`
   from an object writes the class's defaults, as from the class
@@ -3283,7 +3321,8 @@ A mod gets the original's loader and natives:
   ends at a CR or an LF; a key with no name (`=x`) is kept and written back;
   and the text ends at a NUL, what is past it neither read nor written
   back. A setting read by hand takes a bool and a texture or skin detail by
-  its first token, as the import does (`ConfigConsole` seeded with
+  its first token, as the import does, a bool's 1, `True`, 0 or `False`
+  alone (`ConfigConsole` seeded with
   `Runs = 5`, `Words[0]="quoted"` and `Words[1]=two `, the file written back
   the same to the byte; `LocalizeConsole`'s Engine.int lines; `IniConsole`
   with a `User.ini` of `Name="Quoted"`: alike in both engines). A value
@@ -3368,9 +3407,6 @@ border, within 0.94 to 1.04 (without the macro, [lighting](#lighting)). The
 D3D11 device keeps Surreal Engine's
 ([where it stands](../README.md#for-advanced-users)).
 
-Differs (bugs.md ENG.23): a single-player level drops its client-only
-actors, where the original's keeps them; no stock map has one.
-
 ## Multiplayer
 
 Matches the original's client and server
@@ -3406,7 +3442,10 @@ DXCapture, U+03A9, U+2122 through `SetName`, the name back whole from each
 engine's server to the other's client); a `TcpLink`'s and a `UdpLink`'s
 text goes 8-bit, a character past 0xFF as 0x7F, as the original's `ToAnsi`
 narrows it, and comes in a byte a character (`LinkConsole`: A, U+03A9, e
-acute sent to itself received as 65, 127, 233 in both engines). The rate it asks of a server is 20,000 where the ini holds the
+acute sent to itself received as 65, 127, 233 in both engines). Differs
+(bugs.md NET.27): a client's animation rate and frame from its server are
+scaled by float constants, where the original's multiplies by doubles, at
+most one ulp apart. The rate it asks of a server is 20,000 where the ini holds the
 game's stock 2,600 or none, by choice: set at the start as a `SET` sets it,
 the ini, `Engine.Player`'s defaults and the viewport, so a mod's player that
 sets its net speed from it once in asks the same (MTL's `MTLPlayer`); a net

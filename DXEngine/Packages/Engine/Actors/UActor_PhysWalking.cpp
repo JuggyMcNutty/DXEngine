@@ -97,7 +97,9 @@ void UPawn::DeusExPhysWalking(float deltaTime)
 
 		CollisionHit floor;
 		bool measure = true;
-		if (std::abs(delta.x) < 0.0001f && std::abs(delta.y) < 0.0001f && std::abs(delta.z) < 0.0001f)
+		// A step of nothing, each axis under the double 0.0001
+		// (X87::NearlyZero3; 0x103ca93e-0x103ca9d7), is the last
+		if (X87::NearlyZero3(delta))
 		{
 			// Still: a pawn on the same base, a line 20 down from its bottom
 			// meeting the floor 4.1 to 4.6 away, is left as it is.

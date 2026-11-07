@@ -174,6 +174,5 @@ public:
 	float& shakevert() { return Value<float>(PropOffsets_PlayerPawn.shakevert); }
 	float& verttimer() { return Value<float>(PropOffsets_PlayerPawn.verttimer); }
 
-	void LoadProperties(); // Always loaded from User.ini
 	void SaveConfig() override;
 };

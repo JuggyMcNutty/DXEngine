@@ -640,8 +640,11 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
 		return hit;
 	}
 
-	// Avoid moving if movement is too small as the physics code doesn't like very small numbers
-	if (dot(delta, delta) < 0.00000001f)
+	// A move of nothing, each axis under the double 0.0001 (X87::NearlyZero3),
+	// is no move, the hit untouched, as the original's MoveActor takes it
+	// (Engine.dll 0x1039915a-0x10399228), however long: the length's square
+	// against 1e-8 moved one of 0.0001 along both X and Y
+	if (X87::NearlyZero3(delta))
 		return {};
 
 	CollisionHitList localHits;
@@ -676,7 +679,7 @@ float UActor::HeldOffFraction(const vec3& delta, float tracedFraction)
 CollisionHit UActor::TryMoveHeldOff(const vec3& delta)
 {
 	// A brush traces nothing, so nothing holds it off: its move is MoveBrush's
-	if (bStatic() || !bMovable() || (Brush() && UObject::TryCast<UBrush>(this)) || dot(delta, delta) < 0.00000001f)
+	if (bStatic() || !bMovable() || (Brush() && UObject::TryCast<UBrush>(this)) || X87::NearlyZero3(delta))
 		return TryMove(delta);
 
 	CollisionHitList hits;
@@ -801,7 +804,9 @@ CollisionHit UActor::FinishMove(const vec3& delta, const CollisionHitList& hits,
 // What stands on it moves first, by the delta and round the brush by its
 // turn's yaw (to a multiple of 4), its own yaw turned with it -- and stays
 // moved when the brush is then stopped. Then the encroachment check at the
-// new place and rotation; passed, the brush moves and turns at once.
+// new place and rotation; passed, the brush moves and turns at once. A move
+// of nothing, each axis under the double 0.0001, with no turn does nothing,
+// as MoveActor's test before its brush's (0x1039915a).
 bool UActor::MoveBrush(const vec3& delta, const Rotator& rotation)
 {
 	if (bStatic() || !bMovable())
@@ -809,7 +814,7 @@ bool UActor::MoveBrush(const vec3& delta, const Rotator& rotation)
 
 	Rotator oldRotation = Rotation();
 	bool turned = rotation != oldRotation;
-	bool moved = std::abs(delta.x) >= 0.0001f || std::abs(delta.y) >= 0.0001f || std::abs(delta.z) >= 0.0001f;
+	bool moved = !X87::NearlyZero3(delta);
 	if (!moved && !turned)
 		return true;
 
@@ -857,12 +862,13 @@ bool UActor::MoveBrush(const vec3& delta, const Rotator& rotation)
 // client's smoothing: a held-off move; blocked, a slide along what it met by
 // the rest of the move, unless that turns back; a second wall gets HitWall,
 // TwoWallAdjust and a third move. The one hit serves all three moves, and a
-// move under 0.0001 on each axis leaves it as it was, so a slide of nothing
-// after a blocked move still sends HitWall with the first move's hit. The
-// answer is the first move's: whether the actor moved at all.
+// move under the double 0.0001 on each axis (X87::NearlyZero3) leaves it as
+// it was, so a slide of nothing after a blocked move still sends HitWall
+// with the first move's hit. The answer is the first move's: whether the
+// actor moved at all.
 CollisionHit UActor::TryMoveSmooth(const vec3& delta)
 {
-	auto nothing = [](const vec3& v) { return std::abs(v.x) < 0.0001f && std::abs(v.y) < 0.0001f && std::abs(v.z) < 0.0001f; };
+	auto nothing = [](const vec3& v) { return X87::NearlyZero3(v); };
 	CollisionHit first = TryMoveHeldOff(delta);
 	if (first.Fraction < 1.0f && !bDeleteMe())
 	{

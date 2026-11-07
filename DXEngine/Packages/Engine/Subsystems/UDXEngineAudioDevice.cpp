@@ -602,9 +602,9 @@ void UDXEngineAudioDevice::UpdateObstruction(PlayingSound& Playing, float timeSt
 		return;
 	}
 
-	// The line runs from the player's own eyes -- the player's place and
-	// EyeHeight, even when viewing through another actor -- to the sound's
-	// actor, and only the level's BSP blocks it, as the original's
+	// The line runs between the sound's actor and the player's own eyes --
+	// the player's place and EyeHeight, even when viewing through another
+	// actor -- and only the level's BSP blocks it, as the original's
 	// UModel::FastLineCheck has it: no actor does, but the movers where the
 	// BSP filed them, so a closed door muffles (CollisionSystem, filed
 	// movers).
@@ -613,20 +613,16 @@ void UDXEngineAudioDevice::UpdateObstruction(PlayingSound& Playing, float timeSt
 	if (UPawn* pawn = UObject::TryCast<UPawn>(player))
 		eyes.z += pawn->EyeHeight();
 
-	bool blocked = false;
-	dvec3 origin = to_dvec3(eyes);
-	dvec3 direction = to_dvec3(Playing.Location) - origin;
-	double tmax = length(direction);
-	if (tmax > 0.01)
-	{
-		// The original's mixer asks FastLineCheck, the solid-space walk
-		// (FastWalk, the hearing test's), down the BSP with the movers filed
-		// into it: a solid brush muffles whatever faces the line crosses,
-		// invisible or portal ones too, and a polygon with open space on
-		// both sides does not.
-		CollisionSystem& collision = player->XLevel()->Collision;
-		blocked = !TraceRayModel::FastWalk(collision.LineNodes(), collision.LineRootOutside(), origin, to_dvec3(Playing.Location));
-	}
+	// The original's mixer asks FastLineCheck, the solid-space walk
+	// (FastWalk, the hearing test's), down the BSP with the movers filed
+	// into it, from the sound's actor to the eyes (Galaxy.dll
+	// 0x10609cb9-0x10609da3), whatever its length: a solid brush muffles
+	// whatever faces the line crosses, invisible or portal ones too, and a
+	// polygon with open space on both sides does not; a line of no length
+	// is blocked in solid, so a sound at the eyes of a listener inside solid
+	// is muffled.
+	CollisionSystem& collision = player->XLevel()->Collision;
+	bool blocked = !TraceRayModel::FastWalk(collision.LineNodes(), collision.LineRootOutside(), to_dvec3(Playing.Location), to_dvec3(eyes));
 
 	if (blocked)
 		Playing.ObstructionTime = std::min(Playing.ObstructionTime + timeStep, 0.5f);

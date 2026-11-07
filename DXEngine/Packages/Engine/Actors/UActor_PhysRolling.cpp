@@ -61,7 +61,9 @@ void UActor::TickRolling(float deltaTime, int iterations)
 		vec3 stepMove = delta;
 		vec3 stepStart = Location();
 
-		if (std::abs(delta.x) >= 0.0001f || std::abs(delta.y) >= 0.0001f || std::abs(delta.z) >= 0.0001f)
+		// A step of nothing, each axis under the double 0.0001
+		// (X87::NearlyZero3; 0x103d4e90-0x103d4f20), is not moved
+		if (!X87::NearlyZero3(delta))
 		{
 			if (!move(delta))
 				return;

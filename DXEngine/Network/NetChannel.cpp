@@ -586,9 +586,10 @@ namespace
 		if (newLocation != actor->Location())
 		{
 			// A moving simulated pawn eases toward where the server has it,
-			// unless far off.
-			vec3 velocity = actor->Velocity();
-			bool moving = !(std::abs(velocity.x) < 0.0001f && std::abs(velocity.y) < 0.0001f && std::abs(velocity.z) < 0.0001f);
+			// unless far off; one whose velocity is nothing, each axis under
+			// the double 0.0001 (X87::NearlyZero3), does not, as the
+			// original's PostNetReceive tests it (Engine.dll 0x103684e4)
+			bool moving = !X87::NearlyZero3(actor->Velocity());
 			if (UObject::TryCast<UPawn>(actor) && actor->Role() == ROLE_SimulatedProxy && moving)
 			{
 				vec3 d = actor->Location() - newLocation;

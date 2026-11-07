@@ -59,12 +59,13 @@ namespace
 // blocks is the original's IsBlockedBy (EncroachBlockedBy): a mover blocks a
 // pawn that collides with the world by the mover's bBlockActors, whether or
 // not the pawn blocks actors. The hit is the move's, as MoveActor fills the
-// one its caller passes; a move of nothing, each axis under 0.0001, leaves
-// the pawn and the hit as they were (0x1039915a), so a test move's caller,
-// whose moves share one hit, keeps the hit of the move before.
+// one its caller passes; a move of nothing, each axis under the double
+// 0.0001 (X87::NearlyZero3), a NaN's too, leaves the pawn and the hit as
+// they were (0x1039915a), so a test move's caller, whose moves share one
+// hit, keeps the hit of the move before.
 void UPawn::ReachTestMove(const vec3& delta, CollisionHit& hit)
 {
-	if (std::fabs((double)delta.x) < 0.0001 && std::fabs((double)delta.y) < 0.0001 && std::fabs((double)delta.z) < 0.0001)
+	if (X87::NearlyZero3(delta))
 		return;
 
 	CollisionHit blockingHit;
