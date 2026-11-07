@@ -90,7 +90,7 @@ are gone.
 | `DXCAP_SETTINGS=<file>` | a dxe run's `Settings.json`, in place of `~/.config/DXEngine`'s (through a `HOME` of the run's own; the caches stay the usual ones); a Windows build's through a `--userdir` of the run's own ([a Windows build](#a-windows-build)) |
 | `DXCAP_USERDIR=<dir>` | a dxe run's `--userdir`: its `Settings.json`, log, shots and a class's own config file there ([running it](ENGINE.md#running-it)); not with `DXCAP_SETTINGS`, the folder's own `Settings.json` being the run's |
 | `DXCAP_NOVSYNC=1` | Mesa's GL draws either engine without waiting for the display (`vblank_mode=0`): the original's `OpenGLDrv` asks for no swap interval and gets the driver's vsync |
-| `DXCAP_FPS=<n>` | either engine held to n frames a second: MangoHud's limiter, its display off (`mangohud`, and `lib32-mangohud` for the original's 32-bit process); not the software device in its X11 window, whose present (`XShmPutImage`) MangoHud does not hook; the harness checks for the 64-bit MangoHud alone (bugs.md X.11). |
+| `DXCAP_FPS=<n>` | either engine held to n frames a second: MangoHud's limiter, its display off (`mangohud`, and `lib32-mangohud` for the original's 32-bit process); not the software device in its X11 window, whose present (`XShmPutImage`) MangoHud does not hook; a run refused without the one its engine's process loads. |
 | `DXCAP_BURST=1` | either engine's window sampled by `tools/dxcap/burst.py` into the run's `burst.csv`, frame by frame, as `LightConsole`'s `Burst` marks them ([shots](#shots)); an original run's in `grab.py`'s place |
 | `DXCAP_PERF=1` | the engine's main thread sampled by perf into the run's `perf.data`, on the wall clock, its cycles and instructions counted each 100 ms (`stat.csv`), with the process's `maps.txt` ([measuring both engines](#measuring-both-engines)) |
 | `DXCAP_TIMELINE=<file>` | a `live` run's timeline, not `JoinConsole`'s walk; a `dxe` run's [timeline](#timelines) |
@@ -105,9 +105,6 @@ are gone.
 | `DXCAP_CACHEEXT=<ext>` | the run's `[Core.System]` `CacheExt`, the extension its download cache looks packages up by |
 | `DXCAP_INI="<Section>:<Key>=<Value> ..."` | each key set in its section of the run's ini, added where the section has none, the section where the ini has none: `Galaxy.GalaxyAudioSubsystem:UseStereo=False` |
 | `DXCAP_SERVERPKGS=<dir>` | the server offers the packages in `<dir>` (`ServerPackages`) for a client to download |
-
-A `dedicated original` takes none of `DXCAP_USERINI_FIRST`, `DXCAP_FLAGS`, `DXCAP_INI_CASE`,
-`DXCAP_FPS`, `DXCAP_PERF` and `DXCAP_MEMLOG` (bugs.md X.7).
 
 ### The console classes
 
@@ -164,7 +161,7 @@ launcher's part, which DXEngine leaves to the launchers.
 | `WheelConsole` | dxe | each `MouseWheelUp` and `MouseWheelDown` the console's `KeyEvent` sees, the seconds since the run began, an exit after `Seconds` (20); beside `tools/dxcap/wheel.py`'s mouse, made by uinput, whose high-resolution wheel turns a notch down and one up in eighths, then a classic notch | `DXWHEEL:` | one press a notch, under `DXCAP_BACKEND=SDL3` too |
 | `PanConsole` | both | `TargetMap`'s sky looked up at (`Pitch`), the HUD off; at `ShotA` and `ShotB` of the level's time (6 and 8 s) the time all but held by a `TimeDilation` of 0.0025, which a pause does not, and a marked shot: the sky zone's pan speeds, each shot's time | `DXPAN:` | each engine's shot of one time registered on the other's, the clouds' band of scales, at `DXCAP_WINDOW=1024x768` |
 | `StaticConsole` | both | `TargetMap`'s static actors at 5 s and 15 s | `DXSTATIC:` |  |
-| `MoveConsole` | both | every pawn's moves, every 2 s for 120 s; with `Watch`, one pawn each tick (`WatchFrom`, `WatchTo`) | `DXMOVE:` | `move.py <original run> <dxe run>`; `move.py --pawn <name>`, where two runs' paths part, by place, within the stretch the reference walked alone (bugs.md X.6) |
+| `MoveConsole` | both | every pawn's moves, every 2 s for 120 s; with `Watch`, one pawn each tick (`WatchFrom`, `WatchTo`) | `DXMOVE:` | `move.py <original run> <dxe run>`; `move.py --pawn <name>`, where two runs' paths part, by place, before the reference's start and past its end too (across its first and last stretches' lines), and where one stops short of its end |
 | `ReachConsole` | both | the reach tests, each pawn asked from its home spot | `DXREACH:` |  |
 | `NavReachConsole` | both | on Liberty Island the first 12 ScriptedPawns, each put on its nearest navigation point: `ActorReachable` of the 8 nearest others within 800 units, each with whether the pawn's node has a spec to it | `DXNAVREACH:` | the answers, two runs of each (bugs.md AI.9) |
 | `SecondWayConsole` | both | on Liberty Island the first 12 ScriptedPawns at home: `FindPathToward` a marker 300 units over a node 500 units off, twice, the answer and its place | `DXSECOND:` | the answers (bugs.md AI.10) |
@@ -529,6 +526,12 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
 
 - **A long script log line stops it**: one of some 1,400 characters ends the run within a
   second, no dialog shown, its log cut at 4 KB. A console logs a long list a few names a line.
+- **One at a time**: `original` and `dedicated original` refuse to start while an original
+  runs, which a second forwards its command line to, unless it is a server
+  ([single-instance forwarding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/launch-flow.md#1-single-instance-forwarding-0x10908a300x10908cd1)).
+- **Its ini through the prefix's drive `X:`**, the harness's `System` folder: Wine quotes an
+  argument that holds a space before its `INI=`, and the original's Parse cuts the value at the
+  space, so a parent folder with a space would leave it no ini.
 - **It boots its menu map** whatever map its command line or ini names, but with `-hax0r`
   (`DXCAP_START`) or as a dedicated server (`dedicated`: `<map> -server`); a console class
   travels with `open <map>` itself.

@@ -447,8 +447,7 @@ a death is alike too (`DeathConsole`). `Terrorist34`, walking west to
 and stands there until his move's time runs out (`MoveTimer`) some 12 s
 later, then steps back and goes on: in every original run, and in every one
 of DXEngine's held to the original's 120 frames a second, or to 60
-(`MoveConsole`'s `Watch`; `move.py --pawn`, which flags no tick before the
-reference's start or past its end: bugs.md X.6). A walker's heading drifts
+(`MoveConsole`'s `Watch`, `move.py --pawn`). A walker's heading drifts
 with the frame rate, in both engines alike: after his turn toward the spot
 he drifts across his way, 0.06 units a second toward the spot's side at 120
 frames and 0.1 away from it at the original's 227 with vsync off, where he

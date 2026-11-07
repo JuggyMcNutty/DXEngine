@@ -25,12 +25,15 @@ does not have; a pawn missing from either run is listed apart.
 With --pawn it reads the runs' "DXMOVE: watch" lines instead --
 MoveConsole's with Watch=<name>, the pawn each tick -- and prints for each
 run where its path parts from the reference's, by place, not by time, as
-two runs' clocks start apart (the load's first frame): the first tick within
-the stretch the reference walked more than --off units (1 by default) across
-from its path, or with another state or physics than the reference's nearest
-tick; a way walked back is matched to its nearest stretch. That tick and the
-reference's nearest are printed whole, with how much later or earlier the
-reference passed there.
+two runs' clocks start apart (the load's first frame): the first tick more
+than --off units (1 by default) from the reference's path -- before its start
+or past its end, across the line its first or last stretch goes along, as two
+runs' watches start and end at other places on it -- or, along it, with
+another state or physics than the reference's nearest tick; a way walked back
+is matched to its nearest stretch. That tick and the reference's nearest are printed whole,
+with how much later or earlier the reference passed there. Then how far along
+the reference's path the run came, where it stopped short of its end by more
+than --off.
 """
 import os
 import re
@@ -116,24 +119,61 @@ def nearest(ref, k, at):
     return best
 
 
+def across(a, b, at):
+    """at's distance from the line through a and b, on the ground; from a
+    where they are one place."""
+    (ax, ay, _), (bx, by, _) = a, b
+    dx, dy = bx - ax, by - ay
+    span = (dx * dx + dy * dy) ** 0.5
+    if span == 0.0:
+        return ((at[0] - ax) ** 2 + (at[1] - ay) ** 2) ** 0.5
+    return abs((at[0] - ax) * dy - (at[1] - ay) * dx) / span
+
+
 def parting(ref, other, off):
-    """The first of other's ticks within the stretch ref walked, off its path
-    by more than off or in another state or physics: (the tick, ref's nearest
-    tick, the distance, ref's time there); None if it never parts."""
+    """The first of other's ticks off ref's path by more than off -- across
+    the line of its first or last stretch for a tick before its start or past
+    its end -- or, along it, in another state or physics: (the tick, ref's
+    nearest tick, the distance, ref's time there, where: "along", "before its
+    start" or "past its end"); None if it never parts."""
     if len(ref) < 2:
         return None
+    places = [r[1] for r in ref]
+    first = next((p for p in places if p[:2] != places[0][:2]), places[-1])
+    last = next((p for p in reversed(places) if p[:2] != places[-1][:2]), places[0])
     k = 0
     for tick in other:
         t, at, physics, state, _ = tick
         i, f, d = nearest(ref, k, at)
         k = i
-        if (i == 0 and f == 0.0) or (i == len(ref) - 2 and f == 1.0):
-            continue
+        where = ("before its start" if i == 0 and f == 0.0 else
+                 "past its end" if i == len(ref) - 2 and f == 1.0 else "along")
+        if where == "before its start":
+            d = across(places[0], first, at)
+        elif where == "past its end":
+            d = across(last, places[-1], at)
         a = ref[i] if f < 0.5 else ref[i + 1]
-        if d > off or physics != a[2] or state != a[3]:
+        if d > off or (where == "along" and (physics != a[2] or state != a[3])):
             when = ref[i][0] + (ref[i + 1][0] - ref[i][0]) * f
-            return tick, a, d, when
+            return tick, a, d, when, where
     return None
+
+
+def reach(ref, other, off):
+    """How far along ref's path other came, its ticks within off of it, and
+    the path's whole length, on the ground."""
+    ends = [0.0]
+    for i in range(len(ref) - 1):
+        (ax, ay, _), (bx, by, _) = ref[i][1], ref[i + 1][1]
+        ends.append(ends[-1] + ((bx - ax) ** 2 + (by - ay) ** 2) ** 0.5)
+    best = 0.0
+    k = 0
+    for tick in other:
+        i, f, d = nearest(ref, k, tick[1])
+        k = i
+        if d <= off:
+            best = max(best, ends[i] + (ends[i + 1] - ends[i]) * f)
+    return best, ends[-1]
 
 
 def watch_main(pawn, runs, off):
@@ -146,12 +186,15 @@ def watch_main(pawn, runs, off):
         found = parting(ref, other, off)
         if not found:
             print(f"  never parts by more than {off:g}")
-            continue
-        tick, near, d, when = found
-        print(f"  parts at {tick[0]:.3f} s, {d:.2f} units across; the reference passed there at {when:.3f} s "
-              f"({when - tick[0]:+.3f} s)")
-        print(f"    {tick[4]}")
-        print(f"    the reference's nearest tick: {near[4]}")
+        else:
+            tick, near, d, when, where = found
+            print(f"  parts {where} at {tick[0]:.3f} s, {d:.2f} units off; the reference passed there at {when:.3f} s "
+                  f"({when - tick[0]:+.3f} s)")
+            print(f"    {tick[4]}")
+            print(f"    the reference's nearest tick: {near[4]}")
+        came, length = reach(ref, other, off) if len(ref) >= 2 else (0.0, 0.0)
+        if came < length - off:
+            print(f"  stops short: {came:.1f} of the reference's {length:.1f} units along its path")
 
 
 def main():

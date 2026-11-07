@@ -14,8 +14,8 @@ start, the number, and the square's mean red, green and blue.
     burst.py grab <out csv> <display> <window name pattern> <view width> <view height> [<square>]
     burst.py report <csv> [<log>] [--threshold <level>]
 
-grab finds the window as grab.py does (xdotool's search, the newest of the
-name), waits for the mark, and samples until killed, or 2 s after the mark
+grab finds the window as grab.py does (xdotool's search, the one of the
+name, or the last listed), waits for the mark, and samples until killed, or 2 s after the mark
 has gone. report unwraps the numbers into frames and says how many were
 missed; puts each frame lit or out by its square's brightness, halfway
 between the darkest and the brightest frame (or at --threshold): the out
@@ -104,7 +104,10 @@ def find_window(env, name):
     found = subprocess.run(['xdotool', 'search', '--onlyvisible', '--name', name],
                            env=env, capture_output=True, text=True)
     ids = found.stdout.split()
-    # The newest, X's ids rising, as grab.py takes it.
+    # One window of the name, the run's; with more, the last listed, as
+    # grab.py takes it, said.
+    if len(ids) > 1:
+        print(f"burst.py: {len(ids)} windows named {name}: {' '.join(ids)}; sampling {ids[-1]}", file=sys.stderr)
     return int(ids[-1]) if ids else None
 
 

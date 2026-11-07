@@ -22,6 +22,7 @@ import sys
 import time
 
 BLOCK = 12
+warned = False
 
 
 def is_magenta(p):
@@ -82,8 +83,13 @@ def grab(env, name):
     ids = found.stdout.split()
     if not ids:
         return None
-    # The newest, X's ids rising: a second window of the name is an earlier
-    # original's that outlived its run, the older.
+    # tools/dxcap.sh starts no original while another runs, so the one window
+    # of the name is the run's; with more, the last listed, the top of X's
+    # stacking order, said once.
+    global warned
+    if len(ids) > 1 and not warned:
+        print(f"grab.py: {len(ids)} windows named {name}: {' '.join(ids)}; grabbing {ids[-1]}", file=sys.stderr)
+        warned = True
     ids = [ids[-1]]
     # -silent: import rings the X bell after each grab, five a second, which
     # the desktop plays.

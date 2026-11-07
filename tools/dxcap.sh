@@ -183,11 +183,15 @@ rec_stop() {
 # DXCAP_NOVSYNC: Mesa's vblank_mode. DXCAP_FPS: MangoHud preloaded into the
 # engine's process, its limiter on and its display off; the dynamic linker
 # takes lib32's copy for the original's 32-bit wine process ($LIB).
-# Checked in the main shell before a run: fps_env runs in the engine's
-# background subshell, where a die ended that subshell alone and the run
-# went on without the game, exiting 0.
+# Checked in the main shell before a run, lib32's too for the original
+# (fps_check original), whose process would otherwise run uncapped: fps_env
+# runs in the engine's background subshell, where a die ended that subshell
+# alone and the run went on without the game, exiting 0.
 fps_check() {
-    [ -z "${DXCAP_FPS:-}" ] || [ -f /usr/lib/mangohud/libMangoHud_shim.so ] || die "DXCAP_FPS needs MangoHud (mangohud, and lib32-mangohud for the original)"
+    [ -n "${DXCAP_FPS:-}" ] || return 0
+    [ -f /usr/lib/mangohud/libMangoHud_shim.so ] || die "DXCAP_FPS needs MangoHud (mangohud)"
+    [ "${1:-}" != original ] || [ -f /usr/lib32/mangohud/libMangoHud_shim.so ] ||
+        die "DXCAP_FPS needs lib32-mangohud for the original's 32-bit process"
 }
 
 fps_env() {
@@ -332,6 +336,19 @@ winpath() { printf 'Z:%s' "${1//\//\\}"; }
 enginepath() { if windows_engine; then winpath "$1"; else printf '%s' "$1"; fi; }
 # A path's last part in capitals with DXCAP_INI_CASE=1, the rest as it is.
 ini_case() { if [ "${DXCAP_INI_CASE:-0}" = 1 ]; then printf '%s/%s' "${1%[/\\]*}" "$(printf '%s' "${1##*[/\\]}" | tr '[:lower:]' '[:upper:]')"; else printf '%s' "$1"; fi; }
+# original_inis <ini> <userini>: the original's INI= and USERINI= into the
+# caller's inis, by DXCAP_INI_CASE and DXCAP_USERINI_FIRST, each through the
+# prefix's drive X:, the harness's System folder, where both files are: Wine
+# quotes an argument that holds a space before its INI=, and the original's
+# Parse cuts the value at the space (Core.dll 0x10146c4e).
+original_inis() {
+    ln -sfn "$CAP/System" "$PREFIX/dosdevices/x:"
+    local ini userini
+    ini="$(ini_case "X:/${1##*/}")"
+    userini="$(ini_case "X:/${2##*/}")"
+    inis=("INI=${ini//\//\\}" "USERINI=${userini//\//\\}")
+    [ "${DXCAP_USERINI_FIRST:-0}" != 1 ] || inis=("${inis[1]}" "${inis[0]}")
+}
 
 # DXCAP_DXVK: Proton's DXVK, D3D11 on Vulkan, in the prefix beside Wine's
 # own d3d11 and dxgi, which stay the default: a run takes DXVK's by its
@@ -705,14 +722,22 @@ make_view() {
     done
 }
 
+# One original at a time: a second, but a server, forwards its command line
+# to the running one (dx-reverse-info's launch-flow.md), and grab.py would
+# see two windows of the name.
+need_no_original() {
+    ! pgrep -f "^DeusEx.exe" > /dev/null || die "an original runs already (pid $(pgrep -f "^DeusEx.exe" | paste -sd ' '))"
+}
+
 cmd_original() {
     local console="${1:?console class}" secs="${2:-120}"
     [ -f "$CAP/System/DXCapture.u" ] || die "tools/dxcap.sh compile first"
+    need_no_original
     command -v import >/dev/null || die "ImageMagick's import is needed to grab the original's window"
     need_display
     need_free_pointer
     need_perf
-    fps_check
+    fps_check original
     ensure_prefix
     local ini="$CAP/System/Original.ini" userini="$CAP/System/OriginalUser.ini"
     local dir="$CAP/runs/original-$console-$(date +%Y%m%d-%H%M%S)"
@@ -734,32 +759,11 @@ cmd_original() {
     GRAB_PID=$gpid
 
     [ "${DXCAP_RECORD:-0}" != 1 ] || rec_start "$dir/audio.wav"
-    # Started straight on the desktop's X display (no Wine desktop), at the
-    # menu map, or at DXCAP_START's URL, which -hax0r has the original take
-    # from its command line; waited for until it exits
-    # (each console class ends its run with EXIT) or the time runs out; then
-    # only its own process is stopped.
-    (
-        unset WAYLAND_DISPLAY
-        export DISPLAY="$XDISPLAY"
-        [ "${DXCAP_RECORD:-0}" != 1 ] || export PULSE_SINK=dxcap
-        cd "$CAP/game/System"
-        inis=("INI=$(winpath "$(ini_case "$ini")")" "USERINI=$(winpath "$(ini_case "$userini")")")
-        [ "${DXCAP_USERINI_FIRST:-0}" != 1 ] || inis=("${inis[1]}" "${inis[0]}")
-        (fps_env; wine_run DeusEx.exe "${DXCAP_START:-DX.dx}" ${DXCAP_START:+-hax0r} "${inis[@]}" ${DXCAP_FLAGS:-} > "$dir/wine.log" 2>&1) &
-        i=0
-        while [ $i -lt 60 ] && ! pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; i=$((i+1)); done
-        perfpid=""
-        [ "${DXCAP_PERF:-0}" != 1 ] || perfpid="$(perf_attach "$(pgrep -f "^DeusEx.exe" | head -1)" "$dir")"
-        if [ "${DXCAP_MEMLOG:-0}" = 1 ] && pgrep -f "^DeusEx.exe" > /dev/null; then
-            memlog "$(pgrep -f "^DeusEx.exe" | head -1)" "$dir/memlog.txt" &
-        fi
-        i=0
-        while [ $i -lt "$secs" ] && pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; i=$((i+1)); done
-        stop_original
-        sleep 3
-        [ -z "$perfpid" ] || perf_wait $perfpid
-    ) || true
+    # At the menu map, or at DXCAP_START's URL, which -hax0r has the original
+    # take from its command line; each console class ends its run with EXIT.
+    local inis=()
+    original_inis "$ini" "$userini"
+    original_process "$dir" "$secs" "${DXCAP_START:-DX.dx}" ${DXCAP_START:+-hax0r} "${inis[@]}"
     [ "${DXCAP_RECORD:-0}" != 1 ] || rec_stop
 
     kill "$gpid" 2>/dev/null || true
@@ -779,6 +783,35 @@ cmd_original() {
     if grep -a -q "Bound to SoftDrv" "$dir/DeusEx.log" 2>/dev/null; then
         die "the game fell back to SoftDrv (its renderer did not start): $dir/DeusEx.log"
     fi
+}
+
+# original_process <dir> <secs> <args...>: the original started with <args>
+# and DXCAP_FLAGS, straight on the desktop's X display (no Wine desktop),
+# under DXCAP_FPS's limiter and DXCAP_PERF's and DXCAP_MEMLOG's watchers;
+# waited for until it exits or <secs> run out, then only its own process
+# stopped.
+original_process() {
+    local dir="$1" secs="$2"
+    shift 2
+    (
+        unset WAYLAND_DISPLAY
+        export DISPLAY="$XDISPLAY"
+        [ "${DXCAP_RECORD:-0}" != 1 ] || export PULSE_SINK=dxcap
+        cd "$CAP/game/System"
+        (fps_env; wine_run DeusEx.exe "$@" ${DXCAP_FLAGS:-} > "$dir/wine.log" 2>&1) &
+        i=0
+        while [ $i -lt 60 ] && ! pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; i=$((i+1)); done
+        perfpid=""
+        [ "${DXCAP_PERF:-0}" != 1 ] || perfpid="$(perf_attach "$(pgrep -f "^DeusEx.exe" | head -1)" "$dir")"
+        if [ "${DXCAP_MEMLOG:-0}" = 1 ] && pgrep -f "^DeusEx.exe" > /dev/null; then
+            memlog "$(pgrep -f "^DeusEx.exe" | head -1)" "$dir/memlog.txt" &
+        fi
+        i=0
+        while [ $i -lt "$secs" ] && pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; i=$((i+1)); done
+        stop_original
+        sleep 3
+        [ -z "$perfpid" ] || perf_wait $perfpid
+    ) || true
 }
 
 # memlog <pid> <file> [child]: the process's resident memory (/proc's statm)
@@ -898,8 +931,9 @@ run_dxe() {
         e_ini="$(enginepath "$ini")"
         e_userini="$(enginepath "$userini")"
         inis=(--ini="$e_ini" --userini="$e_userini")
-        [ "${DXCAP_INI_CASE:-0}" != 1 ] || inis=(--cmdline="INI=$(ini_case "$e_ini") USERINI=$(ini_case "$e_userini")")
-        [ "${DXCAP_USERINI_FIRST:-0}" != 1 ] || inis=(--cmdline="USERINI=$(ini_case "$e_userini") INI=$(ini_case "$e_ini")")
+        # Quoted: Parse takes a value with a space whole
+        [ "${DXCAP_INI_CASE:-0}" != 1 ] || inis=(--cmdline="INI=\"$(ini_case "$e_ini")\" USERINI=\"$(ini_case "$e_userini")\"")
+        [ "${DXCAP_USERINI_FIRST:-0}" != 1 ] || inis=(--cmdline="USERINI=\"$(ini_case "$e_userini")\" INI=\"$(ini_case "$e_ini")\"")
         if [ -n "${DXCAP_FLAGS:-}" ]; then
             if [[ "${inis[0]}" == --cmdline=* ]]; then inis=("${inis[0]} $DXCAP_FLAGS"); else inis+=(--cmdline="$DXCAP_FLAGS"); fi
         fi
@@ -1038,7 +1072,10 @@ cmd_dedicated() {
     local ini userini dir
     case "$engine" in
         original)
+            need_no_original
             need_display
+            need_perf
+            fps_check original
             ensure_prefix
             ini="$CAP/System/Original.ini" userini="$CAP/System/OriginalUser.ini"
             dir="$CAP/runs/original-dedicated-$actor-$(date +%Y%m%d-%H%M%S)"
@@ -1047,18 +1084,9 @@ cmd_dedicated() {
             user_ini "$userini"
             make_view
             mkdir -p "$dir"
-            (
-                unset WAYLAND_DISPLAY
-                export DISPLAY="$XDISPLAY"
-                cd "$CAP/game/System"
-                (wine_run DeusEx.exe "$map" -server "INI=$(winpath "$ini")" "USERINI=$(winpath "$userini")" > "$dir/wine.log" 2>&1) &
-                i=0
-                while [ $i -lt 60 ] && ! pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; i=$((i+1)); done
-                i=0
-                while [ $i -lt "$secs" ] && pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; i=$((i+1)); done
-                stop_original
-                sleep 3
-            ) || true
+            local inis=()
+            original_inis "$ini" "$userini"
+            original_process "$dir" "$secs" "$map" -server "${inis[@]}"
             cp "$CAP/game/System/DeusEx.log" "$dir/DeusEx.log" 2>/dev/null || true
             say "original: $dir"
             ;;
