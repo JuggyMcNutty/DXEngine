@@ -486,8 +486,9 @@ second way, 10 of 24 tries apart. Differs (bugs.md AI.11):
 AI.13, AI.14): `GetPathnodeList`'s 32 nodes, the pick's pitch,
 `ReachableFromAnchor`'s direction. Differs (bugs.md PHYS.20, PHYS.21): the
 reach tests' moves pass through the pawn's base, and `JumpLanding`'s steps
-are raw traces. Differs (bugs.md PHYS.23): the ladder probe stops at a
-texture in no group, where the original's goes on past it.
+are raw traces. The ladder probe goes on past a texture in no group, as the
+original's, the texture's outer its package (bugs.md PHYS.23: the run at
+such a ladder due).
 
 ## Out of sight
 
