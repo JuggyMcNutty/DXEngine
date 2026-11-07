@@ -1668,7 +1668,8 @@ apart, then each call with its first slot alone, its insensitive and focused
 look alike in both engines).
 
 Differs (bugs.md WIN.12): Alt+Enter back to a window on X11 puts it at the
-display's corner.
+display's corner. Differs (bugs.md WIN.14): the SDL3 game window's Alt+Space
+opens no window menu, where the original's does.
 
 ## The menus' settings
 
@@ -1916,7 +1917,10 @@ Differs (bugs.md AUD.16): a loop keeps the pans the song's patterns set,
 where Galaxy's gives each channel the song's own pan again as it enters
 order 0; a section is reached by playing the song to it, where Galaxy's
 silences the voices and plays on from there; the music is not held to 16
-bits before the sounds are added.
+bits before the sounds are added. Differs (bugs.md AUD.17): a section starts
+at once, where Galaxy's waits for the playing row's end; a section past the
+last order is ignored, where Galaxy's plays on at the next order; an IT
+song's surround channel is centred, Galaxy's a quarter left.
 
 ## Implemented, not as the original
 
