@@ -1,16 +1,22 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
+
+enum class ETravelType : uint8_t;
 
 class UnrealURL
 {
 public:
-	// An empty URL, its port the game's [URL] Port as any URL's.
+	// The default URL, the game's [URL] section's, as the original's FURL()
+	// makes it (Engine.dll 0x103f7850): its map Index.dx.
 	UnrealURL();
-	// Constructs an UnrealURL by passing the options from nextURL to the baseURL
-	UnrealURL(const UnrealURL& baseURL, const UnrealURL& nextURL);
-	// Constructs an UnrealURL from a given parse-able string.
+	// A URL's text read on no base, an absolute travel's.
 	UnrealURL(std::string urlString);
+	// A URL's text read on a base, as the original's FURL(Base, URL, Type)
+	// reads it (Engine.dll 0x103f7b60): one it refuses is the default URL,
+	// Valid false.
+	UnrealURL(const UnrealURL* baseURL, std::string urlString, ETravelType travelType);
 
 	void AddOrReplaceOption(const std::string& newvalue);
 	bool HasOption(std::string name) const;
@@ -19,6 +25,7 @@ public:
 	std::string GetOptions() const;
 	std::string GetPortal() const;
 	std::string ToString() const;
+	bool IsInternal() const;
 	bool Empty() const;
 	void Clear();
 
@@ -34,7 +41,8 @@ public:
 	std::string SaveExt = "usa";
 	int Port = 7777;
 	Array<std::string> Options;
+	bool Valid = true;
 
 private:
-	void ParseAddress(std::string& urlString);
+	void Refuse();
 };

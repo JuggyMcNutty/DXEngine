@@ -170,8 +170,10 @@ travel's export and a save alike: one apart from its default in case alone
 neither travels nor saves, and arrives or loads as the default
 (`CaseTravelConsole`: `TruePlayerName` set to `JC DENTON`, its default `JC
 Denton`, arrives at UNATCO HQ as `JC Denton` in both engines). A map opened
-at a portal (`open <map>#<portal>`) starts the player at the
-teleporter of that tag (`PortalConsole`). A level's URL, which
+at a portal, `open <map>#<portal>` or `open <map>/<portal>`, the original's
+URL reading either, starts the player at the teleporter of that tag
+(`PortalConsole`; `URLPartsConsole`: `01_NYC_UNATCOIsland/tunnel_drop_nyc`,
+the player 7 units from it in both engines). A level's URL, which
 `Level.GetLocalURL` gives, is the one it was entered by, as the original's
 `LoadMap` sets it: a level returned to from `Current` names the saved file,
 `..\Save\Current\<map>.dxs` with the travel's options, as the original's
@@ -202,11 +204,12 @@ of its line, past the word and its blanks, as the URL, as the original's
 `Exec` takes it, and one with nothing after it travels nowhere but sends
 `PreTravel` all the same (`OpenLineConsole`: an `open` alone and one of
 `DX.dx?Name=Two Words` each send it in both engines, the first staying in
-the level; the second's travel is bugs.md NET.13's). A client's travel
-exports the viewport's player alone, by its name, and only with its items,
-a server's with its items the level's own travel info and every pawn with a
-player, as the original's game engine's tick exports them (read: Engine.dll
-`0x1038fe90`).
+the level, the second, a URL [refused](#multiplayer) for the blank in its
+option, loading the menu map again as `DX.dx`, the player `Player`). A
+client's travel exports the viewport's player alone, by its name, and only
+with its items, a server's with its items the level's own travel info and
+every pawn with a player, as the original's game engine's tick exports them
+(read: Engine.dll `0x1038fe90`).
 
 A travel to a map that is not there fails after the pre-travel, as the
 original's browse does, with its message for 6 s: Core's `Failed launching
@@ -2667,8 +2670,9 @@ What DXEngine does with each:
   ([starting the game engine](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#starting-the-game-engine)).
   `?loadgame=N` there, or as `--url`, starts a client on slot N's save,
   loaded before any map but Entry, as the original's first browse loads it
-  (`StartConsole`, the original's with `DXCAP_START`); a slot with none
-  starts at `DX.dx`.
+  (`StartConsole`, the original's with `DXCAP_START`), whatever map it
+  names; a slot with none starts at `DX.dx`. A start URL that does not
+  read is fatal, `Invalid URL: <url>`, as the original's.
   Differs by choice: the player is the one saved, as the game's own load
   gives it (`LoadConsole`), where the original's start logs the player in
   with the travel info the level was saved with -- on a map the player
@@ -3107,8 +3111,24 @@ As in the original:
 - On a dedicated server `GetPlayerPawn` answers None, as the original's
   with no client or viewport, and `AttachDecal` attaches none, as the
   original's with no client.
-- A relative travel that names a server's address goes there; a URL
-  cleared is empty whole, its port the game's default again.
+- A URL is read as the original's reads it (Engine.dll `0x103f7b60`;
+  [addresses](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md#addresses)):
+  its options and a `#` portal first, then a drive letter's file, a
+  protocol, the game's in any case, a host and its port, and the map, a `/`
+  after it marking a portal for the game's protocol; a relative travel on
+  the last URL's protocol, server, port, map and options, a partial one on
+  its options, an absolute one with its player options. A blank in an
+  option or the portal, a `/` alone before the map, anything past a second
+  `/`, or no server, map or option refuses it: the URL is then the default
+  one, `Index.dx` with no option, which a travel goes to as to any map not
+  there, so the level's own map is loaded again with no option
+  (`URLPartsConsole`: `DX.dx?Name=Two Words` and `01_NYC_UNATCOHQ/a/b` from
+  Liberty Island load it again as `01_NYC_UNATCOIsland`, the player
+  `Player`, in both engines). An option is matched whole, `?listen=1` no
+  listen server (`URLPartsConsole`: net mode 0 in both). A URL cleared is
+  empty whole, its port the game's default again. On Linux a path from `/`
+  is a file as a drive letter's is, by choice, where the original's parse
+  refuses a `/` alone: a map opened by its full path, as on Windows.
 - Entry's actors find their regions in Entry's own model, with its zone
   actors and its LevelInfo, while a map is current, as the original's
   (`EntryConsole`: markers spawned into Entry from Liberty Island, as the
@@ -3224,11 +3244,7 @@ As in the original:
   its `Checksum=`, and `Connection failed` over `Rejected By Server: spaced
   text`, in both engines).
 
-Differs (bugs.md NET.13): in a URL a `/` is a character of a map's name or
-an option's value (`?Name=AC/DC` keeps its slash), `#` alone marking the
-portal, where the original's takes a `/` in the map's part for the portal's
-mark, and no URL is refused, where the original's refuses a blank in an
-option (`OpenLineConsole`). A client's travel with its items, its
+A client's travel with its items, its
 player's replication info not come yet, leaves the player out, by choice:
 the original's export reads the info regardless and faults (Engine.dll
 `0x10390951`). Differs (bugs.md NET.21): state code runs for a proxy in

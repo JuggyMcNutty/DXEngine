@@ -304,20 +304,25 @@ void Engine::Run()
 	if (!dedicated)
 		LoadEntryMap();
 
-	bool launchServer = !LaunchInfo.url.empty() && !UnrealURL(LaunchInfo.url).Host.empty() && !dedicated;
-	// A save to start in, ?loadgame=N and no map: the slot loaded before any
-	// map, as the original's first browse loads it (DeusExGameEngine's
-	// Browse, dx-reverse-info's deusex-dll.md); the menu's map, as with no
-	// URL, for a slot with no save.
-	UnrealURL startURL(LaunchInfo.url);
-	bool launchSave = !LaunchInfo.url.empty() && startURL.Host.empty() && startURL.Map.empty() &&
-		startURL.HasOption("loadgame") && !dedicated;
+	// The start URL a partial travel's on the player's options, as the
+	// original's game engine reads it (UGameEngine::Init, Engine.dll
+	// 0x103891c0): one its URL refuses is fatal.
+	UnrealURL defaultURL = GetDefaultURL(packages->GetIniValue("system", "URL", "LocalMap"));
+	UnrealURL startURL(&defaultURL, LaunchInfo.url, ETravelType::TRAVEL_Partial);
+	if (!LaunchInfo.url.empty() && !startURL.Valid)
+		Exception::Throw(LocalizeMessage("Engine", "Errors", "InvalidUrl", "Invalid URL: %s", { LaunchInfo.url }));
+	bool launchServer = !LaunchInfo.url.empty() && !startURL.Host.empty() && !dedicated;
+	// A save to start in, ?loadgame=N, whatever map the URL names: the slot
+	// loaded before any map, as the original's first browse loads it
+	// (DeusExGameEngine's Browse, dx-reverse-info's deusex-dll.md); the
+	// menu's map, as with no URL, for a slot with no save.
+	bool launchSave = !LaunchInfo.url.empty() && startURL.Host.empty() && HasValueOption(startURL, "loadgame") && !dedicated;
 	if (!launchSave || !LoadSavedGame(startURL))
 	{
 		if (LaunchInfo.url.empty() || launchServer || launchSave)
-			LoadMap(GetDefaultURL(packages->GetIniValue("system", "URL", "LocalMap")));
+			LoadMap(defaultURL);
 		else
-			LoadMap(UnrealURL(GetDefaultURL(packages->GetIniValue("system", "URL", "LocalMap")), LaunchInfo.url));
+			LoadMap(startURL);
 
 		if (!dedicated)
 			LoginPlayer();
@@ -781,7 +786,7 @@ void Engine::ClientTravel(const std::string& newURL, ETravelType travelType, boo
 	const char* playerKeys[] = { "Name", "Class", "team", "skin", "Face", "Voice", "OverrideClass" };
 	for (const char* optionKey : playerKeys)
 	{
-		if (url.HasOption(optionKey))
+		if (HasValueOption(url, optionKey))
 			engine->packages->SetIniValue("User", "DefaultPlayer", optionKey, url.GetOption(optionKey));
 	}
 
@@ -796,75 +801,17 @@ void Engine::ClientTravel(const std::string& newURL, ETravelType travelType, boo
 	}
 	LastURL.Portal.clear();
 
-	// The last URL's options but PUSH, POP, PEER and LOAD, as the original's
-	// FURL(Base, URL, TRAVEL_Partial or TRAVEL_Relative) (Engine.dll
-	// 0x103f7b60) copies them, the new URL's over them.
-	auto carried = [&]()
-	{
-		Array<std::string> options;
-		for (const std::string& option : LastURL.Options)
-		{
-			if (!StrTools::equals_ignore_case(option, "push") && !StrTools::equals_ignore_case(option, "pop") &&
-				!StrTools::equals_ignore_case(option, "peer") && !StrTools::equals_ignore_case(option, "load"))
-				options.push_back(option);
-		}
-		return options;
-	};
-
-	if (travelType == ETravelType::TRAVEL_Absolute)
-	{
-		// With the last URL's player options it lacks or has empty, after
-		// its own, as the original's FURL(Base, URL, TRAVEL_Absolute) adds
-		// them to a URL of the game's protocol and logs each: a hosted
-		// game's start keeps the player's name and class.
-		ClientTravelInfo.URL = url;
-		if (url.Protocol == UnrealURL().Protocol)
-		{
-			const std::string playerOptions[] = { "Name", "Team", "Class", "Skin", "Face", "Voice", "OverrideClass" };
-			for (const std::string& option : LastURL.Options)
-			{
-				for (const std::string& name : playerOptions)
-				{
-					if (option.size() > name.size() && option[name.size()] == '=' && StrTools::equals_ignore_case(option.substr(0, name.size()), name))
-					{
-						if (ClientTravelInfo.URL.GetOption(name).empty())
-						{
-							LogMessage("URL: Adding default option " + option);
-							ClientTravelInfo.URL.Options.push_back(option);
-						}
-						break;
-					}
-				}
-			}
-		}
-	}
-	else if (travelType == ETravelType::TRAVEL_Partial)
-	{
-		// On the last URL's options (the player's name among them) alone,
-		// none of its server, map or portal: "carry name, reset server"
-		// (Engine.u), so a net client's 'open <map>' leaves the server for
-		// the local map
-		UnrealURL base;
-		base.Options = carried();
-		ClientTravelInfo.URL = UnrealURL(base, url.ToString());
-	}
-	else if (travelType == ETravelType::TRAVEL_Relative)
-	{
-		// On the last URL whole, its server, map and options -- a net
-		// client's is its server's, so a server travelling sends its clients
-		// its next map this way --, and no option added: DXEngine added the
-		// game's ?Difficulty, which the original's never has.
-		UnrealURL base = LastURL;
-		base.Options = carried();
-		ClientTravelInfo.URL = UnrealURL(base, url);
-	}
-
-	// A URL that names no map goes to the default one, [URL] Map, as the
-	// original's starts from it, a relative one to the last URL's: a bare
-	// ?loadgame opened from the menu browses Index.dx.
-	if (url.Map.empty())
-		ClientTravelInfo.URL.Map = travelType == ETravelType::TRAVEL_Relative ? LastURL.Map : packages->GetIniValue("system", "URL", "Map");
-
+	// The URL read on the last one, as the original's game engine reads it
+	// at the travel (FURL(&LastURL, URL, type), Engine.dll 0x103f7b60): a
+	// partial travel, the console's open, on its options alone, "carry name,
+	// reset server" (Engine.u); a relative one, a map exit's, on its server,
+	// port and map too, so a server travelling sends its clients its next
+	// map; an absolute one, the console's start, with its player options. A
+	// text it refuses is the default URL, Index.dx with no option, which the
+	// browse goes to as to any map: the original's game engine refuses it
+	// (0x1038ad30), and Deus Ex's browse then loads its map all the same
+	// (DeusEx.dll 0x10010b90).
+	ClientTravelInfo.URL = UnrealURL(&LastURL, newURL, travelType);
 	ClientTravelInfo.TransferItems = transferItems;
 	SendPreTravel(Level);
 }
@@ -1438,13 +1385,13 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 	uint32_t slotNum = 0;
 	std::string deusExMapName;
 
-	if (url.HasOption("load"))
+	if (HasValueOption(url, "load"))
 	{
 		slotNum = (uint32_t)SlotNumber(url.GetOption("load"));
 		savefilePackage = packages->LoadSaveSlot(slotNum);
 	}
 
-	if (!savefilePackage && url.HasOption("loadgame"))
+	if (!savefilePackage && HasValueOption(url, "loadgame"))
 	{
 		// The original's Browse ?loadgame=N (dx-reverse-info/deusex-dll.md, travel
 		// and saving): read the slot's SaveInfo, empty Current, copy the
@@ -1841,16 +1788,17 @@ bool Engine::BrowseMap(const UnrealURL& url, const std::map<std::string, std::st
 
 // The original's (DeusEx.dll's Browse, 0x10010b90): the DeusExLevelInfo's
 // MapName -- there the first among all objects (GetDeusExLevelInfo), the
-// level's own once those of the levels left are collected -- with the last
-// URL's portal, ?loadonly and no other option, so the player logs in with no
-// name; with none, the last URL as it is.
+// level's own once those of the levels left are collected -- as the map, as
+// it is, no URL read from it (FURL(MapName)), with the last URL's portal,
+// ?loadonly and no other option, so the player logs in with no name; with
+// none, the last URL as it is.
 UnrealURL Engine::RestartURL()
 {
 	if (!DeusExLevelInfo)
 		return LastURL;
-	UnrealURL url(ScriptToUTF8(DeusExLevelInfo->MapName()));
+	UnrealURL url;
+	url.Map = ScriptToUTF8(DeusExLevelInfo->MapName());
 	url.Portal = LastURL.Portal;
-	url.Options.clear();
 	url.AddOrReplaceOption("loadonly");
 	return url;
 }
@@ -1966,7 +1914,7 @@ void Engine::SetLevelURLForSave() const
 	Level->Portal = url.Portal;
 	Level->Options = url.Options;
 	Level->Port = url.Port;
-	Level->Unknown = 1;
+	Level->Unknown = url.Valid ? 1 : 0;
 }
 
 // The URL the level holds, as its file has it: a map's the editor's,
@@ -1980,6 +1928,7 @@ UnrealURL Engine::LevelHeldURL() const
 	url.Portal = Level->Portal;
 	url.Options = Level->Options;
 	url.Port = Level->Port;
+	url.Valid = Level->Unknown != 0;
 	return url;
 }
 
@@ -2652,7 +2601,7 @@ bool Engine::TakeTravel(float realTimeElapsed)
 				// level clears NextURL, as the original's clears it after
 				// the browse, failed or not.
 				auto travelInfo = LevelInfo->bNextItems() ? CreateServerTravelInfo() : std::map<std::string, std::string>();
-				if (!BrowseMap(UnrealURL(LastURL, ScriptToUTF8(LevelInfo->NextURL())), travelInfo))
+				if (!BrowseMap(UnrealURL(&LastURL, ScriptToUTF8(LevelInfo->NextURL()), ETravelType::TRAVEL_Relative), travelInfo))
 					LevelInfo->NextURL().clear();
 			}
 			return true;

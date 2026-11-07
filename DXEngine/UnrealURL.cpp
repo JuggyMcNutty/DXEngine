@@ -5,156 +5,237 @@
 #include "Package/PackageManager.h"
 #include "Utils/StrTools.h"
 
-// The next URL on the base: its map, portal and options, and, when it names
-// a host, that host, port and protocol too (a relative travel to another
-// server's address goes there)
-UnrealURL::UnrealURL(const UnrealURL& baseURL, const UnrealURL& nextURL)
+// A value of the game's [URL] section, as the original's FURL::StaticInit
+// reads each (Engine.dll 0x103f6c50).
+static std::string DefaultValue(const char* key, const char* fallback)
 {
-	*this = baseURL;
-
-	Map = nextURL.Map;
-	Portal = nextURL.Portal;
-
-	for (auto& option : nextURL.Options)
-		AddOrReplaceOption(option);
-
-	if (!nextURL.Host.empty())
-	{
-		Host = nextURL.Host;
-		Port = nextURL.Port;
-		Protocol = nextURL.Protocol;
-	}
+	return engine && engine->packages ? engine->packages->GetIniValue("system", "URL", key, fallback) : std::string(fallback);
 }
 
 // The game's [URL] Port: any URL's port unless it names another, as the
 // original's FURL defaults it.
 static int DefaultPort()
 {
-	return engine && engine->packages ? std::atoi(engine->packages->GetIniValue("system", "URL", "Port", "7777").c_str()) : 7777;
+	return std::atoi(DefaultValue("Port", "7777").c_str());
 }
 
 // The game's [URL] Protocol, deusex, the same way: the one a map file's
 // level holds, which its URL writes without.
 static std::string DefaultProtocol()
 {
-	return engine && engine->packages ? engine->packages->GetIniValue("system", "URL", "Protocol", "unreal") : std::string("unreal");
+	return DefaultValue("Protocol", "unreal");
 }
 
-UnrealURL::UnrealURL() : Protocol(DefaultProtocol()), Port(DefaultPort())
+// The game's [URL] Map, Index.dx, Host and Portal, both empty: a URL's
+// where its text names none.
+static std::string DefaultMap()
+{
+	return DefaultValue("Map", "Index.unr");
+}
+
+static std::string DefaultHost()
+{
+	return DefaultValue("Host", "");
+}
+
+static std::string DefaultPortal()
+{
+	return DefaultValue("Portal", "");
+}
+
+UnrealURL::UnrealURL() : Protocol(DefaultProtocol()), Map(DefaultMap()), Host(DefaultHost()), Portal(DefaultPortal()), Port(DefaultPort())
 {
 }
 
-UnrealURL::UnrealURL(std::string urlString)
+UnrealURL::UnrealURL(std::string urlString) : UnrealURL(nullptr, std::move(urlString), ETravelType::TRAVEL_Absolute)
 {
-	Protocol = DefaultProtocol();
-	Port = DefaultPort();
+}
 
-	// Deus Ex's URL: mapname[#teleporttag][?key1=value1[?key2=value2]...],
-	// the options and the teleport tag in any order after the map. '#' alone
-	// marks the portal (network.md, the address): another game's '/' cut an
-	// option's value at a slash.
-
-	// Its leading spaces passed over, its trailing ones kept, as the
-	// original's FURL takes it (Engine.dll 0x103f7b60)
-	urlString.erase(0, urlString.find_first_not_of(' '));
-
-	ParseAddress(urlString);
-
-	size_t mapNamePos = StrTools::find_first_of_any(urlString, "?#");
-
-	Map = urlString.substr(0, mapNamePos);
-
-	if (mapNamePos != std::string::npos)
+// The original's parse, step by step: a URL is
+// [protocol:][//][host[:port]/][map[/portal]][?option...][#portal]
+UnrealURL::UnrealURL(const UnrealURL* baseURL, std::string urlString, ETravelType travelType) : UnrealURL()
+{
+	// A relative travel stays on the base's server, map and portal; a
+	// relative or partial one keeps its options but PUSH, POP, PEER and LOAD
+	if (baseURL && travelType == ETravelType::TRAVEL_Relative)
 	{
-		// We need to parse all options individually
-		char paramType = urlString[mapNamePos]; // '#' or '?'
-		std::string allParams = urlString.substr(mapNamePos + 1);
-
-		auto nextParamPos = StrTools::find_first_of_any(allParams, "?#");
-
-		// Every part, the last included.
-		for (;;)
+		Protocol = baseURL->Protocol;
+		Host = baseURL->Host;
+		Map = baseURL->Map;
+		Portal = baseURL->Portal;
+		Port = baseURL->Port;
+	}
+	if (baseURL && travelType != ETravelType::TRAVEL_Absolute)
+	{
+		for (const std::string& option : baseURL->Options)
 		{
-			if (paramType == '#')
-				Portal = allParams.substr(0, nextParamPos);
-			else if (paramType == '?')
-			{
-				auto optionStr = allParams.substr(0, nextParamPos);
-				AddOrReplaceOption(optionStr);
-			}
-
-			if (nextParamPos == std::string::npos)
-				break;
-
-			paramType = allParams[nextParamPos];
-			allParams = allParams.substr(nextParamPos + 1);
-			nextParamPos = StrTools::find_first_of_any(allParams, "?#");
+			if (!StrTools::equals_ignore_case(option, "push") && !StrTools::equals_ignore_case(option, "pop") &&
+				!StrTools::equals_ignore_case(option, "peer") && !StrTools::equals_ignore_case(option, "load"))
+				Options.push_back(option);
 		}
 	}
+
+	// Its leading spaces passed over, its trailing ones kept
+	urlString.erase(0, urlString.find_first_not_of(' '));
+
+	// The options and a '#' portal first, each up to the next '?' or '#',
+	// in any order: a blank in one makes no URL
+	size_t mark = urlString.find_first_of("?#");
+	for (size_t pos = mark; pos != std::string::npos;)
+	{
+		size_t next = urlString.find_first_of("?#", pos + 1);
+		std::string part = urlString.substr(pos + 1, next == std::string::npos ? std::string::npos : next - pos - 1);
+		if (part.find(' ') != std::string::npos)
+		{
+			Refuse();
+			return;
+		}
+		if (urlString[pos] == '?')
+			AddOrReplaceOption(part);
+		else
+			Portal = part;
+		pos = next;
+	}
+	if (mark != std::string::npos)
+		urlString.resize(mark);
+
+	bool hasHost = false, hasMap = false;
+	// On Linux an absolute path is what a drive letter is on Windows, by
+	// choice: the original's parse refuses a '/' not followed by another
+	bool absolutePath = false;
+#ifndef _WIN32
+	absolutePath = urlString.size() > 1 && urlString[0] == '/' && urlString[1] != '/';
+#endif
+	if ((urlString.size() > 2 && urlString[1] == ':') || absolutePath)
+	{
+		// A file by its drive letter: all of it the map, at the default
+		// protocol and portal, with no host
+		Protocol = DefaultProtocol();
+		Host.clear();
+		Map = urlString;
+		Portal = DefaultPortal();
+		urlString.clear();
+		hasHost = hasMap = true;
+	}
+	else
+	{
+		// A protocol: the text before a ':' past the second character and
+		// before any '.'
+		size_t colon = urlString.find(':');
+		size_t dot = urlString.find('.');
+		if (colon != std::string::npos && colon > 1 && (dot == std::string::npos || colon < dot))
+		{
+			Protocol = urlString.substr(0, colon);
+			urlString.erase(0, colon + 1);
+		}
+
+		// "//" before a host; a '/' alone makes no URL
+		if (!urlString.empty() && urlString[0] == '/')
+		{
+			if (urlString.size() < 2 || urlString[1] != '/')
+			{
+				Refuse();
+				return;
+			}
+			urlString.erase(0, 2);
+			Host.clear();
+			hasHost = true;
+		}
+
+		// A host: the text up to a '/', when it has a '.' past its first
+		// character whose next letters are not the map's or a save's
+		// extension; its port after a ':'. Its map the default one, none for
+		// another protocol, unless the text after the '/' names one.
+		dot = urlString.find('.');
+		auto isExtension = [&](const std::string& ext) {
+			if (ext.empty() || !StrTools::equals_ignore_case(urlString.substr(dot + 1, ext.size()), ext))
+				return false;
+			size_t after = dot + 1 + ext.size();
+			return after >= urlString.size() || !std::isalnum((unsigned char)urlString[after]);
+		};
+		std::string mapExt = engine ? engine->packages->GetMapExtension() : MapExt;
+		std::string saveExt = engine ? engine->packages->GetSaveExtension() : SaveExt;
+		if (dot != std::string::npos && dot > 0 && !isExtension(mapExt) && !isExtension(saveExt))
+		{
+			size_t slash = urlString.find('/');
+			std::string address = urlString.substr(0, slash);
+			urlString = slash != std::string::npos ? urlString.substr(slash + 1) : std::string();
+			size_t portPos = address.find(':');
+			if (portPos != std::string::npos)
+			{
+				Port = std::atoi(address.substr(portPos + 1).c_str());
+				address.resize(portPos);
+			}
+			Host = address;
+			Map = IsInternal() ? DefaultMap() : std::string();
+			hasHost = true;
+		}
+	}
+
+	// An absolute travel of the game's protocol takes the base's player
+	// options its text lacks or has empty, after its own, each logged: the
+	// console's start keeps the player's name and class
+	if (baseURL && travelType == ETravelType::TRAVEL_Absolute && IsInternal())
+	{
+		const char* playerOptions[] = { "Name=", "Team=", "Class=", "Skin=", "Face=", "Voice=", "OverrideClass=" };
+		for (const std::string& option : baseURL->Options)
+		{
+			for (const char* name : playerOptions)
+			{
+				std::string key = name;
+				if (StrTools::startswith(option, key, true))
+				{
+					if (GetOption(key.substr(0, key.size() - 1)).empty())
+					{
+						LogMessage("URL: Adding default option " + option);
+						Options.push_back(option);
+					}
+					break;
+				}
+			}
+		}
+	}
+
+	// The map; for the game's protocol a '/' in it marks a portal, up to a
+	// second '/', past which anything makes no URL
+	if (!urlString.empty())
+	{
+		if (IsInternal())
+		{
+			hasMap = true;
+			size_t slash = urlString.find('/');
+			if (slash != std::string::npos)
+			{
+				std::string portal = urlString.substr(slash + 1);
+				urlString.resize(slash);
+				size_t second = portal.find('/');
+				if (second != std::string::npos)
+				{
+					if (second + 1 < portal.size())
+					{
+						Refuse();
+						return;
+					}
+					portal.resize(second);
+				}
+				Portal = portal;
+			}
+		}
+		Map = urlString;
+	}
+
+	// No blank in the protocol, host or portal, and a host, a map or an
+	// option at least
+	if (Protocol.find(' ') != std::string::npos || Host.find(' ') != std::string::npos || Portal.find(' ') != std::string::npos ||
+		(!hasHost && !hasMap && Options.empty()))
+		Refuse();
 }
 
-// A server's address ahead of the map, as the original's URL parser finds
-// one (dx-reverse-info/network.md, addresses): [protocol:][//]host[:port][/map],
-// where the host is the text up to a slash with a dot past its first
-// character whose next letters are not the map's or a save's extension. A
-// colon past the second character before any dot ends a protocol; a colon as
-// the second is a drive letter, a file.
-void UnrealURL::ParseAddress(std::string& urlString)
+// A text the original's refuses: the URL the default one, marked so.
+void UnrealURL::Refuse()
 {
-	size_t end = StrTools::find_first_of_any(urlString, "?#");
-	std::string text = urlString.substr(0, end);
-	std::string rest = end != std::string::npos ? urlString.substr(end) : std::string();
-
-	if (text.size() > 2 && text[1] == ':')
-		return;
-
-	std::string protocol;
-	size_t colon = text.find(':');
-	size_t dot = text.find('.');
-	if (colon != std::string::npos && colon > 1 && (dot == std::string::npos || colon < dot))
-	{
-		protocol = text.substr(0, colon);
-		text = text.substr(colon + 1);
-	}
-
-	if (!text.empty() && text[0] == '/')
-	{
-		if (text.size() < 2 || text[1] != '/')
-			return;
-		text = text.substr(2);
-	}
-
-	dot = text.find('.');
-	if (dot == std::string::npos || dot < 1)
-		return;
-	auto isExtension = [&](const std::string& ext) {
-		if (ext.empty() || !StrTools::equals_ignore_case(text.substr(dot + 1, ext.size()), ext))
-			return false;
-		size_t after = dot + 1 + ext.size();
-		return after >= text.size() || !std::isalnum((unsigned char)text[after]);
-	};
-	std::string mapExt = engine ? engine->packages->GetMapExtension() : MapExt;
-	std::string saveExt = engine ? engine->packages->GetSaveExtension() : SaveExt;
-	if (isExtension(mapExt) || isExtension(saveExt))
-		return;
-
-	size_t slash = text.find('/');
-	std::string host = text.substr(0, slash);
-	std::string mapPart = slash != std::string::npos ? text.substr(slash + 1) : std::string();
-
-	if (!protocol.empty())
-		Protocol = protocol;
-	size_t portPos = host.find(':');
-	if (portPos != std::string::npos)
-	{
-		Port = std::atoi(host.substr(portPos + 1).c_str());
-		host = host.substr(0, portPos);
-	}
-	Host = host;
-
-	if (mapPart.empty() && engine)
-		mapPart = engine->packages->GetIniValue("system", "URL", "Map");
-	urlString = mapPart + rest;
+	*this = UnrealURL();
+	Valid = false;
 }
 
 void UnrealURL::AddOrReplaceOption(const std::string& newvalue)
@@ -200,19 +281,14 @@ void UnrealURL::AddOrReplaceOption(const std::string& newvalue)
 	}
 }
 
+// An option whole, in any case, as the original's (Engine.dll 0x103f9df0):
+// ?listen, not ?listen=1.
 bool UnrealURL::HasOption(std::string name) const
 {
-	for (char& c : name) c = std::tolower(c);
-
 	for (const std::string& option : Options)
 	{
-		if ((option.size() >= name.size() + 1 && option[name.size()] == '=') || option.size() == name.size())
-		{
-			std::string key = option.substr(0, name.size());
-			for (char& c : key) c = std::tolower(c);
-			if (key == name)
-				return true;
-		}
+		if (StrTools::equals_ignore_case(option, name))
+			return true;
 	}
 	return false;
 }
@@ -255,23 +331,31 @@ std::string UnrealURL::GetPortal() const
 	return Portal;
 }
 
+// The game's own protocol, in any case (Engine.dll 0x103f97b0).
+bool UnrealURL::IsInternal() const
+{
+	return StrTools::equals_ignore_case(Protocol, DefaultProtocol());
+}
+
 // As the original's FURL::String writes it (dx-reverse-info/network.md,
-// addresses): the protocol when it is not the default, the host when it or
-// the port is not, the port only when it is not, '#' before a portal.
+// addresses): the protocol when it is not the default, in any case, the host
+// when it or the port is not, the port only when it is not, '#' before a
+// portal.
 std::string UnrealURL::ToString() const
 {
 	std::string result;
 
-	if (Protocol != DefaultProtocol())
+	bool defaultHost = StrTools::equals_ignore_case(Host, DefaultHost());
+	if (!IsInternal())
 	{
 		result += Protocol;
 		result += ":";
-		if (!Host.empty())
+		if (!defaultHost)
 			result += "//";
 	}
 
 	int defaultPort = DefaultPort();
-	if (!Host.empty() || Port != defaultPort)
+	if (!defaultHost || Port != defaultPort)
 	{
 		result += Host;
 		if (Port != defaultPort)
@@ -300,11 +384,10 @@ bool UnrealURL::Empty() const
 
 // Emptied whole, the port and protocol the defaults again: a relative
 // travel merged onto a cleared URL kept a joined server's port. No map
-// either, not the default Index.unr: a cleared travel URL is no travel
+// either, not the default Index.dx: a cleared travel URL is no travel
 // (Engine::Tick takes a travel from a map or a host).
 void UnrealURL::Clear()
 {
 	*this = UnrealURL();
 	Map.clear();
 }
-

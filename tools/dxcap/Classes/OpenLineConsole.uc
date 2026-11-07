@@ -7,17 +7,20 @@
 // spawned, which logs the PreTravel it is sent, then "open" alone; 2 s later
 // whether it is still in the same level, then "open DX.dx?Name=Two Words", a
 // URL with a blank in it: the original's FURL refuses a blank in an option,
-// its URL the default one, Index.dx, which fails to load, so it stays, where
-// DXEngine's URL takes the blank and travels (bugs.md NET.13). In the level
+// its URL the default one, Index.dx, which fails to load, so the level's own
+// map is loaded again, its URL with no option (bugs.md NET.13). In the level
 // that travel reaches, its URL and the player's name as its login took it,
 // then an exit -- or, still in the first level 10 s on, that it never went.
-// Each line starts "DXOPEN:".
+// A level is told from the first by its LevelInfo's name as text or its
+// clock starting again, as URLConsole tells it: the original loads the same
+// map again into the same objects. Each line starts "DXOPEN:".
 //=============================================================================
 class OpenLineConsole extends Console;
 
-var float RunTime, StepTime;
+var float RunTime, StepTime, LastSeconds;
 var int Step;
-var LevelInfo FirstLevel;
+var string FirstLevel;
+var bool Moved;
 
 event Tick(float Delta)
 {
@@ -29,6 +32,9 @@ event Tick(float Delta)
 		return;
 	P = Viewport.Actor;
 	RunTime += Delta;
+	if (Step > 0 && (string(P.Level) != FirstLevel || P.Level.TimeSeconds < LastSeconds))
+		Moved = true;
+	LastSeconds = P.Level.TimeSeconds;
 	Name = "";
 	if (P.PlayerReplicationInfo != None)
 		Name = P.PlayerReplicationInfo.PlayerName;
@@ -38,7 +44,7 @@ event Tick(float Delta)
 	case 0:
 		if (RunTime < 2.0)
 			return;
-		FirstLevel = P.Level;
+		FirstLevel = string(P.Level);
 		P.Spawn(class'CapPreTravel');
 		Log("DXOPEN: at " $ P.Level.GetLocalURL() $ " as '" $ Name $ "', open alone");
 		P.ConsoleCommand("open");
@@ -47,13 +53,13 @@ event Tick(float Delta)
 	case 1:
 		if (RunTime < StepTime + 2.0)
 			return;
-		Log("DXOPEN: after open alone, the same level " $ (P.Level == FirstLevel));
+		Log("DXOPEN: after open alone, the same level " $ !Moved);
 		Log("DXOPEN: open DX.dx?Name=Two Words");
 		P.ConsoleCommand("open DX.dx?Name=Two Words");
 		StepTime = RunTime;
 		break;
 	case 2:
-		if (P.Level == FirstLevel)
+		if (!Moved)
 		{
 			if (RunTime < StepTime + 10.0)
 				return;
