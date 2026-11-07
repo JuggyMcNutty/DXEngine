@@ -2838,7 +2838,10 @@ not deleted (the log says so).
   command on, and the window is restored as it goes full screen. The Fatal
   Error window maximizes. Full screen the game's window has no menu to ask
   it, by choice (above), where the original's menu's Maximize goes back to
-  a window.
+  a window. Differs (bugs.md WIN.16): the window can be dragged smaller than
+  640x480, where the original's holds it at 640x480 or more, and a toggle
+  logs nothing, where the original's logs `AttemptFullscreen` and
+  `EndFullscreen`.
 - **The field of view** is the original's setting: the player's `DefaultFOV`
   is Deus Ex's own config, 75 (`[Engine.PlayerPawn]` in `User.ini`), the
   angle across a 4:3 view ([the view's width](#the-views-width)).
