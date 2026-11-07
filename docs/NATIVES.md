@@ -519,15 +519,20 @@ original's). `AIPickRandomDestination` with a multiplier under 1 stops at
 the first step past that share of the way found, as the original's does
 (`PickDestConsole`: all 48 picks the original's).
 
-The reach tests move the pawn as the original's test moves do, by reading:
-passing over pawns and decorations that are not static and what stands on
-the pawn, not what it stands on, and stopping at what blocks it by the
-original's `IsBlockedBy`, so a pawn on a lift walks its floor and a door
-stops a walker or a flyer that collides with the world though it blocks no
-actors (bugs.md PHYS.20: the run due, `LiftReachConsole` finding no lift on
-00_TrainingFinal in either engine yet). A jumper's landing is found with the
-same moves, held off 2 units and through pawns and crates, the jump rising
-at the pawn's `JumpZ`, and a fall of 350 or more logs the original's
+The reach tests move the pawn as the original's test moves do: passing
+over pawns and decorations that are not static and what stands on the pawn,
+not what it stands on, and stopping at what blocks it by the original's
+`IsBlockedBy`, so a pawn on a lift walks its floor and a door stops a walker
+or a flyer that collides with the world though it blocks no actors
+(`LiftReachConsole` on 06_HongKong_MJ12lab: from `ElevatorMover0`'s floor
+each of four points across it found and reachable, and at `DeusExMover15`
+no walker, flyer or seagull through, alike in both engines but for the
+distances' last digits); a test move of nothing, each axis
+under 0.0001, leaves the hit of the move before it, as the original's
+leaves it. A jumper's landing is found with the same moves, held off 2
+units and through pawns and crates, the jump rising at the pawn's `JumpZ`
+at a speed across worked out in the original's float order
+(`LineEdgeConsole`'s jumps), and a fall of 350 or more logs the original's
 `FAILING FBJ` line (`JumpLandConsole`: every line the original's, the logged
 distances to the x87's last digits). `ReachablePathnodes` gives the
 original's list: a start node's paths up to its first empty one, or with no
@@ -541,7 +546,10 @@ out of water, whatever its zone (`PathnodeConsole`'s pick in the water), and
 `FindPathToward`'s test from the anchor traces the goal's line to the anchor.
 
 The ladder probe goes on past a texture in no group, as the original's, the
-texture's outer its package (bugs.md PHYS.23: the run at such a ladder due).
+texture's outer its package (`LadderConsole` at the foot of
+12_Vandenberg_Cmd's ladder, where the wall under its plate,
+`ClenCmandWall_A`, is in no group: the player climbing from the first tick,
+86 units in a second in both engines).
 
 ## Out of sight
 
@@ -2054,9 +2062,12 @@ Every other native the scripted runs compare matches the original
   level's list at each step, so an actor spawned in reach during the loop's
   body is reached and one destroyed passed over, in the level's order, and
   `ChildActors` gives every actor whose owner chain reaches the caller, the
-  caller among them (`WalkConsole`). A line or a box started inside an
-  actor's cylinder, heading in, stops at its start, its normal level, out
-  from the axis
+  caller among them (`WalkConsole`). `VisibleActors` takes an actor whose
+  squared distance, summed as the original's x87 sums it, is under the
+  radius squared, so a negative radius reaches as far as a positive one,
+  and a radius of 0 or a NaN has no limit (`LineEdgeConsole`). A line or a
+  box started inside an actor's cylinder, heading in, stops at its start,
+  its normal level, out from the axis
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces);
   `TraceConsole`'s boxes started near a decoration's top and at its middle).
   A cylinder is checked as the original's `UPrimitive::LineCheck` checks
@@ -2091,7 +2102,18 @@ Every other native the scripted runs compare matches the original
   (`VisibleConsole` on DXMP_Silo: 55 movers' lines each way, their hits,
   normals, `TraceTexture`'s and `TraceActors`' alike, among them the bot
   doors whose wall lies a float step off the door's face; `TraceConsole`,
-  `MoverConsole`).
+  `MoverConsole`). `FastTrace` walks every line from its start, one of no
+  length too, so from inside solid it is blocked, both ends' distances from
+  each node's plane and each point where the line crosses one floats in the
+  original's order, at the x87's precision in the tick as a cylinder's
+  check is (`LineEdgeConsole`).
+- **A point's region** is found as the original's `PointRegion` finds it
+  ([the zone an actor is in](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-zone-an-actor-is-in)):
+  down the BSP, the point's side of each plane by its distance, the Z, Y
+  and X products summed in that order less W at the x87's precision in the
+  tick and compared unstored, in front at 0 or more and behind for a NaN,
+  to the child on that side until there is none; a model with no nodes
+  puts it in no leaf.
 - **A box** meets the level as the original's box check does
   ([traces](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
   down its BSP on each side either end's box, grown by a tenth of its size,
@@ -2194,7 +2216,7 @@ Every other native the scripted runs compare matches the original
   **a pawn's pain and speech timers**, each due once under a thousandth of a
   second (`PainConsole`, both at half speed: the tick each fires in alike),
   **the reach tests** from a pawn's home spot (`ReachConsole`) and from a
-  node (`NavReachConsole`; a lift's floor, bugs.md PHYS.20, its run due), and
+  node (`NavReachConsole`; a lift's floor, `LiftReachConsole`), and
   **the look up and down stairs**
   (`StairConsole`: every answer of `Pawn.FindStairRotation` alike on Liberty
   Island's pier and `SlideConsole`'s slope,
@@ -2503,10 +2525,6 @@ Differs:
   longer than 5 ms, 0.4 units further out from there. Without it,
   DXEngine's swimmer goes by the real time, 3.4 units out at 0.2 s and 37 at
   0.75 s, a float step each of its first ticks, whose moves are under one.
-
-Differs (bugs.md PHYS.22): the line checks' edges and precision:
-`VisibleActors`' radius, a line under 0.01, `FastWalkNode` in doubles,
-`FastTrace`'s direction, `FindRegion`'s sums.
 
 ## Housekeeping, not seen directly
 

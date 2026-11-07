@@ -336,17 +336,33 @@ VisibleActorsIterator::VisibleActorsIterator(UActor* Caller, UObject* BaseClass,
 
 bool VisibleActorsIterator::Next()
 {
-	// Deus Ex's as the original's: within the radius strictly, a radius of 0
-	// no limit, not hidden, and the line from the spot clear (FastTrace); the
-	// level's list walked at each step, as the original walks it
+	// Deus Ex's as the original's: not hidden, within the radius strictly, and
+	// the line from the spot clear (FastTrace); the level's list walked at
+	// each step, as the original walks it. The radius as the original's x87
+	// tests it (Engine.dll 0x103e53bf to 0x103e5413), at its precision in the
+	// tick the script runs in (X87): a radius of 0 -- a NaN too, to its C3
+	// -- no limit; else the offset's squares summed Z's and Y's first, then
+	// X's, strictly under the radius squared, so a negative radius reaches as
+	// far as a positive one
+	auto R = X87::Round;
+	bool unlimited = X87::Equal(Radius, 0.0);
+	double radiusSq = R((double)Radius * Radius);
 	const Array<UActor*>& actors = Level->Actors;
 	while (index < actors.size())
 	{
 		UActor* actor = actors[index++];
 		if (!actor || actor->bDeleteMe() || actor->bHidden() || !actor->IsA(BaseClass))
 			continue;
-		float dist = length(actor->Location() - Location);
-		if ((Radius == 0.0f || dist < Radius) && Caller->FastTrace(actor->Location(), Location))
+		if (!unlimited)
+		{
+			const vec3& at = actor->Location();
+			double dx = R((double)at.x - Location.x);
+			double dy = R((double)at.y - Location.y);
+			double dz = R((double)at.z - Location.z);
+			if (!(radiusSq > R(R(R(dz * dz) + R(dy * dy)) + R(dx * dx))))
+				continue;
+		}
+		if (Caller->FastTrace(actor->Location(), Location))
 		{
 			*Actor = actor;
 			return true;

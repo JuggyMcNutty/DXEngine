@@ -197,11 +197,14 @@ void NActor::Error(UObject* Self, const std::string& S)
 	UObject::Cast<UActor>(Self)->Destroy();
 }
 
+// The original's (Engine.dll 0x103e35e0): FastLineCheck of the line from
+// TraceStart, by default the actor's place, to TraceEnd, walked from its
+// start
 void NActor::FastTrace(UObject* Self, const vec3& TraceEnd, std::optional<vec3> TraceStart, BitfieldBool& ReturnValue)
 {
 	UActor* SelfActor = UObject::Cast<UActor>(Self);
 	vec3 start = TraceStart ? *TraceStart : SelfActor->Location();
-	ReturnValue = SelfActor->FastTrace(start, TraceEnd);
+	ReturnValue = SelfActor->FastTrace(TraceEnd, start);
 }
 
 void NActor::FinishAnim(UObject* Self)

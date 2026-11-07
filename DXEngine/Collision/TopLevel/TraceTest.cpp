@@ -611,37 +611,31 @@ bool TraceTester::VisitActorsOnRay(const vec3& from, const vec3& to, Visit&& vis
 
 bool TraceTester::TraceAnyHit(vec3 from, vec3 to, UActor* tracingActor, bool traceActors, bool traceWorld, bool visibilityOnly)
 {
-	if (from == to || (!traceActors && !traceWorld))
-		return false;
-
-	dvec3 origin = to_dvec3(from);
-	dvec3 direction = to_dvec3(to) - origin;
-	double tmin = 0.01f;
-	double tmax = length(direction);
-	if (tmax < tmin)
-		return false;
-	direction *= 1.0f / tmax;
-
-	// Deus Ex's asks along the line itself, as the original's FastLineCheck
-	// does.
-
 	// Deus Ex's movers block where the level's BSP filed them, whatever they
 	// collide with (below), not where they are; the other actors only when
-	// asked for
-	if (traceActors)
+	// asked for, along a line of a hundredth of a unit or more
+	if (traceActors && from != to)
 	{
-		CollisionHitList hits;
-		bool actorHit = VisitActorsOnRay(from, to, [&](UActor* actor) {
-			if (actor != tracingActor && actor->bBlockActors() && !UObject::TryCast<UMover>(actor))
-			{
-				TraceActor(actor, origin, tmin, direction, tmax, 0.0, 0.0, traceActors, traceWorld, visibilityOnly, hits);
-				if (!hits.empty())
-					return true;
-			}
-			return false;
-		});
-		if (actorHit)
-			return true;
+		dvec3 origin = to_dvec3(from);
+		dvec3 direction = to_dvec3(to) - origin;
+		double tmin = 0.01f;
+		double tmax = length(direction);
+		if (tmax >= tmin)
+		{
+			direction *= 1.0f / tmax;
+			CollisionHitList hits;
+			bool actorHit = VisitActorsOnRay(from, to, [&](UActor* actor) {
+				if (actor != tracingActor && actor->bBlockActors() && !UObject::TryCast<UMover>(actor))
+				{
+					TraceActor(actor, origin, tmin, direction, tmax, 0.0, 0.0, traceActors, traceWorld, visibilityOnly, hits);
+					if (!hits.empty())
+						return true;
+				}
+				return false;
+			});
+			if (actorHit)
+				return true;
+		}
 	}
 
 	if (traceWorld)
@@ -651,7 +645,9 @@ bool TraceTester::TraceAnyHit(vec3 from, vec3 to, UActor* tracingActor, bool tra
 		// the segment touches, the start's included -- behind a mover's
 		// invisible and portal polygons too, as the walk is stopped by a
 		// node that does not block visibility (engine-dll.md, FastTrace),
-		// so a mesh light's shadow line passes neither
+		// so a mesh light's shadow line passes neither. Every line is
+		// walked, one under a hundredth of a unit or of no length too, as
+		// the original's is, so from inside solid it is blocked
 		CollisionSystem& collision = GetLevel()->Collision;
 		return !TraceRayModel::FastWalk(collision.LineNodes(), collision.LineRootOutside(), to_dvec3(from), to_dvec3(to));
 	}

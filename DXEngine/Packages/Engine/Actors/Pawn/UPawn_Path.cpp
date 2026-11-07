@@ -539,8 +539,8 @@ vec3 UPawn::JumpLanding(vec3 velocity, bool movePawn)
 	// 2 units, through pawns and decorations that are not bStatic, and setting
 	// the pawn's regions where it is, its feet's and head's too (a test's
 	// ULevel::SetActorZone 0x1039b940, with no events): FindBestJump's pain
-	// test reads the feet's.
-	auto moveBy = [&](const vec3& delta) { return ReachTestMove(delta); };
+	// test reads the feet's. A step's three moves share one hit, made anew
+	// each step, so a move of nothing keeps the hit of the move before.
 
 	bool landed = false;
 	int steps = 0;
@@ -563,7 +563,8 @@ vec3 UPawn::JumpLanding(vec3 velocity, bool movePawn)
 			(float)((double)(float)((double)velocity.y + zoneVelocity.y) * timeStep),
 			(float)(((double)velocity.z + zoneVelocity.z) * timeStep));
 
-		CollisionHit hit = moveBy(delta);
+		CollisionHit hit;
+		ReachTestMove(delta, hit);
 		if (Region().Zone && Region().Zone->bWaterZone())
 		{
 			landed = true;
@@ -586,7 +587,7 @@ vec3 UPawn::JumpLanding(vec3 velocity, bool movePawn)
 				vec3 slide((float)slideX, (float)(restY * remaining), (float)(restZ * remaining));
 				if (((double)delta.z * slide.z + (double)delta.y * slide.y) + slideX * delta.x >= 0.0)
 				{
-					hit = moveBy(slide);
+					ReachTestMove(slide, hit);
 					if (hit.Fraction < 1.0f)
 					{
 						if (hit.Normal.z > 0.7f)
@@ -594,7 +595,7 @@ vec3 UPawn::JumpLanding(vec3 velocity, bool movePawn)
 						float len = length(delta);
 						vec3 desiredDir = len > 0.0f ? delta / len : vec3(0.0f);
 						TwoWallAdjust(desiredDir, slide, hit.Normal, oldHitNormal, hit.Fraction);
-						hit = moveBy(slide);
+						ReachTestMove(slide, hit);
 						if (hit.Normal.z > 0.7f)
 							landed = true;
 					}

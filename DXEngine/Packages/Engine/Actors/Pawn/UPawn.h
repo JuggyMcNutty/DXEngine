@@ -75,7 +75,7 @@ public:
 	int DeusExWalkMove(vec3 delta, CollisionHit& hit, UActor* goalActor, float threshold, bool adjust);
 	int DeusExFlyMove(vec3 delta, UActor* goalActor, float threshold, bool adjust);
 	int DeusExSwimMove(vec3 delta, UActor* goalActor, float threshold, bool adjust);
-	CollisionHit ReachTestMove(const vec3& delta);
+	void ReachTestMove(const vec3& delta, CollisionHit& hit);
 	void FindWaterLine(vec3 start, vec3& end);
 
 	// Deus Ex's swimming, the original's (UActor_PhysSwimming.cpp): a tick

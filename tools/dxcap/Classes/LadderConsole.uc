@@ -2,13 +2,17 @@
 // LadderConsole: a player on a ladder -- logged with "DXLADDER:" and the
 // console's clock (docs/DEVELOPMENT.md, scripted runs).
 //
-// On Liberty Island, datalinks and conversations silenced every tick, the
-// first ladder found from the level's navigation points: from each, lines
-// 200 long in 8 directions at 20 under and over it, the first surface each
-// meets read with TraceTexture until one is in a Ladder group. The player is
-// put 6 units out from that face, facing it, and let fall to its feet; then,
-// each phase logged every tick -- its height, velocity, acceleration,
-// physics, base and bIsWalking:
+// On TargetMap ([DXCapture.LadderConsole], 01_NYC_UNATCOIsland by default),
+// datalinks and conversations silenced every tick, the first ladder found
+// from the level's navigation points: from each, lines 200 long in 8
+// directions at 20 under and over it, the first surface each meets read with
+// TraceTexture until one is in a Ladder group. The player is put 6 units out
+// from that face, facing it, and let fall to its feet. With a spot given
+// (SpotX, SpotY, SpotZ, the player's middle, and Yaw), the player is put
+// there instead, facing Yaw, undetectable and the level's turrets off, and
+// the face is the first surface a line 200 long from the spot along Yaw
+// meets. Then, each phase logged every tick -- its height, velocity,
+// acceleration, physics, base and bIsWalking:
 //   a. standing 1 s;
 //   b. the forward axis held 1 s, looking level: it climbs;
 //   c. let go 2 s: it hangs;
@@ -20,11 +24,27 @@
 //=============================================================================
 class LadderConsole extends Console;
 
+var config string TargetMap;
+var config float SpotX, SpotY, SpotZ;
+var config int Yaw;
+
 var float CapTime, MapTime, StepTime;
 var string CurrentMap, StepName;
 var int Phase, Ticks;
 var vector Face, FaceNormal;
 var rotator Facing;
+
+function string Target()
+{
+	if (TargetMap == "")
+		return "01_NYC_UNATCOIsland";
+	return TargetMap;
+}
+
+function bool HasSpot()
+{
+	return SpotX != 0 || SpotY != 0 || SpotZ != 0;
+}
 
 function string MapOf(PlayerPawn P)
 {
@@ -89,6 +109,37 @@ function bool FindLadder(PlayerPawn P)
 	return false;
 }
 
+// The given spot's face: the first surface a line from it along Yaw meets.
+function bool FaceFromSpot(PlayerPawn P)
+{
+	local Actor A;
+	local name TexName, TexGroup;
+	local int Flags;
+	local vector HitLoc, HitNorm, From;
+	local rotator R;
+	local AutoTurret T;
+	local bool bFound;
+
+	From.X = SpotX;
+	From.Y = SpotY;
+	From.Z = SpotZ;
+	R.Yaw = Yaw;
+	foreach P.TraceTexture(class'Actor', A, TexName, TexGroup, Flags, HitLoc, HitNorm, From + 200 * vector(R), From)
+	{
+		Face = HitLoc;
+		FaceNormal = HitNorm;
+		Log("DXLADDER: the spot " $ From $ " yaw " $ Yaw $ ": ahead " $ TexName $ " (" $ TexGroup $ ") at " $ HitLoc $ " normal " $ HitNorm);
+		bFound = true;
+		break;
+	}
+	if (!bFound)
+		return false;
+	foreach P.AllActors(class'AutoTurret', T)
+		T.bActive = False;
+	P.bDetectable = false;
+	return true;
+}
+
 function LogPlayer(PlayerPawn P)
 {
 	Log("DXLADDER: " $ StepName $ " tick " $ Ticks $ " t " $ StepTime $ " z " $ P.Location.Z $ " out " $ ((P.Location - Face) dot FaceNormal)
@@ -102,6 +153,7 @@ event Tick(float Delta)
 	local vector Where;
 	local rotator R;
 	local string M;
+	local bool bFound;
 
 	Super.Tick(Delta);
 	if (Viewport == None || Viewport.Actor == None)
@@ -125,12 +177,12 @@ event Tick(float Delta)
 
 	if (Phase == 0)
 	{
-		if (!(M ~= "01_NYC_UNATCOIsland"))
+		if (!(M ~= Target()))
 		{
 			if (MapTime > 3.0)
 			{
-				Log("DXCAP: opening 01_NYC_UNATCOIsland");
-				P.ConsoleCommand("open 01_NYC_UNATCOIsland");
+				Log("DXCAP: opening " $ Target());
+				P.ConsoleCommand("open " $ Target());
 				Phase = 1;
 			}
 		}
@@ -139,20 +191,34 @@ event Tick(float Delta)
 	}
 	else if (Phase == 1)
 	{
-		if (M ~= "01_NYC_UNATCOIsland" && MapTime > 6.0)
+		if (M ~= Target() && MapTime > 6.0)
 		{
-			if (!FindLadder(P))
+			if (HasSpot())
+				bFound = FaceFromSpot(P);
+			else
+				bFound = FindLadder(P);
+			if (!bFound)
 			{
 				Log("DXLADDER: no ladder found, exiting");
 				P.ConsoleCommand("exit");
 				Phase = 9;
 				return;
 			}
-			Facing = rotator(-FaceNormal);
+			if (HasSpot())
+			{
+				Facing.Yaw = Yaw;
+				Where.X = SpotX;
+				Where.Y = SpotY;
+				Where.Z = SpotZ;
+			}
+			else
+			{
+				Facing = rotator(-FaceNormal);
+				Where = Face + FaceNormal * (P.CollisionRadius + 6);
+				Where.Z += P.CollisionHeight;
+			}
 			Facing.Pitch = 0;
 			Facing.Roll = 0;
-			Where = Face + FaceNormal * (P.CollisionRadius + 6);
-			Where.Z += P.CollisionHeight;
 			if (!P.SetLocation(Where))
 				Log("DXLADDER: cannot put the player at " $ Where);
 			P.SetRotation(Facing);

@@ -516,6 +516,36 @@ void UModel::Save(PackageStreamWriter* stream)
 	stream->WriteInt32(Linked);
 }
 
+namespace
+{
+	// The original's walk (Engine.dll 0x103f5db0), T the x87's precision in
+	// the tick it runs in, float at 24 bits and double for 64 (X87): from the
+	// root, each node's side by the point's distance from its plane -- the
+	// Z, Y and X products summed in that order less W, compared with 0
+	// unstored: in front at 0 or more, behind under it or for a NaN -- to the
+	// child on that side, until there is none; the region is that node's
+	// zone and leaf on that side, a node's zones and leaves the back side's,
+	// then the front's
+	template<typename T>
+	void FindLeaf(const BspNode* nodes, const vec3& point, PointRegion& region)
+	{
+		const BspNode* node = nodes;
+		while (true)
+		{
+			T side = ((T)point.z * (T)node->PlaneZ + (T)point.y * (T)node->PlaneY) + (T)point.x * (T)node->PlaneX - (T)node->PlaneW;
+			bool front = !X87::Under(side, 0.0);
+			int child = front ? node->Front : node->Back;
+			if (child < 0)
+			{
+				region.ZoneNumber = front ? node->Zone1 : node->Zone0;
+				region.BspLeaf = front ? node->Leaf1 : node->Leaf0;
+				return;
+			}
+			node = nodes + child;
+		}
+	}
+}
+
 PointRegion UModel::FindRegion(const vec3& point, UZoneInfo* levelZoneInfo)
 {
 	// The zone actor is the walked model's own, else the LevelInfo given
@@ -528,7 +558,9 @@ PointRegion UModel::FindRegion(const vec3& point, UZoneInfo* levelZoneInfo)
 		return levelZoneInfo ? levelZoneInfo : engine->GetZoneActor(n);
 	};
 
-	if (Nodes.empty()) // A model with no nodes has no region to find
+	// A model with no nodes has no region to find: the zone given, no leaf
+	// (-1) and zone 0, as the original's (0x103f5e05)
+	if (Nodes.empty())
 	{
 		static bool messageShown = false;
 		if (!messageShown)
@@ -537,45 +569,17 @@ PointRegion UModel::FindRegion(const vec3& point, UZoneInfo* levelZoneInfo)
 			messageShown = true;
 		}
 		PointRegion region;
-		region.BspLeaf = 0;
+		region.BspLeaf = -1;
 		region.ZoneNumber = 0;
 		region.Zone = zoneActor(region.ZoneNumber);
 		return region;
 	}
 
 	PointRegion region;
-	region.BspLeaf = 0;
-	region.ZoneNumber = 0;
-
-	vec4 location = vec4(point, 1.0f);
-
-	// Search the BSP
-	BspNode* nodes = Nodes.data();
-	BspNode* node = nodes;
-	while (true)
-	{
-		vec4 plane = { node->PlaneX, node->PlaneY, node->PlaneZ, -node->PlaneW };
-		float side = dot(location, plane);
-		// A point on the plane is in front, as FindLeafAt and the original's
-		// PointRegion take it (Engine.dll 0x103f5db0, dot - W >= 0), and a
-		// front with no child ends the walk there, not down the back
-		if (node->Front >= 0 && side >= 0.0f)
-		{
-			node = nodes + node->Front;
-		}
-		else if (node->Back >= 0 && side < 0.0f)
-		{
-			node = nodes + node->Back;
-		}
-		else
-		{
-			// A node's zones and leaves are the back side's, then the front's
-			region.ZoneNumber = side >= 0.0f ? node->Zone1 : node->Zone0;
-			region.BspLeaf = side >= 0.0f ? node->Leaf1 : node->Leaf0;
-			break;
-		}
-	}
-
+	if (X87::Single)
+		FindLeaf<float>(Nodes.data(), point, region);
+	else
+		FindLeaf<double>(Nodes.data(), point, region);
 	region.Zone = zoneActor(region.ZoneNumber);
 	return region;
 }

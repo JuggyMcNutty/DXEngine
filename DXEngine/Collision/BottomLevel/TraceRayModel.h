@@ -22,9 +22,10 @@ public:
 	// into it (BrushTracker)
 	static bool WalkSolid(const Array<BspNode>& nodes, bool rootOutside, const dvec3& start, const dvec3& end, uint8_t extraNodeFlags, double& fraction, BspNode*& crossed);
 
-	// Deus Ex: FastLineCheck's walk: whether the segment stays in empty space
-	// down the BSP, only NF_NotCsg asked, a node's side by the sign bit of the
-	// distance.
+	// Deus Ex: FastLineCheck's walk: whether the segment from start to end
+	// stays in empty space down the BSP, only NF_NotCsg asked, a node's side
+	// by the sign bit of the distance, in the original's floats at the x87's
+	// precision in the tick it runs in (X87).
 	static bool FastWalk(UModel* model, const dvec3& start, const dvec3& end);
 	static bool FastWalk(const Array<BspNode>& nodes, bool rootOutside, const dvec3& start, const dvec3& end);
 

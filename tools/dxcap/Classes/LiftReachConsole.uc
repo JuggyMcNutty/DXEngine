@@ -8,26 +8,29 @@
 // own. DXEngine passed through the pawn's base, and through a mover unless
 // both blocked actors (bugs.md PHYS.20).
 //
-// On TargetMap ([DXCapture.LiftReachConsole], 00_TrainingFinal by default),
-// conversations stopped, the player out of the world from its first tick
-// there, 2 s in:
-//   1. the lift: the first ElevatorMover by name, else the first other
-//      mover by name that is no door, at least 96 units across each way,
-//      whose floor a line down its box's middle meets -- from the middle
-//      (a car's floor) or from over its top (a platform's). A CapReacher
-//      dropped onto that floor; once it stands there (its Base the lift and
-//      walking, or 3 s on), its place and base, then for yaws 0, 16384,
-//      32768 and 49152 AIDirectionReachable from it (10 to 200 units) and
-//      PointReachable of a spot 40 units along each.
-//   2. the door: the first DeusExMover door by name that collides and
-//      blocks actors and is thinnest across X or Y; a line across its box's
-//      middle along that side, 32 units past each face (MoverConsole's). At
-//      the near end in turn a CapReacher walker landed on the floor, a
-//      CapReacher flyer 16 units round, each with bBlockActors off and then
-//      on, and a stock Seagull with its own flags, flying: each asks
-//      AIDirectionReachable along the line toward the far end, the range
-//      within 24 units of it, so only a pawn that gets through the door
-//      finds it.
+// On TargetMap ([DXCapture.LiftReachConsole], 06_HongKong_MJ12lab by default:
+// 00_TrainingFinal has no lift, its ElevatorMover a door 8 units thick, and
+// no mover with bIsDoor), conversations stopped, the player out of the world
+// from its first tick there, 2 s in:
+//   1. the lift: LiftName, else the first ElevatorMover by name, else the
+//      first other mover by name that is no door, at least 96 units across
+//      each way, whose floor a line down its box's middle meets -- from the
+//      middle (a car's floor) or from over its top (a platform's): on
+//      06_HongKong_MJ12lab ElevatorMover0, the car at -512,960, its floor at
+//      128. A CapReacher dropped onto that floor; once it stands there (its
+//      Base the lift and walking, or 3 s on), its place and base, then for
+//      yaws 0, 16384, 32768 and 49152 AIDirectionReachable from it (10 to
+//      200 units) and PointReachable of a spot 40 units along each.
+//   2. the door: DoorName, else the first DeusExMover door by name that
+//      collides and blocks actors and is thinnest across X or Y (on
+//      06_HongKong_MJ12lab DeusExMover15, SubjectDoors, a floor at -800 on
+//      both sides); a line across its box's middle along that side, 32
+//      units past each face (MoverConsole's). At the near end in turn a
+//      CapReacher walker landed on the floor, a CapReacher flyer 16 units
+//      round, each with bBlockActors off and then on, and a stock Seagull
+//      with its own flags, flying: each asks AIDirectionReachable along the
+//      line toward the far end, the range within 24 units of it, so only a
+//      pawn that gets through the door finds it.
 // Each answer and spot logged with "DXLIFT:"; then an exit. What is
 // compared between the engines: every line. In the original the lift's
 // floor holds the walker, and the door stops every walker and flyer.
@@ -35,6 +38,7 @@
 class LiftReachConsole extends Console;
 
 var config string TargetMap;
+var config string LiftName, DoorName;
 
 var float MapTime, StepTime;
 var int Step;
@@ -50,7 +54,7 @@ var CapReacher Rider, Walker, Flyer;
 function string Target()
 {
 	if (TargetMap == "")
-		return "00_TrainingFinal";
+		return "06_HongKong_MJ12lab";
 	return TargetMap;
 }
 
@@ -128,6 +132,8 @@ function ChooseLift(PlayerPawn P)
 
 	foreach P.AllActors(class'Mover', M)
 	{
+		if (LiftName != "" && !(string(M.Name) ~= LiftName))
+			continue;
 		bElevator = M.IsA('ElevatorMover');
 		if (!bElevator && DeusExMover(M) != None && DeusExMover(M).bIsDoor)
 			continue;
@@ -191,6 +197,8 @@ function ChooseDoor(PlayerPawn P)
 
 	foreach P.AllActors(class'DeusExMover', M)
 	{
+		if (DoorName != "" && !(string(M.Name) ~= DoorName))
+			continue;
 		if (M.IsA('BreakableGlass') || !M.bIsDoor || !M.bCollideActors || !M.bBlockActors)
 			continue;
 		if (Door != None && Caps(string(M.Name)) > Caps(string(Door.Name)))

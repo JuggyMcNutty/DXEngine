@@ -201,7 +201,9 @@ bool UPawn::CanHearNoise(UActor* source, float loudness)
 		return false;
 	}
 
-	return !XLevel()->Collision.TraceAnyHit(source->Location(), Location(), source, false, true, false);
+	// The line walked from the hearer to the noise, as the original's
+	// CanHear takes it (Engine.dll 0x103bf9d5)
+	return !XLevel()->Collision.TraceAnyHit(Location(), source->Location(), source, false, true, false);
 }
 
 // The original's native (Engine.dll 0x103dfc40): only a player pawn whose

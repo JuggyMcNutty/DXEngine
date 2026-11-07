@@ -115,13 +115,16 @@ namespace
 		if ((actor->bHidden() || actor->bOnlyOwnerSee()) && !actor->bBlockPlayers() && !actor->AmbientSound())
 			return false;
 
-		// Otherwise in sight through the world: a pawn at its feet or eyes.
-		if (actor->FastTrace(srcLocation, actor->Location()))
+		// Otherwise in sight through the world: a pawn at its feet or eyes,
+		// each line walked from the viewer's place to the actor's, as the
+		// original's FastLineCheck takes them (Engine.dll 0x103a3312,
+		// 0x103a3373)
+		if (actor->FastTrace(actor->Location(), srcLocation))
 			return true;
 		UPawn* pawn = UObject::TryCast<UPawn>(actor);
 		if (!pawn || !actor->bIsPawn())
 			return false;
-		return actor->FastTrace(srcLocation, actor->Location() + vec3(0.0f, 0.0f, pawn->EyeHeight()));
+		return actor->FastTrace(actor->Location() + vec3(0.0f, 0.0f, pawn->EyeHeight()), srcLocation);
 	}
 
 	template<typename T>

@@ -58,28 +58,31 @@ namespace
 // the pawn; not what the pawn stands on, so a lift's floor holds it. What
 // blocks is the original's IsBlockedBy (EncroachBlockedBy): a mover blocks a
 // pawn that collides with the world by the mover's bBlockActors, whether or
-// not the pawn blocks actors.
-CollisionHit UPawn::ReachTestMove(const vec3& delta)
+// not the pawn blocks actors. The hit is the move's, as MoveActor fills the
+// one its caller passes; a move of nothing, each axis under 0.0001, leaves
+// the pawn and the hit as they were (0x1039915a), so a test move's caller,
+// whose moves share one hit, keeps the hit of the move before.
+void UPawn::ReachTestMove(const vec3& delta, CollisionHit& hit)
 {
-	CollisionHit blockingHit;
-	if (dot(delta, delta) < 0.00000001f)
-		return blockingHit;
+	if (std::fabs((double)delta.x) < 0.0001 && std::fabs((double)delta.y) < 0.0001 && std::fabs((double)delta.z) < 0.0001)
+		return;
 
+	CollisionHit blockingHit;
 	if (bCollideWorld() || bBlockActors() || bBlockPlayers())
 	{
 		CollisionHitList hits = XLevel()->Collision.Trace(Location(), Location() + HeldOffDelta(delta), CollisionHeight(), CollisionRadius(), bCollideActors(), bCollideWorld(), false);
-		for (const CollisionHit& hit : hits)
+		for (const CollisionHit& traced : hits)
 		{
-			if (hit.Actor)
+			if (traced.Actor)
 			{
-				if (!hit.Actor->bStatic() && (hit.Actor->IsA("Pawn") || hit.Actor->IsA("Decoration")))
+				if (!traced.Actor->bStatic() && (traced.Actor->IsA("Pawn") || traced.Actor->IsA("Decoration")))
 					continue;
-				// IsBasedOn(hit.Actor): the hit's actor stands on this pawn
-				// (or is it)
-				if (IsBasedOn(hit.Actor) || !EncroachBlockedBy(hit.Actor))
+				// IsBasedOn(traced.Actor): the hit's actor stands on this
+				// pawn (or is it)
+				if (IsBasedOn(traced.Actor) || !EncroachBlockedBy(traced.Actor))
 					continue;
 			}
-			blockingHit = hit;
+			blockingHit = traced;
 			break;
 		}
 		blockingHit.Fraction = HeldOffFraction(delta, blockingHit.Fraction);
@@ -91,7 +94,7 @@ CollisionHit UPawn::ReachTestMove(const vec3& delta)
 	Region() = FindRegion();
 	FootRegion() = FindRegion({ 0.0f, 0.0f, -CollisionHeight() });
 	HeadRegion() = FindRegion({ 0.0f, 0.0f, EyeHeight() });
-	return blockingHit;
+	hit = blockingHit;
 }
 
 // APawn::walkMove (Engine.dll 0x103c3290): a move across, stepping up
@@ -105,17 +108,17 @@ int UPawn::DeusExWalkMove(vec3 delta, CollisionHit& hit, UActor* goalActor, floa
 	float gravityDir = (Region().Zone && Region().Zone->ZoneGravity().z > 0.0f) ? 1.0f : -1.0f;
 	vec3 down(0.0f, 0.0f, MaxStepHeight() * gravityDir);
 
-	hit = ReachTestMove(delta);
+	ReachTestMove(delta, hit);
 	if (goalActor && hit.Actor == goalActor)
 		return 5;
 	if (hit.Fraction < 1.0f)
 	{
 		delta = delta * (1.0f - hit.Fraction);
-		hit = ReachTestMove(-down);
-		hit = ReachTestMove(delta);
+		ReachTestMove(-down, hit);
+		ReachTestMove(delta, hit);
 		if (goalActor && hit.Actor == goalActor)
 			return 5;
-		hit = ReachTestMove(down);
+		ReachTestMove(down, hit);
 		if (goalActor && hit.Actor == goalActor)
 			return 5;
 		if (hit.Fraction < 1.0f && hit.Normal.z < 0.7f)
@@ -126,7 +129,7 @@ int UPawn::DeusExWalkMove(vec3 delta, CollisionHit& hit, UActor* goalActor, floa
 	}
 
 	vec3 dropFrom = Location();
-	hit = ReachTestMove(vec3(0.0f, 0.0f, (MaxStepHeight() + 2.0f) * gravityDir));
+	ReachTestMove(vec3(0.0f, 0.0f, (MaxStepHeight() + 2.0f) * gravityDir), hit);
 	if (hit.Fraction == 1.0f)
 	{
 		TestMoveTo(adjust ? start : dropFrom, true);
@@ -149,18 +152,19 @@ int UPawn::DeusExWalkMove(vec3 delta, CollisionHit& hit, UActor* goalActor, floa
 }
 
 // APawn::flyMove (Engine.dll 0x103c3900): a move, stepping up MaxStepHeight
-// over what blocks it.
+// over what blocks it, the moves sharing one hit.
 int UPawn::DeusExFlyMove(vec3 delta, UActor* goalActor, float threshold, bool adjust)
 {
 	vec3 start = Location();
-	CollisionHit hit = ReachTestMove(delta);
+	CollisionHit hit;
+	ReachTestMove(delta, hit);
 	if (goalActor && hit.Actor == goalActor)
 		return 5;
 	if (hit.Fraction < 1.0f)
 	{
 		delta = delta * (1.0f - hit.Fraction);
-		ReachTestMove(vec3(0.0f, 0.0f, MaxStepHeight()));
-		hit = ReachTestMove(delta);
+		ReachTestMove(vec3(0.0f, 0.0f, MaxStepHeight()), hit);
+		ReachTestMove(delta, hit);
 		if (goalActor && hit.Actor == goalActor)
 			return 5;
 	}
@@ -176,11 +180,13 @@ int UPawn::DeusExFlyMove(vec3 delta, UActor* goalActor, float threshold, bool ad
 }
 
 // APawn::swimMove (Engine.dll 0x103c3ca0): flyMove in the water; a move that
-// leaves the water goes back to the water line and makes no progress.
+// leaves the water goes back to the water line and makes no progress; the
+// moves share one hit.
 int UPawn::DeusExSwimMove(vec3 delta, UActor* goalActor, float threshold, bool adjust)
 {
 	vec3 start = Location();
-	CollisionHit hit = ReachTestMove(delta);
+	CollisionHit hit;
+	ReachTestMove(delta, hit);
 	if (goalActor && hit.Actor == goalActor)
 		return 5;
 	if (!Water(Region().Zone))
@@ -188,14 +194,14 @@ int UPawn::DeusExSwimMove(vec3 delta, UActor* goalActor, float threshold, bool a
 		vec3 end = Location();
 		FindWaterLine(start, end);
 		if (end.x != Location().x || end.y != Location().y || end.z != Location().z)
-			ReachTestMove(end - Location());
+			ReachTestMove(end - Location(), hit);
 		return 0;
 	}
 	if (hit.Fraction < 1.0f)
 	{
 		delta = delta * (1.0f - hit.Fraction);
-		ReachTestMove(vec3(0.0f, 0.0f, MaxStepHeight()));
-		hit = ReachTestMove(delta);
+		ReachTestMove(vec3(0.0f, 0.0f, MaxStepHeight()), hit);
+		ReachTestMove(delta, hit);
 		if (goalActor && hit.Actor == goalActor)
 			return 5;
 	}
@@ -231,41 +237,66 @@ void UPawn::FindWaterLine(vec3 start, vec3& end)
 // APawn::SuggestJumpVelocity (Engine.dll 0x103c2c80): how long a jump of the
 // given upward speed stays in the air to come down at the destination's
 // height, and the speed across that covers the distance in that time, no more
-// than GroundSpeed.
+// than GroundSpeed. In the original's float order, at the x87's precision in
+// the tick it runs in (X87): in steps of 0.05 s, the speed up stored as a
+// float each step and the time a float, the height reached summed from the
+// speed as the x87 held it and never stored; the last step's overshoot taken
+// back by the speed up, where that is over 1 either way. The speed across is
+// the root of the level distance's squares, Y's then X's (appSqrt of the
+// sum stored as a double), unstored: the distance's axes each times one
+// over it, stored as floats, then by that root over the time, or by
+// GroundSpeed where that is no more. A time of 0 or less goes at GroundSpeed
+// along Core's SafeNormal of the distance (0x10144be0).
 void UPawn::SuggestJumpVelocity(vec3 dest, vec3& vel)
 {
+	auto R = X87::Round;
 	float gravityZ = Region().Zone ? Region().Zone->ZoneGravity().z : -950.0f;
-	if (gravityZ >= 0.0f)
+	if (!X87::Under(gravityZ, 0.0))
 		gravityZ = -100.0f;
 	float deltaZ = dest.z - Location().z;
 	float jumpZ = vel.z;
 	float time = 0.0f;
-	float currentZ = 0.0f;
+	double currentZ = 0.0;
 	while (currentZ > deltaZ || vel.z > 0.0f)
 	{
-		vel.z = vel.z + gravityZ * 0.05f;
-		time += 0.05f;
-		currentZ = currentZ + vel.z * 0.05f;
+		double speedZ = R(R(gravityZ * 0.05) + vel.z);
+		vel.z = (float)speedZ;
+		time = (float)R(time + 0.05);
+		currentZ = R(currentZ + R(speedZ * 0.05));
 	}
-	if (std::abs(vel.z) > 1.0f)
-		time = time - (currentZ - deltaZ) / vel.z;
+	if (std::fabs(vel.z) > 1.0f)
+		time = (float)R(time - R(R(currentZ - deltaZ) / vel.z));
 
 	vel = dest - Location();
 	vel.z = 0.0f;
-	float speed;
+	double speed;
 	if (time > 0.0f)
 	{
-		float across = (float)std::sqrt(vel.x * vel.x + vel.y * vel.y);
-		if (across != 0.0f)
-			vel = vel * (1.0f / across);
-		speed = std::min(across / time, GroundSpeed());
+		double across = R(std::sqrt(R(R((double)vel.y * vel.y) + R((double)vel.x * vel.x))));
+		if (across > 0.0)
+		{
+			double scale = R(1.0 / across);
+			vel = vec3((float)R(scale * vel.x), (float)R(scale * vel.y), (float)R(scale * vel.z));
+		}
+		speed = R(across / time);
+		if (!(GroundSpeed() > speed))
+			speed = GroundSpeed();
 	}
 	else
 	{
-		vel = SafeNormal(vel);
+		double x = vel.x, y = vel.y, z = vel.z;
+		double squared = R(R(R(x * x) + R(y * y)) + R(z * z));
+		if (X87::Under(squared, 0.00000001))
+			vel = vec3(0.0f);
+		else
+		{
+			double scale = R(1.0 / R(std::sqrt(squared)));
+			vel = vec3((float)R(scale * x), (float)R(scale * y), (float)R(scale * z));
+		}
 		speed = GroundSpeed();
 	}
-	vel = vel * speed;
+	vel.x = (float)R(speed * vel.x);
+	vel.y = (float)R(speed * vel.y);
 	vel.z = jumpZ;
 }
 
@@ -536,7 +567,9 @@ int UPawn::DeusExSwimReachable(vec3 dest, float threshold, int reachFlags, UActo
 				else if (bCanWalk() && MaxStepHeight() + Location().z + 50.0f > dest.z)
 				{
 					float up = std::max(CollisionHeight() + MaxStepHeight(), dest.z - Location().z);
-					if (ReachTestMove(vec3(0.0f, 0.0f, up)).Fraction == 1.0f)
+					CollisionHit climb;
+					ReachTestMove(vec3(0.0f, 0.0f, up), climb);
+					if (climb.Fraction == 1.0f)
 					{
 						success = DeusExFlyReachable(dest, threshold, result, goalActor) != 0;
 						result = 1;

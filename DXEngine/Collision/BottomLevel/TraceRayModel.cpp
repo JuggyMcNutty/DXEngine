@@ -2,6 +2,7 @@
 #include "Precomp.h"
 #include "TraceRayModel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
+#include "Math/floating.h"
 
 // A model with no BSP (a brush never built) is hit by nothing, as the
 // original's.
@@ -98,21 +99,39 @@ namespace
 		}
 	};
 
-	bool FastWalkNode(const Array<BspNode>& nodes, int iNode, dvec3 start, dvec3 end, bool outside)
+	// FastLineCheck's walk (Engine.dll 0x103f33a0) in its float order, T the
+	// x87's precision: float at its 24 bits, double for its 64 (X87). A
+	// point's distance from a node's plane is its Z, Y and X products summed
+	// in that order, less W, stored as a float, its side the float's sign
+	// bit. Across a plane the end's side is walked first, from the end back
+	// to the crossing -- the start moved toward the end by the start's
+	// distance over the two distances' difference, each axis stored as a
+	// float -- then the start's, from the start to the crossing.
+	template<typename T>
+	float FastDistance(const BspNode& node, const vec3& p)
+	{
+		return (float)(((T)p.z * (T)node.PlaneZ + (T)p.y * (T)node.PlaneY) + (T)p.x * (T)node.PlaneX - (T)node.PlaneW);
+	}
+
+	template<typename T>
+	bool FastWalkNode(const Array<BspNode>& nodes, int iNode, vec3 start, vec3 end, bool outside)
 	{
 		while (iNode >= 0)
 		{
 			const BspNode& node = nodes[iNode];
-			dvec4 plane = { node.PlaneX, node.PlaneY, node.PlaneZ, -node.PlaneW };
-			double d0 = dot(dvec4(start, 1.0), plane);
-			double d1 = dot(dvec4(end, 1.0), plane);
+			float d0 = FastDistance<T>(node, start);
+			float d1 = FastDistance<T>(node, end);
 			bool notCsg = (node.NodeFlags & NF_NotCsg) != 0;
 			bool g0 = !std::signbit(d0);
 			bool g1 = !std::signbit(d1);
 			if (g0 != g1)
 			{
-				dvec3 mid = start + (end - start) * (d0 / (d0 - d1));
-				if (!FastWalkNode(nodes, g1 ? node.Front : node.Back, mid, end, notCsg ? outside : g1))
+				T ratio = (T)d0 / ((T)d0 - (T)d1);
+				vec3 mid(
+					(float)(((T)end.x - (T)start.x) * ratio + (T)start.x),
+					(float)(((T)end.y - (T)start.y) * ratio + (T)start.y),
+					(float)(((T)end.z - (T)start.z) * ratio + (T)start.z));
+				if (!FastWalkNode<T>(nodes, g1 ? node.Front : node.Back, end, mid, notCsg ? outside : g1))
 					return false;
 				end = mid;
 			}
@@ -150,11 +169,18 @@ bool TraceRayModel::FastWalk(UModel* model, const dvec3& start, const dvec3& end
 	return FastWalk(model->Nodes, model->RootOutside != 0, start, end);
 }
 
+// A model with no nodes answers its RootOutside, as the original's
+// FastLineCheck does (0x103f3340); the ends are the floats the original's
+// takes
 bool TraceRayModel::FastWalk(const Array<BspNode>& nodes, bool rootOutside, const dvec3& start, const dvec3& end)
 {
 	if (nodes.empty())
-		return true;
-	return FastWalkNode(nodes, 0, start, end, rootOutside);
+		return rootOutside;
+	vec3 s((float)start.x, (float)start.y, (float)start.z);
+	vec3 e((float)end.x, (float)end.y, (float)end.z);
+	if (X87::Single)
+		return FastWalkNode<float>(nodes, 0, s, e, rootOutside);
+	return FastWalkNode<double>(nodes, 0, s, e, rootOutside);
 }
 
 // The traversal handed both children of a plane the whole segment whenever it
