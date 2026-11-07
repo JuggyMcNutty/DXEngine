@@ -533,19 +533,22 @@ bool UPawn::AIDirectionReachable(const vec3& focus, int yaw, int pitch, float mi
 // The original's AIPickRandomDestination (0x103c7fc0): up to tries
 // directions from RandomBiasedRotation, each tested with
 // AIDirectionReachable; a multiplier below 1 stops the pawn short of what
-// it can reach, at the first step past that share of it.
+// it can reach, at the first step past that share of it. The direction's
+// pitch is dropped for a pawn walking, or swimming out of water (0x103c8041),
+// whatever its zone.
 bool UPawn::AIPickRandomDestination(float minDist, float maxDist, int centralYaw, float yawDistribution, int centralPitch, float pitchDistribution, int tries, float multiplier, vec3& dest)
 {
 	dest = Location();
 	tries = std::max(tries, 1);
 	multiplier = std::clamp(multiplier, 0.0001f, 1.0f);
-	bool walking = !(Region().Zone && Region().Zone->bWaterZone()) && Physics() != PHYS_Flying;
+	bool pitched = !(Physics() == PHYS_Walking || (Physics() == PHYS_Swimming && !(Region().Zone && Region().Zone->bWaterZone())));
 
 	for (int i = 0; i < tries; i++)
 	{
-		Rotator direction = UActor::RandomBiasedRotation(centralYaw, yawDistribution, walking ? 0 : centralPitch, pitchDistribution);
+		Rotator direction = UActor::RandomBiasedRotation(centralYaw, yawDistribution, centralPitch, pitchDistribution);
+		int pitch = pitched ? direction.Pitch : 0;
 		vec3 found;
-		if (!AIDirectionReachable(Location(), direction.Yaw, direction.Pitch, minDist / multiplier, maxDist / multiplier, found))
+		if (!AIDirectionReachable(Location(), direction.Yaw, pitch, minDist / multiplier, maxDist / multiplier, found))
 			continue;
 		if (multiplier < 1.0f)
 		{
@@ -555,7 +558,7 @@ bool UPawn::AIPickRandomDestination(float minDist, float maxDist, int centralYaw
 			// as the original's appSqrt takes it).
 			vec3 d = found - Location();
 			float reached = (float)(std::sqrt((double)d.x * d.x + (double)d.y * d.y + (double)d.z * d.z) * multiplier);
-			if (!AIDirectionReachable(Location(), direction.Yaw, direction.Pitch, reached, reached, found))
+			if (!AIDirectionReachable(Location(), direction.Yaw, pitch, reached, reached, found))
 				continue;
 		}
 		dest = found;
@@ -564,10 +567,102 @@ bool UPawn::AIPickRandomDestination(float minDist, float maxDist, int centralYaw
 	return false;
 }
 
-// The original's GetPathnodeList (0x103c6490), which ReachablePathnodes
-// iterates and ComputePathnodeDistances seeds from.
-Array<std::pair<UNavigationPoint*, float>> UPawn::GetPathnodeList(UActor* fromPoint, bool usePrunedPaths)
+namespace
 {
+	using PathnodeEntry = std::pair<UNavigationPoint*, float>;
+
+	// GetPathnodeList's comparison (Engine.dll 0x103c6a70): the nearer first.
+	int ComparePathnodes(const PathnodeEntry& a, const PathnodeEntry& b)
+	{
+		if (a.second < b.second)
+			return -1;
+		return a.second > b.second ? 1 : 0;
+	}
+
+	// The C runtime's qsort, which the original's appQsort calls (Core.dll
+	// imports MSVCRT's), for the order it leaves equal distances in: a run
+	// of up to 8 entries sorted by moving its largest -- the first of equals
+	// -- to its end, again and again; a longer one split round the middle of
+	// its first, middle and last entries, the two parts kept on a stack, the
+	// larger pushed first.
+	void SortPathnodes(PathnodeEntry* x, size_t count)
+	{
+		if (count < 2)
+			return;
+		size_t stackLo[64], stackHi[64];
+		int pos = 0;
+		stackLo[0] = 0;
+		stackHi[0] = count - 1;
+		while (pos >= 0)
+		{
+			size_t beg = stackLo[pos];
+			size_t end = stackHi[pos--];
+			if (end - beg < 8)
+			{
+				for (size_t last = end; last > beg; last--)
+				{
+					size_t max = beg;
+					for (size_t i = beg + 1; i <= last; i++)
+					{
+						if (ComparePathnodes(x[i], x[max]) > 0)
+							max = i;
+					}
+					if (max != last)
+						std::swap(x[max], x[last]);
+				}
+				continue;
+			}
+
+			size_t lo = beg, hi = end, med = lo + (hi - lo + 1) / 2;
+			if (ComparePathnodes(x[lo], x[med]) > 0)
+				std::swap(x[lo], x[med]);
+			if (ComparePathnodes(x[lo], x[hi]) > 0)
+				std::swap(x[lo], x[hi]);
+			if (ComparePathnodes(x[med], x[hi]) > 0)
+				std::swap(x[med], x[hi]);
+			lo++;
+			hi--;
+			for (;;)
+			{
+				while (lo <= hi && (lo == med || ComparePathnodes(x[lo], x[med]) <= 0))
+					lo++;
+				while (med != hi && ComparePathnodes(x[hi], x[med]) > 0)
+					hi--;
+				if (hi < lo)
+					break;
+				std::swap(x[lo], x[hi]);
+				if (hi == med)
+					med = lo;
+				lo++;
+				hi--;
+			}
+			while (hi > beg && (hi == med || ComparePathnodes(x[hi], x[med]) == 0))
+				hi--;
+
+			if (hi - beg >= end - lo)
+			{
+				stackLo[++pos] = beg;
+				stackHi[pos] = hi;
+				stackLo[++pos] = lo;
+				stackHi[pos] = end;
+			}
+			else
+			{
+				stackLo[++pos] = lo;
+				stackHi[pos] = end;
+				stackLo[++pos] = beg;
+				stackHi[pos] = hi;
+			}
+		}
+	}
+}
+
+// The original's GetPathnodeList (0x103c6490): up to 32 navigation points and
+// their distances, which ReachablePathnodes iterates, sorted, and
+// ComputePathnodeDistances seeds from, unsorted (0x103c8cd9, 0x103c8998).
+Array<std::pair<UNavigationPoint*, float>> UPawn::GetPathnodeList(UActor* fromPoint, bool usePrunedPaths, bool sorted)
+{
+	const size_t maxNodes = 32;
 	Array<std::pair<UNavigationPoint*, float>> nodes;
 
 	// The start node: FromPoint when it is a navigation point; else the
@@ -596,19 +691,22 @@ Array<std::pair<UNavigationPoint*, float>> UPawn::GetPathnodeList(UActor* fromPo
 
 	if (start)
 	{
-		// The far end of each of the start's paths whose reach spec the
-		// pawn fits and may use, at the spec's distance.
+		// The far end of each of the start's paths, up to the first empty
+		// one, whose reach spec the pawn fits and may use, at the spec's
+		// distance.
 		int moveFlags = CalcMoveFlags();
 		auto& specs = XLevel()->ReachSpecs;
 		auto addPaths = [&](FixedArrayView<int, 16> paths)
 		{
-			for (int i = 0; i < 16 && nodes.size() < 32; i++)
+			for (int i = 0; i < 16 && nodes.size() < maxNodes; i++)
 			{
 				int index = paths[i];
+				if (index == -1)
+					break;
 				if (index < 0 || (size_t)index >= specs.size())
 					continue;
 				const LevelReachSpec& spec = specs[index];
-				if (!spec.endActor || spec.endActor == start)
+				if (!spec.endActor)
 					continue;
 				if (spec.collisionRadius < (int)CollisionRadius() || spec.collisionHeight < (int)CollisionHeight())
 					continue;
@@ -623,24 +721,48 @@ Array<std::pair<UNavigationPoint*, float>> UPawn::GetPathnodeList(UActor* fromPo
 	}
 	else
 	{
-		// With no start node, the nearest nodes within 1,000 units of
-		// FromPoint, or of the pawn, that the pawn can reach, at the
-		// straight distance.
+		// With no start node, the nodes within 1,000 units of FromPoint, or
+		// of the pawn (the square under 1e6), at the straight distance, in
+		// the level's order: the first 32, then each in place of the nearest
+		// held one farther than it, if any -- not the nearest 32. Then those
+		// the pawn can reach, its eye's line to each tested (actorReachable),
+		// in their order. The x87's sums are doubles here, its stores floats.
 		vec3 from = fromPoint ? UObject::Cast<UActor>(fromPoint)->Location() : Location();
 		for (UNavigationPoint* nav = Level()->NavigationPointList(); nav; nav = nav->nextNavigationPoint())
 		{
-			float dist = length(nav->Location() - from);
-			if (dist > 1000.0f)
+			double dx = (double)nav->Location().x - from.x;
+			double dy = (double)nav->Location().y - from.y;
+			double dz = (double)nav->Location().z - from.z;
+			double distSq = (dx * dx + dy * dy) + dz * dz;
+			if (distSq >= 1000000.0)
 				continue;
-			if (!ActorReachable(nav, true))
+			double dist = std::sqrt(distSq);
+			if (nodes.size() < maxNodes)
+			{
+				nodes.push_back({ nav, (float)dist });
 				continue;
-			nodes.push_back({ nav, dist });
+			}
+			size_t slot = nodes.size();
+			for (size_t i = 0; i < nodes.size(); i++)
+			{
+				if (dist < nodes[i].second && (slot == nodes.size() || nodes[slot].second > nodes[i].second))
+					slot = i;
+			}
+			if (slot < nodes.size())
+				nodes[slot] = { nav, (float)dist };
 		}
+
+		size_t reached = 0;
+		for (size_t i = 0; i < nodes.size(); i++)
+		{
+			if (DeusExActorReachable(nodes[i].first, false))
+				nodes[reached++] = nodes[i];
+		}
+		nodes.resize(reached);
 	}
 
-	std::sort(nodes.begin(), nodes.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
-	if (nodes.size() > 32)
-		nodes.resize(32);
+	if (sorted)
+		SortPathnodes(nodes.data(), nodes.size());
 	return nodes;
 }
 
@@ -657,7 +779,7 @@ void UPawn::ComputePathnodeDistances(UActor* startActor)
 
 	using Entry = std::pair<float, UNavigationPoint*>;
 	std::priority_queue<Entry, std::vector<Entry>, std::greater<Entry>> queue;
-	for (auto& [node, dist] : GetPathnodeList(startActor, false))
+	for (auto& [node, dist] : GetPathnodeList(startActor, false, false))
 	{
 		if ((int)dist < node->visitedWeight())
 		{

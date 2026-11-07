@@ -496,14 +496,32 @@ original's). `AIPickRandomDestination` with a multiplier under 1 stops at
 the first step past that share of the way found, as the original's does
 (`PickDestConsole`: all 48 picks the original's).
 
+The reach tests move the pawn as the original's test moves do, by reading:
+passing over pawns and decorations that are not static and what stands on
+the pawn, not what it stands on, and stopping at what blocks it by the
+original's `IsBlockedBy`, so a pawn on a lift walks its floor and a door
+stops a walker or a flyer that collides with the world though it blocks no
+actors (bugs.md PHYS.20: the run due, `LiftReachConsole` finding no lift on
+00_TrainingFinal in either engine yet). A jumper's landing is found with the
+same moves, held off 2 units and through pawns and crates, the jump rising
+at the pawn's `JumpZ`, and a fall of 350 or more logs the original's
+`FAILING FBJ` line (`JumpLandConsole`: every line the original's, the logged
+distances to the x87's last digits). `ReachablePathnodes` gives the
+original's list: a start node's paths up to its first empty one, or with no
+start node 32 nodes within 1,000 units taken in the level's order, each one
+after in place of the nearest held one farther than it, then those the pawn
+can reach; equal distances in the order the C runtime's qsort leaves them,
+and the node None once the list is done (`PathnodeConsole`: the lists and
+their order the original's, the distances to the x87's last digits).
+`AIPickRandomDestination` drops the pitch for a pawn walking, or swimming
+out of water, whatever its zone (`PathnodeConsole`'s pick in the water), and
+`FindPathToward`'s test from the anchor traces the goal's line to the anchor.
+
 Differs (bugs.md AI.16): Liberty Island's security bots are on their
 patrol 2 s in, their `MoveTarget` a patrol point, where the original's have
-none yet. Differs (bugs.md AI.13, AI.14): `GetPathnodeList`'s 32 nodes, the pick's
-pitch, `ReachableFromAnchor`'s direction. Differs (bugs.md PHYS.20,
-PHYS.21): the reach tests' moves pass through the pawn's base, and
-`JumpLanding`'s steps are raw traces. The ladder probe goes on past a
-texture in no group, as the original's, the texture's outer its package
-(bugs.md PHYS.23: the run at such a ladder due).
+none yet. The ladder probe goes on past a texture in no group, as the
+original's, the texture's outer its package (bugs.md PHYS.23: the run at
+such a ladder due).
 
 ## Out of sight
 
@@ -2054,7 +2072,7 @@ Every other native the scripted runs compare matches the original
   **a pawn's pain and speech timers**, each due once under a thousandth of a
   second (`PainConsole`, both at half speed: the tick each fires in alike),
   **the reach tests** from a pawn's home spot (`ReachConsole`) and from a
-  node (`NavReachConsole`; the others not: bugs.md PHYS.20, PHYS.21), and
+  node (`NavReachConsole`; a lift's floor, bugs.md PHYS.20, its run due), and
   **the look up and down stairs**
   (`StairConsole`: every answer of `Pawn.FindStairRotation` alike on Liberty
   Island's pier and `SlideConsole`'s slope,

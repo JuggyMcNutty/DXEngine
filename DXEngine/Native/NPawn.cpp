@@ -344,13 +344,17 @@ void NPawn::LineOfSightTo_Deus(UObject* Self, UObject* Other, std::optional<bool
 }
 
 // Up to 32 navigation points and their distances, nearest first, from the
-// original's GetPathnodeList; BaseClass is read and not used.
+// original's GetPathnodeList; BaseClass is read and not used. NavPoint is
+// None once the list is done, as the original's loop sets it before each
+// step (APawn::execReachablePathnodes 0x103c8bb0); distance keeps the last
+// node's.
 class ReachablePathnodesIterator : public Iterator
 {
 public:
 	ReachablePathnodesIterator(Array<std::pair<UNavigationPoint*, float>> nodes, UObject** navPoint, float* distance) : Nodes(std::move(nodes)), NavPoint(navPoint), Distance(distance) {}
 	bool Next() override
 	{
+		*NavPoint = nullptr;
 		if (Pos >= Nodes.size())
 			return false;
 		*NavPoint = Nodes[Pos].first;
@@ -375,7 +379,7 @@ private:
 void NPawn::ReachablePathnodes(UObject* Self, UObject* BaseClass, UObject*& NavPoint, UObject* FromPoint, float& distance, std::optional<bool> bUsePrunedPaths)
 {
 	UPawn* selfPawn = UObject::Cast<UPawn>(Self);
-	Frame::CreatedIterator = std::make_unique<ReachablePathnodesIterator>(selfPawn->GetPathnodeList(UObject::Cast<UActor>(FromPoint), bUsePrunedPaths.value_or(false)), &NavPoint, &distance);
+	Frame::CreatedIterator = std::make_unique<ReachablePathnodesIterator>(selfPawn->GetPathnodeList(UObject::Cast<UActor>(FromPoint), bUsePrunedPaths.value_or(false), true), &NavPoint, &distance);
 }
 
 void NPawn::StrafeFacing_Deus(UObject* Self, const vec3& NewDestination, UObject* NewTarget, std::optional<float> speed)

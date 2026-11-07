@@ -416,14 +416,15 @@ namespace
 	}
 
 	// 0x103da880: the goal within 800 units of the anchor, in its line of
-	// sight, and pointReachable with the pawn moved onto the anchor -- where it
-	// is left, the caller putting it back. Otherwise the pawn's list is cut to
+	// sight -- the line traced from the goal to the anchor (0x103da93e) --
+	// and pointReachable with the pawn moved onto the anchor, where it is
+	// left, the caller putting it back. Otherwise the pawn's list is cut to
 	// its first node.
 	bool ReachableFromAnchor(UPawn* pawn, SortedPathList& list, const vec3& goal)
 	{
 		UNavigationPoint* anchor = list.Path[0];
 		vec3 standing = pawn->Location();
-		if (SquaredDistance(goal, anchor->Location()) < 640000 && pawn->FastTrace(goal, anchor->Location()))
+		if (SquaredDistance(goal, anchor->Location()) < 640000 && pawn->FastTrace(anchor->Location(), goal))
 		{
 			if (pawn->TestMoveTo(anchor->Location(), false))
 			{
@@ -533,19 +534,13 @@ vec3 UPawn::JumpLanding(vec3 velocity, bool movePawn)
 	const float timeStep = 0.1f;
 	vec3 start = Location();
 
-	// Each test move puts the pawn's regions where it is, its feet's and
-	// head's too, as the original's MoveActor sets them for a test move
-	// (ULevel::SetActorZone 0x1039b940, a test setting the regions with no
-	// events): FindBestJump's pain test reads the feet's.
-	auto moveBy = [&](const vec3& delta)
-		{
-			CollisionHit hit = TryMove(delta, true);
-			Location() += delta * hit.Fraction;
-			Region() = FindRegion();
-			FootRegion() = FindRegion({ 0.0f, 0.0f, -CollisionHeight() });
-			HeadRegion() = FindRegion({ 0.0f, 0.0f, EyeHeight() });
-			return hit;
-		};
+	// Each move is the reach tests' (ReachTestMove), as the original's three
+	// are MoveActor's test moves that pass pawns over (0x103c2530): held off
+	// 2 units, through pawns and decorations that are not bStatic, and setting
+	// the pawn's regions where it is, its feet's and head's too (a test's
+	// ULevel::SetActorZone 0x1039b940, with no events): FindBestJump's pain
+	// test reads the feet's.
+	auto moveBy = [&](const vec3& delta) { return ReachTestMove(delta); };
 
 	bool landed = false;
 	int steps = 0;
@@ -554,8 +549,19 @@ vec3 UPawn::JumpLanding(vec3 velocity, bool movePawn)
 		UZoneInfo* zone = Region().Zone;
 		if (!zone)
 			break;
-		velocity = velocity * (1.0f - timeStep * zone->ZoneFluidFriction()) + zone->ZoneGravity() * timeStep;
-		vec3 delta = (velocity + zone->ZoneVelocity()) * timeStep;
+
+		// The step in the original's float order: the x87's sums doubles,
+		// its stores floats, the gravity's Z and the friction unrounded
+		double friction = 1.0 - (double)timeStep * zone->ZoneFluidFriction();
+		const vec3& gravity = zone->ZoneGravity();
+		const vec3& zoneVelocity = zone->ZoneVelocity();
+		velocity.x = (float)((double)(float)(velocity.x * friction) + (double)(float)((double)timeStep * gravity.x));
+		velocity.y = (float)((double)(float)(velocity.y * friction) + (double)(float)((double)timeStep * gravity.y));
+		velocity.z = (float)((double)(float)(velocity.z * friction) + (double)timeStep * gravity.z);
+		vec3 delta(
+			(float)((double)(float)((double)velocity.x + zoneVelocity.x) * timeStep),
+			(float)((double)(float)((double)velocity.y + zoneVelocity.y) * timeStep),
+			(float)(((double)velocity.z + zoneVelocity.z) * timeStep));
 
 		CollisionHit hit = moveBy(delta);
 		if (Region().Zone && Region().Zone->bWaterZone())
@@ -571,8 +577,14 @@ vec3 UPawn::JumpLanding(vec3 velocity, bool movePawn)
 			else
 			{
 				vec3 oldHitNormal = hit.Normal;
-				vec3 slide = (delta - hit.Normal * dot(delta, hit.Normal)) * (1.0f - hit.Fraction);
-				if (dot(delta, slide) >= 0.0f)
+				const vec3& n = hit.Normal;
+				double along = ((double)n.y * delta.y + (double)n.x * delta.x) + (double)delta.z * n.z;
+				float restY = (float)((double)delta.y - (double)(float)(n.y * along));
+				float restZ = (float)((double)delta.z - (double)(float)(along * n.z));
+				double remaining = 1.0 - hit.Fraction;
+				double slideX = ((double)delta.x - along * n.x) * remaining;
+				vec3 slide((float)slideX, (float)(restY * remaining), (float)(restZ * remaining));
+				if (((double)delta.z * slide.z + (double)delta.y * slide.y) + slideX * delta.x >= 0.0)
 				{
 					hit = moveBy(slide);
 					if (hit.Fraction < 1.0f)
@@ -591,7 +603,8 @@ vec3 UPawn::JumpLanding(vec3 velocity, bool movePawn)
 		}
 
 		steps++;
-		if (Region().ZoneNumber == 0 || steps > 35 || dot(velocity, velocity) > 2500000.0f)
+		double speedSq = ((double)velocity.x * velocity.x + (double)velocity.y * velocity.y) + (double)velocity.z * velocity.z;
+		if (Region().ZoneNumber == 0 || steps > 35 || speedSq > 2500000.0)
 		{
 			TestMoveTo(start, true);
 			landed = true;

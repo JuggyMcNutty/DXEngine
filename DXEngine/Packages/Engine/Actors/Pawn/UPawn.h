@@ -141,9 +141,10 @@ public:
 	// R_PLAYERONLY 64), as the original's calcMoveFlags packs them.
 	int CalcMoveFlags();
 	// The original's GetPathnodeList: up to 32 navigation points and their
-	// distances, nearest first, from a start node's paths, or the nearest
-	// reachable nodes within 1,000 units when there is no start node.
-	Array<std::pair<UNavigationPoint*, float>> GetPathnodeList(UActor* fromPoint, bool usePrunedPaths);
+	// distances, from a start node's paths, or with no start node 32 within
+	// 1,000 units picked in the level's order and then those the pawn can
+	// reach; sorted nearest first as the original's qsort leaves them.
+	Array<std::pair<UNavigationPoint*, float>> GetPathnodeList(UActor* fromPoint, bool usePrunedPaths, bool sorted);
 	void ComputePathnodeDistances(UActor* startActor);
 
 	float& AccelRate() { return Value<float>(PropOffsets_Pawn.AccelRate); }

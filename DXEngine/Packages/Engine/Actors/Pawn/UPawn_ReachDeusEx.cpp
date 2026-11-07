@@ -8,7 +8,9 @@
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Collision/TopLevel/CollisionSystem.h"
 #include "Collision/TopLevel/CollisionHit.h"
+#include "Utils/Logger.h"
 #include "Engine.h"
+#include <cstdio>
 
 // Deus Ex's reachability tests, the original's (engine-dll.md, reaching): its
 // pointReachable and actorReachable, the Reachable they ask, the walk, fly
@@ -48,11 +50,15 @@ namespace
 	}
 }
 
-// ULevel::MoveActor as the reach tests move a pawn (bTest and bIgnorePawns):
-// along the delta until the level, or an actor that blocks it, stops it --
-// held off it as every move is (TryMoveHeldOff), no events -- with its zones
-// found again silently. Deus Ex's bIgnorePawns passes through pawns and
-// decorations alike, unless bStatic (Engine.dll 0x103995f1).
+// ULevel::MoveActor as the reach tests move a pawn (bTest and bIgnorePawns,
+// bIgnoreBases 0): along the delta until the level, or an actor that blocks
+// it, stops it -- held off it as every move is (TryMoveHeldOff), no events --
+// with its zones found again silently. Passed over (Engine.dll 0x103995f1):
+// pawns and Deus Ex's decorations that are not bStatic, and what stands on
+// the pawn; not what the pawn stands on, so a lift's floor holds it. What
+// blocks is the original's IsBlockedBy (EncroachBlockedBy): a mover blocks a
+// pawn that collides with the world by the mover's bBlockActors, whether or
+// not the pawn blocks actors.
 CollisionHit UPawn::ReachTestMove(const vec3& delta)
 {
 	CollisionHit blockingHit;
@@ -61,28 +67,20 @@ CollisionHit UPawn::ReachTestMove(const vec3& delta)
 
 	if (bCollideWorld() || bBlockActors() || bBlockPlayers())
 	{
-		bool useBlockPlayers = IsPlayerOrProjectile();
 		CollisionHitList hits = XLevel()->Collision.Trace(Location(), Location() + HeldOffDelta(delta), CollisionHeight(), CollisionRadius(), bCollideActors(), bCollideWorld(), false);
 		for (const CollisionHit& hit : hits)
 		{
 			if (hit.Actor)
 			{
-				if (hit.Actor == this || (!hit.Actor->bStatic() && (hit.Actor->IsA("Pawn") || hit.Actor->IsA("Decoration"))))
+				if (!hit.Actor->bStatic() && (hit.Actor->IsA("Pawn") || hit.Actor->IsA("Decoration")))
 					continue;
-				bool isBlocking = (useBlockPlayers || hit.Actor->IsPlayerOrProjectile())
-					? (hit.Actor->bBlockPlayers() && bBlockPlayers())
-					: (hit.Actor->bBlockActors() && bBlockActors());
-				if (isBlocking && !hit.Actor->IsBasedOn(this) && !IsBasedOn(hit.Actor))
-				{
-					blockingHit = hit;
-					break;
-				}
+				// IsBasedOn(hit.Actor): the hit's actor stands on this pawn
+				// (or is it)
+				if (IsBasedOn(hit.Actor) || !EncroachBlockedBy(hit.Actor))
+					continue;
 			}
-			else
-			{
-				blockingHit = hit;
-				break;
-			}
+			blockingHit = hit;
+			break;
 		}
 		blockingHit.Fraction = HeldOffFraction(delta, blockingHit.Fraction);
 	}
@@ -271,23 +269,38 @@ void UPawn::SuggestJumpVelocity(vec3 dest, vec3& vel)
 	vel.z = jumpZ;
 }
 
-// APawn::FindBestJump (Engine.dll 0x103c2f50): a jump toward the destination,
-// landed (jumpLanding), counts where it comes down more than 8 units nearer,
-// not 350 or more below where it started, out of a pain zone the pawn does not
-// resist, and out of water unless the pawn can swim.
+// APawn::FindBestJump (Engine.dll 0x103c2f50): a jump toward the destination
+// at the pawn's JumpZ (0x103c2f87), landed (jumpLanding), counts where it
+// comes down more than 8 units nearer, not 350 or more below where it started,
+// out of a pain zone the pawn does not resist, and out of water unless the
+// pawn can swim. A fall of 350 or more is logged (0x103c30f6). The x87's sums
+// are doubles here, its stores floats.
 bool UPawn::FindBestJump(vec3 dest, vec3 testVel, vec3& landing, bool movePawn)
 {
 	vec3 start = Location();
+	testVel.z = JumpZ();
 	SuggestJumpVelocity(dest, testVel);
 	landing = JumpLanding(testVel, true);
 
 	bool found = false;
 	if (!PainFor(this, FootRegion().Zone) && (bCanSwim() || !Water(Region().Zone)))
 	{
-		float before = length(dest - start);
-		float after = length(dest - Location());
-		if (start.z - Location().z < 350.0f && before - after > 8.0f)
-			found = true;
+		vec3 before = dest - start;
+		vec3 after = dest - Location();
+		double odS = std::sqrt(((double)before.x * before.x + (double)before.y * before.y) + (double)before.z * before.z);
+		double dS = std::sqrt(((double)after.x * after.x + (double)after.y * after.y) + (double)after.z * after.z);
+		float nc = (float)((double)(float)odS - dS);
+		if ((double)start.z - Location().z < 350.0)
+		{
+			found = nc > 8.0f;
+		}
+		else
+		{
+			// The original's own line (its text at 0x10481960)
+			char text[160];
+			snprintf(text, sizeof(text), "FAILING FBJ: nc %f from odS %f and dS %f and dz %f success %d", nc, odS, (double)(float)dS, (double)Location().z - start.z, 0);
+			LogMessage(text);
+		}
 	}
 	if (!movePawn)
 		TestMoveTo(start, true);
