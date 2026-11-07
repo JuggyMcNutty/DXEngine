@@ -2,9 +2,14 @@
 // CapFinisher: FinishConsole's actor, a market tarp whose state code calls
 // FinishAnim after a PlayAnim, after a TweenAnim with a time, with nothing
 // animating, and after a LoopAnim, logging the level's time as each
-// FinishAnim returns, with "DXFINISH:".
+// FinishAnim returns, with "DXFINISH:". Its Tick is its own, so the tarp's
+// random blowing never starts during a wait.
 //=============================================================================
 class CapFinisher extends HKMarketTarp;
+
+function Tick(float DeltaTime)
+{
+}
 
 function Say(string S)
 {

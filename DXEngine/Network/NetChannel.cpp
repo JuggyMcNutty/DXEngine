@@ -34,6 +34,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 
 NetChannel::NetChannel(NetConnection* connection, int chIndex, bool openedLocally, ChannelType type) :
 	Connection(connection), ChIndex(chIndex), OpenedLocally(openedLocally), ChType(type)
@@ -747,6 +748,31 @@ namespace
 			return &list;
 		}
 	};
+
+	// The native lists' comparison (their NEQ, Engine.dll: the PRI's Score
+	// at 0x10365fd4, Actor's Location at 0x10362589): a float, and each of
+	// a vector's or a plane's, by its bits, so a change from 0.0 to -0.0
+	// goes and a NaN that stays does not; anything else as the property
+	// compares it.
+	bool SameBits(UProperty* prop, const void* a, const void* b)
+	{
+		if (UObject::TryCast<UFloatProperty>(prop))
+			return std::memcmp(a, b, sizeof(float)) == 0;
+		UStructProperty* structProp = UObject::TryCast<UStructProperty>(prop);
+		if (!structProp || !structProp->Struct)
+			return prop->CompareElement(a, b);
+		for (UProperty* member : structProp->Struct->Properties)
+		{
+			const uint8_t* memberA = static_cast<const uint8_t*>(a) + member->DataOffset.DataOffset;
+			const uint8_t* memberB = static_cast<const uint8_t*>(b) + member->DataOffset.DataOffset;
+			for (int i = 0; i < member->ArrayDimension; i++)
+			{
+				if (!SameBits(member, member->GetElement(memberA, i), member->GetElement(memberB, i)))
+					return false;
+			}
+		}
+		return true;
+	}
 }
 
 void NetActorChannel::ReplicateActor()
@@ -832,7 +858,8 @@ void NetActorChannel::ReplicateActor()
 	// What goes: each replicated element whose value is not what this
 	// client last got and whose replication statement holds, each
 	// statement evaluated once. A reference to an actor the client has no
-	// channel for yet counts as none until it has one.
+	// channel for yet counts as none until it has one; the native lists'
+	// floats differ by their bits (SameBits), the script classes' by value.
 	const uint8_t* recent = Recent() ? Recent() : static_cast<const uint8_t*>(ActorClass->PropertyData.Data);
 	std::map<std::pair<UClass*, uint16_t>, bool> conditions;
 	Array<int> reps;
@@ -874,6 +901,8 @@ void NetActorChannel::ReplicateActor()
 			bool same;
 			if (objectProp && !map.CanSerializeObject(*static_cast<UObject* const*>(value)))
 				same = *static_cast<UObject* const*>(last) == nullptr;
+			else if (native && nativeClass)
+				same = SameBits(prop, last, value);
 			else
 				same = prop->CompareElement(last, value);
 			if (same)

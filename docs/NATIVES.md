@@ -1179,9 +1179,14 @@ through a 0.4 s tick, four `AnimEnd`s and frame 0 after in both).
 `FinishAnim` waits as the original's does: not at all with nothing playing
 or tweening, or with the frame at `AnimLast` or past, else until the
 animation finishes -- a tween's whole time after a `TweenAnim`
-(`FinishConsole`). A sequence name the mesh lacks is none: `HasAnim` false,
-`GetAnimGroup` None, and `PlayAnim`, `LoopAnim`, `TweenAnim` and
-`PlayBlendAnim` of it play nothing, as the original's `GetAnimSeq` answers
+(`FinishConsole`). Its poll comes after the tick's animation, `AnimEnd` and
+`Tick`, and lets the wait go once `bAnimFinished` is set: an `AnimEnd` that
+starts another animation has it wait for that one too, and a loop started
+while it waits finishes at its pass over `AnimLast`, `bAnimFinished` set
+for the `AnimEnd` and the code after (`FinishWrapConsole`). A sequence
+name the mesh lacks is none: `HasAnim` false, `GetAnimGroup` None, and
+`PlayAnim`, `LoopAnim`, `TweenAnim` and `PlayBlendAnim` of it play nothing,
+as the original's `GetAnimSeq` answers
 (`AnimNameConsole`); an actor whose `AnimSequence` the mesh lacks -- None,
 most decorations' -- is drawn at the mesh's first frame, as the original's
 `GetFrame` draws it. `PlayAnim`, `LoopAnim` and `TweenAnim` start as the
@@ -1204,9 +1209,6 @@ ends in its first, none on a tick that stopped it, spent its four passes,
 or whose loop ended its step between `AnimLast` and 1.0 (`BlendFieldsConsole`'s
 stage e: a head turn 0.4 s still while Paul Denton's breathing runs from
 `AnimLast` to its wrap, at 0 some 1.41 s in, in both engines).
-
-Differs (bugs.md AI.15): a loop that wraps with a `FinishAnim` waiting lets
-the wait go with `bAnimFinished` as it was, where the original's sets it.
 
 ### Lists
 
@@ -3056,7 +3058,12 @@ As in the original:
   when its property's compare finds it apart from that, a string's without
   case, as the original's `Identical` and its native lists' `appStricmp`
   take it: a name changed in case alone does not go (read: Engine.dll
-  `0x103fead0`, `0x103616e0`).
+  `0x103fead0`, `0x103616e0`). The native lists' floats, a vector's and a
+  plane's too, differ by their bits, so a change from 0 to -0 goes and a
+  NaN that stays does not go again (`FloatBitsServeConsole` with
+  `FloatBitsJoinConsole`, each engine the server and the other's client:
+  each change of `Deaths` the client was in for reaches it, -0 and the NaN
+  among them).
 - A call that goes to the other side, and one a simulated or dumb proxy does
   not run (a function not simulated), writes nothing: the original's
   `ProcessInternal` runs none of it
@@ -3076,6 +3083,11 @@ As in the original:
   `AnimEndJoinConsole`, each engine the server and the other's client: the
   server's pawn sent 3, 5 and 3 by stage, the client none, its stops and
   wraps the server's).
+- A pawn whose own role is simulated proxy moves along its velocity and
+  runs its `Tick`, nothing more -- no state code, timer, life span or
+  physics --, whatever the net mode, as the original's actor tick has it
+  (`SimRoleConsole`: a pawn made one in single player moves 120 units in
+  3 s, its timer, state code and life span never run, in both engines).
 - **A dedicated server** makes each joining player's own root window, as the
   original's `Possess` does, and lays its windows out on the base 640 by
   480, having no viewport, its windows' scripts measuring with the GC as it
@@ -3130,12 +3142,7 @@ its number and bool forms; an arriving player takes its travel info on a
 relative travel alone, and a client's travel leaves out a player whose
 replication info has not come, where the original's reads it. Differs
 (bugs.md NET.20): a `TcpLink` whose `BindPort` failed goes on as any other;
-its `ReadText` reads 999 bytes, the original's 255. Differs (bugs.md
-NET.16): a simulated proxy pawn's own path, its move along its velocity and
-its `Tick` alone, runs only in a net game, where the original's runs
-whatever the net mode; no stock actor is one outside a net game. Differs
-(bugs.md NET.17): the native replication lists' floats compared by value,
-the original's by their bits, so a change from 0.0 to -0.0 does not go.
+its `ReadText` reads 999 bytes, the original's 255.
 
 ## Not needed for single player
 

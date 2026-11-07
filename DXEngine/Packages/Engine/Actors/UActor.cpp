@@ -391,6 +391,15 @@ void UActor::PollLatentAction(float elapsed)
 		if (elapsed * 0.5 > left)
 			StateFrame->LatentState = LatentRunState::Continue;
 	}
+	else if (StateFrame->LatentState == LatentRunState::FinishAnim)
+	{
+		// The original's PollFinishAnim (Engine.dll 0x103e00a0): the wait
+		// over once bAnimFinished is set, as the tick's animation, its
+		// AnimEnd and the script's Tick leave it: an AnimEnd that starts
+		// another animation clears it, and the wait goes on for that one
+		if (bAnimFinished())
+			StateFrame->LatentState = LatentRunState::Continue;
+	}
 	else if (StateFrame->LatentState == LatentRunState::FinishInterpolation)
 	{
 		if (!bInterpolating())
@@ -409,13 +418,15 @@ void UActor::Tick(float elapsed)
 	// it leaves them (TickAnimation)
 	TickAnimation(elapsed);
 
-	// A net game's copies tick as the original's do by their roles: another
-	// player's pawn moves along its velocity, falling at half the zone's
-	// gravity when off the ground, and runs its Tick, nothing more; a dumb
-	// proxy only falls; the local player's physics run in its own moves
-	// (AutonomousPhysics), not here.
+	// Copies tick as the original's do by their roles: a pawn that is a
+	// simulated proxy, whatever the net mode (AActor::Tick 0x103a1fd2) --
+	// on a client another player's pawn -- moves along its velocity
+	// (moveSmooth, its bJustTeleported kept, 0x103a2172), falling at half
+	// the zone's gravity when off the ground, and runs its Tick, nothing
+	// more; in a net game a dumb proxy only falls; the local player's
+	// physics run in its own moves (AutonomousPhysics), not here.
 	bool netGame = Level()->NetMode() != NM_Standalone;
-	if (netGame && Role() == ROLE_SimulatedProxy && bIsPawn())
+	if (Role() == ROLE_SimulatedProxy && bIsPawn())
 	{
 		if (UPawn* pawn = UObject::TryCast<UPawn>(this))
 		{
@@ -430,7 +441,7 @@ void UActor::Tick(float elapsed)
 				if ((hit.Fraction == 1.0f || hit.Normal.z < 0.7f) && zone)
 					Velocity() += zone->ZoneGravity() * (0.5f * elapsed);
 			}
-			MoveSmooth(Velocity() * elapsed);
+			TryMoveSmooth(Velocity() * elapsed);
 			if (IsEventEnabled(EventName::Tick))
 				CallEvent(this, EventName::Tick, { ExpressionValue::FloatValue(elapsed) });
 			return;

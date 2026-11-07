@@ -27,9 +27,10 @@ void UActor::FinishAnim()
 
 	// The original's execFinishAnim (Engine.dll 0x103dff60): no wait with no
 	// sequence, with nothing playing or tweening, or with the frame at
-	// AnimLast or past; else the latent wait, which the tick releases when
-	// the animation finishes (bAnimFinished): a non-loop's end, a loop's
-	// AnimLast, a tween's end with no rate to go on at
+	// AnimLast or past; else the latent wait, which its poll ends once the
+	// animation has finished (bAnimFinished, PollLatentAction): a non-loop's
+	// end, a tween's end with no rate to go on at, a loop's AnimLast while
+	// the wait runs
 	if (!StateFrame || AnimSequence().IsNone())
 		return;
 	bool moving = AnimFrame() < 0.0f ? TweenRate() != 0.0f : AnimRate() != 0.0f;
@@ -394,11 +395,6 @@ void UActor::TweenAnim(const NameString& sequence, float tweenTime)
 
 void UActor::TickAnimation(float elapsed)
 {
-	// The original's poll (execPollFinishAnim, 0x103e00a0): the wait ends
-	// once the animation has finished, a tween's included
-	if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim && bAnimFinished())
-		StateFrame->LatentState = LatentRunState::Continue;
-
 	// The main animation moves while a sequence is set and it tweens at a
 	// rate or plays at one, as the original checks it before each pass and,
 	// for the blend slots, after them (0x103a1bf9, 0x103a1fa1)
@@ -409,7 +405,7 @@ void UActor::TickAnimation(float elapsed)
 	// before the passes (0x103a1ba8-0x103a1bed: bIsPawn, a Pawn, its own
 	// Role simulated proxy) and skips the three sends by it (0x103a1e34,
 	// 0x103a1e88, 0x103a1f6c): its frame, its end, its finish, a loop's
-	// wrap, a FinishAnim let go and its notifies all as any other's.
+	// wrap and its notifies all as any other's.
 	bool sendAnimEnd = !(Role() == ROLE_SimulatedProxy && bIsPawn() && IsA("Pawn"));
 
 	// Four passes a tick, as the original's AActor::Tick runs them (Engine.dll
@@ -471,8 +467,9 @@ void UActor::TickAnimation(float elapsed)
 				// Past AnimLast a loop goes on to 1.0 in the same pass: it
 				// wraps to 0 with the time past 1.0 kept for the next pass, or
 				// stops where the step took it with no time left. AnimEnd when
-				// the pass crossed AnimLast from below (and a FinishAnim
-				// waiting on it goes on).
+				// the pass crossed AnimLast from below, the animation first
+				// finished if a FinishAnim waits (0x103a1e20), so that the
+				// wait's poll ends it after the AnimEnd.
 				bool crossed = fromAnimTime < AnimLast();
 				if (toAnimTime >= 1.0f)
 				{
@@ -487,7 +484,7 @@ void UActor::TickAnimation(float elapsed)
 				if (crossed)
 				{
 					if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim)
-						StateFrame->LatentState = LatentRunState::Continue;
+						bAnimFinished() = true;
 					if (sendAnimEnd)
 						CallEvent(this, EventName::AnimEnd);
 				}
@@ -501,8 +498,6 @@ void UActor::TickAnimation(float elapsed)
 			AnimFrame() = AnimLast();
 			AnimRate() = 0.0f;
 			bAnimFinished() = true;
-			if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim)
-				StateFrame->LatentState = LatentRunState::Continue;
 
 			if (sendAnimEnd)
 				CallEvent(this, EventName::AnimEnd);
@@ -532,9 +527,6 @@ void UActor::TickAnimation(float elapsed)
 
 			if (AnimRate() == 0.0f)
 			{
-				if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim)
-					StateFrame->LatentState = LatentRunState::Continue;
-
 				bAnimFinished() = true;
 				if (sendAnimEnd)
 					CallEvent(this, EventName::AnimEnd);
