@@ -893,7 +893,9 @@ the eye's line in its normals in the world's axes, as the original's
 bytes ÷ 256 of the texture's size: `FaceConsole`'s UNATCO troop at a
 correlation of 0.997 to `D3DDrv`'s frame, its chest 0.999.
 A budget past an int's range (a script's `LODBias` or `DrawScale`) is held
-to the mesh's vertices.
+to the mesh's vertices. Differs (bugs.md REN.40): a plain mesh's back faces
+are drawn, where the original culls them, a translucent or open one showing
+its far side.
 
 ### Lighting
 
@@ -1782,7 +1784,9 @@ BSP muffled -- a closed door's too, the movers in it where it filed them
 wall test is the solid-space walk the original's `FastLineCheck` makes
 (`FastWalk`, the hearing test's): a solid brush muffles through its
 invisible faces too, open space on both sides of a polygon does not
-(`SoundConsole`'s wall, recorded on both engines). Who hears
+(`SoundConsole`'s wall, recorded on both engines). Differs (bugs.md AUD.18):
+a line of 0.01 or shorter is not walked, so a listener inside solid hears a
+sound that close unmuffled. Who hears
 a sound an actor plays is the original's too
 ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds)):
 the player within the radius ÷ √1.3, and with the level's BSP between, at
@@ -2768,6 +2772,10 @@ package `Transient`, a level's and its actors' their map's, a texture in no
 group its package's (`Vm29Console`, `NewOuterConsole`, `ConObjectsConsole`:
 every `Outer` alike in both engines; each engine's save loads in the other).
 
+Differs (bugs.md PHYS.24): a physics move of exactly 0.0001 on an axis,
+as a float, is a move, where the original's `MoveActor`, comparing with the
+double 0.0001, takes it as none.
+
 ## The command line
 
 The original's command line reaches DXEngine as one string, `--cmdline=`,
@@ -2792,6 +2800,8 @@ What DXEngine does with each:
   after `SERVER`) unless it starts with `-`; else the game's own start,
   `DX.dx`
   ([starting the game engine](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#starting-the-game-engine)).
+  Differs (bugs.md ENG.22): an ini whose `[URL] LocalMap` names another map
+  starts there, where the original's starts at `DX.dx` whatever it names.
   `?loadgame=N` there, or as `--url`, starts a client on slot N's save,
   loaded before any map but Entry, as the original's first browse loads it
   (`StartConsole`, the original's with `DXCAP_START`), whatever map it
@@ -3112,6 +3122,9 @@ given itself as its macro texture, has the GL and Vulkan devices' frames at
 border, within 0.94 to 1.04 (without the macro, [lighting](#lighting)). The
 D3D11 device keeps Surreal Engine's
 ([where it stands](../README.md#for-advanced-users)).
+
+Differs (bugs.md ENG.23): a single-player level drops its client-only
+actors, where the original's keeps them; no stock map has one.
 
 ## Multiplayer
 
