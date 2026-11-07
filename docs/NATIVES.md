@@ -2929,6 +2929,10 @@ What DXEngine does with each:
     and `-safe`'s no DirectInput (DXEngine's input is its window's, SDL's
     under the launchers).
 
+Differs (bugs.md ENG.24): the player's settings read again from the user
+ini take `yes` and `no` for a bool, where the original's take 1, `True`, 0
+and `False` alone.
+
 An `INI=` name with no extension is one file, by choice, where the
 original's is two, a defect that sends the launcher's choices where the
 game does not read them: its config cache adds `.ini` to a name of fewer
