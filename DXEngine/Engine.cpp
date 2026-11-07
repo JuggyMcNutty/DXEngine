@@ -848,8 +848,8 @@ UnrealURL Engine::GetDefaultURL(const std::string& map)
 Array<std::string> Engine::DefaultPlayerOptionKeys()
 {
 	Array<std::string> keys;
-	for (const NameString& key : packages->GetIniKeysFromSection("user", "DefaultPlayer"))
-		keys.push_back(key.ToString());
+	for (const std::string& key : packages->GetIniKeysFromSection("user", "DefaultPlayer"))
+		keys.push_back(key);
 	return keys;
 }
 
@@ -1887,14 +1887,17 @@ void Engine::SaveCurrentLevel(int32_t slot)
 	const auto folder = packages->GetSaveFolderPath() / SaveSlotFolderName(slot);
 	if (!fs::exists(folder))
 		fs::create_directories(folder);
-	const auto levelName = Level->package->GetPackageName().ToString() + "." + packages->GetSaveExtension();
+	// Over its file in any case, as Windows' file system writes it: the
+	// level's name is spelt as it was first made, which a file there from
+	// another session or the original may not be (bugs.md VM.25)
+	const fs::path levelFile = Directory::resolveCase(folder / (Level->package->GetPackageName().ToString() + "." + packages->GetSaveExtension()));
 	packages->CloseStreams();
-	fs::remove(folder / levelName);
+	fs::remove(levelFile);
 	// The destroyed actors let go first, as the original's save does: the
 	// file holds none of them.
 	Level->CleanupDestroyed(true);
 	SetLevelURLForSave();
-	LevelPackage->Save(Level, (folder / levelName).string());
+	LevelPackage->Save(Level, levelFile.string());
 	// And makes its brush tracker again, as the original's SaveGame does:
 	// the movers filed where they are, a destroyed one's polygons gone
 	Level->Collision.FileMovers();

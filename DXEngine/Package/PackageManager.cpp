@@ -329,7 +329,7 @@ Package* PackageManager::GetPackage(const NameString& name)
 	if (package)
 		return package.get();
 	
-	auto it = packageFilenames.find(name);
+	auto it = packageFilenames.find(NameString::Folded(name.ToString()));
 	if (it != packageFilenames.end())
 	{
 		package.set(GC::Alloc<Package>(this, name, it->second));
@@ -344,7 +344,7 @@ Package* PackageManager::GetPackage(const NameString& name)
 
 bool PackageManager::IsMapPackage(const NameString& name) const
 {
-	auto it = packageFilenames.find(name);
+	auto it = packageFilenames.find(NameString::Folded(name.ToString()));
 	if (it == packageFilenames.end())
 		return false;
 	std::string ext = fs::path(it->second).extension().string();
@@ -425,7 +425,7 @@ Package* PackageManager::LoadMapFile(const NameString& name, const std::string& 
 
 std::string PackageManager::FindPackageFile(const NameString& name, const std::string& guid)
 {
-	auto it = packageFilenames.find(name);
+	auto it = packageFilenames.find(NameString::Folded(name.ToString()));
 	if (it != packageFilenames.end())
 		return it->second;
 	if (!guid.empty())
@@ -513,12 +513,13 @@ bool PackageManager::IsPackageLoaded(const NameString& name) const
 
 void PackageManager::UsePackageFile(const NameString& name, const std::string& path)
 {
+	const std::string key = NameString::Folded(name.ToString());
 	if (replacedPackageFilenames.find(name) == replacedPackageFilenames.end())
 	{
-		auto it = packageFilenames.find(name);
+		auto it = packageFilenames.find(key);
 		replacedPackageFilenames[name] = it != packageFilenames.end() ? it->second : std::string();
 	}
-	packageFilenames[name] = path;
+	packageFilenames[key] = path;
 }
 
 void PackageManager::RestorePackageFiles()
@@ -532,9 +533,9 @@ void PackageManager::RestorePackageFiles()
 			continue;
 		}
 		if (it->second.empty())
-			packageFilenames.erase(it->first);
+			packageFilenames.erase(NameString::Folded(it->first.ToString()));
 		else
-			packageFilenames[it->first] = it->second;
+			packageFilenames[NameString::Folded(it->first.ToString())] = it->second;
 		it = replacedPackageFilenames.erase(it);
 	}
 }
@@ -555,9 +556,9 @@ void PackageManager::ReleaseNetPackages(const Array<NameString>& keep)
 			LogMessage("Releasing package " + it->first.ToString());
 		packages.erase(it->first);
 		if (it->second.empty())
-			packageFilenames.erase(it->first);
+			packageFilenames.erase(NameString::Folded(it->first.ToString()));
 		else
-			packageFilenames[it->first] = it->second;
+			packageFilenames[NameString::Folded(it->first.ToString())] = it->second;
 		it = replacedPackageFilenames.erase(it);
 	}
 }
@@ -660,6 +661,9 @@ Package* PackageManager::LoadSaveFile(const std::string& path)
 	if (!fullPath.has_extension() || !StrTools::equals_ignore_case(fullPath.extension().string(), "." + GetSaveExtension()))
 		fullPath.replace_extension(GetSaveExtension());
 
+	// Found in any case, as Windows' file system finds it: a map's name is
+	// spelt as it was first made, which its file in a save may not be
+	fullPath = Directory::resolveCase(fullPath);
 	if (fs::exists(fullPath))
 		return GC::Alloc<Package>(this, fullPath.stem().string(), fullPath.string());
 
@@ -730,10 +734,10 @@ void PackageManager::ScanFolder(const std::string& packagedir, const std::string
 			// Extensions matched as Windows matches them, whatever their case.
 			if (dir_entry.is_regular_file() && StrTools::equals_ignore_case(dir_entry.path().extension().string(), searchExt.string()))
 			{
-				NameString fileNameString(dir_entry.path().stem().string());
-				auto it = packageFilenames.find(fileNameString);
+				const std::string key = NameString::Folded(dir_entry.path().stem().string());
+				auto it = packageFilenames.find(key);
 				if (it == packageFilenames.end())
-					packageFilenames[fileNameString] = (packageDirPath / dir_entry.path().filename()).string();
+					packageFilenames[key] = (packageDirPath / dir_entry.path().filename()).string();
 			}
 		}
 	}
@@ -973,8 +977,10 @@ std::unique_ptr<IniFile>& PackageManager::LoadIniFile(NameString iniName)
 		// is, until its SaveConfig writes it (a mod's, as DXMTL.ini). With
 		// --userdir it lives there: read from there first, else from the
 		// game's System folder, and written there.
-		const auto iniFilePath = gameSystemFolderPath / (iniName.ToString() + ".ini");
-		const auto savePath = Directory::hasEngineUserDir() ? Directory::engineUserDir() / (iniName.ToString() + ".ini") : iniFilePath;
+		// Found in any case, as Windows' file system finds it: the config
+		// name is spelt as it was first made, which the file may not be
+		const auto iniFilePath = Directory::resolveCase(gameSystemFolderPath / (iniName.ToString() + ".ini"));
+		const auto savePath = Directory::hasEngineUserDir() ? Directory::resolveCase(Directory::engineUserDir() / (iniName.ToString() + ".ini")) : iniFilePath;
 		std::error_code ec;
 		if (fs::exists(savePath, ec))
 		{
@@ -1024,7 +1030,7 @@ std::unique_ptr<IniFile>& PackageManager::LoadSystemIniFile()
 }
 
 
-Array<NameString> PackageManager::GetIniKeysFromSection(NameString iniName, const NameString& sectionName)
+Array<std::string> PackageManager::GetIniKeysFromSection(NameString iniName, const NameString& sectionName)
 {
 	return LoadIniFile(iniName)->GetKeys(sectionName);
 }
@@ -1075,7 +1081,7 @@ void PackageManager::ResetIniSection(NameString iniName, const NameString& secti
 		return;
 
 	auto& ini = LoadIniFile(iniName);
-	for (const NameString& key : defaults->GetKeys(sectionName))
+	for (const std::string& key : defaults->GetKeys(sectionName))
 	{
 		std::string value;
 		if (defaults->FindValue(sectionName, key, value))
@@ -1301,7 +1307,7 @@ void PackageManager::LoadIntFiles()
 					}
 				}
 
-				intFiles[intFileName.stem().string()].push_back(std::move(intFile));
+				intFiles[NameString::Folded(intFileName.stem().string())].push_back(std::move(intFile));
 			}
 			catch (...)
 			{
@@ -1336,13 +1342,14 @@ bool PackageManager::FindLocalized(NameString packageName, const NameString& sec
 	}
 
 	// A package with no .int at the start: one made since, looked for once.
-	auto it = intFiles.find(packageName);
+	const std::string key = NameString::Folded(packageName.ToString());
+	auto it = intFiles.find(key);
 	if (it == intFiles.end())
 	{
-		it = intFiles.emplace(packageName, std::vector<std::unique_ptr<IniFile>>()).first;
+		it = intFiles.emplace(key, std::vector<std::unique_ptr<IniFile>>()).first;
 		for (const fs::path& folder : intFolders)
 		{
-			const fs::path file = folder / (packageName.ToString() + ".int");
+			const fs::path file = Directory::resolveCase(folder / (packageName.ToString() + ".int"));
 			std::error_code ec;
 			if (!fs::is_regular_file(file, ec))
 				continue;

@@ -78,7 +78,8 @@ public:
 	void SetPath(const std::string& filename) { ini_file_path = filename; }
 	const std::string& GetPath() const { return ini_file_path; }
 
-	Array<NameString> GetKeys(const NameString& sectionName) const;
+	// The section's keys as the file spells them
+	Array<std::string> GetKeys(const NameString& sectionName) const;
 	// The key's value, of a key given twice or more the last, as the
 	// original's config cache reads it; an empty one, or none, gives
 	// defaultValue.

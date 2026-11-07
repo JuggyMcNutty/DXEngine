@@ -41,7 +41,7 @@ public:
 
 	Package* GetPackage(const NameString& name);
 	// Whether a package of that name is on the paths, and whether it is a map.
-	bool HasPackage(const NameString& name) const { return packageFilenames.find(name) != packageFilenames.end(); }
+	bool HasPackage(const NameString& name) const { return packageFilenames.find(NameString::Folded(name.ToString())) != packageFilenames.end(); }
 	bool IsMapPackage(const NameString& name) const;
 	void ScanSaveInfos();
 	Package* GetSaveInfoPackage(const NameString& saveFolderName);
@@ -120,7 +120,7 @@ public:
 	std::unique_ptr<IniFile> GetIniFile(NameString iniName);
 	std::unique_ptr<IniFile> GetUserIniFile();
 	std::unique_ptr<IniFile> GetSystemIniFile();
-	Array<NameString> GetIniKeysFromSection(NameString iniName, const NameString& sectionName);
+	Array<std::string> GetIniKeysFromSection(NameString iniName, const NameString& sectionName);
 	std::string GetIniValue(NameString iniName, const NameString& sectionName, const NameString& keyName, std::string default_value = "");
 	bool FindIniValue(NameString iniName, const NameString& sectionName, const NameString& keyName, std::string& value);
 	Array<std::string> GetIniValues(NameString iniName, const NameString& sectionName, const NameString& keyName, Array<std::string> default_values = {});
@@ -186,13 +186,17 @@ private:
 	Array<UObject*> delayLoads;
 	int delayLoadActive = 0;
 
-	std::map<NameString, std::string> packageFilenames;
+	// Each package's file by its name's Folded text: a file on the paths
+	// makes no name, so a package is spelt as the packages that use it spell
+	// it, as the original's (bugs.md VM.25)
+	std::map<std::string, std::string> packageFilenames;
 	// What UsePackageFile replaced: a name's file before, "" for none.
 	std::map<NameString, std::string> replacedPackageFilenames;
 	std::map<NameString, GCRoot<Package>> packages;
 	std::map<NameString, std::unique_ptr<IniFile>> iniFiles;
-	// Each package's .int files, in the order of the folders they are in.
-	std::map<NameString, std::vector<std::unique_ptr<IniFile>>> intFiles;
+	// Each package's .int files, in the order of the folders they are in, by
+	// its name's Folded text: a .int makes no name.
+	std::map<std::string, std::vector<std::unique_ptr<IniFile>>> intFiles;
 	// Where a .int is looked for, in order: the paths' folders as they name
 	// them, System among them where they name it, else last.
 	Array<fs::path> intFolders;

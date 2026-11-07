@@ -166,9 +166,9 @@ bool IniFile::ReadLine(const std::string& text, size_t& pos, std::string& line)
 	return true;
 }
 
-Array<NameString> IniFile::GetKeys(const NameString& sectionName) const
+Array<std::string> IniFile::GetKeys(const NameString& sectionName) const
 {
-	Array<NameString> result;
+	Array<std::string> result;
 
 	const IniSection* section = FindSection(sectionName.ToString());
 	if (section != nullptr)

@@ -2633,11 +2633,20 @@ class, a mod's class of another's name not it, and `IsA` a class by its name
 (`CastConsole`: `DXCapTwin.u`'s `CapMarker` cast and iterated as none of
 `DXCapture.u`'s, its `IsA('CapMarker')` true, in both engines).
 
-Differs (bugs.md VM.25): a name keeps each spelling it is made in, where the
-original's keeps the first made in the session: `string()` gives the case it
-was made in (`SpellingConsole`: `ANNADIES` where the original's gives
-DeusEx.u's `annadies`), and the cheats' EditFlags lists a flag as its setter
-spelt it; lookups take any case in both. Differs (bugs.md VM.29): an
+A name keeps the spelling it was first made in, every spelling of it after
+answered with that one, as the original's name table answers them
+(`FName::FName`, Core.dll `0x1014b950`): the names the original makes at its
+start in its spelling (`FName::StaticInit`), then each package's as it
+loads, so `string()` gives DeusEx.u's `annadies` for `ANNADIES` and Core's
+`Location` for `LOCATION`, and the cheats' EditFlags lists `COOLANTCUT` as
+Mission15's `coolantcut` (`SpellingConsole`, line for line the original's);
+a package's file, a `.int`, a save's level file and a class's config file
+are found in any case, as on Windows, and make no name. Differs (bugs.md
+VM.25): a map's editor-only names are made, where the original's maps them
+to None, so three of them can be a name's first spelling; a name is read as
+UTF-8 by `string()` and `GetPropertyText`, a package's as Latin-1 bytes; a
+package with a name saved 16-bit is refused, where the original's reads it.
+Differs (bugs.md VM.29): an
 object a package holds, `new(None)`'s, a level, a `ConListItem` or a
 conversation camera, has no `Outer`, where the original's names the package
 (`Vm29Console`: the level's `Outer` None, the original's `DX`); no stock
