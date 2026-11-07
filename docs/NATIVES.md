@@ -3253,7 +3253,11 @@ client's pawn, where the original's tests the roles alone. Differs (bugs.md
 NET.22): a spectating client's view targets are never filled, so it looks
 from rotation 0. Differs (bugs.md NET.23): no player is made admin, where
 the original's makes one in single player or with `-alladmin`; a `TcpLink`
-closes gracefully, the original's abortively.
+closes gracefully, the original's abortively. Differs (bugs.md NET.24): a
+map loaded again is made anew, where the original's keeps its level's
+objects; a URL of another protocol is joined, where the original's opens it
+in the browser; `?load=N` loads a save's slot; a URL is kept whole, the
+original's to 1,023 characters.
 
 ## Not needed for single player
 
