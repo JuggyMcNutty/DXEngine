@@ -290,7 +290,7 @@ void NPawn::WaitForLanding(UObject* Self)
 void NPawn::actorReachable(UObject* Self, UObject* anActor, BitfieldBool& ReturnValue)
 {
 	UPawn* SelfPawn = UObject::Cast<UPawn>(Self);
-	ReturnValue = SelfPawn->ActorReachable(UObject::Cast<UActor>(anActor), true);
+	ReturnValue = SelfPawn->DeusExActorReachableFromScript(UObject::Cast<UActor>(anActor));
 }
 
 void NPawn::pointReachable(UObject* Self, const vec3& aPoint, BitfieldBool& ReturnValue)

@@ -4,8 +4,7 @@
 // original's findPathToward, Engine.dll 0x103db3f0, from 0x103db901: the
 // lists gathered again, then definePathsFor and findEndPoint on the GOAL's
 // list -- lea ecx,[ebp+var_144] at 0x103db938 and 0x103db94d -- and the
-// search from the pawn list's first node; DXEngine runs both on the pawn's
-// list, UPawn_Path.cpp:758-766).
+// search from the pawn list's first node), as DXEngine's does.
 //
 // On Liberty Island, 1 s in, the first 12 ScriptedPawns by name, each put
 // back at its home spot (HomeLoc) and standing still: a CapMarker 300 units
@@ -13,7 +12,7 @@
 // nodes walks within 15 units of it), then FindPathToward(marker), twice
 // (once as found, once after a SetLocation back home); the answer, its place
 // and the pawn's place after logged with "DXSECOND:".
-// The two engines' answers are apart for 10 of the 24 (bugs.md AI.10).
+// The two engines' routes are alike, all 24 (bugs.md AI.10).
 //=============================================================================
 class SecondWayConsole extends Console;
 

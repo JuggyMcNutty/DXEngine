@@ -533,7 +533,7 @@ bool UPawn::AIDirectionReachable(const vec3& focus, int yaw, int pitch, float mi
 // The original's AIPickRandomDestination (0x103c7fc0): up to tries
 // directions from RandomBiasedRotation, each tested with
 // AIDirectionReachable; a multiplier below 1 stops the pawn short of what
-// it can reach.
+// it can reach, at the first step past that share of it.
 bool UPawn::AIPickRandomDestination(float minDist, float maxDist, int centralYaw, float yawDistribution, int centralPitch, float pitchDistribution, int tries, float multiplier, vec3& dest)
 {
 	dest = Location();
@@ -549,10 +549,13 @@ bool UPawn::AIPickRandomDestination(float minDist, float maxDist, int centralYaw
 			continue;
 		if (multiplier < 1.0f)
 		{
-			// Try again to multiplier of the distance reached, so the pawn
-			// stops short of what it can reach.
-			float reached = length(found - Location()) * multiplier;
-			if (!AIDirectionReachable(Location(), direction.Yaw, direction.Pitch, std::min(minDist, reached), reached, found))
+			// Again along the same direction, with multiplier of the distance
+			// reached as both the least and the most, so the walk stops at its
+			// first step past it (0x103c8141-0x103c8148; the root in doubles,
+			// as the original's appSqrt takes it).
+			vec3 d = found - Location();
+			float reached = (float)(std::sqrt((double)d.x * d.x + (double)d.y * d.y + (double)d.z * d.z) * multiplier);
+			if (!AIDirectionReachable(Location(), direction.Yaw, direction.Pitch, reached, reached, found))
 				continue;
 		}
 		dest = found;

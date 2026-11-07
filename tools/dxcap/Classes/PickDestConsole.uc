@@ -4,16 +4,15 @@
 // RandomBiasedRotation gives the centre). The original's second try
 // (Engine.dll 0x103c80f2..0x103c8168) asks AIDirectionReachable for the
 // reached fraction as both its least and its most distance, so it finds the
-// first step past it; DXEngine (UPawn_AI.cpp:555) asks from min(minDist,
-// reached) to reached, and keeps the last step inside.
+// first step past it, as DXEngine's does.
 //
 // On Liberty Island, 1 s in, the first 12 ScriptedPawns by name, each put
 // back at its home spot: for yaws 0, 16384, 32768 and 49152,
 // AIDirectionReachable(Location, yaw, 0, 200, 800) (the first try's range at
 // a multiplier of 0.5) and AIPickRandomDestination(100, 400, yaw, 1.0, 0,
 // 1.0, 1, 0.5); each answer, its spot and its distance logged "DXPICK:".
-// The original's pick a step (the pawn's radius, 5..25) farther than half
-// the first distance, DXEngine's at or under it (bugs.md AI.11).
+// Each engine's pick the first step (the pawn's radius, 5..25) at or past
+// half the first distance, all 48 alike (bugs.md AI.11).
 //=============================================================================
 class PickDestConsole extends Console;
 

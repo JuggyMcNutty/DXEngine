@@ -5,15 +5,15 @@
 // network when the pawn stands at a node (its MoveTarget first, then the
 // level's list: within max(radius, 48) across and its height up or down):
 // true for that node itself or one CanMoveTo reaches from it (a spec of the
-// node's own, open to the pawn), else false unless flying; only a pawn at no
-// node is walked (actorReachable). DXEngine always walks.
+// node's Paths or PrunedPaths, open to the pawn), else false unless flying;
+// only a pawn at no node is walked (actorReachable). DXEngine's does the same.
 //
 // On Liberty Island, 1 s in, the first 12 ScriptedPawns by name: each put on
 // its nearest NavigationPoint, standing still, then ActorReachable of the 8
 // nearest other navigation points within 800 units, each logged with
-// whether the pawn's node has a spec to it (describeSpec over its Paths).
-// The original answers True for many unlinked nodes too; the two engines'
-// answers are apart for 5 of the 87 (bugs.md AI.9).
+// whether the pawn's node has a spec to it (describeSpec over its Paths; a
+// pruned spec, which counts too, is not shown, so a node reached by one
+// logs as unlinked). The two engines' 87 answers are alike (bugs.md AI.9).
 //=============================================================================
 class NavReachConsole extends Console;
 

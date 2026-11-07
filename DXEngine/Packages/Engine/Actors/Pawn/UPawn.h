@@ -64,6 +64,10 @@ public:
 	// Deus Ex's reachability tests, the original's (UPawn_ReachDeusEx.cpp)
 	bool DeusExPointReachable(vec3 aPoint, bool knowVisible);
 	bool DeusExActorReachable(UActor* other, bool knowVisible);
+	// The script's ActorReachable, the original's exec: a navigation point
+	// answered from the path network for a pawn standing at a node
+	// (UPawn_Path.cpp).
+	bool DeusExActorReachableFromScript(UActor* anActor);
 	int DeusExReachable(vec3 dest, float threshold, UActor* goalActor);
 	int DeusExWalkReachable(vec3 dest, float threshold, int reachFlags, UActor* goalActor);
 	int DeusExFlyReachable(vec3 dest, float threshold, int reachFlags, UActor* goalActor);

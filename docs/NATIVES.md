@@ -478,17 +478,27 @@ meets the wall half a unit further along. DXEngine uncapped, at some 300,
 meets it further along again, and there in some runs he slips past within
 two seconds.
 
-Differs (bugs.md AI.9): `ActorReachable` of a navigation point, 5 of 87
-answers on Liberty Island apart, the original's asking the path network for
-a pawn standing at a node. Differs (bugs.md AI.10): `FindPathToward`'s
-second way, 10 of 24 tries apart. Differs (bugs.md AI.11):
-`AIPickRandomDestination`'s second try a step nearer. Differs (bugs.md
-AI.13, AI.14): `GetPathnodeList`'s 32 nodes, the pick's pitch,
-`ReachableFromAnchor`'s direction. Differs (bugs.md PHYS.20, PHYS.21): the
-reach tests' moves pass through the pawn's base, and `JumpLanding`'s steps
-are raw traces. The ladder probe goes on past a texture in no group, as the
-original's, the texture's outer its package (bugs.md PHYS.23: the run at
-such a ladder due).
+The script's `ActorReachable` of a navigation point, asked by a pawn no
+wider than 115 units standing at a node (within 48 units across, or its
+radius where wider, and its height up or down), answers from the path
+network as the original's does: reached where the pawn stands at it, or
+where a spec of such a node, in its `Paths` or its `PrunedPaths`, ends at it
+open to the pawn; else not, but for a flyer, which walks it as a pawn at no
+node does (`NavReachConsole`: twelve of Liberty Island's pawns, each put on
+its nearest node, all 87 answers the original's, among them nodes only a
+pruned spec reaches). A `FindPathToward` whose goal no node near it reaches
+takes the original's second way, the end points about the goal and the
+search from the pawn's own first node (`SecondWayConsole`: the 24 routes the
+original's). `AIPickRandomDestination` with a multiplier under 1 stops at
+the first step past that share of the way found, as the original's does
+(`PickDestConsole`: all 48 picks the original's).
+
+Differs (bugs.md AI.13, AI.14): `GetPathnodeList`'s 32 nodes, the pick's
+pitch, `ReachableFromAnchor`'s direction. Differs (bugs.md PHYS.20,
+PHYS.21): the reach tests' moves pass through the pawn's base, and
+`JumpLanding`'s steps are raw traces. The ladder probe goes on past a
+texture in no group, as the original's, the texture's outer its package
+(bugs.md PHYS.23: the run at such a ladder due).
 
 ## Out of sight
 
@@ -2038,8 +2048,9 @@ Every other native the scripted runs compare matches the original
   senses](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-senses)),
   **a pawn's pain and speech timers**, each due once under a thousandth of a
   second (`PainConsole`, both at half speed: the tick each fires in alike),
-  **the reach tests** from a pawn's home spot (`ReachConsole`; the others
-  not: bugs.md AI.9, PHYS.20, PHYS.21), and **the look up and down stairs**
+  **the reach tests** from a pawn's home spot (`ReachConsole`) and from a
+  node (`NavReachConsole`; the others not: bugs.md PHYS.20, PHYS.21), and
+  **the look up and down stairs**
   (`StairConsole`: every answer of `Pawn.FindStairRotation` alike on Liberty
   Island's pier and `SlideConsole`'s slope,
   [small](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#small)).

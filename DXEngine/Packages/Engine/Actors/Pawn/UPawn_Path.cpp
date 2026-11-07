@@ -290,7 +290,8 @@ namespace
 	// anchor's forward neighbours over the specs open to the pawn -- its Paths,
 	// and once those end at a -1 its PrunedPaths -- each given the spec's
 	// distance as its bestPathWeight; the anchor itself costs 1,000,000, so no
-	// route runs back through where the pawn stands.
+	// route runs back through where the pawn stands. The search's second way
+	// asks it of the goal's list, the goal's first node for the anchor.
 	void DefinePathsFor(UPawn* pawn, SortedPathList& list)
 	{
 		UNavigationPoint* anchor = list.Path[0];
@@ -384,7 +385,8 @@ namespace
 	// dropped from the nearest until one is seen from its eye and
 	// pointReachable. Standing on it -- within max(radius, 48) across and its
 	// height up or down -- the pawn is anchored there; otherwise it is the end
-	// point, its bestPathWeight its distance.
+	// point, its bestPathWeight its distance. The search's second way asks it
+	// of the goal's list, whose distances are the goal's.
 	bool FindEndPoint(UPawn* pawn, SortedPathList& list, bool& anchored)
 	{
 		vec3 eye = pawn->Location();
@@ -665,6 +667,60 @@ UActor* UPawn::DeusExFindPathFromScript(UActor* goalActor, const vec3& goalPoint
 	return route;
 }
 
+// What the script's ActorReachable does around actorReachable (its exec,
+// Engine.dll 0x103bc1a0): an inventory item with a marker is asked by its
+// marker. A navigation point, asked by a pawn no wider than 115 in a level
+// with reach specs, is answered from the path network when the pawn stands
+// at a node -- its MoveTarget first, then each of the level's list, within
+// max(radius, 48) across and its own height up or down: reached when one
+// such node is it, or CanMoveTo reaches it from one (a spec of the node's
+// Paths or PrunedPaths ending at it, open to the pawn); else not, unless the
+// pawn flies. Anything else, a flyer the network does not take and a pawn
+// at no node are walked (actorReachable), an item itself.
+bool UPawn::DeusExActorReachableFromScript(UActor* anActor)
+{
+	if (!anActor)
+		return false;
+
+	UActor* goal = anActor;
+	if (UInventory* item = UObject::TryCast<UInventory>(anActor))
+	{
+		if (item->myMarker())
+			goal = item->myMarker();
+	}
+
+	UNavigationPoint* goalNav = UObject::TryCast<UNavigationPoint>(goal);
+	if (goalNav && !XLevel()->ReachSpecs.empty() && CollisionRadius() <= 115.0f)
+	{
+		float radius = std::max(CollisionRadius(), 48.0f);
+		float radiusSq = radius * radius;
+		bool standing = false;
+		auto reachedFrom = [&](UNavigationPoint* node)
+			{
+				if (std::abs((double)node->Location().z - Location().z) >= CollisionHeight())
+					return false;
+				double dx = (double)node->Location().x - Location().x;
+				double dy = (double)node->Location().y - Location().y;
+				if (dx * dx + dy * dy >= radiusSq)
+					return false;
+				standing = true;
+				return node == goalNav || CanMoveTo(this, node, goalNav);
+			};
+
+		UNavigationPoint* moveTarget = UObject::TryCast<UNavigationPoint>(MoveTarget());
+		if (moveTarget && reachedFrom(moveTarget))
+			return true;
+		for (UNavigationPoint* node = Level()->NavigationPointList(); node; node = node->nextNavigationPoint())
+		{
+			if (reachedFrom(node))
+				return true;
+		}
+		if (standing && Physics() != PHYS_Flying)
+			return false;
+	}
+	return DeusExActorReachable(anActor, false);
+}
+
 // The search itself: findPathToward for an actor goal, findPathTo for a point
 // (goalActor none). The route's first point comes back, or none. The pawn is
 // moved onto nodes to ask what it can reach from them, and put back where it
@@ -754,11 +810,15 @@ UActor* UPawn::DeusExFindPath(UActor* goalActor, vec3 goalPoint, bool singlePath
 			if (!bHunting())
 			{
 				// The lists again -- the pawn's around wherever the tries above
-				// last moved it -- and the search from the pawn's own first node.
+				// last moved it -- the end points the goal's: its first node's
+				// neighbours and its nearest node the pawn sees and reaches
+				// (definePathsFor and findEndPoint on the goal's list,
+				// 0x103db938 and 0x103db94d); and the search from the pawn's
+				// own first node.
 				GatherPathLists(this, goal, pawnList, goalList, clearPaths, anchored, false);
-				DefinePathsFor(this, pawnList);
-				bool endAnchored = false;
-				if (!FindEndPoint(this, pawnList, endAnchored))
+				DefinePathsFor(this, goalList);
+				bool goalAnchored = false;
+				if (!FindEndPoint(this, goalList, goalAnchored))
 				{
 					putBack();
 					return nullptr;

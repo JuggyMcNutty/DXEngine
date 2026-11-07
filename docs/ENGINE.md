@@ -768,9 +768,10 @@ its code is:
 
 - **The path search and reachability tests**: the script's `FindPathToward`, `FindPathTo` and
   the `pointReachable`, `actorReachable` and `Reachable` they ask are `Engine.dll`'s, walking
-  its own moves (`UPawn_Path.cpp`, `UPawn_ReachDeusEx.cpp`), but for `actorReachable`'s path
-  network, the search's second way, and the moves' base and landing (bugs.md AI.9, AI.10,
-  PHYS.20, PHYS.21); `RouteCache` stays empty, as the original never fills it
+  its own moves (`UPawn_Path.cpp`, `UPawn_ReachDeusEx.cpp`), the script's `ActorReachable`
+  of a navigation point answered from the path network for a pawn at a node as its exec
+  does, but for the moves' base and landing (bugs.md PHYS.20, PHYS.21); `RouteCache` stays
+  empty, as the original never fills it
   ([moving](NATIVES.md#moving-wandering-and-tactical-movement)). `FindRandomDest` answers None
   and `FindBestInventoryPath` searches as the original's ([mods](NATIVES.md#mods)).
 - **The audio mixer**: `GalaxyMixer` (`DXEngine/Audio/GalaxyMixer.cpp`) mixes Deus Ex's sounds
