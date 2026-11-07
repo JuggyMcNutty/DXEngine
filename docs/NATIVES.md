@@ -620,7 +620,10 @@ one cut at the screen's middle row, by `D3DDrv` and by the Vulkan, GL, GL ES
 and software devices alike, where Vulkan's and GL's depth clamp drew both
 whole. A mesh corner within a unit of the eye is drawn where it is, by
 choice, where `Render.dll` skips projecting it and draws it at the screen
-place and depth last left in memory, a stray vertex.
+place and depth last left in memory, a stray vertex. Differs (bugs.md
+REN.42): Vulkan, GL and GL ES clip past 32,768 units, the software device
+and D3D11 draw past it, where `D3DDrv` clips at 32,767, and at 8,192 at its
+16-bit colour.
 
 ### Tiles
 
@@ -3071,7 +3074,8 @@ A mod gets the original's loader and natives:
   padded with black; an uncompressed mip shorter than its size is padded
   with black, a compressed one not: on every device a texture whose top
   mip is short of its bytes draws white, and on the GPU devices a short
-  mip below it draws black; a map whose surfaces or nodes point outside
+  mip below it draws black (GL's and GL ES's by reading, bugs.md REN.38,
+  its run due); a map whose surfaces or nodes point outside
   its arrays -- a
   node's links, zones, surface, render bound, vertices and their points, and
   its collision hull's list -- is refused with their numbers, the vertex
