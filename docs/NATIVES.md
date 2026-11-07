@@ -1790,7 +1790,21 @@ other is not play on at it, and only both sliders at 0 silence a sound.
 `AmbientConsole` with `Factor=0.01`: the fan 14.7 dB under its level at 0.7
 in the original and 14.8 dB in DXEngine (37.9 dB without the floor); with
 `Volume=1` too, 0.6 and 0.7 dB under, the floor holding the fan at
--60.1 dB in both either way. `UseStereo=False` makes the sounds mono, the music staying stereo (bugs.md AUD.14); `UseFilter`,
+-60.1 dB in both either way. `UseStereo=False` makes the whole output mono,
+as Galaxy's
+([the mixer](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#the-mixer)):
+the sounds' mix folded to the mean of its two channels, and each of a song's
+voices played at the mean of its two sides' gains, a surround voice's right
+side added, not cancelled (`MusicConsole` with
+`DXCAP_INI=Galaxy.GalaxyAudioSubsystem:UseStereo=False`, both engines: the
+pair after order 0, a tone hard left and one hard right, -19.7 and -19.3 dB
+in each channel in the original, -19.5 and -18.8 in DXEngine; the stock
+songs each within 0.47 dB of the original's mean power, UNATCO_Music -17.2
+dB in the original and -16.7 in DXEngine, where a fold of the stereo music
+cancelled its surround channels to -25.8). Differs (bugs.md AUD.17):
+Galaxy's mono mix rounds each voice's gain down to one of 64 levels, reads
+a 16-bit sample without interpolating, sends nothing to the reverb and
+saturates the music keeping each sample's low byte. `UseFilter`,
 `UseCDMusic` and `UseSpatial` are read, saved and `SET` and change nothing,
 as in the original. An MP3 -- the game's speech -- plays as Galaxy's
 decoder fills its ring, 32,768 frames of each channel
@@ -1832,9 +1846,12 @@ alike. Differs:
 - The music plays on an OpenAL source of its own, by choice.
 - The music is heard as it changes, by choice, where the original's comes
   some 0.9 s after the sounds of the same moment, the Sound menu's music
-  slider too (`MusicConsole` under Wine): a buffer's lag, Galaxy's or
-  Wine's, that no player misses, and which copied would leave the slider a
-  second behind.
+  slider too (`MusicConsole` under Wine): Galaxy's own lag, the music
+  written into its output's one-second buffer where it plays, a turn before
+  it is heard
+  ([the mixer](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#the-mixer)),
+  which no player misses, and which copied would leave the slider a second
+  behind.
 - Not carried, by choice: Galaxy's start of a song past its first order,
   every voice centred and 48 ticks a row until the song reaches order 0 or
   a speed command
@@ -1918,11 +1935,26 @@ original's mean power in each channel over the same 6.5 s: Title,
 LibertyIsland, UNATCO, VersaLife and NavalBase (Title, the menu map's own,
 -12.0 and -13.5 dB in two runs of the original, -12.0 in DXEngine);
 BatteryPark's from its onset -16.3 dB in the original, -16.4 in DXEngine.
-Differs (bugs.md AUD.16): a loop keeps the pans the song's patterns set,
-where Galaxy's gives each channel the song's own pan again as it enters
-order 0; a section is reached by playing the song to it, where Galaxy's
-silences the voices and plays on from there; the music is not held to 16
-bits before the sounds are added. Differs (bugs.md AUD.17): a section starts
+A song plays on as Galaxy's player plays it
+([music](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#music);
+libopenmpt's `play.galaxy`, [the audio mixer](ENGINE.md#gameplay)): its
+loop, a jump to order 0 by B00 or a section, and a pattern loop back in
+order 0 give each channel the song's own pan again and the song its own
+speed and tempo; a section change silences its voices and plays on from the
+section, the speed, tempo and pans as they stand, the song not played to
+it; the music is saturated at 16 bits, then added to the sounds' mix,
+saturating. `MusicConsole`, both engines: after the jump from the pair to
+the empty order 1 silence in both, where playing the song to it brought
+back tone A at -16.5 dB; tone A on eight channels in phase at full scale in
+35.2% of the samples in the original and 34.0% in DXEngine (60.0% before),
+the beep over it -12.4 dB in the original and -12.2 in DXEngine (-14.5
+before, the clip taking part of it); the pair centred by order 8, then
+after the song's loop the right tone 21.1 dB under in the left channel in
+both, where it stayed centred. With
+`DXCAP_CONFIG="Songs=LibertyIsland_Music.LibertyIsland_Music SongSeconds=150"`
+and `sound.py --music --from 138`, LibertyIsland after its loop to order 0:
+its side 0.05 dB from the original's, 3.36 before. Differs (bugs.md
+AUD.17): a section starts
 at once, where Galaxy's waits for the playing row's end; a section past the
 last order is ignored, where Galaxy's plays on at the next order; an IT
 song's surround channel is centred, Galaxy's a quarter left.

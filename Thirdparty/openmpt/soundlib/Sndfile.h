@@ -713,6 +713,13 @@ public:
 	// DXEngine (bugs.md AUD.16): a pan law other than the mix levels', which
 	// stays until they are set again
 	void SetPanningMode(PanningMode mode) noexcept { m_PlayConfig.setPanningMode(mode); }
+	// DXEngine (bugs.md AUD.16): Galaxy.dll's player, set by the ctl
+	// play.galaxy: the song's own speed, tempo and pans again as it enters
+	// order 0, and a jump that silences the voices and plays on from the
+	// order, the song not replayed to it (Sndfile.cpp)
+	bool m_galaxyPlayer = false;
+	void GalaxyFirstOrder();
+	void GalaxyJump(ORDERINDEX order, ROWINDEX row);
 
 	constexpr INSTRUMENTINDEX GetNumInstruments() const noexcept { return m_nInstruments; }
 	constexpr SAMPLEINDEX GetNumSamples() const noexcept { return m_nSamples; }

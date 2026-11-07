@@ -990,6 +990,46 @@ void CSoundFile::SetCurrentOrder(ORDERINDEX nOrder)
 	m_PlayState.m_flags.reset(SONG_FADINGSONG | SONG_ENDREACHED);
 }
 
+
+// DXEngine (bugs.md AUD.16): Galaxy.dll's player gives the song its own
+// speed and tempo, and each channel its own pan, again as its order count
+// turns from 255 to order 0 (Galaxy.dll 0x10615710): at its loop, a jump to
+// order 0 by B00 or a section, a pattern loop in it. Its notes, volumes and
+// effect memories play on.
+void CSoundFile::GalaxyFirstOrder()
+{
+	m_PlayState.m_nMusicSpeed = Order().GetDefaultSpeed();
+	m_PlayState.m_nMusicTempo = Order().GetDefaultTempo();
+	for(CHANNELINDEX i = 0; i < GetNumChannels(); i++)
+	{
+		m_PlayState.Chn[i].nPan = ChnSettings[i].nPan;
+		m_PlayState.Chn[i].dwFlags.set(CHN_SURROUND, ChnSettings[i].dwFlags[CHN_SURROUND]);
+	}
+}
+
+
+// DXEngine (bugs.md AUD.16): Galaxy.dll's section change (Update,
+// 0x1060a822-0x1060a863): every voice silenced and the order played on from,
+// its speed, tempo, pans and effect memories as they stand but for order 0's
+// (GalaxyFirstOrder), where SetCurrentOrder and GetLength replay the song to
+// the order
+void CSoundFile::GalaxyJump(ORDERINDEX order, ROWINDEX row)
+{
+	for(auto &chn : m_PlayState.Chn)
+	{
+		chn.nLength = 0;
+		chn.nROfs = chn.nLOfs = 0;
+	}
+	m_PlayState.m_nCurrentOrder = m_PlayState.m_nNextOrder = order;
+	m_PlayState.m_nNextRow = row;
+	m_PlayState.m_nTickCount = TICKS_ROW_FINISHED;
+	m_PlayState.m_nBufferCount = 0;
+	m_PlayState.m_nPatternDelay = 0;
+	m_PlayState.m_nFrameDelay = 0;
+	m_PlayState.m_flags.set(SONG_BREAKTOROW);
+	m_PlayState.m_flags.reset(SONG_FADINGSONG | SONG_ENDREACHED);
+}
+
 void CSoundFile::SuspendPlugins()
 {
 #ifndef NO_PLUGINS

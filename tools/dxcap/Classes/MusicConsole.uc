@@ -23,12 +23,27 @@
 //    MTRAN_Fade from B to A, 5 s: each a ClientSetMusic of CapTone at the
 //    other tone's order, the change after the fade starting it.
 // 3. the slider at 255 and the pair again, 5 s.
-// 4. each of Songs (Package.Name, by commas), stopped 1.5 s before and
-//    played from order 0 at the slider's 255, 8 s: the stock songs' own
-//    levels, as each engine's player renders them. Then an exit.
+// 4. order 1, empty, from the pair, 4 s: Galaxy's section change silences
+//    the voices and plays on from the order, so the original is silent,
+//    where a replay of the song to it brings back tone A, struck at order 0
+//    (Update, Galaxy.dll 0x1060a822; bugs.md AUD.16).
+// 5. order 6, tone A on eight channels in phase, past full scale, 5 s, the
+//    next step's beep over it: Galaxy writes the music out saturated at 16
+//    bits and adds the sounds to it (0x106146a0), so the beep is heard
+//    whole over the clipped tone, where over a tone past full scale the
+//    clip takes part of it.
+// 6. order 8, the pair centred by X40, which plays its 64 rows, ends the
+//    song and loops to order 0, 13 s: Galaxy enters order 0 with each
+//    channel's own pan again (0x10615710), the pair hard left and hard
+//    right after the loop.
+// 7. each of Songs (Package.Name, by commas), stopped 1.5 s before and
+//    played from order 0 at the slider's 255, SongSeconds (8 s): the stock
+//    songs' own levels, as each engine's player renders them; long enough,
+//    a song through its loop. Then an exit.
 // Each step is logged with "DXMUSIC:" and the console's clock: "beep",
 // "segment <slider> <tone>", "fade <transition> <seconds> <from> <to>
-// <slider>", "stereo <slider> [first]", "stop", "song <name>", "end";
+// <slider>", "stereo <slider> [first]", "section <slider> <order>", "loud
+// <slider>", "loop <slider>", "stop", "song <name>", "end";
 // tools/dxcap/sound.py --music
 // reads the run's recording against them (DXCAP_RECORD=1 DXCAP_MUSIC=1).
 //=============================================================================
@@ -37,6 +52,7 @@ class MusicConsole extends Console;
 #exec OBJ LOAD FILE=Music\CapMusic.umx PACKAGE=DXCapture
 
 var config string Songs;
+var config float SongSeconds;
 
 var float CapTime, SongAt;
 var int Step;
@@ -213,15 +229,33 @@ event Tick(float Delta)
 		Note("stereo 255");
 		Step = 14;
 	}
-	else if (Step == 14 && CapTime > 54.0)
+	else if (Step == 14 && Due(P, 54.0))
+	{
+		P.ClientSetMusic(Tone, 1, 255, MTRAN_Instant);
+		Note("section 255 1");
+		Step = 141;
+	}
+	else if (Step == 141 && Due(P, 58.0))
+	{
+		P.ClientSetMusic(Tone, 6, 255, MTRAN_Instant);
+		Note("loud 255");
+		Step = 142;
+	}
+	else if (Step == 142 && Due(P, 63.0))
+	{
+		P.ClientSetMusic(Tone, 8, 255, MTRAN_Instant);
+		Note("loop 255");
+		Step = 143;
+	}
+	else if (Step == 143 && CapTime > 76.0)
 	{
 		Pending = Songs;
-		SongAt = 56.0;
+		SongAt = 78.0;
 		Step = 15;
 	}
 	else if (Step == 15 && CapTime >= SongAt - 1.5)
 	{
-		// The last song played its 8 s too
+		// The last song played its SongSeconds too
 		if (Pending == "")
 		{
 			Note("end");
@@ -238,7 +272,7 @@ event Tick(float Delta)
 	else if (Step == 16 && Due(P, SongAt))
 	{
 		PlaySong(P);
-		SongAt += 10.0;
+		SongAt += SongSeconds + 2.0;
 		Step = 15;
 	}
 }
@@ -275,4 +309,5 @@ function PlaySong(PlayerPawn P)
 defaultproperties
 {
 	Songs="Title_Music.Title_Music,LibertyIsland_Music.LibertyIsland_Music,UNATCO_Music.UNATCO_Music,VersaLife_Music.VersaLife_Music,NavalBase_Music.NavalBase_Music,BatteryPark_Music.BatteryPark_Music"
+	SongSeconds=8.0
 }

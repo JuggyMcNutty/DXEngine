@@ -405,14 +405,18 @@ public:
 		module->set_render_param(openmpt::module::RENDER_INTERPOLATIONFILTER_LENGTH, 2);
 		module->set_render_param(openmpt::module::RENDER_VOLUMERAMPING_STRENGTH, 0);
 		if (galaxy)
+		{
 			module->ctl_set_boolean(GalaxyMusic::PanningCtl, true);
+			module->ctl_set_boolean(GalaxyMusic::PlayerCtl, true);
+		}
 
 		subsong = clamp(subsong, 0, module->get_num_subsongs() - 1);
 		if (subsong != 0)
 			module->select_subsong(subsong);
 
-		// Galaxy starts at the order SongSection (galaxy-dll.md, Music);
-		// whether it passes over an empty order there is unread
+		// Galaxy starts at the order SongSection (galaxy-dll.md, Music), a
+		// jump there passing over an empty order (SetOrder; Galaxy.dll
+		// 0x10615710)
 
 		module->set_repeat_count(-1);
 	}
@@ -447,7 +451,16 @@ public:
 		if (!module)
 			return 0;
 
-		// OpenMPT answers the frames it rendered; a read answers samples
+		// OpenMPT answers the frames it rendered; a read answers samples.
+		// Mono, OpenMPT's mono mix in both channels, spread from the last
+		// frame back so none is overwritten before it is read
+		if (mono)
+		{
+			size_t frames = module->read(GetFrequency(), samples / GetChannels(), output);
+			for (size_t i = frames; i-- > 0;)
+				output[2 * i] = output[2 * i + 1] = output[i];
+			return frames * GetChannels();
+		}
 		return module->read_interleaved_stereo(GetFrequency(), samples / GetChannels(), output) * GetChannels();
 	}
 
@@ -456,6 +469,9 @@ public:
 		return module ? (int)module->get_current_order() : -1;
 	}
 
+	// A song Galaxy plays jumps as Galaxy's section change: its voices
+	// silenced and the order played on from, the speed, tempo and pans as
+	// they stand but for order 0's own (play.galaxy; bugs.md AUD.16)
 	void SetOrder(int order) override
 	{
 		if (module)
@@ -467,7 +483,16 @@ public:
 		return module ? module->get_current_tempo2() : 0.0;
 	}
 
+	// Galaxy's mono mix, each voice at the mean of its two sides' gains, a
+	// surround voice's both kept (Galaxy.dll 0x10623210; bugs.md AUD.14):
+	// OpenMPT's mono render, a Galaxy song's voices keeping their pans
+	void SetMono(bool value) override
+	{
+		mono = value;
+	}
+
 	openmpt::module* module;
+	bool mono = false;
 };
 
 std::unique_ptr<AudioSource> AudioSource::CreateMp3(Array<uint8_t> filedata)

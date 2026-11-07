@@ -18,4 +18,11 @@ namespace GalaxyMusic
 	// Music slider's squared with the voice's own 100 (UDXEngineAudioDevice's
 	// GalaxyMusicGain), the song's mix volume made 128.
 	constexpr const char* PanningCtl = "render.panning.galaxy";
+
+	// Galaxy's player gives the song its own speed, tempo and pans again as
+	// it enters order 0 (0x10615710), and its section change silences the
+	// voices and plays on from the section, the song not replayed to it
+	// (Update, 0x1060a822): OpenMPT's play.galaxy, DXEngine's own in
+	// Thirdparty/openmpt (bugs.md AUD.16).
+	constexpr const char* PlayerCtl = "play.galaxy";
 }

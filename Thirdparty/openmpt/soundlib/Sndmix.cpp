@@ -446,7 +446,15 @@ bool CSoundFile::ProcessRow()
 {
 	while(++m_PlayState.m_nTickCount >= m_PlayState.TicksOnRow())
 	{
+		// DXEngine (bugs.md AUD.16): Galaxy.dll's player enters order 0 from
+		// another order, by a jump or by a pattern loop back in it, its own
+		// speed, tempo and pans set again (Sndfile.cpp)
+		const ORDERINDEX galaxyLastOrder = m_PlayState.m_nCurrentOrder;
+		const ROWINDEX galaxyLastRow = m_PlayState.m_nRow;
+		const bool galaxyJump = m_PlayState.m_flags[SONG_BREAKTOROW];
 		const auto [ignoreRow, patternTransition] = NextRow(m_PlayState, m_PlayState.m_flags[SONG_BREAKTOROW]);
+		if(m_galaxyPlayer && m_PlayState.m_nCurrentOrder == 0 && (galaxyLastOrder != 0 || galaxyJump || m_PlayState.m_nRow <= galaxyLastRow))
+			GalaxyFirstOrder();
 
 #ifdef MODPLUG_TRACKER
 		HandleRowTransitionEvents(patternTransition);
@@ -546,6 +554,9 @@ bool CSoundFile::ProcessRow()
 					//Handle Repeat position
 					m_PlayState.m_nCurrentOrder = restartPosOverride;
 					m_PlayState.m_flags.reset(SONG_BREAKTOROW);
+					// DXEngine (bugs.md AUD.16): Galaxy.dll's loop enters order 0
+					if(m_galaxyPlayer && restartPosOverride == 0)
+						GalaxyFirstOrder();
 					//If restart pos points to +++, move along
 					while(m_PlayState.m_nCurrentOrder < Order().size() && Order()[m_PlayState.m_nCurrentOrder] == PATTERNINDEX_SKIP)
 					{
@@ -2516,7 +2527,10 @@ bool CSoundFile::ReadNote()
 
 			// Adjusting volumes
 			{
-				int32 pan = (m_MixerSettings.gnChannels >= 2) ? Clamp(chn.nRealPan, 0, 256) : 128;
+				// DXEngine (bugs.md AUD.14): Galaxy.dll's mono mix keeps each
+				// voice's two sides and plays their mean (MonoFromStereo), a
+				// surround voice's right side not negated (0x10623210)
+				int32 pan = (m_MixerSettings.gnChannels >= 2 || m_PlayConfig.getPanningMode() == PanningMode::GalaxyPanning) ? Clamp(chn.nRealPan, 0, 256) : 128;
 
 				int32 realvol = (chn.nRealVolume * kChnMasterVol) / 128;
 				// Extra attenuation required here if we're bypassing pre-amp.

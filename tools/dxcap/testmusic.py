@@ -24,6 +24,11 @@ tones, of a kind the game ships none of, made here rather than kept as a file.
       order 2   tone B, 630 Hz, channel 1, centred
       order 4   the pair: 551.25 Hz on channel 2, hard left (pan 0), and
                 882 Hz on channel 3, hard right (pan 64)
+      order 6   loud: tone A on channels 4 to 11 at once, centred, eight
+                voices in phase, past full scale at the Music slider's 255
+      order 8   the pair centred by X40 (Galaxy's 8xx centre), no jump: the
+                song's end after its 64 rows, then its loop to order 0, which
+                Galaxy enters with each channel's own pan again
                 (MusicConsole; tools/dxcap/sound.py --music)
 
 Galaxy's IT loader (Galaxy.dll 0x10628990) and OpenMPT both read it: the
@@ -98,10 +103,12 @@ def pattern(rows):
 
 C5 = 60          # IT's C-5
 B = 2            # IT's command B, a jump to an order
+X = 24           # IT's command X, a pan, which Galaxy reads as the MOD's 8xx
+LOUD = range(3, 11)  # the loud order's channels, 4 to 11
 
 
 def module():
-    orders = [0, 1, 2, 3, 4, 5, 255]
+    orders = [0, 1, 2, 3, 4, 5, 6, 7, 8, 255]
     patterns = [
         pattern({0: [(0, C5, 1, None, 0)], 63: [(0, None, None, B, 1)]}),
         pattern({63: [(0, None, None, B, 1)]}),
@@ -109,11 +116,16 @@ def module():
         pattern({63: [(0, None, None, B, 3)]}),
         pattern({0: [(1, C5, 3, None, 0), (2, C5, 4, None, 0)], 63: [(1, None, None, B, 5)]}),
         pattern({63: [(1, None, None, B, 5)]}),
+        pattern({0: [(c, C5, 1, None, 0) for c in LOUD], 63: [(3, None, None, B, 7)]}),
+        pattern({63: [(3, None, None, B, 7)]}),
+        pattern({0: [(1, C5, 3, X, 0x40), (2, C5, 4, X, 0x40)]}),
     ]
     samples = [sample_data(period, periods) for _, period, periods in TONES]
 
     pan = bytearray([32 | 128] * 64)      # unused channels off
     pan[0], pan[1], pan[2] = 32, 0, 64
+    for c in LOUD:
+        pan[c] = 32
     volume = bytes([64] * 64)
     header = (b'IMPM' + b'CapTone'.ljust(26, b'\0') + struct.pack('<H', 0x1004) +
               struct.pack('<HHHHHHHH', len(orders), 0, len(samples), len(patterns), 0x0214, 0x0214,

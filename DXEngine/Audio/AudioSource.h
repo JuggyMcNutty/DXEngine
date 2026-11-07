@@ -29,6 +29,12 @@ public:
 	// without one.
 	virtual double GetTempo() { return 0.0; }
 
+	// The output mono, without UseStereo (bugs.md AUD.14): a source that
+	// pans its own voices reads both channels as their mono mix, each voice
+	// at the mean of its two sides as Galaxy's; a no-op for others, which
+	// the device folds.
+	virtual void SetMono(bool mono) {}
+
 	bool bIsLooped = false;
 	uint32_t loopStart = 0;
 	uint32_t loopEnd = 0;

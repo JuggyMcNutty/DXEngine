@@ -46,12 +46,17 @@ public:
 			Exception::Throw("Failed to initialize OpenAL device");
 
 		// The context at the mixing rate chosen (the launcher's), so OpenAL
-		// mixes the sources at it rather than resampling a mix made at it
+		// mixes the sources at it rather than resampling a mix made at it.
+		// No output limiter: the music and the sounds' mix, each saturated
+		// at 16 bits, are added and saturated again, as Galaxy adds them
+		// (Galaxy.dll 0x106146a0; bugs.md AUD.16), where OpenAL Soft's
+		// limiter, on for an integer output, turned the sum down instead
 		const ALCint ctxAttribs[] =
 		{
 			ALC_FREQUENCY, inFrequency,
 			ALC_REFRESH, 60,
 			ALC_SYNC, ALC_FALSE,
+			ALC_OUTPUT_LIMITER_SOFT, ALC_FALSE,
 			0
 		};
 
@@ -382,6 +387,8 @@ public:
 			{
 				StopMusicBuffers(musicPlaying);
 				currentMusic = std::move(musicThreadData.music);
+				if (currentMusic)
+					currentMusic->SetMono(!stereo);
 				musicThreadData.musicUpdate = false;
 				mixer->SetMusicTempo(0.0);
 			}
@@ -434,6 +441,24 @@ public:
 						size_t got = currentMusic->ReadSamples(chunk, musicBufferSize);
 						if (got < (size_t)musicBufferSize)
 							std::fill(chunk + got, chunk + musicBufferSize, 0.0f);
+						// Mono without UseStereo, the music too, as Galaxy's whole
+						// output is (bugs.md AUD.14): a song as its source reads it
+						// mono (SetMono), any other's two channels at their mean
+						if (!stereo && currentMusic->GetChannels() == 2)
+						{
+							for (size_t i = 0; i + 1 < got; i += 2)
+								chunk[i] = chunk[i + 1] = 0.5f * (chunk[i] + chunk[i + 1]);
+						}
+						// The music saturated at 16 bits before the sounds join it,
+						// as Galaxy writes its mix out and adds theirs to it
+						// (Galaxy.dll 0x106146a0; bugs.md AUD.16): full scale at the
+						// gain the source plays it at
+						if (volume > 0.0f)
+						{
+							float low = -1.0f / volume, high = (32767.0f / 32768.0f) / volume;
+							for (size_t i = 0; i < got; i++)
+								chunk[i] = std::clamp(chunk[i], low, high);
+						}
 						musicQueue.Push(musicQueue.GetNextFree());
 					}
 					mixer->SetMusicTempo(currentMusic->GetTempo());

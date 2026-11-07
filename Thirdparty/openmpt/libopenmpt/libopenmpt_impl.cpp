@@ -1177,6 +1177,12 @@ double module_impl::set_position_order_row( std::int32_t order, std::int32_t row
 	} else {
 		row = 0;
 	}
+	// DXEngine (bugs.md AUD.16): with Galaxy.dll's player, a jump as its
+	// section change makes one, the song not replayed to the order
+	if ( m_sndFile->m_galaxyPlayer ) {
+		m_sndFile->GalaxyJump( static_cast<OpenMPT::ORDERINDEX>( order ), static_cast<OpenMPT::ROWINDEX>( row ) );
+		return m_currentPositionSeconds;
+	}
 	m_sndFile->m_PlayState.m_nCurrentOrder = static_cast<OpenMPT::ORDERINDEX>( order );
 	m_sndFile->SetCurrentOrder( static_cast<OpenMPT::ORDERINDEX>( order ) );
 	m_sndFile->m_PlayState.m_nNextRow = static_cast<OpenMPT::ROWINDEX>( row );
@@ -1725,6 +1731,7 @@ std::pair<const module_impl::ctl_info *, const module_impl::ctl_info *> module_i
 		{ "render.resampler.emulate_amiga_type", ctl_type::text },
 		{ "render.opl.volume_factor", ctl_type::floatingpoint },
 		{ "render.panning.galaxy", ctl_type::boolean },
+		{ "play.galaxy", ctl_type::boolean },
 		{ "dither", ctl_type::integer }
 	};
 	return std::make_pair(std::begin(ctl_infos), std::end(ctl_infos));
@@ -1824,6 +1831,8 @@ bool module_impl::ctl_get_boolean( std::string_view ctl, bool throw_if_unknown )
 		return ( m_sndFile->m_Resampler.m_Settings.emulateAmiga != OpenMPT::Resampling::AmigaFilter::Off );
 	} else if ( ctl == "render.panning.galaxy" ) {
 		return m_sndFile->GetPlayConfig().getPanningMode() == OpenMPT::PanningMode::GalaxyPanning;
+	} else if ( ctl == "play.galaxy" ) {
+		return m_sndFile->m_galaxyPlayer;
 	} else {
 		MPT_ASSERT_NOTREACHED();
 		return false;
@@ -2063,6 +2072,10 @@ void module_impl::ctl_set_boolean( std::string_view ctl, bool value, bool throw_
 		} else {
 			m_sndFile->SetMixLevels( m_sndFile->GetMixLevels() );
 		}
+	} else if ( ctl == "play.galaxy" ) {
+		// DXEngine (bugs.md AUD.16): Galaxy.dll's player (Sndfile.cpp's
+		// GalaxyFirstOrder and GalaxyJump), or OpenMPT's own again
+		m_sndFile->m_galaxyPlayer = value;
 	} else {
 		MPT_ASSERT_NOTREACHED();
 	}
