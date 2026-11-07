@@ -51,6 +51,10 @@ public:
 
 	bool SetValue(const NameString& keyName, const std::string& newValue, const int index = 0, const bool indexed = false);
 	bool SetValues(const NameString& keyName, const Array<std::string>& newValues, const bool indexed = false);
+	// A value of the key with no name (a line "=value"), added after its
+	// others, as the reader adds a key's: kept and written back, as the
+	// original's config cache keeps it; no lookup names it
+	void AddNamelessValue(const std::string& value);
 
 	bool HasNewKey() const { return hasNewKey; }
 	void SetHasNewKey(bool value) { hasNewKey = value; }

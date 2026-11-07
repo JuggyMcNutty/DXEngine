@@ -34,6 +34,14 @@ public:
 	// or all of it with a maxLen of 0. True whenever the key is found, the
 	// value empty or not.
 	static bool ue1_parse(const std::string_view& str, const std::string_view& key, std::string& value, size_t maxLen = 0);
+	// A token as the original's ParseToken takes one (Core.dll 0x10147ba0),
+	// no escapes: from pos, blanks and tabs passed over, then a quoted run to
+	// its closing quote, past it, or the text to the next blank or tab, of
+	// its first maxLen - 1 characters at most -- one past U+FFFF counting
+	// two, as the original's UTF-16 has it --, a quoted run ending there, any
+	// other read to its end, the rest dropped; or all of it with a maxLen of
+	// 0. False when the token is empty.
+	static bool ue1_parse_token(const std::string_view& str, size_t& pos, std::string& token, size_t maxLen);
 	// A float as the original's "%f" writes it, the MSVC runtime's it links:
 	// its digits exact to the sixth decimal, a 5 after the sixth rounding up
 	// -- a tie away from zero, where the C library's rounds it to even --,

@@ -316,11 +316,13 @@ void Engine::Run()
 		ClientTravel(LaunchInfo.url, ETravelType::TRAVEL_Absolute, false);
 
 	// The original's EXEC=, read into an FString's 4,096 characters
-	// (DeusEx.exe WinMain 0x1090947a, Core.dll 0x10146e0e), on the client's
-	// viewport once the engine is up; then the launcher's splash can go.
+	// (DeusEx.exe WinMain 0x1090947a, Core.dll 0x10146e0e), run as the
+	// command "exec <value>" on the client's viewport once the engine is up
+	// (0x109097e1): the console's exec, its file the value's first token;
+	// then the launcher's splash can go.
 	std::string execFile;
 	if (!dedicated && viewport->Actor() && OriginalCommandLine::Get().Value("EXEC", execFile, 4096))
-		ExecFile(viewport->Actor(), execFile);
+		RunCommand(viewport->Actor(), "exec " + execFile);
 	LauncherLine::Get().Ready();
 
 	objprop = GC::Alloc<UObjectProperty>(NameString(), nullptr, ObjectFlags::NoFlags);
@@ -2814,9 +2816,16 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	{
 		TakeScreenshot();
 	}
-	else if (command == "exec" && args.size() >= 2)
+	else if (command == "exec")
 	{
-		ExecFile(context, args[1]);
+		// UViewport::Exec's EXEC (Engine.dll 0x10374241): the file the first
+		// token past the word, by ParseToken into 64 characters -- a quoted
+		// one whole, 63 characters at most --; with none nothing runs, the
+		// command taken all the same
+		size_t pos = commandline.find_first_of(" \t", commandline.find_first_not_of(" \t"));
+		std::string filename;
+		if (pos != std::string::npos && StrTools::ue1_parse_token(commandline, pos, filename, 64))
+			ExecFile(context, filename);
 	}
 	else if (command == "stat" && args.size() == 2)
 	{

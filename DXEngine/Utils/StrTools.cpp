@@ -135,6 +135,34 @@ bool StrTools::ue1_parse(const std::string_view& str, const std::string_view& ke
 	return true;
 }
 
+bool StrTools::ue1_parse_token(const std::string_view& str, size_t& pos, std::string& token, size_t maxLen)
+{
+	token.clear();
+	while (pos < str.size() && (str[pos] == ' ' || str[pos] == '\t'))
+		pos++;
+	bool quoted = pos < str.size() && str[pos] == '"';
+	if (quoted)
+		pos++;
+	for (size_t units = 0; pos < str.size(); pos++)
+	{
+		if (quoted ? str[pos] == '"' : (str[pos] == ' ' || str[pos] == '\t'))
+			break;
+		// A character's length in the original's UTF-16, as ue1_parse counts it
+		unsigned char c = (unsigned char)str[pos];
+		units += (c & 0xc0) == 0x80 ? 0 : c >= 0xf0 ? 2 : 1;
+		if (maxLen && units >= maxLen)
+		{
+			if (quoted)
+				break;
+			continue;
+		}
+		token += str[pos];
+	}
+	if (quoted && pos < str.size() && str[pos] == '"')
+		pos++;
+	return !token.empty();
+}
+
 bool StrTools::startswith(const std::string_view& str, const std::string_view& cmp, bool ignoreCase)
 {
 	if (str.size() < cmp.size())

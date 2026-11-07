@@ -2677,11 +2677,20 @@ What DXEngine does with each:
   `Default.ini` or `DefUser.ini` the same. Each is a path from `System`, its
   folders and its name found in any case, as the original's file system
   finds them (`DXCAP_INI_CASE`: `MidConsole` with both named in capitals,
-  its lines alike in both engines).
-- **`EXEC=<file>`**: `exec <file>` on the player once the first map is in;
-  `exec` runs a file's lines as commands, as the original's does
-  (`DXCAP_FLAGS="EXEC=ENG19.txt,x"`: `Execing ENG19.txt` in both engines,
-  `MidConsole`'s lines alike).
+  its lines alike in both engines). One given empty is none, the game's
+  own, by choice: the original's names the file named empty, which no file
+  is, so an empty `INI=` stops it at start (`Can't find
+  'ini:Engine.Engine.GameEngine' in configuration file`) and an empty
+  `USERINI=` plays with no bindings and saves nothing
+  ([cli-flags.md](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md)).
+- **`EXEC=<file>`**: `exec <file>` on the player once the first map is in,
+  the console's `exec`, as the original's runs it: its file the first token
+  past the word, as the original's `ParseToken` takes it -- a quoted one
+  whole, 63 characters at most, none running nothing -- and the file's
+  lines run as commands (`DXCAP_FLAGS="EXEC=ENG19.txt,x"`: `Execing
+  ENG19.txt` in both engines, `MidConsole`'s lines alike;
+  `ExecFileConsole`, with `DXCAP_FLAGS` naming its long file: the same
+  files run in both engines).
 - **Safe mode's flags**
   ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md#flags-the-launcher-emits-safe-mode)):
   - `-nosound`: no sound and no music. The original makes no audio
@@ -2705,10 +2714,6 @@ What DXEngine does with each:
     `-nokni` and `-nok6` (the original's mixer picks its routines by them),
     and `-safe`'s no DirectInput (DXEngine's input is its window's, SDL's
     under the launchers).
-
-Differs (bugs.md ENG.21): `EXEC=`'s file is its whole value, where the
-original's `exec` takes its first token, 63 characters at most; an empty
-`INI=` or `USERINI=` is none, where the original's uses the empty name.
 
 ## Mods
 
@@ -2863,12 +2868,12 @@ A mod gets the original's loader and natives:
   UTF-16 `.int` of a mod's folder, U+03A9, U+2122 and e acute, and a Latin-1
   one's e acute, whole). A script's console command takes its text so too,
   16-bit (`OpsConsole`: `set` of U+03A9, U+2122, a, alike in both). An ini
-  written back, at a clean exit, has a changed value changed in its own
-  line, a key new to a section added after the section's last key, a section
-  new to the file at its end, and the rest of the file as it was, a CR LF
-  file's line endings with it, by choice, so a player's or a mod's comments
-  and layout stay; a file not there yet is written whole, CR LF, as the
-  original writes it (`ConfigConsole` with no `DXCapConfig.ini`: the file
+  written back, at a clean exit, has a changed value changed in its own line,
+  a key new to a section added after the section's last key, a section new to
+  the file at its end, and the rest of the file as it was, its line endings
+  with it (CR LF, LF or a CR alone), by choice, so a player's or a mod's
+  comments and layout stay; a file not there yet is written whole, CR LF, as
+  the original writes it (`ConfigConsole` with no `DXCapConfig.ini`: the file
   each engine makes the same to the byte). The original rewrites each file
   whole, CR LF, comments gone (`ConfigConsole`: a class's own
   `DXCapConfig.ini`, CR LF, read and written back alike). `StaticSaveConfig`
@@ -2883,15 +2888,20 @@ A mod gets the original's loader and natives:
   nothing trimmed, so `Runs = 5` is a key `Runs ` no property reads and a
   value's last blank stays (Engine.int's `ViewingFrom`,
   `NameChangedMessage`), a value that begins and ends with `"` read without
-  them, an ini's and a `.int`'s alike; `;` and `//` begin no comment. A
-  setting read by hand takes a bool and a texture or skin detail by its
-  first token, as the import does (`ConfigConsole` seeded with `Runs = 5`,
-  `Words[0]="quoted"` and `Words[1]=two `, the file written back the same to
-  the byte; `LocalizeConsole`'s Engine.int lines; `IniConsole` with a
-  `User.ini` of `Name="Quoted"`: alike in both engines). A value changed in
-  case alone is written, where the original's keeps the old; a file whose
-  lines end in a CR alone grows at each write; a key with no name is
-  dropped, where the original's keeps it (bugs.md PKG.25).
+  them, an ini's and a `.int`'s alike; `;` and `//` begin no comment; a line
+  ends at a CR or an LF; a key with no name (`=x`) is kept and written back;
+  and the text ends at a NUL, what is past it neither read nor written
+  back. A setting read by hand takes a bool and a texture or skin detail by
+  its first token, as the import does (`ConfigConsole` seeded with
+  `Runs = 5`, `Words[0]="quoted"` and `Words[1]=two `, the file written back
+  the same to the byte; `LocalizeConsole`'s Engine.int lines; `IniConsole`
+  with a `User.ini` of `Name="Quoted"`: alike in both engines). A value
+  written over one that differs from it in case alone leaves the old, as
+  the original's `SetString` does: `JC` over `jc` keeps `jc` in the file and
+  in what is read of it after (`IniEdgeConsole`, twice on each of a file
+  whose `Word` is `jc`, one of CR line ends, one with `=x` and one with a
+  NUL: the second run's lines alike in both engines, and the files as each
+  engine writes them, the original's whole).
 - **The natives no stock script calls** (`ModConsole`): `ResetConfig`, a
   System or User class's section copied from `Default.ini` or `DefUser.ini`
   and its config read again into the class, its subclasses and their

@@ -2,6 +2,7 @@
 #include "Precomp.h"
 #include "IniFile.h"
 #include "Utils/File.h"
+#include "Utils/StrTools.h"
 #include "MurmurHash3/MurmurHash3.h"
 #include <algorithm>
 #include <map>
@@ -21,7 +22,9 @@ static uint32_t HashIniString(const std::string& str)
 // A file's bytes as the engine's text, UTF-8, as the original's
 // appLoadFileToString reads them (Core.dll 0x101488c0): a file of even size
 // beginning FF FE UTF-16 little-endian, FE FF big-endian, the byte-order mark
-// dropped; any other a byte a character, Latin-1.
+// dropped; any other a byte a character, Latin-1. The text ends at its first
+// NUL, where the original's reader stops (FConfigFile::Read, GOG DeusEx.exe
+// 0x10916780): what is past it is neither read nor written back.
 static std::string ReadIniText(const std::string& filename)
 {
 	std::string bytes = File::read_all_text(filename);
@@ -40,6 +43,9 @@ static std::string ReadIniText(const std::string& filename)
 	{
 		text = Latin1ToScript(bytes);
 	}
+	size_t nul = text.find(u'\0');
+	if (nul != ScriptString::npos)
+		text.resize(nul);
 	return ScriptToUTF8(text);
 }
 
@@ -117,16 +123,19 @@ IniFile::IniFile(const std::string& filename)
 			sectionName = name;
 			inSection = true;
 		}
-		else if (kind == IniLine::Key && inSection && !name.empty())
+		else if (kind == IniLine::Key && inSection)
 		{
 			// A key above the first section header belongs to no section
 			// and is dropped, as the original's config reader drops it:
 			// kept, it was written back at the file's end under an empty
 			// header, and once more at every write. A key with no name
-			// (=value) is dropped too, where the original keeps one: a
-			// NameString of it is None. No file has one
+			// (=value) is kept, as the original's, by its empty name: a
+			// NameString of it would be None
 			IniSection& section = AddUniqueSection(sectionName);
-			section.SetValue(name, value, -1);
+			if (name.empty())
+				section.AddNamelessValue(value);
+			else
+				section.SetValue(name, value, -1);
 		}
 	}
 
@@ -166,7 +175,11 @@ Array<NameString> IniFile::GetKeys(const NameString& sectionName) const
 	{
 		auto& keys = section->GetKeys();
 		for (const IniKey& key : keys)
-			result.push_back(key.GetName());
+		{
+			// A key with no name, which no NameString names, left out
+			if (!key.GetName().empty())
+				result.push_back(key.GetName());
+		}
 	}
 
 	return result;
@@ -285,30 +298,39 @@ void IniFile::UpdateFile(const std::string& filename)
 		return;
 	}
 
+	// The file's lines as the reader ends them, at a CR LF, a CR or an LF,
+	// written back with the file's own line end: CR LF where it has one (a
+	// file written on Windows, the game's own), else LF where it has one,
+	// else a CR. A CR alone made no line end here, so a file of them was
+	// one line, its sections added again at every write.
 	Array<std::string> lines;
+	std::string lineEnd = "\n";
 	{
 		std::string text = ReadIniText(filename);
+		bool crlf = false, lf = false, cr = false;
 		size_t start = 0;
 		while (start < text.size())
 		{
-			size_t end = text.find('\n', start);
+			size_t end = text.find_first_of("\r\n", start);
 			if (end == std::string::npos)
 				end = text.size();
 			lines.push_back(text.substr(start, end - start));
+			if (end < text.size() && text[end] == '\r' && end + 1 < text.size() && text[end + 1] == '\n')
+			{
+				crlf = true;
+				end++;
+			}
+			else if (end < text.size() && text[end] == '\n')
+			{
+				lf = true;
+			}
+			else if (end < text.size())
+			{
+				cr = true;
+			}
 			start = end + 1;
 		}
-	}
-
-	// A file written on Windows -- the game's own -- ends its lines with CR
-	// LF: matched without the CR, and written back with it.
-	bool crlf = false;
-	for (std::string& l : lines)
-	{
-		if (!l.empty() && l.back() == '\r')
-		{
-			l.pop_back();
-			crlf = true;
-		}
+		lineEnd = crlf ? "\r\n" : lf ? "\n" : cr ? "\r" : "\n";
 	}
 
 	struct SeenSection
@@ -322,7 +344,8 @@ void IniFile::UpdateFile(const std::string& filename)
 	size_t currentIndex = (size_t)-1;
 
 	// Each line taken as the file is read (ParseIniLine), so that each meets
-	// its own value: a ; or // line with an = a key, a value's quotes off
+	// its own value: a ; or // line with an = a key, =value a key with no
+	// name, a value's quotes off
 	std::string name, valueInFile;
 	for (size_t i = 0; i < lines.size(); i++)
 	{
@@ -350,7 +373,7 @@ void IniFile::UpdateFile(const std::string& filename)
 			continue;
 		}
 
-		if (kind != IniLine::Key || name.empty() || currentIndex == (size_t)-1 || !seen[currentIndex].Section)
+		if (kind != IniLine::Key || currentIndex == (size_t)-1 || !seen[currentIndex].Section)
 			continue;
 		SeenSection& current = seen[currentIndex];
 
@@ -437,7 +460,7 @@ void IniFile::UpdateFile(const std::string& filename)
 	for (const std::string& line : lines)
 	{
 		final_text += line;
-		final_text += crlf ? "\r\n" : "\n";
+		final_text += lineEnd;
 	}
 	WriteIniText(filename, final_text);
 
@@ -583,6 +606,23 @@ bool IniSection::SetValue(const NameString& keyName, const std::string& newValue
 	return result == 1;
 }
 
+void IniSection::AddNamelessValue(const std::string& value)
+{
+	uint32_t keyHash = HashIniString("");
+	for (auto& key : keys)
+	{
+		if (key.GetHash() == keyHash && key.GetName().empty())
+		{
+			key.SetValue(value, -1);
+			return;
+		}
+	}
+
+	IniKey newKey("", keyHash);
+	newKey.SetValue(value, -1);
+	keys.push_back(std::move(newKey));
+}
+
 bool IniSection::SetValues(const NameString& keyName, const Array<std::string>& newValues, const bool indexed)
 {
 	int result = -1;
@@ -662,7 +702,11 @@ int IniKey::SetValue(const std::string& newValue, const int index)
 	}
 	else if ((size_t)index < values.size())
 	{
-		if (values[index] == newValue)
+		// A value that differs from the old in case alone leaves it, as the
+		// original's SetString does (GOG DeusEx.exe 0x10918030, its
+		// appStricmp MSVCRT's _wcsicmp, A to Z alone): JC over jc keeps jc,
+		// unwritten
+		if (StrTools::equals_ignore_case(values[index], newValue))
 			return 0;
 	}
 	else
