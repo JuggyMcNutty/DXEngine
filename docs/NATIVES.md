@@ -493,7 +493,9 @@ original's). `AIPickRandomDestination` with a multiplier under 1 stops at
 the first step past that share of the way found, as the original's does
 (`PickDestConsole`: all 48 picks the original's).
 
-Differs (bugs.md AI.13, AI.14): `GetPathnodeList`'s 32 nodes, the pick's
+Differs (bugs.md AI.16): Liberty Island's security bots are on their
+patrol 2 s in, their `MoveTarget` a patrol point, where the original's have
+none yet. Differs (bugs.md AI.13, AI.14): `GetPathnodeList`'s 32 nodes, the pick's
 pitch, `ReachableFromAnchor`'s direction. Differs (bugs.md PHYS.20,
 PHYS.21): the reach tests' moves pass through the pawn's base, and
 `JumpLanding`'s steps are raw traces. The ladder probe goes on past a
