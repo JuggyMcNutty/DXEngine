@@ -289,7 +289,10 @@ among its lines, alike in both engines. With the render device's
 load is drawn under the level action Precaching, its console's tick too:
 the console's `PRECACHING` over the view, as the original's with `D3DDrv`'s
 (`LoadingConsole` with `DXCAP_PRECACHE=1`: the same frames, words and ticks
-in both engines, the original on `D3DDrv`).
+in both engines, the original on `D3DDrv`). Differs (bugs.md REN.43): the
+console's `FLUSH`, which the main menu and the brightness menu send, draws
+no `PRECACHING` frame after it, where the original's `D3DDrv` sets one
+from `UsePrecache` at its flush.
 
 A frame that travels -- a client's travel, a save's load, a server's next
 map -- ends with its load and draws nothing, as the original's game engine
