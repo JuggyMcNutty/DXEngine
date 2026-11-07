@@ -190,6 +190,10 @@ public:
 		ComPtr<ID3D11Buffer> PresentConstantBuffer;
 		ComPtr<ID3D11Texture2D> DitherTexture;
 		ComPtr<ID3D11ShaderResourceView> DitherTextureView;
+		// The scene linear and held at its edges, the dither texel for texel and
+		// repeated (s0, s1), as the Vulkan and GL presents sample them
+		ComPtr<ID3D11SamplerState> LinearClamp;
+		ComPtr<ID3D11SamplerState> NearestRepeat;
 		ComPtr<ID3D11BlendState> BlendState;
 		ComPtr<ID3D11DepthStencilState> DepthStencilState;
 		ComPtr<ID3D11RasterizerState> RasterizerState;
@@ -231,6 +235,12 @@ private:
 		D3D11CachedTexture* detailtex;
 		D3D11CachedTexture* fogmap;
 		vec4* editorcolor;
+		// The base's and the macro texture's pan and scale (pan U, pan V,
+		// UMult, VMult) from the surface's own texture infos, as the Vulkan and
+		// GL devices take them: one texture can be both, panned apart, where its
+		// cache entry keeps the last asked for.
+		vec4 texPanMult;
+		vec4 macroPanMult;
 	};
 	void DrawComplexSurfaceFaces(const ComplexSurfaceInfo& info);
 

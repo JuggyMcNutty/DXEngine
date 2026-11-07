@@ -51,7 +51,11 @@ void SamplerManager::CreateSceneSamplers()
 
 		if ((i & 2) != 0)
 		{
-			builder.AddressMode(VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE);
+			// Without the extension, clamped to the edge (VulkanRenderDevice)
+			if (renderer->Device->SupportsExtension(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME))
+				builder.AddressMode(VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE);
+			else
+				builder.AddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 		}
 		else
 		{

@@ -6,6 +6,12 @@
 
 GLUploadManager::GLUploadManager(GLRenderDevice* renderer) : renderer(renderer)
 {
+	// At least 16,384 on desktop GL 4, 2,048 on ES 3.0: a texture over it is
+	// the white texel, where its glTexImage2D failed and threw out of the draw
+	GLint maxSize = 0;
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxSize);
+	if (maxSize > 0)
+		MaxTextureSize = maxSize;
 }
 
 GLUploadManager::~GLUploadManager()
@@ -18,10 +24,11 @@ bool GLUploadManager::SupportsTextureFormat(TextureFormat Format) const
 }
 
 // The texture's levels made once and its mips sent, each level its own size,
-// the image the size of its top mip's data; none, or too big, a white texel.
-// A compressed format's levels are made by their uploads
-// (glCompressedTexImage2D), as ES takes no compressed format in
-// glTexImage2D.
+// the image the size of its top mip's data; none, too big for the driver or
+// short of its bytes (a mod's DXT1 mip, which the package's load does not
+// pad), a white texel, as the Vulkan and D3D11 devices have it. A compressed
+// format's levels are made by their uploads (glCompressedTexImage2D), as ES
+// takes no compressed format in glTexImage2D.
 void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Info, bool masked)
 {
 	bool hasMips = Info.NumMips >= 1 && Info.Mips;
@@ -31,7 +38,8 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
 
 	GLTextureUploader* uploader = GLTextureUploader::GetUploader(Info.Format);
 
-	if (!uploader || width < 1 || height < 1 || width > 16384 || height > 16384)
+	if (!uploader || width < 1 || height < 1 || width > MaxTextureSize || height > MaxTextureSize ||
+		Info.Mips[0].Data.size() < RenderDevice::MipBytes(Info.Format, width, height))
 	{
 		width = 1;
 		height = 1;
@@ -109,8 +117,8 @@ void GLUploadManager::UploadTextureRect(GLCachedTexture* tex, const TextureInfo&
 
 // Each mip into its level, the rows packed tight (a 1-wide 16-bit mip's are 2
 // bytes). A compressed format defines every level, by halves of the top's
-// size down to 1x1 -- a missing or misfit mip's from zero blocks -- so the
-// chain is whole, as GL samples no incomplete one.
+// size down to 1x1 -- a missing or misfit mip's, or one short of its bytes,
+// from zero blocks -- so the chain is whole, as GL samples no incomplete one.
 void GLUploadManager::UploadData(GLTexture2D* image, const TextureInfo& Info, bool masked, GLTextureUploader* uploader, int width, int height)
 {
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -121,7 +129,8 @@ void GLUploadManager::UploadData(GLTexture2D* image, const TextureInfo& Info, bo
 	for (int level = 0; level < Info.NumMips; level++)
 	{
 		UnrealMipmap* Mip = &Info.Mips[level];
-		bool fits = !Mip->Data.empty() && Mip->Width == levelwidth && Mip->Height == levelheight;
+		bool fits = !Mip->Data.empty() && Mip->Width == levelwidth && Mip->Height == levelheight &&
+			Mip->Data.size() >= RenderDevice::MipBytes(Info.Format, Mip->Width, Mip->Height);
 		if (compressed)
 		{
 			size_t mipsize = uploader->GetUploadSize(0, 0, levelwidth, levelheight);

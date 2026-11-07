@@ -135,9 +135,10 @@ void RenderPassManager::CreateScenePipelines(const ShaderManager::SceneShaders& 
 		builder.Layout(layout);
 		builder.RenderPass(Scene.RenderPass.get());
 
-		// Avoid clipping the weapon. The UE1 engine clips the geometry anyway.
-		if (renderer->Device.get()->EnabledFeatures.Features.depthClamp)
-			builder.DepthClampEnable(true);
+		// No depth clamp: what lies nearer than the near plane, view depth 1,
+		// or past the far one is clipped there, as D3DDrv's depth for it, under 0
+		// or over 1, is cut (dx-reverse-info d3ddrv-dll.md, the screen's pixels;
+		// Render.dll clips a frame at the view's four sides alone)
 
 		if (i < 32)
 		{

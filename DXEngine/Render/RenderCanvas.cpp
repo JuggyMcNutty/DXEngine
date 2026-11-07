@@ -229,7 +229,7 @@ void RenderSubsystem::DrawTile(UTexture* Tex, float x, float y, float XL, float 
 	if (Tex->Palette())
 		texinfo.Palette = (TextureColor*)Tex->Palette()->Colors.data();
 	ApplyDetailLOD(texinfo);
-	texinfo.bRealtimeChanged = Tex->ChangedThisFrame(TextureFrameCounter);
+	texinfo.bRealtimeChanged = Tex->TakeChange();
 
 	if (Tex->bMasked())
 		flags |= PF_Masked;
@@ -256,7 +256,6 @@ void RenderSubsystem::DrawTileClipped(UTexture* Tex, float orgX, float orgY, flo
 	if (Tex->Palette())
 		texinfo.Palette = (TextureColor*)Tex->Palette()->Colors.data();
 	ApplyDetailLOD(texinfo);
-	texinfo.bRealtimeChanged = Tex->ChangedThisFrame(TextureFrameCounter);
 
 	if (Tex->bMasked())
 		flags |= PF_Masked;
@@ -513,6 +512,15 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
 	}
 }
 
+// A realtime texture's change taken by a tile the device draws, as the
+// original's canvas locks no tile it rejects (Engine.dll UCanvas::DrawTile,
+// 0x10376160): a tile clipped away leaves it to the next draw
+static void TakeTileChange(TextureInfo& texinfo)
+{
+	if (texinfo.Texture && texinfo.Texture->TakeChange())
+		texinfo.bRealtimeChanged = true;
+}
+
 void RenderSubsystem::DrawTile(TextureInfo& texinfo, const Rectf& dest, const Rectf& src, const Rectf& clipBox, float Z, vec4 color, vec4 fog, uint32_t flags)
 {
 	if (dest.left > dest.right || dest.top > dest.bottom)
@@ -520,6 +528,7 @@ void RenderSubsystem::DrawTile(TextureInfo& texinfo, const Rectf& dest, const Re
 
 	if (dest.left >= clipBox.left && dest.top >= clipBox.top && dest.right <= clipBox.right && dest.bottom <= clipBox.bottom)
 	{
+		TakeTileChange(texinfo);
 		Device->DrawTile(&Canvas.Frame, texinfo, dest.left, dest.top, dest.right - dest.left, dest.bottom - dest.top, src.left, src.top, src.right - src.left, src.bottom - src.top, Z, color, fog, flags);
 	}
 	else
@@ -552,7 +561,10 @@ void RenderSubsystem::DrawTile(TextureInfo& texinfo, const Rectf& dest, const Re
 		}
 
 		if (d.left < d.right && d.top < d.bottom)
+		{
+			TakeTileChange(texinfo);
 			Device->DrawTile(&Canvas.Frame, texinfo, d.left, d.top, d.right - d.left, d.bottom - d.top, s.left, s.top, s.right - s.left, s.bottom - s.top, Z, color, fog, flags);
+		}
 	}
 }
 

@@ -61,7 +61,7 @@ void VisibleSprite::Draw(VisibleFrame* frame, UActor* actor, const vec3& locatio
 	TextureInfo texinfo;
 	texinfo.Texture = texture;
 	texinfo.CacheID = (uint64_t)(ptrdiff_t)texinfo.Texture;
-	texinfo.bRealtimeChanged = texture->ChangedThisFrame(engine->render->TextureFrameCounter);
+	texinfo.bRealtimeChanged = texture->TakeChange();
 	texinfo.Format = texinfo.Texture->UsedFormat;
 	texinfo.Mips = texinfo.Texture->UsedMipmaps.data();
 	texinfo.NumMips = (int)texinfo.Texture->UsedMipmaps.size();

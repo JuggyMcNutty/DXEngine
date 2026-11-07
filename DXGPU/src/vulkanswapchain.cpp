@@ -81,9 +81,38 @@ void VulkanSwapChain::SelectFormat(const VulkanSurfaceCapabilities& caps, bool h
 		}
 	}
 
+	// The present pass writes the frame's gamma itself: an 8-bit UNORM format
+	// in the sRGB colour space, B8G8R8A8 first, then R8G8B8A8 or A8B8G8R8, as
+	// a driver lists them in its order; then any format but an _SRGB one,
+	// whose encode on writing would put the gamma on again (a surface listing
+	// R8G8B8A8_SRGB first, as some mobile drivers do)
+	static const VkFormat unorm[] = { VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_A8B8G8R8_UNORM_PACK32 };
+	for (VkFormat wanted : unorm)
+	{
+		for (const auto& f : caps.Formats)
+		{
+			if (f.format == wanted && f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+			{
+				format = f;
+				return;
+			}
+		}
+	}
+
+	auto srgbEncoded = [](VkFormat f)
+	{
+		switch (f)
+		{
+		case VK_FORMAT_R8_SRGB: case VK_FORMAT_R8G8_SRGB: case VK_FORMAT_R8G8B8_SRGB: case VK_FORMAT_B8G8R8_SRGB:
+		case VK_FORMAT_R8G8B8A8_SRGB: case VK_FORMAT_B8G8R8A8_SRGB: case VK_FORMAT_A8B8G8R8_SRGB_PACK32:
+			return true;
+		default:
+			return false;
+		}
+	};
 	for (const auto& f : caps.Formats)
 	{
-		if (f.format == VK_FORMAT_B8G8R8A8_UNORM && f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+		if (f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR && !srgbEncoded(f.format))
 		{
 			format = f;
 			return;

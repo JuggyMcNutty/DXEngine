@@ -485,7 +485,15 @@ void D3D11RenderDevice::ResizeSceneBuffers(int width, int height, int multisampl
 {
 	multisample = std::max(multisample, 1);
 
-	if (SceneBuffers.Width == width && SceneBuffers.Height == height && multisample == SceneBuffers.Multisample && SceneBuffers.ColorBuffer && SceneBuffers.DepthBuffer && SceneBuffers.PPImage[0] && SceneBuffers.PPImage[1])
+	// The set is made when all of it is, as the GL device has it: a throw
+	// while a view or a bloom level was being made left a half-made set that
+	// the next Lock at the size took as whole
+	const PPBlurLevel& lastLevel = SceneBuffers.BlurLevels[SceneBuffers.NumBloomLevels - 1];
+	if (SceneBuffers.Width == width && SceneBuffers.Height == height && multisample == SceneBuffers.Multisample &&
+		SceneBuffers.ColorBuffer && SceneBuffers.DepthBuffer && SceneBuffers.PPImage[0] && SceneBuffers.PPImage[1] &&
+		SceneBuffers.ColorBufferView && SceneBuffers.DepthBufferView && SceneBuffers.PPImageView[0] && SceneBuffers.PPImageView[1] &&
+		SceneBuffers.PPImageShaderView[0] && SceneBuffers.PPImageShaderView[1] &&
+		lastLevel.VTextureRTV && lastLevel.HTextureRTV && lastLevel.VTextureSRV && lastLevel.HTextureSRV)
 		return;
 
 	SceneBuffers.ColorBufferView.reset();
@@ -880,6 +888,8 @@ void D3D11RenderDevice::ReleasePresentPass()
 	PresentPass.PresentConstantBuffer.reset();
 	PresentPass.DitherTextureView.reset();
 	PresentPass.DitherTexture.reset();
+	PresentPass.LinearClamp.reset();
+	PresentPass.NearestRepeat.reset();
 	PresentPass.BlendState.reset();
 	PresentPass.DepthStencilState.reset();
 	PresentPass.RasterizerState.reset();
@@ -1275,6 +1285,29 @@ void D3D11RenderDevice::CreatePresentPass()
 	ThrowIfFailed(result, "CreateShaderResourceView(DitherTexture) failed");
 	SetDebugName(PresentPass.DitherTextureView, "PresentPass.DitherTextureView");
 
+	// The present's own samplers: the HLSL's sampler states are the effects
+	// framework's, which a compiled shader leaves out, so it sampled with the
+	// last scene draw's -- point after a NoSmooth tile, wrapped or mirrored
+	// at the scene's edges, the dither clamped past its first 8 pixels
+	D3D11_SAMPLER_DESC samplerDesc = {};
+	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+	result = Device->CreateSamplerState(&samplerDesc, PresentPass.LinearClamp.TypedInitPtr());
+	ThrowIfFailed(result, "CreateSamplerState(PresentPass.LinearClamp) failed");
+	SetDebugName(PresentPass.LinearClamp, "PresentPass.LinearClamp");
+
+	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	result = Device->CreateSamplerState(&samplerDesc, PresentPass.NearestRepeat.TypedInitPtr());
+	ThrowIfFailed(result, "CreateSamplerState(PresentPass.NearestRepeat) failed");
+	SetDebugName(PresentPass.NearestRepeat, "PresentPass.NearestRepeat");
+
 	D3D11_BLEND_DESC blendDesc = {};
 	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 	result = Device->CreateBlendState(&blendDesc, PresentPass.BlendState.TypedInitPtr());
@@ -1344,12 +1377,17 @@ void D3D11RenderDevice::UnmapVertices()
 
 void D3D11RenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 {
+	// A new window size makes the swap chain again, the textures kept, as the
+	// Vulkan device keeps them: SetRes's flush sent each one up again at
+	// every step of a resize and, with UsePrecache, had the next frame
+	// precache the level
 	if (Viewport->GetNativePixelWidth() != CurrentSizeX || Viewport->GetNativePixelHeight() != CurrentSizeY)
 	{
-		if (!SetRes(Viewport->GetNativePixelWidth(), Viewport->GetNativePixelHeight()))
-		{
+		ReleaseSwapChainResources();
+		CurrentSizeX = Viewport->GetNativePixelWidth();
+		CurrentSizeY = Viewport->GetNativePixelHeight();
+		if (!UpdateSwapChain())
 			Exception::Throw("Could not resize D3D11RenderDevice");
-		}
 	}
 
 	nulltex = Textures->GetNullTexture();
@@ -1491,6 +1529,8 @@ void D3D11RenderDevice::Unlock(bool Blit)
 		Context->PSSetShader(PresentPass.Present[presentShader], nullptr, 0);
 		Context->PSSetConstantBuffers(0, 1, cbs);
 		Context->PSSetShaderResources(0, 2, psResources);
+		ID3D11SamplerState* presentSamplers[2] = { PresentPass.LinearClamp.get(), PresentPass.NearestRepeat.get() };
+		Context->PSSetSamplers(0, 2, presentSamplers);
 		Context->OMSetDepthStencilState(PresentPass.DepthStencilState, 0);
 		Context->OMSetBlendState(PresentPass.BlendState, nullptr, 0xffffffff);
 		Context->UpdateSubresource(PresentPass.PresentConstantBuffer, 0, nullptr, &pushconstants, 0, 0);
@@ -1550,6 +1590,12 @@ void D3D11RenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surfac
 	info.fogmap = (Surface.FogMap && Surface.FogMap->NumMips > 0 && !Surface.FogMap->Mips[0].Data.empty()) ?
 		Textures->GetTexture(Surface.FogMap, false) : nulltex;
 	info.editorcolor = nullptr;
+	auto panMult = [](const TextureInfo* t)
+	{
+		return t ? vec4(t->Pan.x, t->Pan.y, 1.0f / (t->UScale * t->USize), 1.0f / (t->VScale * t->VSize)) : vec4(0.0f);
+	};
+	info.texPanMult = panMult(Surface.Texture);
+	info.macroPanMult = panMult(Surface.MacroTexture);
 
 	if (Surface.DetailTexture && Surface.FogMap) info.detailtex = nulltex;
 
@@ -1581,21 +1627,21 @@ void D3D11RenderDevice::DrawComplexSurfaceFaces(const ComplexSurfaceInfo& info)
 	float UDot = dot(xaxis, info.facet->MapCoords.Origin);
 	float VDot = dot(yaxis, info.facet->MapCoords.Origin);
 
-	float UPan = UDot + info.tex->PanX;
-	float VPan = VDot + info.tex->PanY;
+	float UPan = UDot + info.texPanMult.x;
+	float VPan = VDot + info.texPanMult.y;
 	float LMUPan = UDot + info.lightmap->PanX - 0.5f * info.lightmap->UScale;
 	float LMVPan = VDot + info.lightmap->PanY - 0.5f * info.lightmap->VScale;
-	float MacroUPan = UDot + info.macrotex->PanX;
-	float MacroVPan = VDot + info.macrotex->PanY;
+	float MacroUPan = UDot + info.macroPanMult.x;
+	float MacroVPan = VDot + info.macroPanMult.y;
 	float DetailUPan = UDot + (info.fogmap == nulltex ? info.detailtex->PanX : info.fogmap->PanX - 0.5f * info.fogmap->UScale);
 	float DetailVPan = VDot + (info.fogmap == nulltex ? info.detailtex->PanY : info.fogmap->PanY - 0.5f * info.fogmap->VScale);
 
-	float UMult = info.tex->UMult;
-	float VMult = info.tex->VMult;
+	float UMult = info.texPanMult.z;
+	float VMult = info.texPanMult.w;
 	float LMUMult = info.lightmap->UMult;
 	float LMVMult = info.lightmap->VMult;
-	float MacroUMult = info.macrotex->UMult;
-	float MacroVMult = info.macrotex->VMult;
+	float MacroUMult = info.macroPanMult.z;
+	float MacroVMult = info.macroPanMult.w;
 	float DetailUMult = info.fogmap == nulltex ? info.detailtex->UMult : info.fogmap->UMult;
 	float DetailVMult = info.fogmap == nulltex ? info.detailtex->VMult : info.fogmap->VMult;
 
@@ -1997,6 +2043,8 @@ void D3D11RenderDevice::ReadPixels(TextureColor* Pixels)
 		Context->PSSetShader(PresentPass.Present[presentShader], nullptr, 0);
 		Context->PSSetConstantBuffers(0, 1, cbs);
 		Context->PSSetShaderResources(0, 2, psResources);
+		ID3D11SamplerState* presentSamplers[2] = { PresentPass.LinearClamp.get(), PresentPass.NearestRepeat.get() };
+		Context->PSSetSamplers(0, 2, presentSamplers);
 		Context->OMSetDepthStencilState(PresentPass.DepthStencilState, 0);
 		Context->OMSetBlendState(PresentPass.BlendState, nullptr, 0xffffffff);
 		Context->UpdateSubresource(PresentPass.PresentConstantBuffer, 0, nullptr, &pushconstants, 0, 0);

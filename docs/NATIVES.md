@@ -606,6 +606,22 @@ whatever the screen, so there DXEngine sees more at the sides even at 4:3:
 the intro's scenes at 1024x768 some 92 degrees across, the original's 75
 (`IntroDoorConsole`).
 
+### The near plane
+
+Matches the original
+([the depth](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-screens-pixels)):
+what lies nearer than a unit before the eye is cut at view depth 1 on every
+device, as `D3DDrv` cuts it, its depth under 0, where `Render.dll` clips a
+frame at the view's four sides alone, which meet at the eye, and hands it
+over
+([which faces are drawn](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#meshes)):
+`NearConsole`'s quad half a unit before the eye drawn by none, the slanted
+one cut at the screen's middle row, by `D3DDrv` and by the Vulkan, GL, GL ES
+and software devices alike, where Vulkan's and GL's depth clamp drew both
+whole. A mesh corner within a unit of the eye is drawn where it is, by
+choice, where `Render.dll` skips projecting it and draws it at the screen
+place and depth last left in memory, a stray vertex.
+
 ### Tiles
 
 Matches the original
@@ -713,9 +729,6 @@ device does not start, as the original's `WindowedRenderDevice` takes
   the frame into its buffer and commits nothing of itself: untried with the
   software device.
 
-Differs (bugs.md REN.37): at the near plane the software device and D3D11
-clip at 1, Vulkan and desktop GL clamp the depth.
-
 ### Sprites
 
 Matches the original
@@ -730,7 +743,10 @@ A texture has one copy on every device, as `D3DDrv` keeps it
 ([one copy a texture](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#textures)):
 the draw that first sets it makes the copy, its colour 0 cleared or not as
 that draw is masked or not, and every later draw takes it so until a
-realtime change makes it again. `SpriteConsole`'s icon, its colour 0
+realtime change makes it again: the next draw takes the change, as the
+original's lock hands it to one lock
+([a texture's mips](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-textures-mips)),
+and later draws take that copy. `SpriteConsole`'s icon, its colour 0
 magenta, drawn in each style beside its particles, which draw masked, shows
 none of that colour in either engine, the `STY_Normal` sprite's box black,
 the `STY_Translucent` one's adding nothing (at 1024x768 against `D3DDrv`:
@@ -3053,8 +3069,10 @@ A mod gets the original's loader and natives:
   (`DepthConsole`'s 100); a mesh whose faces run past its vertices or wedges
   loads, those faces passed over; a mesh DXEngine saves loads back; a palette short of 256 colours is
   padded with black; an uncompressed mip shorter than its size is padded
-  with black, a compressed one not, which GL and GL ES read past (bugs.md
-  REN.38); a map whose surfaces or nodes point outside its arrays -- a
+  with black, a compressed one not: on every device a texture whose top
+  mip is short of its bytes draws white, and on the GPU devices a short
+  mip below it draws black; a map whose surfaces or nodes point outside
+  its arrays -- a
   node's links, zones, surface, render bound, vertices and their points, and
   its collision hull's list -- is refused with their numbers, the vertex
   pool's entries no node names left alone, every map of the game having

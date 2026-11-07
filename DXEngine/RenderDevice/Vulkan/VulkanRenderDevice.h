@@ -215,6 +215,16 @@ inline ivec4 VulkanRenderDevice::GetTextureIndexes(uint32_t PolyFlags, CachedTex
 		return ivec4(0);
 	}
 
+	// A full array cleared as a surface's four textures clear it: a tile or a
+	// mesh's texture took slot 0, the white null texture, until a surface
+	// came (a menu's frames never)
+	if (DescriptorSets->IsTextureArrayFull())
+	{
+		FlushDrawBatchAndWait();
+		DescriptorSets->ClearCache();
+		Textures->ClearAllBindlessIndexes();
+	}
+
 	Batch.DescriptorSet = DescriptorSets->GetBindlessSet();
 	return ivec4(DescriptorSets->GetTextureArrayIndex(PolyFlags, tex, clamp), 0, 0, 0);
 }

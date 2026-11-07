@@ -435,7 +435,9 @@ halvings at `BloomAmount`'s spread and added to the frame at its end, so the HUD
 menus' windows, drawn after it, stay sharp. The threshold is under 1, as the Vulkan and GL
 devices' scene buffers hold no more (D3D11's are `R16G16B16A16_FLOAT`, its threshold the same):
 Surreal Engine's of 1 blooms only what a float buffer's blends push over it. The D3D11 device's
-passes bind a linear, clamped sampler of their own, as the others' do.
+passes bind samplers of their own, as the others' do: the bloom, the present and the
+gamma-corrected read-back sample the image linearly, held at its edges, and the present the
+dither texel for texel, repeated.
 
 **The Vulkan device**: the game tick runs while the GPU draws the previous frame
 (`CommandBufferManager` keeps one frame in flight, and `WaitForFrame()` collects it before
@@ -443,10 +445,14 @@ anything it uses is touched; the swapchain is made again for a new size asked, n
 extent the surface clamps, after waiting for the device). Without every descriptor-indexing
 feature its bindless set uses (partial binding, runtime arrays, non-uniform indexing,
 update-after-bind, a variable count) and room for that set, it binds a descriptor set per
-batch instead of bindless textures.
-A mirror's frame alone is clipped at its plane, its `NearClip`, by a clip distance: any other
-clips nothing near the eye, its depth clamped at the near plane (the weapon close up), as the GL
-device draws it. Without `shaderClipDistance` the mirror's frames take scene pipelines of their
+batch instead of bindless textures. A clamped tile's sampler mirrors once and clamps where the
+GPU has `VK_KHR_sampler_mirror_clamp_to_edge`, else clamps to the edge, the same texels, as
+the GL device falls back. Its swapchain takes an 8-bit UNORM format in the sRGB colour space,
+never one that encodes sRGB itself, the present writing the frame's gamma.
+A mirror's frame alone is clipped at its plane, its `NearClip`, by a clip distance; every frame
+at the near and far planes, its depth never clamped, as `D3DDrv`'s is cut there
+([the near plane](NATIVES.md#the-near-plane)). Without `shaderClipDistance` the mirror's
+frames take scene pipelines of their
 own that discard what lies behind the plane, and no other draw has a discard.
 It decodes on the CPU what the GPU cannot sample or filter: BC1, RGB8, RGBA32F, and converts
 the lightmaps for upload in NEON on ARM. A mip bigger than its 64 MB staging buffer goes up in
@@ -520,9 +526,13 @@ wherever else that state is set.
   `OES_texture_float_linear` are decoded to RGBA8 on the CPU, and BGRA8 goes up as RGBA8, red
   and blue swapped, ES taking no BGRA upload.
 - **A texture's levels** are those of its mip count (`GL_TEXTURE_MAX_LEVEL`), each its own
-  size; a level with no mip of its own, or a misfit one, is zeros -- a DXT1 texture's levels
-  made by their uploads (`glCompressedTexImage2D`), as ES takes no compressed format in
-  `glTexImage2D`, zero blocks there -- so the chain is whole.
+  size; a level with no mip of its own, a misfit one or one short of its bytes is zeros -- a
+  DXT1 texture's levels made by their uploads (`glCompressedTexImage2D`), as ES takes no
+  compressed format in `glTexImage2D`, zero blocks there -- so the chain is whole. A texture
+  whose top mip is short of its bytes, or larger than the driver's `GL_MAX_TEXTURE_SIZE`, is a
+  white texel, as on the Vulkan device.
+- **A new window size** changes the scene buffers alone: the textures stay, as the Vulkan
+  device keeps them.
 - **The samplers** set no `GL_TEXTURE_LOD_BIAS` on ES (no ES sampler has it), the scene shader
   taking `LODBias` in its lookups there instead (`LOD_BIAS`: `texture()`'s bias, the detail
   texture's `textureGrad` gradients scaled by 2 to its power), anisotropy only
@@ -547,9 +557,9 @@ wherever else that state is set.
 - **Anisotropy** (8) goes on the smooth scene samplers, as the Vulkan device's, where the driver
   has it (`CreateSceneSamplers`); the NoSmooth ones point-sample with none, as `D3DDrv` does,
   where a driver's anisotropy on a nearest filter averages several texels from a finer mip.
-- **Depth is clamped** at the near and far planes on desktop GL, as the Vulkan device clamps it
-  (the weapon close up): `DepthClipEnable` is D3D11's, off meaning a clamp. ES has no clamp and
-  clips there.
+- **Depth is clipped** at the near and far planes, as on the Vulkan device and ES
+  ([the near plane](NATIVES.md#the-near-plane)): `DepthClipEnable` is D3D11's, on for the
+  scene and off, a clamp, for the passes after it.
 - **A mirror's frame is clipped at its plane** by a clip distance, as the Vulkan device's:
   `GL_CLIP_DISTANCE0` is on only in a frame whose `NearClip` is not the default, so the main
   frame draws as it would without it, and off for the passes after the scene. ES has clip
@@ -582,8 +592,8 @@ where one inside does, so a draw reads no texel but its pixels'.
 
 - **Triangles**, as the Vulkan device's: each in clip space by its scene node's transforms,
   clipped where a corner lies behind the node's clip plane (every frame's near plane at view z
-  1, and a mirror's plane in a mirror's frame, where the Vulkan device clips a mirror's frame
-  alone and clamps the depth: bugs.md REN.37) or outside a guard band of 8192 pixels (the frame
+  1, as every device's, and a mirror's plane in a mirror's frame) or outside a guard band of
+  8192 pixels (the frame
   kept within it: a window over 8000 pixels a side is drawn smaller and scaled up at the
   present), and held to the viewport; a polygon a fan, (0, i - 1, i). Snapped to 1/256 pixel,
   its pixels by the top-left rule, as RADV and lavapipe cover them; its attributes over w, at

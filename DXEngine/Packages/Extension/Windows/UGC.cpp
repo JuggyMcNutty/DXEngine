@@ -728,12 +728,14 @@ void UGC::DrawTile(UTexture* tex, const Rectf& dest, const Rectf& src, const Col
 	if (dest.left >= dest.right || dest.top >= dest.bottom)
 		return;
 
-	// A texture whose pixels changed since it was last drawn goes to the
-	// device again (a snapshot taken into the same texture, for one).
-	texinfo.bRealtimeChanged = tex->ChangedThisFrame(engine->render->TextureFrameCounter);
-
+	// A texture whose pixels changed since a draw last took them goes to the
+	// device again (a snapshot taken into the same texture, for one), taken
+	// by the tile drawn: one clipped away leaves it to the next draw, as the
+	// original's canvas locks no tile it rejects (Engine.dll
+	// UCanvas::DrawTile, 0x10376160)
 	if (!clip || (dest.left >= clipBox.left && dest.top >= clipBox.top && dest.right <= clipBox.right && dest.bottom <= clipBox.bottom))
 	{
+		texinfo.bRealtimeChanged = tex->TakeChange();
 		engine->render->DrawTile(
 			texinfo,
 			dest.left,
@@ -779,6 +781,8 @@ void UGC::DrawTile(UTexture* tex, const Rectf& dest, const Rectf& src, const Col
 		}
 
 		if (d.left < d.right && d.top < d.bottom)
+		{
+			texinfo.bRealtimeChanged = tex->TakeChange();
 			engine->render->DrawTile(
 				texinfo,
 				d.left,
@@ -790,6 +794,7 @@ void UGC::DrawTile(UTexture* tex, const Rectf& dest, const Rectf& src, const Col
 				s.right - s.left,
 				s.bottom - s.top,
 				Z, color, fog, flags);
+		}
 	}
 }
 

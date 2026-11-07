@@ -83,8 +83,7 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 	FrameInProgress = true;
 	// Every frame, the world drawn or not: a texture the windows or the
 	// canvas alone draw (a menu over the snapshot, the credits) steps on, as
-	// the original's by its own time (fire-dll.md, stepping), and one changed
-	// once is not uploaded again each frame
+	// the original's by its own time (fire-dll.md, stepping)
 	TextureFrameCounter++;
 
 	ResetCanvas();
@@ -227,7 +226,7 @@ void RenderSubsystem::UpdateTextureInfo(TextureInfo& info, UTexture* texture)
 		info.Palette = (TextureColor*)texture->Palette()->Colors.data();
 	ApplyDetailLOD(info);
 
-	info.bRealtimeChanged = texture->ChangedThisFrame(TextureFrameCounter);
+	info.bRealtimeChanged = texture->TakeChange();
 }
 
 // The texture from its detail level's mip down, as the original's

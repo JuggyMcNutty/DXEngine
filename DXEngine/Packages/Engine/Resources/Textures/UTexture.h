@@ -41,9 +41,8 @@ public:
 	TextureFormat UsedFormat = TextureFormat::P8;
 	Array<UnrealMipmap> UsedMipmaps, UncompressedMipmaps, CompressedMipmaps;
 	bool TextureModified = false;
-	// The frame the change was taken in (ChangedThisFrame)
-	int ModifiedFrame = -1;
-	bool ChangedThisFrame(int frame);
+	// The change, for the draw that takes it (TextureModified cleared)
+	bool TakeChange();
 	int RealtimeChangeCount = 0;
 
 	int FrameCounter = -1;

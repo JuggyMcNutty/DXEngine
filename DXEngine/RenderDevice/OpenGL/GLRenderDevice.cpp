@@ -463,7 +463,9 @@ void GLRenderDevice::CreateScenePass()
 		GLRasterizerDesc rasterizerDesc = {};
 		rasterizerDesc.CullEnable = false;
 		rasterizerDesc.FrontCounterClockwise = false;
-		rasterizerDesc.DepthClipEnable = false; // Avoid clipping the weapon. The UE1 engine clips the geometry anyway.
+		// Clipped at the near and far planes, as D3DDrv's depth under 0 and over
+		// 1 is cut (dx-reverse-info d3ddrv-dll.md, the screen's pixels), as on ES
+		rasterizerDesc.DepthClipEnable = true;
 		rasterizerDesc.MultisampleEnable = i == 1;
 		ScenePass.RasterizerState[i] = CreateRasterizerState(rasterizerDesc);
 	}
@@ -1124,12 +1126,14 @@ void GLRenderDevice::UnmapVertices()
 
 void GLRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 {
+	// A new window size changes the scene buffers alone (below): the textures
+	// stay, as the Vulkan device keeps them, where SetRes's flush sent each
+	// one up again at every step of a resize and, with UsePrecache, had the
+	// next frame precache the level
 	if (Viewport->GetNativePixelWidth() != CurrentSizeX || Viewport->GetNativePixelHeight() != CurrentSizeY)
 	{
-		if (!SetRes(Viewport->GetNativePixelWidth(), Viewport->GetNativePixelHeight(), CurrentFullscreen))
-		{
-			Exception::Throw("Could not resize GLRenderDevice");
-		}
+		CurrentSizeX = Viewport->GetNativePixelWidth();
+		CurrentSizeY = Viewport->GetNativePixelHeight();
 	}
 
 	nulltex = Textures->GetNullTexture();
@@ -2045,8 +2049,8 @@ void GLRenderDevice::SetRasterizerState(GLRasterizerState* rasterizerState)
 
 	// GL_DEPTH_CLAMP and GL_MULTISAMPLE are desktop GL only (GL_INVALID_ENUM
 	// on ES); ES always rasterizes the samples its target carries, and clips
-	// at the near and far planes. DepthClipEnable is D3D11's: off, depth is
-	// clamped there instead, as the Vulkan device's is (the weapon close up).
+	// at the near and far planes. DepthClipEnable is D3D11's: on, the scene's,
+	// clipping there as ES does; off, a post pass's, the depth clamped.
 	if (!IsGLES)
 	{
 		if (rasterizerState->desc.DepthClipEnable)

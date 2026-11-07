@@ -32,7 +32,11 @@ VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
 		deviceBuilder.OptionalDescriptorIndexing();
 		deviceBuilder.OptionalRayQuery();
 		deviceBuilder.Surface(surface);
-		deviceBuilder.RequireExtension(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
+		// A clamped tile's sampler: mirrored once, then clamped, where the GPU
+		// has it; else clamped to the edge, the same texels for a tile within
+		// its texture, as the GL device falls back (SamplerManager), so a GPU
+		// without it (a Mali, PowerVR or Adreno board's) keeps the Vulkan device
+		deviceBuilder.OptionalExtension(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
 		deviceBuilder.SelectDevice(VkDeviceIndex);
 		if (CPUDriver)
 			deviceBuilder.SelectCPUDevice();
@@ -92,6 +96,8 @@ VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
 		LogMessage("Vulkan device type: " + deviceType);
 		LogMessage("Vulkan version: " + apiVersion + " (api) " + driverVersion + " (driver)");
 		LogMessage(std::string("Vulkan textures: ") + (SupportsBindless ? "bindless" : "per-batch descriptor sets (no descriptor indexing)"));
+		if (!Device->SupportsExtension(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME))
+			LogMessage("Vulkan: no VK_KHR_sampler_mirror_clamp_to_edge; a clamped tile clamps to the edge");
 
 		// Mesa's CPU driver alone, lavapipe, not asked for: no GPU here, and
 		// the software device draws faster on the CPU (ENGINE.md, the
@@ -939,9 +945,9 @@ void VulkanRenderDevice::SetSceneNode(SceneNode* Frame)
 	// A mirror's frame is clipped at the mirror's plane, its NearClip, in the
 	// object's space, the view's turned by the transpose: dot(plane, M p) =
 	// dot(transpose(M) plane, p). So the vertex needs no view matrix, and the
-	// push constants fit 128 bytes. Any other frame keeps the default, which
-	// clips nothing (0, 0, 0, 1), all in front of the eye drawn, the near
-	// plane's depth clamped, as the GL device draws it (the weapon close up).
+	// push constants fit 128 bytes. Any other frame's plane is (0, 0, 0, 1),
+	// which clips nothing: the projection's near plane, view depth 1, clips
+	// it, as every device clips there (RenderPassManager).
 	bool mirror = Frame->NearClip != vec4(0.0f, 0.0f, 1.0f, -1.0f);
 	pushconstants.nearClip = mirror ? mat4::transpose(Frame->WorldToView * Frame->ObjectToWorld) * Frame->NearClip : vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	RenderPasses->SetMirrorFrame(mirror);

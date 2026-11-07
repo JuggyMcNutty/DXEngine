@@ -90,26 +90,23 @@ void UTexture::Load(ObjectStream* stream)
 	}
 }
 
+// Whether the texture changed since a draw last took its change, which
+// this draw takes: the device makes its one copy of the texture again for
+// it, and the frame's other draws take that copy, as the original's
+// UTexture::Lock hands the texture's bRealtimeChanged to the lock that
+// finds it and clears it (Engine.dll 0x103ecc90), D3DDrv making a changed
+// texture again once
+bool UTexture::TakeChange()
+{
+	bool changed = TextureModified;
+	TextureModified = false;
+	return changed;
+}
+
 // Engine.dll UTexture::Lock (0x103ecc90), a frame's texture locked with no
 // LOD of its own: the client's TextureLODSet for the texture's LODSet,
 // raised to the render device's RecommendedLOD (D3DDrv leaves it 0), held to
 // 3 and to the last mip.
-// Whether the texture changed since it was last sent to the device: the
-// flag its step sets, taken by the frame's first draw of it and kept for
-// the frame's other draws, so a device holding two copies of it (drawn
-// masked and unmasked, as every DXEngine device keys them) sends the second
-// again too, where the first draw alone took the flag and the other copy
-// froze -- 15_Area51_Bunker's flame on a masked and an unmasked surface.
-bool UTexture::ChangedThisFrame(int frame)
-{
-	if (TextureModified)
-	{
-		TextureModified = false;
-		ModifiedFrame = frame;
-	}
-	return ModifiedFrame == frame;
-}
-
 int UTexture::DetailLOD()
 {
 	if (!engine || !engine->client || UsedMipmaps.empty())

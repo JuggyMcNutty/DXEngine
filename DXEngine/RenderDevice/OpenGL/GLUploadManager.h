@@ -28,4 +28,6 @@ private:
 
 	GLRenderDevice* renderer = nullptr;
 	std::vector<uint32_t> UploadBuffer;
+	// The driver's largest side (GL_MAX_TEXTURE_SIZE)
+	int MaxTextureSize = 16384;
 };
