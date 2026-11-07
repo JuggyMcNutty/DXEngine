@@ -837,63 +837,55 @@ void PropertyDataBlock::Load(ObjectStream* stream)
 			header.boolValue = infoBit;
 		}
 
-		UProperty* prop = nullptr;
-		for (auto it = Class->Properties.rbegin(); it != Class->Properties.rend(); ++it)
-		{
-			if ((*it)->Name == name)
-			{
-				// This is a hack. GameReplicationInfo and its base class Actor both have a "Region" property.
-				// How is the property loading code supposed to know is being targeted?
-				// Only other information we have is the property type.
-				if (header.type != UPT_Struct || UObject::TryCast<UStructProperty>(*it))
-				{
-					prop = *it;
-					break;
-				}
-			}
-		}
+		// The property the tag names, the class's own before its supers': the
+		// original's loader walks the class's property chain
+		// (SerializeTaggedProperties, Core.dll 0x10126730), which lists a
+		// class's own properties before its super's (UStruct::Link,
+		// 0x10126060), as FindField walks them (0x10143fd0). So a tag of a
+		// property a class declares again meets the class's own, of whatever
+		// type: a GameReplicationInfo's tag of Actor's Region, a struct,
+		// meets its own int Region and is refused as another type.
+		UProperty* prop = Class->FindProperty(name);
 
+		// A tag the property cannot take is logged and its bytes skipped, the
+		// object loading on, as that loader does, in its order and words: no
+		// property of the name, another type (but a String tag of a Str, read
+		// as one), an element past its static array, another struct, a native
+		// or transient property (every file a persistent archive), then
+		// "Skipping %i bytes of type %i"; XLevel's tag, a native one old maps
+		// hold, without either of the last two lines. DXEngine threw, failing
+		// the whole package or save.
+		std::string owner = Class->Name.ToString();
+		bool xlevel = name == "XLevel";
+		PropertyHeader own = {};
+		if (prop)
+			prop->SaveHeader(Ptr(prop), own);
+		bool refused = true;
 		if (!prop)
+			LogMessage("Property " + name.ToString() + " of Class " + Class->GetPathName() + " not found");
+		else if (header.type != own.type && !(header.type == UPT_String && own.type == UPT_Str))
+			LogMessage("Type mismatch in " + name.ToString() + " of " + owner + ": file " + std::to_string((int)header.type) + ", class " + std::to_string((int)own.type));
+		else if (header.arrayIndex < 0 || header.arrayIndex >= prop->ArrayDimension)
+			LogMessage("Array bounds in " + name.ToString() + " of " + owner + ": " + std::to_string(header.arrayIndex) + "/" + std::to_string(prop->ArrayDimension));
+		else if (header.type == UPT_Struct && header.structName != own.structName)
+			LogMessage("Property " + name.ToString() + " of " + owner + " struct type mismatch " + header.structName.ToString() + "/" + own.structName.ToString());
+		else if (AnyFlags(prop->PropFlags, PropertyFlags::Native | PropertyFlags::Transient))
 		{
-#if 0
-			Exception::Throw("Unknown property " + name);
-#else
-			LogMessage("Skipping unknown property " + name.ToString());
+			if (!xlevel)
+				LogMessage("Property " + name.ToString() + " of " + owner + " is not serialiable");
+		}
+		else
+			refused = false;
+		if (refused)
+		{
+			if (!xlevel)
+				LogMessage("Skipping " + std::to_string(header.size) + " bytes of type " + std::to_string((int)header.type));
 			if (header.type != UPT_Bool)
 				stream->Skip(header.size);
 			continue;
-#endif
 		}
 
 		void* data = Ptr(prop);
-
-		// A tag the class's property cannot take -- an element past its
-		// static array, another type, another struct -- is logged and its
-		// bytes skipped, the object loading on, as the original's
-		// SerializeTaggedProperties does (Core.dll 0x10126730); DXEngine
-		// threw, failing the whole package or save
-		std::string owner = Class ? Class->Name.ToString() : std::string("?");
-		if (header.arrayIndex < 0 || header.arrayIndex >= prop->ArrayDimension)
-		{
-			LogMessage("Array bounds in " + name.ToString() + " of " + owner + ": " + std::to_string(header.arrayIndex) + "/" + std::to_string(prop->ArrayDimension));
-			if (header.type != UPT_Bool)
-				stream->Skip(header.size);
-			continue;
-		}
-
-		// A native or transient property's tag, every file being a
-		// persistent archive, is logged in the original's words (sic) and
-		// skipped, XLevel's without a line, as its loader refuses it
-		// (0x10126730)
-		if (AnyFlags(prop->PropFlags, PropertyFlags::Native | PropertyFlags::Transient))
-		{
-			if (name != "XLevel")
-				LogMessage("Property " + name.ToString() + " of " + owner + " is not serialiable");
-			if (header.type != UPT_Bool)
-				stream->Skip(header.size);
-			continue;
-		}
-
 		prop->Flags |= ObjectFlags::TagExp;
 		uint32_t start = stream->Tell();
 		try

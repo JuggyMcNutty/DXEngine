@@ -7,7 +7,11 @@
 // messages (a log object each, CreateLogObject), and what the level holds
 // is logged (the player, its place and inventory, its goals, notes, keys
 // and logs, the game, how many actors, pawns and inventory items, the
-// mission script, and the marker's PostPostBeginPlay calls), then the game
+// mission script, the marker's PostPostBeginPlay calls, and the game's
+// replication info's own int Region and the Region it has as an Actor, a
+// struct, which the original's load skips: Core.dll 0x10126730 finds the
+// class's own Region first, another type, and logs "Type mismatch in Region
+// of GameReplicationInfo: file 10, class 2" (bugs.md PKG.26)), then the game
 // is saved to slot 9 (by a SaveHelper, on the next actors' tick) and the run
 // exits 3 s later. LoadConsole loads that slot and logs the same: no save
 // holds the mission script, and the loaded player's TravelPostAccept spawns
@@ -89,6 +93,8 @@ function Census(PlayerPawn P, string Label)
 	local DeusExNote Note;
 	local NanoKeyInfo Key;
 	local DeusExLog LogEntry;
+	local GameReplicationInfo GRI;
+	local Actor GRIActor;
 	local int Actors, Pawns, Items;
 	local string Carried;
 
@@ -122,6 +128,12 @@ function Census(PlayerPawn P, string Label)
 		Log("DXSAVE: " $ Label $ " mission script " $ S.Name $ " (" $ S.Class.Name $ ")");
 	foreach P.AllActors(class'LoadMarker', M)
 		Log("DXSAVE: " $ Label $ " " $ M.Name $ " PostPostBeginPlay " $ M.Begun $ " times");
+	foreach P.AllActors(class'GameReplicationInfo', GRI)
+	{
+		GRIActor = GRI;
+		Log("DXSAVE: " $ Label $ " " $ GRI.Name $ " Region " $ GRI.Region $ ", as an Actor zone " $ GRIActor.Region.Zone
+			$ " leaf " $ GRIActor.Region.iLeaf $ " number " $ GRIActor.Region.ZoneNumber);
+	}
 }
 
 event Tick(float Delta)

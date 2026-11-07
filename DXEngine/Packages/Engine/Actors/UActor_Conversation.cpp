@@ -15,7 +15,9 @@ void UActor::DeusExConBindEvents()
 	// DConversationList::BindConversations: the list is the one the level's
 	// ConversationPackage names, a bark binds by the actor's bark name, any
 	// other conversation by its name only, and each item counts into its
-	// conversation's ownerRefCount.
+	// conversation's ownerRefCount. Every actor binds, whatever its names:
+	// the three ConBindEvents test neither (DeusEx.dll 0x1000ea50,
+	// 0x10014320, 0x10019140).
 	UDeusExLevelInfo* info = engine->DeusExLevelInfo;
 	if (!info)
 	{
@@ -55,8 +57,8 @@ void UActor::DeusExConBindEvents()
 
 	UClass* clsConListItem = engine->packages->FindClass("ConSys.ConListItem");
 	Package* listPackage = mission->package;
-	NameString bindName = ScriptToLatin1(BindName());
-	NameString barkBindName = ScriptToLatin1(BarkBindName());
+	ScriptString bindName = BindName();
+	ScriptString barkBindName = BarkBindName();
 
 	for (UConItem* item = mission->conversations(); item; item = item->Next())
 	{
@@ -66,10 +68,17 @@ void UActor::DeusExConBindEvents()
 
 		// A bark ("_Bark" in its name, case sensitive) is owned by the
 		// actor's bark name, or its name when it has none; any other
-		// conversation by its name, never its bark name.
+		// conversation by its name, never its bark name. Each name is
+		// compared as a string, without regard to case (appStricmp, ConSys.dll
+		// 0x10010be0 to 0x10010c77), an empty one as any other: a
+		// conversation with no owner is every actor's with no BindName, a
+		// bark with none every actor's with no bark name (no stock
+		// conversation has none).
 		bool isBark = conversation->conName().ToString().find("_Bark") != std::string::npos;
-		NameString wanted = (isBark && !barkBindName.IsNone()) ? barkBindName : bindName;
-		if (wanted.IsNone() || NameString(ScriptToLatin1(conversation->conOwnerName())) != wanted)
+		const ScriptString& owner = conversation->conOwnerName();
+		bool owned = (isBark && ScriptEqualsIgnoreCase(barkBindName, owner))
+			|| (ScriptEqualsIgnoreCase(bindName, owner) && (!isBark || barkBindName.empty()));
+		if (!owned)
 			continue;
 
 		// Each goes to the front, so the list runs from the mission list's

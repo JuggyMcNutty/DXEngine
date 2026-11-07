@@ -4,6 +4,7 @@
 #include "ArrayValue.h"
 #include "Packages/Core/Properties/UStructProperty.h"
 #include "Utils/ScriptString.h"
+#include "Math/floating.h"
 
 class ExpressionValue
 {
@@ -612,7 +613,10 @@ inline bool ExpressionValue::IsEqual(const ExpressionValue& value) const
 {
 	// Nothing, a None context's value, is the zero of the other's type, as
 	// the original's zero-filled result compares (`switch (A.Physics)` with A
-	// None takes `case PHYS_None`)
+	// None takes `case PHYS_None`). A float, and each of a vector's or a
+	// Coords' axes, as the original's struct compare takes it, by the float
+	// property's Identical (Core.dll 0x10166780, X87::Equal): a NaN equal to
+	// anything
 	switch (Type)
 	{
 	default:
@@ -620,9 +624,9 @@ inline bool ExpressionValue::IsEqual(const ExpressionValue& value) const
 	case ExpressionValueType::ValueByte:
 	case ExpressionValueType::ValueInt: return ToInt() == value.ToInt();
 	case ExpressionValueType::ValueBool: return ToBool() == value.ToBool();
-	case ExpressionValueType::ValueFloat: return ToFloat() == value.ToFloat();
+	case ExpressionValueType::ValueFloat: return X87::Equal(ToFloat(), value.ToFloat());
 	case ExpressionValueType::ValueObject: return ToObject() == value.ToObject();
-	case ExpressionValueType::ValueVector: return ToVector() == value.ToVector();
+	case ExpressionValueType::ValueVector: return X87::Equal3(ToVector(), value.ToVector());
 	case ExpressionValueType::ValueRotator: return identical(ToRotator(), value.ToRotator());
 	case ExpressionValueType::ValueString: return ToScriptString() == value.ToScriptString();
 	case ExpressionValueType::ValueName: return ToName() == value.ToName();
@@ -634,7 +638,12 @@ inline bool ExpressionValue::IsEqual(const ExpressionValue& value) const
 			return GetStructValue()->Struct->IsEqual(Ptr, value.Ptr);
 		else
 			return static_cast<UStructProperty*>(VariableProperty)->Struct->IsEqual(Ptr, value.Ptr);
-	case ExpressionValueType::ValueCoords: return ToCoords() == value.ToCoords();
+	case ExpressionValueType::ValueCoords:
+	{
+		const Coords& a = ToCoords();
+		const Coords& b = value.ToCoords();
+		return X87::Equal3(a.Origin, b.Origin) && X87::Equal3(a.XAxis, b.XAxis) && X87::Equal3(a.YAxis, b.YAxis) && X87::Equal3(a.ZAxis, b.ZAxis);
+	}
 	case ExpressionValueType::ValueQuat: return ToQuat() == value.ToQuat();
 	}
 }

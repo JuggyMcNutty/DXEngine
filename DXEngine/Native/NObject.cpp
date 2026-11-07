@@ -204,9 +204,12 @@ void NObject::RegisterFunctions()
 
 }
 
+// The original's (Core.dll 0x10135c60): negated where its compare with 0
+// takes it for under (X87::Under), so a NaN's sign turns over and -0 stays
+// -0, where the C library's clears the sign of both
 void NObject::Abs(float A, float& ReturnValue)
 {
-	ReturnValue = std::abs(A);
+	ReturnValue = X87::Under(A, 0.0) ? -A : A;
 }
 
 void NObject::AddAdd_Byte(uint8_t& A, uint8_t& ReturnValue)
@@ -344,9 +347,12 @@ void NObject::ClassIsChildOf(UObject* TestClass, UObject* ParentClass, BitfieldB
 	ReturnValue = false;
 }
 
+// The original's (Core.dll 0x101357e0): the difference at the x87's
+// precision in the tick the script runs in (X87), made positive, then
+// compared with 0.0001 (X87::Under), so a NaN is about equal to anything
 void NObject::ComplementEqual_FloatFloat(float A, float B, BitfieldBool& ReturnValue)
 {
-	ReturnValue = std::abs(A - B) < 0.0001;
+	ReturnValue = X87::Under(std::fabs(X87::Round((double)A - B)), 0.0001);
 }
 
 void NObject::ComplementEqual_StrStr(const ScriptString& A, const ScriptString& B, BitfieldBool& ReturnValue)
@@ -558,8 +564,9 @@ void NObject::EqualEqual_BoolBool(bool A, bool B, BitfieldBool& ReturnValue)
 
 void NObject::EqualEqual_FloatFloat(float A, float B, BitfieldBool& ReturnValue)
 {
-	// Exact, as the original's (Core.dll 0x10135620) and as != is
-	ReturnValue = (A == B);
+	// Exact, a NaN equal to anything, as the original's (Core.dll
+	// 0x10135620) and as != is
+	ReturnValue = X87::Equal(A, B);
 }
 
 void NObject::EqualEqual_IntInt(int A, int B, BitfieldBool& ReturnValue)
@@ -587,9 +594,10 @@ void NObject::EqualEqual_StrStr(const ScriptString& A, const ScriptString& B, Bi
 	ReturnValue = (A == B);
 }
 
+// Each axis as a float's == (Core.dll 0x10138430): a NaN equal to anything
 void NObject::EqualEqual_VectorVector(const vec3& A, const vec3& B, BitfieldBool& ReturnValue)
 {
-	ReturnValue = (A == B);
+	ReturnValue = X87::Equal3(A, B);
 }
 
 void NObject::Exp(float A, float& ReturnValue)
@@ -603,9 +611,13 @@ void NObject::FClamp(float V, float A, float B, float& ReturnValue)
 	ReturnValue = !(V >= A) ? A : !(V >= B) ? V : B;
 }
 
+// The original's (Core.dll 0x10136400): B where A compares under it, a NaN
+// on either side among that, else A, so FMax(NaN, 1) is 1 and FMax(1, NaN)
+// the NaN. FMin (0x10136320) takes A where it compares under B or equal to
+// it, as std::min does
 void NObject::FMax(float A, float B, float& ReturnValue)
 {
-	ReturnValue = std::max(A, B);
+	ReturnValue = X87::Under(A, B) ? B : A;
 }
 
 void NObject::FMin(float A, float B, float& ReturnValue)
@@ -815,9 +827,10 @@ void NObject::Lerp(float Alpha, float A, float B, float& ReturnValue)
 	ReturnValue = (float)R(R(R((double)B - A) * Alpha) + A);
 }
 
+// Under or equal, a NaN on either side either (Core.dll 0x10135460)
 void NObject::LessEqual_FloatFloat(float A, float B, BitfieldBool& ReturnValue)
 {
-	ReturnValue = A <= B;
+	ReturnValue = !(A > B);
 }
 
 void NObject::LessEqual_IntInt(int A, int B, BitfieldBool& ReturnValue)
@@ -841,9 +854,11 @@ void NObject::LessLess_VectorRotator(const vec3& A, const Rotator& B, vec3& Retu
 	ReturnValue = Coords::Rotation(B) * A;
 }
 
+// Under, a NaN on either side so (Core.dll 0x101352a0); > and >= take a
+// NaN as C++ does, over nothing
 void NObject::Less_FloatFloat(float A, float B, BitfieldBool& ReturnValue)
 {
-	ReturnValue = A < B;
+	ReturnValue = X87::Under(A, B);
 }
 
 void NObject::Less_IntInt(int A, int B, BitfieldBool& ReturnValue)
@@ -1003,13 +1018,14 @@ void NObject::Multiply_VectorVector(const vec3& A, const vec3& B, vec3& ReturnVa
 // summed on the x87, X's and Y's first, then Z's, at its precision in the
 // tick the script runs in (X87), stored as a double: zero under 1e-8, else
 // one over its root (appSqrt's fsqrt, an fdivr) times each axis, each stored
-// as a float (SweepVmConsole).
+// as a float (SweepVmConsole). A NaN's sum is under 1e-8 to its compare
+// (X87::Under): zero.
 void NObject::Normal(const vec3& A, vec3& ReturnValue)
 {
 	auto R = X87::Round;
 	double x = A.x, y = A.y, z = A.z;
 	double squared = R(R(R(x * x) + R(y * y)) + R(z * z));
-	if (squared < 0.00000001)
+	if (X87::Under(squared, 0.00000001))
 	{
 		ReturnValue = vec3(0.0f);
 		return;
@@ -1030,7 +1046,7 @@ void NObject::NotEqual_BoolBool(bool A, bool B, BitfieldBool& ReturnValue)
 
 void NObject::NotEqual_FloatFloat(float A, float B, BitfieldBool& ReturnValue)
 {
-	ReturnValue = A != B;
+	ReturnValue = !X87::Equal(A, B);
 }
 
 void NObject::NotEqual_IntInt(int A, int B, BitfieldBool& ReturnValue)
@@ -1060,7 +1076,7 @@ void NObject::NotEqual_StrStr(const ScriptString& A, const ScriptString& B, Bitf
 
 void NObject::NotEqual_VectorVector(const vec3& A, const vec3& B, BitfieldBool& ReturnValue)
 {
-	ReturnValue = A != B;
+	ReturnValue = !X87::Equal3(A, B);
 }
 
 void NObject::Not_PreBool(bool A, BitfieldBool& ReturnValue)

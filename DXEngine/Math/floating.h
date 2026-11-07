@@ -49,6 +49,34 @@ public:
 		return std::bit_cast<double>(bits & ~(uint64_t)0x1fffffff);
 	}
 
+	// A compare as the original's code makes it: an fcomp, then a test of
+	// the x87's flags, C3 for equal and C0 for under, both of which a NaN on
+	// either side sets (unordered). Equal is C3: the script's == and !=
+	// (Core.dll 0x10135620, 0x10135700), a vector's (0x10138430,
+	// 0x10138530), bool of a float or a vector (0x10131be0, 0x10136cd0) and
+	// a float property's Identical (0x10166780), so a NaN equals anything.
+	// Under is C0: the script's < (0x101352a0), ~= (0x101357e0), Abs
+	// (0x10135c60), FMax (0x10136400), FClamp (0x101364e0) and Normal's
+	// SafeNormal (0x10144be0), so a NaN is under anything. <= tests either
+	// (0x10135460), > neither (0x10135380) and >= not C0 (0x10135540): a NaN
+	// is under or equal to anything and over nothing (NaNConsole).
+	static inline bool Equal(double a, double b)
+	{
+		return a == b || std::isunordered(a, b);
+	}
+
+	static inline bool Under(double a, double b)
+	{
+		return a < b || std::isunordered(a, b);
+	}
+
+	// Each axis Equal, as the original's vector == tests each in turn
+	template<typename V>
+	static inline bool Equal3(const V& a, const V& b)
+	{
+		return Equal(a.x, b.x) && Equal(a.y, b.y) && Equal(a.z, b.z);
+	}
+
 	// An int times a float made an int by _ftol (ftol), the product as the
 	// x87 holds it: the original's rotator times a float (Core.dll
 	// 0x101395e0: fild, fmul, _ftol). rot(10, 20, 30) * 0.7 is (7, 14, 21)

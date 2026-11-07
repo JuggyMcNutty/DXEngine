@@ -24,7 +24,9 @@ public:
 	// (Core.dll's FindField, 0x10143fd0): the struct's own first, then each
 	// super's in turn, so a name a subclass declares again is the
 	// subclass's; null for none. What a script's or the console's name
-	// reaches: GetPropertyText, SetPropertyText, GET and SET.
+	// reaches: GetPropertyText, SetPropertyText, GET and SET; and what a
+	// package's or a save's tag goes to, as the original's loader walks the
+	// class's property chain in that order (Core.dll 0x10126730).
 	UProperty* FindProperty(const NameString& name);
 
 	UStruct* BaseStruct = nullptr;

@@ -668,9 +668,11 @@ void ExpressionEvaluator::Expr(FloatToIntExpression* expr)
 	*Out = ExpressionValue::IntValue(ftol(Value(expr->Value).ToFloat()));
 }
 
+// True unless it compares equal to 0, as the original's (Core.dll
+// 0x10131be0) by the x87's C3 (X87::Equal): a NaN is False
 void ExpressionEvaluator::Expr(FloatToBoolExpression* expr)
 {
-	*Out = ExpressionValue::BoolValue((bool)Value(expr->Value).ToFloat());
+	*Out = ExpressionValue::BoolValue(!X87::Equal(Value(expr->Value).ToFloat(), 0.0));
 }
 
 void ExpressionEvaluator::Expr(Unknown0x46Expression* expr)
@@ -758,9 +760,11 @@ void ExpressionEvaluator::Expr(StringToRotatorExpression* expr)
 	*Out = ExpressionValue::RotatorValue({ parts[0], parts[1], parts[2] });
 }
 
+// True unless each axis compares equal to 0, as the original's (Core.dll
+// 0x10136cd0): a NaN axis counts as 0
 void ExpressionEvaluator::Expr(VectorToBoolExpression* expr)
 {
-	*Out = ExpressionValue::BoolValue(Value(expr->Value).ToVector() != vec3(0.0f));
+	*Out = ExpressionValue::BoolValue(!X87::Equal3(Value(expr->Value).ToVector(), vec3(0.0f)));
 }
 
 void ExpressionEvaluator::Expr(VectorToRotatorExpression* expr)
@@ -968,11 +972,11 @@ bool ExpressionEvaluator::CallFastOperator(UFunction* func, const Array<Expressi
 		case TypedKind::GreaterEqual_IntInt: *Out = ExpressionValue::BoolValue(a.ToInt() >= b.ToInt()); break;
 		case TypedKind::EqualEqual_IntInt: *Out = ExpressionValue::BoolValue(a.ToInt() == b.ToInt()); break;
 		case TypedKind::NotEqual_IntInt: *Out = ExpressionValue::BoolValue(a.ToInt() != b.ToInt()); break;
-		case TypedKind::Less_FloatFloat: *Out = ExpressionValue::BoolValue(a.ToFloat() < b.ToFloat()); break;
-		case TypedKind::LessEqual_FloatFloat: *Out = ExpressionValue::BoolValue(a.ToFloat() <= b.ToFloat()); break;
+		case TypedKind::Less_FloatFloat: *Out = ExpressionValue::BoolValue(X87::Under(a.ToFloat(), b.ToFloat())); break;
+		case TypedKind::LessEqual_FloatFloat: *Out = ExpressionValue::BoolValue(!(a.ToFloat() > b.ToFloat())); break;
 		case TypedKind::Greater_FloatFloat: *Out = ExpressionValue::BoolValue(a.ToFloat() > b.ToFloat()); break;
 		case TypedKind::GreaterEqual_FloatFloat: *Out = ExpressionValue::BoolValue(a.ToFloat() >= b.ToFloat()); break;
-		case TypedKind::NotEqual_FloatFloat: *Out = ExpressionValue::BoolValue(a.ToFloat() != b.ToFloat()); break;
+		case TypedKind::NotEqual_FloatFloat: *Out = ExpressionValue::BoolValue(!X87::Equal(a.ToFloat(), b.ToFloat())); break;
 		case TypedKind::Add_FloatFloat: *Out = ExpressionValue::FloatValue(a.ToFloat() + b.ToFloat()); break;
 		case TypedKind::Subtract_FloatFloat: *Out = ExpressionValue::FloatValue(a.ToFloat() - b.ToFloat()); break;
 		case TypedKind::Multiply_FloatFloat: *Out = ExpressionValue::FloatValue(a.ToFloat() * b.ToFloat()); break;
@@ -1511,7 +1515,7 @@ bool ExpressionEvaluator::EvalBool(Expression* expr)
 	case TypedKind::Skip: return EvalBool(Operand<SkipExpression>(expr));
 	case TypedKind::ByteToBool: return EvalNumber<uint8_t>(Operand<ByteToBoolExpression>(expr)) != 0;
 	case TypedKind::IntToBool: return EvalNumber<int32_t>(Operand<IntToBoolExpression>(expr)) != 0;
-	case TypedKind::FloatToBool: return (bool)EvalNumber<float>(Operand<FloatToBoolExpression>(expr));
+	case TypedKind::FloatToBool: return !X87::Equal(EvalNumber<float>(Operand<FloatToBoolExpression>(expr)), 0.0);
 	case TypedKind::ObjectToBool: return EvalObject(Operand<ObjectToBoolExpression>(expr)) != nullptr;
 	case TypedKind::NameToBool: return EvalName(Operand<NameToBoolExpression>(expr)).IsNone() == false;
 	case TypedKind::AndAnd: return EvalBool(OperandsOf(expr)[0], Self) && EvalBool(OperandsOf(expr)[1], Self);
@@ -1527,11 +1531,11 @@ bool ExpressionEvaluator::EvalBool(Expression* expr)
 	case TypedKind::GreaterEqual_IntInt: if (!Context) break; { int32_t a, b; Operands(expr, a, b); return a >= b; }
 	case TypedKind::EqualEqual_IntInt: if (!Context) break; { int32_t a, b; Operands(expr, a, b); return a == b; }
 	case TypedKind::NotEqual_IntInt: if (!Context) break; { int32_t a, b; Operands(expr, a, b); return a != b; }
-	case TypedKind::Less_FloatFloat: if (!Context) break; { float a, b; Operands(expr, a, b); return a < b; }
-	case TypedKind::LessEqual_FloatFloat: if (!Context) break; { float a, b; Operands(expr, a, b); return a <= b; }
+	case TypedKind::Less_FloatFloat: if (!Context) break; { float a, b; Operands(expr, a, b); return X87::Under(a, b); }
+	case TypedKind::LessEqual_FloatFloat: if (!Context) break; { float a, b; Operands(expr, a, b); return !(a > b); }
 	case TypedKind::Greater_FloatFloat: if (!Context) break; { float a, b; Operands(expr, a, b); return a > b; }
 	case TypedKind::GreaterEqual_FloatFloat: if (!Context) break; { float a, b; Operands(expr, a, b); return a >= b; }
-	case TypedKind::NotEqual_FloatFloat: if (!Context) break; { float a, b; Operands(expr, a, b); return a != b; }
+	case TypedKind::NotEqual_FloatFloat: if (!Context) break; { float a, b; Operands(expr, a, b); return !X87::Equal(a, b); }
 	}
 	return GenericBool(expr);
 }

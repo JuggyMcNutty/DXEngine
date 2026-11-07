@@ -325,10 +325,17 @@ event under each, every line alike but a random pick's label).
 or one that is not there binding nothing and keeping the actor's list, as
 the original's (`ConPackageConsole`: Paul Denton's ten under the stock
 package and `deusexconversations`, none under an empty one or
-`NoSuchConPackage`, in both engines). Each of an actor's `ConListItems` is
-made in the list's package, named after its class and a number
-(`ConListItem0`) and public, the old list's deleted as the actor binds
-again, as `CriticalDelete` deletes
+`NoSuchConPackage`, in both engines). An actor's names and a
+conversation's owner compare as strings, without regard to case, an empty
+one as any other, as the original's: a conversation with no owner is every
+actor's with no `BindName`, a bark with none every actor's with no
+`BarkBindName` (`EmptyBindConsole`: two of Liberty Island's conversations
+made ownerless, both bound to a decoration with neither name, the plain one
+alone once it has a bark name, neither once the owners are back, in both
+engines); no stock conversation has no owner. Each of an actor's
+`ConListItems` is made in the list's package, named after its class and a
+number (`ConListItem0`) and public, the old list's deleted as the actor
+binds again, as `CriticalDelete` deletes
 ([housekeeping](#housekeeping-not-seen-directly)): gone from `AllObjects`
 at once, a reference to one None at the next collection, where the
 original's frees them; `CreateConCamera` and
@@ -341,10 +348,6 @@ A `cycleIndex` a script sets below 0 gives no label, by choice: the
 original's copies a string from before its labels, and crashes the game
 there (`RandomLabelBelowConsole`: a Critical at -1, ConSys.dll
 `0x1000a270`); no stock event or script sets one.
-
-Differs (bugs.md DX.8): an actor whose `BindName` is empty binds no
-conversation, where the original's binds it one with no owner; every stock
-conversation has one.
 
 ## What the player reads
 
@@ -2205,8 +2208,19 @@ Every other native the scripted runs compare matches the original
   level's, rot(90, 180, 270) / 90 (1, 2, 3) and (0, 1, 3)); `Clamp` and
   `FClamp` take a
   value under the lower bound to it, else one under the upper as it is, else
-  the upper, so with the bounds the wrong way round the upper wins, and
-  `FClamp` takes a NaN to the lower, as the original's x87 compare does; a
+  the upper, so with the bounds the wrong way round the upper wins; a NaN
+  compares as the original's x87 flags have it, equal to anything and under
+  anything (`NaNConsole`, a NaN made as the square root of -1, alike in both
+  engines): `==`, `<`, `<=` and `~=` true, `!=`, `>` and `>=` false, as
+  values and as branches, `bool` of it False and of a vector each NaN axis
+  0, a vector's `==` and `!=` taking it as equal, and a struct's (a Plane's,
+  a Coords') too, by choice: the original's crashes the game at a Plane's
+  `==` with a NaN member; `FClamp` it to the lower, `FMax(NaN, 1)` 1 and `FMax(1, NaN)`
+  the NaN, `Abs` turning its sign over (and keeping -0 as -0), `Normal` of
+  it zero; a float property is compared so with its default and, in a
+  script class, with what a client last got, as the original's `Identical`
+  compares it, so a save and the travel leave a NaN out and replication
+  does not send one; a
   shift takes its count's low 5 bits; a string `switch` matches its cases
   without regard to case and a float one by its bits (-0.0 is not 0.0);
   `new` with a flag outside the script's own (Transactional, Public,
@@ -2665,9 +2679,6 @@ objects that has none of its own, as the original's: `new(None)`'s the
 package `Transient`, a level's and its actors' their map's, a texture in no
 group its package's (`Vm29Console`, `NewOuterConsole`, `ConObjectsConsole`:
 every `Outer` alike in both engines; each engine's save loads in the other).
-Differs (bugs.md VM.30): a NaN compares unequal to
-anything, where the original's script compare, a vector's and `Identical`
-take it as equal.
 
 ## The command line
 
@@ -2800,11 +2811,18 @@ A mod gets the original's loader and natives:
   original's linker has it: the live servers' anti-cheat packages (ANNA,
   DXNMS) point their classes' `ScriptText` at such exports. A save's exports
   are all made whatever their flags: DXEngine's own saves may lack them.
-- **A mod's packages and saves.** A package's or a save's property tag of an
-  element past its static array, of another type or of another struct, or of a
-  native or transient property, is logged and skipped, as the original's
-  loader skips it, the object loading on, the last in its words (`Property %s
-  of %s is not serialiable`, sic), an `XLevel` tag's without a line; a
+- **A mod's packages and saves.** A package's or a save's property tag goes
+  to the class's own property of its name before its supers', as the
+  original's loader finds it; one of a name no property has, of another
+  type, of an element past its static array, of another struct, or of a
+  native or transient property, is logged and skipped, the object loading
+  on, as that loader skips it, in its order and words, then `Skipping %i
+  bytes of type %i`, an `XLevel` tag's without a line: so every save's load
+  logs `Type mismatch in Region of GameReplicationInfo: file 10, class 2`,
+  a GameReplicationInfo's tag of `Actor`'s struct `Region` meeting the
+  class's own int `Region`, and the loaded GameReplicationInfo's `Region`
+  as an Actor is its class's default, in no zone (`LoadConsole`, either
+  engine's save, alike in both engines); a
   struct's static-array members are read every element, its native and
   transient members passed over on disk, and a struct extending another is its
   own members, then those of the struct it extends, as the original's binary
@@ -3000,10 +3018,6 @@ given itself as its macro texture, has the GL and Vulkan devices' frames at
 border, within 0.94 to 1.04 (without the macro, [lighting](#lighting)). The
 D3D11 device keeps Surreal Engine's
 ([where it stands](../README.md#for-advanced-users)).
-
-Differs (bugs.md PKG.26): a tag of a property a class declares again is
-loaded into the first of its name, where the original's goes to the class's
-own and skips a tag of another type (`GameReplicationInfo`'s `Region`).
 
 ## Multiplayer
 

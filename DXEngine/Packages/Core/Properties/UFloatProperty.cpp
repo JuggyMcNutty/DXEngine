@@ -3,6 +3,7 @@
 #include "Utils/StrTools.h"
 #include "UFloatProperty.h"
 #include "Utils/Convert.h"
+#include "Math/floating.h"
 
 UFloatProperty::UFloatProperty(NameString name, UClass* base, ObjectFlags flags) : UPropertyT(std::move(name), base, flags)
 {
@@ -35,9 +36,24 @@ std::string UFloatProperty::PrintValue(const void* data)
 	return StrTools::float_text(*(float*)data);
 }
 
+// Identical against no default, as against 0 (Core.dll 0x10166780)
 bool UFloatProperty::IsDefaultValue(void* val)
 {
-	return *(float*)val == 0.0f;
+	return X87::Equal(*(float*)val, 0.0);
+}
+
+// The original's UFloatProperty::Identical (Core.dll 0x10166780): an fcomp
+// and a test of the x87's C3 flag (X87::Equal), so a NaN is identical to
+// anything. What compares a property's values by it -- a save's and the
+// travel's against the class's defaults, the script classes' replication
+// against what the other side last got (the native lists' by their bits,
+// NetChannel's SameBits), a remote call's argument against none, a
+// struct's == and != member by member -- takes a NaN for unchanged: a save
+// and the travel leave it out, so it comes back as the default, it is not
+// sent, and a struct holding one equals another but for it.
+bool UFloatProperty::CompareElement(const void* v1, const void* v2)
+{
+	return X87::Equal(*static_cast<const float*>(v1), *static_cast<const float*>(v2));
 }
 
 void UFloatProperty::SetValueFromString(void* data, const std::string& valueString)
