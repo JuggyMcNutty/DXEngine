@@ -8,12 +8,18 @@
 // node's Paths or PrunedPaths, open to the pawn), else false unless flying;
 // only a pawn at no node is walked (actorReachable). DXEngine's does the same.
 //
-// On Liberty Island, 1 s in, the first 12 ScriptedPawns by name: each put on
-// its nearest NavigationPoint, standing still, then ActorReachable of the 8
-// nearest other navigation points within 800 units, each logged with
-// whether the pawn's node has a spec to it (describeSpec over its Paths; a
-// pruned spec, which counts too, is not shown, so a node reached by one
-// logs as unlinked). The two engines' 87 answers are alike (bugs.md AI.9).
+// On Liberty Island, at the console's first tick there -- the level ticked
+// once, whatever the load took, its pawns still in their StartUp sleep --,
+// the first 12 ScriptedPawns by name: each put on its nearest
+// NavigationPoint, standing still, then ActorReachable of the 8 nearest
+// other navigation points within 800 units, each logged with whether the
+// pawn's node has a spec to it (describeSpec over its Paths; a pruned spec,
+// which counts too, is not shown, so a node reached by one logs as
+// unlinked). The two engines' 87 answers are alike (bugs.md AI.9), every
+// MoveTarget None. Not later by the console's clock, which takes in the
+// load, longer in the original: 1 s by it is the original's first tick and
+// some 0.6 s of the actors' time on in DXEngine, its security bots on their
+// patrol by then (PatrolStartConsole).
 //=============================================================================
 class NavReachConsole extends Console;
 
@@ -112,17 +118,13 @@ event Tick(float Delta)
 			if (MapTime > 3.0)
 			{
 				P.ConsoleCommand("open 01_NYC_UNATCOIsland");
-				MapTime = 0;
 				Phase = 1;
 			}
+			return;
 		}
-		else
-		{
-			MapTime = 0;
-			Phase = 1;
-		}
+		Phase = 1;
 	}
-	else if (Phase == 1 && InStr(Caps(P.Level.GetLocalURL()), "01_NYC_UNATCOISLAND") >= 0 && MapTime > 1.0)
+	if (Phase == 1 && InStr(Caps(P.Level.GetLocalURL()), "01_NYC_UNATCOISLAND") >= 0)
 	{
 		foreach P.AllActors(class'ScriptedPawn', S)
 		{

@@ -405,6 +405,16 @@ Matches the original
 ([a level's tick](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-levels-tick)):
 every actor starts a level 10 s undrawn and every dynamic one ticks in its
 first tick, so a pawn out of sight starts from its state code (`AIConsole`).
+A pawn drawn in the first frame follows its orders at the second tick, from
+its `StartUp` state's `Tick`, and one out of sight when its state code's
+sleep, 0.2 to 1.2 s, runs out: on Liberty Island `SecurityBot0` at the
+second tick, its patrol's first `MoveTarget` `PatrolPoint19`, and
+`SecurityBot1` at its sleep's end, `PatrolPoint14`, by tick and by the
+actors' time as the original's (`PatrolStartConsole`). By the level's clock
+and a console's, which take in the first frame's load whole where the
+actors take 0.4 s of it at most ([a long frame](#small)), the original's
+pawns start later, by what its longer load took over 0.4 s: a console's
+probe 1 s in comes at its first tick, before any pawn has left `StartUp`.
 
 ### Changing state
 
@@ -517,11 +527,8 @@ their order the original's, the distances to the x87's last digits).
 out of water, whatever its zone (`PathnodeConsole`'s pick in the water), and
 `FindPathToward`'s test from the anchor traces the goal's line to the anchor.
 
-Differs (bugs.md AI.16): Liberty Island's security bots are on their
-patrol 2 s in, their `MoveTarget` a patrol point, where the original's have
-none yet. The ladder probe goes on past a texture in no group, as the
-original's, the texture's outer its package (bugs.md PHYS.23: the run at
-such a ladder due).
+The ladder probe goes on past a texture in no group, as the original's, the
+texture's outer its package (bugs.md PHYS.23: the run at such a ladder due).
 
 ## Out of sight
 
