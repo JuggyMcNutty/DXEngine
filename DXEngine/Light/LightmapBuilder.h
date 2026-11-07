@@ -26,7 +26,8 @@ public:
 	// The lights added over the static map each time it is built, in order:
 	// the surface's animating lights, each through its shadow bits, then the
 	// moving lights over it. FindAddedLights finds the texels each reaches,
-	// and their rectangle, before any is built; AddLights adds them.
+	// and the rectangle they lie in, before any is built; AddLights adds
+	// them.
 	void FindAddedLights(UModel* model, int lightMap, const Array<int>& animatedIndices, const Array<UActor*>& dynamicLights);
 	const LightmapRect& AddedLightsRect() const { return addedRect; }
 	void AddLights(UModel* model, int lightMap);
@@ -76,11 +77,19 @@ private:
 	}
 	void CalcRowLines(Coords MapCoords, const LightMapIndex& lmindex);
 
-	// Adds to spans the texels a light can reach, a row at a time; the
-	// others get nothing from it.
-	void FindLitSpans(UActor* light, Array<LightmapSpan>& spans);
+	// The light's rectangle on the map, as the original's SetupLight gives it
+	// (dx-reverse-info/render-dll.md, light maps): every shape runs over it
+	// alone.
+	LightmapRect CalcLightRect(UActor* light) const;
 
-	void AddLightContributionDX(UActor* light, const LightmapSpan* spans, size_t count);
+	// Adds to spans the texels a light can reach, a row at a time, within its
+	// rectangle (CalcLightRect), which it returns; the others get nothing from
+	// it.
+	LightmapRect FindLitSpans(UActor* light, Array<LightmapSpan>& spans);
+
+	// lightRect: the light's rectangle, whose texels a waver's draws are
+	// taken over in turn
+	void AddLightContributionDX(UActor* light, const LightmapSpan* spans, size_t count, const LightmapRect& lightRect);
 
 	int width = 0;
 	int height = 0;
@@ -91,14 +100,19 @@ private:
 	vec3 normal;
 	vec3 base;
 
+	// The map's axes as given, and its pan and scales: the light's rectangle
+	// is worked out by them (CalcLightRect)
+	vec3 uaxis, vaxis, zaxis;
+	float panX = 0.0f, panY = 0.0f, uscale = 1.0f, vscale = 1.0f;
+
 	Shadowmap Shadow;
 	LightEffect Effect;
 	Array<float> illuminationmap;
 	Array<LightmapSpan> spans;
 
 	// The lights FindAddedLights found: each its light, its index in the
-	// surface's list (-1 for a moving light: no shadow bits), and its run
-	// of addedSpans and their rectangle
+	// surface's list (-1 for a moving light: no shadow bits), its run of
+	// addedSpans and their rectangle, and its own rectangle (CalcLightRect)
 	struct AddedLight
 	{
 		UActor* Light;
@@ -106,6 +120,7 @@ private:
 		size_t FirstSpan;
 		size_t NumSpans;
 		LightmapRect Rect;
+		LightmapRect LightRect;
 	};
 	Array<AddedLight> addedLights;
 	Array<LightmapSpan> addedSpans;

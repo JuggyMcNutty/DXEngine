@@ -3,6 +3,7 @@
 #include "LightEffect.h"
 #include "Shadowmap.h"
 #include "Packages/Engine/Actors/UActor.h"
+#include "Packages/Engine/Actors/Pawn/UPawn.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Math/coords.h"
 #include "Engine.h"
@@ -18,7 +19,9 @@
 // maps): the torch and fire wavers and watery shimmer the plain shape, their
 // texels dimmed at random as they are added (LightmapBuilder::
 // AddLightContributionDX), the omni bump map and cloud cast the plain shape
-// too, and the shapes of their own below
+// too -- the bump map's on a mover with bDynamicLightMover alone, which takes
+// it as a moving light, no other surface taking one (LightSystem::
+// GetLightmap) -- and the shapes of their own below
 LightEffect::EffectFunc LightEffect::Effects[LE_Unused + 1] =
 {
 	&LightEffect::NoneEffect, // LE_None
@@ -267,7 +270,7 @@ void LightEffect::SpotlightEffect(LightEffectArgs* args)
 	const float* shadowmap = args->shadowmap;
 	float* result = args->result;
 	vec3 tmp0, tmp1, tmp2;
-	Coords::Rotation(args->light->Rotation()).GetAxes(tmp0, tmp1, tmp2);
+	Coords::Rotation(SpotRotation(args->light)).GetAxes(tmp0, tmp1, tmp2);
 	vec3 spotDir = -tmp0;
 	// Deus Ex's cone is Render.dll's, its cosine 1 - LightCone / 256
 	// (dx-reverse-info/render-dll.md, light maps)
@@ -356,13 +359,20 @@ void LightEffect::NonIncidenceEffectDX(LightEffectArgs* args)
 }
 
 // LE_Cylinder (0x10b04a80): the shadow byte x (1 - (dx^2 + dy^2) / r^2), held
-// at 0, with no angle and no height.
+// at 0, with no angle and no height, over the light's rectangle on the map
+// alone (LightmapBuilder::FindLitSpans), which it has no radius of its own
+// to hold it to: a light high over a surface lights a square. Its sum in the
+// original's order, then rounded down as it rounds: half a unit taken off and
+// rounded to the nearest, ties to even, so an odd whole value comes out one
+// under it (a moving light's 127 on its axis, 126).
 void LightEffect::CylinderEffectDX(LightEffectArgs* args)
 {
+	const float invRadius = args->invRadius;
 	for (int i = 0; i < args->size; i++)
 	{
 		vec3 d = args->locations[i] - args->LightLocation;
-		args->result[i] = std::floor(args->shadowmap[i] * std::max(1.0f - (d.x * d.x + d.y * d.y) * args->invRadiusSquared, 0.0f));
+		float value = (1.0f - (d.y * d.y + d.x * d.x) * invRadius * invRadius) * args->shadowmap[i];
+		args->result[i] = std::max(std::nearbyint(value - 0.5f), 0.0f);
 	}
 }
 
@@ -533,6 +543,13 @@ void LightEffect::InterferenceEffectDX(LightEffectArgs* args)
 		double ring = (std::cos(std::atan2(across, (double)d.z) * 11.0 + t5) + 1.0) * 0.5;
 		args->result[i] = std::floor(plain * (float)ring);
 	}
+}
+
+Rotator LightEffect::SpotRotation(UActor* light)
+{
+	if (UPawn* pawn = UObject::TryCast<UPawn>(light))
+		return pawn->ViewRotation();
+	return light->Rotation();
 }
 
 void LightEffect::InitTables()

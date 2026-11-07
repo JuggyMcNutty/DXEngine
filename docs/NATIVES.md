@@ -646,7 +646,11 @@ Auto-panned surfaces scroll by their zone's pan speed and the level's own
 time as Render.dll pans them, 35 texels a second at a speed of 1, wrapping
 at 1,024, truncated to 1/256 of a texel (`PanConsole`: Liberty Island's
 cloud banks where the original's are at 6 s and 8 s of the level's time,
-within 2 pixels at 1024x768).
+within 2 pixels at 1024x768). A `PF_SmallWavy` surface, which no stock map
+has, wobbles about that pan by 8 sin t + 4 cos 2.3t texels along U and
+8 cos t + 4 sin 2.3t along V, t the level's time, as Render.dll pans it
+([a frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-frame)),
+by reading.
 
 A NoSmooth texture is point-sampled from one mip, with no anisotropy, as
 `D3DDrv` samples one, on Vulkan, GL and GL ES alike, `LODBias` given GL ES's
@@ -913,7 +917,27 @@ lighting a surface with no shadow and left out with `NoDynamicLights`, as
 the original's `AddLight` takes it ([light
 maps](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps));
 the stock maps' few, on 02_NYC_Street, 02_NYC_Warehouse, 08_NYC_Underground
-and 99_Endgame1, are moving ones anyway, neither static nor no-delete. A
+and 99_Endgame1, are moving ones anyway, neither static nor no-delete. An
+`LE_OmniBumpMap` light lights no surface: given no owner, as a surface's
+lights are, the original's `AddLight` makes it a kind of its own, which no
+light map takes. It lights a mesh, and a mover with `bDynamicLightMover` as
+a moving light over it, which the original gives the mover for its owner.
+No stock light is one; `LightConsole` with `Effect=15 Spawn=64`, a lamp of
+it made 64 units over Liberty Island's dock: the dock unlit by it
+in both engines, DXEngine's frame at 1.006 of D3DDrv's, where the lamp lit
+it to 1.608. Each light lights the texels of
+its rectangle on the map alone, as the original's `SetupLight` gives it
+([light
+maps](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps)):
+those within |axis| × √(max(0, 1.05 r² − h²)) of its foot on the surface's
+plane, h its height over it, each edge rounded to the nearest texel and the
+last left out; so a light 1.025 r or more off the plane lights none of the
+map, a cylinder light high over a surface, its shape having no height,
+lights a square, and a non-incidence or shell light lights none of its far
+band past the last edge. `LightConsole` with `Effect=17 Spawn=300 View=600`, a cylinder
+lamp 300 units over Liberty Island's dock, at 1024x768: the
+square in both engines, at 1.005 of D3DDrv's frame, where a disc of the
+light's radius came to 1.345. A
 mover's polygons are lit where the mover is, as the original's brush tracker
 files them into the level ([the movers in the
 BSP](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
@@ -925,7 +949,11 @@ each fragment the tracker filed with the ambient light of its node's zone
 units off its place: the door at 1.003 of the original's frame under its own
 lights and 1.000 with a lamp 48 units before it, where it was 0.82 and 0.43,
 lit as if still at its key. A spotlight's cone is the original's, its cosine
-`1 − LightCone ÷ 256`, its value rounded down, and a light or fog map lights
+`1 − LightCone ÷ 256`, its value rounded down, about the light's rotation, a
+pawn's about its view rotation (`LightConsole` with `PawnSpot`, the player's
+own light a spotlight over Liberty Island's dock, its view straight down and
+its rotation level: the pool under it in both engines, at 1.005 of
+D3DDrv's frame, where the light's own rotation aimed it, 0.973), and a light or fog map lights
 texel i at its centre, `Pan.X + i × UScale` along U, where both engines draw
 it ([a texel's
 place](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps)):
@@ -1041,11 +1069,17 @@ apart run 0.18 to 0.26 in both. A mesh in a fog zone is drawn unfogged, as
 `FogConsole`'s crate 220 units into 02_NYC_Underground's fog at 0.089 of the
 floor and walls beside it, the original's 0.087.
 
-Differs (bugs.md REN.32): a light's texels are not held to the rectangle
-Render.dll lights, a cylinder light's to none. Differs (bugs.md REN.33): an
-`LE_OmniBumpMap` light lights surfaces. Differs (bugs.md REN.35):
-`PF_SmallWavy`, the detail and macro textures' frames, `NoLighting` on
-meshes, a pawn's spotlight's aim.
+With the client's `NoLighting` on, or the viewer's `RendMap` off
+`REN_DynLight` (5), no surface has a light or fog map and every mesh is
+drawn unlit, its lights kept as they were, as the original's `DrawFrame`,
+`SetupForActor` and an actor's polygon flags have it; a viewer who is no
+admin, on a level with `bNoCheating`, has its `RendMap` put back and
+`NoLighting` turned off before each frame, as the original's `DrawWorld`
+does ([light
+maps](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps)).
+`LightConsole` with `NoLighting` on Liberty Island: Spotlight0's
+world map unlit in both engines, at 1.000 of D3DDrv's frame, where DXEngine
+lit it, 0.395.
 
 ### Brightness
 
@@ -1747,8 +1781,9 @@ it. Differs:
   times finer than the last, faded to grey toward its bound and modulated in
   at twice its colour, each detail placed by its own pan, not panned with
   its surface (`DetailConsole`, `detail.py`). A surface takes the detail
-  texture of its texture's current frame, but for a portal or a surface with
-  a fog map, as `Render.dll` hands them over. The original draws none here
+  texture of its texture's current frame, that texture as it is, not a
+  current frame of its own, but for a portal or a surface with a fog map,
+  as `Render.dll` hands them over. The original draws none here
   either way, `D3DDrv` and `OpenGLDrv` alike: `D3DDrv` turns them off when
   Direct3D does not offer `BLENDDIFFUSEALPHA`, which Wine's Direct3D 7 does
   not, and set on in the running game, its pass changes nothing
@@ -3115,7 +3150,12 @@ A macro texture, which no stock texture has, is drawn as `D3DDrv` draws it
 ([the light maps' brightness](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-light-maps-brightness)):
 modulated at twice its colour, the light map after it twice as bright as on
 one pass, and not panned with the surface, at its own scale
-([a frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-frame)).
+([a frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-frame));
+the macro texture of the surface's texture's current frame, or of the
+Matrix cheat's Sprite, as it is, as `Render.dll` hands it over
+(`LightConsole` with `Macro` and `Matrix`, the world map drawn in the light
+icon, which has none: no macro texture in either engine, at 1.001 of
+D3DDrv's frame, where an empty one was passed, 1.62).
 `LightConsole` with `Macro`, Liberty Island's `Spotlight0` on a world map
 given itself as its macro texture, has the GL and Vulkan devices' frames at
 1.00 of `D3DDrv`'s (`NoDetail`): in blocks of 16 pixels inside the map's

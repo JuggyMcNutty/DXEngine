@@ -74,6 +74,11 @@ public:
 	// Writes result[] in the spans only; the texels outside them are left as they were.
 	void Run(UActor* light, int width, const LightmapSpan* spans, size_t count, const vec3* locations, vec3 base, vec3 normal, const float* shadowmap, float* result);
 
+	// Where a spotlight's cone points (Render.dll SpatialSpotlight,
+	// 0x10b04f89-0x10b04fa9): along a pawn's view rotation, any other
+	// light's rotation
+	static Rotator SpotRotation(UActor* light);
+
 private:
 	// The plain shape and the spotlight, as Render.dll's: the light's
 	// falloff, 1 + 2v^3 - 3v^2 (CalcLightDistanceFalloff), times the angle

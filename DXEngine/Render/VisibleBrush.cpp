@@ -127,48 +127,50 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
 			return false;
 	}
 
-	//UpdateTexture(poly.Texture);
-
 	SurfaceInfo surfaceinfo;
-	UTexture* polyTex = poly.Texture;
-	if (!polyTex)
-		polyTex = engine->LevelInfo->DefaultTexture();
+
+	// The frame drawn, as on the level's surfaces (VisibleNode), the
+	// original's DrawFrame taking a mover's polygons as the BSP's own: the
+	// polygon's texture stepped and its current frame, the level's default
+	// texture as it is without one, and the viewer's Sprite's current frame
+	// in its place with the Matrix cheat
+	UTexture* tex;
+	if (poly.Texture)
+	{
+		engine->render->UpdateTexture(poly.Texture);
+		tex = poly.Texture->GetAnimTexture();
+	}
+	else
+		tex = engine->LevelInfo->DefaultTexture();
+	if (UTexture* sprite = engine->render->ViewerSprite())
+	{
+		engine->render->UpdateTexture(sprite);
+		tex = sprite->GetAnimTexture();
+	}
 
 	TextureInfo texture;
 	TextureInfo detailtex;
 	TextureInfo macrotex;
-
-	// The viewer's Sprite, the Matrix cheat's, in its place, as on the
-	// level's surfaces, its own detail and macro textures with it
-	if (UTexture* sprite = engine->render->ViewerSprite())
+	if (tex)
 	{
-		engine->render->UpdateTexture(sprite);
-		polyTex = sprite->GetAnimTexture();
-	}
-
-	UTexture* tex = nullptr;
-	if (polyTex)
-	{
-		tex = polyTex->GetAnimTexture();
 		engine->render->UpdateTexture(tex);
 		surfaceinfo.Texture = &texture;
 
-		// Deus Ex's detail and macro textures not panned with the
-		// polygon, the detail texture the current frame's, as VisibleNode's
+		// Its detail and macro textures the frame's own, each locked as it
+		// is and stepped by its lock, not panned with the polygon, as
+		// VisibleNode's
 		UTexture* detailTexture = engine->render->DetailTexturesDrawn && (PolyFlags & PF_Portal) == 0 ? tex->DetailTexture() : nullptr;
 		if (detailTexture)
 		{
-			UTexture* detail = detailTexture->GetAnimTexture();
-			engine->render->UpdateTexture(detail);
-			engine->render->UpdateTextureInfo(detailtex, detail);
+			engine->render->UpdateTexture(detailTexture);
+			engine->render->UpdateTextureInfo(detailtex, detailTexture);
 			surfaceinfo.DetailTexture = &detailtex;
 		}
 
-		if (polyTex->MacroTexture())
+		if (UTexture* macroTexture = tex->MacroTexture())
 		{
-			UTexture* macro = polyTex->MacroTexture()->GetAnimTexture();
-			engine->render->UpdateTexture(macro);
-			engine->render->UpdateTextureInfo(macrotex, macro);
+			engine->render->UpdateTexture(macroTexture);
+			engine->render->UpdateTextureInfo(macrotex, macroTexture);
 			surfaceinfo.MacroTexture = &macrotex;
 		}
 	}
@@ -190,7 +192,8 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
 			engine->render->UpdateTextureInfo(texture, poly, tex, zone->TexUPanSpeed(), zone->TexVPanSpeed());
 		lightmap = {};
 		fogmap = {};
-		if ((PolyFlags & PF_Unlit) == 0 && !seal)
+		// None in a frame not lit, as on the level's surfaces (VisibleNode)
+		if ((PolyFlags & PF_Unlit) == 0 && !seal && engine->render->SceneLit)
 		{
 			lightmap = engine->Level->Light.GetMoverLightmap(mover, poly, zone, model);
 			// Deus Ex's only as VisibleNode's makes one

@@ -350,7 +350,11 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 	if (actor->bMeshEnviroMap()) polyflags |= PF_Environment;
 	if (actor->bMeshCurvy()) polyflags |= PF_Flat;
 	if (actor->bNoSmooth()) polyflags |= PF_NoSmooth;
-	if (actor->bUnlit() || actor->Region().ZoneNumber == 0) polyflags |= PF_Unlit;
+	// Unlit as the original's actor flags have it (Render.dll 0x10b2628c-
+	// 0x10b262b7): bUnlit, an actor in zone 0, or a frame not lit, the
+	// viewer's RendMap off REN_DynLight or the client's NoLighting on
+	// (RenderSubsystem::SceneLit)
+	if (actor->bUnlit() || actor->Region().ZoneNumber == 0 || !engine->render->SceneLit) polyflags |= PF_Unlit;
 
 	bool needTranslucentPass = false;
 
@@ -650,7 +654,8 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 	if (actor->bMeshEnviroMap()) polyFlags |= PF_Environment;
 	if (actor->bMeshCurvy()) polyFlags |= PF_Flat;
 	if (actor->bNoSmooth()) polyFlags |= PF_NoSmooth;
-	if (actor->bUnlit() || actor->Region().ZoneNumber == 0) polyFlags |= PF_Unlit;
+	// Unlit as DrawMeshDX's
+	if (actor->bUnlit() || actor->Region().ZoneNumber == 0 || !engine->render->SceneLit) polyFlags |= PF_Unlit;
 
 	UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
 

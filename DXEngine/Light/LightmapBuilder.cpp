@@ -12,6 +12,9 @@
 #include "RenderDevice/RenderDevice.h"
 #include "Math/hsb.h"
 #include "Utils/Random.h"
+#include <array>
+#include <bit>
+#include <climits>
 #include <cstring>
 
 #ifdef USE_SSE2
@@ -26,6 +29,13 @@ void LightmapBuilder::Setup(UModel* model, const Coords& mapCoords, int lightMap
 	height = lmindex.VClamp;
 	normal = normalize(mapCoords.ZAxis);
 	base = mapCoords.Origin;
+	uaxis = mapCoords.XAxis;
+	vaxis = mapCoords.YAxis;
+	zaxis = mapCoords.ZAxis;
+	panX = lmindex.PanX;
+	panY = lmindex.PanY;
+	uscale = lmindex.UScale;
+	vscale = lmindex.VScale;
 
 	// Stop allocations over time by building up a reserve
 
@@ -82,16 +92,17 @@ void LightmapBuilder::AddStaticLights(UModel* model, int lightMap)
 				// An animating light is added over the kept static map
 				// each frame instead (AddLights), unless the
 				// client's NoDynamicLights stills it into the map here;
-				// a bDynamicLight one is a moving light, there or nowhere
-				if (light->bDynamicLight() || (LightAnimates(light) && !engine->client->NoDynamicLights))
+				// a bDynamicLight one is a moving light, there or nowhere;
+				// an LE_OmniBumpMap one is no map's (LightSystem::GetLightmap)
+				if (light->bDynamicLight() || light->LightEffect() == LE_OmniBumpMap || (LightAnimates(light) && !engine->client->NoDynamicLights))
 					continue;
 				spans.clear();
-				FindLitSpans(light, spans);
+				LightmapRect lightRect = FindLitSpans(light, spans);
 				if (spans.empty())
 					continue;
 				Shadow.Load(model, lightMap, lightindex, LightmapRect::Of(spans.data(), spans.size()));
 				Effect.Run(light, width, spans.data(), spans.size(), WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data());
-				AddLightContributionDX(light, spans.data(), spans.size());
+				AddLightContributionDX(light, spans.data(), spans.size(), lightRect);
 			}
 		}
 	}
@@ -107,12 +118,12 @@ void LightmapBuilder::FindAddedLights(UModel* model, int lightMap, const Array<i
 		if (light->LightType() == LT_None || light->LightBrightness() == 0)
 			return;
 		size_t first = addedSpans.size();
-		FindLitSpans(light, addedSpans);
+		LightmapRect lightRect = FindLitSpans(light, addedSpans);
 		size_t count = addedSpans.size() - first;
 		if (count == 0)
 			return;
 		LightmapRect rect = LightmapRect::Of(addedSpans.data() + first, count);
-		addedLights.push_back({ light, lightIndex, first, count, rect });
+		addedLights.push_back({ light, lightIndex, first, count, rect, lightRect });
 		addedRect.Add(rect);
 	};
 
@@ -138,7 +149,7 @@ void LightmapBuilder::AddLights(UModel* model, int lightMap)
 		else
 			Shadow.Clear(model, lightMap, added.Rect);
 		Effect.Run(added.Light, width, lit, added.NumSpans, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data());
-		AddLightContributionDX(added.Light, lit, added.NumSpans);
+		AddLightContributionDX(added.Light, lit, added.NumSpans, added.LightRect);
 	}
 }
 
@@ -167,25 +178,103 @@ bool LightmapBuilder::LightAnimates(UActor* light)
 	}
 }
 
-void LightmapBuilder::FindLitSpans(UActor* light, Array<LightmapSpan>& spans)
+// The light manager's square root (Render.dll FLightManager::Init's table,
+// 0x10b0225d-0x10b022ce, as SetupLight reads it, 0x10b06681-0x10b0669f): the
+// root of the value with its significand cut to its top 10 bits, a table's
+// float by those bits and the exponent's parity, the exponent halved into it
+static float LightSqrt(float x)
 {
-	// A cylinder light reaches any height, so its reach is not a sphere
+	static const std::array<uint32_t, 2048> table = []()
+	{
+		std::array<uint32_t, 2048> t = {};
+		for (int i = 0; i < 1024; i++)
+		{
+			// The root of 1 + i / 1024 as a float, over 2^64; times the root
+			// of 2 for an even exponent, 2 for an odd one
+			uint32_t root = std::bit_cast<uint32_t>((float)std::sqrt(1.0 + i / 1024.0)) - 0x20000000u;
+			t[i] = std::bit_cast<uint32_t>((float)((double)std::bit_cast<float>(root) * std::sqrt(2.0)));
+			t[i + 1024] = std::bit_cast<uint32_t>(std::bit_cast<float>(root) * 2.0f);
+		}
+		return t;
+	}();
+	uint32_t bits = std::bit_cast<uint32_t>(x);
+	return std::bit_cast<float>(((bits & 0x7f000000u) >> 1) + table[(bits >> 13) & 0x7ff]);
+}
+
+// fistp at the x87's rounding: to the nearest, ties to even; past an int's
+// range, or a NaN, its integer indefinite, INT_MIN
+static int RoundX87(float v)
+{
+	if (!(v >= -2147483648.0f && v < 2147483648.0f))
+		return INT_MIN;
+	return (int)std::nearbyint(v);
+}
+
+LightmapRect LightmapBuilder::CalcLightRect(UActor* light) const
+{
+	// The original's SetupLight (Render.dll 0x10b0660e-0x10b06865), in
+	// floats, as its x87 is held to 24 bits while it draws
+	// (dx-reverse-info/render-dll.md, lighting): from the light's foot on the
+	// surface's plane, h under it, |axis| x sqrt(max(0, 1.05 r^2 - h^2))
+	// along each of the map's axes, each edge over the map's scale rounded to
+	// the nearest texel, the first held at 0 and the last, left out, at the
+	// map's size. So a light 1.025 r or more off the plane lights none of the
+	// map, and a texel on or past the last edge none, though within the
+	// light's radius.
+	const vec3 L = light->Location();
+	const vec3& O = base;
+	const vec3& X = uaxis;
+	const vec3& Y = vaxis;
+	const vec3& Z = zaxis;
+	float h = ((L.y - O.y) * Z.y + (L.z - O.z) * Z.z) + (L.x - O.x) * Z.x;
+	float r = light->WorldLightRadius();
+	float rr = r * r;
+	float reach2 = (float)((double)rr * 1.05) - h * h;
+	if (!(reach2 >= 0.0f))
+		reach2 = 0.0f;
+	float reach = LightSqrt(reach2);
+
+	vec3 foot(L.x - h * Z.x, L.y - h * Z.y, L.z - h * Z.z);
+	vec3 d(foot.x - O.x, foot.y - O.y, foot.z - O.z);
+	float u = ((d.y * X.y + d.z * X.z) + d.x * X.x) - panX;
+	float v = ((d.y * Y.y + d.z * Y.z) + d.x * Y.x) - panY;
+	float du = LightSqrt((X.x * X.x + X.y * X.y) + X.z * X.z) * reach;
+	float dv = LightSqrt((Y.x * Y.x + Y.y * Y.y) + Y.z * Y.z) * reach;
+
+	LightmapRect rect;
+	rect.x0 = std::max(RoundX87((u - du) / uscale), 0);
+	rect.y0 = std::max(RoundX87((v - dv) / vscale), 0);
+	rect.x1 = std::min(RoundX87((du + u) / uscale), width);
+	rect.y1 = std::min(RoundX87((dv + v) / vscale), height);
+	return rect;
+}
+
+LightmapRect LightmapBuilder::FindLitSpans(UActor* light, Array<LightmapSpan>& spans)
+{
+	LightmapRect rect = CalcLightRect(light);
+	if (rect.Empty())
+		return rect;
+
+	// A cylinder light reaches any height: its shape has no radius of its
+	// own, the rectangle holds it
 	if (width < 2 || light->LightEffect() == LE_Cylinder)
 	{
-		for (int y = 0; y < height; y++)
-			spans.push_back({ y, 0, width });
-		return;
+		for (int y = rect.y0; y < rect.y1; y++)
+			spans.push_back({ y, rect.x0, rect.x1 });
+		return rect;
 	}
 
-	// Each row of texel positions is a line, p(x) = first + x * D, D the step
-	// from one texel to the next (the texels are placed between the row's
-	// ends, so D is taken over the whole row, not from two neighbours).
-	// The texels within the radius are where |p(x) - light|^2 < radius^2; one
-	// texel of margin on each side covers the rounding in the positions.
+	// Every other shape is dark past the light's radius: of each row of the
+	// rectangle, the texels within it. Each row of texel positions is a
+	// line, p(x) = first + x * D, D the step from one texel to the next (the
+	// texels are placed between the row's ends, so D is taken over the whole
+	// row, not from two neighbours). The texels within the radius are where
+	// |p(x) - light|^2 < radius^2; one texel of margin on each side covers
+	// the rounding in the positions.
 	vec3 lightLocation = light->Location();
 	float radius = light->WorldLightRadius();
 	float radiusSquared = radius * radius;
-	for (int y = 0; y < height; y++)
+	for (int y = rect.y0; y < rect.y1; y++)
 	{
 		const RowLine& line = rows[y];
 		vec3 P = line.first - lightLocation;
@@ -194,7 +283,7 @@ void LightmapBuilder::FindLitSpans(UActor* light, Array<LightmapSpan>& spans)
 		if (!(dd > 0.0f))
 		{
 			if (pp < radiusSquared)
-				spans.push_back({ y, 0, width });
+				spans.push_back({ y, rect.x0, rect.x1 });
 			continue;
 		}
 		float disc = pd * pd - dd * (pp - radiusSquared);
@@ -203,14 +292,15 @@ void LightmapBuilder::FindLitSpans(UActor* light, Array<LightmapSpan>& spans)
 		float s = std::sqrt(disc);
 		float x0 = std::floor((-pd - s) / dd) - 1.0f;
 		float x1 = std::ceil((-pd + s) / dd) + 2.0f;
-		int ix0 = (int)std::clamp(x0, 0.0f, (float)width);
-		int ix1 = (int)std::clamp(x1, 0.0f, (float)width);
+		int ix0 = (int)std::clamp(x0, (float)rect.x0, (float)rect.x1);
+		int ix1 = (int)std::clamp(x1, (float)rect.x0, (float)rect.x1);
 		if (ix0 < ix1)
 			spans.push_back({ y, ix0, ix1 });
 	}
+	return rect;
 }
 
-void LightmapBuilder::AddLightContributionDX(UActor* light, const LightmapSpan* spans, size_t count)
+void LightmapBuilder::AddLightContributionDX(UActor* light, const LightmapSpan* spans, size_t count, const LightmapRect& lightRect)
 {
 	// The original's merge (dx-reverse-info/render-dll.md, light maps): a
 	// texel's illumination i, its shadow byte (254 lit, a light without
@@ -222,7 +312,8 @@ void LightmapBuilder::AddLightContributionDX(UActor* light, const LightmapSpan* 
 	// 20% or 40% (MergeLight, 0x10b03040): i x (1 − amount + amount x a
 	// draw) − 0.5, cut down, the draws from the frame's random tables
 	// (LightSystem::TickRandoms), the shimmer's its own, taken in turn over
-	// the texels of the light's rectangle on the map, row by row from 0.
+	// the texels of the light's rectangle on the map (CalcLightRect), row by
+	// row from 0.
 	// The scale held to what an int holds and the product taken in 64 bits:
 	// a LevelInfo Brightness of 128 or more overflowed i x scale, and one
 	// past about 32768 the conversion itself
@@ -240,7 +331,7 @@ void LightmapBuilder::AddLightContributionDX(UActor* light, const LightmapSpan* 
 	case LE_WateryShimmer: waver = 0.4f; randoms = engine->Level->Light.ShimmerRandoms; break;
 	}
 
-	LightmapRect rect = LightmapRect::Of(spans, count);
+	const LightmapRect& rect = lightRect;
 	int rectWidth = rect.x1 - rect.x0;
 
 	for (size_t s = 0; s < count; s++)

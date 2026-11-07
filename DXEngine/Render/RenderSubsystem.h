@@ -38,6 +38,14 @@ public:
 	bool DrawnSinceFlush = false;
 	bool DetailTexturesDrawn = false; // the device's DetailTextures and the client's TextureDetail High: once a frame (DrawGame)
 
+	// Whether the frame is lit: the viewer's RendMap at REN_DynLight (5) and
+	// the client's NoLighting off, as Render.dll asks before a surface's
+	// light map (DrawFrame 0x10b1aa3a-0x10b1aa67), a mesh's lights
+	// (SetupForActor 0x10b08e78-0x10b08e98) and its flags (0x10b2628c-
+	// 0x10b262b7): otherwise no surface has a light or fog map and every
+	// mesh is unlit. Once a frame (DrawGame).
+	bool SceneLit = true;
+
 	// The last frame drawn, as the device reads it back. Only between
 	// frames: a read inside one would end the frame the device is still
 	// recording. False when there is none to read.
@@ -174,7 +182,7 @@ private:
 
 	float LevelTimeElapsed = 0.0f;
 	double TextureClock = 0.0; // the textures' clock at this frame (UTexture::ClockNow)
-	float LevelTime = 0.0f; // the level's TimeSeconds at this frame, which the zones' auto-pan goes by
+	float LevelTime = 0.0f; // the level's TimeSeconds at this frame, which the zones' auto-pan and PF_SmallWavy go by
 
 	bool FrameInProgress = false;
 	bool FrameDrawn = false;

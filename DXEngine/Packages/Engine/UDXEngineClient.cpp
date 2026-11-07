@@ -29,6 +29,7 @@ void UDXEngineClient::LoadProperties(const NameString& from)
 	ScreenFlashes = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "ScreenFlashes", ScreenFlashes);
 	Decals = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "Decals", Decals);
 	NoDynamicLights = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "NoDynamicLights", NoDynamicLights);
+	NoLighting = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "NoLighting", NoLighting);
 	TextureDetail = IniPropertyConverter<std::string>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "TextureDetail", TextureDetail);
 	SkinDetail = IniPropertyConverter<std::string>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "SkinDetail", SkinDetail);
 	UpdateDetailLevels();
@@ -73,6 +74,7 @@ void UDXEngineClient::SaveConfig()
 	engine->packages->SetIniValue("System", Class, "ScreenFlashes", IniPropertyConverter<bool>::ToString(ScreenFlashes));
 	engine->packages->SetIniValue("System", Class, "Decals", IniPropertyConverter<bool>::ToString(Decals));
 	engine->packages->SetIniValue("System", Class, "NoDynamicLights", IniPropertyConverter<bool>::ToString(NoDynamicLights));
+	engine->packages->SetIniValue("System", Class, "NoLighting", IniPropertyConverter<bool>::ToString(NoLighting));
 	engine->packages->SetIniValue("System", Class, "TextureDetail", TextureDetail);
 	engine->packages->SetIniValue("System", Class, "SkinDetail", SkinDetail);
 }
@@ -109,6 +111,8 @@ std::string UDXEngineClient::GetPropertyAsString(const NameString& propertyName)
 		return IniPropertyConverter<bool>::ToString(Decals);
 	else if (propertyName == "NoDynamicLights")
 		return IniPropertyConverter<bool>::ToString(NoDynamicLights);
+	else if (propertyName == "NoLighting")
+		return IniPropertyConverter<bool>::ToString(NoLighting);
 	else if (propertyName == "TextureDetail")
 		return TextureDetail;
 	else if (propertyName == "SkinDetail")
@@ -156,6 +160,8 @@ void UDXEngineClient::SetPropertyFromString(const NameString& propertyName, cons
 		Decals = IniPropertyConverter<bool>::FromString(value);
 	else if (propertyName == "NoDynamicLights")
 		NoDynamicLights = IniPropertyConverter<bool>::FromString(value);
+	else if (propertyName == "NoLighting")
+		NoLighting = IniPropertyConverter<bool>::FromString(value);
 	else if (propertyName == "TextureDetail")
 	{
 		TextureDetail = value;

@@ -21,16 +21,26 @@
 // too. Pick -1 is a census of the map instead: every light with an effect,
 // its effect and whether its axis meets the world, then an exit. With Macro
 // set, four shots more follow, the spot's texture given itself as its macro
-// texture, which no stock texture has (docs/NATIVES.md, mods). With NoDetail
-// the detail textures are turned off first, as MeshConsole's NoDetail turns
-// them off: the original under Wine draws none (docs/NATIVES.md, the menus'
-// settings). With Spawn no light of the map is chosen: a CapLamp is made
-// with the Effect, its period SpawnPeriod (32 by default), phase 0, cone 128
-// and radius 12, Spawn units above the floor 128 units ahead of where the
-// player stands, for an effect no stock light shows, and the view put View
-// units (300 by default) over that spot, looking straight down; SpawnAt the
-// seconds of the map it waits for first (6 by default), SpawnType its
-// LightType (1, LT_Steady, by default). With Burst set, no shots: once the
+// texture, which no stock texture has (docs/NATIVES.md, mods); with Matrix
+// too, those four with the player's Sprite set to Engine's light icon, as the
+// Matrix cheat sets one, so that the surface is drawn in the icon, whose own
+// macro texture (none) stands in for the spot's. With NoDetail the detail
+// textures are turned off first, as MeshConsole's NoDetail turns them off:
+// the original under Wine draws none (docs/NATIVES.md, the menus' settings);
+// with NoLighting the client's NoLighting is set too, which leaves the
+// surfaces without light maps and the meshes unlit. With Spawn no light of
+// the map is chosen: a CapLamp is made with the Effect, its period
+// SpawnPeriod (32 by default), phase 0, cone 128 and radius 12, Spawn units
+// above the floor 128 units ahead of where the player stands, for an effect
+// no stock light shows, and the view put View units (300 by default) over
+// that spot, looking straight down; SpawnAt the seconds of the map it waits
+// for first (6 by default), SpawnType its LightType (1, LT_Steady, by
+// default). With PawnSpot the player's own light is the one shot instead,
+// made a steady white light of the Effect (a spotlight by default), cone 64
+// and radius 12, over the same spot, the view on it as Spawn's: its view
+// rotation straight down, its rotation held level each tick, so that a
+// spotlight aimed by the view rotation lights the floor under it and one
+// aimed by the rotation looks past it. With Burst set, no shots: once the
 // view settles, that many frames in a row each carry the mark with its
 // number, the low 8 bits, for tools/dxcap/burst.py (DXCAP_BURST), each
 // logged with the level's time and the bit a blink of the chosen light's
@@ -53,6 +63,9 @@ var config float SpawnAt;
 var config byte SpawnType;
 var config int SpawnPeriod;
 var config int Burst;
+var config bool Matrix;
+var config bool NoLighting;
+var config bool PawnSpot;
 var bool bMacroOn;
 var bool bBursting;
 var int BurstFrame;
@@ -272,6 +285,12 @@ function MacroOnItself(PlayerPawn P)
 	}
 	T.MacroTexture = T;
 	Log("DXLIGHT: macro texture " $ T $ " on itself");
+	if (Matrix)
+	{
+		// As MatrixConsole sets it
+		P.Sprite = Texture(DynamicLoadObject("Engine.S_Light", class'Texture'));
+		Log("DXLIGHT: the player's Sprite set to " $ P.Sprite);
+	}
 }
 
 // Every light reaching the spot.
@@ -325,6 +344,43 @@ function SpawnLight(PlayerPawn P)
 	LogReaching(P);
 	Log("DXLIGHT: made " $ Chosen.Name $ " type " $ int(Chosen.LightType) $ " effect " $ int(Chosen.LightEffect) $ " at " $ Chosen.Location $ " spot " $ Spot
 		$ " normal " $ SpotNormal $ " view distance " $ Dist);
+}
+
+// The player's own light made a light of the Effect over the floor ahead,
+// its view on it as SpawnLight's (PawnSpot).
+function PawnLight(PlayerPawn P)
+{
+	local vector Ahead, HitLocation, HitNormal;
+	local rotator Facing;
+	local float Dist;
+
+	Facing.Yaw = P.Rotation.Yaw;
+	Ahead = P.Location + 128 * vector(Facing);
+	if (P.Trace(HitLocation, HitNormal, Ahead - vect(0,0,1000), Ahead, false) == None)
+	{
+		Log("DXLIGHT: no floor below " $ Ahead);
+		return;
+	}
+	Spot = HitLocation;
+	SpotNormal = HitNormal;
+	Chosen = P;
+	// An enum takes no byte: the effect by its name
+	P.SetPropertyText("LightEffect", string(GetEnum(enum'ELightEffect', Effect)));
+	P.LightType = LT_Steady;
+	P.LightBrightness = 255;
+	P.LightHue = 0;
+	P.LightSaturation = 255;
+	P.LightCone = 64;
+	P.LightRadius = 12;
+	Dist = View;
+	if (Dist <= 0)
+		Dist = 300;
+	if (P.Trace(HitLocation, HitNormal, Spot + SpotNormal * Dist, Spot + SpotNormal * 2, false) != None)
+		Dist = FMax(VSize(HitLocation - Spot) - 8, 16);
+	Eye = Spot + SpotNormal * Dist;
+	LogReaching(P);
+	Log("DXLIGHT: the player's light, effect " $ int(P.LightEffect) $ " cone " $ P.LightCone $ " radius " $ P.LightRadius
+		$ " spot " $ Spot $ " normal " $ SpotNormal $ " view distance " $ Dist);
 }
 
 // The candidates in name order; the Pick-th made the one shot.
@@ -391,6 +447,8 @@ function Choose(PlayerPawn P)
 
 function HoldView(PlayerPawn P)
 {
+	local rotator Flat;
+
 	P.SetPhysics(PHYS_None);
 	P.Velocity = vect(0,0,0);
 	P.Acceleration = vect(0,0,0);
@@ -401,6 +459,12 @@ function HoldView(PlayerPawn P)
 	if (Abs(SpotNormal.Z) > 0.9999)
 		P.ViewRotation.Yaw = 0;
 	P.SetRotation(P.ViewRotation);
+	// The player's spotlight: its rotation level, its view on the spot
+	if (PawnSpot)
+	{
+		Flat.Yaw = P.ViewRotation.Yaw;
+		P.SetRotation(Flat);
+	}
 }
 
 event Tick(float Delta)
@@ -453,7 +517,9 @@ event Tick(float Delta)
 		}
 		else if (MapTime > FMax(SpawnAt, 6.0) && DXP != None)
 		{
-			if (Spawn > 0)
+			if (PawnSpot)
+				PawnLight(P);
+			else if (Spawn > 0)
 				SpawnLight(P);
 			else
 				Choose(P);
@@ -467,6 +533,12 @@ event Tick(float Delta)
 			{
 				P.ConsoleCommand("set ini:Engine.Engine.GameRenderDevice DetailTextures False");
 				Log("DXLIGHT: detail textures " $ P.ConsoleCommand("get ini:Engine.Engine.GameRenderDevice DetailTextures"));
+			}
+			if (NoLighting)
+			{
+				P.ConsoleCommand("set ini:Engine.Engine.ViewportManager NoLighting True");
+				Log("DXLIGHT: no lighting " $ P.ConsoleCommand("get ini:Engine.Engine.ViewportManager NoLighting") $ " admin " $ P.bAdmin
+					$ " no cheating " $ P.Level.bNoCheating);
 			}
 			DXP.KillShadow();
 			P.SetCollision(false, false, false);
@@ -537,7 +609,7 @@ event Tick(float Delta)
 			else
 			{
 				Log("DXLIGHT: shot " $ ShotsTaken $ " view at " $ (P.Location + vect(0,0,1) * P.EyeHeight) $ " rotation " $ P.ViewRotation
-					$ " FOV " $ P.FOVAngle $ " time " $ P.Level.TimeSeconds);
+					$ " FOV " $ P.FOVAngle $ " time " $ P.Level.TimeSeconds $ " the player's rotation " $ P.Rotation);
 				P.ConsoleCommand("shot");
 				bMarking = false;
 				ShotsTaken++;

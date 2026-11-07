@@ -34,6 +34,18 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 	// Render.dll hands it over (dx-reverse-info render-dll.md, a frame).
 	DetailTexturesDrawn = engine->renderdev->DetailTextures && NameString(engine->client->TextureDetail) == NameString("High");
 	LevelTime = engine->LevelInfo ? engine->LevelInfo->TimeSeconds() : 0.0f;
+
+	// The original's DrawWorld (Render.dll 0x10b1cc20-0x10b1cc62), before
+	// each frame: a viewer who is no admin, on a level with bNoCheating,
+	// outside the editor, has its RendMap put back at REN_DynLight and the
+	// client's NoLighting off. Then the frame is lit or not (SceneLit).
+	if (viewer && !viewer->bAdmin() && engine->LevelInfo && engine->LevelInfo->bNoCheating() && !engine->getEditorMode())
+	{
+		viewer->RendMap() = 5;
+		engine->client->NoLighting = false;
+	}
+	SceneLit = (!viewer || viewer->RendMap() == 5) && !engine->client->NoLighting;
+
 	// The viewport's clock, which the meshes' lighting takes: the real time
 	// since the last frame drawn, a load's painted frame among them, as the
 	// original's viewport takes it at each lock (Engine.dll UViewport::Lock
@@ -149,6 +161,21 @@ static float AutoPan(float zoneSpeed, float levelTime)
 	return (float)((i & 0x3ffff) * (1.0 / 256.0));
 }
 
+// PF_SmallWavy's wave, added to the pan after the zone's auto-pan
+// (Render.dll DrawFrame 0x10b1a72a-0x10b1a82f): 8 sin t + 4 cos 2.3t texels
+// along U and 8 cos t + 4 sin 2.3t along V, t the level's TimeSeconds, in
+// floats as the original's x87 is held to 24 bits while it draws: a wobble
+// of up to 12 texels, on the level's own time, paused with it.
+static vec2 SmallWavy(float levelTime)
+{
+	double t = levelTime;
+	double t23 = (float)(t * 2.3);
+	return {
+		(float)(4.0 * std::cos(t23)) + (float)(8.0 * std::sin(t)),
+		(float)(4.0 * std::sin(t23)) + (float)(8.0 * std::cos(t))
+	};
+}
+
 void RenderSubsystem::UpdateTextureInfo(TextureInfo& info, BspSurface& surface, UTexture* texture, float ZoneUPanSpeed, float ZoneVPanSpeed)
 {
 	UpdateTextureInfo(info, texture);
@@ -157,6 +184,12 @@ void RenderSubsystem::UpdateTextureInfo(TextureInfo& info, BspSurface& surface, 
 	info.Pan.y = -(float)surface.PanV;
 	if (surface.PolyFlags & PF_AutoUPan) info.Pan.x -= AutoPan(ZoneUPanSpeed, LevelTime);
 	if (surface.PolyFlags & PF_AutoVPan) info.Pan.y -= AutoPan(ZoneVPanSpeed, LevelTime);
+	if (surface.PolyFlags & PF_SmallWavy)
+	{
+		vec2 wave = SmallWavy(LevelTime);
+		info.Pan.x -= wave.x;
+		info.Pan.y -= wave.y;
+	}
 }
 
 void RenderSubsystem::UpdateTextureInfo(TextureInfo& info, const Poly& poly, UTexture* texture, float ZoneUPanSpeed, float ZoneVPanSpeed)
@@ -167,6 +200,12 @@ void RenderSubsystem::UpdateTextureInfo(TextureInfo& info, const Poly& poly, UTe
 	info.Pan.y = -(float)poly.PanV;
 	if (poly.PolyFlags & PF_AutoUPan) info.Pan.x -= AutoPan(ZoneUPanSpeed, LevelTime);
 	if (poly.PolyFlags & PF_AutoVPan) info.Pan.y -= AutoPan(ZoneVPanSpeed, LevelTime);
+	if (poly.PolyFlags & PF_SmallWavy)
+	{
+		vec2 wave = SmallWavy(LevelTime);
+		info.Pan.x -= wave.x;
+		info.Pan.y -= wave.y;
+	}
 }
 
 void RenderSubsystem::UpdateTextureInfo(TextureInfo& info, UTexture* texture)

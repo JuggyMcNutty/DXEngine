@@ -163,7 +163,12 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 		// its shadow bits; a bDynamicLight one, before all else, is a
 		// moving one, with no shadow (dx-reverse-info/render-dll.md, light
 		// maps). With NoDynamicLights, animated lights count as static and
-		// moving ones are left out.
+		// moving ones are left out. An LE_OmniBumpMap one, given no owner,
+		// is a kind of its own, before all that, which no light map takes
+		// (Render.dll AddLight 0x10b08b7a-0x10b08b85; SetupForSurf
+		// 0x10b06c90 merges the static, animated and moving ones): it
+		// lights no surface. A still one's changes are the static map's,
+		// so that a light made one, or one no more, builds it again.
 
 		if (lmindex.LightActors >= 0)
 		{
@@ -172,7 +177,12 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 			{
 				UActor* light = lightlist[lightindex];
 				CheckLight(light);
-				if (light->bDynamicLight())
+				if (light->LightEffect() == LE_OmniBumpMap)
+				{
+					if (!light->bDynamicLight() && (noDynamicLights || !LightmapBuilder::LightAnimates(light)))
+						lastStaticUpdate = std::max(lastStaticUpdate, light->Light.LastUpdate);
+				}
+				else if (light->bDynamicLight())
 				{
 					if (!noDynamicLights && light->bSpecialLit() == specialLit)
 					{
@@ -197,7 +207,8 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 		if (mover)
 			lastStaticUpdate = std::max(lastStaticUpdate, mover->Light.MovedFrame);
 
-		// The moving lights over the surface go into the dynamic light list:
+		// The moving lights over the surface go into the dynamic light list,
+		// but an LE_OmniBumpMap one, given no owner as the surface's own:
 
 		if (!noDynamicLights)
 		{
@@ -206,7 +217,7 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 				if (light->Light.LightmapCheckCounter != checkCounter)
 				{
 					light->Light.LightmapCheckCounter = checkCounter;
-					if (light->bSpecialLit() == specialLit)
+					if (light->bSpecialLit() == specialLit && light->LightEffect() != LE_OmniBumpMap)
 					{
 						CheckLight(light);
 						lastDynamicUpdate = std::max(lastDynamicUpdate, light->Light.LastUpdate);
@@ -219,11 +230,17 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 	else
 	{
 		// A dynamic mover's maps are rebuilt when the mover moved or turned
-		// since, or one of its lights changed
+		// since, or one of its lights changed. The original gives the moving
+		// lights over its surfaces the mover for their owner, so that each is
+		// a moving light, an LE_OmniBumpMap one too (AddLight 0x10b08b72),
+		// and the lights of its leaf none, as a level surface's own: an
+		// LE_OmniBumpMap light lights it only as a moving light.
 		lastDynamicUpdate = dynamicMover->Light.MovedFrame;
 
 		for (UActor* light : dynamicMover->TouchingLights.List)
 		{
+			if (light->LightEffect() == LE_OmniBumpMap && !light->bDynamicLight() && (light->bStatic() || light->bNoDelete()))
+				continue;
 			CheckLight(light);
 			lastDynamicUpdate = std::max(lastDynamicUpdate, light->Light.LastUpdate);
 			TempDynLightList.push_back(light);
@@ -393,8 +410,9 @@ void LightSystem::CheckLight(UActor* light)
 	uint8_t brightness = light->LightBrightness();
 	// Its aim, cone, period and phase too: a spotlight that turns (the
 	// alarm lights) or whose cone a script changes lights its surfaces anew,
-	// as the original's dynamic map, built every frame, has it
-	Rotator rotation = light->Rotation();
+	// as the original's dynamic map, built every frame, has it; a pawn's
+	// aim its view rotation (LightEffect::SpotRotation)
+	Rotator rotation = LightEffect::SpotRotation(light);
 	uint8_t cone = light->LightCone();
 	uint8_t period = light->LightPeriod();
 	uint8_t phase = light->LightPhase();
@@ -465,6 +483,13 @@ void LightSystem::SetupForActorDX(VertexLight& out, UActor* actor, bool leafLigh
 		state.List.clear();
 		return;
 	}
+
+	// A frame not lit -- the viewer's RendMap off REN_DynLight, the client's
+	// NoLighting on (RenderSubsystem::SceneLit) -- picks no light and steps
+	// no fade, its mesh drawn unlit, the lights kept under it as they were
+	// (Render.dll SetupForActor 0x10b08e78-0x10b08e98)
+	if (!engine->render->SceneLit)
+		return;
 
 	if (state.LastFrame != FrameCounter)
 	{

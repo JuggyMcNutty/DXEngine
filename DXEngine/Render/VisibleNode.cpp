@@ -46,35 +46,35 @@ void VisibleNode::Draw(VisibleFrame* frame)
 		engine->render->UpdateTexture(sprite);
 		tex = sprite->GetAnimTexture();
 	}
-	UTexture* drawn = tex;
 
 	TextureInfo texture;
 	engine->render->UpdateTexture(tex);
 	engine->render->UpdateTextureInfo(texture, surface, tex, ZoneUPanSpeed, ZoneVPanSpeed);
 
-	// Deus Ex's detail and macro textures lie as the original's lock leaves
-	// them, at their own scale and not panned with the surface
-	// (dx-reverse-info render-dll.md, a frame). The detail texture is the
-	// texture's current frame's, for a surface that is no portal, while the
-	// frame draws them (DetailTexturesDrawn), as Render.dll hands it over
-	// (render-dll.md, a frame; d3ddrv-dll.md, detail textures).
+	// Deus Ex's detail and macro textures are those of the frame drawn, its
+	// texture's current frame or the Sprite's, each locked as it is, not at
+	// a current frame of its own, and stepped by its lock, as the original's
+	// DrawFrame takes them (Render.dll 0x10b1a8df-0x10b1a965; Engine.dll
+	// UTexture::Lock updates the texture it locks, 0x103ececd). They lie as
+	// the lock leaves them, at their own scale and not panned with the
+	// surface (dx-reverse-info render-dll.md, a frame). The detail texture
+	// only for a surface that is no portal, while the frame draws them
+	// (DetailTexturesDrawn) (render-dll.md, a frame; d3ddrv-dll.md, detail
+	// textures).
 	TextureInfo detailtex;
-	UTexture* detailTexture = engine->render->DetailTexturesDrawn && (surface.Material || sprite) && (PolyFlags & PF_Portal) == 0 ? tex->DetailTexture() : nullptr;
-	bool detail = detailTexture != nullptr;
-	if (detail)
+	UTexture* detailTexture = tex && engine->render->DetailTexturesDrawn && (PolyFlags & PF_Portal) == 0 ? tex->DetailTexture() : nullptr;
+	if (detailTexture)
 	{
-		tex = detailTexture->GetAnimTexture();
-		engine->render->UpdateTexture(tex);
-		engine->render->UpdateTextureInfo(detailtex, tex);
+		engine->render->UpdateTexture(detailTexture);
+		engine->render->UpdateTextureInfo(detailtex, detailTexture);
 	}
 
 	TextureInfo macrotex;
-	UTexture* macroOwner = sprite ? drawn : surface.Material;
-	if (macroOwner && macroOwner->MacroTexture())
+	UTexture* macroTexture = tex ? tex->MacroTexture() : nullptr;
+	if (macroTexture)
 	{
-		tex = macroOwner->MacroTexture()->GetAnimTexture();
-		engine->render->UpdateTexture(tex);
-		engine->render->UpdateTextureInfo(macrotex, tex);
+		engine->render->UpdateTexture(macroTexture);
+		engine->render->UpdateTextureInfo(macrotex, macroTexture);
 	}
 
 	int numverts = Node->NumVertices;
@@ -96,9 +96,11 @@ void VisibleNode::Draw(VisibleFrame* frame)
 		}
 	}
 
+	// Neither light nor fog map in a frame not lit (RenderSubsystem::
+	// SceneLit), as the original's DrawFrame asks none of them then
 	TextureInfo lightmap;
 	TextureInfo fogmap;
-	if ((PolyFlags & PF_Unlit) == 0)
+	if ((PolyFlags & PF_Unlit) == 0 && engine->render->SceneLit)
 	{
 		lightmap = engine->Level->Light.GetLevelLightmap(surface, zoneActor, model);
 		// Deus Ex's fog map, as the original's renderer makes it
@@ -114,8 +116,8 @@ void VisibleNode::Draw(VisibleFrame* frame)
 	SurfaceInfo surfaceinfo;
 	surfaceinfo.PolyFlags = PolyFlags;
 	surfaceinfo.Texture = &texture;
-	surfaceinfo.MacroTexture = surface.Material && surface.Material->MacroTexture() ? &macrotex : nullptr;
-	surfaceinfo.DetailTexture = detail ? &detailtex : nullptr;
+	surfaceinfo.MacroTexture = macroTexture ? &macrotex : nullptr;
+	surfaceinfo.DetailTexture = detailTexture ? &detailtex : nullptr;
 	surfaceinfo.LightMap = lightmap.NumMips != 0 ? &lightmap : nullptr;
 	surfaceinfo.FogMap = fogmap.NumMips != 0 ? &fogmap : nullptr;
 

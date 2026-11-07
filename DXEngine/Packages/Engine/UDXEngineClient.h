@@ -27,6 +27,9 @@ public:
 	bool ScreenFlashes = true;
 	bool Decals = true;
 	bool NoDynamicLights = false;
+	// No light maps and every mesh unlit, as the original's client's
+	// NoLighting (RenderSubsystem::SceneLit); off by default
+	bool NoLighting = false;
 	std::string TextureDetail = "High";
 	std::string SkinDetail = "High";
 
