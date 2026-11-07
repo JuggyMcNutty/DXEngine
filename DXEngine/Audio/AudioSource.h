@@ -25,6 +25,10 @@ public:
 	virtual int GetOrder() { return -1; }
 	virtual void SetOrder(int order) {}
 
+	// The sections a song Galaxy plays takes, its orders before the first
+	// end mark (bugs.md AUD.17); -1 for a source that takes any order asked.
+	virtual int GetSections() { return -1; }
+
 	// Tracker music's tempo, 5/2 of its ticks a second; 0 for sources
 	// without one.
 	virtual double GetTempo() { return 0.0; }

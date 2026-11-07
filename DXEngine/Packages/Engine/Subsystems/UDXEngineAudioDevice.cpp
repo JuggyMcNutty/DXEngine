@@ -634,7 +634,13 @@ void UDXEngineAudioDevice::UpdateObstruction(PlayingSound& Playing, float timeSt
 		Playing.ObstructionTime = std::max(Playing.ObstructionTime - timeStep, 0.0f);
 }
 
-// Builds the source for a song; a tracker module starts at the given order.
+// Galaxy's glxControlMusic refusing a section past the song's last order,
+// as its Update logs it (Galaxy.dll 0x1060a863-0x1060a888; bugs.md AUD.17)
+static const char* const SectionRefused = "glxControlMusic( GLX_SETPOSITION2, Viewport->Actor->SongSection ) failed: 17";
+
+// Builds the source for a song; a tracker module starts at the given order,
+// a song Galaxy plays at order 0 for a section it refuses, as Galaxy's,
+// whose order count stays at its load's 255 (Galaxy.dll 0x1060e850).
 static std::unique_ptr<AudioSource> CreateMusicSource(UMusic* song, int order)
 {
 	std::unique_ptr<AudioSource> source;
@@ -647,7 +653,7 @@ static std::unique_ptr<AudioSource> CreateMusicSource(UMusic* song, int order)
 	else
 	{
 		source = AudioSource::CreateMod(song->Data, true, 0);
-		if (source && order > 0)
+		if (source && order > 0 && (source->GetSections() < 0 || order < source->GetSections()))
 			source->SetOrder(order);
 	}
 	return source;
@@ -713,7 +719,11 @@ void UDXEngineAudioDevice::UpdateMusic(float timeStep)
 		}
 		else if (song == CurrentSong)
 		{
-			m_Device->SetMusicOrder(section, volume);
+			// The section starts as the playing row ends, SongSection the order
+			// before it until then (bugs.md AUD.17); one past the last order is
+			// refused and logged, the song playing on
+			if (!m_Device->SetMusicOrder(section, volume))
+				LogMessage(SectionRefused);
 		}
 		else
 		{
@@ -730,6 +740,8 @@ void UDXEngineAudioDevice::UpdateMusic(float timeStep)
 				std::string reason = e.what();
 				LogMessage("glxLoadMusic(&Mem, GLX_LOADFROMMEMORY ) failed: " + song->Name.ToString() + ": " + reason.substr(0, reason.find('\n')));
 			}
+			if (source && source->GetSections() >= 0 && section >= source->GetSections())
+				LogMessage(SectionRefused);
 			m_Device->PlayMusic(std::move(source), volume);
 			CurrentSong = song;
 		}
@@ -738,8 +750,10 @@ void UDXEngineAudioDevice::UpdateMusic(float timeStep)
 	}
 	else if (CurrentSong)
 	{
-		// Where the music is: while no transition waits, each frame writes the
-		// order playing back into the player's SongSection, so the ambient
+		// Where the music is: while no transition waits, each frame writes
+		// Galaxy's order count back into the player's SongSection -- the order
+		// playing, or the order before a section waiting for the playing
+		// row's end, 255 before order 0 (bugs.md AUD.17) -- so the ambient
 		// track comes back where it was after a fight or a conversation
 		// (galaxy-dll.md, Music).
 		int order = m_Device->GetMusicOrder();

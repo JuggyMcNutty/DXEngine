@@ -57,9 +57,12 @@ public:
 	virtual void SetSpeechVolume(float volume) = 0;
 	// The playing music's order (UE1's SongSection), -1 while unknown, and a
 	// jump to another order without reloading the song, at the gain given,
-	// as PlayMusic takes one.
+	// as PlayMusic takes one: for a song Galaxy plays, its order count the
+	// order before until the section starts as the playing row ends, and
+	// false for a section past the song's last order, which is refused
+	// (bugs.md AUD.17).
 	virtual int GetMusicOrder() = 0;
-	virtual void SetMusicOrder(int order, float volume) = 0;
+	virtual bool SetMusicOrder(int order, float volume) = 0;
 	// The reverb every mixed sound plays through; nullptr turns it off.
 	virtual void SetReverb(const ReverbSettings* settings) = 0;
 	virtual void Update() = 0;

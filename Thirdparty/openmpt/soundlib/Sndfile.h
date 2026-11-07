@@ -713,13 +713,20 @@ public:
 	// DXEngine (bugs.md AUD.16): a pan law other than the mix levels', which
 	// stays until they are set again
 	void SetPanningMode(PanningMode mode) noexcept { m_PlayConfig.setPanningMode(mode); }
-	// DXEngine (bugs.md AUD.16): Galaxy.dll's player, set by the ctl
-	// play.galaxy: the song's own speed, tempo and pans again as it enters
-	// order 0, and a jump that silences the voices and plays on from the
-	// order, the song not replayed to it (Sndfile.cpp)
+	// DXEngine (bugs.md AUD.16, AUD.17): Galaxy.dll's player, set by the ctl
+	// play.galaxy (SetGalaxyPlayer): the song's own speed, tempo and pans
+	// again as it enters order 0, its 8xx's pans and surrounds, and a jump
+	// that silences the voices and starts the order as the playing row ends,
+	// the song not replayed to it (Sndfile.cpp)
 	bool m_galaxyPlayer = false;
+	void SetGalaxyPlayer(bool galaxy);
 	void GalaxyFirstOrder();
 	void GalaxyJump(ORDERINDEX order, ROWINDEX row);
+	// Galaxy.dll's order count, which its Update writes back into the
+	// player's SongSection: the order playing, or while a jump waits for the
+	// row's end the order before it, 255 before order 0
+	ORDERINDEX GalaxyOrder() const noexcept { return m_galaxyOrderCount != ORDERINDEX_INVALID ? m_galaxyOrderCount : m_PlayState.m_nCurrentOrder; }
+	ORDERINDEX m_galaxyOrderCount = ORDERINDEX_INVALID;  // while a jump waits
 
 	constexpr INSTRUMENTINDEX GetNumInstruments() const noexcept { return m_nInstruments; }
 	constexpr SAMPLEINDEX GetNumSamples() const noexcept { return m_nSamples; }

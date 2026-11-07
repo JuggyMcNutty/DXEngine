@@ -455,6 +455,9 @@ bool CSoundFile::ProcessRow()
 		const auto [ignoreRow, patternTransition] = NextRow(m_PlayState, m_PlayState.m_flags[SONG_BREAKTOROW]);
 		if(m_galaxyPlayer && m_PlayState.m_nCurrentOrder == 0 && (galaxyLastOrder != 0 || galaxyJump || m_PlayState.m_nRow <= galaxyLastRow))
 			GalaxyFirstOrder();
+		// DXEngine (bugs.md AUD.17): a section waiting for the row's end has
+		// started, Galaxy.dll's order count the order's own (GalaxyJump)
+		m_galaxyOrderCount = ORDERINDEX_INVALID;
 
 #ifdef MODPLUG_TRACKER
 		HandleRowTransitionEvents(patternTransition);
@@ -2354,7 +2357,9 @@ bool CSoundFile::ReadNote()
 
 		// IT Compatibility: Ensure that there is no pan swing, panbrello, panning envelopes, etc. applied on surround channels.
 		// Test case: surround-pan.it
-		if(chn.dwFlags[CHN_SURROUND] && !m_PlayState.m_flags[SONG_SURROUNDPAN] && m_playBehaviour[kITNoSurroundPan])
+		// DXEngine (bugs.md AUD.17): Galaxy.dll's surround keeps its pan, its
+		// envelope's too, the right side inverted at it (Galaxy.dll 0x1061534c)
+		if(chn.dwFlags[CHN_SURROUND] && !m_PlayState.m_flags[SONG_SURROUNDPAN] && m_playBehaviour[kITNoSurroundPan] && !m_galaxyPlayer)
 		{
 			chn.nRealPan = 128;
 		}

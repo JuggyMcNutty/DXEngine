@@ -1890,10 +1890,11 @@ pair after order 0, a tone hard left and one hard right, -19.7 and -19.3 dB
 in each channel in the original, -19.5 and -18.8 in DXEngine; the stock
 songs each within 0.47 dB of the original's mean power, UNATCO_Music -17.2
 dB in the original and -16.7 in DXEngine, where a fold of the stereo music
-cancelled its surround channels to -25.8). Differs (bugs.md AUD.17):
-Galaxy's mono mix rounds each voice's gain down to one of 64 levels, reads
-a 16-bit sample without interpolating, sends nothing to the reverb and
-saturates the music keeping each sample's low byte. `UseFilter`,
+cancelled its surround channels to -25.8). Not carried, by choice:
+Galaxy's mono mix's losses, each voice's gain rounded down to one of 64
+levels (a quiet sound silent, a fade stepped), a 16-bit sample read without
+interpolating, nothing sent to the reverb and the music saturated keeping
+each sample's low byte (clip noise). `UseFilter`,
 `UseCDMusic` and `UseSpatial` are read, saved and `SET` and change nothing,
 as in the original. An MP3 -- the game's speech -- plays as Galaxy's
 decoder fills its ring, 32,768 frames of each channel
@@ -2029,24 +2030,38 @@ A song plays on as Galaxy's player plays it
 libopenmpt's `play.galaxy`, [the audio mixer](ENGINE.md#gameplay)): its
 loop, a jump to order 0 by B00 or a section, and a pattern loop back in
 order 0 give each channel the song's own pan again and the song its own
-speed and tempo; a section change silences its voices and plays on from the
-section, the speed, tempo and pans as they stand, the song not played to
-it; the music is saturated at 16 bits, then added to the sounds' mix,
-saturating. `MusicConsole`, both engines: after the jump from the pair to
+speed and tempo; a section change silences its voices at once and starts
+the section as the playing row ends, a pattern delay's rows played out
+first, the speed, tempo and pans as they stand, the song not played to it,
+`SongSection` reading the order before it until then, 255 before order 0;
+a section past the song's last order is refused, logged as Galaxy logs it
+(`glxControlMusic( GLX_SETPOSITION2, Viewport->Actor->SongSection ) failed:
+17`); a channel the header pans over 64 -- IT's surround, or a muted
+channel, played -- is a surround a quarter of the way from the left, and
+an 8xx (IT's X) over 0x80 a surround at a pan, 0x84 to 0xC4 from the left
+(0xA4, IT's S9x, the middle), each with its right side inverted; the music
+is saturated at 16 bits, then added to the sounds' mix, saturating.
+`MusicConsole`, both engines: after the jump from the pair to
 the empty order 1 silence in both, where playing the song to it brought
 back tone A at -16.5 dB; tone A on eight channels in phase at full scale in
 35.2% of the samples in the original and 34.0% in DXEngine (60.0% before),
 the beep over it -12.4 dB in the original and -12.2 in DXEngine (-14.5
-before, the clip taking part of it); the pair centred by order 8, then
+before, the clip taking part of it); the pair centred by order 11, then
 after the song's loop the right tone 21.1 dB under in the left channel in
-both, where it stayed centred. With
+both, where it stayed centred; from tone A in a row of 2.42 s, the jump to
+tone B's order silent 1.43 s in the original and 1.34 in DXEngine, where B
+followed at once, and the one from B to order 0 2.28 and 2.11,
+`SongSection` the order before each until then, 1
+and 255, in both, where it was the order at once; the pair on the header's
+surround channel and on XB4: the 551.25 Hz tone 4.77 dB louder in the left
+channel than in the right and the 882 Hz one 4.77 dB louder in the right,
+each right side inverted, in both, where each was centred. With
 `DXCAP_CONFIG="Songs=LibertyIsland_Music.LibertyIsland_Music SongSeconds=150"`
 and `sound.py --music --from 138`, LibertyIsland after its loop to order 0:
-its side 0.05 dB from the original's, 3.36 before. Differs (bugs.md
-AUD.17): a section starts
-at once, where Galaxy's waits for the playing row's end; a section past the
-last order is ignored, where Galaxy's plays on at the next order; an IT
-song's surround channel is centred, Galaxy's a quarter left.
+its side 0.05 dB from the original's, 3.36 before. A section past the last
+order is refused with Galaxy's log line and the song plays on, by choice,
+where Galaxy's silences the voices all the same and plays on at the next
+order as the row ends, a glitch.
 
 ## Implemented, not as the original
 

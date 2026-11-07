@@ -163,7 +163,9 @@ public:
 
 	void PlayMusic(std::unique_ptr<AudioSource> source, float volume) override
 	{
+		int sections = source ? source->GetSections() : -1;
 		std::unique_lock lock(musicThreadData.mutex);
+		musicThreadData.sections = sections;
 		musicThreadData.music = std::move(source);
 		musicThreadData.musicUpdate = true;
 		musicThreadData.volume = volume;
@@ -181,16 +183,24 @@ public:
 		mixer->SetReverb(settings);
 	}
 
-	// A jump is the order at once, as Galaxy's Update jumps and writes the
-	// order back in one step: the main thread reads it that frame, not the
-	// pre-jump order until the music thread's next pass
-	void SetMusicOrder(int order, float volume) override
+	// A jump's order count is Galaxy's at once, as its Update writes it back
+	// from the next frame on: the main thread reads it that frame, not the
+	// pre-jump order until the music thread's next pass. For a song Galaxy
+	// plays, glxControlMusic leaves it the order before the section, 255
+	// before order 0, the section starting as the playing row ends; a section
+	// past the last order it refuses, the count as it was and the song
+	// playing on, at the change's gain (Galaxy.dll 0x1060d0e0; bugs.md
+	// AUD.17). Another source jumps to the order asked.
+	bool SetMusicOrder(int order, float volume) override
 	{
 		std::unique_lock lock(musicThreadData.mutex);
-		musicThreadData.jumpOrder = order;
 		musicThreadData.volume = volume;
-		if (order >= 0)
-			musicThreadData.currentOrder.store(order);
+		int sections = musicThreadData.sections;
+		if (order < 0 || (sections >= 0 && order >= sections))
+			return false;
+		musicThreadData.jumpOrder = order;
+		musicThreadData.currentOrder.store(sections >= 0 ? (order + 255) % 256 : order);
+		return true;
 	}
 
 	void PlayMixedSound(int channel, USound* sound, int volume, int panning, float pitch) override
@@ -426,9 +436,11 @@ public:
 				// failure is left for the main thread to log
 				try
 				{
+					// Not while a jump asked since this pass read it waits: its
+					// count, stored as it was asked, stands until the next pass
 					{
 						std::unique_lock orderLock(musicThreadData.mutex);
-						if (musicThreadData.generation == generation)
+						if (musicThreadData.generation == generation && musicThreadData.jumpOrder < 0)
 							musicThreadData.currentOrder.store(currentMusic->GetOrder());
 					}
 
@@ -715,7 +727,8 @@ public:
 		std::unique_ptr<AudioSource> music;
 		bool musicUpdate = false;
 		int jumpOrder = -1;                     // an order to jump the playing song to
-		std::atomic<int> currentOrder{ -1 };    // the order playing: a jump's at once, else the music thread's
+		int sections = -1;                      // the sections the song set takes, -1 any (AudioSource::GetSections)
+		std::atomic<int> currentOrder{ -1 };    // the order playing: a jump's count at once, else the music thread's
 		int generation = 0;                     // counts the songs set, so the thread's order is its own song's
 		float volume = 0.0f;                    // the music's gain, for the thread to set on the source
 		std::string failure;                    // why the song stopped, for the main thread to log
@@ -761,7 +774,7 @@ public:
 	void SetSoundVolume(float volume) override {}
 	void SetSpeechVolume(float volume) override {}
 	int GetMusicOrder() override { return -1; }
-	void SetMusicOrder(int order, float volume) override {}
+	bool SetMusicOrder(int order, float volume) override { return true; }
 	void SetReverb(const ReverbSettings* settings) override {}
 	void Update() override {}
 

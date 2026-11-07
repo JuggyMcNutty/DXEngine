@@ -4762,6 +4762,24 @@ void CSoundFile::Panning(ModChannel &chn, uint32 param, PanningType panBits) con
 	{
 		return;
 	}
+	// DXEngine (bugs.md AUD.17): Galaxy.dll's 8xx, which GalaxyMusic.cpp
+	// writes as X with Galaxy's own parameter (Galaxy.dll 0x10616eb0, its
+	// command 8): to 0x80 a pan from the left, 0x80 at 127 of 128; over it a
+	// surround, its right side inverted, 0x84 to 0xC4 at a pan of twice the
+	// step past 0x84 (0xA4, IT's S9x, the middle), at most 127 of 128, the
+	// rest in the middle
+	if(m_galaxyPlayer && panBits == Pan8bit)
+	{
+		const bool surround = param > 0x80;
+		uint32 pan = std::min(param, uint32(127));
+		if(surround)
+			pan = (param >= 0x84 && param <= 0xC4) ? std::min(2 * (param - 0x84), uint32(127)) : 64;
+		chn.nPan = static_cast<int32>(2 * pan);
+		chn.dwFlags.set(CHN_SURROUND, surround);
+		chn.dwFlags.set(CHN_FASTVOLRAMP);
+		chn.nRestorePanOnNewNote = 0;
+		return;
+	}
 	// IT Compatibility (and other trackers as well): panning disables surround (unless panning in rear channels is enabled, which is not supported by the original trackers anyway)
 	if (!m_PlayState.m_flags[SONG_SURROUNDPAN] && (panBits == Pan8bit || m_playBehaviour[kPanOverride]))
 	{

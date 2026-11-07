@@ -61,8 +61,22 @@ its three beeps, each step by the beep a second before it:
            beep is not the measure: a sum saturated before the desktop's
            resampler, as Galaxy's under Wine, comes out of it under full scale
            where one saturated after it, as a float output's, does not);
-  loop:    the pair's crossfeed, centred by order 8, then after the song's
+  loop:    the pair's crossfeed, centred by order 11, then after the song's
            loop to order 0, which Galaxy enters with each channel's own pan;
+  late:    each jump from a playing tone to another's order: when the old
+           tone ends (a frame 40 dB under its level, or the new one's), when
+           the new one starts (within 12 dB of it, its frames as bright as
+           its frequency), and the silence between, where Galaxy starts a
+           section as the playing row ends;
+  surround: the pair on orders 9's channels, each tone's level in each
+           channel, the one's less the other's, and the right channel's
+           phase against the left's, 180 degrees for a surround;
+  refused: each tone's level after the jump to an order past the last;
+  low:     tone A at C-2 and its image at 5,512.5 - 55.125 Hz, which a
+           sample held at each frame for eight output frames gives some 40 dB
+           under the tone, read between frames some 80;
+  songsection: the order the audio writes back into SongSection, each
+           change after each of those steps, the time from it;
   song:    each song from its onset (its first two frames 45 dB under full
            scale or louder), 0.5 to 7 s of it (--from: from that many
            seconds): the median of its 5 ms frames and its mean power.
@@ -375,6 +389,8 @@ def report_pan(rec, offset, rest):
 # pair's, hard left and hard right.
 MUSIC_TONES = {'A': 441.0, 'B': 630.0}
 MUSIC_PAIR = (551.25, 882.0)
+MUSIC_LOW = 441.0 / 8                     # tone A at C-2, order 10
+MUSIC_LOW_IMAGE = 44100.0 / 8 - MUSIC_LOW  # its image at 44,100 Hz, each frame held for eight
 MUSIC_LATENCY = 0.040  # the game's Latency, whose twice the fade's hold is
 
 
@@ -477,6 +493,24 @@ def over_tone_db(rec, start, hz, seconds=0.05):
     return rec.db(sum(x * x for x in d) / len(d))
 
 
+def tone_phasor(rec, start, end, hz, channel):
+    """A tone's Hann-windowed DFT value at its frequency in one channel
+    between two recording times, complex; None for too short a span."""
+    a = max(0, int(start * rec.rate))
+    b = min(rec.frames, int(end * rec.rate))
+    n = b - a
+    if n < 256:
+        return None
+    w = 2 * math.pi * hz / rec.rate
+    data = rec.data[a * rec.channels + channel:b * rec.channels:rec.channels]
+    re = im = 0.0
+    for i, x in enumerate(data):
+        h = (0.5 - 0.5 * math.cos(2 * math.pi * i / (n - 1))) * x
+        re += h * math.cos(w * i)
+        im -= h * math.sin(w * i)
+    return complex(re, im)
+
+
 def side_db(rec, frame, frames):
     """The side's power, ((left - right) / 2)^2, dB, over 5 ms frames from
     one on."""
@@ -504,7 +538,9 @@ def report_music(rec, log, song_from=0.5):
         before = [b for b in beeps if t - 1.3 <= b < t]
         return beep_offset(rec, hf, before[-1], offset) if before else offset
 
-    steps = [(t, what.split()) for t, what in evts if what.split()[0] in ('segment', 'fade', 'stereo', 'section', 'loud', 'loop', 'stop', 'song', 'end')]
+    steps = [(t, what.split()) for t, what in evts if what.split()[0] in (
+        'segment', 'fade', 'stereo', 'section', 'loud', 'loop', 'slow', 'late', 'surround', 'refused', 'low', 'stop',
+        'song', 'end')]
     nexts = [t for t, _ in steps[1:]] + [steps[-1][0] + 5.0]
 
     print('segments: the median of 5 ms frames, and the tone by DFT, each against the first at 255')
@@ -634,6 +670,84 @@ def report_music(rec, log, song_from=0.5):
                 break
             print('loop at %.2f s, %s, %.2f-%.2f s: the left tone in the right channel %+.1f dB, the right tone in the left %+.1f dB' % (
                 t, name, a, b, lr - ll, rl - rr))
+
+    for (t, words), t_next in zip(steps, nexts):
+        if words[0] != 'late':
+            continue
+        order, old, new = words[2], words[3], words[4]
+        at = local(t)
+        t0 = t + at
+        # The old tone's level: Galaxy's music comes some 0.9 s after its
+        # sounds, so a window both engines' tone is in for a tenth of
+        window = sorted(rec.env[max(0, rec.frame(t0 - 0.5)):rec.frame(t0 + 1.0)])
+        if not window:
+            print('late %s at %.2f s: not in the recording' % (order, t))
+            continue
+        ref = rec.db(window[int(len(window) * 0.9)])
+        f0, f1 = rec.frame(t0 - 0.1), min(len(rec.env) - 1, rec.frame(t_next + at - 1.1))
+        dbs = [rec.db(e) - ref for e in rec.env[f0:f1]]
+        oldhz, newhz = MUSIC_TONES[old], MUSIC_TONES[new]
+        tone = lambda i, hz: dbs[i] >= -12 and abs(frame_brightness(rec, f0 + i) - hz) < 0.1 * hz
+        # The old tone heard, then its last frame: the first after it silent
+        # (40 dB under) or the new tone's; then the new tone's first two
+        heard = next((i for i in range(len(dbs)) if tone(i, oldhz)), None)
+        end = None if heard is None else next(
+            (i for i in range(heard, len(dbs) - 1) if (dbs[i] <= -40 and dbs[i + 1] <= -40) or tone(i, newhz)), None)
+        onset = None if end is None else next(
+            (i for i in range(end, len(dbs) - 1) if tone(i, newhz) and tone(i + 1, newhz)), None)
+        sec = lambda i: (f0 + i) * rec.step - t0 if i is not None else float('nan')
+        print('late %s at %.2f s: ref %.1f dB; tone %s to %+.3f s, tone %s from %+.3f s: %.3f s of silence' % (
+            order, t, ref, old, sec(end), new, sec(onset), sec(onset) - sec(end)))
+
+    for (t, words), t_next in zip(steps, nexts):
+        if words[0] != 'surround':
+            continue
+        at = local(t)
+        a, b = t + 1.5 + at, min([bp for bp in beeps if bp > t] + [t_next]) - 0.1 + at
+        if rec.channels != 2:
+            print('surround: not stereo')
+            continue
+        for name, hz in (('the header\'s surround', MUSIC_PAIR[0]), ('XB4', MUSIC_PAIR[1])):
+            left, right = tone_phasor(rec, a, b, hz, 0), tone_phasor(rec, a, b, hz, 1)
+            ll, rl = tone_db(rec, a, b, hz, 0), tone_db(rec, a, b, hz, 1)
+            if None in (left, right, ll, rl) or abs(left) == 0:
+                print('surround: not in the recording')
+                break
+            phase = math.degrees(math.atan2((right / left).imag, (right / left).real))
+            print('surround at %.2f s, %.2f-%.2f s, %s %.2f Hz: left %.1f dB, right %.1f dB, left - right %+.2f dB, '
+                  'right\'s phase %+.0f degrees' % (t, a - at, b - at, name, hz, ll, rl, ll - rl, phase))
+
+    for (t, words), t_next in zip(steps, nexts):
+        if words[0] != 'refused':
+            continue
+        at = local(t)
+        a, b = t + 1.5 + at, min([bp for bp in beeps if bp > t] + [t_next]) - 0.1 + at
+        tones = [(name, tone_db(rec, a, b, hz)) for name, hz in (
+            ('A', MUSIC_TONES['A']), ('left', MUSIC_PAIR[0]), ('right', MUSIC_PAIR[1]), ('low', MUSIC_LOW))]
+        if None in [v for _, v in tones]:
+            print('refused: not in the recording')
+            continue
+        print('refused %s at %.2f s, %.2f-%.2f s: tone %s' % (
+            words[2], t, a - at, b - at, ', '.join('%s %.1f dB' % x for x in tones)))
+
+    for (t, words), t_next in zip(steps, nexts):
+        if words[0] != 'low':
+            continue
+        at = local(t)
+        a, b = t + 1.5 + at, min([bp for bp in beeps if bp > t] + [t_next]) - 0.1 + at
+        tone, image = tone_db(rec, a, b, MUSIC_LOW), tone_db(rec, a, b, MUSIC_LOW_IMAGE)
+        if None in (tone, image):
+            print('low: not in the recording')
+            continue
+        print('low at %.2f s, %.2f-%.2f s: tone %.3f Hz %.1f dB, its image at %.1f Hz %.1f dB, %+.1f dB' % (
+            t, a - at, b - at, MUSIC_LOW, tone, MUSIC_LOW_IMAGE, image, image - tone))
+
+    sections = [(t, what.split()) for t, what in evts if what.split()[0] == 'songsection']
+    asks = [(t, words) for t, words in steps if words[0] in ('slow', 'late', 'surround', 'refused', 'low')]
+    for i, (t, words) in enumerate(asks):
+        until = asks[i + 1][0] if i + 1 < len(asks) else t + 5.0
+        seen = ['%s %+.3f s' % (w[1], t2 - t) for t2, w in sections if t <= t2 < until]
+        print('songsection after "%s" at %.2f s: %s' % (' '.join(words), t, ', '.join(seen) or 'no change'))
 
     if any(words[0] == 'song' for _, words in steps):
         print('songs: each from its onset after the change, %.1f to %.1f s of it: the median of 5 ms frames and the mean power' % (

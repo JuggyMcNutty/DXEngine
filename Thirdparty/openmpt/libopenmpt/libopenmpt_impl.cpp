@@ -1177,8 +1177,10 @@ double module_impl::set_position_order_row( std::int32_t order, std::int32_t row
 	} else {
 		row = 0;
 	}
-	// DXEngine (bugs.md AUD.16): with Galaxy.dll's player, a jump as its
-	// section change makes one, the song not replayed to the order
+	// DXEngine (bugs.md AUD.16, AUD.17): with Galaxy.dll's player, a jump as
+	// its section change makes one: the voices silenced and the order started
+	// as the playing row ends, the song not replayed to it (Sndfile.cpp's
+	// GalaxyJump)
 	if ( m_sndFile->m_galaxyPlayer ) {
 		m_sndFile->GalaxyJump( static_cast<OpenMPT::ORDERINDEX>( order ), static_cast<OpenMPT::ROWINDEX>( row ) );
 		return m_currentPositionSeconds;
@@ -1351,6 +1353,12 @@ double module_impl::get_current_tempo2() const {
 	return m_sndFile->m_PlayState.m_nMusicTempo.ToDouble();
 }
 std::int32_t module_impl::get_current_order() const {
+	// DXEngine (bugs.md AUD.17): with Galaxy.dll's player, its order count,
+	// the order before a section waiting for the playing row's end, 255
+	// before order 0 (Sndfile.h's GalaxyOrder)
+	if ( m_sndFile->m_galaxyPlayer ) {
+		return m_sndFile->GalaxyOrder();
+	}
 	return m_sndFile->GetCurrentOrder();
 }
 std::int32_t module_impl::get_current_pattern() const {
@@ -2073,9 +2081,10 @@ void module_impl::ctl_set_boolean( std::string_view ctl, bool value, bool throw_
 			m_sndFile->SetMixLevels( m_sndFile->GetMixLevels() );
 		}
 	} else if ( ctl == "play.galaxy" ) {
-		// DXEngine (bugs.md AUD.16): Galaxy.dll's player (Sndfile.cpp's
-		// GalaxyFirstOrder and GalaxyJump), or OpenMPT's own again
-		m_sndFile->m_galaxyPlayer = value;
+		// DXEngine (bugs.md AUD.16, AUD.17): Galaxy.dll's player (Sndfile.cpp's
+		// SetGalaxyPlayer, GalaxyFirstOrder and GalaxyJump), set as the song
+		// loads, or OpenMPT's own again
+		m_sndFile->SetGalaxyPlayer( value );
 	} else {
 		MPT_ASSERT_NOTREACHED();
 	}

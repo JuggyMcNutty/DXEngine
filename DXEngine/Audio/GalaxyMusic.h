@@ -20,9 +20,12 @@ namespace GalaxyMusic
 	constexpr const char* PanningCtl = "render.panning.galaxy";
 
 	// Galaxy's player gives the song its own speed, tempo and pans again as
-	// it enters order 0 (0x10615710), and its section change silences the
-	// voices and plays on from the section, the song not replayed to it
-	// (Update, 0x1060a822): OpenMPT's play.galaxy, DXEngine's own in
-	// Thirdparty/openmpt (bugs.md AUD.16).
+	// it enters order 0 (0x10615710), pans by its 8xx, written as X with
+	// Galaxy's parameter, a surround at a pan, a channel the header pans over
+	// 64 a surround a quarter left (0x10616eb0, 0x10628990), and its section
+	// change silences the voices and starts the section as the playing row
+	// ends, the song not replayed to it, its order count the order before
+	// until then (Update, 0x1060a822; 0x10616f29): OpenMPT's play.galaxy,
+	// DXEngine's own in Thirdparty/openmpt (bugs.md AUD.16, AUD.17).
 	constexpr const char* PlayerCtl = "play.galaxy";
 }

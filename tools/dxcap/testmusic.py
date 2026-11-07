@@ -26,7 +26,17 @@ tones, of a kind the game ships none of, made here rather than kept as a file.
                 882 Hz on channel 3, hard right (pan 64)
       order 6   loud: tone A on channels 4 to 11 at once, centred, eight
                 voices in phase, past full scale at the Music slider's 255
-      order 8   the pair centred by X40 (Galaxy's 8xx centre), no jump: the
+      order 8   slow: tone A, its row 0 setting speed 32 (A20) and tempo 33
+                (T21 on channel 13), 2.42 s a row, no jump: a section asked
+                as it plays starts as that row ends (Galaxy.dll 0x10616f29)
+      order 9   surround: the pair's 551.25 Hz on channel 13, which the
+                header pans as IT's surround (100), and its 882 Hz on channel
+                14 with XB4: Galaxy plays a header's surround a quarter left
+                and its 8xx's B4 a quarter right, each a surround, its right
+                side inverted (0x10628990, 0x10616eb0)
+      order 10  low: tone A at C-2, 55.125 Hz, each frame of the sample held
+                for eight output frames unless read between them
+      order 11  the pair centred by X40 (Galaxy's 8xx centre), no jump: the
                 song's end after its 64 rows, then its loop to order 0, which
                 Galaxy enters with each channel's own pan again
                 (MusicConsole; tools/dxcap/sound.py --music)
@@ -102,13 +112,17 @@ def pattern(rows):
 
 
 C5 = 60          # IT's C-5
+C2 = 24          # IT's C-2, three octaves under
+A = 1            # IT's command A, the speed
 B = 2            # IT's command B, a jump to an order
+T = 20           # IT's command T, the tempo
 X = 24           # IT's command X, a pan, which Galaxy reads as the MOD's 8xx
 LOUD = range(3, 11)  # the loud order's channels, 4 to 11
+SURROUND, SIDE = 12, 13  # the surround order's channels, 13 and 14
 
 
 def module():
-    orders = [0, 1, 2, 3, 4, 5, 6, 7, 8, 255]
+    orders = [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 8, 255]
     patterns = [
         pattern({0: [(0, C5, 1, None, 0)], 63: [(0, None, None, B, 1)]}),
         pattern({63: [(0, None, None, B, 1)]}),
@@ -119,6 +133,9 @@ def module():
         pattern({0: [(c, C5, 1, None, 0) for c in LOUD], 63: [(3, None, None, B, 7)]}),
         pattern({63: [(3, None, None, B, 7)]}),
         pattern({0: [(1, C5, 3, X, 0x40), (2, C5, 4, X, 0x40)]}),
+        pattern({0: [(0, C5, 1, A, 0x20), (SURROUND, None, None, T, 0x21)]}),
+        pattern({0: [(SURROUND, C5, 3, None, 0), (SIDE, C5, 4, X, 0xB4)], 63: [(SURROUND, None, None, B, 9)]}),
+        pattern({0: [(0, C2, 1, None, 0)], 63: [(0, None, None, B, 10)]}),
     ]
     samples = [sample_data(period, periods) for _, period, periods in TONES]
 
@@ -126,6 +143,7 @@ def module():
     pan[0], pan[1], pan[2] = 32, 0, 64
     for c in LOUD:
         pan[c] = 32
+    pan[SURROUND], pan[SIDE] = 100, 32
     volume = bytes([64] * 64)
     header = (b'IMPM' + b'CapTone'.ljust(26, b'\0') + struct.pack('<H', 0x1004) +
               struct.pack('<HHHHHHHH', len(orders), 0, len(samples), len(patterns), 0x0214, 0x0214,

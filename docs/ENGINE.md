@@ -789,7 +789,10 @@ its code is:
   adds them with its output limiter off, saturating, as Galaxy adds them. A song is played by
   libopenmpt (`Thirdparty/openmpt`), with changes of DXEngine's own to it: its mixer given
   Galaxy's pan law and mono mix (`render.panning.galaxy`), its player Galaxy's entry into
-  order 0 and section change (`play.galaxy`). With no output that starts, a device
+  order 0, its 8xx's pans and surrounds and its section change, the section starting as the
+  playing row ends and the order count the order before it until then (`play.galaxy`); a
+  section past a song's last order is refused, logged as Galaxy logs it. With no output that
+  starts, a device
   that plays nothing takes OpenAL's place (`Audio initialization failed.`). DXEngine's audio
   device adds `SpeechVolume` and `DopplerSpeed` to its ini section,
   and keeps Deus Ex's channel count under Galaxy's name, `EffectsChannels`

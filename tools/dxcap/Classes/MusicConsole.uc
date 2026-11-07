@@ -32,18 +32,37 @@
 //    bits and adds the sounds to it (0x106146a0), so the beep is heard
 //    whole over the clipped tone, where over a tone past full scale the
 //    clip takes part of it.
-// 6. order 8, the pair centred by X40, which plays its 64 rows, ends the
+// 6. order 11, the pair centred by X40, which plays its 64 rows, ends the
 //    song and loops to order 0, 13 s: Galaxy enters order 0 with each
 //    channel's own pan again (0x10615710), the pair hard left and hard
 //    right after the loop.
-// 7. each of Songs (Package.Name, by commas), stopped 1.5 s before and
+// 7. the music stopped, then CapTone loaded into order 8, tone A in rows of
+//    2.42 s (speed 32, tempo 33), and a second on a jump to order 2, tone B,
+//    4 s; then, early in order 2's second row, a jump to order 0, tone A,
+//    5 s: Galaxy silences the voices at once and starts the section as the
+//    playing row ends (0x10616f29), some 1.4 and 2.3 s later, SongSection
+//    the order before it until then, 255 before order 0.
+// 8. order 9, surround, 5 s: tone 551.25 Hz on a channel the header pans as
+//    IT's surround, a quarter left in Galaxy's player, and 882 Hz on one
+//    XB4 pans, Galaxy's 8xx surround a quarter right (0x10628990,
+//    0x10616eb0), each with its right side inverted.
+// 9. order 40, past the song's last, 5 s: Galaxy refuses it, logged, but
+//    silences the voices and goes on at the next order, 10, as the row
+//    ends (glxControlMusic, 0x1060d0e0).
+// 10. order 10, tone A at C-2, 55.125 Hz, each of its frames eight output
+//    frames, 5 s: read between frames in stereo, at its whole frame in
+//    Galaxy's mono mix (UseStereo off), its image at 5,457 Hz 40 dB under.
+//    SongSection is logged at each change from 7. to here.
+// 11. each of Songs (Package.Name, by commas), stopped 1.5 s before and
 //    played from order 0 at the slider's 255, SongSeconds (8 s): the stock
 //    songs' own levels, as each engine's player renders them; long enough,
 //    a song through its loop. Then an exit.
 // Each step is logged with "DXMUSIC:" and the console's clock: "beep",
 // "segment <slider> <tone>", "fade <transition> <seconds> <from> <to>
 // <slider>", "stereo <slider> [first]", "section <slider> <order>", "loud
-// <slider>", "loop <slider>", "stop", "song <name>", "end";
+// <slider>", "loop <slider>", "slow <slider>", "late <slider> <order>
+// <from> <to>", "surround <slider>", "refused <slider> <order>", "low
+// <slider>", "songsection <order>", "stop", "song <name>", "end";
 // tools/dxcap/sound.py --music
 // reads the run's recording against them (DXCAP_RECORD=1 DXCAP_MUSIC=1).
 //=============================================================================
@@ -55,7 +74,8 @@ var config string Songs;
 var config float SongSeconds;
 
 var float CapTime, SongAt;
-var int Step;
+var int Step, LastSection;
+var bool bWatch;
 var string Pending;
 var bool bBeeped;
 var Music Tone;
@@ -127,6 +147,12 @@ event Tick(float Delta)
 	CapTime += Delta;
 	P.ReducedDamageType = 'All';
 	Silence(P);
+	// The order the audio writes back into SongSection, at each change
+	if (bWatch && P.SongSection != LastSection)
+	{
+		LastSection = P.SongSection;
+		Note("songsection " $ LastSection);
+	}
 
 	if (Step == 0 && CapTime > 1.0)
 	{
@@ -243,14 +269,59 @@ event Tick(float Delta)
 	}
 	else if (Step == 142 && Due(P, 63.0))
 	{
-		P.ClientSetMusic(Tone, 8, 255, MTRAN_Instant);
+		P.ClientSetMusic(Tone, 11, 255, MTRAN_Instant);
 		Note("loop 255");
 		Step = 143;
 	}
 	else if (Step == 143 && CapTime > 76.0)
 	{
+		P.ClientSetMusic(None, 255, 255, MTRAN_Instant);
+		Note("stop");
+		LastSection = -1;
+		bWatch = true;
+		Step = 144;
+	}
+	else if (Step == 144 && Due(P, 77.0))
+	{
+		P.ClientSetMusic(Tone, 8, 255, MTRAN_Instant);
+		Note("slow 255");
+		Step = 145;
+	}
+	else if (Step == 145 && Due(P, 78.0))
+	{
+		P.ClientSetMusic(Tone, 2, 255, MTRAN_Instant);
+		Note("late 255 2 A B");
+		Step = 146;
+	}
+	else if (Step == 146 && Due(P, 82.0))
+	{
+		P.ClientSetMusic(Tone, 0, 255, MTRAN_Instant);
+		Note("late 255 0 B A");
+		Step = 147;
+	}
+	else if (Step == 147 && Due(P, 87.0))
+	{
+		P.ClientSetMusic(Tone, 9, 255, MTRAN_Instant);
+		Note("surround 255");
+		Step = 148;
+	}
+	else if (Step == 148 && Due(P, 92.0))
+	{
+		P.ClientSetMusic(Tone, 40, 255, MTRAN_Instant);
+		Note("refused 255 40");
+		Step = 149;
+	}
+	else if (Step == 149 && Due(P, 97.0))
+	{
+		P.ClientSetMusic(Tone, 10, 255, MTRAN_Instant);
+		Note("low 255");
+		Step = 150;
+	}
+	else if (Step == 150 && CapTime > 102.0)
+	{
+		bWatch = false;
 		Pending = Songs;
-		SongAt = 78.0;
+		SongAt = 104.0;
 		Step = 15;
 	}
 	else if (Step == 15 && CapTime >= SongAt - 1.5)

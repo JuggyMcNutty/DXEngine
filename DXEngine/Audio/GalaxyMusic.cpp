@@ -93,9 +93,9 @@ namespace
 			case 0x3: case 0x4: case 0xB: case 0xD: case 0xE:
 				return { CmdS, p };
 			case 0x8:
-				return { CmdX, (uint8_t)(16 * y + 8) };       // Galaxy's pan, (y << 11) + 1024 of 32767
+				return { CmdX, (uint8_t)(8 * y + 4) };        // Galaxy's pan, (y << 11) + 1024 of 32767: its 8xx's 8y + 4
 			case 0x9:
-				return { CmdS, 0x91 };                        // any S9x is surround
+				return { CmdX, 0xA4 };                        // any S9x its 8xx's surround, 0xA4
 			case 0xC:
 				// The note's volume goes to 0 a tick later than IT's cut
 				return y < 15 ? Effect{ CmdS, (uint8_t)(0xC0 | (y + 1)) } : Effect{};
@@ -106,8 +106,10 @@ namespace
 			// Galaxy's Fxx: a tempo over 32, and 32 a speed; a tempo slide none
 			return p > 0x20 ? Effect{ CmdT, p } : p == 0x20 ? Effect{ CmdA, 0x20 } : Effect{};
 		case CmdX:
-			// Galaxy's 8xx: 0 to 0x80 left to right, anything over surround
-			return p <= 0x80 ? Effect{ CmdX, (uint8_t)(2 * std::min<uint8_t>(p, 127)) } : Effect{ CmdS, 0x91 };
+			// Galaxy's 8xx, its parameter as it is, which libopenmpt's Galaxy
+			// player takes as Galaxy's (play.galaxy; Snd_fx.cpp's Panning): 0 to
+			// 0x80 left to right, over it a surround, at a pan from 0x84 to 0xC4
+			return { CmdX, p };
 		default:
 			return {};                                        // I, M, N, P, U, V, W, Y, Z
 		}
@@ -276,7 +278,9 @@ Array<uint8_t> GalaxyMusic::ConvertIT(const Array<uint8_t>& song)
 	// Galaxy reads the global volume, which the Music slider replaces as the
 	// song starts (Update's SetVolumes after glxLoadMusic, 0x1060a810), and
 	// never the mix volume nor the channels' volumes. A channel's pan over 64
-	// is its surround, played, where IT's 128 and over mute the channel.
+	// is its surround, played, where IT's 128 and over mute the channel, a
+	// quarter left in libopenmpt's Galaxy player (play.galaxy) as in Galaxy's
+	// (bugs.md AUD.17).
 	d[0x30] = 128;
 	d[0x31] = 128;
 	for (int c = 0; c < 64; c++)

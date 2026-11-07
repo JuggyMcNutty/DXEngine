@@ -383,7 +383,7 @@ public:
 		// An IT song as Galaxy's player plays it (GalaxyMusic.h; bugs.md
 		// AUD.10)
 		Array<uint8_t> galaxySong = GalaxyMusic::ConvertIT(initfiledata);
-		bool galaxy = !galaxySong.empty();
+		galaxy = !galaxySong.empty();
 		if (galaxy)
 			initfiledata = std::move(galaxySong);
 
@@ -416,7 +416,7 @@ public:
 
 		// Galaxy starts at the order SongSection (galaxy-dll.md, Music), a
 		// jump there passing over an empty order (SetOrder; Galaxy.dll
-		// 0x10615710)
+		// 0x10615710), at once, no row playing
 
 		module->set_repeat_count(-1);
 	}
@@ -470,12 +470,26 @@ public:
 	}
 
 	// A song Galaxy plays jumps as Galaxy's section change: its voices
-	// silenced and the order played on from, the speed, tempo and pans as
-	// they stand but for order 0's own (play.galaxy; bugs.md AUD.16)
+	// silenced and the order started as the playing row ends, the speed,
+	// tempo and pans as they stand but for order 0's own, GetOrder the order
+	// before it until then, 255 before order 0 (play.galaxy; bugs.md AUD.16,
+	// AUD.17)
 	void SetOrder(int order) override
 	{
 		if (module)
 			module->set_position_order_row(order, 0);
+	}
+
+	// Galaxy's IT loader keeps the orders before the first end mark, at most
+	// 255, and its glxControlMusic refuses a section past the last of them
+	// (Galaxy.dll 0x10628990, 0x1060d0e0); an empty song's last order counts
+	// down past 0 to 255, so it takes any
+	int GetSections() override
+	{
+		if (!module || !galaxy)
+			return -1;
+		int orders = module->get_num_orders();
+		return orders > 0 ? std::min(orders, 255) : 256;
 	}
 
 	double GetTempo() override
@@ -493,6 +507,7 @@ public:
 
 	openmpt::module* module;
 	bool mono = false;
+	bool galaxy = false;        // an IT song, played as Galaxy plays it
 };
 
 std::unique_ptr<AudioSource> AudioSource::CreateMp3(Array<uint8_t> filedata)

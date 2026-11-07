@@ -1008,24 +1008,51 @@ void CSoundFile::GalaxyFirstOrder()
 }
 
 
-// DXEngine (bugs.md AUD.16): Galaxy.dll's section change (Update,
-// 0x1060a822-0x1060a863): every voice silenced and the order played on from,
-// its speed, tempo, pans and effect memories as they stand but for order 0's
-// (GalaxyFirstOrder), where SetCurrentOrder and GetLength replay the song to
-// the order
+// DXEngine (bugs.md AUD.17): Galaxy.dll's player (the ctl play.galaxy). Its
+// IT loader makes a channel the header pans over 64 -- IT's surround, which
+// GalaxyMusic.cpp writes as 100 -- a surround a quarter of the way from the
+// left, its right side inverted (Galaxy.dll 0x10628990's pans of 0xA0,
+// taken as order 0 is entered, 0x10615710): from the song's start, and again
+// at each entry into order 0 (GalaxyFirstOrder).
+void CSoundFile::SetGalaxyPlayer(bool galaxy)
+{
+	m_galaxyPlayer = galaxy;
+	m_galaxyOrderCount = ORDERINDEX_INVALID;
+	if(!galaxy)
+		return;
+	for(CHANNELINDEX i = 0; i < GetNumChannels(); i++)
+	{
+		if(!ChnSettings[i].dwFlags[CHN_SURROUND])
+			continue;
+		ChnSettings[i].nPan = 64;
+		if(m_PlayState.Chn[i].dwFlags[CHN_SURROUND])
+			m_PlayState.Chn[i].nPan = 64;
+	}
+}
+
+
+// DXEngine (bugs.md AUD.16, AUD.17): Galaxy.dll's section change (Update,
+// 0x1060a822-0x1060a863): every voice silenced at once and a jump flagged
+// (glxControlMusic, 0x1060d0e0), which its player takes as the playing row
+// ends, a pattern delay's too (0x10616f29): the rest of the row plays out
+// silent, a retrigger moving its voice's place alone (its E9x), and the order
+// starts there, its speed, tempo, pans and effect memories as they stand but
+// for order 0's (GalaxyFirstOrder), where SetCurrentOrder and GetLength
+// replay the song to the order. Until then its order count is the order
+// before, 255 before order 0 (GalaxyOrder). A song not yet played starts the
+// order at once, no row playing.
 void CSoundFile::GalaxyJump(ORDERINDEX order, ROWINDEX row)
 {
 	for(auto &chn : m_PlayState.Chn)
 	{
 		chn.nLength = 0;
 		chn.nROfs = chn.nLOfs = 0;
+		if(chn.rowCommand.command == CMD_RETRIG)
+			chn.rowCommand.command = CMD_NONE;
 	}
-	m_PlayState.m_nCurrentOrder = m_PlayState.m_nNextOrder = order;
+	m_galaxyOrderCount = static_cast<ORDERINDEX>((order + 255) % 256);
+	m_PlayState.m_nNextOrder = order;
 	m_PlayState.m_nNextRow = row;
-	m_PlayState.m_nTickCount = TICKS_ROW_FINISHED;
-	m_PlayState.m_nBufferCount = 0;
-	m_PlayState.m_nPatternDelay = 0;
-	m_PlayState.m_nFrameDelay = 0;
 	m_PlayState.m_flags.set(SONG_BREAKTOROW);
 	m_PlayState.m_flags.reset(SONG_FADINGSONG | SONG_ENDREACHED);
 }
