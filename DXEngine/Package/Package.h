@@ -86,16 +86,22 @@ public:
 	// The packages this one imports from, in its import table's order.
 	Array<NameString> GetImportedPackages() const;
 
+	// The package as an object, of Core's class Package, as the original's:
+	// the outer of each of its objects that has none of its own, its own
+	// none. Made at its first need, in no export table.
+	UObject* GetPackageObject();
+	bool IsPackageObject(const UObject* obj) const { return obj && obj == PackageObject; }
+
 	template<class T> Array<T*> GetAllObjects();
 
 	std::string GCClassName() const override { return "Package"; }
 	std::string GCDescribe() const override { return "Package " + Name.ToString(); }
 
 protected:
-	// Nothing: a package reached through its objects keeps its file and
-	// tables, not its other objects. What keeps those is the package
-	// manager's roots (PackageManager::MarkRoots).
-	void Mark(GCMarker& marker) override {}
+	// Its object alone (GetPackageObject): a package reached through its
+	// objects keeps its file and tables, not its other objects. What keeps
+	// those is the package manager's roots (PackageManager::MarkRoots).
+	void Mark(GCMarker& marker) override;
 	// Its file closed.
 	void OnGCDestroy() override;
 
@@ -126,6 +132,7 @@ private:
 	int FileExportCount = 0;
 	int FileNameCount = 0;
 	bool LevelPackage = false;
+	UObject* PackageObject = nullptr;
 
 	std::map<NameString, int> NameHash;
 

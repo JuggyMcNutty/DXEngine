@@ -91,9 +91,35 @@ UObject* Package::NewObject(const NameString& objname, UClass* objclass, ObjectF
 		obj->SetObject("Class", obj->Class);
 		obj->SetName("Name", obj->Name);
 		obj->SetInt("ObjectFlags", (int)obj->Flags);
+		// In the package until its maker gives it an outer of its own: an
+		// actor its level's, new's the one given (Transient for None)
+		obj->SetObject("Outer", GetPackageObject());
 		obj->InitNativeDefaults();
 	}
 	return obj;
+}
+
+UObject* Package::GetPackageObject()
+{
+	if (!PackageObject)
+	{
+		UClass* cls = Packages->GetPackage("Core")->GetClass("Package");
+		cls->LoadNow();
+		UObject* obj = Packages->CreateNativeObject(Name, cls, ObjectFlags::Public);
+		obj->package = this;
+		obj->PropertyData.Init(cls);
+		obj->SetObject("Class", cls);
+		obj->SetName("Name", Name);
+		obj->SetInt("ObjectFlags", (int)obj->Flags);
+		PackageObject = obj;
+	}
+	return PackageObject;
+}
+
+void Package::Mark(GCMarker& marker)
+{
+	marker.SetField("PackageObject");
+	marker.MarkConst(PackageObject);
 }
 
 NameString Package::MakeUniqueObjectName(UClass* cls)

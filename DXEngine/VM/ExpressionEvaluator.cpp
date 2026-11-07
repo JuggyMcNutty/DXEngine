@@ -328,9 +328,10 @@ void ExpressionEvaluator::Expr(NewExpression* expr)
 	UClass* cls = UObject::Cast<UClass>(Value(expr->ClassExpr).ToObject());
 
 	// As the original's execNew: the object is made in its outer, or with
-	// none in the transient package. So new(Self) on the player -- its
-	// goals, notes and key infos -- is in the level's package, which a save
-	// writes and a level left behind takes with it.
+	// none in the transient package, its Outer then that package's object
+	// (Package::NewObject). So new(Self) on the player -- its goals, notes
+	// and key infos -- is in the level's package, which a save writes and a
+	// level left behind takes with it.
 	Package* package = outerObj && outerObj->package ? outerObj->package : engine->packages->GetTransientPackage();
 
 	// An object given no name is named after its class and a number, as

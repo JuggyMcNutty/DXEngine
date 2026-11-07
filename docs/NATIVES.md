@@ -334,8 +334,8 @@ at once, a reference to one None at the next collection, where the
 original's frees them; `CreateConCamera` and
 `CreateFlagRef` make theirs in package `DeusEx`, named and public
 (`ConObjectsConsole`: Paul Denton's first item, the counts around a second
-bind, two cameras and a flag reference, each one's path, name and flags
-alike in both engines, its `Outer` bugs.md VM.29's).
+bind, two cameras and a flag reference, each one's path, name, flags and
+`Outer` alike in both engines).
 
 A `cycleIndex` a script sets below 0 gives no label, by choice: the
 original's copies a string from before its labels, and crashes the game
@@ -2646,11 +2646,12 @@ VM.25): a map's editor-only names are made, where the original's maps them
 to None, so three of them can be a name's first spelling; a name is read as
 UTF-8 by `string()` and `GetPropertyText`, a package's as Latin-1 bytes; a
 package with a name saved 16-bit is refused, where the original's reads it.
-Differs (bugs.md VM.29): an
-object a package holds, `new(None)`'s, a level, a `ConListItem` or a
-conversation camera, has no `Outer`, where the original's names the package
-(`Vm29Console`: the level's `Outer` None, the original's `DX`); no stock
-script reads one. Differs (bugs.md VM.30): a NaN compares unequal to
+A package is an object of Core's class `Package`, the `Outer` of each of its
+objects that has none of its own, as the original's: `new(None)`'s the
+package `Transient`, a level's and its actors' their map's, a texture in no
+group its package's (`Vm29Console`, `NewOuterConsole`, `ConObjectsConsole`:
+every `Outer` alike in both engines; each engine's save loads in the other).
+Differs (bugs.md VM.30): a NaN compares unequal to
 anything, where the original's script compare, a vector's and `Identical`
 take it as equal.
 

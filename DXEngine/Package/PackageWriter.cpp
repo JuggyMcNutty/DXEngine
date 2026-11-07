@@ -212,6 +212,11 @@ int PackageWriter::GetObjectReference(UObject* obj)
 	if (obj->package == Source->GetPackageManager()->GetTransientPackage())
 		return 0;
 
+	// A package's own object is the root of its objects, written as the
+	// package: none for this one, the import of its name for another
+	if (obj->package && obj->package->IsPackageObject(obj))
+		return obj->package == Source ? 0 : GetPackageReference(obj->package->GetPackageName());
+
 	// An object of a transient class is not written, and a reference to one
 	// is None, as the original's save tags no object flagged RF_Transient,
 	// which every object of such a class is: a level's mission script is in

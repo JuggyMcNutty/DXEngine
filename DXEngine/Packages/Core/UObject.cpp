@@ -34,7 +34,13 @@ void UObject::LoadNow()
 		if (!stream->IsEmptyStream())
 		{
 			Load(stream.get());
-			SetObject("Outer", info->Outer);
+			// One its export gives no outer is in its package, as the
+			// original's: a level and its actors, a texture in no group. A
+			// class keeps none, its block being its defaults.
+			UObject* outer = info->Outer;
+			if (!outer && !UObject::TryCast<UClass>(this))
+				outer = info->package->GetPackageObject();
+			SetObject("Outer", outer);
 		}
 		else if (auto s = UObject::TryCast<UStruct>(this))
 		{
@@ -220,8 +226,10 @@ UProperty* UObject::GetMemberProperty(const NameString& propName) const
 
 std::string UObject::GetPathName()
 {
-	// A package itself has no object here, so the outermost one's package
-	// heads the path: a texture in a group reads Effects.Laser.LaserBeam1.
+	// Its outers up to its package's object (Package::GetPackageObject),
+	// which heads the path: a texture in a group reads
+	// Effects.Laser.LaserBeam1. One whose outers end short of it, a class,
+	// has its package's name put first.
 	std::string path = Name.ToString();
 	UObject* outermost = this;
 	for (UObject* outer = Outer(); outer; outer = outer->Outer())
@@ -229,7 +237,7 @@ std::string UObject::GetPathName()
 		path = outer->Name.ToString() + "." + path;
 		outermost = outer;
 	}
-	if (outermost->package)
+	if (outermost->package && !outermost->package->IsPackageObject(outermost))
 		path = outermost->package->GetPackageName().ToString() + "." + path;
 	return path;
 }
