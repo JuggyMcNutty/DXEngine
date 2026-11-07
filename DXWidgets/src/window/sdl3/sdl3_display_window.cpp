@@ -26,7 +26,7 @@ std::string SDL3DisplayWindow::SimulatedLayout;
 InputKey SDL3DisplayWindow::PressedAs[SDL_SCANCODE_COUNT];
 std::unordered_map<unsigned int, SDL3DisplayWindow*> SDL3DisplayWindow::WindowList;
 
-SDL3DisplayWindow::SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, SDL3DisplayWindow* owner, RenderAPI renderAPI) : WindowHost(windowHost)
+SDL3DisplayWindow::SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, SDL3DisplayWindow* owner, RenderAPI renderAPI) : WindowHost(windowHost), SystemKeys(renderAPI == RenderAPI::Unspecified)
 {
 	m_GLIsES = renderAPI == RenderAPI::GLES;
 
@@ -183,11 +183,12 @@ void SDL3DisplayWindow::SetClientSize(const Size& size)
 {
 	double units = UnitsPerDip();
 	SDL_SetWindowSize(Handle.window, (int)std::round(size.width * units), (int)std::round(size.height * units));
-	// Never placed: SDL puts a new window in the middle of the display, but
-	// on Windows it keeps the corner its first size centered it by, which a
-	// larger one runs off the screen from: centered again. Elsewhere the
-	// window manager or the compositor places it.
-	if (!placed && SDL_strcmp(SDL_GetCurrentVideoDriver(), "windows") == 0)
+	// Never placed nor shown: SDL puts a new window in the middle of the
+	// display, but on Windows it keeps the corner its first size centered it
+	// by, which a larger one runs off the screen from: centered again. One
+	// shown stays where it is, as one back from full screen where SDL put it
+	// back. Elsewhere the window manager or the compositor places it.
+	if (!placed && (SDL_GetWindowFlags(Handle.window) & SDL_WINDOW_HIDDEN) && SDL_strcmp(SDL_GetCurrentVideoDriver(), "windows") == 0)
 		SDL_SetWindowPosition(Handle.window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 }
 
@@ -699,7 +700,16 @@ void SDL3DisplayWindow::OnWindowEvent(const SDL_WindowEvent& event)
 			 event.type == SDL_EVENT_WINDOW_EXPOSED)
 		WindowHost->OnWindowPaint();
 	else if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED)
+	{
+		// Alt+F4 and Alt+Space as the focused window takes them on Windows,
+		// where SDL answers WM_SYSKEYDOWN itself and drops SC_KEYMENU: a
+		// device's window, the game's, as keys (SDL3DisplayBackend); a
+		// widget window, the error window, as Windows' own, closing it and
+		// opening its window menu
+		SDL_SetHint(SDL_HINT_WINDOWS_CLOSE_ON_ALT_F4, SystemKeys ? "1" : "0");
+		SDL_SetHint(SDL_HINT_WINDOWS_ENABLE_MENU_MNEMONICS, SystemKeys ? "1" : "0");
 		WindowHost->OnWindowActivated();
+	}
 	else if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST)
 		WindowHost->OnWindowDeactivated();
 	else if (event.type == SDL_EVENT_WINDOW_MOUSE_LEAVE)

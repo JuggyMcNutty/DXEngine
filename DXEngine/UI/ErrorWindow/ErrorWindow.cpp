@@ -62,13 +62,21 @@ bool ErrorWindow::CheckCrashReporter()
 
 void ErrorWindow::ExecModal(const std::string& text, const std::list<LogMessageLine>& log, Array<uint8_t> minidump, const std::vector<std::shared_ptr<Image>>& icon)
 {
-	Size screenSize = GetScreenSize();
+	// 1500x800 DIPs, or less to fit the work area of the screen it opens on,
+	// centred there with room round it for the caption and frame, which lie
+	// outside the client area set here
+	Rect area = DisplayBackend::Get()->GetScreenWorkArea();
 	double windowWidth = 1500.0;
 	double windowHeight = 800.0;
+	if (area.width > 0.0 && area.height > 0.0)
+	{
+		windowWidth = std::min(windowWidth, area.width - 40.0);
+		windowHeight = std::min(windowHeight, area.height - 80.0);
+	}
 
 	auto window = std::make_unique<ErrorWindow>(std::move(minidump), icon);
 	window->SetText(text, log);
-	window->SetFrameGeometry((screenSize.width - windowWidth) * 0.5, (screenSize.height - windowHeight) * 0.5, windowWidth, windowHeight);
+	window->SetFrameGeometry(area.x + (area.width - windowWidth) * 0.5, area.y + (area.height - windowHeight) * 0.5, windowWidth, windowHeight);
 	window->Show();
 
 	// A stop as the game takes one closes the window as its Close does: a
@@ -206,6 +214,16 @@ void ErrorWindow::OnSaveReportButtonClicked()
 void ErrorWindow::OnClose()
 {
 	DisplayWindow::ExitLoop();
+}
+
+// Esc closes the window as its close box does, whatever has the focus (the
+// log, or a button clicked), as a dialog's Esc cancels it
+void ErrorWindow::OnWindowKeyDown(InputKey key)
+{
+	if (key == InputKey::Escape)
+		OnClose();
+	else
+		Widget::OnWindowKeyDown(key);
 }
 
 void ErrorWindow::OnGeometryChanged()

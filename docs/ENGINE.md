@@ -314,7 +314,8 @@ By area, as the code stands. Each device's numbers are its port's, such as
 - **Fullscreen under SDL** takes the display's mode nearest the size asked for
   (`SDL_SetWindowFullscreenMode` under SDL3, `SDL_SetWindowDisplayMode` and `FULLSCREEN` under
   SDL2), or with none (0x0) the desktop's, borderless (SDL3 with no mode, SDL2's
-  `FULLSCREEN_DESKTOP`). With `DXE_SDL2_BORDERLESS_FULLSCREEN` (the Smart Pro's build) it is
+  `FULLSCREEN_DESKTOP`); under SDL3 on the display the window is on, whose modes and size
+  Screen Resolution lists. With `DXE_SDL2_BORDERLESS_FULLSCREEN` (the Smart Pro's build) it is
   always a borderless window covering the display, set up while the window is hidden:
   `SDL_SetWindowFullscreen` deadlocks on a GL window with that device's vendor SDL2. The X11,
   Wayland and Win32 windows keep the desktop's mode. In a Wayland session SDL3 emulates a mode:
@@ -326,7 +327,12 @@ By area, as the code stands. Each device's numbers are its port's, such as
   the Win32 window at `CW_USEDEFAULT`, the X11 one and SDL3's under X11 where the window
   manager puts it, Wayland's where the compositor does. SDL makes a window in the middle of
   its display and keeps its corner as it grows, so SDL3's on Windows and SDL2's are put in the
-  middle again for their size, not at Windows' default place.
+  middle again for their size, not at Windows' default place. Back from full screen
+  (Alt+Enter) it takes its windowed size alone, where the window manager or SDL puts it back.
+- **The Fatal Error window** is 1500x800 DIPs, or less to fit the work area of the screen it
+  opens on, the primary one (its taskbar left out under SDL3 and Win32, the whole screen
+  elsewhere), centred there. Esc closes it as its close box does; in SDL3's window on Windows
+  Alt+F4 closes it and Alt+Space opens its window menu.
 - **The mouse and the keyboard under SDL**: the game's view takes the mouse in relative mode
   (`SDL_SetWindowRelativeMouseMode` under SDL3, `SDL_SetRelativeMouseMode` under SDL2), which
   hides the desktop's pointer, keeps it in the window and gives motion past the screen's edge;

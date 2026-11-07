@@ -133,6 +133,7 @@ public:
 	long WheelPressed = 0;
 	bool isFullscreen = false;
 	bool placed = false;   // put somewhere by SetClientFrame
+	bool SystemKeys = false;   // a widget window's, not a device's: Alt+F4 and Alt+Space Windows' own
 
 	static bool ExitRunLoop;
 	static Uint32 PaintEventNumber;

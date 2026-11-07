@@ -8,16 +8,24 @@ DBusSaveFileDialog::DBusSaveFileDialog(std::string ownerHandle) : ownerHandle(ow
 
 // The portal's SaveFile, through the open dialog's call with that method:
 // this was a stub answering false, so the error window's Save Report saved
-// nothing and said nothing on every Linux window
+// nothing and said nothing on every Linux window. Its filters go with it,
+// and a name chosen without an extension takes the default one, as
+// Windows' dialog gives it.
 bool DBusSaveFileDialog::Show()
 {
 	DBusOpenFileDialog dialog(ownerHandle, "SaveFile");
 	dialog.SetTitle(title);
 	dialog.SetInitialDirectory(initial_directory);
 	dialog.SetFilename(initial_filename);
+	for (const Filter& filter : filters)
+		dialog.AddFilter(filter.description, filter.extension);
+	dialog.SetFilterIndex(filterindex);
 	if (!dialog.Show())
 		return false;
 	filename = dialog.Filename();
+	size_t name = filename.find_last_of('/');
+	if (!filename.empty() && !defaultext.empty() && filename.find('.', name == std::string::npos ? 0 : name + 1) == std::string::npos)
+		filename += "." + defaultext;
 	return !filename.empty();
 }
 

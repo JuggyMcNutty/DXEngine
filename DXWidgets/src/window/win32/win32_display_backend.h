@@ -14,6 +14,7 @@ public:
 	void StopTimer(void* timerID) override;
 
 	Size GetScreenSize() override;
+	Rect GetScreenWorkArea() override;
 	std::vector<Size> GetFullscreenModes() override;
 
 	std::unique_ptr<OpenFileDialog> CreateOpenFileDialog(DisplayWindow* owner) override;

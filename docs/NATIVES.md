@@ -1398,9 +1398,10 @@ from the original's code:
   carriage return left out. `PlayerPawn.PasteFromClipboard` and
   `CopyToClipboard` take the desktop's clipboard as UTF-8 so too
   (`PasteConsole`, the clipboard holding "dxcap paste é Ω €": its codes 233,
-  937, 8364 alike with the original's). On X11 the paste asks for `STRING`
-  and the copy serves Latin-1, so a character past it comes back `?`
-  (bugs.md WIN.12).
+  937, 8364 alike with the original's, and the game's own copy of "dxcap
+  copy é Ω €" pasted back whole in both). On X11 a paste asks for
+  `UTF8_STRING`, and for `STRING`, Latin-1, only of a program that has no
+  UTF-8; a paste of what the game copied takes its text as it is.
 - **Edit fields** (`MultiEditConsole`): rows as a large text window breaks
   them, within the margins. Up and down a row or a page keep the column
   the insertion point was last put at; a word either way within a row, a
@@ -1667,9 +1668,8 @@ green, white or None (`ButtonDefaultsConsole`: a button's six slots set
 apart, then each call with its first slot alone, its insensitive and focused
 look alike in both engines).
 
-Differs (bugs.md WIN.12): Alt+Enter back to a window on X11 puts it at the
-display's corner. Differs (bugs.md WIN.14): the SDL3 game window's Alt+Space
-opens no window menu, where the original's does.
+Differs (bugs.md WIN.14): the SDL3 game window's Alt+Space opens no window
+menu, where the original's does.
 
 ## The menus' settings
 
@@ -1704,6 +1704,11 @@ it. Differs:
 - **Full screen in a Wayland session**, a size chosen is drawn at its size
   and scaled to the display by the compositor, the display's mode as it was,
   by choice: Wayland lets no program switch the display's mode.
+- **Full screen on another display** (bugs.md D.48): a window moved off the
+  primary display goes full screen on the display it is on, Screen
+  Resolution offering that display's modes, where the original's goes to
+  the primary display wherever the window was
+  ([the display](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-display)).
 - **Detail Textures** draws the world's detail textures as `D3DDrv`'s passes
   draw them, all three in the scene shader's one pass
   ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):

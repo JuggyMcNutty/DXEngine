@@ -231,13 +231,26 @@ void SDL3DisplayBackend::ExitLoop()
 	SDL3DisplayWindow::ExitLoop();
 }
 
+// The display the windows are on, whose modes full screen takes
+// (SDL3DisplayWindow::SetFullscreenMode): a window's, or the primary
+// display's before there is one
+static SDL_DisplayID WindowsDisplay()
+{
+	for (const auto& it : SDL3DisplayWindow::WindowList)
+	{
+		if (SDL_DisplayID display = SDL_GetDisplayForWindow(it.second->Handle.window))
+			return display;
+	}
+	return SDL_GetPrimaryDisplay();
+}
+
 Size SDL3DisplayBackend::GetScreenSize()
 {
 	// The bounds are in SDL's window units -- pixels, or on Wayland points,
 	// the desktop mode's density apart -- and a window's display scale is
 	// the density times the content scale: the bounds over the content
 	// scale are DIPs on every driver
-	SDL_DisplayID display = SDL_GetPrimaryDisplay();
+	SDL_DisplayID display = WindowsDisplay();
 	SDL_Rect rect = {};
 	if (!display || !SDL_GetDisplayBounds(display, &rect))
 		throw std::runtime_error(std::string("Unable to get screen size:") + SDL_GetError());
@@ -247,10 +260,24 @@ Size SDL3DisplayBackend::GetScreenSize()
 	return { rect.w / scale, rect.h / scale };
 }
 
+// The display's usable bounds (Windows' work area, X11's _NET_WORKAREA), in
+// DIPs as GetScreenSize's
+Rect SDL3DisplayBackend::GetScreenWorkArea()
+{
+	SDL_DisplayID display = WindowsDisplay();
+	SDL_Rect rect = {};
+	if (!display || !SDL_GetDisplayUsableBounds(display, &rect))
+		return DisplayBackend::GetScreenWorkArea();
+	double scale = SDL_GetDisplayContentScale(display);
+	if (!(scale > 0.0))
+		scale = 1.0;
+	return Rect::xywh(rect.x / scale, rect.y / scale, rect.w / scale, rect.h / scale);
+}
+
 std::vector<Size> SDL3DisplayBackend::GetFullscreenModes()
 {
 	std::vector<Size> modes;
-	SDL_DisplayID display = SDL_GetPrimaryDisplay();
+	SDL_DisplayID display = WindowsDisplay();
 	int count = 0;
 	if (SDL_DisplayMode** list = SDL_GetFullscreenDisplayModes(display, &count))
 	{

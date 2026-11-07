@@ -798,6 +798,10 @@ std::vector<uint8_t> X11DisplayWindow::GetWindowProperty(Atom property, Atom &ac
 	return buffer;
 }
 
+// The clipboard's text as UTF-8: asked for as UTF8_STRING, then as STRING,
+// Latin-1 (ICCCM), from an owner that refuses UTF-8. This program's own
+// selection is its text as it is: its request to itself goes unanswered
+// while this waits.
 std::string X11DisplayWindow::GetClipboardText()
 {
 	auto connection = GetX11Connection();
@@ -805,28 +809,53 @@ std::string X11DisplayWindow::GetClipboardText()
 	if (clipboard == None)
 		return {};
 
-	XConvertSelection(display, clipboard, XA_STRING, clipboard, window, CurrentTime);
-	XFlush(display);
+	auto ours = connection->windows.find(XGetSelectionOwner(display, clipboard));
+	if (ours != connection->windows.end())
+		return ours->second->clipboardText;
 
-	// Wait 500 ms for a response
-	XEvent event = {};
-	while (true)
+	Atom utf8Atom = XInternAtom(display, "UTF8_STRING", False);
+	for (Atom target : { utf8Atom, (Atom)XA_STRING })
 	{
-		if (XCheckTypedWindowEvent(display, window, SelectionNotify, &event))
-			break;
-		if (!connection->WaitForEvents(500))
+		XConvertSelection(display, clipboard, target, clipboard, window, CurrentTime);
+		XFlush(display);
+
+		// Wait 500 ms for a response
+		XEvent event = {};
+		while (true)
+		{
+			if (XCheckTypedWindowEvent(display, window, SelectionNotify, &event))
+				break;
+			if (!connection->WaitForEvents(500))
+				return {};
+		}
+		if (event.xselection.property == None)
+			continue; // refused
+
+		Atom type = None;
+		int format = 0;
+		unsigned long count = 0;
+		std::vector<uint8_t> data = GetWindowProperty(clipboard, type, format, count);
+		if ((type != utf8Atom && type != XA_STRING) || format != 8 || count <= 0 || data.empty())
 			return {};
+
+		data.push_back(0);
+		if (type == utf8Atom)
+			return (char*)data.data();
+		std::string text;
+		for (size_t i = 0; data[i] != 0; i++)
+		{
+			unsigned char c = data[i];
+			if (c < 0x80)
+				text.push_back((char)c);
+			else
+			{
+				text.push_back((char)(0xC0 | (c >> 6)));
+				text.push_back((char)(0x80 | (c & 0x3F)));
+			}
+		}
+		return text;
 	}
-
-	Atom type = None;
-	int format = 0;
-	unsigned long count = 0;
-	std::vector<uint8_t> data = GetWindowProperty(clipboard, type, format, count);
-	if (type != XA_STRING || format != 8 || count <= 0 || data.empty())
-		return {};
-
-	data.push_back(0);
-	return (char*)data.data();
+	return {};
 }
 
 void X11DisplayWindow::SetClipboardText(const std::string& text)
@@ -1360,8 +1389,8 @@ void X11DisplayWindow::OnSelectionNotify(XEvent* event)
 // The selection served as ICCSM has it: TARGETS as atoms (TARGETS,
 // UTF8_STRING, STRING), the text as UTF-8 for UTF8_STRING and as Latin-1
 // for STRING (what Latin-1 lacks a ?), a MULTIPLE request's pairs read from
-// the requestor's own property, and the window's own requests answered as
-// any other's, so a paste into the game of what it copied comes back.
+// the requestor's own property. A paste into the game of what it copied
+// asks nothing: it takes the text as it is (GetClipboardText).
 void X11DisplayWindow::OnSelectionRequest(XEvent* event)
 {
 	Window requestor = event->xselectionrequest.requestor;

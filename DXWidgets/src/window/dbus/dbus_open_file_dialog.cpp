@@ -56,6 +56,42 @@ void DBusOpenFileDialog::SetTitle(const std::string &title)
 	this->title = title;
 }
 
+// A filter as the portal takes it, (sa(us)): its name, then its patterns,
+// each a glob (0), from the ;-list AddFilter takes, Windows' *.* any file
+static void AppendFilter(DBusMessageIter* container, const std::string& description, const std::string& extension)
+{
+	DBusMessageIter filter = {};
+	dbus_message_iter_open_container(container, DBUS_TYPE_STRUCT, nullptr, &filter);
+	const char* name = description.c_str();
+	dbus_message_iter_append_basic(&filter, DBUS_TYPE_STRING, &name);
+
+	DBusMessageIter patterns = {};
+	dbus_message_iter_open_container(&filter, DBUS_TYPE_ARRAY, "(us)", &patterns);
+	size_t start = 0;
+	while (start <= extension.size())
+	{
+		size_t end = extension.find(';', start);
+		if (end == std::string::npos)
+			end = extension.size();
+		std::string glob = extension.substr(start, end - start);
+		if (glob == "*.*")
+			glob = "*";
+		if (!glob.empty())
+		{
+			dbus_uint32_t type = 0;
+			const char* value = glob.c_str();
+			DBusMessageIter pattern = {};
+			dbus_message_iter_open_container(&patterns, DBUS_TYPE_STRUCT, nullptr, &pattern);
+			dbus_message_iter_append_basic(&pattern, DBUS_TYPE_UINT32, &type);
+			dbus_message_iter_append_basic(&pattern, DBUS_TYPE_STRING, &value);
+			dbus_message_iter_close_container(&patterns, &pattern);
+		}
+		start = end + 1;
+	}
+	dbus_message_iter_close_container(&filter, &patterns);
+	dbus_message_iter_close_container(container, &filter);
+}
+
 bool DBusOpenFileDialog::Show()
 {
 	// https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.FileChooser.html
@@ -162,6 +198,44 @@ bool DBusOpenFileDialog::Show()
 		bresult = dbus_message_iter_close_container(&requestOptions, &entry);
 	}
 
+	// filters - a(sa(us)), each AddFilter's
+	if (!filters.empty())
+	{
+		const char* key = "filters";
+
+		DBusMessageIter entry = {};
+		bresult = dbus_message_iter_open_container(&requestOptions, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
+		bresult = dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &key);
+
+		DBusMessageIter variant = {};
+		DBusMessageIter array = {};
+		bresult = dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "a(sa(us))", &variant);
+		bresult = dbus_message_iter_open_container(&variant, DBUS_TYPE_ARRAY, "(sa(us))", &array);
+		for (const Filter& filter : filters)
+			AppendFilter(&array, filter.description, filter.extension);
+		bresult = dbus_message_iter_close_container(&variant, &array);
+		bresult = dbus_message_iter_close_container(&entry, &variant);
+
+		bresult = dbus_message_iter_close_container(&requestOptions, &entry);
+	}
+
+	// current_filter - sa(us), SetFilterIndex's
+	if (filter_index >= 0 && (size_t)filter_index < filters.size())
+	{
+		const char* key = "current_filter";
+
+		DBusMessageIter entry = {};
+		bresult = dbus_message_iter_open_container(&requestOptions, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
+		bresult = dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &key);
+
+		DBusMessageIter variant = {};
+		bresult = dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "(sa(us))", &variant);
+		AppendFilter(&variant, filters[filter_index].description, filters[filter_index].extension);
+		bresult = dbus_message_iter_close_container(&entry, &variant);
+
+		bresult = dbus_message_iter_close_container(&requestOptions, &entry);
+	}
+
 	bresult = dbus_message_iter_close_container(&requestArgs, &requestOptions);
 
 	DBusMessage* response = dbus_connection_send_with_reply_and_block(connection, request, DBUS_TIMEOUT_USE_DEFAULT, &error);
@@ -216,7 +290,17 @@ bool DBusOpenFileDialog::Show()
 			}
 		}
 	}
-	dbus_bus_remove_match(connection, rule.c_str(), &error);
+	// Not waited for: an error the match's adding left set, passed again,
+	// is a fault libdbus ends the program on
+	dbus_bus_remove_match(connection, rule.c_str(), nullptr);
+
+	// No response: the bus lost, which ends the wait, nothing chosen
+	if (!signalmsg)
+	{
+		dbus_connection_unref(connection);
+		dbus_error_free(&error);
+		return false;
+	}
 
 	// Read the response
 
@@ -306,17 +390,19 @@ bool DBusOpenFileDialog::Show()
 	return !uris.empty();
 }
 
+// A file URI's path: each %XX the byte it stands for (RFC 3986), a space's
+// %20 and a UTF-8 name's bytes alike
 std::string DBusOpenFileDialog::unescapeUri(const std::string& s)
 {
-	// This needs to be much more advanced to support any kind of uri. Why did they have to pass it as an uri!? idiots.
+	auto hex = [](char c) { return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1; };
 	std::string result;
 	result.reserve(s.size());
 	size_t i = 0;
 	while (i < s.length())
 	{
-		if (s[i] == '%' && i + 2 < s.length() && s[i + 1] == '2' && s[i + 2] == '0')
+		if (s[i] == '%' && i + 2 < s.length() && hex(s[i + 1]) >= 0 && hex(s[i + 2]) >= 0)
 		{
-			result += ' ';
+			result += (char)(hex(s[i + 1]) * 16 + hex(s[i + 2]));
 			i += 3;
 		}
 		else

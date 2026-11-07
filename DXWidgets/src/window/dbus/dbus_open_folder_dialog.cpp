@@ -149,7 +149,17 @@ bool DBusOpenFolderDialog::Show()
 			}
 		}
 	}
-	dbus_bus_remove_match(connection, rule.c_str(), &error);
+	// Not waited for: an error the match's adding left set, passed again,
+	// is a fault libdbus ends the program on
+	dbus_bus_remove_match(connection, rule.c_str(), nullptr);
+
+	// No response: the bus lost, which ends the wait, nothing chosen
+	if (!signalmsg)
+	{
+		dbus_connection_unref(connection);
+		dbus_error_free(&error);
+		return false;
+	}
 
 	// Read the response
 
@@ -257,17 +267,19 @@ void DBusOpenFolderDialog::SetTitle(const std::string& newtitle)
 	title = newtitle;
 }
 
+// A file URI's path: each %XX the byte it stands for (RFC 3986), a space's
+// %20 and a UTF-8 name's bytes alike
 std::string DBusOpenFolderDialog::unescapeUri(const std::string& s)
 {
-	// This needs to be much more advanced to support any kind of uri. Why did they have to pass it as an uri!? idiots.
+	auto hex = [](char c) { return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1; };
 	std::string result;
 	result.reserve(s.size());
 	size_t i = 0;
 	while (i < s.length())
 	{
-		if (s[i] == '%' && i + 2 < s.length() && s[i + 1] == '2' && s[i + 2] == '0')
+		if (s[i] == '%' && i + 2 < s.length() && hex(s[i + 1]) >= 0 && hex(s[i + 2]) >= 0)
 		{
-			result += ' ';
+			result += (char)(hex(s[i + 1]) * 16 + hex(s[i + 2]));
 			i += 3;
 		}
 		else

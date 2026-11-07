@@ -20,6 +20,7 @@ public:
 protected:
 	void OnClose() override;
 	void OnGeometryChanged() override;
+	void OnWindowKeyDown(InputKey key) override;
 
 private:
 	void SetText(const std::string& text, const std::list<LogMessageLine>& log);

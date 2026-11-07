@@ -1,11 +1,13 @@
 //=============================================================================
 // PasteConsole: the clipboard's text -- 3 s into whatever map the run starts
-// on, PlayerPawn.PasteFromClipboard, its length and text logged, then an
-// exit. The run's clipboard holds "dxcap paste" (wl-copy before the run, or
-// the desktop's own). DXEngine's X11 window once asked the selection for no
-// data and waited for the rest for ever, hanging the game on a paste
-// (bugs.md E16b.11). The text's characters are logged by their codes too, the
-// original's log being 8-bit. Each line starts "DXPASTE:".
+// on, PlayerPawn.PasteFromClipboard, its length and text logged; then the
+// game's own copy of "dxcap copy" and three characters, one past Latin-1
+// (CopyToClipboard), pasted back, then an exit. The run's clipboard holds
+// "dxcap paste" (wl-copy before the run, or the desktop's own). DXEngine's
+// X11 window once asked the selection for no data and waited for the rest for
+// ever, hanging the game on a paste (bugs.md E16b.11), and asked its own
+// selection for Latin-1. The text's characters are logged by their codes too,
+// the original's log being 8-bit. Each line starts "DXPASTE:".
 //=============================================================================
 class PasteConsole extends Console;
 
@@ -41,10 +43,23 @@ event Tick(float Delta)
 		Log("DXPASTE: " $ Len(T) $ " character(s): '" $ T $ "', codes" $ Codes(T));
 		Step = 1;
 	}
-	else if (Step == 1 && RunTime > 4.0)
+	else if (Step == 1 && RunTime > 3.5)
+	{
+		T = "dxcap copy " $ Chr(233) $ " " $ Chr(937) $ " " $ Chr(8364);
+		P.CopyToClipboard(T);
+		Log("DXPASTE: copied " $ Len(T) $ " character(s), codes" $ Codes(T));
+		Step = 2;
+	}
+	else if (Step == 2 && RunTime > 4.0)
+	{
+		T = P.PasteFromClipboard();
+		Log("DXPASTE: own copy back, " $ Len(T) $ " character(s), codes" $ Codes(T));
+		Step = 3;
+	}
+	else if (Step == 3 && RunTime > 5.0)
 	{
 		Log("DXPASTE: exiting");
 		P.ConsoleCommand("exit");
-		Step = 2;
+		Step = 4;
 	}
 }
