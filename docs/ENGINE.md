@@ -154,8 +154,9 @@ A device may have no `perf` and no Vulkan validation layer (the Smart Pro has ne
 validation runs against the desktop's build (`scripts/dx.sh build linux-x86_64 engine`), and
 so can a quick CPU profile. The desktop's proportions are not a device's (the Smart Pro's
 Cortex-A53 pays far more for a cache miss), so what to work on next for a device is decided by
-its own samples. `tools/host-tools.sh` unpacks pinned copies of Linux `perf` and the
-Khronos validation layer into the `deps/` beside the repositories without installing anything.
+its own samples. `tools/host-tools.sh` unpacks copies of Linux `perf` and the Khronos
+validation layer, each pinned by version and SHA256, into the `deps/` beside the repositories
+without installing anything.
 From their parent folder:
 
 ```sh
