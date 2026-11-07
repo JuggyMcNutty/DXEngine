@@ -2,6 +2,8 @@
 #include "x11_display_backend.h"
 #include "x11_display_window.h"
 #include "x11_connection.h"
+#include <cstdint>
+#include <cstdio>
 #include <stdexcept>
 
 #ifdef USE_DBUS
@@ -61,27 +63,30 @@ void X11DisplayBackend::StopTimer(void* timerID)
 }
 
 #ifdef USE_DBUS
+// The dialog's parent as the portal names a window: "x11:" and its id in
+// hex, which the portal reads (SDL's own portal dialogs write it so); none
+// without an owner
+static std::string PortalParent(DisplayWindow* owner)
+{
+	if (!owner)
+		return {};
+	char handle[32];
+	snprintf(handle, sizeof(handle), "x11:%lx", (unsigned long)reinterpret_cast<uintptr_t>(owner->GetNativeHandle()));
+	return handle;
+}
+
 std::unique_ptr<OpenFileDialog> X11DisplayBackend::CreateOpenFileDialog(DisplayWindow* owner)
 {
-	std::string ownerHandle;
-	if (owner)
-		ownerHandle = "x11:" + std::to_string(static_cast<X11DisplayWindow*>(owner)->window);
-	return std::make_unique<DBusOpenFileDialog>(ownerHandle);
+	return std::make_unique<DBusOpenFileDialog>(PortalParent(owner));
 }
 
 std::unique_ptr<SaveFileDialog> X11DisplayBackend::CreateSaveFileDialog(DisplayWindow* owner)
 {
-	std::string ownerHandle;
-	if (owner)
-		ownerHandle = "x11:" + std::to_string(static_cast<X11DisplayWindow*>(owner)->window);
-	return std::make_unique<DBusSaveFileDialog>(ownerHandle);
+	return std::make_unique<DBusSaveFileDialog>(PortalParent(owner));
 }
 
 std::unique_ptr<OpenFolderDialog> X11DisplayBackend::CreateOpenFolderDialog(DisplayWindow* owner)
 {
-	std::string ownerHandle;
-	if (owner)
-		ownerHandle = "x11:" + std::to_string(static_cast<X11DisplayWindow*>(owner)->window);
-	return std::make_unique<DBusOpenFolderDialog>(ownerHandle);
+	return std::make_unique<DBusOpenFolderDialog>(PortalParent(owner));
 }
 #endif

@@ -36,9 +36,10 @@ void GameWindow::ToggleWindowFullscreen(Size newResolution)
 	if (this->IsFullscreen())
 	{
 		// Back to a window at its size alone, where the system puts it back
-		// (the window manager, SDL on Windows): its place read here would be
-		// full screen's, the display's corner, which the window manager on
-		// X11 has yet to take it out of. The size is pixels, the frame DIPs
+		// (the window manager, SDL on Windows, the Win32 window where it
+		// was): its place read here would be full screen's, the display's
+		// corner, which the window manager on X11 has yet to take it out of.
+		// The size is pixels, the frame DIPs
 		this->ShowNormal();
 		double dpi = GetDpiScale();
 		this->SetFrameSize(Size(newResolution.width / dpi, newResolution.height / dpi));

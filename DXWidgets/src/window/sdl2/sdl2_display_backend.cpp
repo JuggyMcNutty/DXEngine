@@ -254,25 +254,50 @@ void SDL2DisplayBackend::ExitLoop()
 	SDL2DisplayWindow::ExitLoop();
 }
 
+// The display the windows are on, whose modes full screen takes
+// (SDL2DisplayWindow::ApplyFullscreen, ShowFullscreen): a window's, or
+// display 0, the primary, before there is one
+static int WindowsDisplay()
+{
+	for (const auto& it : SDL2DisplayWindow::WindowList)
+	{
+		int display = SDL_GetWindowDisplayIndex(it.second->Handle.window);
+		if (display >= 0)
+			return display;
+	}
+	return 0;
+}
+
 Size SDL2DisplayBackend::GetScreenSize()
 {
 	SDL_Rect rect = {};
-	int result = SDL_GetDisplayBounds(0, &rect);
+	int result = SDL_GetDisplayBounds(WindowsDisplay(), &rect);
 	if (result != 0)
 		throw std::runtime_error(std::string("Unable to get screen size:") + SDL_GetError());
 
 	return Size(rect.w / UIScale, rect.h / UIScale);
 }
 
+// That display's usable bounds (X11's _NET_WORKAREA, Windows' work area),
+// in DIPs as GetScreenSize's
+Rect SDL2DisplayBackend::GetScreenWorkArea()
+{
+	SDL_Rect rect = {};
+	if (SDL_GetDisplayUsableBounds(WindowsDisplay(), &rect) != 0)
+		return DisplayBackend::GetScreenWorkArea();
+	return Rect::xywh(rect.x / UIScale, rect.y / UIScale, rect.w / UIScale, rect.h / UIScale);
+}
+
 std::vector<Size> SDL2DisplayBackend::GetFullscreenModes()
 {
 	std::vector<Size> modes;
+	int display = WindowsDisplay();
 #ifndef DXE_SDL2_BORDERLESS_FULLSCREEN
-	int count = SDL_GetNumDisplayModes(0);
+	int count = SDL_GetNumDisplayModes(display);
 	for (int i = 0; i < count; i++)
 	{
 		SDL_DisplayMode mode = {};
-		if (SDL_GetDisplayMode(0, i, &mode) != 0)
+		if (SDL_GetDisplayMode(display, i, &mode) != 0)
 			continue;
 		Size size(mode.w, mode.h);
 		if (std::find(modes.begin(), modes.end(), size) == modes.end())
@@ -282,7 +307,7 @@ std::vector<Size> SDL2DisplayBackend::GetFullscreenModes()
 	if (modes.empty())
 	{
 		SDL_DisplayMode desktop = {};
-		if (SDL_GetDesktopDisplayMode(0, &desktop) == 0)
+		if (SDL_GetDesktopDisplayMode(display, &desktop) == 0)
 			modes.push_back(Size(desktop.w, desktop.h));
 	}
 	return modes;

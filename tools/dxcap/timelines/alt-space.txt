@@ -1,0 +1,27 @@
+# Alt+Space and Alt+F4 in the game's window, on the stock console with
+# DXCAP_BACKEND=SDL3: the console opened (~ with Left Shift held) and
+# Alt+Space typed into it, its space the console's and no window menu; the
+# console closed by Enter; Alt+F4 in play, F4 pressed and nothing closed;
+# then Alt+Space in play, Space pressed and its character (DXKEY:); then an
+# exit. Its keys are the window's own events, which never reach Windows'
+# message loop, so no window menu opens from them, a Windows build's under
+# Wine included: the menu is shown by X key events sent to the Wine window.
+# DXCAP_BACKEND=SDL3 DXCAP_TIMELINE=<this> tools/dxcap.sh dxe - 01_NYC_UNATCOIsland.dx 40
+start 10.0 keydown Left Shift
+start 10.5 chars ~
+start 11.0 keyup Left Shift
+start 12.0 keydown Left Alt
+start 12.2 keydown Space
+start 12.4 keyup Space
+start 12.6 keyup Left Alt
+start 13.0 keydown Return
+start 13.2 keyup Return
+start 15.0 keydown Left Alt
+start 15.2 keydown F4
+start 15.4 keyup F4
+start 15.6 keyup Left Alt
+start 18.0 keydown Left Alt
+start 18.2 keydown Space
+start 18.4 keyup Space
+start 18.6 keyup Left Alt
+start 22 exit

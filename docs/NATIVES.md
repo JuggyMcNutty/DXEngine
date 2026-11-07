@@ -1773,9 +1773,6 @@ green, white or None (`ButtonDefaultsConsole`: a button's six slots set
 apart, then each call with its first slot alone, its insensitive and focused
 look alike in both engines).
 
-Differs (bugs.md WIN.14): the SDL3 game window's Alt+Space opens no window
-menu, where the original's does.
-
 ## The menus' settings
 
 Matches the original: every setting the Controls, Game Options, Display,
@@ -2801,7 +2798,22 @@ not deleted (the log says so).
   desktop, and its code is read). Enter with Alt held
   toggles full screen, the game's input getting no press of it, and Alt+F4
   closes nothing, as the original's window takes them (`PadConsole` with
-  `axis-keys.txt`: the root window full screen's size and back). By choice,
+  `axis-keys.txt`: the root window full screen's size and back). On Windows
+  Alt+Space presses Space and, in a window while the game takes no typed
+  text, opens the window's menu, as the original's window leaves Windows a
+  character typed with Alt that its game does not take
+  ([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys)):
+  none opens in a menu or with the console typing (a Windows build under
+  Wine: Alt+Space's X key events to the game's window in play open Windows'
+  window menu, where none opened before; `alt-space.txt`: Alt+Space typed
+  into the console its space, F4 with Alt pressed and nothing closed). By choice: no other character typed with Alt
+  reaches Windows, where the original's Alt+Enter and a letter its game
+  leaves do, and Windows beeps; full screen the window has no menu, where
+  the original's keeps its own and opens it over the game; Alt+Tab,
+  Alt+Esc, Ctrl+Esc and Ctrl+Tab reach the desktop in full screen, where the
+  original's takes them as its own hot keys and drops them; on Linux
+  Alt+Space is left to the desktop, where the original's under Wine opens
+  Wine's window menu if the desktop leaves it the key. By choice,
   the other windows name fewer, and a side's own
   never: the X11 one, the
   harness's, has no Alt but the Meta key, no `` ` ``, no keypad Enter, and

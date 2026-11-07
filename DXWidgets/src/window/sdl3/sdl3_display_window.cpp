@@ -703,9 +703,9 @@ void SDL3DisplayWindow::OnWindowEvent(const SDL_WindowEvent& event)
 	{
 		// Alt+F4 and Alt+Space as the focused window takes them on Windows,
 		// where SDL answers WM_SYSKEYDOWN itself and drops SC_KEYMENU: a
-		// device's window, the game's, as keys (SDL3DisplayBackend); a
-		// widget window, the error window, as Windows' own, closing it and
-		// opening its window menu
+		// device's window, the game's, as keys (SDL3DisplayBackend), its
+		// window menu opened by OnKeyDown alone; a widget window, the error
+		// window, as Windows' own, closing it and opening its window menu
 		SDL_SetHint(SDL_HINT_WINDOWS_CLOSE_ON_ALT_F4, SystemKeys ? "1" : "0");
 		SDL_SetHint(SDL_HINT_WINDOWS_ENABLE_MENU_MNEMONICS, SystemKeys ? "1" : "0");
 		WindowHost->OnWindowActivated();
@@ -761,6 +761,20 @@ void SDL3DisplayWindow::OnKeyDown(const SDL_KeyboardEvent& event)
 	std::string chars = AltCharacter(event);
 	if (!chars.empty())
 		WindowHost->OnWindowKeyChar(chars);
+#ifdef _WIN32
+	// Alt+Space in the game's window, while the game takes no typed text
+	// (text input off, Engine::TickWindow): Windows' window menu, as the
+	// original's DefWindowProc opens it from the WM_SYSCHAR its game leaves
+	// (dx-reverse-info/windrv-dll.md, the keys). SDL drops SC_KEYMENU in the
+	// game's window, its mnemonics hint off (OnWindowEvent), so that no other
+	// Alt+character reaches the window menu, which has no item for it and
+	// would beep. Full screen the window has no window menu (no WS_SYSMENU)
+	if (!SystemKeys && chars == " " && !SDL_TextInputActive(Handle.window))
+	{
+		if (HWND hwnd = (HWND)GetWin32Handle())
+			DefWindowProcW(hwnd, WM_SYSCOMMAND, SC_KEYMENU, ' ');
+	}
+#endif
 }
 
 // A key as the original's WinDrv names it: the Windows virtual-key code its

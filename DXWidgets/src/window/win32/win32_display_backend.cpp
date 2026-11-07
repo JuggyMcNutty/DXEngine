@@ -25,28 +25,64 @@ void Win32DisplayBackend::ExitLoop()
 	Win32DisplayWindow::ExitLoop();
 }
 
-Size Win32DisplayBackend::GetScreenSize()
+// The display the windows are on, where full screen goes
+// (Win32DisplayWindow::ShowFullscreen): a window's, or the primary display
+// before there is one. False where Windows tells none.
+static bool WindowsMonitor(MONITORINFO& info)
 {
-	return Win32DisplayWindow::GetScreenSize();
+	HMONITOR monitor = nullptr;
+	for (Win32DisplayWindow* window : Win32DisplayWindow::Windows)
+	{
+		if (window->WindowHandle.hwnd && !window->PopupWindow)
+		{
+			monitor = MonitorFromWindow(window->WindowHandle.hwnd, MONITOR_DEFAULTTONEAREST);
+			break;
+		}
+	}
+	if (!monitor)
+		monitor = MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY);
+	info = {};
+	info.cbSize = sizeof(MONITORINFO);
+	return monitor && GetMonitorInfo(monitor, &info);
 }
 
-// The primary screen's work area, its taskbar left out, by the DPI
-// GetScreenSize's size takes
-Rect Win32DisplayBackend::GetScreenWorkArea()
+// The desktop's scale, by its DPI
+static double ScreenDpiScale()
 {
-	RECT rect = {};
-	if (!SystemParametersInfoW(SPI_GETWORKAREA, 0, &rect, 0))
-		return DisplayBackend::GetScreenWorkArea();
 	HDC screenDC = GetDC(0);
 	double dpiScale = GetDeviceCaps(screenDC, LOGPIXELSX) / 96.0;
 	ReleaseDC(0, screenDC);
+	return dpiScale;
+}
+
+Size Win32DisplayBackend::GetScreenSize()
+{
+	MONITORINFO info;
+	if (!WindowsMonitor(info))
+		return Win32DisplayWindow::GetScreenSize();
+	double dpiScale = ScreenDpiScale();
+	return Size((info.rcMonitor.right - info.rcMonitor.left) / dpiScale, (info.rcMonitor.bottom - info.rcMonitor.top) / dpiScale);
+}
+
+// That display's work area, its taskbar left out, by the DPI
+// GetScreenSize's size takes
+Rect Win32DisplayBackend::GetScreenWorkArea()
+{
+	MONITORINFO info;
+	if (!WindowsMonitor(info))
+		return DisplayBackend::GetScreenWorkArea();
+	const RECT& rect = info.rcWork;
+	double dpiScale = ScreenDpiScale();
 	return Rect::xywh(rect.left / dpiScale, rect.top / dpiScale, (rect.right - rect.left) / dpiScale, (rect.bottom - rect.top) / dpiScale);
 }
 
-// The screen's size alone: no mode is changed here. In pixels, as the
+// That display's size alone: no mode is changed here. In pixels, as the
 // engine's resolution list takes them, not GetScreenSize's DIPs.
 std::vector<Size> Win32DisplayBackend::GetFullscreenModes()
 {
+	MONITORINFO info;
+	if (WindowsMonitor(info))
+		return { Size(info.rcMonitor.right - info.rcMonitor.left, info.rcMonitor.bottom - info.rcMonitor.top) };
 	HDC screenDC = GetDC(0);
 	int screenWidth = GetDeviceCaps(screenDC, HORZRES);
 	int screenHeight = GetDeviceCaps(screenDC, VERTRES);

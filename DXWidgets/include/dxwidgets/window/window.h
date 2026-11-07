@@ -445,13 +445,13 @@ public:
 	virtual void StopTimer(void* timerID) = 0;
 
 	// The screen's size in DIPs: its pixels over the desktop's scale. The
-	// primary screen's, or under SDL3 the one the windows are on, where full
-	// screen goes
+	// primary screen's, or under SDL3, SDL2 and Win32 the one the windows are
+	// on, where full screen goes
 	virtual Size GetScreenSize() = 0;
 
 	// That screen's work area in DIPs, its place and size: the screen less
-	// its taskbars and docks where the backend knows them (SDL3, Win32), else
-	// the whole screen
+	// its taskbars and docks where the backend knows them (SDL3, SDL2,
+	// Win32), else the whole screen
 	virtual Rect GetScreenWorkArea() { Size size = GetScreenSize(); return Rect::xywh(0.0, 0.0, size.width, size.height); }
 
 	// The sizes of the display's full screen modes, in pixels, each once;

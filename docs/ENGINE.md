@@ -314,13 +314,14 @@ By area, as the code stands. Each device's numbers are its port's, such as
 - **Fullscreen under SDL** takes the display's mode nearest the size asked for
   (`SDL_SetWindowFullscreenMode` under SDL3, `SDL_SetWindowDisplayMode` and `FULLSCREEN` under
   SDL2), or with none (0x0) the desktop's, borderless (SDL3 with no mode, SDL2's
-  `FULLSCREEN_DESKTOP`); under SDL3 on the display the window is on, whose modes and size
-  Screen Resolution lists. With `DXE_SDL2_BORDERLESS_FULLSCREEN` (the Smart Pro's build) it is
+  `FULLSCREEN_DESKTOP`), on the display the window is on, whose modes and size Screen
+  Resolution lists. With `DXE_SDL2_BORDERLESS_FULLSCREEN` (the Smart Pro's build) it is
   always a borderless window covering the display, set up while the window is hidden:
   `SDL_SetWindowFullscreen` deadlocks on a GL window with that device's vendor SDL2. The X11,
-  Wayland and Win32 windows keep the desktop's mode. In a Wayland session SDL3 emulates a mode:
-  the frame drawn at its size and scaled to the display by the compositor, by choice: Wayland lets
-  no program switch the display's mode.
+  Wayland and Win32 windows keep the desktop's mode, the Win32 one a window with no frame over
+  the display it is on, whose size alone Screen Resolution lists. In a Wayland session SDL3
+  emulates a mode: the frame drawn at its size and scaled to the display by the compositor, by
+  choice: Wayland lets no program switch the display's mode.
 - **The window's place**: the game's window opens at its size alone, where the system puts a
   new window, as the original's viewport opens at Windows' default place
   ([the window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-window)):
@@ -328,18 +329,23 @@ By area, as the code stands. Each device's numbers are its port's, such as
   manager puts it, Wayland's where the compositor does. SDL makes a window in the middle of
   its display and keeps its corner as it grows, so SDL3's on Windows and SDL2's are put in the
   middle again for their size, not at Windows' default place. Back from full screen
-  (Alt+Enter) it takes its windowed size alone, where the window manager or SDL puts it back.
+  (Alt+Enter) it takes its windowed size alone, where the window manager or SDL puts it back,
+  the Win32 window where it was, as the original's viewport moves its window back.
 - **The Fatal Error window** is 1500x800 DIPs, or less to fit the work area of the screen it
-  opens on, the primary one (its taskbar left out under SDL3 and Win32, the whole screen
-  elsewhere), centred there. Esc closes it as its close box does; in SDL3's window on Windows
-  Alt+F4 closes it and Alt+Space opens its window menu.
+  opens on, the primary one (its taskbar left out under SDL3, SDL2 and Win32, the whole screen
+  elsewhere), centred there. Esc closes it as its close box does; in SDL3's and the Win32
+  window on Windows Alt+F4 closes it and Alt+Space opens its window menu.
 - **The mouse and the keyboard under SDL**: the game's view takes the mouse in relative mode
   (`SDL_SetWindowRelativeMouseMode` under SDL3, `SDL_SetRelativeMouseMode` under SDL2), which
   hides the desktop's pointer, keeps it in the window and gives motion past the screen's edge;
   the UI draws its own. Text input is on only while the game takes text, its UI holding the
   keyboard (every modal up grabs it) or the console typing (`Engine::TickWindow`, the window's
   `LockKeyboard`): in play a desktop's input method leaves held keys alone, where KDE's
-  press-and-hold accent picker takes a held letter in a Wayland window with text input on.
+  press-and-hold accent picker takes a held letter in a Wayland window with text input on. On
+  Windows, text input off, Alt+Space opens the game window's menu (`SC_KEYMENU`); SDL3's
+  mnemonics hint stays off in it, and the Win32 game window keeps every other character typed
+  with Alt from `DefWindowProc`, so that none reaches Windows' menu
+  ([a key's name](NATIVES.md#small)).
 - **The windows' icon** is `DeusEx.exe`'s icon group 128, as the original's windows show it
   ([the frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#the-frame)),
   read from the game's `System` folder as a window opens (`DXEngine/Utils/PEIcon.cpp`): its

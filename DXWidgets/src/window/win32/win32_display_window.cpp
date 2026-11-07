@@ -87,7 +87,7 @@ static double DelayLoadGetDpiScale(HWND hwnd)
 	}
 }
 
-Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, Win32DisplayWindow* owner, RenderAPI renderAPI) : WindowHost(windowHost), PopupWindow(type == WidgetType::Popup)
+Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, Win32DisplayWindow* owner, RenderAPI renderAPI) : WindowHost(windowHost), PopupWindow(type == WidgetType::Popup), SystemKeys(renderAPI == RenderAPI::Unspecified)
 {
 	Windows.push_front(this);
 	WindowsIterator = Windows.begin();
@@ -306,16 +306,40 @@ void Win32DisplayWindow::Show()
 	ShowWindow(WindowHandle.hwnd, PopupWindow ? SW_SHOWNA : SW_SHOW);
 }
 
+// Full screen, a window with no frame over the whole display the window is
+// on, in the desktop's mode. The window's styles, place and size are kept to
+// give back as it leaves full screen, as the original's viewport keeps its
+// window's rectangle (dx-reverse-info/windrv-dll.md, the window)
 void Win32DisplayWindow::ShowFullscreen()
 {
-	HDC screenDC = GetDC(0);
-	int width = GetDeviceCaps(screenDC, HORZRES);
-	int height = GetDeviceCaps(screenDC, VERTRES);
-	ReleaseDC(0, screenDC);
-	DWORD dwStyle = GetWindowLong(WindowHandle.hwnd, GWL_STYLE);
+	if (!Fullscreen)
+	{
+		WindowedStyle = GetWindowLongPtr(WindowHandle.hwnd, GWL_STYLE);
+		WindowedExStyle = GetWindowLongPtr(WindowHandle.hwnd, GWL_EXSTYLE);
+		WindowedPlacement = {};
+		WindowedPlacement.length = sizeof(WINDOWPLACEMENT);
+		GetWindowPlacement(WindowHandle.hwnd, &WindowedPlacement);
+	}
+
+	RECT screen = {};
+	MONITORINFO info = {};
+	info.cbSize = sizeof(MONITORINFO);
+	if (GetMonitorInfo(MonitorFromWindow(WindowHandle.hwnd, MONITOR_DEFAULTTONEAREST), &info))
+	{
+		screen = info.rcMonitor;
+	}
+	else
+	{
+		HDC screenDC = GetDC(0);
+		screen.right = GetDeviceCaps(screenDC, HORZRES);
+		screen.bottom = GetDeviceCaps(screenDC, VERTRES);
+		ReleaseDC(0, screenDC);
+	}
+
+	LONG_PTR style = GetWindowLongPtr(WindowHandle.hwnd, GWL_STYLE);
 	SetWindowLongPtr(WindowHandle.hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW);
-	SetWindowLongPtr(WindowHandle.hwnd, GWL_STYLE, dwStyle & ~WS_OVERLAPPEDWINDOW);
-	SetWindowPos(WindowHandle.hwnd, HWND_TOP, 0, 0, width, height, SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+	SetWindowLongPtr(WindowHandle.hwnd, GWL_STYLE, style & ~(LONG_PTR)WS_OVERLAPPEDWINDOW);
+	SetWindowPos(WindowHandle.hwnd, HWND_TOP, screen.left, screen.top, screen.right - screen.left, screen.bottom - screen.top, SWP_FRAMECHANGED | SWP_SHOWWINDOW);
 	Fullscreen = true;
 }
 
@@ -333,7 +357,13 @@ void Win32DisplayWindow::ShowNormal()
 {
 	if (Fullscreen)
 	{
-		SetWindowLongPtr(WindowHandle.hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
+		// Back to the window it was, where it was: its frame and styles,
+		// then its place and size, the frame drawn again for them
+		LONG_PTR style = GetWindowLongPtr(WindowHandle.hwnd, GWL_STYLE);
+		SetWindowLongPtr(WindowHandle.hwnd, GWL_STYLE, style | (WindowedStyle & (LONG_PTR)WS_OVERLAPPEDWINDOW));
+		SetWindowLongPtr(WindowHandle.hwnd, GWL_EXSTYLE, WindowedExStyle);
+		SetWindowPlacement(WindowHandle.hwnd, &WindowedPlacement);
+		SetWindowPos(WindowHandle.hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
 		Fullscreen = false;
 	}
 	ShowWindow(WindowHandle.hwnd, SW_NORMAL);
@@ -920,21 +950,31 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 	else if (msg == WM_CHAR || msg == WM_SYSCHAR)
 	{
 		// A character typed with Alt held is one too (WM_SYSCHAR), as the
-		// original's window has it; DefWindowProc then gets it, as there,
-		// so Alt+Space opens the window's menu
+		// original's window has it. A widget window then gives it to
+		// DefWindowProc, Windows' own: Alt+Space opens its window menu. The
+		// game's window gives it Alt+Space alone, while the game takes no
+		// typed text (the keyboard locked, Engine::TickWindow): its window
+		// menu, as the original's DefWindowProc opens it from the WM_SYSCHAR
+		// its game leaves (dx-reverse-info/windrv-dll.md, the keys). Any
+		// other would be a mnemonic the window menu has no item for, and
+		// Windows would beep
 		wchar_t buf[2] = { (wchar_t)wparam, 0 };
 		WindowHost->OnWindowKeyChar(from_utf16(buf));
+		if (msg == WM_SYSCHAR && !SystemKeys && !(wparam == ' ' && KeyboardLocked))
+			return 0;
 	}
 	else if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)
 	{
 		// Alt, F10 and a key pressed with Alt held come as the system key
 		// messages: the original's window presses and releases on them as
 		// on the others and returns, DefWindowProc never seeing them, so
-		// Alt's release enters no menu mode
+		// Alt+F4 closes nothing and Alt's release enters no menu mode. A
+		// widget window, the error window, gives DefWindowProc the press,
+		// Windows' own: Alt+F4 closes it
 		if (wparam < 256)
 			HeldKeys[wparam] = true;
 		WindowHost->OnWindowKeyDown((InputKey)wparam);
-		if (msg == WM_SYSKEYDOWN)
+		if (msg == WM_SYSKEYDOWN && !SystemKeys)
 			return 0;
 	}
 	else if (msg == WM_KEYUP || msg == WM_SYSKEYUP)

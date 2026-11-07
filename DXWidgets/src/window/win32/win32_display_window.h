@@ -96,9 +96,15 @@ public:
 
 	DisplayWindowHost* WindowHost = nullptr;
 	bool PopupWindow = false;
+	bool SystemKeys = false;   // a widget window's, not a device's: Alt+F4 and every Alt+character Windows' own
 
 	Win32NativeHandle WindowHandle;
 	bool Fullscreen = false;
+	// The window as full screen took it -- its styles, place and size --
+	// given back as it leaves full screen (ShowNormal)
+	LONG_PTR WindowedStyle = 0;
+	LONG_PTR WindowedExStyle = 0;
+	WINDOWPLACEMENT WindowedPlacement = {};
 
 	bool KeyboardLocked = false;
 

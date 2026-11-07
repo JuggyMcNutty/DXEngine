@@ -428,11 +428,14 @@ left, both from Liberty Island, ten loads of each map 25 s apart, then an exit:
 | `reload-fresh.txt` | the island and Battery Park | crosses a mission: `Current` emptied, the map from `Maps` |
 | `reload-current.txt` | the island and UNATCO HQ | stays in mission 1: the map left saved into `Current`, the next one from there |
 
-and fourteen more: `collections.txt`, the collections a player meets, each timed -- the console's
+and fifteen more: `collections.txt`, the collections a player meets, each timed -- the console's
 `obj garbage` on the island, then Battery Park and the island loaded in turn, `obj garbage` after
 each load -- `keys.txt`, a key of each kind the SDL windows name, the keypad with Num Lock on and
 off, B with Alt held and its character, and typing keys under each layout family, on the stock
-console with `DXCAP_BACKEND=SDL3` ([a key's name](NATIVES.md#small)), `bad-keys.txt`, a `Button` and an
+console with `DXCAP_BACKEND=SDL3` ([a key's name](NATIVES.md#small)), `alt-space.txt`, Alt+Space
+typed into the console, Alt+F4 in play, then Alt+Space in play, its keys the window's own
+events, which open no Windows window menu (X key events sent to a Wine window do), on the stock
+console with `DXCAP_BACKEND=SDL3`, `bad-keys.txt`, a `Button` and an
 `Axis` the pawn lacks pressed on the stock console (`DXCAP_USERINI` binding them), and, each one
 console's input, `loot-drags.txt` (`LootConsole`), `stray-release.txt` (`KeypadConsole`),
 `scroll.txt` (`ScrollConsole`), `clicks.txt` (`ClickConsole`), `pad.txt` (`PadConsole`),
