@@ -396,8 +396,10 @@ void PackageStreamWriter::EndProperty(PropertyHeader header)
 		{
 			WriteUInt8((uint8_t)header.arrayIndex);
 		}
-		else if (header.arrayIndex < 32768)
+		else if (header.arrayIndex < 16384)
 		{
+			// Two bytes up to 16,383, the first's top bits 10, four past it,
+			// as the original's tag writes them (Core.dll 0x1012a840)
 			uint8_t byte1 = 0x80 | (header.arrayIndex >> 8);
 			uint8_t byte2 = header.arrayIndex & 0xff;
 			WriteUInt8(byte1);

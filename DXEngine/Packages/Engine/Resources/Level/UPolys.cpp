@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "UPolys.h"
+#include "UModel.h"
 #include "Packages/Engine/Actors/Brush/UBrush.h"
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 
@@ -33,7 +34,9 @@ void UPolys::Load(ObjectStream* stream)
 			v.z = stream->ReadFloat();
 			poly.Vertices.push_back(v);
 		}
-		poly.PolyFlags = stream->ReadUInt32();
+		// The editor's PF_Highlighted cleared, as the original's load clears
+		// it (Engine.dll 0x103aa510)
+		poly.PolyFlags = stream->ReadUInt32() & ~(uint32_t)PF_Highlighted;
 		poly.Actor = stream->ReadObject<UBrush>();
 		poly.Texture = stream->ReadObject<UTexture>();
 		poly.ItemName = stream->ReadName();

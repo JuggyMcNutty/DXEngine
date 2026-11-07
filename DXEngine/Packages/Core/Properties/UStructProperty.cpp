@@ -5,6 +5,24 @@
 #include "UStructProperty.h"
 #include "Packages/Core/UStruct.h"
 
+// The struct's members in the original's order (its TFieldIterator): the
+// struct's own first, then those of the struct it extends, and so on up. So
+// a Plane is W, X, Y, Z, printed and serialized alike, where Properties
+// holds the supers' first
+template<typename F>
+static void ForEachMember(UStruct* strct, F&& f)
+{
+	for (UStruct* s = strct; s; s = s->BaseStruct)
+	{
+		for (UField* field = s->Children; field; field = field->Next)
+		{
+			if (UProperty* member = UObject::TryCast<UProperty>(field))
+				if (!f(member))
+					return;
+		}
+	}
+}
+
 UStructProperty::UStructProperty(NameString name, UClass* base, ObjectFlags flags) : UProperty(std::move(name), base, flags)
 {
 	ValueType = ExpressionValueType::ValueStruct;
@@ -50,19 +68,20 @@ void UStructProperty::LoadStructMemberValue(void* data, ObjectStream* stream)
 		throw std::runtime_error("Struct has no properties");
 
 	// Every element of a static array member, the native and transient
-	// members passed over, as the original's UStruct::SerializeBin has it
-	// (Core.dll 0x10126610); DXEngine read each member once, whatever its
-	// dimension, and the native and transient ones with the rest
-	for (UProperty* fieldprop : Struct->Properties)
-	{
+	// members passed over, the struct's own members before those of the
+	// struct it extends, as the original's UStruct::SerializeBin has it
+	// (Core.dll 0x10126610; its SerializeItem, 0x101691b0, has no case for a
+	// Plane): a save's SimAnim is W, X, Y, Z
+	ForEachMember(Struct, [&](UProperty* fieldprop) {
 		if (AnyFlags(fieldprop->PropFlags, PropertyFlags::Native | PropertyFlags::Transient))
-			continue;
+			return true;
 		for (int i = 0; i < fieldprop->ArrayDimension; i++)
 		{
 			void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset + i * fieldprop->ElementPitch();
 			fieldprop->LoadStructMemberValue(fielddata, stream);
 		}
-	}
+		return true;
+	});
 }
 
 void UStructProperty::SaveHeader(void* data, PropertyHeader& header)
@@ -81,16 +100,17 @@ void UStructProperty::SaveStructMemberValue(void* data, PackageStreamWriter* str
 	if (Struct->Properties.empty())
 		throw std::runtime_error("Struct has no properties");
 
-	for (UProperty* fieldprop : Struct->Properties)
-	{
+	// In LoadStructMemberValue's order, the original's SerializeBin's
+	ForEachMember(Struct, [&](UProperty* fieldprop) {
 		if (AnyFlags(fieldprop->PropFlags, PropertyFlags::Native | PropertyFlags::Transient))
-			continue;
+			return true;
 		for (int i = 0; i < fieldprop->ArrayDimension; i++)
 		{
 			void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset + i * fieldprop->ElementPitch();
 			fieldprop->SaveStructMemberValue(fielddata, stream);
 		}
-	}
+		return true;
+	});
 }
 
 size_t UStructProperty::ElementAlignment()
@@ -266,23 +286,6 @@ void UStructProperty::GetExportText(std::string& buf, const std::string& whitesp
 	{
 		structbuf.pop_back();
 		buf += whitespace + Name.ToString() + "=" + structbuf + ")\r\n";
-	}
-}
-
-// The struct's members in the original's order (its TFieldIterator): the
-// struct's own first, then those of the struct it extends, and so on up (a
-// Plane prints W before X, Y and Z)
-template<typename F>
-static void ForEachMember(UStruct* strct, F&& f)
-{
-	for (UStruct* s = strct; s; s = s->BaseStruct)
-	{
-		for (UField* field = s->Children; field; field = field->Next)
-		{
-			if (UProperty* member = UObject::TryCast<UProperty>(field))
-				if (!f(member))
-					return;
-		}
 	}
 }
 

@@ -873,6 +873,19 @@ void PropertyDataBlock::Load(ObjectStream* stream)
 			continue;
 		}
 
+		// A native or transient property's tag, every file being a
+		// persistent archive, is logged in the original's words (sic) and
+		// skipped, XLevel's without a line, as its loader refuses it
+		// (0x10126730)
+		if (AnyFlags(prop->PropFlags, PropertyFlags::Native | PropertyFlags::Transient))
+		{
+			if (name != "XLevel")
+				LogMessage("Property " + name.ToString() + " of " + owner + " is not serialiable");
+			if (header.type != UPT_Bool)
+				stream->Skip(header.size);
+			continue;
+		}
+
 		prop->Flags |= ObjectFlags::TagExp;
 		uint32_t start = stream->Tell();
 		try

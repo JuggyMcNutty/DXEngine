@@ -17,7 +17,7 @@ void UBspNodes::Load(ObjectStream* stream)
 		node.PlaneZ = stream->ReadFloat();
 		node.PlaneW = stream->ReadFloat();
 		node.ZoneMask = stream->ReadUInt64();
-		node.NodeFlags = stream->ReadUInt8();
+		node.NodeFlags = stream->ReadUInt8() & 0x1F; // as UModel::Load's (Engine.dll 0x103aa780)
 		node.VertPool = stream->ReadIndex();
 		node.Surf = stream->ReadIndex();
 		node.Back = stream->ReadIndex();

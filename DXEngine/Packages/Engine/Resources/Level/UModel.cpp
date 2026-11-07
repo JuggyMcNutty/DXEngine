@@ -94,7 +94,11 @@ void UModel::Load(ObjectStream* stream)
 			node.PlaneZ = stream->ReadFloat();
 			node.PlaneW = stream->ReadFloat();
 			node.ZoneMask = stream->ReadUInt64();
-			node.NodeFlags = stream->ReadUInt8();
+			// NF_IsNew, NF_IsFront and NF_IsBack, which play sets (the
+			// original's saves and ten of the game's maps carry them),
+			// cleared, as the original's load clears them (Engine.dll
+			// 0x103aa780)
+			node.NodeFlags = stream->ReadUInt8() & 0x1F;
 			node.VertPool = stream->ReadIndex();
 			node.Surf = stream->ReadIndex();
 			node.Back = stream->ReadIndex();
@@ -115,7 +119,10 @@ void UModel::Load(ObjectStream* stream)
 		{
 			BspSurface surface;
 			surface.Material = stream->ReadObject<UTexture>();
-			surface.PolyFlags = stream->ReadUInt32();
+			// The editor's PF_Highlighted cleared, as the original's load
+			// clears it (0x103aa3a0): a surface saved highlighted draws as
+			// any other
+			surface.PolyFlags = stream->ReadUInt32() & ~(uint32_t)PF_Highlighted;
 			surface.pBase = stream->ReadIndex();
 			surface.vNormal = stream->ReadIndex();
 			surface.vTextureU = stream->ReadIndex();

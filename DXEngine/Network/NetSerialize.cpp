@@ -122,13 +122,19 @@ void NetReadItem(UProperty* prop, NetBitReader& reader, NetPackageMap& map, void
 		}
 		else
 		{
-			for (UField* field = s->Children; field; field = field->Next)
+			// The struct's own members, then those of the struct it extends,
+			// as the original's NetSerializeItem walks them (Core.dll
+			// 0x101691e0)
+			for (UStruct* st = s; st; st = st->BaseStruct)
 			{
-				UProperty* member = UObject::TryCast<UProperty>(field);
-				if (!member || map.ObjectToIndex(member) == -1)
-					continue;
-				for (int i = 0; i < member->ArrayDimension; i++)
-					NetReadItem(member, reader, map, member->GetElement(static_cast<uint8_t*>(data) + member->DataOffset.DataOffset, i));
+				for (UField* field = st->Children; field; field = field->Next)
+				{
+					UProperty* member = UObject::TryCast<UProperty>(field);
+					if (!member || map.ObjectToIndex(member) == -1)
+						continue;
+					for (int i = 0; i < member->ArrayDimension; i++)
+						NetReadItem(member, reader, map, member->GetElement(static_cast<uint8_t*>(data) + member->DataOffset.DataOffset, i));
+				}
 			}
 		}
 	}
@@ -217,13 +223,16 @@ bool NetWriteItem(UProperty* prop, NetBitWriter& writer, NetPackageMap& map, con
 		else
 		{
 			bool mapped = true;
-			for (UField* field = s->Children; field; field = field->Next)
+			for (UStruct* st = s; st; st = st->BaseStruct)
 			{
-				UProperty* member = UObject::TryCast<UProperty>(field);
-				if (!member || map.ObjectToIndex(member) == -1)
-					continue;
-				for (int i = 0; i < member->ArrayDimension; i++)
-					mapped = NetWriteItem(member, writer, map, member->GetElement(static_cast<const uint8_t*>(data) + member->DataOffset.DataOffset, i)) && mapped;
+				for (UField* field = st->Children; field; field = field->Next)
+				{
+					UProperty* member = UObject::TryCast<UProperty>(field);
+					if (!member || map.ObjectToIndex(member) == -1)
+						continue;
+					for (int i = 0; i < member->ArrayDimension; i++)
+						mapped = NetWriteItem(member, writer, map, member->GetElement(static_cast<const uint8_t*>(data) + member->DataOffset.DataOffset, i)) && mapped;
+				}
 			}
 			return mapped;
 		}

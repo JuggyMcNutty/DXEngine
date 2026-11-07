@@ -219,6 +219,13 @@ int PackageWriter::GetObjectReference(UObject* obj)
 	if (obj->Class && (obj->Class->ClsFlags & ClassFlags::Transient))
 		return 0;
 
+	// Nor is one flagged RF_Transient itself, as a script's new can make
+	// it: the original's export tagger passes it over (Core.dll 0x1015e5f0).
+	// One of another package stays an import when it is also public, as
+	// its import tagger takes it (0x1015e7b0).
+	if (AnyFlags(obj->Flags, ObjectFlags::Transient) && (obj->package == Source || !AnyFlags(obj->Flags, ObjectFlags::Public)))
+		return 0;
+
 	if (AllFlags(obj->Flags, ObjectFlags::NotForClient | ObjectFlags::NotForServer))
 		return 0;
 

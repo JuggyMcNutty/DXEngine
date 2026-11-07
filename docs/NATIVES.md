@@ -100,7 +100,12 @@ sight](#out-of-sight) has them. A save's load logs the saved player in as
 the original's does, with `?loadgame`: the game's `Login` keeps it as saved,
 and its `TravelPostAccept` spawns the level's mission script, which no save
 holds -- an object of a transient class is not written (`LoadConsole` over
-either engine's saves and the original's hub save, `ReturnConsole`). The
+either engine's saves and the original's hub save, `ReturnConsole`), nor one
+flagged transient, as a script's `new` can make one, a reference to it None
+(`SaveEdgeConsole`: a probe made by `new` with `RF_Transient` and held by a
+saved actor loads as None in both engines, from either's save, one made
+without it whole); one of another package is still written as an import
+when it is also public, as the original's is. The
 console's `open ?loadgame=N` loads the slot as the game's own `LoadGame`
 does (`LoadConsole` with `Open`); a slot that is no number loads nothing in
 either, DXEngine reading it as slot 0. The console's `SAVEGAME n` takes any
@@ -2744,17 +2749,24 @@ A mod gets the original's loader and natives:
   DXNMS) point their classes' `ScriptText` at such exports. A save's exports
   are all made whatever their flags: DXEngine's own saves may lack them.
 - **A mod's packages and saves.** A package's or a save's property tag of an
-  element past its static array, of another type or of another struct is
-  logged and skipped, as the original's loader skips it, the object loading
-  on; a struct's static-array members are read every element, its native and
-  transient members passed over on disk, as the original's binary has them,
-  but a struct extending another written base first, the original's own
-  members first (bugs.md PKG.22), and a native or transient property's tag
-  loaded, where the original's loader refuses it (bugs.md PKG.23); a
-  script's Unicode string constant of more than one character loads on the
-  Linux ports; an expression 1,024 deep loads (`DepthConsole`'s 100); a mesh
-  whose faces run past its vertices or wedges loads, those faces passed
-  over; a mesh DXEngine saves loads back; a palette short of 256 colours is
+  element past its static array, of another type or of another struct, or of a
+  native or transient property, is logged and skipped, as the original's
+  loader skips it, the object loading on, the last in its words (`Property %s
+  of %s is not serialiable`, sic), an `XLevel` tag's without a line; a
+  struct's static-array members are read every element, its native and
+  transient members passed over on disk, and a struct extending another is its
+  own members, then those of the struct it extends, as the original's binary
+  has them: a save's `SimAnim` and `SimBlendAnim`, Planes, are W, X, Y, Z in
+  either engine's (`SaveEdgeConsole`: the level's two set to 1, 2, 3, 4 and 5,
+  6, 7, 8 load so from either engine's save); a map's or a save's BSP nodes
+  lose `NF_IsNew`, `NF_IsFront` and `NF_IsBack` at the load, which play sets
+  and ten of the game's maps and the original's saves carry, and its surfaces
+  and brush polygons the editor's `PF_Highlighted`, as the original's load
+  clears them; a tag's element index past 16,383 is written in four bytes, as
+  the original writes it; a script's Unicode string constant of more than
+  one character loads on the Linux ports; an expression 1,024 deep loads
+  (`DepthConsole`'s 100); a mesh whose faces run past its vertices or wedges
+  loads, those faces passed over; a mesh DXEngine saves loads back; a palette short of 256 colours is
   padded with black; an uncompressed mip shorter than its size is padded
   with black, a compressed one not, which GL and GL ES read past (bugs.md
   REN.38); a map whose surfaces or nodes point outside its arrays -- a
@@ -2937,7 +2949,8 @@ D3D11 device keeps Surreal Engine's
 Matches the original's client and server
 ([the network](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md)):
 joining and playing, listen and dedicated servers, replication with the
-original's native lists, the server's calls, downloads both ways, server
+original's native lists, a struct's members sent its own first, then those
+of the struct it extends, the server's calls, downloads both ways, server
 travel, the Entry level for a lost server -- loaded as `entry.dx` with no
 option, a lost server's client travelling there by `?failed`, absolute, the
 player's options from its server's URL on it, and logging in with them

@@ -14,7 +14,7 @@ void UBspSurfs::Load(ObjectStream* stream)
 	{
 		BspSurface surface;
 		surface.Material = stream->ReadObject<UTexture>();
-		surface.PolyFlags = stream->ReadUInt32();
+		surface.PolyFlags = stream->ReadUInt32() & ~(uint32_t)PF_Highlighted; // as UModel::Load's (Engine.dll 0x103aa3a0)
 		surface.pBase = stream->ReadIndex();
 		surface.vNormal = stream->ReadIndex();
 		surface.vTextureU = stream->ReadIndex();

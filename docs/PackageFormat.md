@@ -250,7 +250,9 @@ enum UnrealPropertyType
 	UPT_FixedArray = 15
 }
 ```
-However, not all the fields of the header are always present. The header is decoded as follows:
+However, not all the fields of the header are always present. The header is decoded as follows
+(a writer gives `arrayIndex` one byte under 128, two under 16,384, else four, as the original's
+tag has it, Core.dll `0x1012a840`):
 ```c++
 uint8_t info = ReadByte();
 bool infoBit = info & 0x80;
@@ -317,7 +319,10 @@ data follows the header:
   `UObjectProperty` does)
 - UPT_Array: `index Count` follows, then each element as its inner property's value without a
   header (`UArrayProperty::LoadValue`)
-- UPT_Struct: `header.structName` is the struct name of the data that follows
+- UPT_Struct: `header.structName` is the struct name of the data that follows: each member's
+  value without a header, the struct's own members first, then those of the struct it extends
+  (a Plane is W, X, Y, Z), every element of a static array member, native and transient
+  members left out, as the original's `UStruct::SerializeBin` has it (Core.dll `0x10126610`)
 - UPT_Vector: `float x,y,z` follows
 - UPT_Rotator: `uint32 pitch,yaw,roll` follows
 - UPT_Str: `string` follows
