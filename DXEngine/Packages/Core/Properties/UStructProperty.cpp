@@ -228,8 +228,9 @@ void UStructProperty::GetExportText(std::string& buf, const std::string& whitesp
 	uint8_t* defval = nullptr;
 	try
 	{
+		// This very property's default, not the first of its name
 		if (defobj)
-			defval = static_cast<uint8_t*>(defobj->GetProperty(Name)) + (i * ElementPitch());
+			defval = static_cast<uint8_t*>(defobj->PropertyData.Ptr(this)) + (i * ElementPitch());
 	}
 	catch (...)
 	{

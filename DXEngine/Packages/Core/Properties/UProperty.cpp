@@ -139,7 +139,9 @@ void UProperty::GetExportText(std::string& buf, const std::string& whitespace, U
 	void* defval = nullptr;
 	try
 	{
-		defval = (defobj) ? static_cast<uint8_t*>(defobj->GetProperty(Name)) + offset : nullptr;
+		// This very property's default, not the first of its name (a
+		// property a subclass names again)
+		defval = (defobj) ? static_cast<uint8_t*>(defobj->PropertyData.Ptr(this)) + offset : nullptr;
 	}
 	catch (...)
 	{

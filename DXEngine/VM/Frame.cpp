@@ -217,6 +217,59 @@ size_t CallArguments::Room(UFunction* func, size_t passed)
 	return std::max(passed, Frame::CallParms(func).size()) + 1;
 }
 
+// A value stored whole: a static array element by element, as the
+// original's CopyCompleteValue copies every element
+static void StoreWhole(ExpressionValue& lvalue, ExpressionValue& value, UProperty* parm)
+{
+	if (parm->ArrayDimension > 1 && lvalue.IsVariable() && value.IsVariable())
+	{
+		for (int element = 0; element < parm->ArrayDimension; element++)
+			lvalue.ItemAt(element).Store(value.ItemAt(element));
+	}
+	else
+	{
+		lvalue.Store(value);
+	}
+}
+
+CallArguments::ArrayCopy::ArrayCopy(UProperty* prop) : Prop(prop)
+{
+	Data = AlignedAlloc(prop->ElementAlignment(), prop->ArrayPitch());
+	prop->ConstructArray(Data);
+}
+
+CallArguments::ArrayCopy::~ArrayCopy()
+{
+	if (Data)
+	{
+		Prop->DestructArray(Data);
+		AlignedFree(Data);
+	}
+}
+
+ExpressionValue CallArguments::CopyOf(ExpressionValue& variable, UProperty* parm)
+{
+	if (!Copies)
+		Copies = std::make_unique<Array<ArrayCopy>>();
+	ExpressionValue copy = ExpressionValue::At(Copies->emplace_back(parm)->Data, parm);
+	StoreWhole(copy, variable, parm);
+	return copy;
+}
+
+// A script function's call held off, or sent to the other side, runs
+// nothing, but the original's CallFunction (Core.dll 0x1013f4e0) copies the
+// frame's out parameters back all the same, the last first: a variable a
+// later argument changed takes back its value as it was reached (SetStart)
+static void CopyStartsBack(UFunction* func, CallArguments& args)
+{
+	const Array<UProperty*>& parms = Frame::CallParms(func);
+	for (size_t i = std::min(parms.size(), args.size()); i-- > 0;)
+	{
+		if (ExpressionValue* start = args.StartOf(i))
+			StoreWhole(args[i], *start, parms[i]);
+	}
+}
+
 ExpressionValue Frame::Call(UFunction* func, UObject* instance, Array<ExpressionValue> args)
 {
 	CallArguments callArgs(CallArguments::Room(func, args.size()));
@@ -243,9 +296,13 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, CallArguments& a
 	// Engine.dll 0x103e5d90) and, when that takes the call, runs none of it
 	// and steps nothing into the caller's result; CallFunction (0x1013f4e0)
 	// so calls no native without its own number that it takes. A variable
-	// assigned from it keeps its value, a bool is cleared (CallScript).
+	// assigned from it keeps its value, a bool is cleared (CallScript); its
+	// out arguments are copied back from the frame (CopyStartsBack).
 	if (engine->LevelNetDriver && !(AllFlags(func->FuncFlags, FunctionFlags::Native) && func->NativeFuncIndex != 0) && NetProcessRemoteFunction(func, instance, args))
+	{
+		CopyStartsBack(func, args);
 		return ExpressionValue::NothingValue(true);
+	}
 
 	// Whether func is an event is a property of its name: look it up once
 	if (func->EventIndex == -2)
@@ -260,6 +317,7 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, CallArguments& a
 	bool enabled = func->EventIndex >= 0 ? instance->IsEventEnabled((EventName)func->EventIndex) : true;
 	if (!enabled)
 	{
+		CopyStartsBack(func, args);
 		return ExpressionValue::NothingValue(true);
 	}
 
@@ -285,7 +343,10 @@ ExpressionValue Frame::CallScript(UFunction* func, UObject* instance, CallArgume
 	// original's, whose Let has the call write its result in the variable
 	GuardedRun guarded(func, instance);
 	if (guarded.HeldOff)
+	{
+		CopyStartsBack(func, args);
 		return ExpressionValue::NothingValue(true);
+	}
 	if (ScriptDepth > 250)
 		InfiniteRecursion();
 
@@ -304,15 +365,7 @@ ExpressionValue Frame::CallScript(UFunction* func, UObject* instance, CallArgume
 		ExpressionValue lvalue = ExpressionValue::Variable(frame.Variables.Data, parms[i]);
 		// A static array goes whole, element by element, when the caller
 		// gives one (a native's buffer: ReceivedBinary's bytes)
-		if (parms[i]->ArrayDimension > 1 && arg.IsVariable())
-		{
-			for (int element = 0; element < parms[i]->ArrayDimension; element++)
-				lvalue.ItemAt(element).Store(arg.ItemAt(element));
-		}
-		else
-		{
-			lvalue.Store(arg);
-		}
+		StoreWhole(lvalue, arg, parms[i]);
 	}
 
 	// Run the function
@@ -350,13 +403,14 @@ ExpressionValue Frame::CallScript(UFunction* func, UObject* instance, CallArgume
 
 	// Copy out params from frame local variables, the last first, as the
 	// original's CallFunction (Core.dll 0x1013f4e0) copies them back: of two
-	// given the same variable, the first one's value is the one it keeps
+	// given the same variable, the first one's value is the one it keeps; a
+	// static array every element (CopyCompleteValue)
 	for (size_t i = std::min(parms.size(), args.size()); i-- > 0;)
 	{
 		if (AllFlags(parms[i]->PropFlags, PropertyFlags::OutParm))
 		{
 			ExpressionValue lvalue = ExpressionValue::Variable(frame.Variables.Data, parms[i]);
-			args[i].Store(lvalue);
+			StoreWhole(args[i], lvalue, parms[i]);
 		}
 	}
 

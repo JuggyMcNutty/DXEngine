@@ -201,11 +201,10 @@ void UObject::Save(PackageStreamWriter* stream)
 
 PropertyDataOffset UObject::GetPropertyDataOffset(const NameString& name) const
 {
-	for (UProperty* prop : PropertyData.Class->Properties)
-	{
-		if (prop->Name == name)
-			return prop->DataOffset;
-	}
+	// The class's own first, as the original's FindField (Core.dll
+	// 0x10143fd0): PlayerPawn's bSinglePlayer, not Actor's
+	if (UProperty* prop = PropertyData.Class->FindProperty(name))
+		return prop->DataOffset;
 	return PropertyDataOffset();
 }
 
@@ -604,8 +603,11 @@ int UObject::GotoState(NameString stateName, const NameString& labelName, bool* 
 	// during BeginState likewise keeps that state and skips this label. A
 	// GotoState that ends in no state, to None or to a name the class has
 	// not, does not set it: from within EndState it preempts nothing, and
-	// the outer one goes on into its state.
-	if (oldState && oldState != newState && !AnyFlags(Flags, ObjectFlags::InEndState))
+	// the outer one goes on into its state. It is cleared only before an
+	// EndState or a BeginState whose probe is on (IsProbing): a GotoState
+	// to no state from a state with no EndState leaves it as it was, so one
+	// made in BeginState after another that ended in a state still preempts.
+	if (oldState && oldState != newState && IsEventEnabled(EventName::EndState) && !AnyFlags(Flags, ObjectFlags::InEndState))
 	{
 		Flags = (Flags & ~ObjectFlags::StateChanged) | ObjectFlags::InEndState;
 		CallEvent(this, EventName::EndState);
@@ -630,7 +632,7 @@ int UObject::GotoState(NameString stateName, const NameString& labelName, bool* 
 		// during play would otherwise never have that state written by Save() at all, silently
 		// losing it on the next save regardless of what state it's actually in.
 		Flags |= ObjectFlags::HasStack;
-		if (oldState != newState)
+		if (oldState != newState && IsEventEnabled(EventName::BeginState))
 		{
 			Flags &= ~ObjectFlags::StateChanged;
 			CallEvent(this, EventName::BeginState);

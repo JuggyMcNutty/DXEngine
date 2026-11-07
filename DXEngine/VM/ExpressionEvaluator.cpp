@@ -1066,19 +1066,24 @@ void ExpressionEvaluator::Call(UFunction* func, const Array<Expression*>& exprAr
 			// An out parameter's stays the variable: a native reads and
 			// writes it there (P_GET_*_REF, by GPropAddr), and a script
 			// function's is copied back to it, the function starting with its
-			// value as it is here (CallArguments::SetStart). A static array
-			// stays the variable too, the call taking it whole from there
-			// (Frame::CallScript; DrawBorders' textures, SendBinary's bytes).
-			if (i < lastChange && value.IsVariable() && i < parms.size() && parms[i]->ArrayDimension == 1)
+			// value as it is here (CallArguments::SetStart). A static array is
+			// read whole, a copy of every element (CallArguments::CopyOf), as
+			// the original's variable token copies it into the callee's frame.
+			if (i < lastChange && value.IsVariable() && i < parms.size())
 			{
+				bool whole = parms[i]->ArrayDimension > 1;
 				if (!AllFlags(parms[i]->PropFlags, PropertyFlags::OutParm))
 				{
-					value.Load();
+					if (whole)
+						value = args.CopyOf(value, parms[i]);
+					else
+						value.Load();
 				}
 				else if (!native)
 				{
-					ExpressionValue start = value;
-					start.Load();
+					ExpressionValue start = whole ? args.CopyOf(value, parms[i]) : value;
+					if (!whole)
+						start.Load();
 					args.SetStart(i, std::move(start));
 				}
 			}

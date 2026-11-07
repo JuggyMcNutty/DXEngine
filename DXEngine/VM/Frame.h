@@ -110,20 +110,44 @@ public:
 			Starts = std::make_unique<Array<std::pair<size_t, ExpressionValue>>>();
 		Starts->push_back({ index, std::move(value) });
 	}
-	ExpressionValue& Start(size_t index)
+	// The start SetStart gave the argument, or none
+	ExpressionValue* StartOf(size_t index)
 	{
 		if (Starts)
 		{
 			for (auto& start : *Starts)
 			{
 				if (start.first == index)
-					return start.second;
+					return &start.second;
 			}
 		}
-		return Values[index];
+		return nullptr;
+	}
+	ExpressionValue& Start(size_t index)
+	{
+		ExpressionValue* start = StartOf(index);
+		return start ? *start : Values[index];
 	}
 
+	// A static array argument as it is now, every element copied, as the
+	// original's variable token copies one into the callee's frame whole
+	// (CopyCompleteValue; Core.dll execLocalVariable 0x1012ebc0): a value
+	// laid out by the parameter, which lives as long as the arguments
+	ExpressionValue CopyOf(ExpressionValue& variable, UProperty* parm);
+
 private:
+	// A static array's elements, made and freed by its parameter
+	struct ArrayCopy
+	{
+		explicit ArrayCopy(UProperty* prop);
+		ArrayCopy(ArrayCopy&& other) noexcept : Prop(other.Prop), Data(other.Data) { other.Data = nullptr; }
+		ArrayCopy(const ArrayCopy&) = delete;
+		ArrayCopy& operator=(const ArrayCopy&) = delete;
+		~ArrayCopy();
+		UProperty* Prop = nullptr;
+		void* Data = nullptr;
+	};
+
 	void Grow()
 	{
 		size_t capacity = Capacity * 2 + 1;
@@ -145,6 +169,7 @@ private:
 	size_t Count = 0;
 	size_t Capacity = InlineCount;
 	std::unique_ptr<Array<std::pair<size_t, ExpressionValue>>> Starts; // SetStart's, made at the first
+	std::unique_ptr<Array<ArrayCopy>> Copies; // CopyOf's, made at the first
 };
 
 class Frame

@@ -2211,6 +2211,11 @@ Every other native the scripted runs compare matches the original
   to a state the class has not, sets no `RF_StateChanged`, as the
   original's, and preempts nothing: the outer one goes on into its state,
   its `BeginState` and its label run (`NonePreemptConsole`, both kinds).
+  The flag is cleared only before an `EndState` or `BeginState` whose probe
+  is on, so a `GotoState` to no state from a state with no `EndState`,
+  made in `BeginState` after one that ended in a state, leaves the outer
+  one preempted (`Vm29Console`: no `Label not found` for the outer one's
+  label, in both).
 - **A None context** (`A.X` with `A` None; `NoneConsole`): the zero of
   `X`'s type, as the original's `execContext` zero-fills the result -- a
   `switch (A.Physics)` takes `case PHYS_None`, a struct copied through None
@@ -2579,7 +2584,14 @@ condition alike (`SweepVmConsole`, both ticks, alike in both engines:
 `I + SweepBump(I)` 1, `Pair` 1,0, `Text $ AppendText()` ab,
 `I - SweepBump(I)` and `I - byte(SweepBump(I))` 1, `AddInto(I,
 SweepBump(I))` 1, `I += SweepBump(I)` 10, `A == BumpPair(A)` True, a
-`switch` taking `case 1`).
+`switch` taking `case 1`). A static array is taken whole as it is reached,
+and an `out` one copied back whole; a call held off -- a singular one, a
+disabled probe's, one sent to the other side of a net game -- copies its
+`out` arguments back from its frame all the same, as the original's
+`CallFunction` (Core.dll `0x1013f4e0`) does (`Vm29Console`, alike in both
+engines: `FirstOf(Arr, BumpArr(Arr))` 1, an `out` array set to 7,8,9 read
+back 7,8,9, `HeldSingular(I, SweepBump(I))` held off leaving `I` 1, a
+disabled `Probe4`'s the same).
 
 A string constant is the original's: its 8-bit text a byte a character, at
 most 1,023, as `execStringConst` widens it (Core.dll `0x10130890`), so bytes
@@ -2593,12 +2605,10 @@ Differs (bugs.md VM.25): a name keeps each spelling it is made in, where the
 original's keeps the first made in the session: `string()` gives the case it
 was made in (`SpellingConsole`: `ANNADIES` where the original's gives
 DeusEx.u's `annadies`), and the cheats' EditFlags lists a flag as its setter
-spelt it; lookups take any case in both. Differs (bugs.md VM.29): small
-edges no stock path reaches -- a static array argument read when the call
-reads it, a call held off copying no `out` argument back, `StateChanged`
-cleared before an `EndState` not sent, and an object a package holds,
-`new(None)`'s or a level, with no `Outer`, where the original's names the
-package.
+spelt it; lookups take any case in both. Differs (bugs.md VM.29): an
+object a package holds, `new(None)`'s or a level, has no `Outer`, where the
+original's names the package (`Vm29Console`: the level's `Outer` None, the
+original's `DX`); no stock script reads one.
 
 ## The command line
 

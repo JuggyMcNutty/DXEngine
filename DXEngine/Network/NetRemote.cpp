@@ -137,10 +137,13 @@ bool NetProcessRemoteFunction(UFunction* function, UObject* instance, CallArgume
 	uint8_t* data = reinterpret_cast<uint8_t*>(frame.get());
 	for (UProperty* prop : callParms)
 		prop->ConstructArray(data + prop->DataOffset.DataOffset);
+	// Each as the original's frame holds it, an out one's variable as it was
+	// reached (CallArguments::SetStart)
 	for (size_t i = 0; i < callParms.size() && i < args.size(); i++)
 	{
-		if (args[i].GetType() != ExpressionValueType::Nothing)
-			ExpressionValue::Variable(data, callParms[i]).Store(args[i]);
+		ExpressionValue& arg = args.Start(i);
+		if (arg.GetType() != ExpressionValueType::Nothing)
+			ExpressionValue::Variable(data, callParms[i]).Store(arg);
 	}
 
 	size_t index = 0;
