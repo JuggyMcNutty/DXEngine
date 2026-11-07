@@ -383,9 +383,13 @@ void NActor::GetSoundDuration(UObject* Self, UObject* Sound, float& ReturnValue)
 	ReturnValue = s->GetPeriod();
 }
 
+// The game engine's last URL's map, as the original's reads it (Engine.dll
+// 0x103b8df0), not the level's URL, which GetLocalURL gives: the map a URL
+// with a load option named, ?load= or a restart's ?loadonly, where the level
+// keeps its file's Index.dx; a level from Current's or a save's own.
 void NActor::GetURLMap(UObject* Self, std::string& ReturnValue)
 {
-	ReturnValue = UObject::Cast<UActor>(Self)->Level()->URL.Map;
+	ReturnValue = engine->LastURL.Map;
 }
 
 void NActor::HasAnim(UObject* Self, const NameString& Sequence, BitfieldBool& ReturnValue)

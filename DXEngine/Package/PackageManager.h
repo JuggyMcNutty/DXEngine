@@ -100,7 +100,6 @@ public:
 
 	Package* LoadSaveFile(const std::string& path);
 	std::string FindCurrentSave(const std::string& mapName) const;
-	Package* LoadSaveSlot(const uint32_t slotNum);
 
 	std::shared_ptr<PackageStream> GetStream(Package* package);
 

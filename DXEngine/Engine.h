@@ -299,6 +299,7 @@ public:
 	Package* deusExPackage = nullptr;
 	UDeusExLevelInfo* DeusExLevelInfo = nullptr;
 	bool dxTravelUsesCurrent = false; // set by DeusExPreTravel, read once by LoadMap
+	bool levelFromCurrent = false; // set by LoadMap: its level came from Current
 	// The render device's PrecacheOnFlip: set by a map's load with its
 	// UsePrecache on, cleared by the frame that shows PRECACHING
 	bool PrecacheOnFlip = false;

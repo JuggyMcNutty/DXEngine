@@ -695,11 +695,6 @@ std::string PackageManager::FindCurrentSave(const std::string& mapName) const
 	return {};
 }
 
-Package* PackageManager::LoadSaveSlot(const uint32_t slotNum)
-{
-	return LoadSaveFile("Save" + std::to_string(slotNum) + "." + GetSaveExtension());
-}
-
 void PackageManager::ScanForMaps()
 {
 	// A map folder the paths name but the disk lacks is passed over, with a

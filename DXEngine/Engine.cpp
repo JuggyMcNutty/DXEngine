@@ -157,6 +157,16 @@ static bool HasWholeOption(const UnrealURL& url, const std::string& name)
 	return false;
 }
 
+// The map the original's Browse of a map tests for its mission and looks for
+// in Current: a ?load= option's value, whatever it is, in place of the URL's
+// map, the URL's map with none (DeusEx.dll 0x100115ce, 0x10011736-0x10011825).
+// The map loaded from Maps is the URL's all the same. No stock path sends one:
+// PlayerPawn's QuickLoad sends ?load=9, but DeusExPlayer's replaces it.
+static std::string MissionMapName(const UnrealURL& url)
+{
+	return HasValueOption(url, "load") ? url.GetOption("load") : url.Map;
+}
+
 Engine* engine = nullptr;
 
 Engine::Engine(GameLaunchInfo launchinfo) : LaunchInfo(launchinfo)
@@ -322,6 +332,13 @@ void Engine::Run()
 	bool launchSave = !LaunchInfo.url.empty() && startURL.Host.empty() && HasValueOption(startURL, "loadgame") && !dedicated;
 	if (!launchSave || !LoadSavedGame(startURL))
 	{
+		// Current emptied, as the original's first browse empties it: from
+		// the Entry level, which holds no DeusExLevelInfo, or from no level,
+		// a dedicated server's, the map is outside any mission or of a new
+		// one (DeusEx.dll's Browse, dx-reverse-info deusex-dll.md, travel and
+		// saving), so no level an earlier run left there comes back. A start
+		// in a save empties it as its load does.
+		DeleteSaveGameFiles("Current");
 		if (LaunchInfo.url.empty() || launchServer || launchSave)
 			LoadMap(defaultURL);
 		else
@@ -1128,15 +1145,19 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 		// player left it: the file SaveCurrentLevel named by the package,
 		// found whatever case the URL spells the map in (a stock exit names
 		// 12_vandenberg_cmd), with or without its .dx, as the original's
-		// Browse cuts and Windows' file system finds it.
-		const std::string currentMap = packages->FindCurrentSave(url.Map);
+		// Browse cuts and Windows' file system finds it -- a ?load= value's
+		// map in place of the URL's (MissionMapName), the URL's map loaded
+		// from Maps where Current has none.
+		const std::string missionMap = MissionMapName(url);
+		const std::string currentMap = packages->FindCurrentSave(missionMap);
 		if (!currentMap.empty())
 		{
-			LogMessage("Loading " + url.Map + " from Current");
+			LogMessage("Loading " + missionMap + " from Current");
 			LevelPackage = packages->LoadSaveFile(currentMap);
 			loadedFromCurrent = LevelPackage != nullptr;
 		}
 	}
+	levelFromCurrent = loadedFromCurrent;
 	if (!LevelPackage)
 	{
 		// A client's map may be a download, in the cache under its GUID.
@@ -1147,13 +1168,14 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 
 	// A level from Current is entered by its file, as the original's Browse
 	// loads it (DeusEx.dll 0x10010b90, FURL(URL, file, TRAVEL_Relative)):
-	// the map the save path's Current\<map>.<save extension>, the map named
-	// cut at its first .dx -- ..\Save\Current\01_NYC_UNATCOIsland.dxs --,
-	// with the URL's options but PUSH, POP, PEER and LOAD, and its portal.
+	// the map the save path's Current\<map>.<save extension>, the map tested
+	// (MissionMapName) cut at its first .dx --
+	// ..\Save\Current\01_NYC_UNATCOIsland.dxs --, with the URL's options but
+	// PUSH, POP, PEER and LOAD, and its portal.
 	UnrealURL enteredURL = url;
 	if (loadedFromCurrent)
 	{
-		std::string map = url.Map;
+		std::string map = MissionMapName(url);
 		size_t dx = map.find(".dx");
 		if (dx != std::string::npos)
 			map.resize(dx);
@@ -1183,7 +1205,8 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 	// starting "load", ?loadonly, ?loadgame or ?load=, as its GetOption
 	// matches -- whose level keeps the URL it holds: a map file's Index.dx,
 	// so a restarted level's reads Index.dx, or a save's. The last URL is
-	// the one entered by, which the game and the player log in with.
+	// the one entered by, which the game and the player log in with; a
+	// level from Current's own once the player is in (BrowseMap).
 	LevelInfo->URL = HasLoadOption(enteredURL) ? LevelHeldURL() : enteredURL;
 	LastURL = enteredURL;
 
@@ -1406,16 +1429,9 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 		return false;
 
 	Package* savefilePackage = nullptr;
-	uint32_t slotNum = 0;
 	std::string deusExMapName;
 
-	if (HasValueOption(url, "load"))
-	{
-		slotNum = (uint32_t)SlotNumber(url.GetOption("load"));
-		savefilePackage = packages->LoadSaveSlot(slotNum);
-	}
-
-	if (!savefilePackage && HasValueOption(url, "loadgame"))
+	if (HasValueOption(url, "loadgame"))
 	{
 		// The original's Browse ?loadgame=N (dx-reverse-info/deusex-dll.md, travel
 		// and saving): read the slot's SaveInfo, empty Current, copy the
@@ -1771,7 +1787,7 @@ int32_t Engine::DeusExMissionNumber(const std::string& mapName) const
 // flags, and the level played on without them (NATIVES.md, saving).
 bool Engine::BrowseFinds(const UnrealURL& url)
 {
-	if (!Level || packages->MapExists(url.Map) || !packages->FindCurrentSave(url.Map).empty())
+	if (!Level || packages->MapExists(url.Map) || !packages->FindCurrentSave(MissionMapName(url)).empty())
 		return true;
 	std::string error = LocalizeMessage("Core", "Errors", "FileNotFound", "Can't find file '%s'", { url.Map });
 	LogMessage("Failed to load '" + url.Map + "': " + error);
@@ -1807,6 +1823,13 @@ bool Engine::BrowseMap(const UnrealURL& url, const std::map<std::string, std::st
 	LoadMap(loadURL, travelInfo);
 	if (!LaunchInfo.dedicatedServer)
 		LoginPlayer();
+	// A level from Current makes its own URL the last one once the player is
+	// in, as the original's Browse does after its load (DeusEx.dll
+	// 0x10011c7e-0x10011c88): the one it was entered by, or, with a ?load=
+	// on the URL, the one its file holds, which the next travel builds on
+	// and GetURLMap reads.
+	if (levelFromCurrent)
+		LastURL = LevelInfo->URL;
 	return true;
 }
 
@@ -1836,15 +1859,20 @@ void Engine::DeusExPreTravel(const UnrealURL& url)
 	if (!Level || url.Map.empty())
 		return;
 	if (url.HasOption("restart") || url.HasOption("entry") || url.HasOption("failed") ||
-		HasValueOption(url, "load") || HasValueOption(url, "loadgame"))
+		HasValueOption(url, "loadgame"))
 		return;
 
 	// For a map numbered within a mission and no ?loadonly: within the same
 	// mission, for a player not starting a new game, the level is pruned and
 	// saved into Current; otherwise the player's bStartingNewGame is cleared.
 	// Every other way empties Current, a map outside any mission or a
-	// ?loadonly with no mission's test.
-	const int32_t next = DeusExMissionNumber(url.Map);
+	// ?loadonly with no mission's test. The map tested is a ?load= value's,
+	// where the URL has one (MissionMapName): ?load=9 is a map outside any
+	// mission (DeusEx.dll 0x10011928-0x100119b6). The level's mission is its
+	// own DeusExLevelInfo's: the original's is the first in its object list
+	// (GetDeusExLevelInfo, 0x100120a0), which a level left behind and still
+	// held can be, where DXEngine eliminates a level left behind.
+	const int32_t next = DeusExMissionNumber(MissionMapName(url));
 	if (next != -1 && !url.HasOption("loadonly"))
 	{
 		auto player = UObject::TryCast<UDeusExPlayer>(viewport->Actor());
@@ -2659,10 +2687,13 @@ bool Engine::TakeTravel(float realTimeElapsed)
 		return true;
 	}
 
-	// A slot's load is ?loadgame=N or ?load=N, as the original's Browse
-	// asks for "loadgame=" and "load=": a bare ?loadgame is a map's
-	// browse, its map the default one.
-	if (HasValueOption(ClientTravelInfo.URL, "load") || HasValueOption(ClientTravelInfo.URL, "loadgame"))
+	// A slot's load is ?loadgame=N, as the original's Browse asks for
+	// "loadgame=" (DeusEx.dll 0x10010f57): a bare ?loadgame is a map's
+	// browse, its map the default one, and so is a URL with a ?load= of any
+	// value, which the game engine's browse leaves to Deus Ex's, loading no
+	// save (Engine.dll 0x1038b61a-0x1038b65a): its value the map the browse
+	// tests for its mission and looks for in Current (MissionMapName).
+	if (HasValueOption(ClientTravelInfo.URL, "loadgame"))
 	{
 		UnrealURL url(ClientTravelInfo.URL);
 		LoadSavedGame(url);

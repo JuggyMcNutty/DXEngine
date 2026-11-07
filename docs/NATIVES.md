@@ -120,11 +120,23 @@ as the original's browse asks for `loadgame=`: the console's `open` of it
 goes to the default map, `Index.dx`, which is not there, so the level's own
 map is loaded again, as for any map not there (below): from the menu map the
 menu again, its URL a load's, `Index.dx` (`URLConsole` with `Bare`: the same
-lines in both engines). Differs (bugs.md NET.24): a `?load=N` loads save
-slot N, where the original's browses the map the URL names: from Liberty
-Island `open 01_NYC_UNATCOHQ?load=9` loads UNATCO HQ, and from there
-`open 01_NYC_UNATCOIsland?load=01_NYC_UNATCOHQ` the island, where DXEngine
-loads no level (`URLEdgesConsole` with `Short`).
+lines in both engines). A `?load=` loads no save either: a URL with one is a
+map's browse, as the original's, the option's value, whatever it is, the map
+the browse tests for its mission and looks for in `Current`, in place of the
+URL's, and the URL's map the one loaded from `Maps`. From UNATCO HQ
+`open 01_NYC_UNATCOHQ?load=01_NYC_UNATCOIsland` saves HQ into `Current` and
+brings the island back from there as it was left, HQ passed over;
+`open 01_NYC_UNATCOHQ?load=9`, 9 in no mission, empties `Current` and loads
+HQ from `Maps`; a value of the mission with no file in `Current` loads the
+URL's map from `Maps`, `Current` kept; and a value naming the level left
+finds it there, just saved. A load from `Maps` leaves the option on the last
+URL, so the console's next `open` and a map exit carry it, until a travel
+names another, the console's `start` drops it or a level comes from
+`Current` or a save: after `?load=9` every such travel empties `Current`, so
+a level left and come back to begins again (`URLEdgesConsole` with `Short`:
+the same lines in both engines but the held `LevelInfo`'s, a crate left in
+each level found again only where it came back from `Current`, and the
+island opened after `?load=9` from `Maps` with the URL `Index.dx`).
 Before a level is saved into `Current`, the
 augmentations, skills and flag base that travel with the player go from it,
 a decoration in its hands too (`PruneTravelActors`; `ReturnConsole`). The
@@ -183,11 +195,13 @@ both engines). A level's URL, which
 `Level.GetLocalURL` gives, is the one it was entered by, as the original's
 `LoadMap` sets it: a level returned to from `Current` names the saved file,
 `..\Save\Current\<map>.dxs` with the travel's options, as the original's
-browse loads it; a load -- an option starting `load`, `?loadonly` or
-`?loadgame` -- leaves the URL the level holds, a map file's `Index.dx`
-(every stock map's), so a restarted level's is `Index.dx`, or a save's, the
-URL its level was entered by, which a save keeps. A travel builds on the
-last URL, the one the level was entered by, less its `?loadonly` and its
+browse loads it; a load -- an option starting `load`, `?loadonly`,
+`?loadgame` or `?load=` -- leaves the URL the level holds, a map file's
+`Index.dx` (every stock map's), so a restarted level's is `Index.dx`, or a
+save's, the URL its level was entered by, which a save keeps. A travel
+builds on the last URL, the one the level was entered by -- a level's from
+`Current` or a save its own once the player is in, as the original's
+browse makes it --, less its `?loadonly` and its
 portal, as the original's game engine takes them off: a map exit's takes its
 server, map and options, the player's name and class among them, a console's
 `open` its options; an absolute travel, the console's `start`, takes the
@@ -199,6 +213,11 @@ Nothing else is added: the travel after a restart has no option, and none
 has the game's `?Difficulty` (`URLConsole`: the same six URLs in both
 engines, from the menu map through Liberty Island, UNATCO HQ, the island
 again from `Current`, its restart and UNATCO HQ again, and the same logins).
+`GetURLMap` gives the last URL's map, as the original's reads the game
+engine's (Engine.dll `0x103b8df0`): once a level is in, after a load from
+`Maps` the map its URL named, where the level's own URL is `Index.dx`
+(`URLEdgesConsole`: `01_NYC_UNATCOHQ` after `open 01_NYC_UNATCOHQ?load=9`,
+the level's URL 8 characters long).
 The player's options a URL starts from are every key of the user ini's
 `[DefaultPlayer]`, in its order and as the ini spells it, a key given twice
 its last value, and a line with no name, `=x`, the option `=x`, as the
@@ -2594,6 +2613,12 @@ it. `GarbageConsole` and `DeleteConsole` run both engines. Differs by choice:
   reference reaches. Without it a conversation event's `speaker`, the game
   replication info's `PRIArray` or a HUD's `clientObject` keeps a whole
   level. No stock script reads such a reference before setting it again.
+  The original's browse takes the level's mission from the first
+  `DeusExLevelInfo` in its object list (DeusEx.dll `0x100120a0`), which a
+  level kept so can be: with the menu map's `LevelInfo` held, its browses
+  from Liberty Island and UNATCO HQ read the menu's -2 and empty `Current`
+  as for a new mission, where DXEngine's read the level's own
+  (`URLEdgesConsole` with `Short` and `Hold`).
 - **Code is never freed**, where the original's frees a script class nothing
   uses and loads it again when asked for.
 
@@ -2957,7 +2982,12 @@ What DXEngine does with each:
   loaded before any map but Entry, as the original's first browse loads it
   (`StartConsole`, the original's with `DXCAP_START`), whatever map it
   names; a slot with none starts at `DX.dx`. A start URL that does not
-  read is fatal, `Invalid URL: <url>`, as the original's.
+  read is fatal, `Invalid URL: <url>`, as the original's. The start
+  empties `Current`, as the original's first browse does from the Entry
+  level, which holds no `DeusExLevelInfo` and so is in no mission: no level
+  an earlier run left there comes back (`RevisitConsole` begun on UNATCO HQ
+  twice, the original's with `DXCAP_START`: the second run's island from
+  `Maps` in both engines, its crate alone).
   Differs by choice: the player is the one saved, as the game's own load
   gives it (`LoadConsole`), where the original's start logs the player in
   with the travel info the level was saved with -- on a map the player
