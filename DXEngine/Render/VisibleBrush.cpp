@@ -9,6 +9,7 @@
 #include "Packages/Engine/Subsystems/UDXEngineRenderDevice.h"
 #include "Packages/Engine/Actors/Brush/UMover.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
+#include "Packages/Engine/Actors/Info/UZoneInfo.h"
 #include "Collision/TopLevel/CollisionSystem.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Resources/Level/UPolys.h"
@@ -39,11 +40,13 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
 	frame->Device->SetSceneNode(&brushframe);
 	bool needTranslucentPass = false;
 
-	// Each polygon once: a translucent or modulated one blends again each
-	// time it is drawn
-	for (const Poly& poly : brush->Polys->Polys)
+	// Each polygon once, as the brush tracker last filed it: a translucent
+	// or modulated one blends again each time it is drawn
+	const Array<Fragments>* filed = engine->Level->Collision.FiledFragments(mover);
+	const Array<Poly>& polys = brush->Polys->Polys;
+	for (size_t i = 0; i < polys.size(); i++)
 	{
-		if (DrawBrushPoly(frame, brush, poly, mover, translucentPass))
+		if (DrawBrushPoly(frame, brush, polys[i], mover, translucentPass, filed && i < filed->size() ? &(*filed)[i] : nullptr))
 			needTranslucentPass = true;
 	}
 
@@ -60,12 +63,19 @@ void VisibleBrush::DrawMirrorSeal(VisibleFrame* frame, UMover* mover, const Poly
 	ToWorld = MoverToWorld(mover);
 	brushframe.ObjectToWorld = ToWorld;
 	frame->Device->SetSceneNode(&brushframe);
-	DrawBrushPoly(frame, mover->Brush(), poly, mover, false, true);
+	const Array<Fragments>* filed = engine->Level->Collision.FiledFragments(mover);
+	size_t index = (size_t)(&poly - mover->Brush()->Polys->Polys.data());
+	DrawBrushPoly(frame, mover->Brush(), poly, mover, false, filed && index < filed->size() ? &(*filed)[index] : nullptr, true);
 	frame->Device->SetSceneNode(&frame->Frame);
 }
 
-bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, UMover* mover, bool translucentPass, bool seal)
+bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, UMover* mover, bool translucentPass, const Fragments* fragments, bool seal)
 {
+	// One the brush tracker dropped whole -- in solid, or for want of room --
+	// is in no node of the BSP, and the original's walk never meets it
+	if (fragments && fragments->empty() && !seal)
+		return false;
+
 	// The surface the brush tracker files for the polygon, its texture's own
 	// flags with it, as the original's walk takes every surface of the BSP,
 	// a mover's among them: a grate whose texture alone is masked is drawn
@@ -119,12 +129,6 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
 
 	//UpdateTexture(poly.Texture);
 
-	auto zoneActor = mover->Region().Zone;
-	if (!zoneActor)
-		zoneActor = engine->LevelInfo;
-	float ZoneUPanSpeed = zoneActor->TexUPanSpeed();
-	float ZoneVPanSpeed = zoneActor->TexVPanSpeed();
-
 	SurfaceInfo surfaceinfo;
 	UTexture* polyTex = poly.Texture;
 	if (!polyTex)
@@ -142,11 +146,11 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
 		polyTex = sprite->GetAnimTexture();
 	}
 
+	UTexture* tex = nullptr;
 	if (polyTex)
 	{
-		UTexture* tex = polyTex->GetAnimTexture();
+		tex = polyTex->GetAnimTexture();
 		engine->render->UpdateTexture(tex);
-		engine->render->UpdateTextureInfo(texture, poly, tex, ZoneUPanSpeed, ZoneVPanSpeed);
 		surfaceinfo.Texture = &texture;
 
 		// Deus Ex's detail and macro textures not panned with the
@@ -154,40 +158,48 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
 		UTexture* detailTexture = engine->render->DetailTexturesDrawn && (PolyFlags & PF_Portal) == 0 ? tex->DetailTexture() : nullptr;
 		if (detailTexture)
 		{
-			UTexture* tex = detailTexture->GetAnimTexture();
-			engine->render->UpdateTexture(tex);
-			engine->render->UpdateTextureInfo(detailtex, tex);
+			UTexture* detail = detailTexture->GetAnimTexture();
+			engine->render->UpdateTexture(detail);
+			engine->render->UpdateTextureInfo(detailtex, detail);
 			surfaceinfo.DetailTexture = &detailtex;
 		}
 
 		if (polyTex->MacroTexture())
 		{
-			UTexture* tex = polyTex->MacroTexture()->GetAnimTexture();
-			engine->render->UpdateTexture(tex);
-			engine->render->UpdateTextureInfo(macrotex, tex);
+			UTexture* macro = polyTex->MacroTexture()->GetAnimTexture();
+			engine->render->UpdateTexture(macro);
+			engine->render->UpdateTextureInfo(macrotex, macro);
 			surfaceinfo.MacroTexture = &macrotex;
 		}
 	}
+	surfaceinfo.PolyFlags = PolyFlags;
 
-	int numverts = (int)poly.Vertices.size();
-	const vec3* points = poly.Vertices.data();
-
-	SurfaceFacet facet;
-	facet.MapCoords.Origin = poly.Base;
-	facet.MapCoords.XAxis = poly.TextureU;
-	facet.MapCoords.YAxis = poly.TextureV;
-	facet.Vertices = const_cast<vec3*>(points);
-	facet.VertexCount = numverts;
-
+	// The zone a part is drawn in, which pans its texture at its speeds and
+	// gives its light map its ambient light and its fog map its fog, as the
+	// original's draw list takes a surface's zone (dx-reverse-info
+	// render-dll.md, light maps)
 	TextureInfo lightmap;
 	TextureInfo fogmap;
-	if ((PolyFlags & PF_Unlit) == 0 && !seal)
+	UZoneInfo* drawnZone = nullptr;
+	auto drawIn = [&](UZoneInfo* zone)
 	{
-		lightmap = engine->Level->Light.GetMoverLightmap(mover, poly, zoneActor, model);
-		// Deus Ex's only as VisibleNode's makes one
-		if (frame->VolumetricFog && (PolyFlags & PF_Translucent) == 0)
-			fogmap = engine->Level->Light.GetMoverFogmap(mover, poly, zoneActor, model);
-	}
+		if (zone == drawnZone)
+			return;
+		drawnZone = zone;
+		if (tex)
+			engine->render->UpdateTextureInfo(texture, poly, tex, zone->TexUPanSpeed(), zone->TexVPanSpeed());
+		lightmap = {};
+		fogmap = {};
+		if ((PolyFlags & PF_Unlit) == 0 && !seal)
+		{
+			lightmap = engine->Level->Light.GetMoverLightmap(mover, poly, zone, model);
+			// Deus Ex's only as VisibleNode's makes one
+			if (frame->VolumetricFog && (PolyFlags & PF_Translucent) == 0)
+				fogmap = engine->Level->Light.GetMoverFogmap(mover, poly, zone, model);
+		}
+		surfaceinfo.LightMap = lightmap.NumMips != 0 ? &lightmap : nullptr;
+		surfaceinfo.FogMap = fogmap.NumMips != 0 ? &fogmap : nullptr;
+	};
 
 	// A step toward the viewer, as the original's walk draws a polygon its
 	// brush tracker filed in front of the level's surfaces before them; one
@@ -195,15 +207,76 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
 	// that plane's chain, after the level's surface, which hides it where it
 	// occludes (the floor of 00_Intro under its trap door: bugs.md REN.26),
 	// so a step away
-	const Array<uint8_t>* inLevelPlane = engine->Level->Collision.FiledInLevelPlane(mover);
-	size_t polyIndex = (size_t)(&poly - model->Polys->Polys.data());
-	bool behindLevel = inLevelPlane && polyIndex < inLevelPlane->size() && (*inLevelPlane)[polyIndex];
+	auto drawPart = [&](const vec3* corners, int count, bool behindLevel)
+	{
+		SurfaceFacet facet;
+		facet.MapCoords.Origin = poly.Base;
+		facet.MapCoords.XAxis = poly.TextureU;
+		facet.MapCoords.YAxis = poly.TextureV;
+		facet.Vertices = const_cast<vec3*>(corners);
+		facet.VertexCount = count;
+		surfaceinfo.DepthBias = behindLevel ? -1 : 1;
+		frame->Device->DrawComplexSurface(&frame->Frame, surfaceinfo, facet);
+	};
 
-	surfaceinfo.PolyFlags = PolyFlags;
-	surfaceinfo.DepthBias = behindLevel ? -1 : 1;
-	surfaceinfo.LightMap = lightmap.NumMips != 0 ? &lightmap : nullptr;
-	surfaceinfo.FogMap = fogmap.NumMips != 0 ? &fogmap : nullptr;
+	// The zone the polygon is drawn in. One the tracker does not file
+	// (spawned after the load) takes the mover's own, and so does a mirror's
+	// seal, its depth alone. A filed one takes the zones of the fragments
+	// its last filing left, as the original's walk draws each fragment's
+	// node: in the node's zone on the side of its own plane the eye lies --
+	// its parent's on its side, or, hung in a node's plane, that plane's on
+	// each side --, the LevelInfo for a zone with no ZoneInfo (Render.dll
+	// OccludeBsp 0x10b173d0: the side at 0x10b17d9f, a plane chain's next
+	// node's by its own plane at 0x10b19b8c, the zone at 0x10b19561 and its
+	// actor at 0x10b19577, whose ambient light SetupForSurf takes,
+	// 0x10b06e83 and 0x10b07fa8)
+	CollisionSystem& collision = engine->Level->Collision;
+	const vec4& eye = frame->ViewLocation;
+	auto zoneOf = [&](const BrushTracker::FiledFragment& fragment) -> UZoneInfo*
+	{
+		const BspNode& node = collision.FiledNode(fragment.Node);
+		bool front = node.PlaneZ * eye.z + node.PlaneY * eye.y + eye.x * node.PlaneX - node.PlaneW > 0.0f;
+		return engine->GetZoneActor(front ? node.Zone1 : node.Zone0);
+	};
+	UZoneInfo* zoneActor = nullptr;
+	if (!fragments || seal)
+	{
+		zoneActor = mover->Region().Zone;
+		if (!zoneActor)
+			zoneActor = engine->LevelInfo;
+	}
+	else
+	{
+		zoneActor = zoneOf(fragments->front());
+	}
+	bool acrossZones = false;
+	bool inLevelPlane = false;
+	if (fragments)
+	{
+		for (const BrushTracker::FiledFragment& fragment : *fragments)
+		{
+			inLevelPlane = inLevelPlane || fragment.InLevelPlane;
+			if (!seal && zoneOf(fragment) != zoneActor)
+				acrossZones = true;
+		}
+	}
 
-	frame->Device->DrawComplexSurface(&frame->Frame, surfaceinfo, facet);
+	// In one zone, as all but a few are, the polygon drawn whole, where the
+	// original draws its fragments, by choice: the same picture, without the
+	// seams its splits leave between them; a step away where some fragment
+	// hangs in a level surface's plane
+	if (!acrossZones)
+	{
+		drawIn(zoneActor);
+		drawPart(poly.Vertices.data(), (int)poly.Vertices.size(), inLevelPlane);
+		return false;
+	}
+
+	// Across zones, each fragment in its own, as the original's walk draws it
+	for (const BrushTracker::FiledFragment& fragment : *fragments)
+	{
+		drawIn(zoneOf(fragment));
+		drawPart(collision.FiledCorners(fragment.Node), collision.FiledNode(fragment.Node).NumVertices, fragment.InLevelPlane);
+	}
 	return false;
 }

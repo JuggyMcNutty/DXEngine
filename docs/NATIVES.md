@@ -917,7 +917,8 @@ files them into the level ([the movers in the
 BSP](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
 its static lights through the shadows raytraced at its `BrushRaytraceKey`,
 the moving ones over it there, its map built again when it moves or turns,
-its zone's ambient light the mover's own (bugs.md REN.34).
+each fragment the tracker filed with the ambient light of its node's zone
+([draw order and movers](#draw-order-and-movers)).
 `MoverLightConsole` at 1024x768, Liberty Island's `DeusExMover10` moved 100
 units off its place: the door at 1.003 of the original's frame under its own
 lights and 1.000 with a lamp 48 units before it, where it was 0.82 and 0.43,
@@ -1112,7 +1113,25 @@ original's frame. `IntroDoorConsole`: the
 trap door under Bob Page and Walton Simons on 00_Intro, its top in the
 marble floor's plane, under the floor's lit marble as in the original's
 frame (the panel round their feet correlated at 0.91 with it, on Vulkan,
-GL and the software device). A mover's polygon takes its texture's own
+GL and the software device). A mover's polygon takes the zones of the
+fragments the brush tracker last filed it into, as the original's walk
+draws them: each fragment its node's zone on the side of its plane the eye
+lies -- its parent's on its side, or, hung in a node's plane, that plane's
+on each side --, lit by that zone's ambient light, panned at its speeds
+and fogged by it
+([light maps](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps)),
+and one the tracker dropped whole, in solid, is not drawn. So a mover whose
+place lies in another zone than its faces, or a door across two zones, is
+lit by the zone of each part: `GlassConsole` with `GlassName=DeusExMover35`
+on 06_HongKong_WanChai_Street, a door whose faces lie in a zone of ambient
+20 and its place in the LevelInfo's of 0, at 1024x768 the frame at 1.009
+of the original's and from the other side 1.001, where it was 0.931 and
+0.912; with `GlassName=DeusExMover2` on 12_Vandenberg_Cmd, a door across
+its place's zone of ambient 3 and one of 0, the face in the zone of 0 as
+dark as the original's (0.995 of its frame, where the zone of 3 lit it 81
+times as bright), the other face as it was (0.948); `BreakableGlass8` on
+03_NYC_Airfield, in one zone, drawn alike before and after. A mover's
+polygon takes its texture's own
 flags with its own, as the original's walk takes the surface the brush
 tracker files for it, its back-face test on the polygon's alone: a grate
 whose texture alone is masked (`CoreTexMetal.Metal.metalgrate_a`, the five
@@ -1168,9 +1187,15 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   toward the viewer, a polygon filed in a level surface's plane a step away
   ([rendering](ENGINE.md#rendering)): their opaque
   polygons with the solid actors, their translucent ones among the
-  surfaces. The original files their polygons into the level's BSP and
-  drops what lands in solid, a polygon in a wall's plane filed in front of
-  the wall's. So one flush with a wall shows over it in both, by the step
+  surfaces. The original draws each fragment the brush tracker filed of a
+  polygon as one of the level's surfaces, one in a wall's plane filed in
+  front of the wall's. DXEngine draws a polygon whose fragments lie in one
+  zone whole, by choice: the same light, without the seams the BSP's
+  splits can leave between fragments (of the stock maps' 34,712 visible mover
+  polygons, 11,009 are split at their load, 5,451 into three fragments or
+  more, and 160 across zones, drawn fragment by fragment, each a step
+  toward the viewer or, filed in a level surface's plane, away). So one
+  flush with a wall shows over it in both, by the step
   in DXEngine: `FlushConsole`'s pocket door (Liberty Island's
   `DeusExMover12` slid half into the flat wall beside it) shows the door,
   head on and from 1,200 units at 75 degrees. No device here fights there
@@ -1190,9 +1215,6 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   or save, its drawing reading the destroyed actor, a freed one once 128
   destroyed actors are cleaned up; the game's movers are `bNoDelete`, and
   refuse (`GlassConsole` with `Destroy`, in both engines).
-
-Differs (bugs.md REN.34): a mover's faces all take the mover's zone, the
-original's each its node's.
 
 ### Fire, water and ice textures
 

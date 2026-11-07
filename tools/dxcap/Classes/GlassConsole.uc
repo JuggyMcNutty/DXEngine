@@ -18,7 +18,9 @@
 // on two more, of the crate and the sprite alone. Each shot marked for the
 // original's grabber; then exit. Before the first, what TraceTexture gives
 // along the line from the view through the glass's middle and as far
-// again: each hit's actor, texture, group and flags.
+// again: each hit's actor, texture, group and flags; and the zone, with its
+// ambient light and fog, a unit off each of the glass's two faces along its
+// thinnest side, and at the view.
 // Pick -1 is a census instead: every glass mover, its box and the room on
 // each side, then an exit. Each line is logged with "DXGLASS:" in front.
 //=============================================================================
@@ -262,7 +264,31 @@ function bool Choose(PlayerPawn P)
 	Log("DXGLASS: chosen " $ Glass.Name $ " at " $ Glass.Location $ " box " $ Min $ " to " $ Max $ " middle " $ Middle
 		$ " eye " $ Eye $ " room " $ Near $ " crate at " $ CrateSpot $ " sprite at " $ SignSpot $ " room behind " $ Far
 		$ " zone " $ Glass.Region.Zone.Name $ " style " $ int(Glass.Style) $ " glow " $ Glass.ScaleGlow);
+	// The zones its faces lie in, which may not be the zone of its place
+	// above: the face toward the view, the far one, and the view's
+	Log("DXGLASS: zone at the near face " $ ZoneAt(P, Middle + A * (Half + 1)) $ ", at the far face "
+		$ ZoneAt(P, Middle - A * (Half + 1)) $ ", at the view " $ ZoneAt(P, Eye));
 	return true;
+}
+
+// The zone at Spot, by a hidden probe put there and gone at once, with its
+// ambient light and fog: the zone a face lying there is lit by
+function string ZoneAt(PlayerPawn P, vector Spot)
+{
+	local Effects Probe;
+	local ZoneInfo Z;
+
+	Probe = P.Spawn(class'Effects',,, Spot);
+	if (Probe == None)
+		return "none";
+	Probe.SetCollision(false, false, false);
+	Probe.bHidden = true;
+	Z = Probe.Region.Zone;
+	Probe.Destroy();
+	if (Z == None)
+		return "None";
+	return string(Z.Name) $ " (ambient " $ Z.AmbientBrightness $ " hue " $ Z.AmbientHue $ " saturation " $ Z.AmbientSaturation
+		$ ", fog " $ Z.bFogZone $ ")";
 }
 
 // TraceTexture's hits from the view through the glass's middle and as far

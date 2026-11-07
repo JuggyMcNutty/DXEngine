@@ -25,6 +25,7 @@ void BrushTracker::Clear()
 	LineNodes.clear();
 	Slots.clear();
 	VertOwners.clear();
+	VertCorners.clear();
 	SlotVerts.clear();
 	FiledSurfaces.clear();
 	Movers.clear();
@@ -115,6 +116,7 @@ void BrushTracker::Start(ULevel* level)
 	VertOwners.resize(VertPoolSize);
 	for (Tracked*& owner : VertOwners)
 		owner = nullptr;
+	VertCorners.resize(VertPoolSize);
 	NextVert = 0;
 
 	Array<Tracked*> queue;
@@ -221,6 +223,7 @@ void BrushTracker::Free(Tracked* tracked)
 		slot = Slot();
 	}
 	tracked->Nodes.clear();
+	tracked->Polys.clear();
 }
 
 // One mover filed where it is: its polygons in the world, the nodes sorted
@@ -248,6 +251,7 @@ void BrushTracker::File(Tracked* tracked)
 			fragment.Vertices.push_back(world);
 			points.push_back(world);
 		}
+		fragment.Corners = poly.Vertices;
 		fragment.Base = (objectToWorld * vec4(poly.Base, 1.0f)).xyz();
 		vec3 normal = (rotation * vec4(poly.Normal, 0.0f)).xyz();
 		float len = length(normal);
@@ -280,7 +284,7 @@ void BrushTracker::File(Tracked* tracked)
 		PrecomputeSphereFilter(sphere);
 	}
 
-	tracked->InLevelPlane.assign(polys.size(), 0);
+	tracked->Polys.assign(polys.size(), Array<FiledFragment>());
 	if (!LineNodes.empty())
 	{
 		for (size_t i = 0; i < polys.size(); i++)
@@ -336,8 +340,11 @@ namespace
 	// FPoly::SplitWithPlaneFast (Engine.dll 0x10386ad0): each corner behind
 	// the plane when under 0 from it, the polygon in front when one is over
 	// 0.25 in front and none under -0.25, and so behind; split where corners
-	// lie past 0.25 on both sides, each edge's crossing given to both parts
-	int SplitWithPlaneFast(const Array<vec3>& vertices, const vec4& plane, Array<vec3>* front, Array<vec3>* back)
+	// lie past 0.25 on both sides, each edge's crossing given to both parts.
+	// The corners in the brush's own space are split with them, each
+	// crossing at the same fraction of its edge, which the brush's transform
+	// maps to the world's.
+	int SplitWithPlaneFast(const Array<vec3>& vertices, const Array<vec3>& corners, const vec4& plane, Array<vec3>* front, Array<vec3>* frontCorners, Array<vec3>* back, Array<vec3>* backCorners)
 	{
 		int count = (int)vertices.size();
 		if (count <= 0)
@@ -369,11 +376,15 @@ namespace
 
 		front->clear();
 		back->clear();
+		frontCorners->clear();
+		backCorners->clear();
 		int prevBehind = behind[count - 1];
 		vec3 prev = vertices[count - 1];
+		vec3 prevCorner = corners[count - 1];
 		for (int i = 0; i < count; i++)
 		{
 			const vec3& v = vertices[i];
+			const vec3& c = corners[i];
 			if (behind[i] != prevBehind)
 			{
 				vec3 d = v - prev;
@@ -381,13 +392,24 @@ namespace
 				vec3 crossing(d.x * t + prev.x, d.y * t + prev.y, d.z * t + prev.z);
 				back->push_back(crossing);
 				front->push_back(crossing);
+				vec3 dc = c - prevCorner;
+				vec3 cornerCrossing(dc.x * t + prevCorner.x, dc.y * t + prevCorner.y, dc.z * t + prevCorner.z);
+				backCorners->push_back(cornerCrossing);
+				frontCorners->push_back(cornerCrossing);
 			}
 			if (behind[i])
+			{
 				back->push_back(v);
+				backCorners->push_back(c);
+			}
 			else
+			{
 				front->push_back(v);
+				frontCorners->push_back(c);
+			}
 			prevBehind = behind[i];
 			prev = v;
+			prevCorner = c;
 		}
 		return SplitBoth;
 	}
@@ -423,6 +445,7 @@ void BrushTracker::FilterPoly(int surface, int node, int coplanarParent, Fragmen
 				half.Normal = poly.Normal;
 				half.PolyFlags = poly.PolyFlags;
 				SplitInHalf(poly.Vertices, half.Vertices);
+				SplitInHalf(poly.Corners, half.Corners);
 				FilterPoly(surface, node, coplanarParent, half, outside);
 			}
 			if (n->NodeFlags & NF_IsFront)
@@ -437,7 +460,7 @@ void BrushTracker::FilterPoly(int surface, int node, int coplanarParent, Fragmen
 			{
 				vec4 plane(n->PlaneX, n->PlaneY, n->PlaneZ, n->PlaneW);
 				Fragment frontPart, backPart;
-				int result = SplitWithPlaneFast(poly.Vertices, plane, &frontPart.Vertices, &backPart.Vertices);
+				int result = SplitWithPlaneFast(poly.Vertices, poly.Corners, plane, &frontPart.Vertices, &frontPart.Corners, &backPart.Vertices, &backPart.Corners);
 				if (result == SplitFront)
 				{
 					toFront = true;
@@ -501,7 +524,8 @@ void BrushTracker::FilterPoly(int surface, int node, int coplanarParent, Fragmen
 // AddPolyFragment (Engine.dll 0x1037bb00): a node for a fragment in empty
 // space, hung from its parent as that side's child, or for one in a node's
 // plane at the end of the plane's chain; dropped when no slot or vertex room
-// is left
+// is left. Its corners kept, in its brush's own space, for the renderer to
+// draw it.
 void BrushTracker::AddPolyFragment(int surface, int parent, int coplanarParent, int side, const Fragment& poly)
 {
 	int linkParent = parent;
@@ -566,7 +590,9 @@ void BrushTracker::AddPolyFragment(int surface, int parent, int coplanarParent, 
 		return;
 	}
 	SlotVerts[node - FirstNode] = verts;
-	n.VertPool = -1; // its corners are not kept: no line walk reads them
+	n.VertPool = -1; // its corners are its slots' (Corners): no line walk reads them
+	for (int i = 0; i < n.NumVertices; i++)
+		VertCorners[verts + i] = poly.Corners[i];
 
 	BspNode& hang = LineNodes[linkParent];
 	if (link == 0)
@@ -577,10 +603,11 @@ void BrushTracker::AddPolyFragment(int surface, int parent, int coplanarParent, 
 		hang.Plane = node;
 	Filing->Nodes.push_back(node);
 
-	// In the plane of a node of the level's own: after it in the chain
+	// Its polygon's, and whether it is in the plane of a node of the level's
+	// own, after it in the chain
 	size_t polyIndex = (size_t)(surface - Filing->FirstSurface);
-	if (coplanarParent != -1 && coplanarParent < FirstNode && polyIndex < Filing->InLevelPlane.size())
-		Filing->InLevelPlane[polyIndex] = 1;
+	if (polyIndex < Filing->Polys.size())
+		Filing->Polys[polyIndex].push_back({ node, coplanarParent != -1 && coplanarParent < FirstNode });
 }
 
 // A free node slot, from the last one taken on, then from the first back to
@@ -656,14 +683,19 @@ const BspSurface& BrushTracker::Surface(int index) const
 	return FiledSurfaces[index - FirstFiledSurface];
 }
 
-const Array<uint8_t>* BrushTracker::InLevelPlane(const UMover* mover) const
+const Array<Array<BrushTracker::FiledFragment>>* BrushTracker::Fragments(const UMover* mover) const
 {
 	for (const auto& tracked : Movers)
 	{
 		if (tracked->Mover == mover)
-			return &tracked->InLevelPlane;
+			return &tracked->Polys;
 	}
 	return nullptr;
+}
+
+const vec3* BrushTracker::Corners(int node) const
+{
+	return &VertCorners[SlotVerts[node - FirstNode]];
 }
 
 void BrushTracker::Mark(GCMarker& marker)

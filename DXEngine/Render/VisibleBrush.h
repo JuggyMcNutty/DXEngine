@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Math/mat.h"
+#include "Collision/TopLevel/BrushTracker.h"
 
 class VisibleFrame;
 class UActor;
@@ -19,7 +20,11 @@ public:
 	static mat4 MoverToWorld(UMover* mover);
 
 private:
-	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, UMover* mover, bool translucentPass, bool seal = false);
+	// The polygon's fragments as the brush tracker last filed them, null for
+	// a mover it does not file (BrushTracker::Fragments)
+	using Fragments = Array<BrushTracker::FiledFragment>;
+
+	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, UMover* mover, bool translucentPass, const Fragments* fragments, bool seal = false);
 
 	mat4 ToWorld;
 };
