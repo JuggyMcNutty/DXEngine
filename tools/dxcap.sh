@@ -310,6 +310,7 @@ stop_original() {
 # So they are copied in from the Proton build's lib/vkd3d when missing.
 ensure_prefix() {
     [ -f "$PREFIX/system.reg" ] || make_prefix
+    ln -sfn "$CAP" "$PREFIX/dosdevices/x:"   # original_inis' drive
     local vkd3d="${WINE%/bin/wine}/lib/vkd3d" arch dir f
     for arch in x86_64:system32 i386:syswow64; do
         dir="$PREFIX/drive_c/windows/${arch#*:}"
@@ -338,14 +339,15 @@ enginepath() { if windows_engine; then winpath "$1"; else printf '%s' "$1"; fi; 
 ini_case() { if [ "${DXCAP_INI_CASE:-0}" = 1 ]; then printf '%s/%s' "${1%[/\\]*}" "$(printf '%s' "${1##*[/\\]}" | tr '[:lower:]' '[:upper:]')"; else printf '%s' "$1"; fi; }
 # original_inis <ini> <userini>: the original's INI= and USERINI= into the
 # caller's inis, by DXCAP_INI_CASE and DXCAP_USERINI_FIRST, each through the
-# prefix's drive X:, the harness's System folder, where both files are: Wine
+# prefix's drive X:, the harness's folder, both files in its System: Wine
 # quotes an argument that holds a space before its INI=, and the original's
-# Parse cuts the value at the space (Core.dll 0x10146c4e).
+# Parse cuts the value at the space (Core.dll 0x10146c4e). The whole folder,
+# not System alone: a program started in a drive's root (UCC in System)
+# finds nothing by its ..\System paths.
 original_inis() {
-    ln -sfn "$CAP/System" "$PREFIX/dosdevices/x:"
     local ini userini
-    ini="$(ini_case "X:/${1##*/}")"
-    userini="$(ini_case "X:/${2##*/}")"
+    ini="$(ini_case "X:/System/${1##*/}")"
+    userini="$(ini_case "X:/System/${2##*/}")"
     inis=("INI=${ini//\//\\}" "USERINI=${userini//\//\\}")
     [ "${DXCAP_USERINI_FIRST:-0}" != 1 ] || inis=("${inis[1]}" "${inis[0]}")
 }

@@ -529,9 +529,10 @@ for the stock game's, serve the original here as for the [net tests](#net-tests)
 - **One at a time**: `original` and `dedicated original` refuse to start while an original
   runs, which a second forwards its command line to, unless it is a server
   ([single-instance forwarding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/launch-flow.md#1-single-instance-forwarding-0x10908a300x10908cd1)).
-- **Its ini through the prefix's drive `X:`**, the harness's `System` folder: Wine quotes an
-  argument that holds a space before its `INI=`, and the original's Parse cuts the value at the
-  space, so a parent folder with a space would leave it no ini.
+- **Its ini through the prefix's drive `X:`**, `build/dxcap` (`X:\System\Original.ini`): Wine
+  quotes an argument that holds a space before its `INI=`, and the original's Parse cuts the
+  value at the space, so a parent folder with a space would leave it no ini. A program started
+  under `build/dxcap` runs on `X:` too (UCC's base directory `X:\System\`).
 - **It boots its menu map** whatever map its command line or ini names, but with `-hax0r`
   (`DXCAP_START`) or as a dedicated server (`dedicated`: `<map> -server`); a console class
   travels with `open <map>` itself.
