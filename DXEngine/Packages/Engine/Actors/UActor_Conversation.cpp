@@ -31,7 +31,7 @@ void UActor::DeusExConBindEvents()
 	// ADeusExPlayer::ConBindEvents DeusEx.dll 0x10014320): a package or a
 	// list that is not there binds nothing and keeps the old list, an empty
 	// ConversationPackage too, as Text.ConList_MissionNN is none.
-	std::string pkgPrefix = ScriptToLatin1(info->ConversationPackage());
+	std::string pkgPrefix = ScriptToUTF8(info->ConversationPackage());
 	if (NameString(pkgPrefix) == "DeusExConversations")
 		pkgPrefix = "DeusExCon";
 	NameString pkgName(pkgPrefix + "Text");

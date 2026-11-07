@@ -1035,6 +1035,11 @@ Array<std::string> PackageManager::GetIniKeysFromSection(NameString iniName, con
 	return LoadIniFile(iniName)->GetKeys(sectionName);
 }
 
+Array<std::pair<std::string, std::string>> PackageManager::GetIniKeyValues(NameString iniName, const NameString& sectionName)
+{
+	return LoadIniFile(iniName)->GetKeyValues(sectionName);
+}
+
 std::string PackageManager::GetIniValue(NameString iniName, const NameString& sectionName, const NameString& keyName, std::string default_value)
 {
 	return LoadIniFile(iniName)->GetValue(sectionName, keyName, default_value);

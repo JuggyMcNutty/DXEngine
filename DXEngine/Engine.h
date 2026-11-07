@@ -81,11 +81,13 @@ public:
 	static bool IsStopSignalled();
 	void ClientTravel(const std::string& URL, ETravelType travelType, bool transferItems);
 	UnrealURL GetDefaultURL(const std::string& map);
-	// The player's options in the URL: Deus Ex's every key of the user ini's
-	// [DefaultPlayer] as the ini spells them, in its order, a key given twice
-	// its last value, as the original's FURL::LoadURLConfig adds the section
-	// (Engine.dll 0x103f9bc0).
-	Array<std::string> DefaultPlayerOptionKeys();
+	// The player's options in the URL, each Key=value: Deus Ex's every key of
+	// the user ini's [DefaultPlayer] as the ini spells them, in its order, a
+	// key given twice its last value, and a line with no name (=x) the option
+	// =x, as the original's FURL::LoadURLConfig adds the section's lines
+	// (Engine.dll 0x103f9bc0), each in place of one of its name before it
+	// (AddOption 0x103f9960): =x after =y one, a nameless one's place.
+	Array<std::string> DefaultPlayerOptions();
 	void SetMultiplayerName(UnrealURL& url);
 	void LoadEntryMap();
 	// The Entry level made the level played, a new player spawned in it, as
@@ -213,7 +215,6 @@ public:
 
 	bool ExecCommand(const Array<std::string>& args, const std::string& line, std::string& output);
 	Array<std::string> GetArgs(const std::string& commandline);
-	Array<std::string> GetSubcommands(const std::string& commandline);
 
 	void UpdateAudio();
 
@@ -420,7 +421,8 @@ private:
 	void ExecFile(UObject* context, const std::string& filename);
 	// What the launcher sends: its TakeFocus and Open (LauncherLine).
 	void OnLauncherLine(const std::string& line);
-	void Relaunch(const std::string& commandline);
+	// RELAUNCH: line the text past the word
+	void Relaunch(const std::string& line);
 
 	void LogGamePackageSHA1Sums() const;
 	void GetLevelInfoObject();

@@ -178,6 +178,67 @@ bool StrTools::ue1_parse_token(const std::string_view& str, size_t& pos, std::st
 	return !token.empty();
 }
 
+// The original's ParseCommand (Core.dll 0x10147a20): the blanks and tabs
+// before the word passed over whether it is there or not; a match followed
+// by an ASCII letter or digit is none
+bool StrTools::ue1_parse_command(const std::string_view& str, size_t& pos, const std::string_view& word)
+{
+	while (pos < str.size() && (str[pos] == ' ' || str[pos] == '\t'))
+		pos++;
+	if (str.size() - pos < word.size() || !equals_ignore_case(str.substr(pos, word.size()), word))
+		return false;
+	size_t end = pos + word.size();
+	if (end < str.size())
+	{
+		char c = str[end];
+		if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
+			return false;
+	}
+	pos = end;
+	while (pos < str.size() && (str[pos] == ' ' || str[pos] == '\t'))
+		pos++;
+	return true;
+}
+
+// The original's ParseLine, not exact (Core.dll 0x10147e60): its count
+// taken before each character, the break at a | before the character is
+// read, and the CRs, LFs and |s after the line passed over however it ended
+bool StrTools::ue1_parse_line(const std::string_view& str, size_t& pos, std::string& line, size_t maxLen)
+{
+	line.clear();
+	bool quoted = false, comment = false, got = false;
+	size_t left = maxLen;
+	while (pos < str.size() && str[pos] != '\0' && str[pos] != '\n' && str[pos] != '\r')
+	{
+		// The character's UTF-8 bytes, and its length in the original's
+		// UTF-16 at its lead byte: four bytes two
+		unsigned char c = (unsigned char)str[pos];
+		size_t bytes = 1;
+		while (pos + bytes < str.size() && ((unsigned char)str[pos + bytes] & 0xc0) == 0x80)
+			bytes++;
+		size_t units = c >= 0xf0 ? 2 : 1;
+		if (left <= units)
+			break;
+		left -= units;
+		if (!quoted)
+		{
+			if (c == '/' && pos + 1 < str.size() && str[pos + 1] == '/')
+				comment = true;
+			if (c == '|')
+				break;
+		}
+		if (c == '"')
+			quoted = !quoted;
+		got = true;
+		if (!comment)
+			line.append(str.substr(pos, bytes));
+		pos += bytes;
+	}
+	while (pos < str.size() && (str[pos] == '\n' || str[pos] == '\r' || str[pos] == '|'))
+		pos++;
+	return (pos < str.size() && str[pos] != '\0') || got;
+}
+
 bool StrTools::startswith(const std::string_view& str, const std::string_view& cmp, bool ignoreCase)
 {
 	if (str.size() < cmp.size())

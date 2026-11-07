@@ -63,7 +63,16 @@ public:
 
 	void SaveConfig() override;
 
-	void LoadProperties(PropertyDataBlock* propertyBlock);
+	// The class's config and localized properties read into the block, from
+	// its own section; with localized false its config ones alone. Every
+	// section from fileOf's config file (this class's without one), as the
+	// original's LoadConfig reads its object's class's file alone
+	void LoadProperties(PropertyDataBlock* propertyBlock, bool localized = true, const UClass* fileOf = nullptr);
+	// The config read again into the block as the original's LoadConfig with
+	// its propagation reads it (Core.dll 0x10150d60): each base class's
+	// section first, from the topmost config class down, then the class's
+	// own, all from fileOf's config file (this class's without one)
+	void LoadConfigPropagated(PropertyDataBlock* propertyBlock, const UClass* fileOf = nullptr);
 	void SaveProperties(PropertyDataBlock* propertyBlock);
 
 	uint32_t OldClassRecordSize = 0;

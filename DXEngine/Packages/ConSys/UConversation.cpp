@@ -115,9 +115,9 @@ bool UConversation::BindEventsToActor(UActor* actor, UActor* invokeActor)
 				}
 				if (bound)
 				{
-					transfer->giveObject() = engine->packages->FindClass("DeusEx." + ScriptToLatin1(transfer->ObjectName()));
+					transfer->giveObject() = engine->packages->FindClass("DeusEx." + ScriptToUTF8(transfer->ObjectName()));
 					if (!transfer->giveObject())
-						LogMessage("Could not find class for TransferObject: " + ScriptToLatin1(transfer->ObjectName()));
+						LogMessage("Could not find class for TransferObject: " + ScriptToUTF8(transfer->ObjectName()));
 					taken = true;
 				}
 			}
@@ -134,9 +134,9 @@ bool UConversation::BindEventsToActor(UActor* actor, UActor* invokeActor)
 				}
 				else
 				{
-					check->checkObject() = engine->packages->FindClass("DeusEx." + ScriptToLatin1(check->ObjectName()));
+					check->checkObject() = engine->packages->FindClass("DeusEx." + ScriptToUTF8(check->ObjectName()));
 					if (!check->checkObject())
-						LogMessage("Could not find class for CheckObject: " + ScriptToLatin1(check->ObjectName()));
+						LogMessage("Could not find class for CheckObject: " + ScriptToUTF8(check->ObjectName()));
 				}
 			}
 			break;
@@ -218,16 +218,16 @@ UObject* UConversation::GetSpeechAudio(int soundID)
 	Package* audioPackage = nullptr;
 	try
 	{
-		audioPackage = engine->packages->GetPackage(prefix + "Audio" + ScriptToLatin1(audioPackageName()));
+		audioPackage = engine->packages->GetPackage(prefix + "Audio" + ScriptToUTF8(audioPackageName()));
 	}
 	catch (const std::exception&)
 	{
-		LogMessage("Could not load package " + prefix + "Audio" + ScriptToLatin1(audioPackageName()) + " in Conversation.GetSpeechAudio");
+		LogMessage("Could not load package " + prefix + "Audio" + ScriptToUTF8(audioPackageName()) + " in Conversation.GetSpeechAudio");
 		return nullptr;
 	}
-	UObject* sound = audioPackage->GetUObject("Sound", "ConAudio" + ScriptToLatin1(audioPackageName()) + "_" + std::to_string(soundID));
+	UObject* sound = audioPackage->GetUObject("Sound", "ConAudio" + ScriptToUTF8(audioPackageName()) + "_" + std::to_string(soundID));
 	if (!sound)
-		LogMessage("Could not find sound ConAudio" + ScriptToLatin1(audioPackageName()) + "_" + std::to_string(soundID) + " in Conversation.GetSpeechAudio");
+		LogMessage("Could not find sound ConAudio" + ScriptToUTF8(audioPackageName()) + "_" + std::to_string(soundID) + " in Conversation.GetSpeechAudio");
 	return sound;
 }
 

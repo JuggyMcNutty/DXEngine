@@ -13,8 +13,9 @@ public:
 	NameString() { }
 	NameString(const char* str) { GetIndex(str); }
 	NameString(const std::string& str) { GetIndex(str); }
-	// A name from a script's string, 8-bit, each character past Latin-1 a '?'
-	NameString(const ScriptString& str) { GetIndex(ScriptToLatin1(str)); }
+	// A name from a script's string, its characters kept, as the original's
+	// names keep a 16-bit string's: UTF-8, as every name's text is
+	NameString(const ScriptString& str) { GetIndex(ScriptToUTF8(str)); }
 	NameString(const NameString& other) = default;
 	NameString& operator=(const NameString&) = default;
 

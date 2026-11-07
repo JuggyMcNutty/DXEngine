@@ -107,32 +107,53 @@ int32_t PackageStream::ReadIndex()
 	return index;
 }
 
+// A name of the file's name table as the engine's text, UTF-8, as a name
+// made from a file name, a URL, the ini or StringToName is: its 8-bit
+// characters Latin-1, a byte a character, and one saved 16-bit, its count
+// negative -- a name with a character past Latin-1, as the original's
+// FString saves one -- its characters, as the original reads it (Core.dll
+// 0x101459b0) and keeps them in its name table, each to its first NUL. A
+// name past ASCII was its bytes as they were, which string() read as UTF-8,
+// and a 16-bit one refused the package (bugs.md VM.25).
 std::string PackageStream::ReadString()
 {
+	ScriptString s;
 	if (GetVersion() >= 64)
 	{
 		int len = ReadIndex();
-		// A name's length from the file: a negative one threw bad_alloc and
-		// one up to 2 GB was zero-filled before the read failed
-		if (len < 0 || len > 1024 * 1024)
-			Exception::Throw("PackageStream::ReadString: a string of " + std::to_string(len) + " bytes");
-		Array<char> s;
-		s.resize(len);
-		ReadBytes(s.data(), (int)s.size());
-		s.push_back(0);
-		return s.data();
+		// A name's length from the file: one up to 2 GB was zero-filled
+		// before the read failed
+		if (len < -1024 * 1024 || len > 1024 * 1024)
+			Exception::Throw("PackageStream::ReadString: a string of " + std::to_string(len) + " characters");
+		if (len < 0)
+		{
+			s.resize((size_t)-len);
+			for (char16_t& c : s)
+				c = (char16_t)ReadUInt16();
+		}
+		else
+		{
+			Array<char> bytes;
+			bytes.resize(len);
+			ReadBytes(bytes.data(), (int)bytes.size());
+			s = Latin1ToScript(std::string_view(bytes.data(), bytes.size()));
+		}
 	}
 	else
 	{
-		std::string s;
+		std::string bytes;
 		while (true)
 		{
 			char c = ReadInt8();
 			if (c == 0) break;
-			s.push_back(c);
+			bytes.push_back(c);
 		}
-		return s;
+		s = Latin1ToScript(bytes);
 	}
+	size_t end = s.find(u'\0');
+	if (end != ScriptString::npos)
+		s.resize(end);
+	return ScriptToUTF8(s);
 }
 
 Package* PackageStream::GetPackage() const

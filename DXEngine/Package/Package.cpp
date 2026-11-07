@@ -11,13 +11,14 @@
 
 Package::Package(PackageManager* packageManager, const NameString& name, const std::string& filepath) : Packages(packageManager), Name(name), FilePath(filepath)
 {
+	// Before the tables, whose names a save file makes whatever their flags
+	FileName = fs::path(FilePath).filename().string();
+	FileExtension = fs::path(FilePath).extension().string();
+
 	if (!filepath.empty())
 		ReadTables();
 	else
 		Version = 68; // a package born empty carries the version the writer emits, or its own save cannot be read back
-
-	FileName = fs::path(FilePath).filename().string();
-	FileExtension = fs::path(FilePath).extension().string();
 
 	// Register native classes not listed in the package
 	for (const auto& it : packageManager->NativeClasses)
@@ -234,12 +235,16 @@ UObject* Package::GetUObject(int objref)
 		if ((size_t)index >= ExportObjects.size())
 			Exception::Throw("Invalid object reference");
 
-		// A file's export for no context -- client, server or editor -- is
-		// never made, a reference to it None (Core's
-		// ULinkerLoad::CreateExport): protected packages point their
-		// classes' ScriptText at such. DXEngine's own saves wrote spawned
-		// actors without these flags, so a save's exports are all made.
-		if (!ExportObjects[index] && index < FileExportCount && !AnyFlags(ExportTable[index].ObjFlags, ObjectFlags::LoadContextFlags) && !IsSaveFile())
+		// A file's export for neither the client nor the server is never
+		// made, a reference to it None, as the original's linker makes none
+		// outside its context, the game's client and server (Core's
+		// ULinkerLoad::CreateExport; the context set at 0x101600d5): the
+		// editor's alone -- a map's brushes, their models and polys, its
+		// cameras and script text, a class's ScriptText -- made here before
+		// (bugs.md VM.25), and protected packages' ScriptText, which is for
+		// no context. DXEngine's own saves wrote spawned actors without these
+		// flags, so a save's exports are all made.
+		if (!ExportObjects[index] && index < FileExportCount && !AnyFlags(ExportTable[index].ObjFlags, ObjectFlags::LoadForClient | ObjectFlags::LoadForServer) && !IsSaveFile())
 			return nullptr;
 
 		if (!ExportObjects[index])
@@ -532,14 +537,24 @@ void Package::ReadTables()
 		}
 	}
 
+	// A name for neither the client nor the server -- a map's editor-only
+	// one, which only the editor's exports use -- is None and makes no name,
+	// as the original's linker maps it (Core.dll 0x10160543, before the
+	// FName at 0x10160553): one of these was a name's first spelling here
+	// (02_NYC_BatteryPark's BArricade, which 06_HongKong_WanChai_Garage
+	// spells Barricade). A save's names are all made, as its exports are.
 	stream->Seek(nameOffset);
 	for (uint32_t i = 0; i < nameCount; i++)
 	{
 		NameTableEntry entry;
-		entry.Name = stream->ReadString();
+		std::string text = stream->ReadString();
 		entry.Flags = stream->ReadInt32();
+		bool made = IsSaveFile() || AnyFlags((ObjectFlags)entry.Flags, ObjectFlags::LoadForClient | ObjectFlags::LoadForServer);
+		if (made)
+			entry.Name = NameString(text);
 		NameTable.push_back(entry);
-		NameHash[entry.Name] = i;
+		if (made)
+			NameHash[entry.Name] = i;
 	}
 
 	stream->Seek(exportOffset);

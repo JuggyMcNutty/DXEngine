@@ -780,7 +780,7 @@ inline ScriptString ExpressionValue::ToScriptString() const
 	}
 	else if (Type == ExpressionValueType::ValueName)
 	{
-		return Latin1ToScript(PtrName->ToString());
+		return UTF8ToScript(PtrName->ToString());
 	}
 	else if (Type == ExpressionValueType::Nothing)
 	{

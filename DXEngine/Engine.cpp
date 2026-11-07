@@ -591,16 +591,24 @@ void Engine::RestoreRunOnlySettings()
 
 void Engine::ExecFile(UObject* context, const std::string& filename)
 {
-	// As the original's EXEC: a relative file from the game's System folder
-	// (the original's working directory, which nothing sets here), each line
-	// a command.
+	// As the original's EXEC (UViewport::ExecMacro, Engine.dll 0x10374700): a
+	// relative file from the game's System folder (the original's working
+	// directory, which nothing sets here), found in any case and by its
+	// backslashes as Windows finds it, its text read as the original reads a
+	// text file -- a byte a character, or UTF-16 after its byte-order mark,
+	// to its first NUL (appLoadFileToString) --, and each line as ParseLine
+	// takes it into 256 characters (Core.dll 0x10147e60) run on the
+	// viewport: a // outside quotes drops the rest of its line, a | outside
+	// quotes chains the next command, and a line past 255 characters runs
+	// its rest as the next (bugs.md PKG.27), where each line was run whole.
+	// A blank line or a comment alone runs nothing.
 	std::string text;
 	try
 	{
-		fs::path file = filename;
+		fs::path file = convert_path_separators(filename);
 		if (file.is_relative())
 			file = packages->GetSystemFolderPath() / file;
-		text = File::read_all_text(file.string());
+		text = IniFile::ReadGameText(Directory::resolveCase(file).string());
 	}
 	catch (...)
 	{
@@ -608,20 +616,10 @@ void Engine::ExecFile(UObject* context, const std::string& filename)
 		return;
 	}
 	LogMessage("Execing " + filename);
-	size_t start = 0;
-	while (start < text.size())
-	{
-		size_t end = text.find('\n', start);
-		if (end == std::string::npos)
-			end = text.size();
-		std::string line = text.substr(start, end - start);
-		start = end + 1;
-		while (!line.empty() && (line.back() == '\r' || line.back() == ' ' || line.back() == '\t'))
-			line.pop_back();
-		if (line.find_first_not_of(" \t") == std::string::npos)
-			continue;
+	size_t pos = 0;
+	std::string line;
+	while (StrTools::ue1_parse_line(text, pos, line, 256))
 		RunCommand(context, line);
-	}
 }
 
 // A failure (a SHOT whose file cannot be written) logged and the game going
@@ -648,17 +646,14 @@ void Engine::RunCommand(UObject* context, const std::string& command)
 	}
 }
 
-void Engine::Relaunch(const std::string& commandline)
+void Engine::Relaunch(const std::string& line)
 {
 	// The original's RELAUNCH (Core.dll's USystem::Exec) logs the rest of the
-	// line, saves the config, starts DeusEx.exe with it and exits. The
-	// Display screen's Rendering Device sends -changevideo, the launcher's
-	// renderer page; the Host screen's dedicated server, its map URL with
-	// -server in it. The inis are saved as the engine shuts down.
-	size_t start = commandline.find_first_not_of(" \t");
-	size_t rest = commandline.find_first_of(" \t", start);
-	rest = commandline.find_first_not_of(" \t", rest == std::string::npos ? commandline.size() : rest);
-	std::string line = rest == std::string::npos ? std::string() : commandline.substr(rest);
+	// line past the word, as ParseCommand leaves it, saves the config, starts
+	// DeusEx.exe with it and exits. The Display screen's Rendering Device
+	// sends -changevideo, the launcher's renderer page; the Host screen's
+	// dedicated server, its map URL with -server in it. The inis are saved
+	// as the engine shuts down.
 	LogMessage("Relaunch: " + line);
 
 	// The recreated launcher stands for DeusEx.exe: it starts again with the
@@ -745,6 +740,34 @@ static std::string ArgsFrom(const std::string& commandline, size_t skip)
 	}
 	i = commandline.find_first_not_of(" \t", i);
 	return i == std::string::npos ? std::string() : commandline.substr(i);
+}
+
+// The command word as the original's ParseCommand matches each of its words
+// (Core.dll 0x10147a20; StrTools::ue1_parse_command): past blanks and tabs,
+// the run of ASCII letters and digits, in lower case -- every word being
+// such a run, a word followed by any other character is that word: exec"x"
+// is EXEC, shot. SHOT, where the line's first blank-separated word was
+// taken whole --; rest the text past it and the blanks and tabs after it,
+// where ParseCommand leaves the line for the word's own parse (bugs.md
+// PKG.27). Empty when the line begins with no letter or digit.
+static std::string CommandWord(const std::string& line, std::string& rest)
+{
+	auto alnum = [](char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'); };
+	size_t start = line.find_first_not_of(" \t");
+	if (start == std::string::npos)
+	{
+		rest.clear();
+		return {};
+	}
+	size_t end = start;
+	while (end < line.size() && alnum(line[end]))
+		end++;
+	std::string word = line.substr(start, end - start);
+	for (char& c : word)
+		c = (char)std::tolower((unsigned char)c);
+	size_t after = end > start ? line.find_first_not_of(" \t", end) : start;
+	rest = after == std::string::npos ? std::string() : line.substr(after);
+	return word;
 }
 
 // PreTravel to every actor of the level that has the function, with no
@@ -836,21 +859,19 @@ UnrealURL Engine::GetDefaultURL(const std::string& map)
 
 	if (!teleporterTag.empty())
 		url.Portal = teleporterTag;
-	for (const std::string& optionKey : DefaultPlayerOptionKeys())
-	{
-		std::string value;
-		if (packages->FindIniValue("user", "DefaultPlayer", optionKey, value))
-			url.Options.push_back(optionKey + "=" + value);
-	}
+	for (const std::string& option : DefaultPlayerOptions())
+		url.Options.push_back(option);
 	return url;
 }
 
-Array<std::string> Engine::DefaultPlayerOptionKeys()
+Array<std::string> Engine::DefaultPlayerOptions()
 {
-	Array<std::string> keys;
-	for (const std::string& key : packages->GetIniKeysFromSection("user", "DefaultPlayer"))
-		keys.push_back(key);
-	return keys;
+	// The key with no name too, its option =x, where it was left out
+	// (bugs.md PKG.27)
+	Array<std::string> options;
+	for (const auto& [key, value] : packages->GetIniKeyValues("user", "DefaultPlayer"))
+		options.push_back(key + "=" + value);
+	return options;
 }
 
 void Engine::LoadEntryMap()
@@ -2737,14 +2758,22 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 {
 	found = false;
 
-	Array<std::string> args = GetArgs(commandline);
-	if (args.empty())
+	// An exec function's name and parameters, its line's first token on
+	// (ExecCommand)
+	Array<std::string> execArgs = GetArgs(commandline);
+	if (execArgs.empty())
 	{
 		return {};
 	}
 
-	std::string command = args[0];
-	for (char& c : command) c = std::tolower(c);
+	// The viewport's and the engine's words as ParseCommand matches each
+	// (CommandWord), their arguments from past the word
+	std::string rest;
+	std::string command = CommandWord(commandline, rest);
+	Array<std::string> args;
+	args.push_back(command);
+	for (const std::string& arg : GetArgs(rest))
+		args.push_back(arg);
 
 	found = true;
 	// A dedicated server has no window and no renderer: the commands that
@@ -2771,7 +2800,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	// as the original writes it to the command's output device: the console's
 	// message, or what ConsoleCommand returns (Engine.dll 0x103ba200's string)
 	std::string output;
-	if (!viewportWord && ExecCommand(args, commandline, output))
+	if (!viewportWord && ExecCommand(execArgs, commandline, output))
 		return output;
 
 	if (command == "exit" || command == "quit")
@@ -2780,7 +2809,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	}
 	else if (command == "relaunch")
 	{
-		Relaunch(commandline);
+		Relaunch(rest);
 	}
 	else if (command == "shot")
 	{
@@ -2790,11 +2819,11 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	{
 		// UViewport::Exec's EXEC (Engine.dll 0x10374241): the file the first
 		// token past the word, by ParseToken into 64 characters -- a quoted
-		// one whole, 63 characters at most --; with none nothing runs, the
-		// command taken all the same
-		size_t pos = commandline.find_first_of(" \t", commandline.find_first_not_of(" \t"));
+		// one whole, 63 characters at most, exec"x" x --; with none nothing
+		// runs, the command taken all the same
+		size_t pos = 0;
 		std::string filename;
-		if (pos != std::string::npos && StrTools::ue1_parse_token(commandline, pos, filename, 64))
+		if (StrTools::ue1_parse_token(rest, pos, filename, 64))
 			ExecFile(context, filename);
 	}
 	else if (command == "stat" && args.size() == 2)
@@ -2884,9 +2913,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		// absolute -- a map, a server's address or a slot's ?loadgame=N
 		// alike. A map that is not there is the browse's to find, as the
 		// original's.
-		size_t word = commandline.find_first_not_of(" \t");
-		size_t rest = commandline.find_first_not_of(" \t", commandline.find_first_of(" \t", word));
-		ClientTravel(rest == std::string::npos ? std::string() : commandline.substr(rest), command == "open" ? ETravelType::TRAVEL_Partial : ETravelType::TRAVEL_Absolute, false);
+		ClientTravel(rest, command == "open" ? ETravelType::TRAVEL_Partial : ETravelType::TRAVEL_Absolute, false);
 	}
 	else if ((command == "netspeed" || command == "lanspeed") && args.size() == 2)
 	{
@@ -2909,10 +2936,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	{
 		// The level's own event: its game tells the clients, and the server
 		// follows once NextSwitchCountdown runs out (the original's).
-		size_t word = commandline.find_first_not_of(" \t");
-		size_t blank = commandline.find_first_of(" \t", word);
-		std::string url = commandline.substr(commandline.find_first_not_of(" \t", blank));
-		CallEvent(LevelInfo, "ServerTravel", { ExpressionValue::StringValue(url), ExpressionValue::BoolValue(false) });
+		CallEvent(LevelInfo, "ServerTravel", { ExpressionValue::StringValue(rest), ExpressionValue::BoolValue(false) });
 	}
 	else if (command == "cancel")
 	{
@@ -3020,7 +3044,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		// The value is the rest of the line, as the original's SET takes it
 		// (Core.dll's UObject::StaticExec, 0x101531b0): a server's name has
 		// spaces.
-		std::string value = ArgsFrom(commandline, 3);
+		std::string value = ArgsFrom(rest, 2);
 
 		// Special input setting handling. Deus Ex's input class is Extension's
 		// InputExt, so the multiplayer key SETs land here too instead of
@@ -3128,7 +3152,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		engine->render->Device->Flush(1);
 		return {};
 	}
-	else if (!viewportWord || !ExecCommand(args, commandline, output))
+	else if (!viewportWord || !ExecCommand(execArgs, commandline, output))
 	{
 		LogMessage("Unknown command: " + commandline);
 		found = false;
@@ -3154,24 +3178,6 @@ Array<std::string> Engine::GetArgs(const std::string& commandline)
 		i = j;
 	}
 	return args;
-}
-
-Array<std::string> Engine::GetSubcommands(const std::string& command)
-{
-	Array<std::string> subcommands;
-	size_t pos = 0;
-	while (pos < command.size())
-	{
-		size_t endpos = command.find('|', pos);
-		if (endpos == std::string::npos)
-			endpos = command.size();
-
-		std::string subcommand = command.substr(pos, endpos - pos);
-		if (!subcommand.empty())
-			subcommands.push_back(subcommand);
-		pos = endpos + 1;
-	}
-	return subcommands;
 }
 
 void Engine::LoadEngineSettings()
@@ -3714,24 +3720,6 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 	}
 }
 
-// The rest of the line from its (word)th word on, the words blank-separated
-// as GetArgs splits them
-static std::string LineFromWord(const std::string& line, size_t word)
-{
-	size_t i = 0;
-	for (size_t w = 0; w < word; w++)
-	{
-		i = line.find_first_not_of(" \t", i);
-		if (i == std::string::npos)
-			return {};
-		i = line.find_first_of(" \t", i);
-		if (i == std::string::npos)
-			return {};
-	}
-	i = line.find_first_not_of(" \t", i);
-	return i == std::string::npos ? std::string() : line.substr(i);
-}
-
 // The original's ParseNext (Core.dll 0x10147b50) from pos: blanks, tabs, CRs
 // and LFs passed, and a ';' comment with them to the line's end
 static size_t ParseNext(const std::string& line, size_t pos)
@@ -3896,19 +3884,26 @@ static void SetInputButton(UObject* pawn, const std::string& name, bool pressed)
 }
 
 // The original's UInput::ExecInputCommands (Engine.dll 0x10393bf0), a key's
-// binding line by line: a press's to the viewport's commands -- the input's
-// own first (InputExec), then the console's (RunCommand) --, as a release's
-// that starts with OnRelease does, the rest of it; anything else -- an
-// axis, any other release -- to the input's own alone. OnRelease's line on
-// the press, which no command takes, is passed over.
+// binding (or an alias's command) line by line as ParseLine takes them into
+// 256 characters (Core.dll 0x10147e60; StrTools::ue1_parse_line) -- a |
+// outside quotes the next command, a // outside quotes the rest of its line
+// dropped, a line past 255 characters its rest the next --, where each | cut
+// one whatever the quotes: a press's to the viewport's commands -- the
+// input's own first (InputExec), then the console's (RunCommand) --, as a
+// release's that begins with OnRelease does, the rest of it, OnRelease as
+// ParseCommand takes the word; anything else -- an axis, any other release
+// -- to the input's own alone. OnRelease's line on the press, which no
+// command takes, is passed over (bugs.md PKG.27).
 void Engine::ExecInputLine(const std::string& line, EInputKey key, EInputType action, int value)
 {
-	for (const std::string& command : GetSubcommands(line))
+	size_t at = 0;
+	std::string command;
+	while (StrTools::ue1_parse_line(line, at, command, 256))
 	{
-		Array<std::string> args = GetArgs(command);
-		if (args.empty())
+		if (GetArgs(command).empty())
 			continue;
-		bool onRelease = StrTools::equals_ignore_case(args[0], "onrelease");
+		size_t pos = 0;
+		bool onRelease = StrTools::ue1_parse_command(command, pos, "OnRelease");
 		if (action == EInputType::IST_Press)
 		{
 			if (!onRelease && !InputExec(command, key, action, value))
@@ -3916,7 +3911,7 @@ void Engine::ExecInputLine(const std::string& line, EInputKey key, EInputType ac
 		}
 		else if (action == EInputType::IST_Release && onRelease)
 		{
-			std::string rest = LineFromWord(command, 1);
+			std::string rest = command.substr(pos);
 			if (!rest.empty() && !InputExec(rest, key, action, value))
 				RunCommand(viewport->Actor(), rest);
 		}
@@ -3953,11 +3948,16 @@ static void SetInputButtonValue(UObject* pawn, UProperty* prop, uint8_t value)
 // False for any other word, which the viewport's commands take.
 bool Engine::InputExec(const std::string& command, EInputKey key, EInputType action, int value)
 {
-	Array<std::string> args = GetArgs(command);
-	if (args.empty())
+	if (GetArgs(command).empty())
 		return false;
-	std::string word = args[0];
-	for (char& c : word) c = std::tolower(c);
+	// Its words as ParseCommand matches them (CommandWord), their arguments
+	// from past the word: button"bFire" is BUTTON
+	std::string rest;
+	std::string word = CommandWord(command, rest);
+	Array<std::string> args;
+	args.push_back(word);
+	for (const std::string& arg : GetArgs(rest))
+		args.push_back(arg);
 	UActor* actor = viewport->Actor();
 
 	if (word == "button" || word == "pulse" || word == "toggle")
@@ -4014,9 +4014,13 @@ bool Engine::InputExec(const std::string& command, EInputKey key, EInputType act
 		return true;
 	}
 
-	if (!inputAliasRunning)
+	// An alias by its name, the line's first token as ParseToken takes it
+	// (Engine.dll 0x10393e10's): a quoted name whole
+	std::string aliasName;
+	size_t aliasPos = 0;
+	if (!inputAliasRunning && StrTools::ue1_parse_token(command, aliasPos, aliasName, 256))
 	{
-		auto it = inputAliases.find(args[0]);
+		auto it = inputAliases.find(aliasName);
 		if (it != inputAliases.end())
 		{
 			inputAliasRunning = true;

@@ -121,6 +121,9 @@ public:
 	std::unique_ptr<IniFile> GetUserIniFile();
 	std::unique_ptr<IniFile> GetSystemIniFile();
 	Array<std::string> GetIniKeysFromSection(NameString iniName, const NameString& sectionName);
+	// Each key of the section and its value (IniFile::GetKeyValues), the key
+	// with no name among them
+	Array<std::pair<std::string, std::string>> GetIniKeyValues(NameString iniName, const NameString& sectionName);
 	std::string GetIniValue(NameString iniName, const NameString& sectionName, const NameString& keyName, std::string default_value = "");
 	bool FindIniValue(NameString iniName, const NameString& sectionName, const NameString& keyName, std::string& value);
 	Array<std::string> GetIniValues(NameString iniName, const NameString& sectionName, const NameString& keyName, Array<std::string> default_values = {});

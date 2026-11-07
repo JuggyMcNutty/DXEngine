@@ -10,6 +10,7 @@
 #include "Network/NetServer.h"
 #include "Package/PackageManager.h"
 #include "VM/ScriptCall.h"
+#include "Utils/StrTools.h"
 
 void NPlayerPawn::RegisterFunctions()
 {
@@ -46,9 +47,23 @@ void NPlayerPawn::CopyToClipboard(UObject* Self, const ScriptString& Text)
 	engine->window->SetClipboardText(ScriptToUTF8(Text));
 }
 
+// As the original's (Engine.dll 0x103b8a90): a URL given the options of
+// [DefaultPlayer] (Engine::DefaultPlayerOptions), and the first that begins
+// Option= in any case answers, its text after that, as FURL::GetOption
+// (0x103f9ee0); "" with none. So an empty Option is the line with no name's
+// value, which was "".
 void NPlayerPawn::GetDefaultURL(UObject* Self, const std::string& Option, std::string& ReturnValue)
 {
-	ReturnValue = engine->packages->GetIniValue("user", "DefaultPlayer", Option);
+	const std::string match = Option + "=";
+	for (const std::string& option : engine->DefaultPlayerOptions())
+	{
+		if (option.size() >= match.size() && StrTools::equals_ignore_case(std::string_view(option).substr(0, match.size()), match))
+		{
+			ReturnValue = option.substr(match.size());
+			return;
+		}
+	}
+	ReturnValue.clear();
 }
 
 void NPlayerPawn::GetEntryLevel(UObject* Self, UObject*& ReturnValue)

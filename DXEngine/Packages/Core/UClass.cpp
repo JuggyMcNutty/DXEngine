@@ -151,14 +151,22 @@ void UClass::SaveConfig()
 	SaveProperties(&PropertyData);
 }
 
-void UClass::LoadProperties(PropertyDataBlock* propertyBlock)
+void UClass::LoadProperties(PropertyDataBlock* propertyBlock, bool localized, const UClass* fileOf)
 {
 	NameString sectionName = package->GetPackageName().ToString() + "." + Name.ToString();
-	NameString configName = ClassConfigName;
+	// One file for every section, a base class's and a globalconfig one's
+	// declaring class's too: the config file of the class whose defaults or
+	// object is read, as the original's LoadConfig takes its object's class's
+	// (Core.dll 0x10150d60), where each was read from its own class's, so a
+	// PlayerPawn's Pawn's bNeverSwitchOnPickup from the system ini
+	NameString configName = (fileOf ? fileOf : this)->ClassConfigName;
 	if (configName.IsNone()) configName = "system";
+	PropertyFlags read = PropertyFlags::Config | PropertyFlags::GlobalConfig;
+	if (localized)
+		read = read | PropertyFlags::Localized;
 	for (UProperty* prop : Properties)
 	{
-		if (AnyFlags(prop->PropFlags, PropertyFlags::Config | PropertyFlags::GlobalConfig | PropertyFlags::Localized))
+		if (AnyFlags(prop->PropFlags, read))
 		{
 			void* ptr = propertyBlock->Ptr(prop);
 			for (int arrayIndex = 0; arrayIndex < prop->ArrayDimension; arrayIndex++)
@@ -175,8 +183,6 @@ void UClass::LoadProperties(PropertyDataBlock* propertyBlock)
 					if (UClass* outer = UObject::TryCast<UClass>(prop->Outer()))
 					{
 						iniSection = outer->package->GetPackageName().ToString() + "." + outer->Name.ToString();
-						iniName = outer->ClassConfigName;
-						if (iniName.IsNone()) iniName = "system";
 						found = package->GetPackageManager()->FindIniValue(iniName, iniSection, name, value);
 					}
 				}
@@ -265,6 +271,9 @@ void UClass::SaveProperties(PropertyDataBlock* propertyBlock)
 				if (prop->ArrayDimension > 1)
 					name = NameString(name.ToString() + "[" + std::to_string(arrayIndex) + "]");
 
+				// The declaring class's section for a globalconfig one, in
+				// this class's file, as the original's SaveConfig writes every
+				// key to its object's class's file (Core.dll 0x10151540)
 				NameString iniName = configName, iniSection = sectionName;
 				bool write = AnyFlags(prop->PropFlags, PropertyFlags::Config);
 				if (AnyFlags(prop->PropFlags, PropertyFlags::GlobalConfig))
@@ -273,8 +282,6 @@ void UClass::SaveProperties(PropertyDataBlock* propertyBlock)
 					if (UClass* outer = UObject::TryCast<UClass>(prop->Outer()))
 					{
 						iniSection = outer->package->GetPackageName().ToString() + "." + outer->Name.ToString();
-						iniName = outer->ClassConfigName;
-						if (iniName.IsNone()) iniName = "system";
 						write = true;
 					}
 				}
@@ -301,58 +308,46 @@ void UClass::SaveProperties(PropertyDataBlock* propertyBlock)
 		}
 	}
 
-	if (propertyBlock != &PropertyData)
+	// The config read again into the defaults of every class deriving from
+	// the topmost config class this one derives from, this one's own among
+	// them -- each class its base classes' sections first, then its own --,
+	// as the original's SaveConfig ends (Core.dll 0x10151540, its LoadConfig
+	// with propagation 0x10150d60): so a value the write kept, one that
+	// differs in case alone from the ini's (SetString), is the ini's in the
+	// defaults again, as is a float the ini holds to six decimals, whether an
+	// object's config or the class's own (StaticSaveConfig, SET) was saved;
+	// a class's own defaults were left as set, and a base's section reached
+	// no subclass. Its config alone: a localized default stays as it is.
+	UClass* root = this;
+	while (UClass* base = UObject::TryCast<UClass>(root->BaseStruct))
 	{
-		// If its not our own block getting saved we need to load them into our default block
-		LoadProperties(&PropertyData);
+		if (!(base->ClsFlags & ClassFlags::Config))
+			break;
+		root = base;
 	}
-
-	// GlobalConfig properties are shared across the whole class hierarchy that
-	// declares them, so a change must propagate to every class deriving from the
-	// *declaring* class - not just classes deriving from `this`. Otherwise sibling
-	// classes (e.g. UMenuLoadGameClientWindow vs UMenuSaveGameClientWindow, which
-	// both inherit globalconfig SlotNames[] from UMenuSlotClientWindow) keep a stale
-	// default until the next restart re-reads the ini.
-	Array<UStruct*> propagationRoots;
-	propagationRoots.push_back(this);
-	for (UProperty* prop : Properties)
-	{
-		if (AnyFlags(prop->PropFlags, PropertyFlags::GlobalConfig))
-		{
-			if (UClass* declaring = UObject::TryCast<UClass>(prop->Outer()))
-			{
-				bool known = false;
-				for (UStruct* root : propagationRoots)
-					if (root == declaring) { known = true; break; }
-				if (!known)
-					propagationRoots.push_back(declaring);
-			}
-		}
-	}
-
 	for (GCObject* gcObj : GC::GetObjects())
 	{
-		if (UClass* cls = dynamic_cast<UClass*>(gcObj))
-		{
-			bool propagate = false;
-			for (UStruct* base = cls; base && !propagate; base = base->BaseStruct)
-			{
-				for (UStruct* root : propagationRoots)
-				{
-					if (base == root)
-					{
-						propagate = true;
-						break;
-					}
-				}
-			}
-			// Reload through cls's own property list (not this->Properties), so the
-			// property offsets match cls's data block. this->Properties can be a
-			// superset of an ancestor/sibling's layout and would overrun its block.
-			if (propagate && cls != this)
-				cls->LoadProperties(&cls->PropertyData);
-		}
+		UClass* cls = dynamic_cast<UClass*>(gcObj);
+		if (!cls)
+			continue;
+		bool under = false;
+		for (UStruct* s = cls; s && !under; s = s->BaseStruct)
+			under = s == root;
+		// Through cls's own property list, so the offsets match its block
+		if (under)
+			cls->LoadConfigPropagated(&cls->PropertyData);
 	}
+}
+
+void UClass::LoadConfigPropagated(PropertyDataBlock* propertyBlock, const UClass* fileOf)
+{
+	if (!(ClsFlags & ClassFlags::Config))
+		return;
+	if (!fileOf)
+		fileOf = this;
+	if (UClass* base = UObject::TryCast<UClass>(BaseStruct))
+		base->LoadConfigPropagated(propertyBlock, fileOf);
+	LoadProperties(propertyBlock, false, fileOf);
 }
 
 void UClass::Mark(GCMarker& marker)

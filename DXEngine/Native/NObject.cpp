@@ -1117,17 +1117,6 @@ void NObject::RandRange(UObject* Self, float Min, float Max, float& ReturnValue)
 	ReturnValue = FRandRange(Min, Max);
 }
 
-// The config read again into a class's defaults or an object, its base
-// classes' sections first, as the original's LoadConfig propagates it.
-static void LoadConfigPropagated(UClass* cls, PropertyDataBlock* block)
-{
-	if (!(cls->ClsFlags & ClassFlags::Config))
-		return;
-	if (UClass* base = UObject::TryCast<UClass>(cls->BaseStruct))
-		LoadConfigPropagated(base, block);
-	cls->LoadProperties(block);
-}
-
 static bool IsClassOrSubclass(UStruct* cls, UClass* of)
 {
 	for (UStruct* s = cls; s; s = s->BaseStruct)
@@ -1167,11 +1156,11 @@ void NObject::ResetConfig(UObject* Self)
 		if (UClass* objClass = UObject::TryCast<UClass>(obj))
 		{
 			if (IsClassOrSubclass(objClass, cls))
-				LoadConfigPropagated(objClass, &objClass->PropertyData);
+				objClass->LoadConfigPropagated(&objClass->PropertyData);
 		}
 		else if (IsClassOrSubclass(obj->Class, cls))
 		{
-			LoadConfigPropagated(obj->Class, &obj->PropertyData);
+			obj->Class->LoadConfigPropagated(&obj->PropertyData);
 			obj->PostEditChange();
 		}
 	}

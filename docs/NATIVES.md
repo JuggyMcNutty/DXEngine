@@ -194,6 +194,14 @@ Nothing else is added: the travel after a restart has no option, and none
 has the game's `?Difficulty` (`URLConsole`: the same six URLs in both
 engines, from the menu map through Liberty Island, UNATCO HQ, the island
 again from `Current`, its restart and UNATCO HQ again, and the same logins).
+The player's options a URL starts from are every key of the user ini's
+`[DefaultPlayer]`, in its order and as the ini spells it, a key given twice
+its last value, and a line with no name, `=x`, the option `=x`, as the
+original's `LoadURLConfig` adds the section's lines (Engine.dll
+`0x103f9bc0`); `GetDefaultURL` answers the first of them that begins with
+its option and `=`, so `GetDefaultURL("")` is that line's value
+(`ExecLineConsole` with a `User.ini` of `=x`: `?=x` in the menu map's URL
+and `x`, in both engines).
 The saved level is found whatever case the URL spells the map in, with or
 without its `.dx`, as the original's file system finds it: the stock exits
 spell `12_vandenberg_cmd` and `00_training` (`RevisitConsole`: the island
@@ -2665,20 +2673,28 @@ not deleted (the log says so).
   speed climbing 8 a tick, in both engines).
 - **A key's binding**, as the original's
   ([a key's binding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)):
-  a press runs its line once per hold, a release only after its press. A
-  press's commands go to the input's own words and its aliases, the render
-  device's and the viewport's own words (`SHOT`, `EXEC` and the rest), then
-  the exec functions -- the console's, the game's, the HUD's, the player's
-  and each of its items' in turn -- then the engine's commands; a typed or
+  a press runs its line once per hold, a release only after its press. The
+  line, and an alias's, is cut into commands as the original's `ParseLine`
+  cuts one (Core.dll `0x10147e60`): at a `|` outside double quotes, a `//`
+  outside them dropping the rest of its line, a `|` in it cutting all the
+  same, 255 characters a command, a longer line's rest the next. A press's
+  commands go to the input's own words and its aliases, the render device's
+  and the viewport's own words (`SHOT`, `EXEC` and the rest), then the exec
+  functions -- the console's, the game's, the HUD's, the player's and each
+  of its items' in turn -- then the engine's commands, each word as the
+  original's `ParseCommand` takes it (`0x10147a20`), the command's leading
+  letters and digits in any case, so `exec"x"` is `EXEC` (`ExecLineConsole`,
+  an exec file's lines cut alike: every mark the original's); a typed or
   scripted command goes the same way, so `DefUser.ini`'s `GreyStar=Shot`
-  takes a shot, and `TIMEDEMO` is the console's own, whose result its
-  script logs. A release runs the input's words alone, and a command after
-  `OnRelease` the press's way. `Button` sets its byte to 1 on the press and
-  to 0 on the release, so a byte a script clears while the key is held
-  stays clear until the next press (Deus Ex's player clears `bDuck` as it
-  enters water); `Pulse` sets it on the press alone; `Toggle` flips its top
-  bit on the press; an alias's line runs with its key's press or release,
-  an alias inside it not expanded again (`BindConsole` with
+  takes a shot, and `TIMEDEMO` is the console's own, whose result its script
+  logs. A release runs the input's words alone, and a command after
+  `OnRelease`, the word as `ParseCommand` takes it, the press's way.
+  `Button` sets its byte to 1 on the press and to 0 on the release, so a
+  byte a script clears while the key is held stays clear until the next
+  press (Deus Ex's player clears `bDuck` as it enters water); `Pulse` sets
+  it on the press alone; `Toggle` flips its top bit on the press; an alias's
+  line runs with its key's press or release, an alias inside it not expanded
+  again (`BindConsole` with
   `tools/dxcap/timelines/bind-keys.txt`: a toggle's byte 128 then 0, a
   pulse's left at 1, a button's 1 then 0 with its press's command and its
   release's, a key pressed three times over run once, `Shot` the viewport's
@@ -2796,11 +2812,17 @@ loads, so `string()` gives DeusEx.u's `annadies` for `ANNADIES` and Core's
 `Location` for `LOCATION`, and the cheats' EditFlags lists `COOLANTCUT` as
 Mission15's `coolantcut` (`SpellingConsole`, line for line the original's);
 a package's file, a `.int`, a save's level file and a class's config file
-are found in any case, as on Windows, and make no name. Differs (bugs.md
-VM.25): a map's editor-only names are made, where the original's maps them
-to None, so three of them can be a name's first spelling; a name is read as
-UTF-8 by `string()` and `GetPropertyText`, a package's as Latin-1 bytes; a
-package with a name saved 16-bit is refused, where the original's reads it.
+are found in any case, as on Windows, and make no name. A name a package
+holds for neither the client nor the server, a map's for the editor alone,
+is None and makes no name, as the original's linker maps it (Core.dll
+`0x10160543`), and an export for neither is not made: so
+06_HongKong_WanChai_Garage's `Barricade` is spelt so after
+02_NYC_BatteryPark, whose editor's brushes are grouped `BArricade`
+(`NameFirstConsole`, alike in both engines). A package's names are its
+characters, a byte each or, saved 16-bit, two, as the original's reads them
+(`0x101459b0`), and a name's text is the same characters whether a package,
+a file name, a URL, the ini, a script's string or `StringToName` made it, so
+`string()` and `GetPropertyText` give them as the original's do.
 A package is an object of Core's class `Package`, the `Outer` of each of its
 objects that has none of its own, as the original's: `new(None)`'s the
 package `Transient`, a level's and its actors' their map's, a texture in no
@@ -2873,11 +2895,16 @@ What DXEngine does with each:
 - **`EXEC=<file>`**: `exec <file>` on the player once the first map is in,
   the console's `exec`, as the original's runs it: its file the first token
   past the word, as the original's `ParseToken` takes it -- a quoted one
-  whole, 63 characters at most, none running nothing -- and the file's
-  lines run as commands (`DXCAP_FLAGS="EXEC=ENG19.txt,x"`: `Execing
-  ENG19.txt` in both engines, `MidConsole`'s lines alike;
-  `ExecFileConsole`, with `DXCAP_FLAGS` naming its long file: the same
-  files run in both engines).
+  whole, 63 characters at most, none running nothing -- found in any case,
+  its text read as the original reads a text file, and its lines run as
+  commands as its `ExecMacro` cuts them by `ParseLine` (Engine.dll
+  `0x10374700`): at a `|` outside double quotes, a `//` outside them
+  dropping the rest of its line, 255 characters a command, a longer line's
+  rest the next (`DXCAP_FLAGS="EXEC=ENG19.txt,x"`: `Execing ENG19.txt` in
+  both engines, `MidConsole`'s lines alike; `ExecFileConsole`, with
+  `DXCAP_FLAGS` naming its long file: the same files run in both engines;
+  `ExecLineConsole`'s `PKG27.txt`, its comments, chains, quotes and a
+  264-character line: every mark alike in both engines).
 - **Safe mode's flags**
   ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md#flags-the-launcher-emits-safe-mode)):
   - `-nosound`: no sound and no music. The original makes no audio
@@ -2902,11 +2929,14 @@ What DXEngine does with each:
     and `-safe`'s no DirectInput (DXEngine's input is its window's, SDL's
     under the launchers).
 
-Differs (bugs.md PKG.27): `exec` runs each line of its file whole, where
-the original's takes a `//` comment off and `|`'s chained commands apart and
-reads 255 characters a line; an `INI=` name with no extension is one file,
-the original's two; a class's `SaveConfig` does not read its defaults again,
-so a value changed in case alone stays in them for the run.
+An `INI=` name with no extension is one file, by choice, where the
+original's is two, a defect that sends the launcher's choices where the
+game does not read them: its config cache adds `.ini` to a name of fewer
+than five characters, or with no `.` fourth or fifth from its end, before it
+takes the system ini's name as given, so its class configs and `ini:` names
+read `MyMod` and the reads that name no file -- the `[URL]` section,
+`GetConfig`, the launcher's keys -- `MyMod.ini`
+([cli-flags.md](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md)).
 
 ## Mods
 
@@ -3106,6 +3136,24 @@ A mod gets the original's loader and natives:
   whose `Word` is `jc`, one of CR line ends, one with `=x` and one with a
   NUL: the second run's lines alike in both engines, and the files as each
   engine writes them, the original's whole).
+  A `SaveConfig`, an object's or the class's own (`StaticSaveConfig`, the
+  console's `SET`), ends as the original's does (Core.dll `0x10151540`): the
+  config read again into the defaults of every class deriving from the
+  topmost config class above the one saved, its own among them, each class
+  its base classes' sections first, its localized properties left as they
+  are. So what the write kept, a value that differs in case alone, is the
+  file's in the defaults again, a float is what the file holds of it, to six
+  decimals, and a subclass takes what its base's section now holds
+  (`IniEdgeConsole`: after `JC` is saved over `jc` the default `Word` is
+  `jc`, a `Ratio` of 0.1234567 is 0.123457, and `IniEdgeProbeSub`'s `Count`
+  the one saved, in both engines).
+  Each section a class's config reads and writes, its base classes' and a
+  `globalconfig` one's declaring class's too, is in the config file of the
+  class whose defaults or object is read, as the original's `LoadConfig` and
+  `SaveConfig` take their object's class's file: a player's `[Engine.Pawn]`
+  (Pawn's `bNeverSwitchOnPickup`) is in the user ini (`ConfigFileConsole`:
+  after the player's `SaveConfig` the user ini has the section in both
+  engines).
 - **The natives no stock script calls** (`ModConsole`): `ResetConfig`, a
   System or User class's section copied from `Default.ini` or `DefUser.ini`
   and its config read again into the class, its subclasses and their

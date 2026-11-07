@@ -142,6 +142,11 @@ IniFile::IniFile(const std::string& filename)
 	ini_file_path = filename;
 }
 
+std::string IniFile::ReadGameText(const std::string& filename)
+{
+	return ReadIniText(filename);
+}
+
 IniFile::IniFile(const IniFile& other)
 {
 	ini_file_path = other.ini_file_path;
@@ -182,6 +187,21 @@ Array<std::string> IniFile::GetKeys(const NameString& sectionName) const
 		}
 	}
 
+	return result;
+}
+
+Array<std::pair<std::string, std::string>> IniFile::GetKeyValues(const NameString& sectionName) const
+{
+	Array<std::pair<std::string, std::string>> result;
+	const IniSection* section = FindSection(sectionName.ToString());
+	if (section != nullptr)
+	{
+		for (const IniKey& key : section->GetKeys())
+		{
+			if (!key.GetValues().empty())
+				result.push_back({ key.GetName(), key.GetValues().back() });
+		}
+	}
 	return result;
 }
 

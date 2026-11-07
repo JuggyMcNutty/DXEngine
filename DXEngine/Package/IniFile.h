@@ -73,6 +73,12 @@ public:
 	IniFile(const std::string& filename);
 	IniFile(const IniFile& other);
 
+	// A text file's text as the engine's UTF-8, as the original's
+	// appLoadFileToString reads one (Core.dll 0x101488c0): a file of even size
+	// beginning FF FE UTF-16 little-endian, FE FF big-endian, any other a byte
+	// a character, to the first NUL -- an ini, an exec's macro file
+	static std::string ReadGameText(const std::string& filename);
+
 	bool IsModified() const { return isModified; }
 	// Where SaveTo() writes: for a file not there yet, begun empty.
 	void SetPath(const std::string& filename) { ini_file_path = filename; }
@@ -80,6 +86,12 @@ public:
 
 	// The section's keys as the file spells them
 	Array<std::string> GetKeys(const NameString& sectionName) const;
+	// The section's keys and the value each is read as, of a key given twice
+	// or more the last, in the order of their first lines, the key with no
+	// name (a line "=value") among them by its empty name, as the original's
+	// FURL::LoadURLConfig adds a section's lines to a URL (Engine.dll
+	// 0x103f9bc0), each in place of one of its name before it
+	Array<std::pair<std::string, std::string>> GetKeyValues(const NameString& sectionName) const;
 	// The key's value, of a key given twice or more the last, as the
 	// original's config cache reads it; an empty one, or none, gives
 	// defaultValue.

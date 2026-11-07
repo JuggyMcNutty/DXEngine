@@ -46,6 +46,22 @@ public:
 	// other read to its end, the rest dropped; or all of it with a maxLen of
 	// 0. False when the token is empty.
 	static bool ue1_parse_token(const std::string_view& str, size_t& pos, std::string& token, size_t maxLen);
+	// A command word as the original's ParseCommand takes one (Core.dll
+	// 0x10147a20): from pos, blanks and tabs passed over, the word in any
+	// case with no ASCII letter or digit straight after it -- exec"x" and
+	// shot. are EXEC and SHOT --, then the blanks and tabs after it, pos
+	// left past them; pos past the first blanks alone when it is not there.
+	static bool ue1_parse_command(const std::string_view& str, size_t& pos, const std::string_view& word);
+	// A line as the original's ParseLine takes one, not exact (Core.dll
+	// 0x10147e60): from pos to the next CR, LF or NUL, of its first maxLen - 1
+	// characters at most -- one past U+FFFF counting two, as the original's
+	// UTF-16 has it, never split --, a longer line's rest the next one;
+	// outside double quotes a // drops the rest of the line from there, its
+	// quotes still counted and a | in it still ending it, and a | ends the
+	// line, the command after it the next one; then every CR, LF and | after
+	// it passed over. False at the text's end with nothing read; a line of
+	// nothing but a comment, or before a |, is an empty one.
+	static bool ue1_parse_line(const std::string_view& str, size_t& pos, std::string& line, size_t maxLen);
 	// A float as the original's "%f" writes it, the MSVC runtime's it links:
 	// its digits exact to the sixth decimal, a 5 after the sixth rounding up
 	// -- a tie away from zero, where the C library's rounds it to even --,
