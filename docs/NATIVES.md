@@ -172,8 +172,9 @@ neither travels nor saves, and arrives or loads as the default
 Denton`, arrives at UNATCO HQ as `JC Denton` in both engines). A map opened
 at a portal, `open <map>#<portal>` or `open <map>/<portal>`, the original's
 URL reading either, starts the player at the teleporter of that tag
-(`PortalConsole`; `URLPartsConsole`: `01_NYC_UNATCOIsland/tunnel_drop_nyc`,
-the player 7 units from it in both engines). A level's URL, which
+(`PortalConsole`; `URLPartsConsole`:
+`open 01_NYC_UNATCOIsland/tunnel_drop_nyc`, the player 7 units from it in
+both engines). A level's URL, which
 `Level.GetLocalURL` gives, is the one it was entered by, as the original's
 `LoadMap` sets it: a level returned to from `Current` names the saved file,
 `..\Save\Current\<map>.dxs` with the travel's options, as the original's
@@ -3122,9 +3123,10 @@ As in the original:
   `/`, or no server, map or option refuses it: the URL is then the default
   one, `Index.dx` with no option, which a travel goes to as to any map not
   there, so the level's own map is loaded again with no option
-  (`URLPartsConsole`: `DX.dx?Name=Two Words` and `01_NYC_UNATCOHQ/a/b` from
-  Liberty Island load it again as `01_NYC_UNATCOIsland`, the player
-  `Player`, in both engines). An option is matched whole, `?listen=1` no
+  (`URLPartsConsole`: `DX.dx?Name=Two Words` and
+  `open 01_NYC_UNATCOHQ/a/b` from Liberty Island load it again as
+  `01_NYC_UNATCOIsland`, the player `Player`, in both engines). An option
+  is matched whole, `?listen=1` no
   listen server (`URLPartsConsole`: net mode 0 in both). A URL cleared is
   empty whole, its port the game's default again. On Linux a path from `/`
   is a file as a drive letter's is, by choice, where the original's parse
