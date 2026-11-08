@@ -1000,12 +1000,16 @@ static std::vector<UWindow*> GroupWindowsByColumn(UWindow* group, UWindow* also 
 
 // Focus moves within the focus window's group, along its row- or
 // column-major order (Extension.dll XWindow::MoveFocus 0x1004ef30): left
-// and up decrement, right and down increment, the walk wraps, windows that
-// are not traversable are passed over, and a group with nothing traversable
-// hands the move to the tab groups, as does a move with no focus window at
-// all -- which is how a conversation's choices light up the moment they
-// appear. It returns the focus window, moved or not.
-UObject* UWindow::MoveFocus(int dir)
+// and up decrement, right and down increment, windows that are not
+// traversable are passed over, and a group with nothing traversable hands
+// the move to the tab groups, as does a move with no focus window at all --
+// which is how a conversation's choices light up the moment they appear.
+// The walk goes round the ends when the group wraps -- every tab group but a
+// clip window (XTabGroupWindow::Init 0x10044d90, XClipWindow::Init
+// 0x1000b320) -- or the caller asks it to (CheckFocusWindow); else at an
+// end it turns back from where it began, so at a clip window's end the
+// focus stays where it is. It returns the focus window, moved or not.
+UObject* UWindow::MoveFocus(int dir, bool wrap)
 {
 	URootWindow* root = GetRootWindow();
 	if (!root)
@@ -1015,30 +1019,42 @@ UObject* UWindow::MoveFocus(int dir)
 	if (!focus)
 		return MoveTabGroup(dir == 0 || dir == 2 ? false : true);
 
-	UWindow* group = UObject::TryCast<UTabGroupWindow>(focus->GetTabGroupWindow());
+	UTabGroupWindow* group = UObject::TryCast<UTabGroupWindow>(focus->GetTabGroupWindow());
 	if (!group)
 		return focus;
+	wrap = wrap || group->WrapFocus;
 
 	// The focus stays in its group's lists until its selectability changes
 	// after the focus has moved on (SetSelectability)
 	std::vector<UWindow*> list = (dir < 2) ? GroupWindowsByRow(group, focus) : GroupWindowsByColumn(group, focus);
-	size_t index = 0;
-	for (size_t i = 0; i < list.size(); i++)
+	int count = (int)list.size();
+	int start = 0;
+	for (int i = 0; i < count; i++)
 	{
 		if (list[i] == focus)
 		{
-			index = i;
+			start = i;
 			break;
 		}
 	}
 
+	int index = start;
 	bool decrement = (dir == 0 || dir == 2);
-	for (size_t n = 0; n < list.size(); n++)
+	for (int n = 0; n < count; n++)
 	{
 		if (decrement)
-			index = (index == 0) ? list.size() - 1 : index - 1;
-		else
-			index = (index + 1) % list.size();
+		{
+			if (--index < 0)
+			{
+				index = wrap ? count - 1 : start;
+				decrement = wrap;
+			}
+		}
+		else if (++index >= count)
+		{
+			index = wrap ? 0 : start;
+			decrement = !wrap;
+		}
 		if (list[index]->IsTraversable(true))
 		{
 			root->SetRootFocusWindow(list[index]);
@@ -1175,7 +1191,7 @@ void UWindow::CheckFocusWindow()
 		if (modal->preferredFocus() && modal->preferredFocus()->IsTraversable(true))
 			root->SetRootFocusWindow(modal->preferredFocus());
 	}
-	if (root->FocusWindow() == focus && root->MoveFocus(1) == focus)
+	if (root->FocusWindow() == focus && root->MoveFocus(1, true) == focus)
 		root->SetRootFocusWindow(nullptr);
 }
 
@@ -1398,7 +1414,6 @@ void UWindow::SetAcceleratorText(const std::string& newStr)
 void UWindow::SetBackground(UObject* newBackground)
 {
 	Background() = UObject::Cast<UTexture>(newBackground);
-	bDrawRawBackground() = true;
 }
 
 void UWindow::SetBackgroundSmoothing(bool newSmoothing)
@@ -1970,9 +1985,10 @@ void UWindow::InitWindow()
 // The original's XWindow::Init (Extension.dll 0x1004bb30): 10 by 10 at the
 // parent's corner -- the size a window asked for one it does not set falls
 // back to (an empty text window is a line high by it) -- green text, white
-// tiles, the normal style, a line spacing of 1, special text on, the GC's
-// underline 1 high and 2 up from a character's foot, and the fonts of the
-// nearest ancestor that has any.
+// tiles, the normal style, unsmoothed and tiled, the raw background let
+// through, a line spacing of 1, special text on, the GC's underline 1 high
+// and 2 up from a character's foot, and the fonts of the nearest ancestor
+// that has any.
 void UWindow::InitDefaults()
 {
 	X() = 0.0f;
@@ -1982,6 +1998,9 @@ void UWindow::InitDefaults()
 	TextColor() = { 0, 255, 0, 255 };
 	tileColor() = { 255, 255, 255, 255 };
 	backgroundStyle() = (uint8_t)EDrawStyle::Normal;
+	bDrawRawBackground() = true;
+	bStretchBackground() = false;
+	bSmoothBackground() = false;
 	textVSpacing() = 1.0f;
 	bSpecialText() = true;
 	BaselineOffset = 2.0f;
@@ -2284,30 +2303,29 @@ bool UWindow::EditActivated(UWindow* edit, bool bModified)
 		}).ToBool();
 }
 
+// The original's XWindow::DrawTree (Extension.dll 0x10051490): the window's
+// background, unless its style is DSTY_None or it has none, through the
+// window's own GC as its setters left it (DrawIconPattern 0x10028770):
+// tiled from the window's corner, or stretched over it with
+// bStretchBackground, and put on whole units as every tile is (ClipTile
+// 0x1002a4f0, DrawTile 0x1002a820). The root's covers the whole screen, as
+// the original's root is the viewport (XRootWindow::ResizeRoot 0x1003adf0):
+// DXEngine's 4:3 root lies centred in it, the screen's left edge at -UsedX.
 void UWindow::DrawBackground(UGC* gc)
 {
-	if (bDrawRawBackground())
+	UTexture* tex = Background();
+	if (!tex || backgroundStyle() == (uint8_t)EDrawStyle::None)
+		return;
+	float x = 0.0f, y = 0.0f, width = Width(), height = Height();
+	if (this == engine->dxRootWindow)
 	{
-		gc->SetStyle((EDrawStyle)backgroundStyle());
-		gc->EnableSmoothing(bSmoothBackground());
-		gc->SetTileColor(tileColor());
-		if (bStretchBackground())
-		{
-			if (UTexture* tex = UObject::Cast<UTexture>(Background()))
-			{
-				float swidth = (float)tex->USize();
-				float sheight = (float)tex->VSize();
-				Rectf dest = Rectf::xywh(gc->offsetX, gc->offsetY, Width(), Height());
-				Rectf src = Rectf::xywh(0.0f, 0.0f, swidth, sheight);
-				gc->DrawTile(tex, gc->ScaleRect(dest), src, tileColor(), gc->EffectivePolyFlags());
-			}
-		}
-		else if (Background())
-		{
-			gc->DrawPattern(0.0f, 0.0f, Width(), Height(), 0.0f, 0.0f, Background());
-		}
-		// DrawDebugBox(gc);
+		x = -UsedX;
+		y = -UsedY;
+		width = GetExtendedVirtualWidth();
 	}
+	float srcWidth = bStretchBackground() ? (float)tex->USize() : 0.0f;
+	float srcHeight = bStretchBackground() ? (float)tex->VSize() : 0.0f;
+	gc->DrawIconPattern(x, y, width, height, 0.0f, 0.0f, srcWidth, srcHeight, tex);
 }
 
 void UWindow::DrawWindow(UGC* gc)

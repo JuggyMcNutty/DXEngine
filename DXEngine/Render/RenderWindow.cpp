@@ -48,20 +48,26 @@ void RenderSubsystem::PostRenderWindows(UCanvas* canvas)
 }
 
 // The root window's raw background -- DeusExRootWindow's snapshot under a
-// menu -- as the original draws it, before any window: over the root less
-// what the scene covers (all of it with rendering on and no render viewport,
-// nothing with rendering off, the viewport's rectangle with one set), each
-// piece left stretched from the background's own size or tiled from its
-// corner, in the raw colour and unsmoothed (dx-reverse-info/extension-dll.md, the
-// raw background). Every window lets it through, as every window of the
-// original's is made with bDrawRawBackground on.
+// menu -- as the original draws it, before any window (Extension.dll
+// DrawRawBackground 0x1003c720): over the root less what the scene covers
+// (all of it with rendering on and no render viewport, nothing with
+// rendering off, the viewport's rectangle with one set), each piece left
+// stretched from the background's own size or tiled from its corner, in the
+// raw colour and the normal style, smoothed as the root's GC has it --
+// ShowSnapshot's SetBackgroundSmoothing turns it on for the snapshot
+// (dx-reverse-info/extension-dll.md, the raw background). The original's
+// root is the whole viewport (XRootWindow::ResizeRoot 0x1003adf0), so the
+// raw background covers the screen; DXEngine's 4:3 root lies centred in it,
+// the screen's left edge at -UsedX in its units. No window takes its place
+// out of it: the original's viewport windows do (their bDrawRawBackground
+// off), and none is up in the game while it shows.
 void RenderSubsystem::DrawRawBackground(URootWindow* root)
 {
 	UTexture* tex = root->rawBackground();
 	if (!tex)
 		return;
 
-	Rectf full = Rectf::xywh(0.0f, 0.0f, root->Width(), root->Height());
+	Rectf full = Rectf::xywh(-root->UsedX, -root->UsedY, UWindow::GetExtendedVirtualWidth(), root->Height());
 	Array<Rectf> pieces;
 	if (!root->bRender())
 	{
@@ -69,12 +75,26 @@ void RenderSubsystem::DrawRawBackground(URootWindow* root)
 	}
 	else if (root->RenderViewportSet)
 	{
-		// The original's clip list subtraction: above the viewport, below
-		// it, then left and right of it within its height.
-		float cutLeft = std::max(root->renderX(), full.left);
-		float cutTop = std::max(root->renderY(), full.top);
-		float cutRight = std::min(root->renderX() + root->renderWidth(), full.right);
-		float cutBottom = std::min(root->renderY() + root->renderHeight(), full.bottom);
+		// The scene's rectangle as VisibleFrame::SetupSceneFrame places it,
+		// one as wide or as tall as the root the screen's width or height.
+		// Then the original's clip list subtraction: above the viewport,
+		// below it, then left and right of it within its height.
+		float renderLeft = root->renderX(), renderRight = root->renderX() + root->renderWidth();
+		float renderTop = root->renderY(), renderBottom = root->renderY() + root->renderHeight();
+		if (root->renderX() <= 0.0f && root->renderWidth() >= root->Width())
+		{
+			renderLeft = full.left;
+			renderRight = full.right;
+		}
+		if (root->renderY() <= 0.0f && root->renderHeight() >= root->Height())
+		{
+			renderTop = full.top;
+			renderBottom = full.bottom;
+		}
+		float cutLeft = std::max(renderLeft, full.left);
+		float cutTop = std::max(renderTop, full.top);
+		float cutRight = std::min(renderRight, full.right);
+		float cutBottom = std::min(renderBottom, full.bottom);
 		if (cutRight <= cutLeft || cutBottom <= cutTop)
 		{
 			pieces.push_back(full);
@@ -88,10 +108,11 @@ void RenderSubsystem::DrawRawBackground(URootWindow* root)
 		}
 	}
 
+	// The root's own GC, drawing on, the normal style and the raw colour;
+	// its smoothing left as it is
 	ResetWindowGC(root, root->UsedX, root->UsedY);
 	engine->dxgc->SetStyle(EDrawStyle::Normal);
 	engine->dxgc->SetTileColor(root->rawColor());
-	engine->dxgc->EnableSmoothing(false);
 	for (const Rectf& piece : pieces)
 	{
 		float w = piece.right - piece.left;
@@ -105,6 +126,14 @@ void RenderSubsystem::DrawRawBackground(URootWindow* root)
 	}
 }
 
+// The window's own GC as the original keeps it (XWindow::Init 0x1004bb30, its
+// GC made by XGC::XGC 0x10026ad0): left and top aligned, word wrapped, the
+// root's multipliers, and what the window's setters have put in it -- its
+// fonts, its colours, its special and translucent text and its baseline, and
+// its background's style (SetBackgroundStyle 0x1004d670, DSTY_None turning
+// drawing off) and smoothing (SetBackgroundSmoothing 0x1004d700), with a
+// background texture or none: what a window draws takes them, a button's
+// texture its style.
 void RenderSubsystem::ResetWindowGC(UWindow* window, float offsetX, float offsetY)
 {
 	// Reset everything first
@@ -151,6 +180,8 @@ void RenderSubsystem::ResetWindowGC(UWindow* window, float offsetX, float offset
 	engine->dxgc->SetTextColor(window->TextColor());
 	engine->dxgc->SetTextVSpacing(window->textVSpacing());
 	engine->dxgc->SetTileColor(window->tileColor());
+	engine->dxgc->SetStyle((EDrawStyle)window->backgroundStyle());
+	engine->dxgc->EnableSmoothing(window->bSmoothBackground());
 
 	// Setup origin
 	engine->dxgc->offsetX = offsetX;
@@ -165,27 +196,12 @@ void RenderSubsystem::ResetWindowGC(UWindow* window, float offsetX, float offset
 void RenderSubsystem::PushWindowGC(UWindow* window)
 {
 	UGC* gc = engine->dxgc;
-	auto hAlign = gc->HAlign(); auto polyFlags = gc->PolyFlags(); auto style = gc->Style(); auto textColor = gc->TextColor(); auto vAlign = gc->VAlign();
-	bool drawEnabled = gc->bDrawEnabled(), free = gc->bFree(), masked = gc->bMasked(), modulated = gc->bModulated(), parseMetachars = gc->bParseMetachars();
-	bool smoothed = gc->bSmoothed(), textTranslucent = gc->bTextTranslucent(), translucent = gc->bTranslucent(), wordWrap = gc->bWordWrap();
-	auto baselineOffset = gc->baselineOffset(); auto boldFont = gc->boldFont(); auto clipRect = gc->gcClipRect(); auto gcCount = gc->gcCount(); auto gcFree = gc->gcFree(); auto gcOwner = gc->gcOwner(); auto gcStack = gc->gcStack();
-	auto hMultiplier = gc->hMultiplier(); auto normalFont = gc->normalFont(); auto textPolyFlags = gc->textPolyFlags(); auto textVSpacing = gc->textVSpacing(); auto tileColor = gc->tileColor();
-	auto underlineHeight = gc->underlineHeight(); auto underlineTexture = gc->underlineTexture(); auto vMultiplier = gc->vMultiplier(); bool specialText = gc->SpecialTextEnabled;
-	float offsetX = gc->offsetX, offsetY = gc->offsetY;
-	WindowGCStack.push_back([=]()
-	{
-		gc->HAlign() = hAlign; gc->PolyFlags() = polyFlags; gc->Style() = style; gc->TextColor() = textColor; gc->VAlign() = vAlign;
-		gc->bDrawEnabled() = drawEnabled; gc->bFree() = free; gc->bMasked() = masked; gc->bModulated() = modulated; gc->bParseMetachars() = parseMetachars;
-		gc->bSmoothed() = smoothed; gc->bTextTranslucent() = textTranslucent; gc->bTranslucent() = translucent; gc->bWordWrap() = wordWrap;
-		gc->baselineOffset() = baselineOffset; gc->boldFont() = boldFont; gc->gcClipRect() = clipRect; gc->gcCount() = gcCount; gc->gcFree() = gcFree; gc->gcOwner() = gcOwner; gc->gcStack() = gcStack;
-		gc->hMultiplier() = hMultiplier; gc->normalFont() = normalFont; gc->textPolyFlags() = textPolyFlags; gc->textVSpacing() = textVSpacing; gc->tileColor() = tileColor;
-		gc->underlineHeight() = underlineHeight; gc->underlineTexture() = underlineTexture; gc->vMultiplier() = vMultiplier; gc->SpecialTextEnabled = specialText;
-		gc->offsetX = offsetX; gc->offsetY = offsetY;
-	});
+	UGC::State state = gc->SaveState();
+	WindowGCStack.push_back([gc, state]() { gc->RestoreState(state); });
 	// A script that never releases: the oldest kept state dropped past 64
 	if (WindowGCStack.size() > 64)
 		WindowGCStack.erase(WindowGCStack.begin());
-	ResetWindowGC(window, offsetX, offsetY);
+	ResetWindowGC(window, state.offsetX, state.offsetY);
 }
 
 void RenderSubsystem::PopWindowGC()
@@ -213,18 +229,21 @@ void RenderSubsystem::DrawWindow(UWindow* window, float offsetX, float offsetY)
 	if (window->parentOwner())
 		engine->dxgc->PushClip(engine->dxgc->ScaleRect(Rectf::xywh(offsetX, offsetY, window->Width(), window->Height())));
 
-	// The window's background, then its own drawing, as the original's
-	// XWindow::DrawTree has them.
+	// The window's background, then its own drawing, its children and its
+	// PostDrawWindow, as the original's XWindow::DrawTree has them, through
+	// the window's own GC pushed once round them all: PostDrawWindow takes
+	// the GC as DrawWindow left it, the children drawing through their own.
 	ResetWindowGC(window, offsetX, offsetY);
 	window->DrawBackground(engine->dxgc);
 	window->DrawWindow(engine->dxgc);
 
+	UGC::State drawn = engine->dxgc->SaveState();
 	for (UWindow* child = window->firstChild(); child; child = child->nextSibling())
 	{
 		DrawWindow(child, offsetX, offsetY);
 	}
 
-	ResetWindowGC(window, offsetX, offsetY);
+	engine->dxgc->RestoreState(drawn);
 	window->PostDrawWindow(engine->dxgc);
 
 	if (window->parentOwner())

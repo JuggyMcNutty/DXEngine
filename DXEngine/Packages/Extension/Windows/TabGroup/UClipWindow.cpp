@@ -11,10 +11,12 @@
 // ClipPositionChanged when the position does.
 
 // The original's XClipWindow::Init (0x1000b320): no preferred size in units,
-// at the top left, snapping to units and filling the window.
+// at the top left, snapping to units and filling the window, the focus
+// stopping at its ends.
 void UClipWindow::InitDefaults()
 {
 	UTabGroupWindow::InitDefaults();
+	WrapFocus = false;
 	prefHUnits() = -1;
 	prefVUnits() = -1;
 	hMult() = 1.0f;

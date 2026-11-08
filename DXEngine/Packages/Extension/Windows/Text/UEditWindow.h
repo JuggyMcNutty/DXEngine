@@ -70,7 +70,7 @@ public:
 	};
 
 	// The undo list: each change a position, the text removed and the text
-	// put in (extension-dll.md, Small). Changes [0, undoIndex) are applied;
+	// put in (extension-dll.md, Small). Changes [0, currentUndo) are applied;
 	// what follows is what redo replays.
 	struct EditChange
 	{
@@ -79,10 +79,9 @@ public:
 		ScriptString inserted;
 	};
 	Array<EditChange> undoList;
-	int undoIndex = 0;
 
 	void AddUndo(int pos, ScriptString removed, ScriptString inserted);
-	void ApplyChange(int pos, const ScriptString& from, const ScriptString& to);
+	void ClampUndo();
 
 	BitfieldBool bCursorShowing() { return BoolValue(PropOffsets_EditWindow.bCursorShowing); }
 	BitfieldBool bDragging() { return BoolValue(PropOffsets_EditWindow.bDragging); }
@@ -162,8 +161,6 @@ private:
 	int NextWord(int pos);
 	int PrevWord(int pos);
 	void DrawRow(UGC* gc, const TextRow& row, float x, float y, const Color& color, const Color& selectedColor, float selectedFrom, float selectedTo);
-
-	bool textChanged = false;
 
 	// The rows, made again when the text, the wrap width or the fonts change.
 	Array<TextRow> rows;

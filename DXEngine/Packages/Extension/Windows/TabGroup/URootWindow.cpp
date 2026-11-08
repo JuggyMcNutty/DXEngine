@@ -392,6 +392,11 @@ void URootWindow::PostDrawWindow(UGC* gc)
 				hotY = (float)((cursor->VSize() >> 1) - 1);
 			float x = MouseX() - hotX;
 			float y = MouseY() - hotY;
+			// Unsmoothed whatever the root's GC holds (bugs.md D.80): the
+			// original draws the pointer through the root's GC, so after a
+			// Snapshot menu ShowSnapshot's smoothing filters it at a scale of
+			// 2 or more
+			gc->EnableSmoothing(false);
 			if (shadow)
 			{
 				gc->SetStyle(EDrawStyle::Modulated);

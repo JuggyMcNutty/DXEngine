@@ -5,10 +5,12 @@
 // extension-dll.md, Tiles and tab groups) -- every modal window is one --
 // sizes itself to its children unless told not to, or sizes them to itself.
 
-// The original's XTabGroupWindow::Init (0x10044d90): sized to its children.
+// The original's XTabGroupWindow::Init (0x10044d90): sized to its children,
+// the focus going round its ends.
 void UTabGroupWindow::InitDefaults()
 {
 	UWindow::InitDefaults();
+	WrapFocus = true;
 	bSizeParentToChildren() = true;
 	bSizeChildrenToParent() = false;
 	tabGroupIndex() = -1;

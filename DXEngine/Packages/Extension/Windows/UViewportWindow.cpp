@@ -136,13 +136,14 @@ void UViewportWindow::ShowWeapons(std::optional<bool> bShow)
 	bShowWeapons() = !bShow || *bShow;
 }
 
-// The original's Init (Extension.dll 0x10049f10): enabled, the depth
-// cleared, a player's view rotation and eye heights used, a field of view
-// of 90, black, and the player's own view at eye level. The script gives a
-// ViewportWindow no defaults.
+// The original's Init (Extension.dll 0x10049f10): the raw background kept
+// out, enabled, the depth cleared, a player's view rotation and eye heights
+// used, a field of view of 90, black, and the player's own view at eye
+// level. The script gives a ViewportWindow no defaults.
 void UViewportWindow::InitDefaults()
 {
 	UWindow::InitDefaults();
+	bDrawRawBackground() = false;
 	bEnableViewport() = true;
 	bClearZ() = true;
 	bUseViewRotation() = true;

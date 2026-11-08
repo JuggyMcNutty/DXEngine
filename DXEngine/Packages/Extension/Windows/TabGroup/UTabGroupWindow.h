@@ -20,4 +20,9 @@ public:
 	float& firstAbsY() { return Value<float>(PropOffsets_TabGroupWindow.firstAbsY); }
 	//DynamicArray& rowMajorWindowList() { return Value<DynamicArray>(PropOffsets_TabGroupWindow.rowMajorWindowList); }
 	int& tabGroupIndex() { return Value<int>(PropOffsets_TabGroupWindow.tabGroupIndex); }
+
+	// Whether the arrow keys' focus goes round the group's ends (the
+	// original's native bWrapFocus, which no script sees): on for every tab
+	// group but a clip window.
+	bool WrapFocus = true;
 };

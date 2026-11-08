@@ -190,7 +190,7 @@ public:
 	bool IsTraversable(bool checkTopmost);
 	void CheckFocusWindow();
 	void CheckGrabbedWindow();
-	UObject* MoveFocus(int dir);
+	UObject* MoveFocus(int dir, bool wrap = false);
 	float GetTickOffset();
 	static float GetWindowsTickOffset(bool bRestart);
 	UObject* GetTopChild(std::optional<bool> bVisibleOnly);

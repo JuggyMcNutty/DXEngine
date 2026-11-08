@@ -29,71 +29,107 @@ namespace
 }
 
 // The original's undo is a list of changes -- each a position, the text
-// removed and the text put in -- capped at maxUndos, with typing straight
-// after the last change joining it; the script's Ctrl+Z and Ctrl+Y call Undo
-// and Redo (extension-dll.md, Small).
+// removed and the text put in -- of which currentUndo are applied, and the
+// text is unchanged while currentUndo is the clean mark, unchangedUndo (-1
+// for none); the script's Ctrl+Z and Ctrl+Y call Undo and Redo
+// (extension-dll.md, Small). A change (XEditWindow::AddUndo 0x10020450):
+// typing straight after the last change joins it unless that change is the
+// mark (0x100204ee-0x10020502), so an undo comes back to the mark; a new
+// change drops what redo held, and the mark with it; then the list is held
+// to maxUndos (ClampUndo).
 void UEditWindow::AddUndo(int pos, ScriptString removed, ScriptString inserted)
 {
-	undoList.resize(undoIndex);   // a new change drops what redo held
+	if (removed.empty() && inserted.empty())
+		return;
 
-	if (!undoList.empty() && removed.empty() && !inserted.empty())
+	int current = currentUndo();
+	bool joined = false;
+	if (removed.empty() && current > 0 && current != unchangedUndo())
 	{
-		EditChange& last = undoList.back();
+		EditChange& last = undoList[current - 1];
 		if (last.removed.empty() && pos == last.pos + (int)last.inserted.size())
 		{
 			last.inserted += inserted;
-			return;
+			joined = true;
 		}
 	}
 
-	undoList.push_back({ pos, std::move(removed), std::move(inserted) });
-	if (maxUndos() > 0 && (int)undoList.size() > maxUndos())
-		undoList.erase(undoList.begin());
-	undoIndex = (int)undoList.size();
+	if (current < (int)undoList.size())
+	{
+		undoList.resize(current);
+		if (unchangedUndo() > current)
+			unchangedUndo() = -1;
+	}
+	if (!joined)
+	{
+		undoList.push_back({ pos, std::move(removed), std::move(inserted) });
+		currentUndo() = current + 1;
+	}
+	ClampUndo();
 }
 
-// An undo or a redo: the change made again, the insertion point after what
-// it put in, nothing selected.
-void UEditWindow::ApplyChange(int pos, const ScriptString& from, const ScriptString& to)
+// The list held to maxUndos, no limit below 0 (XEditWindow::ClampUndo
+// 0x10020290): the oldest changes dropped, the applied count and the mark
+// moved down with them -- a mark among them gone, -1 -- so 0 keeps none.
+void UEditWindow::ClampUndo()
 {
-	ScriptString text = Text();
-	if (pos < 0 || pos + (int)from.size() > (int)text.size())
+	int count = (int)undoList.size();
+	if (maxUndos() < 0 || count <= maxUndos())
 		return;
-	text = text.substr(0, pos) + to + text.substr(pos + from.size());
-	StoreText(text);
-	SetTextChangedFlag(true);
-	DispatchTextChanged(true);
-	insertHookPos() = pos;
-	SetCursorPoint(pos + (int)to.size(), false);
+	int dropped = count - maxUndos();
+	undoList.erase(undoList.begin(), undoList.begin() + dropped);
+	currentUndo() = std::max(currentUndo() - dropped, 0);
+	unchangedUndo() = unchangedUndo() - dropped < 0 ? -1 : unchangedUndo() - dropped;
 }
 
+// The original's (XEditWindow::ClearUndo 0x1001ddf0): the list emptied and
+// none applied, the changed state kept -- unchanged, the mark at 0.
 void UEditWindow::ClearUndo()
 {
+	unchangedUndo() = currentUndo() == unchangedUndo() ? 0 : -1;
+	currentUndo() = 0;
 	undoList.clear();
-	undoIndex = 0;
 }
 
+// The original's (XEditWindow::Redo 0x1001e170, Undo 0x1001e0a0): the change
+// after the applied ones made again, or the last applied taken back, as a
+// replacement of its text with no undo and selected (ReplaceText), so a key
+// typed next replaces what it put back.
 void UEditWindow::Redo()
 {
-	if (undoIndex >= (int)undoList.size())
+	int current = currentUndo();
+	if (current >= (int)undoList.size())
 		return;
-	const EditChange& change = undoList[undoIndex];
-	undoIndex++;
-	ApplyChange(change.pos, change.removed, change.inserted);
+	EditChange change = undoList[current];
+	selectStart() = change.pos;
+	selectEnd() = change.pos + (int)change.removed.size();
+	insertPos() = change.pos;
+	currentUndo() = current + 1;
+	ReplaceText(change.inserted, false, true);
 }
 
 void UEditWindow::Undo()
 {
-	if (undoIndex <= 0)
+	int current = currentUndo();
+	if (current <= 0)
 		return;
-	undoIndex--;
-	const EditChange& change = undoList[undoIndex];
-	ApplyChange(change.pos, change.inserted, change.removed);
+	currentUndo() = current - 1;
+	EditChange change = undoList[current - 1];
+	selectStart() = change.pos;
+	selectEnd() = change.pos + (int)change.inserted.size();
+	insertPos() = change.pos;
+	ReplaceText(change.removed, false, true);
 }
 
+// Below 0 no limit (XEditWindow::SetMaxUndos 0x1001da60), the list held to
+// it at once.
 void UEditWindow::SetMaxUndos(int newMaxUndos)
 {
-	maxUndos() = newMaxUndos;
+	int max = newMaxUndos < 0 ? -1 : newMaxUndos;
+	if (maxUndos() == max)
+		return;
+	maxUndos() = max;
+	ClampUndo();
 }
 
 // The original's (XEditWindow::CopyToTextBuffer 0x1001e5f0 and
@@ -208,9 +244,11 @@ void UEditWindow::GetSelectedArea(int& startPos, int& Count)
 	Count = std::max(selectEnd() - selectStart(), 0);
 }
 
+// Changed while the applied count is not the clean mark
+// (XEditWindow::HasTextChanged 0x10013760).
 bool UEditWindow::HasTextChanged()
 {
-	return textChanged;
+	return currentUndo() != unchangedUndo();
 }
 
 // The original's (XEditWindow::SetText 0x1001e260): the whole text selected
@@ -279,7 +317,8 @@ bool UEditWindow::InsertText(std::optional<ScriptString> InsertText, std::option
 // The original's XEditWindow::ReplaceText (0x1001fe20): the selection, or
 // nothing at the insertion point, replaced by the text, cut to what MaxSize
 // leaves room for -- a text already past MaxSize cut to it instead -- with
-// an undo when asked. The change is announced up the parents (TextChanged)
+// an undo when asked. The change is announced up the parents (TextChanged,
+// changed by the undo steps against the clean mark, ChangeText 0x1001fab0)
 // before the insertion point moves past what was put in, the hook at its
 // start, so that with bSelect it is selected.
 void UEditWindow::ReplaceText(ScriptString newText, bool bUndo, bool bSelect)
@@ -319,7 +358,6 @@ void UEditWindow::ReplaceText(ScriptString newText, bool bUndo, bool bSelect)
 	if (bUndo)
 		AddUndo(pos, text.substr(pos, selCount), inserted);
 	StoreText(text.substr(0, pos) + inserted + text.substr(pos + selCount));
-	SetTextChangedFlag(true);
 	DispatchTextChanged(HasTextChanged());
 	insertHookPos() = pos;
 	SetInsertionPoint(pos + insertLength, bSelect);
@@ -503,14 +541,17 @@ void UEditWindow::SetSelectedAreaTexture(std::optional<UObject*> NewTexture, std
 		selectColor() = NewColor.value();
 }
 
+// The original's (XEditWindow::ClearTextChangedFlag 0x1001dd50,
+// SetTextChangedFlag 0x1001ddc0): set, no clean mark; cleared, the mark the
+// applied count, which an undo or a redo may come back to.
 void UEditWindow::ClearTextChangedFlag()
 {
-	textChanged = false;
+	SetTextChangedFlag(false);
 }
 
 void UEditWindow::SetTextChangedFlag(std::optional<bool> bSet)
 {
-	textChanged = bSet ? *bSet : true;
+	unchangedUndo() = bSet.value_or(true) ? -1 : currentUndo();
 }
 
 // The original's (XEditWindow::ParentRequestedPreferredSize 0x10020ac0): a
@@ -536,8 +577,9 @@ void UEditWindow::ParentRequestedPreferredSize(bool bWidthSpecified, float& pref
 // The original's XEditWindow::Init (0x1001cea0): text from the top left, 3
 // in from the sides, editable and on several lines, a white insertion point,
 // grey selection with black text in it, up to 200000 characters and 64
-// undos, a cursor shown and blinking each second after 0.75 s, its column
-// and the last size unset, no special text, and selectable.
+// undos, none applied and unchanged, a cursor shown and blinking each second
+// after 0.75 s, its column and the last size unset, no special text, and
+// selectable.
 void UEditWindow::InitDefaults()
 {
 	ULargeTextWindow::InitDefaults();
@@ -558,6 +600,8 @@ void UEditWindow::InitDefaults()
 	selectColor() = { 196, 196, 196, 255 };
 	inverseColor() = { 0, 0, 0, 255 };
 	maxUndos() = 64;
+	currentUndo() = 0;
+	unchangedUndo() = 0;
 	blinkStart() = 0.75f;
 	blinkPeriod() = 1.0f;
 	dragDelay() = 0.0f;
@@ -652,11 +696,14 @@ void UEditWindow::VisibilityChanged(bool bNewVisibility)
 // point while it is blinked on. Otherwise as a large text window draws
 // (XLargeTextWindow::Draw 0x1002e500): the rows within the margins. Either
 // takes only the rows its clip rectangle reaches, from the one its top falls
-// in to the one its bottom does.
+// in to the one its bottom does. With the GC's drawing off no row is drawn,
+// as the original's text and patterns draw nothing then, but the insertion
+// point is, its SetStyle turning drawing on.
 void UEditWindow::DrawWindow(UGC* gc)
 {
 	UWindow::DrawWindow(gc);
-	if (!gc->bDrawEnabled())
+	bool editing = bEditable() && IsFocusWindow();
+	if (!gc->bDrawEnabled() && !editing)
 		return;
 
 	const Array<TextRow>& r = Rows();
@@ -664,7 +711,6 @@ void UEditWindow::DrawWindow(UGC* gc)
 	float top = RowsTop(count);
 	float step = lineHeight() + vSpace();
 	Color color = gc->TextColor();
-	bool editing = bEditable() && IsFocusWindow();
 	int first = 0, last = count;
 	if (step > 0.0f)
 	{
@@ -672,6 +718,8 @@ void UEditWindow::DrawWindow(UGC* gc)
 		first = std::max((int)std::floor((clip.clipY + 0.00001f - top) / step), 0);
 		last = std::min((int)std::ceil((clip.clipY + clip.clipHeight - top) / step), count);
 	}
+	if (!gc->bDrawEnabled())
+		last = first;
 
 	gc->PushClip(gc->ScaleRect(Rectf::xywh(gc->offsetX + hMargin(), gc->offsetY + vMargin(), Width() - (hMargin() + hMargin()), Height() - (vMargin() + vMargin()))));
 	if (!editing)

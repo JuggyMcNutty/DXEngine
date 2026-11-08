@@ -107,6 +107,7 @@ public:
 	uint32_t EffectiveTextPolyFlags();
 	void DrawTile(UTexture* tex, const Rectf& dest, const Rectf& src, const Color& c, uint32_t flags, bool clip = true);
 	bool DrawUnitTile(UTexture* tex, float x, float y, float w, float h, float u, float v, float uw, float vh, bool tileX, bool tileY, const Color& c, uint32_t flags);
+	void GenerateStyle();
 
 	// What the text's codes have set as a line is read (the original's
 	// XTextState): bold, a colour of its own, a line break before, and the
@@ -144,6 +145,29 @@ public:
 	};
 	TextSettings UseTextSettings(UWindow* window);
 	void RestoreTextSettings(const TextSettings& settings);
+
+	// All of the GC's state but its clip, kept and put back: a script's
+	// GetGC and ReleaseGC, and the original's one push of a window's own GC
+	// round its drawing, its children's and its PostDrawWindow
+	// (XWindow::DrawTree 0x10051490), the children drawing through their own.
+	struct State
+	{
+		uint8_t hAlign, style, vAlign;
+		int polyFlags, textPolyFlags, gcCount, hMultiplier, vMultiplier;
+		Color textColor, tileColor;
+		bool drawEnabled, free, masked, modulated, parseMetachars, smoothed, textTranslucent, translucent, wordWrap, specialText;
+		float baselineOffset, textVSpacing, underlineHeight;
+		UFont* normalFont;
+		UFont* boldFont;
+		UTexture* underlineTexture;
+		ClipRect clipRect;
+		UGC* gcFree;
+		UGC* gcOwner;
+		UGC* gcStack;
+		float offsetX, offsetY;
+	};
+	State SaveState();
+	void RestoreState(const State& state);
 
 	float offsetX = 0.0f;
 	float offsetY = 0.0f;

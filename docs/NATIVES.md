@@ -1815,7 +1815,15 @@ from the original's code:
   centred by the whole half of the room, margins and all, each row at its
   own alignment across (`TextBlockConsole`: two lines in boxes aligned to
   the top, the middle and the bottom, their lit rows and columns alike in
-  both engines); an edit field draws its own rows, as the original's.
+  both engines); an edit field draws its own rows, as the original's. A
+  large text window's script `DrawWindow` comes first, handed its GC left
+  and top aligned and word wrapped, the window's own alignments and wrap
+  placing the rows alone (`UndoConsole`'s `CapLargeTextGCWindow`: 0, 0 and
+  True in both engines), each row the font's height below the last
+  whatever its characters (read from both codes; no stock font has a glyph
+  taller than its space). An edit field whose GC's drawing is off draws its
+  insertion point and none of its rows (`EditDrawOffConsole`: the white bar
+  alone in both engines).
 - **A border window** gives its top shown child the inside: within the
   child margins, and within the border's textures while its margins are
   from the border, as they are from the start. It asks for that child's
@@ -1839,7 +1847,12 @@ from the original's code:
   parents -- and leaves the insertion point at the start, as `AppendText`
   does after adding at the end; so the save screen's Save Game button
   wakes for the name it fills in. An edit leaves the insertion point after
-  what it put in, and what it put in selected when asked to.
+  what it put in, and what it put in selected when asked to. Undo and Redo
+  put back what they take back or make again selected, so a key typed next
+  replaces it; a field is changed while its undo steps stand off the mark
+  `ClearTextChangedFlag` sets, so an undo back to the mark reads unchanged,
+  `TextChanged` saying so, and a typing after the mark is a step of its
+  own; `SetMaxUndos(0)` keeps no step (`UndoConsole`: every line alike).
 - **An edit field's copy, cut and paste** go through the desktop's
   clipboard, by choice, so they reach other programs, where the original
   keeps a text buffer of its own: a copy or cut takes the selection and
@@ -1977,7 +1990,10 @@ from the original's code:
   windows that shows, a group none of whose windows shows first
   (`FocusConsole`: a clip window scrolled so that its first button lies
   above the view, then none in view; Tab and Shift+Tab from each place, and
-  each button's clip rectangle, every line alike).
+  each button's clip rectangle, every line alike). The arrow keys' moves go
+  round a tab group's ends and stop at a clip window's, where the focus
+  stays, as the inventory's ammo buttons and the medical bot's augmentation
+  buttons have it (`ClipWrapConsole`: every line alike).
 - **What a clip rectangle holds back**
   ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#drawing-a-window)):
   a window none of which shows -- scrolled out of its clip window, sized to
@@ -1991,6 +2007,30 @@ from the original's code:
   its parent's edge; the page of a list in a clip window shorter than its
   parent, of one shorter than its parent and of one its clip window's
   parent cuts; every line alike).
+- **A window's GC**
+  ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#drawing-a-window)):
+  a window draws through a GC of its own as its setters leave it: its
+  background's style (`DSTY_None` turning drawing off) and smoothing, with
+  a background texture or none, its fonts, colours and text settings, left
+  and top aligned and word wrapped. So a button's texture takes the
+  button's style, and the persona screens' translucent scroll arrows show
+  the list through them (`BgStyleConsole` at 1024x768: a translucent button
+  over a grey box at 161 and 201 through the original's gamma at its
+  texture's colours 0 and 1 in both engines, the masked and normal ones at
+  0 and 137). `EnableMasking`, `EnableTranslucency` and `EnableModulation`
+  make the style again from the three, none while drawing is off, and
+  `PostDrawWindow` takes the GC as `DrawWindow` left it, each child drawing
+  through its own (`GCStateConsole`: every line alike); `DrawActor` with
+  `bUnlit` or `ScaleGlow` left out draws the actor lit at a glow of 1, as
+  the original's native passes them (read from both codes; every stock call
+  gives both). The pointer is drawn through the root's GC. Differs (bugs.md
+  D.80): it is never smoothed, where the original's is once the Snapshot
+  option has turned the root's smoothing on (read from both codes). A
+  window's background, stretched or tiled, is put on whole units
+  as every tile is, as the original's `DrawIconPattern` puts it (read:
+  Extension.dll `0x10028770`; `DrugConsole` full screen at 2560x1440: the
+  drugged view's last column brighter than the four before it, where the
+  build before stretched it evenly).
 - **The windows** tick by real time since their last tick, not the level's,
   and a held button's first repeat counts what of the frame had gone. Each
   window, shown or not, from the root down, its higher siblings first, does
@@ -2099,7 +2139,14 @@ Differs:
   there alike with the original's but the version, the clock and the free
   space). On a screen narrower than 4:3 (1280x1024) the root is the
   screen's width, as the original's, so the HUD's left and right parts lie
-  at its edges.
+  at its edges. The root's own background and its raw background cover the
+  whole screen, as the original's root's do: the menus' darkening
+  (`MaskBackground`) and the Snapshot option's picture reach its sides,
+  the picture filtered, as `ShowSnapshot`'s `SetBackgroundSmoothing` asks
+  of the root's GC, its edges clamped ([tiles](#tiles)) (`RootBackConsole`
+  at 1280x720: the root's red background over the whole frame in both
+  engines; `SnapSmoothConsole` on Liberty Island at 1280x720 through
+  `D3DDrv`: the snapshot over the whole width in both, in soft gradients).
 - **Full screen as the window loses the focus** is kept, by choice, where
   the original leaves it and minimises; SDL3 minimises a real exclusive mode
   alone, never on Wayland nor in a desktop's full screen.
@@ -2122,25 +2169,8 @@ green, white or None (`ButtonDefaultsConsole`: a button's six slots set
 apart, then each call with its first slot alone, its insensitive and focused
 look alike in both engines).
 
-Differs (bugs.md EXT.27): on a screen wider than 4:3 the root's background
-and raw background cover the 4:3 root alone, the menus' darkening and
-snapshot leaving the sides. Differs (bugs.md EXT.28): a window's own drawing
-takes its background style only with a background texture, so the persona
-screens' translucent scroll arrows are drawn opaque. Differs (bugs.md
-EXT.29): the menus' snapshot background is drawn unfiltered. Differs
-(bugs.md EXT.30): the arrow keys' focus wraps round a clip window's ends.
-Differs (bugs.md EXT.31): a window's GC state: its style, its enables,
-`PostDrawWindow`'s and `DrawActor`'s defaults. Differs (bugs.md EXT.32): a
-stretched window background is drawn unrounded. Differs (bugs.md EXT.33):
-an edit field's Undo and Redo leave nothing selected, where the original
-selects what they put back. Differs (bugs.md EXT.34): an edit field's
-changed flag and undo steps ignore the clean mark `ClearTextChangedFlag`
-sets, and `SetMaxUndos(0)` limits nothing. Differs (bugs.md EXT.35): a large
-text window's GC reaches its script with the window's alignments and word
-wrap, rows step by their tallest glyph, and an edit field's insertion point
-is hidden while the GC's drawing is off; no stock script or font reaches
-them. Differs (bugs.md WIN.32): the Win32 window's mouse lock neither
-captures nor clips the pointer. Differs (bugs.md WIN.33): the Win32 window
+Differs (bugs.md WIN.32): the Win32 window's mouse lock neither captures
+nor clips the pointer. Differs (bugs.md WIN.33): the Win32 window
 lets the screen saver and the display's power-down through. Differs
 (bugs.md WIN.36): the Win32 window's menu gathers raw motion, a wheel of no
 delta presses, and its screen is sized by the system's DPI. Differs

@@ -27,10 +27,11 @@ void UGC::CopyGC(UObject* Copy)
 }
 
 // The actor draws through the renderer into the scene being drawn: with the
-// GC's style, the glow and unlit given, its draw scale multiplied and a given
-// skin replacing every skin, as if not hidden, over the depth buffer when
-// bClearZ asks -- and all of it put back afterwards (extension-dll.md, Actors
-// in a window); with bConstrain, through the scene's frame narrowed to the
+// GC's style, the glow and unlit given -- left out, 1.0 and False
+// (execDrawActor 0x1002cd80) -- its draw scale multiplied and a given skin
+// replacing every skin, as if not hidden, over the depth buffer when bClearZ
+// asks -- and all of it put back afterwards (extension-dll.md, Actors in a
+// window); with bConstrain, through the scene's frame narrowed to the
 // window's clip. The vision augmentation passes no skin (its script swaps
 // the skins itself), never constrains and never clears.
 void UGC::DrawActor(UObject* Actor, std::optional<bool> bClearZ, std::optional<bool> bConstrain, std::optional<bool> bUnlit, std::optional<float> DrawScale, std::optional<float> ScaleGlow, std::optional<UObject*> Skin)
@@ -54,10 +55,8 @@ void UGC::DrawActor(UObject* Actor, std::optional<bool> bClearZ, std::optional<b
 		oldMultiSkins[i] = actor->MultiSkins()[i];
 
 	actorStyle = Style();
-	if (ScaleGlow)
-		actor->ScaleGlow() = *ScaleGlow;
-	if (bUnlit)
-		actor->bUnlit() = *bUnlit;
+	actor->ScaleGlow() = ScaleGlow.value_or(1.0f);
+	actor->bUnlit() = bUnlit.value_or(false);
 	if (DrawScale)
 		actor->DrawScale() *= *DrawScale;
 	if (Skin && *Skin)
@@ -421,14 +420,19 @@ void UGC::EnableDrawing(bool newDrawEnabled)
 	bDrawEnabled() = newDrawEnabled;
 }
 
+// The original's (XGC::EnableMasking 0x100272a0, EnableTranslucency
+// 0x10027330, EnableModulation 0x100273c0): the flag set and the style made
+// again from the three (GenerateStyle).
 void UGC::EnableMasking(bool bNewMasking)
 {
 	bMasked() = bNewMasking;
+	GenerateStyle();
 }
 
 void UGC::EnableModulation(bool bNewModulation)
 {
 	bModulated() = bNewModulation;
+	GenerateStyle();
 }
 
 void UGC::EnableSmoothing(bool bNewSmoothing)
@@ -444,6 +448,27 @@ void UGC::EnableSpecialText(bool bNewSpecialText)
 void UGC::EnableTranslucency(bool bNewTranslucency)
 {
 	bTranslucent() = bNewTranslucency;
+	GenerateStyle();
+}
+
+// The style the three flags make (XGC::GenerateStyle 0x1002aed0): with
+// drawing on, masked before translucent before modulated, else normal; with
+// it off, none.
+void UGC::GenerateStyle()
+{
+	EDrawStyle style = EDrawStyle::None;
+	if (bDrawEnabled())
+	{
+		if (bMasked())
+			style = EDrawStyle::Masked;
+		else if (bTranslucent())
+			style = EDrawStyle::Translucent;
+		else if (bModulated())
+			style = EDrawStyle::Modulated;
+		else
+			style = EDrawStyle::Normal;
+	}
+	Style() = (uint8_t)style;
 }
 
 void UGC::EnableTranslucentText(bool bNewTranslucency)
@@ -1155,4 +1180,32 @@ void UGC::RestoreTextSettings(const TextSettings& settings)
 	boldFont() = settings.boldFont;
 	SpecialTextEnabled = settings.specialText;
 	textVSpacing() = settings.vspacing;
+}
+
+UGC::State UGC::SaveState()
+{
+	State s;
+	s.hAlign = HAlign(); s.style = Style(); s.vAlign = VAlign();
+	s.polyFlags = PolyFlags(); s.textPolyFlags = textPolyFlags(); s.gcCount = gcCount(); s.hMultiplier = hMultiplier(); s.vMultiplier = vMultiplier();
+	s.textColor = TextColor(); s.tileColor = tileColor();
+	s.drawEnabled = bDrawEnabled(); s.free = bFree(); s.masked = bMasked(); s.modulated = bModulated(); s.parseMetachars = bParseMetachars();
+	s.smoothed = bSmoothed(); s.textTranslucent = bTextTranslucent(); s.translucent = bTranslucent(); s.wordWrap = bWordWrap(); s.specialText = SpecialTextEnabled;
+	s.baselineOffset = baselineOffset(); s.textVSpacing = textVSpacing(); s.underlineHeight = underlineHeight();
+	s.normalFont = normalFont(); s.boldFont = boldFont(); s.underlineTexture = underlineTexture();
+	s.clipRect = gcClipRect(); s.gcFree = gcFree(); s.gcOwner = gcOwner(); s.gcStack = gcStack();
+	s.offsetX = offsetX; s.offsetY = offsetY;
+	return s;
+}
+
+void UGC::RestoreState(const State& s)
+{
+	HAlign() = s.hAlign; Style() = s.style; VAlign() = s.vAlign;
+	PolyFlags() = s.polyFlags; textPolyFlags() = s.textPolyFlags; gcCount() = s.gcCount; hMultiplier() = s.hMultiplier; vMultiplier() = s.vMultiplier;
+	TextColor() = s.textColor; tileColor() = s.tileColor;
+	bDrawEnabled() = s.drawEnabled; bFree() = s.free; bMasked() = s.masked; bModulated() = s.modulated; bParseMetachars() = s.parseMetachars;
+	bSmoothed() = s.smoothed; bTextTranslucent() = s.textTranslucent; bTranslucent() = s.translucent; bWordWrap() = s.wordWrap; SpecialTextEnabled = s.specialText;
+	baselineOffset() = s.baselineOffset; textVSpacing() = s.textVSpacing; underlineHeight() = s.underlineHeight;
+	normalFont() = s.normalFont; boldFont() = s.boldFont; underlineTexture() = s.underlineTexture;
+	gcClipRect() = s.clipRect; gcFree() = s.gcFree; gcOwner() = s.gcOwner; gcStack() = s.gcStack;
+	offsetX = s.offsetX; offsetY = s.offsetY;
 }
