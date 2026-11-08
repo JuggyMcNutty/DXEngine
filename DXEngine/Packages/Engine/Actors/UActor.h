@@ -388,12 +388,15 @@ public:
 	void RemoveFromBspNode();
 	static int NodeAABBOverlap(const vec3& center, const vec3& extents, BspNode* node);
 
-	// The status of the actor in the collision system
+	// The status of the actor in the collision system: the hash's cells it
+	// was filed in, from the first to past the last, and when, as the
+	// original's hash gives the newest-filed first in a cell
 	struct
 	{
 		bool Inserted = false;
-		vec3 Location = { 0.0f };
-		vec3 Extents = { 0.0f };
+		ivec3 CellStart = { 0, 0, 0 };
+		ivec3 CellEnd = { 0, 0, 0 };
+		uint64_t Filed = 0;
 		int CheckCounter = -1;
 		int8_t PlayerOrProjectile = -1; // IsPlayerOrProjectile, once asked
 	} Collision;

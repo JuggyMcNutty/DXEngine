@@ -19,13 +19,14 @@
 // The original files each corner as FPoly::Transform does (Engine.dll
 // 0x10387360, from the tracker's filing 0x1037a400, at the render's 24
 // bits): the corner less PrePivot, per axis, dotted with the coords' axes,
-// plus Location. DXEngine's tracker (Collision/TopLevel/BrushTracker.cpp
-// File) puts each corner through one float matrix T(Location) R T(-PrePivot),
-// its last column worked out first. filedfloats.py, both orders in floats:
-// for this door open, the edge's W -329.473114 (original) against
-// -329.473022 (DXEngine), the broad faces' alike. Expected: the edge's 15
-// lines' places along the normal some 9e-5 apart (the 4th or 5th decimal),
-// the broad face's 15 alike.
+// plus Location. DXEngine before its fix (bugs.md PHYS.37) put each corner
+// through one float matrix T(Location) R T(-PrePivot), its last column worked
+// out first: by filedfloats.py 15 of the door's 24 corners on another float,
+// the top's W and the edge's (-329.4730225 against -329.4729919) a float
+// step apart. The sweep's runs: the edge's 15 lines alike, its W's step
+// within the places' rounding; 5 of the face's 15 a step apart (x
+// -307.592468 against -307.592438), those nearest the hinge, the corners'
+// floats moving the face's fragments. With the fix every line alike.
 //=============================================================================
 class FiledPlaneConsole extends Console;
 

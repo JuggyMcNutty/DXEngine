@@ -2,11 +2,13 @@
 // HashOrderConsole (bugs.md PHYS.36, PHYS.39): the order the collision hash
 // gives actors, logged with "DXHASH:" -- TargetMap ([DXCapture.
 // HashOrderConsole], 01_NYC_UNATCOIsland by default) opened from wherever the
-// run starts; 2 s into the level's time, over the player, in the hash's
-// 256-unit cells (their bounds multiples of 256 in both engines):
-//   A, B and C, CapHashMarks spawned in that order 20 units apart along X in
-//   one cell, 40 under a Z bound; D 40 past the next X bound; F 40 over the
-//   Z bound. Then:
+// run starts; 2 s into the level's time, over the player, Q the middle of a
+// 256-unit square whose corners lie on multiples of 256 (on Liberty Island
+// x -4736, which the original's hash, its cells' middles on multiples of
+// 256, takes for a cell's bound):
+//   A, B and C, CapHashMarks spawned in that order 20 units apart along X, 40
+//   under a multiple of 256 in Z; D 40 past the next multiple in X; F 40 over
+//   the one in Z. Then:
 //   1. foreach VisibleCollidingActors(class'CapHashMark', M, 400, Q): each
 //      mark as given -- HurtRadius's order of its victims;
 //   2. a CapHashMover, Mover, spawned 3000 units off, SetLocation'd onto B:
@@ -19,23 +21,26 @@
 //      based on the mark Base 40 under it, SetLocation'd 10 over Base.
 // Each mark's FastTrace from Q is logged, VisibleCollidingActors needing it.
 //
-// The original (Engine.dll): the hash walks its cells X outermost, then Y,
-// then Z (FCollisionHash::ActorRadiusCheck 0x103589e0,
-// ActorEncroachmentCheck 0x10358d50), each cell's chain newest first
-// (AddActor 0x103580b0 puts each link at its bucket's head, and every
+// The original (Engine.dll): a coordinate's cell is it plus 32768 over 256,
+// rounded to the nearest whole, a half to even (GetHashIndices
+// 0x10357590), so -4736 is a bound: A lies in cell 109, C and D in 110, B
+// and F in both, all five in one Z cell; an actor is filed in the cells of
+// its cylinder a unit wider and taller each way (0x103d8460); the hash walks
+// its cells X outermost, then Y, then Z (FCollisionHash::ActorRadiusCheck
+// 0x103589e0, ActorEncroachmentCheck 0x10358d50), each cell's chain newest
+// first (AddActor 0x103580b0 puts each link at its bucket's head, and every
 // FarMoveActor files the actor again, 0x10398ba0); the radius check puts each
 // find at its list's head, so its list comes out reversed, the encroachment
 // check at its tail; touches fill the last free slot (0x10369630); and
 // CheckEncroachment touches whatever does not block it at the spot
-// (0x1039a350), based or not. DXEngine (Collision/TopLevel/CollisionTest.h
-// VisitActorsInBox, OverlapTest.cpp): Z outermost, then Y, then X, each cell
-// oldest first, every list in the order found.
-// Expected: 1. the original D F A B C, DXEngine A B C D F; 2. the original
-// touches C, B, A and its slots A B C, DXEngine A, B, C and C B A; 3. the
-// original untouches A, B, C, touches A, C, B, slots B C A, the radius D F B
-// C A; DXEngine untouches C, B, A, touches B, C, A, slots A C B, the radius
-// B C A D F; 4. in both "Mover2 touch Rider", "Rider touch Mover2", then
+// (0x1039a350), based or not. The original's run: 1. C D A B F; 2. touches
+// B, A, C, slots C A B; 3. untouches C, A, B, touches A, B, C, slots C B A,
+// the radius C D B F A; 4. "Mover2 touch Rider", "Rider touch Mover2", then
 // Rider's basechange, and "Mover3 touch Base", "Base touch Mover3".
+// DXEngine before its fix (bugs.md PHYS.36): cells floored from multiples of
+// 256, Z outermost, each cell oldest first, every list in the order found:
+// 1. A B C D F; 2. A, B, C and C B A; 3. C, B, A, then B, C, A and A C B,
+// the radius B C A D F; 4. as the original's.
 //=============================================================================
 class HashOrderConsole extends Console;
 

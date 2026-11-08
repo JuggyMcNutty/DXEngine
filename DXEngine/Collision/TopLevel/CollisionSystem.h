@@ -3,6 +3,7 @@
 #include "Math/vec.h"
 #include "Math/rotator.h"
 #include "BrushTracker.h"
+#include "Math/floating.h"
 #include <functional>
 #include <memory>
 
@@ -182,89 +183,109 @@ public:
 	// under: a hit on it gives them, and the polygon draws with them
 	static uint32_t FiledFlags(UMover* mover, const Poly& poly);
 
-private:
-	// A coordinate's cell, of 256 units, held to the cells an int can name:
-	// a coordinate that is no number, or past them (a script's collision
-	// size or location), converted undefined
-	static int CellCoord(float v)
+	// The original's hash cell of a coordinate (FCollisionHash::GetHashIndices,
+	// Engine.dll 0x10357590): the coordinate plus 32768 over 256, a float,
+	// made whole by the x87's fistp, to the nearest and a half to even, held
+	// to 0 to 16383 -- so a cell's middle is a multiple of 256 and its bounds
+	// lie 128 off one (HashOrderConsole: marks 20 units either side of x
+	// -4736, a cell's bound, in two cells); one that is no number or past an
+	// int's range the x87's integer indefinite, held to 0. v as the x87 holds
+	// the coordinate before the 32768 is added.
+	static int CellCoord(double v)
 	{
-		if (v != v)
-			v = 0.0f;
-		v = std::clamp(v, -16777216.0f, 16777216.0f);
-		return (int)std::floor(v * (1.0f / 256.0f));
+		float c = (float)X87::Round(X87::Round(v + 32768.0) * 0.00390625);
+		if (!(c >= -2147483648.0f && c < 2147483648.0f))
+			return 0;
+		double whole = std::floor((double)c);
+		double part = (double)c - whole;
+		int64_t cell = (int64_t)whole;
+		if (part > 0.5 || (part == 0.5 && (cell & 1)))
+			cell++;
+		return (int)std::clamp<int64_t>(cell, 0, 0x3fff);
 	}
 
+	// A box's cells, from its first to past its last, as the hash files an
+	// actor and an encroachment check takes the actor at its new place
+	// (FCollisionHash::GetActorExtent, 0x10357e30): each bound a float
+	static void BoxCells(const vec3& lo, const vec3& hi, ivec3& start, ivec3& end)
+	{
+		start = ivec3(CellCoord(lo.x), CellCoord(lo.y), CellCoord(lo.z));
+		end = ivec3(CellCoord(hi.x) + 1, CellCoord(hi.y) + 1, CellCoord(hi.z) + 1);
+	}
+
+	// The cells a check reaches, lo less reach to hi plus it, as the radius
+	// and line checks take them (ActorRadiusCheck 0x103589e0, ActorLineCheck
+	// 0x10359160): Y's and Z's bounds stored as floats, X's as the x87 holds
+	// it
+	static void QueryCells(const vec3& lo, const vec3& hi, const vec3& reach, ivec3& start, ivec3& end)
+	{
+		auto R = X87::Round;
+		start = ivec3(
+			CellCoord(R((double)lo.x - reach.x)),
+			CellCoord((float)R((double)lo.y - reach.y)),
+			CellCoord((float)R((double)lo.z - reach.z)));
+		end = ivec3(
+			CellCoord(R((double)reach.x + hi.x)) + 1,
+			CellCoord((float)R((double)hi.y + reach.y)) + 1,
+			CellCoord((float)R((double)hi.z + reach.z)) + 1);
+	}
+
+	// An actor's box in the hash were it to stand at location, turned to
+	// rotation, as its primitive gives it (GetCollisionBoundingBox): a
+	// brush's, its model's box's corners through its ToWorld coordinates
+	// (UModel's, 0x103f0e70); any other's, its cylinder a unit wider and
+	// taller each way (UPrimitive's, 0x103d8460)
+	static void HashBox(UActor* actor, const vec3& location, const Rotator& rotation, vec3& lo, vec3& hi);
+	static void CylinderBox(const vec3& location, float radius, float height, vec3& lo, vec3& hi);
+
+	// A line's box, its ends' least and most on each axis, as FBox takes them
+	static vec3 Least(const vec3& a, const vec3& b) { return vec3(std::min(a.x, b.x), std::min(a.y, b.y), std::min(a.z, b.z)); }
+	static vec3 Most(const vec3& a, const vec3& b) { return vec3(std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z)); }
+
+private:
 	static ivec3 GetStartExtents(const vec3& location, const vec3& extents)
 	{
-		int xx = CellCoord(location.x - extents.x);
-		int yy = CellCoord(location.y - extents.y);
-		int zz = CellCoord(location.z - extents.z);
-		return { xx, yy, zz };
-	}
-
-	static ivec3 GetRayStartExtents(const vec3& from, const vec3& to)
-	{
-		float x = std::min(from.x, to.x);
-		float y = std::min(from.y, to.y);
-		float z = std::min(from.z, to.z);
-		int xx = CellCoord(x);
-		int yy = CellCoord(y);
-		int zz = CellCoord(z);
-		return { xx, yy, zz };
-	}
-
-	static ivec3 GetSweepStartExtents(const vec3& from, const vec3& to, const vec3& extents)
-	{
-		float x = std::min(from.x, to.x) - extents.x;
-		float y = std::min(from.y, to.y) - extents.y;
-		float z = std::min(from.z, to.z) - extents.z;
-		int xx = CellCoord(x);
-		int yy = CellCoord(y);
-		int zz = CellCoord(z);
-		return { xx, yy, zz };
+		ivec3 start, end;
+		QueryCells(location, location, extents, start, end);
+		return start;
 	}
 
 	static ivec3 GetEndExtents(const vec3& location, const vec3& extents)
 	{
-		int xx = CellCoord(location.x + extents.x) + 1;
-		int yy = CellCoord(location.y + extents.y) + 1;
-		int zz = CellCoord(location.z + extents.z) + 1;
-		return { xx, yy, zz };
+		ivec3 start, end;
+		QueryCells(location, location, extents, start, end);
+		return end;
 	}
 
-	static ivec3 GetRayEndExtents(const vec3& from, const vec3& to)
+	static ivec3 GetSweepStartExtents(const vec3& from, const vec3& to, const vec3& extents)
 	{
-		float x = std::max(from.x, to.x);
-		float y = std::max(from.y, to.y);
-		float z = std::max(from.z, to.z);
-		int xx = CellCoord(x) + 1;
-		int yy = CellCoord(y) + 1;
-		int zz = CellCoord(z) + 1;
-		return { xx, yy, zz };
+		ivec3 start, end;
+		QueryCells(Least(from, to), Most(from, to), extents, start, end);
+		return start;
 	}
 
 	static ivec3 GetSweepEndExtents(const vec3& from, const vec3& to, const vec3& extents)
 	{
-		float x = std::max(from.x, to.x) + extents.x;
-		float y = std::max(from.y, to.y) + extents.y;
-		float z = std::max(from.z, to.z) + extents.z;
-		int xx = CellCoord(x) + 1;
-		int yy = CellCoord(y) + 1;
-		int zz = CellCoord(z) + 1;
-		return { xx, yy, zz };
+		ivec3 start, end;
+		QueryCells(Least(from, to), Most(from, to), extents, start, end);
+		return end;
 	}
+
+	static ivec3 GetRayStartExtents(const vec3& from, const vec3& to) { return GetSweepStartExtents(from, to, vec3(0.0f)); }
+	static ivec3 GetRayEndExtents(const vec3& from, const vec3& to) { return GetSweepEndExtents(from, to, vec3(0.0f)); }
 
 	static uint32_t GetBucketId(int x, int y, int z)
 	{
 		return ((x & 0x3ff) << 20) | ((y & 0x3ff) << 10) | (z & 0x3ff);
 	}
 
-	// The actors whose collision boxes reach each cell
+	// The actors whose collision boxes reach each cell, the newest filed last
 	const Array<UActor*>& FindCell(uint32_t id) const { return ActorCells.Find(id); }
 
 	ULevel* Level = nullptr;
 	CellTable<UActor*> ActorCells;
 	BrushTracker Tracker;
+	uint64_t FiledCount = 0; // the filings so far, each actor's its filing's
 
 	friend class CollisionTester;
 };

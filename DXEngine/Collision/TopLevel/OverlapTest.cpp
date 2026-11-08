@@ -4,6 +4,7 @@
 #include "Collision/BottomLevel/OverlapAABBModel.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Brush/UMover.h"
+#include "Packages/Engine/Actors/Brush/UBrush.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 
 CollisionHitList OverlapTester::TestOverlap(const vec3& location, float height, float radius, bool testActors, bool testWorld, bool visibilityOnly)
@@ -65,6 +66,9 @@ CollisionHitList OverlapTester::TestOverlap(const vec3& location, float height, 
 	return uniqueHits;
 }
 
+// FCollisionHash::ActorRadiusCheck (Engine.dll 0x103589e0): each actor in
+// the cells of the radius's box whose place lies within the radius, each
+// find put at the list's head, so the last found comes first
 Array<UActor*> OverlapTester::ActorRadiusCheck(const vec3& origin, float radius)
 {
 	vec3 extents = { radius, radius, radius };
@@ -78,6 +82,7 @@ Array<UActor*> OverlapTester::ActorRadiusCheck(const vec3& origin, float radius)
 			hits.push_back(actor);
 		return false;
 	});
+	std::reverse(hits.begin(), hits.end());
 	return hits;
 }
 
@@ -158,30 +163,26 @@ Array<UActor*> OverlapTester::CollidingActors(const vec3& origin, float height, 
 // as the original's ActorEncroachmentCheck (Engine.dll 0x10358d50) asks the
 // brush's box check with the actor its owner: each actor but a brush, in the
 // cells of the brush's box there, its cylinder's box as it stands, along the
-// world's axes, against the brush's planes taken into the world.
+// world's axes, against the brush's planes taken into the world, PostScale
+// in them (ABrush::ToWorld, 0x1030f310).
 Array<UActor*> OverlapTester::EncroachingActors(UActor* actor, const vec3& location, const Rotator& rotation)
 {
 	UModel* brush = actor->Brush();
-	if (!brush)
+	UBrush* brushActor = UActor::TryCast<UBrush>(actor);
+	if (!brush || !brushActor)
 		return CollidingActors(location, actor->CollisionHeight(), actor->CollisionRadius());
 
-	vec3 prePivot = actor->PrePivot();
+	// The cells of the brush's own box there (GetActorExtent), each find
+	// put at the list's end
+	vec3 lo, hi;
+	CollisionSystem::HashBox(actor, location, rotation, lo, hi);
+	ivec3 start, end;
+	CollisionSystem::BoxCells(lo, hi, start, end);
 
-	vec3 mainScale(1.0f);
-	if (UMover* mover = UActor::TryCast<UMover>(actor))
-	{
-		mainScale = mover->MainScale().Scale;
-	}
-
-	mat4 objectToWorld = mat4::translate(location) * Coords::Rotation(rotation).ToMatrix() * mat4::scale(mainScale) * mat4::translate(-prePivot);
-	BBox bbox = brush->BoundingBox.transform(objectToWorld);
-	vec3 center = bbox.center();
-	vec3 extents = bbox.extents() + 0.1f;
-
-	BrushPlanes planes(location, rotation, mainScale, prePivot);
+	BrushPlanes planes(location, rotation, brushActor->MainScale().Scale, brushActor->PostScale().Scale, brushActor->PrePivot());
 	Array<UActor*> hits;
 
-	VisitActorsInBox(GetStartExtents(center, extents), GetEndExtents(center, extents), [&](UActor* testActor) {
+	VisitActorsInBox(start, end, [&](UActor* testActor) {
 		if (testActor == actor || testActor->Brush())
 			return false;
 
@@ -215,28 +216,28 @@ Array<UActor*> OverlapTester::EncroachingActors(UActor* actor, const vec3& locat
 }
 
 // What a cylinder standing at a spot overlaps, as the original's encroachment
-// check finds it: other actors by their cylinders, movers by their brushes,
-// the cylinder's box along the world's axes against the brush's planes taken
-// into the world.
+// check finds it (FCollisionHash::ActorEncroachmentCheck, Engine.dll
+// 0x10358d50): each actor in the hash's cells there by its cylinder, against
+// the spot's cylinder (UPrimitive::PointCheck, 0x103d87e0); a brush that is
+// not static -- a mover -- passed over (0x10358ee6-0x10358f16), so a spawn
+// or a SetLocation into a door is not asked of it: a LAM placed on a door's
+// face, 2.5 units into its brush, is placed (EncroachMoverConsole).
 Array<UActor*> OverlapTester::EncroachedActors(const vec3& location, float height, float radius)
 {
 	dvec3 dlocation = to_dvec3(location);
-	vec3 extents = { radius, radius, height };
+	// The cells of the cylinder's own box there (GetActorExtent), each find
+	// put at the list's end
+	vec3 lo, hi;
+	CollisionSystem::CylinderBox(location, radius, height, lo, hi);
+	ivec3 start, end;
+	CollisionSystem::BoxCells(lo, hi, start, end);
 	Array<UActor*> hits;
 
-	VisitActorsInBox(GetStartExtents(location, extents), GetEndExtents(location, extents), [&](UActor* actor) {
-		UMover* mover = UObject::TryCast<UMover>(actor);
-		if (mover && mover->Brush())
-		{
-			BrushPlanes planes(mover->Location(), mover->Rotation(), mover->MainScale().Scale, mover->PrePivot());
-			OverlapAABBModel test;
-			if (test.TestOverlap(mover->Brush(), location, extents, &planes))
-				hits.push_back(actor);
-		}
-		else if (CylinderActorOverlap(dlocation, height, radius, actor))
-		{
+	VisitActorsInBox(start, end, [&](UActor* actor) {
+		if (actor->Brush() && UObject::TryCast<UBrush>(actor) && !actor->bStatic())
+			return false;
+		if (CylinderCylinderOverlap(dlocation, height, radius, to_dvec3(actor->Location()), actor->CollisionHeight(), actor->CollisionRadius()))
 			hits.push_back(actor);
-		}
 		return false;
 	});
 	return hits;

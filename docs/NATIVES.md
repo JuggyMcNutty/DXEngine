@@ -663,8 +663,17 @@ their order the original's, the distances to the x87's last digits).
 `AIPickRandomDestination` drops the pitch for a pawn walking, or swimming
 out of water, whatever its zone (`PathnodeConsole`'s pick in the water), and
 `FindPathToward`'s test from the anchor traces the goal's line to the anchor.
-Differs (bugs.md PHYS.36): the collision hash gives actors back in
-another order. By choice, a swimmer of no mass is taken as of 1, where the
+The collision hash gives actors back in the original's order: a
+coordinate's cell the coordinate plus 32768 over 256, rounded to the
+nearest and a half to even, so a cell's middle lies on a multiple of 256;
+an actor filed in the cells of its cylinder a unit wider and taller each
+way, or of its brush's box where its coordinates put it; the cells walked
+X, then Y, then Z, each cell's newest-filed actor first; the radius and
+line checks' lists reversed, the encroachment check's not; a trace's hits
+sorted as the C runtime's qsort sorts them, up to 8 (`HashOrderConsole` on
+Liberty Island: `VisibleCollidingActors`' order, a mover's touches,
+untouches and slots onto five marks, off and back, alike in both engines).
+By choice, a swimmer of no mass is taken as of 1, where the
 original's divides by the 0, its velocity no number; the game's one pawn of
 no mass, GeneratorScout, flies and never swims.
 
@@ -1523,19 +1532,26 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   no more, by choice, where the original's stays drawn until the next load
   or save, its drawing reading the destroyed actor, a freed one once 128
   destroyed actors are cleaned up; the game's movers are `bNoDelete`, and
-  refuse (`GlassConsole` with `Destroy`, in both engines).
+  refuse (`GlassConsole` with `Destroy`, in both engines). A mover's brush
+  is placed as the original's brush coordinates place it, its `PostScale`
+  after the rotation along the world's axes, in its drawing, its light, its
+  box and its filing ([the movers in a line's
+  way](#implemented-not-as-the-original)): `PostScaleConsole`'s boxes the
+  original's, WanChai Market's locked door X 268 to 500 and Z 44 to 132,
+  DXMP_CMD's bot doors 6 by 80 by 80, but for a float step in three of them
+  (bugs.md PHYS.37).
 
 Differs (bugs.md REN.45): a decal never attaches to a mover, no bullet hole
 on a door or crack on breakable glass. Differs (bugs.md REN.47): a decal
 covers the coplanar chain of the node hit alone. Differs (bugs.md REN.48):
 the decal's line stops at masked and invisible polygons and refuses
 invisible ones. Differs (bugs.md REN.50): a decal's random direction leans
-toward the diagonals. Differs (bugs.md PHYS.28): a mover's `PostScale` is
-used nowhere, WanChai Market's locked door covering the middle of its
-opening alone. Differs (bugs.md PHYS.29): a mirrored mover is filed with
-faces turned inward, lines at it passing and beside it stopping. Differs
-(bugs.md PHYS.37): a mover at a yaw off the quarter turns is filed on other
-floats.
+toward the diagonals. Differs (bugs.md PHYS.37): a line's hit on a mover's
+filed polygon can land a float step off the original's, the trace's own
+float order against the plane not the original's, and a mover's box at a
+`PostScale` a float step off (`FiledPlaneConsole`: Battery Park's MainDoors
+open at yaw 10240, the edge's hits at -367.044403 where the original's are
+at -367.044434, the face's at -307.592438 where -307.592468).
 
 ### Fire, water and ice textures
 
@@ -2552,7 +2568,14 @@ Every other native the scripted runs compare matches the original
   visible-actor iterators, network relevance, mesh lights' shadows, the AI's
   sight and the mixer's walls, [sound](#sound)) meet them as the original's
   do: the movers' polygons filed into the level's BSP as the original's
-  tracker files them, each split down the tree, a fragment in empty space a
+  tracker files them -- each through its brush's coordinates as
+  `FPoly::Transform` takes it, its corners less `PrePivot`, turned, scaled
+  by `PostScale` along the world's axes and moved, each step in the
+  original's float order, a mirror's normals turned with it and its corners
+  reversed (`PostScaleConsole` on WanChai Market and DXMP_CMD and
+  `MirrorMoverConsole` on UNATCO HQ and 09_NYC_Ship: every line alike) --,
+  each
+  split down the tree, a fragment in empty space a
   node of its own, the space behind it solid within its leaf, and one in
   solid dropped, one in a node's plane hung at the end of that plane's
   chain; a mover filed again takes the movers filed under it with it, the
@@ -2561,7 +2584,12 @@ Every other native the scripted runs compare matches the original
   original files a polygon under -- the polygon's flags without the
   editor's own (`PF_NoAddToBSP`), with `PF_SpecialLit` for a `bSpecialLit`
   mover, which it draws with its texture's own --, a polygon in the plane
-  of the level's own node met as that node; and a box meets none. A brush
+  of the level's own node met as that node; and a box meets none. A mover
+  with a `PostScale` meets a line, a box and an encroached actor where its
+  polygons are filed, as the original's lines meet it (`PostScaleConsole` on
+  DXMP_CMD: no line meets the bot door where the plane transform its checks
+  are read to take would stretch it), its hit's normal the original's,
+  scaled by `PostScale`. A brush
   whose solid holds a line's
   start still meets the line when the level's BSP holds the start too and
   cuts the line to nothing, as the original's actors are checked along the
@@ -2875,10 +2903,15 @@ Every other native the scripted runs compare matches the original
   `BreakableGlass0`, 111 placed alike, within 0.0001, and 17 refused in
   both; of 125 spots round 02_NYC_BatteryPark's `Trashbag1`, which falls
   out of the world at the map's start, 50 placed alike and 75 refused in
-  both).
+  both). A spawn's and a `SetLocation`'s encroachment asks what stands at
+  the spot by its cylinder and never a mover, as the original's hash passes
+  over a brush that is not static: a LAM, an EMP, a gas and a nano-virus
+  grenade placed on Liberty Island's `DeusExMover21`, 2.5 units into its
+  brush, and a `CapReacher` 5 units into it, are placed in both engines
+  (`EncroachMoverConsole`).
 - **The engine's own rotations** -- the view's, a mesh's and a mover's, a
   laser's beam, movement's and the AI's -- take the original's sine table,
-  as the scripts' conversions do
+  as the scripts' conversions do, the half turn's 1.2246468e-16 among them
   ([a rotator's turn](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#small)):
   at 20 frames a second `FlightConsole`'s gull, flown level into the pier's
   wall, turns and slides 10.8 units along it in both engines, its track
@@ -2916,10 +2949,6 @@ Differs:
   longer than 5 ms, 0.4 units further out from there. Without it,
   DXEngine's swimmer goes by the real time, 3.4 units out at 0.2 s and 37 at
   0.75 s, a float step each of its first ticks, whose moves are under one.
-
-Differs (bugs.md PHYS.30): a spawn or `SetLocation` reaching into a mover is
-asked of the mover, so a LAM or grenade placed on a door, or a spy drone
-launched against one, is refused.
 
 ## Housekeeping, not seen directly
 

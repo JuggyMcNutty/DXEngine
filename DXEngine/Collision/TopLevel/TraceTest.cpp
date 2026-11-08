@@ -8,6 +8,7 @@
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Brush/UMover.h"
 #include "Engine.h"
+#include <limits>
 
 CollisionHitList TraceTester::Trace(const vec3& from, const vec3& to, float height, float radius, bool traceActors, bool traceWorld, bool visibilityOnly)
 {
@@ -18,11 +19,21 @@ CollisionHitList TraceTester::Trace(const vec3& from, const vec3& to, float heig
 	return TraceBox(from, to, vec3(radius, radius, height), traceActors, traceWorld, visibilityOnly);
 }
 
-// Sorted by time, nearest first, equal times keeping the order they were
-// given in; only the first hit for each actor
-CollisionHitList TraceTester::SortedFirstHits(CollisionHitList& hits)
+// The multiple line check's list (ULevel::MultiLineCheck, Engine.dll
+// 0x1039b220): the level's hit first, then the actors' as the hash's line
+// check gives them, each find put at its list's head
+// (FCollisionHash::ActorLineCheck, 0x10359160), so the last found first; 64
+// in all at most; sorted by time as MSVCRT's qsort sorts them
+// (CollisionHitList::SortAsMultiLineCheck); only the first hit for each
+// actor, as the hash gives each once
+CollisionHitList TraceTester::SortedFirstHits(const CollisionHit* level, CollisionHitList& found)
 {
-	hits.SortByFraction();
+	CollisionHitList hits;
+	if (level)
+		hits.push_back(*level);
+	for (size_t i = found.size(); i-- > 0 && hits.size() < 64;)
+		hits.push_back(found.begin()[i]);
+	hits.SortAsMultiLineCheck();
 	CollisionHitList uniqueHits;
 	for (auto& hit : hits)
 	{
@@ -315,14 +326,16 @@ static bool CylinderLineCheck(UActor* actor, const vec3& start, const vec3& end,
 // and the node.
 // The brush walked in the world along the line, its planes turned into it as
 // the original's walk turns its owner's (UModel::LineCheck 0x103f3c20 with an
-// owner; BrushPlanes): the hit where the line enters its solid, the crossed
-// node's plane the normal, not turned to face the line
+// owner; BrushPlanes, PostScale in them): the hit where the line enters its
+// solid, the crossed node's own normal turned into the world as the
+// original turns it after its walk (BrushPlanes::HitNormal), not turned to
+// face the line
 static bool MoverLineWalk(UMover* mover, const vec3& start, const vec3& end, bool visibilityOnly, double& fraction, BspNode*& crossed, vec3& normal)
 {
 	UModel* brush = mover->Brush();
 	if (!brush || brush->Nodes.empty())
 		return false;
-	BrushPlanes planes(mover->Location(), mover->Rotation(), mover->MainScale().Scale, mover->PrePivot());
+	BrushPlanes planes(mover->Location(), mover->Rotation(), mover->MainScale().Scale, mover->PostScale().Scale, mover->PrePivot());
 	Array<BspNode> world = brush->Nodes;
 	for (BspNode& node : world)
 	{
@@ -336,7 +349,7 @@ static bool MoverLineWalk(UMover* mover, const vec3& start, const vec3& end, boo
 	if (!TraceRayModel::WalkSolid(world, brush->RootOutside != 0, to_dvec3(start), to_dvec3(end), visibilityOnly ? NF_NotVisBlocking : 0, fraction, hitNode))
 		return false;
 	crossed = &brush->Nodes[hitNode - world.data()];
-	normal = vec3(hitNode->PlaneX, hitNode->PlaneY, hitNode->PlaneZ);
+	normal = planes.HitNormal(vec3(crossed->PlaneX, crossed->PlaneY, crossed->PlaneZ));
 	return true;
 }
 
@@ -349,13 +362,36 @@ static bool MoverLineWalk(UMover* mover, const vec3& start, const vec3& end, boo
 // the walk's time of that trace, the plane's normal and the node.
 static bool MoverBoxCheck(UMover* mover, const vec3& start, const vec3& end, const vec3& extents, CollisionHit& hit)
 {
-	mat4 objectToWorld = mat4::translate(mover->Location()) * Coords::Rotation(mover->Rotation()).ToMatrix() * mat4::scale(mover->MainScale().Scale) * mat4::translate(-mover->PrePivot());
+	mat4 objectToWorld = mover->ToWorldMatrix(mover->Location(), mover->Rotation());
 	TraceAABBModel tracemodel;
 	CollisionHitList hits = tracemodel.Trace(mover->Brush(), start, end, extents, true, &objectToWorld);
 	if (hits.empty())
 		return false;
 	hit = hits.front();
 	return true;
+}
+
+// Hits in the order the original's hash finds their actors walking the
+// cells from start (CollisionTester::SortAsFound), each actor's hit once
+void TraceTester::OrderAsFound(CollisionHitList& hits, const ivec3& start)
+{
+	Array<UActor*> actors;
+	for (const CollisionHit& hit : hits)
+		actors.push_back(hit.Actor);
+	SortAsFound(actors, start);
+	CollisionHitList ordered;
+	for (UActor* actor : actors)
+	{
+		for (const CollisionHit& hit : hits)
+		{
+			if (hit.Actor == actor)
+			{
+				ordered.push_back(hit);
+				break;
+			}
+		}
+	}
+	hits = ordered;
 }
 
 // Deus Ex's line, as the original's MultiLineCheck checks one with no extent
@@ -453,10 +489,12 @@ CollisionHitList TraceTester::TraceLine(const vec3& from, const vec3& to, bool t
 		}
 		return false;
 	});
-	if (levelHit)
-		hits.push_back(level);
-
-	return SortedFirstHits(hits);
+	// In the order the original's hash finds the actors in the cut line's
+	// cells: the slab walk takes fewer cells, in another order
+	ivec3 cells, cellsEnd;
+	CollisionSystem::QueryCells(CollisionSystem::Least(from, cutEnd), CollisionSystem::Most(from, cutEnd), vec3(0.0f), cells, cellsEnd);
+	OrderAsFound(hits, cells);
+	return SortedFirstHits(levelHit ? &level : nullptr, hits);
 }
 
 // Deus Ex's box, as the original's MultiLineCheck checks one with an extent
@@ -544,10 +582,7 @@ CollisionHitList TraceTester::TraceBox(const vec3& from, const vec3& to, const v
 		}
 		return false;
 	});
-	if (levelHit)
-		hits.push_back(level);
-
-	return SortedFirstHits(hits);
+	return SortedFirstHits(levelHit ? &level : nullptr, hits);
 }
 
 // Calls visit once for each actor in the collision cells the segment passes
@@ -568,10 +603,20 @@ bool TraceTester::VisitActorsOnRay(const vec3& from, const vec3& to, Visit&& vis
 	vec3 delta = to - from;
 	vec3 absDelta = { std::abs(delta.x), std::abs(delta.y), std::abs(delta.z) };
 	int axis = absDelta.x >= absDelta.y ? (absDelta.x >= absDelta.z ? 0 : 2) : (absDelta.y >= absDelta.z ? 1 : 2);
+	// A cell's bounds 128 either side of its middle, a multiple of 256
+	// (CollisionSystem::CellCoord); the first and last cells, which hold
+	// everything beyond them, without bound
+	auto cellLow = [&](int cell) {
+		if (cell <= start[axis])
+			return -std::numeric_limits<float>::infinity();
+		if (cell >= end[axis])
+			return std::numeric_limits<float>::infinity();
+		return 256.0f * (cell - 128) - 128.0f;
+	};
 	for (int slab = start[axis]; slab < end[axis]; slab++)
 	{
-		float tA = (slab * 256.0f - from[axis]) / delta[axis];
-		float tB = ((slab + 1) * 256.0f - from[axis]) / delta[axis];
+		float tA = (cellLow(slab) - from[axis]) / delta[axis];
+		float tB = (cellLow(slab + 1) - from[axis]) / delta[axis];
 		float t0 = std::clamp(std::min(tA, tB), 0.0f, 1.0f);
 		float t1 = std::clamp(std::max(tA, tB), 0.0f, 1.0f);
 		ivec3 cellStart = start, cellEnd = end;
@@ -583,18 +628,20 @@ bool TraceTester::VisitActorsOnRay(const vec3& from, const vec3& to, Visit&& vis
 				continue;
 			float c0 = from[a] + delta[a] * t0;
 			float c1 = from[a] + delta[a] * t1;
-			cellStart[a] = std::max((int)std::floor((std::min(c0, c1) - 1.0f) * (1.0f / 256.0f)), start[a]);
-			cellEnd[a] = std::min((int)std::floor((std::max(c0, c1) + 1.0f) * (1.0f / 256.0f)) + 1, end[a]);
+			cellStart[a] = std::max(CollisionSystem::CellCoord(std::min(c0, c1) - 1.0f), start[a]);
+			cellEnd[a] = std::min(CollisionSystem::CellCoord(std::max(c0, c1) + 1.0f) + 1, end[a]);
 		}
 
-		for (int z = cellStart.z; z < cellEnd.z; z++)
+		for (int x = cellStart.x; x < cellEnd.x; x++)
 		{
 			for (int y = cellStart.y; y < cellEnd.y; y++)
 			{
-				for (int x = cellStart.x; x < cellEnd.x; x++)
+				for (int z = cellStart.z; z < cellEnd.z; z++)
 				{
-					for (UActor* actor : GetActors(x, y, z))
+					const Array<UActor*>& cell = GetActors(x, y, z);
+					for (size_t i = cell.size(); i-- > 0;)
 					{
+						UActor* actor = cell[i];
 						if (actor->Collision.CheckCounter != checkCounter)
 						{
 							actor->Collision.CheckCounter = checkCounter;

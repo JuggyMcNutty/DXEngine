@@ -8,10 +8,12 @@
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 
 // A mover's brush in the world where it is drawn: where the level's BSP
-// filed it, else where it is
+// filed it, else where it is, PostScale after the rotation, along the
+// world's axes, as the original's brush coordinates put it
+// (ABrush::BuildCoords, Engine.dll 0x1032f9e0)
 mat4 UMover::BrushToWorld()
 {
-	return mat4::translate(DrawnLocation()) * Coords::Rotation(DrawnRotation()).ToMatrix() * mat4::scale(MainScale().Scale) * mat4::translate(-PrePivot());
+	return ToWorldMatrix(DrawnLocation(), DrawnRotation());
 }
 
 void UActor::UpdateBspInfo()

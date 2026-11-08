@@ -25,10 +25,15 @@ TextureInfo LightSystem::GetMoverLightmap(UMover* mover, const Poly& poly, UZone
 	// them there, a static map through the shadows the editor raytraced at
 	// its BrushRaytraceKey (dx-reverse-info's engine-dll.md, the movers in the
 	// BSP; render-dll.md, light maps)
-	vec3 scale = mover->MainScale().Scale;
+	vec3 scale = mover->MainScale().Scale * mover->PostScale().Scale;
 	mat4 brushToWorld = mover->BrushToWorld();
 	mat4 objectToWorld = brushToWorld * localCoords.ToMatrix();
 	Coords worldCoords = Coords::FromMatrix(objectToWorld);
+	// The normal as the filing turns it, over PostScale where the matrix
+	// takes it times PostScale (the stock brushes' MainScale is 1 or -1)
+	vec3 postScale = mover->PostScale().Scale;
+	worldCoords.ZAxis = worldCoords.ZAxis / (postScale * postScale);
+	scale = vec3(std::abs(scale.x), std::abs(scale.y), std::abs(scale.z));
 
 	// The sphere the moving lights are gathered in: the whole brush's, in its
 	// own space, put in the world with the brush (not one polygon's, through

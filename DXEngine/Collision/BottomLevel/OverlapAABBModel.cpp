@@ -12,31 +12,55 @@
 // three is kept as the original adds it.
 
 // ToWorld's axes are the turn's rows -- the unit coords turned by the
-// rotator, as InverseRotation turns them -- each stretched by the scale
-BrushPlanes::BrushPlanes(const vec3& location, const Rotator& rotation, const vec3& scale, const vec3& prePivot) : Location(location), Scale(scale), PrePivot(prePivot)
+// rotator, as InverseRotation turns them --, each times the scale for a
+// vector and over it for a plane, alike for the stock brushes' MainScale of
+// 1 or -1
+BrushPlanes::BrushPlanes(const vec3& location, const Rotator& rotation, const vec3& scale, const vec3& postScale, const vec3& prePivot) : Location(location), PostScale(postScale), PrePivot(prePivot)
 {
 	Coords turn = Coords::InverseRotation(rotation);
-	XAxis = turn.XAxis * scale;
-	YAxis = turn.YAxis * scale;
-	ZAxis = turn.ZAxis * scale;
+	XAxis = turn.XAxis / scale;
+	YAxis = turn.YAxis / scale;
+	ZAxis = turn.ZAxis / scale;
+	TurnX = turn.XAxis * scale;
+	TurnY = turn.YAxis * scale;
+	TurnZ = turn.ZAxis * scale;
 }
 
-// TransformPlaneByOrtho: the normal dotted with each axis, W moved with the
-// coords' origin -- which comes to the place's dot with the new normal, less
-// (scale * PrePivot) . (scale * normal). With a scale of 1 that is the
-// brush's plane where it stands; with another it is still the original's,
-// whose "ortho" normal the scale stretches where a true one would shrink.
-// W in doubles, within a bit of the original's chain of floats.
+// The brush's plane where the brush stands: the normal dotted with each axis
+// and over PostScale along the world's axes, W the place's dot with the new
+// normal less PrePivot's with the old -- the plane the brush's points on it
+// go to. With a MainScale of 1 or -1 and no PostScale it is the original's
+// TransformPlaneByOrtho (Core.dll 0x1011a000) with the owner's ToWorld. The
+// original's checks meet a brush with a PostScale where its points are, as
+// its filing puts them: on DXMP_CMD, where the ortho plane PostScale
+// stretches would fill a box 2,300 units across round DeusExMover10, a bot
+// door scaled to 6 by 80 by 80, the original's lines from within it meet
+// RepairBot2 and the walls beyond and never the door (PostScaleConsole), as
+// the door's own place gives. W in doubles, within a bit of the original's
+// chain of floats.
 vec4 BrushPlanes::Plane(const vec4& p) const
 {
 	vec4 world;
 	world.x = (XAxis.y * p.y + XAxis.z * p.z) + p.x * XAxis.x;
 	world.y = (YAxis.y * p.y + YAxis.z * p.z) + p.x * YAxis.x;
 	world.z = (ZAxis.y * p.y + ZAxis.z * p.z) + p.x * ZAxis.x;
+	world = vec4(world.x / PostScale.x, world.y / PostScale.y, world.z / PostScale.z, 0.0f);
 	double moved = (double)Location.x * world.x + (double)Location.y * world.y + (double)Location.z * world.z;
-	double pivot = (double)Scale.x * Scale.x * PrePivot.x * p.x + (double)Scale.y * Scale.y * PrePivot.y * p.y + (double)Scale.z * Scale.z * PrePivot.z * p.z;
+	double pivot = (double)PrePivot.x * p.x + (double)PrePivot.y * p.y + (double)PrePivot.z * p.z;
 	world.w = (float)((double)p.w + moved - pivot);
 	return world;
+}
+
+// UModel::LineCheck's hit normal with an owner (0x103f3e41): the walk's
+// node's own normal turned by the owner's ToWorld as a vector, PostScale
+// times the turned and mirrored normal along the world's axes
+vec3 BrushPlanes::HitNormal(const vec3& n) const
+{
+	vec3 turned;
+	turned.x = (TurnX.y * n.y + TurnX.z * n.z) + n.x * TurnX.x;
+	turned.y = (TurnY.y * n.y + TurnY.z * n.z) + n.x * TurnY.x;
+	turned.z = (TurnZ.y * n.y + TurnZ.z * n.z) + n.x * TurnZ.x;
+	return vec3(turned.x * PostScale.x, turned.y * PostScale.y, turned.z * PostScale.z);
 }
 
 // UModel::PointCheck (Engine.dll 0x103f1570): a model of no nodes solid or

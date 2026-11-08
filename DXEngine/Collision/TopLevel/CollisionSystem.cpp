@@ -4,6 +4,7 @@
 #include "CollisionSystem.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Brush/UMover.h"
+#include "Packages/Engine/Actors/Brush/UBrush.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Resources/Level/UPolys.h"
@@ -128,41 +129,67 @@ void CollisionSystem::SetLevel(ULevel* level)
 	Level = level;
 }
 
-// A destroyed actor never goes back in: a move after its Destroy (a
-// BloodDrop's fall goes on after its HitWall destroys it, as the original's
-// does) would leave the hash holding it after it is freed.
+// FCollisionHash::GetActorExtent's box (Engine.dll 0x10357e30), as the
+// actor's primitive gives it: a brush's model's box, each corner through the
+// brush's coordinates there as a point (UModel::GetCollisionBoundingBox,
+// 0x103f0e70), so a mover's PostScale in it; else the actor's cylinder
+void CollisionSystem::HashBox(UActor* actor, const vec3& location, const Rotator& rotation, vec3& lo, vec3& hi)
+{
+	UBrush* brushActor = UObject::TryCast<UBrush>(actor);
+	UModel* brush = actor->Brush();
+	if (!brush || !brushActor)
+	{
+		CylinderBox(location, actor->CollisionRadius(), actor->CollisionHeight(), lo, hi);
+		return;
+	}
+	Coords toWorld = brushActor->ToWorldAt(location, rotation);
+	const BBox& box = brush->BoundingBox;
+	for (int i = 0; i < 8; i++)
+	{
+		vec3 corner((i & 4) ? box.max.x : box.min.x, (i & 2) ? box.max.y : box.min.y, (i & 1) ? box.max.z : box.min.z);
+		vec3 p = CoreCoords::TransformPoint(corner, toWorld);
+		lo = i == 0 ? p : Least(lo, p);
+		hi = i == 0 ? p : Most(hi, p);
+	}
+}
+
+// UPrimitive::GetCollisionBoundingBox (0x103d8460): the cylinder a unit wider
+// and taller each way, the radius and a unit held as the x87 holds it for Y
+// and stored as a float for X, the height and a unit stored
+void CollisionSystem::CylinderBox(const vec3& location, float radius, float height, vec3& lo, vec3& hi)
+{
+	auto R = X87::Round;
+	double r = R((double)radius + 1.0);
+	float rx = (float)r;
+	float h = (float)R((double)height + 1.0);
+	lo = vec3((float)R((double)location.x - rx), (float)R((double)location.y - r), (float)R((double)location.z - h));
+	hi = vec3((float)R((double)rx + location.x), (float)R(r + location.y), (float)R((double)h + location.z));
+}
+
+// FCollisionHash::AddActor (0x103580b0): the actor in each cell its box
+// reaches, after those filed before it, and the queries take a cell's
+// newest first (CollisionTester::VisitActorsInBox), as the original puts
+// each link at its bucket's head. A destroyed actor never goes back in: a
+// move after its Destroy (a BloodDrop's fall goes on after its HitWall
+// destroys it, as the original's does) would leave the hash holding it after
+// it is freed.
 void CollisionSystem::AddToCollision(UActor* actor)
 {
 	if (actor->bCollideActors() && !actor->bDeleteMe())
 	{
-		vec3 location = actor->Location();
-		float height = actor->CollisionHeight();
-		float radius = actor->CollisionRadius();
-		vec3 extents = { radius, radius, height };
-
-		if (UMover* mover = UObject::TryCast<UMover>(actor))
-		{
-			UModel* brush = mover->Brush();
-			if (brush)
-			{
-				mat4 objectToWorld = mat4::translate(actor->Location()) * Coords::Rotation(actor->Rotation()).ToMatrix() * mat4::scale(mover->MainScale().Scale) * mat4::translate(-actor->PrePivot());
-				BBox bbox = brush->BoundingBox.transform(objectToWorld);
-				location = bbox.center();
-				extents = bbox.extents() + 0.1f; // 0.1 for numerical stability
-			}
-		}
-
+		vec3 lo, hi;
+		HashBox(actor, actor->Location(), actor->Rotation(), lo, hi);
+		ivec3 start, end;
+		BoxCells(lo, hi, start, end);
 		actor->Collision.Inserted = true;
-		actor->Collision.Location = location;
-		actor->Collision.Extents = extents;
-
-		ivec3 start = GetStartExtents(location, extents);
-		ivec3 end = GetEndExtents(location, extents);
-		for (int z = start.z; z < end.z; z++)
+		actor->Collision.CellStart = start;
+		actor->Collision.CellEnd = end;
+		actor->Collision.Filed = ++FiledCount;
+		for (int x = start.x; x < end.x; x++)
 		{
 			for (int y = start.y; y < end.y; y++)
 			{
-				for (int x = start.x; x < end.x; x++)
+				for (int z = start.z; z < end.z; z++)
 				{
 					ActorCells.Get(GetBucketId(x, y, z)).push_back(actor);
 				}
@@ -171,20 +198,20 @@ void CollisionSystem::AddToCollision(UActor* actor)
 	}
 }
 
+// Out of the cells it was filed in, which DXEngine keeps: one moved without
+// the hash leaves none behind, where the original's RemoveActor (0x103583a0)
+// warns and walks its new place's
 void CollisionSystem::RemoveFromCollision(UActor* actor)
 {
 	if (actor->Collision.Inserted)
 	{
-		vec3 location = actor->Collision.Location;
-		vec3 extents = actor->Collision.Extents;
-
-		ivec3 start = GetStartExtents(location, extents);
-		ivec3 end = GetEndExtents(location, extents);
-		for (int z = start.z; z < end.z; z++)
+		ivec3 start = actor->Collision.CellStart;
+		ivec3 end = actor->Collision.CellEnd;
+		for (int x = start.x; x < end.x; x++)
 		{
 			for (int y = start.y; y < end.y; y++)
 			{
-				for (int x = start.x; x < end.x; x++)
+				for (int z = start.z; z < end.z; z++)
 				{
 					ActorCells.Remove(GetBucketId(x, y, z), actor);
 				}

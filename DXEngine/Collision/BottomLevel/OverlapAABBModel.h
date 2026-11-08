@@ -2,23 +2,28 @@
 
 #include "Packages/Engine/Resources/Level/ULevel.h"
 
-// A brush's planes in the world where it stands, as the original's box check
-// takes an owner's (UModel::PointCheck, Engine.dll 0x103f1570): by
-// FPlane::TransformPlaneByOrtho (Core.dll 0x1011a000) with the owner's
-// ToWorld coords (ABrush::ToWorld, Engine.dll 0x1030f310). From what
-// DXEngine's other brush transforms take (BrushTracker, the traces): the
-// place, rotation, MainScale and PrePivot.
+// A brush's planes in the world where it stands, as the original's checks
+// take an owner's (UModel::PointCheck, Engine.dll 0x103f1570; LineCheck
+// 0x103f3c20) through the owner's coordinates (ABrush::ToWorld, 0x1030f310):
+// the place, rotation, MainScale and PrePivot, and PostScale after the
+// rotation, along the world's axes.
 class BrushPlanes
 {
 public:
-	BrushPlanes(const vec3& location, const Rotator& rotation, const vec3& scale, const vec3& prePivot);
+	BrushPlanes(const vec3& location, const Rotator& rotation, const vec3& scale, const vec3& postScale, const vec3& prePivot);
 
 	// A plane of the brush's own space (x, y, z, w), in the world
 	vec4 Plane(const vec4& plane) const;
 
+	// The normal a line's hit on a plane of the brush's own space is given
+	// in the world (0x103f3e41): turned by the coordinates as a vector,
+	// PostScale's too, so not a unit where PostScale is not 1
+	vec3 HitNormal(const vec3& normal) const;
+
 private:
-	vec3 XAxis, YAxis, ZAxis;
-	vec3 Location, Scale, PrePivot;
+	vec3 XAxis, YAxis, ZAxis; // the turn's rows over MainScale, for a plane
+	vec3 TurnX, TurnY, TurnZ; // and times it, for a vector
+	vec3 Location, PostScale, PrePivot;
 };
 
 class OverlapAABBModel

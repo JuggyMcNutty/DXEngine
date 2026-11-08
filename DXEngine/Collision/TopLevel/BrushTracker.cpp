@@ -5,6 +5,7 @@
 #include "Packages/Engine/Resources/Level/UPolys.h"
 #include "Packages/Engine/Actors/Brush/UMover.h"
 #include "Math/coords.h"
+#include "Math/floating.h"
 #include "GC/GC.h"
 
 // The node flags the original's sphere filter leaves on the nodes it sorts
@@ -238,24 +239,42 @@ void BrushTracker::File(Tracked* tracked)
 		return;
 	Filing = tracked;
 
-	mat4 objectToWorld = mat4::translate(mover->Location()) * Coords::Rotation(mover->Rotation()).ToMatrix() * mat4::scale(mover->MainScale().Scale) * mat4::translate(-mover->PrePivot());
-	mat4 rotation = Coords::Rotation(mover->Rotation()).ToMatrix();
+	// Its polygons in the world as the original's filing puts them, through
+	// the brush's coordinates (ABrush::BuildCoords, Engine.dll 0x1032f9e0:
+	// PostScale after the rotation, along the world's axes), each as
+	// FPoly::Transform takes it (0x10387360): each corner less PrePivot, axis
+	// by axis, dotted with the point transform's axes and moved by Location,
+	// each step a float at the x87's precision (CoreCoords: 24 bits as the
+	// render files it again, a double's at a load); the normal turned by the
+	// vector transform, a mirror's too, and made a unit by Core's SafeNormal;
+	// a mirroring brush's corners reversed, its brush corners with them
+	Coords pointXform, vectorXform;
+	bool mirrors = mover->BuildCoords(pointXform, vectorXform) < 0.0f;
+	const vec3 prePivot = mover->PrePivot();
+	const vec3 location = mover->Location();
+	auto toWorld = [&](const vec3& v) {
+		auto R = X87::Round;
+		vec3 off((float)R((double)v.x - prePivot.x), (float)R((double)v.y - prePivot.y), (float)R((double)v.z - prePivot.z));
+		vec3 turned = CoreCoords::TransformVector(off, pointXform);
+		return vec3((float)R((double)turned.x + location.x), (float)R((double)turned.y + location.y), (float)R((double)turned.z + location.z));
+	};
 	Array<Fragment> polys;
 	Array<vec3> points;
 	for (const Poly& poly : mover->Brush()->Polys->Polys)
 	{
 		Fragment fragment;
 		for (const vec3& v : poly.Vertices)
-		{
-			vec3 world = (objectToWorld * vec4(v, 1.0f)).xyz();
-			fragment.Vertices.push_back(world);
-			points.push_back(world);
-		}
+			fragment.Vertices.push_back(toWorld(v));
 		fragment.Corners = poly.Vertices;
-		fragment.Base = (objectToWorld * vec4(poly.Base, 1.0f)).xyz();
-		vec3 normal = (rotation * vec4(poly.Normal, 0.0f)).xyz();
-		float len = length(normal);
-		fragment.Normal = len > 0.0f ? normal / len : vec3(0.0f);
+		if (mirrors)
+		{
+			std::reverse(fragment.Vertices.begin(), fragment.Vertices.end());
+			std::reverse(fragment.Corners.begin(), fragment.Corners.end());
+		}
+		for (const vec3& v : fragment.Vertices)
+			points.push_back(v);
+		fragment.Base = toWorld(poly.Base);
+		fragment.Normal = X87::SafeNormal(CoreCoords::TransformVector(poly.Normal, vectorXform));
 		fragment.PolyFlags = poly.PolyFlags;
 		polys.push_back(std::move(fragment));
 	}
@@ -558,7 +577,10 @@ void BrushTracker::AddPolyFragment(int surface, int parent, int coplanarParent, 
 	n.PlaneX = poly.Normal.x;
 	n.PlaneY = poly.Normal.y;
 	n.PlaneZ = poly.Normal.z;
-	n.PlaneW = (poly.Base.y * poly.Normal.y + poly.Base.z * poly.Normal.z) + poly.Base.x * poly.Normal.x;
+	// FPlane(Base, Normal): W the base's dot with the normal, Y's and Z's
+	// terms first, at the x87's precision
+	auto R = X87::Round;
+	n.PlaneW = (float)R(R(R((double)poly.Base.y * poly.Normal.y) + R((double)poly.Base.z * poly.Normal.z)) + R((double)poly.Base.x * poly.Normal.x));
 	n.NodeFlags = (poly.PolyFlags & PF_NotSolid) ? (NF_IsNew | NF_NotCsg) : NF_IsNew;
 	if (poly.PolyFlags & (PF_Invisible | PF_Portal))
 		n.NodeFlags |= NF_NotVisBlocking;

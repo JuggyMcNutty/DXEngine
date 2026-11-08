@@ -102,7 +102,11 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
 		// a surface, as VisibleFrame::ProcessNodeSurface does
 		if (!(filedFlags & PF_TwoSided) && !poly.Vertices.empty())
 		{
-			vec3 normal = (ToWorld * vec4(poly.Normal, 0.0f)).xyz();
+			// The normal as the filing turns it: the matrix takes it
+			// times PostScale, the filing over it (the stock brushes'
+			// MainScale is 1 or -1)
+			vec3 postScale = mover->PostScale().Scale;
+			vec3 normal = (ToWorld * vec4(poly.Normal, 0.0f)).xyz() / (postScale * postScale);
 			vec3 point = (ToWorld * vec4(poly.Vertices[0], 1.0f)).xyz();
 			if (dot(frame->ViewLocation.xyz() - point, normal) < 0.0f)
 				return false;

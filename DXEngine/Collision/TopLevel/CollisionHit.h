@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Math/vec.h"
+#include <cmath>
+#include <utility>
 
 class UActor;
 class BspNode;
@@ -127,6 +129,33 @@ public:
 				j--;
 			}
 			items[j] = hit;
+		}
+	}
+
+	// Nearest first, as the original's multiple line check sorts its hits
+	// (ULevel::MultiLineCheck, Engine.dll 0x1039b6fe) by MSVCRT's qsort,
+	// which for 8 or fewer sorts by selection: the first found of the
+	// latest swapped to the end, and on down -- so two equal times change
+	// places, three come out second, third, first. A time compares under
+	// another when it is less, or either is no number (0x1039c060), over
+	// when it is more, else equal. Past 8 the CRT partitions first, an order
+	// not yet read; DXEngine sorts those by selection too, distinct times
+	// coming out as any sort gives them.
+	void SortAsMultiLineCheck()
+	{
+		auto over = [](const CollisionHit& a, const CollisionHit& b) {
+			return !(a.Fraction < b.Fraction || std::isunordered(a.Fraction, b.Fraction)) && a.Fraction != b.Fraction;
+		};
+		for (size_t end = count; end > 1; end--)
+		{
+			size_t most = 0;
+			for (size_t i = 1; i < end; i++)
+			{
+				if (over(items[i], items[most]))
+					most = i;
+			}
+			if (most != end - 1)
+				std::swap(items[most], items[end - 1]);
 		}
 	}
 
