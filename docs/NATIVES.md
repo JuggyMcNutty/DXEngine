@@ -604,10 +604,9 @@ their order the original's, the distances to the x87's last digits).
 out of water, whatever its zone (`PathnodeConsole`'s pick in the water), and
 `FindPathToward`'s test from the anchor traces the goal's line to the anchor.
 Differs (bugs.md PHYS.36): the collision hash gives actors back in
-another order. Differs (bugs.md PHYS.39): `SetLocation`'s touches pass over
-an actor based on the one moved. By choice, a swimmer of no mass is taken as
-of 1, where the original's divides by the 0, its velocity no number; the
-game's one pawn of no mass, GeneratorScout, flies and never swims.
+another order. By choice, a swimmer of no mass is taken as of 1, where the
+original's divides by the 0, its velocity no number; the game's one pawn of
+no mass, GeneratorScout, flies and never swims.
 
 The ladder probe goes on past a texture in no group, as the original's, the
 texture's outer its package (`LadderConsole` at the foot of
@@ -2536,6 +2535,9 @@ Every other native the scripted runs compare matches the original
   ledge -- a crate nudged off it, a pawn fitted clear of it and pushed on at
   random (`RestConsole`,
   [moving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#moving)).
+  A floor met sliding along a wall lands with none of the frame left to
+  walk, as the original's physFalling hands its landing no time
+  (`0x103d20b3`, `0x103d220f`), by reading.
 - **Rolling**, in the original's steps, the whole frame at once
   (`RollConsole`: crates rolled across Liberty Island's pier slow, turn off
   its walls and creep down its slope as the original's do, within 0.15
@@ -2592,15 +2594,29 @@ Every other native the scripted runs compare matches the original
   `ScriptedPawn`'s `FallingState` aims at its destination, `EAdjustJump`,
   into the water or across it, with `bCanSwim` off, and stopped at the edge
   with `bCanJump` off; one walking down 14_OceanLab_Lab's steps into the
-  sea, the stock maps' one shore). The speed a pawn walks and swims at
-  (`calcVelocity`, once a frame; one that stops brakes to a standstill);
+  sea, the stock maps' one shore). The speed a pawn walks, swims and flies
+  at (`calcVelocity`, once a frame; one that stops brakes to a standstill),
+  in the original's float order: the original's own instructions, run
+  natively on the same inputs (`tools/calcvel`), give the same velocity and
+  acceleration to the bit, at the level's 64 bits and at 24, walking,
+  braking, a walking player alone and in a net game, swimming and flying;
   ladders (`LadderConsole`: a player at a ladder's foot hangs there, climbs
   as it pushes into it, goes down looking down and steps off onto the top);
   and the same check's slide of a walking player on a texture with a
-  `Friction` under 1 (`SlideConsole`: on a slope at a `Friction` of 0.5 and
-  0, the glide to a stop and the slide down a slope in a zone of ground
-  friction 0.2, at 60 and 20 frames a second; the game's one such texture,
-  `Slippery_Metal`, covers two slopes in 14_Oceanlab_Silo).
+  `Friction` under 1, its move in the original's float order (`SlideConsole`:
+  on a slope at a `Friction` of 0.5 and 0, the glide to a stop and the slide
+  down a slope in a zone of ground friction 0.2, at 60 and 20 frames a
+  second; the game's one such texture, `Slippery_Metal`, covers two slopes
+  in 14_Oceanlab_Silo). The walk after a landing goes on with the fall's
+  count of steps, the eight of a frame shared (`LandStepConsole`: 107.7
+  units along, at 268 a second, at the first tick after a 0.4 s landing
+  tick, in both engines); its floor is the first thing a box of its size
+  meets below, whether it blocks the walker or not, so over a flat actor
+  that blocks nothing the walker steps down onto the floor beneath, by
+  reading (`SingleLineCheck` with flags 23, `0x1039aed0`); and a physics'
+  moves share one hit, a move of nothing leaving it as
+  it was, so a walker head on into a wall takes `HitWall` twice a step
+  (`WallHitConsole`: two on each tick, in both).
 - **Flying**, by which a player climbs (`FlightConsole`: a gull flying into
   the pier's wall, level and rising, toward the player, taking off as it
   walks off the pier, and its `LongFall` 2.5 s into a drop into the water;
@@ -2611,7 +2627,14 @@ Every other native the scripted runs compare matches the original
   before what stands on the actor is unbased and before it moves, as the
   original's FarMoveActor makes them, so a Touch handler sees the actor
   where it was, and what it no longer overlaps there untouched, not what it
-  leaves behind (`TeleportConsole`); a touch linking each side on its own,
+  leaves behind (`TeleportConsole`), whatever at the spot does not block it
+  touched, what stands on the actor and what it stands on among them, and
+  what stands on it left in the level's order (`HashOrderConsole`'s rider
+  and base: the same four touches in both engines); a pawn, a decoration or
+  an inventory item that leaves the world logging the original's "<name>
+  fell out of the world!" as it falls or walks out, a flyer "<name> flew out
+  of the world!" (`FellOutConsole`: the same five lines in both); a touch
+  linking each side on its own,
   its Touch sent as it is linked and the other side linked unless that undid
   it, the last free of the four slots taken, and a full four freed of their
   touchers with no physics, or for a pawn of a non-pawn, or for a player of
@@ -2836,11 +2859,7 @@ Differs:
 
 Differs (bugs.md PHYS.30): a spawn or `SetLocation` reaching into a mover is
 asked of the mover, so a LAM or grenade placed on a door, or a spy drone
-launched against one, is refused. Differs (bugs.md PHYS.31): a move of
-nothing gives a fresh hit, a walker into a wall taking one `HitWall` a step
-where the original's takes two. Differs (bugs.md PHYS.32): the walk after a
-landing begins its steps from 0. Differs (bugs.md PHYS.33): the walk's floor
-line sees what blocks the walker alone.
+launched against one, is refused.
 
 ## Housekeeping, not seen directly
 
@@ -3334,14 +3353,13 @@ walker before a tall face refused, a flier sent over it to the same
 walker had jumped).
 
 Differs (bugs.md REN.51): the canvas's tile natives' edges. Differs (bugs.md
-ENG.35): `UTF8ToScript` taking overlong forms. Differs (bugs.md PHYS.35): no
-"fell out of the world" line. Differs (bugs.md WIN.29): `STAT` shows none of
-the renderer's panels, `stat fps` among them. Differs (bugs.md WIN.30): no
-demo is recorded or played. Differs (bugs.md WIN.31): the engine's smaller
-words answer nothing. By choice, `STAT RENDER` shows a panel of DXEngine's
-own at the screen's right, where the original's toggles nothing: the frame
-rate, the level's actors, the objects the garbage collector holds and the
-memory they take; any other `STAT` word hides it.
+ENG.35): `UTF8ToScript` taking overlong forms. Differs (bugs.md WIN.29):
+`STAT` shows none of the renderer's panels, `stat fps` among them. Differs
+(bugs.md WIN.30): no demo is recorded or played. Differs (bugs.md WIN.31):
+the engine's smaller words answer nothing. By choice, `STAT RENDER` shows a
+panel of DXEngine's own at the screen's right, where the original's toggles
+nothing: the frame rate, the level's actors, the objects the garbage
+collector holds and the memory they take; any other `STAT` word hides it.
 
 ## The command line
 

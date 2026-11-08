@@ -10,6 +10,7 @@
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 #include "Math/coords.h"
+#include "Utils/Logger.h"
 #include "Engine.h"
 
 void UActor::TickFlying(float elapsed)
@@ -46,10 +47,14 @@ namespace
 // fluid friction, as a fluid; one move a tick -- with the zone's velocity for
 // a player, or another pawn in a zone moving over 300 -- a wall met flying
 // level stepped up, any other hit slid along; the velocity the move's own.
+// The moves share one hit (0x103d3297), a slide of nothing keeping the
+// wall's.
 void UPawn::DeusExPhysFlying(float deltaTime)
 {
 	if (bCollideWorld() && Region().ZoneNumber == 0)
 	{
+		// The original's line first, on a client too (0x103d309d)
+		LogMessage(Name.ToString() + " flew out of the world!");
 		if (!bIsPlayer())
 			Destroy();
 		return;
@@ -66,7 +71,8 @@ void UPawn::DeusExPhysFlying(float deltaTime)
 	if (UObject::TryCast<UPlayerPawn>(this) || dot(zone->ZoneVelocity(), zone->ZoneVelocity()) > 90000.0f)
 		zoneVel = zone->ZoneVelocity();
 	vec3 adjusted = (Velocity() + zoneVel) * deltaTime;
-	CollisionHit hit = TryMoveHeldOff(adjusted);
+	CollisionHit hit;
+	TryMoveHeldOff(adjusted, hit);
 	if (hit.Fraction < 1.0f)
 	{
 		vec3 gravDir(0.0f, 0.0f, zone->ZoneGravity().z > 0.0f ? 1.0f : -1.0f);
@@ -85,12 +91,12 @@ void UPawn::DeusExPhysFlying(float deltaTime)
 			vec3 delta = (adjusted - hit.Normal * dot(adjusted, hit.Normal)) * (1.0f - hit.Fraction);
 			if (dot(delta, adjusted) >= 0.0f)
 			{
-				hit = TryMoveHeldOff(delta);
+				TryMoveHeldOff(delta, hit);
 				if (hit.Fraction < 1.0f)
 				{
 					ProcessHitWall(hit.Normal, hit.Actor);
 					TwoWallAdjust(desiredDir, delta, hit.Normal, oldHitNormal, hit.Fraction);
-					TryMoveHeldOff(delta);
+					TryMoveHeldOff(delta, hit);
 				}
 			}
 		}
@@ -168,10 +174,19 @@ bool UPawn::DeusExLadder(float deltaTime)
 		CallEvent(this, "WalkTexture", { ExpressionValue::ObjectValue(texture), ExpressionValue::VectorValue(hitLocation), ExpressionValue::VectorValue(hit.Normal) });
 		if (Physics() == PHYS_Walking && texture && texture->Friction() < 1.0f)
 		{
+			// The zone's gravity x the tick, x one over half the slip (the
+			// x87's reciprocal), x the tick, each a float; less its part along
+			// the floor's normal, each dot Z's product first, then Y's, then
+			// X's (0x103cc846-0x103cc994)
+			auto R = X87::Round;
 			float slip = std::max(texture->Friction() * 4.0f, 0.05f);
-			vec3 move = Region().Zone->ZoneGravity() * (deltaTime / (slip * 0.5f) * deltaTime);
-			vec3 slide = move - hit.Normal * dot(move, hit.Normal);
-			if (dot(slide, move) >= 0.0f)
+			double over = R(1.0 / ((double)slip * 0.5));
+			vec3 fall = Region().Zone->ZoneGravity() * deltaTime;
+			vec3 move((float)R(fall.x * over) * deltaTime, (float)R(fall.y * over) * deltaTime, (float)R(fall.z * over) * deltaTime);
+			const vec3& n = hit.Normal;
+			double along = R(R(R((double)move.z * n.z) + R((double)move.y * n.y)) + R((double)n.x * move.x));
+			vec3 slide = move - vec3((float)R(n.x * along), (float)R(n.y * along), (float)R(n.z * along));
+			if (!X87::Under(R(R(R((double)move.z * slide.z) + R((double)move.y * slide.y)) + R((double)move.x * slide.x)), 0.0))
 				TryMoveHeldOff(slide);
 		}
 		return false;

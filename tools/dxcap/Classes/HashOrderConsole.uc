@@ -29,15 +29,13 @@
 // CheckEncroachment touches whatever does not block it at the spot
 // (0x1039a350), based or not. DXEngine (Collision/TopLevel/CollisionTest.h
 // VisitActorsInBox, OverlapTest.cpp): Z outermost, then Y, then X, each cell
-// oldest first, every list in the order found; its touches skip what the
-// actor is based on or bases (UActor_Phys.cpp CheckEncroachment).
+// oldest first, every list in the order found.
 // Expected: 1. the original D F A B C, DXEngine A B C D F; 2. the original
 // touches C, B, A and its slots A B C, DXEngine A, B, C and C B A; 3. the
 // original untouches A, B, C, touches A, C, B, slots B C A, the radius D F B
 // C A; DXEngine untouches C, B, A, touches B, C, A, slots A C B, the radius
-// B C A D F; 4. the original "Mover2 touch Rider", "Rider touch Mover2",
-// then Rider's basechange, and "Mover3 touch Base", "Base touch Mover3";
-// DXEngine Rider's basechange alone.
+// B C A D F; 4. in both "Mover2 touch Rider", "Rider touch Mover2", then
+// Rider's basechange, and "Mover3 touch Base", "Base touch Mover3".
 //=============================================================================
 class HashOrderConsole extends Console;
 

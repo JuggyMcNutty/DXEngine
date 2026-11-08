@@ -93,7 +93,7 @@ public:
 	// Deus Ex's walking, the original's, a whole frame at once, and the
 	// speed Deus Ex's pawns walk and swim at, the original's calcVelocity
 	// (UActor_PhysWalking.cpp).
-	void DeusExPhysWalking(float deltaTime);
+	void DeusExPhysWalking(float deltaTime, int iterations = 0);
 	void DeusExCalcVelocity(const vec3& accelDir, float deltaTime, float maxSpeed, float friction, bool fluid, bool brake, bool buoyant);
 	// Deus Ex's flying, the original's, and its ladders, which a player
 	// climbs by flying (UActor_PhysFlying.cpp): true when the ladder check

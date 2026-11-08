@@ -24,10 +24,12 @@ void UActor::TickFalling(float elapsed, int iterations)
 // along; the velocity after is the move's own, doubled less the old when it
 // gained downward or the old was not falling, held to the zone's terminal
 // velocity. It falls a whole frame (TickPhysics) in steps of at most 0.1 s,
-// up to 8 counting the walk's or the swim's that hands it over, and stops
-// where it lands, handing the landing the rest of the frame: a landing, a
-// stop and a hand-over to swimming end the frame's physics (EndPhysicsFrame),
-// the rest of the frame theirs. A player on a ladder climbs it instead
+// up to 8 counting the walk's or the swim's that hands it over, the walk
+// after its landing counting on from its own (iterations), and stops
+// where it lands, handing the landing the rest of the frame -- a floor met
+// sliding along a wall none of it: a landing, a stop and a hand-over to
+// swimming end the frame's physics (EndPhysicsFrame), the rest of the frame
+// theirs. A player on a ladder climbs it instead
 // (DeusExLadder). A step whose Z velocity turns over is split at the turn,
 // as the original splits it.
 void UActor::DeusExTickFalling(float deltaTime, int iterations)
@@ -82,6 +84,11 @@ void UActor::DeusExTickFalling(float deltaTime, int iterations)
 			Acceleration() = safeNormal(Acceleration()) * maxAccel;
 	}
 
+	// One hit through every move of the fall, its steps' and their slides',
+	// as the original's (0x103d0e38): a move of nothing leaves it as it was
+	// (TryMoveHeldOff with a hit), so a slide of nothing along a wall meets
+	// the wall's hit again.
+	CollisionHit hit;
 	float remaining = deltaTime;
 	int bounces = 0;
 	bool splitWeighed = false;
@@ -155,7 +162,7 @@ void UActor::DeusExTickFalling(float deltaTime, int iterations)
 		if (!pawn || player || dot(zone->ZoneVelocity(), zone->ZoneVelocity()) > 40000.0f)
 			zoneVel = zone->ZoneVelocity();
 		vec3 adjusted = (Velocity() + zoneVel) * tick;
-		CollisionHit hit = TryMoveHeldOff(adjusted);
+		TryMoveHeldOff(adjusted, hit);
 		if (bDeleteMe())
 			return;
 
@@ -197,34 +204,35 @@ void UActor::DeusExTickFalling(float deltaTime, int iterations)
 				remaining += (1.0f - hit.Fraction) * tick;
 				if (!bJustTeleported() && hit.Fraction > 0.1f && hit.Fraction * tick > 0.003f)
 					Velocity() = (Location() - OldLocation()) / (hit.Fraction * tick);
-				PhysLanded(hit.Actor, hit.Normal, remaining + EndPhysicsFrame());
+				PhysLanded(hit.Actor, hit.Normal, remaining + EndPhysicsFrame(), iterations);
 				return;
 			}
 			else
 			{
 				// A wall: slid along, a second wall through TwoWallAdjust; a
-				// floor the slide meets lands with the velocity as it is, the
-				// step's time spent, and so does a ditch between two walls.
+				// floor the slide meets lands with the velocity as it is and
+				// none of the tick left to walk (0x103d20b3, 0x103d220f), and
+				// so does a ditch between two walls.
 				ProcessHitWall(hit.Normal, hit.Actor);
 				vec3 oldHitNormal = hit.Normal;
 				vec3 delta = (adjusted - hit.Normal * dot(adjusted, hit.Normal)) * (1.0f - hit.Fraction);
 				if (dot(delta, adjusted) >= 0.0f)
 				{
-					hit = TryMoveHeldOff(delta);
+					TryMoveHeldOff(delta, hit);
 					if (hit.Fraction < 1.0f)
 					{
 						if (hit.Normal.z > 0.7f)
 						{
-							PhysLanded(hit.Actor, hit.Normal, remaining + EndPhysicsFrame());
+							PhysLanded(hit.Actor, hit.Normal, EndPhysicsFrame(), iterations);
 							return;
 						}
 						ProcessHitWall(hit.Normal, hit.Actor);
 						TwoWallAdjust(safeNormal(adjusted), delta, hit.Normal, oldHitNormal, hit.Fraction);
 						bool ditch = oldHitNormal.z > 0.0f && hit.Normal.z > 0.0f && delta.z == 0.0f && dot(oldHitNormal, hit.Normal) < 0.0f;
-						hit = TryMoveHeldOff(delta);
+						TryMoveHeldOff(delta, hit);
 						if (ditch || hit.Normal.z > 0.7f)
 						{
-							PhysLanded(hit.Actor, hit.Normal, remaining + EndPhysicsFrame());
+							PhysLanded(hit.Actor, hit.Normal, EndPhysicsFrame(), iterations);
 							return;
 						}
 					}

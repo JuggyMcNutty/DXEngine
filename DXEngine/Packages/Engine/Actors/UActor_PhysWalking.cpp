@@ -10,11 +10,11 @@
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Engine.h"
 
-void UActor::TickWalking(float elapsed)
+void UActor::TickWalking(float elapsed, int iterations)
 {
 	// Deus Ex's pawns walk as the original's do.
 	if (UPawn* deusExPawn = UObject::TryCast<UPawn>(this))
-		deusExPawn->DeusExPhysWalking(elapsed);
+		deusExPawn->DeusExPhysWalking(elapsed, iterations);
 }
 
 namespace
@@ -41,9 +41,10 @@ namespace
 // moving: walking), Deus Ex's, a whole frame at once (TickPhysics). After
 // the ladder check, the speed, level (calcVelocity, braking), and the move,
 // with the zone's velocity for a player and for another pawn in a zone moving
-// over 300; then steps of it -- a player's, and another pawn's whose move
-// over the time left is over 20 units, of at most 0.05 s, half the time left
-// -- each moved held off what it meets and stepped up over what blocks it,
+// over 300; then steps of it, up to 8 counting a landing fall's (iterations)
+// -- a player's, and another pawn's whose move over the time left is over
+// 20 units, of at most 0.05 s, half the time left -- each moved held off
+// what it meets and stepped up over what blocks it,
 // and the floor under it measured. A floor is stood on (floated 2.1 over
 // where the trace stops), stepped down onto, or, sloped where the zone's
 // ground friction x its normal's Z is under 3.3, slid down by gravity x the
@@ -53,7 +54,7 @@ namespace
 // move given up (MoveTimer -1); any other gets Falling and falls the rest of
 // the frame, unless its script made it do something else: a bird that flies
 // moves on along its move. A step that took it into water swims the rest.
-void UPawn::DeusExPhysWalking(float deltaTime)
+void UPawn::DeusExPhysWalking(float deltaTime, int iterations)
 {
 	if (DeusExLadder(deltaTime))
 		return;
@@ -83,10 +84,12 @@ void UPawn::DeusExPhysWalking(float deltaTime)
 	TraceFlags levelFlags; // the original's flags 6
 	levelFlags.movers = true;
 	levelFlags.world = true;
+	TraceFlags colliding = levelFlags; // the original's flags 23
+	colliding.pawns = true;
+	colliding.others = true;
 	vec3 extent(CollisionRadius(), CollisionRadius(), CollisionHeight());
 
 	float remaining = deltaTime;
-	int iterations = 0;
 	bool mayFallAsked = false;
 	while (remaining > 0.0f && iterations < 8)
 	{
@@ -121,16 +124,19 @@ void UPawn::DeusExPhysWalking(float deltaTime)
 			// (its length + 4, at least 30) meeting one again turns the move
 			// along it; a player's three lines from a step's height over its
 			// feet, ahead and 45 degrees to each side, 100 long, look for one.
+			// Each writes the hit the move is then handed (0x103cb0d8): a move
+			// along the wall that comes to nothing keeps the wall's, which is
+			// stepped up.
 			CollisionHit hit;
 			if (bHitSlopedWall())
 			{
 				float size = length(delta);
 				vec3 dir = delta / size;
-				CollisionHit ahead = XLevel()->Collision.TraceFirstHit(Location(), Location() + dir * std::max(size + 4.0f, 30.0f), this, extent, levelFlags);
-				bHitSlopedWall() = SlopedWall(ahead);
+				hit = XLevel()->Collision.TraceFirstHit(Location(), Location() + dir * std::max(size + 4.0f, 30.0f), this, extent, levelFlags);
+				bHitSlopedWall() = SlopedWall(hit);
 				if (bHitSlopedWall())
 				{
-					vec3 normal = X87::SafeNormal(vec3(ahead.Normal.x, ahead.Normal.y, 0.0f));
+					vec3 normal = X87::SafeNormal(vec3(hit.Normal.x, hit.Normal.y, 0.0f));
 					delta -= normal * dot(delta, normal);
 				}
 				else if (player)
@@ -139,12 +145,13 @@ void UPawn::DeusExPhysWalking(float deltaTime)
 					vec3 dirs[3] = { dir, X87::SafeNormal(vec3(dir.y + dir.x, dir.y - dir.x, dir.z)), X87::SafeNormal(vec3(dir.x - dir.y, dir.x + dir.y, dir.z)) };
 					for (const vec3& d : dirs)
 					{
-						bHitSlopedWall() = SlopedWall(XLevel()->Collision.TraceFirstHit(eye, eye + d * 100.0f, this, vec3(0.0f), levelFlags));
+						hit = XLevel()->Collision.TraceFirstHit(eye, eye + d * 100.0f, this, vec3(0.0f), levelFlags);
+						bHitSlopedWall() = SlopedWall(hit);
 						if (bHitSlopedWall())
 							break;
 					}
 				}
-				hit = TryMoveHeldOff(delta);
+				TryMoveHeldOff(delta, hit);
 			}
 			else
 			{
@@ -191,10 +198,15 @@ void UPawn::DeusExPhysWalking(float deltaTime)
 		if (!measure)
 			continue;
 
-		// The floor: a box of the pawn's size down MaxStepHeight + 2. None, or
-		// the same base within 2.4, is stood on, lifted to 2.1 from nearer
-		// than 1.9; any other the pawn steps down onto, its base then.
-		floor = TryMove(down, true);
+		// The floor: a box of the pawn's size down MaxStepHeight + 2, the first
+		// hit of a pawn, a mover, the level or another actor, whether it
+		// blocks the pawn or not (SingleLineCheck with flags 23, Engine.dll
+		// 0x103cb5f3). None, or the same base within 2.4, is stood on, lifted
+		// to 2.1 from nearer than 1.9; any other the pawn steps down onto, its
+		// base then what the step meets: over a flat actor that blocks
+		// nothing, a credit chip, the floor beneath, which the step's move
+		// bumps (BumpWall).
+		floor = XLevel()->Collision.TraceFirstHit(Location(), Location() + down, this, extent, colliding);
 		UActor* floorActor = floor.Fraction < 1.0f ? (floor.Actor ? floor.Actor : Level()) : nullptr;
 		float floorDist = reach * floor.Fraction;
 		if (floor.Fraction >= 1.0f || (floorActor == ActorBase() && floorDist <= 2.4f))
@@ -291,77 +303,134 @@ void UPawn::DeusExPhysWalking(float deltaTime)
 
 // APawn::calcVelocity (Engine.dll 0x103cd7a0; dx-reverse-info/engine-dll.md,
 // moving: the speed), as Deus Ex's walking (GroundSpeed, the zone's ground
-// friction, braking) and swimming (WaterSpeed, its fluid friction, as a
-// fluid, buoyant) ask it. It turns and brakes with the larger of the
-// friction and the fluid's 1. With no acceleration a braking pawn slows in
-// slices of 0.03 s, to the slices' velocities that still point the old way
-// weighted by their time, and stops under 10 or turned about. Otherwise the
-// acceleration is cut to AccelRate (0.3 of it for a walking player -- Deus
-// Ex's player walks whenever it swims) and the velocity turns toward it.
-// Then the fluid's friction, the acceleration and the buoyancy; then the
-// speed held to maxSpeed (x DesiredSpeed but for a player), a walking
-// player's to 0.3 of it (0.6 in a net game), brought down to that no faster
-// than the friction allows.
+// friction, braking), swimming (WaterSpeed, its fluid friction, as a fluid,
+// buoyant) and flying (AirSpeed, its fluid friction, as a fluid) ask it, in
+// the original's float order: a float wherever the original stores one, the
+// x87's own sum, product or quotient (Round) where it does not. It turns and
+// brakes with the larger of the friction and the fluid's 1. With no
+// acceleration a braking pawn slows in slices of 0.03 s, to the slices'
+// velocities that still point the old way weighted by their time, and stops
+// under 10 or turned about. Otherwise the acceleration is cut to AccelRate
+// (0.3 of it for a walking player -- Deus Ex's player walks whenever it
+// swims) and the velocity turns toward it. Then the fluid's friction, the
+// acceleration and the buoyancy; then the speed held to maxSpeed (x
+// DesiredSpeed but for a player), a walking player's to 0.3 of it (0.6 in a
+// net game), brought down to that no faster than the friction allows.
 void UPawn::DeusExCalcVelocity(const vec3& accelDir, float deltaTime, float maxSpeed, float friction, bool fluid, bool brake, bool buoyant)
 {
-	float turning = std::max(fluid ? 1.0f : 0.0f, friction);
+	auto R = X87::Round;
+	// The squares summed X's and Y's first, then Z's, as Core's SizeSquared
+	// and Size sum them (Core.dll 0x10117b70, 0x10117b30); a dot of two
+	// velocities Z's product first, then Y's, then X's (0x103cd9c6)
+	auto sizeSquared = [&](const vec3& v) { return R(R(R((double)v.x * v.x) + R((double)v.y * v.y)) + R((double)v.z * v.z)); };
+	auto dotZYX = [&](const vec3& a, const vec3& b) { return R(R(R((double)a.z * b.z) + R((double)a.y * b.y)) + R((double)a.x * b.x)); };
+
+	// The larger of the friction and the fluid's 1 or 0, a NaN friction
+	// taken (0x103cd7bb)
+	float fluidFactor = fluid ? 1.0f : 0.0f;
+	float turning = X87::Under(fluidFactor, friction) ? friction : fluidFactor;
 	bool player = UObject::TryCast<UPlayerPawn>(this) != nullptr;
 	bool walkingPlayer = player && bIsWalking();
+	vec3& velocity = Velocity();
+	vec3& acceleration = Acceleration();
 
 	// Braking with no acceleration, each axis equal to 0 to the x87's
 	// compare, a NaN axis too (0x103cd886)
-	if (brake && X87::Equal3(Acceleration(), vec3(0.0f)))
+	if (brake && X87::Equal3(acceleration, vec3(0.0f)))
 	{
-		vec3 oldVelocity = Velocity();
-		vec3 sumVelocity(0.0f);
-		float remainingTime = deltaTime;
-		while (remainingTime > 0.03f)
+		// Each slice the velocity less (twice itself x the slice) x the
+		// friction; one still pointing the old way adds itself x the slice x
+		// the x87's reciprocal of the tick (0x103cda14, 0x103cdb44). The time
+		// left is the float less the double 0.03, its compare against 0.03
+		// unrounded, the float the next slice's (0x103cd8fc, 0x103cda5e).
+		vec3 oldVelocity = velocity;
+		vec3 sum(0.0f);
+		double overTick = R(1.0 / deltaTime);
+		auto slice = [&](float time)
 		{
-			Velocity() = Velocity() - Velocity() * (2.0f * 0.03f * turning);
-			if (dot(Velocity(), oldVelocity) > 0.0f)
-				sumVelocity += Velocity() * (0.03f / deltaTime);
-			remainingTime -= 0.03f;
+			velocity = velocity - ((velocity + velocity) * time) * turning;
+			if (dotZYX(oldVelocity, velocity) > 0.0)
+			{
+				vec3 share = velocity * time;
+				sum = vec3((float)R(share.x * overTick) + sum.x, (float)R(share.y * overTick) + sum.y, (float)R(share.z * overTick) + sum.z);
+			}
+		};
+		double left = deltaTime;
+		float leftSlice = deltaTime;
+		while (left > 0.03)
+		{
+			slice(0.03f);
+			left = R(leftSlice - 0.03);
+			leftSlice = (float)left;
 		}
-		Velocity() = Velocity() - Velocity() * (2.0f * remainingTime * turning);
-		if (dot(Velocity(), oldVelocity) > 0.0f)
-			sumVelocity += Velocity() * (remainingTime / deltaTime);
-		Velocity() = sumVelocity;
-		if (dot(oldVelocity, Velocity()) < 0.0f || dot(Velocity(), Velocity()) < 100.0f)
-			Velocity() = vec3(0.0f);
+		slice(leftSlice);
+		velocity = sum;
+		if (X87::Under(dotZYX(oldVelocity, velocity), 0.0) || X87::Under(sizeSquared(velocity), 100.0))
+			velocity = vec3(0.0f);
 	}
 	else
 	{
-		float speed = length(Velocity());
-		float accelRate = walkingPlayer ? AccelRate() * 0.3f : AccelRate();
-		if (dot(Acceleration(), Acceleration()) > accelRate * accelRate)
-			Acceleration() = accelDir * accelRate;
-		Velocity() = Velocity() - (Velocity() - accelDir * speed) * (deltaTime * turning);
+		// The speed the root of the squares' sum stored as a double, a float
+		// (0x103cdc53). An acceleration whose square is over AccelRate's --
+		// a walking player's x the double 0.09 -- is cut to the direction x
+		// AccelRate, a walking player's then x 0.3 (0x103cdc7f-0x103cdd93);
+		// the velocity turns by (itself less the direction x its speed) x the
+		// tick, then x the friction (0x103cdd99-0x103cde67).
+		float speed = (float)R(std::sqrt(sizeSquared(velocity)));
+		double accelSquared = sizeSquared(acceleration);
+		float accelRate = AccelRate();
+		if (walkingPlayer)
+		{
+			if (X87::Under(R(R((double)accelRate * accelRate) * 0.09), accelSquared))
+				acceleration = (accelDir * accelRate) * 0.3f;
+		}
+		else if (X87::Under(R((double)accelRate * accelRate), accelSquared))
+		{
+			acceleration = accelDir * accelRate;
+		}
+		velocity = velocity - ((velocity - accelDir * speed) * deltaTime) * turning;
 	}
-	Velocity() = Velocity() * (1.0f - (fluid ? friction : 0.0f) * deltaTime) + Acceleration() * deltaTime;
+
+	// x 1 less the fluid's friction x the tick, that factor unrounded
+	// (0x103cde9d), plus the acceleration x the tick
+	double keep = R(1.0 - R(R((double)fluidFactor * deltaTime) * friction));
+	velocity = acceleration * deltaTime + vec3((float)R(keep * velocity.x), (float)R(keep * velocity.y), (float)R(keep * velocity.z));
 
 	if (!player)
 		maxSpeed *= DesiredSpeed();
 
 	if (buoyant)
 	{
-		// The mass as it is; a massless pawn would make this 0/0, and takes 1.
+		// (The tick x the gravity) x (1 - Buoyancy / Mass), that a float
+		// (0x103cdf3a-0x103cdfb1). The mass as it is; a massless pawn would
+		// make this 0/0, and takes 1.
 		float mass = Mass() != 0.0f ? Mass() : 1.0f;
-		Velocity() = Velocity() + Region().Zone->ZoneGravity() * (deltaTime * (1.0f - Buoyancy() / mass));
+		float lift = (float)R(1.0 - R((double)Buoyancy() / mass));
+		velocity = (Region().Zone->ZoneGravity() * deltaTime) * lift + velocity;
 	}
 
-	float squared = dot(Velocity(), Velocity());
 	if (walkingPlayer)
 	{
-		float walkSpeed = maxSpeed * (Level()->NetMode() != NM_Standalone ? 0.6f : 0.3f);
-		if (squared > walkSpeed * walkSpeed)
+		// A walking player's held to 0.3 of maxSpeed, 0.6 in a net game: its
+		// square x the double 0.09 (0.36) against the velocity's, a float;
+		// the velocity over its size by Core's reciprocal (FVector's
+		// operator/, Core.dll 0x10117800), then times the more of that speed
+		// and (1 - 2 x the friction x the tick) x the size, as the x87
+		// compares them (0x103cdfb4-0x103ce176)
+		bool net = Level()->NetMode() != NM_Standalone;
+		if (X87::Under(R(R((double)maxSpeed * maxSpeed) * (net ? 0.36 : 0.09)), (float)sizeSquared(velocity)))
 		{
-			float size = std::sqrt(squared);
-			Velocity() = Velocity() / size * std::max(walkSpeed, (1.0f - 2.0f * turning * deltaTime) * size);
+			float size = (float)R(std::sqrt(sizeSquared(velocity)));
+			double over = R(1.0 / size);
+			velocity = vec3((float)R(over * velocity.x), (float)R(over * velocity.y), (float)R(over * velocity.z));
+			double slowed = R(R(1.0 - R(R((double)turning * deltaTime) * 2.0)) * size);
+			double walkSpeed = R((double)maxSpeed * (net ? 0.6f : 0.3f));
+			velocity = velocity * (X87::Under(walkSpeed, slowed) ? (float)slowed : (float)walkSpeed);
 			return;
 		}
 	}
-	// Held to maxSpeed: Core's SafeNormal of the velocity times it
-	// (0x103ce090, 0x103ce1a6)
-	if (squared > maxSpeed * maxSpeed)
-		Velocity() = X87::SafeNormal(Velocity()) * maxSpeed;
+	// Held to maxSpeed: its square against the velocity's, a float; Core's
+	// SafeNormal of the velocity times it (0x103ce090, 0x103ce1a6)
+	if (X87::Under(R((double)maxSpeed * maxSpeed), (float)sizeSquared(velocity)))
+		velocity = X87::SafeNormal(velocity) * maxSpeed;
 }

@@ -36,10 +36,11 @@ void UActor::TickRolling(float deltaTime, int iterations)
 	bJustTeleported() = false;
 	vec3 down(0.0f, 0.0f, zone->ZoneGravity().z > 0.0f ? 16.0f : -16.0f);
 
-	// The original keeps one hit through every move of the frame.
+	// The original keeps one hit through every move of the frame
+	// (0x103d4dd5), a move of nothing leaving it as it was.
 	CollisionHit hit;
 	hit.Fraction = 1.0f;
-	auto move = [&](const vec3& delta) { hit = TryMoveHeldOff(delta); return !bDeleteMe(); };
+	auto move = [&](const vec3& delta) { TryMoveHeldOff(delta, hit); return !bDeleteMe(); };
 
 	float remaining = deltaTime;
 	int bounces = 0;

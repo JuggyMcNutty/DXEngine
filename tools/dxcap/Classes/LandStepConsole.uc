@@ -15,10 +15,9 @@
 // The original's processLanded hands the fall's step count to physWalking
 // (Engine.dll 0x103d20ce: Iterations pushed; 0x103cef60 calls physWalking
 // with it), whose loop stops at 8 counting it, so the walk takes 7 steps,
-// 0.35 s, and leaves the rest of the tick unwalked; DXEngine's walk starts
-// its count at 0 (DeusExPhysLanded -> TickWalking), takes 8 and walks it
-// all: some 0.03 s x 300 = 9 units further along in DXEngine. Each line
-// starts "DXLANDSTEP:".
+// 0.35 s, and leaves the rest of the tick unwalked: the walker some 0.03 s
+// x 300 = 9 units short of a walk counted from 0. Each line starts
+// "DXLANDSTEP:".
 //=============================================================================
 class LandStepConsole extends Console;
 

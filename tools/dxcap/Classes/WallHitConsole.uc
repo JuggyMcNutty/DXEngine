@@ -16,10 +16,8 @@
 // the rest less its part along the normal -- is nothing, head on. The
 // original's MoveActor leaves a move of nothing's hit as it was (0x1039915a-
 // 0x10399228), so its time is still under 1: processHitWall again and
-// TwoWallAdjust. DXEngine's TryMove gives a fresh hit for a move of nothing
-// (UActor_Phys.cpp:656), so its second processHitWall never comes: the
-// original's walker should log two HitWalls a tick, DXEngine's one. Each
-// line starts "DXWALLHIT:".
+// TwoWallAdjust. Expected: two HitWalls a tick, the wall's normal and the
+// level each time. Each line starts "DXWALLHIT:".
 //=============================================================================
 class WallHitConsole extends Console;
 

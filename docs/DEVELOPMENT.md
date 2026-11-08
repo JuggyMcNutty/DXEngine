@@ -429,6 +429,7 @@ launcher's part, which DXEngine leaves to the launchers.
 | `MirrorMoverConsole` | both | on `TargetMap` (05_NYC_UNATCOHQ; 09_NYC_Ship) each mirrored mover: lines at its faces and beside it | `DXMIRROR:` | every line (bugs.md PHYS.29) |
 | `LandStepConsole` | both | a `CapReacher` set falling onto the floor, a 0.5 s frame held over its landing, its place at the ticks after | `DXLANDSTEP:` | the first tick's `along` (bugs.md PHYS.32) |
 | `WallHitConsole` | both | on Liberty Island a `CapWallWalker` walking head-on into a wall, its `HitWall`s each tick | `DXWALLHIT:` | the `HitWall` lines a tick (bugs.md PHYS.31) |
+| `FellOutConsole` | both | on Liberty Island two `CapReacher`s walking and falling, one flying, a basketball, a credit chip and a `CapMarker` falling, each taken out of the world | `DXFELL:` | each engine's own "fell out of the world!" and "flew out of the world!" lines, by the names logged (bugs.md PHYS.35) |
 | `MissingSlotConsole` | both | with an empty `Save0077` and Current: the Load Game screen's listing and `GetSaveInfo(-2)`, a save, `LoadGame(-2)`, a quick save and its load, `LoadGame(-2)` again | `DXMISSING:` | every line and the game's Current after (bugs.md PKG.29) |
 | `RestartNameConsole` | both | 00_Intro opened and the console's `RestartLevel` | `DXRESTARTNAME:` | the last lines and each engine's exit (bugs.md PKG.30) |
 | `NoInfoSaveConsole` | both | 99_Endgame1 then 99_Endgame4 within mission 99, slot 9 saved there | `DXNOINFO:` | the lines, `Save0009` and Current after (bugs.md PKG.31, PKG.35) |
@@ -719,6 +720,19 @@ driver, DXEngine through its window's X11 backend (`DXE_DISPLAY_BACKEND=X11`,
 `WAYLAND_DISPLAY` unset, `SDL_VIDEODRIVER=x11`). One X server and the GPU serve both, so their
 runs compare; no run uses a hidden display, as runs on different displays do not compare. The
 development machine is given over to it: windows come and go on its desktop.
+
+### The original's code run natively
+
+`tools/calcvel` runs the original's own `calcVelocity` -- `Engine.dll` and `Core.dll` mapped at
+their bases in a 32-bit Linux process, its structured-exception frames passed over -- beside
+DXEngine's, taken from its source as it stands, on the same walking, braking, swimming and
+flying cases, and says whether the two give the same velocity and acceleration to the bit, at
+the level's 64 bits or, with `-single`, at 24:
+
+```sh
+tools/calcvel/build.sh <scratchpad>/calcvel
+<scratchpad>/calcvel/calcvel_test <parent>/gamefiles/System 200000 [-single]
+```
 
 ### Measuring both engines
 

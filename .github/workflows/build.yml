@@ -19,6 +19,7 @@ on:
       - '!tools/dxcap/**'
       - '!tools/dxcap.sh'
       - '!tools/perf/**'
+      - '!tools/calcvel/**'
       - '!tools/host-tools.sh'
       - '!tools/natives_audit.py'
   workflow_dispatch:

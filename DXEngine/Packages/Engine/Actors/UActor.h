@@ -248,7 +248,9 @@ public:
 	void TickBlendAnimation(float elapsed, int passes);
 
 	void TickPhysics(float elapsed);
-	void TickWalking(float elapsed);
+	// iterations: the steps a fall that lands has taken already, which the
+	// walk counts on from
+	void TickWalking(float elapsed, int iterations = 0);
 	// Deus Ex's from a walk or a swim go on with its count of steps.
 	void TickFalling(float elapsed, int iterations = 0);
 	void DeusExTickFalling(float deltaTime, int iterations = 0);
@@ -262,11 +264,13 @@ public:
 	void TickTrailer(float elapsed);
 
 	// remaining: what the tick has left, which a Deus Ex pawn that lands
-	// walks out.
-	void PhysLanded(UActor* hitActor, const vec3& hitNormal, float remaining);
-	void DeusExPhysLanded(UActor* hitActor, const vec3& hitNormal, float remaining);
+	// walks out, its steps counted on from the fall's iterations.
+	void PhysLanded(UActor* hitActor, const vec3& hitNormal, float remaining, int iterations);
+	void DeusExPhysLanded(UActor* hitActor, const vec3& hitNormal, float remaining, int iterations);
 
-	// True (and fires FellOutOfWorld) if the actor's location has no valid region at all, i.e. it fell outside the level's BSP geometry.
+	// True (and fires FellOutOfWorld, the original's line logged first) if
+	// the actor's location has no valid region at all, i.e. it fell outside
+	// the level's BSP geometry.
 	bool HasLeftWorld();
 	// Fires the HitWall event with the actor/level that was hit - used by every movement tick function.
 	void FireHitWall(const CollisionHit& hit);
@@ -320,6 +324,10 @@ public:
 	// short of the hit -- not moved at all for a hit nearer than that -- the
 	// hit's Fraction then of the delta asked for.
 	CollisionHit TryMoveHeldOff(const vec3& delta);
+	// The same move with the hit a physics hands each of its moves, as
+	// ULevel::MoveActor fills the one it is given: a move of nothing leaves
+	// it as it was.
+	void TryMoveHeldOff(const vec3& delta, CollisionHit& hit);
 	// Its two measures, for moves made otherwise: the delta to trace, and the
 	// traced hit's Fraction as the fraction of the delta to move.
 	static vec3 HeldOffDelta(const vec3& delta);

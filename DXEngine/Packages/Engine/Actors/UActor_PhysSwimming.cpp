@@ -170,12 +170,13 @@ void UPawn::DeusExStartSwimming(const vec3& oldVelocity, float timeTick, float r
 
 // APawn::Swim (0x103d3850): a move through the water; one that leaves it is
 // brought back down to the water line, and the part of the move given back
-// is returned.
+// is returned. Both moves are handed the swim's hit, a move of nothing
+// leaving it as it was, as a slide of nothing along a wall keeps the wall's.
 float UPawn::DeusExSwim(const vec3& delta, CollisionHit& hit)
 {
 	vec3 start = Location();
 	float given = 0.0f;
-	hit = TryMoveHeldOff(delta);
+	TryMoveHeldOff(delta, hit);
 	if (!InWater(Region().Zone))
 	{
 		vec3 end = Location();
@@ -183,7 +184,7 @@ float UPawn::DeusExSwim(const vec3& delta, CollisionHit& hit)
 		if (end != Location())
 		{
 			given = length(end - Location()) / length(delta);
-			hit = TryMoveHeldOff(end - Location());
+			TryMoveHeldOff(end - Location(), hit);
 		}
 	}
 	return given;
@@ -193,12 +194,15 @@ float UPawn::DeusExSwim(const vec3& delta, CollisionHit& hit)
 // and down again. A player meeting a pushable decoration head on is slowed by
 // its mass; a wall met far enough along is stepped up again; anything else is
 // slid along, a second wall through TwoWallAdjust. Coming down on a floor
-// steeper than 0.5 slides the rest of the way.
+// steeper than 0.5 slides the rest of the way. Every move is handed the one
+// hit, a move of nothing leaving it as it was: a walker head on into a wall
+// slides nothing along it and meets the wall's hit again, HitWall a second
+// time.
 void UPawn::DeusExStepUp(const vec3& gravDir, const vec3& desiredDir, vec3 delta, CollisionHit& hit)
 {
 	vec3 down = gravDir * MaxStepHeight();
-	hit = TryMoveHeldOff(-down);
-	hit = TryMoveHeldOff(delta);
+	TryMoveHeldOff(-down, hit);
+	TryMoveHeldOff(delta, hit);
 	if (hit.Fraction < 1.0f)
 	{
 		UDecoration* decoration = UObject::TryCast<UDecoration>(hit.Actor);
@@ -223,23 +227,23 @@ void UPawn::DeusExStepUp(const vec3& gravDir, const vec3& desiredDir, vec3 delta
 			vec3 slide = (delta - hit.Normal * dot(delta, hit.Normal)) * (1.0f - hit.Fraction);
 			if (dot(slide, delta) >= 0.0f)
 			{
-				hit = TryMoveHeldOff(slide);
+				TryMoveHeldOff(slide, hit);
 				if (hit.Fraction < 1.0f)
 				{
 					ProcessHitWall(hit.Normal, hit.Actor);
 					if (Physics() == PHYS_Falling)
 						return;
 					TwoWallAdjust(desiredDir, slide, hit.Normal, oldHitNormal, hit.Fraction);
-					hit = TryMoveHeldOff(slide);
+					TryMoveHeldOff(slide, hit);
 				}
 			}
 		}
 	}
-	hit = TryMoveHeldOff(down);
+	TryMoveHeldOff(down, hit);
 	if (hit.Fraction < 1.0f && hit.Normal.z < 0.5f)
 	{
 		vec3 slide = (down - hit.Normal * dot(down, hit.Normal)) * (1.0f - hit.Fraction);
 		if (dot(slide, down) >= 0.0f)
-			hit = TryMoveHeldOff(slide);
+			TryMoveHeldOff(slide, hit);
 	}
 }

@@ -8,11 +8,13 @@
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Actors/Decoration/UDecoration.h"
 #include "Packages/Engine/Actors/Decoration/UCarcass.h"
+#include "Packages/Engine/Actors/Inventory/UInventory.h"
 #include "Packages/Engine/Actors/Info/UZoneInfo.h"
 #include "Utils/Random.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
+#include "Utils/Logger.h"
 
 void UActor::TickPhysics(float elapsed)
 {
@@ -167,20 +169,25 @@ void UActor::SetCollision(bool newColActors, bool newBlockActors, bool newBlockP
 	XLevel()->Collision.AddToCollision(this);
 }
 
+// The original's FarMoveActor (Engine.dll 0x10398ba0): the actor out of the
+// collision hash while the spot is found and checked (0x10398c2c), and
+// filed again after (0x10398e07), where it went or, the move refused, where
+// it was.
 bool UActor::SetLocation(const vec3& newLocation, bool noCheck)
 {
 	if (bStatic() || !bMovable())
 		return false;
 
+	XLevel()->Collision.RemoveFromCollision(this);
 	vec3 location = newLocation;
+	bool moved = true;
 	if (!noCheck)
 	{
 		bool findRoom = bCollideWorld() || (bCollideWhenPlacing() && Level()->NetMode() != NM_Client);
 		if (findRoom)
 		{
 			auto result = FindSpot(newLocation, CollisionRadius(), CollisionHeight(), false);
-			if (!result.first)
-				return false;
+			moved = result.first;
 			location = result.second;
 		}
 
@@ -190,29 +197,32 @@ bool UActor::SetLocation(const vec3& newLocation, bool noCheck)
 		// makes them -- before what stands on it is unbased and before
 		// Location changes, so a Touch or UnTouch handler sees it where it
 		// was.
-		if (CheckEncroachment(location, Level()->bBegunPlay()))
-			return false;
+		if (moved && CheckEncroachment(location, Level()->bBegunPlay()))
+			moved = false;
 	}
 
-	// Whatever stands on it is left behind.
-	if (StandingCount() > 0)
+	if (moved)
 	{
-		Array<UActor*> standing = BasedActors;
-		for (UActor* actor : standing)
+		// Whatever stands on it is left behind, in the level's order
+		// (0x10398daf)
+		if (StandingCount() > 0)
 		{
-			if (actor && actor->ActorBase() == this)
-				actor->SetBase(nullptr, true);
+			for (size_t i = 0; i < XLevel()->Actors.size(); i++)
+			{
+				UActor* actor = XLevel()->Actors[i];
+				if (actor && actor->ActorBase() == this)
+					actor->SetBase(nullptr, true);
+			}
 		}
+		bJustTeleported() = true;
+		Location() = location;
+		OldLocation() = location;
 	}
-	bJustTeleported() = true;
-
-	XLevel()->Collision.RemoveFromCollision(this);
-	Location() = location;
-	OldLocation() = location;
 	XLevel()->Collision.AddToCollision(this);
 
-	UpdateActorZone();
-	return true;
+	if (moved)
+		UpdateActorZone();
+	return moved;
 }
 
 bool UActor::SetRotation(const Rotator& newRotation, bool checkBrush)
@@ -273,14 +283,14 @@ bool UActor::SetCollisionSize(float newRadius, float newHeight)
 	return true;
 }
 
-void UActor::PhysLanded(UActor* hitActor, const vec3& hitNormal, float remaining)
+void UActor::PhysLanded(UActor* hitActor, const vec3& hitNormal, float remaining, int iterations)
 {
-	DeusExPhysLanded(hitActor, hitNormal, remaining);
+	DeusExPhysLanded(hitActor, hitNormal, remaining, iterations);
 }
 
 // The original's processLanded (Engine.dll 0x103cef60; dx-reverse-info
 // engine-dll.md, moving), each branch in its order.
-void UActor::DeusExPhysLanded(UActor* hitActor, const vec3& hitNormal, float remaining)
+void UActor::DeusExPhysLanded(UActor* hitActor, const vec3& hitNormal, float remaining, int iterations)
 {
 	// A non-pawn in a zone that throws back is thrown again: the zone's
 	// velocity and 80 up.
@@ -371,7 +381,9 @@ void UActor::DeusExPhysLanded(UActor* hitActor, const vec3& hitNormal, float rem
 	// It lands: the hit actor, the level's LevelInfo for the world, is the
 	// floor setPhysics is given. A pawn walking walks out the rest of the
 	// tick, its acceleration made a direction first: Core's SafeNormal,
-	// none under 1e-8 squared (0x103d043d).
+	// none under 1e-8 squared (0x103d043d); its steps go on from the fall's
+	// count, which physFalling hands on (0x103d20ce), the eight of a tick
+	// shared.
 	CallEvent(this, EventName::Landed, { ExpressionValue::VectorValue(hitNormal) });
 	if (Physics() == PHYS_Falling)
 		SetPhysics(pawn ? PHYS_Walking : PHYS_None, hitActor ? hitActor : Level());
@@ -379,15 +391,20 @@ void UActor::DeusExPhysLanded(UActor* hitActor, const vec3& hitNormal, float rem
 	{
 		Acceleration() = X87::SafeNormal(Acceleration());
 		if (remaining > 0.01f)
-			TickWalking(remaining);
+			TickWalking(remaining, iterations);
 	}
 }
 
+// The original's physWalking and physFalling in no zone (Engine.dll
+// 0x103ca5ae, 0x103d0b60): FellOutOfWorld, its server first logging "%s
+// fell out of the world!" for a pawn, a decoration or an inventory item.
 bool UActor::HasLeftWorld()
 {
 	if (Region().ZoneNumber != 0)
 		return false;
 
+	if (Role() == ROLE_Authority && (UObject::TryCast<UPawn>(this) || UObject::TryCast<UDecoration>(this) || UObject::TryCast<UInventory>(this)))
+		LogMessage(Name.ToString() + " fell out of the world!");
 	CallEvent(this, EventName::FellOutOfWorld);
 	return true;
 }
@@ -536,8 +553,10 @@ bool UActor::EncroachBlockedBy(UActor* other)
 // it is asked with the actor's EncroachingOn, which stops it (true) when it
 // agrees; then, with touches, as FarMoveActor asks them (SpawnActor and a
 // mover's move do not), what the actor no longer overlaps where it stands
-// is untouched and what is at the spot and does not block it touched; and
-// each that blocks it hears EncroachedBy. Only an actor that collides with
+// is untouched and whatever is at the spot and does not block it touched,
+// what stands on the actor and what it stands on too, whether the actor
+// collides with actors or only blocks them (0x1039a8d6); and each that
+// blocks it hears EncroachedBy. Only an actor that collides with
 // actors or blocks is checked, or a brush that is not static. A brush that
 // is not static first pushes what it meets by its move (moveSmooth); one
 // pushed clear is not asked about, and one still in the way is moved back
@@ -586,7 +605,7 @@ bool UActor::CheckEncroachment(const vec3& location, const Rotator& rotation, bo
 			continue;
 		if (EncroachBlockedBy(other))
 			CallEvent(other, EventName::EncroachedBy, { ExpressionValue::ObjectValue(this) });
-		else if (touches && !other->IsBasedOn(this) && !IsBasedOn(other) && bCollideActors() && other->bCollideActors())
+		else if (touches)
 			Touch(other);
 	}
 	return false;
@@ -650,9 +669,10 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
 	}
 
 	// A move of nothing, each axis under the double 0.0001 (X87::NearlyZero3),
-	// is no move, the hit untouched, as the original's MoveActor takes it
-	// (Engine.dll 0x1039915a-0x10399228), however long: the length's square
-	// against 1e-8 moved one of 0.0001 along both X and Y
+	// is no move, as the original's MoveActor takes it (Engine.dll
+	// 0x1039915a-0x10399228), however long: the length's square against 1e-8
+	// moved one of 0.0001 along both X and Y. The hit given back is none; a
+	// physics whose moves share one keeps it (TryMoveHeldOff with a hit).
 	if (X87::NearlyZero3(delta))
 		return {};
 
@@ -697,6 +717,20 @@ CollisionHit UActor::TryMoveHeldOff(const vec3& delta)
 	vec3 hitLocation = Location() + traced * blockingHit.Fraction;
 	blockingHit.Fraction = HeldOffFraction(delta, blockingHit.Fraction);
 	return FinishMove(delta, hits, blockingHit, hitLocation);
+}
+
+// The hit a physics hands every move of its tick, its steps' and their
+// slides', as the original's physics hand ULevel::MoveActor theirs
+// (Engine.dll 0x103990e0): a move of nothing, each axis under the double
+// 0.0001 (X87::NearlyZero3), leaves it as it was (0x1039915a-0x10399228), so
+// a slide of nothing reads the hit of the move before it -- a walker head on
+// into a wall takes HitWall twice a step (stepUp); any other move makes it
+// afresh.
+void UActor::TryMoveHeldOff(const vec3& delta, CollisionHit& hit)
+{
+	if (X87::NearlyZero3(delta))
+		return;
+	hit = TryMoveHeldOff(delta);
 }
 
 bool UActor::IsPlayerOrProjectile()
