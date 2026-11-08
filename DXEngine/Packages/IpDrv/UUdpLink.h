@@ -25,4 +25,7 @@ private:
 	int Receive(IpAddr& from, char* data, int size);
 
 	socket_t handle = invalid_socket_value;
+	// A BindPort that failed: the original's Socket 0, a link that does
+	// nothing for good
+	bool bindFailed = false;
 };

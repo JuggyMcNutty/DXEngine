@@ -84,31 +84,51 @@ void UUdpLink::Tick(float elapsed)
 
 int UUdpLink::BindPort(int port, bool bUseNextAvailable)
 {
-	if (handle == invalid_socket_value)
+	// One bind a link, as the original's (AUdpLink::execBindPort, IpDrv.dll
+	// 0x1070c810): a second, or one after a failed bind, answers 0, logged
+	// as already bound (0x1070c88b)
+	if (bindFailed || handle != invalid_socket_value)
 	{
-		handle = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-		if (handle == invalid_socket_value)
-		{
-			LastError = LastSocketError();
-			return 0;
-		}
-		int on = 1;
-		setsockopt(handle, SOL_SOCKET, SO_BROADCAST, (const char*)&on, sizeof(on));
-		// Non-blocking before the bind, as the original's (ipdrv-dll.md,
-		// UdpLink): a bind that fails leaves a socket the next tick's read
-		// polls, where a blocking one waited on Linux for good
-		SetNonBlocking(handle);
-		Socket() = (int)handle;
-	}
-
-	int bound = BindSocket(handle, port, bUseNextAvailable);
-	if (bound == 0)
-	{
-		LastError = LastSocketError();
+		LogMessage("BindPort: already bound");
 		return 0;
 	}
-	Port() = bound;
-	return bound;
+	handle = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (handle == invalid_socket_value)
+	{
+		LastError = LastSocketError();
+		LogMessage("BindPort: socket failed");
+	}
+	else
+	{
+		int on = 1;
+		int bound = 0;
+		if (setsockopt(handle, SOL_SOCKET, SO_BROADCAST, (const char*)&on, sizeof(on)) != 0)
+		{
+			LastError = LastSocketError();
+			LogMessage("BindPort: setsockopt failed");
+		}
+		else if ((bound = BindSocket(handle, port, bUseNextAvailable)) == 0)
+		{
+			LastError = LastSocketError();
+			LogMessage("BindPort: bind failed");
+		}
+		else
+		{
+			// Non-blocking once bound, as the original's (0x1070c931)
+			SetNonBlocking(handle);
+			Socket() = (int)handle;
+			Port() = bound;
+			return bound;
+		}
+		CloseSocket(handle);
+		handle = invalid_socket_value;
+	}
+	// The socket closed and Socket 0, as the original's leaves it
+	// (0x1070c9a2-0x1070c9b1): a link that sends and reads nothing from then
+	// on, a second BindPort refused
+	Socket() = 0;
+	bindFailed = true;
+	return 0;
 }
 
 int UUdpLink::Receive(IpAddr& from, char* data, int size)

@@ -15,6 +15,7 @@
 #include "Engine.h"
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <cstring>
 
 namespace
@@ -61,6 +62,32 @@ namespace
 		uint8_t digest[16];
 		md5.Final(digest);
 		return "Checksum=" + MD5::Hex(digest);
+	}
+
+	// A word as the original's appStrtoi reads one in base 16 (Core.dll
+	// 0x101235e0, MSVCRT's wcstoul): blanks skipped, a sign, a 0x, then the
+	// hex digits up to the first that is not one, a minus negating what was
+	// read; eight characters hold no more than 32 bits
+	uint32_t HexWord(std::u16string_view text)
+	{
+		size_t pos = 0;
+		while (pos < text.size() && (text[pos] == ' ' || (text[pos] >= '\t' && text[pos] <= '\r')))
+			pos++;
+		bool negative = false;
+		if (pos < text.size() && (text[pos] == '+' || text[pos] == '-'))
+			negative = text[pos++] == '-';
+		if (pos + 1 < text.size() && text[pos] == '0' && (text[pos + 1] == 'x' || text[pos + 1] == 'X'))
+			pos += 2;
+		uint32_t value = 0;
+		for (; pos < text.size(); pos++)
+		{
+			char16_t c = text[pos];
+			int digit = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+			if (digit < 0)
+				break;
+			value = value * 16 + (uint32_t)digit;
+		}
+		return negative ? 0u - value : value;
 	}
 
 }
@@ -141,6 +168,29 @@ bool NetParseBool(const std::string& text, const char* key, bool& value)
 	if (!StrTools::ue1_parse(text, key, word, 16))
 		return false;
 	value = StrTools::equals_ignore_case(word, "On") || StrTools::equals_ignore_case(word, "True") || word == "1";
+	return true;
+}
+
+// A GUID as Parse's FGuid form reads one (Core.dll 0x101478e0): Parse's text
+// into its 256 characters, four words of 0, and where that text is 32
+// characters long each word the base-16 number of its eight, the last eight
+// the last word; then written as FGuid's String writes them, 32 hex digits
+// in upper case.
+bool NetParseGuid(const std::string& text, const char* key, std::string& guid)
+{
+	std::string value;
+	if (!StrTools::ue1_parse(text, key, value, 256))
+		return false;
+	uint32_t words[4] = {};
+	ScriptString wide = UTF8ToScript(value);
+	if (wide.size() == 32)
+	{
+		for (int i = 0; i < 4; i++)
+			words[i] = HexWord(std::u16string_view(wide).substr(i * 8, 8));
+	}
+	char printed[33];
+	snprintf(printed, sizeof(printed), "%08X%08X%08X%08X", words[0], words[1], words[2], words[3]);
+	guid = printed;
 	return true;
 }
 
@@ -286,19 +336,15 @@ void NetPendingLevel::NotifyReceivedText(NetConnection* connection, const std::s
 	}
 	else if (NetParseCommand(text, "USES"))
 	{
+		// The GUID as the original's four words, 0 for one missing or not
+		// of 32 characters (FPackageInfo, Core.dll 0x1012b8b0), and written
+		// back as their 32 hex digits: what names the package in the cache
+		// is never the server's own text
 		UsedPackage package;
 		if (NetParseValue(text, "PKG=", value, 64))
 			package.Name = value;
-		NetParseValue(text, "GUID=", package.Guid);
-		if (!PackageManager::IsPackageGuid(package.Guid))
-		{
-			// A package the cache cannot name: a server's GUID becomes a
-			// file's name there, so one that is not 32 hex digits ends the join
-			Error = "The server sent a package with a bad GUID: " + package.Name.ToString();
-			LogMessage("Net: " + Error);
-			connection->State = ConnectionState::Closed;
-			return;
-		}
+		package.Guid = std::string(32, '0');
+		NetParseGuid(text, "GUID=", package.Guid);
 		NetParseInt(text, "FLAGS=", package.Flags);
 		NetParseInt(text, "SIZE=", package.Size);
 		NetParseInt(text, "GEN=", package.Generation);

@@ -60,8 +60,9 @@ protected:
 	static void SetNonBlocking(socket_t s);
 	static void CloseSocket(socket_t s);
 	static int LastSocketError();
-	// Binds INADDR_ANY at the port, or with bUseNextAvailable the first free
-	// of the 20 from it; the port bound, or 0.
+	// Binds the port at the game's socket's address (NetLocalBindAddress), or
+	// with bUseNextAvailable the first free of the 20 from it; the port
+	// bound, or 0.
 	static int BindSocket(socket_t s, int port, bool bUseNextAvailable);
 	// The event's IpAddr parameter, for a call from native code.
 	ExpressionValue IpAddrArg(const NameString& eventName, IpAddr& addr, UStructProperty& prop);

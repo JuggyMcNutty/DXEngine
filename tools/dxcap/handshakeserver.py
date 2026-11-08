@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """A server that speaks the join's first lines in ways no stock server does,
 for HandshakeConsole (docs/DEVELOPMENT.md, net tests): a server of another
-version, and values with blanks the original's Core reads past.
+version, values with blanks the original's Core reads past, and a package of
+any GUID.
 
-    handshakeserver.py [--port 7790] [--mode upgrade|values] [--minver 400]
-                       [--ver 436] [--secs 120]
+    handshakeserver.py [--port 7790] [--mode upgrade|values|guid]
+                       [--minver 400] [--ver 436] [--guid <text>]
+                       [--secs 120]
 
 It listens on UDP --port and answers each client's control channel as the
 original's server would (dx-reverse-info network.md, joining and packets):
@@ -15,7 +17,15 @@ original's server would (dx-reverse-info network.md, joining and packets):
   0x1039f780);
 - values: the HELLO gets "CHALLENGE VER= 1100 CHALLENGE= 7 STATS= 1", each
   value after a blank, and the LOGIN a FAILURE with a tab before it and two
-  after: "<tab>FAILURE<tab><tab>spaced text".
+  after: "<tab>FAILURE<tab><tab>spaced text";
+- guid: the HELLO gets "CHALLENGE VER=1100 CHALLENGE=7 STATS=0", and the
+  LOGIN "USES GUID=<--guid> PKG=DXCapGuid FLAGS=1 SIZE=1000 GEN=1" and
+  "WELCOME LEVEL=DX LONE=0": a package no client has, downloads allowed,
+  so the client asks for its file by the four words it made of the GUID
+  (UNetConnection::ReceiveFile, Engine.dll 0x10405490), which are logged;
+  the request is refused with an empty, unreliable bunch that closes its
+  channel, as the original's server refuses a file it does not have
+  (UFileChannel::ReceivedBunch, 0x10400464).
 
 Every packet a client sends is acknowledged in a packet of the server's, as
 the new connection the original's server opens for a client's later
@@ -27,6 +37,7 @@ told against the answers to 7 and to 0. It exits after --secs.
 """
 import argparse
 import socket
+import struct
 import time
 
 MAX_PACKET = 512
@@ -35,6 +46,7 @@ MAX_CHANNELS = 1023
 MAX_CH_SEQUENCE = 1024
 MAX_CH_TYPE = 8
 CONTROL = 1
+FILE = 3
 
 
 class Reader:
@@ -186,9 +198,10 @@ class Client:
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--port", type=int, default=7790)
-    ap.add_argument("--mode", choices=["upgrade", "values"], default="upgrade")
+    ap.add_argument("--mode", choices=["upgrade", "values", "guid"], default="upgrade")
     ap.add_argument("--minver", type=int, default=400)
     ap.add_argument("--ver", type=int, default=436)
+    ap.add_argument("--guid", default="not-a-guid")
     ap.add_argument("--secs", type=float, default=120.0)
     args = ap.parse_args()
 
@@ -213,8 +226,13 @@ def main():
             print("server: undecoded packet (%s)" % e, flush=True)
             continue
         replies = []
+        refused = []
         for b in bunches:
             if b["ch"] != 0:
+                if args.mode == "guid" and b["open"] and b["type"] == FILE and len(b["data"]) >= 16:
+                    words = struct.unpack("<4I", b["data"][:16])
+                    print("server: file request on channel %d: %s" % (b["ch"], " ".join("%08X" % w for w in words)), flush=True)
+                    refused.append(b["ch"])
                 continue
             if b["close"]:
                 print("server: client closed its control channel", flush=True)
@@ -226,8 +244,13 @@ def main():
                 word = text.split(" ", 1)[0].upper()
                 if word == "HELLO" and args.mode == "upgrade":
                     replies.append("UPGRADE MINVER=%d VER=%d" % (args.minver, args.ver))
+                elif word == "HELLO" and args.mode == "guid":
+                    replies.append("CHALLENGE VER=1100 CHALLENGE=7 STATS=0")
                 elif word == "HELLO":
                     replies.append("CHALLENGE VER= 1100 CHALLENGE= 7 STATS= 1")
+                elif word == "LOGIN" and args.mode == "guid":
+                    replies.append("USES GUID=%s PKG=DXCapGuid FLAGS=1 SIZE=1000 GEN=1" % args.guid)
+                    replies.append("WELCOME LEVEL=DX LONE=0")
                 elif word == "LOGIN":
                     for part in text.split(" "):
                         if part.upper().startswith("RESPONSE="):
@@ -251,6 +274,15 @@ def main():
             w.int(CONTROL, MAX_CH_TYPE)
             w.int(len(data) * 8, MAX_PACKET * 8)
             w.bytes(data)
+        for ch in refused:
+            print("server: refused the file on channel %d" % ch, flush=True)
+            w.bit(0)
+            w.bit(1)
+            w.bit(0)
+            w.bit(1)
+            w.bit(0)
+            w.int(ch, MAX_CHANNELS)
+            w.int(0, MAX_PACKET * 8)
         s.sendto(w.packet(), addr)
         c.out_id = (c.out_id + 1) % MAX_PACKET_ID
     print("server: exiting", flush=True)

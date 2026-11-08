@@ -50,11 +50,12 @@ private:
 	socket_t DataSocket() const { return remote != invalid_socket_value ? remote : handle; }
 
 	void CheckConnectionQueue();
-	void CheckConnectionAttempt();
+	bool CheckConnectionAttempt(); // whether it made the connection
 	void PollConnections();
 	int FlushSendBuffer(); // what is left to send
 	void ShutdownConnection();
 	void CheckClosed(socket_t& s);
+	bool Shown(socket_t s);
 
 	socket_t handle = invalid_socket_value; // Socket
 	socket_t remote = invalid_socket_value; // RemoteSocket
@@ -62,6 +63,9 @@ private:
 	// A connect that failed: Linux reports it once (SO_ERROR cleared by the
 	// read) and the socket stays writable, so it is remembered
 	bool connectFailed = false;
+	// Whether the link's own socket listens, or holds or held a connection:
+	// the tick sees it only then, as Windows shows it (Shown)
+	bool handleLive = false;
 	// A BindPort that failed: the original's Socket 0, a link that does
 	// nothing for good
 	bool bindFailed = false;

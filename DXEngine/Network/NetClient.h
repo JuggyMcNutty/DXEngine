@@ -75,9 +75,11 @@ int NetChallengeResponse(int challenge);
 // ParseCommand takes it; a KEY= anywhere but straight after a letter or
 // digit, as Parse finds it, and its value as Parse's text, into the
 // original's buffer of maxLen characters (0 for none), its int, its DWORD,
-// or ParseUBOOL's bool.
+// or ParseUBOOL's bool; a GUID as its four words, written back as 32 hex
+// digits.
 bool NetParseCommand(const std::string& text, const char* command, std::string* rest = nullptr);
 bool NetParseValue(const std::string& text, const char* key, std::string& value, size_t maxLen = 0);
 bool NetParseInt(const std::string& text, const char* key, int& value);
 bool NetParseInt(const std::string& text, const char* key, uint32_t& value);
 bool NetParseBool(const std::string& text, const char* key, bool& value);
+bool NetParseGuid(const std::string& text, const char* key, std::string& guid);

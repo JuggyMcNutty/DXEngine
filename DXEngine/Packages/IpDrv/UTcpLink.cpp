@@ -34,6 +34,33 @@ static bool Readable(socket_t s)
 	return select((int)s + 1, &set, nullptr, nullptr, &timeout) > 0;
 }
 
+// Whether a socket holds a connection. Windows' select shows one that does
+// not as neither readable nor writable, and its shutdown fails it, where
+// Linux's select calls it both, and its shutdown passes a listening socket
+// and ends a connect under way.
+static bool HasPeer(socket_t s)
+{
+	sockaddr_in peer = {};
+#ifdef WIN32
+	int size = sizeof(peer);
+#else
+	socklen_t size = sizeof(peer);
+#endif
+	return getpeername(s, (sockaddr*)&peer, &size) == 0;
+}
+
+// Whether a connection takes a send now, as Windows' select answers
+static bool Writable(socket_t s)
+{
+	if (s == invalid_socket_value)
+		return false;
+	fd_set set;
+	FD_ZERO(&set);
+	FD_SET(s, &set);
+	timeval timeout = {};
+	return select((int)s + 1, nullptr, &set, nullptr, &timeout) > 0 && HasPeer(s);
+}
+
 UTcpLink::~UTcpLink()
 {
 	ActorDestroyed();
@@ -85,6 +112,22 @@ bool UTcpLink::EnsureSocket()
 	}
 	SetNonBlocking(handle);
 	Socket() = (int)handle;
+	handleLive = false;
+	return true;
+}
+
+// Whether the tick sees the socket, as Windows shows it: the link's own one
+// that listens, or holds or held a connection, and a connection accepted; not
+// the link's own one that never connected -- bound alone, or its connect
+// under way or failed --, which reads nothing and never ends, where Linux's
+// calls it hung up and reads a failed connect as ended.
+bool UTcpLink::Shown(socket_t s)
+{
+	if (s != handle || handleLive)
+		return true;
+	if (!HasPeer(s))
+		return false;
+	handleLive = true;
 	return true;
 }
 
@@ -92,7 +135,10 @@ void UTcpLink::Tick(float elapsed)
 {
 	UInternetLink::Tick(elapsed);
 
-	if (handle == invalid_socket_value && remote == invalid_socket_value)
+	// A link whose BindPort failed does nothing, its Socket 0; any other goes
+	// by its state, socket or none, as the original's (ATcpLink::Tick,
+	// IpDrv.dll 0x10706fb0)
+	if (bindFailed)
 		return;
 
 	switch (LinkState())
@@ -103,9 +149,13 @@ void UTcpLink::Tick(float elapsed)
 		FlushSendBuffer();
 		break;
 	case STATE_Connecting:
-		// No read while connecting: the original reads only connected or
-		// closing, and a read here gave ReceivedText("") on a failed connect
-		CheckConnectionAttempt();
+		// The connect checked, then a read in the same tick, so what came
+		// with the connection is raised at once, after Opened; one still
+		// being made, or failed, reads nothing, as on Windows
+		if (CheckConnectionAttempt())
+			PollConnections();
+		else if (ReceiveMode() == RMODE_Manual)
+			DataPending() = 0;
 		break;
 	case STATE_Connected:
 		PollConnections();
@@ -119,16 +169,20 @@ void UTcpLink::Tick(float elapsed)
 		break;
 	case STATE_ListenClosing:
 	case STATE_ConnectClosing:
+	{
 		// What the peer sends after the FIN read and let go, no event raised,
 		// as the original's closing link takes it (LingerConsole: no
-		// ReceivedText of the peer's bye), so its end is found as it comes
-		if (DataSocket() != invalid_socket_value && Readable(DataSocket()))
+		// ReceivedText of the peer's bye), so its end is found as it comes:
+		// a listening link's of the connection it accepted, if it holds one
+		socket_t s = LinkState() == STATE_ListenClosing ? remote : handle;
+		if (s != invalid_socket_value && Shown(s) && Readable(s))
 		{
 			char data[1000];
-			if (recv(DataSocket(), data, sizeof(data), MSG_PEEK) > 0)
-				(void)recv(DataSocket(), data, sizeof(data), 0);
+			if (recv(s, data, sizeof(data), MSG_PEEK) > 0)
+				(void)recv(s, data, sizeof(data), 0);
 		}
 		break;
+	}
 	default:
 		break;
 	}
@@ -153,25 +207,21 @@ void UTcpLink::Tick(float elapsed)
 
 void UTcpLink::CheckClosed(socket_t& s)
 {
-	if (s == invalid_socket_value || !Readable(s))
+	if (s == invalid_socket_value || !Shown(s) || !Readable(s))
 		return;
 	char peek;
 	int result = (int)recv(s, &peek, 1, MSG_PEEK);
 	if (result > 0 || (result < 0 && WouldBlock(LastSocketError())))
 		return;
 
-	// A listening link's connection gone while the link closes: its
-	// listening socket goes with it, the port let go
-	bool listenClosing = LinkState() == STATE_ListenClosePending || LinkState() == STATE_ListenClosing;
+	// The connection's socket closed, the link back to Initialized unless it
+	// is listening, and Closed, as the original's: a listening link's own
+	// socket is kept, listening, through its Close and the end of the
+	// connection it accepted, the port held
 	if (LinkState() != STATE_Listening)
 		LinkState() = STATE_Initialized;
 	CloseSocket(s);
 	s = invalid_socket_value;
-	if (listenClosing && handle != invalid_socket_value)
-	{
-		CloseSocket(handle);
-		handle = invalid_socket_value;
-	}
 	Socket() = handle == invalid_socket_value ? -1 : (int)handle;
 	RemoteSocket() = remote == invalid_socket_value ? -1 : (int)remote;
 	CallEvent(this, "Closed");
@@ -179,7 +229,7 @@ void UTcpLink::CheckClosed(socket_t& s)
 
 void UTcpLink::CheckConnectionQueue()
 {
-	if (!Readable(handle))
+	if (handle == invalid_socket_value || !Readable(handle))
 		return;
 	sockaddr_in peer = {};
 #ifdef WIN32
@@ -204,6 +254,7 @@ void UTcpLink::CheckConnectionQueue()
 			return;
 		}
 		link->handle = s;
+		link->handleLive = true;
 		link->Socket() = (int)s;
 		link->LinkState() = STATE_Connected;
 		link->LinkMode() = LinkMode();
@@ -223,16 +274,16 @@ void UTcpLink::CheckConnectionQueue()
 	}
 }
 
-void UTcpLink::CheckConnectionAttempt()
+bool UTcpLink::CheckConnectionAttempt()
 {
-	if (connectFailed)
-		return;
+	if (connectFailed || handle == invalid_socket_value)
+		return false;
 	fd_set writable;
 	FD_ZERO(&writable);
 	FD_SET(handle, &writable);
 	timeval timeout = {};
 	if (select((int)handle + 1, nullptr, &writable, nullptr, &timeout) <= 0)
-		return;
+		return false;
 
 	// A connection that failed stays waiting, as on the original's Windows,
 	// where only a made one turns writable; the script's own timer gives up.
@@ -246,18 +297,25 @@ void UTcpLink::CheckConnectionAttempt()
 	{
 		LastError = error;
 		connectFailed = true;
-		return;
+		return false;
 	}
 
+	handleLive = true;
 	LinkState() = STATE_Connected;
 	CallEvent(this, "Opened");
+	return true;
 }
 
 void UTcpLink::PollConnections()
 {
+	// Nothing pending on a socket Windows shows nothing of, nor on none
 	socket_t s = DataSocket();
-	if (s == invalid_socket_value)
+	if (s == invalid_socket_value || !Shown(s))
+	{
+		if (ReceiveMode() == RMODE_Manual)
+			DataPending() = 0;
 		return;
+	}
 
 	if (ReceiveMode() == RMODE_Manual)
 	{
@@ -319,26 +377,23 @@ int UTcpLink::FlushSendBuffer()
 
 void UTcpLink::ShutdownConnection()
 {
-	// A listening link with no connection accepted into it: its listening
-	// socket closes now, the port let go (a half-close of it closed nothing,
-	// and Closed never came)
-	if (LinkState() == STATE_ListenClosePending && remote == invalid_socket_value)
-	{
-		if (handle != invalid_socket_value)
-			CloseSocket(handle);
-		handle = invalid_socket_value;
-		Socket() = -1;
-		LinkState() = STATE_Initialized;
-		CallEvent(this, "Closed");
-		return;
-	}
 	// The sending side shut, a FIN, the link reading on until the peer's
 	// end (the tick reads a closing link), then closed -- abortively -- with
 	// Closed: as the original's under Wine, whose closing link takes the
-	// peer's last words and closes as its end comes (LingerConsole).
-	socket_t s = DataSocket();
-	if (s != invalid_socket_value)
-		shutdown(s, SHUT_WR);
+	// peer's last words and closes as its end comes (LingerConsole). A
+	// listening link shuts the connection it accepted, any other its own
+	// socket (IpDrv.dll 0x10708040). One that holds no connection fails, as
+	// Windows' shutdown fails it, where Linux's would end a connect under way
+	// or pass a listening socket: logged, and the close pending still, tried
+	// again each tick, as the original's
+	socket_t s = LinkState() == STATE_ListenClosePending ? remote : handle;
+	if (s == invalid_socket_value || !HasPeer(s) || shutdown(s, SHUT_WR) != 0)
+	{
+		LogMessage("Close: Error while attempting to close socket.");
+		if (s == invalid_socket_value)
+			LogMessage("Close: Tried to close an invalid socket.");
+		return;
+	}
 	LinkState() = (LinkState() == STATE_ListenClosePending) ? STATE_ListenClosing : STATE_ConnectClosing;
 }
 
@@ -376,8 +431,9 @@ int UTcpLink::BindPort(int port, bool bUseNextAvailable)
 bool UTcpLink::Listen()
 {
 	// A backlog of one, and the send queue emptied, as the original's
-	// (0x10706df0): from Ready alone, or again as the last connection
-	// closes; a link whose BindPort failed true and nothing done
+	// (0x10706df0): from Ready alone, or again from ListenClosing, its
+	// socket listening still; a link whose BindPort failed true and nothing
+	// done
 	if (bindFailed)
 		return true;
 	if (LinkState() != STATE_ListenClosing)
@@ -390,6 +446,7 @@ bool UTcpLink::Listen()
 			LogMessage("Listen: listen failed");
 			return false;
 		}
+		handleLive = true;
 	}
 	LinkState() = STATE_Listening;
 	sendBuffer.clear();
@@ -429,39 +486,33 @@ bool UTcpLink::Open(const IpAddr& Addr)
 
 bool UTcpLink::Close()
 {
-	// A link whose BindPort failed: true, and nothing done (0x10707fb0)
+	// True, as the original's (ATcpLink::execClose, IpDrv.dll 0x10707fb0),
+	// and nothing done on a link whose BindPort failed. A listening link
+	// holding no connection of its own closes at once (ListenClosing), its
+	// socket listening still and nothing raised, for Listen to take back;
+	// one holding one once its queue is sent (ListenClosePending); any other
+	// link once its queue is sent (ConnectClosePending), one not connected
+	// keeping its socket, its shutdown failing each tick
 	if (bindFailed)
 		return true;
-	switch (LinkState())
-	{
-	case STATE_Listening:
-		LinkState() = STATE_ListenClosePending;
-		return true;
-	case STATE_Connected:
+	if (LinkState() == STATE_Listening)
+		LinkState() = remote == invalid_socket_value ? STATE_ListenClosing : STATE_ListenClosePending;
+	else
 		LinkState() = STATE_ConnectClosePending;
-		return true;
-	case STATE_Initialized:
-	case STATE_Ready:
-	case STATE_Connecting:
-		if (remote != invalid_socket_value)
-			CloseSocket(remote);
-		if (handle != invalid_socket_value)
-			CloseSocket(handle);
-		remote = invalid_socket_value;
-		handle = invalid_socket_value;
-		Socket() = -1;
-		RemoteSocket() = -1;
-		sendBuffer.clear();
-		LinkState() = STATE_Initialized;
-		return true;
-	default:
-		return false;
-	}
+	return true;
 }
 
 bool UTcpLink::IsConnected()
 {
-	return LinkState() == STATE_Connected || (LinkState() == STATE_Listening && remote != invalid_socket_value);
+	// Whether the socket takes a send now, in any state but Initialized, as
+	// the original's asks (0x10706cb0): true while a close is pending, false
+	// on a connection whose send buffer is full; a listening link asks of
+	// the connection it accepted, then of its own socket
+	if (bindFailed || LinkState() == STATE_Initialized)
+		return false;
+	if (LinkState() == STATE_Listening && Writable(remote))
+		return true;
+	return Writable(handle);
 }
 
 int UTcpLink::ReadBinary(int Count, uint8_t* B)

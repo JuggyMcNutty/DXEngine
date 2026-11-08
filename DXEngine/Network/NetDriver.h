@@ -25,6 +25,11 @@ struct LocalizeArg
 };
 std::string LocalizeMessage(const char* package, const char* section, const char* key, const char* fallback, std::initializer_list<LocalizeArg> args = {});
 
+// The address the game's socket binds, and the script's links (IpDrv's
+// TcpLink and UdpLink), in host order: every one of the machine's but with
+// MULTIHOME= or -PRIMARYNET.
+uint32_t NetLocalBindAddress();
+
 // What a driver tells its owner: the pending level while joining, the level
 // once in (Engine's FNetworkNotify).
 class NetNotify

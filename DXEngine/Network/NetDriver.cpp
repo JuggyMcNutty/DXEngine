@@ -206,7 +206,7 @@ bool NetDriver::InitListen(NetNotify* notify, int port, int tries, std::string& 
 // when it has four parts, each part's number, and every address when it has
 // not, logged; with -PRIMARYNET the first address of the machine's own name;
 // else every one of the machine's (0.0.0.0).
-static uint32_t LocalBindAddress()
+uint32_t NetLocalBindAddress()
 {
 	const OriginalCommandLine& commandLine = OriginalCommandLine::Get();
 	std::string multihome;
@@ -270,7 +270,7 @@ bool NetDriver::OpenSocket(int port, std::string& error)
 
 	sockaddr_in local = {};
 	local.sin_family = AF_INET;
-	local.sin_addr.s_addr = htonl(LocalBindAddress());
+	local.sin_addr.s_addr = htonl(NetLocalBindAddress());
 	local.sin_port = htons((uint16_t)port);
 	if (bind((decltype(socket(0, 0, 0)))Socket, (sockaddr*)&local, sizeof(local)) != 0)
 	{

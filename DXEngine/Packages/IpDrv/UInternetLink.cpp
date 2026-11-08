@@ -7,6 +7,7 @@
 #include "Packages/Core/UFunction.h"
 #include "UnrealURL.h"
 #include "Engine.h"
+#include "Network/NetDriver.h"
 #include <thread>
 
 #ifdef WIN32
@@ -250,12 +251,17 @@ int UInternetLink::LastSocketError()
 
 int UInternetLink::BindSocket(socket_t s, int port, bool bUseNextAvailable)
 {
+	// At the game's socket's address, as the original's links bind
+	// (getlocalbindaddr, IpDrv.dll 0x10708e40: UdpLink's BindPort 0x1070c8d4,
+	// TcpLink's 0x10706a51), so a server with MULTIHOME= answers its beacon
+	// and queries there alone and sends its uplink from it
+	uint32_t local = NetLocalBindAddress();
 	int tries = bUseNextAvailable ? 20 : 1;
 	for (int i = 0; i < tries; i++)
 	{
 		sockaddr_in addr = {};
 		addr.sin_family = AF_INET;
-		addr.sin_addr.s_addr = INADDR_ANY;
+		addr.sin_addr.s_addr = htonl(local);
 		addr.sin_port = htons((uint16_t)(port + i));
 		if (bind(s, (const sockaddr*)&addr, sizeof(addr)) == 0)
 		{

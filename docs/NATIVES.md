@@ -3871,19 +3871,21 @@ client: the connection closed, the client back on Entry by
   client's and 128 KB for a server's, a server's port the URL's or the next
   free of the 20 from it, or with `PORT=` on the command line that port
   alone, its address every one of the machine's but the one `MULTIHOME=`
-  names or, with `-PRIMARYNET`, the first of the machine's own name
-  (`ServeConsole` with `PORT=7795`, then with `MULTIHOME=127.0.0.1`: the
-  serving URL's address `0.0.0.0:7795`, then `127.0.0.1` with no port, alike
-  in both engines); a server's host name is looked up on a thread, the game
-  going on; `GETPING` and `GETLOSS` answer the server connection's lag of
-  the last second in ms and its incoming packet loss in percent. Differs
+  names or, with `-PRIMARYNET`, the first of the machine's own name, where
+  the script's links bind too (`ServeConsole` with `PORT=7795`, then with
+  `MULTIHOME=127.0.0.1`: the serving URL's address `0.0.0.0:7795`, then
+  `127.0.0.1` with no port, alike in both engines; with
+  `MULTIHOME=127.0.0.2`, the game port, the query answerer and the beacon
+  bound there alone, nothing answering at 127.0.0.1, in both engines); a
+  server's host name is
+  looked up on a thread, the game going on; `GETPING` and `GETLOSS` answer
+  the server connection's lag of the last second in ms and its incoming
+  packet loss in percent. Differs
   (bugs.md NET.34): the lag is the second's least round trip, the original's
   their mean less half the connection's frame time. Differs
   (bugs.md WIN.20): the original's pawn asks its own player, a remote one's
   connection on a server, a local one's viewport `0` and no `GETLOSS`, so on
-  a DXEngine server every player's ping is 0. Differs (bugs.md NET.29): the
-  script's links bind every address, `MULTIHOME=` and `-PRIMARYNET` the
-  game's socket's alone.
+  a DXEngine server every player's ping is 0.
 - **The challenge's check**: a login whose answer to the challenge is wrong
   is refused, by choice, where the original's server compares the answer
   with whether the right one is 0, a slip, and so refuses only a missing
@@ -4125,7 +4127,11 @@ As in the original:
   string as it was where it reads nothing (`TcpLinkConsole`: each answer of
   the link bound to port 1 alike in both engines, its string still `kept`;
   the queued `lost` and `early` never sent; the 600 characters read as 255,
-  255 and 90; `ss` showing the listen's backlog 1).
+  255 and 90; `ss` showing the listen's backlog 1). A `UdpLink` whose
+  `BindPort` failed is left so too, its socket closed and its `Socket` 0: a
+  second `BindPort` answers 0, logged as already bound, and nothing is sent
+  or read (`UdpRebindConsole`: B asked again answering 0, A receiving
+  nothing, in both engines).
 - A `TcpLink`'s connection ends as the original's: `BindPort` makes its
   socket's close abortive (`SO_LINGER` on, 0 s), so a link destroyed while
   connected resets its connection; `Close`, once the queue is sent, ends
@@ -4135,6 +4141,20 @@ As in the original:
   `LingerConsole` with `lingerpeer.py`: the destroyed link's peer reset;
   the closed link's peer reading the end, its `bye` sent, the link closed
   as the peer's end came, 2.02 s after opening, in both engines).
+- A `TcpLink`'s tick reads in the tick its connection is made, after
+  `Opened`, so text that came with the connection is raised at once.
+  `Close` answers true: a listening link holding no connection of its own
+  goes to `ListenClosing` at once, listening still and raising nothing,
+  and `Listen` takes it back; one holding one shuts that connection once
+  its queue is sent, its own socket kept; any other link pends its close
+  (`ConnectClosePending`), one not connected keeping its socket, its
+  shutdown failing each tick (`Close: Error while attempting to close
+  socket.`), so a `BindPort` is refused as already bound. `IsConnected`
+  answers whether the socket takes a send, in any state but `Initialized`:
+  true while a close is pending (`LinkEdgesConsole`: A's greeting read at
+  its opening tick; A closed and asked `IsConnected` true; C closed
+  unconnected in state 6, the error each tick and its `BindPort` again 0;
+  L2 closed in state 7 and `Listen` true again; in both engines).
 - A server of another version's `UPGRADE` is shown as the original's
   pending level shows it: for a `MINVER` above 1100 the player's upgrade
   menu (`ShowUpgradeMenu`, empty in the stock game), else `Connection
@@ -4151,13 +4171,17 @@ As in the original:
   quotes or up to a space, tab, CR, LF or comma, into the original's
   buffers, a login's `URL=` 1,023 characters, a package's `PKG=` 63 and a
   level's `LEVEL=` 4,095; a number `appAtoi` of all that follows the key,
-  so `VER= 1100` is 1100 (`FLAGS=` its `wcstoul`), and `LONE=` true for
-  `On`, `True` or `1` alone (`ParenJoinConsole` against `LoginServer`, each
+  so `VER= 1100` is 1100 (`FLAGS=` its `wcstoul`), `LONE=` true for `On`,
+  `True` or `1` alone, and a `USES` line's `GUID=` four words, each the
+  base-16 number of its eight characters, all 0 where its text is not 32
+  characters long, written back as 32 hex digits, so the cache's names are
+  never a server's text (`ParenJoinConsole` against `LoginServer`, each
   engine the other's server: a login as `JC(1)` with a class and a password
   taken whole, the two servers' lines alike; `HandshakeConsole` against
   `handshakeserver.py --mode values`: the login answering challenge 7 with
   its `Checksum=`, and `Connection failed` over `Rejected By Server: spaced
-  text`, in both engines).
+  text`; against `--mode guid`: the package's file asked for by the same
+  four words, and its refusal's lines alike, in both engines).
 
 A client's travel with its items, its
 player's replication info not come yet, leaves the player out, by choice:
@@ -4177,19 +4201,12 @@ viewport's, where the original's pawn runs one for its own player and an
 actor through the game engine. Differs (bugs.md WIN.22): a dedicated server
 takes no `SAY`, `GETCURRENTTICKRATE` or `GETMAXTICKRATE`. Differs (bugs.md
 WIN.24): the clipboard natives on a dedicated server. Differs (bugs.md
-NET.30): a UdpLink whose `BindPort` failed keeps a socket that works.
-Differs (bugs.md NET.31): small replication differences. Differs (bugs.md
-NET.33): an unreliable bunch before its channel's open closes a client's
-connection. Differs (bugs.md NET.35): a `TcpLink` closed while unconnected
-is closed at once, and `IsConnected` is its state. Differs (bugs.md NET.36):
-the server's view prediction stops at nodes that do not block sight. Differs (bugs.md NET.37): small net items.
+NET.31): small replication differences. Differs (bugs.md NET.33): an
+unreliable bunch before its channel's open closes a client's connection.
+Differs (bugs.md NET.36): the server's view prediction stops at nodes that
+do not block sight. Differs (bugs.md NET.37): small net items.
 Differs (bugs.md D.65): a dedicated server takes no typed command, where the
-original's log window runs a typed line on the engine. Differs (bugs.md
-D.72): a `TcpLink` reads nothing in the tick its connect is made, where the
-original's reads in it; a listening link's `Close` raises `Closed` and lets
-its port go, `Listen` then False, where the original's keeps listening,
-raises nothing and answers `Listen` True again; a `USES` GUID not of 32 hex
-digits ends the join, where the original's parses it.
+original's log window runs a typed line on the engine.
 
 ## Not needed for single player
 
