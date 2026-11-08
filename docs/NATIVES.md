@@ -108,11 +108,11 @@ without it whole); one of another package is still written as an import
 when it is also public, as the original's is. The
 console's `open ?loadgame=N` loads the slot as the game's own `LoadGame`
 does (`LoadConsole` with `Open`); a slot that is no number loads nothing in
-either, DXEngine reading it as slot 0. The console's `SAVEGAME n` takes any
-number as the original's `SaveGame` does: -1 the quick save, 0 a new slot,
-and any other `Save%04d`, a negative one too -- `savegame -3` writes
-Save-003, and `savegame -2` its SaveInfo to Save-002 with the level saved
-into Current -- and the Load Game screen lists every `Save*` folder, both of
+either, DXEngine reading it as slot 0. The game's `SaveGame` takes any
+number as the original's does: -1 the quick save, 0 a new slot, and any
+other `Save%04d`, a negative one too -- `SaveGame(-3)` writes Save-003, and
+`SaveGame(-2)` its SaveInfo to Save-002 with the level saved into Current
+-- and the Load Game screen lists every `Save*` folder, both of
 those among them, by name, as the original's `FindFiles` on NTFS gives them,
 by upper case, `[`, `\`, `]`, `^`, `_` and `` ` `` after the letters
 (`SlotConsole`). A bare `?loadgame`, a slot named by no number, is no load,
@@ -340,7 +340,11 @@ asked during a load's frames is taken, the original's dropping it. Differs
 (bugs.md PKG.35): a saved level is named by its package, the original's by
 its DeusExLevelInfo's `MapName`. Differs (bugs.md PKG.36): a `SavePath`
 whose parent is not there, a slot's folder in another case,
-`GetMapsDirectory`'s duplicates. For the owner (bugs.md D.58):
+`GetMapsDirectory`'s duplicates. Differs (bugs.md PKG.37): the console's
+`SAVEGAME` and `DELETEGAME` take a signed slot and `SAVEGAME` a description,
+where the original's act only on a digit and save with the level's Title.
+Differs (bugs.md PKG.39): `?push`, `?pop` and `?peer` keep `HubStackLevel`
+at 0 and write no hub save. For the owner (bugs.md D.58):
 `GetSaveFreeSpace` measures the save folder's file system.
 
 ## Flags
@@ -509,7 +513,9 @@ each engine loads the other's saves with every listener. DXEngine also reads
 the manager in a layout of its own, which some of its saves carry.
 
 Differs (bugs.md AI.17): `AIGetLightLevel` counts no light before a level's
-first frame, after each travel and load. Differs (bugs.md AI.18): a listener
+first frame, after each travel and load. Differs (bugs.md AI.22): it reads
+the last frame's lights, a light turned on or moved since missed for the
+rest of the tick. Differs (bugs.md AI.18): a listener
 made during the event manager's calls comes last in the next walk, the
 original's first. Differs (bugs.md AI.19): an event raised by an actor
 already destroyed counts. Differs (bugs.md AI.20): a receiver's saved best
@@ -595,6 +601,10 @@ their order the original's, the distances to the x87's last digits).
 `AIPickRandomDestination` drops the pitch for a pawn walking, or swimming
 out of water, whatever its zone (`PathnodeConsole`'s pick in the water), and
 `FindPathToward`'s test from the anchor traces the goal's line to the anchor.
+Differs (bugs.md PHYS.36): the collision hash gives actors back in
+another order. Differs (bugs.md PHYS.39): `SetLocation`'s touches pass over
+an actor based on the one moved. For the owner (bugs.md D.69): a swimmer of
+no mass taken as of 1.
 
 The ladder probe goes on past a texture in no group, as the original's, the
 texture's outer its package (`LadderConsole` at the foot of
@@ -622,13 +632,19 @@ drawn on its own (`GC.DrawActor`, `Canvas.DrawActor`) counts as drawn
 whenever its rectangle is on the frame, whatever is in front of it: an NPC
 the vision augmentation draws through a wall stays drawn while it is in view
 (`AugVisionConsole`). A decal counts as drawn when some of it shows, tested
-against the spans before its surface fills them, as the original clips each
-decal to what is drawn of its surface
+against the spans before its surface fills them
 ([render time](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#render-time)):
 the game's go when not drawn for a second, some 20 s after they land
 (`DeusExDecal`), so `CensusConsole`'s blood splats, 90 s under fire on
 Liberty Island, are 140 to 170 at the end against the original's 90 to 186,
-of some 400 to 700 made in either. Differs by choice:
+of some 400 to 700 made in either. Differs (bugs.md REN.60): a mover hides
+nothing, so what lies behind a closed door counts as drawn. Differs
+(bugs.md REN.61): a decal lies a unit toward the eye along the view's axis,
+the original's 0.75 units off its surface along its normal. Differs
+(bugs.md REN.62): a decal counts as drawn only where its own pixels show,
+the original's wherever its surface's polygon shows. Differs (bugs.md
+REN.63): an actor's proxy joins the walk at its filing node, the original's
+at the root. Differs by choice:
 
 - **One span buffer** for the frame, where the original keeps one per zone.
   A buffer per zone would change no test in 15,500 at the starts of Liberty
@@ -718,7 +734,10 @@ correlation of 1.00 to `D3DDrv`'s, its edges blended into the box (the
 stock menus draw it translucent); on the canvas, clipped text drawn
 `STY_Translucent` translucent. For the owner (bugs.md D.63): a smoothed
 tile's edges are clamped on every device, where `D3DDrv`'s addressing wraps,
-its outer half texel blending with the opposite edge.
+its outer half texel blending with the opposite edge. Differs (bugs.md
+REN.69): the canvas's text laid out otherwise at a line feed, a word wider
+than the room, a glyph of no width, a wrap's space, `StrLen`'s place and a
+centred line's.
 
 A window's tile and character are placed as the original's GC places them
 ([the GC's styles](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#styles)):
@@ -902,7 +921,9 @@ Render.dll's.
 
 Matches the original
 ([a pawn's attachments](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-pawns-attachments));
-`HeldConsole`.
+`HeldConsole`. For the owner (bugs.md D.71): a held item is drawn wherever
+its holder's weapon triangle lies, the original's dropped as the triangle
+leaves the view.
 
 ### Viewport windows
 
@@ -1034,6 +1055,11 @@ both engines, the frame there at a correlation of 0.990 to `D3DDrv`'s
 `IonStormLogo` drawn translucent showing its near side alone, 0.998 (0.975,
 1.37 times as bright, while DXEngine drew its far side too). Five of the
 game's meshes are plain: the menu maps' logos and text, and the fly.
+
+Differs (bugs.md REN.64): a mesh's vertex normals made at load, the
+original's at each draw from the faces within the budget, and small sprite
+items. For the owner (bugs.md D.68): the guards round the budget, the
+proxy's depth and a hand-made mesh's corners.
 
 ### Lighting
 
@@ -1222,7 +1248,11 @@ so a cloaked NPC's gun flash almost vanishes. For the owner (bugs.md D.51):
 each corner of a mesh's face lit by that face's own unlit flag, where
 Render.dll's lit faces take the unlit level at corners they share with an
 unlit one; (bugs.md D.52) three quirks of the original's pick of a mesh's
-lights.
+lights. Differs (bugs.md WIN.28): `RMODE` is taken by nothing, so the
+credits' Matrix egg draws the world lit, the original's full-bright.
+Differs (bugs.md REN.66): the fog map never follows its light after the
+light's first use. Differs (bugs.md REN.67): the fog's colour and density by
+a formula of DXEngine's own.
 
 ### Brightness
 
@@ -1271,6 +1301,10 @@ True: Deus Ex declares it no config property, so neither engine reads the
 every instant flash and fog, and the death's spiral round the carcass shows
 none of the fade to white and to black its state's `PlayerCalcView` asks
 for (`DyingConsole`, at 60 frames a second).
+
+Differs (bugs.md REN.57): with Bloom on, the bloom is added after the flash
+and the windows, so the loading screen's dimming, the pain and water tints
+and the menus' mask leave the world's glow whole.
 
 ### Draw order and movers
 
@@ -1407,7 +1441,9 @@ invisible ones. Differs (bugs.md REN.50): a decal's random direction leans
 toward the diagonals. Differs (bugs.md PHYS.28): a mover's `PostScale` is
 used nowhere, WanChai Market's locked door covering the middle of its
 opening alone. Differs (bugs.md PHYS.29): a mirrored mover is filed with
-faces turned inward, lines at it passing and beside it stopping.
+faces turned inward, lines at it passing and beside it stopping. Differs
+(bugs.md PHYS.37): a mover at a yaw off the quarter turns is filed on other
+floats.
 
 ### Fire, water and ice textures
 
@@ -1443,6 +1479,13 @@ Differs:
   200 settings: DXEngine takes the C library's cosine, the original the
   x87's, and they differ in the last bit; by choice, a port computing as
   its C library does.
+
+Differs (bugs.md REN.65): a fire whose `RenderHeat` is 0 gets no colour
+table and draws as colour 0, the original's 15 levels cooler. Differs
+(bugs.md REN.68): the fire engine's sine table truncated, the original's
+rounded. Differs (bugs.md REN.70): small fire and ice items. For
+the owner (bugs.md D.74): a spark's place masked to its texture, the water's
+cells checked, and the fog map's float precision.
 
 ### Head turns and lip sync: blend animations
 
@@ -1874,7 +1917,9 @@ Differs:
   at its edges.
 - **Full screen as the window loses the focus** is kept, by choice, where
   the original leaves it and minimises; SDL3 minimises a real exclusive mode
-  alone, never on Wayland nor in a desktop's full screen.
+  alone, never on Wayland nor in a desktop's full screen. For the owner
+  (bugs.md D.64): the X11, Wayland and Win32 windows' full screen keeps the
+  desktop's mode.
 
 In the SDL3 and X11 windows a wheel presses once a notch, as the original
 presses once a `WM_MOUSEWHEEL`, which Windows sends a notch: a
@@ -1907,7 +1952,13 @@ sets, and `SetMaxUndos(0)` limits nothing. Differs (bugs.md EXT.35): a large
 text window's GC reaches its script with the window's alignments and word
 wrap, rows step by their tallest glyph, and an edit field's insertion point
 is hidden while the GC's drawing is off; no stock script or font reaches
-them.
+them. Differs (bugs.md WIN.32): the Win32 window's mouse lock neither
+captures nor clips the pointer. Differs (bugs.md WIN.33): the Win32 window
+lets the screen saver and the display's power-down through. Differs
+(bugs.md WIN.36): the Win32 window's menu gathers raw motion, a wheel of no
+delta presses, and its screen is sized by the system's DPI. Differs
+(bugs.md WIN.37): the X11 window takes no Alt, its key map naming Meta
+alone.
 
 ## The menus' settings
 
@@ -1991,7 +2042,9 @@ and Object Texture Detail to Low, the original keeping High. Differs
 `GET` of a property only the original's classes have, empty. For the owner
 (bugs.md D.50): a setting the ini lacks takes DXEngine's default, the
 original's classes none; (bugs.md D.60) raw mouse input; (bugs.md D.61)
-`UseJoystick` ignored.
+`UseJoystick` ignored. Differs (bugs.md ENG.36): mouse look turns some 0.53
+as far a unit as the original's. Differs (bugs.md ENG.38): small input and
+settings items, `MouseW` never sent among them.
 
 ## Sound
 
@@ -2209,7 +2262,9 @@ a section past the song's last order is refused, logged as Galaxy logs it
 channel, played -- is a surround a quarter of the way from the left, and
 an 8xx (IT's X) over 0x80 a surround at a pan, 0x84 to 0xC4 from the left
 (0xA4, IT's S9x, the middle), each with its right side inverted; the music
-is saturated at 16 bits, then added to the sounds' mix, saturating.
+is saturated at 16 bits, then added to the sounds' mix, saturating (on an
+integer output: Differs (bugs.md AUD.23), on a float one the sum passes full
+scale, the desktop's volume taken before it is clipped).
 `MusicConsole`, both engines: after the jump from the pair to
 the empty order 1 silence in both, where playing the song to it brought
 back tone A at -16.5 dB; tone A on eight channels in phase at full scale in
@@ -2956,8 +3011,10 @@ lock. Differs (bugs.md ENG.34): Windows' file read and write past 4 GiB.
 - **A key's name** from the SDL2 and SDL3 windows, the launchers', is the
   original's
   ([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys)):
-  a shift, control or alt its name for both sides, then its side's own
-  (`LShift`; `UnknownA4` for the left alt), Caps Lock, the punctuation, the
+  a shift, control or alt its name for both sides (Differs, bugs.md
+  ENG.37: then its side's own, `LShift`, `UnknownA4` for the left alt, at
+  each press, which the original presses only at an input reset), Caps
+  Lock, the punctuation, the
   keypad's operators and Enter, Print Screen (`PrintScrn`), the Windows and
   menu keys (`Unknown5B` to `Unknown5D`), the ISO key by the left Shift
   (`JoyZ`, Windows' `VK_OEM_102`); with Num Lock off the keypad's digits and
@@ -3217,7 +3274,11 @@ walker had jumped).
 
 Differs (bugs.md REN.51): the canvas's tile natives' edges. Differs (bugs.md
 ENG.35): `UTF8ToScript` taking overlong forms. Differs (bugs.md PHYS.35): no
-"fell out of the world" line.
+"fell out of the world" line. Differs (bugs.md WIN.29): `STAT` shows none of
+the renderer's panels, `stat fps` among them. Differs (bugs.md WIN.30): no
+demo is recorded or played. Differs (bugs.md WIN.31): the engine's smaller
+words answer nothing. For the owner (bugs.md D.66): `stat render`,
+DXEngine's own panel.
 
 ## The command line
 
@@ -3358,7 +3419,9 @@ read `MyMod` and the reads that name no file -- the `[URL]` section,
 Differs (bugs.md WIN.23): `GETCOLORDEPTHS` answers "32 16", the original's
 "16 32"; `GETCURRENTRENDERDEVICE` and `PREFERENCES` are taken by nothing;
 `EXEC` of a file not there gives the caller nothing. For the owner (bugs.md
-D.59): `GETCURRENTCOLORDEPTH` answers 32.
+D.59): `GETCURRENTCOLORDEPTH` answers 32; (bugs.md D.73) `-nommx`, `-nokni`
+and `-nok6` doing nothing, the pointer kept in relative mode in the menus,
+the hat's codes named.
 
 ## Mods
 
@@ -3664,12 +3727,17 @@ given itself as its macro texture, has the GL and Vulkan devices' frames at
 1.00 of `D3DDrv`'s (`NoDetail`): in blocks of 16 pixels inside the map's
 border, within 0.94 to 1.04 (without the macro, [lighting](#lighting)). The
 D3D11 device keeps Surreal Engine's
-([where it stands](../README.md#for-advanced-users)).
+([where it stands](../README.md#for-advanced-users)). Differs (bugs.md
+REN.58): the D3D11 device's detail textures in one band, its blends
+unclamped in float buffers, no depth step for movers, `RenderScale` ignored.
 
 Differs (bugs.md VM.31, VM.32): a fixed array's and a map's values, text and
 replication, which no stock package has. Differs (bugs.md VM.33): Core's
 `PointerProperty` and `StringProperty`, which the original's Core.dll has
-not.
+not. For the owner (bugs.md D.67): a save's exports made whatever their
+flags. Differs (bugs.md PKG.38): an import its package lacks loads as None,
+where the original refuses the package. Differs (bugs.md PKG.40): a sound's
+and a mip's skip offset read from version 63, the original's from 62.
 
 ## Multiplayer
 
@@ -3757,8 +3825,10 @@ client: the connection closed, the client back on Entry by
   (`ServeConsole` with `PORT=7795`, then with `MULTIHOME=127.0.0.1`: the
   serving URL's address `0.0.0.0:7795`, then `127.0.0.1` with no port, alike
   in both engines); a server's host name is looked up on a thread, the game
-  going on; `GETPING` and `GETLOSS` answer the server connection's best lag
-  of the last second in ms and its incoming packet loss in percent. Differs
+  going on; `GETPING` and `GETLOSS` answer the server connection's lag of
+  the last second in ms and its incoming packet loss in percent. Differs
+  (bugs.md NET.34): the lag is the second's least round trip, the original's
+  their mean less half the connection's frame time. Differs
   (bugs.md WIN.20): the original's pawn asks its own player, a remote one's
   connection on a server, a local one's viewport `0` and no `GETLOSS`, so on
   a DXEngine server every player's ping is 0. Differs (bugs.md NET.29): the
@@ -4031,10 +4101,15 @@ takes no `SAY`, `GETCURRENTTICKRATE` or `GETMAXTICKRATE`. Differs (bugs.md
 WIN.24): the clipboard natives on a dedicated server. Differs (bugs.md
 NET.30): a UdpLink whose `BindPort` failed keeps a socket that works.
 Differs (bugs.md NET.31): small replication differences. Differs (bugs.md
-NET.32): after a value too big for a bunch, a server sends that property no
-more. For the owner (bugs.md D.56): a value that overflows the bunch rolls
-its whole field back; (bugs.md D.57) a failed download's temporary file
-deleted.
+NET.33): an unreliable bunch before its channel's open closes a client's
+connection. Differs (bugs.md NET.35): a `TcpLink` closed while unconnected
+is closed at once, and `IsConnected` is its state. Differs (bugs.md NET.36):
+the server's view prediction stops at nodes that do not block sight. Differs (bugs.md NET.37): small net items.
+For the owner (bugs.md D.56): a value that overflows the bunch rolls its
+whole field back; (bugs.md D.57) a failed download's temporary file
+deleted; (bugs.md D.70) a package of more than one generation joined;
+(bugs.md D.65) a dedicated server takes no typed command; (bugs.md D.72) a
+`TcpLink`'s and the join's own rules in the net game's edges above.
 
 ## Not needed for single player
 
