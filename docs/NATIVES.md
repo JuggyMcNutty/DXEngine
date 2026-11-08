@@ -344,8 +344,10 @@ whose parent is not there, a slot's folder in another case,
 `SAVEGAME` and `DELETEGAME` take a signed slot and `SAVEGAME` a description,
 where the original's act only on a digit and save with the level's Title.
 Differs (bugs.md PKG.39): `?push`, `?pop` and `?peer` keep `HubStackLevel`
-at 0 and write no hub save. For the owner (bugs.md D.58):
-`GetSaveFreeSpace` measures the save folder's file system.
+at 0 and write no hub save. By choice, `GetSaveFreeSpace` measures the save
+folder's file system, held to the largest int, where the original's
+measures the current directory's drive, wrapping past 2 TiB free, and
+answers 0 when the call fails.
 
 ## Flags
 
@@ -603,8 +605,9 @@ out of water, whatever its zone (`PathnodeConsole`'s pick in the water), and
 `FindPathToward`'s test from the anchor traces the goal's line to the anchor.
 Differs (bugs.md PHYS.36): the collision hash gives actors back in
 another order. Differs (bugs.md PHYS.39): `SetLocation`'s touches pass over
-an actor based on the one moved. For the owner (bugs.md D.69): a swimmer of
-no mass taken as of 1.
+an actor based on the one moved. By choice, a swimmer of no mass is taken as
+of 1, where the original's divides by the 0, its velocity no number; the
+game's one pawn of no mass, GeneratorScout, flies and never swims.
 
 The ladder probe goes on past a texture in no group, as the original's, the
 texture's outer its package (`LadderConsole` at the foot of
@@ -732,10 +735,10 @@ message, all colour 0, dark grey) drawing nothing, at 1.00; in the window,
 lines alone; "NEW GAME" in the TrueType font, drawn opaque, at a
 correlation of 1.00 to `D3DDrv`'s, its edges blended into the box (the
 stock menus draw it translucent); on the canvas, clipped text drawn
-`STY_Translucent` translucent. For the owner (bugs.md D.63): a smoothed
-tile's edges are clamped on every device, where `D3DDrv`'s addressing wraps,
-its outer half texel blending with the opposite edge. Differs (bugs.md
-REN.69): the canvas's text laid out otherwise at a line feed, a word wider
+`STY_Translucent` translucent. By choice, a smoothed tile's edges are
+clamped on every device, where `D3DDrv`'s addressing wraps, its outer half
+texel blending with the opposite edge, which no stock art relies on.
+Differs (bugs.md REN.69): the canvas's text laid out otherwise at a line feed, a word wider
 than the room, a glyph of no width, a wrap's space, `StrLen`'s place and a
 centred line's.
 
@@ -921,9 +924,9 @@ Render.dll's.
 
 Matches the original
 ([a pawn's attachments](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-pawns-attachments));
-`HeldConsole`. For the owner (bugs.md D.71): a held item is drawn wherever
-its holder's weapon triangle lies, the original's dropped as the triangle
-leaves the view.
+`HeldConsole`. By choice, a held item is drawn wherever its holder's weapon
+triangle lies, where the original's is dropped as the triangle leaves the
+view: an armed NPC's gun gone at the view's edge, its barrel still in it.
 
 ### Viewport windows
 
@@ -1058,8 +1061,12 @@ game's meshes are plain: the menu maps' logos and text, and the fly.
 
 Differs (bugs.md REN.64): a mesh's vertex normals made at load, the
 original's at each draw from the faces within the budget, and small sprite
-items. For the owner (bugs.md D.68): the guards round the budget, the
-proxy's depth and a hand-made mesh's corners.
+items. By choice, a detail budget past an int's range is held to the mesh,
+where the original's makes it the least int and hands on a negative count,
+and a hand-made mesh's corner walk and wedges are held to its arrays, where
+the original's would loop or read past them. Differs (bugs.md D.68): an
+actor's occlusion proxy set no nearer than 1.5 units, the original's at the
+actor's own depth.
 
 ### Lighting
 
@@ -1244,15 +1251,20 @@ world map unlit in both engines, at 1.000 of D3DDrv's frame, where DXEngine
 lit it, 0.395.
 
 Differs (bugs.md REN.46): a held item's unlit faces take the holder's glow,
-so a cloaked NPC's gun flash almost vanishes. For the owner (bugs.md D.51):
-each corner of a mesh's face lit by that face's own unlit flag, where
-Render.dll's lit faces take the unlit level at corners they share with an
-unlit one; (bugs.md D.52) three quirks of the original's pick of a mesh's
-lights. Differs (bugs.md WIN.28): `RMODE` is taken by nothing, so the
+so a cloaked NPC's gun flash almost vanishes. Differs (bugs.md D.51): each
+corner of a mesh's face lit by that face's own unlit flag, where Render.dll's
+lit faces take the unlit level at corners they share with an unlit one.
+Differs (bugs.md D.52): a light off or of no brightness left out of a mesh's
+pick of its eight, where the original's counts it; a cylinder light dropped
+at once past three quarters of its radius, where the original's fades it
+out over a third of a second. By choice, a mesh's light fades step once a
+frame, where the original's step at each draw of the mesh, an armed pawn's
+twice. Differs (bugs.md WIN.28): `RMODE` is taken by nothing, so the
 credits' Matrix egg draws the world lit, the original's full-bright.
 Differs (bugs.md REN.66): the fog map never follows its light after the
 light's first use. Differs (bugs.md REN.67): the fog's colour and density by
-a formula of DXEngine's own.
+a formula of DXEngine's own. By choice, the fog map is held in floats, where
+the original's has seven bits a texel, drawn at 2c/255.
 
 ### Brightness
 
@@ -1483,9 +1495,7 @@ Differs:
 Differs (bugs.md REN.65): a fire whose `RenderHeat` is 0 gets no colour
 table and draws as colour 0, the original's 15 levels cooler. Differs
 (bugs.md REN.68): the fire engine's sine table truncated, the original's
-rounded. Differs (bugs.md REN.70): small fire and ice items. For
-the owner (bugs.md D.74): a spark's place masked to its texture, the water's
-cells checked, and the fog map's float precision.
+rounded. Differs (bugs.md REN.70): small fire and ice items.
 
 ### Head turns and lip sync: blend animations
 
@@ -1917,9 +1927,7 @@ Differs:
   at its edges.
 - **Full screen as the window loses the focus** is kept, by choice, where
   the original leaves it and minimises; SDL3 minimises a real exclusive mode
-  alone, never on Wayland nor in a desktop's full screen. For the owner
-  (bugs.md D.64): the X11, Wayland and Win32 windows' full screen keeps the
-  desktop's mode.
+  alone, never on Wayland nor in a desktop's full screen.
 
 In the SDL3 and X11 windows a wheel presses once a notch, as the original
 presses once a `WM_MOUSEWHEEL`, which Windows sends a notch: a
@@ -1998,6 +2006,10 @@ it. Differs:
   offering that display's modes, by choice, as a desktop program does,
   where the original's goes to the primary display wherever the window was
   ([the display](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-display)).
+- **Full screen in the X11, Wayland and Win32 windows**, the fallback and
+  harness windows, keeps the desktop's mode whatever `FullscreenViewportX`
+  and `Y` say, by choice, where `D3DDrv` takes the display's mode nearest
+  them; SDL's windows take the mode.
 - **The full screen size** is kept as configured, 0 the desktop's mode, where
   the original's viewport saves each size it is given full screen as the
   client's full screen size, a size the display lacks saved as the mode it
@@ -2039,10 +2051,18 @@ it. Differs:
 Differs (bugs.md ENG.29): the Display screen's Reset to Defaults sets World
 and Object Texture Detail to Low, the original keeping High. Differs
 (bugs.md ENG.32): small differences of the settings read by hand, among them
-`GET` of a property only the original's classes have, empty. For the owner
-(bugs.md D.50): a setting the ini lacks takes DXEngine's default, the
-original's classes none; (bugs.md D.60) raw mouse input; (bugs.md D.61)
-`UseJoystick` ignored. Differs (bugs.md ENG.36): mouse look turns some 0.53
+`GET` of a property only the original's classes have, empty. By choice: a
+setting the ini lacks, or holds in a form its type does not read, takes
+DXEngine's default, where the original's classes set none, their defaults
+zeroed -- a damaged ini gives the original a black gamma ramp, no voices and
+8 kHz mono, and of a stock ini only `UseDirectInput`, which nothing of
+DXEngine's reads, and the software device's `DetailTextures` differ, True
+and On where the original's are False and Off; the mouse moves by raw input,
+where the original's moves by the window's pointer moves from its middle,
+the system's pointer acceleration in them, forced on while it holds the
+mouse; `UseJoystick` is read, saved and ignored, a pad following the
+launcher's `Settings.json`, where the original's stock False keeps a
+joystick out. Differs (bugs.md ENG.36): mouse look turns some 0.53
 as far a unit as the original's. Differs (bugs.md ENG.38): small input and
 settings items, `MouseW` never sent among them.
 
@@ -2084,10 +2104,10 @@ the old song fades out and the new level's starts (its player's
 (`LoadingConsole` with `DXCAP_RECORD=1 DXCAP_MUSIC=1`: no silence across a
 load in either engine, the fade after it, the music on after a save of the
 map it is on is loaded). DXEngine holds `OutputRate` to 8,000 to 48,000 Hz
-and `Latency` to 10 to 250 ms (for the owner, bugs.md D.55: Galaxy's
-`OutputRate` is one of seven names, any other text keeping its rate; D.50:
-its `Latency` held so at a `SET` alone, at a load its library's 5 to 495
-ms), `Latency` the output's mix-ahead (10 ms buffers queued to it), and so
+(differs, bugs.md D.55: Galaxy's is one of seven names, any other text
+keeping its rate) and `Latency` to 10 to 250 ms, at a load too, by choice
+(Galaxy holds it so at a `SET` alone, at a load its library's 5 to 495 ms),
+`Latency` the output's mix-ahead (10 ms buffers queued to it), and so
 are those a `SET` puts on what plays, where `GET` gives the value as set
 ([settings](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#settings)):
 `DopplerSpeed` to 1-100,000 and `AmbientFactor` to 0-10. `AmbientConsole`'s
@@ -2118,8 +2138,8 @@ mono mix's losses, each voice's gain rounded down to one of 64 levels (a
 quiet sound silent, a fade stepped), a 16-bit sample read without
 interpolating, nothing sent to the reverb and the music saturated keeping
 each sample's low byte (clip noise). `UseFilter` and `UseCDMusic` are read,
-saved and `SET` and change nothing, as in the original; `UseSpatial` too,
-which the original's class has not (for the owner, bugs.md D.62). An MP3 --
+saved and `SET` and change nothing, as in the original. Differs (bugs.md
+D.62): `UseSpatial` is too, which the original's class has not. An MP3 --
 the game's speech -- plays as Galaxy's decoder fills its ring, 32,768 frames
 of each channel ([playing a
 sound](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)):
@@ -2291,9 +2311,11 @@ Differs (bugs.md AUD.19): the Ogg music source reads its freed decoder after
 a loop, which only a mod's Ogg song reaches. Differs (bugs.md AUD.20): an IT
 pattern's `T0x` and `T1x` dropped, Galaxy's a vibrato. Differs (bugs.md
 AUD.21): a decoded sound 1 to 4 samples longer. Differs (bugs.md AUD.22):
-with `UseStereo` off each side held before the mono fold. For the owner
-(bugs.md D.53): the gains reaching the output each 10 ms, Galaxy's each 20
-ms; (bugs.md D.54) a song's speed command of 0 dropped.
+with `UseStereo` off each side held before the mono fold. By choice: the
+gains a sound's update sets reach the output each 10 ms, Galaxy's each 20
+ms, so a moving or fading sound steps twice as often; a song's speed
+command that comes to 0 is dropped, where Galaxy's stops its sequencer, the
+song halted while its sounding voices play on, which no stock song has.
 
 ## Implemented, not as the original
 
@@ -3277,8 +3299,10 @@ ENG.35): `UTF8ToScript` taking overlong forms. Differs (bugs.md PHYS.35): no
 "fell out of the world" line. Differs (bugs.md WIN.29): `STAT` shows none of
 the renderer's panels, `stat fps` among them. Differs (bugs.md WIN.30): no
 demo is recorded or played. Differs (bugs.md WIN.31): the engine's smaller
-words answer nothing. For the owner (bugs.md D.66): `stat render`,
-DXEngine's own panel.
+words answer nothing. By choice, `STAT RENDER` shows a panel of DXEngine's
+own at the screen's right, where the original's toggles nothing: the frame
+rate, the level's actors, the objects the garbage collector holds and the
+memory they take; any other `STAT` word hides it.
 
 ## The command line
 
@@ -3418,10 +3442,17 @@ read `MyMod` and the reads that name no file -- the `[URL]` section,
 
 Differs (bugs.md WIN.23): `GETCOLORDEPTHS` answers "32 16", the original's
 "16 32"; `GETCURRENTRENDERDEVICE` and `PREFERENCES` are taken by nothing;
-`EXEC` of a file not there gives the caller nothing. For the owner (bugs.md
-D.59): `GETCURRENTCOLORDEPTH` answers 32; (bugs.md D.73) `-nommx`, `-nokni`
-and `-nok6` doing nothing, the pointer kept in relative mode in the menus,
-the hat's codes named.
+`EXEC` of a file not there gives the caller nothing. By choice:
+`GETCURRENTCOLORDEPTH` answers 32, the depth DXEngine draws in, where the
+original's answers the viewport's, 16 full screen at the stock
+`FullscreenColorBits`; `-nommx`, `-nokni` and `-nok6` do nothing, where
+the original's clear the processor's features for Core and Galaxy, whose
+mix without MMX takes its plain routines, 64 levels of gain and one
+interleaved buffer; the mouse is held in relative mode throughout, where
+the original's lets it go while the game is paused, a menu is up or the
+system's pointer shows; the hat's codes 0xF0 to 0xF3 are named `JoyPovUp`
+to `JoyPovRight`, the original's `UnknownF0` to `UnknownF3`, for the
+launcher's pad preset.
 
 ## Mods
 
@@ -3504,8 +3535,10 @@ A mod gets the original's loader and natives:
   its collision hull's list -- is refused with their numbers, the vertex
   pool's entries no node names left alone, every map of the game having
   thousands past its points (`MapWalkConsole`: every map of the game loads);
-  a fire texture's sparks and drops outside it are masked into it; a
-  scripted texture drawn from outside its source wraps, and one drawn with a
+  a fire texture's sparks and drops outside it are masked into it and a
+  water texture's cells checked, a row's shift taken from the texture's
+  width, where the original's writes with the package's `UBits`, every stock
+  one its width's; a scripted texture drawn from outside its source wraps, and one drawn with a
   size of 0 or a float that is no number draws nothing; an animation chain
   that never comes back ends at 2,048 textures; an import whose outers never
   end is refused; an export whose class, outer or base rings on itself is
@@ -3535,10 +3568,11 @@ A mod gets the original's loader and natives:
   over while the render device's `HighDetailActors` is off, as the
   original's SetupDynamics passes it (of the game's classes only `Decal`
   sets the flag, and a decal is drawn with its surface); the render device's
-  `Translucency` is read, saved and `SET`, and changes nothing, as under
-  `D3DDrv` and `OpenGLDrv`, which have no such setting -- of the game's
-  devices only the software one names it
-  ([the binary](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-binary));
+  `Translucency` is read, saved and `SET`, and changes nothing, where
+  `D3DDrv` and `OpenGLDrv` have no such setting, of the game's devices only
+  the software one naming it
+  ([the binary](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-binary)),
+  a difference (bugs.md D.62);
   an actor at no place (a NaN location) sorts
   nearest among the translucent.
 - **A mod's deletions and sizes.** A light in the level's light lists
@@ -3553,9 +3587,8 @@ A mod gets the original's loader and natives:
   held; a download past its size, or past 2 GiB, ends at once; a first actor
   bunch that opens nothing closes the connection, and a spawn that fails
   closes its channel (the original's are a fatal error and an assertion); a
-  client opens four downloads at once at most; a `TcpLink`'s failed connect
-  waits for the script's timer on Linux as on Windows, nothing is read while
-  connecting, and a listening link's close lets its port go.
+  `TcpLink`'s failed connect waits for the script's timer on Linux as on
+  Windows.
 - **`ScriptedTexture.ReplaceTexture`**, which no stock script calls, takes
   a texture of the scripted texture's USize and VSize, steps it to now, as
   the original's Update does, and copies its current frame's top mip over
@@ -3734,8 +3767,10 @@ unclamped in float buffers, no depth step for movers, `RenderScale` ignored.
 Differs (bugs.md VM.31, VM.32): a fixed array's and a map's values, text and
 replication, which no stock package has. Differs (bugs.md VM.33): Core's
 `PointerProperty` and `StringProperty`, which the original's Core.dll has
-not. For the owner (bugs.md D.67): a save's exports made whatever their
-flags. Differs (bugs.md PKG.38): an import its package lacks loads as None,
+not. By choice, a save's exports are made whatever their flags, where the
+original's makes only those of the load's context: its saves flag every
+export for both, and DXEngine's older saves wrote spawned actors without
+them. Differs (bugs.md PKG.38): an import its package lacks loads as None,
 where the original refuses the package. Differs (bugs.md PKG.40): a sound's
 and a mip's skip offset read from version 63, the original's from 62.
 
@@ -3855,7 +3890,12 @@ client: the connection closed, the client back on Entry by
   the next map load that does not use it, and that load's collection frees
   what nothing uses of it but its code, which stays loaded, by choice, where
   the original's collects it all
-  ([housekeeping](#housekeeping-not-seen-directly)).
+  ([housekeeping](#housekeeping-not-seen-directly)). A server sends a client
+  four files at once at most, a fifth refused, by choice, where the
+  original's sends any number; a client, the original's too, asks for one
+  at a time. A download that fails deletes its temporary file, by choice,
+  where the original's leaves its `NNNN.tmp` to the next start's cache
+  cleaning.
 - **A listen server runs at most 144 frames a second**, by choice, where the
   original's runs as fast as it draws: a remote client's queue drains its rate over a
   tick, so the faster the ticks, the less room an unreliable call finds
@@ -3870,12 +3910,35 @@ client: the connection closed, the client back on Entry by
   its script as 20 bytes of what else is there, whatever was sent, and its
   `SendBinary` answers False; no mod can have counted on them. A
   `UdpLink`'s `SendText` and `SendBinary` answer False when nothing went.
+  A `TcpLink`'s `ReceivedBinary` is raised for each 255 bytes that came, by
+  choice, where the original's is raised once a read with its whole count,
+  up to 999, its array 255 bytes of its stack. An accepted link's
+  `RemoteAddr.Port` is in host order, by choice, where the original's is as
+  the socket address holds it, and a second connection to a listener of no
+  `AcceptClass` that holds one already is closed, the original's left open.
 - **The player's name in a net game**: a name the player never chose --
   none, or the game's stock `Player` -- logs in as `DXEnginePlayer`, a
   client's to its server and a listen server's host's, by choice, so
   DXEngine's players show as such (`Engine::SetMultiplayerName`). A name the
   player chose is kept; single player, the menus and the inis keep the
   game's.
+- **A value too big for its bunch** rolls its whole field back, by choice,
+  the client keeping the value it had, where the original's sends the
+  field's number with no value, which the client reads as zero, and asserts
+  where the number itself does not fit; a bunch's fields go in export
+  order, the original's native ones first in code order, then the script's
+  (`BigServer` with `BigJoinConsole`: from the original's server the
+  client's string goes to '' as the 600 characters overflow, from
+  DXEngine's it stays `abc`, then `xyz` comes in both). No stock update
+  passes 4,015 bits.
+- **A conformed package**, of more than one generation, joins by its GUID,
+  by choice, its counts held to the server's, where the original's client
+  refuses it: "Package '%s' version mismatch". Every DXMP map also imports
+  New Vision packages of other GUIDs, which both refuse, so only a lone
+  conformed package parts them (a dedicated `WordsServer` with
+  `JoinConsole`, New Vision's `CoreTexSky` on the client's paths alone:
+  the original's client back in the menu with the mismatch, DXEngine's
+  joined).
 
 As in the original:
 
@@ -4105,11 +4168,13 @@ NET.33): an unreliable bunch before its channel's open closes a client's
 connection. Differs (bugs.md NET.35): a `TcpLink` closed while unconnected
 is closed at once, and `IsConnected` is its state. Differs (bugs.md NET.36):
 the server's view prediction stops at nodes that do not block sight. Differs (bugs.md NET.37): small net items.
-For the owner (bugs.md D.56): a value that overflows the bunch rolls its
-whole field back; (bugs.md D.57) a failed download's temporary file
-deleted; (bugs.md D.70) a package of more than one generation joined;
-(bugs.md D.65) a dedicated server takes no typed command; (bugs.md D.72) a
-`TcpLink`'s and the join's own rules in the net game's edges above.
+Differs (bugs.md D.65): a dedicated server takes no typed command, where the
+original's log window runs a typed line on the engine. Differs (bugs.md
+D.72): a `TcpLink` reads nothing in the tick its connect is made, where the
+original's reads in it; a listening link's `Close` raises `Closed` and lets
+its port go, `Listen` then False, where the original's keeps listening,
+raises nothing and answers `Listen` True again; a `USES` GUID not of 32 hex
+digits ends the join, where the original's parses it.
 
 ## Not needed for single player
 
