@@ -137,6 +137,14 @@ public:
 	// The start's browse of a map: Current emptied, the load, or Dx.Dx for
 	// a map not there; false, the error's text given, when no level loads.
 	bool BrowseStartMap(const UnrealURL& url, std::string& error);
+	// A map's load that fails its check: FailedLoad logged, UrlFailed shown
+	// over the reason for 6 s, the reason given as the error.
+	void FailLoad(const std::string& map, const std::string& reason, std::string& error);
+	// The check of a package's file that is there: false, the load failed,
+	// for one that is not a package.
+	bool VerifyPackageFile(const std::string& map, const std::string& file, std::string& error);
+	// Whether a map's load passes its check: there, and a package.
+	bool MapLoads(const std::string& map, std::string& error);
 	// The map a ?restart reloads, as the original's Browse makes it.
 	UnrealURL RestartURL();
 	void PruneTravelActors() const;
@@ -209,6 +217,14 @@ public:
 	// launcher's Open --, a failure in it logged and the game going on.
 	void RunCommand(UObject* context, const std::string& command);
 
+	// The config cache flushed to disk, as the original's every SaveConfig
+	// ends (Core.dll 0x10151540; bugs.md ENG.27): each ini changed since it
+	// was last written, written now (PackageManager::FlushIniFiles). Where
+	// the run began with no engine ini, the client's and the devices'
+	// settings go into the system ini first, as at the exit, so that a run
+	// that ends unclean leaves the next one an engine ini that has them.
+	void FlushConfig();
+
 	void UpdateInput(float timeElapsed);
 	void ExecInputLine(const std::string& line, EInputKey key, EInputType action, int value);
 	bool InputExec(const std::string& command, EInputKey key, EInputType action, int value);
@@ -228,6 +244,21 @@ public:
 	// The console's endfullscreen: back in a window as the toggle comes
 	// back, in any state, EndFullscreen logged.
 	void EndFullscreen();
+	// The window's size in a window kept as the client's windowed size, its
+	// width made even, and saved at once, as the original's client keeps
+	// each size its window is given (bugs.md WIN.18): the tick after the
+	// window's last change of size, so a drag is kept where it stops and a
+	// toggle's way through its sizes, full screen by then, not at all
+	void KeepWindowedSize();
+	// A size the engine asks of the window, which the window system may
+	// take a moment to give: another size the window has meanwhile, the
+	// full screen it is leaving among them, is not kept, for a second at
+	// most
+	void AskWindowSize(int width, int height);
+	int windowSettleTicks = 0;
+	int askedWindowWidth = 0;
+	int askedWindowHeight = 0;
+	double askedWindowTime = 0.0;
 	void CloseWindow();
 	void TickWindow();
 
@@ -414,6 +445,12 @@ private:
 	// client's settings are saved, unless the player changed it since.
 	void ApplyRunOnlySettings();
 	void RestoreRunOnlySettings();
+	// The client's config saved, what the original's command line set for
+	// the run saved as it was configured, the run keeping its own
+	void SaveClientConfig();
+	// The client's and the devices' settings read (LoadEngineSettings): no
+	// config flushed before
+	bool engineSettingsLoaded = false;
 	// -noddraw's window, for the software device chosen or drawing in the
 	// place of a GPU device that did not start
 	void ApplyNoDDraw();

@@ -654,6 +654,15 @@ void PackageManager::CloseStreams()
 
 Package* PackageManager::LoadSaveFile(const std::string& path)
 {
+	std::string file = SaveFilePath(path);
+	if (!file.empty())
+		return GC::Alloc<Package>(this, fs::path(file).stem().string(), file);
+
+	return nullptr;
+}
+
+std::string PackageManager::SaveFilePath(const std::string& path) const
+{
 	auto fullPath = gameSaveFolderPath / fs::path(path);
 
 	// The extension kept in whatever case FindCurrentSave found it in: it was
@@ -665,9 +674,18 @@ Package* PackageManager::LoadSaveFile(const std::string& path)
 	// spelt as it was first made, which its file in a save may not be
 	fullPath = Directory::resolveCase(fullPath);
 	if (fs::exists(fullPath))
-		return GC::Alloc<Package>(this, fullPath.stem().string(), fullPath.string());
+		return fullPath.string();
 
-	return nullptr;
+	return {};
+}
+
+bool PackageManager::LacksPackageTag(const std::string& file)
+{
+	std::ifstream stream(file, std::ios::binary);
+	uint8_t tag[4] = {};
+	if (!stream.read((char*)tag, sizeof(tag)))
+		return false;
+	return ((uint32_t)tag[0] | ((uint32_t)tag[1] << 8) | ((uint32_t)tag[2] << 16) | ((uint32_t)tag[3] << 24)) != 0x9E2A83C1;
 }
 
 // Current's save of a map, the map named in any case, with or without its
@@ -1102,29 +1120,48 @@ void PackageManager::SetIniValues(NameString iniName, const NameString& sectionN
 // The engine's own inis, beside the game's: DXE-<game>.ini and DXE-User.ini.
 static const std::string EngineIniPrefix = "DXE-";
 
+void PackageManager::SaveIniFile(const NameString& name, IniFile& file)
+{
+	if (name == launchInfo.gameExecutableName || name == "System")
+	{
+		const std::string engineIniName = EngineIniPrefix + name.ToString() + ".ini";
+		if (!launchInfo.systemIniPath.empty())
+			file.UpdateIfExists(launchInfo.systemIniPath);
+		else
+			file.UpdateIfExists((gameSystemFolderPath / engineIniName).string());
+	}
+	else if (name == "User")
+	{
+		if (!launchInfo.userIniPath.empty())
+			file.UpdateIfExists(launchInfo.userIniPath);
+		else
+			file.UpdateIfExists((gameSystemFolderPath / (EngineIniPrefix + "User.ini")).string());
+	}
+	else if (Directory::hasEngineUserDir())
+		file.UpdateIfExists(file.GetPath());   // its copy may not be there yet
+	else
+		file.UpdateFile();
+}
+
 void PackageManager::SaveAllIniFiles()
 {
 	for (auto& iniFile: iniFiles)
 	{
-		if (iniFile.first == launchInfo.gameExecutableName || iniFile.first == "System")
-		{
-			const std::string engineIniName = EngineIniPrefix + iniFile.first.ToString() + ".ini";
-			if (!launchInfo.systemIniPath.empty())
-				iniFile.second->UpdateIfExists(launchInfo.systemIniPath);
-			else
-				iniFile.second->UpdateIfExists((gameSystemFolderPath / engineIniName).string());
-		}
-		else if (iniFile.first == "User")
-		{
-			if (!launchInfo.userIniPath.empty())
-				iniFile.second->UpdateIfExists(launchInfo.userIniPath);
-			else
-				iniFile.second->UpdateIfExists((gameSystemFolderPath / (EngineIniPrefix + "User.ini")).string());
-		}
-		else if (Directory::hasEngineUserDir())
-			iniFile.second->UpdateIfExists(iniFile.second->GetPath());   // its copy may not be there yet
-		else
-			iniFile.second->UpdateFile();
+		if (iniFile.second)
+			SaveIniFile(iniFile.first, *iniFile.second);
+	}
+}
+
+// Only a file marked changed is written, as the original's Write writes one
+// (GOG DeusEx.exe 0x10915760): the system ini, the user ini and a class's
+// own file alike, whichever class's SaveConfig it was. A file never changed
+// stays unwritten until the exit, which writes every one (SaveAllIniFiles).
+void PackageManager::FlushIniFiles()
+{
+	for (auto& iniFile: iniFiles)
+	{
+		if (iniFile.second && iniFile.second->IsModified())
+			SaveIniFile(iniFile.first, *iniFile.second);
 	}
 }
 

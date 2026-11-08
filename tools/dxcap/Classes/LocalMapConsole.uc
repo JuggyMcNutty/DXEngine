@@ -14,7 +14,14 @@
 // map not there, having no level whose map to load again (DeusEx.dll
 // 0x10010b90), and its Init browses DX.dx once more after a browse that
 // fails with no error's text, the slot's and the address's (Engine.dll
-// 0x103895f0-0x10389663).
+// 0x103895f0-0x10389663). Or with a start in a package that does not load
+// (bugs.md ENG.28), each written by tools/dxcap/badpackage.py: a map whose
+// tag is zeroed, in DXCAP_MAPS's folder (BadMap.dx), and slot 9 with its
+// level's tag zeroed (?loadgame=9, SaveConsole's save): the map load's
+// check fails each (LOAD_Verify, Engine.dll 0x1038c1f0), so the map's
+// browse loads Dx.Dx and the slot's start browses DX.dx. With --cut, the
+// file cut short in its header: fatal in both, the original's reader
+// stopping at "ReadFile beyond EOF".
 //=============================================================================
 class LocalMapConsole extends Console;
 

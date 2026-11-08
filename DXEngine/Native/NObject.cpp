@@ -1166,9 +1166,13 @@ void NObject::RotRand(std::optional<bool> bRoll, Rotator& ReturnValue)
 	ReturnValue.Roll = (bRoll && *bRoll) ? (int)(rand() * 65535LL / RAND_MAX) : 0;
 }
 
+// The original's (Core.dll 0x10151540): the object's config, then the
+// config cache flushed to disk at once, each changed file written
+// (Engine::FlushConfig; bugs.md ENG.27)
 void NObject::SaveConfig(UObject* Self)
 {
 	Self->SaveConfig();
+	engine->FlushConfig();
 }
 
 void NObject::SetPropertyText(UObject* Self, const std::string& PropName, const std::string& PropValue)
@@ -1207,6 +1211,7 @@ void NObject::StaticSaveConfig(UObject* Class)
 	if (!cls)
 		cls = Class->Class;
 	cls->SaveConfig();
+	engine->FlushConfig();
 }
 
 void NObject::SubtractEqual_ByteByte(uint8_t& A, uint8_t B, uint8_t& ReturnValue)

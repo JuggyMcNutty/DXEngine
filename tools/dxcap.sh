@@ -86,6 +86,12 @@
 # under Wine as on Windows (ReadOnlyConsole): their SHA-256 sums before and
 # after the run go into its readonly-before.txt and readonly-after.txt, the
 # same when neither was written, and the owner's write bit comes back after.
+# DXCAP_KILL=1 ends an original run at its time limit by a kill, not
+# taskkill's close, so the run shows what the game wrote before any exit (a
+# dxe run is always killed at its limit); either run's two inis, as it left
+# them, then go into its ini-after.ini and userini-after.ini
+# (IniFlushConsole, WindowSizeConsole). The original's log is written only
+# as it exits: a killed original run has none.
 # DXCAP_FLAGS="<flags>" puts the original's flags (-norunaway) on its command
 # line, and on DXEngine's by --cmdline.
 # DXCAP_CONFIG="<key>=<value> ..." gives the run's console class those keys
@@ -294,7 +300,10 @@ wine_run() {
 # killed only when that has not ended it within 10 s. The caller's $secs and
 # $i say how long it ran.
 stop_original() {
-    if pgrep -f "^DeusEx.exe" > /dev/null; then
+    if pgrep -f "^DeusEx.exe" > /dev/null && [ "${DXCAP_KILL:-0}" = 1 ]; then
+        kill -KILL $(pgrep -f "^DeusEx.exe") 2>/dev/null || true
+        echo "killed at $secs s (DXCAP_KILL)"
+    elif pgrep -f "^DeusEx.exe" > /dev/null; then
         wine_run taskkill /im DeusEx.exe > /dev/null 2>&1 || true
         local j=0
         while [ $j -lt 10 ] && pgrep -f "^DeusEx.exe" > /dev/null; do sleep 1; j=$((j+1)); done
@@ -636,6 +645,15 @@ readonly_after() {
     fi
 }
 
+# DXCAP_KILL=1: ini_after <dir> <ini> <userini> copies the run's two inis,
+# as the run left them, into its ini-after.ini and userini-after.ini.
+ini_after() {
+    [ "${DXCAP_KILL:-0}" = 1 ] || return 0
+    mkdir -p "$1"
+    cp "$2" "$1/ini-after.ini"
+    cp "$3" "$1/userini-after.ini"
+}
+
 cmd_setup() {
     [ -f "$SDK/UCC.exe" ] || die "no SDK at $SDK (reference/ReleaseSDK1112f)"
     mkdir -p "$CAP/System" "$CAP/DXCapture" "$CAP/runs"
@@ -817,6 +835,7 @@ cmd_original() {
     original_process "$dir" "$secs" "${DXCAP_START:-DX.dx}" ${DXCAP_START:+-hax0r} "${inis[@]}"
     [ "${DXCAP_RECORD:-0}" != 1 ] || rec_stop
     readonly_after "$dir" "$ini" "$userini"
+    ini_after "$dir" "$ini" "$userini"
 
     kill "$gpid" 2>/dev/null || true
     wait "$gpid" 2>/dev/null || true
@@ -1069,6 +1088,7 @@ cmd_dxe() {
     readonly_before "$dir" "$ini" "$userini"
     run_dxe "$dir" "$ini" "$userini" "$map" "$secs" "${args[@]}"
     readonly_after "$dir" "$ini" "$userini"
+    ini_after "$dir" "$ini" "$userini"
 }
 
 # DXEngine on a live server: the stock console, and a timeline for what a

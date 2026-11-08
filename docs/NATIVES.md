@@ -1859,6 +1859,10 @@ it. Differs:
   offering that display's modes, by choice, as a desktop program does,
   where the original's goes to the primary display wherever the window was
   ([the display](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-display)).
+- **The full screen size** is kept as configured, 0 the desktop's mode, where
+  the original's viewport saves each size it is given full screen as the
+  client's full screen size, a size the display lacks saved as the mode it
+  took (Differs, bugs.md D.49).
 - **Detail Textures** draws the world's detail textures as `D3DDrv`'s passes
   draw them, all three in the scene shader's one pass
   ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):
@@ -2910,22 +2914,43 @@ not deleted (the log says so).
   `EndFullscreen` logged in that order in both engines, the window as it
   was after the first `endfullscreen` and back at its size after the
   second; the root's own size each engine's, 4:3 in DXEngine's). No stock
-  script sends it. Differs (bugs.md
-  WIN.19): the window's own words (`togglefullscreen`, `setres`, `getres`
-  and the rest) are taken before the exec functions, where the original's
-  window takes them after the exec functions and the engine's words; no
-  stock exec function shares one.
+  script sends it. The window's own words -- `togglefullscreen`,
+  `endfullscreen`, `getcurrentres`, `getcurrentcolordepth`,
+  `getcolordepths`, `setres` -- are taken after the exec functions and the
+  engine's words, as the original's window takes them, and `getres` before
+  the exec functions, as the original's `D3DDrv` takes it
+  ([a key's binding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)):
+  an exec function of the name runs in their place, the window left as it
+  is (`WordOrderConsole`, the original through `D3DDrv`: every word's
+  exec function called in both engines but `GetRes`, which neither calls,
+  `getres` giving the device's sizes, the window not toggled, the root
+  1280x720 before and after in the original's, 960x720 in DXEngine's, where
+  DXEngine's window had taken the words and gone full screen). No stock
+  exec function shares one.
+  The render device's words, `GETDETAILTEXTURES`, `TOGGLEDETAILTEXTURES`,
+  `LODBIAS` and `SHOWPOOLS`, are not taken, logged unrecognized; no stock
+  script sends them (Differs, bugs.md REN.44).
 - **The window's least size** is the original's 640x480 as it is dragged
   ([the window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-window)):
   on Windows the whole window, its frame too, as the original's; on Linux,
   where the desktop draws the frame, the window's own area, by choice
   (`maximize.py --size 320x240` beside a run: DXEngine's X11, SDL3 and SDL2
   windows held at 640x480, its Windows build under Wine at 632x446 as the
-  original's, where they went to 320x240). Differs (bugs.md WIN.18): a
-  size the window is dragged to is not kept, where the original's client
-  takes each size its window is given for its windowed size and saves it
-  to the ini at once, its width made even, so the way back from full
-  screen and the next start come at it.
+  original's, where they went to 320x240). A size the window is given in
+  a window, a drag of its frame or the window manager's, is the client's
+  windowed size, its width made even -- one more where it is odd, the
+  window sized to it --, saved to the ini at once with the client's config,
+  as the original's client keeps it
+  ([the window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-window)):
+  so the way back from full screen and the next start come at it.
+  DXEngine keeps it once the window has held its size for a tick, where
+  the original keeps every size of a drag; the same at the drag's end
+  (`WindowSizeConsole` beside `maximize.py --size 1001x701`: the
+  original's window and DXEngine's X11, SDL3 and SDL2 windows each at
+  1002x701 after the drag and after the way back from full screen, and
+  1002x701 in the ini after a kill, where DXEngine's went back to
+  1280x720). A size of nothing, a
+  window minimized, is not kept, as the original's.
 - **The field of view** is the original's setting: the player's `DefaultFOV`
   is Deus Ex's own config, 75 (`[Engine.PlayerPawn]` in `User.ini`), the
   angle across a 4:3 view ([the view's width](#the-views-width)).
@@ -3039,11 +3064,23 @@ left, the tick taken from it as the x87 holds it, is 0.0001 or less to
 the double's compare, the float stored after; with the original's ticks
 of 5 ms or more no test of the float tells the two apart, so no run does
 ([a level's tick](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-levels-tick)).
-Differs (bugs.md PHYS.26): `PHYS_Spider` moves nothing, where the
-original's `physSpider` walks a pawn on walls and ceilings; no stock script
-sets it. Differs (bugs.md PHYS.27): `PickWallAdjust` is Surreal Engine's
-own, not the original's (Engine.dll `0x103c4150`); no stock script calls
-it.
+A pawn in `PHYS_Spider`, which no stock script sets, climbs as the
+original's `physSpider` (Engine.dll `0x103d6370`): along its `Floor`, the
+normal of the face it holds to, looked for again where none is beyond it
+(a box of its size `MaxStepHeight` down, then along -Y, +Y, -X and +X),
+turned to stand on it, let fall from a face steeper than 0.6 that its
+acceleration points out of; a step's hit is its new floor, a ceiling a
+wall (`SpiderConsole` on UNATCO HQ: the climber up the wall
+stopped by the ceiling at 714.30, its floor the wall's, the one let go
+falling and walking off at 21.7 a second, the walker taking the wall it
+met, each alike in both engines to a hundredth but the walk-off's speed,
+where none moved before). `PickWallAdjust`, which no
+stock script calls, is the original's (`0x103c4150`): a jump, or a step
+aside, up or down that becomes the `Destination`, each tested against the
+world and movers (`PickWallConsole` on UNATCO HQ with `Reach=1500`: a
+walker before a tall face refused, a flier sent over it to the same
+`Destination` and refused under it, in both engines, where DXEngine's
+walker had jumped).
 
 ## The command line
 
@@ -3088,10 +3125,18 @@ What DXEngine does with each:
   the original's first browse loads it, having no level whose map to load
   again (`LocalMapConsole`, DXEngine's map and the original's `DXCAP_START`:
   `NoSuchMap.dx` starts on `Dx.Dx`, `?loadgame=9990` and `127.0.0.1:7799` on
-  `DX.dx`, each line alike in both engines). Differs (bugs.md ENG.28): a
-  start in a save whose file does not read, or on a map whose package does
-  not load, ends with the error thrown, where the original's browses
-  `DX.dx` or `Dx.Dx` in its place. The start
+  `DX.dx`, each line alike in both engines). So is a start map whose file
+  is not a package, and a slot whose level's file is not, as the
+  original's map load checks the package before anything of the level goes
+  (`LOAD_Verify`): `The file '<file>' contains unrecognizable data`, then
+  `Failed to load '<map>': Aborted`, the slot's start browsing `DX.dx`; a
+  file cut short within its header is fatal in both, as the original's
+  reader stops there (`LocalMapConsole` with `tools/dxcap/badpackage.py`'s
+  files: `BadMap.dx` starting on `Dx.Dx`, `?loadgame=9` on `DX.dx`, each
+  logged alike, and the file cut at 40 bytes fatal, in both engines, where
+  DXEngine's start had ended at once). The original's start then fails
+  in `DeusExRootWindow.InitWindow`, `GlobalSetProperty` critical, a crash
+  DXEngine does not copy. The start
   empties `Current`, as the original's first browse does from the Entry
   level, which holds no `DeusExLevelInfo` and so is in no mission: no level
   an earlier run left there comes back (`RevisitConsole` begun on UNATCO HQ
@@ -3147,7 +3192,9 @@ What DXEngine does with each:
     with `DXCAP_INI=DeusEx.DeusExGameEngine:UseSound=False`: silent
     throughout in both engines).
   - `-defaultres`: the window and fullscreen sizes 640x480 for the run, not
-    saved.
+    saved; differs by choice, the original's window keeping 640x480 in the
+    ini at its first resize
+    ([the flags](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-flags)).
   - `-nohard`: the software device for the run, as the original's software
     renderer ([the software device](#the-software-device)).
   - `-noddraw`: with the software device, chosen or drawing where a GPU
@@ -3343,7 +3390,7 @@ A mod gets the original's loader and natives:
   UTF-16 `.int` of a mod's folder, U+03A9, U+2122 and e acute, and a Latin-1
   one's e acute, whole). A script's console command takes its text so too,
   16-bit (`OpsConsole`: `set` of U+03A9, U+2122, a, alike in both). An ini
-  written back, at a clean exit, has a changed value changed in its own line,
+  written back has a changed value changed in its own line,
   a key new to a section added after the section's last key, a section new to
   the file at its end, and the rest of the file as it was, its line endings
   with it (CR LF, LF or a CR alone), by choice, so a player's or a mod's
@@ -3358,11 +3405,19 @@ A mod gets the original's loader and natives:
   holds for an administrator (`ReadOnlyConsole` with `DXCAP_READONLY=1`:
   `CacheSizeMegs` 5 and the default `MouseSensitivity` 4.25 after the
   saves, both inis the same to the byte after the run, and a clean exit, in
-  both engines; DXEngine's as root in a user namespace too). Differs
-  (bugs.md ENG.27): an ini is written only at a clean exit, where the
-  original's writes each changed file at every `SaveConfig` and every
-  resize of the viewport, so a setting changed in play is lost to a crash
-  or a kill. The original rewrites each file
+  both engines; DXEngine's as root in a user namespace too). Each ini
+  changed since it was last written is written at every `SaveConfig` --
+  a script's, `StaticSaveConfig`'s, a `SET`'s, `netspeed`'s and
+  `lanspeed`'s -- and every resize of the window, the system ini, the user
+  ini and a class's own file alike, whichever class's config was saved, as
+  the original's config cache is flushed
+  ([configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration)),
+  and every ini at a clean exit: a setting changed in play outlives a crash
+  or a kill (`IniFlushConsole` with `DXCAP_KILL=1`: `CacheSizeMegs=7`, `Name=DXFlushName`
+  and `MouseSensitivity=3.75` in the inis after the kill in both engines,
+  where DXEngine's kept none). A run begun with no engine ini puts the client's and the
+  devices' settings into the system ini before its first write, as at the
+  exit. The original rewrites each file
   whole, CR LF, comments gone (`ConfigConsole`: a class's own
   `DXCapConfig.ini`, CR LF, read and written back alike). `StaticSaveConfig`
   from an object writes the class's defaults, as from the class

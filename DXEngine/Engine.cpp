@@ -598,6 +598,42 @@ void Engine::ApplyNoDDraw()
 	}
 }
 
+void Engine::SaveClientConfig()
+{
+	auto configured = [](const RunOnlySetting& setting, int value) { return setting.Active && value == setting.ForTheRun ? setting.Configured : value; };
+	int windowedX = client->WindowedViewportX, windowedY = client->WindowedViewportY;
+	int fullscreenX = client->FullscreenViewportX, fullscreenY = client->FullscreenViewportY;
+	bool startupFullscreen = client->StartupFullscreen;
+	client->WindowedViewportX = configured(runWindowedX, windowedX);
+	client->WindowedViewportY = configured(runWindowedY, windowedY);
+	client->FullscreenViewportX = configured(runFullscreenX, fullscreenX);
+	client->FullscreenViewportY = configured(runFullscreenY, fullscreenY);
+	if (runStartupFullscreen.Active && !client->StartupFullscreen)
+		client->StartupFullscreen = runStartupFullscreen.Configured != 0;
+	client->SaveConfig();
+	client->WindowedViewportX = windowedX;
+	client->WindowedViewportY = windowedY;
+	client->FullscreenViewportX = fullscreenX;
+	client->FullscreenViewportY = fullscreenY;
+	client->StartupFullscreen = startupFullscreen;
+}
+
+void Engine::FlushConfig()
+{
+	// Not before the client's and the devices' settings are read: the
+	// engine's own SET of the net speed comes first, and their defaults
+	// would be written in their place (LoadEngineSettings)
+	if (!engineSettingsLoaded)
+		return;
+	if (packages->MissingDXESystemIni())
+	{
+		SaveClientConfig();
+		audiodev->SaveConfig();
+		renderdev->SaveConfig();
+	}
+	packages->FlushIniFiles();
+}
+
 void Engine::RestoreRunOnlySettings()
 {
 	auto restore = [](RunOnlySetting& setting, int& value)
@@ -1429,8 +1465,8 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 	if (url.HasOption("entry")) // Not sure what the purpose of this kind of travel is - do nothing for now.
 		return false;
 
-	Package* savefilePackage = nullptr;
 	std::string deusExMapName;
+	bool hasSaveInfo = false;
 
 	if (HasValueOption(url, "loadgame"))
 	{
@@ -1448,20 +1484,40 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 				deusExMapName = ScriptToUTF8(info->MapName());
 				DeleteSaveGameFiles("Current");
 				CopySaveGameFiles(folder, "Current");
-				savefilePackage = packages->LoadSaveFile("Current/" + deusExMapName + "." + packages->GetSaveExtension());
+				hasSaveInfo = true;
 			}
 		}
-		if (!savefilePackage)
+		if (!hasSaveInfo)
 			LogMessage("LoadGame: no save in slot " + std::to_string(slot));
 	}
 
-	if (!savefilePackage)
+	if (!hasSaveInfo)
 		return false;
 
 	// The loading screen, as the original's load of a save is a map's
 	// load; none for an empty slot.
 	if (Level && !LaunchInfo.dedicatedServer)
 		PaintLoading(false);
+
+	// The level's package checked before anything of the old level goes, as
+	// the original's map load checks the save's file (LOAD_Verify, Engine.dll
+	// 0x1038c1f0), Current keeping the slot's copy: one that is not there or
+	// not a package fails the load, its error kept apart from the browse's
+	// (DeusEx.dll 0x10011323), so a start browses DX.dx in its place and a
+	// load in play leaves the level playing (bugs.md ENG.28).
+	const std::string savePath = "Current/" + deusExMapName + "." + packages->GetSaveExtension();
+	const std::string saveURLMap = packages->GetIniValue("System", "Core.System", "SavePath") + "\\Current\\" + deusExMapName + "." + packages->GetSaveExtension();
+	std::string loadError;
+	const std::string saveFile = packages->SaveFilePath(savePath);
+	if (saveFile.empty())
+		FailLoad(saveURLMap, LocalizeMessage("Core", "Errors", "FileNotFound", "Can't find file '%s'", { saveURLMap }), loadError);
+	else
+		VerifyPackageFile(saveURLMap, saveFile, loadError);
+	if (!loadError.empty())
+		return false;
+	Package* savefilePackage = packages->LoadSaveFile(savePath);
+	if (!savefilePackage)
+		return false;
 
 	if (Level)
 		CallEvent(console, EventName::NotifyLevelChange);
@@ -1780,20 +1836,64 @@ int32_t Engine::DeusExMissionNumber(const std::string& mapName) const
 	return (mapName[0] - '0') * 10 + (mapName[1] - '0');
 }
 
+// A map's load that fails at its check, as the original's LoadMap catches
+// it (Engine.dll 0x1038e62c): Core's FailedLoad logged with the URL's map
+// and the error, a warning (UObject::SafeLoadError, Core.dll 0x10154430),
+// the progress lines Core's UrlFailed over the error for 6 s, the error
+// given back; nothing of the level goes.
+void Engine::FailLoad(const std::string& map, const std::string& reason, std::string& error)
+{
+	error = reason;
+	LogMessage(LocalizeMessage("Core", "Errors", "FailedLoad", "Failed to load '%s': %s", { map, error }));
+	SetProgress(LocalizeMessage("Core", "Errors", "UrlFailed", "Failed launching URL"), error, 6.0f);
+}
+
+// The check of a package's file that is there (LOAD_Verify), as the
+// original's linker opens one (Core.dll 0x10160000): a file that does not
+// begin with the package tag logs Core's BinaryFormat with the file's name
+// and fails the load with Core's Aborted (bugs.md ENG.28). A file cut short
+// -- before the tag's end, or within its tables -- stays fatal, as the
+// original's reader stops the game there (GError's "ReadFile beyond EOF").
+bool Engine::VerifyPackageFile(const std::string& map, const std::string& file, std::string& error)
+{
+	if (!PackageManager::LacksPackageTag(file))
+		return true;
+	LogMessage(LocalizeMessage("Core", "Errors", "BinaryFormat", "The file '%s' contains unrecognizable data", { file }));
+	FailLoad(map, LocalizeMessage("Core", "Errors", "Aborted", "Aborted"), error);
+	return false;
+}
+
+// Whether a map's load passes its check: a map that is not there fails with
+// Core's FileNotFound, one that is not a package as VerifyPackageFile has it.
+bool Engine::MapLoads(const std::string& map, std::string& error)
+{
+	if (!packages->MapExists(map))
+	{
+		FailLoad(map, LocalizeMessage("Core", "Errors", "FileNotFound", "Can't find file '%s'", { map }), error);
+		return false;
+	}
+	return VerifyPackageFile(map, packages->MapFilePath(map), error);
+}
+
 // The original's LoadMap checks the new map's package (LOAD_Verify) before
-// anything of the old level goes, and a map that is not there fails the
-// browse: Core's UrlFailed over the error for 6 s, the level playing on
-// (Engine.dll 0x1038c1f0). Checked before the pre-travel too, where the
-// original's Browse has already pruned the player's augmentations, skills and
-// flags, and the level played on without them (NATIVES.md, saving).
+// anything of the old level goes, and a map that is not there, or not a
+// package, fails the browse: Core's UrlFailed over the error for 6 s, the
+// level playing on (Engine.dll 0x1038c1f0). Checked before the pre-travel
+// too, where the original's Browse has already pruned the player's
+// augmentations, skills and flags, and the level played on without them
+// (NATIVES.md, saving). Within a mission the file checked is Current's, where
+// the load takes the level from.
 bool Engine::BrowseFinds(const UnrealURL& url)
 {
-	if (!Level || packages->MapExists(url.Map) || !packages->FindCurrentSave(MissionMapName(url)).empty())
+	if (!Level)
 		return true;
-	std::string error = LocalizeMessage("Core", "Errors", "FileNotFound", "Can't find file '%s'", { url.Map });
-	LogMessage("Failed to load '" + url.Map + "': " + error);
-	SetProgress(LocalizeMessage("Core", "Errors", "UrlFailed", "Failed launching URL"), error, 6.0f);
-	return false;
+	std::string error;
+	const std::string current = packages->FindCurrentSave(MissionMapName(url));
+	if (dxTravelUsesCurrent && !current.empty())
+		return VerifyPackageFile(url.Map, packages->SaveFilePath(current), error);
+	if (!packages->MapExists(url.Map) && !current.empty())
+		return true;
+	return MapLoads(url.Map, error);
 }
 
 // The start's browse of a map, as Deus Ex's first browse takes one (DeusEx.dll
@@ -1801,25 +1901,21 @@ bool Engine::BrowseFinds(const UnrealURL& url)
 // DeusExLevelInfo, or from no level, a dedicated server's, the map is
 // outside any mission or of a new one (dx-reverse-info deusex-dll.md, travel
 // and saving), so no level an earlier run left there comes back; then the
-// load, the player logged in. A map that is not there is followed by Dx.Dx
-// on the same URL, as a travel's by the level's own map (BrowseMap), there
-// being no level yet; one that is not there either fails the browse with
-// its text, Core's FileNotFound.
+// load, the player logged in. A map whose load fails its check -- not there,
+// or not a package (bugs.md ENG.28) -- is followed by Dx.Dx on the same URL,
+// as a travel's by the level's own map (BrowseMap), there being no level
+// yet, its load setting the error none again; one that fails there too
+// fails the browse with that load's error.
 bool Engine::BrowseStartMap(const UnrealURL& url, std::string& error)
 {
 	DeleteSaveGameFiles("Current");
 	UnrealURL loadURL = url;
-	if (!packages->MapExists(loadURL.Map))
+	if (!MapLoads(loadURL.Map, error))
 	{
-		error = LocalizeMessage("Core", "Errors", "FileNotFound", "Can't find file '%s'", { loadURL.Map });
-		LogMessage("Failed to load '" + loadURL.Map + "': " + error);
 		loadURL.Map = "Dx.Dx";
-		if (!packages->MapExists(loadURL.Map))
-		{
-			error = LocalizeMessage("Core", "Errors", "FileNotFound", "Can't find file '%s'", { loadURL.Map });
-			return false;
-		}
 		error.clear();
+		if (!MapLoads(loadURL.Map, error))
+			return false;
 	}
 	LoadMap(loadURL);
 	if (!LaunchInfo.dedicatedServer)
@@ -2866,14 +2962,18 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 
 	// The original's order (UViewport::Exec, Engine.dll 0x10373a60;
 	// engine-dll.md, a key's binding): the input's words and aliases, the
-	// render device's and the viewport's own, then the exec functions
-	// (ExecCommand), then the engine's words. So a word an exec function
-	// shares is the viewport's (SHOT) or the exec function's (TIMEDEMO, the
-	// console's).
+	// render device's (D3DDrv's GETRES, 0x100061b0) and the viewport's own,
+	// then the exec functions (ExecCommand), then the engine's words, the
+	// launcher's SHOWLOG among them; the window's own words last, once all
+	// of those have taken nothing (UWindowsViewport::Exec, WinDrv.dll
+	// 0x11106d90: ENDFULLSCREEN, TOGGLEFULLSCREEN, GETCURRENTRES,
+	// GETCURRENTCOLORDEPTH, GETCOLORDEPTHS, SETRES; bugs.md WIN.19). So a
+	// word an exec function shares is the viewport's (SHOT) or the render
+	// device's (GETRES), or else the exec function's (TIMEDEMO, the
+	// console's; TOGGLEFULLSCREEN, SETRES).
 	static const std::set<std::string> viewportWords = {
 		"shot", "exec", "getping", "getloss", "netspeed", "lanspeed", "keyname", "keybinding",
-		"getres", "getcolordepths", "getcurrentres", "getcurrentcolordepth", "setres", "togglefullscreen",
-		"showlog", "dxwindowdebug"
+		"getres", "dxwindowdebug"
 	};
 	if (InputExec(commandline, IK_None, EInputType::IST_Press, 20))
 		return {};
@@ -3006,6 +3106,9 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		bool lan = command == "lanspeed";
 		LogMessage("Net: " + command + " " + std::to_string(rate));
 		packages->SetIniValue("system", "Engine.Player", "ConfiguredInternetSpeed", std::to_string(rate));
+		// Saved at once, as the original's viewport saves its config
+		// (UViewport::Exec, Engine.dll 0x10373bb3, 0x10373c44; bugs.md ENG.27)
+		FlushConfig();
 		NetConnection* connection = LevelNetDriver ? LevelNetDriver->ServerConnection.get() : nullptr;
 		if (rate >= 500 && connection && LevelInfo->URL.HasOption("LAN") == lan)
 		{
@@ -3135,6 +3238,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		{
 			keybindings[propertyName.ToString()] = value;
 			packages->SetIniValue("user", "Engine.Input", propertyName, value);
+			FlushConfig();
 			return {};
 		}
 
@@ -3196,6 +3300,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 				}
 				prop->SetValueFromString(cls->PropertyData.Ptr(prop), value);
 				cls->SaveConfig();
+				FlushConfig();
 			}
 			catch (const std::exception&)
 			{
@@ -3203,6 +3308,10 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 			}
 			return {};
 		}
+		// A device's or the client's setting, its value in the ini: saved at
+		// once, as the original's SET ends with its class's SaveConfig
+		// (GlobalSetProperty, Core.dll 0x101523a0; bugs.md ENG.27)
+		FlushConfig();
 	}
 	else if (command == "setres" && args.size() == 2)
 	{
@@ -3222,7 +3331,12 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		{
 			client->SetPropertyFromString("WindowedViewportX", std::to_string(width));
 			client->SetPropertyFromString("WindowedViewportY", std::to_string(height));
+			AskWindowSize(width, height);
 		}
+		// Saved at once, as the original's viewport's resize saves the
+		// client's config (bugs.md WIN.18, ENG.27)
+		SaveClientConfig();
+		FlushConfig();
 	}
 	else if (command == "togglefullscreen")
 	{
@@ -3294,6 +3408,7 @@ void Engine::LoadEngineSettings()
 		audiodev->LoadProperties();
 		renderdev->LoadProperties();
 	}
+	engineSettingsLoaded = true;
 }
 
 bool Engine::NameLess::operator()(const std::string& a, const std::string& b) const
@@ -3462,6 +3577,8 @@ void Engine::OpenWindow()
 	double dpi = window->GetDpiScale();
 	window->SetFrameSize(Size(width / dpi, height / dpi));
 	viewport->SetViewportRect(0, 0, width, height);
+	if (!fullscreen)
+		AskWindowSize(width, height);
 
 	// Full screen takes the display's mode nearest FullscreenViewportX and Y,
 	// as the original's; with none (0), the desktop's (ENGINE.md, running on
@@ -3516,6 +3633,10 @@ void Engine::TickWindow()
 	InputEvent(IK_MouseY, IST_Axis, 0);
 
 	GameWindow::ProcessEvents();
+
+	// The window's size kept the tick after it last changed (KeepWindowedSize)
+	if (windowSettleTicks > 0 && --windowSettleTicks == 0)
+		KeepWindowedSize();
 
 	if (MouseMoveX != 0 || MouseMoveY != 0)
 	{
@@ -3640,6 +3761,13 @@ void Engine::ToggleFullscreen()
 
 	window->ToggleWindowFullscreen(resolution);
 	viewport->SetViewportRect(0, 0, width, height);
+	if (isFullscreen)
+		AskWindowSize(width, height);
+	// The client's config saved as each resize of the original's viewport
+	// saves it (ResizeViewport, WinDrv.dll 0x1110e2f3-0x1110e35b), the
+	// config cache flushed (bugs.md ENG.27)
+	SaveClientConfig();
+	FlushConfig();
 }
 
 // The console's ENDFULLSCREEN, which the original's window takes in any
@@ -3653,9 +3781,15 @@ void Engine::ToggleFullscreen()
 void Engine::EndFullscreen()
 {
 	if (window->IsFullscreen())
+	{
 		ToggleFullscreen();
+	}
 	else
+	{
 		LogMessage("EndFullscreen");
+		SaveClientConfig();
+		FlushConfig();
+	}
 }
 
 void Engine::OnWindowKeyDown(EInputKey key)
@@ -3694,6 +3828,58 @@ void Engine::OnWindowKeyUp(EInputKey key)
 
 void Engine::OnWindowGeometryChanged()
 {
+	windowSettleTicks = 2;
+}
+
+static double SteadySeconds()
+{
+	return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+void Engine::AskWindowSize(int width, int height)
+{
+	askedWindowWidth = width;
+	askedWindowHeight = height;
+	askedWindowTime = SteadySeconds();
+}
+
+// The original's WM_SIZE in a window (WinDrv.dll 0x1110a033) gives the
+// render device the client area's new size, and the viewport's resize
+// (ResizeViewport, 0x1110d640) makes the width even, one more where it is
+// odd (0x1110d9a8), sizes the window to it (MoveWindow, 0x1110e29f), keeps
+// the size as the client's WindowedViewportX and Y and the desktop's depth
+// as its WindowedColorBits, and saves the client's config, the config cache
+// flushed (0x1110e2f3-0x1110e35b): the ini written at once, so the way back
+// from full screen and the next start come at the size. A size of nothing,
+// a window minimized, is not kept. Full screen the window keeps its mode's
+// size, not this.
+void Engine::KeepWindowedSize()
+{
+	if (!window || window->IsFullscreen())
+		return;
+	int width = window->GetNativePixelWidth();
+	int height = window->GetNativePixelHeight();
+	if (width <= 0 || height <= 0)
+		return;
+	if (askedWindowWidth > 0)
+	{
+		if ((width != askedWindowWidth || height != askedWindowHeight) && SteadySeconds() - askedWindowTime < 1.0)
+			return;
+		askedWindowWidth = 0;
+		askedWindowHeight = 0;
+	}
+	if (width & 1)
+	{
+		width++;
+		double dpi = window->GetDpiScale();
+		window->SetFrameSize(Size(width / dpi, height / dpi));
+		AskWindowSize(width, height);
+	}
+	client->WindowedViewportX = width;
+	client->WindowedViewportY = height;
+	client->WindowedColorBits = 32;
+	SaveClientConfig();
+	FlushConfig();
 }
 
 void Engine::OnWindowClose()

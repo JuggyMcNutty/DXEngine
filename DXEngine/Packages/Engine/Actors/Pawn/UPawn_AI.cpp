@@ -446,52 +446,187 @@ float UPawn::AICanSee(UActor* other, std::optional<float> visibilityArg, std::op
 	return visibility;
 }
 
+// APawn::PickWallAdjust (Engine.dll 0x103c4150), the original's (bugs.md
+// PHYS.27), which no stock script calls: a way round what stands between
+// the pawn and its Destination, each test a box of the pawn's size against
+// the world and movers but where said. None while falling, nor for a
+// Destination within the pawn's radius and under its height above. A
+// swimmer or flier near it tries a step of its height -- up when the
+// Destination is no higher, down when it is -- and a radius on from there
+// toward it. Then the way is level: with the eyes' line to the Destination
+// blocked by the world, a swimmer or flier under it tries its height up and
+// two heights clear; a walker goes a radius wider and gives up for one over
+// 256 units above. A side is chosen whose line from 1.42 radii aside the
+// eyes reaches the Destination, the right first; with neither, none. A
+// walking player that can jump tries a jump over a ledge up to 48 high,
+// clear 14 units on. Then the side, AdjustDist out (the radius + 16, a
+// player's half a radius more) and 14 units on clear; then the other side,
+// its eyes' line clear too. Last a walker that can jump, and did not try,
+// tries a jump with 48 clear above it; a swimmer or flier its height up,
+// then down, whichever it did not try first. A jump heads the way with
+// GroundSpeed, AccelRate and JumpZ up, a player's half the time straight
+// off what blocks it 14 units on; a step sets the Destination there.
 bool UPawn::PickWallAdjust()
 {
-	auto kneeHeight = CollisionHeight() * 0.45f;
+	if (Physics() == PHYS_Falling)
+		return false;
 
-	auto forwards = normalize(Acceleration().xy());
+	TraceFlags flags; // the original's flags 6
+	flags.movers = true;
+	flags.world = true;
+	vec3 extent(CollisionRadius(), CollisionRadius(), CollisionHeight());
+	auto clear = [&](const vec3& from, const vec3& to, const vec3& box) { return XLevel()->Collision.TraceFirstHit(from, to, this, box, flags).Fraction == 1.0f; };
 
-	auto afterJumpCollisionHit = TryMove(vec3(forwards, kneeHeight), true);
+	vec3 viewPoint = Location();
+	viewPoint.z += BaseEyeHeight();
+	vec3 dir = Destination() - Location();
+	float zdiff = dir.z;
+	dir.z = 0.0f;
+	float adjustDist = CollisionRadius() + 16.0f;
+	if (bIsPlayer())
+		adjustDist += CollisionRadius() * 0.5f;
 
-	if (afterJumpCollisionHit.Fraction == 1)
+	// Near it, under its height above: none within the radius; a swimmer or
+	// flier within two heights steps its height (0x103c4265-0x103c44fe)
+	int checkedUp = 0;
+	if (zdiff < CollisionHeight())
 	{
-		// Obstacle can be jumped over. Attempt jumping.
-		bFromWall() = false;
+		float distSquared = dir.x * dir.x + dir.y * dir.y;
+		if (distSquared - CollisionRadius() * CollisionRadius() < 0.0f)
+			return false;
+		if ((Physics() == PHYS_Swimming || Physics() == PHYS_Flying) && distSquared < CollisionHeight() * CollisionHeight() * 4.0f)
+		{
+			checkedUp = 1;
+			float up = CollisionHeight();
+			if (Location().z < Destination().z)
+			{
+				checkedUp = -1;
+				up = -up;
+			}
+			vec3 stepped(Location().x, Location().y, Location().z + up);
+			if (clear(Location(), stepped, extent) && clear(stepped, stepped + X87::SafeNormal(dir) * CollisionRadius(), extent))
+			{
+				Destination() = stepped;
+				return true;
+			}
+		}
+	}
+
+	// Level, a direction (0x103c4500-0x103c4575); none for a Destination
+	// straight above or below
+	double size = std::sqrt((double)dir.x * dir.x + (double)dir.y * dir.y + (double)dir.z * dir.z);
+	if (size == 0.0)
+		return false;
+	dir = dir * (float)(1.0 / size);
+
+	// The eyes' line to it blocked by the world (UModel::FastLineCheck)
+	if (!FastTrace(Destination(), viewPoint))
+	{
+		if (Physics() == PHYS_Swimming || Physics() == PHYS_Flying)
+		{
+			if (zdiff > 0.0f && clear(Location(), Location() + vec3(0.0f, 0.0f, CollisionHeight() + CollisionHeight()), extent))
+			{
+				Destination() = vec3(Location().x, Location().y, Location().z + CollisionHeight());
+				return true;
+			}
+		}
+		else
+		{
+			adjustDist += CollisionRadius();
+			if (zdiff > 256.0f)
+				return false;
+		}
+	}
+
+	// A side whose line from beside the eyes reaches it, a line with no box
+	vec3 side(dir.y, -dir.x, 0.0f);
+	vec3 check = vec3(dir.y * 1.42f, -dir.x * 1.42f, 0.0f) * CollisionRadius();
+	bool otherSide = false;
+	if (!clear(viewPoint + check, Destination(), vec3(0.0f)))
+	{
+		otherSide = true;
+		side = vec3(-side.x, -side.y, 0.0f);
+		check = check * -1.0f;
+		if (!clear(viewPoint + check, Destination(), vec3(0.0f)))
+			return false;
+	}
+
+	vec3 out = dir * 14.0f;
+	auto jump = [&]()
+	{
+		vec3 heading = dir;
+		if (bIsPlayer() && FRand() < 0.5f)
+		{
+			CollisionHit ahead = XLevel()->Collision.TraceFirstHit(Location(), Location() + out, this, extent, flags);
+			if (ahead.Fraction < 1.0f)
+				heading = ahead.Normal * -1.0f;
+		}
+		Velocity() = heading * GroundSpeed();
+		Acceleration() = heading * AccelRate();
 		Velocity().z = JumpZ();
-		SetPhysics(PHYS_Falling);
-		Destination() = Location() + vec3(forwards, kneeHeight);
-
+		bJumpOffPawn() = true;
+		SetPhysics(PHYS_Falling, nullptr);
 		return true;
-	}
+	};
 
-	// Obstacle cannot be jumped over. Try another direction
-	auto direction = Focus() - Location();
-	auto rightSideVec = normalize(cross(direction, vec3(0, 0, 1)));
-	auto rightSideTest = TryMove(rightSideVec, true);
-	if (rightSideTest.Fraction == 1)
+	// A walking player's jump: a ledge up to 48 high, clear 14 on from over
+	// it (0x103c4926-0x103c4ca6)
+	bool checkedJump = false;
+	if (bIsPlayer() && Physics() == PHYS_Walking && bCanJump())
 	{
-		// We can move to right instead
-		bFromWall() = true;
-		Destination() = Location() + rightSideVec;
-		// Focus() = Location() + rightSideVec;
-
-		return true;
+		checkedJump = true;
+		CollisionHit above = XLevel()->Collision.TraceFirstHit(Location(), Location() + vec3(0.0f, 0.0f, 48.0f), this, extent, flags);
+		if ((double)above.Fraction > 0.5)
+		{
+			vec3 top = Location() + vec3(0.0f, 0.0f, 48.0f * above.Fraction);
+			if (clear(top, top + out, extent))
+				return jump();
+		}
 	}
 
-	auto leftSideVec = -rightSideVec;
-	auto leftSideTest = TryMove(leftSideVec, true);
-	if (leftSideTest.Fraction >= 1)
+	// The side, AdjustDist out and 14 on clear; then the other's
+	vec3 sideMove(side.x * adjustDist, side.y * adjustDist, 0.0f);
+	if (clear(Location(), Location() + sideMove, extent) && clear(Location() + sideMove, Location() + sideMove + out, extent))
 	{
-		// We can move to left instead
-		bFromWall() = true;
-		Destination() = Location() + leftSideVec;
-		// Focus() = Location() + leftSideVec;
-
+		Destination() = Location() + sideMove;
 		return true;
 	}
+	if (!otherSide)
+	{
+		check = check * -1.0f;
+		if (!clear(viewPoint + check, Destination(), vec3(0.0f)))
+			return false;
+		sideMove = sideMove * -1.0f;
+		if (clear(Location(), Location() + sideMove, extent) && clear(Location() + sideMove, Location() + sideMove + out, extent))
+		{
+			Destination() = Location() + sideMove;
+			return true;
+		}
+	}
 
-	// Cannot go anywhere from here
+	// Last a walker's jump with 48 clear above, or a swimmer's or flier's
+	// step of its height, up then down, but the way it tried
+	if (Physics() == PHYS_Walking)
+	{
+		vec3 top = Location() + vec3(0.0f, 0.0f, 48.0f);
+		if (!checkedJump && bCanJump() && clear(Location(), top, extent) && clear(top, top + out, extent))
+			return jump();
+	}
+	else
+	{
+		vec3 up(0.0f, 0.0f, CollisionHeight());
+		if (checkedUp != 1 && clear(Location(), Location() + up, extent) && clear(Location() + up, Location() + up + out, extent))
+		{
+			Destination() = Location() + up;
+			return true;
+		}
+		up = up * -1.0f;
+		if (checkedUp != -1 && clear(Location(), Location() + up, extent) && clear(Location() + up, Location() + up + out, extent))
+		{
+			Destination() = Location() + up;
+			return true;
+		}
+	}
 	return false;
 }
 

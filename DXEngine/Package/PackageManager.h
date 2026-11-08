@@ -51,6 +51,13 @@ public:
 	Package* LoadMap(const std::string& path);
 	// Whether the file LoadMap opens for that map is there.
 	bool MapExists(const std::string& path) const;
+	// The file LoadMap opens for that map, there or not.
+	std::string MapFilePath(const std::string& path) const { return FindMapFile(path).string(); }
+	// Whether a file's first four bytes are there and not the package tag,
+	// as the original's linker reads them before anything else (Core.dll
+	// 0x10160000). A file shorter than that is not: the original's reader
+	// stops the game there, as the package's own read stops DXEngine.
+	static bool LacksPackageTag(const std::string& file);
 	// A map from a file of any name, as the package of the name given: a
 	// download kept in the cache.
 	Package* LoadMapFile(const NameString& name, const std::string& path);
@@ -99,6 +106,8 @@ public:
 	bool IsRegisteredPackage(const Package* package) const;
 
 	Package* LoadSaveFile(const std::string& path);
+	// The file LoadSaveFile opens for that path; "" where there is none.
+	std::string SaveFilePath(const std::string& path) const;
 	std::string FindCurrentSave(const std::string& mapName) const;
 
 	std::shared_ptr<PackageStream> GetStream(Package* package);
@@ -136,7 +145,14 @@ public:
 	void ResetIniSection(NameString iniName, const NameString& sectionName);
 	void SetIniValue(NameString iniName, const NameString& sectionName, const NameString& keyName, const std::string& newValue);
 	void SetIniValues(NameString iniName, const NameString& sectionName, const NameString& keyName, const Array<std::string>& newValues);
+	// Every ini written back, as the engine shuts down
 	void SaveAllIniFiles();
+	// Each ini changed since it was last written written now, where
+	// SaveAllIniFiles writes it, the rest left: the original's config
+	// cache's Flush(0) (GOG DeusEx.exe 0x10915250), which every SaveConfig
+	// ends with (Core.dll 0x10151540), the files kept for the rest of the
+	// run (bugs.md ENG.27)
+	void FlushIniFiles();
 
 	// A key's text from the first of its package's .int files to give it
 	// (LoadIntFiles), "" when none does; FindLocalized says whether one does.
@@ -222,6 +238,11 @@ private:
 	std::string saveExtension;
 
 	bool missing_dxe_system_ini = false;
+
+	// One ini written back where SaveAllIniFiles writes it: the system and
+	// user inis to --ini's and --userini's files, else to the engine's
+	// DXE- ones beside the game's, a class's own file to its own path
+	void SaveIniFile(const NameString& name, IniFile& file);
 
 	struct OpenStream
 	{

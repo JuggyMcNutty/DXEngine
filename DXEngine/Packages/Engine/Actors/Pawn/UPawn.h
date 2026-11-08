@@ -85,6 +85,11 @@ public:
 	void DeusExStartSwimming(const vec3& oldVelocity, float timeTick, float remaining, int iterations = 0);
 	float DeusExSwim(const vec3& delta, CollisionHit& hit);
 	void DeusExStepUp(const vec3& gravDir, const vec3& desiredDir, vec3 delta, CollisionHit& hit);
+	// Deus Ex's spider, the original's (UActor_PhysSpider.cpp): a tick of
+	// climbing along the Floor, and the floor looked for again; false when
+	// none is found, the pawn then falling.
+	void DeusExPhysSpider(float deltaTime, int iterations);
+	bool DeusExFindNewFloor(const vec3& oldLocation, float deltaTime, float remainingTime, int iterations);
 	// Deus Ex's walking, the original's, a whole frame at once, and the
 	// speed Deus Ex's pawns walk and swim at, the original's calcVelocity
 	// (UActor_PhysWalking.cpp).
@@ -105,8 +110,9 @@ public:
 	// (UActor::CheckHearSound).
 	void DeusExClientHearSound(UActor* actor, int id, USound* sound, const vec3& soundLocation, const vec3& parameters);
 
-	// If the obstruction is jumpable, start jumping and keep the destination
-	// Otherwise try rotating destination 90 degrees to left and right
+	// The original's way round what blocks the way to Destination: a jump,
+	// or a step aside, up or down, which becomes the Destination
+	// (UPawn_AI.cpp).
 	bool PickWallAdjust();
 
 	vec3 EAdjustJump();
