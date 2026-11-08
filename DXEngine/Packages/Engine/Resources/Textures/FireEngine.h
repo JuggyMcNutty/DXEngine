@@ -101,6 +101,9 @@ namespace FireEngine
 		float VPosition = 0.0f;
 	};
 	void MoveIce(Ice& ice, float deltaTime);
+	// A float to a whole number as the original's fistp makes it: to the
+	// nearest, ties to even
+	int RoundToInt(float v);
 	// Each pixel from the moving texture's row, shifted by the still one's
 	// value there: the glass over a moving source, or the glass moving.
 	void BlitIce(uint8_t* bits, const uint8_t* glass, const uint8_t* source, int usize, int vsize, int ubits, int umask, int vmask, int upos, int vpos, bool moveIce);

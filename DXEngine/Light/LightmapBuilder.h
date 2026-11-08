@@ -58,6 +58,9 @@ public:
 	// its brightness and the level's Brightness
 	static vec3 GetLightColorDX(UActor* light);
 
+	// The light manager's square root, by its table (LightmapBuilder.cpp)
+	static float LightSqrt(float x);
+
 private:
 	const vec3* WorldLocations() const { return points.data(); }
 	const vec3& WorldNormal() const { return normal; }

@@ -6,6 +6,7 @@
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Brush/UMover.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
+#include "Packages/Engine/Actors/Info/UZoneInfo.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Math/floating.h"
@@ -56,6 +57,7 @@ void LightSystem::Tick(float frameElapsed)
 void LightSystem::OnMapLoaded()
 {
 	engine->Level->Light.FogBalls.clear();
+	engine->Level->Light.FogLights.clear();
 	engine->Level->Light.lmtextures.clear();
 	engine->Level->Light.Atlas.Clear();
 	engine->Level->Light.SurfaceLightCaches.clear();
@@ -151,6 +153,26 @@ void LightSystem::BeginFrame()
 		LightTree.Lights.push_back(actor);
 	}
 
+	// The fog lights as they are now, as the original sets each up for the
+	// fog maps it draws, every frame (FLightManager::SetupLight, Render.dll
+	// 0x10b05fa0): the level's volumetric lights, which its leaves list
+	// (LeafVolumetricLighting, 0x10b170e0), and each moving light in a fog
+	// zone with a LightRadius, a VolumeRadius and a VolumeBrightness, which
+	// SetupDynamics makes volumetric (0x10b232d8)
+	FogLights.clear();
+	for (UActor* light : FogBalls)
+		FogLights.push_back(FogmapBuilder::SetupLight(light));
+	for (UActor* light : LightTree.Lights)
+	{
+		bool moving = light->bDynamicLight() || (!light->bStatic() && !light->bNoDelete());
+		UZoneInfo* zone = light->Region().Zone;
+		if (moving && light->LightRadius() != 0 && light->VolumeRadius() != 0 && light->VolumeBrightness() != 0 &&
+			zone && zone->bFogZone() && std::find(FogBalls.begin(), FogBalls.end(), light) == FogBalls.end())
+		{
+			FogLights.push_back(FogmapBuilder::SetupLight(light));
+		}
+	}
+
 	// The tree is built from the lights, their order, locations and radii
 	// alone: when none of those changed, last frame's tree is this frame's.
 	bool sameLights = TreeLights.size() == LightTree.Lights.size();
@@ -212,6 +234,7 @@ void LightSystem::PurgeDying()
 {
 	auto dying = [](UActor* actor) { return GC::IsDying(actor); };
 	FogBalls.erase(std::remove_if(FogBalls.begin(), FogBalls.end(), dying), FogBalls.end());
+	FogLights.erase(std::remove_if(FogLights.begin(), FogLights.end(), [](const FogLight& light) { return GC::IsDying(light.Actor); }), FogLights.end());
 	TempDynLightList.clear();
 	bool stale = false;
 	for (const TreeLight& light : TreeLights)

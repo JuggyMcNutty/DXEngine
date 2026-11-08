@@ -62,9 +62,12 @@ private:
 	bool DrawLodMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, ULodMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, MeshPass pass);
 	bool DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, ULodMesh* mesh, const Array<MeshFace>& faces, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, int baseVertexOffset, const int* vertexOffsets, float t0, float t1, MeshPass pass, BlendInfo* blends, int blendCount);
 	void SetupMeshTextures(UActor* actor, UMesh* mesh);
+	// A bParticles mesh's vertices, particlePoints, each drawn as a tile
+	bool DrawParticles(VisibleFrame* frame, UActor* actor, uint32_t polyFlags, MeshPass pass);
 	void FindAttachmentPoints(ULodMesh* mesh, const mat4& ObjectToWorld, const int* vertexOffsets, float t0, float t1);
 
 	Array<vec3> attachmentTris;
+	Array<vec3> particlePoints;
 
 	Array<CachedMeshVertex> vertexCache;
 	uint32_t vertexCacheGeneration = 0;

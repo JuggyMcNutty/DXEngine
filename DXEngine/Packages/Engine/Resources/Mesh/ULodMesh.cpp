@@ -75,32 +75,12 @@ void ULodMesh::Load(ObjectStream* stream)
 
 	OldFrameVerts = stream->ReadUInt32();
 
-	// Build smoothed normals
+	// No normals kept: a LOD mesh's are made at each draw from the faces
+	// within its detail budget, as the original's DrawLodMesh makes them
+	// (VisibleMesh::DrawLodMeshFaceDX), not those UMesh::Load leaves from
+	// the triangles a LOD mesh has none of
 	Normals.clear();
-	Normals.resize(Verts.size(), vec3(0.0f));
-	// A face running past the wedges or vertices (a hand-made mesh's) is
-	// passed over, not written past the buffer
-	for (int frame = 0; frame < AnimFrames; frame++)
-	{
-		for (const MeshFace& face : Faces)
-		{
-			if ((size_t)face.Indices[0] >= Wedges.size() || (size_t)face.Indices[1] >= Wedges.size() || (size_t)face.Indices[2] >= Wedges.size())
-				continue;
-			int v0 = Wedges[face.Indices[0]].Vertex + SpecialVerts + frame * FrameVerts;
-			int v1 = Wedges[face.Indices[1]].Vertex + SpecialVerts + frame * FrameVerts;
-			int v2 = Wedges[face.Indices[2]].Vertex + SpecialVerts + frame * FrameVerts;
-			if (v0 < 0 || v1 < 0 || v2 < 0 || (size_t)v0 >= Verts.size() || (size_t)v1 >= Verts.size() || (size_t)v2 >= Verts.size())
-				continue;
-			vec3 n = normalize(cross(Verts[v1] - Verts[v0], Verts[v2] - Verts[v0]));
-			Normals[v0] += n;
-			Normals[v1] += n;
-			Normals[v2] += n;
-		}
-	}
-	for (vec3& n : Normals)
-	{
-		n = normalize(n);
-	}
+	Normals.shrink_to_fit();
 
 	Array<uint32_t> faceFlags;
 	for (const MeshFace& face : Faces)

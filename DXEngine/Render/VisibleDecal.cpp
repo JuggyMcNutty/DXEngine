@@ -21,13 +21,18 @@ void VisibleDecal::DrawDecals(VisibleFrame* frame, BspNode* node)
 
 	for (auto& leveldecal : node->Decals)
 	{
-		if (leveldecal.Decal->Texture())
+		// One whose texture is None drawn with the level's DefaultTexture, as
+		// the original's DrawFrame draws it (Render.dll 0x10b1b154)
+		UTexture* decalTexture = leveldecal.Decal->Texture();
+		if (!decalTexture)
+			decalTexture = engine->LevelInfo->DefaultTexture();
+		if (decalTexture)
 		{
 			// Its LastRenderedTime is stamped in the walk, when it shows
 			// (VisibleFrame).
-			engine->render->UpdateTexture(leveldecal.Decal->Texture());
+			engine->render->UpdateTexture(decalTexture);
 
-			UTexture* texture = leveldecal.Decal->Texture()->GetAnimTexture();
+			UTexture* texture = decalTexture->GetAnimTexture();
 			// The viewer's Sprite, the Matrix cheat's, in its place
 			if (UTexture* sprite = engine->render->ViewerSprite())
 			{

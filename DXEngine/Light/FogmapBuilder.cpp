@@ -4,12 +4,10 @@
 #include "Engine.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Actors/UActor.h"
+#include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "RenderDevice/RenderDevice.h"
-#include "Math/hsb.h"
-
-#ifndef NOSSE
-#include <immintrin.h>
-#endif
+#include "LightmapBuilder.h"
+#include <cmath>
 
 void FogmapBuilder::Setup(UModel* model, const Coords& mapCoords, int lightMap, UZoneInfo* zoneActor)
 {
@@ -45,29 +43,32 @@ void FogmapBuilder::Prepare()
 		fogcolors[i] = zero;
 }
 
-// A fog light's colour, density and sphere, worked out on its first use
-void FogmapBuilder::PrepareFogInfo(UActor* light)
+FogLight FogmapBuilder::SetupLight(UActor* light)
 {
-	if (light->FogInfo.brightness < 0.0f)
-	{
-		light->FogInfo.fogcolor = hsbtorgb(light->LightHue(), light->LightSaturation(), light->LightBrightness());
-		light->FogInfo.brightness = light->LightBrightness() * (1.0f / 255.0f) * light->VolumeBrightness() * (1.0f / 64.0f);
-		light->FogInfo.fog = light->VolumeFog() * (1.0f / 255.0f);
-		light->FogInfo.radius = light->WorldVolumetricRadius();
-		light->FogInfo.location = light->Location();
-	}
+	FogLight fog;
+	fog.Actor = light;
+	fog.Location = light->Location();
+	fog.Radius = light->WorldVolumetricRadius();
+	fog.RadiusSquared = fog.Radius * fog.Radius;
+	fog.InvRadius = 1.0f / fog.Radius;
+	fog.InvRadiusSquared = fog.InvRadius * fog.InvRadius;
+	vec3 color;
+	float brightness = LightmapBuilder::GlobalLighting(light, light->LightBrightness() * (1.0f / 255.0f), &color);
+	fog.Color = color * (brightness * light->Level()->Brightness());
+	fog.Density = light->VolumeBrightness() * brightness * 0.015625f;
+	fog.Fog = light->VolumeFog() * (1.0f / 255.0f);
+	return fog;
 }
 
 // The sphere against the pyramid from the eye to the map's corner texels,
 // which holds every texel's centre, the map being a flat grid: wholly
 // outside one of its four sides, or behind the surface's plane, it is
-// crossed by no line of sight to a texel and fogs none (SphereDensity gives
+// crossed by no line of sight to a texel and fogs none (AddLight gives
 // each nothing). A side seen edge on is passed over: taken as reaching.
-bool FogmapBuilder::Reaches(UActor* light, const vec3& view) const
+bool FogmapBuilder::Reaches(const FogLight& light, const vec3& view) const
 {
-	PrepareFogInfo(light);
-	vec3 center = light->FogInfo.location;
-	float radius = light->FogInfo.radius;
+	vec3 center = light.Location;
+	float radius = light.Radius;
 
 	vec3 corners[4] = { Location(0, 0), Location(width - 1, 0), Location(width - 1, height - 1), Location(0, height - 1) };
 	vec3 middle = (corners[0] + corners[1] + corners[2] + corners[3]) * 0.25f;
@@ -100,88 +101,97 @@ bool FogmapBuilder::Reaches(UActor* light, const vec3& view) const
 	return true;
 }
 
-void FogmapBuilder::AddLight(UActor* light, vec3 view)
+// The light laid over the map as the original's SetupForSurf lays each, the
+// lights farther along the view first (Render.dll 0x10b0716a-0x10b07c3f:
+// the first one's texels 0x10b075a2, a later one's 0x10b078b6). A texel's
+// density along its line of sight from the eye, through the light's sphere
+// of radius R, is K x 3/R x the integral of 1 - r^2/R^2 over the part of
+// the line within the sphere, r its distance from the light, held to 0..1
+// (0x10b075dc-0x10b07824): none where the light lies behind the line from
+// an eye outside the sphere, or the line misses it; else the part runs
+// from the eye or the sphere's near side to the texel or its far side, its
+// lengths in the light manager's square roots. The light's texel is 255 x
+// the density x its colour and the density x VolumeFog, each held to 127,
+// as the original's table of 256 entries makes it (SetupLight,
+// 0x10b06a35-0x10b06b60); over the map, each channel its own plus (127 -
+// its alpha)/127 of what lies under it, the alphas summed, each held to 127
+// (0x10b07b47, FLightManager::Init's table 0x10b020e3-0x10b02105). In
+// floats, by choice, where the original's texels and its table's steps are
+// whole numbers.
+void FogmapBuilder::AddLight(const FogLight& light, const vec3& view)
 {
-	PrepareFogInfo(light);
 	Prepare();
 
-	vec3 fogcolor = light->FogInfo.fogcolor;
-	float brightness = light->FogInfo.brightness * 5.0f;
-	float fog = light->FogInfo.fog;
-	float radius = light->FogInfo.radius;
-	vec3 lightpos = light->FogInfo.location;
+	const float R2 = light.RadiusSquared;
+	const float invR = light.InvRadius;
+	const float invR2 = light.InvRadiusSquared;
+	const float K = light.Density;
+	const vec3 color = light.Color * 255.0f;
+	const float fog = light.Fog * 255.0f;
+	const vec3 L = light.Location - view;
+	const float L2 = L.x * L.x + L.y * L.y + L.z * L.z;
+	const bool inside = L2 < R2;
 
 	size_t size = (size_t)width * height;
 	const vec3* locations = WorldLocations();
 	vec4* dest = fogcolors.data();
 	for (size_t i = 0; i < size; i++)
 	{
-		vec3 rayDirection = locations[i] - view;
-#ifndef NOSSE
-		float depth = _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(dot(rayDirection, rayDirection))));
-#else
-		float depth = std::sqrt(dot(rayDirection, rayDirection));
-#endif
-		rayDirection *= (1.0f / depth);
-		float fogamount = SphereDensity(view, rayDirection, lightpos, radius, depth) * brightness;
+		vec3 p = locations[i] - view;
+		float along = p.x * L.x + p.y * L.y + p.z * L.z;
+		if (!inside && std::signbit(along))
+			continue;
+		float p2 = p.x * p.x + p.y * p.y + p.z * p.z;
+		float d2 = L2 - along * along / p2;
+		if (!(R2 >= d2))
+			continue;
+		float depth = LightmapBuilder::LightSqrt(p2);
+		float nearest = along / depth;
+		float half = LightmapBuilder::LightSqrt(R2 - d2);
+		float lower = nearest - depth;
+		float upper;
+		bool whole = false;
+		if (nearest <= half)
+		{
+			upper = nearest;
+			if (lower < -half)
+				lower = -half;
+		}
+		else
+		{
+			upper = half;
+			if (lower < -half)
+			{
+				lower = -half;
+				whole = true;
+			}
+		}
+		if (!(lower < upper))
+			continue;
+		float a = d2 * invR2;
+		float u = upper * invR;
+		float density;
+		if (whole)
+		{
+			density = u * (3.0f - a * 3.0f - u * u) * K;
+			density = density + density;
+		}
+		else
+		{
+			float l = lower * invR;
+			density = (u * (3.0f - a * 3.0f - u * u) - (3.0f - a * 3.0f - l * l) * l) * K;
+		}
+		if (!(density > 0.0f))
+			continue;
+		density = std::min(density, 1.0f);
 
-		float alpha = std::min(fogamount * fog, 1.0f);
-		float invalpha = 1.0f - alpha;
-		dest[i].r = fogcolor.r * fogamount + dest[i].r * invalpha;
-		dest[i].g = fogcolor.g * fogamount + dest[i].g * invalpha;
-		dest[i].b = fogcolor.b * fogamount + dest[i].b * invalpha;
-		dest[i].a = std::min(dest[i].a + alpha, 1.0f);
+		vec4 texel(std::min(density * color.r, 127.0f), std::min(density * color.g, 127.0f), std::min(density * color.b, 127.0f), std::min(density * fog, 127.0f));
+		float under = (127.0f - texel.a) * (1.0f / 127.0f);
+		dest[i].r = std::min(texel.r + dest[i].r * under, 127.0f);
+		dest[i].g = std::min(texel.g + dest[i].g * under, 127.0f);
+		dest[i].b = std::min(texel.b + dest[i].b * under, 127.0f);
+		dest[i].a = std::min(texel.a + dest[i].a, 127.0f);
 	}
-}
-
-// The MIT License
-// https://www.youtube.com/c/InigoQuilez
-// https://iquilezles.org/
-// Copyright (c) 2015 Inigo Quilez
-//
-// Analytically integrating quadratically decaying participating media within a sphere.
-// Related info: https://iquilezles.org/articles/spherefunctions
-//
-float FogmapBuilder::SphereDensity(const vec3& rayOrigin, const vec3& rayDirection, const vec3& sphereCenter, float sphereRadius, float dbuffer)
-{
-	// normalize the problem to the canonical sphere
-	float rcp_radius = 1.0f / sphereRadius;
-	float ndbuffer = dbuffer * rcp_radius;
-	//vec3 rc = (rayOrigin - sphereCenter) * rcp_radius;
-	float rc_x = (rayOrigin.x - sphereCenter.x) * rcp_radius;
-	float rc_y = (rayOrigin.y - sphereCenter.y) * rcp_radius;
-	float rc_z = (rayOrigin.z - sphereCenter.z) * rcp_radius;
-
-	// find intersection with sphere
-	float b = rayDirection.x * rc_x + rayDirection.y * rc_y + rayDirection.z * rc_z; // dot(rayDirection, rc)
-	float c = rc_x * rc_x + rc_y * rc_y + rc_z * rc_z - 1.0f; // dot(rc, rc) - 1.0f
-	float h = b * b - c;
-
-	// not intersecting
-	if (h < 0.0f) return 0.0f;
-
-#ifndef NOSSE
-	h = _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(h)));
-#else
-	h = std::sqrt(h);
-#endif
-
-	//return h*h*h;
-
-	float t1 = -b - h;
-	float t2 = -b + h;
-
-	// not visible (behind camera or behind ndbuffer)
-	if (t2 < 0.0f || t1 > ndbuffer) return 0.0f;
-
-	// clip integration segment from camera to ndbuffer
-	t1 = std::max(t1, 0.0f);
-	t2 = std::min(t2, ndbuffer);
-
-	// analytical integration of an inverse squared density
-	float i1 = -(c * t1 + b * t1 * t1 + t1 * t1 * t1 * (1.0f / 3.0f));
-	float i2 = -(c * t2 + b * t2 * t2 + t2 * t2 * t2 * (1.0f / 3.0f));
-	return (i2 - i1) * (3.0f / 4.0f);
 }
 
 // The map's texels on its surface: each row's line from its left edge to its

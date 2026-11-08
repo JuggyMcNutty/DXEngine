@@ -499,7 +499,7 @@ bool RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 
 		Device->SetSceneNode(&ViewportFrame.Frame);
 		Device->ClearZ();
-		engine->Level->Light.SetEye(ViewportFrame.ViewLocation.xyz(), ViewportFrame.SceneIndex);
+		engine->Level->Light.SetEye(ViewportFrame.ViewLocation.xyz(), ViewportFrame.SceneIndex, ViewportFrame.Frame.WorldToView);
 		CanvasScene = &ViewportFrame;
 		UActor* target = player->ViewTarget() ? player->ViewTarget() : player;
 		CallEvent(target, EventName::RenderOverlays, { ExpressionValue::ObjectValue(engine->canvas) });
@@ -513,7 +513,7 @@ bool RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 	}
 
 	// The main view's eye again, for what the HUD draws after
-	engine->Level->Light.SetEye(MainFrame.ViewLocation.xyz(), MainFrame.SceneIndex);
+	engine->Level->Light.SetEye(MainFrame.ViewLocation.xyz(), MainFrame.SceneIndex, MainFrame.Frame.WorldToView);
 
 	Device->SetSceneNode(&Canvas.Frame);
 

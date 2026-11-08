@@ -15,6 +15,8 @@
 #include "Packages/Engine/Actors/NavigationPoint/UNavigationPoint.h"
 #include "Packages/Engine/Resources/Mesh/ULodMesh.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
+#include "Packages/Engine/Resources/UPalette.h"
+#include "Packages/Core/UClass.h"
 
 // Whether a mesh face faces the eye, as the original's DrawMesh and
 // DrawLodMesh ask it (Render.dll 0x10b0d1a0, 0x10b0ea80): (A − B) × (C − A)
@@ -105,15 +107,15 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, MeshPass pass)
 	// mesh and scale at that triangle -- or, holding no weapon, its selected
 	// item the same way (a multitool or a lockpick in the player's hand) --
 	// in the pawn's style and lit as the pawn. A mesh with no such triangle
-	// draws neither.
+	// draws neither; a plain mesh's is the face of its own PF_Invisible
+	// (DrawMeshDX), a LOD mesh's its first special face.
 	if (UPawn* pawn = UObject::TryCast<UPawn>(actor))
 	{
-		ULodMesh* pawnLodMesh = UObject::TryCast<ULodMesh>(mesh);
 		UInventory* held = pawn->Weapon();
 		if (!held)
 			held = pawn->SelectedItem();
 		UMesh* heldMesh = held ? held->ThirdPersonMesh() : nullptr;
-		if (heldMesh && pawnLodMesh && attachmentTris.size() >= 3 && (!Wire || WireTriangleInView(frame)))
+		if (heldMesh && attachmentTris.size() >= 3 && (!Wire || WireTriangleInView(frame)))
 		{
 			// Find attachment triangle location in the world:
 			const vec3& v0 = attachmentTris[0];
@@ -129,7 +131,9 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, MeshPass pass)
 
 			// Place what is held in this coordinate space, drawn in the pawn's
 			// style for the draw as the original swaps it in (a cloaked pawn's
-			// weapon goes translucent with it):
+			// weapon goes translucent with it), and at its ThirdPersonScale,
+			// which the original swaps in for its DrawScale (DrawActorSprite
+			// 0x10b25080), so that its detail budget goes by that scale:
 			mat4 heldMeshToWorld = attachment.ToMatrix() * mat4::scale(held->ThirdPersonScale()) * heldMesh->meshToObject;
 			// Its normals turned as the pawn's own are, by the rotation alone:
 			// the attachment's axes (orthonormal) and the mesh's RotOrigin
@@ -137,7 +141,11 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, MeshPass pass)
 			uint8_t& heldStyle = held->Value<uint8_t>(PropOffsets_Actor.Style);
 			uint8_t ownStyle = heldStyle;
 			heldStyle = (uint8_t)pawn->Style();
+			float& heldScale = held->DrawScale();
+			float ownScale = heldScale;
+			heldScale = held->ThirdPersonScale();
 			needsTranslucentPass = DrawMeshAtLocation(frame, held, actor, heldMesh, heldMeshToWorld, heldNormalToWorld, pass) || needsTranslucentPass;
+			heldScale = ownScale;
 			heldStyle = ownStyle;
 		}
 	}
@@ -149,14 +157,17 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, MeshPass pass)
 // drawing wire (Render.dll 0x10b0ea80): it tests each corner's outcode
 // against the view's sides as ever, but a wire mesh's corners are in the
 // world's axes, not the view's, so a corner is out by where it lies from the
-// world's origin -- nearly always, the world's distances dwarfing the
-// heights -- and a triangle wholly out past one side holds nothing.
+// world's origin, a view up its Z axis -- nearly always, the world's
+// distances dwarfing the heights -- and a triangle wholly out past one side
+// holds nothing. The sides' slopes are the frame's PrjXM, PrjXP, PrjYM and
+// PrjYP, each of them positive (Engine.dll FSceneNode::ComputeRenderSize
+// 0x10372980).
 bool VisibleMesh::WireTriangleInView(VisibleFrame* frame)
 {
 	const SceneNode& node = frame->Frame;
 	float t = (float)std::tan(radians(node.FovAngle) * 0.5f);
 	float aspect = node.FX > 0.0f ? node.FY / node.FX : 1.0f;
-	float prjXM = -t, prjXP = t, prjYM = -aspect * t, prjYP = aspect * t;
+	float prjXM = t, prjXP = t, prjYM = aspect * t, prjYP = aspect * t;
 	int all = 15;
 	for (int i = 0; i < 3; i++)
 	{
@@ -389,6 +400,36 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 	lightsys->InitVertexLight(vertexLight, actor, lightLocationActor, zoneActor, !OnItsOwn);
 	vec3 eye = frame->ViewLocation.xyz();
 
+	// The weapon triangle, a face of its own PF_Invisible, where a pawn of
+	// this mesh holds what it holds: the original's DrawMesh notes each such
+	// face's place as it comes to it, the last one's kept (Render.dll
+	// 0x10b0e329), at the frame's pose as FindAttachmentPoints takes a LOD
+	// mesh's -- wherever it lies, as DXEngine holds a LOD mesh's by choice
+	// (VisibleMesh::DrawMesh)
+	for (const MeshTri& tri : mesh->Tris)
+	{
+		if (!(tri.PolyFlags & PF_Invisible))
+			continue;
+		vec3 corners[3];
+		bool inside = true;
+		for (int i = 0; i < 3 && inside; i++)
+		{
+			size_t vindex0 = tri.Indices[i] + vertexOffsets[0];
+			size_t vindex1 = tri.Indices[i] + vertexOffsets[1];
+			size_t vindex2 = tri.Indices[i] + vertexOffsets[2];
+			inside = vindex0 < mesh->Verts.size() && vindex1 < mesh->Verts.size() && (t1 == 0.0f || vindex2 < mesh->Verts.size());
+			if (inside)
+			{
+				vec3 vertex = mix(mesh->Verts[vindex0], mesh->Verts[vindex1], t0);
+				if (t1 != 0.0f)
+					vertex = mix(vertex, mesh->Verts[vindex2], t1);
+				corners[i] = (ObjectToWorld * vec4(vertex, 1.0f)).xyz();
+			}
+		}
+		if (inside)
+			attachmentTris.assign(corners, corners + 3);
+	}
+
 	// Wire, as the original's DrawMesh draws a mesh with the viewer's RendMap
 	// at wire (Render.dll 0x10b0d1a0): each triangle's lines, its last corner
 	// to its first, then each to the next, a line only from the corner of the
@@ -443,6 +484,26 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 			}
 		}
 		return false;
+	}
+
+	// A bParticles mesh draws no face, but each of its vertices at the
+	// frame's pose as a particle (DrawParticles)
+	if (actor->bParticles())
+	{
+		particlePoints.clear();
+		for (int v = 0; v < mesh->FrameVerts; v++)
+		{
+			size_t vindex0 = v + vertexOffsets[0];
+			size_t vindex1 = v + vertexOffsets[1];
+			size_t vindex2 = v + vertexOffsets[2];
+			if (vindex0 >= mesh->Verts.size() || vindex1 >= mesh->Verts.size() || (t1 != 0.0f && vindex2 >= mesh->Verts.size()))
+				return false;
+			vec3 vertex = mix(mesh->Verts[vindex0], mesh->Verts[vindex1], t0);
+			if (t1 != 0.0f)
+				vertex = mix(vertex, mesh->Verts[vindex2], t1);
+			particlePoints.push_back((ObjectToWorld * vec4(vertex, 1.0f)).xyz());
+		}
+		return DrawParticles(frame, actor, polyflags, pass);
 	}
 
 	// The vertices an unlit face has taken this draw, as DrawLodMeshFaceDX
@@ -502,8 +563,12 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 		if (drawn)
 			engine->render->UpdateTextureInfo(texinfo, tex);
 
-		float uscale = (tex ? tex->UsedMipmaps.front().Width : 256) * (1.0f / 256.0f);
-		float vscale = (tex ? tex->UsedMipmaps.front().Height : 256) * (1.0f / 256.0f);
+		// A corner's U and V its bytes over 256 of the texture's size at its
+		// scale, the factors the original's DrawMesh takes from the
+		// texture's info (Render.dll 0x10b0e376), which the render device
+		// divides by again: a texture's DrawScale moves nothing
+		float uscale = (texinfo.Texture ? texinfo.USize * texinfo.UScale : 256) * (1.0f / 256.0f);
+		float vscale = (texinfo.Texture ? texinfo.VSize * texinfo.VScale : 256) * (1.0f / 256.0f);
 
 		vec3 normals[3];
 		for (int i = 0; i < 3; i++)
@@ -738,11 +803,9 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 
 	bool needTranslucentPass = false;
 
-	// Faces share their vertices, and a vertex's animated position, normal,
-	// light and fog depend only on the vertex this draw (the light also on
-	// whether it is unlit, below). Each was computed again for
-	// every face using it; now once a draw, by the same arithmetic, so the
-	// results are the same to the bit.
+	// Faces share their vertices, and a vertex's place, normal and light
+	// depend only on the vertex this draw (the light also on whether it is
+	// unlit, below): each is worked out once a draw, in the cache.
 	if (++vertexCacheGeneration == 0)
 	{
 		for (CachedMeshVertex& v : vertexCache)
@@ -753,8 +816,9 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 		vertexCache.resize(mesh->FrameVerts);
 	const uint32_t generation = vertexCacheGeneration;
 
-	// The vertex's position and normal in the world; false if the mesh's data is out of bounds
-	auto animateVertex = [&](size_t vindex, vec3& point, vec3& worldNormal) -> bool
+	// The vertex's place in the world at the frame's pose, its blends with
+	// it; false if the mesh's data is out of bounds
+	auto animateVertex = [&](size_t vindex, vec3& point) -> bool
 	{
 		size_t vindex0 = vindex + vertexOffsets[0];
 		size_t vindex1 = vindex + vertexOffsets[1];
@@ -762,25 +826,16 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 		if (vindex0 >= mesh->Verts.size() || vindex1 >= mesh->Verts.size())
 			return false; // out of bounds
 
-		const vec3& v0 = mesh->Verts[vindex0];
-		const vec3& v1 = mesh->Verts[vindex1];
-		const vec3& n0 = mesh->Normals[vindex0];
-		const vec3& n1 = mesh->Normals[vindex1];
-		vec3 vertex = mix(v0 + n0 * fatness, v1 + n1 * fatness, t0);
-		vec3 normal = mix(n0, n1, t0);
+		vec3 vertex = mix(mesh->Verts[vindex0], mesh->Verts[vindex1], t0);
 		if (t1 != 0.0f)
 		{
 			size_t vindex2 = vindex + vertexOffsets[2];
 			if (vindex2 >= mesh->Verts.size())
 				return false; // out of bounds
 
-			const vec3& v2 = mesh->Verts[vindex2];
-			const vec3& n2 = mesh->Normals[vindex2];
-			vertex = mix(vertex, v2 + n2 * fatness, t1);
-			normal = mix(normal, n2, t1);
+			vertex = mix(vertex, mesh->Verts[vindex2], t1);
 		}
 		vec3 restPose = mesh->Verts[vindex];
-		vec3 restNormal = mesh->Normals[vindex];
 		for (int j = 0; j < blendCount; j++)
 		{
 			BlendInfo& b = blends[j];
@@ -792,13 +847,7 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 				if (blendVindex0 >= mesh->Verts.size() || blendVindex1 >= mesh->Verts.size())
 					continue;
 
-				const vec3& bv0 = mesh->Verts[blendVindex0];
-				const vec3& bv1 = mesh->Verts[blendVindex1];
-				const vec3& bn0 = mesh->Normals[blendVindex0];
-				const vec3& bn1 = mesh->Normals[blendVindex1];
-
-				vec3 blendVertex = mix(bv0, bv1, b.t0);
-				vec3 blendNormal = mix(bn0, bn1, b.t0);
+				vec3 blendVertex = mix(mesh->Verts[blendVindex0], mesh->Verts[blendVindex1], b.t0);
 
 				if (b.t1 != 0.0f)
 				{
@@ -806,19 +855,14 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 					if (blendVindex2 >= mesh->Verts.size())
 						continue;
 
-					const vec3& bv2 = mesh->Verts[blendVindex2];
-					const vec3& bn2 = mesh->Normals[blendVindex2];
-					blendVertex = mix(blendVertex, bv2, b.t1);
-					blendNormal = mix(blendNormal, bn2, b.t1);
+					blendVertex = mix(blendVertex, mesh->Verts[blendVindex2], b.t1);
 				}
 
 				vertex += (blendVertex - restPose) * b.weight;
-				normal += (blendNormal - restNormal) * b.weight;
 			}
 		}
 
 		point = (ObjectToWorld * vec4(vertex, 1.0f)).xyz();
-		worldNormal = normalize(ObjectNormalToWorld * normal);
 		return true;
 	};
 
@@ -910,8 +954,7 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 				const MeshWedge& wedge = mesh->Wedges[wedgeIndex];
 				size_t vbase = (size_t)wedge.Vertex + baseVertexOffset;
 				size_t vindex = mesh->ReMapAnimVerts.empty() || vbase >= mesh->ReMapAnimVerts.size() ? vbase : mesh->ReMapAnimVerts[vbase];
-				vec3 normal;
-				if (!animateVertex(vindex, points[i], normal))
+				if (!animateVertex(vindex, points[i]))
 					return false;
 				uint16_t morphTarget = lodMorph && (int)wedge.Vertex > lodMorphStart && wedge.Vertex < mesh->CollapsePointThus.size() ? mesh->CollapsePointThus[wedge.Vertex] : 0;
 				if (morphTarget != 0)
@@ -919,8 +962,8 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 					float morphT = std::min((float)((int)wedge.Vertex - lodMorphStart) * lodMorphScale, 1.0f);
 					size_t tbase = (size_t)morphTarget + baseVertexOffset;
 					size_t tindex = mesh->ReMapAnimVerts.empty() ? tbase : (tbase < mesh->ReMapAnimVerts.size() ? mesh->ReMapAnimVerts[tbase] : tbase);
-					vec3 targetPoint, targetNormal;
-					if (animateVertex(tindex, targetPoint, targetNormal))
+					vec3 targetPoint;
+					if (animateVertex(tindex, targetPoint))
 						points[i] = mix(points[i], targetPoint, morphT);
 				}
 			}
@@ -930,19 +973,145 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 		{
 			for (const MeshFace& face : mesh->SpecialFaces)
 			{
-				vec3 points[3], normal;
+				vec3 points[3];
 				bool inside = true;
 				for (int i = 0; i < 3 && inside; i++)
 				{
 					size_t vbase = face.Indices[i];
 					size_t vindex = mesh->ReMapAnimVerts.empty() || vbase >= mesh->ReMapAnimVerts.size() ? vbase : mesh->ReMapAnimVerts[vbase];
-					inside = animateVertex(vindex, points[i], normal);
+					inside = animateVertex(vindex, points[i]);
 				}
 				if (inside)
 					lines(points);
 			}
 		}
 		return false;
+	}
+
+	// A corner past the budget walks down its collapse list
+	auto cornerWedge = [&](uint16_t wedgeIndex) -> uint16_t
+	{
+		if (lodActive)
+		{
+			size_t steps = 0;
+			while (mesh->Wedges[wedgeIndex].Vertex >= lodBudget && steps++ < mesh->Wedges.size())
+			{
+				// A list leading past the wedges (a hand-made mesh's) ends here
+				uint16_t next = mesh->CollapseWedgeThus[wedgeIndex];
+				if (next >= mesh->Wedges.size())
+					break;
+				wedgeIndex = next;
+			}
+		}
+		return wedgeIndex;
+	};
+	auto cornerIndex = [&](uint16_t vertex) -> size_t
+	{
+		size_t vbase = (size_t)vertex + baseVertexOffset;
+		return mesh->ReMapAnimVerts.empty() || vbase >= mesh->ReMapAnimVerts.size() ? vbase : mesh->ReMapAnimVerts[vbase];
+	};
+
+	// A vertex of the budget where it lies this draw: at the frame's pose,
+	// slid toward the vertex it collapses to at the top of the budget, as
+	// the original's DrawLodMesh places it before it keeps a face
+	// (0x10b0ea80); false if the mesh's data is out of bounds
+	auto placeVertex = [&](uint16_t vertex, vec3& point) -> bool
+	{
+		if (!animateVertex(cornerIndex(vertex), point))
+			return false;
+		uint16_t morphTarget = lodMorph && (int)vertex > lodMorphStart && vertex < mesh->CollapsePointThus.size() ? mesh->CollapsePointThus[vertex] : 0;
+		if (morphTarget != 0)
+		{
+			float morphT = std::min((float)((int)vertex - lodMorphStart) * lodMorphScale, 1.0f);
+			vec3 targetPoint;
+			if (animateVertex(cornerIndex(morphTarget), targetPoint))
+				point = mix(point, targetPoint, morphT);
+		}
+		return true;
+	};
+
+	// A bParticles mesh draws no face, but each vertex of the budget, placed
+	// as a face's would be, as a particle (DrawParticles)
+	if (actor->bParticles())
+	{
+		uint32_t count = lodActive ? lodBudget : (uint32_t)mesh->ModelVerts;
+		particlePoints.clear();
+		for (uint32_t v = 0; v < count && v <= 0xffff; v++)
+		{
+			vec3 point;
+			if (!placeVertex((uint16_t)v, point))
+				return false;
+			particlePoints.push_back(point);
+		}
+		return DrawParticles(frame, actor, polyFlags, pass);
+	}
+
+	// The vertex's entry in the cache, placed this draw, its normal begun;
+	// none past the cache (a hand-made mesh's), its corner placed for its
+	// face alone. False if the mesh's data is out of bounds.
+	auto cachedVertex = [&](uint16_t vertex, CachedMeshVertex*& entry) -> bool
+	{
+		size_t vindex = cornerIndex(vertex);
+		entry = nullptr;
+		if (vindex >= vertexCache.size())
+			return true;
+		CachedMeshVertex& c = vertexCache[vindex];
+		if (c.Generation != generation)
+		{
+			if (!placeVertex(vertex, c.Point))
+				return false;
+			c.Generation = generation;
+			c.Normal = vec3(0.0f);
+			c.LightKey = 0;
+			c.TakenUnlit = false;
+		}
+		entry = &c;
+		return true;
+	};
+
+	// Each vertex's normal, as the original's DrawLodMesh makes it each draw
+	// (0x10b0ea80): the sum of the unit normals of the faces within the
+	// budget that use it, as they lie this draw, whatever their material,
+	// made a unit -- |n|² + 0.001 under the root, as its table takes it --
+	// so that at reduced detail the shading follows the coarse faces. A
+	// vertex is moved out along its normal by the fatness once its face is
+	// kept.
+	auto faceNormal = [](const vec3& a, const vec3& b, const vec3& c)
+	{
+		vec3 n = cross(b - a, c - a);
+		return n * (1.0f / std::sqrt(dot(n, n) + 0.001f));
+	};
+	size_t normalFace = (size_t)-1;
+	for (const MeshFace& face : faces)
+	{
+		normalFace++;
+		if (lodActive && mesh->FaceLevel[normalFace] > lodBudget)
+			continue;
+		if (face.Indices[0] >= mesh->Wedges.size() || face.Indices[1] >= mesh->Wedges.size() || face.Indices[2] >= mesh->Wedges.size())
+			continue;
+		CachedMeshVertex* corners[3];
+		vec3 points[3];
+		for (int i = 0; i < 3; i++)
+		{
+			uint16_t vertex = mesh->Wedges[cornerWedge(face.Indices[i])].Vertex;
+			if (!cachedVertex(vertex, corners[i]))
+				return false;
+			if (corners[i])
+				points[i] = corners[i]->Point;
+			else if (!placeVertex(vertex, points[i]))
+				return false;
+		}
+		vec3 n = faceNormal(points[0], points[1], points[2]);
+		for (int i = 0; i < 3; i++)
+		{
+			if (corners[i])
+				corners[i]->Normal += n;
+		}
+	}
+	for (CachedMeshVertex& c : vertexCache)
+	{
+		if (c.Generation == generation)
+			c.Normal = c.Normal * (1.0f / std::sqrt(dot(c.Normal, c.Normal) + 0.001f));
 	}
 
 	// Consecutive faces with one texture and one set of flags go to the
@@ -1027,68 +1196,44 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 			}
 		}
 
-		float uscale = (texinfo.Texture ? texinfo.Texture->UsedMipmaps.front().Width : 256) * (1.0f / 256.0f);
-		float vscale = (texinfo.Texture ? texinfo.Texture->UsedMipmaps.front().Height : 256) * (1.0f / 256.0f);
+		// As DrawMeshDX's, the factors DrawLodMesh takes (0x10b10b4e)
+		float uscale = (texinfo.Texture ? texinfo.USize * texinfo.UScale : 256) * (1.0f / 256.0f);
+		float vscale = (texinfo.Texture ? texinfo.VSize * texinfo.VScale : 256) * (1.0f / 256.0f);
 
 		vec3 normals[3];
 		CachedMeshVertex* cached[3] = {};
+		bool uncached = false;
 		for (int i = 0; i < 3; i++)
 		{
-			// A corner past the budget walks down its collapse list
-			uint16_t wedgeIndex = face.Indices[i];
-			if (lodActive)
-			{
-				size_t steps = 0;
-				while (mesh->Wedges[wedgeIndex].Vertex >= lodBudget && steps++ < mesh->Wedges.size())
-				{
-					// A list leading past the wedges (a hand-made mesh's) ends here
-					uint16_t next = mesh->CollapseWedgeThus[wedgeIndex];
-					if (next >= mesh->Wedges.size())
-						break;
-					wedgeIndex = next;
-				}
-			}
+			uint16_t wedgeIndex = cornerWedge(face.Indices[i]);
 			const MeshWedge& wedge = mesh->Wedges[wedgeIndex];
-
-			size_t vbase = (size_t)wedge.Vertex + baseVertexOffset;
-			size_t vindex = mesh->ReMapAnimVerts.empty() || vbase >= mesh->ReMapAnimVerts.size() ? vbase : mesh->ReMapAnimVerts[vbase];
-
-			if (vindex < vertexCache.size())
-			{
-				CachedMeshVertex& c = vertexCache[vindex];
-				if (c.Generation != generation)
-				{
-					if (!animateVertex(vindex, c.Point, c.Normal))
-					{
-						drawBatch();
-						return false;
-					}
-					c.Generation = generation;
-					c.LightKey = 0;
-					c.TakenUnlit = false;
-				}
-				vertices[i].Point = c.Point;
-				normals[i] = c.Normal;
-				cached[i] = &c;
-			}
-			else if (!animateVertex(vindex, vertices[i].Point, normals[i]))
+			if (!cachedVertex(wedge.Vertex, cached[i]))
 			{
 				drawBatch();
 				return false;
 			}
+			if (cached[i])
+			{
+				vertices[i].Point = cached[i]->Point;
+				normals[i] = cached[i]->Normal;
+			}
+			else
+			{
+				if (!placeVertex(wedge.Vertex, vertices[i].Point))
+				{
+					drawBatch();
+					return false;
+				}
+				uncached = true;
+			}
 			vertices[i].UV = { wedge.U * uscale, wedge.V * vscale };
 
-			// The top of the budget slides toward what it collapses to; the
-			// texture coordinates as bytes, rounded down
+			// The top of the budget slides its texture coordinates toward the
+			// wedge it collapses to, as bytes, rounded down
 			uint16_t morphTarget = lodMorph && (int)wedge.Vertex > lodMorphStart && wedge.Vertex < mesh->CollapsePointThus.size() ? mesh->CollapsePointThus[wedge.Vertex] : 0;
 			if (morphTarget != 0)
 			{
 				float morphT = std::min((float)((int)wedge.Vertex - lodMorphStart) * lodMorphScale, 1.0f);
-				size_t tbase = (size_t)morphTarget + baseVertexOffset;
-				size_t tindex = mesh->ReMapAnimVerts.empty() ? tbase : (tbase < mesh->ReMapAnimVerts.size() ? mesh->ReMapAnimVerts[tbase] : tbase);
-				vec3 targetPoint, targetNormal;
-				if (animateVertex(tindex, targetPoint, targetNormal))
-					vertices[i].Point = mix(vertices[i].Point, targetPoint, morphT);
 				uint16_t targetWedgeIndex = mesh->CollapseWedgeThus[wedgeIndex];
 				if (targetWedgeIndex != wedgeIndex && targetWedgeIndex < mesh->Wedges.size())
 				{
@@ -1100,6 +1245,16 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 						vertices[i].UV = { u * uscale, v * vscale };
 					}
 				}
+			}
+		}
+		// A corner past the cache takes its face's normal
+		if (uncached)
+		{
+			vec3 n = faceNormal(vertices[0].Point, vertices[1].Point, vertices[2].Point);
+			for (int i = 0; i < 3; i++)
+			{
+				if (!cached[i])
+					normals[i] = n;
 			}
 		}
 
@@ -1126,6 +1281,14 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 		}
 		if (!drawn)
 			continue;
+
+		// Each corner moved out along its normal by the fatness, as the
+		// original moves a vertex it lights, after the faces are kept
+		if (fatness != 0.0f)
+		{
+			for (int i = 0; i < 3; i++)
+				vertices[i].Point += normals[i] * fatness;
+		}
 
 		if (renderflags & PF_Environment)
 		{
@@ -1169,6 +1332,112 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 	drawBatch();
 
 	return needTranslucentPass;
+}
+
+// A bParticles mesh as the original's DrawLodMesh and DrawMesh draw one
+// (Render.dll 0x10b0f7a0, 0x10b0d6be): no face, but each vertex given that
+// lies within the view's four sides and deeper than a unit as a tile of
+// the actor's Texture, its size times the draw scale about the vertex,
+// upright and facing the view, at the vertex's own projection, as a
+// polygon's corner is projected -- or, with bRandomFrame, of the MultiSkins
+// entry its place in the mesh picks, the ceiling of a third of 88 times its
+// index over 32 (its byte offset in the original's vertex pool), mod 8, at
+// the frame of that texture's animation the actor's life has reached, one
+// with none passed over. Each is lit by the unlit level, AmbientGlow / 256 +
+// ScaleGlow / 2 held to 0-1, times ScaleGlow, each channel at most 1, and
+// drawn two-sided in the actor's style. With no Texture the original's
+// DrawLodMesh fails an assertion and its DrawMesh draws nothing: none here.
+bool VisibleMesh::DrawParticles(VisibleFrame* frame, UActor* actor, uint32_t polyFlags, MeshPass pass)
+{
+	UTexture* own = actor->Texture();
+	if (!own)
+		return false;
+	bool translucent = (polyFlags & (PF_Translucent | PF_Modulated)) != 0;
+	if (pass == MeshPass::Opaque && translucent)
+		return true;
+	if (pass == MeshPass::Translucent && !translucent)
+		return false;
+
+	engine->render->UpdateTexture(own);
+	own = own->GetAnimTexture();
+
+	float level = std::clamp(actor->AmbientGlow() / 256.0f + actor->ScaleGlow() * 0.5f, 0.0f, 1.0f);
+	if (actor->ScaleGlow() != 1.0f)
+		level = std::min(level * actor->ScaleGlow(), 1.0f);
+	vec3 color(level);
+
+	const SceneNode& node = frame->Frame;
+	float tx = (float)std::tan(radians(node.FovAngle) * 0.5f);
+	float ty = node.FX > 0.0f ? tx * node.FY / node.FX : tx;
+	float life = 0.0f;
+	if (actor->bRandomFrame())
+	{
+		float defaultLife = actor->Class->GetDefaultObject<UActor>()->LifeSpan();
+		life = defaultLife > 0.0f ? std::clamp(1.0f - actor->LifeSpan() / defaultLife, 0.0f, 1.0f) : 0.0f;
+	}
+
+	for (size_t i = 0; i < particlePoints.size(); i++)
+	{
+		const vec3& point = particlePoints[i];
+		vec4 p = node.WorldToView * vec4(point, 1.0f);
+		if (!(p.z > 1.0f) || p.z * tx + p.x < 0.0f || p.z * tx - p.x < 0.0f || p.z * ty + p.y < 0.0f || p.z * ty - p.y < 0.0f)
+			continue;
+
+		UTexture* texture = own;
+		if (actor->bRandomFrame())
+		{
+			texture = actor->GetMultiskin((int)std::ceil((float)((88 * i) >> 5) * 0.33333334f) % 8);
+			if (!texture)
+				continue;
+			int count = texture->GetAnimTextureCount();
+			int frameIndex = std::clamp((int)((float)count * life - 0.5f), 0, count - 1);
+			for (int k = 0; k < frameIndex && texture->AnimNext(); k++)
+				texture = texture->AnimNext();
+			engine->render->UpdateTexture(texture);
+		}
+		if (texture->UsedMipmaps.empty())
+			continue;
+
+		TextureInfo texinfo;
+		texinfo.Texture = texture;
+		texinfo.CacheID = (uint64_t)(ptrdiff_t)texture;
+		texinfo.bRealtimeChanged = texture->TakeChange();
+		texinfo.Format = texture->UsedFormat;
+		texinfo.Mips = texture->UsedMipmaps.data();
+		texinfo.NumMips = (int)texture->UsedMipmaps.size();
+		texinfo.USize = texture->USize();
+		texinfo.VSize = texture->VSize();
+		if (texture->Palette())
+			texinfo.Palette = (TextureColor*)texture->Palette()->Colors.data();
+		engine->render->ApplyDetailLOD(texinfo);
+
+		uint32_t flags = PF_TwoSided | (polyFlags & (PF_Masked | PF_Translucent | PF_Modulated | PF_NoSmooth)) | texture->PolyFlags();
+		if (texture->bMasked())
+			flags |= PF_Masked;
+		flags = RenderDevice::TileFlags(texinfo, flags);
+		if (flags & PF_Invisible)
+			continue;
+
+		float width = (float)texture->USize(), height = (float)texture->VSize();
+		vec3 side = frame->ViewRotation.YAxis * (width * actor->DrawScale() * 0.5f);
+		vec3 up = frame->ViewRotation.ZAxis * (height * actor->DrawScale() * 0.5f);
+		GouraudVertex vertices[4];
+		vertices[0].Point = point - side - up;
+		vertices[0].UV = { 0.0f, height };
+		vertices[1].Point = point + side - up;
+		vertices[1].UV = { width, height };
+		vertices[2].Point = point + side + up;
+		vertices[2].UV = { width, 0.0f };
+		vertices[3].Point = point - side + up;
+		vertices[3].UV = { 0.0f, 0.0f };
+		for (GouraudVertex& v : vertices)
+		{
+			v.Light = color;
+			v.Fog = vec4(0.0f);
+		}
+		frame->Device->DrawGouraudPolygon(&frame->Frame, texinfo, vertices, 4, flags);
+	}
+	return translucent;
 }
 
 void VisibleMesh::DrawDebugInfo(VisibleFrame* frame, UActor* actor)

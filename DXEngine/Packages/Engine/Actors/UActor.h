@@ -453,16 +453,6 @@ public:
 		int LastFrame = -1;
 	} MeshLights;
 
-	// Fog between actor and camera
-	struct
-	{
-		vec3 fogcolor = { 0.0f };
-		float brightness = -1.0f;
-		float fog = -1.0f;
-		float radius = -1.0f;
-		vec3 location = { 0.0f };
-	} FogInfo;
-
 	// Location in the BSP tree
 	struct
 	{

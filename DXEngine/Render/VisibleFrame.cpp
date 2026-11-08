@@ -2,7 +2,6 @@
 #include "Precomp.h"
 #include "VisibleFrame.h"
 #include <tuple>
-#include "VisibleCorona.h"
 #include "RenderSubsystem.h"
 #include "RenderDevice/RenderDevice.h"
 #include "Packages/Engine/UViewport.h"
@@ -70,7 +69,6 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const 
 	Actors.clear();
 	for (Array<VisibleTranslucent>& list : Translucents)
 		list.clear();
-	Coronas.clear();
 	Portals.clear();
 
 	// The occlusion proxies are built in view space and set back in the
@@ -305,6 +303,11 @@ bool VisibleFrame::SpriteRectangle(UActor* actor, float& minX, float& minY, floa
 			return false;
 		float halfWidth = actor->Texture()->USize() * actor->DrawScale() * 0.5f;
 		float halfHeight = actor->Texture()->VSize() * actor->DrawScale() * 0.5f;
+		// None whose left edge's pixel, the column it rounds up to, is the
+		// frame's last or past it, as the original's has none (Render.dll
+		// 0x10b23c91-0x10b23c9a)
+		if (std::ceil(Frame.FX2 + (location.x - halfWidth) / z * (Frame.FX2 / FrustumTanX)) >= (float)(Frame.X - 1))
+			return false;
 		minX = std::max((location.x - halfWidth) / z, -FrustumTanX);
 		maxX = std::min((location.x + halfWidth) / z, FrustumTanX);
 		minY = std::max((location.y - halfHeight) / z, -FrustumTanY);
@@ -1019,7 +1022,7 @@ void VisibleFrame::Draw()
 	DrawPortals();
 	// The frames through its portals drawn, each from its own eye: its own
 	// draws from its own
-	engine->Level->Light.SetEye(ViewLocation.xyz(), SceneIndex);
+	engine->Level->Light.SetEye(ViewLocation.xyz(), SceneIndex, Frame.WorldToView);
 	DrawOpaqueNodes();
 	DrawOpaqueActors();
 	SortTranslucent();

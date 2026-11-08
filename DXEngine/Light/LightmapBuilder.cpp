@@ -179,10 +179,11 @@ bool LightmapBuilder::LightAnimates(UActor* light)
 }
 
 // The light manager's square root (Render.dll FLightManager::Init's table,
-// 0x10b0225d-0x10b022ce, as SetupLight reads it, 0x10b06681-0x10b0669f): the
-// root of the value with its significand cut to its top 10 bits, a table's
-// float by those bits and the exponent's parity, the exponent halved into it
-static float LightSqrt(float x)
+// 0x10b0225d-0x10b022ce, as SetupLight reads it, 0x10b06681-0x10b0669f, and
+// SetupForSurf its fog's, 0x10b076cf-0x10b07720): the root of the value
+// with its significand cut to its top 10 bits, a table's float by those
+// bits and the exponent's parity, the exponent halved into it
+float LightmapBuilder::LightSqrt(float x)
 {
 	static const std::array<uint32_t, 2048> table = []()
 	{

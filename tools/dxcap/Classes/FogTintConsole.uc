@@ -18,12 +18,14 @@
 // instead, the shots 5 s apart: on 04_NYC_NSFHQ (LightName TriggerLight0,
 // ZoneName ZoneInfo1, TriggerTag GasGoesOff) the gas room's six
 // TriggerLights, VolumeBrightness 220 and VolumeFog 100, toggled off as
-// Switch0 or Switch1 toggles them in play. Each line is logged with
-// "DXFOG:" in front.
+// Switch0 or Switch1 toggles them in play. With Baseline, a shot before
+// those with every volumetric light's VolumeBrightness 0, which leaves its
+// fog no density and its surfaces their fog maps, clear, in either engine,
+// then each put back: each shot after it less it is the fog alone
+// (fogdelta.py). Each line is logged with "DXFOG:" in front.
 // Render.dll makes the fog map each frame from the light as it is then
 // (URender::GlobalLighting 0x10b05e90; FLightManager::SetupLight
-// 0x10b060b3-0x10b06c19); DXEngine keeps the colour, density, sphere and
-// place of its first use (Light/FogmapBuilder.cpp:49-58).
+// 0x10b060b3-0x10b06c19), as DXEngine does.
 //=============================================================================
 class FogTintConsole extends Console;
 
@@ -33,6 +35,7 @@ var config string ZoneName;
 var config int Yaw;
 var config byte PreBrightness;
 var config string TriggerTag;
+var config bool Baseline;
 
 var float MapTime;
 var float StepTime;
@@ -46,6 +49,10 @@ var rotator View;
 
 var int MarkShot;
 var bool bMarking;
+var int ShotStep;
+var Actor Dimmed[32];
+var byte DimmedBrightness[32];
+var int NumDimmed;
 
 function string MapOf(PlayerPawn P)
 {
@@ -82,6 +89,43 @@ function float Gap()
 	if (TriggerTag != "")
 		return 5.0;
 	return 3.0;
+}
+
+// The baseline's shot, then the three
+function int Shots()
+{
+	if (Baseline)
+		return 4;
+	return 3;
+}
+
+// Every volumetric light's fog off for the baseline, or back
+function DimFog(PlayerPawn P, bool bOff)
+{
+	local Actor A;
+	local int i;
+
+	if (bOff)
+	{
+		foreach P.AllActors(class'Actor', A)
+		{
+			if (A.VolumeRadius != 0 && A.VolumeBrightness != 0 && NumDimmed < 32)
+			{
+				Dimmed[NumDimmed] = A;
+				DimmedBrightness[NumDimmed] = A.VolumeBrightness;
+				A.VolumeBrightness = 0;
+				NumDimmed++;
+			}
+		}
+		Log("DXFOG: " $ NumDimmed $ " volumetric lights' VolumeBrightness 0");
+	}
+	else
+	{
+		for (i = 0; i < NumDimmed; i++)
+			if (Dimmed[i] != None)
+				Dimmed[i].VolumeBrightness = DimmedBrightness[i];
+		Log("DXFOG: " $ NumDimmed $ " volumetric lights' VolumeBrightness back");
+	}
 }
 
 function HoldView(PlayerPawn P)
@@ -207,6 +251,8 @@ event Tick(float Delta)
 			View.Yaw = Yaw;
 			View.Roll = 0;
 			HoldView(P);
+			if (Baseline)
+				DimFog(P, true);
 			LogLamp(P, "placed, zone " $ Zone.Name $ " fog zone " $ Zone.bFogZone);
 			StepTime = 0;
 			Phase = 2;
@@ -215,7 +261,7 @@ event Tick(float Delta)
 	else if (Phase == 2)
 	{
 		HoldView(P);
-		if (StepTime > Gap() && ShotsTaken < 3)
+		if (StepTime > Gap() && ShotsTaken < Shots())
 		{
 			if (!bMarking)
 			{
@@ -230,9 +276,14 @@ event Tick(float Delta)
 				bMarking = false;
 				ShotsTaken++;
 				StepTime = 0.0;
-				if (TriggerTag != "")
+				ShotStep = ShotsTaken;
+				if (Baseline)
+					ShotStep--;
+				if (Baseline && ShotStep == 0)
+					DimFog(P, false);
+				else if (TriggerTag != "")
 				{
-					if (ShotsTaken == 1)
+					if (ShotStep == 1)
 					{
 						foreach P.AllActors(class'Actor', A)
 							if (string(A.Tag) ~= TriggerTag)
@@ -242,16 +293,16 @@ event Tick(float Delta)
 							}
 					}
 				}
-				else if (ShotsTaken == 1)
+				else if (ShotStep == 1)
 					Lamp.LightBrightness = 255;
-				else if (ShotsTaken == 2)
+				else if (ShotStep == 2)
 				{
 					Lamp.LightHue = 0;
 					Lamp.LightSaturation = 0;
 				}
 			}
 		}
-		else if (ShotsTaken >= 3 && StepTime > 2.0)
+		else if (ShotsTaken >= Shots() && StepTime > 2.0)
 		{
 			Log("DXFOG: done, exiting");
 			P.ConsoleCommand("exit");
@@ -268,4 +319,5 @@ defaultproperties
 	Yaw=32768
 	PreBrightness=0
 	TriggerTag=""
+	Baseline=False
 }

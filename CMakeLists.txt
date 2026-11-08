@@ -104,8 +104,6 @@ set(DXCOMMON_SOURCES
 	DXEngine/Render/VisibleActor.h
 	DXEngine/Render/VisibleBrush.cpp
 	DXEngine/Render/VisibleBrush.h
-	DXEngine/Render/VisibleCorona.cpp
-	DXEngine/Render/VisibleCorona.h
 	DXEngine/Render/VisibleDecal.cpp
 	DXEngine/Render/VisibleDecal.h
 	DXEngine/Render/VisibleFrame.cpp
@@ -355,7 +353,6 @@ set(DXCOMMON_SOURCES
 	DXEngine/Math/FrustumPlanes.h
 	DXEngine/Math/halffloat.cpp
 	DXEngine/Math/halffloat.h
-	DXEngine/Math/hsb.cpp
 	DXEngine/Math/hsb.h
 	DXEngine/Math/mat.cpp
 	DXEngine/Math/mat.h

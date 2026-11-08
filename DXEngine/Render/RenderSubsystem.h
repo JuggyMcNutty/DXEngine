@@ -61,7 +61,10 @@ public:
 	void DrawTile(UTexture* Tex, float x, float y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 color, vec4 fog, uint32_t flags);
 	void DrawTileClipped(UTexture* Tex, float orgX, float orgY, float curX, float curY, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 color, vec4 fog, uint32_t flags, float clipX, float clipY);
 	void DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const ScriptString& text, uint32_t polyflags, bool center, float spaceX = 0.0f, float spaceY = 0.0f, float clipX = 100000.0f, float clipY = 100000.0f, bool noDraw = false);
-	void DrawTextClipped(UFont* font, vec4 color, float orgX, float orgY, float curX, float curY, const ScriptString& text, uint32_t polyflags, bool checkHotKey, float clipX, float clipY);
+	// The canvas's text laid out, drawn unless noDraw, as the original's
+	// WrappedPrint lays it: XL the furthest a line ended, YL their heights
+	void WrappedPrint(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, const ScriptString& text, uint32_t polyflags, bool center, float spaceX, float spaceY, float clipX, float clipY, bool noDraw, int& XL, int& YL);
+	void DrawTextClipped(UFont* font, vec4 color, float orgX, float orgY, float curX, float curY, const ScriptString& text, uint32_t polyflags, bool checkHotKey, float spaceX, float clipX, float clipY);
 	vec2 GetTextSize(UFont* font, const ScriptString& text, float spaceX = 0.0f, float spaceY = 0.0f);
 
 	void DrawTile(TextureInfo& Info, float X, float Y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 Color, vec4 Fog, uint32_t PolyFlags);
@@ -177,8 +180,7 @@ private:
 	void DrawTimedemoStats();
 	void DrawTile(TextureInfo& texinfo, const Rectf& dest, const Rectf& src, const Rectf& clipBox, float Z, vec4 color, vec4 fog, uint32_t flags);
 
-	static Array<ScriptString> FindTextBlocks(const ScriptString& text);
-	void DrawTextBlockRange(float x, float y, const Array<ScriptString>& textBlocks, size_t start, size_t end, UFont* font, vec4 color, uint32_t polyflags, float spaceX);
+	int DrawTextLine(UFont* font, vec4 color, float orgX, float orgY, int x, int y, const ScriptString& text, size_t count, uint32_t polyflags, float spaceX, bool clip, bool hotKeys, float clipX, float clipY);
 
 	float LevelTimeElapsed = 0.0f;
 	double TextureClock = 0.0; // the textures' clock at this frame (UTexture::ClockNow)

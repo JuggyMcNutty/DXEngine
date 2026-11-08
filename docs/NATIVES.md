@@ -707,13 +707,20 @@ however near the eye, its corners tested where their lines from the eye
 lie 1.5 units out, the clipper's near plane cutting away what is nearer
 (`NearProxyConsole`: crates 0.05 to 1.4 units before the eye, a wall 1.25
 units off, counted as drawn on six walls in both engines, the one at 2
-units not). A decal counts as drawn when some of it shows, tested
+units not). A sprite whose left edge's pixel is the frame's last column or
+past it has no rectangle and does not count as drawn (`SpriteEdgeConsole`:
+its left edge 2.5 pixels short of the right edge seen in both engines,
+1.75 and 1.25 in neither, where the build before saw them). A decal counts
+as drawn when some of it shows, tested
 against the spans before its surface fills them
 ([render time](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#render-time)):
 the game's go when not drawn for a second, some 20 s after they land
 (`DeusExDecal`), so `CensusConsole`'s blood splats, 90 s under fire on
 Liberty Island, are 140 to 170 at the end against the original's 90 to 186,
-of some 400 to 700 made in either. Differs (bugs.md REN.60): a mover hides
+of some 400 to 700 made in either. A surface's decals are drawn in the
+order the original's `AttachDecal` files them, a new one before the first
+of its texture, and one whose texture is `None` in the level's
+`DefaultTexture` -- no stock decal's. Differs (bugs.md REN.60): a mover hides
 nothing, so what lies behind a closed door counts as drawn. Differs
 (bugs.md REN.61): a decal lies a unit toward the eye along the view's axis,
 the original's 0.75 units off its surface along its normal. Differs
@@ -793,13 +800,24 @@ whatever its smoothing, its colour 0 cut out. A window's tile, as a
 canvas's, adds its texture's own masked bit
 ([the GC's styles](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#styles)),
 so a masked texture draws masked in any style; the canvas's text, clipped
-or not, takes its style's flags, and lands on whole pixels, as the original's
-`WrappedPrint` and `DrawTextClipped` place it
-([the loading screen](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-loading-screen)):
-a line from its X and the canvas's `CurY` each truncated, a centred one's
-half the room it leaves added before, each glyph a whole pixel's step
-(its width and `SpaceX`, truncated), and `CurX` where the line ended;
-`DrawTextClipped` centres nothing. `TileConsole`, on the canvas and in a
+or not, takes its style's flags, and is laid out as the original's
+`WrappedPrint`, `DrawTextClipped`, `StrLen` and `TextSize` lay it
+([the canvas's text](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-canvass-text)):
+a glyph found on page c / `CharactersPerPage`, one the font has at no width
+taking none; a line from its X and the canvas's `CurY` each truncated, a
+centred one's half the room its end leaves from `CurX` added, each glyph a
+whole pixel's step (its width and `SpaceX`, truncated), ending after the
+last word that fits, its space out of its width, or within a word wider
+than the room after its last glyph that fits; a line feed, or a first glyph
+wider than the room, ending the print; `CurX` after it the furthest a line
+ended, from `CurX`'s whole pixels; `StrLen` leaving `CurX` and `CurY`
+truncated; `DrawTextClipped` centring nothing, cutting a glyph across the
+clip and going on, its hot key's `_` over the letter's place at most as
+wide, and `LargeFont` and `BigFont` giving way to `MedFont` where the
+language is not int. `CanvasTextConsole` with MedFont: every measure and
+place the original's, its lines alike in both engines, where the build
+before parted at a line feed, a long word, a glyph of no width, a wrap's
+space, `StrLen`'s place and a centred line's `CurX`. `TileConsole`, on the canvas and in a
 window over a grey box: `StaticLine` modulated (the line across a camera's
 and the InfoLink's static, a quarter of it colour 0, black) at 1.02 of
 `D3DDrv`'s brightness; `HackInfoBackground` modulated (the hacking screen's
@@ -811,9 +829,6 @@ stock menus draw it translucent); on the canvas, clipped text drawn
 `STY_Translucent` translucent. By choice, a smoothed tile's edges are
 clamped on every device, where `D3DDrv`'s addressing wraps, its outer half
 texel blending with the opposite edge, which no stock art relies on.
-Differs (bugs.md REN.69): the canvas's text laid out otherwise at a line feed, a word wider
-than the room, a glyph of no width, a wrap's space, `StrLen`'s place and a
-centred line's.
 
 A window's tile and character are placed as the original's GC places them
 ([the GC's styles](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#styles)):
@@ -990,8 +1005,10 @@ frames stepped every 4 s, its current frame at each shot logged alike in
 both engines and drawn alike (correlated with `D3DDrv`'s at 0.975), and the
 fire texture `LaserBeam1`, its image changing from shot to shot in both.
 
-Differs (bugs.md PHYS.34): a corona's colour some 2% brighter than
-Render.dll's.
+A corona's colour is `DrawFrame`'s own (`0x10b1a2d0`): its light's hue as
+two neighbouring primaries 85 steps apart, the last third's blue over 84,
+whitened by its saturation, times its fade, none of the light maps'
+brightness curve: by reading.
 
 ### What a pawn holds
 
@@ -1132,9 +1149,23 @@ both engines, the frame there at a correlation of 0.990 to `D3DDrv`'s
 1.37 times as bright, while DXEngine drew its far side too). Five of the
 game's meshes are plain: the menu maps' logos and text, and the fly.
 
-Differs (bugs.md REN.64): a mesh's vertex normals made at load, the
-original's at each draw from the faces within the budget, and small sprite
-items. By choice, a detail budget past an int's range is held to the mesh,
+A LOD mesh's vertex normals are made at each draw, as the original's
+`DrawLodMesh` makes them: each the sum of the unit normals of the faces
+within the budget that use it, as they lie that draw, so that at reduced
+detail the shading follows the coarse faces, the vertex moved out along it
+by the fatness: `MeshConsole` with `LODBias=0.004` and `NoDetail`, the
+frame at an RMS of 3.55 grey levels to `D3DDrv`'s, Paul Denton's figure
+6.19 (4.07 and 6.75 while DXEngine's were the mesh's frames' own, from
+every face). A corner's U and V are its bytes × the texture's size at its
+scale ÷ 256, which the render device divides by again, so a skin's
+`DrawScale` moves nothing; a held item's budget goes by its
+`ThirdPersonScale`, which the original swaps in for its `DrawScale`; a
+plain mesh's pawn holds what it holds at its weapon triangle; a
+`bParticles` mesh draws each vertex of its budget in view as a tile of its
+`Texture` (with `bRandomFrame` a `MultiSkins` entry by the vertex's place,
+at the frame its life has reached), lit by its glow -- none of it stock
+content's ([meshes](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#meshes)).
+By choice, a detail budget past an int's range is held to the mesh,
 where the original's makes it the least int and hands on a negative count,
 and a hand-made mesh's corner walk and wedges are held to its arrays, where
 the original's would loop or read past them.
@@ -1348,10 +1379,24 @@ By choice, a mesh's light fades step once a
 frame, where the original's step at each draw of the mesh, an armed pawn's
 twice. Differs (bugs.md WIN.28): `RMODE` is taken by nothing, so the
 credits' Matrix egg draws the world lit, the original's full-bright.
-Differs (bugs.md REN.66): the fog map never follows its light after the
-light's first use. Differs (bugs.md REN.67): the fog's colour and density by
-a formula of DXEngine's own. By choice, the fog map is held in floats, where
-the original's has seven bits a texel, drawn at 2c/255.
+A fog map is made each frame from its volumetric lights as they are then,
+as the original's light manager sets each up
+([the fog map](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps)):
+the level's own, and a moving light in a fog zone with a `LightRadius`, a
+`VolumeRadius` and a `VolumeBrightness`, each in its sphere of
+(`VolumeRadius` + 1) × 25 units where it is, its colour the light maps'
+record of it, its density `VolumeBrightness` × its brightness now / 64; a
+texel 255 × its density along the line of sight × the colour, its alpha the
+density × `VolumeFog`, each held to 127 and drawn at 2c/255, the lights
+laid over each other farthest along the view first, each texel its own
+plus (127 − its alpha)/127 of what lies under it. `FogTintConsole` in
+02_NYC_Bar, `Light90` turned to brightness 255 and then red: the fog
+bright, then red, in both engines, the fog alone at 1.01 to 1.02 of the
+original's channel by channel, the faint first shot's at 1.2 to 1.4
+(`Baseline`, `fogdelta.py`), where the build before drew none once the
+baseline had zeroed it. By choice,
+the fog map is held in floats, where the original's has seven bits a
+texel, drawn at 2c/255, and its table's steps whole numbers.
 
 ### Brightness
 
@@ -1588,10 +1633,23 @@ Differs:
   x87's, and they differ in the last bit; by choice, a port computing as
   its C library does.
 
-Differs (bugs.md REN.65): a fire whose `RenderHeat` is 0 gets no colour
-table and draws as colour 0, the original's 15 levels cooler. Differs
-(bugs.md REN.68): the fire engine's sine table truncated, the original's
-rounded. Differs (bugs.md REN.70): small fire and ice items.
+The shared sine table is the original's, its entries rounded to the
+nearest (read: Fire.dll `0x1050106a`): `SineTableConsole`'s
+`Electricity.Xplsn_EMPG`, its eleven WhirlyThing drops drawing no random
+bytes, after 100 steps matches the texture stepped with the table rounded
+at all of the 7,781 texels where the two tables part (`sinecheck.py`),
+where the build before matched the truncated one at all of them; the
+original's frames match neither's 100 steps. A fire's colour table is made as it loads whatever its
+`RenderHeat`, so that one of 0 cools 15 levels a step, as the original's:
+`FireHeatConsole`'s `SparkFX1` burns yellow and `Spark_Electric` and
+`Wepn_EMPG_SFX` blue in both engines, each tile at 0.94 to 1.05 of
+`D3DDrv`'s brightness, where the build before drew them at 0.39 to 0.64. A fire's `SparksLimit` is held to 4 to 8,192 only where more
+sparks were saved than it allows, so that one of 0 leaves the fire no
+sparks, its pass going on; a save writes the placed sparks in the order
+the original's leaves them and drops the ones they let go from the fire
+itself; an ice texture's place is rounded to the nearest pixel, its pans
+worked out as the original's, at 24 bits in the frame that draws it. By
+reading: no stock texture reaches them.
 
 ### Head turns and lip sync: blend animations
 
@@ -3687,7 +3745,8 @@ A mod gets the original's loader and natives:
   a fire texture's sparks and drops outside it are masked into it and a
   water texture's cells checked, a row's shift taken from the texture's
   width, where the original's writes with the package's `UBits`, every stock
-  one its width's; a scripted texture drawn from outside its source wraps, and one drawn with a
+  one its width's; a fire's `SparksLimit` past 1,048,576 is held there, where
+  the original's makes room for any; a scripted texture drawn from outside its source wraps, and one drawn with a
   size of 0 or a float that is no number draws nothing; an animation chain
   that never comes back ends at 2,048 textures; an import whose outers never
   end is refused; an export whose class, outer or base rings on itself is

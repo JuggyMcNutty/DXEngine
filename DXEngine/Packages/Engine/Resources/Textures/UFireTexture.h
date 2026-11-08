@@ -53,6 +53,7 @@ public:
 
 	void Load(ObjectStream* stream) override;
 	void Save(PackageStreamWriter* stream) override;
+	void InitNativeDefaults() override;
 
 	void Prepare() override;
 	void UpdateFrame() override;
@@ -78,6 +79,8 @@ public:
 	BitfieldBool bRising() { return BoolValue(PropOffsets_FireTexture.bRising); }
 
 private:
+	void Grow(int size);
+
 	// The sparks as saved, then SparksLimit slots in all.
 	Array<FireEngine::Spark> Sparks;
 };

@@ -112,8 +112,10 @@ void UIceTexture::RenderIce(float deltaTime)
 	UPosition() = ice.UPosition;
 	VPosition() = ice.VPosition;
 
-	int upos = (int)UPosition();
-	int vpos = (int)VPosition();
+	// The place in whole pixels by fistp, to the nearest (RenderIce, Fire.dll
+	// 0x1050a18b; BlitTexIce 0x10505ecd, BlitIceTex 0x1050624d)
+	int upos = FireEngine::RoundToInt(UPosition());
+	int vpos = FireEngine::RoundToInt(VPosition());
 	if (upos == OldUDisplace() && vpos == OldVDisplace() && ForceRefresh() == 0)
 		return;
 	OldUDisplace() = upos;

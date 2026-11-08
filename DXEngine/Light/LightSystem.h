@@ -153,8 +153,9 @@ public:
 	// the original's frame draws from its own eye (render-dll.md, a mirror's
 	// frame): the main view's, a mirror's, a sky's, a viewport window's. view
 	// is the frame's place among the scene's frames, 0 the main view's: each
-	// keeps fog maps of its own.
-	void SetEye(const vec3& eye, int view) { Eye = eye; EyeView = view; }
+	// keeps fog maps of its own. worldToView gives a fog light's depth along
+	// the frame's view.
+	void SetEye(const vec3& eye, int view, const mat4& worldToView) { Eye = eye; EyeView = view; EyeWorldToView = worldToView; }
 
 	// The level's lights whose reach may take in a location, as of the last
 	// frame drawn: BeginFrame builds their tree from each actor with a light
@@ -205,9 +206,20 @@ private:
 	};
 	std::map<uint64_t, FogmapEntry> fogtextures;
 	FogmapBuilder FogBuilder;
+	// The level's volumetric lights, from its lights at its load
 	Array<UActor*> FogBalls;
+	// The fog lights as they are this frame (BeginFrame), and those that
+	// reach a map with their depths along the view (UpdateFogmapTexture)
+	Array<FogLight> FogLights;
+	struct ReachedFog
+	{
+		const FogLight* Light;
+		float Depth;
+	};
+	Array<ReachedFog> FogReached;
 	vec3 Eye = vec3(0.0f);
 	int EyeView = 0;
+	mat4 EyeWorldToView = mat4::identity();
 	int FrameCounter = 0;
 	int LightmapCheckCounter = 0;
 	int NextMoverID = 1;

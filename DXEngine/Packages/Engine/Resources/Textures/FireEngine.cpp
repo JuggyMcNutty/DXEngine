@@ -1,6 +1,8 @@
 
 #include "Precomp.h"
 #include "FireEngine.h"
+#include "Math/floating.h"
+#include <climits>
 #include <cmath>
 #include <cstdlib>
 
@@ -20,10 +22,13 @@ namespace FireEngine
 			return;
 		for (int i = 0; i < 256; i++)
 		{
-			// As the original rounds it: its constants floats but the sum's,
-			// through a float, truncated.
+			// As the original works it out: its constants floats but the
+			// sum's, through a float, rounded to the nearest by its fistp, the
+			// x87's rounding no module of the game changes (Fire.dll
+			// 0x1050106a; Core.dll's appEnableFastMath, 0x1016e050, sets the
+			// precision alone)
 			float value = (float)(std::sin(i * 0.00390625 * (double)6.2831855f) * 127.5 + 127.44999694824219);
-			SinTable[i] = (uint8_t)(int)value;
+			SinTable[i] = (uint8_t)(int)std::nearbyint(value);
 		}
 		for (int i = 0; i < 256; i++)
 		{
@@ -951,15 +956,31 @@ namespace FireEngine
 	/////////////////////////////////////////////////////////////////////////
 	// Ice
 
+	// A float made a whole number as the original's fistp makes it, at the
+	// x87's rounding: to the nearest, ties to even; past an int's range, or
+	// a NaN, its integer indefinite
+	int RoundToInt(float v)
+	{
+		if (!(v >= -2147483648.0f && v < 2147483648.0f))
+			return INT_MIN;
+		return (int)std::nearbyint(v);
+	}
+
+	// The original's MoveIcePosition (Fire.dll 0x10505b10), each step at the
+	// x87's precision, 24 bits in the frame that draws it (X87): a circle's
+	// or a wave's offset through a float to a whole pixel by fistp
+	// (0x10505c26-0x10505e10), its constants floats
 	void MoveIce(Ice& ice, float deltaTime)
 	{
+		auto r = [](double v) { return X87::Round(v); };
 		int hspeed = (int8_t)(uint8_t)(ice.HorizPanSpeed + 0x80);
 		int vspeed = (int8_t)(uint8_t)(ice.VertPanSpeed + 0x80);
-		ice.MasterCount = deltaTime * 120.0f + ice.MasterCount;
-		ice.UDisplace = (float)(ice.UDisplace - ((double)hspeed * deltaTime + (double)hspeed * deltaTime));
-		ice.VDisplace = (float)((double)vspeed * deltaTime + (double)vspeed * deltaTime + ice.VDisplace);
-		double phase = (ice.Frequency + 1) * (double)ice.MasterCount;
+		ice.MasterCount = (float)r(r((double)deltaTime * 120.0f) + ice.MasterCount);
+		ice.UDisplace = (float)r(ice.UDisplace - 2.0 * r((double)hspeed * deltaTime));
+		ice.VDisplace = (float)r(2.0 * r((double)vspeed * deltaTime) + ice.VDisplace);
+		double phase = r((ice.Frequency + 1) * (double)ice.MasterCount);
 		double size = ice.Amplitude + 1;
+		auto offset = [&](double wave, double scale) { return RoundToInt((float)r(r(size * wave) * scale)); };
 		switch (ice.PanningStyle)
 		{
 		case 0: // SLIDE_Linear
@@ -968,16 +989,16 @@ namespace FireEngine
 			break;
 		case 1: // SLIDE_Circular
 		case 2: // SLIDE_Gestation: its up and down a shade slower
-			ice.UPosition = (float)((int)(size * std::sin(phase * 0.0012000001)) + (double)ice.UDisplace);
-			ice.VPosition = (float)((int)(size * std::cos(phase * (ice.PanningStyle == 1 ? 0.0012000001 : 0.0011))) + (double)ice.VDisplace);
+			ice.UPosition = (float)r(offset(std::sin(r(phase * (double)0.0012f)), 1.0) + (double)ice.UDisplace);
+			ice.VPosition = (float)r(offset(std::cos(r(phase * (double)(ice.PanningStyle == 1 ? 0.0012f : 0.0011f))), 1.0) + (double)ice.VDisplace);
 			break;
 		case 3: // SLIDE_WavyX
 			ice.VPosition = ice.VDisplace;
-			ice.UPosition = (float)((int)(size * std::sin(phase * 0.0012000001) * 0.5) + (double)ice.UDisplace);
+			ice.UPosition = (float)r(offset(std::sin(r(phase * (double)0.0012f)), 0.5) + (double)ice.UDisplace);
 			break;
 		case 4: // SLIDE_WavyY
 			ice.UPosition = ice.UDisplace;
-			ice.VPosition = (float)((int)(size * std::cos(phase * 0.0012000001) * 0.5) + (double)ice.VDisplace);
+			ice.VPosition = (float)r(offset(std::cos(r(phase * (double)0.0012f)), 0.5) + (double)ice.VDisplace);
 			break;
 		default:
 			break;

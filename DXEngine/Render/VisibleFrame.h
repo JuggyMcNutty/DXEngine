@@ -3,7 +3,6 @@
 #include "Engine.h"
 #include "VisibleNode.h"
 #include "VisibleTranslucent.h"
-#include "VisibleCorona.h"
 #include "VisibleActor.h"
 #include "VisiblePortal.h"
 #include "BspClipper.h"
@@ -42,7 +41,6 @@ public:
 
 	Array<VisibleNode> OpaqueNodes;
 	Array<VisibleActor> Actors;
-	Array<VisibleCorona> Coronas;
 	Array<VisiblePortal> Portals;
 
 	// Whether an actor counts as drawn, for its LastRenderTime: stamped only

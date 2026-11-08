@@ -8,7 +8,6 @@
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Resources/Level/UPolys.h"
 #include "Engine.h"
-#include "Math/hsb.h"
 
 #ifndef NOSSE
 #include <immintrin.h>
@@ -112,25 +111,27 @@ TextureInfo LightSystem::GetFogmap(UModel* model, int lightmapIndex, const Coord
 }
 
 // Only the fog lights a line of sight to the map can cross go into it, the
-// rest adding nothing to any texel. With none, the map is all clear: cleared
-// if it held fog, else left as it is. The surface keeps its map either way,
-// as the original's, whose passes go by whether it has one. Whether the
-// texels changed; clear, whether they are all clear now.
+// rest, and a light of no density, adding nothing to any texel; they go in
+// farthest first along the view, as the original sorts them by their depth
+// (Render.dll 0x10b073ad, its order 0x10b06c60). With none, the map is all
+// clear: cleared if it held fog, else left as it is. The surface keeps its
+// map either way, as the original's, whose passes go by whether it has one.
+// Whether the texels changed; clear, whether they are all clear now.
 bool LightSystem::UpdateFogmapTexture(uint32_t* dest, UModel* model, const Coords& mapCoords, int lightMap, UZoneInfo* zoneActor, bool& clear)
 {
 	FogmapBuilder& builder = FogBuilder;
 	builder.Setup(model, mapCoords, lightMap, zoneActor);
 
-	bool reached = false;
-	for (UActor* light : FogBalls)
+	FogReached.clear();
+	for (const FogLight& light : FogLights)
 	{
-		if (builder.Reaches(light, Eye))
-		{
-			builder.AddLight(light, Eye);
-			reached = true;
-		}
+		if (light.Density > 0.0f && builder.Reaches(light, Eye))
+			FogReached.push_back({ &light, (EyeWorldToView * vec4(light.Location, 1.0f)).z });
 	}
-	if (!reached)
+	std::stable_sort(FogReached.begin(), FogReached.end(), [](const ReachedFog& a, const ReachedFog& b) { return a.Depth > b.Depth; });
+	for (const ReachedFog& reached : FogReached)
+		builder.AddLight(*reached.Light, Eye);
+	if (FogReached.empty())
 	{
 		if (clear)
 			return false;
@@ -140,21 +141,23 @@ bool LightSystem::UpdateFogmapTexture(uint32_t* dest, UModel* model, const Coord
 	}
 	clear = false;
 
+	// Each channel drawn at 2c/255 of the original's 0 to 127, as D3DDrv
+	// draws a fog map's seven bits
 #if 1 // Float high quality lightmaps
 	size_t size = (size_t)builder.Width() * builder.Height();
 	const vec4* src = builder.Pixels();
-	memcpy(dest, src, size * sizeof(vec4));
+	vec4* out = (vec4*)dest;
+	for (size_t i = 0; i < size; i++)
+		out[i] = src[i] * (2.0f / 255.0f);
 #else // Low quality lightmaps like UE1 got them
 	size_t size = (size_t)builder.Width() * builder.Height();
 	const vec4* src = builder.Pixels();
 	for (size_t i = 0; i < size; i++)
 	{
-		const vec4& color = src[i];
-
-		uint32_t red = (uint32_t)clamp(src[i].r * 127.0f + 0.5f, 0.0f, 127.0f);
-		uint32_t green = (uint32_t)clamp(src[i].g * 127.0f + 0.5f, 0.0f, 127.0f);
-		uint32_t blue = (uint32_t)clamp(src[i].b * 127.0f + 0.5f, 0.0f, 127.0f);
-		uint32_t alpha = (uint32_t)clamp(src[i].a * 127.0f + 0.5f, 0.0f, 127.0f);
+		uint32_t red = (uint32_t)clamp(src[i].r, 0.0f, 127.0f);
+		uint32_t green = (uint32_t)clamp(src[i].g, 0.0f, 127.0f);
+		uint32_t blue = (uint32_t)clamp(src[i].b, 0.0f, 127.0f);
+		uint32_t alpha = (uint32_t)clamp(src[i].a, 0.0f, 127.0f);
 
 		dest[i] = (alpha << 24) | (red << 16) | (green << 8) | blue;
 	}

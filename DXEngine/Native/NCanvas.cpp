@@ -9,6 +9,9 @@
 #include "Packages/Engine/UCanvas.h"
 #include "Packages/Engine/UClient.h"
 #include "Render/RenderSubsystem.h"
+#include "Package/PackageManager.h"
+#include "Utils/StrTools.h"
+#include "Math/floating.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable: 4244) // warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
@@ -115,7 +118,20 @@ void NCanvas::DrawTextClipped(UObject* Self, const ScriptString& Text, std::opti
 		LogMessage("DrawTextClipped: No font");
 		return;
 	}
-	
+
+	// LargeFont and BigFont give way to MedFont, the canvas's Font left so,
+	// where the language is not int (0x1037894c-0x10378972): the ini's
+	// [Engine.Engine] Language, as Core's appInit takes it (Core.dll
+	// 0x10149d5e-0x10149d76)
+	static const bool intLanguage = StrTools::equals_ignore_case(engine->packages->GetIniValue("system", "Engine.Engine", "Language", "int"), "int");
+	if (!intLanguage && (font == SelfCanvas->LargeFont() || font == SelfCanvas->BigFont()))
+		font = SelfCanvas->MedFont();
+	if (!font)
+	{
+		LogMessage("DrawTextClipped: No font");
+		return;
+	}
+
 	if (style != 0)
 	{
 		uint32_t renderflags = PF_NoSmooth | PF_Masked;
@@ -124,7 +140,7 @@ void NCanvas::DrawTextClipped(UObject* Self, const ScriptString& Text, std::opti
 		else if (style == 4)
 			renderflags |= PF_Modulated;
 
-		engine->render->DrawTextClipped(font, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, orgX, orgY, curX, curY, Text, renderflags, checkHotKey, clipX, clipY);
+		engine->render->DrawTextClipped(font, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, orgX, orgY, curX, curY, Text, renderflags, checkHotKey, SelfCanvas->SpaceX(), clipX, clipY);
 	}
 }
 
@@ -222,8 +238,9 @@ void NCanvas::StrLen(UObject* Self, const ScriptString& String, float& XL, float
 
 	// Measured whatever the canvas's Style: the original's execStrLen
 	// (Engine.dll 0x10377650) lays the text out through WrappedPrint with a
-	// style of none, which draws nothing and measures all; DXEngine answered
-	// 0 by 0 under STY_None. No font asserts there: 0 by 0 here, logged.
+	// style of none, which draws nothing and measures all, from CurX and CurY
+	// at 0, and puts them back cut to whole pixels (0x10377721). No font
+	// asserts there: 0 by 0 here, logged.
 	if (!font)
 	{
 		LogMessage("StrLen: No font");
@@ -231,13 +248,19 @@ void NCanvas::StrLen(UObject* Self, const ScriptString& String, float& XL, float
 		YL = 0.0f;
 		return;
 	}
-	float curX = 0.0f;
-	float curY = 0.0f;
-	float curXL = 0.0f;
-	float curYL = 0.0f;
-	engine->render->DrawText(font, vec4(1.0f), orgX, orgY, curX, curY, curXL, curYL, false, String, 0, center, spaceX, spaceY, clipX, clipY, true);
-	XL = curXL;
-	YL = curYL;
+	float& curX = SelfCanvas->CurX();
+	float& curY = SelfCanvas->CurY();
+	int x = ftol(curX);
+	int y = ftol(curY);
+	curX = 0.0f;
+	curY = 0.0f;
+	int width = 0;
+	int height = 0;
+	engine->render->WrappedPrint(font, vec4(1.0f), orgX, orgY, curX, curY, String, 0, center, spaceX, spaceY, clipX, clipY, true, width, height);
+	curX = (float)x;
+	curY = (float)y;
+	XL = (float)width;
+	YL = (float)height;
 }
 
 void NCanvas::TextSize(UObject* Self, const ScriptString& String, float& XL, float& YL)

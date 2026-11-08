@@ -15,6 +15,7 @@
 #include "VM/ScriptCall.h"
 #include "Engine.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
+#include "Math/floating.h"
 
 void RenderSubsystem::ResetCanvas()
 {
@@ -266,34 +267,6 @@ void RenderSubsystem::DrawTileClipped(UTexture* Tex, float orgX, float orgY, flo
 	DrawTile(texinfo, dest, src, clipBox, Z, color, fog, flags);
 }
 
-Array<ScriptString> RenderSubsystem::FindTextBlocks(const ScriptString& text)
-{
-	// Split text into words, whitespace or newline
-	Array<ScriptString> textBlocks;
-	size_t pos = 0;
-	while (pos < text.size())
-	{
-		if (text[pos] == '\n')
-		{
-			textBlocks.push_back(u"\n");
-			pos++;
-		}
-		else if (text[pos] == ' ')
-		{
-			size_t end = std::min(text.find_first_not_of(u' ', pos + 1), text.size());
-			textBlocks.push_back(text.substr(pos, end - pos));
-			pos = end;
-		}
-		else
-		{
-			size_t end = std::min(text.find_first_of(u" \n", pos + 1), text.size());
-			textBlocks.push_back(text.substr(pos, end - pos));
-			pos = end;
-		}
-	}
-	return textBlocks;
-}
-
 // A glyph's page as the device takes it: its own page's image, size and
 // palette, keyed by the page
 static void GlyphTextureInfo(const FontGlyph& glyph, TextureInfo& texinfo)
@@ -310,117 +283,185 @@ static void GlyphTextureInfo(const FontGlyph& glyph, TextureInfo& texinfo)
 		texinfo.Palette = (TextureColor*)glyph.Texture->Palette()->Colors.data();
 }
 
-void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<ScriptString>& textBlocks, size_t start, size_t end, UFont* font, vec4 color, uint32_t polyflags, float spaceX)
+// The original's line drawer (Engine.dll 0x10376d20), from x, each glyph
+// found as the canvas's text finds it (GetPageGlyph), drawn at the canvas's
+// origin plus its place cut to a whole pixel, the step each time the glyph's
+// width and SpaceX cut to a whole pixel; a glyph its font lacks, or its page
+// has no texture for, draws nothing and takes no step. Clipped
+// (DrawTextClipped), a glyph wholly off the clip is drawn nowhere and one
+// across it cut to it, the rest going on. With hot keys, an & takes the
+// character after it for one, drawn and then the font's _ over the same
+// place, as wide as it at most, the step the character's; an & at the end
+// ends the line, and && draws an & and makes the next & a hot key's. The
+// line's width in all its steps.
+int RenderSubsystem::DrawTextLine(UFont* font, vec4 color, float orgX, float orgY, int x, int y, const ScriptString& text, size_t count, uint32_t polyflags, float spaceX, bool clip, bool hotKeys, float clipX, float clipY)
 {
-	for (size_t i = start; i < end; i++)
+	int step = 0;
+	bool underline = false;
+	int hotWidth = 0;
+	for (size_t i = 0; i < count && i < text.size() && text[i] != 0; i++)
 	{
-		for (char16_t c : textBlocks[i])
+		char16_t c = text[i];
+		bool hot = false;
+		if (hotKeys)
 		{
-			FontGlyph glyph = font->GetGlyph(c);
-
-			if (!glyph.Texture)
-				continue;
-
-			TextureInfo texinfo;
-			GlyphTextureInfo(glyph, texinfo);
-
-			int width = glyph.USize;
-			int height = glyph.VSize;
-			float StartU = (float)glyph.StartU;
-			float StartV = (float)glyph.StartV;
-			float USize = (float)glyph.USize;
-			float VSize = (float)glyph.VSize;
-
-			Device->DrawTile(&Canvas.Frame, texinfo, x, y, (float)width, (float)height, StartU, StartV, USize, VSize, 1.0f, color, vec4(0.0f), polyflags);
-
-			// A whole pixel's step, the glyph's width and SpaceX truncated, as
-			// the original's WrappedPrint steps (Engine.dll 0x10376790)
-			x += (float)(int)((float)width + spaceX);
-		}
-	}
-}
-
-// The original's UCanvas::WrappedPrint (Engine.dll 0x10376790): a line drawn
-// from whole pixels, its X the canvas's CurX (plus half the room the line
-// leaves, centred) and its Y CurY, each truncated; the line wraps where
-// CurX's whole pixels and its glyphs pass ClipX, and CurX is where the last
-// line ended (dx-reverse-info engine-dll.md, the loading screen).
-void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const ScriptString& text, uint32_t polyflags, bool center, float spaceX, float spaceY, float clipX, float clipY, bool noDraw)
-{
-	float totalWidth = 0.0f;
-	float totalHeight = 0.0f;
-	auto lineX = [&](float lineWidth) { return (float)(int)(center ? curX + (clipX - lineWidth) * 0.5f : curX); };
-
-	Array<ScriptString> textBlocks = FindTextBlocks(text);
-	size_t lineBegin = 0;
-	float lineWidth = 0.0f;
-	float lineHeight = 0.0f;
-	for (size_t pos = 0; pos < textBlocks.size(); pos++)
-	{
-		if (textBlocks[pos].front() == '\n')
-		{
-			if (pos != lineBegin)
+			if (underline)
+				c = '_';
+			if (text[i] == '&')
 			{
-				if (!noDraw)
-					DrawTextBlockRange(orgX + lineX(lineWidth), orgY + (float)(int)curY, textBlocks, lineBegin, pos, font, color, polyflags, spaceX);
-				curY += lineHeight;
-				totalHeight += lineHeight;
-				totalWidth = std::max(totalWidth, lineWidth);
+				char16_t next = i + 1 < count && i + 1 < text.size() ? text[i + 1] : 0;
+				if (next == 0)
+					break;
+				if (next != '&')
+				{
+					hot = true;
+					c = next;
+				}
 			}
-
-			curX = 0;
-			lineBegin = pos + 1;
-			lineWidth = 0.0f;
-			lineHeight = 0.0f;
 		}
-		else
+
+		FontGlyph glyph = font->GetPageGlyph(c);
+		if (!glyph.Texture)
+			continue;
+
+		int width = underline ? std::min(hotWidth, glyph.USize) : glyph.USize;
+		int stepWidth = width;
+		int height = glyph.VSize;
+		int u = glyph.StartU;
+		int v = glyph.StartV;
+		int dx = step + x;
+		int dy = y;
+		bool draw = true;
+		if (clip)
 		{
-			vec2 blockSize = GetTextSize(font, textBlocks[pos], spaceX, spaceY);
-			if ((float)(int)curX + lineWidth + blockSize.x > clipX)
+			if (dx + width <= 0 || (float)dx > clipX || height + dy <= 0 || (float)dy > clipY)
 			{
-				if (!noDraw)
-					DrawTextBlockRange(orgX + lineX(lineWidth), orgY + (float)(int)curY, textBlocks, lineBegin, pos, font, color, polyflags, spaceX);
-
-				curX = 0;
-				curY += lineHeight;
-				totalHeight += lineHeight;
-				totalWidth = std::max(totalWidth, lineWidth);
-
-				if (textBlocks[pos].front() == ' ')
-				{
-					// Ignore whitespace at the beginning of a word wrapped line
-					lineBegin = pos + 1;
-					lineWidth = 0.0f;
-					lineHeight = 0.0f;
-				}
-				else
-				{
-					lineBegin = pos;
-					lineWidth = blockSize.x;
-					lineHeight = blockSize.y;
-				}
+				draw = false;
 			}
 			else
 			{
-				lineWidth += blockSize.x;
-				lineHeight = std::max(lineHeight, blockSize.y);
+				if (dx < 0)
+				{
+					width += dx;
+					u -= dx;
+					dx = 0;
+				}
+				if (dy < 0)
+				{
+					height += dy;
+					v -= dy;
+					dy = 0;
+				}
+				if ((float)(width + dx) > clipX)
+					width = ftol(X87::Round((double)clipX - dx));
+				if ((float)(height + dy) > clipY)
+					height = ftol(X87::Round((double)clipY - dy));
 			}
 		}
-	}
+		if (draw)
+		{
+			TextureInfo texinfo;
+			GlyphTextureInfo(glyph, texinfo);
+			float left = (float)ftol(X87::Round((double)dx + orgX));
+			float top = (float)ftol(X87::Round((double)dy + orgY));
+			Device->DrawTile(&Canvas.Frame, texinfo, left, top, (float)width, (float)height, (float)u, (float)v, (float)width, (float)height, 1.0f, color, vec4(0.0f), polyflags);
+		}
 
-	if (lineBegin < textBlocks.size())
+		if (underline)
+			stepWidth = hotWidth;
+		if (hot)
+			hotWidth = glyph.USize;
+		else
+			step += ftol(X87::Round((double)stepWidth + spaceX));
+		underline = hot;
+	}
+	return step;
+}
+
+// The original's UCanvas::WrappedPrint (Engine.dll 0x10376790), which
+// DrawText and StrLen lay their text out through (dx-reverse-info
+// engine-dll.md, the canvas's text). A line runs from CurX's whole pixels,
+// each glyph found as the canvas's text finds it (GetPageGlyph) stepping by
+// its width and SpaceX cut to a whole pixel, and stops at a glyph whose step
+// passes ClipX, a line feed or the text's end: it ends after the last word
+// that fits, or within the first word, before any word has ended, after its
+// last glyph that fits; a space it would wrap at stays out of its width. A
+// line with nothing in it ends the print: a first glyph wider than the room,
+// or a line feed, the text after it never laid out (0x103768ca). Each line
+// is drawn, unless the print only measures or the line lies above or below
+// the frame, at its X -- CurX, or with bCenter CurX plus half the room its
+// end leaves (0x10376a58) -- and CurY, each cut to a whole pixel, through
+// the line drawer, unclipped; then CurX is 0, CurY moves down by the line's
+// height, its tallest glyph and SpaceY, and the spaces after it are passed
+// over. XL is the furthest a line ended, from CurX's whole pixels for the
+// first; YL the lines' heights summed.
+void RenderSubsystem::WrappedPrint(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, const ScriptString& text, uint32_t polyflags, bool center, float spaceX, float spaceY, float clipX, float clipY, bool noDraw, int& XL, int& YL)
+{
+	XL = 0;
+	YL = 0;
+	if (clipX < 0.0f || clipY < 0.0f)
+		return;
+
+	auto at = [&](size_t i) -> char16_t { return i < text.size() ? text[i] : 0; };
+	size_t pos = 0;
+	do
 	{
-		float x = lineX(lineWidth);
-		if (!noDraw)
-			DrawTextBlockRange(orgX + x, orgY + (float)(int)curY, textBlocks, lineBegin, textBlocks.size(), font, color, polyflags, spaceX);
-		curX = x + lineWidth;
-		curY += lineHeight;
-		totalHeight += lineHeight;
-		totalWidth = std::max(totalWidth, lineWidth);
-	}
+		int x = ftol(curX);
+		size_t i = 0;
+		size_t end = 0;
+		int endX = 0;
+		int lineHeight = 0;
+		int endHeight = 0;
+		bool wordEnded = false;
+		for (char16_t c = at(pos); c != 0 && c != '\n'; c = at(pos + i))
+		{
+			FontGlyph glyph = font->GetPageGlyph(c);
+			x += ftol(X87::Round((double)glyph.USize + spaceX));
+			lineHeight = std::max(lineHeight, glyph.VSize + ftol(spaceY));
+			if ((float)x > clipX)
+				break;
+			i++;
+			char16_t next = at(pos + i);
+			bool boundary = next == ' ' || next == '\n' || next == 0;
+			if (boundary || !wordEnded)
+			{
+				endX = x;
+				end = i;
+				endHeight = lineHeight;
+				wordEnded = wordEnded || boundary;
+			}
+		}
+		if (end == 0)
+			break;
 
-	curXL = std::max(curXL, totalWidth);
-	curYL = std::max(curYL, totalHeight);
+		if (!noDraw && orgY + curY < (float)Canvas.Frame.Y && (float)endHeight + orgY + curY > 0.0f)
+		{
+			float lineX = center ? (clipX - (float)endX) * 0.5f + curX : curX;
+			DrawTextLine(font, color, orgX, orgY, ftol(lineX), ftol(curY), text.substr(pos, end), end, polyflags, spaceX, false, false, clipX, clipY);
+		}
+
+		curX = 0.0f;
+		curY += (float)endHeight;
+		YL += endHeight;
+		XL = std::max(XL, endX);
+		pos += end;
+		while (at(pos) == ' ')
+			pos++;
+	} while (at(pos) != 0);
+}
+
+// The original's execDrawText (Engine.dll 0x103778f0) after its
+// WrappedPrint: CurX moved on by the furthest a line ended, so that with
+// CurX at 0 after the lines it is that end, CurYL the greater of it and the
+// lines' heights; with a CR, CurY moved down by CurYL and CurX and CurYL 0.
+void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const ScriptString& text, uint32_t polyflags, bool center, float spaceX, float spaceY, float clipX, float clipY, bool noDraw)
+{
+	int XL = 0;
+	int YL = 0;
+	WrappedPrint(font, color, orgX, orgY, curX, curY, text, polyflags, center, spaceX, spaceY, clipX, clipY, noDraw, XL, YL);
+	curX = (float)XL + curX;
+	curXL = std::max(curXL, (float)XL);
+	curYL = std::max(curYL, (float)YL);
 
 	if (newlineAtEnd)
 	{
@@ -432,84 +473,11 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY, 
 }
 
 // The original's execDrawTextClipped (Engine.dll 0x10378890): one line from
-// CurX and CurY each truncated to a whole pixel, never centred -- its line
-// drawer (0x10376d20) takes the place it is given and reads no bCenter.
-void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float orgY, float curX, float curY, const ScriptString& text, uint32_t polyflags, bool checkHotKey, float clipX, float clipY)
+// CurX and CurY each cut to a whole pixel, never centred, through the line
+// drawer clipped to ClipX and ClipY, with hot keys as asked (0x10376d20).
+void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float orgY, float curX, float curY, const ScriptString& text, uint32_t polyflags, bool checkHotKey, float spaceX, float clipX, float clipY)
 {
-	curX = (float)(int)curX;
-	curY = (float)(int)curY;
-
-	FontGlyph uglyph = font->GetGlyph('_');
-	int uwidth = uglyph.USize;
-	int uheight = uglyph.VSize;
-	float uStartU = (float)uglyph.StartU;
-	float uStartV = (float)uglyph.StartV;
-	float uUSize = (float)uglyph.USize;
-	float uVSize = (float)uglyph.VSize;
-
-	Rectf clipBox = Rectf::xywh(orgX, orgY, clipX, clipY);
-
-	bool foundAmpersand = false;
-	int maxY = 0;
-	for (char16_t c : text)
-	{
-		if (checkHotKey && c == '&' && !foundAmpersand)
-		{
-			foundAmpersand = true;
-		}
-		else if (foundAmpersand && c != '&')
-		{
-			foundAmpersand = false;
-
-			// The hot key's letter, then the '_' glyph under it, each from its
-			// own page
-			FontGlyph glyph = font->GetGlyph(c);
-			if (curX + glyph.USize > (int)clipX)
-				break;
-
-			if (glyph.Texture)
-			{
-				TextureInfo texinfo;
-				GlyphTextureInfo(glyph, texinfo);
-				Rectf dest = Rectf::xywh(orgX + curX, orgY + curY, (float)glyph.USize, (float)glyph.VSize);
-				Rectf src = Rectf::xywh((float)glyph.StartU, (float)glyph.StartV, (float)glyph.USize, (float)glyph.VSize);
-				DrawTile(texinfo, dest, src, clipBox, 1.0f, color, vec4(0.0f), polyflags);
-			}
-			if (uglyph.Texture)
-			{
-				TextureInfo texinfo;
-				GlyphTextureInfo(uglyph, texinfo);
-				Rectf dest = Rectf::xywh(orgX + curX + (glyph.USize - uwidth) / 2, orgY + curY, (float)uwidth, (float)uheight);
-				Rectf src = Rectf::xywh(uStartU, uStartV, uUSize, uVSize);
-				DrawTile(texinfo, dest, src, clipBox, 1.0f, color, vec4(0.0f), polyflags);
-			}
-
-			curX += glyph.USize;
-			maxY = std::max(maxY, glyph.VSize);
-		}
-		else
-		{
-			foundAmpersand = false;
-
-			// A character the font lacks, with no space to stand in (a mod's
-			// font), draws nothing and takes no room
-			FontGlyph glyph = font->GetGlyph(c);
-			if (curX + glyph.USize > (int)clipX)
-				break;
-
-			if (glyph.Texture)
-			{
-				TextureInfo texinfo;
-				GlyphTextureInfo(glyph, texinfo);
-				Rectf dest = Rectf::xywh(orgX + curX, orgY + curY, (float)glyph.USize, (float)glyph.VSize);
-				Rectf src = Rectf::xywh((float)glyph.StartU, (float)glyph.StartV, (float)glyph.USize, (float)glyph.VSize);
-				DrawTile(texinfo, dest, src, clipBox, 1.0f, color, vec4(0.0f), polyflags);
-			}
-
-			curX += glyph.USize;
-			maxY = std::max(maxY, glyph.VSize);
-		}
-	}
+	DrawTextLine(font, color, orgX, orgY, ftol(curX), ftol(curY), text, text.size(), polyflags, spaceX, true, checkHotKey, clipX, clipY);
 }
 
 // A realtime texture's change taken by a tile the device draws, as the
@@ -578,13 +546,16 @@ void RenderSubsystem::DrawTile(TextureInfo& Info, float X, float Y, float XL, fl
 	Device->DrawTile(&Canvas.Frame, Info, X, Y, XL, YL, U, V, UL, VL, Z, Color, Fog, PolyFlags);
 }
 
+// The original's execTextSize (Engine.dll 0x10378be0) with no SpaceX or
+// SpaceY: each glyph found as the canvas's text finds it (GetPageGlyph), the
+// widths summed and the tallest
 vec2 RenderSubsystem::GetTextSize(UFont* font, const ScriptString& text, float spaceX, float spaceY)
 {
 	float x = 0.0f;
 	float y = 0.0f;
 	for (char16_t c : text)
 	{
-		FontGlyph glyph = font->GetGlyph(c);
+		FontGlyph glyph = font->GetPageGlyph(c);
 		x += (float)(int)((float)glyph.USize + spaceX);
 		y = std::max(y, (float)(glyph.VSize + (int)spaceY));
 	}

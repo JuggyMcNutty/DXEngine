@@ -130,14 +130,20 @@ UObject* UDecal::AttachDecal(float traceDistance, vec3 decalDir)
 			}
 		}
 
-		// Add to decals list if we still got anything left to render
+		// Add to decals list if we still got anything left to render: before
+		// the first of the surface's decals of its texture, else after them
+		// all, as the original's AttachDecal files it (Engine.dll
+		// 0x103e7922-0x103e798a), so that a surface's decals of one texture
+		// are drawn together, a new one first
 		if (!positions.empty())
 		{
 			LevelDecal leveldecal;
 			leveldecal.Decal = this;
 			leveldecal.Positions = positions;
 			leveldecal.UVs = uvs;
-			polynode->Decals.push_back(leveldecal);
+			auto& decals = polynode->Decals;
+			auto at = std::find_if(decals.begin(), decals.end(), [&](const LevelDecal& other) { return other.Decal->Texture() == Texture(); });
+			decals.insert(at, leveldecal);
 			Nodes.push_back(polynode);
 		}
 
