@@ -25,6 +25,24 @@ static bool FacesEye(const GouraudVertex* v, const vec3& eye)
 	return dot(cross(v[0].Point - v[1].Point, v[2].Point - v[0].Point), v[0].Point - eye) > 0.0f;
 }
 
+// Whether a face is not wholly beyond one side of the frame's view, as the
+// original's DrawMesh and DrawLodMesh keep a face (Render.dll 0x10b0d1a0,
+// 0x10b0ea80): each corner's outcode against the view's four sides, in its
+// view space, the face out only when all three corners are beyond one side.
+static bool FaceInView(const SceneNode& node, const GouraudVertex* v)
+{
+	float tx = (float)std::tan(radians(node.FovAngle) * 0.5f);
+	float ty = node.FX > 0.0f ? tx * node.FY / node.FX : tx;
+	int all = 15;
+	for (int i = 0; i < 3; i++)
+	{
+		vec4 p = node.WorldToView * vec4(v[i].Point, 1.0f);
+		all &= (p.z * tx + p.x < 0.0f ? 1 : 0) | (p.z * tx - p.x < 0.0f ? 2 : 0) |
+			(p.z * ty + p.y < 0.0f ? 4 : 0) | (p.z * ty - p.y < 0.0f ? 8 : 0);
+	}
+	return all == 0;
+}
+
 // The sequence's two frames at an animation position (AnimFrame times the
 // sequence's frames) and the second's weight: the weight taken before the
 // position is wrapped into the sequence, as the original's GetFrame takes
@@ -368,7 +386,7 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 	UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
 
 	VertexLight vertexLight;
-	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor, !OnItsOwn);
+	lightsys->InitVertexLight(vertexLight, actor, lightLocationActor, zoneActor, !OnItsOwn);
 	vec3 eye = frame->ViewLocation.xyz();
 
 	// Wire, as the original's DrawMesh draws a mesh with the viewer's RendMap
@@ -427,6 +445,20 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 		return false;
 	}
 
+	// The vertices an unlit face has taken this draw, as DrawLodMeshFaceDX
+	// keeps them: the original's DrawMesh lights each vertex once, and its
+	// face draw writes the unlit level over it (below)
+	if (++vertexCacheGeneration == 0)
+	{
+		for (CachedMeshVertex& v : vertexCache)
+			v.Generation = 0;
+		vertexCacheGeneration = 1;
+	}
+	if (vertexCache.size() < (size_t)mesh->FrameVerts)
+		vertexCache.resize(mesh->FrameVerts);
+	const uint32_t generation = vertexCacheGeneration;
+	auto takenUnlit = [&](size_t vindex) { return vindex < vertexCache.size() && vertexCache[vindex].Generation == generation && vertexCache[vindex].TakenUnlit; };
+
 	GouraudVertex vertices[3];
 	for (const MeshTri& tri : mesh->Tris)
 	{
@@ -446,21 +478,29 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 		if (!tex)
 			continue;
 		renderflags |= tex->PolyFlags() & PF_Masked;
+		bool unlit = !!(renderflags & PF_Unlit);
 
+		// A face of the other pass is not drawn here, but an unlit one is
+		// still culled as the original culls it, for the level it writes
+		// into its corners
+		bool drawn = true;
 		bool isTranslucent = (renderflags & (PF_Translucent | PF_Modulated | PF_Highlighted)) != 0;
 		if (isTranslucent && pass == MeshPass::Opaque)
 		{
 			needTranslucentPass = true;
-			continue;
+			drawn = false;
 		}
 		else if (!isTranslucent && pass == MeshPass::Translucent)
 		{
 			// We already drew the opaque surface
-			continue;
+			drawn = false;
 		}
+		if (!drawn && !unlit)
+			continue;
 
 		TextureInfo texinfo;
-		engine->render->UpdateTextureInfo(texinfo, tex);
+		if (drawn)
+			engine->render->UpdateTextureInfo(texinfo, tex);
 
 		float uscale = (tex ? tex->UsedMipmaps.front().Width : 256) * (1.0f / 256.0f);
 		float vscale = (tex ? tex->UsedMipmaps.front().Height : 256) * (1.0f / 256.0f);
@@ -536,6 +576,23 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 		if (((tri.PolyFlags | polyflags) & (PF_Flat | PF_TwoSided | PF_Invisible)) == PF_Flat && !FacesEye(vertices, eye))
 			continue;
 
+		// An unlit face writes the unlit level into its corners' light as it
+		// is drawn, as DrawLodMeshFaceDX's
+		if (unlit && FaceInView(frame->Frame, vertices))
+		{
+			for (int i = 0; i < 3; i++)
+			{
+				size_t vindex = tri.Indices[i];
+				if (vindex < vertexCache.size())
+				{
+					vertexCache[vindex].Generation = generation;
+					vertexCache[vindex].TakenUnlit = true;
+				}
+			}
+		}
+		if (!drawn)
+			continue;
+
 		if (renderflags & PF_Environment)
 		{
 			// The original's (Render.dll 0x10b0bab0): the eye's line to the
@@ -552,7 +609,7 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 		// game's UseVertexFog off (dx-reverse-info/d3ddrv-dll.md, fog)
 		for (int i = 0; i < 3; i++)
 		{
-			vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, normals[i], !!(renderflags & PF_Unlit));
+			vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, normals[i], unlit || takenUnlit(tri.Indices[i]));
 			vertices[i].Fog = vec4(0.0f);
 		}
 
@@ -676,14 +733,14 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 	UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
 
 	VertexLight vertexLight;
-	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor, !OnItsOwn);
+	lightsys->InitVertexLight(vertexLight, actor, lightLocationActor, zoneActor, !OnItsOwn);
 	vec3 eye = frame->ViewLocation.xyz();
 
 	bool needTranslucentPass = false;
 
 	// Faces share their vertices, and a vertex's animated position, normal,
 	// light and fog depend only on the vertex this draw (the light also on
-	// the face's unlit flag). Each was computed again for
+	// whether it is unlit, below). Each was computed again for
 	// every face using it; now once a draw, by the same arithmetic, so the
 	// results are the same to the bit.
 	if (++vertexCacheGeneration == 0)
@@ -933,38 +990,45 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 		if (!tex)
 			continue;
 		renderflags |= tex->PolyFlags() & PF_Masked;
+		bool unlit = !!(renderflags & PF_Unlit);
+		bool twosided = !!(renderflags & PF_TwoSided);
 
+		// A face of the other pass is not drawn here, but an unlit one is
+		// still culled as the original culls it, for the level it writes
+		// into its corners (below)
+		bool drawn = true;
 		bool isTranslucent = (renderflags & (PF_Translucent | PF_Modulated | PF_Highlighted)) != 0;
 		if (isTranslucent && pass == MeshPass::Opaque)
 		{
 			needTranslucentPass = true;
-			continue;
+			drawn = false;
 		}
 		else if (!isTranslucent && pass == MeshPass::Translucent)
 		{
 			// We already drew the opaque surface
-			continue;
+			drawn = false;
 		}
+		if (!drawn && !unlit)
+			continue;
 
 		uint32_t drawFlags = renderflags;
-		if (tex != texinfoTexture || drawFlags != batchFlags)
-			drawBatch();
-
-		// The texture's info once for all its faces: its modified flag stays
-		// set until the device takes it with the first batch drawn.
-		if (tex != texinfoTexture)
+		if (drawn)
 		{
-			texinfo = {};
-			engine->render->UpdateTextureInfo(texinfo, tex);
-			texinfoTexture = tex;
+			if (tex != texinfoTexture || drawFlags != batchFlags)
+				drawBatch();
+
+			// The texture's info once for all its faces: its modified flag
+			// stays set until the device takes it with the first batch drawn.
+			if (tex != texinfoTexture)
+			{
+				texinfo = {};
+				engine->render->UpdateTextureInfo(texinfo, tex);
+				texinfoTexture = tex;
+			}
 		}
 
 		float uscale = (texinfo.Texture ? texinfo.Texture->UsedMipmaps.front().Width : 256) * (1.0f / 256.0f);
 		float vscale = (texinfo.Texture ? texinfo.Texture->UsedMipmaps.front().Height : 256) * (1.0f / 256.0f);
-
-		bool unlit = !!(renderflags & PF_Unlit);
-		bool twosided = !!(renderflags & PF_TwoSided);
-		uint32_t lightKey = 1 | (unlit ? 2 : 0);
 
 		vec3 normals[3];
 		CachedMeshVertex* cached[3] = {};
@@ -1001,6 +1065,7 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 					}
 					c.Generation = generation;
 					c.LightKey = 0;
+					c.TakenUnlit = false;
 				}
 				vertices[i].Point = c.Point;
 				normals[i] = c.Normal;
@@ -1043,6 +1108,25 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 		if (!twosided && !FacesEye(vertices, eye))
 			continue;
 
+		// The original lights each vertex once a draw, before any face is
+		// drawn (DrawLodMesh 0x10b0ea80); its face draw then writes the
+		// unlit level into the light of each corner of an unlit face as it
+		// draws it (0x10b0bab0), so a face drawn after that one takes the
+		// level at the corners they share: the LAM's, the NanoKey's, the
+		// security camera's. It draws every face it keeps in their order,
+		// whichever pass draws them here: within the budget, facing the eye
+		// or two-sided, and not wholly beyond one side of the view.
+		if (unlit && FaceInView(frame->Frame, vertices))
+		{
+			for (int i = 0; i < 3; i++)
+			{
+				if (cached[i])
+					cached[i]->TakenUnlit = true;
+			}
+		}
+		if (!drawn)
+			continue;
+
 		if (renderflags & PF_Environment)
 		{
 			// The original's (Render.dll 0x10b0bab0): the eye's line to the
@@ -1060,13 +1144,15 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 			CachedMeshVertex* c = cached[i];
 			// No vertex fog, as DrawMeshDX's
 			vertices[i].Fog = vec4(0.0f);
+			bool cornerUnlit = unlit || (c && c->TakenUnlit);
+			uint32_t lightKey = 1 | (cornerUnlit ? 2 : 0);
 			if (c && c->LightKey == lightKey)
 			{
 				vertices[i].Light = c->Light;
 			}
 			else
 			{
-				vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, normals[i], unlit);
+				vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, normals[i], cornerUnlit);
 				if (c)
 				{
 					c->Light = vertices[i].Light;

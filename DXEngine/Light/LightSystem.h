@@ -140,10 +140,12 @@ public:
 	TextureInfo GetMoverFogmap(UMover* mover, const Poly& poly, UZoneInfo* zoneActor, UModel* model);
 	TextureInfo GetLevelFogmap(BspSurface& surface, UZoneInfo* zoneActor, UModel* model);
 
-	// leafLights: whether the moving lights near the actor are candidates, as
-	// the scene's draws give them; an actor drawn on its own has none
-	// (SetupForActorDX)
-	void InitVertexLight(VertexLight& vertexlight, UActor* actor, UZoneInfo* zoneActor, bool leafLights = true);
+	// The light of a mesh drawn for drawn: its unlit faces at drawn's glow,
+	// the rest by the lights, glow and ambient of actor, its light sink -- a
+	// held item's the pawn holding it. leafLights: whether the moving lights
+	// near the actor are candidates, as the scene's draws give them; an
+	// actor drawn on its own has none (SetupForActorDX)
+	void InitVertexLight(VertexLight& vertexlight, UActor* drawn, UActor* actor, UZoneInfo* zoneActor, bool leafLights = true);
 	void SetupForActorDX(VertexLight& out, UActor* actor, bool leafLights);
 
 	// The eye of the frame drawn now (VisibleFrame::Draw), its meshes'

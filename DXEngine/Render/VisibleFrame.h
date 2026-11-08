@@ -85,6 +85,10 @@ private:
 		enum { MaxVerts = 12 };
 		UActor* Actor = nullptr;
 		float Sample = 1.0f; // the clipper's pixel sample for it: a sprite's 0, a mesh's 1
+		// Its corners lie at the depth the clipper tests it at, the proxy's
+		// own nearer than that: how far along their lines from the eye the
+		// proxy's own lie, 1 when they are the same (AddOcclusionProxy)
+		float DepthScale = 1.0f;
 		int NumVerts = 0;
 		vec3 Verts[MaxVerts];
 	};

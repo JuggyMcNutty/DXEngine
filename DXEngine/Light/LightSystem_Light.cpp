@@ -444,7 +444,7 @@ void LightSystem::CheckLight(UActor* light)
 	}
 }
 
-void LightSystem::InitVertexLight(VertexLight& out, UActor* actor, UZoneInfo* zoneActor, bool leafLights)
+void LightSystem::InitVertexLight(VertexLight& out, UActor* drawn, UActor* actor, UZoneInfo* zoneActor, bool leafLights)
 {
 	// AmbientGlow value 255 is a special pulsating effect used for powerups
 	float ambientGlow = actor->AmbientGlow() == 255 ? AmbientGlowAmount : actor->AmbientGlow() * (1.0f / 255.0f);
@@ -454,8 +454,9 @@ void LightSystem::InitVertexLight(VertexLight& out, UActor* actor, UZoneInfo* zo
 
 	out.ScaleGlow = actor->ScaleGlow();
 	// DrawLodMesh's unlit level (Render.dll 0x10b0f6e0): the glow raw,
-	// not pulsing, held to 0-1
-	out.UnlitLevel = std::clamp(actor->AmbientGlow() / 256.0f + actor->ScaleGlow() * 0.5f, 0.0f, 1.0f);
+	// not pulsing, held to 0-1, of the mesh drawn, a held item's its own
+	// though the pawn lights the rest of it (DrawActorSprite 0x10b25080)
+	out.UnlitLevel = std::clamp(drawn->AmbientGlow() / 256.0f + drawn->ScaleGlow() * 0.5f, 0.0f, 1.0f);
 	SetupForActorDX(out, actor, leafLights);
 
 	out.CameraLocation = Eye;
@@ -499,29 +500,40 @@ void LightSystem::SetupForActorDX(VertexLight& out, UActor* actor, bool leafLigh
 		vec3 location = actor->Location();
 		UModel* model = Level->Model;
 
-		// The candidates
-		Array<UActor*> candidates;
-		auto addCandidate = [&](UActor* light)
+		// The candidates, each counted once, by the first list it is in, with
+		// that list's fade: the lights kept under the actor at their own; the
+		// static lights reaching into its leaf at 0; the moving lights in the
+		// leaf at 255, new to it (SetupForActor 0x10b08c70). A light off or
+		// of no brightness stays a candidate, the moving ones none such.
+		struct Candidate
+		{
+			UActor* Light;
+			int Fade;
+			float Strength;
+			bool Static;
+		};
+		Array<Candidate> candidates;
+		auto addCandidate = [&](UActor* light, int fade)
 		{
 			if (!light || light->bDeleteMe())
 				return;
-			if (light->LightType() == LT_None || light->LightBrightness() == 0)
-				return;
 			if (light->bSpecialLit() != actor->bSpecialLit())
 				return;
-			for (UActor* seen : candidates)
-				if (seen == light)
+			for (const Candidate& seen : candidates)
+				if (seen.Light == light)
 					return;
-			candidates.push_back(light);
+			candidates.push_back({ light, fade, 0.0f, (bool)light->bStatic() });
 		};
 
+		for (const UActor::MeshLightEntry& entry : state.List)
+			addCandidate(entry.Light, entry.Fade);
 		int leaf = model->FindLeafAt(location);
 		if (leaf >= 0 && (size_t)leaf < model->Leaves.size())
 		{
 			int index = model->Leaves[leaf].Permeating;
 			if (index >= 0)
 				for (size_t i = index; i < model->Lights.size() && model->Lights[i]; i++)
-					addCandidate(model->Lights[i]);
+					addCandidate(model->Lights[i], 0);
 		}
 		if (leafLights)
 		{
@@ -530,55 +542,50 @@ void LightSystem::SetupForActorDX(VertexLight& out, UActor* actor, bool leafLigh
 			for (UActor* light : LightTree.CollectedLights)
 			{
 				if (light->bDynamicLight() || (!light->bStatic() && !light->bNoDelete()))
-					addCandidate(light);
+					addCandidate(light, 255);
 			}
 		}
-		for (const UActor::MeshLightEntry& entry : state.List)
-			addCandidate(entry.Light);
 
-		// The strength at the actor's centre; a cylinder light counts with
-		// three quarters of its brightness and radius
-		struct Candidate
-		{
-			UActor* Light;
-			float Strength;
-			bool Static;
-		};
+		// Each that reaches the actor's centre, at its strength there. A
+		// cylinder light counts with three quarters of its brightness and
+		// radius, its reach at the whole radius, so that past three
+		// quarters of it its strength is below 0 and it fades out.
 		Array<Candidate> reaching;
-		for (UActor* light : candidates)
+		for (Candidate& candidate : candidates)
 		{
-			float radius = light->WorldLightRadius();
+			UActor* light = candidate.Light;
+			float reach = light->WorldLightRadius();
+			if (reach <= 0.0f)
+				continue;
+			vec3 L = light->Location() - location;
+			float dist = std::sqrt(dot(L, L));
+			if (dist >= reach)
+				continue;
+			float radius = reach;
 			float brightnessScale = 1.0f;
 			if (light->LightEffect() == LE_Cylinder)
 			{
 				radius *= 0.75f;
 				brightnessScale = 0.75f;
 			}
-			if (radius <= 0.0f)
-				continue;
-			vec3 L = light->Location() - location;
-			float dist = std::sqrt(dot(L, L));
-			if (dist >= radius)
-				continue;
-			float strength = (1.0f - dist / radius) * light->LightBrightness() * brightnessScale;
-			if (strength <= 0.0f)
-				continue;
-			reaching.push_back({ light, strength, (bool)light->bStatic() });
+			candidate.Strength = (1.0f - dist / radius) * light->LightBrightness() * brightnessScale;
+			reaching.push_back(candidate);
 		}
 		std::sort(reaching.begin(), reaching.end(), [](const Candidate& a, const Candidate& b) { return a.Strength > b.Strength; });
 
 		// The pass: a static light is lit while fewer than 8 static ones
 		// are, any other while fewer than 8 in all are, none under an eighth
 		// of the first lit one's strength (its strength in 1024ths). A
-		// movable light that is not static is lit, and full when it first
-		// reaches the actor; another as its shadow line through the BSP
-		// found it, run again every 16 frames by the frame count and the
-		// light's index, and for every light on the actor's first draw, when
-		// one found open is full at once. A static light new to the actor
-		// starts dark and unlit until its line is run. Each fade steps by
-		// the viewport's time since its last frame x 768, at most 255 (a
-		// third of a second): lit, up and odd, to 255; else down and even,
-		// to 0.
+		// movable light that is not static is lit; another as its shadow
+		// line through the BSP found it, run again every 16 frames by the
+		// frame count and the light's index, and for every light on the
+		// actor's first draw, when one found open is full at once; between,
+		// as its fade's lowest bit has it, so that a moving light new to the
+		// actor is lit full until its line is run, a static one dark. Each
+		// fade steps by the viewport's time since its last frame x 768, at
+		// most 255 (a third of a second): lit, up and odd, to 255; else down
+		// and even, to 0. A light off or of no brightness takes its place in
+		// the pass, but lights nothing (below).
 		// Up to 16 lights with a fade over 1 are kept for the next draw,
 		// strongest first; one that no longer reaches the actor is dropped
 		// at once.
@@ -591,15 +598,7 @@ void LightSystem::SetupForActorDX(VertexLight& out, UActor* actor, bool leafLigh
 			bool moving = light->bMovable() && !light->bStatic();
 			UActor::MeshLightEntry entry;
 			entry.Light = light;
-			entry.Fade = moving ? 255 : 0;
-			for (const UActor::MeshLightEntry& last : state.List)
-			{
-				if (last.Light == light)
-				{
-					entry.Fade = last.Fade;
-					break;
-				}
-			}
+			entry.Fade = candidate.Fade;
 
 			int strength = (int)(candidate.Strength * 1024.0f);
 			bool lit = false;
@@ -640,12 +639,16 @@ void LightSystem::SetupForActorDX(VertexLight& out, UActor* actor, bool leafLigh
 		state.List = std::move(kept);
 	}
 
+	// Each light as it fades, but the actor's own and one off or of no
+	// brightness, which AddLight takes not (0x10b08b30)
 	int lightIndex = 0;
 	for (const UActor::MeshLightEntry& entry : state.List)
 	{
 		if (entry.Fade <= 0 || entry.Light->bDeleteMe() || entry.Light == actor)
 			continue;
 		UActor* light = entry.Light;
+		if (light->LightType() == LT_None || light->LightBrightness() == 0)
+			continue;
 		out.Lights[lightIndex].Location = light->Location();
 		out.Lights[lightIndex].Color = LightmapBuilder::GetLightColorDX(light) * (entry.Fade / 255.0f);
 		float invRadius = 1.0f / light->WorldLightRadius();

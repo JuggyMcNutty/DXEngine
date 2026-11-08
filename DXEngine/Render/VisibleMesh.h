@@ -18,10 +18,14 @@ struct BlendInfo
 
 // One vertex of a mesh as DrawLodMeshFaceDX last computed it: valid for the
 // draw whose Generation it holds, its light for the LightKey's flags.
+// TakenUnlit: an unlit face drawn so far this draw has written the unlit
+// level into its light, as the original's face draw does (DrawMeshDX keeps
+// that alone of a plain mesh's vertices here).
 struct CachedMeshVertex
 {
 	uint32_t Generation = 0;
 	uint32_t LightKey = 0;
+	bool TakenUnlit = false;
 	vec3 Point;
 	vec3 Normal;
 	vec3 Light;

@@ -634,7 +634,12 @@ the level, as the traces have it (`AIConsole`). An actor
 drawn on its own (`GC.DrawActor`, `Canvas.DrawActor`) counts as drawn
 whenever its rectangle is on the frame, whatever is in front of it: an NPC
 the vision augmentation draws through a wall stays drawn while it is in view
-(`AugVisionConsole`). A decal counts as drawn when some of it shows, tested
+(`AugVisionConsole`). An actor's proxy lies at its location's own depth,
+however near the eye, its corners tested where their lines from the eye
+lie 1.5 units out, the clipper's near plane cutting away what is nearer
+(`NearProxyConsole`: crates 0.05 to 1.4 units before the eye, a wall 1.25
+units off, counted as drawn on six walls in both engines, the one at 2
+units not). A decal counts as drawn when some of it shows, tested
 against the spans before its surface fills them
 ([render time](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#render-time)):
 the game's go when not drawn for a second, some 20 s after they land
@@ -1064,9 +1069,7 @@ original's at each draw from the faces within the budget, and small sprite
 items. By choice, a detail budget past an int's range is held to the mesh,
 where the original's makes it the least int and hands on a negative count,
 and a hand-made mesh's corner walk and wedges are held to its arrays, where
-the original's would loop or read past them. Differs (bugs.md D.68): an
-actor's occlusion proxy set no nearer than 1.5 units, the original's at the
-actor's own depth.
+the original's would loop or read past them.
 
 ### Lighting
 
@@ -1084,10 +1087,12 @@ lighting a surface with no shadow and left out with `NoDynamicLights`, as
 the original's `AddLight` takes it ([light
 maps](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps));
 the stock maps' few, on 02_NYC_Street, 02_NYC_Warehouse,
-06_HongKong_WanChai_Market, 08_NYC_Underground, 10_Paris_Chateau,
-15_Area51_Final, 99_Endgame1 and DXMP_Cathedral, are moving ones but
-15_Area51_Final's three, static and no-delete, which start faded out
-(differs, bugs.md REN.49). An `LE_OmniBumpMap` light lights no surface:
+06_HongKong_WanChai_Market (`HKHangingLantern35` to `37`),
+08_NYC_Underground, 10_Paris_Chateau (`Lamp4`), 15_Area51_Final
+(`Light809`, `Light221`, `Light810`, static and no-delete), 99_Endgame1
+(`ElectricityEmitter11`) and DXMP_Cathedral (`Light53`), light a mesh as
+moving ones, full from the first frame they reach it. An `LE_OmniBumpMap`
+light lights no surface:
 given no owner, as a surface's lights are, the original's `AddLight` makes
 it a kind of its own, which no light map takes. It lights a mesh, and a
 mover with `bDynamicLightMover` as a moving light over it, which the
@@ -1209,17 +1214,38 @@ A mesh's lights are picked and faded as the original's
 ([meshes](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#meshes)):
 in one pass, strongest first, a static light lit while fewer than 8 static
 ones are and any other while fewer than 8 in all are, none under an eighth
-of the first one lit; on the actor's first draw each light its shadow line
-finds open lit full at once, a moving light full when it first reaches the
-actor, a static one new to it dark until its line is next run; each fade a
-byte stepped by the viewport's time since its last frame. An actor drawn on
+of the first one lit, a light off or of no brightness among them though it
+lights nothing, and a cylinder light at three quarters of its brightness
+and radius, its reach the whole radius; on the actor's first draw each
+light its shadow line finds open lit full at once, one of the leaf's
+moving lights full when it first reaches the actor, whatever its own flags,
+one of its static lights dark until its line is next run; each fade a byte
+stepped by the viewport's time since its last frame. `LightPickConsole`,
+both engines at 60 frames, sampled frame by frame (`DXCAP_BURST`): a white
+lamp switched off over a crate beside a red one under an eighth of its
+strength, the red one's sawtooth on the crate -- out of the pass, fading
+out, back at 255 as a moving light new to it -- going on in both, some 22
+frames a tooth (`Scene=Off`); a cylinder lamp moved from 110 to 190 units
+off, past three quarters of its 225, its light fading out and back at the
+same frames in both (`Scene=Cylinder`); a lamp made over it, not movable,
+the crate lit full from its first frame in both (`Scene=Late`). An actor drawn on
 its own (`Canvas.DrawActor`, `Canvas.DrawClippedActor`, `GC.DrawActor`), a
 first-person weapon among them, takes no moving light, only the static
 lights and those it kept; an actor's own light counts in the pass, so that
 a light under an eighth of its strength lights nothing, but lights nothing
 of it. A vertex is lit by its normal alone, whatever its faces' flags, as
 the original's `Light` (`Render.dll` `0x10b027f0`) lights each once: a
-two-sided face shows on both sides the light its normal gets.
+two-sided face shows on both sides the light its normal gets. An unlit
+face is lit at the unlit level of the mesh drawn, its `AmbientGlow` / 256 +
+`ScaleGlow` / 2, a held item's its own though the pawn lights the rest of
+it, and as the original's face draw it writes that level into its corners'
+light (`0x10b0bab0`), so a lit face drawn after it, in either pass, takes
+the level at the corners they share: `HeldGlowConsole`'s muzzle flash at a
+peak of 226 before and after its holder is cloaked in the original and 224
+in DXEngine; `MeshConsole` with the LAM (`Extra=DeusEx.WeaponLAM`,
+`ExtraAhead=40`, `ExtraScale=3`, `NoDetail=True`) at 1024x768, over the LAM
+an RMSE of 3.9 grey levels to `D3DDrv`'s frame and a correlation of 0.99 in
+both shots.
 `ViewConsole` with `FovAngle=90`, `HoldAnim=Idle1`, `HoldFrame=0.875` and
 `Floor`, both engines at 1024x768: the Dragon's Tooth's hand correlated
 at 0.973 with the original's frame, and the hilt of the one on the floor
@@ -1250,14 +1276,7 @@ maps](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#li
 world map unlit in both engines, at 1.000 of D3DDrv's frame, where DXEngine
 lit it, 0.395.
 
-Differs (bugs.md REN.46): a held item's unlit faces take the holder's glow,
-so a cloaked NPC's gun flash almost vanishes. Differs (bugs.md D.51): each
-corner of a mesh's face lit by that face's own unlit flag, where Render.dll's
-lit faces take the unlit level at corners they share with an unlit one.
-Differs (bugs.md D.52): a light off or of no brightness left out of a mesh's
-pick of its eight, where the original's counts it; a cylinder light dropped
-at once past three quarters of its radius, where the original's fades it
-out over a third of a second. By choice, a mesh's light fades step once a
+By choice, a mesh's light fades step once a
 frame, where the original's step at each draw of the mesh, an armed pawn's
 twice. Differs (bugs.md WIN.28): `RMODE` is taken by nothing, so the
 credits' Matrix egg draws the world lit, the original's full-bright.

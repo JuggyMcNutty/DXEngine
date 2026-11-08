@@ -337,13 +337,19 @@ void VisibleFrame::AddOcclusionProxy(UActor* actor)
 	if (!SpriteRectangle(actor, minX, minY, maxX, maxY, z))
 		return;
 
-	// The rectangle set back at that depth -- no nearer than the clipper's
-	// near plane, which would cut it away.
-	z = std::max(z, 1.5f);
-	auto toWorld = [&](float x, float y) { return ViewToWorld * (vec3(x * z, y * z, z) - ViewTranslation); };
+	// The rectangle set back at that depth, however near the eye, as the
+	// original's FDynamicSprite sets it (Render.dll 0x10b233c0): its pieces
+	// go down the BSP by that depth (SplitFragments), one at the eye's own
+	// plane on the eye's side of every plane further off. Its corners lie
+	// along their lines from the eye 1.5 units out at least, the clipper's
+	// near plane cutting away what is nearer: the same pixels, which are
+	// all the original's span buffer tests of it.
+	float zTest = std::max(z, 1.5f);
+	auto toWorld = [&](float x, float y) { return ViewToWorld * (vec3(x * zTest, y * zTest, zTest) - ViewTranslation); };
 	OcclusionFragment fragment;
 	fragment.Actor = actor;
 	fragment.Sample = actor->DrawType() == DT_Mesh ? 1.0f : 0.0f;
+	fragment.DepthScale = z < zTest ? z / zTest : 1.0f;
 	fragment.NumVerts = 4;
 	fragment.Verts[0] = toWorld(minX, minY);
 	fragment.Verts[1] = toWorld(maxX, minY);
@@ -358,7 +364,11 @@ void VisibleFrame::SplitFragments(size_t first, size_t count, const vec4& plane,
 	// Each piece goes to the side of the plane it lies on -- the viewer's
 	// side into NearFragments, the far side onto the stack -- and one across
 	// it is cut in two. Pieces of an actor already drawn are dropped.
+	// A piece nearer than the depth it is tested at is on the plane's side
+	// its own depth puts it: each corner's distance from the plane that far
+	// along its line from the eye (DepthScale), which the cut keeps.
 	const float epsilon = 0.01f;
+	float eyeDist = dot(vec4(ViewToWorld * -ViewTranslation, 1.0f), plane);
 	for (size_t i = 0; i < count; i++)
 	{
 		// Read before the pool grows: the pieces go into it last
@@ -372,6 +382,8 @@ void VisibleFrame::SplitFragments(size_t first, size_t count, const vec4& plane,
 		for (int v = 0; v < fragment.NumVerts; v++)
 		{
 			float d = dot(vec4(fragment.Verts[v], 1.0f), plane);
+			if (fragment.DepthScale < 1.0f)
+				d = eyeDist + (d - eyeDist) * fragment.DepthScale;
 			dist[v] = viewerInFront ? d : -d;
 			if (dist[v] > epsilon)
 				nearVerts++;
@@ -392,6 +404,7 @@ void VisibleFrame::SplitFragments(size_t first, size_t count, const vec4& plane,
 		OcclusionFragment nearPiece, farPiece;
 		nearPiece.Actor = farPiece.Actor = fragment.Actor;
 		nearPiece.Sample = farPiece.Sample = fragment.Sample;
+		nearPiece.DepthScale = farPiece.DepthScale = fragment.DepthScale;
 		bool overflow = false;
 		auto add = [&](OcclusionFragment& piece, const vec3& v)
 		{
