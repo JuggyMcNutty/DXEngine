@@ -3290,8 +3290,11 @@ A mod gets the original's loader and natives:
   padded with black; an uncompressed mip shorter than its size is padded
   with black, a compressed one not: on every device a texture whose top
   mip is short of its bytes draws white, and on the GPU devices a short
-  mip below it draws black (GL's and GL ES's by reading, bugs.md REN.38,
-  its run due); a map whose surfaces or nodes point outside
+  mip below it draws black, none read past (`ShortMipConsole` in an
+  AddressSanitizer build on GL and GL ES, S3TC on and hidden: the short
+  top mip white, the short lower one black, where the build before read
+  past both), and a texture past GL's largest size draws white, as on the
+  Vulkan device; a map whose surfaces or nodes point outside
   its arrays -- a
   node's links, zones, surface, render bound, vertices and their points, and
   its collision hull's list -- is refused with their numbers, the vertex
