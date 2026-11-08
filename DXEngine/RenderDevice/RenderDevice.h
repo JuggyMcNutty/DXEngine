@@ -152,6 +152,11 @@ public:
 
 	virtual void Flush(bool AllowPrecache) = 0;
 	virtual bool Exec(std::string Cmd, OutputDevice& Ar) { return false; }
+	// The console's LODBIAS (D3DDrv.dll 0x10006377): the textures' mip bias
+	// from the next frame, for the run, until the device's mode is set again
+	// (SetRes's InitTextureStageState, 0x10009e20); each GPU device makes its
+	// samplers, or GL ES its scene shaders, again at the next Lock
+	virtual void SetLODBias(float bias) { LODBias = bias; }
 	virtual void Lock(vec4 FlashScale, vec4 FlashFog, vec4 ScreenClear) = 0;
 	virtual void Unlock(bool Blit) = 0;
 	virtual void DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet) = 0;
@@ -256,6 +261,8 @@ public:
 	// floor(log2 of the scale factor), its texels no larger than the
 	// screen's pixels, and the factor below exactly 1.
 	float LODBias = -0.5f;
+	// The launcher's bias, LODBias again as the device's mode is set again
+	float ConfiguredLODBias = -0.5f;
 	uint8_t AntialiasMode = 2; // 4x multisample
 	uint8_t GammaMode = 0;
 	uint8_t LightMode = 0;

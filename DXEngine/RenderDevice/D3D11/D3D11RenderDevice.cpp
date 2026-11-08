@@ -1379,8 +1379,24 @@ void D3D11RenderDevice::UnmapVertices()
 	}
 }
 
+void D3D11RenderDevice::SetLODBias(float bias)
+{
+	if (bias != LODBias)
+	{
+		LODBias = bias;
+		LODBiasChanged = true;
+	}
+}
+
 void D3D11RenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 {
+	// A new mip bias: the scene samplers made again (SetLODBias)
+	if (LODBiasChanged)
+	{
+		ReleaseSceneSamplers();
+		CreateSceneSamplers();
+		LODBiasChanged = false;
+	}
 	// A new window size makes the swap chain again, the textures kept, as the
 	// Vulkan device keeps them: SetRes's flush sent each one up again at
 	// every step of a resize and, with UsePrecache, had the next frame

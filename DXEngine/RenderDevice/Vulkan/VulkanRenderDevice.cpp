@@ -211,6 +211,15 @@ void VulkanRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenCle
 	// The previous frame may still be drawing (Unlock does not wait for it).
 	Commands->WaitForFrame();
 
+	// A new mip bias: the scene samplers made again, with nothing drawing,
+	// every texture's descriptor written again with them (SetLODBias)
+	if (LODBiasChanged)
+	{
+		ClearTextureCache();
+		Samplers->CreateSceneSamplers();
+		LODBiasChanged = false;
+	}
+
 	FlashScale = InFlashScale;
 	FlashFog = InFlashFog;
 
@@ -1365,4 +1374,16 @@ void VulkanRenderDevice::DrawPresentTexture(int width, int height)
 	PipelineBarrier()
 		.AddImage(Commands->SwapChain->GetImage(Commands->PresentImageIndex), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0)
 		.Execute(cmdbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+}
+
+// Held within the GPU's maxSamplerLodBias, which a sampler may not pass
+void VulkanRenderDevice::SetLODBias(float bias)
+{
+	float most = Device->PhysicalDevice.Properties.Properties.limits.maxSamplerLodBias;
+	bias = std::clamp(bias, -most, most);
+	if (bias != LODBias)
+	{
+		LODBias = bias;
+		LODBiasChanged = true;
+	}
 }

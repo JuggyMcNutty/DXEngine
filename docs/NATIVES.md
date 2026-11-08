@@ -2928,9 +2928,26 @@ not deleted (the log says so).
   1280x720 before and after in the original's, 960x720 in DXEngine's, where
   DXEngine's window had taken the words and gone full screen). No stock
   exec function shares one.
-  The render device's words, `GETDETAILTEXTURES`, `TOGGLEDETAILTEXTURES`,
-  `LODBIAS` and `SHOWPOOLS`, are not taken, logged unrecognized; no stock
-  script sends them (Differs, bugs.md REN.44).
+  The render device's words are taken before the exec functions, as the
+  original's device takes them
+  ([a key's binding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)):
+  `GETDETAILTEXTURES` answers the device's `DetailTextures`, 1 or 0;
+  `TOGGLEDETAILTEXTURES` flips it and saves the device's config, saying
+  nothing; `LODBIAS <n>` says `Texture LodBias <n>` and sets the textures'
+  mip bias from the next frame, neither held nor saved, until the device's
+  mode is set again -- full screen or back, `SETRES`, the window's new
+  size --, which puts the launcher's back, as the original's mode puts its
+  -0.5 back; `SHOWPOOLS` says `Dumping D3D Texture Pool Info` alone, by
+  choice, DXEngine having no Direct3D 7 texture pools to list under it.
+  `BRIGHTNESS`, an engine word, steps the brightness a tenth up, from 0.9
+  back to 0, flushes the render device and saves the client's config, and
+  sends the player `Brightness level <n>/10`, as the original's client
+  does (`UClient::Exec`, Engine.dll `0x10375966`; `RenderWordsConsole`, the original through `D3DDrv` and DXEngine on
+  each device: the same answers in both, the planks before the view losing
+  their detail under the bias and getting it back after full screen and
+  back, the brightness 0.6, 0.7, 0.8; where the build before took none of
+  the words). On Vulkan the bias is held within the GPU's
+  `maxSamplerLodBias`, which no sampler may pass.
 - **The window's least size** is the original's 640x480 as it is dragged
   ([the window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-window)):
   on Windows the whole window, its frame too, as the original's; on Linux,

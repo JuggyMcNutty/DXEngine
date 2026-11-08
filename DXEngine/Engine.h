@@ -250,6 +250,8 @@ public:
 	// window's last change of size, so a drag is kept where it stops and a
 	// toggle's way through its sizes, full screen by then, not at all
 	void KeepWindowedSize();
+	void ModeSetAgain();
+	void FlushRender();
 	// A size the engine asks of the window, which the window system may
 	// take a moment to give: another size the window has meanwhile, the
 	// full screen it is leaving among them, is not kept, for a second at

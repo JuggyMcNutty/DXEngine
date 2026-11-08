@@ -2957,12 +2957,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	// A dedicated server has no window and no renderer: the commands that
 	// take them do nothing there (a logged-in admin's "admin getres" or
 	// "admin flush" came through PlayerPawn.Admin)
-	if ((!window || !render) && (command == "getres" || command == "getcurrentres" || command == "setres" || command == "togglefullscreen" || command == "endfullscreen" || command == "flush" || command == "stat" || command == "shot"))
+	if ((!window || !render) && (command == "getres" || command == "getcurrentres" || command == "setres" || command == "togglefullscreen" || command == "endfullscreen" || command == "flush" || command == "stat" || command == "shot" || command == "getdetailtextures" || command == "toggledetailtextures" || command == "lodbias" || command == "showpools" || command == "brightness"))
 		return {};
 
 	// The original's order (UViewport::Exec, Engine.dll 0x10373a60;
 	// engine-dll.md, a key's binding): the input's words and aliases, the
-	// render device's (D3DDrv's GETRES, 0x100061b0) and the viewport's own,
+	// render device's (Engine's GETDETAILTEXTURES and TOGGLEDETAILTEXTURES,
+	// 0x10371b60, then D3DDrv's GETRES, LODBIAS and SHOWPOOLS, 0x100061b0;
+	// bugs.md REN.44) and the viewport's own,
 	// then the exec functions (ExecCommand), then the engine's words, the
 	// launcher's SHOWLOG among them; the window's own words last, once all
 	// of those have taken nothing (UWindowsViewport::Exec, WinDrv.dll
@@ -2973,7 +2975,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	// console's; TOGGLEFULLSCREEN, SETRES).
 	static const std::set<std::string> viewportWords = {
 		"shot", "exec", "getping", "getloss", "netspeed", "lanspeed", "keyname", "keybinding",
-		"getres", "dxwindowdebug"
+		"getres", "dxwindowdebug", "getdetailtextures", "toggledetailtextures", "lodbias", "showpools"
 	};
 	if (InputExec(commandline, IK_None, EInputType::IST_Press, 20))
 		return {};
@@ -3316,6 +3318,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	else if (command == "setres" && args.size() == 2)
 	{
 		window->SetResolution(args[1]);
+		ModeSetAgain();
 		// The new size is kept as the windowed size, or full screen the
 		// mode taken, which the ini saves, as the original's SETRES keeps it.
 		int width = 0, height = 0;
@@ -3350,7 +3353,61 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 	}
 	else if (command == "flush")
 	{
-		engine->render->Device->Flush(1);
+		FlushRender();
+		return {};
+	}
+	else if (command == "getdetailtextures")
+	{
+		// The render device's DetailTextures, 1 or 0 (URenderDevice::Exec,
+		// Engine.dll 0x10371b8a)
+		return renderdev->DetailTextures ? "1" : "0";
+	}
+	else if (command == "toggledetailtextures")
+	{
+		// Flipped and the device's config saved, nothing said
+		// (0x10371bd3-0x10371bfb)
+		renderdev->DetailTextures = !renderdev->DetailTextures;
+		renderdev->SaveConfig();
+		FlushConfig();
+		return {};
+	}
+	else if (command == "lodbias")
+	{
+		// D3DDrv's (0x10006377): the number past the word, none 0, the mip
+		// bias from the next frame until the device's mode is set again
+		// (ModeSetAgain), neither held nor saved; its line the output
+		float bias = (float)std::atof(rest.c_str());
+		render->Device->SetLODBias(bias);
+		char line[64];
+		snprintf(line, sizeof(line), "Texture LodBias %f", bias);
+		return line;
+	}
+	else if (command == "showpools")
+	{
+		// D3DDrv's (0x10006404) lists its Direct3D 7 texture pools under the
+		// line, which DXEngine has not: the line alone, as the original's
+		// before any mode is set
+		return "Dumping D3D Texture Pool Info";
+	}
+	else if (command == "brightness")
+	{
+		// UClient::Exec's BRIGHTNESS (Engine.dll 0x10375966-0x10375b6a), an
+		// engine word: the live brightness a tenth up, 1 or more back to 0,
+		// the render flushed, a precache allowed, the client's config saved
+		// with it, and the player told "Brightness level <n>/10"
+		float brightness = client->BrightnessInUse + 0.1f;
+		if (brightness >= 1.0f)
+			brightness = 0.0f;
+		client->BrightnessInUse = brightness;
+		client->Brightness = brightness;
+		FlushRender();
+		SaveClientConfig();
+		FlushConfig();
+		if (viewport->Actor())
+		{
+			std::string message = "Brightness level " + std::to_string((int)(brightness * 10.0f + 1.0f)) + "/10";
+			CallEvent(viewport->Actor(), "ClientMessage", { ExpressionValue::StringValue(message), ExpressionValue::NameValue(NameString("None")), ExpressionValue::BoolValue(false) });
+		}
 		return {};
 	}
 	else if (!viewportWord || !ExecCommand(execArgs, commandline, output))
@@ -3761,6 +3818,7 @@ void Engine::ToggleFullscreen()
 
 	window->ToggleWindowFullscreen(resolution);
 	viewport->SetViewportRect(0, 0, width, height);
+	ModeSetAgain();
 	if (isFullscreen)
 		AskWindowSize(width, height);
 	// The client's config saved as each resize of the original's viewport
@@ -3787,6 +3845,7 @@ void Engine::EndFullscreen()
 	else
 	{
 		LogMessage("EndFullscreen");
+		ModeSetAgain();
 		SaveClientConfig();
 		FlushConfig();
 	}
@@ -3878,8 +3937,28 @@ void Engine::KeepWindowedSize()
 	client->WindowedViewportX = width;
 	client->WindowedViewportY = height;
 	client->WindowedColorBits = 32;
+	ModeSetAgain();
 	SaveClientConfig();
 	FlushConfig();
+}
+
+// The render device's mode set again -- full screen or back, SETRES, the
+// window's new size --, as the original's D3DDrv's SetRes sets its texture
+// stages again (InitTextureStageState, D3DDrv.dll 0x10009e20): a LODBIAS's
+// bias gone, the launcher's again
+void Engine::ModeSetAgain()
+{
+	if (render && render->Device)
+		render->Device->SetLODBias(render->Device->ConfiguredLODBias);
+}
+
+// The original's UEngine::Flush(1) (Engine.dll 0x10380fed), the console's
+// FLUSH and BRIGHTNESS's: the render device flushed, a precache allowed; no
+// PRECACHING frame after it, as none comes after the original's
+// (RenderWordsConsole with DXCAP_PRECACHE=1: the map's load alone shows it)
+void Engine::FlushRender()
+{
+	render->Device->Flush(true);
 }
 
 void Engine::OnWindowClose()

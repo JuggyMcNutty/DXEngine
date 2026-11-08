@@ -75,6 +75,7 @@ public:
 	void Exit();
 
 	void Flush(bool AllowPrecache) override;
+	void SetLODBias(float bias) override;
 	void Lock(vec4 FlashScale, vec4 FlashFog, vec4 ScreenClear) override;
 	void Unlock(bool Blit) override;
 	void DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet) override;
@@ -305,6 +306,9 @@ private:
 	void CreatePresentPass();
 	void CreateBloomPass();
 	void CreateScenePass();
+	void CreateSceneShaders();
+	void ApplyLODBias();
+	bool LODBiasChanged = false;
 	void ReleaseScenePass();
 	void ReleaseBloomPass();
 	void ReleasePresentPass();

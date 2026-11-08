@@ -413,7 +413,8 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 	}
 }
 
-void GLRenderDevice::CreateScenePass()
+// The scene's shaders and programs, GL ES's mip bias among their defines
+void GLRenderDevice::CreateSceneShaders()
 {
 	std::vector<std::string> vertexDefines;
 	if (ClipDistance)
@@ -455,6 +456,11 @@ void GLRenderDevice::CreateScenePass()
 		ScenePass.ClipShaderProgram = CreateProgram("ScenePass.ClipShaderProgram", ScenePass.ClipVertexShader, ScenePass.ClipFragmentShader);
 		ScenePass.ClipShaderProgramAlphaTest = CreateProgram("ScenePass.ClipShaderProgramAlphaTest", ScenePass.ClipVertexShader, ScenePass.ClipFragmentShaderAlphaTest);
 	}
+}
+
+void GLRenderDevice::CreateScenePass()
+{
+	CreateSceneShaders();
 
 	CreateSceneSamplers();
 
@@ -1124,8 +1130,50 @@ void GLRenderDevice::UnmapVertices()
 	// written happens per flush in DrawBatches.
 }
 
+void GLRenderDevice::SetLODBias(float bias)
+{
+	if (bias != LODBias)
+	{
+		LODBias = bias;
+		LODBiasChanged = true;
+	}
+}
+
+// A new mip bias (SetLODBias): desktop GL's samplers made again; GL ES's
+// scene programs, which hold it, made again and each pipeline pointed at its
+// new one
+void GLRenderDevice::ApplyLODBias()
+{
+	if (!IsGLES)
+	{
+		ReleaseSceneSamplers();
+		CreateSceneSamplers();
+	}
+	else
+	{
+		std::shared_ptr<GLProgram> oldPlain = ScenePass.ShaderProgram, oldAlphaTest = ScenePass.ShaderProgramAlphaTest;
+		CreateSceneShaders();
+		auto repoint = [&](ScenePipelineState& pipeline)
+		{
+			if (pipeline.ShaderProgram == oldPlain.get())
+				pipeline.ShaderProgram = ScenePass.ShaderProgram.get();
+			else if (pipeline.ShaderProgram == oldAlphaTest.get())
+				pipeline.ShaderProgram = ScenePass.ShaderProgramAlphaTest.get();
+		};
+		for (auto& pipeline : ScenePass.Pipelines) repoint(pipeline);
+		for (auto& pipeline : ScenePass.BiasedPipelines) repoint(pipeline);
+		for (auto& pipeline : ScenePass.AwayPipelines) repoint(pipeline);
+		for (auto& pipeline : ScenePass.LinePipeline) repoint(pipeline);
+	}
+	ForgetDrawState();
+	LODBiasChanged = false;
+}
+
 void GLRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 {
+	if (LODBiasChanged)
+		ApplyLODBias();
+
 	// A new window size changes the scene buffers alone (below): the textures
 	// stay, as the Vulkan device keeps them, where SetRes's flush sent each
 	// one up again at every step of a resize and, with UsePrecache, had the

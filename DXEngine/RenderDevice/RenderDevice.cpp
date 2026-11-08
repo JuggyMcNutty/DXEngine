@@ -36,7 +36,7 @@ RenderDevice::RenderDevice()
 	GammaOffsetGreen = std::clamp(settings.RenderDevice.GammaOffsetGreen, -1.0f, 1.0f);
 	GammaOffsetBlue = std::clamp(settings.RenderDevice.GammaOffsetBlue, -1.0f, 1.0f);
 	// Within the 2 every Vulkan device takes (maxSamplerLodBias)
-	LODBias = std::clamp(settings.RenderDevice.LODBias, -2.0f, 2.0f);
+	ConfiguredLODBias = LODBias = std::clamp(settings.RenderDevice.LODBias, -2.0f, 2.0f);
 }
 
 // D3DDrv's DrawTile (D3DDrv.dll 0x10005ba0), which every tile goes through,

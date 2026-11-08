@@ -65,6 +65,8 @@ public:
 
 	void Flush(bool AllowPrecache) override;
 	void Lock(vec4 FlashScale, vec4 FlashFog, vec4 ScreenClear) override;
+	void SetLODBias(float bias) override;
+	bool LODBiasChanged = false;
 	void Unlock(bool Blit) override;
 	void DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet) override;
 	void DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags) override;
