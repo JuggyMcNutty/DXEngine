@@ -229,12 +229,17 @@ namespace SoftwareSimd
 	inline F4 Select(I4 mask, F4 a, F4 b) { F4 r; for (int i = 0; i < 4; i++) r.v[i] = mask.v[i] ? a.v[i] : b.v[i]; return r; }
 #endif
 
-	// Rounded down, for the floats a texture coordinate holds
+	// Rounded down, for the floats a texture coordinate holds. From 2^23 on
+	// a float is a whole number, its own floor, which Truncate, with no int
+	// past 2^31 (INT_MIN there), cannot give: a coordinate of 2^31 texels or
+	// more wrapped to some -2^31, a read gigabytes before the texture
 	inline F4 Floor(F4 a)
 	{
 		F4 t = ToFloat(Truncate(a));
 		// Truncated toward zero: one less where that rounded a negative up
-		return Select(CmpLtF(a, t), t - SetF(1.0f), t);
+		t = Select(CmpLtF(a, t), t - SetF(1.0f), t);
+		I4 fractional = CmpLtF(a, SetF(8388608.0f)) & CmpLtF(SetF(-8388608.0f), a);
+		return Select(fractional, t, a);
 	}
 
 	inline int32_t Lane(I4 a, int i)

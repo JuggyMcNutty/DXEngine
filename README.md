@@ -19,7 +19,7 @@ Made with AI assistance.
   conversations and cinematics, its characters' AI, saving, loading and travel between maps,
   multiplayer. Each feature is checked against the original by scripted runs of both engines,
   and [`docs/NATIVES.md`](docs/NATIVES.md) says what differs.
-- **Modern renderers.** Vulkan by default, OpenGL, and OpenGL ES 3.2 for handhelds, with
+- **Modern renderers.** Vulkan by default, OpenGL, and OpenGL ES 3.1 for handhelds, with
   multisampling and a render scale for slower GPUs; on the CPU alone, on every core, where the GPU
   has no driver.
 - **Gamepads.** Through SDL3 or SDL2, mapped to the game's own joystick bindings in `User.ini`,

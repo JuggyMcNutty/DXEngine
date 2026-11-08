@@ -196,9 +196,10 @@ public:
 	static size_t MipBytes(TextureFormat format, int width, int height);
 	virtual void EndFlash() = 0;
 	// The world's frame and the weapon's drawn: with Bloom on, its bloom
-	// taken from them now, the HUD's and the menus' windows drawn after it
-	// left sharp, and added to the frame whole at Unlock. A device without
-	// a bloom draws on.
+	// taken from them now and added into the scene, so the HUD's and the
+	// menus' windows drawn after it stay sharp, and the screen flash and the
+	// masks drawn over the world after it cover it. A device without a bloom
+	// draws on.
 	virtual void TakeBloom() { }
 	virtual void SetSceneNode(SceneNode* Frame) = 0;
 	virtual void PrecacheTexture(TextureInfo& Info, uint32_t PolyFlags) = 0;

@@ -5,7 +5,10 @@
 // DXCAP_SERVERPKGS (its paths; a game standing alone serves nothing):
 // CapDXT1Whole, the control, green; CapDXT1ShortTop, its top mip half its
 // bytes; CapDXT1ShortLower, its 32x32 mip half its bytes, red, then yellow,
-// then cyan; CapDXT1Wide, 32768x4; CapDXT1Big, 2048x8. On the map the run
+// then cyan; CapDXT1Wide, 32768x4; CapDXT1Big, 2048x8; CapDXT1Tiny, 2x2 red
+// over a 1x1 blue mip (bugs.md REN.58 (f)): at 40, 300 a 64 by 64 tile of
+// it a texel to a pixel, repeated, which every device draws red from its top
+// level, and at 120, 300 the texture magnified to 64 by 64. On the map the run
 // starts on, 6 s in, the HUD hidden, conversations and datalinks stopped as
 // they start: each texture loaded (Only: that one alone), then drawn on a
 // black screen, each place logged -- the short lower one at 128, 22 and 11
@@ -16,8 +19,8 @@ class ShortMipConsole extends Console;
 
 var config string Only;
 
-var string TexNames[5];
-var Texture Tex[5];
+var string TexNames[6];
+var Texture Tex[6];
 var float MapTime, StepTime;
 var int Phase;
 var bool bDrawing;
@@ -38,7 +41,7 @@ function LoadTextures()
 {
 	local int i;
 
-	for (i = 0; i < 5; i++)
+	for (i = 0; i < 6; i++)
 	{
 		if (Wanted(i))
 		{
@@ -60,6 +63,17 @@ function DrawOne(canvas C, int i, float X, float Y, float W, float H)
 	C.DrawTile(Tex[i], W, H, 0, 0, Tex[i].USize, Tex[i].VSize);
 	if (!bPlacesLogged)
 		Say(TexNames[i] $ " drawn at " $ int(X) $ "," $ int(Y) $ " " $ int(W) $ "x" $ int(H));
+}
+
+// One texture repeated, a texel to a pixel, at X, Y, W by H pixels
+function DrawRepeated(canvas C, int i, float X, float Y, float W, float H)
+{
+	if (Tex[i] == None)
+		return;
+	C.SetPos(X, Y);
+	C.DrawTile(Tex[i], W, H, 0, 0, W, H);
+	if (!bPlacesLogged)
+		Say(TexNames[i] $ " repeated at " $ int(X) $ "," $ int(Y) $ " " $ int(W) $ "x" $ int(H) $ ", a texel to a pixel");
 }
 
 event PostRender(canvas C)
@@ -84,6 +98,8 @@ event PostRender(canvas C)
 	DrawOne(C, 2, 530, 40, 11, 11);
 	DrawOne(C, 3, 40, 200, 512, 16);
 	DrawOne(C, 4, 40, 240, 512, 16);
+	DrawRepeated(C, 5, 40, 300, 64, 64);
+	DrawOne(C, 5, 120, 300, 64, 64);
 	bPlacesLogged = True;
 }
 
@@ -154,4 +170,5 @@ defaultproperties
 	TexNames(2)="CapDXT1ShortLower"
 	TexNames(3)="CapDXT1Wide"
 	TexNames(4)="CapDXT1Big"
+	TexNames(5)="CapDXT1Tiny"
 }

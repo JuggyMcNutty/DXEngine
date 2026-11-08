@@ -853,6 +853,19 @@ stock menus draw it translucent); on the canvas, clipped text drawn
 clamped on every device, where `D3DDrv`'s addressing wraps, its outer half
 texel blending with the opposite edge, which no stock art relies on.
 
+The canvas's `DrawTile` and `DrawTileClipped` are the original's
+([the canvas's tiles](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#small)):
+no texture logged and the cursor left; any other tile moving `CurX` on by
+`SpaceX` and its width, whatever its size, and `CurYL` to the larger of it and
+the height, `SpaceY` no part of it; `STY_Masked` adding no flag of its own, the
+texture's masked bit the tile's; a clipped tile of no width or height doing
+nothing, one from a negative `CurX` or `CurY` cut there and the cursor made 0,
+then cut at `ClipX` and `ClipY`, its texels in proportion, and the cursor moved
+by what is left (`TileEdgeConsole`: every case's `CurX`, `CurY` and `CurYL` alike
+in both engines, 7 of 14 lines apart on the build before; a texture not masked
+drawn `STY_Masked` whole, its colour 0 drawn, 3,850 of the box's 102,400 pixels
+not magenta in both, where the build before masked it, none magenta).
+
 A window's tile and character are placed as the original's GC places them
 ([the GC's styles](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#styles)):
 clipped to the GC's box in the window's units -- along an axis the tile
@@ -898,8 +911,13 @@ pixel (`MipConsole`: a floor of `CapMips` laid under the view, drawn
 NoSmooth, one texel to a pixel and each mip from `D3DDrv`'s rows, 0 of 362
 apart at 1024x768; smooth, GL ES's mips GL's, 0 rows apart).
 
-Differs (bugs.md REN.52): a masked texel is cut where its filtered alpha is
-under 0.5, `D3DDrv` keeping alpha above 127/255.
+A masked texel shows where its filtered alpha is above 127/255 on every
+device, as `D3DDrv`'s alpha test keeps it (reference 127, greater:
+[the fixed state](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#d3ddrvdll)):
+`MaskEdgeConsole`'s chain link at 1280x720, its 16 by 16 texels at x20 33,352
+pixels lit through `D3DDrv` and 33,314 on Vulkan, GL, GL ES and the software
+device, as with a test of 0.5 (the filtering's own rounding, not the test,
+parting them); at x5 42,173 and 42,176; point-sampled 33,200 in all.
 
 ### The software device
 
@@ -943,11 +961,11 @@ original's reaches `D3DDrv`'s class, changing nothing on screen. Differs by choi
   the frame into its buffer and commits nothing of itself: untried with the
   software device.
 
-Differs (bugs.md REN.53): the GL device's ES path asks for ES 3.2, which an
-ES 3.1 GPU has not, and gets the software device. Differs (bugs.md REN.54):
-a wrapped coordinate past 2^31 texels reads far before the texture. Differs
-(bugs.md REN.55): a GL error ends the game unlogged. Differs (bugs.md
-REN.56): the GL shaders' `centroid` and the Win32 window's 3.2 context.
+A texture's coordinate wraps at any distance, as the device's float
+reference, the GPU devices and `D3DDrv` wrap it: a float past 2^23 is its own
+floor (`HugeTileConsole`: the tile at U 1e12 drawn, its shot alike with the
+reference's, `DXE_SW_REFERENCE=1`, and the Vulkan device's, where the device
+read some 8 GiB before the texture and dumped core).
 
 ### Sprites
 
@@ -1479,9 +1497,15 @@ every instant flash and fog, and the death's spiral round the carcass shows
 none of the fade to white and to black its state's `PlayerCalcView` asks
 for (`DyingConsole`, at 60 frames a second).
 
-Differs (bugs.md REN.57): with Bloom on, the bloom is added after the flash
-and the windows, so the loading screen's dimming, the pain and water tints
-and the menus' mask leave the world's glow whole.
+With Bloom on (DXEngine's setting), the world's bloom is added into its frame
+before the windows are drawn, so the screen flash -- the loading screen's
+dimming, the pain and water tints -- scales it as it scales the world, and the
+windows and the menus' mask (`MaskBackground`) cover it, on the Vulkan, GL
+and D3D11 devices alike (`LoadingConsole` with Bloom on, `bloomlevels.py`:
+UNATCO HQ's SAVING frame at a 99.9th percentile of 30, 292 pixels over 40,
+as with Bloom off, where 96 and 16,443 on the build before; the island's
+LOADING frame 29, as with Bloom off, where 34; alike on Vulkan, GL, GL ES
+and D3D11 under Wine).
 
 ### Draw order and movers
 
@@ -3628,8 +3652,6 @@ walker before a tall face refused, a flier sent over it to the same
 `Destination` and refused under it, in both engines, where DXEngine's
 walker had jumped).
 
-Differs (bugs.md REN.51): the canvas's tile natives' edges.
-
 The renderer's words are the original's (`URender::Exec`, Render.dll
 `0x10b147b0`): `STAT` toggles its panels a word in their order, `stat fps`
 the line 10 pixels over the view's bottom -- the frame rate, the frame's
@@ -4137,10 +4159,18 @@ D3DDrv's frame, where an empty one was passed, 1.62).
 given itself as its macro texture, has the GL and Vulkan devices' frames at
 1.00 of `D3DDrv`'s (`NoDetail`): in blocks of 16 pixels inside the map's
 border, within 0.94 to 1.04 (without the macro, [lighting](#lighting)). The
-D3D11 device keeps Surreal Engine's
-([where it stands](../README.md#for-advanced-users)). Differs (bugs.md
-REN.58): the D3D11 device's detail textures in one band, its blends
-unclamped in float buffers, no depth step for movers, `RenderScale` ignored.
+D3D11 device draws it as the Vulkan device does, and its detail textures in
+`D3DDrv`'s three bands, its blends clamped at 1 in ten-bit buffers, a mover's
+surfaces a step in the depth and the frame at the render scale, under Wine
+through DXVK against the Vulkan device on Linux: `DetailConsole` (`detail.py`'s
+bands within 0.0002 of the Vulkan device's at every height, none failed, where
+the build before failed 11; its first shot within a level of the Vulkan
+device's, where 64% of the pixels lay up to 11 levels off), `DrugConsole` with
+`HudWindows` (the HUD over `DrunkFX` within a level of the Vulkan device's),
+`ShortMipConsole` (a 2x2 DXT1 texture over a blue 1x1 mip drawn red from its
+top level, as on Vulkan, where the build before blended in the blue),
+`ProveConsole` with `RenderScale` 0.5 (a shot of 640x360 at a window of
+1280x720); the mover's depth step and the fallback swap chain by reading.
 
 A fixed array (`FixedArrayProperty`) and a map (`MapProperty`), which no
 stock package has, are the original's

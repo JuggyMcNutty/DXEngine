@@ -104,6 +104,12 @@ public:
 
 	void SetDebugName(GLenum type, GLuint handle, const char* name);
 
+	// A GL error in a frame (Lock, Unlock, a texture's upload, a read-back),
+	// logged with its names, each line once, the game going on: the call
+	// that erred did nothing, where its throw ended the game. A lost
+	// context's is thrown, named.
+	void LogFrameGLErrors(const char* what);
+
 	template<typename T> void SetDebugName(const T& object, const char* name)
 	{
 		if (object)
@@ -319,9 +325,7 @@ private:
 	void ReleaseSceneBuffers();
 
 	void RunBloomPass();
-	void AddBloom();
-	// The bloom levels hold this frame's, taken by TakeBloom
-	bool BloomTaken = false;
+	void AddBloom(GLFramebuffer* target);
 	void BlurStep(GLTexture2D* input, GLFramebuffer* output, bool vertical);
 	float ComputeBlurGaussian(float n, float theta);
 	void ComputeBlurSamples(int sampleCount, float blurAmount, float* sampleWeights);
@@ -410,6 +414,14 @@ private:
 
 	bool IsLocked = false;
 	std::string LastResizeError; // the last failed resize's reason, said once
+	std::set<std::string> LoggedGLErrors; // LogFrameGLErrors' lines, each said once
+	// The scene's samples: the setting and colour format they were found for
+	// (ResizeSceneBuffers), the count found, and the most a refused storage
+	// or framebuffer left, 0 for none
+	int SceneSamplesAsked = 0;
+	GLenum SceneSamplesFormat = 0;
+	int SceneSamplesFound = 1;
+	int SceneSamplesCap = 0;
 	bool Exited = false; // set by Exit(); after it no GL work is done
 	bool IsGLES = false; // an OpenGL ES context (RenderAPI::GLES): GLSL ES sources, no desktop versions
 	bool SamplerAnisotropy = true; // EXT_texture_filter_anisotropic; off where absent
@@ -424,6 +436,7 @@ private:
 	bool CurrentFullscreen = 0;
 	int CurrentSizeX = 0;
 	int CurrentSizeY = 0;
+	int SwapIntervalVSync = -1; // the UseVSync the swap interval was set for, -1 none yet
 };
 
 inline void GLRenderDevice::SetPipeline(ScenePipelineState* pipeline)
@@ -487,12 +500,45 @@ inline void GLRenderDevice::SetDescriptorSet(uint32_t PolyFlags, const ComplexSu
 	}
 }
 
-// Each check makes a threaded GL driver (Mesa's glthread) finish all it has
-// queued before it answers: checked once a frame (Lock, Unlock) and when
+// The errors GL has flagged since it was last asked, each by its name
+// ("GL_INVALID_OPERATION"), "" for none: glGetError gives one flag a call.
+// Each ask makes a threaded GL driver (Mesa's glthread) finish all it has
+// queued before it answers: asked once a frame (Lock, Unlock) and when
 // things are made, never per draw or texture upload.
+inline std::string TakeGLErrors()
+{
+	std::string errors;
+	for (int i = 0; i < 8; i++) // a lost context may answer without end
+	{
+		GLenum error = glGetError();
+		if (error == GL_NO_ERROR)
+			break;
+		char name[40];
+		switch (error)
+		{
+		case GL_INVALID_ENUM: snprintf(name, sizeof(name), "GL_INVALID_ENUM"); break;
+		case GL_INVALID_VALUE: snprintf(name, sizeof(name), "GL_INVALID_VALUE"); break;
+		case GL_INVALID_OPERATION: snprintf(name, sizeof(name), "GL_INVALID_OPERATION"); break;
+		case GL_STACK_OVERFLOW: snprintf(name, sizeof(name), "GL_STACK_OVERFLOW"); break;
+		case GL_STACK_UNDERFLOW: snprintf(name, sizeof(name), "GL_STACK_UNDERFLOW"); break;
+		case GL_OUT_OF_MEMORY: snprintf(name, sizeof(name), "GL_OUT_OF_MEMORY"); break;
+		case GL_INVALID_FRAMEBUFFER_OPERATION: snprintf(name, sizeof(name), "GL_INVALID_FRAMEBUFFER_OPERATION"); break;
+		case GL_CONTEXT_LOST: snprintf(name, sizeof(name), "GL_CONTEXT_LOST"); break;
+		default: snprintf(name, sizeof(name), "0x%04x", (unsigned)error); break;
+		}
+		if (!errors.empty())
+			errors += ", ";
+		errors += name;
+	}
+	return errors;
+}
+
+// Where a thing is made: its error the device's, named, which fails the
+// device at its start (the engine then draws on the software device) or a
+// resize of its scene buffers (Lock)
 inline void ThrowIfGLError(const char* msg)
 {
-	GLenum error = glGetError();
-	if (error != GL_NO_ERROR)
-		throw std::runtime_error(msg);
+	std::string errors = TakeGLErrors();
+	if (!errors.empty())
+		throw std::runtime_error(std::string(msg) + ": " + errors);
 }

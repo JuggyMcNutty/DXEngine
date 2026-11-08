@@ -99,6 +99,7 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 			float4 textureMacro(float2 uv) { return texMacro.Sample(samplerTexMacro, uv); }
 			float4 textureLightmap(float2 uv) { return texLightmap.Sample(samplerTexLightmap, uv); }
 			float4 textureDetail(float2 uv) { return texDetail.Sample(samplerTexDetail, uv); }
+			float4 textureDetailGrad(float2 uv, float2 dx, float2 dy) { return texDetail.SampleGrad(samplerTexDetail, uv, dx, dy); }
 
 			Output main(Input input)
 			{
@@ -110,24 +111,57 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 				output.outColor = darkClamp(textureTex(input.texCoord)) * input.color;
 				output.outColor.rgb *= actorXBlending;
 
+				float lightmapScale = oneXBlending;
 				if ((input.flags & 2) != 0) // Macro texture
 				{
+					#if defined(MACRO_TWO_PASS)
+					// D3DDrv's passes: the macro modulated, twice its colour,
+					// into the 8-bit frame; the light map after, doubled
+					output.outColor.rgb = min(output.outColor.rgb * darkClamp(textureMacro(input.texCoord3)).rgb * 2.0, float3(1.0, 1.0, 1.0));
+					lightmapScale *= 2.0;
+					#else
 					output.outColor *= darkClamp(textureMacro(input.texCoord3));
+					#endif
 				}
 
 				if ((input.flags & 1) != 0) // Lightmap
 				{
-					output.outColor.rgb *= textureLightmap(input.texCoord2).rgb * oneXBlending;
+					output.outColor.rgb *= clamp(textureLightmap(input.texCoord2).rgb, 0.0, 1.0) * lightmapScale;
 				}
 
 				if ((input.flags & 4) != 0) // Detail texture
 				{
-					float fadedistance = 380.0f;
 					// SV_Position.w is the clip-space w, the view depth (GLSL's
 					// 1 / gl_FragCoord.w)
+					#if defined(DETAIL_BANDS)
+					// D3DDrv's three passes, a band each (d3ddrv-dll.md, detail
+					// textures): nearer than 380 units, each further bound 4.223
+					// times nearer and its grain 4.223 times finer, the detail
+					// faded to grey by (bound/z - 1) * 100/255 and modulated in at
+					// twice its colour, clamped after each. Faded per pixel; read
+					// with the gradients from outside the bands' branches.
+					float z = input.pos.w;
+					float2 detailDx = ddx(input.texCoord4);
+					float2 detailDy = ddy(input.texCoord4);
+					float bound = 380.0;
+					float repeat = 1.0;
+					[unroll] for (int band = 0; band < 3; band++)
+					{
+						if (z < bound)
+						{
+							float a = min((bound / z - 1.0) * (100.0 / 255.0), 1.0);
+							float3 detailColor = textureDetailGrad(input.texCoord4 * repeat, detailDx * repeat, detailDy * repeat).rgb;
+							output.outColor.rgb = min(output.outColor.rgb * 2.0 * lerp(float3(0.5, 0.5, 0.5), detailColor, a), float3(1.0, 1.0, 1.0));
+						}
+						bound /= 4.223;
+						repeat *= 4.223;
+					}
+					#else
+					float fadedistance = 380.0f;
 					float a = clamp(2.0f - input.pos.w / fadedistance, 0.0f, 1.0f);
 					float4 detailColor = (textureDetail(input.texCoord4) - 0.5) * 0.5 + 1.0;
 					output.outColor.rgb = lerp(output.outColor.rgb, output.outColor.rgb * detailColor.rgb, a);
+					#endif
 				}
 				else if ((input.flags & 8) != 0) // Fog map
 				{
@@ -141,7 +175,9 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
 				}
 
 				#if defined(ALPHATEST)
-				if (output.outColor.a < 0.5) discard;
+				// D3DDrv's alpha test: kept above 127/255 (ALPHAREF 0x7F,
+				// ALPHAFUNC GREATER; D3DDrv.dll 0x1000c83a, 0x1000c84a)
+				if (output.outColor.a <= 127.0 / 255.0) discard;
 				#endif
 
 				output.outColor = clamp(output.outColor, 0.0, 1.0);

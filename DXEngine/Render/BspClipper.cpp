@@ -682,7 +682,8 @@ int BspClipper::ClipEdge(const ShadedVertex* const* verts)
 		//clipd[6] = v.gl_ClipDistance[0];
 		//clipd[7] = v.gl_ClipDistance[1];
 		//clipd[8] = v.gl_ClipDistance[2];
-		// Any distance not at least zero (a NaN too) means clipping, as the SSE path tests
+		// Any distance not at least zero (a NaN too) means clipping, as the SSE
+		// path and DrawPolygon test it
 		for (int j = 0; j < numclipdistances; j++)
 			needsclipping = needsclipping || !(clipd[j] >= 0.0f);
 		clipd += numclipdistances;
@@ -709,12 +710,15 @@ int BspClipper::ClipEdge(const ShadedVertex* const* verts)
 	//__m128 clipd6 = _mm_setr_ps(verts[0]->gl_ClipDistance[0], verts[1]->gl_ClipDistance[0], verts[2]->gl_ClipDistance[0], 0.0f);
 	//__m128 clipd7 = _mm_setr_ps(verts[0]->gl_ClipDistance[1], verts[1]->gl_ClipDistance[1], verts[2]->gl_ClipDistance[1], 0.0f);
 	//__m128 clipd8 = _mm_setr_ps(verts[0]->gl_ClipDistance[2], verts[1]->gl_ClipDistance[2], verts[2]->gl_ClipDistance[2], 0.0f);
-	__m128 mneedsclipping = _mm_cmplt_ps(clipd0, _mm_setzero_ps());
-	mneedsclipping = _mm_or_ps(mneedsclipping, _mm_cmplt_ps(clipd1, _mm_setzero_ps()));
-	mneedsclipping = _mm_or_ps(mneedsclipping, _mm_cmplt_ps(clipd2, _mm_setzero_ps()));
-	mneedsclipping = _mm_or_ps(mneedsclipping, _mm_cmplt_ps(clipd3, _mm_setzero_ps()));
-	mneedsclipping = _mm_or_ps(mneedsclipping, _mm_cmplt_ps(clipd4, _mm_setzero_ps()));
-	mneedsclipping = _mm_or_ps(mneedsclipping, _mm_cmplt_ps(clipd5, _mm_setzero_ps()));
+	// Any distance not at least zero means clipping, a NaN too (not greater
+	// or equal, which a NaN is not), as the plain path and DrawPolygon test
+	// it: a less-than took a NaN as inside
+	__m128 mneedsclipping = _mm_cmpnge_ps(clipd0, _mm_setzero_ps());
+	mneedsclipping = _mm_or_ps(mneedsclipping, _mm_cmpnge_ps(clipd1, _mm_setzero_ps()));
+	mneedsclipping = _mm_or_ps(mneedsclipping, _mm_cmpnge_ps(clipd2, _mm_setzero_ps()));
+	mneedsclipping = _mm_or_ps(mneedsclipping, _mm_cmpnge_ps(clipd3, _mm_setzero_ps()));
+	mneedsclipping = _mm_or_ps(mneedsclipping, _mm_cmpnge_ps(clipd4, _mm_setzero_ps()));
+	mneedsclipping = _mm_or_ps(mneedsclipping, _mm_cmpnge_ps(clipd5, _mm_setzero_ps()));
 	//mneedsclipping = _mm_or_ps(mneedsclipping, _mm_cmplt_ps(clipd6, _mm_setzero_ps()));
 	//mneedsclipping = _mm_or_ps(mneedsclipping, _mm_cmplt_ps(clipd7, _mm_setzero_ps()));
 	//mneedsclipping = _mm_or_ps(mneedsclipping, _mm_cmplt_ps(clipd8, _mm_setzero_ps()));

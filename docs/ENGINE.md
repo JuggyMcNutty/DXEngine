@@ -251,7 +251,7 @@ is. DXEngine's keys:
 | Key | What it does |
 |---|---|
 | `Performance.RenderScale` | The scene drawn at this fraction of the window's size (0.25 to 1; default 1) and scaled up to it, by the Vulkan, GL and software devices ([how](#settings-the-launcher-exposes)). |
-| `"Type": "GLES"` in `RenderDevice` | The GL device on an OpenGL ES 3.2 context (DXLauncher's `[GLES]` renderer, `data/renderers.ini`). |
+| `"Type": "GLES"` in `RenderDevice` | The GL device on an OpenGL ES 3.1 context or later (DXLauncher's `[GLES]` renderer, `data/renderers.ini`). |
 | `"Type": "Software"` in `RenderDevice` | The software device, which draws on the CPU (DXLauncher's `[Software]` renderer; [rendering](#rendering)). |
 | `"Type": "Vulkan"`, `"OpenGL"` or `"D3D11"` in `RenderDevice` | The Vulkan device, the GL device on a desktop GL context, or the D3D11 device, Windows' own, which no launcher offers ([for advanced users](../README.md#for-advanced-users)). |
 | `"Antialias"`, `"Light"`, `"Gamma"` in `RenderDevice` | `Off`, `MSAA2x` or `MSAA4x`; `Normal`, `OneX` or `BrighterActors`; `D3D9` or `XOpenGL` ([rendering](#rendering)). |
@@ -461,10 +461,12 @@ through the GPU's driver whatever the key). The log names the driver either draw
 **The bloom** (`"Bloom"`, the Vulkan, GL and D3D11 devices): what of the world's frame and the
 weapon lies over half the scene's range, by a pixel's brightest channel and eased in over a knee
 of 0.1 below that, is taken as the world ends (`RenderDevice::TakeBloom`), blurred over four
-halvings at `BloomAmount`'s spread and added to the frame at its end, so the HUD's and the
-menus' windows, drawn after it, stay sharp. The threshold is under 1, as the Vulkan and GL
-devices' scene buffers hold no more (D3D11's are `R16G16B16A16_FLOAT`, its threshold the same):
-Surreal Engine's of 1 blooms only what a float buffer's blends push over it. The D3D11 device's
+halvings at `BloomAmount`'s spread and added into the scene there, so the HUD's and the menus'
+windows, drawn after it, stay sharp, and the screen flash and the menus' masks, drawn over the
+world after it, cover it as they cover the world
+([the screen flash](NATIVES.md#the-screen-flash)). The threshold is under 1, as the devices'
+ten-bit scene buffers hold no more: Surreal Engine's of 1 blooms only what a float buffer's
+blends push over it. The D3D11 device's
 passes bind samplers of their own, as the others' do: the bloom, the present and the
 gamma-corrected read-back sample the image linearly, held at its edges, and the present the
 dither texel for texel, repeated.
@@ -487,7 +489,8 @@ own that discard what lies behind the plane, and no other draw has a discard.
 It decodes on the CPU what the GPU cannot sample or filter: BC1, RGB8, RGBA32F, and converts
 the lightmaps for upload in NEON on ARM. A mip bigger than its 64 MB staging buffer goes up in
 bands of rows. Its scene buffer, post-process images and bloom levels are A2B10G10R10, as the GL
-device's are RGB10_A2 (`SceneTextures::SceneFormat`): every blend clamps at 1, as `D3DDrv`'s
+device's are RGB10_A2 and the D3D11 device's R10G10B10A2 (`SceneTextures::SceneFormat`): every
+blend clamps at 1, as `D3DDrv`'s
 8-bit frame clamps it, where Surreal Engine's 16-bit float keeps a modulated blend's 2 x src x
 dst for the draws after it; `LightConsole`'s Spotlight0 comes out block for block as on the GL
 device, `DrugConsole`'s HUD windows over the drugged view within a level of it. Its shots copy
@@ -498,9 +501,10 @@ as the GL device's take none, nor do `D3DDrv`'s but its detail passes
 a translucent draw biased by its slope shows through the opaque one in front of it from afar,
 an augmentation canister's inner glow through its shell (`CanisterConsole`). A mover's surfaces
 take a step and a slope of 1 toward the viewer, and a polygon the brush tracker filed in the
-plane of a level surface a step away from it, on Vulkan, GL and the software device
+plane of a level surface a step away from it, on Vulkan, GL, D3D11 and the software device
 (`SurfaceInfo::DepthBias`; the Vulkan scene pipelines' dynamic depth bias, set as it changes,
-GL's `glPolygonOffset`, the software device's own; D3D11's take none;
+GL's `glPolygonOffset`, D3D11's rasterizer states' `DepthBias` and `SlopeScaledDepthBias`, the
+software device's own;
 [draw order and movers](NATIVES.md#draw-order-and-movers)). Multisampled, its scene shader
 reads a texture at the pixel's centre, as without multisampling: `TileConsole` on RADV, at 2x
 and 4x, draws its grey boxes pixel for pixel as without it, the `FontMenuHeaders` text at 1.00
@@ -509,33 +513,46 @@ device's shader reads it, a pixel two triangles share, along a tile's diagonal, 
 derivatives on RADV, and with them another mip; on Mesa's radeonsi the GL device's tiles stay
 within a level of their picture without multisampling.
 
-**The GL device** runs desktop GL 4.2+ and OpenGL ES 3.2 from one code path: `RenderAPI::GLES`
-and `RenderDeviceType::GLES`, an ES 3.2 context from every Linux window backend (SDL2 and SDL3
+**The GL device** runs desktop GL 4.2+ and OpenGL ES 3.1+ from one code path: `RenderAPI::GLES`
+and `RenderDeviceType::GLES`, an ES 3.1 context from every Linux window backend (SDL2 and SDL3
 through `SDL_GL_CONTEXT_PROFILE_ES`, set before the window is made, as SDL chooses a Wayland or
 KMSDRM window's EGL config by it as it makes the window, X11 and Wayland through EGL with the ES3
 bit), and `IsGLES`
 read at init from `glGetString(GL_VERSION)`. It draws at the render scale, as the Vulkan device
 does ([the setting](#settings-the-launcher-exposes)). The same shader sources compile as GLSL ES
-3.20 (`CompileGlsl` prepends the version and highp precision; the sources keep to `u`-suffixed
+3.10 (`CompileGlsl` prepends the version and highp precision; the sources keep to `u`-suffixed
 masks, float literals and `std140` push-constant blocks). No desktop-only calls: `glClearDepthf`
 and `glDepthRangef`, `glDrawBuffers` for every `glDrawBuffer`, no `GL_DEPTH_CLAMP` or
 `GL_MULTISAMPLE` on ES, the plain blend calls, the null texture as `UNSIGNED_BYTE`. It asks for
 GL errors once a frame, not at each flush of its batches and each texture upload: every
-`glGetError` makes Mesa's GL thread finish all it has queued. A draw sets only the state that
+`glGetError` makes Mesa's GL thread finish all it has queued. An error in a frame (`Lock`,
+`Unlock`, a texture made, a read-back) is logged with its names, each line once, and the game
+goes on, the call that erred having done nothing (a lost context's ends it, named); one where a
+thing is made at the device's start fails it, named, and the software device draws. A draw sets
+only the state that
 differs from the last draw's (`DrawState`: program, samplers, textures, blend, depth), forgotten
 wherever else that state is set.
 
-- **ES 3.2, not 3.0**: the shaders bind their samplers with `layout(binding)`, which GLSL ES
-  3.00 lacks. `gl_FragCoord.w` is 1/w on ES as on desktop, so the detail bands fall at the same
-  distances on ES as on desktop.
+- **ES 3.1, not 3.0**: the shaders bind their samplers with `layout(binding)` and place their
+  stages' variables by `layout(location)`, which GLSL ES 3.00 lacks, and the multisampled scene
+  buffers are ES 3.1's (below), attached by `glFramebufferTexture2D`; nothing is ES 3.2's, so an
+  ES 3.1 GPU (Mesa's v3d, Panfrost on Mali Midgard) draws (`ProveConsole` with
+  `gles-settings.json` under `MESA_GLES_VERSION_OVERRIDE=3.1`: OpenGL ES 3.1, both shots, where
+  no context was made and the software device drew). `gl_FragCoord.w` is 1/w on ES as on
+  desktop, so the detail bands fall at the same distances on ES as on desktop.
 - **Antialiasing on ES**: the multisampled scene buffers are made with ES 3.1's
   `glTexStorage2DMultisample`, as ES lacks desktop GL's `glTexImage2DMultisample`; on either,
-  the samples are halved until the colour and the depth take them. It works on the desktop's
-  ES 3.2 context; DXLauncher keeps antialiasing off on a PowerVR, the Smart Pro's GE8300 among
+  the samples are halved until the colour's format and D32F each take them, by the counts the
+  driver lists for each (`glGetInternalformativ`), and a storage or a scene framebuffer the
+  driver refuses gets half, from then on, logged. It works on the desktop's ES context;
+  DXLauncher keeps antialiasing off on a PowerVR, the Smart Pro's GE8300 among
   them, whose resolve is speckle.
-- **The desktop context**: every Linux window backend asks for a desktop 4.2 core context, as
-  the shaders are GLSL 4.20 (`CompileGlsl` prepends `#version 420`): a driver without 4.2 fails
-  at the context, with an error that says so, not at a shader.
+- **The desktop context**: every window backend, Windows' own too, asks for a desktop 4.2 core
+  context, as the shaders are GLSL 4.20 (`CompileGlsl` prepends `#version 420`): a driver
+  without 4.2 fails at the context, with an error that says so, not at a shader. The vertex
+  shader writes the texture's coordinate at a covered sample (`centroid`), as the fragment
+  shader reads it: before GLSL 4.30 the two stages must agree, or a strict driver refuses the
+  link.
 - **The vertices** stream through CPU staging arrays, each flush uploading the range written
   since the last one (`glBufferSubData`): mapping the buffers' unused tails on every flush
   costs most of the GE8300's frame. Its persistent mapping (`GL_EXT_buffer_storage`, which

@@ -61,12 +61,13 @@ static LRESULT CALLBACK MaximizeCommandProc(HWND hwnd, UINT msg, WPARAM wparam, 
 }
 #endif
 
-// The GL context's version and profile: ES 3.2 (the GL device's ES shaders
-// are GLSL ES 3.20) or desktop 4.2 core (its desktop shaders are GLSL 4.20)
+// The GL context's version and profile: ES 3.1 (the GL device's ES shaders
+// are GLSL ES 3.10; a 3.2 driver gives its 3.2 context) or desktop 4.2 core
+// (its desktop shaders are GLSL 4.20)
 static void SetGLContextAttributes(bool es)
 {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, es ? 3 : 4);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, es ? 1 : 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, es ? SDL_GL_CONTEXT_PROFILE_ES : SDL_GL_CONTEXT_PROFILE_CORE);
 }
 

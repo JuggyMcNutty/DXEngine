@@ -124,7 +124,9 @@ int SoftwareReference::Shade(const SoftwareDraw& draw, const SoftwareQuad& quad,
 				c[i] = f[i] + c[i] * (1.0f - f[3]);
 		}
 
-		if (draw.AlphaTest && c[3] < 0.5f)
+		// D3DDrv's alpha test: kept above 127/255 (D3DDrv.dll 0x1000c83a,
+		// 0x1000c84a)
+		if (draw.AlphaTest && c[3] <= 127.0f / 255.0f)
 			continue;
 
 		for (int i = 0; i < 4; i++)

@@ -63,6 +63,9 @@ public:
 		std::unique_ptr<VulkanPipelineLayout> PipelineLayout;
 		std::unique_ptr<VulkanPipeline> Extract;
 		std::unique_ptr<VulkanPipeline> Combine;
+		// The first level added into the scene's colour, in its pass and at
+		// its samples (TakeBloom): made with the scene's pipelines
+		std::unique_ptr<VulkanPipeline> CombineScene;
 		std::unique_ptr<VulkanPipeline> Scale;
 		std::unique_ptr<VulkanPipeline> BlurVertical;
 		std::unique_ptr<VulkanPipeline> BlurHorizontal;

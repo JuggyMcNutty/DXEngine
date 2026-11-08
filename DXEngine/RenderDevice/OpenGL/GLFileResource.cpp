@@ -25,7 +25,10 @@ std::string GLFileResource::readAllText(const std::string& filename)
 			layout(location = 6) in vec4 aColor;
 
 			layout(location = 0) flat out uint flags;
-			layout(location = 1) out vec2 texCoord;
+			// Read at a covered sample, as the fragment shader reads it: before
+			// GLSL 4.30 the two stages' centroid must agree, or a strict driver
+			// refuses the link
+			layout(location = 1) centroid out vec2 texCoord;
 			layout(location = 2) out vec2 texCoord2;
 			layout(location = 3) out vec2 texCoord3;
 			layout(location = 4) out vec2 texCoord4;
@@ -176,7 +179,9 @@ std::string GLFileResource::readAllText(const std::string& filename)
 				}
 
 				#if defined(ALPHATEST)
-				if (outColor.a < 0.5) discard;
+				// D3DDrv's alpha test: kept above 127/255 (ALPHAREF 0x7F,
+				// ALPHAFUNC GREATER; D3DDrv.dll 0x1000c83a, 0x1000c84a)
+				if (outColor.a <= 127.0 / 255.0) discard;
 				#endif
 
 				outColor = clamp(outColor, 0.0, 1.0);

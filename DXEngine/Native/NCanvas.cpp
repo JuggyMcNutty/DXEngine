@@ -144,6 +144,23 @@ void NCanvas::DrawTextClipped(UObject* Self, const ScriptString& Text, std::opti
 	}
 }
 
+// A tile's flags by the canvas's style, as the original's execDrawTile and
+// execDrawTileClipped make them (Engine.dll 0x10377ccd, 0x10378657): two-sided,
+// STY_Translucent's translucent bit, STY_Modulated's modulated one and
+// bNoSmooth's; STY_Masked adds nothing, the canvas's DrawTile taking the
+// texture's own masked bit (0x10376160; RenderSubsystem::DrawTile)
+static uint32_t CanvasTileFlags(uint8_t style, bool noSmooth)
+{
+	uint32_t renderflags = PF_TwoSided;
+	if (style == 3)
+		renderflags |= PF_Translucent;
+	else if (style == 4)
+		renderflags |= PF_Modulated;
+	if (noSmooth)
+		renderflags |= PF_NoSmooth;
+	return renderflags;
+}
+
 void NCanvas::DrawTile(UObject* Self, UObject* Tex, float XL, float YL, float U, float V, float UL, float VL)
 {
 	UCanvas* SelfCanvas = UObject::Cast<UCanvas>(Self);
@@ -154,30 +171,26 @@ void NCanvas::DrawTile(UObject* Self, UObject* Tex, float XL, float YL, float U,
 	uint8_t& style = SelfCanvas->Style();
 	Color& color = SelfCanvas->DrawColor();
 	float& spaceX = SelfCanvas->SpaceX();
-	float& spaceY = SelfCanvas->SpaceY();
 	float& curYL = SelfCanvas->CurYL();
 	bool noSmooth = SelfCanvas->bNoSmooth();
 
-	if (XL <= 0.0f || YL <= 0.0f)
-		return;
-
-	if (style != 0)
+	// As the original's execDrawTile (Engine.dll 0x10377ba0): no texture is
+	// logged and moves nothing; any other tile is drawn in any style but
+	// none, the canvas's DrawTile passing over one of no width or height,
+	// and moves CurX on by SpaceX and its width, and CurYL to the larger of
+	// it and its height, whatever its size, SpaceY no part of it
+	if (!Tex)
 	{
-		uint32_t renderflags = PF_TwoSided;
-		if (style == 2)
-			renderflags |= PF_Masked;
-		else if (style == 3)
-			renderflags |= PF_Translucent;
-		else if (style == 4)
-			renderflags |= PF_Modulated;
-		if (noSmooth)
-			renderflags |= PF_NoSmooth;
-
-		engine->render->DrawTile((UTexture*)Tex, orgX + curX, orgY + curY, XL, YL, U, V, UL, VL, 1.0f, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, { 0.0f }, renderflags);
+		LogMessage("DrawTile: Missing Texture");
+		return;
 	}
 
-	curX += XL + spaceX;
-	curYL = std::max(curYL, YL + spaceY);
+	if (style != 0)
+		engine->render->DrawTile((UTexture*)Tex, orgX + curX, orgY + curY, XL, YL, U, V, UL, VL, 1.0f, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, { 0.0f }, CanvasTileFlags(style, noSmooth));
+
+	curX = spaceX + curX + XL;
+	if (!(curYL >= YL))
+		curYL = YL;
 }
 
 void NCanvas::DrawTileClipped(UObject* Self, UObject* Tex, float XL, float YL, float U, float V, float UL, float VL)
@@ -190,38 +203,62 @@ void NCanvas::DrawTileClipped(UObject* Self, UObject* Tex, float XL, float YL, f
 	uint8_t& style = SelfCanvas->Style();
 	Color& color = SelfCanvas->DrawColor();
 	float& spaceX = SelfCanvas->SpaceX();
-	float& spaceY = SelfCanvas->SpaceY();
 	float& curYL = SelfCanvas->CurYL();
 	bool noSmooth = SelfCanvas->bNoSmooth();
 	float& clipX = SelfCanvas->ClipX();
 	float& clipY = SelfCanvas->ClipY();
 
-	if (XL <= 0.0f || YL <= 0.0f)
+	// As the original's execDrawTileClipped (Engine.dll 0x10378450): no
+	// texture is logged and does nothing, nor does a tile of no width or
+	// height; any other is cut first at the canvas's origin, a CurX or CurY
+	// not at least 0 made 0 with as much of the tile and its texels taken
+	// off, then at ClipX and ClipY, its texels in proportion, each in the
+	// original's float order (0x1037859d-0x10378655); drawn there in any
+	// style but none, CurX moved on by SpaceX and the cut width, and CurYL
+	// to the larger of it and the cut height
+	if (!Tex)
+	{
+		LogMessage("DrawTileClipped: Missing Texture");
+		return;
+	}
+	if (!(XL > 0.0f && YL > 0.0f))
 		return;
 
-	if (style != 0)
+	if (!(curX >= 0.0f))
 	{
-		uint32_t renderflags = PF_TwoSided;
-		if (style == 2)
-			renderflags |= PF_Masked;
-		else if (style == 3)
-			renderflags |= PF_Translucent;
-		else if (style == 4)
-			renderflags |= PF_Modulated;
-		if (noSmooth)
-			renderflags |= PF_NoSmooth;
-
-		engine->render->DrawTileClipped((UTexture*)Tex, orgX, orgY, curX, curY, XL, YL, U, V, UL, VL, 1.0f, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, { 0.0f }, renderflags, clipX, clipY);
+		float cut = UL * curX / XL;
+		U = U - cut;
+		UL = cut + UL;
+		XL = XL + curX;
+		curX = 0.0f;
+	}
+	if (!(curY >= 0.0f))
+	{
+		float cut = VL * curY / YL;
+		V = V - cut;
+		VL = cut + VL;
+		YL = YL + curY;
+		curY = 0.0f;
+	}
+	float roomX = clipX - curX;
+	if (XL > roomX)
+	{
+		UL = (roomX - XL) * UL / XL + UL;
+		XL = roomX;
+	}
+	float roomY = clipY - curY;
+	if (YL > roomY)
+	{
+		VL = (roomY - YL) * VL / YL + VL;
+		YL = roomY;
 	}
 
-	float nextX = clamp(curX + XL, 0.0f, clipX);
-	float nextY = clamp(curY + YL, 0.0f, clipY);
+	if (style != 0)
+		engine->render->DrawTile((UTexture*)Tex, orgX + curX, orgY + curY, XL, YL, U, V, UL, VL, 1.0f, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, { 0.0f }, CanvasTileFlags(style, noSmooth));
 
-	XL = nextX - curX;
-	YL = nextY - curY;
-
-	curX += XL + spaceX;
-	curYL = std::max(curYL, YL + spaceY);
+	curX = spaceX + curX + XL;
+	if (!(curYL >= YL))
+		curYL = YL;
 }
 
 void NCanvas::StrLen(UObject* Self, const ScriptString& String, float& XL, float& YL)

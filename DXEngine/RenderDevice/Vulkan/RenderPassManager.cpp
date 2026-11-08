@@ -98,6 +98,18 @@ void RenderPassManager::CreatePipelines()
 	CreateScenePipelines(renderer->Shaders->Scene, Scene.Pipeline, Scene.LinePipeline);
 	if (!renderer->Shaders->SceneClip.VertexShader.empty())
 		CreateScenePipelines(renderer->Shaders->SceneClip, Scene.ClipPipeline, Scene.ClipLinePipeline);
+
+	Bloom.CombineScene = GraphicsPipelineBuilder()
+		.AddVertexShader(renderer->Shaders->Postprocess.VertexShader)
+		.AddFragmentShader(renderer->Shaders->Bloom.Combine)
+		.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
+		.AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
+		.AddColorBlendAttachment(ColorBlendAttachmentBuilder().BlendMode(VK_BLEND_OP_ADD, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE).Create())
+		.RasterizationSamples(renderer->Textures->Scene->SceneSamples)
+		.Layout(Bloom.PipelineLayout.get())
+		.RenderPass(Scene.RenderPass.get())
+		.DebugName("Bloom.CombineScene")
+		.Create(renderer->Device.get());
 }
 
 void RenderPassManager::CreateScenePipelines(const ShaderManager::SceneShaders& shaders, PipelineState* pipelines, PipelineState* linePipelines)

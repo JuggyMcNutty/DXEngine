@@ -215,17 +215,69 @@ void GLRenderDevice::Exit()
 	ReleaseSceneBuffers();
 }
 
-void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
+void GLRenderDevice::LogFrameGLErrors(const char* what)
 {
-	// The samples the driver takes for both attachments of the scene's
-	// framebuffer, colour and depth, halved until they fit.
-	if (multisample > 1)
+	std::string errors = TakeGLErrors();
+	if (errors.empty())
+		return;
+	// A lost context draws nothing again: the error, named, ends the game
+	if (errors.find("GL_CONTEXT_LOST") != std::string::npos)
+		throw std::runtime_error(std::string(what) + ": " + errors);
+	std::string line = std::string("GLDrv: ") + what + ": " + errors;
+	if (LoggedGLErrors.insert(line).second)
+		LogMessage(line);
+}
+
+// The most samples a multisampled texture of the format takes, as the driver
+// lists them for it (glGetInternalformativ, ES 3.1's and desktop 4.2's), the
+// first of its list; GL_MAX_COLOR_TEXTURE_SAMPLES and
+// GL_MAX_DEPTH_TEXTURE_SAMPLES, the most of any format, where it lists none
+static int FormatSamples(GLenum format)
+{
+	TakeGLErrors();
+	GLint count = 0;
+	glGetInternalformativ(GL_TEXTURE_2D_MULTISAMPLE, format, GL_NUM_SAMPLE_COUNTS, 1, &count);
+	GLint most = 0;
+	if (count > 0)
+	{
+		std::vector<GLint> samples(count);
+		glGetInternalformativ(GL_TEXTURE_2D_MULTISAMPLE, format, GL_SAMPLES, count, samples.data());
+		most = samples[0];
+	}
+	if (!TakeGLErrors().empty() || count <= 0)
 	{
 		GLint maxColor = 0, maxDepth = 0;
 		glGetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &maxColor);
 		glGetIntegerv(GL_MAX_DEPTH_TEXTURE_SAMPLES, &maxDepth);
-		int maxSamples = std::min(maxColor, maxDepth);
-		while (multisample > 1 && multisample > maxSamples)
+		most = std::min(maxColor, maxDepth);
+	}
+	return most;
+}
+
+void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
+{
+	const int askedSamples = multisample;
+	GLenum colorInternal = ActiveHdr ? GL_RGBA16F : SceneRGB10A2Failed ? GL_RGBA8 : GL_RGB10_A2;
+
+	// The samples both attachments of the scene's framebuffer take, colour
+	// and depth, each by its format's own list (FormatSamples), halved until
+	// they fit, and never more than a storage or a framebuffer refused
+	// (SceneSamplesCap). Found again only when the setting or the colour's
+	// format changes: each ask makes a threaded driver finish its queue.
+	if (multisample > 1)
+	{
+		if (SceneSamplesAsked != multisample || SceneSamplesFormat != colorInternal)
+		{
+			int most = std::min(FormatSamples(colorInternal), FormatSamples(GL_DEPTH_COMPONENT32F));
+			int samples = multisample;
+			while (samples > 1 && samples > most)
+				samples /= 2;
+			SceneSamplesAsked = multisample;
+			SceneSamplesFormat = colorInternal;
+			SceneSamplesFound = samples;
+		}
+		multisample = SceneSamplesFound;
+		while (SceneSamplesCap > 0 && multisample > 1 && multisample > SceneSamplesCap)
 			multisample /= 2;
 	}
 	multisample = std::max(multisample, 1);
@@ -271,7 +323,6 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 	// its ten bits kept (Port Ex Machina's tools/probes/probe-gles-scene.c).
 	// Immutable storage takes the format alone: ES has no glTexImage2D of
 	// RGB10_A2 from bytes.
-	GLenum colorInternal = ActiveHdr ? GL_RGBA16F : SceneRGB10A2Failed ? GL_RGBA8 : GL_RGB10_A2;
 	SceneBuffers.ColorFormat = colorInternal;
 
 	// ES has no glTexImage2DMultisample: its glTexStorage2DMultisample (ES
@@ -284,6 +335,21 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 			glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, SceneBuffers.Multisample, internalFormat, SceneBuffers.Width, SceneBuffers.Height, GL_FALSE);
 	};
 
+	// A multisampled storage the driver refuses: half the samples, and none
+	// more from then on, where every Lock tried it again and skipped its frame
+	auto samplesRefused = [&](const char* what) -> bool
+	{
+		std::string errors = TakeGLErrors();
+		if (errors.empty())
+			return false;
+		LogMessage(std::string("GLDrv: ") + what + " refused at " + std::to_string(SceneBuffers.Multisample) + " samples (" + errors + "); " + std::to_string(SceneBuffers.Multisample / 2) + " in their place");
+		SceneSamplesCap = SceneBuffers.Multisample / 2;
+		SceneBuffers.ColorBuffer.reset();
+		SceneBuffers.DepthBuffer.reset();
+		ResizeSceneBuffers(width, height, askedSamples);
+		return true;
+	};
+
 	SceneBuffers.ColorBuffer = std::make_shared<GLTexture2D>();
 	if (SceneBuffers.Multisample > 1)
 	{
@@ -291,7 +357,8 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 		SetDebugName(SceneBuffers.ColorBuffer, "SceneBuffers.ColorBuffer");
 		multisampleImage(colorInternal);
 		glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
-		ThrowIfGLError("glTexStorage2DMultisample(SceneBuffers.ColorBuffer) failed");
+		if (samplesRefused("glTexStorage2DMultisample(SceneBuffers.ColorBuffer)"))
+			return;
 	}
 	else
 	{
@@ -309,7 +376,8 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 		SetDebugName(SceneBuffers.DepthBuffer, "SceneBuffers.DepthBuffer");
 		multisampleImage(GL_DEPTH_COMPONENT32F);
 		glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
-		ThrowIfGLError("glTexStorage2DMultisample(SceneBuffers.DepthBuffer) failed");
+		if (samplesRefused("glTexStorage2DMultisample(SceneBuffers.DepthBuffer)"))
+			return;
 	}
 	else
 	{
@@ -332,30 +400,45 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 
 	// Every framebuffer checked complete as it is made, the bound one: an
 	// incomplete one surfaced later as "Lock failed", "Unlock failed" or
-	// "ReadPixels failed" with no cause. A driver that cannot draw into
-	// RGB10_A2 (beside the depth, or alone) gets the 8-bit
-	// buffers, from now on; any other incompleteness is the error, named.
+	// "ReadPixels failed" with no cause. The scene's, multisampled, gets half
+	// its samples, from now on (checked before the post-process framebuffers
+	// are made, which take one); a driver that cannot draw into RGB10_A2
+	// (beside the depth, or alone) gets the 8-bit buffers, its samples found
+	// again; any other incompleteness is the error, named.
 	auto incomplete = [&](const char* what) -> bool
 	{
 		GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 		if (status == GL_FRAMEBUFFER_COMPLETE)
 			return false;
+		if (SceneBuffers.Multisample > 1 && !SceneBuffers.PPFramebuffer[0])
+		{
+			LogMessage(std::string("GLDrv: ") + what + " incomplete at " + std::to_string(SceneBuffers.Multisample) + " samples; " + std::to_string(SceneBuffers.Multisample / 2) + " in their place");
+			SceneSamplesCap = SceneBuffers.Multisample / 2;
+			SceneBuffers.ColorBuffer.reset();
+			ResizeSceneBuffers(width, height, askedSamples);
+			return true;
+		}
 		if (colorInternal == GL_RGB10_A2 && !SceneRGB10A2Failed)
 		{
 			LogMessage(std::string("GLDrv: ") + what + " incomplete with RGB10_A2; RGBA8 in its place");
 			SceneRGB10A2Failed = true;
+			SceneSamplesCap = 0;
 			SceneBuffers.ColorBuffer.reset();
-			ResizeSceneBuffers(width, height, multisample);
+			ResizeSceneBuffers(width, height, askedSamples);
 			return true;
 		}
 		throw std::runtime_error(std::string(what) + " incomplete, status " + std::to_string(status));
 	};
 
+	// Attached by glFramebufferTexture2D, a multisampled texture by its own
+	// target, as ES 3.1 and desktop GL both take it: glFramebufferTexture is
+	// ES 3.2's
+	GLenum sceneTarget = SceneBuffers.Multisample > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
 	SceneBuffers.Framebuffer = std::make_shared<GLFramebuffer>();
 	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.Framebuffer->Handle);
 	SetDebugName(SceneBuffers.Framebuffer, "SceneBuffers.Framebuffer");
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, SceneBuffers.ColorBuffer->Handle, 0);
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, SceneBuffers.DepthBuffer->Handle, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, sceneTarget, SceneBuffers.ColorBuffer->Handle, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, sceneTarget, SceneBuffers.DepthBuffer->Handle, 0);
 	ThrowIfGLError("Creating SceneBuffers.Framebuffer failed");
 	if (incomplete("SceneBuffers.Framebuffer"))
 		return;
@@ -365,7 +448,7 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 		SceneBuffers.PPFramebuffer[i] = std::make_shared<GLFramebuffer>();
 		glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.PPFramebuffer[i]->Handle);
 		SetDebugName(SceneBuffers.PPFramebuffer[i], "SceneBuffers.PPFramebuffer");
-		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, SceneBuffers.PPImage[i]->Handle, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, SceneBuffers.PPImage[i]->Handle, 0);
 		ThrowIfGLError("Creating SceneBuffers.PPFramebuffer failed");
 		if (incomplete("SceneBuffers.PPFramebuffer"))
 			return;
@@ -395,7 +478,7 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 		level.VFramebuffer = std::make_shared<GLFramebuffer>();
 		glBindFramebuffer(GL_FRAMEBUFFER, level.VFramebuffer->Handle);
 		SetDebugName(level.VFramebuffer, "SceneBuffers.BlurLevels.VFramebuffer");
-		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, level.VTexture->Handle, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, level.VTexture->Handle, 0);
 		ThrowIfGLError("Creating SceneBuffers.BlurLevels.VFramebuffer failed");
 		if (incomplete("SceneBuffers.BlurLevels.VFramebuffer"))
 			return;
@@ -403,7 +486,7 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
 		level.HFramebuffer = std::make_shared<GLFramebuffer>();
 		glBindFramebuffer(GL_FRAMEBUFFER, level.HFramebuffer->Handle);
 		SetDebugName(level.HFramebuffer, "SceneBuffers.BlurLevels.HFramebuffer");
-		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, level.HTexture->Handle, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, level.HTexture->Handle, 0);
 		ThrowIfGLError("Creating SceneBuffers.BlurLevels.HFramebuffer failed");
 		if (incomplete("SceneBuffers.BlurLevels.HFramebuffer"))
 			return;
@@ -876,9 +959,14 @@ void GLRenderDevice::RunBloomPass()
 	BlurStep(SceneBuffers.BlurLevels[0].HTexture.get(), SceneBuffers.BlurLevels[0].VFramebuffer.get(), true);
 }
 
-// The world's frame copied out and its bloom taken into the levels, then the
-// scene's framebuffer and state again, as Lock binds them, for the windows
-// drawn over it
+// The world's frame copied out, its bloom taken into the levels and added
+// into the scene, then the scene's framebuffer and state again, as Lock binds
+// them, for the windows drawn over it:
+// the windows drawn after it stay sharp, and the screen flash, the loading
+// screen's dimming and the menus' masks, drawn over the world after it,
+// cover its bloom as they cover the world (D3DDrv's EndFlash blends over all
+// the frame, D3DDrv.dll 0x10007c90), where added at Unlock it lay over them
+// whole
 void GLRenderDevice::TakeBloom()
 {
 	if (!Bloom || !IsLocked)
@@ -894,7 +982,7 @@ void GLRenderDevice::TakeBloom()
 	glReadBuffer(GL_COLOR_ATTACHMENT0);
 	glBlitFramebuffer(0, 0, SceneBuffers.Width, SceneBuffers.Height, 0, 0, SceneBuffers.Width, SceneBuffers.Height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 	RunBloomPass();
-	BloomTaken = true;
+	AddBloom(SceneBuffers.Framebuffer.get());
 
 	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.Framebuffer->Handle);
 	{ GLenum glAtt = GL_COLOR_ATTACHMENT0; glDrawBuffers(1, &glAtt); } // ES has only glDrawBuffers
@@ -907,9 +995,9 @@ void GLRenderDevice::TakeBloom()
 	ForgetDrawState();
 }
 
-// The bloom TakeBloom left in the first level, added to the frame's post
-// process image
-void GLRenderDevice::AddBloom()
+// The bloom RunBloomPass left in the first level, added into the target, the
+// scene's framebuffer (TakeBloom)
+void GLRenderDevice::AddBloom(GLFramebuffer* target)
 {
 	GLBuffer* cbs[1] = { BloomPass.ConstantBuffer.get() };
 	GLSampler* samplers[1] = { PresentPass.PPLinearClamp.get() };
@@ -924,7 +1012,7 @@ void GLRenderDevice::AddBloom()
 	viewport.Height = (float)SceneBuffers.Height;
 	viewport.MaxDepth = 1.0f;
 	GLTexture2D* srvs[1] = { SceneBuffers.BlurLevels[0].VTexture.get() };
-	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.PPFramebuffer[0]->Handle);
+	glBindFramebuffer(GL_FRAMEBUFFER, target->Handle);
 	{ GLenum glAtt = GL_COLOR_ATTACHMENT0; glDrawBuffers(1, &glAtt); } // ES has only glDrawBuffers
 	glReadBuffer(GL_COLOR_ATTACHMENT0);
 	glUseProgram(BloomPass.CombineProgram->Handle);
@@ -1252,10 +1340,9 @@ void GLRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 	MapVertices(true);
 
 	IsLocked = true;
-	BloomTaken = false;
 	ForgetDrawState();
 
-	ThrowIfGLError("Lock failed");
+	LogFrameGLErrors("Lock failed");
 }
 
 GLPresentPushConstants GLRenderDevice::GetGLPresentPushConstants()
@@ -1293,7 +1380,7 @@ void GLRenderDevice::Unlock(bool Blit)
 	DrawBatches();
 	UnmapVertices();
 
-	ThrowIfGLError("Drawing failed");
+	LogFrameGLErrors("Drawing failed");
 
 	Batch.SceneIndexStart = 0;
 	GLSceneVertexPos = 0;
@@ -1311,11 +1398,6 @@ void GLRenderDevice::Unlock(bool Blit)
 		// Scene to PP at the render size; the present draw below samples it
 		// over the whole window and so scales it up.
 		glBlitFramebuffer(0, 0, SceneBuffers.Width, SceneBuffers.Height, 0, 0, SceneBuffers.Width, SceneBuffers.Height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-
-		if (BloomTaken)
-		{
-			AddBloom();
-		}
 
 		GLPresentPushConstants pushconstants = GetGLPresentPushConstants();
 
@@ -1351,15 +1433,23 @@ void GLRenderDevice::Unlock(bool Blit)
 		SetBlendState(PresentPass.BlendState.get());
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 
-		if (UseVSync)
+		// The swap interval set as UseVSync first comes or changes, not every
+		// frame: SDL's EGL path refused -1 with an error each time before the
+		// retry with 1, and its GLX path queried the drawable and set it
+		// twice; the interval stays the window's surface's
+		if (SwapIntervalVSync != (int)UseVSync)
 		{
-			// Try use adaptive vsync if available
-			if (!Viewport->SetGLSwapInterval(-1))
-				Viewport->SetGLSwapInterval(1);
-		}
-		else
-		{
-			Viewport->SetGLSwapInterval(0);
+			if (UseVSync)
+			{
+				// Adaptive vsync where the driver has it
+				if (!Viewport->SetGLSwapInterval(-1))
+					Viewport->SetGLSwapInterval(1);
+			}
+			else
+			{
+				Viewport->SetGLSwapInterval(0);
+			}
+			SwapIntervalVSync = (int)UseVSync;
 		}
 
 		Viewport->SwapGLBuffers();
@@ -1380,7 +1470,7 @@ void GLRenderDevice::Unlock(bool Blit)
 	IsLocked = false;
 	ForgetDrawState();
 
-	ThrowIfGLError("Unlock failed");
+	LogFrameGLErrors("Unlock failed");
 }
 
 
@@ -1887,7 +1977,7 @@ void GLRenderDevice::ReadPixels(TextureColor* Pixels)
 	{
 		std::vector<float> col((size_t)w * h * 4);
 		glReadPixels(0, 0, w, h, GL_RGBA, GL_FLOAT, col.data());
-		ThrowIfGLError("ReadPixels failed");
+		LogFrameGLErrors("ReadPixels failed");
 
 		for (int y = 0; y < h; y++)
 		{
@@ -1906,7 +1996,7 @@ void GLRenderDevice::ReadPixels(TextureColor* Pixels)
 	{
 		std::vector<uint32_t> col((size_t)w * h);
 		glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, col.data());
-		ThrowIfGLError("ReadPixels failed");
+		LogFrameGLErrors("ReadPixels failed");
 
 		for (int y = 0; y < h; y++)
 			TenBitRowToBytes(&col[(size_t)(GammaCorrectScreenshots ? (h - 1 - y) : y) * w], Pixels + (size_t)y * w, w, y, GammaCorrectScreenshots);
@@ -1915,7 +2005,7 @@ void GLRenderDevice::ReadPixels(TextureColor* Pixels)
 	{
 		std::vector<uint8_t> col((size_t)w * h * 4);
 		glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, col.data());
-		ThrowIfGLError("ReadPixels failed");
+		LogFrameGLErrors("ReadPixels failed");
 
 		for (int y = 0; y < h; y++)
 		{
@@ -2389,12 +2479,14 @@ void GLRenderDevice::CompileGlsl(GLShader* shader, const std::string& filename, 
 	std::string code;
 	if (IsGLES)
 	{
-		// GLSL ES 3.20: the shader sources bind their samplers with
-		// layout(binding = N), which is 3.20's (3.00 has none); the device is
-		// GLES 3.2. An ES fragment shader has no default float precision, so
-		// declare highp. The sources are otherwise the same as the desktop
-		// ones -- gl_FragCoord.w is 1/w in ES as well.
-		code = "#version 320 es\r\n";
+		// GLSL ES 3.10: the shader sources bind their samplers with
+		// layout(binding = N) and place their stages' inputs and outputs by
+		// layout(location = N), which 3.10 has and 3.00 has not, and need
+		// nothing of 3.20's, so an ES 3.1 GPU draws them; a 3.2 driver takes
+		// them as they are. An ES fragment shader has no default float
+		// precision, so declare highp. The sources are otherwise the same as
+		// the desktop ones -- gl_FragCoord.w is 1/w in ES as well.
+		code = "#version 310 es\r\n";
 		// An extension's directive comes before any line but the version.
 		if (std::find(defines.begin(), defines.end(), "CLIP_DISTANCE") != defines.end())
 			code += "#extension GL_EXT_clip_cull_distance : enable\r\n";

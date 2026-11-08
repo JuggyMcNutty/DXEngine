@@ -7,6 +7,7 @@
 #include "SoftwareSimd.h"
 #include <array>
 #include <algorithm>
+#include <limits>
 
 // A draw's state as its pipeline takes it, a bit or a field each. A
 // specialized pipeline has its key fixed when it is compiled; the general
@@ -100,12 +101,12 @@ namespace SoftwarePixel
 	// A coordinate that is no number or infinite (a DrawScale of 0, a NaN
 	// nothing on the path stops) samples as 0, as the float reference maps it:
 	// wrapped, it became INT_MIN through Floor and Truncate, a read gigabytes
-	// before the texture
+	// before the texture. Any finite one wraps or is held as the reference's
+	// is (SoftwareSampler), Floor taking one past 2^23 as its own floor
 	inline F4 FiniteOrZero(F4 a)
 	{
-		F4 zero = SetF(0.0f);
-		a = Select(CmpLtF(a, SetF(1e30f)), a, zero);
-		return Select(CmpLtF(SetF(-1e30f), a), a, zero);
+		const float most = std::numeric_limits<float>::max();
+		return Select(CmpLeF(a, SetF(most)) & CmpLeF(SetF(-most), a), a, SetF(0.0f));
 	}
 
 	inline void Bilinear(const SoftwareMip& mip, F4 u, F4 v, bool clamp, W8& out01, W8& out23, int32_t* alpha)
@@ -457,9 +458,11 @@ void SoftwareDrawPrimitive(SoftwareFrame& frame, const SoftwareRasterJob& job, c
 			if (alphaTest)
 			{
 				// As the reference takes it: the texel's alpha in float, over
-				// 255, times the colour's, under a half discarded
+				// 255, times the colour's, discarded at 127/255 or under, as
+				// D3DDrv's alpha test keeps alpha above 127/255 (ALPHAREF 0x7F,
+				// ALPHAFUNC GREATER; D3DDrv.dll 0x1000c83a, 0x1000c84a)
 				F4 a = ToFloat(LoadI(alpha)) * SetF(1.0f / 65536.0f) * SetF(1.0f / 255.0f) * attribute(11);
-				mask &= ~Mask(CmpLtF(a, SetF(0.5f)));
+				mask &= ~Mask(CmpLeF(a, SetF(127.0f / 255.0f)));
 				if (!mask)
 					continue;
 			}

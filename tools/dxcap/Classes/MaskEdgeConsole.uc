@@ -3,11 +3,11 @@
 // alpha test cuts them, in both engines. D3DDrv's SetRes sets ALPHAREF 0x7F
 // with ALPHAFUNC GREATER (D3DDrv.dll 0x1000c83a, 0x1000c84a) and SetBlending
 // turns the test on with PF_Masked (0x10008441-0x10008454): a texel shows
-// when its filtered alpha is above 127/255. Every DXEngine device discards
-// under 0.5 (Scene.frag's ALPHATEST, SoftwarePipelines.h's alpha test), so
-// a filtered alpha in (127/255, 0.5) shows in the original alone: about
-// 0.85% of a bilinear cell where two diagonal texels are opaque, 0.15% and
-// 0.12% where one or three are, none along a straight edge.
+// when its filtered alpha is above 127/255, as every DXEngine device keeps
+// it (Scene.frag's ALPHATEST, SoftwarePipelines.h's alpha test); a test at
+// 0.5 cut a filtered alpha in (127/255, 0.5): about 0.85% of a bilinear cell
+// where two diagonal texels are opaque, 0.15% and 0.12% where one or three
+// are, none along a straight edge.
 //
 // At Liberty Island's start, the HUD hidden: over a magenta box, three tiles
 // of TextureName (CoreTexMetal.Metal.ClenChainlink_B by default, the chain
@@ -19,10 +19,9 @@
 // front.
 //
 // Compare (each engine's shot, the original's with DXCAP_RENDERER=D3D): the
-// pixels not magenta in each tile's box. Expected now: A's and B's counts
-// higher in D3DDrv's than in DXEngine's, by some 3 pixels a diagonal joint
-// in A, C alike; with the original's threshold (alpha > 127/255) on the
-// device, A's and B's alike too.
+// pixels not magenta in each tile's box, A's, B's and C's alike; with a test
+// at 0.5, A's and B's lower in DXEngine's, by some 3 pixels a diagonal joint
+// in A.
 //=============================================================================
 class MaskEdgeConsole extends Console;
 

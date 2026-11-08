@@ -1595,15 +1595,15 @@ void X11DisplayWindow::CreateGLContext()
 {
 	EGLint majorVer, minorVer;
 
-	// OpenGL ES 3.2 (the GL device's ES shaders are GLSL ES 3.20) or desktop
-	// 4.2 core (its desktop shaders are GLSL 4.20): ES takes the ES3 bit and
-	// no profile mask.
+	// OpenGL ES 3.1 (the GL device's ES shaders are GLSL ES 3.10; a 3.2
+	// driver gives its 3.2 context) or desktop 4.2 core (its desktop shaders
+	// are GLSL 4.20): ES takes the ES3 bit and no profile mask.
 	EGLint ctxAttrs[7];
 	int ctxAttrCount = 0;
 	ctxAttrs[ctxAttrCount++] = EGL_CONTEXT_MAJOR_VERSION;
 	ctxAttrs[ctxAttrCount++] = m_GLIsES ? 3 : 4;
 	ctxAttrs[ctxAttrCount++] = EGL_CONTEXT_MINOR_VERSION;
-	ctxAttrs[ctxAttrCount++] = 2;
+	ctxAttrs[ctxAttrCount++] = m_GLIsES ? 1 : 2;
 	if (!m_GLIsES)
 	{
 		ctxAttrs[ctxAttrCount++] = EGL_CONTEXT_OPENGL_PROFILE_MASK;

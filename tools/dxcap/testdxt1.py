@@ -25,6 +25,11 @@ package load pads the P8 mips but not those.
                      the white texel once the GL device takes a limit under
                      2048 (the run's TEMPORARY DEBUG hook,
                      DXE_DEBUG_GL_MAXTEX=1024).
+  CapDXT1Tiny        2x2, its two DXT1 mips whole, red then a blue 1x1, for
+                     bugs.md REN.58 (f): drawn a texel to a pixel, red on every
+                     device; the D3D11 device, which pads a block texture under
+                     4 texels with a larger level, took the padding in its mip
+                     bias too and drew the blue one.
 
 Every P8 mip is whole (index 128, a mid grey). Nothing here is the game's: a
 scratch package for the run, never committed. A short mip's lazy-array skip
@@ -55,7 +60,7 @@ def compact(v):
 NAMES = ['None', 'Core', 'Engine', 'Package', 'Class', 'Palette', 'Texture', 'CapDXT1',
          'CapDXT1Grey', 'UBits', 'VBits', 'USize', 'VSize', 'UClamp', 'VClamp', 'bHasComp',
          'CompFormat', 'CapDXT1Whole', 'CapDXT1ShortTop', 'CapDXT1ShortLower', 'CapDXT1Wide',
-         'CapDXT1Big']
+         'CapDXT1Big', 'CapDXT1Tiny']
 
 
 def name(n):
@@ -149,6 +154,7 @@ def package():
         ('CapDXT1ShortLower', 64, 64, chain(64, 64, [RED, YELLOW, CYAN], short=(1, 256))),
         ('CapDXT1Wide', 32768, 4, [(dxt1_bytes(32768, 4, MAGENTA), 32768, 4)]),
         ('CapDXT1Big', 2048, 8, [(dxt1_bytes(2048, 8, MAGENTA), 2048, 8)]),
+        ('CapDXT1Tiny', 2, 2, chain(2, 2, [RED, BLUE])),
     ]
 
     header_size = 4 + 2 + 2 + 4 + 6 * 4 + 16 + 4 + 8

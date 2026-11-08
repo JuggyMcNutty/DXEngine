@@ -58,6 +58,11 @@ public:
 	D3D11RenderDevice(Widget* viewport);
 	~D3D11RenderDevice();
 
+	// The scene lives in offscreen buffers and the present pass scales it to
+	// the window, so it can be drawn smaller (Settings.json
+	// Performance.RenderScale), as on the Vulkan and GL devices
+	bool SupportsRenderScale() const override { return true; }
+
 	// To do: port this
 	bool Init(int NewX, int NewY);
 	bool SetRes(int NewX, int NewY);
@@ -75,9 +80,15 @@ public:
 	void Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2) override;
 	void ClearZ() override;
 	void ReadPixels(TextureColor* Pixels) override;
-	// The size ReadPixels writes: the scene's at the last Lock, not the
-	// window's now (a window resized since overflowed the buffer)
-	void LastFrameSize(int& width, int& height) const override { width = CurrentSizeX; height = CurrentSizeY; }
+	// The size ReadPixels writes: the scene's at the last Lock, at the render
+	// scale, not the window's now (a window resized since overflowed the
+	// buffer); none while a failed resize leaves the image it reads unmade
+	void LastFrameSize(int& width, int& height) const override
+	{
+		bool made = SceneBuffers.PPImage[0] && SceneBuffers.PPImage[1] && SceneBuffers.PPImageView[1];
+		width = made ? SceneBuffers.Width : 0;
+		height = made ? SceneBuffers.Height : 0;
+	}
 	void EndFlash() override;
 	void TakeBloom() override;
 	void SetSceneNode(SceneNode* Frame) override;
@@ -140,6 +151,7 @@ public:
 		ComPtr<ID3D11DepthStencilState> DepthStencilState;
 		float MinDepth = 0.1f;
 		float MaxDepth = 1.0f;
+		int DepthBias = 0; // the rasterizer's DepthBias: -1 a step toward the viewer, 1 away, 0 none
 	};
 
 	struct
@@ -150,10 +162,17 @@ public:
 		ComPtr<ID3D11Buffer> IndexBuffer;
 		ComPtr<ID3D11Buffer> ConstantBuffer;
 		ComPtr<ID3D11RasterizerState> RasterizerState[2];
+		// The two with a step and a slope of 1 toward the viewer [0] and away
+		// [1], without multisampling and with it (SurfaceInfo::DepthBias)
+		ComPtr<ID3D11RasterizerState> BiasedRasterizerState[2][2];
 		ComPtr<ID3D11PixelShader> PixelShader;
 		ComPtr<ID3D11PixelShader> PixelShaderAlphaTest;
 		ComPtr<ID3D11SamplerState> Samplers[16];
 		ScenePipelineState Pipelines[33];
+		// Pipelines' first 32 a step toward the viewer, and away from it
+		// (SurfaceInfo::DepthBias 1 and -1)
+		ScenePipelineState BiasedPipelines[32];
+		ScenePipelineState AwayPipelines[32];
 		ScenePipelineState LinePipeline[2];
 	} ScenePass;
 
@@ -265,15 +284,13 @@ private:
 	void ReleaseSceneBuffers();
 
 	void RunBloomPass();
-	void AddBloom();
-	// The bloom levels hold this frame's, taken by TakeBloom
-	bool BloomTaken = false;
+	void AddBloom(ID3D11RenderTargetView* target);
 	void BlurStep(ID3D11ShaderResourceView* input, ID3D11RenderTargetView* output, bool vertical);
 	float ComputeBlurGaussian(float n, float theta);
 	void ComputeBlurSamples(int sampleCount, float blurAmount, float* sampleWeights);
 
 	void SetPipeline(ScenePipelineState* pipeline);
-	void SetPipeline(uint32_t polyflags);
+	void SetPipeline(uint32_t polyflags, int depthBias = 0);
 	void SetDescriptorSet(uint32_t polyflags, D3D11CachedTexture* tex = nullptr, bool clamp = false);
 	void SetDescriptorSet(uint32_t polyflags, const ComplexSurfaceInfo& info);
 
@@ -321,7 +338,7 @@ private:
 
 	int GetSettingsMultisample();
 
-	ScenePipelineState* GetPipeline(uint32_t PolyFlags);
+	ScenePipelineState* GetPipeline(uint32_t PolyFlags, int depthBias = 0);
 
 	void CreateVertexShader(ComPtr<ID3D11VertexShader>& outShader, const std::string& shaderName, ComPtr<ID3D11InputLayout>& outInputLayout, const std::string& inputLayoutName, const std::vector<D3D11_INPUT_ELEMENT_DESC>& elements, const std::string& filename, const std::vector<std::string> defines = {});
 	void CreatePixelShader(ComPtr<ID3D11PixelShader>& outShader, const std::string& shaderName, const std::string& filename, const std::vector<std::string> defines = {});
@@ -368,9 +385,9 @@ inline void D3D11RenderDevice::SetPipeline(ScenePipelineState* pipeline)
 	}
 }
 
-inline void D3D11RenderDevice::SetPipeline(uint32_t PolyFlags)
+inline void D3D11RenderDevice::SetPipeline(uint32_t PolyFlags, int depthBias)
 {
-	auto pipeline = GetPipeline(PolyFlags);
+	auto pipeline = GetPipeline(PolyFlags, depthBias);
 	if (pipeline != Batch.Pipeline)
 	{
 		AddDrawBatch();

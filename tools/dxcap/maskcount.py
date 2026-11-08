@@ -2,8 +2,9 @@
 """The pixels each of MaskEdgeConsole's masked tiles covers in each run's
 shots: those of the tile's box that are not the magenta behind it
 (bugs.md REN.52). D3DDrv keeps a texel whose filtered alpha is above
-127/255, DXEngine's devices one at 0.5 or above, so the smooth tiles (A, B)
-cover more pixels in the original's shots, the point-sampled one (C) alike.
+127/255, as DXEngine's devices do: each tile covers the pixels it does in the
+original's shots; a test at 0.5 left the smooth tiles (A, B) short, the
+point-sampled one (C) alike.
 
     maskcount.py <run folder> [<run folder> ...]
 

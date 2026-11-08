@@ -68,7 +68,6 @@ public:
 	void DrawActor(UActor* actor, bool ClearZ, bool hideAfter, const Rectf* constrain = nullptr, bool wire = false);
 	void DrawClippedActor(UActor* actor, int X, int Y, int XB, int YB, bool ClearZ, bool wire = false);
 	void DrawTile(UTexture* Tex, float x, float y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 color, vec4 fog, uint32_t flags);
-	void DrawTileClipped(UTexture* Tex, float orgX, float orgY, float curX, float curY, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 color, vec4 fog, uint32_t flags, float clipX, float clipY);
 	void DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const ScriptString& text, uint32_t polyflags, bool center, float spaceX = 0.0f, float spaceY = 0.0f, float clipX = 100000.0f, float clipY = 100000.0f, bool noDraw = false);
 	// The canvas's text laid out, drawn unless noDraw, as the original's
 	// WrappedPrint lays it: XL the furthest a line ended, YL their heights

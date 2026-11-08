@@ -264,7 +264,6 @@ void VulkanRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenCle
 	cmdbuffer->bindIndexBuffer(Buffers->SceneIndexBuffer->buffer, 0, VK_INDEX_TYPE_UINT32);
 
 	IsLocked = true;
-	BloomTaken = false;
 }
 
 void VulkanRenderDevice::FlushDrawBatchAndWait()
@@ -306,11 +305,6 @@ void VulkanRenderDevice::Unlock(bool Blit)
 	Commands->GetDrawCommands()->endRenderPass();
 
 	BlitSceneToPostprocess();
-	if (BloomTaken)
-	{
-		AddBloom();
-		BloomTaken = false;
-	}
 
 	int windowWidth = Viewport->GetNativePixelWidth();
 	int windowHeight = Viewport->GetNativePixelHeight();
@@ -1046,8 +1040,13 @@ void VulkanRenderDevice::BlitSceneToPostprocess()
 }
 
 // The world's frame copied out and its bloom taken into the levels, then the
-// scene's pass again, its colour and depth as the world left them, for the
-// windows drawn over it
+// scene's pass again, its colour and depth as the world left them, the bloom
+// added into its colour at its samples, for the windows drawn over it:
+// the windows drawn after it stay sharp, and the screen flash, the loading
+// screen's dimming and the menus' masks, drawn over the world after it,
+// cover its bloom as they cover the world (D3DDrv's EndFlash blends over all
+// the frame, D3DDrv.dll 0x10007c90), where added at Unlock it lay over them
+// whole
 void VulkanRenderDevice::TakeBloom()
 {
 	if (!Bloom || !IsLocked)
@@ -1058,7 +1057,6 @@ void VulkanRenderDevice::TakeBloom()
 	cmdbuffer->endRenderPass();
 	BlitSceneToPostprocess();
 	RunBloomPass();
-	BloomTaken = true;
 
 	VkAccessFlags colorAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 	VkAccessFlags depthAccess = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
@@ -1073,6 +1071,22 @@ void VulkanRenderDevice::TakeBloom()
 		.Framebuffer(Framebuffers->SceneFramebuffer.get())
 		.RenderArea(0, 0, Textures->Scene->Width, Textures->Scene->Height)
 		.Execute(cmdbuffer);
+
+	// The first level over the whole scene, added, no depth tested or written
+	VkViewport viewport = {};
+	viewport.width = (float)Textures->Scene->Width;
+	viewport.height = (float)Textures->Scene->Height;
+	viewport.maxDepth = 1.0f;
+	VkRect2D scissor = {};
+	scissor.extent.width = Textures->Scene->Width;
+	scissor.extent.height = Textures->Scene->Height;
+	BloomPushConstants bloomconstants = {};
+	cmdbuffer->setViewport(0, 1, &viewport);
+	cmdbuffer->setScissor(0, 1, &scissor);
+	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, RenderPasses->Bloom.CombineScene.get());
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, RenderPasses->Bloom.PipelineLayout.get(), 0, DescriptorSets->GetBloomVTextureSet(0));
+	cmdbuffer->pushConstants(RenderPasses->Bloom.PipelineLayout.get(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BloomPushConstants), &bloomconstants);
+	cmdbuffer->draw(6, 1, 0, 0);
 
 	VkBuffer vertexBuffers[] = { Buffers->SceneVertexBuffer->buffer };
 	VkDeviceSize offsets[] = { 0 };
@@ -1200,30 +1214,6 @@ void VulkanRenderDevice::RunBloomPass()
 
 	PipelineBarrier()
 		.AddImage(Textures->Scene->BloomBlurLevels[0].VTexture.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, VK_ACCESS_SHADER_READ_BIT)
-		.Execute(cmdbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-}
-
-// The bloom TakeBloom left in the first level, added to the frame's post
-// process image
-void VulkanRenderDevice::AddBloom()
-{
-	auto cmdbuffer = Commands->GetDrawCommands();
-	BloomPushConstants pushconstants = {};
-
-	PipelineBarrier()
-		.AddImage(Textures->Scene->PPImage[0].get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT)
-		.Execute(cmdbuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-	BloomStep(cmdbuffer,
-		RenderPasses->Bloom.Combine.get(),
-		DescriptorSets->GetBloomVTextureSet(0),
-		Framebuffers->PPImageFB[0].get(),
-		Textures->Scene->Width,
-		Textures->Scene->Height,
-		pushconstants);
-
-	PipelineBarrier()
-		.AddImage(Textures->Scene->PPImage[0].get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, VK_ACCESS_SHADER_READ_BIT)
 		.Execute(cmdbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 

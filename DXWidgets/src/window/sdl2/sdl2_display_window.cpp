@@ -17,12 +17,13 @@ std::string SDL2DisplayWindow::SimulatedLayout;
 InputKey SDL2DisplayWindow::PressedAs[SDL_NUM_SCANCODES];
 std::unordered_map<int, SDL2DisplayWindow*> SDL2DisplayWindow::WindowList;
 
-// The GL context's version and profile: ES 3.2 (the shaders are GLSL ES
-// 3.20, sampler layout(binding) being 3.20's) or desktop 4.2 core (GLSL 4.20)
+// The GL context's version and profile: ES 3.1 (the shaders are GLSL ES
+// 3.10, sampler layout(binding) being 3.10's; a 3.2 driver gives its 3.2
+// context) or desktop 4.2 core (GLSL 4.20)
 static void SetGLContextAttributes(bool es)
 {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, es ? 3 : 4);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, es ? 1 : 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, es ? SDL_GL_CONTEXT_PROFILE_ES : SDL_GL_CONTEXT_PROFILE_CORE);
 }
 

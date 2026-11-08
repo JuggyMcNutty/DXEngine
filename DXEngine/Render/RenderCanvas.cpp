@@ -257,9 +257,16 @@ void RenderSubsystem::DrawClippedActor(UActor* actor, int X, int Y, int XB, int 
 	Device->SetSceneNode(&Canvas.Frame);
 }
 
+// The canvas's DrawTile, as the original's UCanvas::DrawTile (Engine.dll
+// 0x10376160): a tile of no width or height, or wholly off the canvas's
+// frame, is passed over before its texture is stepped or its change taken;
+// any other is drawn, with its frame's own masked bit (the device clips it to
+// the frame)
 void RenderSubsystem::DrawTile(UTexture* Tex, float x, float y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 color, vec4 fog, uint32_t flags)
 {
 	if (!Tex)
+		return;
+	if (!(XL > 0.0f && YL > 0.0f && x + XL > 0.0f && y + YL > 0.0f && x < Canvas.Frame.FX && y < Canvas.Frame.FY))
 		return;
 	UpdateTexture(Tex);
 	Tex = Tex->GetAnimTexture();
@@ -282,35 +289,6 @@ void RenderSubsystem::DrawTile(UTexture* Tex, float x, float y, float XL, float 
 		flags |= PF_Masked;
 
 	Device->DrawTile(&Canvas.Frame, texinfo, x, y, XL, YL, U, V, UL, VL, Z, color, fog, flags);
-}
-
-void RenderSubsystem::DrawTileClipped(UTexture* Tex, float orgX, float orgY, float curX, float curY, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 color, vec4 fog, uint32_t flags, float clipX, float clipY)
-{
-	if (!Tex)
-		return;
-	UpdateTexture(Tex);
-	Tex = Tex->GetAnimTexture();
-	UpdateTexture(Tex);
-
-	TextureInfo texinfo;
-	texinfo.CacheID = (uint64_t)(ptrdiff_t)Tex;
-	texinfo.Texture = Tex;
-	texinfo.Format = texinfo.Texture->UsedFormat;
-	texinfo.Mips = Tex->UsedMipmaps.data();
-	texinfo.NumMips = (int)Tex->UsedMipmaps.size();
-	texinfo.USize = Tex->USize();
-	texinfo.VSize = Tex->VSize();
-	if (Tex->Palette())
-		texinfo.Palette = (TextureColor*)Tex->Palette()->Colors.data();
-	ApplyDetailLOD(texinfo);
-
-	if (Tex->bMasked())
-		flags |= PF_Masked;
-
-	Rectf clipBox = Rectf::xywh(orgX, orgY, clipX, clipY);
-	Rectf dest = Rectf::xywh(orgX + curX, orgY + curY, XL, YL);
-	Rectf src = Rectf::xywh(U, V, UL, VL);
-	DrawTile(texinfo, dest, src, clipBox, Z, color, fog, flags);
 }
 
 // A glyph's page as the device takes it: its own page's image, size and

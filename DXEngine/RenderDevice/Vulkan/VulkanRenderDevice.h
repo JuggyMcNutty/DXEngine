@@ -67,9 +67,6 @@ public:
 	int VkDeviceIndex = 0;
 
 	void RunBloomPass();
-	void AddBloom();
-	// The bloom levels hold this frame's, taken by TakeBloom
-	bool BloomTaken = false;
 	void BloomStep(VulkanCommandBuffer* cmdbuffer, VulkanPipeline* pipeline, VulkanDescriptorSet* input, VulkanFramebuffer* output, int width, int height, const BloomPushConstants &pushconstants);
 	static float ComputeBlurGaussian(float n, float theta);
 	static void ComputeBlurSamples(int sampleCount, float blurAmount, float* sampleWeights);

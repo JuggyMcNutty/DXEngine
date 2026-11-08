@@ -1392,9 +1392,15 @@ void Win32DisplayWindow::CreateGLContext()
 	openglDC = GetDC(WindowHandle.hwnd);
 	try
 	{
+		// Desktop 4.2 core, as every other window asks: the GL device's
+		// shaders are GLSL 4.20. None is an error, with the driver's reason,
+		// so the GL device fails at its start and the engine falls back to
+		// the software device
 		OpenGLCreationHelper helper(WindowHandle.hwnd, openglDC);
 		helper.set_pixel_format();
-		openglContext = helper.create_opengl3_context(0, 3, 2); // RenderDoc has 3.2 as minimum and honestly anything less is more trouble than its worth
+		openglContext = helper.create_opengl3_context(0, 4, 2);
+		if (!openglContext)
+			throw std::runtime_error("Could not create an OpenGL 4.2 core context: error " + std::to_string(GetLastError()));
 	}
 	catch (...)
 	{

@@ -187,7 +187,9 @@ std::string FileResource::readAllText(const std::string& filename)
 				}
 
 				#if defined(ALPHATEST)
-				if (outColor.a < 0.5) discard;
+				// D3DDrv's alpha test: kept above 127/255 (ALPHAREF 0x7F,
+				// ALPHAFUNC GREATER; D3DDrv.dll 0x1000c83a, 0x1000c84a)
+				if (outColor.a <= 127.0 / 255.0) discard;
 				#endif
 
 				outColor = clamp(outColor, 0.0, 1.0);

@@ -82,8 +82,8 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
 		}
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, std::max(mipcount - 1, 0));
 		// Once a texture made, not once a level or an upload: each ask makes a
-		// threaded driver finish its queue (GLRenderDevice.h, ThrowIfGLError)
-		ThrowIfGLError("UploadTexture failed");
+		// threaded driver finish its queue (GLRenderDevice.h, TakeGLErrors)
+		renderer->LogFrameGLErrors("UploadTexture failed");
 	}
 
 	if (uploader)

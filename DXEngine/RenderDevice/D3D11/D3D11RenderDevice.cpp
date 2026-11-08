@@ -5,7 +5,6 @@
 #include "D3D11FileResource.h"
 #include "Utils/UTF16.h"
 #include "Utils/Logger.h"
-#include "Math/halffloat.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include <dxwidgets/core/widget.h>
 #include <dxwidgets/window/sdlnativehandle.h>
@@ -18,6 +17,14 @@
 
 #include <initguid.h>
 DEFINE_GUID(WKPDID_D3DDebugObjectName, 0x429b8c22, 0x9188, 0x4b0c, 0x87, 0x42, 0xac, 0xb0, 0xbf, 0x85, 0xc2, 0x00);
+
+// The scene's colour buffer, its post-process images and its bloom levels:
+// ten bits a channel, as the Vulkan device's A2B10G10R10 and the GL device's
+// RGB10_A2 (by choice), so every blend clamps at 1 as D3DDrv's 8-bit frame
+// clamps it, where a float buffer kept a modulated blend's 2 x src x dst over
+// 1 for the draws after it and, with Hdr, sent highlights over 1 to the scRGB
+// swap chain
+static const DXGI_FORMAT SceneFormat = DXGI_FORMAT_R10G10B10A2_UNORM;
 
 D3D11RenderDevice::D3D11RenderDevice(Widget* InViewport)
 {
@@ -234,6 +241,12 @@ bool D3D11RenderDevice::Init(int NewX, int NewY)
 				LogMessage("D3D11Drv: Could not use DXGI_SWAP_EFFECT_FLIP_DISCARD. Falling back to DXGI_SWAP_EFFECT_DISCARD");
 			}
 			ThrowIfFailed(result, "D3D11CreateDeviceAndSwapChain failed");
+
+			// Alt+Enter the window's, as the main path leaves it: DXGI's own
+			// full screen never taken, the window backend's alone
+			ComPtr<IDXGIFactory> swapChainFactory;
+			if (SUCCEEDED(SwapChain->GetParent(swapChainFactory.GetIID(), swapChainFactory.InitPtr())))
+				swapChainFactory->MakeWindowAssociation(GetWindowHandle(), DXGI_MWA_NO_ALT_ENTER);
 		}
 
 		if (UseDebugLayer)
@@ -414,9 +427,11 @@ bool D3D11RenderDevice::UpdateSwapChain()
 	{
 		try
 		{
-			LogMessage("D3D11Drv: Resizing scene buffers to " + std::to_string(CurrentSizeX) + " x " + std::to_string(CurrentSizeY));
+			// At the render size (the window's times Performance.RenderScale);
+			// the present pass scales them up
+			LogMessage("D3D11Drv: Resizing scene buffers to " + std::to_string(GetRenderWidth()) + " x " + std::to_string(GetRenderHeight()));
 
-			ResizeSceneBuffers(CurrentSizeX, CurrentSizeY, GetSettingsMultisample());
+			ResizeSceneBuffers(GetRenderWidth(), GetRenderHeight(), GetSettingsMultisample());
 		}
 		catch (const std::exception& e)
 		{
@@ -528,7 +543,7 @@ void D3D11RenderDevice::ResizeSceneBuffers(int width, int height, int multisampl
 	texDesc.Height = SceneBuffers.Height;
 	texDesc.MipLevels = 1;
 	texDesc.ArraySize = 1;
-	texDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	texDesc.Format = SceneFormat;
 	texDesc.SampleDesc.Count = SceneBuffers.Multisample;
 	texDesc.SampleDesc.Quality = SceneBuffers.Multisample > 1 ? D3D11_STANDARD_MULTISAMPLE_PATTERN : 0;
 	HRESULT result = Device->CreateTexture2D(&texDesc, nullptr, SceneBuffers.ColorBuffer.TypedInitPtr());
@@ -558,7 +573,7 @@ void D3D11RenderDevice::ResizeSceneBuffers(int width, int height, int multisampl
 		texDesc.Height = SceneBuffers.Height;
 		texDesc.MipLevels = 1;
 		texDesc.ArraySize = 1;
-		texDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+		texDesc.Format = SceneFormat;
 		texDesc.SampleDesc.Count = 1;
 		texDesc.SampleDesc.Quality = 0;
 		result = Device->CreateTexture2D(&texDesc, nullptr, SceneBuffers.PPImage[i].TypedInitPtr());
@@ -599,7 +614,7 @@ void D3D11RenderDevice::ResizeSceneBuffers(int width, int height, int multisampl
 		texDesc.Height = bloomHeight;
 		texDesc.MipLevels = 1;
 		texDesc.ArraySize = 1;
-		texDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+		texDesc.Format = SceneFormat;
 		texDesc.SampleDesc.Count = 1;
 		texDesc.SampleDesc.Quality = 0;
 
@@ -649,6 +664,12 @@ void D3D11RenderDevice::CreateScenePass()
 	std::vector<std::string> sceneDefines;
 	if (!DarkClamp)
 		sceneDefines.push_back("NO_DARKCLAMP");
+	// D3DDrv's macro texture and detail textures, as the Vulkan and GL
+	// devices draw them (Scene.frag)
+	if (MacroTwoPass)
+		sceneDefines.push_back("MACRO_TWO_PASS");
+	if (DetailBands)
+		sceneDefines.push_back("DETAIL_BANDS");
 	std::vector<std::string> alphaTestDefines = sceneDefines;
 	alphaTestDefines.push_back("ALPHATEST");
 	CreatePixelShader(ScenePass.PixelShader, "ScenePass.PixelShader", "shaders/Scene.frag", sceneDefines);
@@ -671,6 +692,19 @@ void D3D11RenderDevice::CreateScenePass()
 		HRESULT result = Device->CreateRasterizerState(&rasterizerDesc, ScenePass.RasterizerState[i].TypedInitPtr());
 		ThrowIfFailed(result, "CreateRasterizerState(ScenePass.Pipelines.RasterizerState) failed");
 		SetDebugName(ScenePass.RasterizerState[i], "ScenePass.RasterizerState");
+
+		// A mover's step: a unit of the depth and a slope of 1, toward the
+		// viewer and away, as the Vulkan device's dynamic depth bias and GL's
+		// glPolygonOffset take it (SurfaceInfo::DepthBias)
+		for (int j = 0; j < 2; j++)
+		{
+			rasterizerDesc.DepthBias = j == 0 ? -1 : 1;
+			rasterizerDesc.SlopeScaledDepthBias = j == 0 ? -1.0f : 1.0f;
+			rasterizerDesc.DepthBiasClamp = 0.0f;
+			result = Device->CreateRasterizerState(&rasterizerDesc, ScenePass.BiasedRasterizerState[i][j].TypedInitPtr());
+			ThrowIfFailed(result, "CreateRasterizerState(ScenePass.BiasedRasterizerState) failed");
+			SetDebugName(ScenePass.BiasedRasterizerState[i][j], "ScenePass.BiasedRasterizerState");
+		}
 	}
 
 	for (int i = 0; i < 33; i++)
@@ -751,6 +785,13 @@ void D3D11RenderDevice::CreateScenePass()
 
 		ScenePass.Pipelines[i].PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	}
+	for (int i = 0; i < 32; i++)
+	{
+		ScenePass.BiasedPipelines[i] = ScenePass.Pipelines[i];
+		ScenePass.BiasedPipelines[i].DepthBias = -1;
+		ScenePass.AwayPipelines[i] = ScenePass.Pipelines[i];
+		ScenePass.AwayPipelines[i].DepthBias = 1;
+	}
 
 	// Line pipeline
 	for (int i = 0; i < 2; i++)
@@ -829,7 +870,10 @@ void D3D11RenderDevice::CreateSceneSamplers()
 		samplerDesc.BorderColor[2] = 1.0f;
 		samplerDesc.BorderColor[3] = 1.0f;
 		samplerDesc.MaxAnisotropy = 8;
-		samplerDesc.MipLODBias = (float)dummyMipmapCount + LODBias;
+		// The padding levels a small BC1 texture is given (D3D11UploadManager)
+		// held off by MinLOD alone: the level of detail is already counted
+		// from the padded top, which is as many halvings larger
+		samplerDesc.MipLODBias = LODBias;
 		samplerDesc.Filter = filter;
 		samplerDesc.AddressU = addressmode;
 		samplerDesc.AddressV = addressmode;
@@ -857,6 +901,9 @@ void D3D11RenderDevice::ReleaseScenePass()
 	ScenePass.ConstantBuffer.reset();
 	ScenePass.RasterizerState[0].reset();
 	ScenePass.RasterizerState[1].reset();
+	for (auto& states : ScenePass.BiasedRasterizerState)
+		for (auto& state : states)
+			state.reset();
 	ScenePass.PixelShader.reset();
 	ScenePass.PixelShaderAlphaTest.reset();
 	ReleaseSceneSamplers();
@@ -864,6 +911,13 @@ void D3D11RenderDevice::ReleaseScenePass()
 	{
 		pipeline.BlendState.reset();
 		pipeline.DepthStencilState.reset();
+	}
+	for (int i = 0; i < 32; i++)
+	{
+		ScenePass.BiasedPipelines[i].BlendState.reset();
+		ScenePass.BiasedPipelines[i].DepthStencilState.reset();
+		ScenePass.AwayPipelines[i].BlendState.reset();
+		ScenePass.AwayPipelines[i].DepthStencilState.reset();
 	}
 	for (int i = 0; i < 2; i++)
 	{
@@ -922,7 +976,7 @@ void D3D11RenderDevice::ReleaseSceneBuffers()
 	}
 }
 
-D3D11RenderDevice::ScenePipelineState* D3D11RenderDevice::GetPipeline(uint32_t PolyFlags)
+D3D11RenderDevice::ScenePipelineState* D3D11RenderDevice::GetPipeline(uint32_t PolyFlags, int depthBias)
 {
 	int index;
 	if (PolyFlags & PF_Translucent)
@@ -960,6 +1014,10 @@ D3D11RenderDevice::ScenePipelineState* D3D11RenderDevice::GetPipeline(uint32_t P
 		index = 32;
 	}
 
+	if (depthBias > 0 && index < 32)
+		return &ScenePass.BiasedPipelines[index];
+	if (depthBias < 0 && index < 32)
+		return &ScenePass.AwayPipelines[index];
 	return &ScenePass.Pipelines[index];
 }
 
@@ -1057,9 +1115,14 @@ void D3D11RenderDevice::RunBloomPass()
 	BlurStep(SceneBuffers.BlurLevels[0].HTextureSRV, SceneBuffers.BlurLevels[0].VTextureRTV, true);
 }
 
-// The world's frame copied out and its bloom taken into the levels, then the
-// scene's targets and state again, as Lock binds them, for the windows drawn
-// over it
+// The world's frame copied out, its bloom taken into the levels and added
+// into the scene, then the scene's targets and state again, as Lock binds
+// them, for the windows drawn over it:
+// the windows drawn after it stay sharp, and the screen flash, the loading
+// screen's dimming and the menus' masks, drawn over the world after it,
+// cover its bloom as they cover the world (D3DDrv's EndFlash blends over all
+// the frame, D3DDrv.dll 0x10007c90), where added at Unlock it lay over them
+// whole
 void D3D11RenderDevice::TakeBloom()
 {
 	if (!Bloom || !IsLocked)
@@ -1068,11 +1131,11 @@ void D3D11RenderDevice::TakeBloom()
 	DrawBatches();
 	UnmapVertices();
 	if (SceneBuffers.Multisample > 1)
-		Context->ResolveSubresource(SceneBuffers.PPImage[0], 0, SceneBuffers.ColorBuffer, 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		Context->ResolveSubresource(SceneBuffers.PPImage[0], 0, SceneBuffers.ColorBuffer, 0, SceneFormat);
 	else
 		Context->CopyResource(SceneBuffers.PPImage[0], SceneBuffers.ColorBuffer);
 	RunBloomPass();
-	BloomTaken = true;
+	AddBloom(SceneBuffers.ColorBufferView);
 
 	ID3D11RenderTargetView* views[1] = { SceneBuffers.ColorBufferView };
 	Context->OMSetRenderTargets(1, views, SceneBuffers.DepthBufferView);
@@ -1088,15 +1151,15 @@ void D3D11RenderDevice::TakeBloom()
 	Context->RSSetState(ScenePass.RasterizerState[SceneBuffers.Multisample > 1]);
 	Context->RSSetViewports(1, &SceneViewport);
 	D3D11_RECT box = {};
-	box.right = CurrentSizeX;
-	box.bottom = CurrentSizeY;
+	box.right = SceneBuffers.Width;
+	box.bottom = SceneBuffers.Height;
 	Context->RSSetScissorRects(1, &box);
 	MapVertices(false);
 }
 
-// The bloom TakeBloom left in the first level, added to the frame's post
-// process image
-void D3D11RenderDevice::AddBloom()
+// The bloom RunBloomPass left in the first level, added into the target, the
+// scene's colour (TakeBloom)
+void D3D11RenderDevice::AddBloom(ID3D11RenderTargetView* target)
 {
 	ID3D11Buffer* vertexBuffers[1] = { PresentPass.PPStepVertexBuffer.get() };
 	ID3D11Buffer* cbs[1] = { BloomPass.ConstantBuffer.get() };
@@ -1116,7 +1179,7 @@ void D3D11RenderDevice::AddBloom()
 	viewport.Width = (float)SceneBuffers.Width;
 	viewport.Height = (float)SceneBuffers.Height;
 	viewport.MaxDepth = 1.0f;
-	ID3D11RenderTargetView* rtvs[1] = { SceneBuffers.PPImageView[0].get() };
+	ID3D11RenderTargetView* rtvs[1] = { target };
 	ID3D11ShaderResourceView* srvs[1] = { SceneBuffers.BlurLevels[0].VTextureSRV.get() };
 	Context->OMSetRenderTargets(1, rtvs, nullptr);
 	Context->OMSetBlendState(BloomPass.AdditiveBlendState, nullptr, 0xffffffff);
@@ -1424,7 +1487,9 @@ void D3D11RenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClea
 	{
 		try
 		{
-			ResizeSceneBuffers(CurrentSizeX, CurrentSizeY, GetSettingsMultisample());
+			// The scene buffers live at the render size (the window's times
+			// Performance.RenderScale); the present pass scales them up
+			ResizeSceneBuffers(GetRenderWidth(), GetRenderHeight(), GetSettingsMultisample());
 		}
 		catch (const std::exception& e)
 		{
@@ -1454,14 +1519,13 @@ void D3D11RenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClea
 	Context->RSSetState(ScenePass.RasterizerState[SceneBuffers.Multisample > 1]);
 
 	D3D11_RECT box = {};
-	box.right = CurrentSizeX;
-	box.bottom = CurrentSizeY;
+	box.right = SceneBuffers.Width;
+	box.bottom = SceneBuffers.Height;
 	Context->RSSetScissorRects(1, &box);
 
 	MapVertices(true);
 
 	IsLocked = true;
-	BloomTaken = false;
 }
 
 D3D11PresentPushConstants D3D11RenderDevice::GetD3D11PresentPushConstants()
@@ -1507,16 +1571,11 @@ void D3D11RenderDevice::Unlock(bool Blit)
 	{
 		if (SceneBuffers.Multisample > 1)
 		{
-			Context->ResolveSubresource(SceneBuffers.PPImage[0], 0, SceneBuffers.ColorBuffer, 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+			Context->ResolveSubresource(SceneBuffers.PPImage[0], 0, SceneBuffers.ColorBuffer, 0, SceneFormat);
 		}
 		else
 		{
 			Context->CopyResource(SceneBuffers.PPImage[0], SceneBuffers.ColorBuffer);
-		}
-
-		if (BloomTaken)
-		{
-			AddBloom();
 		}
 
 		ID3D11RenderTargetView* rtvs[1] = { BackBufferView.get() };
@@ -1622,7 +1681,7 @@ void D3D11RenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surfac
 	if (info.fogmap != nulltex)
 		info.detailtex = info.fogmap;
 
-	SetPipeline(PolyFlags);
+	SetPipeline(PolyFlags, Surface.DepthBias);
 	SetDescriptorSet(PolyFlags, info);
 
 	DrawComplexSurfaceFaces(info);
@@ -2022,7 +2081,7 @@ void D3D11RenderDevice::ReadPixels(TextureColor* Pixels)
 	texDesc.Height = SceneBuffers.Height;
 	texDesc.MipLevels = 1;
 	texDesc.ArraySize = 1;
-	texDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	texDesc.Format = SceneFormat;
 	texDesc.SampleDesc.Count = 1;
 	texDesc.SampleDesc.Quality = 0;
 	texDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
@@ -2037,8 +2096,8 @@ void D3D11RenderDevice::ReadPixels(TextureColor* Pixels)
 		Context->OMSetRenderTargets(1, rtvs, nullptr);
 
 		D3D11_VIEWPORT viewport = {};
-		viewport.Width = (float)CurrentSizeX;
-		viewport.Height = (float)CurrentSizeY;
+		viewport.Width = (float)SceneBuffers.Width;
+		viewport.Height = (float)SceneBuffers.Height;
 		viewport.MaxDepth = 1.0f;
 		Context->RSSetViewports(1, &viewport);
 
@@ -2077,33 +2136,22 @@ void D3D11RenderDevice::ReadPixels(TextureColor* Pixels)
 		Context->CopyResource(stagingTexture, SceneBuffers.PPImage[0]);
 	}
 
+	// The ten bits made bytes as the Vulkan and GL devices' read-backs make
+	// them, by the ordered threshold, a gamma-corrected shot's by rounding
+	// (TenBitRowToBytes), at the scene's size, the render scale's
 	D3D11_MAPPED_SUBRESOURCE mapped = {};
 	result = Context->Map(stagingTexture, 0, D3D11_MAP_READ, 0, &mapped);
 	if (SUCCEEDED(result))
 	{
 		uint8_t* srcpixels = (uint8_t*)mapped.pData;
-		int w = CurrentSizeX;
-		int h = CurrentSizeY;
-		void* data = Pixels;
+		int w = SceneBuffers.Width;
+		int h = SceneBuffers.Height;
 
 		for (int y = 0; y < h; y++)
 		{
 			int desty = GammaCorrectScreenshots ? y : (h - y - 1);
-			uint8_t* dest = (uint8_t*)data + desty * w * 4;
-			uint16_t* src = (uint16_t*)(srcpixels + y * mapped.RowPitch);
-			for (int x = 0; x < w; x++)
-			{
-				float red = halfToFloatSimple(*(src++));
-				float green = halfToFloatSimple(*(src++));
-				float blue = halfToFloatSimple(*(src++));
-				float alpha = halfToFloatSimple(*(src++));
-
-				dest[0] = (int)clamp(std::round(blue * 255.0f), 0.0f, 255.0f);
-				dest[1] = (int)clamp(std::round(green * 255.0f), 0.0f, 255.0f);
-				dest[2] = (int)clamp(std::round(red * 255.0f), 0.0f, 255.0f);
-				dest[3] = (int)clamp(std::round(alpha * 255.0f), 0.0f, 255.0f);
-				dest += 4;
-			}
+			const uint32_t* src = (const uint32_t*)(srcpixels + y * mapped.RowPitch);
+			TenBitRowToBytes(src, Pixels + (size_t)desty * w, w, desty, GammaCorrectScreenshots);
 		}
 
 		Context->Unmap(stagingTexture, 0);
@@ -2282,6 +2330,11 @@ void D3D11RenderDevice::DrawEntry(const DrawBatchEntry& entry)
 
 	Context->OMSetBlendState(entry.Pipeline->BlendState, entry.BlendConstants, 0xffffffff);
 	Context->OMSetDepthStencilState(entry.Pipeline->DepthStencilState, 0);
+
+	// The pipeline's step in the depth (a mover's surface), the rasterizer's
+	int multisampled = SceneBuffers.Multisample > 1;
+	int bias = entry.Pipeline->DepthBias;
+	Context->RSSetState(bias == 0 ? ScenePass.RasterizerState[multisampled] : ScenePass.BiasedRasterizerState[multisampled][bias < 0 ? 0 : 1]);
 
 	Context->IASetPrimitiveTopology(entry.Pipeline->PrimitiveTopology);
 
