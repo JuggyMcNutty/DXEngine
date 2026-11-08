@@ -440,6 +440,7 @@ launcher's part, which DXEngine leaves to the launchers.
 | `BigServer` | either | a `CapBigString` replicated to the joined player: `abc`, then 600 x's, more than a bunch holds, then `xyz`; it exits 14 s after placing it | `DXBIG:` | the client's `BigJoinConsole` (bugs.md D.56, NET.32) |
 | `BigJoinConsole` | either | a client logging the `CapBigString`'s length at each change | `DXBIG:` | the server's stages (bugs.md D.56, NET.32) |
 | `FixedMapConsole` | both | on the menu map a fixed array's and a map's text in and out: `GetPropertyText`, `SetPropertyText`, `GET` and `SET` of `Fixed` and `Mapped`, which `tools/dxcap/fixedmap.py` retypes in a copy of `DXCapture.u` after UCC (a fixed array of three ints, a map of int to int), the copy put in place for the run and the compiled one back after | `DXFIXMAP:` | every line (bugs.md VM.31, VM.32) |
+| `UndoConsole` | both | on the menu map an edit window in an `EditLogWindow`, each check from a `SetText`: a Backspace undone and a key typed after, a typing undone and redone, an undo back to `ClearTextChangedFlag`'s mark and one past it, `SetMaxUndos(0)`; then a `CapLargeTextGCWindow`, centred and not word wrapped, logging the GC its `DrawWindow` is handed | `DXEDIT:` | every line (bugs.md EXT.33, EXT.34, EXT.35) |
 
 - `SaveConsole`, `LoadConsole`, `SaveEdgeConsole`, `StartConsole`, `LoadingConsole`,
   `MoverConsole`, `SleepConsole`, `CensusConsole` and `LocalMapConsole`'s broken slot use the

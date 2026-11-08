@@ -716,7 +716,9 @@ message, all colour 0, dark grey) drawing nothing, at 1.00; in the window,
 lines alone; "NEW GAME" in the TrueType font, drawn opaque, at a
 correlation of 1.00 to `D3DDrv`'s, its edges blended into the box (the
 stock menus draw it translucent); on the canvas, clipped text drawn
-`STY_Translucent` translucent.
+`STY_Translucent` translucent. For the owner (bugs.md D.63): a smoothed
+tile's edges are clamped on every device, where `D3DDrv`'s addressing wraps,
+its outer half texel blending with the opposite edge.
 
 A window's tile and character are placed as the original's GC places them
 ([the GC's styles](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#styles)):
@@ -1897,7 +1899,15 @@ EXT.29): the menus' snapshot background is drawn unfiltered. Differs
 (bugs.md EXT.30): the arrow keys' focus wraps round a clip window's ends.
 Differs (bugs.md EXT.31): a window's GC state: its style, its enables,
 `PostDrawWindow`'s and `DrawActor`'s defaults. Differs (bugs.md EXT.32): a
-stretched window background is drawn unrounded.
+stretched window background is drawn unrounded. Differs (bugs.md EXT.33):
+an edit field's Undo and Redo leave nothing selected, where the original
+selects what they put back. Differs (bugs.md EXT.34): an edit field's
+changed flag and undo steps ignore the clean mark `ClearTextChangedFlag`
+sets, and `SetMaxUndos(0)` limits nothing. Differs (bugs.md EXT.35): a large
+text window's GC reaches its script with the window's alignments and word
+wrap, rows step by their tallest glyph, and an edit field's insertion point
+is hidden while the GC's drawing is off; no stock script or font reaches
+them.
 
 ## The menus' settings
 
