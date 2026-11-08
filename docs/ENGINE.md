@@ -520,8 +520,9 @@ wherever else that state is set.
   the shaders are GLSL 4.20 (`CompileGlsl` prepends `#version 420`): a driver without 4.2 fails
   at the context, with an error that says so, not at a shader.
 - **The vertices** stream through CPU staging arrays, each flush uploading the range written
-  since the last one (`glBufferSubData`): the GE8300 has no `glBufferStorage` (persistent
-  mapping), and mapping the buffers' unused tails on every flush costs most of its frame.
+  since the last one (`glBufferSubData`): mapping the buffers' unused tails on every flush
+  costs most of the GE8300's frame. Its persistent mapping (`GL_EXT_buffer_storage`, which
+  Port Ex Machina's `tools/probes/probe-gles-sampler.c` finds working) the device does not use.
 - **The scene buffers** are RGB10_A2 (by choice; `Hdr` is the
   Vulkan and D3D11 devices', from an scRGB swap chain; no window gives GL a float or HDR
   framebuffer, so the setting is not taken here): darks banded less than in `D3DDrv`'s 8-bit
