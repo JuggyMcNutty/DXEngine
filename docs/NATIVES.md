@@ -718,32 +718,39 @@ the level, as the traces have it (`AIConsole`). An actor
 drawn on its own (`GC.DrawActor`, `Canvas.DrawActor`) counts as drawn
 whenever its rectangle is on the frame, whatever is in front of it: an NPC
 the vision augmentation draws through a wall stays drawn while it is in view
-(`AugVisionConsole`). An actor's proxy lies at its location's own depth,
-however near the eye, its corners tested where their lines from the eye
-lie 1.5 units out, the clipper's near plane cutting away what is nearer
-(`NearProxyConsole`: crates 0.05 to 1.4 units before the eye, a wall 1.25
-units off, counted as drawn on six walls in both engines, the one at 2
-units not). A sprite whose left edge's pixel is the frame's last column or
+(`AugVisionConsole`). An actor's proxy joins the walk at the BSP's root,
+as each of the original's sprites does, cut at each plane on its way down
+and dropped where every corner lies within 0.01 of one (`ProxyWallConsole`:
+crates 24 to 96 units behind six of Liberty Island's walls at five yaws,
+each of the 120 views alike in both engines, where the build before
+differed in 4). It lies at its location's own depth, however near the eye,
+its corners tested where their lines from the eye lie 1.5 units out, the
+clipper's near plane cutting away what is nearer (`NearProxyConsole`:
+crates 0.05 to 1.4 units before the eye, a wall 1.25 units off, counted as
+drawn on six walls in both engines, the one at 2 units not; with
+`Gap=2.0` every crate counted in both). A sprite whose left edge's pixel is the frame's last column or
 past it has no rectangle and does not count as drawn (`SpriteEdgeConsole`:
 its left edge 2.5 pixels short of the right edge seen in both engines,
-1.75 and 1.25 in neither, where the build before saw them). A decal counts
-as drawn when some of it shows, tested
-against the spans before its surface fills them
+1.75 and 1.25 in neither, where the build before saw them). The walk
+takes a mover's polygons where the brush tracker filed them as surfaces of
+the level's own, an opaque one filling the spans as a wall does, so what
+lies behind a closed door, an actor or a zone portal, counts as hidden
+(`DoorHideConsole`: a crate 40 units behind Liberty Island's
+`DeusExMover10` not drawn while the door is shut, its `LastRendered()`
+rising, and drawn each frame once it opens, in both engines, where the
+build before drew it throughout). A decal counts as drawn where some of it
+is left on a polygon of its surface any span of which shows, the polygon
+cut to the view's sides, no span buffer asked of the decal itself
 ([render time](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#render-time)):
-the game's go when not drawn for a second, some 20 s after they land
-(`DeusExDecal`), so `CensusConsole`'s blood splats, 90 s under fire on
-Liberty Island, are 140 to 170 at the end against the original's 90 to 186,
-of some 400 to 700 made in either. A surface's decals are drawn in the
-order the original's `AttachDecal` files them, a new one before the first
-of its texture, and one whose texture is `None` in the level's
-`DefaultTexture` -- no stock decal's. Differs (bugs.md REN.60): a mover hides
-nothing, so what lies behind a closed door counts as drawn. Differs
-(bugs.md REN.61): a decal lies a unit toward the eye along the view's axis,
-the original's 0.75 units off its surface along its normal. Differs
-(bugs.md REN.62): a decal counts as drawn only where its own pixels show,
-the original's wherever its surface's polygon shows. Differs (bugs.md
-REN.63): an actor's proxy joins the walk at its filing node, the original's
-at the root. Differs by choice:
+one behind nearer geometry, on a surface in view, counts. The game's go
+when not drawn for a second, some 20 s after they land (`DeusExDecal`). A
+surface's decals are drawn in the order the original's `AttachDecal` files
+them, a new one before the first of its texture, and one whose texture is
+`None` in the level's `DefaultTexture` -- no stock decal's. Differs
+(bugs.md REN.62): a decal on a node the original's walk leaves out of its
+saved polygons can count as drawn (`DecalSeenConsole`: of 29 marks the
+eye's line to is blocked, on the sea floor past the dock, 23 counted, the
+original's 15 among them, where the build before counted none). Differs by choice:
 
 - **One span buffer** for the frame, where the original keeps one per zone.
   A buffer per zone would change no test in 15,500 at the starts of Liberty
@@ -1610,12 +1617,37 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   DXMP_CMD's bot doors 6 by 80 by 80, but for a float step in three of them
   (bugs.md PHYS.37).
 
-Differs (bugs.md REN.45): a decal never attaches to a mover, no bullet hole
-on a door or crack on breakable glass. Differs (bugs.md REN.47): a decal
-covers the coplanar chain of the node hit alone. Differs (bugs.md REN.48):
-the decal's line stops at masked and invisible polygons and refuses
-invisible ones. Differs (bugs.md REN.50): a decal's random direction leans
-toward the diagonals. Differs (bugs.md PHYS.37): a line's hit on a mover's
+A decal is laid as the original's `AttachDecal` lays one
+([the natives](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-natives)):
+its line meets the movers' polygons where the brush tracker filed them,
+passing a masked, invisible or portal polygon, only an auto-panned surface
+refusing it; a square `USize` times `DrawScale` on a side, turned by
+`DecalDir` in the surface's plane, or by a direction drawn from within the
+unit sphere where that is zero, the texture's axes the original's; on every
+node of its surface it covers, wherever they are in the BSP, and on the
+surfaces facing within 45 degrees or so that a grid of `MultiDecalLevel`
+squared lines meets (the line and the direction by reading). On a mover's
+face it keeps the mover's rotation and is based on its owner
+(`MoverDecalConsole`: a `BulletHole` on Liberty Island's `DeusExMover10`
+kept and based on the door, at the same pixels in both engines, where the
+build before refused it). It is drawn 0.75 units off its surface along the
+surface's normal, clipped by the planes through the eye and each edge of
+its surface's polygon, so that on screen it fits the polygon's outline
+(`DecalLiftConsole`: the scorch mark where the original's lies, from 37
+degrees above and turned 25 degrees, where the build before's lay 4 to 5
+pixels lower and 2 to 4 left); on a mover's face clipped to the polygon
+whole, as DXEngine draws it. A save's new tracker makes the movers'
+surfaces anew without their decals, as the original's does. Differs
+(bugs.md D.83): a decal the grid lays on a mover's face keeps that mover's
+rotation, where the original's keeps none and is drawn turned by the
+mover's whole rotation. Differs (bugs.md D.84): a decal on a mover's face
+stays drawn on it as the mover moves, its actor carried with it, where the
+original's is drawn there no more once the door has turned, its actor left
+where it was laid and its base None (`MoverDecalConsole`, the door
+opened). Differs (bugs.md REN.71): a mover's face turned from where it was
+built is drawn darker than the original's (the same door opened: its face
+0.039 of white in both builds against the original's 0.092, alike shut).
+Differs (bugs.md PHYS.37): a line's hit on a mover's
 filed polygon can land a float step off the original's, the trace's own
 float order against the plane not the original's, and a mover's box at a
 `PostScale` a float step off (`FiledPlaneConsole`: Battery Park's MainDoors

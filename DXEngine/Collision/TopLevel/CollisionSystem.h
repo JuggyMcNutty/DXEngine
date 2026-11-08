@@ -179,6 +179,8 @@ public:
 	const Array<Array<BrushTracker::FiledFragment>>* FiledFragments(const UMover* mover) const { return Tracker.Active() ? Tracker.Fragments(mover) : nullptr; }
 	const BspNode& FiledNode(int node) const { return Tracker.Nodes()[node]; }
 	const vec3* FiledCorners(int node) const { return Tracker.Corners(node); }
+	// The decals on a filed polygon's surface; null for any other
+	Array<LevelDecal>* FiledDecals(int surface) { return Tracker.Active() ? Tracker.Decals(surface) : nullptr; }
 	// The flags of the level surface the original files a mover's polygon
 	// under: a hit on it gives them, and the polygon draws with them
 	static uint32_t FiledFlags(UMover* mover, const Poly& poly);

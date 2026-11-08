@@ -29,6 +29,7 @@ void BrushTracker::Clear()
 	VertCorners.clear();
 	SlotVerts.clear();
 	FiledSurfaces.clear();
+	FiledDecals.clear();
 	Movers.clear();
 	FirstNode = NextNode = 0;
 	VertPoolSize = NextVert = 0;
@@ -102,6 +103,7 @@ void BrushTracker::Start(ULevel* level)
 		}
 		Movers.push_back(std::move(tracked));
 	}
+	FiledDecals.resize(FiledSurfaces.size());
 
 	// Room for twice the level's nodes and 512 more, at most 65,536 nodes in
 	// all, and for as many vertices again
@@ -718,6 +720,14 @@ const Array<Array<BrushTracker::FiledFragment>>* BrushTracker::Fragments(const U
 const vec3* BrushTracker::Corners(int node) const
 {
 	return &VertCorners[SlotVerts[node - FirstNode]];
+}
+
+Array<LevelDecal>* BrushTracker::Decals(int surface)
+{
+	int index = surface - FirstFiledSurface;
+	if (!Level || index < 0 || index >= (int)FiledDecals.size())
+		return nullptr;
+	return &FiledDecals[index];
 }
 
 void BrushTracker::Mark(GCMarker& marker)

@@ -19,8 +19,10 @@
 #include "Packages/Engine/Subsystems/UDXEngineRenderDevice.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Actors/UDecal.h"
+#include "VisibleDecal.h"
 #include "Packages/Engine/UDXEngineClient.h"
 #include "Packages/Extension/Windows/TabGroup/URootWindow.h"
+#include "Collision/TopLevel/CollisionSystem.h"
 
 void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const Coords& viewRotation, bool mirrorFlag, int portalDepth, const Array<PortalSpan>& portalSpans, const vec4& portalPlane, int viewZone)
 {
@@ -81,27 +83,29 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const 
 
 	// Before the BSP walk: the clipper's spans fill as surfaces draw, so a
 	// test after it would cull everything; here it clips items to the view
-	// (and a portal's spans) only. Their proxies go down the whole walk.
+	// (and a portal's spans) only. Their proxies, and every actor's, go down
+	// the whole walk.
 	ProcessRenderIterators();
 	ProcessMoverMirrors();
+	AddActorProxies();
 
-	ProcessNode(&engine->Level->Model->Nodes[0], 0, FragmentStack.size(), engine->Level->Model->RootOutside != 0);
+	ProcessNode(0, 0, FragmentStack.size(), engine->Level->Model->RootOutside != 0);
 }
 
 // A mover's mirror, which the original files with the mover's other polygons
 // into the level's BSP, to open a frame as any mirror there (dx-reverse-info
-// render-dll.md, a frame). A mover is no part of the walk here, so before it
-// each mirrored face of a mover where it is drawn -- a filed one hidden too,
-// as its filing stays in the BSP -- becomes a mirror's portal, its spans
-// all of the face the frame shows: the depth test leaves out what lies in
-// front of it. Each face a frame of its own, three frames deep at most; one
-// seen from behind passed over, and a translucent one reflecting only while
-// the render device's ShinySurfaces is on, as the BSP's mirrors. A face the
-// brush tracker dropped whole, in solid or for want of room, lies in no node
-// of the BSP: the original's walk never meets it, and it opens none, as it
-// is not drawn (VisibleBrush::DrawBrushPoly). Six of the stock maps' 24
-// mirrored mover faces are so, glass buried in solid on
-// 06_HongKong_WanChai_Underworld.
+// render-dll.md, a frame). The walk meets a mover's filed polygons only to
+// fill the spans (ProcessFiledSurface), so before it each mirrored face of a
+// mover where it is drawn -- a filed one hidden too, as its filing stays in
+// the BSP -- becomes a mirror's portal, its spans all of the face the frame
+// shows: the depth test leaves out what lies in front of it. Each face a
+// frame of its own, three frames deep at most; one seen from behind passed
+// over, and a translucent one reflecting only while the render device's
+// ShinySurfaces is on, as the BSP's mirrors. A face the brush tracker
+// dropped whole, in solid or for want of room, lies in no node of the BSP:
+// the original's walk never meets it, and it opens none, as it is not drawn
+// (VisibleBrush::DrawBrushPoly). Six of the stock maps' 24 mirrored mover
+// faces are so, glass buried in solid on 06_HongKong_WanChai_Underworld.
 void VisibleFrame::ProcessMoverMirrors()
 {
 	if (PortalDepth >= 3)
@@ -318,6 +322,52 @@ bool VisibleFrame::SpriteRectangle(UActor* actor, float& minX, float& minY, floa
 	return false;
 }
 
+// The polygon cut to the view's four sides, which all meet at the eye, so
+// no plane before it cuts it, and in a mirror's or a warp zone's frame to
+// its plane, as the original's ClipBspSurf cuts a surface for the walk to
+// save (Render.dll 0x10b14cb0; the plane, a mirror frame's NearClip, at
+// 0x10b1545e): a point put in where an edge crosses a side, then each point
+// beyond it taken out
+void VisibleFrame::ViewPolygon(const vec3* points, int count, Array<vec3>& out) const
+{
+	out.assign(points, points + count);
+	mat3 back = mat3::transpose(mat3(Frame.WorldToView));
+	vec3 translation(Frame.WorldToView[12], Frame.WorldToView[13], Frame.WorldToView[14]);
+	vec4 planes[5];
+	int numPlanes = 0;
+	for (const vec3& side : { vec3(1.0f, 0.0f, FrustumTanX), vec3(-1.0f, 0.0f, FrustumTanX), vec3(0.0f, 1.0f, FrustumTanY), vec3(0.0f, -1.0f, FrustumTanY) })
+		planes[numPlanes++] = vec4(back * side, dot(side, translation));
+	if (PortalPlane.x != 0.0f || PortalPlane.y != 0.0f || PortalPlane.z != 0.0f)
+		planes[numPlanes++] = PortalPlane;
+
+	Array<float> dist;
+	for (int k = 0; k < numPlanes && !out.empty(); k++)
+	{
+		const vec4& plane = planes[k];
+		dist.clear();
+		for (const vec3& p : out)
+			dist.push_back(dot(plane, vec4(p, 1.0f)));
+		for (size_t i = 0; i < out.size(); i++)
+		{
+			size_t next = (i + 1) % out.size();
+			if ((dist[i] > 0.0f && dist[next] < 0.0f) || (dist[i] < 0.0f && dist[next] > 0.0f))
+			{
+				vec3 p = out[i] + (out[next] - out[i]) * (dist[i] / (dist[i] - dist[next]));
+				out.insert(out.begin() + i + 1, p);
+				dist.insert(dist.begin() + i + 1, 0.0f);
+				i++;
+			}
+		}
+		size_t kept = 0;
+		for (size_t i = 0; i < out.size(); i++)
+		{
+			if (dist[i] >= 0.0f)
+				out[kept++] = out[i];
+		}
+		out.resize(kept);
+	}
+}
+
 vec3 VisibleFrame::TileOffset(const vec3& location) const
 {
 	if (!Frame.PolygonsAtFX15 || Frame.X <= 0 || Frame.Y <= 0)
@@ -328,6 +378,42 @@ vec3 VisibleFrame::TileOffset(const vec3& location) const
 	// tangent over the frame's size, times the depth.
 	float z = (Frame.WorldToView * vec4(location, 1.0f)).z;
 	return ViewToWorld * vec3(-z * FrustumTanX / Frame.X, -z * FrustumTanY / Frame.Y, 0.0f);
+}
+
+// Every actor's occlusion proxy starts at the BSP's root, as the original's
+// SetupDynamics hands each actor it does not pass over to FDynamicSprite at
+// node 0 (Render.dll 0x10b22d90, 0x10b233c0): cut at each plane on its way
+// down (0x10b23e30), each piece tested where it comes to rest, a piece past
+// a wall's plane on the wall's far side whatever node the actor lies under.
+// The level's actors in its list's order; a mover has none, the brush
+// tracker filing it, nor has an actor drawn as its render iterator's items,
+// which have their own (ProcessRenderIterators).
+void VisibleFrame::AddActorProxies()
+{
+	// None while the actors are hidden, SetupDynamics taking none
+	// (RenderSubsystem::ActorsShown)
+	if (!engine->render->ActorsShown)
+		return;
+	bool hasRenderIterators = PropOffsets_Actor.RenderInterface.DataOffset != ~(size_t)0;
+	const vec4& plane = PortalPlane;
+	for (UActor* actor : engine->Level->Actors)
+	{
+		if (!actor || actor->bDeleteMe() || UObject::TryCast<UMover>(actor))
+			continue;
+		if (hasRenderIterators && actor->RenderInterface())
+			continue;
+		if (VisibleActor::PassedOver(actor, PortalDepth))
+			continue;
+
+		// Behind a mirror, or before a warp zone's portal, nothing shows in
+		// its frame (VisibleActor::Process)
+		const BBox& box = actor->BspInfo.BoundingBox;
+		vec3 farthest(plane.x >= 0.0f ? box.max.x : box.min.x, plane.y >= 0.0f ? box.max.y : box.min.y, plane.z >= 0.0f ? box.max.z : box.min.z);
+		if (dot(plane, vec4(farthest, 1.0f)) < 0.0f)
+			continue;
+
+		AddOcclusionProxy(actor);
+	}
 }
 
 void VisibleFrame::AddOcclusionProxy(UActor* actor)
@@ -366,7 +452,10 @@ void VisibleFrame::SplitFragments(size_t first, size_t count, const vec4& plane,
 {
 	// Each piece goes to the side of the plane it lies on -- the viewer's
 	// side into NearFragments, the far side onto the stack -- and one across
-	// it is cut in two. Pieces of an actor already drawn are dropped.
+	// it is cut in two. Pieces of an actor already drawn are dropped, and so
+	// is one with every corner within 0.01 of the plane, which the
+	// original's walk hands to neither side (Render.dll 0x10b23e88-0x10b23eb9,
+	// the sides taken at 0x10b24303 and 0x10b244c7).
 	// A piece nearer than the depth it is tested at is on the plane's side
 	// its own depth puts it: each corner's distance from the plane that far
 	// along its line from the eye (DepthScale), which the cut keeps.
@@ -393,6 +482,8 @@ void VisibleFrame::SplitFragments(size_t first, size_t count, const vec4& plane,
 			else if (dist[v] < -epsilon)
 				farVerts++;
 		}
+		if (nearVerts == 0 && farVerts == 0)
+			continue;
 		if (farVerts == 0)
 		{
 			NearFragments.push_back(index);
@@ -625,46 +716,59 @@ void VisibleFrame::SetupSceneFrame(const mat4& worldToView)
 	FrustumTanY = Aspect * RProjZ;
 }
 
-void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount, bool outside)
+// The walk takes the level's BSP with the movers' polygons the brush tracker
+// filed into it, their nodes past the level's own, as the original's walk
+// takes them, nodes of the level's own (OccludeBsp, Render.dll 0x10b173d0;
+// dx-reverse-info render-dll.md, which actors are drawn): their planes cut
+// the proxies, a solid one's back is solid, and their polygons fill the
+// spans (ProcessFiledSurface). With no tracker, the level's own BSP.
+void VisibleFrame::ProcessNode(int nodeIndex, size_t fragFirst, size_t fragCount, bool outside)
 {
 	// Skip node if it is not part of the portal zones we have seen so far
 	//if ((node->ZoneMask & ViewZoneMask) == 0)
 	//	return;
 
+	UModel* model = engine->Level->Model;
+	const Array<BspNode>& nodes = engine->Level->Collision.LineNodes();
+	const int levelNodes = (int)model->Nodes.size();
+	const BspNode* node = &nodes[nodeIndex];
+
 	// The occlusion proxies' pieces that came down into this node's space
-	// are FragmentStack[fragFirst, +fragCount); those of the actors filed
-	// here follow from base. All the walk has drawn so far lies in front
+	// are FragmentStack[fragFirst, +fragCount), every proxy starting at the
+	// root (AddActorProxies). All the walk has drawn so far lies in front
 	// of them. Outside is whether this node's space is empty, not solid.
 	size_t base = FragmentStack.size();
 
 	// Skip node if its AABB is not visible -- and what came down into its
-	// space with it, as the original drops it
-	if (node->RenderBound != -1 && !Clipper.IsAABBVisible(engine->Level->Model->Bounds[node->RenderBound]))
+	// space with it, as the original drops it. A filed node has none.
+	if (node->RenderBound != -1 && !Clipper.IsAABBVisible(model->Bounds[node->RenderBound]))
 	{
 		return;
 	}
 
-	// Add bsp node actors to the visible set: while the actors are hidden
-	// (RenderSubsystem::ActorsShown), the filed movers alone, the level's
-	// polygons in the original
+	// Add bsp node actors to the visible set: those filed under a node of the
+	// level's own; while the actors are hidden (RenderSubsystem::ActorsShown),
+	// the filed movers alone, the level's polygons in the original
 	bool actorsShown = engine->render->ActorsShown;
-	for (UActor* actor = node->ActorList; actor != nullptr; actor = actor->BspInfo.Next)
+	if (nodeIndex < levelNodes)
 	{
-		if (!actorsShown)
+		for (UActor* actor = model->Nodes[nodeIndex].ActorList; actor != nullptr; actor = actor->BspInfo.Next)
 		{
-			UMover* mover = UObject::TryCast<UMover>(actor);
-			if (!mover || !mover->Filed)
-				continue;
-		}
-		if (actor->LastDrawFrame != FrameCounter)
-		{
-			actor->LastDrawFrame = FrameCounter;
+			if (!actorsShown)
+			{
+				UMover* mover = UObject::TryCast<UMover>(actor);
+				if (!mover || !mover->Filed)
+					continue;
+			}
+			if (actor->LastDrawFrame != FrameCounter)
+			{
+				actor->LastDrawFrame = FrameCounter;
 
-			VisibleActor visactor;
-			visactor.Process(this, actor);
+				VisibleActor visactor;
+				visactor.Process(this, actor);
+			}
 		}
 	}
-	size_t end = FragmentStack.size();
 
 	// Decide which side the plane the camera is
 	vec4 plane = { node->PlaneX, node->PlaneY, node->PlaneZ, -node->PlaneW };
@@ -689,7 +793,6 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
 	size_t farFirst = FragmentStack.size();
 	NearFragments.clear();
 	SplitFragments(fragFirst, fragCount, plane, !swapFrontAndBack);
-	SplitFragments(base, end - base, plane, !swapFrontAndBack);
 	size_t farCount = FragmentStack.size() - farFirst;
 	size_t nearFirst = FragmentStack.size();
 	for (int index : NearFragments)
@@ -699,7 +802,7 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
 	// Recursively divide front space (toward the viewer)
 	if (front >= 0)
 	{
-		ProcessNode(&engine->Level->Model->Nodes[front], nearFirst, nearCount, nearOutside);
+		ProcessNode(front, nearFirst, nearCount, nearOutside);
 	}
 	else
 	{
@@ -707,31 +810,110 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
 	}
 	FragmentStack.resize(nearFirst);
 
-	// Draw surfaces on this plane
-	BspNode* polynode = node;
+	// Draw surfaces on this plane: the level's own, then a mover's polygon
+	// filed in it, which hangs at the chain's end
+	int poly = nodeIndex;
 	while (true)
 	{
 		// Each coplanar node by its own plane, which may face the other way:
 		// the side the viewer is on picks its zone (the original's
 		// OccludeBsp, Render.dll 0x10b173d0).
-		vec4 polyPlane = { polynode->PlaneX, polynode->PlaneY, polynode->PlaneZ, -polynode->PlaneW };
+		const BspNode& polynode = nodes[poly];
+		vec4 polyPlane = { polynode.PlaneX, polynode.PlaneY, polynode.PlaneZ, -polynode.PlaneW };
 		bool polyBehind = dot(ViewLocation, polyPlane) < 0.0f;
-		ProcessNodeSurface(polynode, polyBehind);
+		if (poly < levelNodes)
+			ProcessNodeSurface(&model->Nodes[poly], polyBehind);
+		else
+			ProcessFiledSurface(poly, polyBehind);
 
-		if (polynode->Plane < 0) break;
-		polynode = &engine->Level->Model->Nodes[polynode->Plane];
+		if (polynode.Plane < 0) break;
+		poly = polynode.Plane;
 	}
 
 	// Possibly divide back space (away from the viewer)
 	if (back >= 0)
 	{
-		ProcessNode(&engine->Level->Model->Nodes[back], farFirst, farCount, farOutside);
+		ProcessNode(back, farFirst, farCount, farOutside);
 	}
 	else
 	{
 		TestLeafFragments(farFirst, farCount, farOutside, farZone);
 	}
 	FragmentStack.resize(base);
+}
+
+// A mover's polygon the brush tracker filed, met where the walk meets its
+// node, as the original's OccludeBsp takes it, a surface of the level's own
+// (Render.dll 0x10b173d0): one-sided and seen from behind, passed over by
+// its own flags; an opaque one -- neither masked, translucent, modulated nor
+// invisible -- and a mirror fill the spans as a wall does, so that what lies
+// behind a closed door, an actor's proxy or a zone portal, finds none; a
+// portal's zones are seen. VisibleBrush draws it with its mover, and
+// ProcessMoverMirrors opened a mirror's frame. A destroyed mover, drawn no
+// more, hides nothing.
+void VisibleFrame::ProcessFiledSurface(int index, bool behind)
+{
+	CollisionSystem& collision = engine->Level->Collision;
+	const BspNode& node = collision.FiledNode(index);
+	if (node.NumVertices < 3 || node.Surf < 0)
+		return;
+	const BspSurface& surface = collision.LineSurface(node.Surf);
+	UMover* mover = UObject::TryCast<UMover>(surface.BrushActor);
+	if (!mover || mover->bDeleteMe() || !mover->Brush())
+		return;
+
+	// The mover's box tested for its drawing before any of its polygons
+	// fills the spans, should the walk meet one before the node the mover
+	// is filed under
+	if (mover->LastDrawFrame != FrameCounter)
+	{
+		mover->LastDrawFrame = FrameCounter;
+		VisibleActor visactor;
+		visactor.Process(this, mover);
+	}
+
+	uint32_t PolyFlags = surface.PolyFlags;
+	if (!(PolyFlags & (PF_TwoSided | PF_Portal)) && behind)
+		return;
+	if (surface.Material)
+		PolyFlags |= surface.Material->PolyFlags();
+
+	// Its corners where the tracker filed it, turned round in a mirror's
+	// frame as a level surface's are
+	int numverts = node.NumVertices;
+	vec3* points = engine->render->GetTempVertexBuffer(numverts);
+	const vec3* corners = collision.FiledCorners(index);
+	mat4 toWorld = mover->BrushToWorld();
+	for (int j = 0; j < numverts; j++)
+		points[MirrorFlag ? numverts - 1 - j : j] = (toWorld * vec4(corners[j], 1.0f)).xyz();
+
+	bool occludes = (PolyFlags & PF_NoOcclude) == 0 || ((PolyFlags & PF_Mirrored) && PortalDepth < 3);
+	if (!Clipper.CheckSurface(points, numverts, occludes))
+		return;
+
+	if (PolyFlags & PF_Portal)
+		MarkPortalSeen(node);
+
+	// The decals on its surface that show on this fragment, counted as drawn
+	// (VisibleDecal::StampDecals)
+	Array<LevelDecal>* decals = collision.FiledDecals(node.Surf);
+	vec3 base, normal;
+	if (decals && !decals->empty() && UDecal::SurfaceFrame(engine->Level, node.Surf, base, normal))
+		VisibleDecal::StampDecals(this, *decals, base, normal, mover, points, numverts);
+}
+
+// A visible portal surface means the zones it borders were seen: their
+// render time is what stasis and the AI events read for actors there.
+void VisibleFrame::MarkPortalSeen(const BspNode& node)
+{
+	auto& zones = engine->Level->Model->Zones;
+	float now = engine->LevelInfo->TimeSeconds();
+	if ((size_t)node.Zone0 < zones.size())
+		zones[node.Zone0].LastRenderTime = now;
+	if ((size_t)node.Zone1 < zones.size())
+		zones[node.Zone1].LastRenderTime = now;
+	MarkZoneSeen(node.Zone0);
+	MarkZoneSeen(node.Zone1);
 }
 
 void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
@@ -927,44 +1109,22 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
 
 	gatherPoints();
 
-	// The decals that show on this surface, tested before it fills the spans:
-	// the original stamps a decal only when some of it is left once clipped to
-	// what is drawn of its surface (Render.dll DrawFrame 0x10b1a2d0, ClipDecal
-	// 0x10b1bda0), not every decal on a surface drawn.
-	Array<UDecal*> shownDecals;
-	if (engine->client->Decals)
-	{
-		for (auto& leveldecal : node->Decals)
-		{
-			if (leveldecal.Decal->Texture() && Clipper.IsPolygonVisible(leveldecal.Positions.data(), (uint32_t)leveldecal.Positions.size()))
-				shownDecals.push_back(leveldecal.Decal);
-		}
-	}
-
 	if (!Clipper.CheckSurface(points, numverts, (PolyFlags & PF_NoOcclude) == 0))
 		return;
 
-	// A visible portal surface means the zones it borders were seen: their
-	// render time is what stasis and the AI events read for actors there.
 	if (PolyFlags & PF_Portal)
-	{
-		auto& zones = engine->Level->Model->Zones;
-		float now = engine->LevelInfo->TimeSeconds();
-		if ((size_t)node->Zone0 < zones.size())
-			zones[node->Zone0].LastRenderTime = now;
-		if ((size_t)node->Zone1 < zones.size())
-			zones[node->Zone1].LastRenderTime = now;
-		MarkZoneSeen(node->Zone0);
-		MarkZoneSeen(node->Zone1);
-	}
+		MarkPortalSeen(*node);
+
+	// Its decals that ClipDecal leaves some of on it, counted as drawn, an
+	// invisible surface's too, as the original's draw lists keep one: a
+	// drawn decal stamps its own LastRenderedTime; LastRendered() reads
+	// LastRenderTime, which a decal never gets, so a decal never counts as
+	// drawn.
+	if (!node->Decals.empty())
+		VisibleDecal::StampDecals(this, node->Decals, model->Points[surface.pBase], model->Vectors[surface.vNormal], nullptr, points, numverts);
 
 	if (PolyFlags & PF_Invisible)
 		return;
-
-	// A drawn decal stamps its own LastRenderedTime; LastRendered() reads
-	// LastRenderTime, which a decal never gets, so a decal never counts as drawn.
-	for (UDecal* decal : shownDecals)
-		decal->LastRenderedTime() = engine->LevelInfo->TimeSeconds();
 
 	if ((PolyFlags & (PF_Translucent | PF_Modulated)) == 0 && (PolyFlags & PF_Occlude) != PF_Occlude)
 	{

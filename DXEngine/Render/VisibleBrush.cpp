@@ -2,6 +2,7 @@
 #include "Precomp.h"
 #include "VisibleBrush.h"
 #include "VisibleFrame.h"
+#include "VisibleDecal.h"
 #include "RenderSubsystem.h"
 #include "RenderDevice/RenderDevice.h"
 #include "VM/ScriptCall.h"
@@ -44,6 +45,7 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
 	// or modulated one blends again each time it is drawn
 	const Array<Fragments>* filed = engine->Level->Collision.FiledFragments(mover);
 	const Array<Poly>& polys = brush->Polys->Polys;
+	DecalPolys.clear();
 	for (size_t i = 0; i < polys.size(); i++)
 	{
 		if (DrawBrushPoly(frame, brush, polys[i], mover, translucentPass, filed && i < filed->size() ? &(*filed)[i] : nullptr))
@@ -51,6 +53,18 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
 	}
 
 	frame->Device->SetSceneNode(&frame->Frame);
+
+	// The decals on the polygons drawn, over them in the same pass, as the
+	// original draws a surface's decals after it (Render.dll DrawFrame
+	// 0x10b1a2d0), each clipped to the polygon as drawn, whole (VisibleDecal)
+	for (const DecalPoly& drawn : DecalPolys)
+	{
+		int count = (int)drawn.Polygon->Vertices.size();
+		vec3* points = engine->render->GetTempVertexBuffer(count);
+		for (int j = 0; j < count; j++)
+			points[frame->MirrorFlag ? count - 1 - j : j] = (ToWorld * vec4(drawn.Polygon->Vertices[j], 1.0f)).xyz();
+		VisibleDecal().DrawMoverDecals(frame, mover, drawn.Surf, points, count);
+	}
 	return needTranslucentPass;
 }
 
@@ -266,6 +280,16 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
 			if (!seal && zoneOf(fragment) != zoneActor)
 				acrossZones = true;
 		}
+	}
+
+	// A filed polygon with decals on its surface has them drawn after the
+	// mover's polygons (Draw)
+	if (!seal && fragments && !fragments->empty())
+	{
+		int surf = collision.FiledNode(fragments->front().Node).Surf;
+		Array<LevelDecal>* decals = collision.FiledDecals(surf);
+		if (decals && !decals->empty())
+			DecalPolys.push_back({ surf, &poly });
 	}
 
 	// In one zone, as all but a few are, the polygon drawn whole, where the

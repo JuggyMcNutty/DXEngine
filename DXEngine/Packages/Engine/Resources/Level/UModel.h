@@ -25,11 +25,15 @@ enum EBspNodeFlags
 	NF_IsNew = 32
 };
 
+// A decal laid on a surface, as the original's FDecal keeps one: its four
+// corners relative to the surface's base and, on a mover's polygon, the
+// mover's rotation as it was laid, which its drawing turns it by the
+// difference of (UDecal::AttachDecal, VisibleDecal)
 struct LevelDecal
 {
 	UDecal* Decal = nullptr;
-	Array<vec3> Positions;
-	Array<vec2> UVs;
+	vec3 Vertices[4];
+	Rotator MoverRotation = Rotator(0, 0, 0);
 };
 
 class UModel;
@@ -247,6 +251,13 @@ public:
 
 	// The leaf of the BSP a location stands in, or -1
 	int FindLeafAt(const vec3& location);
+
+	// A surface's nodes, in their order, as the original's PostLoad lists
+	// them (Engine.dll UModel::PostLoad 0x103ace90): every node of the BSP
+	// whose surface it is, wherever it lies, which a decal laid on the
+	// surface is clipped to. Made on first use.
+	const Array<int>& SurfaceNodes(int surf);
+	Array<Array<int>> SurfNodes;
 
 	Array<UActor*> Lights;
 

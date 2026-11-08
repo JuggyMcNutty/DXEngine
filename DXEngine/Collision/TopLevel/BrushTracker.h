@@ -16,8 +16,11 @@ struct Poly;
 // own planes, the space behind them solid within their leaves; a box meets
 // none, its walk taking the level's own BSP. The renderer takes the zones a
 // mover's polygons are drawn in from the fragments its last filing left,
-// and draws the fragments of one across zones (VisibleBrush); its walk, the
-// zones of the rest and the decals keep the level's BSP.
+// and draws the fragments of one across zones (VisibleBrush); its walk
+// takes the copy, the fragments filling the spans as the level's own
+// surfaces (VisibleFrame::ProcessNode), and a decal's lines walk it,
+// meeting a mover's polygon to lay a decal on (UDecal::AttachDecal); the
+// zones of the rest keep the level's BSP.
 class BrushTracker
 {
 public:
@@ -66,6 +69,11 @@ public:
 	// own space: the polygon's own where no plane split it
 	const vec3* Corners(int node) const;
 
+	// The decals laid on a filed polygon's surface (UDecal::AttachDecal), as
+	// the original's surfaces hold theirs, the tracker's start making each
+	// surface anew without any; null for a surface it does not make
+	Array<LevelDecal>* Decals(int surface);
+
 private:
 	struct Fragment
 	{
@@ -112,6 +120,7 @@ private:
 	Array<vec3> VertCorners; // a vertex slot's corner, in its brush's own space
 	Array<int> SlotVerts; // each node slot's first vertex slot, -1 for none
 	Array<BspSurface> FiledSurfaces;
+	Array<Array<LevelDecal>> FiledDecals; // by filed surface
 	int FirstFiledSurface = 0;
 	Array<std::unique_ptr<Tracked>> Movers;
 	Tracked* Filing = nullptr;

@@ -73,6 +73,11 @@ public:
 	// move, in the world, that puts a quad facing the view at location there.
 	vec3 TileOffset(const vec3& location) const;
 
+	// A surface's polygon as the original's walk saves it for its decals to
+	// be clipped to (VisibleDecal): cut to the view's four sides and, in a
+	// mirror's or a warp zone's frame, to its plane
+	void ViewPolygon(const vec3* points, int count, Array<vec3>& out) const;
+
 private:
 	// An actor's proxy for the occlusion test, as the original's sprites
 	// have one: its screen rectangle set back in the world at its
@@ -92,8 +97,9 @@ private:
 	};
 
 	void SetupSceneFrame(const mat4& worldToView);
+	void AddActorProxies();
 	bool BoundRectangle(const BBox& box, float& minX, float& minY, float& maxX, float& maxY);
-	void ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount, bool outside);
+	void ProcessNode(int nodeIndex, size_t fragFirst, size_t fragCount, bool outside);
 	void SplitFragments(size_t first, size_t count, const vec4& plane, bool viewerInFront);
 	void TestLeafFragments(size_t first, size_t count, bool outside, int zone);
 	void TestFragment(int index);
@@ -109,6 +115,8 @@ private:
 	float FrustumTanY = 1.0f;
 	float Now = 0.0f;
 	void ProcessNodeSurface(BspNode* node, bool front);
+	void ProcessFiledSurface(int index, bool behind);
+	void MarkPortalSeen(const BspNode& node);
 	void ProcessRenderIterators();
 	void ProcessMoverMirrors();
 	void SortTranslucent();

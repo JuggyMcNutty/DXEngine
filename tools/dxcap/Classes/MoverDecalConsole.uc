@@ -24,9 +24,19 @@
 //   covers and on the other surfaces a 4 x 4 grid of lines finds
 //   (MultiDecalLevel 4); DXEngine on the hit node's coplanar chain alone.
 //
+// - then the mover opened (DoOpen) and, 4 s on, the place the hole was laid,
+//   carried by the door's turn, seen Ahead units out along the turned face:
+//   shot 2, "DXMOVERDECAL: opened" logging the
+//   hole's place and base. Render.dll's ClipDecal (0x10b1bda0) turns a
+//   decal on a mover's face by the mover's rotation less the one it was
+//   laid at (Deus Ex's MoverRotation), about the face's base, which the
+//   tracker's filing moves with the mover: the hole stays where it was on
+//   the door's face.
+//
 // Each shot is marked for the original's grabber; each line is logged with
-// "DXMOVERDECAL:" in front. Compare: the two logs' "hole" lines; shots.py
-// --region over the hole (shot 0) and over the scorch mark (shot 1).
+// "DXMOVERDECAL:" in front. Compare: the two logs' "hole" and "opened"
+// lines; shots.py --region over the hole (shots 0 and 2) and over the
+// scorch mark (shot 1).
 //=============================================================================
 class MoverDecalConsole extends Console;
 
@@ -46,6 +56,8 @@ var vector Dir, Middle, Eye, Start;
 var rotator Look, StartLook;
 var Object Stopped;
 var Decal Hole, Mark;
+var vector HoleAt, HoleNormal, DoorAt;
+var rotator DoorTurn;
 
 function string Target()
 {
@@ -147,6 +159,10 @@ function PutHole(PlayerPawn P)
 		HitLocation = Middle + Dir * 1;
 		HitNormal = Dir;
 	}
+	HoleAt = HitLocation;
+	HoleNormal = HitNormal;
+	DoorAt = Door.Location;
+	DoorTurn = Door.Rotation;
 	Hole = P.Spawn(class'BulletHole', Door,, HitLocation, rotator(HitNormal));
 	if (Hole != None && Door.IsA('BreakableGlass'))
 	{
@@ -285,10 +301,73 @@ event Tick(float Delta)
 	}
 	else if (Phase == 6 && MapTime > 8.0)
 	{
+		Log("DXMOVERDECAL: opening " $ Door.Name);
+		Door.DoOpen();
+		Phase = 7;
+	}
+	else if (Phase == 7 && MapTime > 12.0)
+	{
+		ViewHole(P);
+		Log("DXMOVERDECAL: the hole's place on the turned door " $ Middle $ ", the view at " $ Eye);
+		if (Hole == None)
+			Log("DXMOVERDECAL: opened " $ Door.Name $ " at " $ Door.Location $ " rotation " $ Door.Rotation $ ", no hole");
+		else
+			Log("DXMOVERDECAL: opened " $ Door.Name $ " at " $ Door.Location $ " rotation " $ Door.Rotation $ ", the hole " $ Hole.Name $ " at " $ Hole.Location $ " base " $ Hole.Base);
+		MarkShot = 2;
+		bMarking = true;
+		Phase = 8;
+	}
+	else if (Phase == 8 && MapTime > 12.8)
+	{
+		Shoot(P, 2, "the hole on the opened mover");
+		Phase = 9;
+	}
+	else if (Phase == 9 && MapTime > 13.5)
+	{
 		Log("DXMOVERDECAL: done, exiting");
 		P.ConsoleCommand("exit");
 		Phase = 99;
 	}
+}
+
+// The view Ahead units out along the face the hole was laid on, at the
+// place the hole was laid, both carried by the door's turn since
+function ViewHole(PlayerPawn P)
+{
+	local vector N;
+
+	Middle = Door.Location + (((HoleAt - DoorAt) << DoorTurn) >> Door.Rotation);
+	N = (HoleNormal << DoorTurn) >> Door.Rotation;
+	Dir = N;
+	Eye = Middle + N * Ahead;
+	Look = rotator(-N);
+	Hold(P);
+}
+
+// The view Ahead units from the mover's box's middle along its thinnest side,
+// facing it, on the side its line to the middle is clear
+function ViewDoor(PlayerPawn P)
+{
+	local vector Min, Max, E;
+
+	if (!Door.GetBoundingBox(Min, Max))
+		return;
+	Middle = (Min + Max) * 0.5;
+	E = (Max - Min) * 0.5;
+	if (E.X <= E.Y && E.X <= E.Z)
+		Dir = vect(1,0,0);
+	else if (E.Y <= E.Z)
+		Dir = vect(0,1,0);
+	else
+		Dir = vect(0,0,1);
+	Eye = Middle + Dir * Ahead;
+	if (!P.FastTrace(Middle, Eye))
+	{
+		Dir = -Dir;
+		Eye = Middle + Dir * Ahead;
+	}
+	Look = rotator(-Dir);
+	Hold(P);
 }
 
 // The mark for the original's screen grabber, as CaptureConsole's: a

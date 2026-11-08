@@ -132,5 +132,5 @@ void VisibleNode::Draw(VisibleFrame* frame)
 	engine->render->Stats.Surfaces++;
 
 	VisibleDecal decal;
-	decal.DrawDecals(frame, Node);
+	decal.DrawDecals(frame, Node, points, numverts);
 }

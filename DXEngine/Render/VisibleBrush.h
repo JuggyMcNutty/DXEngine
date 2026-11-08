@@ -27,4 +27,13 @@ private:
 	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, UMover* mover, bool translucentPass, const Fragments* fragments, bool seal = false);
 
 	mat4 ToWorld;
+
+	// The polygons drawn that carry decals, each with its filed surface:
+	// their decals are drawn over them once the mover's polygons are
+	struct DecalPoly
+	{
+		int Surf;
+		const Poly* Polygon;
+	};
+	Array<DecalPoly> DecalPolys;
 };

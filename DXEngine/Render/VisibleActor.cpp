@@ -72,8 +72,9 @@ void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
 		return;
 
 	// Drawn for the depth buffer to hide; counted as drawn only if some of
-	// it survives the world in front of it, as the original counts it
-	frame->AddOcclusionProxy(actor);
+	// its proxy, which the walk takes from the root (VisibleFrame::
+	// AddActorProxies), survives the world in front of it, as the original
+	// counts it
 
 	EDrawType dt = (EDrawType)actor->DrawType();
 	if (dt == DT_Mesh && actor->Mesh())

@@ -584,6 +584,23 @@ PointRegion UModel::FindRegion(const vec3& point, UZoneInfo* levelZoneInfo)
 	return region;
 }
 
+const Array<int>& UModel::SurfaceNodes(int surf)
+{
+	if (SurfNodes.size() != Surfaces.size())
+	{
+		SurfNodes.clear();
+		SurfNodes.resize(Surfaces.size());
+		for (size_t i = 0; i < Nodes.size(); i++)
+		{
+			int s = Nodes[i].Surf;
+			if (s >= 0 && (size_t)s < Surfaces.size())
+				SurfNodes[s].push_back((int)i);
+		}
+	}
+	static const Array<int> none;
+	return surf >= 0 && (size_t)surf < SurfNodes.size() ? SurfNodes[surf] : none;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 
 BBox BspNode::GetCollisionBox(UModel* model) const
