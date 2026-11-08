@@ -719,7 +719,13 @@ namespace
 		UProperty* BlendAnimMinRate = nullptr;
 		UProperty* Location = nullptr;
 		UProperty* bHidden = nullptr;
+		UProperty* Physics = nullptr;
+		UProperty* Acceleration = nullptr;
+		UProperty* bBounce = nullptr;
 		UProperty* PlayerRestartState = nullptr;
+		UProperty* Password = nullptr;
+		UProperty* bReadyToPlay = nullptr;
+		UProperty* AdditionalViews = nullptr;
 
 		static UProperty* Find(UClass* cls, const char* name)
 		{
@@ -750,7 +756,14 @@ namespace
 				list.BlendAnimMinRate = Find(list.Actor, "BlendAnimMinRate");
 				list.Location = Find(list.Actor, "Location");
 				list.bHidden = Find(list.Actor, "bHidden");
+				list.Physics = Find(list.Actor, "Physics");
+				list.Acceleration = Find(list.Actor, "Acceleration");
+				list.bBounce = Find(list.Actor, "bBounce");
 				list.PlayerRestartState = Find(engine->packages->FindClass("Engine.Pawn"), "PlayerRestartState");
+				UClass* playerPawn = engine->packages->FindClass("Engine.PlayerPawn");
+				list.Password = Find(playerPawn, "Password");
+				list.bReadyToPlay = Find(playerPawn, "bReadyToPlay");
+				list.AdditionalViews = Find(playerPawn, "AdditionalViews");
 			}
 			return &list;
 		}
@@ -877,10 +890,19 @@ void NetActorChannel::ReplicateActor()
 		bool nativeClass = owner && (owner->ClsFlags & ClassFlags::NativeReplication) != 0;
 		if (!scriptClassesToo && !nativeClass)
 			continue;
-		// The native lists send only from the authority: from a client,
-		// only the script classes' statements (DeusExPlayer's FrobTarget).
+		// The native lists send from the authority but for PlayerPawn's,
+		// whose branch for any other role sends its Password, bReadyToPlay
+		// and each of its AdditionalViews whenever it differs, no statement
+		// asked (Engine.dll 0x10364f9e-0x10365105): a client's spy drone or
+		// camera feed one of the server's viewers. Else from a client only
+		// the script classes' statements (DeusExPlayer's FrobTarget).
+		bool clientList = false;
 		if (native && nativeClass && actor->Role() != ROLE_Authority)
-			continue;
+		{
+			if (prop != native->Password && prop != native->bReadyToPlay && prop != native->AdditionalViews)
+				continue;
+			clientList = true;
+		}
 
 		// Deus Ex's native lists: SimAnim, AnimMinRate and bAnimNotify go
 		// when AnimSequence does, as UE1's statement had them, where Deus
@@ -915,11 +937,24 @@ void NetActorChannel::ReplicateActor()
 			if (same)
 				continue;
 
-			auto key = std::make_pair(owner, replicationOffset);
-			auto it = conditions.find(key);
-			if (it == conditions.end())
-				it = conditions.emplace(key, NetReplicationCondition(owner, replicationOffset, actor)).first;
-			bool wanted = it->second;
+			bool wanted = true;
+			if (!clientList)
+			{
+				auto key = std::make_pair(owner, replicationOffset);
+				auto it = conditions.find(key);
+				if (it == conditions.end())
+					it = conditions.emplace(key, NetReplicationCondition(owner, replicationOffset, actor)).first;
+				wanted = it->second;
+			}
+
+			// Actor's list sends Physics, Acceleration and bBounce to a
+			// simulated proxy only in its first bunch, and not for a
+			// simulated pawn, and to any other while the actor has bSimFall
+			// (Engine.dll 0x10362f04-0x10362f8e, 0x1036328a): a simulated
+			// proxy's bSimFall sends them no more, where the statement sends
+			// them on.
+			if (native && nativeClass && !clientList && (prop == native->Physics || prop == native->Acceleration || prop == native->bBounce))
+				wanted = actor->RemoteRole() == ROLE_SimulatedProxy ? actor->bNetInitial() && !actor->bSimulatedPawn() : (bool)actor->bSimFall();
 
 			// Inventory's list also sends a simulated item's place to all
 			// but its owner while it has an ambient sound.
@@ -929,6 +964,24 @@ void NetActorChannel::ReplicateActor()
 
 			if (wanted)
 				reps.push_back(field->RepIndex + i);
+		}
+	}
+
+	// PlayerPawn's list for the owner names bNeverAutoSwitch, which no
+	// statement names, so it has no replication index of its own: while the
+	// pawn's differs from this client's copy of it, which nothing writes, it
+	// sends the class's first replicated element in its place, Actor's
+	// bHidden, each update (Engine.dll 0x10364cb6).
+	if (native && native->bHidden && actor->Role() == ROLE_Authority && actor->bNetOwner())
+	{
+		UPlayerPawn* pawn = UObject::TryCast<UPlayerPawn>(actor);
+		NetPackageMap::FieldNetCache* hidden = pawn ? cache->GetFromField(native->bHidden) : nullptr;
+		if (hidden)
+		{
+			PropertyDataOffset offset = PropOffsets_PlayerPawn.bNeverAutoSwitch;
+			bool copy = (*reinterpret_cast<const uint32_t*>(recent + offset.DataOffset) & offset.BitfieldMask) != 0;
+			if ((bool)pawn->bNeverAutoSwitch() != copy)
+				reps.push_back(hidden->RepIndex);
 		}
 	}
 
@@ -1156,7 +1209,13 @@ void NetActorChannel::ReceivedBunch(NetInBunch& bunch)
 			if (take)
 			{
 				Retirement[{ prop, element }] = bunch.PacketId;
-				NetReadItem(prop, reader, map, prop->GetElement(Actor->PropertyData.Ptr(prop), element));
+				void* value = prop->GetElement(Actor->PropertyData.Ptr(prop), element);
+				NetReadItem(prop, reader, map, value);
+				// What the other side sent it has: into this side's copy of
+				// its values too, so that it does not come back
+				// (UActorChannel::ReceivedBunch, Engine.dll 0x103fdfe6)
+				if (uint8_t* recent = Recent())
+					prop->CopyElement(prop->GetElement(recent + prop->DataOffset.DataOffset, element), value);
 			}
 			else
 			{

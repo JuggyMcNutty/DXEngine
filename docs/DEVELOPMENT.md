@@ -440,6 +440,13 @@ launcher's part, which DXEngine leaves to the launchers.
 | `WindowWordsConsole` | both | the viewport's words by the player's `ConsoleCommand`: `GETCOLORDEPTHS`, `GETCURRENTCOLORDEPTH`, `GETCURRENTRENDERDEVICE`, `EXEC` of a file not there, `GETPING`, `GETLOSS` | `DXWINWORDS:` | the answers, the original through D3DDrv (bugs.md WIN.23) |
 | `ViewsServer` | either | on a dedicated server a `CapViewMarker` by a player start far from the joined player, the player's `AdditionalViews` as the server has them each second | `DXVIEWS:` | the client's `ViewsJoinConsole` (bugs.md NET.28) |
 | `ViewsJoinConsole` | either | a client setting its `AdditionalViews[0]` to the player start the server names, and the marker's arrival | `DXVIEWS:` | the server's lines (bugs.md NET.28) |
+| `MissingRefServer` | either | on a dedicated server behind `netrelay.py` (`DXCAP_PORT=7792`), 3 s after a player is in, a `CapMissingRef` whose `Texture` is `Moon.utx`'s, a package the map's list lacks; it exits 10 s after | `DXMISSING:` | the relay's log: the bunches of the channel opened for it, after its open (bugs.md NET.31) |
+| `SimFallServer` | either | on a dedicated server, 3 s after a player is in, a `CapSimFall` -- hidden, always relevant, a simulated proxy with `bSimFall` -- at `PHYS_Projectile`, its `Physics` set to `PHYS_None` and back every 2 s; it exits 14 s after | `DXSIMFALL:` | the client's `CapSimFall` lines, any join console's, a DXEngine server's seen by a DXEngine client (bugs.md NET.31, NET.38) |
+| `OpenLossServer` | either | on a dedicated server behind `netdrop.py` (`DXCAP_PORT=7792`, `--drop-marker DXOPENLOSSMARK --drop-secs 3`), 3 s after a player is in, a `CapOpenLoss` owned by that player, its reliable `ClientPing` and its updates; it exits 20 s after | `DXOPENLOSS:` | the client's `OpenLossJoinConsole` (bugs.md NET.33) |
+| `OpenLossJoinConsole` | either | a client of the relay: the `CapOpenLoss`'s arrival and its call, then whether it is still in the game | `DXOPENLOSS:` | the arrival once the open's 3 s are over, the game held to the server's end (bugs.md NET.33) |
+| `AlertServer` | either | on a dedicated server, from the moment a player is in, every half second for 8 s, the player's `bBadConnectionAlert`; it exits then | `DXALERT:` | the lines (bugs.md NET.34, NET.39) |
+| `PortJoinConsole` | either | a client of `127.0.0.1:7791`, a `LoginServer` run with `DXCAP_PORT=7791`; in the game 3 s, it exits | `DXPORTJOIN:` | the server's `login request` line, `:7791/Index.dx?...` (bugs.md NET.37) |
+| `UdpEdgesConsole` | both | a `CapUdpEdgeLink` resolving `127.0.0.1`, `255.255.255.255` and `localhost`, each answer within the call or at a later tick; it and a `TcpLink` bound to ephemeral ports, their `Port`; by hand, 100 bytes to itself read by a `ReadBinary` of 50 and one with nothing waiting, then 5,000 characters and `short`, each read by `ReadText`, then one with nothing waiting; by events, 5,000 characters and `after` | `DXUDPEDGE:` | every line but the ports, `SendBinary`'s answer (by choice) and `ReadText`'s string (bugs.md D.76; NET.31, NET.37) |
 | `UdpRebindConsole` | both | three `CapRebindLink`s: A bound; B bound to A's port, then to another; C bound to A's port; B and C each sending to A | `DXREBIND:` | every line, but what B's and C's `SendText` answers, False in DXEngine where nothing went, by choice |
 | `BigServer` | either | a `CapBigString` replicated to the joined player: `abc`, then 600 x's, more than a bunch holds, then `xyz`; it exits 14 s after placing it | `DXBIG:` | the client's `BigJoinConsole` (bugs.md D.56, NET.32) |
 | `BigJoinConsole` | either | a client logging the `CapBigString`'s length and first three characters at each change of its text | `DXBIG:` | the server's stages (bugs.md D.56) |
@@ -545,7 +552,13 @@ listen" in its log), and the client joins the old one. To read what passes betwe
 the server with `DXCAP_PORT=7792`, wait for that port, start `tools/dxcap/netrelay.py` (it
 listens on 7790 and forwards to `127.0.0.1:7792`), then the client: each second a row each way
 -- packets, bytes, acks, bunches by channel and reliability -- and with `--log <file>` a line
-for every datagram, each bunch's header decoded. The server's game is the package's
+for every datagram, each bunch's header decoded. `tools/dxcap/netdrop.py`, in the relay's
+place (`--drop-marker <text> --drop-secs <s>`), takes the server's bunch whose data holds the
+text out of each datagram alone for those seconds, from the first that holds it, and hides the
+client's acks of those datagrams, so that the server sends the bunch again once they are over.
+`tools/dxcap/bunchfirst.py` sends a server a first packet no stock client sends -- an actor
+channel's opening bunch, then the control channel's `HELLO` -- and decodes what comes back.
+The server's game is the package's
 `CapDeathMatch`, without the game's check that a joining player's console is the stock one.
 `tools/dxcap/netquery.py` asks a server's LAN beacon and GameSpy query answerer (at
 127.0.0.1, or the address it is given), and `tools/dxcap/fakemaster.py` acts as a master on

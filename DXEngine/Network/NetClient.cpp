@@ -266,10 +266,12 @@ void NetPendingLevel::Tick(float deltaTime)
 	if (!Driver || !Error.empty())
 		return;
 
+	// A closed connection fails the join with the localized Connection
+	// failed (UNetPendingLevel::Tick, Engine.dll 0x1040c170)
 	NetConnection* connection = Driver->ServerConnection.get();
 	if (connection->State == ConnectionState::Closed)
 	{
-		Error = "Connection failed";
+		Error = LocalizeMessage("Engine", "Errors", "ConnectionFailed", "Connection failed");
 		return;
 	}
 
@@ -356,11 +358,14 @@ void NetPendingLevel::NotifyReceivedText(NetConnection* connection, const std::s
 		if (NetParseValue(text, "LEVEL=", value, 4096))
 			URL.Map = value;
 		NetParseBool(text, "LONE=", LonePlayer);
+		NetParseInt(text, "CHALLENGE=", connection->Challenge);
 
 		// Each package is on the paths by its name, or in the cache by its
-		// GUID -- then loaded from there under its name --, or it is to be
+		// GUID -- then loaded from there under its name --, or has a
+		// <name>.dll in the game's System folder, or it is to be
 		// downloaded: if this side allows downloads and the server lets
-		// that package go.
+		// that package go (UNetPendingLevel::NotifyReceivedText, Engine.dll
+		// 0x1040a880).
 		for (UsedPackage& package : Uses)
 		{
 			bool onPaths = engine->packages->HasPackage(package.Name);
@@ -371,6 +376,10 @@ void NetPendingLevel::NotifyReceivedText(NetConnection* connection, const std::s
 					engine->packages->UsePackageFile(package.Name, file);
 				continue;
 			}
+			std::error_code ec;
+			fs::path dll = engine->packages->GetSystemFolderPath() / (package.Name.ToString() + ".dll");
+			if (fs::is_regular_file(dll, ec) && fs::file_size(dll, ec) > 0 && !ec)
+				continue;
 			FilesNeeded++;
 			package.Flags |= (uint32_t)PackageFlags::Need;
 			if (!Driver->AllowDownloads || (package.Flags & (uint32_t)PackageFlags::AllowDownload) == 0)
@@ -392,20 +401,22 @@ void NetPendingLevel::NotifyReceivedText(NetConnection* connection, const std::s
 		if (stats == 1)
 			URL.AddOrReplaceOption(WorldStatsChecksum());
 
-		// The URL the server logs in: the map and options, without the
-		// server's own address or a game type.
+		// The URL the server logs in, as the original's pending level writes
+		// it (Engine.dll 0x1040b4dd): the URL's own text (FURL::String,
+		// 0x103f9210) with no host and no game type -- a port not the
+		// default's still there, ":7791/" before the map.
 		engine->SetMultiplayerName(URL);
-		std::string loginURL = URL.Map;
+		UnrealURL login = URL;
+		login.Host.clear();
+		login.Options.clear();
 		for (const std::string& option : URL.Options)
 		{
 			if (!EqualsIgnoreCase(option, 0, "game="))
-				loginURL += "?" + option;
+				login.Options.push_back(option);
 		}
-		if (!URL.Portal.empty())
-			loginURL += "#" + URL.Portal;
 
 		connection->SendText("NETSPEED " + std::to_string(connection->CurrentNetSpeed));
-		connection->SendText("LOGIN RESPONSE=" + std::to_string(NetChallengeResponse(connection->Challenge)) + " URL=" + loginURL);
+		connection->SendText("LOGIN RESPONSE=" + std::to_string(NetChallengeResponse(connection->Challenge)) + " URL=" + login.ToString());
 		connection->FlushNet();
 	}
 	else if (NetParseCommand(text, "DYNAMICRATE", &rest))

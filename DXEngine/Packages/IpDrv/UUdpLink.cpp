@@ -17,6 +17,7 @@
 #include <sys/select.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <cerrno>
 #endif
 
 UUdpLink::~UUdpLink()
@@ -117,7 +118,10 @@ int UUdpLink::BindPort(int port, bool bUseNextAvailable)
 			// Non-blocking once bound, as the original's (0x1070c931)
 			SetNonBlocking(handle);
 			Socket() = (int)handle;
-			Port() = bound;
+			// The port asked for, or the next one taken: an ephemeral one
+			// leaves Port 0, as the original's writes the port it gave the
+			// bind
+			Port() = port != 0 ? bound : 0;
 			return bound;
 		}
 		CloseSocket(handle);
@@ -131,29 +135,80 @@ int UUdpLink::BindPort(int port, bool bUseNextAvailable)
 	return 0;
 }
 
+// A datagram longer than the room fails, as WinSock's read of one fails
+// with WSAEMSGSIZE, the datagram gone either way: on Linux, whose read cuts
+// it short, the read asks its whole length (MSG_TRUNC).
 int UUdpLink::Receive(IpAddr& from, char* data, int size)
 {
 	sockaddr_in addr = {};
 #ifdef WIN32
 	int addrlen = sizeof(addr);
+	int flags = 0;
 #else
 	socklen_t addrlen = sizeof(addr);
+	int flags = MSG_TRUNC;
 #endif
-	int count = (int)recvfrom(handle, data, size, 0, (sockaddr*)&addr, &addrlen);
+	int count = (int)recvfrom(handle, data, size, flags, (sockaddr*)&addr, &addrlen);
 	if (count < 0)
+	{
+		LastError = LastSocketError();
 		return -1;
+	}
+	if (count > size)
+	{
+#ifndef WIN32
+		LastError = EMSGSIZE;
+#endif
+		return -1;
+	}
 	from.Addr = (int32_t)ntohl(addr.sin_addr.s_addr);
 	from.Port = ntohs(addr.sin_port);
+	// A read that takes a datagram leaves no error, as WinSock's under
+	// Wine leaves the original's (GetLastError 0 after it)
+	LastError = 0;
 	return count;
 }
 
+// Whether a failed read only found nothing waiting
+static bool ReadWouldBlock(int error)
+{
+#ifdef WIN32
+	return error == WSAEWOULDBLOCK;
+#else
+	return error == EWOULDBLOCK || error == EAGAIN;
+#endif
+}
+
+// Whether a failed read found a datagram longer than its room
+static bool ReadTooLong(int error)
+{
+#ifdef WIN32
+	return error == WSAEMSGSIZE;
+#else
+	return error == EMSGSIZE;
+#endif
+}
+
+// Up to Count bytes, at most 255, of one datagram; a longer one fails and is
+// gone, the failure logged as any but nothing waiting (AUdpLink::
+// execReadBinary, IpDrv.dll 0x1070d6f0), its first Count bytes left in the
+// array all the same, as the original's read fills it (UdpEdgesConsole)
 int UUdpLink::ReadBinary(IpAddr& Addr, int Count, uint8_t* B)
 {
 	if (handle == invalid_socket_value)
 		return 0;
 	char data[255];
-	int count = Receive(Addr, data, std::clamp(Count, 0, 255));
-	if (count <= 0)
+	int size = std::clamp(Count, 0, 255);
+	int count = Receive(Addr, data, size);
+	if (count < 0)
+	{
+		if (ReadTooLong(LastError))
+			memcpy(B, data, size);
+		if (!ReadWouldBlock(LastError))
+			LogMessage("ReadBinary: Error reading text.");
+		return 0;
+	}
+	if (count == 0)
 		return 0;
 	memcpy(B, data, count);
 	return count;
@@ -173,13 +228,25 @@ bool UUdpLink::SendBinary(const IpAddr& Addr, int Count, const uint8_t* B)
 	return result > 0;
 }
 
+// One datagram of up to 4,096 bytes as text, the string emptied first; a
+// longer one fails and is gone, the failure logged as any but nothing
+// waiting (AUdpLink::execReadText, IpDrv.dll 0x1070d380). The text is the
+// datagram's alone, where the original's runs on past it into its buffer's
+// earlier bytes to a NUL, at most 1,023 characters (bugs.md D.76)
 int UUdpLink::ReadText(IpAddr& Addr, std::string& Str)
 {
+	Str.clear();
 	if (handle == invalid_socket_value)
 		return 0;
-	char data[4096];
+	char data[4097];
 	int count = Receive(Addr, data, sizeof(data) - 1);
-	if (count <= 0)
+	if (count < 0)
+	{
+		if (!ReadWouldBlock(LastError))
+			LogMessage("ReadText: Error reading text.");
+		return 0;
+	}
+	if (count == 0)
 		return 0;
 	data[count] = 0;
 	Str = data;

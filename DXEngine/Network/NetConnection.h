@@ -109,7 +109,7 @@ public:
 	// Whether a channel's bunch can go into the last one sent, as the
 	// original merges (UChannel::SendBunch): that one is the same channel's
 	// and still ends the packet being built, no ack written since, and the
-	// two fit the packet with one header.
+	// two fit the packet with 9 bytes to spare.
 	bool CanMerge(const NetOutBunch& bunch) const;
 	// The last bunch sent, taken back out of the packet being built with the
 	// bunch's data and flags added: what goes in their place.
@@ -163,13 +163,21 @@ public:
 	int OutPacketId = 0;
 	int OutAckPacketId = -1;
 
+	// The lag of the last stats period, the mean of its acks' round trips
+	// less half the frame time, BestLag the same: what GETPING answers
 	float BestLag = 9999.0f;
 	float AvgLag = 9999.0f;
-	// The incoming packets lost in the stats period, in percent (the
-	// original's InLoss): what GETLOSS answers
+	// The incoming and outgoing packets lost in the stats period, in
+	// percent (the original's InLoss and OutLoss): GETLOSS answers InLoss
 	float InLoss = 0.0f;
+	float OutLoss = 0.0f;
 	int InPacketsCounted = 0;
 	int InPacketsLost = 0;
+	int OutPacketsCounted = 0;
+	int OutPacketsLost = 0;
+	// The time between this connection's last two ticks, and its average
+	// over a second
+	double FrameTime = 0.0;
 	double AverageFrameTime = 0.0;
 
 	NetChannel* Channels[MaxChannels] = {};
@@ -206,8 +214,10 @@ private:
 	double LastTime = 0.0;
 	double CumulativeTime = 0.0;
 	int CountedFrames = 0;
+	// The lags summed in the period, the first period's from 9999, as the
+	// original's constructor sets it (Engine.dll 0x10401604): that period's
+	// mean is its lags' and 9999 over their count
 	float LagAcc = 9999.0f;
-	float BestLagAcc = 9999.0f;
 	int LagCount = 0;
 };
 

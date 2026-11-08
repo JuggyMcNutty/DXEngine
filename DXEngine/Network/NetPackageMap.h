@@ -78,7 +78,8 @@ public:
 
 	// Loading and saving an object reference: a dynamic actor by its
 	// channel on the connection, anything else by its number. Saving says
-	// whether the other side can resolve it yet.
+	// whether it counts as sent: all but a dynamic actor the other side
+	// cannot resolve yet.
 	UObject* ReadObject(NetBitReader& reader);
 	bool WriteObject(NetBitWriter& writer, UObject* obj);
 

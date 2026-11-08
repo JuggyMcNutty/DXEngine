@@ -67,7 +67,9 @@ protected:
 	// The event's IpAddr parameter, for a call from native code.
 	ExpressionValue IpAddrArg(const NameString& eventName, IpAddr& addr, UStructProperty& prop);
 
-	int LastError = 0;
+	// The last error a link's socket met, any link's, as the thread's is
+	// the original's (GetLastError).
+	static int LastError;
 
 private:
 	// A lookup runs on a thread of its own; the link may be gone before it

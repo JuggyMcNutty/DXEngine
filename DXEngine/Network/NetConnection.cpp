@@ -108,16 +108,20 @@ void NetConnection::ReceivedPacket(NetBitReader& reader)
 			if (ackPacketId > OutAckPacketId)
 			{
 				for (int nakPacketId = OutAckPacketId + 1; nakPacketId < ackPacketId; nakPacketId++)
+				{
 					ReceivedNak(nakPacketId);
+					OutPacketsLost++;
+				}
 				OutAckPacketId = ackPacketId;
 			}
 
+			// The lag: each ack's round trip less half the connection's last
+			// frame time, summed for the stats period's mean, as the
+			// original's (Engine.dll 0x10403240-0x10403261).
 			int index = ackPacketId & 255;
 			if (OutLagPacketId[index] == ackPacketId)
 			{
-				float lag = (float)(Driver->Time - OutLagTime[index]);
-				LagAcc = (LagCount == 0) ? lag : LagAcc + lag;
-				BestLagAcc = std::min(BestLagAcc, lag);
+				LagAcc = (float)((Driver->Time - OutLagTime[index]) - FrameTime * 0.5 + LagAcc);
 				LagCount++;
 			}
 
@@ -162,15 +166,27 @@ void NetConnection::ReceivedPacket(NetBitReader& reader)
 				return;
 			}
 
+			NetChannel* channel = Channels[bunch.ChIndex];
+
+			// A bunch for a channel not here, with no control channel yet, but
+			// the control channel's own, ends the packet: nothing more of it
+			// is read (UNetConnection::ReceivedPacket, Engine.dll 0x104035d9,
+			// "Received bunch before connected").
+			if (!channel && !Channels[0] && !(bunch.ChIndex == 0 && bunch.ChType == ChannelType::Control))
+				return;
+
 			// A reliable bunch already had.
 			if (bunch.bReliable && bunch.ChSequence <= InReliable[bunch.ChIndex])
 				continue;
 
-			NetChannel* channel = Channels[bunch.ChIndex];
-
-			// An unreliable bunch opens a channel only when it closes it too
-			// (an actor sent once, bNetTemporary).
-			if (!channel && !bunch.bReliable && (!bunch.bOpen || !bunch.bClose))
+			// An unreliable bunch is taken only once its channel's open has
+			// come, or when it opens the channel and closes it too (an actor
+			// sent once, bNetTemporary); any other is dropped, the connection
+			// playing on, as the original's ("Received unreliable bunch before
+			// open", Engine.dll 0x1040372c-0x10403759): an actor's open lost
+			// and a later reliable bunch of its channel come first, its next
+			// updates wait for the open's resend.
+			if (!bunch.bReliable && !(bunch.bOpen && bunch.bClose) && !(channel && channel->OpenPacketId != -1))
 				continue;
 
 			if (!channel)
@@ -292,10 +308,12 @@ int NetConnection::SendRawBunch(NetOutBunch& bunch, bool allowMerge)
 	return packetId;
 }
 
+// The two fit with 9 bytes to spare, as the original's test has it
+// (Engine.dll 0x103fb7f9).
 bool NetConnection::CanMerge(const NetOutBunch& bunch) const
 {
 	return LastOut.ChIndex == bunch.ChIndex && AllowMerge && LastEnd != 0 && LastEnd == Out.GetNumBits() &&
-		Out.GetNumBytes() + bunch.Data.GetNumBytes() + (MaxBunchHeaderBits + 7) / 8 <= MaxPacket;
+		Out.GetNumBytes() + bunch.Data.GetNumBytes() + 9 <= MaxPacket;
 }
 
 NetOutBunch& NetConnection::MergeIntoLast(const NetOutBunch& bunch)
@@ -336,6 +354,7 @@ void NetConnection::FlushNet()
 		OutLagPacketId[index] = OutPacketId;
 		OutLagTime[index] = Driver->Time;
 		OutPacketId++;
+		OutPacketsCounted++;
 		LastSendTime = Driver->Time;
 		QueuedBytes += Out.GetNumBytes() + PacketOverhead;
 		InitOut();
@@ -348,8 +367,10 @@ void NetConnection::FlushNet()
 
 void NetConnection::Tick()
 {
-	// The client's frame time, averaged each second.
-	CumulativeTime += Driver->Time - LastTime;
+	// The connection's frame time, the last and its average each second
+	// (Engine.dll 0x10404c03-0x10404c69).
+	FrameTime = Driver->Time - LastTime;
+	CumulativeTime += FrameTime;
 	LastTime = Driver->Time;
 	CountedFrames++;
 	if (CumulativeTime > 1.0)
@@ -395,22 +416,42 @@ void NetConnection::Tick()
 		FlushNet();
 }
 
+// Once a stats period of more than a second has gone, as the original's
+// (UNetConnection::Tick, Engine.dll 0x10404cc4-0x10404f66): the packets a
+// second each way; the losses in percent, the outgoing of the packets a
+// second sent, the incoming of those lost and the packets a second come in,
+// each at least 1; the lag the period's mean, BestLag the same
+// (0x10404dc6-0x10404deb).
 void NetConnection::UpdateStats()
 {
 	double period = Driver->Time - StatUpdateTime;
-	if (period < 1.0)
+	if (!(period > 1.0))
 		return;
+	float inPackets = (float)(InPacketsCounted / period);
+	float outPackets = (float)(OutPacketsCounted / period);
+	OutLoss = (float)(OutPacketsLost * 100.0 / std::max(outPackets, 1.0f));
+	InLoss = (float)(InPacketsLost * 100.0 / std::max((float)(InPacketsLost + (double)inPackets), 1.0f));
 	if (LagCount > 0)
-	{
 		AvgLag = LagAcc / LagCount;
-		BestLag = BestLagAcc;
+	BestLag = AvgLag;
+
+	// The player's bBadConnectionAlert: a lag of more than 0.8 s, the loss
+	// counting 1.2 s for all lost, or what the loss leaves of the rate under
+	// 2,000 bytes a second, while the player has its channel here; or fewer
+	// than 2 packets a second come in (0x10404e1c-0x10404ef0). No stock
+	// script reads it.
+	if (Actor)
+	{
+		float loss = std::max(InLoss, OutLoss) * 0.01f;
+		bool slow = loss * 1.2 + AvgLag > 0.8 || (1.0f - loss) * CurrentNetSpeed < 2000.0f;
+		Actor->bBadConnectionAlert() = (slow && FindActorChannel(Actor)) || inPackets < 2.0f;
 	}
-	int inPackets = InPacketsCounted + InPacketsLost;
-	InLoss = inPackets > 0 ? 100.0f * InPacketsLost / inPackets : 0.0f;
+
 	InPacketsCounted = 0;
 	InPacketsLost = 0;
+	OutPacketsCounted = 0;
+	OutPacketsLost = 0;
 	LagAcc = 0.0f;
-	BestLagAcc = 9999.0f;
 	LagCount = 0;
 	StatUpdateTime = Driver->Time;
 }

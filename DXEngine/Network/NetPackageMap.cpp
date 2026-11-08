@@ -131,9 +131,14 @@ bool NetPackageMap::WriteObject(NetBitWriter& writer, UObject* obj)
 		writer.WriteInt(index, MaxObjectIndex);
 		return true;
 	}
+	// None, or an object the map has not, which counts as sent, so that it
+	// goes once, as the original's (UPackageMapLevel::SerializeObject,
+	// Engine.dll 0x104089f0); the original's goes as channel -1, which the
+	// other side reads as channel 511 and so as that channel's actor when
+	// it has one, where this goes as None
 	writer.WriteBit(true);
 	writer.WriteInt(0, NetConnection::MaxChannels);
-	return obj == nullptr;
+	return true;
 }
 
 bool NetPackageMap::CanSerializeObject(UObject* obj)

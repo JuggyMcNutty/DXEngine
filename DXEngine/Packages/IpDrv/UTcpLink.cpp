@@ -423,7 +423,9 @@ int UTcpLink::BindPort(int port, bool bUseNextAvailable)
 		bindFailed = true;
 		return 0;
 	}
-	Port() = bound;
+	// The port asked for, or the next one taken: an ephemeral one leaves
+	// Port 0, as the original's writes the port it gave the bind
+	Port() = port != 0 ? bound : 0;
 	LinkState() = STATE_Ready;
 	return bound;
 }

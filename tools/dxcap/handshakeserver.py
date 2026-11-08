@@ -6,6 +6,7 @@ any GUID.
 
     handshakeserver.py [--port 7790] [--mode upgrade|values|guid]
                        [--minver 400] [--ver 436] [--guid <text>]
+                       [--pkg <name>]
                        [--secs 120]
 
 It listens on UDP --port and answers each client's control channel as the
@@ -19,13 +20,16 @@ original's server would (dx-reverse-info network.md, joining and packets):
   value after a blank, and the LOGIN a FAILURE with a tab before it and two
   after: "<tab>FAILURE<tab><tab>spaced text";
 - guid: the HELLO gets "CHALLENGE VER=1100 CHALLENGE=7 STATS=0", and the
-  LOGIN "USES GUID=<--guid> PKG=DXCapGuid FLAGS=1 SIZE=1000 GEN=1" and
+  LOGIN "USES GUID=<--guid> PKG=<--pkg> FLAGS=1 SIZE=1000 GEN=1" and
   "WELCOME LEVEL=DX LONE=0": a package no client has, downloads allowed,
   so the client asks for its file by the four words it made of the GUID
   (UNetConnection::ReceiveFile, Engine.dll 0x10405490), which are logged;
   the request is refused with an empty, unreliable bunch that closes its
   channel, as the original's server refuses a file it does not have
-  (UFileChannel::ReceivedBunch, 0x10400464).
+  (UFileChannel::ReceivedBunch, 0x10400464). --pkg names the package
+  (DXCapGuid): with Window, one whose file no client has but whose
+  Window.dll is in System, the original's client counts it had and asks
+  for no file (UNetPendingLevel::NotifyReceivedText, 0x1040a880).
 
 Every packet a client sends is acknowledged in a packet of the server's, as
 the new connection the original's server opens for a client's later
@@ -202,6 +206,7 @@ def main():
     ap.add_argument("--minver", type=int, default=400)
     ap.add_argument("--ver", type=int, default=436)
     ap.add_argument("--guid", default="not-a-guid")
+    ap.add_argument("--pkg", default="DXCapGuid")
     ap.add_argument("--secs", type=float, default=120.0)
     args = ap.parse_args()
 
@@ -249,7 +254,7 @@ def main():
                 elif word == "HELLO":
                     replies.append("CHALLENGE VER= 1100 CHALLENGE= 7 STATS= 1")
                 elif word == "LOGIN" and args.mode == "guid":
-                    replies.append("USES GUID=%s PKG=DXCapGuid FLAGS=1 SIZE=1000 GEN=1" % args.guid)
+                    replies.append("USES GUID=%s PKG=%s FLAGS=1 SIZE=1000 GEN=1" % (args.guid, args.pkg))
                     replies.append("WELCOME LEVEL=DX LONE=0")
                 elif word == "LOGIN":
                     for part in text.split(" "):

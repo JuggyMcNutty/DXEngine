@@ -324,8 +324,10 @@ void NetServerLevel::NotifyReceivedText(NetConnection* connection, const std::st
 	}
 	else if (NetParseCommand(text, "HAVE"))
 	{
-		// The client's generation of a package: both sides count only what
-		// it has.
+		// The client's generation of a package, taken as it is (ULevel::
+		// NotifyReceivedText, Engine.dll 0x1039f780): both sides count only
+		// what it has, a generation of 0 or past the server's own counting
+		// all (NetPackageMap::Compute).
 		std::string guid;
 		int generation = 0;
 		if (NetParseValue(text, "GUID=", guid) && NetParseInt(text, "GEN=", generation))
@@ -333,7 +335,7 @@ void NetServerLevel::NotifyReceivedText(NetConnection* connection, const std::st
 			for (NetPackageMap::PackageInfo& info : connection->PackageMap.List)
 			{
 				if (StrTools::equals_ignore_case(info.Guid, guid))
-					info.RemoteGeneration = std::clamp(generation, 1, std::max(info.LocalGeneration, 1));
+					info.RemoteGeneration = generation;
 			}
 		}
 	}
@@ -410,12 +412,15 @@ void NetServerLevel::Join(NetConnection* connection)
 	if (UPlayer* netPlayer = UObject::TryCast<UPlayer>(player))
 		netPlayer->CurrentNetSpeed() = connection->CurrentNetSpeed;
 
+	// A refusal's error goes as it is, nothing when there is none: "FAILURE "
+	// (Engine.dll 0x1039f780)
 	UPlayerPawn* pawn = engine->SpawnPlayActor(player, ROLE_AutonomousProxy, RequestURLs[connection], error);
 	if (!pawn)
 	{
 		PlayerConnections.erase(player);
 		connection->PlayerObject = nullptr;
-		Refuse(connection, "FAILURE " + (error.empty() ? std::string("Could not spawn the player") : error));
+		LogMessage("Net: join failure: " + error);
+		Refuse(connection, "FAILURE " + error);
 		return;
 	}
 	connection->Actor = pawn;
@@ -476,7 +481,9 @@ int NetServerLevel::ServerTickClient(NetConnection* connection)
 
 	// ...every other tick from where it will be: 0.9 s ahead, or 0.4 s
 	// every fourth tick, along the viewer's and its base's velocity, short
-	// of the world.
+	// of the world: the level's line check, which passes the nodes that do
+	// not block sight (NF_NotVisBlocking, Engine.dll 0x103a37d8, the call
+	// at 0x103a3880), its hit's place the view's.
 	if (connection->TickCount & 1)
 	{
 		float ahead = (connection->TickCount & 2) ? 0.4f : 0.9f;
@@ -484,10 +491,16 @@ int NetServerLevel::ServerTickClient(NetConnection* connection)
 		if (UActor* base = viewer->ActorBase())
 			delta += base->Velocity() * ahead;
 		vec3 end = viewLocation + delta;
-		TraceFlags flags;
-		flags.world = true;
-		CollisionHit hit = viewer->XLevel()->Collision.TraceFirstHit(viewLocation, end, nullptr, vec3(0.0f), flags);
-		viewLocation = hit.Fraction < 1.0f ? viewLocation + (end - viewLocation) * hit.Fraction : end;
+		vec3 predicted = end;
+		for (const CollisionHit& hit : viewer->XLevel()->Collision.Trace(viewLocation, end, 0.0f, 0.0f, false, true, true))
+		{
+			if (!hit.Actor)
+			{
+				predicted = hit.Location;
+				break;
+			}
+		}
+		viewLocation = predicted;
 	}
 
 	// The actors due: each at its NetUpdateFrequency, on a clock 0.023 s

@@ -32,13 +32,15 @@ namespace
 #ifdef WIN32
 	constexpr intptr_t NoSocket = (intptr_t)INVALID_SOCKET;
 	bool WouldBlock() { return WSAGetLastError() == WSAEWOULDBLOCK; }
-	bool ConnectionReset() { return WSAGetLastError() == WSAECONNRESET; }
+	int SocketError() { return WSAGetLastError(); }
+	constexpr int MessageTooLong = WSAEMSGSIZE;
 	void CloseSocket(intptr_t s) { closesocket((SOCKET)s); }
 	void SetNonBlocking(intptr_t s) { u_long nonblocking = 1; ioctlsocket((SOCKET)s, FIONBIO, &nonblocking); }
 #else
 	constexpr intptr_t NoSocket = -1;
 	bool WouldBlock() { return errno == EAGAIN || errno == EWOULDBLOCK; }
-	bool ConnectionReset() { return errno == ECONNREFUSED || errno == ECONNRESET; }
+	int SocketError() { return errno; }
+	constexpr int MessageTooLong = EMSGSIZE;
 	void CloseSocket(intptr_t s) { close((int)s); }
 	void SetNonBlocking(intptr_t s) { fcntl((int)s, F_SETFL, fcntl((int)s, F_GETFL, 0) | O_NONBLOCK); }
 #endif
@@ -318,19 +320,31 @@ void NetDriver::TickDispatch(float deltaTime)
 	if (Socket == NoSocket)
 		return;
 
-	uint8_t data[4096];
+	// Every datagram waiting, of up to 576 bytes, as the original's
+	// (UTcpNetDriver::TickDispatch, IpDrv.dll 0x1070a440): a longer one
+	// fails its read, as WinSock's does (WSAEMSGSIZE; Linux's read, which
+	// cuts it short, asks its whole length), and any failure but nothing
+	// waiting, a reset among them (WSAECONNRESET, a port that refused what
+	// was sent to it), ends this tick's reading, the run's first logged.
+	uint8_t data[576];
 	for (;;)
 	{
 		sockaddr_in from = {};
 		socklen_t fromSize = sizeof(from);
-		int size = (int)recvfrom((decltype(socket(0, 0, 0)))Socket, (char*)data, sizeof(data), 0, (sockaddr*)&from, &fromSize);
-		if (size < 0)
+#ifdef WIN32
+		int flags = 0;
+#else
+		int flags = MSG_TRUNC;
+#endif
+		int size = (int)recvfrom((decltype(socket(0, 0, 0)))Socket, (char*)data, sizeof(data), flags, (sockaddr*)&from, &fromSize);
+		if (size < 0 || size > (int)sizeof(data))
 		{
-			if (WouldBlock())
+			if (size < 0 && WouldBlock())
 				break;
-			if (ConnectionReset())
-				continue;
-			LogMessage("Net: receive failed");
+			static bool firstError = true;
+			if (firstError)
+				LogMessage("UDP recvfrom error: " + std::to_string(size < 0 ? SocketError() : MessageTooLong));
+			firstError = false;
 			break;
 		}
 

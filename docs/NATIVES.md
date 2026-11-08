@@ -3935,7 +3935,14 @@ engines), a string's count at every version and a name's NUL ending below
 Matches the original's client and server
 ([the network](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md)):
 joining and playing, listen and dedicated servers, replication with the
-original's native lists, a struct's members sent its own first, then those
+original's native lists, a simulated proxy's `Physics`, `Acceleration` and
+`bBounce` in its first bunch alone whatever its `bSimFall` (`SimFallServer`:
+the original's server's change of a `CapSimFall`'s `Physics` every 2 s
+sent a DXEngine client never, its first bunch's alone), what each client
+is sent picked from where its view is and, every other tick, from where it
+will be 0.9 s or 0.4 s on, short of the world past the nodes that do not
+block sight (read: Engine.dll `0x10362f04`, `0x103a37d8`), a struct's
+members sent its own first, then those
 of the struct it extends, the server's calls, downloads both ways, server
 travel, the Entry level for a lost server -- loaded as `entry.dx` with no
 option, a lost server's client travelling there by `?failed`, absolute, the
@@ -3957,7 +3964,9 @@ as client and as server: `ServeConsole`, `JoinConsole`, `RejoinConsole`,
 `PickJoinConsole`, `AskServer` with `AskJoinConsole`, `AnimEndServeConsole`
 with `AnimEndJoinConsole`, `ViewServeConsole` with `ViewJoinConsole`,
 `PauseServeConsole` with `JoinConsole`, `UnpackServeConsole` with
-`UnpackJoinConsole`.
+`UnpackJoinConsole`. Differs (bugs.md NET.38): a DXEngine server sends no
+client `SimFallServer`'s `CapSimFall`, hidden and always relevant, a
+simulated proxy with `bSimFall`, which the original's server sends.
 DXEngine joins live
 public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
 stays in. A replicated string goes as the original's does, 16-bit when a
@@ -4019,11 +4028,22 @@ client: the connection closed, the client back on Entry by
   `MULTIHOME=127.0.0.2`, the game port, the query answerer and the beacon
   bound there alone, nothing answering at 127.0.0.1, in both engines); a
   server's host name is
-  looked up on a thread, the game going on; `GETPING` and `GETLOSS` answer
-  the server connection's lag of the last second in ms and its incoming
-  packet loss in percent. Differs
-  (bugs.md NET.34): the lag is the second's least round trip, the original's
-  their mean less half the connection's frame time. Differs
+  looked up on a thread, the game going on; the socket reads each datagram
+  waiting, of up to 576 bytes, a longer one or any failure but nothing
+  waiting, a reset among them, ending the tick's reading, the run's first
+  logged (read: IpDrv.dll `0x1070a440`); `GETPING` and `GETLOSS` answer
+  the server connection's lag of the last second in ms, the mean of its
+  acks' round trips less half the connection's last frame time, the first
+  second's sum begun at 9999 as the original's constructor begins it, and
+  its incoming packet loss in percent (`PingJoinConsole` against the
+  original's server, which acks a second's packets in one a second: 657
+  and 1,013 ms at 8 s and 18 s, where the least round trip is 49 and 33;
+  read: Engine.dll `0x10403240`, `0x10404dc6`), and each second sets the
+  player's `bBadConnectionAlert`, which no stock script reads, by the
+  original's test (read: `0x10404e1c`). Differs (bugs.md NET.39): the alert
+  is on for a player's first second in the game, where the original's is
+  off from its first half second (`AlertServer`).
+  Differs
   (bugs.md WIN.20): the original's pawn asks its own player, a remote one's
   connection on a server, a local one's viewport `0` and no `GETLOSS`, so on
   a DXEngine server every player's ping is 0.
@@ -4141,11 +4161,16 @@ As in the original:
   DXEngine found it by its place (Entry's in zone 1, leaf 4).
 - A client replicates its own player's pawn to the server each tick, before
   its packets go (`ULevel::TickNetClient`): the values the script classes'
-  statements send from a client. Differs (bugs.md NET.28): none of the
-  engine classes' native lists, where the original's player pawn's sends its
-  `Password`, `bReadyToPlay` and `AdditionalViews` from a client, so a
-  DXEngine client's spy drone and camera feeds show only what is relevant to
-  its player. Deus Ex's `FrobTarget` goes so: the client finds what the
+  statements send from a client, and of the engine classes' native lists
+  the player pawn's alone, as the original's: its `Password`,
+  `bReadyToPlay` and each of its `AdditionalViews` whenever it differs, so
+  a client's spy drone and camera feeds are viewers the server makes what
+  is round them relevant for (`ViewsServer` with `ViewsJoinConsole`, each
+  engine the other's server: the client's `AdditionalViews[0]`,
+  `PlayerStart15`, reaching the server and the marker placed there
+  arriving, in both engines). A value the other side sends is kept as what
+  it last got, so it does not come back (read: Engine.dll `0x103fdfe6`).
+  Deus Ex's `FrobTarget` goes so: the client finds what the
   player looks at, and the server's `ParseRightClick` takes it, so a weapon
   or an item is picked up on a net game only so (`PickServer` and
   `PickJoinConsole`, each engine as server and as client). Each side keeps
@@ -4248,6 +4273,45 @@ As in the original:
 - The Join Internet screen lists servers only once `MasterServerAddress`
   (`[DeusEx.MenuScreenJoinGame]` in `DeusEx.ini`) names a live master; the
   game's names GameSpy's, which is closed.
+- A bunch for a channel not open, with no control channel yet, ends its
+  packet, nothing past it read; an unreliable bunch is taken only once its
+  channel's open has come, or when it opens the channel and closes it too,
+  any other dropped, as the original's: an actor's open lost and a later
+  reliable bunch of its channel come first, its updates wait for the open's
+  resend, the client playing on (`OpenLossServer` with `OpenLossJoinConsole`
+  behind `netdrop.py`, the actor's open taken out for 3 s, each engine the
+  other's server: the actor and its call coming after the 3 s, the client
+  in the game to the end, in both engines; `bunchfirst.py` against each
+  engine's server: the packet acknowledged and its `HELLO` never read).
+- A join logs in with its URL's own text, the host left out with any game
+  type, a port not the default's kept, `:7791/Index.dx?Name=...`, which both
+  servers read as the map `:7791` and the portal `Index.dx`
+  (`PortJoinConsole` against `LoginServer` with `DXCAP_PORT=7791`, each
+  engine the other's server: the two servers' login request lines alike); a
+  join whose connection closes fails with the localized `ConnectionFailed`;
+  a refused `JOIN` sends `FAILURE` and the game's error, bare where it gave
+  none; `HAVE`'s `GEN=` is taken as it is; `WELCOME`'s `CHALLENGE=` is
+  taken, and a package whose file is not found but whose `<name>.dll` is in
+  `System` counts as had (read: Engine.dll `0x1040b4dd`, `0x1040c170`,
+  `0x1039f780`, `0x1040a880`; `HandshakeConsole` against `handshakeserver.py
+  --mode guid --pkg Window`: no file asked for, in both engines).
+- A link's `Resolve` takes a dotted address at once, `Resolved` raised
+  within the call, and fails `255.255.255.255` at once, a name looked up
+  and answered from a later tick; an ephemeral `BindPort` leaves the link's
+  `Port` 0; a `UdpLink`'s read of a datagram longer than its room
+  (`ReadBinary`'s count, `ReadText`'s 4,096 bytes, the tick's 4,095) fails
+  and the datagram is gone, `ReadBinary: Error reading text.` or `ReadText:
+  Error reading text.` logged, a `ReadBinary`'s array holding the
+  datagram's first bytes all the same, and `ReadText` empties its string
+  first; `GetLastError` answers WinSock's last error of the thread on
+  Windows, as the original's, and on Linux, by WinSock's numbers, the last
+  error a link's socket met, 0 after a read that took a datagram, as
+  WinSock's under Wine (`UdpEdgesConsole`: each line alike in both engines,
+  but `SendBinary`'s answer, above, and `ReadText`'s string). Differs
+  (bugs.md D.76): `ReadText`'s string is the datagram's text alone, where
+  the original's runs on past it into its buffer's earlier bytes to a NUL,
+  at most 1,023 characters: `short` read after a 5,000-character datagram
+  as `short` and 1,018 of its x's.
 - A refused join shows the server's `FAILURE`, `Rejected By Server:` and its
   text, and a `FAILCODE` after it goes to the console's `ConnectFailure`
   alone, with the URL less its password, for the menu to ask again
@@ -4341,11 +4405,12 @@ Differs (bugs.md WIN.21): every `ConsoleCommand` is run as the local
 viewport's, where the original's pawn runs one for its own player and an
 actor through the game engine. Differs (bugs.md WIN.22): a dedicated server
 takes no `SAY`, `GETCURRENTTICKRATE` or `GETMAXTICKRATE`. Differs (bugs.md
-WIN.24): the clipboard natives on a dedicated server. Differs (bugs.md
-NET.31): small replication differences. Differs (bugs.md NET.33): an
-unreliable bunch before its channel's open closes a client's connection.
-Differs (bugs.md NET.36): the server's view prediction stops at nodes that
-do not block sight. Differs (bugs.md NET.37): small net items.
+WIN.24): the clipboard natives on a dedicated server. By choice, an object
+or a name the package map has not goes as None, once, where the original's
+goes as -1, which the other side reads as channel 511's actor where it has
+one and as another name; and a refused file request's close goes reliably,
+where the original's goes unreliably, a lost one leaving the client's
+download waiting and its channel closing for the connection's life.
 Differs (bugs.md D.65): a dedicated server takes no typed command, where the
 original's log window runs a typed line on the engine.
 

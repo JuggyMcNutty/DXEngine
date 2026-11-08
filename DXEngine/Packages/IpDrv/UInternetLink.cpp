@@ -75,9 +75,61 @@ ExpressionValue UInternetLink::IpAddrArg(const NameString& eventName, IpAddr& ad
 	return ExpressionValue::Variable(&addr, &prop);
 }
 
+int UInternetLink::LastError = 0;
+
+#ifndef WIN32
+// A socket error as WinSock numbers it, 10000 on from BSD's numbers.
+static int WinSockError(int error)
+{
+	switch (error)
+	{
+	case EINTR: return 10004;
+	case EBADF: return 10009;
+	case EACCES: return 10013;
+	case EFAULT: return 10014;
+	case EINVAL: return 10022;
+	case EMFILE: return 10024;
+	case EWOULDBLOCK: return 10035;
+	case EINPROGRESS: return 10036;
+	case EALREADY: return 10037;
+	case ENOTSOCK: return 10038;
+	case EDESTADDRREQ: return 10039;
+	case EMSGSIZE: return 10040;
+	case EPROTOTYPE: return 10041;
+	case ENOPROTOOPT: return 10042;
+	case EPROTONOSUPPORT: return 10043;
+	case EOPNOTSUPP: return 10045;
+	case EAFNOSUPPORT: return 10047;
+	case EADDRINUSE: return 10048;
+	case EADDRNOTAVAIL: return 10049;
+	case ENETDOWN: return 10050;
+	case ENETUNREACH: return 10051;
+	case ENETRESET: return 10052;
+	case ECONNABORTED: return 10053;
+	case ECONNRESET: return 10054;
+	case ENOBUFS: return 10055;
+	case EISCONN: return 10056;
+	case ENOTCONN: return 10057;
+	case ESHUTDOWN: return 10058;
+	case ETIMEDOUT: return 10060;
+	case ECONNREFUSED: return 10061;
+	case EHOSTDOWN: return 10064;
+	case EHOSTUNREACH: return 10065;
+	default: return error;
+	}
+}
+#endif
+
+// WinSock's last error of the thread, any call's, as the original's
+// (IpDrv.dll 0x10703490); elsewhere the last a link's socket met, of any
+// link, by WinSock's number.
 int UInternetLink::GetLastError()
 {
-	return LastError;
+#ifdef WIN32
+	return WSAGetLastError();
+#else
+	return WinSockError(LastError);
+#endif
 }
 
 IpAddr UInternetLink::GetLocalIP()
@@ -116,6 +168,26 @@ bool UInternetLink::IsDataPending()
 
 void UInternetLink::Resolve(const std::string& Domain)
 {
+	// A dotted address, as inet_addr reads one, is Resolved at once, within
+	// the call; "255.255.255.255", which inet_addr cannot tell from no
+	// address, fails at once; any other name is looked up on a thread and
+	// answered from a later tick (IpDrv.dll AInternetLink::execResolve
+	// 0x10702d70, 0x10702e03, 0x10702ebd). A lookup still going is left to
+	// answer.
+	in_addr_t dotted = inet_addr(Domain.c_str());
+	if (dotted != INADDR_NONE)
+	{
+		IpAddr addr = { (int32_t)ntohl(dotted), 0 };
+		UStructProperty prop({}, nullptr, ObjectFlags::NoFlags);
+		CallEvent(this, EventName::Resolved, { IpAddrArg("Resolved", addr, prop) });
+		return;
+	}
+	if (Domain == "255.255.255.255")
+	{
+		CallEvent(this, EventName::ResolveFailed);
+		return;
+	}
+
 	auto state = std::make_shared<ResolveState>();
 	state->Status = 1;
 	Resolving = state;
