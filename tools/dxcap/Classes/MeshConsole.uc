@@ -17,7 +17,8 @@
 // each look logging the sequences and frames. With Extra (a class, as
 // DeusEx.Plant1) one more is placed 140 units ahead and 50 to the right,
 // before the crate, turned ExtraYaw from the view's way, and logged with
-// the rest. With Plain (a mesh, as DeusExDeco.DXText) one more actor, a bare
+// the rest; with ExtraAhead, that far ahead at the eye's height, still, and
+// at ExtraScale (else its own), lit as any actor there. With Plain (a mesh, as DeusExDeco.DXText) one more actor, a bare
 // Effects, is placed 120 units ahead at the eye's height, its mesh that one
 // alone, no skin, turned PlainYaw from the view's way, drawn in PlainStyle
 // (1 normal, 2 masked, 3 translucent, 4 modulated; else normal) at
@@ -40,6 +41,8 @@ var config name HoldAnim;
 var config float HoldFrame;
 var config string Extra;
 var config int ExtraYaw;
+var config float ExtraAhead;
+var config float ExtraScale;
 var config string Plain;
 var config int PlainYaw;
 var config int PlainStyle;
@@ -215,7 +218,19 @@ event Tick(float Delta)
 			Placed[3] = Place(P, class'BoxLarge', P.Location + X * 300 - Y * 40);
 			if (Extra != "")
 			{
-				Placed[4] = Place(P, class<Actor>(DynamicLoadObject(Extra, class'Class')), P.Location + X * 140 + Y * 50);
+				if (ExtraAhead > 0)
+				{
+					Placed[4] = Place(P, class<Actor>(DynamicLoadObject(Extra, class'Class')), P.Location + X * ExtraAhead + vect(0,0,1) * P.BaseEyeHeight);
+					if (Placed[4] != None)
+					{
+						Placed[4].SetPhysics(PHYS_None);
+						Placed[4].SetLocation(P.Location + X * ExtraAhead + vect(0,0,1) * P.BaseEyeHeight);
+					}
+				}
+				else
+					Placed[4] = Place(P, class<Actor>(DynamicLoadObject(Extra, class'Class')), P.Location + X * 140 + Y * 50);
+				if (Placed[4] != None && ExtraScale > 0)
+					Placed[4].DrawScale = ExtraScale;
 				if (Placed[4] != None && ExtraYaw != 0)
 				{
 					R.Yaw += ExtraYaw;
