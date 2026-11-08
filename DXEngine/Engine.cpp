@@ -16,7 +16,6 @@
 #include "Packages/Core/UFunction.h"
 #include "Packages/Core/USubsystem.h"
 #include "Packages/Core/Properties/UObjectProperty.h"
-#include "Packages/Core/Properties/UStringProperty.h"
 #include "Packages/Core/Properties/UStrProperty.h"
 #include "Packages/Core/Properties/UFloatProperty.h"
 #include "Packages/Core/Properties/UIntProperty.h"
@@ -881,16 +880,8 @@ void Engine::ClientTravel(const std::string& newURL, ETravelType travelType, boo
 		return;
 	}
 
-	UnrealURL url(newURL);
-
-	// The seven keys the URL has are written to the ini, as the original's
-	// LoadMap saves them (SaveURLConfig).
-	const char* playerKeys[] = { "Name", "Class", "team", "skin", "Face", "Voice", "OverrideClass" };
-	for (const char* optionKey : playerKeys)
-	{
-		if (HasValueOption(url, optionKey))
-			engine->packages->SetIniValue("User", "DefaultPlayer", optionKey, url.GetOption(optionKey));
-	}
+	// The URL's player keys are written once its map is in (LoadMap), not
+	// here: a travel whose map does not load writes none.
 
 	// The last URL loses its ?loadonly and its portal first, as the
 	// original's game engine takes them off it before a travel
@@ -958,7 +949,11 @@ void Engine::LoadEntryMap()
 	// The entry map is the map you see in the game when no other map is playing. For example when disconnected from a server. It is always loaded and running.
 	// Loaded as the original's Init loads it, entry.dx with no option: its
 	// game begins with none, the player's options coming with a return to it.
-	LoadMap(UnrealURL("entry." + packages->GetMapExtension()));
+	// One that does not load is fatal, as the original's (Engine.dll
+	// 0x103891c0: Engine.int's FailedBrowse for Entry and the error).
+	std::string error;
+	if (!LoadMap(UnrealURL("entry." + packages->GetMapExtension()), {}, false, &error))
+		Exception::Throw(LocalizeMessage("Engine", "Errors", "FailedBrowse", "Failed to enter %s: %s", { "Entry", error }));
 	EntryLevelInfo = LevelInfo;
 	EntryLevel = Level;
 	EntryDeusExLevelInfo = DeusExLevelInfo;
@@ -1170,60 +1165,53 @@ static bool HasLoadOption(const UnrealURL& url)
 	return false;
 }
 
-void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::string>& travelInfo, bool asClient)
+// The player's options a loaded level's URL has, written to the user ini's
+// [DefaultPlayer], as the original's LoadMap writes them once the level is
+// in, given a client (FURL::SaveURLConfig, Engine.dll 0x1038e33d-
+// 0x1038e3c1): a travel whose map does not load writes none.
+static void SavePlayerKeys(PackageManager* packages, const UnrealURL& url)
 {
-	ClientTravelInfo.URL.Clear();
+	for (const char* key : { "Name", "Team", "Class", "Skin", "Face", "Voice", "OverrideClass" })
+	{
+		if (HasValueOption(url, key))
+			packages->SetIniValue("User", "DefaultPlayer", key, url.GetOption(key));
+	}
+}
 
+bool Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::string>& travelInfo, bool asClient, std::string* error)
+{
 	// A map's load counts its own jumps, as the original's (UGameEngine::LoadMap)
 	Frame::InitRunaway();
 
 	if (url.HasOption("entry") || url.HasOption("failed"))
 	{
 		ReturnToEntry(url);
-		return;
+		return true;
 	}
+
+	// The level left's place in the hub stack, which the original's LoadMap
+	// reads before anything else (Engine.dll 0x1038c1f0): 0 with no level.
+	const int32_t hubStackLeft = LevelInfo ? LevelInfo->HubStackLevel() : 0;
 
 	// The loading screen. None at the start, with no level yet: the
 	// original's Init loads its first map before it has a viewport.
 	if (Level && !LaunchInfo.dedicatedServer)
 		PaintLoading(asClient);
 
-	if (Level)
-		CallEvent(console, EventName::NotifyLevelChange);
-
-	UnloadMap();
-
-	// Load map objects
-
-	bool loadedFromCurrent = false;
-	LevelPackage = nullptr;
+	// Within a mission, a map saved into Current is revisited as the
+	// player left it: the file SaveCurrentLevel wrote, found whatever case
+	// the URL spells the map in (a stock exit names 12_vandenberg_cmd), with
+	// or without its .dx, as the original's Browse cuts and Windows' file
+	// system finds it -- a ?load= value's map in place of the URL's
+	// (MissionMapName), the URL's map loaded from Maps where Current has none.
+	const std::string missionMap = MissionMapName(url);
+	std::string currentMap;
 	if (dxTravelUsesCurrent)
 	{
 		dxTravelUsesCurrent = false;
-		// Within a mission, a map saved into Current is revisited as the
-		// player left it: the file SaveCurrentLevel named by the package,
-		// found whatever case the URL spells the map in (a stock exit names
-		// 12_vandenberg_cmd), with or without its .dx, as the original's
-		// Browse cuts and Windows' file system finds it -- a ?load= value's
-		// map in place of the URL's (MissionMapName), the URL's map loaded
-		// from Maps where Current has none.
-		const std::string missionMap = MissionMapName(url);
-		const std::string currentMap = packages->FindCurrentSave(missionMap);
-		if (!currentMap.empty())
-		{
-			LogMessage("Loading " + missionMap + " from Current");
-			LevelPackage = packages->LoadSaveFile(currentMap);
-			loadedFromCurrent = LevelPackage != nullptr;
-		}
+		currentMap = packages->FindCurrentSave(missionMap);
 	}
-	levelFromCurrent = loadedFromCurrent;
-	if (!LevelPackage)
-	{
-		// A client's map may be a download, in the cache under its GUID.
-		std::string file = asClient ? packages->FindPackageFile(url.Map, {}) : std::string();
-		LevelPackage = !file.empty() ? packages->LoadMapFile(url.Map, file) : packages->LoadMap(url.Map);
-	}
-	LevelPackage->SetIsLevel();
+	const bool loadedFromCurrent = !currentMap.empty();
 
 	// A level from Current is entered by its file, as the original's Browse
 	// loads it (DeusEx.dll 0x10010b90, FURL(URL, file, TRAVEL_Relative)):
@@ -1234,7 +1222,7 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 	UnrealURL enteredURL = url;
 	if (loadedFromCurrent)
 	{
-		std::string map = MissionMapName(url);
+		std::string map = missionMap;
 		size_t dx = map.find(".dx");
 		if (dx != std::string::npos)
 			map.resize(dx);
@@ -1248,10 +1236,61 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 		}
 	}
 
+	// The new level's package, checked before anything of the old level
+	// goes, as the original's LoadMap checks it after its LOADING frame
+	// (CheckLevelPackage): one that fails leaves the level playing, its
+	// pauser emptied and its sounds stopped by the frame, the error given
+	// back. A client's map may be a download, in the cache under its GUID.
+	std::string levelName, levelFile;
+	if (loadedFromCurrent)
+	{
+		LogMessage("Loading " + missionMap + " from Current");
+		levelFile = packages->SaveFilePath(currentMap);
+	}
+	else
+	{
+		levelFile = asClient ? packages->FindPackageFile(url.Map, {}) : std::string();
+		if (!levelFile.empty())
+			levelName = url.Map;
+		else if (packages->MapExists(url.Map))
+			levelFile = packages->MapFilePath(url.Map);
+	}
+	if (levelName.empty())
+		levelName = fs::path(levelFile).stem().string();
+	std::string loadError;
+	Package* newPackage = CheckLevelPackage(enteredURL.Map, levelName, levelFile, loadError);
+	if (!newPackage)
+	{
+		if (error)
+			*error = loadError;
+		return false;
+	}
+
+	if (Level)
+		CallEvent(console, EventName::NotifyLevelChange);
+
+	// A ?push saves the level left first, as the original's LoadMap does
+	// (SaveHubLevel).
+	if (Level && enteredURL.HasOption("push"))
+		SaveHubLevel(hubStackLeft);
+
+	UnloadMap();
+
+	LevelPackage = newPackage;
+	levelFromCurrent = loadedFromCurrent;
+	LevelPackage->SetIsLevel();
+
 	GetLevelInfoObject();
 
 	LevelInfo->ComputerName() = UTF8ToScript(ComputerName());
-	LevelInfo->HubStackLevel() = 0; // To do: handle level hubs
+	// The level's place in the hub stack, as the original's LoadMap gives it
+	// (Engine.dll 0x1038e5b0 on): with a ?load option, whole, its file's
+	// own; else the level left's plus one on ?push, one less on ?pop but not
+	// under 0, the same on ?peer, and 0 for any other travel -- a level from
+	// Current too, which is entered with none of them. No stock map, exit or
+	// script travels so, nor reads it.
+	if (!enteredURL.HasOption("load"))
+		LevelInfo->HubStackLevel() = enteredURL.HasOption("push") ? hubStackLeft + 1 : enteredURL.HasOption("pop") ? std::max<int32_t>(hubStackLeft - 1, 0) : enteredURL.HasOption("peer") ? hubStackLeft : 0;
 	SetEngineVersion();
 	LevelInfo->bHighDetailMode() = true;
 	LevelInfo->NetMode() = asClient ? NM_Client : LaunchInfo.dedicatedServer ? NM_DedicatedServer : url.HasOption("listen") ? NM_ListenServer : NM_Standalone;
@@ -1308,7 +1347,8 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 		BeginPlay(url);
 		RequestGarbageCollection("client map " + url.Map, true);
 		PrecacheOnFlip = renderdev && renderdev->UsePrecache;
-		return;
+		SavePlayerKeys(packages.get(), url);
+		return true;
 	}
 
 	// A server listens before its game begins, so the game's scripts see it;
@@ -1372,6 +1412,42 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 			keep.push_back(package.Name);
 	}
 	packages->ReleaseNetPackages(keep);
+
+	if (!LaunchInfo.dedicatedServer)
+		SavePlayerKeys(packages.get(), url);
+	return true;
+}
+
+// A ?push's save of the level left, as the original's LoadMap writes it
+// once the new map has passed its check (Engine.dll 0x1038c825-0x1038c88c):
+// its destroyed actors let go, then the level into <SavePath>\Game%04i.dxs,
+// numbered by the level's HubStackLevel. Nothing loads it: the original's
+// ?pop looks for <SavePath>\Game%i.usa (UGameEngine::Browse 0x1038b303) and
+// then goes to the map as any travel does. A file that cannot be written is
+// logged, as the original's SavePackage logs it. The original's second
+// ?push in a run asserts as it lets the destroyed actors go
+// (UStruct::CleanupDestroyed), which DXEngine does not copy; and its player,
+// destroyed at every map's load, is not in its file, where DXEngine, which
+// destroys none, keeps it in its own.
+void Engine::SaveHubLevel(int32_t hubStackLevel)
+{
+	char name[32];
+	std::snprintf(name, sizeof(name), "Game%04d.dxs", hubStackLevel);
+	const fs::path file = Directory::resolveCase(packages->GetSaveFolderPath() / name);
+	packages->CloseStreams();
+	std::error_code ec;
+	fs::remove(file, ec);
+	Level->CleanupDestroyed(true);
+	SetLevelURLForSave();
+	try
+	{
+		LevelPackage->Save(Level, file.string());
+	}
+	catch (const std::exception& e)
+	{
+		const std::string what = e.what();
+		LogMessage("Hub save not written: " + file.string() + ": " + what.substr(0, what.find('\n')));
+	}
 }
 
 void Engine::BeginPlay(const UnrealURL& url)
@@ -1383,7 +1459,7 @@ void Engine::BeginPlay(const UnrealURL& url)
 
 		std::string options = url.GetOptions();
 
-		auto stringProp = GC::Alloc<UStringProperty>("", nullptr, ObjectFlags::NoFlags);
+		auto stringProp = GC::Alloc<UStrProperty>("", nullptr, ObjectFlags::NoFlags);
 		ScriptString error;
 
 		LevelInfo->bStartup() = true;
@@ -1477,8 +1553,6 @@ bool Engine::LoadSavedGame(const UnrealURL& url)
 
 bool Engine::LoadFromSaveFile(const UnrealURL& url)
 {
-	ClientTravelInfo.URL.Clear();
-
 	if (url.HasOption("entry")) // Not sure what the purpose of this kind of travel is - do nothing for now.
 		return false;
 
@@ -1488,9 +1562,15 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 	if (HasValueOption(url, "loadgame"))
 	{
 		// The original's Browse ?loadgame=N (dx-reverse-info/deusex-dll.md, travel
-		// and saving): read the slot's SaveInfo, empty Current, copy the
-		// slot into it, and load the info's map from Current. -1 is the
-		// quick save.
+		// and saving): the slot's SaveInfo read -- -1 the quick save's, -2
+		// Current's, any other Save%04d's (LoadSaveInfo, DeusEx.dll
+		// 0x100108a0) --, with none no load (0x10010f96); else Current
+		// emptied, the quick save copied into it when that SaveInfo's
+		// DirectoryIndex is -1, else Save%04d of the URL's number -- for -2
+		// Save-002, which only a save to slot -2 makes, so with the SaveInfo
+		// of a slot's load in Current it empties Current and fails --, and
+		// the info's map loaded from Current. Only a load puts a SaveInfo in
+		// Current.
 		const int32_t slot = SlotNumber(url.GetOption("loadgame"));
 		const std::string folder = SaveSlotFolderName(slot);
 		packages->ScanSaveInfos();
@@ -1499,8 +1579,9 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 			if (auto info = UObject::Cast<UDXSaveInfo>(infoPkg->GetUObject("DeusExSaveInfo", "MyDeusExSaveInfo")))
 			{
 				deusExMapName = ScriptToUTF8(info->MapName());
+				const std::string from = info->DirectoryIndex() == -1 ? SaveSlotFolderName(-1) : SaveNumberedFolderName(slot);
 				DeleteSaveGameFiles("Current");
-				CopySaveGameFiles(folder, "Current");
+				CopySaveGameFiles(from, "Current");
 				hasSaveInfo = true;
 			}
 		}
@@ -1518,21 +1599,15 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 
 	// The level's package checked before anything of the old level goes, as
 	// the original's map load checks the save's file (LOAD_Verify, Engine.dll
-	// 0x1038c1f0), Current keeping the slot's copy: one that is not there or
-	// not a package fails the load, its error kept apart from the browse's
+	// 0x1038c1f0; CheckLevelPackage), Current keeping the slot's copy: one
+	// that fails fails the load, its error kept apart from the browse's
 	// (DeusEx.dll 0x10011323), so a start browses DX.dx in its place and a
 	// load in play leaves the level playing (bugs.md ENG.28).
 	const std::string savePath = "Current/" + deusExMapName + "." + packages->GetSaveExtension();
 	const std::string saveURLMap = packages->GetIniValue("System", "Core.System", "SavePath") + "\\Current\\" + deusExMapName + "." + packages->GetSaveExtension();
-	std::string loadError;
 	const std::string saveFile = packages->SaveFilePath(savePath);
-	if (saveFile.empty())
-		FailLoad(saveURLMap, LocalizeMessage("Core", "Errors", "FileNotFound", "Can't find file '%s'", { saveURLMap }), loadError);
-	else
-		VerifyPackageFile(saveURLMap, saveFile, loadError);
-	if (!loadError.empty())
-		return false;
-	Package* savefilePackage = packages->LoadSaveFile(savePath);
+	std::string loadError;
+	Package* savefilePackage = CheckLevelPackage(saveURLMap, fs::path(saveFile).stem().string(), saveFile, loadError);
 	if (!savefilePackage)
 		return false;
 
@@ -1548,8 +1623,9 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 
 	// Same as LoadMap: these are session/engine identity, not save data, and must be
 	// re-established on every load regardless of what the package/save file contains.
+	// The hub stack's place is the file's own, as the original's load of a
+	// save keeps it for the ?load its URL has (Engine.dll 0x1038e5b0).
 	LevelInfo->ComputerName() = UTF8ToScript(ComputerName());
-	LevelInfo->HubStackLevel() = 0; // To do: handle level hubs
 	SetEngineVersion();
 	LevelInfo->bHighDetailMode() = true;
 	LevelInfo->NetMode() = 0; // NM_StandAlone
@@ -1581,6 +1657,9 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 
 	RequestGarbageCollection("saved level " + LevelPackage->GetPackageName().ToString(), true);
 	PrecacheOnFlip = renderdev && renderdev->UsePrecache;
+	// The travel's player keys, as a map's load writes them (SavePlayerKeys)
+	if (!LaunchInfo.dedicatedServer)
+		SavePlayerKeys(packages.get(), url);
 	return true;
 }
 
@@ -1614,32 +1693,45 @@ static void ClearIgnoreNextShowMenu(UObject* player)
 
 void Engine::SaveGameToSlot(int32_t slotNum, const std::string& saveDescription)
 {
-	// First and foremost ensure the Save folder exists
-	const auto saveFolderPath = packages->GetSaveFolderPath();
-	if (!fs::exists(saveFolderPath))
-		fs::create_directory(saveFolderPath);
+	// The original's SaveGame (DeusEx.dll 0x1000ef10) saves nothing with no
+	// viewport's player, and with no DeusExLevelInfo logs that it has none
+	// and saves nothing, no slot made, emptied or copied and no frame
+	// painted (0x1000f02d-0x1000f04d): 99_Endgame4, the credits' dance party,
+	// has none, where a quick save would otherwise overwrite the player's.
+	if (!viewport || !viewport->Actor())
+		return;
+	if (!DeusExLevelInfo)
+	{
+		LogMessage("WARNING!  DeusExLevelInfo MISSING!");
+		return;
+	}
 
 	// The original's SaveGame (dx-reverse-info/deusex-dll.md, travel and saving):
 	// slot 0 is a new slot, the highest SaveNNNN plus one; -1 the quick
-	// save; any other number a Save%04d, a negative one too (the console's
-	// `savegame -3` writes Save-003, and `savegame -2` writes its info to
+	// save; any other number a Save%04d, a negative one too (the game's
+	// SaveGame(-3) writes Save-003, and SaveGame(-2) writes its info to
 	// Save-002 while SaveCurrentLevel saves the level into Current). The
-	// slot is emptied, Current copied in, the SaveInfo filled and written
-	// to the slot (and to Current, which keeps one of its own), and the
-	// level saved on top of the copy.
+	// slot's folder is made with the folders it is in, as the original's
+	// MakeDirectory makes the whole tree (0x1000f644-0x1000f64b), and found
+	// in any case, as Windows' file system finds it; then it is emptied,
+	// Current copied in, the SaveInfo filled and written to the slot alone
+	// (0x1000f8e6), and the level saved on top of the copy.
 	if (slotNum == 0)
 		slotNum = NextSaveSlot();
 	const auto slotFolderName = slotNum == -1 ? SaveSlotFolderName(slotNum) : SaveNumberedFolderName(slotNum);
+	const auto saveSlotFolder = Directory::resolveCase(packages->GetSaveFolderPath() / slotFolderName);
+	std::error_code ec;
+	fs::create_directories(saveSlotFolder, ec);
 	DeleteSaveGameFiles(slotFolderName);
-	const auto saveSlotFolder = saveFolderPath / slotFolderName;
-	if (!fs::exists(saveSlotFolder))
-		fs::create_directory(saveSlotFolder);
 	CopySaveGameFiles("Current", slotFolderName);
 
+	// Its map the DeusExLevelInfo's MapName, as the original's
+	// (0x1000f283): 99_Endgame1's Endgame1, where its package's is the
+	// map's name
 	dxSaveInfo->DirectoryIndex() = slotNum;
 	dxSaveInfo->Description() = !saveDescription.empty() ? UTF8ToScript(saveDescription) : LevelInfo->Title();
-	dxSaveInfo->MissionLocation() = DeusExLevelInfo ? DeusExLevelInfo->MissionLocation() : ScriptString();
-	dxSaveInfo->MapName() = UTF8ToScript(Level->package->GetPackageName().ToString());
+	dxSaveInfo->MissionLocation() = DeusExLevelInfo->MissionLocation();
+	dxSaveInfo->MapName() = DeusExLevelInfo->MapName();
 	if (auto player = UObject::TryCast<UDeusExPlayer>(viewport->Actor()))
 	{
 		dxSaveInfo->SaveCount() = ++player->saveCount();
@@ -1652,19 +1744,13 @@ void Engine::SaveGameToSlot(int32_t slotNum, const std::string& saveDescription)
 	// or the writer keeps it as a .old beside it, which no original save
 	// carries.
 	const auto saveInfoName = "SaveInfo." + packages->GetSaveExtension();
-	fs::remove(saveSlotFolder / saveInfoName);
-	dxSaveInfo->package->Save(dxSaveInfo, (saveSlotFolder / saveInfoName).string());
-	const auto currentFolder = saveFolderPath / "Current";
-	if (fs::exists(currentFolder))
-	{
-		fs::remove(currentFolder / saveInfoName);
-		dxSaveInfo->package->Save(dxSaveInfo, (currentFolder / saveInfoName).string());
-	}
+	const fs::path saveInfoFile = Directory::resolveCase(saveSlotFolder / saveInfoName);
+	fs::remove(saveInfoFile);
+	dxSaveInfo->package->Save(dxSaveInfo, saveInfoFile.string());
 
 	SaveCurrentLevel(slotNum);
 
 	packages->RemoveSaveInfoPackage(slotFolderName);
-	packages->RemoveSaveInfoPackage("Current");
 }
 
 // The original's SaveGame makes a texture beside the save info and has the
@@ -1794,24 +1880,31 @@ int32_t Engine::NextSaveSlot() const
 	return highest + 1;
 }
 
+// The save files of one save folder into another, as the original's
+// CopySaveGameFiles (DeusEx.dll 0x10010000) copies those its FindFiles
+// gives for *.<save extension>, into the folder it makes: a .old or any
+// other file stays. Each folder found in any case, as Windows' file system
+// finds it.
 void Engine::CopySaveGameFiles(const std::string& fromFolder, const std::string& toFolder) const
 {
 	const auto saveFolderPath = packages->GetSaveFolderPath();
-	const auto from = saveFolderPath / fromFolder;
-	const auto to = saveFolderPath / toFolder;
+	const auto from = Directory::resolveCase(saveFolderPath / fromFolder);
+	const auto to = Directory::resolveCase(saveFolderPath / toFolder);
 	if (!fs::exists(from) || !fs::is_directory(from))
 		return;
-	if (!fs::exists(to))
-		fs::create_directories(to);
+	std::error_code ec;
+	fs::create_directories(to, ec);
+	const std::string saveExt = "." + packages->GetSaveExtension();
 	for (const auto& entry : fs::directory_iterator(from))
 	{
-		if (entry.is_regular_file() && entry.path().extension() != ".old")
+		if (entry.is_regular_file() && StrTools::equals_ignore_case(entry.path().extension().string(), saveExt))
 			fs::copy_file(entry.path(), to / entry.path().filename(), fs::copy_options::overwrite_existing);
 	}
 }
 
 // The folder's files, the folder itself kept; "" means Current, as the
-// original's DeleteSaveGameFiles.
+// original's DeleteSaveGameFiles. The folder found in any case, as Windows'
+// file system finds it.
 void Engine::DeleteSaveGameFiles(const std::string& folder) const
 {
 	// The package streams closed first, as the original resets its loaders
@@ -1819,7 +1912,7 @@ void Engine::DeleteSaveGameFiles(const std::string& folder) const
 	// reading, and the save scan and a load keep up to ten open.
 	packages->CloseStreams();
 	const std::string name = folder.empty() ? "Current" : folder;
-	const auto dir = packages->GetSaveFolderPath() / name;
+	const auto dir = Directory::resolveCase(packages->GetSaveFolderPath() / name);
 	if (!fs::exists(dir) || !fs::is_directory(dir))
 		return;
 	for (const auto& entry : fs::directory_iterator(dir))
@@ -1831,16 +1924,16 @@ void Engine::DeleteSaveGameFiles(const std::string& folder) const
 }
 
 // Removes the slot with its contents, for the DELETEGAME console command: a
-// numbered slot alone, as the original's DeleteGame (DeusEx.dll 0x10010710)
-// removes Save%04d, so the Save Game screen's Delete on the quick save's row
-// (it sends -1) removes nothing, and -2 is not Current.
+// numbered slot alone, Save%04d, as the original's DeleteGame (DeusEx.dll
+// 0x10010710) removes it, found in any case; the command takes only a slot
+// written with digits, so the Save Game screen's Delete on the quick save's
+// row, DeleteGame -1, removes nothing.
 void Engine::DeleteGame(int32_t slot) const
 {
-	if (slot < 0)
-		return;
 	packages->CloseStreams();
-	const std::string name = SaveSlotFolderName(slot);
-	fs::remove_all(packages->GetSaveFolderPath() / name);
+	const std::string name = SaveNumberedFolderName(slot);
+	std::error_code ec;
+	fs::remove_all(Directory::resolveCase(packages->GetSaveFolderPath() / name), ec);
 	packages->RemoveSaveInfoPackage(name);
 }
 
@@ -1856,12 +1949,16 @@ int32_t Engine::DeusExMissionNumber(const std::string& mapName) const
 // A map's load that fails at its check, as the original's LoadMap catches
 // it (Engine.dll 0x1038e62c): Core's FailedLoad logged with the URL's map
 // and the error, a warning (UObject::SafeLoadError, Core.dll 0x10154430),
-// the progress lines Core's UrlFailed over the error for 6 s, the error
-// given back; nothing of the level goes.
+// where the map's file failed, then with the check's load of MyLevel, the
+// progress lines Core's UrlFailed over the error for 6 s, the error given
+// back; nothing of the level goes. No map is given for a file whose MyLevel
+// alone failed.
 void Engine::FailLoad(const std::string& map, const std::string& reason, std::string& error)
 {
 	error = reason;
-	LogMessage(LocalizeMessage("Core", "Errors", "FailedLoad", "Failed to load '%s': %s", { map, error }));
+	if (!map.empty())
+		LogMessage(LocalizeMessage("Core", "Errors", "FailedLoad", "Failed to load '%s': %s", { map, error }));
+	LogMessage(LocalizeMessage("Core", "Errors", "FailedLoad", "Failed to load '%s': %s", { "Level None.MyLevel", error }));
 	SetProgress(LocalizeMessage("Core", "Errors", "UrlFailed", "Failed launching URL"), error, 6.0f);
 }
 
@@ -1871,46 +1968,102 @@ void Engine::FailLoad(const std::string& map, const std::string& reason, std::st
 // and fails the load with Core's Aborted (bugs.md ENG.28). A file cut short
 // -- before the tag's end, or within its tables -- stays fatal, as the
 // original's reader stops the game there (GError's "ReadFile beyond EOF").
+// Then every import is checked, as the linker's Verify checks each
+// (0x10160d80): one its package lacks, or a package it names that is not
+// there, fails the load with the linker's error (bugs.md PKG.38), a package
+// not there logged first, as its own load failed before the map's.
 bool Engine::VerifyPackageFile(const std::string& map, const std::string& file, std::string& error)
 {
 	if (!PackageManager::LacksPackageTag(file))
-		return true;
+	{
+		std::string importError, failedPackage;
+		if (packages->VerifyFileImports(file, importError, failedPackage))
+			return true;
+		if (!failedPackage.empty())
+			LogMessage(LocalizeMessage("Core", "Errors", "FailedLoad", "Failed to load '%s': %s", { failedPackage, importError }));
+		FailLoad(map, importError, error);
+		return false;
+	}
 	LogMessage(LocalizeMessage("Core", "Errors", "BinaryFormat", "The file '%s' contains unrecognizable data", { file }));
 	FailLoad(map, LocalizeMessage("Core", "Errors", "Aborted", "Aborted"), error);
 	return false;
 }
 
-// Whether a map's load passes its check: a map that is not there fails with
-// Core's FileNotFound, one that is not a package as VerifyPackageFile has it.
-bool Engine::MapLoads(const std::string& map, std::string& error)
+// The packages a package imports, and those they import in turn, each found
+// as the original's linker finds an import's package as it opens a package
+// (VerifyImport, Core.dll 0x10160fd0, its GetPackageLinker): false, with the
+// error and the packages whose load it failed, the one not found first, for
+// one not on the paths -- Core's PackageNotFound -- or not a package --
+// Aborted, its BinaryFormat logged. Each new one's tables are read: one cut
+// short stops the engine, as the original's reader stops the game. A
+// package already loaded was checked as it opened.
+bool Engine::ImportsFound(Package* package, std::set<std::string>& seen, Array<std::string>& failed, std::string& error)
 {
-	if (!packages->MapExists(map))
+	for (const NameString& name : package->GetImportedPackages())
 	{
-		FailLoad(map, LocalizeMessage("Core", "Errors", "FileNotFound", "Can't find file '%s'", { map }), error);
-		return false;
+		if (packages->IsPackageLoaded(name) || !seen.insert(NameString::Folded(name.ToString())).second)
+			continue;
+		const std::string file = packages->HasPackage(name) ? packages->FindPackageFile(name, {}) : std::string();
+		if (file.empty())
+		{
+			failed.push_back(name.ToString());
+			error = LocalizeMessage("Core", "Errors", "PackageNotFound", "Can't find file for package '%s'", { name.ToString() });
+			return false;
+		}
+		if (PackageManager::LacksPackageTag(file))
+		{
+			LogMessage(LocalizeMessage("Core", "Errors", "BinaryFormat", "The file '%s' contains unrecognizable data", { file }));
+			failed.push_back(name.ToString());
+			error = LocalizeMessage("Core", "Errors", "Aborted", "Aborted");
+			return false;
+		}
+		if (!ImportsFound(packages->GetPackage(name), seen, failed, error))
+		{
+			failed.push_back(name.ToString());
+			return false;
+		}
 	}
-	return VerifyPackageFile(map, packages->MapFilePath(map), error);
+	return true;
 }
 
-// The original's LoadMap checks the new map's package (LOAD_Verify) before
-// anything of the old level goes, and a map that is not there, or not a
-// package, fails the browse: Core's UrlFailed over the error for 6 s, the
-// level playing on (Engine.dll 0x1038c1f0). Checked before the pre-travel
-// too, where the original's Browse has already pruned the player's
-// augmentations, skills and flags, and the level played on without them
-// (NATIVES.md, saving). Within a mission the file checked is Current's, where
-// the load takes the level from.
-bool Engine::BrowseFinds(const UnrealURL& url)
+// The original's check of a level's package before its load, a load of its
+// MyLevel with LOAD_Verify (UGameEngine::LoadMap, Engine.dll 0x1038c6ab),
+// whose failure it catches (0x1038e62c), the level left playing on: the
+// package made of the file, named as given, or none, the load failed
+// (FailLoad) and the error given back. A file that is not there fails with
+// Core's FileNotFound, one that is not a package as VerifyPackageFile has
+// it; then its tables are read -- a file cut short within them stops the
+// engine, and so does one of a version under 60, as the original's reader
+// stops the game --, any version above that read as the original reads it;
+// then the packages it imports (ImportsFound), each whose load failed logged
+// before the map; then its MyLevel, Core's ObjectNotFound with none.
+Package* Engine::CheckLevelPackage(const std::string& map, const std::string& name, const std::string& file, std::string& error)
 {
-	if (!Level)
-		return true;
-	std::string error;
-	const std::string current = packages->FindCurrentSave(MissionMapName(url));
-	if (dxTravelUsesCurrent && !current.empty())
-		return VerifyPackageFile(url.Map, packages->SaveFilePath(current), error);
-	if (!packages->MapExists(url.Map) && !current.empty())
-		return true;
-	return MapLoads(url.Map, error);
+	std::error_code ec;
+	if (file.empty() || !fs::is_regular_file(file, ec))
+	{
+		FailLoad(map, LocalizeMessage("Core", "Errors", "FileNotFound", "Can't find file '%s'", { map }), error);
+		return nullptr;
+	}
+	if (!VerifyPackageFile(map, file, error))
+		return nullptr;
+	Package* package = packages->LoadMapFile(name, file);
+	std::set<std::string> seen;
+	Array<std::string> failed;
+	std::string importError;
+	if (!ImportsFound(package, seen, failed, importError))
+	{
+		for (const std::string& failedPackage : failed)
+			LogMessage(LocalizeMessage("Core", "Errors", "FailedLoad", "Failed to load '%s': %s", { failedPackage, importError }));
+		FailLoad(map, importError, error);
+		return nullptr;
+	}
+	if (package->FindObjectReference("Level", "MyLevel", {}) <= 0)
+	{
+		FailLoad("", LocalizeMessage("Core", "Errors", "ObjectNotFound", "Failed to find object '%s %s.%s'", { "Level", "None", "MyLevel" }), error);
+		return nullptr;
+	}
+	return package;
 }
 
 // The start's browse of a map, as Deus Ex's first browse takes one (DeusEx.dll
@@ -1919,33 +2072,37 @@ bool Engine::BrowseFinds(const UnrealURL& url)
 // outside any mission or of a new one (dx-reverse-info deusex-dll.md, travel
 // and saving), so no level an earlier run left there comes back; then the
 // load, the player logged in. A map whose load fails its check -- not there,
-// or not a package (bugs.md ENG.28) -- is followed by Dx.Dx on the same URL,
-// as a travel's by the level's own map (BrowseMap), there being no level
-// yet, its load setting the error none again; one that fails there too
-// fails the browse with that load's error.
+// not a package (bugs.md ENG.28), without its MyLevel or a package it
+// imports -- is followed by Dx.Dx on the same URL, as a travel's by the
+// level's own map (BrowseMap), there being no level yet, its load setting
+// the error none again; one that fails there too fails the browse with that
+// load's error.
 bool Engine::BrowseStartMap(const UnrealURL& url, std::string& error)
 {
 	DeleteSaveGameFiles("Current");
-	UnrealURL loadURL = url;
-	if (!MapLoads(loadURL.Map, error))
+	if (!LoadMap(url, {}, false, &error))
 	{
+		UnrealURL loadURL = url;
 		loadURL.Map = "Dx.Dx";
 		error.clear();
-		if (!MapLoads(loadURL.Map, error))
+		if (!LoadMap(loadURL, {}, false, &error))
 			return false;
 	}
-	LoadMap(loadURL);
 	if (!LaunchInfo.dedicatedServer)
 		LoginPlayer();
 	return true;
 }
 
 // The original's Browse of a map (DeusEx.dll 0x10010b90): the pre-travel
-// first, then the load. A map that is not there leaves the level playing --
-// within the mission pruned and saved into Current, as the pre-travel left
-// it --, and otherwise, Current emptied, loads the level's own map again on
-// the travel's URL, with its travel info: the level begins again from Maps,
-// the failure's message gone with the pawn that showed it.
+// first, then the load, which paints its LOADING frame before its check, as
+// the original's LoadMap does, so the pauser goes, and the sounds stop,
+// whether the map loads or not (LoadMap). Within the mission a map that does
+// not load leaves the level playing, pruned and saved into Current as the
+// pre-travel left it, after SAVING and LOADING; otherwise, Current emptied,
+// the level's own map is loaded again on the travel's URL, with its travel
+// info, its LOADING painted again: the level begins again from Maps, the
+// failure's message gone with the pawn that showed it, or plays on where its
+// URL names no map there.
 bool Engine::BrowseMap(const UnrealURL& url, const std::map<std::string, std::string>& travelInfo)
 {
 	// ?failed and ?entry go to the Entry level, whose return logs the player
@@ -1956,16 +2113,11 @@ bool Engine::BrowseMap(const UnrealURL& url, const std::map<std::string, std::st
 		return true;
 	}
 	DeusExPreTravel(url);
+	const bool withinMission = dxTravelUsesCurrent;
 	UnrealURL loadURL = url;
-	if (!BrowseFinds(url))
-	{
-		const bool withinMission = dxTravelUsesCurrent;
-		dxTravelUsesCurrent = false;
-		loadURL.Map = LevelInfo->URL.Map;
-		if (withinMission || !BrowseFinds(loadURL))
-			return false;
-	}
-	LoadMap(loadURL, travelInfo);
+	loadURL.Map = LevelInfo->URL.Map;
+	if (!LoadMap(url, travelInfo) && (withinMission || !LoadMap(loadURL, travelInfo)))
+		return false;
 	if (!LaunchInfo.dedicatedServer)
 		LoginPlayer();
 	// A level from Current makes its own URL the last one once the player is
@@ -2075,19 +2227,32 @@ void Engine::PruneTravelActors() const
 // else the numbered slot. The file goes first, or the writer keeps a .old.
 void Engine::SaveCurrentLevel(int32_t slot)
 {
+	// With no DeusExLevelInfo the original's saves nothing and logs that it
+	// has none (DeusEx.dll 0x1000fac0); nothing asks for it then, SaveGame
+	// and the pre-travel saving only a level that has one.
+	if (!DeusExLevelInfo)
+	{
+		LogMessage("WARNING!  DeusExLevelInfo MISSING!");
+		return;
+	}
+
 	// SAVING on the screen first, at every save, the quick save's too, as
 	// the original's SaveCurrentLevel (DeusEx.dll 0x1000fac0) marks the
 	// level saving and paints it; the action none again at the end.
 	LevelInfo->LevelAction() = LEVACT_Saving;
 	PaintProgress();
 
-	const auto folder = packages->GetSaveFolderPath() / SaveSlotFolderName(slot);
-	if (!fs::exists(folder))
-		fs::create_directories(folder);
-	// Over its file in any case, as Windows' file system writes it: the
-	// level's name is spelt as it was first made, which a file there from
-	// another session or the original may not be (bugs.md VM.25)
-	const fs::path levelFile = Directory::resolveCase(folder / (Level->package->GetPackageName().ToString() + "." + packages->GetSaveExtension()));
+	// The folder made with the folders it is in, as the original's
+	// MakeDirectory makes the whole tree, and found in any case
+	const auto folder = Directory::resolveCase(packages->GetSaveFolderPath() / SaveSlotFolderName(slot));
+	std::error_code ec;
+	fs::create_directories(folder, ec);
+	// Named by the DeusExLevelInfo's MapName, as the original's
+	// (0x1000fe35): 99_Endgame1 is Endgame1.dxs, thirteen stock maps' in
+	// another case than the map's; over its file in any case, as Windows'
+	// file system writes it, a file there from another session or the
+	// original spelt otherwise (bugs.md VM.25)
+	const fs::path levelFile = Directory::resolveCase(folder / (ScriptToUTF8(DeusExLevelInfo->MapName()) + "." + packages->GetSaveExtension()));
 	packages->CloseStreams();
 	fs::remove(levelFile);
 	// The destroyed actors let go first, as the original's save does: the
@@ -2199,7 +2364,7 @@ void Engine::LoginPlayer(const UnrealURL& loginURL)
 	if (LevelInfo && LevelInfo->NetMode() == NM_ListenServer)
 		SetMultiplayerName(url);
 
-	auto stringProp = GC::Alloc<UStringProperty>("", nullptr, ObjectFlags::NoFlags);
+	auto stringProp = GC::Alloc<UStrProperty>("", nullptr, ObjectFlags::NoFlags);
 	ScriptString error;
 
 	std::string portal = url.GetPortal();
@@ -2432,7 +2597,16 @@ void Engine::LoadClientMap(NetPendingLevel* pending)
 {
 	UnrealURL url = pending->URL;
 	LogMessage("Net: loading " + url.Map + " as a client");
-	LoadMap(url, {}, true);
+	// A map that fails its check gives the join up, Engine's ConnectionFailed
+	// over the load's error for 4 s, as the original's tick takes it
+	// (UGameEngine::Tick, Engine.dll 0x10390f1e-0x10390f71): the level plays on.
+	std::string error;
+	if (!LoadMap(url, {}, true, &error))
+	{
+		SetProgress(LocalizeMessage("Engine", "Errors", "ConnectionFailed", "Connection failed"), error, 4.0f);
+		pending->Close();
+		return;
+	}
 
 	// Another server's downloads go once this one's map is in, as the
 	// original's map load collects them.
@@ -2638,7 +2812,7 @@ void Engine::Listen(const UnrealURL& url)
 bool Engine::PreLogin(const std::string& options, const std::string& address, std::string& error, std::string& failcode)
 {
 	// The script's out strings are 16-bit: its own, made 8-bit after
-	auto stringProp = GC::Alloc<UStringProperty>("", nullptr, ObjectFlags::NoFlags);
+	auto stringProp = GC::Alloc<UStrProperty>("", nullptr, ObjectFlags::NoFlags);
 	ScriptString scriptError = UTF8ToScript(error), scriptFailcode = UTF8ToScript(failcode);
 	UFunction* func = FindEventFunction(LevelInfo->Game(), "PreLogin");
 	if (func && Frame::CallParms(func).size() >= 4)
@@ -2668,7 +2842,7 @@ bool Engine::PreLogin(const std::string& options, const std::string& address, st
 
 UPlayerPawn* Engine::SpawnPlayActor(UObject* player, uint8_t remoteRole, const UnrealURL& url, std::string& error)
 {
-	auto stringProp = GC::Alloc<UStringProperty>("", nullptr, ObjectFlags::NoFlags);
+	auto stringProp = GC::Alloc<UStrProperty>("", nullptr, ObjectFlags::NoFlags);
 	std::string playerPawnClass = url.GetOption("Class");
 	if (playerPawnClass.empty())
 		playerPawnClass = packages->GetIniValue("system", "URL", "Class");
@@ -2801,10 +2975,13 @@ bool Engine::TakeTravel(float realTimeElapsed)
 				// Carries nothing: the original's Browse loads the map with no
 				// travel info and ?loadonly, whose login takes none of it, the
 				// player's own or its items' (Engine.dll's SpawnPlayActor,
-				// 0x10396bd0)
+				// 0x10396bd0). A map that does not load -- DXMP_Area51Bunker's
+				// DeusExLevelInfo names none -- leaves the level playing, its
+				// NextURL cleared, as below.
 				UnrealURL restartURL = RestartURL();
-				LoadMap(restartURL, {});
-				if (!dedicated)
+				if (!LoadMap(restartURL, {}))
+					LevelInfo->NextURL().clear();
+				else if (!dedicated)
 					LoginPlayer();
 			}
 			else
@@ -2823,14 +3000,22 @@ bool Engine::TakeTravel(float realTimeElapsed)
 		}
 	}
 
+	// The viewport's travel goes after its browse, the browse failed or not,
+	// as the original's game engine empties it (UGameEngine::Tick, Engine.dll
+	// 0x10390c01 the browse, 0x10390c07): one asked during the browse -- by a
+	// console's tick under its SAVING or LOADING frame -- is dropped. A
+	// server's next map, above, leaves one for the next frame (0x1039071c).
 	if (ClientTravelInfo.URL.HasOption("restart"))
 	{
 		DeleteSaveGameFiles("Current"); // the original's ?restart empties Current
-		// Carries nothing, as the NextURL's ?restart above
+		// Carries nothing, as the NextURL's ?restart above. A map that does
+		// not load leaves the level playing, as the original's load fails it
+		// (LoadMap): 00_Intro's DeusExLevelInfo names Intro, 99_Endgame1 to
+		// 3's Endgame1 to Endgame3, none a map.
 		UnrealURL restartURL = RestartURL();
-		LoadMap(restartURL, {});
-		if (!dedicated)
+		if (LoadMap(restartURL, {}) && !dedicated)
 			LoginPlayer();
+		ClientTravelInfo.URL.Clear();
 		return true;
 	}
 
@@ -2844,6 +3029,7 @@ bool Engine::TakeTravel(float realTimeElapsed)
 	{
 		UnrealURL url(ClientTravelInfo.URL);
 		LoadSavedGame(url);
+		ClientTravelInfo.URL.Clear();
 		return true;
 	}
 
@@ -2878,8 +3064,8 @@ bool Engine::TakeTravel(float realTimeElapsed)
 	if (!ClientTravelInfo.URL.Host.empty())
 	{
 		UnrealURL url(ClientTravelInfo.URL);
-		ClientTravelInfo.URL.Clear();
 		BeginConnect(url);
+		ClientTravelInfo.URL.Clear();
 		return true;
 	}
 	else if (!ClientTravelInfo.URL.Map.empty())
@@ -2889,8 +3075,8 @@ bool Engine::TakeTravel(float realTimeElapsed)
 		// Captured before the pre-travel prune deletes what crosses in
 		// the pawn's graph.
 		auto travelInfo = CreateClientTravelInfo(ClientTravelInfo.TransferItems);
-		if (!BrowseMap(url, travelInfo))
-			ClientTravelInfo.URL.Clear();
+		BrowseMap(url, travelInfo);
+		ClientTravelInfo.URL.Clear();
 		return true;
 	}
 	return false;
@@ -3163,41 +3349,29 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		if (LevelInfo)
 			ClientTravel(LastURL.ToString(), ETravelType::TRAVEL_Absolute, false);
 	}
-	else if (command == "savegame" && (args.size() == 2 || args.size() == 3))
+	else if (command == "savegame")
 	{
-
-		int32_t slotNum;
-		// slotNum not being parsable shouldn't cause a crash
-		try
+		// Deus Ex's game engine's SAVEGAME (DDeusExGameEngine::Exec, DeusEx.dll
+		// 0x1000ed70): a save only when the text past the word begins with a
+		// digit (0x1000edc2-0x1000edd3), its slot appAtoi of that text -- no
+		// sign, whatever follows the digits dropped -- and its description
+		// empty, so the save takes the level's Title; any other form is taken,
+		// doing nothing.
+		if (!rest.empty() && rest[0] >= '0' && rest[0] <= '9')
 		{
-			slotNum = Convert::to_int32(args[1]);
+			SaveGameInfo.SaveGameSlot = SlotNumber(rest);
+			SaveGameInfo.SaveGameDescription.clear();
+			TakeSaveSnapshot();
 		}
-		catch (...)
-		{
-			return {};
-		}
-
-		SaveGameInfo.SaveGameSlot = slotNum;
-		TakeSaveSnapshot();
-
-		if (args.size() == 3)
-			SaveGameInfo.SaveGameDescription = args[2];
-
-		// SaveGameToSlot(slotNum, "");
-
-		//LogMessage("SaveGame command not fully implemented yet!");
 		return {};
 	}
-	else if (command == "deletegame" && args.size() == 2)
+	else if (command == "deletegame")
 	{
-		// The Load and Save Game screens delete a save with DELETEGAME n.
-		try
-		{
-			DeleteGame(Convert::to_int32(args[1]));
-		}
-		catch (...)
-		{
-		}
+		// Its DELETEGAME, which the Load and Save Game screens delete a save
+		// with, read alike (0x1000ee8a-0x1000ee9a): DELETEGAME -1, the quick
+		// save's row's, and +71 do nothing.
+		if (!rest.empty() && rest[0] >= '0' && rest[0] <= '9')
+			DeleteGame(SlotNumber(rest));
 		return {};
 	}
 	else if (command == "get" && args.size() == 3)

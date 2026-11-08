@@ -5,7 +5,6 @@
 #include "Properties/UProperty.h"
 #include "Properties/UBoolProperty.h"
 #include "Properties/UObjectProperty.h"
-#include "Properties/UStringProperty.h"
 #include "Properties/UStrProperty.h"
 #include "Package/Package.h"
 #include "Package/PackageManager.h"
@@ -281,7 +280,7 @@ std::string UObject::GetPropertyAsString(const NameString& propName) const
 std::string UObject::ExportPropertyText(UProperty* prop)
 {
 	void* data = PropertyData.Ptr(prop);
-	if (UObject::TryCast<UStrProperty>(prop) || UObject::TryCast<UStringProperty>(prop))
+	if (UObject::TryCast<UStrProperty>(prop))
 		return ScriptToUTF8(*static_cast<ScriptString*>(data));
 	if (UObject::TryCast<UObjectProperty>(prop))
 	{

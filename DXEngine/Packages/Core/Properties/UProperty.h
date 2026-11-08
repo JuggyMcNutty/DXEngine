@@ -51,7 +51,8 @@ enum class ExpressionValueType
 	ValueStruct,
 	ValueCoords,
 	ValueQuat,
-	ValueArray
+	ValueArray,
+	ValueFixedArray
 };
 
 class UProperty : public UField
@@ -140,6 +141,10 @@ public:
 	// SetValueFromString and refuses nothing.
 	static constexpr size_t ImportFailed = std::string::npos;
 	virtual size_t ImportText(const std::string& text, size_t pos, void* data);
+	// The same, delimited (PPF_Delimited), as a fixed array's import hands
+	// each element to its inner: a string's one token, a struct's or a
+	// dynamic array's parentheses; any other type's as undelimited
+	virtual size_t ImportDelimitedText(const std::string& text, size_t pos, void* data) { return ImportText(text, pos, data); }
 
 	// The original's token reader (Core.dll 0x10164cb0, ReadToken) at pos: a
 	// quoted string, with \\ and \xx escapes (two hex digits, one that is
@@ -156,6 +161,10 @@ public:
 	// that is not such a struct, the pairs read before the fault kept.
 	struct TextPair { NameString Key; int Index = 0; bool Indexed = false; std::string Value; };
 	static bool ParseStructText(const std::string& text, Array<TextPair>& pairs);
+	// The end of a struct's or a dynamic array's text at pos: past the ")"
+	// that closes its "(", quotes and nested parentheses passed over, as
+	// their imports read one; npos for text that is not one
+	static size_t ParenthesisedEnd(const std::string& text, size_t pos);
 	// A delimited text's string: a quoted one's content with its escapes undone
 	// (\\ and \xx, as the original's ParseToken reads them), other text as it is
 	static std::string Unquote(const std::string& text);

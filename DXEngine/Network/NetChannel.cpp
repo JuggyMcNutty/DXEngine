@@ -14,7 +14,6 @@
 #include "Packages/Core/Properties/UNameProperty.h"
 #include "Packages/Core/Properties/UObjectProperty.h"
 #include "Packages/Core/Properties/UStrProperty.h"
-#include "Packages/Core/Properties/UStringProperty.h"
 #include "Packages/Core/Properties/UStructProperty.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Brush/UMover.h"

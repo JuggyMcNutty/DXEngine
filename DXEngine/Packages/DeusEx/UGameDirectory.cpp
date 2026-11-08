@@ -3,6 +3,7 @@
 #include <limits>
 #include <algorithm>
 #include <cctype>
+#include <set>
 #include "UGameDirectory.h"
 #include "Utils/Logger.h"
 #include "Utils/StrTools.h"
@@ -69,7 +70,8 @@ void UDXGameDirectory::SetDirFilter(const std::string& strFilter)
 	CurrentFilter() = UTF8ToScript(strFilter);
 }
 
-// A slot's save info: -1 the quick save, -2 Current, else Save%04d.
+// A slot's save info: -1 the quick save, any other number Save%04d
+// (GetSaveIndexFolderName).
 UDXSaveInfo* UDXGameDirectory::GetSaveInfo(int fileIndex)
 {
 	if (GameDirectoryType() != EGameDirectoryTypes::GD_SaveGames)
@@ -177,22 +179,29 @@ int UDXGameDirectory::GetSaveFreeSpace()
 	return (int)std::min<uintmax_t>(info.available / 1024, (uintmax_t)capKB);
 }
 
+// Each of the slot's files cut to a whole KB and summed, as the original's
+// (DeusEx.dll 0x100179d0); its folder found in any case.
 int UDXGameDirectory::GetSaveDirectorySize(int saveIndex)
 {
 	std::error_code ec;
-	uintmax_t size = 0;
-	for (auto& p : fs::directory_iterator(engine->packages->GetSaveFolderPath() / GetSaveIndexFolderName(saveIndex), ec))
+	int size = 0;
+	for (auto& p : fs::directory_iterator(Directory::resolveCase(engine->packages->GetSaveFolderPath() / GetSaveIndexFolderName(saveIndex)), ec))
 	{
 		uintmax_t fileSize = p.is_regular_file(ec) ? p.file_size(ec) : 0;
 		if (!ec)
-			size += fileSize;
+			size += (int)(fileSize / 1024);
 	}
-	return (int)(size / 1024);
+	return size;
 }
 
+// A slot's folder as the original's GetSaveInfo and GetSaveDirectorySize
+// name it (DeusEx.dll 0x10017eb0, 0x100179d0): -1 the quick save, any other
+// number Save%04d -- -2 too, Save-002, not Current, which the Load and Save
+// Game screens' row for a folder whose SaveInfo is missing asks for
+// (SaveInfoMissing;;;;-2), and which no save makes but one to slot -2.
 std::string UDXGameDirectory::GetSaveIndexFolderName(int saveIndex)
 {
-	return engine->SaveSlotFolderName(saveIndex);
+	return saveIndex == -1 ? engine->SaveSlotFolderName(-1) : engine->SaveNumberedFolderName(saveIndex);
 }
 
 // A folder's names in the order the original's FindFiles gives them on NTFS,
@@ -216,8 +225,12 @@ void UDXGameDirectory::PopulateDirectoryList()
 	{
 		// The map files ("*.<MapExt>") of every map folder of the paths, as
 		// the original's GetMapsDirectory (DeusEx.dll 0x10017200) finds
-		// them: a mod's maps in its own folder too, and nothing else
+		// them: a mod's maps in its own folder too, and nothing else; a name
+		// listed already, in any case, passed over, as the original's
+		// passes it over, so a map in two folders, or a folder the paths
+		// name twice, is listed once
 		const std::string mapExt = "." + engine->packages->GetMapExtension();
+		std::set<std::string> listed;
 		for (const std::string& folder : engine->packages->GetMapFolders())
 		{
 			if (!fs::exists(folder) || !fs::is_directory(folder))
@@ -228,7 +241,13 @@ void UDXGameDirectory::PopulateDirectoryList()
 					names.push_back(p.path().filename().string());
 			SortAsFound(names);
 			for (const std::string& name : names)
-				list.push_back(UTF8ToScript(name));
+			{
+				std::string folded = name;
+				for (char& c : folded)
+					c = (char)std::toupper((unsigned char)c);
+				if (listed.insert(folded).second)
+					list.push_back(UTF8ToScript(name));
+			}
 		}
 		return;
 	}
@@ -239,8 +258,8 @@ void UDXGameDirectory::PopulateDirectoryList()
 	{
 		// The save listing is the Save* directories, in any case, as the
 		// original's finds them (GetSaveGamesDirectory, DeusEx.dll 0x10017520):
-		// Save-003 of a `savegame -3` among them; the quick save and Current
-		// are asked for by slot (-1, -2), never listed.
+		// Save-003 of a SaveGame(-3) among them; the quick save is asked for
+		// by slot (-1), and neither it nor Current is listed.
 		std::vector<std::string> names;
 		for (auto& p : fs::directory_iterator(currentDirectory))
 		{

@@ -3,15 +3,14 @@
 #include "Properties/UArrayProperty.h"
 #include "UClass.h"
 #include "UEnum.h"
-#include "Properties/UPointerProperty.h"
 #include "Properties/UIntProperty.h"
 #include "Properties/UClassProperty.h"
 #include "Properties/UNameProperty.h"
-#include "Properties/UStringProperty.h"
 #include "Properties/UStrProperty.h"
 #include "Properties/UBoolProperty.h"
 #include "Properties/UByteProperty.h"
 #include "Properties/UFloatProperty.h"
+#include "Properties/UMapProperty.h"
 #include "VM/Bytecode.h"
 #include "VM/NativeFunc.h"
 #include "VM/ScriptCall.h"
@@ -203,7 +202,7 @@ void UClass::LoadProperties(PropertyDataBlock* propertyBlock, bool localized, co
 					// float 0, and leaves an int, byte, bool or struct as it was
 					// (dx-reverse-info/core-dll.md, configuration) -- a server's
 					// empty ServerName= is its name.
-					if (UObject::IsType<UStrProperty>(prop) || UObject::IsType<UStringProperty>(prop)) *static_cast<ScriptString*>(ptr) = ScriptString();
+					if (UObject::IsType<UStrProperty>(prop)) *static_cast<ScriptString*>(ptr) = ScriptString();
 					else if (UObject::IsType<UNameProperty>(prop)) *static_cast<NameString*>(ptr) = NameString();
 					else if (UObject::IsType<UFloatProperty>(prop)) *static_cast<float*>(ptr) = 0.0f;
 					else if (UObject::IsType<UObjectProperty>(prop)) *static_cast<UObject**>(ptr) = nullptr;
@@ -229,8 +228,6 @@ void UClass::LoadProperties(PropertyDataBlock* propertyBlock, bool localized, co
 								arrayprop->Inner->SetValueFromString(vec.GetItem(i), elements[i]);
 						}
 					}
-					else if (UObject::IsType<UStringProperty>(prop))
-						*static_cast<ScriptString*>(ptr) = UTF8ToScript(value);
 					else
 						prop->SetValueFromString(ptr, value);
 				}
@@ -246,7 +243,7 @@ void UClass::LoadProperties(PropertyDataBlock* propertyBlock, bool localized, co
 // an object or class as Type'Path', a struct as its members' text
 static std::string ConfigText(UProperty* prop, void* ptr)
 {
-	if (UObject::IsType<UStrProperty>(prop) || UObject::IsType<UStringProperty>(prop))
+	if (UObject::IsType<UStrProperty>(prop))
 		return ScriptToUTF8(*static_cast<ScriptString*>(ptr));
 	return prop->PrintValue(ptr);
 }
@@ -288,7 +285,8 @@ void UClass::SaveProperties(PropertyDataBlock* propertyBlock)
 				if (write)
 				{
 					// Every config type, as the original writes them: a dynamic
-					// array one line of its name per element, the rest one key;
+					// array one line of its name per element, a map none, its
+					// lines dropped (Core.dll 0x10151540), the rest one key;
 					// DXEngine left a class, object, struct or array out
 					if (auto arrayprop = UObject::TryCast<UArrayProperty>(prop))
 					{
@@ -297,6 +295,10 @@ void UClass::SaveProperties(PropertyDataBlock* propertyBlock)
 						for (size_t i = 0; i < vec.GetSize(); i++)
 							elements.push_back(ConfigText(arrayprop->Inner, vec.GetItem(i)));
 						package->GetPackageManager()->SetIniValues(iniName, iniSection, name, elements);
+					}
+					else if (UObject::IsType<UMapProperty>(prop))
+					{
+						package->GetPackageManager()->SetIniValues(iniName, iniSection, name, Array<std::string>());
 					}
 					else
 					{

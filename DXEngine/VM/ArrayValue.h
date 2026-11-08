@@ -8,6 +8,8 @@
 
 class UArrayProperty;
 
+// A value of a dynamic array's property, or of a fixed array's, held on its
+// own: the property's elements, copied, constructed and destructed by it
 class ArrayValue
 {
 public:
@@ -36,7 +38,7 @@ public:
 		}
 	}
 
-	void Load(UArrayProperty* type, void* src)
+	void Load(UProperty* type, void* src)
 	{
 		Reset();
 		Type = type;
@@ -48,7 +50,7 @@ public:
 	}
 
 	// An empty array of the type
-	void Init(UArrayProperty* type)
+	void Init(UProperty* type)
 	{
 		Reset();
 		Type = type;
@@ -90,6 +92,6 @@ public:
 		return *this;
 	}
 
-	UArrayProperty* Type = nullptr;
+	UProperty* Type = nullptr;
 	void* Ptr = nullptr;
 };

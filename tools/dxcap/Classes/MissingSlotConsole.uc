@@ -8,37 +8,31 @@
 // GetSaveDirectorySize(-2) (UpdateSaveInfo), its Load sends LoadGame(-2),
 // ?loadgame=-2. In the original GameDirectory's GetSaveInfo and
 // GetSaveDirectorySize take -1 for the quick save and any other number as
-// Save%04d, so -2 is Save-002 (DeusEx.dll 0x10017eb0, 0x100179d0); DXEngine
-// takes -2 for Current (UGameDirectory.cpp GetSaveInfo, SaveSlotFolderName).
-// The original's SaveGame writes the SaveInfo to the slot alone (0x1000f8e6),
-// Current getting one only from a load's copy of a slot; DXEngine writes it
-// into Current at every save (Engine.cpp SaveGameToSlot). The original's
+// Save%04d, so -2 is Save-002 (DeusEx.dll 0x10017eb0, 0x100179d0). The
+// original's SaveGame writes the SaveInfo to the slot alone (0x1000f8e6),
+// Current getting one only from a load's copy of a slot. The original's
 // ?loadgame copies the QuickSave folder when the SaveInfo it read has
 // DirectoryIndex -1, else Save%04d of the URL's number (Browse, the test of
-// SaveInfo+0x40); DXEngine copies the number's own folder, Current for -2.
+// SaveInfo+0x40). Both engines alike (bugs.md PKG.29).
 //
 // Before the run: an empty folder Save\Save0077 (a slot whose SaveInfo is
 // not there; or one badpackage.py made, its tag zeroed), no Save0009, and
-// Save\Current there but empty, as any install played has it (DXEngine
-// writes Current's SaveInfo only into a Current folder that is there,
-// Engine.cpp SaveGameToSlot). From the menu map:
+// Save\Current there but empty, as any install played has it. From the
+// menu map:
 // 1. 3 s in, 01_NYC_UNATCOIsland opened.
 // 2. 6 s in, the listing as the Load Game screen reads it, GetSaveInfo(-2)
 //    and GetSaveDirectorySize(-2); then slot 9 saved (SaveHelper).
-// 3. 3 s later the same: the original's GetSaveInfo(-2) None, DXEngine's
-//    Current's, DirectoryIndex 9. Then LoadGame(-2), as the row's Load:
-//    the original finds no SaveInfo in Current and does nothing; DXEngine
-//    empties Current, paints LOADING and fails ("Can't find file").
+// 3. 3 s later the same: GetSaveInfo(-2) None. Then LoadGame(-2), as the
+//    row's Load: no SaveInfo in Current, so nothing.
 // 4. 4 s later the player's progress lines; the quick save (SaveHelper,
 //    slot -1); 3 s later LoadGame(-1).
 // 5. 4 s into the loaded level, GetSaveInfo(-2) and LoadGame(-2) again:
-//    the original's Current holds the quick save's SaveInfo (DirectoryIndex
-//    -1), so it copies QuickSave and loads the island again (a new level);
-//    DXEngine empties Current and fails.
+//    Current holds the quick save's SaveInfo (DirectoryIndex -1), so the
+//    QuickSave folder is copied and the island loaded again (a new level).
 // 6. 5 s later the progress lines and the map, then an exit. After the
-//    run: the game's Save\Current listed (the original's the quick save's
-//    files, DXEngine's empty); remove Save0009, Save0077 and QuickSave's
-//    copy as SaveConsole's runs leave them.
+//    run: the game's Save\Current listed, the quick save's files; remove
+//    Save0009, Save0077 and QuickSave's copy as SaveConsole's runs leave
+//    them.
 //=============================================================================
 class MissingSlotConsole extends LoadingConsole;
 

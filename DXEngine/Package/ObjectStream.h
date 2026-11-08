@@ -93,12 +93,11 @@ public:
 	}
 
 	// A script's string, as the original's FString loads (Core.dll
-	// 0x101459b0): a count with its terminator, negative for 16-bit
-	// characters, else a byte each; the text ends at its terminator
+	// 0x101459b0) at every version: a count with its terminator, negative
+	// for 16-bit characters, else a byte each; the text ends at its
+	// terminator. Only a name below version 64 ends at a NUL (PackageStream)
 	ScriptString ReadScriptString()
 	{
-		if (GetVersion() < 64)
-			return Latin1ToScript(ReadAsciiZ());
 		int len = ReadIndex();
 		if (len < -1024 * 1024 || len > 1024 * 1024)
 			Exception::Throw("ObjectStream::ReadScriptString: Invalid size in " + package->GetPackageName().ToString());

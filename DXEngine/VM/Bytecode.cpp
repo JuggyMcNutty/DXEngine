@@ -100,20 +100,6 @@ Expression* Bytecode::ReadToken(BytecodeStream* stream, int depth)
 		stream->ReadToken();
 		return expr;
 	}
-	else if (token == ExprToken::LetBool && stream->GetVersion() <= 63)
-	{
-		FunctionArgumentsExpression* expr = Create<FunctionArgumentsExpression>(exproffset);
-		while (true)
-		{
-			FunctionArgInfo info;
-			info.size = stream->ReadUInt8();
-			if (info.size == 0)
-				break;
-			info.flags = stream->ReadUInt8();
-			expr->args.push_back(info);
-		}
-		return expr;
-	}
 	else
 	{
 		switch (token)
@@ -139,8 +125,7 @@ Expression* Bytecode::ReadToken(BytecodeStream* stream, int depth)
 		case ExprToken::Return:
 		{
 			ReturnExpression* expr = Create<ReturnExpression>(exproffset);
-			if (stream->GetVersion() > 61)
-				expr->Value = ReadToken(stream, depth);
+			expr->Value = ReadToken(stream, depth);
 			return expr;
 		}
 		case ExprToken::Switch:

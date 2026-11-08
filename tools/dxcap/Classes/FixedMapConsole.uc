@@ -4,11 +4,12 @@
 // or the mods' packages declares a FixedArrayProperty or a MapProperty --
 // logged with "DXFIXMAP:" from the menu map, 2 s in, then an exit.
 //
-// UCC compiles Fixed as a static int array and Mapped as an int; fixedmap.py
-// then retypes them in DXCapture.u: Fixed a FixedArrayProperty of three ints
-// (ArrayDim 1, Inner an IntProperty, Count 3), Mapped a MapProperty of int to
-// int. This class's code names neither but by its text, so its bytecode holds
-// no reference to them.
+// UCC compiles Fixed as a static int array, Mapped, OneA and OneB as ints;
+// fixedmap.py then retypes them in DXCapture.u: Fixed a FixedArrayProperty of
+// three ints (ArrayDim 1, Inner an IntProperty, Count 3), OneA and OneB of one
+// int each, Mapped a MapProperty of int to int. This class's code names Fixed
+// and Mapped by their text alone, and OneA and OneB in CopyOne's Let alone,
+// which in the copy is a Let of a fixed array.
 //
 // The original (Core.dll): GetPropertyText exports by the property's
 // ExportText (0x1013e0b0 -> 0x10165440), a fixed array as "(a,b,c)"
@@ -18,20 +19,30 @@
 // "(4,5,6)" sets 4, 5, 6 and answers failure, which nobody reads; "(1,2)"
 // sets 1, 2 and a zero; a map's takes nothing (0x10168f30). SET imports into
 // each object and the defaults, then SaveConfig writes Fixed=(7,8,9) and
-// removes the section's Mapped lines (0x10151540).
+// removes the section's Mapped lines (0x10151540). The Let copies OneA into
+// OneB whole, the fixed array's copy taking each element (CopySingleValue,
+// 0x10168290): OneB '(5)'.
 // DXEngine: "fixed array" and "map" (PrintValue), nothing imported, and
-// SaveConfig writing Fixed=fixed array and Mapped=map.
+// SaveConfig writing Fixed=fixed array and Mapped=map; the Let copying
+// nothing (bugs.md VM.31, the VM passing none).
 //=============================================================================
 class FixedMapConsole extends Console;
 
 var config int Fixed[3];
 var config int Mapped;
+var int OneA, OneB;
 var float RunTime;
 var int Phase;
 
 function Show(PlayerPawn P, string Step)
 {
 	Log("DXFIXMAP: " $ Step $ ": Fixed '" $ GetPropertyText("Fixed") $ "', Mapped '" $ GetPropertyText("Mapped") $ "'");
+}
+
+// A Let of OneA into OneB: of ints as compiled, of fixed arrays in the copy
+function CopyOne()
+{
+	OneB = OneA;
 }
 
 function Probe(PlayerPawn P)
@@ -53,6 +64,9 @@ function Probe(PlayerPawn P)
 	P.ConsoleCommand("set FixedMapConsole Fixed (3,2,1)");
 	Show(P, "after SET Fixed (3,2,1)");
 	Log("DXFIXMAP: GET Fixed after SET '" $ P.ConsoleCommand("get FixedMapConsole Fixed") $ "'");
+	SetPropertyText("OneA", "(5)");
+	CopyOne();
+	Log("DXFIXMAP: after the Let, OneA '" $ GetPropertyText("OneA") $ "', OneB '" $ GetPropertyText("OneB") $ "'");
 }
 
 event Tick(float Delta)

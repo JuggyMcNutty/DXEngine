@@ -16,7 +16,6 @@
 #include "Packages/Core/Properties/UBoolProperty.h"
 #include "Packages/Core/Properties/UNameProperty.h"
 #include "Packages/Core/Properties/UObjectProperty.h"
-#include "Packages/Core/Properties/UPointerProperty.h"
 #include "Packages/Core/Properties/UStructProperty.h"
 #include "Engine.h"
 #include "Packages/Engine/Actors/UActor.h"
@@ -921,8 +920,7 @@ static bool IsPlainData(UStruct* s)
 		}
 		else if (!UObject::TryCast<UByteProperty>(prop) && !UObject::TryCast<UIntProperty>(prop) &&
 			!UObject::TryCast<UFloatProperty>(prop) && !UObject::TryCast<UBoolProperty>(prop) &&
-			!UObject::TryCast<UNameProperty>(prop) && !UObject::TryCast<UObjectProperty>(prop) &&
-			!UObject::TryCast<UPointerProperty>(prop))
+			!UObject::TryCast<UNameProperty>(prop) && !UObject::TryCast<UObjectProperty>(prop))
 		{
 			return false;
 		}

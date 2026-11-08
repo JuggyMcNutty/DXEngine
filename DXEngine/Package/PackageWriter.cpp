@@ -70,8 +70,11 @@ void PackageWriter::Save(UObject* packageObject, std::string filename)
 			for (size_t i = 0; i < Source->ExportObjects.size(); i++)
 				Source->ExportObjects[i]->exportIndex = (uint32_t)i;
 			// The names' indexes are new: MakeUniqueObjectName's set is
-			// built again, even for a table the same size.
+			// built again, even for a table the same size, and so are the
+			// import check's, the imports checked again as they are used.
 			Source->ExportNamesBuiltFrom = (size_t)-1;
+			Source->ExportsByNameBuiltFrom = (size_t)-1;
+			Source->ImportSources.clear();
 		}
 	}
 	catch (...)
@@ -150,7 +153,12 @@ void PackageWriter::WriteNameTable(PackageStreamWriter* stream)
 	NameOffset = stream->Tell();
 	for (const NameTableEntry& entry : NameTable)
 	{
-		stream->WriteString(entry.Name.ToString());
+		// A name below version 64 NUL-ended, a byte a character, as the
+		// original's name entry reads one (Core.dll 0x1014e260); else a string
+		if (GetVersion() < 64)
+			stream->WriteAsciiZ(ScriptToLatin1(UTF8ToScript(entry.Name.ToString())));
+		else
+			stream->WriteString(entry.Name.ToString());
 		stream->WriteInt32(entry.Flags);
 	}
 }

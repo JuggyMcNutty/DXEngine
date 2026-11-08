@@ -3,7 +3,7 @@
 #include "Utils/UTF8Reader.h"
 #include "UEditWindow.h"
 #include "VM/ScriptCall.h"
-#include "Packages/Core/Properties/UStringProperty.h"
+#include "Packages/Core/Properties/UStrProperty.h"
 #include "Engine.h"
 #include "Packages/Extension/Windows/UGC.h"
 #include "Packages/Engine/Resources/UFont.h"
@@ -334,7 +334,7 @@ bool UEditWindow::FilterChar(ScriptString& ch)
 		ch[0] -= 32;
 	if (!FindEventFunction(this, "FilterChar"))
 		return true;
-	auto stringProp = GC::Alloc<UStringProperty>("", nullptr, ObjectFlags::NoFlags);
+	auto stringProp = GC::Alloc<UStrProperty>("", nullptr, ObjectFlags::NoFlags);
 	return CallEvent(this, "FilterChar", { ExpressionValue::Variable(&ch, stringProp) }).ToBool();
 }
 

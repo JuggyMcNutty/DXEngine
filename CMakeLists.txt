@@ -454,12 +454,8 @@ set(DXCOMMON_SOURCES
 	DXEngine/Packages/Core/Properties/UNameProperty.h
 	DXEngine/Packages/Core/Properties/UObjectProperty.cpp
 	DXEngine/Packages/Core/Properties/UObjectProperty.h
-	DXEngine/Packages/Core/Properties/UPointerProperty.cpp
-	DXEngine/Packages/Core/Properties/UPointerProperty.h
 	DXEngine/Packages/Core/Properties/UProperty.cpp
 	DXEngine/Packages/Core/Properties/UProperty.h
-	DXEngine/Packages/Core/Properties/UStringProperty.cpp
-	DXEngine/Packages/Core/Properties/UStringProperty.h
 	DXEngine/Packages/Core/Properties/UStrProperty.cpp
 	DXEngine/Packages/Core/Properties/UStrProperty.h
 	DXEngine/Packages/Core/Properties/UStructProperty.cpp

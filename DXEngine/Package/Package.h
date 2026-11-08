@@ -6,6 +6,7 @@
 #include "ObjectFlags.h"
 #include "NameString.h"
 #include <functional>
+#include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -14,6 +15,19 @@ class PackageStream;
 class ObjectStream;
 class UObject;
 class UClass;
+
+// An import its package lacks, which refuses the package that imports it,
+// with the original's text (Core's FailedImport, FailedImportPrivate or
+// PackageNotFound)
+class PackageImportError : public std::runtime_error
+{
+public:
+	PackageImportError(const std::string& message, std::string failedPackage = {}) : std::runtime_error(message), FailedPackage(std::move(failedPackage)) {}
+
+	// The package an import names that the paths lack, whose own load failed
+	// first (PackageNotFound); empty for an object its package lacks
+	std::string FailedPackage;
+};
 
 class Package : public GCObject
 {
@@ -46,6 +60,11 @@ public:
 	UObject* LoadObjectAnyGroup(UClass* cls, const NameString& objectName);
 
 	UClass* GetClass(const NameString& className);
+
+	// Every import checked, as the original's linker checks each as it opens
+	// a package (ULinkerLoad::Verify, Core.dll 0x10160d80): one not found
+	// throws PackageImportError (VerifyImport)
+	void VerifyImports();
 
 	void LoadAll();
 	void Save(UObject* object = nullptr, const std::string& filename = {});
@@ -121,6 +140,35 @@ private:
 	void ReadTables();
 	std::unique_ptr<ObjectStream> OpenObjectStream(int index, const NameString& name, UClass* base);
 	void LoadExportObject(int index);
+
+	// An import as its check found it (VerifyImport): the package it comes
+	// from and its export there, the export none for a package and for an
+	// object of a safe-replace class its package lacks. Emptied when the
+	// writer gives the package its tables anew.
+	struct ImportSource
+	{
+		bool Verified = false;
+		NameString Package;
+		int ExportRef = 0;
+	};
+	Array<ImportSource> ImportSources;
+	void VerifyImport(int index, int depth = 0);
+	// The export of this package an import names (VerifyImport's search), 0
+	// for none: its name, exactly its class by name and package, its outer
+	// outerExport or none
+	int FindImportedExport(const NameString& objectName, const NameString& className, const NameString& classPackage, int outerExport);
+	// An export's class's name and package, as the linker names them
+	NameString ExportClassName(const ExportTableEntry& entry);
+	NameString ExportClassPackage(const ExportTableEntry& entry);
+	// "Class Package.Group.Name", the original's GetImportFullName, its top
+	// package the one given
+	std::string ImportFullName(int index, const NameString& className, const NameString& topPackage);
+
+	// The exports of each name, by its compare index, for the import check:
+	// built again when the export table has grown or been written anew
+	std::unordered_map<int, Array<int>> ExportsByName;
+	size_t ExportsByNameBuiltFrom = (size_t)-1;
+	const Array<int>* ExportsNamed(const NameString& name);
 
 	PackageManager* Packages = nullptr;
 	NameString Name;

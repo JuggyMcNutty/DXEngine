@@ -15,8 +15,10 @@ void UTexture::Load(ObjectStream* stream)
 	UncompressedMipmaps.resize(mipsCount);
 	for (UnrealMipmap& mipmap : UncompressedMipmaps)
 	{
-		// The mip's skip offset (a lazy array's), unused
-		if (stream->GetVersion() >= 63)
+		// The mip's skip offset, unused: its data a lazy array, the offset
+		// from version 62 on, as the original's FMipmap reads it (Engine.dll
+		// 0x103f0d80, the lazy array's 0x10371140), a compressed mip's alike
+		if (stream->GetVersion() > 61)
 			stream->ReadInt32();
 		int bytes = stream->ReadIndex();
 		mipmap.Data.resize(bytes);
@@ -60,7 +62,7 @@ void UTexture::Load(ObjectStream* stream)
 		CompressedMipmaps.resize(mipsCount);
 		for (UnrealMipmap& mipmap : CompressedMipmaps)
 		{
-			if (stream->GetVersion() >= 68)
+			if (stream->GetVersion() > 61)
 				stream->ReadInt32(); // its skip offset
 			int bytes = stream->ReadIndex();
 			mipmap.Data.resize(bytes);
@@ -131,11 +133,11 @@ void UTexture::Save(PackageStreamWriter* stream)
 	stream->WriteUInt8((uint8_t)UncompressedMipmaps.size());
 	for (const UnrealMipmap& mipmap : UncompressedMipmaps)
 	{
-		if (stream->GetVersion() >= 63)
+		if (stream->GetVersion() > 61)
 			stream->BeginSkipOffset();
 		stream->WriteIndex((int)mipmap.Data.size());
 		stream->WriteBytes(mipmap.Data.data(), (int)mipmap.Data.size());
-		if (stream->GetVersion() >= 63)
+		if (stream->GetVersion() > 61)
 			stream->EndSkipOffset();
 		stream->WriteUInt32(mipmap.Width);
 		stream->WriteUInt32(mipmap.Height);
@@ -148,11 +150,11 @@ void UTexture::Save(PackageStreamWriter* stream)
 		stream->WriteUInt8((uint8_t)CompressedMipmaps.size());
 		for (UnrealMipmap& mipmap : CompressedMipmaps)
 		{
-			if (stream->GetVersion() >= 68)
+			if (stream->GetVersion() > 61)
 				stream->BeginSkipOffset();
 			stream->WriteIndex((int)mipmap.Data.size());
 			stream->WriteBytes(mipmap.Data.data(), (int)mipmap.Data.size());
-			if (stream->GetVersion() >= 68)
+			if (stream->GetVersion() > 61)
 				stream->EndSkipOffset();
 			stream->WriteUInt32(mipmap.Width);
 			stream->WriteUInt32(mipmap.Height);

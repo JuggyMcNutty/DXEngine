@@ -9,15 +9,18 @@ Checked on a copy of DeusEx.u (Skill cost CurrentLevel): the two exports
 retyped, three appended, every other export's bytes and the tables' old
 entries alike, a reader of the package's tables reading it back.
 
-    fixedmap.py <package> <out> [<class> [<fixed> <mapped>]]
+    fixedmap.py <package> <out> [<class> [<fixed>[,<fixed>...] <mapped>]]
 
-<class> (FixedMapConsole) declares `var config int Fixed[3];` and
-`var config int Mapped;`. In the copy:
-- Fixed is a FixedArrayProperty (Core's class, imported) of ArrayDim 1, its
-  flags and category kept, its Inner a new IntProperty export named
-  FixedInner (outer Fixed) and its Count the old ArrayDim, 3. Its size in an
-  object is the old one, 12 bytes (the original's Link: Count x the inner's
-  ElementSize, Core.dll 0x10167c60).
+<class> (FixedMapConsole) declares `var config int Fixed[3];`,
+`var config int Mapped;` and `var int OneA, OneB;` (the fixed ones
+Fixed,OneA,OneB by default). In the copy:
+- Each fixed one is a FixedArrayProperty (Core's class, imported) of
+  ArrayDim 1, its flags and category kept, its Inner a new IntProperty export
+  named <name>Inner (outer the property) and its Count the old ArrayDim: Fixed
+  3, OneA and OneB 1. Its size in an object is the old one, 12 and 4 bytes
+  (the original's Link: Count x the inner's ElementSize, Core.dll
+  0x10167c60), so the class's code that names OneA and OneB as ints, a Let
+  of one to the other, is a Let of a fixed array in the copy.
 - Mapped is a MapProperty of ArrayDim 1, its Key and Value new IntProperty
   exports named MappedKey and MappedValue (outer Mapped). Its size is the
   original's TMap, 20 bytes (0x10168ca0).
@@ -30,8 +33,9 @@ UProperty's, then Inner, then Count as four bytes) and UMapProperty::Serialize
 Names, imports and exports are appended, so every index the class's code
 and the other exports hold stays valid; the file is laid out again in UCC's
 order -- header, names, the exports' data, imports, exports -- with the last
-generation's counts set to the new ones. The class's code must not name the
-two properties (FixedMapConsole reads them by their text alone).
+generation's counts set to the new ones. The class's code names Fixed and
+Mapped by their text alone, and OneA and OneB only in a Let of ints, which
+reads alike for a fixed array of one.
 """
 import struct
 import sys
@@ -79,7 +83,8 @@ def main():
         sys.exit(__doc__)
     src, dst = sys.argv[1:3]
     clsname = sys.argv[3] if len(sys.argv) >= 4 else 'FixedMapConsole'
-    fixed_name, mapped_name = sys.argv[4:6] if len(sys.argv) == 6 else ('Fixed', 'Mapped')
+    fixed_names, mapped_name = sys.argv[4:6] if len(sys.argv) == 6 else ('Fixed,OneA,OneB', 'Mapped')
+    fixed_names = fixed_names.split(',')
     b = open(src, 'rb').read()
     tag, ver, lic, pflags, nc, no, ec, eo, ic, io = struct.unpack_from('<IHHIiiiiii', b, 0)
     if tag != TAG or ver < 68:
@@ -194,13 +199,14 @@ def main():
                         'data': property_bytes(none_name, 0, 0, 1, 0, none_name, b'')})
         return len(exports)        # its export number, a positive reference
 
-    fixed = prop_of(fixed_name)
-    none, sf, nx, dim, flags, cat, rep = split_property(exports[fixed]['data'])
-    inner = new_inner(fixed, fixed_name + 'Inner')
-    exports[fixed]['class'] = class_import('FixedArrayProperty')
-    exports[fixed]['data'] = (property_bytes(none, sf, nx, 1, flags, cat, rep) +
-                              write_index(inner) + struct.pack('<i', dim))
-    print('%s.%s: FixedArrayProperty, Inner export %d, Count %d' % (clsname, fixed_name, inner, dim))
+    for fixed_name in fixed_names:
+        fixed = prop_of(fixed_name)
+        none, sf, nx, dim, flags, cat, rep = split_property(exports[fixed]['data'])
+        inner = new_inner(fixed, fixed_name + 'Inner')
+        exports[fixed]['class'] = class_import('FixedArrayProperty')
+        exports[fixed]['data'] = (property_bytes(none, sf, nx, 1, flags, cat, rep) +
+                                  write_index(inner) + struct.pack('<i', dim))
+        print('%s.%s: FixedArrayProperty, Inner export %d, Count %d' % (clsname, fixed_name, inner, dim))
 
     mapped = prop_of(mapped_name)
     none, sf, nx, dim, flags, cat, rep = split_property(exports[mapped]['data'])

@@ -25,7 +25,8 @@ public:
 			case ExpressionValueType::ValueName: new(PtrByte) NameString(*v.PtrName); break;
 			case ExpressionValueType::ValueColor: new(PtrByte) Color(*v.PtrColor); break;
 			case ExpressionValueType::ValueStruct: new(PtrByte) StructValue(*v.GetStructValue()); Ptr = GetStructValue()->Ptr; break;
-			case ExpressionValueType::ValueArray: new(PtrByte) ArrayValue(*v.GetArrayValue()); Ptr = GetArrayValue()->Ptr; break;
+			case ExpressionValueType::ValueArray:
+			case ExpressionValueType::ValueFixedArray: new(PtrByte) ArrayValue(*v.GetArrayValue()); Ptr = GetArrayValue()->Ptr; break;
 			case ExpressionValueType::ValueCoords: new(PtrByte) Coords(*v.PtrCoords); break;
 			case ExpressionValueType::ValueQuat: new(PtrByte) quaternion(*v.PtrQuat); break;
 			}
@@ -53,7 +54,8 @@ public:
 			case ExpressionValueType::ValueName: new(PtrByte) NameString(std::move(*v.PtrName)); break;
 			case ExpressionValueType::ValueColor: new(PtrByte) Color(std::move(*v.PtrColor)); break;
 			case ExpressionValueType::ValueStruct: new(PtrByte) StructValue(std::move(*v.GetStructValue())); Ptr = GetStructValue()->Ptr; break;
-			case ExpressionValueType::ValueArray: new(PtrByte) ArrayValue(std::move(*v.GetArrayValue())); Ptr = GetArrayValue()->Ptr; break;
+			case ExpressionValueType::ValueArray:
+			case ExpressionValueType::ValueFixedArray: new(PtrByte) ArrayValue(std::move(*v.GetArrayValue())); Ptr = GetArrayValue()->Ptr; break;
 			case ExpressionValueType::ValueCoords: new(PtrByte) Coords(std::move(*v.PtrCoords)); break;
 			case ExpressionValueType::ValueQuat: new(PtrByte) quaternion(std::move(*v.PtrQuat)); break;
 			}
@@ -87,7 +89,8 @@ public:
 				case ExpressionValueType::ValueName: new(PtrByte) NameString(*v.PtrName); break;
 				case ExpressionValueType::ValueColor: new(PtrByte) Color(*v.PtrColor); break;
 				case ExpressionValueType::ValueStruct: new(PtrByte) StructValue(*v.GetStructValue()); Ptr = GetStructValue()->Ptr; break;
-				case ExpressionValueType::ValueArray: new(PtrByte) ArrayValue(*v.GetArrayValue()); Ptr = GetArrayValue()->Ptr; break;
+				case ExpressionValueType::ValueArray:
+				case ExpressionValueType::ValueFixedArray: new(PtrByte) ArrayValue(*v.GetArrayValue()); Ptr = GetArrayValue()->Ptr; break;
 				case ExpressionValueType::ValueCoords: new(PtrByte) Coords(*v.PtrCoords); break;
 				case ExpressionValueType::ValueQuat: new(PtrByte) quaternion(*v.PtrQuat); break;
 				}
@@ -124,7 +127,8 @@ public:
 				case ExpressionValueType::ValueName: new(PtrByte) NameString(std::move(*v.PtrName)); break;
 				case ExpressionValueType::ValueColor: new(PtrByte) Color(std::move(*v.PtrColor)); break;
 				case ExpressionValueType::ValueStruct: new(PtrByte) StructValue(std::move(*v.GetStructValue())); Ptr = GetStructValue()->Ptr; break;
-				case ExpressionValueType::ValueArray: new(PtrByte) ArrayValue(std::move(*v.GetArrayValue())); Ptr = GetArrayValue()->Ptr; break;
+				case ExpressionValueType::ValueArray:
+				case ExpressionValueType::ValueFixedArray: new(PtrByte) ArrayValue(std::move(*v.GetArrayValue())); Ptr = GetArrayValue()->Ptr; break;
 				case ExpressionValueType::ValueCoords: new(PtrByte) Coords(std::move(*v.PtrCoords)); break;
 				case ExpressionValueType::ValueQuat: new(PtrByte) quaternion(std::move(*v.PtrQuat)); break;
 				}
@@ -272,7 +276,8 @@ private:
 		case ExpressionValueType::ValueName: new(PtrByte) NameString(); break;
 		case ExpressionValueType::ValueColor: new(PtrByte) Color(); break;
 		case ExpressionValueType::ValueStruct: new(PtrByte) StructValue(); Ptr = GetStructValue()->Ptr; break;
-		case ExpressionValueType::ValueArray: new(PtrByte) ArrayValue(); Ptr = GetArrayValue()->Ptr; break;
+		case ExpressionValueType::ValueArray:
+		case ExpressionValueType::ValueFixedArray: new(PtrByte) ArrayValue(); Ptr = GetArrayValue()->Ptr; break;
 		case ExpressionValueType::ValueCoords: new(PtrByte) Coords(); break;
 		case ExpressionValueType::ValueQuat: new(PtrByte) quaternion(); break;
 		}
@@ -301,7 +306,8 @@ private:
 			case ExpressionValueType::ValueName: PtrName->~NameString(); break;
 			case ExpressionValueType::ValueColor: PtrColor->~Color(); break;
 			case ExpressionValueType::ValueStruct: GetStructValue()->~StructValue(); break;
-			case ExpressionValueType::ValueArray: GetArrayValue()->~ArrayValue(); break;
+			case ExpressionValueType::ValueArray:
+			case ExpressionValueType::ValueFixedArray: GetArrayValue()->~ArrayValue(); break;
 			case ExpressionValueType::ValueCoords: PtrCoords->~Coords(); break;
 			case ExpressionValueType::ValueQuat: PtrQuat->~quaternion(); break;
 			}
@@ -454,9 +460,10 @@ inline ExpressionValue ExpressionValue::DefaultValue(UProperty* prop)
 		return v;
 	}
 	case ExpressionValueType::ValueArray:
+	case ExpressionValueType::ValueFixedArray:
 	{
 		ExpressionValue v(prop->ValueType);
-		v.GetArrayValue()->Init(static_cast<UArrayProperty*>(prop));
+		v.GetArrayValue()->Init(prop);
 		v.Ptr = v.GetArrayValue()->Ptr;
 		return v;
 	}
@@ -524,8 +531,12 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
 			}
 		}
 		break;
+	// A fixed array whole, each element by its inner, as the original's copy
+	// of one (CopySingleValue, Core.dll 0x10168290): a Let's, an argument's,
+	// an out parameter's and a return value's alike
 	case ExpressionValueType::ValueArray:
-		if (UArrayProperty* Array = VariableProperty ? static_cast<UArrayProperty*>(VariableProperty) : GetArrayValue()->Type)
+	case ExpressionValueType::ValueFixedArray:
+		if (UProperty* Array = VariableProperty ? VariableProperty : GetArrayValue()->Type)
 		{
 			if (rvalue.Type == ExpressionValueType::Nothing)
 			{
@@ -568,7 +579,8 @@ inline void ExpressionValue::Load()
 			value.Ptr = value.GetStructValue()->Ptr;
 			break;
 		case ExpressionValueType::ValueArray:
-			value.GetArrayValue()->Load(UObject::Cast<UArrayProperty>(VariableProperty), Ptr);
+		case ExpressionValueType::ValueFixedArray:
+			value.GetArrayValue()->Load(VariableProperty, Ptr);
 			value.Ptr = value.GetArrayValue()->Ptr;
 			break;
 		case ExpressionValueType::ValueCoords: *value.PtrCoords = *PtrCoords; break;
@@ -604,6 +616,15 @@ inline bool ExpressionValue::IsZero() const
 		return Struct->IsEqual(Ptr, zero.Ptr);
 	}
 	case ExpressionValueType::ValueArray: return static_cast<const ScriptArray*>(Ptr)->GetSize() == 0;
+	case ExpressionValueType::ValueFixedArray:
+	{
+		UProperty* prop = VariableProperty ? VariableProperty : GetArrayValue()->Type;
+		if (!prop)
+			return true;
+		ArrayValue zero;
+		zero.Init(prop);
+		return prop->CompareArray(Ptr, zero.Ptr);
+	}
 	case ExpressionValueType::ValueCoords: { const Coords& c = ToCoords(); vec3 z(0.0f); return c.Origin == z && c.XAxis == z && c.YAxis == z && c.ZAxis == z; }
 	case ExpressionValueType::ValueQuat: { const quaternion& q = ToQuat(); return q.x == 0.0f && q.y == 0.0f && q.z == 0.0f && q.w == 0.0f; }
 	}
@@ -645,6 +666,12 @@ inline bool ExpressionValue::IsEqual(const ExpressionValue& value) const
 		return X87::Equal3(a.Origin, b.Origin) && X87::Equal3(a.XAxis, b.XAxis) && X87::Equal3(a.YAxis, b.YAxis) && X87::Equal3(a.ZAxis, b.ZAxis);
 	}
 	case ExpressionValueType::ValueQuat: return ToQuat() == value.ToQuat();
+	case ExpressionValueType::ValueFixedArray:
+		if (value.Type == ExpressionValueType::Nothing)
+			return IsZero();
+		if (UProperty* prop = VariableProperty ? VariableProperty : GetArrayValue()->Type)
+			return prop->CompareArray(Ptr, value.Ptr);
+		return true;
 	}
 }
 

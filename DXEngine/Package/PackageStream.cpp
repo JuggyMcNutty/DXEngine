@@ -276,11 +276,7 @@ void PackageStreamWriter::WriteScriptString(const ScriptString& v)
 	bool wide = false;
 	for (size_t i = 0; i < len && !wide; i++)
 		wide = v[i] > 0xFF;
-	if (GetVersion() < 64)
-	{
-		WriteAsciiZ(ScriptToLatin1(v.substr(0, len)));
-	}
-	else if (wide)
+	if (wide)
 	{
 		WriteIndex(-(int)(len + 1));
 		for (size_t i = 0; i < len; i++)

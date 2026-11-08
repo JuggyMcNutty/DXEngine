@@ -71,9 +71,7 @@
 #include "Packages/Core/Properties/UMapProperty.h"
 #include "Packages/Core/Properties/UNameProperty.h"
 #include "Packages/Core/Properties/UObjectProperty.h"
-#include "Packages/Core/Properties/UPointerProperty.h"
 #include "Packages/Core/Properties/UProperty.h"
-#include "Packages/Core/Properties/UStringProperty.h"
 #include "Packages/Core/Properties/UStrProperty.h"
 #include "Packages/Core/Properties/UStructProperty.h"
 #include "Packages/DeusEx/UDeusExDecoration.h"
@@ -339,7 +337,22 @@ Package* PackageManager::GetPackage(const NameString& name)
 		Exception::Throw("Could not find package " + name.ToString());
 	}
 
-	return package.get();
+	// Its imports checked as it opens, as the original's linker checks each
+	// (ULinkerLoad::Verify, Core.dll 0x10160d80; bugs.md PKG.38): one not
+	// found refuses the package, which stays closed. Open before the check,
+	// as the original's linker is listed before its Verify, so packages that
+	// import each other find each other.
+	Package* opened = package.get();
+	try
+	{
+		opened->VerifyImports();
+	}
+	catch (...)
+	{
+		packages.erase(name);
+		throw;
+	}
+	return opened;
 }
 
 bool PackageManager::IsMapPackage(const NameString& name) const
@@ -679,6 +692,27 @@ std::string PackageManager::SaveFilePath(const std::string& path) const
 	return {};
 }
 
+// The file's tables read by a package of its own, which the load opens
+// again; its stream closed once checked, so no handle stays on a save's file.
+// False with the error, and the package not found where that was the cause
+bool PackageManager::VerifyFileImports(const std::string& file, std::string& error, std::string& failedPackage)
+{
+	Package* package = GC::Alloc<Package>(this, fs::path(file).stem().string(), file);
+	bool verified = true;
+	try
+	{
+		package->VerifyImports();
+	}
+	catch (const PackageImportError& e)
+	{
+		error = e.what();
+		failedPackage = e.FailedPackage;
+		verified = false;
+	}
+	openStreams.remove_if([&](const OpenStream& stream) { return stream.Pkg == package; });
+	return verified;
+}
+
 bool PackageManager::LacksPackageTag(const std::string& file)
 {
 	std::ifstream stream(file, std::ios::binary);
@@ -692,8 +726,8 @@ bool PackageManager::LacksPackageTag(const std::string& file)
 // extension: the path LoadSaveFile takes, or empty where there is none. The
 // name cut at its first .dx, with case, as the original's Browse cuts it
 // (DeusEx.dll 0x100119dd, appStrstr), so Mission 14's "14_OceanLab_Lab.dx "
-// is Current's 14_OceanLab_Lab (bugs.md PKG.20); the file found in any case,
-// as Windows' file system finds it.
+// is Current's 14_OceanLab_Lab (bugs.md PKG.20); the folder and the file
+// found in any case, as Windows' file system finds them.
 std::string PackageManager::FindCurrentSave(const std::string& mapName) const
 {
 	std::string name = mapName;
@@ -702,7 +736,7 @@ std::string PackageManager::FindCurrentSave(const std::string& mapName) const
 		name.resize(dx);
 	const std::string saveExt = "." + GetSaveExtension();
 	std::error_code ec;
-	for (const auto& entry : fs::directory_iterator{gameSaveFolderPath / "Current", ec})
+	for (const auto& entry : fs::directory_iterator{Directory::resolveCase(gameSaveFolderPath / "Current"), ec})
 	{
 		if (!entry.is_regular_file(ec))
 			continue;
@@ -1505,7 +1539,6 @@ void PackageManager::RegisterNativeClasses()
 	RegisterNativeClass<UState>(corePackage, "State", "Struct");
 	RegisterNativeClass<UClass>(corePackage, "Class", "State");
 	RegisterNativeClass<UAbstractProperty>(corePackage, "Property", "Field");
-	RegisterNativeClass<UPointerProperty>(corePackage, "PointerProperty", "Property");
 	RegisterNativeClass<UByteProperty>(corePackage, "ByteProperty", "Property");
 	RegisterNativeClass<UObjectProperty>(corePackage, "ObjectProperty", "Property");
 	RegisterNativeClass<UClassProperty>(corePackage, "ClassProperty", "ObjectProperty");
@@ -1518,7 +1551,6 @@ void PackageManager::RegisterNativeClasses()
 	RegisterNativeClass<UFloatProperty>(corePackage, "FloatProperty", "Property");
 	RegisterNativeClass<UNameProperty>(corePackage, "NameProperty", "Property");
 	RegisterNativeClass<UStrProperty>(corePackage, "StrProperty", "Property");
-	RegisterNativeClass<UStringProperty>(corePackage, "StringProperty", "Property");
 	RegisterNativeClass<UTextBuffer>(corePackage, "TextBuffer", "Object");
 
 	// Deus Ex's particles and laser beams are drawn through render
@@ -1537,8 +1569,8 @@ void PackageManager::RegisterNativeClasses()
 	RegisterNativeClass<UNetDriver>(enginePackage, "NetDriver", "Subsystem");
 
 	RegisterNativeClass<UPalette>(enginePackage, "Palette", "Object");
-	RegisterNativeClass<USound>(enginePackage, "Sound", "Object");
-	RegisterNativeClass<UMusic>(enginePackage, "Music", "Object");
+	RegisterNativeClass<USound>(enginePackage, "Sound", "Object", (uint32_t)ClassFlags::SafeReplace);
+	RegisterNativeClass<UMusic>(enginePackage, "Music", "Object", (uint32_t)ClassFlags::SafeReplace);
 
 	RegisterNativeClass<UPrimitive>(enginePackage, "Primitive", "Object");
 	RegisterNativeClass<UMesh>(enginePackage, "Mesh", "Primitive");
@@ -1722,12 +1754,13 @@ void PackageManager::RegisterNativeClasses()
 }
 
 template<typename T>
-void PackageManager::RegisterNativeClass(const NameString& packageName, const NameString& className, const NameString& baseClass)
+void PackageManager::RegisterNativeClass(const NameString& packageName, const NameString& className, const NameString& baseClass, uint32_t clsFlags)
 {
 	NativeClass nativeClass;
 	nativeClass.Package = packageName;
 	nativeClass.Name = className;
 	nativeClass.Base = baseClass;
+	nativeClass.ClsFlags = clsFlags;
 	nativeClass.CreateFunc = [](const NameString& name, UClass* cls, ObjectFlags flags) -> UObject* { return GC::Alloc<T>(name, cls, flags); };
 	NativeClasses[className] = std::move(nativeClass);
 }

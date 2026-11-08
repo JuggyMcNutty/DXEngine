@@ -631,8 +631,3 @@ void PrintPrettyExpression::Expr(NativeFunctionExpression* expr)
 	}
 	writeOutput(")");
 }
-
-void PrintPrettyExpression::Expr(FunctionArgumentsExpression* expr)
-{
-	writeOutput("function arguments");
-}

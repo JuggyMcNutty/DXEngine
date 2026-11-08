@@ -306,6 +306,31 @@ bool UProperty::ParseStructText(const std::string& text, Array<TextPair>& pairs)
 	}
 }
 
+size_t UProperty::ParenthesisedEnd(const std::string& text, size_t pos)
+{
+	if (pos >= text.size() || text[pos] != '(')
+		return std::string::npos;
+	int depth = 0;
+	for (size_t p = pos; p < text.size(); p++)
+	{
+		if (text[p] == '"')
+		{
+			p = text.find('"', p + 1);
+			if (p == std::string::npos)
+				return std::string::npos;
+		}
+		else if (text[p] == '(')
+		{
+			depth++;
+		}
+		else if (text[p] == ')' && --depth == 0)
+		{
+			return p + 1;
+		}
+	}
+	return std::string::npos;
+}
+
 std::string UProperty::Unquote(const std::string& text)
 {
 	size_t p = text.find_first_not_of(' ');

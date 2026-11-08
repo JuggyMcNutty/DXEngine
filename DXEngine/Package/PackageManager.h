@@ -26,6 +26,10 @@ struct NativeClass
 	NameString Package;
 	NameString Name;
 	NameString Base;
+	// The C++ class's own flags (ClassFlags), which one its package's file
+	// lacks takes, as the original's class has them from C++: Sound's and
+	// Music's CLASS_SafeReplace (Engine.dll's classes' constructors)
+	uint32_t ClsFlags = 0;
 	std::function<UObject* (const NameString& name, UClass* cls, ObjectFlags flags)> CreateFunc;
 };
 
@@ -58,6 +62,10 @@ public:
 	// 0x10160000). A file shorter than that is not: the original's reader
 	// stops the game there, as the package's own read stops DXEngine.
 	static bool LacksPackageTag(const std::string& file);
+	// The imports of a map's or a save's file checked before its load, as the
+	// original's linker checks each as it opens the file (bugs.md PKG.38):
+	// false with the linker's error where one is not found
+	bool VerifyFileImports(const std::string& file, std::string& error, std::string& failedPackage);
 	// A map from a file of any name, as the package of the name given: a
 	// download kept in the cache.
 	Package* LoadMapFile(const NameString& name, const std::string& path);
@@ -197,7 +205,7 @@ private:
 	void RegisterNativeClasses();
 
 	template<typename T>
-	void RegisterNativeClass(const NameString& packageName, const NameString& className, const NameString& baseClass = {});
+	void RegisterNativeClass(const NameString& packageName, const NameString& className, const NameString& baseClass = {}, uint32_t clsFlags = 0);
 
 	std::map<NameString, NativeClass> NativeClasses;
 

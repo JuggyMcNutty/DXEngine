@@ -5,23 +5,20 @@
 // The original's SaveGame looks for the first DeusExLevelInfo among all
 // objects and, with none, logs "WARNING!  DeusExLevelInfo MISSING!" and
 // returns: no folder made, nothing copied, no SAVING frame (DeusEx.dll
-// 0x1000f02d-0x1000f04d). DXEngine's SaveGameToSlot saves all the same.
-// The original names the saved level's file, and the SaveInfo's MapName,
-// by that DeusExLevelInfo's MapName (SaveCurrentLevel 0x1000fe35, SaveGame
-// 0x1000f283); DXEngine by the level's package (Engine.cpp SaveCurrentLevel,
-// SaveGameToSlot). 99_Endgame1's MapName is Endgame1; 99_Endgame4, the
-// credits' DANCEPARTY egg (CreditsWindow: OPEN 99_ENDGAME4), has no
-// DeusExLevelInfo.
+// 0x1000f02d-0x1000f04d). The original names the saved level's file, and
+// the SaveInfo's MapName, by that DeusExLevelInfo's MapName
+// (SaveCurrentLevel 0x1000fe35, SaveGame 0x1000f283). 99_Endgame1's MapName
+// is Endgame1; 99_Endgame4, the credits' DANCEPARTY egg (CreditsWindow:
+// OPEN 99_ENDGAME4), has no DeusExLevelInfo. Both engines alike (bugs.md
+// PKG.31, PKG.35).
 //
 // Before the run: no Save0009, no Current. From the menu map:
 // 1. 3 s in, `open 99_Endgame1`.
-// 2. 4 s in, `open 99_Endgame4`, within mission 99: the original's
-//    Current\Endgame1.dxs, DXEngine's Current\99_Endgame1.dxs.
-// 3. 4 s into 99_Endgame4, its DeusExLevelInfos counted, then slot 9 saved
-//    (SaveHelper) -- a SAVING frame in DXEngine alone.
-// 4. 3 s later GetSaveInfo(9): None in the original, DXEngine's with the
-//    map 99_Endgame4; then an exit. After the run: Save\Current and
-//    Save\Save0009 listed; remove both.
+// 2. 4 s in, `open 99_Endgame4`, within mission 99: Current\Endgame1.dxs.
+// 3. 4 s into 99_Endgame4, its DeusExLevelInfos counted, then slot 9 asked
+//    for (SaveHelper): the warning, no SAVING frame.
+// 4. 3 s later GetSaveInfo(9): None; then an exit. After the run:
+//    Save\Current and Save\Save0009 listed, Current alone there; remove it.
 //=============================================================================
 class NoInfoSaveConsole extends SaveConsole;
 

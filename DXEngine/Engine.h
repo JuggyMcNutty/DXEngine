@@ -94,7 +94,11 @@ public:
 	// the original's browse to ?failed or ?entry: a lost server, or one that
 	// refused the player after the join, sends a client there.
 	void ReturnToEntry(const UnrealURL& url);
-	void LoadMap(const UnrealURL& url, const std::map<std::string, std::string>& travelInfo = {}, bool asClient = false);
+	// A map's load, as the original's LoadMap: false, the error given, where
+	// the new map fails its check, the old level playing on.
+	bool LoadMap(const UnrealURL& url, const std::map<std::string, std::string>& travelInfo = {}, bool asClient = false, std::string* error = nullptr);
+	// A ?push's save of the level left into the save path's Game%04i.dxs.
+	void SaveHubLevel(int32_t hubStackLevel);
 	// A save in place of the level; false when there is none to load.
 	bool LoadFromSaveFile(const UnrealURL& url);
 	// The same, its player logged in as the original's load logs it in.
@@ -128,14 +132,12 @@ public:
 	// left it; a new mission, or a player starting a new game, empties
 	// Current (dx-reverse-info/deusex-dll.md, travel and saving).
 	void DeusExPreTravel(const UnrealURL& url);
-	// Whether a travel's map is there to load; where it is not, the browse
-	// fails as the original's does, the level playing on.
-	bool BrowseFinds(const UnrealURL& url);
 	// A travel to a map as the original's Browse makes it: the pre-travel,
-	// then the load, or a missing map's fallback; false when no level loads.
+	// then the load, or a failed load's fallback; false when no level loads.
 	bool BrowseMap(const UnrealURL& url, const std::map<std::string, std::string>& travelInfo);
 	// The start's browse of a map: Current emptied, the load, or Dx.Dx for
-	// a map not there; false, the error's text given, when no level loads.
+	// a map that fails its check; false, the error's text given, when no
+	// level loads.
 	bool BrowseStartMap(const UnrealURL& url, std::string& error);
 	// A map's load that fails its check: FailedLoad logged, UrlFailed shown
 	// over the reason for 6 s, the reason given as the error.
@@ -143,8 +145,13 @@ public:
 	// The check of a package's file that is there: false, the load failed,
 	// for one that is not a package.
 	bool VerifyPackageFile(const std::string& map, const std::string& file, std::string& error);
-	// Whether a map's load passes its check: there, and a package.
-	bool MapLoads(const std::string& map, std::string& error);
+	// The check of a level's package before its load, as the original's
+	// LoadMap checks it: the package made of the file, or none, the load
+	// failed, for a file not there, not a package, without its MyLevel or
+	// importing a package that is not there.
+	Package* CheckLevelPackage(const std::string& map, const std::string& name, const std::string& file, std::string& error);
+	// Whether the packages a package imports, and theirs, are all there.
+	bool ImportsFound(Package* package, std::set<std::string>& seen, Array<std::string>& failed, std::string& error);
 	// The map a ?restart reloads, as the original's Browse makes it.
 	UnrealURL RestartURL();
 	void PruneTravelActors() const;

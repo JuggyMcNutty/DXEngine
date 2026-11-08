@@ -5,22 +5,17 @@
 // appAtoi of that text, a save's description always "" (the level's
 // Title), every form taken (DDeusExGameEngine::Exec, DeusEx.dll
 // 0x1000ed70-0x1000eef9; SaveGame 0x1000ef10, DeleteGame 0x10010710).
-// DXEngine's takes the second blank-separated word by std::stoi, a sign
-// too, and a third as the description, and takes no other count of words
-// (Engine.cpp:3146-3182).
+// Both engines alike (bugs.md PKG.37).
 // On Liberty Island (DXEngine's map, the original's DXCAP_START), with
 // DXCAP_INI="Core.System:SavePath=..\DXCapSaves" so no player's save is
 // touched, each command from a CmdHelper's tick 3 s apart, then the save
 // folder listed as the Load Game screen lists it, each slot's SaveInfo
 // description:
-//   SAVEGAME 71 DxDesc     both save slot 71; its description the
-//                          level's Title in the original, "DxDesc" in
-//                          DXEngine
-//   SAVEGAME 72 Two Words  the original saves slot 72 (the Title);
-//                          DXEngine none ("Unknown command")
-//   SAVEGAME +73           the original none; DXEngine slot 73
-//   SAVEGAME -74           the original none; DXEngine Save-074
-//   DELETEGAME +71         the original none, 71 kept; DXEngine 71 deleted
+//   SAVEGAME 71 DxDesc     slot 71, its description the level's Title
+//   SAVEGAME 72 Two Words  slot 72, the Title
+//   SAVEGAME +73           nothing
+//   SAVEGAME -74           nothing
+//   DELETEGAME +71         nothing, 71 kept
 // Then an exit. Remove ..\DXCapSaves after each run.
 //=============================================================================
 class SaveWordsConsole extends Console;

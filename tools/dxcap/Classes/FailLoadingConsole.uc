@@ -8,23 +8,19 @@
 // PaintProgress, the sounds stopped -- and only then fails the load
 // (UGameEngine::LoadMap, Engine.dll 0x1038c1f0, the check at 0x1038c6ab, the
 // catch at 0x1038e62c); Deus Ex's Browse then, outside any mission, loads the
-// level's own map again, a second LOADING (DeusEx.dll 0x10010b90). DXEngine
-// checks the map before its load (Engine.cpp BrowseMap, BrowseFinds), so a
-// failed travel paints no LOADING and leaves the pauser.
+// level's own map again, a second LOADING (DeusEx.dll 0x10010b90); and a
+// URL's player keys are saved only after a load that succeeds (LoadMap's
+// SaveURLConfig, 0x1038e33d). Both engines alike (bugs.md PKG.33).
 //
 // From the menu map:
 // 1. 3 s in, 01_NYC_UNATCOIsland opened.
 // 2. 6 s into the island, `open 01_DXCapNoSuchMap?Name=DXCapBob`, within
-//    mission 1: the original SAVING, then LOADING; DXEngine SAVING alone.
-//    4 s later the player's progress lines, the pauser and the default
-//    URL's Name: the original saves a URL's player keys only after a load
-//    that succeeds (LoadMap's SaveURLConfig, 0x1038e33d), DXEngine at the
-//    travel's ask (Engine.cpp ClientTravel), so DXEngine's says DXCapBob.
+//    mission 1: SAVING, then LOADING. 4 s later the player's progress
+//    lines, the pauser and the default URL's Name, still Player.
 // 3. Paused (SetPause), 1 s later `open 01_DXCapNoSuchMap2`: 3 s later the
-//    pauser -- '' in the original, its LoadMap having emptied it; still the
-//    player's name in DXEngine.
-// 4. Unpaused, `open DXCapNoSuchMap`, outside any mission: the original
-//    LOADING twice (the failed load, then the island again), DXEngine once.
+//    pauser '', the LOADING frame having emptied it.
+// 4. Unpaused, `open DXCapNoSuchMap`, outside any mission: LOADING twice,
+//    the failed load, then the island again.
 // 5. 4 s into the island again, the lines once more, then an exit.
 //=============================================================================
 class FailLoadingConsole extends LoadingConsole;

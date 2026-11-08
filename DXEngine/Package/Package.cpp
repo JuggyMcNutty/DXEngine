@@ -219,6 +219,13 @@ void Package::LoadExportObject(int index)
 		if (!objbase && objname != "Object")
 			objbase = UObject::Cast<UClass>(Packages->GetPackage("Core")->GetUObject("Class", "Object"));
 		auto obj = GC::Alloc<UClass>(objname, objbase, ExportTable[index].ObjFlags);
+		// A C++ class its file lacks has its C++ flags, as the original's
+		if (index >= FileExportCount)
+		{
+			auto native = Packages->NativeClasses.find(objname);
+			if (native != Packages->NativeClasses.end() && native->second.Package == Name)
+				obj->ClsFlags = (ClassFlags)((uint32_t)obj->ClsFlags | native->second.ClsFlags);
+		}
 		ExportObjects[index] = obj;
 		ExportObjects[index]->DelayLoad.reset(new ObjectDelayLoad(this, index, objname, objbase, nullptr));
 		Packages->delayLoads.push_back(ExportObjects[index]);
@@ -249,6 +256,17 @@ UObject* Package::GetUObject(int objref)
 		if (!ExportObjects[index] && index < FileExportCount && !AnyFlags(ExportTable[index].ObjFlags, LoadContext()) && !IsSaveFile())
 			return nullptr;
 
+		// Nor is one of a class named Camera, a map's or a save's: the
+		// original's CreateExport makes none whatever its flags (Core.dll
+		// 0x1012e230), a reference to it None
+		if (!ExportObjects[index] && ExportTable[index].ObjClass != 0)
+		{
+			static const NameString camera("Camera");
+			int objclass = ExportTable[index].ObjClass;
+			if (GetName(objclass < 0 ? GetImportEntry(objclass)->ObjName : GetExportEntry(objclass)->ObjName) == camera)
+				return nullptr;
+		}
+
 		if (!ExportObjects[index])
 			LoadExportObject(index);
 
@@ -262,32 +280,26 @@ UObject* Package::GetUObject(int objref)
 	}
 	else if (objref < 0) // Import table object
 	{
-		ImportTableEntry* entry = GetImportEntry(objref);
-		NameString objectName = GetName(entry->ObjName);
-		NameString className = GetName(entry->ClassName);
-
-		if (entry->ObjOuter == 0)
-			return nullptr; // This is a root package object. We don't have an UObject for those currently
-
-		// Find the path for the outer object
-		std::string group;
-		ImportTableEntry* outerEntry = GetImportEntry(entry->ObjOuter);
-		int outers = 0;
-		while (outerEntry->ObjOuter != 0)
+		// The export the import's check found (VerifyImport); none for a
+		// package, there being no UObject for those currently, and for an
+		// object of a safe-replace class its package lacks
+		int index = -objref - 1;
+		GetImportEntry(objref);
+		for (int pass = 0; pass < 2; pass++)
 		{
-			// An import whose outer is itself, or a ring of them, grew the
-			// group without end
-			if (++outers > 64)
-				Exception::Throw("Package " + Name.ToString() + ": an import's outers never end");
-			if (!group.empty())
-				group += '.';
-			group += GetName(outerEntry->ObjName).ToString();
-			outerEntry = GetImportEntry(outerEntry->ObjOuter);
+			VerifyImport(index);
+			NameString from = ImportSources[index].Package;
+			int exportRef = ImportSources[index].ExportRef;
+			if (exportRef == 0)
+				return nullptr;
+			Package* source = Packages->GetPackage(from);
+			if ((size_t)exportRef <= source->ExportTable.size() && source->GetName(source->ExportTable[exportRef - 1].ObjName) == GetName(ImportTable[index].ObjName))
+				return source->GetUObject(exportRef);
+			// Its package opened again from another file since it was
+			// checked (a download let go): every import checked again
+			ImportSources.clear();
 		}
-
-		NameString packageName = GetName(outerEntry->ObjName);
-
-		return Packages->GetPackage(packageName)->GetUObject(className, objectName, group);
+		return nullptr;
 	}
 	else
 	{
@@ -379,6 +391,259 @@ UObject* Package::LoadObjectAnyGroup(UClass* cls, const NameString& objectName)
 UClass* Package::GetClass(const NameString& className)
 {
 	return UObject::Cast<UClass>(GetUObject("Class", className));
+}
+
+// Core's error text of the key (its .int's [Errors]), each %s given in turn,
+// the English text where no file gives it
+static std::string CoreError(PackageManager* packages, const char* key, const char* fallback, std::initializer_list<std::string> args)
+{
+	std::string format = packages->Localize("Core", "Errors", key);
+	if (format.empty())
+		format = fallback;
+	std::string text;
+	auto arg = args.begin();
+	for (size_t i = 0; i < format.size(); i++)
+	{
+		if (format[i] == '%' && i + 1 < format.size() && format[i + 1] == 's')
+		{
+			if (arg != args.end())
+				text += *arg++;
+			i++;
+		}
+		else
+		{
+			text += format[i];
+		}
+	}
+	return text;
+}
+
+void Package::VerifyImports()
+{
+	for (size_t i = 0; i < ImportTable.size(); i++)
+		VerifyImport((int)i);
+}
+
+// The original's VerifyImport (Core.dll 0x10160fd0), each import once. A
+// package's file is opened, as GetPackageLinker opens it (LOAD_Throw):
+// UnrealI's, not there, is UnrealShare's (0x101610cd), and Core's
+// PackageNotFound refuses this package without it. Any other import's outer
+// is checked first; then, in its top package, the export of its name, of
+// exactly its class -- the class's name and its package, UnrealShare's
+// standing for UnrealI's --, whose outer is the export its own outer found or
+// none, a top-level one standing for any group, the table's last first (its
+// hash chain); a Mesh asked for, then a LodMesh. One that is not public
+// refuses this package (Core's FailedImportPrivate). With none found, one
+// right in UnrealI is looked for in UnrealShare (0x10161669); one whose class
+// is in memory and of CLASS_SafeReplace (a texture, palette, sound or song)
+// is None without a word; any other refuses this package (Core's
+// FailedImport), but in a save, where it is None too (bugs.md D.75): the
+// camera of a conversation going on as its level was left, which ConSys
+// makes in package DeusEx, is one, the original refusing the level's save.
+// A C++ class its file lacks is found among the native classes added to its
+// package (the constructor's), as the original finds the class in memory.
+void Package::VerifyImport(int index, int depth)
+{
+	if (ImportSources.size() < ImportTable.size())
+		ImportSources.resize(ImportTable.size());
+	if (ImportSources[index].Verified)
+		return;
+	// An import whose outer is itself, or a ring of them, checked without end
+	if (depth > 64)
+		Exception::Throw("Package " + Name.ToString() + ": an import's outers never end");
+
+	const ImportTableEntry entry = ImportTable[index];
+	const NameString objectName = GetName(entry.ObjName);
+	const NameString classPackage = GetName(entry.ClassPackage);
+	NameString className = GetName(entry.ClassName);
+	ImportSource source;
+	source.Verified = true;
+
+	// One with a name of None is not looked for, as the original's passes it
+	// over: an object of it is None
+	if (objectName.IsNone() || className.IsNone() || classPackage.IsNone())
+	{
+		ImportSources[index] = source;
+		return;
+	}
+
+	static const NameString unrealI("UnrealI"), unrealShare("UnrealShare");
+	auto there = [&](const NameString& package) { return Packages->IsPackageLoaded(package) || !Packages->FindPackageFile(package, {}).empty(); };
+	if (entry.ObjOuter == 0)
+	{
+		NameString package = objectName;
+		if (!there(package) && package == unrealI)
+			package = unrealShare;
+		if (!there(package))
+			throw PackageImportError(CoreError(Packages, "PackageNotFound", "Can't find file for package '%s'", { package.ToString() }), package.ToString());
+		Packages->GetPackage(package);
+		source.Package = package;
+		ImportSources[index] = source;
+		return;
+	}
+
+	// Its outer an import, as the original's asserts; checked first
+	if (entry.ObjOuter > 0)
+		Exception::Throw("Package " + Name.ToString() + ": an import inside an export");
+	GetImportEntry(entry.ObjOuter);
+	int outer = -entry.ObjOuter - 1;
+	VerifyImport(outer, depth + 1);
+	const ImportSource outerSource = ImportSources[outer];
+	// Where the outer has no package (a name of None), the original asserts:
+	// the import is None
+	if (outerSource.Package.IsNone())
+	{
+		ImportSources[index] = source;
+		return;
+	}
+
+	// How deep the import is in its top package, which its full name begins
+	// with
+	int importDepth = 1;
+	const ImportTableEntry* top = GetImportEntry(entry.ObjOuter);
+	for (; top->ObjOuter != 0; top = GetImportEntry(top->ObjOuter))
+		importDepth++;
+	NameString topName = GetName(top->ObjName);
+
+	// The export's outer the one its outer found; a package's, the top
+	const int outerExport = ImportTable[outer].ObjOuter != 0 ? outerSource.ExportRef : 0;
+	NameString packageName = outerSource.Package;
+	auto search = [&](Package* from, int within) -> int
+	{
+		static const NameString mesh("Mesh"), lodMesh("LodMesh");
+		int found = 0;
+		for (int pass = 0; pass < 2; pass++)
+		{
+			int match = from->FindImportedExport(objectName, className, classPackage, within);
+			if (match != 0)
+			{
+				if (match <= from->FileExportCount && !AnyFlags(from->ExportTable[match - 1].ObjFlags, ObjectFlags::Public))
+					throw PackageImportError(CoreError(Packages, "FailedImportPrivate", "Can't import private object %s %s", { className.ToString(), ImportFullName(index, className, topName) }));
+				found = match;
+			}
+			if (className != mesh)
+				break;
+			className = lodMesh;
+		}
+		return found;
+	};
+	int found = search(Packages->GetPackage(packageName), outerExport);
+
+	if (found == 0 && importDepth == 1 && topName == unrealI)
+	{
+		if (!there(unrealShare))
+			throw PackageImportError(CoreError(Packages, "PackageNotFound", "Can't find file for package '%s'", { unrealShare.ToString() }), unrealShare.ToString());
+		packageName = topName = unrealShare;
+		found = search(Packages->GetPackage(packageName), 0);
+	}
+
+	if (found == 0)
+	{
+		// The import's class as the original finds it in memory: a native
+		// class always, as a C++ one is there, any other once made
+		bool safeReplace = false;
+		auto native = Packages->NativeClasses.find(className);
+		bool isNative = native != Packages->NativeClasses.end() && native->second.Package == classPackage;
+		if (isNative || Packages->IsPackageLoaded(classPackage))
+		{
+			Package* classes = Packages->GetPackage(classPackage);
+			int classRef = classes->FindObjectReference("Class", className, {});
+			if (classRef != 0 && (isNative || classes->GetLoadedExport(classRef - 1)))
+			{
+				// Its flag a class's own or one it extends', as a subclass
+				// takes its base's (a FireTexture a Texture's)
+				for (UStruct* s = UObject::TryCast<UClass>(classes->GetUObject(classRef)); s && !safeReplace; s = s->BaseStruct)
+				{
+					if (UClass* cls = UObject::TryCast<UClass>(s))
+					{
+						cls->LoadNow();
+						safeReplace = (cls->ClsFlags & ClassFlags::SafeReplace) != 0;
+					}
+				}
+			}
+		}
+		if (!safeReplace && !IsSaveFile())
+			throw PackageImportError(CoreError(Packages, "FailedImport", "Can't find %s in file '%s'", { className.ToString(), ImportFullName(index, className, topName) }));
+	}
+
+	source.Package = packageName;
+	source.ExportRef = found;
+	ImportSources[index] = source;
+}
+
+int Package::FindImportedExport(const NameString& objectName, const NameString& className, const NameString& classPackage, int outerExport)
+{
+	static const NameString unrealI("UnrealI"), unrealShare("UnrealShare");
+	const Array<int>* named = ExportsNamed(objectName);
+	if (!named)
+		return 0;
+	for (size_t i = named->size(); i-- > 0;)
+	{
+		const ExportTableEntry& entry = ExportTable[(*named)[i]];
+		if (ExportClassName(entry) != className)
+			continue;
+		NameString package = ExportClassPackage(entry);
+		if (package != classPackage && !(classPackage == unrealI && package == unrealShare))
+			continue;
+		if (entry.ObjOuter != 0 && entry.ObjOuter != outerExport)
+			continue;
+		return (*named)[i] + 1;
+	}
+	return 0;
+}
+
+NameString Package::ExportClassName(const ExportTableEntry& entry)
+{
+	static const NameString classClass("Class");
+	if (entry.ObjClass == 0)
+		return classClass;
+	if (entry.ObjClass < 0)
+		return GetName(GetImportEntry(entry.ObjClass)->ObjName);
+	return GetName(GetExportEntry(entry.ObjClass)->ObjName);
+}
+
+// A class of this package's own is this package's; an imported class's, the
+// import its outer names (none where it has none, where the original reads
+// past its table)
+NameString Package::ExportClassPackage(const ExportTableEntry& entry)
+{
+	static const NameString core("Core");
+	if (entry.ObjClass == 0)
+		return core;
+	if (entry.ObjClass > 0)
+		return Name;
+	const ImportTableEntry* classImport = GetImportEntry(entry.ObjClass);
+	if (classImport->ObjOuter >= 0)
+		return {};
+	return GetName(GetImportEntry(classImport->ObjOuter)->ObjName);
+}
+
+std::string Package::ImportFullName(int index, const NameString& className, const NameString& topPackage)
+{
+	std::string path;
+	int ref = -index - 1;
+	for (int outers = 0; ref < 0 && outers <= 64; outers++)
+	{
+		const ImportTableEntry* entry = GetImportEntry(ref);
+		// The top the one the import was looked for in (UnrealShare for UnrealI)
+		std::string name = entry->ObjOuter == 0 ? topPackage.ToString() : GetName(entry->ObjName).ToString();
+		path = path.empty() ? name : name + "." + path;
+		ref = entry->ObjOuter;
+	}
+	return className.ToString() + " " + path;
+}
+
+const Array<int>* Package::ExportsNamed(const NameString& name)
+{
+	if (ExportsByNameBuiltFrom != ExportTable.size())
+	{
+		ExportsByName.clear();
+		for (size_t i = 0; i < ExportTable.size(); i++)
+			ExportsByName[GetName(ExportTable[i].ObjName).GetCompareIndex()].push_back((int)i);
+		ExportsByNameBuiltFrom = ExportTable.size();
+	}
+	auto it = ExportsByName.find(name.GetCompareIndex());
+	return it != ExportsByName.end() ? &it->second : nullptr;
 }
 
 int Package::FindObjectReference(const NameString& className, const NameString& objectName, const NameString& group, bool ignoreGroup)
@@ -501,7 +766,11 @@ void Package::ReadTables()
 	Version = stream->ReadInt16();
 	LicenseeMode = stream->ReadInt16();
 
-	if (Version < 60 || Version >= 100)
+	// A version above the game's own is read as its own, as the original's
+	// linker reads it, which refuses none but one under 60 -- Core's
+	// OldVersion question, its reader then running past the file's end, an
+	// assertion (Core.dll 0x10160000) --; DXEngine stops at such a one here
+	if (Version < 60)
 		Exception::Throw("Unsupported unreal package version: " + Name.ToString());
 
 	Flags = (PackageFlags)stream->ReadUInt32();

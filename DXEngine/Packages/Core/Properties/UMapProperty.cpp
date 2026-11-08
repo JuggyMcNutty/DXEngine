@@ -18,10 +18,19 @@ void UMapProperty::Save(PackageStreamWriter* stream)
 	stream->WriteObject(Value);
 }
 
+// A map's own tag, which no engine writes, is skipped whole, where the
+// original reads nothing of it and takes its bytes for the next tag's
 void UMapProperty::LoadValue(void* data, ObjectStream* stream, const PropertyHeader& header)
 {
 	ThrowIfTypeMismatch(header, UPT_Map);
 	stream->Skip(header.size);
+}
+
+// Nothing: the original's SerializeItem of a map reads and writes nothing
+// (Core.dll 0x10168d90), so a struct's or a dynamic array's map loads empty
+// and what follows it loads on
+void UMapProperty::LoadStructMemberValue(void* data, ObjectStream* stream)
+{
 }
 
 void UMapProperty::SaveHeader(void* data, PropertyHeader& header)
@@ -84,9 +93,18 @@ bool UMapProperty::CompareLessElement(const void* a, const void* b)
 	return map.size() < srcmap.size();
 }
 
+// Nothing, as the original's ExportTextItem of a map writes (Core.dll
+// 0x10168f20): GET and GetPropertyText give it empty
 std::string UMapProperty::PrintValue(const void* data)
 {
-	return "map";
+	return {};
+}
+
+// Nothing taken and nothing refused, the text left where it was, as the
+// original's ImportText (0x10168f30)
+size_t UMapProperty::ImportText(const std::string& text, size_t pos, void* data)
+{
+	return pos;
 }
 
 bool UMapProperty::ComputeContainsRefs()

@@ -166,9 +166,11 @@ void UMesh::Load(ObjectStream* stream)
 	CurPoly = stream->ReadUInt32();
 	CurVertex = stream->ReadUInt32();
 
+	// At version 65 a float the original's Serialize reads into nothing,
+	// TextureLOD left empty (Engine.dll 0x103a63b0); from 66 the array
 	if (stream->GetVersion() == 65)
 	{
-		TextureLOD.push_back(stream->ReadFloat());
+		stream->ReadFloat();
 	}
 	else if (stream->GetVersion() >= 66)
 	{
@@ -380,7 +382,7 @@ void UMesh::Save(PackageStreamWriter* stream)
 
 	if (stream->GetVersion() == 65)
 	{
-		stream->WriteFloat(TextureLOD.front());
+		stream->WriteFloat(TextureLOD.empty() ? 0.0f : TextureLOD.front());
 	}
 	else if (stream->GetVersion() >= 66)
 	{

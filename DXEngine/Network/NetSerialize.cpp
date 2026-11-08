@@ -6,12 +6,13 @@
 #include "Packages/Core/UEnum.h"
 #include "Packages/Core/Properties/UBoolProperty.h"
 #include "Packages/Core/Properties/UByteProperty.h"
+#include "Packages/Core/Properties/UFixedArrayProperty.h"
 #include "Packages/Core/Properties/UFloatProperty.h"
 #include "Packages/Core/Properties/UIntProperty.h"
+#include "Packages/Core/Properties/UMapProperty.h"
 #include "Packages/Core/Properties/UNameProperty.h"
 #include "Packages/Core/Properties/UObjectProperty.h"
 #include "Packages/Core/Properties/UStrProperty.h"
-#include "Packages/Core/Properties/UStringProperty.h"
 #include "Packages/Core/Properties/UStructProperty.h"
 #include "Utils/Logger.h"
 #include <algorithm>
@@ -83,7 +84,7 @@ void NetReadItem(UProperty* prop, NetBitReader& reader, NetPackageMap& map, void
 	{
 		*static_cast<NameString*>(data) = map.ReadName(reader);
 	}
-	else if (UObject::TryCast<UStrProperty>(prop) || UObject::TryCast<UStringProperty>(prop))
+	else if (UObject::TryCast<UStrProperty>(prop))
 	{
 		*static_cast<ScriptString*>(data) = reader.ReadScriptString();
 	}
@@ -138,6 +139,11 @@ void NetReadItem(UProperty* prop, NetBitReader& reader, NetPackageMap& map, void
 			}
 		}
 	}
+	else if (UObject::TryCast<UFixedArrayProperty>(prop) || UObject::TryCast<UMapProperty>(prop))
+	{
+		// Nothing, as the original's NetSerializeItem of a fixed array and of
+		// a map reads none (Core.dll 0x10167de0, 0x10168da0)
+	}
 	else
 	{
 		LogMessage("Net: cannot receive a " + prop->Class->Name.ToString() + " (" + prop->Name.ToString() + ")");
@@ -177,7 +183,7 @@ bool NetWriteItem(UProperty* prop, NetBitWriter& writer, NetPackageMap& map, con
 	{
 		map.WriteName(writer, *static_cast<const NameString*>(data));
 	}
-	else if (UObject::TryCast<UStrProperty>(prop) || UObject::TryCast<UStringProperty>(prop))
+	else if (UObject::TryCast<UStrProperty>(prop))
 	{
 		writer.WriteScriptString(*static_cast<const ScriptString*>(data));
 	}
@@ -236,6 +242,10 @@ bool NetWriteItem(UProperty* prop, NetBitWriter& writer, NetPackageMap& map, con
 			}
 			return mapped;
 		}
+	}
+	else if (UObject::TryCast<UFixedArrayProperty>(prop) || UObject::TryCast<UMapProperty>(prop))
+	{
+		// Nothing, as the original's NetSerializeItem of each sends none
 	}
 	else
 	{

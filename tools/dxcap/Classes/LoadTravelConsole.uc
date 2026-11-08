@@ -7,15 +7,12 @@
 // that took it (UGameEngine::Tick, Engine.dll 0x10390c01 the Browse,
 // 0x10390c07 the TravelURL set empty), so an OPEN asked from inside that
 // browse -- the console's tick that its SAVING or LOADING paint runs -- is
-// dropped. DXEngine empties its pending travel as each load starts
-// (Engine.cpp LoadMap, LoadFromSaveFile), before its LOADING paint: an OPEN
-// asked during the SAVING paint is dropped as the original's, one asked
-// during the LOADING paint is taken at the next frame.
+// dropped. Both engines alike (bugs.md PKG.34).
 //
 // From the menu map:
 // 1. 3 s in, `open 01_NYC_UNATCOIsland`; at the console's first tick under
-//    LOADING (the menu map's paint), `open 01_NYC_UNATCOHQ`. The original
-//    stays on the island; DXEngine's is on UNATCO HQ a frame later.
+//    LOADING (the menu map's paint), `open 01_NYC_UNATCOHQ`, dropped: the
+//    run stays on the island.
 // 2. 6 s after the last level change, a travel within mission 1 to the
 //    other of the two maps (SAVING, then LOADING); at its first tick under
 //    SAVING, `open DXOnly`: dropped in both, the travel's map reached.

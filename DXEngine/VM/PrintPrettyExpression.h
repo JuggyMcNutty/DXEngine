@@ -97,7 +97,6 @@ private:
 	void Expr(FinalFunctionExpression* expr) override;
 	void Expr(GlobalFunctionExpression* expr) override;
 	void Expr(NativeFunctionExpression* expr) override;
-	void Expr(FunctionArgumentsExpression* expr) override;
 
 	std::function<void(const std::string&)> writeOutput;
 };

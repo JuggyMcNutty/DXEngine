@@ -1135,11 +1135,6 @@ ExpressionValue ExpressionEvaluator::PostStep(UFunction* func, ExpressionValue& 
 	return ExpressionValue::NothingValue(true);
 }
 
-void ExpressionEvaluator::Expr(FunctionArgumentsExpression* expr)
-{
-	*Out = ExpressionValue::NothingValue();
-}
-
 /////////////////////////////////////////////////////////////////////////////
 // Typed evaluation
 //

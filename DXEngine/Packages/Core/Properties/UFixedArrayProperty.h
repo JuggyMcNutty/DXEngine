@@ -5,12 +5,13 @@
 class UFixedArrayProperty : public UProperty
 {
 public:
-	using UProperty::UProperty;
+	UFixedArrayProperty(NameString name, UClass* base, ObjectFlags flags);
 
 	void Load(ObjectStream* stream) override;
 	void Save(PackageStreamWriter* stream) override;
 
 	void LoadValue(void* data, ObjectStream* stream, const PropertyHeader& header) override;
+	void LoadStructMemberValue(void* data, ObjectStream* stream) override;
 
 	void SaveHeader(void* data, PropertyHeader& header) override;
 	void SaveValue(void* data, PackageStreamWriter* stream) override;
@@ -26,6 +27,8 @@ public:
 	bool CompareLessElement(const void* v1, const void* v2) override;
 
 	std::string PrintValue(const void* data) override;
+	void SetValueFromString(void* data, const std::string& valueString) override;
+	size_t ImportText(const std::string& text, size_t pos, void* data) override;
 
 	void MarkValue(GCMarker& marker, void* data) override;
 	void MarkNames(void* data) override;

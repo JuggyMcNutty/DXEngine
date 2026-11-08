@@ -8,15 +8,13 @@
 // a map that is not there, Engine.dll 0x1038c6ab/0x1038e62c: LOADING,
 // "Failed launching URL" over the error for 6 s, the level playing on,
 // Current emptied first). 00_Intro's DeusExLevelInfo1 names "Intro";
-// 99_Endgame1-3 name "Endgame1"-"Endgame3": none is a map. DXEngine's
-// ?restart (Engine.cpp TakeTravel, RestartURL) calls LoadMap with no check,
-// and its package's open throws ("Could not open .../Maps/Intro.dx"), which
-// stops the engine.
+// 99_Endgame1-3 name "Endgame1"-"Endgame3": none is a map. Both engines
+// alike (bugs.md PKG.30).
 //
 // From the menu map: 3 s in, `open 00_Intro`; 3 s into the intro the
 // console's RestartLevel; 4 s later the map and the player's progress
-// lines; then an exit. The original's log: the restart's LoadMap of Intro
-// and its failure, the intro playing on; DXEngine's: the fatal error.
+// lines; then an exit. The log: the restart's LoadMap of Intro and its
+// failure, the intro playing on.
 //=============================================================================
 class RestartNameConsole extends SaveConsole;
 

@@ -349,3 +349,15 @@ void UStructProperty::SetValueFromString(void* data, const std::string& valueStr
 		});
 	}
 }
+
+// Delimited, as a fixed array's element: the parentheses at pos and what
+// they hold, the original's import reading one struct and returning past its
+// ")" (Core.dll 0x101698b0); refused where there is none
+size_t UStructProperty::ImportDelimitedText(const std::string& text, size_t pos, void* data)
+{
+	size_t end = ParenthesisedEnd(text, pos);
+	if (end == std::string::npos)
+		return ImportFailed;
+	SetValueFromString(data, text.substr(pos, end - pos));
+	return end;
+}

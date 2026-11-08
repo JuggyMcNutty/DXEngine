@@ -830,16 +830,3 @@ public:
 	Expression* Operands[2] = {};
 };
 
-struct FunctionArgInfo
-{
-	int size = 0;
-	int flags = 0; // 1 = out parameter
-};
-
-class FunctionArgumentsExpression : public Expression
-{
-public:
-	void Visit(ExpressionVisitor* visitor) override { visitor->Expr(this); }
-
-	Array<FunctionArgInfo> args;
-};

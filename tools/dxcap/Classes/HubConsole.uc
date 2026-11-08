@@ -18,10 +18,12 @@
 // ?peer, its file's own with an option starting "load", and 0 for any other
 // travel (0x1038e5b0 on); a level that comes from Current is entered by a
 // URL without PUSH, POP, PEER or LOAD (FURL 0x103f7f31-0x103f7faf), so 0.
-// Expected: the original's HubStackLevel 0, 1, 1, 2, 1, 0 at steps 1 to 6,
-// and gamefiles/Save/Game0000.dxs (the island) and Game0001.dxs (Battery
-// Park) after the run; DXEngine's 0 throughout (Engine.cpp:1237), no file.
-// Remove the two Game*.dxs files and Current after the run.
+// Expected: HubStackLevel 0, 1, 1, 2, 1, 0 at steps 1 to 6, and
+// gamefiles/Save/Game0000.dxs (the island) and Game0001.dxs (Battery Park)
+// after the run (bugs.md PKG.39). The original asserts at step 4's ?push
+// from Battery Park (UStruct::CleanupDestroyed, BarkManager), its run
+// ending there with Game0000.dxs alone; DXEngine does not copy that.
+// Remove the Game*.dxs files and Current after the run.
 //=============================================================================
 class HubConsole extends Console;
 

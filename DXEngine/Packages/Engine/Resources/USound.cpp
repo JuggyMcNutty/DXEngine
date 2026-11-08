@@ -15,7 +15,10 @@ void USound::Load(ObjectStream* stream)
 	UObject::Load(stream);
 
 	Format = stream->ReadName();
-	if (stream->GetVersion() >= 63)
+	// The data a lazy array, its skip offset from version 62 on, as the
+	// original's reads one (Engine.dll 0x10371140, the test at 0x1037118c;
+	// USound::Serialize 0x1036f900), as a song's (UMusic)
+	if (stream->GetVersion() > 61)
 		stream->ReadUInt32(); // lazy array skip offset
 	// The count from the file, held before the allocation: a negative one was
 	// up to 4 GB
@@ -31,11 +34,11 @@ void USound::Save(PackageStreamWriter* stream)
 	UObject::Save(stream);
 
 	stream->WriteName(Format);
-	if (stream->GetVersion() >= 63)
+	if (stream->GetVersion() > 61)
 		stream->BeginSkipOffset();
 	stream->WriteIndex((int)Data.size());
 	stream->WriteBytes(Data.data(), (uint32_t)Data.size());
-	if (stream->GetVersion() >= 63)
+	if (stream->GetVersion() > 61)
 		stream->EndSkipOffset();
 }
 

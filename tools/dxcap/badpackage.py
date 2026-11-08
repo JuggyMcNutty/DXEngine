@@ -21,9 +21,10 @@ as it is: 100 the original reads, no reader of its testing a version above
 table another of the same length, so that no offset moves: MyLevel to
 MyLevex makes a map with no MyLevel, an imported package's name (one of
 --imports' "package" lines) a map importing a package that is not there,
-each refused by the original's map check (StaticLoadObject of MyLevel,
-Engine.dll 0x1038c6ab) and stopping DXEngine; a sound's name (Sink to Sinx)
-a map both engines load. Only a package of version 64 or later is renamed.
+each refused by both engines' map check (StaticLoadObject of MyLevel,
+Engine.dll 0x1038c6ab); a sound's name (Sink to Sinx) or a texture's
+(ClenMedmWalnt_A to ClenMedmWalnt_q) a map both engines load, the object
+None. Only a package of version 64 or later is renamed.
 
 A map: <out> in a folder of its own, named in DXCAP_MAPS, under a name of
 its own (BadMap.dx, BadVer.dx, NoLevel.dx), so the game's own map is left

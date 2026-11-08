@@ -19,6 +19,7 @@ public:
 	void SetValueFromString(void* data, const std::string& valueString) override;
 	void SetDelimitedValueFromString(void* data, const std::string& valueString) override;
 	size_t ImportText(const std::string& text, size_t pos, void* data) override;
+	size_t ImportDelimitedText(const std::string& text, size_t pos, void* data) override;
 	std::string PrintValue(const void* data) override;
 	bool IsDefaultValue(void* val) override;
 };

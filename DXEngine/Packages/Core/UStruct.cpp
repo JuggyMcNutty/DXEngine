@@ -384,17 +384,6 @@ ExprToken UStruct::ReadToken(ObjectStream* stream, int depth)
 		PushIndex(name);
 		while (ReadToken(stream, depth) != ExprToken::EndFunctionParms);
 	}
-	else if (token == ExprToken::LetBool && stream->GetVersion() <= 63)
-	{
-		while (true)
-		{
-			uint8_t size = stream->ReadUInt8();
-			PushUInt8(size);
-			if (size == 0)
-				break;
-			PushUInt8(stream->ReadUInt8());
-		}
-	}
 	else
 	{
 		switch (token)
@@ -402,7 +391,7 @@ ExprToken UStruct::ReadToken(ObjectStream* stream, int depth)
 		case ExprToken::LocalVariable: PushIndex(stream->ReadIndex()); break;
 		case ExprToken::InstanceVariable: PushIndex(stream->ReadIndex()); break;
 		case ExprToken::DefaultVariable: PushIndex(stream->ReadIndex()); break;
-		case ExprToken::Return: if (stream->GetVersion() > 61) ReadToken(stream, depth); break;
+		case ExprToken::Return: ReadToken(stream, depth); break;
 		case ExprToken::Switch: PushUInt8(stream->ReadUInt8()); ReadToken(stream, depth); break;
 		case ExprToken::Jump: PushUInt16(stream->ReadUInt16()); break;
 		case ExprToken::JumpIfNot: PushUInt16(stream->ReadUInt16()); ReadToken(stream, depth); break;

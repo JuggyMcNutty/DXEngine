@@ -115,7 +115,11 @@ other `Save%04d`, a negative one too -- `SaveGame(-3)` writes Save-003, and
 -- and the Load Game screen lists every `Save*` folder, both of
 those among them, by name, as the original's `FindFiles` on NTFS gives them,
 by upper case, `[`, `\`, `]`, `^`, `_` and `` ` `` after the letters
-(`SlotConsole`). A bare `?loadgame`, a slot named by no number, is no load,
+(`SlotConsole`). A new slot takes the number past the highest of the
+`Save` folders' whole numbers, by choice, where the original's reads each
+folder's number past its first digit (DeusEx.dll `0x10017cc0`), so that
+`Save1000` counts as 0 and its 1001st save can overwrite a slot. A bare
+`?loadgame`, a slot named by no number, is no load,
 as the original's browse asks for `loadgame=`: the console's `open` of it
 goes to the default map, `Index.dx`, which is not there, so the level's own
 map is loaded again, as for any map not there (below): from the menu map the
@@ -247,20 +251,64 @@ every pawn with a player, as the original's game engine's tick exports them
 A travel to a map that is not there fails after the pre-travel, as the
 original's browse does, with its message for 6 s: Core's `Failed launching
 URL` over `Can't find file '<map>'` -- a console's `open` of one too, which
-travels as any. Within the map's mission the level plays on as the
-pre-travel left it, pruned and saved into `Current`: the player without its
-augmentations, skills and flag base. For any other map `Current` is emptied
-and the level's own map loaded again on the travel's URL, with its travel
-info: the level begins again from `Maps`, the message gone with the pawn
-that showed it, or stays where its URL names no map there, one from
+travels as any. The map's load paints its LOADING frame before it checks
+the map, as the original's does, so the pauser goes and the sounds stop
+whether the map loads or not. Within the map's mission the level plays on
+as the pre-travel left it, pruned and saved into `Current`, after its
+SAVING and LOADING frames: the player without its augmentations, skills and
+flag base. For any other map `Current` is emptied and the level's own map
+loaded again on the travel's URL, with its travel info, its LOADING frame
+painted again: the level begins again from `Maps`, the message gone with
+the pawn that showed it, or stays where its URL names no map there, one from
 `Current` or restarted (`BrowseConsole`: a missing map outside any mission
-and one of the island's, alike in both engines). The console's
+and one of the island's, alike in both engines; `FailLoadingConsole`: SAVING
+then LOADING within the mission, LOADING twice outside any, and the pauser
+'' after a travel asked while paused, in both engines). A travel's URL
+writes its player options -- `Name`, `Team`, `Class`, `Skin`, `Face`,
+`Voice`, `OverrideClass` -- to the user ini's `[DefaultPlayer]` once its
+map is in, as the original's map load writes them, so one that loads no
+level writes none (`FailLoadingConsole`: `?Name=DXCapBob` to a map not
+there leaving `Player`, in both engines). The check is the original's
+check of the map's package: a map not there, not a package, with no
+`MyLevel`, or importing a package -- or one a package it imports imports
+-- that is not on the paths fails the load before anything of the level
+goes, logged as the original's logs it, a map of a version above the
+game's own read as the original reads one (`LocalMapConsole` on the
+sweep's `badpackage2.py` maps: the start on `Dx.Dx` for `NoLevel.dx`,
+`Failed to find object 'Level None.MyLevel'`, and `NoPkg.dx`, `Can't find
+file for package 'CoreTexGlasz'`, and on `BadVer.dx`, version 100, in both
+engines); a join's map that fails it gives the join up, `Connection failed`
+over the error for 4 s (read: Engine.dll `0x10390f1e`-`0x10390f71`). A
+travel asked during a travel's own browse -- by the console's tick under its
+SAVING or LOADING frame -- is dropped, as the original's game engine
+empties the viewport's travel after the browse, and one asked while a
+server's next map loads waits for the next frame (`LoadTravelConsole`: an
+`open` during the island's LOADING and one during SAVING dropped in both
+engines). The console's
 `switchlevel` is the player's exec function, whose `ServerTravel`
 Deus Ex's `LevelInfo` passes over in standalone: no travel there. A
 `?restart` (the console's `RestartLevel`) loads the `DeusExLevelInfo`'s map
 again with `?loadonly` and no other option, carrying nothing: the player
 starts afresh, its login with no name, as the original's
 ([travel and saving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/deusex-dll.md#the-game-engine-travel-and-saving)).
+Where that names no map -- 00_Intro's `Intro`, 99_Endgame1 to 3's
+`Endgame1` to `Endgame3` -- the restart fails as any load that fails its
+check, `Current` emptied first, and the level plays on (`RestartNameConsole`
+on 00_Intro: `Can't find file 'Intro'`, the intro on, in both engines); a
+server's restart on DXMP_Area51Bunker, whose names none, alike, its next
+URL cleared. `?push`, `?pop` and `?peer` give the new level's
+`HubStackLevel` as the original's map load gives it: the level left's plus
+one, one less but not under 0, the same; a save's load its file's own, and
+any other travel, a level from `Current`'s too, 0. A `?push` saves the level
+left into the save path's `Game%04i.dxs`, numbered by its own; nothing loads
+it, the original's `?pop` looking for `Game%i.usa` and travelling as any
+(`HubConsole`: 0, 1 and 1 at the island, UNATCO HQ and Battery Park, and
+`Game0000.dxs`, in both engines; the original's second `?push` then
+asserts, which DXEngine does not copy, going on with 2, 1 and 0). No
+stock map, exit or script travels so, nor reads `HubStackLevel`. Differs
+(bugs.md PKG.42): a hub save holds the player's pawn, where the
+original's holds none, its map load destroying the player before the save,
+as DXEngine's does at no map's load.
 
 While a map loads or a level is saved the screen shows one frame, painted
 before the work, as the original's does
@@ -324,27 +372,39 @@ transient package; Deus Ex's own scripts write `new(None)` or
 `new(Self)`. The console object is named after its class and a number, as
 the original's.
 
-Differs (bugs.md PKG.29): the Load and Save Game screens' row for a slot
-with no SaveInfo reads Current, and its Load empties Current, where the
-original's reads `Save-002` and loads nothing. Differs (bugs.md PKG.30):
-`RestartLevel` on a map whose DeusExLevelInfo names no map (00_Intro,
-99_Endgame1 to 3) stops the engine, the original's failing softly. Differs
-(bugs.md PKG.31): a save on a level with no DeusExLevelInfo (99_Endgame4) is
-written, the original's saving nothing. Differs (bugs.md PKG.32): a map with
-no `MyLevel`, or importing a package that is not there, stops the engine,
-where the original's falls back to Dx.Dx; one of version 100 or more is
-refused, the original reading it. Differs (bugs.md PKG.33): a travel in play
-to a map not there paints no LOADING frame and keeps the pause, and the
-URL's player keys are saved at its ask. Differs (bugs.md PKG.34): a travel
-asked during a load's frames is taken, the original's dropping it. Differs
-(bugs.md PKG.35): a saved level is named by its package, the original's by
-its DeusExLevelInfo's `MapName`. Differs (bugs.md PKG.36): a `SavePath`
-whose parent is not there, a slot's folder in another case,
-`GetMapsDirectory`'s duplicates. Differs (bugs.md PKG.37): the console's
-`SAVEGAME` and `DELETEGAME` take a signed slot and `SAVEGAME` a description,
-where the original's act only on a digit and save with the level's Title.
-Differs (bugs.md PKG.39): `?push`, `?pop` and `?peer` keep `HubStackLevel`
-at 0 and write no hub save. By choice, `GetSaveFreeSpace` measures the save
+A save writes its SaveInfo into its slot alone, as the original's; the
+Load and Save Game screens read a slot's as the original's `GameDirectory`
+reads it, -1 the quick save's and any other number's `Save%04d`'s, so the
+row of a folder whose SaveInfo is missing (`SaveInfoMissing;;;;-2`) shows
+none, `Save-002` having one only after a save to slot -2. The load of slot -2
+reads `Current`'s SaveInfo, which only a load's copy of a slot puts there:
+with none it loads nothing; with the quick save's (`DirectoryIndex` -1) it
+copies the quick save and loads it; with another's it empties `Current`,
+copies `Save-002` and fails (`MissingSlotConsole`: `GetSaveInfo(-2)` None
+after slot 9's save, its load nothing, and after a quick load the quick
+save, in both engines). A save on a level with no DeusExLevelInfo
+(99_Endgame4, the credits' dance party) saves nothing, logging `WARNING!
+DeusExLevelInfo MISSING!`, and a level saved, its file and its SaveInfo's
+`MapName`, is named by its DeusExLevelInfo's `MapName`: 99_Endgame1's file
+is `Endgame1.dxs`, thirteen stock maps' in another case than the map's
+(`NoInfoSaveConsole`: no `Save0009`, and `Current` holding `Endgame1.dxs`,
+in both engines). A slot's folder is made with the folders it is in, as the
+original's makes the whole tree, so a first save into a `SavePath` whose
+parent is not there is written (`SaveConsole` with
+`SavePath=..\DXCapSaves\Deep`: `DXCapSaves\Deep\Save0009` in both engines);
+a slot's folder, `Current` and their files are found in any case, as
+Windows' file system finds them, so a slot whose folder is spelt `save0009`
+loads (`LoadConsole` on `SaveConsole`'s slot, its folder renamed, in both
+engines); and a slot's copy takes its save files, `*.dxs`, alone. The Load
+Map window lists each map once, in any case, the first path's, as the
+original's `GetMapsDirectory` passes over a name it has listed
+(`MapListConsole` with `02_nyc_bar.dx` in `DXCAP_MAPS`'s folder: it alone,
+in both engines). The console's `SAVEGAME` and `DELETEGAME` act only when
+the text after the word begins with a digit, their slot its leading digits,
+and `SAVEGAME`'s description is always none, the save taking the level's
+Title, as the original's game engine reads them; every other form is taken,
+doing nothing (`SaveWordsConsole`: slots 71 and 72 saved, `+73`, `-74` and
+`DELETEGAME +71` doing nothing, in both engines). By choice, `GetSaveFreeSpace` measures the save
 folder's file system, held to the largest int, where the original's
 measures the current directory's drive, wrapping past 2 TiB free, and
 answers 0 when the call fails.
@@ -3408,7 +3468,10 @@ What DXEngine does with each:
   is not a package, and a slot whose level's file is not, as the
   original's map load checks the package before anything of the level goes
   (`LOAD_Verify`): `The file '<file>' contains unrecognizable data`, then
-  `Failed to load '<map>': Aborted`, the slot's start browsing `DX.dx`; a
+  `Failed to load '<map>': Aborted` and `Failed to load 'Level
+  None.MyLevel': Aborted`, the slot's start browsing `DX.dx`; and so is a
+  start map with no `MyLevel` or importing a package that is not there
+  (above, [saving](#saving-loading-and-travel)); a
   file cut short within its header is fatal in both, as the original's
   reader stops there (`LocalMapConsole` with `tools/dxcap/badpackage.py`'s
   files: `BadMap.dx` starting on `Dx.Dx`, `?loadgame=9` on `DX.dx`, each
@@ -3816,15 +3879,56 @@ D3D11 device keeps Surreal Engine's
 REN.58): the D3D11 device's detail textures in one band, its blends
 unclamped in float buffers, no depth step for movers, `RenderScale` ignored.
 
-Differs (bugs.md VM.31, VM.32): a fixed array's and a map's values, text and
-replication, which no stock package has. Differs (bugs.md VM.33): Core's
-`PointerProperty` and `StringProperty`, which the original's Core.dll has
-not. By choice, a save's exports are made whatever their flags, where the
-original's makes only those of the load's context: its saves flag every
-export for both, and DXEngine's older saves wrote spawned actors without
-them. Differs (bugs.md PKG.38): an import its package lacks loads as None,
-where the original refuses the package. Differs (bugs.md PKG.40): a sound's
-and a mip's skip offset read from version 63, the original's from 62.
+A fixed array (`FixedArrayProperty`) and a map (`MapProperty`), which no
+stock package has, are the original's
+([a property's text](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#a-propertys-text)):
+a fixed array's elements read and written each by its inner property, in a
+package's or a save's tag, a struct and a dynamic array, its size taken from
+its inner once that is loaded, its text `(a,b,c)` for `GET`,
+`GetPropertyText`, the ini and the travel, read from a `(` with the array
+zeroed first, one character passed over after each element, the last's too,
+then a `)`, and copied whole by a `Let`, an argument and a return; a map's
+text empty, its ini key written none, nothing of one in a struct read, and
+neither sent nor read by replication (`FixedMapConsole` on `fixedmap.py`'s
+`DXCapture.u`: `(0,0,0)` as loaded, `(4,5,6)` and `(7,8,9,)` taken, `(1,2)`
+as `(1,2,0)`, `GET` and `SET` alike, `Mapped` empty throughout and `OneB`
+`(5)` after the `Let`, in both engines). A map's own tag, which no engine
+writes, is skipped whole, by choice, where the original reads nothing of it
+and takes its bytes for the next tag's. Core's classes are among the
+original's 35: none is `PointerProperty` or `StringProperty`. By choice, a
+save's exports are made whatever their flags, where the original's makes only
+those of the load's context: its saves flag every export for both, and
+DXEngine's older saves wrote spawned actors without them. An export of a
+class named `Camera`, the editor's viewport, is never made, a reference to it
+None, as the original's linker makes none.
+Every import is checked as its package opens, as the original's linker
+checks each
+([packages](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)):
+the export of its name in the package its outermost import names, of exactly
+its class by name and package, directly in the group its outer found or at
+the package's top, a Mesh found as a LodMesh too, UnrealShare standing for
+UnrealI; one that is not public refuses the package (Core's
+`FailedImportPrivate`), and one not found refuses it (Core's `FailedImport`),
+but for a texture's, a palette's, a sound's or a song's, which is None
+(`LocalMapConsole` on `badpackage.py`'s bar with a sound's name renamed,
+`Sink` to `Sinx`, and with a texture's, `ClenMedmWalnt_A` to
+`ClenMedmWalnt_q`: the start on it in both engines), so a map or a package a
+script loads that another version of a package does not suit is refused
+whole, a map's load failing as its check fails (`LocalMapConsole` on the
+sweep's `BadImport.dx`: "Failed to load 'BadImport.dx': Can't find Class in
+file 'Class DeusEx.Mission0X'", the start on Dx.Dx, in both engines). In a
+save, one not found is None too, where the original refuses the save
+(bugs.md D.75): the camera of a third-person conversation going on as its
+level was left, which ConSys makes in package `DeusEx`, is one, the original
+never entering that level again (`ConSaveConsole`: Battery Park left 3 s in,
+during its first conversation, entered again from the street in DXEngine;
+the original's load of it failing, "Can't find ConCamera in file 'ConCamera
+DeusEx.ConCamera0'", the player kept in the street). A sound's, a song's and a mip's skip offset is
+read from package version 62 on (`OldVerConsole`: `vergen.py`'s version-62
+`MoverSFX.uax` and `CoreTexStucco.utx` load as their sources in both
+engines), a string's count at every version and a name's NUL ending below
+64, and a function's code at any version as the original's reads it, a
+`LetBool` its two expressions and a `Return` its one.
 
 ## Multiplayer
 

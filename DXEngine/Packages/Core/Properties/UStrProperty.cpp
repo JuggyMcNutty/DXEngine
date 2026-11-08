@@ -74,6 +74,20 @@ size_t UStrProperty::ImportText(const std::string& text, size_t pos, void* data)
 	return pos;
 }
 
+// Delimited, the original's ReadToken from pos (Core.dll 0x10167980,
+// 0x10164cb0): a quoted string's content, its escapes undone, the position
+// past its closing quote; a run of letters, digits, _ and -; else the one
+// character there, the position left on it. A quoted string left open is
+// refused.
+size_t UStrProperty::ImportDelimitedText(const std::string& text, size_t pos, void* data)
+{
+	std::string token;
+	if (!ReadToken(text, pos, token))
+		return ImportFailed;
+	*(ScriptString*)data = UTF8ToScript(token);
+	return pos;
+}
+
 // A struct member's or an array element's text, as the original's delimited
 // import reads it (UStrProperty::ImportText, Core.dll 0x10167980, by
 // ParseToken): a quoted string's content, its escapes undone, else one bare
