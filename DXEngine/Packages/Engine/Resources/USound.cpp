@@ -210,15 +210,16 @@ Array<float> USound::Decode()
 	}
 
 	// GetSamples counts frames, ReadSamples samples: a stereo sound's are
-	// twice its frames
+	// twice its frames. The sound is the samples decoded and no more, as
+	// Galaxy's loader holds a WAV's data as it is (Galaxy.dll 0x10619d20),
+	// so its voice ends at its data's end (GalaxyMixer::MixVoice)
 	Array<float> decoded;
-	#define ALIGN(x, a) ((x & ~(a-1)) + a)
 	channels = source->GetChannels();
 	// A count past 256 M floats (a gigabyte) is no sound of the game's
 	if ((size_t)source->GetSamples() * channels > ((size_t)1 << 28))
 		Exception::Throw("Sound too large");
-	decoded.resize(ALIGN((size_t)source->GetSamples() * channels, 4));
-	decoded.resize(ALIGN(source->ReadSamples(decoded.data(), decoded.size()), 4));
+	decoded.resize((size_t)source->GetSamples() * channels);
+	decoded.resize(source->ReadSamples(decoded.data(), decoded.size()));
 
 	frequency = source->GetFrequency();
 	duration = decoded.size() / (float)channels / (float)frequency;

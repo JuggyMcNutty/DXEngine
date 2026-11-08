@@ -105,6 +105,9 @@ public:
 	virtual void OnWindowDpiScaleChanged() = 0;
 	// Maximize asked of the window (GameWindow::OnWindowMaximize)
 	virtual void OnWindowMaximize() = 0;
+	// The screen saver or the display's power-down asked of it, refused
+	// (GameWindow::OnWindowScreenSaver)
+	virtual void OnWindowScreenSaver(bool displayPower) = 0;
 };
 
 class GameWindow : public Widget
@@ -154,6 +157,7 @@ protected:
 	void OnWindowActivated() override;
 	void OnWindowDeactivated() override;
 	bool OnWindowMaximize() override;
+	bool OnWindowScreenSaver(bool displayPower) override;
 
 private:
 	Array<Size> QueryAvailableResolutions() const;

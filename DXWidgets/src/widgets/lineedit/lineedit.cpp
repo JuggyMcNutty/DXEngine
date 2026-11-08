@@ -3,6 +3,9 @@
 #include "core/utf8reader.h"
 #include "core/colorf.h"
 #include <algorithm>
+#include <iomanip>
+#include <locale>
+#include <sstream>
 
 LineEdit::LineEdit(Widget* parent) : Widget(parent)
 {
@@ -66,10 +69,14 @@ float LineEdit::GetTextFloat() const
 	return (float)std::atof(text.c_str());
 }
 
+// The selection held within the text: a start of -1 (no selection yet) or
+// past a text cut shorter read as none, not as an offset
 std::string LineEdit::GetSelection() const
 {
-	int start = std::min(selection_start, selection_start + selection_length);
-	return text.substr(start, std::abs(selection_length));
+	int size = (int)text.size();
+	int start = std::clamp(std::min(selection_start, selection_start + selection_length), 0, size);
+	int end = std::clamp(std::max(selection_start, selection_start + selection_length), 0, size);
+	return text.substr(start, end - start);
 }
 
 int LineEdit::GetSelectionStart() const
@@ -172,16 +179,28 @@ void LineEdit::SetPasswordMode(bool enable)
 	}
 }
 
+// The text cut to its first length characters, as InsertText counts them
+// (none for a negative length, no limit), never inside one, and the cursor,
+// the selection and the scroll held within what is left
 void LineEdit::SetMaxLength(int length)
 {
 	if (max_length != length)
 	{
 		max_length = length;
-		if ((int)text.length() > length)
+		if (length >= 0 && (int)UTF8Reader::utf8_length(text) > length)
 		{
 			if (FuncBeforeEditChanged)
 				FuncBeforeEditChanged();
-			text = text.substr(0, length);
+			UTF8Reader utf8_reader(text.data(), text.length());
+			for (int i = 0; i < length && !utf8_reader.is_end(); i++)
+				utf8_reader.next();
+			text = text.substr(0, utf8_reader.position());
+			int size = (int)text.size();
+			cursor_pos = std::min(cursor_pos, size);
+			clip_start_offset = std::min(clip_start_offset, size);
+			clip_end_offset = std::min(clip_end_offset, size);
+			SetTextSelection(0, 0);
+			UpdateTextClipping();
 			if (FuncAfterEditChanged)
 				FuncAfterEditChanged();
 		}
@@ -251,6 +270,8 @@ void LineEdit::DeleteSelectedText()
 	int sel_end = selection_start + selection_length;
 	if (sel_start > sel_end)
 		std::swap(sel_start, sel_end);
+	sel_start = std::clamp(sel_start, 0, (int)text.size());
+	sel_end = std::clamp(sel_end, 0, (int)text.size());
 
 	text = text.substr(0, sel_start) + text.substr(sel_end, text.size());
 	cursor_pos = sel_start;
@@ -364,6 +385,10 @@ void LineEdit::OnMouseLeave()
 
 void LineEdit::OnKeyChar(std::string chars)
 {
+	// Read-only takes no typing, as it takes no key that edits
+	if (readonly)
+		return;
+
 	if (FuncFilterKeyChar)
 	{
 		chars = FuncFilterKeyChar(chars);
@@ -596,7 +621,7 @@ void LineEdit::OnKeyDown(InputKey key)
 	}
 	else if (key == InputKey::Shift)
 	{
-		if (selection_start == -1)
+		if (selection_length == 0)
 			SetTextSelection(cursor_pos, 0);
 	}
 
@@ -671,11 +696,13 @@ void LineEdit::Move(int steps, bool ctrl, bool shift)
 	}
 
 
-	// Clear the selection if a cursor key is pressed but shift isn't down. 
+	// Clear the selection if a cursor key is pressed but shift isn't down:
+	// to none, as SetText leaves it, not to a start of -1, which the copy
+	// read as an offset
 	if (shift)
 		SetSelectionLength(cursor_pos - selection_start);
 	else
-		SetTextSelection(-1, 0);
+		SetTextSelection(0, 0);
 
 	UpdateTextClipping();
 
@@ -1136,12 +1163,15 @@ void LineEdit::OnPaint(Canvas* canvas)
 	}
 }
 
+// A drag past the box's edge scrolls the text and goes on selecting, from
+// the place the drag began: a move as with Shift held, never one that
+// clears the selection
 void LineEdit::OnScrollTimerExpired()
 {
 	if (mouse_moves_left)
-		Move(-1, false, false);
+		Move(-1, false, true);
 	else
-		Move(1, false, false);
+		Move(1, false, true);
 }
 
 void LineEdit::OnEnableChanged()
@@ -1176,14 +1206,14 @@ Size LineEdit::GetVisualTextSize(Canvas* canvas) const
 	return canvas->measureText(GetFont(), password_mode ? CreatePassword(UTF8Reader::utf8_length(text)) : text).size();
 }
 
+// The number at its places, its whole part and its fraction in full: 0.05
+// at 6 places is 0.050000, -0.5 is -0.500000, whatever the locale's point
 std::string LineEdit::ToFixed(float number, int num_decimal_places)
 {
-	for (int i = 0; i < num_decimal_places; i++)
-		number *= 10.0f;
-	std::string val = std::to_string((int)std::round(number));
-	if ((int)val.size() < num_decimal_places)
-		val.resize(num_decimal_places + 1, 0);
-	return val.substr(0, val.size() - num_decimal_places) + "." + val.substr(val.size() - num_decimal_places);
+	std::ostringstream stream;
+	stream.imbue(std::locale::classic());
+	stream << std::fixed << std::setprecision(std::max(num_decimal_places, 0)) << number;
+	return stream.str();
 }
 
 std::string LineEdit::ToLower(const std::string& text)

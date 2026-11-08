@@ -316,6 +316,11 @@ public:
 	// in full screen, and come out of it as they go full screen
 	// (ShowFullscreen)
 	virtual bool OnWindowMaximize() = 0;
+	// The screen saver, or the display's power-down (displayPower), asked
+	// of the window (Windows' SC_SCREENSAVE, SC_MONITORPOWER): true where the
+	// host refuses it, the game's window, as the original's refuses both
+	// (WinDrv.dll 0x1110b157-0x1110b238); a widget window lets them through
+	virtual bool OnWindowScreenSaver(bool displayPower) = 0;
 };
 
 class DisplayWindow

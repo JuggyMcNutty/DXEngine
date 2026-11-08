@@ -91,8 +91,8 @@ void SpanLayout::DrawLayoutEllipsis(Canvas* canvas, const Rect& content_rect)
 	ellipsis_content_rect = content_rect;
 	try
 	{
-		is_ellipsis_draw = false;
 		DrawLayout(canvas);
+		is_ellipsis_draw = false;
 	}
 	catch (...)
 	{

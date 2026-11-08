@@ -168,6 +168,14 @@ bool GameWindow::OnWindowMaximize()
 	return true;
 }
 
+// The screen saver and the display's power-down are refused, the engine
+// logging each (Engine::OnWindowScreenSaver)
+bool GameWindow::OnWindowScreenSaver(bool displayPower)
+{
+	windowHost->OnWindowScreenSaver(displayPower);
+	return true;
+}
+
 std::unique_ptr<GameWindow> GameWindow::Create(GameWindowHost* windowHost, RenderDeviceType type)
 {
 	RenderAPI api;

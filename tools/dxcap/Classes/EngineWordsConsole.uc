@@ -33,6 +33,14 @@
 //               String line, 0x1038111d-0x10381129, which pushes the
 //               string's first character for a %s: so only a bad one here)
 //   SOCKETS     '' (no net driver in single player: no taker)
+//   MLOD, TLOD, MLMODE, MLFIX   the renderer's settings, none given:
+//               "0.250000", "3.000000", "1", "1.000000" (URender::Exec,
+//               Render.dll 0x10b147b0; URender::Init 0x10b134d7-0x10b134ef)
+//   REND LEAK   "Rendering option recognized", twice, the option back off
+//   MEM         '' (the allocator's dump, whose lines the game's build
+//               leaves out)
+//   OBJ MARK, OBJ MARKCHECK     '' (to the log: "Marking objects", then
+//               "Unmarked objects:" and each object made between)
 //   EXIT        "Closing by request"
 // DXEngine fe46ad13, by reading: '' for every one, an "Unknown command"
 // line in its log for each but GET and SET ("Could not find class") and
@@ -81,4 +89,13 @@ defaultproperties
 	Words(9)="OBJ REFS CLASS=Class NAME=DeusExPlayer"
 	Words(10)="CRACKURL DX.dx?Name=Two Words"
 	Words(11)="SOCKETS"
+	Words(12)="MLOD"
+	Words(13)="TLOD"
+	Words(14)="MLMODE"
+	Words(15)="MLFIX"
+	Words(16)="REND LEAK"
+	Words(17)="REND LEAK"
+	Words(18)="MEM"
+	Words(19)="OBJ MARK"
+	Words(20)="OBJ MARKCHECK"
 }

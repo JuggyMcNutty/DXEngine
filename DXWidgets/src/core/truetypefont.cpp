@@ -618,10 +618,12 @@ uint32_t TrueTypeFont::GetGlyphIndex(uint32_t c) const
 
 void TrueTypeFont::LoadCharacterMapEncoding(TrueTypeFileReader& reader)
 {
-	// Look for the best encoding available that we support
+	// Look for the best encoding available that we support: the full Unicode
+	// tables first, Windows' (3,10) and Unicode's own (0,4), then those of the
+	// Basic Multilingual Plane alone
 
 	TTF_EncodingRecord record;
-	if (!record.subtableOffset) record = cmap.GetEncoding(3, 12);
+	if (!record.subtableOffset) record = cmap.GetEncoding(3, 10);
 	if (!record.subtableOffset) record = cmap.GetEncoding(0, 4);
 	if (!record.subtableOffset) record = cmap.GetEncoding(3, 1);
 	if (!record.subtableOffset) record = cmap.GetEncoding(0, 3);
@@ -664,7 +666,11 @@ void TrueTypeFont::LoadCharacterMapEncoding(TrueTypeFileReader& reader)
 					int offset = idRangeOffset / 2 + (c - startCode) - ((int)subformat.segCount - i);
 					if (offset >= 0 && (size_t)offset < subformat.glyphIdArray.size())
 					{
+						// The array's glyph takes the segment's delta too,
+						// modulo 65536, but for 0, the missing glyph
 						ttf_uint32 glyphId = subformat.glyphIdArray[offset];
+						if (glyphId != 0)
+							glyphId = (ttf_uint16)(glyphId + idDelta);
 						if (firstGlyph)
 						{
 							range.startGlyphID = glyphId;
@@ -1722,6 +1728,15 @@ void TrueTypeFileWriter::WriteVersion16Dot16(ttf_Version16Dot16 value)
 
 /////////////////////////////////////////////////////////////////////////////
 
+// A DICT operator's operand, there or thrown for: one the font leaves out
+// was read past the operands
+static double Operand(const std::vector<double>& operands, size_t index)
+{
+	if (index >= operands.size())
+		throw std::runtime_error("Missing CFF dict operand");
+	return operands[index];
+}
+
 void TTF_CFF::Load(TrueTypeFileReader& reader)
 {
 	Header.major = reader.ReadCard8();
@@ -1756,6 +1771,85 @@ void TTF_CFF::Load(TrueTypeFileReader& reader)
 		reader.Seek(PrivateDict.Subrs);
 		LocalSubroutines = reader.ReadIndex();
 	}
+
+	// A CID-keyed font (its Top DICT's ROS) keeps a Private DICT, and its
+	// local subroutines, for each Font DICT of its FDArray, which FDSelect
+	// gives each glyph, format 0 a byte a glyph, format 3 by ranges (Adobe
+	// TN #5176, 19): the Top DICT has none of its own
+	if (TopDict.FDArray != 0 && TopDict.FDSelect != 0)
+	{
+		reader.Seek(TopDict.FDArray);
+		std::vector<CFFObjectData> fontDicts = reader.ReadIndex();
+		for (const CFFObjectData& fontDict : fontDicts)
+		{
+			std::vector<CFFObjectData> subroutines;
+			CFFObjectData privateDict = LoadFontDictPrivate(reader, fontDict);
+			if (privateDict.Size != 0)
+			{
+				CFFPrivateDict fontPrivate = LoadPrivateDict(reader, privateDict);
+				if (fontPrivate.Subrs != 0)
+				{
+					reader.Seek(fontPrivate.Subrs);
+					subroutines = reader.ReadIndex();
+				}
+			}
+			FontDictSubroutines.push_back(std::move(subroutines));
+		}
+
+		reader.Seek(TopDict.FDSelect);
+		uint8_t format = reader.ReadCard8();
+		GlyphFontDicts.assign(CharStrings.size(), 0);
+		if (format == 0)
+		{
+			for (uint8_t& fontDict : GlyphFontDicts)
+				fontDict = reader.ReadCard8();
+		}
+		else if (format == 3)
+		{
+			uint16_t ranges = reader.ReadCard16();
+			uint32_t first = reader.ReadCard16();
+			for (uint16_t i = 0; i < ranges; i++)
+			{
+				uint8_t fontDict = reader.ReadCard8();
+				uint32_t next = reader.ReadCard16(); // the next range's first, or the sentinel
+				for (uint32_t glyph = first; glyph < next && glyph < GlyphFontDicts.size(); glyph++)
+					GlyphFontDicts[glyph] = fontDict;
+				first = next;
+			}
+		}
+		else
+		{
+			throw std::runtime_error("Unsupported CFF FDSelect format");
+		}
+	}
+}
+
+// A Font DICT's Private DICT, its size and offset (operator 18); the rest of
+// it, its name and matrix, unused here
+CFFObjectData TTF_CFF::LoadFontDictPrivate(TrueTypeFileReader& reader, CFFObjectData obj)
+{
+	reader.Seek(obj.Offset);
+	size_t endpos = obj.Offset + obj.Size;
+	std::vector<double> operands;
+	CFFObjectData privateDict;
+	while (reader.Position() < endpos)
+	{
+		uint8_t b0 = reader.ReadCard8();
+		if (reader.IsOperand(b0))
+		{
+			operands.push_back(reader.ReadOperand(b0));
+		}
+		else
+		{
+			if (reader.ReadOperator(b0) == 18)
+			{
+				privateDict.Size = (size_t)(int)Operand(operands, 0);
+				privateDict.Offset = (size_t)(int)Operand(operands, 1);
+			}
+			operands.clear();
+		}
+	}
+	return privateDict;
 }
 
 std::string TTF_CFF::GetName(TrueTypeFileReader& reader, int index)
@@ -1818,6 +1912,9 @@ static const char* CFFStandardStrings[391] =
 
 std::string TTF_CFF::GetString(TrueTypeFileReader& reader, int index)
 {
+	// A string id below 0 names none: it read before the standard strings
+	if (index < 0)
+		throw std::runtime_error("CFF index out of bounds");
 	if (index < 391)
 		return CFFStandardStrings[index];
 	index -= 391;
@@ -1857,53 +1954,53 @@ CFFTopDict TTF_CFF::LoadTopDict(TrueTypeFileReader& reader, int index)
 
 			switch (oper)
 			{
-			case 0: topdict.version = GetString(reader, (int)operands[0]); break;
-			case 1: topdict.Notice = GetString(reader, (int)operands[0]); break;
-			case 1200: topdict.Copyright = GetString(reader, (int)operands[0]); break;
-			case 2: topdict.FullName = GetString(reader, (int)operands[0]); break;
-			case 3: topdict.FamilyName = GetString(reader, (int)operands[0]); break;
-			case 4: topdict.Weight = GetString(reader, (int)operands[0]); break;
-			case 1201: topdict.isFixedPitch = (operands[0] == 1.0); break;
-			case 1202: topdict.ItalicAngle = operands[0]; break;
-			case 1203: topdict.UnderlinePosition = operands[0]; break;
-			case 1204: topdict.UnderlineThickness = operands[0]; break;
-			case 1205: topdict.PaintType = operands[0]; break;
-			case 1206: topdict.CharstringType = operands[0]; break;
+			case 0: topdict.version = GetString(reader, (int)Operand(operands, 0)); break;
+			case 1: topdict.Notice = GetString(reader, (int)Operand(operands, 0)); break;
+			case 1200: topdict.Copyright = GetString(reader, (int)Operand(operands, 0)); break;
+			case 2: topdict.FullName = GetString(reader, (int)Operand(operands, 0)); break;
+			case 3: topdict.FamilyName = GetString(reader, (int)Operand(operands, 0)); break;
+			case 4: topdict.Weight = GetString(reader, (int)Operand(operands, 0)); break;
+			case 1201: topdict.isFixedPitch = (Operand(operands, 0) == 1.0); break;
+			case 1202: topdict.ItalicAngle = Operand(operands, 0); break;
+			case 1203: topdict.UnderlinePosition = Operand(operands, 0); break;
+			case 1204: topdict.UnderlineThickness = Operand(operands, 0); break;
+			case 1205: topdict.PaintType = Operand(operands, 0); break;
+			case 1206: topdict.CharstringType = Operand(operands, 0); break;
 			case 1207:
 				for (int i = 0; i < 6; i++)
-					topdict.FontMatrix[i] = operands[i];
+					topdict.FontMatrix[i] = Operand(operands, i);
 				break;
-			case 13: topdict.UniqueID = operands[0]; break;
+			case 13: topdict.UniqueID = Operand(operands, 0); break;
 			case 5:
 				for (int i = 0; i < 4; i++)
-					topdict.FontBBox[i] = operands[i];
+					topdict.FontBBox[i] = Operand(operands, i);
 				break;
-			case 1208: topdict.StrokeWidth = operands[0]; break;
+			case 1208: topdict.StrokeWidth = Operand(operands, 0); break;
 			case 14: topdict.XUID = operands; break;
-			case 15: topdict.charset = (size_t)(int)operands[0]; break;
-			case 16: topdict.Encoding = (size_t)(int)operands[0]; break;
-			case 17: topdict.CharStrings = (size_t)(int)operands[0]; break;
+			case 15: topdict.charset = (size_t)(int)Operand(operands, 0); break;
+			case 16: topdict.Encoding = (size_t)(int)Operand(operands, 0); break;
+			case 17: topdict.CharStrings = (size_t)(int)Operand(operands, 0); break;
 			case 18:
-				topdict.PrivateDict.Size = (size_t)(int)operands[0];
-				topdict.PrivateDict.Offset = (size_t)(int)operands[1];
+				topdict.PrivateDict.Size = (size_t)(int)Operand(operands, 0);
+				topdict.PrivateDict.Offset = (size_t)(int)Operand(operands, 1);
 				break;
-			case 1220: topdict.SyntheticBase = operands[0]; break;
-			case 1221: topdict.Postscript = GetString(reader, (int)operands[0]); break;
-			case 1222: topdict.BaseFontName = GetString(reader, (int)operands[0]); break;
+			case 1220: topdict.SyntheticBase = Operand(operands, 0); break;
+			case 1221: topdict.Postscript = GetString(reader, (int)Operand(operands, 0)); break;
+			case 1222: topdict.BaseFontName = GetString(reader, (int)Operand(operands, 0)); break;
 			case 1223: topdict.BaseFontBlend = operands; break;
 			case 1230:
-				topdict.Registry = GetString(reader, (int)operands[0]);
-				topdict.Ordering = GetString(reader, (int)operands[1]);
-				topdict.Supplement = operands[2];
+				topdict.Registry = GetString(reader, (int)Operand(operands, 0));
+				topdict.Ordering = GetString(reader, (int)Operand(operands, 1));
+				topdict.Supplement = Operand(operands, 2);
 				break;
-			case 1231: topdict.CIDFontVersion = operands[0]; break;
-			case 1232: topdict.CIDFontRevision = operands[0]; break;
-			case 1233: topdict.CIDFontType = operands[0]; break;
-			case 1234: topdict.CIDCount = operands[0]; break;
-			case 1235: topdict.UIDBase = operands[0]; break;
-			case 1236: topdict.FDArray = (size_t)(int)operands[0]; break;
-			case 1237: topdict.FDSelect = (size_t)(int)operands[0]; break;
-			case 1238: topdict.FontName = GetString(reader, (int)operands[0]); break;
+			case 1231: topdict.CIDFontVersion = Operand(operands, 0); break;
+			case 1232: topdict.CIDFontRevision = Operand(operands, 0); break;
+			case 1233: topdict.CIDFontType = Operand(operands, 0); break;
+			case 1234: topdict.CIDCount = Operand(operands, 0); break;
+			case 1235: topdict.UIDBase = Operand(operands, 0); break;
+			case 1236: topdict.FDArray = (size_t)(int)Operand(operands, 0); break;
+			case 1237: topdict.FDSelect = (size_t)(int)Operand(operands, 0); break;
+			case 1238: topdict.FontName = GetString(reader, (int)Operand(operands, 0)); break;
 			default:
 				throw std::runtime_error("Unknown CFF topdict operand");
 			}
@@ -1940,20 +2037,20 @@ CFFPrivateDict TTF_CFF::LoadPrivateDict(TrueTypeFileReader& reader, CFFObjectDat
 			case 7: privdict.OtherValues = operands; break;
 			case 8: privdict.FamilyBlues = operands; break;
 			case 9: privdict.FamilyOtherBlues = operands; break;
-			case 1209: privdict.BlueScale = operands[0]; break;
-			case 1210: privdict.BlueShift = operands[0]; break;
-			case 1211: privdict.BlueFuzz = operands[0]; break;
-			case 10: privdict.StdHW = operands[0]; break;
-			case 11: privdict.StdVW = operands[0]; break;
+			case 1209: privdict.BlueScale = Operand(operands, 0); break;
+			case 1210: privdict.BlueShift = Operand(operands, 0); break;
+			case 1211: privdict.BlueFuzz = Operand(operands, 0); break;
+			case 10: privdict.StdHW = Operand(operands, 0); break;
+			case 11: privdict.StdVW = Operand(operands, 0); break;
 			case 1212: privdict.StemSnapH = operands; break;
 			case 1213: privdict.StemSnapV = operands; break;
-			case 1214: privdict.ForceBold = (operands[0] == 1.0); break;
-			case 1217: privdict.LanguageGroup = operands[0]; break;
-			case 1218: privdict.ExpansionFactor = operands[0]; break;
-			case 1219: privdict.initialRandomSeed = operands[0]; break;
-			case 19: privdict.Subrs = obj.Offset + (size_t)(int)operands[0]; break;
-			case 20: privdict.defaultWidthX = operands[0]; break;
-			case 21: privdict.norminalWidthX = operands[0]; break;
+			case 1214: privdict.ForceBold = (Operand(operands, 0) == 1.0); break;
+			case 1217: privdict.LanguageGroup = Operand(operands, 0); break;
+			case 1218: privdict.ExpansionFactor = Operand(operands, 0); break;
+			case 1219: privdict.initialRandomSeed = Operand(operands, 0); break;
+			case 19: privdict.Subrs = obj.Offset + (size_t)(int)Operand(operands, 0); break;
+			case 20: privdict.defaultWidthX = Operand(operands, 0); break;
+			case 21: privdict.norminalWidthX = Operand(operands, 0); break;
 			default:
 				throw std::runtime_error("Unknown CFF topdict operand");
 			}
@@ -2059,6 +2156,9 @@ TrueTypeGlyph TrueTypeFont::LoadCFFGlyph(uint32_t glyphIndex, double height) con
 
 	if (glyphIndex >= cff.CharStrings.size())
 		throw std::runtime_error("Glyph index out of bounds");
+
+	// A CID-keyed font's local subroutines are its glyph's Font DICT's
+	const std::vector<CFFObjectData>& localSubroutines = glyphIndex < cff.GlyphFontDicts.size() && cff.GlyphFontDicts[glyphIndex] < cff.FontDictSubroutines.size() ? cff.FontDictSubroutines[cff.GlyphFontDicts[glyphIndex]] : cff.LocalSubroutines;
 
 	TrueTypeFileReader reader = cff.Record.GetReader(data->data(), data->size());
 	reader.Seek(cff.CharStrings[glyphIndex].Offset);
@@ -2669,22 +2769,23 @@ TrueTypeGlyph TrueTypeFont::LoadCFFGlyph(uint32_t glyphIndex, double height) con
 				}
 				operands.clear();
 				break;
+			// The stems left on the stack as a mask comes are a vstem's,
+			// which Type 2 lets the mask follow without its operator (Adobe
+			// TN #5177, 4.3), counted with the rest, a width before them as
+			// the first stack-clearing operator's: too few counted read too
+			// few mask bytes, the rest taken for the charstring
 			case 19: // hintmask
-				if (widthArg)
-				{
-					widthArg = false;
-				}
-				for (int i = 0; i < hintCount; i += 8)
-				{
-					reader.ReadCard8();
-				}
-				operands.clear();
-				break;
 			case 20: // cntrmask
 				if (widthArg)
 				{
+					if (operands.size() % 2 == 1)
+					{
+						//widthValue = cff.PrivateDict.norminalWidthX + operands.get(0);
+						operands.pop_front();
+					}
 					widthArg = false;
 				}
+				hintCount += operands.size() / 2;
 				for (int i = 0; i < hintCount; i += 8)
 				{
 					reader.ReadCard8();
@@ -2825,16 +2926,16 @@ TrueTypeGlyph TrueTypeFont::LoadCFFGlyph(uint32_t glyphIndex, double height) con
 				callstack.push_back({ reader.Position(), endpos });
 				tmp = operands.get(-1);
 				operands.pop(1);
-				if (cff.LocalSubroutines.size() < 1240)
+				if (localSubroutines.size() < 1240)
 					tmp += 107;
-				else if (cff.LocalSubroutines.size() < 33900)
+				else if (localSubroutines.size() < 33900)
 					tmp += 1131;
 				else
 					tmp += 32768;
-				if ((int)tmp < 0 || (int)cff.LocalSubroutines.size() <= (int)tmp)
+				if ((int)tmp < 0 || (int)localSubroutines.size() <= (int)tmp)
 					throw std::runtime_error("CFF local subroutine index out of bounds");
-				reader.Seek(cff.LocalSubroutines[(int)tmp].Offset);
-				endpos = cff.LocalSubroutines[(int)tmp].Offset + cff.LocalSubroutines[(int)tmp].Size;
+				reader.Seek(localSubroutines[(int)tmp].Offset);
+				endpos = localSubroutines[(int)tmp].Offset + localSubroutines[(int)tmp].Size;
 				break;
 			case 29: // callgsubr
 				if (callstack.size() >= 10)

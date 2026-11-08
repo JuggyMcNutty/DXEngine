@@ -1,5 +1,6 @@
 #include "widgets/treeview/treeview.h"
 #include "widgets/scrollbar/scrollbar.h"
+#include <algorithm>
 
 TreeView::TreeView(Widget* parent) : Widget(parent)
 {
@@ -119,13 +120,29 @@ void TreeView::RemoveItem(int index)
     if (index < 0)
         index = static_cast<int>(m_VisibleNodes.size()) - 1;
 
-    if (m_SelectedItem == index)
-        SetSelectedItem(0);
+    // The node goes with its subtree, and the rows are made again from the
+    // tree: its children shown under it were rows too, left pointing at the
+    // nodes freed. The selection stays on its node where that is kept, the
+    // first row selected where it went with the removed one
+    TreeNode* removed = m_VisibleNodes[index];
+    TreeNode* selected = m_SelectedItem >= 0 && m_SelectedItem < (int)m_VisibleNodes.size() ? m_VisibleNodes[m_SelectedItem] : nullptr;
+    for (TreeNode* node = selected; node; node = node->GetParentNode())
+    {
+        if (node == removed)
+        {
+            selected = nullptr;
+            break;
+        }
+    }
 
-    if (m_VisibleNodes[index]->GetParentNode())
-        m_VisibleNodes[index]->GetParentNode()->RemoveChildNode(m_VisibleNodes[index]);
+    if (removed->GetParentNode())
+        removed->GetParentNode()->RemoveChildNode(removed);
 
-    m_VisibleNodes.erase(m_VisibleNodes.begin() + index);
+    RebuildVisibleNodes();
+    auto it = std::find(m_VisibleNodes.begin(), m_VisibleNodes.end(), selected);
+    m_SelectedItem = selected && it != m_VisibleNodes.end() ? (int)(it - m_VisibleNodes.begin()) : 0;
+    if (!selected && !m_VisibleNodes.empty() && OnChanged)
+        OnChanged(m_SelectedItem);
     m_Scrollbar->SetRanges(m_Body->GetHeight(), m_VisibleNodes.size() * m_Body->GetItemHeight());
     Update();
 }
@@ -206,7 +223,11 @@ double TreeView::GetMinimumHeight()
 
 void TreeView::Activate()
 {
-    if (m_SelectedItem >= 0 && m_VisibleNodes[m_SelectedItem]->HasChildNodes())
+    // An empty tree has no row to activate
+    if (m_SelectedItem < 0 || m_SelectedItem >= (int)m_VisibleNodes.size())
+        return;
+
+    if (m_VisibleNodes[m_SelectedItem]->HasChildNodes())
     {
         m_VisibleNodes[m_SelectedItem]->ToggleChildrenVisible();
         RebuildVisibleNodes();
@@ -517,13 +538,13 @@ void TreeNode::AddChildNode(std::initializer_list<std::string> columns)
     m_ChildNodes.push_back(std::move(newNode));
 }
 
+// Its one entry erased, the loop ending there: it went on from the erased
+// entry, past the vector's end for the last
 void TreeNode::RemoveChildNode(const TreeNode* node)
 {
-    for (auto it = m_ChildNodes.cbegin() ; it != m_ChildNodes.cend() ; ++it)
-    {
-        if (it->get() == node)
-            m_ChildNodes.erase(it);
-    }
+    auto it = std::find_if(m_ChildNodes.begin(), m_ChildNodes.end(), [=](const std::unique_ptr<TreeNode>& child) { return child.get() == node; });
+    if (it != m_ChildNodes.end())
+        m_ChildNodes.erase(it);
 }
 
 size_t TreeNode::GetVisibleItemCount() const

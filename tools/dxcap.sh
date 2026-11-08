@@ -94,6 +94,9 @@
 # as it exits: a killed original run has none.
 # DXCAP_FLAGS="<flags>" puts the original's flags (-norunaway) on its command
 # line, and on DXEngine's by --cmdline.
+# DXCAP_STDIN=<script> makes what the script prints, as it runs, a dxe run's
+# standard input, a background job's /dev/null otherwise: a dedicated
+# server's typed lines (TypedServer with tools/dxcap/typedlines.sh).
 # DXCAP_CONFIG="<key>=<value> ..." gives the run's console class those keys
 # in its section of the ini, and DXCAP_MISSION_MAP=<map> its TargetMap, the
 # map it travels to: an original run starts at its menu map, a dxe run at
@@ -958,6 +961,12 @@ run_dxe() {
         bpid=$!
         GRAB_PID=$bpid
     fi
+    # DXCAP_STDIN's script, by its path before the run's cd
+    local stdin=""
+    if [ -n "${DXCAP_STDIN:-}" ]; then
+        stdin="$(realpath "$DXCAP_STDIN")"
+        [ -f "$stdin" ] || die "no script $DXCAP_STDIN"
+    fi
     local rc=0
     (
         cd "$GAME"
@@ -1013,7 +1022,11 @@ run_dxe() {
         # A map of - is no URL: the engine's own start (LocalMapConsole)
         local url=(--url="$map")
         [ "$map" != - ] || url=()
-        timeout -s KILL "$secs" "${run[@]}" --no-launcher "$(enginepath "$GAME")" "${inis[@]}" "${url[@]}" "${userdir[@]}" "${args[@]}" > "$dir/engine.log" 2>&1 &
+        if [ -n "$stdin" ]; then
+            timeout -s KILL "$secs" "${run[@]}" --no-launcher "$(enginepath "$GAME")" "${inis[@]}" "${url[@]}" "${userdir[@]}" "${args[@]}" > "$dir/engine.log" 2>&1 < <(sh "$stdin") &
+        else
+            timeout -s KILL "$secs" "${run[@]}" --no-launcher "$(enginepath "$GAME")" "${inis[@]}" "${url[@]}" "${userdir[@]}" "${args[@]}" > "$dir/engine.log" 2>&1 &
+        fi
         local tpid=$! mpid="" perfpid="" epid="" wpid="" i=0
         # Under wine, timeout's child is start.exe, which starts the engine
         # as a process of its own, passes on its exit code, and leaves it

@@ -121,6 +121,14 @@ Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost, WidgetType
 	if (!owner)
 		exstyle |= WS_EX_APPWINDOW;
 
+	// A device's window, the game's, keeps the display on while it is open,
+	// as SDL's window keeps it (SDL3's SetThreadExecutionState): the
+	// original's refusal of the screen saver and the power-down (WM_SYSCOMMAND
+	// below) kept it on with the systems of its day, where today's power
+	// plan turns the display off by the execution state alone
+	if (!SystemKeys)
+		SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED);
+
 	// A window of its own where Windows puts a new one, as the original's game
 	// window is (WinDrv's OpenWindow, CW_USEDEFAULT); a popup or dialog where
 	// it is set
@@ -130,6 +138,10 @@ Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost, WidgetType
 
 Win32DisplayWindow::~Win32DisplayWindow()
 {
+	ReleaseLockedMouse();
+	if (!SystemKeys)
+		SetThreadExecutionState(ES_CONTINUOUS);
+
 	if (WindowHandle.hwnd)
 	{
 		if (openglContext != 0)
@@ -447,15 +459,16 @@ void Win32DisplayWindow::UnlockKeyboard()
 	}
 }
 
+// The mouse locked, its moves read as raw input, and held as the original's
+// viewport captures it while the window has the focus (SetMouseCapture,
+// WinDrv.dll 0x11108e40, TakeLockedMouse); let go with the focus and taken
+// again with it, as the original's is (WM_KILLFOCUS, 0x1110a0cd)
 void Win32DisplayWindow::LockCursor()
 {
 	if (!MouseLocked)
 	{
 		MouseLocked = true;
 		RawAbsoluteKnown = false;
-		GetCursorPos(&MouseLockPos);
-		if (GetFocus() == WindowHandle.hwnd)
-			::ShowCursor(FALSE);
 
 		RAWINPUTDEVICE rid = {};
 		rid.usUsagePage = HID_USAGE_PAGE_GENERIC;
@@ -463,6 +476,9 @@ void Win32DisplayWindow::LockCursor()
 		rid.dwFlags = RIDEV_INPUTSINK;
 		rid.hwndTarget = WindowHandle.hwnd;
 		RegisterRawInputDevices(&rid, 1, sizeof(RAWINPUTDEVICE));
+
+		if (GetFocus() == WindowHandle.hwnd)
+			TakeLockedMouse();
 	}
 }
 
@@ -477,13 +493,57 @@ void Win32DisplayWindow::UnlockCursor()
 		rid.hwndTarget = 0;
 		RegisterRawInputDevices(&rid, 1, sizeof(rid));
 
+		ReleaseLockedMouse();
 		MouseLocked = false;
-		if (GetFocus() == WindowHandle.hwnd)
-		{
-			SetCursorPos(MouseLockPos.x, MouseLockPos.y);
-			::ShowCursor(TRUE);
-		}
 	}
+}
+
+// The pointer kept where it was, hidden, put in the client area's middle,
+// the capture taken and the pointer clipped to the client rectangle, as the
+// original's SetMouseCapture takes them (0x11108f3c-0x11108f6f,
+// 0x1110908d-0x1110909a): a fast move, a load's hitch or a second display
+// left the pointer outside, and a click woke the window under it
+void Win32DisplayWindow::TakeLockedMouse()
+{
+	if (LockedMouseTaken)
+		return;
+	LockedMouseTaken = true;
+	GetCursorPos(&MouseLockPos);
+	::ShowCursor(FALSE);
+	SetCapture(WindowHandle.hwnd);
+	ClipLockedMouse();
+
+	RECT box = {};
+	GetClientRect(WindowHandle.hwnd, &box);
+	POINT center = {};
+	center.x = box.right / 2;
+	center.y = box.bottom / 2;
+	ClientToScreen(WindowHandle.hwnd, &center);
+	SetCursorPos(center.x, center.y);
+}
+
+// The clip and the capture let go, the pointer back where it was and shown,
+// as the original's release puts it (0x1110901f, 0x11109068-0x1110909a)
+void Win32DisplayWindow::ReleaseLockedMouse()
+{
+	if (!LockedMouseTaken)
+		return;
+	LockedMouseTaken = false;
+	ClipCursor(nullptr);
+	if (GetCapture() == WindowHandle.hwnd)
+		ReleaseCapture();
+	SetCursorPos(MouseLockPos.x, MouseLockPos.y);
+	::ShowCursor(TRUE);
+}
+
+// The client rectangle on the screen, as the original's clip is
+// (GetClientRect and MapWindowPoints, 0x11108eb7-0x11108ecf)
+void Win32DisplayWindow::ClipLockedMouse()
+{
+	RECT box = {};
+	GetClientRect(WindowHandle.hwnd, &box);
+	MapWindowPoints(WindowHandle.hwnd, nullptr, (POINT*)&box, 2);
+	ClipCursor(&box);
 }
 
 void Win32DisplayWindow::CaptureMouse()
@@ -792,8 +852,13 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 			result = GetRawInputData(handle, RID_INPUT, buffer.data(), &size, sizeof(RAWINPUTHEADER));
 			if (result >= 0 && hasFocus)
 			{
+				// No mouse move while Windows' menu is open, as the original's
+				// takes none (its client's flag, set and cleared at
+				// 0x1110b626 and 0x1110b70c, read at 0x1110ada0): raw motion
+				// dispatched in the menu's loop turned the view by all of it
+				// as the menu closed
 				RAWINPUT* rawinput = (RAWINPUT*)buffer.data();
-				if (rawinput->header.dwType == RIM_TYPEMOUSE)
+				if (rawinput->header.dwType == RIM_TYPEMOUSE && !InMenuLoop)
 				{
 					const RAWMOUSE& mouse = rawinput->data.mouse;
 					if (mouse.usFlags & MOUSE_MOVE_ABSOLUTE)
@@ -858,8 +923,15 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 	}
 	else if (msg == WM_MOUSEMOVE)
 	{
+		if (InMenuLoop)
+			return 0;
+
 		if (MouseLocked && GetFocus() != 0)
 		{
+			// The capture taken back where Windows' menu took it
+			if (LockedMouseTaken && GetCapture() != WindowHandle.hwnd)
+				SetCapture(WindowHandle.hwnd);
+
 			RECT box = {};
 			GetClientRect(WindowHandle.hwnd, &box);
 
@@ -945,7 +1017,10 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 		pos.y = GET_Y_LPARAM(lparam);
 		ScreenToClient(WindowHandle.hwnd, &pos);
 
-		WindowHost->OnWindowMouseWheel(Point(pos.x / dpiscale, pos.y / dpiscale), delta < 0.0 ? InputKey::MouseWheelDown : InputKey::MouseWheelUp);
+		// A notch's press by the delta's sign, none for a delta of 0, as the
+		// original's window presses (0x1110b2a7)
+		if (delta != 0.0)
+			WindowHost->OnWindowMouseWheel(Point(pos.x / dpiscale, pos.y / dpiscale), delta < 0.0 ? InputKey::MouseWheelDown : InputKey::MouseWheelUp);
 	}
 	else if (msg == WM_CHAR || msg == WM_SYSCHAR)
 	{
@@ -958,8 +1033,29 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 		// its game leaves (dx-reverse-info/windrv-dll.md, the keys). Any
 		// other would be a mnemonic the window menu has no item for, and
 		// Windows would beep
-		wchar_t buf[2] = { (wchar_t)wparam, 0 };
-		WindowHost->OnWindowKeyChar(from_utf16(buf));
+		// A character past U+FFFF comes as its surrogate pair, a message for
+		// each: the high one kept for the low one after it, the two a
+		// character, where each alone was a U+FFFD
+		wchar_t unit = (wchar_t)wparam;
+		if (unit >= 0xD800 && unit <= 0xDBFF)
+		{
+			HighSurrogate = unit;
+		}
+		else
+		{
+			wchar_t buf[3] = {};
+			if (unit >= 0xDC00 && unit <= 0xDFFF && HighSurrogate)
+			{
+				buf[0] = HighSurrogate;
+				buf[1] = unit;
+			}
+			else
+			{
+				buf[0] = unit;
+			}
+			HighSurrogate = 0;
+			WindowHost->OnWindowKeyChar(from_utf16(buf));
+		}
 		if (msg == WM_SYSCHAR && !SystemKeys && !(wparam == ' ' && KeyboardLocked))
 			return 0;
 	}
@@ -988,16 +1084,12 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 	else if (msg == WM_SETFOCUS)
 	{
 		if (MouseLocked)
-		{
-			::ShowCursor(FALSE);
-		}
+			TakeLockedMouse();
 	}
 	else if (msg == WM_KILLFOCUS)
 	{
 		if (MouseLocked)
-		{
-			::ShowCursor(TRUE);
-		}
+			ReleaseLockedMouse();
 		// No key's release reaches a window without the keyboard: every key
 		// held is let go now, as the X11 and SDL windows let them go
 		for (int i = 0; i < 256; i++)
@@ -1030,6 +1122,28 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 		WindowHost->OnWindowClose();
 		return 0;
 	}
+	else if (msg == WM_SYSCOMMAND && ((wparam & 0xFFF0) == SC_SCREENSAVE || (wparam & 0xFFF0) == SC_MONITORPOWER))
+	{
+		// The screen saver and the display's power-down, in a window or full
+		// screen: the game's window refuses both, the engine logging each, as
+		// the original's (dx-reverse-info/windrv-dll.md, the window's
+		// commands); a widget window lets them through
+		if (WindowHost->OnWindowScreenSaver((wparam & 0xFFF0) == SC_MONITORPOWER))
+			return 0;
+	}
+	else if (msg == WM_ENTERMENULOOP)
+	{
+		// Windows' menu, Alt+Space's: no mouse move taken while it is open
+		// (WM_INPUT, WM_MOUSEMOVE), as the original's (0x1110b626, 0x1110b70c)
+		InMenuLoop = true;
+		return 0;
+	}
+	else if (msg == WM_EXITMENULOOP)
+	{
+		InMenuLoop = false;
+		RawAbsoluteKnown = false;
+		return 0;
+	}
 	else if (msg == WM_SYSCOMMAND && (wparam & 0xFFF0) == SC_MAXIMIZE)
 	{
 		// Maximize -- the caption's box, a double click on the caption
@@ -1046,8 +1160,17 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 	}
 	else if (msg == WM_SIZE)
 	{
+		// The locked mouse's clip follows the client area, as the original
+		// clips it again as it goes full screen (0x1110e0f3)
+		if (LockedMouseTaken)
+			ClipLockedMouse();
 		WindowHost->OnWindowGeometryChanged();
 		return 0;
+	}
+	else if (msg == WM_MOVE)
+	{
+		if (LockedMouseTaken)
+			ClipLockedMouse();
 	}
 	else if (msg == WM_GETMINMAXINFO)
 	{

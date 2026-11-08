@@ -104,7 +104,11 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   when it has no `=`, unless that word starts with `-`.
 - **`--server`** runs a dedicated server of the `--url` map, as the original's `-SERVER`: no
   window, sound or player; `--lanplay` gives it the LAN tick rate
-  ([multiplayer](NATIVES.md#multiplayer)).
+  ([multiplayer](NATIVES.md#multiplayer)). It takes command lines on its standard input, each
+  run as the original's log window runs a typed line (`say <text>`, `servertravel <map>`,
+  `exit`), its output and "Unrecognized command" in the log; the input's end is ignored. On
+  Windows the engine is a windowed program, which a console's prompt hands no input: its
+  input is a pipe or a file given it (`DXEngine.exe --server ... < commands.txt`).
 - **SIGTERM, SIGINT or SIGHUP quits as a closed window does**: at the next frame, the inis
   written back, exit 0, whatever the window (a dedicated server too). A second signal kills at
   once, as a stuck engine needs. The Fatal Error window closes on one within a tenth of a
@@ -356,6 +360,16 @@ By area, as the code stands. Each device's numbers are its port's, such as
   mnemonics hint stays off in it, and the Win32 game window keeps every other character typed
   with Alt from `DefWindowProc`, so that none reaches Windows' menu
   ([a key's name](NATIVES.md#small)).
+- **The engine's own Wayland window** (a dev build's, with waylandpp) draws at the compositor's
+  scale, its buffers and EGL window made again as the scale changes, a fractional one too, and
+  goes full screen on the output it is on. In play the pointer is locked and hidden, its
+  relative motion's fractions kept for the next move. Its text is typed by the locale's compose
+  sequences, a dead key's among them, through no input method (bugs.md WIN.35); keys held as it
+  gains the keyboard are held, not pressed.
+  A GL swap waits for the compositor's frame at most 50 ms, so a window the compositor hides
+  plays on at 20 frames a second, where Mesa's own wait held the game; the software device's
+  frames go into buffers the compositor has let go. A paste of its text is written as the
+  reader takes it, for a second at most, a reader gone ending the write, not the game.
 - **The windows' icon** is `DeusEx.exe`'s icon group 128, as the original's windows show it
   ([the frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#the-frame)),
   read from the game's `System` folder as a window opens (`DXEngine/Utils/PEIcon.cpp`): its
@@ -497,7 +511,9 @@ within a level of their picture without multisampling.
 
 **The GL device** runs desktop GL 4.2+ and OpenGL ES 3.2 from one code path: `RenderAPI::GLES`
 and `RenderDeviceType::GLES`, an ES 3.2 context from every Linux window backend (SDL2 and SDL3
-through `SDL_GL_CONTEXT_PROFILE_ES`, X11 and Wayland through EGL with the ES3 bit), and `IsGLES`
+through `SDL_GL_CONTEXT_PROFILE_ES`, set before the window is made, as SDL chooses a Wayland or
+KMSDRM window's EGL config by it as it makes the window, X11 and Wayland through EGL with the ES3
+bit), and `IsGLES`
 read at init from `glGetString(GL_VERSION)`. It draws at the render scale, as the Vulkan device
 does ([the setting](#settings-the-launcher-exposes)). The same shader sources compile as GLSL ES
 3.20 (`CompileGlsl` prepends the version and highp precision; the sources keep to `u`-suffixed

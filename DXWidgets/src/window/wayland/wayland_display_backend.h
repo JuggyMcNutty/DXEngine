@@ -16,6 +16,7 @@
 #include <map>
 #include <set>
 #include <xkbcommon/xkbcommon.h>
+#include <xkbcommon/xkbcommon-compose.h>
 
 #include "wl_cursor_shape.hpp"
 
@@ -156,6 +157,13 @@ public:
 	wayland::cursor_image_t m_cursorImage;
 	wayland::surface_t m_cursorSurface;
 	wayland::buffer_t m_cursorBuffer;
+	// The cursor theme, loaded once, and the cursor set since the pointer's
+	// last enter (SetCursor)
+	wayland::cursor_theme_t m_cursorTheme;
+	bool m_cursorThemeLoaded = false;
+	StandardCursor m_CurrentCursor = StandardCursor::arrow;
+	bool m_CursorApplied = false;
+	bool m_CursorHidden = false;
 
 	std::map<InputKey, bool> inputKeyStates; // True when the key is pressed, false when isn't
 
@@ -184,9 +192,11 @@ private:
 	void OnCapabilitiesEvent(uint32_t capabilities);
 
 	void StopKeyboardTimers();
+	void ApplyCursor();
 
 	InputKey XKBKeySymToInputKey(xkb_keysym_t keySym);
 	InputKey KeyToInputKey(uint32_t key);
+	std::string KeyText(uint32_t key, wayland::keyboard_key_state state);
 	InputKey LinuxInputEventCodeToInputKey(uint32_t inputCode);
 
 	wayland::cursor_shape_device_v1_shape GetWaylandCursorShape(StandardCursor cursor);
@@ -216,10 +226,16 @@ private:
 	xkb_context* m_KeymapContext = nullptr;
 	xkb_keymap* m_Keymap = nullptr;
 	xkb_state* m_KeyboardState = nullptr;
+	// The locale's compose sequences, a dead key's among them (KeyText)
+	xkb_compose_table* m_ComposeTable = nullptr;
+	xkb_compose_state* m_ComposeState = nullptr;
 
 	WaylandPointerEvent currentPointerEvent = {0};
 	double m_WheelScroll = 0.0;   // the vertical scroll added up since it last turned
 	long m_WheelPressed = 0;      // ...and the notches of it pressed
+	// The relative motion's fractions not yet passed on
+	double m_RawMoveFractionX = 0.0;
+	double m_RawMoveFractionY = 0.0;
 
 	wayland::data_device_t m_DataDevice;
 	std::unordered_map<wayland::data_offer_t, std::set<std::string>, hash_proxy_t> m_DataOfferMimeTypes;

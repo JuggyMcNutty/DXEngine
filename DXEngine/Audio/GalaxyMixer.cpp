@@ -6,7 +6,7 @@
 #include <cmath>
 #include <cstring>
 
-GalaxyMixer::GalaxyMixer(int rate, int channels) : rate(rate), voices(channels)
+GalaxyMixer::GalaxyMixer(int rate, int channels, bool stereo) : rate(rate), voices(channels), stereo(stereo)
 {
 	reverb.lines.resize(3 * Reverb::Length * 2);
 	SetMusicTempo(0.0);
@@ -227,9 +227,21 @@ void GalaxyMixer::Mix(float* output, int frames)
 	if (reverbOn)
 		RunReverb(output, sendBuffer.data(), frames);
 
-	// The samples' mix goes out saturated to 16 bits.
-	for (int i = 0; i < frames * 2; i++)
-		output[i] = std::clamp(output[i], -1.0f, 32767.0f / 32768.0f);
+	// The samples' mix goes out saturated to 16 bits, each side. Mono, as
+	// Galaxy's plain routine mixes it without UseStereo, each voice at the
+	// mean of its two sides' gains: the sides' mean, never saturated on its
+	// own, as that routine adds the sounds' 32-bit mix to the music's 16 bits
+	// and saturates the sum once (Galaxy.dll 0x10623eed; bugs.md AUD.22)
+	if (stereo)
+	{
+		for (int i = 0; i < frames * 2; i++)
+			output[i] = std::clamp(output[i], -1.0f, 32767.0f / 32768.0f);
+	}
+	else
+	{
+		for (int i = 0; i < frames; i++)
+			output[2 * i] = output[2 * i + 1] = 0.5f * (output[2 * i] + output[2 * i + 1]);
+	}
 }
 
 // A side's gain is the square root of its share of the pan: Galaxy's table of
@@ -252,14 +264,16 @@ void GalaxyMixer::MixVoice(Voice& voice, float* dry, float* send, int frames)
 
 	// Each side's gain, and the reverb's at the voice's reverb level of 127
 	// in 128; a sound behind with UseSurround plays centred, its right side
-	// inverted.
+	// inverted, but in mono, where Galaxy's plain routine adds the two
+	// sides' gains whatever the pan (Galaxy.dll 0x10623210), so the fold
+	// keeps it whole.
 	int pan = voice.panning & 0x7fff;
 	int gain = (voice.volume * master) >> 15;
 	int left = (gain * PanGain(0x7fff - pan)) >> 15;
 	int right = (gain * PanGain(pan)) >> 15;
 	int leftSend = (left * 127) >> 7;
 	int rightSend = (right * 127) >> 7;
-	if (voice.panning & 0x8000)
+	if ((voice.panning & 0x8000) && stereo)
 	{
 		right = -right;
 		rightSend = -rightSend;

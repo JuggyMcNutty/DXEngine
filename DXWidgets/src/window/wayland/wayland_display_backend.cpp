@@ -2,6 +2,7 @@
 #include "wayland_display_window.h"
 #include <chrono>
 #include <algorithm>
+#include <cstdlib>
 
 #ifdef USE_DBUS
 #include "window/dbus/dbus_open_file_dialog.h"
@@ -111,11 +112,7 @@ WaylandDisplayBackend::WaylandDisplayBackend()
 	{
 		m_waylandOutput.on_scale() = [this] (int32_t scale) {
 			for (WaylandDisplayWindow* w : s_Windows)
-			{
-				w->m_ScaleFactor = scale;
-				w->m_NeedsUpdate = true;
-				w->windowHost->OnWindowDpiScaleChanged();
-			}
+				w->ApplyScale(scale);
 		};
 	}
 
@@ -166,6 +163,12 @@ WaylandDisplayBackend::WaylandDisplayBackend()
 
 WaylandDisplayBackend::~WaylandDisplayBackend()
 {
+	if (m_ComposeState)
+		xkb_compose_state_unref(m_ComposeState);
+
+	if (m_ComposeTable)
+		xkb_compose_table_unref(m_ComposeTable);
+
 	if (m_KeymapContext)
 		xkb_context_unref(m_KeymapContext);
 
@@ -176,6 +179,25 @@ WaylandDisplayBackend::~WaylandDisplayBackend()
 void WaylandDisplayBackend::ConnectKeyboardEvents()
 {
 	m_KeymapContext = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+
+	// The locale's compose sequences, by LC_ALL, LC_CTYPE and LANG as Xlib
+	// reads them, a dead key's among them: a locale with none types each
+	// key's own text
+	const char* locale = std::getenv("LC_ALL");
+	if (!locale || !*locale)
+		locale = std::getenv("LC_CTYPE");
+	if (!locale || !*locale)
+		locale = std::getenv("LANG");
+	if (!locale || !*locale)
+		locale = "C";
+	if (m_ComposeState)
+		xkb_compose_state_unref(m_ComposeState);
+	if (m_ComposeTable)
+		xkb_compose_table_unref(m_ComposeTable);
+	m_ComposeState = nullptr;
+	m_ComposeTable = m_KeymapContext ? xkb_compose_table_new_from_locale(m_KeymapContext, locale, XKB_COMPOSE_COMPILE_NO_FLAGS) : nullptr;
+	if (m_ComposeTable)
+		m_ComposeState = xkb_compose_state_new(m_ComposeTable, XKB_COMPOSE_STATE_NO_FLAGS);
 
 	m_waylandKeyboard.on_keymap() = [this] (wayland::keyboard_keymap_format format, int fd, uint32_t size) {
 		if (format != wayland::keyboard_keymap_format::xkb_v1)
@@ -217,18 +239,12 @@ void WaylandDisplayBackend::ConnectKeyboardEvents()
 			}
 		}
 
+		// The keys held as the keyboard comes are marked held, not pressed
+		// and typing nothing, as the X11 and SDL windows take the keys held
+		// as they gain the focus: Enter held from the launch typed a line,
+		// and each key held into an Alt+Tab its letter
 		for (auto key: keysVec)
-		{
-			// keys parameter represents the keys pressed when entering the surface
-			// key variable is Linux evdev scancode, to translate it to XKB keycode, we must add 8
-			OnKeyboardKeyEvent(KeyToInputKey(key), wayland::keyboard_key_state::pressed);
-
-			// Also cause a Char event
-			char buf[128];
-			xkb_state_key_get_utf8(m_KeyboardState, key + 8, buf, sizeof(buf));
-
-			OnKeyboardCharEvent(buf, wayland::keyboard_key_state::pressed);
-		}
+			inputKeyStates[KeyToInputKey(key)] = true;
 	};
 
 	m_waylandKeyboard.on_leave() = [this] (uint32_t serial, wayland::surface_t surfaceLeft) {
@@ -251,10 +267,8 @@ void WaylandDisplayBackend::ConnectKeyboardEvents()
 		OnKeyboardKeyEvent(KeyToInputKey(key), state);
 
 		// Also cause a Char event
-		char buf[128];
-		xkb_state_key_get_utf8(m_KeyboardState, key + 8, buf, sizeof(buf));
-
-		OnKeyboardCharEvent(buf, state);
+		std::string text = KeyText(key, state);
+		OnKeyboardCharEvent(text.c_str(), state);
 	};
 
 	m_waylandKeyboard.on_repeat_info() = [this] (int32_t rate, int32_t delay) {
@@ -361,7 +375,19 @@ void WaylandDisplayBackend::ConnectMouseEvents()
 		if (currentPointerEvent.event_mask & POINTER_EVENT_RELATIVE_MOTION)
 		{
 			if (GetMouseLockOwnerWindow() == m_MouseFocusWindow)
-				OnMouseMoveRawEvent(int(currentPointerEvent.dx_unaccel), int(currentPointerEvent.dy_unaccel));
+			{
+				// The deltas are fractions: a fraction is kept for the next
+				// event, not dropped (a touchpad's slow move is all
+				// fractions), as the SDL3 window keeps it
+				double x = currentPointerEvent.dx_unaccel + m_RawMoveFractionX;
+				double y = currentPointerEvent.dy_unaccel + m_RawMoveFractionY;
+				int dx = (int)x;
+				int dy = (int)y;
+				m_RawMoveFractionX = x - dx;
+				m_RawMoveFractionY = y - dy;
+				if (dx != 0 || dy != 0)
+					OnMouseMoveRawEvent(dx, dy);
+			}
 		}
 
 		if (currentPointerEvent.event_mask & POINTER_EVENT_BUTTON)
@@ -429,6 +455,41 @@ void WaylandDisplayBackend::ConnectMouseEvents()
 		// Reset everything once all the events are processed
 		currentPointerEvent = {0};
 	};
+}
+
+// The text a key types: by the locale's compose sequences where it has them
+// -- a dead key types nothing, the letter after it the two composed, a
+// sequence that matches none nothing -- else the key's own, as Xlib's input
+// method composes it in the X11 window
+std::string WaylandDisplayBackend::KeyText(uint32_t key, wayland::keyboard_key_state state)
+{
+	if (!m_KeyboardState)
+		return {};
+	char buf[128] = {};
+	xkb_keycode_t keycode = key + 8;
+	if (state == wayland::keyboard_key_state::pressed && m_ComposeState)
+	{
+		xkb_keysym_t sym = xkb_state_key_get_one_sym(m_KeyboardState, keycode);
+		if (xkb_compose_state_feed(m_ComposeState, sym) == XKB_COMPOSE_FEED_ACCEPTED)
+		{
+			switch (xkb_compose_state_get_status(m_ComposeState))
+			{
+			case XKB_COMPOSE_COMPOSING:
+				return {};
+			case XKB_COMPOSE_COMPOSED:
+				xkb_compose_state_get_utf8(m_ComposeState, buf, sizeof(buf));
+				xkb_compose_state_reset(m_ComposeState);
+				return buf;
+			case XKB_COMPOSE_CANCELLED:
+				xkb_compose_state_reset(m_ComposeState);
+				return {};
+			case XKB_COMPOSE_NOTHING:
+				break;
+			}
+		}
+	}
+	xkb_state_key_get_utf8(m_KeyboardState, keycode, buf, sizeof(buf));
+	return buf;
 }
 
 // The key's name: the key below Escape is the console's whatever its layout
@@ -503,15 +564,12 @@ void WaylandDisplayBackend::OnKeyboardRepeat()
 	}
 }
 
+// The cursor set again for the enter's serial: hidden over a window that
+// holds the pointer locked, which draws its own, as LockCursor hides it
 void WaylandDisplayBackend::OnMouseEnterEvent(uint32_t serial)
 {
-	if (!m_CursorShapeDevice)
-	{
-		m_cursorSurface.attach( m_cursorBuffer, 0, 0);
-		m_cursorSurface.damage(0, 0, m_cursorImage.width(), m_cursorImage.height());
-		m_cursorSurface.commit();
-	}
-	m_waylandPointer.set_cursor(serial, m_cursorSurface, 0, 0);
+	m_CursorApplied = false;
+	ShowCursor(!(m_MouseFocusWindow && m_MouseFocusWindow->m_LockedPointer));
 }
 
 void WaylandDisplayBackend::OnMouseLeaveEvent()
@@ -603,29 +661,60 @@ void WaylandDisplayBackend::StopKeyboardTimers()
 	}
 }
 
+// A widget window sets its cursor at each pointer move: the one set since
+// the last enter is not set again, and the theme is loaded once, not at each
 void WaylandDisplayBackend::SetCursor(StandardCursor cursor, std::shared_ptr<CustomCursor> custom)
 {
+	if (cursor == m_CurrentCursor && m_CursorApplied)
+		return;
+	m_CurrentCursor = cursor;
+	m_CursorApplied = false;
+	if (!m_CursorHidden)
+		ApplyCursor();
+}
+
+// The cursor shown for the last enter's serial: by the cursor shape protocol,
+// or the theme's image on the cursor's own surface
+void WaylandDisplayBackend::ApplyCursor()
+{
+	if (!m_waylandPointer)
+		return;
+	m_CursorApplied = true;
 	if (m_CursorShapeDevice)
 	{
-		// Use cursor shapes protocol
-		m_CursorShapeDevice.set_shape(m_MouseSerial, GetWaylandCursorShape(cursor));
+		m_CursorShapeDevice.set_shape(m_MouseSerial, GetWaylandCursorShape(m_CurrentCursor));
+		return;
 	}
-	else
-	{
-		// Use the older cursor buffer approach
-		std::string cursorName = GetWaylandCursorName(cursor);
 
-		// Perhaps the cursor size can be inferred from the user prefs as well?
-		wayland::cursor_theme_t cursorTheme = wayland::cursor_theme_t("default", 16, m_waylandSHM);
-		wayland::cursor_t obtainedCursor = cursorTheme.get_cursor(cursorName);
-		m_cursorImage = obtainedCursor.image(0);
-		m_cursorBuffer = m_cursorImage.get_buffer();
+	// Perhaps the cursor size can be inferred from the user prefs as well?
+	if (!m_cursorThemeLoaded)
+	{
+		m_cursorTheme = wayland::cursor_theme_t("default", 16, m_waylandSHM);
+		m_cursorThemeLoaded = true;
 	}
+	wayland::cursor_t obtainedCursor = m_cursorTheme.get_cursor(GetWaylandCursorName(m_CurrentCursor));
+	m_cursorImage = obtainedCursor.image(0);
+	m_cursorBuffer = m_cursorImage.get_buffer();
+	m_cursorSurface.attach(m_cursorBuffer, 0, 0);
+	m_cursorSurface.damage(0, 0, m_cursorImage.width(), m_cursorImage.height());
+	m_cursorSurface.commit();
+	m_waylandPointer.set_cursor(m_MouseSerial, m_cursorSurface, m_cursorImage.hotspot_x(), m_cursorImage.hotspot_y());
 }
 
 void WaylandDisplayBackend::ShowCursor(bool enable)
 {
-	m_waylandPointer.set_cursor(m_MouseSerial, enable ? m_cursorSurface : nullptr, 0, 0);
+	m_CursorHidden = !enable;
+	if (!m_waylandPointer)
+		return;
+	if (enable)
+	{
+		m_CursorApplied = false;
+		ApplyCursor();
+	}
+	else
+	{
+		m_waylandPointer.set_cursor(m_MouseSerial, nullptr, 0, 0);
+	}
 }
 
 std::unique_ptr<DisplayWindow> WaylandDisplayBackend::Create(DisplayWindowHost* windowHost, WidgetType type, DisplayWindow* owner, RenderAPI renderAPI)

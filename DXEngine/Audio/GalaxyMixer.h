@@ -29,7 +29,8 @@ struct GalaxySample
 class GalaxyMixer
 {
 public:
-	GalaxyMixer(int rate, int channels);
+	// stereo: else mono, as Galaxy's output without UseStereo (Mix)
+	GalaxyMixer(int rate, int channels, bool stereo = true);
 
 	int GetChannels() const { return (int)voices.size(); }
 
@@ -68,7 +69,9 @@ public:
 	// nullptr, or a master gain of 0, turns the reverb off.
 	void SetReverb(const ReverbSettings* settings);
 
-	// Interleaved stereo, overwritten.
+	// Interleaved stereo, overwritten: each side saturated to 16 bits, or
+	// mono, both channels the two sides' mean, left for the output to
+	// saturate with the music.
 	void Mix(float* output, int frames);
 
 private:
@@ -110,6 +113,7 @@ private:
 	std::mutex mutex;
 	int rate = 44100;
 	std::vector<Voice> voices;
+	bool stereo = true;
 	int master = 0;                 // the voices' common gain, 0-32767
 	std::atomic<int64_t> tickPeriod{ 0 };   // 16.16 output frames between Galaxy's ticks
 	bool reverbOn = false;

@@ -42,6 +42,10 @@ static LRESULT CALLBACK MaximizeCommandProc(HWND hwnd, UINT msg, WPARAM wparam, 
 		return DefWindowProcW(hwnd, msg, wparam, lparam);
 	if (msg == WM_SYSCOMMAND && (wparam & 0xFFF0) == SC_MAXIMIZE && window->WindowHost->OnWindowMaximize())
 		return 0;
+	// The screen saver and the display's power-down the host refuses, as the
+	// Win32 window takes them (SDL refuses both itself, unlogged)
+	if (msg == WM_SYSCOMMAND && ((wparam & 0xFFF0) == SC_SCREENSAVE || (wparam & 0xFFF0) == SC_MONITORPOWER) && window->WindowHost->OnWindowScreenSaver((wparam & 0xFFF0) == SC_MONITORPOWER))
+		return 0;
 	// The window's minimum, its frame too, over SDL's own (which, with no
 	// minimum of SDL's, is the frame alone), as the original's window
 	// answers it (WinDrv.dll 0x1110a812)
@@ -57,9 +61,27 @@ static LRESULT CALLBACK MaximizeCommandProc(HWND hwnd, UINT msg, WPARAM wparam, 
 }
 #endif
 
+// The GL context's version and profile: ES 3.2 (the GL device's ES shaders
+// are GLSL ES 3.20) or desktop 4.2 core (its desktop shaders are GLSL 4.20)
+static void SetGLContextAttributes(bool es)
+{
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, es ? 3 : 4);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, es ? SDL_GL_CONTEXT_PROFILE_ES : SDL_GL_CONTEXT_PROFILE_CORE);
+}
+
 SDL3DisplayWindow::SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, SDL3DisplayWindow* owner, RenderAPI renderAPI) : WindowHost(windowHost), SystemKeys(renderAPI == RenderAPI::Unspecified)
 {
 	m_GLIsES = renderAPI == RenderAPI::GLES;
+
+	// A GL window's attributes before it is made: SDL chooses a Wayland or
+	// KMSDRM window's EGL config as it makes the window, by the profile then
+	// in force (Wayland_CreateWindow, SDL_EGL_ChooseConfig), and the context
+	// on that config, X11's GLX or EGL visual alike; set after, an ES context
+	// sat on a config chosen for desktop GL, which an ES-only EGL (Mali's,
+	// PowerVR's) has none of, the window not made
+	if (renderAPI == RenderAPI::OpenGL || renderAPI == RenderAPI::GLES)
+		SetGLContextAttributes(m_GLIsES);
 
 	unsigned int flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 	if (renderAPI == RenderAPI::Vulkan)
@@ -1203,20 +1225,9 @@ void SDL3DisplayWindow::OnTimerEvent(const SDL_UserEvent& event)
 
 void SDL3DisplayWindow::CreateGLContext()
 {
-	if (m_GLIsES)
-	{
-		// OpenGL ES 3.2: the GL device's ES shaders are GLSL ES 3.20.
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-	}
-	else
-	{
-		// Desktop 4.2 core: the shaders are GLSL 4.20.
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-	}
+	// Set again for the context, as the window was made with them, should
+	// another window have been made since
+	SetGLContextAttributes(m_GLIsES);
 
 	m_GLContext = SDL_GL_CreateContext(Handle.window);
 	// None is an error here, with SDL's reason, so the GL device fails at

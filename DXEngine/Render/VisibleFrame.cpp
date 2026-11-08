@@ -488,6 +488,8 @@ void VisibleFrame::ProcessRenderIterators()
 	// item to item, so each item keeps what the proxy was as it was listed
 	// (dx-reverse-info/render-dll.md, render iterators).
 	UPlayerPawn* viewer = UObject::TryCast<UPlayerPawn>(engine->viewport->Actor());
+	if (!engine->render->ActorsShown)
+		return;
 	for (UActor* actor : engine->render->IteratorActors)
 	{
 		if (actor->bDeleteMe())
@@ -642,9 +644,18 @@ void VisibleFrame::ProcessNode(BspNode* node, size_t fragFirst, size_t fragCount
 		return;
 	}
 
-	// Add bsp node actors to the visible set
+	// Add bsp node actors to the visible set: while the actors are hidden
+	// (RenderSubsystem::ActorsShown), the filed movers alone, the level's
+	// polygons in the original
+	bool actorsShown = engine->render->ActorsShown;
 	for (UActor* actor = node->ActorList; actor != nullptr; actor = actor->BspInfo.Next)
 	{
+		if (!actorsShown)
+		{
+			UMover* mover = UObject::TryCast<UMover>(actor);
+			if (!mover || !mover->Filed)
+				continue;
+		}
 		if (actor->LastDrawFrame != FrameCounter)
 		{
 			actor->LastDrawFrame = FrameCounter;

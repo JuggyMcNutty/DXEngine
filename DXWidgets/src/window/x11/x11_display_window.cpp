@@ -1093,6 +1093,14 @@ InputKey X11DisplayWindow::GetInputKey(XEvent* event)
 		case XK_Shift_R: return InputKey::Shift; // InputKey::RShift
 		case XK_Control_L: return InputKey::Ctrl; // InputKey::LControl
 		case XK_Control_R: return InputKey::Ctrl; // InputKey::RControl
+		// Alt as the original's window presses it for either Alt key
+		// (VK_MENU, WinDrv.dll 0x1110a2a9): the keys' own keysyms, the right
+		// one AltGr's where the layout makes it so (ISO_Level3_Shift), as the
+		// SDL windows take that key by its place, and Meta, Alt with Shift on
+		// most layouts
+		case XK_Alt_L: return InputKey::Alt;
+		case XK_Alt_R: return InputKey::Alt;
+		case XK_ISO_Level3_Shift: return InputKey::Alt;
 		case XK_Meta_L: return InputKey::Alt;
 		case XK_Meta_R: return InputKey::Alt;
 		case XK_Pause: return InputKey::Pause;

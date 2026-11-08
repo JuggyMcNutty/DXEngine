@@ -20,7 +20,12 @@
 //      ConsoleCommand -- the original's APlayerPawn::execConsoleCommand, its
 //      Player's Exec: a remote player's UNetConnection::Exec, then
 //      UPlayer::Exec (0x103ba200, 0x10401c50, 0x103d7ed0).
-//   3. 4 s on, the Ping and PacketLoss again, then an exit.
+//   3. 4 s on, the Ping and PacketLoss again, the player's clipboard natives
+//      (bugs.md WIN.24: the original's Core's clipboard, appClipboardCopy and
+//      appClipboardPaste from APlayerPawn's natives, Engine.dll 0x103df580,
+//      0x103df700): "DxSwordsClip" copied and pasted back, then an exit.
+//      DXEngine 9519eada's server faults there, having no window: run the
+//      build before last.
 //
 // What the original's gives:
 //   1. every word "" (none takes it: no client, render device or viewport on
@@ -114,7 +119,11 @@ event Tick(float Delta)
 		if (StepTime > 4.0)
 		{
 			if (Joined != None)
+			{
 				LogPing("in 9 s");
+				Joined.CopyToClipboard("DxSwordsClip");
+				Log("DXSWORDS: clipboard '" $ Joined.PasteFromClipboard() $ "'");
+			}
 			Log("DXSWORDS: exiting");
 			ConsoleCommand("exit");
 			Step = 9;

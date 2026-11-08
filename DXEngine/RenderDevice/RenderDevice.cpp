@@ -154,8 +154,14 @@ RenderDeviceCanvas::RenderDeviceCanvas(RenderDevice* device) : device(device)
 {
 }
 
+// The scale the window has, and the frame's size the clip is held to, as
+// the bitmap canvas takes them
 void RenderDeviceCanvas::begin(const Colorf& color)
 {
+	Canvas::begin(color);
+	width = device->GetRenderWidth();
+	height = device->GetRenderHeight();
+
 	device->Lock(vec4(0.0f), vec4(0.0f), vec4(color.r, color.g, color.b, color.a));
 
 	frame.XB = 0;
@@ -232,17 +238,50 @@ void RenderDeviceCanvas::drawLineAntialiased(float x0, float y0, float x1, float
 	device->Draw2DLine(&frame, vec4(color.r, color.g, color.b, color.a), 0, vec3(x0, y0, 1.0f), vec3(x1, y1, 1.0f));
 }
 
+// A tile cut to the canvas's clip, its texture's span cut with it, as the
+// bitmap canvas cuts what it draws: the device draws a tile whole. False
+// where nothing of it is left
+bool RenderDeviceCanvas::ClipTile(float& x, float& y, float& width, float& height, float& u, float& v, float& uvwidth, float& uvheight)
+{
+	if (width <= 0.0f || height <= 0.0f)
+		return false;
+	float x0 = std::max(x, (float)getClipMinX());
+	float y0 = std::max(y, (float)getClipMinY());
+	float x1 = std::min(x + width, (float)getClipMaxX());
+	float y1 = std::min(y + height, (float)getClipMaxY());
+	if (x1 <= x0 || y1 <= y0)
+		return false;
+	float uscale = uvwidth / width;
+	float vscale = uvheight / height;
+	u += (x0 - x) * uscale;
+	v += (y0 - y) * vscale;
+	uvwidth = (x1 - x0) * uscale;
+	uvheight = (y1 - y0) * vscale;
+	x = x0;
+	y = y0;
+	width = x1 - x0;
+	height = y1 - y0;
+	return true;
+}
+
 void RenderDeviceCanvas::fillTile(float x, float y, float width, float height, Colorf color)
 {
-	device->DrawTile(&frame, static_cast<RenderDeviceTexture*>(whiteTexture.get())->Info, x, y, width, height, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, vec4(color.r, color.g, color.b, color.a), vec4(0.0f), PF_Highlighted);
+	float u = 0.0f, v = 0.0f, uvwidth = 1.0f, uvheight = 1.0f;
+	if (!ClipTile(x, y, width, height, u, v, uvwidth, uvheight))
+		return;
+	device->DrawTile(&frame, static_cast<RenderDeviceTexture*>(whiteTexture.get())->Info, x, y, width, height, u, v, uvwidth, uvheight, 1.0f, vec4(color.r, color.g, color.b, color.a), vec4(0.0f), PF_Highlighted);
 }
 
 void RenderDeviceCanvas::drawTile(CanvasTexture* texture, float x, float y, float width, float height, float u, float v, float uvwidth, float uvheight, Colorf color)
 {
+	if (!ClipTile(x, y, width, height, u, v, uvwidth, uvheight))
+		return;
 	device->DrawTile(&frame, static_cast<RenderDeviceTexture*>(texture)->Info, x, y, width, height, u, v, uvwidth, uvheight, 1.0f, vec4(color.r, color.g, color.b, color.a), vec4(0.0f), PF_Highlighted);
 }
 
 void RenderDeviceCanvas::drawGlyph(CanvasTexture* texture, float x, float y, float width, float height, float u, float v, float uvwidth, float uvheight, Colorf color)
 {
+	if (!ClipTile(x, y, width, height, u, v, uvwidth, uvheight))
+		return;
 	device->DrawTile(&frame, static_cast<RenderDeviceTexture*>(texture)->Info, x, y, width, height, u, v, uvwidth, uvheight, 1.0f, vec4(color.r, color.g, color.b, color.a), vec4(0.0f), PF_SubpixelFont);
 }

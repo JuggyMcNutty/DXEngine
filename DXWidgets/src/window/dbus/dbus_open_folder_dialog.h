@@ -13,8 +13,6 @@ public:
 	void SetTitle(const std::string& newtitle) override;
 
 private:
-	static std::string unescapeUri(const std::string& s);
-
 	std::string ownerHandle;
 	std::string title;
 	std::string initialDirectory;

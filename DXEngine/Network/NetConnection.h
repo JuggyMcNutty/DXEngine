@@ -165,8 +165,11 @@ public:
 
 	// The lag of the last stats period, the mean of its acks' round trips
 	// less half the frame time, BestLag the same: what GETPING answers
-	float BestLag = 9999.0f;
-	float AvgLag = 9999.0f;
+	// 1 s as the connection is made, as the original's constructor sets it
+	// (Engine.dll 0x104015ee), so GETPING answers 1000 until its first
+	// period
+	float BestLag = 1.0f;
+	float AvgLag = 1.0f;
 	// The incoming and outgoing packets lost in the stats period, in
 	// percent (the original's InLoss and OutLoss): GETLOSS answers InLoss
 	float InLoss = 0.0f;

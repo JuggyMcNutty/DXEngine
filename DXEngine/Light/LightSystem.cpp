@@ -14,6 +14,7 @@
 #include "Utils/Random.h"
 #include "Engine.h"
 #include "Packages/Engine/UDXEngineClient.h"
+#include "Render/RenderSubsystem.h"
 
 LightSystem::LightSystem()
 {
@@ -126,6 +127,7 @@ void LightSystem::BeginFrame()
 	TickRandoms(engine->LevelInfo->TimeSeconds());
 
 	LightTree.Lights.clear();
+	bool actorsShown = engine->render->ActorsShown;
 	for (UActor* actor : engine->Level->Actors)
 	{
 		if (!actor)
@@ -133,6 +135,11 @@ void LightSystem::BeginFrame()
 
 		uint8_t lightType = actor->LightType();
 		if (lightType == LT_None || actor->LightBrightness() == 0)
+			continue;
+
+		// While the actors are hidden no moving light is taken, as the
+		// original's SetupDynamics takes none (RenderSubsystem::ActorsShown)
+		if (!actorsShown && (actor->bDynamicLight() || (!actor->bStatic() && !actor->bNoDelete())))
 			continue;
 
 		// A flickering light draws afresh at each of the lights' steps (Tick),

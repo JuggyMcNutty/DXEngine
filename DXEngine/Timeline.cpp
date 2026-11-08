@@ -95,9 +95,8 @@ void Timeline::Tick(float realElapsed)
 	{
 		LogMessage("DXLIVE: back in the menu after " + std::to_string((int)GameTime) + " s of game; exiting");
 		WasInGame = false;
-		uint32_t foundBits = 0;
-		BitfieldBool found = { &foundBits, 1 };
-		engine->ConsoleCommand(engine->viewport ? engine->viewport->Actor() : nullptr, "exit", found);
+		ExecOutput out;
+		engine->ViewportExec("exit", out);
 		return;
 	}
 
@@ -252,9 +251,8 @@ void Timeline::Run(Action& action)
 
 	std::string command = action.Arg.empty() ? action.Verb : action.Verb + " " + action.Arg;
 	LogMessage("DXLIVE: " + command);
-	uint32_t foundBits = 0;
-	BitfieldBool found = { &foundBits, 1 };
-	engine->ConsoleCommand(engine->viewport ? engine->viewport->Actor() : nullptr, command, found);
+	ExecOutput out;
+	engine->ViewportExec(command, out);
 }
 
 void Timeline::LogPlaces()

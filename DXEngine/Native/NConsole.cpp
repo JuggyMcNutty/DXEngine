@@ -11,18 +11,23 @@ void NConsole::RegisterFunctions()
 	RegisterVMNativeFunc_1("Console", "SaveTimeDemo", &NConsole::SaveTimeDemo, 0);
 }
 
+// The original's (Engine.dll 0x10379900): the viewport runs the line, the
+// console the output, each line of it a message (UConsole::Serialize
+// 0x10379740), and the answer whether anything took the line, which the
+// console's typing says "Unrecognized command" for.
 void NConsole::ConsoleCommand(UObject* Self, const std::string& S, BitfieldBool& ReturnValue)
 {
-	std::string result = engine->ConsoleCommand(Self, S, ReturnValue);
-	if (!result.empty())
+	ExecOutput out;
+	ReturnValue = engine->ViewportExec(S, out);
+	for (const std::string& line : out.Lines)
 	{
+		if (line.empty())
+			continue;
 		// XXX: This depends on how Engine.Console.Message is declared
 		Array<ExpressionValue> exprs = {};
 		exprs.push_back(ExpressionValue::ObjectValue(nullptr));
-		
-		exprs.push_back(ExpressionValue::StringValue(result));
+		exprs.push_back(ExpressionValue::StringValue(line));
 		exprs.push_back(ExpressionValue::NameValue("Console"));
-
 		CallEvent(Self, "Message", exprs);
 	}
 }

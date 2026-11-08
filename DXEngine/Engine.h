@@ -68,6 +68,24 @@ struct MeshFace;
 
 static constexpr int32_t DONT_SAVE_GAME = INT32_MIN; // No slot: -1 is the quick save's, -2 Current's, and the original's SaveGame takes any other number
 
+// What a command writes, a line at a time, as the original's output devices
+// take each Log: a ConsoleCommand's string runs them together (a string
+// device, Engine.dll 0x10374500, adds no line break), the console shows each
+// as a message (UConsole::Serialize 0x10379740), and a dedicated server's
+// typed line logs each.
+struct ExecOutput
+{
+	Array<std::string> Lines;
+	void Log(const std::string& line) { Lines.push_back(line); }
+	std::string Joined() const
+	{
+		std::string text;
+		for (const std::string& line : Lines)
+			text += line;
+		return text;
+	}
+};
+
 class Engine : public GameWindowHost
 {
 public:
@@ -219,10 +237,42 @@ public:
 	int GarbageStressFrames = 0;
 	int GarbageStressCount = 0;
 
-	std::string ConsoleCommand(UObject* context, const std::string& command, BitfieldBool& found);
-	// A command the engine runs itself -- a key's line, an exec file's, the
-	// launcher's Open --, a failure in it logged and the game going on.
-	void RunCommand(UObject* context, const std::string& command);
+	// The original's command layers, each true when one of its words or exec
+	// functions took the line, the first taker winning (dx-reverse-info
+	// engine-dll.md, a key's binding; network.md, the game engine's
+	// commands): the local viewport's -- the console's line, a key's, an exec
+	// file's, the local player's ConsoleCommand -- (UWindowsViewport::Exec);
+	// a player's own (UPlayer::Exec), a remote one's through its connection
+	// first (UNetConnection::Exec); and the game engine's -- an actor's
+	// ConsoleCommand, a dedicated server's typed line, the end of a player's
+	// -- (DDeusExGameEngine::Exec, UGameEngine::Exec, UEngine::Exec).
+	bool ViewportExec(const std::string& line, ExecOutput& out);
+	bool PlayerExec(UPlayerPawn* pawn, const std::string& line, ExecOutput& out);
+	bool ConnectionExec(NetConnection* connection, const std::string& line, ExecOutput& out);
+	bool EngineExec(const std::string& line, ExecOutput& out);
+	// A pawn's ConsoleCommand (APlayerPawn::execConsoleCommand, Engine.dll
+	// 0x103ba200): its own player's -- the viewport's, or a remote player's
+	// connection's --, nothing for a pawn with none.
+	std::string PawnConsoleCommand(UPlayerPawn* pawn, const std::string& line);
+	// A command the engine runs itself on the viewport -- a key's line, an
+	// exec file's, EXEC= --, or on the game engine -- the launcher's Open, as
+	// the original's log window runs it, and any where there is no viewport
+	// --, a failure in it logged and the game going on.
+	void RunCommand(const std::string& command, ExecOutput* out = nullptr, bool onEngine = false);
+	// A dedicated server's typed line (bugs.md D.65): on the game engine as
+	// the original's log window runs one, its output logged.
+	void RunTypedLine(const std::string& typed);
+	// The desktop's clipboard through the window; with none, a dedicated
+	// server's, text the engine holds (bugs.md D.81).
+	void SetClipboard(const std::string& text);
+	std::string GetClipboard();
+	std::string ServerClipboard;
+	// The frames a second the main loop last counted, once a second, as the
+	// original's MainLoop counts them into the engine (GETCURRENTTICKRATE).
+	float CurrentTickRate = 0.0f;
+	// The frames a second the main loop holds itself to, 0 for none
+	// (CalcTimeElapsed, GETMAXTICKRATE).
+	float GetMaxTickRate();
 
 	// The config cache flushed to disk, as the original's every SaveConfig
 	// ends (Core.dll 0x10151540; bugs.md ENG.27): each ini changed since it
@@ -234,12 +284,14 @@ public:
 
 	void UpdateInput(float timeElapsed);
 	void ExecInputLine(const std::string& line, EInputKey key, EInputType action, int value);
-	bool InputExec(const std::string& command, EInputKey key, EInputType action, int value);
+	bool InputExec(const std::string& command, EInputKey key, EInputType action, int value, ExecOutput* out = nullptr);
 
 	void LockCursor();
 	void UnlockCursor();
 
-	bool ExecCommand(const Array<std::string>& args, const std::string& line, std::string& output);
+	// An object's exec functions (the original's ScriptConsoleExec, Core.dll
+	// 0x10150860), the executor the given player or none
+	bool ScriptExec(UObject* target, UObject* executor, const std::string& line, ExecOutput& out);
 	Array<std::string> GetArgs(const std::string& commandline);
 
 	void UpdateAudio();
@@ -302,6 +354,7 @@ public:
 	void OnWindowDeactivated() override;
 	void OnWindowDpiScaleChanged() override;
 	void OnWindowMaximize() override;
+	void OnWindowScreenSaver(bool displayPower) override;
 
 	void SetPause(bool value);
 
@@ -471,12 +524,37 @@ private:
 	};
 	RunOnlySetting runWindowedX, runWindowedY, runFullscreenX, runFullscreenY, runStartupFullscreen;
 
-	// The console's EXEC: each line of a file run as a console command.
-	void ExecFile(UObject* context, const std::string& filename);
+	// The console's EXEC: each line of a file run on the viewport, its output
+	// the command's.
+	void ExecFile(const std::string& filename, ExecOutput& out);
 	// What the launcher sends: its TakeFocus and Open (LauncherLine).
 	void OnLauncherLine(const std::string& line);
 	// RELAUNCH: line the text past the word
 	void Relaunch(const std::string& line);
+
+	// The command layers' parts, in their order (ViewportExec, PlayerExec,
+	// EngineExec): the render device's words, the viewport's own, the
+	// window's; a level's; Deus Ex's game engine's and the game engine's own;
+	// then the engine's: the system's, the objects', the launcher's, the
+	// client's and the renderer's.
+	bool RenderDeviceExec(const std::string& line, ExecOutput& out);
+	bool ViewportWordExec(UPlayerPawn* actor, const std::string& line, ExecOutput& out);
+	bool WindowExec(const std::string& line, ExecOutput& out);
+	bool LevelExec(ULevel* level, const std::string& line, ExecOutput& out);
+	bool GameEngineExec(const std::string& line, ExecOutput& out);
+	bool EngineWordExec(const std::string& line, ExecOutput& out);
+	bool SystemExec(const std::string& line, ExecOutput& out);
+	bool ObjectExec(const std::string& line, ExecOutput& out);
+	bool LauncherExec(const std::string& line, ExecOutput& out);
+	bool RendererExec(const std::string& line, ExecOutput& out);
+	// A dedicated server's OPEN, START, DISCONNECT and RECONNECT: with no
+	// viewport, the original's game engine browses at once, no PreTravel
+	// sent (UGameEngine::Exec, Engine.dll 0x1038a030); here the frame's
+	// travel takes the URL, where no script is running; false, the error
+	// given, for one it refuses at once.
+	bool ServerBrowse(const std::string& text, ETravelType travelType, std::string& error);
+	// OBJ MARK's objects, which OBJ MARKCHECK leaves out
+	std::set<UObject*> markedObjects;
 
 	void LogGamePackageSHA1Sums() const;
 	void GetLevelInfoObject();

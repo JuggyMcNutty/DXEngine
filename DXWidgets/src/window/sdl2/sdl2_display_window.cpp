@@ -17,9 +17,25 @@ std::string SDL2DisplayWindow::SimulatedLayout;
 InputKey SDL2DisplayWindow::PressedAs[SDL_NUM_SCANCODES];
 std::unordered_map<int, SDL2DisplayWindow*> SDL2DisplayWindow::WindowList;
 
+// The GL context's version and profile: ES 3.2 (the shaders are GLSL ES
+// 3.20, sampler layout(binding) being 3.20's) or desktop 4.2 core (GLSL 4.20)
+static void SetGLContextAttributes(bool es)
+{
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, es ? 3 : 4);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, es ? SDL_GL_CONTEXT_PROFILE_ES : SDL_GL_CONTEXT_PROFILE_CORE);
+}
+
 SDL2DisplayWindow::SDL2DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, SDL2DisplayWindow* owner, RenderAPI renderAPI, double uiscale) : WindowHost(windowHost), UIScale(uiscale)
 {
 	m_GLIsES = renderAPI == RenderAPI::GLES;
+
+	// A GL window's attributes before it is made: SDL chooses a Wayland or
+	// KMSDRM window's EGL config as it makes the window, by the profile then
+	// in force, with EGL_OPENGL_ES3_BIT for ES 3, and makes the context on
+	// that config, X11's visual alike (as SDL3's tree does; SDL2's by its)
+	if (renderAPI == RenderAPI::OpenGL || renderAPI == RenderAPI::GLES)
+		SetGLContextAttributes(m_GLIsES);
 
 	unsigned int flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE /*| SDL_WINDOW_ALLOW_HIGHDPI*/;
 	if (renderAPI == RenderAPI::Vulkan)
@@ -1029,22 +1045,10 @@ void SDL2DisplayWindow::OnTimerEvent(const SDL_UserEvent& event)
 
 void SDL2DisplayWindow::CreateGLContext()
 {
-	if (m_GLIsES)
-	{
-		// OpenGL ES 3.2: the shaders are GLSL ES 3.20 (sampler layout(binding)
-		// is 3.20's). SDL then selects an EGL config with EGL_OPENGL_ES3_BIT and
-		// binds EGL_OPENGL_ES_API (verified against SDL 2.30's SDL_egl.c).
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-	}
-	else
-	{
-		// Desktop 4.2 core: the shaders are GLSL 4.20.
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-	}
+	// Set again for the context, as the window was made with them, should
+	// another window have been made since: SDL binds EGL_OPENGL_ES_API for
+	// the ES profile as it makes the context
+	SetGLContextAttributes(m_GLIsES);
 
 	m_GLContext = SDL_GL_CreateContext(Handle.window);
 	// None is an error here, with SDL's reason, so the GL device fails at

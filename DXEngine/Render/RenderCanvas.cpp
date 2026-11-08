@@ -16,6 +16,7 @@
 #include "Engine.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Math/floating.h"
+#include <chrono>
 
 void RenderSubsystem::ResetCanvas()
 {
@@ -88,7 +89,52 @@ void RenderSubsystem::PostRender()
 	if (engine->viewport->Actor())
 		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
 	CallEvent(engine->console, EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
+	// The original renderer's statistics, after the console's PostRender,
+	// with the viewer's RendMap 3 to 6 (URender::PostRender, Render.dll
+	// 0x10b14700)
+	UPlayerPawn* viewer = engine->viewport->Actor();
+	if (viewer && viewer->RendMap() >= 3 && viewer->RendMap() <= 6)
+		DrawStats();
 	DrawTimedemoStats();
+}
+
+// The original's DrawStats (Render.dll 0x10b13a50): the frame's end stamped
+// and the last 32 frames' times taken in, then STAT FPS's line, white in the
+// canvas's small font, centred 10 pixels over the view's bottom: the frame
+// rate, the time between frames' ends and the render's from its start, each
+// the mean of the last 32 frames, the BSP nodes and polygons drawn (each a
+// surface drawn, OccludeBsp 0x10b197db-0x10b197f4 counting both at once),
+// the textures the frame used and their size in K (bugs.md WIN.29). The
+// other panels -- Global, Net, Hardware, Mesh, Zone, Occlusion, Game, Cache
+// -- list the original's own timings, connection counts and caches, which
+// DXEngine does not keep so: their words toggle, drawing nothing.
+void RenderSubsystem::DrawStats()
+{
+	double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+	FrameStats.EndTime = now;
+	FrameStats.Index = (FrameStats.Index + 1) % 32;
+	FrameStats.FrameTimes[FrameStats.Index] = now - FrameStats.LastEndTime;
+	FrameStats.RenderTimes[FrameStats.Index] = now - FrameStats.StartTime;
+	if (!StatPanels[StatFps])
+		return;
+	double frame = 0.0, rendered = 0.0;
+	for (int i = 0; i < 32; i++)
+	{
+		frame += FrameStats.FrameTimes[i];
+		rendered += FrameStats.RenderTimes[i];
+	}
+	frame /= 32.0;
+	rendered /= 32.0;
+	UFont* font = engine->canvas->SmallFont();
+	if (!font)
+		return;
+	char text[256];
+	std::snprintf(text, sizeof(text), "FPS=%05.1f Frame=%05.1f MSEC Render=%05.1f MSEC Nodes=%03i Polys=%03i Tex=%03i TexMem=%06.1fK",
+		frame > 0.0 ? 1.0 / frame : 0.0, frame * 1000.0, rendered * 1000.0, Stats.Surfaces, Stats.Surfaces, FrameStats.Textures, FrameStats.TextureMem / 1024.0);
+	float curX = 0.0f;
+	float curY = (float)engine->canvas->SizeY() - 10.0f;
+	float curXL = 0.0f, curYL = 0.0f;
+	DrawText(font, vec4(1.0f), 0.0f, 0.0f, curX, curY, curXL, curYL, false, UTF8ToScript(text), PF_NoSmooth | PF_Masked, true, 0.0f, 0.0f, engine->canvas->ClipX());
 }
 
 void RenderSubsystem::PostRenderFlash()

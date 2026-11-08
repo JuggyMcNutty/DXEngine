@@ -155,6 +155,8 @@ private:
 	void OnExitEvent();
 
 	void DrawSurface(uint32_t serial = 0);
+	void ApplyScale(double scale);
+	void WaitSwapFrame();
 
 	void InitializeToplevel();
 	void InitializePopup();
@@ -167,6 +169,9 @@ private:
 	bool m_NeedsUpdate = true;
 
 	Point m_OwnerOffset = Point(0, 0);
+	// The window's size in the toplevel's surface units, and in pixels at
+	// its scale (m_WindowSize), which a scale change works out again
+	Size m_ClientSize = Size(0, 0);
 	Size m_WindowSize = Size(0, 0);
 	double m_ScaleFactor = 1.0;
 
@@ -180,7 +185,6 @@ private:
 	wayland::fractional_scale_v1_t m_FractionalScale;
 
 	wayland::surface_t m_WindowSurface;
-	wayland::buffer_t m_WindowSurfaceBuffer;
 	wayland::viewport_t m_Viewport;
 
 	wayland::xdg_surface_t m_XDGSurface;
@@ -198,10 +202,26 @@ private:
 	wayland::zwp_confined_pointer_v1_t m_ConfinedPointer;
 
 	wayland::callback_t m_FrameCallback;
+	bool m_FramePending = false;
+
+	// A bitmap window's buffers (PresentBitmap): each written only while the
+	// compositor holds it not, from its attach to its release, the newest
+	// attached as the compositor asks for a frame (DrawSurface)
+	struct ShmBuffer
+	{
+		std::shared_ptr<SharedMemHelper> mem;
+		wayland::buffer_t buffer;
+		int width = 0;
+		int height = 0;
+		bool busy = false;
+		bool attached = false;
+	};
+	std::vector<std::shared_ptr<ShmBuffer>> m_ShmBuffers;
+	std::shared_ptr<ShmBuffer> m_ShmFront;
+	std::shared_ptr<ShmBuffer> AcquireShmBuffer(int width, int height);
+	bool IsBitmapWindow() const { return m_renderAPI == RenderAPI::Unspecified || m_renderAPI == RenderAPI::Bitmap; }
 
 	std::string m_windowID;
-
-	std::shared_ptr<SharedMemHelper> shared_mem;
 
 	std::vector<std::shared_ptr<SharedMemHelper>> appIconSharedMems;
 	std::vector<wayland::buffer_t> appIconBuffers;
@@ -215,6 +235,16 @@ private:
 	EGLDisplay m_EGLDisplay = nullptr;
 	EGLContext m_EGLContext = nullptr;
 	EGLSurface m_EGLSurface = nullptr;
+
+	// The swap's wait for the compositor's frame, the window's own, at most
+	// 50 ms, EGL's own set to none (SwapGLBuffers). The queue before the
+	// proxies on it, which go first
+	int m_SwapInterval = 1;
+	int m_EGLSwapInterval = -1;
+	bool m_SwapFrameDone = true;
+	wayland::event_queue_t m_SwapQueue;
+	wayland::surface_t m_SwapSurface;
+	wayland::callback_t m_SwapFrame;
 
 	bool isFullscreen = false;
 

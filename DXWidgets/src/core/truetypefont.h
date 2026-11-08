@@ -626,7 +626,13 @@ struct TTF_CFF // Compact Font Format
 	std::vector<CFFObjectData> CharStrings; // glyphs
 	std::vector<CFFObjectData> LocalSubroutines;
 
+	// A CID-keyed font's: the local subroutines of each Font DICT of its
+	// FDArray, and each glyph's Font DICT by its FDSelect
+	std::vector<std::vector<CFFObjectData>> FontDictSubroutines;
+	std::vector<uint8_t> GlyphFontDicts;
+
 	void Load(TrueTypeFileReader& reader);
+	CFFObjectData LoadFontDictPrivate(TrueTypeFileReader& reader, CFFObjectData obj);
 
 	std::string GetName(TrueTypeFileReader& reader, int index);
 	std::string GetString(TrueTypeFileReader& reader, int index);

@@ -32,19 +32,21 @@ void NPlayerPawn::ClientTravel(UObject* Self, const std::string& URL, uint8_t Tr
 	engine->ClientTravel(URL, static_cast<ETravelType>(TravelType), bItems);
 }
 
+// The original's (Engine.dll 0x103ba200): the pawn's own player runs the
+// command -- the local player's viewport, a remote player's connection on a
+// server --, what it wrote the answer; a pawn with no player runs nothing
+// (bugs.md WIN.20, WIN.21).
 void NPlayerPawn::ConsoleCommand(UObject* Self, const std::string& Command, std::string& ReturnValue)
 {
-	// "Execute a console command in the context of this player, then forward to Actor.ConsoleCommand"
-
-	ExpressionValue found = ExpressionValue::BoolValue(false);
-	ReturnValue = engine->ConsoleCommand(Self, Command, found.ToType<BitfieldBool&>());
+	ReturnValue = engine->PawnConsoleCommand(UObject::Cast<UPlayerPawn>(Self), Command);
 }
 
 // The desktop's clipboard, by choice (NATIVES.md, the UI): the 16-bit text
-// as UTF-8, both ways
+// as UTF-8, both ways; a dedicated server's held by the engine (bugs.md
+// D.81)
 void NPlayerPawn::CopyToClipboard(UObject* Self, const ScriptString& Text)
 {
-	engine->window->SetClipboardText(ScriptToUTF8(Text));
+	engine->SetClipboard(ScriptToUTF8(Text));
 }
 
 // As the original's (Engine.dll 0x103b8a90): a URL given the options of
@@ -82,7 +84,7 @@ void NPlayerPawn::GetPlayerNetworkAddress(UObject* Self, std::string& ReturnValu
 
 void NPlayerPawn::PasteFromClipboard(UObject* Self, ScriptString& ReturnValue)
 {
-	ReturnValue = UTF8ToScript(engine->window->GetClipboardText());
+	ReturnValue = UTF8ToScript(engine->GetClipboard());
 }
 
 void NPlayerPawn::ResetKeyboard(UObject* Self)

@@ -9,6 +9,8 @@ class RadioButtonLabel;
 class RadioGroup
 {
 public:
+	~RadioGroup();
+
 	std::function<void(RadioButtonLabel* button)> FuncClicked;
 
 private:
@@ -21,6 +23,7 @@ class RadioButtonLabel : public Widget
 {
 public:
 	RadioButtonLabel(RadioGroup* group = nullptr, Widget* parent = nullptr);
+	~RadioButtonLabel();
 
 	void SetGroup(RadioGroup* group);
 

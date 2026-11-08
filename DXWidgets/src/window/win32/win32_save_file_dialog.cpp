@@ -67,15 +67,19 @@ bool Win32SaveFileDialog::Show()
 
 	if (initial_directory16.length() > 0)
 	{
+		// A first folder that is not there, or that the shell cannot name,
+		// leaves the dialog at its own: it threw, the dialog never shown
 		LPITEMIDLIST item_id_list = nullptr;
 		SFGAOF flags = 0;
-		result = SHParseDisplayName(initial_directory16.c_str(), nullptr, &item_id_list, SFGAO_FILESYSTEM, &flags);
-		throw_if_failed(result, "SHParseDisplayName failed");
-
 		ComPtr<IShellItem> folder_item;
-		result = SHCreateShellItem(nullptr, nullptr, item_id_list, folder_item.TypedInitPtr());
-		ILFree(item_id_list);
-		throw_if_failed(result, "SHCreateItemFromParsingName failed");
+		result = SHParseDisplayName(initial_directory16.c_str(), nullptr, &item_id_list, SFGAO_FILESYSTEM, &flags);
+		if (SUCCEEDED(result))
+		{
+			result = SHCreateShellItem(nullptr, nullptr, item_id_list, folder_item.TypedInitPtr());
+			ILFree(item_id_list);
+			if (FAILED(result))
+				folder_item.reset();
+		}
 
 		/* This code requires Windows Vista or newer:
 		ComPtr<IShellItem> folder_item;

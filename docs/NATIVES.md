@@ -1398,8 +1398,11 @@ lit it, 0.395.
 
 By choice, a mesh's light fades step once a
 frame, where the original's step at each draw of the mesh, an armed pawn's
-twice. Differs (bugs.md WIN.28): `RMODE` is taken by nothing, so the
-credits' Matrix egg draws the world lit, the original's full-bright.
+twice. `RMODE` sets the viewer's `RendMap`, 1 to 19, as the original's
+viewport does, so the credits' Matrix egg, `RMODE 6`, draws the world
+full-bright until the level's next player (`ViewWordsConsole` on Liberty
+Island: `RendMap` 6 after `RMODE 6` and the egg's world all its texture at
+full brightness, in both engines).
 A fog map is made each frame from its volumetric lights as they are then,
 as the original's light manager sets each up
 ([the fog map](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps)):
@@ -1915,7 +1918,10 @@ from the original's code:
   leave it, the root window's focus window with the whole of it
   (`TypeConsole` with `type.txt`: "Café", "ñü", U+0100 and U+20AC typed
   whole into an edit field, 256 and 8364 in both engines, the original's
-  typed by `xdotool`; U+1F600 two characters). The text windows, the
+  typed by `xdotool`; U+1F600 two characters; and with a Windows build's
+  Win32 window under Wine, `wincheck.exe char` typing e acute, the euro sign
+  and U+1F600 as Windows types them: 233, 8364, 55357 and 56832 in both
+  engines, where the build before took the pair as two U+FFFD). The text windows, the
   canvas, the GC, a computer's screen, a list's cells and a scripted
   texture take and draw text as 16-bit characters, a font's glyph found on
   its page; one past every page is drawn as nothing and takes no room
@@ -2169,13 +2175,6 @@ green, white or None (`ButtonDefaultsConsole`: a button's six slots set
 apart, then each call with its first slot alone, its insensitive and focused
 look alike in both engines).
 
-Differs (bugs.md WIN.32): the Win32 window's mouse lock neither captures
-nor clips the pointer. Differs (bugs.md WIN.33): the Win32 window
-lets the screen saver and the display's power-down through. Differs
-(bugs.md WIN.36): the Win32 window's menu gathers raw motion, a wheel of no
-delta presses, and its screen is sized by the system's DPI. Differs
-(bugs.md WIN.37): the X11 window takes no Alt, its key map naming Meta
-alone.
 
 ## The menus' settings
 
@@ -2358,9 +2357,16 @@ in the original and 14.8 dB in DXEngine (37.9 dB without the floor); with
 in both either way. `UseStereo=False` makes the whole output mono, as
 Galaxy's ([the
 mixer](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#the-mixer)):
-the sounds' mix folded to the mean of its two channels, and each of a song's
-voices played at the mean of its two sides' gains, a surround voice's right
-side added, not cancelled (`MusicConsole` with
+each sound's voice and each of a song's voices played at the mean of its two
+sides' gains, a surround voice's right side added, not cancelled, and the
+sounds' mix saturated only as the music is added to it, once
+(`MonoSumConsole` with `DXCAP_INI="Galaxy.GalaxyAudioSubsystem:UseStereo=False
+Galaxy.GalaxyAudioSubsystem:UseSurround=True"`, by `sound.py --onsets`: a
+beep seven-eighths right at -8.0 dB in the original and -8.4 in DXEngine,
+two, three and four of them on one tick at -2.6, -1.8 and -1.4 dB and -2.6,
+-1.4 and -1.0, where each side held before the fold gave -4.7, -3.3 and
+-2.3; one and two behind at -6.9 and -2.3 dB and -7.1 and -2.0, where they
+cancelled to silence; `MusicConsole` with
 `DXCAP_INI=Galaxy.GalaxyAudioSubsystem:UseStereo=False`, both engines: the
 pair after order 0, a tone hard left and one hard right, -19.7 and -19.3 dB
 in each channel in the original, -19.5 and -18.8 in DXEngine; the stock
@@ -2399,7 +2405,10 @@ half the FFT's input, the rest kept from the read before (`LipConsole` with
 read from passes its end, in both engines). A WAV loops by its first loop
 only from a `smpl` chunk after its data chunk, as Galaxy's loader sets the
 sound up afresh at the data (`CapEarlyLoop` once in both engines), and a
-voice mixes the frame that falls on its loop's end or its data's end too.
+voice mixes the frame that falls on its loop's end or its data's end too, a
+sound being its decoded samples and no more, as Galaxy's loader holds a
+WAV's data (Galaxy.dll `0x10619d20`; by reading, the 1 to 4 samples of
+silence DXEngine added past a sound's end too few for a run to show).
 `GetSoundDuration` is the original's, read from a WAV's header and 0 for an
 MP3
 ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds)):
@@ -2542,9 +2551,7 @@ order as the row ends, a glitch.
 
 Differs (bugs.md AUD.19): the Ogg music source reads its freed decoder after
 a loop, which only a mod's Ogg song reaches. Differs (bugs.md AUD.20): an IT
-pattern's `T0x` and `T1x` dropped, Galaxy's a vibrato. Differs (bugs.md
-AUD.21): a decoded sound 1 to 4 samples longer. Differs (bugs.md AUD.22):
-with `UseStereo` off each side held before the mono fold. By choice: the
+pattern's `T0x` and `T1x` dropped, Galaxy's a vibrato. By choice: the
 gains a sound's update sets reach the output each 10 ms, Galaxy's each 20
 ms, so a moving or fading sound steps twice as often; a song's speed
 command that comes to 0 is dropped, where Galaxy's stops its sequencer, the
@@ -3255,10 +3262,11 @@ not deleted (the log says so).
   outside them dropping the rest of its line, a `|` in it cutting all the
   same, 255 characters a command, a longer line's rest the next. A press's
   commands go to the input's own words and its aliases, the render device's
-  and the viewport's own words (`SHOT`, `EXEC` and the rest), then the exec
-  functions -- the console's, the game's, the HUD's, the player's and each
-  of its items' in turn -- then the engine's commands, each word as the
-  original's `ParseCommand` takes it (`0x10147a20`), the command's leading
+  and the viewport's own words (`SHOT`, `EXEC` and the rest), then the
+  console's exec functions, then the player's -- its level's words, the exec
+  functions of the game, the HUD, the player and each of its items in turn
+  --, then the game engine's commands, the window's words last, each word as
+  the original's `ParseCommand` takes it (`0x10147a20`), the command's leading
   letters and digits in any case, so `exec"x"` is `EXEC` (`ExecLineConsole`,
   an exec file's lines cut alike: every mark the original's); a typed or
   scripted command goes the same way, so `DefUser.ini`'s `GreyStar=Shot`
@@ -3338,11 +3346,14 @@ not deleted (the log says so).
   Wine's window menu if the desktop leaves it the key. By choice,
   the other windows name fewer, and a side's own
   never: the X11 one, the
-  harness's, has no Alt but the Meta key, no `` ` ``, no keypad Enter, and
-  Print Screen as `Print`; the Wayland one, the engine's own on a Wayland
-  desktop (a dev build's, no port's), names each key by its first level, the
-  key below Escape `` ` `` whatever the layout, and lacks only the Windows
-  and menu keys.
+  harness's, has no `` ` ``, no keypad Enter, and Print Screen as `Print`;
+  the Wayland one, the engine's own on a Wayland desktop (a dev build's, no
+  port's), names each key by its first level, the key below Escape `` ` ``
+  whatever the layout, and lacks only the Windows and menu keys. The X11
+  window presses `Alt` for either Alt key, AltGr's too, as the original's
+  window presses `VK_MENU`, so the stock `Alt=Strafe` strafes
+  (`SideKeyConsole` beside `sidekeys.py`: each Alt tap `IK_Alt` pressed
+  and released, as in the original).
 - **Maximize** -- the title bar's button, a double click on the title bar,
   the window menu's -- toggles full screen in the game's window, as
   Alt+Enter does, as the original's window takes the command
@@ -3428,6 +3439,32 @@ not deleted (the log says so).
   1002x701 in the ini after a kill, where DXEngine's went back to
   1280x720). A size of nothing, a
   window minimized, is not kept, as the original's.
+- **The mouse held in play** by the Win32 window, as the original's viewport
+  holds it while its window has the focus
+  ([the focus](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys)):
+  the pointer hidden, put in the client area's middle, captured and clipped
+  to the client rectangle, the clip following the window as it moves or goes
+  full screen; let go and put back where it was as the focus goes, and taken
+  again as it comes back (`wincheck.exe clip` beside `WheelConsole` in play
+  on Liberty Island, a Windows build's Win32 window under Wine: the clip the
+  client rectangle, (4, 30) to (1284, 750), and the capture the window's in
+  both engines, where the build before left the whole screen and captured
+  nothing). While the window's menu is open (Alt+Space) the window takes no
+  mouse move, as the original's, so the view does not turn by the moves made
+  in it as it closes (by reading: WinDrv.dll `0x1110b626`, `0x1110b70c`,
+  `0x1110b351`). A wheel message of no delta presses nothing, as the
+  original's (`wincheck.exe wheel` of 0 and then of 120 beside
+  `WheelConsole`: nothing, then `MouseW` 120 and `MouseWheelUp`, in both
+  engines, where the build before pressed `MouseWheelUp` for each). The
+  screen saver and the display's power-down are refused in a window and full
+  screen, each logged as the original's logs it, `Received SC_SCREENSAVE` and
+  `Received SC_MONITORPOWER` (`wincheck.exe syscmd`: the lines in both
+  engines' logs, by the Win32 window and by SDL3's on Windows, none in the
+  build before's). Differs (bugs.md D.82): the Win32 window keeps the display
+  on while it is open, as SDL3's does, and takes a mouse button's release
+  while its menu is open, where the original's drops it. The windowed sizes Screen
+  Resolution offers are those of the display the window is on, by that
+  display's own DPI, on a desktop of mixed DPI too (by reading).
 - **The field of view** is the original's setting: the player's `DefaultFOV`
   is Deus Ex's own config, 75 (`[Engine.PlayerPawn]` in `User.ini`), the
   angle across a 4:3 view ([the view's width](#the-views-width)).
@@ -3559,13 +3596,56 @@ walker before a tall face refused, a flier sent over it to the same
 `Destination` and refused under it, in both engines, where DXEngine's
 walker had jumped).
 
-Differs (bugs.md REN.51): the canvas's tile natives' edges. Differs (bugs.md
-WIN.29): `STAT` shows none of the renderer's panels, `stat fps` among them.
-Differs (bugs.md WIN.30): no demo is recorded or played. Differs (bugs.md WIN.31):
-the engine's smaller words answer nothing. By choice, `STAT RENDER` shows a
-panel of DXEngine's own at the screen's right, where the original's toggles
-nothing: the frame rate, the level's actors, the objects the garbage
-collector holds and the memory they take; any other `STAT` word hides it.
+Differs (bugs.md REN.51): the canvas's tile natives' edges.
+
+The renderer's words are the original's (`URender::Exec`, Render.dll
+`0x10b147b0`): `STAT` toggles its panels a word in their order, `stat fps`
+the line 10 pixels over the view's bottom -- the frame rate, the frame's
+and the render's times, each the mean of the last 32 frames, the surfaces
+drawn as its nodes and polygons, the textures the frame used and their size
+as the original counts them --; `MLOD`, `MLMODE` and `MLFIX` set the shape
+LOD, its mode and its fixed factor, which the mesh detail takes, `TLOD` a
+distance nothing draws by, each answered as the original's (`MLOD` alone
+0.250000), and `REND LEAK` and `REND T` say they are recognized
+(`ViewWordsConsole`: the line after `STAT FPS` in both engines). Differs
+(bugs.md WIN.29): of the panels the line alone is drawn; the others list the
+original's own timings, connection counts and caches. By choice, `STAT
+RENDER` toggles a panel of DXEngine's own at the screen's right, where the
+original's toggles nothing: the frame rate, the level's actors, the objects
+the garbage collector holds and the memory they take. Differs (bugs.md
+WIN.30): no demo is recorded or played: `DEMOREC` and `DEMOPLAY` ask for a
+name as the original's do, and a name's recording or playback fails, said so.
+
+The engine's smaller words are the original's, none logged as unknown
+(`EngineWordsConsole` from the menu map; `ViewWordsConsole`): `MEMSTAT`'s
+two lines of the memory available, as a 32-bit process sees it; `EXIT`'s
+"Closing by request"; `GET` and `SET` of a class not there, "Unrecognized
+class", and of a name the class has not, "Unrecognized property"; `GTIME`'s
+line to the log; `MEM`, whose allocator dump the game's build leaves out;
+`OBJ MARK` and `MARKCHECK` to the log, `OBJ CLASSES`'s tree and `OBJ LIST`'s
+tables, of DXEngine's own objects; `CRACKURL`'s parts of a URL, its `String`
+line too, where the original's faults there, and "BAD URL"; a server's or
+client's `SOCKETS`; the viewport's `SHOWALL`, `SHOWACTORS`, `HIDEACTORS`,
+`INJECT` and `REPORT`, the report into the clipboard; a dedicated server's
+`OPEN`, `START`, `DISCONNECT` and `RECONNECT`, which browse with no
+`PreTravel`, at the frame's travel. `HIDEACTORS` takes every actor out of
+the frame as the original's render takes them while the player's
+`ShowFlags` lacks `SHOW_Actors` (Render.dll SetupDynamics `0x10b22dd0`):
+no sprite, mesh or render iterator drawn, no moving light lighting the world
+or its fog, no mover filed again, the movers filed drawn where they were,
+the level's own polygons as ever (`ViewWordsConsole` on Liberty Island: the
+statue, the bottles and the bin gone from the frame in both engines, the
+build before drawing them). Differs (bugs.md WIN.31): `CONFIGHASH`,
+`DUMPNATIVES` and `OBJ`'s `REFS`, `HASH`, `DEPENDENCIES`, `VFHASH` and
+`LINKERS`, which list the original's own tables, are taken by nothing;
+`DUMPCACHE` lists nothing, DXEngine having no memory cache; `OBJ LIST`'s
+bytes are each class's properties', where the original's are what its
+serializer walks of each object. Differs (bugs.md WIN.38): Galaxy's words
+(`MUSICORDER`, `ASTAT`, `CDTRACK`, `CDVOLUME`, `RECORDSOUND`,
+`ENDRECORDSOUND`) and the original launcher's `EDITACTOR` are taken by
+nothing. Differs (bugs.md D.81): `OBJ GARBAGE`
+collects at the frame's end, the collector running with no script under
+way, where the original's collects at once.
 
 ## The command line
 
@@ -3706,9 +3786,13 @@ read `MyMod` and the reads that name no file -- the `[URL]` section,
 `GetConfig`, the launcher's keys -- `MyMod.ini`
 ([cli-flags.md](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md)).
 
-Differs (bugs.md WIN.23): `GETCOLORDEPTHS` answers "32 16", the original's
-"16 32"; `GETCURRENTRENDERDEVICE` and `PREFERENCES` are taken by nothing;
-`EXEC` of a file not there gives the caller nothing. By choice:
+The window's words are the original's: `GETCOLORDEPTHS` answers "16 32",
+`GETCURRENTRENDERDEVICE` the device class the ini names (its
+`WindowedRenderDevice` with `-nohard`), and `EXEC` of a file not there
+Core's "Can't find file" to the caller (`WindowWordsConsole`, D3D: every line
+alike in both engines). Differs (bugs.md D.81): `PREFERENCES` opens
+nothing: the original's opens its Advanced Options window, out of full
+screen, which DXEngine has not (the log says so). By choice:
 `GETCURRENTCOLORDEPTH` answers 32, the depth DXEngine draws in, where the
 original's answers the viewport's, 16 full screen at the stock
 `FullscreenColorBits`; `-nommx`, `-nokni` and `-nok6` do nothing, where
@@ -4178,22 +4262,21 @@ client: the connection closed, the client back on Entry by
   looked up on a thread, the game going on; the socket reads each datagram
   waiting, of up to 576 bytes, a longer one or any failure but nothing
   waiting, a reset among them, ending the tick's reading, the run's first
-  logged (read: IpDrv.dll `0x1070a440`); `GETPING` and `GETLOSS` answer
-  the server connection's lag of the last second in ms, the mean of its
-  acks' round trips less half the connection's last frame time, the first
-  second's sum begun at 9999 as the original's constructor begins it, and
-  its incoming packet loss in percent (`PingJoinConsole` against the
-  original's server, which acks a second's packets in one a second: 657
-  and 1,013 ms at 8 s and 18 s, where the least round trip is 49 and 33;
-  read: Engine.dll `0x10403240`, `0x10404dc6`), and each second sets the
-  player's `bBadConnectionAlert`, which no stock script reads, by the
-  original's test (read: `0x10404e1c`). Differs (bugs.md NET.39): the alert
-  is on for a player's first second in the game, where the original's is
-  off from its first half second (`AlertServer`).
-  Differs
-  (bugs.md WIN.20): the original's pawn asks its own player, a remote one's
-  connection on a server, a local one's viewport `0` and no `GETLOSS`, so on
-  a DXEngine server every player's ping is 0.
+  logged (read: IpDrv.dll `0x1070a440`); a pawn's `GETPING` and `GETLOSS` ask its own player, as the original's:
+  on a server a remote player's connection answers its lag of the last
+  second in ms -- the mean of its acks' round trips less half the
+  connection's last frame time, the first second's sum begun at 9999 as the
+  original's constructor begins it (read: Engine.dll `0x10403240`,
+  `0x10404dc6`) -- and its incoming packet loss in percent, each after a
+  blank, which the player's replication info takes for the scoreboard's ping
+  and a server's GameSpy answers, and a local player's viewport `0` and no
+  `GETLOSS` (`WordsServer` with `PingJoinConsole`, each engine the server: the
+  remote player's ping some 90 and loss ` 0`, a client's own `GETPING` `0`
+  and `GETLOSS` nothing, in both engines); and each second sets the player's
+  `bBadConnectionAlert`, which no stock script reads, by the original's test
+  (read: `0x10404e1c`). Differs (bugs.md NET.39): the alert is on for a
+  player's first second in the game, where the original's is off from its
+  first half second (`AlertServer`).
 - **The challenge's check**: a login whose answer to the challenge is wrong
   is refused, by choice, where the original's server compares the answer
   with whether the right one is 0, a slip, and so refuses only a missing
@@ -4548,18 +4631,40 @@ original); a URL of another protocol is logged as the original's logs it,
 where the original's hands it to the system to open, so that a server's
 travel would open any handler on its clients' systems.
 
-Differs (bugs.md WIN.21): every `ConsoleCommand` is run as the local
-viewport's, where the original's pawn runs one for its own player and an
-actor through the game engine. Differs (bugs.md WIN.22): a dedicated server
-takes no `SAY`, `GETCURRENTTICKRATE` or `GETMAXTICKRATE`. Differs (bugs.md
-WIN.24): the clipboard natives on a dedicated server. By choice, an object
+A command runs where the original's runs it: a pawn's `ConsoleCommand` on
+its own player -- the local player's viewport, a remote player's connection
+on a server, that player its exec functions' executor, from the login that
+spawns it on, so that what its root window sends as it is possessed runs
+too --, and an actor's on the game engine, which takes none of the
+viewport's, the render device's or the window's words (`WordsServer` with
+`CapWordsMatch`, each engine the server: the actor's and the remote
+player's words run the game's exec functions of their names, `DxWho`'s
+executor None and the player, the remote player's `SAY` its own, and
+`KEYNAME` and the colour depths answer nothing, alike in both engines; the
+joining player's root window's three loops over the key names,
+`ConditionalBindMultiplayerKeys`' among them, run `KeyName` 767 times on
+each engine's server, none on the build before's). A dedicated server says an actor's `SAY` to
+every player with a beep, and answers `GETCURRENTTICKRATE`, the frames it
+last counted in a second, and `GETMAXTICKRATE` (`WordsServer`: `CapHearer`
+hears the say, beep True, and the rates some 20, in both engines). A
+dedicated server takes command lines on its standard input, in the place of
+the original's log window, each run as that window runs a typed line: on
+the game engine, 254 characters at most, its output to the log, Core's
+"Unrecognized command" logged where nothing takes it, the input's end
+ignored, so an operator can `say`, `servertravel` and `exit`, on Windows
+from a pipe or a file the engine is given ([running
+it](ENGINE.md#running-it); `TypedServer` fed `SAY`, a word nothing takes,
+`GETMAXTICKRATE`, `SERVERTRAVEL` and `EXIT`: the say heard with its beep,
+"Unrecognized command", "20.000000", the next map's start and "Closing by
+request" in its log, none of them in the build before's).
+Differs (bugs.md D.81): PlayerPawn's clipboard natives on a dedicated
+server, which has no window, hold the text in the engine, a copy pasted
+back, where the original's reach the system's clipboard. By choice, an object
 or a name the package map has not goes as None, once, where the original's
 goes as -1, which the other side reads as channel 511's actor where it has
 one and as another name; and a refused file request's close goes reliably,
 where the original's goes unreliably, a lost one leaving the client's
 download waiting and its channel closing for the connection's life.
-Differs (bugs.md D.65): a dedicated server takes no typed command, where the
-original's log window runs a typed line on the engine.
 
 ## Not needed for single player
 

@@ -47,10 +47,12 @@ public:
 
 		// The context at the mixing rate chosen (the launcher's), so OpenAL
 		// mixes the sources at it rather than resampling a mix made at it.
-		// No output limiter: the music and the sounds' mix, each saturated
-		// at 16 bits, are added and saturated again, as Galaxy adds them
-		// (Galaxy.dll 0x106146a0; bugs.md AUD.16), where OpenAL Soft's
-		// limiter, on for an integer output, turned the sum down instead
+		// No output limiter: the music, saturated at 16 bits, and the sounds'
+		// mix, each side saturated so in stereo, are added and an integer
+		// output saturates the sum, as Galaxy adds them (Galaxy.dll
+		// 0x106146a0, 0x10623eed; bugs.md AUD.16, AUD.22), where OpenAL
+		// Soft's limiter, on for an integer output, turned the sum down
+		// instead
 		const ALCint ctxAttribs[] =
 		{
 			ALC_FREQUENCY, inFrequency,
@@ -80,7 +82,7 @@ public:
 		// channel records, the mix streamed through one source at OutputRate,
 		// as Galaxy's goes out, so its reverb's delays are the original's
 		// samples; nothing is spatialized by OpenAL.
-		mixer = std::make_unique<GalaxyMixer>(frequency, 32);
+		mixer = std::make_unique<GalaxyMixer>(frequency, 32, stereo);
 		StartMixStream();
 
 		// init music source/buffer: the song's two channels straight to the
@@ -508,8 +510,7 @@ public:
 
 	// The mixer's output: one stereo source, straight to the speakers, its
 	// queue 10 ms buffers deep to Latency, Galaxy's mix-ahead (40 ms by
-	// default); mono folded from both channels without UseStereo, as Galaxy
-	// mixes it.
+	// default); mono without UseStereo, as the mixer folds it.
 	void StartMixStream()
 	{
 		mixBufferFrames = std::max(frequency / 100, 64);
@@ -541,14 +542,6 @@ public:
 		std::vector<float> block(mixBufferFrames * 2);
 		auto queue = [&](ALuint buffer) {
 			mixer->Mix(block.data(), mixBufferFrames);
-			if (!stereo)
-			{
-				for (int i = 0; i < mixBufferFrames; i++)
-				{
-					float mono = 0.5f * (block[2 * i] + block[2 * i + 1]);
-					block[2 * i] = block[2 * i + 1] = mono;
-				}
-			}
 			alBufferData(buffer, AL_FORMAT_STEREO_FLOAT32, block.data(), (ALsizei)(block.size() * sizeof(float)), frequency);
 			alSourceQueueBuffers(alMixSource, 1, &buffer);
 		};

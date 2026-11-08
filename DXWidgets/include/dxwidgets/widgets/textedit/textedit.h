@@ -118,7 +118,7 @@ private:
 	static std::string break_characters;
 
 	void Move(int steps, bool shift, bool ctrl);
-	void InsertText(ivec2 pos, const std::string& str);
+	bool InsertText(ivec2 pos, const std::string& str);
 	void Backspace();
 	void Del();
 	ivec2 GetCharacterIndex(Point mouse_wincoords);

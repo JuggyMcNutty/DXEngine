@@ -13,9 +13,35 @@ DropdownList::DropdownList(Widget* parent, Dropdown* owner) : ListView(parent), 
 {
 }
 
+// The open list is the window's child, not the dropdown's: the window's
+// going takes it first, and the dropdown forgets it, which it closed again
+// once freed; the dropdown's going closes it, which kept its owner and its
+// callbacks pointing at the dropdown freed
+DropdownList::~DropdownList()
+{
+	if (owner && owner->listView == this)
+	{
+		owner->dropdown = nullptr;
+		owner->listView = nullptr;
+		owner->dropdownOpen = false;
+	}
+}
+
+Dropdown::~Dropdown()
+{
+	if (listView)
+		listView->owner = nullptr;
+	Widget* popup = dropdown;
+	dropdown = nullptr;
+	listView = nullptr;
+	dropdownOpen = false;
+	delete popup;
+}
+
 void DropdownList::OnKeyDown(InputKey key)
 {
-	owner->OnKeyDown(key);
+	if (owner)
+		owner->OnKeyDown(key);
 }
 
 void Dropdown::ItemsChanged()

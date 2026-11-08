@@ -45,6 +45,7 @@
 #include "Packages/Engine/Subsystems/UDXEngineRenderDevice.h"
 #include "Packages/Engine/Subsystems/UDXEngineAudioDevice.h"
 #include "LauncherLine.h"
+#include "ServerConsole.h"
 #include "OriginalCommandLine.h"
 #include "Packages/Engine/Subsystems/UDXEngineNetworkDevice.h"
 #include "Packages/Extension/UPlayerPawnExt.h"
@@ -69,6 +70,9 @@
 #include "Network/NetServer.h"
 #include <algorithm>
 #include <chrono>
+#include <cstdarg>
+#include <cstring>
+#include <functional>
 #include <set>
 #include <thread>
 #ifndef WIN32
@@ -372,11 +376,16 @@ void Engine::Run()
 	// The original's EXEC=, read into an FString's 4,096 characters
 	// (DeusEx.exe WinMain 0x1090947a, Core.dll 0x10146e0e), run as the
 	// command "exec <value>" on the client's viewport once the engine is up
-	// (0x109097e1): the console's exec, its file the value's first token;
-	// then the launcher's splash can go.
+	// (0x109097e1): the console's exec, its file the value's first token,
+	// its output to the log; then the launcher's splash can go.
 	std::string execFile;
 	if (!dedicated && viewport->Actor() && OriginalCommandLine::Get().Value("EXEC", execFile, 4096))
-		RunCommand(viewport->Actor(), "exec " + execFile);
+	{
+		ExecOutput out;
+		RunCommand("exec " + execFile, &out);
+		for (const std::string& text : out.Lines)
+			LogMessage(text);
+	}
 	LauncherLine::Get().Ready();
 
 	objprop = GC::Alloc<UObjectProperty>(NameString(), nullptr, ObjectFlags::NoFlags);
@@ -400,6 +409,12 @@ void Engine::Run()
 			timeline.reset();
 	}
 
+	// The frames a second, counted once a second past it, as the original's
+	// main loop counts them into the engine (DeusEx.exe MainLoop
+	// 0x10914630): GETCURRENTTICKRATE's
+	auto secondStart = std::chrono::steady_clock::now();
+	int tickCount = 0;
+
 	while (!quit)
 	{
 #ifndef WIN32
@@ -411,12 +426,27 @@ void Engine::Run()
 		}
 #endif
 		LauncherLine::Get().Poll([this](const std::string& line) { OnLauncherLine(line); });
+		// A dedicated server's typed lines, as the original's log window
+		// takes them between frames (bugs.md D.65)
+		if (dedicated)
+			ServerConsole::Get().Poll([this](const std::string& line) { RunTypedLine(line); });
+		if (quit)
+			break;
 
 		// A frame, as the original's game engine has it (dx-reverse-info
 		// engine-dll.md, the game engine's frame): the windows' tick, the
 		// levels' tick, a save asked for, a travel -- the frame ending
 		// there --, a join under way, the draw.
 		float realTimeElapsed = CalcTimeElapsed();
+		tickCount++;
+		auto tickTime = std::chrono::steady_clock::now();
+		double sinceSecond = std::chrono::duration<double>(tickTime - secondStart).count();
+		if (sinceSecond > 1.0)
+		{
+			CurrentTickRate = (float)(tickCount / sinceSecond);
+			secondStart = tickTime;
+			tickCount = 0;
+		}
 
 		float entryLevelElapsed = EntryLevel ? realTimeElapsed * clamp(EntryLevelInfo->TimeDilation(), 0.0025f, 25.0f) : 0.0f;
 		float levelElapsed = realTimeElapsed * clamp(LevelInfo->TimeDilation(), 0.0025f, 25.0f);
@@ -671,7 +701,7 @@ void Engine::RestoreRunOnlySettings()
 	runStartupFullscreen.Active = false;
 }
 
-void Engine::ExecFile(UObject* context, const std::string& filename)
+void Engine::ExecFile(const std::string& filename, ExecOutput& out)
 {
 	// As the original's EXEC (UViewport::ExecMacro, Engine.dll 0x10374700): a
 	// relative file from the game's System folder (the original's working
@@ -680,10 +710,12 @@ void Engine::ExecFile(UObject* context, const std::string& filename)
 	// text file -- a byte a character, or UTF-16 after its byte-order mark,
 	// to its first NUL (appLoadFileToString) --, and each line as ParseLine
 	// takes it into 256 characters (Core.dll 0x10147e60) run on the
-	// viewport: a // outside quotes drops the rest of its line, a | outside
-	// quotes chains the next command, and a line past 255 characters runs
-	// its rest as the next (bugs.md PKG.27), where each line was run whole.
-	// A blank line or a comment alone runs nothing.
+	// viewport, its output the command's: a // outside quotes drops the rest
+	// of its line, a | outside quotes chains the next command, and a line
+	// past 255 characters runs its rest as the next (bugs.md PKG.27), where
+	// each line was run whole. A blank line or a comment alone runs nothing.
+	// A file not there is Core's FileNotFound on the command's output, as the
+	// original writes it (bugs.md WIN.23).
 	std::string text;
 	try
 	{
@@ -694,27 +726,29 @@ void Engine::ExecFile(UObject* context, const std::string& filename)
 	}
 	catch (...)
 	{
-		LogMessage("Can't find file '" + filename + "'");
+		out.Log(LocalizeMessage("Core", "Errors", "FileNotFound", "Can't find file '%s'", { filename }));
 		return;
 	}
 	LogMessage("Execing " + filename);
 	size_t pos = 0;
 	std::string line;
 	while (StrTools::ue1_parse_line(text, pos, line, 256))
-		RunCommand(context, line);
+		RunCommand(line, &out);
 }
 
 // A failure (a SHOT whose file cannot be written) logged and the game going
 // on, as a console line's is under its native (Frame::CallNative) and the
 // original's SHOT carries on, writing nothing: it left Run through the
 // window's events and ended the game. A runaway script still stops it.
-void Engine::RunCommand(UObject* context, const std::string& command)
+void Engine::RunCommand(const std::string& command, ExecOutput* out, bool onEngine)
 {
-	uint32_t foundBits = 0;
-	BitfieldBool found = { &foundBits, 1 };
+	ExecOutput discarded;
 	try
 	{
-		ConsoleCommand(context, command, found);
+		if (!onEngine && viewport && !LaunchInfo.dedicatedServer)
+			ViewportExec(command, out ? *out : discarded);
+		else
+			EngineExec(command, out ? *out : discarded);
 	}
 	catch (const ScriptCriticalError&)
 	{
@@ -726,6 +760,68 @@ void Engine::RunCommand(UObject* context, const std::string& command)
 			throw;
 		LogMessage(std::string("Script error: ") + e.what());
 	}
+}
+
+// A dedicated server's typed line (bugs.md D.65), as the original's log
+// window runs one (WTerminal::TypeChar, the SDK's Window/Inc/Window.h): the
+// characters it takes, none below a blank, 254 at most, on the game engine,
+// each line of its output logged, and Core's Exec, "Unrecognized command",
+// logged where nothing takes it. A line of nothing runs nothing.
+void Engine::RunTypedLine(const std::string& typed)
+{
+	std::string line;
+	size_t characters = 0;
+	for (char byte : typed)
+	{
+		unsigned char c = (unsigned char)byte;
+		if (c < 32 || c == 127)
+			continue;
+		// A character is a UTF-8 sequence's first byte and those after it
+		if ((c & 0xc0) != 0x80 && characters++ == 254)
+			break;
+		line += byte;
+	}
+	if (line.empty())
+		return;
+	ExecOutput out;
+	bool taken = false;
+	try
+	{
+		taken = EngineExec(line, out);
+	}
+	catch (const ScriptCriticalError&)
+	{
+		throw;
+	}
+	catch (const std::exception& e)
+	{
+		if (Frame::Halted)
+			throw;
+		LogMessage(std::string("Script error: ") + e.what());
+		taken = true;
+	}
+	for (const std::string& text : out.Lines)
+		LogMessage(text);
+	if (!taken)
+		LogMessage(LocalizeMessage("Core", "Errors", "Exec", "Unrecognized command"));
+}
+
+// The desktop's clipboard through the window, as UTF-8; a dedicated server,
+// which has no window, holds the text itself, a copy to paste back, where the
+// original's goes to Windows' clipboard as any game's (Core's
+// appClipboardCopy and appClipboardPaste, from PlayerPawn's natives,
+// Engine.dll 0x103df580, 0x103df700; bugs.md D.81).
+void Engine::SetClipboard(const std::string& text)
+{
+	if (window)
+		window->SetClipboardText(text);
+	else
+		ServerClipboard = text;
+}
+
+std::string Engine::GetClipboard()
+{
+	return window ? window->GetClipboardText() : ServerClipboard;
 }
 
 void Engine::Relaunch(const std::string& line)
@@ -771,7 +867,7 @@ void Engine::OnLauncherLine(const std::string& line)
 	else if (line.compare(0, 5, "Open ") == 0 && line.size() > 5)
 	{
 		LogMessage("Launcher: open " + line.substr(5));
-		RunCommand(viewport ? viewport->Actor() : nullptr, "open " + line.substr(5));
+		RunCommand("open " + line.substr(5), nullptr, true);
 	}
 	else if (line == "Quit")
 	{
@@ -1100,6 +1196,7 @@ void Engine::Draw(float realTimeElapsed, float levelElapsed, const NetPendingLev
 	// original's render holds its x87 to 24 bits from before the console's
 	// tick to after its PostRender (X87).
 	X87::Single = true;
+	render->BeginFrameStats();
 	TickConsole(realTimeElapsed);
 
 	viewport->SetViewportRect(0, 0, window->GetPixelWidth(), window->GetPixelHeight());
@@ -1131,6 +1228,7 @@ void Engine::PaintProgress()
 	player->FlashScale() = vec3(0.1f);
 	player->FlashFog() = vec3(0.0f);
 	X87::Single = true;
+	render->BeginFrameStats();
 	TickConsole(0.0f);
 	viewport->SetViewportRect(0, 0, window->GetPixelWidth(), window->GetPixelHeight());
 	render->DrawGame(0.0f);
@@ -2913,23 +3011,30 @@ void Engine::TickConsole(float firstElapsed)
 	CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(elapsed) });
 }
 
-float Engine::CalcTimeElapsed()
+// A client runs no more frames a second than its connection's speed over 64,
+// as the original's GetMaxTickRate has it (UGameEngine::GetMaxTickRate,
+// Engine.dll 0x1038fc60): 40 at the default 2,600. A dedicated server runs
+// [IpDrv.TcpNetDriver]'s rate, 10 to 120: 20 on the internet, 35 on a LAN
+// (--lanplay). A listen server runs no more than 144, where the original's
+// runs as fast as it draws: a remote client's queue drains its rate over a
+// tick, and the faster the ticks the less room an unreliable call finds
+// (dx-reverse-info/network.md, packets) -- the sounds a remote player hears
+// go so.
+float Engine::GetMaxTickRate()
 {
-	using namespace std::chrono;
-
-	// A client runs no more frames a second than its connection's speed over
-	// 64, as the original's GetMaxTickRate has it: 40 at the default 2,600. A
-	// dedicated server runs [IpDrv.TcpNetDriver]'s rate, 10 to 120: 20 on the
-	// internet, 35 on a LAN (--lanplay). A listen server runs no more than 144,
-	// where the original's runs as fast as it draws: a remote client's queue
-	// drains its rate over a tick, and the faster the ticks the less room an
-	// unreliable call finds (dx-reverse-info/network.md, packets) -- the
-	// sounds a remote player hears go so.
 	int maxTickRate = (LevelNetDriver && LevelNetDriver->ServerConnection) ? LevelNetDriver->ServerConnection->CurrentNetSpeed / 64 : 0;
 	if (LevelNetDriver && !LevelNetDriver->ServerConnection && LaunchInfo.dedicatedServer)
 		maxTickRate = std::clamp(LaunchInfo.lanPlay ? LevelNetDriver->LanServerMaxTickRate : LevelNetDriver->NetServerMaxTickRate, 10, 120);
 	else if (LevelNetDriver && !LevelNetDriver->ServerConnection)
 		maxTickRate = 144;
+	return (float)maxTickRate;
+}
+
+float Engine::CalcTimeElapsed()
+{
+	using namespace std::chrono;
+
+	int maxTickRate = (int)GetMaxTickRate();
 	if (maxTickRate > 0 && lastTime != 0)
 	{
 		uint64_t minDelta = 1'000'000 / (uint64_t)maxTickRate;
@@ -3150,181 +3255,162 @@ std::string Engine::ParseClassName(std::string className)
 	return packages->GetIniValue("system", sectionName, keyName);
 }
 
-std::string Engine::ConsoleCommand(UObject* context, const std::string& commandline, BitfieldBool& found)
+// One of the original's words as its ParseCommand matches it (Core.dll
+// 0x10147a20): the line's word, as CommandWord takes it, in any case, with
+// rest the text past it and the blanks and tabs after it.
+static bool ParseWord(const std::string& line, const char* word, std::string& rest)
 {
-	found = false;
+	std::string after;
+	if (CommandWord(line, after) != word)
+		return false;
+	rest = after;
+	return true;
+}
 
-	// An exec function's name and parameters, its line's first token on
-	// (ExecCommand)
-	Array<std::string> execArgs = GetArgs(commandline);
-	if (execArgs.empty())
-	{
+// An object as the original's GetFullName names it: its class's name and its
+// path name (Class DeusEx.DeusExPlayer).
+static std::string FullName(UObject* obj)
+{
+	return obj ? obj->Class->Name.ToString() + " " + obj->GetPathName() : std::string("None");
+}
+
+static std::string Printf(const char* format, ...)
+{
+	char text[1024];
+	va_list args;
+	va_start(args, format);
+	std::vsnprintf(text, sizeof(text), format, args);
+	va_end(args);
+	return text;
+}
+
+// A pawn's ConsoleCommand goes to its own player (APlayerPawn::
+// execConsoleCommand, Engine.dll 0x103ba200): the local player's to the
+// viewport, a remote player's on a server to its connection; a pawn with no
+// player runs nothing. What the command wrote, run together, is the answer.
+std::string Engine::PawnConsoleCommand(UPlayerPawn* pawn, const std::string& line)
+{
+	ExecOutput out;
+	if (!pawn || !pawn->Player())
 		return {};
-	}
+	if (viewport && pawn->Player() == viewport)
+		ViewportExec(line, out);
+	else if (NetConnection* connection = NetConnectionOfPlayer(pawn->Player()))
+		ConnectionExec(connection, line, out);
+	return out.Joined();
+}
 
-	// The viewport's and the engine's words as ParseCommand matches each
-	// (CommandWord), their arguments from past the word
+// The local viewport's commands, in the original's order (UWindowsViewport::
+// Exec, WinDrv.dll 0x11106d90, which asks UViewport::Exec first, Engine.dll
+// 0x10373a60; engine-dll.md, a key's binding): the input's words and aliases,
+// the render device's words, the viewport's own, the console's exec
+// functions with the viewport's player the executor, then the player's own
+// commands (PlayerExec), and the window's words last, once none of those has
+// taken the line. So a word an exec function shares is the viewport's (SHOT)
+// or the render device's (GETRES), or else the exec function's (TIMEDEMO,
+// the console's; TOGGLEFULLSCREEN, SETRES).
+bool Engine::ViewportExec(const std::string& line, ExecOutput& out)
+{
+	UPlayerPawn* actor = viewport ? viewport->Actor() : nullptr;
+	if (InputExec(line, IK_None, EInputType::IST_Press, 20, &out))
+		return true;
+	if (RenderDeviceExec(line, out))
+		return true;
+	if (ViewportWordExec(actor, line, out))
+		return true;
+	if (ScriptExec(console, actor, line, out))
+		return true;
+	// The original's viewport always has its player; between levels, here,
+	// the game engine's words all the same
+	if (actor ? PlayerExec(actor, line, out) : EngineExec(line, out))
+		return true;
+	return WindowExec(line, out);
+}
+
+// The render device's words, which the viewport asks before its own: Engine's
+// URenderDevice::Exec (Engine.dll 0x10371b60), GETDETAILTEXTURES and
+// TOGGLEDETAILTEXTURES, then D3DDrv's (0x100061b0; bugs.md REN.44), GETRES,
+// LODBIAS and SHOWPOOLS.
+bool Engine::RenderDeviceExec(const std::string& line, ExecOutput& out)
+{
+	if (!render)
+		return false;
 	std::string rest;
-	std::string command = CommandWord(commandline, rest);
-	Array<std::string> args;
-	args.push_back(command);
-	for (const std::string& arg : GetArgs(rest))
-		args.push_back(arg);
+	if (ParseWord(line, "getdetailtextures", rest))
+	{
+		// The render device's DetailTextures, 1 or 0 (Engine.dll 0x10371b8a)
+		out.Log(renderdev->DetailTextures ? "1" : "0");
+		return true;
+	}
+	if (ParseWord(line, "toggledetailtextures", rest))
+	{
+		// Flipped and the device's config saved, nothing said
+		// (0x10371bd3-0x10371bfb)
+		renderdev->DetailTextures = !renderdev->DetailTextures;
+		renderdev->SaveConfig();
+		FlushConfig();
+		return true;
+	}
+	if (ParseWord(line, "getres", rest))
+	{
+		out.Log(window->GetMenuResolutions());
+		return true;
+	}
+	if (ParseWord(line, "lodbias", rest))
+	{
+		// D3DDrv's (0x10006377): the number past the word, none 0, the mip
+		// bias from the next frame until the device's mode is set again
+		// (ModeSetAgain), neither held nor saved; its line the output
+		float bias = (float)std::atof(rest.c_str());
+		render->Device->SetLODBias(bias);
+		out.Log(Printf("Texture LodBias %f", bias));
+		return true;
+	}
+	if (ParseWord(line, "showpools", rest))
+	{
+		// D3DDrv's (0x10006404) lists its Direct3D 7 texture pools under the
+		// line, which DXEngine has not: the line alone, as the original's
+		// before any mode is set
+		out.Log("Dumping D3D Texture Pool Info");
+		return true;
+	}
+	return false;
+}
 
-	found = true;
-	// A dedicated server has no window and no renderer: the commands that
-	// take them do nothing there (a logged-in admin's "admin getres" or
-	// "admin flush" came through PlayerPawn.Admin)
-	if ((!window || !render) && (command == "getres" || command == "getcurrentres" || command == "setres" || command == "togglefullscreen" || command == "endfullscreen" || command == "flush" || command == "stat" || command == "shot" || command == "getdetailtextures" || command == "toggledetailtextures" || command == "lodbias" || command == "showpools" || command == "brightness"))
-		return {};
-
-	// The original's order (UViewport::Exec, Engine.dll 0x10373a60;
-	// engine-dll.md, a key's binding): the input's words and aliases, the
-	// render device's (Engine's GETDETAILTEXTURES and TOGGLEDETAILTEXTURES,
-	// 0x10371b60, then D3DDrv's GETRES, LODBIAS and SHOWPOOLS, 0x100061b0;
-	// bugs.md REN.44) and the viewport's own,
-	// then the exec functions (ExecCommand), then the engine's words, the
-	// launcher's SHOWLOG among them; the window's own words last, once all
-	// of those have taken nothing (UWindowsViewport::Exec, WinDrv.dll
-	// 0x11106d90: ENDFULLSCREEN, TOGGLEFULLSCREEN, GETCURRENTRES,
-	// GETCURRENTCOLORDEPTH, GETCOLORDEPTHS, SETRES; bugs.md WIN.19). So a
-	// word an exec function shares is the viewport's (SHOT) or the render
-	// device's (GETRES), or else the exec function's (TIMEDEMO, the
-	// console's; TOGGLEFULLSCREEN, SETRES).
-	static const std::set<std::string> viewportWords = {
-		"shot", "exec", "getping", "getloss", "netspeed", "lanspeed", "keyname", "keybinding",
-		"getres", "dxwindowdebug", "getdetailtextures", "toggledetailtextures", "lodbias", "showpools"
-	};
-	if (InputExec(commandline, IK_None, EInputType::IST_Press, 20))
-		return {};
-	bool viewportWord = viewportWords.count(command) != 0;
-	// An exec function's refusal, Core's BadProperty, is the command's output,
-	// as the original writes it to the command's output device: the console's
-	// message, or what ConsoleCommand returns (Engine.dll 0x103ba200's string)
-	std::string output;
-	if (!viewportWord && ExecCommand(execArgs, commandline, output))
-		return output;
-
-	if (command == "exit" || command == "quit")
+// The viewport's own words (UViewport::Exec, Engine.dll 0x10373a60), after
+// the input's and the device's, and DXEngine's DXWINDOWDEBUG with them.
+bool Engine::ViewportWordExec(UPlayerPawn* actor, const std::string& line, ExecOutput& out)
+{
+	std::string rest;
+	if (ParseWord(line, "getping", rest))
 	{
-		quit = true;
+		// A local player's ping is 0, whatever its connection (0x10373aee);
+		// a remote player's connection answers its own (ConnectionExec), and
+		// the viewport has no GETLOSS (bugs.md WIN.20)
+		out.Log("0");
+		return true;
 	}
-	else if (command == "relaunch")
+	if (ParseWord(line, "inject", rest))
 	{
-		Relaunch(rest);
+		// On a client of a server, the rest of the line sent it as a line of
+		// text, said first (0x10373b27)
+		NetConnection* server = actor && actor->XLevel() == Level && LevelNetDriver ? LevelNetDriver->ServerConnection.get() : nullptr;
+		if (server)
+		{
+			out.Log("Injecting: " + rest);
+			server->SendText(rest);
+		}
+		return true;
 	}
-	else if (command == "shot")
+	bool lan = false;
+	if (ParseWord(line, "netspeed", rest) || (lan = ParseWord(line, "lanspeed", rest)))
 	{
-		TakeScreenshot();
-	}
-	else if (command == "exec")
-	{
-		// UViewport::Exec's EXEC (Engine.dll 0x10374241): the file the first
-		// token past the word, by ParseToken into 64 characters -- a quoted
-		// one whole, 63 characters at most, exec"x" x --; with none nothing
-		// runs, the command taken all the same
-		size_t pos = 0;
-		std::string filename;
-		if (StrTools::ue1_parse_token(rest, pos, filename, 64))
-			ExecFile(context, filename);
-	}
-	else if (command == "stat" && args.size() == 2)
-	{
-		render->ShowRenderStats = 0;
-
-		if (args[1] == "render")
-			render->ShowRenderStats = 1;
-	}
-	else if (command == "dxwindowdebug")
-	{
-		m_DrawDebugDXWindowHierarchy = !m_DrawDebugDXWindowHierarchy;
-	}
-	else if (command == "showlog")
-	{
-		// The original's shows its log window, which DXEngine has not
-		LogMessage("showlog: DXEngine has no log window");
-	}
-	/*else if (command == "playsong")
-	{
-		auto music = LevelInfo->Song();
-		if (music)
-			audio->PlayMusic(AudioSource::CreateMod(music->Data, true, 0, LevelInfo->SongSection()));
-	}
-	else if (command == "stopsong")
-	{
-		audio->PlayMusic(nullptr);
-	}*/
-	else if (command == "getres")
-	{
-		return window->GetMenuResolutions();
-	}
-	else if (command == "getcolordepths")
-	{
-		return "32 16";
-	}
-	else if (command == "getcurrentres")
-	{
-		// The window's own size, as GETRES lists it, not the render size
-		int width = window->GetNativePixelWidth();
-		int height = window->GetNativePixelHeight();
-
-		return std::to_string(width) + "x" + std::to_string(height);
-	}
-	else if (command == "getcurrentcolordepth")
-	{
-		return "32";
-	}
-	else if (command == "obj" && args.size() >= 2 && StrTools::equals_ignore_case(args[1], "garbage"))
-	{
-		// The original's OBJ GARBAGE, at the end of this frame.
-		RequestGarbageCollection("obj garbage");
-	}
-	else if (command == "getping")
-	{
-		// The original's UNetConnection::Exec (0x10401c50): the connection's
-		// best lag of the last stats period in ms, which
-		// PlayerReplicationInfo shows as the ping; 0 with no server
-		NetConnection* server = LevelNetDriver ? LevelNetDriver->ServerConnection.get() : nullptr;
-		return std::to_string(server && server->BestLag < 9999.0f ? (int)(server->BestLag * 1000.0f) : 0);
-	}
-	else if (command == "getloss")
-	{
-		// Its incoming packet loss of the period, in percent
-		NetConnection* server = LevelNetDriver ? LevelNetDriver->ServerConnection.get() : nullptr;
-		return std::to_string(server ? (int)server->InLoss : 0);
-	}
-	else if (command == "keyname" && args.size() == 2)
-	{
-		uint8_t index = Convert::to_uint8(args[1]);
-		return keynames[index];
-	}
-	else if (command == "keybinding" && args.size() == 2)
-	{
-		const std::string& name = args[1];
-		return keybindings[name];
-	}
-	else if (command == "open" || command == "start")
-	{
-		// The rest of the line becomes the next travel, as the original's
-		// UGameEngine::Exec sets the viewport's (Engine.dll 0x1038a030;
-		// engine-dll.md, OPEN and START): past the word and the blanks
-		// after it, whole -- the Join screen's address typed with a blank
-		// after it, "open 1.2.3.4 ?lan", is the URL's to read --, and
-		// nothing after the word no travel. OPEN partial, on the last URL's
-		// options (a listen server's keeps ?listen and ?game=), START
-		// absolute -- a map, a server's address or a slot's ?loadgame=N
-		// alike. A map that is not there is the browse's to find, as the
-		// original's.
-		ClientTravel(rest, command == "open" ? ETravelType::TRAVEL_Partial : ETravelType::TRAVEL_Absolute, false);
-	}
-	else if ((command == "netspeed" || command == "lanspeed") && args.size() == 2)
-	{
-		// The rate asked of servers, kept for the next join; on a server of
-		// that kind (?LAN or not), asked now (the original's viewport's).
-		// Both keep it as the internet speed, as the original's both do.
-		int rate = std::atoi(args[1].c_str());
-		bool lan = command == "lanspeed";
-		LogMessage("Net: " + command + " " + std::to_string(rate));
+		// The rate asked of servers, the number past the word (appAtoi), kept
+		// for the next join; on a server of that kind (?LAN or not), asked
+		// now, 500 or more (0x10373b74). Both keep it as the internet
+		// speed, as the original's both do.
+		int rate = std::atoi(rest.c_str());
+		LogMessage(std::string("Net: ") + (lan ? "lanspeed " : "netspeed ") + std::to_string(rate));
 		packages->SetIniValue("system", "Engine.Player", "ConfiguredInternetSpeed", std::to_string(rate));
 		// Saved at once, as the original's viewport saves its config
 		// (UViewport::Exec, Engine.dll 0x10373bb3, 0x10373c44; bugs.md ENG.27)
@@ -3336,35 +3422,341 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 			viewport->CurrentNetSpeed() = connection->CurrentNetSpeed;
 			connection->SendText("NETSPEED " + std::to_string(rate));
 		}
+		return true;
 	}
-	else if (command == "servertravel" && args.size() >= 2)
+	if (ParseWord(line, "showall", rest))
 	{
-		// The level's own event: its game tells the clients, and the server
-		// follows once NextSwitchCountdown runs out (the original's).
-		CallEvent(LevelInfo, "ServerTravel", { ExpressionValue::StringValue(rest), ExpressionValue::BoolValue(false) });
+		// Every actor of the player's level shown, its bHidden cleared
+		// (0x10373cb4; bugs.md WIN.31)
+		if (actor && actor->XLevel())
+		{
+			for (UActor* each : actor->XLevel()->Actors)
+			{
+				if (each)
+					each->bHidden() = false;
+			}
+		}
+		return true;
 	}
-	else if (command == "cancel")
+	if (ParseWord(line, "report", rest))
 	{
-		// A join given up (the progress window's F10).
-		if (PendingLevel)
-			SetProgress(LocalizeMessage("Engine", "Progress", "CancelledConnect", "Cancelled Connect Attempt"), "", 2.0f);
-		else
-			SetProgress("", "", 0.0f);
-		CancelPending();
+		// A report of the game into the clipboard, nothing said: the
+		// engine's version, the player's class, the level's URL, the
+		// player's place, and the game's class and difficulty or a network
+		// client's line (0x10373cef)
+		if (actor)
+		{
+			UDeusExPlayer* dxplayer = UObject::TryCast<UDeusExPlayer>(actor);
+			std::string text = "Report:\r\n";
+			text += "   Version: " + (dxplayer ? dxplayer->GetDeusExVersion() : std::string()) + "\r\n";
+			text += "   Player class: " + actor->Class->Name.ToString() + "\r\n";
+			text += "   URL: " + (actor->Level() ? actor->Level()->URL.ToString() : std::string()) + "\r\n";
+			vec3 at = actor->Location();
+			text += Printf("   Location: %i %i %i\r\n", (int)at.x, (int)at.y, (int)at.z);
+			UGameInfo* game = actor->Level() ? actor->Level()->Game() : nullptr;
+			if (game)
+			{
+				text += "   Game class: " + game->Class->Name.ToString() + "\r\n";
+				text += Printf("   Difficulty: %i\r\n", (int)game->Difficulty());
+			}
+			else
+			{
+				text += "   Network client\r\n";
+			}
+			SetClipboard(text);
+		}
+		return true;
 	}
-	else if (command == "disconnect")
+	if (ParseWord(line, "shot", rest))
 	{
-		// Back to the menu's map, the server told as the level goes (Deus
-		// Ex's own goes to dx.dx).
-		ClientTravel("dx.dx", ETravelType::TRAVEL_Absolute, false);
+		TakeScreenshot();
+		return true;
 	}
-	else if (command == "reconnect")
+	if (ParseWord(line, "showactors", rest))
 	{
-		// The last URL again: a client's is its server's.
-		if (LevelInfo)
-			ClientTravel(LastURL.ToString(), ETravelType::TRAVEL_Absolute, false);
+		// The player's ShowFlags' SHOW_Actors set and cleared, which the
+		// view's actors are drawn by
+		if (actor)
+			actor->ShowFlags() |= 8;
+		return true;
 	}
-	else if (command == "savegame")
+	if (ParseWord(line, "hideactors", rest))
+	{
+		if (actor)
+			actor->ShowFlags() &= ~8;
+		return true;
+	}
+	if (ParseWord(line, "rmode", rest))
+	{
+		// The player's RendMap, the number past the word from 1 to 19, any
+		// other leaving it (0x103741e5; bugs.md WIN.28): 6, REN_PlainTex,
+		// which DeusExPlayer.Matrix() sends for the credits' THEREISNOSPOON
+		// egg, draws no light map and every actor unlit (SceneLit), until
+		// the level's next player
+		int mode = std::atoi(rest.c_str());
+		if (actor && mode > 0 && mode < 20)
+			actor->RendMap() = mode;
+		return true;
+	}
+	if (ParseWord(line, "exec", rest))
+	{
+		// UViewport::Exec's EXEC (Engine.dll 0x10374241): the file the first
+		// token past the word, by ParseToken into 64 characters -- a quoted
+		// one whole, 63 characters at most, exec"x" x --; with none nothing
+		// runs, the command taken all the same
+		size_t pos = 0;
+		std::string filename;
+		if (StrTools::ue1_parse_token(rest, pos, filename, 64))
+			ExecFile(filename, out);
+		return true;
+	}
+	if (ParseWord(line, "dxwindowdebug", rest))
+	{
+		m_DrawDebugDXWindowHierarchy = !m_DrawDebugDXWindowHierarchy;
+		return true;
+	}
+	return false;
+}
+
+// The window's own words, after all of the viewport's and the player's
+// (UWindowsViewport::Exec, WinDrv.dll 0x11106d90; bugs.md WIN.19, WIN.23).
+bool Engine::WindowExec(const std::string& line, ExecOutput& out)
+{
+	if (!window)
+		return false;
+	std::string rest;
+	if (ParseWord(line, "endfullscreen", rest))
+	{
+		EndFullscreen();
+		return true;
+	}
+	if (ParseWord(line, "togglefullscreen", rest))
+	{
+		ToggleFullscreen();
+		return true;
+	}
+	if (ParseWord(line, "getcurrentres", rest))
+	{
+		// The window's own size, as GETRES lists it, not the render size
+		out.Log(std::to_string(window->GetNativePixelWidth()) + "x" + std::to_string(window->GetNativePixelHeight()));
+		return true;
+	}
+	if (ParseWord(line, "getcurrentcolordepth", rest))
+	{
+		// 32, by choice (NATIVES.md, the window): the original's 8 times the
+		// viewport's bytes a pixel, 16 where it runs at 16 bits
+		out.Log("32");
+		return true;
+	}
+	if (ParseWord(line, "getcolordepths", rest))
+	{
+		out.Log("16 32");
+		return true;
+	}
+	if (ParseWord(line, "getcurrentrenderdevice", rest))
+	{
+		// The render device's class by its path name: the one the ini names,
+		// which DXEngine's device stands for, its WindowedRenderDevice with
+		// -nohard, as the original's starts that in its GameRenderDevice's
+		// place
+		const char* key = OriginalCommandLine::Get().Param("nohard") ? "WindowedRenderDevice" : "GameRenderDevice";
+		out.Log(packages->GetIniValue("system", "Engine.Engine", key));
+		return true;
+	}
+	if (ParseWord(line, "setres", rest))
+	{
+		window->SetResolution(rest);
+		ModeSetAgain();
+		// The new size is kept as the windowed size, or full screen the
+		// mode taken, which the ini saves, as the original's SETRES keeps it.
+		int width = 0, height = 0;
+		if (window->IsFullscreen())
+		{
+			Size mode = window->GetClosestResolution(Size(window->GetPixelWidth(), window->GetPixelHeight()));
+			if (sscanf(rest.c_str(), "%dx%d", &width, &height) == 2 && width >= 640 && height >= 480)
+				mode = window->GetClosestResolution(Size(width, height));
+			client->SetPropertyFromString("FullscreenViewportX", std::to_string((int)mode.width));
+			client->SetPropertyFromString("FullscreenViewportY", std::to_string((int)mode.height));
+		}
+		else if (sscanf(rest.c_str(), "%dx%d", &width, &height) == 2 && width >= 640 && height >= 480)
+		{
+			client->SetPropertyFromString("WindowedViewportX", std::to_string(width));
+			client->SetPropertyFromString("WindowedViewportY", std::to_string(height));
+			AskWindowSize(width, height);
+		}
+		// Saved at once, as the original's viewport's resize saves the
+		// client's config (bugs.md WIN.18, ENG.27)
+		SaveClientConfig();
+		FlushConfig();
+		return true;
+	}
+	if (ParseWord(line, "preferences", rest))
+	{
+		// The original's opens its Advanced Options window, the window out
+		// of full screen first, which DXEngine has not (the log says so;
+		// bugs.md D.81)
+		LogMessage("preferences: DXEngine has no Advanced Options window");
+		return true;
+	}
+	return false;
+}
+
+// A player's own commands (UPlayer::Exec, Engine.dll 0x103d7ed0): its level's
+// words (LevelExec), then the exec functions of the game, its HUD, itself and
+// each item of its inventory in turn, the player the executor, then the game
+// engine's (EngineExec). The local player's come after the viewport's own
+// (ViewportExec), a remote one's after its connection's (ConnectionExec): a
+// remote admin's "admin say" is the admin's own Say.
+bool Engine::PlayerExec(UPlayerPawn* pawn, const std::string& line, ExecOutput& out)
+{
+	if (!pawn)
+		return false;
+	if (LevelExec(pawn->XLevel(), line, out))
+		return true;
+	if (pawn->Level() && ScriptExec(pawn->Level()->Game(), pawn, line, out))
+		return true;
+	if (ScriptExec(pawn->myHUD(), pawn, line, out))
+		return true;
+	if (ScriptExec(pawn, pawn, line, out))
+		return true;
+	for (UInventory* item = pawn->Inventory(); item; item = item->Inventory())
+	{
+		if (ScriptExec(item, pawn, line, out))
+			return true;
+	}
+	return EngineExec(line, out);
+}
+
+// A remote player's commands through its connection (UNetConnection::Exec,
+// Engine.dll 0x10401c50): GETPING its lag in milliseconds and GETLOSS its
+// incoming packet loss in percent, each after a blank, which
+// PlayerReplicationInfo.Timer takes for the player's ping and loss -- the
+// scoreboard's, the ping command's, a server's GameSpy answers --; then the
+// player's own (PlayerExec) (bugs.md WIN.20), on the pawn its player object
+// holds, as the original's UPlayer::Exec (0x103d7ed0) on its Actor: set as
+// the login spawns the pawn, before its Possess, so what its root window's
+// InitWindow sends there runs, ConditionalBindMultiplayerKeys' KEYNAME
+// lines through the game's exec functions.
+bool Engine::ConnectionExec(NetConnection* connection, const std::string& line, ExecOutput& out)
+{
+	std::string rest;
+	if (ParseWord(line, "getping", rest))
+	{
+		out.Log(" " + std::to_string((int)(connection->BestLag * 1000.0f)));
+		return true;
+	}
+	if (ParseWord(line, "getloss", rest))
+	{
+		out.Log(" " + std::to_string((int)connection->InLoss));
+		return true;
+	}
+	UPlayer* player = UObject::TryCast<UPlayer>(connection->PlayerObject);
+	return PlayerExec(player ? player->Actor() : connection->Actor, line, out);
+}
+
+// A level's words (ULevel::Exec, Engine.dll 0x1039dfe0): its net driver's,
+// SOCKETS (UNetDriver::Exec 0x104099c0); a demo driver's, which DXEngine has
+// not; then DEMOREC and DEMOPLAY.
+bool Engine::LevelExec(ULevel* level, const std::string& line, ExecOutput& out)
+{
+	if (!level)
+		return false;
+	std::string rest;
+	if (level == Level && LevelNetDriver && ParseWord(line, "sockets", rest))
+	{
+		// Each connection, its address and state as IpDrv describes one
+		// (UTcpipConnection::LowLevelDescribe, IpDrv.dll 0x107098d0), and
+		// each open channel's as Engine's channels describe themselves
+		// (0x103fbe00, 0x103fc970, 0x103ffb50, 0x10400e20)
+		auto describe = [](NetConnection* connection)
+		{
+			static const char* const states[] = { "Invalid", "Closed", "Pending", "Open" };
+			int state = (int)connection->State;
+			return Printf(" %s state: %s", connection->RemoteAddressString().c_str(), state >= 0 && state < 4 ? states[state] : "Invalid");
+		};
+		auto channels = [&](NetConnection* connection)
+		{
+			for (NetChannel* channel : connection->OpenChannels)
+			{
+				std::string text;
+				if (auto actorChannel = dynamic_cast<NetActorChannel*>(channel))
+				{
+					UActor* actor = actorChannel->Actor;
+					text = actor && !channel->Closing ? Printf("Actor=%s (Role=%i RemoteRole=%i) ", FullName(actor).c_str(), (int)actor->Role(), (int)actor->RemoteRole()) : std::string("Actor=None ");
+				}
+				else if (channel->ChType == ChannelType::Control)
+				{
+					text = "Text ";
+				}
+				text += channel->Closing ? "State=closing" : "State=open";
+				out.Log(Printf("      Channel %i: %s", channel->ChIndex, text.c_str()));
+			}
+		};
+		out.Log("Connections:");
+		if (NetConnection* server = LevelNetDriver->ServerConnection.get())
+		{
+			// A client's server by the host its URL names, a server's
+			// clients by none
+			out.Log("   Server " + LastURL.Host + describe(server));
+			channels(server);
+		}
+		for (const auto& client : LevelNetDriver->ClientConnections)
+		{
+			out.Log("   Client " + describe(client.get()));
+			channels(client.get());
+		}
+		return true;
+	}
+	bool play = false;
+	if (ParseWord(line, "demorec", rest) || (play = ParseWord(line, "demoplay", rest)))
+	{
+		// The name past the word (ParseToken), .dem added where it has not
+		// that ending; the attempt logged, then the original's demo driver
+		// (ini:Engine.Engine.DemoRecordingDevice) records or plays it, which
+		// DXEngine has not: the failure said as the original says its own
+		// (0x1039e065, 0x1039e2dd; bugs.md WIN.30)
+		size_t pos = 0;
+		std::string name;
+		if (!StrTools::ue1_parse_token(rest, pos, name, 0))
+		{
+			out.Log("You must specify a filename");
+			return true;
+		}
+		if (name.size() < 4 || !StrTools::equals_ignore_case(name.substr(name.size() - 4), ".dem"))
+			name += ".dem";
+		LogMessage((play ? "Attempting to play demo " : "Attempting to record demo ") + name);
+		out.Log(play ? "Demo playback failed: DXEngine has no demo driver" : "Demo recording failed: DXEngine has no demo driver");
+		return true;
+	}
+	return false;
+}
+
+// The game engine's commands: an actor's ConsoleCommand (AActor::
+// execConsoleCommand, Engine.dll 0x103ded00), a dedicated server's typed
+// line (D.65), the end of a player's (PlayerExec): Deus Ex's and the game
+// engine's own words (GameEngineExec), the level's (LevelExec), the game's
+// exec functions with no executor (UGameEngine::Exec, 0x1038a030), then the
+// engine's words (EngineWordExec, UEngine::Exec 0x10380ee0). None of the
+// viewport's, the render device's or the window's (bugs.md WIN.21).
+bool Engine::EngineExec(const std::string& line, ExecOutput& out)
+{
+	if (GameEngineExec(line, out))
+		return true;
+	if (LevelExec(Level, line, out))
+		return true;
+	if (LevelInfo && ScriptExec(LevelInfo->Game(), nullptr, line, out))
+		return true;
+	return EngineWordExec(line, out);
+}
+
+// Deus Ex's game engine's SAVEGAME and DELETEGAME (DDeusExGameEngine::Exec,
+// DeusEx.dll 0x1000ed70), then the game engine's own words (UGameEngine::
+// Exec, Engine.dll 0x1038a030), before its level's.
+bool Engine::GameEngineExec(const std::string& line, ExecOutput& out)
+{
+	std::string rest;
+	std::string command = CommandWord(line, rest);
+	if (command == "savegame")
 	{
 		// Deus Ex's game engine's SAVEGAME (DDeusExGameEngine::Exec, DeusEx.dll
 		// 0x1000ed70): a save only when the text past the word begins with a
@@ -3378,84 +3770,354 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 			SaveGameInfo.SaveGameDescription.clear();
 			TakeSaveSnapshot();
 		}
-		return {};
+		return true;
 	}
-	else if (command == "deletegame")
+	if (command == "deletegame")
 	{
 		// Its DELETEGAME, which the Load and Save Game screens delete a save
 		// with, read alike (0x1000ee8a-0x1000ee9a): DELETEGAME -1, the quick
 		// save's row's, and +71 do nothing.
 		if (!rest.empty() && rest[0] >= '0' && rest[0] <= '9')
 			DeleteGame(SlotNumber(rest));
-		return {};
+		return true;
 	}
-	else if (command == "get" && args.size() == 3)
+	bool start = false;
+	if (ParseWord(line, "open", rest) || (start = ParseWord(line, "start", rest)))
 	{
-		NameString className = ParseClassName(args[1]);
-		NameString propertyName = args[2];
+		// The rest of the line becomes the next travel, as the original's
+		// UGameEngine::Exec sets the viewport's (Engine.dll 0x1038a030;
+		// engine-dll.md, OPEN and START): past the word and the blanks
+		// after it, whole -- the Join screen's address typed with a blank
+		// after it, "open 1.2.3.4 ?lan", is the URL's to read --, and
+		// nothing after the word no travel. OPEN partial, on the last URL's
+		// options (a listen server's keeps ?listen and ?game=), START
+		// absolute -- a map, a server's address or a slot's ?loadgame=N
+		// alike. A map that is not there is the browse's to find, as the
+		// original's. A dedicated server browses (ServerBrowse).
+		ETravelType type = start ? ETravelType::TRAVEL_Absolute : ETravelType::TRAVEL_Partial;
+		std::string error;
+		if (!LaunchInfo.dedicatedServer)
+			ClientTravel(rest, type, false);
+		else if (!ServerBrowse(rest, type, error))
+			out.Log((start ? "Start failed: " : "Open failed: ") + error);
+		return true;
+	}
+	if (ParseWord(line, "servertravel", rest))
+	{
+		// The level's own event, whatever the rest, Deus Ex's engine being a
+		// server always (DeusEx.exe 0x10908d79): its game tells the clients,
+		// and the server follows once NextSwitchCountdown runs out
+		if (LevelInfo)
+			CallEvent(LevelInfo, "ServerTravel", { ExpressionValue::StringValue(rest), ExpressionValue::BoolValue(false) });
+		return true;
+	}
+	if (LaunchInfo.dedicatedServer && ParseWord(line, "say", rest))
+	{
+		// A server with no client says the rest of the line to every player
+		// and messaging spectator, with a beep, through the level's
+		// BroadcastMessage (0x1038a374-0x1038a392; bugs.md WIN.22)
+		if (LevelInfo)
+			CallEvent(LevelInfo, "BroadcastMessage", { ExpressionValue::StringValue(rest), ExpressionValue::BoolValue(true), ExpressionValue::NameValue(NameString("None")) });
+		return true;
+	}
+	if (ParseWord(line, "disconnect", rest))
+	{
+		// Back to the menu's map, the server told as the level goes (Deus
+		// Ex's own goes to dx.dx).
+		std::string error;
+		if (!LaunchInfo.dedicatedServer)
+			ClientTravel("dx.dx", ETravelType::TRAVEL_Absolute, false);
+		else if (!ServerBrowse("dx.dx", ETravelType::TRAVEL_Absolute, error))
+			out.Log("Disconnect failed: " + error);
+		return true;
+	}
+	if (ParseWord(line, "reconnect", rest))
+	{
+		// The last URL again: a client's is its server's.
+		std::string error;
+		if (!LaunchInfo.dedicatedServer)
+		{
+			if (LevelInfo)
+				ClientTravel(LastURL.ToString(), ETravelType::TRAVEL_Absolute, false);
+		}
+		else if (!ServerBrowse(LastURL.ToString(), ETravelType::TRAVEL_Absolute, error))
+		{
+			out.Log("Reconnect failed: " + error);
+		}
+		return true;
+	}
+	if (ParseWord(line, "getcurrenttickrate", rest))
+	{
+		// The frames a second the main loop last counted (0x1038a623)
+		out.Log(Printf("%f", CurrentTickRate));
+		return true;
+	}
+	if (ParseWord(line, "getmaxtickrate", rest))
+	{
+		// The rate the main loop holds itself to (0x1038a63a)
+		out.Log(Printf("%f", GetMaxTickRate()));
+		return true;
+	}
+	if (ParseWord(line, "gspylite", rest))
+	{
+		// GameSpy Lite started (appLaunchURL), which the game does not ship:
+		// logged as the original logs a URL it hands to the system, opened
+		// nowhere, as DXEngine's other launches
+		LogMessage("LaunchURL GSpyLite.exe ");
+		return true;
+	}
+	if (ParseWord(line, "cancel", rest))
+	{
+		// A join given up (the progress window's F10).
+		if (PendingLevel)
+			SetProgress(LocalizeMessage("Engine", "Progress", "CancelledConnect", "Cancelled Connect Attempt"), "", 2.0f);
+		else
+			SetProgress("", "", 0.0f);
+		CancelPending();
+		return true;
+	}
+	return false;
+}
 
-		UClass* cls = packages->FindClassAnyPackage(className);
-		if (!cls)
-		{
-			LogMessage("Could not find class '" + className.ToString() + "': " + commandline);
-			return {};
-		}
+// A dedicated server's travel by a command: the URL read on the last one, as
+// the original's game engine reads it with no viewport, and browsed with no
+// PreTravel to the level's actors (UGameEngine::Exec, Engine.dll 0x1038a030);
+// at the frame's travel, where no script runs, and not at once (bugs.md
+// WIN.31). A server's address is refused, Engine.int's ServerOpen, as the
+// original's browse refuses it with no client, the command's word's failure
+// said (UGameEngine::Browse, 0x1038b811).
+bool Engine::ServerBrowse(const std::string& text, ETravelType travelType, std::string& error)
+{
+	UnrealURL url(&LastURL, text, travelType);
+	if (!url.Host.empty())
+	{
+		error = LocalizeMessage("Engine", "Errors", "ServerOpen", "Servers can't open network URLs");
+		return false;
+	}
+	ClientTravelInfo.URL = url;
+	ClientTravelInfo.TransferItems = false;
+	return true;
+}
 
-		if (IsClassNamed(className, renderdev->Class))
+// The engine's words (UEngine::Exec, Engine.dll 0x10380ee0), in its order: the
+// system's, the objects', the memory cache's, the launcher's, the client's,
+// the renderer's, FLUSH and CRACKURL.
+bool Engine::EngineWordExec(const std::string& line, ExecOutput& out)
+{
+	if (SystemExec(line, out))
+		return true;
+	if (ObjectExec(line, out))
+		return true;
+	std::string rest;
+	if (ParseWord(line, "dumpcache", rest))
+	{
+		// The original's lists its memory cache's items (FMemCache::Exec,
+		// Core.dll 0x10125500), which DXEngine has not: its textures and
+		// light maps are the device's and the light system's
+		return true;
+	}
+	if (LauncherExec(line, out))
+		return true;
+	if (!LaunchInfo.dedicatedServer && ParseWord(line, "brightness", rest))
+	{
+		// UClient::Exec's BRIGHTNESS (Engine.dll 0x10375966-0x10375b6a), the
+		// client's: the live brightness a tenth up, 1 or more back to 0, the
+		// render flushed, a precache allowed, the client's config saved with
+		// it, and the player told "Brightness level <n>/10"
+		float brightness = client->BrightnessInUse + 0.1f;
+		if (brightness >= 1.0f)
+			brightness = 0.0f;
+		client->BrightnessInUse = brightness;
+		client->Brightness = brightness;
+		FlushRender();
+		SaveClientConfig();
+		FlushConfig();
+		if (viewport->Actor())
 		{
-			return renderdev->GetPropertyAsString(propertyName);
+			std::string message = "Brightness level " + std::to_string((int)(brightness * 10.0f + 1.0f)) + "/10";
+			CallEvent(viewport->Actor(), "ClientMessage", { ExpressionValue::StringValue(message), ExpressionValue::NameValue(NameString("None")), ExpressionValue::BoolValue(false) });
 		}
-		else if (IsClassNamed(className, audiodev->Class))
+		return true;
+	}
+	if (render && RendererExec(line, out))
+		return true;
+	if (ParseWord(line, "flush", rest))
+	{
+		// Taken with no client too, flushing nothing
+		if (render)
+			FlushRender();
+		return true;
+	}
+	if (ParseWord(line, "crackurl", rest))
+	{
+		// The rest of the line read as an absolute URL, its parts listed; one
+		// that does not read, BAD URL (0x10380ffa). The original faults on
+		// its String line for any URL that reads (0x1038111d-0x10381122),
+		// which DXEngine gives (bugs.md WIN.31).
+		UnrealURL url(nullptr, rest, ETravelType::TRAVEL_Absolute);
+		if (url.Valid)
 		{
-			return audiodev->GetPropertyAsString(propertyName);
-		}
-		else if (IsClassNamed(className, netdev->Class))
-		{
-			return netdev->GetPropertyAsString(propertyName);
-		}
-		else if (IsClassNamed(className, client->Class))
-		{
-			return client->GetPropertyAsString(propertyName);
+			out.Log("     Protocol: " + url.Protocol);
+			out.Log("         Host: " + url.Host);
+			out.Log("         Port: " + std::to_string(url.Port));
+			out.Log("          Map: " + url.Map);
+			out.Log("   NumOptions: " + std::to_string((int)url.Options.size()));
+			for (size_t i = 0; i < url.Options.size(); i++)
+				out.Log("     Option " + std::to_string((int)i) + ": " + url.Options[i]);
+			out.Log("       Portal: " + url.Portal);
+			out.Log("       String: '" + url.ToString() + "'");
 		}
 		else
 		{
-			try
+			out.Log("BAD URL");
+		}
+		return true;
+	}
+	return false;
+}
+
+// The system's words (USystem::Exec, Core.dll 0x1016b790): MEMSTAT, EXIT and
+// QUIT, RELAUNCH. Its DEBUG CRASH, GPF, RECURSE and EATMEM, which end the
+// game on purpose, DXEngine takes none of; nor CONFIGHASH, which dumps the
+// original's config cache's hash table.
+bool Engine::SystemExec(const std::string& line, ExecOutput& out)
+{
+	std::string rest;
+	if (ParseWord(line, "memstat", rest))
+	{
+		// The memory available, as a 32-bit process of the original's sees it
+		// (GlobalMemoryStatus): the physical, the commit limit's and the
+		// address space's left, in K, each at most 4 GB, then the memory load
+		uint64_t phys = 0, pagefile = 0, virt = 0;
+		int load = 0;
+#ifdef WIN32
+		MEMORYSTATUSEX status = {};
+		status.dwLength = sizeof(status);
+		if (GlobalMemoryStatusEx(&status))
+		{
+			phys = status.ullAvailPhys;
+			pagefile = status.ullAvailPageFile;
+			virt = status.ullAvailVirtual;
+			load = (int)status.dwMemoryLoad;
+		}
+#else
+		uint64_t total = 0, available = 0, swapFree = 0;
+		if (FILE* meminfo = std::fopen("/proc/meminfo", "r"))
+		{
+			char key[64];
+			unsigned long long kb = 0;
+			while (std::fscanf(meminfo, "%63s %llu kB\n", key, &kb) == 2)
 			{
-				return ExportForGet(cls, propertyName);
+				if (!std::strcmp(key, "MemTotal:"))
+					total = kb * 1024;
+				else if (!std::strcmp(key, "MemAvailable:"))
+					available = kb * 1024;
+				else if (!std::strcmp(key, "SwapFree:"))
+					swapFree = kb * 1024;
 			}
-			catch (const std::exception&)
+			std::fclose(meminfo);
+		}
+		phys = available;
+		pagefile = available + swapFree;
+		virt = UINT64_MAX;
+		load = total ? (int)(100 - available * 100 / total) : 0;
+#endif
+		auto kilobytes = [](uint64_t bytes) { return (int)(std::min<uint64_t>(bytes, 0xffffffffull) >> 10); };
+		out.Log(Printf("Memory available: Phys=%iK Pagef=%iK Virt=%iK", kilobytes(phys), kilobytes(pagefile), kilobytes(virt)));
+		out.Log(Printf("Memory load = %i%%", load));
+		return true;
+	}
+	if (ParseWord(line, "exit", rest) || ParseWord(line, "quit", rest))
+	{
+		out.Log("Closing by request");
+		quit = true;
+		return true;
+	}
+	if (ParseWord(line, "relaunch", rest))
+	{
+		Relaunch(rest);
+		return true;
+	}
+	return false;
+}
+
+// The objects' words (UObject::StaticExec, Core.dll 0x10153110): MEM, GET,
+// SET, OBJ's GARBAGE, MARK, MARKCHECK, CLASSES and LIST, and GTIME. Its
+// DUMPNATIVES, OBJ REFS, HASH, DEPENDENCIES, VFHASH and LINKERS list the
+// original's own tables -- its native table, the references its serializer
+// walks, its name hash, its states' function hashes, its linkers' -- which
+// DXEngine does not keep so (bugs.md WIN.31).
+bool Engine::ObjectExec(const std::string& line, ExecOutput& out)
+{
+	std::string rest;
+	if (ParseWord(line, "mem", rest))
+	{
+		// The original's allocator dump, whose lines the game's build leaves
+		// out: nothing logged (FMallocWindows::DumpAllocs)
+		return true;
+	}
+	bool set = false;
+	if (ParseWord(line, "get", rest) || (set = ParseWord(line, "set", rest)))
+	{
+		// The class by its name in any package (an ini: name its ini's
+		// value), then the property: either not found answered as the
+		// original's GET and SET answer it, the command taken all the same
+		// (0x101531b0; bugs.md ENG.32, WIN.31)
+		Array<std::string> args = GetArgs(rest);
+		std::string classToken = args.size() > 0 ? args[0] : std::string();
+		std::string propertyToken = args.size() > 1 ? args[1] : std::string();
+		NameString className;
+		UClass* cls = nullptr;
+		try
+		{
+			if (!classToken.empty())
 			{
-				LogMessage("Could not get property '" + propertyName.ToString() + "': " + commandline);
-				return {};
+				className = ParseClassName(classToken);
+				cls = packages->FindClassAnyPackage(className);
 			}
 		}
-	}
-	else if (command == "set" && args.size() >= 3)
-	{
-		NameString className = ParseClassName(args[1]);
-		NameString propertyName = args[2];
+		catch (const std::exception&)
+		{
+			cls = nullptr;
+		}
+		// Deus Ex's input class is Extension's InputExt, so the multiplayer
+		// key SETs land here too instead of failing on every map
+		// (extension-dll.md, the engine and the input).
+		if (set && !propertyToken.empty() && (className == "input" || className == "inputext"))
+		{
+			std::string value = ArgsFrom(rest, 2);
+			keybindings[propertyToken] = value;
+			packages->SetIniValue("user", "Engine.Input", propertyToken, value);
+			FlushConfig();
+			return true;
+		}
+		if (!cls)
+		{
+			out.Log("Unrecognized class " + classToken);
+			return true;
+		}
+		NameString propertyName = propertyToken;
+		if (!set)
+		{
+			if (IsClassNamed(className, renderdev->Class))
+				out.Log(renderdev->GetPropertyAsString(propertyName));
+			else if (IsClassNamed(className, audiodev->Class))
+				out.Log(audiodev->GetPropertyAsString(propertyName));
+			else if (IsClassNamed(className, netdev->Class))
+				out.Log(netdev->GetPropertyAsString(propertyName));
+			else if (IsClassNamed(className, client->Class))
+				out.Log(client->GetPropertyAsString(propertyName));
+			else if (propertyToken.empty() || !cls->FindProperty(propertyName))
+				out.Log("Unrecognized property " + propertyToken);
+			else
+				out.Log(ExportForGet(cls, propertyName));
+			return true;
+		}
+
 		// The value is the rest of the line, as the original's SET takes it
 		// (Core.dll's UObject::StaticExec, 0x101531b0): a server's name has
 		// spaces.
 		std::string value = ArgsFrom(rest, 2);
-
-		// Special input setting handling. Deus Ex's input class is Extension's
-		// InputExt, so the multiplayer key SETs land here too instead of
-		// failing on every map (extension-dll.md, the engine and the input).
-		if (className == "input" || className == "inputext")
-		{
-			keybindings[propertyName.ToString()] = value;
-			packages->SetIniValue("user", "Engine.Input", propertyName, value);
-			FlushConfig();
-			return {};
-		}
-
-		UClass* cls = packages->FindClassAnyPackage(className);
-		if (!cls)
-		{
-			LogMessage("Could not find class '" + className.ToString() + "': " + commandline);
-			return {};
-		}
 
 		// A name the original's class has not is answered as its SET answers
 		// it (UObject's StaticExec, Core.dll 0x101531b0), nothing set or
@@ -3465,14 +4127,20 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		if (IsClassNamed(className, renderdev->Class))
 		{
 			if (!renderdev->HasProperty(propertyName))
-				return "Unrecognized property " + propertyName.ToString();
+			{
+				out.Log("Unrecognized property " + propertyToken);
+				return true;
+			}
 			renderdev->SetPropertyFromString(propertyName, value);
 			renderdev->SaveConfig();
 		}
 		else if (IsClassNamed(className, audiodev->Class))
 		{
 			if (!audiodev->HasProperty(propertyName))
-				return "Unrecognized property " + propertyName.ToString();
+			{
+				out.Log("Unrecognized property " + propertyToken);
+				return true;
+			}
 			audiodev->SetPropertyFromString(propertyName, value);
 			audiodev->SaveConfig();
 		}
@@ -3483,25 +4151,31 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		else if (IsClassNamed(className, client->Class))
 		{
 			if (!client->HasProperty(propertyName))
-				return "Unrecognized property " + propertyName.ToString();
+			{
+				out.Log("Unrecognized property " + propertyToken);
+				return true;
+			}
 			client->SetPropertyFromString(propertyName, value);
 			client->PostEditChange();
 			SaveClientConfig(false);
 		}
 		else
 		{
+			// As the original's GlobalSetProperty (Core.dll 0x101523a0):
+			// the property the class's field walk finds, its own first,
+			// set in every object of the class or a subclass, each then
+			// told of it (PostEditChange), then in the class's defaults,
+			// and the class's config is saved. The devices and the
+			// client keep their values in members of their own, set by
+			// name.
+			UProperty* prop = propertyToken.empty() ? nullptr : cls->FindProperty(propertyName);
+			if (!prop)
+			{
+				out.Log("Unrecognized property " + propertyToken);
+				return true;
+			}
 			try
 			{
-				// As the original's GlobalSetProperty (Core.dll 0x101523a0):
-				// the property the class's field walk finds, its own first,
-				// set in every object of the class or a subclass, each then
-				// told of it (PostEditChange), then in the class's defaults,
-				// and the class's config is saved. The devices and the
-				// client keep their values in members of their own, set by
-				// name.
-				UProperty* prop = cls->FindProperty(propertyName);
-				if (!prop)
-					Exception::Throw("Class Property '" + cls->Name.ToString() + "." + propertyName.ToString() + "' not found");
 				for (GCObject* gcObj : GC::GetObjects())
 				{
 					UObject* obj = dynamic_cast<UObject*>(gcObj);
@@ -3526,116 +4200,287 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 			}
 			catch (const std::exception&)
 			{
-				LogMessage("Could not set property '" + propertyName.ToString() + "': " + commandline);
+				LogMessage("Could not set property '" + propertyName.ToString() + "': " + line);
 			}
-			return {};
+			return true;
 		}
 		// A device's or the client's setting, its value in the ini: saved at
 		// once, as the original's SET ends with its class's SaveConfig
 		// (GlobalSetProperty, Core.dll 0x101523a0; bugs.md ENG.27)
 		FlushConfig();
+		return true;
 	}
-	else if (command == "setres" && args.size() == 2)
+	if (ParseWord(line, "obj", rest))
 	{
-		window->SetResolution(args[1]);
-		ModeSetAgain();
-		// The new size is kept as the windowed size, or full screen the
-		// mode taken, which the ini saves, as the original's SETRES keeps it.
-		int width = 0, height = 0;
-		if (window->IsFullscreen())
+		std::string sub;
+		if (ParseWord(rest, "garbage", sub))
 		{
-			Size mode = window->GetClosestResolution(Size(window->GetPixelWidth(), window->GetPixelHeight()));
-			if (sscanf(args[1].c_str(), "%dx%d", &width, &height) == 2 && width >= 640 && height >= 480)
-				mode = window->GetClosestResolution(Size(width, height));
-			client->SetPropertyFromString("FullscreenViewportX", std::to_string((int)mode.width));
-			client->SetPropertyFromString("FullscreenViewportY", std::to_string((int)mode.height));
+			// The original's collects at once (0x101533d2); DXEngine's at
+			// this frame's end, its collector running with no script under
+			// way (bugs.md D.81)
+			RequestGarbageCollection("obj garbage");
+			return true;
 		}
-		else if (sscanf(args[1].c_str(), "%dx%d", &width, &height) == 2 && width >= 640 && height >= 480)
+		if (ParseWord(rest, "mark", sub))
 		{
-			client->SetPropertyFromString("WindowedViewportX", std::to_string(width));
-			client->SetPropertyFromString("WindowedViewportY", std::to_string(height));
-			AskWindowSize(width, height);
+			// Every object marked, for MARKCHECK to leave out (0x1015341a)
+			LogMessage("Marking objects");
+			markedObjects.clear();
+			for (GCObject* gcObj : GC::GetObjects())
+			{
+				if (UObject* obj = dynamic_cast<UObject*>(gcObj))
+					markedObjects.insert(obj);
+			}
+			return true;
 		}
-		// Saved at once, as the original's viewport's resize saves the
-		// client's config (bugs.md WIN.18, ENG.27)
-		SaveClientConfig();
-		FlushConfig();
-	}
-	else if (command == "togglefullscreen")
-	{
-		ToggleFullscreen();
-		return {};
-	}
-	else if (command == "endfullscreen")
-	{
-		EndFullscreen();
-		return {};
-	}
-	else if (command == "flush")
-	{
-		FlushRender();
-		return {};
-	}
-	else if (command == "getdetailtextures")
-	{
-		// The render device's DetailTextures, 1 or 0 (URenderDevice::Exec,
-		// Engine.dll 0x10371b8a)
-		return renderdev->DetailTextures ? "1" : "0";
-	}
-	else if (command == "toggledetailtextures")
-	{
-		// Flipped and the device's config saved, nothing said
-		// (0x10371bd3-0x10371bfb)
-		renderdev->DetailTextures = !renderdev->DetailTextures;
-		renderdev->SaveConfig();
-		FlushConfig();
-		return {};
-	}
-	else if (command == "lodbias")
-	{
-		// D3DDrv's (0x10006377): the number past the word, none 0, the mip
-		// bias from the next frame until the device's mode is set again
-		// (ModeSetAgain), neither held nor saved; its line the output
-		float bias = (float)std::atof(rest.c_str());
-		render->Device->SetLODBias(bias);
-		char line[64];
-		snprintf(line, sizeof(line), "Texture LodBias %f", bias);
-		return line;
-	}
-	else if (command == "showpools")
-	{
-		// D3DDrv's (0x10006404) lists its Direct3D 7 texture pools under the
-		// line, which DXEngine has not: the line alone, as the original's
-		// before any mode is set
-		return "Dumping D3D Texture Pool Info";
-	}
-	else if (command == "brightness")
-	{
-		// UClient::Exec's BRIGHTNESS (Engine.dll 0x10375966-0x10375b6a), an
-		// engine word: the live brightness a tenth up, 1 or more back to 0,
-		// the render flushed, a precache allowed, the client's config saved
-		// with it, and the player told "Brightness level <n>/10"
-		float brightness = client->BrightnessInUse + 0.1f;
-		if (brightness >= 1.0f)
-			brightness = 0.0f;
-		client->BrightnessInUse = brightness;
-		client->Brightness = brightness;
-		FlushRender();
-		SaveClientConfig();
-		FlushConfig();
-		if (viewport->Actor())
+		if (ParseWord(rest, "markcheck", sub))
 		{
-			std::string message = "Brightness level " + std::to_string((int)(brightness * 10.0f + 1.0f)) + "/10";
-			CallEvent(viewport->Actor(), "ClientMessage", { ExpressionValue::StringValue(message), ExpressionValue::NameValue(NameString("None")), ExpressionValue::BoolValue(false) });
+			// Each object made since, by its full name, to the log
+			// (0x101534d5)
+			LogMessage("Unmarked objects:");
+			for (GCObject* gcObj : GC::GetObjects())
+			{
+				UObject* obj = dynamic_cast<UObject*>(gcObj);
+				if (obj && !markedObjects.count(obj))
+					LogMessage(FullName(obj));
+			}
+			return true;
 		}
-		return {};
+		if (ParseWord(rest, "classes", sub))
+		{
+			// The class tree from Object, each class under its parent two
+			// blanks further in (0x101538b9)
+			Array<UClass*> classes;
+			UClass* root = nullptr;
+			for (GCObject* gcObj : GC::GetObjects())
+			{
+				if (UClass* cls = dynamic_cast<UClass*>(gcObj))
+				{
+					classes.push_back(cls);
+					if (!cls->BaseStruct && cls->Name == "Object")
+						root = cls;
+				}
+			}
+			std::function<void(UClass*, int)> list = [&](UClass* cls, int indent)
+			{
+				out.Log(std::string(indent, ' ') + cls->Name.ToString());
+				for (UClass* child : classes)
+				{
+					if (child->BaseStruct == cls)
+						list(child, indent + 2);
+				}
+			};
+			if (root)
+				list(root, 0);
+			return true;
+		}
+		if (ParseWord(rest, "list", sub))
+		{
+			// The objects of a CLASS=, in a PACKAGE= or INSIDE= one, each by
+			// its full name, then a line a class with its count, and the
+			// total (0x10153b04); a class's bytes are its object's
+			// properties, where the original counts what its serializer
+			// walks of each
+			UClass* filterClass = nullptr;
+			std::string filterPackage, filterInside, value;
+			if (StrTools::ue1_parse(sub, "CLASS=", value))
+				filterClass = packages->FindClassAnyPackage(value);
+			StrTools::ue1_parse(sub, "PACKAGE=", filterPackage);
+			StrTools::ue1_parse(sub, "INSIDE=", filterInside);
+			bool filtered = filterClass || !filterPackage.empty() || !filterInside.empty();
+			struct ClassCount
+			{
+				UClass* Class = nullptr;
+				int Count = 0;
+				size_t Bytes = 0;
+			};
+			Array<ClassCount> counts;
+			Array<std::pair<std::string, size_t>> listed;
+			int total = 0;
+			size_t totalBytes = 0;
+			for (GCObject* gcObj : GC::GetObjects())
+			{
+				UObject* obj = dynamic_cast<UObject*>(gcObj);
+				if (!obj || !obj->Class)
+					continue;
+				bool inClass = false;
+				for (UStruct* s = obj->Class; s && filterClass; s = s->BaseStruct)
+					inClass = inClass || s == filterClass;
+				// PACKAGE= a package's own objects, INSIDE= all within it
+				bool ofPackage = obj->package && (!obj->Outer() || obj->package->IsPackageObject(obj->Outer()));
+				bool inPackage = !filterPackage.empty() && ofPackage && StrTools::equals_ignore_case(obj->package->GetPackageName().ToString(), filterPackage);
+				bool inside = !filterInside.empty() && obj->package && StrTools::equals_ignore_case(obj->package->GetPackageName().ToString(), filterInside);
+				if (filtered && !inClass && !inPackage && !inside)
+					continue;
+				size_t bytes = obj->Class->StructSize;
+				if (filtered)
+					listed.push_back({ FullName(obj), bytes });
+				auto it = std::find_if(counts.begin(), counts.end(), [&](const ClassCount& c) { return c.Class == obj->Class; });
+				if (it == counts.end())
+				{
+					counts.push_back({ obj->Class, 0, 0 });
+					it = counts.end() - 1;
+				}
+				it->Count++;
+				it->Bytes += bytes;
+				total++;
+				totalBytes += bytes;
+			}
+			out.Log("Objects:");
+			out.Log("");
+			if (!listed.empty())
+			{
+				std::sort(listed.begin(), listed.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
+				out.Log(Printf("%60s % 10s % 10s", "Object", "NumBytes", "MaxBytes"));
+				for (const auto& [name, bytes] : listed)
+					out.Log(Printf("%60s % 10i % 10i", name.c_str(), (int)bytes, (int)bytes));
+				out.Log("");
+			}
+			if (!counts.empty())
+			{
+				std::sort(counts.begin(), counts.end(), [](const ClassCount& a, const ClassCount& b) { return a.Bytes > b.Bytes; });
+				out.Log(Printf(" %30s % 6s % 10s  % 10s ", "Class", "Count", "NumBytes", "MaxBytes"));
+				for (const ClassCount& c : counts)
+					out.Log(Printf(" %30s % 6i % 10iK % 10iK", c.Class->Name.ToString().c_str(), c.Count, (int)(c.Bytes >> 10), (int)(c.Bytes >> 10)));
+				out.Log("");
+			}
+			out.Log(Printf("%i Objects (%.3fM / %.3fM)", total, totalBytes / 1048576.0, totalBytes / 1048576.0));
+			return true;
+		}
+		return false;
 	}
-	else if (!viewportWord || !ExecCommand(execArgs, commandline, output))
+	if (ParseWord(line, "gtime", rest))
 	{
-		LogMessage("Unknown command: " + commandline);
-		found = false;
+		// The original's timing global, which nothing in the game sets
+		// (Core.dll 0x10154288), to the log
+		LogMessage("GTime = 0.000000");
+		return true;
 	}
-	return output;
+	return false;
+}
+
+// The launcher's words, the executable's (DeusEx.exe's GLaunchExec,
+// 0x10913650; launch-flow.md, console commands): SHOWLOG, HIDELOG and
+// TAKEFOCUS; a dedicated server's PREFERENCES, its log window's Advanced
+// Options. The log window and the Advanced Options are the original's
+// alone (the log says so).
+bool Engine::LauncherExec(const std::string& line, ExecOutput& out)
+{
+	std::string rest;
+	if (ParseWord(line, "showlog", rest))
+	{
+		LogMessage("showlog: DXEngine has no log window");
+		return true;
+	}
+	if (ParseWord(line, "takefocus", rest))
+	{
+		if (window)
+			window->ActivateWindow();
+		return true;
+	}
+	if (ParseWord(line, "hidelog", rest))
+		return true;
+	if (LaunchInfo.dedicatedServer && ParseWord(line, "preferences", rest))
+	{
+		LogMessage("preferences: DXEngine has no Advanced Options window");
+		return true;
+	}
+	return false;
+}
+
+// The renderer's words (URender::Exec, Render.dll 0x10b147b0; bugs.md
+// WIN.29): STAT toggles a panel a word -- Net, Fps, Global, Mesh, Actor,
+// Filter, Reject, Span, Zone, Light, Occlusion, Game, Soft, Cache, PolyV,
+// PolyC, Illum, Hardware, each looked for in turn after the one before, so
+// "stat net fps" toggles both and "stat fps net" Fps alone --, and DXEngine's
+// own Render panel (STAT RENDER, by choice); REND LEAK and REND T toggle
+// options DXEngine draws nothing by; TLOD, MLOD, MLMODE and MLFIX set the
+// mesh texture LOD distance, the shape LOD, its mode and its fixed factor,
+// which the mesh detail takes (VisibleMesh), each answered.
+bool Engine::RendererExec(const std::string& line, ExecOutput& out)
+{
+	std::string rest;
+	if (ParseWord(line, "stat", rest))
+	{
+		static const char* const words[] = { "net", "fps", "global", "mesh", "actor", "filter", "reject", "span", "zone", "light", "occlusion", "game", "soft", "cache", "polyv", "polyc", "illum", "hardware" };
+		std::string after;
+		for (int i = 0; i < RenderSubsystem::StatCount; i++)
+		{
+			if (ParseWord(rest, words[i], after))
+			{
+				render->StatPanels[i] = !render->StatPanels[i];
+				rest = after;
+			}
+		}
+		if (ParseWord(rest, "render", after))
+			render->ShowRenderStats = !render->ShowRenderStats;
+		return true;
+	}
+	if (ParseWord(line, "rend", rest))
+	{
+		std::string after;
+		if (ParseWord(rest, "leak", after))
+			render->RendLeak = !render->RendLeak;
+		else if (ParseWord(rest, "t", after))
+			render->RendT = !render->RendT;
+		else
+			return false;
+		out.Log("Rendering option recognized");
+		return true;
+	}
+	if (ParseWord(line, "tlod", rest))
+	{
+		if (rest.empty())
+		{
+			out.Log(Printf("%f", render->MeshTextureLOD));
+			return true;
+		}
+		float value = (float)std::atof(rest.c_str());
+		if (value > 0.0f)
+			render->MeshTextureLOD = value;
+		out.Log(Printf("Global mesh texture LOD distance %f", render->MeshTextureLOD));
+		return true;
+	}
+	if (ParseWord(line, "mlod", rest))
+	{
+		if (rest.empty())
+		{
+			out.Log(Printf("%f", render->ShapeLOD));
+			return true;
+		}
+		float value = (float)std::atof(rest.c_str());
+		if (value > 0.0f)
+			render->ShapeLOD = value;
+		out.Log(Printf("Global mesh shape LOD distance %f", render->ShapeLOD));
+		return true;
+	}
+	if (ParseWord(line, "mlmode", rest))
+	{
+		if (rest.empty())
+		{
+			out.Log(Printf("%i", render->ShapeLODMode));
+			return true;
+		}
+		int value = std::atoi(rest.c_str());
+		if (value >= 0)
+			render->ShapeLODMode = value;
+		out.Log(Printf("Shape LOD draw mode %i", render->ShapeLODMode));
+		return true;
+	}
+	if (ParseWord(line, "mlfix", rest))
+	{
+		if (rest.empty())
+		{
+			out.Log(Printf("%f", render->ShapeLODFix));
+			return true;
+		}
+		float value = (float)std::atof(rest.c_str());
+		if (value >= 0.0f)
+			render->ShapeLODFix = value;
+		out.Log(Printf("Shape LOD scaling fixed at %f", render->ShapeLODFix));
+		return true;
+	}
+	return false;
 }
 
 Array<std::string> Engine::GetArgs(const std::string& commandline)
@@ -3669,7 +4514,7 @@ void Engine::LoadEngineSettings()
 	// the player set stays.
 	std::string speed = packages->GetIniValue("system", "Engine.Player", "ConfiguredInternetSpeed");
 	if (speed.empty() || speed == "2600")
-		RunCommand(nullptr, "set Engine.Player ConfiguredInternetSpeed 20000");
+		RunCommand("set Engine.Player ConfiguredInternetSpeed 20000", nullptr, true);
 
 	if (packages->MissingDXESystemIni())
 	{
@@ -4232,6 +5077,14 @@ void Engine::OnWindowMaximize()
 	ToggleFullscreen();
 }
 
+// The screen saver and the display's power-down, which the game's window
+// refuses in a window or full screen, logged as the original's window logs
+// them (WinDrv.dll 0x1110b1d9, 0x1110b20a)
+void Engine::OnWindowScreenSaver(bool displayPower)
+{
+	LogMessage(displayPower ? "Received SC_MONITORPOWER" : "Received SC_SCREENSAVE");
+}
+
 void Engine::LockCursor()
 {
 	if (window)
@@ -4398,34 +5251,29 @@ namespace
 	};
 }
 
-// The exec functions in the original's order: the console's (UViewport::
-// Exec), then the game's, the HUD's, the player pawn's and each item of its
-// inventory in turn (UPlayer::Exec, Engine.dll 0x103d7ed0), each with the
-// viewport's actor as the command's executor. The parameters as the
-// original's ScriptConsoleExec takes them (Core.dll 0x10150860; bugs.md
-// ENG.17): a first one that is an object the executor is, the executor; each
-// other in turn, past blanks and a ';' comment (ParseNext), by its
-// property's ImportText from where the last one stopped: a string the rest of
-// the line, its position left where it was; a float to the next ',' or ')';
-// an object one character past its name. A refused import ends them: for an
-// optional parameter the call is made, the rest zero; for any other Core's
-// BadProperty is the command's output and no call is made. The command is
-// taken either way.
-bool Engine::ExecCommand(const Array<std::string>& args, const std::string& line, std::string& output)
+// One object's exec functions, as the original's ScriptConsoleExec runs them
+// (Core.dll 0x10150860; bugs.md ENG.17): the function of the line's first
+// token's name, if it is an exec function. Its parameters as the original
+// takes them: a first one that is an object the executor is, the executor;
+// each other in turn, past blanks and a ';' comment (ParseNext), by its
+// property's ImportText from where the last one stopped: a string the rest
+// of the line, its position left where it was; a float to the next ',' or
+// ')'; an object one character past its name. A refused import ends them:
+// for an optional parameter the call is made, the rest zero; for any other
+// Core's BadProperty is the command's output and no call is made. The
+// command is taken either way. The callers ask each object in the
+// original's order (ViewportExec's console, PlayerExec's game, HUD, player
+// and inventory, EngineExec's game with no executor).
+bool Engine::ScriptExec(UObject* target, UObject* executor, const std::string& line, ExecOutput& out)
 {
-	Array<UObject*> targets;
-	targets.push_back(console);
-	UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(viewport->Actor());
-	if (LevelInfo && LevelInfo->Game())
-		targets.push_back(LevelInfo->Game());
-	if (player && player->myHUD())
-		targets.push_back(player->myHUD());
-	targets.push_back(viewport->Actor());
-	if (player)
-	{
-		for (UInventory* item = player->Inventory(); item; item = item->Inventory())
-			targets.push_back(item);
-	}
+	if (!target)
+		return false;
+	Array<std::string> args = GetArgs(line);
+	if (args.empty())
+		return false;
+	UFunction* func = FindEventFunction(target, args[0]);
+	if (!func || !AllFlags(func->FuncFlags, FunctionFlags::Exec))
+		return false;
 
 	// The parameters' text, past the command's word as ParseToken leaves it
 	size_t start = line.find_first_not_of(" \t");
@@ -4434,62 +5282,49 @@ bool Engine::ExecCommand(const Array<std::string>& args, const std::string& line
 	if (start == std::string::npos)
 		start = line.size();
 
-	UObject* executor = viewport->Actor();
-	for (UObject* target : targets)
+	ExecFunctionParms parms(func);
+	size_t pos = start;
+	bool refused = false;
+	for (size_t i = 0; i < parms.Parms.size() && !AllFlags(parms.Parms[i]->PropFlags, PropertyFlags::ReturnParm); i++)
 	{
-		if (!target)
-			continue;
-
-		UFunction* func = FindEventFunction(target, args[0]);
-		if (!func || !AllFlags(func->FuncFlags, FunctionFlags::Exec))
-			continue;
-
-		ExecFunctionParms parms(func);
-		size_t pos = start;
-		bool refused = false;
-		for (size_t i = 0; i < parms.Parms.size() && !AllFlags(parms.Parms[i]->PropFlags, PropertyFlags::ReturnParm); i++)
+		UProperty* prop = parms.Parms[i];
+		void* data = parms.Data + prop->DataOffset.DataOffset;
+		UObjectProperty* objprop = UObject::TryCast<UObjectProperty>(prop);
+		// The executor for a first object parameter of its class, the
+		// class itself or one it extends (UObject::ScriptConsoleExec,
+		// Core.dll 0x10150860)
+		if (i == 0 && executor && objprop && objprop->ObjectClass && executor->IsA(objprop->ObjectClass))
 		{
-			UProperty* prop = parms.Parms[i];
-			void* data = parms.Data + prop->DataOffset.DataOffset;
-			UObjectProperty* objprop = UObject::TryCast<UObjectProperty>(prop);
-			// The executor for a first object parameter of its class, the
-			// class itself or one it extends (UObject::ScriptConsoleExec,
-			// Core.dll 0x10150860)
-			if (i == 0 && executor && objprop && objprop->ObjectClass && executor->IsA(objprop->ObjectClass))
-			{
-				*static_cast<UObject**>(data) = executor;
-				continue;
-			}
-			pos = ParseNext(line, pos);
-			size_t next = prop->ImportText(line, pos, data);
-			if (next == UProperty::ImportFailed)
-			{
-				if (!AllFlags(prop->PropFlags, PropertyFlags::OptionalParm))
-				{
-					output = LocalizeMessage("Core", "Errors", "BadProperty", "'%s': Bad or missing property '%s'", { func->Name.ToString(), prop->Name.ToString() });
-					refused = true;
-				}
-				break;
-			}
-			pos = next;
+			*static_cast<UObject**>(data) = executor;
+			continue;
 		}
-		if (!refused)
+		pos = ParseNext(line, pos);
+		size_t next = prop->ImportText(line, pos, data);
+		if (next == UProperty::ImportFailed)
 		{
-			Array<ExpressionValue> vmArgs;
-			for (UProperty* prop : parms.Parms)
+			if (!AllFlags(prop->PropFlags, PropertyFlags::OptionalParm))
 			{
-				if (AllFlags(prop->PropFlags, PropertyFlags::ReturnParm))
-					break;
-				ExpressionValue value = ExpressionValue::Variable(parms.Data, prop);
-				value.Load();
-				vmArgs.push_back(std::move(value));
+				out.Log(LocalizeMessage("Core", "Errors", "BadProperty", "'%s': Bad or missing property '%s'", { func->Name.ToString(), prop->Name.ToString() }));
+				refused = true;
 			}
-			CallEvent(target, func->Name, std::move(vmArgs));
+			break;
 		}
-		return true;
+		pos = next;
 	}
-
-	return false;
+	if (!refused)
+	{
+		Array<ExpressionValue> vmArgs;
+		for (UProperty* prop : parms.Parms)
+		{
+			if (AllFlags(prop->PropFlags, PropertyFlags::ReturnParm))
+				break;
+			ExpressionValue value = ExpressionValue::Variable(parms.Data, prop);
+			value.Load();
+			vmArgs.push_back(std::move(value));
+		}
+		CallEvent(target, func->Name, std::move(vmArgs));
+	}
+	return true;
 }
 
 // A Button binding's property on the pawn: an `input byte` (Pawn's bFire
@@ -4525,7 +5360,7 @@ static void SetInputButton(UObject* pawn, const std::string& name, bool pressed)
 // outside quotes the next command, a // outside quotes the rest of its line
 // dropped, a line past 255 characters its rest the next --, where each | cut
 // one whatever the quotes: a press's to the viewport's commands -- the
-// input's own first (InputExec), then the console's (RunCommand) --, as a
+// input's own first (InputExec), then the viewport's (RunCommand) --, as a
 // release's that begins with OnRelease does, the rest of it, OnRelease as
 // ParseCommand takes the word; anything else -- an axis, any other release
 // -- to the input's own alone. OnRelease's line on the press, which no
@@ -4543,13 +5378,13 @@ void Engine::ExecInputLine(const std::string& line, EInputKey key, EInputType ac
 		if (action == EInputType::IST_Press)
 		{
 			if (!onRelease && !InputExec(command, key, action, value))
-				RunCommand(viewport->Actor(), command);
+				RunCommand(command);
 		}
 		else if (action == EInputType::IST_Release && onRelease)
 		{
 			std::string rest = command.substr(pos);
 			if (!rest.empty() && !InputExec(rest, key, action, value))
-				RunCommand(viewport->Actor(), rest);
+				RunCommand(rest);
 		}
 		else
 		{
@@ -4586,7 +5421,7 @@ static void SetInputButtonValue(UObject* pawn, UProperty* prop, uint8_t value)
 // alias's name runs the alias's line as the key's, with its action, an
 // alias inside it not expanded again. False for any other word, which the
 // viewport's commands take.
-bool Engine::InputExec(const std::string& command, EInputKey key, EInputType action, int value)
+bool Engine::InputExec(const std::string& command, EInputKey key, EInputType action, int value, ExecOutput* out)
 {
 	if (GetArgs(command).empty())
 		return false;
@@ -4654,6 +5489,33 @@ bool Engine::InputExec(const std::string& command, EInputKey key, EInputType act
 			*static_cast<float*>(actor->GetProperty(prop)) += speed * value * 0.01f;
 		else if (key != IK_None && (action == EInputType::IST_Press || action == EInputType::IST_Axis))
 			activeInputAxes[{ args[1], key }] = speed * value;
+		return true;
+	}
+
+	// A key's name by its number, the number past the word (appAtoi): ""
+	// past the keys; and a key's binding by its name, in any case, the rest of
+	// the line whole: nothing said for a name that is no key's (0x103940a0,
+	// 0x103940eb). The input's alone: a remote player's are no one's (bugs.md
+	// WIN.21).
+	if (word == "keyname")
+	{
+		int index = std::atoi(rest.c_str());
+		if (out)
+			out->Log(index >= 0 && index < 256 ? keynames[index] : "");
+		return true;
+	}
+	if (word == "keybinding")
+	{
+		for (int index = 0; index < 255; index++)
+		{
+			if (*keynames[index] && StrTools::equals_ignore_case(keynames[index], rest))
+			{
+				auto it = keybindings.find(keynames[index]);
+				if (out)
+					out->Log(it != keybindings.end() ? it->second : std::string());
+				break;
+			}
+		}
 		return true;
 	}
 

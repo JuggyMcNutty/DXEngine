@@ -75,6 +75,10 @@ public:
 
 	double height;
 	std::vector<SingleFont> fonts;
+
+	// A group none of whose fonts loaded: a line of its height, its text
+	// drawn and measured as nothing
+	TrueTypeTextMetrics noFontMetrics;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -141,8 +145,12 @@ CanvasGlyph* CanvasFont::getGlyph(Canvas* canvas, uint32_t utfchar)
 	glyph->uvheight = h;
 	glyph->texture = canvas->createTexture(destwidth, h, data.data(), ImageFormat::B8G8R8A8);
 
-	glyph->metrics.advanceWidth = (ttfglyph.advanceWidth + 2) / 3;
-	glyph->metrics.leftSideBearing = (ttfglyph.leftSideBearing + 2) / 3;
+	// The advance the font sets, and the bitmap's place in pixels with its
+	// fraction (the glyph is read three times as wide): each rounded up set
+	// the text loose and drew a glyph that begins left of the pen (a 'j') a
+	// pixel right
+	glyph->metrics.advanceWidth = ttf->GetAdvanceWidth(glyphIndex, height);
+	glyph->metrics.leftSideBearing = ttfglyph.leftSideBearing / 3.0;
 	glyph->metrics.yOffset = ttfglyph.yOffset;
 
 	return glyph.get();
@@ -152,6 +160,8 @@ CanvasGlyph* CanvasFont::getGlyph(Canvas* canvas, uint32_t utfchar)
 
 CanvasFontGroup::CanvasFontGroup(const std::string& fontname, double height) : height(height)
 {
+	noFontMetrics.ascent = height;
+
 	// A font the pk3 lacks or cannot be read is left out, the group kept
 	// with the rest: one threw the whole group out, and every text drawn
 	// or measured after it, the error window's first
@@ -192,6 +202,9 @@ CanvasGlyph* CanvasFontGroup::getGlyph(Canvas* canvas, uint32_t utfchar, const c
 
 TrueTypeTextMetrics& CanvasFontGroup::GetTextMetrics()
 {
+	// None loaded (a pk3 without the Noto fonts): no first font to read
+	if (fonts.empty())
+		return noFontMetrics;
 	return fonts[0].font->textmetrics;
 }
 
@@ -420,6 +433,8 @@ void Canvas::drawText(const std::shared_ptr<Font>& font, const Point& pos, const
 			continue;
 		}
 
+		// Each glyph on the pixel nearest its place, the pen going on by the
+		// font's advances with their fractions, as measureText adds them
 		if (glyph->texture)
 		{
 			double gx = std::round(x + glyph->metrics.leftSideBearing);
@@ -427,14 +442,34 @@ void Canvas::drawText(const std::shared_ptr<Font>& font, const Point& pos, const
 			drawGlyph(glyph->texture.get(), (float)gx, (float)gy, (float)glyph->uvwidth, (float)glyph->uvheight, (float)glyph->u, (float)glyph->v, (float)glyph->uvwidth, (float)glyph->uvheight, color);
 		}
 
-		x += std::round(glyph->metrics.advanceWidth);
+		x += glyph->metrics.advanceWidth;
 		reader.next();
 	}
 }
 
+// The text whole where it fits in the box's width from its place, else as
+// many of its characters as fit with an ellipsis after them
 void Canvas::drawTextEllipsis(const std::shared_ptr<Font>& font, const Point& pos, const Rect& clipBox, const std::string& text, const Colorf& color)
 {
-	drawText(font, pos, text, color);
+	double available = clipBox.x + clipBox.width - pos.x;
+	if (measureText(font, text).width <= available)
+	{
+		drawText(font, pos, text, color);
+		return;
+	}
+
+	const std::string ellipsis = "...";
+	double room = available - measureText(font, ellipsis).width;
+	size_t fits = 0;
+	UTF8Reader reader(text.data(), text.size());
+	while (!reader.is_end())
+	{
+		reader.next();
+		if (measureText(font, text.substr(0, reader.position())).width > room)
+			break;
+		fits = reader.position();
+	}
+	drawText(font, pos, text.substr(0, fits) + ellipsis, color);
 }
 
 Rect Canvas::measureText(const std::shared_ptr<Font>& font, const std::string& text)
@@ -460,7 +495,7 @@ Rect Canvas::measureText(const std::shared_ptr<Font>& font, const std::string& t
 			continue;
 		}
 
-		x += std::round(glyph->metrics.advanceWidth);
+		x += glyph->metrics.advanceWidth;
 		reader.next();
 	}
 
@@ -502,7 +537,7 @@ int Canvas::getCharacterIndex(const std::shared_ptr<Font>& font, const std::stri
 		if (hitPoint.x <= (x + glyph->metrics.advanceWidth * 0.5) / uiscale)
 			return (int)reader.position();
 
-		x += std::round(glyph->metrics.advanceWidth);
+		x += glyph->metrics.advanceWidth;
 		reader.next();
 	}
 	return (int)text.size();
@@ -522,9 +557,12 @@ CanvasFontGroup* Canvas::GetFontGroup(const std::shared_ptr<Font>& font)
 {
 	FontImpl* fontImpl = static_cast<FontImpl*>(const_cast<Font*>(font.get()));
 
-	std::shared_ptr<CanvasFontGroup>& group = fontCache[{fontImpl->Name, fontImpl->Height}];
+	// Kept by the size in pixels it is drawn at: after a move to a display of
+	// another scale its glyphs are made again at that scale's size
+	double pixelHeight = std::round(fontImpl->Height * uiscale);
+	std::shared_ptr<CanvasFontGroup>& group = fontCache[{fontImpl->Name, pixelHeight}];
 	if (!group)
-		group = std::make_unique<CanvasFontGroup>(fontImpl->Name, std::round(fontImpl->Height * uiscale));
+		group = std::make_unique<CanvasFontGroup>(fontImpl->Name, pixelHeight);
 	return group.get();
 }
 

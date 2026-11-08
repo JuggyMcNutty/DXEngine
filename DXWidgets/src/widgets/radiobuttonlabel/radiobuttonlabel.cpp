@@ -7,6 +7,21 @@ RadioButtonLabel::RadioButtonLabel(RadioGroup* group, Widget* parent) : Widget(p
 	SetGroup(group);
 }
 
+// A button leaves its group as it goes, and a group gone leaves its buttons
+// in none: each kept a pointer to the other, a click after writing into the
+// button freed
+RadioButtonLabel::~RadioButtonLabel()
+{
+	SetGroup(nullptr);
+}
+
+RadioGroup::~RadioGroup()
+{
+	std::vector<RadioButtonLabel*> left = buttons;
+	for (RadioButtonLabel* button : left)
+		button->SetGroup(nullptr);
+}
+
 void RadioButtonLabel::SetGroup(RadioGroup* newGroup)
 {
 	if (group != newGroup)
@@ -180,8 +195,10 @@ void RadioButtonLabel::Click()
 
 		if (group)
 		{
-			// Tell other buttons they are no longer checked
-			for (RadioButtonLabel* button : group->buttons)
+			// Tell other buttons they are no longer checked, from a copy of
+			// the group, which a callback may change
+			std::vector<RadioButtonLabel*> buttons = group->buttons;
+			for (RadioButtonLabel* button : buttons)
 			{
 				if (button != this && button->FuncChanged)
 					button->FuncChanged(button->checked);

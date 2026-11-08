@@ -1035,6 +1035,12 @@ bool Widget::OnWindowMaximize()
 	return false;
 }
 
+// ...and lets the screen saver and the display's power-down through
+bool Widget::OnWindowScreenSaver(bool displayPower)
+{
+	return false;
+}
+
 double Widget::GetDpiScale() const
 {
 	Widget* w = Window();

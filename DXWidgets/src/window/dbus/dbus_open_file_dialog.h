@@ -20,7 +20,12 @@ public:
 	void SetTitle(const std::string& newtitle) override;
 	bool Show() override;
 
+	// The portal's folder mode (directory, FileChooser 3), for the folder
+	// dialog
+	void SetDirectoryMode(bool enable) { directoryMode = enable; }
+
 private:
+	bool ShowPortal();
 	static std::string unescapeUri(const std::string& s);
 	
 	std::string ownerHandle;
@@ -31,6 +36,7 @@ private:
 	std::string defaultExt;
 	std::vector<std::string> outputFilenames;
 	bool multiSelect = false;
+	bool directoryMode = false;
 
 	struct Filter
 	{

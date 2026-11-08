@@ -16,6 +16,7 @@
 #include "VM/ScriptCall.h"
 #include "Engine.h"
 #include "Packages/Engine/Actors/Brush/UMover.h"
+#include <chrono>
 
 RenderSubsystem::RenderSubsystem(RenderDevice* renderdevice) : Device(renderdevice)
 {
@@ -45,6 +46,7 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 		engine->client->NoLighting = false;
 	}
 	SceneLit = (!viewer || viewer->RendMap() == 5) && !engine->client->NoLighting;
+	ActorsShown = !viewer || (viewer->ShowFlags() & 8) != 0;
 
 	// The viewport's clock, which the meshes' lighting takes: the real time
 	// since the last frame drawn, a load's painted frame among them, as the
@@ -116,6 +118,16 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 	FrameDrawn = true;
 }
 
+// The original's PreRender (Render.dll 0x10b14560): the texture counts
+// cleared, the last frame's end kept, the start stamped
+void RenderSubsystem::BeginFrameStats()
+{
+	FrameStats.Textures = 0;
+	FrameStats.TextureMem = 0;
+	FrameStats.LastEndTime = FrameStats.EndTime;
+	FrameStats.StartTime = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
 bool RenderSubsystem::ReadLastFrame(Array<TextureColor>& pixels, int& width, int& height)
 {
 	if (FrameInProgress || !FrameDrawn)
@@ -141,6 +153,11 @@ void RenderSubsystem::UpdateTexture(UTexture* tex)
 {
 	if (tex && tex->FrameCounter != TextureFrameCounter)
 	{
+		// Counted for STAT FPS as the original's update counts each texture
+		// once a frame: 5/4 of its texels' bytes, its mips with it
+		// (UTexture::Update, Engine.dll 0x103ecbaa-0x103ecbcf)
+		FrameStats.Textures++;
+		FrameStats.TextureMem += tex->USize() * tex->VSize() * 5 / 4;
 		tex->Update((float)(TextureClock - tex->LastUpdateTime));
 		tex->LastUpdateTime = TextureClock;
 		tex->FrameCounter = TextureFrameCounter;

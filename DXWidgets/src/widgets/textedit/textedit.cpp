@@ -9,6 +9,23 @@
 #pragma warning(disable: 4267) // warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
 #endif
 
+// The column in characters a line's offset stands at, and that column's
+// offset on another line, its end where that line is shorter: up and down
+// keep the column so, never landing inside a character, as a column of
+// bytes did on a line of other characters
+static size_t GetColumn(const std::string& line, int offset)
+{
+	return UTF8Reader::utf8_length(line.data(), std::min((size_t)std::max(offset, 0), line.size()));
+}
+
+static int GetColumnOffset(const std::string& line, size_t column)
+{
+	UTF8Reader utf8_reader(line.data(), line.length());
+	for (size_t i = 0; i < column && !utf8_reader.is_end(); i++)
+		utf8_reader.next();
+	return (int)utf8_reader.position();
+}
+
 TextEdit::TextEdit(Widget* parent) : Widget(parent)
 {
 	SetStyleClass("textedit");
@@ -147,6 +164,9 @@ void TextEdit::SetUppercase(bool enable)
 	}
 }
 
+// The text cut to its first length bytes, as InsertText counts them (none
+// for a negative length, no limit), back to the character the cut would end
+// inside
 void TextEdit::SetMaxLength(int length)
 {
 	if (max_length != length)
@@ -158,11 +178,16 @@ void TextEdit::SetMaxLength(int length)
 			size += lines[i].text.size();
 		size += lines.size() - 1;
 
-		if ((int)size > length)
+		if (length >= 0 && (int)size > length)
 		{
 			if (FuncBeforeEditChanged)
 				FuncBeforeEditChanged();
-			SetSelection(length, (int)size - length);
+			std::string text = GetText();
+			UTF8Reader utf8_reader(text.data(), text.length());
+			utf8_reader.set_position(length);
+			utf8_reader.move_to_leadbyte();
+			int cut = (int)utf8_reader.position();
+			SetSelection(cut, (int)size - cut);
 			DeleteSelectedText();
 			if (FuncAfterEditChanged)
 				FuncAfterEditChanged();
@@ -216,9 +241,12 @@ void TextEdit::AddText(const std::string& text)
 	Update();
 }
 
+// The selection's start an offset into the whole text, as GetSelectionStart
+// answers it: as a column of the first line it cut the wrong text past the
+// first line
 void TextEdit::SetSelection(int pos, int length)
 {
-	selection_start = ivec2(pos, 0);
+	selection_start = FromOffset(pos);
 	selection_length = length;
 	Update();
 }
@@ -346,16 +374,18 @@ void TextEdit::OnKeyChar(std::string chars)
 		ClearSelection();
 		if (input_mask.empty())
 		{
-			// not in any special mode, just insert the string.
-			InsertText(cursor_pos, chars);
-			cursor_pos.x += chars.size();
+			// not in any special mode, just insert the string. The cursor
+			// moves by what was inserted alone: past the maximum length
+			// nothing is
+			if (InsertText(cursor_pos, chars))
+				cursor_pos.x += chars.size();
 		}
 		else
 		{
 			if (InputMaskAcceptsInput(cursor_pos, chars))
 			{
-				InsertText(cursor_pos, chars);
-				cursor_pos.x += chars.size();
+				if (InsertText(cursor_pos, chars))
+					cursor_pos.x += chars.size();
 			}
 		}
 
@@ -375,8 +405,8 @@ void TextEdit::OnKeyDown(InputKey key)
 		else
 		{
 			ClearSelection();
-			InsertText(cursor_pos, "\n");
-			SetCursorPos(GetCursorPos() + 1);
+			if (InsertText(cursor_pos, "\n"))
+				SetCursorPos(GetCursorPos() + 1);
 		}
 		return;
 	}
@@ -414,8 +444,9 @@ void TextEdit::OnKeyDown(InputKey key)
 
 		if (cursor_pos.y > 0)
 		{
+			size_t column = GetColumn(lines[cursor_pos.y].text, cursor_pos.x);
 			cursor_pos.y--;
-			cursor_pos.x = std::min(lines[cursor_pos.y].text.size(), (size_t)cursor_pos.x);
+			cursor_pos.x = GetColumnOffset(lines[cursor_pos.y].text, column);
 		}
 
 		if (GetKeyState(InputKey::Shift))
@@ -439,8 +470,9 @@ void TextEdit::OnKeyDown(InputKey key)
 
 		if (cursor_pos.y < (int)lines.size() - 1)
 		{
+			size_t column = GetColumn(lines[cursor_pos.y].text, cursor_pos.x);
 			cursor_pos.y++;
-			cursor_pos.x = std::min(lines[cursor_pos.y].text.size(), (size_t)cursor_pos.x);
+			cursor_pos.x = GetColumnOffset(lines[cursor_pos.y].text, column);
 		}
 
 		if (GetKeyState(InputKey::Shift))
@@ -515,15 +547,15 @@ void TextEdit::OnKeyDown(InputKey key)
 
 		if (input_mask.empty())
 		{
-			InsertText(cursor_pos, str);
-			SetCursorPos(GetCursorPos() + str.length());
+			if (InsertText(cursor_pos, str))
+				SetCursorPos(GetCursorPos() + str.length());
 		}
 		else
 		{
 			if (InputMaskAcceptsInput(cursor_pos, str))
 			{
-				InsertText(cursor_pos, str);
-				SetCursorPos(GetCursorPos() + str.length());
+				if (InsertText(cursor_pos, str))
+					SetCursorPos(GetCursorPos() + str.length());
 			}
 		}
 		MoveVerticalScroll();
@@ -734,7 +766,8 @@ TextEdit::ivec2 TextEdit::FindPreviousBreakCharacter(ivec2 search_start)
 	return ivec2((int)pos, search_start.y);
 }
 
-void TextEdit::InsertText(ivec2 pos, const std::string& str)
+// False where the text would pass its maximum length, nothing inserted
+bool TextEdit::InsertText(ivec2 pos, const std::string& str)
 {
 	undo_info.first_erase = false;
 	if (undo_info.first_text_insert)
@@ -746,7 +779,7 @@ void TextEdit::InsertText(ivec2 pos, const std::string& str)
 	// checking if insert exceeds max length
 	if (ToOffset(ivec2((int)lines[lines.size() - 1].text.size(), (int)lines.size() - 1)) + str.length() > (size_t)max_length)
 	{
-		return;
+		return false;
 	}
 
 	std::string::size_type start = 0;
@@ -775,6 +808,7 @@ void TextEdit::InsertText(ivec2 pos, const std::string& str)
 	MoveVerticalScroll();
 
 	Update();
+	return true;
 }
 
 void TextEdit::Backspace()

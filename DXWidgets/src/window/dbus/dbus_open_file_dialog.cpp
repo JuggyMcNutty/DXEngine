@@ -1,6 +1,9 @@
 
 #include "dbus_open_file_dialog.h"
+#include "window/window.h"
 #include <dbus/dbus.h>
+#include <unistd.h>
+#include <algorithm>
 
 DBusOpenFileDialog::DBusOpenFileDialog(std::string ownerHandle, std::string method) : ownerHandle(ownerHandle), method(method)
 {
@@ -92,7 +95,55 @@ static void AppendFilter(DBusMessageIter* container, const std::string& descript
 	dbus_message_iter_close_container(container, &filter);
 }
 
+// An option of the portal's call, {sv}, a string's or a bool's
+static void AppendOption(DBusMessageIter* options, const char* key, const char* value)
+{
+	DBusMessageIter entry = {};
+	dbus_message_iter_open_container(options, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
+	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &key);
+	DBusMessageIter variant = {};
+	dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, DBUS_TYPE_STRING_AS_STRING, &variant);
+	dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &value);
+	dbus_message_iter_close_container(&entry, &variant);
+	dbus_message_iter_close_container(options, &entry);
+}
+
+static void AppendOption(DBusMessageIter* options, const char* key, dbus_bool_t value)
+{
+	DBusMessageIter entry = {};
+	dbus_message_iter_open_container(options, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
+	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &key);
+	DBusMessageIter variant = {};
+	dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, DBUS_TYPE_BOOLEAN_AS_STRING, &variant);
+	dbus_message_iter_append_basic(&variant, DBUS_TYPE_BOOLEAN, &value);
+	dbus_message_iter_close_container(&entry, &variant);
+	dbus_message_iter_close_container(options, &entry);
+}
+
+// One dialog at a time: a Show from a handler the wait runs (it processes
+// the windows' events) answers nothing chosen
 bool DBusOpenFileDialog::Show()
+{
+	static bool showing = false;
+	if (showing)
+		return false;
+	showing = true;
+	outputFilenames.clear();
+	bool chosen = false;
+	try
+	{
+		chosen = ShowPortal();
+	}
+	catch (...)
+	{
+		showing = false;
+		throw;
+	}
+	showing = false;
+	return chosen;
+}
+
+bool DBusOpenFileDialog::ShowPortal()
 {
 	// https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.FileChooser.html
 		
@@ -100,14 +151,41 @@ bool DBusOpenFileDialog::Show()
 	DBusError error = {};
 	dbus_error_init(&error);
 		
-	DBusConnection* connection = dbus_bus_get(DBUS_BUS_SESSION, &error);
+	// A connection of the dialog's own: on the shared one the wait read and
+	// dropped every other message its users had; one the bus's loss ends
+	// the wait on, not the program (libdbus' exit on disconnect)
+	DBusConnection* connection = dbus_bus_get_private(DBUS_BUS_SESSION, &error);
 	if (!connection)
 	{
 		dbus_error_free(&error);
 		return false;
 	}
+	dbus_connection_set_exit_on_disconnect(connection, FALSE);
+	// Closed as the call ends, before its last reference goes, as a private
+	// connection must be: a reference of its own for that
+	struct ConnectionClose
+	{
+		DBusConnection* connection;
+		~ConnectionClose()
+		{
+			dbus_connection_close(connection);
+			dbus_connection_unref(connection);
+		}
+	} connectionClose = { dbus_connection_ref(connection) };
 
-	std::string busname = dbus_bus_get_unique_name(connection);
+	// The request's handle_token, its Response's object path known before
+	// the call (the request path, by the bus name with its dots as
+	// underscores), its match added before the call: a Response sent before
+	// a match added after it was never seen, the wait never ending
+	static unsigned int requests = 0;
+	std::string token = "dxwidgets" + std::to_string((unsigned int)getpid()) + "_" + std::to_string(++requests);
+	std::string sender = dbus_bus_get_unique_name(connection);
+	if (!sender.empty() && sender.front() == ':')
+		sender.erase(0, 1);
+	std::replace(sender.begin(), sender.end(), '.', '_');
+	std::string requestPath = "/org/freedesktop/portal/desktop/request/" + sender + "/" + token;
+	std::string rule = "type='signal',interface='org.freedesktop.portal.Request',member='Response',path='" + requestPath + "'";
+	dbus_bus_add_match(connection, rule.c_str(), nullptr);
 
 	DBusMessage* request = dbus_message_new_method_call("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop", "org.freedesktop.portal.FileChooser", method.c_str());
 	if (!request)
@@ -137,6 +215,12 @@ bool DBusOpenFileDialog::Show()
 	// current_filter - sa(us)  filter from filters that should be current filter
 	// choices - a(ssa(ss)s)    list of serialized combo boxes to add to the file chooser
 	// current_name - s         suggested name
+
+	AppendOption(&requestOptions, "handle_token", token.c_str());
+
+	// directory - b (OpenFile's, the folder dialog's)
+	if (method == "OpenFile" && directoryMode)
+		AppendOption(&requestOptions, "directory", (dbus_bool_t)TRUE);
 
 	// current_folder - ay
 	if (!initialDirectory.empty())
@@ -238,6 +322,7 @@ bool DBusOpenFileDialog::Show()
 
 	bresult = dbus_message_iter_close_container(&requestArgs, &requestOptions);
 
+	// No portal (none on the bus, nor one it starts): nothing chosen
 	DBusMessage* response = dbus_connection_send_with_reply_and_block(connection, request, DBUS_TIMEOUT_USE_DEFAULT, &error);
 	if (!response)
 	{
@@ -258,41 +343,32 @@ bool DBusOpenFileDialog::Show()
 		return false;
 	}
 
+	// A portal older than handle_token answers a path of its own, matched too
 	std::string signalObjectPath = handle;
+	std::string handleRule = "type='signal',interface='org.freedesktop.portal.Request',member='Response',path='" + signalObjectPath + "'";
+	if (signalObjectPath != requestPath)
+		dbus_bus_add_match(connection, handleRule.c_str(), nullptr);
 
 	dbus_message_unref(response);
 	dbus_message_unref(request);
 
-	std::string rule = "type='signal',interface='org.freedesktop.portal.Request',member='Response',path='" + signalObjectPath + "'";
-	dbus_bus_add_match(connection, rule.c_str(), &error);
-
-	// Wait for the response signal
-	//
-	// To do: process the run loop while we wait
-	//
+	// The Response waited for with the windows' events processed meanwhile,
+	// so they draw and their timers run, as Windows' dialogs run them, where
+	// the wait blocked them all; every message on the connection is ours
 	DBusMessage* signalmsg = nullptr;
-	while (!signalmsg && dbus_connection_read_write(connection, -1))
+	while (!signalmsg && dbus_connection_read_write(connection, 50))
 	{
-		while (true)
+		while (DBusMessage* message = dbus_connection_pop_message(connection))
 		{
-			DBusMessage* message = dbus_connection_pop_message(connection);
-			if (!message)
-				break;
-
-			if (dbus_message_is_signal(message, "org.freedesktop.portal.Request", "Response") && dbus_message_get_path(message) == signalObjectPath)
-			{
+			const char* path = dbus_message_get_path(message);
+			if (!signalmsg && path && dbus_message_is_signal(message, "org.freedesktop.portal.Request", "Response") && (requestPath == path || signalObjectPath == path))
 				signalmsg = message;
-				break;
-			}
 			else
-			{
 				dbus_message_unref(message);
-			}
 		}
+		if (!signalmsg && DisplayBackend::Get())
+			DisplayBackend::Get()->ProcessEvents();
 	}
-	// Not waited for: an error the match's adding left set, passed again,
-	// is a fault libdbus ends the program on
-	dbus_bus_remove_match(connection, rule.c_str(), nullptr);
 
 	// No response: the bus lost, which ends the wait, nothing chosen
 	if (!signalmsg)
@@ -381,13 +457,15 @@ bool DBusOpenFileDialog::Show()
 	if (responseCode != 0) // User cancelled
 		return false;
 
+	// A file URI's path each; another URI names no file here, and a choice
+	// of none of them is none, not an empty name
 	for (const std::string& uri : uris)
 	{
 		if (uri.size() > 7 && uri.substr(0, 7) == "file://")
 			outputFilenames.push_back(unescapeUri(uri.substr(7)));
 	}
 		
-	return !uris.empty();
+	return !outputFilenames.empty();
 }
 
 // A file URI's path: each %XX the byte it stands for (RFC 3986), a space's

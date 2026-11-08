@@ -62,6 +62,8 @@ set(DXCOMMON_SOURCES
 	DXEngine/LauncherLine.h
 	DXEngine/OriginalCommandLine.cpp
 	DXEngine/OriginalCommandLine.h
+	DXEngine/ServerConsole.cpp
+	DXEngine/ServerConsole.h
 	DXEngine/GameWindow.cpp
 	DXEngine/GameWindow.h
 	DXEngine/Timeline.cpp

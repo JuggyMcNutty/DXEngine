@@ -1,7 +1,11 @@
 #include "wayland_display_window.h"
 
 #include <cstring>
+#include <cerrno>
+#include <chrono>
+#include <csignal>
 #include <dlfcn.h>
+#include <pthread.h>
 
 #include "core/image.h"
 
@@ -28,12 +32,7 @@ WaylandDisplayWindow::WaylandDisplayWindow(WaylandDisplayBackend* backend, Displ
 
 			m_FractionalScale.on_preferred_scale() = [&](uint32_t scale_numerator) {
 				// parameter is the numerator of a fraction with the denominator of 120
-				m_ScaleFactor = scale_numerator / 120.0;
-				if (m_minPixelWidth > 0)
-					SetWindowMinSize(m_minPixelWidth, m_minPixelHeight);
-
-				m_NeedsUpdate = true;
-				windowHost->OnWindowDpiScaleChanged();
+				ApplyScale(scale_numerator / 120.0);
 			};
 		}
 	}
@@ -197,6 +196,28 @@ void WaylandDisplayWindow::SetWindowIcon(const std::vector<std::shared_ptr<Image
 	}
 }
 
+// A new scale (the fractional scale's, or wl_output's whole one): the window
+// keeps its size in surface units, its buffers and its EGL window made at its
+// pixels at the new scale, and the host told its size changed, as SDL's
+// window tells of its pixels
+void WaylandDisplayWindow::ApplyScale(double scale)
+{
+	if (scale <= 0.0 || scale == m_ScaleFactor)
+		return;
+	m_ScaleFactor = scale;
+	if (m_minPixelWidth > 0)
+		SetWindowMinSize(m_minPixelWidth, m_minPixelHeight);
+	if (m_ClientSize.width > 0 && m_ClientSize.height > 0)
+	{
+		CreateBuffers((int32_t)m_ClientSize.width, (int32_t)m_ClientSize.height);
+		m_WindowSurface.commit();
+		windowHost->OnWindowGeometryChanged();
+	}
+
+	m_NeedsUpdate = true;
+	windowHost->OnWindowDpiScaleChanged();
+}
+
 void WaylandDisplayWindow::SetClientSize(const Size& size)
 {
 	// A Wayland window has no place of its own to keep: the compositor's
@@ -226,11 +247,29 @@ void WaylandDisplayWindow::SetClientFrame(const Rect& box)
 	m_WindowSurface.commit();
 }
 
+// A bitmap window shown with its newest frame, or one of black at its size
+// till it draws; a device window's buffers are EGL's or Vulkan's, the window
+// shown by its first frame, never by an SHM buffer of ours under them
 void WaylandDisplayWindow::Show()
 {
-	m_WindowSurface.attach(m_WindowSurfaceBuffer, 0, 0);
-	m_WindowSurface.damage(0, 0, m_WindowSize.width, m_WindowSize.height);
-	m_WindowSurface.commit();
+	if (!IsBitmapWindow())
+	{
+		m_WindowSurface.commit();
+		return;
+	}
+
+	// A frame asked for before a Hide is never answered: asked again
+	m_FrameCallback = wayland::callback_t();
+	m_FramePending = false;
+	if (!m_ShmFront && m_WindowSize.width > 0 && m_WindowSize.height > 0)
+	{
+		m_ShmFront = AcquireShmBuffer((int)m_WindowSize.width, (int)m_WindowSize.height);
+		if (m_ShmFront)
+			std::memset(m_ShmFront->mem->get_mem(), 0, (size_t)m_ShmFront->width * m_ShmFront->height * 4);
+	}
+	if (m_ShmFront)
+		m_ShmFront->attached = false;
+	DrawSurface();
 }
 
 // A maximized window is unset first: one maximized under full screen comes
@@ -246,7 +285,9 @@ void WaylandDisplayWindow::ShowFullscreen()
 			isMaximized = false;
 			unmaximizing = true;
 		}
-		m_XDGToplevel.set_fullscreen(backend->m_waylandOutput);
+		// On the output the window is on, which the compositor chooses for
+		// no output given, not always the first output
+		m_XDGToplevel.set_fullscreen(wayland::output_t());
 		isFullscreen = true;
 	}
 }
@@ -381,11 +422,13 @@ void WaylandDisplayWindow::UnlockKeyboard()
 	keyboardLocked = false;
 }
 
+// The pointer locked and hidden in play, the game drawing its own, as the
+// X11 and SDL windows hide it; shown again as it is let go
 void WaylandDisplayWindow::LockCursor()
 {
 	m_LockedPointer = backend->m_PointerConstraints.lock_pointer(m_WindowSurface, backend->m_waylandPointer, nullptr, wayland::zwp_pointer_constraints_v1_lifetime::persistent);
 	backend->SetMouseLockOwnerWindow(this);
-	// ShowCursor(false);
+	ShowCursor(false);
 }
 
 void WaylandDisplayWindow::UnlockCursor()
@@ -393,7 +436,7 @@ void WaylandDisplayWindow::UnlockCursor()
 	if (m_LockedPointer)
 		m_LockedPointer.proxy_release();
 	backend->SetMouseLockOwnerWindow(nullptr);
-	// ShowCursor(true);
+	ShowCursor(true);
 }
 
 void WaylandDisplayWindow::CaptureMouse()
@@ -440,12 +483,12 @@ Rect WaylandDisplayWindow::GetClientFrame() const
 
 	// In the window's logical units, as GetClientSize answers and the
 	// callers take them (m_WindowSize is pixels)
-	return Rect(globalPos, Size(m_WindowSize.width / m_ScaleFactor, m_WindowSize.height / m_ScaleFactor));
+	return Rect(globalPos, m_ClientSize);
 }
 
 Size WaylandDisplayWindow::GetClientSize() const
 {
-	return m_WindowSize / m_ScaleFactor;
+	return m_ClientSize;
 }
 
 int WaylandDisplayWindow::GetPixelWidth() const
@@ -463,13 +506,50 @@ double WaylandDisplayWindow::GetDpiScale() const
 	return m_ScaleFactor;
 }
 
+// The frame written into a buffer the compositor holds not, never into one
+// it may still read, and shown at the next frame the compositor asks for, or
+// at once where none is asked (the first, or the first after a pause)
 void WaylandDisplayWindow::PresentBitmap(int width, int height, const uint32_t* pixels)
 {
-	// Make new buffers if the sizes don't match
-	if (width != m_WindowSize.width || height != m_WindowSize.height)
-		CreateBuffers(width, height);
+	if (width <= 0 || height <= 0)
+		return;
+	std::shared_ptr<ShmBuffer> target = AcquireShmBuffer(width, height);
+	if (!target)
+		return; // each held: the next frame is shown in its place
+	std::memcpy(target->mem->get_mem(), (const void*)pixels, (size_t)width * height * 4);
+	target->attached = false;
+	m_ShmFront = target;
+	if (!m_FramePending)
+		DrawSurface();
+}
 
-	std::memcpy(shared_mem->get_mem(), (void*)pixels, width * height * 4);
+// A buffer of the size the compositor holds not: one it let go again, or a
+// new one, three at most, those of another size dropped (a dropped one still
+// held is never written again, which leaves the compositor's copy whole)
+std::shared_ptr<WaylandDisplayWindow::ShmBuffer> WaylandDisplayWindow::AcquireShmBuffer(int width, int height)
+{
+	m_ShmBuffers.erase(std::remove_if(m_ShmBuffers.begin(), m_ShmBuffers.end(), [=](const std::shared_ptr<ShmBuffer>& b) { return b->width != width || b->height != height; }), m_ShmBuffers.end());
+	if (m_ShmFront && (m_ShmFront->width != width || m_ShmFront->height != height))
+		m_ShmFront.reset();
+	for (const std::shared_ptr<ShmBuffer>& b : m_ShmBuffers)
+	{
+		if (!b->busy)
+			return b;
+	}
+	if (m_ShmBuffers.size() >= 3)
+		return nullptr;
+
+	auto b = std::make_shared<ShmBuffer>();
+	size_t size = (size_t)width * height * 4;
+	b->mem = std::make_shared<SharedMemHelper>(size);
+	auto pool = backend->m_waylandSHM.create_pool(b->mem->get_fd(), (int32_t)size);
+	b->buffer = pool.create_buffer(0, width, height, width * 4, wayland::shm_format::xrgb8888);
+	b->width = width;
+	b->height = height;
+	ShmBuffer* released = b.get();
+	b->buffer.on_release() = [released]() { released->busy = false; };
+	m_ShmBuffers.push_back(b);
+	return b;
 }
 
 void WaylandDisplayWindow::SetBorderColor(uint32_t rgba8)
@@ -487,6 +567,57 @@ void WaylandDisplayWindow::SetCaptionTextColor(uint32_t rgba8)
 
 }
 
+// A paste of our text: written whole as the reader takes it, for at most a
+// second in all, so a reader that stops reading cannot hold the game, and
+// SIGPIPE held back while it writes, so a reader gone before the end (wl-paste
+// into head) ends the write and not the process, as SDL's own write holds it
+// back
+static void WriteSelection(int fd, const std::string& text)
+{
+	sigset_t pipeSignal, previous;
+	sigemptyset(&pipeSignal);
+	sigaddset(&pipeSignal, SIGPIPE);
+	pthread_sigmask(SIG_BLOCK, &pipeSignal, &previous);
+
+	int flags = fcntl(fd, F_GETFL);
+	if (flags != -1)
+		fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+	using namespace std::chrono;
+	auto deadline = steady_clock::now() + seconds(1);
+	size_t written = 0;
+	while (written < text.size())
+	{
+		ssize_t n = write(fd, text.data() + written, text.size() - written);
+		if (n > 0)
+		{
+			written += (size_t)n;
+			continue;
+		}
+		if (n < 0 && errno == EINTR)
+			continue;
+		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+		{
+			int wait = (int)duration_cast<milliseconds>(deadline - steady_clock::now()).count();
+			pollfd pfd = { fd, POLLOUT, 0 };
+			if (wait > 0 && poll(&pfd, 1, wait) > 0 && (pfd.revents & POLLOUT))
+				continue;
+		}
+		break;
+	}
+	close(fd);
+
+	// The SIGPIPE a gone reader raised, taken here, not delivered
+	if (!sigismember(&previous, SIGPIPE))
+	{
+		timespec now = {};
+		while (sigtimedwait(&pipeSignal, nullptr, &now) > 0)
+		{
+		}
+	}
+	pthread_sigmask(SIG_SETMASK, &previous, nullptr);
+}
+
 std::string WaylandDisplayWindow::GetClipboardText()
 {
 	return backend->GetClipboardText();
@@ -498,8 +629,7 @@ void WaylandDisplayWindow::SetClipboardText(const std::string& text)
 
 	m_DataSource.on_send() = [text] (const std::string& mime_type, const int fd)
 	{
-		write(fd, text.c_str(), text.size());
-		close(fd);
+		WriteSelection(fd, text);
 	};
 
 	m_DataSource.offer("text/plain");
@@ -589,39 +719,46 @@ void WaylandDisplayWindow::OnExitEvent()
 	windowHost->OnWindowClose();
 }
 
+// A bitmap window's newest frame attached, held from its attach until the
+// compositor lets it go, and the next frame asked for; with no new frame
+// nothing is asked, till PresentBitmap brings one. A device window's frames
+// are its device's own
 void WaylandDisplayWindow::DrawSurface(uint32_t serial)
 {
-	m_WindowSurface.attach(m_WindowSurfaceBuffer, 0, 0);
-	m_WindowSurface.damage(0, 0, m_WindowSize.width, m_WindowSize.height);
+	m_FramePending = false;
+	if (!IsBitmapWindow() || !m_ShmFront || m_ShmFront->attached)
+		return;
 
-	if (m_renderAPI == RenderAPI::Unspecified || m_renderAPI == RenderAPI::Bitmap)
-	{
-		m_FrameCallback = m_WindowSurface.frame();
+	m_WindowSurface.attach(m_ShmFront->buffer, 0, 0);
+	m_WindowSurface.damage_buffer(0, 0, m_ShmFront->width, m_ShmFront->height);
+	m_ShmFront->busy = true;
+	m_ShmFront->attached = true;
 
-		m_FrameCallback.on_done() = bind_mem_fn(&WaylandDisplayWindow::DrawSurface, this);
-	}
+	m_FrameCallback = m_WindowSurface.frame();
+	m_FrameCallback.on_done() = bind_mem_fn(&WaylandDisplayWindow::DrawSurface, this);
+	m_FramePending = true;
 	m_WindowSurface.commit();
 }
 
+// The window's size in surface units, its pixels at the scale: a bitmap
+// window's buffers are made at them as it draws (PresentBitmap), a device
+// window's EGL window resized to them, and the buffer shown at the size by
+// the viewport, or by its whole scale where the compositor has no viewporter
 void WaylandDisplayWindow::CreateBuffers(int32_t width, int32_t height)
 {
 	if (width == 0 || height == 0)
 		return;
 
-	if (shared_mem)
-		shared_mem.reset();
+	const int scaled_width = (int)std::round(width * m_ScaleFactor);
+	const int scaled_height = (int)std::round(height * m_ScaleFactor);
 
-	const int scaled_width = std::round(width * m_ScaleFactor);
-	const int scaled_height  = std::round(height * m_ScaleFactor);
-
-	shared_mem = std::make_shared<SharedMemHelper>(scaled_width * scaled_height * 4);
-	auto pool = backend->m_waylandSHM.create_pool(shared_mem->get_fd(), scaled_width * scaled_height * 4);
-
-	m_WindowSurfaceBuffer = pool.create_buffer(0, scaled_width, scaled_height, scaled_width * 4, wayland::shm_format::xrgb8888);
+	m_ClientSize = Size(width, height);
+	m_WindowSize = Size(scaled_width, scaled_height);
 
 	if (m_Viewport)
 		m_Viewport.set_destination(width, height);
-	m_WindowSize = Size(scaled_width, scaled_height);
+	else
+		m_WindowSurface.set_buffer_scale(std::max((int32_t)std::lround(m_ScaleFactor), 1));
 
 	if (m_EGLWindow)
 		m_EGLWindow.resize(scaled_width, scaled_height);
@@ -724,26 +861,80 @@ void WaylandDisplayWindow::CreateGLContext()
 	m_EGLSurface = eglCreateWindowSurface(m_EGLDisplay, config, m_EGLWindow, nullptr);
 	if (m_EGLSurface == EGL_NO_SURFACE)
 		throw std::runtime_error("Failed to create EGL surface. Error code: " + std::to_string(eglGetError()));
+
+	// The swap's frames asked of the compositor on a queue of their own, the
+	// surface wrapped onto it, so the wait for one dispatches nothing else
+	m_SwapQueue = backend->s_waylandDisplay.create_queue();
+	m_SwapSurface = m_WindowSurface.proxy_create_wrapper();
+	m_SwapSurface.set_queue(m_SwapQueue);
 }
 
 void WaylandDisplayWindow::MakeGLContextCurrent()
 {
 	if (!eglMakeCurrent(m_EGLDisplay, m_EGLSurface, m_EGLSurface, m_EGLContext))
 		throw std::runtime_error("Error in eglMakeCurrent(). Error code: " + std::to_string(eglGetError()));
+
+	// EGL's own wait off from the first swap (SetGLSwapInterval)
+	if (m_SwapSurface && m_EGLSwapInterval != 0 && eglSwapInterval(m_EGLDisplay, 0))
+		m_EGLSwapInterval = 0;
 }
 
+// EGL has no late swap: a negative interval is clamped, so it is refused
+// here, and the GL device falls back to 1 (as the X11 window's). The wait an
+// interval asks is the window's own (SwapGLBuffers), EGL's swap set to wait
+// for nothing: Mesa's waits for the compositor's frame without end, and a
+// window the compositor hides is sent none, the game held till it shows
 bool WaylandDisplayWindow::SetGLSwapInterval(int interval)
 {
-	// EGL has no late swap: a negative interval is clamped, so it is refused
-	// here, and the GL device falls back to 1 (as the X11 window's)
 	if (interval < 0)
 		return false;
-	return eglSwapInterval(m_EGLDisplay, interval);
+	int eglInterval = m_SwapSurface ? 0 : interval;
+	if (eglInterval != m_EGLSwapInterval)
+	{
+		if (!eglSwapInterval(m_EGLDisplay, eglInterval))
+			return false;
+		m_EGLSwapInterval = eglInterval;
+	}
+	m_SwapInterval = interval;
+	return true;
 }
 
+// A swap with an interval waits for the frame the compositor last asked for,
+// as EGL's would, but at most 50 ms (20 frames a second where none comes),
+// then asks for the next with the swap's commit
 void WaylandDisplayWindow::SwapGLBuffers()
 {
+	if (m_SwapSurface && m_SwapInterval > 0)
+	{
+		WaitSwapFrame();
+		m_SwapFrameDone = false;
+		m_SwapFrame = m_SwapSurface.frame();
+		m_SwapFrame.on_done() = [this](uint32_t) { m_SwapFrameDone = true; };
+	}
 	eglSwapBuffers(m_EGLDisplay, m_EGLSurface);
+}
+
+void WaylandDisplayWindow::WaitSwapFrame()
+{
+	using namespace std::chrono;
+	auto& display = backend->s_waylandDisplay;
+	auto deadline = steady_clock::now() + milliseconds(50);
+	while (!m_SwapFrameDone)
+	{
+		// Takes what the queue holds first, the frame among it maybe
+		wayland::read_intent intent = display.obtain_queue_read_intent(m_SwapQueue);
+		if (m_SwapFrameDone)
+			break;
+		display.flush();
+		int wait = (int)duration_cast<milliseconds>(deadline - steady_clock::now()).count();
+		if (wait <= 0)
+			break;
+		pollfd pfd = { display.get_fd(), POLLIN, 0 };
+		if (poll(&pfd, 1, wait) <= 0 || !(pfd.revents & POLLIN))
+			break;
+		intent.read();
+		display.dispatch_queue_pending(m_SwapQueue);
+	}
 }
 
 DisplayWindow::GLFuncPtr WaylandDisplayWindow::GetGLProcAddress(const char* name)

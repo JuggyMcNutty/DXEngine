@@ -892,14 +892,21 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 		float depth = std::max((frame->Frame.WorldToView * vec4(actor->Location(), 1.0f)).z - mesh->LODZDisplace, 1.0f);
 		float resolutionTerm = 0.3f + 0.7f * frame->Frame.FX / 640.0f;
 		float complexityTerm = 0.25f + 0.003f * (float)mesh->ModelVerts;
-		float shapeLOD = 0.25f;
+		// The renderer's shape LOD (MLOD, 0.25) and mode (MLMODE, 1): from 3
+		// the field of view left out, and at 0 the fixed factor (MLFIX, 1;
+		// none 1) whatever the distance (DrawLodMesh 0x10b0ea80; bugs.md
+		// WIN.29)
+		RenderSubsystem* renderer = engine->render.get();
+		float shapeLOD = renderer->ShapeLOD;
 		// The original's angle, the view's unwidened: the original keeps its
 		// angle across the width on any screen, so a mesh keeps its detail at
 		// the same distance on a wide one as the original's, where the Hor+
 		// angle would cut it (docs/NATIVES.md, mesh detail)
-		float tanHalfFov = std::tan(radians(frame->Frame.FovAngle) * 0.5f) / HorPlusWidening(frame->Frame.FX, frame->Frame.FY);
+		float tanHalfFov = renderer->ShapeLODMode >= 3 ? 1.0f : std::tan(radians(frame->Frame.FovAngle) * 0.5f) / HorPlusWidening(frame->Frame.FX, frame->Frame.FY);
 		float factor = 430.0f * resolutionTerm * actor->DrawScale() * actor->LODBias() * mesh->MeshScaleMax /
 			(mesh->LODStrength * shapeLOD * tanHalfFov * depth * complexityTerm);
+		if (renderer->ShapeLODMode == 0)
+			factor = renderer->ShapeLODFix != 0.0f ? renderer->ShapeLODFix : 1.0f;
 		// Held to the mesh's vertices as floats, before the conversions: a
 		// budget past an int's range (a LODBias or DrawScale from script, a
 		// field of view near 0) converted to 0 and INT_MIN on x86-64, so every
@@ -907,7 +914,8 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 		float budget = std::max((float)mesh->LODMinVerts, (float)mesh->ModelVerts * factor);
 		lodBudget = (uint32_t)std::min(budget, (float)mesh->ModelVerts);
 		lodMorphStart = (int)std::min((1.0f - mesh->LODMorph) * budget, (float)mesh->ModelVerts);
-		lodMorph = mesh->LODMorph > 0.0f && lodMorphStart < (int)lodBudget;
+		// Morphing with the mode's first bit alone: 1 and 3
+		lodMorph = (renderer->ShapeLODMode & 1) && mesh->LODMorph > 0.0f && lodMorphStart < (int)lodBudget;
 		lodMorphScale = lodMorph ? 1.0f / (budget * mesh->LODMorph) : 0.0f;
 		lodActive = true;
 	}

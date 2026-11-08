@@ -109,6 +109,13 @@ public:
 	bool KeyboardLocked = false;
 
 	bool MouseLocked = false;
+	// The locked mouse taken, with the focus (TakeLockedMouse)
+	bool LockedMouseTaken = false;
+	void TakeLockedMouse();
+	void ReleaseLockedMouse();
+	void ClipLockedMouse();
+	// Windows' menu open, the window's (WM_ENTERMENULOOP to WM_EXITMENULOOP)
+	bool InMenuLoop = false;
 	// The keys down by the window's key messages, let go as it loses the
 	// keyboard (WM_KILLFOCUS)
 	bool HeldKeys[256] = {};
@@ -137,6 +144,8 @@ public:
 	std::unique_ptr<Win32CustomCursor> CurrentWin32CustomCursor;
 
 	uint16_t E1Prefix = 0;
+	// A character's high surrogate, kept for the low one after it (WM_CHAR)
+	wchar_t HighSurrogate = 0;
 
 	HGLRC openglContext = 0;
 	HDC openglDC = 0;

@@ -299,6 +299,8 @@ protected:
 	void drawGlyph(CanvasTexture* texture, float x, float y, float width, float height, float u, float v, float uvwidth, float uvheight, Colorf color) override;
 
 private:
+	bool ClipTile(float& x, float& y, float& width, float& height, float& u, float& v, float& uvwidth, float& uvheight);
+
 	RenderDevice* device = nullptr;
 	SceneNode frame;
 };

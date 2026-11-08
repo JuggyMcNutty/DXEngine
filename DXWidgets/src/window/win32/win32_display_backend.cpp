@@ -28,7 +28,7 @@ void Win32DisplayBackend::ExitLoop()
 // The display the windows are on, where full screen goes
 // (Win32DisplayWindow::ShowFullscreen): a window's, or the primary display
 // before there is one. False where Windows tells none.
-static bool WindowsMonitor(MONITORINFO& info)
+static bool WindowsMonitor(MONITORINFO& info, HMONITOR* found = nullptr)
 {
 	HMONITOR monitor = nullptr;
 	for (Win32DisplayWindow* window : Win32DisplayWindow::Windows)
@@ -43,12 +43,29 @@ static bool WindowsMonitor(MONITORINFO& info)
 		monitor = MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY);
 	info = {};
 	info.cbSize = sizeof(MONITORINFO);
+	if (found)
+		*found = monitor;
 	return monitor && GetMonitorInfo(monitor, &info);
 }
 
-// The desktop's scale, by its DPI
-static double ScreenDpiScale()
+// That display's scale, by its own DPI (GetDpiForMonitor, Windows 8.1 and
+// later), as a window on it takes its own (GetDpiForWindow), which the game
+// multiplies the size by (GameWindow::GetMenuResolutions): the system's DPI
+// is the primary display's, so on a desktop of mixed DPI the windowed sizes
+// offered were cut short or did not fit. The system's where there is none
+typedef HRESULT(WINAPI* PFN_GetDpiForMonitor)(HMONITOR monitor, int dpiType, UINT* dpiX, UINT* dpiY);
+
+static double MonitorDpiScale(HMONITOR monitor)
 {
+	static PFN_GetDpiForMonitor getDpiForMonitor = []() -> PFN_GetDpiForMonitor
+	{
+		HMODULE shcore = LoadLibraryW(L"shcore.dll");
+		return shcore ? (PFN_GetDpiForMonitor)GetProcAddress(shcore, "GetDpiForMonitor") : nullptr;
+	}();
+	UINT dpiX = 0, dpiY = 0;
+	if (monitor && getDpiForMonitor && SUCCEEDED(getDpiForMonitor(monitor, 0 /* MDT_EFFECTIVE_DPI */, &dpiX, &dpiY)) && dpiX > 0)
+		return dpiX / 96.0;
+
 	HDC screenDC = GetDC(0);
 	double dpiScale = GetDeviceCaps(screenDC, LOGPIXELSX) / 96.0;
 	ReleaseDC(0, screenDC);
@@ -58,9 +75,10 @@ static double ScreenDpiScale()
 Size Win32DisplayBackend::GetScreenSize()
 {
 	MONITORINFO info;
-	if (!WindowsMonitor(info))
+	HMONITOR monitor = nullptr;
+	if (!WindowsMonitor(info, &monitor))
 		return Win32DisplayWindow::GetScreenSize();
-	double dpiScale = ScreenDpiScale();
+	double dpiScale = MonitorDpiScale(monitor);
 	return Size((info.rcMonitor.right - info.rcMonitor.left) / dpiScale, (info.rcMonitor.bottom - info.rcMonitor.top) / dpiScale);
 }
 
@@ -69,10 +87,11 @@ Size Win32DisplayBackend::GetScreenSize()
 Rect Win32DisplayBackend::GetScreenWorkArea()
 {
 	MONITORINFO info;
-	if (!WindowsMonitor(info))
+	HMONITOR monitor = nullptr;
+	if (!WindowsMonitor(info, &monitor))
 		return DisplayBackend::GetScreenWorkArea();
 	const RECT& rect = info.rcWork;
-	double dpiScale = ScreenDpiScale();
+	double dpiScale = MonitorDpiScale(monitor);
 	return Rect::xywh(rect.left / dpiScale, rect.top / dpiScale, (rect.right - rect.left) / dpiScale, (rect.bottom - rect.top) / dpiScale);
 }
 

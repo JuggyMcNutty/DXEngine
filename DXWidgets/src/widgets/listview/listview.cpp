@@ -117,7 +117,12 @@ void ListView::RemoveItem(int index)
 	if (selectedItem == index)
 		SetSelectedItem(0);
 
+	// The selection stays on its row, a place up with a row removed before
+	// it, and within the rows left
 	items.erase(items.begin() + index);
+	if (selectedItem > index)
+		selectedItem--;
+	selectedItem = std::max(std::min(selectedItem, (int)items.size() - 1), 0);
 	scrollbar->SetRanges(body->GetHeight(), items.size() * body->GetItemHeight());
 	Update();
 }

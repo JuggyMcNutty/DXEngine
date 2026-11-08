@@ -178,12 +178,14 @@ void NActor::CycleActors(UObject* Self, UObject* BaseClass, UObject*& Actor, int
 	Frame::CreatedIterator = std::make_unique<CycleActorsIterator>(Self, ActorClassOrGiven(Self, BaseClass), &Actor, &index);  
 }
 
+// The original's (Engine.dll 0x103ded00): the game engine runs the command,
+// none of the viewport's, the render device's or the window's words, what it
+// wrote the answer (bugs.md WIN.21).
 void NActor::ConsoleCommand(UObject* Self, const std::string& Command, std::string& ReturnValue)
 {
-	// "Execute a console command in the context of the current level and game engine"
-
-	ExpressionValue found = ExpressionValue::BoolValue(false);
-	ReturnValue = engine->ConsoleCommand(Self, Command, found.ToType<BitfieldBool&>());
+	ExecOutput out;
+	engine->EngineExec(Command, out);
+	ReturnValue = out.Joined();
 }
 
 void NActor::Destroy(UObject* Self, BitfieldBool& ReturnValue)

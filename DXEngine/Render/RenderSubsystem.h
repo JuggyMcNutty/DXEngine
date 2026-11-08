@@ -46,6 +46,15 @@ public:
 	// mesh is unlit. Once a frame (DrawGame).
 	bool SceneLit = true;
 
+	// Whether the frame has its actors: the viewer's ShowFlags' SHOW_Actors
+	// (8), which HIDEACTORS clears and SHOWACTORS sets, as the original's
+	// SetupDynamics asks before it takes any of the level's actors
+	// (Render.dll 0x10b22dd0): without it no sprite, mesh or render
+	// iterator is drawn, no moving light lights the world or its fog, and
+	// no mover is filed again, the filed ones drawn where they were. Once a
+	// frame (DrawGame).
+	bool ActorsShown = true;
+
 	// The last frame drawn, as the device reads it back. Only between
 	// frames: a read inside one would end the frame the device is still
 	// recording. False when there is none to read.
@@ -81,7 +90,27 @@ public:
 	// whether one was drawn
 	bool DrawViewport(UViewportWindow* viewport);
 
+	// DXEngine's own panel, STAT RENDER's, by choice (NATIVES.md, small)
 	bool ShowRenderStats = false;
+
+	// The original renderer's statistics panels, one a STAT word in
+	// URender::Exec's order (Render.dll 0x10b147b0); and its settings: REND's
+	// LEAK and T, which DXEngine draws nothing by; a mesh texture LOD
+	// distance (TLOD, 3), which nothing draws by; the shape LOD (MLOD, 0.25),
+	// its mode (MLMODE, 1) and fixed factor (MLFIX, 1), which the mesh detail
+	// takes (URender::Init 0x10b134d7-0x10b134ef; render-dll.md, mesh
+	// detail).
+	enum StatPanel { StatNet, StatFps, StatGlobal, StatMesh, StatActor, StatFilter, StatReject, StatSpan, StatZone, StatLight, StatOcclusion, StatGame, StatSoft, StatCache, StatPolyV, StatPolyC, StatIllum, StatHardware, StatCount };
+	bool StatPanels[StatCount] = {};
+	bool RendLeak = false;
+	bool RendT = false;
+	float MeshTextureLOD = 3.0f;
+	float ShapeLOD = 0.25f;
+	int ShapeLODMode = 1;
+	float ShapeLODFix = 1.0f;
+	// A frame's start for its statistics: the renderer's PreRender, before
+	// the console's tick (Engine::Draw)
+	void BeginFrameStats();
 
 	int TextureFrameCounter = 0;
 	int FrameCounter = 0;
@@ -178,6 +207,7 @@ private:
 	void PostRenderFlash();
 	void DrawRawBackground(URootWindow* root);
 	void DrawTimedemoStats();
+	void DrawStats();
 	void DrawTile(TextureInfo& texinfo, const Rectf& dest, const Rectf& src, const Rectf& clipBox, float Z, vec4 color, vec4 fog, uint32_t flags);
 
 	int DrawTextLine(UFont* font, vec4 color, float orgX, float orgY, int x, int y, const ScriptString& text, size_t count, uint32_t polyflags, float spaceX, bool clip, bool hotKeys, float clipX, float clipY);
@@ -196,6 +226,21 @@ private:
 		uint64_t startFPSTime = 0;
 		SceneNode Frame;
 	} Canvas;
+
+	// STAT FPS's figures: the frame's start and end and the last end, the
+	// last 32 frames' times between ends and from start to end, the textures
+	// the frame used and their size
+	struct
+	{
+		double StartTime = 0.0;
+		double EndTime = 0.0;
+		double LastEndTime = 0.0;
+		double FrameTimes[32] = {};
+		double RenderTimes[32] = {};
+		int Index = 0;
+		int Textures = 0;
+		int TextureMem = 0;
+	} FrameStats;
 
 	Array<vec3> VertexBuffer;
 	Array<GouraudVertex> GouraudVertexBuffer;

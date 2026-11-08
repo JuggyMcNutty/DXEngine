@@ -32,8 +32,10 @@ void RenderSubsystem::DrawScene()
 
 	// Deus Ex's movers filed again where they are, as the original's
 	// SetupDynamics files each it does not pass over, each frame drawn:
-	// first, a mover being placed and drawn where it is filed
-	engine->Level->Collision.RefileMovers([](UMover* mover) { return !VisibleActor::PassedOver(mover, 0); });
+	// first, a mover being placed and drawn where it is filed; none while
+	// the actors are hidden (ActorsShown)
+	if (ActorsShown)
+		engine->Level->Collision.RefileMovers([](UMover* mover) { return !VisibleActor::PassedOver(mover, 0); });
 
 	// Make sure all actors are at the right location in the BSP
 	IteratorActors.clear();

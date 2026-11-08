@@ -11,15 +11,19 @@ class DropdownList : public ListView
 {
 public:
 	DropdownList(Widget* parent, Dropdown* owner);
+	~DropdownList();
 protected:
 	void OnKeyDown(InputKey key) override;
 	Dropdown* owner;
+
+	friend class Dropdown;
 };
 
 class Dropdown : public Widget
 {
 public:
 	Dropdown(Widget* parent);
+	~Dropdown();
 
 	void AddItem(const std::string& text, int index = -1);
 	bool UpdateItem(const std::string& text, int index);
