@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Package/IniProperty.h"
+
 #include "UAudioSubsystem.h"
 #include "Packages/Engine/Resources/USound.h"
 #include "Audio/AudioDevice.h"
@@ -43,7 +45,6 @@ public:
 	bool UseStereo = true;
 	bool UseCDMusic = false;
 	bool UseDigitalMusic = true;
-	bool UseSpatial = true;
 	bool UseReverb = true;
 	bool Use3dHardware = true;
 	bool LowSoundQuality = false;
@@ -69,12 +70,18 @@ public:
 	// the start (galaxy-dll.md, Settings)
 	float AmbientFactorInUse = 0.7f;
 	float DopplerSpeedInUse = 6500.0f;
+	// Galaxy's config properties DXEngine keeps no member for (UseDirectSound)
+	NativeConfigProperties Extra;
 
 	void LoadProperties(const NameString& from = "") override;
 	void SaveConfig() override;
 
+	// A config property of the original's UGalaxyAudioSubsystem: any other
+	// name GET and SET answer "Unrecognized property"
+	bool HasProperty(const NameString& propertyName) const;
 	std::string GetPropertyAsString(const NameString& propertyName) const override;
 	void SetPropertyFromString(const NameString& propertyName, const std::string& value) override;
+	void SetFromText(const NameString& propertyName, const std::string& value);
 
 	void InitDevice();
 	void ShutdownDevice();

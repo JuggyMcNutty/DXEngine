@@ -9,6 +9,7 @@
 #include "Utils/PEIcon.h"
 #include "Render/RenderSubsystem.h"
 #include "Package/PackageManager.h"
+#include "Package/IniProperty.h"
 #include "Package/ObjectStream.h"
 #include "Packages/Core/UClass.h"
 #include "Packages/Core/Properties/UBoolProperty.h"
@@ -289,8 +290,18 @@ void Engine::Run()
 		// (UEngine::InitAudio, Engine.dll 0x1037fe50). DXEngine keeps its
 		// device, on OpenAL Soft's null driver, which plays nothing.
 		std::string gameEngineClass = packages->GetIniValue("system", "Engine.Engine", "GameEngine", "Engine.GameEngine");
+		// UseSound by its first token, as the original's import reads a bool
+		// (UBoolProperty::ImportText, Core.dll 0x10166380): 0.0 is false; a
+		// text it refuses keeps the class's True (bugs.md ENG.32)
 		std::string useSound = packages->GetIniValue("system", gameEngineClass, "UseSound", "True");
-		bool soundOff = useSound == "0" || StrTools::equals_ignore_case(useSound, "False");
+		bool soundOff = false;
+		try
+		{
+			soundOff = !IniPropertyConverter<bool>::FromString(useSound);
+		}
+		catch (const std::exception&)
+		{
+		}
 		if (OriginalCommandLine::Get().Param("nosound") || soundOff)
 		{
 			LogMessage(soundOff ? "UseSound off: no sound" : "-nosound: no sound");
@@ -598,8 +609,14 @@ void Engine::ApplyNoDDraw()
 	}
 }
 
-void Engine::SaveClientConfig()
+void Engine::SaveClientConfig(bool asResized)
 {
+	// A resize's save writes the live client's values, which its class's
+	// defaults then take (UClient's, as each resize of the original's
+	// viewport saves it, WinDrv.dll 0x1110e354; bugs.md ENG.30); a SET's
+	// writes the class's defaults
+	if (asResized)
+		client->TakeLiveValues();
 	auto configured = [](const RunOnlySetting& setting, int value) { return setting.Active && value == setting.ForTheRun ? setting.Configured : value; };
 	int windowedX = client->WindowedViewportX, windowedY = client->WindowedViewportY;
 	int fullscreenX = client->FullscreenViewportX, fullscreenY = client->FullscreenViewportY;
@@ -627,7 +644,7 @@ void Engine::FlushConfig()
 		return;
 	if (packages->MissingDXESystemIni())
 	{
-		SaveClientConfig();
+		SaveClientConfig(false);
 		audiodev->SaveConfig();
 		renderdev->SaveConfig();
 	}
@@ -3251,13 +3268,24 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 			return {};
 		}
 
+		// A name the original's class has not is answered as its SET answers
+		// it (UObject's StaticExec, Core.dll 0x101531b0), nothing set or
+		// saved; the class's config is saved whole, its values as the types
+		// write them, as GlobalSetProperty's SaveConfig saves it (bugs.md
+		// ENG.32)
 		if (IsClassNamed(className, renderdev->Class))
 		{
+			if (!renderdev->HasProperty(propertyName))
+				return "Unrecognized property " + propertyName.ToString();
 			renderdev->SetPropertyFromString(propertyName, value);
+			renderdev->SaveConfig();
 		}
 		else if (IsClassNamed(className, audiodev->Class))
 		{
+			if (!audiodev->HasProperty(propertyName))
+				return "Unrecognized property " + propertyName.ToString();
 			audiodev->SetPropertyFromString(propertyName, value);
+			audiodev->SaveConfig();
 		}
 		else if (IsClassNamed(className, netdev->Class))
 		{
@@ -3265,8 +3293,11 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		}
 		else if (IsClassNamed(className, client->Class))
 		{
+			if (!client->HasProperty(propertyName))
+				return "Unrecognized property " + propertyName.ToString();
 			client->SetPropertyFromString(propertyName, value);
 			client->PostEditChange();
+			SaveClientConfig(false);
 		}
 		else
 		{
@@ -3465,6 +3496,10 @@ void Engine::LoadEngineSettings()
 		audiodev->LoadProperties();
 		renderdev->LoadProperties();
 	}
+	// The live client's brightness held to 0 to 1 as it starts, as the
+	// original's UWindowsClient::Init calls PostEditChange (WinDrv.dll
+	// 0x11102434; bugs.md ENG.30)
+	client->PostEditChange();
 	engineSettingsLoaded = true;
 }
 
@@ -3660,6 +3695,11 @@ void Engine::OpenWindow()
 		LogMessage(std::string("Window: " + std::to_string(width) + "x" + std::to_string(height) + ", in a window") + " (" + windowName + " window)");
 		window->ShowNormal();
 	}
+
+	// The client's config saved as the original's viewport saves it at its
+	// first resize, as its window opens (bugs.md ENG.30)
+	SaveClientConfig();
+	FlushConfig();
 }
 
 void Engine::CloseWindow()

@@ -7,6 +7,26 @@
 #include "Packages/Core/Properties/UProperty.h"
 #include "Utils/StrTools.h"
 
+// The config properties of the original's UClient (Engine.dll 0x10375010)
+// and UWindowsClient (WinDrv.dll 0x111015f0) that DXEngine has no use for,
+// kept as the original's class keeps them (bugs.md ENG.32)
+void UDXEngineClient::DefineExtra()
+{
+	using Type = NativeConfigProperties::Type;
+	Extra.Define({
+		{ "MipFactor", Type::Float },
+		{ "CaptureMouse", Type::Bool },
+		{ "CurvedSurfaces", Type::Bool },
+		{ "UseDirectDraw", Type::Bool },
+		{ "SlowVideoBuffering", Type::Bool },
+		{ "DeadZoneXYZ", Type::Bool },
+		{ "DeadZoneRUV", Type::Bool },
+		{ "InvertVertical", Type::Bool },
+		{ "ScaleXYZ", Type::Float },
+		{ "ScaleRUV", Type::Float },
+	});
+}
+
 void UDXEngineClient::LoadProperties(const NameString& from)
 {
 	NameString name_from = from;
@@ -14,69 +34,81 @@ void UDXEngineClient::LoadProperties(const NameString& from)
 	if (from == "")
 		name_from = NameString(Class);
 
-	StartupFullscreen = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "StartupFullscreen", StartupFullscreen);
-	WindowedViewportX = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "WindowedViewportX", WindowedViewportX);
-	WindowedViewportY = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "WindowedViewportY", WindowedViewportY);
-	WindowedColorBits = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "WindowedColorBits", WindowedColorBits);
-	FullscreenViewportX = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "FullscreenViewportX", FullscreenViewportX);
-	FullscreenViewportY = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "FullscreenViewportY", FullscreenViewportY);
-	FullscreenColorBits = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "FullscreenColorBits", FullscreenColorBits);
-	Brightness = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "Brightness", Brightness);
+	// GetIniFile hands over a copy, held for the whole read
+	std::unique_ptr<IniFile> iniFile = engine->packages->GetIniFile("System");
+	const IniFile& ini = *iniFile;
+	StartupFullscreen = IniPropertyConverter<bool>::FromIniFile(ini, name_from, "StartupFullscreen", StartupFullscreen);
+	WindowedViewportX = IniPropertyConverter<int>::FromIniFile(ini, name_from, "WindowedViewportX", WindowedViewportX);
+	WindowedViewportY = IniPropertyConverter<int>::FromIniFile(ini, name_from, "WindowedViewportY", WindowedViewportY);
+	WindowedColorBits = IniPropertyConverter<int>::FromIniFile(ini, name_from, "WindowedColorBits", WindowedColorBits);
+	FullscreenViewportX = IniPropertyConverter<int>::FromIniFile(ini, name_from, "FullscreenViewportX", FullscreenViewportX);
+	FullscreenViewportY = IniPropertyConverter<int>::FromIniFile(ini, name_from, "FullscreenViewportY", FullscreenViewportY);
+	FullscreenColorBits = IniPropertyConverter<int>::FromIniFile(ini, name_from, "FullscreenColorBits", FullscreenColorBits);
+	Brightness = IniPropertyConverter<float>::FromIniFile(ini, name_from, "Brightness", Brightness);
 	BrightnessInUse = Brightness;
-	UseJoystick = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "UseJoystick", UseJoystick);
-	UseDirectInput = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "UseDirectInput", UseDirectInput);
-	MinDesiredFrameRate = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "MinDesiredFrameRate", MinDesiredFrameRate);
-	ScreenFlashes = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "ScreenFlashes", ScreenFlashes);
-	Decals = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "Decals", Decals);
-	NoDynamicLights = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "NoDynamicLights", NoDynamicLights);
-	NoLighting = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "NoLighting", NoLighting);
-	TextureDetail = IniPropertyConverter<std::string>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "TextureDetail", TextureDetail);
-	SkinDetail = IniPropertyConverter<std::string>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "SkinDetail", SkinDetail);
+	UseJoystick = IniPropertyConverter<bool>::FromIniFile(ini, name_from, "UseJoystick", UseJoystick);
+	UseDirectInput = IniPropertyConverter<bool>::FromIniFile(ini, name_from, "UseDirectInput", UseDirectInput);
+	MinDesiredFrameRate = IniPropertyConverter<float>::FromIniFile(ini, name_from, "MinDesiredFrameRate", MinDesiredFrameRate);
+	ScreenFlashes = IniPropertyConverter<bool>::FromIniFile(ini, name_from, "ScreenFlashes", ScreenFlashes);
+	Decals = IniPropertyConverter<bool>::FromIniFile(ini, name_from, "Decals", Decals);
+	NoDynamicLights = IniPropertyConverter<bool>::FromIniFile(ini, name_from, "NoDynamicLights", NoDynamicLights);
+	NoLighting = IniPropertyConverter<bool>::FromIniFile(ini, name_from, "NoLighting", NoLighting);
+	// A detail by its name's token, as the original's import reads the enum
+	// byte: an ini's "Medium " is Medium, the blank after it the value's own
+	// as the file is read; a name that is none keeps the default
+	std::string detail;
+	if (ini.FindValue(name_from, "TextureDetail", detail))
+		ImportEnumText(detail, DetailNames, 4, TextureDetail);
+	if (ini.FindValue(name_from, "SkinDetail", detail))
+		ImportEnumText(detail, DetailNames, 4, SkinDetail);
 	UpdateDetailLevels();
+	DefineExtra();
+	Extra.Load(ini, name_from);
 }
 
 void UDXEngineClient::UpdateDetailLevels()
 {
-	// A detail by its name's token, as the original's import reads the enum
-	// byte (UByteProperty::ImportText, Core.dll 0x10165aa0): an ini's
-	// "Medium " is Medium, the blank after it the value's own as the file is
-	// read
-	auto level = [](const std::string& detail)
-	{
-		static const char* names[] = { "High", "Medium", "Low", "UltraLow" };
-		std::string token;
-		size_t pos = 0;
-		UProperty::ReadToken(detail, pos, token);
-		for (int i = 0; i < 4; i++)
-		{
-			if (StrTools::equals_ignore_case(token, names[i]))
-				return i;
-		}
-		return 0;
-	};
-	TextureLODSet[1] = level(TextureDetail);
-	TextureLODSet[2] = level(SkinDetail);
+	TextureLODSet[1] = std::min<int>(TextureDetail, 3);
+	TextureLODSet[2] = std::min<int>(SkinDetail, 3);
 }
 
 void UDXEngineClient::SaveConfig()
 {
-	engine->packages->SetIniValue("System", Class, "StartupFullscreen", IniPropertyConverter<bool>::ToString(StartupFullscreen));
-	engine->packages->SetIniValue("System", Class, "WindowedViewportX", IniPropertyConverter<int>::ToString(WindowedViewportX));
-	engine->packages->SetIniValue("System", Class, "WindowedViewportY", IniPropertyConverter<int>::ToString(WindowedViewportY));
-	engine->packages->SetIniValue("System", Class, "WindowedColorBits", IniPropertyConverter<int>::ToString(WindowedColorBits));
-	engine->packages->SetIniValue("System", Class, "FullscreenViewportX", IniPropertyConverter<int>::ToString(FullscreenViewportX));
-	engine->packages->SetIniValue("System", Class, "FullscreenViewportY", IniPropertyConverter<int>::ToString(FullscreenViewportY));
-	engine->packages->SetIniValue("System", Class, "FullscreenColorBits", IniPropertyConverter<int>::ToString(FullscreenColorBits));
-	engine->packages->SetIniValue("System", Class, "Brightness", IniPropertyConverter<float>::ToString(Brightness));
-	engine->packages->SetIniValue("System", Class, "UseJoystick", IniPropertyConverter<bool>::ToString(UseJoystick));
-	engine->packages->SetIniValue("System", Class, "UseDirectInput", IniPropertyConverter<bool>::ToString(UseDirectInput));
-	engine->packages->SetIniValue("System", Class, "MinDesiredFrameRate", IniPropertyConverter<int>::ToString(MinDesiredFrameRate));
-	engine->packages->SetIniValue("System", Class, "ScreenFlashes", IniPropertyConverter<bool>::ToString(ScreenFlashes));
-	engine->packages->SetIniValue("System", Class, "Decals", IniPropertyConverter<bool>::ToString(Decals));
-	engine->packages->SetIniValue("System", Class, "NoDynamicLights", IniPropertyConverter<bool>::ToString(NoDynamicLights));
-	engine->packages->SetIniValue("System", Class, "NoLighting", IniPropertyConverter<bool>::ToString(NoLighting));
-	engine->packages->SetIniValue("System", Class, "TextureDetail", TextureDetail);
-	engine->packages->SetIniValue("System", Class, "SkinDetail", SkinDetail);
+	auto set = [&](const char* key, const std::string& value) { engine->packages->SetIniValue("System", Class, key, value); };
+	set("StartupFullscreen", IniPropertyConverter<bool>::ToString(StartupFullscreen));
+	set("WindowedViewportX", IniPropertyConverter<int>::ToString(WindowedViewportX));
+	set("WindowedViewportY", IniPropertyConverter<int>::ToString(WindowedViewportY));
+	set("WindowedColorBits", IniPropertyConverter<int>::ToString(WindowedColorBits));
+	set("FullscreenViewportX", IniPropertyConverter<int>::ToString(FullscreenViewportX));
+	set("FullscreenViewportY", IniPropertyConverter<int>::ToString(FullscreenViewportY));
+	set("FullscreenColorBits", IniPropertyConverter<int>::ToString(FullscreenColorBits));
+	set("Brightness", IniPropertyConverter<float>::ToString(Brightness));
+	set("UseJoystick", IniPropertyConverter<bool>::ToString(UseJoystick));
+	set("UseDirectInput", IniPropertyConverter<bool>::ToString(UseDirectInput));
+	set("MinDesiredFrameRate", IniPropertyConverter<float>::ToString(MinDesiredFrameRate));
+	set("ScreenFlashes", IniPropertyConverter<bool>::ToString(ScreenFlashes));
+	set("Decals", IniPropertyConverter<bool>::ToString(Decals));
+	set("NoDynamicLights", IniPropertyConverter<bool>::ToString(NoDynamicLights));
+	set("NoLighting", IniPropertyConverter<bool>::ToString(NoLighting));
+	set("TextureDetail", DetailNames[std::min<int>(TextureDetail, 3)]);
+	set("SkinDetail", DetailNames[std::min<int>(SkinDetail, 3)]);
+	Extra.ForEach([&](const std::string& name, const std::string& value) { engine->packages->SetIniValue("System", Class, name, value); });
+}
+
+bool UDXEngineClient::HasProperty(const NameString& propertyName) const
+{
+	static const char* names[] = {
+		"Class", "StartupFullscreen", "WindowedViewportX", "WindowedViewportY", "WindowedColorBits",
+		"FullscreenViewportX", "FullscreenViewportY", "FullscreenColorBits", "Brightness", "UseJoystick",
+		"UseDirectInput", "MinDesiredFrameRate", "ScreenFlashes", "Decals", "NoDynamicLights", "NoLighting",
+		"TextureDetail", "SkinDetail"
+	};
+	for (const char* name : names)
+	{
+		if (propertyName == NameString(name))
+			return true;
+	}
+	return Extra.Has(propertyName);
 }
 
 std::string UDXEngineClient::GetPropertyAsString(const NameString& propertyName) const
@@ -104,7 +136,7 @@ std::string UDXEngineClient::GetPropertyAsString(const NameString& propertyName)
 	else if (propertyName == "UseDirectInput")
 		return IniPropertyConverter<bool>::ToString(UseDirectInput);
 	else if (propertyName == "MinDesiredFrameRate")
-		return IniPropertyConverter<int>::ToString(MinDesiredFrameRate);
+		return IniPropertyConverter<float>::ToString(MinDesiredFrameRate);
 	else if (propertyName == "ScreenFlashes")
 		return IniPropertyConverter<bool>::ToString(ScreenFlashes);
 	else if (propertyName == "Decals")
@@ -114,66 +146,86 @@ std::string UDXEngineClient::GetPropertyAsString(const NameString& propertyName)
 	else if (propertyName == "NoLighting")
 		return IniPropertyConverter<bool>::ToString(NoLighting);
 	else if (propertyName == "TextureDetail")
-		return TextureDetail;
+		return DetailNames[std::min<int>(TextureDetail, 3)];
 	else if (propertyName == "SkinDetail")
-		return SkinDetail;
+		return DetailNames[std::min<int>(SkinDetail, 3)];
+	else if (Extra.Has(propertyName))
+		return Extra.Get(propertyName);
 
-	LogMessage("Queried unknown property for DXEngine.ViewportManager: " + propertyName.ToString());
-	return {};
+	// As the original's GET answers a name its class has not (UObject's
+	// StaticExec, Core.dll 0x10153110)
+	return "Unrecognized property " + propertyName.ToString();
 }
 
-// The original's UClient::PostEditChange (Engine.dll 0x10374ef0), after a
-// SET of it: the live client's brightness held to 0 to 1 (and its
-// MipFactor, which DXEngine has not, to -3 to 3), the class default not
+// The original's UClient::PostEditChange (Engine.dll 0x10374ef0), as the
+// client starts and after a SET of it: the live client's brightness held to
+// 0 to 1 (and its MipFactor to -3 to 3, which TakeLiveValues holds), the
+// class default not
 void UDXEngineClient::PostEditChange()
 {
 	BrightnessInUse = clamp(BrightnessInUse, 0.0f, 1.0f);
 }
 
+void UDXEngineClient::TakeLiveValues()
+{
+	Brightness = BrightnessInUse;
+	std::string mip = Extra.Get("MipFactor");
+	float mipFactor = (float)strtod(mip.c_str(), nullptr);
+	if (mipFactor < -3.0f || mipFactor > 3.0f)
+		Extra.Set("MipFactor", IniPropertyConverter<float>::ToString(clamp(mipFactor, -3.0f, 3.0f)));
+}
+
+// A SET as the original's import takes its text: a text the property's type
+// refuses (a bool's "Yes", an int's word, a detail's number) leaves it as it
+// was, quietly; a float's never fails (bugs.md ENG.32, ENG.29)
 void UDXEngineClient::SetPropertyFromString(const NameString& propertyName, const std::string& value)
 {
-	if (propertyName == "WindowedViewportX")
-		WindowedViewportX = IniPropertyConverter<int>::FromString(value);
-	else if (propertyName == "WindowedViewportY")
-		WindowedViewportY = IniPropertyConverter<int>::FromString(value);
-	else if (propertyName == "WindowedColorBits")
-		WindowedColorBits = IniPropertyConverter<int>::FromString(value);
-	else if (propertyName == "StartupFullscreen")
-		StartupFullscreen = IniPropertyConverter<bool>::FromString(value);
-	else if (propertyName == "FullscreenViewportX")
-		FullscreenViewportX = IniPropertyConverter<int>::FromString(value);
-	else if (propertyName == "FullscreenViewportY")
-		FullscreenViewportY = IniPropertyConverter<int>::FromString(value);
-	else if (propertyName == "FullscreenColorBits")
-		FullscreenColorBits = IniPropertyConverter<int>::FromString(value);
-	else if (propertyName == "Brightness")
-		BrightnessInUse = Brightness = IniPropertyConverter<float>::FromString(value);
-	else if (propertyName == "UseJoystick")
-		UseJoystick = IniPropertyConverter<bool>::FromString(value);
-	else if (propertyName == "UseDirectInput")
-		UseDirectInput = IniPropertyConverter<bool>::FromString(value);
-	else if (propertyName == "MinDesiredFrameRate")
-		MinDesiredFrameRate = IniPropertyConverter<int>::FromString(value);
-	else if (propertyName == "ScreenFlashes")
-		ScreenFlashes = IniPropertyConverter<bool>::FromString(value);
-	else if (propertyName == "Decals")
-		Decals = IniPropertyConverter<bool>::FromString(value);
-	else if (propertyName == "NoDynamicLights")
-		NoDynamicLights = IniPropertyConverter<bool>::FromString(value);
-	else if (propertyName == "NoLighting")
-		NoLighting = IniPropertyConverter<bool>::FromString(value);
-	else if (propertyName == "TextureDetail")
+	try
 	{
-		TextureDetail = value;
-		UpdateDetailLevels();
+		if (propertyName == "WindowedViewportX")
+			WindowedViewportX = IniPropertyConverter<int>::FromString(value);
+		else if (propertyName == "WindowedViewportY")
+			WindowedViewportY = IniPropertyConverter<int>::FromString(value);
+		else if (propertyName == "WindowedColorBits")
+			WindowedColorBits = IniPropertyConverter<int>::FromString(value);
+		else if (propertyName == "StartupFullscreen")
+			StartupFullscreen = IniPropertyConverter<bool>::FromString(value);
+		else if (propertyName == "FullscreenViewportX")
+			FullscreenViewportX = IniPropertyConverter<int>::FromString(value);
+		else if (propertyName == "FullscreenViewportY")
+			FullscreenViewportY = IniPropertyConverter<int>::FromString(value);
+		else if (propertyName == "FullscreenColorBits")
+			FullscreenColorBits = IniPropertyConverter<int>::FromString(value);
+		else if (propertyName == "Brightness")
+			BrightnessInUse = Brightness = IniPropertyConverter<float>::FromString(value);
+		else if (propertyName == "UseJoystick")
+			UseJoystick = IniPropertyConverter<bool>::FromString(value);
+		else if (propertyName == "UseDirectInput")
+			UseDirectInput = IniPropertyConverter<bool>::FromString(value);
+		else if (propertyName == "MinDesiredFrameRate")
+			MinDesiredFrameRate = IniPropertyConverter<float>::FromString(value);
+		else if (propertyName == "ScreenFlashes")
+			ScreenFlashes = IniPropertyConverter<bool>::FromString(value);
+		else if (propertyName == "Decals")
+			Decals = IniPropertyConverter<bool>::FromString(value);
+		else if (propertyName == "NoDynamicLights")
+			NoDynamicLights = IniPropertyConverter<bool>::FromString(value);
+		else if (propertyName == "NoLighting")
+			NoLighting = IniPropertyConverter<bool>::FromString(value);
+		else if (propertyName == "TextureDetail")
+		{
+			ImportEnumText(value, DetailNames, 4, TextureDetail);
+			UpdateDetailLevels();
+		}
+		else if (propertyName == "SkinDetail")
+		{
+			ImportEnumText(value, DetailNames, 4, SkinDetail);
+			UpdateDetailLevels();
+		}
+		else if (Extra.Has(propertyName))
+			Extra.Set(propertyName, value);
 	}
-	else if (propertyName == "SkinDetail")
+	catch (const std::exception&)
 	{
-		SkinDetail = value;
-		UpdateDetailLevels();
 	}
-	else
-		LogMessage("Setting unknown property for DXEngine.ViewportManager: " + propertyName.ToString());
-
-	engine->packages->SetIniValue("System", Class, propertyName, value);
 }

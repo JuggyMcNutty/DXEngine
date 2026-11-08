@@ -1298,9 +1298,11 @@ Differs, by choice, the owner judging it close enough, its cause not found:
   (`Hold`) at a median 1.01 of the original's frame, correlated at 0.984,
   and `LaserConsole`'s corridor 2% under, within 0.5% with them off.
 
-Differs (bugs.md ENG.30): a `Brightness` outside 0 to 1 in the ini is drawn
-and kept, the original's client holding it to 0 to 1 as it starts and saving
-the held value.
+A `Brightness` outside 0 to 1 in the ini is held to 0 to 1 as the client
+starts, and the window's first resize saves the held value, which `GET`
+then answers, as the original's client holds it in `UWindowsClient::Init`
+and its viewport's resize saves it (`FallbackConsole` with `Brightness=5`:
+`GET` 1.000000 in both engines).
 
 ### The screen flash
 
@@ -1981,10 +1983,11 @@ With Decals off no new decal attaches
 and the ones on the walls are not drawn
 ([a frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#a-frame);
 `DecalConsole`). World and Object Texture Detail draw the world's textures
-and the skins from one, two or three mips below the top at Medium, Low and
-UltraLow
+and the skins from one or two mips below the top at Medium and Low
 ([a texture's mips](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-textures-mips)),
-World Texture Detail below High dropping the detail textures too. Low Sound
+World Texture Detail below High dropping the detail textures too; the
+detail's fourth name, `Ultra Low`, two words, no text reaches, as in the
+original. Low Sound
 Quality makes each WAV 8-bit, and one of 22,050 Hz or more half its rate, as
 it loads
 ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds)).
@@ -2048,10 +2051,25 @@ it. Differs:
   dedicated server's starts the engine again itself, as that server, and
   Rendering Device does nothing, by choice.
 
-Differs (bugs.md ENG.29): the Display screen's Reset to Defaults sets World
-and Object Texture Detail to Low, the original keeping High. Differs
-(bugs.md ENG.32): small differences of the settings read by hand, among them
-`GET` of a property only the original's classes have, empty. By choice: a
+The client's and the devices' settings are their original classes' config
+properties ([a property's text](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#a-propertys-text)):
+`UClient`'s and `UWindowsClient`'s, `UGalaxyAudioSubsystem`'s, and
+`URenderDevice`'s with `D3DDrv`'s or `SoftDrv`'s own, as the ini's
+`GameRenderDevice` names (`OpenGLDrv` has none of its own); those DXEngine
+has no use for, `MipFactor` and `UseVSync` among them, are kept too. `GET`
+answers each as its type writes it, and a name the class has not
+`Unrecognized property <name>`, as `SET` does, nothing set or saved:
+`Translucency` and `UseSpatial` among them, which no device of the game's
+has. A `SET` takes its text as the type's import takes it -- a bool's or an
+int's word refused, an enum by its names alone, so `0` is refused for a
+detail; a float's `atof`, 0 for a word -- and saves the class's config
+whole, each value as its type writes it, so the Display screen's Reset to
+Defaults, which sets the details to `0`, leaves them High
+(`SetWordsConsole`, every answer alike in both engines and every value saved
+alike but `UseDirectInput`'s; `FallbackConsole`, every `GET` alike but
+`UseDirectInput`'s; `ResetConsole`'s Display and Sound screens alike after
+Reset to Defaults and OK but for the resolutions offered). `UseSound` is
+read by its first token, so `0.0` silences the game. By choice: a
 setting the ini lacks, or holds in a form its type does not read, takes
 DXEngine's default, where the original's classes set none, their defaults
 zeroed -- a damaged ini gives the original a black gamma ramp, no voices and
@@ -2072,7 +2090,7 @@ Matches `Galaxy.dll`
 ([`galaxy-dll.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md)):
 Deus Ex's sounds are mixed as its mixer mixes them (pan, volumes, resampling
 and reverb, at `OutputRate`, which keeps its default when the ini's value is
-no number ending in `Hz`) into one OpenAL source, one behind the level's BSP
+none of its names) into one OpenAL source, one behind the level's BSP
 muffled -- a closed door's too, the movers in it where it filed them ([the
 movers in a line's way](#implemented-not-as-the-original)); the wall test is
 the solid-space walk the original's `FastLineCheck` makes (`FastWalk`, the
@@ -2103,11 +2121,13 @@ the old song fades out and the new level's starts (its player's
 `MTRAN_Fade`), a level of the same song jumping to its section
 (`LoadingConsole` with `DXCAP_RECORD=1 DXCAP_MUSIC=1`: no silence across a
 load in either engine, the fade after it, the music on after a save of the
-map it is on is loaded). DXEngine holds `OutputRate` to 8,000 to 48,000 Hz
-(differs, bugs.md D.55: Galaxy's is one of seven names, any other text
-keeping its rate) and `Latency` to 10 to 250 ms, at a load too, by choice
-(Galaxy holds it so at a `SET` alone, at a load its library's 5 to 495 ms),
-`Latency` the output's mix-ahead (10 ms buffers queued to it), and so
+map it is on is loaded). `OutputRate` is one of Galaxy's seven names,
+8000Hz, 11025Hz, 16000Hz, 22050Hz, 32000Hz, 44100Hz and 48000Hz, read by
+the text's first token in any case, never from a number, any other text
+keeping the rate (`SetWordsConsole`, alike in both engines). DXEngine holds
+`Latency` to 10 to 250 ms, at a load too, by choice (Galaxy holds it so at
+a `SET` alone, at a load its library's 5 to 495 ms), `Latency` the output's
+mix-ahead (10 ms buffers queued to it), and so
 are those a `SET` puts on what plays, where `GET` gives the value as set
 ([settings](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#settings)):
 `DopplerSpeed` to 1-100,000 and `AmbientFactor` to 0-10. `AmbientConsole`'s
@@ -2137,9 +2157,9 @@ cancelled its surround channels to -25.8). Not carried, by choice: Galaxy's
 mono mix's losses, each voice's gain rounded down to one of 64 levels (a
 quiet sound silent, a fade stepped), a 16-bit sample read without
 interpolating, nothing sent to the reverb and the music saturated keeping
-each sample's low byte (clip noise). `UseFilter` and `UseCDMusic` are read,
-saved and `SET` and change nothing, as in the original. Differs (bugs.md
-D.62): `UseSpatial` is too, which the original's class has not. An MP3 --
+each sample's low byte (clip noise). `UseFilter`, `UseCDMusic` and
+`UseDirectSound` are read, saved and `SET` and change nothing, as in the
+original. An MP3 --
 the game's speech -- plays as Galaxy's decoder fills its ring, 32,768 frames
 of each channel ([playing a
 sound](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)):
@@ -3567,13 +3587,8 @@ A mod gets the original's loader and natives:
   pixel at the least and 16,384 at the most; a `bHighDetail` actor is passed
   over while the render device's `HighDetailActors` is off, as the
   original's SetupDynamics passes it (of the game's classes only `Decal`
-  sets the flag, and a decal is drawn with its surface); the render device's
-  `Translucency` is read, saved and `SET`, and changes nothing, where
-  `D3DDrv` and `OpenGLDrv` have no such setting, of the game's devices only
-  the software one naming it
-  ([the binary](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#the-binary)),
-  a difference (bugs.md D.62);
-  an actor at no place (a NaN location) sorts
+  sets the flag, and a decal is drawn with its surface); an actor at no
+  place (a NaN location) sorts
   nearest among the translucent.
 - **A mod's deletions and sizes.** A light in the level's light lists
   is kept, destroyed or not, so the lists keep their places; a destroyed

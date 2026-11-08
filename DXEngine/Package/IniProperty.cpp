@@ -46,10 +46,13 @@ int IniPropertyConverter<int>::FromIniFile(const IniFile& iniFile, const NameStr
 
 //====================================================================
 
+// A SET's float as the original's import reads one (UFloatProperty's
+// ImportText, appAtof): the number the text starts with, 0 for any other
+// text, never refused (bugs.md ENG.32)
 template<>
 float IniPropertyConverter<float>::FromString(const std::string& valueString)
 {
-	return Convert::to_float(valueString);
+	return (float)strtod(valueString.c_str(), nullptr);
 }
 
 template<>
@@ -148,15 +151,26 @@ std::string IniPropertyConverter<std::string>::FromIniFile(const IniFile& iniFil
 
 //====================================================================
 
+// Galaxy's OutputRate is a byte enum of seven names (its StaticConstructor,
+// Galaxy.dll 0x10604be0), read as any enum is (UByteProperty::ImportText,
+// Core.dll 0x10165aa0): the text's first token, one of the names in any
+// case. Any other text, a number among them, is refused, the rate kept
+// (bugs.md D.55).
 template<>
 AudioFrequency IniPropertyConverter<AudioFrequency>::FromString(const std::string& valueString)
 {
-	if (auto pos = valueString.find("Hz"); pos != std::string::npos)
+	static const int rates[] = { 8000, 11025, 16000, 22050, 32000, 44100, 48000 };
+	std::string token;
+	size_t pos = 0;
+	if (UProperty::ReadToken(valueString, pos, token))
 	{
-		int frequency = Convert::to_int32(valueString.substr(0, pos));
-		return AudioFrequency(frequency);
+		for (int rate : rates)
+		{
+			if (StrTools::equals_ignore_case(token, std::to_string(rate) + "Hz"))
+				return AudioFrequency(rate);
+		}
 	}
-	Exception::Throw("Invalid value '" + valueString + "' for changing frequency. The value must be a number that ends with 'Hz'.");
+	Exception::Throw("Invalid value '" + valueString + "' for the output rate: none of Galaxy's names, 8000Hz, 11025Hz, 16000Hz, 22050Hz, 32000Hz, 44100Hz and 48000Hz");
 }
 
 template<>
@@ -168,8 +182,8 @@ std::string IniPropertyConverter<AudioFrequency>::ToString(const AudioFrequency&
 template<>
 AudioFrequency IniPropertyConverter<AudioFrequency>::FromIniFile(const IniFile& iniFile, const NameString& section, const NameString& keyName, const AudioFrequency& default_value)
 {
-	// A value that is no "<number>Hz" (a hand-edited OutputRate=44100) keeps
-	// the default, as the other types' rule above has it, rather than
+	// A value that is none of the names (a hand-edited OutputRate=44100)
+	// keeps the default, as the other types' rule above has it, rather than
 	// stopping the engine at its start
 	try
 	{
@@ -242,4 +256,107 @@ template<>
 Color IniPropertyConverter<Color>::FromIniFile(const IniFile& iniFile, const NameString& section, const NameString& keyName, const Color& default_value)
 {
 	return FromString(iniFile.GetValue(section, keyName, ToString(default_value)));
+}
+
+//====================================================================
+
+bool ImportEnumText(const std::string& text, const char* const* names, int count, uint8_t& value)
+{
+	std::string token;
+	size_t pos = 0;
+	if (!UProperty::ReadToken(text, pos, token))
+		return false;
+	for (int i = 0; i < count; i++)
+	{
+		if (StrTools::equals_ignore_case(token, names[i]))
+		{
+			value = (uint8_t)i;
+			return true;
+		}
+	}
+	return false;
+}
+
+//====================================================================
+
+void NativeConfigProperties::Define(std::initializer_list<Definition> definitions)
+{
+	Values.clear();
+	for (const Definition& definition : definitions)
+	{
+		Value value;
+		value.Name = definition.Name;
+		value.PropType = definition.PropType;
+		Values.push_back(value);
+	}
+}
+
+const NativeConfigProperties::Value* NativeConfigProperties::Find(const NameString& name) const
+{
+	for (const Value& value : Values)
+	{
+		if (name == NameString(value.Name))
+			return &value;
+	}
+	return nullptr;
+}
+
+bool NativeConfigProperties::Has(const NameString& name) const
+{
+	return Find(name) != nullptr;
+}
+
+std::string NativeConfigProperties::Export(const Value& value)
+{
+	switch (value.PropType)
+	{
+	case Type::Bool: return IniPropertyConverter<bool>::ToString(value.Bool);
+	case Type::Int: return IniPropertyConverter<int>::ToString(value.Int);
+	case Type::Float: return IniPropertyConverter<float>::ToString(value.Float);
+	default: return value.String;
+	}
+}
+
+std::string NativeConfigProperties::Get(const NameString& name) const
+{
+	const Value* value = Find(name);
+	return value ? Export(*value) : std::string();
+}
+
+// A text its type refuses (a bool's "Yes", an int's word) leaves the value
+// as it was; a float's never fails
+void NativeConfigProperties::Set(const NameString& name, const std::string& text)
+{
+	Value* value = const_cast<Value*>(Find(name));
+	if (!value)
+		return;
+	try
+	{
+		switch (value->PropType)
+		{
+		case Type::Bool: value->Bool = IniPropertyConverter<bool>::FromString(text); break;
+		case Type::Int: value->Int = IniPropertyConverter<int>::FromString(text); break;
+		case Type::Float: value->Float = IniPropertyConverter<float>::FromString(text); break;
+		default: value->String = text; break;
+		}
+	}
+	catch (const std::exception&)
+	{
+	}
+}
+
+void NativeConfigProperties::Load(const IniFile& iniFile, const NameString& section)
+{
+	for (const Value& value : Values)
+	{
+		std::string text;
+		if (iniFile.FindValue(section, value.Name, text))
+			Set(value.Name, text);
+	}
+}
+
+void NativeConfigProperties::ForEach(const std::function<void(const std::string& name, const std::string& value)>& callback) const
+{
+	for (const Value& value : Values)
+		callback(value.Name, Export(value));
 }

@@ -32,7 +32,7 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 	// A surface's detail texture goes to the device only while its
 	// DetailTextures is on and the client's TextureDetail is High, as
 	// Render.dll hands it over (dx-reverse-info render-dll.md, a frame).
-	DetailTexturesDrawn = engine->renderdev->DetailTextures && NameString(engine->client->TextureDetail) == NameString("High");
+	DetailTexturesDrawn = engine->renderdev->DetailTextures && engine->client->TextureDetail == 0;
 	LevelTime = engine->LevelInfo ? engine->LevelInfo->TimeSeconds() : 0.0f;
 
 	// The original's DrawWorld (Render.dll 0x10b1cc20-0x10b1cc62), before

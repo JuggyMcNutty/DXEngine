@@ -39,8 +39,6 @@ std::string UDXEngineAudioDevice::GetPropertyAsString(const NameString& property
 		return IniPropertyConverter<bool>::ToString(UseCDMusic);
 	else if (propertyName == "UseDigitalMusic")
 		return IniPropertyConverter<bool>::ToString(UseDigitalMusic);
-	else if (propertyName == "UseSpatial")
-		return IniPropertyConverter<bool>::ToString(UseSpatial);
 	else if (propertyName == "UseReverb")
 		return IniPropertyConverter<bool>::ToString(UseReverb);
 	else if (propertyName == "Use3dHardware")
@@ -65,12 +63,45 @@ std::string UDXEngineAudioDevice::GetPropertyAsString(const NameString& property
 		return IniPropertyConverter<float>::ToString(AmbientFactor);
 	else if (propertyName == "DopplerSpeed")
 		return IniPropertyConverter<float>::ToString(DopplerSpeed);
+	else if (Extra.Has(propertyName))
+		return Extra.Get(propertyName);
 
-	LogMessage("Queried unknown property for DXEngineAudioDevice: " + propertyName.ToString());
-	return {};
+	// As the original's GET answers a name its class has not (UObject's
+	// StaticExec, Core.dll 0x10153110)
+	return "Unrecognized property " + propertyName.ToString();
 }
 
+bool UDXEngineAudioDevice::HasProperty(const NameString& propertyName) const
+{
+	// UGalaxyAudioSubsystem::StaticConstructor (Galaxy.dll 0x10604bb0)
+	static const char* names[] = {
+		"Class", "UseFilter", "UseSurround", "UseStereo", "UseCDMusic", "UseDigitalMusic", "UseReverb",
+		"Use3dHardware", "LowSoundQuality", "ReverseStereo", "Latency", "OutputRate", "EffectsChannels",
+		"MusicVolume", "SoundVolume", "SpeechVolume", "AmbientFactor", "DopplerSpeed"
+	};
+	for (const char* name : names)
+	{
+		if (propertyName == NameString(name))
+			return true;
+	}
+	return Extra.Has(propertyName);
+}
+
+// A SET as Galaxy's import takes its text: a text the property's type
+// refuses (a bool's "Yes", an int's word, a rate none of the seven names)
+// leaves it as it was, quietly; a float's never fails (bugs.md ENG.32, D.55)
 void UDXEngineAudioDevice::SetPropertyFromString(const NameString& propertyName, const std::string& value)
+{
+	try
+	{
+		SetFromText(propertyName, value);
+	}
+	catch (const std::exception&)
+	{
+	}
+}
+
+void UDXEngineAudioDevice::SetFromText(const NameString& propertyName, const std::string& value)
 {
 	if (propertyName == "UseFilter")
 		UseFilter = IniPropertyConverter<bool>::FromString(value);
@@ -82,8 +113,6 @@ void UDXEngineAudioDevice::SetPropertyFromString(const NameString& propertyName,
 		UseCDMusic = IniPropertyConverter<bool>::FromString(value);
 	else if (propertyName == "UseDigitalMusic")
 		UseDigitalMusic = IniPropertyConverter<bool>::FromString(value);
-	else if (propertyName == "UseSpatial")
-		UseSpatial = IniPropertyConverter<bool>::FromString(value);
 	else if (propertyName == "UseReverb")
 		UseReverb = IniPropertyConverter<bool>::FromString(value);
 	else if (propertyName == "Use3dHardware")
@@ -120,10 +149,8 @@ void UDXEngineAudioDevice::SetPropertyFromString(const NameString& propertyName,
 		DopplerSpeed = IniPropertyConverter<float>::FromString(value);
 		DopplerSpeedInUse = std::clamp(DopplerSpeed, 1.0f, 100000.0f);
 	}
-	else
-		LogMessage("Setting unknown property for DXEngineAudioDevice: " + propertyName.ToString());
-
-	engine->packages->SetIniValue("System", Class, propertyName, value);
+	else if (Extra.Has(propertyName))
+		Extra.Set(propertyName, value);
 }
 
 void UDXEngineAudioDevice::LoadProperties(const NameString& from)
@@ -138,7 +165,6 @@ void UDXEngineAudioDevice::LoadProperties(const NameString& from)
 	UseStereo = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "UseStereo", UseStereo);
 	UseCDMusic = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "UseCDMusic", UseCDMusic);
 	UseDigitalMusic = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "UseDigitalMusic", UseDigitalMusic);
-	UseSpatial = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "UseSpatial", UseSpatial);
 	UseReverb = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "UseReverb", UseReverb);
 	Use3dHardware = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "Use3dHardware", Use3dHardware);
 	LowSoundQuality = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "LowSoundQuality", LowSoundQuality);
@@ -146,11 +172,9 @@ void UDXEngineAudioDevice::LoadProperties(const NameString& from)
 	Latency = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "Latency", Latency);
 	// Held to 10 to 250 ms, as Galaxy holds it (galaxy-dll.md)
 	Latency = std::clamp(Latency, 10, 250);
+	// One of Galaxy's seven names, 8000Hz to 48000Hz; any other text keeps the
+	// default (bugs.md D.55)
 	OutputRate = IniPropertyConverter<AudioFrequency>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "OutputRate", OutputRate);
-	// Held to 8,000 to 48,000 Hz, as Galaxy holds its rate: 0 divided the
-	// mixer's step by zero, a negative rate capped every step, and one past
-	// 48,188 wrapped a reverb delay
-	OutputRate.frequency = std::clamp(OutputRate.frequency, 8000, 48000);
 	Channels = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, ChannelsKey(), Channels);
 	MusicVolume = IniPropertyConverter<uint8_t>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "MusicVolume", MusicVolume);
 	SoundVolume = IniPropertyConverter<uint8_t>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "SoundVolume", SoundVolume);
@@ -162,6 +186,8 @@ void UDXEngineAudioDevice::LoadProperties(const NameString& from)
 	DopplerSpeed = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "DopplerSpeed", DopplerSpeed);
 	AmbientFactorInUse = AmbientFactor;
 	DopplerSpeedInUse = DopplerSpeed;
+	Extra.Define({ { "UseDirectSound", NativeConfigProperties::Type::Bool } });
+	Extra.Load(*engine->packages->GetIniFile("System"), name_from);
 }
 
 void UDXEngineAudioDevice::SaveConfig()
@@ -171,7 +197,6 @@ void UDXEngineAudioDevice::SaveConfig()
 	engine->packages->SetIniValue("System", Class, "UseStereo", IniPropertyConverter<bool>::ToString(UseStereo));
 	engine->packages->SetIniValue("System", Class, "UseCDMusic", IniPropertyConverter<bool>::ToString(UseCDMusic));
 	engine->packages->SetIniValue("System", Class, "UseDigitalMusic", IniPropertyConverter<bool>::ToString(UseDigitalMusic));
-	engine->packages->SetIniValue("System", Class, "UseSpatial", IniPropertyConverter<bool>::ToString(UseSpatial));
 	engine->packages->SetIniValue("System", Class, "UseReverb", IniPropertyConverter<bool>::ToString(UseReverb));
 	engine->packages->SetIniValue("System", Class, "Use3dHardware", IniPropertyConverter<bool>::ToString(Use3dHardware));
 	engine->packages->SetIniValue("System", Class, "LowSoundQuality", IniPropertyConverter<bool>::ToString(LowSoundQuality));
@@ -184,6 +209,7 @@ void UDXEngineAudioDevice::SaveConfig()
 	engine->packages->SetIniValue("System", Class, "SpeechVolume", IniPropertyConverter<uint8_t>::ToString(SpeechVolumeSetting));
 	engine->packages->SetIniValue("System", Class, "AmbientFactor", IniPropertyConverter<float>::ToString(AmbientFactor));
 	engine->packages->SetIniValue("System", Class, "DopplerSpeed", IniPropertyConverter<float>::ToString(DopplerSpeed));
+	Extra.ForEach([&](const std::string& name, const std::string& value) { engine->packages->SetIniValue("System", Class, name, value); });
 }
 
 void UDXEngineAudioDevice::InitDevice()

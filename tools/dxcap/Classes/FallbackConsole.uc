@@ -6,8 +6,8 @@
 // every config property of the original's UClient and UWindowsClient
 // (ini:Engine.Engine.ViewportManager), UGalaxyAudioSubsystem
 // (ini:Engine.Engine.AudioDevice) and URenderDevice and UD3DRenderDevice
-// (ini:Engine.Engine.GameRenderDevice), and the keys DXEngine adds
-// (UseSpatial, Translucency), each answer logged between bars with
+// (ini:Engine.Engine.GameRenderDevice), and UseSpatial and Translucency,
+// which the game's ini names and no class has, each answer logged between bars with
 // "DXFALL:" in front, then an exit. Run the original with
 // DXCAP_RENDERER=D3D, so both engines read [D3DDrv.D3DRenderDevice].
 //
@@ -69,7 +69,7 @@ event Tick(float Delta)
 	Ask(P, "ViewportManager", "ScaleXYZ");
 	Ask(P, "ViewportManager", "ScaleRUV");
 
-	// UGalaxyAudioSubsystem (Galaxy.dll 0x10604bb0), and DXEngine's UseSpatial
+	// UGalaxyAudioSubsystem (Galaxy.dll 0x10604bb0), and UseSpatial, which it has not
 	Ask(P, "AudioDevice", "UseDirectSound");
 	Ask(P, "AudioDevice", "UseFilter");
 	Ask(P, "AudioDevice", "UseSurround");
@@ -91,7 +91,7 @@ event Tick(float Delta)
 	Ask(P, "AudioDevice", "UseSpatial");
 
 	// URenderDevice (Engine.dll 0x103713c0) and UD3DRenderDevice (D3DDrv.dll
-	// 0x10001880), and DXEngine's Translucency
+	// 0x10001880), and Translucency, which neither has
 	Ask(P, "GameRenderDevice", "VolumetricLighting");
 	Ask(P, "GameRenderDevice", "ShinySurfaces");
 	Ask(P, "GameRenderDevice", "Coronas");

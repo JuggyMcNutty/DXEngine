@@ -449,7 +449,7 @@ private:
 	void RestoreRunOnlySettings();
 	// The client's config saved, what the original's command line set for
 	// the run saved as it was configured, the run keeping its own
-	void SaveClientConfig();
+	void SaveClientConfig(bool asResized = true);
 	// The client's and the devices' settings read (LoadEngineSettings): no
 	// config flushed before
 	bool engineSettingsLoaded = false;
