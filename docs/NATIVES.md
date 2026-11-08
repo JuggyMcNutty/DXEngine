@@ -1862,7 +1862,8 @@ it. Differs:
 - **The full screen size** is kept as configured, 0 the desktop's mode, where
   the original's viewport saves each size it is given full screen as the
   client's full screen size, a size the display lacks saved as the mode it
-  took (Differs, bugs.md D.49).
+  took; by choice, 0 having no mode to save and the next start taking the
+  same nearest mode.
 - **Detail Textures** draws the world's detail textures as `D3DDrv`'s passes
   draw them, all three in the scene shader's one pass
   ([detail textures](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/d3ddrv-dll.md#detail-textures)):
