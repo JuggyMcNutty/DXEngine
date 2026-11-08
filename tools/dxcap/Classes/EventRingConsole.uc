@@ -15,15 +15,14 @@
 // walk at the receiver after the last that had its turn (AIProcess
 // 0x10384080, its end 0x1038478e): after a full pass, the first one made
 // during the calls. So from the tick after D's first listen, each tick's
-// calls run D, A, B, C in the original; DXEngine's next walk starts at the
-// old first receiver (UEventManager::Tick's RingPos), D last: A, B, C, D.
+// calls run D, A, B, C, in both engines (UEventManager::Tick).
 // (A walk the original's 2 ms cut ends early resumes elsewhere: should the
 // original's ticks alternate, run it on a quieter TargetMap.)
 //
 // At 3.5 s the pulses stop; at 4 s the maker destroys itself and raises one
 // more pulse after its Destroy. The original's AISendEvent gives a sender
-// pending kill nothing (0x10382c60): no call at the tick after; DXEngine's
-// has each listener called naming CapNoiseMaker0. Each console tick, which
+// pending kill nothing (0x10382c60): no call at the tick after, in both
+// engines. Each console tick, which
 // comes between the level's ticks, logs "DXEVTRING: tick" with the level's
 // time; at 5 s an exit.
 //
@@ -33,8 +32,8 @@
 // 01_NYC_UNATCOIsland.dxs with the prefix CapListener lists the listeners'
 // receivers. The original sets a receiver's best score and sender at every
 // turn (AIProcess 0x1038445f-0x1038446b), so after its last turns with
-// nothing heard each has bestScore 0 and bestSender None; DXEngine's keep
-// the last Pulse's, the maker and 1601 (40 squared plus 1).
+// nothing heard each has bestScore 0 and bestSender None, and keeps its last
+// call's state, 2 (Pulse), in both engines.
 //=============================================================================
 class EventRingConsole extends Console;
 

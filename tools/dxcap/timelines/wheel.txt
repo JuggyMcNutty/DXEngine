@@ -1,0 +1,7 @@
+# The wheel in play, with WheelConsole on the map the run starts on: a notch
+# up, then two down, each as the window sends a notch -- MouseW's delta, then
+# the notch's press and release (bugs.md ENG.38). WheelConsole logs each
+# (DXWHEEL:) and exits after its Seconds.
+start 12.0 press MouseWheelUp
+start 13.0 press MouseWheelDown
+start 13.5 press MouseWheelDown

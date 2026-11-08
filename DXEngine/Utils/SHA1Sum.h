@@ -5,7 +5,7 @@
 class SHA1Sum
 {
 public:
-	// Returns the SHA1Sum of a file given in filepath
-	// or an empty string if checking the file fails for whatever reason.
+	// The SHA1 sum of the file at filepath, in hex, or an empty string where
+	// the file does not open or its read fails
 	static std::string of_file(const fs::path& filepath);
 };

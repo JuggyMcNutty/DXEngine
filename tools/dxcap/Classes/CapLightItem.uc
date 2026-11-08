@@ -7,9 +7,8 @@
 // in the map's load before any tick or frame of it, then at each of its
 // first six ticks there (the first before the map's first frame is drawn).
 // The original walks the level's actor list at each call (AActor::
-// AIGetLightLevel, Engine.dll 0x1036b980); DXEngine's AILightAt asks the
-// light tree its last frame drawn built (LightSystem::LightsNear), which a
-// level's first frame has not built yet.
+// AIGetLightLevel, Engine.dll 0x1036b980), as DXEngine's AILightAt does,
+// before the level's first frame too.
 //=============================================================================
 class CapLightItem extends Inventory;
 

@@ -157,11 +157,6 @@ public:
 	// the frame's view.
 	void SetEye(const vec3& eye, int view, const mat4& worldToView) { Eye = eye; EyeView = view; EyeWorldToView = worldToView; }
 
-	// The level's lights whose reach may take in a location, as of the last
-	// frame drawn: BeginFrame builds their tree from each actor with a light
-	// type and a brightness. The list lasts until the next call.
-	const Array<UActor*>& LightsNear(const vec3& location) { LightTree.CollectLights(location, 0.0f); return LightTree.CollectedLights; }
-
 	// Deus Ex's random tables (Render.dll's TickRandoms, 0x10b13080), from
 	// the level's time each frame: 256 fresh draws -- the torch and fire
 	// wavers' --, at each of the lights' steps (Tick) where the original's

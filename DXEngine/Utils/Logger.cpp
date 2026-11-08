@@ -49,9 +49,7 @@ void Logger::LogMessage(const std::string& message)
 			line.Time = time;
 			line.Source = name;
 			line.Text = text;
-			Log.push_back(std::move(line));
-			if (printLogDebugger)
-				printLogDebugger(Log.back());
+			Add(std::move(line));
 		}
 	}
 	else
@@ -61,11 +59,39 @@ void Logger::LogMessage(const std::string& message)
 			LogMessageLine line;
 			line.Time = time;
 			line.Text = text;
-			Log.push_back(std::move(line));
-			if (printLogDebugger)
-				printLogDebugger(Log.back());
+			Add(std::move(line));
 		}
 	}
+}
+
+// A line onto the log, under its lock: past the head and a full tail, the
+// oldest of the tail goes
+void Logger::Add(LogMessageLine line)
+{
+	Log.push_back(std::move(line));
+	if (printLogDebugger)
+		printLogDebugger(Log.back());
+	if (Log.size() == HeadLines + 1)
+		TailStart = std::prev(Log.end());
+	else if (Log.size() > HeadLines + TailLines)
+	{
+		TailStart = Log.erase(TailStart);
+		DroppedLines++;
+	}
+}
+
+std::list<LogMessageLine> Logger::GetLog() const
+{
+	std::lock_guard<std::mutex> lock(mutex);
+	std::list<LogMessageLine> log = Log;
+	if (DroppedLines > 0)
+	{
+		LogMessageLine gap;
+		gap.Time = std::next(Log.begin(), HeadLines)->Time;
+		gap.Text = "(" + std::to_string(DroppedLines) + (DroppedLines == 1 ? " line" : " lines") + " not kept)";
+		log.insert(std::next(log.begin(), HeadLines), std::move(gap));
+	}
+	return log;
 }
 
 void Logger::LogUnimplemented(const std::string& message)
@@ -107,12 +133,12 @@ Logger* Logger::Get()
 	return &logger;
 }
 
-void Logger::SaveLog(const std::string& filename)
+void Logger::SaveLog(const std::string& filename) const
 {
 	// We want this formatted in a specific way so its reasonably readable both by humans and still by a json parser.
 	std::string json = "[";
 	bool firstLine = true;
-	for (const LogMessageLine& line : Log)
+	for (const LogMessageLine& line : GetLog())
 	{
 		if (!firstLine)
 			json += ',';
@@ -132,7 +158,7 @@ void Logger::SaveLogAsPlaintext(const std::string& filename) const
 {
 	std::string finalLog;
 
-	for (const LogMessageLine& line : Log)
+	for (const LogMessageLine& line : GetLog())
 	{
 		const auto source = line.Source.empty() ? "<DXEngine>" : line.Source;
 		finalLog += "[" + std::to_string(line.Time) + "] " + source + ": " + line.Text + "\n";

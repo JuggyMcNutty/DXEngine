@@ -3,6 +3,7 @@
 #include "Packages/Core/UObject.h"
 
 class UActor;
+class ULevel;
 class ULevelInfo;
 
 // How NPCs learn of shots, footsteps, noises, alarms, bodies and distress:
@@ -23,9 +24,9 @@ public:
 	void Load(ObjectStream* stream) override;
 	void Save(PackageStreamWriter* stream) override;
 
-	// The one in the level's LevelInfo.EventManager, or none: the natives
-	// do nothing without one, and only InitEventManager creates it.
-	static UEventManager* Get();
+	// A level's own, in its LevelInfo.EventManager, or none: the natives do
+	// nothing without one, and only InitEventManager creates it.
+	static UEventManager* Get(ULevel* level);
 	static void InitEventManager(ULevelInfo* info);
 
 	void SetEventCallback(UActor* actor, const NameString& eventName, const NameString& callback, const NameString& scoreCallback, bool bCheckVisibility, bool bCheckDir, bool bCheckCylinder, bool bCheckLOS);
@@ -64,9 +65,12 @@ public:
 		bool Delete = false;
 	};
 
+	struct EventType;
+
 	struct Receiver
 	{
 		UActor* Actor = nullptr;
+		EventType* Type = nullptr;
 		NameString Callback;      // called as AIEvent when none
 		NameString ScoreCallback; // none: the score is distance squared plus 1
 		bool bCheckVisibility = true;
@@ -74,17 +78,22 @@ public:
 		bool bCheckCylinder = false;
 		bool bCheckLOS = true;
 		bool EventOn = false;
-		// The receiver's XAIParams: the best sender and what was sensed.
+		// The receiver's XAIParams, which its last turn set: the best sender,
+		// None with nothing sensed, its score and what was sensed of it.
 		UActor* BestActor = nullptr;
 		float BestScore = 0.0f;
 		float BestVisibility = 0.0f;
 		float BestVolume = 0.0f;
 		float BestSmell = 0.0f;
-		int LastTurnFrame = 0;
+		// The first of the senders' slots its next turn weighs
+		int NextSlot = 0;
 		bool Delete = false;
-		// A call due after the pass, and the state it reports
-		bool CallDue = false;
-		uint8_t CallState = 0;
+		// A call due from its turn, and the state of its last call
+		bool InvokeCallback = false;
+		uint8_t EventState = 0;
+		// Its neighbours in the ring the manager walks
+		Receiver* NextProcess = nullptr;
+		Receiver* PrevProcess = nullptr;
 	};
 
 	struct EventType
@@ -96,12 +105,14 @@ public:
 
 	std::map<NameString, EventType> Events;
 
-	// Every receiver is in one ring the manager walks, resuming where the
-	// last frame stopped; a new receiver goes at the ring's end.
-	std::vector<std::pair<EventType*, Receiver*>> Ring;
-	size_t RingPos = 0;
-	int FrameCounter = 0;
+	// Every receiver is in one ring the manager walks from FirstProcess, which
+	// each frame's walk leaves at the receiver after the last that had its
+	// turn; a new receiver goes in before it, at the ring's end.
+	Receiver* FirstProcess = nullptr;
+	// The senders' slot of this frame
 	int SlotIndex = 0;
+	// Set while the manager walks and calls, the clean-up waiting
+	int Processing = 0;
 
 private:
 	// DXEngine's own saved layout, before the original's (2026-09-27).
@@ -109,15 +120,12 @@ private:
 	EventType& GetEventType(const NameString& name);
 	Sender* FindSender(EventType& type, UActor* actor, bool create);
 	Receiver* FindReceiver(EventType& type, UActor* actor);
-	bool ProcessReceiver(EventType& type, Receiver& receiver);
-	SenseLevels PeakLevels(const Sender& sender, int slotsBack) const;
+	void LinkProcess(Receiver* receiver);
+	bool ProcessReceiver(Receiver& receiver);
+	SenseLevels PeakLevels(const Sender& sender, int fromSlot) const;
 	void ComputeSenseDetection(Receiver& receiver, UActor* senderActor, const SenseLevels& peak, float& visibility, float& volume, float& smell);
-	void CallListener(EventType& type, Receiver& receiver, uint8_t state);
-	void QueueCall(EventType& type, Receiver& receiver, uint8_t state);
+	void CallListener(Receiver& receiver);
 	void CleanupEvents();
-
-	// The receivers whose calls are due, in the order they had their turns
-	std::vector<std::pair<EventType*, Receiver*>> DueCalls;
 };
 
 // The original's saved event manager keeps its parts as objects of their

@@ -19,8 +19,14 @@ std::string ScriptToLatin1(std::u16string_view text, char bad)
 	return result;
 }
 
+// UTF-8's characters, each in its shortest form and no further than
+// U+10FFFF; any other byte, a longer form's lead among them (C0 A9 for ')',
+// E0 80 80 for a NUL) or one past U+10FFFF's (F4 90 on, F5 to F7), is a
+// character of its own, Latin-1 (bugs.md ENG.35). A surrogate's three bytes
+// are that 16-bit unit, as ScriptToUTF8 writes a lone one.
 ScriptString UTF8ToScript(std::string_view text)
 {
+	static const uint32_t least[4] = { 0, 0x80, 0x800, 0x10000 };
 	ScriptString result;
 	result.reserve(text.size());
 	size_t i = 0;
@@ -37,6 +43,8 @@ ScriptString UTF8ToScript(std::string_view text)
 				valid = false;
 			cp = (cp << 6) | (next & 0x3F);
 		}
+		if (valid && (cp < least[extra] || cp > 0x10FFFF))
+			valid = false;
 		if (!valid)
 		{
 			// Not UTF-8: the byte as itself

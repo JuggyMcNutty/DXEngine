@@ -220,6 +220,24 @@ void Timeline::Run(Action& action)
 		return;
 	}
 
+	// A mouse's move in play, as the window sends its raw motion: "mouse 5 0"
+	// five counts to the right, "mouse 0 -5" five up
+	if (action.Verb == "mouse")
+	{
+		std::istringstream xy(action.Arg);
+		int dx = 0, dy = 0;
+		if (xy >> dx >> dy)
+		{
+			LogMessage("DXLIVE: mouse " + action.Arg);
+			engine->OnWindowRawMouseMove(dx, dy);
+		}
+		else
+		{
+			LogMessage("Timeline: no move in 'mouse " + action.Arg + "'");
+		}
+		return;
+	}
+
 	if (action.Verb == "pointer")
 	{
 		std::istringstream xy(action.Arg);

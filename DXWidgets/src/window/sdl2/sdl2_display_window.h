@@ -84,7 +84,6 @@ public:
 	static InputKey KeyEventToInputKey(const SDL_KeyboardEvent& event);
 	static InputKey LayoutKeyName(SDL_Scancode scancode);
 	static InputKey ScancodeToInputKey(SDL_Scancode keycode);
-	static InputKey ScancodeToSideKey(SDL_Scancode keycode);
 	static InputKey GameControllerButtonToInputKey(SDL_GameControllerButton button);
 	static SDL_Scancode InputKeyToScancode(InputKey inputkey);
 

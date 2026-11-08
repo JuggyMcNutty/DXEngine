@@ -4,6 +4,8 @@
 #include "Utils/UTF8Reader.h"
 #include "Utils/Exception.h"
 #include <cstring>
+#include <cmath>
+#include <charconv>
 
 class JsonValueImpl
 {
@@ -222,15 +224,26 @@ void JsonValueImpl::write_string(const std::string &str, std::string &json)
 	json.push_back('"');
 }
 
+// A whole number within the range a double holds every integer of as an
+// integer, any other by the shortest text that reads back as the same
+// double (1e-07, where %f wrote 0.000000), and NaN and the infinities,
+// which JSON has no number for, as null (bugs.md ENG.38)
 void JsonValueImpl::write_number(const JsonValue &value, std::string &json)
 {
-	if (static_cast<double>(static_cast<int>(value.to_number())) == value.to_number())
+	double number = value.to_number();
+	if (!std::isfinite(number))
 	{
-		json += std::to_string((int)value.to_number());
+		json += "null";
+	}
+	else if (std::fabs(number) < 9007199254740992.0 && std::trunc(number) == number)
+	{
+		json += std::to_string((int64_t)number);
 	}
 	else
 	{
-		json += std::to_string(value.to_number());
+		char text[32];
+		std::to_chars_result result = std::to_chars(text, text + sizeof(text), number);
+		json.append(text, result.ptr);
 	}
 }
 
@@ -561,10 +574,10 @@ std::string JsonValueImpl::from_utf32(unsigned int value)
 {
 	char text[8];
 
-	if ((value < 0x80) && (value > 0))
+	// \u0000 a NUL of its own, not the overlong C0 80 (bugs.md ENG.38)
+	if (value < 0x80)
 	{
-		text[0] = (char)value;
-		text[1] = 0;
+		return std::string(1, (char)value);
 	}
 	else if (value < 0x800)
 	{

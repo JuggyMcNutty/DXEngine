@@ -574,16 +574,32 @@ saved in its layout
 each engine loads the other's saves with every listener. DXEngine also reads
 the manager in a layout of its own, which some of its saves carry.
 
-Differs (bugs.md AI.17): `AIGetLightLevel` counts no light before a level's
-first frame, after each travel and load. Differs (bugs.md AI.22): it reads
-the last frame's lights, a light turned on or moved since missed for the
-rest of the tick. Differs (bugs.md AI.18): a listener
-made during the event manager's calls comes last in the next walk, the
-original's first. Differs (bugs.md AI.19): an event raised by an actor
-already destroyed counts. Differs (bugs.md AI.20): a receiver's saved best
-score and sender are set only with a call, its state never. Differs (bugs.md
-AI.21): the manager's warnings, its level, a non-pawn's visual check, a NaN
-score and a None event name.
+`AIGetLightLevel` walks the level's actors at each call, as the original's,
+so every light counts before a level's first frame, after a travel and a
+load, and a light turned on or moved counts within the tick
+(`LightStartConsole`: on UNATCO HQ at `TravelPostAccept` and the first tick
+`Light150` 0.363930 in both engines; `LightTreeConsole`: 0.504307 and
+0.530198 the tick one light is turned on and another moved). A listener made
+during the manager's calls goes in before the frame's first receiver, and
+the next walk starts after the last that had its turn, so after a full walk
+it comes first (`EventRingConsole`: 3, 0, 1, 2 each tick in both engines);
+an actor already destroyed raises nothing (no call after `CapNoiseMaker0`'s
+`Destroy`); every turn sets a receiver's best score and sender, 0 and None
+with nothing sensed, and a save keeps its last call's state
+(`EventRingConsole` with `SaveAt=3.7`, `aisave.py`: 0, None and 2 in both).
+A None event name does nothing, a score that is not a number drops its
+sender, each actor's events go to its own level's manager and each level's
+tick ticks its own, the Entry level's too, and the warnings are the
+original's lines, the one of 256 senders at the 256th and the one of a
+manager not cycling quickly enough once a frame with its count
+(`EventEdgesConsole`, both engines: no call for a None event or a score
+that is not a number, the Entry level's listener sensing its own level's
+maker, the warnings' lines and counts); a non-pawn's visual check is one line check that any
+wall or mover stops, whether it blocks sight or not, as the original's (by
+reading: no stock listener that is no pawn listens for a visual event).
+Differs (bugs.md D.77): the warning of 256 senders names the
+event, where the original's names the event type's own object
+(`AIEventType<n>`).
 
 ### Moving: wandering and tactical movement
 
@@ -904,7 +920,16 @@ with `-nohard`; where the game's ini names it
 Software Rendering) and `Settings.json` names no device; and where the GPU
 device does not start, as the original's `WindowedRenderDevice` takes
 `GameRenderDevice`'s place, the error logged
-([which device draws](ENGINE.md#rendering)). Differs by choice:
+([which device draws](ENGINE.md#rendering)). In the `WindowedRenderDevice`'s
+place -- with `-nohard`, and for a GPU device that did not start -- it draws
+with that class's settings, its section's, SoftDrv's in the game's ini, as
+the original's software renderer does: no coronas and no shiny surfaces
+(`CoronaConsole` with `-nohard`: no glow in any of its six shots in either
+engine); a `SET` or `TOGGLEDETAILTEXTURES` saves them in that section, the
+engine's own left to `GameRenderDevice`'s device. Differs (bugs.md D.78):
+under `-nohard` the Display menu's Detail Textures, which sets
+`GameRenderDevice`'s, reaches the software device in use, where the
+original's reaches `D3DDrv`'s class, changing nothing on screen. Differs by choice:
 
 - **Vsync** only through SDL's renderer: X11's and Win32's presents do not
   wait for it, and the engine's own Wayland window (a dev build's) copies
@@ -916,9 +941,6 @@ ES 3.1 GPU has not, and gets the software device. Differs (bugs.md REN.54):
 a wrapped coordinate past 2^31 texels reads far before the texture. Differs
 (bugs.md REN.55): a GL error ends the game unlogged. Differs (bugs.md
 REN.56): the GL shaders' `centroid` and the Win32 window's 3.2 context.
-Differs (bugs.md ENG.31): with `-nohard`, or in a GPU device's place, the
-software device takes `GameRenderDevice`'s settings, where the original's
-software renderer takes SoftDrv's.
 
 ### Sprites
 
@@ -988,9 +1010,8 @@ Matches the original
 ([coronas](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#coronas);
 `CoronaConsole`): the pass runs only with the render device's `Coronas` on,
 which the game's ini turns off for SoftDrv (`CoronaConsole` with
-`Coronas=False`: no glow in either engine; differs, bugs.md ENG.31: the
-software device under `-nohard`, or in a GPU device's place, takes
-`GameRenderDevice`'s settings, coronas on); the static lights reaching the
+`Coronas=False`, or with `-nohard`, the software device taking SoftDrv's: no
+glow in either engine); the static lights reaching the
 player's leaf get coronas, and no dynamic light does, the original's pass
 reading the leaf's dynamic lights only after its occlusion pass has emptied
 them. `CoronaConsole`'s own movable lamp shows none in either engine, in the
@@ -2088,7 +2109,11 @@ presses once a `WM_MOUSEWHEEL`, which Windows sends a notch: a
 high-resolution wheel's and a touchpad's fractions, which X11 and Wayland
 send as events of their own, added up and pressed at each notch's half, the
 sum begun again where the scroll turns (`WheelConsole` with
-`tools/dxcap/wheel.py`'s eighths of a notch, the two windows alike).
+`tools/dxcap/wheel.py`'s eighths of a notch, the two windows alike). Each
+notch gives the `MouseW` axis its delta first, 120 up and -120 down, as
+Windows' `WM_MOUSEWHEEL` gives the original's
+([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys);
+`WheelConsole` with `tools/dxcap/timelines/wheel.txt`).
 
 An optional argument left out takes the original's default: `LockMouse`
 locks, `SetBaselineData` gives 2 and 1, and a button's `SetTextColors`,
@@ -2232,9 +2257,15 @@ where the original's moves by the window's pointer moves from its middle,
 the system's pointer acceleration in them, forced on while it holds the
 mouse; `UseJoystick` is read, saved and ignored, a pad following the
 launcher's `Settings.json`, where the original's stock False keeps a
-joystick out. Differs (bugs.md ENG.36): mouse look turns some 0.53
-as far a unit as the original's. Differs (bugs.md ENG.38): small input and
-settings items, `MouseW` never sent among them.
+joystick out. A mouse's move turns the view as far a count as the
+original's a window pixel: its `Axis` adds the speed x the move x 0.01 at
+the move, which the next read scales by 20 over the tick, 1.2 a count with
+the stock `MouseX=Axis aMouseX Speed=6.0`, the axis named in any case
+(`MouseLookConsole`: 23.0 yaw a `MouseX` count and 23.0 pitch a `MouseY`
+count by `tools/dxcap/timelines/mouse-look.txt`, the original 22.8 and 22.7
+a pixel by `tools/dxcap/mouselook.py`'s uinput mouse, at the stock
+sensitivity and field of view; the build before took each move 16 times and
+scaled only `aMouseX` and `aMouseY` by the tick).
 
 ## Sound
 
@@ -3119,9 +3150,6 @@ level still pointing at it. Code, a package and the engine's own objects --
 the levels, their infos and games, the save info and the root window -- are
 not deleted (the log says so).
 
-Differs (bugs.md ENG.33): the log keeps every line and is walked without its
-lock. Differs (bugs.md ENG.34): Windows' file read and write past 4 GiB.
-
 ## Small
 
 - **A long frame** is the original's
@@ -3238,10 +3266,12 @@ lock. Differs (bugs.md ENG.34): Windows' file read and write past 4 GiB.
 - **A key's name** from the SDL2 and SDL3 windows, the launchers', is the
   original's
   ([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys)):
-  a shift, control or alt its name for both sides (Differs, bugs.md
-  ENG.37: then its side's own, `LShift`, `UnknownA4` for the left alt, at
-  each press, which the original presses only at an input reset), Caps
-  Lock, the punctuation, the
+  a shift, control or alt its name for both sides alone, as a tap in the
+  original's window (`SideKeyConsole` beside `tools/dxcap/sidekeys.py`, each
+  tap `Shift`, `Ctrl` or `Alt` alone in both engines; Differs, bugs.md
+  D.79: its side's own, `LShift`, `UnknownA4` for the left alt, which the
+  original's poll presses for one held at an input reset, a map's load, a
+  join or the focus, never pressed), Caps Lock, the punctuation, the
   keypad's operators and Enter, Print Screen (`PrintScrn`), the Windows and
   menu keys (`Unknown5B` to `Unknown5D`), the ISO key by the left Shift
   (`JoyZ`, Windows' `VK_OEM_102`); with Num Lock off the keypad's digits and
@@ -3500,9 +3530,8 @@ walker before a tall face refused, a flier sent over it to the same
 walker had jumped).
 
 Differs (bugs.md REN.51): the canvas's tile natives' edges. Differs (bugs.md
-ENG.35): `UTF8ToScript` taking overlong forms. Differs (bugs.md WIN.29):
-`STAT` shows none of the renderer's panels, `stat fps` among them. Differs
-(bugs.md WIN.30): no demo is recorded or played. Differs (bugs.md WIN.31):
+WIN.29): `STAT` shows none of the renderer's panels, `stat fps` among them.
+Differs (bugs.md WIN.30): no demo is recorded or played. Differs (bugs.md WIN.31):
 the engine's smaller words answer nothing. By choice, `STAT RENDER` shows a
 panel of DXEngine's own at the screen's right, where the original's toggles
 nothing: the frame rate, the level's actors, the objects the garbage

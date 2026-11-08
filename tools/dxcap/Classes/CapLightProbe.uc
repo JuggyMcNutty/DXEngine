@@ -9,15 +9,9 @@
 // ticks. Logged with "DXLTREE:".
 //
 // The original's AIGetLightLevel (Engine.dll 0x1036b980) walks the level's
-// actors at each call; DXEngine's AILightAt (Packages/Engine/Actors/
-// UActor.cpp) asks the light tree the last frame's BeginFrame built
-// (Light/LightSystem.cpp, LightTree), from the lights then on (LightType and
-// brightness), each by its place and radius then, the distance then
-// checked again with the light as it is now. Expected: the original's
-// "after" lines count both lights at once (some 0.409 over the ambient for
-// a white light 50 units in of 275); DXEngine's count neither in that tick
-// -- Off not in the tree, Moved's box at its old place -- and both from the
-// next.
+// actors at each call, as DXEngine's AILightAt (Packages/Engine/Actors/
+// UActor.cpp) does: the "after" lines count both lights at once (some 0.409
+// over the ambient for a white light 50 units in of 275), in both engines.
 //=============================================================================
 class CapLightProbe extends Actor;
 

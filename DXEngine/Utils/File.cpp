@@ -46,16 +46,19 @@ public:
 			Exception::Throw("CloseHandle failed");
 	}
 
+	// In chunks a DWORD holds, each of what is left (bugs.md ENG.34), the
+	// pointer moved by what was written
 	void write(const void *data, size_t size) override
 	{
 		size_t pos = 0;
 		while (pos < size)
 		{
-			size_t writesize = std::min(size, (size_t)0xffffffff);
-			BOOL result = WriteFile(handle, (const uint8_t*)data + pos, (DWORD)writesize, nullptr, nullptr);
-			if (result == FALSE)
+			size_t writesize = std::min(size - pos, (size_t)0xffffffff);
+			DWORD bytesWritten = 0;
+			BOOL result = WriteFile(handle, (const uint8_t*)data + pos, (DWORD)writesize, &bytesWritten, nullptr);
+			if (result == FALSE || bytesWritten == 0)
 				Exception::Throw("WriteFile failed");
-			pos += writesize;
+			pos += bytesWritten;
 		}
 	}
 
@@ -64,7 +67,7 @@ public:
 		size_t pos = 0;
 		while (pos < size)
 		{
-			size_t readsize = std::min(size, (size_t)0xffffffff);
+			size_t readsize = std::min(size - pos, (size_t)0xffffffff);
 			DWORD bytesRead = 0;
 			BOOL result = ReadFile(handle, (uint8_t*)data + pos, (DWORD)readsize, &bytesRead, nullptr);
 			if (result == FALSE || bytesRead != readsize)

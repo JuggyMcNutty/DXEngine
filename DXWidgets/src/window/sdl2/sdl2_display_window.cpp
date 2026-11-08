@@ -735,10 +735,11 @@ void SDL2DisplayWindow::OnJoyButtonDown(const SDL_ControllerButtonEvent& event)
 	WindowHost->OnWindowKeyDown(GameControllerButtonToInputKey((SDL_GameControllerButton)event.button));
 }
 
-// A shift, control or alt is its name for both sides, then its side's own,
-// as the original's are: the first from the window's key message, the
-// second from its poll of every key, which sees a held key once
-// (dx-reverse-info/windrv-dll.md, the keys).
+// A shift, control or alt is its name for both sides alone, as the
+// original's window key message names it (WM_KEYDOWN's virtual key, WinDrv.dll
+// 0x1110a2a9): its side's own code, which the original's poll presses only
+// at an input reset, a key held then (0x11109853-0x111098c2), is never
+// pressed (dx-reverse-info/windrv-dll.md, the keys; bugs.md ENG.37).
 void SDL2DisplayWindow::OnKeyUp(const SDL_KeyboardEvent& event)
 {
 	InputKey key = PressedAs[event.keysym.scancode];
@@ -746,9 +747,6 @@ void SDL2DisplayWindow::OnKeyUp(const SDL_KeyboardEvent& event)
 		key = KeyEventToInputKey(event);
 	PressedAs[event.keysym.scancode] = InputKey::None;
 	WindowHost->OnWindowKeyUp(key);
-	InputKey side = ScancodeToSideKey(event.keysym.scancode);
-	if (side != InputKey::None)
-		WindowHost->OnWindowKeyUp(side);
 }
 
 // A character typed with Alt held is SDL2's own text on Linux, its X11 and
@@ -759,9 +757,6 @@ void SDL2DisplayWindow::OnKeyDown(const SDL_KeyboardEvent& event)
 	if (!event.repeat || key == InputKey::None)
 		PressedAs[event.keysym.scancode] = key = KeyEventToInputKey(event);
 	WindowHost->OnWindowKeyDown(key);
-	InputKey side = ScancodeToSideKey(event.keysym.scancode);
-	if (side != InputKey::None && !event.repeat)
-		WindowHost->OnWindowKeyDown(side);
 }
 
 // A key as the original's WinDrv names it: the Windows virtual-key code its
@@ -1212,22 +1207,6 @@ InputKey SDL2DisplayWindow::ScancodeToInputKey(SDL_Scancode keycode)
 		case SDL_SCANCODE_BACKSLASH:    return InputKey::Backslash;
 		case SDL_SCANCODE_RIGHTBRACKET: return InputKey::RightBracket;
 		case SDL_SCANCODE_APOSTROPHE:   return InputKey::SingleQuote;
-		default:                        return InputKey::None;
-	}
-}
-
-// A shift's, control's or alt's side, its own key beside the one of both:
-// VK_LSHIFT and the rest, LMENU and RMENU EInputKey's UnknownA4 and A5.
-InputKey SDL2DisplayWindow::ScancodeToSideKey(SDL_Scancode keycode)
-{
-	switch (keycode)
-	{
-		case SDL_SCANCODE_LSHIFT:       return InputKey::LShift;
-		case SDL_SCANCODE_RSHIFT:       return InputKey::RShift;
-		case SDL_SCANCODE_LCTRL:        return InputKey::LControl;
-		case SDL_SCANCODE_RCTRL:        return InputKey::RControl;
-		case SDL_SCANCODE_LALT:         return InputKey::UnknownA4;
-		case SDL_SCANCODE_RALT:         return InputKey::UnknownA5;
 		default:                        return InputKey::None;
 	}
 }

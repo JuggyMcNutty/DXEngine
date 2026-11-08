@@ -17,10 +17,12 @@ RenderDevice::RenderDevice()
 {
 	const auto& settings = LauncherSettings::Get();
 	UseVSync = settings.RenderDevice.UseVSync;
+	// HdrScale and BloomAmount held to the byte each is, 0 to 255, where
+	// Settings.json's 300 wrapped to 44 (bugs.md ENG.38)
 	Hdr = settings.RenderDevice.Hdr;
-	HdrScale = settings.RenderDevice.HdrScale;
+	HdrScale = (uint8_t)std::clamp(settings.RenderDevice.HdrScale, 0, 255);
 	Bloom = settings.RenderDevice.Bloom;
-	BloomAmount = settings.RenderDevice.BloomAmount;
+	BloomAmount = (uint8_t)std::clamp(settings.RenderDevice.BloomAmount, 0, 255);
 	AntialiasMode = (int)settings.RenderDevice.Antialias;
 	GammaMode = (int)settings.RenderDevice.Gamma;
 	LightMode = (int)settings.RenderDevice.Light;

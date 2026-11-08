@@ -78,22 +78,46 @@ void UDXEngineRenderDevice::LoadProperties(const NameString& from)
 
 	// GetIniFile hands over a copy, held for the whole read
 	std::unique_ptr<IniFile> iniFile = engine->packages->GetIniFile("System");
-	const IniFile& ini = *iniFile;
-	VolumetricLighting = IniPropertyConverter<bool>::FromIniFile(ini, name_from, "VolumetricLighting", VolumetricLighting);
-	ShinySurfaces = IniPropertyConverter<bool>::FromIniFile(ini, name_from, "ShinySurfaces", ShinySurfaces);
-	Coronas = IniPropertyConverter<bool>::FromIniFile(ini, name_from, "Coronas", Coronas);
-	HighDetailActors = IniPropertyConverter<bool>::FromIniFile(ini, name_from, "HighDetailActors", HighDetailActors);
-	DetailTextures = IniPropertyConverter<bool>::FromIniFile(ini, name_from, "DetailTextures", DetailTextures);
-	UsePrecache = IniPropertyConverter<bool>::FromIniFile(ini, name_from, "UsePrecache", UsePrecache);
+	ReadSection(*iniFile, name_from, engine->packages->GetIniValue("system", "Engine.Engine", "GameRenderDevice", "D3DDrv.D3DRenderDevice"));
+}
 
-	// The original's class is the ini's GameRenderDevice: URenderDevice's
-	// Description and DescFlags, and its own -- D3DDrv's options
+// The original's -nohard, and a GameRenderDevice that does not start, open
+// the ini's WindowedRenderDevice (WinDrv.dll 0x111079a3, 0x111079c2), an
+// object of that class holding its class's config: its own section's, as
+// the class read it. A key the section lacks takes DXEngine's default, as
+// at a first read (SoftDrv's DetailTextures)
+void UDXEngineRenderDevice::TakeWindowedRenderDevice()
+{
+	WindowedClass = engine->packages->GetIniValue("system", "Engine.Engine", "WindowedRenderDevice", "SoftDrv.SoftwareRenderDevice");
+	VolumetricLighting = true;
+	ShinySurfaces = true;
+	Coronas = true;
+	HighDetailActors = true;
+	DetailTextures = true;
+	UsePrecache = false;
+	std::unique_ptr<IniFile> iniFile = engine->packages->GetIniFile("System");
+	ReadSection(*iniFile, NameString(WindowedClass), WindowedClass);
+}
+
+void UDXEngineRenderDevice::ReadSection(const IniFile& ini, const NameString& section, const std::string& device)
+{
+	VolumetricLighting = IniPropertyConverter<bool>::FromIniFile(ini, section, "VolumetricLighting", VolumetricLighting);
+	ShinySurfaces = IniPropertyConverter<bool>::FromIniFile(ini, section, "ShinySurfaces", ShinySurfaces);
+	Coronas = IniPropertyConverter<bool>::FromIniFile(ini, section, "Coronas", Coronas);
+	HighDetailActors = IniPropertyConverter<bool>::FromIniFile(ini, section, "HighDetailActors", HighDetailActors);
+	DetailTextures = IniPropertyConverter<bool>::FromIniFile(ini, section, "DetailTextures", DetailTextures);
+
+	// The original's class is the ini's GameRenderDevice, or the
+	// WindowedRenderDevice in its place: URenderDevice's Description and
+	// DescFlags, and its own -- D3DDrv's options
 	// (UD3DRenderDevice::StaticConstructor, D3DDrv.dll 0x10001880), SoftDrv's
 	// smoothing, FastTranslucency and DetailBias. OpenGLDrv reads its
-	// settings from the config itself and has none of its own.
+	// settings from the config itself and has none of its own. UsePrecache
+	// is D3DDrv's: a WindowedRenderDevice of another class has none
 	using Type = NativeConfigProperties::Type;
-	std::string device = engine->packages->GetIniValue("system", "Engine.Engine", "GameRenderDevice", "D3DDrv.D3DRenderDevice");
 	IsD3DDrv = StrTools::equals_ignore_case(device, "D3DDrv.D3DRenderDevice");
+	if (IsD3DDrv || WindowedClass.empty())
+		UsePrecache = IniPropertyConverter<bool>::FromIniFile(ini, section, "UsePrecache", UsePrecache);
 	if (IsD3DDrv)
 	{
 		Extra.Define({
@@ -117,17 +141,22 @@ void UDXEngineRenderDevice::LoadProperties(const NameString& from)
 	{
 		Extra.Define({ { "Description", Type::String }, { "DescFlags", Type::Int } });
 	}
-	Extra.Load(ini, name_from);
+	Extra.Load(ini, section);
 }
 
+// The engine's own section; the WindowedRenderDevice's settings into its
+// class's section, its class's properties alone, as the original's
+// SaveConfig of that class writes them
 void UDXEngineRenderDevice::SaveConfig()
 {
-	auto set = [&](const std::string& key, const std::string& value) { engine->packages->SetIniValue("System", Class, key, value); };
+	const std::string& section = WindowedClass.empty() ? Class : WindowedClass;
+	auto set = [&](const std::string& key, const std::string& value) { engine->packages->SetIniValue("System", section, key, value); };
 	set("VolumetricLighting", IniPropertyConverter<bool>::ToString(VolumetricLighting));
 	set("ShinySurfaces", IniPropertyConverter<bool>::ToString(ShinySurfaces));
 	set("Coronas", IniPropertyConverter<bool>::ToString(Coronas));
 	set("HighDetailActors", IniPropertyConverter<bool>::ToString(HighDetailActors));
 	set("DetailTextures", IniPropertyConverter<bool>::ToString(DetailTextures));
-	set("UsePrecache", IniPropertyConverter<bool>::ToString(UsePrecache));
+	if (WindowedClass.empty() || IsD3DDrv)
+		set("UsePrecache", IniPropertyConverter<bool>::ToString(UsePrecache));
 	Extra.ForEach(set);
 }

@@ -7,7 +7,7 @@
 // AISendEvent and AIStartEvent give a sender pending kill a value and a
 // radius of 0 (UEventManager::AISendEvent, Engine.dll 0x10382c60,
 // AIStartEvent 0x10382fe0, after the actor's IsPendingKill), so no listener
-// hears it; DXEngine's SendEvent puts the pulse in the frame's slot.
+// hears it, in both engines (UEventManager::SendEvent).
 //=============================================================================
 class CapNoiseMaker extends Info;
 

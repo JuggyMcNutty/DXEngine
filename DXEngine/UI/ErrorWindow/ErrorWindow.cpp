@@ -54,9 +54,15 @@ bool ErrorWindow::CheckCrashReporter()
 		return true;
 	}
 #endif
+	// The engine's own folder, where its last run's log goes; the reports'
+	// folder in it only where a report is written, MSVC's build, every other
+	// build's reporter being empty (bugs.md ENG.38)
+	Directory::create(Directory::engineUserDir().string());
+#ifdef _MSC_VER
 	const auto reportsDirectory = Directory::engineUserDir() / "CrashReports";
 	Directory::create(reportsDirectory.string());
 	CrashReporter::Init(reportsDirectory.string(), [](const std::string& logFilename) { Logger::Get()->SaveLog(logFilename); });
+#endif
 	return false;
 }
 

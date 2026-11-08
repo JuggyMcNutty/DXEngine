@@ -737,19 +737,19 @@ void UActor::CheckHearSound(UPawn* hearer, int id, USound* sound, vec3 parameter
 
 void UActor::AIClearEvent(const NameString& eventName)
 {
-	if (UEventManager* manager = UEventManager::Get())
+	if (UEventManager* manager = UEventManager::Get(XLevel()))
 		manager->ClearEvent(this, eventName);
 }
 
 void UActor::AIClearEventCallback(const NameString& eventName)
 {
-	if (UEventManager* manager = UEventManager::Get())
+	if (UEventManager* manager = UEventManager::Get(XLevel()))
 		manager->ClearEventCallback(this, eventName);
 }
 
 void UActor::AIEndEvent(const NameString& eventName, uint8_t eventType)
 {
-	if (UEventManager* manager = UEventManager::Get())
+	if (UEventManager* manager = UEventManager::Get(XLevel()))
 		manager->EndEvent(this, eventName, eventType);
 }
 
@@ -764,58 +764,62 @@ float UActor::AIGetLightLevel(const vec3& Location)
 
 void UActor::AISendEvent(const NameString& eventName, uint8_t eventType, std::optional<float> Value, std::optional<float> Radius)
 {
-	if (UEventManager* manager = UEventManager::Get())
+	if (UEventManager* manager = UEventManager::Get(XLevel()))
 		manager->SendEvent(this, eventName, eventType, Value.value_or(1.0f), Radius.value_or(800.0f), false);
 }
 
 void UActor::AISetEventCallback(const NameString& eventName, const NameString& callback, std::optional<NameString> scoreCallback, std::optional<bool> bCheckVisibility, std::optional<bool> bCheckDir, std::optional<bool> bCheckCylinder, std::optional<bool> bCheckLOS)
 {
-	if (UEventManager* manager = UEventManager::Get())
+	if (UEventManager* manager = UEventManager::Get(XLevel()))
 		manager->SetEventCallback(this, eventName, callback, scoreCallback.value_or(NameString()), bCheckVisibility.value_or(true), bCheckDir.value_or(true), bCheckCylinder.value_or(false), bCheckLOS.value_or(true));
 }
 
 void UActor::AIStartEvent(const NameString& eventName, uint8_t eventType, std::optional<float> Value, std::optional<float> Radius)
 {
-	if (UEventManager* manager = UEventManager::Get())
+	if (UEventManager* manager = UEventManager::Get(XLevel()))
 		manager->SendEvent(this, eventName, eventType, Value.value_or(1.0f), Radius.value_or(800.0f), true);
 }
 
 // A light's share of what the AI sees by, 0 to 1: its brightness, a third of
-// it for a fully saturated colour and all of it for white.
-static float AILuminance(uint8_t brightness, uint8_t saturation)
+// it for a fully saturated colour and all of it for white, as the original's
+// x87 works it out and hands it on, unrounded (Engine.dll 0x1036bc50).
+static double AILuminance(uint8_t brightness, uint8_t saturation)
 {
-	return (float)((saturation + 127.5) * (1.0 / 382.5) * (brightness * (1.0 / 255.0)));
+	return X87::Round(X87::Round((saturation + 127.5) * (1.0 / 382.5)) * X87::Round(brightness * (1.0 / 255.0)));
 }
 
-// The light on an actor at a location, 0 to 1, as Deus Ex's AI sees it: half
-// of each light reaching it -- a static one only with no wall or mover
-// between -- the nearer its middle the more, and twice the zone's ambient
-// light. An unlit actor is always lit. From Engine.dll, where it serves
-// AActor::AIVisibility.
+// The light on an actor at a location, 0 to 1, as Deus Ex's AI sees it
+// (AActor::AIGetLightLevel, Engine.dll 0x1036b980, which serves
+// AIVisibility): half of each light reaching it -- a static one only with no
+// wall or mover between -- the nearer its middle the more, and twice the
+// zone's ambient light. An unlit actor is always lit.
 static float AILightAt(UActor* actor, const vec3& location)
 {
-	float lights = 0.0f;
-	if (actor->bUnlit())
+	float lights = 1.0f;
+	if (!actor->bUnlit())
 	{
-		lights = 1.0f;
-	}
-	else
-	{
-		// The original tests every actor for a light reaching the location.
-		// The light system's tree holds the same lights, as of the last frame
-		// drawn, and gives the few whose reach may take it in; one destroyed
-		// since is skipped.
+		// Every actor of the level with a light type and a brightness, but
+		// the actor itself, walked at each call in the list's order: a light
+		// switched on or moved counts at once, and every light before a
+		// level's first frame (LightTreeConsole, LightStartConsole). The
+		// squared radius and distance, each stored as a float, the light's
+		// term then summed as the x87 holds it and the sum stored as a float,
+		// one rounding a term (0x1036ba1b-0x1036bafb).
 		ULevel* level = actor->XLevel();
-		for (UActor* light : level->Light.LightsNear(location))
+		float sum = 0.0f;
+		for (UActor* light : level->Actors)
 		{
-			if (light == actor || light->bDeleteMe() || light->LightType() == LT_None || light->LightBrightness() == 0)
+			if (!light || light->LightType() == LT_None || light->LightBrightness() == 0 || light == actor)
 				continue;
 
-			float radius = light->WorldLightRadius();
-			float radiusSq = radius * radius;
-			vec3 d = location - light->Location();
-			float distSq = dot(d, d);
-			if (radiusSq <= distSq)
+			double radius = light->WorldLightRadius();
+			float radiusSq = (float)X87::Round(radius * radius);
+			const vec3& at = light->Location();
+			double dx = X87::Round((double)location.x - at.x);
+			double dy = X87::Round((double)location.y - at.y);
+			double dz = X87::Round((double)location.z - at.z);
+			float distSq = (float)X87::Round(X87::Round(X87::Round(dx * dx) + X87::Round(dy * dy)) + X87::Round(dz * dz));
+			if (!(radiusSq > distSq))
 				continue;
 
 			if (light->bStatic())
@@ -826,14 +830,24 @@ static float AILightAt(UActor* actor, const vec3& location)
 					continue;
 			}
 
-			lights += AILuminance(light->LightBrightness(), light->LightSaturation()) * (1.0f - (float)std::sqrt(distSq / radiusSq));
+			// 1 less the root of their ratio, stored as a float
+			double root = X87::Round(std::sqrt(X87::Round((double)distSq / radiusSq)));
+			float falloff = (float)X87::Round(1.0 - root);
+			sum = (float)X87::Round(X87::Round(AILuminance(light->LightBrightness(), light->LightSaturation()) * falloff) + sum);
 		}
-		lights *= 0.5f;
+		lights = (float)X87::Round(sum * 0.5);
 	}
 
+	// Twice the zone's ambient light added as the x87 holds it, held to 0
+	// to 1, what is not a number 0 (0x1036bb1f-0x1036bb78)
 	UZoneInfo* zone = actor->Region().Zone;
-	float ambient = zone ? AILuminance(zone->AmbientBrightness(), zone->AmbientSaturation()) : 0.0f;
-	return std::clamp(ambient * 2.0f + lights, 0.0f, 1.0f);
+	double ambient = zone ? AILuminance(zone->AmbientBrightness(), zone->AmbientSaturation()) : 0.0;
+	double total = X87::Round(X87::Round(ambient * 2.0) + lights);
+	if (X87::Under(total, 0.0))
+		return 0.0f;
+	if (X87::Under(total, 1.0))
+		return (float)total;
+	return 1.0f;
 }
 
 // How visible this actor is to Deus Ex's AI, 0 to 1 (Engine.dll

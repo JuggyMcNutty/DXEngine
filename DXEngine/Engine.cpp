@@ -556,10 +556,13 @@ void Engine::Run()
 	RestoreRunOnlySettings();
 	if (packages->MissingDXESystemIni())
 	{
-		// Add the missing Subsystem entries
+		// Add the missing Subsystem entries; the software device's in the
+		// original's WindowedRenderDevice's place are that class's, saved by
+		// a SET alone (TakeWindowedRenderDevice)
 		client->SaveConfig();
 		audiodev->SaveConfig();
-		renderdev->SaveConfig();
+		if (!renderdev->IsWindowedRenderDevice())
+			renderdev->SaveConfig();
 	}
 	packages->SaveAllIniFiles();
 
@@ -645,7 +648,8 @@ void Engine::FlushConfig()
 	{
 		SaveClientConfig(false);
 		audiodev->SaveConfig();
-		renderdev->SaveConfig();
+		if (!renderdev->IsWindowedRenderDevice())
+			renderdev->SaveConfig();
 	}
 	packages->FlushIniFiles();
 }
@@ -1270,9 +1274,20 @@ bool Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 		CallEvent(console, EventName::NotifyLevelChange);
 
 	// A ?push saves the level left first, as the original's LoadMap does
-	// (SaveHubLevel).
+	// (SaveHubLevel), the viewport's player destroyed before it, as the
+	// original's LoadMap destroys each viewport's actor before the level
+	// left is saved (Engine.dll 0x1038e5b0), so the hub save holds none
+	// (bugs.md PKG.42).
 	if (Level && enteredURL.HasOption("push"))
+	{
+		if (UPlayerPawn* pawn = viewport->Actor(); pawn && pawn->XLevel() == Level)
+		{
+			pawn->Player() = nullptr;
+			viewport->Actor() = nullptr;
+			pawn->Destroy();
+		}
 		SaveHubLevel(hubStackLeft);
+	}
 
 	UnloadMap();
 
@@ -3728,13 +3743,14 @@ void Engine::UpdateInput(float timeElapsed)
 
 // The original's UInput::ReadInput with the player's tick, in that tick
 // before PlayerInput (Engine.dll 0x10394580; engine-dll.md, a key's
-// binding): every input float a script left since the last read is scaled
-// by 20 over the tick, as the original scales each, then the keys held and
-// the mouse add theirs, already in those units (a held key's axis its speed
-// x 20, the original's speed x the tick x 20 over the tick). The buttons are
-// set and cleared by their keys' press and release alone (InputExec); each
-// held key's line runs again as held, its input words alone, as the
-// original's read runs it, its axes counted here.
+// binding): every input float a script or the mouse left since the last read
+// is scaled by 20 over the tick, as the original scales each -- a mouse's
+// move its Axis added at its event (InputExec) --, then the keys held and the
+// pads' sticks add theirs, already in those units (a held key's axis its
+// speed x 20, the original's speed x the tick x 20 over the tick). The
+// buttons are set and cleared by their keys' press and release alone
+// (InputExec); each held key's line runs again as held, its input words
+// alone, as the original's read runs it, its axes counted here.
 void Engine::ReadInput(UPlayerPawn* player, float elapsed)
 {
 	if (elapsed <= 0.0f)
@@ -3748,10 +3764,7 @@ void Engine::ReadInput(UPlayerPawn* player, float elapsed)
 	for (auto& [axis, value] : axes)
 	{
 		if (UProperty* prop = InputProperty(player, axis, true))
-		{
-			float add = (axis == "aMouseX" || axis == "aMouseY") ? value / (elapsed * 150.0f) : value;
-			*static_cast<float*>(player->GetProperty(prop)) += add;
-		}
+			*static_cast<float*>(player->GetProperty(prop)) += value;
 	}
 }
 
@@ -3796,6 +3809,16 @@ std::unique_ptr<GameWindow> Engine::CreateGameWindow(RenderDeviceType type)
 			LogMessage(std::string("The ") + name + " device did not start (" + error + "): the software device draws in its place");
 			chosenRenderDevice = RenderDeviceType::Software;
 		}
+	}
+	// The software device in the original's WindowedRenderDevice's place --
+	// with -nohard, or for a GPU device that did not start --, which draws
+	// with its own class's settings, SoftDrv's in the game's ini: no
+	// coronas, no shiny surfaces (WinDrv.dll 0x111079a3, 0x111079c2;
+	// bugs.md ENG.31)
+	if (type != RenderDeviceType::Software || OriginalCommandLine::Get().Param("nohard"))
+	{
+		renderdev->TakeWindowedRenderDevice();
+		LogMessage("The software device with WindowedRenderDevice's settings, " + renderdev->WindowedRenderDeviceClass() + "'s");
 	}
 	return GameWindow::Create(this, RenderDeviceType::Software);
 }
@@ -3900,9 +3923,6 @@ void Engine::TickWindow()
 			window->LockKeyboard();
 	}
 
-	InputEvent(IK_MouseX, IST_Axis, 0);
-	InputEvent(IK_MouseY, IST_Axis, 0);
-
 	GameWindow::ProcessEvents();
 
 	// The window's size kept the tick after it last changed (KeepWindowedSize)
@@ -3916,7 +3936,9 @@ void Engine::TickWindow()
 		MouseMoveX = 0;
 		MouseMoveY = 0;
 
-		// Send to input subsystem.
+		// The tick's move, an axis event for each axis it moved on, none
+		// for no move, as the original's window sends its batch of moves
+		// (WinDrv.dll 0x1110afe4-0x1110b01e)
 		if (dx)
 			InputEvent(IK_MouseX, IST_Axis, dx);
 		if (dy)
@@ -3979,6 +4001,10 @@ void Engine::OnWindowMouseWheel(const Point& pos, EInputKey key)
 	if (engine->dxRootWindow && engine->dxRootWindow->OnWindowMouseWheel(pos, key))
 		return;
 
+	// The wheel's delta to the MouseW axis, a notch's 120 (Windows'
+	// WHEEL_DELTA), then its press and release, as the original's window
+	// sends a WM_MOUSEWHEEL (WinDrv.dll 0x1110b2bd; bugs.md ENG.38)
+	InputEvent(IK_MouseW, IST_Axis, key == IK_MouseWheelUp ? 120 : -120);
 	InputEvent(key, IST_Press);
 	InputEvent(key, IST_Release);
 }
@@ -4273,6 +4299,13 @@ void Engine::ReleaseFireButtons()
 	}
 }
 
+// The mouse's axes, whose moves the original's window and DirectInput send
+// (WinDrv.dll 0x1110afe4-0x1110b01e, 0x1110b2bd)
+static bool IsMouseAxis(EInputKey key)
+{
+	return key == IK_MouseX || key == IK_MouseY || key == IK_MouseZ || key == IK_MouseW;
+}
+
 void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 {
 	if (Frame::Halted)
@@ -4293,7 +4326,9 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 	}
 	else if (type == EInputType::IST_Axis)
 	{
-		ExecInputLine(keybindings[keynames[key]], key, type, delta * 16);
+		// A mouse's move as it comes, which its Axis adds at once; a pad's
+		// stick x 16, held until it moves again or is let go (InputExec)
+		ExecInputLine(keybindings[keynames[key]], key, type, IsMouseAxis(key) ? delta : delta * 16);
 	}
 	else if (type == EInputType::IST_Release)
 	{
@@ -4543,10 +4578,14 @@ static void SetInputButtonValue(UObject* pawn, UProperty* prop, uint8_t value)
 // words: BUTTON sets its byte to 1 on a press and to 0 on a release, PULSE
 // sets it on a press alone, TOGGLE flips its top bit on a press; AXIS adds at
 // each read while its key is held, its speed x 20 (the original's hold adds
-// the speed x the tick, which the read scales by 20 over the tick), or an
-// axis's move, the speed x the move x 16; an alias's name runs the alias's
-// line as the key's, with its action, an alias inside it not expanded again.
-// False for any other word, which the viewport's commands take.
+// the speed x the tick, which the read scales by 20 over the tick), a pad's
+// stick the speed x its move x 16 at each read, and a mouse's move at once,
+// the speed x the move x 0.01, as the original's adds an axis's, which the
+// read scales by 20 over the tick: 1.2 a count for the stock MouseX=Axis
+// aMouseX Speed=6.0, the original's a window pixel (bugs.md ENG.36); an
+// alias's name runs the alias's line as the key's, with its action, an
+// alias inside it not expanded again. False for any other word, which the
+// viewport's commands take.
 bool Engine::InputExec(const std::string& command, EInputKey key, EInputType action, int value)
 {
 	if (GetArgs(command).empty())
@@ -4596,7 +4635,8 @@ bool Engine::InputExec(const std::string& command, EInputKey key, EInputType act
 
 	if (word == "axis")
 	{
-		if (!actor || args.size() < 2 || !InputProperty(actor, args[1], true))
+		UProperty* prop = actor && args.size() >= 2 ? InputProperty(actor, args[1], true) : nullptr;
+		if (!prop)
 		{
 			LogMessage("Bad Axis command");
 			return true;
@@ -4610,7 +4650,9 @@ bool Engine::InputExec(const std::string& command, EInputKey key, EInputType act
 			if (args[i].size() > 6 && StrTools::equals_ignore_case(args[i].substr(0, 6), "speed="))
 				speed = (float)std::atof(args[i].substr(6).c_str());
 		}
-		if (key != IK_None && (action == EInputType::IST_Press || action == EInputType::IST_Axis))
+		if (action == EInputType::IST_Axis && IsMouseAxis(key))
+			*static_cast<float*>(actor->GetProperty(prop)) += speed * value * 0.01f;
+		else if (key != IK_None && (action == EInputType::IST_Press || action == EInputType::IST_Axis))
 			activeInputAxes[{ args[1], key }] = speed * value;
 		return true;
 	}

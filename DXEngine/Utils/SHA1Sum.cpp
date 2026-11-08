@@ -5,10 +5,10 @@
 
 std::string SHA1Sum::of_file(const fs::path& filepath)
 {
-	// Check if the file exists
-	if (File::try_open_existing(filepath.string()))
+	// A file that does not open, or fails as it is read (a folder of its
+	// name, an I/O error), has none (bugs.md ENG.38)
+	try
 	{
-		// Such file exists, let's try to take SHA1Sum of it
 		auto bytes = File::read_all_bytes(filepath.string());
 
 		sha1::SHA1 s;
@@ -21,6 +21,8 @@ std::string SHA1Sum::of_file(const fs::path& filepath)
 
 		return std::string{temp};
 	}
-
-	return "";
+	catch (const std::exception&)
+	{
+		return "";
+	}
 }

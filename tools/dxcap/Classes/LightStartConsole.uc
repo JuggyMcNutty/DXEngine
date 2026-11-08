@@ -4,12 +4,11 @@
 // given to the player and the island left for UNATCO HQ as a map exit
 // leaves it (ClientTravel, TRAVEL_Relative, with the items). The item logs
 // AIGetLightLevel at the player's place and at four Light actors' places in
-// its TravelPostAccept and at its first six ticks on HQ ("DXAILIGHT:"): in
-// the original every line of a place alike, the player standing still; in
-// DXEngine the TravelPostAccept's and the first tick's lines the zone's
-// ambient alone, the tree of lights not yet built, the later ones the
-// original's. 3 s into HQ the console's own probe of the player's place,
-// then an exit.
+// its TravelPostAccept and at its first six ticks on HQ ("DXAILIGHT:"):
+// every line of a place alike, the player standing still, in both engines,
+// the level's actors walked at each call (AActor::AIGetLightLevel,
+// Engine.dll 0x1036b980). 3 s into HQ the console's own probe of the
+// player's place, then an exit.
 //=============================================================================
 class LightStartConsole extends Console;
 

@@ -8,8 +8,8 @@
 // first tick and, at its third, Off on and Moved 400 units along X, asking
 // AIGetLightLevel 50 units from each in that tick and the next three
 // (CapLightProbe); 2 s on, an exit. Each line in both engines from the
-// probe; compared: the "tick3 after" line (bugs.md AI.17's cause, for a
-// light switched on or moved since the last frame drawn).
+// probe; compared: the "tick3 after" line, a light switched on or moved
+// within the tick counted at once.
 //=============================================================================
 class LightTreeConsole extends Console;
 

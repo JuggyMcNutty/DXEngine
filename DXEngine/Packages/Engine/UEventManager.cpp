@@ -9,7 +9,6 @@
 #include "Packages/Core/Properties/UStructProperty.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Pawn/UPawn.h"
-#include "Packages/Engine/Actors/Brush/UMover.h"
 #include "Packages/Engine/Actors/Inventory/UInventory.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
@@ -17,6 +16,7 @@
 #include "VM/Frame.h"
 #include "Utils/Logger.h"
 #include "Utils/StrTools.h"
+#include "Math/floating.h"
 #include "Engine.h"
 #include <algorithm>
 #include <cctype>
@@ -38,9 +38,12 @@ static PropertyDataOffset EventManagerPropOffset(ULevelInfo* info)
 	return cachedOffset;
 }
 
-UEventManager* UEventManager::Get()
+UEventManager* UEventManager::Get(ULevel* level)
 {
-	ULevelInfo* info = engine->LevelInfo;
+	// The level's own, as the original's natives find the actor's level's
+	// and each level's full tick ticks its own (Engine.dll 0x1036d7f6,
+	// 0x103a598d-0x103a5a2b): its first actor's, the LevelInfo
+	ULevelInfo* info = level && !level->Actors.empty() ? UObject::TryCast<ULevelInfo>(level->Actors[0]) : nullptr;
 	if (!info)
 		return nullptr;
 	PropertyDataOffset offset = EventManagerPropOffset(info);
@@ -99,7 +102,11 @@ UEventManager::Receiver* UEventManager::FindReceiver(EventType& type, UActor* ac
 
 void UEventManager::SetEventCallback(UActor* actor, const NameString& eventName, const NameString& callback, const NameString& scoreCallback, bool bCheckVisibility, bool bCheckDir, bool bCheckCylinder, bool bCheckLOS)
 {
-	// The actor's receiver for the event, made at the ring's end or found.
+	// The actor's receiver for the event, made at the ring's end or found;
+	// nothing for no actor or no event name (AISetEventCallback, Engine.dll
+	// 0x10382990). A new one's first turn weighs this frame's slot on.
+	if (!actor || eventName.IsNone())
+		return;
 	EventType& type = GetEventType(eventName);
 	Receiver* receiver = FindReceiver(type, actor);
 	if (!receiver)
@@ -107,14 +114,9 @@ void UEventManager::SetEventCallback(UActor* actor, const NameString& eventName,
 		type.Receivers.push_back(std::make_unique<Receiver>());
 		receiver = type.Receivers.back().get();
 		receiver->Actor = actor;
-		// Before the receiver the ring resumes at, as the original's manager
-		// links a new one: its first turn comes after every other's. Appended,
-		// it started every later pass after a full one.
-		if (RingPos > Ring.size())
-			RingPos = Ring.size();
-		Ring.insert(Ring.begin() + RingPos, { &type, receiver });
-		RingPos++;
-		receiver->LastTurnFrame = FrameCounter;
+		receiver->Type = &type;
+		receiver->NextSlot = SlotIndex;
+		LinkProcess(receiver);
 	}
 	receiver->Callback = callback;
 	receiver->ScoreCallback = scoreCallback;
@@ -124,8 +126,29 @@ void UEventManager::SetEventCallback(UActor* actor, const NameString& eventName,
 	receiver->bCheckLOS = bCheckLOS;
 }
 
+void UEventManager::LinkProcess(Receiver* receiver)
+{
+	// Before FirstProcess, as the original links a new receiver
+	// (0x10382a52): its first turn comes after every other's. Linked during
+	// the manager's calls, while FirstProcess is still the frame's first, it
+	// comes first in the next walk after a full one (EventRingConsole).
+	if (!FirstProcess)
+	{
+		receiver->NextProcess = receiver;
+		receiver->PrevProcess = receiver;
+		FirstProcess = receiver;
+		return;
+	}
+	receiver->NextProcess = FirstProcess;
+	receiver->PrevProcess = FirstProcess->PrevProcess;
+	FirstProcess->PrevProcess->NextProcess = receiver;
+	FirstProcess->PrevProcess = receiver;
+}
+
 void UEventManager::ClearEventCallback(UActor* actor, const NameString& eventName)
 {
+	if (!actor || eventName.IsNone())
+		return;
 	auto it = Events.find(eventName);
 	if (it == Events.end())
 		return;
@@ -138,6 +161,16 @@ void UEventManager::SendEvent(UActor* actor, const NameString& eventName, uint8_
 	// A pulse in this frame's slot: the sense's number becomes at least
 	// Value, and for audio the radius at least Radius. AIStartEvent also
 	// makes it the current level: what the sender goes on giving off.
+	// Nothing for no actor or no event name; an actor being destroyed
+	// raises 0, its sender made all the same (AISendEvent, Engine.dll
+	// 0x10382c60, its test 0x10382ca7; AIStartEvent 0x10382fe0)
+	if (!actor || eventName.IsNone())
+		return;
+	if (actor->bDeleteMe())
+	{
+		value = 0.0f;
+		radius = 0.0f;
+	}
 	Sender* sender = FindSender(GetEventType(eventName), actor, true);
 	SenseLevels& slot = sender->Slots[SlotIndex];
 	switch (sense)
@@ -168,6 +201,8 @@ void UEventManager::SendEvent(UActor* actor, const NameString& eventName, uint8_
 
 void UEventManager::EndEvent(UActor* actor, const NameString& eventName, uint8_t sense)
 {
+	if (!actor || eventName.IsNone())
+		return;
 	auto it = Events.find(eventName);
 	if (it == Events.end())
 		return;
@@ -185,6 +220,8 @@ void UEventManager::EndEvent(UActor* actor, const NameString& eventName, uint8_t
 
 void UEventManager::ClearEvent(UActor* actor, const NameString& eventName)
 {
+	if (!actor || eventName.IsNone())
+		return;
 	auto it = Events.find(eventName);
 	if (it == Events.end())
 		return;
@@ -216,20 +253,34 @@ void UEventManager::ActorDestroyed(UActor* actor)
 	}
 }
 
-UEventManager::SenseLevels UEventManager::PeakLevels(const Sender& sender, int slotsBack) const
+UEventManager::SenseLevels UEventManager::PeakLevels(const Sender& sender, int fromSlot) const
 {
-	// Each sense's highest number over the slots since the receiver's last
-	// turn.
+	// Each sense's highest number over the slots from the receiver's next
+	// one to this frame's (0x10383bc0): those since its last turn, 16 at
+	// most.
 	SenseLevels peak;
-	for (int i = 0; i < slotsBack; i++)
+	for (int i = fromSlot & (NumSlots - 1);; i = (i + 1) & (NumSlots - 1))
 	{
-		const SenseLevels& slot = sender.Slots[(SlotIndex - i + NumSlots) % NumSlots];
+		const SenseLevels& slot = sender.Slots[i];
 		peak.Visual = std::max(peak.Visual, slot.Visual);
 		peak.Audio = std::max(peak.Audio, slot.Audio);
 		peak.AudioRadius = std::max(peak.AudioRadius, slot.AudioRadius);
 		peak.Smell = std::max(peak.Smell, slot.Smell);
+		if (i == SlotIndex)
+			break;
 	}
 	return peak;
+}
+
+// The squared distance from b to a as the original's x87 sums it: X's
+// square and Y's, then Z's (AIProcess, Engine.dll 0x103841ec; AIComputeScore
+// 0x10383f77; ComputeSenseDetection 0x10383a1c)
+static double SquaredDistance(const vec3& a, const vec3& b)
+{
+	double dx = X87::Round((double)a.x - b.x);
+	double dy = X87::Round((double)a.y - b.y);
+	double dz = X87::Round((double)a.z - b.z);
+	return X87::Round(X87::Round(X87::Round(dx * dx) + X87::Round(dy * dy)) + X87::Round(dz * dz));
 }
 
 void UEventManager::ComputeSenseDetection(Receiver& receiver, UActor* senderActor, const SenseLevels& peak, float& visibility, float& volume, float& smell)
@@ -244,22 +295,25 @@ void UEventManager::ComputeSenseDetection(Receiver& receiver, UActor* senderActo
 	// its own size where the owner has none, before the pawn's AICanSee
 	// weighs it; a receiver that is no pawn (an AcousticSensor, an
 	// AutoTurret) traces to the item itself and hears it where it is.
+	// The sizes, their ratio and its root as the x87 holds them, the root
+	// stored as a float, as is the visual number scaled by it (0x1038384b-
+	// 0x103838c6).
 	UActor* seen = senderActor;
 	float visualScale = 1.0f;
 	if (UInventory* item = UObject::TryCast<UInventory>(senderActor))
 	{
 		if (UActor* owner = item->Owner())
 		{
-			float size = item->CollisionHeight() * item->CollisionRadius();
-			float ownerSize = owner->CollisionHeight() * owner->CollisionRadius();
-			if (ownerSize != 0.0f)
-				size /= ownerSize;
-			visualScale = std::sqrt(size);
+			double size = X87::Round((double)item->CollisionHeight() * item->CollisionRadius());
+			double ownerSize = X87::Round((double)owner->CollisionHeight() * owner->CollisionRadius());
+			if (!X87::Equal(ownerSize, 0.0))
+				size = X87::Round(size / ownerSize);
+			visualScale = (float)X87::Round(std::sqrt(size));
 			seen = owner;
 		}
 	}
 
-	visibility = peak.Visual * visualScale;
+	visibility = (float)X87::Round((double)peak.Visual * visualScale);
 	if (visibility > 0.0f)
 	{
 		if (pawn)
@@ -268,10 +322,13 @@ void UEventManager::ComputeSenseDetection(Receiver& receiver, UActor* senderActo
 		}
 		else
 		{
-			// The visual number, if a trace to the sender meets no wall or
-			// mover.
-			auto blocks = [](UActor* hit) { return UObject::TryCast<UMover>(hit) != nullptr; };
-			if (actor->XLevel()->Collision.SightBlocked(actor->Location(), senderActor->Location(), blocks))
+			// The visual number, if one line check from the receiver to the
+			// sender meets no wall and no mover, whether it blocks sight or
+			// not, as the original's single line check of the level and its
+			// movers (0x103839a1)
+			const TraceFlags flags = { .movers = true, .world = true };
+			CollisionHit hit = actor->XLevel()->Collision.TraceFirstHit(actor->Location(), senderActor->Location(), actor, vec3(0.0f), flags);
+			if (hit.Actor || hit.Node)
 				visibility = 0.0f;
 		}
 	}
@@ -284,10 +341,11 @@ void UEventManager::ComputeSenseDetection(Receiver& receiver, UActor* senderActo
 		}
 		else
 		{
-			// Within the radius as it is: one of 0 is heard nowhere, the
-			// 800 of AICanHear a pawn's alone
-			vec3 delta = senderActor->Location() - actor->Location();
-			if (dot(delta, delta) >= peak.AudioRadius * peak.AudioRadius)
+			// Within the radius as it is, the squared distance and radius as
+			// the x87 holds them (0x10383a1c-0x10383a51): one of 0 is heard
+			// nowhere, the 800 of AICanHear a pawn's alone
+			double radiusSq = X87::Round((double)peak.AudioRadius * peak.AudioRadius);
+			if (!X87::Under(SquaredDistance(senderActor->Location(), actor->Location()), radiusSq))
 				volume = 0.0f;
 		}
 	}
@@ -295,7 +353,7 @@ void UEventManager::ComputeSenseDetection(Receiver& receiver, UActor* senderActo
 	smell = peak.Smell > 0.0f ? 0.0f : peak.Smell;
 }
 
-void UEventManager::CallListener(EventType& type, Receiver& receiver, uint8_t state)
+void UEventManager::CallListener(Receiver& receiver)
 {
 	// The callback function (AIEvent when none) with the event's name, the
 	// state and the receiver's XAIParams.
@@ -335,78 +393,70 @@ void UEventManager::CallListener(EventType& type, Receiver& receiver, uint8_t st
 	}
 
 	CallEvent(receiver.Actor, callback, {
-		ExpressionValue::NameValue(type.Name),
-		ExpressionValue::ByteValue(state),
+		ExpressionValue::NameValue(receiver.Type->Name),
+		ExpressionValue::ByteValue(receiver.EventState),
 		std::move(params) });
 }
 
-void UEventManager::QueueCall(EventType& type, Receiver& receiver, uint8_t state)
+bool UEventManager::ProcessReceiver(Receiver& receiver)
 {
-	if (!receiver.CallDue)
-		DueCalls.push_back({ &type, &receiver });
-	receiver.CallDue = true;
-	receiver.CallState = state;
-}
-
-bool UEventManager::ProcessReceiver(EventType& type, Receiver& receiver)
-{
+	EventType& type = *receiver.Type;
 	UActor* actor = receiver.Actor;
+
+	// No call is due until the turn finds one (0x10384140).
+	receiver.InvokeCallback = false;
 
 	// Which senders count: a receiver drawn in the last 5 s or within
 	// 1,200 units of the player, and not in stasis, weighs every sender;
-	// any other only those within 400 units.
-	float now = actor->Level()->TimeSeconds();
-	bool nearby = (now - actor->LastRenderTime() < 5.0f || actor->DistanceFromPlayer() <= 1200.0f) && !actor->InStasis();
+	// any other only those within 400 units, the squared distance stored as
+	// a float (0x10384166-0x10384237).
+	double now = actor->Level()->TimeSeconds();
+	bool nearby = !actor->InStasis() && (now - actor->LastRenderTime() <= 5.0 || actor->DistanceFromPlayer() <= 1200.0f);
 
 	struct Candidate
 	{
 		UEventManager::Sender* From;
 		float Score;
 	};
-	// The score callback runs script, which may raise an event of this type
-	// (AISendEvent, AIStartEvent) and add a sender to the list under the
-	// walk: the walk is over a copy of the pointers, the senders staying put
-	std::vector<Sender*> senders;
-	for (auto& s : type.Senders)
-		senders.push_back(s.get());
+	// The senders in their list's order, one that a score callback raises
+	// (AISendEvent) taken too: added at the list's end, as the original's
+	// walk of its list meets it. Nothing is removed from the list while the
+	// manager walks.
 	std::vector<Candidate> candidates;
-	for (Sender* sender : senders)
+	for (size_t i = 0; i < type.Senders.size(); i++)
 	{
+		Sender* sender = type.Senders[i].get();
 		if (sender->Delete || !sender->Actor || sender->Actor == actor)
 			continue;
-		vec3 delta = sender->Actor->Location() - actor->Location();
-		if (!nearby && dot(delta, delta) > 400.0f * 400.0f)
+		if (!nearby && (float)SquaredDistance(actor->Location(), sender->Actor->Location()) > 400.0f * 400.0f)
 			continue;
 
-		// A sender's score is its distance squared plus 1, or what the
-		// receiver's score callback returns; 0 or less drops the sender.
-		float score = dot(delta, delta) + 1.0f;
+		// A sender's score is its distance squared plus 1 as the x87 holds
+		// it, or what the receiver's score callback returns, stored as a
+		// float (AIComputeScore, 0x10383f50); one that is not over 0 -- not
+		// a number among them -- drops the sender (0x1038424e).
+		float score = (float)X87::Round(SquaredDistance(actor->Location(), sender->Actor->Location()) + 1.0);
 		if (!receiver.ScoreCallback.IsNone())
 			score = CallEvent(actor, receiver.ScoreCallback, {
 				ExpressionValue::ObjectValue(actor),
 				ExpressionValue::ObjectValue(sender->Actor),
 				ExpressionValue::FloatValue(score) }).ToFloat();
-		if (score <= 0.0f)
+		if (!(score > 0.0f))
 			continue;
+		candidates.push_back(Candidate{ sender, score });
+
+		// The 256th taken, the rest are ignored, a warning logged
+		// (0x1038426f). The original's names the event type's own object
+		// (AIEventType<n>), which DXEngine's types are not: it names the
+		// event.
 		if (candidates.size() >= 256)
 		{
-			LogMessage("Event manager: more than 256 senders for " + type.Name.ToString() + ", the rest are ignored");
+			LogMessage("*** WARNING: Greater than 255 objects emitting event \"" + type.Name.ToString() + "\"! (Some events will be dropped)");
 			break;
 		}
-		candidates.push_back(Candidate{ sender, score });
 	}
 
 	bool weighed = !candidates.empty();
-
-	int slotsBack = FrameCounter - receiver.LastTurnFrame;
-	if (slotsBack > NumSlots)
-	{
-		LogMessage("Event manager not cycling quickly enough");
-		slotsBack = NumSlots;
-	}
-	if (slotsBack < 1)
-		slotsBack = 1;
-	receiver.LastTurnFrame = FrameCounter;
 
 	// The best sender: in order of score, lowest first -- the nearest, by
 	// default -- the first the receiver senses.
@@ -416,7 +466,7 @@ bool UEventManager::ProcessReceiver(EventType& type, Receiver& receiver)
 	float bestScore = 0.0f;
 	for (Candidate& candidate : candidates)
 	{
-		SenseLevels peak = PeakLevels(*candidate.From, slotsBack);
+		SenseLevels peak = PeakLevels(*candidate.From, receiver.NextSlot);
 		if (!peak.Any())
 			continue;
 		ComputeSenseDetection(receiver, candidate.From->Actor, peak, visibility, volume, smell);
@@ -431,46 +481,37 @@ bool UEventManager::ProcessReceiver(EventType& type, Receiver& receiver)
 	// The state the receiver is called for. An event already on:
 	// ChangeBest for a new best sender, End for none. An event off: Begin
 	// for a best sender with a current level in some sense, turning the
-	// event on; Pulse for one with pulses only, leaving it off.
+	// event on; Pulse for one with pulses only, leaving it off. The state
+	// is kept until the next call (0x1038437e-0x10384458).
+	UActor* bestActor = best ? best->Actor : nullptr;
 	if (receiver.EventOn)
 	{
 		if (!best)
 		{
-			receiver.EventOn = false;
-			receiver.BestActor = nullptr;
-			receiver.BestScore = 0.0f;
-			receiver.BestVisibility = 0.0f;
-			receiver.BestVolume = 0.0f;
-			receiver.BestSmell = 0.0f;
-			QueueCall(type, receiver, StateEnd);
+			receiver.InvokeCallback = true;
+			receiver.EventState = StateEnd;
 		}
-		else if (best->Actor != receiver.BestActor)
+		else if (bestActor != receiver.BestActor)
 		{
-			receiver.BestActor = best->Actor;
-			receiver.BestScore = bestScore;
-			receiver.BestVisibility = visibility;
-			receiver.BestVolume = volume;
-			receiver.BestSmell = smell;
-			QueueCall(type, receiver, StateChangeBest);
+			receiver.InvokeCallback = true;
+			receiver.EventState = StateChangeBest;
 		}
 	}
 	else if (best)
 	{
-		receiver.BestActor = best->Actor;
-		receiver.BestScore = bestScore;
-		receiver.BestVisibility = visibility;
-		receiver.BestVolume = volume;
-		receiver.BestSmell = smell;
-		if (best->Current.Any())
-		{
-			receiver.EventOn = true;
-			QueueCall(type, receiver, StateBegin);
-		}
-		else
-		{
-			QueueCall(type, receiver, StatePulse);
-		}
+		receiver.InvokeCallback = true;
+		receiver.EventState = best->Current.Any() ? StateBegin : StatePulse;
 	}
+	receiver.EventOn = best && !(receiver.InvokeCallback && receiver.EventState == StatePulse);
+
+	// Every turn sets the receiver's XAIParams, its best sender and score
+	// among them: None and 0 with nothing sensed (0x10384350, 0x10384468,
+	// 0x1038446b).
+	receiver.BestActor = bestActor;
+	receiver.BestScore = best ? bestScore : 0.0f;
+	receiver.BestVisibility = best ? visibility : 0.0f;
+	receiver.BestVolume = best ? volume : 0.0f;
+	receiver.BestSmell = best ? smell : 0.0f;
 	return weighed;
 }
 
@@ -478,30 +519,35 @@ void UEventManager::Tick()
 {
 	using clock = std::chrono::steady_clock;
 	auto start = clock::now();
-	FrameCounter++;
+	Processing++;
 
-	// The receivers in ring order, from where the last frame stopped, until
-	// each has had a turn or 2 ms have passed. The clock is read only after
-	// a receiver that had a sender to weigh, so one such receiver has its
-	// turn each frame.
-	size_t turns = Ring.size();
-	for (size_t i = 0; i < turns && !Ring.empty(); i++)
+	// The receivers in ring order from FirstProcess, until each has had a
+	// turn or 2 ms have passed. The clock is read only after a receiver
+	// that had a sender to weigh, so one such receiver has its turn each
+	// frame. One whose actor is being destroyed is dropped (0x10384122). One
+	// a score callback links, at the ring's end, has its turn at the walk's.
+	int walked = 0;
+	for (Receiver* receiver = FirstProcess; receiver;)
 	{
-		if (RingPos >= Ring.size())
-			RingPos = 0;
-		auto entry = Ring[RingPos];
-		RingPos++;
-		Receiver& receiver = *entry.second;
-		if (receiver.Delete || !receiver.Actor || receiver.Actor->bDeleteMe())
-			continue;
-		bool weighed = ProcessReceiver(*entry.first, receiver);
+		bool weighed = false;
+		if (!receiver->Delete)
+		{
+			if (!receiver->Actor || receiver->Actor->bDeleteMe())
+				receiver->Delete = true;
+			else
+				weighed = ProcessReceiver(*receiver);
+		}
+		walked++;
 		if (weighed && clock::now() - start > std::chrono::milliseconds(2))
 			break;
+		receiver = receiver->NextProcess;
+		if (receiver == FirstProcess)
+			receiver = nullptr;
 	}
 
 	// The ring moves on: each sender's next slot starts at its current
 	// levels, and a sender with nothing left in its 16 slots is deleted.
-	SlotIndex = (SlotIndex + 1) % NumSlots;
+	SlotIndex = (SlotIndex + 1) & (NumSlots - 1);
 	for (auto& [name, type] : Events)
 	{
 		for (auto& sender : type.Senders)
@@ -527,57 +573,105 @@ void UEventManager::Tick()
 		}
 	}
 
+	// A receiver whose next slot is the one the senders just took up has
+	// not had a turn for 16 frames -- this one's turn among them --: its
+	// next turn starts a slot on, the oldest dropped, and one warning counts
+	// them (0x1038462d-0x10384681).
+	int dropped = 0;
+	if (Receiver* receiver = FirstProcess)
+	{
+		do
+		{
+			if (!receiver->Delete && receiver->NextSlot == SlotIndex)
+			{
+				receiver->NextSlot = (SlotIndex + 1) & (NumSlots - 1);
+				dropped++;
+			}
+			receiver = receiver->NextProcess;
+		} while (receiver != FirstProcess);
+	}
+	if (dropped > 0)
+	{
+		LogMessage("*** WARNING: Event manager not cycling quickly enough.  " + std::to_string(dropped) + " events have been dropped.");
+		LogMessage("             There may be too many events occurring on this level.");
+	}
+
 	// The calls, after the pass and with the senders' slots moved on, as the
 	// original's: a pulse a call raises lands in the next frame's slot, for
 	// every listener to weigh, not in this frame's after some had their turn.
-	std::vector<std::pair<EventType*, Receiver*>> calls;
-	calls.swap(DueCalls);
-	for (auto& [type, receiver] : calls)
+	// Each receiver the walk took, from FirstProcess, is called if its turn
+	// found a call due (one whose actor is being destroyed is not), and its
+	// next turn starts at the new slot. The next walk begins at the receiver
+	// after them: after a full walk, one linked during the calls
+	// (0x10384684-0x1038478e).
+	Receiver* receiver = FirstProcess;
+	for (int visited = 0; receiver;)
 	{
-		receiver->CallDue = false;
-		if (receiver->Delete || !receiver->Actor || receiver->Actor->bDeleteMe())
-			continue;
-		CallListener(*type, *receiver, receiver->CallState);
+		if (!receiver->Delete)
+		{
+			if (receiver->InvokeCallback)
+			{
+				if (receiver->Actor && !receiver->Actor->bDeleteMe())
+					CallListener(*receiver);
+				receiver->InvokeCallback = false;
+			}
+			receiver->NextSlot = SlotIndex;
+		}
+		receiver = receiver->NextProcess;
+		if (++visited >= walked || receiver == FirstProcess)
+			break;
 	}
+	FirstProcess = receiver;
 
+	Processing--;
 	CleanupEvents();
 }
 
 void UEventManager::CleanupEvents()
 {
-	// Deleting is deferred to here, outside AIProcess. Event types stay for
-	// the level's life.
+	// Deleting is deferred to here, outside the manager's walk and calls
+	// (0x10383d80). Event types stay for the level's life.
+	if (Processing > 0)
+		return;
+
+	// The ring resumes at the first kept receiver from FirstProcess on, the
+	// deleted ones unlinked (0x10383ddb-0x10383e56).
+	bool anyReceiver = false;
+	for (auto& [name, type] : Events)
+	{
+		for (auto& receiver : type.Receivers)
+			anyReceiver = anyReceiver || receiver->Delete;
+	}
+	if (anyReceiver)
+	{
+		Receiver* first = FirstProcess;
+		while (first && first->Delete)
+		{
+			first = first->NextProcess;
+			if (first == FirstProcess)
+				first = nullptr;
+		}
+		FirstProcess = first;
+		for (auto& [name, type] : Events)
+		{
+			for (auto& receiver : type.Receivers)
+			{
+				if (receiver->Delete && receiver->NextProcess)
+				{
+					receiver->PrevProcess->NextProcess = receiver->NextProcess;
+					receiver->NextProcess->PrevProcess = receiver->PrevProcess;
+				}
+			}
+		}
+	}
+
 	for (auto& [name, type] : Events)
 	{
 		type.Senders.erase(std::remove_if(type.Senders.begin(), type.Senders.end(),
 			[](const std::unique_ptr<Sender>& s) { return s->Delete; }), type.Senders.end());
-
-		bool anyReceiver = false;
-		for (auto& receiver : type.Receivers)
-			anyReceiver = anyReceiver || receiver->Delete;
 		if (anyReceiver)
-		{
-			// The ring compacted, resuming at the first kept receiver at or
-			// after the old resume point: its new index is the count of the
-			// kept before it. (Fixed up two ways at once, it resumed early
-			// after a deletion before it, and after a full pass started the
-			// next at the last receiver.)
-			size_t pos = 0, keptBefore = 0;
-			for (size_t i = 0; i < Ring.size(); i++)
-			{
-				if (!Ring[i].second->Delete)
-				{
-					if (i < RingPos)
-						keptBefore++;
-					Ring[pos] = Ring[i];
-					pos++;
-				}
-			}
-			Ring.resize(pos);
-			RingPos = keptBefore;
 			type.Receivers.erase(std::remove_if(type.Receivers.begin(), type.Receivers.end(),
 				[](const std::unique_ptr<Receiver>& r) { return r->Delete; }), type.Receivers.end());
-		}
 	}
 }
 
@@ -611,7 +705,7 @@ void UEventManager::Load(ObjectStream* stream)
 
 	// Each type's senders and receivers into the manager's lists, the ring
 	// then in the original's process order.
-	std::map<UAIReceiverEvent*, std::pair<EventType*, Receiver*>> made;
+	std::map<UAIReceiverEvent*, Receiver*> made;
 	for (UAIEventType* savedType : buckets)
 	{
 		for (int guard = 0; savedType && guard < 4096; guard++)
@@ -635,20 +729,26 @@ void UEventManager::Load(ObjectStream* stream)
 					continue;
 				SetEventCallback(saved->EventActor, type.Name, saved->Callback, saved->ScoreCallback, saved->bCheckVisibility, saved->bCheckDir, saved->bCheckCylinder, saved->bCheckLOS);
 				Receiver* receiver = FindReceiver(type, saved->EventActor);
+				if (!receiver)
+					continue;
 				receiver->EventOn = saved->bEventOn != 0;
 				receiver->BestActor = saved->BestSender;
 				receiver->BestScore = saved->BestScore;
+				receiver->InvokeCallback = saved->bInvokeCallback != 0;
+				receiver->EventState = saved->EventState;
 				// Its next turn weighs the slots from its nextSlot on.
-				receiver->LastTurnFrame = FrameCounter - ((SlotIndex - saved->NextSlot) & (NumSlots - 1));
-				made[saved] = { &type, receiver };
+				receiver->NextSlot = saved->NextSlot & (NumSlots - 1);
+				made[saved] = receiver;
 			}
 			savedType = UObject::TryCast<UAIEventType>(savedType->NextEventType);
 		}
 	}
 
+	// Linked as made, the ring is linked again in the saved order where that
+	// takes in every receiver, from the one it resumes at.
 	if (firstProcess && made.find(firstProcess) != made.end())
 	{
-		std::vector<std::pair<EventType*, Receiver*>> ring;
+		std::vector<Receiver*> ring;
 		UAIReceiverEvent* cur = firstProcess;
 		for (size_t guard = 0; cur && guard <= made.size(); guard++)
 		{
@@ -660,10 +760,17 @@ void UEventManager::Load(ObjectStream* stream)
 			if (cur == firstProcess)
 				break;
 		}
-		if (ring.size() == Ring.size())
+		size_t count = 0;
+		for (auto& [name, type] : Events)
+			count += type.Receivers.size();
+		if (ring.size() == count)
 		{
-			Ring = std::move(ring);
-			RingPos = 0;
+			for (size_t k = 0; k < ring.size(); k++)
+			{
+				ring[k]->NextProcess = ring[(k + 1) % ring.size()];
+				ring[k]->PrevProcess = ring[(k + ring.size() - 1) % ring.size()];
+			}
+			FirstProcess = ring.front();
 		}
 	}
 }
@@ -710,6 +817,8 @@ void UEventManager::LoadForkLayout(ObjectStream* stream)
 			{
 				SetEventCallback(actor, name, callback, scoreCallback, flags & 1, flags & 2, flags & 4, flags & 8);
 				Receiver* receiver = FindReceiver(type, actor);
+				if (!receiver)
+					continue;
 				receiver->EventOn = flags & 16;
 				receiver->BestActor = bestActor;
 				receiver->BestScore = score;
@@ -791,10 +900,12 @@ void UEventManager::Save(PackageStreamWriter* stream)
 			saved->bEventOn = receiver->EventOn;
 			saved->BestScore = receiver->BestScore;
 			saved->BestSender = receiver->BestActor;
-			// The first slot its next turn weighs: the current one for a
-			// receiver that had its turn in the last frame.
-			int behind = std::clamp(FrameCounter - receiver->LastTurnFrame, 0, NumSlots - 1);
-			saved->NextSlot = (SlotIndex - behind) & (NumSlots - 1);
+			// The last call's state, and the first slot its next turn weighs:
+			// the current one for a receiver that had its turn in the last
+			// frame.
+			saved->bInvokeCallback = receiver->InvokeCallback;
+			saved->EventState = receiver->EventState;
+			saved->NextSlot = receiver->NextSlot;
 			savedReceivers[receiver.get()] = saved;
 			if (last)
 				last->NextEvent = saved;
@@ -831,11 +942,15 @@ void UEventManager::Save(PackageStreamWriter* stream)
 	// The process ring, from where the manager resumes.
 	UAIReceiverEvent* firstProcess = nullptr;
 	std::vector<UAIReceiverEvent*> ring;
-	for (size_t k = 0; k < Ring.size(); k++)
+	if (Receiver* receiver = FirstProcess)
 	{
-		auto it = savedReceivers.find(Ring[(RingPos + k) % Ring.size()].second);
-		if (it != savedReceivers.end())
-			ring.push_back(it->second);
+		do
+		{
+			auto it = savedReceivers.find(receiver);
+			if (it != savedReceivers.end())
+				ring.push_back(it->second);
+			receiver = receiver->NextProcess;
+		} while (receiver && receiver != FirstProcess);
 	}
 	for (size_t k = 0; k < ring.size(); k++)
 	{
@@ -1000,10 +1115,7 @@ void UEventManager::Mark(GCMarker& marker)
 		}
 	}
 	if (cleared)
-	{
-		DueCalls.clear();
 		CleanupEvents();
-	}
 }
 
 void UAIEventType::Mark(GCMarker& marker)

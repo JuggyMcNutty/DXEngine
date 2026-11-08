@@ -198,11 +198,13 @@ void ULevel::TickDeusEx(float elapsed, bool gamePaused)
 	}
 	ownerWait.clear();
 
-	// The AI event manager is ticked after the actors, on a full tick with
-	// the game not paused, as the original's ULevel::Tick does.
-	if (this == engine->Level && engine->LevelInfo && engine->LevelInfo->Pauser().empty())
+	// The level's own AI event manager is ticked after the actors, on a full
+	// tick with the level not paused, as the original's ULevel::Tick ticks
+	// any level's (Engine.dll 0x103a598d-0x103a5a2b).
+	ULevelInfo* info = Actors.empty() ? nullptr : UObject::TryCast<ULevelInfo>(Actors[0]);
+	if (info && info->Pauser().empty())
 	{
-		if (UEventManager* manager = UEventManager::Get())
+		if (UEventManager* manager = UEventManager::Get(this))
 			manager->Tick();
 	}
 }
@@ -291,7 +293,7 @@ void ULevel::CleanupDestroyed(bool force)
 			actor->PropertyData.Class->CleanupDestroyed(actor->PropertyData.Data);
 	}
 
-	UEventManager* manager = this == engine->Level ? UEventManager::Get() : nullptr;
+	UEventManager* manager = UEventManager::Get(this);
 	while (UActor* actor = FirstDeleted)
 	{
 		FirstDeleted = actor->Deleted();
