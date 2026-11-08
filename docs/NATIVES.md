@@ -324,6 +324,25 @@ transient package; Deus Ex's own scripts write `new(None)` or
 `new(Self)`. The console object is named after its class and a number, as
 the original's.
 
+Differs (bugs.md PKG.29): the Load and Save Game screens' row for a slot
+with no SaveInfo reads Current, and its Load empties Current, where the
+original's reads `Save-002` and loads nothing. Differs (bugs.md PKG.30):
+`RestartLevel` on a map whose DeusExLevelInfo names no map (00_Intro,
+99_Endgame1 to 3) stops the engine, the original's failing softly. Differs
+(bugs.md PKG.31): a save on a level with no DeusExLevelInfo (99_Endgame4) is
+written, the original's saving nothing. Differs (bugs.md PKG.32): a map with
+no `MyLevel`, or importing a package that is not there, stops the engine,
+where the original's falls back to Dx.Dx; one of version 100 or more is
+refused, the original reading it. Differs (bugs.md PKG.33): a travel in play
+to a map not there paints no LOADING frame and keeps the pause, and the
+URL's player keys are saved at its ask. Differs (bugs.md PKG.34): a travel
+asked during a load's frames is taken, the original's dropping it. Differs
+(bugs.md PKG.35): a saved level is named by its package, the original's by
+its DeusExLevelInfo's `MapName`. Differs (bugs.md PKG.36): a `SavePath`
+whose parent is not there, a slot's folder in another case,
+`GetMapsDirectory`'s duplicates. For the owner (bugs.md D.58):
+`GetSaveFreeSpace` measures the save folder's file system.
+
 ## Flags
 
 Matches the original
@@ -488,6 +507,15 @@ saved in its layout
 ([saved](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#saved)):
 each engine loads the other's saves with every listener. DXEngine also reads
 the manager in a layout of its own, which some of its saves carry.
+
+Differs (bugs.md AI.17): `AIGetLightLevel` counts no light before a level's
+first frame, after each travel and load. Differs (bugs.md AI.18): a listener
+made during the event manager's calls comes last in the next walk, the
+original's first. Differs (bugs.md AI.19): an event raised by an actor
+already destroyed counts. Differs (bugs.md AI.20): a receiver's saved best
+score and sender are set only with a call, its state never. Differs (bugs.md
+AI.21): the manager's warnings, its level, a non-pawn's visual check, a NaN
+score and a None event name.
 
 ### Moving: wandering and tactical movement
 
@@ -735,6 +763,9 @@ pixel (`MipConsole`: a floor of `CapMips` laid under the view, drawn
 NoSmooth, one texel to a pixel and each mip from `D3DDrv`'s rows, 0 of 362
 apart at 1024x768; smooth, GL ES's mips GL's, 0 rows apart).
 
+Differs (bugs.md REN.52): a masked texel is cut where its filtered alpha is
+under 0.5, `D3DDrv` keeping alpha above 127/255.
+
 ### The software device
 
 Matches `D3DDrv`'s picture as the GPU devices draw it without their
@@ -767,6 +798,15 @@ device does not start, as the original's `WindowedRenderDevice` takes
   wait for it, and the engine's own Wayland window (a dev build's) copies
   the frame into its buffer and commits nothing of itself: untried with the
   software device.
+
+Differs (bugs.md REN.53): the GL device's ES path asks for ES 3.2, which an
+ES 3.1 GPU has not, and gets the software device. Differs (bugs.md REN.54):
+a wrapped coordinate past 2^31 texels reads far before the texture. Differs
+(bugs.md REN.55): a GL error ends the game unlogged. Differs (bugs.md
+REN.56): the GL shaders' `centroid` and the Win32 window's 3.2 context.
+Differs (bugs.md ENG.31): with `-nohard`, or in a GPU device's place, the
+software device takes `GameRenderDevice`'s settings, where the original's
+software renderer takes SoftDrv's.
 
 ### Sprites
 
@@ -836,22 +876,25 @@ Matches the original
 ([coronas](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#coronas);
 `CoronaConsole`): the pass runs only with the render device's `Coronas` on,
 which the game's ini turns off for SoftDrv (`CoronaConsole` with
-`Coronas=False`: no glow in either engine); the static lights reaching the
-player's leaf get coronas,
-and no dynamic light does, the original's pass reading the leaf's dynamic
-lights only after its occlusion pass has emptied them. `CoronaConsole`'s own
-movable lamp shows none in either engine, in the player's leaf or out of it,
-and logs the same BSP leaves in both. A light behind a glass mover shows
-none in either: the line to it is checked against the level and the movers
-with every surface, the invisible collision hull round the glass's pane
-among them, which a sight test passes (`GlassConsole` at 03_NYC_Airfield's
-`BreakableGlass2`, `Light56` beyond it).
-A corona's skin is drawn at its current frame, an animated one's or a
-fractal one's, as the original's: `CoronaSkinConsole` gives `Light169` a
-chain of three noise frames stepped every 4 s, its current frame at each
-shot logged alike in both engines and drawn alike (correlated with
-`D3DDrv`'s at 0.975), and the fire texture `LaserBeam1`, its image changing
-from shot to shot in both.
+`Coronas=False`: no glow in either engine; differs, bugs.md ENG.31: the
+software device under `-nohard`, or in a GPU device's place, takes
+`GameRenderDevice`'s settings, coronas on); the static lights reaching the
+player's leaf get coronas, and no dynamic light does, the original's pass
+reading the leaf's dynamic lights only after its occlusion pass has emptied
+them. `CoronaConsole`'s own movable lamp shows none in either engine, in the
+player's leaf or out of it, and logs the same BSP leaves in both. A light
+behind a glass mover shows none in either: the line to it is checked against
+the level and the movers with every surface, the invisible collision hull
+round the glass's pane among them, which a sight test passes (`GlassConsole`
+at 03_NYC_Airfield's `BreakableGlass2`, `Light56` beyond it). A corona's
+skin is drawn at its current frame, an animated one's or a fractal one's, as
+the original's: `CoronaSkinConsole` gives `Light169` a chain of three noise
+frames stepped every 4 s, its current frame at each shot logged alike in
+both engines and drawn alike (correlated with `D3DDrv`'s at 0.975), and the
+fire texture `LaserBeam1`, its image changing from shot to shot in both.
+
+Differs (bugs.md PHYS.34): a corona's colour some 2% brighter than
+Render.dll's.
 
 ### What a pawn holds
 
@@ -1005,46 +1048,48 @@ turns). A light with `bDynamicLight` is a moving one before all else,
 lighting a surface with no shadow and left out with `NoDynamicLights`, as
 the original's `AddLight` takes it ([light
 maps](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps));
-the stock maps' few, on 02_NYC_Street, 02_NYC_Warehouse, 08_NYC_Underground
-and 99_Endgame1, are moving ones anyway, neither static nor no-delete. An
-`LE_OmniBumpMap` light lights no surface: given no owner, as a surface's
-lights are, the original's `AddLight` makes it a kind of its own, which no
-light map takes. It lights a mesh, and a mover with `bDynamicLightMover` as
-a moving light over it, which the original gives the mover for its owner.
-No stock light is one; `LightConsole` with `Effect=15 Spawn=64`, a lamp of
-it made 64 units over Liberty Island's dock: the dock unlit by it
-in both engines, DXEngine's frame at 1.006 of D3DDrv's, where the lamp lit
-it to 1.608. Each light lights the texels of
-its rectangle on the map alone, as the original's `SetupLight` gives it
-([light
+the stock maps' few, on 02_NYC_Street, 02_NYC_Warehouse,
+06_HongKong_WanChai_Market, 08_NYC_Underground, 10_Paris_Chateau,
+15_Area51_Final, 99_Endgame1 and DXMP_Cathedral, are moving ones but
+15_Area51_Final's three, static and no-delete, which start faded out
+(differs, bugs.md REN.49). An `LE_OmniBumpMap` light lights no surface:
+given no owner, as a surface's lights are, the original's `AddLight` makes
+it a kind of its own, which no light map takes. It lights a mesh, and a
+mover with `bDynamicLightMover` as a moving light over it, which the
+original gives the mover for its owner. No stock light is one;
+`LightConsole` with `Effect=15 Spawn=64`, a lamp of it made 64 units over
+Liberty Island's dock: the dock unlit by it in both engines, DXEngine's
+frame at 1.006 of D3DDrv's, where the lamp lit it to 1.608. Each light
+lights the texels of its rectangle on the map alone, as the original's
+`SetupLight` gives it ([light
 maps](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps)):
 those within |axis| × √(max(0, 1.05 r² − h²)) of its foot on the surface's
 plane, h its height over it, each edge rounded to the nearest texel and the
 last left out; so a light 1.025 r or more off the plane lights none of the
 map, a cylinder light high over a surface, its shape having no height,
 lights a square, and a non-incidence or shell light lights none of its far
-band past the last edge. `LightConsole` with `Effect=17 Spawn=300 View=600`, a cylinder
-lamp 300 units over Liberty Island's dock, at 1024x768: the
+band past the last edge. `LightConsole` with `Effect=17 Spawn=300 View=600`,
+a cylinder lamp 300 units over Liberty Island's dock, at 1024x768: the
 square in both engines, at 1.005 of D3DDrv's frame, where a disc of the
-light's radius came to 1.345. A
-mover's polygons are lit where the mover is, as the original's brush tracker
-files them into the level ([the movers in the
+light's radius came to 1.345. A mover's polygons are lit where the mover is,
+as the original's brush tracker files them into the level ([the movers in
+the
 BSP](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
 its static lights through the shadows raytraced at its `BrushRaytraceKey`,
 the moving ones over it there, its map built again when it moves or turns,
 each fragment the tracker filed with the ambient light of its node's zone
-([draw order and movers](#draw-order-and-movers)).
-`MoverLightConsole` at 1024x768, Liberty Island's `DeusExMover10` moved 100
-units off its place: the door at 1.003 of the original's frame under its own
-lights and 1.000 with a lamp 48 units before it, where it was 0.82 and 0.43,
-lit as if still at its key. A spotlight's cone is the original's, its cosine
-`1 − LightCone ÷ 256`, its value rounded down, about the light's rotation, a
-pawn's about its view rotation (`LightConsole` with `PawnSpot`, the player's
-own light a spotlight over Liberty Island's dock, its view straight down and
-its rotation level: the pool under it in both engines, at 1.005 of
-D3DDrv's frame, where the light's own rotation aimed it, 0.973), and a light or fog map lights
-texel i at its centre, `Pan.X + i × UScale` along U, where both engines draw
-it ([a texel's
+([draw order and movers](#draw-order-and-movers)). `MoverLightConsole` at
+1024x768, Liberty Island's `DeusExMover10` moved 100 units off its place:
+the door at 1.003 of the original's frame under its own lights and 1.000
+with a lamp 48 units before it, where it was 0.82 and 0.43, lit as if still
+at its key. A spotlight's cone is the original's, its cosine `1 − LightCone
+÷ 256`, its value rounded down, about the light's rotation, a pawn's about
+its view rotation (`LightConsole` with `PawnSpot`, the player's own light a
+spotlight over Liberty Island's dock, its view straight down and its
+rotation level: the pool under it in both engines, at 1.005 of D3DDrv's
+frame, where the light's own rotation aimed it, 0.973), and a light or fog
+map lights texel i at its centre, `Pan.X + i × UScale` along U, where both
+engines draw it ([a texel's
 place](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps)):
 `LightConsole` has 03_NYC_Airfield's `Spotlight7` and Liberty Island's
 `Spotlight0` at 1.00 of `D3DDrv`'s frames, with DXEngine's detail textures
@@ -1170,6 +1215,13 @@ maps](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#li
 world map unlit in both engines, at 1.000 of D3DDrv's frame, where DXEngine
 lit it, 0.395.
 
+Differs (bugs.md REN.46): a held item's unlit faces take the holder's glow,
+so a cloaked NPC's gun flash almost vanishes. For the owner (bugs.md D.51):
+each corner of a mesh's face lit by that face's own unlit flag, where
+Render.dll's lit faces take the unlit level at corners they share with an
+unlit one; (bugs.md D.52) three quirks of the original's pick of a mesh's
+lights.
+
 ### Brightness
 
 Matches the original's picture
@@ -1201,6 +1253,10 @@ Differs, by choice, the owner judging it close enough, its cause not found:
   Its crate, box and barrel are within 0.6%, Paul Denton held at one pose
   (`Hold`) at a median 1.01 of the original's frame, correlated at 0.984,
   and `LaserConsole`'s corridor 2% under, within 0.5% with them off.
+
+Differs (bugs.md ENG.30): a `Brightness` outside 0 to 1 in the ini is drawn
+and kept, the original's client holding it to 0 to 1 as it starts and saving
+the held value.
 
 ### The screen flash
 
@@ -1340,6 +1396,16 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   or save, its drawing reading the destroyed actor, a freed one once 128
   destroyed actors are cleaned up; the game's movers are `bNoDelete`, and
   refuse (`GlassConsole` with `Destroy`, in both engines).
+
+Differs (bugs.md REN.45): a decal never attaches to a mover, no bullet hole
+on a door or crack on breakable glass. Differs (bugs.md REN.47): a decal
+covers the coplanar chain of the node hit alone. Differs (bugs.md REN.48):
+the decal's line stops at masked and invisible polygons and refuses
+invisible ones. Differs (bugs.md REN.50): a decal's random direction leans
+toward the diagonals. Differs (bugs.md PHYS.28): a mover's `PostScale` is
+used nowhere, WanChai Market's locked door covering the middle of its
+opening alone. Differs (bugs.md PHYS.29): a mirrored mover is filed with
+faces turned inward, lines at it passing and beside it stopping.
 
 ### Fire, water and ice textures
 
@@ -1822,6 +1888,17 @@ green, white or None (`ButtonDefaultsConsole`: a button's six slots set
 apart, then each call with its first slot alone, its insensitive and focused
 look alike in both engines).
 
+Differs (bugs.md EXT.27): on a screen wider than 4:3 the root's background
+and raw background cover the 4:3 root alone, the menus' darkening and
+snapshot leaving the sides. Differs (bugs.md EXT.28): a window's own drawing
+takes its background style only with a background texture, so the persona
+screens' translucent scroll arrows are drawn opaque. Differs (bugs.md
+EXT.29): the menus' snapshot background is drawn unfiltered. Differs
+(bugs.md EXT.30): the arrow keys' focus wraps round a clip window's ends.
+Differs (bugs.md EXT.31): a window's GC state: its style, its enables,
+`PostDrawWindow`'s and `DrawActor`'s defaults. Differs (bugs.md EXT.32): a
+stretched window background is drawn unrounded.
+
 ## The menus' settings
 
 Matches the original: every setting the Controls, Game Options, Display,
@@ -1898,48 +1975,57 @@ it. Differs:
   dedicated server's starts the engine again itself, as that server, and
   Rendering Device does nothing, by choice.
 
+Differs (bugs.md ENG.29): the Display screen's Reset to Defaults sets World
+and Object Texture Detail to Low, the original keeping High. Differs
+(bugs.md ENG.32): small differences of the settings read by hand, among them
+`GET` of a property only the original's classes have, empty. For the owner
+(bugs.md D.50): a setting the ini lacks takes DXEngine's default, the
+original's classes none; (bugs.md D.60) raw mouse input; (bugs.md D.61)
+`UseJoystick` ignored.
+
 ## Sound
 
 Matches `Galaxy.dll`
 ([`galaxy-dll.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md)):
 Deus Ex's sounds are mixed as its mixer mixes them (pan, volumes, resampling
-and reverb, at `OutputRate`, which keeps its default when the ini's value
-is no number ending in `Hz`) into one OpenAL source, one behind the level's
-BSP muffled -- a closed door's too, the movers in it where it filed them
-([the movers in a line's way](#implemented-not-as-the-original)); the
-wall test is the solid-space walk the original's `FastLineCheck` makes
-(`FastWalk`, the hearing test's): a solid brush muffles through its
-invisible faces too, open space on both sides of a polygon does not
-(`SoundConsole`'s wall, recorded on both engines). The line is walked from
-the sound's actor to the eyes, as the mixer asks it
-([sounds behind walls](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#sounds-behind-walls)),
+and reverb, at `OutputRate`, which keeps its default when the ini's value is
+no number ending in `Hz`) into one OpenAL source, one behind the level's BSP
+muffled -- a closed door's too, the movers in it where it filed them ([the
+movers in a line's way](#implemented-not-as-the-original)); the wall test is
+the solid-space walk the original's `FastLineCheck` makes (`FastWalk`, the
+hearing test's): a solid brush muffles through its invisible faces too, open
+space on both sides of a polygon does not (`SoundConsole`'s wall, recorded
+on both engines). The line is walked from the sound's actor to the eyes, as
+the mixer asks it ([sounds behind
+walls](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#sounds-behind-walls)),
 whatever its length: a sound at the eyes of a listener inside solid is
-muffled (`SolidSoundConsole`, recorded on both engines: a fan at the eyes
-10 dB down in the solid under Liberty Island's pier, and up again in the
-open). Who hears
-a sound an actor plays is the original's too
+muffled (`SolidSoundConsole`, recorded on both engines: a fan at the eyes 10
+dB down in the solid under Liberty Island's pier, and up again in the open).
+Who hears a sound an actor plays is the original's too
 ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds)):
 the player within the radius ÷ √1.3, and with the level's BSP between, at
 0.35 of the volume within 0.77 of that, but for the actor's instigator.
 `SoundConsole` (its hearing test) and `SkipConsole` record both engines. A
-window's sound is the original's too
-([window sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#window-sounds)):
+window's sound is the original's too ([window
+sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#window-sounds)):
 in the world, one unit from the player, turned by its place on the screen,
 at the window's own volume, which is 0 unless the window sets it, so at
 Galaxy's floor (below). `SoundConsole`'s root beeps from the screen's left
 edge, centre and right edge come out within 0.2 dB of the original's, panned
 alike, the one at the root's own volume 41.9 dB under the centre's in both.
-A map's load stops the sounds and leaves
-the music playing, as Galaxy does when the load hands it the viewport it has
-([playing a sound](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)):
+A map's load stops the sounds and leaves the music playing, as Galaxy does
+when the load hands it the viewport it has ([playing a
+sound](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)):
 the old song fades out and the new level's starts (its player's
 `MTRAN_Fade`), a level of the same song jumping to its section
 (`LoadingConsole` with `DXCAP_RECORD=1 DXCAP_MUSIC=1`: no silence across a
 load in either engine, the fade after it, the music on after a save of the
-map it is on is loaded). Galaxy's holds on `OutputRate` (8,000 to 48,000 Hz)
-and `Latency` (10 to 250 ms) are kept, `Latency` the output's mix-ahead
-(10 ms buffers queued to it), and so are those a `SET` puts on what plays,
-where `GET` gives the value as set
+map it is on is loaded). DXEngine holds `OutputRate` to 8,000 to 48,000 Hz
+and `Latency` to 10 to 250 ms (for the owner, bugs.md D.55: Galaxy's
+`OutputRate` is one of seven names, any other text keeping its rate; D.50:
+its `Latency` held so at a `SET` alone, at a load its library's 5 to 495
+ms), `Latency` the output's mix-ahead (10 ms buffers queued to it), and so
+are those a `SET` puts on what plays, where `GET` gives the value as set
 ([settings](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#settings)):
 `DopplerSpeed` to 1-100,000 and `AmbientFactor` to 0-10. `AmbientConsole`'s
 fan, recorded on both engines, plays 23.2 dB louder at an `AmbientFactor`
@@ -1947,15 +2033,15 @@ set to 20 than at 0.7 in the original and 23.1 dB in DXEngine, as at 10
 (29.2 dB without the hold). A voice is never quieter than Galaxy's floor,
 1/256 of full
 ([volume](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#volume)):
-a sound gone out of its radius as it plays (an ambient one stops there),
-one played at a volume of 0 and one whose own slider is at 0 while the
-other is not play on at it, and only both sliders at 0 silence a sound.
+a sound gone out of its radius as it plays (an ambient one stops there), one
+played at a volume of 0 and one whose own slider is at 0 while the other is
+not play on at it, and only both sliders at 0 silence a sound.
 `AmbientConsole` with `Factor=0.01`: the fan 14.7 dB under its level at 0.7
 in the original and 14.8 dB in DXEngine (37.9 dB without the floor); with
-`Volume=1` too, 0.6 and 0.7 dB under, the floor holding the fan at
--60.1 dB in both either way. `UseStereo=False` makes the whole output mono,
-as Galaxy's
-([the mixer](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#the-mixer)):
+`Volume=1` too, 0.6 and 0.7 dB under, the floor holding the fan at -60.1 dB
+in both either way. `UseStereo=False` makes the whole output mono, as
+Galaxy's ([the
+mixer](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#the-mixer)):
 the sounds' mix folded to the mean of its two channels, and each of a song's
 voices played at the mean of its two sides' gains, a surround voice's right
 side added, not cancelled (`MusicConsole` with
@@ -1964,48 +2050,47 @@ pair after order 0, a tone hard left and one hard right, -19.7 and -19.3 dB
 in each channel in the original, -19.5 and -18.8 in DXEngine; the stock
 songs each within 0.47 dB of the original's mean power, UNATCO_Music -17.2
 dB in the original and -16.7 in DXEngine, where a fold of the stereo music
-cancelled its surround channels to -25.8). Not carried, by choice:
-Galaxy's mono mix's losses, each voice's gain rounded down to one of 64
-levels (a quiet sound silent, a fade stepped), a 16-bit sample read without
+cancelled its surround channels to -25.8). Not carried, by choice: Galaxy's
+mono mix's losses, each voice's gain rounded down to one of 64 levels (a
+quiet sound silent, a fade stepped), a 16-bit sample read without
 interpolating, nothing sent to the reverb and the music saturated keeping
-each sample's low byte (clip noise). `UseFilter`,
-`UseCDMusic` and `UseSpatial` are read, saved and `SET` and change nothing,
-as in the original. An MP3 -- the game's speech -- plays as Galaxy's
-decoder fills its ring, 32,768 frames of each channel
-([playing a sound](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)):
+each sample's low byte (clip noise). `UseFilter` and `UseCDMusic` are read,
+saved and `SET` and change nothing, as in the original; `UseSpatial` too,
+which the original's class has not (for the owner, bugs.md D.62). An MP3 --
+the game's speech -- plays as Galaxy's decoder fills its ring, 32,768 frames
+of each channel ([playing a
+sound](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)):
 4,096 frames of silence first, then its sound, then on, silent, until the
 fill sets its end, at Galaxy's ticks, timed by the music's tempo -- one
 whose data, the silence counted, ends within the first fill to that fill's
 end, 20,480 frames, one within the ring's first turn with its data, and a
 longer one to within a tick of the ring's turn after its data's end; each
 turn after the first passes over the ring's first frame, the ring's loop
-ending at its last. Galaxy's first fill is at its first tick after the
-voice starts, as its mixer's thread falls against the game's, DXEngine's at
-the voice's start, by choice, the original's usual case. `LipConsole` with
+ending at its last. Galaxy's first fill is at its first tick after the voice
+starts, as its mixer's thread falls against the game's, DXEngine's at the
+voice's start, by choice, the original's usual case. `LipConsole` with
 `Beep=True` and `DXCAP_RECORD=1`: each of its three lines 4,085 to 4,096
 frames after a beep started on the same tick, the original's 4,083 to 4,096,
 or 512 more as its voice starts against its mixer's tick; and with `Speech`
 naming the stereo `ConAudioMission01_450`, 4,085, the original's 4,107 and
-4,608. Lip sync
-is Galaxy's
-([lip sync](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#lip-sync)):
+4,608. Lip sync is Galaxy's ([lip
+sync](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#lip-sync)):
 a shape each tenth of a second of a line's time played, from 1,024 frames
 where its voice plays, the first at the update after it starts; an 8-bit
 sound's from its first 1,024 bytes wherever it plays, every other one, in
 half the FFT's input, the rest kept from the read before (`LipConsole` with
-`Speech` on the harness's `Cap8Bit`: 19 `O`s, then two `X`s as the place read
-from passes its end, in both engines). A WAV loops by its first loop only from a `smpl` chunk after its data
-chunk, as Galaxy's loader sets the sound up afresh at the data (`CapEarlyLoop`
-once in both engines), and a voice mixes the frame
-that falls on its loop's end or its data's end too.
+`Speech` on the harness's `Cap8Bit`: 19 `O`s, then two `X`s as the place
+read from passes its end, in both engines). A WAV loops by its first loop
+only from a `smpl` chunk after its data chunk, as Galaxy's loader sets the
+sound up afresh at the data (`CapEarlyLoop` once in both engines), and a
+voice mixes the frame that falls on its loop's end or its data's end too.
 `GetSoundDuration` is the original's, read from a WAV's header and 0 for an
 MP3
 ([sounds](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#sounds)):
-`OpsConsole`'s, a beep's and a mission 1 line's, alike.
-`LipConsole`: 30, 6 and 30 shapes on its three lines, the last running to
-2.9 s past its sound's 2.6 in both engines; one after another, 78.0% of them
-alike between the two engines' runs, where the original's own runs are 79.7%
-alike. Differs:
+`OpsConsole`'s, a beep's and a mission 1 line's, alike. `LipConsole`: 30, 6
+and 30 shapes on its three lines, the last running to 2.9 s past its sound's
+2.6 in both engines; one after another, 78.0% of them alike between the two
+engines' runs, where the original's own runs are 79.7% alike. Differs:
 
 - The music plays on an OpenAL source of its own, by choice.
 - The music is heard as it changes, by choice, where the original's comes
@@ -2136,6 +2221,14 @@ its side 0.05 dB from the original's, 3.36 before. A section past the last
 order is refused with Galaxy's log line and the song plays on, by choice,
 where Galaxy's silences the voices all the same and plays on at the next
 order as the row ends, a glitch.
+
+Differs (bugs.md AUD.19): the Ogg music source reads its freed decoder after
+a loop, which only a mod's Ogg song reaches. Differs (bugs.md AUD.20): an IT
+pattern's `T0x` and `T1x` dropped, Galaxy's a vibrato. Differs (bugs.md
+AUD.21): a decoded sound 1 to 4 samples longer. Differs (bugs.md AUD.22):
+with `UseStereo` off each side held before the mono fold. For the owner
+(bugs.md D.53): the gains reaching the output each 10 ms, Galaxy's each 20
+ms; (bugs.md D.54) a song's speed command of 0 dropped.
 
 ## Implemented, not as the original
 
@@ -2615,6 +2708,14 @@ Differs:
   DXEngine's swimmer goes by the real time, 3.4 units out at 0.2 s and 37 at
   0.75 s, a float step each of its first ticks, whose moves are under one.
 
+Differs (bugs.md PHYS.30): a spawn or `SetLocation` reaching into a mover is
+asked of the mover, so a LAM or grenade placed on a door, or a spy drone
+launched against one, is refused. Differs (bugs.md PHYS.31): a move of
+nothing gives a fresh hit, a walker into a wall taking one `HitWall` a step
+where the original's takes two. Differs (bugs.md PHYS.32): the walk after a
+landing begins its steps from 0. Differs (bugs.md PHYS.33): the walk's floor
+line sees what blocks the walker alone.
+
 ## Housekeeping, not seen directly
 
 **The level's tick** is the original's
@@ -2725,6 +2826,9 @@ goes with the destroyed actors; one whose `Destroy` refuses (`bStatic`,
 level still pointing at it. Code, a package and the engine's own objects --
 the levels, their infos and games, the save info and the root window -- are
 not deleted (the log says so).
+
+Differs (bugs.md ENG.33): the log keeps every line and is walked without its
+lock. Differs (bugs.md ENG.34): Windows' file read and write past 4 GiB.
 
 ## Small
 
@@ -3101,6 +3205,10 @@ walker before a tall face refused, a flier sent over it to the same
 `Destination` and refused under it, in both engines, where DXEngine's
 walker had jumped).
 
+Differs (bugs.md REN.51): the canvas's tile natives' edges. Differs (bugs.md
+ENG.35): `UTF8ToScript` taking overlong forms. Differs (bugs.md PHYS.35): no
+"fell out of the world" line.
+
 ## The command line
 
 The original's command line reaches DXEngine as one string, `--cmdline=`,
@@ -3236,6 +3344,11 @@ takes the system ini's name as given, so its class configs and `ini:` names
 read `MyMod` and the reads that name no file -- the `[URL]` section,
 `GetConfig`, the launcher's keys -- `MyMod.ini`
 ([cli-flags.md](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md)).
+
+Differs (bugs.md WIN.23): `GETCOLORDEPTHS` answers "32 16", the original's
+"16 32"; `GETCURRENTRENDERDEVICE` and `PREFERENCES` are taken by nothing;
+`EXEC` of a file not there gives the caller nothing. For the owner (bugs.md
+D.59): `GETCURRENTCOLORDEPTH` answers 32.
 
 ## Mods
 
@@ -3543,6 +3656,11 @@ border, within 0.94 to 1.04 (without the macro, [lighting](#lighting)). The
 D3D11 device keeps Surreal Engine's
 ([where it stands](../README.md#for-advanced-users)).
 
+Differs (bugs.md VM.31, VM.32): a fixed array's and a map's values, text and
+replication, which no stock package has. Differs (bugs.md VM.33): Core's
+`PointerProperty` and `StringProperty`, which the original's Core.dll has
+not.
+
 ## Multiplayer
 
 Matches the original's client and server
@@ -3630,8 +3748,12 @@ client: the connection closed, the client back on Entry by
   serving URL's address `0.0.0.0:7795`, then `127.0.0.1` with no port, alike
   in both engines); a server's host name is looked up on a thread, the game
   going on; `GETPING` and `GETLOSS` answer the server connection's best lag
-  of the last second in ms and its incoming packet loss in percent, as the
-  original's do.
+  of the last second in ms and its incoming packet loss in percent. Differs
+  (bugs.md WIN.20): the original's pawn asks its own player, a remote one's
+  connection on a server, a local one's viewport `0` and no `GETLOSS`, so on
+  a DXEngine server every player's ping is 0. Differs (bugs.md NET.29): the
+  script's links bind every address, `MULTIHOME=` and `-PRIMARYNET` the
+  game's socket's alone.
 - **The challenge's check**: a login whose answer to the challenge is wrong
   is refused, by choice, where the original's server compares the answer
   with whether the right one is 0, a slip, and so refuses only a missing
@@ -3718,21 +3840,23 @@ As in the original:
   DXEngine found it by its place (Entry's in zone 1, leaf 4).
 - A client replicates its own player's pawn to the server each tick, before
   its packets go (`ULevel::TickNetClient`): the values the script classes'
-  statements send from a client, none of the engine classes' native lists,
-  which send only from the server. Deus Ex's `FrobTarget` goes so: the
-  client finds what the player looks at, and the server's `ParseRightClick`
-  takes it, so a weapon or an item is picked up on a net game only so
-  (`PickServer` and `PickJoinConsole`, each engine as server and as client).
-  Each side keeps what the other last got of each value, and a value goes
-  when its property's compare finds it apart from that, a string's without
-  case, as the original's `Identical` and its native lists' `appStricmp`
-  take it: a name changed in case alone does not go (read: Engine.dll
-  `0x103fead0`, `0x103616e0`). The native lists' floats, a vector's and a
-  plane's too, differ by their bits, so a change from 0 to -0 goes and a
-  NaN that stays does not go again (`FloatBitsServeConsole` with
-  `FloatBitsJoinConsole`, each engine the server and the other's client:
-  each change of `Deaths` the client was in for reaches it, -0 and the NaN
-  among them).
+  statements send from a client. Differs (bugs.md NET.28): none of the
+  engine classes' native lists, where the original's player pawn's sends its
+  `Password`, `bReadyToPlay` and `AdditionalViews` from a client, so a
+  DXEngine client's spy drone and camera feeds show only what is relevant to
+  its player. Deus Ex's `FrobTarget` goes so: the client finds what the
+  player looks at, and the server's `ParseRightClick` takes it, so a weapon
+  or an item is picked up on a net game only so (`PickServer` and
+  `PickJoinConsole`, each engine as server and as client). Each side keeps
+  what the other last got of each value, and a value goes when its
+  property's compare finds it apart from that, a string's without case, as
+  the original's `Identical` and its native lists' `appStricmp` take it: a
+  name changed in case alone does not go (read: Engine.dll `0x103fead0`,
+  `0x103616e0`). The native lists' floats, a vector's and a plane's too,
+  differ by their bits, so a change from 0 to -0 goes and a NaN that stays
+  does not go again (`FloatBitsServeConsole` with `FloatBitsJoinConsole`,
+  each engine the server and the other's client: each change of `Deaths` the
+  client was in for reaches it, -0 and the NaN among them).
 - A call that goes to the other side, and one a simulated or dumb proxy does
   not run (a function not simulated), writes nothing: the original's
   `ProcessInternal` runs none of it
@@ -3889,6 +4013,18 @@ original); a URL of another protocol is logged as the original's logs it,
 `LaunchURL <url>`, and opened nowhere, by choice, the level playing on,
 where the original's hands it to the system to open, so that a server's
 travel would open any handler on its clients' systems.
+
+Differs (bugs.md WIN.21): every `ConsoleCommand` is run as the local
+viewport's, where the original's pawn runs one for its own player and an
+actor through the game engine. Differs (bugs.md WIN.22): a dedicated server
+takes no `SAY`, `GETCURRENTTICKRATE` or `GETMAXTICKRATE`. Differs (bugs.md
+WIN.24): the clipboard natives on a dedicated server. Differs (bugs.md
+NET.30): a UdpLink whose `BindPort` failed keeps a socket that works.
+Differs (bugs.md NET.31): small replication differences. Differs (bugs.md
+NET.32): after a value too big for a bunch, a server sends that property no
+more. For the owner (bugs.md D.56): a value that overflows the bunch rolls
+its whole field back; (bugs.md D.57) a failed download's temporary file
+deleted.
 
 ## Not needed for single player
 
