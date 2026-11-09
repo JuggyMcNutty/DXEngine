@@ -597,9 +597,8 @@ that is not a number, the Entry level's listener sensing its own level's
 maker, the warnings' lines and counts); a non-pawn's visual check is one line check that any
 wall or mover stops, whether it blocks sight or not, as the original's (by
 reading: no stock listener that is no pawn listens for a visual event).
-Differs (bugs.md D.77): the warning of 256 senders names the
-event, where the original's names the event type's own object
-(`AIEventType<n>`).
+By choice, the warning of 256 senders names the event, where the
+original's names the event type's own object (`AIEventType<n>`).
 
 ### Moving: wandering and tactical movement
 
@@ -951,11 +950,11 @@ with that class's settings, its section's, SoftDrv's in the game's ini, as
 the original's software renderer does: no coronas and no shiny surfaces
 (`CoronaConsole` with `-nohard`: no glow in any of its six shots in either
 engine); a `SET` or `TOGGLEDETAILTEXTURES` saves them in that section, the
-engine's own left to `GameRenderDevice`'s device. Differs (bugs.md D.78):
-under `-nohard` the Display menu's Detail Textures, which sets
-`GameRenderDevice`'s, reaches the software device in use, where the
-original's reaches `D3DDrv`'s class, changing nothing on screen. Differs by choice:
+engine's own left to `GameRenderDevice`'s device. Differs by choice:
 
+- **Detail Textures under `-nohard`**: the Display menu's checkbox, which
+  sets `GameRenderDevice`'s, reaches the software device in use, where the
+  original's reaches `D3DDrv`'s class, changing nothing on screen.
 - **Vsync** only through SDL's renderer: X11's and Win32's presents do not
   wait for it, and the engine's own Wayland window (a dev build's) copies
   the frame into its buffer and commits nothing of itself: untried with the
@@ -1661,11 +1660,11 @@ its surface's polygon, so that on screen it fits the polygon's outline
 degrees above and turned 25 degrees, where the build before's lay 4 to 5
 pixels lower and 2 to 4 left); on a mover's face clipped to the polygon
 whole, as DXEngine draws it. A save's new tracker makes the movers'
-surfaces anew without their decals, as the original's does. Differs
-(bugs.md D.83): a decal the grid lays on a mover's face keeps that mover's
-rotation, where the original's keeps none and is drawn turned by the
-mover's whole rotation. Differs (bugs.md D.84): a decal on a mover's face
-stays drawn on it as the mover moves, its actor carried with it, where the
+surfaces anew without their decals, as the original's does. By choice, a
+decal the grid lays on a mover's face keeps that mover's rotation, where the
+original's keeps none and is drawn turned by the mover's whole rotation; and
+a decal on a mover's face stays drawn on it as the mover moves, its actor
+carried with it, where the
 original's is drawn there no more once the door has turned, its actor left
 where it was laid and its base None (`MoverDecalConsole`, the door
 opened). Differs (bugs.md REN.71): a mover's face turned from where it was
@@ -2085,8 +2084,8 @@ from the original's code:
   through its own (`GCStateConsole`: every line alike); `DrawActor` with
   `bUnlit` or `ScaleGlow` left out draws the actor lit at a glow of 1, as
   the original's native passes them (read from both codes; every stock call
-  gives both). The pointer is drawn through the root's GC. Differs (bugs.md
-  D.80): it is never smoothed, where the original's is once the Snapshot
+  gives both). The pointer is drawn through the root's GC, by choice never
+  smoothed, where the original's is once the Snapshot
   option has turned the root's smoothing on (read from both codes). A
   window's background, stretched or tiled, is put on whole units
   as every tile is, as the original's `DrawIconPattern` puts it (read:
@@ -3379,8 +3378,8 @@ not deleted (the log says so).
   ([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys)):
   a shift, control or alt its name for both sides alone, as a tap in the
   original's window (`SideKeyConsole` beside `tools/dxcap/sidekeys.py`, each
-  tap `Shift`, `Ctrl` or `Alt` alone in both engines; Differs, bugs.md
-  D.79: its side's own, `LShift`, `UnknownA4` for the left alt, which the
+  tap `Shift`, `Ctrl` or `Alt` alone in both engines; by choice its side's
+  own, `LShift`, `UnknownA4` for the left alt, which the
   original's poll presses for one held at an input reset, a map's load, a
   join or the focus, never pressed), Caps Lock, the punctuation, the
   keypad's operators and Enter, Print Screen (`PrintScrn`), the Windows and
@@ -3533,9 +3532,9 @@ not deleted (the log says so).
   screen, each logged as the original's logs it, `Received SC_SCREENSAVE` and
   `Received SC_MONITORPOWER` (`wincheck.exe syscmd`: the lines in both
   engines' logs, by the Win32 window and by SDL3's on Windows, none in the
-  build before's). Differs (bugs.md D.82): the Win32 window keeps the display
-  on while it is open, as SDL3's does, and takes a mouse button's release
-  while its menu is open, where the original's drops it. The windowed sizes Screen
+  build before's). By choice, the Win32 window keeps the display on while it
+  is open, as SDL3's does, and takes a mouse button's release while its menu
+  is open, where the original's drops it. The windowed sizes Screen
   Resolution offers are those of the display the window is on, by that
   display's own DPI, on a desktop of mixed DPI too (by reading).
 - **The field of view** is the original's setting: the player's `DefaultFOV`
@@ -3714,9 +3713,9 @@ bytes are each class's properties', where the original's are what its
 serializer walks of each object. Differs (bugs.md WIN.38): Galaxy's words
 (`MUSICORDER`, `ASTAT`, `CDTRACK`, `CDVOLUME`, `RECORDSOUND`,
 `ENDRECORDSOUND`) and the original launcher's `EDITACTOR` are taken by
-nothing. Differs (bugs.md D.81): `OBJ GARBAGE`
-collects at the frame's end, the collector running with no script under
-way, where the original's collects at once.
+nothing. By choice, `OBJ GARBAGE` collects at the frame's end, the
+collector running with no script under way, where the original's collects at
+once.
 
 ## The command line
 
@@ -4227,8 +4226,8 @@ script loads that another version of a package does not suit is refused
 whole, a map's load failing as its check fails (`LocalMapConsole` on the
 sweep's `BadImport.dx`: "Failed to load 'BadImport.dx': Can't find Class in
 file 'Class DeusEx.Mission0X'", the start on Dx.Dx, in both engines). In a
-save, one not found is None too, where the original refuses the save
-(bugs.md D.75): the camera of a third-person conversation going on as its
+save, one not found is None too, by choice, where the original refuses the
+save: the camera of a third-person conversation going on as its
 level was left, which ConSys makes in package `DeusEx`, is one, the original
 never entering that level again (`ConSaveConsole`: Battery Park left 3 s in,
 during its first conversation, entered again from the street in DXEngine;
@@ -4616,8 +4615,8 @@ As in the original:
   Windows, as the original's, and on Linux, by WinSock's numbers, the last
   error a link's socket met, 0 after a read that took a datagram, as
   WinSock's under Wine (`UdpEdgesConsole`: each line alike in both engines,
-  but `SendBinary`'s answer, above, and `ReadText`'s string). Differs
-  (bugs.md D.76): `ReadText`'s string is the datagram's text alone, where
+  but `SendBinary`'s answer, above, and `ReadText`'s string). By choice,
+  `ReadText`'s string is the datagram's text alone, where
   the original's runs on past it into its buffer's earlier bytes to a NUL,
   at most 1,023 characters: `short` read after a 5,000-character datagram
   as `short` and 1,018 of its x's.
@@ -4736,9 +4735,9 @@ it](ENGINE.md#running-it); `TypedServer` fed `SAY`, a word nothing takes,
 `GETMAXTICKRATE`, `SERVERTRAVEL` and `EXIT`: the say heard with its beep,
 "Unrecognized command", "20.000000", the next map's start and "Closing by
 request" in its log, none of them in the build before's).
-Differs (bugs.md D.81): PlayerPawn's clipboard natives on a dedicated
-server, which has no window, hold the text in the engine, a copy pasted
-back, where the original's reach the system's clipboard. By choice, an object
+By choice, PlayerPawn's clipboard natives on a dedicated server, which has
+no window, hold the text in the engine, a copy pasted back, where the
+original's reach the system's clipboard; an object
 or a name the package map has not goes as None, once, where the original's
 goes as -1, which the other side reads as channel 511's actor where it has
 one and as another name; and a refused file request's close goes reliably,

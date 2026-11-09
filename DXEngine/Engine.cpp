@@ -810,7 +810,7 @@ void Engine::RunTypedLine(const std::string& typed)
 // which has no window, holds the text itself, a copy to paste back, where the
 // original's goes to Windows' clipboard as any game's (Core's
 // appClipboardCopy and appClipboardPaste, from PlayerPawn's natives,
-// Engine.dll 0x103df580, 0x103df700; bugs.md D.81).
+// Engine.dll 0x103df580, 0x103df700), by choice.
 void Engine::SetClipboard(const std::string& text)
 {
 	if (window)
@@ -4217,7 +4217,7 @@ bool Engine::ObjectExec(const std::string& line, ExecOutput& out)
 		{
 			// The original's collects at once (0x101533d2); DXEngine's at
 			// this frame's end, its collector running with no script under
-			// way (bugs.md D.81)
+			// way, by choice
 			RequestGarbageCollection("obj garbage");
 			return true;
 		}

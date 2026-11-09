@@ -263,7 +263,7 @@ public:
 	// the original's log window runs one, its output logged.
 	void RunTypedLine(const std::string& typed);
 	// The desktop's clipboard through the window; with none, a dedicated
-	// server's, text the engine holds (bugs.md D.81).
+	// server's, text the engine holds, by choice.
 	void SetClipboard(const std::string& text);
 	std::string GetClipboard();
 	std::string ServerClipboard;

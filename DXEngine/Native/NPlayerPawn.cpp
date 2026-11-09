@@ -42,8 +42,7 @@ void NPlayerPawn::ConsoleCommand(UObject* Self, const std::string& Command, std:
 }
 
 // The desktop's clipboard, by choice (NATIVES.md, the UI): the 16-bit text
-// as UTF-8, both ways; a dedicated server's held by the engine (bugs.md
-// D.81)
+// as UTF-8, both ways; a dedicated server's held by the engine, by choice
 void NPlayerPawn::CopyToClipboard(UObject* Self, const ScriptString& Text)
 {
 	engine->SetClipboard(ScriptToUTF8(Text));
