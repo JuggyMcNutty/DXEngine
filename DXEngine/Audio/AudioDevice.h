@@ -25,7 +25,7 @@ class AudioDevice
 {
 public:
 	// mixAheadMs: the output's mix-ahead (Galaxy's Latency), 10 ms buffers; stereo: else mono, as Galaxy's UseStereo off
-	static std::unique_ptr<AudioDevice> Create(int frequency, int numVoices, int musicBufferCount, int musicBufferSize, int mixAheadMs, bool stereo);
+	static std::unique_ptr<AudioDevice> Create(int frequency, int numVoices, int mixAheadMs, bool stereo);
 	// A device that plays nothing, for a machine whose output will not start
 	// (bugs.md AUD.11): its voices free, never playing.
 	static std::unique_ptr<AudioDevice> CreateSilent(int numVoices);

@@ -842,15 +842,16 @@ its code is:
   and `FindBestInventoryPath` searches as the original's ([mods](NATIVES.md#mods)).
 - **The audio mixer**: `GalaxyMixer` (`DXEngine/Audio/GalaxyMixer.cpp`) mixes Deus Ex's sounds
   as `Galaxy.dll` does (pan, fall-off, sliders, resampling, its reverb) and streams them through
-  one OpenAL source at `OutputRate`; the music streams through one of its own, from a thread of
-  its own, where a song that fails as it plays stops and the game goes on, the main thread
-  logging why (`Music: the song stopped:`), and one that fails to load plays none, logged
-  (`glxLoadMusic(&Mem, GLX_LOADFROMMEMORY ) failed:`). Each is saturated at 16 bits and OpenAL
-  adds them with its output limiter off, saturating, as Galaxy adds them. A song is played by
-  libopenmpt (`Thirdparty/openmpt`), with changes of DXEngine's own to it: its mixer given
-  Galaxy's pan law and mono mix (`render.panning.galaxy`), its player Galaxy's entry into
-  order 0, its 8xx's pans and surrounds and its section change, the section starting as the
-  playing row ends and the order count the order before it until then (`play.galaxy`); a
+  one OpenAL source at `OutputRate`, its output limiter off; the thread that mixes them renders
+  the song at that rate and adds it, the music saturated at 16 bits at its gain and the sum
+  saturated, as Galaxy adds them, before any volume of the system's. A song that fails as it
+  plays stops and the game goes on, the main thread logging why (`Music: the song stopped:`),
+  and one that fails to load plays none, logged (`glxLoadMusic(&Mem, GLX_LOADFROMMEMORY )
+  failed:`). A song is played by libopenmpt (`Thirdparty/openmpt`), with changes of DXEngine's
+  own to it: its mixer given Galaxy's pan law and mono mix (`render.panning.galaxy`), its
+  player Galaxy's entry into order 0, its 8xx's pans and surrounds, its vibrato, retrigger and
+  note cut, and its section change, the section starting as the playing row ends and the
+  order count the order before it until then (`play.galaxy`); a
   section past a song's last order is refused, logged as Galaxy logs it. With no output that
   starts, a device
   that plays nothing takes OpenAL's place (`Audio initialization failed.`). DXEngine's audio

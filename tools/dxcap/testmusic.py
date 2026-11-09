@@ -5,7 +5,8 @@ tones, of a kind the game ships none of, made here rather than kept as a file.
 
     testmusic.py <folder>
 
-  CapTone.it    the song alone, for a MUSIC IMPORT should a package not do.
+  CapTone.it, CapCommands.it  the songs alone, for a MUSIC IMPORT should a
+                package not do.
   CapMusic.umx  a package of version 68, the game's own, holding:
     CapTone     an Impulse Tracker module, as the game's songs are, of samples
                 alone (no instruments): speed 6, tempo 125, linear slides,
@@ -40,6 +41,33 @@ tones, of a kind the game ships none of, made here rather than kept as a file.
                 song's end after its 64 rows, then its loop to order 0, which
                 Galaxy enters with each channel's own pan again
                 (MusicConsole; tools/dxcap/sound.py --music)
+    CapCommands an Impulse Tracker module of the same kind, of tone A's
+                sample and a burst's (nine of tone A's periods, then
+                silence, its loop over the silence, so a voice never ends),
+                for the pattern commands Galaxy's player plays its own way,
+                one order each, from order 0 (MusicConsole's Songs;
+                tools/dxcap/commands.py):
+      order 0   tone A struck on row 0, T1F on rows 0 to 31 and H1F on
+                rows 32 to 63, at speed 6: Galaxy's loader keeps a T under
+                0x20 and its player takes it for a vibrato as H (0x1062a167,
+                0x10616eb0), its vibrato y/8 of a semitone deep, down
+                first, none on a row's first tick
+      order 1   the burst struck on row 0 with Q04, Q04 on rows 1 to 31 with
+                no note, at speed 6: Galaxy's E9y moves the voice back to
+                its start on each tick of a row that is a multiple of 4,
+                tick 0 among them, so the bursts come 4 and 2 ticks apart
+                in turn, where IT's count carried over the rows gives 4
+      order 2   speed 32 (A20 on channel 2): tone A struck with SCF on rows
+                0, 2 and 6 and with SC7 on row 4, a volume of 64 with no
+                note on rows 1, 3, 5 and 7, and C00 on row 7, the song's
+                end: Galaxy's ECx takes the note's volume to 0 past tick x,
+                SCF from tick 16, and the next row's volume brings the note
+                back
+    CapWave     a Music of FileType wav, 2 s of tone A, 16-bit mono at
+                22,050 Hz: none of Galaxy's music loaders takes a WAV, its MOD
+                loader, the last, failing with 15 (Galaxy.dll 0x10618be0,
+                0x106252f0), so the original logs glxLoadMusic(&Mem,
+                GLX_LOADFROMMEMORY ) failed: 15 and plays none
 
 Galaxy's IT loader (Galaxy.dll 0x10628990) and OpenMPT both read it: the
 header's orders, sample and pattern offsets in IT's order, IMPS samples, IT's
@@ -80,45 +108,101 @@ def compact(v):
 def sample_data(period, periods):
     frames = LOOP_START + period * periods
     return frames, struct.pack('<%dh' % frames, *(
-        int(round(LEVEL * 32767 * math.sin(2 * math.pi * i / period))) for i in range(frames)))
+        int(round(LEVEL * 32767 * math.sin(2 * math.pi * i / period))) for i in range(frames))), LOOP_START
 
 
-def imps(name, frames, pointer):
+BURST = 900          # the burst's frames, nine of tone A's periods
+BURST_LOOP = 1000    # its silent loop's start, to its end at 2,000
+
+
+def burst_data():
+    frames = 2 * BURST_LOOP
+    return frames, struct.pack('<%dh' % frames, *(
+        int(round(LEVEL * 32767 * math.sin(2 * math.pi * i / 100))) if i < BURST else 0
+        for i in range(frames))), BURST_LOOP
+
+
+def imps(name, frames, loop_start, pointer):
     # IMPS: DOS name, 0, global volume 64, flags (data, 16-bit, loop), volume
     # 64, name, convert (signed), default pan off, length, loop, C5Speed,
     # no sustain loop, the data's place, no vibrato
     return (b'IMPS' + name.encode('latin-1')[:12].ljust(12, b'\0') + bytes([0, 64, 0x01 | 0x02 | 0x10, 64]) +
             name.encode('latin-1')[:26].ljust(26, b'\0') + bytes([0x01, 32]) +
-            struct.pack('<IIIIIII', frames, LOOP_START, frames, RATE, 0, 0, pointer) + bytes(4))
+            struct.pack('<IIIIIII', frames, loop_start, frames, RATE, 0, 0, pointer) + bytes(4))
 
 
-def pattern(rows):
-    """rows: {row: [(channel, note, instrument, command, parameter), ...]};
-    note, instrument or command None when the cell has none."""
+def pattern(rows, count=64):
+    """rows: {row: [(channel, note, instrument, command, parameter[, volume]),
+    ...]}; note, instrument, command or volume None when the cell has none."""
     data = bytearray()
-    for r in range(64):
-        for channel, note, instrument, command, parameter in rows.get(r, []):
+    for r in range(count):
+        for cell in rows.get(r, []):
+            channel, note, instrument, command, parameter = cell[:5]
+            volume = cell[5] if len(cell) > 5 else None
             mask = (0x01 if note is not None else 0) | (0x02 if instrument is not None else 0) | \
-                   (0x08 if command is not None else 0)
+                   (0x04 if volume is not None else 0) | (0x08 if command is not None else 0)
             data += bytes([0x80 | (channel + 1), mask])
             if note is not None:
                 data.append(note)
             if instrument is not None:
                 data.append(instrument)
+            if volume is not None:
+                data.append(volume)
             if command is not None:
                 data += bytes([command, parameter])
         data.append(0)
-    return struct.pack('<HH', len(data), 64) + bytes(4) + bytes(data)
+    return struct.pack('<HH', len(data), count) + bytes(4) + bytes(data)
 
 
 C5 = 60          # IT's C-5
 C2 = 24          # IT's C-2, three octaves under
 A = 1            # IT's command A, the speed
 B = 2            # IT's command B, a jump to an order
+C = 3            # IT's command C, a break to a row of the next order
 T = 20           # IT's command T, the tempo
 X = 24           # IT's command X, a pan, which Galaxy reads as the MOD's 8xx
+H = 8            # IT's command H, a vibrato
+Q = 17           # IT's command Q, a retrigger
+S = 19           # IT's command S, SCx a note cut
 LOUD = range(3, 11)  # the loud order's channels, 4 to 11
 SURROUND, SIDE = 12, 13  # the surround order's channels, 13 and 14
+
+
+def it(title, orders, patterns, samples, pan):
+    """An IT module of samples alone: speed 6, tempo 125, linear slides,
+    global volume 128, mix volume 48, every channel at volume 64; samples
+    (frames, data, loop start) as sample_data gives them."""
+    volume = bytes([64] * 64)
+    header = (b'IMPM' + title.encode('latin-1').ljust(26, b'\0') + struct.pack('<H', 0x1004) +
+              struct.pack('<HHHHHHHH', len(orders), 0, len(samples), len(patterns), 0x0214, 0x0214,
+                          0x0001 | 0x0008, 0) +
+              bytes([128, 48, 6, 125, 128, 0]) + struct.pack('<HII', 0, 0, 0) + bytes(pan) + volume)
+    assert len(header) == 0xC0
+
+    at = len(header) + len(orders) + 4 * len(samples) + 4 * len(patterns)
+    imps_at = []
+    for _ in samples:
+        imps_at.append(at)
+        at += 0x50
+    pattern_at = []
+    for p in patterns:
+        pattern_at.append(at)
+        at += len(p)
+    data_at = []
+    for frames, data, _ in samples:
+        data_at.append(at)
+        at += len(data)
+
+    out = bytearray(header + bytes(orders))
+    out += struct.pack('<%dI' % len(samples), *imps_at) + struct.pack('<%dI' % len(patterns), *pattern_at)
+    for i, (frames, _, loop_start) in enumerate(samples):
+        out += imps('%s%d' % (title, i + 1), frames, loop_start, data_at[i])
+    for p in patterns:
+        out += p
+    for _, data, _ in samples:
+        out += data
+    assert len(out) == at
+    return bytes(out)
 
 
 def module():
@@ -144,40 +228,44 @@ def module():
     for c in LOUD:
         pan[c] = 32
     pan[SURROUND], pan[SIDE] = 100, 32
-    volume = bytes([64] * 64)
-    header = (b'IMPM' + b'CapTone'.ljust(26, b'\0') + struct.pack('<H', 0x1004) +
-              struct.pack('<HHHHHHHH', len(orders), 0, len(samples), len(patterns), 0x0214, 0x0214,
-                          0x0001 | 0x0008, 0) +
-              bytes([128, 48, 6, 125, 128, 0]) + struct.pack('<HII', 0, 0, 0) + bytes(pan) + volume)
-    assert len(header) == 0xC0
-
-    at = len(header) + len(orders) + 4 * len(samples) + 4 * len(patterns)
-    imps_at = []
-    for _ in samples:
-        imps_at.append(at)
-        at += 0x50
-    pattern_at = []
-    for p in patterns:
-        pattern_at.append(at)
-        at += len(p)
-    data_at = []
-    for frames, data in samples:
-        data_at.append(at)
-        at += len(data)
-
-    out = bytearray(header + bytes(orders))
-    out += struct.pack('<%dI' % len(samples), *imps_at) + struct.pack('<%dI' % len(patterns), *pattern_at)
-    for i, (frames, _) in enumerate(samples):
-        out += imps('CapTone%d' % (i + 1), frames, data_at[i])
-    for p in patterns:
-        out += p
-    for _, data in samples:
-        out += data
-    assert len(out) == at
-    return bytes(out)
+    return it('CapTone', orders, patterns, samples, pan)
 
 
-NAMES = ['None', 'Core', 'Engine', 'Package', 'Class', 'Music', 'CapTone', 'it']
+def commands():
+    """CapCommands: the orders of the commands Galaxy plays its own way."""
+    orders = [0, 1, 2, 255]
+    tone, burst = 1, 2
+    vibrato = {0: [(0, C5, tone, T, 0x1F)]}
+    for r in range(1, 32):
+        vibrato[r] = [(0, None, None, T, 0x1F)]
+    for r in range(32, 64):
+        vibrato[r] = [(0, None, None, H, 0x1F)]
+    retrigger = {0: [(0, C5, burst, Q, 0x04)]}
+    for r in range(1, 32):
+        retrigger[r] = [(0, None, None, Q, 0x04)]
+    cut = {0: [(0, C5, tone, S, 0xCF), (1, None, None, A, 0x20)], 2: [(0, C5, tone, S, 0xCF)],
+           4: [(0, C5, tone, S, 0xC7)], 6: [(0, C5, tone, S, 0xCF)]}
+    for r in (1, 3, 5, 7):
+        cut[r] = [(0, None, None, None, 0, 64)]
+    cut[7].append((1, None, None, C, 0x00))
+    patterns = [pattern(vibrato), pattern(retrigger, 32), pattern(cut, 32)]
+    samples = [sample_data(*TONES[0][1:]), burst_data()]
+    pan = bytearray([32 | 128] * 64)
+    pan[0], pan[1] = 32, 32
+    return it('CapCommands', orders, patterns, samples, pan)
+
+
+def wave():
+    """CapWave's data: 2 s of tone A, a RIFF WAV of 16-bit mono samples."""
+    rate, frames = 22050, 44100
+    data = struct.pack('<%dh' % frames, *(int(round(LEVEL * 32767 * math.sin(2 * math.pi * 441.0 * i / rate)))
+                                          for i in range(frames)))
+    fmt = struct.pack('<HHIIHH', 1, 1, rate, 2 * rate, 2, 16)
+    return (b'RIFF' + struct.pack('<I', 4 + 8 + len(fmt) + 8 + len(data)) + b'WAVE' +
+            b'fmt ' + struct.pack('<I', len(fmt)) + fmt + b'data' + struct.pack('<I', len(data)) + data)
+
+
+NAMES = ['None', 'Core', 'Engine', 'Package', 'Class', 'Music', 'CapTone', 'it', 'CapCommands', 'CapWave', 'wav']
 
 
 def name(n):
@@ -186,21 +274,27 @@ def name(n):
 
 def package():
     # As the game's music packages: Engine (a package) and its class Music
-    # imported; one Music export, its FileType it, its data a lazy array
-    # (the place past it, then its count), as Engine's UMusic serializes it.
+    # imported; a Music export for each song, its FileType it (CapWave's
+    # wav), its data a lazy array (the place past it, then its count), as
+    # Engine's UMusic serializes it.
     imports = [('Core', 'Package', 0, 'Engine'), ('Core', 'Class', -1, 'Music')]
-    song = module()
+    songs = [('CapTone', 'it', module()), ('CapCommands', 'it', commands()), ('CapWave', 'wav', wave())]
     header_size = 4 + 2 + 2 + 4 + 6 * 4 + 16 + 4 + 8
     name_table = b''.join(compact(len(n) + 1) + n.encode('latin-1') + b'\0' + struct.pack('<I', 0x70010) for n in NAMES)
     import_table = b''.join(name(cp) + name(cn) + struct.pack('<i', pk) + name(on) for cp, cn, pk, on in imports)
     name_at = header_size
     import_at = name_at + len(name_table)
-    data_at = import_at + len(import_table)
-    head = name('None') + name('it')
-    count = compact(len(song))
-    export_data = head + struct.pack('<i', data_at + len(head) + 4 + len(count) + len(song)) + count + song
-    export_at = data_at + len(export_data)
-    exports = [(-2, 'CapTone', 0xf0004, data_at, len(export_data))]
+    at = import_at + len(import_table)
+    export_data = b''
+    exports = []
+    for title, kind, song in songs:
+        head = name('None') + name(kind)
+        count = compact(len(song))
+        data = head + struct.pack('<i', at + len(head) + 4 + len(count) + len(song)) + count + song
+        exports.append((-2, title, 0xf0004, at, len(data)))
+        export_data += data
+        at += len(data)
+    export_at = at
     export_table = b''.join(compact(cls) + compact(0) + struct.pack('<i', 0) + name(n) + struct.pack('<I', flags) +
                             compact(size) + compact(at) for cls, n, flags, at, size in exports)
     header = (struct.pack('<IHHI', 0x9e2a83c1, 68, 0, 1) +
@@ -215,6 +309,8 @@ def main():
     os.makedirs(folder, exist_ok=True)
     with open(os.path.join(folder, 'CapTone.it'), 'wb') as f:
         f.write(module())
+    with open(os.path.join(folder, 'CapCommands.it'), 'wb') as f:
+        f.write(commands())
     with open(os.path.join(folder, 'CapMusic.umx'), 'wb') as f:
         f.write(package())
 

@@ -25,7 +25,11 @@ namespace GalaxyMusic
 	// 64 a surround a quarter left (0x10616eb0, 0x10628990), and its section
 	// change silences the voices and starts the section as the playing row
 	// ends, the song not replayed to it, its order count the order before
-	// until then (Update, 0x1060a822; 0x10616f29): OpenMPT's play.galaxy,
-	// DXEngine's own in Thirdparty/openmpt (bugs.md AUD.16, AUD.17).
+	// until then (Update, 0x1060a822; 0x10616f29); its vibrato is its own,
+	// its retrigger moves a voice back on the row's ticks that are multiples
+	// of its parameter, and its note cut takes the volume to 0 past its
+	// tick, the note playing on (0x10616eb0): OpenMPT's play.galaxy,
+	// DXEngine's own in Thirdparty/openmpt (bugs.md AUD.16, AUD.17, AUD.20,
+	// AUD.24).
 	constexpr const char* PlayerCtl = "play.galaxy";
 }

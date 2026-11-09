@@ -97,14 +97,19 @@ namespace
 			case 0x9:
 				return { CmdX, 0xA4 };                        // any S9x its 8xx's surround, 0xA4
 			case 0xC:
-				// The note's volume goes to 0 a tick later than IT's cut
-				return y < 15 ? Effect{ CmdS, (uint8_t)(0xC0 | (y + 1)) } : Effect{};
+				// The note's volume goes to 0 past tick y, a tick later than
+				// IT's cut, SCF from tick 16: libopenmpt's Galaxy player
+				// (play.galaxy) takes the parameter as Galaxy's
+				return { CmdS, p };
 			default:
 				return {};                                    // S0, S1, S2, S5, S6, S7, SA, SF
 			}
 		case CmdT:
-			// Galaxy's Fxx: a tempo over 32, and 32 a speed; a tempo slide none
-			return p > 0x20 ? Effect{ CmdT, p } : p == 0x20 ? Effect{ CmdA, 0x20 } : Effect{};
+			// Galaxy's Fxx: a tempo over 32, and 32 a speed; under 0x20 the
+			// command kept, which its player takes by its low nibble, 4, for
+			// a vibrato at the parameter (0x1062a167-0x1062a172): IT's H,
+			// T0x a vibrato of depth x at the speed remembered
+			return p > 0x20 ? Effect{ CmdT, p } : p == 0x20 ? Effect{ CmdA, 0x20 } : Effect{ CmdH, p };
 		case CmdX:
 			// Galaxy's 8xx, its parameter as it is, which libopenmpt's Galaxy
 			// player takes as Galaxy's (play.galaxy; Snd_fx.cpp's Panning): 0 to

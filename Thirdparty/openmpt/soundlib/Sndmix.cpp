@@ -1666,12 +1666,69 @@ void CSoundFile::ProcessArpeggio(CHANNELINDEX nChn, int32 &period, Tuning::NOTEI
 }
 
 
+// DXEngine (bugs.md AUD.20): Galaxy.dll's vibrato waveforms, 64 steps a
+// cycle (Galaxy.dll 0x1063daa0): ProTracker's sine, 255 at its top, a ramp
+// from 255 down to -255 and a square of 255; a waveform past them (S33 and
+// up), which reads the table after them there, the sine. Galaxy raises its
+// pitch value, in 256ths of a semitone, by the depth times 32 times the
+// step's value over 256, and its rate takes 64ths (0x10615660): the pitch
+// lowered by the depth times the value over 32 in 64ths, rounded down.
+static int GalaxyVibrato(int type, uint32 index, int depth)
+{
+	static constexpr int16 Sine[32] =
+	{
+		0, 24, 49, 74, 97, 120, 141, 161, 180, 197, 212, 224, 235, 244, 250, 253,
+		255, 253, 250, 244, 235, 224, 212, 197, 180, 161, 141, 120, 97, 74, 49, 24,
+	};
+	static constexpr int16 Ramp[32] =
+	{
+		255, 247, 239, 231, 223, 215, 206, 198, 190, 182, 174, 166, 158, 150, 142, 134,
+		125, 117, 109, 101, 93, 85, 77, 69, 61, 53, 45, 36, 28, 20, 12, 4,
+	};
+	index &= 63;
+	int value;
+	switch(type & 0x03)
+	{
+	case 1:
+		value = index < 32 ? Ramp[index] : -Ramp[63 - index];
+		break;
+	case 2:
+		value = index < 32 ? 255 : -255;
+		break;
+	default:
+		value = index < 32 ? Sine[index] : -Sine[index - 32];
+		break;
+	}
+	const int lowered = depth * value;
+	return -(lowered >= 0 ? lowered / 32 : -((31 - lowered) / 32));
+}
+
+
 void CSoundFile::ProcessVibrato(CHANNELINDEX nChn, int32 &period, Tuning::RATIOTYPE &vibratoFactor)
 {
 	ModChannel &chn = m_PlayState.Chn[nChn];
 
 	if(chn.dwFlags[CHN_VIBRATO])
 	{
+		// DXEngine (bugs.md AUD.20): Galaxy.dll's vibrato, its player's
+		// command 4 (IT's H, and T under 0x20) and 6 (K) (Galaxy.dll
+		// 0x10616eb0; its mixer, 0x10614920): none on a row's first tick,
+		// which clears it, its place kept there; on each tick after, the place
+		// a step of the speed on, 64 steps a cycle, then the pitch lowered by
+		// the waveform's value (GalaxyVibrato), in 64ths of a semitone
+		// throughout: the depth over 8 of a semitone at the sine's top, twice
+		// IT's, and down first
+		if(m_galaxyPlayer && !chn.HasCustomTuning())
+		{
+			if(m_PlayState.m_nTickCount == 0)
+				return;
+			chn.nVibratoPos += static_cast<uint8>(4u * chn.nVibratoSpeed);
+			const int amount = GalaxyVibrato(chn.nVibratoType, chn.nVibratoPos / 4u, static_cast<int>(chn.nVibratoDepth / 4u));
+			DoFreqSlide(chn, period, amount / 4 * 4);
+			DoFreqSlide(chn, period, amount % 4);
+			return;
+		}
+
 		const bool advancePosition = !m_PlayState.m_flags[SONG_FIRSTTICK] || ((GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT | MOD_TYPE_MED)) && !(m_SongFlags[SONG_ITOLDEFFECTS]));
 
 		if(GetType() == MOD_TYPE_669)

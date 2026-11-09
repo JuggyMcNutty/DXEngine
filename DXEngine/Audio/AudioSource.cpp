@@ -298,50 +298,76 @@ public:
 	{
 		// Currently only support seeking to beginning of stream.
 		if (pos != 0) return;
+		Restart();
+	}
 
+	// The stream from its start, a decoder of its own: nothing the last one
+	// decoded is kept, as its packet goes with it (bugs.md AUD.19). On the
+	// music thread, which must not touch the script's call stack as
+	// Exception::Throw does: a plain error, which the music thread catches.
+	void Restart()
+	{
 		if (handle)
 			stb_vorbis_close(handle);
 		handle = nullptr;
 		stream_byte_offset = 0;
+		stream_eof = false;
+		pcm = nullptr;
+		pcm_position = 0;
+		pcm_samples = 0;
 
 		int error = 0;
 		handle = stb_vorbis_open_pushdata(filedata.data(), (int)filedata.size(), &stream_byte_offset, &error, nullptr);
 		if (handle == nullptr)
-			Exception::Throw("Unable to read ogg file");
+			throw std::runtime_error("Unable to read ogg file");
 
 		stream_info = stb_vorbis_get_info(handle);
-		stream_eof = false;
 	}
 
+	// The next packet's samples; at the data's end what the last call
+	// decoded is played out first
+	void DecodePacket()
+	{
+		pcm = nullptr;
+		pcm_position = 0;
+		pcm_samples = 0;
+		int bytes_used = stb_vorbis_decode_frame_pushdata(handle, filedata.data() + stream_byte_offset, (int)filedata.size() - stream_byte_offset, nullptr, &pcm, &pcm_samples);
+		stream_byte_offset += bytes_used;
+		if (bytes_used == 0 || (size_t)stream_byte_offset >= filedata.size())
+			stream_eof = true;
+		if (!pcm)
+			pcm_samples = 0;
+	}
+
+	// A looping song plays to its last sample and on from its first in the
+	// same read; one that decodes nothing from its start ends there
 	size_t ReadSamples(float* output, size_t requestedsamples) override
 	{
-		int data_requested = requestedsamples / stream_info.channels;
+		int c = stream_info.channels;
+		int data_requested = (int)(requestedsamples / c);
 		int data_left = data_requested;
-		while (!stream_eof && data_left > 0)
+		bool restarted = false;     // started again, nothing decoded since
+		while (data_left > 0)
 		{
-			while (pcm_position == pcm_samples)
+			if (pcm_position == pcm_samples)
 			{
-				pcm = nullptr;
-				pcm_position = 0;
-				pcm_samples = 0;
-				int bytes_used = stb_vorbis_decode_frame_pushdata(handle, filedata.data() + stream_byte_offset, filedata.size() - stream_byte_offset, nullptr, &pcm, &pcm_samples);
-				stream_byte_offset += bytes_used;
-				if (bytes_used == 0 || (size_t)stream_byte_offset == filedata.size())
+				if (!stream_eof)
+					DecodePacket();
+				else if (bIsLooped && !restarted)
 				{
-					stream_eof = true;
-					break;
+					Restart();
+					restarted = true;
 				}
+				else
+					break;
+				continue;
 			}
-
-			// The stream's end may leave no frame decoded
-			if (!pcm || pcm_samples == pcm_position)
-				break;
+			restarted = false;
 
 			int samples = pcm_samples - pcm_position;
 			if (samples > data_left) samples = data_left;
 
-			int buffer_pos = (data_requested - data_left) * stream_info.channels;
-			int c = stream_info.channels;
+			int buffer_pos = (data_requested - data_left) * c;
 			for (int j = 0; j < c; j++)
 			{
 				const float* src = &pcm[j][pcm_position];
@@ -357,10 +383,7 @@ public:
 			data_left -= samples;
 		}
 
-		if (stream_eof && bIsLooped)
-			SeekToSample(0);
-
-		return (data_requested - data_left) * stream_info.channels;
+		return (data_requested - data_left) * c;
 	}
 
 	Array<uint8_t> filedata;
@@ -427,9 +450,17 @@ public:
 			delete module;
 	}
 
+	// Rendered at the mix rate, as Galaxy mixes a song's voices at
+	// OutputRate (galaxy-dll.md, the mixer)
 	int GetFrequency() override
 	{
-		return 44100;
+		return rate;
+	}
+
+	void SetFrequency(int value) override
+	{
+		if (value > 0)
+			rate = value;
 	}
 
 	int GetChannels() override
@@ -506,6 +537,7 @@ public:
 	}
 
 	openmpt::module* module;
+	int rate = 44100;
 	bool mono = false;
 	bool galaxy = false;        // an IT song, played as Galaxy plays it
 };

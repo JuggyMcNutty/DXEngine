@@ -23,22 +23,11 @@
 class OpenALAudioDevice : public AudioDevice
 {
 public:
-	OpenALAudioDevice(int inFrequency, int numVoices, int inMusicBufferCount, int inMusicBufferSize, int mixAheadMs, bool inStereo)
+	OpenALAudioDevice(int inFrequency, int numVoices, int mixAheadMs, bool inStereo)
 	{
 		frequency = inFrequency;
-		musicBufferCount = inMusicBufferCount;
-		musicBufferSize = inMusicBufferSize;
 		mixBufferCount = std::clamp(mixAheadMs / 10, 2, 25);
 		stereo = inStereo;
-
-		musicBuffer.resize(musicBufferSize * musicBufferCount);
-		musicQueue.Resize(musicBufferCount);
-
-		for (int i = 0; i < musicBufferCount; i++)
-		{
-			musicQueue.Push(&musicBuffer[musicBufferSize * i]);
-			musicQueue.Pop();
-		}
 
 		// Init OpenAL, on the system's default device
 		alDevice = alcOpenDevice(NULL);
@@ -46,13 +35,11 @@ public:
 			Exception::Throw("Failed to initialize OpenAL device");
 
 		// The context at the mixing rate chosen (the launcher's), so OpenAL
-		// mixes the sources at it rather than resampling a mix made at it.
-		// No output limiter: the music, saturated at 16 bits, and the sounds'
-		// mix, each side saturated so in stereo, are added and an integer
-		// output saturates the sum, as Galaxy adds them (Galaxy.dll
-		// 0x106146a0, 0x10623eed; bugs.md AUD.16, AUD.22), where OpenAL
-		// Soft's limiter, on for an integer output, turned the sum down
-		// instead
+		// mixes the source at it rather than resampling a mix made at it.
+		// No output limiter: the music and the sounds come saturated as
+		// Galaxy saturates them (MixMusic), where OpenAL Soft's limiter, on
+		// for an integer output, turned their sum down instead (bugs.md
+		// AUD.16)
 		const ALCint ctxAttribs[] =
 		{
 			ALC_FREQUENCY, inFrequency,
@@ -79,42 +66,17 @@ public:
 		}
 
 		// Deus Ex's sounds are mixed as Galaxy mixes them, in Galaxy's 32
-		// channel records, the mix streamed through one source at OutputRate,
-		// as Galaxy's goes out, so its reverb's delays are the original's
-		// samples; nothing is spatialized by OpenAL.
+		// channel records, and the music added to them, the output streamed
+		// through one source at OutputRate, as Galaxy's goes out, so its
+		// reverb's delays are the original's samples; nothing is spatialized
+		// by OpenAL.
 		mixer = std::make_unique<GalaxyMixer>(frequency, 32, stereo);
 		StartMixStream();
-
-		// init music source/buffer: the song's two channels straight to the
-		// speakers, as the mix's source goes, where without direct channels
-		// OpenAL's HRTF (its own choice on headphones), UHJ or a surround
-		// layout made them two virtual speakers at 30 degrees; Galaxy adds
-		// the music to its output as it is (bugs.md AUD.13)
-		alGenSources(1, &alMusicSource);
-		alSourcei(alMusicSource, AL_SOURCE_SPATIALIZE_SOFT, AL_FALSE);
-		if (alIsExtensionPresent("AL_SOFT_direct_channels"))
-			alSourcei(alMusicSource, AL_DIRECT_CHANNELS_SOFT, AL_TRUE);
-
-		alMusicBuffers.resize(musicBufferCount);
-		alGenBuffers(musicBufferCount, &alMusicBuffers[0]);
-
-		// init playback thread
-		musicThreadData.thread = std::thread([this]() { MusicThreadMain(); });
 	}
 
 	~OpenALAudioDevice()
 	{
-		std::unique_lock lock(musicThreadData.mutex);
-		musicThreadData.exitFlag = true;
-		lock.unlock();
-		musicThreadData.thread.join();
-
 		StopMixStream();
-
-		alSourceStop(alMusicSource);
-		alDeleteSources(1, &alMusicSource);
-
-		alDeleteBuffers((ALsizei)alMusicBuffers.size(), &alMusicBuffers[0]);
 
 		alcDestroyContext(alContext);
 		alcCloseDevice(alDevice);
@@ -187,7 +149,7 @@ public:
 
 	// A jump's order count is Galaxy's at once, as its Update writes it back
 	// from the next frame on: the main thread reads it that frame, not the
-	// pre-jump order until the music thread's next pass. For a song Galaxy
+	// pre-jump order until the mix thread's next block. For a song Galaxy
 	// plays, glxControlMusic leaves it the order before the section, 255
 	// before order 0, the section starting as the playing row ends; a section
 	// past the last order it refuses, the count as it was and the song
@@ -243,117 +205,8 @@ public:
 		return channel < mixer->GetChannels() && mixer->Read(channel, frame, frames, count);
 	}
 
-	static std::string getALErrorString(ALenum error)
-	{
-		switch (error)
-		{
-		case AL_NO_ERROR:
-			return "AL_NO_ERROR";
-		case AL_INVALID_NAME:
-			return "AL_INVALID_NAME";
-		case AL_INVALID_ENUM:
-			return "AL_INVALID_ENUM";
-		case AL_INVALID_VALUE:
-			return "AL_INVALID_VALUE";
-		case AL_INVALID_OPERATION:
-			return "AL_INVALID_OPERATION";
-		case AL_OUT_OF_MEMORY:
-			return "AL_OUT_OF_MEMORY";
-		default:
-			return "AL_UNKNOWN_ERROR";
-		}
-	}
-
-	// The source stopped and every chunk rendered ahead dropped, so a new
-	// song or a jump starts with its own sound, not the old one's
-	void StopMusicBuffers(bool& musicPlaying)
-	{
-		if (musicPlaying)
-		{
-			alSourceStop(alMusicSource);
-			// What is queued, all processed once stopped: an unqueue of all 16
-			// with fewer queued (a throw mid-way) was refused whole, the
-			// buffers staying queued and the next song's first upload failing
-			// for the rest of the session
-			ALint queued = 0;
-			alGetSourcei(alMusicSource, AL_BUFFERS_QUEUED, &queued);
-			if (queued > 0)
-			{
-				std::vector<ALuint> unqueued((size_t)queued);
-				alSourceUnqueueBuffers(alMusicSource, queued, unqueued.data());
-			}
-			alGetError();
-			musicPlaying = false;
-		}
-		while (!musicQueue.Empty())
-			musicQueue.Pop();
-	}
-
-	// On the music thread, which must not touch the script's call stack as
-	// Exception::Throw does: a plain error, which MusicThreadMain catches.
-	static void CheckMusicALError(const char* call)
-	{
-		ALenum error = alGetError();
-		if (error != AL_NO_ERROR)
-			throw std::runtime_error(std::string(call) + " failed: " + getALErrorString(error));
-	}
-
-	void PlayMusicBuffer(AudioSource* music)
-	{
-		int format = (music->GetChannels() == 1) ? AL_FORMAT_MONO_FLOAT32 : AL_FORMAT_STEREO_FLOAT32;
-		int freq = music->GetFrequency();
-
-		// The context's error state is one for every thread and keeps its
-		// first error until read: another thread's (the listener's calls, a
-		// mix upload's) is dropped here, not blamed on the song
-		alGetError();
-
-		for (int i = 0; i < musicBufferCount; i++)
-		{
-			alBufferData(alMusicBuffers[i], format, musicQueue.Pop(), musicBufferSize*4, freq);
-			CheckMusicALError("alBufferData");
-
-			alSourceQueueBuffers(alMusicSource, 1, &alMusicBuffers[i]);
-			CheckMusicALError("alSourceQueueBuffers");
-		}
-
-		alSourcePlay(alMusicSource);
-		CheckMusicALError("alSourcePlay");
-	}
-
-	void UpdateMusicBuffer(AudioSource* music)
-	{
-		alGetError(); // another thread's error dropped, as PlayMusicBuffer drops it
-		ALint status;
-		alGetSourcei(alMusicSource, AL_BUFFERS_PROCESSED, &status);
-
-		while (status)
-		{
-			ALuint buffer;
-			alSourceUnqueueBuffers(alMusicSource, 1, &buffer);
-
-			int format = (music->GetChannels() == 1) ? AL_FORMAT_MONO_FLOAT32 : AL_FORMAT_STEREO_FLOAT32;
-			int freq = music->GetFrequency();
-
-			alBufferData(buffer, format, musicQueue.Pop(), musicBufferSize*4, freq);
-			CheckMusicALError("alBufferData");
-
-			alSourceQueueBuffers(alMusicSource, 1, &buffer);
-			CheckMusicALError("alSourceQueueBuffers");
-
-			status--;
-		}
-
-		alGetSourcei(alMusicSource, AL_SOURCE_STATE, &status);
-		if (status == AL_STOPPED)
-		{
-			alSourcePlay(alMusicSource);
-			CheckMusicALError("alSourcePlay");
-		}
-	}
-
-	// Set on the source by the music thread, after any change of song or
-	// order handed over before it (MusicThreadMain)
+	// Applied by the mix thread, after any change of song or order handed
+	// over before it (MixMusic)
 	void SetMusicVolume(float volume) override
 	{
 		std::unique_lock lock(musicThreadData.mutex);
@@ -383,134 +236,122 @@ public:
 			LogMessage("Music: the song stopped: " + failure);
 	}
 
-	void MusicThreadMain()
+	// The song's next frames at the mix rate, stereo: a source at another
+	// rate read between its frames linearly, from its first (a place of 2
+	// reads it and the next), a mono one in both channels. What a source
+	// that ends or reads short leaves is silence.
+	void ReadMusic(AudioSource* music, float* out, int frames)
 	{
-		std::unique_ptr<AudioSource> currentMusic;
-		bool musicPlaying = false;
-		float sourceVolume = -1.0f;   // the gain last set on the source, none yet
-
-		while (true)
+		int channels = std::clamp(music->GetChannels(), 1, 2);
+		int rate = music->GetFrequency();
+		if (rate == frequency && channels == 2)
 		{
-			// Lock the mutex. Grab the data we need from the main thread. Then unlock.
-			std::unique_lock lock(musicThreadData.mutex);
-			if (musicThreadData.exitFlag)
-				break;
-			if (musicThreadData.musicUpdate)
+			size_t got = music->ReadSamples(out, (size_t)frames * 2);
+			std::fill(out + std::min(got, (size_t)frames * 2), out + (size_t)frames * 2, 0.0f);
+			return;
+		}
+		double step = rate > 0 ? (double)rate / frequency : 1.0;
+		for (int i = 0; i < frames; i++)
+		{
+			while (musicPlace >= 1.0)
 			{
-				StopMusicBuffers(musicPlaying);
-				currentMusic = std::move(musicThreadData.music);
-				if (currentMusic)
-					currentMusic->SetMono(!stereo);
-				musicThreadData.musicUpdate = false;
-				mixer->SetMusicTempo(0.0);
+				musicLast[0] = musicNext[0];
+				musicLast[1] = musicNext[1];
+				float frame[2] = {};
+				if (music->ReadSamples(frame, channels) < (size_t)channels)
+					frame[0] = frame[1] = 0.0f;
+				musicNext[0] = frame[0];
+				musicNext[1] = channels == 2 ? frame[1] : frame[0];
+				musicPlace -= 1.0;
 			}
-			int jumpOrder = musicThreadData.jumpOrder;
-			int generation = musicThreadData.generation;
-			float volume = musicThreadData.volume;
-			musicThreadData.jumpOrder = -1;
-			lock.unlock();
-			// Nothing of musicThreadData is touched past this point but under
-			// the lock again (the order's store, which is this song's alone:
-			// a new song set meanwhile keeps PlayMusic's -1).
-
-			if (jumpOrder >= 0 && currentMusic)
-			{
-				// What was rendered from the old position is not played
-				StopMusicBuffers(musicPlaying);
-				currentMusic->SetOrder(jumpOrder);
-			}
-
-			// The gain taken with the change it came with reaches the source
-			// only now, the old song's or order's queued buffers gone: the
-			// main thread setting it at once played them at the new song's
-			// full volume until this thread stopped them, where Galaxy's
-			// change is one locked step after a hold in silence (bugs.md
-			// AUD.12)
-			if (volume != sourceVolume)
-			{
-				alSourcef(alMusicSource, AL_GAIN, volume);
-				sourceVolume = volume;
-			}
-
-			if (currentMusic)
-			{
-				// A song that fails stops, and the game goes on without it: the
-				// failure is left for the main thread to log
-				try
-				{
-					// Not while a jump asked since this pass read it waits: its
-					// count, stored as it was asked, stands until the next pass
-					{
-						std::unique_lock orderLock(musicThreadData.mutex);
-						if (musicThreadData.generation == generation && musicThreadData.jumpOrder < 0)
-							musicThreadData.currentOrder.store(currentMusic->GetOrder());
-					}
-
-					while (musicQueue.Size() < (size_t)musicBufferCount)
-					{
-						// render a chunk of music; what a source that ends or reads
-						// short leaves is silence, not what the chunk held 16
-						// chunks before
-						float* chunk = musicQueue.GetNextFree();
-						size_t got = currentMusic->ReadSamples(chunk, musicBufferSize);
-						if (got < (size_t)musicBufferSize)
-							std::fill(chunk + got, chunk + musicBufferSize, 0.0f);
-						// Mono without UseStereo, the music too, as Galaxy's whole
-						// output is (bugs.md AUD.14): a song as its source reads it
-						// mono (SetMono), any other's two channels at their mean
-						if (!stereo && currentMusic->GetChannels() == 2)
-						{
-							for (size_t i = 0; i + 1 < got; i += 2)
-								chunk[i] = chunk[i + 1] = 0.5f * (chunk[i] + chunk[i + 1]);
-						}
-						// The music saturated at 16 bits before the sounds join it,
-						// as Galaxy writes its mix out and adds theirs to it
-						// (Galaxy.dll 0x106146a0; bugs.md AUD.16): full scale at the
-						// gain the source plays it at
-						if (volume > 0.0f)
-						{
-							float low = -1.0f / volume, high = (32767.0f / 32768.0f) / volume;
-							for (size_t i = 0; i < got; i++)
-								chunk[i] = std::clamp(chunk[i], low, high);
-						}
-						musicQueue.Push(musicQueue.GetNextFree());
-					}
-					mixer->SetMusicTempo(currentMusic->GetTempo());
-
-					if (!musicPlaying)
-					{
-						PlayMusicBuffer(currentMusic.get());
-						musicPlaying = true;
-					}
-					else if (musicQueue.Size() > 0)
-					{
-						UpdateMusicBuffer(currentMusic.get());
-					}
-				}
-				catch (const std::exception& e)
-				{
-					musicPlaying = true;
-					StopMusicBuffers(musicPlaying);
-					alGetError();
-					currentMusic.reset();
-					mixer->SetMusicTempo(0.0);
-					musicThreadData.currentOrder.store(-1);
-					std::unique_lock failedLock(musicThreadData.mutex);
-					musicThreadData.failure = e.what();
-				}
-			}
-			else
-			{
-				musicPlaying = false;
-			}
-			using namespace std::chrono_literals;
-			std::this_thread::sleep_for(5ms);
+			float t = (float)musicPlace;
+			out[2 * i] = musicLast[0] + (musicNext[0] - musicLast[0]) * t;
+			out[2 * i + 1] = musicLast[1] + (musicNext[1] - musicLast[1]) * t;
+			musicPlace += step;
 		}
 	}
 
-	// The mixer's output: one stereo source, straight to the speakers, its
-	// queue 10 ms buffers deep to Latency, Galaxy's mix-ahead (40 ms by
-	// default); mono without UseStereo, as the mixer folds it.
+	// The music added to the sounds' mix as Galaxy adds them (Galaxy.dll
+	// 0x106146a0, 0x10623eed): the song's frames at its gain saturated at 16
+	// bits, as Galaxy writes its music out, then the sum, so the output is
+	// saturated before any volume of the system's, whatever its format
+	// (bugs.md AUD.16, AUD.22, AUD.23). On the mix thread, which renders the
+	// song as it mixes, the music heard as it changes, by choice (Galaxy's
+	// comes a turn of its second-long buffer later): a new song or a jump
+	// handed over with its gain, so no frame of the old one plays at the new
+	// gain (bugs.md AUD.12). A song that fails stops, and the game goes on
+	// without it: the failure is left for the main thread to log.
+	void MixMusic(float* block, int frames)
+	{
+		std::unique_lock lock(musicThreadData.mutex);
+		if (musicThreadData.musicUpdate)
+		{
+			currentMusic = std::move(musicThreadData.music);
+			if (currentMusic)
+			{
+				currentMusic->SetMono(!stereo);
+				currentMusic->SetFrequency(frequency);
+			}
+			musicThreadData.musicUpdate = false;
+			mixer->SetMusicTempo(0.0);
+			musicPlace = 2.0;
+		}
+		int jumpOrder = musicThreadData.jumpOrder;
+		int generation = musicThreadData.generation;
+		float volume = musicThreadData.volume;
+		musicThreadData.jumpOrder = -1;
+		lock.unlock();
+
+		if (currentMusic)
+		{
+			try
+			{
+				if (jumpOrder >= 0)
+				{
+					currentMusic->SetOrder(jumpOrder);
+					musicPlace = 2.0;
+				}
+
+				musicBlock.resize((size_t)frames * 2);
+				ReadMusic(currentMusic.get(), musicBlock.data(), frames);
+				// Mono without UseStereo, the music too, as Galaxy's whole
+				// output is (bugs.md AUD.14): a song as its source reads it
+				// mono (SetMono), any other's two channels at their mean
+				if (!stereo && currentMusic->GetChannels() == 2)
+				{
+					for (int i = 0; i < frames; i++)
+						musicBlock[2 * i] = musicBlock[2 * i + 1] = 0.5f * (musicBlock[2 * i] + musicBlock[2 * i + 1]);
+				}
+				for (int i = 0; i < frames * 2; i++)
+					block[i] += std::clamp(musicBlock[i] * volume, -1.0f, 32767.0f / 32768.0f);
+				mixer->SetMusicTempo(currentMusic->GetTempo());
+
+				// Not while a jump asked since this block read it waits: its
+				// count, stored as it was asked, stands until the next block
+				std::unique_lock orderLock(musicThreadData.mutex);
+				if (musicThreadData.generation == generation && musicThreadData.jumpOrder < 0)
+					musicThreadData.currentOrder.store(currentMusic->GetOrder());
+			}
+			catch (const std::exception& e)
+			{
+				currentMusic.reset();
+				mixer->SetMusicTempo(0.0);
+				musicThreadData.currentOrder.store(-1);
+				std::unique_lock failedLock(musicThreadData.mutex);
+				musicThreadData.failure = e.what();
+			}
+		}
+
+		for (int i = 0; i < frames * 2; i++)
+			block[i] = std::clamp(block[i], -1.0f, 32767.0f / 32768.0f);
+	}
+
+	// The output: one stereo source, straight to the speakers, as Galaxy
+	// adds its mix to its output as it is, where without direct channels
+	// OpenAL's HRTF (its own choice on headphones), UHJ or a surround layout
+	// made the two channels two virtual speakers at 30 degrees (bugs.md
+	// AUD.13); its queue 10 ms buffers deep to Latency, Galaxy's mix-ahead
+	// (40 ms by default); mono without UseStereo, as the mixer folds it.
 	void StartMixStream()
 	{
 		mixBufferFrames = std::max(frequency / 100, 64);
@@ -542,6 +383,7 @@ public:
 		std::vector<float> block(mixBufferFrames * 2);
 		auto queue = [&](ALuint buffer) {
 			mixer->Mix(block.data(), mixBufferFrames);
+			MixMusic(block.data(), mixBufferFrames);
 			alBufferData(buffer, AL_FORMAT_STEREO_FLOAT32, block.data(), (ALsizei)(block.size() * sizeof(float)), frequency);
 			alSourceQueueBuffers(alMixSource, 1, &buffer);
 		};
@@ -576,8 +418,6 @@ public:
 
 	ALCdevice* alDevice = nullptr;
 	ALCcontext* alContext = nullptr;
-	ALuint alMusicSource = 0;
-	Array<ALuint> alMusicBuffers;
 
 	// Deus Ex's mixer, the sounds it holds, and its output
 	std::unique_ptr<GalaxyMixer> mixer;
@@ -590,157 +430,34 @@ public:
 	std::thread mixThread;
 	std::atomic<bool> mixExit{ false };
 
-	template<class T> class RingQueue
-	{
-	public:
-		RingQueue()
-		{
-			Data = nullptr;
-			Len = 0;
-			Num = 0;
-			Current = 0;
-		}
-
-		RingQueue(size_t n)
-		{
-			Data = static_cast<T*>(malloc(sizeof(T) * n));
-			Len = n;
-			Num = 0;
-			Current = 0;
-		}
-
-		RingQueue(size_t n, const T& Value)
-		{
-			Data = static_cast<T*>(malloc(sizeof(T) * n));
-			for (int i = 0; i < n; i++)
-				Data[i] = Value;
-
-			Len = n;
-			Num = 0;
-			Current = 0;
-		}
-
-		~RingQueue()
-		{
-			free(Data);
-		}
-
-		bool Empty()
-		{
-			return (Num == 0);
-		}
-
-		size_t Size()
-		{
-			return Num;
-		}
-
-		T& Front()
-		{
-			return Data[Current];
-		}
-
-		T& GetNextFree()
-		{
-			size_t Index = Current + Num;
-			if (Index >= Len)
-				Index -= Len;
-
-			return Data[Index];
-		}
-
-		bool Push(const T& Val)
-		{
-			if (Num == Len)
-				return false;
-
-			GetNextFree() = Val;
-			Num++;
-
-			return true;
-		}
-
-		bool Push(T& Val)
-		{
-			if (Num == Len)
-				return false;
-
-			GetNextFree() = Val;
-			Num++;
-
-			return true;
-		}
-
-		T& Pop()
-		{
-			T& Out = Data[Current];
-			if (Num > 0)
-			{
-				Current++;
-				if (Current >= Len)
-					Current = 0;
-
-				Num--;
-			}
-			return Out;
-		}
-
-		bool Resize(size_t NewSize)
-		{
-			T* NewData = static_cast<T*>(realloc(Data, sizeof(T) * NewSize));
-			if (NewData == NULL)
-				return false;
-
-			Data = NewData;
-			Len = NewSize;
-			return true;
-		}
-
-		void Clear()
-		{
-			Current = 0;
-			Num = 0;
-		}
-
-	private:
-		T* Data = nullptr;
-		size_t Len = 0;
-		size_t Current = 0;
-		size_t Num = 0;
-	};
-
 	int frequency = 48000;
 
-	// Note: variables changed in musicThreadData *must* be done within a mutex lock to be thread safe
+	// What the main thread hands the mix thread, under the mutex
 	struct
 	{
 		std::mutex mutex;
-		std::thread thread;
-		bool exitFlag = false;
 		std::unique_ptr<AudioSource> music;
 		bool musicUpdate = false;
 		int jumpOrder = -1;                     // an order to jump the playing song to
 		int sections = -1;                      // the sections the song set takes, -1 any (AudioSource::GetSections)
 		std::atomic<int> currentOrder{ -1 };    // the order playing: a jump's count at once, else the music thread's
 		int generation = 0;                     // counts the songs set, so the thread's order is its own song's
-		float volume = 0.0f;                    // the music's gain, for the thread to set on the source
+		float volume = 0.0f;                    // the music's gain, for the mix thread to play it at
 		std::string failure;                    // why the song stopped, for the main thread to log
 	} musicThreadData;
 
-	RingQueue<float*> musicQueue;
-	int musicBufferCount = 0;
-	int musicBufferSize = 0;
-	Array<float> musicBuffer;
-	float currentMusicVolume = 0.0f;
-	float targetMusicVolume = 0.0f;
-	float fadeRate = 0.0f;
+	// The mix thread's song, and its place between a source's frames
+	std::unique_ptr<AudioSource> currentMusic;
+	std::vector<float> musicBlock;
+	double musicPlace = 2.0;
+	float musicLast[2] = {}, musicNext[2] = {};
 	float globalSoundVolume = 1.0f;
 	float globalSpeechVolume = 1.0f;
 };
 
-std::unique_ptr<AudioDevice> AudioDevice::Create(int frequency, int numVoices, int musicBufferCount, int musicBufferSize, int mixAheadMs, bool stereo)
+std::unique_ptr<AudioDevice> AudioDevice::Create(int frequency, int numVoices, int mixAheadMs, bool stereo)
 {
-	return std::make_unique<OpenALAudioDevice>(frequency, numVoices, musicBufferCount, musicBufferSize, mixAheadMs, stereo);
+	return std::make_unique<OpenALAudioDevice>(frequency, numVoices, mixAheadMs, stereo);
 }
 
 // The device of a machine with no sound output: nothing is mixed or heard,

@@ -39,6 +39,11 @@ public:
 	// the device folds.
 	virtual void SetMono(bool mono) {}
 
+	// The rate the device mixes at, which a source that renders at any rate
+	// takes as its own (GetFrequency); a no-op for others, which the device
+	// reads between their frames.
+	virtual void SetFrequency(int rate) {}
+
 	bool bIsLooped = false;
 	uint32_t loopStart = 0;
 	uint32_t loopEnd = 0;

@@ -2473,7 +2473,6 @@ and 30 shapes on its three lines, the last running to 2.9 s past its sound's
 2.6 in both engines; one after another, 78.0% of them alike between the two
 engines' runs, where the original's own runs are 79.7% alike. Differs:
 
-- The music plays on an OpenAL source of its own, by choice.
 - The music is heard as it changes, by choice, where the original's comes
   some 0.9 s after the sounds of the same moment, the Sound menu's music
   slider too (`MusicConsole` under Wine): Galaxy's own lag, the music
@@ -2546,8 +2545,9 @@ never through OpenAL's HRTF, UHJ or a surround layout. A song plays as
 Galaxy's IT loader converts it (`DXEngine/Audio/GalaxyMusic.cpp`): none of its mix
 volume, its channels' volumes or its samples' and instruments' global
 volumes; the commands Galaxy drops dropped, one effect memory a channel for
-every command, a speed over 32 at 32, an order whose pattern is empty
-passed over; read between samples linearly, unramped; each channel panned as
+every command, a speed over 32 at 32, a T under 0x20 kept for Galaxy's
+vibrato, an order whose pattern is empty passed over; read between samples
+linearly, unramped; each channel panned as
 Galaxy pans it, each side the square root of its share of a pan held to 127
 of 128 ([the audio mixer](ENGINE.md#gameplay)). `MusicConsole` on the
 harness's `CapTone`, recorded on both engines: tone A at 255 -16.5 dBFS in
@@ -2579,20 +2579,37 @@ a section past the song's last order is refused, logged as Galaxy logs it
 17`); a channel the header pans over 64 -- IT's surround, or a muted
 channel, played -- is a surround a quarter of the way from the left, and
 an 8xx (IT's X) over 0x80 a surround at a pan, 0x84 to 0xC4 from the left
-(0xA4, IT's S9x, the middle), each with its right side inverted; the music
-is saturated at 16 bits, then added to the sounds' mix, saturating (on an
-integer output: Differs (bugs.md AUD.23), on a float one the sum passes full
-scale, the desktop's volume taken before it is clipped).
+(0xA4, IT's S9x, the middle), each with its right side inverted; its
+vibrato (H, K's, and a T under 0x20) none on a row's first tick, its depth
+over 8 of a semitone at the sine's top, twice IT's, and down first, each
+struck note starting it at its first step on the sine; its retrigger (Q) the
+voice's place back to its sample's start on each tick of the row that is a
+multiple of its parameter, the first among them, nothing else; its note cut
+(SCx) the note's volume 0 on each tick past x, the note playing on, so a
+later volume brings it back, SCF at a speed over 16 from tick 16. The music
+is saturated at 16 bits at its gain, then added to the sounds' mix and the
+sum saturated, by the engine, before any volume of the system's, whatever
+the output's format, the music rendered at `OutputRate` as Galaxy mixes it.
+`MusicConsole` with `DXCAP_CONFIG="Songs=DXCapture.CapCommands
+SongSeconds=18"` and `tools/dxcap/commands.py`, both engines: T1F's and
+H1F's vibrato from 396 to 491 Hz, H1F's down first, the lows over order 0 at
+the same times within 0.2 s, where T1F stayed at 441 Hz and H1F went from 418
+to 466 Hz, up first; order 1's bursts 80 and 40 ms apart in turn, where they
+came every 80; order 2's notes silent past each cut and back at the next
+row's volume, where the build before held them through. `MusicConsole` with
+the game's stream at 50% (set back to 100% while it was open): over tone A
+past full scale the peak 0.125 of full scale and 0.129 with the next step's
+beep over it, the original's 0.126 and 0.128, where DXEngine's beep passed
+full scale to 0.192.
 `MusicConsole`, both engines: after the jump from the pair to
 the empty order 1 silence in both, where playing the song to it brought
 back tone A at -16.5 dB; tone A on eight channels in phase at full scale in
-35.2% of the samples in the original and 34.0% in DXEngine (60.0% before),
-the beep over it -12.4 dB in the original and -12.2 in DXEngine (-14.5
-before, the clip taking part of it); the pair centred by order 11, then
-after the song's loop the right tone 21.1 dB under in the left channel in
-both, where it stayed centred; from tone A in a row of 2.42 s, the jump to
-tone B's order silent 1.43 s in the original and 1.34 in DXEngine, where B
-followed at once, and the one from B to order 0 2.28 and 2.11,
+35.2% of the samples in the original and 32.0% in DXEngine, the beep over it
+-12.7 dB in the original and -12.6 in DXEngine; the pair centred by order 11,
+then after the song's loop the right tone 21.1 dB under in the left channel
+in both, where it stayed centred; from tone A in a row of 2.42 s, the jump to
+tone B's order silent 1.42 s in the original and 1.43 in DXEngine, where B
+followed at once, and the one from B to order 0 2.28 and 2.28,
 `SongSection` the order before each until then, 1
 and 255, in both, where it was the order at once; the pair on the header's
 surround channel and on XB4: the 551.25 Hz tone 4.77 dB louder in the left
@@ -2605,9 +2622,9 @@ order is refused with Galaxy's log line and the song plays on, by choice,
 where Galaxy's silences the voices all the same and plays on at the next
 order as the row ends, a glitch.
 
-Differs (bugs.md AUD.19): the Ogg music source reads its freed decoder after
-a loop, which only a mod's Ogg song reaches. Differs (bugs.md AUD.20): an IT
-pattern's `T0x` and `T1x` dropped, Galaxy's a vibrato. By choice: the
+By choice: an MP3, Ogg or WAV song plays, where Galaxy's loader refuses one
+(its MOD loader, the last it tries, failing with 15), a looping Ogg one from
+its start again at its end, its last packet played out first. By choice: the
 gains a sound's update sets reach the output each 10 ms, Galaxy's each 20
 ms, so a moving or fading sound steps twice as often; a song's speed
 command that comes to 0 is dropped, where Galaxy's stops its sequencer, the

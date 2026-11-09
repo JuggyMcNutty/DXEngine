@@ -2093,7 +2093,14 @@ void CSoundFile::NoteChange(ModChannel &chn, int note, bool bPorta, bool bResetE
 			}
 
 			// Handle "retrigger" waveform type
-			if(chn.nVibratoType < 4)
+			// DXEngine (bugs.md AUD.20): Galaxy.dll's struck note takes its
+			// instrument's vibrato waveform, the sine its IT loader leaves
+			// there, from its first step (Galaxy.dll 0x10616eb0)
+			if(m_galaxyPlayer)
+			{
+				chn.nVibratoType = 0;
+				chn.nVibratoPos = 0;
+			} else if(chn.nVibratoType < 4)
 			{
 				// IT Compatibilty: Slightly different waveform offsets (why does MPT have two different offsets here with IT old effects enabled and disabled?)
 				if(!m_playBehaviour[kITVibratoTremoloPanbrello] && (GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT)) && !m_SongFlags[SONG_ITOLDEFFECTS])
@@ -3532,6 +3539,19 @@ bool CSoundFile::ProcessEffects()
 
 		// Retrig
 		case CMD_RETRIG:
+			// DXEngine (bugs.md AUD.24): Galaxy.dll's E9y, which GalaxyMusic.cpp
+			// writes as Q0y: on each tick of the row that is a multiple of y,
+			// its first among them, the voice's place back to its sample's
+			// start, nothing else; a voice that has ended stays silent
+			// (Galaxy.dll 0x10616eb0)
+			if(m_galaxyPlayer)
+			{
+				const uint32 every = param & 0x0F;
+				const uint32 tick = m_PlayState.m_nTickCount % (m_PlayState.m_nMusicSpeed + m_PlayState.m_nFrameDelay);
+				if(every && !(tick % every) && chn.nLength)
+					chn.position.Set(0);
+				break;
+			}
 			if (GetType() & (MOD_TYPE_XM|MOD_TYPE_MT2))
 			{
 				if (!(param & 0xF0)) param |= chn.nRetrigParam & 0xF0;
@@ -5382,6 +5402,19 @@ void CSoundFile::ExtendedS3MCommands(CHANNELINDEX nChn, ModCommand::PARAM param)
 		break;
 	// SCx: Note Cut
 	case 0xC0:
+		// DXEngine (bugs.md AUD.24): Galaxy.dll's ECx, which GalaxyMusic.cpp
+		// writes as SCx: on each tick past x the note's volume 0, the note
+		// playing on, so a later volume brings it back; SCF at a speed over
+		// 16 from tick 16 (Galaxy.dll 0x10616eb0)
+		if(m_galaxyPlayer)
+		{
+			if(m_PlayState.m_nTickCount % (m_PlayState.m_nMusicSpeed + m_PlayState.m_nFrameDelay) > param)
+			{
+				chn.nVolume = 0;
+				chn.dwFlags.set(CHN_FASTVOLRAMP);
+			}
+			break;
+		}
 		if(param == 0)
 		{
 			//IT compatibility 22. SC0 == SC1

@@ -216,7 +216,7 @@ void UDXEngineAudioDevice::InitDevice()
 {
 	// The rate is OutputRate's, the mix-ahead Latency's and the channels
 	// UseStereo's; the rest is fixed, as the original's Galaxy has no key for
-	// a device, its voices or its music buffers.
+	// a device or its voices.
 	//
 	// An output that will not start -- no sound card, server or endpoint --
 	// is logged and the game plays on silent, as the original's
@@ -225,7 +225,7 @@ void UDXEngineAudioDevice::InitDevice()
 	// (bugs.md AUD.11).
 	try
 	{
-		m_Device = AudioDevice::Create(OutputRate.frequency, 256, 16, 256, Latency, UseStereo);
+		m_Device = AudioDevice::Create(OutputRate.frequency, 256, Latency, UseStereo);
 		LogMessage("Audio device initialized");
 	}
 	catch (const std::exception& e)
