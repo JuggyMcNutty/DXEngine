@@ -192,8 +192,48 @@ NetServerLevel::NetServerLevel(Package* level) : Level(level)
 
 void NetServerLevel::BuildMasterMap(UObject* game)
 {
-	Packages.clear();
-	AddPackage(Level);
+	Packages = NetBuildMasterMap(Level, game);
+}
+
+NetServerLevel::~NetServerLevel()
+{
+	PlayerConnections.clear();
+}
+
+namespace
+{
+	void AddMasterPackage(Array<NetPackageMap::PackageInfo>& packages, Package* package)
+	{
+		for (const NetPackageMap::PackageInfo& info : packages)
+		{
+			if (info.Pkg == package)
+				return;
+		}
+		if (((uint32_t)package->GetFlags() & (uint32_t)PackageFlags::ServerSideOnly) != 0)
+			return;
+
+		NetPackageMap::PackageInfo info;
+		info.Pkg = package;
+		info.Name = package->GetPackageName();
+		info.Guid = package->GetGuidString();
+		info.Flags = (uint32_t)package->GetFlags();
+		std::error_code ec;
+		info.FileSize = (int)fs::file_size(package->GetPackageFilePath(), ec);
+		info.LocalGeneration = (int)package->GetGenerations().size();
+		packages.push_back(info);
+
+		for (const NameString& name : package->GetImportedPackages())
+		{
+			if (engine->packages->HasPackage(name))
+				AddMasterPackage(packages, engine->packages->GetPackage(name));
+		}
+	}
+}
+
+Array<NetPackageMap::PackageInfo> NetBuildMasterMap(Package* level, UObject* game)
+{
+	Array<NetPackageMap::PackageInfo> packages;
+	AddMasterPackage(packages, level);
 	std::string gameEngine = engine->packages->GetIniValue("system", "Engine.Engine", "GameEngine", "Engine.GameEngine");
 	for (const std::string& name : engine->packages->GetIniValues("system", gameEngine, "ServerPackages"))
 	{
@@ -206,42 +246,11 @@ void NetServerLevel::BuildMasterMap(UObject* game)
 		Package* package = engine->packages->GetPackage(name);
 		if (((uint32_t)package->GetFlags() & (uint32_t)PackageFlags::ServerSideOnly) != 0)
 			LogMessage("   (server-side only)");
-		AddPackage(package);
+		AddMasterPackage(packages, package);
 	}
 	if (game && game->Class && game->Class->package)
-		AddPackage(game->Class->package);
-}
-
-NetServerLevel::~NetServerLevel()
-{
-	PlayerConnections.clear();
-}
-
-void NetServerLevel::AddPackage(Package* package)
-{
-	for (const NetPackageMap::PackageInfo& info : Packages)
-	{
-		if (info.Pkg == package)
-			return;
-	}
-	if (((uint32_t)package->GetFlags() & (uint32_t)PackageFlags::ServerSideOnly) != 0)
-		return;
-
-	NetPackageMap::PackageInfo info;
-	info.Pkg = package;
-	info.Name = package->GetPackageName();
-	info.Guid = package->GetGuidString();
-	info.Flags = (uint32_t)package->GetFlags();
-	std::error_code ec;
-	info.FileSize = (int)fs::file_size(package->GetPackageFilePath(), ec);
-	info.LocalGeneration = (int)package->GetGenerations().size();
-	Packages.push_back(info);
-
-	for (const NameString& name : package->GetImportedPackages())
-	{
-		if (engine->packages->HasPackage(name))
-			AddPackage(engine->packages->GetPackage(name));
-	}
+		AddMasterPackage(packages, game->Class->package);
+	return packages;
 }
 
 bool NetServerLevel::NotifyAcceptingConnection()
@@ -384,13 +393,21 @@ void NetServerLevel::NotifyReceivedText(NetConnection* connection, const std::st
 
 void NetServerLevel::Welcome(NetConnection* connection)
 {
-	connection->PackageMap.List = Packages;
+	NetWelcome(connection, Packages, Level, "");
+}
+
+void NetWelcome(NetConnection* connection, const Array<NetPackageMap::PackageInfo>& packages, Package* level, const std::string& optional)
+{
+	connection->PackageMap.List = packages;
 	for (NetPackageMap::PackageInfo& info : connection->PackageMap.List)
 	{
 		info.RemoteGeneration = info.LocalGeneration;
 		connection->SendText("USES GUID=" + info.Guid + " PKG=" + info.Name.ToString() + " FLAGS=" + std::to_string(info.Flags) + " SIZE=" + std::to_string(info.FileSize) + " GEN=" + std::to_string(info.LocalGeneration));
 	}
-	connection->SendText("WELCOME LEVEL=" + Level->GetPackageName().ToString() + " LONE=" + std::to_string(engine->LevelInfo->bLonePlayer() ? 1 : 0));
+	std::string welcome = "WELCOME LEVEL=" + level->GetPackageName().ToString() + " LONE=" + std::to_string(engine->LevelInfo->bLonePlayer() ? 1 : 0);
+	if (!optional.empty())
+		welcome += " " + optional;
+	connection->SendText(welcome);
 	connection->SendText("DYNAMICRATE " + std::to_string(connection->Driver->DynamicUpdateRate));
 	connection->SendText("STATICRATE " + std::to_string(connection->Driver->StaticUpdateRate));
 	connection->FlushNet();

@@ -137,6 +137,9 @@ public:
 
 	int MaxPacket = 512;
 	int PacketOverhead = 32;
+	// A demo's: what it sends is acknowledged by itself each tick, and it
+	// sends no acks (the original's InternalAck).
+	bool InternalAck = false;
 	int Challenge = 0;
 	int NegotiatedVer = 1100;
 	int UserFlags = 0;

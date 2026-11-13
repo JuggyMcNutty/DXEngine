@@ -564,6 +564,18 @@ namespace
 			}
 		}
 
+		// A demo's playback: a player's view turns as it was recorded, its
+		// DemoViewPitch and DemoViewYaw (AActor::PostNetReceive, Engine.dll
+		// 0x10368336-0x10368370; the recording's AActor::Tick 0x103a2616).
+		if (UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(actor))
+		{
+			if (connection->Driver->Demo && connection->Driver->ServerConnection.get() == connection)
+			{
+				player->ViewRotation().Pitch = player->DemoViewPitch();
+				player->ViewRotation().Yaw = player->DemoViewYaw();
+			}
+		}
+
 		// The animation: the frame, rate, tween rate and last frame each the
 		// value sent times the double 0.0001, 0.0002, 0.001 and 0.0001, as
 		// the x87 holds it, stored as a float (0x103683cc-0x1036840b): a
@@ -854,12 +866,14 @@ void NetActorChannel::ReplicateActor()
 	}
 
 	// A player's pawn is autonomous on its own client only; the others
-	// simulate it (so does an actor whose instigator is not this client's).
+	// simulate it (so does an actor whose instigator is not this client's),
+	// and a demo's recording simulates every one (Engine.dll
+	// 0x103feeb1-0x103feec9).
 	uint8_t remoteRole = actor->RemoteRole();
 	if (remoteRole == ROLE_AutonomousProxy)
 	{
 		UPawn* instigator = actor->Instigator();
-		if (instigator && !instigator->bNetOwner() && !actor->bNetOwner())
+		if ((instigator && !instigator->bNetOwner() && !actor->bNetOwner()) || Connection->Driver->Demo)
 			actor->RemoteRole() = ROLE_SimulatedProxy;
 	}
 	actor->bSimulatedPawn() = actor->bIsPawn() && actor->RemoteRole() == ROLE_SimulatedProxy;
@@ -1328,6 +1342,10 @@ void NetActorChannel::ReceiveFunction(UFunction* declared, NetInBunch& bunch)
 		bool correction = !engine->LaunchInfo.timelinePath.empty() && Connection->Driver->ServerConnection.get() == Connection &&
 			function->Name == "ClientAdjustPosition";
 		vec3 before = Actor->Location();
+		// The call came from the other side: a client's demo recording takes
+		// it by its statement's bClientDemoNetFunc (Engine.dll 0x103fe4be,
+		// ProcessDemoRecFunction 0x103e6400, which clears it).
+		Actor->bClientDemoNetFunc() = true;
 		Frame::Call(function, Actor, std::move(args));
 		if (correction)
 		{

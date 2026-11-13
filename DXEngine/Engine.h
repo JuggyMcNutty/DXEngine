@@ -61,6 +61,9 @@ class NetDriver;
 class NetClientLevel;
 class NetServerLevel;
 class NetConnection;
+class NetDemoDriver;
+class NetDemoPendingLevel;
+class NetNotify;
 struct TextureInfo;
 struct SceneNode;
 struct SurfaceFacet;
@@ -205,6 +208,17 @@ public:
 	void LoadClientMap(NetPendingLevel* pending);
 	void HandleClientPlayer(NetConnection* connection, UPlayerPawn* pawn);
 	void CloseNetDriver();
+
+	// A demo (dx-reverse-info/network.md, demos): what the level sends a
+	// client recorded into a file, single player too, or a file played back
+	// as a client's level, by DEMOREC, DEMOPLAY and STOPDEMO (LevelExec).
+	void StartDemoRecord(const std::string& filename, ExecOutput& out);
+	void StartDemoPlay(const UnrealURL& url, ExecOutput& out);
+	void CloseDemoDriver();
+	void TickDemoRecord();
+	void TickDemoPlayback();
+	void LoadDemoMap(NetDemoPendingLevel* pending);
+	void HandleDemoClientPlayer(NetConnection* connection, UPlayerPawn* pawn);
 
 	// A server's (dx-reverse-info/network.md): listening on a map opened with
 	// ?listen, the game's PreLogin, and a player spawned and possessed as the
@@ -419,6 +433,10 @@ public:
 	std::unique_ptr<NetDriver> LevelNetDriver;
 	std::unique_ptr<NetClientLevel> ClientLevel;
 	std::unique_ptr<NetServerLevel> ServerLevel;
+	// The level's demo, recorded or played back, beside its net driver (the
+	// original's ULevel::DemoRecDriver), and what it tells the level.
+	std::unique_ptr<NetDemoDriver> LevelDemoDriver;
+	std::unique_ptr<NetNotify> DemoNotify;
 	std::string NetFailure;
 	// The URL the level was loaded with, as given (the original's
 	// UGameEngine::LastURL): what a restart, a server's travel and reconnect

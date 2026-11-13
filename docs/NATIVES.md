@@ -2014,7 +2014,15 @@ from the original's code:
   typed by `xdotool`; U+1F600 two characters; and with a Windows build's
   Win32 window under Wine, `wincheck.exe char` typing e acute, the euro sign
   and U+1F600 as Windows types them: 233, 8364, 55357 and 56832 in both
-  engines, where the build before took the pair as two U+FFFD). The text windows, the
+  engines, where the build before took the pair as two U+FFFD). An input
+  method's text is typed as it is committed, its composition the input
+  method's own to show, as the original leaves an IME to Windows, whose own
+  window shows it and whose `WM_CHAR`s bring the result (WinDrv.dll
+  `0x1110b6d0`): the SDL3 window takes SDL's committed text alone, and the
+  engine's own Wayland window takes it by text-input-v3 (KWin's text input
+  on for its edit field under `DXCAP_BACKEND=Wayland`, off on the build
+  before; what an input method composes by reading, its run due: bugs.md
+  WIN.35, WIN.39). The text windows, the
   canvas, the GC, a computer's screen, a list's cells and a scripted
   texture take and draw text as 16-bit characters, a font's glyph found on
   its page; one past every page is drawn as nothing and takes no room
@@ -3768,9 +3776,12 @@ By choice, the software device draws D3DDrv's line of its own figures and
 its stages, where SoftDrv's says "No stats available". By choice, `STAT
 RENDER` toggles a panel of DXEngine's own at the screen's right, where the
 original's toggles nothing: the frame rate, the level's actors, the objects
-the garbage collector holds and the memory they take. Differs (bugs.md
-WIN.30): no demo is recorded or played: `DEMOREC` and `DEMOPLAY` ask for a
-name as the original's do, and a name's recording or playback fails, said so.
+the garbage collector holds and the memory they take. `DEMOREC`, `DEMOPLAY`
+and `STOPDEMO` record a demo and play one back, each answered as the
+original's: a name asked for, `.dem` added, the demo under way said, its
+frames counted at its stop (`DemoWordsConsole` on Liberty Island: each answer
+the original's, 358 frames to its 370; the demos themselves under
+[multiplayer](#multiplayer)).
 
 The engine's smaller words are the original's, none logged as unknown
 (`EngineWordsConsole` from the menu map; `ViewWordsConsole`): `MEMSTAT`'s
@@ -4872,6 +4883,38 @@ goes as -1, which the other side reads as channel 511's actor where it has
 one and as another name; and a refused file request's close goes reliably,
 where the original's goes unreliably, a lost one leaving the client's
 download waiting and its channel closing for the connection's life.
+
+A demo is recorded and played back as the original's
+([demos](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md#demos)):
+`DEMOREC` records what the level sends a client into `<name>.dem` in the
+System folder -- in single player a `CLIENTDEMO` with an
+`Engine.DemoRecSpectator` at the level's origin, on a server a `SERVERDEMO`,
+on a client its server's actors as the server sent them --, every actor
+each frame, the demo's own, at the driver's 60 frames a second
+(`[Engine.DemoRecDriver]`), the calls its statements send with
+`bDemoRecording`, the sounds by `DemoPlaySound` and the player's view by
+`DemoViewPitch` and `DemoViewYaw`. `DEMOPLAY` plays one as a client's
+level, its map loaded from the packages it names, the recorded player the
+viewport's, frame by frame and no faster than it was made, or with
+`?timebased`, `?noframecap` or `?3rdperson`, a server's demo from a
+spectator's place; at its end, or a `STOPDEMO`, the Entry level. Each
+engine's demo plays in the other (`DemoRecConsole` with `DemoPlayConsole`
+on Liberty Island, each engine playing the other's file: the player's place
+and view each half second the recording's, an autonomous proxy
+`DeusExPlayer`, the Entry level at the end, alike; `tools/dxcap/demdump.py`:
+the two files' 44 `USES`, `WELCOME`, `DYNAMICRATE` and `STATICRATE` lines the
+same, 714 and 716 actor channels opened; the build before, "Demo playback
+failed").
+Where the original's ends the game, DXEngine's goes on, logged: a spectator
+class not to be had -- the stock ini's `UnrealShare.UnrealSpectator`, which
+Deus Ex has not, for any third person's view, a server's demo's among them:
+`Engine.Spectator` taken --, a `DemoRecSpectator` that cannot be spawned, a
+packet in the file longer than any the protocol sends. By choice,
+played by frame, a packet ahead of the driver's time waits from the
+tick's first wait, where the original's waits again for each of a frame's
+packets, so a frame of several packets plays slower than it was made; and a
+call recorded has its parameters evaluated once, where the original's
+evaluates them for the demo and again for the call.
 
 ## Not needed for single player
 

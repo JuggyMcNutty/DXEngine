@@ -5,6 +5,7 @@
 #include "Packages/Engine/UViewport.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Engine.h"
+#include "Network/NetDemo.h"
 #include "Package/PackageManager.h"
 #include "Package/IniProperty.h"
 #include "VM/ScriptCall.h"
@@ -114,6 +115,14 @@ bool UPlayerPawn::TickInput(float elapsed)
 	CallEvent(this, EventName::PlayerInput, { ExpressionValue::FloatValue(elapsed) });
 	CallEvent(this, EventName::PlayerTick, { ExpressionValue::FloatValue(elapsed) });
 	ClearInput();
+
+	// A recording takes the view's pitch and yaw, which its playback gives
+	// the player's view (AActor::Tick, Engine.dll 0x103a2616-0x103a263b).
+	if (engine->LevelDemoDriver && !engine->LevelDemoDriver->ServerConnection && XLevel() == engine->Level)
+	{
+		DemoViewPitch() = ViewRotation().Pitch;
+		DemoViewYaw() = ViewRotation().Yaw;
+	}
 	return true;
 }
 

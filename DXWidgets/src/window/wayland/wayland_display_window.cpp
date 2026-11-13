@@ -411,15 +411,18 @@ void WaylandDisplayWindow::ShowCursor(bool enable)
 }
 
 // Typed text off in play, as the engine asks: the backend sends this window
-// no characters while locked, its keys still
+// no characters while locked, its keys still, and the input method's text
+// input is off for it (UpdateTextInput)
 void WaylandDisplayWindow::LockKeyboard()
 {
 	keyboardLocked = true;
+	backend->UpdateTextInput();
 }
 
 void WaylandDisplayWindow::UnlockKeyboard()
 {
 	keyboardLocked = false;
+	backend->UpdateTextInput();
 }
 
 // The pointer locked and hidden in play, the game drawing its own, as the

@@ -15,6 +15,7 @@
 #include "Packages/Engine/Subsystems/UDXEngineAudioDevice.h"
 #include "Utils/Logger.h"
 #include "Network/NetDriver.h"
+#include "Network/NetDemo.h"
 #include "Engine.h"
 #include "VM/ScriptCall.h"
 #include "VM/Frame.h"
@@ -267,9 +268,12 @@ bool UActor::Destroy(bool netForce)
 		owner->RemoveChildActor(this);
 	}
 
-	// A server's clients' channels for it close.
+	// A server's clients' channels for it close, and a recording's (ULevel::
+	// DestroyActor, Engine.dll 0x10395ba0).
 	if (engine->LevelNetDriver)
 		engine->LevelNetDriver->NotifyActorDestroyed(this);
+	if (engine->LevelDemoDriver && !engine->LevelDemoDriver->ServerConnection && level == engine->Level)
+		engine->LevelDemoDriver->NotifyActorDestroyed(this);
 
 	if (Index == -1)
 		throw std::runtime_error("Actor index was never set!");
@@ -571,6 +575,23 @@ void UActor::Tick(float elapsed)
 	// physics in its own moves (AutonomousPhysics), not here (0x103a2763).
 	if (Role() != ROLE_AutonomousProxy && !clientsPawn)
 		TickPhysics(elapsed);
+
+	// A demo's playback: a player pawn of the authority -- a third person's
+	// spectator -- viewing a pawn, not from behind, takes that pawn's view as
+	// a server's copy of a client's pawn does, for PlayerCalcView
+	// (0x103a2793-0x103a2888).
+	if (Role() == ROLE_Authority && engine->LevelDemoDriver && engine->LevelDemoDriver->ServerConnection && XLevel() == engine->Level)
+	{
+		UPlayerPawn* viewer = UObject::TryCast<UPlayerPawn>(this);
+		UPawn* viewed = viewer && !viewer->bBehindView() ? UObject::TryCast<UPawn>(viewer->ViewTarget()) : nullptr;
+		if (viewed)
+		{
+			viewer->TargetViewRotation() = viewed->ViewRotation();
+			viewer->TargetEyeHeight() = viewed->EyeHeight();
+			if (UWeapon* weapon = viewed->Weapon())
+				viewer->TargetWeaponViewOffset() = weapon->PlayerViewOffset();
+		}
+	}
 }
 
 // The script's Move (AActor::execMove, Engine.dll 0x103e3030): a MoveActor

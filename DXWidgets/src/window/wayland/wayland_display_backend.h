@@ -103,6 +103,7 @@ public:
 	void SetCursor(StandardCursor cursor, std::shared_ptr<CustomCursor> custom);
 	void ShowCursor(bool enable);
 	bool GetKeyState(InputKey key);
+	void UpdateTextInput();
 
 	std::string GetClipboardText();
 	wayland::data_device_t& GetDataDevice() { return m_DataDevice; }
@@ -154,6 +155,8 @@ public:
 	wayland::cursor_shape_manager_v1_t m_CursorShapeManager;
 	wayland::cursor_shape_device_v1_t m_CursorShapeDevice;
 
+	wayland::zwp_text_input_manager_v3_t m_TextInputManager;
+
 	wayland::cursor_image_t m_cursorImage;
 	wayland::surface_t m_cursorSurface;
 	wayland::buffer_t m_cursorBuffer;
@@ -177,6 +180,7 @@ private:
 	int GetTimerTimeout();
 	void ConnectKeyboardEvents();
 	void ConnectMouseEvents();
+	void ConnectTextInputEvents();
 	void OnKeyboardKeyEvent(InputKey inputKey, wayland::keyboard_key_state state);
 	void OnKeyboardCharEvent(const char* ch, wayland::keyboard_key_state state);
 	void OnKeyboardDelayEnd();
@@ -229,6 +233,14 @@ private:
 	// The locale's compose sequences, a dead key's among them (KeyText)
 	xkb_compose_table* m_ComposeTable = nullptr;
 	xkb_compose_state* m_ComposeState = nullptr;
+
+	// An input method's text (text-input-v3), where the compositor has it:
+	// the window the text input is on, whether it is enabled there, and the
+	// text committed, typed at the next done (ConnectTextInputEvents)
+	wayland::zwp_text_input_v3_t m_TextInput;
+	WaylandDisplayWindow* m_TextInputWindow = nullptr;
+	bool m_TextInputEnabled = false;
+	std::string m_TextInputCommit;
 
 	WaylandPointerEvent currentPointerEvent = {0};
 	double m_WheelScroll = 0.0;   // the vertical scroll added up since it last turned

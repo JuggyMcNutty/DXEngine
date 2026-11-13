@@ -73,6 +73,8 @@
 #include "Network/NetClient.h"
 #include "Network/NetChannel.h"
 #include "Network/NetServer.h"
+#include "Network/NetDemo.h"
+#include "Packages/Engine/Actors/NavigationPoint/UPlayerStart.h"
 #include <algorithm>
 #include <chrono>
 #include <cstdarg>
@@ -528,6 +530,17 @@ void Engine::Run()
 		if (LevelNetDriver)
 			LevelNetDriver->TickDispatch(levelElapsed);
 
+		// So do the level's demo's, by the frame's own time: a playback's
+		// packets up to this frame, its player's coming and its end, as the
+		// original's level tick has them (ULevel::Tick, Engine.dll
+		// 0x103a51a0), paused or not.
+		if (LevelDemoDriver)
+		{
+			LevelDemoDriver->TickDispatch(realTimeElapsed);
+			if (LevelDemoDriver->ServerConnection)
+				TickDemoPlayback();
+		}
+
 		Level->Tick(levelElapsed, m_GamePaused);
 
 		// A server replicates to its clients before the packets go; a client
@@ -545,6 +558,15 @@ void Engine::Run()
 		}
 		if (LevelNetDriver)
 			LevelNetDriver->TickFlush();
+
+		// A recording takes the level after its tick, then its packets go
+		// into the file.
+		if (LevelDemoDriver)
+		{
+			if (!LevelDemoDriver->ServerConnection)
+				TickDemoRecord();
+			LevelDemoDriver->TickFlush();
+		}
 		GameStatTime = std::chrono::duration<double>(std::chrono::steady_clock::now() - gameStart).count();
 
 		// Then the Entry level, and the viewport's player's level when it is
@@ -607,6 +629,7 @@ void Engine::Run()
 
 	LogMessage("Shutting down...");
 	CloseNetDriver();
+	CloseDemoDriver();
 	if (window)
 		window->UnlockCursor();
 
@@ -1128,7 +1151,11 @@ void Engine::ReturnToEntry(const UnrealURL& url)
 
 void Engine::UnloadMap()
 {
+	// The level's drivers go with it, a demo's file closed, as the
+	// original's map load deletes them (UGameEngine::LoadMap, Engine.dll
+	// 0x1038c1f0).
 	CloseNetDriver();
+	CloseDemoDriver();
 
 	// A joining client's player waiting in the Entry level goes as any
 	// other, the original's LoadMap destroying each viewport's actor where
@@ -2695,7 +2722,10 @@ void Engine::TickPendingLevel(float realTimeElapsed)
 	else if (PendingLevel->Success && PendingLevel->FilesNeeded == 0)
 	{
 		std::unique_ptr<NetPendingLevel> pending = std::move(PendingLevel);
-		LoadClientMap(pending.get());
+		if (pending->IsDemo())
+			LoadDemoMap(static_cast<NetDemoPendingLevel*>(pending.get()));
+		else
+			LoadClientMap(pending.get());
 	}
 }
 
@@ -2732,6 +2762,13 @@ void Engine::UpdateConnectingMessage(const NetPendingLevel& pending)
 	UPlayerPawn* pawn = viewport ? viewport->Actor() : nullptr;
 	if (!pawn || !pawn->Level() || pawn->ProgressTimeOut() >= pawn->Level()->TimeSeconds())
 		return;
+	// A demo's playback shows its file's name alone (Engine.dll
+	// 0x10388976-0x103889c5).
+	if (pending.IsDemo())
+	{
+		SetProgress("", pending.URL.Map, 60.0f);
+		return;
+	}
 	std::string line1 = LocalizeMessage("Engine", "Progress", "ConnectingText", "Connecting (F10 Cancels):");
 	std::string line2 = LocalizeMessage("Engine", "Progress", "ConnectingURL", "unreal://%s/%s", { pending.URL.Host, pending.URL.Map });
 	SetProgress(line1, line2, 60.0f);
@@ -2868,6 +2905,276 @@ void Engine::CloseNetDriver()
 	LevelNetDriver.reset();
 	ClientLevel.reset();
 	ServerLevel.reset();
+}
+
+// DEMOREC's recording (ULevel::Exec, Engine.dll 0x1039dfe0;
+// UDemoRecDriver::InitListen 0x10407870): the driver [Engine.Engine]
+// DemoRecordingDevice names, its file made, or why not said. In single
+// player and on a server an Engine.DemoRecSpectator is spawned at the
+// level's origin, through which the playback's messages go, and the demo
+// takes the packages a server's clients are told of; on a client, its
+// server's. Then the welcome a client gets: CLIENTDEMO in single player and
+// on a client, SERVERDEMO on a server.
+void Engine::StartDemoRecord(const std::string& filename, ExecOutput& out)
+{
+	auto driver = std::make_unique<NetDemoDriver>(NetDemoDriverSection());
+	auto notify = std::make_unique<NetDemoRecordLevel>();
+	std::string error;
+	if (!driver->InitRecord(notify.get(), filename, error))
+	{
+		out.Log("Demo recording failed: " + error);
+		return;
+	}
+	LevelDemoDriver = std::move(driver);
+	DemoNotify = std::move(notify);
+
+	bool client = LevelInfo->NetMode() == NM_Client;
+	Array<NetPackageMap::PackageInfo> masterMap;
+	if (client)
+	{
+		if (LevelNetDriver && LevelNetDriver->ServerConnection)
+			masterMap = LevelNetDriver->ServerConnection->PackageMap.List;
+	}
+	else
+	{
+		// The original's spawn that fails ends the game (SpawnDemoRecSpectator
+		// 0x10408690, a cast of None): logged here, the recording going on
+		UClass* cls = packages->FindClass("Engine.DemoRecSpectator");
+		UActor* spectator = cls ? LevelInfo->Spawn(cls, nullptr, NameString(), vec3(0.0f), Rotator(0, 0, 0)) : nullptr;
+		if (!UObject::TryCast<UPlayerPawn>(spectator))
+			LogMessage("Demo: no Engine.DemoRecSpectator could be spawned");
+		masterMap = NetBuildMasterMap(LevelPackage, GameInfo);
+	}
+
+	NetConnection* connection = LevelDemoDriver->RecordConnection();
+	connection->CreateChannel(ChannelType::Control, true, 0);
+	NetWelcome(connection, masterMap, LevelPackage, client || LevelInfo->NetMode() == NM_Standalone ? "CLIENTDEMO" : "SERVERDEMO");
+	connection->PackageMap.Compute();
+	out.Log("Demo recording started to " + filename);
+}
+
+// DEMOPLAY's playback (ULevel::Exec, Engine.dll 0x1039dfe0): a join under
+// way given up, then a pending level of the demo's, which opens its file;
+// one that cannot says why and is let go.
+void Engine::StartDemoPlay(const UnrealURL& url, ExecOutput& out)
+{
+	CancelPending();
+	packages->RestorePackageFiles();
+	auto pending = std::make_unique<NetDemoPendingLevel>(url);
+	if (!pending->Driver)
+	{
+		out.Log("Demo playback failed: " + pending->Error);
+		return;
+	}
+	PendingLevel = std::move(pending);
+}
+
+// The level's demo let go: a recording's last packet, closing its control
+// channel, goes into the file before it closes.
+void Engine::CloseDemoDriver()
+{
+	if (!LevelDemoDriver)
+		return;
+	LevelDemoDriver.reset();
+	DemoNotify.reset();
+}
+
+// A recording's tick, after the level's (ULevel::TickDemoRecord, Engine.dll
+// 0x103a4b90): every actor the demo may have, each tick, none passed over
+// for relevance or for its rate -- an actor with a remote role, or on a
+// client one of the server's; a dynamic one or a zone; one sent once to
+// keep, once; none whose class is static that is not --, replicated with
+// bDemoRecording set, and on a client bClientDemoRecording and the roles
+// exchanged, as its server would send it.
+void Engine::TickDemoRecord()
+{
+	NetConnection* connection = LevelDemoDriver->RecordConnection();
+	if (!connection)
+		return;
+	bool client = LevelInfo->NetMode() == NM_Client;
+	NetPackageMap& map = connection->PackageMap;
+	const PropertyDataOffset isStatic = PropOffsets_Actor.bStatic;
+	for (size_t i = 0; i < Level->Actors.size(); i++)
+	{
+		UActor* actor = Level->Actors[i];
+		if (!actor)
+			continue;
+		if (actor->RemoteRole() == ROLE_None && !(client && actor->Role() != ROLE_None && actor->Role() != ROLE_Authority))
+			continue;
+		if (i < Level->FirstDynamicActor && !UObject::TryCast<UZoneInfo>(actor))
+			continue;
+		const Array<UActor*>& sent = connection->SentTemporaries;
+		if (actor->bNetTemporary() && std::find(sent.begin(), sent.end(), actor) != sent.end())
+			continue;
+		const uint8_t* defaults = static_cast<const uint8_t*>(actor->Class->PropertyData.Data);
+		bool staticClass = (*reinterpret_cast<const uint32_t*>(defaults + isStatic.DataOffset) & isStatic.BitfieldMask) != 0;
+		if (!actor->bStatic() && staticClass)
+			continue;
+
+		NetActorChannel* channel = connection->FindActorChannel(actor);
+		if (!channel && map.ObjectToIndex(actor->Class) != -1)
+		{
+			channel = static_cast<NetActorChannel*>(connection->CreateChannel(ChannelType::Actor, true));
+			if (channel)
+				channel->SetChannelActor(actor);
+		}
+		// The original asserts a channel is had and is not closing
+		if (!channel || channel->Closing || !channel->IsNetReady(false))
+			continue;
+
+		actor->bDemoRecording() = true;
+		actor->bClientDemoRecording() = client;
+		if (client)
+			std::swap(actor->Role(), actor->RemoteRole());
+		channel->ReplicateActor();
+		if (client)
+			std::swap(actor->Role(), actor->RemoteRole());
+		actor->bDemoRecording() = false;
+		actor->bClientDemoRecording() = false;
+	}
+}
+
+// A playback's tick, before the level's (ULevel::TickDemoPlayback,
+// Engine.dll 0x103a4f70): the level's Connecting action ends once its player
+// is in, and the demo's end takes the level back to Entry.
+void Engine::TickDemoPlayback()
+{
+	NetConnection* connection = LevelDemoDriver->ServerConnection.get();
+	if (LevelInfo->LevelAction() == LEVACT_Connecting && connection->State != ConnectionState::Pending)
+	{
+		LevelInfo->LevelAction() = LEVACT_None;
+		SetProgress("", "", 0.0f);
+	}
+	if (connection->State == ConnectionState::Closed)
+		ClientTravel("?entry", ETravelType::TRAVEL_Absolute, false);
+}
+
+// A playback's map, once its WELCOME has come (UGameEngine::Tick, Engine.dll
+// 0x10390f1e; LoadMap 0x1038c1f0): the level the demo used, loaded as a
+// client's, its player waiting in the Entry level; the demo's driver the
+// level's, its packages numbered as the recording's; and a frame drawn
+// under the Connecting action, as for any join, the demo's WELCOME giving no
+// LONE=. Nothing is sent: a playback's join is no JOIN
+// (UDemoPlayPendingLevel::SendJoin 0x10405da0).
+void Engine::LoadDemoMap(NetDemoPendingLevel* pending)
+{
+	UnrealURL url = pending->URL;
+	url.Map = pending->LevelName;
+	LogMessage("Demo: loading " + url.Map);
+	std::string error;
+	if (!LoadMap(url, {}, true, &error))
+	{
+		SetProgress(LocalizeMessage("Engine", "Errors", "ConnectionFailed", "Connection failed"), error, 4.0f);
+		return;
+	}
+	// The level's URL is the demo's, as the original's map load gives a
+	// level its pending level's (LoadMap 0x1038c1f0): its GetLocalURL names
+	// the demo's file.
+	LevelInfo->URL = pending->URL;
+	LastURL = pending->URL;
+
+	Array<NameString> keep;
+	for (const NetPendingLevel::UsedPackage& package : pending->Uses)
+		keep.push_back(package.Name);
+	packages->ReleaseNetPackages(keep);
+
+	CameraActor = nullptr;
+	LoginEntryPlayer(pending->URL);
+	audiodev->StopEffects();
+	render->OnMapLoaded();
+
+	LevelDemoDriver.reset(static_cast<NetDemoDriver*>(pending->Driver.release()));
+	DemoNotify = std::make_unique<NetDemoClientLevel>();
+	LevelDemoDriver->Notify = DemoNotify.get();
+
+	NetPackageMap& map = LevelDemoDriver->ServerConnection->PackageMap;
+	map.List.clear();
+	for (const NetPendingLevel::UsedPackage& used : pending->Uses)
+	{
+		NetPackageMap::PackageInfo info;
+		bool isLevel = StrTools::equals_ignore_case(used.Name.ToString(), LevelPackage->GetPackageName().ToString());
+		info.Pkg = isLevel ? LevelPackage : packages->GetPackage(used.Name);
+		info.Name = used.Name;
+		info.Guid = used.Guid;
+		info.Flags = used.Flags;
+		info.FileSize = used.Size;
+		info.RemoteGeneration = used.Generation;
+		map.List.push_back(info);
+	}
+	map.Compute();
+
+	LevelInfo->LevelAction() = LEVACT_Connecting;
+	if (EntryLevelInfo)
+		EntryLevelInfo->LevelAction() = LEVACT_Connecting;
+	Draw(0.0f, 0.0f, pending);
+}
+
+// A playback's player (UDemoRecConnection::HandleClientPlayer, Engine.dll
+// 0x10406cc0): the recorded player's pawn the viewport's, as a joining
+// client's; or with 3rdperson, and always in a server's demo, a spectator of
+// the class DemoSpectatorClass names -- Engine.Spectator for none -- at the
+// level's first PlayerStart, flying, an admin, owned here. Either way the
+// player takes the level's song, faded in, and a console's timedemo plays
+// the demo with no cap on its frames.
+void Engine::HandleDemoClientPlayer(NetConnection* connection, UPlayerPawn* pawn)
+{
+	UPlayerPawn* player = pawn;
+	if (!LevelDemoDriver->ClientThirdPerson)
+	{
+		HandleClientPlayer(connection, pawn);
+	}
+	else
+	{
+		// The stock ini names UnrealShare.UnrealSpectator, which Deus Ex has
+		// not: the original's load of it ends the game (0x10406dbf, a load
+		// that may not fail); Engine.Spectator here, logged
+		std::string className = LevelDemoDriver->DemoSpectatorClass.empty() ? std::string("Engine.Spectator") : LevelDemoDriver->DemoSpectatorClass;
+		UClass* cls = packages->FindClass(className);
+		if (!cls)
+		{
+			LogMessage("Demo: no spectator class " + className + ", Engine.Spectator taken");
+			cls = packages->FindClass("Engine.Spectator");
+		}
+		vec3 location(0.0f);
+		Rotator rotation(0, 0, 0);
+		for (UActor* actor : pawn->XLevel()->Actors)
+		{
+			if (UObject::TryCast<UPlayerStart>(actor))
+			{
+				location = actor->Location();
+				rotation = actor->Rotation();
+				break;
+			}
+		}
+		UPlayerPawn* spectator = UObject::TryCast<UPlayerPawn>(cls ? LevelInfo->Spawn(cls, nullptr, NameString(), location, rotation, true) : nullptr);
+		if (!spectator)
+		{
+			LogMessage("Demo: no spectator could be spawned");
+			return;
+		}
+		if (viewport->Actor())
+			viewport->Actor()->Player() = nullptr;
+		viewport->Actor() = spectator;
+		spectator->Player() = viewport;
+		CallEvent(spectator, EventName::Possess);
+		spectator->Role() = ROLE_Authority;
+		spectator->ShowFlags() = 0x480c;
+		spectator->RendMap() = 5;
+		spectator->bAdmin() = true;
+		spectator->bNetOwner() = true;
+		spectator->Physics() = PHYS_Flying;
+		ReleaseHeldInputKeys();
+		connection->State = ConnectionState::Open;
+		connection->Actor = spectator;
+		player = spectator;
+	}
+
+	player->Song() = LevelInfo->Song();
+	player->SongSection() = LevelInfo->SongSection();
+	player->CdTrack() = LevelInfo->CdTrack();
+	player->Transition() = MTRAN_Fade;
+	if (console && console->bTimeDemo())
+		LevelDemoDriver->NoFrameCap = true;
 }
 
 void Engine::Listen(const UnrealURL& url)
@@ -3056,6 +3363,18 @@ float Engine::GetMaxTickRate()
 	int maxTickRate = (LevelNetDriver && LevelNetDriver->ServerConnection) ? LevelNetDriver->ServerConnection->CurrentNetSpeed / 64 : 0;
 	if (LevelNetDriver && !LevelNetDriver->ServerConnection && LaunchInfo.dedicatedServer)
 		maxTickRate = std::clamp(LaunchInfo.lanPlay ? LevelNetDriver->LanServerMaxTickRate : LevelNetDriver->NetServerMaxTickRate, 10, 120);
+	else if (LevelDemoDriver && !LevelDemoDriver->ServerConnection && !(LevelNetDriver && LevelNetDriver->ServerConnection))
+	{
+		// A recording runs at its driver's rate, 10 to 120: 60 with the stock
+		// [Engine.DemoRecDriver]; with --lanplay the level's net driver's LAN
+		// rate, which the original's reads in single player too, where the
+		// level has none (Engine.dll 0x1038fd9c-0x1038fdb9): the demo
+		// driver's own there.
+		int rate = LevelDemoDriver->NetServerMaxTickRate;
+		if (LaunchInfo.lanPlay)
+			rate = LevelNetDriver ? LevelNetDriver->LanServerMaxTickRate : LevelDemoDriver->LanServerMaxTickRate;
+		maxTickRate = std::clamp(rate, 10, 120);
+	}
 	else if (LevelNetDriver && !LevelNetDriver->ServerConnection)
 		maxTickRate = 144;
 	return (float)maxTickRate;
@@ -3686,8 +4005,8 @@ bool Engine::ConnectionExec(NetConnection* connection, const std::string& line, 
 }
 
 // A level's words (ULevel::Exec, Engine.dll 0x1039dfe0): its net driver's,
-// SOCKETS (UNetDriver::Exec 0x104099c0); a demo driver's, which DXEngine has
-// not; then DEMOREC and DEMOPLAY.
+// SOCKETS (UNetDriver::Exec 0x104099c0); its demo driver's while a demo
+// runs (UDemoRecDriver::Exec 0x104083c0); then DEMOREC and DEMOPLAY.
 bool Engine::LevelExec(ULevel* level, const std::string& line, ExecOutput& out)
 {
 	if (!level)
@@ -3738,14 +4057,33 @@ bool Engine::LevelExec(ULevel* level, const std::string& line, ExecOutput& out)
 		}
 		return true;
 	}
+	// While a demo runs, DEMOREC and DEMOPLAY say which; STOPDEMO ends it,
+	// its frames counted: a recording's driver let go, its file closed, a
+	// playback's connection closed, which takes the level back to Entry.
+	if (level == Level && LevelDemoDriver)
+	{
+		if (ParseWord(line, "demorec", rest) || ParseWord(line, "demoplay", rest))
+		{
+			out.Log((LevelDemoDriver->ServerConnection ? "Demo playback currently active: " : "Demo recording currently active: ") + LevelDemoDriver->DemoFilename);
+			return true;
+		}
+		if (ParseWord(line, "stopdemo", rest))
+		{
+			out.Log(Printf("Demo %s stopped (%d frames)", LevelDemoDriver->DemoFilename.c_str(), LevelDemoDriver->FrameNum));
+			if (NetConnection* server = LevelDemoDriver->ServerConnection.get())
+				server->State = ConnectionState::Closed;
+			else
+				CloseDemoDriver();
+			return true;
+		}
+	}
 	bool play = false;
 	if (ParseWord(line, "demorec", rest) || (play = ParseWord(line, "demoplay", rest)))
 	{
 		// The name past the word (ParseToken), .dem added where it has not
-		// that ending; the attempt logged, then the original's demo driver
-		// (ini:Engine.Engine.DemoRecordingDevice) records or plays it, which
-		// DXEngine has not: the failure said as the original says its own
-		// (0x1039e065, 0x1039e2dd; bugs.md WIN.30)
+		// that ending -- a playback's read as a URL, the map its file and
+		// the options its own --, the attempt logged (0x1039e065,
+		// 0x1039e2dd).
 		size_t pos = 0;
 		std::string name;
 		if (!StrTools::ue1_parse_token(rest, pos, name, 0))
@@ -3753,10 +4091,25 @@ bool Engine::LevelExec(ULevel* level, const std::string& line, ExecOutput& out)
 			out.Log("You must specify a filename");
 			return true;
 		}
-		if (name.size() < 4 || !StrTools::equals_ignore_case(name.substr(name.size() - 4), ".dem"))
-			name += ".dem";
-		LogMessage((play ? "Attempting to play demo " : "Attempting to record demo ") + name);
-		out.Log(play ? "Demo playback failed: DXEngine has no demo driver" : "Demo recording failed: DXEngine has no demo driver");
+		auto withDem = [](std::string file)
+		{
+			if (file.size() < 4 || !StrTools::equals_ignore_case(file.substr(file.size() - 4), ".dem"))
+				file += ".dem";
+			return file;
+		};
+		if (play)
+		{
+			UnrealURL url(name);
+			url.Map = withDem(url.Map);
+			LogMessage("Attempting to play demo " + url.Map);
+			StartDemoPlay(url, out);
+		}
+		else
+		{
+			name = withDem(name);
+			LogMessage("Attempting to record demo " + name);
+			StartDemoRecord(name, out);
+		}
 		return true;
 	}
 	return false;

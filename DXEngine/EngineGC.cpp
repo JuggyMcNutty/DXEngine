@@ -2,6 +2,7 @@
 #include "Precomp.h"
 #include "Engine.h"
 #include "GC/GC.h"
+#include "Network/NetDemo.h"
 #include "Package/PackageManager.h"
 #include "Packages/Core/UClass.h"
 #include "Render/RenderSubsystem.h"
@@ -106,6 +107,8 @@ void Engine::MarkRoots(GCMarker& marker)
 
 	if (LevelNetDriver)
 		LevelNetDriver->Mark(marker);
+	if (LevelDemoDriver)
+		LevelDemoDriver->Mark(marker);
 	if (PendingLevel && PendingLevel->Driver)
 		PendingLevel->Driver->Mark(marker);
 	if (ServerLevel)

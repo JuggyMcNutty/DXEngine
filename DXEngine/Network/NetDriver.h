@@ -63,7 +63,7 @@ class NetDriver
 {
 public:
 	NetDriver();
-	~NetDriver();
+	virtual ~NetDriver();
 
 	bool InitConnect(NetNotify* notify, const std::string& host, int port, std::string& error);
 	// A server's socket, on the port or the next free of the tries from it;
@@ -80,10 +80,10 @@ public:
 		uint32_t Addr = 0;
 	};
 	std::shared_ptr<ResolveJob> Resolve;
-	void TickDispatch(float deltaTime);
+	virtual void TickDispatch(float deltaTime);
 	void TickFlush();
 
-	void LowLevelSend(NetConnection* connection, const uint8_t* data, int count);
+	virtual void LowLevelSend(NetConnection* connection, const uint8_t* data, int count);
 
 	// A server's actor is gone: each client's channel for it closes.
 	void NotifyActorDestroyed(UActor* actor);
@@ -115,9 +115,16 @@ public:
 	int LanServerMaxTickRate = 35;
 	// A client's: whether it fetches a package it lacks from the server.
 	bool AllowDownloads = true;
+	// A demo's driver (NetDemoDriver): its connection writes to a file, or
+	// reads from one.
+	bool Demo = false;
+
+protected:
+	// The settings of an ini section, each as it is where the section has
+	// none.
+	void LoadSettings(const std::string& section);
 
 private:
-	void LoadSettings();
 	bool OpenSocket(int port, std::string& error);
 
 	intptr_t Socket = -1;

@@ -63,6 +63,8 @@ WaylandDisplayBackend::WaylandDisplayBackend()
 			s_waylandRegistry.bind(name, m_XDGToplevelIconManager, 1);
 		if (interface == wayland::cursor_shape_manager_v1_t::interface_name)
 			s_waylandRegistry.bind(name, m_CursorShapeManager, std::min(version, 2u));
+		if (interface == wayland::zwp_text_input_manager_v3_t::interface_name)
+			s_waylandRegistry.bind(name, m_TextInputManager, 1);
 	};
 
 	s_waylandDisplay.roundtrip();
@@ -97,6 +99,14 @@ WaylandDisplayBackend::WaylandDisplayBackend()
 	m_waylandSeat.on_capabilities() = [this] (uint32_t capabilities) {
 		OnCapabilitiesEvent(capabilities);
 	};
+
+	// The seat's text input, an input method's text in our windows; none
+	// where the compositor lacks text-input-v3, the keys' text alone
+	if (m_TextInputManager && m_waylandSeat)
+	{
+		m_TextInput = m_TextInputManager.get_text_input(m_waylandSeat);
+		ConnectTextInputEvents();
+	}
 
 	m_XDGOutput = m_XDGOutputManager.get_xdg_output(m_waylandOutput);
 
@@ -457,6 +467,80 @@ void WaylandDisplayBackend::ConnectMouseEvents()
 	};
 }
 
+// An input method's text (text-input-v3), as the original's window takes an
+// IME's -- its result typed as any typed text, what is being composed shown
+// by the input method alone, the game drawing none (WinDrv.dll takes no IME
+// message: DefWindowProcW makes the result WM_CHARs, 0x1110b6d0) -- and as
+// SDL3's window takes one. The text input follows the keyboard to a window
+// and is on there while the window takes typed text (UpdateTextInput). The
+// text committed is typed at the done that follows, a done of an older
+// serial too (nothing is sent in answer to one); the text around the
+// cursor, never sent, is never deleted. The keys the input method leaves
+// come as keys, their text by the compose sequences.
+void WaylandDisplayBackend::ConnectTextInputEvents()
+{
+	m_TextInput.on_enter() = [this] (wayland::surface_t surfaceEntered) {
+		m_TextInputWindow = nullptr;
+		for (auto win : s_Windows)
+		{
+			if (win->GetWindowSurface() == surfaceEntered)
+				m_TextInputWindow = win;
+		}
+		// Enabled again only by an enable after the enter
+		m_TextInputEnabled = false;
+		m_TextInputCommit.clear();
+		UpdateTextInput();
+	};
+
+	m_TextInput.on_leave() = [this] (wayland::surface_t surfaceLeft) {
+		// The compositor takes no request of it till the next enter
+		m_TextInputWindow = nullptr;
+		m_TextInputEnabled = false;
+		m_TextInputCommit.clear();
+	};
+
+	m_TextInput.on_commit_string() = [this] (std::string text) {
+		m_TextInputCommit = text;
+	};
+
+	m_TextInput.on_done() = [this] (uint32_t serial) {
+		std::string text;
+		text.swap(m_TextInputCommit);
+		// Typed text off while the window's keyboard is locked, as the keys'
+		if (!text.empty() && m_TextInputWindow && !m_TextInputWindow->KeyboardLocked())
+			m_TextInputWindow->windowHost->OnWindowKeyChar(text);
+	};
+}
+
+// The text input on while the window it is on takes typed text, off while
+// that window's keyboard is locked, as SDL3's window starts and stops its
+// text input (LockKeyboard): in play a desktop's input method leaves held
+// keys alone. Enabled or disabled as that changes, not at each call (the
+// engine asks each frame), with no hint and the normal purpose, the
+// protocol's own, and no cursor rectangle, the engine giving none; a compose
+// sequence under way dropped as it changes, as SDL3's drops it.
+void WaylandDisplayBackend::UpdateTextInput()
+{
+	if (!m_TextInput)
+		return;
+	bool wanted = m_TextInputWindow && !m_TextInputWindow->KeyboardLocked();
+	if (wanted == m_TextInputEnabled)
+		return;
+	if (wanted)
+	{
+		m_TextInput.enable();
+		m_TextInput.set_content_type(wayland::zwp_text_input_v3_content_hint::none, wayland::zwp_text_input_v3_content_purpose::normal);
+	}
+	else
+	{
+		m_TextInput.disable();
+	}
+	m_TextInput.commit();
+	m_TextInputEnabled = wanted;
+	if (m_ComposeState)
+		xkb_compose_state_reset(m_ComposeState);
+}
+
 // The text a key types: by the locale's compose sequences where it has them
 // -- a dead key types nothing, the letter after it the two composed, a
 // sequence that matches none nothing -- else the key's own, as Xlib's input
@@ -743,6 +827,13 @@ void WaylandDisplayBackend::OnWindowDestroyed(WaylandDisplayWindow* window)
 
 	if (m_MouseFocusWindow == window)
 		m_MouseFocusWindow = nullptr;
+
+	// The text input off as its window goes, its surface still there
+	if (m_TextInputWindow == window)
+	{
+		m_TextInputWindow = nullptr;
+		UpdateTextInput();
+	}
 }
 
 void WaylandDisplayBackend::ProcessEvents()

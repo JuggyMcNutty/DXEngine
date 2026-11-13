@@ -16,7 +16,9 @@ public:
 	explicit NetPendingLevel(const UnrealURL& url);
 	~NetPendingLevel();
 
-	void Tick(float deltaTime);
+	// A demo's playback, before its map (NetDemoPendingLevel).
+	virtual bool IsDemo() const { return false; }
+	virtual void Tick(float deltaTime);
 	// The server told it is left: its control channel closed.
 	void Close();
 	// Whether what loads under each package's name is the server's: its GUID
@@ -48,6 +50,11 @@ public:
 	// The downloads still to come (the packages flagged Need): the map
 	// loads once there are none.
 	int FilesNeeded = 0;
+
+protected:
+	// One with no join of its own: a demo's.
+	struct NoConnect {};
+	NetPendingLevel(const UnrealURL& url, NoConnect) : URL(url) {}
 
 private:
 	void ReceiveNextFile(NetConnection* connection);

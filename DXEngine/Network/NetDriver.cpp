@@ -45,13 +45,13 @@ namespace
 	void SetNonBlocking(intptr_t s) { fcntl((int)s, F_SETFL, fcntl((int)s, F_GETFL, 0) | O_NONBLOCK); }
 #endif
 
-	float IniFloat(const char* key, float defaultValue)
+	float IniFloat(const std::string& section, const char* key, float defaultValue)
 	{
-		std::string value = engine->packages->GetIniValue("system", "IpDrv.TcpNetDriver", key);
+		std::string value = engine->packages->GetIniValue("system", section, key);
 		return value.empty() ? defaultValue : (float)std::atof(value.c_str());
 	}
 
-	int IniInt(const char* section, const char* key, int defaultValue)
+	int IniInt(const std::string& section, const char* key, int defaultValue)
 	{
 		std::string value = engine->packages->GetIniValue("system", section, key);
 		return value.empty() ? defaultValue : std::atoi(value.c_str());
@@ -103,7 +103,7 @@ std::string LocalizeMessage(const char* package, const char* section, const char
 
 NetDriver::NetDriver()
 {
-	LoadSettings();
+	LoadSettings("IpDrv.TcpNetDriver");
 }
 
 NetDriver::~NetDriver()
@@ -114,21 +114,21 @@ NetDriver::~NetDriver()
 		CloseSocket(Socket);
 }
 
-void NetDriver::LoadSettings()
+void NetDriver::LoadSettings(const std::string& section)
 {
-	ConnectionTimeout = IniFloat("ConnectionTimeout", ConnectionTimeout);
-	InitialConnectTimeout = IniFloat("InitialConnectTimeout", InitialConnectTimeout);
-	AckTimeout = IniFloat("AckTimeout", AckTimeout);
-	KeepAliveTime = IniFloat("KeepAliveTime", KeepAliveTime);
-	RelevantTimeout = IniFloat("RelevantTimeout", RelevantTimeout);
-	SpawnPrioritySeconds = IniFloat("SpawnPrioritySeconds", SpawnPrioritySeconds);
-	ServerTravelPause = IniFloat("ServerTravelPause", ServerTravelPause);
-	MaxClientRate = IniInt("IpDrv.TcpNetDriver", "MaxClientRate", MaxClientRate);
-	DynamicUpdateRate = IniInt("IpDrv.TcpNetDriver", "DynamicUpdateRate", DynamicUpdateRate);
-	StaticUpdateRate = IniInt("IpDrv.TcpNetDriver", "StaticUpdateRate", StaticUpdateRate);
-	NetServerMaxTickRate = IniInt("IpDrv.TcpNetDriver", "NetServerMaxTickRate", NetServerMaxTickRate);
-	LanServerMaxTickRate = IniInt("IpDrv.TcpNetDriver", "LanServerMaxTickRate", LanServerMaxTickRate);
-	std::string allowDownloads = engine->packages->GetIniValue("system", "IpDrv.TcpNetDriver", "AllowDownloads");
+	ConnectionTimeout = IniFloat(section, "ConnectionTimeout", ConnectionTimeout);
+	InitialConnectTimeout = IniFloat(section, "InitialConnectTimeout", InitialConnectTimeout);
+	AckTimeout = IniFloat(section, "AckTimeout", AckTimeout);
+	KeepAliveTime = IniFloat(section, "KeepAliveTime", KeepAliveTime);
+	RelevantTimeout = IniFloat(section, "RelevantTimeout", RelevantTimeout);
+	SpawnPrioritySeconds = IniFloat(section, "SpawnPrioritySeconds", SpawnPrioritySeconds);
+	ServerTravelPause = IniFloat(section, "ServerTravelPause", ServerTravelPause);
+	MaxClientRate = IniInt(section, "MaxClientRate", MaxClientRate);
+	DynamicUpdateRate = IniInt(section, "DynamicUpdateRate", DynamicUpdateRate);
+	StaticUpdateRate = IniInt(section, "StaticUpdateRate", StaticUpdateRate);
+	NetServerMaxTickRate = IniInt(section, "NetServerMaxTickRate", NetServerMaxTickRate);
+	LanServerMaxTickRate = IniInt(section, "LanServerMaxTickRate", LanServerMaxTickRate);
+	std::string allowDownloads = engine->packages->GetIniValue("system", section, "AllowDownloads");
 	if (!allowDownloads.empty())
 		AllowDownloads = StrTools::equals_ignore_case(allowDownloads, "True") || allowDownloads == "1";
 }

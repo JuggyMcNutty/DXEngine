@@ -364,8 +364,14 @@ By area, as the code stands. Each device's numbers are its port's, such as
   scale, its buffers and EGL window made again as the scale changes, a fractional one too, and
   goes full screen on the output it is on. In play the pointer is locked and hidden, its
   relative motion's fractions kept for the next move. Its text is typed by the locale's compose
-  sequences, a dead key's among them, through no input method (bugs.md WIN.35); keys held as it
-  gains the keyboard are held, not pressed.
+  sequences, a dead key's among them, and by the desktop's input method (IBus's, fcitx5's)
+  through text-input-v3, on while the game takes text, as SDL3's text input is: what the input
+  method commits is typed as typed text is, and what it is composing it shows itself, the game
+  drawing none, as the original leaves an IME to Windows
+  ([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys))
+  (`TypeConsole` under `DXCAP_BACKEND=Wayland`: KWin's text input on for the window while its
+  edit field has the focus, off on the build before; what an input method composes by reading,
+  its run due, bugs.md WIN.35); keys held as it gains the keyboard are held, not pressed.
   A GL swap waits for the compositor's frame at most 50 ms, so a window the compositor hides
   plays on at 20 frames a second, where Mesa's own wait held the game; the software device's
   frames go into buffers the compositor has let go. A paste of its text is written as the
@@ -869,6 +875,7 @@ its code is:
   `DemoPlaySound` natives (`NActor.cpp`).
 - **The network driver**: `DXEngine/Network/` is DXEngine's own, the original's protocol
   over UDP (`NetDriver`, channels, the package map, replication by the original's lists) with a
-  client that joins the original's servers, a listen and a dedicated server, downloads and
-  server travel; `IpDrv`'s `InternetLink`, `TcpLink` and `UdpLink` are the original's
+  client that joins the original's servers, a listen and a dedicated server, downloads, server
+  travel, and the demo driver (`NetDemo.cpp`), which writes and plays the original's `.dem`
+  files; `IpDrv`'s `InternetLink`, `TcpLink` and `UdpLink` are the original's
   ([multiplayer](NATIVES.md#multiplayer)).

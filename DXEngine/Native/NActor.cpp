@@ -23,6 +23,7 @@
 #include "Audio/AudioDevice.h"
 #include "Packages/Engine/Subsystems/UDXEngineAudioDevice.h"
 #include "Utils/StrTools.h"
+#include "Network/NetDemo.h"
 
 void NActor::RegisterFunctions()
 {
@@ -541,6 +542,25 @@ static bool CalledFromSimulated()
 	return caller && AllFlags(caller->FuncFlags, FunctionFlags::Simulated);
 }
 
+// Whether the actor's level records a demo, which takes the sounds its
+// actors play through their DemoPlaySound, for its playback to play.
+static bool RecordsDemo(UActor* actor)
+{
+	return engine->LevelDemoDriver && !engine->LevelDemoDriver->ServerConnection && actor->XLevel() == engine->Level;
+}
+
+static void CallDemoPlaySound(UActor* actor, USound* sound, int slot, float volume, bool noOverride, float radius, float pitch)
+{
+	CallEvent(actor, NameString("DemoPlaySound"), {
+		ExpressionValue::ObjectValue(sound),
+		ExpressionValue::ByteValue((uint8_t)slot),
+		ExpressionValue::FloatValue(volume),
+		ExpressionValue::BoolValue(noOverride),
+		ExpressionValue::FloatValue(radius),
+		ExpressionValue::FloatValue(pitch)
+		});
+}
+
 // Deus Ex's sounds are heard as the original's are (dx-reverse-info
 // engine-dll.md, sounds): each hearer the native names is asked
 // (UActor::CheckHearSound), and the hearer's ClientHearSound plays it -- in a
@@ -556,13 +576,19 @@ void NActor::PlaySound_Deus(UObject* Self, UObject* Sound, std::optional<uint8_t
 		return;
 	}
 	int slot = Slot ? *Slot : SLOT_Misc;
-	int id = engine->audiodev->SoundId(SelfActor, slot);
-	if (bNoOverride && *bNoOverride) id |= 1;
 	// A radius of 0 or less is 800.
 	float radius = Radius ? *Radius : SelfActor->TransientSoundRadius();
 	if (radius <= 0.0f)
 		radius = 800.0f;
-	vec3 parameters((Volume ? *Volume : SelfActor->TransientSoundVolume()) * 100.0f, radius, (Pitch ? *Pitch : 1.0f) * 100.0f);
+	float volume = Volume ? *Volume : SelfActor->TransientSoundVolume();
+	float pitch = Pitch ? *Pitch : 1.0f;
+	// A demo the level records takes it first, on a client none
+	// (AActor::execPlaySound, Engine.dll 0x103e2164-0x103e22c4).
+	if (RecordsDemo(SelfActor) && SelfActor->Level()->NetMode() != NM_Client)
+		CallDemoPlaySound(SelfActor, s, slot, volume, bNoOverride && *bNoOverride, radius, pitch);
+	int id = engine->audiodev->SoundId(SelfActor, slot);
+	if (bNoOverride && *bNoOverride) id |= 1;
+	vec3 parameters(volume * 100.0f, radius, pitch * 100.0f);
 	// On a client, or from a simulated function, the viewports' players hear
 	// it; otherwise every player pawn.
 	bool viewportsOnly = SelfActor->Level()->NetMode() == NM_Client || CalledFromSimulated();
@@ -581,11 +607,17 @@ void NActor::PlayOwnedSound_Deus(UObject* Self, UObject* Sound, std::optional<ui
 	if (!s)
 		return;
 	int slot = Slot ? *Slot : SLOT_Misc;
+	float radius = Radius ? *Radius : SelfActor->TransientSoundRadius();
+	float volume = Volume ? *Volume : SelfActor->TransientSoundVolume();
+	float pitch = Pitch ? *Pitch : 1.0f;
+	// A demo the level records takes it first, on a client too
+	// (AActor::execPlayOwnedSound, Engine.dll 0x103e2acd-0x103e2b10).
+	if (RecordsDemo(SelfActor))
+		CallDemoPlaySound(SelfActor, s, slot, volume, bNoOverride && *bNoOverride, radius, pitch);
 	int id = engine->audiodev->SoundId(SelfActor, slot);
 	if (bNoOverride && *bNoOverride) id |= 1;
-	float radius = Radius ? *Radius : SelfActor->TransientSoundRadius();
 	float range = radius == 0.0f ? 1600.0f : radius;
-	vec3 parameters((Volume ? *Volume : SelfActor->TransientSoundVolume()) * 100.0f, radius, (Pitch ? *Pitch : 1.0f) * 100.0f);
+	vec3 parameters(volume * 100.0f, radius, pitch * 100.0f);
 
 	uint8_t netMode = SelfActor->Level()->NetMode();
 	if (netMode == NM_Client)

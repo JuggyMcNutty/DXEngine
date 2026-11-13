@@ -1,11 +1,10 @@
 //=============================================================================
 // DemoWordsConsole: a demo recorded from single player by the console's
-// words (bugs.md WIN.30), logged with "DXDEMO:". DXEngine has no
-// demo driver, recording or playback at all; the original's level takes
-// DEMOREC and DEMOPLAY (ULevel::Exec, Engine.dll 0x1039dfe0), and its demo
-// driver, while there is one, DEMOREC, DEMOPLAY and STOPDEMO
-// (UDemoRecDriver::Exec, 0x104083c0). On Liberty Island (DXEngine's map,
-// the original's DXCAP_START), by the player's ConsoleCommand, 2 s apart:
+// words, logged with "DXDEMO:". The level takes DEMOREC and DEMOPLAY
+// (ULevel::Exec, Engine.dll 0x1039dfe0), and its demo driver, while there
+// is one, DEMOREC, DEMOPLAY and STOPDEMO (UDemoRecDriver::Exec,
+// 0x104083c0), in both engines. On Liberty Island (DXEngine's map, the
+// original's DXCAP_START), by the player's ConsoleCommand, 2 s apart:
 //   1. DEMOREC              "You must specify a filename"
 //   2. DEMOREC DxCapDemo    "Demo recording started to DxCapDemo.dem"
 //                           (the log first "Attempting to record demo
@@ -19,9 +18,9 @@
 //   5. STOPDEMO             "Demo DxCapDemo.dem stopped (<n> frames)"
 //   6. STOPDEMO             '' (no demo driver: no taker)
 //   7. DEMOPLAY             "You must specify a filename"
-// the level's NetMode logged at each step; then an
-// exit. DXEngine fe46ad13, by reading: '' for each, "Unknown command" in its
-// log. The original writes System/DxCapDemo.dem: delete it after the run.
+// the level's NetMode logged at each step; then an exit. Each engine writes
+// DxCapDemo.dem in its System folder, 6 s at the 60 frames a second a
+// recording runs at (some 360 frames): delete it after the run.
 //=============================================================================
 class DemoWordsConsole extends Console;
 

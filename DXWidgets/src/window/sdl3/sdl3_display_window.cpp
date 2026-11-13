@@ -764,7 +764,11 @@ void SDL3DisplayWindow::DispatchEvent(const SDL_Event& event)
 
 	if (event.type >= SDL_EVENT_WINDOW_FIRST && event.type <= SDL_EVENT_WINDOW_LAST)
 		window->OnWindowEvent(event.window);
-	else if (event.type == SDL_EVENT_TEXT_INPUT || event.type == SDL_EVENT_TEXT_EDITING)
+	// Committed text alone is typed: an input method's composition
+	// (SDL_EVENT_TEXT_EDITING) is its own window's to show, as the original's
+	// window procedure leaves every IME message to Windows and takes only the
+	// WM_CHARs of the text committed (WinDrv.dll 0x11109b30; bugs.md WIN.39)
+	else if (event.type == SDL_EVENT_TEXT_INPUT)
 		window->OnTextInput(event.text);
 	else if (event.type == SDL_EVENT_KEY_UP)
 		window->OnKeyUp(event.key);

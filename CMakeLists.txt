@@ -708,6 +708,8 @@ set(DXCOMMON_SOURCES
 	DXEngine/Network/NetChannel.h
 	DXEngine/Network/NetClient.cpp
 	DXEngine/Network/NetClient.h
+	DXEngine/Network/NetDemo.cpp
+	DXEngine/Network/NetDemo.h
 	DXEngine/Network/NetConnection.cpp
 	DXEngine/Network/NetConnection.h
 	DXEngine/Network/NetDriver.cpp

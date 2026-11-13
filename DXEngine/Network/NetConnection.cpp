@@ -250,6 +250,10 @@ void NetConnection::ReceivedNak(int nakPacketId)
 
 void NetConnection::SendAck(int packetId, bool firstTime)
 {
+	// A demo's connection writes none (UNetConnection::SendAck, Engine.dll
+	// 0x10404360).
+	if (InternalAck)
+		return;
 	if (firstTime)
 	{
 		PurgeAcks();
@@ -351,6 +355,15 @@ void NetConnection::FlushNet()
 	// No bunch to merge into past this point, the packet sent or not.
 	LastEnd = 0;
 	TimeSensitive = false;
+
+	// A demo's playback sends nothing: what was built is let go
+	// (UDemoRecConnection::FlushNet, Engine.dll 0x10406ca0).
+	if (Driver->Demo && Driver->ServerConnection.get() == this)
+	{
+		QueuedAcks.clear();
+		InitOut();
+		return;
+	}
 	if (Out.GetNumBits() || Driver->Time - LastSendTime > Driver->KeepAliveTime)
 	{
 		// A keepalive is a packet with its number only.
@@ -399,6 +412,22 @@ void NetConnection::Tick()
 		AverageFrameTime = CumulativeTime / CountedFrames;
 		CumulativeTime = 0.0;
 		CountedFrames = 0;
+	}
+
+	// A demo's connection has all it sent acknowledged, the channels' opens
+	// too, and hears from the other side each tick, so it never times out
+	// (UNetConnection::Tick, Engine.dll 0x10404a40, InternalAck).
+	if (InternalAck)
+	{
+		LastReceiveTime = Driver->Time;
+		for (int i = (int)OpenChannels.size() - 1; i >= 0; i--)
+		{
+			NetChannel* channel = OpenChannels[i];
+			for (NetOutBunch& out : channel->OutRec)
+				out.ReceivedAck = true;
+			channel->OpenAcked = true;
+			channel->ReceivedAcks();
+		}
 	}
 
 	UpdateStats();
@@ -466,13 +495,13 @@ void NetConnection::UpdateStats()
 
 	// The player's bBadConnectionAlert: a lag of more than 0.8 s, the loss
 	// counting 1.2 s for all lost, or what the loss leaves of the rate under
-	// 2,000 bytes a second, while the player has its channel here; or fewer
-	// than 2 packets a second come in (0x10404e1c-0x10404ef0). No stock
-	// script reads it.
+	// 2,000 bytes a second, while the player has its channel here -- never
+	// for a demo's connection --; or fewer than 2 packets a second come in
+	// (0x10404e1c-0x10404ef0). No stock script reads it.
 	if (Actor)
 	{
 		float loss = std::max(InLoss, OutLoss) * 0.01f;
-		bool slow = loss * 1.2 + AvgLag > 0.8 || (1.0f - loss) * CurrentNetSpeed < 2000.0f;
+		bool slow = !InternalAck && (loss * 1.2 + AvgLag > 0.8 || (1.0f - loss) * CurrentNetSpeed < 2000.0f);
 		Actor->bBadConnectionAlert() = (slow && FindActorChannel(Actor)) || inPackets < 2.0f;
 	}
 
@@ -492,6 +521,10 @@ void NetConnection::UpdateStats()
 
 bool NetConnection::IsNetReady(bool saturate)
 {
+	// A demo's connection always has room (UDemoRecConnection::IsNetReady,
+	// Engine.dll 0x10406c80).
+	if (Driver->Demo)
+		return true;
 	if (saturate)
 		QueuedBytes = -Out.GetNumBytes();
 	return QueuedBytes + Out.GetNumBytes() <= 0;

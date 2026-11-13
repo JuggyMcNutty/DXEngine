@@ -21,6 +21,7 @@
 #include "Packages/Engine/Actors/UActor.h"
 #include "Package/PackageManager.h"
 #include "Network/NetDriver.h"
+#include "Network/NetDemo.h"
 #include "Network/NetRemote.h"
 #include "Utils/AlignedAlloc.h"
 #include "VM/PrintPrettyExpression.h"
@@ -296,8 +297,10 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, CallArguments& a
 	// and steps nothing into the caller's result; CallFunction (0x1013f4e0)
 	// so calls no native without its own number that it takes. A variable
 	// assigned from it keeps its value, a bool is cleared (CallScript); its
-	// out arguments are copied back from the frame (CopyStartsBack).
-	if (engine->LevelNetDriver && !(AllFlags(func->FuncFlags, FunctionFlags::Native) && func->NativeFuncIndex != 0) && NetProcessRemoteFunction(func, instance, args))
+	// out arguments are copied back from the frame (CopyStartsBack). A
+	// demo, recorded or played back, takes such a call too, in single player
+	// as well.
+	if ((engine->LevelNetDriver || engine->LevelDemoDriver) && !(AllFlags(func->FuncFlags, FunctionFlags::Native) && func->NativeFuncIndex != 0) && NetProcessRemoteFunction(func, instance, args))
 	{
 		CopyStartsBack(func, args);
 		return ExpressionValue::NothingValue(true);

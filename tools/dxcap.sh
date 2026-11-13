@@ -73,6 +73,11 @@
 # DXCAP_BACKEND=SDL2 its SDL2 window, linux-aarch64's and the Smart Pro's
 # launchers', in a build with SDL2's (DXCAP_ENGINE). A timeline that drives
 # the window's virtual pad has the run see that pad alone.
+# DXCAP_BACKEND=Wayland gives a dxe run the engine's own Wayland window, a
+# dev build's (ENABLE_WAYLAND, DXCAP_ENGINE), on the desktop's compositor
+# (WAYLAND_DISPLAY), where an input method types into it;
+# DXCAP_BACKEND=SDL3-Wayland its SDL3 window through SDL's Wayland driver
+# there, as linux-x86_64's launchers start it on a Wayland desktop.
 # DXCAP_USERINI=<file> gives a run that User.ini in place of the game's
 # (IniConsole's keys given twice). DXCAP_USERINI_FIRST=1 names the run's inis
 # USERINI= then INI= on the original's command line, and gives DXEngine the
@@ -974,12 +979,22 @@ run_dxe() {
         # the original draws through Wine's; DXCAP_BACKEND=SDL3 or SDL2 its
         # SDL one, the launchers', on the same display. A Windows build's
         # window is SDL3's (or its own), through Wine's X11 driver: Windows'
-        # SDL has no driver to name.
-        unset WAYLAND_DISPLAY
-        export DISPLAY="$XDISPLAY" DXE_DISPLAY_BACKEND="${DXCAP_BACKEND:-X11}" SDL_VIDEODRIVER=x11
-        if windows_engine; then
-            export DXE_DISPLAY_BACKEND="${DXCAP_BACKEND:-SDL3}"
-            unset SDL_VIDEODRIVER
+        # SDL has no driver to name. DXCAP_BACKEND=Wayland: the engine's
+        # own Wayland window on the desktop's compositor, the first the
+        # engine starts with no backend named.
+        if [ "${DXCAP_BACKEND:-}" = Wayland ] && ! windows_engine; then
+            [ -n "${WAYLAND_DISPLAY:-}" ] || die "DXCAP_BACKEND=Wayland: no WAYLAND_DISPLAY (the desktop's compositor)"
+            unset DXE_DISPLAY_BACKEND SDL_VIDEODRIVER
+        elif [ "${DXCAP_BACKEND:-}" = SDL3-Wayland ] && ! windows_engine; then
+            [ -n "${WAYLAND_DISPLAY:-}" ] || die "DXCAP_BACKEND=SDL3-Wayland: no WAYLAND_DISPLAY (the desktop's compositor)"
+            export DXE_DISPLAY_BACKEND=SDL3 SDL_VIDEODRIVER=wayland
+        else
+            unset WAYLAND_DISPLAY
+            export DISPLAY="$XDISPLAY" DXE_DISPLAY_BACKEND="${DXCAP_BACKEND:-X11}" SDL_VIDEODRIVER=x11
+            if windows_engine; then
+                export DXE_DISPLAY_BACKEND="${DXCAP_BACKEND:-SDL3}"
+                unset SDL_VIDEODRIVER
+            fi
         fi
         # A timeline's virtual pad alone (its vendor and product): no pad of
         # the machine's in its place.

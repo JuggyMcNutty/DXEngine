@@ -44,7 +44,6 @@ public:
 	Array<NetPackageMap::PackageInfo> Packages;
 
 private:
-	void AddPackage(Package* package);
 	void Welcome(NetConnection* connection);
 	void Join(NetConnection* connection);
 	int ServerTickClient(NetConnection* connection);
@@ -58,3 +57,15 @@ private:
 // A client's player on a server is its connection, a Player object for the
 // scripts (Engine.NetConnection); which connection each one is.
 NetConnection* NetConnectionOfPlayer(UObject* player);
+
+// The packages a level's clients are told of, a server's and a demo's
+// (UGameEngine::BuildServerMasterMap, Engine.dll 0x10388b10): the level's,
+// the ServerPackages the game engine's section lists, and the game's, each
+// with what it imports, depth first, less what is only the server's.
+Array<NetPackageMap::PackageInfo> NetBuildMasterMap(Package* level, UObject* game);
+
+// The level's welcome to a connection (ULevel::WelcomePlayer, Engine.dll
+// 0x1039f500): the packages given its map, a USES line for each, WELCOME
+// with the level, LONE= and what the caller adds -- a demo's CLIENTDEMO or
+// SERVERDEMO --, then the driver's DYNAMICRATE and STATICRATE.
+void NetWelcome(NetConnection* connection, const Array<NetPackageMap::PackageInfo>& packages, Package* level, const std::string& optional);
