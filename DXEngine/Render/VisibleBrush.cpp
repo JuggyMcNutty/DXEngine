@@ -213,6 +213,7 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
 		// None in a frame not lit, as on the level's surfaces (VisibleNode)
 		if ((PolyFlags & PF_Unlit) == 0 && !seal && engine->render->SceneLit)
 		{
+			StatClock clock(engine->render->PanelStats.Illum);
 			lightmap = engine->Level->Light.GetMoverLightmap(mover, poly, zone, model);
 			// Deus Ex's only as VisibleNode's makes one
 			if (frame->VolumetricFog && (PolyFlags & PF_Translucent) == 0)
@@ -237,6 +238,7 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
 		facet.Vertices = const_cast<vec3*>(corners);
 		facet.VertexCount = count;
 		surfaceinfo.DepthBias = behindLevel ? -1 : 1;
+		StatClock clock(engine->render->PanelStats.PolyV);
 		frame->Device->DrawComplexSurface(&frame->Frame, surfaceinfo, facet);
 	};
 

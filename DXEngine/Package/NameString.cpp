@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "NameString.h"
+#include "Utils/StrTools.h"
 
 Array<std::string> NameString::Names;
 std::unordered_map<std::string, int> NameString::CompareStringToIndex;
@@ -129,4 +130,24 @@ std::vector<int> NameString::Sweep()
 	}
 	CollectableSpellings = std::move(kept);
 	return freed;
+}
+
+// The names as the original's name table holds them, one entry every spelling
+// finds, in its buckets by appStrihash (FName::DisplayHash, Core.dll
+// 0x1014e000): DXEngine's names in a table of the original's
+void NameString::HashFigures(int bins, int& names, int& usedBins)
+{
+	std::vector<bool> used((size_t)bins, false);
+	names = 0;
+	usedBins = 0;
+	for (const auto& entry : CompareStringToIndex)
+	{
+		names++;
+		size_t bin = StrTools::ue1_strihash(entry.first) & (uint32_t)(bins - 1);
+		if (!used[bin])
+		{
+			used[bin] = true;
+			usedBins++;
+		}
+	}
 }

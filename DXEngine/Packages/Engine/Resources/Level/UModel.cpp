@@ -57,6 +57,7 @@ void UModel::Load(ObjectStream* stream)
 		Points = OldFormat.Points->Vectors;
 		Nodes = OldFormat.Nodes->Nodes;
 		Zones = OldFormat.Nodes->Zones;
+		NumZones = (int)Zones.size();
 		if (Zones.size() < 64)
 			Zones.resize(64);
 		Surfaces = OldFormat.Surfaces->Surfaces;
@@ -155,6 +156,7 @@ void UModel::Load(ObjectStream* stream)
 			zone.Visibility = stream->ReadUInt64();
 			Zones.push_back(zone);
 		}
+		this->NumZones = NumZones;
 		if (NumZones < 64)
 			Zones.resize(64);
 	}

@@ -742,6 +742,10 @@ bool UActor::IsPlayerOrProjectile()
 
 CollisionHit UActor::TraceMove(const vec3& delta, bool isOwnBaseBlocking, CollisionHitList& hits)
 {
+	// A move counted and timed for STAT GLOBAL's Move, as the original's
+	// MoveActor counts and clocks each (Engine.dll 0x10399299-0x10399f42)
+	XLevel()->Stats.Moves++;
+	StatClock clock(XLevel()->Stats.Move);
 	// Analyze what we will hit if we move as requested and stop if it is the level or a blocking actor
 	CollisionHit blockingHit;
 	if (!Brush())
@@ -780,6 +784,7 @@ CollisionHit UActor::TraceMove(const vec3& delta, bool isOwnBaseBlocking, Collis
 
 CollisionHit UActor::FinishMove(const vec3& delta, const CollisionHitList& hits, CollisionHit blockingHit, const vec3& hitLocation)
 {
+	StatClock clock(XLevel()->Stats.Move);
 	bool useBlockPlayers = IsPlayerOrProjectile();
 
 	vec3 actuallyMoved = delta * blockingHit.Fraction;
@@ -852,6 +857,8 @@ CollisionHit UActor::FinishMove(const vec3& delta, const CollisionHitList& hits,
 // as MoveActor's test before its brush's (0x1039915a).
 bool UActor::MoveBrush(const vec3& delta, const Rotator& rotation)
 {
+	XLevel()->Stats.Moves++;
+	StatClock clock(XLevel()->Stats.Move);
 	if (bStatic() || !bMovable())
 		return false;
 

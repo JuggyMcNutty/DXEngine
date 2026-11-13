@@ -12,6 +12,7 @@
 #include "Engine.h"
 #include "VM/Frame.h"
 #include "VM/ScriptCall.h"
+#include <optional>
 
 ULevel::ULevel(NameString name, UClass* base, ObjectFlags flags) : ULevelBase(name, base, flags)
 {
@@ -81,6 +82,11 @@ void ULevel::Tick(float elapsed, bool gamePaused)
 	// The tick counts its own jumps, as the original's (ULevel::Tick)
 	Frame::InitRunaway();
 
+	// Its figures cleared, the events' time with them, as the original's
+	// tick begins with its InitStats (Engine.dll 0x103a523b, 0x103a06b0)
+	Stats = {};
+	ScriptStatTime = 0.0;
+
 	// The actors' step is at most 0.4 s, as the original's level tick holds
 	// it, the level's clock taking the whole time: a long frame -- a load, a
 	// hitch -- moves nothing further. Its floor of 5 ms is not carried: above
@@ -125,6 +131,9 @@ void ULevel::Tick(float elapsed, bool gamePaused)
 // dynamic actor, the static ones never ticked.
 void ULevel::TickDeusEx(float elapsed, bool gamePaused)
 {
+	// The actors' tick, the paused one too, timed for STAT GLOBAL's Actor up
+	// to the event manager's tick, as the original's (0x103a54df-0x103a5922)
+	std::optional<StatClock> actorClock(std::in_place, Stats.Actor);
 	ownerWait.clear();
 
 	// Paused: the input of each player pawn with a Player, and any other
@@ -197,6 +206,7 @@ void ULevel::TickDeusEx(float elapsed, bool gamePaused)
 		}
 	}
 	ownerWait.clear();
+	actorClock.reset();
 
 	// The level's own AI event manager is ticked after the actors, on a full
 	// tick with the level not paused, as the original's ULevel::Tick ticks

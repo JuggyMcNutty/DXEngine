@@ -1,8 +1,12 @@
 #pragma once
 
+#include "RenderDevice/RenderDevice.h"
+
 class CachedTexture
 {
 public:
+	// STAT HARDWARE's: its format, bytes and the frame it was last set in
+	TextureCacheStats::Entry Stat;
 	std::unique_ptr<VulkanImage> image;
 	std::unique_ptr<VulkanImageView> imageView;
 	VkImageLayout imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;

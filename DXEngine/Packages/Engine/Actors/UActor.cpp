@@ -633,6 +633,9 @@ void UActor::MakeNoise(float loudness)
 		noisePawn->noise2loudness() = loudness;
 	}
 
+	// The pawns' hearing, timed for STAT GLOBAL's See, as the original's
+	// CheckNoiseHearing (Engine.dll 0x103bfb26-0x103bfc72)
+	StatClock clock(XLevel()->Stats.See);
 	for (UPawn* pawn = Level()->PawnList(); pawn != nullptr; pawn = pawn->nextPawn())
 	{
 		if (pawn != noisePawn && pawn->CanHearNoise(this, loudness))

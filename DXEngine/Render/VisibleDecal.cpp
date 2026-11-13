@@ -153,6 +153,11 @@ void VisibleDecal::Draw(VisibleFrame* frame, const Array<LevelDecal>& decals, co
 	if (!engine->client->Decals)
 		return;
 
+	// The decals drawn and clipped, timed and counted for STAT GLOBAL's
+	// Decal, DecalClip and Decal#, as the original's DrawFrame does
+	// (Render.dll 0x10b1b0ac-0x10b1b382)
+	auto& panel = engine->render->PanelStats;
+	StatClock clock(panel.Decal);
 	static Array<vec3> poly;
 	static Array<vec3> clipped;
 	static Array<vec2> uvs;
@@ -161,7 +166,12 @@ void VisibleDecal::Draw(VisibleFrame* frame, const Array<LevelDecal>& decals, co
 
 	for (const LevelDecal& leveldecal : decals)
 	{
-		if (!Clip(eye, leveldecal, base, normal, mover, poly, clipped, &uvs))
+		bool kept;
+		{
+			StatClock clipClock(panel.DecalClip);
+			kept = Clip(eye, leveldecal, base, normal, mover, poly, clipped, &uvs);
+		}
+		if (!kept)
 			continue;
 
 		// Its texture, the level's default one where it has none, as the
@@ -204,5 +214,6 @@ void VisibleDecal::Draw(VisibleFrame* frame, const Array<LevelDecal>& decals, co
 		}
 
 		frame->Device->DrawGouraudPolygon(&frame->Frame, texinfo, vertices, pointCount, PF_Modulated);
+		panel.Decals++;
 	}
 }

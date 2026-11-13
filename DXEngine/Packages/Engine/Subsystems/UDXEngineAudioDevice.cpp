@@ -13,6 +13,9 @@
 #include "Packages/Engine/Resources/UMusic.h"
 #include "Packages/Engine/Resources/USound.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
+#include "Packages/Core/UClass.h"
+#include "Utils/StrTools.h"
+#include "Utils/File.h"
 #include "Collision/BottomLevel/TraceRayModel.h"
 #include "Light/LightmapBuilder.h"
 #include "Audio/GalaxyMixer.h"
@@ -239,6 +242,8 @@ void UDXEngineAudioDevice::InitDevice()
 
 void UDXEngineAudioDevice::ShutdownDevice()
 {
+	Recording.reset();
+	RecordedSamples.clear();
 	m_Device.reset();
 	LogMessage("Audio device has been shut down");
 }
@@ -301,6 +306,7 @@ void UDXEngineAudioDevice::Update()
 	float timeStep = std::clamp(std::chrono::duration<float>(now - m_LastUpdateTime).count(), 0.0f, 1.0f);
 	m_LastUpdateTime = now;
 
+	ReadRecording();
 	StartAmbience();
 	UpdateAmbience();
 	UpdateSounds(timeStep);
@@ -975,28 +981,245 @@ void UDXEngineAudioDevice::StopSounds()
 	m_Viewport = nullptr;
 }
 
-void UDXEngineAudioDevice::AddStats(Array<std::string>& lines)
+// ASTAT's overlay, as Galaxy's PostRender lays it out (Galaxy.dll
+// 0x10608570), to be drawn white in the canvas's small font: with ASTAT AUDIO
+// on, "GalaxyAudioSubsystem Statistics" at the left 16 pixels down, then
+// from 24 pixels down, 10 in, a line a channel in use, 8 pixels apart -- 16
+// with ASTAT DETAIL, its volume, pitch, radius and priority 8 under each,
+// "  ..." under one not playing --, each with its sound by its full name or
+// None, the tenth and on with a blank more before None, as Galaxy's two
+// formats have it
+void UDXEngineAudioDevice::GetStatLines(Array<StatLine>& lines) const
 {
-	const int bufsize = 1024;
-	char buffer[bufsize];
-	int index = 0;
-	for (const PlayingSound& sound : PlayingSounds)
+	if (!ShowChannels)
+		return;
+	lines.push_back({ 0.0f, 16.0f, "GalaxyAudioSubsystem Statistics" });
+	float step = ShowChannelDetail ? 16.0f : 8.0f;
+	char text[1024];
+	for (size_t i = 0; i < PlayingSounds.size(); i++)
 	{
-		if (sound.IsActive)
-		{
-			std::snprintf(buffer, bufsize - 1, "Channel %2i: Vol: %05.2f %s", index, sound.Volume, sound.Sound->Name.ToString().c_str());
-		}
+		const PlayingSound& sound = PlayingSounds[i];
+		float y = (float)i * step + 24.0f;
+		bool playing = sound.IsActive && sound.Sound;
+		if (playing)
+			std::snprintf(text, sizeof(text), "Channel %2i: %s", (int)i, (sound.Sound->Class->Name.ToString() + " " + sound.Sound->GetPathName()).c_str());
 		else
+			std::snprintf(text, sizeof(text), i < 10 ? "Channel %i: None" : "Channel %i:  None", (int)i);
+		lines.push_back({ 10.0f, y, text });
+		if (ShowChannelDetail)
 		{
-			if (index >= 10)
-				std::snprintf(buffer, bufsize - 1, "Channel %i:  None", index);
+			if (playing)
+				std::snprintf(text, sizeof(text), "  Vol: %05.2f Pitch: %05.2f Radius: %07.2f Priority: %05.2f", sound.Volume, sound.Pitch, sound.Radius, sound.Priority);
 			else
-				std::snprintf(buffer, bufsize - 1, "Channel %i: None", index);
+				std::snprintf(text, sizeof(text), "  ...");
+			lines.push_back({ 10.0f, y + 8.0f, text });
 		}
-		buffer[bufsize - 1] = 0;
-		lines.push_back(buffer);
-		index++;
 	}
+}
+
+// Galaxy's words (UGalaxyAudioSubsystem::Exec, Galaxy.dll 0x10607070), in its
+// order: CDTRACK, with a player, its CdTrack set and an instant transition,
+// answering "CD Track <n>" (0x10607084-0x106070c6) -- the music changes as at
+// any, the song going on at its own order, no CD played; CDVOLUME, the CD's
+// volume, there being no CD audio nothing; MUSICORDER, while a song is
+// loaded, a jump to the order at once, answering "Galaxy order <n>"; the
+// microphone's RECORDSOUND and ENDRECORDSOUND; ASTAT AUDIO and ASTAT DETAIL,
+// which toggle the overlay (GetStatLines), any other ASTAT taken too. Its
+// A3D settings, there being no A3D, nothing takes.
+bool UDXEngineAudioDevice::Exec(const std::string& line, ExecOutput& out)
+{
+	size_t pos = 0;
+	if (m_Viewport && m_Viewport->Actor() && StrTools::ue1_parse_command(line, pos, "CDTRACK"))
+	{
+		int track = StrTools::ue1_atoi(std::string_view(line).substr(pos));
+		out.Log("CD Track " + std::to_string(track));
+		m_Viewport->Actor()->CdTrack() = (uint8_t)track;
+		m_Viewport->Actor()->Transition() = MTRAN_Instant;
+		return true;
+	}
+	pos = 0;
+	if (StrTools::ue1_parse_command(line, pos, "CDVOLUME"))
+		return true;
+	pos = 0;
+	if (CurrentSong && StrTools::ue1_parse_command(line, pos, "MUSICORDER"))
+	{
+		// Galaxy's glxControlMusic sets the order at once, its tick's count
+		// run out (0x1060d15e-0x1060d193), where a section's change waits for
+		// the playing row's end (UpdateMusic), RGalaxy.dll's MUSICORDER for
+		// the pattern's (dx-reverse-info README): from the playing row's next
+		// tick. A negative order counts from the one playing, -1 the next; a
+		// section past the song's last, or before its first, is refused
+		// quietly.
+		int order = StrTools::ue1_atoi(std::string_view(line).substr(pos));
+		out.Log("Galaxy order " + std::to_string(order));
+		if (order < 0)
+		{
+			int playing = m_Device->GetMusicOrder();
+			order += (playing < 0 ? 255 : playing) + 2;
+		}
+		m_Device->SetMusicOrder(order, GalaxyMusicGain(MusicVolume, m_MusicFade), true);
+		return true;
+	}
+	pos = 0;
+	if (StrTools::ue1_parse_command(line, pos, "RECORDSOUND"))
+	{
+		// Galaxy's opens the microphone at 8 kHz, 16-bit mono, into one
+		// buffer, and starts it (0x106071c5-0x10607342): OpenAL's default
+		// capture device here. One that will not open is logged and nothing
+		// recorded, where the original's failing waveInOpen ends it in a
+		// critical error; a recording begun again starts over.
+		Recording.reset();
+		RecordedSamples.clear();
+		Recording = AudioCapture::Open(RecordRate, RecordSamples);
+		if (!Recording)
+		{
+			LogMessage("RecordSound: the capture device will not open");
+			return true;
+		}
+		LogMessage("RecordSound begin");
+		return true;
+	}
+	pos = 0;
+	if (StrTools::ue1_parse_command(line, pos, "ENDRECORDSOUND"))
+	{
+		// Nothing while nothing records, as Galaxy's without its hWaveIn
+		if (Recording)
+			EndRecordSound();
+		return true;
+	}
+	pos = 0;
+	if (StrTools::ue1_parse_command(line, pos, "ASTAT"))
+	{
+		std::string rest = line.substr(std::min(pos, line.size()));
+		size_t at = 0;
+		if (StrTools::ue1_parse_command(rest, at, "Audio"))
+		{
+			ShowChannels = !ShowChannels;
+			return true;
+		}
+		at = 0;
+		if (StrTools::ue1_parse_command(rest, at, "Detail"))
+			ShowChannelDetail = !ShowChannelDetail;
+		return true;
+	}
+	return false;
+}
+
+// What the microphone has caught, into the recording, until it holds
+// Galaxy's buffer's worth, when the microphone stops: waveIn fills its one
+// buffer and keeps no more.
+void UDXEngineAudioDevice::ReadRecording()
+{
+	if (!Recording || RecordedSamples.size() >= (size_t)RecordSamples)
+		return;
+	size_t had = RecordedSamples.size();
+	RecordedSamples.resize(RecordSamples);
+	int taken = Recording->Read(RecordedSamples.data() + had, (int)(RecordSamples - had));
+	RecordedSamples.resize(had + (size_t)taken);
+	if (RecordedSamples.size() >= (size_t)RecordSamples)
+		Recording->Stop();
+}
+
+// ENDRECORDSOUND's, as Galaxy's (0x1060735d-0x10607a95): the microphone
+// closed and the samples counted. Each from the fourth is stepped toward
+// itself and what the one before missed of its own, by a slope from 256
+// that grows by half while the three before it rise or fall together and
+// else shrinks by a third, held to 256-2048, the value to 16 bits; then
+// each from the fourth is 0.4 of itself and 0.6 of the one before, cut
+// toward 0 -- in double here, where both products are exact. Saved as
+// Test.wav in the System folder (with --userdir, in it), the WAVE of 8 kHz
+// 16-bit mono SaveRiffFile writes (FRiffChunk.h), its format's six fields
+// logged as they are written; with a viewport and some samples, loaded from
+// it into a sound of its own and played at the player, Id 2, at volume
+// 1000, radius 4096 and pitch 1 (0x106079a3-0x10607a92).
+void UDXEngineAudioDevice::EndRecordSound()
+{
+	ReadRecording();
+	Recording.reset();
+	Array<int16_t> samples = std::move(RecordedSamples);
+	RecordedSamples.clear();
+	int count = (int)samples.size();
+	LogMessage("RecordSound end (" + std::to_string(count) + " samples)");
+
+	int16_t* s = samples.data();
+	int step = 256, missed = 0, value = 0;
+	for (int i = 3; i < count; i++)
+	{
+		bool steady = (s[i - 3] < s[i - 2] && s[i - 2] < s[i - 1]) || (s[i - 3] > s[i - 2] && s[i - 2] > s[i - 1]);
+		step = std::clamp(steady ? step * 3 / 2 : step * 2 / 3, 256, 2048);
+		int input = s[i];
+		value = std::clamp(value < missed + input ? value + step : value - step, -32768, 32767);
+		missed = input - value;
+		s[i] = (int16_t)value;
+	}
+	// Galaxy's 0.6 a float
+	const double before = (double)0.6f;
+	const double own = 1.0 - before;
+	for (int i = 3; i < count; i++)
+		s[i] = (int16_t)(int)(own * s[i] + before * s[i - 1]);
+
+	uint32_t bytes = (uint32_t)count * 2;
+	Array<uint8_t> wav;
+	auto put = [&](uint32_t v, int size)
+	{
+		for (int i = 0; i < size; i++)
+			wav.push_back((uint8_t)(v >> (8 * i)));
+	};
+	auto tag = [&](const char* fourcc) { wav.insert(wav.end(), fourcc, fourcc + 4); };
+	tag("RIFF");
+	put(36 + bytes, 4);
+	tag("WAVE");
+	tag("fmt ");
+	put(16, 4);
+	put(1, 2);
+	put(1, 2);
+	put(RecordRate, 4);
+	put(RecordRate * 2, 4);
+	put(2, 2);
+	put(16, 2);
+	tag("data");
+	put(bytes, 4);
+	for (int i = 0; i < count; i++)
+		put((uint16_t)s[i], 2);
+
+	// A file that will not open is not written, as SaveRiffFile's, its
+	// fields unlogged
+	fs::path folder = Directory::hasEngineUserDir() ? Directory::engineUserDir() : engine->packages->GetSystemFolderPath();
+	std::string filename = (folder / "Test.wav").string();
+	try
+	{
+		auto file = File::create_always(filename);
+		LogMessage("wFormatTag: 1");
+		LogMessage("nChannels: 1");
+		LogMessage("nSamplesPerSec: " + std::to_string((int)RecordRate));
+		LogMessage("nAvgBytesPerSec: " + std::to_string((int)RecordRate * 2));
+		LogMessage("nBlockAlign: 2");
+		LogMessage("nBitsPerSample: 16");
+		file->write(wav.data(), wav.size());
+		file->close();
+	}
+	catch (...)
+	{
+	}
+
+	UPlayerPawn* player = m_Viewport ? m_Viewport->Actor() : nullptr;
+	if (!player || count == 0)
+		return;
+	Array<uint8_t> data;
+	try
+	{
+		data = File::read_all_bytes(filename);
+	}
+	catch (...)
+	{
+		return;
+	}
+	Package* transient = engine->packages->GetTransientPackage();
+	UClass* soundClass = engine->packages->GetPackage("Engine")->GetClass("Sound");
+	USound* sound = UObject::Cast<USound>(transient->NewObject(transient->MakeUniqueObjectName(soundClass), soundClass, ObjectFlags::Transient));
+	sound->Format = "wav";
+	sound->Data = std::move(data);
+	PlaySound(player, 2, sound, player->Location(), 1000.0f, 4096.0f, 1.0f, false);
 }
 
 float UDXEngineAudioDevice::SoundPriority(UViewport* Viewport, vec3 Location, float Volume, float Radius)

@@ -59,6 +59,14 @@ uint32_t RenderDevice::TileFlags(const TextureInfo& Info, uint32_t PolyFlags)
 	return PolyFlags;
 }
 
+// Each pool's name, as D3DDrv names its pixel formats by theirs: TEXF's
+// own, DXEngine's float light and fog maps, an unknown format's
+const char* TextureCacheStats::SlotName(int slot)
+{
+	static const char* const names[Slots] = { "P8", "RGBA7", "RGB16", "DXT1", "RGB8", "RGBA8", "RGBA32F", "Unknown" };
+	return slot >= 0 && slot < Slots ? names[slot] : "Unknown";
+}
+
 size_t RenderDevice::MipBytes(TextureFormat format, int width, int height)
 {
 	size_t texels = (size_t)width * (size_t)height;

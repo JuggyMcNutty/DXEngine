@@ -250,6 +250,9 @@ private:
 	const char* RootName = nullptr;
 	// The holder whose Mark runs is permanent (GC::Collect's walk of the list)
 	bool CodeHolder = false;
+	// While set, every reference handed over goes to it alone, and none is
+	// visited (GC::ForEachReference)
+	const std::function<void(GCObject*)>* Listing = nullptr;
 	// While set, every object a reference reaches is listed once, with its
 	// first holder (GC::Collect's walk of the code)
 	std::vector<std::pair<const GCObject*, GCObject*>>* Recording = nullptr;
@@ -289,6 +292,15 @@ public:
 	static bool IsCollecting() { return collecting; }
 
 	static GCStats GetStats();
+	// Each reference the object's Mark hands over, to each, nothing visited,
+	// flagged or made None: what the console's OBJ REFS and DEPENDENCIES
+	// walk, as the original's archives walk an object's references
+	// (Engine::ObjectExec). Only between collections.
+	static void ForEachReference(GCObject* holder, const std::function<void(GCObject*)>& each);
+	// Each root a collection marks from, to each, with whether it is code:
+	// the code, the GCRoot nodes' objects and what markRoots hands over
+	// (OBJ REFS's walk from the roots). Only between collections.
+	static void ForEachRoot(const std::function<void(GCMarker&)>& markRoots, const std::function<void(GCObject*, bool)>& each);
 	// Every object, the code first; without it, only what a collection can free.
 	static GCObjectList GetObjects(bool withCode = true);
 

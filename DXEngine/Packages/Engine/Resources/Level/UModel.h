@@ -239,6 +239,9 @@ public:
 	int32_t NumSharedSides;
 
 	Array<ZoneProperties> Zones;
+	// The zones the package holds, before Zones is made up to 64: the
+	// original's NumZones, STAT ZONE's count
+	int NumZones = 0;
 
 	UPolys* Polys = nullptr;
 

@@ -30,7 +30,7 @@ void D3D11TextureManager::UpdateTextureRect(TextureInfo* info, int x, int y, int
 	D3D11CachedTexture* tex = GetFromCache(info->CacheID);
 	if (tex)
 	{
-		renderer->Uploads->UploadTextureRect(tex, *info, x, y, w, h, tex->Masked);
+		CacheStats.Upload(tex->Stat, *info, false, [&] { renderer->Uploads->UploadTextureRect(tex, *info, x, y, w, h, tex->Masked); });
 		info->bRealtimeChanged = 0;
 	}
 }
@@ -60,12 +60,12 @@ D3D11CachedTexture* D3D11TextureManager::GetTexture(TextureInfo* info, bool mask
 		{
 			if (info->UpdateWidth > 0)
 			{
-				renderer->Uploads->UploadTextureRect(tex, *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight, tex->Masked);
+				CacheStats.Upload(tex->Stat, *info, false, [&] { renderer->Uploads->UploadTextureRect(tex, *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight, tex->Masked); });
 			}
 			else
 			{
 				tex->Masked = masked;
-				renderer->Uploads->UploadTexture(tex, *info, masked);
+				CacheStats.Upload(tex->Stat, *info, true, [&] { renderer->Uploads->UploadTexture(tex, *info, masked); });
 			}
 		}
 	}
@@ -78,7 +78,7 @@ D3D11CachedTexture* D3D11TextureManager::GetTexture(TextureInfo* info, bool mask
 		LastTextureResult = { info->CacheID, tex };
 
 		tex->Masked = masked;
-		renderer->Uploads->UploadTexture(tex, *info, masked);
+		CacheStats.Upload(tex->Stat, *info, true, [&] { renderer->Uploads->UploadTexture(tex, *info, masked); });
 	}
 
 	float uscale = info->UScale;
@@ -89,6 +89,7 @@ D3D11CachedTexture* D3D11TextureManager::GetTexture(TextureInfo* info, bool mask
 	tex->PanY = info->Pan.y;
 	tex->UMult = 1.0f / (uscale * info->USize);
 	tex->VMult = 1.0f / (vscale * info->VSize);
+	CacheStats.Set(tex->Stat, *info);
 
 	return tex;
 }
@@ -122,4 +123,9 @@ D3D11CachedTexture* D3D11TextureManager::CreateNullTexture()
 	renderer->Uploads->UploadWhite(NullTexture->Texture);
 
 	return NullTexture.get();
+}
+
+void D3D11TextureManager::AddPoolStats(Array<RenderDevice::TexturePoolStats>& pools) const
+{
+	CacheStats.AddPools(TextureCache, pools);
 }

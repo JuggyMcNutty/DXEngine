@@ -10,6 +10,7 @@
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Core/UClass.h"
 #include "RenderDevice/RenderDevice.h"
+#include "Render/RenderSubsystem.h"
 #include "Math/hsb.h"
 #include "Utils/Random.h"
 #include <array>
@@ -271,6 +272,11 @@ LightmapRect LightmapBuilder::CalcLightRect(UActor* light) const
 
 LightmapRect LightmapBuilder::FindLitSpans(UActor* light, Array<LightmapSpan>& spans)
 {
+	// Each light's setup for the map, where it reaches on it, timed for STAT
+	// GLOBAL's Ex, as the original's light manager clocks each light's setup
+	// for a surface (Render.dll 0x10b063ae-0x10b06640, 0x10b068c2-
+	// 0x10b06b92)
+	StatClock setupClock(engine->render->PanelStats.Ex);
 	LightmapRect rect = CalcLightRect(light);
 	if (rect.Empty())
 		return rect;

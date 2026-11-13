@@ -1041,8 +1041,12 @@ void CSoundFile::SetGalaxyPlayer(bool galaxy)
 // replay the song to the order. Until then its order count is the order
 // before, 255 before order 0 (GalaxyOrder). A song not yet played starts the
 // order at once, no row playing.
-void CSoundFile::GalaxyJump(ORDERINDEX order, ROWINDEX row)
+void CSoundFile::GalaxyJump(ORDERINDEX order, ROWINDEX row, bool atOnce)
 {
+	// DXEngine (bugs.md WIN.38): Galaxy.dll's MUSICORDER breaks the row at
+	// once (0x1060d15e-0x1060d193): the next tick starts the order
+	if(atOnce)
+		m_PlayState.m_nTickCount = TICKS_ROW_FINISHED;
 	for(auto &chn : m_PlayState.Chn)
 	{
 		chn.nLength = 0;

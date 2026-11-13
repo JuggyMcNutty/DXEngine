@@ -84,6 +84,9 @@ public:
 	}
 	static std::vector<int> Sweep();
 	static size_t Count() { return Names.size() - Available.size(); }
+	// OBJ HASH's figures: the names, one each however spelt, and how many
+	// of a table of bins buckets they fill by the original's appStrihash
+	static void HashFigures(int bins, int& names, int& usedBins);
 
 	// Whether the collector may delete it: a cache keyed by name indexes
 	// keeps none such, as its index may be taken by another name.

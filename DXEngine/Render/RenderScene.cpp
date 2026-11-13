@@ -22,6 +22,7 @@
 #include "Packages/Engine/UViewport.h"
 #include "Packages/Extension/Windows/UViewportWindow.h"
 #include "Packages/Extension/Windows/TabGroup/URootWindow.h"
+#include <optional>
 
 void RenderSubsystem::DrawScene()
 {
@@ -29,6 +30,10 @@ void RenderSubsystem::DrawScene()
 		return;
 
 	engine->Level->Light.BeginFrame();
+
+	// The movers and actors filed, timed for STAT GLOBAL's Filter, as the
+	// original's SetupDynamics (Render.dll 0x10b22df1-0x10b2334d)
+	std::optional<StatClock> filterClock(std::in_place, PanelStats.Filter);
 
 	// Deus Ex's movers filed again where they are, as the original's
 	// SetupDynamics files each it does not pass over, each frame drawn:
@@ -56,6 +61,7 @@ void RenderSubsystem::DrawScene()
 			}
 		}
 	}
+	filterClock.reset();
 	mat4 worldToView = Coords::ViewToRenderDev().ToMatrix() * Coords::Rotation(engine->CameraRotation).Inverse().ToMatrix() * Coords::Location(engine->CameraLocation).ToMatrix();
 	SceneFirstFrame = FrameCounter;
 	MainFrame.Process(engine->CameraLocation, worldToView, Coords::Rotation(engine->CameraRotation));

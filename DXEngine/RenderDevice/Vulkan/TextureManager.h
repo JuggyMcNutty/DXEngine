@@ -1,5 +1,7 @@
 #pragma once
 
+#include "RenderDevice/RenderDevice.h"
+
 #include "SceneTextures.h"
 
 struct TextureInfo;
@@ -16,6 +18,11 @@ public:
 	CachedTexture* GetTexture(TextureInfo* info, bool masked);
 
 	void ClearCache();
+
+	// STAT HARDWARE's: the cache's counts, and its pools (RenderDevice::
+	// FrameDrawStats)
+	TextureCacheStats CacheStats;
+	void AddPoolStats(Array<RenderDevice::TexturePoolStats>& pools) const;
 	void ClearAllBindlessIndexes();
 
 	std::unique_ptr<VulkanImage> NullTexture;

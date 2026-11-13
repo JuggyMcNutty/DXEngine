@@ -27,6 +27,9 @@
 void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const Coords& viewRotation, bool mirrorFlag, int portalDepth, const Array<PortalSpan>& portalSpans, const vec4& portalPlane, int viewZone)
 {
 	engine->render->Stats.Frames++;
+	// The walk timed for STAT GLOBAL's Occlusion, as the original's
+	// OccludeBsp clocks its own (Render.dll 0x10b17473-0x10b19c5f)
+	StatClock clock(engine->render->PanelStats.Occlusion);
 
 	Device = engine->render->Device;
 	FrameCounter = engine->render->FrameCounter++;
@@ -43,6 +46,10 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const 
 	Clipper.numDrawSpans = 0;
 	Clipper.numSurfs = 0;
 	Clipper.numTris = 0;
+	// STAT OCCLUSION's figures of this walk, its stages timed while the
+	// panel is shown (BspClipper::Stats)
+	Clipper.Stats = {};
+	Clipper.Timed = engine->render->StatPanels[RenderSubsystem::StatOcclusion];
 	// One grid row per row of the image: finer only costs, coarser could lose
 	// what shows through a one-pixel gap. A portal's frame is the same size,
 	// so the spans it inherits are in the same grid.
@@ -90,6 +97,19 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const 
 	AddActorProxies();
 
 	ProcessNode(0, 0, FragmentStack.size(), engine->Level->Model->RootOutside != 0);
+
+	// STAT ZONE's: the zones this walk saw, of the level's model's own
+	// count (its NumZones, not the list made up to 64), each walk's added,
+	// as the original's OccludeBsp adds its (0x10b19bf9-0x10b19c31); and
+	// STAT OCCLUSION's nodes of the level's BSP as the movers are filed into
+	// it, the original's tracker filing them into the model's own nodes
+	// (DrawFrame 0x10b1bb9d), and the clipper's figures
+	auto& panel = engine->render->PanelStats;
+	for (int seen : ZoneSeenFrame)
+		panel.VisibleZones += seen == FrameCounter ? 1 : 0;
+	panel.Zones += engine->Level->Model->NumZones;
+	panel.Nodes += (int)engine->Level->Collision.LineNodes().size();
+	panel.Clip.Add(Clipper.Stats);
 }
 
 // A mover's mirror, which the original files with the mover's other polygons
@@ -738,6 +758,7 @@ void VisibleFrame::ProcessNode(int nodeIndex, size_t fragFirst, size_t fragCount
 	// root (AddActorProxies). All the walk has drawn so far lies in front
 	// of them. Outside is whether this node's space is empty, not solid.
 	size_t base = FragmentStack.size();
+	engine->render->PanelStats.NodesVisited++;
 
 	// Skip node if its AABB is not visible -- and what came down into its
 	// space with it, as the original drops it. A filed node has none.

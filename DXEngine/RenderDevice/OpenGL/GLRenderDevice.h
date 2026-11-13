@@ -286,6 +286,7 @@ public:
 		int RectUploads = 0;
 		int BuffersUsed = 0;
 	} Stats;
+	FrameDrawStats GetFrameStats() const override;
 
 private:
 	struct ComplexSurfaceInfo

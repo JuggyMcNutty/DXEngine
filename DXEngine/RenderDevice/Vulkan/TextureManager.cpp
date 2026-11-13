@@ -21,7 +21,7 @@ void TextureManager::UpdateTextureRect(TextureInfo* info, int x, int y, int w, i
 	auto it = TextureCache.find(info->CacheID);
 	if (it != TextureCache.end() && it->second)
 	{
-		renderer->Uploads->UploadTextureRect(it->second.get(), *info, x, y, w, h, it->second->Masked);
+		CacheStats.Upload(it->second.get()->Stat, *info, false, [&] { renderer->Uploads->UploadTextureRect(it->second.get(), *info, x, y, w, h, it->second->Masked); });
 		info->bRealtimeChanged = 0;
 	}
 }
@@ -51,12 +51,12 @@ CachedTexture* TextureManager::GetTexture(TextureInfo* info, bool masked)
 		{
 			if (info->UpdateWidth > 0)
 			{
-				renderer->Uploads->UploadTextureRect(tex.get(), *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight, tex->Masked);
+				CacheStats.Upload(tex.get()->Stat, *info, false, [&] { renderer->Uploads->UploadTextureRect(tex.get(), *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight, tex->Masked); });
 			}
 			else
 			{
 				tex->Masked = masked;
-				renderer->Uploads->UploadTexture(tex.get(), *info, masked);
+				CacheStats.Upload(tex.get()->Stat, *info, true, [&] { renderer->Uploads->UploadTexture(tex.get(), *info, masked); });
 			}
 		}
 	}
@@ -65,8 +65,9 @@ CachedTexture* TextureManager::GetTexture(TextureInfo* info, bool masked)
 	{
 		tex.reset(new CachedTexture());
 		tex->Masked = masked;
-		renderer->Uploads->UploadTexture(tex.get(), *info, masked);
+		CacheStats.Upload(tex.get()->Stat, *info, true, [&] { renderer->Uploads->UploadTexture(tex.get(), *info, masked); });
 	}
+	CacheStats.Set(tex->Stat, *info);
 	return tex.get();
 }
 
@@ -180,4 +181,9 @@ void TextureManager::CreateDitherTexture()
 		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
 	renderer->Commands->FrameDeleteList->buffers.push_back(std::move(stagingbuffer));
+}
+
+void TextureManager::AddPoolStats(Array<RenderDevice::TexturePoolStats>& pools) const
+{
+	CacheStats.AddPools(TextureCache, pools);
 }

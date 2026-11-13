@@ -51,6 +51,9 @@ struct LightmapTexture
 		Coords Place;
 	};
 	Array<ShapePlace> ShapePlaces;
+	// The frame it was last asked for in: STAT CACHE's Fresh, else Stale
+	// (LightSystem::CountMaps)
+	int AskedFrame = -1;
 };
 
 class VertexLight
@@ -152,6 +155,11 @@ public:
 
 	void BeginFrame();
 	void UpdateLightList(UActor* actor);
+
+	// STAT CACHE's: the light and fog maps held, and the bytes of those
+	// asked for this frame and of the rest, as the original's cache counts
+	// its items and their fresh and stale bytes (FMemCache::Status)
+	void CountMaps(int& items, size_t& fresh, size_t& stale) const;
 
 	void SetLevel(ULevel* level);
 

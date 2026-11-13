@@ -8,6 +8,7 @@
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Resources/Level/UPolys.h"
 #include "Engine.h"
+#include "Render/RenderSubsystem.h"
 
 #ifndef NOSSE
 #include <immintrin.h>
@@ -54,6 +55,12 @@ TextureInfo LightSystem::GetFogmap(UModel* model, int lightmapIndex, const Coord
 	// bits above its tag (2) the frame's place
 	uint64_t cacheID = (((uint64_t)model->LightMap[lightmapIndex].LMCacheID) << 32) | (((uint64_t)ambientID) << 8) | ((uint64_t)(EyeView & 63) << 2) | 2;
 
+	// Asked for, counted and timed for STAT CACHE's Gets, its build for its
+	// Crts, as GetLightmap's
+	auto& panel = engine->render->PanelStats;
+	panel.CacheGets++;
+	StatClock cacheClock(panel.CacheGetTime, engine->render->StatPanels[RenderSubsystem::StatCache]);
+
 	const LightMapIndex& lmindex = model->LightMap[lightmapIndex];
 	FogmapEntry& fogtex = fogtextures[cacheID];
 	std::unique_ptr<LightmapTexture>& fogtexture = fogtex.Texture;
@@ -80,6 +87,8 @@ TextureInfo LightSystem::GetFogmap(UModel* model, int lightmapIndex, const Coord
 #endif
 	}
 
+	fogtexture->AskedFrame = FrameCounter;
+
 	bool firstDrawThisScene = false;
 	if (fogtex.Frame != FrameCounter)
 	{
@@ -92,7 +101,10 @@ TextureInfo LightSystem::GetFogmap(UModel* model, int lightmapIndex, const Coord
 	bool changed = false;
 	if (firstDrawThisScene)
 	{
+		panel.CacheCreates++;
+		cacheClock.Next(panel.CacheCreateTime);
 		changed = UpdateFogmapTexture((uint32_t*)fogtexture->Mip.Data.data(), model, coords, lightmapIndex, zoneActor, fogtex.Clear);
+		cacheClock.Next(panel.CacheGetTime);
 	}
 
 	TextureInfo texinfo;

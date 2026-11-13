@@ -1,7 +1,7 @@
 //=============================================================================
 // ViewWordsConsole: the viewport's and the render's words that change the
-// picture, none of which DXEngine takes (bugs.md WIN.28, WIN.29, WIN.31), logged with
-// "DXVWORDS:". On Liberty Island (DXEngine's map, the original's
+// picture, none of which DXEngine takes (bugs.md WIN.28, WIN.29, WIN.31,
+// WIN.38), logged with "DXVWORDS:". On Liberty Island (DXEngine's map, the original's
 // DXCAP_START), the HUD hidden and the view held still, each step 2 s
 // apart, a marked shot after each:
 //   shot 1  as the map stands, the player's RendMap and ShowFlags logged;
@@ -27,9 +27,25 @@
 //           ShowFlags logged; then `SHOWACTORS`;
 //   then    the level's hidden actors counted, `SHOWALL` (every actor's
 //           bHidden cleared), counted again: the original 0, DXEngine as
-//           before; an exit.
+//           before;
+//   shot 7  `STAT NET FPS GLOBAL MESH ZONE OCCLUSION GAME CACHE HARDWARE`,
+//           the words in URender::Exec's order (Render.dll 0x10b147b0),
+//           every panel DrawStats draws (0x10b13a50): the FPS line over
+//           the bottom, and from 16 pixels down at the left GLOBAL's four
+//           lines, HARDWARE's -- its line wrapped where its texture pools
+//           run past the view's width --, MESH's four, ZONE's,
+//           OCCLUSION's four, GAME's and CACHE's, each with a blank line
+//           after it, NET's none in single player; the figures each
+//           engine's own, their lines and places alike; then the same
+//           words again, off;
+//   shot 8  `ASTAT AUDIO` and `ASTAT DETAIL` (Galaxy.dll 0x10607070), its
+//           PostRender's overlay (0x10608570): "GalaxyAudioSubsystem
+//           Statistics" 16 pixels down, then from 24 pixels down, 10 in, a
+//           channel 16 pixels apart, its sound by its full name or None,
+//           and 8 under it its volume, pitch, radius and priority or "  ...";
+//           then both again, off; an exit.
 // Run each engine at DXCAP_WINDOW=1024x768, the original with
-// DXCAP_RENDERER=D3D; compare shots 2, 3, 5 and 6 between the engines.
+// DXCAP_RENDERER=D3D; compare shots 2, 3, 5, 6, 7 and 8 between the engines.
 //=============================================================================
 class ViewWordsConsole extends Console;
 
@@ -170,6 +186,32 @@ event Tick(float Delta)
 		Phase = 7;
 	}
 	else if (Phase == 7 && RunTime > 14.0)
+	{
+		Ask(P, "STAT NET FPS GLOBAL MESH ZONE OCCLUSION GAME CACHE HARDWARE");
+		MarkShot = 7;
+		bMarking = true;
+		Phase = 8;
+	}
+	else if (Phase == 8 && RunTime > 16.0)
+	{
+		Shot(P, 7, "the STAT panels");
+		bMarking = false;
+		Ask(P, "STAT NET FPS GLOBAL MESH ZONE OCCLUSION GAME CACHE HARDWARE");
+		Ask(P, "ASTAT AUDIO");
+		Ask(P, "ASTAT DETAIL");
+		MarkShot = 8;
+		bMarking = true;
+		Phase = 9;
+	}
+	else if (Phase == 9 && RunTime > 18.0)
+	{
+		Shot(P, 8, "ASTAT AUDIO and DETAIL");
+		bMarking = false;
+		Ask(P, "ASTAT AUDIO");
+		Ask(P, "ASTAT DETAIL");
+		Phase = 10;
+	}
+	else if (Phase == 10 && RunTime > 19.0)
 	{
 		Log("DXVWORDS: done, exiting");
 		P.ConsoleCommand("exit");

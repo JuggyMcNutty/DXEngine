@@ -1,10 +1,14 @@
 #pragma once
 
+#include "RenderDevice/RenderDevice.h"
+
 #include <d3d11.h>
 
 class D3D11CachedTexture
 {
 public:
+	// STAT HARDWARE's: its format, bytes and the frame it was last set in
+	TextureCacheStats::Entry Stat;
 	ComPtr<ID3D11Texture2D> Texture;
 	ComPtr<ID3D11ShaderResourceView> View;
 	int RealtimeChangeCount = 0;

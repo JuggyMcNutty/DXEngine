@@ -21,6 +21,21 @@ struct ReverbSettings
 	float gains[6] = {};            // each echo's gain, 0.001-0.999
 };
 
+// RECORDSOUND's microphone (UDXEngineAudioDevice::Exec), as Galaxy records
+// its through waveIn: OpenAL's default capture device, 16-bit mono at the
+// rate given, keeping what it catches until it is read, up to the samples
+// given; none when it will not open. Its device closes with it.
+class AudioCapture
+{
+public:
+	static std::unique_ptr<AudioCapture> Open(int frequency, int samples);
+	virtual ~AudioCapture() = default;
+	// What it has caught since the last read, up to the count given
+	virtual int Read(int16_t* samples, int count) = 0;
+	// It catches no more; what it caught stays for Read
+	virtual void Stop() = 0;
+};
+
 class AudioDevice
 {
 public:
@@ -58,11 +73,11 @@ public:
 	// The playing music's order (UE1's SongSection), -1 while unknown, and a
 	// jump to another order without reloading the song, at the gain given,
 	// as PlayMusic takes one: for a song Galaxy plays, its order count the
-	// order before until the section starts as the playing row ends, and
-	// false for a section past the song's last order, which is refused
-	// (bugs.md AUD.17).
+	// order before until the section starts as the playing row ends -- with
+	// atOnce, from the row's next tick, as MUSICORDER's --, and false for a
+	// section past the song's last order, which is refused (bugs.md AUD.17).
 	virtual int GetMusicOrder() = 0;
-	virtual bool SetMusicOrder(int order, float volume) = 0;
+	virtual bool SetMusicOrder(int order, float volume, bool atOnce = false) = 0;
 	// The reverb every mixed sound plays through; nullptr turns it off.
 	virtual void SetReverb(const ReverbSettings* settings) = 0;
 	virtual void Update() = 0;

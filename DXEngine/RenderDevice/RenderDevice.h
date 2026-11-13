@@ -5,9 +5,11 @@
 #include "Math/coords.h"
 
 #include "Packages/Engine/Resources/Textures/UTexture.h"
+#include "Utils/StatClock.h"
 
 #include <dxwidgets/core/canvas.h>
 #include <dxwidgets/core/rect.h>
+#include <chrono>
 
 class UTexture;
 class UActor;
@@ -159,6 +161,50 @@ public:
 	virtual void SetLODBias(float bias) { LODBias = bias; }
 	virtual void Lock(vec4 FlashScale, vec4 FlashFog, vec4 ScreenClear) = 0;
 	virtual void Unlock(bool Blit) = 0;
+	// STAT HARDWARE's figures of the frame so far, as D3DDrv's GetStats gives
+	// its own (D3DDrv.dll 0x10007330): the surfaces, polygons and tiles drawn
+	// and the time each kind took in the device, the draw calls made in
+	// place of its vertex buffer's flushes; its texture cache a pool a
+	// format, as D3DDrv's pixel formats: the textures set this frame and
+	// their bytes, all it holds and theirs, the frame's sets and uploads and
+	// the uploads' time; a device's own stages after them (the software
+	// device's). Each device's, cleared at its Lock.
+	struct TexturePoolStats
+	{
+		std::string Name;
+		int Active = 0;
+		int Binned = 0;
+		size_t ActiveBytes = 0;
+		size_t BinnedBytes = 0;
+		int Sets = 0;
+		int Uploads = 0;
+		double UploadTime = 0.0;
+	};
+	struct FrameDrawStats
+	{
+		int Surfaces = 0;
+		int Polygons = 0;
+		int Tiles = 0;
+		int Flushes = 0;
+		double SurfaceTime = 0.0;
+		double PolygonTime = 0.0;
+		double TileTime = 0.0;
+		Array<TexturePoolStats> Pools;
+		std::string Stages;
+	};
+	virtual FrameDrawStats GetFrameStats() const { return {}; }
+
+	// While STAT HARDWARE is shown (the render sets it before each Lock), the
+	// time each kind of draw takes in the device, as D3DDrv times its
+	// DrawComplexSurface, DrawGouraudPolygon and DrawTile (0x10003941,
+	// 0x100056ee, 0x10005be0)
+	bool TimeDraws = false;
+	struct
+	{
+		double Surfaces = 0.0;
+		double Polygons = 0.0;
+		double Tiles = 0.0;
+	} DrawTimes;
 	virtual void DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet) = 0;
 	virtual void DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags) = 0;
 
@@ -270,6 +316,109 @@ public:
 	bool GammaCorrectScreenshots = true;
 	bool UseDebugLayer = false;
 	bool CPUDriver = false; // Mesa's CPU driver asked for: lavapipe, llvmpipe
+};
+
+// A device texture cache's figures for STAT HARDWARE's pools: each texture's
+// format, the bytes of the mips it was given and the frame it was last set
+// in, and the frame's sets and uploads a format, as D3DDrv's pixel formats
+// count their Binned, Active, Sets and Uploads (D3DDrv.dll 0x10007330). The
+// cache holds each texture until it is flushed: none is thrashed out.
+class TextureCacheStats
+{
+public:
+	struct Entry
+	{
+		TextureFormat Format = TextureFormat::Unknown;
+		size_t Bytes = 0;
+		int SetFrame = -1;
+	};
+
+	// At the device's Lock: the frame's counts begun again
+	void BeginFrame()
+	{
+		for (FrameCounts& counts : Frame)
+			counts = {};
+		FrameNumber++;
+	}
+
+	// The texture set for a draw
+	void Set(Entry& entry, const TextureInfo& info)
+	{
+		entry.Format = info.Format;
+		entry.SetFrame = FrameNumber;
+		Frame[Slot(info.Format)].Sets++;
+	}
+
+	// An upload, timed; a whole one takes the texture's bytes again
+	template<typename F>
+	void Upload(Entry& entry, const TextureInfo& info, bool whole, F&& upload)
+	{
+		auto start = std::chrono::steady_clock::now();
+		upload();
+		double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+		entry.Format = info.Format;
+		if (whole)
+		{
+			entry.Bytes = 0;
+			for (int i = 0; i < info.NumMips && info.Mips; i++)
+				entry.Bytes += RenderDevice::MipBytes(info.Format, info.Mips[i].Width, info.Mips[i].Height);
+		}
+		FrameCounts& counts = Frame[Slot(info.Format)];
+		counts.Uploads++;
+		counts.UploadTime += seconds;
+	}
+
+	// The pools of a cache whose entries hold an Entry as Stat, a format each
+	template<typename Cache>
+	void AddPools(const Cache& cache, Array<RenderDevice::TexturePoolStats>& pools) const
+	{
+		RenderDevice::TexturePoolStats bySlot[Slots];
+		for (const auto& it : cache)
+		{
+			if (!it.second)
+				continue;
+			const Entry& entry = it.second->Stat;
+			RenderDevice::TexturePoolStats& pool = bySlot[Slot(entry.Format)];
+			pool.Binned++;
+			pool.BinnedBytes += entry.Bytes;
+			if (entry.SetFrame == FrameNumber)
+			{
+				pool.Active++;
+				pool.ActiveBytes += entry.Bytes;
+			}
+		}
+		for (int slot = 0; slot < Slots; slot++)
+		{
+			RenderDevice::TexturePoolStats& pool = bySlot[slot];
+			pool.Sets = Frame[slot].Sets;
+			pool.Uploads = Frame[slot].Uploads;
+			pool.UploadTime = Frame[slot].UploadTime;
+			if (pool.Binned == 0 && pool.Sets == 0 && pool.Uploads == 0)
+				continue;
+			pool.Name = SlotName(slot);
+			pools.push_back(pool);
+		}
+	}
+
+private:
+	// A format's place: TEXF's six, then DXEngine's float maps and the
+	// unknown
+	enum { Slots = 8 };
+	static int Slot(TextureFormat format)
+	{
+		uint32_t value = (uint32_t)format;
+		return value <= (uint32_t)TextureFormat::BGRA8 ? (int)value : format == TextureFormat::RGBA32_F ? 6 : 7;
+	}
+	static const char* SlotName(int slot);
+
+	struct FrameCounts
+	{
+		int Sets = 0;
+		int Uploads = 0;
+		double UploadTime = 0.0;
+	};
+	FrameCounts Frame[Slots];
+	int FrameNumber = 0;
 };
 
 class RenderDeviceTexture : public CanvasTexture

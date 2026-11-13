@@ -102,6 +102,10 @@ void VisibleNode::Draw(VisibleFrame* frame)
 	TextureInfo fogmap;
 	if ((PolyFlags & PF_Unlit) == 0 && engine->render->SceneLit)
 	{
+		// The surface's light and fog maps timed for STAT GLOBAL's Illum, as
+		// the original's SetupForSurf clocks its (Render.dll 0x10b06cd2-
+		// 0x10b08993)
+		StatClock clock(engine->render->PanelStats.Illum);
 		lightmap = engine->Level->Light.GetLevelLightmap(surface, zoneActor, model);
 		// Deus Ex's fog map, as the original's renderer makes it
 		// (dx-reverse-info render-dll.md, light maps): only with the render
@@ -128,7 +132,12 @@ void VisibleNode::Draw(VisibleFrame* frame)
 	facet.Vertices = points;
 	facet.VertexCount = numverts;
 
-	frame->Device->DrawComplexSurface(&frame->Frame, surfaceinfo, facet);
+	{
+		// Its draw timed for STAT GLOBAL's PolyV, as the original's DrawFrame
+		// clocks the device's DrawComplexSurface (Render.dll 0x10b1b027-0x10b1b081)
+		StatClock clock(engine->render->PanelStats.PolyV);
+		frame->Device->DrawComplexSurface(&frame->Frame, surfaceinfo, facet);
+	}
 	engine->render->Stats.Surfaces++;
 
 	VisibleDecal decal;

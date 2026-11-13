@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 #include "RenderDevice/RenderDevice.h"
 #include "SoftwareCommands.h"
 #include "SoftwareRasterizer.h"
@@ -38,6 +40,7 @@ public:
 	bool SupportsTextureFormat(TextureFormat Format) override;
 	void UpdateTextureRect(TextureInfo& Info, int U, int V, int UL, int VL) override;
 	bool SupportsRenderScale() const override { return true; }
+	FrameDrawStats GetFrameStats() const override;
 	// The rasterizer's guard band, SoftwareSetup's 8000 pixels either way of
 	// the origin: a larger window is drawn smaller and scaled up at the
 	// present, as a render scale below 1 is
@@ -74,6 +77,21 @@ private:
 	void Name(SoftwareTexture* tex);
 	void NameRect(SoftwareTexture* tex, const SoftwareVertex* vertices, uint32_t count, int coord);
 	void BeforeTextureWrite(SoftwareTexture* tex, int x, int y, int w, int h);
+
+	// STAT HARDWARE's: the frame's draws, waves and stages -- the triangles
+	// set up into the tiles' bins, the tiles drawn (their spans and texels
+	// together, as the pipelines shade as they rasterize), the frame mapped
+	// to the window --, in nanoseconds summed on every thread, the last
+	// frame's whole and this one's so far
+	struct
+	{
+		int Surfaces = 0;
+		int Polygons = 0;
+		int Tiles = 0;
+		int Waves = 0;
+	} Counts;
+	std::atomic<int64_t> SetupNanos{ 0 }, DrawNanos{ 0 }, PresentNanos{ 0 };
+	int64_t LastSetupNanos = 0, LastDrawNanos = 0, LastPresentNanos = 0;
 
 	SoftwareDraw& AddDraw(SoftwareDrawType type, uint32_t vertexCount, SoftwareVertex*& vertices);
 	SoftwareDraw& AddGouraud(SoftwareDrawType type, SoftwareTexture* tex, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags);

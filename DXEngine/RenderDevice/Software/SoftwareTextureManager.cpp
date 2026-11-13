@@ -49,14 +49,14 @@ SoftwareTexture* SoftwareTextureManager::GetTexture(TextureInfo* info, bool mask
 			{
 				if (BeforeWrite)
 					BeforeWrite(tex, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
-				SoftwareTextureUploader::UploadRect(tex, *info, tex->Masked, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight);
+				CacheStats.Upload(tex->Stat, *info, false, [&] { SoftwareTextureUploader::UploadRect(tex, *info, tex->Masked, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight); });
 			}
 			else
 			{
 				if (BeforeWrite)
 					BeforeWrite(tex, 0, 0, -1, -1);
 				tex->Masked = masked;
-				SoftwareTextureUploader::Upload(tex, *info, masked);
+				CacheStats.Upload(tex->Stat, *info, true, [&] { SoftwareTextureUploader::Upload(tex, *info, masked); });
 			}
 		}
 	}
@@ -68,8 +68,9 @@ SoftwareTexture* SoftwareTextureManager::GetTexture(TextureInfo* info, bool mask
 		tex = slot.get();
 		LastHit = { info->CacheID, tex };
 		tex->Masked = masked;
-		SoftwareTextureUploader::Upload(tex, *info, masked);
+		CacheStats.Upload(tex->Stat, *info, true, [&] { SoftwareTextureUploader::Upload(tex, *info, masked); });
 	}
+	CacheStats.Set(tex->Stat, *info);
 	return tex;
 }
 
@@ -80,7 +81,7 @@ void SoftwareTextureManager::UpdateTextureRect(TextureInfo* info, int x, int y, 
 	{
 		if (BeforeWrite)
 			BeforeWrite(tex, x, y, w, h);
-		SoftwareTextureUploader::UploadRect(tex, *info, tex->Masked, x, y, w, h);
+		CacheStats.Upload(tex->Stat, *info, false, [&] { SoftwareTextureUploader::UploadRect(tex, *info, tex->Masked, x, y, w, h); });
 		info->bRealtimeChanged = false;
 	}
 }
@@ -89,4 +90,9 @@ void SoftwareTextureManager::ClearCache()
 {
 	TextureCache.clear();
 	LastHit = {};
+}
+
+void SoftwareTextureManager::AddPoolStats(Array<RenderDevice::TexturePoolStats>& pools) const
+{
+	CacheStats.AddPools(TextureCache, pools);
 }

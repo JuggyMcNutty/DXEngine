@@ -3719,9 +3719,53 @@ as the original counts them --; `MLOD`, `MLMODE` and `MLFIX` set the shape
 LOD, its mode and its fixed factor, which the mesh detail takes, `TLOD` a
 distance nothing draws by, each answered as the original's (`MLOD` alone
 0.250000), and `REND LEAK` and `REND T` say they are recognized
-(`ViewWordsConsole`: the line after `STAT FPS` in both engines). Differs
-(bugs.md WIN.29): of the panels the line alone is drawn; the others list the
-original's own timings, connection counts and caches. By choice, `STAT
+(`ViewWordsConsole`: the line after `STAT FPS` in both engines). The other
+panels are the original's `DrawStats`' (Render.dll `0x10b13a50`), in its
+order from 16 pixels down at the left, a line under the last in the small
+font, each panel with a blank line after it: `GLOBAL`, `NET (IN/OUT)` on a
+client, `HARDWARE`, `MESH`, `ZONE`, `OCCLUSION`, `GAME` and `CACHE`, each
+figure DXEngine's counterpart of the original's. `GLOBAL`: the frame, the
+game level's tick, the client's draw less the device's present and the
+present, the frame's time the engine's tick leaves; the level's line, the
+times of its events (the outermost), actors' tick, inventory paths, pawns'
+sight and hearing, audio's update, moves and their count, and net tick;
+the render's, of its meshes, surfaces, light and fog maps, each light's
+setup for those (`EX`), BSP walk, actors' filing and decals. `NET`: the
+connection's ping, channels, packets out of order, loss, packets, bunches
+and bytes a second each way and its speed, with a stats period's line to the
+log under its header. `HARDWARE`: D3DDrv's line of the device's own
+figures, its surfaces, polygons and tiles and their time in it, its draw
+calls for the vertex buffer's flushes, its texture cache a pool a format --
+the bytes of the textures set this frame and of all it holds, their counts,
+the frame's sets and uploads and the uploads' time --, the software device's
+setup, drawing and present of the last frame after them. `MESH`: a LOD
+mesh's vertices placed and normals made as `GetFrame` and its faces as
+`Sub`, a plain mesh's faces as `Process`, each less the vertices' light and
+the device's draws, the lights picked as `LightSet`, the vertices lit as
+`Light`, the draws as `Tmap`; the meshes, the faces drawn as both
+`MeshPolyCount` and `MeshSubCount` (each handed to the device whole), the
+lights the meshes took and the moving lights new to them, the lights each
+vertex lit took. `ZONE`: the zones the walks saw of the level's.
+`OCCLUSION`: the walk's time and its clipper's: its clip, projection and
+rows, the nodes visited of the level's and the polygons' points; the
+polygons transformed, those not wholly beyond a side of the view, those
+given to the rows and those over a row, the nodes drawn; the boxes tested
+and their time, those behind the view, cut by its near plane, beyond a side
+of it and hidden by the spans. `CACHE`: the original's cache's line, of the
+light and fog maps: the asks for one and their time, the builds and theirs,
+the bytes of those asked for this frame and of the rest, the maps held.
+Each panel's finer times are taken while it is shown. At 0, as the
+original's own counting leaves them, are `MESH`'s `Clip` and the level's
+`Spawn` and `Un`; at 0 too are `ZONE`'s `Reject`, DXEngine's walk cutting
+no node by its zone mask, and `CACHE`'s `Tick`, the maps kept until the
+level goes; no thrash is shown, a device's cache holding each texture until
+it is flushed (`ViewWordsConsole` shot 7 on Liberty Island: the panels' lines and places
+in both engines, `ZONE`'s and `OCCLUSION`'s level counts alike, 18 zones and
+53,872 nodes; `NetStatsJoinConsole` against the original's server: `NET`'s
+panel and the log's header and lines a period as the original's client draws
+and logs them against DXEngine's; the build before drew the FPS line alone).
+By choice, the software device draws D3DDrv's line of its own figures and
+its stages, where SoftDrv's says "No stats available". By choice, `STAT
 RENDER` toggles a panel of DXEngine's own at the screen's right, where the
 original's toggles nothing: the frame rate, the level's actors, the objects
 the garbage collector holds and the memory they take. Differs (bugs.md
@@ -3747,15 +3791,52 @@ no sprite, mesh or render iterator drawn, no moving light lighting the world
 or its fog, no mover filed again, the movers filed drawn where they were,
 the level's own polygons as ever (`ViewWordsConsole` on Liberty Island: the
 statue, the bottles and the bin gone from the frame in both engines, the
-build before drawing them). Differs (bugs.md WIN.31): `CONFIGHASH`,
-`DUMPNATIVES` and `OBJ`'s `REFS`, `HASH`, `DEPENDENCIES`, `VFHASH` and
-`LINKERS`, which list the original's own tables, are taken by nothing;
-`DUMPCACHE` lists nothing, DXEngine having no memory cache; `OBJ LIST`'s
-bytes are each class's properties', where the original's are what its
-serializer walks of each object. Differs (bugs.md WIN.38): Galaxy's words
-(`MUSICORDER`, `ASTAT`, `CDTRACK`, `CDVOLUME`, `RECORDSOUND`,
-`ENDRECORDSOUND`) and the original launcher's `EDITACTOR` are taken by
-nothing. By choice, `OBJ GARBAGE` collects at the frame's end, the
+build before drawing them). The words that list the original's own tables
+list DXEngine's counterparts, in the original's forms (`EngineWordsConsole`
+from the menu map: every word answered in the original's form, `OBJ HASH`'s
+whole line alike): `CONFIGHASH` the config files DXEngine holds,
+its inis and .int files, in the map's hash slots by `appStrihash`;
+`DUMPNATIVES` to the log each native number neither a token of the bytecode
+nor a native of DXEngine's takes; `OBJ REFS` the objects whose references
+-- the collector's walk of each, as the original's serializer walks them --
+hold the one named, and the shortest chain to it from the roots a collection
+marks from, code "(native)"; `OBJ HASH` DXEngine's names in a table of the
+original's 4,096 buckets; `OBJ DEPENDENCIES` a package's references outside
+it; `OBJ VFHASH` each state's and class's functions and states by their
+names' numbers, DXEngine's; `OBJ LINKERS` each package loaded, its tables'
+counts and sizes, its lazy arrays none; `OBJ LIST` each object's
+properties, then a texture's mips, a sound's and a song's data and a struct's
+script, as used and as allocated. The figures are DXEngine's own: its
+.int files all held from its start, where the original's cache holds those
+read so far. Galaxy's words are the original's (`UGalaxyAudioSubsystem::
+Exec`, Galaxy.dll `0x10607070`), after the renderer's, none with
+`-nosound`: `CDTRACK` sets the player's `CdTrack` and an instant
+transition, answering "CD Track <n>", the song going on from its own order;
+`CDVOLUME` sets nothing, there being no CD audio; `MUSICORDER`, while a song
+is loaded, answers "Galaxy order <n>" and jumps to the order from the
+playing row's next tick, a negative one counted from the order playing;
+`RECORDSOUND` opens the microphone, OpenAL's default capture device, at
+8 kHz, 16-bit mono, for up to 4.096 s, "RecordSound begin" to the log, and
+`ENDRECORDSOUND` closes it, "RecordSound end (<n> samples)" to the log,
+puts the samples through Galaxy's slope coder and low pass, writes them as
+`Test.wav` in the System folder, its format's six fields to the log as it
+is written, and plays the file at the player; `ASTAT AUDIO` and `ASTAT
+DETAIL` toggle the channels' overlay, drawn after the console's
+`PostRender` and before the renderer's panels: each channel's sound by its
+full name, or None, and with `DETAIL` its volume, pitch, radius and
+priority (`EngineWordsConsole`: "Galaxy order 1" and the song at its order 1.5 s
+after, "CD Track 2", in both engines; with `Record`, DXEngine's alone, the
+harness's own sound recorded through `PULSE_SOURCE`, 10,800 samples, the
+format's six lines and a `Test.wav` of 8 kHz; `ViewWordsConsole` shot 8: the
+channels at the original's places, each ambient sound's figures alike). A
+capture device that will not open is logged and nothing recorded, where the
+original's failing `waveInOpen` ends it in a critical error; a `RECORDSOUND`
+while one records starts over; with `--userdir`, `Test.wav` is written there. Differs (bugs.md WIN.38): the
+original launcher's `EDITACTOR` is taken by nothing. By choice, `DUMPCACHE`
+says to the log that DXEngine has no memory cache, where the original's
+lists its items; `OBJ DEPENDENCIES` heads an object's references with its
+own name, where the original's heads them with the first reference's; and
+`OBJ GARBAGE` collects at the frame's end, the
 collector running with no script under way, where the original's collects at
 once.
 

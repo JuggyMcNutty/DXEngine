@@ -6,6 +6,7 @@
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Actors/Inventory/UWeapon.h"
 #include "Packages/Engine/Actors/Info/UZoneInfo.h"
+#include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Core/UClass.h"
 #include "Utils/Logger.h"
 #include "Engine.h"
@@ -159,6 +160,8 @@ void UPawn::Tick(float elapsed)
 // set) is sent SeePlayer.
 void UPawn::ShowSelf()
 {
+	// Timed for STAT GLOBAL's See, as the original's (Engine.dll 0x103c0456)
+	StatClock clock(XLevel()->Stats.See);
 	for (UPawn* other = Level()->PawnList(); other; other = other->nextPawn())
 	{
 		if (other != this && other->SightCounter() < 0.0f && other->IsEventEnabled(EventName::SeePlayer) && other->CanSee(this))
@@ -172,6 +175,7 @@ void UPawn::CheckEnemyVisible()
 {
 	if (!Enemy())
 		return;
+	StatClock clock(XLevel()->Stats.See);
 	if (LineOfSightTo(Enemy(), false))
 		LastSeenTime() = Level()->TimeSeconds();
 	else

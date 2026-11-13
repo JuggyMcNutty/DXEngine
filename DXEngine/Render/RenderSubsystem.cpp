@@ -81,7 +81,13 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 	}
 
 	Device->Brightness = engine->client->BrightnessInUse;
-	Device->Lock(vec4(flashScale, 0.0f), vec4(flashFog, 0.0f), vec4(0.0f));
+	// The device's draws timed while STAT HARDWARE is shown (RenderDevice::
+	// TimeDraws)
+	Device->TimeDraws = StatPanels[StatHardware];
+	{
+		StatClock clock(BlitStatTime);
+		Device->Lock(vec4(flashScale, 0.0f), vec4(flashFog, 0.0f), vec4(0.0f));
+	}
 	FrameInProgress = true;
 	// Every frame, the world drawn or not: a texture the windows or the
 	// canvas alone draw (a menu over the snapshot, the credits) steps on, as
@@ -113,7 +119,11 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 
 	PostRender();
 
-	Device->Unlock(true);
+	BlitStatTime = 0.0;
+	{
+		StatClock clock(BlitStatTime);
+		Device->Unlock(true);
+	}
 	FrameInProgress = false;
 	FrameDrawn = true;
 }
@@ -122,6 +132,7 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 // cleared, the last frame's end kept, the start stamped
 void RenderSubsystem::BeginFrameStats()
 {
+	PanelStats = {};
 	FrameStats.Textures = 0;
 	FrameStats.TextureMem = 0;
 	FrameStats.LastEndTime = FrameStats.EndTime;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VisibleFrame.h"
+#include "Utils/StatClock.h"
 #include <chrono>
 
 class RenderDevice;
@@ -207,6 +208,7 @@ private:
 	void DrawRawBackground(URootWindow* root);
 	void DrawTimedemoStats();
 	void DrawStats();
+	void DrawAudioStats();
 	void DrawTile(TextureInfo& texinfo, const Rectf& dest, const Rectf& src, const Rectf& clipBox, float Z, vec4 color, vec4 fog, uint32_t flags);
 
 	int DrawTextLine(UFont* font, vec4 color, float orgX, float orgY, int x, int y, const ScriptString& text, size_t count, uint32_t polyflags, float spaceX, bool clip, bool hotKeys, float clipX, float clipY);
@@ -226,6 +228,43 @@ private:
 		SceneNode Frame;
 	} Canvas;
 
+public:
+	// STAT GLOBAL's render figures and those of MESH, ZONE, OCCLUSION and
+	// CACHE, in seconds and counts, each the counterpart of one the
+	// original's render keeps, cleared as its frame begins (Render.dll
+	// PreRender 0x10b1458f): the meshes drawn (DrawMesh, DrawLodMesh), the
+	// world's surfaces handed to the device (DrawFrame 0x10b1b037-
+	// 0x10b1b081), their light and fog maps (SetupForSurf) and each light's
+	// setup for those (Ex), the BSP walk (OccludeBsp), the actors filed
+	// into it (SetupDynamics), the decals drawn and clipped and their count
+	// (DrawFrame 0x10b1b0ac-0x10b1b382); the meshes' stages, the meshes,
+	// the faces drawn, the lights the meshes took and those new to them,
+	// and the lights their vertices took (VisibleMesh); the zones the walks
+	// saw and the zones they had, the nodes they visited and had, and their
+	// clippers' figures (BspClipper::Stats); the light and fog maps asked
+	// for and built, and their time (LightSystem::GetLightmap)
+	struct
+	{
+		double Mesh = 0.0, PolyV = 0.0, Illum = 0.0, Occlusion = 0.0, Filter = 0.0, Ex = 0.0, Decal = 0.0, DecalClip = 0.0;
+		int Decals = 0;
+		double MeshGetFrame = 0.0, MeshProcess = 0.0, MeshLightSet = 0.0, MeshLight = 0.0, MeshSub = 0.0, MeshTmap = 0.0;
+		int Meshes = 0, MeshPolys = 0, MeshLights = 0, MeshVtrics = 0, VertLights = 0;
+		int VisibleZones = 0, Zones = 0, NodesVisited = 0, Nodes = 0;
+		BspClipper::ClipperStats Clip;
+		int CacheGets = 0, CacheCreates = 0;
+		double CacheGetTime = 0.0, CacheCreateTime = 0.0;
+	} PanelStats;
+	// STAT GLOBAL's Blit: the device's last Unlock, which shows the frame,
+	// and this frame's Lock, as the original's window times its lock and
+	// unlock into the client's DrawCycles (WinDrv.dll 0x1110cabd,
+	// 0x1110ce4e)
+	double BlitStatTime = 0.0;
+	// STAT NET's: whether it was drawn the frame before, and the period
+	// whose line went to the log (DrawStats)
+	bool NetStatsDrawn = false;
+	double NetStatsLogged = -1.0;
+
+private:
 	// STAT FPS's figures: the frame's start and end and the last end, the
 	// last 32 frames' times between ends and from start to end, the textures
 	// the frame used and their size

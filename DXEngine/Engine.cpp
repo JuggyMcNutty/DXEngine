@@ -9,6 +9,11 @@
 #include "Utils/PEIcon.h"
 #include "Render/RenderSubsystem.h"
 #include "Package/PackageManager.h"
+#include "VM/NativeFunc.h"
+#include "Packages/Core/UState.h"
+#include <deque>
+#include <unordered_map>
+#include <unordered_set>
 #include "Package/IniProperty.h"
 #include "Package/ObjectStream.h"
 #include "Packages/Core/UClass.h"
@@ -308,6 +313,7 @@ void Engine::Run()
 		if (OriginalCommandLine::Get().Param("nosound") || soundOff)
 		{
 			LogMessage(soundOff ? "UseSound off: no sound" : "-nosound: no sound");
+			NoAudioSubsystem = true;
 #ifdef _WIN32
 			_putenv_s("ALSOFT_DRIVERS", "null");
 #else
@@ -440,6 +446,14 @@ void Engine::Run()
 		float realTimeElapsed = CalcTimeElapsed();
 		tickCount++;
 		auto tickTime = std::chrono::steady_clock::now();
+		// The frame's tick timed for STAT GLOBAL, the time it waits before
+		// it left out, as the original's TickCycles (Engine.dll 0x103911ea)
+		struct TickStat
+		{
+			Engine* engine;
+			std::chrono::steady_clock::time_point start;
+			~TickStat() { engine->TickStatTime = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count(); }
+		} tickStat{ this, tickTime };
 		double sinceSecond = std::chrono::duration<double>(tickTime - secondStart).count();
 		if (sinceSecond > 1.0)
 		{
@@ -508,20 +522,30 @@ void Engine::Run()
 		}
 
 		// A client's packets come in before its level ticks and go out
-		// after, as the original's level tick has them.
+		// after, as the original's level tick has them; all of it STAT
+		// GLOBAL's Game, as the original's GameCycles (0x1039006a-0x10390204).
+		auto gameStart = std::chrono::steady_clock::now();
 		if (LevelNetDriver)
 			LevelNetDriver->TickDispatch(levelElapsed);
 
 		Level->Tick(levelElapsed, m_GamePaused);
 
 		// A server replicates to its clients before the packets go; a client
-		// its own player's pawn to the server.
+		// its own player's pawn to the server: the level's Net, as the
+		// original's TickNetServer and TickNetClient clock it.
 		if (LevelNetDriver && !LevelNetDriver->ServerConnection && ServerLevel)
+		{
+			StatClock clock(Level->Stats.Net);
 			ServerLevel->TickNetServer(levelElapsed);
+		}
 		else if (LevelNetDriver && LevelNetDriver->ServerConnection && ClientLevel)
+		{
+			StatClock clock(Level->Stats.Net);
 			ClientLevel->TickNetClient(*LevelNetDriver);
+		}
 		if (LevelNetDriver)
 			LevelNetDriver->TickFlush();
+		GameStatTime = std::chrono::duration<double>(std::chrono::steady_clock::now() - gameStart).count();
 
 		// Then the Entry level, and the viewport's player's level when it is
 		// not the game's, as the original's game engine ticks them
@@ -563,7 +587,11 @@ void Engine::Run()
 		if (PendingLevel)
 			TickPendingLevel(realTimeElapsed);
 
+		// The draw, STAT GLOBAL's client, as the original's ClientCycles
+		// (0x1039117e-0x10391198)
+		auto clientStart = std::chrono::steady_clock::now();
 		Draw(realTimeElapsed, levelElapsed, PendingLevel.get());
+		ClientStatTime = std::chrono::duration<double>(std::chrono::steady_clock::now() - clientStart).count();
 
 		// A save asked for during the draw: a console's tick
 		WritePendingSave();
@@ -885,6 +913,9 @@ void Engine::OnLauncherLine(const std::string& line)
 
 void Engine::UpdateAudio()
 {
+	// Timed for STAT GLOBAL's Audio, as the original's draw clocks the
+	// audio's update into its game level's (Engine.dll 0x1038f5f8-0x1038f660)
+	StatClock clock(Level->Stats.Audio);
 	audiodev->SetViewport(viewport);
 	audiodev->Update();
 }
@@ -3901,7 +3932,7 @@ bool Engine::ServerBrowse(const std::string& text, ETravelType travelType, std::
 
 // The engine's words (UEngine::Exec, Engine.dll 0x10380ee0), in its order: the
 // system's, the objects', the memory cache's, the launcher's, the client's,
-// the renderer's, FLUSH and CRACKURL.
+// the renderer's, the audio's, FLUSH and CRACKURL.
 bool Engine::EngineWordExec(const std::string& line, ExecOutput& out)
 {
 	if (SystemExec(line, out))
@@ -3911,9 +3942,12 @@ bool Engine::EngineWordExec(const std::string& line, ExecOutput& out)
 	std::string rest;
 	if (ParseWord(line, "dumpcache", rest))
 	{
-		// The original's lists its memory cache's items (FMemCache::Exec,
-		// Core.dll 0x10125500), which DXEngine has not: its textures and
-		// light maps are the device's and the light system's
+		// The original's lists its memory cache's items, a line each with
+		// its ID's byte, its size and whether it is locked, empty, stale or
+		// fresh (FMemCache::Exec, Core.dll 0x10125500); DXEngine has none,
+		// its textures and light maps the device's and the light system's,
+		// and says so, as SHOWLOG of its log window, by choice
+		LogMessage("dumpcache: DXEngine has no memory cache");
 		return true;
 	}
 	if (LauncherExec(line, out))
@@ -3940,6 +3974,10 @@ bool Engine::EngineWordExec(const std::string& line, ExecOutput& out)
 		return true;
 	}
 	if (render && RendererExec(line, out))
+		return true;
+	// The audio subsystem's, Galaxy's, after the renderer's (0x10380fb3-
+	// 0x10380fc9): none with no client, nor with no audio subsystem
+	if (!LaunchInfo.dedicatedServer && !NoAudioSubsystem && audiodev && audiodev->Exec(line, out))
 		return true;
 	if (ParseWord(line, "flush", rest))
 	{
@@ -3976,10 +4014,9 @@ bool Engine::EngineWordExec(const std::string& line, ExecOutput& out)
 	return false;
 }
 
-// The system's words (USystem::Exec, Core.dll 0x1016b790): MEMSTAT, EXIT and
-// QUIT, RELAUNCH. Its DEBUG CRASH, GPF, RECURSE and EATMEM, which end the
-// game on purpose, DXEngine takes none of; nor CONFIGHASH, which dumps the
-// original's config cache's hash table.
+// The system's words (USystem::Exec, Core.dll 0x1016b790): MEMSTAT,
+// CONFIGHASH, EXIT and QUIT, RELAUNCH. Its DEBUG CRASH, GPF, RECURSE and
+// EATMEM, which end the game on purpose, DXEngine takes none of.
 bool Engine::SystemExec(const std::string& line, ExecOutput& out)
 {
 	std::string rest;
@@ -4027,6 +4064,30 @@ bool Engine::SystemExec(const std::string& line, ExecOutput& out)
 		out.Log(Printf("Memory load = %i%%", load));
 		return true;
 	}
+	if (ParseWord(line, "confighash", rest))
+	{
+		// The config cache's dump, as the original's (0x1016b823-0x1016b82f,
+		// the executable's FConfigCacheIni::Dump): "Files map:", the files
+		// held and the map's hash slots -- 8, twice as many once a file is
+		// added past twice the slots and 8 more -- and how many files each
+		// slot holds by the appStrihash of the file's name: of DXEngine's,
+		// its inis and .int files, by their paths
+		Array<std::string> files = packages->GetConfigFilePaths();
+		int slots = 8;
+		for (size_t added = 1; added <= files.size(); added++)
+		{
+			if (slots * 2 + 8 < (int)added)
+				slots *= 2;
+		}
+		Array<int> counts((size_t)slots, 0);
+		for (const std::string& file : files)
+			counts[StrTools::ue1_strihash(file) & (uint32_t)(slots - 1)]++;
+		out.Log("Files map:");
+		out.Log(Printf("TMapBase: %i items, %i hash slots", (int)files.size(), slots));
+		for (int i = 0; i < slots; i++)
+			out.Log(Printf("   Hash[%i] = %i", i, counts[i]));
+		return true;
+	}
 	if (ParseWord(line, "exit", rest) || ParseWord(line, "quit", rest))
 	{
 		out.Log("Closing by request");
@@ -4041,12 +4102,106 @@ bool Engine::SystemExec(const std::string& line, ExecOutput& out)
 	return false;
 }
 
-// The objects' words (UObject::StaticExec, Core.dll 0x10153110): MEM, GET,
-// SET, OBJ's GARBAGE, MARK, MARKCHECK, CLASSES and LIST, and GTIME. Its
-// DUMPNATIVES, OBJ REFS, HASH, DEPENDENCIES, VFHASH and LINKERS list the
-// original's own tables -- its native table, the references its serializer
-// walks, its name hash, its states' function hashes, its linkers' -- which
-// DXEngine does not keep so (bugs.md WIN.31).
+// Whether a native number is taken, as the original's native table has its
+// slots filled: below the first native's 0x70 by a token of the bytecode
+// DXEngine's reader takes (Bytecode::ReadToken), 0x60 to 0x6F the extended
+// natives', else by a native of DXEngine's of that number
+static bool NativeNumberTaken(int index)
+{
+	if (index < (int)ExprToken::FirstNative)
+		return !(index == 0x03 || index == 0x15 || index == 0x35 || index == 0x37 || (index >= 0x5A && index < (int)ExprToken::ExtendedNative));
+	return (size_t)index < NativeFunctions::NativeByIndex.size() && NativeFunctions::NativeByIndex[index] != nullptr;
+}
+
+// An object of the class or a subclass, any package's, by its name, as the
+// original's ParseObject finds one with ANY_PACKAGE (Core.dll 0x10101a96)
+static UObject* FindObjectOfClass(UClass* cls, const std::string& name)
+{
+	std::string objectName = name.substr(name.find_last_of('.') == std::string::npos ? 0 : name.find_last_of('.') + 1);
+	if (objectName.empty())
+		return nullptr;
+	// By its text, a name not there made by no lookup, as the original's
+	// FNAME_Find
+	bool classes = cls->Name == "Class";
+	for (GCObject* gcObj : GC::GetObjects())
+	{
+		UObject* obj = dynamic_cast<UObject*>(gcObj);
+		if (!obj || AnyFlags(obj->Flags, ObjectFlags::EliminateObject) || !StrTools::equals_ignore_case(obj->Name.ToString(), objectName))
+			continue;
+		if (classes && dynamic_cast<UClass*>(obj))
+			return obj;
+		for (UStruct* s = obj->Class; s; s = s->BaseStruct)
+		{
+			if (s == cls)
+				return obj;
+		}
+	}
+	return nullptr;
+}
+
+// A holder by its full name: a package's file and tables, no object of the
+// game's, as its GCDescribe gives them
+static std::string HolderName(GCObject* obj)
+{
+	UObject* uobj = dynamic_cast<UObject*>(obj);
+	return uobj ? FullName(uobj) : obj->GCDescribe();
+}
+
+// Whether the object's outer is the package, as the original's GetOuter()
+// is its UPackage: a top object of it, the package's own object aside
+static bool OuterIsPackage(UObject* obj, Package* package)
+{
+	if (!obj || !package || obj->package != package || package->IsPackageObject(obj))
+		return false;
+	return !obj->Outer() || package->IsPackageObject(obj->Outer());
+}
+
+// A package loaded, by its name: none loaded for it
+static Package* FindLoadedPackage(PackageManager* packages, const std::string& name)
+{
+	for (Package* package : packages->GetLoadedPackages())
+	{
+		if (StrTools::equals_ignore_case(package->GetPackageName().ToString(), name))
+			return package;
+	}
+	return nullptr;
+}
+
+// An object's bytes as the original's OBJ LIST counts them, its serializer
+// walking it with a counting archive (Core.dll 0x10153b04, FArchiveCountMem):
+// its properties, then the arrays it holds, as used and as allocated -- of
+// DXEngine's, a texture's mips, a sound's and a song's data, a struct's
+// script
+static void ObjectBytes(UObject* obj, size_t& num, size_t& max)
+{
+	num = max = obj->Class->StructSize;
+	auto add = [&](const auto& data)
+	{
+		num += data.size();
+		max += data.capacity();
+	};
+	if (UTexture* texture = dynamic_cast<UTexture*>(obj))
+	{
+		for (const Array<UnrealMipmap>* mips : { &texture->UsedMipmaps, &texture->UncompressedMipmaps, &texture->CompressedMipmaps })
+		{
+			for (const UnrealMipmap& mip : *mips)
+				add(mip.Data);
+		}
+	}
+	else if (USound* sound = dynamic_cast<USound*>(obj))
+		add(sound->Data);
+	else if (UMusic* music = dynamic_cast<UMusic*>(obj))
+		add(music->Data);
+	else if (UStruct* structure = dynamic_cast<UStruct*>(obj))
+		add(structure->BytecodeRaw);
+}
+
+// The objects' words (UObject::StaticExec, Core.dll 0x10153110): MEM,
+// DUMPNATIVES, GET, SET, OBJ's GARBAGE, MARK, MARKCHECK, REFS, HASH,
+// CLASSES, DEPENDENCIES, LIST, VFHASH and LINKERS, and GTIME, the tables
+// the original lists of its own -- its native table, the references its
+// serializer walks, its name hash, its states' function hashes, its
+// linkers -- DXEngine's counterparts of each.
 bool Engine::ObjectExec(const std::string& line, ExecOutput& out)
 {
 	std::string rest;
@@ -4054,6 +4209,18 @@ bool Engine::ObjectExec(const std::string& line, ExecOutput& out)
 	{
 		// The original's allocator dump, whose lines the game's build leaves
 		// out: nothing logged (FMallocWindows::DumpAllocs)
+		return true;
+	}
+	if (ParseWord(line, "dumpnatives", rest))
+	{
+		// Each of the 4,096 native numbers nothing takes, to the log, as the
+		// original's lists its native table's undefined slots
+		// (0x10153179-0x101531ab)
+		for (int i = 0; i < 4096; i++)
+		{
+			if (!NativeNumberTaken(i))
+				LogMessage(Printf("Native index %i is available", i));
+		}
 		return true;
 	}
 	bool set = false;
@@ -4246,6 +4413,91 @@ bool Engine::ObjectExec(const std::string& line, ExecOutput& out)
 			}
 			return true;
 		}
+		if (ParseWord(rest, "refs", sub))
+		{
+			// What refers to an object and how it is reached, as the
+			// original's (0x101535be-0x101537f0): the class by CLASS= and the
+			// object by NAME=, any package's, else nothing. Each object whose
+			// references -- the collector's walk of it, DXEngine's
+			// counterpart of the original's serializer -- hold it; then the
+			// shortest chain to it from a root, a walk out from the roots a
+			// collection marks from along the references: the code, never
+			// collected ("(native)"), or what the engine holds ("(root)")
+			std::string className, objectName;
+			UClass* cls = nullptr;
+			try
+			{
+				if (StrTools::ue1_parse(sub, "CLASS=", className) && !className.empty())
+					cls = packages->FindClassAnyPackage(NameString(className));
+			}
+			catch (const std::exception&)
+			{
+				cls = nullptr;
+			}
+			if (!cls)
+				return true;
+			UObject* target = StrTools::ue1_parse(sub, "NAME=", objectName) ? FindObjectOfClass(cls, objectName) : nullptr;
+			if (!target)
+				return true;
+			out.Log("");
+			out.Log("Referencers of " + FullName(target) + ":");
+			for (GCObject* gcObj : GC::GetObjects())
+			{
+				bool refers = false;
+				GC::ForEachReference(gcObj, [&](GCObject* ref) { refers = refers || ref == target; });
+				if (refers)
+					out.Log("   " + HolderName(gcObj));
+			}
+			out.Log("");
+			out.Log("Shortest reachability from root to " + FullName(target) + ":");
+			std::unordered_map<GCObject*, GCObject*> from;
+			std::unordered_set<GCObject*> code;
+			std::deque<GCObject*> queue;
+			GC::ForEachRoot([this](GCMarker& marker) { MarkRoots(marker); }, [&](GCObject* root, bool isCode)
+			{
+				if (isCode)
+					code.insert(root);
+				if (from.emplace(root, nullptr).second)
+					queue.push_back(root);
+			});
+			while (!queue.empty() && !from.count(target))
+			{
+				GCObject* obj = queue.front();
+				queue.pop_front();
+				GC::ForEachReference(obj, [&](GCObject* ref)
+				{
+					if (from.emplace(ref, obj).second)
+						queue.push_back(ref);
+				});
+			}
+			if (from.count(target))
+			{
+				Array<GCObject*> chain;
+				for (GCObject* obj = target; obj; obj = from[obj])
+					chain.push_back(obj);
+				std::reverse(chain.begin(), chain.end());
+				for (size_t i = 0; i < chain.size(); i++)
+					out.Log("   " + HolderName(chain[i]) + (i ? "" : code.count(chain[i]) ? " (native)" : " (root)"));
+			}
+			else
+			{
+				out.Log("   (Object is not currently rooted)");
+			}
+			out.Log("");
+			return true;
+		}
+		if (ParseWord(rest, "hash", sub))
+		{
+			// The name table's figures, as the original's FName::DisplayHash
+			// gives them (0x1014e000): its names, and how many of its 4,096
+			// buckets they fill by appStrihash -- DXEngine's names in the
+			// original's table; the objects' hash, which the original counts
+			// too, it gives not (0x1015381e-0x101538b4)
+			int names = 0, bins = 0;
+			NameString::HashFigures(4096, names, bins);
+			out.Log(Printf("Hash: %i names, %i/%i hash bins", names, bins, 4096));
+			return true;
+		}
 		if (ParseWord(rest, "classes", sub))
 		{
 			// The class tree from Object, each class under its parent two
@@ -4274,13 +4526,64 @@ bool Engine::ObjectExec(const std::string& line, ExecOutput& out)
 				list(root, 0);
 			return true;
 		}
+		if (ParseWord(rest, "dependencies", sub))
+		{
+			// What a package's objects refer to outside it, as the original's
+			// (0x10153958-0x10153afc): the package by PACKAGE=, one loaded,
+			// else nothing; EXCLUDE0= to EXCLUDE15= packages left out. Each of
+			// its top objects that refers -- the collector's walk of it -- to
+			// an object whose outer is neither the package nor one left out,
+			// by its full name with "references:", each such reference under
+			// it. The original's names there the first reference where its
+			// own object was meant (FArchiveShowReferences, 0x1015de70-
+			// 0x1015de83), DXEngine its object, by choice
+			std::string packageName;
+			Package* package = StrTools::ue1_parse(sub, "PACKAGE=", packageName) ? FindLoadedPackage(packages.get(), packageName) : nullptr;
+			if (!package)
+				return true;
+			Array<Package*> excluded;
+			for (int i = 0; i < 16; i++)
+			{
+				std::string excludeName;
+				if (StrTools::ue1_parse(sub, "EXCLUDE" + std::to_string(i) + "=", excludeName))
+				{
+					if (Package* exclude = FindLoadedPackage(packages.get(), excludeName))
+						excluded.push_back(exclude);
+				}
+			}
+			out.Log("Dependencies of " + package->GetPackageName().ToString() + ":");
+			for (GCObject* gcObj : GC::GetObjects())
+			{
+				UObject* obj = dynamic_cast<UObject*>(gcObj);
+				if (!OuterIsPackage(obj, package))
+					continue;
+				bool named = false;
+				GC::ForEachReference(obj, [&](GCObject* refObj)
+				{
+					UObject* ref = dynamic_cast<UObject*>(refObj);
+					if (!ref || OuterIsPackage(ref, package))
+						return;
+					for (Package* exclude : excluded)
+					{
+						if (OuterIsPackage(ref, exclude))
+							return;
+					}
+					if (!named)
+					{
+						out.Log("   " + FullName(obj) + " references:");
+						named = true;
+					}
+					out.Log("      " + FullName(ref));
+				});
+			}
+			return true;
+		}
 		if (ParseWord(rest, "list", sub))
 		{
 			// The objects of a CLASS=, in a PACKAGE= or INSIDE= one, each by
 			// its full name, then a line a class with its count, and the
-			// total (0x10153b04); a class's bytes are its object's
-			// properties, where the original counts what its serializer
-			// walks of each
+			// total (0x10153b04), each object's bytes as used and as
+			// allocated (ObjectBytes)
 			UClass* filterClass = nullptr;
 			std::string filterPackage, filterInside, value;
 			if (StrTools::ue1_parse(sub, "CLASS=", value))
@@ -4293,11 +4596,18 @@ bool Engine::ObjectExec(const std::string& line, ExecOutput& out)
 				UClass* Class = nullptr;
 				int Count = 0;
 				size_t Bytes = 0;
+				size_t MaxBytes = 0;
+			};
+			struct Listed
+			{
+				std::string Name;
+				size_t Bytes = 0;
+				size_t MaxBytes = 0;
 			};
 			Array<ClassCount> counts;
-			Array<std::pair<std::string, size_t>> listed;
+			Array<Listed> listed;
 			int total = 0;
-			size_t totalBytes = 0;
+			size_t totalBytes = 0, totalMaxBytes = 0;
 			for (GCObject* gcObj : GC::GetObjects())
 			{
 				UObject* obj = dynamic_cast<UObject*>(gcObj);
@@ -4312,28 +4622,31 @@ bool Engine::ObjectExec(const std::string& line, ExecOutput& out)
 				bool inside = !filterInside.empty() && obj->package && StrTools::equals_ignore_case(obj->package->GetPackageName().ToString(), filterInside);
 				if (filtered && !inClass && !inPackage && !inside)
 					continue;
-				size_t bytes = obj->Class->StructSize;
+				size_t bytes = 0, maxBytes = 0;
+				ObjectBytes(obj, bytes, maxBytes);
 				if (filtered)
-					listed.push_back({ FullName(obj), bytes });
+					listed.push_back({ FullName(obj), bytes, maxBytes });
 				auto it = std::find_if(counts.begin(), counts.end(), [&](const ClassCount& c) { return c.Class == obj->Class; });
 				if (it == counts.end())
 				{
-					counts.push_back({ obj->Class, 0, 0 });
+					counts.push_back({ obj->Class, 0, 0, 0 });
 					it = counts.end() - 1;
 				}
 				it->Count++;
 				it->Bytes += bytes;
+				it->MaxBytes += maxBytes;
 				total++;
 				totalBytes += bytes;
+				totalMaxBytes += maxBytes;
 			}
 			out.Log("Objects:");
 			out.Log("");
 			if (!listed.empty())
 			{
-				std::sort(listed.begin(), listed.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
+				std::sort(listed.begin(), listed.end(), [](const Listed& a, const Listed& b) { return a.Bytes > b.Bytes; });
 				out.Log(Printf("%60s % 10s % 10s", "Object", "NumBytes", "MaxBytes"));
-				for (const auto& [name, bytes] : listed)
-					out.Log(Printf("%60s % 10i % 10i", name.c_str(), (int)bytes, (int)bytes));
+				for (const Listed& item : listed)
+					out.Log(Printf("%60s % 10i % 10i", item.Name.c_str(), (int)item.Bytes, (int)item.MaxBytes));
 				out.Log("");
 			}
 			if (!counts.empty())
@@ -4341,10 +4654,65 @@ bool Engine::ObjectExec(const std::string& line, ExecOutput& out)
 				std::sort(counts.begin(), counts.end(), [](const ClassCount& a, const ClassCount& b) { return a.Bytes > b.Bytes; });
 				out.Log(Printf(" %30s % 6s % 10s  % 10s ", "Class", "Count", "NumBytes", "MaxBytes"));
 				for (const ClassCount& c : counts)
-					out.Log(Printf(" %30s % 6i % 10iK % 10iK", c.Class->Name.ToString().c_str(), c.Count, (int)(c.Bytes >> 10), (int)(c.Bytes >> 10)));
+					out.Log(Printf(" %30s % 6i % 10iK % 10iK", c.Class->Name.ToString().c_str(), c.Count, (int)(c.Bytes >> 10), (int)(c.MaxBytes >> 10)));
 				out.Log("");
 			}
-			out.Log(Printf("%i Objects (%.3fM / %.3fM)", total, totalBytes / 1048576.0, totalBytes / 1048576.0));
+			out.Log(Printf("%i Objects (%.3fM / %.3fM)", total, totalBytes / 1048576.0, totalMaxBytes / 1048576.0));
+			return true;
+		}
+		if (ParseWord(rest, "vfhash", sub))
+		{
+			// Each state's function hash, as the original's
+			// (0x10153fd7-0x101540e2): "Class VfHashes:", then each state and
+			// class by its name, and for each of the hash's 256 slots how many
+			// of the functions and states it holds -- its own and those of the
+			// states and classes above it -- fall in it by their name's number:
+			// DXEngine's names'
+			out.Log("Class VfHashes:");
+			for (GCObject* gcObj : GC::GetObjects())
+			{
+				UState* state = dynamic_cast<UState*>(gcObj);
+				if (!state)
+					continue;
+				int slots[256] = {};
+				for (UStruct* s = state; s; s = s->BaseStruct)
+				{
+					for (UField* field = s->Children; field; field = field->Next)
+					{
+						if (dynamic_cast<UStruct*>(field))
+							slots[field->Name.GetCompareIndex() & 255]++;
+					}
+				}
+				out.Log(state->Name.ToString() + ":");
+				for (int i = 0; i < 256; i++)
+					out.Log(Printf("   %i: %i", i, slots[i]));
+			}
+			return true;
+		}
+		if (ParseWord(rest, "linkers", sub))
+		{
+			// Each package's tables, as the original's linkers'
+			// (0x10154100-0x10154269): "Linkers:", then a line a package
+			// DXEngine has loaded -- its file and its full name; its names,
+			// at 4 bytes each and with their text's 2 bytes a character and 14
+			// more; its imports at 28 bytes, its exports at 36, in K; its
+			// generations; and its lazy arrays, none, DXEngine reading an
+			// object's data as it loads it
+			out.Log("Linkers:");
+			for (Package* package : packages->GetLoadedPackages())
+			{
+				const auto& names = package->GetNameTable();
+				int nameBytes = 0;
+				for (const NameTableEntry& entry : names)
+					nameBytes += (int)entry.Name.ToString().size() * 2 + 14;
+				int nameCount = (int)names.size();
+				int imports = package->GetImportCount();
+				int exports = package->GetExportCount();
+				out.Log(Printf("%s (%s): Names=%i (%iK/%iK) Imports=%i (%iK) Exports=%i (%iK) Gen=%i Lazy=%i",
+					package->GetPackageFilePath().c_str(), ("Package " + package->GetPackageName().ToString()).c_str(),
+					nameCount, nameCount * 4 / 1024, nameBytes / 1024, imports, imports * 28 / 1024, exports, exports * 36 / 1024,
+					(int)package->GetGenerations().size(), 0));
+			}
 			return true;
 		}
 		return false;

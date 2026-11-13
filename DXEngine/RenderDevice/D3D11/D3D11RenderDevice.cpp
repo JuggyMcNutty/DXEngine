@@ -1453,6 +1453,11 @@ void D3D11RenderDevice::SetLODBias(float bias)
 
 void D3D11RenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 {
+	// The frame's counts begin again (GetFrameStats)
+	Stats = {};
+	DrawTimes = {};
+	Textures->CacheStats.BeginFrame();
+
 	// A new mip bias: the scene samplers made again (SetLODBias)
 	if (LODBiasChanged)
 	{
@@ -1658,6 +1663,7 @@ void D3D11RenderDevice::Unlock(bool Blit)
 
 void D3D11RenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet)
 {
+	StatClock drawClock(DrawTimes.Surfaces, TimeDraws);
 	uint32_t PolyFlags = ApplyPrecedenceRules(Surface.PolyFlags);
 
 	ComplexSurfaceInfo info;
@@ -1772,6 +1778,7 @@ void D3D11RenderDevice::DrawComplexSurfaceFaces(const ComplexSurfaceInfo& info)
 
 void D3D11RenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags)
 {
+	StatClock drawClock(DrawTimes.Polygons, TimeDraws);
 	if (NumPts < 3) return; // This can apparently happen!!
 
 	PolyFlags = ApplyPrecedenceRules(PolyFlags);
@@ -1863,6 +1870,7 @@ void D3D11RenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, 
 
 void D3D11RenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X, float Y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 Color, vec4 Fog, uint32_t PolyFlags)
 {
+	StatClock drawClock(DrawTimes.Tiles, TimeDraws);
 	PolyFlags = ApplyPrecedenceRules(TileFlags(Info, PolyFlags));
 
 	if (PolyFlags == PF_SubpixelFont)
@@ -2415,4 +2423,18 @@ std::vector<uint8_t> D3D11RenderDevice::CompileHlsl(const std::string& filename,
 	bytecode.resize(blob->GetBufferSize());
 	memcpy(bytecode.data(), blob->GetBufferPointer(), bytecode.size());
 	return bytecode;
+}
+
+RenderDevice::FrameDrawStats D3D11RenderDevice::GetFrameStats() const
+{
+	FrameDrawStats stats;
+	stats.Surfaces = Stats.ComplexSurfaces;
+	stats.Polygons = Stats.GouraudPolygons;
+	stats.Tiles = Stats.Tiles;
+	stats.Flushes = Stats.DrawCalls;
+	stats.SurfaceTime = DrawTimes.Surfaces;
+	stats.PolygonTime = DrawTimes.Polygons;
+	stats.TileTime = DrawTimes.Tiles;
+	Textures->AddPoolStats(stats.Pools);
+	return stats;
 }

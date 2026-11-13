@@ -71,6 +71,9 @@ void NetConnection::ReceivedRawPacket(const uint8_t* data, int count)
 		last <<= 1;
 		numBits--;
 	}
+	// Its bytes and the packet's overhead, as the original's
+	// ReceivedRawPacket counts them (Engine.dll 0x104022e6-0x10402300)
+	InBytesCounted += count + PacketOverhead;
 	NetBitReader reader(data, numBits);
 	ReceivedPacket(reader);
 }
@@ -87,6 +90,11 @@ void NetConnection::ReceivedPacket(NetBitReader& reader)
 		// The ids skipped are packets lost (or late, counted as lost)
 		InPacketsLost += packetId - InPacketId - 1;
 		InPacketId = packetId;
+	}
+	else
+	{
+		// Come out of order (0x1040308c)
+		InOrderCounted++;
 	}
 	InPacketsCounted++;
 
@@ -224,6 +232,7 @@ void NetConnection::ReceivedPacket(NetBitReader& reader)
 			}
 
 			channel->ReceivedRawBunch(bunch);
+			InBunchesCounted++;
 		}
 	}
 }
@@ -304,6 +313,7 @@ int NetConnection::SendRawBunch(NetOutBunch& bunch, bool allowMerge)
 	Out.WriteBits(bunch.Data.GetData(), bunch.Data.GetNumBits());
 	bunch.PacketId = OutPacketId;
 	int packetId = OutPacketId;
+	OutBunchesCounted++;
 	PostSend();
 	return packetId;
 }
@@ -323,6 +333,9 @@ NetOutBunch& NetConnection::MergeIntoLast(const NetOutBunch& bunch)
 	LastOut.bOpen |= bunch.bOpen;
 	LastOut.bClose |= bunch.bClose;
 	Out.SetNumBits(LastStart);
+	// The merged bunch is sent again as one, as the original's SendBunch
+	// uncounts the last (0x103fb8d5)
+	OutBunchesCounted--;
 	return LastOut;
 }
 
@@ -355,6 +368,7 @@ void NetConnection::FlushNet()
 		OutLagTime[index] = Driver->Time;
 		OutPacketId++;
 		OutPacketsCounted++;
+		OutBytesCounted += Out.GetNumBytes() + PacketOverhead;
 		LastSendTime = Driver->Time;
 		QueuedBytes += Out.GetNumBytes() + PacketOverhead;
 		InitOut();
@@ -436,6 +450,14 @@ void NetConnection::UpdateStats()
 		return;
 	float inPackets = (float)(InPacketsCounted / period);
 	float outPackets = (float)(OutPacketsCounted / period);
+	InRate = (float)(InBytesCounted / period);
+	OutRate = (float)(OutBytesCounted / period);
+	InPackets = inPackets;
+	OutPackets = outPackets;
+	InBunches = (float)(InBunchesCounted / period);
+	OutBunches = (float)(OutBunchesCounted / period);
+	InOrder = (float)(InOrderCounted / period);
+	OutOrder = 0.0f;
 	OutLoss = (float)(OutPacketsLost * 100.0 / std::max(outPackets, 1.0f));
 	InLoss = (float)(InPacketsLost * 100.0 / std::max((float)(InPacketsLost + (double)inPackets), 1.0f));
 	if (LagCount > 0)
@@ -458,6 +480,11 @@ void NetConnection::UpdateStats()
 	InPacketsLost = 0;
 	OutPacketsCounted = 0;
 	OutPacketsLost = 0;
+	InBytesCounted = 0;
+	OutBytesCounted = 0;
+	InBunchesCounted = 0;
+	OutBunchesCounted = 0;
+	InOrderCounted = 0;
 	LagAcc = 0.0f;
 	LagCount = 0;
 	StatUpdateTime = Driver->Time;

@@ -109,6 +109,13 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 	if (lightmapIndex < 0)
 		return {};
 
+	// Asked for, counted and timed for STAT CACHE's Gets, its build for its
+	// Crts, as the original's cache counts and clocks each get and create
+	// (FMemCache::Status); the times while it is shown
+	auto& panel = engine->render->PanelStats;
+	panel.CacheGets++;
+	StatClock cacheClock(panel.CacheGetTime, engine->render->StatPanels[RenderSubsystem::StatCache]);
+
 	LightMapIndex& lmindex = model->LightMap[lightmapIndex];
 
 	uint32_t ambientID = (((uint32_t)zoneActor->AmbientHue()) << 16) | (((uint32_t)zoneActor->AmbientSaturation()) << 8) | (uint32_t)zoneActor->AmbientBrightness();
@@ -306,6 +313,8 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 		(keptMover && lmtexture->StaticFlush != FlushCount))
 	{
 		engine->render->Stats.LightmapsUpdated++;
+		panel.CacheCreates++;
+		cacheClock.Next(panel.CacheCreateTime);
 
 		Builder.Setup(model, coords, lightmapIndex);
 		if (!keptMover)
@@ -378,7 +387,9 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 		lmtexture->LastDynamicUpdate = lastDynamicUpdate;
 		lmtexture->MovingLightSet = movingSet;
 		bRealtimeChanged = !updated.Empty();
+		cacheClock.Next(panel.CacheGetTime);
 	}
+	lmtexture->AskedFrame = FrameCounter;
 
 	// The map's place in a shared page, found when it is first built at its
 	// size: what changed written there, and the page drawn in its stead, at
@@ -507,6 +518,28 @@ void LightSystem::BuildKeptMoverMap(UModel* model, int lightmapIndex, const Coor
 	Builder.FindAddedLights(model, lightmapIndex, TempChangingIndexList, TempDynLightList);
 	Builder.CalcWorldLocations(whole);
 	Builder.AddLights(model, lightmapIndex);
+}
+
+void LightSystem::CountMaps(int& items, size_t& fresh, size_t& stale) const
+{
+	items = 0;
+	fresh = 0;
+	stale = 0;
+	auto count = [&](const LightmapTexture* texture)
+	{
+		if (!texture)
+			return;
+		items++;
+		size_t bytes = texture->Mip.Data.size() + texture->StaticLightColors.size() * sizeof(vec3);
+		if (texture->AskedFrame == FrameCounter)
+			fresh += bytes;
+		else
+			stale += bytes;
+	};
+	for (const auto& it : lmtextures)
+		count(it.second.get());
+	for (const auto& it : fogtextures)
+		count(it.second.Texture.get());
 }
 
 void LightSystem::CheckLight(UActor* light)
@@ -654,11 +687,15 @@ void LightSystem::SetupForActorDX(VertexLight& out, UActor* actor, bool leafLigh
 		{
 			vec3 extents = actor->BspInfo.BoundingBox.extents();
 			LightTree.CollectLights(location, std::max(extents.x, std::max(extents.y, extents.z)));
+			size_t kept = candidates.size();
 			for (UActor* light : LightTree.CollectedLights)
 			{
 				if (light->bDynamicLight() || (!light->bStatic() && !light->bNoDelete()))
 					addCandidate(light, 255);
 			}
+			// STAT MESH's MeshVtrics: the moving lights new to the actor, as
+			// the original's SetupForActor counts each it adds (0x10b097a0)
+			engine->render->PanelStats.MeshVtrics += (int)(candidates.size() - kept);
 		}
 
 		// Each that reaches the actor's centre, at its strength there. A

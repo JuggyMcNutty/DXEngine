@@ -94,6 +94,9 @@ public:
 	// other side's.
 	int GetExportCount() const { return FileExportCount; }
 	int GetNameCount() const { return FileNameCount; }
+	// Its tables as DXEngine holds them (OBJ LINKERS)
+	const Array<NameTableEntry>& GetNameTable() const { return NameTable; }
+	int GetImportCount() const { return (int)ImportTable.size(); }
 	bool IsExportObject(const UObject* obj, int index) const { return index >= 0 && (size_t)index < ExportObjects.size() && ExportObjects[index] == obj; }
 	// The export's object as it stands: none when it was never loaded, or
 	// was freed (the collector empties the slot)

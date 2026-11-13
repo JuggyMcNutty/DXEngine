@@ -83,6 +83,7 @@ public:
 		int Uploads = 0;
 		int RectUploads = 0;
 	} Stats;
+	FrameDrawStats GetFrameStats() const override;
 
 	int GetSettingsMultisample()
 	{

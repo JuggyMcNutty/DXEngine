@@ -505,10 +505,13 @@ public:
 	// tempo and pans as they stand but for order 0's own, GetOrder the order
 	// before it until then, 255 before order 0 (play.galaxy; bugs.md AUD.16,
 	// AUD.17)
-	void SetOrder(int order) override
+	void SetOrder(int order, bool atOnce = false) override
 	{
-		if (module)
-			module->set_position_order_row(order, 0);
+		if (!module)
+			return;
+		if (galaxy && atOnce)
+			module->ctl_set_boolean(GalaxyMusic::JumpAtOnceCtl, true);
+		module->set_position_order_row(order, 0);
 	}
 
 	// Galaxy's IT loader keeps the orders before the first end mark, at most

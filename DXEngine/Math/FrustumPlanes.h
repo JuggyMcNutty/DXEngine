@@ -20,6 +20,9 @@ public:
 
 	IntersectionTestResult test(const BBox& box) const;
 	int testIntersecting(const BBox& box) const;
+	// Whether the box lies wholly outside the plane given (STAT OCCLUSION's
+	// BoxBacks, BspClipper::IsAABBVisible)
+	bool outside(int plane, const BBox& box) const { return planeAABB(planes[plane], box) == IntersectionTestResult::outside; }
 
 	vec4 planes[6];
 

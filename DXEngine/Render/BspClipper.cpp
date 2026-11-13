@@ -2,6 +2,7 @@
 #include "Precomp.h"
 #include "BspClipper.h"
 #include "Math/bbox.h"
+#include "Utils/StatClock.h"
 
 #ifndef NOSSE
 #include <immintrin.h>
@@ -24,6 +25,24 @@ BspClipper::BspClipper()
 
 BspClipper::~BspClipper()
 {
+}
+
+void BspClipper::ClipperStats::Add(const ClipperStats& other)
+{
+	Transforms += other.Transforms;
+	Points += other.Points;
+	Clips += other.Clips;
+	Rasters += other.Rasters;
+	RasterAccepts += other.RasterAccepts;
+	Boxes += other.Boxes;
+	BoxBacks += other.BoxBacks;
+	BoxIns += other.BoxIns;
+	BoxOuts += other.BoxOuts;
+	BoxHidden += other.BoxHidden;
+	ClipTime += other.ClipTime;
+	RasterTime += other.RasterTime;
+	SpanTime += other.SpanTime;
+	BoxTime += other.BoxTime;
 }
 
 void BspClipper::SetViewportSize(int width, int height)
@@ -154,6 +173,14 @@ bool BspClipper::CheckSurface(const vec3* vertices, uint32_t count, bool solid)
 bool BspClipper::DrawPolygon(const vec3* vertices, uint32_t count, bool solid)
 {
 	numTris += (int)count - 2;
+	// STAT OCCLUSION's: transformed, as the original's ClipBspSurf counts a
+	// surface and its points (Render.dll 0x10b14d05, 0x10b14f23); its clip,
+	// projection and rows timed as the original's OccludeBsp clocks its
+	// clip, raster and span stages (0x10b18038-0x10b1808f, 0x10b18110-
+	// 0x10b181a5, 0x10b182c8-0x10b19914)
+	StatClock clock(Stats.ClipTime, Timed);
+	Stats.Transforms++;
+	Stats.Points += (int)count;
 
 	// Each vertex in clip space with its distances to the six half-spaces
 	// ClipEdge clips by: the view's four sides, the near plane and the
@@ -168,6 +195,7 @@ bool BspClipper::DrawPolygon(const vec3* vertices, uint32_t count, bool solid)
 	ClipVertex* in = bufferA;
 	int n = (int)count;
 	bool needsClipping = false;
+	int outAll = 0x3f;
 	for (int i = 0; i < n; i++)
 	{
 		ClipVertex& v = in[i];
@@ -178,10 +206,18 @@ bool BspClipper::DrawPolygon(const vec3* vertices, uint32_t count, bool solid)
 		v.d[3] = v.pos.w - v.pos.y;
 		v.d[4] = v.pos.z + v.pos.w;
 		v.d[5] = dot(PortalPlane, vec4(vertices[i], 1.0f));
-		// Any distance not at least zero (a NaN too) means clipping
+		// Any distance not at least zero (a NaN too) means clipping; a
+		// half-space every vertex is out of leaves none of the polygon
+		int out = 0;
 		for (int k = 0; k < 6; k++)
-			needsClipping = needsClipping || !(v.d[k] >= 0.0f);
+			out |= !(v.d[k] >= 0.0f) ? 1 << k : 0;
+		needsClipping = needsClipping || out != 0;
+		outAll &= out;
 	}
+	// Not wholly beyond one side, as the original's ClipBspSurf counts a
+	// surface its points' outcodes do not reject together (0x10b14f7e)
+	if (outAll == 0)
+		Stats.Clips++;
 
 	if (needsClipping)
 	{
@@ -218,6 +254,11 @@ bool BspClipper::DrawPolygon(const vec3* vertices, uint32_t count, bool solid)
 	if (n < 1)
 		return false;
 
+	// Given to the rows, as the original counts each polygon its raster
+	// setup is given (0x10b19e31, 0x10b19e7f)
+	Stats.Rasters++;
+	clock.Next(Stats.RasterTime);
+
 	// To the viewport, as DrawTriangle maps a vertex
 	float halfWidth = (float)ViewportWidth * 0.5f;
 	float halfHeight = (float)ViewportHeight * 0.5f;
@@ -245,6 +286,9 @@ bool BspClipper::DrawPolygon(const vec3* vertices, uint32_t count, bool solid)
 	int16_t bottomY = PixelFloor(sy[bottom] + bias, ViewportHeight);
 	if (topY >= bottomY)
 		return false;
+	// Over a row of the grid: the original's accepted, whose rectangle its
+	// spans show (0x10b19e7f)
+	Stats.RasterAccepts++;
 
 	// The two chains from the top vertex down, one each way round. An edge
 	// takes the rows whose sample lines it crosses, its x stepped from where
@@ -274,6 +318,7 @@ bool BspClipper::DrawPolygon(const vec3* vertices, uint32_t count, bool solid)
 	Chain right = { top, -1, 0, 0.0f, 0.0f };
 	startEdge(left, topY);
 	startEdge(right, topY);
+	clock.Next(Stats.SpanTime);
 
 	bool result = false;
 	for (int16_t y = topY; y < bottomY; y++)
@@ -302,6 +347,10 @@ bool BspClipper::DrawPolygon(const vec3* vertices, uint32_t count, bool solid)
 
 bool BspClipper::DrawFan(const vec3* vertices, uint32_t count, bool solid)
 {
+	// STAT OCCLUSION's: transformed, its whole time the clip's
+	StatClock clock(Stats.ClipTime, Timed);
+	Stats.Transforms++;
+	Stats.Points += (int)count;
 	ShadedVertex buffer[3];
 	ShadedVertex* triverts[3] = { &buffer[0], &buffer[1], &buffer[2] };
 
@@ -324,21 +373,42 @@ bool BspClipper::IsPolygonVisible(const vec3* vertices, uint32_t count)
 {
 	int surfs = numSurfs;
 	int tris = numTris;
+	ClipperStats stats = Stats;
 	bool visible = CheckSurface(vertices, count, false);
 	numSurfs = surfs;
 	numTris = tris;
+	Stats = stats;
 	return visible;
 }
 
 bool BspClipper::IsAABBVisible(const BBox& bbox)
 {
+	// STAT OCCLUSION's: tested and timed, as the original's BoundVisible
+	// counts and clocks each box (Render.dll 0x10b1631e-0x10b17049)
+	StatClock clock(Stats.BoxTime, Timed);
+	Stats.Boxes++;
+
 	// First quickly check if we can rule it out using the frustum planes
 	int bits = FrustumClip.testIntersecting(bbox);
 	if (bits == -1) // outside
+	{
+		// Wholly behind the near plane, the original's box behind the eye
+		// (0x10b16652), else beyond a side, its box out of the view's
+		// pyramid (0x10b16e4f)
+		if (FrustumClip.outside(0, bbox))
+			Stats.BoxBacks++;
+		else
+			Stats.BoxOuts++;
 		return false;
+	}
 
 	if (bits & (1 << 0)) // Near plane intersecting with bbox
+	{
+		// The eye in it or at it, the original's box the eye is in
+		// (0x10b16542)
+		Stats.BoxIns++;
 		return true;
+	}
 
 	// Perform visibility check of the bounding box itself using the spans:
 
@@ -399,19 +469,21 @@ bool BspClipper::IsAABBVisible(const BBox& bbox)
 	// box's rectangle (dx-reverse-info render-dll.md, which actors are
 	// drawn), whatever a polygon's sample point.
 
+	// A rectangle of no pixel, or whose every row the spans fill, is
+	// hidden, as the original's spans hide a box (0x10b1701c).
 	int topY = PixelFloor(min2d.y, ViewportHeight);
 	int bottomY = PixelFloor(max2d.y, ViewportHeight);
-	if (topY >= bottomY)
-		return false;
 	int x0 = PixelFloor(min2d.x, ViewportWidth);
 	int x1 = PixelFloor(max2d.x, ViewportWidth);
-	if (x0 >= x1)
-		return false;
-	for (int y = topY; y < bottomY; y++)
+	if (topY < bottomY && x0 < x1)
 	{
-		if (IsVisible(y, x0, x1))
-			return true;
+		for (int y = topY; y < bottomY; y++)
+		{
+			if (IsVisible(y, x0, x1))
+				return true;
+		}
 	}
+	Stats.BoxHidden++;
 	return false;
 }
 

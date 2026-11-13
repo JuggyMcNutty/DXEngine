@@ -5,6 +5,7 @@
 #include "Collision/TopLevel/CollisionSystem.h"
 #include "Collision/TopLevel/CollisionHit.h"
 #include "Light/LightSystem.h"
+#include "Utils/StatClock.h"
 
 class UNavigationPoint;
 class UModel;
@@ -41,6 +42,9 @@ public:
 	void Save(PackageStreamWriter* stream) override;
 
 	void Tick(float elapsed, bool gamePaused);
+
+	// STAT GLOBAL's and STAT GAME's figures, cleared as its tick begins
+	LevelStats Stats;
 
 	// Deus Ex: the actor list in the original's order, at every load after
 	// PostPostBeginPlay -- its first two slots, then the static actors, then

@@ -73,6 +73,14 @@ void SoftwareRenderDevice::Flush(bool AllowPrecache)
 void SoftwareRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 {
 	Workers->Wait();
+	// The frame's counts begin again, the stages' last frame kept
+	// (GetFrameStats)
+	Counts = {};
+	DrawTimes = {};
+	Textures.CacheStats.BeginFrame();
+	LastSetupNanos = SetupNanos.exchange(0);
+	LastDrawNanos = DrawNanos.exchange(0);
+	LastPresentNanos = PresentNanos.exchange(0);
 	FlashScale = InFlashScale;
 	FlashFog = InFlashFog;
 
@@ -105,7 +113,9 @@ void SoftwareRenderDevice::Unlock(bool Blit)
 		int width = std::max(Viewport->GetNativePixelWidth(), 1);
 		int height = std::max(Viewport->GetNativePixelHeight(), 1);
 		bool mapped = DrawRecorded(Present.Prepare(Frame, width, height));
+		auto presentStart = std::chrono::steady_clock::now();
 		const uint32_t* pixels = Present.Present(Frame, *Workers, mapped);
+		PresentNanos += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - presentStart).count();
 		Viewport->PresentBitmap(width, height, pixels);
 	}
 	else
@@ -124,6 +134,7 @@ bool SoftwareRenderDevice::DrawRecorded(bool mapTiles)
 	bool mapped = false;
 	if (chunks > ChunksLaunched || ClearPending)
 	{
+		Counts.Waves++;
 		Wave wave;
 		wave.FirstChunk = ChunksLaunched;
 		wave.Chunks.assign(Commands.Chunks.begin() + ChunksLaunched, Commands.Chunks.end());
@@ -164,6 +175,7 @@ bool SoftwareRenderDevice::DrawRecorded(bool mapTiles)
 
 void SoftwareRenderDevice::LaunchWave()
 {
+	Counts.Waves++;
 	uint32_t chunks = (uint32_t)Commands.Chunks.size();
 	Background.FirstChunk = ChunksLaunched;
 	Background.Chunks.assign(Commands.Chunks.begin() + ChunksLaunched, Commands.Chunks.end());
@@ -190,11 +202,23 @@ void SoftwareRenderDevice::EnsureBins(uint32_t chunks)
 
 void SoftwareRenderDevice::SetUpWave(const Wave& wave, bool callerShares)
 {
+	struct Done
+	{
+		std::atomic<int64_t>& Sum;
+		std::chrono::steady_clock::time_point Start;
+		~Done() { Sum += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - Start).count(); }
+	} done{ SetupNanos, std::chrono::steady_clock::now() };
 	Workers->Run((int)wave.Chunks.size(), [&](int i, int) { SoftwareSetup::SetUp(Commands, wave.Chunks[i], Frame, *Bins[wave.FirstChunk + i], GeneralOnly); }, callerShares);
 }
 
 void SoftwareRenderDevice::DrawWave(const Wave& wave, SoftwareFrame& frame, bool reference, bool callerShares)
 {
+	struct Done
+	{
+		std::atomic<int64_t>& Sum;
+		std::chrono::steady_clock::time_point Start;
+		~Done() { Sum += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - Start).count(); }
+	} done{ DrawNanos, std::chrono::steady_clock::now() };
 	SoftwareRasterJob job;
 	job.Commands = &Commands;
 	job.Bins = BinPointers.data() + wave.FirstChunk;
@@ -380,6 +404,8 @@ void SoftwareRenderDevice::SetBlend(SoftwareDraw& draw, uint32_t PolyFlags)
 
 void SoftwareRenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet)
 {
+	StatClock drawClock(DrawTimes.Surfaces, TimeDraws);
+	Counts.Surfaces++;
 	uint32_t PolyFlags = ApplyPrecedenceRules(Surface.PolyFlags);
 
 	// The textures first, drawn or not: a light map's change, perhaps only a
@@ -499,6 +525,8 @@ SoftwareDraw& SoftwareRenderDevice::AddGouraud(SoftwareDrawType type, SoftwareTe
 
 void SoftwareRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags)
 {
+	StatClock drawClock(DrawTimes.Polygons, TimeDraws);
+	Counts.Polygons++;
 	if (NumPts < 3) return;
 
 	PolyFlags = ApplyPrecedenceRules(PolyFlags);
@@ -508,6 +536,8 @@ void SoftwareRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Inf
 
 void SoftwareRenderDevice::DrawGouraudTriangles(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumTris, uint32_t PolyFlags)
 {
+	StatClock drawClock(DrawTimes.Polygons, TimeDraws);
+	Counts.Polygons += NumTris;
 	if (NumTris <= 0) return;
 
 	// The texture once, then draws of a chunk's triangles at most
@@ -522,6 +552,8 @@ void SoftwareRenderDevice::DrawGouraudTriangles(SceneNode* Frame, TextureInfo& I
 
 void SoftwareRenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X, float Y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 Color, vec4 Fog, uint32_t PolyFlags)
 {
+	StatClock drawClock(DrawTimes.Tiles, TimeDraws);
+	Counts.Tiles++;
 	PolyFlags = ApplyPrecedenceRules(TileFlags(Info, PolyFlags));
 
 	// The subpixel font's colour is its blend's constant, the tile white
@@ -694,4 +726,25 @@ bool SoftwareRenderDevice::SupportsTextureFormat(TextureFormat Format)
 void SoftwareRenderDevice::UpdateTextureRect(TextureInfo& Info, int U, int V, int UL, int VL)
 {
 	Textures.UpdateTextureRect(&Info, U, V, UL, VL);
+}
+
+// D3DDrv's line with the software device's own counts, its waves in place of
+// the vertex buffer's flushes, then its stages of the last frame, which
+// SoftDrv's GetStats has none of ("No stats available", SoftDrv.dll
+// 0x10d4b210)
+RenderDevice::FrameDrawStats SoftwareRenderDevice::GetFrameStats() const
+{
+	FrameDrawStats stats;
+	stats.Surfaces = Counts.Surfaces;
+	stats.Polygons = Counts.Polygons;
+	stats.Tiles = Counts.Tiles;
+	stats.Flushes = Counts.Waves;
+	stats.SurfaceTime = DrawTimes.Surfaces;
+	stats.PolygonTime = DrawTimes.Polygons;
+	stats.TileTime = DrawTimes.Tiles;
+	Textures.AddPoolStats(stats.Pools);
+	char text[128];
+	std::snprintf(text, sizeof(text), " setup=%04.1f draw=%04.1f present=%04.1f", LastSetupNanos * 1e-6, LastDrawNanos * 1e-6, LastPresentNanos * 1e-6);
+	stats.Stages = text;
+	return stats;
 }

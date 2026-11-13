@@ -273,6 +273,14 @@ public:
 	// The frames a second the main loop holds itself to, 0 for none
 	// (CalcTimeElapsed, GETMAXTICKRATE).
 	float GetMaxTickRate();
+	// STAT GLOBAL's frame figures, in seconds, as the original's game engine
+	// clocks them (UGameEngine::Tick, Engine.dll 0x1038fe90): the frame's
+	// whole tick (0x103911ea), its game level's tick with its net
+	// (0x1039006a-0x10390204), and the client's draw (0x10391198), each the
+	// last frame's
+	double TickStatTime = 0.0;
+	double GameStatTime = 0.0;
+	double ClientStatTime = 0.0;
 
 	// The config cache flushed to disk, as the original's every SaveConfig
 	// ends (Core.dll 0x10151540; bugs.md ENG.27): each ini changed since it
@@ -365,6 +373,10 @@ public:
 	UGameEngine* gameengine = nullptr;
 	UDXEngineRenderDevice* renderdev = nullptr;
 	UDXEngineAudioDevice* audiodev = nullptr;
+	// -nosound or UseSound off: the original's engine makes no audio
+	// subsystem then (UEngine::InitAudio, Engine.dll 0x1037fe50), so no
+	// word or overlay of Galaxy's
+	bool NoAudioSubsystem = false;
 	UDXEngineNetworkDevice* netdev = nullptr;
 	UDXEngineClient* client = nullptr;
 	UViewport* viewport = nullptr;

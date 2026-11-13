@@ -14,6 +14,7 @@ class UMusic;
 class UViewport;
 class UZoneInfo;
 class AudioDevice;
+struct ExecOutput;
 
 struct PlayingSound
 {
@@ -101,7 +102,22 @@ public:
 	// The sounds and the music stopped, and the viewport let go of.
 	void StopSounds();
 
-	void AddStats(Array<std::string>& lines);
+	// Galaxy's console words (UGalaxyAudioSubsystem::Exec)
+	bool Exec(const std::string& line, ExecOutput& out);
+
+	// ASTAT's overlay, a line each with where it goes on the canvas, none
+	// while ASTAT AUDIO is off (UGalaxyAudioSubsystem::PostRender)
+	struct StatLine
+	{
+		float X = 0.0f;
+		float Y = 0.0f;
+		std::string Text;
+	};
+	void GetStatLines(Array<StatLine>& lines) const;
+	// ASTAT AUDIO's and ASTAT DETAIL's, as Galaxy's two flags (its
+	// subsystem's 0x6c and 0x70)
+	bool ShowChannels = false;
+	bool ShowChannelDetail = false;
 
 	AudioDevice* GetDevice() { return m_Device.get(); }
 
@@ -149,4 +165,13 @@ private:
 	// The reverb zone last set on the device, so it is set again only when it
 	// changes (galaxy-dll.md, Reverb).
 	UZoneInfo* m_ReverbZone = nullptr;
+
+	// RECORDSOUND's recording until its ENDRECORDSOUND, as Galaxy's (its
+	// hWaveIn and one buffer of 64 KB): the microphone, at 8 kHz, and the
+	// samples it has given, at most 32,768, 4.096 s (ReadRecording)
+	enum { RecordRate = 8000, RecordSamples = 32768 };
+	std::unique_ptr<AudioCapture> Recording;
+	Array<int16_t> RecordedSamples;
+	void ReadRecording();
+	void EndRecordSound();
 };

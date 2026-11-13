@@ -29,7 +29,7 @@ void GLTextureManager::UpdateTextureRect(TextureInfo* info, int x, int y, int w,
 	GLCachedTexture* tex = GetFromCache(info->CacheID);
 	if (tex)
 	{
-		renderer->Uploads->UploadTextureRect(tex, *info, x, y, w, h, tex->Masked);
+		CacheStats.Upload(tex->Stat, *info, false, [&] { renderer->Uploads->UploadTextureRect(tex, *info, x, y, w, h, tex->Masked); });
 		info->bRealtimeChanged = 0;
 	}
 }
@@ -59,12 +59,12 @@ GLCachedTexture* GLTextureManager::GetTexture(TextureInfo* info, bool masked)
 		{
 			if (info->UpdateWidth > 0)
 			{
-				renderer->Uploads->UploadTextureRect(tex, *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight, tex->Masked);
+				CacheStats.Upload(tex->Stat, *info, false, [&] { renderer->Uploads->UploadTextureRect(tex, *info, info->UpdateX, info->UpdateY, info->UpdateWidth, info->UpdateHeight, tex->Masked); });
 			}
 			else
 			{
 				tex->Masked = masked;
-				renderer->Uploads->UploadTexture(tex, *info, masked);
+				CacheStats.Upload(tex->Stat, *info, true, [&] { renderer->Uploads->UploadTexture(tex, *info, masked); });
 			}
 		}
 	}
@@ -77,7 +77,7 @@ GLCachedTexture* GLTextureManager::GetTexture(TextureInfo* info, bool masked)
 		LastTextureResult = { info->CacheID, tex };
 
 		tex->Masked = masked;
-		renderer->Uploads->UploadTexture(tex, *info, masked);
+		CacheStats.Upload(tex->Stat, *info, true, [&] { renderer->Uploads->UploadTexture(tex, *info, masked); });
 	}
 
 	float uscale = info->UScale;
@@ -88,6 +88,7 @@ GLCachedTexture* GLTextureManager::GetTexture(TextureInfo* info, bool masked)
 	tex->PanY = info->Pan.y;
 	tex->UMult = 1.0f / (uscale * info->USize);
 	tex->VMult = 1.0f / (vscale * info->VSize);
+	CacheStats.Set(tex->Stat, *info);
 
 	return tex;
 }
@@ -110,4 +111,9 @@ GLCachedTexture* GLTextureManager::CreateNullTexture()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 	renderer->ForgetBoundTexture(); // bound on the active unit, 0
 	return NullTexture.get();
+}
+
+void GLTextureManager::AddPoolStats(Array<RenderDevice::TexturePoolStats>& pools) const
+{
+	CacheStats.AddPools(TextureCache, pools);
 }

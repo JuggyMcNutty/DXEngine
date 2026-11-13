@@ -44,6 +44,12 @@ public:
 	fs::path GetCacheFolderPath() const { return gameCacheFolderPath; }
 
 	Package* GetPackage(const NameString& name);
+	// The packages loaded, in their names' order, none loaded for it (OBJ
+	// LINKERS and DEPENDENCIES)
+	Array<Package*> GetLoadedPackages() const;
+	// The config files held, by their paths: the inis and the .int files
+	// (CONFIGHASH)
+	Array<std::string> GetConfigFilePaths() const;
 	// Whether a package of that name is on the paths, and whether it is a map.
 	bool HasPackage(const NameString& name) const { return packageFilenames.find(NameString::Folded(name.ToString())) != packageFilenames.end(); }
 	bool IsMapPackage(const NameString& name) const;

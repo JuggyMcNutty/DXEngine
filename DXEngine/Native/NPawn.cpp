@@ -96,6 +96,9 @@ void NPawn::EAdjustJump(UObject* Self, vec3& ReturnValue)
 void NPawn::FindBestInventoryPath(UObject* Self, float& MinWeight, bool bPredictRespawns, UObject*& ReturnValue)
 {
 	UPawn* selfPawn = UObject::Cast<UPawn>(Self);
+	// Timed for STAT GLOBAL's Path, the one search the original's clocks
+	// (Engine.dll 0x103b986f)
+	StatClock clock(selfPawn->XLevel()->Stats.Path);
 	ReturnValue = selfPawn->FindBestInventoryPath(MinWeight, bPredictRespawns);
 }
 

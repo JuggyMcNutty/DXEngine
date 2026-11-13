@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SoftwareRasterizer.h"
+#include "RenderDevice/RenderDevice.h"
 #include <functional>
 #include <unordered_map>
 #include <memory>
@@ -54,6 +55,8 @@ public:
 
 	// Colour 0 cleared in it, as the draw that made it was masked
 	bool Masked = false;
+	// STAT HARDWARE's: its format, bytes and the frame it was last set in
+	TextureCacheStats::Entry Stat;
 };
 
 // One copy a texture by its cache ID, as D3DDrv keeps them (dx-reverse-info
@@ -73,6 +76,10 @@ public:
 	void ClearCache();
 
 	SoftwareTexture* GetWhite() { return &White; }
+
+	// STAT HARDWARE's: the cache's counts, and its pools
+	TextureCacheStats CacheStats;
+	void AddPoolStats(Array<RenderDevice::TexturePoolStats>& pools) const;
 
 	// Told before a copy is changed in place, all of it (w < 0) or a
 	// rectangle: the device draws first what reads it

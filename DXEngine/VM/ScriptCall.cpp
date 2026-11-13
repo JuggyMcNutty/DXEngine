@@ -7,6 +7,7 @@
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Core/UClass.h"
 #include "Packages/Core/UFunction.h"
+#include "Utils/StatClock.h"
 #include <unordered_map>
 
 NameString ToNameString(EventName name)
@@ -65,6 +66,27 @@ bool NameStringToEventName(const NameString& name, EventName& eventName)
 	return true;
 }
 
+double ScriptStatTime = 0.0;
+int ScriptStatDepth = 0;
+
+// An event run from the engine, its time summed while it is the outermost
+// one, as the original's ProcessEvent clocks the script for STAT GLOBAL's
+// Script (Core.dll 0x1013f880-0x1013f9b0)
+namespace
+{
+	struct ScriptStatScope
+	{
+		bool Outermost = ScriptStatDepth++ == 0;
+		std::chrono::steady_clock::time_point Start = Outermost ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point();
+		~ScriptStatScope()
+		{
+			if (Outermost)
+				ScriptStatTime += std::chrono::duration<double>(std::chrono::steady_clock::now() - Start).count();
+			ScriptStatDepth--;
+		}
+	};
+}
+
 ExpressionValue CallEvent(UObject* Context, EventName eventname, Array<ExpressionValue> args)
 {
 	if (!Context->IsEventEnabled(eventname))
@@ -77,10 +99,10 @@ ExpressionValue CallEvent(UObject* Context, EventName eventname, Array<Expressio
 	}
 
 	UFunction* func = FindEventFunction(Context, ToNameString(eventname));
-	if (func)
-		return Frame::Call(func, Context, std::move(args));
-	else
+	if (!func)
 		return ExpressionValue::NothingValue();
+	ScriptStatScope scope;
+	return Frame::Call(func, Context, std::move(args));
 }
 
 ExpressionValue CallEvent(UObject* Context, const NameString& name, Array<ExpressionValue> args)
@@ -95,10 +117,10 @@ ExpressionValue CallEvent(UObject* Context, const NameString& name, Array<Expres
 	}
 
 	UFunction* func = FindEventFunction(Context, name);
-	if (func)
-		return Frame::Call(func, Context, std::move(args));
-	else
+	if (!func)
 		return ExpressionValue::NothingValue();
+	ScriptStatScope scope;
+	return Frame::Call(func, Context, std::move(args));
 }
 
 UFunction* FindEventFunction(UObject* Context, const NameString& name)

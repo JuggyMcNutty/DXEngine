@@ -68,6 +68,25 @@ public:
 	int numSurfs;
 	int numTris;
 
+	// STAT OCCLUSION's figures of a walk (VisibleFrame::Process), as the
+	// original's ClipBspSurf, its raster setup and BoundVisible count them
+	// (Render.dll 0x10b14d05-0x10b14f88, 0x10b19e31-0x10b19e88,
+	// 0x10b1631e-0x10b17049): the polygons transformed and their points;
+	// those not wholly beyond one side of the view; those given to the rows
+	// and those of them over a row of the grid; the boxes tested, those
+	// wholly behind the view, those the near plane cuts, those wholly beyond
+	// a side of the view, and those the spans hide; and, while Timed, the
+	// time clipping, projecting and stepping the rows, and testing the
+	// boxes. An occlusion proxy's test counts none (IsPolygonVisible).
+	struct ClipperStats
+	{
+		int Transforms = 0, Points = 0, Clips = 0, Rasters = 0, RasterAccepts = 0;
+		int Boxes = 0, BoxBacks = 0, BoxIns = 0, BoxOuts = 0, BoxHidden = 0;
+		double ClipTime = 0.0, RasterTime = 0.0, SpanTime = 0.0, BoxTime = 0.0;
+		void Add(const ClipperStats& other);
+	} Stats;
+	bool Timed = false;
+
 private:
 	bool IsVisible(int16_t y, int16_t x0, int16_t x1);
 

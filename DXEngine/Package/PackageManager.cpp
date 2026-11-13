@@ -321,6 +321,36 @@ UObject* PackageManager::CreateNativeObject(const NameString& name, UClass* cls,
 	return nullptr;
 }
 
+Array<Package*> PackageManager::GetLoadedPackages() const
+{
+	Array<Package*> list;
+	for (const auto& it : packages)
+	{
+		if (Package* package = it.second.get())
+			list.push_back(package);
+	}
+	return list;
+}
+
+Array<std::string> PackageManager::GetConfigFilePaths() const
+{
+	Array<std::string> paths;
+	for (const auto& it : iniFiles)
+	{
+		if (it.second)
+			paths.push_back(it.second->GetPath());
+	}
+	for (const auto& it : intFiles)
+	{
+		for (const auto& file : it.second)
+		{
+			if (file)
+				paths.push_back(file->GetPath());
+		}
+	}
+	return paths;
+}
+
 Package* PackageManager::GetPackage(const NameString& name)
 {
 	auto& package = packages[name];

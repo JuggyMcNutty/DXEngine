@@ -722,7 +722,10 @@ public:
 	bool m_galaxyPlayer = false;
 	void SetGalaxyPlayer(bool galaxy);
 	void GalaxyFirstOrder();
-	void GalaxyJump(ORDERINDEX order, ROWINDEX row);
+	void GalaxyJump(ORDERINDEX order, ROWINDEX row, bool atOnce = false);
+	// DXEngine (bugs.md WIN.38): the next jump from the row's next tick, set
+	// by the ctl play.galaxy.jump_at_once
+	bool m_galaxyJumpAtOnce = false;
 	// Galaxy.dll's order count, which its Update writes back into the
 	// player's SongSection: the order playing, or while a jump waits for the
 	// row's end the order before it, 255 before order 0

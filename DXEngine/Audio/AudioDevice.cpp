@@ -155,7 +155,7 @@ public:
 	// past the last order it refuses, the count as it was and the song
 	// playing on, at the change's gain (Galaxy.dll 0x1060d0e0; bugs.md
 	// AUD.17). Another source jumps to the order asked.
-	bool SetMusicOrder(int order, float volume) override
+	bool SetMusicOrder(int order, float volume, bool atOnce = false) override
 	{
 		std::unique_lock lock(musicThreadData.mutex);
 		musicThreadData.volume = volume;
@@ -163,6 +163,7 @@ public:
 		if (order < 0 || (sections >= 0 && order >= sections))
 			return false;
 		musicThreadData.jumpOrder = order;
+		musicThreadData.jumpAtOnce = atOnce;
 		musicThreadData.currentOrder.store(sections >= 0 ? (order + 255) % 256 : order);
 		return true;
 	}
@@ -297,6 +298,7 @@ public:
 			musicPlace = 2.0;
 		}
 		int jumpOrder = musicThreadData.jumpOrder;
+		bool jumpAtOnce = musicThreadData.jumpAtOnce;
 		int generation = musicThreadData.generation;
 		float volume = musicThreadData.volume;
 		musicThreadData.jumpOrder = -1;
@@ -308,7 +310,7 @@ public:
 			{
 				if (jumpOrder >= 0)
 				{
-					currentMusic->SetOrder(jumpOrder);
+					currentMusic->SetOrder(jumpOrder, jumpAtOnce);
 					musicPlace = 2.0;
 				}
 
@@ -439,6 +441,7 @@ public:
 		std::unique_ptr<AudioSource> music;
 		bool musicUpdate = false;
 		int jumpOrder = -1;                     // an order to jump the playing song to
+		bool jumpAtOnce = false;                // from the row's next tick, not its end (MUSICORDER)
 		int sections = -1;                      // the sections the song set takes, -1 any (AudioSource::GetSections)
 		std::atomic<int> currentOrder{ -1 };    // the order playing: a jump's count at once, else the music thread's
 		int generation = 0;                     // counts the songs set, so the thread's order is its own song's
@@ -458,6 +461,42 @@ public:
 std::unique_ptr<AudioDevice> AudioDevice::Create(int frequency, int numVoices, int mixAheadMs, bool stereo)
 {
 	return std::make_unique<OpenALAudioDevice>(frequency, numVoices, mixAheadMs, stereo);
+}
+
+class OpenALAudioCapture : public AudioCapture
+{
+public:
+	OpenALAudioCapture(ALCdevice* device) : device(device) {}
+	~OpenALAudioCapture() override
+	{
+		alcCaptureStop(device);
+		alcCaptureCloseDevice(device);
+	}
+
+	int Read(int16_t* samples, int count) override
+	{
+		ALCint available = 0;
+		alcGetIntegerv(device, ALC_CAPTURE_SAMPLES, 1, &available);
+		int taken = std::min((int)available, count);
+		if (taken <= 0)
+			return 0;
+		alcCaptureSamples(device, samples, taken);
+		return taken;
+	}
+
+	void Stop() override { alcCaptureStop(device); }
+
+private:
+	ALCdevice* device;
+};
+
+std::unique_ptr<AudioCapture> AudioCapture::Open(int frequency, int samples)
+{
+	ALCdevice* device = alcCaptureOpenDevice(nullptr, frequency, AL_FORMAT_MONO16, samples);
+	if (!device)
+		return nullptr;
+	alcCaptureStart(device);
+	return std::make_unique<OpenALAudioCapture>(device);
 }
 
 // The device of a machine with no sound output: nothing is mixed or heard,
@@ -484,7 +523,7 @@ public:
 	void SetSoundVolume(float volume) override {}
 	void SetSpeechVolume(float volume) override {}
 	int GetMusicOrder() override { return -1; }
-	bool SetMusicOrder(int order, float volume) override { return true; }
+	bool SetMusicOrder(int order, float volume, bool atOnce = false) override { return true; }
 	void SetReverb(const ReverbSettings* settings) override {}
 	void Update() override {}
 

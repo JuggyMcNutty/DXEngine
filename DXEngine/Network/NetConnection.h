@@ -179,6 +179,26 @@ public:
 	int InPacketsLost = 0;
 	int OutPacketsCounted = 0;
 	int OutPacketsLost = 0;
+	// STAT NET's, a second each way, as the original's stats period gives
+	// them (UNetConnection::Tick, Engine.dll 0x10404ce5-0x10404d56): the
+	// bytes, a packet's overhead counted, the packets, the bunches and the
+	// packets come out of order; none go out of order, the original counting
+	// none
+	float InRate = 0.0f;
+	float OutRate = 0.0f;
+	float InPackets = 0.0f;
+	float OutPackets = 0.0f;
+	float InBunches = 0.0f;
+	float OutBunches = 0.0f;
+	float InOrder = 0.0f;
+	float OutOrder = 0.0f;
+	int InBytesCounted = 0;
+	int OutBytesCounted = 0;
+	int InBunchesCounted = 0;
+	int OutBunchesCounted = 0;
+	int InOrderCounted = 0;
+	// When the stats period last began: STAT NET logs a line a period
+	double GetStatUpdateTime() const { return StatUpdateTime; }
 	// The time between this connection's last two ticks on the machine's
 	// clock, and its average over a second
 	double FrameTime = 0.0;

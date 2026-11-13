@@ -1259,6 +1259,11 @@ void GLRenderDevice::ApplyLODBias()
 
 void GLRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 {
+	// The frame's counts begin again (GetFrameStats)
+	Stats = {};
+	DrawTimes = {};
+	Textures->CacheStats.BeginFrame();
+
 	if (LODBiasChanged)
 		ApplyLODBias();
 
@@ -1476,6 +1481,7 @@ void GLRenderDevice::Unlock(bool Blit)
 
 void GLRenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet)
 {
+	StatClock drawClock(DrawTimes.Surfaces, TimeDraws);
 	if (!IsLocked) // a frame whose Lock failed (its scene buffers' resize): nothing is bound for it
 		return;
 	uint32_t PolyFlags = ApplyPrecedenceRules(Surface.PolyFlags);
@@ -1619,6 +1625,7 @@ static void WriteGouraudVertices(GLSceneVertex* vertex, const GouraudVertex* Pts
 
 void GLRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags)
 {
+	StatClock drawClock(DrawTimes.Polygons, TimeDraws);
 	if (!IsLocked) // a frame whose Lock failed (its scene buffers' resize): nothing is bound for it
 		return;
 	if (NumPts < 3) return; // This can apparently happen!!
@@ -1661,6 +1668,7 @@ void GLRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, con
 
 void GLRenderDevice::DrawGouraudTriangles(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumTris, uint32_t PolyFlags)
 {
+	StatClock drawClock(DrawTimes.Polygons, TimeDraws);
 	if (!IsLocked) // a frame whose Lock failed (its scene buffers' resize): nothing is bound for it
 		return;
 	if (NumTris <= 0) return;
@@ -1700,6 +1708,7 @@ void GLRenderDevice::DrawGouraudTriangles(SceneNode* Frame, TextureInfo& Info, c
 
 void GLRenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X, float Y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 Color, vec4 Fog, uint32_t PolyFlags)
 {
+	StatClock drawClock(DrawTimes.Tiles, TimeDraws);
 	if (!IsLocked) // a frame whose Lock failed (its scene buffers' resize): nothing is bound for it
 		return;
 	PolyFlags = ApplyPrecedenceRules(TileFlags(Info, PolyFlags));
@@ -2523,4 +2532,18 @@ void GLRenderDevice::CompileGlsl(GLShader* shader, const std::string& filename, 
 		log.resize(length);
 		throw std::runtime_error("Could not compile shader '" + filename + "':" + log);
 	}
+}
+
+RenderDevice::FrameDrawStats GLRenderDevice::GetFrameStats() const
+{
+	FrameDrawStats stats;
+	stats.Surfaces = Stats.ComplexSurfaces;
+	stats.Polygons = Stats.GouraudPolygons;
+	stats.Tiles = Stats.Tiles;
+	stats.Flushes = Stats.DrawCalls;
+	stats.SurfaceTime = DrawTimes.Surfaces;
+	stats.PolygonTime = DrawTimes.Polygons;
+	stats.TileTime = DrawTimes.Tiles;
+	Textures->AddPoolStats(stats.Pools);
+	return stats;
 }

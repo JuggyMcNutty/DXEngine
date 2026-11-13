@@ -98,6 +98,13 @@ GCStats GC::GetStats()
 
 bool GCMarker::Unknown(const GCObject* obj)
 {
+	// Each reference handed over is first asked about here, a permanent
+	// one too: listed, it is passed over as unknown (ForEachReference)
+	if (Listing)
+	{
+		(*Listing)(const_cast<GCObject*>(obj));
+		return true;
+	}
 	if (Live && Live->find(const_cast<GCObject*>(obj)->Allocation()) == Live->end())
 	{
 		Result->Invalid[HolderKey()]++;
@@ -166,6 +173,38 @@ void GCMarker::Drain()
 	Holder = nullptr;
 	FieldName = nullptr;
 	FieldObject = nullptr;
+}
+
+void GC::ForEachReference(GCObject* holder, const std::function<void(GCObject*)>& each)
+{
+	if (!holder)
+		return;
+	GCCollectOptions options;
+	options.DryRun = true;
+	GCCollectResult result;
+	GCMarker marker(options, result, nullptr);
+	marker.Listing = &each;
+	marker.Holder = holder;
+	holder->Mark(marker);
+}
+
+void GC::ForEachRoot(const std::function<void(GCMarker&)>& markRoots, const std::function<void(GCObject*, bool)>& each)
+{
+	for (GCObject* obj : GetObjects())
+	{
+		if (GCMarker::IsPermanent(obj) || obj->IsGCRoot())
+			each(obj, true);
+	}
+	GCCollectOptions options;
+	options.DryRun = true;
+	GCCollectResult result;
+	GCMarker marker(options, result, nullptr);
+	std::function<void(GCObject*)> listed = [&](GCObject* obj) { each(obj, false); };
+	marker.Listing = &listed;
+	for (GCRootNode* root = roots; root != nullptr; root = root->next)
+		marker.MarkConst(root->obj);
+	if (markRoots)
+		markRoots(marker);
 }
 
 GCCollectResult GC::Collect(const std::function<void(GCMarker&)>& markRoots, const std::function<void()>& purgeWeak, const GCCollectOptions& options)

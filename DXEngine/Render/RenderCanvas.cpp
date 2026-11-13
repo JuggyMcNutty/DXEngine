@@ -8,6 +8,7 @@
 #include "Packages/Engine/UViewport.h"
 #include "Packages/Engine/UCanvas.h"
 #include "Packages/Engine/UConsole.h"
+#include "Packages/Engine/Subsystems/UDXEngineAudioDevice.h"
 #include "Packages/Engine/Resources/UFont.h"
 #include "Packages/Engine/Resources/UPalette.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
@@ -16,7 +17,11 @@
 #include "Engine.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Math/floating.h"
+#include "Packages/Engine/Resources/Level/ULevel.h"
+#include "Network/NetDriver.h"
+#include "Network/NetConnection.h"
 #include <chrono>
+#include <cstdarg>
 
 void RenderSubsystem::ResetCanvas()
 {
@@ -89,6 +94,10 @@ void RenderSubsystem::PostRender()
 	if (engine->viewport->Actor())
 		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
 	CallEvent(engine->console, EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
+	// Galaxy's ASTAT overlay, after the console's PostRender and before the
+	// renderer's statistics, as the original's draw has them (Engine.dll
+	// 0x1038f775-0x1038f79b)
+	DrawAudioStats();
 	// The original renderer's statistics, after the console's PostRender,
 	// with the viewer's RendMap 3 to 6 (URender::PostRender, Render.dll
 	// 0x10b14700)
@@ -98,16 +107,45 @@ void RenderSubsystem::PostRender()
 	DrawTimedemoStats();
 }
 
+// A line of STAT's panels, as the original's ShowStat formats one
+// (Render.dll 0x10b144a0)
+static std::string StatLine(const char* format, ...)
+{
+	char text[512];
+	va_list args;
+	va_start(args, format);
+	std::vsnprintf(text, sizeof(text), format, args);
+	va_end(args);
+	return text;
+}
+
+// The level's line, STAT GLOBAL's and STAT GAME's, as the original's
+// ULevel::GetStats writes it (Engine.dll 0x103a0740): its Spawn and Un,
+// which nothing of the original's counts, 0
+static std::string LevelStatLine(const LevelStats& level)
+{
+	return StatLine("Script=%05.1f Actor=%04.1f Path=%04.1f See=%04.1f Spawn=%04.1f Audio=%04.1f Un=%04.1f Move=%04.1f (%i) Net=%04.1f",
+		ScriptStatTime * 1000.0, level.Actor * 1000.0, level.Path * 1000.0, level.See * 1000.0, 0.0, level.Audio * 1000.0, 0.0, level.Move * 1000.0, level.Moves, level.Net * 1000.0);
+}
+
 // The original's DrawStats (Render.dll 0x10b13a50): the frame's end stamped
-// and the last 32 frames' times taken in, then STAT FPS's line, white in the
-// canvas's small font, centred 10 pixels over the view's bottom: the frame
-// rate, the time between frames' ends and the render's from its start, each
-// the mean of the last 32 frames, the BSP nodes and polygons drawn (each a
-// surface drawn, OccludeBsp 0x10b197db-0x10b197f4 counting both at once),
-// the textures the frame used and their size in K (bugs.md WIN.29). The
-// other panels -- Global, Net, Hardware, Mesh, Zone, Occlusion, Game, Cache
-// -- list the original's own timings, connection counts and caches, which
-// DXEngine does not keep so: their words toggle, drawing nothing.
+// and the last 32 frames' times taken in, then each panel that is on, white
+// in the canvas's small font. STAT FPS's line is centred 10 pixels over the
+// view's bottom: the frame rate, the time between frames' ends and the
+// render's from its start, each the mean of the last 32 frames, the BSP
+// nodes and polygons drawn (each a surface drawn, OccludeBsp
+// 0x10b197db-0x10b197f4 counting both at once), the textures the frame used
+// and their size in K. The others go from 16 pixels down at the left, a line
+// under the last (URender::ShowStat 0x10b144a0), each panel with a blank line
+// after it, in the original's order: GLOBAL -- the frame, the game's tick,
+// the client's draw less its blit, the blit, the platform's share, the
+// level's line, the render's --, NET (IN/OUT) on a client, HARDWARE (the
+// device's line), MESH, ZONE, OCCLUSION, GAME (the level's line) and CACHE
+// (the light and fog maps). Each figure is DXEngine's counterpart of the
+// original's, a time in ms (bugs.md WIN.29). At 0 are those the original's
+// own counting leaves at 0 -- MESH's Clip, the level's Spawn and Un -- and
+// those with no counterpart: ZONE's Reject, DXEngine's walk cutting no node
+// by its zone mask, and CACHE's Tick, the maps kept until the level goes.
 void RenderSubsystem::DrawStats()
 {
 	double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -115,8 +153,6 @@ void RenderSubsystem::DrawStats()
 	FrameStats.Index = (FrameStats.Index + 1) % 32;
 	FrameStats.FrameTimes[FrameStats.Index] = now - FrameStats.LastEndTime;
 	FrameStats.RenderTimes[FrameStats.Index] = now - FrameStats.StartTime;
-	if (!StatPanels[StatFps])
-		return;
 	double frame = 0.0, rendered = 0.0;
 	for (int i = 0; i < 32; i++)
 	{
@@ -126,15 +162,158 @@ void RenderSubsystem::DrawStats()
 	frame /= 32.0;
 	rendered /= 32.0;
 	UFont* font = engine->canvas->SmallFont();
+	bool netShown = StatPanels[StatNet];
 	if (!font)
+	{
+		NetStatsDrawn = netShown;
 		return;
-	char text[256];
-	std::snprintf(text, sizeof(text), "FPS=%05.1f Frame=%05.1f MSEC Render=%05.1f MSEC Nodes=%03i Polys=%03i Tex=%03i TexMem=%06.1fK",
-		frame > 0.0 ? 1.0 / frame : 0.0, frame * 1000.0, rendered * 1000.0, Stats.Surfaces, Stats.Surfaces, FrameStats.Textures, FrameStats.TextureMem / 1024.0);
+	}
+	if (StatPanels[StatFps])
+	{
+		char text[256];
+		std::snprintf(text, sizeof(text), "FPS=%05.1f Frame=%05.1f MSEC Render=%05.1f MSEC Nodes=%03i Polys=%03i Tex=%03i TexMem=%06.1fK",
+			frame > 0.0 ? 1.0 / frame : 0.0, frame * 1000.0, rendered * 1000.0, Stats.Surfaces, Stats.Surfaces, FrameStats.Textures, FrameStats.TextureMem / 1024.0);
+		float curX = 0.0f;
+		float curY = (float)engine->canvas->SizeY() - 10.0f;
+		float curXL = 0.0f, curYL = 0.0f;
+		DrawText(font, vec4(1.0f), 0.0f, 0.0f, curX, curY, curXL, curYL, false, UTF8ToScript(text), PF_NoSmooth | PF_Masked, true, 0.0f, 0.0f, engine->canvas->ClipX());
+	}
+
 	float curX = 0.0f;
-	float curY = (float)engine->canvas->SizeY() - 10.0f;
-	float curXL = 0.0f, curYL = 0.0f;
-	DrawText(font, vec4(1.0f), 0.0f, 0.0f, curX, curY, curXL, curYL, false, UTF8ToScript(text), PF_NoSmooth | PF_Masked, true, 0.0f, 0.0f, engine->canvas->ClipX());
+	float curY = 16.0f;
+	auto show = [&](const std::string& text)
+	{
+		int XL = 0, YL = 0;
+		WrappedPrint(font, vec4(1.0f), 0.0f, 0.0f, curX, curY, UTF8ToScript(text), PF_NoSmooth | PF_Masked, false, 0.0f, 0.0f, engine->canvas->ClipX(), engine->canvas->ClipY(), false, XL, YL);
+	};
+	auto ms = [](double seconds) { return seconds * 1000.0; };
+	UPlayerPawn* viewer = engine->viewport->Actor();
+	ULevel* level = viewer && viewer->XLevel() ? viewer->XLevel() : engine->Level;
+	LevelStats levelStats = level ? level->Stats : LevelStats();
+	const auto& panel = PanelStats;
+
+	if (StatPanels[StatGlobal])
+	{
+		// The game's tick (UEngine's GameCycles), the client's tick less the
+		// blit (ClientCycles less the client's DrawCycles), the blit, and the
+		// frame's time the engine's tick leaves (Render.dll 0x10b13d14-0x10b13d26)
+		show("GLOBAL:");
+		show(StatLine("  FRAME=%04.1f: GAME=%04.1f CLI=%04.1f BLIT=%04.1f PLAT=%04.1f", ms(frame), ms(engine->GameStatTime), ms(std::max(engine->ClientStatTime - BlitStatTime, 0.0)), ms(BlitStatTime), ms(std::fabs(frame - engine->TickStatTime))));
+		show("  " + LevelStatLine(levelStats));
+		show(StatLine("  RENDER=%04.1f MESH=%04.1f POLYV=%04.1f ILLUM=%04.1f OCC=%04.1f FILT=%04.1f EX=%04.1f DECAL=%04.1f DECALCLIP=%04.1f DECAL#=%d",
+			ms(rendered), ms(panel.Mesh), ms(panel.PolyV), ms(panel.Illum), ms(panel.Occlusion), ms(panel.Filter), ms(panel.Ex), ms(panel.Decal), ms(panel.DecalClip), panel.Decals));
+		show(" ");
+	}
+
+	// A client's connection to its server, as the original's shows its
+	// level's net driver's (0x10b13dc0-0x10b14116), each figure its stats
+	// period's, a star by a rate whose 95% passes the speed; with each
+	// period's figures to the log, under a header when the panel was off
+	// the frame before
+	NetConnection* connection = engine->LevelNetDriver ? engine->LevelNetDriver->ServerConnection.get() : nullptr;
+	if (netShown && connection)
+	{
+		int channels = 0;
+		for (int i = 0; i < NetConnection::MaxChannels; i++)
+			channels += connection->Channels[i] ? 1 : 0;
+		int ping = (int)(int64_t)(connection->BestLag * 1000.0);
+		int speed = connection->CurrentNetSpeed;
+		show("NET (IN/OUT):");
+		show(StatLine("  % 4i          Ping", ping));
+		show(StatLine("  % 4i          Channels", channels));
+		show(StatLine("  % 4i    % 4i  Unordered/Sec", (int)connection->InOrder, (int)connection->OutOrder));
+		show(StatLine(" % 4i%%   % 4i%%  Packet Loss", (int)connection->InLoss, (int)connection->OutLoss));
+		show(StatLine("% 6i  % 6i  Packets/Sec", (int)connection->InPackets, (int)connection->OutPackets));
+		show(StatLine("% 6i  % 6i  Bunches/Sec", (int)connection->InBunches, (int)connection->OutBunches));
+		show(StatLine("% 6i%s % 6i%s Bytes/Sec", (int)connection->InRate, connection->InRate * 0.95 <= speed ? " " : "*", (int)connection->OutRate, connection->OutRate * 0.95 <= speed ? " " : "*"));
+		show(StatLine("% 6i  % 6i  %sSpeed", speed, speed, engine->LevelInfo && engine->LevelInfo->URL.HasOption("LAN") ? "Lan" : "Net"));
+		show(" ");
+		if (NetStatsLogged != connection->GetStatUpdateTime())
+		{
+			NetStatsLogged = connection->GetStatUpdateTime();
+			if (!NetStatsDrawn)
+			{
+				LogMessage("Ping  Ch Loss IRate ORate IBnch OBnch  IPkt  OPkt ILoss OLoss");
+				LogMessage("---- --- ---- ----- ----- ----- ----- ----- ----- ----- -----");
+			}
+			LogMessage(StatLine("% 4i % 3i % 3i%% % 5i % 5i % 5i % 5i % 5i % 5i % 5i % 5i", ping, channels, (int)connection->InLoss, (int)connection->InRate, (int)connection->OutRate,
+				(int)connection->InBunches, (int)connection->OutBunches, (int)connection->InPackets, (int)connection->OutPackets, (int)connection->InLoss, (int)connection->OutLoss));
+		}
+	}
+	NetStatsDrawn = netShown;
+
+	if (StatPanels[StatHardware])
+	{
+		// D3DDrv's GetStats line (D3DDrv.dll 0x10007330) of the device's own
+		// figures: its surfaces, polygons and tiles and their time in it,
+		// its draw calls, then each pool of its texture cache -- the bytes
+		// of the textures set this frame and of all it holds, their counts,
+		// the frame's sets and uploads and the uploads' time --, then the
+		// software device's stages. No thrash: the caches hold a texture
+		// until they are flushed.
+		RenderDevice::FrameDrawStats device = Device->GetFrameStats();
+		std::string line = StatLine("surf=%03i %04.1f poly=%03i %04.1f tile=%03i %04.1f vbflushes=%03i",
+			device.Surfaces, ms(device.SurfaceTime), device.Polygons, ms(device.PolygonTime), device.Tiles, ms(device.TileTime), device.Flushes);
+		for (const RenderDevice::TexturePoolStats& pool : device.Pools)
+			line += StatLine(" %s=%iK/%iK %i/%i %i %i %04.1f", pool.Name.c_str(), (int)(pool.ActiveBytes / 1024), (int)(pool.BinnedBytes / 1024), pool.Active, pool.Binned, pool.Sets, pool.Uploads, ms(pool.UploadTime));
+		line += device.Stages;
+		show("HARDWARE:");
+		show("  " + line);
+		show(" ");
+	}
+
+	if (StatPanels[StatMesh])
+	{
+		// A LOD mesh's GetFrame and Sub, a plain mesh's Process; the faces
+		// drawn its MeshPolyCount and MeshSubCount both, each face handed to
+		// the device whole (VisibleMesh)
+		show(StatLine("MESH: %04.1f", ms(panel.Mesh)));
+		show(StatLine("  GetFrame=%04.1f Process=%04.1f LightSet=%04.1f Light=%04.1f", ms(panel.MeshGetFrame), ms(panel.MeshProcess), ms(panel.MeshLightSet), ms(panel.MeshLight)));
+		show(StatLine("  Sub=%04.1f Clip=%04.1f Tmap=%04.1f", ms(panel.MeshSub), 0.0, ms(panel.MeshTmap)));
+		show(StatLine("  MeshCount=%i MeshPolyCount=%i MeshSubCount=%i MeshLights=%i MeshVtrics=%i VertLights=%i", panel.Meshes, panel.MeshPolys, panel.MeshPolys, panel.MeshLights, panel.MeshVtrics, panel.VertLights));
+		show(" ");
+	}
+
+	if (StatPanels[StatZone])
+	{
+		show(StatLine("Zones: Visible=%i/%i Reject=%i", panel.VisibleZones, panel.Zones, 0));
+		show(" ");
+	}
+
+	if (StatPanels[StatOcclusion])
+	{
+		// The walks' clippers' (BspClipper::Stats)
+		const BspClipper::ClipperStats& clip = panel.Clip;
+		show(StatLine("Occlusion=%04.1f:", ms(panel.Occlusion)));
+		show(StatLine("   Clip=%04.1f Raster=%04.1f Span=%04.1f Visit=%i/%i Points=%i", ms(clip.ClipTime), ms(clip.RasterTime), ms(clip.SpanTime), panel.NodesVisited, panel.Nodes, clip.Points));
+		show(StatLine("   Transform=%i Clip=%i Raster=%i RasterAccept=%i DrawNodes=%i", clip.Transforms, clip.Clips, clip.Rasters, clip.RasterAccepts, Stats.Surfaces));
+		show(StatLine("   BoxTime=%04.1f BoxChecks=%i BoxBacks=%i BoxIn=%i BoxOutPyr=%i BoxSpanOcc=%i", ms(clip.BoxTime), clip.Boxes, clip.BoxBacks, clip.BoxIns, clip.BoxOuts, clip.BoxHidden));
+		show(" ");
+	}
+
+	if (StatPanels[StatGame])
+	{
+		show("GAME:");
+		show("   " + LevelStatLine(levelStats));
+		show(" ");
+	}
+
+	if (StatPanels[StatCache])
+	{
+		// The original's cache's line (FMemCache::Status, Core.dll) of
+		// DXEngine's light and fog maps: the asks for one and their time,
+		// the builds and theirs, the bytes of the maps asked for this frame
+		// and of the rest, the maps held; its Tick 0, the maps kept until
+		// the level goes
+		int items = 0;
+		size_t fresh = 0, stale = 0;
+		if (level)
+			level->Light.CountMaps(items, fresh, stale);
+		show("CACHE:");
+		show(StatLine("   Gets=%04i (%04.1f) Crts=%03i (%04.1f) Fresh=%03iK Stale=%03iK Items=%03i Tick=%04.1f",
+			panel.CacheGets, ms(panel.CacheGetTime), panel.CacheCreates, ms(panel.CacheCreateTime), (int)(fresh / 1024), (int)(stale / 1024), items, 0.0));
+		show(" ");
+	}
 }
 
 void RenderSubsystem::PostRenderFlash()
@@ -142,6 +321,27 @@ void RenderSubsystem::PostRenderFlash()
 	Device->SetSceneNode(&Canvas.Frame);
 	if (engine->viewport->Actor())
 		CallEvent(engine->viewport->Actor(), "PostRenderFlash", {ExpressionValue::ObjectValue(engine->canvas)});
+}
+
+// Galaxy's PostRender (Galaxy.dll 0x10608570): ASTAT's lines, white in the
+// canvas's small font, each where the audio subsystem lays it
+// (UDXEngineAudioDevice::GetStatLines)
+void RenderSubsystem::DrawAudioStats()
+{
+	if (!engine->audiodev || engine->NoAudioSubsystem)
+		return;
+	Array<UDXEngineAudioDevice::StatLine> lines;
+	engine->audiodev->GetStatLines(lines);
+	UFont* font = engine->canvas->SmallFont();
+	if (lines.empty() || !font)
+		return;
+	for (const UDXEngineAudioDevice::StatLine& line : lines)
+	{
+		float curX = line.X;
+		float curY = line.Y;
+		int XL = 0, YL = 0;
+		WrappedPrint(font, vec4(1.0f), 0.0f, 0.0f, curX, curY, UTF8ToScript(line.Text), PF_NoSmooth | PF_Masked, false, 0.0f, 0.0f, engine->canvas->ClipX(), engine->canvas->ClipY(), false, XL, YL);
+	}
 }
 
 void RenderSubsystem::DrawActor(UActor* actor, bool ClearZ, bool hideAfter, const Rectf* constrain, bool wire)

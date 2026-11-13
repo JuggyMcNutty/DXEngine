@@ -32,4 +32,10 @@ namespace GalaxyMusic
 	// DXEngine's own in Thirdparty/openmpt (bugs.md AUD.16, AUD.17, AUD.20,
 	// AUD.24).
 	constexpr const char* PlayerCtl = "play.galaxy";
+
+	// The next jump at once, from the playing row's next tick, as Galaxy's
+	// MUSICORDER jumps with its tick's count run out (Galaxy.dll 0x1060d15e-
+	// 0x1060d193), not as the row ends: OpenMPT's play.galaxy.jump_at_once,
+	// DXEngine's own in Thirdparty/openmpt (bugs.md WIN.38).
+	constexpr const char* JumpAtOnceCtl = "play.galaxy.jump_at_once";
 }

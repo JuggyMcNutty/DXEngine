@@ -208,6 +208,11 @@ void VulkanRenderDevice::Flush(bool AllowPrecache)
 
 void VulkanRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 {
+	// The frame's counts begin again (GetFrameStats)
+	Stats = {};
+	DrawTimes = {};
+	Textures->CacheStats.BeginFrame();
+
 	// The previous frame may still be drawing (Unlock does not wait for it).
 	Commands->WaitForFrame();
 
@@ -370,6 +375,7 @@ void VulkanRenderDevice::DrawBatch(VulkanCommandBuffer* cmdbuffer)
 
 void VulkanRenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet)
 {
+	StatClock drawClock(DrawTimes.Surfaces, TimeDraws);
 	uint32_t PolyFlags = ApplyPrecedenceRules(Surface.PolyFlags);
 
 	// The textures first, drawn or not: a lightmap's change, perhaps only a
@@ -478,6 +484,7 @@ void VulkanRenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surfa
 
 void VulkanRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags)
 {
+	StatClock drawClock(DrawTimes.Polygons, TimeDraws);
 	if (NumPts < 3) return; // This can apparently happen!!
 
 	PolyFlags = ApplyPrecedenceRules(PolyFlags);
@@ -575,6 +582,7 @@ void VulkanRenderDevice::WriteGouraudVertices(SceneVertex* vptr, const GouraudVe
 
 void VulkanRenderDevice::DrawGouraudTriangles(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumTris, uint32_t PolyFlags)
 {
+	StatClock drawClock(DrawTimes.Polygons, TimeDraws);
 	if (NumTris <= 0) return;
 
 	// What DrawGouraudPolygon does for each triangle, with the pipeline, the
@@ -615,6 +623,7 @@ void VulkanRenderDevice::DrawGouraudTriangles(SceneNode* Frame, TextureInfo& Inf
 
 void VulkanRenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X, float Y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 Color, vec4 Fog, uint32_t PolyFlags)
 {
+	StatClock drawClock(DrawTimes.Tiles, TimeDraws);
 	PolyFlags = ApplyPrecedenceRules(TileFlags(Info, PolyFlags));
 
 	if (PolyFlags == PF_SubpixelFont)
@@ -1376,4 +1385,18 @@ void VulkanRenderDevice::SetLODBias(float bias)
 		LODBias = bias;
 		LODBiasChanged = true;
 	}
+}
+
+RenderDevice::FrameDrawStats VulkanRenderDevice::GetFrameStats() const
+{
+	FrameDrawStats stats;
+	stats.Surfaces = Stats.ComplexSurfaces;
+	stats.Polygons = Stats.GouraudPolygons;
+	stats.Tiles = Stats.Tiles;
+	stats.Flushes = Stats.DrawCalls;
+	stats.SurfaceTime = DrawTimes.Surfaces;
+	stats.PolygonTime = DrawTimes.Polygons;
+	stats.TileTime = DrawTimes.Tiles;
+	Textures->AddPoolStats(stats.Pools);
+	return stats;
 }

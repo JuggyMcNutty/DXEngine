@@ -23,7 +23,9 @@ public:
 	// Tracker music's position in its order list (UE1's SongSection); -1 and
 	// a no-op for sources without orders.
 	virtual int GetOrder() { return -1; }
-	virtual void SetOrder(int order) {}
+	// atOnce: a song Galaxy plays jumps from the playing row's next tick, not
+	// as the row ends (MUSICORDER's)
+	virtual void SetOrder(int order, bool atOnce = false) {}
 
 	// The sections a song Galaxy plays takes, its orders before the first
 	// end mark (bugs.md AUD.17); -1 for a source that takes any order asked.

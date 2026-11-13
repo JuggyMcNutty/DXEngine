@@ -17,6 +17,7 @@
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Resources/UPalette.h"
 #include "Packages/Core/UClass.h"
+#include <optional>
 
 // Whether a mesh face faces the eye, as the original's DrawMesh and
 // DrawLodMesh ask it (Render.dll 0x10b0d1a0, 0x10b0ea80): (A − B) × (C − A)
@@ -44,6 +45,36 @@ static bool FaceInView(const SceneNode& node, const GouraudVertex* v)
 	}
 	return all == 0;
 }
+
+// A pass over a mesh's faces timed for STAT MESH while it is shown: its
+// time, less the vertex light and the device's draws timed within it, to
+// the stage given -- a plain mesh's Process, a LOD mesh's Sub
+class FacePassClock
+{
+public:
+	FacePassClock(bool on, double& stage) : On(on), Stage(stage)
+	{
+		if (On)
+		{
+			Within = Timed();
+			Start = std::chrono::steady_clock::now();
+		}
+	}
+	~FacePassClock()
+	{
+		if (On)
+			Stage += std::chrono::duration<double>(std::chrono::steady_clock::now() - Start).count() - (Timed() - Within);
+	}
+	FacePassClock(const FacePassClock&) = delete;
+	FacePassClock& operator=(const FacePassClock&) = delete;
+
+private:
+	static double Timed() { return engine->render->PanelStats.MeshLight + engine->render->PanelStats.MeshTmap; }
+	bool On;
+	double& Stage;
+	double Within = 0.0;
+	std::chrono::steady_clock::time_point Start;
+};
 
 // The sequence's two frames at an animation position (AnimFrame times the
 // sequence's frames) and the second's weight: the weight taken before the
@@ -90,6 +121,10 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, MeshPass pass)
 		return false;
 
 	engine->render->Stats.Actors++;
+	// Timed for STAT GLOBAL's Mesh and STAT MESH, as the original's DrawMesh
+	// and DrawLodMesh clock each (Render.dll 0x10b0d252, 0x10b0eac4), with
+	// what it holds (DrawMeshAtLocation counts each)
+	StatClock clock(engine->render->PanelStats.Mesh);
 	// The actor's lights are picked in SetupForActorDX, not here
 
 	// DrawDebugInfo(frame, actor);
@@ -181,6 +216,11 @@ bool VisibleMesh::WireTriangleInView(VisibleFrame* frame)
 
 bool VisibleMesh::DrawMeshAtLocation(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, UMesh* mesh, const mat4& meshToWorld, const mat3& meshNormalToWorld, MeshPass pass)
 {
+	// Counted for STAT MESH's MeshCount, as the original's DrawMesh and
+	// DrawLodMesh count each mesh they draw (0x10b0e9a7, 0x10b10d2f): once,
+	// though a mesh with faces of both kinds is drawn in two passes
+	if (pass != MeshPass::Translucent)
+		engine->render->PanelStats.Meshes++;
 	if (auto lodmesh = UObject::TryCast<ULodMesh>(mesh))
 	{
 		return DrawLodMeshDX(frame, actor, lightLocationActor, lodmesh, meshToWorld, meshNormalToWorld, pass);
@@ -396,8 +436,20 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 
 	UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
 
+	// STAT MESH's figures, its stages timed while it is shown. The lights
+	// picked, timed for its LightSet and counted once a mesh for its
+	// MeshLights, as the original's DrawMesh clocks its light manager's
+	// SetupForActor (0x10b0dfd9-0x10b0e024), which counts the lights it
+	// leaves (0x10b0986b)
+	auto& panel = engine->render->PanelStats;
+	bool timed = engine->render->StatPanels[RenderSubsystem::StatMesh];
 	VertexLight vertexLight;
-	lightsys->InitVertexLight(vertexLight, actor, lightLocationActor, zoneActor, !OnItsOwn);
+	{
+		StatClock lightSetClock(panel.MeshLightSet, timed);
+		lightsys->InitVertexLight(vertexLight, actor, lightLocationActor, zoneActor, !OnItsOwn);
+	}
+	if (pass != MeshPass::Translucent)
+		panel.MeshLights += vertexLight.NumLights;
 	vec3 eye = frame->ViewLocation.xyz();
 
 	// The weapon triangle, a face of its own PF_Invisible, where a pawn of
@@ -520,6 +572,10 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 	const uint32_t generation = vertexCacheGeneration;
 	auto takenUnlit = [&](size_t vindex) { return vindex < vertexCache.size() && vertexCache[vindex].Generation == generation && vertexCache[vindex].TakenUnlit; };
 
+	// The faces, timed for STAT MESH's Process less their light and draws,
+	// as the original's DrawMesh clocks its pass over them (0x10b0db31-
+	// 0x10b0ddb6); a plain mesh's vertices are got face by face, in it
+	FacePassClock facesClock(timed, panel.MeshProcess);
 	GouraudVertex vertices[3];
 	for (const MeshTri& tri : mesh->Tris)
 	{
@@ -670,6 +726,11 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 			}
 		}
 
+		// The corners lit, timed for STAT MESH's Light and counted for its
+		// VertLights, then the draw timed for its Tmap, as the original's
+		// vertex light and face draw clock and count theirs (0x10b0282e-
+		// 0x10b02fdc, 0x10b02894; 0x10b0cc02-0x10b0cc57)
+		StatClock faceClock(panel.MeshLight, timed);
 		// No vertex fog: D3DDrv draws a mesh in a fog zone unfogged, the
 		// game's UseVertexFog off (dx-reverse-info/d3ddrv-dll.md, fog)
 		for (int i = 0; i < 3; i++)
@@ -677,8 +738,11 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 			vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, normals[i], unlit || takenUnlit(tri.Indices[i]));
 			vertices[i].Fog = vec4(0.0f);
 		}
+		panel.VertLights += 3 * vertexLight.NumLights;
 
+		faceClock.Next(panel.MeshTmap);
 		frame->Device->DrawGouraudPolygon(&frame->Frame, texinfo, vertices, 3, renderflags);
+		panel.MeshPolys++;
 	}
 	return needTranslucentPass;
 }
@@ -797,8 +861,17 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 
 	UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
 
+	// STAT MESH's figures, as DrawMeshDX's: the lights picked as the
+	// original's DrawLodMesh clocks them (0x10b107b7-0x10b1080b)
+	auto& panel = engine->render->PanelStats;
+	bool timed = engine->render->StatPanels[RenderSubsystem::StatMesh];
 	VertexLight vertexLight;
-	lightsys->InitVertexLight(vertexLight, actor, lightLocationActor, zoneActor, !OnItsOwn);
+	{
+		StatClock lightSetClock(panel.MeshLightSet, timed);
+		lightsys->InitVertexLight(vertexLight, actor, lightLocationActor, zoneActor, !OnItsOwn);
+	}
+	if (pass != MeshPass::Translucent)
+		panel.MeshLights += vertexLight.NumLights;
 	vec3 eye = frame->ViewLocation.xyz();
 
 	bool needTranslucentPass = false;
@@ -1089,6 +1162,10 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 		vec3 n = cross(b - a, c - a);
 		return n * (1.0f / std::sqrt(dot(n, n) + 0.001f));
 	};
+	// The vertices placed at the frame's pose and their normals made, timed
+	// for STAT MESH's GetFrame, as the original's DrawLodMesh clocks its
+	// GetFrame (0x10b0edd0-0x10b0ee3c)
+	std::optional<StatClock> getFrameClock(std::in_place, panel.MeshGetFrame, timed);
 	size_t normalFace = (size_t)-1;
 	for (const MeshFace& face : faces)
 	{
@@ -1121,6 +1198,11 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 		if (c.Generation == generation)
 			c.Normal = c.Normal * (1.0f / std::sqrt(dot(c.Normal, c.Normal) + 0.001f));
 	}
+	getFrameClock.reset();
+
+	// The faces, timed for STAT MESH's Sub less their light and draws, as
+	// the original clocks its face draw (0x10b0bc36-0x10b0c4fd)
+	FacePassClock facesClock(timed, panel.MeshSub);
 
 	// Consecutive faces with one texture and one set of flags go to the
 	// device in one call, which sets up the texture and pipeline once
@@ -1130,7 +1212,11 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 	{
 		if (!faceBatch.empty())
 		{
+			// Timed for STAT MESH's Tmap, as the original's face draw clocks
+			// the device's (0x10b0cc02-0x10b0cc57)
+			StatClock tmapClock(panel.MeshTmap, timed);
 			frame->Device->DrawGouraudTriangles(&frame->Frame, texinfo, faceBatch.data(), (int)(faceBatch.size() / 3), batchFlags);
+			panel.MeshPolys += (int)(faceBatch.size() / 3);
 			faceBatch.clear();
 		}
 	};
@@ -1323,6 +1409,11 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 			}
 			else
 			{
+				// Timed for STAT MESH's Light and counted for its
+				// VertLights, as the original's vertex light clocks and
+				// counts its own (0x10b0282e-0x10b02fdc, 0x10b02894)
+				StatClock lightClock(panel.MeshLight, timed);
+				panel.VertLights += vertexLight.NumLights;
 				vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, normals[i], cornerUnlit);
 				if (c)
 				{

@@ -84,6 +84,7 @@ set(DXCOMMON_SOURCES
 	DXEngine/Utils/JsonValue.h
 	DXEngine/Utils/SHA1Sum.cpp
 	DXEngine/Utils/SHA1Sum.h
+	DXEngine/Utils/StatClock.h
 	DXEngine/Utils/PEIcon.cpp
 	DXEngine/Utils/PEIcon.h
 	DXEngine/Utils/MD5.cpp
