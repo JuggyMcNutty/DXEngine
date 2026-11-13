@@ -587,6 +587,12 @@ an actor already destroyed raises nothing (no call after `CapNoiseMaker0`'s
 `Destroy`); every turn sets a receiver's best score and sender, 0 and None
 with nothing sensed, and a save keeps its last call's state
 (`EventRingConsole` with `SaveAt=3.7`, `aisave.py`: 0, None and 2 in both).
+A receiver's senders are taken in order of score as the original's sort
+leaves them, the C runtime's qsort, each tie between two decided by their
+places in the array as the comparison finds them (`SenderTieConsole`,
+both engines: of a farther sender and two at one distance after it, the
+second of the two; of twelve, the last of the three nearest; of twenty a
+score callback scores alike, the first).
 A None event name does nothing, a score that is not a number drops its
 sender, each actor's events go to its own level's manager and each level's
 tick ticks its own, the Entry level's too, and the warnings are the
@@ -863,7 +869,13 @@ then cut at `ClipX` and `ClipY`, its texels in proportion, and the cursor moved
 by what is left (`TileEdgeConsole`: every case's `CurX`, `CurY` and `CurYL` alike
 in both engines, 7 of 14 lines apart on the build before; a texture not masked
 drawn `STY_Masked` whole, its colour 0 drawn, 3,850 of the box's 102,400 pixels
-not magenta in both, where the build before masked it, none magenta).
+not magenta in both, where the build before masked it, none magenta). Each
+of the canvas's tiles and its text's glyphs, and every window's tile, is
+drawn at the canvas's `Z`, at the depth of a point Z units before the eye,
+as the original's: one at Z 2 drawn after an opaque one at Z 1 is hidden
+where they cross (`CanvasZConsole` through `D3DDrv`: the tiles' and the
+text's pixels alike in both engines). No stock script sets `Z` but to 1,
+which the canvas's `Reset` sets each frame.
 
 A window's tile and character are placed as the original's GC places them
 ([the GC's styles](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/extension-dll.md#styles)):
@@ -1635,10 +1647,11 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   is placed as the original's brush coordinates place it, its `PostScale`
   after the rotation along the world's axes, in its drawing, its light, its
   box and its filing ([the movers in a line's
-  way](#implemented-not-as-the-original)): `PostScaleConsole`'s boxes the
-  original's, WanChai Market's locked door X 268 to 500 and Z 44 to 132,
-  DXMP_CMD's bot doors 6 by 80 by 80, but for a float step in three of them
-  (bugs.md PHYS.37).
+  way](#implemented-not-as-the-original)), `GetBoundingBox` its model's box's
+  corners through its `ToWorld` coordinates as the original's
+  (`PostScaleConsole`: every box the original's to the float, WanChai
+  Market's locked door X 268 to 500 and Z 44 to 132, DXMP_CMD's bot doors 6
+  by 80 by 80, their tops at -1289.999878 and -1967.999878).
 
 A decal is laid as the original's `AttachDecal` lays one
 ([the natives](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-natives)):
@@ -1670,12 +1683,11 @@ where it was laid and its base None (`MoverDecalConsole`, the door
 opened). Differs (bugs.md REN.71): a mover's face turned from where it was
 built is drawn darker than the original's (the same door opened: its face
 0.039 of white in both builds against the original's 0.092, alike shut).
-Differs (bugs.md PHYS.37): a line's hit on a mover's
-filed polygon can land a float step off the original's, the trace's own
-float order against the plane not the original's, and a mover's box at a
-`PostScale` a float step off (`FiledPlaneConsole`: Battery Park's MainDoors
-open at yaw 10240, the edge's hits at -367.044403 where the original's are
-at -367.044434, the face's at -307.592438 where -307.592468).
+A line meets a mover's filed polygon where the original's does, the walk
+crossing each plane and the hit's time worked in the original's floats at
+the x87's precision in the tick it runs in (`FiledPlaneConsole`: Battery
+Park's MainDoors open at yaw 10240, all 30 lines the original's, the edge's
+at -367.044434 and the face's at -307.592468 and -1179.377075).
 
 ### Fire, water and ice textures
 
@@ -1864,7 +1876,10 @@ from the original's code:
   text window is 0 wide and keeps its height. A size set is held at 0 or
   more and lays the window out again, its parent asked, only when it
   changes, as the original's `Resize` has it; `ResetSize` lays it out again
-  only when a size was set. A large text window and an
+  only when a size was set, and a new background (`SetBackground`) lays it
+  out again, as the original's (`BackLayoutConsole`: a plain window
+  centred on the main menu the size of its new background at once, the same
+  background again changing nothing). A large text window and an
   edit field measure rows of the font's height with their vertical spacing
   between (`ScreenConsole`'s skill text and note), an edit field a space
   wider when no width is given. A window asking to be laid out again is
@@ -2208,6 +2223,10 @@ Differs:
   at 1280x720: the root's red background over the whole frame in both
   engines; `SnapSmoothConsole` on Liberty Island at 1280x720 through
   `D3DDrv`: the snapshot over the whole width in both, in soft gradients).
+  `SetRawBackground` sets both, no texture and white where an argument is
+  left out, as the original's (`RawBackArgsConsole` behind the main menu:
+  the raw background white with its colour left out and gone with both, in
+  both engines, where the build before kept the green).
 - **Full screen as the window loses the focus** is kept, by choice, where
   the original leaves it and minimises; SDL3 minimises a real exclusive mode
   alone, never on Wayland nor in a desktop's full screen.

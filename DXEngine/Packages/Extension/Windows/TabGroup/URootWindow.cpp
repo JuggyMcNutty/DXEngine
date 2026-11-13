@@ -182,12 +182,13 @@ void URootWindow::SetDefaultMovementCursors(std::optional<UObject*> newMovementC
 		defaultTopRightMoveCursor() = UObject::Cast<UTexture>(*newTopRightMovementCursor);
 }
 
+// Both set, as the original's (Extension.dll 0x1003cbe0, into
+// XRootWindow::SetRawBackground 0x10039eb0): no texture and white unless
+// given
 void URootWindow::SetRawBackground(std::optional<UObject*> NewTexture, std::optional<Color> NewColor)
 {
-	if (NewTexture)
-		rawBackground() = UObject::Cast<UTexture>(*NewTexture);
-	if (NewColor)
-		rawColor() = *NewColor;
+	rawBackground() = UObject::Cast<UTexture>(NewTexture.value_or(nullptr));
+	rawColor() = NewColor.value_or(Color{ 255, 255, 255, 255 });
 }
 
 void URootWindow::SetRawBackgroundSize(float newWidth, float NewHeight)

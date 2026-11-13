@@ -39,7 +39,7 @@ namespace
 		const Array<BspNode>* Nodes;
 		uint8_t Extra;
 		bool WasOutside = false;
-		double Fraction = 0.0;
+		vec3 Place = vec3(0.0f);
 		int Node = 0;
 
 		bool Csg(const BspNode& node) const
@@ -47,9 +47,25 @@ namespace
 			return node.NumVertices > 0 && (node.NodeFlags & (NF_NotCsg | NF_IsNew | (Extra & 0xCE))) == 0;
 		}
 
-		// False once the line stops
-		bool Walk(int iParent, int iNode, dvec3 start, dvec3 end, double t0, double t1, bool outside)
+		// A point's distance from a node's plane as the original's walk
+		// works it (0x103f36b3): Z's product, then X's, then Y's, less W,
+		// stored as a float
+		static float Distance(const BspNode& node, const vec3& p)
 		{
+			auto R = X87::Round;
+			return (float)R(R(R(R((double)p.z * node.PlaneZ) + R((double)p.x * node.PlaneX)) + R((double)p.y * node.PlaneY)) - node.PlaneW);
+		}
+
+		// False once the line stops. Across a plane the start is moved by
+		// the start less the end, each axis a float, times the start's
+		// distance over the end's less the start's, each axis's step a float
+		// and the sum a float (0x103f37d2-0x103f3879): the near part walked
+		// from the start to there, then the far part from there to the end.
+		// A distance under 0.001 is under it as the original compares it, a
+		// number or none (X87::Under).
+		bool Walk(int iParent, int iNode, vec3 start, vec3 end, bool outside)
+		{
+			auto R = X87::Round;
 			while (true)
 			{
 				if (iNode < 0)
@@ -61,40 +77,41 @@ namespace
 					}
 					if (WasOutside || (Extra & 0x10) == 0)
 					{
-						Fraction = t0;
+						Place = start;
 						Node = iParent;
 						return false;
 					}
 					return true;
 				}
 				const BspNode& node = (*Nodes)[iNode];
-				dvec4 plane = { node.PlaneX, node.PlaneY, node.PlaneZ, -node.PlaneW };
-				double d0 = dot(dvec4(start, 1.0), plane);
-				double d1 = dot(dvec4(end, 1.0), plane);
+				float d0 = Distance(node, start);
+				float d1 = Distance(node, end);
 				if (d0 > -0.001 && d1 > -0.001)
 				{
 					outside = outside || Csg(node);
 					iNode = node.Front;
 					continue;
 				}
-				if (d0 < 0.001 && d1 < 0.001)
+				if (X87::Under(d0, 0.001) && X87::Under(d1, 0.001))
 				{
 					outside = outside && !Csg(node);
 					iNode = node.Back;
 					continue;
 				}
-				double f = d0 / (d0 - d1);
-				dvec3 mid = start + (end - start) * f;
-				double tm = t0 + (t1 - t0) * f;
+				vec3 back((float)R((double)start.x - end.x), (float)R((double)start.y - end.y), (float)R((double)start.z - end.z));
+				double ratio = R((double)d0 / R((double)d1 - d0));
+				vec3 mid(
+					(float)R((double)(float)R(back.x * ratio) + start.x),
+					(float)R((double)(float)R(back.y * ratio) + start.y),
+					(float)R((double)(float)R(back.z * ratio) + start.z));
 				bool nearFront = d0 > 0.0;
 				bool csg = Csg(node);
-				if (!Walk(iParent, nearFront ? node.Front : node.Back, start, mid, t0, tm, nearFront ? (outside || csg) : (outside && !csg)))
+				if (!Walk(iParent, nearFront ? node.Front : node.Back, start, mid, nearFront ? (outside || csg) : (outside && !csg)))
 					return false;
 				outside = nearFront ? (outside && !csg) : (outside || csg);
 				iParent = iNode;
 				iNode = nearFront ? node.Back : node.Front;
 				start = mid;
-				t0 = tm;
 			}
 		}
 	};
@@ -142,22 +159,22 @@ namespace
 	}
 }
 
-bool TraceRayModel::WalkSolid(UModel* model, const dvec3& start, const dvec3& end, uint8_t extraNodeFlags, double& fraction, BspNode*& crossed)
+bool TraceRayModel::WalkSolid(UModel* model, const vec3& start, const vec3& end, uint8_t extraNodeFlags, vec3& place, BspNode*& crossed)
 {
 	// A model with no BSP answers every check with no hit, as the original's
 	if (!model)
 		return false;
-	return WalkSolid(model->Nodes, model->RootOutside != 0, start, end, extraNodeFlags, fraction, crossed);
+	return WalkSolid(model->Nodes, model->RootOutside != 0, start, end, extraNodeFlags, place, crossed);
 }
 
-bool TraceRayModel::WalkSolid(const Array<BspNode>& nodes, bool rootOutside, const dvec3& start, const dvec3& end, uint8_t extraNodeFlags, double& fraction, BspNode*& crossed)
+bool TraceRayModel::WalkSolid(const Array<BspNode>& nodes, bool rootOutside, const vec3& start, const vec3& end, uint8_t extraNodeFlags, vec3& place, BspNode*& crossed)
 {
 	if (nodes.empty())
 		return false;
 	SolidWalk walk{ &nodes, extraNodeFlags };
-	if (walk.Walk(0, 0, start, end, 0.0, 1.0, rootOutside))
+	if (walk.Walk(0, 0, start, end, rootOutside))
 		return false;
-	fraction = walk.Fraction;
+	place = walk.Place;
 	crossed = const_cast<BspNode*>(&nodes[walk.Node]);
 	return true;
 }

@@ -57,32 +57,42 @@ CollisionHitList TraceTester::SortedFirstHits(const CollisionHit* level, Collisi
 	return uniqueHits;
 }
 
-// UModel::LineCheck's time for a line's hit (Engine.dll 0x103f3c20), in its
-// float order: the place the walk met projected on the line, rounded to a
-// float, less half a unit of the line, held to 0..1; the hit's location
-// given again along the line from that time unrounded. The x87's sums are
-// doubles here (the original's control word keeps 53 bits), its stores
-// floats. A line of no length (cut at a start in solid) gives 0 at its start,
-// as the original's 0/0 compares below 0 there.
+// UModel::LineCheck's time for a line's hit (Engine.dll 0x103f3d3d), in its
+// float order at the x87's precision in the tick it runs in (X87): the line
+// less its start stored as floats; the place the walk met less the start,
+// dotted with it -- X's term, then Y's, then Z's --, over its length squared
+// stored as a float, the time a float; less half a unit of the line (appSqrt
+// of the length squared), held to 0..1, a number under 0 or none 0; the
+// hit's location along the line from that time as the x87 holds it, each
+// axis's step a float. A line of no length (cut at a start in solid) gives 0
+// at its start, as the original's 0/0 compares below 0 there.
 static float LineCheckTime(const vec3& start, const vec3& end, const vec3& place, vec3& location)
 {
-	float dx = (float)((double)end.x - start.x);
-	float dy = (float)((double)end.y - start.y);
-	float dz = (float)((double)end.z - start.z);
-	double hx = (double)place.x - start.x;
-	double hy = (double)place.y - start.y;
-	double hz = (double)place.z - start.z;
-	float size2 = (float)(((double)dx * dx + (double)dy * dy) + (double)dz * dz);
+	auto R = X87::Round;
+	float dz = (float)R((double)end.z - start.z);
+	float dy = (float)R((double)end.y - start.y);
+	float dx = (float)R((double)end.x - start.x);
+	double hz = R((double)place.z - start.z);
+	double hy = R((double)place.y - start.y);
+	double hx = R((double)place.x - start.x);
+	float size2 = (float)R(R(R((double)dx * dx) + R((double)dy * dy)) + R((double)dz * dz));
 	double t = 0.0;
 	if (size2 > 0.0f)
 	{
-		float time = (float)(((hx * dx + hy * dy) + hz * dz) / size2);
-		t = std::clamp(time - 0.5 / std::sqrt((double)size2), 0.0, 1.0);
+		float time = (float)R(R(R(R(hx * dx) + R(hy * dy)) + R(hz * dz)) / size2);
+		t = R((double)time - R(0.5 / R(std::sqrt((double)size2))));
+		if (X87::Under(t, 0.0))
+			t = 0.0;
+		else if (!X87::Under(t, 1.0))
+			t = 1.0;
 	}
+	float stepZ = (float)R(dz * t);
+	float stepY = (float)R(dy * t);
+	float stepX = (float)R(dx * t);
 	location = vec3(
-		(float)(start.x + (double)(float)(dx * t)),
-		(float)(start.y + (double)(float)(dy * t)),
-		(float)(start.z + (double)(float)(dz * t)));
+		(float)R((double)stepX + start.x),
+		(float)R((double)start.y + stepY),
+		(float)R((double)start.z + stepZ));
 	return (float)t;
 }
 
@@ -322,15 +332,15 @@ static bool CylinderLineCheck(UActor* actor, const vec3& start, const vec3& end,
 // does (UModel::LineCheck with an owner): one hit, where the segment enters
 // its solid space, with the plane of the node crossed there as the mover's
 // rotation turns it -- by the original's sine table, and not turned to face
-// the line, as the level's hits are. Gives how far along the segment (0 to 1)
-// and the node.
+// the line, as the level's hits are. Gives the place the walk stopped and
+// the node.
 // The brush walked in the world along the line, its planes turned into it as
 // the original's walk turns its owner's (UModel::LineCheck 0x103f3c20 with an
 // owner; BrushPlanes, PostScale in them): the hit where the line enters its
 // solid, the crossed node's own normal turned into the world as the
 // original turns it after its walk (BrushPlanes::HitNormal), not turned to
 // face the line
-static bool MoverLineWalk(UMover* mover, const vec3& start, const vec3& end, bool visibilityOnly, double& fraction, BspNode*& crossed, vec3& normal)
+static bool MoverLineWalk(UMover* mover, const vec3& start, const vec3& end, bool visibilityOnly, vec3& place, BspNode*& crossed, vec3& normal)
 {
 	UModel* brush = mover->Brush();
 	if (!brush || brush->Nodes.empty())
@@ -346,7 +356,7 @@ static bool MoverLineWalk(UMover* mover, const vec3& start, const vec3& end, boo
 		node.PlaneW = plane.w;
 	}
 	BspNode* hitNode;
-	if (!TraceRayModel::WalkSolid(world, brush->RootOutside != 0, to_dvec3(start), to_dvec3(end), visibilityOnly ? NF_NotVisBlocking : 0, fraction, hitNode))
+	if (!TraceRayModel::WalkSolid(world, brush->RootOutside != 0, start, end, visibilityOnly ? NF_NotVisBlocking : 0, place, hitNode))
 		return false;
 	crossed = &brush->Nodes[hitNode - world.data()];
 	normal = planes.HitNormal(vec3(crossed->PlaneX, crossed->PlaneY, crossed->PlaneZ));
@@ -435,12 +445,11 @@ CollisionHitList TraceTester::TraceLine(const vec3& from, const vec3& to, bool t
 	bool nearStart = false;
 	if (traceWorld)
 	{
-		double fraction;
+		vec3 place;
 		BspNode* crossed;
 		CollisionSystem& collision = GetLevel()->Collision;
-		if (TraceRayModel::WalkSolid(collision.LineNodes(), collision.LineRootOutside(), origin, rayEnd, visibilityOnly ? NF_NotVisBlocking : 0, fraction, crossed))
+		if (TraceRayModel::WalkSolid(collision.LineNodes(), collision.LineRootOutside(), from, to, visibilityOnly ? NF_NotVisBlocking : 0, place, crossed))
 		{
-			vec3 place = to_vec3(origin + (rayEnd - origin) * fraction);
 			float time = LineCheckTime(from, to, place, levelLocation);
 			level = { time, vec3(crossed->PlaneX, crossed->PlaneY, crossed->PlaneZ), nullptr, crossed, crossed, levelLocation };
 			if (dot(to_dvec3(level.Normal), direction) > 0.0)
@@ -459,12 +468,11 @@ CollisionHitList TraceTester::TraceLine(const vec3& from, const vec3& to, bool t
 			return false;
 		if (mover && mover->Brush())
 		{
-			double fraction;
+			vec3 place;
 			BspNode* crossed;
 			vec3 normal;
-			if (!traceWorld || !MoverLineWalk(mover, from, cutEnd, visibilityOnly, fraction, crossed, normal))
+			if (!traceWorld || !MoverLineWalk(mover, from, cutEnd, visibilityOnly, place, crossed, normal))
 				return false;
-			vec3 place = to_vec3(origin + (to_dvec3(cutEnd) - origin) * fraction);
 			vec3 location;
 			float time = LineCheckTime(from, cutEnd, place, location);
 			if (levelHit && normal == level.Normal)
@@ -731,10 +739,10 @@ bool TraceTester::SightBlocked(const vec3& from, const vec3& to, const std::func
 
 	// Deus Ex's BSP holds the movers where it filed them, the original's
 	// walk down it with the NF_NotVisBlocking nodes passed
-	double fraction;
+	vec3 place;
 	BspNode* crossed;
 	CollisionSystem& collision = GetLevel()->Collision;
-	return TraceRayModel::WalkSolid(collision.LineNodes(), collision.LineRootOutside(), to_dvec3(from), to_dvec3(to), NF_NotVisBlocking, fraction, crossed);
+	return TraceRayModel::WalkSolid(collision.LineNodes(), collision.LineRootOutside(), from, to, NF_NotVisBlocking, place, crossed);
 }
 
 void TraceTester::TraceActor(UActor* actor, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, double height, double radius, bool traceActors, bool traceWorld, bool visibilityOnly, CollisionHitList& hits)
@@ -749,11 +757,11 @@ void TraceTester::TraceActor(UActor* actor, const dvec3& origin, double tmin, co
 		// box meets a mover's brush in TraceBox alone, along the cut line.
 		if (!traceWorld || radius != 0.0 || height != 0.0)
 			return;
-		double fraction;
+		vec3 place;
 		BspNode* crossed;
 		vec3 normal;
-		if (MoverLineWalk(mover, vec3(origin), vec3(origin + dirNormalized * tmax), visibilityOnly, fraction, crossed, normal))
-			hits.push_back({ (float)(fraction * tmax), normal, actor, crossed, crossed });
+		if (MoverLineWalk(mover, vec3(origin), vec3(origin + dirNormalized * tmax), visibilityOnly, place, crossed, normal))
+			hits.push_back({ (float)dot(to_dvec3(place) - origin, dirNormalized), normal, actor, crossed, crossed });
 	}
 	else
 	{

@@ -13,6 +13,7 @@
 #include <climits>
 #include "Utils/Logger.h"
 #include "Utils/Random.h"
+#include "Utils/CrtSort.h"
 #include "Packages/Engine/UViewport.h"
 #include "Packages/Engine/Subsystems/UDXEngineAudioDevice.h"
 #include "Engine.h"
@@ -707,88 +708,11 @@ namespace
 	using PathnodeEntry = std::pair<UNavigationPoint*, float>;
 
 	// GetPathnodeList's comparison (Engine.dll 0x103c6a70): the nearer first.
-	int ComparePathnodes(const PathnodeEntry& a, const PathnodeEntry& b)
+	int ComparePathnodes(const PathnodeEntry* a, const PathnodeEntry* b)
 	{
-		if (a.second < b.second)
+		if (a->second < b->second)
 			return -1;
-		return a.second > b.second ? 1 : 0;
-	}
-
-	// The C runtime's qsort, which the original's appQsort calls (Core.dll
-	// imports MSVCRT's), for the order it leaves equal distances in: a run
-	// of up to 8 entries sorted by moving its largest -- the first of equals
-	// -- to its end, again and again; a longer one split round the middle of
-	// its first, middle and last entries, the two parts kept on a stack, the
-	// larger pushed first.
-	void SortPathnodes(PathnodeEntry* x, size_t count)
-	{
-		if (count < 2)
-			return;
-		size_t stackLo[64], stackHi[64];
-		int pos = 0;
-		stackLo[0] = 0;
-		stackHi[0] = count - 1;
-		while (pos >= 0)
-		{
-			size_t beg = stackLo[pos];
-			size_t end = stackHi[pos--];
-			if (end - beg < 8)
-			{
-				for (size_t last = end; last > beg; last--)
-				{
-					size_t max = beg;
-					for (size_t i = beg + 1; i <= last; i++)
-					{
-						if (ComparePathnodes(x[i], x[max]) > 0)
-							max = i;
-					}
-					if (max != last)
-						std::swap(x[max], x[last]);
-				}
-				continue;
-			}
-
-			size_t lo = beg, hi = end, med = lo + (hi - lo + 1) / 2;
-			if (ComparePathnodes(x[lo], x[med]) > 0)
-				std::swap(x[lo], x[med]);
-			if (ComparePathnodes(x[lo], x[hi]) > 0)
-				std::swap(x[lo], x[hi]);
-			if (ComparePathnodes(x[med], x[hi]) > 0)
-				std::swap(x[med], x[hi]);
-			lo++;
-			hi--;
-			for (;;)
-			{
-				while (lo <= hi && (lo == med || ComparePathnodes(x[lo], x[med]) <= 0))
-					lo++;
-				while (med != hi && ComparePathnodes(x[hi], x[med]) > 0)
-					hi--;
-				if (hi < lo)
-					break;
-				std::swap(x[lo], x[hi]);
-				if (hi == med)
-					med = lo;
-				lo++;
-				hi--;
-			}
-			while (hi > beg && (hi == med || ComparePathnodes(x[hi], x[med]) == 0))
-				hi--;
-
-			if (hi - beg >= end - lo)
-			{
-				stackLo[++pos] = beg;
-				stackHi[pos] = hi;
-				stackLo[++pos] = lo;
-				stackHi[pos] = end;
-			}
-			else
-			{
-				stackLo[++pos] = lo;
-				stackHi[pos] = end;
-				stackLo[++pos] = beg;
-				stackHi[pos] = hi;
-			}
-		}
+		return a->second > b->second ? 1 : 0;
 	}
 }
 
@@ -896,8 +820,10 @@ Array<std::pair<UNavigationPoint*, float>> UPawn::GetPathnodeList(UActor* fromPo
 		nodes.resize(reached);
 	}
 
+	// Sorted by the C runtime's qsort, which the original's appQsort
+	// calls, for the order it leaves equal distances in (CrtQsort)
 	if (sorted)
-		SortPathnodes(nodes.data(), nodes.size());
+		CrtQsort(nodes.data(), nodes.size(), ComparePathnodes);
 	return nodes;
 }
 

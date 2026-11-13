@@ -99,6 +99,7 @@ set(DXCOMMON_SOURCES
 	DXEngine/Utils/UTF8Reader.cpp
 	DXEngine/Utils/UTF8Reader.h
 	DXEngine/Utils/Array.h
+	DXEngine/Utils/CrtSort.h
 	DXEngine/Utils/CrashReporter.cpp
 	DXEngine/Utils/CrashReporter.h
 	DXEngine/Utils/AlignedAlloc.h

@@ -316,8 +316,9 @@ static void GlyphTextureInfo(const FontGlyph& glyph, TextureInfo& texinfo)
 // across it cut to it, the rest going on. With hot keys, an & takes the
 // character after it for one, drawn and then the font's _ over the same
 // place, as wide as it at most, the step the character's; an & at the end
-// ends the line, and && draws an & and makes the next & a hot key's. The
-// line's width in all its steps.
+// ends the line, and && draws an & and makes the next & a hot key's. Each
+// glyph at the canvas's Z, as the original's glyph tile takes it
+// (0x10377170, 0x103772c7). The line's width in all its steps.
 int RenderSubsystem::DrawTextLine(UFont* font, vec4 color, float orgX, float orgY, int x, int y, const ScriptString& text, size_t count, uint32_t polyflags, float spaceX, bool clip, bool hotKeys, float clipX, float clipY)
 {
 	int step = 0;
@@ -388,7 +389,7 @@ int RenderSubsystem::DrawTextLine(UFont* font, vec4 color, float orgX, float org
 			GlyphTextureInfo(glyph, texinfo);
 			float left = (float)ftol(X87::Round((double)dx + orgX));
 			float top = (float)ftol(X87::Round((double)dy + orgY));
-			Device->DrawTile(&Canvas.Frame, texinfo, left, top, (float)width, (float)height, (float)u, (float)v, (float)width, (float)height, 1.0f, color, vec4(0.0f), polyflags);
+			Device->DrawTile(&Canvas.Frame, texinfo, left, top, (float)width, (float)height, (float)u, (float)v, (float)width, (float)height, engine->canvas ? engine->canvas->Z() : 1.0f, color, vec4(0.0f), polyflags);
 		}
 
 		if (underline)

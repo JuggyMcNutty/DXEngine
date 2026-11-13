@@ -11,22 +11,22 @@
 // level's hit); then lines 24 units long into two of its faces, each at
 // five heights across the brush (local Z -80 to 80) and three depths
 // across its thickness or width, from 16 units off the face along its
-// normal: the free edge (local +Y, whose filed plane's W comes out on
-// another float in DXEngine's order) and the broad face (local +X, alike in
-// both by the reading). Each line's hit, its place and normal, as Trace
-// gives them.
+// normal: the free edge (local +Y) and the broad face (local +X). Each
+// line's hit, its place and normal, as Trace gives them.
 //
 // The original files each corner as FPoly::Transform does (Engine.dll
 // 0x10387360, from the tracker's filing 0x1037a400, at the render's 24
 // bits): the corner less PrePivot, per axis, dotted with the coords' axes,
-// plus Location. DXEngine before its fix (bugs.md PHYS.37) put each corner
-// through one float matrix T(Location) R T(-PrePivot), its last column worked
-// out first: by filedfloats.py 15 of the door's 24 corners on another float,
-// the top's W and the edge's (-329.4730225 against -329.4729919) a float
-// step apart. The sweep's runs: the edge's 15 lines alike, its W's step
-// within the places' rounding; 5 of the face's 15 a step apart (x
-// -307.592468 against -307.592438), those nearest the hinge, the corners'
-// floats moving the face's fragments. With the fix every line alike.
+// plus Location, as DXEngine's filing now does. Each line runs in the
+// console's tick, at 24 bits: the original's walk down the level's BSP
+// crosses a plane in floats (UModel::LineCheck's walk 0x103f3560: the start
+// less the end, times the start's distance over the end's less the start's,
+// plus the start, each a float), and its time comes from that place at 24
+// bits (0x103f3d3d). DXEngine before its fix (bugs.md PHYS.37) walked and
+// timed in doubles: the edge's 5 lines at d 1 at -367.044403 against the
+// original's -367.044434 (the time's precision), the face's 5 at d -1 at
+// -307.592438, -1179.376953 against -307.592468, -1179.377075 (the
+// crossing's floats). With the fix every line alike.
 //=============================================================================
 class FiledPlaneConsole extends Console;
 

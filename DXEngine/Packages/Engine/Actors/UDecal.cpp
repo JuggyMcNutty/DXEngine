@@ -90,9 +90,9 @@ namespace
 	int LineHit(ULevel* level, const vec3& start, const vec3& end)
 	{
 		const Array<BspNode>& nodes = level->Collision.LineNodes();
-		double fraction = 0.0;
+		vec3 place;
 		BspNode* crossed = nullptr;
-		if (!TraceRayModel::WalkSolid(nodes, level->Collision.LineRootOutside(), to_dvec3(start), to_dvec3(end), NF_ShootThrough | NF_NotVisBlocking, fraction, crossed) || !crossed)
+		if (!TraceRayModel::WalkSolid(nodes, level->Collision.LineRootOutside(), start, end, NF_ShootThrough | NF_NotVisBlocking, place, crossed) || !crossed)
 			return -1;
 		return (int)(crossed - nodes.data());
 	}

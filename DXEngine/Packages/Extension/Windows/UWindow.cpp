@@ -1411,9 +1411,18 @@ void UWindow::SetAcceleratorText(const std::string& newStr)
 	}
 }
 
+// The original's (XWindow::SetBackground, Extension.dll 0x1004d5e0): a new
+// background lays the window out again, its preferred size the
+// background's on a side it gives no size of its own
+// (QueryPreferredSize)
 void UWindow::SetBackground(UObject* newBackground)
 {
-	Background() = UObject::Cast<UTexture>(newBackground);
+	UTexture* background = UObject::Cast<UTexture>(newBackground);
+	if (Background() != background)
+	{
+		Background() = background;
+		AskParentForReconfigure();
+	}
 }
 
 void UWindow::SetBackgroundSmoothing(bool newSmoothing)

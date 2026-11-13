@@ -16,6 +16,7 @@
 #include "VM/Frame.h"
 #include "Utils/Logger.h"
 #include "Utils/StrTools.h"
+#include "Utils/CrtSort.h"
 #include "Math/floating.h"
 #include "Engine.h"
 #include <algorithm>
@@ -459,8 +460,17 @@ bool UEventManager::ProcessReceiver(Receiver& receiver)
 	bool weighed = !candidates.empty();
 
 	// The best sender: in order of score, lowest first -- the nearest, by
-	// default -- the first the receiver senses.
-	std::sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b) { return a.Score < b.Score; });
+	// default -- the first the receiver senses. Sorted by the C runtime's
+	// qsort as the original's appQsort sorts them (0x103842d2), equal
+	// scores in order of their places in the array as each comparison finds
+	// them (0x10382420), so ties come out as the sort's moves leave them.
+	CrtQsort(candidates.data(), candidates.size(), [](const Candidate* a, const Candidate* b) {
+		if (a->Score < b->Score)
+			return -1;
+		if (a->Score > b->Score)
+			return 1;
+		return a < b ? -1 : (a > b ? 1 : 0);
+	});
 	Sender* best = nullptr;
 	float visibility = 0.0f, volume = 0.0f, smell = 0.0f;
 	float bestScore = 0.0f;

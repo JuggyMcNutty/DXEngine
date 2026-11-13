@@ -9,8 +9,11 @@
 #include "Packages/Engine/UViewport.h"
 #include "Packages/Engine/Resources/USound.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
+#include "Packages/Engine/Resources/Level/UModel.h"
+#include "Packages/Engine/Resources/Level/UPolys.h"
 #include "Packages/Engine/Resources/Mesh/UMesh.h"
 #include "Packages/Engine/Actors/UActor.h"
+#include "Packages/Engine/Actors/Brush/UBrush.h"
 #include "Packages/Engine/Actors/UDecal.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Actors/Info/UZoneInfo.h"
@@ -229,6 +232,46 @@ void NActor::GetBoundingBox(UObject* Self, vec3& MinVect, vec3& MaxVect, std::op
 {
 	UActor* actor = UObject::Cast<UActor>(Self);
 	if (!actor) { ReturnValue = false; return; }
+
+	// A brush's box as the original's GetBoundingBox (Engine.dll 0x1036dea0)
+	// asks its model for it (UModel::GetRenderBoundingBox, 0x103f1190), at
+	// the test place and rotation, or where it is: its model's box's eight
+	// corners through its ToWorld coordinates as points (ABrush::ToWorld
+	// 0x1030f310, CoreCoords), a mover's PostScale in them; with bExact its
+	// polygons' corners so, none giving an empty box and false
+	UBrush* brushActor = UObject::TryCast<UBrush>(actor);
+	UModel* brush = actor->Brush();
+	if (brushActor && brush)
+	{
+		Coords toWorld = brushActor->ToWorldAt(testLocation ? *testLocation : actor->Location(), testRotation ? *testRotation : actor->Rotation());
+		bool any = false;
+		vec3 lo(0.0f), hi(0.0f);
+		auto add = [&](const vec3& corner)
+		{
+			vec3 p = CoreCoords::TransformPoint(corner, toWorld);
+			lo = any ? vec3(std::min(lo.x, p.x), std::min(lo.y, p.y), std::min(lo.z, p.z)) : p;
+			hi = any ? vec3(std::max(hi.x, p.x), std::max(hi.y, p.y), std::max(hi.z, p.z)) : p;
+			any = true;
+		};
+		if (bExact.value_or(false) && brush->Polys)
+		{
+			for (const Poly& poly : brush->Polys->Polys)
+			{
+				for (const vec3& v : poly.Vertices)
+					add(v);
+			}
+		}
+		else
+		{
+			const BBox& box = brush->BoundingBox;
+			for (int i = 0; i < 8; i++)
+				add(vec3((i & 4) ? box.max.x : box.min.x, (i & 2) ? box.max.y : box.min.y, (i & 1) ? box.max.z : box.min.z));
+		}
+		MinVect = lo;
+		MaxVect = hi;
+		ReturnValue = any;
+		return;
+	}
 
 	// With a test place or rotation, as every script call gives, the
 	// original puts the actor there for the moment and takes its

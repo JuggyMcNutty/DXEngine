@@ -176,9 +176,10 @@ void NCanvas::DrawTile(UObject* Self, UObject* Tex, float XL, float YL, float U,
 
 	// As the original's execDrawTile (Engine.dll 0x10377ba0): no texture is
 	// logged and moves nothing; any other tile is drawn in any style but
-	// none, the canvas's DrawTile passing over one of no width or height,
-	// and moves CurX on by SpaceX and its width, and CurYL to the larger of
-	// it and its height, whatever its size, SpaceY no part of it
+	// none, at the canvas's Z (0x10377d2e), the canvas's DrawTile passing
+	// over one of no width or height, and moves CurX on by SpaceX and its
+	// width, and CurYL to the larger of it and its height, whatever its
+	// size, SpaceY no part of it
 	if (!Tex)
 	{
 		LogMessage("DrawTile: Missing Texture");
@@ -186,7 +187,7 @@ void NCanvas::DrawTile(UObject* Self, UObject* Tex, float XL, float YL, float U,
 	}
 
 	if (style != 0)
-		engine->render->DrawTile((UTexture*)Tex, orgX + curX, orgY + curY, XL, YL, U, V, UL, VL, 1.0f, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, { 0.0f }, CanvasTileFlags(style, noSmooth));
+		engine->render->DrawTile((UTexture*)Tex, orgX + curX, orgY + curY, XL, YL, U, V, UL, VL, SelfCanvas->Z(), { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, { 0.0f }, CanvasTileFlags(style, noSmooth));
 
 	curX = spaceX + curX + XL;
 	if (!(curYL >= YL))
@@ -214,8 +215,9 @@ void NCanvas::DrawTileClipped(UObject* Self, UObject* Tex, float XL, float YL, f
 	// not at least 0 made 0 with as much of the tile and its texels taken
 	// off, then at ClipX and ClipY, its texels in proportion, each in the
 	// original's float order (0x1037859d-0x10378655); drawn there in any
-	// style but none, CurX moved on by SpaceX and the cut width, and CurYL
-	// to the larger of it and the cut height
+	// style but none, at the canvas's Z (0x103786b8), CurX moved on by
+	// SpaceX and the cut width, and CurYL to the larger of it and the cut
+	// height
 	if (!Tex)
 	{
 		LogMessage("DrawTileClipped: Missing Texture");
@@ -254,7 +256,7 @@ void NCanvas::DrawTileClipped(UObject* Self, UObject* Tex, float XL, float YL, f
 	}
 
 	if (style != 0)
-		engine->render->DrawTile((UTexture*)Tex, orgX + curX, orgY + curY, XL, YL, U, V, UL, VL, 1.0f, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, { 0.0f }, CanvasTileFlags(style, noSmooth));
+		engine->render->DrawTile((UTexture*)Tex, orgX + curX, orgY + curY, XL, YL, U, V, UL, VL, SelfCanvas->Z(), { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, { 0.0f }, CanvasTileFlags(style, noSmooth));
 
 	curX = spaceX + curX + XL;
 	if (!(curYL >= YL))

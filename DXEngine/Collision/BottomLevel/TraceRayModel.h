@@ -8,19 +8,21 @@ public:
 	CollisionHitList Trace(UModel* model, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, bool visibilityOnly);
 	bool TraceAnyHit(UModel* model, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, bool visibilityOnly);
 
-	// Deus Ex: the original's line walk down a model's BSP (UModel::LineCheck's;
-	// dx-reverse-info engine-dll.md, traces). The segment from start to end is
-	// classified plane by plane, its near part first, down to a leaf; a leaf in
-	// solid space stops the line where that part began -- at the start, when
-	// the start lies in solid -- and credits the node whose plane the part
-	// crossed to get there, the root when none was. Gives whether it stopped,
-	// how far along the segment (0 to 1) and the node. extraNodeFlags as the
-	// original's caller passes them (NF_NotVisBlocking for a sight line); bit
-	// 0x10 lets a start in solid pass until the line has been in empty space.
-	static bool WalkSolid(UModel* model, const dvec3& start, const dvec3& end, uint8_t extraNodeFlags, double& fraction, BspNode*& crossed);
+	// Deus Ex: the original's line walk down a model's BSP (UModel::LineCheck's,
+	// Engine.dll 0x103f3560; dx-reverse-info engine-dll.md, traces). The
+	// segment from start to end is classified plane by plane, its near part
+	// first, down to a leaf, in the original's floats at the x87's precision
+	// in the tick it runs in (X87); a leaf in solid space stops the line where
+	// that part began -- at the start, when the start lies in solid -- and
+	// credits the node whose plane the part crossed to get there, the root
+	// when none was. Gives whether it stopped, the place it stopped, as the
+	// original's walk gives it, and the node. extraNodeFlags as the original's
+	// caller passes them (NF_NotVisBlocking for a sight line); bit 0x10 lets a
+	// start in solid pass until the line has been in empty space.
+	static bool WalkSolid(UModel* model, const vec3& start, const vec3& end, uint8_t extraNodeFlags, vec3& place, BspNode*& crossed);
 	// The same down a BSP of nodes alone: the level's with the movers filed
 	// into it (BrushTracker)
-	static bool WalkSolid(const Array<BspNode>& nodes, bool rootOutside, const dvec3& start, const dvec3& end, uint8_t extraNodeFlags, double& fraction, BspNode*& crossed);
+	static bool WalkSolid(const Array<BspNode>& nodes, bool rootOutside, const vec3& start, const vec3& end, uint8_t extraNodeFlags, vec3& place, BspNode*& crossed);
 
 	// Deus Ex: FastLineCheck's walk: whether the segment from start to end
 	// stays in empty space down the BSP, only NF_NotCsg asked, a node's side

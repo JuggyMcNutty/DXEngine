@@ -3,6 +3,7 @@
 #include "UGC.h"
 #include "Engine.h"
 #include "Render/RenderSubsystem.h"
+#include "Packages/Engine/UCanvas.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Resources/UFont.h"
 #include "Packages/Engine/Resources/UPalette.h"
@@ -734,8 +735,10 @@ void UGC::DrawTile(UTexture* tex, const Rectf& dest, const Rectf& src, const Col
 	if (tex->bMasked())
 		flags |= PF_Masked;
 
+	// At the canvas's Z, as the original's GC hands every tile to the
+	// canvas's DrawTile with it (XGC::DrawTile, Extension.dll 0x1002a820)
 	vec4 color(c.R / 255.0f, c.G / 255.0f, c.B / 255.0f, 1.0f/*c.A / 255.0f*/);
-	float Z = 1.0f;
+	float Z = engine->canvas ? engine->canvas->Z() : 1.0f;
 	vec4 fog(0.0f);
 
 	TextureInfo texinfo;
