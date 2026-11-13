@@ -234,8 +234,9 @@ Array<NetPackageMap::PackageInfo> NetBuildMasterMap(Package* level, UObject* gam
 {
 	Array<NetPackageMap::PackageInfo> packages;
 	AddMasterPackage(packages, level);
-	std::string gameEngine = engine->packages->GetIniValue("system", "Engine.Engine", "GameEngine", "Engine.GameEngine");
-	for (const std::string& name : engine->packages->GetIniValues("system", gameEngine, "ServerPackages"))
+	// The game engine's, as the Advanced Options may have left them
+	// (Engine::GameEngineList)
+	for (const std::string& name : engine->GameEngineList("ServerPackages"))
 	{
 		LogMessage("Server Package: " + name);
 		if (!engine->packages->HasPackage(name))

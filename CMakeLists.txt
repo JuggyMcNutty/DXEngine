@@ -758,6 +758,12 @@ set(DXCOMMON_SOURCES
 	DXEngine/UI/WidgetResourceData.h
 	DXEngine/UI/ErrorWindow/ErrorWindow.cpp
 	DXEngine/UI/ErrorWindow/ErrorWindow.h
+	DXEngine/UI/PropertyWindow/NativeConfigClasses.cpp
+	DXEngine/UI/PropertyWindow/NativeConfigClasses.h
+	DXEngine/UI/PropertyWindow/PropertyRows.cpp
+	DXEngine/UI/PropertyWindow/PropertyRows.h
+	DXEngine/UI/PropertyWindow/PropertyWindow.cpp
+	DXEngine/UI/PropertyWindow/PropertyWindow.h
 )
 
 set(DXCOMMON_WIN32_SOURCES
@@ -840,6 +846,7 @@ source_group("DXEngine\\RenderDevice/Software" REGULAR_EXPRESSION "${CMAKE_CURRE
 source_group("DXEngine\\Render" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/Render/.+")
 source_group("DXEngine\\UI" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/UI/.+")
 source_group("DXEngine\\UI\\ErrorWindow" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/UI/ErrorWindow/.+")
+source_group("DXEngine\\UI\\PropertyWindow" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/UI/PropertyWindow/.+")
 source_group("DXEngine\\Packages" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/Packages/.+")
 source_group("DXEngine\\Packages\\ConSys" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/Packages/ConSys/.+")
 source_group("DXEngine\\Packages\\ConSys\\Events" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/DXEngine/Packages/ConSys/Events/.+")

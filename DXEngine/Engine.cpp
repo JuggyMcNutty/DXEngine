@@ -62,6 +62,8 @@
 #include "Packages/DeusEx/UDeusExPlayer.h"
 #include "Packages/DeusEx/UDeusExSaveInfo.h"
 #include "ObjectTravelInfo.h"
+#include "UI/PropertyWindow/PropertyWindow.h"
+#include "UI/PropertyWindow/NativeConfigClasses.h"
 #include "Math/quaternion.h"
 #include "Math/FrustumPlanes.h"
 #include "GameWindow.h"
@@ -438,6 +440,10 @@ void Engine::Run()
 		// takes them between frames (bugs.md D.65)
 		if (dedicated)
 			ServerConsole::Get().Poll([this](const std::string& line) { RunTypedLine(line); });
+		// A dedicated server's Advanced Options and EDITACTOR's windows, whose
+		// events it takes itself, having no game window
+		if (dedicated && (AdvancedOptions || !ActorInspectors.empty()))
+			GameWindow::ProcessEvents();
 		if (quit)
 			break;
 
@@ -632,6 +638,9 @@ void Engine::Run()
 	CloseDemoDriver();
 	if (window)
 		window->UnlockCursor();
+	// The property windows gone before the config is written, their places
+	// in it, as the original's are written at its exit
+	ClosePropertyWindows();
 
 	LogMessage("Saving configurations...");
 	RestoreRunOnlySettings();
@@ -3208,11 +3217,11 @@ void Engine::Listen(const UnrealURL& url)
 	LevelInfo->URL.Port = port;
 
 	// The game engine's ServerActors -- in the section of the class
-	// [Engine.Engine] GameEngine names --, each a class and then its config
-	// values as Key=Value: the LAN beacon, the query answerer, the master
-	// servers' uplinks.
-	std::string gameEngine = packages->GetIniValue("system", "Engine.Engine", "GameEngine", "Engine.GameEngine");
-	for (const std::string& entry : packages->GetIniValues("system", gameEngine, "ServerActors"))
+	// [Engine.Engine] GameEngine names, or as the Advanced Options left them
+	// (GameEngineList) --, each a class and then its config values as
+	// Key=Value: the LAN beacon, the query answerer, the master servers'
+	// uplinks.
+	for (const std::string& entry : GameEngineList("ServerActors"))
 	{
 		Array<std::string> tokens;
 		for (size_t pos = 0; pos < entry.size();)
@@ -3561,6 +3570,14 @@ static bool IsClassNamed(const NameString& name, const std::string& qualified)
 		return true;
 	size_t dot = qualified.find_last_of('.');
 	return dot != std::string::npos && name == qualified.substr(dot + 1);
+}
+
+// The original's C++ class of a class's path, whose config properties no
+// package of the game's holds (NativeConfigClasses): the game engine's
+// ServerActors and ServerPackages, which DXEngine's GameEngine class has not
+static const NativeConfigClass* NativeClassOf(UClass* cls)
+{
+	return cls && cls->package ? FindNativeConfigClass(cls->package->GetPackageName().ToString() + "." + cls->Name.ToString()) : nullptr;
 }
 
 std::string Engine::ParseClassName(std::string className)
@@ -3942,10 +3959,7 @@ bool Engine::WindowExec(const std::string& line, ExecOutput& out)
 	}
 	if (ParseWord(line, "preferences", rest))
 	{
-		// The original's opens its Advanced Options window, the window out
-		// of full screen first, which DXEngine has not (the log says so;
-		// bugs.md D.81)
-		LogMessage("preferences: DXEngine has no Advanced Options window");
+		OpenAdvancedOptions(true);
 		return true;
 	}
 	return false;
@@ -4613,6 +4627,21 @@ bool Engine::ObjectExec(const std::string& line, ExecOutput& out)
 		}
 		if (!cls)
 		{
+			// The original's C++ classes no package of the game's holds --
+			// WinDrv.WindowsClient, Galaxy's, the render devices',
+			// IpDrv.TcpNetDriver, Core.System, Engine.Input --, by their path
+			// or their name alone, as its StaticExec finds them: their
+			// defaults, as the Advanced Options show and set them
+			// (NativeConfigClasses; bugs.md D.81)
+			if (const NativeConfigClass* native = FindNativeConfigClassAnyPackage(className.ToString()))
+			{
+				std::string text;
+				if (!set)
+					out.Log(GetNativeConfig(native, propertyToken, text) ? text : "Unrecognized property " + propertyToken);
+				else if (!SetNativeConfig(native, propertyToken, ArgsFrom(rest, 2)))
+					out.Log("Unrecognized property " + propertyToken);
+				return true;
+			}
 			out.Log("Unrecognized class " + classToken);
 			return true;
 		}
@@ -4628,7 +4657,11 @@ bool Engine::ObjectExec(const std::string& line, ExecOutput& out)
 			else if (IsClassNamed(className, client->Class))
 				out.Log(client->GetPropertyAsString(propertyName));
 			else if (propertyToken.empty() || !cls->FindProperty(propertyName))
-				out.Log("Unrecognized property " + propertyToken);
+			{
+				std::string text;
+				const NativeConfigClass* native = NativeClassOf(cls);
+				out.Log(native && !propertyToken.empty() && GetNativeConfig(native, propertyToken, text) ? text : "Unrecognized property " + propertyToken);
+			}
 			else
 				out.Log(ExportForGet(cls, propertyName));
 			return true;
@@ -4691,7 +4724,9 @@ bool Engine::ObjectExec(const std::string& line, ExecOutput& out)
 			UProperty* prop = propertyToken.empty() ? nullptr : cls->FindProperty(propertyName);
 			if (!prop)
 			{
-				out.Log("Unrecognized property " + propertyToken);
+				const NativeConfigClass* native = NativeClassOf(cls);
+				if (!native || propertyToken.empty() || !SetNativeConfig(native, propertyToken, value))
+					out.Log("Unrecognized property " + propertyToken);
 				return true;
 			}
 			try
@@ -5082,9 +5117,9 @@ bool Engine::ObjectExec(const std::string& line, ExecOutput& out)
 
 // The launcher's words, the executable's (DeusEx.exe's GLaunchExec,
 // 0x10913650; launch-flow.md, console commands): SHOWLOG, HIDELOG and
-// TAKEFOCUS; a dedicated server's PREFERENCES, its log window's Advanced
-// Options. The log window and the Advanced Options are the original's
-// alone (the log says so).
+// TAKEFOCUS; EDITACTOR, an actor's properties in a window; a dedicated
+// server's PREFERENCES, the Advanced Options (a client's is the viewport's,
+// WindowExec). The log window is the original's alone (the log says so).
 bool Engine::LauncherExec(const std::string& line, ExecOutput& out)
 {
 	std::string rest;
@@ -5101,12 +5136,285 @@ bool Engine::LauncherExec(const std::string& line, ExecOutput& out)
 	}
 	if (ParseWord(line, "hidelog", rest))
 		return true;
+	if (ParseWord(line, "editactor", rest))
+	{
+		EditActor(rest, out);
+		return true;
+	}
 	if (LaunchInfo.dedicatedServer && ParseWord(line, "preferences", rest))
 	{
-		LogMessage("preferences: DXEngine has no Advanced Options window");
+		OpenAdvancedOptions(false);
 		return true;
 	}
 	return false;
+}
+
+// The Advanced Options (bugs.md D.81): the original's viewport's PREFERENCES
+// (WinDrv.dll 0x11106d90, 0x11107296-0x111073a6) ends full screen first,
+// remembering that it did, and opens the window once -- owned by the game's
+// window, its caption Window.int's AdvancedOptionsTitle --, or shows the one
+// open again, and gives it the focus; its going takes the game back to full
+// screen where this PREFERENCES left it, by the viewport's TOGGLEFULLSCREEN
+// (UWindowsClient::NotifyDestroy, 0x11102ac0). A dedicated server's
+// (DeusEx.exe's GLaunchExec, 0x10913db4-0x10913f70) is owned by its log
+// window, which DXEngine has not: on its own. Its close box closes it,
+// nothing saved then, and a PREFERENCES after makes a new one, closed
+// (dx-reverse-info launch-flow.md, the Advanced Options).
+void Engine::OpenAdvancedOptions(bool fromViewport)
+{
+	if (!DisplayBackend::Get())
+	{
+		LogMessage("preferences: no display for the Advanced Options");
+		return;
+	}
+	if (fromViewport && window)
+	{
+		ConfigReturnFullscreen = false;
+		if (window->IsFullscreen())
+		{
+			EndFullscreen();
+			ConfigReturnFullscreen = true;
+		}
+	}
+	if (!AdvancedOptions)
+	{
+		std::string title = packages->Localize("Window", "General", "AdvancedOptionsTitle");
+		if (title.empty())
+			title = "Advanced Options";
+		std::vector<std::unique_ptr<PropertyRow>> rows = MakeAdvancedOptionsRows();
+		if (std::getenv("DXE_PROPERTY_DUMP"))
+			DumpPropertyRows(rows);
+		AdvancedOptions = new PropertyWindow(fromViewport ? window.get() : nullptr, title, "Preferences", std::move(rows));
+		AdvancedOptions->OnDestroyed = [this](PropertyWindow* closed) {
+			if (closed != AdvancedOptions)
+				return;
+			AdvancedOptions = nullptr;
+			if (ConfigReturnFullscreen && window && viewport && !ClosingPropertyWindows)
+			{
+				ConfigReturnFullscreen = false;
+				ExecOutput out;
+				ViewportExec("ToggleFullscreen", out);
+				for (const std::string& text : out.Lines)
+					LogMessage(text);
+			}
+		};
+	}
+	AdvancedOptions->Present();
+}
+
+// The original launcher's EDITACTOR (DeusEx.exe's GLaunchExec,
+// 0x109137d6-0x10913d69; bugs.md WIN.38): CLASS= names a class among those
+// loaded, by its name in any package (ParseObject, ANY_PACKAGE), None any
+// class; the actor of it nearest the viewport's player, in the player's level
+// and not being destroyed, the first of the nearest (the original's 999,999
+// units at most), its editable properties in a window of their own, a new
+// one each time, over the game's window (WObjectProperties, its place
+// EditActor's); "Actor not found" for none, "Missing class" for a class not
+// found or no CLASS=. With no player, the actors of every level at no
+// distance, the first found; a dedicated server's window, which the
+// original opens on the client's viewport it has not, a fault there, on its
+// own.
+void Engine::EditActor(const std::string& rest, ExecOutput& out)
+{
+	std::string className;
+	UClass* cls = nullptr;
+	bool found = StrTools::ue1_parse(rest, "CLASS=", className, 64);
+	if (found && !StrTools::equals_ignore_case(className, "None"))
+	{
+		try
+		{
+			cls = className.empty() ? nullptr : packages->FindClassAnyPackage(className);
+		}
+		catch (const std::exception&)
+		{
+			cls = nullptr;
+		}
+		found = cls != nullptr;
+	}
+	if (!found)
+	{
+		out.Log("Missing class");
+		return;
+	}
+
+	UPlayerPawn* player = viewport && !LaunchInfo.dedicatedServer ? viewport->Actor() : nullptr;
+	UActor* nearest = nullptr;
+	float nearestDistance = 999999.0f;
+	auto search = [&](ULevel* level) {
+		if (!level)
+			return;
+		for (UActor* actor : level->Actors)
+		{
+			if (!actor || actor->bDeleteMe() || !actor->IsA(cls))
+				continue;
+			float distance = player ? length(actor->Location() - player->Location()) : 0.0f;
+			if (distance < nearestDistance)
+			{
+				nearestDistance = distance;
+				nearest = actor;
+			}
+		}
+	};
+	if (player)
+	{
+		search(player->XLevel());
+	}
+	else
+	{
+		search(Level);
+		if (EntryLevel != Level)
+			search(EntryLevel);
+	}
+	if (!nearest)
+	{
+		out.Log("Actor not found");
+		return;
+	}
+	if (!DisplayBackend::Get())
+	{
+		LogMessage("editactor: no display for the actor's properties");
+		return;
+	}
+
+	// Window.int's PropSingle, "%s Properties", of the actor's class
+	std::string title = packages->Localize("Window", "General", "PropSingle");
+	if (title.empty())
+		title = "%s Properties";
+	size_t at = title.find("%s");
+	if (at != std::string::npos)
+		title.replace(at, 2, nearest->Class->Name.ToString());
+	std::vector<std::unique_ptr<PropertyRow>> rows = MakeObjectRows(nearest);
+	if (std::getenv("DXE_PROPERTY_DUMP"))
+		DumpPropertyRows(rows);
+	PropertyWindow* inspector = new PropertyWindow(LaunchInfo.dedicatedServer ? nullptr : window.get(), title, "EditActor", std::move(rows));
+	inspector->OnDestroyed = [this](PropertyWindow* closed) {
+		ActorInspectors.erase(std::remove(ActorInspectors.begin(), ActorInspectors.end(), closed), ActorInspectors.end());
+	};
+	ActorInspectors.push_back(inspector);
+	inspector->Present();
+}
+
+Array<std::string> Engine::GameEngineList(const std::string& key)
+{
+	auto it = GameEngineLists.find(key);
+	if (it != GameEngineLists.end())
+		return it->second;
+	std::string gameEngine = packages->GetIniValue("system", "Engine.Engine", "GameEngine", "Engine.GameEngine");
+	return packages->GetIniValues("system", gameEngine, key);
+}
+
+Array<std::string>& Engine::EditGameEngineList(const std::string& key)
+{
+	auto it = GameEngineLists.find(key);
+	if (it == GameEngineLists.end())
+		it = GameEngineLists.emplace(key, GameEngineList(key)).first;
+	return it->second;
+}
+
+// Every property window gone: at the exit, before the config is written
+void Engine::ClosePropertyWindows()
+{
+	ClosingPropertyWindows = true;
+	delete AdvancedOptions;
+	while (!ActorInspectors.empty())
+		delete ActorInspectors.back();
+	ClosingPropertyWindows = false;
+}
+
+// The engine's own object for the original's of the class, as SET finds the
+// client and the devices (IsClassNamed) by their own classes, and by the
+// classes the ini names for them -- GameRenderDevice's, AudioDevice's,
+// ViewportManager's: WinDrv.WindowsClient --, whose settings DXEngine keeps
+// in its objects' own sections; null for any other class, whose defaults
+// are its section of the config alone
+UObject* Engine::LiveSubsystem(const std::string& className)
+{
+	NameString name(className);
+	auto named = [&](const char* key) {
+		std::string value = packages->GetIniValue("system", "Engine.Engine", key);
+		return !value.empty() && StrTools::equals_ignore_case(value, className);
+	};
+	if (IsClassNamed(name, renderdev->Class) || named("GameRenderDevice"))
+		return renderdev;
+	if (IsClassNamed(name, audiodev->Class) || named("AudioDevice"))
+		return audiodev;
+	if (IsClassNamed(name, client->Class) || named("ViewportManager"))
+		return client;
+	return nullptr;
+}
+
+std::string Engine::GetLiveSubsystemProperty(UObject* subsystem, const std::string& propertyName, bool& known)
+{
+	NameString name(propertyName);
+	known = (subsystem == renderdev && renderdev->HasProperty(name)) || (subsystem == audiodev && audiodev->HasProperty(name)) || (subsystem == client && client->HasProperty(name));
+	return known ? subsystem->GetPropertyAsString(name) : std::string();
+}
+
+// As SET sets the client's and the devices' (ObjectExec): the object's value,
+// the client told of it (PostEditChange), the object's config saved, the
+// config cache flushed; false for a name the object has not
+bool Engine::SetLiveSubsystemProperty(UObject* subsystem, const std::string& propertyName, const std::string& value, bool flush)
+{
+	NameString name(propertyName);
+	if (subsystem == renderdev && renderdev->HasProperty(name))
+	{
+		renderdev->SetPropertyFromString(name, value);
+		renderdev->SaveConfig();
+	}
+	else if (subsystem == audiodev && audiodev->HasProperty(name))
+	{
+		audiodev->SetPropertyFromString(name, value);
+		audiodev->SaveConfig();
+	}
+	else if (subsystem == client && client->HasProperty(name))
+	{
+		client->SetPropertyFromString(name, value);
+		client->PostEditChange();
+		SaveClientConfig(false);
+	}
+	else
+	{
+		return false;
+	}
+	if (flush)
+		FlushConfig();
+	return true;
+}
+
+// As the original's GlobalSetProperty (Core.dll 0x101523a0), of any change to
+// a value: in every object of the class or a subclass, each then told of it
+// (PostEditChange), where immediate; then in the class's defaults, the
+// class's config saved, the config cache flushed -- not for an array button's
+// change, which the original's window makes in memory alone (save). The
+// Advanced Options' edit of a script class's element, struct member or
+// dynamic array; SET makes its own of a property's first element so
+// (ObjectExec).
+void Engine::GlobalChangeProperty(UClass* cls, bool immediate, const std::function<void(PropertyDataBlock&)>& change, bool save)
+{
+	if (immediate)
+	{
+		for (GCObject* gcObj : GC::GetObjects())
+		{
+			UObject* obj = dynamic_cast<UObject*>(gcObj);
+			if (!obj || obj == cls || AnyFlags(obj->Flags, ObjectFlags::EliminateObject) || obj->IsDefaultsObject())
+				continue;
+			for (UStruct* objClass = obj->Class; objClass; objClass = objClass->BaseStruct)
+			{
+				if (objClass == cls)
+				{
+					change(obj->PropertyData);
+					obj->PostEditChange();
+					break;
+				}
+			}
+		}
+	}
+	change(cls->PropertyData);
+	if (save)
+	{
+		cls->SaveConfig();
+		FlushConfig();
+	}
 }
 
 // The renderer's words (URender::Exec, Render.dll 0x10b147b0; bugs.md
@@ -5474,7 +5782,12 @@ void Engine::TickWindow()
 {
 	if (window)
 	{
-		if (viewport->bShowWindowsMouse() && viewport->bWindowsMouseAvailable())
+		// The pointer the game's while its window has the focus; let go while
+		// a property window has it, as the original's window lets the mouse's
+		// capture go as it loses the focus (WinDrv.dll 0x1110a0a3), so the
+		// Advanced Options and EDITACTOR's windows take the pointer
+		bool propertyWindowActive = !GameWindowActive && (AdvancedOptions || !ActorInspectors.empty());
+		if ((viewport->bShowWindowsMouse() && viewport->bWindowsMouseAvailable()) || propertyWindowActive)
 			window->UnlockCursor();
 		else
 			window->LockCursor();
@@ -5778,11 +6091,13 @@ void Engine::OnWindowClose()
 void Engine::OnWindowActivated()
 {
 	//SetPause(false);
+	GameWindowActive = true;
 }
 
 void Engine::OnWindowDeactivated()
 {
 	//SetPause(true);
+	GameWindowActive = false;
 	if (dxRootWindow)
 		dxRootWindow->ForgetKeys();
 }

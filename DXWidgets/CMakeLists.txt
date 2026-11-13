@@ -104,6 +104,7 @@ set(DXWIDGETS_SOURCES
 	src/widgets/scrollbar/scrollbar.cpp
 	src/widgets/scrollwidget/scrollwidget.cpp
 	src/widgets/slider/slider.cpp
+	src/widgets/colorpicker/colorpicker.cpp
 	src/widgets/statusbar/statusbar.cpp
 	src/widgets/textedit/textedit.cpp
 	src/widgets/toolbar/toolbar.cpp
@@ -154,6 +155,7 @@ set(DXWIDGETS_INCLUDES
 	include/dxwidgets/widgets/scrollbar/scrollbar.h
 	include/dxwidgets/widgets/scrollwidget/scrollwidget.h
 	include/dxwidgets/widgets/slider/slider.h
+	include/dxwidgets/widgets/colorpicker/colorpicker.h
 	include/dxwidgets/widgets/statusbar/statusbar.h
 	include/dxwidgets/widgets/textedit/textedit.h
 	include/dxwidgets/widgets/toolbar/toolbar.h
@@ -268,6 +270,7 @@ source_group("src\\widgets\\radiobuttonlabel" REGULAR_EXPRESSION "${CMAKE_CURREN
 source_group("src\\widgets\\dropdown" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/dropdown/.+")
 source_group("src\\widgets\\listview" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/listview/.+")
 source_group("src\\widgets\\tabwidget" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/tabwidget/.+")
+source_group("src\\widgets\\colorpicker" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/colorpicker/.+")
 source_group("src\\window" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/src/window/.+")
 source_group("src\\window\\stub" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/src/window/stub/.+")
 source_group("src\\window\\win32" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/src/window/win32/.+")

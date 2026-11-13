@@ -3790,7 +3790,15 @@ The engine's smaller words are the original's, none logged as unknown
 (`EngineWordsConsole` from the menu map; `ViewWordsConsole`): `MEMSTAT`'s
 two lines of the memory available, as a 32-bit process sees it; `EXIT`'s
 "Closing by request"; `GET` and `SET` of a class not there, "Unrecognized
-class", and of a name the class has not, "Unrecognized property"; `GTIME`'s
+class", and of a name the class has not, "Unrecognized property"; `GET` and
+`SET` of the original's C++ classes, which no package holds, by their paths or
+names (`WinDrv.WindowsClient`, `IpDrv.TcpNetDriver`, `Galaxy.GalaxyAudioSubsystem`,
+the render devices', `Core.System`, `Engine.Input`'s keys, the game engine's
+`ServerActors` and `ServerPackages`), their defaults as the original's answer and
+set them -- a dynamic array `("a","b")` --, the client's and the devices' those of
+DXEngine's objects for them (`PrefsConsole`'s `GET`s of `WinDrv.WindowsClient`
+`ScaleXYZ`, `IpDrv.TcpNetDriver` `MaxClientRate` and `Core.System` `Paths` alike in
+both engines); `GTIME`'s
 line to the log; `MEM`, whose allocator dump the game's build leaves out;
 `OBJ MARK` and `MARKCHECK` to the log, `OBJ CLASSES`'s tree and `OBJ LIST`'s
 tables, of DXEngine's own objects; `CRACKURL`'s parts of a URL, its `String`
@@ -3845,8 +3853,18 @@ format's six lines and a `Test.wav` of 8 kHz; `ViewWordsConsole` shot 8: the
 channels at the original's places, each ambient sound's figures alike). A
 capture device that will not open is logged and nothing recorded, where the
 original's failing `waveInOpen` ends it in a critical error; a `RECORDSOUND`
-while one records starts over; with `--userdir`, `Test.wav` is written there. Differs (bugs.md WIN.38): the
-original launcher's `EDITACTOR` is taken by nothing. By choice, `DUMPCACHE`
+while one records starts over; with `--userdir`, `Test.wav` is written there. The
+original launcher's `EDITACTOR` is the original's: `CLASS=` names a loaded class,
+`None` any, and the actor of it nearest the player, in the player's level, opens
+in a window of its own, a new one each time, "<its class> Properties" -- its
+properties by category, the editable ones in theirs and every other under
+`None`, and by name, edited in place as the Advanced Options' are, each edit
+the actor's at once, an object reference with the original's Clear, which makes
+it None, and its Use and "...", which take UnrealEd's selection and browser and
+so nothing in the game --; no `CLASS=` or a class not loaded answers "Missing
+class", a class no actor is "Actor not found" (`EditActorConsole` from the menu
+map: the answers alike, two windows "JCDentonMale Properties" of 22 categories
+in the original's order, `None`'s 521 rows in both engines). By choice, `DUMPCACHE`
 says to the log that DXEngine has no memory cache, where the original's
 lists its items; `OBJ DEPENDENCIES` heads an object's references with its
 own name, where the original's heads them with the first reference's; and
@@ -3997,9 +4015,38 @@ The window's words are the original's: `GETCOLORDEPTHS` answers "16 32",
 `GETCURRENTRENDERDEVICE` the device class the ini names (its
 `WindowedRenderDevice` with `-nohard`), and `EXEC` of a file not there
 Core's "Can't find file" to the caller (`WindowWordsConsole`, D3D: every line
-alike in both engines). Differs (bugs.md D.81): `PREFERENCES` opens
-nothing: the original's opens its Advanced Options window, out of full
-screen, which DXEngine has not (the log says so). By choice:
+alike in both engines). `PREFERENCES` opens the original's Advanced Options,
+out of full screen first and back into it as the window goes, one window at a
+time: the `.int` files' Preferences lines as its tree, each caption once and
+by caption, a class that does not load `<class> (failed load)`, a class's
+config properties in its line's category by name, each with the original's
+editor -- an edit box committed at Enter or as another row is selected, a
+combo, a byte's track bar, an array's buttons, Reset To Defaults --; an edit
+the class's defaults' and its objects' at once, its section saved whole; an
+array's Add, Insert, Delete and Empty its defaults' in memory, nothing saved;
+Reset To Defaults copying the section from `Default.ini`, every category's, the
+file written at once; Up, Down, Left and Right moving the selection, as a list
+box's, no key opening a row; the Editor item's pages UnrealEd's settings, the
+editor's `EditorEngine` loaded from `Editor.u` for them, as the owner ruled,
+its undo buffer a stand-in of no object; the window's place kept in
+`[WindowPositions]`, at the screen's corner at first (`PrefsConsole`: every
+row's name, value, editor and buttons by `DXE_PROPERTY_DUMP` against the
+original's window walked by posted clicks, each category's alike, Rendering's
+two `(failed load)` drivers among them, the static arrays opened in DXEngine's
+alone; an edit at Enter, one left without it, Reset To Defaults and `Paths`'
+Add, Insert, Delete and Empty by a test hook against the original's by posted
+clicks, the `GET`s and the ini alike; full screen by reading). A combo's pick commits at once, as the window's other
+editors do; the original's could not be seen picked under Wine (its list opens
+to no posted click), so this one is by reading. An edit of
+`Engine.GameEngine`'s `ServerActors` or `ServerPackages` changes the running
+game engine's lists too, as the original's changes its engine's in memory. The
+client's and the devices' settings are DXEngine's objects', in their own
+sections of its ini ([ENGINE.md](ENGINE.md#gameplay)). By choice: the window is
+DXWidgets', in its theme; a colour's "..." opens DXWidgets' colour chooser --
+red, green and blue by sliders and their numbers, the colour and its text, OK
+and Cancel -- over the window, where the original's opens Windows' own; a combo
+whose value is none of its choices shows the value as an item of its own,
+selected, where the original's opens on none. By choice:
 `GETCURRENTCOLORDEPTH` answers 32, the depth DXEngine draws in, where the
 original's answers the viewport's, 16 full screen at the stock
 `FullscreenColorBits`; `-nommx`, `-nokni` and `-nok6` do nothing, where
@@ -4007,9 +4054,12 @@ the original's clear the processor's features for Core and Galaxy, whose
 mix without MMX takes its plain routines, 64 levels of gain and one
 interleaved buffer; the mouse is held in relative mode throughout, where
 the original's lets it go while the game is paused, a menu is up or the
-system's pointer shows; the hat's codes 0xF0 to 0xF3 are named `JoyPovUp`
-to `JoyPovRight`, the original's `UnknownF0` to `UnknownF3`, for the
-launcher's pad preset.
+system's pointer shows. The hat's codes 0xF0 to 0xF3 are named `JoyPovUp`
+to `JoyPovRight`, as the original's input names them from Actor's
+`EInputKey` (`UInput::StaticInitInput`, Engine.dll `0x103930c0`; the stock
+`DefUser.ini`'s keys, and the Advanced Options' Raw Key Bindings in both
+engines), `Console.uc`'s own enum alone naming them `UnknownF0` to
+`UnknownF3`.
 
 ## Mods
 

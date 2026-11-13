@@ -274,6 +274,19 @@ void X11DisplayWindow::SetClientFrame(const Rect& box)
 	}
 
 	XConfigureWindow(display, window, mask, &changes);
+
+	// A place asked for is the program's (ICCCM's USPosition and
+	// PPosition): a window manager keeps it for a window it maps, where it
+	// would place one itself (the property windows at the screen's corner,
+	// as Windows keeps the original's)
+	XSizeHints* size_hints = XAllocSizeHints();
+	long user_hints;
+	XGetWMNormalHints(display, window, size_hints, &user_hints);
+	size_hints->flags |= USPosition | PPosition;
+	size_hints->x = x;
+	size_hints->y = y;
+	XSetWMNormalHints(display, window, size_hints);
+	XFree(size_hints);
 }
 
 void X11DisplayWindow::SetClientSize(const Size& size)

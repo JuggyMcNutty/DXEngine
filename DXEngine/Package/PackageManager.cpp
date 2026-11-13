@@ -1171,6 +1171,14 @@ void PackageManager::ResetIniSection(NameString iniName, const NameString& secti
 	}
 }
 
+Array<std::pair<std::string, std::string>> PackageManager::GetDefaultIniKeyValues(NameString iniName, const NameString& sectionName)
+{
+	IniFile* defaults = iniName == "system" ? defaultIniFile.get() : iniName == "user" ? defaultUserFile.get() : nullptr;
+	if (!defaults)
+		return {};
+	return defaults->GetKeyValues(sectionName);
+}
+
 void PackageManager::SetIniValue(NameString iniName, const NameString& sectionName, const NameString& keyName, const std::string& newValue)
 {
 	LoadIniFile(iniName)->SetValue(sectionName, keyName, newValue);
@@ -1406,6 +1414,22 @@ void PackageManager::LoadIntFiles()
 
 						registerObject(cls, std::move(obj));
 					}
+				}
+
+				// Its Preferences lines, each Caption=, Parent=, Class=,
+				// Category= and Immediate= (ParseUBOOL: On, True or 1), as the
+				// original's CacheDrivers parses them (Core.dll 0x10158900)
+				for (const std::string& value : intFile->GetValues("Public", "Preferences"))
+				{
+					auto desc = ParseIntPublicValue(value);
+					IntPreferences pref;
+					pref.Caption = desc["Caption"];
+					pref.Parent = desc["Parent"];
+					pref.Class = desc["Class"];
+					pref.Category = desc["Category"];
+					const std::string& immediate = desc["Immediate"];
+					pref.Immediate = StrTools::equals_ignore_case(immediate, "True") || StrTools::equals_ignore_case(immediate, "On") || immediate == "1";
+					IntPreferencesList.push_back(std::move(pref));
 				}
 
 				intFiles[NameString::Folded(intFileName.stem().string())].push_back(std::move(intFile));
@@ -1781,6 +1805,13 @@ void PackageManager::RegisterNativeClasses()
 	RegisterNativeClass<UConversation>(conSysPackage, "Conversation", "ConObject");
 	RegisterNativeClass<UConversationList>(conSysPackage, "ConversationList", "ConObject");
 	RegisterNativeClass<UConversationMissionList>(conSysPackage, "ConversationMissionList", "ConObject");
+
+	// Editor.dll's C++ alone, which Editor.u imports and does not export:
+	// EditorEngine's undo buffer, so that the class loads for its config,
+	// the Advanced Options' Editor pages, as the original's loads it with
+	// Editor.dll (bugs.md D.81, as the owner ruled). None is ever made.
+	NameString editorPackage = "Editor";
+	RegisterNativeClass<UObject>(editorPackage, "TransBuffer", "Object");
 }
 
 template<typename T>

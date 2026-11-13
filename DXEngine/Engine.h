@@ -64,6 +64,7 @@ class NetConnection;
 class NetDemoDriver;
 class NetDemoPendingLevel;
 class NetNotify;
+class PropertyWindow;
 struct TextureInfo;
 struct SceneNode;
 struct SurfaceFacet;
@@ -345,6 +346,40 @@ public:
 	void CloseWindow();
 	void TickWindow();
 
+	// The original's property windows (bugs.md D.81, WIN.38): the Advanced
+	// Options PREFERENCES opens, one at a time, from the viewport (its full
+	// screen ended first) or a dedicated server; EDITACTOR's inspectors, a
+	// new one each time. Each clears its pointer here as it goes.
+	PropertyWindow* AdvancedOptions = nullptr;
+	std::vector<PropertyWindow*> ActorInspectors;
+	// The viewport's PREFERENCES ended full screen: the Advanced Options'
+	// going takes the game back to it
+	bool ConfigReturnFullscreen = false;
+	bool ClosingPropertyWindows = false;
+	// Whether the game's window has the focus (OnWindowActivated)
+	bool GameWindowActive = true;
+	void OpenAdvancedOptions(bool fromViewport);
+	void EditActor(const std::string& rest, ExecOutput& out);
+	void ClosePropertyWindows();
+	// The engine's own object standing in for the original's of a class --
+	// the client, the audio device, the render device --, its value of a
+	// property as GET answers it, a value set as SET sets it, saved; null,
+	// unknown or false for any other
+	UObject* LiveSubsystem(const std::string& className);
+	std::string GetLiveSubsystemProperty(UObject* subsystem, const std::string& propertyName, bool& known);
+	bool SetLiveSubsystemProperty(UObject* subsystem, const std::string& propertyName, const std::string& value, bool flush = true);
+	// The original's GlobalSetProperty of any change to a script class's
+	// value: in every object of the class where immediate, in its defaults,
+	// its config saved
+	void GlobalChangeProperty(UClass* cls, bool immediate, const std::function<void(PropertyDataBlock&)>& change, bool save = true);
+	// The running game engine's ServerActors and ServerPackages: its class's
+	// section's, as the original's engine reads its lists as it starts, or
+	// the lists an Advanced Options edit of Engine.GameEngine's left it, as
+	// the original's edit changes its engine's in memory (EditGameEngineList,
+	// made from the section at the first edit; GameEngineLists)
+	Array<std::string> GameEngineList(const std::string& key);
+	Array<std::string>& EditGameEngineList(const std::string& key);
+
 	// The render device the run draws with (ENGINE.md, rendering): -nohard's
 	// software device, as the original's; else Settings.json's Type where
 	// it names one; else the device the game's ini names (GameRenderDevice):
@@ -502,6 +537,9 @@ public:
 	};
 	std::map<std::string, std::string, NameLess> keybindings;
 	std::map<std::string, std::string, NameLess> inputAliases;
+	// The running game engine's lists an Advanced Options edit left it, by
+	// their names (GameEngineList)
+	std::map<std::string, Array<std::string>, NameLess> GameEngineLists;
 	static const char* keynames[256];
 
 	std::map<std::string, EInputKey> activeInputButtons;

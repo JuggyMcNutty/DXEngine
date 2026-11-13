@@ -21,6 +21,21 @@ struct IntObject
 	std::string Description;
 };
 
+// A Preferences line of a .int file's [Public] section: the Advanced
+// Options' tree (bugs.md D.81). Every line kept, in the order the files are
+// read and each file's lines, its duplicates too (another file's
+// "Rendering"), as the original's CacheDrivers keeps them (Core.dll
+// 0x10158900); GetPreferences hands a parent's lines in that order
+// (0x101594a0), the window showing each caption once.
+struct IntPreferences
+{
+	std::string Caption;
+	std::string Parent;
+	std::string Class;
+	std::string Category;
+	bool Immediate = false;
+};
+
 struct NativeClass
 {
 	NameString Package;
@@ -174,6 +189,10 @@ public:
 	bool FindLocalized(NameString packageName, const NameString& sectionName, const NameString& keyName, std::string& value);
 
 	Array<IntObject>& GetIntObjects(const NameString& metaclass);
+	const Array<IntPreferences>& GetIntPreferences() const { return IntPreferencesList; }
+	// A section of Default.ini (system) or DefUser.ini (user), each key and
+	// its value, as ResetIniSection copies it
+	Array<std::pair<std::string, std::string>> GetDefaultIniKeyValues(NameString iniName, const NameString& sectionName);
 	const Array<std::string>& GetMaps() const { return maps; }
 	const Array<std::string>& GetMapFolders() const { return mapFolders; }
 
@@ -235,6 +254,7 @@ private:
 	std::map<NameString, Package*> saveInfos;
 
 	std::map<NameString, Array<IntObject>> IntObjects;
+	Array<IntPreferences> IntPreferencesList;
 
 	std::unique_ptr<IniFile> defaultIniFile;  // Holds Default.ini
 	std::unique_ptr<IniFile> defaultUserFile; // Holds DefUser.ini
