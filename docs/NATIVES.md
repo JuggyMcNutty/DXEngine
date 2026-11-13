@@ -4031,13 +4031,14 @@ editor's `EditorEngine` loaded from `Editor.u` for them, as the owner ruled,
 its undo buffer a stand-in of no object; the window's place kept in
 `[WindowPositions]`, at the screen's corner at first (`PrefsConsole`: every
 row's name, value, editor and buttons by `DXE_PROPERTY_DUMP` against the
-original's window walked by posted clicks, each category's alike, Rendering's
-two `(failed load)` drivers among them, the static arrays opened in DXEngine's
-alone; an edit at Enter, one left without it, Reset To Defaults and `Paths`'
-Add, Insert, Delete and Empty by a test hook against the original's by posted
-clicks, the `GET`s and the ini alike; full screen by reading). A combo's pick commits at once, as the window's other
-editors do; the original's could not be seen picked under Wine (its list opens
-to no posted click), so this one is by reading. An edit of
+original's window walked by `prefclick.exe` in Wine, each category's alike,
+Rendering's two `(failed load)` drivers among them, the static arrays opened in
+DXEngine's alone; an edit at Enter, one left without it, Reset To Defaults and
+`Paths`' Add, Insert, Delete and Empty by a test hook against the original's by
+`prefclick.exe`, the `GET`s and the ini alike; full screen by reading). A combo's
+pick commits at once, as the window's other editors do; the original's could not
+be seen picked under Wine (its list opens to no click `SendInput` puts in, and a
+pick's messages sent do not commit), so this one is by reading. An edit of
 `Engine.GameEngine`'s `ServerActors` or `ServerPackages` changes the running
 game engine's lists too, as the original's changes its engine's in memory. The
 client's and the devices' settings are DXEngine's objects', in their own
