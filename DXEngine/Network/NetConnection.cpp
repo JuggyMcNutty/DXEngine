@@ -8,6 +8,7 @@
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Utils/Logger.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 
 NetOutBunch::NetOutBunch(NetChannel* channel, bool close) :
@@ -37,7 +38,6 @@ NetConnection::NetConnection(NetDriver* driver, uint32_t remoteAddr, int remoteP
 	LastSendTime = Driver->Time;
 	LastTickTime = Driver->Time;
 	StatUpdateTime = Driver->Time;
-	LastTime = Driver->Time;
 	InitOut();
 }
 
@@ -367,11 +367,18 @@ void NetConnection::FlushNet()
 
 void NetConnection::Tick()
 {
-	// The connection's frame time, the last and its average each second
-	// (Engine.dll 0x10404c03-0x10404c69).
-	FrameTime = Driver->Time - LastTime;
+	// The connection's frame time, the last and its average each second, on
+	// the machine's clock, seconds since it started, as the original's
+	// appSeconds (Engine.dll 0x10404bb8-0x10404c69), from a last time of 0:
+	// the first frame time is the clock's whole count, half of which the
+	// lag of each ack taken before the next tick loses (0x10403240), so the
+	// first stats period's lag, its sum begun at 9999, is below 0 on a
+	// machine up more than twice that many seconds -- no alert for a player
+	// in by then -- and hundreds of seconds on one up less.
+	double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+	FrameTime = now - LastTime;
 	CumulativeTime += FrameTime;
-	LastTime = Driver->Time;
+	LastTime = now;
 	CountedFrames++;
 	if (CumulativeTime > 1.0)
 	{

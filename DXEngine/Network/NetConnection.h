@@ -164,12 +164,13 @@ public:
 	int OutAckPacketId = -1;
 
 	// The lag of the last stats period, the mean of its acks' round trips
-	// less half the frame time, BestLag the same: what GETPING answers
-	// 1 s as the connection is made, as the original's constructor sets it
-	// (Engine.dll 0x104015ee), so GETPING answers 1000 until its first
-	// period
-	float BestLag = 1.0f;
-	float AvgLag = 1.0f;
+	// less half the frame time, BestLag the same: what GETPING answers,
+	// 9999 s as the connection is made, as the original's constructor sets
+	// both (Engine.dll 0x104015f8, 0x104015fe; its 1 s at 0x104015ee is the
+	// stats period's length), so GETPING answers 9999000 until its first
+	// period ends
+	float BestLag = 9999.0f;
+	float AvgLag = 9999.0f;
 	// The incoming and outgoing packets lost in the stats period, in
 	// percent (the original's InLoss and OutLoss): GETLOSS answers InLoss
 	float InLoss = 0.0f;
@@ -178,8 +179,8 @@ public:
 	int InPacketsLost = 0;
 	int OutPacketsCounted = 0;
 	int OutPacketsLost = 0;
-	// The time between this connection's last two ticks, and its average
-	// over a second
+	// The time between this connection's last two ticks on the machine's
+	// clock, and its average over a second
 	double FrameTime = 0.0;
 	double AverageFrameTime = 0.0;
 
@@ -214,6 +215,8 @@ private:
 	double OutLagTime[256] = {};
 	int OutLagPacketId[256] = {};
 	double StatUpdateTime = 0.0;
+	// The machine's clock at the last tick: 0 until the first, which the
+	// original's constructor leaves it (Engine.dll 0x10401490)
 	double LastTime = 0.0;
 	double CumulativeTime = 0.0;
 	int CountedFrames = 0;

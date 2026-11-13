@@ -4265,8 +4265,9 @@ Matches the original's client and server
 joining and playing, listen and dedicated servers, replication with the
 original's native lists, a simulated proxy's `Physics`, `Acceleration` and
 `bBounce` in its first bunch alone whatever its `bSimFall` (`SimFallServer`:
-the original's server's change of a `CapSimFall`'s `Physics` every 2 s
-sent a DXEngine client never, its first bunch's alone), what each client
+each engine's server's change of a `CapSimFall`'s `Physics` every 2 s sent
+the other's client never, its first bunch's alone, where a DXEngine server
+before the fix sent every change), what each client
 is sent picked from where its view is and, every other tick, from where it
 will be 0.9 s or 0.4 s on, short of the world past the nodes that do not
 block sight (read: Engine.dll `0x10362f04`, `0x103a37d8`), a struct's
@@ -4292,9 +4293,7 @@ as client and as server: `ServeConsole`, `JoinConsole`, `RejoinConsole`,
 `PickJoinConsole`, `AskServer` with `AskJoinConsole`, `AnimEndServeConsole`
 with `AnimEndJoinConsole`, `ViewServeConsole` with `ViewJoinConsole`,
 `PauseServeConsole` with `JoinConsole`, `UnpackServeConsole` with
-`UnpackJoinConsole`. Differs (bugs.md NET.38): a DXEngine server sends no
-client `SimFallServer`'s `CapSimFall`, hidden and always relevant, a
-simulated proxy with `bSimFall`, which the original's server sends.
+`UnpackJoinConsole`.
 DXEngine joins live
 public servers, the mods they run included (MTL, ANNA, CDX, DXAG, SG), and
 stays in. A replicated string goes as the original's does, 16-bit when a
@@ -4362,18 +4361,25 @@ client: the connection closed, the client back on Entry by
   logged (read: IpDrv.dll `0x1070a440`); a pawn's `GETPING` and `GETLOSS` ask its own player, as the original's:
   on a server a remote player's connection answers its lag of the last
   second in ms -- the mean of its acks' round trips less half the
-  connection's last frame time, the first second's sum begun at 9999 as the
-  original's constructor begins it (read: Engine.dll `0x10403240`,
-  `0x10404dc6`) -- and its incoming packet loss in percent, each after a
-  blank, which the player's replication info takes for the scoreboard's ping
-  and a server's GameSpy answers, and a local player's viewport `0` and no
-  `GETLOSS` (`WordsServer` with `PingJoinConsole`, each engine the server: the
-  remote player's ping some 90 and loss ` 0`, a client's own `GETPING` `0`
-  and `GETLOSS` nothing, in both engines); and each second sets the player's
+  connection's last frame time on the machine's clock, 9999 s until the
+  first second ends, that second's sum begun at 9999, as the original's
+  constructor begins them, and the connection's first frame time the
+  clock's whole count since the machine started, so the first second's lag
+  is below 0 on a machine up more than twice 9999 s (read: Engine.dll
+  `0x10403240`, `0x10404dc6`, `0x10404bb8`, `0x104015f8`; `AlertServer`,
+  each engine the server: ` 9999000` as the player joins, then below 0,
+  where the build before answered ` 1000`, then some ` 500000`) -- and its
+  incoming packet loss in percent, each after a blank, which the player's
+  replication info takes for the scoreboard's ping and a server's GameSpy
+  answers, and a local player's viewport `0` and no `GETLOSS`
+  (`WordsServer` with `PingJoinConsole`, each engine the server: the remote
+  player's ping some 90 and loss ` 0`, a client's own `GETPING` `0` and
+  `GETLOSS` nothing, in both engines); and each second sets the player's
   `bBadConnectionAlert`, which no stock script reads, by the original's test
-  (read: `0x10404e1c`). Differs (bugs.md NET.39): the alert is on for a
-  player's first second in the game, where the original's is off from its
-  first half second (`AlertServer`).
+  (read: `0x10404e1c`): off from the player's first half second in the game
+  on a machine up more than twice 9999 s, in both engines (`AlertServer`,
+  each engine the server, the machine up 12 hours; the build before had it
+  on for the first second).
 - **The challenge's check**: a login whose answer to the challenge is wrong
   is refused, by choice, where the original's server compares the answer
   with whether the right one is 0, a slip, and so refuses only a missing
