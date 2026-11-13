@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Math/vec.h"
+#include "Math/coords.h"
 #include "LightActorTree.h"
 #include "LightmapBuilder.h"
 #include "FogmapBuilder.h"
@@ -36,6 +37,20 @@ struct LightmapTexture
 
 	// Its place in a shared page (LightmapAtlas)
 	LightmapAtlas::Place AtlasPlace;
+
+	// A mover's map, but a bDynamicLightMover's: where its static map was
+	// built, which it keeps as the mover moves and turns, and the light
+	// system's flush it was built after; and where the shape of each of its
+	// animating lights whose shape holds still was first worked out, by the
+	// light's place in the map's list (LightSystem::BuildKeptMoverMap)
+	Coords StaticCoords;
+	int StaticFlush = -1;
+	struct ShapePlace
+	{
+		int LightIndex;
+		Coords Place;
+	};
+	Array<ShapePlace> ShapePlaces;
 };
 
 class VertexLight
@@ -129,6 +144,12 @@ public:
 
 	void OnMapLoaded();
 
+	// The original's UEngine::Flush, FLUSH's and BRIGHTNESS's, empties the
+	// memory cache its light maps are kept in (Engine.dll 0x10380cf0): a
+	// mover's map is built again where the mover is when it is next drawn
+	// (GetLightmap); the level's surfaces' maps would be built the same
+	void Flush() { FlushCount++; }
+
 	void BeginFrame();
 	void UpdateLightList(UActor* actor);
 
@@ -172,6 +193,7 @@ public:
 
 private:
 	TextureInfo GetLightmap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor, const vec3& worldLocation, float radius, UMover* mover, bool specialLit);
+	void BuildKeptMoverMap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor, LightmapTexture& map, int lastStaticUpdate);
 	TextureInfo GetFogmap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor);
 	void CheckLight(UActor* light);
 
@@ -218,6 +240,7 @@ private:
 	int FrameCounter = 0;
 	int LightmapCheckCounter = 0;
 	int NextMoverID = 1;
+	int FlushCount = 0;
 
 	float AmbientGlowTime = 0.0f;
 	float AmbientGlowAmount = 0.0f;
@@ -227,6 +250,17 @@ private:
 
 	Array<UActor*> TempDynLightList;
 	Array<int> TempAnimatedIndexList;
+	// A kept mover map's animating lights whose shape changes, and those whose
+	// shape holds still by the place each was first worked out at
+	// (BuildKeptMoverMap)
+	Array<int> TempChangingIndexList;
+	struct PlaceGroup
+	{
+		Coords Place;
+		Array<int> Lights;
+	};
+	Array<PlaceGroup> TempPlaces;
+	Array<UActor*> TempNoLights;
 	LightActorTree LightTree;
 
 	// What the light tree was last built from: each light, where it is and

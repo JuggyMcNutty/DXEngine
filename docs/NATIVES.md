@@ -751,11 +751,13 @@ one behind nearer geometry, on a surface in view, counts. The game's go
 when not drawn for a second, some 20 s after they land (`DeusExDecal`). A
 surface's decals are drawn in the order the original's `AttachDecal` files
 them, a new one before the first of its texture, and one whose texture is
-`None` in the level's `DefaultTexture` -- no stock decal's. Differs
-(bugs.md REN.62): a decal on a node the original's walk leaves out of its
-saved polygons can count as drawn (`DecalSeenConsole`: of 29 marks the
-eye's line to is blocked, on the sea floor past the dock, 23 counted, the
-original's 15 among them, where the build before counted none). Differs by choice:
+`None` in the level's `DefaultTexture` -- no stock decal's.
+`DecalSeenConsole` at 1024x768: of the 29 marks the eye's line to is
+blocked, on the sea floor past the dock, the same 23 counted in both
+engines, those on the sea floor's polygon that shows beside the dock; at
+16:9 DXEngine counts 8 more, which lie below the original's frame and
+inside DXEngine's taller one ([the view's width](#the-views-width)).
+Differs by choice:
 
 - **One span buffer** for the frame, where the original keeps one per zone.
   A buffer per zone would change no test in 15,500 at the starts of Liberty
@@ -1267,18 +1269,41 @@ lights a square, and a non-incidence or shell light lights none of its far
 band past the last edge. `LightConsole` with `Effect=17 Spawn=300 View=600`,
 a cylinder lamp 300 units over Liberty Island's dock, at 1024x768: the
 square in both engines, at 1.005 of D3DDrv's frame, where a disc of the
-light's radius came to 1.345. A mover's polygons are lit where the mover is,
-as the original's brush tracker files them into the level ([the movers in
-the
+light's radius came to 1.345. A mover's polygons are lit where the
+original's brush tracker files them into the level ([the movers in the
 BSP](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces)):
 its static lights through the shadows raytraced at its `BrushRaytraceKey`,
-the moving ones over it there, its map built again when it moves or turns,
 each fragment the tracker filed with the ambient light of its node's zone
-([draw order and movers](#draw-order-and-movers)). `MoverLightConsole` at
-1024x768, Liberty Island's `DeusExMover10` moved 100 units off its place:
-the door at 1.003 of the original's frame under its own lights and 1.000
-with a lamp 48 units before it, where it was 0.82 and 0.43, lit as if still
-at its key. A spotlight's cone is the original's, its cosine `1 − LightCone
+([draw order and movers](#draw-order-and-movers)). Its static map is built
+where the mover stands when one is first wanted in a zone -- its first draw
+there, after a `FLUSH` or `BRIGHTNESS`, or once one of its static lights has
+changed -- and kept as it moves and turns, a map for each zone actor it is
+drawn in, so a door opened into another zone of the same ambient light is
+built there where it then stands; each of its animating lights whose shape
+holds still keeps the shape it had where it was first lit on the map, scaled
+by its brightness, a light that is not `bStatic` (a `TriggerLight`) among
+them; its moving lights, and its animating lights whose shape changes, light
+it where it is; a `bDynamicLightMover` mover's map is built again whenever it
+moves or turns
+([light maps](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#light-maps)).
+By choice, a mover's map is kept until the level ends, a flush or a change of
+its static lights, where the original's memory cache, 4 MB at the game's
+`CacheSizeMegs`, can drop one not drawn for a while, to be built again where
+the mover then stands. `MoverLightConsole` at 1024x768, Liberty Island's
+`DeusExMover10` moved 100 units off its place before it is first drawn: the
+door at 1.004 of the original's frame under its own lights and 0.998 with a
+lamp 48 units before it. `MoverDecalConsole` at 1024x768, the same door shot
+shut, then opened out of view and shot again: its turned face at 1.005 of
+the original's through `D3DDrv`, which keeps the light it had shut, where the
+build before, building it again where it stood, drew it at 0.41; with
+`FlushOpened`, a `FLUSH` before the opened shot, at 1.009, both engines'
+built again where it stands, 0.033 of white; on 09_NYC_Dockyard,
+`DeusExMover90`, whose face turns into another zone of the same ambient
+light, at 0.97 (the build before 0.94). Differs (bugs.md REN.73):
+`DeusExMover91` opened, with its room's `TriggerLight`s switched on as it
+opens or before (`TriggerTag=FrontOffice`, `TriggerShut`), at 0.98, where
+the original's face is lit as if built where it stands open (the build
+before 1.00), its 4 MB cache not the cause (alike at `CacheSizeMegs` 64). A spotlight's cone is the original's, its cosine `1 − LightCone
 ÷ 256`, its value rounded down, about the light's rotation, a pawn's about
 its view rotation (`LightConsole` with `PawnSpot`, the player's own light a
 spotlight over Liberty Island's dock, its view straight down and its
@@ -1680,9 +1705,7 @@ a decal on a mover's face stays drawn on it as the mover moves, its actor
 carried with it, where the
 original's is drawn there no more once the door has turned, its actor left
 where it was laid and its base None (`MoverDecalConsole`, the door
-opened). Differs (bugs.md REN.71): a mover's face turned from where it was
-built is drawn darker than the original's (the same door opened: its face
-0.039 of white in both builds against the original's 0.092, alike shut).
+opened).
 A line meets a mover's filed polygon where the original's does, the walk
 crossing each plane and the hit's time worked in the original's floats at
 the x87's precision in the tick it runs in (`FiledPlaneConsole`: Battery

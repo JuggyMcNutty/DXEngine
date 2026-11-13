@@ -21,7 +21,9 @@ public:
 	void CalcWorldLocations(const LightmapRect& rect);
 
 	void SetAmbientLight(UZoneInfo* zoneActor);
-	void AddStaticLights(UModel* model, int lightMap);
+	// staticOnly: a kept mover map's, which leaves out a light that is not
+	// bStatic (LightSystem::GetLightmap adds it as an animating one)
+	void AddStaticLights(UModel* model, int lightMap, bool staticOnly = false);
 
 	// The lights added over the static map each time it is built, in order:
 	// the surface's animating lights, each through its shadow bits, then the
@@ -38,6 +40,14 @@ public:
 	// animating one is added over it each frame
 	// (dx-reverse-info/render-dll.md, light maps).
 	static bool LightAnimates(UActor* light);
+
+	// Whether the light's shape changes over time, as the original's table of
+	// effects counts it (Render.dll GLightEffects, 0x10b2a0f0): the
+	// searchlight, the slow and fast waves, the cloud cast, shock, disco,
+	// interference and the rotor. An animating light whose shape holds still
+	// is kept on a surface as its shape was built, and only scaled by its
+	// brightness (render-dll.md, light maps).
+	static bool ShapeChanges(UActor* light);
 
 	void LoadStaticLight(const Array<vec3>& staticLightColors, const LightmapRect& rect);
 	void SaveStaticLight(Array<vec3>& staticLightColors);

@@ -115,17 +115,36 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 	uint64_t cacheID = (((uint64_t)lmindex.LMCacheID) << 32) | (((uint64_t)ambientID) << 8) | 1;
 
 	UMover* dynamicMover = mover && mover->bDynamicLightMover() ? mover : nullptr;
+	// Any other mover's surface is lit as a level surface's: the original's
+	// SetupNormalSurface drops the surface's actor (Render.dll 0x10b070c1)
+	// before its cached static map is tested, and only a bDynamicLightMover's
+	// is tested against where the mover is (0x10b07e29-0x10b07ec5). So its
+	// static map is built where the mover is when none is kept -- its first
+	// draw, after a flush (Flush), when a light of it changed -- and kept as
+	// the mover moves and turns; so is the shape of each of its animating
+	// lights whose shape holds still, kept as its static map's place gave it
+	// and only scaled by its brightness (0x10b0873d-0x10b0888a), where an
+	// animating light whose shape changes, and each moving light, is run
+	// where the mover is now (render-dll.md, light maps)
+	UMover* keptMover = mover && !dynamicMover ? mover : nullptr;
 	if (mover)
 	{
-		// A mover's maps are its own, lit where it is: the mover's ID in the
-		// upper 12 bits (4096 movers), which leaves 20 bits (1 million) for
-		// the lightmaps
+		// A mover's maps are its own: the mover's ID in the upper 12 bits
+		// (4096 movers), which leaves 20 bits (1 million) for the lightmaps.
+		// And a map of each zone it is drawn in, by the zone actor's own zone
+		// number, as the original's cache holds one under the model, the
+		// light map and that number (the zone actor's at 0x10b06e90), where a
+		// level surface's by its ambient light alone gives the same picture:
+		// a door drawn in a zone other than the one its map was built in, of
+		// the same ambient light, has a map built where it then stands.
 		if (mover->Light.MoverID == 0)
 			mover->Light.MoverID = NextMoverID++;
 		cacheID |= ((uint64_t)mover->Light.MoverID) << 52;
+		cacheID |= ((uint64_t)(zoneActor->Region().ZoneNumber & 63)) << 2;
 
-		// Built again when the mover moved or turned since, as the
-		// original's is for a mover's surface (render-dll.md, light maps)
+		// When the mover last moved or turned: a bDynamicLightMover's maps
+		// are built again then, as the original's are (0x10b07e29), and the
+		// moving lights over any other's are run again where it is now
 		if (!mover->Light.HasLastTransform ||
 			mover->Light.LastLocation != mover->DrawnLocation() ||
 			mover->Light.LastRotation != mover->DrawnRotation())
@@ -173,7 +192,13 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 		// (Render.dll AddLight 0x10b08b7a-0x10b08b85; SetupForSurf
 		// 0x10b06c90 merges the static, animated and moving ones): it
 		// lights no surface. A still one's changes are the static map's,
-		// so that a light made one, or one no more, builds it again.
+		// so that a light made one, or one no more, builds it again. On a
+		// kept mover map a light that is not bStatic animates too, as the
+		// original's AddLight counts a light static only with bStatic
+		// (0x10b08b30): a TriggerLight's shape is kept where the map was
+		// built and scaled by its brightness as it fades, the static map
+		// left as built (a door's map, opened and its room's light switched);
+		// on the level's surfaces either gives the same picture.
 
 		if (lmindex.LightActors >= 0)
 		{
@@ -182,9 +207,10 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 			{
 				UActor* light = lightlist[lightindex];
 				CheckLight(light);
+				bool animates = LightmapBuilder::LightAnimates(light) || (keptMover && !light->bStatic());
 				if (light->LightEffect() == LE_OmniBumpMap)
 				{
-					if (!light->bDynamicLight() && (noDynamicLights || !LightmapBuilder::LightAnimates(light)))
+					if (!light->bDynamicLight() && (noDynamicLights || !animates))
 						lastStaticUpdate = std::max(lastStaticUpdate, light->Light.LastUpdate);
 				}
 				else if (light->bDynamicLight())
@@ -195,7 +221,7 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 						TempDynLightList.push_back(light);
 					}
 				}
-				else if (!noDynamicLights && LightmapBuilder::LightAnimates(light))
+				else if (!noDynamicLights && animates)
 				{
 					TempAnimatedIndexList.push_back(lightindex);
 					lastDynamicUpdate = FrameCounter;
@@ -209,8 +235,6 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 				light->Light.LightmapCheckCounter = checkCounter;
 			}
 		}
-		if (mover)
-			lastStaticUpdate = std::max(lastStaticUpdate, mover->Light.MovedFrame);
 
 		// The moving lights over the surface go into the dynamic light list,
 		// but an LE_OmniBumpMap one, given no owner as the surface's own:
@@ -231,6 +255,8 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 				}
 			}
 		}
+		if (keptMover && !TempDynLightList.empty())
+			lastDynamicUpdate = std::max(lastDynamicUpdate, keptMover->Light.MovedFrame);
 	}
 	else
 	{
@@ -276,12 +302,14 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 		surface.TextureID = cacheID;
 	}
 	std::unique_ptr<LightmapTexture>& lmtexture = *surface.Texture;
-	if (!lmtexture || lmtexture->LastStaticUpdate != lastStaticUpdate || lmtexture->LastDynamicUpdate != lastDynamicUpdate || lmtexture->MovingLightSet != movingSet)
+	if (!lmtexture || lmtexture->LastStaticUpdate != lastStaticUpdate || lmtexture->LastDynamicUpdate != lastDynamicUpdate || lmtexture->MovingLightSet != movingSet ||
+		(keptMover && lmtexture->StaticFlush != FlushCount))
 	{
 		engine->render->Stats.LightmapsUpdated++;
 
 		Builder.Setup(model, coords, lightmapIndex);
-		Builder.FindAddedLights(model, lightmapIndex, TempAnimatedIndexList, TempDynLightList);
+		if (!keptMover)
+			Builder.FindAddedLights(model, lightmapIndex, TempAnimatedIndexList, TempDynLightList);
 
 		if (!lmtexture || lmtexture->Mip.Width != Builder.Width() || lmtexture->Mip.Height != Builder.Height())
 		{
@@ -292,31 +320,40 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 			lmtexture->Mip.Data.resize((size_t)lmtexture->Mip.Width * lmtexture->Mip.Height * sizeof(vec4));
 		}
 
-		// When only the animating and moving lights changed, the map is
-		// built again only where they reach now or reached when it was last
-		// built -- the kept static map, the lights over it -- and only that
-		// part is converted and uploaded. A mover's map is built whole.
-		bool partial = !dynamicMover && lmtexture->LastStaticUpdate == lastStaticUpdate && lmtexture->StaticLightColors.size() == (size_t)Builder.Width() * Builder.Height();
-		if (partial)
+		if (keptMover)
 		{
-			updated = Builder.AddedLightsRect();
-			updated.Add(lmtexture->AddedRect);
-			Builder.CalcWorldLocations(updated);
-			Builder.LoadStaticLight(lmtexture->StaticLightColors, updated);
+			BuildKeptMoverMap(model, lightmapIndex, coords, zoneActor, *lmtexture, lastStaticUpdate);
+			updated = { 0, 0, Builder.Width(), Builder.Height() };
 		}
 		else
 		{
-			updated = { 0, 0, Builder.Width(), Builder.Height() };
-			Builder.CalcWorldLocations(updated);
-			Builder.SetAmbientLight(zoneActor);
-			if (!dynamicMover)
+			// When only the animating and moving lights changed, the map is
+			// built again only where they reach now or reached when it was
+			// last built -- the kept static map, the lights over it -- and only
+			// that part is converted and uploaded. A mover's map is built
+			// whole.
+			bool partial = !mover && lmtexture->LastStaticUpdate == lastStaticUpdate && lmtexture->StaticLightColors.size() == (size_t)Builder.Width() * Builder.Height();
+			if (partial)
 			{
-				Builder.AddStaticLights(model, lightmapIndex);
-				Builder.SaveStaticLight(lmtexture->StaticLightColors);
+				updated = Builder.AddedLightsRect();
+				updated.Add(lmtexture->AddedRect);
+				Builder.CalcWorldLocations(updated);
+				Builder.LoadStaticLight(lmtexture->StaticLightColors, updated);
 			}
-		}
+			else
+			{
+				updated = { 0, 0, Builder.Width(), Builder.Height() };
+				Builder.CalcWorldLocations(updated);
+				Builder.SetAmbientLight(zoneActor);
+				if (!dynamicMover)
+				{
+					Builder.AddStaticLights(model, lightmapIndex);
+					Builder.SaveStaticLight(lmtexture->StaticLightColors);
+				}
+			}
 
-		Builder.AddLights(model, lightmapIndex);
+			Builder.AddLights(model, lightmapIndex);
+		}
 
 		UnrealMipmap& lmmip = lmtexture->Mip;
 		const vec3* pixels = Builder.Pixels();
@@ -397,6 +434,79 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 	texinfo.UScale = lmindex.UScale;
 	texinfo.VScale = lmindex.VScale;
 	return texinfo;
+}
+
+// A kept mover map built (GetLightmap's keptMover): the static map where the
+// mover stands when there is none -- its first draw, after a flush, or once
+// one of its static lights has changed -- else the one kept; each animating
+// light whose shape holds still where its shape was first worked out, as the
+// original keeps that shape by the light and the surface, made once and only
+// scaled by its brightness (Render.dll 0x10b0873d-0x10b0888a, a flush
+// dropping it with the maps); each animating light whose shape changes, and
+// each moving light, where the mover is now.
+void LightSystem::BuildKeptMoverMap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor, LightmapTexture& map, int lastStaticUpdate)
+{
+	const LightMapIndex& lmindex = model->LightMap[lightmapIndex];
+	LightmapRect whole = { 0, 0, Builder.Width(), Builder.Height() };
+	if (map.StaticFlush != FlushCount)
+		map.ShapePlaces.clear();
+	bool keptStatic = map.StaticFlush == FlushCount && map.LastStaticUpdate == lastStaticUpdate &&
+		map.StaticLightColors.size() == (size_t)Builder.Width() * Builder.Height();
+
+	Builder.CalcWorldLocations(whole);
+	if (keptStatic)
+	{
+		Builder.LoadStaticLight(map.StaticLightColors, whole);
+	}
+	else
+	{
+		Builder.SetAmbientLight(zoneActor);
+		Builder.AddStaticLights(model, lightmapIndex, true);
+		Builder.SaveStaticLight(map.StaticLightColors);
+		map.StaticCoords = coords;
+		map.StaticFlush = FlushCount;
+	}
+
+	// The still shapes: a light lit for the first time is given the place
+	// the mover stands at now; one off adds nothing and is given none
+	TempChangingIndexList.clear();
+	TempPlaces.clear();
+	for (int lightindex : TempAnimatedIndexList)
+	{
+		UActor* light = model->Lights[lmindex.LightActors + lightindex];
+		if (LightmapBuilder::ShapeChanges(light))
+		{
+			TempChangingIndexList.push_back(lightindex);
+			continue;
+		}
+		if (light->LightType() == LT_None || light->LightBrightness() == 0)
+			continue;
+		auto it = std::find_if(map.ShapePlaces.begin(), map.ShapePlaces.end(), [&](const LightmapTexture::ShapePlace& sp) { return sp.LightIndex == lightindex; });
+		if (it == map.ShapePlaces.end())
+		{
+			map.ShapePlaces.push_back({ lightindex, coords });
+			it = map.ShapePlaces.end() - 1;
+		}
+		auto group = std::find_if(TempPlaces.begin(), TempPlaces.end(), [&](const PlaceGroup& g) { return g.Place == it->Place; });
+		if (group == TempPlaces.end())
+		{
+			TempPlaces.push_back({ it->Place, {} });
+			group = TempPlaces.end() - 1;
+		}
+		group->Lights.push_back(lightindex);
+	}
+	for (const PlaceGroup& group : TempPlaces)
+	{
+		Builder.Setup(model, group.Place, lightmapIndex);
+		Builder.FindAddedLights(model, lightmapIndex, group.Lights, TempNoLights);
+		Builder.CalcWorldLocations(whole);
+		Builder.AddLights(model, lightmapIndex);
+	}
+
+	Builder.Setup(model, coords, lightmapIndex);
+	Builder.FindAddedLights(model, lightmapIndex, TempChangingIndexList, TempDynLightList);
+	Builder.CalcWorldLocations(whole);
+	Builder.AddLights(model, lightmapIndex);
 }
 
 void LightSystem::CheckLight(UActor* light)

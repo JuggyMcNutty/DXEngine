@@ -11,8 +11,14 @@
 // DSTY_Normal, and the two fonts. Two shots 2 s apart, each marked for the
 // original's grabber; then exit. Each step is logged with "DXTILE:" in
 // front.
+//
+// MarkNoSmooth: the mark drawn bNoSmooth, so that a marked frame's last draw
+// is point-sampled (bugs.md REN.39: a present pass sampling with the last
+// draw's sampler scales a frame drawn at a render scale under 1 up blocky).
 //=============================================================================
 class TileConsole extends Console;
+
+var config bool MarkNoSmooth;
 
 var float MapTime;
 var float StepTime;
@@ -112,6 +118,8 @@ event PostRender(canvas C)
 	if (!bMarking)
 		return;
 	C.Style = 1;
+	if (MarkNoSmooth)
+		C.bNoSmooth = True;
 	C.SetPos(0, 0);
 	C.DrawColor.R = 255;
 	C.DrawColor.G = 0;

@@ -78,7 +78,7 @@ void LightmapBuilder::SaveStaticLight(Array<vec3>& staticLightColors)
 	std::memcpy(staticLightColors.data(), lightcolors.data(), width * height * sizeof(vec3));
 }
 
-void LightmapBuilder::AddStaticLights(UModel* model, int lightMap)
+void LightmapBuilder::AddStaticLights(UModel* model, int lightMap, bool staticOnly)
 {
 	const LightMapIndex& lmindex = model->LightMap[lightMap];
 	if (lmindex.LightActors >= 0)
@@ -94,7 +94,8 @@ void LightmapBuilder::AddStaticLights(UModel* model, int lightMap)
 				// client's NoDynamicLights stills it into the map here;
 				// a bDynamicLight one is a moving light, there or nowhere;
 				// an LE_OmniBumpMap one is no map's (LightSystem::GetLightmap)
-				if (light->bDynamicLight() || light->LightEffect() == LE_OmniBumpMap || (LightAnimates(light) && !engine->client->NoDynamicLights))
+				if (light->bDynamicLight() || light->LightEffect() == LE_OmniBumpMap ||
+					((LightAnimates(light) || (staticOnly && !light->bStatic())) && !engine->client->NoDynamicLights))
 					continue;
 				spans.clear();
 				LightmapRect lightRect = FindLitSpans(light, spans);
@@ -168,6 +169,24 @@ bool LightmapBuilder::LightAnimates(UActor* light)
 	case LE_WateryShimmer:
 	case LE_SlowWave:
 	case LE_FastWave:
+	case LE_Shock:
+	case LE_Disco:
+	case LE_Interference:
+	case LE_Rotor:
+		return true;
+	default:
+		return false;
+	}
+}
+
+bool LightmapBuilder::ShapeChanges(UActor* light)
+{
+	switch (light->LightEffect())
+	{
+	case LE_Searchlight:
+	case LE_SlowWave:
+	case LE_FastWave:
+	case LE_CloudCast:
 	case LE_Shock:
 	case LE_Disco:
 	case LE_Interference:

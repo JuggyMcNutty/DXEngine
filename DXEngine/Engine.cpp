@@ -5038,11 +5038,14 @@ void Engine::ModeSetAgain()
 }
 
 // The original's UEngine::Flush(1) (Engine.dll 0x10380fed), the console's
-// FLUSH and BRIGHTNESS's: the render device flushed, a precache allowed; no
-// PRECACHING frame after it, as none comes after the original's
+// FLUSH and BRIGHTNESS's: the memory cache emptied, the light maps kept in
+// it with it (0x10380d27), and the render device flushed, a precache
+// allowed; no PRECACHING frame after it, as none comes after the original's
 // (RenderWordsConsole with DXCAP_PRECACHE=1: the map's load alone shows it)
 void Engine::FlushRender()
 {
+	if (Level)
+		Level->Light.Flush();
 	render->Device->Flush(true);
 }
 

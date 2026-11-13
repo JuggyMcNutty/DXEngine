@@ -37,6 +37,19 @@
 // "DXMOVERDECAL:" in front. Compare: the two logs' "hole" and "opened"
 // lines; shots.py --region over the hole (shots 0 and 2) and over the
 // scorch mark (shot 1).
+//
+// Shot 2 also shows the turned face's light (bugs.md REN.71): Render.dll
+// builds a mover's static light map where the mover is when its cache holds
+// none and keeps it as the mover turns (SetupNormalSurface 0x10b070c1, the
+// mover's place tested only for a bDynamicLightMover, 0x10b07e29), so the
+// door opened keeps the light it had shut. With FlushOpened, a FLUSH just
+// before the view moves to the opened door empties that cache (Engine.dll
+// UEngine::Flush 0x10380cf0): the face is built again where it now is. With
+// TriggerTag, the actors of that tag (a room's TriggerLights) are triggered
+// as the door opens, or with TriggerShut before the shut shot: Render.dll
+// counts a TriggerLight an animated light (AddLight 0x10b08b30, static only
+// with bStatic) and keeps its shape on the door where it was first lit
+// (0x10b0873d), scaled as it fades, the rest of the map left as built.
 //=============================================================================
 class MoverDecalConsole extends Console;
 
@@ -44,6 +57,9 @@ var config string TargetMap;
 var config string DoorName;
 var config float Ahead;
 var config float Scale;
+var config bool FlushOpened;
+var config name TriggerTag;
+var config bool TriggerShut;
 
 var float MapTime;
 var string CurrentMap;
@@ -176,6 +192,18 @@ function PutHole(PlayerPawn P)
 		Log("DXMOVERDECAL: hole on " $ Door.Name $ ": " $ Hole.Name $ " base " $ Hole.Base $ " deleted " $ Hole.bDeleteMe);
 }
 
+// The actors of TriggerTag triggered, as a switch triggers them
+function TriggerTagged(PlayerPawn P)
+{
+	local Actor A;
+
+	foreach P.AllActors(class'Actor', A, TriggerTag)
+	{
+		Log("DXMOVERDECAL: triggered " $ A.Name);
+		A.Trigger(P, P);
+	}
+}
+
 // The big scorch mark on the floor ahead of the start
 function PutMark(PlayerPawn P)
 {
@@ -262,6 +290,8 @@ event Tick(float Delta)
 		Look = rotator(-Dir);
 		Hold(P);
 		PutHole(P);
+		if (TriggerShut && TriggerTag != '')
+			TriggerTagged(P);
 		Phase = 1;
 	}
 	else if (Phase == -1)
@@ -303,10 +333,17 @@ event Tick(float Delta)
 	{
 		Log("DXMOVERDECAL: opening " $ Door.Name);
 		Door.DoOpen();
+		if (!TriggerShut && TriggerTag != '')
+			TriggerTagged(P);
 		Phase = 7;
 	}
 	else if (Phase == 7 && MapTime > 12.0)
 	{
+		if (FlushOpened)
+		{
+			Log("DXMOVERDECAL: flush");
+			P.ConsoleCommand("flush");
+		}
 		ViewHole(P);
 		Log("DXMOVERDECAL: the hole's place on the turned door " $ Middle $ ", the view at " $ Eye);
 		if (Hole == None)
