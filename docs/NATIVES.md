@@ -1297,13 +1297,16 @@ shut, then opened out of view and shot again: its turned face at 1.005 of
 the original's through `D3DDrv`, which keeps the light it had shut, where the
 build before, building it again where it stood, drew it at 0.41; with
 `FlushOpened`, a `FLUSH` before the opened shot, at 1.009, both engines'
-built again where it stands, 0.033 of white; on 09_NYC_Dockyard,
-`DeusExMover90`, whose face turns into another zone of the same ambient
-light, at 0.97 (the build before 0.94). Differs (bugs.md REN.73):
-`DeusExMover91` opened, with its room's `TriggerLight`s switched on as it
-opens or before (`TriggerTag=FrontOffice`, `TriggerShut`), at 0.98, where
-the original's face is lit as if built where it stands open (the build
-before 1.00), its 4 MB cache not the cause (alike at `CacheSizeMegs` 64). A spotlight's cone is the original's, its cosine `1 − LightCone
+built again where it stands, 0.033 of white. On 09_NYC_Dockyard each
+turned face keeps the light it had shut, as the original's does, block by
+block over the face alone, opened against shut: `DeusExMover91`, its room's
+`TriggerLight`s triggered as it opens or before (`TriggerTag=FrontOffice`,
+`TriggerShut`) -- lit throughout, as a `TriggerToggle` light of no
+`ChangeTime` starts at its brightness and one trigger leaves it there, and
+none of them on the turned face's maps --, at 1.000 in both engines (0.996
+to 1.004 a block of 64 pixels), the original's alike at `CacheSizeMegs` 64,
+where the build before, building it again where it stood, drew it at 1.068;
+`DeusExMover90` at 0.995, the original's 0.992 (the build before 0.938). A spotlight's cone is the original's, its cosine `1 − LightCone
 ÷ 256`, its value rounded down, about the light's rotation, a pawn's about
 its view rotation (`LightConsole` with `PawnSpot`, the player's own light a
 spotlight over Liberty Island's dock, its view straight down and its
