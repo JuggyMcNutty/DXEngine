@@ -1682,7 +1682,7 @@ original's frame (`WallConsole`). Differs (`VisibleFrame::Draw`,
   by 80 by 80, their tops at -1289.999878 and -1967.999878).
 
 A decal is laid as the original's `AttachDecal` lays one
-([the natives](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#the-natives)):
+([`AttachDecal`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#small)):
 its line meets the movers' polygons where the brush tracker filed them,
 passing a masked, invisible or portal polygon, only an auto-panned surface
 refusing it; a square `USize` times `DrawScale` on a side, turned by
