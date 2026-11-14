@@ -38,6 +38,9 @@ Differs by choice. An error DXEngine does not catch -- a script error, an
 unknown native, a call to a function import that did not load, a failed save
 -- exits the engine with 1, which the launcher takes for a crash. No map or
 action is known to reach one; the audit lists the natives whose call would.
+A mod's map crashes the engine outright: Hotel Carone's
+`16_HotelCarone_Hotel` overflows the stack moving a mover that stands on a
+falling actor (bugs.md PHYS.40).
 A `foreach` on a None context, and state code's `goto` to a label its state
 has not, stop both engines alike (the original's Critical Error); a None
 class's `default` is 0 in both, and `AllActors(None)` every actor. A dynamic
@@ -4086,6 +4089,10 @@ A mod gets the original's loader and natives:
   folders, as a copy recased on Linux leaves them
   ([a package's
   file](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)).
+  A mod started from a `System` folder of its own (Transcended's, Revision's,
+  The Nameless Mod's) has its relative paths, its classes' config files and
+  its text from the game's `System`, where the original takes them from its
+  own (bugs.md PKG.43).
 - **Its text.** Differs by choice: the `.int` files are read from each
   folder of the paths, in their order, and from `System` after them when
   they do not name it, where the original reads them from `System` alone
@@ -4099,6 +4106,10 @@ A mod gets the original's loader and natives:
   (`LocalizeConsole`: the game's text, its render devices and a missing key
   alike in both engines; two mod folders' text and objects in DXEngine's
   run alone).
+  The ini's `Language` is not read for them: a package's text is its
+  `.int`, where the original reads `<package>.<language>` first, so
+  Transcended's `.dxt`, Vanilla? Madder.'s `.vmd` and The Nameless Mod's
+  `.opt` text is not shown (bugs.md ENG.39).
 - **Protected packages.** An export whose flags give it no context (client,
   server or editor) is never made, and a reference to it is None, as the
   original's linker has it: the live servers' anti-cheat packages (ANNA,
