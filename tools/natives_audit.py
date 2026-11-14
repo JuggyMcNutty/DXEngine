@@ -8,6 +8,7 @@ to, logs `Unimplemented`), and how often the game's scripts call it.
 
     python3 tools/natives_audit.py [--game DIR] [--engine DIR] [--tsv FILE]
                                         [--runs LOG...] [--all]
+    python3 tools/natives_audit.py --mod DIR... [--game DIR] [--engine DIR]
 
 It prints a tally per package, then the natives that are not simply
 implemented (--all: every native):
@@ -22,6 +23,20 @@ implemented (--all: every native):
 writes every native with its original's address. The judgement the listing
 cannot make -- whether an implemented native does what the original does --
 is docs/NATIVES.md's.
+
+--mod reads a mod's packages instead: its folders (each, or its System
+folder), first found first, then the game's packages it does not replace. It
+never reads a DLL. It lists:
+
+- the natives the mod's packages declare that DXEngine has nothing for (a
+  call to one stops the game), by package: the package names the DLL whose
+  natives they are;
+- a numbered native DXEngine binds by its number to another class's
+  function, when the declaring class is not that class or one under it;
+- a native number two loaded classes declare: DXEngine refuses the second at
+  its class's load (VM/NativeFunc.cpp's RegisterNativeFunc);
+- the properties DXEngine looks up by name (PropertyOffsets.cpp) that a mod's
+  own build of a game package lacks, or declares with another type.
 
 It reads the game's packages with dx-reverse-info's tools/ida/ue1_types.py,
 from beside this clone in the parent folder of Port Ex Machina's repositories
@@ -67,10 +82,10 @@ class Native:
         self.fired = []          # (map, caller)
 
 
-def script_natives(model):
+def script_natives(model, packages=DEUS_EX_PACKAGES):
     out = []
     for cls in model.classes.values():
-        if cls.package not in DEUS_EX_PACKAGES:
+        if cls.package not in packages:
             continue
         for m in NATIVE_DECL.finditer(cls.text):
             mods = m.group("mods").lower()
@@ -355,6 +370,177 @@ def classify(reg, defs):
 
 
 # ---------------------------------------------------------------------------
+# A mod's packages (--mod): its packages alone, never a DLL
+
+def mod_system_dirs(dirs):
+    """Each folder given, or its System folder when it has one."""
+    out = []
+    for d in dirs:
+        s = os.path.join(d, "System")
+        out.append(s if os.path.isdir(s) else d)
+    return out
+
+
+def package_names(folder):
+    return [os.path.basename(p)[:-2] for p in sorted(glob.glob(os.path.join(folder, "*.u")))]
+
+
+def property_offsets(engine_src):
+    """(package, class, property) for each property DXEngine looks up by name."""
+    text = open(os.path.join(engine_src, "PropertyOffsets.cpp"), encoding="utf-8", errors="replace").read()
+    out = []
+    for block in text.split("static void InitPropertyOffsets_")[1:]:
+        m = re.search(r'GetPackage\("(\w+)"\)->GetUObject\("Class",\s*"(\w+)"\)', block)
+        if m:
+            out += [(m.group(1), m.group(2), p) for p in re.findall(r'GetPropertyDataOffset\("(\w+)"\)', block)]
+    return out
+
+
+def type_key(f):
+    """A field's type and count, comparable between two models."""
+    t = f.type
+    if t[0] in ("enum", "struct"):
+        t = (t[0], t[1].name.lower() if t[1] is not None else "")
+    elif t[0] == "ident":
+        t = ("ident", t[1].lower())
+    return t, f.dim
+
+
+def find_field(model, cls_name, prop):
+    """The field a class has by that name, its own or a base's: None if none."""
+    seen = set()
+    c = model.classes.get(cls_name.lower())
+    while c is not None and c.name.lower() not in seen:
+        seen.add(c.name.lower())
+        if not getattr(c, "parsed", False):
+            c.parsed = True
+            try:
+                u.parse_class(c, model)
+            except Exception as e:   # a declaration the reader does not know
+                model.warn("%s: %s" % (c.name, e))
+        for f in c.fields:
+            if f.name.lower() == prop.lower():
+                return f
+        c = model.classes.get((c.base or "").lower())
+    return None
+
+
+def is_under(model, cls_name, base_name):
+    seen = set()
+    c = model.classes.get(cls_name.lower())
+    while c is not None and c.name.lower() not in seen:
+        if c.name.lower() == base_name.lower():
+            return True
+        seen.add(c.name.lower())
+        c = model.classes.get((c.base or "").lower())
+    return False
+
+
+def mod_main(a):
+    game_system = os.path.join(a.game, "System")
+    folders = mod_system_dirs(a.mod)
+    mod_packages = []
+    for d in folders:
+        mod_packages += [p for p in package_names(d) if p.lower() not in {q.lower() for q in mod_packages}]
+    mine = {p.lower() for p in mod_packages}
+    stock = package_names(game_system)
+    replaced = [p for p in stock if p.lower() in mine]
+
+    # The mod's classes first, then the game's from the packages it leaves.
+    model = u.Model()
+    for d in folders:
+        u.read_packages(d, model)
+    u.read_packages(game_system, model, [p for p in stock if p.lower() not in mine])
+    stock_model = u.Model()
+    u.read_packages(game_system, stock_model)
+
+    with_text = {c.package.lower() for c in model.classes.values()}
+    loaded = sorted({c.package for c in model.classes.values()})
+    natives = script_natives(model, loaded)
+    script_calls(model, natives)
+    regs = parse_registrations(a.engine)
+    by_number = {}
+    for key, rs in regs.items():
+        for r in rs:
+            if r[3] is not False and r[2]:
+                by_number.setdefault(r[2], []).append((key, r))
+
+    def registered_by_number(nat):
+        # RegisterNativeFunc skips GetSoundLength's 2054, which DeusEx.u shares
+        return nat.number and not (nat.number == 2054 and nat.name.lower() == "getsoundlength")
+
+    declared = {}
+    for nat in natives:
+        if registered_by_number(nat):
+            declared.setdefault(nat.number, []).append(nat)
+
+    lacking, rebound, collide = [], [], []
+    for nat in natives:
+        if nat.cls.package.lower() not in mine:
+            continue
+        if nat.number:
+            others = [o for o in declared.get(nat.number, []) if o is not nat]
+            if others and registered_by_number(nat):
+                collide.append((nat, others))
+            hits = by_number.get(nat.number, [])
+            if not hits:
+                lacking.append(nat)
+            elif not any(is_under(model, nat.cls.name, r[0][0]) for r in hits):
+                rebound.append((nat, hits[0][0]))
+        elif not [r for r in regs.get((nat.cls.name.lower(), nat.name.lower()), []) if r[3] is not False]:
+            lacking.append(nat)
+
+    # The table is Surreal Engine's for every UE1 game: only what the game's
+    # own packages have counts.
+    props = []
+    for pkg, cls, prop in property_offsets(a.engine):
+        if pkg.lower() not in mine:
+            continue
+        s = find_field(stock_model, cls, prop)
+        if s is None:
+            continue
+        c = model.classes.get(cls.lower())
+        if c is None or c.package.lower() != pkg.lower():
+            props.append("%s.%s: the class is not in the mod's %s (DXEngine takes none of its %s properties)" % (pkg, cls, pkg, cls))
+            continue
+        f = find_field(model, cls, prop)
+        if f is None:
+            props.append("%s.%s: no %s" % (pkg, cls, prop))
+        elif s is not None and type_key(f) != type_key(s):
+            props.append("%s.%s.%s: %s, the game's %s" % (pkg, cls, prop, type_key(f), type_key(s)))
+    props = sorted(set(props))
+
+    def row(nat):
+        return "  %-18s %-30s %-28s %8s  calls %d" % (
+            nat.cls.package, nat.cls.name, nat.name, "(%d)" % nat.number if nat.number else "", nat.calls)
+
+    print("mod: %s" % ", ".join(folders))
+    print("its packages: %d; its own builds of the game's: %s" % (len(mod_packages), ", ".join(replaced) or "none"))
+    no_text = [p for p in mod_packages if p.lower() not in with_text]
+    if no_text:
+        print("no script text read (content, or stripped): %s" % ", ".join(no_text))
+    order = sorted(lacking, key=lambda n: (n.cls.package.lower(), n.cls.name.lower(), n.name.lower()))
+    print("\nnatives DXEngine has nothing for: %d" % len(order))
+    tally = {}
+    for nat in order:
+        tally[nat.cls.package] = tally.get(nat.cls.package, 0) + 1
+    for pkg in sorted(tally, key=str.lower):
+        print("  %s: %d" % (pkg, tally[pkg]))
+    for nat in order:
+        print(row(nat))
+    print("\nbound by number to another class's function: %d" % len(rebound))
+    for nat, key in rebound:
+        print(row(nat) + "  -> %s.%s" % key)
+    print("\nnumbers two classes declare, the second refused at its load: %d" % len(collide))
+    for nat, others in collide:
+        print(row(nat) + "  with " + ", ".join("%s.%s" % (o.cls.name, o.name) for o in others))
+    print("\nproperties DXEngine looks up by name, missing or retyped: %d" % len(props))
+    for p in props:
+        print("  " + p)
+    for w in model.warnings:
+        print("warning: " + w)
+    return 0
+
 
 def main(argv):
     import signal
@@ -365,7 +551,10 @@ def main(argv):
     ap.add_argument("--tsv", metavar="FILE", help="every native, as tab-separated values")
     ap.add_argument("--runs", nargs="*", default=[], metavar="LOG", help="engine logs: which stubs fired")
     ap.add_argument("--all", action="store_true", help="list the implemented natives too")
+    ap.add_argument("--mod", nargs="+", metavar="DIR", help="a mod's folders, first found first: what it needs that DXEngine lacks")
     a = ap.parse_args(argv)
+    if a.mod:
+        return mod_main(a)
 
     model = u.Model()
     u.read_packages(os.path.join(a.game, "System"), model)

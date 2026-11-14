@@ -35,7 +35,8 @@ In this clone, the engine's own:
 tools/perf/perf.sh on|off|save         # the profiling hooks (below)
 tools/perf/frame-report.py <run>...    # a PerfConsole run's frame by area and function (DEVELOPMENT.md)
 tools/host-tools.sh                    # perf and the validation layer, into the repositories' deps/
-tools/natives_audit.py                 # the original's natives against DXEngine's (NATIVES.md)
+tools/natives_audit.py                 # the original's natives against DXEngine's (NATIVES.md);
+                                       # --mod <dir>...: what a mod's packages need that it lacks
 tools/dxcap.sh                         # scripted runs of both engines (DEVELOPMENT.md)
 ```
 
