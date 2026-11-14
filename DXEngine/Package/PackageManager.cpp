@@ -1354,6 +1354,11 @@ static bool NameBefore(const std::string& a, const std::string& b)
 // read is passed over.
 void PackageManager::LoadIntFiles()
 {
+	textLanguage = GetIniValue("system", "Engine.Engine", "Language", "int");
+	if (textLanguage.empty())
+		textLanguage = "int";
+	const bool ownLanguage = !StrTools::equals_ignore_case(textLanguage, "int");
+
 	for (const std::string& path : GetIniValues("system", "Core.System", "Paths"))
 	{
 		// The folder as the disk spells it, as the package folders are found:
@@ -1401,7 +1406,27 @@ void PackageManager::LoadIntFiles()
 			{
 				auto intFile = std::make_unique<IniFile>((folder / intFileName).string());
 
-				for (const std::string& value: intFile->GetValues("Public", "Object"))
+				// The objects it registers from <name>.<language> where the ini's
+				// Language names another than int and one is there -- System's,
+				// else the folder's --, as the original reads them
+				std::unique_ptr<IniFile> languageFile;
+				if (ownLanguage)
+				{
+					const std::string languageName = intFileName.stem().string() + "." + textLanguage;
+					for (const fs::path& place : { gameSystemFolderPath, folder })
+					{
+						const fs::path file = Directory::resolveCase(place / languageName);
+						std::error_code exists;
+						if (fs::is_regular_file(file, exists))
+						{
+							languageFile = std::make_unique<IniFile>(file.string());
+							break;
+						}
+					}
+				}
+				IniFile* publicFile = languageFile ? languageFile.get() : intFile.get();
+
+				for (const std::string& value: publicFile->GetValues("Public", "Object"))
 				{
 					auto desc = ParseIntPublicValue(value);
 					if (!desc["Name"].empty() && !desc["Class"].empty() && !desc["MetaClass"].empty()) // Used by Actor.GetInt
@@ -1440,7 +1465,7 @@ void PackageManager::LoadIntFiles()
 				// Its Preferences lines, each Caption=, Parent=, Class=,
 				// Category= and Immediate= (ParseUBOOL: On, True or 1), as the
 				// original's CacheDrivers parses them (Core.dll 0x10158900)
-				for (const std::string& value : intFile->GetValues("Public", "Preferences"))
+				for (const std::string& value : publicFile->GetValues("Public", "Preferences"))
 				{
 					auto desc = ParseIntPublicValue(value);
 					IntPreferences pref;
@@ -1487,8 +1512,39 @@ bool PackageManager::FindLocalized(NameString packageName, const NameString& sec
 		else if (sectionName == "DXEngineNetworkDevice") { value = "DXEngine Network"; return true; }
 	}
 
-	// A package with no .int at the start: one made since, looked for once.
 	const std::string key = NameString::Folded(packageName.ToString());
+
+	// <Package>.<language> before <Package>.int, as the original's Localize
+	// reads a key (Core.dll 0x10148430): each folder's, looked for once
+	if (!StrTools::equals_ignore_case(textLanguage, "int"))
+	{
+		auto lang = languageFiles.find(key);
+		if (lang == languageFiles.end())
+		{
+			lang = languageFiles.emplace(key, std::vector<std::unique_ptr<IniFile>>()).first;
+			for (const fs::path& folder : intFolders)
+			{
+				const fs::path file = Directory::resolveCase(folder / (packageName.ToString() + "." + textLanguage));
+				std::error_code ec;
+				if (!fs::is_regular_file(file, ec))
+					continue;
+				try
+				{
+					lang->second.push_back(std::make_unique<IniFile>(file.string()));
+				}
+				catch (...)
+				{
+				}
+			}
+		}
+		for (const auto& languageFile : lang->second)
+		{
+			if (languageFile->FindValue(sectionName, keyName, value))
+				return true;
+		}
+	}
+
+	// A package with no .int at the start: one made since, looked for once.
 	auto it = intFiles.find(key);
 	if (it == intFiles.end())
 	{

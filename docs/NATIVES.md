@@ -4107,10 +4107,13 @@ A mod gets the original's loader and natives:
   (`LocalizeConsole`: the game's text, its render devices and a missing key
   alike in both engines; two mod folders' text and objects in DXEngine's
   run alone).
-  The ini's `Language` is not read for them: a package's text is its
-  `.int`, where the original reads `<package>.<language>` first, so
-  Transcended's `.dxt`, Vanilla? Madder.'s `.vmd` and The Nameless Mod's
-  `.opt` text is not shown (bugs.md ENG.39).
+  With the ini's `[Engine.Engine] Language` other than `int` -- Transcended's
+  `DXT`, Vanilla? Madder.'s `VMD`, The Nameless Mod's `opt` -- a key is read
+  from the package's `<name>.<language>` files before its `.int` files, and
+  the objects a `.int` registers from `<name>.<language>` where one is
+  there, System's first, as the original's: Transcended's `DeusEx.DXT`
+  gives the reload mod's belt text as `MOD RELOAD`, the game's `.int` as
+  `MOD RELOD` (`get`, DXEngine's run alone).
 - **Protected packages.** An export whose flags give it no context (client,
   server or editor) is never made, and a reference to it is None, as the
   original's linker has it: the live servers' anti-cheat packages (ANNA,

@@ -183,8 +183,10 @@ public:
 	// run (bugs.md ENG.27)
 	void FlushIniFiles();
 
-	// A key's text from the first of its package's .int files to give it
-	// (LoadIntFiles), "" when none does; FindLocalized says whether one does.
+	// A key's text from the first of its package's text files to give it:
+	// its <name>.<language> files ([Engine.Engine] Language) before its .int
+	// files (LoadIntFiles), "" when none does; FindLocalized says whether one
+	// does.
 	std::string Localize(NameString packageName, const NameString& sectionName, const NameString& keyName);
 	bool FindLocalized(NameString packageName, const NameString& sectionName, const NameString& keyName, std::string& value);
 
@@ -248,6 +250,13 @@ private:
 	// Each package's .int files, in the order of the folders they are in, by
 	// its name's Folded text: a .int makes no name.
 	std::map<std::string, std::vector<std::unique_ptr<IniFile>>> intFiles;
+	// The ini's [Engine.Engine] Language, "int" the game's own: a package's
+	// text is read from its <name>.<language> before its <name>.int, as the
+	// original's Localize reads it, and its [Public] from the first
+	// (dx-reverse-info core-dll.md, the .int files)
+	std::string textLanguage = "int";
+	// Each package's <name>.<language> files, as intFiles, looked for once
+	std::map<std::string, std::vector<std::unique_ptr<IniFile>>> languageFiles;
 	// Where a .int is looked for, in order: the paths' folders as they name
 	// them, System among them where they name it, else last.
 	Array<fs::path> intFolders;
