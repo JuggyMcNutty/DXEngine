@@ -4094,6 +4094,10 @@ A mod with none gets the original's loader and natives:
   folders, as a copy recased on Linux leaves them
   ([a package's
   file](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)).
+  A map named with a folder (`..\<folder>\Maps\<map>.dx`) is found by its
+  file name in the paths' folders first, so another map of that name there
+  is loaded in its place, where the original tries the name as given, from
+  `System`, first (bugs.md PKG.44).
   A mod started from a `System` folder of its own (Transcended's, Revision's,
   The Nameless Mod's) runs with `--system` naming it: its relative paths, its
   classes' config files and its text are taken from there, as the original
