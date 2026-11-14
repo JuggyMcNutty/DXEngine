@@ -13,6 +13,12 @@
 
 void UActor::InitBase()
 {
+	// The original's LoadMap base pass (Engine.dll 0x1038c1f0): an actor with
+	// an AttachTag stands on the first actor of that tag in the list, itself
+	// among them, which SetBase refuses as it refuses any loop (0x10369c80):
+	// Hotel Carone's barrels ride the truck that tips (bugs.md PHYS.40), where
+	// the tagged actors were based on it, each of them, its mover on a
+	// falling barrel pushing it without end
 	NameString attachTag = AttachTag();
 	if (!attachTag.IsNone())
 	{
@@ -20,7 +26,8 @@ void UActor::InitBase()
 		{
 			if (levelActor && levelActor->Tag() == attachTag)
 			{
-				levelActor->SetBase(this, false);
+				SetBase(levelActor, false);
+				break;
 			}
 		}
 		return;

@@ -38,9 +38,6 @@ Differs by choice. An error DXEngine does not catch -- a script error, an
 unknown native, a call to a function import that did not load, a failed save
 -- exits the engine with 1, which the launcher takes for a crash. No map or
 action is known to reach one; the audit lists the natives whose call would.
-A mod's map crashes the engine outright: Hotel Carone's
-`16_HotelCarone_Hotel` overflows the stack moving a mover that stands on a
-falling actor (bugs.md PHYS.40).
 A `foreach` on a None context, and state code's `goto` to a label its state
 has not, stop both engines alike (the original's Critical Error); a None
 class's `default` is 0 in both, and `AllActors(None)` every actor. A dynamic
