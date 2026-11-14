@@ -1,8 +1,6 @@
 
 #include "Precomp.h"
-#include <cstdlib>
 #include <cstring>
-#include <unordered_set>
 #include "Utils/StrTools.h"
 #include "Frame.h"
 #include "Bytecode.h"
@@ -421,34 +419,6 @@ ExpressionValue Frame::CallScript(UFunction* func, UObject* instance, CallArgume
 	return result;
 }
 
-// A native nothing registers: a call stops the game ("Unknown native
-// function"). With DXE_MISSING_NATIVES set, a developer's switch (ENGINE.md),
-// it is logged once a session, naming the script function that called it,
-// and answers its return type's default, its out parameters left as they are:
-// how far a mod plays whose natives DXEngine lacks
-void Frame::MissingNative(UFunction* func, UObject* instance)
-{
-	static const bool playOn = [] {
-		const char* value = std::getenv("DXE_MISSING_NATIVES");
-		return value && *value && std::string(value) != "0";
-	}();
-	UStruct* cls = func->NativeStruct;
-	if (!playOn)
-		Exception::Throw("Unknown native function " + cls->Name.ToString() + "." + func->Name.ToString());
-
-	std::string name = cls->Name.ToString() + "." + func->Name.ToString();
-	if (cls->package)
-		name = cls->package->GetPackageName().ToString() + "." + name;
-	static std::unordered_set<std::string> logged;
-	if (logged.insert(name).second)
-	{
-		// The native's own frame on the stack, so the line names its caller
-		Frame frame(instance, func, Frame::NoLocals());
-		ActiveCallStackFrame activeFrame(&frame);
-		LogMessage("Missing native: " + name);
-	}
-}
-
 ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, CallArguments& args)
 {
 	// Native functions expect the last parameter to be the return value
@@ -493,7 +463,7 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, CallArgume
 		}
 		else
 		{
-			MissingNative(func, instance);
+			Exception::Throw("Unknown native function " + func->NativeStruct->Name.ToString() + "." + func->Name.ToString());
 		}
 	}
 	else
@@ -530,7 +500,7 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, CallArgume
 		}
 		else
 		{
-			MissingNative(func, instance);
+			Exception::Throw("Unknown native function " + func->NativeStruct->Name.ToString() + "." + func->Name.ToString());
 		}
 	}
 

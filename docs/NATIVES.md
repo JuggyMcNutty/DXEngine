@@ -4068,7 +4068,15 @@ engines), `Console.uc`'s own enum alone naming them `UnknownF0` to
 
 ## Mods
 
-A mod gets the original's loader and natives:
+A mod with native code of its own does not play as it ships: a native its
+packages declare for its own DLL stops the game at its first call ("Unknown
+native function"), as `natives_audit.py --mod` lists them
+([how it is known](#how-it-is-known)), and what its DLLs change in the engine
+itself is not there. An active mod's code -- Revision's, The Nameless Mod's,
+Vanilla? Madder.'s -- is its developers' work, which DXEngine takes on only
+with their permission.
+
+A mod with none gets the original's loader and natives:
 
 - **Its textures**: Deus Ex's formats (`TEXF_P8` to `TEXF_RGBA8`), drawn
   from the compressed mips when they are DXT1, as the original's
