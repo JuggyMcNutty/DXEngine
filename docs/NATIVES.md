@@ -17,8 +17,8 @@ engines, what matches, and what differs. What else it changes:
   the current list of stubs; this doc does not copy it. `--mod` reads a
   mod's packages instead, never its DLLs: the natives they declare that
   DXEngine has nothing for, a native number two loaded classes declare (the
-  second refused at its class's load), and the properties DXEngine looks up
-  by name that the mod's own build of a game package lacks or retypes.
+  second refused at its class's load), and the properties DXEngine's code
+  reads by name that the mod's own build of a game package lacks or retypes.
 - **Reading the DLLs**
   ([dx-reverse-info](https://github.com/JuggyMcNutty/dx-reverse-info)): C++
   that is not a native leaves no stub, and only the original shows whether

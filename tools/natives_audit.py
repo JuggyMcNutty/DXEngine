@@ -35,7 +35,7 @@ never reads a DLL. It lists:
   function, when the declaring class is not that class or one under it;
 - a native number two loaded classes declare: DXEngine refuses the second at
   its class's load (VM/NativeFunc.cpp's RegisterNativeFunc);
-- the properties DXEngine looks up by name (PropertyOffsets.cpp) that a mod's
+- the properties DXEngine's code reads by name (PropertyOffsets.cpp) that a mod's
   own build of a game package lacks, or declares with another type.
 
 It reads the game's packages with dx-reverse-info's tools/ida/ue1_types.py,
@@ -396,6 +396,25 @@ def property_offsets(engine_src):
     return out
 
 
+def reads_property(sources, cls, prop):
+    """DXEngine's code reads the property: its accessor called, or its offset
+    used, past the accessor's own definition."""
+    defs = len(re.findall(r"\b%s\s*\(\s*\)\s*(?:const\s*)?\{" % re.escape(prop), sources))
+    calls = len(re.findall(r"\b%s\s*\(\s*\)" % re.escape(prop), sources)) - defs
+    direct = [l for l in re.findall(r"^.*PropOffsets_%s\.%s\b.*$" % (re.escape(cls), re.escape(prop)), sources, re.M)
+              if not re.search(r"\b%s\s*\(\s*\)\s*(?:const\s*)?\{" % re.escape(prop), l)]
+    return calls > 0 or bool(direct)
+
+
+def engine_sources(engine_src):
+    """DXEngine's code but the offsets' table itself."""
+    parts = []
+    for path in glob.glob(os.path.join(engine_src, "**", "*.*"), recursive=True):
+        if path.endswith((".cpp", ".h")) and not os.path.basename(path).startswith("PropertyOffsets."):
+            parts.append(open(path, encoding="utf-8", errors="replace").read())
+    return "\n".join(parts)
+
+
 def type_key(f):
     """A field's type and count, comparable between two models."""
     t = f.type
@@ -490,9 +509,11 @@ def mod_main(a):
         elif not [r for r in regs.get((nat.cls.name.lower(), nat.name.lower()), []) if r[3] is not False]:
             lacking.append(nat)
 
-    # The table is Surreal Engine's for every UE1 game: only what the game's
-    # own packages have counts.
-    props = []
+    # The table is Surreal Engine's for every UE1 game, each class's every
+    # property: only what the game's own packages have counts, and of that
+    # only what DXEngine's code reads.
+    props, unread = [], 0
+    sources = None
     for pkg, cls, prop in property_offsets(a.engine):
         if pkg.lower() not in mine:
             continue
@@ -500,13 +521,19 @@ def mod_main(a):
         if s is None:
             continue
         c = model.classes.get(cls.lower())
+        f = find_field(model, cls, prop) if c is not None and c.package.lower() == pkg.lower() else None
+        if f is not None and type_key(f) == type_key(s):
+            continue
+        if sources is None:
+            sources = engine_sources(a.engine)
+        if not reads_property(sources, cls, prop):
+            unread += 1
+            continue
         if c is None or c.package.lower() != pkg.lower():
             props.append("%s.%s: the class is not in the mod's %s (DXEngine takes none of its %s properties)" % (pkg, cls, pkg, cls))
-            continue
-        f = find_field(model, cls, prop)
-        if f is None:
+        elif f is None:
             props.append("%s.%s: no %s" % (pkg, cls, prop))
-        elif s is not None and type_key(f) != type_key(s):
+        else:
             props.append("%s.%s.%s: %s, the game's %s" % (pkg, cls, prop, type_key(f), type_key(s)))
     props = sorted(set(props))
 
@@ -534,7 +561,7 @@ def mod_main(a):
     print("\nnumbers two classes declare, the second refused at its load: %d" % len(collide))
     for nat, others in collide:
         print(row(nat) + "  with " + ", ".join("%s.%s" % (o.cls.name, o.name) for o in others))
-    print("\nproperties DXEngine looks up by name, missing or retyped: %d" % len(props))
+    print("\nproperties DXEngine's code reads, missing or retyped: %d (%d more it does not read)" % (len(props), unread))
     for p in props:
         print("  " + p)
     for w in model.warnings:
