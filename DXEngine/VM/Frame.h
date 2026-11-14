@@ -276,6 +276,7 @@ private:
 	static void ClassifyStatement(Expression* statement, const Bytecode& code);
 
 	static ExpressionValue CallNative(UFunction* func, UObject* instance, CallArguments& args);
+	static void MissingNative(UFunction* func, UObject* instance);
 	static ExpressionValue CallScript(UFunction* func, UObject* instance, CallArguments& args, ExpressionValue* into);
 	static void TraceCall(UFunction* func, UObject* instance, const CallArguments& args);
 
