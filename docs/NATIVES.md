@@ -4090,9 +4090,10 @@ A mod gets the original's loader and natives:
   ([a package's
   file](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)).
   A mod started from a `System` folder of its own (Transcended's, Revision's,
-  The Nameless Mod's) has its relative paths, its classes' config files and
-  its text from the game's `System`, where the original takes them from its
-  own (bugs.md PKG.43).
+  The Nameless Mod's) runs with `--system` naming it: its relative paths, its
+  classes' config files and its text are taken from there, as the original
+  takes them from its own `Core.dll`'s folder
+  ([the .int files](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-int-files)).
 - **Its text.** Differs by choice: the `.int` files are read from each
   folder of the paths, in their order, and from `System` after them when
   they do not name it, where the original reads them from `System` alone

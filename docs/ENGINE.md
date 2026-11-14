@@ -36,7 +36,7 @@ tools/perf/perf.sh on|off|save         # the profiling hooks (below)
 tools/perf/frame-report.py <run>...    # a PerfConsole run's frame by area and function (DEVELOPMENT.md)
 tools/host-tools.sh                    # perf and the validation layer, into the repositories' deps/
 tools/natives_audit.py                 # the original's natives against DXEngine's (NATIVES.md);
-                                       # --mod <dir>...: what a mod's packages need that it lacks
+                                       # --mod <dir>...: what a mod's packages need, lacking
 tools/dxcap.sh                         # scripted runs of both engines (DEVELOPMENT.md)
 ```
 
@@ -101,8 +101,8 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   whose `System` folder (in any case) it starts in, or on Windows the Deus Ex the registry
   names; with neither, it says no game is found and exits.
 - **A map is `--url=<map>` (or `-u=<map>`, `--url <map>`).** An option that takes a value
-  (`--url`, `--ini`, `--userini`, `--userdir`, `--cmdline`, `--timeline`) takes the next word
-  when it has no `=`, unless that word starts with `-`.
+  (`--url`, `--ini`, `--userini`, `--system`, `--userdir`, `--cmdline`, `--timeline`) takes
+  the next word when it has no `=`, unless that word starts with `-`.
 - **`--server`** runs a dedicated server of the `--url` map, as the original's `-SERVER`: no
   window, sound or player; `--lanplay` gives it the LAN tick rate
   ([multiplayer](NATIVES.md#multiplayer)). It takes command lines on its standard input, each
@@ -124,17 +124,24 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   game's System folder (with `--userdir`, its `Screenshots` folder); `--timeline=<file>` gives
   keys, typed text, a virtual pad, the pointer and console commands at set times.
   [Scripted runs](DEVELOPMENT.md#scripted-runs-of-both-engines) use all three.
+- **`--system=<dir>`** is the original's `System` folder for a mod that runs from one of its
+  own, its launcher and `Core.dll` there (Transcended's, Revision's, The Nameless Mod's): its
+  relative paths (`Paths`, `SavePath`, `CachePath`, `INI=`, `USERINI=`), its classes' config
+  files and its `.int` files are taken from there, as the original takes them from its
+  `Core.dll`'s folder ([mods](NATIVES.md#mods)); `Default.ini` and `DefUser.ini` from there,
+  else the game's. Without it, the game's `System`.
 - **`--userdir=<dir>`** is the engine's own folder in place of `~/.config/DXEngine` (Windows'
   `%LOCALAPPDATA%\DXEngine`):
   `Settings.json`, the last run's log (`DXE-Log-LastRun.txt`: a long run's first 1,000 lines and
   its last 100,000, the count of those between said), the crash reports, the shots (its
   `Screenshots` folder) and a class's own config file (a mod's, as `DXMTL.ini`), read from
-  `<dir>` first, else from the game's System folder, and written to `<dir>`. The engine makes
-  the folder; without the option nothing changes.
+  `<dir>` first, else from the System folder (`--system`'s, else the game's), and written to
+  `<dir>`. The engine makes the folder; without the option nothing changes.
 - **`--version`** prints `DXEngine <commit> (<date>)` and a `features:` line, the words for
   what a launcher can rely on (`userdir`; `loadgame-url`, a start URL of `?loadgame=N`:
   [the command line](NATIVES.md#the-command-line); `int-paths`, a mod's `.int` files read from
-  its own folders: [mods](NATIVES.md#mods)), and exits before anything is loaded.
+  its own folders: [mods](NATIVES.md#mods); `system`, `--system`), and exits before anything is
+  loaded.
 - **`--cmdline=<line>`** is the original's command line, which the launchers pass on (the
   recreated one, deusex-launcher's `main`, and DXLauncher): its start URL, `-server`,
   `-lanplay`, `PORT=`, `MULTIHOME=`, `-PRIMARYNET`, `INI=`, `USERINI=`, `EXEC=`, `-norunaway`

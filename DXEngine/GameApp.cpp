@@ -28,8 +28,9 @@
 
 // What a launcher can rely on this build to do, beyond the original's
 // command line: --userdir; a start URL of ?loadgame=N, a save loaded; the
-// .int files read from the paths' folders, a mod's from its own.
-static const char* const Features = "userdir loadgame-url int-paths";
+// .int files read from the paths' folders, a mod's from its own; --system,
+// a mod's own System folder that it runs from.
+static const char* const Features = "userdir loadgame-url int-paths system";
 
 int GameApp::main(Array<std::string> args)
 {
@@ -109,6 +110,8 @@ int GameApp::main(Array<std::string> args)
 				"  --lanplay             with --server, the LAN tick rate\n"
 				"  --ini=<file>          the ini read and written back, as the original's INI=\n"
 				"  --userini=<file>      the user ini, as the original's USERINI=\n"
+				"  --system=<dir>        a mod's own System folder that it runs from: its\n"
+				"                        relative paths, config files and text from there\n"
 				"  --cmdline=<line>      the original's command line, as a launcher passes it\n"
 				"  --userdir=<dir>       the engine's own folder: its settings, log and shots\n"
 				"  --timeline=<file>     keys, text, a pad, the pointer and commands at set times\n"

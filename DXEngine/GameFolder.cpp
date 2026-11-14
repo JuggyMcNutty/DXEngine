@@ -45,6 +45,17 @@ void GameFolderSelection::UpdateList()
 	}
 }
 
+// The original's System: the folder its Core.dll is in, which its relative
+// paths are taken from (dx-reverse-info core-dll.md, appBaseDir) -- the
+// game's, or a mod's own that it runs from (--system), as the mod's launcher
+// starts in it.
+static fs::path SystemFolder(const GameLaunchInfo& info)
+{
+	if (!info.systemFolder.empty())
+		return Directory::resolveCase(fs::path(info.systemFolder));
+	return Directory::resolveCase(fs::path(info.gameRootFolder) / "System");
+}
+
 // The original's INI= and USERINI=: a path from System, the original's
 // working folder, its folders and name found in any case, as Windows' file
 // system finds them (dx-reverse-info cli-flags.md; the launchers find them
@@ -53,7 +64,7 @@ static std::string OriginalIniPath(const GameLaunchInfo& info, const std::string
 {
 	fs::path path = convert_path_separators(value);
 	if (path.is_relative())
-		path = Directory::resolveCase(fs::path(info.gameRootFolder) / "System") / path;
+		path = SystemFolder(info) / path;
 	return Directory::resolveCase(path.lexically_normal()).string();
 }
 
@@ -66,6 +77,14 @@ GameLaunchInfo GameFolderSelection::GetLaunchInfo(int selectedGame)
 	info.url = commandline->GetArg("-u", "--url", info.url);
 	info.systemIniPath = commandline->GetArg("", "--ini", info.systemIniPath);
 	info.userIniPath = commandline->GetArg("", "--userini", info.userIniPath);
+	std::string system = commandline->GetArg("", "--system", "");
+	if (!system.empty())
+	{
+		std::error_code ec;
+		fs::path folder = fs::absolute(fs::path(convert_path_separators(system)), ec);
+		if (!ec)
+			info.systemFolder = Directory::resolveCase(folder.lexically_normal()).string();
+	}
 	info.dedicatedServer = commandline->HasArg("", "--server") || info.dedicatedServer;
 	info.lanPlay = commandline->HasArg("", "--lanplay") || info.lanPlay;
 	info.timelinePath = commandline->GetArg("", "--timeline", info.timelinePath);

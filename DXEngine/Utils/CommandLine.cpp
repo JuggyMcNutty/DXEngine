@@ -35,7 +35,7 @@ CommandLine::CommandLine(const Array<std::string>& args)
 
 bool CommandLine::TakesValue(const std::string& option)
 {
-	static const char* options[] = { "-u", "--url", "--ini", "--userini", "--userdir", "--cmdline", "--timeline" };
+	static const char* options[] = { "-u", "--url", "--ini", "--userini", "--system", "--userdir", "--cmdline", "--timeline" };
 	for (const char* name : options)
 	{
 		if (option == name)
