@@ -63,6 +63,7 @@
 #include "Packages/DeusEx/UDeusExSaveInfo.h"
 #include "ObjectTravelInfo.h"
 #include "Packages/HX/HXGame.h"
+#include "Packages/HX/UHX.h"
 #include "UI/PropertyWindow/PropertyWindow.h"
 #include "UI/PropertyWindow/NativeConfigClasses.h"
 #include "Math/quaternion.h"
@@ -584,12 +585,13 @@ void Engine::Run()
 		// not the game's, as the original's game engine ticks them
 		// (engine-dll.md, a level's tick): so the Entry level a second time,
 		// its time stepped again, while a joining client's player waits
-		// there for its pawn.
+		// there for its pawn. HX's game engine ticks the player's level only
+		// when it is neither (UHXGameEngine::Tick, bugs.md HX.3).
 		if (EntryLevel && EntryLevel != Level)
 		{
 			EntryLevel->Tick(entryLevelElapsed, m_GamePaused);
 			UPlayerPawn* viewer = viewport ? viewport->Actor() : nullptr;
-			if (viewer && viewer->XLevel() == EntryLevel)
+			if (viewer && viewer->XLevel() == EntryLevel && !HXGameEngine::Active())
 			{
 				EntryLevelInfo->TimeSeconds() += entryLevelElapsed;
 				EntryLevel->Tick(entryLevelElapsed, m_GamePaused);
@@ -1060,7 +1062,10 @@ void Engine::ClientTravel(const std::string& newURL, ETravelType travelType, boo
 		if (StrTools::equals_ignore_case(LastURL.Options[i - 1], "loadonly"))
 			LastURL.Options.erase(LastURL.Options.begin() + (i - 1));
 	}
-	LastURL.Portal.clear();
+	// HX's game engine keeps the portal (UHXGameEngine::Tick): its
+	// SwitchLevel and HXFix's map exits end the travel with an empty one
+	if (!HXGameEngine::Active())
+		LastURL.Portal.clear();
 
 	// The URL read on the last one, as the original's game engine reads it
 	// at the travel (FURL(&LastURL, URL, type), Engine.dll 0x103f7b60): a
@@ -1459,6 +1464,9 @@ bool Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 		SaveHubLevel(hubStackLeft);
 	}
 
+	// HX's game engine lets go of what the old level leaves (bugs.md HX.5)
+	if (Level && HXGameEngine::Active())
+		HXGameEngine::ExitLevelCleanup();
 	UnloadMap();
 
 	LevelPackage = newPackage;
@@ -1507,6 +1515,14 @@ bool Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 	(void)loadedFromCurrent;
 
 	LinkActorsToLevel();
+
+	// HX's co-op starts, right after the load, for a level with no game
+	// (bugs.md HX.6): a client's too, as HX's LoadMap asks the level before
+	// a client's net driver is hooked up to it; they go below with the map's
+	// other actors neither static nor kept. A level from Current is entered
+	// by its file, whose name is no map's.
+	if (HXGameEngine::Active() && !LevelInfo->Game())
+		HXGameEngine::SpawnCoopStarts(LevelInfo, enteredURL.Map);
 
 	// HX's game engine readies the map's actors for its game, on a client
 	// only one of an HX server, then marks those that spawn (HX's LoadMap,
@@ -1587,9 +1603,10 @@ bool Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 
 		LevelInfo->Game() = GameInfo;
 
-		// HX's Steve beside the new game, the travel's state in it
+		// HX's Steve beside the new game, the travel's state in it; the
+		// Entry level's load has none (EntryLevel not set yet)
 		if (HXGameEngine::Active())
-			HXGameEngine::SpawnSteve(Level, LevelInfo, Level->TravelInfo, enteredURL.Portal);
+			HXGameEngine::SpawnSteve(Level, LevelInfo, EntryLevel ? &Level->TravelInfo : nullptr, enteredURL.Portal);
 	}
 
 	if (ServerLevel)
@@ -2504,11 +2521,21 @@ UnrealURL Engine::LevelHeldURL() const
 std::map<std::string, std::string> Engine::CreateServerTravelInfo()
 {
 	auto travelInfo = Level->TravelInfo;
+	// HX's game engine exports its own players alone, logged, by its own
+	// export, actor properties alone (UHXGameEngine::Tick, HX.dll
+	// 0x1003c3b0; bugs.md HX.3)
+	const bool hx = HXGameEngine::Active();
 	for (UActor* actor : Level->Actors)
 	{
 		UPlayerPawn* pawn = UObject::TryCast<UPlayerPawn>(actor);
-		if (pawn && pawn->Player() && pawn->PlayerReplicationInfo())
-			travelInfo[ScriptToUTF8(pawn->PlayerReplicationInfo()->PlayerName())] = ActorTravelInfo::Create(pawn, true);
+		if (!pawn || !pawn->Player() || !pawn->PlayerReplicationInfo())
+			continue;
+		if (hx && !UObject::TryCast<UHXPlayerPawn>(pawn))
+			continue;
+		std::string name = ScriptToUTF8(pawn->PlayerReplicationInfo()->PlayerName());
+		if (hx)
+			LogMessage("Export server travel for: " + name);
+		travelInfo[name] = ActorTravelInfo::Create(pawn, true, hx);
 	}
 	return travelInfo;
 }
@@ -2523,8 +2550,16 @@ std::map<std::string, std::string> Engine::CreateClientTravelInfo(bool transferI
 {
 	std::map<std::string, std::string> travelInfo;
 	UPlayerPawn* pawn = viewport ? viewport->Actor() : nullptr;
+	const bool hx = HXGameEngine::Active();
+	if (hx && !UObject::TryCast<UHXPlayerPawn>(pawn))
+		return travelInfo;
 	if (transferItems && pawn && pawn->PlayerReplicationInfo())
-		travelInfo[ScriptToUTF8(pawn->PlayerReplicationInfo()->PlayerName())] = ActorTravelInfo::Create(pawn, true);
+	{
+		std::string name = ScriptToUTF8(pawn->PlayerReplicationInfo()->PlayerName());
+		if (hx)
+			LogMessage("Export client travel for: " + name);
+		travelInfo[name] = ActorTravelInfo::Create(pawn, true, hx);
+	}
 	return travelInfo;
 }
 
@@ -3413,10 +3448,15 @@ float Engine::CalcTimeElapsed()
 {
 	using namespace std::chrono;
 
-	int maxTickRate = (int)GetMaxTickRate();
-	if (maxTickRate > 0 && lastTime != 0)
+	// HX.exe's and HCC.exe's main loops hold the rate to 2.5 to 200, none
+	// taken for 200 (HX.exe 0x10923a90, HX.dll 0x10056b60, bugs.md HX.12):
+	// HX alone, or a client at a speed over 12,800, runs 200 frames a second
+	float maxTickRate = GetMaxTickRate();
+	if (HXGameEngine::Active())
+		maxTickRate = maxTickRate < 0.0001f ? 200.0f : std::clamp(maxTickRate, 2.5f, 200.0f);
+	if (maxTickRate > 0.0f && lastTime != 0)
 	{
-		uint64_t minDelta = 1'000'000 / (uint64_t)maxTickRate;
+		uint64_t minDelta = (uint64_t)(1'000'000.0f / maxTickRate);
 		uint64_t now = duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count();
 		if (now - lastTime < minDelta)
 			std::this_thread::sleep_for(microseconds(minDelta - (now - lastTime)));

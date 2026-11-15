@@ -9,6 +9,8 @@ struct GameLaunchInfo
 	std::string url = "";					// The UnrealURL to launch upon startup
 	std::string systemIniPath = "";			// --ini: the system ini to read and write, as the original's INI=
 	std::string userIniPath = "";			// --userini: the user ini, as the original's USERINI=
+	std::string defaultIniPath = "";		// HX.exe's DEFAULTINI=: the default ini, else Default.ini
+	std::string defUserIniPath = "";		// HX.exe's DEFUSERINI=: the default user ini, else DefUser.ini
 	std::string systemFolder = "";			// --system: the original's System, a mod's own that it runs from (else the game's)
 	bool dedicatedServer = false;			// --server: no client, the map served, as the original's -SERVER
 	bool lanPlay = false;					// --lanplay: a dedicated server's LAN tick rate, as the original's -LANPLAY

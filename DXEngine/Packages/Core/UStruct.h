@@ -75,6 +75,9 @@ public:
 	// each element of an object property and of a struct property, never a
 	// dynamic array's.
 	void CleanupDestroyed(void* data);
+	// References to one of the objects given made None, in structs too
+	// (HX's CleanupDestroyed, HX.dll 0x10046da0)
+	void ClearReferences(void* data, UObject* const* objects, int count);
 
 protected:
 	// Its fields, its script text and what its code names.

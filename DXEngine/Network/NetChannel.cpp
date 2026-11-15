@@ -215,6 +215,11 @@ void NetControlChannel::ReceivedBunch(NetInBunch& bunch)
 		std::string text = bunch.Data.ReadString();
 		if (bunch.Data.IsError())
 			break;
+		// HX.exe's takes a text only while the connection is open or
+		// pending, each read and the rest let go (HX.exe 0x10902700, bugs.md
+		// HX.12): one a text before it closed is no longer handled
+		if (HXGameEngine::Active() && Connection->State != ConnectionState::Open && Connection->State != ConnectionState::Pending)
+			continue;
 		if (Connection->Driver->Notify)
 			Connection->Driver->Notify->NotifyReceivedText(Connection, text);
 	}

@@ -2,6 +2,9 @@
 #include "Precomp.h"
 #include "ULevel.h"
 #include "Packages/HX/HXGame.h"
+#include <functional>
+#include "Packages/Extension/UPlayerPawnExt.h"
+#include "Packages/Extension/Windows/TabGroup/URootWindow.h"
 #include "Packages/Core/UClass.h"
 #include "Packages/Engine/Actors/UDecal.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
@@ -298,8 +301,83 @@ void ULevel::Mark(GCMarker& marker)
 	Collision.Mark(marker);
 }
 
+// The windows of the viewport's player's root, and their children's
+static void ForEachWindow(UWindow* window, const std::function<void(UWindow*)>& visit)
+{
+	for (; window; window = window->nextSibling())
+	{
+		visit(window);
+		ForEachWindow(window->firstChild(), visit);
+	}
+}
+
+static URootWindow* ViewportRootWindow()
+{
+	UPlayerPawnExt* player = engine->viewport ? UObject::TryCast<UPlayerPawnExt>(engine->viewport->Actor()) : nullptr;
+	return player ? UObject::TryCast<URootWindow>(player->RootWindow()) : nullptr;
+}
+
 void ULevel::CleanupDestroyed(bool force)
 {
+	// HX's game engine's own (UHXGameEngine::CleanupDestroyed, HX.dll
+	// 0x10046710): each frame at most four actors, the newest destroyed
+	// first, every reference to them in the level's actors and the
+	// viewport's window tree made None; forced, every destroyed actor's
+	if (HXGameEngine::Active() && FirstDeleted)
+	{
+		UEventManager* manager = UEventManager::Get(this);
+		UObject* taken[4] = {};
+		int count = 0;
+		if (force)
+		{
+			for (UActor* actor : Actors)
+			{
+				if (actor && actor->PropertyData.Class && actor->PropertyData.Data)
+					actor->PropertyData.Class->CleanupDestroyed(actor->PropertyData.Data);
+			}
+			if (URootWindow* root = ViewportRootWindow())
+			{
+				ForEachWindow(root, [](UWindow* window) {
+					if (window->PropertyData.Class && window->PropertyData.Data)
+						window->PropertyData.Class->CleanupDestroyed(window->PropertyData.Data);
+				});
+			}
+		}
+		while (FirstDeleted && (force || count < 4))
+		{
+			UActor* actor = FirstDeleted;
+			FirstDeleted = actor->Deleted();
+			actor->Deleted() = nullptr;
+			DeletedCount = std::max(DeletedCount - 1, 0);
+			if (!force)
+				taken[count++] = actor;
+			if (manager)
+				manager->ActorDestroyed(actor);
+			if (UDecal* decal = UObject::TryCast<UDecal>(actor))
+				decal->DetachDecal();
+			actor->Flags |= ObjectFlags::EliminateObject;
+			engine->GarbageDestroyedBacklog++;
+		}
+		if (count > 0)
+		{
+			for (UActor* actor : Actors)
+			{
+				if (actor && actor->PropertyData.Class && actor->PropertyData.Data)
+					actor->PropertyData.Class->ClearReferences(actor->PropertyData.Data, taken, count);
+			}
+			if (URootWindow* root = ViewportRootWindow())
+			{
+				ForEachWindow(root, [&](UWindow* window) {
+					if (window->PropertyData.Class && window->PropertyData.Data)
+						window->PropertyData.Class->ClearReferences(window->PropertyData.Data, taken, count);
+				});
+			}
+		}
+		if (engine->GarbageDestroyedBacklog >= Engine::GarbageDestroyedThreshold)
+			engine->RequestGarbageCollection("destroyed actors");
+		return;
+	}
+
 	if (!FirstDeleted || (!force && DeletedCount < 128))
 		return;
 

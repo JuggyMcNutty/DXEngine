@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "HXGame.h"
+#include "HXCoopStarts.h"
 #include "UHX.h"
 #include "Engine.h"
 #include "Package/PackageManager.h"
@@ -9,6 +10,7 @@
 #include "Packages/Core/UState.h"
 #include "Packages/Core/Properties/UBoolProperty.h"
 #include "Packages/Core/Properties/UStructProperty.h"
+#include "Packages/Core/Properties/UObjectProperty.h"
 #include "Packages/Engine/Actors/Pawn/UPawn.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/UViewport.h"
@@ -16,10 +18,13 @@
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Extension/Flags/UFlagBase.h"
 #include "VM/ScriptCall.h"
+#include "GC/GC.h"
 #include "Collision/BottomLevel/TraceRayModel.h"
 #include "Utils/StrTools.h"
 #include "Utils/Logger.h"
 #include "Utils/Random.h"
+#include "Utils/File.h"
+#include "Utils/SHA1Sum.h"
 #include "OriginalCommandLine.h"
 
 namespace
@@ -132,20 +137,28 @@ namespace
 
 /////////////////////////////////////////////////////////////////////////////
 
-void UHXSteve::Init(const std::map<std::string, std::string>& travelInfo, const std::string& portal)
+// Each key the travel info holds read, in this order; with no travel info,
+// the flag base's reader given nothing, which logs its line alone
+// (HX.dll 0x10022c00)
+void UHXSteve::Init(const std::map<std::string, std::string>* travelInfo, const std::string& portal)
 {
-	if (const std::string* flags = FindTravel(travelInfo, FlagsKey))
-		InitFlagBase(*flags);
+	if (travelInfo)
+	{
+		if (const std::string* flags = FindTravel(*travelInfo, FlagsKey))
+			InitFlagBase(*flags);
+		if (const std::string* points = FindTravel(*travelInfo, SkillPointsKey))
+			Value<int>(Offsets().SkillPointsTotal) = StrTools::ue1_atoi(*points);
+		if (const std::string* goals = FindTravel(*travelInfo, GoalsKey))
+			InitGoals(*goals);
+		if (const std::string* keys = FindTravel(*travelInfo, NanoKeysKey))
+			InitNanoKeys(*keys);
+		if (const std::string* images = FindTravel(*travelInfo, ImagesKey))
+			InitImages(*images);
+	}
 	else
-		LogMessage("Initializing Steve.FlagBase");
-	if (const std::string* points = FindTravel(travelInfo, SkillPointsKey))
-		Value<int>(Offsets().SkillPointsTotal) = StrTools::ue1_atoi(*points);
-	if (const std::string* goals = FindTravel(travelInfo, GoalsKey))
-		InitGoals(*goals);
-	if (const std::string* keys = FindTravel(travelInfo, NanoKeysKey))
-		InitNanoKeys(*keys);
-	if (const std::string* images = FindTravel(travelInfo, ImagesKey))
-		InitImages(*images);
+	{
+		InitFlagBase(std::string());
+	}
 	Value<ScriptString>(Offsets().Portal) = UTF8ToScript(portal);
 }
 
@@ -395,6 +408,94 @@ void HXGameEngine::SetSpawning(ULevel* level)
 	}
 }
 
+// The player's own HX.dll, read once: the System folder's, where the
+// original's HX.exe loads it from, else the one beside HX.u; none, logged
+// once, for one that is not HX 0.9.89.4's, whose code HXCoopStarts follows
+static const Array<uint8_t>* PlayersHXDll()
+{
+	static bool tried = false;
+	static Array<uint8_t> bytes;
+	static bool found = false;
+	if (tried)
+		return found ? &bytes : nullptr;
+	tried = true;
+
+	PackageManager* packages = engine->packages.get();
+	Array<fs::path> candidates = { packages->GetSystemFolderPath() / "HX.dll" };
+	std::string hxPackage = packages->FindPackageFile(NameString("HX"), {});
+	if (!hxPackage.empty())
+		candidates.push_back(fs::path(hxPackage).parent_path() / "HX.dll");
+	for (const fs::path& candidate : candidates)
+	{
+		fs::path path = Directory::resolveCase(candidate);
+		std::error_code ec;
+		if (!fs::is_regular_file(path, ec))
+			continue;
+		std::string sha1 = SHA1Sum::of_file(path);
+		if (!StrTools::equals_ignore_case(sha1, HXCoopStarts::DllSha1))
+		{
+			LogMessage("HX.dll is not HX 0.9.89.4's (" + path.string() + ", SHA1 " + sha1 + "): no co-op starts");
+			return nullptr;
+		}
+		bytes = File::read_all_bytes(path.string());
+		found = true;
+		return &bytes;
+	}
+	LogMessage("HX.dll not found: no co-op starts");
+	return nullptr;
+}
+
+void HXGameEngine::SpawnCoopStarts(ULevelInfo* levelInfo, const std::string& map)
+{
+	// HX's asserts the class's load
+	UClass* cls = engine->packages->FindClass("HX.HXCoopStart");
+	if (!cls)
+	{
+		LogMessage("HX.HXCoopStart not found: no co-op starts");
+		return;
+	}
+	const Array<uint8_t>* dll = PlayersHXDll();
+	if (!dll)
+		return;
+	Array<HXCoopStarts::Start> starts;
+	std::string error;
+	if (!HXCoopStarts::Read(*dll, map, starts, error))
+	{
+		LogMessage("HX.dll's co-op starts not read: " + error);
+		return;
+	}
+
+	PropertyDataOffset priority = cls->GetPropertyDataOffset("Priority");
+	PropertyDataOffset defaultStart = cls->GetPropertyDataOffset("bDefaultStart");
+	PropertyDataOffset teamNumber = cls->GetPropertyDataOffset("TeamNumber");
+	PropertyDataOffset initiallyEnabled = cls->GetPropertyDataOffset("bInitiallyEnabled");
+	PropertyDataOffset enableTag = cls->GetPropertyDataOffset("EnableTag");
+	PropertyDataOffset disableTag = cls->GetPropertyDataOffset("DisableTag");
+	PropertyDataOffset enabledMessage = cls->GetPropertyDataOffset("EnabledMessage");
+	for (const HXCoopStarts::Start& start : starts)
+	{
+		// HXSpawnSingleStart (HX.dll 0x10025cb0): the level's SpawnActor with
+		// no name, owner or instigator, a spawn that may fail
+		UActor* actor = levelInfo->Spawn(cls, nullptr, std::nullopt, start.location, start.rotation, false, false);
+		if (!actor)
+		{
+			char text[512];
+			std::snprintf(text, sizeof(text), "Failed to spawn coop start at (%f,%f,%f) with Tag '%s'", start.location.x, start.location.y, start.location.z, start.tag.c_str());
+			LogMessage(text);
+			continue;
+		}
+		actor->Tag() = NameString(start.tag);
+		actor->Value<int32_t>(priority) = start.priority;
+		actor->BoolValue(defaultStart) = start.defaultStart;
+		actor->Value<uint8_t>(teamNumber) = start.teamNumber;
+		actor->BoolValue(initiallyEnabled) = start.initiallyEnabled;
+		actor->Value<NameString>(enableTag) = NameString(start.enableTag);
+		actor->Value<NameString>(disableTag) = NameString(start.disableTag);
+		actor->Value<ScriptString>(enabledMessage) = UTF8ToScript(start.enabledMessage);
+		actor->SetCollision(start.collideActors, false, false);
+	}
+}
+
 static bool IsA(UActor* actor, const char* className)
 {
 	NameString name(className);
@@ -490,7 +591,7 @@ void HXGameEngine::SetupActors(ULevel* level)
 	}
 }
 
-UHXSteve* HXGameEngine::SpawnSteve(ULevel* level, ULevelInfo* levelInfo, const std::map<std::string, std::string>& travelInfo, const std::string& portal)
+UHXSteve* HXGameEngine::SpawnSteve(ULevel* level, ULevelInfo* levelInfo, const std::map<std::string, std::string>* travelInfo, const std::string& portal)
 {
 	UClass* steveClass = engine->packages->FindClass("HX.HXSteve");
 	if (!steveClass)
@@ -700,4 +801,89 @@ bool HXGameEngine::FastRepLineCheck(ULevel* level, const vec3& end, const vec3& 
 	CollisionSystem& collision = level->Collision;
 	return TraceRayModel::FastWalkSeeThrough(collision.LineNodes(), collision.LineRootOutside(),
 		[&](int surf) { return collision.LineSurface(surf).PolyFlags; }, start, end);
+}
+
+// An object property of the object's, made None, where its class has it
+static void ClearProperty(UObject* obj, const char* name)
+{
+	NameString property(name);
+	if (!obj->HasProperty(property))
+		return;
+	UObjectProperty* prop = UObject::TryCast<UObjectProperty>(obj->GetMemberProperty(property));
+	if (!prop)
+		return;
+	void* data = obj->GetProperty(prop);
+	for (int i = 0; i < prop->ArrayDimension; i++)
+		*static_cast<UObject**>(prop->GetElement(data, i)) = nullptr;
+}
+
+static bool ObjectIsA(UObject* obj, const char* className)
+{
+	NameString name(className);
+	for (UClass* cls = obj->Class; cls; cls = static_cast<UClass*>(cls->BaseStruct))
+	{
+		if (cls->Name == name)
+			return true;
+	}
+	return false;
+}
+
+void HXGameEngine::ExitLevelCleanup()
+{
+	for (GCObject* gcobj : GC::GetObjects(false))
+	{
+		UObject* obj = dynamic_cast<UObject*>(gcobj);
+		if (!obj || !obj->Class || (obj->Flags & ObjectFlags::EliminateObject) == ObjectFlags::EliminateObject)
+			continue;
+		if (ObjectIsA(obj, "ConCamera"))
+		{
+			for (const char* name : { "cameraActor", "conLightSpeaker", "conLightSpeakingTo", "firstActor", "secondActor", "lastFirstActor", "lastSecondActor" })
+				ClearProperty(obj, name);
+			obj->Flags |= ObjectFlags::EliminateObject;
+		}
+		else if (ObjectIsA(obj, "ConEventAnimation") || ObjectIsA(obj, "ConEventTrade"))
+		{
+			ClearProperty(obj, "eventOwner");
+		}
+		else if (ObjectIsA(obj, "ConEventMoveCamera"))
+		{
+			ClearProperty(obj, "cameraActor");
+		}
+		else if (ObjectIsA(obj, "ConEventSpeech"))
+		{
+			ClearProperty(obj, "speaker");
+			ClearProperty(obj, "speakingTo");
+		}
+		else if (ObjectIsA(obj, "ConEventTransferObject"))
+		{
+			ClearProperty(obj, "fromActor");
+			ClearProperty(obj, "toActor");
+		}
+		else if (ObjectIsA(obj, "Flag"))
+		{
+			ClearProperty(obj, "flagBase");
+			ClearProperty(obj, "nextFlag");
+			obj->Flags |= ObjectFlags::EliminateObject;
+		}
+		else if (ObjectIsA(obj, "FlagBase"))
+		{
+			ClearProperty(obj, "hashTable");
+			obj->Flags |= ObjectFlags::EliminateObject;
+		}
+		else if (ObjectIsA(obj, "DeusExNote") || ObjectIsA(obj, "DeusExGoal") || ObjectIsA(obj, "DeusExLog"))
+		{
+			ClearProperty(obj, "next");
+			obj->Flags |= ObjectFlags::EliminateObject;
+		}
+		else if (ObjectIsA(obj, "DeusExPlayer"))
+		{
+			for (const char* name : { "KeyList", "conHistory", "FirstGoal", "LastGoal", "FirstNote", "LastNote", "FirstLog", "LastLog" })
+				ClearProperty(obj, name);
+		}
+		else if (ObjectIsA(obj, "HXGameInfo"))
+		{
+			for (const char* name : { "FirstNote", "LastNote", "FirstLog", "LastLog" })
+				ClearProperty(obj, name);
+		}
+	}
 }

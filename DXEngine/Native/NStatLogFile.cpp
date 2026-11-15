@@ -3,6 +3,7 @@
 #include "NStatLogFile.h"
 #include "VM/NativeFunc.h"
 #include "Engine.h"
+#include "Packages/HX/HXGame.h"
 
 void NStatLogFile::RegisterFunctions()
 {
@@ -31,6 +32,10 @@ void NStatLogFile::FileLog(UObject* Self, const std::string& EventString)
 
 void NStatLogFile::GetChecksum(UObject* Self, std::string& Checksum)
 {
+	// HX.exe's leaves the out string as it was (HX.exe 0x10903680, bugs.md
+	// HX.12)
+	if (HXGameEngine::Active())
+		return;
 	Checksum = "0";
 	//engine->LogUnimplemented("StatLogFile.GetChecksum");
 }

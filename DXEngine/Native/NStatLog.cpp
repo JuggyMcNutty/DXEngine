@@ -3,6 +3,7 @@
 #include "NStatLog.h"
 #include "VM/NativeFunc.h"
 #include "Engine.h"
+#include "Packages/HX/HXGame.h"
 
 void NStatLog::RegisterFunctions()
 {
@@ -47,18 +48,34 @@ void NStatLog::ExecuteWorldLogBatcher(UObject* Self)
 
 void NStatLog::GetGMTRef(UObject* Self, std::string& ReturnValue)
 {
+	// HX.exe's: an empty string (HX.exe 0x10903180, bugs.md HX.12)
+	if (HXGameEngine::Active())
+	{
+		ReturnValue.clear();
+		return;
+	}
 	ReturnValue = "GMTRef dummy value";
 	//engine->LogUnimplemented("StatLog.GetGMTRef");
 }
 
 void NStatLog::GetMapFileName(UObject* Self, std::string& ReturnValue)
 {
+	// HX.exe's: an empty string (HX.exe 0x10902fd0, bugs.md HX.12)
+	if (HXGameEngine::Active())
+	{
+		ReturnValue.clear();
+		return;
+	}
 	ReturnValue = "StatLog.GetMapFileName dummy value";
 	//engine->LogUnimplemented("StatLog.GetMapFileName");
 }
 
 void NStatLog::GetPlayerChecksum(UObject* P, std::string& Checksum)
 {
+	// HX.exe's leaves the out string as it was (HX.exe 0x10903240, bugs.md
+	// HX.12)
+	if (HXGameEngine::Active())
+		return;
 	Checksum = "GetPlayerChecksum dummy value";
 	//engine->LogUnimplemented("StatLog.GetPlayerChecksum");
 }

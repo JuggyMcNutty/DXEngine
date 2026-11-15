@@ -1264,8 +1264,26 @@ static fs::path DefaultsFile(const fs::path& system, const fs::path& root, const
 	return Directory::resolveCase(root / "System" / name);
 }
 
+// The default ini a DEFAULTINI= or DEFUSERINI= names, as HX.exe takes them
+// (bugs.md HX.12), else the game's own; one that is not there is logged and
+// the game's taken, where HX.exe stops ("Missing .ini file")
+static fs::path NamedDefaultsFile(const std::string& named, const fs::path& system, const fs::path& root, const std::string& name)
+{
+	std::error_code ec;
+	if (!named.empty())
+	{
+		if (fs::exists(named, ec))
+			return named;
+		LogMessage("Missing .ini file: " + named + " (" + name + " taken)");
+	}
+	return DefaultsFile(system, root, name);
+}
+
 void PackageManager::LoadEngineIniFiles()
 {
+	const fs::path defaultIni = NamedDefaultsFile(launchInfo.defaultIniPath, gameSystemFolderPath, gameRootFolderPath, "Default.ini");
+	const fs::path defUserIni = NamedDefaultsFile(launchInfo.defUserIniPath, gameSystemFolderPath, gameRootFolderPath, "DefUser.ini");
+
 	// Load DXE-[GameName].ini and DXE-User.ini from the appropriate places
 	// If they do not exist, import the appropriate [GameName].ini and User.ini files
 	// If those also do not exist, import Default.ini and DefUser.ini files
@@ -1282,7 +1300,7 @@ void PackageManager::LoadEngineIniFiles()
 	}
 
 	// Also load Default.ini, so that we can reset values.
-	defaultIniFile = std::make_unique<IniFile>(DefaultsFile(gameSystemFolderPath, gameRootFolderPath, "Default.ini").string());
+	defaultIniFile = std::make_unique<IniFile>(defaultIni.string());
 
 	// --ini and --userini name the files outright, read and written back,
 	// as the original's INI= and USERINI= do. The file named is the engine's
@@ -1300,14 +1318,14 @@ void PackageManager::LoadEngineIniFiles()
 		}
 		else
 		{
-			iniFiles[systemIniName] = std::make_unique<IniFile>(DefaultsFile(gameSystemFolderPath, gameRootFolderPath, "Default.ini").string());
+			iniFiles[systemIniName] = std::make_unique<IniFile>(defaultIni.string());
 			iniFiles[systemIniName]->SetPath(launchInfo.systemIniPath);
 		}
 		missing_dxe_system_ini = iniFiles[systemIniName]->GetKeys("Engine.DXEngineAudioDevice").empty();
 	}
 	else
 	{
-		iniFiles[systemIniName] = std::make_unique<IniFile>(systemIniFileName == "Default.ini" ? DefaultsFile(gameSystemFolderPath, gameRootFolderPath, "Default.ini").string() : (gameSystemFolderPath / systemIniFileName).string());
+		iniFiles[systemIniName] = std::make_unique<IniFile>(systemIniFileName == "Default.ini" ? defaultIni.string() : (gameSystemFolderPath / systemIniFileName).string());
 	}
 
 	if (!File::try_open_existing((gameSystemFolderPath / userIniName).string()))
@@ -1323,14 +1341,14 @@ void PackageManager::LoadEngineIniFiles()
 	}
 	else if (!launchInfo.userIniPath.empty())
 	{
-		iniFiles["User"] = std::make_unique<IniFile>(DefaultsFile(gameSystemFolderPath, gameRootFolderPath, "DefUser.ini").string());
+		iniFiles["User"] = std::make_unique<IniFile>(defUserIni.string());
 		iniFiles["User"]->SetPath(launchInfo.userIniPath);
 	}
 	else
 	{
-		iniFiles["User"] = std::make_unique<IniFile>(userIniName == "DefUser.ini" ? DefaultsFile(gameSystemFolderPath, gameRootFolderPath, "DefUser.ini").string() : (gameSystemFolderPath / userIniName).string());
+		iniFiles["User"] = std::make_unique<IniFile>(userIniName == "DefUser.ini" ? defUserIni.string() : (gameSystemFolderPath / userIniName).string());
 	}
-	defaultUserFile = std::make_unique<IniFile>(DefaultsFile(gameSystemFolderPath, gameRootFolderPath, "DefUser.ini").string());
+	defaultUserFile = std::make_unique<IniFile>(defUserIni.string());
 }
 
 void PackageManager::LoadFileExtensions()

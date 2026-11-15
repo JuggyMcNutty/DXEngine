@@ -4106,12 +4106,32 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
   a translucent stand-in; HX's scripted iterator.
 - **Its windows**: the root and the HX player each window starts with, and
   a text log whose lines each leave in their own time.
-- **Its game engine's map load**: the map's actors made fit for HX's game
-  (decorations, effects, projectiles and triggers no longer static unless
-  lit, the movers HX's own, the camera and interpolation points kept on
-  each side), `bSpawning`, and Steve beside each new game, the campaign's
-  flags, skill points, goals, keys and images carried in the travel from
-  map to map in HX's own lines.
+- **Its game engine's map load**: HX's co-op starts placed in a level with
+  no game, as many as `HX.dll` gives its map (1,268 in 80 of the game's
+  maps), read from the player's own `HX.dll`, HX 0.9.89.4's by its SHA1:
+  its `HXSpawnCoopStarts` holds them as code, which DXEngine follows for the
+  map, keeping none of them (another `HX.dll`, or none, gives no starts,
+  logged, and every player the map's own start); the map's actors made fit
+  for HX's game (decorations, effects, projectiles and triggers no longer
+  static unless lit, the movers HX's own, the camera and interpolation
+  points kept on each side), `bSpawning`, and Steve beside each new game,
+  the campaign's flags, skill points, goals, keys and images carried in the
+  travel from map to map in HX's own lines; what the level left holds let
+  go at the load -- its conversation cameras' and events' actors, its flags
+  and flag bases, its notes, goals and logs (`HXFixTestNotes`, a note across
+  two travels, alike with either engine hosting).
+- **Its frame**: the Entry level ticked once while the player waits there,
+  where the game's ticks it twice; destroyed actors freed four a frame, the
+  newest first, every reference to them in the level's actors and the
+  viewport's window tree made None; a server's travel exported for HX
+  players alone (`Export server travel for:`), a client's too (`Export
+  client travel for:`), the last URL's portal kept for a client's browse
+  (`HXFixTestNotes` with either engine hosting: both players exported at
+  each of two travels; bugs.md HX.3, its run due for an actor destroyed
+  while a window holds it). A viewport's `?restart` (`RESTARTLEVEL`) begins
+  the level again as it was entered, its travel info given, by choice
+  (bugs.md D.85): HX's tests the level's `NextURL` instead and begins it
+  with none, Steve afresh and the player's items gone.
 - **Its start**: the command line's first word the map opened, with
   `-hax0r` or not, the ini's `[URL] LocalMap` a client's fallback and `Map`
   a dedicated server's; a player named `Player`, or none, a random
@@ -4129,6 +4149,14 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
   (bugs.md HX.11, its run due).
 - **Joining**: the challenge answered HX's way, its bits turned, on both
   sides, and `HX.HXGameEngine` the class HX's engine check finds.
+- **`HX.exe`'s and `HCC.exe`'s engine**: the frame rate held to 2.5 to 200
+  frames a second, none taken for 200, where `GETMAXTICKRATE` still gives
+  the game's; the `StatLog` and `StatLogFile` natives doing nothing,
+  `GetMapFileName` and `GetGMTRef` empty, the checksums left as they were; a
+  control channel's text taken only while its connection is open or
+  pending; `DEFAULTINI=` and `DEFUSERINI=`, `HX.exe`'s own words, naming the
+  default inis, `HXDefault.ini` and `HXDefUser.ini` for HX, as `HX.exe`'s
+  name gives them (bugs.md HX.12, its run due).
 - **Its level and network**: each actor's distance from the nearest HX
   player on a server, from the local one on a client, and an HX NPC's 32
   players' distances, nearest first (a DXEngine server with the original's
@@ -4145,8 +4173,10 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
 HX plays Liberty Island alone and over the net, with either engine on
 either side, its logs clean of script errors: DXEngine's client on the
 original's `HCC.exe server`, the original's `HX.exe` on DXEngine's
-dedicated server. What `HX.dll` does that DXEngine does not yet: bugs.md
-HX.3 to HX.7, HX.12 and HX.13.
+dedicated server. HXFix's 44 one-client live tests pass with DXEngine
+hosting and the original's `HX.exe` joining, but for `HXFixTestKeypad`'s
+remote client, whose keypad window opens in one run of three (bugs.md HX.9).
+What `HX.dll` does that DXEngine does not yet: bugs.md HX.4, HX.7 and HX.13.
 
 A mod with none gets the original's loader and natives:
 

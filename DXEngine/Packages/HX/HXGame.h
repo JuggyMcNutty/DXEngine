@@ -15,7 +15,8 @@ class UHXSteve : public UActor
 public:
 	using UActor::UActor;
 
-	void Init(const std::map<std::string, std::string>& travelInfo, const std::string& portal);
+	// None for a load with no travel info: the Entry level's
+	void Init(const std::map<std::string, std::string>* travelInfo, const std::string& portal);
 	void ExportTravel(std::map<std::string, std::string>& travelInfo);
 
 private:
@@ -45,6 +46,12 @@ namespace HXGameEngine
 	// True, as HX's LoadMap marks them before the level begins
 	void SetSpawning(ULevel* level);
 
+	// HXSpawnCoopStarts (HX.dll 0x10025e20), as HX's LoadMap calls it right
+	// after the map's load for a level with no game: the starts HX.dll holds
+	// for the map, read from the player's own HX.dll (HXCoopStarts.h), each
+	// spawned with its tag, its settings and its collision
+	void SpawnCoopStarts(ULevelInfo* levelInfo, const std::string& map);
+
 	// CoopSetupActors (HX.dll 0x10043f80): the map's actors made fit for
 	// HX's game -- decorations, effects, projectiles and triggers no longer
 	// static, the level info and the camera and interpolation points kept
@@ -52,8 +59,9 @@ namespace HXGameEngine
 	void SetupActors(ULevel* level);
 
 	// The Steve spawned beside a new game (HX's LoadMap), its flag base a
-	// new HXFlagBase, read from the level's travel info
-	UHXSteve* SpawnSteve(ULevel* level, ULevelInfo* levelInfo, const std::map<std::string, std::string>& travelInfo, const std::string& portal);
+	// new HXFlagBase, read from the level's travel info (none for the Entry
+	// level's load, as the original's Init loads it with none)
+	UHXSteve* SpawnSteve(ULevel* level, ULevelInfo* levelInfo, const std::map<std::string, std::string>* travelInfo, const std::string& portal);
 
 	// Browse's "Adding Steve to TravelInfo.": every Steve of the level
 	// written into the travel info
@@ -69,4 +77,10 @@ namespace HXGameEngine
 	// the movers filed in: whether the line is clear, seeing through
 	// invisible, masked, translucent and modulated surfaces
 	bool FastRepLineCheck(ULevel* level, const vec3& end, const vec3& start);
+
+	// ExitLevelCleanup (HX.dll 0x10044630), as a map's load leaves the old
+	// level: the conversation cameras' and events' actors, the flags and
+	// flag bases, the notes, goals and logs let go, those flags, bases,
+	// notes, goals and logs and the cameras eliminated
+	void ExitLevelCleanup();
 }

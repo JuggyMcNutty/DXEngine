@@ -269,6 +269,33 @@ void UStruct::Mark(GCMarker& marker)
 	}
 }
 
+void UStruct::ClearReferences(void* data, UObject* const* objects, int count)
+{
+	for (UProperty* prop : RefProps())
+	{
+		uint8_t* values = static_cast<uint8_t*>(data) + prop->DataOffset.DataOffset;
+		if (UObject::TryCast<UObjectProperty>(prop))
+		{
+			for (int i = 0; i < prop->ArrayDimension; i++)
+			{
+				UObject*& obj = *reinterpret_cast<UObject**>(values + i * prop->ElementPitch());
+				for (int j = 0; obj && j < count; j++)
+				{
+					if (obj == objects[j])
+						obj = nullptr;
+				}
+			}
+		}
+		else if (UStructProperty* structProp = UObject::TryCast<UStructProperty>(prop))
+		{
+			if (!structProp->Struct || structProp->Struct->DelayLoad)
+				continue;
+			for (int i = 0; i < prop->ArrayDimension; i++)
+				structProp->Struct->ClearReferences(values + i * prop->ElementPitch(), objects, count);
+		}
+	}
+}
+
 void UStruct::CleanupDestroyed(void* data)
 {
 	for (UProperty* prop : RefProps())

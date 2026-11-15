@@ -465,6 +465,8 @@ set(DXCOMMON_SOURCES
 	DXEngine/Packages/Core/Properties/UStructProperty.h
 	DXEngine/Packages/DeusEx/UDeusExDecoration.cpp
 	DXEngine/Packages/DeusEx/UDeusExDecoration.h
+	DXEngine/Packages/HX/HXCoopStarts.cpp
+	DXEngine/Packages/HX/HXCoopStarts.h
 	DXEngine/Packages/HX/HXGame.cpp
 	DXEngine/Packages/HX/HXGame.h
 	DXEngine/Packages/HX/UHX.cpp

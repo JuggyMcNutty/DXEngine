@@ -109,6 +109,13 @@ GameLaunchInfo GameFolderSelection::GetLaunchInfo(int selectedGame)
 			info.systemIniPath = OriginalIniPath(info, ini);
 		if (original.Value("USERINI", ini, 256) && !ini.empty())
 			info.userIniPath = OriginalIniPath(info, ini);
+		// HX.exe's own words, its default inis (dx-reverse-info hx-dll.md,
+		// HX.exe; bugs.md HX.12), which its name makes HXDefault.ini and
+		// HXDefUser.ini: DXLauncher gives them for HX
+		if (original.Value("DEFAULTINI", ini, 256) && !ini.empty())
+			info.defaultIniPath = OriginalIniPath(info, ini);
+		if (original.Value("DEFUSERINI", ini, 256) && !ini.empty())
+			info.defUserIniPath = OriginalIniPath(info, ini);
 	}
 	return info;
 }
