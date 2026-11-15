@@ -58,6 +58,10 @@ namespace HXGameEngine
 	// on each side, the movers made HX's own
 	void SetupActors(ULevel* level);
 
+	// CoopSaveCurrentLevel's first step (HX.dll 0x10043260): the movers'
+	// classes the game's again, as a save of the level holds them
+	void RevertMovers(ULevel* level);
+
 	// The Steve spawned beside a new game (HX's LoadMap), its flag base a
 	// new HXFlagBase, read from the level's travel info (none for the Entry
 	// level's load, as the original's Init loads it with none)

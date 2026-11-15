@@ -591,6 +591,31 @@ void HXGameEngine::SetupActors(ULevel* level)
 	}
 }
 
+void HXGameEngine::RevertMovers(ULevel* level)
+{
+	PackageManager* packages = engine->packages.get();
+	struct MoverSwap { UClass* from; UClass* to; };
+	MoverSwap swaps[] =
+	{
+		{ packages->FindClass("HX.HXMover"), packages->FindClass("DeusEx.DeusExMover") },
+		{ packages->FindClass("HX.HXBreakableGlass"), packages->FindClass("DeusEx.BreakableGlass") },
+		{ packages->FindClass("HX.HXBreakableWall"), packages->FindClass("DeusEx.BreakableWall") },
+	};
+	for (UActor* actor : level->Actors)
+	{
+		if (!actor || !actor->Brush())
+			continue;
+		for (const MoverSwap& swap : swaps)
+		{
+			if (swap.from && swap.to && actor->Class == swap.from && swap.to->StructSize == swap.from->StructSize)
+			{
+				actor->Class = swap.to;
+				break;
+			}
+		}
+	}
+}
+
 UHXSteve* HXGameEngine::SpawnSteve(ULevel* level, ULevelInfo* levelInfo, const std::map<std::string, std::string>* travelInfo, const std::string& portal)
 {
 	UClass* steveClass = engine->packages->FindClass("HX.HXSteve");

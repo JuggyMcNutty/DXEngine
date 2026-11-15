@@ -154,6 +154,17 @@ public:
 	// left it; a new mission, or a player starting a new game, empties
 	// Current (dx-reverse-info/deusex-dll.md, travel and saving).
 	void DeusExPreTravel(const UnrealURL& url);
+	// HX's Browse of a local map (UHXGameEngine::Browse, HX.dll 0x1003d9a0;
+	// bugs.md HX.4): its run's folder, missions and saved levels
+	bool HXBrowseMap(const UnrealURL& url, const std::map<std::string, std::string>& travelInfo);
+	// The run's folder: ServerCurrent, ListenCurrent or Current
+	std::string HXRunFolder(const UnrealURL& url) const;
+	// PruneCurrent and CoopSaveCurrentLevel (HX.dll 0x100444e0, 0x10043260)
+	void HXPruneCurrent();
+	void HXSaveCurrentLevel(const std::string& folder);
+	// HX's LoadMap for a level from a run's folder: its new game and Steve
+	// begun alone
+	void HXBeginPlayAgain(const UnrealURL& url, UActor* steve);
 	// A travel to a map as the original's Browse makes it: the pre-travel,
 	// then the load, or a failed load's fallback; false when no level loads.
 	bool BrowseMap(const UnrealURL& url, const std::map<std::string, std::string>& travelInfo);
@@ -459,6 +470,7 @@ public:
 	Package* deusExPackage = nullptr;
 	UDeusExLevelInfo* DeusExLevelInfo = nullptr;
 	bool dxTravelUsesCurrent = false; // set by DeusExPreTravel, read once by LoadMap
+	std::string hxFolderSave; // set by HXBrowseMap: the level's file in its run's folder, under the save path, read once by LoadMap
 	bool levelFromCurrent = false; // set by LoadMap: its level came from Current
 	// The render device's PrecacheOnFlip: set by a map's load with its
 	// UsePrecache on, cleared by the frame that shows PRECACHING

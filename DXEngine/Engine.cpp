@@ -22,6 +22,9 @@
 #include "Packages/Core/USubsystem.h"
 #include "Packages/Core/Properties/UObjectProperty.h"
 #include "Packages/Core/Properties/UStrProperty.h"
+#include "Packages/Core/Properties/UByteProperty.h"
+#include "Package/IniFile.h"
+#include "Packages/Engine/Actors/Brush/UMover.h"
 #include "Packages/Core/Properties/UFloatProperty.h"
 #include "Packages/Core/Properties/UIntProperty.h"
 #include "Packages/Engine/UClient.h"
@@ -1385,10 +1388,19 @@ bool Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 	// (MissionMapName), the URL's map loaded from Maps where Current has none.
 	const std::string missionMap = MissionMapName(url);
 	std::string currentMap;
+	bool hxFolderLevel = false;
 	if (dxTravelUsesCurrent)
 	{
 		dxTravelUsesCurrent = false;
 		currentMap = packages->FindCurrentSave(missionMap);
+	}
+	else if (!hxFolderSave.empty())
+	{
+		// HX's Browse names the file of the run's folder itself:
+		// <folder>/<map>.sNN (bugs.md HX.4)
+		currentMap = hxFolderSave;
+		hxFolderSave.clear();
+		hxFolderLevel = true;
 	}
 	const bool loadedFromCurrent = !currentMap.empty();
 
@@ -1405,7 +1417,16 @@ bool Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 		size_t dx = map.find(".dx");
 		if (dx != std::string::npos)
 			map.resize(dx);
-		enteredURL.Map = packages->GetIniValue("System", "Core.System", "SavePath") + "\\Current\\" + map + "." + packages->GetSaveExtension();
+		if (hxFolderLevel)
+		{
+			// HX's: its file by its own name in the run's folder, as HX's
+			// Browse enters it (FURL(URL, file, TRAVEL_Relative))
+			std::string file = currentMap;
+			std::replace(file.begin(), file.end(), '/', '\\');
+			enteredURL.Map = packages->GetIniValue("System", "Core.System", "SavePath") + "\\" + file;
+		}
+		else
+			enteredURL.Map = packages->GetIniValue("System", "Core.System", "SavePath") + "\\Current\\" + map + "." + packages->GetSaveExtension();
 		enteredURL.Options.clear();
 		for (const std::string& option : url.Options)
 		{
@@ -1423,8 +1444,10 @@ bool Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 	std::string levelName, levelFile;
 	if (loadedFromCurrent)
 	{
-		LogMessage("Loading " + missionMap + " from Current");
-		levelFile = packages->SaveFilePath(currentMap);
+		LogMessage("Loading " + missionMap + " from " + (hxFolderLevel ? currentMap : std::string("Current")));
+		// HX's file, its own extension (.sNN), found in any case as Windows'
+		// file system finds it
+		levelFile = hxFolderLevel ? Directory::resolveCase(packages->GetSaveFolderPath() / fs::path(currentMap)).string() : packages->SaveFilePath(currentMap);
 	}
 	else
 	{
@@ -1563,17 +1586,14 @@ bool Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 		return true;
 	}
 
-	// A server listens before its game begins, so the game's scripts see it;
-	// a dedicated one always does.
-	if (url.HasOption("listen") || LaunchInfo.dedicatedServer)
-		Listen(url);
-
 	// A level already begun -- one from Current -- keeps the game it was
 	// saved with, as the original's LoadMap spawns a game only when the
 	// level has none: a second would have no mutators, and its IsRelevant
 	// then refuses every actor spawned (the player's augmentation and skill
 	// managers, the key ring).
 	GameInfo = UObject::TryCast<UGameInfo>(LevelInfo->Game());
+	UActor* hxSteve = nullptr;
+	const bool newGameForBegunLevel = !GameInfo && LevelInfo->bBegunPlay();
 	if (!GameInfo)
 	{
 		// Find the game info class
@@ -1606,8 +1626,24 @@ bool Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 		// HX's Steve beside the new game, the travel's state in it; the
 		// Entry level's load has none (EntryLevel not set yet)
 		if (HXGameEngine::Active())
-			HXGameEngine::SpawnSteve(Level, LevelInfo, EntryLevel ? &Level->TravelInfo : nullptr, enteredURL.Portal);
+			hxSteve = HXGameEngine::SpawnSteve(Level, LevelInfo, EntryLevel ? &Level->TravelInfo : nullptr, enteredURL.Portal);
 	}
+
+	// HX's level from its run's folder, saved with no game or Steve: those
+	// two begun alone (bugs.md HX.4)
+	if (HXGameEngine::Active() && newGameForBegunLevel)
+		HXBeginPlayAgain(url, hxSteve);
+
+	// A server listens once its game is spawned and before it begins, so the
+	// game's scripts see it, as the original's LoadMap listens after
+	// "Game class is" (Engine.dll 0x1038c1f0); a dedicated one always does.
+	// So its server actors come after the game in the level's list, and on
+	// a level begun already, one from HX's run's folder, they spawn with the
+	// game there, which Actor.PreBeginPlay asks if they are relevant.
+	if (url.HasOption("listen") || LaunchInfo.dedicatedServer)
+		Listen(url);
+	if (HXGameEngine::Active() && LevelInfo->bBegunPlay())
+		LogMessage("Bringing Level " + LevelPackage->GetPackageName().ToString() + ".MyLevel up again for play...");
 
 	if (ServerLevel)
 		ServerLevel->BuildMasterMap(GameInfo);
@@ -1750,6 +1786,12 @@ static int32_t SlotNumber(const std::string& text)
 
 bool Engine::LoadSavedGame(const UnrealURL& url)
 {
+	// HX's Browse loads no save (bugs.md HX.4)
+	if (HXGameEngine::Active())
+	{
+		LogMessage("Loadgame is not supported.");
+		return false;
+	}
 	// A save's load counts its own jumps, a map's load as the original's is
 	// (UGameEngine::LoadMap's GInitRunaway)
 	Frame::InitRunaway();
@@ -2296,7 +2338,17 @@ Package* Engine::CheckLevelPackage(const std::string& map, const std::string& na
 // load's error.
 bool Engine::BrowseStartMap(const UnrealURL& url, std::string& error)
 {
-	DeleteSaveGameFiles("Current");
+	// HX's Browse takes the start too (bugs.md HX.4): from the Entry level,
+	// in no mission, every map a new one -- the run's folder emptied
+	if (HXGameEngine::Active())
+	{
+		const int32_t current = DeusExLevelInfo ? DeusExLevelInfo->MissionNumber() : -1;
+		LogMessage("Doing load, not loadgame.");
+		LogMessage("Current mission number is " + std::to_string(current) + ", next is " + std::to_string(DeusExMissionNumber(MissionMapName(url))));
+		DeleteSaveGameFiles(HXRunFolder(url));
+	}
+	else
+		DeleteSaveGameFiles("Current");
 	if (!LoadMap(url, {}, false, &error))
 	{
 		UnrealURL loadURL = url;
@@ -2329,6 +2381,9 @@ bool Engine::BrowseMap(const UnrealURL& url, const std::map<std::string, std::st
 		LoadMap(url, travelInfo);
 		return true;
 	}
+	// HX's game engine browses a local map its own way (bugs.md HX.4)
+	if (HXGameEngine::Active())
+		return HXBrowseMap(url, travelInfo);
 	DeusExPreTravel(url);
 	const bool withinMission = dxTravelUsesCurrent;
 	UnrealURL loadURL = url;
@@ -2481,6 +2536,235 @@ void Engine::SaveCurrentLevel(int32_t slot)
 	// the movers filed where they are, a destroyed one's polygons gone
 	Level->Collision.FileMovers();
 	LevelInfo->LevelAction() = LEVACT_None;
+}
+
+// The run's folder (UHXGameEngine::SaveDirectoryPath, HX.dll 0x10042b60):
+// slot -3, ServerCurrent, on a dedicated server; -4, ListenCurrent, with
+// ?listen; else -2, Current
+std::string Engine::HXRunFolder(const UnrealURL& url) const
+{
+	if (LaunchInfo.dedicatedServer)
+		return "ServerCurrent";
+	if (url.HasOption("listen"))
+		return "ListenCurrent";
+	return "Current";
+}
+
+// HX's Browse of a local map (UHXGameEngine::Browse, HX.dll 0x1003d9a0;
+// dx-reverse-info hx-dll.md, Browse; bugs.md HX.4), where the game's has its
+// own (DeusExPreTravel): no ?loadgame; the map tested, a ?load= value's or
+// the URL's, and the level's missions logged; a map outside every mission,
+// a ?loadonly or another mission empties the run's folder and loads from
+// Maps, a failure loading the current level's map again, as the game's;
+// within the mission the level left is pruned and saved as its next
+// generation, and the map entered comes from its last one in the run's
+// folder, else from Maps, a failure failing the browse. Steve's state goes
+// into the travel first, with the level's bNextItems, for a map of a
+// mission and no ?loadonly. Nothing tests bStartingNewGame, a level needs no
+// DeusExLevelInfo to be saved, and the map's name is cut at its first "dx",
+// as HX's FURL::DefaultMapExt has it, with no dot.
+bool Engine::HXBrowseMap(const UnrealURL& url, const std::map<std::string, std::string>& travelInfo)
+{
+	if (HasValueOption(url, "loadgame"))
+	{
+		LogMessage("Loadgame is not supported.");
+		return false;
+	}
+	const std::string folder = HXRunFolder(url);
+	const std::string tested = MissionMapName(url);
+	const int32_t current = DeusExLevelInfo ? DeusExLevelInfo->MissionNumber() : -1;
+	const int32_t next = DeusExMissionNumber(tested);
+	LogMessage("Doing load, not loadgame.");
+	LogMessage("Current mission number is " + std::to_string(current) + ", next is " + std::to_string(next));
+
+	std::map<std::string, std::string> info = travelInfo;
+	auto fromMaps = [&](bool againOnFailure) {
+		if (LoadMap(url, info))
+			return true;
+		if (!againOnFailure)
+			return false;
+		UnrealURL loadURL = url;
+		loadURL.Map = LevelInfo->URL.Map;
+		return LoadMap(loadURL, info);
+	};
+
+	bool loaded;
+	if (next == -1 || url.HasOption("loadonly"))
+	{
+		DeleteSaveGameFiles(folder);
+		loaded = fromMaps(true);
+	}
+	else
+	{
+		if (LevelInfo->bNextItems())
+			HXGameEngine::ExportSteves(Level, info);
+		if (next != current)
+		{
+			DeleteSaveGameFiles(folder);
+			loaded = fromMaps(true);
+		}
+		else
+		{
+			HXPruneCurrent();
+			HXSaveCurrentLevel(folder);
+
+			std::string name = tested;
+			size_t dx = name.find("dx");
+			if (dx != std::string::npos)
+				name.resize(dx);
+			const fs::path folderPath = Directory::resolveCase(packages->GetSaveFolderPath() / folder);
+			std::error_code ec;
+			int generation = 0;
+			const fs::path iniPath = Directory::resolveCase(folderPath / "Save.ini");
+			if (fs::is_regular_file(iniPath, ec))
+				generation = StrTools::ue1_atoi(IniFile(iniPath.string()).GetValue("Generations", name, "0"));
+			char extension[16];
+			std::snprintf(extension, sizeof(extension), ".s%02d", generation);
+			const fs::path file = Directory::resolveCase(folderPath / (name + extension));
+			if (fs::is_regular_file(file, ec))
+				hxFolderSave = folder + "/" + file.filename().string();
+			loaded = LoadMap(url, info);
+			hxFolderSave.clear();
+		}
+	}
+	if (!loaded)
+		return false;
+	if (!LaunchInfo.dedicatedServer)
+		LoginPlayer();
+	if (levelFromCurrent)
+		LastURL = LevelInfo->URL;
+	return true;
+}
+
+// PruneCurrent (HX.dll 0x100444e0), before each save: every actor whose
+// class has the event asked, with its transient flag, which it leaves as
+// the event set it -- HX's game, players, replication infos, bark and
+// DataLink managers set it, and a save writes no transient object.
+void Engine::HXPruneCurrent()
+{
+	const NameString prune("PruneCurrent");
+	auto byteProp = GC::Alloc<UByteProperty>("", nullptr, ObjectFlags::NoFlags);
+	for (size_t i = 0; i < Level->Actors.size(); i++)
+	{
+		UActor* actor = Level->Actors[i];
+		if (!actor || !FindEventFunction(actor, prune))
+			continue;
+		uint8_t transient = AnyFlags(actor->Flags, ObjectFlags::Transient) ? 1 : 0;
+		CallEvent(actor, prune, { ExpressionValue::Variable(&transient, byteProp) });
+		if (transient)
+			actor->Flags |= ObjectFlags::Transient;
+		else
+			actor->Flags = actor->Flags & ~ObjectFlags::Transient;
+	}
+}
+
+// CoopSaveCurrentLevel (HX.dll 0x10043260), the game's SaveCurrentLevel
+// with HX's steps: SAVING on the screen; the movers' classes the game's
+// again; the AI event manager let go, HXGameInfo.InitGame making another;
+// the destroyed actors freed, forced; the level saved as its package's next
+// generation in the run's folder, <package>.sNN, by Save.ini's
+// [Generations], the last two kept, and its [Restore]; each mover's
+// SavedPos -1; the movers filed again. The save is the engine's own, not
+// conformed to the map's file (bugs.md HX.7).
+void Engine::HXSaveCurrentLevel(const std::string& folderName)
+{
+	LevelInfo->LevelAction() = LEVACT_Saving;
+	PaintProgress();
+
+	HXGameEngine::RevertMovers(Level);
+
+	PropertyDataOffset eventManager = LevelInfo->GetPropertyDataOffset(NameString("EventManager"));
+	if (eventManager.DataOffset != ~(size_t)0)
+	{
+		if (UObject* manager = LevelInfo->Value<UObject*>(eventManager))
+		{
+			manager->Flags |= ObjectFlags::EliminateObject;
+			LevelInfo->Value<UObject*>(eventManager) = nullptr;
+		}
+	}
+
+	Level->CleanupDestroyed(true);
+
+	const fs::path folder = Directory::resolveCase(packages->GetSaveFolderPath() / folderName);
+	std::error_code ec;
+	fs::create_directories(folder, ec);
+
+	const std::string package = LevelPackage->GetPackageName().ToString();
+	const fs::path iniPath = Directory::resolveCase(folder / "Save.ini");
+	IniFile saveIni;
+	if (fs::is_regular_file(iniPath, ec))
+		saveIni = IniFile(iniPath.string());
+	saveIni.SetPath(iniPath.string());
+	const int oldGeneration = StrTools::ue1_atoi(saveIni.GetValue("Generations", package, "0"));
+	const int newGeneration = oldGeneration + 1;
+	auto generationFile = [&](int generation) {
+		char extension[16];
+		std::snprintf(extension, sizeof(extension), ".s%02d", generation);
+		return Directory::resolveCase(folder / (package + extension));
+	};
+
+	bool saved = false;
+	try
+	{
+		const fs::path file = generationFile(newGeneration);
+		packages->CloseStreams();
+		fs::remove(file, ec);
+		SetLevelURLForSave();
+		LevelPackage->Save(Level, file.string());
+		saved = true;
+	}
+	catch (const std::exception&)
+	{
+		LogMessage("CoopSaveCurrentLevel: SavePackage() failed");
+	}
+	if (saved)
+	{
+		saveIni.SetValue("Generations", package, std::to_string(newGeneration));
+		if (oldGeneration > 0)
+			fs::remove(generationFile(oldGeneration - 1), ec);
+	}
+	saveIni.SetValue("Restore", "LastMap", package);
+	saveIni.SetValue("Restore", "LastPortal", "(Unknown)");
+	saveIni.SaveTo();
+
+	for (UActor* actor : Level->Actors)
+	{
+		if (UMover* mover = UObject::TryCast<UMover>(actor))
+			mover->SavedPos() = vec3(-1.0f);
+	}
+
+	Level->Collision.FileMovers();
+	LevelInfo->LevelAction() = LEVACT_None;
+}
+
+// HX's LoadMap for a level that has begun play -- one from a run's folder,
+// saved with no game or Steve -- (HX.dll 0x1003f3d0): the new game and
+// Steve begun alone, as the level begins every actor: InitGame,
+// PreBeginPlay, BeginPlay, their zones, 10 s undrawn, PostBeginPlay and
+// SetInitialState.
+void Engine::HXBeginPlayAgain(const UnrealURL& url, UActor* steve)
+{
+	UActor* begun[2] = { GameInfo, steve };
+	LevelInfo->bStartup() = true;
+	if (GameInfo)
+	{
+		auto stringProp = GC::Alloc<UStrProperty>("", nullptr, ObjectFlags::NoFlags);
+		ScriptString error;
+		CallEvent(GameInfo, EventName::InitGame, { ExpressionValue::StringValue(url.GetOptions()), ExpressionValue::Variable(&error, stringProp) });
+		if (!error.empty())
+			Exception::Throw("InitGame failed: " + ScriptToUTF8(error));
+	}
+	for (UActor* actor : begun) { if (actor) CallEvent(actor, EventName::PreBeginPlay); }
+	for (UActor* actor : begun) { if (actor) CallEvent(actor, EventName::BeginPlay); }
+	for (UActor* actor : begun)
+	{
+		if (actor && !actor->bDeleteMe())
+			actor->Region() = actor->FindRegion();
+	}
+	for (UActor* actor : begun) { if (actor) actor->LastRenderTime() = -10.0f; }
+	for (UActor* actor : begun) { if (actor) CallEvent(actor, EventName::PostBeginPlay); }
+	for (UActor* actor : begun) { if (actor) CallEvent(actor, EventName::SetInitialState); }
+	LevelInfo->bStartup() = false;
 }
 
 // The level's own URL as the original's is when saved (ULevel::Serialize):
@@ -3517,33 +3801,29 @@ bool Engine::TakeTravel(float realTimeElapsed)
 				// 0x10396bd0). A map that does not load -- DXMP_Area51Bunker's
 				// DeusExLevelInfo names none -- leaves the level playing, its
 				// NextURL cleared, as below.
+				// HX's frame gives its Browse the level's travel info for a
+				// NextURL ?restart, and its Browse loads the map with it
+				// (bugs.md HX.4): Steve takes the campaign's state back.
 				UnrealURL restartURL = RestartURL();
-				if (!LoadMap(restartURL, {}))
-					LevelInfo->NextURL().clear();
-				else if (!dedicated)
+				if (LoadMap(restartURL, HXGameEngine::Active() ? Level->TravelInfo : std::map<std::string, std::string>()) && !dedicated)
 					LoginPlayer();
+				LevelInfo->NextURL().clear();
 			}
 			else
 			{
 				// With bNextItems the players' travel info, captured
 				// before the pre-travel prune deletes what crosses in the
 				// pawn's graph, as the original's travel save runs before
-				// its Browse; without it none. A browse that loads no
-				// level clears NextURL, as the original's clears it after
-				// the browse, failed or not.
+				// its Browse; without it none.
 				auto travelInfo = LevelInfo->bNextItems() ? CreateServerTravelInfo() : std::map<std::string, std::string>();
-				// HX's Browse writes its Steve too, for a map of a mission
-				// and not ?loadonly
-				if (HXGameEngine::Active() && LevelInfo->bNextItems())
-				{
-					UnrealURL next(&LastURL, ScriptToUTF8(LevelInfo->NextURL()), ETravelType::TRAVEL_Relative);
-					const std::string& map = next.Map;
-					bool mission = map.size() >= 2 && isdigit((unsigned char)map[0]) && isdigit((unsigned char)map[1]);
-					if (mission && !HasWholeOption(next, "loadonly"))
-						HXGameEngine::ExportSteves(Level, travelInfo);
-				}
-				if (!BrowseMap(UnrealURL(&LastURL, ScriptToUTF8(LevelInfo->NextURL()), ETravelType::TRAVEL_Relative), travelInfo))
-					LevelInfo->NextURL().clear();
+				BrowseMap(UnrealURL(&LastURL, ScriptToUTF8(LevelInfo->NextURL()), ETravelType::TRAVEL_Relative), travelInfo);
+				// The level the browse leaves current, the new one or the
+				// old, has its NextURL cleared, as the original's tick clears
+				// it after the browse (UGameEngine::Tick, Engine.dll
+				// 0x1038fe90): a level saved during the travel, as HX's
+				// within a mission is, holds the URL, and comes back with
+				// none (bugs.md HX.4)
+				LevelInfo->NextURL().clear();
 			}
 			return true;
 		}

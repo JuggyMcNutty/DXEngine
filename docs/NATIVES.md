@@ -358,7 +358,13 @@ asked for by its own tick and, with `LoadByActor`, by an actor's: the ticks
 before the load alike in both engines). A server's next map waits out its countdown by the frame's real
 time, not the level's, and a join under way ticks after the level's tick in
 a frame that takes no travel, its connecting message shown at each frame's
-draw, as the original's.
+draw, as the original's. After the next map's browse the level then
+current, the new one or the old, has its `NextURL` cleared, as the
+original's frame clears it, so a level saved during the travel comes back
+with none; and a server listens once its game is spawned and before it
+begins, as the original's map load does, its server actors after the game
+in the level's list (HX's level from its run's folder, below, their
+spawn's relevance asked of the game there).
 
 A map's name with a space after it, as Mission 14's five travels have it
 (`14_OceanLab_Lab.dx #Sunkenlab`), finds its map as the original's Windows
@@ -4139,6 +4145,22 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
   while a window holds it). A viewport's `?restart` (`RESTARTLEVEL`) begins
   the level with no travel info, as the game's `Browse` and HX's own frame
   both give it none.
+- **Its travel and saving**: a folder for each kind of run under the ini's
+  `SavePath` -- `ListenCurrent` with `?listen`, `ServerCurrent` on a
+  dedicated server, else `Current`; within a mission the level left pruned
+  (each actor's `PruneCurrent`: HX's game, players and managers are not
+  saved) and saved as its package's next generation, `<map>.sNN` by
+  `Save.ini`'s `[Generations]`, the last two kept, its movers' classes the
+  game's again and its AI event manager let go first; the map entered
+  taken from its last generation there, by the name cut at its first `dx`,
+  its new game and Steve begun alone; another mission, a map outside every
+  one or a `?loadonly` empties the folder, the start's map too;
+  `?loadgame=` refused; a server's `?RESTART` loading with the level's
+  travel info, Steve taking the campaign's state back (a probe's round trip
+  from Liberty Island to UNATCO HQ and back on a listen server: its moved
+  chair still moved, the log's lines, the folder's files and `Save.ini`
+  alike in both engines). A save is DXEngine's own, not conformed to the
+  map's file (bugs.md HX.7).
 - **Its start**: the command line's first word the map opened, with
   `-hax0r` or not, the ini's `[URL] LocalMap` a client's fallback and `Map`
   a dedicated server's; a player named `Player`, or none, a random
@@ -4183,7 +4205,7 @@ original's `HCC.exe server`, the original's `HX.exe` on DXEngine's
 dedicated server. HXFix's 44 one-client live tests pass with DXEngine
 hosting and the original's `HX.exe` joining, but for `HXFixTestKeypad`'s
 remote client, whose keypad window opens in one run of three (bugs.md HX.9).
-What `HX.dll` does that DXEngine does not yet: bugs.md HX.4 and HX.7.
+What `HX.dll` does that DXEngine does not yet: bugs.md HX.7.
 
 A mod with none gets the original's loader and natives:
 
