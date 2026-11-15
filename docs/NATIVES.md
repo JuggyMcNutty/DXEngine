@@ -4158,11 +4158,18 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
   taken from its last generation there, by the name cut at its first `dx`,
   its new game and Steve begun alone; another mission, a map outside every
   one or a `?loadonly` empties the folder, the start's map too;
-  `?loadgame=` refused; a server's `?RESTART` loading with the level's
-  travel info, Steve taking the campaign's state back (a probe's round trip
-  from Liberty Island to UNATCO HQ and back on a listen server: its moved
-  chair still moved, the log's lines, the folder's files and `Save.ini`
-  alike in both engines). The save is conformed to the map's file, as
+  `?loadgame=` refused; Steve given every map's travel info but the Entry
+  level's, a dedicated server's first map's too; a server's `?RESTART`
+  alone, a dedicated server's, loading with the level's travel info, Steve
+  taking the campaign's state back, a listen server's -- its game adds its
+  player's `?Name` and `?Class` -- with the players' travel or none, Steve
+  afresh, the level no longer a server (probes' round trips from Liberty
+  Island to UNATCO HQ and back, alone, on a listen server and on a
+  dedicated one: a moved chair still moved, the folder's files and
+  `Save.ini` alike in both engines; a flag of Steve's set on the island and
+  another at UNATCO HQ before a `?RESTART`: on a dedicated server the first
+  kept, on a listen server neither, `Current` emptied, in both). The save is
+  conformed to the map's file, as
   HX's: the map's names and exports at their numbers, an export no longer
   there an empty slot, the map's GUID and its generations and one more (the
   saves of Liberty Island and UNATCO HQ laid out as the original's); a map
@@ -4223,7 +4230,7 @@ dedicated server. HXFix's 44 one-client live tests pass with DXEngine
 hosting and the original's `HX.exe` joining, but for `HXFixTestKeypad`'s
 remote client, whose keypad window opens in one run of three (bugs.md HX.9).
 What `HX.dll` does that DXEngine does not yet: none known; the runs due are
-bugs.md HX.3, HX.4 and HX.9 to HX.12's.
+bugs.md HX.3 and HX.9 to HX.12's.
 
 A mod with none gets the original's loader and natives:
 

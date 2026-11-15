@@ -1632,9 +1632,12 @@ bool Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 		LevelInfo->Game() = GameInfo;
 
 		// HX's Steve beside the new game, the travel's state in it; the
-		// Entry level's load has none (EntryLevel not set yet)
+		// Entry level's load has none (EntryLevel not set yet), as the
+		// original's start loads it with none -- a client's alone: a
+		// dedicated server loads no Entry level, and its every map has the
+		// travel's (bugs.md HX.4)
 		if (HXGameEngine::Active())
-			hxSteve = HXGameEngine::SpawnSteve(Level, LevelInfo, EntryLevel ? &Level->TravelInfo : nullptr, enteredURL.Portal);
+			hxSteve = HXGameEngine::SpawnSteve(Level, LevelInfo, EntryLevel || LaunchInfo.dedicatedServer ? &Level->TravelInfo : nullptr, enteredURL.Portal);
 	}
 
 	// HX's level from its run's folder, saved with no game or Steve: those
@@ -3834,10 +3837,23 @@ bool Engine::TakeTravel(float realTimeElapsed)
 				// DeusExLevelInfo names none -- leaves the level playing, its
 				// NextURL cleared, as below.
 				// HX's frame gives its Browse the level's travel info for a
-				// NextURL ?restart, and its Browse loads the map with it
-				// (bugs.md HX.4): Steve takes the campaign's state back.
+				// NextURL of ?RESTART alone, compared without case, as the
+				// game's frame tests it (HX.dll 0x1003c3b0), and its Browse
+				// loads the map with it (bugs.md HX.4): Steve takes the
+				// campaign's state back. A listen server's game adds its
+				// player's ?Name and ?Class to the NextURL, so its restart
+				// is a plain travel's: the players' travel with bNextItems,
+				// else none, and Steve begins afresh.
+				std::map<std::string, std::string> travelInfo;
+				if (HXGameEngine::Active())
+				{
+					if (StrTools::equals_ignore_case(ScriptToUTF8(LevelInfo->NextURL()), "?RESTART"))
+						travelInfo = Level->TravelInfo;
+					else if (LevelInfo->bNextItems())
+						travelInfo = CreateServerTravelInfo();
+				}
 				UnrealURL restartURL = RestartURL();
-				if (LoadMap(restartURL, HXGameEngine::Active() ? Level->TravelInfo : std::map<std::string, std::string>()) && !dedicated)
+				if (LoadMap(restartURL, travelInfo) && !dedicated)
 					LoginPlayer();
 				LevelInfo->NextURL().clear();
 			}
