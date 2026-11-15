@@ -4137,9 +4137,8 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
   (`HXFixTestNotes` with either engine hosting: both players exported at
   each of two travels; bugs.md HX.3, its run due for an actor destroyed
   while a window holds it). A viewport's `?restart` (`RESTARTLEVEL`) begins
-  the level again as it was entered, its travel info given, by choice
-  (bugs.md D.85): HX's tests the level's `NextURL` instead and begins it
-  with none, Steve afresh and the player's items gone.
+  the level with no travel info, as the game's `Browse` and HX's own frame
+  both give it none.
 - **Its start**: the command line's first word the map opened, with
   `-hax0r` or not, the ini's `[URL] LocalMap` a client's fallback and `Map`
   a dedicated server's; a player named `Player`, or none, a random
