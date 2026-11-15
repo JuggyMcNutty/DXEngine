@@ -157,6 +157,40 @@ namespace
 		}
 		return outside;
 	}
+
+	// HX's FastRepLineCheck walk (HX.dll 0x100525f0): the game's, but a node
+	// whose own surface is invisible, masked, translucent or modulated
+	// (PolyFlags 0x47) lets the line through as a node that is no CSG does,
+	// so sight passes glass and grates; the crossing's differences along each
+	// axis stored as floats before they are scaled. A node with no surface
+	// asks only NF_NotCsg.
+	template<typename T>
+	bool SeeThroughWalkNode(const Array<BspNode>& nodes, const std::function<uint32_t(int)>& surfaceFlags, int iNode, vec3 start, vec3 end, bool outside)
+	{
+		while (iNode >= 0)
+		{
+			const BspNode& node = nodes[iNode];
+			float d0 = FastDistance<T>(node, start);
+			float d1 = FastDistance<T>(node, end);
+			bool notCsg = (node.NodeFlags & NF_NotCsg) != 0 || (node.Surf >= 0 && (surfaceFlags(node.Surf) & 0x47) != 0);
+			bool g0 = !std::signbit(d0);
+			bool g1 = !std::signbit(d1);
+			if (g0 != g1)
+			{
+				T ratio = (T)d0 / ((T)d0 - (T)d1);
+				vec3 mid(
+					(float)((T)(float)((T)end.x - (T)start.x) * ratio + (T)start.x),
+					(float)((T)(float)((T)end.y - (T)start.y) * ratio + (T)start.y),
+					(float)((T)(float)((T)end.z - (T)start.z) * ratio + (T)start.z));
+				if (!SeeThroughWalkNode<T>(nodes, surfaceFlags, g1 ? node.Front : node.Back, end, mid, notCsg ? outside : g1))
+					return false;
+				end = mid;
+			}
+			outside = notCsg ? outside : g0;
+			iNode = g0 ? node.Front : node.Back;
+		}
+		return outside;
+	}
 }
 
 bool TraceRayModel::WalkSolid(UModel* model, const vec3& start, const vec3& end, uint8_t extraNodeFlags, vec3& place, BspNode*& crossed)
@@ -398,4 +432,13 @@ double TraceRayModel::TriangleRayIntersect(const dvec3& origin, const dvec3& dir
 	// barycentricC = v;
 
 	return std::min(t, tmax);
+}
+
+bool TraceRayModel::FastWalkSeeThrough(const Array<BspNode>& nodes, bool rootOutside, const std::function<uint32_t(int)>& surfaceFlags, const vec3& start, const vec3& end)
+{
+	if (nodes.empty())
+		return rootOutside;
+	if (X87::Single)
+		return SeeThroughWalkNode<float>(nodes, surfaceFlags, 0, start, end, rootOutside);
+	return SeeThroughWalkNode<double>(nodes, surfaceFlags, 0, start, end, rootOutside);
 }

@@ -203,6 +203,8 @@ set(DXCOMMON_SOURCES
 	DXEngine/Native/NScriptedPawn.h
 	DXEngine/Native/NDeusExDecoration.cpp
 	DXEngine/Native/NDeusExDecoration.h
+	DXEngine/Native/NHX.cpp
+	DXEngine/Native/NHX.h
 	DXEngine/Native/NDumpLocation.cpp
 	DXEngine/Native/NDumpLocation.h
 	DXEngine/Native/NDeusExSaveInfo.cpp
@@ -463,6 +465,10 @@ set(DXCOMMON_SOURCES
 	DXEngine/Packages/Core/Properties/UStructProperty.h
 	DXEngine/Packages/DeusEx/UDeusExDecoration.cpp
 	DXEngine/Packages/DeusEx/UDeusExDecoration.h
+	DXEngine/Packages/HX/HXGame.cpp
+	DXEngine/Packages/HX/HXGame.h
+	DXEngine/Packages/HX/UHX.cpp
+	DXEngine/Packages/HX/UHX.h
 	DXEngine/Packages/DeusEx/UDeusExLevelInfo.h
 	DXEngine/Packages/DeusEx/UDeusExPlayer.cpp
 	DXEngine/Packages/DeusEx/UDeusExPlayer.h

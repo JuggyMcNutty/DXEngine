@@ -35,11 +35,13 @@ void UConversation::BindActorEvents(UObject* actorToBind)
 	BindEventsToActor(actor, actor);
 }
 
-void UConversation::BindEvents(UObject** conBoundActors, UObject* invokeActor)
+void UConversation::BindEvents(UObject** conBoundActors, UObject* invokeActor, ULevel* scope)
 {
 	// The original's DConversation::BindEvents: empty the ten slots, offer
 	// every pawn and decoration to each event, and keep each actor an event
 	// took, so the script's ActorDestroyed knows the conversation's actors.
+	// HX's BindConsersationEvents (HX.dll 0x1001bbc0) gives the level: its
+	// actors in order, none destroyed, a pawn by its bIsPawn.
 	for (int i = 0; i < 10; i++)
 		conBoundActors[i] = nullptr;
 
@@ -47,11 +49,13 @@ void UConversation::BindEvents(UObject** conBoundActors, UObject* invokeActor)
 	NameString invokerName = invoker ? NameString(invoker->BindName()) : NameString();
 
 	int boundCount = 0;
-	for (UActor* actor : engine->Level->Actors)
+	for (UActor* actor : (scope ? scope : engine->Level)->Actors)
 	{
 		if (!actor)
 			continue;
-		if (!UObject::TryCast<UPawn>(actor) && !UObject::TryCast<UDecoration>(actor))
+		if (scope && (actor->bDeleteMe() || (!actor->bIsPawn() && !UObject::TryCast<UDecoration>(actor))))
+			continue;
+		if (!scope && !UObject::TryCast<UPawn>(actor) && !UObject::TryCast<UDecoration>(actor))
 			continue;
 
 		NameString name = actor->BindName();

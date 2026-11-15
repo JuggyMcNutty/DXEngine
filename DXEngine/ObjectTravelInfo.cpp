@@ -58,13 +58,23 @@ static std::string UnescapeTravelValue(const std::string& value)
 // without it is neither written nor walked: a travel property naming it
 // writes nothing, so the new level keeps its own value there, and what
 // only it names stays behind with it.
+static bool IsActorProperty(UObjectProperty* property)
+{
+	for (UClass* cls = property->ObjectClass; cls; cls = static_cast<UClass*>(cls->BaseStruct))
+	{
+		if (cls->Name == NameString("Actor"))
+			return true;
+	}
+	return false;
+}
+
 static bool IsTravelled(UObject* object)
 {
 	UActor* actor = UObject::TryCast<UActor>(object);
 	return !actor || actor->bTravel();
 }
 
-std::string ActorTravelInfo::Create(UPlayerPawn* pawn, bool transferItems)
+std::string ActorTravelInfo::Create(UPlayerPawn* pawn, bool transferItems, bool actorPropertiesOnly)
 {
 	// Collect all actors we need to travel and give them a name each
 
@@ -86,6 +96,11 @@ std::string ActorTravelInfo::Create(UPlayerPawn* pawn, bool transferItems)
 			{
 				if (auto objProperty = UObject::TryCast<UObjectProperty>(property))
 				{
+					// HX's export (HX.dll 0x100460e0) follows a property only
+					// of a class of actors: the flag base, goals, notes and
+					// keys stay behind
+					if (actorPropertiesOnly && !IsActorProperty(objProperty))
+						continue;
 					void* data = cur->GetProperty(objProperty);
 					for (size_t dim = 0; dim < (size_t)objProperty->ArrayDimension; dim++)
 					{

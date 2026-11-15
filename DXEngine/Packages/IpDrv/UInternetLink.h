@@ -47,6 +47,7 @@ public:
 	std::string IpAddrToString(const IpAddr& Arg);
 	bool StringToIpAddr(const std::string& Str, IpAddr& Addr);
 	std::string Validate(const std::string& ValidationString, const std::string& GameName);
+	static std::string GameSpyAnswer(const std::string& ValidationString, const std::string& key);
 
 	int& DataPending() { return Value<int>(PropOffsets_InternetLink.DataPending); }
 	uint8_t& LinkMode() { return Value<uint8_t>(PropOffsets_InternetLink.LinkMode); }

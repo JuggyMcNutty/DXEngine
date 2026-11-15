@@ -946,6 +946,18 @@ void UDXEngineAudioDevice::StopSound(UActor* Actor, int Id)
 	}
 }
 
+void UDXEngineAudioDevice::StopSoundIdAnyOverride(int Id)
+{
+	for (size_t i = 0; i < PlayingSounds.size(); i++)
+	{
+		if ((PlayingSounds[i].Id & ~1) == (Id & ~1))
+		{
+			StopSound(i);
+			break;
+		}
+	}
+}
+
 void UDXEngineAudioDevice::StopSound(size_t index)
 {
 	PlayingSound& Playing = PlayingSounds[index];

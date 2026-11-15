@@ -533,6 +533,7 @@ public:
 	UTexture* GetMultiskin(int index);
 
 	void DeusExConBindEvents();
+	void BindConversations(class UConversationList* list);
 
 	float WorldSoundRadius() { return ((int)SoundRadius() + 1) * 25.0f; }
 	float WorldVolumetricRadius() { return ((int)VolumeRadius() + 1) * 25.0f; }

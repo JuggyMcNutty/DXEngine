@@ -4068,13 +4068,52 @@ engines), `Console.uc`'s own enum alone naming them `UnknownF0` to
 
 ## Mods
 
-A mod with native code of its own does not play as it ships: a native its
-packages declare for its own DLL stops the game at its first call ("Unknown
-native function"), as `natives_audit.py --mod` lists them
+A mod with native code of its own does not play as it ships, but HX (below):
+a native its packages declare for its own DLL stops the game at its first
+call ("Unknown native function"), as `natives_audit.py --mod` lists them
 ([how it is known](#how-it-is-known)), and what its DLLs change in the engine
 itself is not there. An active mod's code -- Revision's, The Nameless Mod's,
 Vanilla? Madder.'s -- is its developers' work, which DXEngine takes on only
 with their permission.
+
+**HX**, the co-op mod abandoned since its 0.9.89.4 of 2019, is the one whose
+code DXEngine carries: what its `HX.dll` does
+([hx-dll.md](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/hx-dll.md)),
+for the player's own `HX.u`, its classes made only for HX's objects and its
+game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
+
+- **Its 62 natives**: the traces that give a hit's texture -- the polygon's
+  surface crossed, a mover's own, the texture object and its group, the
+  class-context ones checking no walls --, the line that sees through glass
+  and grates, the sound slots stopped on every player that hears them, the
+  spawn with no fit test in a physics of its own, the calls by name
+  (`Succeeds`, `CanBeDropped`), the bool flags kept by their names' hashes,
+  the views a player's camera adds, the conversation list and events bound
+  in a level given, the leaving player's items kept under its name, and the
+  windows' scale and text log.
+- **Its actors' ticks**: the player's `TickStuff`, the countdowns into
+  `LipSynchTimer`, `NanoVirusTimer`, `burnTimer`, `pushTimer` and
+  `EffectsTimer`, and a decoration's float on water; a player with no flag
+  base of its own.
+- **Its render iterators**: every HX decoration drawn through its own,
+  bobbing on water, or carried before its carrier, the local carrier seeing
+  a translucent stand-in; HX's scripted iterator.
+- **Its windows**: the root and the HX player each window starts with, and
+  a text log whose lines each leave in their own time.
+- **Its game engine's map load**: the map's actors made fit for HX's game
+  (decorations, effects, projectiles and triggers no longer static unless
+  lit, the movers HX's own, the camera and interpolation points kept on
+  each side), `bSpawning`, and Steve beside each new game, the campaign's
+  flags, skill points, goals, keys and images carried in the travel from
+  map to map in HX's own lines.
+- **Joining**: the challenge answered HX's way, its bits turned, on both
+  sides, and `HX.HXGameEngine` the class HX's engine check finds.
+
+HX plays Liberty Island alone and over the net, with either engine on
+either side, its logs clean of script errors: DXEngine's client on the
+original's `HCC.exe server`, the original's `HX.exe` on DXEngine's
+dedicated server. What `HX.dll` does that DXEngine does not yet: bugs.md
+HX.1 to HX.13.
 
 A mod with none gets the original's loader and natives:
 

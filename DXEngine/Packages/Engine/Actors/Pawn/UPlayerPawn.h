@@ -27,7 +27,8 @@ public:
 	// Deus Ex's other places the player sees from, for the server's relevancy
 	// (a ViewportWindow's origin actor)
 	bool AddAdditionalView(UActor* actor);
-	void RemoveAdditionalView(UActor* actor);
+	// Virtual, as the original's: HX's player removes its own way
+	virtual void RemoveAdditionalView(UActor* actor);
 
 	void Tick(float elapsed) override;
 	void TickRotating(float elapsed) override;

@@ -135,6 +135,7 @@ void ULevel::TickDeusEx(float elapsed, bool gamePaused)
 	// to the event manager's tick, as the original's (0x103a54df-0x103a5922)
 	std::optional<StatClock> actorClock(std::in_place, Stats.Actor);
 	ownerWait.clear();
+	fullTick = !gamePaused && !engine->LevelInfo->bPlayersOnly();
 
 	// Paused: the input of each player pawn with a Player, and any other
 	// actor with bAlwaysTick -- a player pawn with none among them -- ticked,

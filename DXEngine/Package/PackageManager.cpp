@@ -82,6 +82,8 @@
 #include "Packages/DeusEx/ULaserIterator.h"
 #include "Packages/DeusEx/UParticleIterator.h"
 #include "Packages/DeusEx/UScriptedPawn.h"
+#include "Packages/HX/UHX.h"
+#include "Packages/HX/HXGame.h"
 #include "Packages/DeusExText/UDeusExTextParser.h"
 #include "Packages/Engine/UCanvas.h"
 #include "Packages/Engine/UClient.h"
@@ -274,6 +276,7 @@
 #include "Native/NToggleWindow.h"
 #include "Native/NViewportWindow.h"
 #include "Native/NWindow.h"
+#include "Native/NHX.h"
 
 PackageManager::PackageManager(const GameLaunchInfo& launchInfo) : launchInfo(launchInfo)
 {
@@ -393,6 +396,9 @@ Package* PackageManager::GetPackage(const NameString& name)
 		packages.erase(name);
 		throw;
 	}
+	// HX's C++-only classes, which its script names (HX.HXGameEngine)
+	if (name == NameString("HX"))
+		AddHXRuntimeClasses(this, opened);
 	return opened;
 }
 
@@ -1648,6 +1654,7 @@ void PackageManager::RegisterFunctions()
 	NToggleWindow::RegisterFunctions();
 	NViewportWindow::RegisterFunctions();
 	NWindow::RegisterFunctions();
+	NHX::RegisterFunctions();
 }
 
 void PackageManager::RegisterNativeClasses()
@@ -1882,6 +1889,20 @@ void PackageManager::RegisterNativeClasses()
 	RegisterNativeClass<UConversation>(conSysPackage, "Conversation", "ConObject");
 	RegisterNativeClass<UConversationList>(conSysPackage, "ConversationList", "ConObject");
 	RegisterNativeClass<UConversationMissionList>(conSysPackage, "ConversationMissionList", "ConObject");
+
+	// HX's (HX.dll), for the player's own HX.u: made only for its objects
+	// (dx-reverse-info hx-dll.md)
+	NameString hxPackage = "HX";
+	RegisterNativeClass<UHXDecoration>(hxPackage, "HXDecoration", "DeusExDecoration");
+	RegisterNativeClass<UHXPlayerPawn>(hxPackage, "HXPlayerPawn", "DeusExPlayer");
+	RegisterNativeClass<UHXScriptedPawn>(hxPackage, "HXScriptedPawn", "ScriptedPawn");
+	RegisterNativeClass<UHXEffects>(hxPackage, "HXEffects", "HXActor");
+	RegisterNativeClass<UHXRenderIterator>(hxPackage, "HXRenderIterator", "RenderIterator");
+	RegisterNativeClass<UHXScriptedRenderIterator>(hxPackage, "HXScriptedRenderIterator", "HXRenderIterator");
+	RegisterNativeClass<UHXDecorationRenderIterator>(hxPackage, "HXDecorationRenderIterator", "HXRenderIterator");
+	RegisterNativeClass<UHXWindow>(hxPackage, "HXWindow", "Window");
+	RegisterNativeClass<UHXTextLogWindow>(hxPackage, "HXTextLogWindow", "TextLogWindow");
+	RegisterNativeClass<UHXSteve>(hxPackage, "HXSteve", "HXInfo");
 
 	// Editor.dll's C++ alone, which Editor.u imports and does not export:
 	// EditorEngine's undo buffer, so that the class loads for its config,

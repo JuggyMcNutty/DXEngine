@@ -93,6 +93,9 @@ public:
 
 	bool PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk);
 	void StopSound(UActor* Actor, int Id);
+	// Galaxy's StopSoundId (0x10607ef0), as HX's ClientStopSound calls it: the
+	// first sound of the ID, its bNoOverride bit aside
+	void StopSoundIdAnyOverride(int Id);
 	int SoundId(UObject* Object, int Slot);
 	void ActorDestroyed(UActor* Actor);
 	// Every sound stopped, the music playing on, as Galaxy's SetViewport

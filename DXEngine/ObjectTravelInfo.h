@@ -10,7 +10,7 @@ class UPlayerPawn;
 class ActorTravelInfo
 {
 public:
-	static std::string Create(UPlayerPawn* pawn, bool transferItems);
+	static std::string Create(UPlayerPawn* pawn, bool transferItems, bool actorPropertiesOnly = false);
 	static Array<UObject*> Accept(UPlayerPawn* pawn, const std::string& travelInfo);
 
 private:

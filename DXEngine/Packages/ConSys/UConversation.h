@@ -3,6 +3,7 @@
 #include "UConObject.h"
 
 class UActor;
+class ULevel;
 class UConEvent;
 class UConFlagRef;
 
@@ -12,7 +13,7 @@ public:
 	using UConObject::UConObject;
 
 	void BindActorEvents(UObject* actorToBind);
-	void BindEvents(UObject** conBoundActors, UObject* invokeActor);
+	void BindEvents(UObject** conBoundActors, UObject* invokeActor, ULevel* scope = nullptr);
 	void ClearBindEvents();
 	bool BindEventsToActor(UActor* actor, UActor* invokeActor);
 	UObject* CreateConCamera();

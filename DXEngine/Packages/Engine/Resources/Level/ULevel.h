@@ -65,6 +65,11 @@ public:
 	// waits, and is ticked after the pass once its owner has.
 	enum class TickStart { Ticked, Stasis, Waiting };
 	void TickStarted(UActor* actor, TickStart start);
+	// How the actor's tick under way began, and whether the level's tick is a
+	// full one, not paused nor players only (the original's LEVELTICK_All):
+	// HX's actors do their own work after the game's tick by both (UHX.cpp).
+	TickStart LastTickStart() const { return lastStart; }
+	bool FullTick() const { return fullTick; }
 
 	// The reach specs' ends, the BSP model and the destroyed actors' chain.
 	// The collision hash and the light caches hold only actors of Actors,
@@ -93,6 +98,7 @@ private:
 	bool TickActorDeusEx(float elapsed, UActor* actor);
 
 	bool ticked = false;
+	bool fullTick = false;
 	TickStart lastStart = TickStart::Ticked;
 	// The actors waiting for their owners' ticks, the last to wait last.
 	Array<UActor*> ownerWait;

@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "NetClient.h"
+#include "Packages/HX/HXGame.h"
 #include "NetChannel.h"
 #include "Package/PackageManager.h"
 #include "Package/PackageFlags.h"
@@ -92,10 +93,13 @@ namespace
 
 }
 
+// HX's game engine answers with the bits turned (UHXGameEngine::
+// ChallengeResponse, HX.dll 0x1003d830), its servers and clients alike
 int NetChallengeResponse(int challenge)
 {
 	uint32_t c = (uint32_t)challenge;
-	return (int)((c * 237u) ^ (uint32_t)(challenge >> 16) ^ (c << 16) ^ 0x93fe92ceu);
+	int response = (int)((c * 237u) ^ (uint32_t)(challenge >> 16) ^ (c << 16) ^ 0x93fe92ceu);
+	return HXGameEngine::Active() ? ~response : response;
 }
 
 // A line's command as Core's ParseCommand takes it (Core.dll 0x10147a20):

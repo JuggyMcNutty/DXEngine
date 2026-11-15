@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include "Packages/Engine/Resources/Level/ULevel.h"
 
 class TraceRayModel
@@ -30,6 +32,9 @@ public:
 	// precision in the tick it runs in (X87).
 	static bool FastWalk(UModel* model, const dvec3& start, const dvec3& end);
 	static bool FastWalk(const Array<BspNode>& nodes, bool rootOutside, const dvec3& start, const dvec3& end);
+	// HX's: the same, but a node whose surface (its flags by surfaceFlags) is
+	// invisible, masked, translucent or modulated lets the line through
+	static bool FastWalkSeeThrough(const Array<BspNode>& nodes, bool rootOutside, const std::function<uint32_t(int)>& surfaceFlags, const vec3& start, const vec3& end);
 
 private:
 	void Trace(const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, bool visibilityOnly, BspNode* node, CollisionHitList& hits, double t0, double t1);

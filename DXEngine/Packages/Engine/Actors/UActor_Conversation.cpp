@@ -43,7 +43,14 @@ void UActor::DeusExConBindEvents()
 	auto mission = UObject::Cast<UConversationList>(engine->packages->GetPackage(pkgName)->GetUObject("ConversationList", listName));
 	if (!mission)
 		return;
+	BindConversations(mission);
+}
 
+// ConSys's DConversationList::BindConversations (0x10010b70): the actor's
+// conversations those of the list it owns, its old ones let go. HX's
+// BindConversationList binds a list it names to any actor (HX.dll 0x1001ba40).
+void UActor::BindConversations(UConversationList* mission)
+{
 	// PurgeBoundConversations (ConSys.dll 0x10010cf0): the old list's
 	// conversations lose this owner, and its items are deleted at once,
 	// gone to the script as CriticalDelete's are.

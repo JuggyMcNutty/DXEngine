@@ -62,6 +62,7 @@
 #include "Packages/DeusEx/UDeusExPlayer.h"
 #include "Packages/DeusEx/UDeusExSaveInfo.h"
 #include "ObjectTravelInfo.h"
+#include "Packages/HX/HXGame.h"
 #include "UI/PropertyWindow/PropertyWindow.h"
 #include "UI/PropertyWindow/NativeConfigClasses.h"
 #include "Math/quaternion.h"
@@ -1503,6 +1504,17 @@ bool Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 
 	LinkActorsToLevel();
 
+	// HX's game engine readies the map's actors for its game, on a client
+	// only one of an HX server, then marks those that spawn (HX's LoadMap,
+	// dx-reverse-info hx-dll.md)
+	if (HXGameEngine::Active())
+	{
+		bool hxServer = !asClient || (PendingLevel && std::any_of(PendingLevel->Uses.begin(), PendingLevel->Uses.end(), [](const NetPendingLevel::UsedPackage& used) { return used.Name == NameString("HX"); }));
+		if (hxServer)
+			HXGameEngine::SetupActors(Level);
+		HXGameEngine::SetSpawning(Level);
+	}
+
 	// Deus Ex's movers filed into the level's BSP, as the original's LoadMap
 	// makes its brush tracker for every map but Entry -- with a client only:
 	// a dedicated server files none, and its lines pass its movers
@@ -1570,6 +1582,10 @@ bool Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 		Level->ActorsVersion++;
 
 		LevelInfo->Game() = GameInfo;
+
+		// HX's Steve beside the new game, the travel's state in it
+		if (HXGameEngine::Active())
+			HXGameEngine::SpawnSteve(Level, LevelInfo, Level->TravelInfo, enteredURL.Portal);
 	}
 
 	if (ServerLevel)
@@ -3472,6 +3488,16 @@ bool Engine::TakeTravel(float realTimeElapsed)
 				// level clears NextURL, as the original's clears it after
 				// the browse, failed or not.
 				auto travelInfo = LevelInfo->bNextItems() ? CreateServerTravelInfo() : std::map<std::string, std::string>();
+				// HX's Browse writes its Steve too, for a map of a mission
+				// and not ?loadonly
+				if (HXGameEngine::Active() && LevelInfo->bNextItems())
+				{
+					UnrealURL next(&LastURL, ScriptToUTF8(LevelInfo->NextURL()), ETravelType::TRAVEL_Relative);
+					const std::string& map = next.Map;
+					bool mission = map.size() >= 2 && isdigit((unsigned char)map[0]) && isdigit((unsigned char)map[1]);
+					if (mission && !HasWholeOption(next, "loadonly"))
+						HXGameEngine::ExportSteves(Level, travelInfo);
+				}
 				if (!BrowseMap(UnrealURL(&LastURL, ScriptToUTF8(LevelInfo->NextURL()), ETravelType::TRAVEL_Relative), travelInfo))
 					LevelInfo->NextURL().clear();
 			}

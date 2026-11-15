@@ -255,7 +255,14 @@ std::string UInternetLink::Validate(const std::string& ValidationString, const s
 		key = "EBodSL";
 	else
 		key = "      ";
+	return GameSpyAnswer(ValidationString, key);
+}
 
+// The challenge's six characters through GameSpy's RC4 variant keyed by a
+// game's secret, then in eight characters of base 64 (IpDrv.dll 0x107034c0;
+// HX.dll's own copy, 0x10017610, for HX's key)
+std::string UInternetLink::GameSpyAnswer(const std::string& ValidationString, const std::string& key)
+{
 	uint8_t state[256];
 	for (int i = 0; i < 256; i++)
 		state[i] = (uint8_t)i;

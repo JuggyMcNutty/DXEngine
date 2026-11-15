@@ -22,7 +22,8 @@ public:
 	BitfieldBool bTooTall() { return BoolValue(PropOffsets_TextLogWindow.bTooTall); }
 	float& textTimeout() { return Value<float>(PropOffsets_TextLogWindow.textTimeout); }
 
-private:
+protected:
+	// HX's text log (UHXTextLogWindow) keeps its lines here too
 	struct LogEntry
 	{
 		std::string text;
