@@ -8,7 +8,9 @@
 #include "NativeFunc.h"
 #include "Engine.h"
 #include "Package/PackageManager.h"
+#include "Package/Package.h"
 #include "Packages/Core/UFunction.h"
+#include "Packages/Core/UClass.h"
 #include "ScriptCall.h"
 
 #include <cstdio>
@@ -18,6 +20,14 @@ using TypedKind = Expression::TypedKind;
 static bool IsVariable(TypedKind kind)
 {
 	return kind >= TypedKind::LocalByte && kind <= TypedKind::InstanceBoolVariable;
+}
+
+// Object's Outer, Class and Name, which a class answers for itself
+// (Expr(InstanceVariableExpression*))
+static bool IsObjectHeader(const UProperty* prop)
+{
+	size_t offset = prop->DataOffset.DataOffset;
+	return offset == PropOffsets_Object.Outer.DataOffset || offset == PropOffsets_Object.Class.DataOffset || offset == PropOffsets_Object.Name.DataOffset;
 }
 
 // A bool variable's kinds: LetBool alone assigns them
@@ -72,7 +82,10 @@ ExpressionValue ExpressionEvaluator::Value(Expression* expr)
 	{
 	default: break;
 	case Expression::LeafKind::LocalVariable: return ExpressionValue::Variable(LocalVariables, static_cast<LocalVariableExpression*>(expr)->Variable);
-	case Expression::LeafKind::InstanceVariable: return ExpressionValue::Variable(Context->PropertyData.Data, static_cast<InstanceVariableExpression*>(expr)->Variable);
+	case Expression::LeafKind::InstanceVariable:
+		if (IsObjectHeader(static_cast<InstanceVariableExpression*>(expr)->Variable))
+			break;
+		return ExpressionValue::Variable(Context->PropertyData.Data, static_cast<InstanceVariableExpression*>(expr)->Variable);
 	case Expression::LeafKind::BoolVariable: return Value(static_cast<BoolVariableExpression*>(expr)->Variable);
 	case Expression::LeafKind::Self: return ExpressionValue::ObjectValue(Self);
 	case Expression::LeafKind::NoObject: return ExpressionValue::ObjectValue(nullptr);
@@ -148,6 +161,22 @@ void ExpressionEvaluator::Expr(LocalVariableExpression* expr)
 
 void ExpressionEvaluator::Expr(InstanceVariableExpression* expr)
 {
+	// A class's own Outer, Class and Name -- its package's object, Class and
+	// its name -- as the original's class object holds them. The block a
+	// class's variables are read from (its own: no other object's is) is
+	// its defaults, whose Outer and Name are None and whose Class is the
+	// class, as the original's default object's (bugs.md VM.34).
+	if (IsObjectHeader(expr->Variable) && static_cast<UObject*>(Context->PropertyData.Class) == Context)
+	{
+		size_t offset = expr->Variable->DataOffset.DataOffset;
+		if (offset == PropOffsets_Object.Outer.DataOffset)
+			*Out = ExpressionValue::ObjectValue(Context->package ? Context->package->GetPackageObject() : nullptr);
+		else if (offset == PropOffsets_Object.Class.DataOffset)
+			*Out = ExpressionValue::ObjectValue(Context->Class);
+		else
+			*Out = ExpressionValue::NameValue(Context->Name);
+		return;
+	}
 	*Out = ExpressionValue::Variable(Context->PropertyData.Data, expr->Variable);
 }
 
@@ -1297,6 +1326,10 @@ void ExpressionEvaluator::Classify(Expression* expr)
 	case Expression::LeafKind::InstanceVariable:
 		{
 			auto variable = static_cast<InstanceVariableExpression*>(expr);
+			// Outer, Class and Name go the generic way, where a class
+			// gives its own
+			if (IsObjectHeader(variable->Variable))
+				break;
 			kind = VariableKind(variable->Variable, TypedKind::InstanceByte);
 			variable->Offset = (uint32_t)variable->Variable->DataOffset.DataOffset;
 			variable->Mask = variable->Variable->DataOffset.BitfieldMask;

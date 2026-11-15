@@ -76,8 +76,9 @@ void AddHXRuntimeClasses(PackageManager* packages, Package* hx)
 	cls->StructSize = base->StructSize;
 	cls->StructAlignment = base->StructAlignment;
 	cls->PropertyData.Init(cls);
-	cls->SetObject("Class", classClass);
-	cls->SetName("Name", cls->Name);
+	// Its defaults', as UClass::Load sets them
+	cls->SetObject("Class", cls);
+	cls->SetName("Name", NameString());
 	cls->SetInt("ObjectFlags", (int)cls->Flags);
 	hx->AddRuntimeExport(cls);
 }

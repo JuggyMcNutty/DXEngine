@@ -87,9 +87,11 @@ void UClass::Load(ObjectStream* stream)
 	PropertyData.Init(this);
 	PropertyData.Load(stream);
 
-	// Copy native UObject properties into the VM
+	// Its block is its defaults: the default object's Class the class, its
+	// Name None, as the original's (UObject::InitClassDefaultObject); script
+	// reads the class's own (ExpressionEvaluator, bugs.md VM.34)
 	SetObject("Class", this);
-	SetName("Name", Name);
+	SetName("Name", NameString());
 	SetInt("ObjectFlags", (int)Flags);
 
 	LoadProperties(&PropertyData);

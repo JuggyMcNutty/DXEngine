@@ -35,7 +35,9 @@ void UObject::LoadNow()
 			Load(stream.get());
 			// One its export gives no outer is in its package, as the
 			// original's: a level and its actors, a texture in no group. A
-			// class keeps none, its block being its defaults.
+			// class keeps none, its block being its defaults, whose Outer
+			// is None as the original's default object's; script reads the
+			// class's own as its package (ExpressionEvaluator, bugs.md VM.34).
 			UObject* outer = info->Outer;
 			if (!outer && !UObject::TryCast<UClass>(this))
 				outer = info->package->GetPackageObject();
@@ -54,9 +56,10 @@ void UObject::LoadNow()
 			if (auto c = UObject::TryCast<UClass>(this))
 			{
 				PropertyData.Init(c);
+				// Its defaults', as UClass::Load sets them
 				SetObject("Outer", info->Outer);
-				SetObject("Class", Class);
-				SetName("Name", Name);
+				SetObject("Class", c);
+				SetName("Name", NameString());
 				SetInt("ObjectFlags", (int)Flags);
 			}
 		}

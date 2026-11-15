@@ -3681,6 +3681,12 @@ objects that has none of its own, as the original's: `new(None)`'s the
 package `Transient`, a level's and its actors' their map's, a texture in no
 group its package's (`Vm29Console`, `NewOuterConsole`, `ConObjectsConsole`:
 every `Outer` alike in both engines; each engine's save loads in the other).
+A class's own `Outer`, `Class` and `Name` are its package, `Core.Class` and
+its name, while its defaults' are None, the class and None, as the
+original's class object and default object have them: HX's Host Game
+screen's `<package>.<class>`, its render device's and audio's names and
+HXFix's saved players read a class's package (`ClassOuterConsole`: every
+line alike in both engines).
 
 A move of nothing is the original's
 ([moving](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#moving)):
