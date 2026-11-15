@@ -8,9 +8,26 @@
 #include "Packages/Core/UClass.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Utils/File.h"
+#include <cstring>
+#include <random>
 
 PackageWriter::PackageWriter(Package* package) : Source(package)
 {
+}
+
+// A new GUID, as the original's appCreateGuid takes one from Windows'
+// CoCreateGuid (Core.dll 0x1016d030): random, its version (4) and variant
+// bits set, its four words as the file holds them
+static void NewGuid(uint8_t guid[16])
+{
+	std::random_device device;
+	for (int i = 0; i < 16; i += 4)
+	{
+		const uint32_t word = device();
+		std::memcpy(guid + i, &word, 4);
+	}
+	guid[7] = (uint8_t)((guid[7] & 0x0f) | 0x40);
+	guid[8] = (uint8_t)((guid[8] & 0x3f) | 0x80);
 }
 
 void PackageWriter::Save(UObject* packageObject, std::string filename)
@@ -125,7 +142,13 @@ void PackageWriter::WriteHeader(PackageStreamWriter* stream)
 	}
 	else
 	{
-		stream->WriteBytes(Source->Guid, 16);
+		// Nothing to conform to: a new GUID and one generation, as the
+		// original's SavePackage writes (Core.dll 0x10155980): a level saved
+		// into Current or a slot is no longer its map, so a client or a
+		// demo's reader finds no map of its GUID (bugs.md PKG.45)
+		uint8_t guid[16];
+		NewGuid(guid);
+		stream->WriteBytes(guid, 16);
 		stream->WriteInt32(1); // GenerationCount
 		stream->WriteInt32((int)ExportTable.size());
 		stream->WriteInt32((int)NameTable.size());

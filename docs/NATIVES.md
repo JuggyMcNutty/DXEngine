@@ -312,10 +312,13 @@ asserts, which DXEngine does not copy, going on with 2, 1 and 0). No
 stock map, exit or script travels so, nor reads `HubStackLevel`. The hub
 save is made once the viewport's player is destroyed, as the original's
 map load makes it, so it holds no player's pawn (`HubConsole`'s
-`Game0000.dxs` in both engines). Differs (bugs.md PKG.45): a save keeps its
-package's GUID, a level's the map's, where the original gives each save a
-new one; only a level entered from `Current`, then served or recorded in a
-demo, names it, and the map of that GUID numbers its objects otherwise.
+`Game0000.dxs` in both engines). Each save gets a new GUID and one
+generation, as the original's ([a conformed
+save](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)):
+a level saved into `Current` or a slot is no longer its map, so no client
+or demo takes the map for it (`ReturnConsole`'s saves of Liberty Island and
+UNATCO HQ into `Current`: new GUIDs in both engines, where DXEngine kept the
+maps').
 
 While a map loads or a level is saved the screen shows one frame, painted
 before the work, as the original's does
