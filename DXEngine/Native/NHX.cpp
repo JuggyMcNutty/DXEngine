@@ -9,6 +9,7 @@
 #include "ObjectTravelInfo.h"
 #include "Package/PackageManager.h"
 #include "Packages/HX/UHX.h"
+#include "Packages/HX/HXGame.h"
 #include "Packages/Core/UClass.h"
 #include "Packages/Core/UFunction.h"
 #include "Packages/Core/Properties/UProperty.h"
@@ -326,22 +327,10 @@ void NHX::StaticTraceSingleTexture(UObject* Self, UObject* Other, UObject* BaseC
 		TraceExtent ? *TraceExtent : vec3(0.0f));
 }
 
-// UHXModel::FastRepLineCheck (HX.dll 0x100524b0) down a level's BSP, the
-// movers filed in: whether the line is clear, seeing through invisible,
-// masked, translucent and modulated surfaces
-static bool HXFastRepLineCheck(ULevel* level, const vec3& end, const vec3& start)
-{
-	if (!level)
-		return true;
-	CollisionSystem& collision = level->Collision;
-	return TraceRayModel::FastWalkSeeThrough(collision.LineNodes(), collision.LineRootOutside(),
-		[&](int surf) { return collision.LineSurface(surf).PolyFlags; }, start, end);
-}
-
 void NHX::FastRepTrace(UObject* Self, const vec3& TraceEnd, std::optional<vec3> TraceStart, BitfieldBool& ReturnValue)
 {
 	UActor* self = UObject::Cast<UActor>(Self);
-	ReturnValue = HXFastRepLineCheck(self->XLevel(), TraceEnd, TraceStart ? *TraceStart : self->Location());
+	ReturnValue = HXGameEngine::FastRepLineCheck(self->XLevel(), TraceEnd, TraceStart ? *TraceStart : self->Location());
 }
 
 void NHX::StaticFastRepTrace(UObject* Self, UObject* LevelInfo, const vec3& TraceEnd, const vec3& TraceStart, BitfieldBool& ReturnValue)
@@ -352,7 +341,7 @@ void NHX::StaticFastRepTrace(UObject* Self, UObject* LevelInfo, const vec3& Trac
 		LogMessage("StaticFastRepTrace() failed: Level is None.");
 		return;
 	}
-	ReturnValue = HXFastRepLineCheck(info->XLevel(), TraceEnd, TraceStart);
+	ReturnValue = HXGameEngine::FastRepLineCheck(info->XLevel(), TraceEnd, TraceStart);
 }
 
 /////////////////////////////////////////////////////////////////////////////

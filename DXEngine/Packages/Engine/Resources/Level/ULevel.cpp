@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "ULevel.h"
+#include "Packages/HX/HXGame.h"
 #include "Packages/Core/UClass.h"
 #include "Packages/Engine/Actors/UDecal.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
@@ -170,8 +171,12 @@ void ULevel::TickDeusEx(float elapsed, bool gamePaused)
 	}
 
 	// Each dynamic actor's distance to the local player, before any ticks, in
-	// single player.
-	if (engine->LevelInfo->NetMode() == NM_Standalone)
+	// single player; HX's game engine's own (HXGameEngine::SetDistances).
+	if (HXGameEngine::Active())
+	{
+		HXGameEngine::SetDistances(this);
+	}
+	else if (engine->LevelInfo->NetMode() == NM_Standalone)
 	{
 		UPlayerPawn* player = engine->viewport ? UObject::TryCast<UPlayerPawn>(engine->viewport->Actor()) : nullptr;
 		if (player && player->Player())

@@ -1,6 +1,8 @@
 
 #include "Precomp.h"
 #include "NetChannel.h"
+#include "Packages/HX/UHX.h"
+#include "Packages/HX/HXGame.h"
 #include "NetDriver.h"
 #include "NetRemote.h"
 #include "NetSerialize.h"
@@ -510,6 +512,7 @@ namespace
 		float CollisionRadius;
 		float CollisionHeight;
 		vec4 SimAnim;
+		vec4 SimBlendAnim3;
 		vec3 SimInterpolate;
 	};
 
@@ -523,6 +526,7 @@ namespace
 		saved.CollisionRadius = actor->CollisionRadius();
 		saved.CollisionHeight = actor->CollisionHeight();
 		saved.SimAnim = actor->SimAnim();
+		saved.SimBlendAnim3 = actor->SimBlendAnim()[3];
 		if (UMover* mover = UObject::TryCast<UMover>(actor))
 			saved.SimInterpolate = mover->SimInterpolate();
 		return saved;
@@ -598,6 +602,27 @@ namespace
 			else
 			{
 				actor->bAnimLoop() = false;
+			}
+		}
+
+		// HX's players and NPCs: the fourth blend channel, a head's turn,
+		// unpacked the same way but its rate times 0.0001, no loop set
+		// (AHXPlayerPawn::PostNetReceive, HX.dll 0x100202c0)
+		if (HXGameEngine::Active() && (UObject::TryCast<UHXPlayerPawn>(actor) || UObject::TryCast<UHXScriptedPawn>(actor)))
+		{
+			vec4 blend = actor->SimBlendAnim()[3];
+			if (!(blend == old.SimBlendAnim3))
+			{
+				actor->BlendAnimFrame()[3] = (float)X87::Round(blend.x * 0.0001);
+				actor->BlendAnimRate()[3] = (float)X87::Round(blend.y * 0.0001);
+				actor->BlendTweenRate()[3] = (float)X87::Round(blend.z * 0.001);
+				actor->BlendAnimLast()[3] = (float)X87::Round(blend.w * 0.0001);
+				if (actor->BlendAnimLast()[3] < 0.0f)
+				{
+					actor->BlendAnimLast()[3] = -actor->BlendAnimLast()[3];
+					if (actor->BlendAnimMinRate()[3] < 0.5f)
+						actor->BlendAnimMinRate()[3] = 0.5f;
+				}
 			}
 		}
 
@@ -738,6 +763,14 @@ namespace
 		UProperty* Password = nullptr;
 		UProperty* bReadyToPlay = nullptr;
 		UProperty* AdditionalViews = nullptr;
+		UProperty* Rotation = nullptr;
+		UProperty* bFixedRotationDir = nullptr;
+		UProperty* bRotateToDesired = nullptr;
+		UProperty* RotationRate = nullptr;
+		UProperty* DesiredRotation = nullptr;
+		UProperty* carriedDecoration = nullptr;
+		UProperty* SelectedItem = nullptr;
+		UProperty* Health[6] = {};
 
 		static UProperty* Find(UClass* cls, const char* name)
 		{
@@ -776,6 +809,17 @@ namespace
 				list.Password = Find(playerPawn, "Password");
 				list.bReadyToPlay = Find(playerPawn, "bReadyToPlay");
 				list.AdditionalViews = Find(playerPawn, "AdditionalViews");
+				list.Rotation = Find(list.Actor, "Rotation");
+				list.bFixedRotationDir = Find(list.Actor, "bFixedRotationDir");
+				list.bRotateToDesired = Find(list.Actor, "bRotateToDesired");
+				list.RotationRate = Find(list.Actor, "RotationRate");
+				list.DesiredRotation = Find(list.Actor, "DesiredRotation");
+				UClass* pawn = engine->packages->FindClass("Engine.Pawn");
+				list.carriedDecoration = Find(pawn, "carriedDecoration");
+				list.SelectedItem = Find(pawn, "SelectedItem");
+				const char* health[6] = { "HealthHead", "HealthTorso", "HealthLegLeft", "HealthLegRight", "HealthArmLeft", "HealthArmRight" };
+				for (int i = 0; i < 6; i++)
+					list.Health[i] = Find(pawn, health[i]);
 			}
 			return &list;
 		}
@@ -897,6 +941,17 @@ void NetActorChannel::ReplicateActor()
 	const uint8_t* recent = Recent() ? Recent() : static_cast<const uint8_t*>(ActorClass->PropertyData.Data);
 	std::map<std::pair<UClass*, uint16_t>, bool> conditions;
 	Array<int> reps;
+
+	// HX's own native lists (HX.dll 0x1001ec70, 0x10021580, 0x1001c990,
+	// 0x1001c750; dx-reverse-info hx-dll.md, the native lists), and its
+	// compare of the script classes' values as they are (UHXActorChannel::
+	// ReplicateActor): a reference the client cannot resolve goes again,
+	// as None, each update
+	const bool hx = HXGameEngine::Active();
+	const bool hxPlayer = hx && UObject::TryCast<UHXPlayerPawn>(actor);
+	const bool hxPawn = hx && UObject::TryCast<UHXScriptedPawn>(actor);
+	const bool hxDecoration = hx && UObject::TryCast<UHXDecoration>(actor);
+	const bool hxEffects = hx && UObject::TryCast<UHXEffects>(actor);
 	for (NetPackageMap::FieldNetCache* field : cache->RepProperties)
 	{
 		UProperty* prop = static_cast<UProperty*>(field->Field);
@@ -924,13 +979,23 @@ void NetActorChannel::ReplicateActor()
 		// clients saw DXEngine server's pawns run frozen --; the blended
 		// animations and a pawn's PlayerRestartState never go.
 		uint16_t replicationOffset = prop->ReplicationOffset;
+		bool blendSlot3 = false;
 		if (native)
 		{
 			if (onlyHidden && prop != native->bHidden)
 				continue;
 			if (!actorValuesToo && owner == native->Actor)
 				continue;
-			if (prop == native->BlendAnimSequence || prop == native->SimBlendAnim || prop == native->BlendAnimMinRate || prop == native->PlayerRestartState)
+			if (prop == native->BlendAnimSequence || prop == native->SimBlendAnim || prop == native->BlendAnimMinRate)
+			{
+				// HX's players and NPCs send the fourth channel, by
+				// AnimSequence's statement
+				if (!(hxPlayer || hxPawn) || !native->AnimSequence)
+					continue;
+				blendSlot3 = true;
+				replicationOffset = native->AnimSequence->ReplicationOffset;
+			}
+			if (prop == native->PlayerRestartState)
 				continue;
 			if ((prop == native->SimAnim || prop == native->AnimMinRate || prop == native->bAnimNotify) && native->AnimSequence)
 				replicationOffset = native->AnimSequence->ReplicationOffset;
@@ -939,10 +1004,12 @@ void NetActorChannel::ReplicateActor()
 		bool objectProp = UObject::TryCast<UObjectProperty>(prop) != nullptr;
 		for (int i = 0; i < prop->ArrayDimension; i++)
 		{
+			if (blendSlot3 && i != 3)
+				continue;
 			const void* value = prop->GetElement(actor->PropertyData.Ptr(prop), i);
 			const void* last = prop->GetElement(recent + prop->DataOffset.DataOffset, i);
 			bool same;
-			if (objectProp && !map.CanSerializeObject(*static_cast<UObject* const*>(value)))
+			if (objectProp && !map.CanSerializeObject(*static_cast<UObject* const*>(value)) && !(hx && !nativeClass))
 				same = *static_cast<UObject* const*>(last) == nullptr;
 			else if (native && nativeClass)
 				same = SameBits(prop, last, value);
@@ -969,6 +1036,44 @@ void NetActorChannel::ReplicateActor()
 			// them on.
 			if (native && nativeClass && !clientList && (prop == native->Physics || prop == native->Acceleration || prop == native->bBounce))
 				wanted = actor->RemoteRole() == ROLE_SimulatedProxy ? actor->bNetInitial() && !actor->bSimulatedPawn() : (bool)actor->bSimFall();
+
+			if (native && nativeClass && !clientList && hx)
+			{
+				bool authority = actor->Role() == ROLE_Authority;
+				// HX's players send what they carry, hold and their health
+				// to every client; HX's NPCs what they carry, and a human
+				// one's health
+				if ((hxPlayer || hxPawn) && prop == native->carriedDecoration)
+					wanted = authority;
+				if (hxPlayer && prop == native->SelectedItem)
+					wanted = authority;
+				for (UProperty* health : native->Health)
+				{
+					if (health && prop == health)
+					{
+						if (hxPlayer)
+							wanted = authority;
+						else if (hxPawn && actor->HasProperty(NameString("bIsHuman")) && actor->BoolValue(actor->GetPropertyDataOffset(NameString("bIsHuman"))))
+							wanted = authority;
+					}
+				}
+				// An HX decoration with bSpecialDesired: its rotation in its
+				// first bunch alone, its turning while it rotates on every
+				// change
+				if (hxDecoration && actor->HasProperty(NameString("bSpecialDesired")) && actor->BoolValue(actor->GetPropertyDataOffset(NameString("bSpecialDesired"))))
+				{
+					if (prop == native->Rotation)
+						wanted = wanted && actor->bNetInitial();
+					else if (prop == native->bFixedRotationDir || prop == native->bRotateToDesired || prop == native->RotationRate || prop == native->DesiredRotation)
+						wanted = authority && actor->RemoteRole() == ROLE_SimulatedProxy && actor->Physics() == PHYS_Rotating;
+				}
+				// HX's effects send their rotation when they ask for it
+				if (hxEffects && prop == native->Rotation && !wanted && actor->HasProperty(NameString("bReplicateRotation")) && actor->BoolValue(actor->GetPropertyDataOffset(NameString("bReplicateRotation"))))
+				{
+					uint8_t drawType = actor->DrawType();
+					wanted = authority && ((drawType != DT_Mesh && drawType != DT_Brush && actor->bNetInitial()) || actor->RemoteRole() == ROLE_SimulatedProxy);
+				}
+			}
 
 			// Inventory's list also sends a simulated item's place to all
 			// but its owner while it has an ambient sound.

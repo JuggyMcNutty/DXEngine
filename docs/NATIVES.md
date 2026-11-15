@@ -4108,12 +4108,24 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
   map to map in HX's own lines.
 - **Joining**: the challenge answered HX's way, its bits turned, on both
   sides, and `HX.HXGameEngine` the class HX's engine check finds.
+- **Its level and network**: each actor's distance from the nearest HX
+  player on a server, from the local one on a client, and an HX NPC's 32
+  players' distances, nearest first (a DXEngine server with the original's
+  client: each NPC its HX player's distance, then none once it left); what
+  a client is sent by HX's rules -- a pawn's selected item as its own, the
+  lines through glass and grates, each of a player's three extra views, a
+  relevant actor's `LastRenderTime`, the due test in floats --, and HX's
+  replication: its players' and NPCs' carried decorations, held items and
+  health to every client, the fourth blend channel, a head's turn, and its
+  unpacking, a decoration's `bSpecialDesired` rotation, an effect's
+  rotation, a script value compared as it is (bugs.md HX.9 and HX.10, their
+  runs due).
 
 HX plays Liberty Island alone and over the net, with either engine on
 either side, its logs clean of script errors: DXEngine's client on the
 original's `HCC.exe server`, the original's `HX.exe` on DXEngine's
 dedicated server. What `HX.dll` does that DXEngine does not yet: bugs.md
-HX.1 to HX.13.
+HX.1 to HX.7 and HX.11 to HX.13.
 
 A mod with none gets the original's loader and natives:
 

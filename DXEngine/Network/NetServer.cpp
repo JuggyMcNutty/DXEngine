@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "NetServer.h"
+#include "Packages/HX/HXGame.h"
 #include "NetChannel.h"
 #include "NetClient.h"
 #include "Package/Package.h"
@@ -103,9 +104,13 @@ namespace
 			if (radius > 0.0f && actor->bIsPawn() && distSq < radius * radius)
 				return true;
 
-			// A pawn's weapon matters as the pawn does.
+			// A pawn's weapon matters as the pawn does; under HX's game
+			// engine its selected item too (UHXLevel::ActorCanSee, HX.dll
+			// 0x100493b0)
 			UPawn* owner = UObject::TryCast<UPawn>(actor->Owner());
-			if (!owner || !owner->bIsPawn() || static_cast<UActor*>(owner->Weapon()) != actor)
+			bool held = owner && owner->bIsPawn() && (static_cast<UActor*>(owner->Weapon()) == actor ||
+				(HXGameEngine::Active() && static_cast<UActor*>(owner->SelectedItem()) == actor));
+			if (!held)
 				break;
 			actor = owner;
 			if (actor->bAlwaysRelevant())
@@ -119,12 +124,15 @@ namespace
 		// each line walked from the viewer's place to the actor's, as the
 		// original's FastLineCheck takes them (Engine.dll 0x103a3312,
 		// 0x103a3373)
-		if (actor->FastTrace(actor->Location(), srcLocation))
+		// HX's lines see through invisible, masked, translucent and
+		// modulated surfaces (UHXModel::FastRepLineCheck)
+		auto clear = [&](const vec3& end) { return HXGameEngine::Active() ? HXGameEngine::FastRepLineCheck(actor->XLevel(), end, srcLocation) : actor->FastTrace(end, srcLocation); };
+		if (clear(actor->Location()))
 			return true;
 		UPawn* pawn = UObject::TryCast<UPawn>(actor);
 		if (!pawn || !actor->bIsPawn())
 			return false;
-		return actor->FastTrace(actor->Location() + vec3(0.0f, 0.0f, pawn->EyeHeight()), srcLocation);
+		return clear(actor->Location() + vec3(0.0f, 0.0f, pawn->EyeHeight()));
 	}
 
 	template<typename T>
@@ -527,6 +535,11 @@ int NetServerLevel::ServerTickClient(NetConnection* connection)
 	vec3 viewDir = Coords::Rotation(realViewer->ViewRotation()).XAxis;
 	double lastRep = connection->LastRepTime;
 	double now = driver->Time;
+	// HX's holds both clocks as floats and truncates each product
+	// (UHXLevel::ServerTickClient, HX.dll 0x1004b4a0-0x1004b4b6)
+	const bool hx = HXGameEngine::Active();
+	float lastRepHX = (float)lastRep;
+	float nowHX = (float)now;
 	const Array<UActor*>& actors = viewer->XLevel()->Actors;
 	for (size_t i = 0; i < actors.size(); i++)
 	{
@@ -536,7 +549,9 @@ int NetServerLevel::ServerTickClient(NetConnection* connection)
 		if (((i >= 2 && !actor->bStatic()) || actor->bAlwaysRelevant()) && actor->NetTag() != NetTag && actor->RemoteRole() != ROLE_None && !actor->bDeleteMe())
 		{
 			float frequency = actor->NetUpdateFrequency();
-			if (std::lrint((float)(frequency * lastRep)) != std::lrint((float)(frequency * now)))
+			bool isDue = hx ? (int64_t)((double)lastRepHX * frequency) != (int64_t)((double)nowHX * frequency) :
+				std::lrint((float)(frequency * lastRep)) != std::lrint((float)(frequency * now));
+			if (isDue)
 			{
 				actor->NetTag() = NetTag;
 				due.push_back(Prioritize(actor, viewer->Location(), viewDir, connection));
@@ -544,6 +559,8 @@ int NetServerLevel::ServerTickClient(NetConnection* connection)
 		}
 		lastRep += 0.023;
 		now += 0.023;
+		lastRepHX = (float)((double)lastRepHX + 0.023);
+		nowHX = (float)((double)nowHX + 0.023);
 	}
 	connection->LastRepTime = driver->Time;
 
@@ -560,11 +577,27 @@ int NetServerLevel::ServerTickClient(NetConnection* connection)
 
 		bool relevant = IsNetRelevantFor(actor, realViewer, viewer, viewLocation);
 		bool otherView = false;
-		if (!relevant)
+		if (!relevant && hx)
+		{
+			// HX's: each of the three extra views from its own place, and an
+			// actor relevant by any of them counted so, its LastRenderTime
+			// the level's time (UHXLevel::ServerTickClient)
+			if (PropOffsets_PlayerPawn.AdditionalViews.DataOffset != ~(size_t)0)
+			{
+				for (UActor* other : realViewer->AdditionalViews())
+				{
+					if (!relevant && other)
+						relevant = IsNetRelevantFor(actor, realViewer, other, other->Location());
+				}
+			}
+		}
+		else if (!relevant)
 		{
 			if (UActor* other = AdditionalView(realViewer))
 				otherView = IsNetRelevantFor(actor, realViewer, other, other->Location());
 		}
+		if (relevant && hx)
+			actor->LastRenderTime() = actor->Level()->TimeSeconds();
 
 		if (relevant || otherView || (channel && driver->Time - channel->RelevantTime < driver->RelevantTimeout))
 		{

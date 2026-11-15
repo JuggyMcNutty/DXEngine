@@ -8,10 +8,15 @@
 #include "Packages/Core/UFunction.h"
 #include "Packages/Core/UState.h"
 #include "Packages/Core/Properties/UBoolProperty.h"
+#include "Packages/Core/Properties/UStructProperty.h"
+#include "Packages/Engine/Actors/Pawn/UPawn.h"
+#include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+#include "Packages/Engine/UViewport.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Extension/Flags/UFlagBase.h"
 #include "VM/ScriptCall.h"
+#include "Collision/BottomLevel/TraceRayModel.h"
 #include "Utils/StrTools.h"
 #include "Utils/Logger.h"
 
@@ -465,4 +470,175 @@ void HXGameEngine::ExportSteves(ULevel* level, std::map<std::string, std::string
 		first = false;
 		steve->ExportTravel(travelInfo);
 	}
+}
+
+// The order UE1's own sort leaves (the Sort of its templates, which HX.dll
+// carries at 0x1004c4b0): a run of up to 8 sorted by moving its largest to
+// its end, again and again; a longer one parted round its middle element,
+// moved to its front first, the larger part kept on a stack and the smaller
+// sorted next
+template<typename T, typename Compare>
+static void UE1Sort(T* first, int num, Compare compare)
+{
+	if (num < 2)
+		return;
+	struct Range { T* min; T* max; };
+	Range stack[32];
+	int top = 0;
+	stack[0] = { first, first + num - 1 };
+	while (top >= 0)
+	{
+		Range cur = stack[top--];
+		for (;;)
+		{
+			int count = (int)(cur.max - cur.min + 1);
+			if (count <= 8)
+			{
+				while (cur.max > cur.min)
+				{
+					T* largest = cur.min;
+					for (T* item = cur.min + 1; item <= cur.max; item++)
+					{
+						if (compare(*item, *largest) > 0)
+							largest = item;
+					}
+					std::swap(*largest, *cur.max);
+					cur.max--;
+				}
+				break;
+			}
+			std::swap(cur.min[count / 2], cur.min[0]);
+			T* lo = cur.min;
+			T* hi = cur.max + 1;
+			for (;;)
+			{
+				while (++lo <= cur.max && compare(*lo, *cur.min) <= 0) {}
+				while (--hi > cur.min && compare(*hi, *cur.min) >= 0) {}
+				if (lo > hi)
+					break;
+				std::swap(*lo, *hi);
+			}
+			std::swap(*cur.min, *hi);
+			if (hi - 1 - cur.min >= cur.max - lo)
+			{
+				if (cur.min + 1 < hi)
+					stack[++top] = { cur.min, hi - 1 };
+				if (cur.max > lo)
+				{
+					cur.min = lo;
+					continue;
+				}
+			}
+			else
+			{
+				if (cur.max > lo)
+					stack[++top] = { lo, cur.max };
+				if (cur.min + 1 < hi)
+				{
+					cur.max = hi - 1;
+					continue;
+				}
+			}
+			break;
+		}
+	}
+}
+
+// A distance as HX's x87 code takes it: the squares' sum held at the FPU's
+// precision, its root stored as a float
+static double SquaredDistance(const vec3& a, const vec3& b)
+{
+	double dx = (double)a.x - b.x;
+	double dy = (double)a.y - b.y;
+	double dz = (double)a.z - b.z;
+	return dx * dx + dy * dy + dz * dz;
+}
+
+void HXGameEngine::SetDistances(ULevel* level)
+{
+	ULevelInfo* info = level->Actors.empty() ? nullptr : UObject::TryCast<ULevelInfo>(level->Actors[0]);
+	if (!info)
+		return;
+	uint8_t mode = info->NetMode();
+	if (mode == NM_Client)
+	{
+		UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
+		if (!player || !player->Player())
+			return;
+		for (size_t i = level->FirstDynamicActor; i < level->Actors.size(); i++)
+		{
+			if (UActor* actor = level->Actors[i])
+				actor->DistanceFromPlayer() = (float)std::sqrt(SquaredDistance(actor->Location(), player->Location()));
+		}
+		return;
+	}
+	if (mode != NM_Standalone && mode != NM_ListenServer && mode != NM_DedicatedServer)
+		return;
+
+	Array<UPawn*> players;
+	for (UPawn* pawn = info->PawnList(); pawn; pawn = pawn->nextPawn())
+	{
+		if (pawn->bIsPlayer() && UObject::TryCast<UHXPlayerPawn>(pawn))
+			players.push_back(pawn);
+	}
+
+	// An HX NPC's PlayerDistances: 32 of HX's PlayerDistance, a player and
+	// its distance
+	struct Slot { UObject* player; float distance; };
+	for (size_t i = level->FirstDynamicActor; i < level->Actors.size(); i++)
+	{
+		UActor* actor = level->Actors[i];
+		if (!actor)
+			continue;
+		if (!actor->bIsPawn() || !UObject::TryCast<UHXScriptedPawn>(actor))
+		{
+			float best = 1.0e20f;
+			for (UPawn* player : players)
+			{
+				double d2 = SquaredDistance(actor->Location(), player->Location());
+				if (d2 < best)
+					best = (float)d2;
+			}
+			actor->DistanceFromPlayer() = (float)std::sqrt((double)best);
+			continue;
+		}
+
+		UStructProperty* property = UObject::TryCast<UStructProperty>(actor->GetMemberProperty(NameString("PlayerDistances")));
+		if (!property || !property->Struct)
+			continue;
+		size_t playerOffset = ~(size_t)0, distanceOffset = ~(size_t)0;
+		for (UProperty* member : property->Struct->Properties)
+		{
+			if (member->Name == NameString("Player"))
+				playerOffset = member->DataOffset.DataOffset;
+			else if (member->Name == NameString("Distance"))
+				distanceOffset = member->DataOffset.DataOffset;
+		}
+		if (playerOffset == ~(size_t)0 || distanceOffset == ~(size_t)0)
+			continue;
+
+		int count = (int)std::min<size_t>(players.size(), 32);
+		Slot slots[32] = {};
+		for (int n = 0; n < count; n++)
+			slots[n] = { players[n], (float)std::sqrt(SquaredDistance(actor->Location(), players[n]->Location())) };
+		UE1Sort(slots, count, [](const Slot& a, const Slot& b) { return b.distance >= a.distance ? -1 : 1; });
+
+		uint8_t* data = static_cast<uint8_t*>(actor->GetProperty(property));
+		for (int n = 0; n < 32; n++)
+		{
+			uint8_t* element = static_cast<uint8_t*>(property->GetElement(data, n));
+			*reinterpret_cast<UObject**>(element + playerOffset) = slots[n].player;
+			*reinterpret_cast<float*>(element + distanceOffset) = slots[n].distance;
+		}
+		actor->DistanceFromPlayer() = count > 0 ? slots[0].distance : 1.0e10f;
+	}
+}
+
+bool HXGameEngine::FastRepLineCheck(ULevel* level, const vec3& end, const vec3& start)
+{
+	if (!level)
+		return true;
+	CollisionSystem& collision = level->Collision;
+	return TraceRayModel::FastWalkSeeThrough(collision.LineNodes(), collision.LineRootOutside(),
+		[&](int surf) { return collision.LineSurface(surf).PolyFlags; }, start, end);
 }

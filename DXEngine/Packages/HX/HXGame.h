@@ -50,4 +50,15 @@ namespace HXGameEngine
 	// Browse's "Adding Steve to TravelInfo.": every Steve of the level
 	// written into the travel info
 	void ExportSteves(ULevel* level, std::map<std::string, std::string>& travelInfo);
+
+	// UHXLevel::Tick's distances, before the actors tick (HX.dll
+	// 0x10049620): on a client each dynamic actor's from the viewport's
+	// player; alone or on a server the nearest HX player's, an HX NPC's
+	// PlayerDistances filled with every player's, nearest first
+	void SetDistances(ULevel* level);
+
+	// UHXModel::FastRepLineCheck (HX.dll 0x100524b0) down a level's BSP,
+	// the movers filed in: whether the line is clear, seeing through
+	// invisible, masked, translucent and modulated surfaces
+	bool FastRepLineCheck(ULevel* level, const vec3& end, const vec3& start);
 }
