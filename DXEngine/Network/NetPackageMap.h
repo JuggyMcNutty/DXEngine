@@ -33,6 +33,9 @@ public:
 		NameString Name;
 		std::string Guid;
 		uint32_t Flags = 0;
+		// The file a download sends, and its size: the package's own, but
+		// for HX's level from its run's folder its map's (NetBuildMasterMap)
+		std::string File;
 		int FileSize = 0;
 		int RemoteGeneration = 0;
 		int LocalGeneration = 0;

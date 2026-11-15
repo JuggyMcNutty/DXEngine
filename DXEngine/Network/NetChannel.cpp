@@ -384,7 +384,7 @@ void NetFileChannel::ReceivedBunch(NetInBunch& bunch)
 				const NetPackageMap::PackageInfo& info = list[i];
 				if (!info.Pkg || (info.Flags & (uint32_t)PackageFlags::AllowDownload) == 0 || !StrTools::equals_ignore_case(info.Guid, guid))
 					continue;
-				Filename = info.Pkg->GetPackageFilePath();
+				Filename = info.File.empty() ? info.Pkg->GetPackageFilePath() : info.File;
 				if (notify && notify->NotifySendingFile(Connection, guid))
 				{
 					File = fopen(Filename.c_str(), "rb");

@@ -225,9 +225,14 @@ namespace
 		info.Name = package->GetPackageName();
 		info.Guid = package->GetGuidString();
 		info.Flags = (uint32_t)package->GetFlags();
+		info.File = package->GetPackageFilePath();
 		std::error_code ec;
-		info.FileSize = (int)fs::file_size(package->GetPackageFilePath(), ec);
+		info.FileSize = (int)fs::file_size(info.File, ec);
 		info.LocalGeneration = (int)package->GetGenerations().size();
+		// The other side's generation the server's own, as the original's
+		// master map is left computed (UPackageMap::Compute); a client's
+		// HAVE then gives its own
+		info.RemoteGeneration = info.LocalGeneration;
 		packages.push_back(info);
 
 		for (const NameString& name : package->GetImportedPackages())
@@ -259,6 +264,36 @@ Array<NetPackageMap::PackageInfo> NetBuildMasterMap(Package* level, UObject* gam
 	}
 	if (game && game->Class && game->Class->package)
 		AddMasterPackage(packages, game->Class->package);
+
+	// HX's packagemap hack (UHXGameEngine::BuildServerMasterMap, HX.dll
+	// 0x1003f0e0): while a level loads from HX's run's folder, the entry of
+	// that file announces the map's own, found by the package's name, with
+	// that file's size and a generation of 1 on the other side -- a client
+	// is sent the map, not the save, and the server counts only the map's
+	// first generation of objects and names, which the conformed save keeps
+	// at their indexes (bugs.md HX.7)
+	if (HXGameEngine::Active() && !engine->hxFolderLevelFile.empty())
+	{
+		for (NetPackageMap::PackageInfo& info : packages)
+		{
+			if (!StrTools::equals_ignore_case(info.File, engine->hxFolderLevelFile))
+				continue;
+			const std::string name = info.Name.ToString();
+			const std::string mapFile = engine->packages->MapExists(name) ? engine->packages->MapFilePath(name) : std::string();
+			std::error_code ec;
+			const uintmax_t size = mapFile.empty() ? 0 : fs::file_size(mapFile, ec);
+			if (mapFile.empty())
+				LogMessage("Warning: Failed to find package " + name + " for packagemap hack.");
+			else if (ec)
+				LogMessage("Warning: Failed to find suitable sized package " + name + " for packagemap hack.");
+			else
+			{
+				info.File = mapFile;
+				info.FileSize = (int)size;
+				info.RemoteGeneration = 1;
+			}
+		}
+	}
 	return packages;
 }
 
@@ -407,10 +442,13 @@ void NetServerLevel::Welcome(NetConnection* connection)
 
 void NetWelcome(NetConnection* connection, const Array<NetPackageMap::PackageInfo>& packages, Package* level, const std::string& optional)
 {
+	// The list as given, each package's other side's generation with it
+	// (the original's copy of the master map, ULevel::WelcomePlayer), its
+	// own generation announced (UNetConnection::SendPackageMap, Engine.dll
+	// 0x10401ed0)
 	connection->PackageMap.List = packages;
-	for (NetPackageMap::PackageInfo& info : connection->PackageMap.List)
+	for (const NetPackageMap::PackageInfo& info : connection->PackageMap.List)
 	{
-		info.RemoteGeneration = info.LocalGeneration;
 		connection->SendText("USES GUID=" + info.Guid + " PKG=" + info.Name.ToString() + " FLAGS=" + std::to_string(info.Flags) + " SIZE=" + std::to_string(info.FileSize) + " GEN=" + std::to_string(info.LocalGeneration));
 	}
 	std::string welcome = "WELCOME LEVEL=" + level->GetPackageName().ToString() + " LONE=" + std::to_string(engine->LevelInfo->bLonePlayer() ? 1 : 0);

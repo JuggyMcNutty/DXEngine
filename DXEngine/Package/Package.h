@@ -68,6 +68,8 @@ public:
 
 	void LoadAll();
 	void Save(UObject* object = nullptr, const std::string& filename = {});
+	// The save conformed to another file of the package (PackageWriter::SetConform)
+	void SaveConformed(UObject* object, const std::string& filename, Package* conform);
 
 	const NameString& GetName(int index) const;
 	int GetVersion() const { return Version; }

@@ -29,7 +29,10 @@ void PackageWriter::Save(UObject* packageObject, std::string filename)
 
 	try
 	{
-		GetNameIndex({}); // Add None as first index to name table
+		if (Conform)
+			ConformTables();
+		else
+			GetNameIndex({}); // Add None as first index to name table
 
 		auto stream = std::make_unique<PackageStreamWriter>(this, File::create_always(tempFilename));
 		WriteHeader(stream.get());
@@ -107,6 +110,19 @@ void PackageWriter::WriteHeader(PackageStreamWriter* stream)
 		stream->WriteInt32(0); // HeritageCount
 		stream->WriteUInt32(0); // HeritageOffset
 	}
+	else if (Conform)
+	{
+		// The other file's GUID and its generations, this save one more
+		stream->WriteBytes(Conform->Guid, 16);
+		stream->WriteInt32((int)Conform->Generations.size() + 1);
+		for (const Package::Generation& generation : Conform->Generations)
+		{
+			stream->WriteInt32(generation.ExportCount);
+			stream->WriteInt32(generation.NameCount);
+		}
+		stream->WriteInt32((int)ExportTable.size());
+		stream->WriteInt32((int)NameTable.size());
+	}
 	else
 	{
 		stream->WriteBytes(Source->Guid, 16);
@@ -138,13 +154,79 @@ void PackageWriter::WriteObjects(UObject* packageObject, PackageStreamWriter* st
 		}
 	}
 
-	size_t i = 0;
-	while (i < ExportTable.size())
+	// In the order the exports were made, a conformed slot when its object
+	// was first reached; a slot no object took stays empty
+	for (size_t i = 0; i < ExportOrder.size(); i++)
 	{
-		ExportTable[i].ObjOffset = stream->Tell();
-		ExportObjects[i]->Save(stream);
-		ExportTable[i].ObjSize = stream->Tell() - ExportTable[i].ObjOffset;
-		i++;
+		const int index = ExportOrder[i];
+		ExportTable[index].ObjOffset = stream->Tell();
+		ExportObjects[index]->Save(stream);
+		ExportTable[index].ObjSize = stream->Tell() - ExportTable[index].ObjOffset;
+	}
+}
+
+// "Class Group.Name", the path of an export of a package within it, as the
+// original's conform matches the other file's exports to the objects saved
+// (ULinker::GetExportFullName with the saved package's path)
+std::string PackageWriter::ExportFullName(Package* package, int index)
+{
+	std::string path;
+	for (int ref = index + 1, outers = 0; ref > 0 && outers <= 64; outers++)
+	{
+		const ExportTableEntry& entry = package->ExportTable[ref - 1];
+		std::string name = package->GetName(entry.ObjName).ToString();
+		path = path.empty() ? name : name + "." + path;
+		ref = entry.ObjOuter;
+	}
+	const ExportTableEntry& entry = package->ExportTable[index];
+	std::string className = entry.ObjClass == 0 ? std::string("Class") : package->ExportClassName(entry).ToString();
+	return className + " " + path;
+}
+
+std::string PackageWriter::ObjectFullName(UObject* obj)
+{
+	std::string path;
+	for (UObject* o = obj; o && !(o->package && o->package->IsPackageObject(o)); o = o->Outer())
+		path = path.empty() ? o->Name.ToString() : o->Name.ToString() + "." + path;
+	std::string className = UObject::TryCast<UClass>(obj) ? std::string("Class") : (obj->Class ? obj->Class->Name.ToString() : std::string());
+	return className + " " + path;
+}
+
+// The other file's names first, in its order, and its exports' slots, each
+// kept for the object of its full name in the package now (the name
+// compared in any case, as appStricmp compares them); the slots made as
+// their objects are reached, those of none left empty: no flags, no data
+void PackageWriter::ConformTables()
+{
+	// Each of its file's names in its slot, as its linker read it: one
+	// outside the load's context None, as the original's conform puts the
+	// conform's name there however often it already is
+	for (int i = 0; i < Conform->FileNameCount; i++)
+	{
+		NameTableEntry entry;
+		entry.Name = Conform->NameTable[i].Name;
+		entry.Flags = (int)(ObjectFlags::TagExp | ObjectFlags::LoadForClient | ObjectFlags::LoadForServer | ObjectFlags::LoadForEdit);
+		NameTable.push_back(entry);
+		NameHash.emplace(entry.Name, i);
+	}
+
+	std::map<std::string, int> slots;
+	for (int i = 0; i < Conform->FileExportCount; i++)
+		slots.emplace(NameString::Folded(ExportFullName(Conform, i)), i);
+
+	ExportTable.resize(Conform->FileExportCount, ExportTableEntry{});
+	ExportObjects.resize(Conform->FileExportCount, nullptr);
+	for (GCObject* gcobj : GC::GetObjects())
+	{
+		UObject* obj = dynamic_cast<UObject*>(gcobj);
+		if (!obj || obj->package != Source || Source->IsPackageObject(obj))
+			continue;
+		auto it = slots.find(NameString::Folded(ObjectFullName(obj)));
+		if (it != slots.end() && !ExportObjects[it->second])
+		{
+			Reserved[obj] = it->second + 1;
+			slots.erase(it);
+		}
 	}
 }
 
@@ -284,6 +366,20 @@ int PackageWriter::GetObjectReference(UObject* obj)
 		if (UObject::TryCast<UActor>(obj))
 			flags |= ObjectFlags::Transactional;
 		entry.ObjFlags = flags;
+		// A conformed slot's object fills its slot, its reference known
+		// before its outer is reached
+		auto reserved = Reserved.find(obj);
+		if (reserved != Reserved.end())
+		{
+			const int ref = reserved->second;
+			ExportObjects[ref - 1] = obj;
+			ObjRefHash[obj] = ref;
+			ExportOrder.push_back(ref - 1);
+			entry.ObjOuter = GetObjectReference(obj->Outer());
+			ExportTable[ref - 1] = entry;
+			return ref;
+		}
+
 		entry.ObjOuter = GetObjectReference(obj->Outer());
 
 		ExportTable.push_back(entry);
@@ -291,6 +387,7 @@ int PackageWriter::GetObjectReference(UObject* obj)
 
 		int ref = (int)ExportTable.size();
 		ObjRefHash[obj] = ref;
+		ExportOrder.push_back(ref - 1);
 		return ref;
 	}
 	else

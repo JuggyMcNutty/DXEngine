@@ -1459,6 +1459,14 @@ bool Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 	}
 	if (levelName.empty())
 		levelName = fs::path(levelFile).stem().string();
+
+	// While this load lasts, HX's level from its run's folder is known by its
+	// file, as HX's Browse holds it across its LoadMap, for the server's
+	// package list (NetBuildMasterMap; bugs.md HX.7)
+	struct ClearOnExit { std::string& text; ~ClearOnExit() { text.clear(); } } folderLevelFile{ hxFolderLevelFile };
+	if (hxFolderLevel)
+		hxFolderLevelFile = levelFile;
+
 	std::string loadError;
 	Package* newPackage = CheckLevelPackage(enteredURL.Map, levelName, levelFile, loadError);
 	if (!newPackage)
@@ -2663,9 +2671,8 @@ void Engine::HXPruneCurrent()
 // again; the AI event manager let go, HXGameInfo.InitGame making another;
 // the destroyed actors freed, forced; the level saved as its package's next
 // generation in the run's folder, <package>.sNN, by Save.ini's
-// [Generations], the last two kept, and its [Restore]; each mover's
-// SavedPos -1; the movers filed again. The save is the engine's own, not
-// conformed to the map's file (bugs.md HX.7).
+// [Generations], the last two kept, conformed to the map's file, and its
+// [Restore]; each mover's SavedPos -1; the movers filed again.
 void Engine::HXSaveCurrentLevel(const std::string& folderName)
 {
 	LevelInfo->LevelAction() = LEVACT_Saving;
@@ -2703,14 +2710,36 @@ void Engine::HXSaveCurrentLevel(const std::string& folderName)
 		return Directory::resolveCase(folder / (package + extension));
 	};
 
+	// Conformed to the map's own file (bugs.md HX.7): the map's names and
+	// exports kept at their indexes, its GUID, one generation on, so a
+	// client with the map maps the level's objects as the server does; the
+	// map's file found by the package's name as appFindPackageFile finds it
+	// -- a level from Maps or from the folder alike. None found, the save is
+	// the engine's own, where the original's assertion ends the game.
 	bool saved = false;
 	try
 	{
 		const fs::path file = generationFile(newGeneration);
+		const std::string mapFile = packages->MapExists(package) ? packages->MapFilePath(package) : std::string();
+		Package* conform = mapFile.empty() ? nullptr : packages->LoadMapFile(NameString(package + "_OLD"), mapFile);
 		packages->CloseStreams();
 		fs::remove(file, ec);
 		SetLevelURLForSave();
-		LevelPackage->Save(Level, file.string());
+		if (conform)
+		{
+			try
+			{
+				LevelPackage->SaveConformed(Level, file.string(), conform);
+			}
+			catch (...)
+			{
+				packages->UnloadPackage(conform);
+				throw;
+			}
+			packages->UnloadPackage(conform);
+		}
+		else
+			LevelPackage->Save(Level, file.string());
 		saved = true;
 	}
 	catch (const std::exception&)
@@ -3282,6 +3311,9 @@ void Engine::StartDemoRecord(const std::string& filename, ExecOutput& out)
 	{
 		if (LevelNetDriver && LevelNetDriver->ServerConnection)
 			masterMap = LevelNetDriver->ServerConnection->PackageMap.List;
+		// The demo's reader counts this side's generations
+		for (NetPackageMap::PackageInfo& info : masterMap)
+			info.RemoteGeneration = info.LocalGeneration;
 	}
 	else
 	{

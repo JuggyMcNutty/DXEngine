@@ -309,10 +309,13 @@ it, the original's `?pop` looking for `Game%i.usa` and travelling as any
 (`HubConsole`: 0, 1 and 1 at the island, UNATCO HQ and Battery Park, and
 `Game0000.dxs`, in both engines; the original's second `?push` then
 asserts, which DXEngine does not copy, going on with 2, 1 and 0). No
-stock map, exit or script travels so, nor reads `HubStackLevel`. Differs
-(bugs.md PKG.42): a hub save holds the player's pawn, where the
-original's holds none, its map load destroying the player before the save,
-as DXEngine's does at no map's load.
+stock map, exit or script travels so, nor reads `HubStackLevel`. The hub
+save is made once the viewport's player is destroyed, as the original's
+map load makes it, so it holds no player's pawn (`HubConsole`'s
+`Game0000.dxs` in both engines). Differs (bugs.md PKG.45): a save keeps its
+package's GUID, a level's the map's, where the original gives each save a
+new one; only a level entered from `Current`, then served or recorded in a
+demo, names it, and the map of that GUID numbers its objects otherwise.
 
 While a map loads or a level is saved the screen shows one frame, painted
 before the work, as the original's does
@@ -4159,8 +4162,22 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
   travel info, Steve taking the campaign's state back (a probe's round trip
   from Liberty Island to UNATCO HQ and back on a listen server: its moved
   chair still moved, the log's lines, the folder's files and `Save.ini`
-  alike in both engines). A save is DXEngine's own, not conformed to the
-  map's file (bugs.md HX.7).
+  alike in both engines). The save is conformed to the map's file, as
+  HX's: the map's names and exports at their numbers, an export no longer
+  there an empty slot, the map's GUID and its generations and one more (the
+  saves of Liberty Island and UNATCO HQ laid out as the original's); a map
+  the paths do not find leaves the save DXEngine's own, by choice, where
+  the original's assertion ends the game. While a server loads a level
+  from the folder, its package list gives clients the map's own file and
+  size and counts the level by its first generation (HX's packagemap hack,
+  its two warnings when the map is not found or cannot be sized), so a
+  client is sent the map and numbers the level's objects as the server
+  does (a client joining Liberty Island entered again from the folder,
+  each engine's server with the other's client: the level announced alike,
+  the map's size and the save's generation, and each of the 19 movers the
+  server marked before leaving the level carrying its mark on the client;
+  a client without the map sent the map's file, 9,411,740 bytes, not the
+  save).
 - **Its start**: the command line's first word the map opened, with
   `-hax0r` or not, the ini's `[URL] LocalMap` a client's fallback and `Map`
   a dedicated server's; a player named `Player`, or none, a random
@@ -4205,7 +4222,8 @@ original's `HCC.exe server`, the original's `HX.exe` on DXEngine's
 dedicated server. HXFix's 44 one-client live tests pass with DXEngine
 hosting and the original's `HX.exe` joining, but for `HXFixTestKeypad`'s
 remote client, whose keypad window opens in one run of three (bugs.md HX.9).
-What `HX.dll` does that DXEngine does not yet: bugs.md HX.7.
+What `HX.dll` does that DXEngine does not yet: none known; the runs due are
+bugs.md HX.3, HX.4 and HX.9 to HX.12's.
 
 A mod with none gets the original's loader and natives:
 

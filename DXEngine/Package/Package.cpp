@@ -75,6 +75,16 @@ void Package::Save(UObject* object, const std::string& filename)
 	writer.Save(object, filename);
 }
 
+void Package::SaveConformed(UObject* object, const std::string& filename, Package* conform)
+{
+	if (object && object->package != this)
+		Exception::Throw("Object does not belong to this package");
+
+	PackageWriter writer(this);
+	writer.SetConform(conform);
+	writer.Save(object, filename);
+}
+
 UObject* Package::NewObject(const NameString& objname, UClass* objclass, ObjectFlags flags, bool initProperties)
 {
 	if (!objclass)
