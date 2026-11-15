@@ -4106,6 +4106,21 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
   each side), `bSpawning`, and Steve beside each new game, the campaign's
   flags, skill points, goals, keys and images carried in the travel from
   map to map in HX's own lines.
+- **Its start**: the command line's first word the map opened, with
+  `-hax0r` or not, the ini's `[URL] LocalMap` a client's fallback and `Map`
+  a dedicated server's; a player named `Player`, or none, a random
+  `<A-Y>_Denton`, written to the user ini; the save folder made; the
+  game's packages' GUIDs warned about when not the game's (HX started with
+  `01_NYC_UNATCOIsland` first: there as `SY_Denton`).
+- **Its console words**: `FLUSH`'s argument and line, `UPDATEGAMMA` (the
+  device flushed, as HX's fallback), `DUMPADDVIEWS`, `DUMPALWAYSRELEVANT`,
+  `GSPYLITE` doing nothing, `EDITACTOR` and `EDITOBJECT` refused in a net
+  game, `DELETEGAME` of `QuickSave`, `Current`, `ServerCurrent` and
+  `ListenCurrent` by -1 to -4; `RELAUNCH` DXEngine's own.
+- **Its UI**: the root's scale by 639.9 and 479.9 (449.9 with a
+  `WindowScale` of -1), capped by `WindowScale`, and a key bound by `SET
+  ini:Engine.Engine.Input`, its Customize Keys', kept in `[Engine.Input]`
+  (bugs.md HX.11, its run due).
 - **Joining**: the challenge answered HX's way, its bits turned, on both
   sides, and `HX.HXGameEngine` the class HX's engine check finds.
 - **Its level and network**: each actor's distance from the nearest HX
@@ -4125,7 +4140,7 @@ HX plays Liberty Island alone and over the net, with either engine on
 either side, its logs clean of script errors: DXEngine's client on the
 original's `HCC.exe server`, the original's `HX.exe` on DXEngine's
 dedicated server. What `HX.dll` does that DXEngine does not yet: bugs.md
-HX.1 to HX.7 and HX.11 to HX.13.
+HX.3 to HX.7, HX.12 and HX.13.
 
 A mod with none gets the original's loader and natives:
 

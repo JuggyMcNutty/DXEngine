@@ -345,7 +345,11 @@ void Engine::Run()
 	// is DX.dx whatever the ini's [URL] LocalMap names, as Deus Ex's Init
 	// sets FURL::DefaultLocalMap to DX.dx before it reads the command line
 	// (0x10389429-0x103894a4)
-	UnrealURL defaultURL = GetDefaultURL("DX.dx");
+	// HX's game engine starts its own way (bugs.md HX.1)
+	std::string fallbackMap = "DX.dx";
+	if (HXGameEngine::Active())
+		HXGameEngine::Start(LaunchInfo.url, fallbackMap, dedicated);
+	UnrealURL defaultURL = GetDefaultURL(fallbackMap);
 	UnrealURL startURL(&defaultURL, LaunchInfo.url, ETravelType::TRAVEL_Partial);
 	if (!LaunchInfo.url.empty() && !startURL.Valid)
 		Exception::Throw(LocalizeMessage("Engine", "Errors", "InvalidUrl", "Invalid URL: %s", { LaunchInfo.url }));
@@ -367,7 +371,7 @@ void Engine::Run()
 	// whose level does not load; a dedicated server's of a server's address
 	// with Engine.int's ServerOpen (engine-dll.md, starting the game engine;
 	// bugs.md ENG.26).
-	const std::string startText = LaunchInfo.url.empty() ? std::string("DX.dx") : LaunchInfo.url;
+	const std::string startText = LaunchInfo.url.empty() ? fallbackMap : LaunchInfo.url;
 	std::string browseError;
 	bool browsed = false;
 	if (dedicated && !startURL.Host.empty())
@@ -376,7 +380,7 @@ void Engine::Run()
 		browsed = LoadSavedGame(startURL);
 	else if (!launchServer)
 		browsed = BrowseStartMap(LaunchInfo.url.empty() ? defaultURL : startURL, browseError);
-	if (!browsed && (!browseError.empty() || StrTools::equals_ignore_case(startText, "DX.dx") || !BrowseStartMap(defaultURL, browseError)))
+	if (!browsed && (!browseError.empty() || StrTools::equals_ignore_case(startText, fallbackMap) || !BrowseStartMap(defaultURL, browseError)))
 		Exception::Throw(LocalizeMessage("Engine", "Errors", "FailedBrowse", "Failed to enter %s: %s", { startText, browseError }));
 
 	// A server's address to start with: joined from the menu's map, as the
@@ -4176,10 +4180,102 @@ bool Engine::EngineExec(const std::string& line, ExecOutput& out)
 // Deus Ex's game engine's SAVEGAME and DELETEGAME (DDeusExGameEngine::Exec,
 // DeusEx.dll 0x1000ed70), then the game engine's own words (UGameEngine::
 // Exec, Engine.dll 0x1038a030), before its level's.
+// UHXGameEngine::Exec (HX.dll 0x1003a400; dx-reverse-info hx-dll.md,
+// console words): FLUSH's argument and its line, UPDATEGAMMA, the two DUMP
+// words, GSPYLITE taken doing nothing, EDITACTOR and EDITOBJECT refused in a
+// net game, DELETEGAME of HX's folders; RELAUNCH is DXEngine's own
+bool Engine::HXGameEngineExec(const std::string& command, const std::string& rest, ExecOutput& out)
+{
+	if (command == "flush")
+	{
+		std::string token;
+		size_t pos = 0;
+		bool precache = !StrTools::ue1_parse_token(rest, pos, token, 0) || StrTools::equals_ignore_case(token, "True") || StrTools::ue1_atoi(token) != 0;
+		if (render)
+			FlushRender();
+		out.Log("Flushed engine caches (" + std::to_string(precache ? 1 : 0) + ")");
+		return true;
+	}
+	if (command == "updategamma")
+	{
+		// DXEngine's devices have not HX's own interface: the device
+		// flushed, as HX's fallback
+		if (render)
+		{
+			FlushRender();
+			LogMessage("Updated gamma using fallback.");
+		}
+		else
+		{
+			LogMessage("Updated gamma using fallbacks fallback.");
+		}
+		return true;
+	}
+	if (command == "editactor" || command == "editobject")
+		return LevelInfo && LevelInfo->NetMode() != NM_Standalone;
+	if (command == "gspylite")
+		return true;
+	if (command == "dumpaddviews")
+	{
+		// Every player's three, a None one named so where HX reads it
+		if (Level && PropOffsets_PlayerPawn.AdditionalViews.DataOffset != ~(size_t)0)
+		{
+			for (UActor* actor : Level->Actors)
+			{
+				UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(actor);
+				if (!player)
+					continue;
+				out.Log("Dumping AdditionalViews for " + player->Name.ToString());
+				auto views = player->AdditionalViews();
+				for (size_t i = 0; i < views.size(); i++)
+					out.Log("AdditionalViews[" + std::to_string(i) + "] = " + (views[i] ? views[i]->Name.ToString() : std::string("None")));
+			}
+		}
+		return true;
+	}
+	if (command == "dumpalwaysrelevant")
+	{
+		out.Log("Dumping bAlwaysRelevant");
+		if (Level)
+		{
+			for (UActor* actor : Level->Actors)
+			{
+				if (actor && actor->bAlwaysRelevant())
+					out.Log(actor->Name.ToString());
+			}
+		}
+		return true;
+	}
+	if (command == "deletegame")
+	{
+		// A slot from -4 to any: ListenCurrent, ServerCurrent, Current,
+		// QuickSave, then Save%04d, under the save path; below -4 HX's
+		// assertion, fatal
+		if (rest.empty() || !((rest[0] >= '0' && rest[0] <= '9') || rest[0] == '-'))
+			return true;
+		int32_t slot = SlotNumber(rest);
+		if (slot < -4)
+			Exception::Throw("Assertion failed: DirectoryIndex>=0");
+		static const char* const negative[] = { "QuickSave", "Current", "ServerCurrent", "ListenCurrent" };
+		char numbered[16];
+		std::snprintf(numbered, sizeof(numbered), "Save%04d", slot);
+		std::string name = slot < 0 ? negative[-slot - 1] : numbered;
+		packages->CloseStreams();
+		std::error_code ec;
+		fs::remove_all(Directory::resolveCase(packages->GetSaveFolderPath() / name), ec);
+		packages->RemoveSaveInfoPackage(name);
+		return true;
+	}
+	return false;
+}
+
 bool Engine::GameEngineExec(const std::string& line, ExecOutput& out)
 {
 	std::string rest;
 	std::string command = CommandWord(line, rest);
+	// HX's game engine's own words first, the rest the game's (bugs.md HX.2)
+	if (HXGameEngine::Active() && HXGameEngineExec(command, rest, out))
+		return true;
 	if (command == "savegame")
 	{
 		// Deus Ex's game engine's SAVEGAME (DDeusExGameEngine::Exec, DeusEx.dll
@@ -4642,8 +4738,13 @@ bool Engine::ObjectExec(const std::string& line, ExecOutput& out)
 		}
 		// Deus Ex's input class is Extension's InputExt, so the multiplayer
 		// key SETs land here too instead of failing on every map
-		// (extension-dll.md, the engine and the input).
-		if (set && !propertyToken.empty() && (className == "input" || className == "inputext"))
+		// (extension-dll.md, the engine and the input); so does a SET of the
+		// ini's own input class, ini:Engine.Engine.Input -- HX's, HX.HXInput,
+		// whose Customize Keys sets its bindings so (bugs.md HX.11) --, its
+		// bindings the [Engine.Input] the user ini keeps
+		bool inputClass = className == "input" || className == "inputext" ||
+			StrTools::equals_ignore_case(className.ToString(), packages->GetIniValue("system", "Engine.Engine", "Input"));
+		if (set && !propertyToken.empty() && inputClass)
 		{
 			std::string value = ArgsFrom(rest, 2);
 			keybindings[propertyToken] = value;

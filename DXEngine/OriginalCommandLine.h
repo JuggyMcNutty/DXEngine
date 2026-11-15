@@ -44,6 +44,10 @@ public:
 	// first is SERVER -- but only with -hax0r or -server, and not a token
 	// starting with '-'. Empty for the game's own start (DX.dx).
 	std::string StartURL() const;
+	// HX's game engine's (UHXGameEngine::Init, HX.dll 0x1003b100): the first
+	// token -- the second when the first is SERVER -- with -hax0r or not, but
+	// not one starting with '-'.
+	std::string FirstToken() const;
 
 private:
 	std::string line;

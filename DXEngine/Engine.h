@@ -610,6 +610,7 @@ private:
 	bool WindowExec(const std::string& line, ExecOutput& out);
 	bool LevelExec(ULevel* level, const std::string& line, ExecOutput& out);
 	bool GameEngineExec(const std::string& line, ExecOutput& out);
+	bool HXGameEngineExec(const std::string& command, const std::string& rest, ExecOutput& out);
 	bool EngineWordExec(const std::string& line, ExecOutput& out);
 	bool SystemExec(const std::string& line, ExecOutput& out);
 	bool ObjectExec(const std::string& line, ExecOutput& out);

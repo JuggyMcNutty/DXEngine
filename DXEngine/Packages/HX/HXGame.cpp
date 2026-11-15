@@ -19,6 +19,8 @@
 #include "Collision/BottomLevel/TraceRayModel.h"
 #include "Utils/StrTools.h"
 #include "Utils/Logger.h"
+#include "Utils/Random.h"
+#include "OriginalCommandLine.h"
 
 namespace
 {
@@ -319,6 +321,63 @@ bool HXGameEngine::Active()
 	if (active < 0)
 		active = StrTools::equals_ignore_case(engine->packages->GetIniValue("system", "Engine.Engine", "GameEngine", "Engine.GameEngine"), "HX.HXGameEngine") ? 1 : 0;
 	return active == 1;
+}
+
+void HXGameEngine::Start(std::string& url, std::string& fallbackMap, bool dedicated)
+{
+	PackageManager* packages = engine->packages.get();
+	if (url.empty())
+		url = OriginalCommandLine::Get().FirstToken();
+	fallbackMap = dedicated ? packages->GetIniValue("system", "URL", "Map", "Index.dx") : packages->GetIniValue("system", "URL", "LocalMap", "DX.dx");
+
+	// The save folder, one level made
+	std::error_code ec;
+	std::filesystem::create_directory(packages->GetSaveFolderPath(), ec);
+
+	// The game's packages, each by its GUID, five warnings for one that is
+	// not the game's (CheckPackageGuid, HX.dll 0x10045bc0)
+	static const char* const guids[][2] =
+	{
+		{ "Core", "BFC9A4E444E3B749B688A99529BD75C1" }, { "Engine", "51EA2E914B9530035CB94784FF411102" },
+		{ "Editor", "C0C8923B46FC57C4F4E11AAE9AFDFE3B" }, { "Fire", "F6281FED4974E8179BA5C5A6C8F75983" },
+		{ "IpDrv", "3D673AB846D927DB40979C80AEA2659B" }, { "UWindow", "EEC33ECC4F995DDDB367518CD376A8F8" },
+		{ "UBrowser", "B6057DA84D35EB2FE331EC98D12183F3" }, { "Extension", "F6BC1EDF4C4EDA21F54AED822CC9CD81" },
+		{ "DeusExUI", "6B9B3C64466601CBA3F1EA8D0B96354D" }, { "ConSys", "08722AAF4FACDB1C0AA14587F66F9D9A" },
+		{ "DeusExConversations", "315A906E11D43C6160004CBD0AB81608" }, { "DeusExSounds", "9E3B43F7450FE7F81934ADAF750B84FD" },
+		{ "DeusExItems", "B4E7F4094532B8F5E0C9EFB53D74C9BC" }, { "DeusExDeco", "315A907111D43C6160004CBD0AB81608" },
+		{ "DeusExCharacters", "315A907211D43C6160004CBD0AB81608" }, { "DeusExConText", "1B71548E46F9331A675211AEB304D25F" },
+		{ "DeusExConAudioAIBarks", "315A906D11D43C6160004CBD0AB81608" }, { "MPCharacters", "55738DF94887DC5BC2E36F8E85954811" },
+		{ "DeusExText", "32A8AAE940701B1B09969CA278BBECD6" }, { "IpServer", "71AABCC5455A63B81C3979AFC39AD1BE" },
+		{ "DeusEx", "CADECA6B4EB3B7FF1F0CB59221ECCC8E" },
+	};
+	for (const auto& entry : guids)
+	{
+		std::string guid = packages->GetPackage(entry[0])->GetGuidString();
+		if (StrTools::equals_ignore_case(guid, entry[1]))
+			continue;
+		LogMessage(std::string(entry[0]) + " Package Guid: " + guid + " -- Bad");
+		LogMessage(std::string("You are using a non standard ") + entry[0] + " package.");
+		LogMessage("You will likely encounter errors and crashes.");
+		LogMessage(std::string("Don't report any bugs when using this ") + entry[0] + " package.");
+		LogMessage("If this is non intentional use the DeusEx 1112fm version instead.");
+	}
+
+	// A client's player: one named Player, or none, or -RANDOMDENTON, a new
+	// name of one to four letters, two the likeliest, each A to Y, and
+	// _Denton
+	if (dedicated)
+		return;
+	std::string name = packages->GetIniValue("user", "DefaultPlayer", "Name");
+	if (!name.empty() && !StrTools::equals_ignore_case(name, "Player") && !OriginalCommandLine::Get().Param("RANDOMDENTON"))
+		return;
+	double u = FRand();
+	double letters = u < 1.0 / 3.0 ? 1.0 + std::sqrt(3.0 * u) : 4.0 - std::sqrt(6.0 * (1.0 - u));
+	int count = std::clamp((int)std::nearbyint(letters), 1, 5);
+	std::string generated;
+	for (int i = 0; i < count; i++)
+		generated += (char)std::clamp((int)std::nearbyint(FRand() * 25.0 - 0.5) + 'A', (int)'A', (int)'Z');
+	generated += "_Denton";
+	packages->SetIniValue("user", "DefaultPlayer", "Name", generated);
 }
 
 // HX's LoadMap: bSpawning True on each actor whose class has the bool (its

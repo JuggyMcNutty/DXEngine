@@ -33,6 +33,14 @@ namespace HXGameEngine
 	// Whether the ini's GameEngine= is HX.HXGameEngine, read once
 	bool Active();
 
+	// UHXGameEngine::Init's start (HX.dll 0x1003b100): the start URL the
+	// command line's first word, with -hax0r or not; the map to fall back
+	// to the ini's [URL] LocalMap, a dedicated server's [URL] Map; a
+	// client's player named Player, or none, given a random <A-Y>_Denton,
+	// written to the user ini; the save folder made; the game's packages'
+	// GUIDs warned about when not the game's
+	void Start(std::string& url, std::string& fallbackMap, bool dedicated);
+
 	// Every actor of the level whose class has a bool bSpawning gets it
 	// True, as HX's LoadMap marks them before the level begins
 	void SetSpawning(ULevel* level);

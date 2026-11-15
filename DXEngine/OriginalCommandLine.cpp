@@ -74,6 +74,19 @@ bool OriginalCommandLine::Number(const std::string& name, int& value) const
 	return true;
 }
 
+std::string OriginalCommandLine::FirstToken() const
+{
+	size_t pos = 0;
+	std::string token;
+	if (!NextToken(line, pos, token))
+		return {};
+	if (StrTools::ue1_strfind(token, "SERVER") == 0 && token.size() == 6 && !NextToken(line, pos, token))
+		return {};
+	if (token.empty() || token[0] == '-')
+		return {};
+	return token;
+}
+
 std::string OriginalCommandLine::StartURL() const
 {
 	if (!Param("hax0r") && !Param("server"))

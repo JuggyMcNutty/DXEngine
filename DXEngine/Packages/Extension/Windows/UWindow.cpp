@@ -1,6 +1,7 @@
 
 #include "Precomp.h"
 #include "UWindow.h"
+#include "Packages/HX/UHX.h"
 #include "UGC.h"
 #include "UViewportWindow.h"
 #include "TabGroup/URootWindow.h"
@@ -136,6 +137,20 @@ float UWindow::GetVirtualScale()
 	// multiple of 640x480 the viewport holds
 	int width, height;
 	GetScreenSize(width, height);
+	// HX's player's (AHXPlayerPawn::ResizeWindows, HX.dll 0x10020ae0): the
+	// viewport over 639.9 and 479.9, 449.9 with a WindowScale of -1, each
+	// truncated, the smaller, at least 1, and no more than a WindowScale
+	// above 0 (bugs.md HX.11)
+	if (UHXPlayerPawn* hx = engine->viewport ? UObject::TryCast<UHXPlayerPawn>(engine->viewport->Actor()) : nullptr)
+	{
+		int windowScale = hx->Value<int>(HXProps().PlayerWindowScale);
+		int multiplier = std::min((int)(width / 639.9), (int)(height / (windowScale == -1 ? 449.9 : 479.9)));
+		if (multiplier < 1)
+			multiplier = 1;
+		if (windowScale > 0 && windowScale < multiplier)
+			multiplier = windowScale;
+		return (float)multiplier;
+	}
 	return (float)std::max(std::min(width / 640, height / 480), 1);
 }
 
