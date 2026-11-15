@@ -2727,7 +2727,13 @@ Every other native the scripted runs compare matches the original
   leaf its line touches, its start's included. A mover's brush is walked the
   same way in the world, its planes turned into it as the original's walk
   turns its owner's, its hit's normal the crossed node's plane so turned,
-  not turned to face the line. The hits come out as the original's
+  not turned to face the line; it is walked whenever the actors are
+  checked, the level too or not, as the original's actor check meets a
+  mover by its brush, so an actor that collides with actors but not the
+  world, moved through a closed door, touches it, the door blocking only
+  what collides with the world, and what does not block a move is touched
+  by the original's `IsBlockedBy` (`GhostDoorConsole`, alike in both
+  engines). The hits come out as the original's
   multi-hit check hands them on, their times in its floats and its order:
   the level's one, its time `UModel::LineCheck`'s, the line cut to 5 units
   past it, its end a float; with the level met within a hundredth of the
@@ -4090,7 +4096,9 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
 
 - **Its 62 natives**: the traces that give a hit's texture -- the polygon's
   surface crossed, a mover's own, the texture object and its group, the
-  class-context ones checking no walls --, the line that sees through glass
+  class-context ones checking no walls but meeting the movers on their
+  line (a probe of HX's static trace across UNATCO HQ's `DeusExMover25`:
+  its `ShipGrayMetal_A`, group `Metal`, alike in both engines) --, the line that sees through glass
   and grates, the sound slots stopped on every player that hears them, the
   spawn with no fit test in a physics of its own, the calls by name
   (`Succeeds`, `CanBeDropped`), the bool flags kept by their names' hashes,
@@ -4176,7 +4184,7 @@ original's `HCC.exe server`, the original's `HX.exe` on DXEngine's
 dedicated server. HXFix's 44 one-client live tests pass with DXEngine
 hosting and the original's `HX.exe` joining, but for `HXFixTestKeypad`'s
 remote client, whose keypad window opens in one run of three (bugs.md HX.9).
-What `HX.dll` does that DXEngine does not yet: bugs.md HX.4, HX.7 and HX.13.
+What `HX.dll` does that DXEngine does not yet: bugs.md HX.4 and HX.7.
 
 A mod with none gets the original's loader and natives:
 

@@ -468,10 +468,14 @@ CollisionHitList TraceTester::TraceLine(const vec3& from, const vec3& to, bool t
 			return false;
 		if (mover && mover->Brush())
 		{
+			// Met whenever the actors are checked, the level too or not, as
+			// the original's actor check meets a mover by its brush
+			// (FCollisionHash::ActorLineCheck, Engine.dll 0x10359160;
+			// bugs.md PHYS.41), and with the level alone
 			vec3 place;
 			BspNode* crossed;
 			vec3 normal;
-			if (!traceWorld || !MoverLineWalk(mover, from, cutEnd, visibilityOnly, place, crossed, normal))
+			if (!MoverLineWalk(mover, from, cutEnd, visibilityOnly, place, crossed, normal))
 				return false;
 			vec3 location;
 			float time = LineCheckTime(from, cutEnd, place, location);
@@ -560,8 +564,10 @@ CollisionHitList TraceTester::TraceBox(const vec3& from, const vec3& to, const v
 			return false;
 		if (mover && mover->Brush())
 		{
+			// Met whenever the actors are checked, the level too or not, as
+			// a line's (TraceLine; bugs.md PHYS.41)
 			CollisionHit hit;
-			if (!traceWorld || !MoverBoxCheck(mover, from, cutEnd, extents, hit))
+			if (!MoverBoxCheck(mover, from, cutEnd, extents, hit))
 				return false;
 			vec3 location;
 			float time = BoxCheckTime(from, cutEnd, hit.Fraction, location);

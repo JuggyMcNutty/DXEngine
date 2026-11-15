@@ -733,12 +733,6 @@ void UActor::TryMoveHeldOff(const vec3& delta, CollisionHit& hit)
 	hit = TryMoveHeldOff(delta);
 }
 
-bool UActor::IsPlayerOrProjectile()
-{
-	if (Collision.PlayerOrProjectile < 0)
-		Collision.PlayerOrProjectile = (UObject::TryCast<UPlayerPawn>(this) || UObject::TryCast<UProjectile>(this)) ? 1 : 0;
-	return Collision.PlayerOrProjectile != 0;
-}
 
 CollisionHit UActor::TraceMove(const vec3& delta, bool isOwnBaseBlocking, CollisionHitList& hits)
 {
@@ -785,7 +779,6 @@ CollisionHit UActor::TraceMove(const vec3& delta, bool isOwnBaseBlocking, Collis
 CollisionHit UActor::FinishMove(const vec3& delta, const CollisionHitList& hits, CollisionHit blockingHit, const vec3& hitLocation)
 {
 	StatClock clock(XLevel()->Stats.Move);
-	bool useBlockPlayers = IsPlayerOrProjectile();
 
 	vec3 actuallyMoved = delta * blockingHit.Fraction;
 
@@ -825,15 +818,13 @@ CollisionHit UActor::FinishMove(const vec3& delta, const CollisionHitList& hits,
 		if (hit.Fraction >= blockingHit.Fraction)
 			break;
 
+		// What does not block the move is touched, by the original's
+		// IsBlockedBy (EncroachBlockedBy), as its MoveActor tests each
+		// (Engine.dll 0x10399eba): a mover touches what does not collide
+		// with the world (bugs.md PHYS.41)
 		if (hit.Actor && !hit.Actor->IsBasedOn(this) && !IsBasedOn(hit.Actor) && bCollideActors() && hit.Actor->bCollideActors())
 		{
-			// We can't touch stuff we are blocked by
-			bool isBlocking;
-			if (useBlockPlayers || hit.Actor->IsPlayerOrProjectile())
-				isBlocking = hit.Actor->bBlockPlayers() && bBlockPlayers();
-			else
-				isBlocking = hit.Actor->bBlockActors() && bBlockActors();
-			if (!isBlocking)
+			if (!EncroachBlockedBy(hit.Actor))
 				Touch(hit.Actor);
 		}
 	}

@@ -398,14 +398,7 @@ public:
 		ivec3 CellEnd = { 0, 0, 0 };
 		uint64_t Filed = 0;
 		int CheckCounter = -1;
-		int8_t PlayerOrProjectile = -1; // IsPlayerOrProjectile, once asked
 	} Collision;
-
-	// Whether this is a UPlayerPawn or a UProjectile, which block and are
-	// blocked by bBlockPlayers rather than bBlockActors. Asked on every move
-	// and for every actor a move meets; an object's C++ class never changes,
-	// so the two dynamic_casts are made once.
-	bool IsPlayerOrProjectile();
 
 	// The status of the actor in the light system
 	struct
