@@ -439,6 +439,37 @@ static std::string WindowsFileName(std::string name)
 fs::path PackageManager::FindMapFile(const std::string& path) const
 {
 	const auto mapPath = convert_path_separators(path);
+	std::error_code ec;
+	auto existing = [&](const fs::path& candidate) {
+		fs::path resolved = Directory::resolveCase(candidate.lexically_normal());
+		return fs::is_regular_file(resolved, ec) ? resolved : fs::path();
+	};
+
+	// As the original's appFindPackageFile looks (Core.dll 0x10148ec0;
+	// dx-reverse-info core-dll.md, a package's file; bugs.md PKG.44): the
+	// name as given, from System, the game's working folder, first
+	const fs::path given = mapPath.parent_path() / WindowsFileName(mapPath.filename().string());
+	if (fs::path found = existing(gameSystemFolderPath / given); !found.empty())
+		return found;
+
+	// A name with folders in it, as a mod's travel can give one
+	// (..\<folder>\Maps\<map>.dx): then each map folder of the Paths with
+	// the name's folders kept, as given and with the map extension -- never
+	// its file name alone, which finds another map of that name; found
+	// nowhere, the place it names from System, whose load then fails
+	if (mapPath.has_parent_path())
+	{
+		fs::path withExtension = given;
+		withExtension += "." + GetMapExtension();
+		for (auto& folder : mapFolders)
+		{
+			if (fs::path found = existing(fs::path(folder) / given); !found.empty())
+				return found;
+			if (fs::path found = existing(fs::path(folder) / withExtension); !found.empty())
+				return found;
+		}
+		return (gameSystemFolderPath / given).lexically_normal();
+	}
 
 	auto mapFilename = mapPath.filename();
 
