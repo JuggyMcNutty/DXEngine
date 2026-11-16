@@ -2242,6 +2242,12 @@ undrawn in both, and drawn solid with `Solid`).
 
 Differs:
 
+- **A window's outer** (bugs.md EXT.38): DXEngine makes every window, the
+  root too, in the transient package, named after its class and a number
+  there, where the original makes a new one in its parent and the root in
+  the player's pawn, so its name and path differ: a window of HX's root is
+  `Transient.HXHoldWindow0`, the original's
+  `01_NYC_UNATCOIsland.HXJCDentonPlayer0.HXRootWindow0.HXHoldWindow0`.
 - **Keys held as the window loses the keyboard** are forgotten, by choice,
   so an Alt held into Alt+Tab does not stick: the original's root keeps
   their marks, its window resetting only the engine's input (read from both
@@ -4147,8 +4153,9 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
   players alone (`Export server travel for:`), a client's too (`Export
   client travel for:`), the last URL's portal kept for a client's browse
   (`HXFixTestNotes` with either engine hosting: both players exported at
-  each of two travels; bugs.md HX.3, its run due for an actor destroyed
-  while a window holds it). A viewport's `?restart` (`RESTARTLEVEL`) begins
+  each of two travels; six actors destroyed in one frame, held by a window
+  of the root's and by an actor: the four newest None the next frame, all
+  six the frame after, in both engines). A viewport's `?restart` (`RESTARTLEVEL`) begins
   the level with no travel info, as the game's `Browse` and HX's own frame
   both give it none.
 - **Its travel and saving**: a folder for each kind of run under the ini's
@@ -4237,7 +4244,7 @@ dedicated server. HXFix's 44 one-client live tests pass with DXEngine
 hosting and the original's `HX.exe` joining, but for `HXFixTestKeypad`'s
 remote client, whose keypad window opens in one run of three (bugs.md HX.9).
 What `HX.dll` does that DXEngine does not yet: none known; the runs due are
-bugs.md HX.3 and HX.9 to HX.11's.
+bugs.md HX.9 to HX.11's.
 
 A mod with none gets the original's loader and natives:
 
