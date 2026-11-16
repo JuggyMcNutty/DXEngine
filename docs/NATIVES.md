@@ -4207,12 +4207,16 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
   sides, and `HX.HXGameEngine` the class HX's engine check finds.
 - **`HX.exe`'s and `HCC.exe`'s engine**: the frame rate held to 2.5 to 200
   frames a second, none taken for 200, where `GETMAXTICKRATE` still gives
-  the game's; the `StatLog` and `StatLogFile` natives doing nothing,
+  the game's, each frame waited out by 1 ms sleeps while 1.5 ms or more is
+  left, then a spin; the `StatLog` and `StatLogFile` natives doing nothing,
   `GetMapFileName` and `GetGMTRef` empty, the checksums left as they were; a
   control channel's text taken only while its connection is open or
   pending; `DEFAULTINI=` and `DEFUSERINI=`, `HX.exe`'s own words, naming the
   default inis, `HXDefault.ini` and `HXDefUser.ini` for HX, as `HX.exe`'s
-  name gives them (bugs.md HX.12, its run due).
+  name gives them (a probe on a dedicated server: `GETMAXTICKRATE` 90, HX's
+  ini's, and 901 frames in 10.0003 s, 11.111 to 11.354 ms each, the
+  original's 11.111 to 11.123; a `StatLogFile`'s map name, GMT reference and
+  checksum empty or untouched, alike in both engines).
 - **Its level and network**: each actor's distance from the nearest HX
   player on a server, from the local one on a client, and an HX NPC's 32
   players' distances, nearest first (a DXEngine server with the original's
@@ -4233,7 +4237,7 @@ dedicated server. HXFix's 44 one-client live tests pass with DXEngine
 hosting and the original's `HX.exe` joining, but for `HXFixTestKeypad`'s
 remote client, whose keypad window opens in one run of three (bugs.md HX.9).
 What `HX.dll` does that DXEngine does not yet: none known; the runs due are
-bugs.md HX.3 and HX.9 to HX.12's.
+bugs.md HX.3 and HX.9 to HX.11's.
 
 A mod with none gets the original's loader and natives:
 

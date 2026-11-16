@@ -3776,9 +3776,30 @@ float Engine::CalcTimeElapsed()
 	if (maxTickRate > 0.0f && lastTime != 0)
 	{
 		uint64_t minDelta = (uint64_t)(1'000'000.0f / maxTickRate);
-		uint64_t now = duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count();
-		if (now - lastTime < minDelta)
-			std::this_thread::sleep_for(microseconds(minDelta - (now - lastTime)));
+		if (HXGameEngine::Active())
+		{
+			// HX's loops wait the frame out by 1 ms sleeps while 1.5 ms or
+			// more is left, then a spin, and only while under a second is
+			// left, so a frame keeps the rate to the microsecond (HX.exe
+			// 0x10923a90, HX.dll 0x10056b60): one sleep of the rest took
+			// Linux's slack too, a dedicated server's 90 frames a second
+			// 88.8 (bugs.md HX.12)
+			for (;;)
+			{
+				const uint64_t now = duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count();
+				const int64_t left = (int64_t)minDelta - (int64_t)(now - lastTime);
+				if (left <= 0 || left >= 1'000'000)
+					break;
+				if (left >= 1500)
+					std::this_thread::sleep_for(milliseconds(1));
+			}
+		}
+		else
+		{
+			uint64_t now = duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count();
+			if (now - lastTime < minDelta)
+				std::this_thread::sleep_for(microseconds(minDelta - (now - lastTime)));
+		}
 	}
 
 	uint64_t currentTime = duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count();
