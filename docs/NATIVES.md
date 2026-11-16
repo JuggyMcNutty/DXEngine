@@ -1881,7 +1881,12 @@ from the original's code:
 
 - **A new window** starts hidden, 10 by 10; its parent and ancestors hear of
   it before its `InitWindow`, and it is shown after, so `VisibilityChanged`
-  reaches everything its `InitWindow` made.
+  reaches everything its `InitWindow` made. It is made in its parent, and
+  the root window in the player's pawn, each named after its class and a
+  number, so its path runs through its parents (`WindowPathConsole`: the
+  root `DX.JCDentonMale0.DeusExRootWindow0`, a child of it `...Window11`
+  and that child's `...Window11.Window12`, their outers and names alike in
+  both engines).
 - **`IsVisible` and `IsSensitive`** recurse unless told not to, up through
   the parents: true when the window and every ancestor is shown, or
   sensitive, so a HUD window under the hidden HUD is not visible;
@@ -2242,12 +2247,6 @@ undrawn in both, and drawn solid with `Solid`).
 
 Differs:
 
-- **A window's outer** (bugs.md EXT.38): DXEngine makes every window, the
-  root too, in the transient package, named after its class and a number
-  there, where the original makes a new one in its parent and the root in
-  the player's pawn, so its name and path differ: a window of HX's root is
-  `Transient.HXHoldWindow0`, the original's
-  `01_NYC_UNATCOIsland.HXJCDentonPlayer0.HXRootWindow0.HXHoldWindow0`.
 - **Keys held as the window loses the keyboard** are forgotten, by choice,
   so an Alt held into Alt+Tab does not stick: the original's root keeps
   their marks, its window resetting only the engine's input (read from both

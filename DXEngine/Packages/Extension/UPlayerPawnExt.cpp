@@ -48,7 +48,12 @@ void UPlayerPawnExt::InitRootWindow()
 	UClass* cls = engine->packages->FindClass(dxRootClassName);
 	if (cls)
 	{
-		URootWindow* root = UObject::Cast<URootWindow>(engine->packages->GetTransientPackage()->NewObject("dxRootWindow", cls, ObjectFlags::Transient));
+		// Named after its class and a number, and made in the pawn, as the
+		// original's ConstructRootWindow constructs it (Extension.dll
+		// 0x10037e70; bugs.md EXT.38)
+		Package* transient = engine->packages->GetTransientPackage();
+		URootWindow* root = UObject::Cast<URootWindow>(transient->NewObject(transient->MakeUniqueObjectName(cls), cls, ObjectFlags::Transient));
+		root->Outer() = this;
 		RootWindow() = root;
 		if (local)
 			engine->dxRootWindow = root;

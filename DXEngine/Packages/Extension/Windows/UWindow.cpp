@@ -1250,6 +1250,12 @@ UObject* UWindow::NewChild(UObject* NewClass, std::optional<bool> bShow)
 	if (!childClass)
 		return nullptr;
 	auto child = UObject::Cast<UWindow>(transient->NewObject(transient->MakeUniqueObjectName(childClass), childClass, ObjectFlags::Transient));
+	// Made in its parent, as CreateNewWindow constructs it there, so its
+	// path runs through the parents to the root and the player's pawn
+	// (a window of HX's root:
+	// 01_NYC_UNATCOIsland.HXJCDentonPlayer0.HXRootWindow0.HXHoldWindow0;
+	// bugs.md EXT.38)
+	child->Outer() = this;
 	// The script's winParent too, which the original's AddChild sets beside
 	// its own parentOwner (Extension.dll 0x10050a80): SpinningLogoWindow
 	// bounces off its parent's size
