@@ -4229,21 +4229,31 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
   client: each NPC its HX player's distance, then none once it left); what
   a client is sent by HX's rules -- a pawn's selected item as its own, the
   lines through glass and grates, each of a player's three extra views, a
-  relevant actor's `LastRenderTime`, the due test in floats --, and HX's
-  replication: its players' and NPCs' carried decorations, held items and
-  health to every client, the fourth blend channel, a head's turn, and its
-  unpacking, a decoration's `bSpecialDesired` rotation, an effect's
-  rotation, a script value compared as it is (bugs.md HX.9 and HX.10, their
-  runs due).
+  relevant actor's `LastRenderTime`, the due test in floats -- (a private
+  probe on a dedicated server, each engine's with the other's client and
+  DXEngine's with its own, on UNATCO HQ: a sprite the client's view reached
+  only through glass, a line `FastTrace` stops and HX's passes, sent, one
+  behind a wall not; with three extra views on the player, a sprite seen
+  from the second alone and one from the third alone sent, one from none
+  not; a hidden item a pawn in view holds as its `SelectedItem` sent, one it
+  holds otherwise not, nor one an unseen pawn selects; an actor sent its
+  `LastRenderTime` the level's time, the others not; alike in all three);
+  and HX's replication: its players' and NPCs' carried decorations, held
+  items and health to every client, the fourth blend channel, a head's
+  turn, and its unpacking, a decoration's `bSpecialDesired` rotation, an
+  effect's rotation, a script value compared as it is (bugs.md HX.10, its
+  run due).
 
 HX plays Liberty Island alone and over the net, with either engine on
 either side, its logs clean of script errors: DXEngine's client on the
 original's `HCC.exe server`, the original's `HX.exe` on DXEngine's
 dedicated server. HXFix's 44 one-client live tests pass with DXEngine
 hosting and the original's `HX.exe` joining, but for `HXFixTestKeypad`'s
-remote client, whose keypad window opens in one run of three (bugs.md HX.9).
-What `HX.dll` does that DXEngine does not yet: none known; the runs due are
-bugs.md HX.9 to HX.11's.
+remote client, whose keypad window opens in about half the runs with
+either engine hosting (the original's 3 of 6, DXEngine's 4 of 9), the
+keypad in that player's view from before the call in each of the six runs
+watched: HX's or HXFix's own. What `HX.dll` does that DXEngine does not yet:
+none known; the runs due are bugs.md HX.10 and HX.11's.
 
 A mod with none gets the original's loader and natives:
 
