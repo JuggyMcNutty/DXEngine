@@ -4137,14 +4137,19 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
   its `HXSpawnCoopStarts` holds them as code, which DXEngine follows for the
   map, keeping none of them (another `HX.dll`, or none, gives no starts,
   logged, and every player the map's own start); the map's actors made fit
-  for HX's game (decorations, effects, projectiles and triggers no longer
-  static unless lit, the movers HX's own, the camera and interpolation
-  points kept on each side), `bSpawning`, and Steve beside each new game,
-  the campaign's flags, skill points, goals, keys and images carried in the
-  travel from map to map in HX's own lines; what the level left holds let
-  go at the load -- its conversation cameras' and events' actors, its flags
-  and flag bases, its notes, goals and logs (`HXFixTestNotes`, a note across
-  two travels, alike with either engine hosting).
+  for HX's game, on a client of an HX server too (decorations, effects,
+  projectiles and triggers no longer static unless lit, the movers HX's
+  own, their class as their script reads it too, the camera and
+  interpolation points kept on each side, a client's linked by their own
+  `BeginPlay`: a private probe's `Class` of UNATCO HQ's 27 movers
+  `HX.HXMover` on either engine's dedicated server and on either's client,
+  and Liberty Island's clients with no static decoration and 32
+  interpolation points, all linked), `bSpawning`, and Steve beside each new
+  game, the campaign's flags, skill points, goals, keys and images carried
+  in the travel from map to map in HX's own lines; what the level left
+  holds let go at the load -- its conversation cameras' and events' actors,
+  its flags and flag bases, its notes, goals and logs (`HXFixTestNotes`, a
+  note across two travels, alike with either engine hosting).
 - **Its frame**: the Entry level ticked once while the player waits there,
   where the game's ticks it twice; destroyed actors freed four a frame, the
   newest first, every reference to them in the level's actors and the
@@ -4206,9 +4211,15 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
   game, `DELETEGAME` of `QuickSave`, `Current`, `ServerCurrent` and
   `ListenCurrent` by -1 to -4; `RELAUNCH` DXEngine's own.
 - **Its UI**: the root's scale by 639.9 and 479.9 (449.9 with a
-  `WindowScale` of -1), capped by `WindowScale`, and a key bound by `SET
-  ini:Engine.Engine.Input`, its Customize Keys', kept in `[Engine.Input]`
-  (bugs.md HX.11, its run due).
+  `WindowScale` of -1), capped by `WindowScale`, the root laid out again
+  when it changes in play; a key bound by `SET ini:Engine.Engine.Input`,
+  its Customize Keys', saving every key's binding and the aliases into
+  the user ini's `[HX.HXInput]`, which is read over `[Engine.Input]`, as
+  HX's input class saves and reads its config (a private probe at
+  1600x900 in both engines: the root 900 units high with HX's
+  `WindowScale` of 1 and 450 with -1, as the original's; F9 bound, then
+  read again after a restart, alike, and a binding in `[HX.HXInput]` taken
+  over `[Engine.Input]`'s).
 - **Joining**: the challenge answered HX's way, its bits turned, on both
   sides, and `HX.HXGameEngine` the class HX's engine check finds.
 - **`HX.exe`'s and `HCC.exe`'s engine**: the frame rate held to 2.5 to 200
@@ -4241,8 +4252,13 @@ game engine's part played when the ini's `GameEngine=` is `HX.HXGameEngine`:
   and HX's replication: its players' and NPCs' carried decorations, held
   items and health to every client, the fourth blend channel, a head's
   turn, and its unpacking, a decoration's `bSpecialDesired` rotation, an
-  effect's rotation, a script value compared as it is (bugs.md HX.10, its
-  run due).
+  effect's rotation, a reference to an actor the client lacks sent only
+  once the client has it, as the game's channel sends one (a private probe
+  on a listen server, each engine's with each engine's client: an HX NPC's
+  six health values, carried decoration, conversation time and two head
+  turns, and the host's carried decoration, head health and head turn,
+  alike on every client; the probe's reference to a hidden actor sent by
+  neither engine until the actor was shown).
 
 HX plays Liberty Island alone and over the net, with either engine on
 either side, its logs clean of script errors: DXEngine's client on the
@@ -4253,7 +4269,7 @@ remote client, whose keypad window opens in about half the runs with
 either engine hosting (the original's 3 of 6, DXEngine's 4 of 9), the
 keypad in that player's view from before the call in each of the six runs
 watched: HX's or HXFix's own. What `HX.dll` does that DXEngine does not yet:
-none known; the runs due are bugs.md HX.10 and HX.11's.
+none known.
 
 A mod with none gets the original's loader and natives:
 

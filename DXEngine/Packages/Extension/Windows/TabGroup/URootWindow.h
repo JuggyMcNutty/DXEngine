@@ -129,9 +129,11 @@ public:
 
 	bool RenderViewportSet = false;
 
-	// The screen the root was last laid out for (ResizeRoot): none yet.
+	// The screen and multiplier the root was last laid out for (ResizeRoot):
+	// none yet.
 	int LaidOutViewportWidth = 0;
 	int LaidOutViewportHeight = 0;
+	float LaidOutScale = 0.0f;
 
 	// The place MouseMoved last went out for: none yet.
 	float movedMouseX = -1.0f;

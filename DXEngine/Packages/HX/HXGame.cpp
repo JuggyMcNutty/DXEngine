@@ -496,6 +496,15 @@ void HXGameEngine::SpawnCoopStarts(ULevelInfo* levelInfo, const std::string& map
 	}
 }
 
+// A mover's class switched in place, as HX writes the object's class
+// (UObject +0x24): the class the engine dispatches on and the one its script
+// reads as Class alike, which DXEngine keeps apart
+static void SetMoverClass(UActor* actor, UClass* cls)
+{
+	actor->Class = cls;
+	actor->SetObject("Class", cls);
+}
+
 static bool IsA(UActor* actor, const char* className)
 {
 	NameString name(className);
@@ -583,7 +592,7 @@ void HXGameEngine::SetupActors(ULevel* level)
 			{
 				if (swap.from && swap.to && actor->Class == swap.from && swap.to->StructSize == swap.from->StructSize)
 				{
-					actor->Class = swap.to;
+					SetMoverClass(actor, swap.to);
 					break;
 				}
 			}
@@ -609,7 +618,7 @@ void HXGameEngine::RevertMovers(ULevel* level)
 		{
 			if (swap.from && swap.to && actor->Class == swap.from && swap.to->StructSize == swap.from->StructSize)
 			{
-				actor->Class = swap.to;
+				SetMoverClass(actor, swap.to);
 				break;
 			}
 		}

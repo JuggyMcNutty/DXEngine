@@ -262,21 +262,24 @@ bool URootWindow::ChildRequestedReconfiguration(UWindow* childWin)
 // and top-aligned one placed again by its alignment (ChangeConfiguration).
 // Every other window is laid out as it asks (AskParentForReconfigure).
 // DXEngine's root is 4:3, centred on a wider screen, and its children lie
-// across the whole screen (RootOffsetX): a change of the screen lays
-// them out again whether the root's size changes or not, and moves the left-
-// and top-aligned ones with it.
+// across the whole screen (RootOffsetX): a change of the screen or of the
+// multiplier -- HX's player's WindowScale changed in play (HX.dll's
+// ResizeWindows 0x10020ae0, bugs.md HX.11) -- lays them out again whether
+// the root's size changes or not, and moves the left- and top-aligned ones
+// with it.
 void URootWindow::ResizeRoot()
 {
 	int viewportWidth, viewportHeight;
 	GetScreenSize(viewportWidth, viewportHeight);
-	if (viewportWidth == LaidOutViewportWidth && viewportHeight == LaidOutViewportHeight)
+	float virtualScale = GetVirtualScale();
+	if (viewportWidth == LaidOutViewportWidth && viewportHeight == LaidOutViewportHeight && virtualScale == LaidOutScale)
 		return;
 	LaidOutViewportWidth = viewportWidth;
 	LaidOutViewportHeight = viewportHeight;
+	LaidOutScale = virtualScale;
 
 	float virtualWidth = GetVirtualWidth();
 	float virtualHeight = GetVirtualHeight();
-	float virtualScale = GetVirtualScale();
 	hMultiplier() = (int)virtualScale;
 	vMultiplier() = (int)virtualScale;
 

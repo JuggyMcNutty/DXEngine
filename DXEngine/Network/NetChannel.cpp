@@ -948,10 +948,9 @@ void NetActorChannel::ReplicateActor()
 	Array<int> reps;
 
 	// HX's own native lists (HX.dll 0x1001ec70, 0x10021580, 0x1001c990,
-	// 0x1001c750; dx-reverse-info hx-dll.md, the native lists), and its
-	// compare of the script classes' values as they are (UHXActorChannel::
-	// ReplicateActor): a reference the client cannot resolve goes again,
-	// as None, each update
+	// 0x1001c750; dx-reverse-info hx-dll.md, the native lists). Its
+	// channel, as the game's, sends no reference the client cannot resolve
+	// until it can (runs of the original's server: none, bugs.md HX.16)
 	const bool hx = HXGameEngine::Active();
 	const bool hxPlayer = hx && UObject::TryCast<UHXPlayerPawn>(actor);
 	const bool hxPawn = hx && UObject::TryCast<UHXScriptedPawn>(actor);
@@ -1014,7 +1013,7 @@ void NetActorChannel::ReplicateActor()
 			const void* value = prop->GetElement(actor->PropertyData.Ptr(prop), i);
 			const void* last = prop->GetElement(recent + prop->DataOffset.DataOffset, i);
 			bool same;
-			if (objectProp && !map.CanSerializeObject(*static_cast<UObject* const*>(value)) && !(hx && !nativeClass))
+			if (objectProp && !map.CanSerializeObject(*static_cast<UObject* const*>(value)))
 				same = *static_cast<UObject* const*>(last) == nullptr;
 			else if (native && nativeClass)
 				same = SameBits(prop, last, value);

@@ -97,6 +97,7 @@
 // The input bindings' writes into the pawn (below, with InputCommand)
 static UProperty* InputProperty(UObject* pawn, const std::string& name, bool axis);
 static void SetInputButton(UObject* pawn, const std::string& name, bool pressed);
+static std::string ModInputSection(PackageManager* packages);
 
 // The machine's name, as the original's LevelInfo.ComputerName has it
 // (Windows' computer name: the host name in capitals).
@@ -1556,11 +1557,13 @@ bool Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
 		HXGameEngine::SpawnCoopStarts(LevelInfo, enteredURL.Map);
 
 	// HX's game engine readies the map's actors for its game, on a client
-	// only one of an HX server, then marks those that spawn (HX's LoadMap,
-	// dx-reverse-info hx-dll.md)
+	// only one of an HX server -- HX among the packages of the join being
+	// loaded, a demo's too (HX.dll's LoadMap, 0x1003fbde: its package map
+	// asked for HX) --, then marks those that spawn (dx-reverse-info
+	// hx-dll.md)
 	if (HXGameEngine::Active())
 	{
-		bool hxServer = !asClient || (PendingLevel && std::any_of(PendingLevel->Uses.begin(), PendingLevel->Uses.end(), [](const NetPendingLevel::UsedPackage& used) { return used.Name == NameString("HX"); }));
+		bool hxServer = !asClient || (loadingPending && std::any_of(loadingPending->Uses.begin(), loadingPending->Uses.end(), [](const NetPendingLevel::UsedPackage& used) { return used.Name == NameString("HX"); }));
 		if (hxServer)
 			HXGameEngine::SetupActors(Level);
 		HXGameEngine::SetSpawning(Level);
@@ -3162,6 +3165,8 @@ void Engine::LoadClientMap(NetPendingLevel* pending)
 	// over the load's error for 4 s, as the original's tick takes it
 	// (UGameEngine::Tick, Engine.dll 0x10390f1e-0x10390f71): the level plays on.
 	std::string error;
+	struct ClearPending { const NetPendingLevel*& slot; ~ClearPending() { slot = nullptr; } } clearPending{ loadingPending };
+	loadingPending = pending;
 	if (!LoadMap(url, {}, true, &error))
 	{
 		SetProgress(LocalizeMessage("Engine", "Errors", "ConnectionFailed", "Connection failed"), error, 4.0f);
@@ -3445,6 +3450,8 @@ void Engine::LoadDemoMap(NetDemoPendingLevel* pending)
 	url.Map = pending->LevelName;
 	LogMessage("Demo: loading " + url.Map);
 	std::string error;
+	struct ClearPending { const NetPendingLevel*& slot; ~ClearPending() { slot = nullptr; } } clearPending{ loadingPending };
+	loadingPending = pending;
 	if (!LoadMap(url, {}, true, &error))
 	{
 		SetProgress(LocalizeMessage("Engine", "Errors", "ConnectionFailed", "Connection failed"), error, 4.0f);
@@ -5127,17 +5134,23 @@ bool Engine::ObjectExec(const std::string& line, ExecOutput& out)
 		}
 		// Deus Ex's input class is Extension's InputExt, so the multiplayer
 		// key SETs land here too instead of failing on every map
-		// (extension-dll.md, the engine and the input); so does a SET of the
-		// ini's own input class, ini:Engine.Engine.Input -- HX's, HX.HXInput,
-		// whose Customize Keys sets its bindings so (bugs.md HX.11) --, its
-		// bindings the [Engine.Input] the user ini keeps
+		// (extension-dll.md, the engine and the input), its bindings the
+		// [Engine.Input] the user ini keeps; so does a SET of the ini's own
+		// input class, ini:Engine.Engine.Input -- HX's, HX.HXInput, whose
+		// Customize Keys sets its bindings so --, kept in that class's own
+		// section, as the original saves the class's config (bugs.md HX.11)
+		std::string modSection = ModInputSection(packages.get());
+		bool modInput = !modSection.empty() && StrTools::equals_ignore_case(className.ToString(), modSection);
 		bool inputClass = className == "input" || className == "inputext" ||
 			StrTools::equals_ignore_case(className.ToString(), packages->GetIniValue("system", "Engine.Engine", "Input"));
 		if (set && !propertyToken.empty() && inputClass)
 		{
 			std::string value = ArgsFrom(rest, 2);
 			keybindings[propertyToken] = value;
-			packages->SetIniValue("user", "Engine.Input", propertyToken, value);
+			if (modInput)
+				SaveModInputConfig(modSection);
+			else
+				packages->SetIniValue("user", "Engine.Input", propertyToken, value);
 			FlushConfig();
 			return true;
 		}
@@ -6088,17 +6101,84 @@ bool Engine::NameLess::operator()(const std::string& a, const std::string& b) co
 		[](char x, char y) { return std::tolower((unsigned char)x) < std::tolower((unsigned char)y); });
 }
 
+// A mod's own input class, the ini's [Engine.Engine] Input -- HX's
+// HX.HXInput --, whose section of the user ini holds the bindings its game
+// saves: none for the game's own (Engine.Input, Extension.InputExt), whose
+// [Extension.InputExt] DXLauncher folds into [Engine.Input]
+static std::string ModInputSection(PackageManager* packages)
+{
+	std::string input = packages->GetIniValue("system", "Engine.Engine", "Input");
+	if (input.empty() || StrTools::equals_ignore_case(input, "Engine.Input") || StrTools::equals_ignore_case(input, "Extension.InputExt"))
+		return {};
+	return input;
+}
+
+// A mod's input class's config saved whole into its section, as the
+// original's SET saves the class's config (GlobalSetProperty's SaveConfig):
+// every key's binding from the last key down, key 0 as the unnamed
+// StrProperty0, then the 40 aliases as they stand -- so that its section
+// holds every binding from then on, over [Engine.Input]'s (bugs.md HX.11)
+void Engine::SaveModInputConfig(const std::string& section)
+{
+	Array<std::string> sectionKeys = packages->GetIniKeysFromSection("user", section);
+	auto inSection = [&](const std::string& key)
+	{
+		for (const std::string& sectionKey : sectionKeys)
+		{
+			if (StrTools::equals_ignore_case(sectionKey, key))
+				return true;
+		}
+		return false;
+	};
+	std::string aliases[40];
+	for (int i = 0; i < 40; i++)
+	{
+		std::string aliasKey = "Aliases[" + std::to_string(i) + "]";
+		aliases[i] = packages->GetIniValue("user", inSection(aliasKey) ? section : std::string("Engine.Input"), aliasKey);
+	}
+	for (int i = 255; i >= 1; i--)
+	{
+		// 255, past the input's keys, has no name
+		if (!keynames[i] || !keynames[i][0])
+			continue;
+		auto it = keybindings.find(keynames[i]);
+		packages->SetIniValue("user", section, keynames[i], it != keybindings.end() ? it->second : std::string());
+	}
+	packages->SetIniValue("user", section, "StrProperty0", std::string());
+	for (int i = 0; i < 40; i++)
+		packages->SetIniValue("user", section, "Aliases[" + std::to_string(i) + "]", aliases[i]);
+}
+
+// The bindings and aliases of [Engine.Input], and over them those a mod's
+// input class has in its own section, as the original's input reads the
+// class above its own and then its own (LoadConfig propagated; HX.dll's
+// UHXInput 0x10048c50; bugs.md HX.11): HX's Customize Keys saves there.
 void Engine::LoadKeybindings()
 {
+	std::string modSection = ModInputSection(packages.get());
+	Array<std::string> modKeys;
+	if (!modSection.empty())
+		modKeys = packages->GetIniKeysFromSection("user", modSection);
+	auto sectionOf = [&](const std::string& key) -> std::string
+	{
+		for (const std::string& modKey : modKeys)
+		{
+			if (StrTools::equals_ignore_case(modKey, key))
+				return modSection;
+		}
+		return "Engine.Input";
+	};
+
 	for (int i = 0; i < 256; i++)
 	{
 		std::string keyname = keynames[i];
-		keybindings[keyname] = packages->GetIniValue("user", "Engine.Input", keyname);
+		keybindings[keyname] = packages->GetIniValue("user", sectionOf(keyname), keyname);
 	}
 
 	for (int i = 0; i < 40; i++)
 	{
-		std::string alias = packages->GetIniValue("user", "Engine.Input", "Aliases[" + std::to_string(i) + "]");
+		std::string aliasKey = "Aliases[" + std::to_string(i) + "]";
+		std::string alias = packages->GetIniValue("user", sectionOf(aliasKey), aliasKey);
 
 		// Total trash parsing, but it will do for the aliases I have! Feel free to improve it!
 		std::string commandStart = "(Command=\"";

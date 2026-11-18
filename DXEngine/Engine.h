@@ -473,6 +473,7 @@ public:
 	std::string hxFolderSave; // set by HXBrowseMap: the level's file in its run's folder, under the save path, read once by LoadMap
 	std::string hxFolderLevelFile; // set by LoadMap while it loads that level: its file, whose entry the server's package list makes the map's (NetBuildMasterMap)
 	bool levelFromCurrent = false; // set by LoadMap: its level came from Current
+	const NetPendingLevel* loadingPending = nullptr; // set by LoadClientMap and LoadDemoMap while LoadMap loads the join's map: the server's packages, as the original's LoadMap has its pending level's
 	// The render device's PrecacheOnFlip: set by a map's load with its
 	// UsePrecache on, cleared by the frame that shows PRECACHING
 	bool PrecacheOnFlip = false;
@@ -543,6 +544,7 @@ public:
 	void LoadEngineSettings();
 
 	void LoadKeybindings();
+	void SaveModInputConfig(const std::string& section);
 	// Key and alias names in any case, as the original's, FNames
 	struct NameLess
 	{
