@@ -488,6 +488,10 @@ in another case, `save0005` beside `Save0004`, and empties it, in both
 engines (`SaveConsole` with `NewSlot`): neither counts such a folder, and
 each then finds it in any case.
 
+Differs (bugs.md PKG.65): a slot whose `SaveInfo.dxs` is spelt in another
+case is not listed on a case-sensitive file system, where the original, on
+Windows, opens it: a recased copy's saves.
+
 Each file a save writes, a level's and a SaveInfo, is on the disk before it
 is moved into place and its folder after, and a slot's copies of `Current`
 before its SaveInfo is written (each file's `fsync`, Windows'
@@ -3556,6 +3560,9 @@ import wraps, where the original holds it to the int's ends; and an int in
 the ini or a `SET` is taken with a leading `+` or blank, where the
 original's sets nothing.
 
+Differs (bugs.md ENG.60): `MLMODE`'s number and a Color's members in an ini
+are read by C's rules, not the original's `appAtoi`'s; nothing seen.
+
 Differs (bugs.md ENG.55): a property text's `\xx` escapes are joined as
 UTF-8 bytes, `"\C3\A9"` one character, where the original makes each escape
 a character of its own.
@@ -3588,6 +3595,9 @@ unchecked.
 Differs (bugs.md REN.93): the software device's highlighted tiles take its
 general pipeline, its SSE2 lanes differ from the others' out of range, and
 an exception in a phase is caught nowhere.
+
+Differs (bugs.md REN.94): the Vulkan device's `ClearZ` and `EndFlash` do not
+test for a frame in hand, as the GL device's do; nothing seen.
 
 Differs (bugs.md VM.40): a second package declaring a native number already
 taken is refused at its load, where the original's would load.
@@ -4382,6 +4392,10 @@ window, where the original's opens one by a double click.
 Differs (bugs.md WIN.41): under SDL2 (linux-aarch64, the Smart Pro) the
 Advanced Options and EDITACTOR take no typing once the console has been
 closed in play, where the original's window types as any other.
+
+Differs (bugs.md WIN.61): the Win32 window's raw input buffer is eight times
+the size asked, and the Wayland window's double click tests the time alone;
+nothing seen.
 
 ## Mods
 
