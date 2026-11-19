@@ -146,8 +146,13 @@ public:
 	std::string SaveSlotFolderName(int32_t slot) const;
 	std::string SaveNumberedFolderName(int32_t slot) const;
 	int32_t NextSaveSlot() const;
-	void CopySaveGameFiles(const std::string& fromFolder, const std::string& toFolder) const;
-	void DeleteSaveGameFiles(const std::string& folder) const;
+	// Each false, its error logged, where a file could not be copied or
+	// removed: none throws (bugs.md D.87)
+	bool CopySaveGameFiles(const std::string& fromFolder, const std::string& toFolder) const;
+	bool DeleteSaveGameFiles(const std::string& folder) const;
+	// A save that failed: Core's SaveWarning logged with the error, and the
+	// player told on the HUD's log once a player is there (bugs.md D.87)
+	void SaveFailed(const std::string& what, const std::string& error);
 	void DeleteGame(int32_t slot) const;
 	// Deus Ex travel: within a mission the departing level is pruned and
 	// saved into Current, and a map saved there is revisited as the player
@@ -188,7 +193,9 @@ public:
 	// The map a ?restart reloads, as the original's Browse makes it.
 	UnrealURL RestartURL();
 	void PruneTravelActors() const;
-	void SaveCurrentLevel(int32_t slot);
+	// False, the failure logged, where the level's file was not written:
+	// the level's action and movers are as after a save either way
+	bool SaveCurrentLevel(int32_t slot);
 	void SetLevelURLForSave() const;
 	UnrealURL LevelHeldURL() const;
 	int32_t DeusExMissionNumber(const std::string& mapName) const;
@@ -519,8 +526,10 @@ public:
 	float CalcTimeElapsed();
 
 	// A save asked for, written: after the levels' tick, before a travel
-	// takes the level, and after the draw.
+	// takes the level, and after the draw. A failed save's message to the
+	// player goes first.
 	void WritePendingSave();
+	std::string SaveFailedMessage; // for the player's HUD, sent by WritePendingSave
 	// The game engine's travels, after the levels' tick as the original's
 	// (UGameEngine::Tick, Engine.dll 0x1038fe90): a server's next map, then
 	// a client's travel; true when one was taken, loaded or not.

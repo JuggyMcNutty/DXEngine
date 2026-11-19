@@ -35,11 +35,10 @@ engines, what matches, and what differs. What else it changes:
 ## Stops the game
 
 Differs by choice. An error DXEngine does not catch -- a script error, an
-unknown native, a call to a function import that did not load, a failed save
--- exits the engine with 1, which the launcher takes for a crash; one in a
-script that a native or a console command runs too. No map or
-action is known to reach one, but for a save's failed file work (below); the
-audit lists the natives whose call would.
+unknown native, a call to a function import that did not load -- exits the
+engine with 1, which the launcher takes for a crash; one in a script that a
+native or a console command runs too. No map or action is known to reach
+one; the audit lists the natives whose call would.
 A `foreach` on a None context, and state code's `goto` to a label its state
 has not, stop both engines alike (the original's Critical Error); a None
 class's `default` is 0 in both, and `AllActors(None)` every actor. A dynamic
@@ -70,11 +69,6 @@ its count started again, as the original's (`LoopConsole` with
 load counts its own jumps, as the original's map load does (`LoopConsole`
 with `LoadAfter`: 9,999,001 jumps, then slot 9's load in the same tick, in
 both).
-
-For the owner (bugs.md D.87): a save, a map-exit save or a load whose file
-work fails (a full disk, a read-only save folder, a file another program
-holds) stops DXEngine, where the original's save logs `Error opening file`
-and plays on, telling the player nothing.
 
 For the owner (bugs.md D.93): a lost GPU device ends the game, as the
 original's critical error does, but the Vulkan device's text most often
@@ -468,6 +462,23 @@ answers 0 when the call fails. A level's file and a SaveInfo are written
 beside the file they replace and moved over it, as the original's
 `SavePackage` writes `Save.tmp` and moves it over the old file, which stays
 whole until the new one is.
+
+A save whose file work fails -- a full disk, a read-only save folder, a file
+another program holds -- logs Core's `SaveWarning`, "Error saving '<slot>'",
+with the system's error, and the game plays on, as the original's slot save
+logs its `Error opening file` and plays on; the level's action and its
+movers are as after a save, the player's save count as before it. A map
+exit's save into `Current` that fails leaves the travel going on, as the
+original's, which logs the same and travels on. A load whose emptying of
+`Current` or copy of the slot into it fails is no load, the level playing
+on, as the original's, which logs `Failed to load` for the level it does
+not find there and stays where it was (`SaveConsole` with `Via` and
+`LoadConsole`, `Current` taking no file). By choice, the player is told on
+the HUD's log, "Error
+saving 'Save0009'", `QuickSave` for the quick save, `Current` on the map
+entered for a map exit's, where the original tells nothing (`SaveConsole`
+with the save folder read-only: the warning, the message and the run's own
+exit).
 
 For the owner (bugs.md D.88): a save empties its slot before it writes, as
 the original's, so one that fails or is killed part-way loses the save that

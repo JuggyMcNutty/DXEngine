@@ -1922,9 +1922,15 @@ bool Engine::LoadFromSaveFile(const UnrealURL& url)
 			{
 				deusExMapName = ScriptToUTF8(info->MapName());
 				const std::string from = info->DirectoryIndex() == -1 ? SaveSlotFolderName(-1) : SaveNumberedFolderName(slot);
-				DeleteSaveGameFiles("Current");
-				CopySaveGameFiles(from, "Current");
-				hasSaveInfo = true;
+				// A copy that fails fails the load softly, the level playing
+				// on, as the ruling has it (bugs.md D.87)
+				if (DeleteSaveGameFiles("Current") && CopySaveGameFiles(from, "Current"))
+					hasSaveInfo = true;
+				else
+				{
+					LogMessage("LoadGame: slot " + std::to_string(slot) + " not copied into Current");
+					return false;
+				}
 			}
 		}
 		if (!hasSaveInfo)
@@ -2058,14 +2064,25 @@ void Engine::SaveGameToSlot(int32_t slotNum, const std::string& saveDescription)
 	// in any case, as Windows' file system finds it; then it is emptied,
 	// Current copied in, the SaveInfo filled and written to the slot alone
 	// (0x1000f8e6), and the level saved on top of the copy.
+	//
+	// A file that fails -- a full disk, a read-only folder, a file another
+	// program holds -- is logged with Core's SaveWarning and the game plays
+	// on, as the original's logs its "Error opening file" and plays on, the
+	// player's save count as before the save; the player is told on the
+	// HUD's log too, by the owner's choice beyond the original, which tells
+	// nothing (bugs.md D.87).
 	if (slotNum == 0)
 		slotNum = NextSaveSlot();
 	const auto slotFolderName = slotNum == -1 ? SaveSlotFolderName(slotNum) : SaveNumberedFolderName(slotNum);
 	const auto saveSlotFolder = Directory::resolveCase(packages->GetSaveFolderPath() / slotFolderName);
 	std::error_code ec;
 	fs::create_directories(saveSlotFolder, ec);
-	DeleteSaveGameFiles(slotFolderName);
-	CopySaveGameFiles("Current", slotFolderName);
+	if (!DeleteSaveGameFiles(slotFolderName) || !CopySaveGameFiles("Current", slotFolderName))
+	{
+		packages->RemoveSaveInfoPackage(slotFolderName);
+		SaveFailed(slotFolderName, "Current not copied into it");
+		return;
+	}
 	// The copies on the disk before the SaveInfo and the level make the
 	// slot a save; those two the writer syncs itself (bugs.md PKG.56)
 	Directory::syncFiles(saveSlotFolder);
@@ -2084,7 +2101,9 @@ void Engine::SaveGameToSlot(int32_t slotNum, const std::string& saveDescription)
 	std::replace(dxSaveInfo->Description().begin(), dxSaveInfo->Description().end(), u';', u',');
 	dxSaveInfo->MissionLocation() = DeusExLevelInfo->MissionLocation();
 	dxSaveInfo->MapName() = DeusExLevelInfo->MapName();
-	if (auto player = UObject::TryCast<UDeusExPlayer>(viewport->Actor()))
+	auto player = UObject::TryCast<UDeusExPlayer>(viewport->Actor());
+	const int savedCount = player ? player->saveCount() : 0;
+	if (player)
 	{
 		dxSaveInfo->SaveCount() = ++player->saveCount();
 		dxSaveInfo->SaveTime() = (int)player->saveTime();
@@ -2096,11 +2115,29 @@ void Engine::SaveGameToSlot(int32_t slotNum, const std::string& saveDescription)
 	// over it (PackageWriter::Save)
 	const auto saveInfoName = "SaveInfo." + packages->GetSaveExtension();
 	const fs::path saveInfoFile = Directory::resolveCase(saveSlotFolder / saveInfoName);
-	dxSaveInfo->package->Save(dxSaveInfo, saveInfoFile.string());
+	bool saved = true;
+	try
+	{
+		dxSaveInfo->package->Save(dxSaveInfo, saveInfoFile.string());
+	}
+	catch (const std::exception& e)
+	{
+		SaveFailed(slotFolderName, e.what());
+		saved = false;
+	}
 
-	SaveCurrentLevel(slotNum);
+	saved = saved && SaveCurrentLevel(slotNum);
 
 	packages->RemoveSaveInfoPackage(slotFolderName);
+	if (!saved && player)
+		player->saveCount() = savedCount;
+}
+
+void Engine::SaveFailed(const std::string& what, const std::string& error)
+{
+	const std::string message = LocalizeMessage("Core", "Errors", "SaveWarning", "Error saving '%s'", { what });
+	LogMessage(message + ": " + error.substr(0, error.find('\n')));
+	SaveFailedMessage = message;
 }
 
 // The original's SaveGame makes a texture beside the save info and has the
@@ -2211,13 +2248,18 @@ std::string Engine::SaveNumberedFolderName(int32_t slot) const
 // emptying it: save0005 beside Save0004 gives Save0006 (bugs.md D.103).
 int32_t Engine::NextSaveSlot() const
 {
+	// A folder that cannot be read counts what was read of it (bugs.md D.87)
 	int32_t highest = 0;
 	const auto saveFolderPath = packages->GetSaveFolderPath();
-	if (fs::exists(saveFolderPath))
+	std::error_code ec;
+	if (fs::is_directory(saveFolderPath, ec))
 	{
-		for (const auto& entry : fs::directory_iterator(saveFolderPath))
+		fs::directory_iterator entries(saveFolderPath, ec);
+		for (; !ec && entries != fs::directory_iterator(); entries.increment(ec))
 		{
-			if (!entry.is_directory())
+			const auto& entry = *entries;
+			std::error_code entryError;
+			if (!entry.is_directory(entryError))
 				continue;
 			const std::string name = entry.path().filename().string();
 			if (name.size() < 5 || !StrTools::equals_ignore_case(name.substr(0, 4), "Save") || name[4] < '0' || name[4] > '9')
@@ -2239,27 +2281,43 @@ int32_t Engine::NextSaveSlot() const
 // gives for *.<save extension>, into the folder it makes: a .old or any
 // other file stays. Each folder found in any case, as Windows' file system
 // finds it.
-void Engine::CopySaveGameFiles(const std::string& fromFolder, const std::string& toFolder) const
+bool Engine::CopySaveGameFiles(const std::string& fromFolder, const std::string& toFolder) const
 {
 	const auto saveFolderPath = packages->GetSaveFolderPath();
 	const auto from = Directory::resolveCase(saveFolderPath / fromFolder);
 	const auto to = Directory::resolveCase(saveFolderPath / toFolder);
-	if (!fs::exists(from) || !fs::is_directory(from))
-		return;
 	std::error_code ec;
+	if (!fs::is_directory(from, ec))
+		return true;
 	fs::create_directories(to, ec);
 	const std::string saveExt = "." + packages->GetSaveExtension();
-	for (const auto& entry : fs::directory_iterator(from))
+	fs::directory_iterator entries(from, ec);
+	for (; !ec && entries != fs::directory_iterator(); entries.increment(ec))
 	{
-		if (entry.is_regular_file() && StrTools::equals_ignore_case(entry.path().extension().string(), saveExt))
-			fs::copy_file(entry.path(), to / entry.path().filename(), fs::copy_options::overwrite_existing);
+		const auto& entry = *entries;
+		std::error_code fileError;
+		if (entry.is_regular_file(fileError) && StrTools::equals_ignore_case(entry.path().extension().string(), saveExt))
+		{
+			fs::copy_file(entry.path(), to / entry.path().filename(), fs::copy_options::overwrite_existing, fileError);
+			if (fileError)
+			{
+				LogMessage("Could not copy " + entry.path().string() + ": " + fileError.message());
+				return false;
+			}
+		}
 	}
+	if (ec)
+	{
+		LogMessage("Could not list " + from.string() + ": " + ec.message());
+		return false;
+	}
+	return true;
 }
 
 // The folder's files, the folder itself kept; "" means Current, as the
 // original's DeleteSaveGameFiles. The folder found in any case, as Windows'
 // file system finds it.
-void Engine::DeleteSaveGameFiles(const std::string& folder) const
+bool Engine::DeleteSaveGameFiles(const std::string& folder) const
 {
 	// The package streams closed first, as the original resets its loaders
 	// before it deletes: Windows refuses to delete a file held open for
@@ -2267,14 +2325,28 @@ void Engine::DeleteSaveGameFiles(const std::string& folder) const
 	packages->CloseStreams();
 	const std::string name = folder.empty() ? "Current" : folder;
 	const auto dir = Directory::resolveCase(packages->GetSaveFolderPath() / name);
-	if (!fs::exists(dir) || !fs::is_directory(dir))
-		return;
-	for (const auto& entry : fs::directory_iterator(dir))
+	std::error_code ec;
+	if (!fs::is_directory(dir, ec))
+		return true;
+	bool removed = true;
+	fs::directory_iterator entries(dir, ec);
+	for (; !ec && entries != fs::directory_iterator(); entries.increment(ec))
 	{
-		if (entry.is_regular_file())
-			fs::remove(entry.path());
+		const auto& entry = *entries;
+		std::error_code fileError;
+		if (entry.is_regular_file(fileError) && !fs::remove(entry.path(), fileError) && fileError)
+		{
+			LogMessage("Could not remove " + entry.path().string() + ": " + fileError.message());
+			removed = false;
+		}
+	}
+	if (ec)
+	{
+		LogMessage("Could not list " + dir.string() + ": " + ec.message());
+		removed = false;
 	}
 	packages->RemoveSaveInfoPackage(name);
+	return removed;
 }
 
 // Removes the slot with its contents, for the DELETEGAME console command: a
@@ -2543,6 +2615,8 @@ void Engine::DeusExPreTravel(const UnrealURL& url)
 		const int32_t current = DeusExLevelInfo ? DeusExLevelInfo->MissionNumber() : -1;
 		if (next == current && !(player && player->bStartingNewGame()))
 		{
+			// One that fails is logged and the travel goes on, as the
+			// original's, the player told on the map entered (bugs.md D.87)
 			PruneTravelActors();
 			SaveCurrentLevel(-2);
 			dxTravelUsesCurrent = true;
@@ -2592,7 +2666,7 @@ void Engine::PruneTravelActors() const
 
 // The level package into a save directory: -2 Current, -1 the quick save,
 // else the numbered slot, the writer's new file moved over the old one.
-void Engine::SaveCurrentLevel(int32_t slot)
+bool Engine::SaveCurrentLevel(int32_t slot)
 {
 	// With no DeusExLevelInfo the original's saves nothing and logs that it
 	// has none (DeusEx.dll 0x1000fac0); nothing asks for it then, SaveGame
@@ -2600,7 +2674,7 @@ void Engine::SaveCurrentLevel(int32_t slot)
 	if (!DeusExLevelInfo)
 	{
 		LogMessage("WARNING!  DeusExLevelInfo MISSING!");
-		return;
+		return true;
 	}
 
 	// SAVING on the screen first, at every save, the quick save's too, as
@@ -2625,11 +2699,22 @@ void Engine::SaveCurrentLevel(int32_t slot)
 	// file holds none of them.
 	Level->CleanupDestroyed(true);
 	SetLevelURLForSave();
-	LevelPackage->Save(Level, levelFile.string());
-	// And makes its brush tracker again, as the original's SaveGame does:
-	// the movers filed where they are, a destroyed one's polygons gone
+	bool saved = true;
+	try
+	{
+		LevelPackage->Save(Level, levelFile.string());
+	}
+	catch (const std::exception& e)
+	{
+		SaveFailed(SaveSlotFolderName(slot), e.what());
+		saved = false;
+	}
+	// And makes its brush tracker again, as the original's SaveGame does,
+	// its save failed or not: the movers filed where they are, a destroyed
+	// one's polygons gone
 	Level->Collision.FileMovers();
 	LevelInfo->LevelAction() = LEVACT_None;
+	return saved;
 }
 
 // The run's folder (UHXGameEngine::SaveDirectoryPath, HX.dll 0x10042b60):
@@ -3914,6 +3999,14 @@ float Engine::CalcTimeElapsed()
 
 void Engine::WritePendingSave()
 {
+	// The player told of a save that failed, by the owner's choice beyond the
+	// original (bugs.md D.87): a map exit's on the map entered, once its
+	// player is there, the one that left having gone with its level
+	if (!SaveFailedMessage.empty() && viewport && viewport->Actor())
+	{
+		CallEvent(viewport->Actor(), "ClientMessage", { ExpressionValue::StringValue(SaveFailedMessage), ExpressionValue::NameValue(NameString("None")), ExpressionValue::BoolValue(false) });
+		SaveFailedMessage.clear();
+	}
 	if (SaveGameInfo.SaveGameSlot == DONT_SAVE_GAME)
 		return;
 	SaveGameToSlot(SaveGameInfo.SaveGameSlot, SaveGameInfo.SaveGameDescription);
