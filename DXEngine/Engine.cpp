@@ -120,20 +120,42 @@ static std::string ComputerName()
 #ifndef WIN32
 // SIGTERM, SIGINT or SIGHUP (a closed terminal, a logout): quit as a closed
 // window does, the inis written back. The handler is installed after SDL's,
-// in its place (SDL's posts a quit event, which closes the window too) and
-// is reset by its first signal, so a second one kills.
-static volatile std::sig_atomic_t StopSignalled = 0;
+// in its place (SDL's posts a quit event, which closes the window too). A
+// stop sent to every process of a session (a logout's, a shutdown's) reaches
+// the engine twice, from outside and passed on by its launcher: a signal in
+// the stop's first two seconds is taken for that one stop, and one after
+// them puts the signal's default back and raises it again, which kills, as a
+// stuck engine needs (bugs.md LAPP.22). The handler calls what a signal's
+// handler may alone (clock_gettime, sigaction, raise) and sets a flag that is
+// lock-free, read by the frame's thread.
+static std::atomic<int> StopSignalled{ 0 };
+static volatile std::sig_atomic_t StopSignalledAt = 0;
 
-static void OnStopSignal(int)
+static void OnStopSignal(int signal)
 {
-	StopSignalled = 1;
+	struct timespec now;
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	if (!StopSignalled.load())
+	{
+		StopSignalledAt = (std::sig_atomic_t)now.tv_sec;
+		StopSignalled.store(1);
+		return;
+	}
+	if ((std::sig_atomic_t)now.tv_sec - StopSignalledAt < 2)
+		return;
+	struct sigaction byDefault;
+	byDefault.sa_handler = SIG_DFL;
+	byDefault.sa_flags = 0;
+	sigemptyset(&byDefault.sa_mask);
+	sigaction(signal, &byDefault, nullptr);
+	raise(signal);
 }
 #endif
 
 bool Engine::IsStopSignalled()
 {
 #ifndef WIN32
-	return StopSignalled != 0;
+	return StopSignalled.load() != 0;
 #else
 	return false;
 #endif
@@ -144,7 +166,6 @@ static void InstallStopSignal()
 {
 	struct sigaction action = {};
 	action.sa_handler = OnStopSignal;
-	action.sa_flags = SA_RESETHAND;
 	sigemptyset(&action.sa_mask);
 	sigaction(SIGTERM, &action, nullptr);
 	sigaction(SIGINT, &action, nullptr);

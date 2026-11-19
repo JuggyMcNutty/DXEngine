@@ -120,8 +120,9 @@ is the game still.
   `--version` and the log, the prompt coming back before the text; started with no console, an
   error before its error window can open (a missing `DXEngine.pk3`) shows in a message box.
 - **SIGTERM, SIGINT or SIGHUP quits as a closed window does**: at the next frame, the inis
-  written back, exit 0, whatever the window (a dedicated server too). A second signal kills at
-  once, as a stuck engine needs. The Fatal Error window closes on one within a tenth of a
+  written back, exit 0, whatever the window (a dedicated server too). A signal in the stop's
+  first two seconds is taken for the same stop, as a logout's or a shutdown's reaches the engine
+  and its launcher, which passes it on; one after them kills at once, as a stuck engine needs. The Fatal Error window closes on one within a tenth of a
   second, the engine exiting with 1, or, up before the engine installs its handler (an error as
   it starts), through SDL's own (an SDL window) or the signal's default (the X11 window).
   Windows has no such signals: there a launcher's `Quit` (below) does so, the Fatal Error
