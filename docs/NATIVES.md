@@ -3561,6 +3561,13 @@ machine with VSync off or a slowed game, a thing at rest never starts to
 fall or walk in DXEngine; the original's ticks never go under its floor of 5
 ms.
 
+Differs (bugs.md DX.9): `GetBoundingBox` of an actor that is no brush gives
+its mesh's own box, scaled and turned, and an empty one where it has no mesh
+to draw, always valid; the original's gives the mesh's box moved out by 1 on
+each side before it is turned, two frames' boxes of an animating one, and for
+an actor with no mesh its collision cylinder's plus 1. The game's scripts ask
+it of movers alone.
+
 Differs (bugs.md AUD.28): a mod's music of more than 2 channels plays
 garbled or silent and MP3 and WAV songs do not loop; a sound that fails to
 decode takes a channel at each play.
