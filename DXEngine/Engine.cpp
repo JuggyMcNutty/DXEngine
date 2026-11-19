@@ -2322,18 +2322,24 @@ void Engine::TakeScreenshot()
 	if (!render || !render->ReadLastFrame(pixels, width, height))
 		return;
 
+	// A shot whose folder or file cannot be made, or whose write fails (a
+	// read-only folder, a full disk), takes nothing and the game plays on,
+	// as the original's: its SHOT makes the file's writer with its errors
+	// sent nowhere and writes nothing where there is none (Engine.dll
+	// 0x103740b5-0x103740be); DXEngine says so in its log
 	fs::path folder = packages->GetSystemFolderPath();
+	std::error_code ec;
 	if (Directory::hasEngineUserDir())
 	{
 		folder = Directory::engineUserDir() / "Screenshots";
-		Directory::create(folder.string());
+		fs::create_directories(folder, ec);
 	}
 	fs::path filename;
 	for (int i = 0; i < 10000; i++)
 	{
 		char name[16];
 		std::snprintf(name, sizeof(name), "Shot%04d.bmp", i);
-		if (!fs::exists(folder / name))
+		if (!fs::exists(folder / name, ec))
 		{
 			filename = folder / name;
 			break;
@@ -2370,8 +2376,16 @@ void Engine::TakeScreenshot()
 		}
 	}
 
-	auto out = File::create_always(filename.string());
-	out->write(file.data(), file.size());
+	try
+	{
+		auto out = File::create_always(filename.string());
+		out->write(file.data(), file.size());
+	}
+	catch (const std::exception& e)
+	{
+		LogMessage("Screenshot not written: " + std::string(e.what()));
+		return;
+	}
 	LogMessage("Screenshot: " + filename.filename().string());
 }
 

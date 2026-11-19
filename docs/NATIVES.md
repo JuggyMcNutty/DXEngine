@@ -3556,8 +3556,12 @@ script error each time, which takes no channel, the game playing on, where
 Galaxy's unreadable data is a fatal error at the level's start
 ([`RegisterSound`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)).
 
-Differs (bugs.md ENG.57): past `Shot9999` a `SHOT` takes nothing and says
-nothing; the original's limit is unread.
+For the owner (bugs.md D.108): a `SHOT` takes the first name not there of
+`Shot0000` to `Shot9999`, where the original's takes one of `Shot0000` to
+`Shot0255` and, with all 256 there, nothing, saying nothing
+([`SHOT`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)).
+A shot whose file cannot be made or written takes nothing and the game
+plays on, as the original's; DXEngine's log says it.
 
 Differs (bugs.md WIN.57): the SDL windows name Katakana/Hiragana and the
 keypad's comma and equals `None`, and the X11 and Wayland windows those and
