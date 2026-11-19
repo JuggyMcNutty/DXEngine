@@ -8,13 +8,17 @@
 //   a. TimeDilation 0.02 (each actor tick some 0.3 ms at 60 frames a
 //      second, the original's held to its 5 ms floor); a crate spawned 100
 //      over the player's start and 64 aside, PHYS_Falling at rest: its Z
-//      and velocity each console tick for 60 ticks. Expected: the
-//      original's falls; DXEngine's stays at its height, Velocity.Z 0
+//      and velocity each console tick for 60 ticks. Expected: both fall,
+//      the original's 5 ms a tick, Velocity.Z 4.75 faster each line;
+//      DXEngine's level ticks gathered to 1 ms (ULevel::GatherTick), its
+//      Velocity.Z some 0.95 faster each few lines and the same between.
+//      Ungathered, its crate stays at its height, Velocity.Z 0
 //      (UActor_PhysFalling.cpp:165/247: the move under the double 0.0001 on
 //      every axis is none, the velocity remade from it 0).
 //   b. TimeDilation 0.02, the forward axis held (StandConsole's 120000):
-//      the player's place each tick for 60 ticks. Expected: the original's
-//      walks; DXEngine's does not move (UActor_PhysWalking.cpp:109/300).
+//      the player's place each tick for 60 ticks. Expected: both walk, the
+//      original's further, on its 5 ms ticks; ungathered, DXEngine's does
+//      not move (UActor_PhysWalking.cpp:109/300).
 //   c. TimeDilation 1; the player's bCollideWorld off (so SetLocation fits
 //      nothing), PHYS_Swimming, SetLocation to (N,N,N), N the square root of
 //      -1 (NaNConsole's NaN): "DXSHORT: c set" then a line a tick. Expected

@@ -43,6 +43,17 @@ public:
 
 	void Tick(float elapsed, bool gamePaused);
 
+	// The level's time a frame gives its tick: a tick under 1 ms is gathered
+	// into the next frames' until they come to 1 ms, the level not ticking
+	// till then, so that a thing at rest starts to fall and walk at a few
+	// thousand frames a second or a slowed game, where under 1 ms its first
+	// move is no move and its velocity stays 0 (bugs.md D.101, by choice:
+	// the original's floor of 5 ms is not carried). 0 when the level does not
+	// tick this frame; with frames of 1 ms and more each tick is its frame's
+	// own. The level's first tick is never held back, so that it is never
+	// drawn before it ticks.
+	float GatherTick(float elapsed);
+
 	// STAT GLOBAL's and STAT GAME's figures, cleared as its tick begins
 	LevelStats Stats;
 
@@ -98,6 +109,8 @@ private:
 	bool TickActorDeusEx(float elapsed, UActor* actor);
 
 	bool ticked = false;
+	float tickGathered = 0.0f;
+	bool tickGatherBegun = false;
 	bool fullTick = false;
 	TickStart lastStart = TickStart::Ticked;
 	// The actors waiting for their owners' ticks, the last to wait last.

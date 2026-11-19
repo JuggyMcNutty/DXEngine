@@ -562,6 +562,15 @@ void Engine::Run()
 		float entryLevelElapsed = EntryLevel ? realTimeElapsed * clamp(EntryLevelInfo->TimeDilation(), 0.0025f, 25.0f) : 0.0f;
 		float levelElapsed = realTimeElapsed * clamp(LevelInfo->TimeDilation(), 0.0025f, 25.0f);
 
+		// The levels' ticks, each level's clock and actors, take their time
+		// gathered to 1 ms at least, by choice (ULevel::GatherTick, bugs.md
+		// D.101): a frame with less ticks no level, its time held for the
+		// next frame's tick. Each frame still takes the window's events and
+		// the windows' tick, a net driver's and a demo's packets in and out,
+		// a travel, a join and the draw, by the frame's own time.
+		float levelTick = Level->GatherTick(levelElapsed);
+		float entryLevelTick = EntryLevel && EntryLevel != Level ? EntryLevel->GatherTick(entryLevelElapsed) : 0.0f;
+
 		// The windows tick before the engine, as the original's
 		// (Extension.dll XGameEngineExt::Tick 0x100266a0): what the level
 		// makes this frame has been laid out by the time they next tick.
@@ -572,10 +581,12 @@ void Engine::Run()
 
 		TotalTime += realTimeElapsed;
 
-		if (EntryLevel && EntryLevel != Level)
-			EntryLevelInfo->TimeSeconds() += entryLevelElapsed;
-		// Summed in a double too, for the blinks' count (LightSystem)
-		Level->Light.AdvanceLevelTime(LevelInfo->TimeSeconds(), levelElapsed);
+		// Each level's clock summed in a double, the float stored from it
+		// (LightSystem::AdvanceLevelTime), as the original stores its own
+		if (entryLevelTick > 0.0f)
+			EntryLevel->Light.AdvanceLevelTime(EntryLevelInfo->TimeSeconds(), entryLevelTick);
+		if (levelTick > 0.0f)
+			Level->Light.AdvanceLevelTime(LevelInfo->TimeSeconds(), levelTick);
 		Logger::Get()->SetTimeSeconds(LevelInfo->TimeSeconds());
 
 		// Update the time fields: the local time to the millisecond, as the
@@ -628,17 +639,19 @@ void Engine::Run()
 				TickDemoPlayback();
 		}
 
-		Level->Tick(levelElapsed, m_GamePaused);
+		if (levelTick > 0.0f)
+			Level->Tick(levelTick, m_GamePaused);
 
 		// A server replicates to its clients before the packets go; a client
 		// its own player's pawn to the server: the level's Net, as the
-		// original's TickNetServer and TickNetClient clock it.
-		if (LevelNetDriver && !LevelNetDriver->ServerConnection && ServerLevel)
+		// original's TickNetServer and TickNetClient clock it, after a tick
+		// of the level.
+		if (levelTick > 0.0f && LevelNetDriver && !LevelNetDriver->ServerConnection && ServerLevel)
 		{
 			StatClock clock(Level->Stats.Net);
-			ServerLevel->TickNetServer(levelElapsed);
+			ServerLevel->TickNetServer(levelTick);
 		}
-		else if (LevelNetDriver && LevelNetDriver->ServerConnection && ClientLevel)
+		else if (levelTick > 0.0f && LevelNetDriver && LevelNetDriver->ServerConnection && ClientLevel)
 		{
 			StatClock clock(Level->Stats.Net);
 			ClientLevel->TickNetClient(*LevelNetDriver);
@@ -650,7 +663,7 @@ void Engine::Run()
 		// into the file.
 		if (LevelDemoDriver)
 		{
-			if (!LevelDemoDriver->ServerConnection)
+			if (levelTick > 0.0f && !LevelDemoDriver->ServerConnection)
 				TickDemoRecord();
 			LevelDemoDriver->TickFlush();
 		}
@@ -662,14 +675,14 @@ void Engine::Run()
 		// its time stepped again, while a joining client's player waits
 		// there for its pawn. HX's game engine ticks the player's level only
 		// when it is neither (UHXGameEngine::Tick, bugs.md HX.3).
-		if (EntryLevel && EntryLevel != Level)
+		if (entryLevelTick > 0.0f && EntryLevel != Level)
 		{
-			EntryLevel->Tick(entryLevelElapsed, m_GamePaused);
+			EntryLevel->Tick(entryLevelTick, m_GamePaused);
 			UPlayerPawn* viewer = viewport ? viewport->Actor() : nullptr;
 			if (viewer && viewer->XLevel() == EntryLevel && !HXGameEngine::Active())
 			{
-				EntryLevelInfo->TimeSeconds() += entryLevelElapsed;
-				EntryLevel->Tick(entryLevelElapsed, m_GamePaused);
+				EntryLevel->Light.AdvanceLevelTime(EntryLevelInfo->TimeSeconds(), entryLevelTick);
+				EntryLevel->Tick(entryLevelTick, m_GamePaused);
 			}
 		}
 

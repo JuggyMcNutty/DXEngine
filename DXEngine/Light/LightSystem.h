@@ -145,13 +145,17 @@ public:
 	int Steps = 0;
 	double StepLevelTime = 0.0;
 
-	// The level's time in doubles, for a blink's count: each frame's time
-	// added to TimeSeconds, the float the scripts read, and to LevelTime,
-	// which starts again from TimeSeconds wherever it is set by anything else
-	// (a level's start, a save's load)
+	// The level's clock, kept in a double, LevelTime, and stored as the float
+	// the scripts read, TimeSeconds, after each tick's time is added, as the
+	// original's level keeps a clock of its own and stores the float from it:
+	// a short tick is not rounded away once the float is large, and a
+	// script's or the console's write to TimeSeconds lasts until the next
+	// tick alone (LevelClockConsole: both engines alike). LevelTime starts
+	// from the TimeSeconds a level begins with (a new map's 0, a save's). A
+	// blink's count is taken from it too.
 	void AdvanceLevelTime(float& timeSeconds, float elapsed);
 	double LevelTime = 0.0;
-	float LevelTimeSeen = -1.0f;
+	bool LevelTimeStarted = false;
 
 	void OnMapLoaded();
 

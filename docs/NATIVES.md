@@ -3546,11 +3546,6 @@ level still pointing at it. Code, a package and the engine's own objects --
 the levels, their infos and games, the save info and the root window -- are
 not deleted (the log says so).
 
-For the owner (bugs.md D.101): with level ticks under about 1 ms, a fast
-machine with VSync off or a slowed game, a thing at rest never starts to
-fall or walk in DXEngine; the original's ticks never go under its floor of 5
-ms.
-
 By choice, a script's play of a sound whose data will not decode is a
 script error each time, which takes no channel, the game playing on, where
 Galaxy's unreadable data is a fatal error at the level's start
@@ -3589,11 +3584,39 @@ no resize.
   of every tick past 200 frames a second, which would run the game fast
   there: uncapped, the original's flyby on the menu map sweeps between its
   logos in a tenth of a second, where held to 60 frames both engines' keep
-  together (`IntroConsole`). The level's `TimeDilation` is held to 0.0025
-  to 25, by choice, where the original's is not held; the game sets it only
-  through `SetGameSpeed`, to 0.1 or more (`DilationConsole`: at 0, over half
-  a second, the original's level time stands, its actors' ticks 5 ms each,
-  0.155 s in all, and DXEngine's moves 0.000645 s, its actors' with it).
+  together (`IntroConsole`). In its place, by choice (bugs.md D.101), a
+  level's ticks under 1 ms of its time are gathered: a frame with less
+  ticks no level, its time held for the next frame's, until they come to
+  1 ms, which that frame's tick takes, the game's time the real time as it
+  is and its frames uncapped. Under 1 ms the first move of a thing at rest
+  can be under the test of a move of nothing or under a float step of its
+  place, its velocity made again from the move 0, so that it never starts
+  to fall or walk, which a fast machine with VSync off meets (a few
+  thousand frames a second) and a slowed game (`ShortTickConsole`,
+  `TimeDilation` 0.02: a crate at rest falls and the player walks in both
+  engines, the original's ticks its floor's 5 ms each frame, DXEngine's
+  1 ms each few frames). Far from a map's middle a float step of a place is
+  larger: at ticks of 1 ms a thing at rest 8,192 or more from it in height
+  still never starts to fall, and one 16,384 or more from it along a floor
+  never starts to walk; ticks of some 2.1 ms would end both everywhere in a
+  map, and would change ticks of 1 to 2 ms (500 to 1,000 frames a second).
+  Every frame still takes the window's events, the windows' tick, a net
+  driver's and a demo's packets in and out, a travel, a join, the draw and
+  the sound; the level's clock, its actors, a server's or a client's
+  replication and a recording's frame wait for the tick, a paused level's
+  too. A level's first tick is never held back. Ticks of 1 ms and more are
+  each their frame's own: a dedicated server's (10 to 120 a second), a
+  listen server's (144 at most) and a client's (its speed over 64) are
+  gathered only under a `TimeDilation` that brings them under 1 ms, or, a
+  client's, at a speed over 64,000 (a `?LAN` join takes the ini's
+  `ConfiguredLanSpeed` as it stands). The
+  level's `TimeDilation` is held to 0.0025 to 25, by choice, where the
+  original's is not held; the game sets it only through `SetGameSpeed`, to
+  0.1 or more (`DilationConsole`: at 0, over half a second, the original's
+  level time stands, its actors' ticks 5 ms each, 0.155 s in all;
+  DXEngine's, held to 0.0025, comes to 0.000645 s over its 30 frames, under
+  the 1 ms a tick gathers, so its level's time stands too and its actors
+  do not tick).
 - **A travel's items**: the travel is taken on any login but a `?loadonly`
   one, whatever the travel, and whether or not the game's Login spawned a
   new pawn, as the original's SpawnPlayActor takes it (`URLConsole` with
@@ -4130,11 +4153,17 @@ own name, where the original's heads them with the first reference's; and
 collector running with no script under way, where the original's collects at
 once.
 
-For the owner (bugs.md D.100): `Level.TimeSeconds` is the float sum of the
-frames, as the original's field is, so at high frame rates the level's clock
-stops after hours in one level (1 h at 5,000 frames a second, 7 h at 1,000),
-and the bots' recharges and the computers' lockouts with it; added in double
-and stored as the float, it would go on.
+A level's `Level.TimeSeconds`, the float the scripts read, is stored after
+each tick from the level's own clock, kept in a double, as the original's
+float is stored from a clock of its level's own: a script's or the
+console's write to it lasts until the next tick alone (`LevelClockConsole`:
+set to 1,048,576, where a float's step is an eighth of a second, each
+engine's float is its level's few seconds again a tick later and goes on
+with the real time). A sum kept in the float itself would round a short
+tick away once it is large, the clock stopping in one level after hours,
+at 1,000 ticks a second at 32,768 s and at 144 at 131,072 s, and the bots'
+recharges and the computers' lockouts with it. The clock starts from the
+`TimeSeconds` a level begins with: a new map's 0, a save's.
 
 ## The command line
 

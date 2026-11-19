@@ -130,6 +130,21 @@ void ULevel::Tick(float elapsed, bool gamePaused)
 	CleanupDestroyed(false);
 }
 
+float ULevel::GatherTick(float elapsed)
+{
+	if (!tickGatherBegun)
+	{
+		tickGatherBegun = true;
+		return elapsed;
+	}
+	tickGathered += elapsed;
+	if (tickGathered < 0.001f)
+		return 0.0f;
+	float tick = tickGathered;
+	tickGathered = 0.0f;
+	return tick;
+}
+
 // Deus Ex's tick of the level's actors, as the original's ULevel::Tick
 // (dx-reverse-info engine-dll.md, a level's tick): every pass from the first
 // dynamic actor, the static ones never ticked.
