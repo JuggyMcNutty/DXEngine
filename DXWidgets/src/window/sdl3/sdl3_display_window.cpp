@@ -71,6 +71,42 @@ static void SetGLContextAttributes(bool es)
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, es ? SDL_GL_CONTEXT_PROFILE_ES : SDL_GL_CONTEXT_PROFILE_CORE);
 }
 
+// A name in a space-separated list, whole: EGL_KHR_create_context is no
+// match for EGL_KHR_create_context_no_error
+static bool HasEGLExtension(const char* list, const char* name)
+{
+	size_t length = strlen(name);
+	for (const char* p = list; (p = strstr(p, name)) != nullptr; p += length)
+	{
+		if ((p == list || p[-1] == ' ') && (p[length] == ' ' || p[length] == 0))
+			return true;
+	}
+	return false;
+}
+
+// The EGL context's reset notification, which SDL's EGL path (Wayland,
+// KMSDRM) does not pass: EGL_EXT_create_context_robustness's attribute for
+// ES, EGL_KHR_create_context's for desktop GL, where the display lists it;
+// nothing added where it does not (bugs.md REN.80)
+static SDL_EGLint* SDLCALL LoseContextOnResetAttribs(void* userdata, SDL_EGLDisplay display, SDL_EGLConfig)
+{
+	const bool es = userdata != nullptr;
+	SDL_EGLint* attribs = (SDL_EGLint*)SDL_malloc(3 * sizeof(SDL_EGLint));
+	if (!attribs)
+		return nullptr;
+	attribs[0] = 0x3038; // EGL_NONE
+	using QueryStringFunc = const char* (*)(SDL_EGLDisplay, SDL_EGLint);
+	auto queryString = (QueryStringFunc)SDL_EGL_GetProcAddress("eglQueryString");
+	const char* extensions = queryString ? queryString(display, 0x3055) : nullptr; // EGL_EXTENSIONS
+	if (extensions && HasEGLExtension(extensions, es ? "EGL_EXT_create_context_robustness" : "EGL_KHR_create_context"))
+	{
+		attribs[0] = es ? 0x3138 : 0x31BD; // the EXT's and the KHR's RESET_NOTIFICATION_STRATEGY
+		attribs[1] = 0x31BF; // EGL_LOSE_CONTEXT_ON_RESET
+		attribs[2] = 0x3038;
+	}
+	return attribs;
+}
+
 SDL3DisplayWindow::SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, SDL3DisplayWindow* owner, RenderAPI renderAPI) : WindowHost(windowHost), SystemKeys(renderAPI == RenderAPI::Unspecified)
 {
 	m_GLIsES = renderAPI == RenderAPI::GLES;
@@ -1311,7 +1347,20 @@ void SDL3DisplayWindow::CreateGLContext()
 	// another window have been made since
 	SetGLContextAttributes(m_GLIsES);
 
+	// A context lost on a GPU reset, which the GL device then reports
+	// (bugs.md REN.80): SDL's GLX and WGL paths pass it where the driver
+	// lists their robustness extension, its EGL path not at all
+	// (LoseContextOnResetAttribs). Asked for this context alone: SDL's
+	// attributes hold for every context it makes after.
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_RESET_NOTIFICATION, SDL_GL_CONTEXT_RESET_LOSE_CONTEXT);
+	SDL_EGL_SetAttributeCallbacks(nullptr, nullptr, LoseContextOnResetAttribs, m_GLIsES ? (void*)1 : nullptr);
 	m_GLContext = SDL_GL_CreateContext(Handle.window);
+	SDL_EGL_SetAttributeCallbacks(nullptr, nullptr, nullptr, nullptr);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_RESET_NOTIFICATION, SDL_GL_CONTEXT_RESET_NO_NOTIFICATION);
+	// A driver that refuses a context lost on a reset: one with no reset
+	// notification, as before, the GL device then reporting no reset
+	if (!m_GLContext)
+		m_GLContext = SDL_GL_CreateContext(Handle.window);
 	// None is an error here, with SDL's reason, so the GL device fails at
 	// its start and the engine falls back to the software device: the GL
 	// loader on no context read a null extension string.

@@ -3,6 +3,7 @@
 #include <commctrl.h>
 #include <stdexcept>
 #include <vector>
+#include <cstring>
 
 #ifdef _MSC_VER
 #pragma comment(lib, "Opengl32.lib")
@@ -85,6 +86,12 @@ HGLRC OpenGLCreationHelper::create_opengl3_context(HGLRC share_context, int majo
 {
 	set_active();
 	ptr_wglCreateContextAttribsARB wglCreateContextAttribsARB = (ptr_wglCreateContextAttribsARB) wglGetProcAddress("wglCreateContextAttribsARB");
+	// A context lost on a GPU reset, which the GL device then reports, where
+	// the driver lists WGL_ARB_create_context_robustness (bugs.md REN.80)
+	typedef const char* (WINAPI *ptr_wglGetExtensionsStringARB)(HDC);
+	ptr_wglGetExtensionsStringARB wglGetExtensionsStringARB = (ptr_wglGetExtensionsStringARB) wglGetProcAddress("wglGetExtensionsStringARB");
+	const char* extensions = wglGetExtensionsStringARB ? wglGetExtensionsStringARB(query_dc) : nullptr;
+	bool loseOnReset = extensions && strstr(extensions, "WGL_ARB_create_context_robustness");
 	reset_active();
 
 	HGLRC opengl3_context = 0;
@@ -109,9 +116,23 @@ HGLRC OpenGLCreationHelper::create_opengl3_context(HGLRC share_context, int majo
 		// flags |= 0x2; // WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB
 		int_attributes.push_back(flags);
 
+		size_t end = int_attributes.size();
+		if (loseOnReset)
+		{
+			int_attributes.push_back(0x8256); // WGL_CONTEXT_RESET_NOTIFICATION_STRATEGY_ARB
+			int_attributes.push_back(0x8252); // WGL_LOSE_CONTEXT_ON_RESET_ARB
+		}
 		int_attributes.push_back(0);
 
 		opengl3_context = wglCreateContextAttribsARB(hdc, share_context, &int_attributes[0]);
+		// A driver that refuses it: a context with no reset notification, as
+		// before, the GL device then reporting no reset
+		if (!opengl3_context && loseOnReset)
+		{
+			int_attributes.resize(end);
+			int_attributes.push_back(0);
+			opengl3_context = wglCreateContextAttribsARB(hdc, share_context, &int_attributes[0]);
+		}
 	}
 	return opengl3_context;
 }

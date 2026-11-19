@@ -54,11 +54,16 @@ public:
 
 	VulkanDeviceFaultInfo GetDeviceFaultInfo();
 
+	// A result of VK_ERROR_DEVICE_LOST met (CheckVulkanError): the device
+	// draws nothing again, whatever caught the error it threw
+	bool Lost = false;
+
 	inline void CheckVulkanError(VkResult result, const char* text)
 	{
 		if (result >= VK_SUCCESS) return;
 		if (result == VK_ERROR_DEVICE_LOST)
 		{
+			Lost = true;
 			VulkanDeviceFaultInfo info = GetDeviceFaultInfo();
 			if (!info.description.empty())
 				VulkanPrintLog("fault", info.description);

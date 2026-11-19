@@ -211,6 +211,10 @@ bool VulkanSwapChain::CreateSwapchain(int width, int height, int imageCount, boo
 			surfaceLost = true;
 		swapchain = VK_NULL_HANDLE;
 		lost = true;
+		// A lost device ends the game, named, where the create was tried
+		// again at every frame (bugs.md D.93)
+		if (result == VK_ERROR_DEVICE_LOST)
+			device->CheckVulkanError(result, "vkCreateSwapchainKHR failed");
 		return false;
 	}
 
@@ -245,6 +249,8 @@ int VulkanSwapChain::AcquireImage(VulkanSemaphore* semaphore, VulkanFence* fence
 	}
 	else
 	{
+		// A lost device named, with its fault report (bugs.md D.93)
+		device->CheckVulkanError(result, "Failed to acquire next image");
 		VulkanError("Failed to acquire next image!");
 		return -1;
 	}
@@ -282,12 +288,10 @@ void VulkanSwapChain::QueuePresent(int imageIndex, VulkanSemaphore* semaphore)
 
 		VulkanError("vkQueuePresentKHR failed: out of memory");
 	}
-	else if (result == VK_ERROR_DEVICE_LOST)
-	{
-		VulkanError("vkQueuePresentKHR failed: device lost");
-	}
 	else
 	{
+		// A lost device named, with its fault report (bugs.md D.93)
+		device->CheckVulkanError(result, "vkQueuePresentKHR failed");
 		VulkanError("vkQueuePresentKHR failed");
 	}
 }

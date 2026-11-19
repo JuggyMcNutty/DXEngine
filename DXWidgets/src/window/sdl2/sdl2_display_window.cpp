@@ -1152,7 +1152,18 @@ void SDL2DisplayWindow::CreateGLContext()
 	// the ES profile as it makes the context
 	SetGLContextAttributes(m_GLIsES);
 
+	// A context lost on a GPU reset, which the GL device then reports
+	// (bugs.md REN.80): SDL2's GLX and WGL paths pass it where the driver
+	// lists their robustness extension, its EGL path (Wayland, KMSDRM, the
+	// Smart Pro's) never, having no way to. Asked for this context alone:
+	// SDL's attributes hold for every context it makes after.
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_RESET_NOTIFICATION, SDL_GL_CONTEXT_RESET_LOSE_CONTEXT);
 	m_GLContext = SDL_GL_CreateContext(Handle.window);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_RESET_NOTIFICATION, SDL_GL_CONTEXT_RESET_NO_NOTIFICATION);
+	// A driver that refuses a context lost on a reset: one with no reset
+	// notification, as before, the GL device then reporting no reset
+	if (!m_GLContext)
+		m_GLContext = SDL_GL_CreateContext(Handle.window);
 	// None is an error here, with SDL's reason, so the GL device fails at
 	// its start and the engine falls back to the software device: the GL
 	// loader on no context read a null extension string.

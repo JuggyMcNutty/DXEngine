@@ -137,8 +137,11 @@ VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
 
 VulkanRenderDevice::~VulkanRenderDevice()
 {
-	if (Device)
-		vkDeviceWaitIdle(Device->device);
+	// A destructor throws nothing: a device lost here, at the game's end or
+	// on the way out of another error, is logged, unless that error was the
+	// loss itself (bugs.md REN.91)
+	if (Device && vkDeviceWaitIdle(Device->device) == VK_ERROR_DEVICE_LOST && !Device->Lost)
+		LogMessage("VulkanDrv: the device was lost as it closed (vkDeviceWaitIdle: device lost)");
 
 	Framebuffers.reset();
 	RenderPasses.reset();
@@ -247,6 +250,12 @@ void VulkanRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenCle
 	Stats = {};
 	DrawTimes = {};
 	Textures->CacheStats.BeginFrame();
+
+	// A device lost in the last frame, its error caught on the way (a
+	// native's call logs a script error and goes on), ends the game here:
+	// it draws nothing again (bugs.md D.93)
+	if (Device->Lost)
+		throw std::runtime_error("the Vulkan device was lost (VK_ERROR_DEVICE_LOST): it draws nothing again");
 
 	// The previous frame may still be drawing (Unlock does not wait for it).
 	Commands->WaitForFrame();

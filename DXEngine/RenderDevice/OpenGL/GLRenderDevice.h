@@ -429,6 +429,9 @@ private:
 	int SceneSamplesCap = 0;
 	bool Exited = false; // set by Exit(); after it no GL work is done
 	bool IsGLES = false; // an OpenGL ES context (RenderAPI::GLES): GLSL ES sources, no desktop versions
+	// glGetGraphicsResetStatus, or its ARB, KHR or EXT name, where the context
+	// is lost on a GPU reset; null where it reports none (bugs.md REN.80)
+	GLenum (CODEGEN_FUNCPTR* GetResetStatus)(void) = nullptr;
 	bool SamplerAnisotropy = true; // EXT_texture_filter_anisotropic; off where absent
 	bool SamplerMirrorClampEdge = true; // GL_MIRROR_CLAMP_TO_EDGE; probed (absent on the GE8300)
 	bool ClipDistance = true; // gl_ClipDistance: desktop GL's own; ES's with EXT_clip_cull_distance

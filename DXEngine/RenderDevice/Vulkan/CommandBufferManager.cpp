@@ -35,17 +35,23 @@ CommandBufferManager::~CommandBufferManager()
 	DeleteFrameObjects();
 }
 
+// The frame's fence waited for and reset, each result through the device's
+// check: a lost device (a GPU reset, a driver update, an external GPU
+// unplugged) ends the game with its name and the device's fault report, as
+// the original's critical error ends it (bugs.md D.93)
+void CommandBufferManager::WaitAndResetFence()
+{
+	VulkanDevice* device = renderer->Device.get();
+	device->CheckVulkanError(vkWaitForFences(device->device, 1, &RenderFinishedFence->fence, VK_TRUE, std::numeric_limits<uint64_t>::max()), "vkWaitForFences failed");
+	device->CheckVulkanError(vkResetFences(device->device, 1, &RenderFinishedFence->fence), "vkResetFences failed");
+}
+
 void CommandBufferManager::WaitForFrame()
 {
 	if (!FramePending)
 		return;
 
-	VkResult result = vkWaitForFences(renderer->Device.get()->device, 1, &RenderFinishedFence->fence, VK_TRUE, std::numeric_limits<uint64_t>::max());
-	if (result != VK_SUCCESS)
-		throw std::runtime_error("vkWaitForFences failed");
-	result = vkResetFences(renderer->Device.get()->device, 1, &RenderFinishedFence->fence);
-	if (result != VK_SUCCESS)
-		throw std::runtime_error("vkResetFences failed");
+	WaitAndResetFence();
 
 	FramePending = false;
 	PendingDrawCommands.reset();
@@ -66,12 +72,7 @@ void CommandBufferManager::WaitForTransfer()
 			.AddCommandBuffer(TransferCommands.get())
 			.Execute(renderer->Device.get(), renderer->Device.get()->GraphicsQueue, RenderFinishedFence.get());
 
-		VkResult result = vkWaitForFences(renderer->Device.get()->device, 1, &RenderFinishedFence->fence, VK_TRUE, std::numeric_limits<uint64_t>::max());
-		if (result != VK_SUCCESS)
-			throw std::runtime_error("vkWaitForFences failed");
-		result = vkResetFences(renderer->Device.get()->device, 1, &RenderFinishedFence->fence);
-		if (result != VK_SUCCESS)
-			throw std::runtime_error("vkResetFences failed");
+		WaitAndResetFence();
 
 		TransferCommands.reset();
 	}
@@ -143,12 +144,7 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
 		return;
 	}
 
-	VkResult result = vkWaitForFences(renderer->Device.get()->device, 1, &RenderFinishedFence->fence, VK_TRUE, std::numeric_limits<uint64_t>::max());
-	if (result != VK_SUCCESS)
-		throw std::runtime_error("vkWaitForFences failed");
-	result = vkResetFences(renderer->Device.get()->device, 1, &RenderFinishedFence->fence);
-	if (result != VK_SUCCESS)
-		throw std::runtime_error("vkResetFences failed");
+	WaitAndResetFence();
 
 	DrawCommands.reset();
 	TransferCommands.reset();
@@ -159,8 +155,8 @@ void CommandBufferManager::CreateSwapChain(int width, int height, bool logFailur
 {
 	// A fence covers a submit, not the present queued after it: the
 	// old swapchain and its semaphores may still be in use until the
-	// device is idle.
-	vkDeviceWaitIdle(renderer->Device.get()->device);
+	// device is idle. A device lost here is said here (bugs.md REN.91)
+	renderer->Device->CheckVulkanError(vkDeviceWaitIdle(renderer->Device.get()->device), "vkDeviceWaitIdle failed");
 
 	UsingVsync = renderer->UseVSync;
 	UsingHdr = renderer->Hdr;

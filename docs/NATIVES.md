@@ -70,9 +70,14 @@ load counts its own jumps, as the original's map load does (`LoopConsole`
 with `LoadAfter`: 9,999,001 jumps, then slot 9's load in the same tick, in
 both).
 
-For the owner (bugs.md D.93): a lost GPU device ends the game, as the
-original's critical error does, but the Vulkan device's text most often
-reads a bare `vkWaitForFences failed`, not that the device was lost.
+A lost GPU device ends the game, as the original's critical error does, its
+text naming the cause: the Vulkan device's reads `device lost`, with the
+driver's fault report in the log where it gives one (`VK_EXT_device_fault`);
+the GL device's reads that the context was lost to a GPU reset, from the
+reset status it reads at each frame's start. The GL context is one lost on a
+reset where the driver offers it; SDL2's EGL path, the Smart Pro's, cannot
+ask for one, and there what a reset shows is the driver's. What the
+original's `D3DDrv` does with Direct3D 7's lost surfaces is unread.
 
 A `Console=` in `[Engine.Engine]` naming a class that is not there, or one
 that is no console, stops both engines alike, with Core's text for each:
@@ -92,9 +97,6 @@ physics (`ShortTickConsole` with `Only=c`, each line alike).
 
 Differs (bugs.md REN.76): a GPU device whose memory cannot hold its scene at
 one sample ends the game (Vulkan) or draws black (GL); the original: unread.
-
-Differs (bugs.md REN.80): a lost GL context is never reported, what is seen
-after a GPU reset left to the driver; the original: unread.
 
 `Canvas.DrawActor`, `Canvas.DrawClippedActor`, `GetSoundDuration` and
 `Window.ConvertCoordinates` given None stop both engines, the original's

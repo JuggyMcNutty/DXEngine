@@ -804,6 +804,32 @@ std::string WaylandDisplayWindow::GetWaylandWindowID()
 	return m_windowID;
 }
 
+// A name in EGL's space-separated extension list, whole
+static bool HasEGLExtension(const char* list, const char* name)
+{
+	size_t length = strlen(name);
+	for (const char* p = list; p && (p = strstr(p, name)) != nullptr; p += length)
+	{
+		if ((p == list || p[-1] == ' ') && (p[length] == ' ' || p[length] == 0))
+			return true;
+	}
+	return false;
+}
+
+// A context lost on a GPU reset, which the GL device then reports (bugs.md
+// REN.80): EGL 1.5's attribute for desktop GL, for ES the one of
+// EGL_EXT_create_context_robustness where the display lists it, put in place
+// of the list's end; false where none is asked
+static bool AddLoseContextOnReset(EGLint* attrs, int& count, EGLDisplay display, bool es)
+{
+	if (es && !HasEGLExtension(eglQueryString(display, EGL_EXTENSIONS), "EGL_EXT_create_context_robustness"))
+		return false;
+	attrs[count - 1] = es ? 0x3138 : EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY; // 0x3138: the EXT's
+	attrs[count++] = EGL_LOSE_CONTEXT_ON_RESET;
+	attrs[count++] = EGL_NONE;
+	return true;
+}
+
 void WaylandDisplayWindow::CreateGLContext()
 {
 	EGLint majorVer, minorVer;
@@ -812,7 +838,7 @@ void WaylandDisplayWindow::CreateGLContext()
 	// driver gives its 3.2 context) or desktop 4.2 core (its desktop shaders
 	// are GLSL 4.20): ES takes the ES3 bit and no profile mask.
 	const bool es = m_renderAPI == RenderAPI::GLES;
-	EGLint ctxAttrs[7];
+	EGLint ctxAttrs[9];
 	int ctxAttrCount = 0;
 	ctxAttrs[ctxAttrCount++] = EGL_CONTEXT_MAJOR_VERSION;
 	ctxAttrs[ctxAttrCount++] = es ? 3 : 4;
@@ -862,7 +888,15 @@ void WaylandDisplayWindow::CreateGLContext()
 	if (!eglChooseConfig(m_EGLDisplay, confAttrs, &config, 1, &config_count) || config_count != 1)
 		throw std::runtime_error("Cannot choose EGL config. Error code: " + std::to_string(eglGetError()));
 
+	bool loseOnReset = AddLoseContextOnReset(ctxAttrs, ctxAttrCount, m_EGLDisplay, es);
 	m_EGLContext = eglCreateContext(m_EGLDisplay, config, EGL_NO_CONTEXT, ctxAttrs);
+	// A driver that refuses a context lost on a reset: one with no reset
+	// notification, as before, the GL device then reporting no reset
+	if (m_EGLContext == EGL_NO_CONTEXT && loseOnReset)
+	{
+		ctxAttrs[ctxAttrCount - 3] = EGL_NONE;
+		m_EGLContext = eglCreateContext(m_EGLDisplay, config, EGL_NO_CONTEXT, ctxAttrs);
+	}
 	if (m_EGLContext == EGL_NO_CONTEXT)
 		throw std::runtime_error("Failed to create EGL context. Error code: " + std::to_string(eglGetError()));
 

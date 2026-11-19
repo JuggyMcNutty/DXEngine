@@ -100,6 +100,9 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 		int glMajor = 0, glMinor = 0;
 		if (!IsGLES && version)
 			sscanf((const char*)version, "%d.%d", &glMajor, &glMinor);
+		else if (version)
+			sscanf((const char*)version, "OpenGL ES %d.%d", &glMajor, &glMinor);
+		const char* resetStatusName = nullptr;
 		if (!IsGLES && (glMajor > 4 || (glMajor == 4 && glMinor >= 6)))
 			anisotropic = true;
 		GLint numExtensions = 0;
@@ -114,6 +117,10 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 				floatLinear = floatLinear || strcmp(name, "GL_OES_texture_float_linear") == 0;
 				anisotropic = anisotropic || strcmp(name, "GL_EXT_texture_filter_anisotropic") == 0 || strcmp(name, "GL_ARB_texture_filter_anisotropic") == 0;
 				clipCullDistance = clipCullDistance || strcmp(name, "GL_EXT_clip_cull_distance") == 0;
+				if (strcmp(name, "GL_ARB_robustness") == 0)
+					resetStatusName = "glGetGraphicsResetStatusARB";
+				else if (strcmp(name, "GL_KHR_robustness") == 0 || (IsGLES && strcmp(name, "GL_EXT_robustness") == 0))
+					resetStatusName = !IsGLES ? "glGetGraphicsResetStatus" : strcmp(name, "GL_KHR_robustness") == 0 ? "glGetGraphicsResetStatusKHR" : "glGetGraphicsResetStatusEXT";
 			}
 		}
 		GLTextureUploader::SetS3TCSupported(s3tc);
@@ -131,6 +138,23 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 		ClipDiscard = !clipCullDistance;
 		if (!ClipDistance)
 			LogMessage("GLDrv: EXT_clip_cull_distance absent; a mirror's plane is clipped by a discard");
+
+		// A GPU reset reported where the window got a context lost on one
+		// (GL 4.5's and ES 3.2's core, ARB_robustness, KHR_robustness,
+		// ES's EXT_robustness), its status read at each frame's Lock; a
+		// context of no reset notification reports none, and is not read
+		// (bugs.md REN.80)
+		GetResetStatus = nullptr;
+		bool coreReset = IsGLES ? (glMajor > 3 || (glMajor == 3 && glMinor >= 2)) : (glMajor > 4 || (glMajor == 4 && glMinor >= 5));
+		if (coreReset || resetStatusName)
+		{
+			GLint strategy = 0;
+			glGetIntegerv(GL_RESET_NOTIFICATION_STRATEGY, &strategy);
+			TakeGLErrors();
+			if (strategy == GL_LOSE_CONTEXT_ON_RESET)
+				GetResetStatus = coreReset ? glGetGraphicsResetStatus : (GLenum (CODEGEN_FUNCPTR*)(void))Viewport->GetGLProcAddress(resetStatusName);
+		}
+		LogMessage(GetResetStatus ? "GLDrv: the context reports a GPU reset, which ends the game" : "GLDrv: the context reports no GPU reset");
 
 		// The largest scene the driver makes: its textures' side, its
 		// framebuffers' (ES 3.1's and desktop 4.3's; a 4.2 driver answers
@@ -1310,6 +1334,16 @@ void GLRenderDevice::ApplyLODBias()
 
 void GLRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 {
+	// A GPU reset ends the game with its cause, as a lost Vulkan device
+	// does: the context draws nothing again (bugs.md REN.80, D.93)
+	if (GetResetStatus)
+	{
+		GLenum status = GetResetStatus();
+		if (status != GL_NO_ERROR)
+			throw std::runtime_error(std::string("the OpenGL context was lost to a GPU reset (") +
+				(status == GL_GUILTY_CONTEXT_RESET ? "GL_GUILTY_CONTEXT_RESET" : status == GL_INNOCENT_CONTEXT_RESET ? "GL_INNOCENT_CONTEXT_RESET" : "GL_UNKNOWN_CONTEXT_RESET") + ")");
+	}
+
 	// The frame's counts begin again (GetFrameStats)
 	Stats = {};
 	DrawTimes = {};

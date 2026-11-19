@@ -604,11 +604,9 @@ and `glDepthRangef`, `glDrawBuffers` for every `glDrawBuffer`, no `GL_DEPTH_CLAM
 GL errors once a frame, not at each flush of its batches and each texture upload: every
 `glGetError` makes Mesa's GL thread finish all it has queued. An error in a frame (`Lock`,
 `Unlock`, a texture made, a read-back) is logged with its names, each line once, and the game
-goes on, the call that erred having done nothing (one naming a lost context ends it, named,
-though no context asks for reset notification, so only a driver that reports a reset unasked
-names one); one where a
-thing is made at the device's start fails it, named, and the software device draws. A draw sets
-only the state that
+goes on, the call that erred having done nothing (one naming a lost context ends it, named);
+one where a thing is made at the device's start fails it, named, and the software device draws.
+A draw sets only the state that
 differs from the last draw's (`DrawState`: program, samplers, textures, blend, depth), forgotten
 wherever else that state is set.
 
@@ -630,7 +628,11 @@ wherever else that state is set.
   context, as the shaders are GLSL 4.20 (`CompileGlsl` prepends `#version 420`): a driver
   without 4.2 fails at the context, not at a shader, with the window's error: the SDL windows'
   is SDL's own reason for the context it could not make, the Win32 window's names 4.2, the X11
-  and Wayland windows' is EGL's error code. The vertex
+  and Wayland windows' is EGL's error code. Each asks for a context lost on a GPU reset where
+  the driver offers it (GLX's or WGL's robustness extension, EGL 1.5's attribute for desktop GL,
+  EGL's robustness extension for ES; SDL2 passes none to EGL),
+  one without it where the driver refuses that, and the device reads the reset status at each
+  `Lock`: a reset ends the game, named ([a lost device](NATIVES.md)). The vertex
   shader writes the texture's coordinate at a covered sample (`centroid`), as the fragment
   shader reads it: before GLSL 4.30 the two stages must agree, or a strict driver refuses the
   link.

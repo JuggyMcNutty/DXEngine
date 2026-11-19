@@ -45,6 +45,8 @@ public:
 	int RequestedHeight = -1;
 
 private:
+	void WaitAndResetFence();
+
 	VulkanRenderDevice* renderer = nullptr;
 
 	std::unique_ptr<VulkanSemaphore> ImageAvailableSemaphore;
