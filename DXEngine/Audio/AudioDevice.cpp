@@ -15,6 +15,8 @@
 #include <queue>
 #include <thread>
 #include <chrono>
+#include <algorithm>
+#include <iterator>
 #include <unordered_map>
 #include <AL/al.h>
 #include <AL/alc.h>
@@ -48,10 +50,12 @@ public:
 			ALC_OUTPUT_LIMITER_SOFT, ALC_FALSE,
 			0
 		};
+		static_assert(sizeof(ctxAttribs) == sizeof(contextAttribs));
+		std::copy(std::begin(ctxAttribs), std::end(ctxAttribs), contextAttribs);
 
 		// The device closed again before a failure is thrown: the engine
 		// plays on without it (UDXEngineAudioDevice::InitDevice)
-		alContext = alcCreateContext(alDevice, ctxAttribs);
+		alContext = alcCreateContext(alDevice, contextAttribs);
 		if (alContext == nullptr)
 		{
 			alcCloseDevice(alDevice);
@@ -64,6 +68,7 @@ public:
 			alcCloseDevice(alDevice);
 			Exception::Throw("Failed to make OpenAL context current");
 		}
+		canTellConnected = alcIsExtensionPresent(alDevice, "ALC_EXT_disconnect") == ALC_TRUE;
 
 		// Deus Ex's sounds are mixed as Galaxy mixes them, in Galaxy's 32
 		// channel records, and the music added to them, the output streamed
@@ -112,12 +117,58 @@ public:
 		sample->looped = sound->loopInfo.Looped;
 		sample->loopStart = lead + sound->loopInfo.LoopStart;
 		sample->loopEnd = lead + sound->loopInfo.LoopEnd;
-		mixedSounds[sound] = std::move(sample);
+		RemoveSound(sound);
+		HeldSound& held = mixedSounds[sound];
+		held.bytes = sample->data.size() * sizeof(int16_t);
+		held.mp3 = sound->Format == "mp3" || sound->Format == "mp2";
+		held.lastUse = ++useClock;
+		held.sample = std::move(sample);
+		if (held.mp3)
+			heldMp3Bytes += held.bytes;
 	}
 
 	void RemoveSound(USound* sound) override
 	{
-		mixedSounds.erase(sound);
+		auto it = mixedSounds.find(sound);
+		if (it == mixedSounds.end())
+			return;
+		if (it->second.mp3)
+			heldMp3Bytes -= it->second.bytes;
+		mixedSounds.erase(it);
+	}
+
+	bool HasSound(USound* sound) override
+	{
+		return mixedSounds.find(sound) != mixedSounds.end();
+	}
+
+	// A guard of ours (bugs.md AUD.26): Galaxy decodes an MP3 into a 64 KB
+	// ring for each voice that plays it, as it plays, and keeps only its
+	// file's bytes (galaxy-dll.md, Playing a sound), where the mixer's copy
+	// is the sound decoded whole, some 94 KB a second of the game's speech.
+	// So past MaxMp3Bytes of MP3s held, those played longest ago go until it
+	// is under again, never one a channel plays (the channel's reference) nor
+	// one played or added since the last update; the next play decodes it
+	// again, as its first did, to the same samples. A WAV's copy stays, as
+	// Galaxy keeps a WAV's data whole.
+	void ReleaseOldSounds()
+	{
+		while (heldMp3Bytes > MaxMp3Bytes)
+		{
+			auto oldest = mixedSounds.end();
+			for (auto it = mixedSounds.begin(); it != mixedSounds.end(); ++it)
+			{
+				const HeldSound& held = it->second;
+				if (held.mp3 && held.lastUse <= lastUpdateUse && held.sample.use_count() == 1 &&
+					(oldest == mixedSounds.end() || held.lastUse < oldest->second.lastUse))
+					oldest = it;
+			}
+			if (oldest == mixedSounds.end())
+				break;
+			heldMp3Bytes -= oldest->second.bytes;
+			mixedSounds.erase(oldest);
+		}
+		lastUpdateUse = useClock;
 	}
 
 	bool IsPlaying(int channel) override
@@ -176,7 +227,9 @@ public:
 			Exception::Throw("Invalid PlayMixedSound arguments");
 
 		auto it = mixedSounds.find(sound);
-		mixer->Play(channel, it != mixedSounds.end() ? it->second : nullptr, volume, panning, pitch);
+		if (it != mixedSounds.end())
+			it->second.lastUse = ++useClock;
+		mixer->Play(channel, it != mixedSounds.end() ? it->second.sample : nullptr, volume, panning, pitch);
 	}
 
 	void UpdateMixedSound(int channel, int volume, int panning, float pitch) override
@@ -228,6 +281,7 @@ public:
 
 	void Update() override
 	{
+		LogDeviceNotes();
 		std::string failure;
 		{
 			std::unique_lock lock(musicThreadData.mutex);
@@ -235,15 +289,18 @@ public:
 		}
 		if (!failure.empty())
 			LogMessage("Music: the song stopped: " + failure);
+		ReleaseOldSounds();
 	}
 
 	// The song's next frames at the mix rate, stereo: a source at another
 	// rate read between its frames linearly, from its first (a place of 2
-	// reads it and the next), a mono one in both channels. What a source
-	// that ends or reads short leaves is silence.
+	// reads it and the next), a mono one in both channels, one of more than
+	// two its front pair (GetRightChannel). What a source that ends or reads
+	// short leaves is silence.
 	void ReadMusic(AudioSource* music, float* out, int frames)
 	{
-		int channels = std::clamp(music->GetChannels(), 1, 2);
+		int channels = std::max(music->GetChannels(), 1);
+		int right = channels > 1 ? std::clamp(music->GetRightChannel(), 1, channels - 1) : 0;
 		int rate = music->GetFrequency();
 		if (rate == frequency && channels == 2)
 		{
@@ -258,11 +315,11 @@ public:
 			{
 				musicLast[0] = musicNext[0];
 				musicLast[1] = musicNext[1];
-				float frame[2] = {};
-				if (music->ReadSamples(frame, channels) < (size_t)channels)
-					frame[0] = frame[1] = 0.0f;
-				musicNext[0] = frame[0];
-				musicNext[1] = channels == 2 ? frame[1] : frame[0];
+				musicFrame.resize(channels);
+				if (music->ReadSamples(musicFrame.data(), channels) < (size_t)channels)
+					std::fill(musicFrame.begin(), musicFrame.end(), 0.0f);
+				musicNext[0] = musicFrame[0];
+				musicNext[1] = musicFrame[right];
 				musicPlace -= 1.0;
 			}
 			float t = (float)musicPlace;
@@ -319,7 +376,7 @@ public:
 				// Mono without UseStereo, the music too, as Galaxy's whole
 				// output is (bugs.md AUD.14): a song as its source reads it
 				// mono (SetMono), any other's two channels at their mean
-				if (!stereo && currentMusic->GetChannels() == 2)
+				if (!stereo && currentMusic->GetChannels() >= 2)
 				{
 					for (int i = 0; i < frames; i++)
 						musicBlock[2 * i] = musicBlock[2 * i + 1] = 0.5f * (musicBlock[2 * i] + musicBlock[2 * i + 1]);
@@ -357,6 +414,19 @@ public:
 	void StartMixStream()
 	{
 		mixBufferFrames = std::max(frequency / 100, 64);
+		CreateMixSource();
+		mixThread = std::thread([this]() { MixThreadMain(); });
+	}
+
+	void StopMixStream()
+	{
+		mixExit = true;
+		mixThread.join();
+		DeleteMixSource();
+	}
+
+	void CreateMixSource()
+	{
 		alGenSources(1, &alMixSource);
 		alSourcei(alMixSource, AL_SOURCE_SPATIALIZE_SOFT, AL_FALSE);
 		alSourcei(alMixSource, AL_SOURCE_RELATIVE, AL_TRUE);
@@ -367,35 +437,143 @@ public:
 		alMixBuffers.resize(mixBufferCount);
 		alGenBuffers((ALsizei)alMixBuffers.size(), &alMixBuffers[0]);
 		alGetError();
-		mixThread = std::thread([this]() { MixThreadMain(); });
 	}
 
-	void StopMixStream()
+	void DeleteMixSource()
 	{
-		mixExit = true;
-		mixThread.join();
 		alSourceStop(alMixSource);
 		alSourcei(alMixSource, AL_BUFFER, 0);
 		alDeleteSources(1, &alMixSource);
 		alDeleteBuffers((ALsizei)alMixBuffers.size(), &alMixBuffers[0]);
 	}
 
+	// False once OpenAL Soft finds the device gone (ALC_EXT_disconnect: a
+	// headset unplugged on ALSA, a sink removed under a PulseAudio stream
+	// that may not move, a WASAPI endpoint removed or changed)
+	bool DeviceConnected()
+	{
+		if (!canTellConnected)
+			return true;
+		ALCint connected = ALC_TRUE;
+		alcGetIntegerv(alDevice, ALC_CONNECTED, 1, &connected);
+		return connected != ALC_FALSE;
+	}
+
+	// The system's default device opened in place of the lost one, with the
+	// first one's context attributes, and the output's source made again on
+	// it; false, the lost one kept, when none opens. A full open, not
+	// ALC_SOFT_reopen_device, which the systems' OpenAL Soft before 1.23
+	// lacks.
+	bool ReopenDevice()
+	{
+		ALCdevice* device = alcOpenDevice(nullptr);
+		if (device == nullptr)
+			return false;
+		ALCcontext* context = alcCreateContext(device, contextAttribs);
+		if (context == nullptr)
+		{
+			alcCloseDevice(device);
+			return false;
+		}
+		DeleteMixSource();
+		if (alcMakeContextCurrent(context) == ALC_FALSE)
+		{
+			alcDestroyContext(context);
+			alcCloseDevice(device);
+			CreateMixSource();
+			return false;
+		}
+		alcDestroyContext(alContext);
+		alcCloseDevice(alDevice);
+		alDevice = device;
+		alContext = context;
+		canTellConnected = alcIsExtensionPresent(alDevice, "ALC_EXT_disconnect") == ALC_TRUE;
+		CreateMixSource();
+		return true;
+	}
+
+	// A line for the main thread to log (Update)
+	void TellMainThread(std::string note)
+	{
+		std::unique_lock lock(musicThreadData.mutex);
+		musicThreadData.deviceNotes.push_back(std::move(note));
+	}
+
+	void LogDeviceNotes()
+	{
+		std::vector<std::string> notes;
+		{
+			std::unique_lock lock(musicThreadData.mutex);
+			notes.swap(musicThreadData.deviceNotes);
+		}
+		for (const std::string& note : notes)
+			LogMessage(note);
+	}
+
 	void MixThreadMain()
 	{
 		std::vector<float> block(mixBufferFrames * 2);
-		auto queue = [&](ALuint buffer) {
+		auto mix = [&]() {
 			mixer->Mix(block.data(), mixBufferFrames);
 			MixMusic(block.data(), mixBufferFrames);
+		};
+		auto queue = [&](ALuint buffer) {
+			mix();
 			alBufferData(buffer, AL_FORMAT_STEREO_FLOAT32, block.data(), (ALsizei)(block.size() * sizeof(float)), frequency);
 			alSourceQueueBuffers(alMixSource, 1, &buffer);
 		};
+		auto start = [&]() {
+			for (ALuint buffer : alMixBuffers)
+				queue(buffer);
+			alSourcePlay(alMixSource);
+		};
 
-		for (ALuint buffer : alMixBuffers)
-			queue(buffer);
-		alSourcePlay(alMixSource);
+		start();
 
+		// A lost device's source stops and reports every buffer it holds
+		// played, which were mixed and queued again at once, the sounds and
+		// the song raced through. Instead, while it is gone, the mix goes on
+		// at the clock's pace and is not heard, the sounds and the song
+		// playing on, at most a queue's worth at once (after a suspend); the
+		// default device is opened again each second until one opens, and
+		// the output starts on it as at the start. A platform matter, which
+		// the original's DirectSound leaves to Windows (bugs.md AUD.25).
+		using clock = std::chrono::steady_clock;
+		bool lost = false;
+		clock::time_point lostAt, nextOpen;
+		int64_t lostBlocks = 0;
 		while (!mixExit)
 		{
+			using namespace std::chrono_literals;
+			if (!lost && !DeviceConnected())
+			{
+				lost = true;
+				lostAt = nextOpen = clock::now();
+				lostBlocks = 0;
+				TellMainThread("Audio: the output device is gone: the game plays on unheard until a default device opens");
+			}
+			if (lost)
+			{
+				auto now = clock::now();
+				int64_t due = std::chrono::duration_cast<std::chrono::microseconds>(now - lostAt).count() * frequency / (1000000LL * mixBufferFrames);
+				lostBlocks = std::max(lostBlocks, due - mixBufferCount);
+				for (; lostBlocks < due; lostBlocks++)
+					mix();
+				if (now >= nextOpen)
+				{
+					nextOpen = now + 1s;
+					if (ReopenDevice())
+					{
+						lost = false;
+						const ALCchar* name = alcGetString(alDevice, ALC_DEVICE_SPECIFIER);
+						TellMainThread(std::string("Audio: the output opened again on ") + (name ? name : "the default device"));
+						start();
+					}
+				}
+				std::this_thread::sleep_for(2ms);
+				continue;
+			}
+
 			ALint processed = 0;
 			alGetSourcei(alMixSource, AL_BUFFERS_PROCESSED, &processed);
 			while (processed-- > 0)
@@ -413,17 +591,31 @@ public:
 			if (state != AL_PLAYING)
 				alSourcePlay(alMixSource);
 
-			using namespace std::chrono_literals;
 			std::this_thread::sleep_for(2ms);
 		}
 	}
 
 	ALCdevice* alDevice = nullptr;
 	ALCcontext* alContext = nullptr;
+	ALCint contextAttribs[9] = {};      // the context's, for a device opened again
+	bool canTellConnected = false;      // ALC_EXT_disconnect's ALC_CONNECTED answers
 
 	// Deus Ex's mixer, the sounds it holds, and its output
 	std::unique_ptr<GalaxyMixer> mixer;
-	std::unordered_map<USound*, std::shared_ptr<const GalaxySample>> mixedSounds;
+	struct HeldSound
+	{
+		std::shared_ptr<const GalaxySample> sample;
+		size_t bytes = 0;
+		bool mp3 = false;
+		uint64_t lastUse = 0;   // useClock at its last play or its decoding
+	};
+	std::unordered_map<USound*, HeldSound> mixedSounds;
+	// 32 MB, some six minutes of the game's speech, each line some 94 KB a
+	// second decoded against its MP3's 6 KB
+	static constexpr size_t MaxMp3Bytes = (size_t)32 << 20;
+	size_t heldMp3Bytes = 0;
+	uint64_t useClock = 0;
+	uint64_t lastUpdateUse = 0;
 	ALuint alMixSource = 0;
 	Array<ALuint> alMixBuffers;
 	int mixBufferFrames = 0;
@@ -447,11 +639,13 @@ public:
 		int generation = 0;                     // counts the songs set, so the thread's order is its own song's
 		float volume = 0.0f;                    // the music's gain, for the mix thread to play it at
 		std::string failure;                    // why the song stopped, for the main thread to log
+		std::vector<std::string> deviceNotes;   // what became of the output, for it to log
 	} musicThreadData;
 
 	// The mix thread's song, and its place between a source's frames
 	std::unique_ptr<AudioSource> currentMusic;
 	std::vector<float> musicBlock;
+	std::vector<float> musicFrame;          // one frame of a source read between its frames
 	double musicPlace = 2.0;
 	float musicLast[2] = {}, musicNext[2] = {};
 	float globalSoundVolume = 1.0f;
@@ -511,6 +705,7 @@ public:
 
 	void AddSound(USound* sound) override {}
 	void RemoveSound(USound* sound) override {}
+	bool HasSound(USound* sound) override { return true; }
 	bool IsPlaying(int channel) override { return false; }
 	int GetTotalChannels() override { return numVoices; }
 	void PlayMusic(std::unique_ptr<AudioSource> source, float volume) override {}

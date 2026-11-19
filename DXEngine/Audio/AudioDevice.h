@@ -48,6 +48,10 @@ public:
 	virtual ~AudioDevice() = default;
 	virtual void AddSound(USound* sound) = 0;
 	virtual void RemoveSound(USound* sound) = 0;
+	// Whether the device holds the sound's samples: an MP3's are let go of
+	// once it has not played for a while (OpenALAudioDevice::Update), and
+	// the sound is decoded again for its next play (USound::GetSound).
+	virtual bool HasSound(USound* sound) = 0;
 	virtual bool IsPlaying(int channel) = 0;
 	virtual int GetTotalChannels() = 0;
 	// A song in place of the one playing, or none, and the music's gain to

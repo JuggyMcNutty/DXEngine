@@ -11,6 +11,8 @@ public:
 	static std::unique_ptr<AudioSource> CreateWav(Array<uint8_t> filedata);
 	static std::unique_ptr<AudioSource> CreateOgg(Array<uint8_t> filedata, bool loop = false);
 	static std::unique_ptr<AudioSource> CreateMod(Array<uint8_t> filedata, bool loop = true, int subsong = 0);
+	// The source read from its start again at its end, as a song loops
+	static std::unique_ptr<AudioSource> CreateLooped(std::unique_ptr<AudioSource> source);
 
 	AudioSource() = default;
 	virtual ~AudioSource() = default;
@@ -45,6 +47,11 @@ public:
 	// takes as its own (GetFrequency); a no-op for others, which the device
 	// reads between their frames.
 	virtual void SetFrequency(int rate) {}
+
+	// Which of a frame's channels is its front right, the device playing a
+	// source of more than two channels as its front pair: 1, as WAV lays
+	// its channels out; Vorbis's own order for an Ogg one.
+	virtual int GetRightChannel() { return 1; }
 
 	bool bIsLooped = false;
 	uint32_t loopStart = 0;

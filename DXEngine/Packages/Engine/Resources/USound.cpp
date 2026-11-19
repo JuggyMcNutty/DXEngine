@@ -232,23 +232,33 @@ Array<float> USound::Decode()
 	return decoded;
 }
 
-// Decoded once, for the audio device, whose mixer keeps a 16-bit copy of its
-// own (GalaxySample): the samples are not kept here.
+// Decoded at its first play, for the audio device, whose mixer keeps a 16-bit
+// copy of its own (GalaxySample): the samples are not kept here. One the
+// device has let go of since is decoded again (AudioDevice::HasSound).
 void USound::GetSound()
 {
-	if (decoded)
+	AudioDevice* device = engine && engine->audiodev ? engine->audiodev->GetDevice() : nullptr;
+	if (decoded && !(held && device && !device->HasSound(this)))
 		return;
-	decoded = true;
 
+	// Marked decoded only once it is: a sound whose data will not decode
+	// fails at each play as at its first, taking no channel, a guard of
+	// ours where Galaxy's unreadable data is a fatal error at the level's
+	// start (galaxy-dll.md, Playing a sound; bugs.md AUD.28)
 	samples = Decode();
-	if (engine && engine->audiodev && engine->audiodev->GetDevice())
-		engine->audiodev->GetDevice()->AddSound(this);
+	decoded = true;
+	if (device)
+	{
+		device->AddSound(this);
+		held = true;
+	}
 	samples = Array<float>();
 }
 
 float USound::GetDuration()
 {
-	GetSound();
+	if (!decoded)
+		GetSound();
 
 	return duration;
 }
@@ -284,7 +294,8 @@ float USound::GetPeriod()
 
 int USound::GetChannels()
 {
-	GetSound();
+	if (!decoded)
+		GetSound();
 
 	return channels;
 }

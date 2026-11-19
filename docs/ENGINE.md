@@ -863,10 +863,12 @@ by holder, and with glibc a map load's gives the freed memory back to the system
   it, and the walks over every object pass it over, as the original's object table holds none
   (`AllObjects`, `set`, `ResetConfig`, a lookup by name, a level's elimination); a save writes a
   reference to it as None.
-- **A sound** is decoded once, when first played, for the audio device, whose mixer keeps a
+- **A sound** is decoded when first played, for the audio device, whose mixer keeps a
   16-bit copy of its own (`GalaxySample`); the sound keeps its file's bytes, its length,
-  channels, rate, loop and lip-sync letters. Its lip-sync shapes decode the bytes again once,
-  into a buffer let go after.
+  channels, rate, loop and lip-sync letters. Past 32 MB of MP3s' copies, those played longest
+  ago go (`OpenALAudioDevice::ReleaseOldSounds`), never one playing or played in the last
+  frame, and the next play decodes it again; a WAV's copy stays until the sound is freed. Its
+  lip-sync shapes decode the bytes again once, into a buffer let go after.
 - **Saving a level** writes what the level reaches (`PackageWriter`), never the rest of its
   file: an export the collector freed is not loaded back to be saved. An object of a transient
   class is not written either ([as the original's](NATIVES.md#saving-loading-and-travel)).
@@ -921,7 +923,10 @@ its code is:
   order count the order before it until then (`play.galaxy`); a
   section past a song's last order is refused, logged as Galaxy logs it. With no output that
   starts, a device
-  that plays nothing takes OpenAL's place (`Audio initialization failed.`). DXEngine's audio
+  that plays nothing takes OpenAL's place (`Audio initialization failed.`). An output OpenAL
+  Soft finds gone during play (`ALC_CONNECTED`) is logged (`Audio: the output device is
+  gone`), the mix going on at the clock's pace unheard, and the default device is opened
+  again each second until one opens (`Audio: the output opened again on`). DXEngine's audio
   device adds `SpeechVolume` and `DopplerSpeed` to its ini section,
   and keeps Deus Ex's channel count under Galaxy's name, `EffectsChannels`
   ([sound](NATIVES.md#sound)). DXEngine's render device keeps `DetailTextures` beside Surreal

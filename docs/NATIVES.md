@@ -2875,13 +2875,21 @@ ms, so a moving or fading sound steps twice as often; a song's speed
 command that comes to 0 is dropped, where Galaxy's stops its sequencer, the
 song halted while its sounding voices play on, which no stock song has.
 
-Differs (bugs.md AUD.25): a sound device lost during play is not opened
-again: the game stays silent, its mix running fast, nothing logged, where
-Windows moves the original's DirectSound to the new default.
+For the owner (bugs.md AUD.28): an MP3 or WAV song plays from its start
+again at its end, as an Ogg one does, and one of more than two channels as
+its front pair.
 
-Differs (bugs.md AUD.26): each speech line heard stays decoded whole until
-the next collection, some 16 times the original's memory, whose Galaxy
-decodes into a ring while it plays.
+A sound device lost during play, a platform matter: its loss logged, the
+game's sounds and song play on unheard at their pace, and the default
+device is opened again each second, the sound going on there from where
+they have got to, where Windows moves the original's DirectSound to the new
+default at once ([the audio mixer](ENGINE.md#gameplay)).
+
+An MP3 sound, the game's speech among them, is held decoded whole for the
+mixer, where Galaxy decodes one into a ring as it plays: past 32 MB of them,
+some six minutes of distinct speech, those played longest ago are let go of
+and decoded again at their next play, as at their first, an internal method
+with the same sound ([objects and memory](ENGINE.md#objects-and-memory)).
 
 Differs (bugs.md AUD.27): on windows-x86_64 the sound stays on the output
 that was the default at the start, where the original's follows the new
@@ -3552,9 +3560,10 @@ each side before it is turned, two frames' boxes of an animating one, and for
 an actor with no mesh its collision cylinder's plus 1. The game's scripts ask
 it of movers alone.
 
-Differs (bugs.md AUD.28): a mod's music of more than 2 channels plays
-garbled or silent and MP3 and WAV songs do not loop; a sound that fails to
-decode takes a channel at each play.
+For the owner (bugs.md AUD.28): a script's play of a sound whose data will
+not decode is a script error each time, which takes no channel, where
+Galaxy's unreadable data is a fatal error at the level's start
+([`RegisterSound`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)).
 
 Differs (bugs.md ENG.53): on Windows the engine's manifest asks for the
 first kind of per-monitor DPI and no long paths, where the launcher's asks

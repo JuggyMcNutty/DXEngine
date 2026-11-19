@@ -64,11 +64,18 @@ public:
 		return decoder.samples / decoder.info.channels;
 	}
 
+	// The decoder's frame let go of with the seek, so the read goes on from
+	// the place sought, at the data's end too. On the music thread (a song
+	// looped), which must not touch the script's call stack as
+	// Exception::Throw does: a plain error, which the music thread catches.
 	void SeekToSample(uint64_t position) override
 	{
 		int error = mp3dec_ex_seek(&decoder, position);
 		if (error)
-			Exception::Throw("mp3dec_ex_seek failed");
+			throw std::runtime_error("mp3dec_ex_seek failed");
+		buffer = nullptr;
+		available = 0;
+		endofdata = false;
 	}
 
 	size_t ReadSamples(float* output, size_t samples) override
@@ -287,6 +294,14 @@ public:
 	int GetChannels() override
 	{
 		return stream_info.channels;
+	}
+
+	// Vorbis's order: front left, centre, front right for 3 and from 5
+	// channels on, as its specification lays them out
+	int GetRightChannel() override
+	{
+		int c = stream_info.channels;
+		return c == 3 || c >= 5 ? 2 : 1;
 	}
 
 	int GetSamples() override
@@ -544,6 +559,39 @@ public:
 	bool mono = false;
 	bool galaxy = false;        // an IT song, played as Galaxy plays it
 };
+
+// A song that is no module, an MP3 or a WAV one, played over from its start
+// at its end, as a module and an Ogg one loop; one that reads nothing from
+// its start ends there.
+class LoopedAudioSource : public AudioSource
+{
+public:
+	LoopedAudioSource(std::unique_ptr<AudioSource> source) : source(std::move(source)) {}
+
+	int GetFrequency() override { return source->GetFrequency(); }
+	int GetChannels() override { return source->GetChannels(); }
+	int GetSamples() override { return source->GetSamples(); }
+	int GetRightChannel() override { return source->GetRightChannel(); }
+	void SeekToSample(uint64_t position) override { source->SeekToSample(position); }
+
+	size_t ReadSamples(float* output, size_t samples) override
+	{
+		size_t got = source->ReadSamples(output, samples);
+		if (got < samples)
+		{
+			source->SeekToSample(0);
+			got += source->ReadSamples(output + got, samples - got);
+		}
+		return got;
+	}
+
+	std::unique_ptr<AudioSource> source;
+};
+
+std::unique_ptr<AudioSource> AudioSource::CreateLooped(std::unique_ptr<AudioSource> source)
+{
+	return std::make_unique<LoopedAudioSource>(std::move(source));
+}
 
 std::unique_ptr<AudioSource> AudioSource::CreateMp3(Array<uint8_t> filedata)
 {

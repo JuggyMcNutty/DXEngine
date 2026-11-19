@@ -49,6 +49,7 @@ public:
 	// The decoded samples, only while GetSound hands them to the device.
 	Array<float> samples;
 	bool decoded = false;
+	bool held = false;          // handed to the audio device, which may let go of it
 	float duration = 0.0f;
 	int frequency = 0;
 	int channels = 0;
