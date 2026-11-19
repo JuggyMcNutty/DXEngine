@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdint>
 #include <condition_variable>
+#include <exception>
 #include <functional>
 #include <mutex>
 #include <thread>
@@ -28,17 +29,20 @@ public:
 
 	// work(item, thread) for every item from 0 to count, thread 0 the
 	// caller's; returns when every item is done. callerShares: the caller
-	// takes items too, else it waits asleep for the workers.
+	// takes items too, else it waits asleep for the workers. An item's throw
+	// leaves the items not yet begun, and is thrown here once every thread
+	// is done with the phase.
 	void Run(int count, const std::function<void(int item, int thread)>& work, bool callerShares = true);
 
 	// A job on the background thread, which may Run phases; the caller goes
-	// on, and Waits for it before it Runs or Starts anything itself
+	// on, and Waits for it before it Runs or Starts anything itself. The
+	// job's throw is thrown by the Wait after it.
 	void Start(std::function<void()> job);
 	void Wait();
 	bool Busy() const { return Pending.load(std::memory_order_acquire); }
 
-	// The threads a machine gives the device: each of its hardware threads,
-	// or DXE_SW_THREADS's number
+	// The threads a machine gives the device: each CPU the process may run
+	// on (its affinity, a cgroup's quota), or DXE_SW_THREADS's number
 	static int DefaultThreads();
 
 private:
@@ -58,6 +62,8 @@ private:
 	int Count = 0;
 	std::atomic<int> Next{ 0 };
 	std::atomic<int> Finished{ 0 }; // the workers done with the phase
+	std::mutex ErrorMutex;
+	std::exception_ptr Error; // the phase's first throw
 
 	// The background thread, made with the first job
 	std::thread BackgroundThread;
@@ -66,6 +72,7 @@ private:
 	std::condition_variable BackgroundDone;
 	std::function<void()> Job;
 	std::atomic<bool> Pending{ false };
+	std::exception_ptr BackgroundError; // the job's throw, for Wait
 	bool StopBackground = false;
 	bool NoBackground = false; // the system refused it: jobs run in Start
 };

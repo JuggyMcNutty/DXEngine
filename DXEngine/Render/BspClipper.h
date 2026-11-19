@@ -27,13 +27,14 @@ public:
 	~BspClipper();
 
 	// The occlusion grid's size. Its cost is per row, so it follows the image
-	// being drawn (VisibleFrame::Process) rather than a fixed 1080 rows:
-	// capped at MaxWidth x MaxHeight, a 4K frame, so that every image row and
-	// column up to it has its sample line (capped at 2048 x 1080, a 1440p or
-	// 4K frame was scaled into the grid, and a surface or an actor shown only
-	// between two sample lines was culled).
+	// being drawn (VisibleFrame::Process) rather than a fixed 1080 rows, a
+	// sample line for every image row and column, as the original's span
+	// buffer is the frame's own: a frame scaled into a smaller grid culls a
+	// surface or an actor shown only between two sample lines. Capped at
+	// MaxWidth x MaxHeight, past any frame a device makes, the spans being
+	// 16 bits; a grid starts at a 4K frame's size until it is set.
 	void SetViewportSize(int width, int height);
-	enum { MaxWidth = 4096, MaxHeight = 2160 };
+	enum { MaxWidth = 16384, MaxHeight = 16384 };
 
 	void Setup(const mat4& world_to_projection, const Array<PortalSpan>& portalSpans, const vec4& portalPlane);
 
@@ -141,7 +142,7 @@ private:
 	float weightsbuffer[max_additional_vertices * 3 * 2];
 	float* weights = nullptr;
 
-	int ViewportWidth = MaxWidth;
-	int ViewportHeight = MaxHeight;
+	int ViewportWidth = 4096;
+	int ViewportHeight = 2160;
 	float PixelSample = 0.5f;
 };

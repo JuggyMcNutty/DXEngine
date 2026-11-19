@@ -276,6 +276,21 @@ bool D3D11RenderDevice::Init(int NewX, int NewY)
 			}
 		}
 
+		// Microsoft's Basic Render Driver (WARP: vendor 0x1414, device 0x8c),
+		// which Windows gives where no GPU has a driver, not asked for: it
+		// draws on the CPU, and counts as not starting, as the GL and Vulkan
+		// devices pass Mesa's CPU drivers over (CPUDriver)
+		if (!CPUDriver)
+		{
+			ComPtr<IDXGIDevice> adapterDevice;
+			ComPtr<IDXGIAdapter> adapter;
+			DXGI_ADAPTER_DESC desc = {};
+			if (SUCCEEDED(Device->QueryInterface(adapterDevice.GetIID(), adapterDevice.InitPtr())) &&
+				SUCCEEDED(adapterDevice->GetAdapter(adapter.TypedInitPtr())) && SUCCEEDED(adapter->GetDesc(&desc)) &&
+				desc.VendorId == 0x1414 && desc.DeviceId == 0x8c)
+				throw std::runtime_error("its driver draws on the CPU: Microsoft Basic Render Driver");
+		}
+
 		SetDebugName(Device, "D3D11Drv.Device");
 		SetDebugName(Context, "D3D11Drv.Context");
 
@@ -1508,7 +1523,8 @@ void D3D11RenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClea
 	{
 		BufferCount = wantedBufferCount;
 		ReleaseSwapChainResources();
-		UpdateSwapChain();
+		if (!UpdateSwapChain())
+			Exception::Throw("Could not resize D3D11RenderDevice");
 	}
 
 	if (CurrentSizeX && CurrentSizeY)
@@ -2089,6 +2105,8 @@ void D3D11RenderDevice::Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFl
 
 void D3D11RenderDevice::ClearZ()
 {
+	if (!IsLocked) // a frame whose Lock failed: nothing is bound for it, as on GL
+		return;
 	DrawBatches();
 
 	Context->ClearDepthStencilView(SceneBuffers.DepthBufferView, D3D11_CLEAR_DEPTH, 1.0f, 0);
@@ -2191,6 +2209,8 @@ void D3D11RenderDevice::ReadPixels(TextureColor* Pixels)
 
 void D3D11RenderDevice::EndFlash()
 {
+	if (!IsLocked) // a frame whose Lock failed: nothing is bound for it, as on GL
+		return;
 	if (FlashScale != vec4(0.5f, 0.5f, 0.5f, 0.0f) || FlashFog != vec4(0.0f, 0.0f, 0.0f, 0.0f))
 	{
 		DrawBatches();

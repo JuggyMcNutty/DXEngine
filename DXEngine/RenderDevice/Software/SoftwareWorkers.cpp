@@ -5,6 +5,12 @@
 #include <cstdlib>
 #include <system_error>
 
+#if defined(__linux__)
+#include <sched.h>
+#include <fstream>
+#include <string>
+#endif
+
 #if defined(USE_SSE2)
 #include <emmintrin.h>
 #endif
@@ -19,6 +25,61 @@ static inline void Pause()
 #endif
 }
 
+#if defined(__linux__)
+// The CPUs a cgroup's quota gives, rounded up, 0 for no quota: cgroup v2's
+// cpu.max ("max" or "<quota> <period>") of the process's group and of each
+// group above it, the smallest taken; with none, cgroup v1's cpu.cfs_quota_us
+// over cpu.cfs_period_us at the cpu controller's mount (a container's own)
+static int CgroupCpus()
+{
+	auto quotaCpus = [](long long quota, long long period) -> int {
+		if (quota <= 0 || period <= 0)
+			return 0;
+		return (int)std::min<long long>((quota + period - 1) / period, 1 << 20);
+	};
+
+	int cpus = 0;
+	std::string group;
+	{
+		std::ifstream file("/proc/self/cgroup");
+		std::string line;
+		while (std::getline(file, line))
+		{
+			if (line.compare(0, 3, "0::") == 0)
+			{
+				group = line.substr(3);
+				break;
+			}
+		}
+	}
+	while (!group.empty())
+	{
+		std::ifstream file("/sys/fs/cgroup" + (group == "/" ? std::string() : group) + "/cpu.max");
+		std::string quota;
+		long long period = 0;
+		if (file >> quota >> period && quota != "max")
+		{
+			int count = quotaCpus(std::atoll(quota.c_str()), period);
+			if (count > 0 && (cpus == 0 || count < cpus))
+				cpus = count;
+		}
+		size_t slash = group.find_last_of('/');
+		if (group.size() <= 1 || slash == std::string::npos)
+			break;
+		group = slash == 0 ? "/" : group.substr(0, slash);
+	}
+	if (cpus > 0)
+		return cpus;
+
+	std::ifstream quotaFile("/sys/fs/cgroup/cpu/cpu.cfs_quota_us");
+	std::ifstream periodFile("/sys/fs/cgroup/cpu/cpu.cfs_period_us");
+	long long quota = 0, period = 0;
+	if (quotaFile >> quota && periodFile >> period)
+		cpus = quotaCpus(quota, period);
+	return cpus;
+}
+#endif
+
 int SoftwareWorkers::DefaultThreads()
 {
 	if (const char* threads = std::getenv("DXE_SW_THREADS"))
@@ -27,7 +88,30 @@ int SoftwareWorkers::DefaultThreads()
 		if (count >= 1)
 			return std::min(count, 256);
 	}
-	return std::max((int)std::thread::hardware_concurrency(), 1);
+
+	// The CPUs the process may run on, which an affinity mask (taskset, a
+	// container's cpuset) or a quota holds below the machine's: each phase
+	// waits for every worker, so a thread more than these waits its turn on
+	// one of them (bugs.md REN.82)
+	int threads = std::max((int)std::thread::hardware_concurrency(), 1);
+#if defined(__linux__)
+	cpu_set_t allowed;
+	CPU_ZERO(&allowed);
+	if (sched_getaffinity(0, sizeof(allowed), &allowed) == 0 && CPU_COUNT(&allowed) > 0)
+		threads = std::min(threads, (int)CPU_COUNT(&allowed));
+	if (int quota = CgroupCpus(); quota > 0)
+		threads = std::min(threads, quota);
+#elif defined(WIN32)
+	DWORD_PTR processMask = 0, systemMask = 0;
+	if (GetProcessAffinityMask(GetCurrentProcess(), &processMask, &systemMask) && processMask != 0)
+	{
+		int allowed = 0;
+		for (DWORD_PTR mask = processMask; mask; mask &= mask - 1)
+			allowed++;
+		threads = std::min(threads, allowed);
+	}
+#endif
+	return threads;
 }
 
 SoftwareWorkers::SoftwareWorkers(int threads)
@@ -53,7 +137,15 @@ SoftwareWorkers::~SoftwareWorkers()
 {
 	if (BackgroundThread.joinable())
 	{
-		Wait();
+		try
+		{
+			Wait();
+		}
+		catch (...)
+		{
+			// The device's own Wait has taken any throw before it lets the
+			// workers go
+		}
 		{
 			std::lock_guard<std::mutex> lock(BackgroundMutex);
 			StopBackground = true;
@@ -106,6 +198,15 @@ void SoftwareWorkers::Run(int count, const std::function<void(int item, int thre
 		std::unique_lock<std::mutex> lock(Mutex);
 		PhaseDone.wait(lock, [&]() { return Finished.load(std::memory_order_acquire) == (int)Pool.size(); });
 	}
+
+	// An item's throw, on the caller now that no thread reads the phase:
+	// on a worker it would std::terminate the game with nothing logged
+	if (Error)
+	{
+		std::exception_ptr error = std::move(Error);
+		Error = nullptr;
+		std::rethrow_exception(error);
+	}
 }
 
 void SoftwareWorkers::Share(int thread)
@@ -115,7 +216,18 @@ void SoftwareWorkers::Share(int thread)
 		int item = Next.fetch_add(1, std::memory_order_relaxed);
 		if (item >= Count)
 			break;
-		(*Work)(item, thread);
+		try
+		{
+			(*Work)(item, thread);
+		}
+		catch (...)
+		{
+			// The first kept for Run; no item is begun after it
+			std::lock_guard<std::mutex> lock(ErrorMutex);
+			if (!Error)
+				Error = std::current_exception();
+			Next.store(Count, std::memory_order_relaxed);
+		}
 	}
 }
 
@@ -182,10 +294,18 @@ void SoftwareWorkers::Start(std::function<void()> job)
 
 void SoftwareWorkers::Wait()
 {
-	if (!Pending.load(std::memory_order_acquire))
-		return;
-	std::unique_lock<std::mutex> lock(BackgroundMutex);
-	BackgroundDone.wait(lock, [&]() { return !Pending.load(std::memory_order_acquire); });
+	if (Pending.load(std::memory_order_acquire))
+	{
+		std::unique_lock<std::mutex> lock(BackgroundMutex);
+		BackgroundDone.wait(lock, [&]() { return !Pending.load(std::memory_order_acquire); });
+	}
+	// Set before Pending was cleared, so seen once it is
+	if (BackgroundError)
+	{
+		std::exception_ptr error = std::move(BackgroundError);
+		BackgroundError = nullptr;
+		std::rethrow_exception(error);
+	}
 }
 
 void SoftwareWorkers::Background()
@@ -199,8 +319,17 @@ void SoftwareWorkers::Background()
 		std::function<void()> job = std::move(Job);
 		Job = nullptr;
 		lock.unlock();
-		job();
+		std::exception_ptr error;
+		try
+		{
+			job();
+		}
+		catch (...)
+		{
+			error = std::current_exception();
+		}
 		lock.lock();
+		BackgroundError = error;
 		Pending.store(false, std::memory_order_release);
 		BackgroundDone.notify_all();
 	}

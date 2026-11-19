@@ -1080,7 +1080,10 @@ void SDL2DisplayWindow::MakeGLContextCurrent()
 	if (!m_GLContext)
 		return;
 
-	SDL_GL_MakeCurrent(Handle.window, m_GLContext);
+	// Refused, as the X11 window's EGL refuses it: the GL device's start
+	// fails here, named, not at a shader with an empty log
+	if (SDL_GL_MakeCurrent(Handle.window, m_GLContext) != 0)
+		throw std::runtime_error(std::string("Could not make the OpenGL context current: ") + SDL_GetError());
 }
 
 bool SDL2DisplayWindow::SetGLSwapInterval(int interval)

@@ -852,10 +852,6 @@ Differs by choice:
 - **Drawing** is DXEngine's own box test, the depth buffer hiding the rest;
   only whether an actor counts as drawn is the original's.
 
-Differs (bugs.md REN.85): past 4096 by 2160 the occlusion grid has no sample
-line for every pixel, so what shows through a one-pixel gap is culled, where
-the original's grid is the frame's own.
-
 ## On screen
 
 What is drawn and how it looks, against `Render.dll` and `D3DDrv.dll`.
@@ -1070,13 +1066,6 @@ floor (`HugeTileConsole`: the tile at U 1e12 drawn, its shot alike with the
 reference's, `DXE_SW_REFERENCE=1`, and the Vulkan device's, where the device
 read some 8 GiB before the texture and dumped core).
 
-Differs (bugs.md REN.82): the software device makes a thread for every
-hardware thread of the machine, not for the CPUs the process may use, and is
-slower when pinned to fewer.
-
-Differs (bugs.md REN.83): on the X11 window at a depth of 30 the software
-device ends the game at its first frame.
-
 ### Sprites
 
 Matches the original
@@ -1282,12 +1271,6 @@ Differs by choice:
   where the original's walk clips the face by what is drawn in front of it
   and shares a frame between the mirrors of one plane.
 
-Differs (bugs.md REN.84): no decal shows in a mirror's frame; the original's
-decals in a mirror: unread.
-
-Differs (bugs.md REN.89): a mover mirror's plane with a non-uniform
-`PostScale` tilts from the face drawn.
-
 ### Mesh detail
 
 Matches the original's vertex budget and its morph
@@ -1486,7 +1469,8 @@ still, is. DXEngine's own, by choice where no ID is named:
   takes the lowest bit of its turn count at the level's time then, out when
   it is odd; a strobe turns over, every strobe together; a flickering light
   draws afresh, out below one half; and the wavers take 256 fresh draws.
-  Two more by choice: the blink's count is in doubles, where the original's
+  Two more by choice: the blink's count is in doubles, from the level's time
+  summed in doubles beside `TimeSeconds`, where the original's
   render works it out in floats (its x87 at 24 bits), so that from 2^24,
   some 7.3 s × (`LightPeriod` + 1) into the level, its count is always even
   and its light stays lit; and each flickering light has a draw of its own,
@@ -1594,14 +1578,6 @@ original's channel by channel, the faint first shot's at 1.2 to 1.4
 baseline had zeroed it. By choice,
 the fog map is held in floats, where the original's has seven bits a
 texel, drawn at 2c/255, and its table's steps whole numbers.
-
-Differs (bugs.md REN.87): on aarch64 the light maps' four-texel lane fuses
-its multiplies and adds, so a light map differs by bits from x86's and
-between neighbouring texels of a row, where the original's arithmetic, as
-the rest of DXEngine's, fuses none.
-
-Differs (bugs.md REN.88): the blink's doubles are fed a float clock, so from
-128 s on many periods stop blinking, still later than the original's.
 
 ### Brightness
 
@@ -3585,14 +3561,6 @@ frame late, where the original's windows tick first; and a destroyed window
 is freed only at the next collection, which no count of windows brings on,
 where the original deletes it at once.
 
-Differs (bugs.md REN.92): the X11 window's EGL path needs EGL 1.5 and a
-context with no config untested; the GL and D3D11 devices leave some results
-unchecked.
-
-Differs (bugs.md REN.93): the software device's highlighted tiles take its
-general pipeline, its SSE2 lanes differ from the others' out of range, and
-an exception in a phase is caught nowhere.
-
 Differs (bugs.md REN.94): the Vulkan device's `ClearZ` and `EndFlash` do not
 test for a frame in hand, as the GL device's do; nothing seen.
 
@@ -3832,7 +3800,8 @@ console `LODBIAS`, where the original's move is no resize.
   their detail under the bias and getting it back after full screen and
   back, the brightness 0.6, 0.7, 0.8; where the build before took none of
   the words). On Vulkan the bias is held within the GPU's
-  `maxSamplerLodBias`, which no sampler may pass.
+  `maxSamplerLodBias`, which no sampler may pass; on GL ES, whose scene
+  shader holds it, within 16 either way, and one that is no number left out.
 - **The window's least size** is the original's 640x480 as it is dragged
   ([the window](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-window)):
   on Windows the whole window, its frame too, as the original's; on Linux,
@@ -4173,9 +4142,6 @@ frames, as the original's field is, so at high frame rates the level's clock
 stops after hours in one level (1 h at 5,000 frames a second, 7 h at 1,000),
 and the bots' recharges and the computers' lockouts with it; added in double
 and stored as the float, it would go on.
-
-Differs (bugs.md REN.90): on GL ES a `LODBIAS` that is not a finite number
-ends the game.
 
 ## The command line
 

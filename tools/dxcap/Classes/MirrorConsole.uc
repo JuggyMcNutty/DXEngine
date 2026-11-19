@@ -28,6 +28,13 @@
 // lies before the plane, where a device that clips the mirror's frame at
 // its plane draws none of it, and one that does not draws it over the
 // reflection (docs/NATIVES.md, mirrors).
+// With ScorchMarks each view lays a ScorchMark on a wall its mirror shows,
+// the last view's taken off: a view looking down (a floor mirror) on the
+// wall ahead, 24 units over the ground; one looking level (a wall mirror)
+// on the wall behind at the eye's height, 15 degrees aside so the player's
+// reflection does not hide it, the client's Decals set on first: a mark
+// in the reflection would be a decal drawn in a mirror's frame, which
+// neither engine draws.
 // Each line is logged with "DXMIRROR:" in front.
 //=============================================================================
 class MirrorConsole extends Console;
@@ -36,6 +43,7 @@ var config string TargetMap;
 var config float MarkTime;
 var config bool ShinyOff;
 var config bool Straddle;
+var config bool ScorchMarks;
 
 var string CurrentMap;
 var float MapTime;
@@ -50,6 +58,7 @@ var string Names[32];
 var vector Stand;
 var vector MannequinSpot;
 var Effects Mannequin;
+var Actor Scorch;
 var Object Stopped;
 
 // The mark for the original's screen grabber, as CaptureConsole's.
@@ -247,12 +256,49 @@ function StandMannequin(PlayerPawn P)
 		$ " straddling " $ Straddle);
 }
 
+// A ScorchMark on the wall the view's mirror shows (ScorchMarks)
+function LayScorch(PlayerPawn P)
+{
+	local vector Floor, From, HitLocation, HitNormal;
+	local rotator Dir;
+	local Actor HitActor;
+
+	if (Scorch != None)
+		Scorch.Destroy();
+	Scorch = None;
+	Floor = Ground(P, Spots[ViewIndex]);
+	Dir.Yaw = Facings[ViewIndex].Yaw;
+	if (Facings[ViewIndex].Pitch < 0)
+		From = Floor + vect(0,0,24);
+	else
+	{
+		From = Floor + vect(0,0,1) * (P.CollisionHeight + 1 + P.BaseEyeHeight);
+		Dir.Yaw += 32768 + 2731;
+	}
+	HitActor = P.Trace(HitLocation, HitNormal, From + vector(Dir) * 4000, From, false);
+	if (HitActor == None || Abs(HitNormal.Z) > 0.1)
+	{
+		Log("DXMIRROR: no wall for a mark from " $ From $ " met " $ HitActor $ " normal " $ HitNormal);
+		return;
+	}
+	Scorch = P.Spawn(class'ScorchMark',,, HitLocation + HitNormal, rotator(HitNormal));
+	if (Scorch == None)
+	{
+		Log("DXMIRROR: no mark at " $ HitLocation);
+		return;
+	}
+	DeusExDecal(Scorch).ReattachDecal(vect(0,0,1));
+	Log("DXMIRROR: mark " $ Scorch.Name $ " at " $ HitLocation $ " normal " $ HitNormal $ " attached " $ DeusExDecal(Scorch).bAttached);
+}
+
 // The player's feet on the ground under the view's spot
 function BeginView(PlayerPawn P)
 {
 	Stand = Ground(P, Spots[ViewIndex]) + vect(0,0,1) * (P.CollisionHeight + 1);
 	HoldView(P);
 	Log("DXMIRROR: view " $ ViewIndex $ " " $ Names[ViewIndex] $ " standing at " $ Stand $ " zone " $ P.Region.Zone.Name);
+	if (ScorchMarks)
+		LayScorch(P);
 }
 
 function HoldView(PlayerPawn P)
@@ -316,6 +362,11 @@ event Tick(float Delta)
 			if (DeusExRootWindow(DXP.rootWindow) != None)
 				DeusExRootWindow(DXP.rootWindow).ShowHud(False);
 			StandMannequin(P);
+			if (ScorchMarks)
+			{
+				P.ConsoleCommand("set ini:Engine.Engine.ViewportManager Decals True");
+				Log("DXMIRROR: Decals set on");
+			}
 			if (ShinyOff)
 			{
 				// Each engine takes its own render device's; the others' classes

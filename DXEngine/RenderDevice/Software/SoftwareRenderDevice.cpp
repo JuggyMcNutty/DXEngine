@@ -55,8 +55,16 @@ SoftwareRenderDevice::SoftwareRenderDevice(Widget* InViewport)
 
 SoftwareRenderDevice::~SoftwareRenderDevice()
 {
-	// The wave the workers may have, which reads the members, done first
-	Workers->Wait();
+	// The wave the workers may have, which reads the members, done first;
+	// its throw logged, a destructor throwing none
+	try
+	{
+		Workers->Wait();
+	}
+	catch (const std::exception& e)
+	{
+		LogMessage(std::string("Software device: ") + e.what());
+	}
 }
 
 void SoftwareRenderDevice::Flush(bool AllowPrecache)

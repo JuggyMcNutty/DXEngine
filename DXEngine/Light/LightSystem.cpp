@@ -51,8 +51,18 @@ void LightSystem::Tick(float frameElapsed)
 	{
 		StepTime = std::min(StepTime - step, step);
 		Steps++;
-		StepLevelTime = engine->LevelInfo ? engine->LevelInfo->TimeSeconds() : 0.0f;
+		float timeSeconds = engine->LevelInfo ? engine->LevelInfo->TimeSeconds() : 0.0f;
+		StepLevelTime = timeSeconds == LevelTimeSeen ? LevelTime : (double)timeSeconds;
 	}
+}
+
+void LightSystem::AdvanceLevelTime(float& timeSeconds, float elapsed)
+{
+	if (timeSeconds != LevelTimeSeen)
+		LevelTime = timeSeconds;
+	timeSeconds += elapsed;
+	LevelTime += elapsed;
+	LevelTimeSeen = timeSeconds;
 }
 
 void LightSystem::OnMapLoaded()

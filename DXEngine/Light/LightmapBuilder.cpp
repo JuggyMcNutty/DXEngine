@@ -411,11 +411,12 @@ float LightmapBuilder::GlobalLighting(UActor* light, float brightness, vec3* col
 		// a second in 65536ths over the period plus one, from the phase's
 		// 256ths of a turn, truncated. Taken at the level's time of the
 		// lights' last step (LightSystem::Tick), where the original's takes it
-		// each frame. In doubles, by choice: the original's x87 is held to 24
+		// each frame. In doubles, by choice, the level's time too
+		// (LightSystem::AdvanceLevelTime): the original's x87 is held to 24
 		// bits while it draws (URender::PreRender's appEnableFastMath), so
 		// from 2^24 on its count is even and its light stays lit, some 7.3 s
 		// x (the period + 1) into the level (docs/NATIVES.md, lighting)
-		double count = (double)engine->Level->Light.StepLevelTime * 2293760.0 / (double)(light->LightPeriod() + 1) +
+		double count = engine->Level->Light.StepLevelTime * 2293760.0 / (double)(light->LightPeriod() + 1) +
 			(double)(light->LightPhase() * 256);
 		if ((int64_t)count & 1)
 			brightness = 0.0f;

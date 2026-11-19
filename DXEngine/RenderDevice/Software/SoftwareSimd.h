@@ -407,11 +407,14 @@ namespace SoftwareSimd
 	inline W8 Interleave(I4 b, I4 g, I4 r, I4 a, int half)
 	{
 #if defined(SOFTWARE_SSE2)
-		// packssdw saturates as signed: moved by 32768 and back
+		// packssdw saturates as signed: moved by 32768 and back, a value
+		// under 0 made 0 first, which the move would wrap past INT_MIN + 32768
+		// (Truncate's out of range), as the NEON and plain lanes take it
 		const __m128i bias32 = _mm_set1_epi32(32768);
 		const __m128i bias16 = _mm_set1_epi16((short)0x8000);
-		__m128i bg = _mm_xor_si128(_mm_packs_epi32(_mm_sub_epi32(b.v, bias32), _mm_sub_epi32(g.v, bias32)), bias16);
-		__m128i ra = _mm_xor_si128(_mm_packs_epi32(_mm_sub_epi32(r.v, bias32), _mm_sub_epi32(a.v, bias32)), bias16);
+		auto low = [&](__m128i v) { return _mm_sub_epi32(_mm_andnot_si128(_mm_srai_epi32(v, 31), v), bias32); };
+		__m128i bg = _mm_xor_si128(_mm_packs_epi32(low(b.v), low(g.v)), bias16);
+		__m128i ra = _mm_xor_si128(_mm_packs_epi32(low(r.v), low(a.v)), bias16);
 		__m128i x = _mm_unpacklo_epi16(bg, ra); // b0 r0 b1 r1 b2 r2 b3 r3
 		__m128i y = _mm_unpackhi_epi16(bg, ra); // g0 a0 g1 a1 g2 a2 g3 a3
 		return { half ? _mm_unpackhi_epi16(x, y) : _mm_unpacklo_epi16(x, y) };

@@ -174,7 +174,10 @@ void LightEffect::NoneEffect(LightEffectArgs* args)
 		float32x4_t Ly = vsubq_f32(vLy0, P.val[1]);
 		float32x4_t Lz = vsubq_f32(vLz0, P.val[2]);
 
-		float32x4_t lensqr = vfmaq_f32(vfmaq_f32(vmulq_f32(Lx, Lx), Ly, Ly), Lz, Lz);
+		// Each product added on its own, in the scalar lane's order, never
+		// fused (vfmaq_f32), which -ffp-contract=off does not reach in an
+		// intrinsic: the same bits as the SSE2 and scalar lanes
+		float32x4_t lensqr = vaddq_f32(vaddq_f32(vmulq_f32(Lx, Lx), vmulq_f32(Ly, Ly)), vmulq_f32(Lz, Lz));
 		uint32x4_t inRange = vcltq_f32(vmulq_f32(lensqr, vInvR2), one);
 
 		if (vmaxvq_u32(inRange))
@@ -190,14 +193,14 @@ void LightEffect::NoneEffect(LightEffectArgs* args)
 			Ly = vmulq_f32(Ly, rcpdist);
 			Lz = vmulq_f32(Lz, rcpdist);
 
-			float32x4_t angle = vfmaq_f32(vfmaq_f32(vmulq_f32(Lx, vNx), Ly, vNy), Lz, vNz);
+			float32x4_t angle = vaddq_f32(vaddq_f32(vmulq_f32(Lx, vNx), vmulq_f32(Ly, vNy)), vmulq_f32(Lz, vNz));
 			angle = vabsq_f32(angle);
 			angle = vbslq_f32(lenmask, angle, one);
 
 			float32x4_t v = vmulq_f32(len, vInvR);
 			float32x4_t v2 = vmulq_f32(v, v);
 			float32x4_t v3 = vmulq_f32(v2, v);
-			float32x4_t num = vsubq_f32(vfmaq_f32(one, two, v3), vmulq_f32(three, v2));
+			float32x4_t num = vsubq_f32(vaddq_f32(one, vmulq_f32(two, v3)), vmulq_f32(three, v2));
 			float32x4_t dist = num;
 
 			float32x4_t value = vmulq_f32(vld1q_f32(shadowmap), vmulq_f32(dist, angle));
@@ -248,7 +251,9 @@ void LightEffect::NoneEffect(LightEffectArgs* args)
 			float v3 = v2 * v;
 			float distanceAttenuation = 1.0f + 2.0f * v3 - 3.0f * v2;
 
-			*result = (*shadowmap) * distanceAttenuation * angleAttenuation;
+			// The two attenuations multiplied first, as the four-wide lanes
+			// multiply them: a span's last texels the same bits as its others
+			*result = (*shadowmap) * (distanceAttenuation * angleAttenuation);
 		}
 		else
 		{

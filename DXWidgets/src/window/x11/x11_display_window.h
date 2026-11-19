@@ -158,6 +158,9 @@ private:
 		XShmSegmentInfo shm = {};
 		bool shared = false;
 		bool pending = false;
+
+		// A visual of 10:10:10 (depth 30), each frame packed to it
+		bool packed10 = false;
 	} backbuffer;
 
 	bool needsUpdate = false;

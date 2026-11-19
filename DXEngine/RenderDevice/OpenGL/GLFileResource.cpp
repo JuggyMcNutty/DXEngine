@@ -68,7 +68,6 @@ std::string GLFileResource::readAllText(const std::string& filename)
 			layout(location = 3) in vec2 texCoord3;
 			layout(location = 4) in vec2 texCoord4;
 			layout(location = 5) in vec4 color;
-			layout(location = 7) flat in ivec4 textureBinds;
 			#if defined(CLIP_DISCARD)
 			layout(location = 8) in float clipDistance;
 			#endif

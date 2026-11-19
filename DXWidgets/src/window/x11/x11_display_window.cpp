@@ -670,11 +670,13 @@ namespace
 
 void X11DisplayWindow::CreateBackbuffer(int width, int height)
 {
-	// The software device's frame is 8-bit BGRA: a visual of another depth
-	// or other masks (30-bit's 10:10:10, 16-bit's) would show its bytes as
-	// something else, so it is refused with what it is
+	// The software device's frame is 8-bit BGRA, which a visual of 8:8:8
+	// takes as it is and one of 10:10:10 at a depth of 30 (a 10-bit desktop)
+	// takes packed at the present; one of other masks (16-bit's) would show
+	// its bytes as something else, so it is refused with what it is
 	Visual* defaultVisual = DefaultVisual(display, screen);
-	if (!((depth == 24 || depth == 32) && defaultVisual->red_mask == 0xff0000 && defaultVisual->green_mask == 0xff00 && defaultVisual->blue_mask == 0xff))
+	backbuffer.packed10 = depth == 30 && defaultVisual->red_mask == 0x3ff00000 && defaultVisual->green_mask == 0xffc00 && defaultVisual->blue_mask == 0x3ff;
+	if (!backbuffer.packed10 && !((depth == 24 || depth == 32) && defaultVisual->red_mask == 0xff0000 && defaultVisual->green_mask == 0xff00 && defaultVisual->blue_mask == 0xff))
 		throw std::runtime_error("The X11 display's visual is not 8-bit BGRA (depth " + std::to_string(depth) + ", masks " + std::to_string(defaultVisual->red_mask) + "/" + std::to_string(defaultVisual->green_mask) + "/" + std::to_string(defaultVisual->blue_mask) + "): the software device cannot draw to it");
 
 	backbuffer.pixmap = XCreatePixmap(display, window, width, height, depth);
@@ -774,7 +776,22 @@ void X11DisplayWindow::PresentBitmap(int width, int height, const uint32_t* pixe
 			XSync(display, False);
 			backbuffer.pending = false;
 		}
-		memcpy(backbuffer.pixels, pixels, width * height * sizeof(uint32_t));
+		if (backbuffer.packed10)
+		{
+			// Each 8-bit channel to 10 bits, its top two bits repeated below
+			// it, so that 255 is 1023
+			uint32_t* dest = (uint32_t*)backbuffer.pixels;
+			for (size_t i = 0, count = (size_t)width * height; i < count; i++)
+			{
+				uint32_t c = pixels[i];
+				uint32_t r = (c >> 16) & 0xff, g = (c >> 8) & 0xff, b = c & 0xff;
+				dest[i] = (((r << 2) | (r >> 6)) << 20) | (((g << 2) | (g >> 6)) << 10) | ((b << 2) | (b >> 6));
+			}
+		}
+		else
+		{
+			memcpy(backbuffer.pixels, pixels, width * height * sizeof(uint32_t));
+		}
 		GC gc = XDefaultGC(display, screen);
 		if (backbuffer.shared)
 		{
@@ -1656,11 +1673,11 @@ void X11DisplayWindow::CreateGLContext()
 		EGL_RENDERABLE_TYPE, renderableBit,
 		EGL_COLOR_BUFFER_TYPE, EGL_RGB_BUFFER,
 
+		// No depth or stencil: the GL device draws its scene into buffers of
+		// its own, the window's taking only the present
 		EGL_RED_SIZE, 8,
 		EGL_GREEN_SIZE, 8,
 		EGL_BLUE_SIZE, 8,
-		EGL_DEPTH_SIZE, 24,
-		EGL_STENCIL_SIZE, 8,
 
 		EGL_NONE
 	};
@@ -1668,7 +1685,12 @@ void X11DisplayWindow::CreateGLContext()
 	if (!eglBindAPI(m_GLIsES ? EGL_OPENGL_ES_API : EGL_OPENGL_API))
 		throw std::runtime_error("EGL cannot bind to the GL API");
 
-	m_EGLDisplay = eglGetPlatformDisplay(EGL_PLATFORM_X11_KHR, display, nullptr);
+	// EGL 1.5's call, looked up: a library of 1.4 lacks it, and is refused
+	// as the version test below refuses it, not called into
+	auto getPlatformDisplay = (PFNEGLGETPLATFORMDISPLAYPROC)eglGetProcAddress("eglGetPlatformDisplay");
+	if (!getPlatformDisplay)
+		throw std::runtime_error("EGL version 1.5 or higher required");
+	m_EGLDisplay = getPlatformDisplay(EGL_PLATFORM_X11_KHR, display, nullptr);
 
 	if (m_EGLDisplay == EGL_NO_DISPLAY)
 		throw std::runtime_error("No EGL Display found");
@@ -1679,25 +1701,40 @@ void X11DisplayWindow::CreateGLContext()
 	if (majorVer < 1 || (majorVer == 1 && minorVer < 5))
 		throw std::runtime_error("EGL version 1.5 or higher required");
 
-	m_EGLContext = eglCreateContext(m_EGLDisplay, EGL_NO_CONFIG_KHR, EGL_NO_CONTEXT, ctxAttrs);
-	if (m_EGLContext == EGL_NO_CONTEXT)
-		throw std::runtime_error("Failed to create EGL context. Error code: " + std::to_string(eglGetError()));
-
 	EGLConfig configs[32];
 	EGLint config_count = 32;
 
 	if (!eglChooseConfig(m_EGLDisplay, confAttrs, configs, config_count, &config_count) || config_count == 0)
 		throw std::runtime_error("Cannot choose EGL config. Error code: " + std::to_string(eglGetError()));
 
+	EGLConfig surfaceConfig = nullptr;
 	for (EGLint i = 0 ; i < config_count ; i++)
 	{
 		m_EGLSurface = eglCreateWindowSurface(m_EGLDisplay, configs[i], window, nullptr);
 		if (m_EGLSurface != EGL_NO_SURFACE)
+		{
+			surfaceConfig = configs[i];
 			break;
+		}
 	}
 
 	if (m_EGLSurface == EGL_NO_SURFACE)
 		throw std::runtime_error("Failed to create EGL surface. Error code: " + std::to_string(eglGetError()));
+
+	// A context of no config where the display takes one
+	// (EGL_KHR_no_config_context), else the surface's
+	const char* extensions = eglQueryString(m_EGLDisplay, EGL_EXTENSIONS);
+	bool noConfig = extensions && strstr(extensions, "EGL_KHR_no_config_context");
+	m_EGLContext = eglCreateContext(m_EGLDisplay, noConfig ? EGL_NO_CONFIG_KHR : surfaceConfig, EGL_NO_CONTEXT, ctxAttrs);
+	if (m_EGLContext == EGL_NO_CONTEXT)
+	{
+		// The surface made first let go of: the destructor, which tests
+		// for a context, would leave it
+		EGLint error = eglGetError();
+		eglDestroySurface(m_EGLDisplay, m_EGLSurface);
+		m_EGLSurface = EGL_NO_SURFACE;
+		throw std::runtime_error("Failed to create EGL context. Error code: " + std::to_string(error));
+	}
 }
 
 void X11DisplayWindow::MakeGLContextCurrent()

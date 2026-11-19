@@ -267,21 +267,22 @@ void GLRenderDevice::LogFrameGLErrors(const char* what)
 
 // The most samples a multisampled texture of the format takes, as the driver
 // lists them for it (glGetInternalformativ, ES 3.1's and desktop 4.2's), the
-// first of its list; GL_MAX_COLOR_TEXTURE_SAMPLES and
-// GL_MAX_DEPTH_TEXTURE_SAMPLES, the most of any format, where it lists none
+// first of its list, and 1 where it lists none, the format taking no
+// multisampling; GL_MAX_COLOR_TEXTURE_SAMPLES and
+// GL_MAX_DEPTH_TEXTURE_SAMPLES, the most of any format, where it cannot say
 static int FormatSamples(GLenum format)
 {
 	TakeGLErrors();
 	GLint count = 0;
 	glGetInternalformativ(GL_TEXTURE_2D_MULTISAMPLE, format, GL_NUM_SAMPLE_COUNTS, 1, &count);
-	GLint most = 0;
+	GLint most = 1;
 	if (count > 0)
 	{
 		std::vector<GLint> samples(count);
 		glGetInternalformativ(GL_TEXTURE_2D_MULTISAMPLE, format, GL_SAMPLES, count, samples.data());
 		most = samples[0];
 	}
-	if (!TakeGLErrors().empty() || count <= 0)
+	if (!TakeGLErrors().empty())
 	{
 		GLint maxColor = 0, maxDepth = 0;
 		glGetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &maxColor);
@@ -1257,6 +1258,19 @@ void GLRenderDevice::UnmapVertices()
 
 void GLRenderDevice::SetLODBias(float bias)
 {
+	// GL ES's goes into the scene shader's source as a number (LOD_BIAS),
+	// where nan or inf would not compile: a NaN left out and the bias held
+	// to +-16, as desktop GL's sampler holds it to GL_MAX_TEXTURE_LOD_BIAS
+	// (a guard of ours, bugs.md REN.90)
+	if (IsGLES)
+	{
+		if (std::isnan(bias))
+			return;
+		if (bias > 16.0f)
+			bias = 16.0f;
+		else if (bias < -16.0f)
+			bias = -16.0f;
+	}
 	if (bias != LODBias)
 	{
 		LODBias = bias;

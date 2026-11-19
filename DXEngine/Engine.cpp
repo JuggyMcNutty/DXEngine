@@ -559,7 +559,8 @@ void Engine::Run()
 
 		if (EntryLevel && EntryLevel != Level)
 			EntryLevelInfo->TimeSeconds() += entryLevelElapsed;
-		LevelInfo->TimeSeconds() += levelElapsed;
+		// Summed in a double too, for the blinks' count (LightSystem)
+		Level->Light.AdvanceLevelTime(LevelInfo->TimeSeconds(), levelElapsed);
 		Logger::Get()->SetTimeSeconds(LevelInfo->TimeSeconds());
 
 		// Update the time fields: the local time to the millisecond, as the

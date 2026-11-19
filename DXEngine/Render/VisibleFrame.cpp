@@ -156,9 +156,14 @@ void VisibleFrame::ProcessMoverMirrors()
 			vec3 points[32];
 			for (size_t i = 0; i < poly.Vertices.size(); i++)
 				points[i] = (toWorld * vec4(poly.Vertices[i], 1.0f)).xyz();
-			vec3 normal = (toWorld * vec4(poly.Normal, 0.0f)).xyz();
+			// The normal as the filing turns it, over PostScale squared where
+			// the matrix takes it times PostScale, as the face's draw and its
+			// light take it (VisibleBrush::DrawBrushPoly, LightSystem): the
+			// plane of the face drawn
+			vec3 postScale = mover->PostScale().Scale;
+			vec3 normal = (toWorld * vec4(poly.Normal, 0.0f)).xyz() / (postScale * postScale);
 			float len = length(normal);
-			if (len <= 0.0f)
+			if (!(len > 0.0f) || !std::isfinite(len)) // a PostScale of 0 too
 				continue;
 			normal = normal / len;
 			vec4 plane(normal, -dot(normal, points[0]));

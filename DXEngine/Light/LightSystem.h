@@ -143,7 +143,15 @@ public:
 	// counts them, a strobe out at an odd one; StepLevelTime is the level's
 	// time at the last, which a blink's turn count is taken at.
 	int Steps = 0;
-	float StepLevelTime = 0.0f;
+	double StepLevelTime = 0.0;
+
+	// The level's time in doubles, for a blink's count: each frame's time
+	// added to TimeSeconds, the float the scripts read, and to LevelTime,
+	// which starts again from TimeSeconds wherever it is set by anything else
+	// (a level's start, a save's load)
+	void AdvanceLevelTime(float& timeSeconds, float elapsed);
+	double LevelTime = 0.0;
+	float LevelTimeSeen = -1.0f;
 
 	void OnMapLoaded();
 
