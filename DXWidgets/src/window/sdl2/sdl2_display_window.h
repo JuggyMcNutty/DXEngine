@@ -90,7 +90,7 @@ public:
 	template<typename T>
 	Point GetMousePos(const T& event)
 	{
-		double uiscale = GetDpiScale();
+		double uiscale = UIScale;   // SDL's units per DIP (GetDpiScale)
 		return Point(event.x / uiscale, event.y / uiscale);
 	}
 
@@ -112,11 +112,18 @@ public:
 	double UIScale = 1.0;
 
 	bool CursorLocked = false;
+	bool RelativeModeOn = false;          // SDL's relative mode granted (LockCursor)
+	bool RelativeModeRefusalSaid = false; // its refusal logged
 	bool isFullscreen = false;
 	bool placed = false;   // put somewhere by SetClientFrame
 	int fullscreenWidth = 0;
 	int fullscreenHeight = 0;
 	void ApplyFullscreen();
+	// The window's own text input, as SDL3's window has it: SDL2's is one for
+	// every window, so it is set to the window's as the window takes the
+	// keyboard (ApplyTextInput)
+	bool KeyboardLocked = false;
+	void ApplyTextInput();
 
 	static bool ExitRunLoop;
 	static Uint32 PaintEventNumber;

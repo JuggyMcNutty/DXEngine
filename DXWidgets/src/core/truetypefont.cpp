@@ -1057,7 +1057,9 @@ void TTC_Header::Load(TrueTypeFileReader& reader)
 		throw std::runtime_error("Unsupported TTC header version");
 
 	numFonts = reader.ReadUInt32();
-	for (ttf_uint16 i = 0; i < numFonts; i++)
+	// A count as wide as numFonts: a 16-bit one never reached a count past
+	// 65,535, looping until the reader threw (bugs.md WIN.60)
+	for (ttf_uint32 i = 0; i < numFonts; i++)
 	{
 		tableDirectoryOffsets.push_back(reader.ReadOffset32());
 	}

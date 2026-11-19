@@ -1,0 +1,9 @@
+# FocusLossConsole on the SDL windows (bugs.md ENG.40): a key held over a
+# focus change is pressed again by the name its press had. Under the AZERTY
+# family the key at Q's place is A. Beside tools/dxcap/focusheld.py keys,
+# which takes the focus away some 15 s in and gives it back 4 s later:
+# DXCAP_BACKEND=SDL3 DXCAP_TIMELINE=<this> tools/dxcap.sh dxe FocusLossConsole 01_NYC_UNATCOIsland 40
+start 2.0 keylayout AZERTY
+start 8.0 keydown Q
+start 27.0 keyup Q
+start 28.0 keylayout

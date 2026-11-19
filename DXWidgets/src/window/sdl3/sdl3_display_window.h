@@ -123,6 +123,8 @@ public:
 	SDL_Surface* windowIconSurface = nullptr;
 
 	bool CursorLocked = false;
+	bool RelativeModeOn = false;          // SDL's relative mode granted (LockCursor)
+	bool RelativeModeRefusalSaid = false; // its refusal logged
 	// The relative motion's fractions not yet passed on
 	float RawMoveFractionX = 0.0f;
 	float RawMoveFractionY = 0.0f;

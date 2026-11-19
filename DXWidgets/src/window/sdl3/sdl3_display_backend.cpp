@@ -67,8 +67,10 @@ bool SDL3DisplayBackend::GetGamepadState(GamepadState& state)
 	state = {};
 
 	// Controllers can be plugged in or out at any time; keep the first
-	// attached one, and look again when it goes away. Opening is
-	// reference-counted, so reopening one the constructor opened is harmless.
+	// attached one, and look again when it goes away. One the constructor
+	// opened is taken as it is, so that its one close here as it goes frees
+	// it (opening is reference-counted; bugs.md WIN.57); one plugged in
+	// later is opened here.
 	if (Gamepad && !SDL_GamepadConnected(Gamepad))
 	{
 		SDL_CloseGamepad(Gamepad);
@@ -79,7 +81,11 @@ bool SDL3DisplayBackend::GetGamepadState(GamepadState& state)
 		int count = 0;
 		SDL_JoystickID* ids = SDL_GetGamepads(&count);
 		if (ids && count > 0)
-			Gamepad = SDL_OpenGamepad(ids[0]);
+		{
+			Gamepad = SDL_GetGamepadFromID(ids[0]);
+			if (!Gamepad)
+				Gamepad = SDL_OpenGamepad(ids[0]);
+		}
 		SDL_free(ids);
 	}
 	if (!Gamepad)

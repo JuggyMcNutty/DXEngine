@@ -22,6 +22,11 @@ WaylandDisplayWindow::WaylandDisplayWindow(WaylandDisplayBackend* backend, Displ
 	m_NativeHandle.display = backend->s_waylandDisplay;
 	m_NativeHandle.surface = m_WindowSurface;
 
+	// At the output's scale from the start, where the compositor gives a
+	// whole-number one alone: its event came before the window
+	if (!backend->m_FractionalScaleManager && backend->m_OutputScale > 0)
+		m_ScaleFactor = backend->m_OutputScale;
+
 	if (backend->m_Viewporter)
 	{
 		m_Viewport = backend->m_Viewporter.get_viewport(m_WindowSurface);

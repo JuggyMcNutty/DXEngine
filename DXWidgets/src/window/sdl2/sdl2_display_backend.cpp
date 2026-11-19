@@ -50,6 +50,10 @@ SDL2DisplayBackend::SDL2DisplayBackend()
 	if (HostRootUnmapped())
 		SDL_SetHint("SDL_JOYSTICK_DISABLE_UDEV", "1");
 #endif
+	// A pad's face buttons by their places, as SDL3 reads every pad and the
+	// launcher promises (Joy1 the bottom one): SDL2 reads a Nintendo-layout
+	// pad's by their letters unless told (bugs.md WIN.49)
+	SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "0");
 	int result = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER);
 	if (result != 0)
 		throw std::runtime_error(std::string("Unable to initialize SDL:") + SDL_GetError());
@@ -100,8 +104,10 @@ bool SDL2DisplayBackend::GetGamepadState(GamepadState& state)
 	state = {};
 
 	// Controllers can be plugged in or out at any time; keep the first
-	// attached one, and look again when it goes away. Opening is
-	// reference-counted, so reopening one the constructor opened is harmless.
+	// attached one, and look again when it goes away. One the constructor
+	// opened is taken as it is, so that its one close here as it goes frees
+	// it (opening is reference-counted; bugs.md WIN.57); one plugged in
+	// later is opened here.
 	if (Gamepad && !SDL_GameControllerGetAttached(Gamepad))
 	{
 		SDL_GameControllerClose(Gamepad);
@@ -112,7 +118,11 @@ bool SDL2DisplayBackend::GetGamepadState(GamepadState& state)
 		for (int i = 0; i < SDL_NumJoysticks() && !Gamepad; i++)
 		{
 			if (SDL_IsGameController(i))
-				Gamepad = SDL_GameControllerOpen(i);
+			{
+				Gamepad = SDL_GameControllerFromInstanceID(SDL_JoystickGetDeviceInstanceID(i));
+				if (!Gamepad)
+					Gamepad = SDL_GameControllerOpen(i);
+			}
 		}
 	}
 	if (!Gamepad)

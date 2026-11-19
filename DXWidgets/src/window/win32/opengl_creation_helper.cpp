@@ -47,7 +47,7 @@ OpenGLCreationHelper::OpenGLCreationHelper(HWND window, HDC hdc) : hdc(hdc)
 	query_context = wglCreateContext(query_dc);
 	if (query_context == 0)
 	{
-		DeleteDC(query_dc);
+		ReleaseDC(query_window, query_dc);
 		DestroyWindow(query_window);
 		throw std::runtime_error("Unable to create OpenGL context for creation query window");
 	}
@@ -56,7 +56,8 @@ OpenGLCreationHelper::OpenGLCreationHelper(HWND window, HDC hdc) : hdc(hdc)
 OpenGLCreationHelper::~OpenGLCreationHelper()
 {
 	wglDeleteContext(query_context);
-	DeleteDC(query_dc);
+	// GetDC's, which ReleaseDC frees, not DeleteDC (bugs.md WIN.59)
+	ReleaseDC(query_window, query_dc);
 	DestroyWindow(query_window);
 }
 

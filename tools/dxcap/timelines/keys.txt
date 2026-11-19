@@ -8,7 +8,10 @@
 # window sends after it (DXKEY: char; B, Caps Lock on since its press);
 # and typing keys under the AZERTY, QWERTZ, Dvorak, Swedish, Brazilian ABNT
 # and Japanese 106 families (keylayout), each named as Wine names the
-# layout's, then the system's layout again. With DXCAP_BACKEND=SDL3 or SDL2,
+# layout's, then the system's layout again; then Henkan and Muhenkan,
+# Hangul and Hanja, the volume keys and the media keys (SDL3's names), each
+# its Windows code (Unknown1C, Unknown1D, Unknown15, Unknown19, UnknownAD
+# to UnknownB3). With DXCAP_BACKEND=SDL3 or SDL2,
 # then an exit (SDL2 sends no character for the timeline's Alt and B: its
 # text is the platform's alone).
 start 12.0 keydown Left Shift
@@ -134,4 +137,26 @@ start 36.2 keyup International 3
 start 36.4 keylayout
 start 36.6 keydown Q
 start 36.8 keyup Q
-start 38 exit
+start 37.0 keydown International 4
+start 37.2 keyup International 4
+start 37.4 keydown International 5
+start 37.6 keyup International 5
+start 37.8 keydown Language 1
+start 38.0 keyup Language 1
+start 38.2 keydown Language 2
+start 38.4 keyup Language 2
+start 38.6 keydown Mute
+start 38.8 keyup Mute
+start 39.0 keydown VolumeDown
+start 39.2 keyup VolumeDown
+start 39.4 keydown VolumeUp
+start 39.6 keyup VolumeUp
+start 39.8 keydown MediaTrackNext
+start 40.0 keyup MediaTrackNext
+start 40.2 keydown MediaTrackPrevious
+start 40.4 keyup MediaTrackPrevious
+start 40.6 keydown MediaStop
+start 40.8 keyup MediaStop
+start 41.0 keydown MediaPlayPause
+start 41.2 keyup MediaPlayPause
+start 43 exit

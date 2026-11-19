@@ -289,7 +289,7 @@ The environment:
 | Variable | What it does |
 |---|---|
 | `DXE_VK_NO_BINDLESS=1` | Forces the Vulkan device's per-batch descriptor-set path, the one a GPU without descriptor indexing (the Smart Pro's, for one) takes. |
-| `DXE_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3`, `X11` or `Win32`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2, on Windows of SDL3, Win32 and SDL2. The launchers set it to the SDL backend their port's engine is built with, the one with the pad ([which](#running-on-our-devices)); the log's `Window:` line names the one that started. |
+| `DXE_DISPLAY_BACKEND` | The window backend: `SDL2`, `SDL3`, `X11` or `Win32`. Unset, or naming one the build lacks: the first that starts of Wayland, X11, SDL3 and SDL2, on Windows of SDL3, Win32 and SDL2. The launchers set it to the SDL backend their port's engine is built with, the one with the pad ([which](#running-on-our-devices)); the log's `Window:` line names the one that started, a `Window: no <name> window:` line before it each one tried that did not start, with its reason, and a `Window: the <name> window reads no pad` line one with no pad (the X11, Wayland and Win32 windows). |
 | `DXE_FONT`, `DXE_MONOSPACE_FONT` | The font files DXWidgets' default loader takes for its UI and monospace fonts in a build without GLib and fontconfig, before the usual DejaVu and Noto files. Unused by the engine, whose UI's fonts are `DXEngine.pk3`'s. |
 | `DXL_LAUNCHER_FD` | The launcher's line ([running it](#running-it)). |
 | `DXE_SW_REFERENCE=1`, `check` | The software device shades with its float reference in its pipelines' place; with `check`, with both, each from the same frame, and logs every 60 frames how far apart they came out ([rendering](#rendering)). |
@@ -395,10 +395,16 @@ By area, as the code stands. Each device's numbers are its port's, such as
 - **The mouse and the keyboard under SDL**: the game's view takes the mouse in relative mode
   (`SDL_SetWindowRelativeMouseMode` under SDL3, `SDL_SetRelativeMouseMode` under SDL2), which
   hides the desktop's pointer, keeps it in the window and gives motion past the screen's edge;
-  the UI draws its own. Text input is on only while the game takes text, its UI holding the
-  keyboard (every modal up grabs it) or the console typing (`Engine::TickWindow`, the window's
-  `LockKeyboard`): in play a desktop's input method leaves held keys alone, where KDE's
-  press-and-hold accent picker takes a held letter in a Wayland window with text input on. On
+  the UI draws its own. Where SDL3 refuses relative mode (a Wayland compositor without the
+  relative-pointer or pointer-constraints protocols) the view still turns by the pointer's
+  motion, the pointer neither held nor hidden; the window asks again each frame it has the
+  focus, and the log says the first refusal (`Window: SDL refused relative mouse mode`). SDL2
+  refuses none: it moves the pointer back to the window's middle instead, where the system
+  lets it. Text input is on only
+  while the game takes text, its UI holding the keyboard (every modal up grabs it) or the
+  console typing (`Engine::TickWindow`, the window's `LockKeyboard`): in play a desktop's
+  input method leaves held keys alone, where KDE's press-and-hold accent picker takes a held
+  letter in a Wayland window with text input on. On
   Windows, text input off, Alt+Space opens the game window's menu (`SC_KEYMENU`); SDL3's
   mnemonics hint stays off in it, and the Win32 game window keeps every other character typed
   with Alt from `DefWindowProc`, so that none reaches Windows' menu

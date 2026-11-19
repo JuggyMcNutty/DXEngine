@@ -634,11 +634,14 @@ double Win32DisplayWindow::GetDpiScale() const
 	return DelayLoadGetDpiScale(WindowHandle.hwnd);
 }
 
+// A clipboard another program holds open (a clipboard manager, RDP's
+// rdpclip) pastes nothing and takes no copy, as the SDL3 window's: no throw,
+// which the window procedure would carry out of the game (bugs.md WIN.47)
 std::string Win32DisplayWindow::GetClipboardText()
 {
 	BOOL result = OpenClipboard(WindowHandle.hwnd);
 	if (result == FALSE)
-		throw std::runtime_error("Unable to open clipboard");
+		return std::string();
 
 	HANDLE handle = GetClipboardData(CF_UNICODETEXT);
 	if (handle == 0)
@@ -666,13 +669,13 @@ void Win32DisplayWindow::SetClipboardText(const std::string& text)
 
 	BOOL result = OpenClipboard(WindowHandle.hwnd);
 	if (result == FALSE)
-		throw std::runtime_error("Unable to open clipboard");
+		return;
 
 	result = EmptyClipboard();
 	if (result == FALSE)
 	{
 		CloseClipboard();
-		throw std::runtime_error("Unable to empty clipboard");
+		return;
 	}
 
 	unsigned int length = (unsigned int)((text16.length() + 1) * sizeof(std::wstring::value_type));
@@ -680,7 +683,7 @@ void Win32DisplayWindow::SetClipboardText(const std::string& text)
 	if (handle == 0)
 	{
 		CloseClipboard();
-		throw std::runtime_error("Unable to allocate clipboard memory");
+		return;
 	}
 
 	void* data = GlobalLock(handle);
@@ -688,7 +691,7 @@ void Win32DisplayWindow::SetClipboardText(const std::string& text)
 	{
 		GlobalFree(handle);
 		CloseClipboard();
-		throw std::runtime_error("Unable to lock clipboard memory");
+		return;
 	}
 	memcpy(data, text16.c_str(), length);
 	GlobalUnlock(handle);
@@ -699,7 +702,7 @@ void Win32DisplayWindow::SetClipboardText(const std::string& text)
 	{
 		GlobalFree(handle);
 		CloseClipboard();
-		throw std::runtime_error("Unable to set clipboard data");
+		return;
 	}
 
 	CloseClipboard();
@@ -849,8 +852,10 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 		{
 			size *= 2;
 			std::vector<uint8_t*> buffer(size);
+			// A failed read is (UINT)-1, not a mouse event of nothing
+			// (bugs.md WIN.59)
 			result = GetRawInputData(handle, RID_INPUT, buffer.data(), &size, sizeof(RAWINPUTHEADER));
-			if (result >= 0 && hasFocus)
+			if (result != (UINT)-1 && hasFocus)
 			{
 				// No mouse move while Windows' menu is open, as the original's
 				// takes none (its client's flag, set and cleared at

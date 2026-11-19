@@ -118,6 +118,8 @@ public:
 	bool exitRunLoop = false;
 	Size s_ScreenSize = Size(0, 0);
 	Size m_ScreenPixelSize = Size(0, 0);
+	// The output's scale (wl_output's), without fractional-scale-v1
+	int32_t m_OutputScale = 1;
 	// Our own selection: the text set, until the compositor cancels the source
 	std::string m_OwnClipboard;
 	bool m_OwnsSelection = false;

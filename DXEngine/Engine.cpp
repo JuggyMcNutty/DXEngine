@@ -6397,6 +6397,13 @@ void Engine::OpenWindow()
 	// asks for one, the first that starts is taken (ENGINE.md)
 	DisplayBackend* backend = DisplayBackend::Get();
 	std::string windowName = backend->IsSDL3() ? "SDL3" : backend->IsSDL2() ? "SDL2" : backend->IsWayland() ? "Wayland" : backend->IsX11() ? "X11" : backend->IsWin32() ? "Win32" : "unknown";
+	// Before it, each backend tried that did not start, with its reason, and
+	// a window with no pad said to have none: the SDL windows alone read one
+	// (bugs.md WIN.48)
+	for (const std::string& line : DisplayBackend::TakeMessages())
+		LogMessage(line);
+	if (!backend->IsSDL3() && !backend->IsSDL2())
+		LogMessage("Window: the " + windowName + " window reads no pad");
 
 	std::string versionString = !LaunchInfo.gameVersionString.empty() ? " (v" + LaunchInfo.gameVersionString + ")" : "";
 
@@ -6469,6 +6476,10 @@ void Engine::TickWindow()
 			window->UnlockKeyboard();
 		else
 			window->LockKeyboard();
+
+		// What the window was refused, logged (bugs.md WIN.50)
+		for (const std::string& line : DisplayBackend::TakeMessages())
+			LogMessage(line);
 	}
 
 	GameWindow::ProcessEvents();

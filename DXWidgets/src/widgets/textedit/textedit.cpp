@@ -891,10 +891,7 @@ void TextEdit::OnTimerExpired()
 		return;
 	}
 
-	if (cursor_blink_visible)
-		timer->Start(500);
-	else
-		timer->Start(500);
+	timer->Start(500);
 
 	cursor_blink_visible = !cursor_blink_visible;
 	Update();

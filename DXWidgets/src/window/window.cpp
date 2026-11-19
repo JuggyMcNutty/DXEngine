@@ -6,6 +6,7 @@
 #include "window/sdlnativehandle.h"
 #include "core/widget.h"
 #include <stdexcept>
+#include <algorithm>
 
 std::unique_ptr<DisplayWindow> DisplayWindow::Create(DisplayWindowHost* windowHost, WidgetType type, DisplayWindow* owner, RenderAPI renderAPI)
 {
@@ -63,6 +64,36 @@ void DisplayBackend::Set(std::unique_ptr<DisplayBackend> instance)
 	GetBackendVar() = std::move(instance);
 }
 
+static std::vector<std::string>& GetMessagesVar()
+{
+	static std::vector<std::string> messages;
+	return messages;
+}
+
+// A line already waiting is not added again: a backend asked for by
+// DXE_DISPLAY_BACKEND is tried again in the order after it
+void DisplayBackend::AddMessage(std::string text)
+{
+	auto& messages = GetMessagesVar();
+	if (std::find(messages.begin(), messages.end(), text) == messages.end())
+		messages.push_back(std::move(text));
+}
+
+std::vector<std::string> DisplayBackend::TakeMessages()
+{
+	std::vector<std::string> messages;
+	messages.swap(GetMessagesVar());
+	return messages;
+}
+
+// A backend that did not start: its reason kept for the host's log, the next
+// one tried (bugs.md WIN.48)
+[[maybe_unused]] static std::unique_ptr<DisplayBackend> NotStarted(const char* name, const char* reason)
+{
+	DisplayBackend::AddMessage(std::string("Window: no ") + name + " window: " + (reason && *reason ? reason : "an unknown error"));
+	return nullptr;
+}
+
 std::unique_ptr<OpenFileDialog> DisplayBackend::CreateOpenFileDialog(DisplayWindow* owner)
 {
 	return std::make_unique<StubOpenFileDialog>(owner);
@@ -90,6 +121,7 @@ std::unique_ptr<DisplayBackend> DisplayBackend::TryCreateBackend()
 	if (backendSelectionEnv)
 	{
 		std::string backendSelectionStr(backendSelectionEnv);
+		size_t said = GetMessagesVar().size();
 		if (backendSelectionStr == "Win32")
 		{
 			backend = TryCreateWin32();
@@ -106,6 +138,9 @@ std::unique_ptr<DisplayBackend> DisplayBackend::TryCreateBackend()
 		{
 			backend = TryCreateSDL2();
 		}
+		// One this build lacks, or a name of none, said as a failure is
+		if (!backend && GetMessagesVar().size() == said)
+			AddMessage("Window: no " + backendSelectionStr + " window (DXE_DISPLAY_BACKEND): none in this build");
 	}
 
 	if (!backend)
@@ -158,9 +193,13 @@ std::unique_ptr<DisplayBackend> DisplayBackend::TryCreateSDL2()
 	{
 		return std::make_unique<SDL2DisplayBackend>();
 	}
+	catch (const std::exception& e)
+	{
+		return NotStarted("SDL2", e.what());
+	}
 	catch (...)
 	{
-		return nullptr;
+		return NotStarted("SDL2", nullptr);
 	}
 }
 
@@ -185,9 +224,13 @@ std::unique_ptr<DisplayBackend> DisplayBackend::TryCreateSDL3()
 	{
 		return std::make_unique<SDL3DisplayBackend>();
 	}
+	catch (const std::exception& e)
+	{
+		return NotStarted("SDL3", e.what());
+	}
 	catch (...)
 	{
-		return nullptr;
+		return NotStarted("SDL3", nullptr);
 	}
 }
 
@@ -210,9 +253,13 @@ std::unique_ptr<DisplayBackend> DisplayBackend::TryCreateX11()
 	{
 		return std::make_unique<X11DisplayBackend>();
 	}
+	catch (const std::exception& e)
+	{
+		return NotStarted("X11", e.what());
+	}
 	catch (...)
 	{
-		return nullptr;
+		return NotStarted("X11", nullptr);
 	}
 }
 
@@ -235,9 +282,13 @@ std::unique_ptr<DisplayBackend> DisplayBackend::TryCreateWayland()
 	{
 		return std::make_unique<WaylandDisplayBackend>();
 	}
+	catch (const std::exception& e)
+	{
+		return NotStarted("Wayland", e.what());
+	}
 	catch (...)
 	{
-		return nullptr;
+		return NotStarted("Wayland", nullptr);
 	}
 }
 

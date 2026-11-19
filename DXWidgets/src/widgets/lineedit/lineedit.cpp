@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <locale>
 #include <sstream>
+#include <vector>
 
 LineEdit::LineEdit(Widget* parent) : Widget(parent)
 {
@@ -867,13 +868,35 @@ void LineEdit::UpdateTextClipping()
 
 	UTF8Reader utf8_reader(text.data(), text.length());
 	double width = GetWidth();
-	while (cursor_rect.x + cursor_rect.width > width)
+	if (cursor_rect.x + cursor_rect.width > width)
 	{
+		// The clip's start moved on to the first character's from which the
+		// text to the cursor fits, or to the text's end, by a binary search
+		// over the characters' starts, as the clip's end is found below: the
+		// text's width only falls as its start moves on. A walk a character
+		// at a time measured the text again at each, a long paste holding the
+		// frame (bugs.md WIN.55)
+		std::vector<int> starts;
 		utf8_reader.set_position(clip_start_offset);
-		utf8_reader.next();
-		clip_start_offset = (int)utf8_reader.position();
-		if (clip_start_offset == (int)text.size())
-			break;
+		do
+		{
+			utf8_reader.next();
+			starts.push_back((int)utf8_reader.position());
+		} while (starts.back() != (int)text.size());
+
+		size_t lower = 0;
+		size_t upper = starts.size() - 1;   // the text's end, taken unmeasured
+		while (lower < upper)
+		{
+			size_t middle = (lower + upper) / 2;
+			clip_start_offset = starts[middle];
+			Rect rect = GetCursorRect();
+			if (rect.x + rect.width > width)
+				lower = middle + 1;
+			else
+				upper = middle;
+		}
+		clip_start_offset = starts[lower];
 		cursor_rect = GetCursorRect();
 	}
 
@@ -991,10 +1014,7 @@ void LineEdit::OnTimerExpired()
 		return;
 	}
 
-	if (cursor_blink_visible)
-		timer->Start(500);
-	else
-		timer->Start(500);
+	timer->Start(500);
 
 	cursor_blink_visible = !cursor_blink_visible;
 	Update();

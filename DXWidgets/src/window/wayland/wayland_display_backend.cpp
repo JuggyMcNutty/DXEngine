@@ -119,9 +119,13 @@ WaylandDisplayBackend::WaylandDisplayBackend()
 		s_ScreenSize = Size(width, height);
 	};
 
+	// The output's whole-number scale kept for a window made after it, its
+	// event coming in the roundtrip below, before any window is (bugs.md
+	// WIN.54)
 	if (!m_FractionalScaleManager)
 	{
 		m_waylandOutput.on_scale() = [this] (int32_t scale) {
+			m_OutputScale = scale;
 			for (WaylandDisplayWindow* w : s_Windows)
 				w->ApplyScale(scale);
 		};

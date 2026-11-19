@@ -38,7 +38,11 @@ SDL2DisplayWindow::SDL2DisplayWindow(DisplayWindowHost* windowHost, WidgetType t
 	if (renderAPI == RenderAPI::OpenGL || renderAPI == RenderAPI::GLES)
 		SetGLContextAttributes(m_GLIsES);
 
-	unsigned int flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE /*| SDL_WINDOW_ALLOW_HIGHDPI*/;
+	// The panel's pixels on a scaled display, as the SDL3 window asks
+	// (HIGH_PIXEL_DENSITY): under SDL2's Wayland driver the drawable is the
+	// pixels, the window's size points; under X11 and KMSDRM both are pixels
+	// (bugs.md WIN.56)
+	unsigned int flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
 	if (renderAPI == RenderAPI::Vulkan)
 		flags |= SDL_WINDOW_VULKAN;
 	else if (renderAPI == RenderAPI::OpenGL || renderAPI == RenderAPI::GLES)
@@ -138,7 +142,7 @@ void SDL2DisplayWindow::SetClientFrame(const Rect& box)
 {
 	// Is there a way to set both in one call?
 
-	double uiscale = GetDpiScale();
+	double uiscale = UIScale;   // SDL's units per DIP (GetDpiScale)
 	int x = (int)std::round(box.x * uiscale);
 	int y = (int)std::round(box.y * uiscale);
 	int w = (int)std::round(box.width * uiscale);
@@ -151,7 +155,7 @@ void SDL2DisplayWindow::SetClientFrame(const Rect& box)
 
 void SDL2DisplayWindow::SetClientSize(const Size& size)
 {
-	double uiscale = GetDpiScale();
+	double uiscale = UIScale;   // SDL's units per DIP (GetDpiScale)
 	SDL_SetWindowSize(Handle.window, (int)std::round(size.width * uiscale), (int)std::round(size.height * uiscale));
 	// Never placed: in the middle of the display, as it was made, for its
 	// size now
@@ -297,23 +301,49 @@ void SDL2DisplayWindow::ShowCursor(bool enable)
 	SDL_ShowCursor(enable);
 }
 
-// The keyboard locked to the program: no text input, as SDL3's window.
+// The keyboard locked to the program: no text input, as SDL3's window. SDL2's
+// text input is not a window's but SDL's, on or off for every window, so a
+// window's lock is its own and is set on SDL only while no other window has
+// the keyboard, and again as it takes it (OnWindowEvent): the game window's
+// lock in play leaves a property window's typing on (bugs.md WIN.41). A
+// video driver that gives no window the keyboard has it set as asked.
 void SDL2DisplayWindow::LockKeyboard()
 {
-	SDL_StopTextInput();
+	KeyboardLocked = true;
+	ApplyTextInput();
 }
 
 void SDL2DisplayWindow::UnlockKeyboard()
 {
-	SDL_StartTextInput();
+	KeyboardLocked = false;
+	ApplyTextInput();
+}
+
+void SDL2DisplayWindow::ApplyTextInput()
+{
+	SDL_Window* focus = SDL_GetKeyboardFocus();
+	if (focus && focus != Handle.window)
+		return;
+	if (KeyboardLocked)
+		SDL_StopTextInput();
+	else
+		SDL_StartTextInput();
 }
 
 void SDL2DisplayWindow::LockCursor()
 {
-	if (!CursorLocked)
+	// Locked, the motion is the view's (OnMouseMotion); relative mode asked
+	// again at each call until SDL grants it, the first refusal logged, as
+	// SDL3's window (bugs.md WIN.50)
+	CursorLocked = true;
+	if (!RelativeModeOn)
 	{
-		SDL_SetRelativeMouseMode(SDL_TRUE);
-		CursorLocked = true;
+		RelativeModeOn = SDL_SetRelativeMouseMode(SDL_TRUE) == 0;
+		if (!RelativeModeOn && !RelativeModeRefusalSaid)
+		{
+			RelativeModeRefusalSaid = true;
+			DisplayBackend::AddMessage(std::string("Window: SDL refused relative mouse mode, the pointer not held: ") + SDL_GetError());
+		}
 	}
 }
 
@@ -323,6 +353,7 @@ void SDL2DisplayWindow::UnlockCursor()
 	{
 		SDL_SetRelativeMouseMode(SDL_FALSE);
 		CursorLocked = false;
+		RelativeModeOn = false;
 	}
 }
 
@@ -365,8 +396,31 @@ bool SDL2DisplayWindow::GetKeyState(InputKey key)
 	case InputKey::LeftMouse: return (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK) != 0;
 	case InputKey::RightMouse: return (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_RMASK) != 0;
 	case InputKey::MiddleMouse: return (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_MMASK) != 0;
-	default: return down(InputKeyToScancode(key));
+	// A side's own code by its place, as before
+	case InputKey::LShift: case InputKey::RShift: case InputKey::LControl: case InputKey::RControl:
+		return down(InputKeyToScancode(key));
+	default: break;
 	}
+	// Any other key: is a key held that a press names so? By the name its
+	// press had, or would have now (KeyEventToInputKey: the layout's
+	// family, Num Lock), as Windows' state of a virtual key is its layout's:
+	// asked by its place alone, on AZERTY a held A would answer for Q.
+	for (int index = 0; index < SDL_NUM_SCANCODES; index++)
+	{
+		if (!down((SDL_Scancode)index))
+			continue;
+		InputKey name = PressedAs[index];
+		if (name == InputKey::None)
+		{
+			SDL_KeyboardEvent press = {};
+			press.keysym.scancode = (SDL_Scancode)index;
+			press.keysym.mod = (Uint16)SDL_GetModState();
+			name = KeyEventToInputKey(press);
+		}
+		if (name == key)
+			return true;
+	}
+	return false;
 }
 
 Rect SDL2DisplayWindow::GetClientFrame() const
@@ -375,7 +429,7 @@ Rect SDL2DisplayWindow::GetClientFrame() const
 	int y = 0;
 	int w = 0;
 	int h = 0;
-	double uiscale = GetDpiScale();
+	double uiscale = UIScale;   // SDL's units per DIP (GetDpiScale)
 	SDL_GetWindowPosition(Handle.window, &x, &y);
 	SDL_GetWindowSize(Handle.window, &w, &h);
 	return Rect::xywh(x / uiscale, y / uiscale, w / uiscale, h / uiscale);
@@ -385,7 +439,7 @@ Point SDL2DisplayWindow::MapFromGlobal(const Point& pos) const
 {
 	int x = 0;
 	int y = 0;
-	double uiscale = GetDpiScale();
+	double uiscale = UIScale;   // SDL's units per DIP (GetDpiScale)
 	SDL_GetWindowPosition(Handle.window, &x, &y);
 	return Point(pos.x - x / uiscale, pos.y - y / uiscale);
 }
@@ -394,7 +448,7 @@ Point SDL2DisplayWindow::MapToGlobal(const Point& pos) const
 {
 	int x = 0;
 	int y = 0;
-	double uiscale = GetDpiScale();
+	double uiscale = UIScale;   // SDL's units per DIP (GetDpiScale)
 	SDL_GetWindowPosition(Handle.window, &x, &y);
 	return Point(pos.x + x / uiscale, pos.y + y / uiscale);
 }
@@ -403,7 +457,7 @@ Size SDL2DisplayWindow::GetClientSize() const
 {
 	int w = 0;
 	int h = 0;
-	double uiscale = GetDpiScale();
+	double uiscale = UIScale;   // SDL's units per DIP (GetDpiScale)
 	SDL_GetWindowSize(Handle.window, &w, &h);
 	return Size(w / uiscale, h / uiscale);
 }
@@ -430,11 +484,22 @@ int SDL2DisplayWindow::GetPixelHeight() const
 	return h;
 }
 
+// The pixels per DIP: SDL's units per DIP (UIScale, which X11's Xft.dpi gives:
+// SDL2 doesn't really support this properly, SDL_GetDisplayDPI returning the
+// wrong information according to the docs; see the SDL2DisplayBackend
+// constructor) times the drawable's pixels per unit under SDL2's Wayland
+// driver, the display's scale; any other driver's are taken as 1, as SDL2's
+// X11 and KMSDRM drivers have them, a vendor's driver's drawable left unread
 double SDL2DisplayWindow::GetDpiScale() const
 {
-	// SDL2 doesn't really support this properly. SDL_GetDisplayDPI returns the wrong information according to the docs.
-	// We currently cheat by asking X11 directly. See the SDL2DisplayBackend constructor.
-	return UIScale;
+	const char* driver = SDL_GetCurrentVideoDriver();
+	if (!driver || strcmp(driver, "wayland") != 0)
+		return UIScale;
+	int w = 0, h = 0;
+	SDL_GetWindowSize(Handle.window, &w, &h);
+	int pixels = GetPixelWidth();
+	double density = w > 0 && pixels > 0 ? (double)pixels / w : 1.0;
+	return UIScale * density;
 }
 
 void SDL2DisplayWindow::PresentBitmap(int width, int height, const uint32_t* pixels)
@@ -693,13 +758,22 @@ void SDL2DisplayWindow::DispatchEvent(const SDL_Event& event)
 
 void SDL2DisplayWindow::OnWindowEvent(const SDL_WindowEvent& event)
 {
+#ifndef DXE_SDL2_BORDERLESS_FULLSCREEN
+	// Full screen set or left by the compositor too, which SDL2's Wayland
+	// driver takes into the window's flags, not only by ShowFullscreen and
+	// ShowNormal, which set the flags as they go; SDL2 has no event of its
+	// own for it (bugs.md WIN.51). The borderless build's full screen is not
+	// SDL's: its own flag alone.
+	isFullscreen = (SDL_GetWindowFlags(Handle.window) & SDL_WINDOW_FULLSCREEN) != 0;
+#endif
 	switch (event.event)
 	{
 		case SDL_WINDOWEVENT_CLOSE:
 			WindowHost->OnWindowClose();
 			break;
 
-		case SDL_WINDOWEVENT_MOVED:
+		// A size's change alone, not a move, as the original's window takes
+		// WM_SIZE and no WM_MOVE (bugs.md WIN.57)
 		case SDL_WINDOWEVENT_SIZE_CHANGED:
 		case SDL_WINDOWEVENT_RESIZED:
 			WindowHost->OnWindowGeometryChanged();
@@ -711,6 +785,7 @@ void SDL2DisplayWindow::OnWindowEvent(const SDL_WindowEvent& event)
 			break;
 
 		case SDL_WINDOWEVENT_FOCUS_GAINED:
+			ApplyTextInput();
 			WindowHost->OnWindowActivated();
 			break;
 
@@ -727,6 +802,7 @@ void SDL2DisplayWindow::OnWindowEvent(const SDL_WindowEvent& event)
 			break;
 
 		case SDL_WINDOWEVENT_NONE:
+		case SDL_WINDOWEVENT_MOVED:
 		case SDL_WINDOWEVENT_HIDDEN:
 		case SDL_WINDOWEVENT_MINIMIZED:
 		case SDL_WINDOWEVENT_RESTORED:
@@ -1025,7 +1101,7 @@ void SDL2DisplayWindow::OnMouseWheel(const SDL_MouseWheelEvent& event)
 {
 	int x = 0, y = 0;
 	SDL_GetMouseState(&x, &y);
-	double uiscale = GetDpiScale();
+	double uiscale = UIScale;   // SDL's units per DIP (GetDpiScale)
 	Point mousepos(x / uiscale, y / uiscale);
 
 	if (event.y > 0)
@@ -1240,6 +1316,20 @@ InputKey SDL2DisplayWindow::ScancodeToInputKey(SDL_Scancode keycode)
 		case SDL_SCANCODE_BACKSLASH:    return InputKey::Backslash;
 		case SDL_SCANCODE_RIGHTBRACKET: return InputKey::RightBracket;
 		case SDL_SCANCODE_APOSTROPHE:   return InputKey::SingleQuote;
+		// Keys the original passes by their Windows codes too, none of
+		// them EInputKey's by name (bugs.md WIN.57)
+		case SDL_SCANCODE_INTERNATIONAL4: return InputKey::Unknown1C; // Henkan, VK_CONVERT
+		case SDL_SCANCODE_INTERNATIONAL5: return InputKey::Unknown1D; // Muhenkan, VK_NONCONVERT
+		case SDL_SCANCODE_LANG1:        return InputKey::LCommand;    // Hangul, VK_HANGUL (0x15)
+		case SDL_SCANCODE_LANG2:        return InputKey::Unknown19;   // Hanja, VK_HANJA
+		case SDL_SCANCODE_VOLUMEDOWN:   return InputKey::UnknownAE;   // VK_VOLUME_DOWN
+		case SDL_SCANCODE_VOLUMEUP:     return InputKey::UnknownAF;   // VK_VOLUME_UP
+		case SDL_SCANCODE_MUTE:
+		case SDL_SCANCODE_AUDIOMUTE:    return InputKey::UnknownAD;   // VK_VOLUME_MUTE
+		case SDL_SCANCODE_AUDIONEXT:    return InputKey::UnknownB0;   // VK_MEDIA_NEXT_TRACK
+		case SDL_SCANCODE_AUDIOPREV:    return InputKey::UnknownB1;   // VK_MEDIA_PREV_TRACK
+		case SDL_SCANCODE_AUDIOSTOP:    return InputKey::UnknownB2;   // VK_MEDIA_STOP
+		case SDL_SCANCODE_AUDIOPLAY:    return InputKey::UnknownB3;   // VK_MEDIA_PLAY_PAUSE
 		default:                        return InputKey::None;
 	}
 }
@@ -1281,6 +1371,8 @@ SDL_Scancode SDL2DisplayWindow::InputKeyToScancode(InputKey inputkey)
 		case InputKey::Pause:         return SDL_SCANCODE_PAUSE;
 		case InputKey::Escape:        return SDL_SCANCODE_ESCAPE;
 		case InputKey::Space:         return SDL_SCANCODE_SPACE;
+		case InputKey::PageUp:        return SDL_SCANCODE_PAGEUP;
+		case InputKey::PageDown:      return SDL_SCANCODE_PAGEDOWN;
 		case InputKey::End:           return SDL_SCANCODE_END;
 		case InputKey::Home:          return SDL_SCANCODE_HOME;
 		case InputKey::Left:          return SDL_SCANCODE_LEFT;
@@ -1386,6 +1478,18 @@ SDL_Scancode SDL2DisplayWindow::InputKeyToScancode(InputKey inputkey)
 		case InputKey::GreyPlus:      return SDL_SCANCODE_KP_PLUS;
 		case InputKey::GreyMinus:     return SDL_SCANCODE_KP_MINUS;
 		case InputKey::GreySlash:     return SDL_SCANCODE_KP_DIVIDE;
+		case InputKey::JoyZ:          return SDL_SCANCODE_NONUSBACKSLASH; // VK_OEM_102
+		case InputKey::Unknown1C:     return SDL_SCANCODE_INTERNATIONAL4;
+		case InputKey::Unknown1D:     return SDL_SCANCODE_INTERNATIONAL5;
+		case InputKey::LCommand:      return SDL_SCANCODE_LANG1;
+		case InputKey::Unknown19:     return SDL_SCANCODE_LANG2;
+		case InputKey::UnknownAD:     return SDL_SCANCODE_MUTE;
+		case InputKey::UnknownAE:     return SDL_SCANCODE_VOLUMEDOWN;
+		case InputKey::UnknownAF:     return SDL_SCANCODE_VOLUMEUP;
+		case InputKey::UnknownB0:     return SDL_SCANCODE_AUDIONEXT;
+		case InputKey::UnknownB1:     return SDL_SCANCODE_AUDIOPREV;
+		case InputKey::UnknownB2:     return SDL_SCANCODE_AUDIOSTOP;
+		case InputKey::UnknownB3:     return SDL_SCANCODE_AUDIOPLAY;
 		default:                      return SDL_SCANCODE_UNKNOWN;
 	}
 }

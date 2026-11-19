@@ -3664,7 +3664,9 @@ console `LODBIAS`, where the original's move is no resize.
   join or the focus, never pressed), Caps Lock, the punctuation, the
   keypad's operators and Enter, Print Screen (`PrintScrn`), the Windows and
   menu keys (`Unknown5B` to `Unknown5D`), the ISO key by the left Shift
-  (`JoyZ`, Windows' `VK_OEM_102`); with Num Lock off the keypad's digits and
+  (`JoyZ`, Windows' `VK_OEM_102`), Henkan and Muhenkan (`Unknown1C`,
+  `Unknown1D`), Hangul and Hanja (`Unknown15`, `Unknown19`), the volume and
+  media keys (`UnknownAD` to `UnknownB3`); with Num Lock off the keypad's digits and
   point are the keys they move by (`Up`, `Insert`, `Delete`; 5 `Unknown0C`,
   `VK_CLEAR`). A key that types follows the layout: on Windows the code
   Windows' layout gives its scancode, on Linux the name Wine's X11 driver,
@@ -4299,10 +4301,6 @@ engines), `Console.uc`'s own enum alone naming them `UnknownF0` to
 Differs (bugs.md ENG.52): in the Advanced Options a combo's Up and Down move
 the tree even with its list open, so only its first and last choices are
 reached from the keyboard; what the original's open list takes is unread.
-
-Differs (bugs.md WIN.41): under SDL2 (linux-aarch64, the Smart Pro) the
-Advanced Options and EDITACTOR take no typing once the console has been
-closed in play, where the original's window types as any other.
 
 Differs (bugs.md WIN.61): the Win32 window's raw input buffer is eight times
 the size asked, and the Wayland window's double click tests the time alone;

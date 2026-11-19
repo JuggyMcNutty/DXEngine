@@ -394,10 +394,21 @@ void SDL3DisplayWindow::UnlockKeyboard()
 
 void SDL3DisplayWindow::LockCursor()
 {
-	if (!CursorLocked)
+	// Locked, the motion is the view's (OnMouseMotion); relative mode asked
+	// again at each call until SDL grants it -- a Wayland compositor without
+	// the relative-pointer or pointer-constraints protocols, an X server
+	// without XInput2, refuses it --, the first refusal logged (bugs.md
+	// WIN.50). Asked with the keyboard's focus alone: SDL answers yes to a
+	// window without it and tries as the focus comes, its refusal then unsaid
+	CursorLocked = true;
+	if (!RelativeModeOn && SDL_GetKeyboardFocus() == Handle.window)
 	{
-		SDL_SetWindowRelativeMouseMode(Handle.window, true);
-		CursorLocked = true;
+		RelativeModeOn = SDL_SetWindowRelativeMouseMode(Handle.window, true);
+		if (!RelativeModeOn && !RelativeModeRefusalSaid)
+		{
+			RelativeModeRefusalSaid = true;
+			DisplayBackend::AddMessage(std::string("Window: SDL refused relative mouse mode, the pointer not held: ") + SDL_GetError());
+		}
 	}
 }
 
@@ -407,6 +418,7 @@ void SDL3DisplayWindow::UnlockCursor()
 	{
 		SDL_SetWindowRelativeMouseMode(Handle.window, false);
 		CursorLocked = false;
+		RelativeModeOn = false;
 	}
 }
 
@@ -451,8 +463,31 @@ bool SDL3DisplayWindow::GetKeyState(InputKey key)
 	case InputKey::LeftMouse: return (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK) != 0;
 	case InputKey::RightMouse: return (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_RMASK) != 0;
 	case InputKey::MiddleMouse: return (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_MMASK) != 0;
-	default: return down(InputKeyToScancode(key));
+	// A side's own code by its place, as before
+	case InputKey::LShift: case InputKey::RShift: case InputKey::LControl: case InputKey::RControl:
+		return down(InputKeyToScancode(key));
+	default: break;
 	}
+	// Any other key: is a key held that a press names so? By the name its
+	// press had, or would have now (KeyEventToInputKey: the layout's
+	// family, Num Lock), as Windows' state of a virtual key is its layout's:
+	// asked by its place alone, on AZERTY a held A would answer for Q.
+	for (int index = 0; index < SDL_SCANCODE_COUNT; index++)
+	{
+		if (!down((SDL_Scancode)index))
+			continue;
+		InputKey name = PressedAs[index];
+		if (name == InputKey::None)
+		{
+			SDL_KeyboardEvent press = {};
+			press.scancode = (SDL_Scancode)index;
+			press.mod = SDL_GetModState();
+			name = KeyEventToInputKey(press);
+		}
+		if (name == key)
+			return true;
+	}
+	return false;
 }
 
 Rect SDL3DisplayWindow::GetClientFrame() const
@@ -801,8 +836,9 @@ void SDL3DisplayWindow::OnWindowEvent(const SDL_WindowEvent& event)
 
 	if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
 		WindowHost->OnWindowClose();
-	else if (event.type == SDL_EVENT_WINDOW_MOVED ||
-			 event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED ||
+	// A size's change alone, not a move, as the original's window takes
+	// WM_SIZE and no WM_MOVE (bugs.md WIN.57)
+	else if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED ||
 			 event.type == SDL_EVENT_WINDOW_RESIZED)
 		WindowHost->OnWindowGeometryChanged();
 	else if (event.type == SDL_EVENT_WINDOW_SHOWN ||
@@ -820,11 +856,27 @@ void SDL3DisplayWindow::OnWindowEvent(const SDL_WindowEvent& event)
 		WindowHost->OnWindowActivated();
 	}
 	else if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST)
+	{
+		// Relative mode asked again with the focus back (LockCursor), not by
+		// SDL as the focus comes (bugs.md WIN.50)
+		if (RelativeModeOn)
+		{
+			SDL_SetWindowRelativeMouseMode(Handle.window, false);
+			RelativeModeOn = false;
+		}
 		WindowHost->OnWindowDeactivated();
+	}
 	else if (event.type == SDL_EVENT_WINDOW_MOUSE_LEAVE)
 		WindowHost->OnWindowMouseLeave();
 	else if (event.type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED)
 		ApplyMinSize();
+	// Full screen set or left by the window manager or the compositor too (a
+	// tiling manager's key, a window menu's), not only by ShowFullscreen and
+	// ShowNormal: the window's state as SDL has it by now, not the event's,
+	// so that one queued before a toggle of ours is not taken over it
+	// (bugs.md WIN.51)
+	else if (event.type == SDL_EVENT_WINDOW_ENTER_FULLSCREEN || event.type == SDL_EVENT_WINDOW_LEAVE_FULLSCREEN)
+		isFullscreen = (SDL_GetWindowFlags(Handle.window) & SDL_WINDOW_FULLSCREEN) != 0;
 #ifndef _WIN32
 	else if (event.type == SDL_EVENT_WINDOW_MAXIMIZED && !isFullscreen)
 	{
@@ -1423,6 +1475,19 @@ InputKey SDL3DisplayWindow::ScancodeToInputKey(SDL_Scancode keycode)
 		case SDL_SCANCODE_BACKSLASH:    return InputKey::Backslash;
 		case SDL_SCANCODE_RIGHTBRACKET: return InputKey::RightBracket;
 		case SDL_SCANCODE_APOSTROPHE:   return InputKey::SingleQuote;
+		// Keys the original passes by their Windows codes too, none of
+		// them EInputKey's by name (bugs.md WIN.57)
+		case SDL_SCANCODE_INTERNATIONAL4: return InputKey::Unknown1C; // Henkan, VK_CONVERT
+		case SDL_SCANCODE_INTERNATIONAL5: return InputKey::Unknown1D; // Muhenkan, VK_NONCONVERT
+		case SDL_SCANCODE_LANG1:        return InputKey::LCommand;    // Hangul, VK_HANGUL (0x15)
+		case SDL_SCANCODE_LANG2:        return InputKey::Unknown19;   // Hanja, VK_HANJA
+		case SDL_SCANCODE_VOLUMEDOWN:   return InputKey::UnknownAE;   // VK_VOLUME_DOWN
+		case SDL_SCANCODE_VOLUMEUP:     return InputKey::UnknownAF;   // VK_VOLUME_UP
+		case SDL_SCANCODE_MUTE:         return InputKey::UnknownAD;   // VK_VOLUME_MUTE
+		case SDL_SCANCODE_MEDIA_NEXT_TRACK:     return InputKey::UnknownB0; // VK_MEDIA_NEXT_TRACK
+		case SDL_SCANCODE_MEDIA_PREVIOUS_TRACK: return InputKey::UnknownB1; // VK_MEDIA_PREV_TRACK
+		case SDL_SCANCODE_MEDIA_STOP:           return InputKey::UnknownB2; // VK_MEDIA_STOP
+		case SDL_SCANCODE_MEDIA_PLAY_PAUSE:     return InputKey::UnknownB3; // VK_MEDIA_PLAY_PAUSE
 		default:                        return InputKey::None;
 	}
 }
@@ -1464,6 +1529,8 @@ SDL_Scancode SDL3DisplayWindow::InputKeyToScancode(InputKey inputkey)
 		case InputKey::Pause:         return SDL_SCANCODE_PAUSE;
 		case InputKey::Escape:        return SDL_SCANCODE_ESCAPE;
 		case InputKey::Space:         return SDL_SCANCODE_SPACE;
+		case InputKey::PageUp:        return SDL_SCANCODE_PAGEUP;
+		case InputKey::PageDown:      return SDL_SCANCODE_PAGEDOWN;
 		case InputKey::End:           return SDL_SCANCODE_END;
 		case InputKey::Home:          return SDL_SCANCODE_HOME;
 		case InputKey::Left:          return SDL_SCANCODE_LEFT;
@@ -1569,6 +1636,18 @@ SDL_Scancode SDL3DisplayWindow::InputKeyToScancode(InputKey inputkey)
 		case InputKey::GreyPlus:      return SDL_SCANCODE_KP_PLUS;
 		case InputKey::GreyMinus:     return SDL_SCANCODE_KP_MINUS;
 		case InputKey::GreySlash:     return SDL_SCANCODE_KP_DIVIDE;
+		case InputKey::JoyZ:          return SDL_SCANCODE_NONUSBACKSLASH; // VK_OEM_102
+		case InputKey::Unknown1C:     return SDL_SCANCODE_INTERNATIONAL4;
+		case InputKey::Unknown1D:     return SDL_SCANCODE_INTERNATIONAL5;
+		case InputKey::LCommand:      return SDL_SCANCODE_LANG1;
+		case InputKey::Unknown19:     return SDL_SCANCODE_LANG2;
+		case InputKey::UnknownAD:     return SDL_SCANCODE_MUTE;
+		case InputKey::UnknownAE:     return SDL_SCANCODE_VOLUMEDOWN;
+		case InputKey::UnknownAF:     return SDL_SCANCODE_VOLUMEUP;
+		case InputKey::UnknownB0:     return SDL_SCANCODE_MEDIA_NEXT_TRACK;
+		case InputKey::UnknownB1:     return SDL_SCANCODE_MEDIA_PREVIOUS_TRACK;
+		case InputKey::UnknownB2:     return SDL_SCANCODE_MEDIA_STOP;
+		case InputKey::UnknownB3:     return SDL_SCANCODE_MEDIA_PLAY_PAUSE;
 		default:                      return SDL_SCANCODE_UNKNOWN;
 	}
 }

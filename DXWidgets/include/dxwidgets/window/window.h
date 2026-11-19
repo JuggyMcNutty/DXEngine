@@ -447,6 +447,13 @@ public:
 
 	static std::unique_ptr<DisplayBackend> TryCreateBackend();
 
+	// The window system's lines for the host's log, which DXWidgets has none
+	// of: each backend tried that did not start, and why (TryCreateBackend),
+	// a request a window was refused. Taken by the host, which logs them
+	// (bugs.md WIN.48, WIN.50).
+	static void AddMessage(std::string text);
+	static std::vector<std::string> TakeMessages();
+
 	virtual ~DisplayBackend() = default;
 
 	virtual bool IsWin32() { return false; }
