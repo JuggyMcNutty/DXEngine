@@ -23,7 +23,7 @@ static std::string WhyNotTheGame(const std::string& folder)
 	{
 		fs::path exe = Directory::resolveCase(system / name);
 		if (fs::is_regular_file(exe, ec))
-			return exe.string() + " is a build the engine does not know";
+			return exe.string() + " is not a stock 1112fm one, and " + WhyNot1112fmPackages(system);
 	}
 	return "\"" + folder + "\" has no System folder with " + knownUE1ExecutableNames[0];
 }
@@ -159,14 +159,15 @@ GameLaunchInfo GameFolderSelection::ExamineFolder(const std::string& path)
 	if (path.empty())
 		return info;
 
-	auto ue1_game = FindUE1GameInPath(path);
+	UE1GameFound ue1_game = FindUE1GameInPath(path);
 
-	if (ue1_game.first != KnownUE1Games::UE1_GAME_NOT_FOUND)
+	if (ue1_game.game != KnownUE1Games::UE1_GAME_NOT_FOUND)
 	{
 		info.gameRootFolder = path;
-		info.gameExecutableName = fs::path(ue1_game.second).stem().string();
+		info.gameExecutableName = fs::path(ue1_game.executableName).stem().string();
+		info.executableUnknown = ue1_game.byPackages;
 
-		switch (ue1_game.first)
+		switch (ue1_game.game)
 		{
 			case KnownUE1Games::DEUS_EX_1002f:
 			{

@@ -6,6 +6,7 @@ struct GameLaunchInfo
 	std::string gameRootFolder = "";		// Path to the folder that contains all the subfolders and files
 	std::string gameExecutableName = "";	// Name of the game executable ("DeusEx")
 	std::string gameVersionString = "";		// The game's version ("1112fm" or "1002")
+	bool executableUnknown = false;			// its executable of no known hash, the game 1112fm by its packages (bugs.md D.89)
 	std::string url = "";					// The UnrealURL to launch upon startup
 	std::string systemIniPath = "";			// --ini: the system ini to read and write, as the original's INI=
 	std::string userIniPath = "";			// --userini: the user ini, as the original's USERINI=

@@ -31,8 +31,9 @@
 // What a launcher can rely on this build to do, beyond the original's
 // command line: --userdir; a start URL of ?loadgame=N, a save loaded; the
 // .int files read from the paths' folders, a mod's from its own; --system,
-// a mod's own System folder that it runs from.
-static const char* const Features = "userdir loadgame-url int-paths system";
+// a mod's own System folder that it runs from; a game folder whose
+// executable is of no known hash taken by its packages (bugs.md D.89).
+static const char* const Features = "userdir loadgame-url int-paths system game-by-packages";
 
 int GameApp::main(Array<std::string> args)
 {

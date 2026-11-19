@@ -97,15 +97,21 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
 
 A game's folder is one whose `System/DeusEx.exe` is a build the engine knows, `System` and
 `DeusEx.exe` in any case, as Windows finds them: a copy recased on a case-sensitive file system
-is the game still.
+is the game still. The engine never runs the exe: one of no hash it knows (another launcher's in
+the stock one's place, a patched or a localized one) is 1112fm, with a warning in the log, when
+`System`'s `Core.u`, `Engine.u` and `DeusEx.u` are 1112fm's, each with a GUID of
+`UE1GameDatabase.h`'s list in its header, by the owner's choice (the original checks no hash at
+all). The GUIDs are GOG's and Steam's copies', the same files; a copy that
+carries others is a row more there, and in DXLauncher's list, which Port Ex Machina's
+`scripts/dx.sh check` holds to it.
 
 - `--help` (`-h`) lists the options below.
 - `--no-launcher` (`-n`) puts the log on stderr, as `--verbose` (`-v`) does, and opens no error
   window: an error goes to stderr alone. A game folder given that is not the game is an error
   that says why (no folder, no `System` with `DeusEx.exe`, an exe of a build the engine does not
-  know). With no game folder given, the engine runs the game whose `System` folder (in any case)
-  it starts in, or on Windows the Deus Ex the registry names; with neither, it says no game is
-  found and exits.
+  know beside a package that is not 1112fm's, named). With no game folder given, the engine
+  runs the game whose `System` folder (in any case) it starts in, or on Windows the Deus Ex the
+  registry names; with neither, it says no game is found and exits.
 - **A map is `--url=<map>` (or `-u=<map>`, `--url <map>`).** An option that takes a value
   (`--url`, `--ini`, `--userini`, `--system`, `--userdir`, `--cmdline`, `--timeline`) takes
   the next word when it has no `=`, unless that word starts with `-`.
@@ -155,8 +161,8 @@ is the game still.
 - **`--version`** prints `DXEngine <commit> (<date>)` and a `features:` line, the words for
   what a launcher can rely on (`userdir`; `loadgame-url`, a start URL of `?loadgame=N`:
   [the command line](NATIVES.md#the-command-line); `int-paths`, a mod's `.int` files read from
-  its own folders: [mods](NATIVES.md#mods); `system`, `--system`), and exits before anything is
-  loaded.
+  its own folders: [mods](NATIVES.md#mods); `system`, `--system`; `game-by-packages`, a game
+  folder of an unknown exe taken by its packages), and exits before anything is loaded.
 - **`--cmdline=<line>`** is the original's command line, which the launchers pass on (the
   recreated one, deusex-launcher's `main`, and DXLauncher): its start URL, `-server`,
   `-lanplay`, `PORT=`, `MULTIHOME=`, `-PRIMARYNET`, `INI=`, `USERINI=`, `EXEC=`, `-norunaway`

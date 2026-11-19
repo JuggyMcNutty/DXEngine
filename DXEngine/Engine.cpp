@@ -344,6 +344,9 @@ Engine::~Engine()
 void Engine::Run()
 {
 	LogMessage("Game: " + LaunchInfo.gameName + " (Version: " + LaunchInfo.gameVersionString + ")");
+	if (LaunchInfo.executableUnknown)
+		LogMessage("Warning: System/" + LaunchInfo.gameExecutableName + ".exe is not a stock one, the game's packages "
+			"1112fm's: it plays, the executable never run; Steam's Verify or GOG's repair puts the stock one back");
 	LoadEngineSettings();
 	LogMessage("Loaded Engine settings");
 	LoadKeybindings();

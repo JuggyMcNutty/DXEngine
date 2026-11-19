@@ -10,7 +10,8 @@ desktop to a handheld.
        alt="Liberty Island at night: the statue and the city across the water, from the pier">
 </p>
 
-**You need your own copy of Deus Ex, version 1112fm.** None of the game's files are included.
+**You need your own copy of Deus Ex, version 1112fm.** A 1112fm copy whose `DeusEx.exe` another
+launcher or a patch replaced plays too, with a warning. None of the game's files are included.
 Made with AI assistance.
 
 ## Features
