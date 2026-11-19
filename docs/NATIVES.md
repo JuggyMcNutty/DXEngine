@@ -478,9 +478,9 @@ in another case, `save0005` beside `Save0004`, and empties it, in both
 engines (`SaveConsole` with `NewSlot`): neither counts such a folder, and
 each then finds it in any case.
 
-Differs (bugs.md PKG.65): a slot whose `SaveInfo.dxs` is spelt in another
-case is not listed on a case-sensitive file system, where the original, on
-Windows, opens it: a recased copy's saves.
+A slot's `SaveInfo.dxs` is found in any case, as its folder is and as
+Windows finds the original's: a copy of the game recased by its unpacker
+lists its saves.
 
 Each file a save writes, a level's and a SaveInfo, is on the disk before it
 is moved into place and its folder after, and a slot's copies of `Current`
@@ -3534,9 +3534,6 @@ not decode is a script error each time, which takes no channel, where
 Galaxy's unreadable data is a fatal error at the level's start
 ([`RegisterSound`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)).
 
-Differs (bugs.md ENG.60): `MLMODE`'s number and a Color's members in an ini
-are read by C's rules, not the original's `appAtoi`'s; nothing seen.
-
 Differs (bugs.md ENG.57): past `Shot9999` a `SHOT` takes nothing and says
 nothing; the original's limit is unread.
 
@@ -4312,10 +4309,6 @@ move the tree even with its list open, so only its first and last choices
 are reached from the keyboard; what the original's open list takes is
 unread.
 
-Differs (bugs.md WIN.61): the Win32 window's raw input buffer is eight times
-the size asked, and the Wayland window's double click tests the time alone;
-nothing seen.
-
 ## Mods
 
 A mod without native code of its own plays, as a folder of its own: The
@@ -4920,8 +4913,8 @@ where the original ends within seconds.
 An object whose load fails is None each time it is asked for, its load tried
 again each time, where the original stops at the error.
 
-Differs (bugs.md PKG.58): a folder the paths name that cannot be listed
-stops DXEngine at its start, where the original finds no file there.
+A folder the paths name that cannot be listed gives no package and a line
+in the log (`Package folder not read`), as the original finds no file there.
 
 ## Multiplayer
 

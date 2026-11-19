@@ -228,7 +228,15 @@ private:
 	uint32_t m_KeyboardSerial = 0;
 	uint32_t m_MouseSerial = 0;
 
+	// The last press, for a double click: its time, its button and the
+	// pointer's place then; and the pointer's place as the last motion or
+	// enter gave it, a frame of a button alone holding none
 	uint32_t m_LastMouseClickTime = 0;
+	InputKey m_LastMouseClickKey = InputKey::None;
+	double m_LastMouseClickX = 0.0;
+	double m_LastMouseClickY = 0.0;
+	double m_PointerX = 0.0;
+	double m_PointerY = 0.0;
 
 	xkb_context* m_KeymapContext = nullptr;
 	xkb_keymap* m_Keymap = nullptr;

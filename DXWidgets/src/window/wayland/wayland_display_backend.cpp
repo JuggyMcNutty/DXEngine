@@ -405,6 +405,12 @@ void WaylandDisplayBackend::ConnectMouseEvents()
 		if (currentPointerEvent.event_mask & POINTER_EVENT_LEAVE)
 			OnMouseLeaveEvent();
 
+		if (currentPointerEvent.event_mask & (POINTER_EVENT_MOTION | POINTER_EVENT_ENTER))
+		{
+			m_PointerX = currentPointerEvent.surfaceX;
+			m_PointerY = currentPointerEvent.surfaceY;
+		}
+
 		if (currentPointerEvent.event_mask & POINTER_EVENT_MOTION)
 		{
 			OnMouseMoveEvent(Point(currentPointerEvent.surfaceX, currentPointerEvent.surfaceY));
@@ -433,7 +439,13 @@ void WaylandDisplayBackend::ConnectMouseEvents()
 			InputKey ikey = LinuxInputEventCodeToInputKey(currentPointerEvent.button);
 			if (currentPointerEvent.state == wayland::pointer_button_state::pressed)
 			{
-				if (currentPointerEvent.time - m_LastMouseClickTime <= 400)
+				// A double click as the X11 window counts one, by Windows'
+				// defaults: the same button again within 500 ms and 2 units
+				// each way of the first press (bugs.md WIN.61)
+				bool again = m_LastMouseClickTime != 0 && ikey == m_LastMouseClickKey &&
+					currentPointerEvent.time - m_LastMouseClickTime <= 500 &&
+					std::abs(m_PointerX - m_LastMouseClickX) <= 2.0 && std::abs(m_PointerY - m_LastMouseClickY) <= 2.0;
+				if (again)
 				{
 					OnMouseDoublePressEvent(ikey);
 					m_LastMouseClickTime = 0;
@@ -442,6 +454,9 @@ void WaylandDisplayBackend::ConnectMouseEvents()
 				{
 					OnMousePressEvent(ikey);
 					m_LastMouseClickTime = currentPointerEvent.time;
+					m_LastMouseClickKey = ikey;
+					m_LastMouseClickX = m_PointerX;
+					m_LastMouseClickY = m_PointerY;
 				}
 			}
 			else // released

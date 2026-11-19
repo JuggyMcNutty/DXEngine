@@ -847,23 +847,37 @@ void PackageManager::ScanForMaps()
 
 void PackageManager::ScanFolder(const std::string& packagedir, const std::string& search)
 {
+	// A folder the paths name that is not there gives no package; nor does
+	// one that is there and cannot be listed (a mod's folder unpacked with
+	// no read rights), as the original's search through it finds no file:
+	// passed over with a line in the log, where the scan's error ended the
+	// engine at its start (bugs.md PKG.58)
 	const auto packageDirPath = fs::path(packagedir);
-	if (fs::exists(packageDirPath))
+	std::error_code ec;
+	if (!fs::exists(packageDirPath, ec))
+		return;
+	fs::directory_iterator entries(packageDirPath, ec);
+	if (ec)
 	{
-		const auto searchExt = fs::path(search).extension();
-		for (const auto& dir_entry: fs::directory_iterator{packageDirPath})
+		LogMessage("Package folder not read: " + packagedir + " (" + ec.message() + ")");
+		return;
+	}
+	const auto searchExt = fs::path(search).extension();
+	for (fs::directory_iterator end; entries != end; entries.increment(ec))
+	{
+		if (ec)
+			break;
+		const auto& dir_entry = *entries;
+		// Do not add the package again if it exists
+		// This is useful for example when you have HD textures installed in a different folder
+		// And you wish to load them instead of the original ones
+		// Extensions matched as Windows matches them, whatever their case.
+		if (dir_entry.is_regular_file(ec) && StrTools::equals_ignore_case(dir_entry.path().extension().string(), searchExt.string()))
 		{
-			// Do not add the package again if it exists
-			// This is useful for example when you have HD textures installed in a different folder
-			// And you wish to load them instead of the original ones
-			// Extensions matched as Windows matches them, whatever their case.
-			if (dir_entry.is_regular_file() && StrTools::equals_ignore_case(dir_entry.path().extension().string(), searchExt.string()))
-			{
-				const std::string key = NameString::Folded(dir_entry.path().stem().string());
-				auto it = packageFilenames.find(key);
-				if (it == packageFilenames.end())
-					packageFilenames[key] = (packageDirPath / dir_entry.path().filename()).string();
-			}
+			const std::string key = NameString::Folded(dir_entry.path().stem().string());
+			auto it = packageFilenames.find(key);
+			if (it == packageFilenames.end())
+				packageFilenames[key] = (packageDirPath / dir_entry.path().filename()).string();
 		}
 	}
 }
@@ -915,7 +929,11 @@ void PackageManager::ScanSaveInfos()
 		if (!entry.is_directory(ec))
 			continue;
 
-		const auto save = entry.path() / ("SaveInfo." + saveExtension);
+		// The slot's SaveInfo in any case, as the slot's folder is found and
+		// as the save's writer finds it: Windows opens the original's so, and
+		// a copy of the game recased by its unpacker has saveinfo.dxs, a
+		// platform matter (bugs.md PKG.65)
+		const auto save = Directory::resolveCase(entry.path() / ("SaveInfo." + saveExtension));
 
 		if (!fs::is_regular_file(save, ec))
 			continue;

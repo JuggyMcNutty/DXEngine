@@ -231,7 +231,9 @@ Color IniPropertyConverter<Color>::FromString(const std::string& valueString)
 
 		auto lhs = t.substr(0, equals);
 
-		auto rhs = Convert::to_uint8(t.substr(equals + 1));
+		// A member's number as a byte's is read (above), any other text
+		// refused with the whole colour's
+		auto rhs = IniPropertyConverter<uint8_t>::FromString(t.substr(equals + 1));
 
 		if (lhs == "R")
 			r = rhs;

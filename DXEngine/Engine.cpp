@@ -6092,7 +6092,7 @@ bool Engine::RendererExec(const std::string& line, ExecOutput& out)
 			out.Log(Printf("%i", render->ShapeLODMode));
 			return true;
 		}
-		int value = std::atoi(rest.c_str());
+		int value = StrTools::ue1_atoi(rest);
 		if (value >= 0)
 			render->ShapeLODMode = value;
 		out.Log(Printf("Shape LOD draw mode %i", render->ShapeLODMode));

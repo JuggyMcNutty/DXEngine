@@ -851,7 +851,7 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 		if (result == 0 && size > 0)
 		{
 			size *= 2;
-			std::vector<uint8_t*> buffer(size);
+			std::vector<uint8_t> buffer(size);
 			// A failed read is (UINT)-1, not a mouse event of nothing
 			// (bugs.md WIN.59)
 			result = GetRawInputData(handle, RID_INPUT, buffer.data(), &size, sizeof(RAWINPUTHEADER));
