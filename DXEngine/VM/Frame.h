@@ -191,7 +191,7 @@ public:
 	static bool Halted;
 
 	static void Break();
-	static void ThrowException(const std::string& text);
+	[[noreturn]] static void ThrowException(const std::string& text);
 	// A native given None for an object it reads through, which stops the
 	// original with a critical error, its fault: stopped so too, the native
 	// named, never a crash (bugs.md VM.43)

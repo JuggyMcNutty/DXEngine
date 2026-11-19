@@ -269,7 +269,8 @@ writes it; a UTF-8 byte order mark at its start is passed over, as DXLauncher's 
 it (editors on Windows add one).
 DXLauncher, every port's, writes one in each profile's folder of its own
 (`--userdir`); `main`'s launcher, the original recreated, writes none and leaves `HOME` as it
-is. DXEngine's keys:
+is. A key left out keeps its default, and so does a key of another type than its own (a string
+where true or false or a number goes, `"UseVSync": "true"`), the log naming it. DXEngine's keys:
 
 | Key | What it does |
 |---|---|
@@ -278,7 +279,7 @@ is. DXEngine's keys:
 | `"Type": "Software"` in `RenderDevice` | The software device, which draws on the CPU (DXLauncher's `[Software]` renderer; [rendering](#rendering)). |
 | `"Type": "Vulkan"`, `"OpenGL"` or `"D3D11"` in `RenderDevice` | The Vulkan device, the GL device on a desktop GL context, or the D3D11 device, Windows' own, which no launcher offers ([for advanced users](../README.md#for-advanced-users)). |
 | `"Antialias"`, `"Light"`, `"Gamma"` in `RenderDevice` | `Off`, `MSAA2x` or `MSAA4x`; `Normal`, `OneX` or `BrighterActors`; `D3D9` or `XOpenGL` ([rendering](#rendering)). |
-| `"UseVSync"`, `"Hdr"`, `"HdrScale"`, `"Bloom"`, `"BloomAmount"`, `"GammaCorrectScreenshots"`, `"UseDebugLayer"` in `RenderDevice` | Vsync (on unless the key says otherwise), HDR and its scale, bloom and its amount (0 to 255, 128 each), screenshots written gamma-corrected, and the Vulkan validation layer or D3D11's debug layer where the machine has it; a key left out keeps its default. |
+| `"UseVSync"`, `"Hdr"`, `"HdrScale"`, `"Bloom"`, `"BloomAmount"`, `"GammaCorrectScreenshots"`, `"UseDebugLayer"` in `RenderDevice` | Vsync (on unless the key says otherwise), HDR and its scale, bloom and its amount (0 to 255, 128 each), screenshots written gamma-corrected, and the Vulkan validation layer or D3D11's debug layer where the machine has it. |
 | `"Contrast"`, `"Saturation"`, `"GammaOffset"`, `"GammaOffsetRed"`, `"GammaOffsetGreen"`, `"GammaOffsetBlue"`, `"LODBias"` in `RenderDevice` | On every device: the present's colour correction, the picture unchanged at 1 each, contrast about the middle grey (0.1 to 4) and saturation toward the pixel's grey (0 to 1); its gamma's offsets, every channel's and each one's, added to the gamma (-1 to 1, 0 each by default); and the textures' mip bias (-2 to 2, -0.5 by default, `D3DDrv`'s as Wine draws it: each draw's mip the floor of log2 of its texels to a pixel), the console's `LODBIAS` changing it until the device's mode is set again ([small](NATIVES.md#small)), GL ES's in its scene shader, which no ES sampler takes. |
 | `"CPUDriver": true` in `RenderDevice` | The Vulkan device on Mesa's lavapipe, or the GL device on llvmpipe, a GPU passed over (DXLauncher's `[VulkanCPU]` and `[OpenGLCPU]` renderers; [rendering](#rendering)). |
 | `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)); in a rootless container (podman's: distrobox, toolbox), where the host's root is unmapped and libudev drops its messages, SDL watches `/dev/input` itself (`SDL_JOYSTICK_DISABLE_UDEV`), so a pad plugged in after the start is found. |
@@ -818,7 +819,7 @@ in `Frame::CallScript`.
 ([the original's](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#garbage-collection)).
 A collection runs at the end of the frame, with no script running (`Engine::CollectGarbage`, in
 `EngineGC.cpp`), when asked for: by every map load but Entry's, by the console's `obj garbage`,
-by 2048 destroyed actors let go since the last one
+by 2048 destroyed actors and windows let go since the last one
 ([destroyed actors](NATIVES.md#housekeeping-not-seen-directly)), and every `DXE_GC_STRESS`
 frames. A map load's and the console's do everything; the backlog's and the stress runs' mark
 and sweep only, no level having departed since the last map load's. It logs the original's

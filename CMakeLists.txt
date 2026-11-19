@@ -903,6 +903,11 @@ include_directories(DXEngine DXWidgets/include Thirdparty DXGPU/include Thirdpar
 if(WIN32)
 	set(DXCOMMON_SOURCES ${DXCOMMON_SOURCES} ${DXCOMMON_WIN32_SOURCES})
 	set(DXENGINE_SOURCES ${DXENGINE_SOURCES} Win32Resources/DXEngine.rc Win32Resources/DXEngine.manifest)
+	# The resource script takes the manifest in by its name, which the
+	# build's scan of the script does not follow: named here, so that a
+	# changed manifest is built into the program again (bugs.md ENG.53)
+	set_source_files_properties(Win32Resources/DXEngine.rc PROPERTIES
+		OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Win32Resources/DXEngine.manifest")
 	set(DXCOMMON_LIBS ${DXCOMMON_LIBS} ${DXCOMMON_WIN32_LIBS})
 	set(THIRDPARTY_SOURCES ${THIRDPARTY_SOURCES} ${THIRDPARTY_WIN32_SOURCES})
 	add_definitions(-DUNICODE -D_UNICODE -D_CRT_SECURE_NO_WARNINGS)

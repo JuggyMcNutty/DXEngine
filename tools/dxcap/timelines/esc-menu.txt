@@ -1,0 +1,5 @@
+# Esc pressed in play at 6 s, the main menu opened by the key's event
+# (FrameOrderConsole; bugs.md ENG.57):
+# DXCAP_TIMELINE=<this> tools/dxcap.sh dxe FrameOrderConsole 01_NYC_UNATCOIsland 25
+start 6.0 press Escape
+start 6.1 release Escape

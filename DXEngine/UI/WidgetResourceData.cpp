@@ -22,9 +22,13 @@ public:
 			result = mz_zip_reader_init_file(&widgetResources, "/usr/share/dxengine/DXEngine.pk3", 0);
 		// The data home (XDG_DATA_HOME, else HOME's .local/share) and HOME's
 		// .dxengine, each only where its variable is set: a service with no
-		// HOME built a path from a null pointer
+		// HOME built a path from a null pointer. An XDG_DATA_HOME empty or
+		// not absolute is passed over, as the XDG Base Directory
+		// specification says
 		char* home = std::getenv("HOME");
 		char* xdg_data_home = std::getenv("XDG_DATA_HOME");
+		if (xdg_data_home && !fs::path(xdg_data_home).is_absolute())
+			xdg_data_home = nullptr;
 		if (!result && (xdg_data_home || home))
 		{
 			std::string directory = xdg_data_home ? (fs::path(xdg_data_home) / "dxengine").string() : (fs::path(home) / ".local/share/dxengine").string();
@@ -81,9 +85,14 @@ private:
 			return false;
 
 		buffer.resize(stat.m_uncomp_size);
+		// An entry that fails to extract (its CRC not the one stored) is
+		// none, as one missing is: no font or theme read from what came out
 		result = mz_zip_reader_extract_file_to_mem(&widgetResources, name.c_str(), buffer.data(), buffer.size(), 0);
 		if (!result)
+		{
+			buffer.clear();
 			return false;
+		}
 
 		return true;
 	}

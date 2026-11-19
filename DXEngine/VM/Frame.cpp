@@ -147,6 +147,8 @@ void Frame::ThrowException(const std::string& text)
 
 	ExceptionText = text;
 	Break();
+	// Break throws for any text, every caller's; the compiler cannot see it
+	Exception::Throw(text);
 }
 
 std::string Frame::GetName()

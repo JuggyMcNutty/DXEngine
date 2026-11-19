@@ -85,6 +85,14 @@ int32_t StrTools::ue1_atoi(const std::string_view& str)
 	return (int32_t)std::clamp(value, (int64_t)INT32_MIN, (int64_t)INT32_MAX);
 }
 
+bool StrTools::ue1_int_text(const std::string_view& str, int32_t& value)
+{
+	if (str.empty() || !(str[0] == '-' || (str[0] >= '0' && str[0] <= '9')))
+		return false;
+	value = ue1_atoi(str);
+	return true;
+}
+
 uint32_t StrTools::ue1_strtoul(const std::string_view& str)
 {
 	size_t pos = 0;

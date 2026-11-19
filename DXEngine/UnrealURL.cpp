@@ -13,10 +13,10 @@ static std::string DefaultValue(const char* key, const char* fallback)
 }
 
 // The game's [URL] Port: any URL's port unless it names another, as the
-// original's FURL defaults it.
+// original's FURL defaults it, by appAtoi.
 static int DefaultPort()
 {
-	return std::atoi(DefaultValue("Port", "7777").c_str());
+	return StrTools::ue1_atoi(DefaultValue("Port", "7777"));
 }
 
 // The game's [URL] Protocol, deusex, the same way: the one a map file's
@@ -188,7 +188,8 @@ UnrealURL::UnrealURL(const UnrealURL* baseURL, std::string urlString, ETravelTyp
 			size_t portPos = address.find(':');
 			if (portPos != std::string::npos)
 			{
-				Port = std::atoi(address.substr(portPos + 1).c_str());
+				// appAtoi (network.md, addresses)
+				Port = StrTools::ue1_atoi(std::string_view(address).substr(portPos + 1));
 				address.resize(portPos);
 			}
 			Host = address;

@@ -56,10 +56,13 @@ namespace
 		return value.empty() ? defaultValue : (float)std::atof(value.c_str());
 	}
 
+	// An int config property's text, as the original's import reads it,
+	// the default for a text it refuses
 	int IniInt(const std::string& section, const char* key, int defaultValue)
 	{
-		std::string value = engine->packages->GetIniValue("system", section, key);
-		return value.empty() ? defaultValue : std::atoi(value.c_str());
+		int32_t value = defaultValue;
+		StrTools::ue1_int_text(engine->packages->GetIniValue("system", section, key), value);
+		return value;
 	}
 }
 
@@ -228,10 +231,11 @@ uint32_t NetLocalBindAddress()
 			LogMessage("Invalid multihome IP address " + multihome);
 			return 0;
 		}
-		uint32_t a = (uint32_t)std::atoi(multihome.c_str()) & 0xff;
-		uint32_t b = (uint32_t)std::atoi(multihome.c_str() + first + 1) & 0xff;
-		uint32_t c = (uint32_t)std::atoi(multihome.c_str() + second + 1) & 0xff;
-		uint32_t d = (uint32_t)std::atoi(multihome.c_str() + third + 1) & 0xff;
+		std::string_view text = multihome;
+		uint32_t a = (uint32_t)StrTools::ue1_atoi(text) & 0xff;
+		uint32_t b = (uint32_t)StrTools::ue1_atoi(text.substr(first + 1)) & 0xff;
+		uint32_t c = (uint32_t)StrTools::ue1_atoi(text.substr(second + 1)) & 0xff;
+		uint32_t d = (uint32_t)StrTools::ue1_atoi(text.substr(third + 1)) & 0xff;
 		return (a << 24) | (b << 16) | (c << 8) | d;
 	}
 	if (commandLine.Param("PRIMARYNET"))

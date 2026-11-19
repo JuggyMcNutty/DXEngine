@@ -1,7 +1,7 @@
 
 #include "Precomp.h"
 #include "UIntProperty.h"
-#include "Utils/Convert.h"
+#include "Utils/StrTools.h"
 
 UIntProperty::UIntProperty(NameString name, UClass* base, ObjectFlags flags) : UPropertyT(std::move(name), base, flags)
 {
@@ -52,7 +52,7 @@ size_t UIntProperty::ImportText(const std::string& text, size_t pos, void* data)
 {
 	auto number = [](char c) { return c == '-' || (c >= '0' && c <= '9'); };
 	if (pos < text.size() && number(text[pos]))
-		*(int32_t*)data = (int32_t)strtol(text.c_str() + pos, nullptr, 10);
+		*(int32_t*)data = StrTools::ue1_atoi(std::string_view(text).substr(pos));
 	while (pos < text.size() && number(text[pos]))
 		pos++;
 	return pos;

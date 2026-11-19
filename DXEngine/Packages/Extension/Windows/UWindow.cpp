@@ -496,6 +496,14 @@ void UWindow::Destroy()
 	}
 	ActiveTimers.clear();
 	DetachFromParent();
+
+	// The original deletes the window here unless its lockCount holds it
+	// (extension-dll.md, Destroy); DXEngine frees it at the next collection,
+	// as it frees a destroyed actor, and counts it into the same backlog, so
+	// the windows the menus, barks and conversations make and destroy on one
+	// map bring a collection on as the actors do
+	if (engine && ++engine->GarbageDestroyedBacklog >= Engine::GarbageDestroyedThreshold)
+		engine->RequestGarbageCollection("destroyed actors and windows");
 }
 
 void UWindow::DetachFromParent()

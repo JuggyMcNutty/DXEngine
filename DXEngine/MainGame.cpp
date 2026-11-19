@@ -75,8 +75,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
 			LocalFree(argv);
 		}
 
-		//SetProcessDPIAware();
-		SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
+		// PerMonitorV2, as DXEngine.manifest asks it, the launcher's too; the
+		// call fails, changing nothing, where the manifest has set it
+		SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 		InitCommonControls();
 
 		WORD winsock_version = MAKEWORD(2, 2);

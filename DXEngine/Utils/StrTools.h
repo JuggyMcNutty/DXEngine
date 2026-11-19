@@ -21,6 +21,11 @@ public:
 	// first that is not one, 0 without any; past an int's range held to its
 	// ends (SweepVmConsole: 4294967297 is 2147483647).
 	static int32_t ue1_atoi(const std::string_view& str);
+	// An int's text as the original's int property imports one
+	// (UIntProperty::ImportText, Core.dll 0x10165f00; core-dll.md, a
+	// property's text): a '-' or a digit first, read by appAtoi (ue1_atoi);
+	// any other start, a '+', a blank or no text, false and value untouched.
+	static bool ue1_int_text(const std::string_view& str, int32_t& value);
 	// An unsigned number as the original's appStrtoi reads one in base 10
 	// (Core.dll 0x101235e0, MSVCRT's wcstoul): blanks skipped, a sign, then
 	// the digits; past 32 bits all ones, and a minus negating what was read.

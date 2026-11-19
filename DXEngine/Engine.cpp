@@ -522,9 +522,10 @@ void Engine::Run()
 			break;
 
 		// A frame, as the original's game engine has it (dx-reverse-info
-		// engine-dll.md, the game engine's frame): the windows' tick, the
-		// levels' tick, a save asked for, a travel -- the frame ending
-		// there --, a join under way, the draw.
+		// engine-dll.md, the game engine's frame), after the window's events,
+		// which the original takes at the frame before's end: the windows'
+		// tick, the levels' tick, a save asked for, a travel -- the frame
+		// ending there --, a join under way, the draw.
 		float realTimeElapsed = CalcTimeElapsed();
 		tickCount++;
 		auto tickTime = std::chrono::steady_clock::now();
@@ -543,6 +544,18 @@ void Engine::Run()
 			secondStart = tickTime;
 			tickCount = 0;
 		}
+
+		// The window's events, the player's input and the pad first: the
+		// original's main loop takes its window's messages at a frame's end
+		// (launch-flow.md, the main loop), so a window an event makes ticks
+		// before it is drawn, its focus taken in that tick. The player's
+		// input takes at most 0.4 s of a long frame, as the original's level
+		// tick holds it (dx-reverse-info engine-dll.md, a level's tick).
+		if (!dedicated)
+			UpdateInput(std::min(realTimeElapsed, 0.4f));
+
+		if (timeline)
+			timeline->Tick(realTimeElapsed);
 
 		float entryLevelElapsed = EntryLevel ? realTimeElapsed * clamp(EntryLevelInfo->TimeDilation(), 0.0025f, 25.0f) : 0.0f;
 		float levelElapsed = realTimeElapsed * clamp(LevelInfo->TimeDilation(), 0.0025f, 25.0f);
@@ -584,16 +597,7 @@ void Engine::Run()
 		LevelInfo->Second() = timedesc->tm_sec;
 		LevelInfo->Millisecond() = milliseconds;
 
-		// The player's input takes at most 0.4 s of a long frame, as the
-		// original's level tick holds it (dx-reverse-info engine-dll.md, a
-		// level's tick).
-		if (!dedicated)
-			UpdateInput(std::min(realTimeElapsed, 0.4f));
-
 		SetPause(!LevelInfo->Pauser().empty());
-
-		if (timeline)
-			timeline->Tick(realTimeElapsed);
 
 		// The original's game engine clears these before each level tick
 		// when it has a client, and nothing sets them: no detail is dropped
@@ -4271,7 +4275,7 @@ bool Engine::ViewportWordExec(UPlayerPawn* actor, const std::string& line, ExecO
 		// for the next join; on a server of that kind (?LAN or not), asked
 		// now, 500 or more (0x10373b74). Both keep it as the internet
 		// speed, as the original's both do.
-		int rate = std::atoi(rest.c_str());
+		int rate = StrTools::ue1_atoi(rest);
 		LogMessage(std::string("Net: ") + (lan ? "lanspeed " : "netspeed ") + std::to_string(rate));
 		packages->SetIniValue("system", "Engine.Player", "ConfiguredInternetSpeed", std::to_string(rate));
 		// Saved at once, as the original's viewport saves its config
@@ -4355,7 +4359,7 @@ bool Engine::ViewportWordExec(UPlayerPawn* actor, const std::string& line, ExecO
 		// which DeusExPlayer.Matrix() sends for the credits' THEREISNOSPOON
 		// egg, draws no light map and every actor unlit (SceneLit), until
 		// the level's next player
-		int mode = std::atoi(rest.c_str());
+		int mode = StrTools::ue1_atoi(rest);
 		if (actor && mode > 0 && mode < 20)
 			actor->RendMap() = mode;
 		return true;
@@ -7263,7 +7267,7 @@ bool Engine::InputExec(const std::string& command, EInputKey key, EInputType act
 	// WIN.21).
 	if (word == "keyname")
 	{
-		int index = std::atoi(rest.c_str());
+		int index = StrTools::ue1_atoi(rest);
 		if (out)
 			out->Log(index >= 0 && index < 256 ? keynames[index] : "");
 		return true;

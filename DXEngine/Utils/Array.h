@@ -711,7 +711,7 @@ private:
 namespace std
 {
 	template<typename T>
-	void swap(const Array<T>& lhs, const Array<T>& rhs)
+	void swap(Array<T>& lhs, Array<T>& rhs) noexcept
 	{
 		lhs.swap(rhs);
 	}

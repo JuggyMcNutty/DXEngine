@@ -543,7 +543,6 @@ void NObject::DynamicLoadObject(const std::string& ObjectName, UObject* ObjectCl
 		if (dotpos != 0 && dotpos != std::string::npos)
 		{
 			std::string packageName = ObjectName.substr(0, dotpos);
-			std::string objectName = ObjectName.substr(dotpos + 1);
 
 			try
 			{

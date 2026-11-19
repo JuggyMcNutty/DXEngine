@@ -3507,7 +3507,10 @@ the chain of the level it leaves, as the original's does only for `?push`:
 that level is freed whole. A decal attached again after its `Destroyed`
 (which detaches it) stays on its surfaces until that cleanup, as the
 original's; there DXEngine takes it off them, where the original's surfaces
-keep pointing at the deleted decal.
+keep pointing at the deleted decal. A destroyed window, which the original
+deletes at its `Destroy` unless its `lockCount` holds it, DXEngine frees at
+the next collection too, counted among the destroyed actors that bring one
+on.
 
 **`Object.CriticalDelete` 751** (20 call sites). The original frees the
 object at once, whatever still refers to it
@@ -3541,25 +3544,11 @@ not decode is a script error each time, which takes no channel, where
 Galaxy's unreadable data is a fatal error at the level's start
 ([`RegisterSound`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)).
 
-Differs (bugs.md ENG.53): on Windows the engine's manifest asks for the
-first kind of per-monitor DPI and no long paths, where the launcher's asks
-for PerMonitorV2 and long paths, so a game or profile path past MAX_PATH
-works in the launcher and not in the engine.
-
-Differs (bugs.md ENG.54): on Linux a number past an int's range typed for
-`netspeed`, a URL's port, an Advanced Options int or byte or a script int's
-import wraps, where the original holds it to the int's ends; and an int in
-the ini or a `SET` is taken with a leading `+` or blank, where the
-original's sets nothing.
-
 Differs (bugs.md ENG.60): `MLMODE`'s number and a Color's members in an ini
 are read by C's rules, not the original's `appAtoi`'s; nothing seen.
 
-Differs (bugs.md ENG.57): the window events come after the windows' tick, so
-a window an event makes is drawn once before its first tick, its focus a
-frame late, where the original's windows tick first; and a destroyed window
-is freed only at the next collection, which no count of windows brings on,
-where the original deletes it at once.
+Differs (bugs.md ENG.57): past `Shot9999` a `SHOT` takes nothing and says
+nothing; the original's limit is unread.
 
 Differs (bugs.md REN.94): the Vulkan device's `ClearZ` and `EndFlash` do not
 test for a frame in hand, as the GL device's do; nothing seen.

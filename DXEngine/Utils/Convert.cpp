@@ -17,18 +17,6 @@ int32_t Convert::to_int32(const std::string& str)
 	}
 }
 
-uint32_t Convert::to_uint32(const std::string& str)
-{
-	try
-	{
-		return (uint32_t) std::stoi(str);
-	}
-	catch (std::exception& e)
-	{
-		Exception::Throw(e.what() + std::string(" (value = ") + str + ")");
-	}
-}
-
 int16_t Convert::to_int16(const std::string& str)
 {
 	try

@@ -209,9 +209,11 @@ NetPendingLevel::NetPendingLevel(const UnrealURL& url) : URL(url)
 	NetConnection* connection = Driver->ServerConnection.get();
 	if (URL.HasOption("LAN"))
 	{
+		// An int config property's text, as the original's import reads it
 		std::string lanSpeed = engine->packages->GetIniValue("system", "Engine.Player", "ConfiguredLanSpeed");
-		if (!lanSpeed.empty())
-			connection->CurrentNetSpeed = std::atoi(lanSpeed.c_str());
+		int32_t speed = 0;
+		if (StrTools::ue1_int_text(lanSpeed, speed))
+			connection->CurrentNetSpeed = speed;
 	}
 
 	connection->SendText("HELLO REVISION=0 MINVER=1100 VER=1100");

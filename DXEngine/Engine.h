@@ -254,7 +254,8 @@ public:
 	// A texture freed by the collection under way (UTexture::OnGCDestroy).
 	bool GarbageTextureDied = false;
 	// Actors freed by no collection yet since ULevel::CleanupDestroyed let go
-	// of them: past the threshold a collection is asked for. A collection
+	// of them, and windows since UWindow::Destroy: past the threshold a
+	// collection is asked for. A collection
 	// is long on a slow CPU (some 250 ms on a Cortex-A53), so the backlog is
 	// let grow.
 	int GarbageDestroyedBacklog = 0;

@@ -27,7 +27,6 @@ void RenderSubsystem::ResetCanvas()
 {
 	// The canvas is the viewport, pixel for pixel, as the original's: the
 	// console and the level's big messages drawn at their fonts' own size
-	SceneNode frame;
 	Canvas.Frame.XB = 0;
 	Canvas.Frame.YB = 0;
 	Canvas.Frame.X = engine->viewport->ViewportWidth();

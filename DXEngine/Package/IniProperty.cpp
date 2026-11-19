@@ -26,10 +26,15 @@ static T FromIniOrDefault(const IniFile& iniFile, const NameString& section, con
 	}
 }
 
+// An int as the original's import reads one (StrTools::ue1_int_text); a
+// text it refuses throws, the value kept
 template<>
 int IniPropertyConverter<int>::FromString(const std::string& valueString)
 {
-	return Convert::to_int32(valueString);
+	int32_t value = 0;
+	if (!StrTools::ue1_int_text(valueString, value))
+		Exception::Throw("Not an int (value = " + valueString + ")");
+	return value;
 }
 
 template<>
@@ -76,10 +81,15 @@ float IniPropertyConverter<float>::FromIniFile(const IniFile& iniFile, const Nam
 
 //====================================================================
 
+// A byte as the original's import reads one (UByteProperty::ImportText,
+// Core.dll 0x10165aa0): digits at its start, by appAtoi, its low 8 bits;
+// any other text throws, the value kept
 template<>
 uint8_t IniPropertyConverter<uint8_t>::FromString(const std::string& valueString)
 {
-	return Convert::to_uint8(valueString);
+	if (valueString.empty() || valueString[0] < '0' || valueString[0] > '9')
+		Exception::Throw("Not a byte (value = " + valueString + ")");
+	return (uint8_t)StrTools::ue1_atoi(valueString);
 }
 
 template<>

@@ -299,7 +299,7 @@ static std::string ImportNative(const NativeConfigProperty& prop, const std::str
 	case T::Byte:
 		// UByteProperty::ImportText (0x10165aa0): digits at its start, a byte
 		if (!text.empty() && text[0] >= '0' && text[0] <= '9')
-			return std::to_string((uint8_t)std::atoi(text.c_str()));
+			return std::to_string((uint8_t)StrTools::ue1_atoi(text));
 		return current;
 	case T::Enum:
 	{
@@ -315,7 +315,7 @@ static std::string ImportNative(const NativeConfigProperty& prop, const std::str
 	case T::Int:
 		// UIntProperty::ImportText (0x10165f00): a '-' or a digit first
 		if (!text.empty() && (text[0] == '-' || (text[0] >= '0' && text[0] <= '9')))
-			return std::to_string(std::atoi(text.c_str()));
+			return std::to_string(StrTools::ue1_atoi(text));
 		return current;
 	case T::Float:
 		// appAtof, never refused: "1500" is 1500.000000
