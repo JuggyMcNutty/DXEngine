@@ -1,5 +1,6 @@
 #include "wayland_display_backend.h"
 #include "wayland_display_window.h"
+#include "window/evdev_keys.h"
 #include <chrono>
 #include <algorithm>
 #include <cstdlib>
@@ -254,7 +255,11 @@ void WaylandDisplayBackend::ConnectKeyboardEvents()
 		// as they gain the focus: Enter held from the launch typed a line,
 		// and each key held into an Alt+Tab its letter
 		for (auto key: keysVec)
-			inputKeyStates[KeyToInputKey(key)] = true;
+		{
+			InputKey name = KeyToInputKey(key);
+			m_PressedAs[key] = name;
+			inputKeyStates[name] = true;
+		}
 	};
 
 	m_waylandKeyboard.on_leave() = [this] (uint32_t serial, wayland::surface_t surfaceLeft) {
@@ -270,11 +275,33 @@ void WaylandDisplayBackend::ConnectKeyboardEvents()
 	};
 
 	m_waylandKeyboard.on_key() = [this] (uint32_t serial, uint32_t time, uint32_t key, wayland::keyboard_key_state state) {
-		// key is Linux evdev scancode, to translate it to XKB keycode, we must add 8
-		OnKeyboardKeyEvent(KeyToInputKey(key), state);
+		// key is Linux evdev scancode, to translate it to XKB keycode, we must add 8.
+		// A key's release is the name it was pressed as, whatever Num Lock or
+		// the layout became meanwhile, as the SDL3 window's
+		InputKey name = InputKey::None;
+		auto pressed = m_PressedAs.find(key);
+		if (state == wayland::keyboard_key_state::pressed)
+		{
+			name = KeyToInputKey(key);
+			m_PressedAs[key] = name;
+		}
+		else if (pressed != m_PressedAs.end())
+		{
+			name = pressed->second;
+			m_PressedAs.erase(pressed);
+		}
+		else
+		{
+			name = KeyToInputKey(key);
+		}
+		OnKeyboardKeyEvent(name, state);
 
-		// Also cause a Char event
+		// Also cause a Char event. Delete types nothing, which xkbcommon gives
+		// DEL (0x7F): Windows sends no WM_CHAR for VK_DELETE
+		// (dx-reverse-info/windrv-dll.md, the keys), and the SDL3 window
+		// types none
 		std::string text = KeyText(key, state);
+		text.erase(std::remove(text.begin(), text.end(), '\x7f'), text.end());
 		OnKeyboardCharEvent(text.c_str(), state);
 	};
 
@@ -573,20 +600,22 @@ std::string WaylandDisplayBackend::KeyText(uint32_t key, wayland::keyboard_key_s
 	return buf;
 }
 
-// The key's name: the key below Escape is the console's whatever its layout
-// names it, and the rest by the keysym of the key's first level, not of the
-// modifiers in force (Shift's digit row and punctuation and Shift+Tab came as
-// None, the keypad with Num Lock off too), as the X11 window reads it
+// The key's name by its place and the layout in force, as the SDL3 window
+// names it (EvdevKeyName): the layout's family by the keysyms of a few keys'
+// first level, the keypad by Num Lock
 InputKey WaylandDisplayBackend::KeyToInputKey(uint32_t key)
 {
-	if (key == KEY_GRAVE)
-		return InputKey::Tilde;
 	if (!m_Keymap || !m_KeyboardState)
 		return InputKey::None;
-	xkb_keycode_t keycode = key + 8;
-	const xkb_keysym_t* syms = nullptr;
-	int count = xkb_keymap_key_get_syms_by_level(m_Keymap, keycode, xkb_state_key_get_layout(m_KeyboardState, keycode), 0, &syms);
-	return XKBKeySymToInputKey(count > 0 ? syms[0] : xkb_state_key_get_one_sym(m_KeyboardState, keycode));
+	auto levelZero = [this](uint32_t code) -> uint32_t
+	{
+		xkb_keycode_t keycode = code + 8;
+		const xkb_keysym_t* syms = nullptr;
+		int count = xkb_keymap_key_get_syms_by_level(m_Keymap, keycode, xkb_state_key_get_layout(m_KeyboardState, keycode), 0, &syms);
+		return count > 0 ? syms[0] : 0;
+	};
+	bool numLock = xkb_state_mod_name_is_active(m_KeyboardState, XKB_MOD_NAME_NUM, XKB_STATE_MODS_EFFECTIVE) > 0;
+	return EvdevKeyName(key, numLock, levelZero);
 }
 
 void WaylandDisplayBackend::OnKeyboardKeyEvent(InputKey inputKey, wayland::keyboard_key_state state)
@@ -1037,285 +1066,6 @@ bool WaylandDisplayBackend::GetKeyState(InputKey key)
 		return false;
 
 	return it->second;
-}
-
-InputKey WaylandDisplayBackend::XKBKeySymToInputKey(xkb_keysym_t keySym)
-{
-	switch (keySym)
-	{
-		case XKB_KEY_Escape:
-			return InputKey::Escape;
-		case XKB_KEY_1:
-			return InputKey::_1;
-		case XKB_KEY_2:
-			return InputKey::_2;
-		case XKB_KEY_3:
-			return InputKey::_3;
-		case XKB_KEY_4:
-			return InputKey::_4;
-		case XKB_KEY_5:
-			return InputKey::_5;
-		case XKB_KEY_6:
-			return InputKey::_6;
-		case XKB_KEY_7:
-			return InputKey::_7;
-		case XKB_KEY_8:
-			return InputKey::_8;
-		case XKB_KEY_9:
-			return InputKey::_9;
-		case XKB_KEY_0:
-			return InputKey::_0;
-		// The keypad's digits as the first level names them (Home, End, the
-		// arrows, Insert, Delete) and as Num Lock's level does
-		case XKB_KEY_KP_1:
-		case XKB_KEY_KP_End:
-			return InputKey::NumPad1;
-		case XKB_KEY_KP_2:
-		case XKB_KEY_KP_Down:
-			return InputKey::NumPad2;
-		case XKB_KEY_KP_3:
-		case XKB_KEY_KP_Page_Down:
-			return InputKey::NumPad3;
-		case XKB_KEY_KP_4:
-		case XKB_KEY_KP_Left:
-			return InputKey::NumPad4;
-		case XKB_KEY_KP_5:
-		case XKB_KEY_KP_Begin:
-			return InputKey::NumPad5;
-		case XKB_KEY_KP_6:
-		case XKB_KEY_KP_Right:
-			return InputKey::NumPad6;
-		case XKB_KEY_KP_7:
-		case XKB_KEY_KP_Home:
-			return InputKey::NumPad7;
-		case XKB_KEY_KP_8:
-		case XKB_KEY_KP_Up:
-			return InputKey::NumPad8;
-		case XKB_KEY_KP_9:
-		case XKB_KEY_KP_Page_Up:
-			return InputKey::NumPad9;
-		case XKB_KEY_KP_0:
-		case XKB_KEY_KP_Insert:
-			return InputKey::NumPad0;
-		case XKB_KEY_F1:
-			return InputKey::F1;
-		case XKB_KEY_F2:
-			return InputKey::F2;
-		case XKB_KEY_F3:
-			return InputKey::F3;
-		case XKB_KEY_F4:
-			return InputKey::F4;
-		case XKB_KEY_F5:
-			return InputKey::F5;
-		case XKB_KEY_F6:
-			return InputKey::F6;
-		case XKB_KEY_F7:
-			return InputKey::F7;
-		case XKB_KEY_F8:
-			return InputKey::F8;
-		case XKB_KEY_F9:
-			return InputKey::F9;
-		case XKB_KEY_F10:
-			return InputKey::F10;
-		case XKB_KEY_F11:
-			return InputKey::F11;
-		case XKB_KEY_F12:
-			return InputKey::F12;
-		case XKB_KEY_F13:
-			return InputKey::F13;
-		case XKB_KEY_F14:
-			return InputKey::F14;
-		case XKB_KEY_F15:
-			return InputKey::F15;
-		case XKB_KEY_F16:
-			return InputKey::F16;
-		case XKB_KEY_F17:
-			return InputKey::F17;
-		case XKB_KEY_F18:
-			return InputKey::F18;
-		case XKB_KEY_F19:
-			return InputKey::F19;
-		case XKB_KEY_F20:
-			return InputKey::F20;
-		case XKB_KEY_F21:
-			return InputKey::F21;
-		case XKB_KEY_F22:
-			return InputKey::F22;
-		case XKB_KEY_F23:
-			return InputKey::F23;
-		case XKB_KEY_F24:
-			return InputKey::F24;
-		case XKB_KEY_minus:
-			return InputKey::Minus;
-		case XKB_KEY_equal:
-			return InputKey::Equals;
-		case XKB_KEY_BackSpace:
-			return InputKey::Backspace;
-		case XKB_KEY_backslash:
-			return InputKey::Backslash;
-		case XKB_KEY_Tab:
-			return InputKey::Tab;
-		case XKB_KEY_bracketleft:
-		case XKB_KEY_braceleft:
-			return InputKey::LeftBracket;
-		case XKB_KEY_bracketright:
-		case XKB_KEY_braceright:
-			return InputKey::RightBracket;
-		case XKB_KEY_Control_L:
-		case XKB_KEY_Control_R:
-			return InputKey::Ctrl;
-		case XKB_KEY_Alt_L:
-		case XKB_KEY_Alt_R:
-			return InputKey::Alt;
-		case XKB_KEY_Delete:
-			return InputKey::Delete;
-		case XKB_KEY_semicolon:
-			return InputKey::Semicolon;
-		case XKB_KEY_comma:
-			return InputKey::Comma;
-		case XKB_KEY_period:
-			return InputKey::Period;
-		case XKB_KEY_Num_Lock:
-			return InputKey::NumLock;
-		case XKB_KEY_Caps_Lock:
-			return InputKey::CapsLock;
-		case XKB_KEY_Scroll_Lock:
-			return InputKey::ScrollLock;
-		case XKB_KEY_Shift_L:
-		case XKB_KEY_Shift_R:
-			return InputKey::Shift;
-		case XKB_KEY_grave:
-			return InputKey::Tilde;
-		case XKB_KEY_apostrophe:
-			return InputKey::SingleQuote;
-		case XKB_KEY_KP_Enter:
-		case XKB_KEY_Return:
-			return InputKey::Enter;
-		case XKB_KEY_space:
-			return InputKey::Space;
-
-		case XKB_KEY_Up:
-			return InputKey::Up;
-		case XKB_KEY_Down:
-			return InputKey::Down;
-		case XKB_KEY_Left:
-			return InputKey::Left;
-		case XKB_KEY_Right:
-			return InputKey::Right;
-
-		case XKB_KEY_A:
-		case XKB_KEY_a:
-			return InputKey::A;
-		case XKB_KEY_B:
-		case XKB_KEY_b:
-			return InputKey::B;
-		case XKB_KEY_C:
-		case XKB_KEY_c:
-			return InputKey::C;
-		case XKB_KEY_D:
-		case XKB_KEY_d:
-			return InputKey::D;
-		case XKB_KEY_E:
-		case XKB_KEY_e:
-			return InputKey::E;
-		case XKB_KEY_F:
-		case XKB_KEY_f:
-			return InputKey::F;
-		case XKB_KEY_G:
-		case XKB_KEY_g:
-			return InputKey::G;
-		case XKB_KEY_H:
-		case XKB_KEY_h:
-			return InputKey::H;
-		case XKB_KEY_I:
-		case XKB_KEY_i:
-			return InputKey::I;
-		case XKB_KEY_J:
-		case XKB_KEY_j:
-			return InputKey::J;
-		case XKB_KEY_K:
-		case XKB_KEY_k:
-			return InputKey::K;
-		case XKB_KEY_L:
-		case XKB_KEY_l:
-			return InputKey::L;
-		case XKB_KEY_M:
-		case XKB_KEY_m:
-			return InputKey::M;
-		case XKB_KEY_N:
-		case XKB_KEY_n:
-			return InputKey::N;
-		case XKB_KEY_O:
-		case XKB_KEY_o:
-			return InputKey::O;
-		case XKB_KEY_P:
-		case XKB_KEY_p:
-			return InputKey::P;
-		case XKB_KEY_Q:
-		case XKB_KEY_q:
-			return InputKey::Q;
-		case XKB_KEY_R:
-		case XKB_KEY_r:
-			return InputKey::R;
-		case XKB_KEY_S:
-		case XKB_KEY_s:
-			return InputKey::S;
-		case XKB_KEY_T:
-		case XKB_KEY_t:
-			return InputKey::T;
-		case XKB_KEY_U:
-		case XKB_KEY_u:
-			return InputKey::U;
-		case XKB_KEY_V:
-		case XKB_KEY_v:
-			return InputKey::V;
-		case XKB_KEY_W:
-		case XKB_KEY_w:
-			return InputKey::W;
-		case XKB_KEY_X:
-		case XKB_KEY_x:
-			return InputKey::X;
-		case XKB_KEY_Y:
-		case XKB_KEY_y:
-			return InputKey::Y;
-		case XKB_KEY_Z:
-		case XKB_KEY_z:
-			return InputKey::Z;
-
-		case XKB_KEY_slash:
-			return InputKey::Slash;
-		case XKB_KEY_Home:
-			return InputKey::Home;
-		case XKB_KEY_End:
-			return InputKey::End;
-		case XKB_KEY_Page_Up:
-			return InputKey::PageUp;
-		case XKB_KEY_Page_Down:
-			return InputKey::PageDown;
-		case XKB_KEY_Insert:
-			return InputKey::Insert;
-		case XKB_KEY_KP_Multiply:
-			return InputKey::GreyStar;
-		case XKB_KEY_KP_Add:
-			return InputKey::GreyPlus;
-		case XKB_KEY_KP_Subtract:
-			return InputKey::GreyMinus;
-		case XKB_KEY_KP_Divide:
-			return InputKey::GreySlash;
-		case XKB_KEY_KP_Decimal:
-		case XKB_KEY_KP_Delete:
-			return InputKey::NumPadPeriod;
-		case XKB_KEY_Print:
-			return InputKey::PrintScrn;
-		case XKB_KEY_Pause:
-			return InputKey::Pause;
-
-		case XKB_KEY_NoSymbol:
-		case XKB_KEY_VoidSymbol:
-			return InputKey::None;
-		default:
-			return InputKey::None;
-	}
 }
 
 InputKey WaylandDisplayBackend::LinuxInputEventCodeToInputKey(uint32_t inputCode)

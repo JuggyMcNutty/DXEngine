@@ -1003,12 +1003,21 @@ void SDL2DisplayWindow::OnMouseButtonUp(const SDL_MouseButtonEvent& event)
 	}
 }
 
+// A press is a double click as SDL counts its clicks, by its double-click
+// time and radius: the second of a run, a third a press again, as Windows
+// sends WM_LBUTTONDBLCLK in place of the second WM_LBUTTONDOWN (the Win32
+// window's). The game's window takes a double click as a press
+// (Engine::OnWindowMouseDoubleclick), the Advanced Options' and the file
+// dialogs' trees and lists theirs.
 void SDL2DisplayWindow::OnMouseButtonDown(const SDL_MouseButtonEvent& event)
 {
 	InputKey key = GetMouseButtonKey(event);
 	if (key != InputKey::None)
 	{
-		WindowHost->OnWindowMouseDown(GetMousePos(event), key);
+		if (event.clicks >= 2 && event.clicks % 2 == 0)
+			WindowHost->OnWindowMouseDoubleclick(GetMousePos(event), key);
+		else
+			WindowHost->OnWindowMouseDown(GetMousePos(event), key);
 	}
 }
 

@@ -42,6 +42,7 @@ public:
 	Size GetScreenPixelSize();
 
 	Atom GetAtom(const std::string& name);
+	bool IsAbsolutePointer(int deviceid);
 
 	Display* display = nullptr;
 	std::map<std::string, Atom> atoms;
@@ -54,6 +55,8 @@ public:
 	bool XInput2Supported = false;
 	int XInputOpcode = 0;
 	int MasterPointerID = 0;
+	// XInput 2.1 or later: raw events come through a grab of the pointer
+	bool RawEventsInGrabs = false;
 
 private:
 	void DispatchEvent(XEvent* event);
@@ -62,6 +65,7 @@ private:
 	int GetTimerTimeout();
 
 	std::vector<std::shared_ptr<X11Timer>> timers;
+	std::map<int, bool> absolutePointers; // by device, as first asked (IsAbsolutePointer)
 };
 
 X11Connection* GetX11Connection();

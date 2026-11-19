@@ -95,7 +95,9 @@ private:
 	void OnSelectionNotify(XEvent* event);
 	void OnSelectionRequest(XEvent* event);
 	bool OnXInputEvent(XEvent* event);
+	bool IsDoubleClick(InputKey key, Time time, int x, int y);
 	void SetFullscreenState(bool fullscreen);
+	void GrabCursor(bool grab);
 	void Unmaximize();
 
 	void CreateBackbuffer(int width, int height);
@@ -126,6 +128,7 @@ private:
 	bool isMaximized = false;
 	bool unmaximizing = false;
 	bool keyboardLocked = false;
+	bool cursorGrabbed = false; // the pointer held in the window (GrabCursor)
 	double dpiScale = 1.0;
 
 	int ClientSizeX = 0;
@@ -138,10 +141,23 @@ private:
 		bool Focused = false;
 	} RawInput;
 
+	// The last press of a button, which a second may make a double click
+	// (IsDoubleClick)
+	struct
+	{
+		InputKey key = {};
+		Time time = 0;
+		int x = 0;
+		int y = 0;
+		bool open = false;
+	} LastClick;
+
 	Pixmap cursor_bitmap = None;
 	Cursor hidden_cursor = None;
 
 	std::map<InputKey, bool> keyState;
+	// The name each key held was pressed as, by its key code (OnKeyPress)
+	InputKey pressedAs[256] = {};
 
 	std::string clipboardText;
 

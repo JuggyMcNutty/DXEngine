@@ -1,13 +1,17 @@
 
 #include "x11_display_window.h"
 #include "x11_connection.h"
+#include "window/evdev_keys.h"
 #include <dxwidgets/core/image.h>
 #include <stdexcept>
 #include <vector>
+#include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <map>
 #include <string>
 #include <cstring>
+#include <chrono>
 #include <dlfcn.h>
 #include <unistd.h>
 #include <sys/ipc.h>
@@ -492,25 +496,55 @@ void X11DisplayWindow::ShowCursor(bool enable)
 }
 
 // Typed text off in play, as the engine asks (SDL3's SDL_StopTextInput): the
-// keys still come as keys
+// keys still come as keys, the input method's focus taken from the window
+// so that it filters none (a key that is a dead key on the layout, the one
+// below Escape on a German one, reaches the game), and given back as the
+// typing comes back while the window has the focus
 void X11DisplayWindow::LockKeyboard()
 {
+	if (!keyboardLocked && xic)
+		XUnsetICFocus(xic);
 	keyboardLocked = true;
 }
 
 void X11DisplayWindow::UnlockKeyboard()
 {
+	if (keyboardLocked && xic && RawInput.Focused)
+		XSetICFocus(xic);
 	keyboardLocked = false;
 }
 
 void X11DisplayWindow::LockCursor()
 {
 	ShowCursor(false);
+	GrabCursor(RawInput.Focused);
 }
 
 void X11DisplayWindow::UnlockCursor()
 {
 	ShowCursor(true);
+	GrabCursor(false);
+}
+
+// The pointer held in the window while the game locks it and the window has
+// the focus, as the original clips it to its client area and lets it go with
+// the focus (dx-reverse-info/windrv-dll.md, the keys): the pointer grabbed,
+// confined to the window, where the server sends raw moves through a grab
+// (XInput 2.1); the warp to the middle (OnXInputEvent) follows its moves. A
+// grab the server refuses (another program's held) is asked again at the
+// next lock, the engine locking each frame.
+void X11DisplayWindow::GrabCursor(bool grab)
+{
+	if (grab && !cursorGrabbed && GetX11Connection()->RawEventsInGrabs)
+	{
+		cursorGrabbed = XGrabPointer(display, window, True, ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
+			GrabModeAsync, GrabModeAsync, window, None, CurrentTime) == GrabSuccess;
+	}
+	else if (!grab && cursorGrabbed)
+	{
+		XUngrabPointer(display, CurrentTime);
+		cursorGrabbed = false;
+	}
 }
 
 // A widget's drag (a scrollbar's thumb) follows the pointer past the window:
@@ -861,10 +895,22 @@ std::vector<uint8_t> X11DisplayWindow::GetWindowProperty(Atom property, Atom &ac
 	return buffer;
 }
 
+// A PropertyNotify of a new value of the property an INCR transfer comes in
+// (GetClipboardText)
+static Bool IsIncrChunk(Display* display, XEvent* event, XPointer arg)
+{
+	const XPropertyEvent* wanted = (const XPropertyEvent*)arg;
+	return event->type == PropertyNotify && event->xproperty.window == wanted->window &&
+		event->xproperty.atom == wanted->atom && event->xproperty.state == PropertyNewValue;
+}
+
 // The clipboard's text as UTF-8: asked for as UTF8_STRING, then as STRING,
 // Latin-1 (ICCCM), from an owner that refuses UTF-8. This program's own
 // selection is its text as it is: its request to itself goes unanswered
-// while this waits.
+// while this waits. The property read is deleted, as ICCCM asks; a text
+// larger than the owner sends at once comes by INCR, in chunks, each
+// deleted to ask for the next, the last one empty. Each answer is waited
+// for 500 ms at most, whatever other events come meanwhile.
 std::string X11DisplayWindow::GetClipboardText()
 {
 	auto connection = GetX11Connection();
@@ -877,6 +923,16 @@ std::string X11DisplayWindow::GetClipboardText()
 		return ours->second->clipboardText;
 
 	Atom utf8Atom = XInternAtom(display, "UTF8_STRING", False);
+	Atom incrAtom = XInternAtom(display, "INCR", False);
+	using Clock = std::chrono::steady_clock;
+	auto wait = [&](Clock::time_point deadline)
+	{
+		auto left = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - Clock::now()).count();
+		if (left <= 0)
+			return false;
+		connection->WaitForEvents((int)left);
+		return true;
+	};
 	for (Atom target : { utf8Atom, (Atom)XA_STRING })
 	{
 		XConvertSelection(display, clipboard, target, clipboard, window, CurrentTime);
@@ -884,20 +940,62 @@ std::string X11DisplayWindow::GetClipboardText()
 
 		// Wait 500 ms for a response
 		XEvent event = {};
+		auto deadline = Clock::now() + std::chrono::milliseconds(500);
 		while (true)
 		{
 			if (XCheckTypedWindowEvent(display, window, SelectionNotify, &event))
 				break;
-			if (!connection->WaitForEvents(500))
+			if (!wait(deadline))
 				return {};
 		}
 		if (event.xselection.property == None)
 			continue; // refused
 
+		// The property's news so far, from before the answer, passed over:
+		// an INCR transfer's chunks are told by the news after it
+		XPropertyEvent wanted = {};
+		wanted.window = window;
+		wanted.atom = clipboard;
+		XEvent stale = {};
+		while (XCheckIfEvent(display, &stale, IsIncrChunk, (XPointer)&wanted))
+		{
+		}
+
 		Atom type = None;
 		int format = 0;
 		unsigned long count = 0;
 		std::vector<uint8_t> data = GetWindowProperty(clipboard, type, format, count);
+		XDeleteProperty(display, window, clipboard);
+		XFlush(display);
+		if (type == incrAtom)
+		{
+			// The delete above asks for the first chunk
+			data.clear();
+			deadline = Clock::now() + std::chrono::milliseconds(500);
+			while (true)
+			{
+				XEvent chunkEvent = {};
+				if (!XCheckIfEvent(display, &chunkEvent, IsIncrChunk, (XPointer)&wanted))
+				{
+					if (!wait(deadline))
+						return {};
+					continue;
+				}
+				Atom chunkType = None;
+				int chunkFormat = 0;
+				unsigned long chunkCount = 0;
+				std::vector<uint8_t> chunk = GetWindowProperty(clipboard, chunkType, chunkFormat, chunkCount);
+				XDeleteProperty(display, window, clipboard);
+				XFlush(display);
+				if (chunk.empty())
+					break;
+				type = chunkType;
+				format = chunkFormat;
+				data.insert(data.end(), chunk.begin(), chunk.end());
+				deadline = Clock::now() + std::chrono::milliseconds(500);
+			}
+			count = data.size();
+		}
 		if ((type != utf8Atom && type != XA_STRING) || format != 8 || count <= 0 || data.empty())
 			return {};
 
@@ -976,7 +1074,10 @@ void X11DisplayWindow::OnEvent(XEvent* event)
 	else if (event->type == FocusIn)
 		OnFocusIn(event);
 	else if (event->type == FocusOut)
+	{
+		GrabCursor(false);
 		OnFocusOut(event);
+	}
 	else if (event->type == PropertyNotify)
 		OnPropertyNotify(event);
 	else if (event->type == KeyPress)
@@ -1034,7 +1135,7 @@ void X11DisplayWindow::OnExpose(XEvent* event)
 
 void X11DisplayWindow::OnFocusIn(XEvent* event)
 {
-	if (xic)
+	if (xic && !keyboardLocked)
 		XSetICFocus(xic);
 
 	RawInput.Focused = true;
@@ -1042,7 +1143,12 @@ void X11DisplayWindow::OnFocusIn(XEvent* event)
 	// No KeyPress comes for a key held as the focus comes, nor a ButtonPress
 	// for a button: each is read from the server, so that the host finds it
 	// held (GetKeyState), as the original's poll finds it in Windows' state
-	// (Engine::PressHeldKeys; bugs.md ENG.40)
+	// (Engine::PressHeldKeys; bugs.md ENG.40), named as a KeyPress would
+	// name it now, by the keyboard's modifiers (Num Lock) and layout group
+	unsigned int state = 0;
+	XkbStateRec xkbState = {};
+	if (XkbGetState(display, XkbUseCoreKbd, &xkbState) == Success)
+		state = XkbBuildCoreState(xkbState.lookup_mods, xkbState.group);
 	char keys[32] = {};
 	XQueryKeymap(display, keys);
 	for (int code = 8; code < 256; code++)
@@ -1053,7 +1159,10 @@ void X11DisplayWindow::OnFocusIn(XEvent* event)
 			press.type = KeyPress;
 			press.xkey.display = display;
 			press.xkey.keycode = code;
-			keyState[GetInputKey(&press)] = true;
+			press.xkey.state = state;
+			InputKey key = GetInputKey(&press);
+			pressedAs[code] = key;
+			keyState[key] = true;
 		}
 	}
 	Window root = 0, child = 0;
@@ -1132,143 +1241,27 @@ void X11DisplayWindow::OnPropertyNotify(XEvent* event)
 		windowHost->OnWindowMaximize();
 }
 
+// A key by its place and the layout in force, as the SDL3 window names it
+// (EvdevKeyName): the X key code is the evdev code less 8, the layout the
+// event's group, a key that group has no symbol for named by the first
+// group's, and the keypad by the event's Num Lock
 InputKey X11DisplayWindow::GetInputKey(XEvent* event)
 {
 	if (event->type == KeyPress || event->type == KeyRelease)
 	{
-		KeySym keysymbol = XkbKeycodeToKeysym(display, event->xkey.keycode, 0, 0);
-		switch (keysymbol)
+		if (event->xkey.keycode < 8 || event->xkey.keycode > 255)
+			return InputKey{};
+		int group = XkbGroupForCoreState(event->xkey.state);
+		auto levelZero = [&](uint32_t code)
 		{
-		case XK_BackSpace: return InputKey::Backspace;
-		case XK_Tab: return InputKey::Tab;
-		case XK_Return: return InputKey::Enter;
-		// To do: should we merge them or not? Windows merges them
-		case XK_Shift_L: return InputKey::Shift; // InputKey::LShift
-		case XK_Shift_R: return InputKey::Shift; // InputKey::RShift
-		case XK_Control_L: return InputKey::Ctrl; // InputKey::LControl
-		case XK_Control_R: return InputKey::Ctrl; // InputKey::RControl
-		// Alt as the original's window presses it for either Alt key
-		// (VK_MENU, WinDrv.dll 0x1110a2a9): the keys' own keysyms, the right
-		// one AltGr's where the layout makes it so (ISO_Level3_Shift), as the
-		// SDL windows take that key by its place, and Meta, Alt with Shift on
-		// most layouts
-		case XK_Alt_L: return InputKey::Alt;
-		case XK_Alt_R: return InputKey::Alt;
-		case XK_ISO_Level3_Shift: return InputKey::Alt;
-		case XK_Meta_L: return InputKey::Alt;
-		case XK_Meta_R: return InputKey::Alt;
-		case XK_Pause: return InputKey::Pause;
-		case XK_Caps_Lock: return InputKey::CapsLock;
-		case XK_Escape: return InputKey::Escape;
-		case XK_space: return InputKey::Space;
-		case XK_Page_Up: return InputKey::PageUp;
-		case XK_Page_Down: return InputKey::PageDown;
-		case XK_End: return InputKey::End;
-		case XK_Home: return InputKey::Home;
-		case XK_Left: return InputKey::Left;
-		case XK_Up: return InputKey::Up;
-		case XK_Right: return InputKey::Right;
-		case XK_Down: return InputKey::Down;
-		case XK_Print: return InputKey::Print;
-		case XK_Execute: return InputKey::Execute;
-		// case XK_Print_Screen: return InputKey::PrintScrn;
-		case XK_Insert: return InputKey::Insert;
-		case XK_Delete: return InputKey::Delete;
-		case XK_Help: return InputKey::Help;
-		case XK_0: return InputKey::_0;
-		case XK_1: return InputKey::_1;
-		case XK_2: return InputKey::_2;
-		case XK_3: return InputKey::_3;
-		case XK_4: return InputKey::_4;
-		case XK_5: return InputKey::_5;
-		case XK_6: return InputKey::_6;
-		case XK_7: return InputKey::_7;
-		case XK_8: return InputKey::_8;
-		case XK_9: return InputKey::_9;
-		case XK_A: case XK_a:  return InputKey::A;
-		case XK_B: case XK_b:  return InputKey::B;
-		case XK_C: case XK_c:  return InputKey::C;
-		case XK_D: case XK_d:  return InputKey::D;
-		case XK_E: case XK_e:  return InputKey::E;
-		case XK_F: case XK_f:  return InputKey::F;
-		case XK_G: case XK_g:  return InputKey::G;
-		case XK_H: case XK_h:  return InputKey::H;
-		case XK_I: case XK_i:  return InputKey::I;
-		case XK_J: case XK_j:  return InputKey::J;
-		case XK_K: case XK_k:  return InputKey::K;
-		case XK_L: case XK_l:  return InputKey::L;
-		case XK_M: case XK_m:  return InputKey::M;
-		case XK_N: case XK_n:  return InputKey::N;
-		case XK_O: case XK_o:  return InputKey::O;
-		case XK_P: case XK_p: return InputKey::P;
-		case XK_Q: case XK_q: return InputKey::Q;
-		case XK_R: case XK_r: return InputKey::R;
-		case XK_S: case XK_s: return InputKey::S;
-		case XK_T: case XK_t: return InputKey::T;
-		case XK_U: case XK_u: return InputKey::U;
-		case XK_V: case XK_v: return InputKey::V;
-		case XK_W: case XK_w: return InputKey::W;
-		case XK_X: case XK_x: return InputKey::X;
-		case XK_Y: case XK_y: return InputKey::Y;
-		case XK_Z: case XK_z: return InputKey::Z;
-		// The keypad's digits as the keysym's first level gives them (Home,
-		// End, the arrows, Insert, Delete: XkbKeycodeToKeysym's level 0, the
-		// keypad type's unshifted) and as Num Lock's level does
-		case XK_KP_0: case XK_KP_Insert: return InputKey::NumPad0;
-		case XK_KP_1: case XK_KP_End: return InputKey::NumPad1;
-		case XK_KP_2: case XK_KP_Down: return InputKey::NumPad2;
-		case XK_KP_3: case XK_KP_Page_Down: return InputKey::NumPad3;
-		case XK_KP_4: case XK_KP_Left: return InputKey::NumPad4;
-		case XK_KP_5: case XK_KP_Begin: return InputKey::NumPad5;
-		case XK_KP_6: case XK_KP_Right: return InputKey::NumPad6;
-		case XK_KP_7: case XK_KP_Home: return InputKey::NumPad7;
-		case XK_KP_8: case XK_KP_Up: return InputKey::NumPad8;
-		case XK_KP_9: case XK_KP_Page_Up: return InputKey::NumPad9;
-		case XK_KP_Multiply: return InputKey::GreyStar;
-		case XK_KP_Add: return InputKey::GreyPlus;
-		case XK_KP_Separator: return InputKey::Separator;
-		case XK_KP_Subtract: return InputKey::GreyMinus;
-		case XK_KP_Decimal: case XK_KP_Delete: return InputKey::NumPadPeriod;
-		case XK_KP_Divide: return InputKey::GreySlash;
-		case XK_F1: return InputKey::F1;
-		case XK_F2: return InputKey::F2;
-		case XK_F3: return InputKey::F3;
-		case XK_F4: return InputKey::F4;
-		case XK_F5: return InputKey::F5;
-		case XK_F6: return InputKey::F6;
-		case XK_F7: return InputKey::F7;
-		case XK_F8: return InputKey::F8;
-		case XK_F9: return InputKey::F9;
-		case XK_F10: return InputKey::F10;
-		case XK_F11: return InputKey::F11;
-		case XK_F12: return InputKey::F12;
-		case XK_F13: return InputKey::F13;
-		case XK_F14: return InputKey::F14;
-		case XK_F15: return InputKey::F15;
-		case XK_F16: return InputKey::F16;
-		case XK_F17: return InputKey::F17;
-		case XK_F18: return InputKey::F18;
-		case XK_F19: return InputKey::F19;
-		case XK_F20: return InputKey::F20;
-		case XK_F21: return InputKey::F21;
-		case XK_F22: return InputKey::F22;
-		case XK_F23: return InputKey::F23;
-		case XK_F24: return InputKey::F24;
-		case XK_Num_Lock: return InputKey::NumLock;
-		case XK_Scroll_Lock: return InputKey::ScrollLock;
-		case XK_semicolon: return InputKey::Semicolon;
-		case XK_equal: return InputKey::Equals;
-		case XK_comma: return InputKey::Comma;
-		case XK_minus: return InputKey::Minus;
-		case XK_period: return InputKey::Period;
-		case XK_slash: return InputKey::Slash;
-		case XK_dead_tilde: return InputKey::Tilde;
-		case XK_bracketleft: return InputKey::LeftBracket;
-		case XK_backslash: return InputKey::Backslash;
-		case XK_bracketright: return InputKey::RightBracket;
-		case XK_apostrophe: return InputKey::SingleQuote;
-		default: return (InputKey)(((uint32_t)keysymbol) << 8);
-		}
+			KeySym keysym = XkbKeycodeToKeysym(display, (KeyCode)(code + 8), group, 0);
+			if (keysym == NoSymbol && group != 0)
+				keysym = XkbKeycodeToKeysym(display, (KeyCode)(code + 8), 0, 0);
+			return (uint32_t)keysym;
+		};
+		unsigned int numLockMask = XkbKeysymToModifiers(display, XK_Num_Lock);
+		bool numLock = numLockMask != 0 && (event->xkey.state & numLockMask) != 0;
+		return EvdevKeyName(event->xkey.keycode - 8, numLock, levelZero);
 	}
 	else if (event->type == ButtonPress || event->type == ButtonRelease)
 	{
@@ -1303,7 +1296,12 @@ void X11DisplayWindow::OnKeyPress(XEvent* event)
 	// unsigned int keycode = event->xkey.keycode;
 	// bool isrepeat = event->type == KeyPress && keyboard_state[keycode / 8] & (1 << keycode % 8);
 
-	InputKey key = GetInputKey(event);
+	// A key's repeats and its release are the name it was pressed as,
+	// whatever Num Lock or the layout became meanwhile, as the SDL3 window's
+	unsigned int code = event->xkey.keycode & 0xff;
+	InputKey key = pressedAs[code];
+	if (key == InputKey{} || !keyState[key])
+		pressedAs[code] = key = GetInputKey(event);
 	keyState[key] = true;
 	windowHost->OnWindowKeyDown(key);
 
@@ -1335,13 +1333,22 @@ void X11DisplayWindow::OnKeyPress(XEvent* event)
 		}
 	}
 
+	// Delete types nothing, which Xlib gives DEL (0x7F): Windows sends no
+	// WM_CHAR for VK_DELETE (dx-reverse-info/windrv-dll.md, the keys), and
+	// the SDL3 window types none
+	text.erase(std::remove(text.begin(), text.end(), '\x7f'), text.end());
+
 	if (!text.empty())
 		windowHost->OnWindowKeyChar(std::move(text));
 }
 
 void X11DisplayWindow::OnKeyRelease(XEvent* event)
 {
-	InputKey key = GetInputKey(event);
+	unsigned int code = event->xkey.keycode & 0xff;
+	InputKey key = pressedAs[code];
+	if (key == InputKey{})
+		key = GetInputKey(event);
+	pressedAs[code] = InputKey{};
 	keyState[key] = false;
 	windowHost->OnWindowKeyUp(key);
 }
@@ -1351,10 +1358,17 @@ void X11DisplayWindow::OnButtonPress(XEvent* event)
 	// Note: this only gets called if XInput is not available
 
 	InputKey key = GetInputKey(event);
+	if (key == InputKey::MouseWheelUp || key == InputKey::MouseWheelDown)
+	{
+		// A wheel's notch, as OnXInputEvent takes it
+		windowHost->OnWindowMouseWheel(GetMousePos(event), key);
+		return;
+	}
 	keyState[key] = true;
-	windowHost->OnWindowMouseDown(GetMousePos(event), key);
-	// if (lastClickWithin400ms)
-	//	windowHost->OnWindowMouseDoubleclick(GetMousePos(event), InputKey::LeftMouse);
+	if (IsDoubleClick(key, event->xbutton.time, event->xbutton.x, event->xbutton.y))
+		windowHost->OnWindowMouseDoubleclick(GetMousePos(event), key);
+	else
+		windowHost->OnWindowMouseDown(GetMousePos(event), key);
 }
 
 void X11DisplayWindow::OnButtonRelease(XEvent* event)
@@ -1362,6 +1376,8 @@ void X11DisplayWindow::OnButtonRelease(XEvent* event)
 	// Note: this only gets called if XInput is not available
 
 	InputKey key = GetInputKey(event);
+	if (key == InputKey::MouseWheelUp || key == InputKey::MouseWheelDown)
+		return; // the notch was its press's (OnButtonPress)
 	keyState[key] = false;
 	windowHost->OnWindowMouseUp(GetMousePos(event), key);
 }
@@ -1428,18 +1444,33 @@ bool X11DisplayWindow::OnXInputEvent(XEvent* event)
 		int y = (int)std::round(deviceEvent->event_y);
 		Point mousePos(x / dpiScale, y / dpiScale);
 
-		if (!isCursorEnabled)
+		if (!isCursorEnabled && !GetX11Connection()->RawEventsInGrabs)
 		{
-			// Raw input gets blocked until we ungrab the pointer. Worst design EVER.
+			// Raw input gets blocked until we ungrab the pointer (the press's
+			// own grab, under XInput 2.0). Worst design EVER.
 			XUngrabPointer(display, deviceEvent->time);
+		}
+
+		// A wheel's notch comes as a press and release of button 4 or 5, the
+		// server making a high-resolution wheel's and a touchpad's scroll
+		// into notches (its emulated buttons): the press is the host's wheel,
+		// which gives MouseW its delta and then presses and releases the
+		// notch, as the original's WM_MOUSEWHEEL (WinDrv.dll 0x1110b2bd), and
+		// the release is nothing
+		if (key == InputKey::MouseWheelUp || key == InputKey::MouseWheelDown)
+		{
+			if (event->xcookie.evtype == XI_ButtonPress)
+				windowHost->OnWindowMouseWheel(mousePos, key);
+			return true;
 		}
 
 		if (event->xcookie.evtype == XI_ButtonPress)
 		{
 			keyState[key] = true;
-			windowHost->OnWindowMouseDown(mousePos, key);
-			// if (lastClickWithin400ms)
-			//	windowHost->OnWindowMouseDoubleclick(GetMousePos(event), InputKey::LeftMouse);
+			if (IsDoubleClick(key, deviceEvent->time, x, y))
+				windowHost->OnWindowMouseDoubleclick(mousePos, key);
+			else
+				windowHost->OnWindowMouseDown(mousePos, key);
 		}
 		else
 		{
@@ -1471,6 +1502,13 @@ bool X11DisplayWindow::OnXInputEvent(XEvent* event)
 			int centerY = ClientSizeY / 2;
 			if (x != centerX || y != centerY)
 			{
+				// A device whose x and y are a place, whose raw values are no
+				// move (XI_RawMotion), moves by the pointer's move from the
+				// middle, as the original's window moves by every pointer's
+				// (WM_MOUSEMOVE; dx-reverse-info/windrv-dll.md, the keys)
+				if (GetX11Connection()->IsAbsolutePointer(deviceEvent->sourceid))
+					windowHost->OnWindowRawMouseMove(x - centerX, y - centerY);
+
 				// We still have to contain the mouse even if we are using XInput.
 				// Maybe we can do that in a simpler way?
 				XWarpPointer(display, window, window, 0, 0, ClientSizeX, ClientSizeY, centerX, centerY);
@@ -1481,32 +1519,53 @@ bool X11DisplayWindow::OnXInputEvent(XEvent* event)
 	}
 	else if (!isCursorEnabled && RawInput.Focused && event->xcookie.evtype == XI_RawMotion)
 	{
-		std::vector<double> values;
-		values.reserve(2);
-
+		// The pointer's own move alone, as the original moves by the pointer's
+		// moves (dx-reverse-info/windrv-dll.md, the keys): valuators 0 and 1,
+		// x and y, each by its mask bit, as SDL3 reads them, one the event
+		// leaves out not moved; the others (a touchpad's and a wheel's
+		// scroll) move nothing. A device whose x and y are a place (a
+		// tablet's pen, a virtual machine's pointer) moves by the pointer
+		// (XI_Motion)
 		auto rawEvent = (XIRawEvent*)event->xcookie.data;
-		double *rawValuator = rawEvent->raw_values;
-		for (int i = 0; i < rawEvent->valuators.mask_len * 8; i++)
+		if (GetX11Connection()->IsAbsolutePointer(rawEvent->sourceid))
+			return true;
+
+		double values[2] = {};
+		const double* rawValuator = rawEvent->raw_values;
+		for (int i = 0; i < 2 && i < rawEvent->valuators.mask_len * 8; i++)
 		{
 			if (XIMaskIsSet(rawEvent->valuators.mask, i))
-			{
-				values.push_back(*rawValuator);
-				rawValuator++;
-			}
+				values[i] = *rawValuator++;
 		}
 
-		if (values.size() >= 2)
-		{
-			// Values seems to be integers for my mouse. Is that always the case?
-			int dx = (int)std::round(values[0]);
-			int dy = (int)std::round(values[1]);
-			if (dx != 0 || dy != 0)
-				windowHost->OnWindowRawMouseMove(dx, dy);
-		}
+		// Values seems to be integers for my mouse. Is that always the case?
+		int dx = (int)std::round(values[0]);
+		int dy = (int)std::round(values[1]);
+		if (dx != 0 || dy != 0)
+			windowHost->OnWindowRawMouseMove(dx, dy);
 
 		return true;
 	}
 	return false;
+}
+
+// X11 counts no clicks: a press is a double click where Windows' would be
+// one, the second press of a button within Windows' default double-click
+// time (500 ms) and rectangle (4 pixels square about the first press), a
+// third a press again, as Windows sends WM_LBUTTONDBLCLK in place of the
+// second WM_LBUTTONDOWN (the Win32 window's). The game's window takes a
+// double click as a press (Engine::OnWindowMouseDoubleclick), the Advanced
+// Options' and the file dialogs' trees and lists theirs.
+bool X11DisplayWindow::IsDoubleClick(InputKey key, Time time, int x, int y)
+{
+	bool isDouble = LastClick.open && LastClick.key == key && time - LastClick.time <= 500 &&
+		std::abs(x - LastClick.x) <= 2 && std::abs(y - LastClick.y) <= 2;
+	LastClick.key = key;
+	LastClick.time = time;
+	LastClick.x = x;
+	LastClick.y = y;
+	LastClick.open = !isDouble;
+	return isDouble;
 }
 
 void X11DisplayWindow::OnLeaveNotify(XEvent* event)

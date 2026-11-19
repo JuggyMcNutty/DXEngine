@@ -2365,14 +2365,15 @@ Differs:
   the original leaves it and minimises; SDL3 minimises a real exclusive mode
   alone, never on Wayland nor in a desktop's full screen.
 
-In the SDL3 and X11 windows a wheel presses once a notch, as the original
-presses once a `WM_MOUSEWHEEL`, which Windows sends a notch: a
-high-resolution wheel's and a touchpad's fractions, which X11 and Wayland
+A wheel presses once a notch, as the original presses once a
+`WM_MOUSEWHEEL`, which Windows sends a notch: in the SDL3 and Wayland windows
+a high-resolution wheel's and a touchpad's fractions, which X11 and Wayland
 send as events of their own, added up and pressed at each notch's half, the
 sum begun again where the scroll turns (`WheelConsole` with
-`tools/dxcap/wheel.py`'s eighths of a notch, the two windows alike). Each
-notch gives the `MouseW` axis its delta first, 120 up and -120 down, as
-Windows' `WM_MOUSEWHEEL` gives the original's
+`tools/dxcap/wheel.py`'s eighths of a notch); in the X11 window each notch
+the X server makes of them, the press of its wheel's button. Each notch gives
+the `MouseW` axis its delta first, 120 up and -120 down, as Windows'
+`WM_MOUSEWHEEL` gives the original's
 ([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys);
 `WheelConsole` with `tools/dxcap/timelines/wheel.txt`).
 
@@ -2425,28 +2426,6 @@ with `Skip=02`).
 A paste, as the original's, puts every character of the clipboard through
 the field's `FilterChar` before its `MaxSize` cuts it (`PasteSizeConsole`:
 1,310,720 characters into a field of `MaxSize` 20, 20 long in both).
-
-Differs (bugs.md WIN.42): the X11 and Wayland windows name keys by the
-layout's own symbols, so on AZERTY the number row is not 1 to 0 and on a
-Cyrillic layout the letters are `None`, and the X11 window gives the key
-below Escape and keypad Enter no name, where the original under Wine names
-them by place and by Windows' codes.
-
-Differs (bugs.md WIN.43): the X11 window's wheel presses and releases alone,
-giving `MouseW` nothing and DXWidgets' lists no scroll, where the original's
-`WM_MOUSEWHEEL` gives `MouseW` its delta first.
-
-Differs (bugs.md WIN.44): in the X11 and Wayland windows Delete types a DEL
-character into an edit field and the console's line, where the original
-types nothing for it.
-
-Differs (bugs.md WIN.45): the X11 window hides the pointer in play without
-holding it in the window, so a fast move takes it out and a click lands
-elsewhere, where the original clips it to its window.
-
-Differs (bugs.md WIN.46): the X11 window takes a raw event's first two
-values for the move whatever their axes, so a touchpad's scroll or a pen
-turns the view, where the original moves by the pointer's own moves alone.
 
 
 ## The menus' settings
@@ -3553,7 +3532,7 @@ nothing; the original's limit is unread.
 Differs (bugs.md REN.94): the Vulkan device's `ClearZ` and `EndFlash` do not
 test for a frame in hand, as the GL device's do; nothing seen.
 
-Differs (bugs.md WIN.57): the SDL windows name Henkan, Muhenkan,
+Differs (bugs.md WIN.57): the SDL, X11 and Wayland windows name Henkan, Muhenkan,
 Katakana/Hiragana, Hangul, Hanja, the keypad's comma and equals and the
 volume and media keys `None`, so none can be bound, where the original
 passes each by its virtual-key code; and a move of the window undoes a
@@ -3673,8 +3652,9 @@ console `LODBIAS`, where the original's move is no resize.
   A command of the engine's that fails from a key, an exec file or the
   launcher (a `SHOT` whose file cannot be written) is logged and the game
   goes on, as one typed in the console is.
-- **A key's name** from the SDL2 and SDL3 windows, the launchers', is the
-  original's
+- **A key's name** from the SDL2 and SDL3 windows, the launchers', and from
+  the engine's own X11 and Wayland windows, which name a key by its evdev
+  code as SDL3's names it by its scancode, is the original's
   ([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys)):
   a shift, control or alt its name for both sides alone, as a tap in the
   original's window (`SideKeyConsole` beside `tools/dxcap/sidekeys.py`, each
@@ -3715,13 +3695,7 @@ console `LODBIAS`, where the original's move is no resize.
   Alt+Esc, Ctrl+Esc and Ctrl+Tab reach the desktop in full screen, where the
   original's takes them as its own hot keys and drops them; on Linux
   Alt+Space is left to the desktop, where the original's under Wine opens
-  Wine's window menu if the desktop leaves it the key. By choice,
-  the other windows name fewer, and a side's own
-  never: the X11 one, the
-  harness's, has no `` ` ``, no keypad Enter, and Print Screen as `Print`;
-  the Wayland one, the engine's own on a Wayland desktop (a dev build's, no
-  port's), names each key by its first level, the key below Escape `` ` ``
-  whatever the layout, and lacks only the Windows and menu keys. The X11
+  Wine's window menu if the desktop leaves it the key. The X11
   window presses `Alt` for either Alt key, AltGr's too, as the original's
   window presses `VK_MENU`, so the stock `Alt=Strafe` strafes
   (`SideKeyConsole` beside `sidekeys.py`: each Alt tap `IK_Alt` pressed
@@ -4325,10 +4299,6 @@ engines), `Console.uc`'s own enum alone naming them `UnknownF0` to
 Differs (bugs.md ENG.52): in the Advanced Options a combo's Up and Down move
 the tree even with its list open, so only its first and last choices are
 reached from the keyboard; what the original's open list takes is unread.
-
-Differs (bugs.md WIN.40): under SDL3, SDL2 and X11 the Advanced Options' and
-EDITACTOR's array rows cannot be opened, no double click reaching the
-window, where the original's opens one by a double click.
 
 Differs (bugs.md WIN.41): under SDL2 (linux-aarch64, the Smart Pro) the
 Advanced Options and EDITACTOR take no typing once the console has been

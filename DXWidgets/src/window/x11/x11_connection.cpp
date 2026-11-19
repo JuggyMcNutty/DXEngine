@@ -3,11 +3,30 @@
 #include "x11_display_window.h"
 #include <stdexcept>
 #include <chrono>
+#include <clocale>
+#include <string>
 
 X11Connection* GetX11Connection()
 {
 	static X11Connection connection;
 	return &connection;
+}
+
+// Xlib's own handler, which reports an error and ends the program, and the
+// windows of this program, which a window's error names (OnXError)
+static XErrorHandler XlibErrorHandler = nullptr;
+static std::map<Window, X11DisplayWindow*>* OwnWindows = nullptr;
+
+// A guard of ours for a platform matter (bugs.md WIN.53): a request on
+// another program's window that has gone meanwhile -- a clipboard request
+// answered after its requestor's window is destroyed -- is passed over, as
+// such a window is no fault of the game's; any other error goes to Xlib's
+// handler. The MIT-SHM attach sets a handler of its own over this one.
+static int OnXError(Display* display, XErrorEvent* error)
+{
+	if (error->error_code == BadWindow && OwnWindows && OwnWindows->find(error->resourceid) == OwnWindows->end())
+		return 0;
+	return XlibErrorHandler ? XlibErrorHandler(display, error) : 0;
 }
 
 X11Connection::X11Connection()
@@ -18,6 +37,9 @@ X11Connection::X11Connection()
 	display = XOpenDisplay(nullptr);
 	if (!display)
 		throw std::runtime_error("Could not open X11 display");
+
+	OwnWindows = &windows;
+	XlibErrorHandler = XSetErrorHandler(OnXError);
 
 	// Make auto-repeat keys detectable
 	Bool supports_detectable_autorepeat = {};
@@ -31,6 +53,16 @@ X11Connection::X11Connection()
 			dpiScale = dpi / 96.0;
 	}
 
+	// The input method opened in the player's locale, as SDL opens its own:
+	// Xlib's compose sequences and an XIM server's text are the locale's (in
+	// the C locale only Latin-1's compose). The program's own locale is put
+	// back after, the engine reading and writing numbers in the C locale's
+	// form; the input method keeps the one it was opened in. A locale Xlib
+	// does not support leaves the program's.
+	std::string programLocale = setlocale(LC_CTYPE, nullptr) ? setlocale(LC_CTYPE, nullptr) : "C";
+	if (setlocale(LC_CTYPE, "") && !XSupportsLocale())
+		setlocale(LC_CTYPE, programLocale.c_str());
+
 	// Loads the XMODIFIERS environment variable to see what IME to use
 	XSetLocaleModifiers("");
 	xim = XOpenIM(display, 0, 0, 0);
@@ -40,15 +72,18 @@ X11Connection::X11Connection()
 		XSetLocaleModifiers("@im=none");
 		xim = XOpenIM(display, 0, 0, 0);
 	}
+	setlocale(LC_CTYPE, programLocale.c_str());
 
 	// Look for XInput support
 	int event = 0, error = 0;
 	if (XQueryExtension(display, "XInputExtension", &XInputOpcode, &event, &error))
 	{
-		// We need XInput 2.0 support
-		int major = 2, minor = 0;
+		// We need XInput 2.0 support; 2.1 asked for, which sends raw events
+		// through a grab (the window's lock holds the pointer by one)
+		int major = 2, minor = 1;
 		if (XIQueryVersion(display, &major, &minor) != BadRequest)
 		{
+			RawEventsInGrabs = major > 2 || (major == 2 && minor >= 1);
 			// And we need a master pointer ID
 			int ndevices = 0;
 			XIDeviceInfo *devices = XIQueryDevice(display, XIAllDevices, &ndevices);
@@ -85,6 +120,8 @@ X11Connection::X11Connection()
 
 X11Connection::~X11Connection()
 {
+	XSetErrorHandler(XlibErrorHandler);
+	OwnWindows = nullptr;
 	for (auto& it : standardCursors)
 		XFreeCursor(display, it.second);
 	if (xim)
@@ -101,6 +138,36 @@ Atom X11Connection::GetAtom(const std::string& name)
 	Atom atom = XInternAtom(display, name.c_str(), True);
 	atoms[name] = atom;
 	return atom;
+}
+
+// Whether a device's x and y valuators (0 and 1) are a place, not a move:
+// a tablet's pen, a touchscreen. Asked of the server once a device.
+bool X11Connection::IsAbsolutePointer(int deviceid)
+{
+	auto it = absolutePointers.find(deviceid);
+	if (it != absolutePointers.end())
+		return it->second;
+
+	bool absolute = false;
+	int count = 0;
+	XIDeviceInfo* info = XIQueryDevice(display, deviceid, &count);
+	if (info)
+	{
+		for (int i = 0; i < count; i++)
+		{
+			for (int c = 0; c < info[i].num_classes; c++)
+			{
+				if (info[i].classes[c]->type != XIValuatorClass)
+					continue;
+				auto valuator = (XIValuatorClassInfo*)info[i].classes[c];
+				if (valuator->number == 0 || valuator->number == 1)
+					absolute = absolute || valuator->mode == XIModeAbsolute;
+			}
+		}
+		XIFreeDeviceInfo(info);
+	}
+	absolutePointers[deviceid] = absolute;
+	return absolute;
 }
 
 void X11Connection::ProcessEvents()

@@ -198,7 +198,6 @@ private:
 	void StopKeyboardTimers();
 	void ApplyCursor();
 
-	InputKey XKBKeySymToInputKey(xkb_keysym_t keySym);
 	InputKey KeyToInputKey(uint32_t key);
 	std::string KeyText(uint32_t key, wayland::keyboard_key_state state);
 	InputKey LinuxInputEventCodeToInputKey(uint32_t inputCode);
@@ -214,6 +213,8 @@ private:
 	WaylandTimer* m_KeyboardDelayTimer = nullptr;
 	WaylandTimer* m_KeyboardRepeatTimer = nullptr;
 
+	// The name each key held was pressed as, by its evdev code (on_key)
+	std::map<uint32_t, InputKey> m_PressedAs;
 	InputKey previousKey = {};
 	std::string previousChars;
 

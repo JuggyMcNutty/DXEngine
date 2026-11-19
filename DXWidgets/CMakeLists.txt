@@ -231,6 +231,7 @@ set(DXWIDGETS_X11_SOURCES
 	src/window/x11/x11_display_window.h
 	src/window/x11/x11_connection.cpp
 	src/window/x11/x11_connection.h
+	src/window/evdev_keys.h
 )
 
 set(DXWIDGETS_WAYLAND_SOURCES
@@ -246,6 +247,7 @@ set(DXWIDGETS_WAYLAND_SOURCES
 	src/window/wayland/wl_xdg_dialog_v1.hpp
 	src/window/wayland/wl_xdg_toplevel_icon.cpp
 	src/window/wayland/wl_xdg_toplevel_icon.hpp
+	src/window/evdev_keys.h
 )
 
 source_group("src" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/src/.+")
