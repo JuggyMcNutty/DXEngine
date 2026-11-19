@@ -2217,20 +2217,20 @@ bool Engine::SwapSaveSlot(const std::string& newFolderPath, const std::string& s
 	{
 		// One left beside a slot's link's folder, where no tidying looks
 		fs::remove_all(oldFolder, ec);
-		fs::rename(slotFolder, oldFolder, ec);
+		Directory::rename(slotFolder, oldFolder, ec);
 		if (ec)
 		{
 			LogMessage("Could not move " + slotFolder.string() + " away: " + ec.message());
 			return false;
 		}
 	}
-	fs::rename(newFolder, slotFolder, ec);
+	Directory::rename(newFolder, slotFolder, ec);
 	if (ec)
 	{
 		LogMessage("Could not move " + newFolder.string() + " into the slot: " + ec.message());
 		std::error_code backError;
 		if (hadSlot)
-			fs::rename(oldFolder, slotFolder, backError);
+			Directory::rename(oldFolder, slotFolder, backError);
 		return false;
 	}
 	Directory::sync(saveFolder);

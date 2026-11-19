@@ -25,6 +25,7 @@
 #include <sstream>
 #include <cstdio>
 #include <chrono>
+#include <thread>
 
 #ifdef WIN32
 
@@ -154,9 +155,27 @@ void File::delete_always(const std::string& filename)
 		throw std::runtime_error("Could not delete " + filename);
 }
 
+// Tried again for half a second: a scanner or an indexer that has just
+// opened a newly written file holds it a moment, and the move over it or of
+// its folder fails meanwhile, where the write in place went through
 void File::rename(const std::string& sourceName, const std::string& destinationName)
 {
-	std::filesystem::rename(sourceName, destinationName);
+	std::error_code ec;
+	Directory::rename(sourceName, destinationName, ec);
+	if (ec)
+		throw std::filesystem::filesystem_error("rename", sourceName, destinationName, ec);
+}
+
+void Directory::rename(const fs::path& from, const fs::path& to, std::error_code& ec)
+{
+	for (int attempt = 0; attempt < 10; attempt++)
+	{
+		ec.clear();
+		fs::rename(from, to, ec);
+		if (!ec || ec == std::errc::no_such_file_or_directory)
+			return;
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	}
 }
 
 #else
@@ -287,6 +306,11 @@ void File::delete_always(const std::string& filename)
 void File::rename(const std::string& sourceName, const std::string& destinationName)
 {
 	std::filesystem::rename(sourceName, destinationName);
+}
+
+void Directory::rename(const fs::path& from, const fs::path& to, std::error_code& ec)
+{
+	fs::rename(from, to, ec);
 }
 
 #endif

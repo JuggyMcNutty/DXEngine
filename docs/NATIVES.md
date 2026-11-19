@@ -494,7 +494,10 @@ next start and before each save: a new save's folder removed, an old slot's
 put back where the slot is not there, a kill having come between the two
 renames, else removed. A map exit's save into `Current` needs no swap: each
 level's file there is written whole beside the old and moved over it
-(above), and the start empties `Current`. (`SaveConsole` under a file-size
+(above), and the start empties `Current`. On Windows a move that fails, of
+a save's folder or of a file over the old one, is tried again for half a
+second: a scanner that has just opened a new file holds it a moment.
+(`SaveConsole` under a file-size
 limit that kills the engine part-way through the save, an earlier slot 9 in
 place: slot 9 as it was, `.dxe-new-Save0009` beside it, removed at the next
 start.)

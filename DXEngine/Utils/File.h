@@ -96,6 +96,12 @@ public:
 	// is kept as it is given.
 	static fs::path resolveCase(const fs::path& folder);
 
+	// A file or a folder renamed, over what is there where the system does
+	// that: on Windows tried again for half a second while it fails, a
+	// scanner or an indexer holding a newly written file a moment; once
+	// elsewhere
+	static void rename(const fs::path& from, const fs::path& to, std::error_code& ec);
+
 	// A folder's entries on the disk, a file renamed into it among them: an
 	// fsync of the folder on Linux, any error passed over, a file system
 	// with no such sync having nothing to write; nothing on Windows, where

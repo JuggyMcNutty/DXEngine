@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Utils/File.h"
+
 enum class KnownUE1Games
 {
 	UE1_GAME_NOT_FOUND,
