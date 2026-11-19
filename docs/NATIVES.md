@@ -69,6 +69,63 @@ load counts its own jumps, as the original's map load does (`LoopConsole`
 with `LoadAfter`: 9,999,001 jumps, then slot 9's load in the same tick, in
 both).
 
+For the owner (bugs.md D.87): a save, a map-exit save or a load whose file
+work fails (a full disk, a read-only save folder, a file another program
+holds) stops DXEngine, where the original's save logs `Error opening file`
+and plays on, telling the player nothing.
+
+For the owner (bugs.md D.93): a lost GPU device ends the game, as the
+original's critical error does, but the Vulkan device's text most often
+reads a bare `vkWaitForFences failed`, not that the device was lost.
+
+Differs (bugs.md ENG.42): a `Console=` naming a class that is not there ends
+DXEngine with a segmentation fault and no message, where the original stops
+with a critical error that names the class.
+
+Differs (bugs.md ENG.43): a fatal error while the Advanced Options or an
+actor inspector is open ends DXEngine with a segmentation fault and no error
+message, where the original stops with its error.
+
+Differs (bugs.md ENG.44): run by hand, the last run's log is written only as
+the engine ends, so a crash leaves the run before's log, and it never holds
+the fatal error itself, where the original's log is written from its first
+line.
+
+Differs (bugs.md EXT.44): a window that destroys itself in its own
+`DrawWindow`, or a tab group's child in its `ConfigurationChanged`, stops
+the original with a critical error; DXEngine plays on, by choice, the
+siblings after it left out of that frame or laid out later.
+
+Differs (bugs.md PHYS.42): a swimmer at a place that is not a number hangs
+DXEngine, where the original plays on, its pawn falling and then without
+physics.
+
+Differs (bugs.md REN.76): the GPU devices do not hold their render size to
+the GPU's limits, so a window past them ends the game (Vulkan) or draws
+black (GL); the original: unread.
+
+Differs (bugs.md REN.80): a lost GL context is never reported, what is seen
+after a GPU reset left to the driver; the original: unread.
+
+Differs (bugs.md REN.81): the D3D11 device, chosen by hand, ends the game on
+a failed resize or texture with no cause named.
+
+Differs (bugs.md VM.36): on windows-x86_64 a script call chain that does
+more than call itself can overflow the stack before the 250-call limit,
+ending the engine with no message, where the original stops with "Infinite
+script recursion".
+
+Differs (bugs.md VM.39): an unknown native or a script error under a native
+is logged and play goes on, where the original stops.
+
+Differs (bugs.md VM.43): `Canvas.DrawActor`, `Canvas.DrawClippedActor`,
+`GetSoundDuration` and `Window.ConvertCoordinates` given None end DXEngine
+with a segmentation fault and no message, where the original stops with a
+critical error naming the native.
+
+`Object.DynamicLoadObject` with no class stops the original with an
+assertion; DXEngine answers None, by choice.
+
 ## Saving, loading and travel
 
 Matches the original ([travel and
@@ -424,6 +481,25 @@ doing nothing (`SaveWordsConsole`: slots 71 and 72 saved, `+73`, `-74` and
 folder's file system, held to the largest int, where the original's
 measures the current directory's drive, wrapping past 2 TiB free, and
 answers 0 when the call fails.
+
+For the owner (bugs.md D.88): a save empties its slot before it writes, as
+the original's, so one that fails or is killed part-way loses the save that
+was there.
+
+For the owner (bugs.md D.92): a slot whose level file is empty or cut short
+stops both engines at its load, every time.
+
+For the owner (bugs.md D.102): the game's own script lets `;`, the save
+list's delimiter, into a save's name, and Load or Delete then acts on
+another save, in both engines alike.
+
+Differs (bugs.md PKG.55): a level's file and a slot's SaveInfo are removed
+before their new files are written, where the original writes `Save.tmp` and
+moves it over the old file.
+
+Differs (bugs.md PKG.63): a new save does not count a slot folder spelt in
+another case and can overwrite it, where the original counts every `Save*`
+folder in any case.
 
 ## Flags
 
@@ -782,9 +858,16 @@ Differs by choice:
 - **Drawing** is DXEngine's own box test, the depth buffer hiding the rest;
   only whether an actor counts as drawn is the original's.
 
+Differs (bugs.md REN.85): past 4096 by 2160 the occlusion grid has no sample
+line for every pixel, so what shows through a one-pixel gap is culled, where
+the original's grid is the frame's own.
+
 ## On screen
 
 What is drawn and how it looks, against `Render.dll` and `D3DDrv.dll`.
+
+Differs (bugs.md REN.79): the Vulkan device's GPU is its own sort's first,
+over the system's choice, and a GPU passed over is not logged.
 
 ### The view's width
 
@@ -996,6 +1079,18 @@ floor (`HugeTileConsole`: the tile at U 1e12 drawn, its shot alike with the
 reference's, `DXE_SW_REFERENCE=1`, and the Vulkan device's, where the device
 read some 8 GiB before the texture and dumped core).
 
+Differs (bugs.md REN.74): a Vulkan or GL device that starts but fails at its
+first frame (its swapchain, scene buffers or pipelines) gives a black window
+or a fatal error, not the software device, where the original's
+`WindowedRenderDevice` takes the place of a device that fails to start.
+
+Differs (bugs.md REN.82): the software device makes a thread for every
+hardware thread of the machine, not for the CPUs the process may use, and is
+slower when pinned to fewer.
+
+Differs (bugs.md REN.83): on the X11 window at a depth of 30 the software
+device ends the game at its first frame.
+
 ### Sprites
 
 Matches the original
@@ -1092,6 +1187,10 @@ Matches the original
 `HeldConsole`. By choice, a held item is drawn wherever its holder's weapon
 triangle lies, where the original's is dropped as the triangle leaves the
 view: an armed NPC's gun gone at the view's edge, its barrel still in it.
+
+Differs (bugs.md REN.75): a held weapon or tool is not drawn while it tweens
+(0.1 s at an NPC's shot, an `Idle1`, a tool's use), its tween worked out
+against its first-person mesh; the original draws it.
 
 ### Viewport windows
 
@@ -1194,6 +1293,12 @@ Differs by choice:
   frame shows, and the depth test leaves out what lies in front of it,
   where the original's walk clips the face by what is drawn in front of it
   and shares a frame between the mirrors of one plane.
+
+Differs (bugs.md REN.84): no decal shows in a mirror's frame; the original's
+decals in a mirror: unread.
+
+Differs (bugs.md REN.89): a mover mirror's plane with a non-uniform
+`PostScale` tilts from the face drawn.
 
 ### Mesh detail
 
@@ -1502,6 +1607,14 @@ baseline had zeroed it. By choice,
 the fog map is held in floats, where the original's has seven bits a
 texel, drawn at 2c/255, and its table's steps whole numbers.
 
+Differs (bugs.md REN.87): on aarch64 the light maps' four-texel lane fuses
+its multiplies and adds, so a light map differs by bits from x86's and
+between neighbouring texels of a row, where the original's arithmetic, as
+the rest of DXEngine's, fuses none.
+
+Differs (bugs.md REN.88): the blink's doubles are fed a float clock, so from
+128 s on many periods stop blinking, still later than the original's.
+
 ### Brightness
 
 Matches the original's picture
@@ -1731,6 +1844,10 @@ the x87's precision in the tick it runs in (`FiledPlaneConsole`: Battery
 Park's MainDoors open at yaw 10240, all 30 lines the original's, the edge's
 at -367.044434 and the face's at -307.592468 and -1179.377075).
 
+Differs (bugs.md VM.35): a brush's or mover's sheer is read with three bytes
+beside it, so a sheared one is drawn and collides without its sheer by
+chance, where the original reads the axis's byte alone.
+
 ### Fire, water and ice textures
 
 Matches `Fire.dll` step for step
@@ -1851,6 +1968,9 @@ code such as `|c` shown as typed; and the focus row outlined in the focus
 texture, `focusThickness` thick, only while the list has the keyboard
 focus (`ListConsole`: the Load Game screen with a 50-character save name
 and one named `a|cff0000b`).
+
+Differs (bugs.md EXT.41): a list's `lineSize` is 0 until its first draw,
+where the original's holds the row's size once its rows are added.
 
 ### The UI
 
@@ -2304,6 +2424,53 @@ green, white or None (`ButtonDefaultsConsole`: a button's six slots set
 apart, then each call with its first slot alone, its insensitive and focused
 look alike in both engines).
 
+Differs (bugs.md ENG.40): a button or key held as the window loses the focus
+stays down for the game (on the SDL3 window the weapon fires on), and one
+held as the focus comes back is pressed again late or never, where the
+original resets its input at each focus change, no release sent, and presses
+each key still held at once as the focus comes back.
+
+Differs (bugs.md ENG.41): Shift with `~` puts the console into its `Typing`
+state wherever a typed character arrives, under a menu too, where the
+original's console takes the character 126 as any other and its state stays.
+
+Differs (bugs.md EXT.39): the menus' pointer stops a unit past the screen's
+right and bottom edge, where the original's is held within the root, to its
+width and height less 1.
+
+Differs (bugs.md EXT.40): the hidden pointer does not move while a modal
+holds the mouse, where the original's moves and enters windows, `ShowCursor`
+deciding its drawing alone.
+
+Differs (bugs.md EXT.42): a raised window gets no `ConfigurationChanged`,
+where the original's gets one at once.
+
+Differs (bugs.md EXT.43): a large paste filters the whole clipboard before
+the field's `MaxSize` cuts it, stalling the game some twice as long as the
+original's for the same text and taking several times its memory.
+
+Differs (bugs.md WIN.42): the X11 and Wayland windows name keys by the
+layout's own symbols, so on AZERTY the number row is not 1 to 0 and on a
+Cyrillic layout the letters are `None`, and the X11 window gives the key
+below Escape and keypad Enter no name, where the original under Wine names
+them by place and by Windows' codes.
+
+Differs (bugs.md WIN.43): the X11 window's wheel presses and releases alone,
+giving `MouseW` nothing and DXWidgets' lists no scroll, where the original's
+`WM_MOUSEWHEEL` gives `MouseW` its delta first.
+
+Differs (bugs.md WIN.44): in the X11 and Wayland windows Delete types a DEL
+character into an edit field and the console's line, where the original
+types nothing for it.
+
+Differs (bugs.md WIN.45): the X11 window hides the pointer in play without
+holding it in the window, so a fast move takes it out and a click lands
+elsewhere, where the original clips it to its window.
+
+Differs (bugs.md WIN.46): the X11 window takes a raw event's first two
+values for the move whatever their axes, so a touchpad's scroll or a pen
+turns the view, where the original moves by the pointer's own moves alone.
+
 
 ## The menus' settings
 
@@ -2424,6 +2591,14 @@ count by `tools/dxcap/timelines/mouse-look.txt`, the original 22.8 and 22.7
 a pixel by `tools/dxcap/mouselook.py`'s uinput mouse, at the stock
 sensitivity and field of view; the build before took each move 16 times and
 scaled only `aMouseX` and `aMouseY` by the tick).
+
+Open (bugs.md ENG.51): `SETRES` of a windowed size the window cannot take is
+saved as asked and asked again at the next start, never the size the window
+took; what the original keeps when Windows clamps its window is unread.
+
+Differs (bugs.md REN.78): with vsync on the Vulkan device takes relaxed FIFO
+where offered, a late frame torn, and with it off falls back to FIFO where
+immediate presents are missing; `D3DDrv`'s `UseVSync`: unread.
 
 ## Sound
 
@@ -2702,6 +2877,18 @@ gains a sound's update sets reach the output each 10 ms, Galaxy's each 20
 ms, so a moving or fading sound steps twice as often; a song's speed
 command that comes to 0 is dropped, where Galaxy's stops its sequencer, the
 song halted while its sounding voices play on, which no stock song has.
+
+Differs (bugs.md AUD.25): a sound device lost during play is not opened
+again: the game stays silent, its mix running fast, nothing logged, where
+Windows moves the original's DirectSound to the new default.
+
+Differs (bugs.md AUD.26): each speech line heard stays decoded whole until
+the next collection, some 16 times the original's memory, whose Galaxy
+decodes into a ring while it plays.
+
+Differs (bugs.md AUD.27): on windows-x86_64 the sound stays on the output
+that was the default at the start, where the original's follows the new
+default.
 
 ## Implemented, not as the original
 
@@ -3228,6 +3415,12 @@ Differs:
   DXEngine's swimmer goes by the real time, 3.4 units out at 0.2 s and 37 at
   0.75 s, a float step each of its first ticks, whose moves are under one.
 
+Differs (bugs.md VM.41): `MirrorVectorByNormal` reflects by the normal as
+passed, where the original's makes it a unit first.
+
+Differs (bugs.md VM.42): a vector over a float divides each part, where the
+original's multiplies by the reciprocal, the last bit differing.
+
 ## Housekeeping, not seen directly
 
 **The level's tick** is the original's
@@ -3338,6 +3531,75 @@ goes with the destroyed actors; one whose `Destroy` refuses (`bStatic`,
 level still pointing at it. Code, a package and the engine's own objects --
 the levels, their infos and games, the save info and the root window -- are
 not deleted (the log says so).
+
+For the owner (bugs.md D.101): with level ticks under about 1 ms, a fast
+machine with VSync off or a slowed game, a thing at rest never starts to
+fall or walk in DXEngine; the original's ticks never go under its floor of 5
+ms.
+
+Differs (bugs.md AI.24): a destroyed actor asked its `GetBoundingBox` is
+filed into the level's BSP again and drawn until it is collected; the
+original's files nothing.
+
+Differs (bugs.md AUD.28): a mod's music of more than 2 channels plays
+garbled or silent and MP3 and WAV songs do not loop; a sound that fails to
+decode takes a channel at each play.
+
+Differs (bugs.md ENG.53): on Windows the engine's manifest asks for the
+first kind of per-monitor DPI and no long paths, where the launcher's asks
+for PerMonitorV2 and long paths, so a game or profile path past MAX_PATH
+works in the launcher and not in the engine.
+
+Differs (bugs.md ENG.54): on Linux a number past an int's range typed for
+`netspeed`, a URL's port, an Advanced Options int or byte or a script int's
+import wraps, where the original holds it to the int's ends; and an int in
+the ini or a `SET` is taken with a leading `+` or blank, where the
+original's sets nothing.
+
+Differs (bugs.md ENG.55): a property text's `\xx` escapes are joined as
+UTF-8 bytes, `"\C3\A9"` one character, where the original makes each escape
+a character of its own.
+
+Differs (bugs.md ENG.57): the window events come after the windows' tick, so
+a window an event makes is drawn once before its first tick, its focus a
+frame late, where the original's windows tick first; and a destroyed window
+is freed only at the next collection, which no count of windows brings on,
+where the original deletes it at once.
+
+Differs (bugs.md EXT.45): a line whose bold changes within it measured in
+the other font, a modal destroyed as it shows leaving the root's grabs one
+down, and a new window's destroy in its `InitWindow` not held to after its
+first layout.
+
+Differs (bugs.md NET.45): two of a server's player objects can share a name
+after a leave and a join, where the original's are unique.
+
+Differs (bugs.md PHYS.43): an actor can be filed twice into the collision
+hash, the falling step's frame-end call does nothing, and a destroyed fire
+is moved with its carrier until a collection; nothing seen.
+
+Differs (bugs.md REN.77): a lost Vulkan swapchain is made again every frame
+with its present pass and pipelines, and its failure is not logged.
+
+Differs (bugs.md REN.91): the Vulkan device builds its scene pipelines again
+at every new render size, and keeps a bindless limit of 16536.
+
+Differs (bugs.md REN.92): the X11 window's EGL path needs EGL 1.5 and a
+context with no config untested; the GL and D3D11 devices leave some results
+unchecked.
+
+Differs (bugs.md REN.93): the software device's highlighted tiles take its
+general pipeline, its SSE2 lanes differ from the others' out of range, and
+an exception in a phase is caught nowhere.
+
+Differs (bugs.md VM.40): a second package declaring a native number already
+taken is refused at its load, where the original's would load.
+
+Differs (bugs.md WIN.57): the SDL windows name Henkan, Muhenkan,
+Katakana/Hiragana, Hangul, Hanja, the keypad's comma and equals and the
+volume and media keys `None`, so none can be bound, where the original
+passes each by its virtual-key code; and a move of the window undoes a
+console `LODBIAS`, where the original's move is no resize.
 
 ## Small
 
@@ -3905,6 +4167,23 @@ own name, where the original's heads them with the first reference's; and
 collector running with no script under way, where the original's collects at
 once.
 
+For the owner (bugs.md D.100): `Level.TimeSeconds` is the float sum of the
+frames, as the original's field is, so at high frame rates the level's clock
+stops after hours in one level (1 h at 5,000 frames a second, 7 h at 1,000),
+and the bots' recharges and the computers' lockouts with it; added in double
+and stored as the float, it would go on.
+
+Differs (bugs.md REN.90): on GL ES a `LODBIAS` that is not a finite number
+ends the game.
+
+Differs (bugs.md VM.37): "Accessed None" is logged only at a statement's own
+None context, nothing at a nested one and a script error at `+=` and `++`,
+where the original warns once at every one.
+
+Differs (bugs.md VM.38): a static array index out of range is held to the
+array with nothing logged, where the original logs `Accessed array out of
+bounds`.
+
 ## The command line
 
 The original's command line reaches DXEngine as one string, `--cmdline=`,
@@ -4094,6 +4373,18 @@ to `JoyPovRight`, as the original's input names them from Actor's
 `DefUser.ini`'s keys, and the Advanced Options' Raw Key Bindings in both
 engines), `Console.uc`'s own enum alone naming them `UnknownF0` to
 `UnknownF3`.
+
+Differs (bugs.md ENG.52): in the Advanced Options a combo's Up and Down move
+the tree even with its list open, so only its first and last choices are
+reached from the keyboard; what the original's open list takes is unread.
+
+Differs (bugs.md WIN.40): under SDL3, SDL2 and X11 the Advanced Options' and
+EDITACTOR's array rows cannot be opened, no double click reaching the
+window, where the original's opens one by a double click.
+
+Differs (bugs.md WIN.41): under SDL2 (linux-aarch64, the Smart Pro) the
+Advanced Options and EDITACTOR take no typing once the console has been
+closed in play, where the original's window types as any other.
 
 ## Mods
 
@@ -4652,6 +4943,34 @@ engines), a string's count at every version and a name's NUL ending below
 64, and a function's code at any version as the original's reads it, a
 `LetBool` its two expressions and a `Return` its one.
 
+For the owner (bugs.md D.86): an ini is written in place, as the original's
+is, so a full disk, a power cut or a kill during the write leaves it empty
+or short, and the next start takes the empty file as it is, an empty system
+ini stopping the start; written to a temporary file and renamed, a failed
+write would leave the ini as it was.
+
+Differs (bugs.md ENG.49): a dynamic array of an ini that shrank keeps its
+removed elements' lines, which come back at the next start, where the
+original's `SaveConfig` writes one line an element and no more.
+
+Differs (bugs.md PKG.49): a property tag whose size runs back over itself is
+read again without end in both engines, DXEngine logging a line and a call
+stack at each pass, where the original logs nothing.
+
+Differs (bugs.md PKG.50): a map whose `MyLevel` is its own outer takes
+DXEngine's memory until it fails, where the original ends within seconds.
+
+Differs (bugs.md PKG.54): a mesh whose frame count runs far past its
+vertices never finishes loading in DXEngine, which works out its normals at
+the load; the original works out none there.
+
+Differs (bugs.md PKG.57): an object whose load fails is None the first time
+it is asked for and the half-loaded object the next, where the original
+stops at the error.
+
+Differs (bugs.md PKG.58): a folder the paths name that cannot be listed
+stops DXEngine at its start, where the original finds no file there.
+
 ## Multiplayer
 
 Matches the original's client and server
@@ -5194,6 +5513,14 @@ tick's first wait, where the original's waits again for each of a frame's
 packets, so a frame of several packets plays slower than it was made; and a
 call recorded has its parameters evaluated once, where the original's
 evaluates them for the demo and again for the call.
+
+Differs (bugs.md NET.41): a `JOIN` with no `LOGIN` before it logs a player
+in past the game's password, where the original's server stops with a
+critical error.
+
+Differs (bugs.md NET.46): a link's `ReceivedText` and `ReceivedLine` read
+the bytes as UTF-8, a valid pair one character, where the original's take a
+byte a character.
 
 ## Not needed for single player
 
