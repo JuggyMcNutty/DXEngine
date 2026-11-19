@@ -503,6 +503,8 @@ launcher's part, which DXEngine leaves to the launchers.
 | `Nat6Console` | both | the natives' edges: a vector over a float, `Cross`, `MirrorVectorByNormal` with a normal of length 2, and by normals off the axes with vectors over floats in the console's tick and, by `CapNat6Probe`, in the level's, a float and a vector over 0, `Sqrt`, `Loge` and `Exp` at their ends, `Rand` of 0 and below, `GetEnum` past its ends; then one case by `CrashCase`, each stopping both engines: `SoundNone`, `DrawActorNone`, `ClippedNone`, `ConvertNone`, `LoadNone` | `DXNAT6:` | every line (bugs.md VM.41, VM.42, VM.43) |
 | `Vm6Console` | both | through `CapVm6Probe` and `CapVm6Spawn`: nine None contexts (a call, a read, a condition, an argument, an assignment, a call's result, `+=`, `++`), a static array read and written out of range, calls `Depth` deep (240) of four kinds and a 700-term `$`; `bAssert=True` a failed assert last | `DXVM6:` | every line and the engine's own warnings between a case's begin and end (bugs.md VM.36, VM.37, VM.38) |
 | `TreeChangeConsole` | both | through `CapW6Win` and `CapW6Modal`, a step every half second: a window destroying itself in its `DrawWindow`, one raising itself there, a tab group's child destroying itself in its `ConfigurationChanged`, a child destroying its parent in its `Tick`, a modal destroying itself as it shows (the root's grab counts before and after), timers of 0, -1 and 0.0001 s; `Skip` leaves steps out by number (the original stops at steps 0 and 2) | `DXWIN6:` | every line (bugs.md EXT.42, EXT.44) |
+| `NewChildDieConsole` | both | through `CapW6Die`, on the menu map, a case every half second: a window made by `NewChild`, shown and not, that destroys itself in its `InitWindow`, in its first `VisibilityChanged(True)` (made hidden, then shown by `Show`) and in its first `ConfigurationChanged`; each event the window gets, whether its maker got a window or None, the parent's children after | `DXDIE:` | every line (bugs.md EXT.45) |
+| `PointerEdgeConsole` | both | on the menu map the main menu up, the root's size and its `GetCursorPos` each quarter second it changes; the pointer still for 0.75 s past half the root's width logged and hidden for 4 s, then shown, its place logged at both; the lowest place it reached at `Seconds` (22); with `tools/dxcap/timelines/pointer-edge.txt` on DXEngine, or beside `tools/dxcap/mouselook.py 0 100 50` started once the menu is up, full screen (`DXCAP_FULLSCREEN=1`) | `DXPTR:` | the right edge, the place shown again, the lowest place: the screen's in the root's units less 1, DXEngine's less its root's offset (bugs.md EXT.39, EXT.40) |
 | `SaveEditConsole` | both | a bare list's `lineSize` straight after its rows are added and after a second of draws; then saves to slots 8 and 9, the Save Game screen opened, its rows, `lineSize`, the new row's index and the name field's place in the same tick and a second later, a marked shot; the saves removed | `DXWID6:` | every line (bugs.md EXT.41) |
 | `PasteSizeConsole` | both | the main menu up, 1,310,720 characters into an edit field of `MaxSize` 20 by `InsertText`, then by the clipboard's `Paste`: the next tick's `Delta` and the field's length after each; with `DXCAP_MEMLOG=1` | `DXWID6:` | the two `Delta`s and the memory log's peak (bugs.md EXT.43) |
 | `HighByteConsole` | both | through `CapHighByteLink`: a TcpLink listening on 7896 and one opening it over the loopback, the bytes C3 A9 78 sent as text, the receiver's `ReceivedText`'s length and codes; a `CapUdpEcho` sending itself the same bytes, what it receives by codes | `DXHIGH:`, `DXLINK:` | the received lines (bugs.md NET.46) |
@@ -556,7 +558,7 @@ left, both from Liberty Island, ten loads of each map 25 s apart, then an exit:
 | `reload-fresh.txt` | the island and Battery Park | crosses a mission: `Current` emptied, the map from `Maps` |
 | `reload-current.txt` | the island and UNATCO HQ | stays in mission 1: the map left saved into `Current`, the next one from there |
 
-and fifteen more: `collections.txt`, the collections a player meets, each timed -- the console's
+and nineteen more: `collections.txt`, the collections a player meets, each timed -- the console's
 `obj garbage` on the island, then Battery Park and the island loaded in turn, `obj garbage` after
 each load -- `keys.txt`, a key of each kind the SDL windows name, the keypad with Num Lock on and
 off, B with Alt held and its character, and typing keys under each layout family, on the stock
@@ -575,7 +577,8 @@ the window manager too),
 `type.txt` (`TypeConsole`), `note-keys.txt` (`MultiEditConsole`), `bind-keys.txt` (`BindConsole`), `held-keys.txt`
 (`KeysConsole`), `resize-drags.txt` (`ResizeConsole`), `axis-keys.txt` (`PadConsole`: two keys
 on one axis, a key bound in lower case, Enter with Alt held), `mouse-look.txt`
-(`MouseLookConsole`: the mouse's raw motion right, left, down and up) and `wheel.txt`
+(`MouseLookConsole`: the mouse's raw motion right, left, down and up), `pointer-edge.txt`
+(`PointerEdgeConsole`: the same four moves, each in one go) and `wheel.txt`
 (`WheelConsole`: three notches).
 
 ```sh

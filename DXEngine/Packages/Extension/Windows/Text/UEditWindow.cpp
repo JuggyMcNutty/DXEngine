@@ -289,17 +289,20 @@ void UEditWindow::StoreText(const ScriptString& text)
 // through the filter -- a single line drops line breaks, FilterChar may
 // change or refuse one -- and nothing done when none passes; a change
 // without undo clears the undo list. What passes replaces the selection
-// (ReplaceText).
+// (ReplaceText). The script's FilterChar is handed each character through
+// one string property made for the whole text, so a long paste costs a
+// script call a character and nothing kept for the collector.
 bool UEditWindow::InsertText(std::optional<ScriptString> InsertText, std::optional<bool> bUndo, std::optional<bool> bSelect)
 {
 	const ScriptString input = InsertText.value_or(ScriptString());
 	ScriptString filtered;
+	UStrProperty* stringProp = nullptr;
 	for (char16_t c : input)
 	{
 		if (bSingleLine() && c == '\n')
 			continue;
 		ScriptString ch(1, c);
-		if (FilterChar(ch) && !ch.empty())
+		if (FilterChar(ch, stringProp) && !ch.empty())
 			filtered += ch[0];
 	}
 	if (!input.empty() && filtered.empty())
@@ -365,14 +368,17 @@ void UEditWindow::ReplaceText(ScriptString newText, bool bUndo, bool bSelect)
 
 // The original's XEditWindow::FilterChar (0x10021830): upper case when only
 // upper case is allowed, then the script's FilterChar, which may refuse the
-// character or give another; with none, every character passes.
-bool UEditWindow::FilterChar(ScriptString& ch)
+// character or give another; with none, every character passes. The
+// property that hands the script the character is made at the first call
+// and kept by the caller for the next.
+bool UEditWindow::FilterChar(ScriptString& ch, UStrProperty*& stringProp)
 {
 	if (bUppercaseOnly() && ch[0] >= 'a' && ch[0] <= 'z')
 		ch[0] -= 32;
 	if (!FindEventFunction(this, "FilterChar"))
 		return true;
-	auto stringProp = GC::Alloc<UStrProperty>("", nullptr, ObjectFlags::NoFlags);
+	if (!stringProp)
+		stringProp = GC::Alloc<UStrProperty>("", nullptr, ObjectFlags::NoFlags);
 	return CallEvent(this, "FilterChar", { ExpressionValue::Variable(&ch, stringProp) }).ToBool();
 }
 

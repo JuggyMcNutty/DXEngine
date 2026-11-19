@@ -226,7 +226,10 @@ void RenderSubsystem::DrawWindow(UWindow* window, float offsetX, float offsetY)
 	offsetX += window->UsedX;
 	offsetY += window->UsedY;
 
-	if (window->parentOwner())
+	// The clip pushed is popped whatever the window's scripts do to it: one
+	// that destroys itself in its DrawWindow has no parent by its end.
+	bool clipped = window->parentOwner() != nullptr;
+	if (clipped)
 		engine->dxgc->PushClip(engine->dxgc->ScaleRect(Rectf::xywh(offsetX, offsetY, window->Width(), window->Height())));
 
 	// The window's background, then its own drawing, its children and its
@@ -237,16 +240,27 @@ void RenderSubsystem::DrawWindow(UWindow* window, float offsetX, float offsetY)
 	window->DrawBackground(engine->dxgc);
 	window->DrawWindow(engine->dxgc);
 
+	// Each child's next sibling is taken after its draw, as the original's
+	// walk takes it: a child that raises itself in its DrawWindow leaves the
+	// one after it out of that frame in both engines. One that destroys
+	// itself there stops the original (a critical error in
+	// XWindow::DrawTree); DXEngine plays on, by choice, and draws the
+	// siblings it had, while they are the window's still.
 	UGC::State drawn = engine->dxgc->SaveState();
-	for (UWindow* child = window->firstChild(); child; child = child->nextSibling())
+	for (UWindow* child = window->firstChild(); child;)
 	{
+		UWindow* next = child->nextSibling();
 		DrawWindow(child, offsetX, offsetY);
+		if (!child->Destroyed)
+			child = child->nextSibling();
+		else
+			child = next && !next->Destroyed && next->parentOwner() == window ? next : nullptr;
 	}
 
 	engine->dxgc->RestoreState(drawn);
 	window->PostDrawWindow(engine->dxgc);
 
-	if (window->parentOwner())
+	if (clipped)
 		engine->dxgc->PopClip();
 }
 

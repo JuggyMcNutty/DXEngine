@@ -16,9 +16,10 @@ mat4 UMover::BrushToWorld()
 	return ToWorldMatrix(DrawnLocation(), DrawnRotation());
 }
 
-void UActor::UpdateBspInfo()
+// Where the actor is visually located in the world, at its place and
+// rotation now
+BBox UActor::VisualBoundingBox()
 {
-	// Figure out where the actor is visually located in the world
 	BBox bbox;
 	EDrawType dt = (EDrawType)DrawType();
 	if (dt == DT_Mesh && Mesh())
@@ -56,6 +57,12 @@ void UActor::UpdateBspInfo()
 		bbox.min = vec3(0.0f);
 		bbox.max = vec3(0.0f);
 	}
+	return bbox;
+}
+
+void UActor::UpdateBspInfo()
+{
+	BBox bbox = VisualBoundingBox();
 
 	// Is actor still in the bsp tree at the correct location?
 	if (!BspInfo.Node || BspInfo.BoundingBox != bbox)

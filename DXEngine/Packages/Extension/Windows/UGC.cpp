@@ -536,9 +536,12 @@ void UGC::GetTextExtent(float destWidth, float& xExtent, float& yExtent, const S
 	const char16_t* end = text + textStr.size();
 	while (true)
 	{
+		// Each line's characters measured from the state at its start, as
+		// DrawTextBlock draws them, the next line from the state at its end
+		TextState lineState = state;
 		float lineWidth = 0.0f;
 		int lineLength = 0;
-		const char16_t* line = GetLine(state, destWidth, text, end, lineWidth, lineLength);
+		const char16_t* line = GetLine(lineState, destWidth, text, end, lineWidth, lineLength);
 		if (!line)
 			break;
 		const char16_t* c = line;
@@ -558,6 +561,7 @@ void UGC::GetTextExtent(float destWidth, float& xExtent, float& yExtent, const S
 		width = std::max(width, lineWidth);
 		height += lineHeight + textVSpacing();
 		lineHeight = 0.0f;
+		state = lineState;
 	}
 	xExtent = width;
 	yExtent = height;

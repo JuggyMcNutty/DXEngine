@@ -28,8 +28,7 @@ void UActor::TickFalling(float elapsed, int iterations)
 // after its landing counting on from its own (iterations), and stops
 // where it lands, handing the landing the rest of the frame -- a floor met
 // sliding along a wall none of it: a landing, a stop and a hand-over to
-// swimming end the frame's physics (EndPhysicsFrame), the rest of the frame
-// theirs. A player on a ladder climbs it instead
+// swimming end the fall, the rest of the frame theirs. A player on a ladder climbs it instead
 // (DeusExLadder). A step whose Z velocity turns over is split at the turn,
 // as the original splits it.
 void UActor::DeusExTickFalling(float deltaTime, int iterations)
@@ -170,7 +169,7 @@ void UActor::DeusExTickFalling(float deltaTime, int iterations)
 		// (ZoneChange), swims the rest.
 		if (pawn && Physics() == PHYS_Swimming)
 		{
-			remaining += (1.0f - hit.Fraction) * tick + EndPhysicsFrame();
+			remaining += (1.0f - hit.Fraction) * tick;
 			pawn->DeusExStartSwimming(oldVelocity, tick, remaining, iterations);
 			return;
 		}
@@ -188,10 +187,7 @@ void UActor::DeusExTickFalling(float deltaTime, int iterations)
 				// rest of the step back.
 				CallEvent(this, EventName::HitWall, { ExpressionValue::VectorValue(hit.Normal), ExpressionValue::ObjectValue(hit.Actor ? hit.Actor : Level()) });
 				if (Physics() == PHYS_None)
-				{
-					EndPhysicsFrame();
 					return;
-				}
 				if (bounces < 2)
 					remaining += (1.0f - hit.Fraction) * tick;
 				bounces++;
@@ -204,7 +200,7 @@ void UActor::DeusExTickFalling(float deltaTime, int iterations)
 				remaining += (1.0f - hit.Fraction) * tick;
 				if (!bJustTeleported() && hit.Fraction > 0.1f && hit.Fraction * tick > 0.003f)
 					Velocity() = (Location() - OldLocation()) / (hit.Fraction * tick);
-				PhysLanded(hit.Actor, hit.Normal, remaining + EndPhysicsFrame(), iterations);
+				PhysLanded(hit.Actor, hit.Normal, remaining, iterations);
 				return;
 			}
 			else
@@ -223,7 +219,7 @@ void UActor::DeusExTickFalling(float deltaTime, int iterations)
 					{
 						if (hit.Normal.z > 0.7f)
 						{
-							PhysLanded(hit.Actor, hit.Normal, EndPhysicsFrame(), iterations);
+							PhysLanded(hit.Actor, hit.Normal, 0.0f, iterations);
 							return;
 						}
 						ProcessHitWall(hit.Normal, hit.Actor);
@@ -232,7 +228,7 @@ void UActor::DeusExTickFalling(float deltaTime, int iterations)
 						TryMoveHeldOff(delta, hit);
 						if (ditch || hit.Normal.z > 0.7f)
 						{
-							PhysLanded(hit.Actor, hit.Normal, EndPhysicsFrame(), iterations);
+							PhysLanded(hit.Actor, hit.Normal, 0.0f, iterations);
 							return;
 						}
 					}

@@ -1,0 +1,9 @@
+# PointerEdgeConsole's moves on DXEngine (bugs.md EXT.39, EXT.40): the
+# mouse's raw motion as the window sends it, as tools/dxcap/mouselook.py's
+# uinput mouse moves with 100 steps of 50 counts, each move in one go and 3 s
+# apart: right, left (while the console hides the pointer), down, up.
+# DXCAP_TIMELINE=<this> tools/dxcap.sh dxe PointerEdgeConsole DX.dx 30
+start 8 mouse 5000 0
+start 11 mouse -5000 0
+start 14 mouse 0 2500
+start 17 mouse 0 -2500

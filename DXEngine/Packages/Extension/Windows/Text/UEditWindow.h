@@ -42,7 +42,7 @@ public:
 
 	void InitDefaults() override;
 	void ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight) override;
-	bool FilterChar(ScriptString& ch);
+	bool FilterChar(ScriptString& ch, class UStrProperty*& stringProp);
 	void Tick(float timeElapsed) override;
 	void ConfigurationChanged() override;
 	void VisibilityChanged(bool bNewVisibility) override;

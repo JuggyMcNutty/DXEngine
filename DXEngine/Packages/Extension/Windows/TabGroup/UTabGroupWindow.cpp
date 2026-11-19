@@ -5,6 +5,19 @@
 // extension-dll.md, Tiles and tab groups) -- every modal window is one --
 // sizes itself to its children unless told not to, or sizes them to itself.
 
+// The children as they were before the walk, last to first, each asked
+// while still the group's: a child that destroys itself in its
+// ConfigurationChanged stops the original (a critical error in
+// XWindow::SafeDestroy); DXEngine plays on, by choice, and lays out the
+// children after it with the rest (bugs.md EXT.44).
+std::vector<UWindow*> UTabGroupWindow::ChildrenLastFirst(UWindow* window)
+{
+	std::vector<UWindow*> children;
+	for (UWindow* child = window->lastChild(); child; child = child->prevSibling())
+		children.push_back(child);
+	return children;
+}
+
 // The original's XTabGroupWindow::Init (0x10044d90): sized to its children,
 // the focus going round its ends.
 void UTabGroupWindow::InitDefaults()
@@ -30,9 +43,9 @@ void UTabGroupWindow::ParentRequestedPreferredSize(bool bWidthSpecified, float& 
 		return;
 	}
 	float largestWidth = 0.0f, largestHeight = 0.0f;
-	for (UWindow* child = lastChild(); child; child = child->prevSibling())
+	for (UWindow* child : ChildrenLastFirst(this))
 	{
-		if (!child->bIsVisible())
+		if (child->Destroyed || child->parentOwner() != this || !child->bIsVisible())
 			continue;
 		float width = 0.0f, height = 0.0f;
 		child->QueryPreferredSize(bWidthSpecified, preferredWidth, &width, bHeightSpecified, preferredHeight, &height);
@@ -62,9 +75,9 @@ void UTabGroupWindow::ConfigurationChanged()
 		UWindow::ConfigurationChanged();
 		return;
 	}
-	for (UWindow* child = lastChild(); child; child = child->prevSibling())
+	for (UWindow* child : ChildrenLastFirst(this))
 	{
-		if (child->bIsVisible())
+		if (!child->Destroyed && child->parentOwner() == this && child->bIsVisible())
 			child->ConfigureChild(0.0f, 0.0f, Width(), Height());
 	}
 }

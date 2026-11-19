@@ -25,4 +25,7 @@ public:
 	// original's native bWrapFocus, which no script sees): on for every tab
 	// group but a clip window.
 	bool WrapFocus = true;
+
+protected:
+	static std::vector<UWindow*> ChildrenLastFirst(UWindow* window);
 };

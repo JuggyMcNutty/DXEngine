@@ -227,8 +227,14 @@ float UListWindow::MeasureText(UFont* colFont, const ScriptString& text)
 	return width;
 }
 
-// The original's row size: the tallest column font's line, with the row
-// margin above and below (dx-reverse-info/extension-dll.md, lists).
+// The original's row size (ComputeRowSize, Extension.dll 0x10031fd0): the
+// tallest column font's line, with the row margin above and below
+// (dx-reverse-info/extension-dll.md, lists), kept as the list's lineSize.
+// The original works it out where its parts change -- SetNumColumns,
+// SetColumnFont, SetFieldMargins -- so a list holds it before its first
+// layout and draw (12 in FontMenuSmall, SaveEditConsole), where a script
+// reads it (MenuScreenSaveGame's MoveEditControl, from its InitWindow);
+// DXEngine there too, and wherever it asks for it.
 float UListWindow::GetLineHeight()
 {
 	float height = 0.0f;
@@ -247,7 +253,8 @@ float UListWindow::GetLineHeight()
 			return lineSize() > 0.0f ? lineSize() : 0.0f;
 		height = (float)normalFont()->GetGlyph(' ').VSize;
 	}
-	return height + rowMargin() * 2.0f;
+	lineSize() = height + rowMargin() * 2.0f;
+	return lineSize();
 }
 
 // The original's: the visible columns side by side, a line for each row --
@@ -826,6 +833,7 @@ void UListWindow::SetColumnFont(int colIndex, UObject* NewFont)
 	if (columns[colIndex].font == font)
 		return;
 	columns[colIndex].font = font;
+	GetLineHeight();
 	if (bAutoExpandColumns())
 		ResizeColumns(true);
 	AskParentForReconfigure();
@@ -893,6 +901,7 @@ void UListWindow::SetFieldMargins(float newMarginWidth, float newMarginHeight)
 {
 	colMargin() = newMarginWidth;
 	rowMargin() = newMarginHeight;
+	GetLineHeight();
 	AskParentForReconfigure();
 }
 
@@ -985,6 +994,7 @@ void UListWindow::SetNumColumns(int newCols)
 	// the columns gone.
 	for (auto& item : items)
 		item.cells.resize(columns.size());
+	GetLineHeight();
 	AskParentForReconfigure();
 }
 

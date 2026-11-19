@@ -26,9 +26,9 @@ UObject* URadioBoxWindow::GetEnabledToggle()
 void URadioBoxWindow::ParentRequestedPreferredSize(bool bWidthSpecified, float& preferredWidth, bool bHeightSpecified, float& preferredHeight)
 {
 	float largestWidth = 0.0f, largestHeight = 0.0f;
-	for (UWindow* child = lastChild(); child; child = child->prevSibling())
+	for (UWindow* child : ChildrenLastFirst(this))
 	{
-		if (!child->bIsVisible())
+		if (child->Destroyed || child->parentOwner() != this || !child->bIsVisible())
 			continue;
 		float width = 0.0f, height = 0.0f;
 		child->QueryPreferredSize(bWidthSpecified, preferredWidth, &width, bHeightSpecified, preferredHeight, &height);
@@ -43,9 +43,9 @@ void URadioBoxWindow::ParentRequestedPreferredSize(bool bWidthSpecified, float& 
 // 0x10038840).
 void URadioBoxWindow::ConfigurationChanged()
 {
-	for (UWindow* child = lastChild(); child; child = child->prevSibling())
+	for (UWindow* child : ChildrenLastFirst(this))
 	{
-		if (child->bIsVisible())
+		if (!child->Destroyed && child->parentOwner() == this && child->bIsVisible())
 			child->ConfigureChild(0.0f, 0.0f, Width(), Height());
 	}
 }

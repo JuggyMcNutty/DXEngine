@@ -172,11 +172,16 @@ void CollisionSystem::CylinderBox(const vec3& location, float radius, float heig
 // each link at its bucket's head. A destroyed actor never goes back in: a
 // move after its Destroy (a BloodDrop's fall goes on after its HitWall
 // destroys it, as the original's does) would leave the hash holding it after
-// it is freed.
+// it is freed. One filed already -- a script event inside SetLocation's
+// window, between its removal and its filing, that files it -- leaves its
+// first cells before it goes in again, since its removal takes out only the
+// cells of its last filing (a guard of ours, bugs.md PHYS.43).
 void CollisionSystem::AddToCollision(UActor* actor)
 {
 	if (actor->bCollideActors() && !actor->bDeleteMe())
 	{
+		if (actor->Collision.Inserted)
+			RemoveFromCollision(actor);
 		vec3 lo, hi;
 		HashBox(actor, actor->Location(), actor->Rotation(), lo, hi);
 		ivec3 start, end;

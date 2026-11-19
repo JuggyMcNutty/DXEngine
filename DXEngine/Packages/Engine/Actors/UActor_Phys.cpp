@@ -19,8 +19,6 @@
 void UActor::TickPhysics(float elapsed)
 {
 	bool hadPhysics = Physics() != PHYS_None;
-	PhysicsFrameLeft = 0.0f;
-	PhysicsFrameEnded = false;
 
 	// The original's performPhysics, once a tick with the whole tick, each
 	// physics stepping it as it will (AActor's, Engine.dll 0x103c9770; APawn's,
@@ -65,8 +63,6 @@ void UActor::TickPhysics(float elapsed)
 	// execAutonomousPhysics 0x103c8fd4): one with none keeps it.
 	if (hadPhysics)
 		CheckPendingTouch();
-	PhysicsFrameLeft = 0.0f;
-	PhysicsFrameEnded = false;
 
 	// A pawn's move timer counts down with its physics, and its running
 	// average of the tick, which moveToward reads, follows, as the
@@ -81,14 +77,6 @@ void UActor::TickPhysics(float elapsed)
 			pawn->AvgPhysicsTime() = 0.8f * pawn->AvgPhysicsTime() + 0.2f * elapsed;
 		}
 	}
-}
-
-float UActor::EndPhysicsFrame()
-{
-	float left = PhysicsFrameLeft;
-	PhysicsFrameLeft = 0.0f;
-	PhysicsFrameEnded = true;
-	return left;
 }
 
 void UActor::SetPhysics(uint8_t newPhysics)
@@ -789,6 +777,14 @@ CollisionHit UActor::FinishMove(const vec3& delta, const CollisionHitList& hits,
 	for (size_t i = 0; i < BasedActors.size(); )
 	{
 		UActor* basedActor = BasedActors[i];
+		// A destroyed rider is passed over, as the move's two twins pass it
+		// (TurnBasedActors, MoveBrush): a destroyed Fire based on its
+		// burning carrier again by its BaseChange inside Destroy
+		if (basedActor->bDeleteMe())
+		{
+			i++;
+			continue;
+		}
 		basedActor->TryMove(actuallyMoved, false, false);
 		// UnrealScript events triggered in TryMove can call methods such as SetBase or Destroy, so need to guard while iterating.
 		if (i < BasedActors.size() && BasedActors[i] == basedActor)

@@ -846,9 +846,11 @@ bool UWindow::IsVisible(std::optional<bool> bRecurse)
 	return IsShown();
 }
 
+// The original's XWindow::Lower (Extension.dll 0x1004c2f0): as Raise, to
+// the start of its parent's children, one already first doing nothing.
 void UWindow::Lower()
 {
-	if (!parentOwner())
+	if (!parentOwner() || !prevSibling())
 		return;
 	UWindow* owner = parentOwner();
 	DetachFromParent();
@@ -865,6 +867,8 @@ void UWindow::Lower()
 		owner->firstChild() = this;
 		owner->lastChild() = this;
 	}
+	AskParentForReconfigure();
+	CheckFocusWindow();
 }
 
 /*
@@ -1298,15 +1302,21 @@ UObject* UWindow::NewChild(UObject* NewClass, std::optional<bool> bShow)
 	ChildAdded(child);
 	for (UWindow* ancestor = this; ancestor; ancestor = ancestor->parentOwner())
 		ancestor->DescendantAdded(child);
+	// A window destroyed from inside -- in its InitWindow, its show's
+	// VisibilityChanged or its layout -- is None to its maker, as the
+	// original's is. Its destroy runs at once there too (XWindow::SafeDestroy,
+	// Extension.dll 0x1004c0b0: the lock CreateNewWindow holds from the
+	// InitWindow to after the layout keeps the object alone, deleted as the
+	// lock lifts), and the steps go on with the window out of the tree: one
+	// destroyed in its InitWindow is still shown, when asked, and asks for
+	// its layout, so its VisibilityChanged and ConfigurationChanged reach it
+	// after its DestroyWindow.
 	child->InitWindow();
-	// One that destroyed itself in its InitWindow is None to its maker, as
-	// the original's is (its destroy held off while the window is locked,
-	// done as the lock lifts, and None returned)
-	if (child->Destroyed)
-		return nullptr;
 	if (show)
 		child->SetVisibility(true);
 	child->AskParentForReconfigure();
+	if (child->Destroyed)
+		return nullptr;
 	return child;
 }
 
@@ -1362,9 +1372,13 @@ void UWindow::QueryGranularity(float& hGranularity, float& vGranularity)
 	vGranularity = std::max(vGranularity, 1.0f);
 }
 
+// The original's XWindow::Raise (Extension.dll 0x1004c250): a window with a
+// parent that is not its last child already moves to the end of its
+// children, asks its parent to lay it out again and has the root's focus
+// checked; one already last does nothing.
 void UWindow::Raise()
 {
-	if (!parentOwner())
+	if (!parentOwner() || !nextSibling())
 		return;
 	UWindow* owner = parentOwner();
 	DetachFromParent();
@@ -1381,6 +1395,8 @@ void UWindow::Raise()
 		owner->firstChild() = this;
 		owner->lastChild() = this;
 	}
+	AskParentForReconfigure();
+	CheckFocusWindow();
 }
 
 void UWindow::ReleaseGC(UObject* GC)

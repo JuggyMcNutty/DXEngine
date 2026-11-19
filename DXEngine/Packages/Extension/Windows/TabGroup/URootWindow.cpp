@@ -464,16 +464,18 @@ bool URootWindow::SetRootFocusWindow(UWindow* newFocusWindow)
 
 void URootWindow::SetRootCursorPos(float newMouseX, float newMouseY)
 {
-	// Clip cursor to the entire screen, not the root window box:
+	// Held within the screen in the root's units, unrounded, up to its width
+	// and height less 1, as the original's HandleMouse (Extension.dll
+	// 0x1003b670) holds it within its root, the viewport over the
+	// multiplier: the last unit is under a window, as FindWindowByPoint
+	// takes a point short of a side. DXEngine's root is 4:3 and its
+	// children lie across the whole screen (RootOffsetX), so the screen.
 
 	newMouseX += UsedX;
 	newMouseY += UsedY;
 
-	int width, height;
-	GetScreenSize(width, height);
-	float scale = GetVirtualScale();
-	float realWidth = std::ceil(width / scale);
-	float realHeight = std::ceil(height / scale);
+	float realWidth = GetExtendedVirtualWidth() - 1.0f;
+	float realHeight = GetVirtualHeight() - 1.0f;
 
 	newMouseX = std::max(newMouseX, 0.0f);
 	newMouseY = std::max(newMouseY, 0.0f);
@@ -510,6 +512,11 @@ void URootWindow::SetRootCursorPos(float newMouseX, float newMouseY)
 			lastFocus->MouseLeftWindow();
 			if (mode >= (uint8_t)EMouseFocusMode::EnterLeave)
 				SetRootFocusWindow(nullptr);
+			// A guard of ours (bugs.md EXT.44): the window found under the
+			// pointer, destroyed by the last one's MouseLeftWindow, is
+			// found again, never entered.
+			if (focus->Destroyed)
+				focus = GetCursorFocus(relativeX, relativeY);
 		}
 		lastMouseWindow() = focus;
 		focus->MouseEnteredWindow();
@@ -726,10 +733,13 @@ bool URootWindow::OnWindowMouseWheel(const Point& pos, EInputKey key)
 // The original's (XRootWindow::SetMouseDelta 0x1003b2e0; extension-dll.md,
 // pointer movement): the mouse's counts add to the pointer in the root's
 // units, not divided by the multiplier, both axes doubled when either moves
-// more than 2 -- at 1280x960 a count moves the pointer two pixels, as there
+// more than 2 -- at 1280x960 a count moves the pointer two pixels, as there.
+// Taken whenever the root holds the mouse, the pointer shown or hidden:
+// ShowCursor decides its drawing alone, so the pointer a conversation hides
+// before its choices moves and enters windows on.
 bool URootWindow::OnWindowRawMouseMove(int dx, int dy)
 {
-	if (IsCursorVisible() && !bMouseMoveLocked())
+	if (IsMouseGrabbed() && !bMouseMoveLocked())
 	{
 		float moveX = (float)dx;
 		float moveY = (float)dy;

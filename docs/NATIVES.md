@@ -86,10 +86,10 @@ not a child class of the console's (`StartConsole` with the ini's `Console`
 so named). A fatal error with the Advanced Options or an actor inspector
 open closes them first and is reported as any other (`FatalPrefsConsole`).
 
-Differs (bugs.md EXT.44): a window that destroys itself in its own
-`DrawWindow`, or a tab group's child in its `ConfigurationChanged`, stops
-the original with a critical error; DXEngine plays on, by choice, the
-siblings after it left out of that frame or laid out later.
+Differs by choice: a window that destroys itself in its own `DrawWindow`, or
+a tab group's child in its `ConfigurationChanged`, stops the original with a
+critical error; DXEngine plays on, the siblings after it drawn in that frame
+or laid out with the others (`TreeChangeConsole`).
 
 A swimmer at a place that is not a number plays on in both engines, the
 search for its water line ended at once, its pawn falling and then without
@@ -1963,10 +1963,9 @@ font, inset by the column and row margins and cut at the cell's edge, a
 code such as `|c` shown as typed; and the focus row outlined in the focus
 texture, `focusThickness` thick, only while the list has the keyboard
 focus (`ListConsole`: the Load Game screen with a 50-character save name
-and one named `a|cff0000b`).
-
-Differs (bugs.md EXT.41): a list's `lineSize` is 0 until its first draw,
-where the original's holds the row's size once its rows are added.
+and one named `a|cff0000b`). A list's `lineSize` holds its row's size from
+where its columns, a column's font or its margins are set, as the
+original's does (`SaveEditConsole`: 12 before any layout or draw in both).
 
 ### The UI
 
@@ -2436,20 +2435,32 @@ comes, and on Wayland not at all, SDL knowing of no other key held then; in
 the Wayland window a mouse button held then is not pressed again. The
 original presses each at once.
 
-Differs (bugs.md EXT.39): the menus' pointer stops a unit past the screen's
-right and bottom edge, where the original's is held within the root, to its
-width and height less 1.
+The menus' pointer is held within the screen, to its width and height less
+1 in the root's units, as the original's within its root, and moves while
+`ShowCursor` hides it, which decides its drawing alone
+(`PointerEdgeConsole`: the right edge at the width less 1, the lowest place
+the height less 1, a pointer hidden at the right edge shown again at the
+left one, in both).
 
-Differs (bugs.md EXT.40): the hidden pointer does not move while a modal
-holds the mouse, where the original's moves and enters windows, `ShowCursor`
-deciding its drawing alone.
+A window raised or lowered that moves among its parent's children asks its
+parent to lay it out again and has the root's focus checked, as the
+original's does (`XWindow::Raise`, `Lower`), so one that raises itself in
+its `DrawWindow` gets its `ConfigurationChanged` at once (`TreeChangeConsole`
+with `Skip=0`: the original's 47 lines alike); one already last, or first,
+does nothing.
 
-Differs (bugs.md EXT.42): a raised window gets no `ConfigurationChanged`,
-where the original's gets one at once.
+A window that destroys itself while `NewChild` makes it -- in its
+`InitWindow`, its first `VisibilityChanged` or its first
+`ConfigurationChanged` -- is None to its maker, and gets the events the
+original's gets: its destroy runs at once, and one destroyed in its
+`InitWindow` is still shown, when asked, and laid out, out of the tree as it
+is (`NewChildDieConsole`: 47 lines alike in both). A modal destroyed as it
+shows leaves the root's grab counts one down in both (`TreeChangeConsole`
+with `Skip=02`).
 
-Differs (bugs.md EXT.43): a large paste filters the whole clipboard before
-the field's `MaxSize` cuts it, stalling the game some twice as long as the
-original's for the same text and taking several times its memory.
+A paste, as the original's, puts every character of the clipboard through
+the field's `FilterChar` before its `MaxSize` cuts it (`PasteSizeConsole`:
+1,310,720 characters into a field of `MaxSize` 20, 20 long in both).
 
 Differs (bugs.md WIN.42): the X11 and Wayland windows name keys by the
 layout's own symbols, so on AZERTY the number row is not 1 to 0 and on a
@@ -3550,10 +3561,6 @@ machine with VSync off or a slowed game, a thing at rest never starts to
 fall or walk in DXEngine; the original's ticks never go under its floor of 5
 ms.
 
-Differs (bugs.md AI.24): a destroyed actor asked its `GetBoundingBox` is
-filed into the level's BSP again and drawn until it is collected; the
-original's files nothing.
-
 Differs (bugs.md AUD.28): a mod's music of more than 2 channels plays
 garbled or silent and MP3 and WAV songs do not loop; a sound that fails to
 decode takes a channel at each play.
@@ -3577,15 +3584,6 @@ a window an event makes is drawn once before its first tick, its focus a
 frame late, where the original's windows tick first; and a destroyed window
 is freed only at the next collection, which no count of windows brings on,
 where the original deletes it at once.
-
-Differs (bugs.md EXT.45): a line whose bold changes within it measured in
-the other font, a modal destroyed as it shows leaving the root's grabs one
-down, and a new window's destroy in its `InitWindow` not held to after its
-first layout.
-
-Differs (bugs.md PHYS.43): an actor can be filed twice into the collision
-hash, the falling step's frame-end call does nothing, and a destroyed fire
-is moved with its carrier until a collection; nothing seen.
 
 Differs (bugs.md REN.77): a lost Vulkan swapchain is made again every frame
 with its present pass and pipelines, and its failure is not logged.
