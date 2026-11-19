@@ -473,10 +473,10 @@ For the owner (bugs.md D.88): a save empties its slot before it writes, as
 the original's, so one that fails or is killed part-way loses the save that
 was there.
 
-For the owner (bugs.md D.103): a new save takes for its slot a folder spelt
-in another case, `save0005` beside `Save0004`, and empties it, in both
-engines (`SaveConsole` with `NewSlot`): neither counts such a folder, and
-each then finds it in any case.
+By choice, a new save's slot counts a slot's folder spelt in another case:
+with `Save0004` and `save0005` it is `Save0006`, `save0005` kept, where the
+original's counts `Save0004` alone and then finds `save0005` in any case, the
+new save emptying it (`SaveConsole` with `NewSlot`).
 
 A slot's `SaveInfo.dxs` is found in any case, as its folder is and as
 Windows finds the original's: a copy of the game recased by its unpacker

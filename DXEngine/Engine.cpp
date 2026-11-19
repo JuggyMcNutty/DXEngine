@@ -2197,11 +2197,11 @@ std::string Engine::SaveNumberedFolderName(int32_t slot) const
 	return buf;
 }
 
-// The next slot is the highest existing SaveNNNN plus one, never a gap. A
-// folder spelt in another case is not counted, as the original's does not
-// count it (GetNewSaveFileIndex, DeusEx.dll 0x10017cc0; SaveConsole with
-// NewSlot: save0005 beside Save0004 is the new save's slot in both engines,
-// its files gone): whether to count it is the owner's (bugs.md D.103).
+// The next slot is the highest existing SaveNNNN plus one, never a gap, as
+// the original's GetNewSaveFileIndex (DeusEx.dll 0x10017cc0). A folder spelt
+// in another case is counted, by the owner's choice against the original,
+// which does not count it and then finds it in any case, the new save
+// emptying it: save0005 beside Save0004 gives Save0006 (bugs.md D.103).
 int32_t Engine::NextSaveSlot() const
 {
 	int32_t highest = 0;
@@ -2213,7 +2213,7 @@ int32_t Engine::NextSaveSlot() const
 			if (!entry.is_directory())
 				continue;
 			const std::string name = entry.path().filename().string();
-			if (name.size() < 5 || name.compare(0, 4, "Save") != 0 || name[4] < '0' || name[4] > '9')
+			if (name.size() < 5 || !StrTools::equals_ignore_case(name.substr(0, 4), "Save") || name[4] < '0' || name[4] > '9')
 				continue;
 			try
 			{
