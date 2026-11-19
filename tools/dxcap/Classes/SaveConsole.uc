@@ -21,12 +21,16 @@
 // arrived by travel. With Fresh (DXCAP_CONFIG "Fresh=True") the island is a new
 // game's, the game's own StartNewGame sending the player there from the menu
 // map, and it is saved 8 s in as it is, nothing given or spawned: the start
-// CensusConsole loads, saved without cheats.
+// CensusConsole loads, saved without cheats. With NewSlot (DXCAP_CONFIG
+// "NewSlot=True") the save is SaveGame(0), a new slot: the highest Save*
+// folder's number and one, a folder spelt in another case counted too
+// (bugs.md PKG.63).
 //=============================================================================
 class SaveConsole extends Console;
 
 var config string Via;
 var config bool Fresh;
+var config bool NewSlot;
 var float MapTime;
 var int Step;
 var string CurrentMap;
@@ -204,7 +208,10 @@ event Tick(float Delta)
 			P.Spawn(class'LoadMarker');
 		Census(P, "saved");
 		S = P.Spawn(class'SaveHelper', P);
-		S.Slot = 9;
+		if (NewSlot)
+			S.Slot = 0;
+		else
+			S.Slot = 9;
 		S.Description = "DXCapture save";
 		Step = 1;
 	}

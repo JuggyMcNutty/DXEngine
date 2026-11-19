@@ -2040,6 +2040,9 @@ void Engine::SaveGameToSlot(int32_t slotNum, const std::string& saveDescription)
 	fs::create_directories(saveSlotFolder, ec);
 	DeleteSaveGameFiles(slotFolderName);
 	CopySaveGameFiles("Current", slotFolderName);
+	// The copies on the disk before the SaveInfo and the level make the
+	// slot a save; those two the writer syncs itself (bugs.md PKG.56)
+	Directory::syncFiles(saveSlotFolder);
 
 	// Its map the DeusExLevelInfo's MapName, as the original's
 	// (0x1000f283): 99_Endgame1's Endgame1, where its package's is the
@@ -2056,12 +2059,10 @@ void Engine::SaveGameToSlot(int32_t slotNum, const std::string& saveDescription)
 	}
 	dxSaveInfo->UpdateTimeStamp();
 
-	// The copy from Current is overwritten in place: the file goes first,
-	// or the writer keeps it as a .old beside it, which no original save
-	// carries.
+	// Over the copy from Current, in any case, the writer's new file moved
+	// over it (PackageWriter::Save)
 	const auto saveInfoName = "SaveInfo." + packages->GetSaveExtension();
 	const fs::path saveInfoFile = Directory::resolveCase(saveSlotFolder / saveInfoName);
-	fs::remove(saveInfoFile);
 	dxSaveInfo->package->Save(dxSaveInfo, saveInfoFile.string());
 
 	SaveCurrentLevel(slotNum);
@@ -2170,7 +2171,11 @@ std::string Engine::SaveNumberedFolderName(int32_t slot) const
 	return buf;
 }
 
-// The next slot is the highest existing SaveNNNN plus one, never a gap.
+// The next slot is the highest existing SaveNNNN plus one, never a gap. A
+// folder spelt in another case is not counted, as the original's does not
+// count it (GetNewSaveFileIndex, DeusEx.dll 0x10017cc0; SaveConsole with
+// NewSlot: save0005 beside Save0004 is the new save's slot in both engines,
+// its files gone): whether to count it is the owner's (bugs.md D.103).
 int32_t Engine::NextSaveSlot() const
 {
 	int32_t highest = 0;
@@ -2553,7 +2558,7 @@ void Engine::PruneTravelActors() const
 }
 
 // The level package into a save directory: -2 Current, -1 the quick save,
-// else the numbered slot. The file goes first, or the writer keeps a .old.
+// else the numbered slot, the writer's new file moved over the old one.
 void Engine::SaveCurrentLevel(int32_t slot)
 {
 	// With no DeusExLevelInfo the original's saves nothing and logs that it
@@ -2583,7 +2588,6 @@ void Engine::SaveCurrentLevel(int32_t slot)
 	// original spelt otherwise (bugs.md VM.25)
 	const fs::path levelFile = Directory::resolveCase(folder / (ScriptToUTF8(DeusExLevelInfo->MapName()) + "." + packages->GetSaveExtension()));
 	packages->CloseStreams();
-	fs::remove(levelFile);
 	// The destroyed actors let go first, as the original's save does: the
 	// file holds none of them.
 	Level->CleanupDestroyed(true);

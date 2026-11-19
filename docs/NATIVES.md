@@ -474,11 +474,26 @@ doing nothing (`SaveWordsConsole`: slots 71 and 72 saved, `+73`, `-74` and
 `DELETEGAME +71` doing nothing, in both engines). By choice, `GetSaveFreeSpace` measures the save
 folder's file system, held to the largest int, where the original's
 measures the current directory's drive, wrapping past 2 TiB free, and
-answers 0 when the call fails.
+answers 0 when the call fails. A level's file and a SaveInfo are written
+beside the file they replace and moved over it, as the original's
+`SavePackage` writes `Save.tmp` and moves it over the old file, which stays
+whole until the new one is.
 
 For the owner (bugs.md D.88): a save empties its slot before it writes, as
 the original's, so one that fails or is killed part-way loses the save that
 was there.
+
+For the owner (bugs.md D.103): a new save takes for its slot a folder spelt
+in another case, `save0005` beside `Save0004`, and empties it, in both
+engines (`SaveConsole` with `NewSlot`): neither counts such a folder, and
+each then finds it in any case.
+
+Each file a save writes, a level's and a SaveInfo, is on the disk before it
+is moved into place and its folder after, and a slot's copies of `Current`
+before its SaveInfo is written (each file's `fsync`, Windows'
+`FlushFileBuffers`): a platform matter, so that a power cut
+soon after a save leaves no file of 0 bytes under a save's name, on the
+Smart Pro's exFAT card too.
 
 For the owner (bugs.md D.92): a slot whose level file is empty or cut short
 stops both engines at its load, every time.
@@ -486,14 +501,6 @@ stops both engines at its load, every time.
 For the owner (bugs.md D.102): the game's own script lets `;`, the save
 list's delimiter, into a save's name, and Load or Delete then acts on
 another save, in both engines alike.
-
-Differs (bugs.md PKG.55): a level's file and a slot's SaveInfo are removed
-before their new files are written, where the original writes `Save.tmp` and
-moves it over the old file.
-
-Differs (bugs.md PKG.63): a new save does not count a slot folder spelt in
-another case and can overwrite it, where the original counts every `Save*`
-folder in any case.
 
 ## Flags
 
@@ -4765,7 +4772,10 @@ A mod with none gets the original's loader and natives:
   16-bit (`OpsConsole`: `set` of U+03A9, U+2122, a, alike in both). An ini
   written back has a changed value changed in its own line,
   a key new to a section added after the section's last key, a section new to
-  the file at its end, and the rest of the file as it was, its line endings
+  the file at its end, a key's lines past its values dropped, as the
+  original's `SaveConfig` writes a dynamic array one line an element and a map
+  none (`IniShrinkConsole`: `ServerActors` set to three, then to one, one line
+  in each engine's `[Engine.GameEngine]`), and the rest of the file as it was, its line endings
   with it (CR LF, LF or a CR alone), by choice, so a player's or a mod's
   comments and layout stay; a file not there yet is written whole, CR LF, as
   the original writes it (`ConfigConsole` with no `DXCapConfig.ini`: the file
@@ -4960,10 +4970,6 @@ is, so a full disk, a power cut or a kill during the write leaves it empty
 or short, and the next start takes the empty file as it is, an empty system
 ini stopping the start; written to a temporary file and renamed, a failed
 write would leave the ini as it was.
-
-Differs (bugs.md ENG.49): a dynamic array of an ini that shrank keeps its
-removed elements' lines, which come back at the next start, where the
-original's `SaveConfig` writes one line an element and no more.
 
 A property tag whose size runs back over itself, its value failing to load,
 fails its object's load with the value's error, where the original's load

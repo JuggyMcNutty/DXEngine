@@ -51,7 +51,8 @@ void PackageWriter::Save(UObject* packageObject, std::string filename)
 		else
 			GetNameIndex({}); // Add None as first index to name table
 
-		auto stream = std::make_unique<PackageStreamWriter>(this, File::create_always(tempFilename));
+		std::shared_ptr<File> file = File::create_always(tempFilename);
+		auto stream = std::make_unique<PackageStreamWriter>(this, file);
 		WriteHeader(stream.get());
 		WriteObjects(packageObject, stream.get());
 		WriteNameTable(stream.get());
@@ -61,22 +62,21 @@ void PackageWriter::Save(UObject* packageObject, std::string filename)
 		WriteHeader(stream.get());
 		// The header's last flush checked before the file takes the slot's
 		// place: a save cut short (ENOSPC) was renamed over the slot as whole.
+		// The file on the disk first, and the folder after the rename
+		// (bugs.md PKG.56).
+		file->sync();
 		stream->Close();
 		stream.reset();
 
 		// Close all package file handles
 		Source->GetPackageManager()->CloseStreams();
 
-		try
-		{
-			File::rename(filename, filename + ".old");
-		}
-		catch (...)
-		{
-			// No file to rename?
-		}
-
+		// Moved over the file it replaces, which stays whole until the new
+		// one is: the original's SavePackage writes Save.tmp beside it and
+		// moves that over it (its log's "Moving '..\Save\Current\Save.tmp'
+		// to '..\Save\Current\01_NYC_UNATCOIsland.dxs'", over a file there)
 		File::rename(tempFilename, filename);
+		Directory::sync(fs::path(filename).parent_path());
 
 		if (filename == Source->GetPackageFilePath()) // To do: should we search all open packages?
 		{

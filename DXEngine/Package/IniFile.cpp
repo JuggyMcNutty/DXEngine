@@ -336,9 +336,12 @@ void IniFile::UpdateFile()
 
 // The file as it is, its comments and order kept: each value in memory that
 // differs from its line is written into that line (a key given more than
-// once, each occurrence its own value, in order); values the file has no
-// line for are added after the last key line of their section (after the
-// key's own last line when it has some), and sections it has not at its end.
+// once, each occurrence its own value, in order); a key's lines past its
+// values in memory are dropped, as the original's SaveConfig removes a
+// dynamic array's lines and writes one an element (core-dll.md, SaveConfig),
+// a map's all of them; values the file has no line for are added after the
+// last key line of their section (after the key's own last line when it has
+// some), and sections it has not at its end.
 // A key's name is taken as written, Name[0] included, as the file is read.
 void IniFile::UpdateFile(const std::string& filename)
 {
@@ -400,7 +403,10 @@ void IniFile::UpdateFile(const std::string& filename)
 
 	// Each line taken as the file is read (ParseIniLine), so that each meets
 	// its own value: a ; or // line with an = a key, =value a key with no
-	// name, a value's quotes off
+	// name, a value's quotes off. A line dropped is left as a lone LF, which
+	// no line the file is split into holds, and skipped as the text is made,
+	// so the lines' numbers hold for what is added below.
+	const std::string droppedLine = "\n";
 	std::string name, valueInFile;
 	for (size_t i = 0; i < lines.size(); i++)
 	{
@@ -446,6 +452,10 @@ void IniFile::UpdateFile(const std::string& filename)
 				const std::string& value = key.GetValues()[occurrence];
 				if (value != valueInFile)
 					lines[i] = name + "=" + value;
+			}
+			else
+			{
+				lines[i] = droppedLine;
 			}
 			break;
 		}
@@ -514,6 +524,8 @@ void IniFile::UpdateFile(const std::string& filename)
 	std::string final_text;
 	for (const std::string& line : lines)
 	{
+		if (line == droppedLine)
+			continue;
 		final_text += line;
 		final_text += lineEnd;
 	}

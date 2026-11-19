@@ -57,6 +57,10 @@ public:
 	virtual void write(const void *data, size_t size) = 0;
 	virtual void flush() = 0; // what was written handed to the system: the process's crash then loses none of it
 	virtual void close() = 0; // the last flush checked: an error here is the write's
+	// What was written, on the disk before a rename puts the file in place:
+	// a power cut then leaves the old file or the new one whole, never one of
+	// 0 bytes under the file's name (bugs.md PKG.56)
+	virtual void sync() = 0;
 	virtual void seek(int64_t offset, SeekPoint origin = SeekPoint::begin) = 0;
 	virtual uint64_t tell() = 0;
 };
@@ -79,6 +83,17 @@ public:
 	// is on disk when only a different case is there. A part not there at all
 	// is kept as it is given.
 	static fs::path resolveCase(const fs::path& folder);
+
+	// A folder's entries on the disk, a file renamed into it among them: an
+	// fsync of the folder on Linux, any error passed over, a file system
+	// with no such sync having nothing to write; nothing on Windows, where
+	// NTFS's journal keeps the rename (bugs.md PKG.56)
+	static void sync(const fs::path& folder);
+
+	// Every file in a folder, and the folder, on the disk: each file's own
+	// fsync, or FlushFileBuffers on Windows, so that the wait is for the
+	// folder's bytes alone. Any error passed over (bugs.md PKG.56).
+	static void syncFiles(const fs::path& folder);
 };
 
 class OS

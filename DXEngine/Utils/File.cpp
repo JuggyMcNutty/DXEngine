@@ -14,6 +14,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <fcntl.h>
+#include <cerrno>
 #include <cstdio>
 #include <unistd.h>
 #endif
@@ -49,6 +51,12 @@ public:
 	// WriteFile hands each write to the system: nothing is held in the process
 	void flush() override
 	{
+	}
+
+	void sync() override
+	{
+		if (handle != INVALID_HANDLE_VALUE && !FlushFileBuffers(handle))
+			Exception::Throw("FlushFileBuffers failed");
 	}
 
 	// In chunks a DWORD holds, each of what is left (bugs.md ENG.34), the
@@ -174,6 +182,19 @@ public:
 		handle = nullptr;
 		if (result != 0)
 			Exception::Throw("fclose failed");
+	}
+
+	// The buffer flushed, then the file: an fsync's failure is the write's
+	// (EIO, ENOSPC on a file system that allocates late), but for EINVAL, a
+	// file that has nothing to sync
+	void sync() override
+	{
+		if (!handle)
+			return;
+		if (fflush(handle) != 0)
+			Exception::Throw("fflush failed");
+		if (fsync(fileno(handle)) != 0 && errno != EINVAL)
+			Exception::Throw("fsync failed");
 	}
 
 	int64_t size() override
@@ -376,6 +397,25 @@ fs::path Directory::localAppData()
 	}
 }
 
+void Directory::sync(const fs::path&)
+{
+}
+
+void Directory::syncFiles(const fs::path& folder)
+{
+	std::error_code ec;
+	for (const auto& entry : fs::directory_iterator(folder, ec))
+	{
+		if (!entry.is_regular_file(ec))
+			continue;
+		HANDLE handle = CreateFileW(entry.path().c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+		if (handle == INVALID_HANDLE_VALUE)
+			continue;
+		FlushFileBuffers(handle);
+		CloseHandle(handle);
+	}
+}
+
 #else
 
 void Directory::create(const std::string& name)
@@ -418,6 +458,33 @@ fs::path Directory::localAppData()
 		throw std::runtime_error("HOME environment variable is not set... somehow.");
 
 	return fs::path(homeDir) / ".config";
+}
+
+void Directory::sync(const fs::path& folder)
+{
+	int fd = open(folder.c_str(), O_RDONLY | O_DIRECTORY);
+	if (fd < 0)
+		return;
+	(void)fsync(fd);
+	close(fd);
+}
+
+void Directory::syncFiles(const fs::path& folder)
+{
+	// Each file by itself, then the folder: a syncfs would wait for whatever
+	// else waits on the file system, another program's gigabytes among it
+	std::error_code ec;
+	for (const auto& entry : fs::directory_iterator(folder, ec))
+	{
+		if (!entry.is_regular_file(ec))
+			continue;
+		int fd = open(entry.path().c_str(), O_RDONLY);
+		if (fd < 0)
+			continue;
+		(void)fsync(fd);
+		close(fd);
+	}
+	sync(folder);
 }
 
 #endif
