@@ -492,9 +492,11 @@ Smart Pro's exFAT card too.
 A slot whose level file is empty or cut short stops both engines at its
 load, every time.
 
-For the owner (bugs.md D.102): the game's own script lets `;`, the save
-list's delimiter, into a save's name, and Load or Delete then acts on
-another save, in both engines alike.
+By choice, each `;` of a save's name is written as a comma: the game's own
+script lets `;`, the save list's delimiter, into the name, and the original
+keeps it, its Load Game row's fields then shifted, Load or Delete acting on
+another save (`SaveConsole` with `Description=a;b`: the original's slot 9
+named `a;b`, DXEngine's `a,b`).
 
 ## Flags
 

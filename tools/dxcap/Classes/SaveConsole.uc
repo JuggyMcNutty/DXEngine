@@ -24,13 +24,18 @@
 // CensusConsole loads, saved without cheats. With NewSlot (DXCAP_CONFIG
 // "NewSlot=True") the save is SaveGame(0), a new slot: the highest Save*
 // folder's number and one, a folder spelt in another case counted too
-// (bugs.md PKG.63).
+// (bugs.md PKG.63). With Description (DXCAP_CONFIG "Description=a;b") the
+// save takes that name in place of "DXCapture save". Before the exit, the
+// save list as the Load Game screen reads it, each row's folder and name,
+// and the player's newest log entry, the HUD's last message, are logged
+// with "DXSAVE: after:".
 //=============================================================================
 class SaveConsole extends Console;
 
 var config string Via;
 var config bool Fresh;
 var config bool NewSlot;
+var config string Description;
 var float MapTime;
 var int Step;
 var string CurrentMap;
@@ -140,6 +145,33 @@ function Census(PlayerPawn P, string Label)
 	}
 }
 
+// The save list as MenuScreenLoadGame's PopulateGames reads it, and the
+// player's newest log entry
+function After(DeusExPlayer DP)
+{
+	local GameDirectory Dir;
+	local DeusExSaveInfo Info;
+	local int i;
+
+	Dir = DP.CreateGameDirectoryObject();
+	Dir.SetDirType(Dir.EGameDirectoryTypes.GD_SaveGames);
+	Dir.GetGameDirectory();
+	for (i = 0; i < Dir.GetDirCount(); i++)
+	{
+		Info = Dir.GetSaveInfoFromDirectoryIndex(i);
+		if (Info != None)
+		{
+			Log("DXSAVE: after: row " $ Dir.GetDirFilename(i) $ ": '" $ Info.Description $ "'");
+			Dir.DeleteSaveInfo(Info);
+		}
+		else
+			Log("DXSAVE: after: row " $ Dir.GetDirFilename(i) $ ": no save");
+	}
+	CriticalDelete(Dir);
+	if (DP.LastLog != None)
+		Log("DXSAVE: after: last message: " $ DP.LastLog.text);
+}
+
 event Tick(float Delta)
 {
 	local PlayerPawn P;
@@ -212,11 +244,16 @@ event Tick(float Delta)
 			S.Slot = 0;
 		else
 			S.Slot = 9;
-		S.Description = "DXCapture save";
+		if (Description != "")
+			S.Description = Description;
+		else
+			S.Description = "DXCapture save";
 		Step = 1;
 	}
 	else if (Step == 1 && MapTime > 11.0)
 	{
+		if (DeusExPlayer(P) != None)
+			After(DeusExPlayer(P));
 		Log("DXSAVE: exiting");
 		P.ConsoleCommand("exit");
 		Step = 2;

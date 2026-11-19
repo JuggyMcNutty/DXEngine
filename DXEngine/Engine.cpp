@@ -2075,6 +2075,13 @@ void Engine::SaveGameToSlot(int32_t slotNum, const std::string& saveDescription)
 	// map's name
 	dxSaveInfo->DirectoryIndex() = slotNum;
 	dxSaveInfo->Description() = !saveDescription.empty() ? UTF8ToScript(saveDescription) : LevelInfo->Title();
+	// Each ; a comma, by the owner's choice against the original, which keeps
+	// it: the Load and Save Game screens join a save's name and its fields
+	// with ; (MenuScreenLoadGame.AddSaveRow), and a name holding one shifts
+	// its row's fields, Load or Delete then taking another field for its slot
+	// (bugs.md D.102). A comma looks and reads nearest, and the list splits
+	// its rows on ; alone.
+	std::replace(dxSaveInfo->Description().begin(), dxSaveInfo->Description().end(), u';', u',');
 	dxSaveInfo->MissionLocation() = DeusExLevelInfo->MissionLocation();
 	dxSaveInfo->MapName() = DeusExLevelInfo->MapName();
 	if (auto player = UObject::TryCast<UDeusExPlayer>(viewport->Actor()))
