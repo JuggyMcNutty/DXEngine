@@ -70,6 +70,9 @@ void Frame::SetState(UStruct* func)
 	Func = func;
 	State = func;
 	Variables.Init(func);
+	// State code's foreach left by the state change: its iterator goes
+	// with it, never kept with its references for the actor's life
+	Iterators.clear();
 }
 
 void Frame::Break()
@@ -100,6 +103,11 @@ void Frame::RunawayLoop()
 void Frame::InfiniteRecursion()
 {
 	throw ScriptCriticalError("Script execution error:\r\n\r\nInfinite script recursion (250 calls) detected\r\n\r\nCall stack:\r\n\r\n" + GetCallstack());
+}
+
+void Frame::NoneCriticalError(const char* native)
+{
+	throw ScriptCriticalError("Script execution error:\r\n\r\n" + std::string(native) + " given None\r\n\r\nCall stack:\r\n\r\n" + GetCallstack());
 }
 
 // A singular function's mark is its object's flag of the function flag's own
@@ -182,7 +190,9 @@ std::string Frame::GetCallstack()
 		{
 			name += " line " + std::to_string(func->Line);
 
-			if (frame->StatementIndex > 0) // StatementIndex points at the NEXT statement to be executed
+			// StatementIndex points at the NEXT statement to be executed; one
+			// past the code, a jump to no statement's offset, shows none
+			if (frame->StatementIndex > 0 && frame->StatementIndex - 1 < func->Code->Statements.size())
 			{
 				name += ": ";
 				name += GetDisassembly(func->Code->Statements[frame->StatementIndex - 1]);
@@ -370,8 +380,20 @@ ExpressionValue Frame::CallScript(UFunction* func, UObject* instance, CallArgume
 		StoreWhole(lvalue, arg, parms[i]);
 	}
 
-	// Run the function
-	ExpressionValue result = frame.Run().Value;
+	// Run the function. An error out of it is a script error, which stops
+	// the game wherever it is met: Halted, so that no native's call under
+	// which it runs (Spawn's PostBeginPlay, GotoState's EndState) nor a
+	// console command logs it and plays on (bugs.md VM.39)
+	ExpressionValue result;
+	try
+	{
+		result = frame.Run().Value;
+	}
+	catch (...)
+	{
+		Halted = true;
+		throw;
+	}
 
 	// Load the result from the frame local result variable
 	result.Load();
@@ -600,6 +622,8 @@ bool Frame::FindLabel(const NameString& label)
 
 bool Frame::GotoLabel(const NameString& label)
 {
+	// As a state change, a foreach of the state code left (SetState)
+	Iterators.clear();
 	bool found = FindLabel(label.IsNone() ? NameString("Begin") : label);
 	LatentState = found ? LatentRunState::Continue : LatentRunState::Stop;
 	return found;
@@ -752,6 +776,8 @@ ExpressionEvalResult Frame::Run()
 			{
 				// The label in the running node, else in the object's state
 				// and the states above it (FindLabel)
+				// A goto leaves a foreach as a state change does (SetState)
+				Iterators.clear();
 				int index = Func->Code->FindLabelIndex(result.Label);
 				if (index != -1)
 					StatementIndex = index;
@@ -760,6 +786,8 @@ ExpressionEvalResult Frame::Run()
 			}
 			break;
 		case StatementResult::Stop:
+			// So does a stop
+			Iterators.clear();
 			LatentState = LatentRunState::Stop;
 			return result;
 		case StatementResult::Return:
@@ -802,10 +830,6 @@ ExpressionEvalResult Frame::Run()
 			if (Iterators.empty())
 				ThrowException("Iterator pop statement without an iterator in " + Object->Name.ToString() + "." + Func->Name.ToString());
 			Iterators.pop_back();
-			break;
-		case StatementResult::AccessedNone:
-			LogMessage("Accessed None");
-			LogMessage(Frame::GetCallstack());
 			break;
 		}
 

@@ -71,7 +71,7 @@ public:
 	UTexture*& AnimNext() { return Value<UTexture*>(PropOffsets_Texture.AnimNext); }
 	UTexture*& BumpMap() { return Value<UTexture*>(PropOffsets_Texture.BumpMap); }
 	uint8_t& CompFormat() { return Value<uint8_t>(PropOffsets_Texture.CompFormat); }
-	TypedScriptArray<void*> CompMips() { return DynamicArray<void*>(PropOffsets_Texture.CompMips); } // native
+	TypedScriptArray<int32_t> CompMips() { return DynamicArray<int32_t>(PropOffsets_Texture.CompMips); } // native
 	UTexture*& DetailTexture() { return Value<UTexture*>(PropOffsets_Texture.DetailTexture); }
 	float& Diffuse() { return Value<float>(PropOffsets_Texture.Diffuse); }
 	float& DrawScale() { return Value<float>(PropOffsets_Texture.DrawScale); }
@@ -91,7 +91,7 @@ public:
 	float& MaxFrameRate() { return Value<float>(PropOffsets_Texture.MaxFrameRate); }
 	float& MinFrameRate() { return Value<float>(PropOffsets_Texture.MinFrameRate); }
 	float& MipMult() { return Value<float>(PropOffsets_Texture.MipMult); }
-	TypedScriptArray<void*> Mips() { return DynamicArray<void*>(PropOffsets_Texture.Mips); } // native
+	TypedScriptArray<int32_t> Mips() { return DynamicArray<int32_t>(PropOffsets_Texture.Mips); } // native
 	uint8_t& PrimeCount() { return Value<uint8_t>(PropOffsets_Texture.PrimeCount); }
 	uint8_t& PrimeCurrent() { return Value<uint8_t>(PropOffsets_Texture.PrimeCurrent); }
 	float& Specular() { return Value<float>(PropOffsets_Texture.Specular); }

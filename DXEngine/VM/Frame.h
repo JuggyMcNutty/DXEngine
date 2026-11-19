@@ -192,6 +192,10 @@ public:
 
 	static void Break();
 	static void ThrowException(const std::string& text);
+	// A native given None for an object it reads through, which stops the
+	// original with a critical error, its fault: stopped so too, the native
+	// named, never a crash (bugs.md VM.43)
+	[[noreturn]] static void NoneCriticalError(const char* native);
 
 	static std::unique_ptr<Iterator> CreatedIterator;
 

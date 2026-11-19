@@ -2,7 +2,8 @@
 
 #include "Math/vec.h"
 
-enum UnrealSheerAxis
+// A byte, as the script's and the original's FScale hold it
+enum UnrealSheerAxis : uint8_t
 {
 	SHEER_None = 0,
 	SHEER_XY = 1,

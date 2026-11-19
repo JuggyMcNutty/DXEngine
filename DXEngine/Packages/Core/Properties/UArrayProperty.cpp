@@ -130,8 +130,8 @@ void UArrayProperty::GetExportText(std::string& buf, const std::string& whitespa
 	int offset = i * (int)elementPitch;
 
 	// This very property's, not the first of its name
-	ScriptArray* objarray = static_cast<ScriptArray*>(obj->PropertyData.Ptr(this)) + offset;
-	ScriptArray* defarray = (defobj) ? static_cast<ScriptArray*>(defobj->PropertyData.Ptr(this)) + offset : nullptr;
+	ScriptArray* objarray = reinterpret_cast<ScriptArray*>(static_cast<uint8_t*>(obj->PropertyData.Ptr(this)) + offset);
+	ScriptArray* defarray = (defobj) ? reinterpret_cast<ScriptArray*>(static_cast<uint8_t*>(defobj->PropertyData.Ptr(this)) + offset) : nullptr;
 
 	for (int k = 0; k < (int)objarray->GetSize(); k++)
 	{

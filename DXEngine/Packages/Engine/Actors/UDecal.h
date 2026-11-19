@@ -24,7 +24,7 @@ public:
 
 	float& LastRenderedTime() { return Value<float>(PropOffsets_Decal.LastRenderedTime); }
 	int& MultiDecalLevel() { return Value<int>(PropOffsets_Decal.MultiDecalLevel); }
-	TypedScriptArray<void*> SurfList() { return DynamicArray<void*>(PropOffsets_Decal.SurfList); }
+	TypedScriptArray<int32_t> SurfList() { return DynamicArray<int32_t>(PropOffsets_Decal.SurfList); }
 
 	// The level's nodes it lies on, the movers' polygons' surfaces it lies
 	// on, and every surface it was laid on, the original's SurfList

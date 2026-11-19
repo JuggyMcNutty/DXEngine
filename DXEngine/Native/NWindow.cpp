@@ -1,6 +1,7 @@
 #include "Precomp.h"
 #include "NWindow.h"
 #include "VM/NativeFunc.h"
+#include "VM/Frame.h"
 #include "Packages/Extension/Windows/UWindow.h"
 #include "Packages/Extension/Windows/TabGroup/URootWindow.h"
 
@@ -149,8 +150,13 @@ void NWindow::ConfigureChild(UObject* Self, float newX, float newY, float newWid
 	selfWindow->ConfigureChild(newX, newY, newWidth, NewHeight);
 }
 
+// A None window stops the game, as one to convert from stops the original's,
+// which reads through it (Nat6Console, ConvertNone); one to convert to,
+// the original's unread, would crash this one
 void NWindow::ConvertCoordinates(UObject* Self, UObject* fromWin, float fromX, float fromY, UObject* toWin, float& toX, float& toY)
 {
+	if (!fromWin || !toWin)
+		Frame::NoneCriticalError("Window.ConvertCoordinates");
 	UWindow* selfWindow = UObject::Cast<UWindow>(Self);
 	selfWindow->ConvertCoordinates(UObject::Cast<UWindow>(fromWin), fromX, fromY, UObject::Cast<UWindow>(toWin), toX, toY);
 }

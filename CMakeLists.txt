@@ -941,6 +941,12 @@ add_executable(DXEngine WIN32 ${DXENGINE_SOURCES})
 if(MINGW)
 	# wWinMain, as MSVC takes it.
 	target_link_options(DXEngine PRIVATE -municode)
+	# The main thread's stack, where the scripts run, reserved at 16 MB, as
+	# Linux's 8 MB holds: a script call costs DXEngine's C++ 2.7 to 4.3 KB of
+	# it and more through a native, so the 1 MB PE default ends before the
+	# original's 251st nested call stops the game (bugs.md VM.36). Only a
+	# reserve: pages are committed as the stack reaches them.
+	target_link_options(DXEngine PRIVATE -Wl,--stack,16777216)
 endif()
 target_link_libraries(DXEngine DXCommon ${DXCOMMON_LIBS})
 target_compile_options(DXEngine PRIVATE ${CXX_WARNING_FLAGS})

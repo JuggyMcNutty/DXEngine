@@ -41,7 +41,7 @@ public:
 	UClass*& AcceptClass() { return Value<UClass*>(PropOffsets_TcpLink.AcceptClass); }
 	uint8_t& LinkState() { return Value<uint8_t>(PropOffsets_TcpLink.LinkState); }
 	IpAddr& RemoteAddr() { return Value<IpAddr>(PropOffsets_TcpLink.RemoteAddr); }
-	TypedScriptArray<void*> SendFIFO() { return DynamicArray<void*>(PropOffsets_TcpLink.SendFIFO); }
+	TypedScriptArray<uint8_t> SendFIFO() { return DynamicArray<uint8_t>(PropOffsets_TcpLink.SendFIFO); }
 
 private:
 	bool EnsureSocket();

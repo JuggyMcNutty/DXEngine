@@ -2,6 +2,7 @@
 #include "Precomp.h"
 #include "NCanvas.h"
 #include "VM/NativeFunc.h"
+#include "VM/Frame.h"
 #include "Engine.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
@@ -33,14 +34,20 @@ void NCanvas::RegisterFunctions()
 // WireFrame draws the actor's mesh as lines, as the original draws the call
 // with the player's RendMap at wire (Engine.dll UCanvas::execDrawActor
 // 0x10377ed0; VisibleMesh::Wire); the game passes false. The actor is left
-// hidden, as the original's leave it (RenderSubsystem::DrawActor).
+// hidden, as the original's leave it (RenderSubsystem::DrawActor). None
+// stops the game, as it stops the original's (Nat6Console, DrawActorNone and
+// ClippedNone).
 void NCanvas::DrawActor(UObject* Self, UObject* A, bool WireFrame, std::optional<bool> ClearZ)
 {
+	if (!A)
+		Frame::NoneCriticalError("Canvas.DrawActor");
 	engine->render->DrawActor(UObject::Cast<UActor>(A), ClearZ ? *ClearZ : false, true, nullptr, WireFrame);
 }
 
 void NCanvas::DrawClippedActor(UObject* Self, UObject* A, bool WireFrame, int X, int Y, int XB, int YB, std::optional<bool> ClearZ)
 {
+	if (!A)
+		Frame::NoneCriticalError("Canvas.DrawClippedActor");
 	engine->render->DrawClippedActor(UObject::Cast<UActor>(A), X, Y, XB, YB, ClearZ ? *ClearZ : false, WireFrame);
 }
 

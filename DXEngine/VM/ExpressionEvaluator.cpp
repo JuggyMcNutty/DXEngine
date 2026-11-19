@@ -36,6 +36,25 @@ static bool IsBoolVariable(TypedKind kind)
 	return kind == TypedKind::LocalBool || kind == TypedKind::InstanceBool || kind == TypedKind::LocalBoolVariable || kind == TypedKind::InstanceBoolVariable;
 }
 
+// The original's script warnings, word for word (Vm6Console): its
+// execContext's at every None context (Core.dll 0x101300d0), its Let's
+// through None (0x1012fe40) and its ArrayElement's past a static array's
+// ends (0x1012ef90). The text is made only when one is met.
+static void WarnAccessedNone()
+{
+	LogMessage("Accessed None");
+}
+
+static void WarnLetThroughNone()
+{
+	LogMessage("Attempt to assigned variable through None");
+}
+
+static void WarnOutOfBounds(int index, int count)
+{
+	LogMessage("Accessed array out of bounds (" + std::to_string(index) + "/" + std::to_string(count) + ")");
+}
+
 ExpressionEvalResult ExpressionEvaluator::Eval(Expression* expr, UObject* self, UObject* context, void* localVariables, ExpressionValue* into)
 {
 	ExpressionEvalResult result;
@@ -281,7 +300,11 @@ void ExpressionEvaluator::Expr(LetExpression* expr)
 	if (IsStatement() && Assign(expr->LeftSide, expr->RightSide))
 		return;
 
+	// Through None there is no variable: the original's Let warns, then
+	// evaluates its right side into a scratch of its own
 	ExpressionValue lvalue = Value(expr->LeftSide);
+	if (lvalue.GetType() == ExpressionValueType::Nothing)
+		WarnLetThroughNone();
 	ExpressionValue rvalue = LetValue(expr->RightSide, lvalue);
 	if (lvalue.GetType() != ExpressionValueType::Nothing)
 	{
@@ -397,10 +420,11 @@ void ExpressionEvaluator::Expr(ClassContextExpression* expr)
 	}
 	else
 	{
-		// As an object's context: a warning, the expression skipped, its result nothing
+		// As an object's context: the expression skipped, its result nothing;
+		// the warning at a statement's own (the original's at a nested one: unread)
 		*Out = ExpressionValue::NothingValue(expr->ZeroFillSize == 0);
 		if (IsStatement())
-			Result.Result = StatementResult::AccessedNone;
+			WarnAccessedNone();
 	}
 }
 
@@ -443,10 +467,11 @@ void ExpressionEvaluator::Expr(ContextExpression* expr)
 	{
 		// Nothing, a zero to whatever reads it, as the original's execContext
 		// zero-fills the result -- by the size the bytecode gives, which is
-		// none for a string: a variable assigned from one keeps its value
+		// none for a string: a variable assigned from one keeps its value. It
+		// warns at every one: a statement's own, an assignment's either side,
+		// a condition, an argument, an operand.
+		WarnAccessedNone();
 		*Out = ExpressionValue::NothingValue(expr->ZeroFillSize == 0);
-		if (IsStatement())
-			Result.Result = StatementResult::AccessedNone;
 	}
 }
 
@@ -456,6 +481,11 @@ void ExpressionEvaluator::Expr(ArrayElementExpression* expr)
 	auto arrayval = Value(expr->Array);
 	if (arrayval.IsVariable())
 	{
+		// An index past the ends is warned of, then held to them, as the
+		// original's execArrayElement does
+		int count = arrayval.ArrayDimension();
+		if (index < 0 || index >= count)
+			WarnOutOfBounds(index, count);
 		*Out = arrayval.ItemAt(index);
 	}
 	else
@@ -982,6 +1012,12 @@ bool ExpressionEvaluator::CallFastOperator(UFunction* func, const Array<Expressi
 	// A variable's value before b may change it, as the original's native
 	// copies it (P_GET_*); += and -= take the variable itself (P_GET_*_REF)
 	bool inPlace = op == TypedKind::AddEqual_IntInt || op == TypedKind::AddEqual_FloatFloat || op == TypedKind::SubtractEqual_FloatFloat;
+	// Through None (`A.Count += 1`, `A.Count++` with A None) there is no
+	// variable: the native steps the zero the context left, its result as
+	// though from a variable of 0, and nothing is stored (Vm6Console an7 to
+	// an9, the original's warning alone)
+	if ((inPlace || op == TypedKind::AddAdd_Int) && a.GetType() == ExpressionValueType::Nothing)
+		a = op == TypedKind::AddEqual_IntInt || op == TypedKind::AddAdd_Int ? ExpressionValue::IntValue(0) : ExpressionValue::FloatValue(0.0f);
 	if (arity == 2 && !inPlace && a.IsVariable() && MayChange(exprArgs[1]))
 		a.Load();
 	ExpressionValue b = arity == 2 ? Value(exprArgs[1]) : ExpressionValue();

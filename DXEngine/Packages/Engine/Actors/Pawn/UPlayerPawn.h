@@ -81,8 +81,8 @@ public:
 	ScriptString& Password() { return Value<ScriptString>(PropOffsets_PlayerPawn.Password); }
 	USavedMove*& PendingMove() { return Value<USavedMove*>(PropOffsets_PlayerPawn.PendingMove); }
 	UPlayer*& Player() { return Value<UPlayer*>(PropOffsets_PlayerPawn.Player); }
-	FixedArrayView<Color*, 5> ProgressColor() { return FixedArray<Color*, 5>(PropOffsets_PlayerPawn.ProgressColor); }
-	FixedArrayView<std::optional<std::string>, 5> ProgressMessage() { return FixedArray<std::optional<std::string>, 5>(PropOffsets_PlayerPawn.ProgressMessage); }
+	FixedArrayView<Color, 8> ProgressColor() { return FixedArray<Color, 8>(PropOffsets_PlayerPawn.ProgressColor); }
+	FixedArrayView<ScriptString, 8> ProgressMessage() { return FixedArray<ScriptString, 8>(PropOffsets_PlayerPawn.ProgressMessage); }
 	float& ProgressTimeOut() { return Value<float>(PropOffsets_PlayerPawn.ProgressTimeOut); }
 	ScriptString& QuickSaveString() { return Value<ScriptString>(PropOffsets_PlayerPawn.QuickSaveString); }
 	BitfieldBool ReceivedSecretChecksum() { return BoolValue(PropOffsets_PlayerPawn.ReceivedSecretChecksum); }
@@ -104,7 +104,7 @@ public:
 	uint8_t& Transition() { return Value<uint8_t>(PropOffsets_PlayerPawn.Transition); }
 	UActor*& ViewTarget() { return Value<UActor*>(PropOffsets_PlayerPawn.ViewTarget); }
 	ScriptString& ViewingFrom() { return Value<ScriptString>(PropOffsets_PlayerPawn.ViewingFrom); }
-	FixedArrayView<NameString*, 20> WeaponPriority() { return FixedArray<NameString*, 20>(PropOffsets_PlayerPawn.WeaponPriority); }
+	FixedArrayView<NameString, 20> WeaponPriority() { return FixedArray<NameString, 20>(PropOffsets_PlayerPawn.WeaponPriority); }
 	float& ZoomLevel() { return Value<float>(PropOffsets_PlayerPawn.ZoomLevel); }
 	float& aBaseX() { return Value<float>(PropOffsets_PlayerPawn.aBaseX); }
 	float& aBaseY() { return Value<float>(PropOffsets_PlayerPawn.aBaseY); }

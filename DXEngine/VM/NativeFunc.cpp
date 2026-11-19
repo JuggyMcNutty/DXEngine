@@ -42,12 +42,11 @@ void NativeFunctions::RegisterNativeFunc(UFunction* func)
 
 		if (FuncByIndex.size() <= (size_t)nativeIndex) FuncByIndex.resize((size_t)nativeIndex + 1);
 
-		if (FuncByIndex[nativeIndex] != nullptr)
-			Exception::Throw("Attempted to assign native index "
-				+ std::to_string(nativeIndex) + " to " + UObject::GetUClassFullName(func).ToString()
-				+ ", which was already assigned to a different native function.");
-
-		FuncByIndex[nativeIndex] = func;
+		// A second declaration of a number already taken loads, its calls
+		// the number's native, as the original's are its table's entry
+		// (core-dll.md, the script interpreter)
+		if (FuncByIndex[nativeIndex] == nullptr)
+			FuncByIndex[nativeIndex] = func;
 	}
 }
 

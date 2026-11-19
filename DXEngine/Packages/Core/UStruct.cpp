@@ -142,6 +142,14 @@ void UStruct::Load(ObjectStream* stream)
 		}
 	}
 
+	// A script struct's size is rounded up to its alignment, as C++ lays out
+	// the types DXEngine reads it as (Scale, PointRegion, ActorRef): a copy
+	// of a whole one then stays within it, never over the property after it
+	// or an array's next element (bugs.md VM.35). The layout is DXEngine's
+	// own: saves and the network go member by member.
+	if (!UObject::TryCast<UFunction>(this) && !UObject::TryCast<UState>(this))
+		offset = (offset + structAlignment - 1) / structAlignment * structAlignment;
+
 	Properties = std::move(properties);
 	StructAlignment = structAlignment;
 	StructSize = offset;

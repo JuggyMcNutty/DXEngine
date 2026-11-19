@@ -17,8 +17,7 @@ enum class StatementResult
 	Switch,
 	Iterator,
 	IteratorNext,
-	IteratorPop,
-	AccessedNone
+	IteratorPop
 };
 
 struct ExpressionEvalResult

@@ -138,8 +138,7 @@ void UProperty::GetExportText(std::string& buf, const std::string& whitespace, U
 	if (i >= ArrayDimension)
 		Exception::Throw("UProperty::GetExportText index out of bounds");
 
-	size_t elementSize = ElementSize();
-	int offset = i * (int)elementSize;
+	size_t offset = i * ElementPitch();
 
 	void* objval = static_cast<uint8_t*>(obj->PropertyData.Ptr(this)) + offset;
 	void* defval = nullptr;

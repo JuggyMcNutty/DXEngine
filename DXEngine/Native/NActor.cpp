@@ -423,8 +423,12 @@ void NActor::GetNextSkin(UObject* Self, const std::string& Prefix, const std::st
 	}
 }
 
+// None stops the game, as it stops the original's, which reads through it
+// (engine-dll.md: no check for None; Nat6Console, SoundNone)
 void NActor::GetSoundDuration(UObject* Self, UObject* Sound, float& ReturnValue)
 {
+	if (!Sound)
+		Frame::NoneCriticalError("Actor.GetSoundDuration");
 	USound* s = UObject::Cast<USound>(Sound);
 	ReturnValue = s->GetPeriod();
 }

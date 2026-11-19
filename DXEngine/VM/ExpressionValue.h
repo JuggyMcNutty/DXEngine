@@ -228,6 +228,8 @@ public:
 
 	ExpressionValueType GetType() const { return Type; }
 	bool IsVariable() const { return VariableProperty; }
+	// A variable's element count: above 1 for a static array
+	int ArrayDimension() const { return VariableProperty->ArrayDimension; }
 
 	ExpressionValue ItemAt(int index)
 	{

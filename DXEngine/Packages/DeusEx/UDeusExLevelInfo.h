@@ -14,6 +14,6 @@ public:
 	BitfieldBool bMultiPlayerMap() { return BoolValue(PropOffsets_DeusExLevelInfo.bMultiPlayerMap); }
 	// MissionScript* Script() { return Value<MissionScript>(PropOffsets_DeusExLevelInfo.Script); } // MissionScript isn't a native class
 	int& TrueNorth() { return Value<int>(PropOffsets_DeusExLevelInfo.TrueNorth); }
-	FixedArrayView<std::string, 4> StartupMessage() { return FixedArray<std::string, 4>(PropOffsets_DeusExLevelInfo.startupMessage); }
+	FixedArrayView<ScriptString, 4> StartupMessage() { return FixedArray<ScriptString, 4>(PropOffsets_DeusExLevelInfo.startupMessage); }
 	ScriptString& ConversationPackage() { return Value<ScriptString>(PropOffsets_DeusExLevelInfo.ConversationPackage); }
 };

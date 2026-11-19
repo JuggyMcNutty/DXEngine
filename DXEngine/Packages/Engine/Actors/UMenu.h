@@ -12,10 +12,10 @@ public:
 	ScriptString& CenterString() { return Value<ScriptString>(PropOffsets_Menu.CenterString); }
 	ScriptString& DisabledString() { return Value<ScriptString>(PropOffsets_Menu.DisabledString); }
 	ScriptString& EnabledString() { return Value<ScriptString>(PropOffsets_Menu.EnabledString); }
-	FixedArrayView<std::optional<std::string>, 24> HelpMessage() { return FixedArray<std::optional<std::string>, 24>(PropOffsets_Menu.HelpMessage); }
+	FixedArrayView<ScriptString, 24> HelpMessage() { return FixedArray<ScriptString, 24>(PropOffsets_Menu.HelpMessage); }
 	ScriptString& LeftString() { return Value<ScriptString>(PropOffsets_Menu.LeftString); }
 	int& MenuLength() { return Value<int>(PropOffsets_Menu.MenuLength); }
-	FixedArrayView<std::optional<std::string>, 24> MenuList() { return FixedArray<std::optional<std::string>, 24>(PropOffsets_Menu.MenuList); }
+	FixedArrayView<ScriptString, 24> MenuList() { return FixedArray<ScriptString, 24>(PropOffsets_Menu.MenuList); }
 	ScriptString& MenuTitle() { return Value<ScriptString>(PropOffsets_Menu.MenuTitle); }
 	ScriptString& NoString() { return Value<ScriptString>(PropOffsets_Menu.NoString); }
 	UMenu*& ParentMenu() { return Value<UMenu*>(PropOffsets_Menu.ParentMenu); }

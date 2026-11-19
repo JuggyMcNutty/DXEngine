@@ -274,8 +274,9 @@ void UStructProperty::GetExportText(std::string& buf, const std::string& whitesp
 
 		for (int k = 0; k < fieldprop->ArrayDimension; k++)
 		{
-			uint8_t* objsubval = objval + offset;
-			uint8_t* defsubval = (defval) ? defval + offset : nullptr;
+			size_t element = offset + k * fieldprop->ElementPitch();
+			uint8_t* objsubval = objval + element;
+			uint8_t* defsubval = (defval) ? defval + element : nullptr;
 			fieldprop->GetExportText(innerbuf, "", objsubval, defsubval, k);
 
 			if (innerbuf.length() > 0)

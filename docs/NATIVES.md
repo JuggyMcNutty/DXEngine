@@ -36,7 +36,8 @@ engines, what matches, and what differs. What else it changes:
 
 Differs by choice. An error DXEngine does not catch -- a script error, an
 unknown native, a call to a function import that did not load, a failed save
--- exits the engine with 1, which the launcher takes for a crash. No map or
+-- exits the engine with 1, which the launcher takes for a crash; one in a
+script that a native or a console command runs too. No map or
 action is known to reach one; the audit lists the natives whose call would.
 A `foreach` on a None context, and state code's `goto` to a label its state
 has not, stop both engines alike (the original's Critical Error); a None
@@ -104,18 +105,10 @@ after a GPU reset left to the driver; the original: unread.
 Differs (bugs.md REN.81): the D3D11 device, chosen by hand, ends the game on
 a failed resize or texture with no cause named.
 
-Differs (bugs.md VM.36): on windows-x86_64 a script call chain that does
-more than call itself can overflow the stack before the 250-call limit,
-ending the engine with no message, where the original stops with "Infinite
-script recursion".
-
-Differs (bugs.md VM.39): an unknown native or a script error under a native
-is logged and play goes on, where the original stops.
-
-Differs (bugs.md VM.43): `Canvas.DrawActor`, `Canvas.DrawClippedActor`,
-`GetSoundDuration` and `Window.ConvertCoordinates` given None end DXEngine
-with a segmentation fault and no message, where the original stops with a
-critical error naming the native.
+`Canvas.DrawActor`, `Canvas.DrawClippedActor`, `GetSoundDuration` and
+`Window.ConvertCoordinates` given None stop both engines, the original's
+with its critical error, DXEngine with one that names the native
+(`Nat6Console` with each `CrashCase`).
 
 `Object.DynamicLoadObject` with no class stops the original with an
 assertion; DXEngine answers None, by choice.
@@ -1851,10 +1844,6 @@ the x87's precision in the tick it runs in (`FiledPlaneConsole`: Battery
 Park's MainDoors open at yaw 10240, all 30 lines the original's, the edge's
 at -367.044434 and the face's at -307.592468 and -1179.377075).
 
-Differs (bugs.md VM.35): a brush's or mover's sheer is read with three bytes
-beside it, so a sheared one is drawn and collides without its sheer by
-chance, where the original reads the axis's byte alone.
-
 ### Fire, water and ice textures
 
 Matches `Fire.dll` step for step
@@ -3346,7 +3335,15 @@ Every other native the scripted runs compare matches the original
   type's zero, not left out (`Trace(,,, A.Location)` starts at the origin).
   A string, of which the bytecode has it zero-fill no byte, and an array's
   element, of which the original copies nothing, leave a variable assigned
-  from them as it was; a Let through None stores nothing.
+  from them as it was; a Let through None stores nothing. Each None context
+  logs the original's warning, `Accessed None`, once, and a Let through None
+  `Attempt to assigned variable through None` after it; a `+=` or `++`
+  through None steps a zero and stores nothing (`Vm6Console`: a call, a
+  read, a condition, an argument, an assignment, a call's result, `+=` and
+  `++`, the lines alike in both engines).
+- **A static array's index out of range** (`Vm6Console`): held to the
+  array, the first element or the last, after the original's warning,
+  `Accessed array out of bounds (5/3)`.
 - **A function that ends without a value** (`ResultConsole`), as any with
   one can by running off its end (UCC takes no bare `return;` in it), writes
   nothing, as the original's
@@ -3606,9 +3603,6 @@ an exception in a phase is caught nowhere.
 
 Differs (bugs.md REN.94): the Vulkan device's `ClearZ` and `EndFlash` do not
 test for a frame in hand, as the GL device's do; nothing seen.
-
-Differs (bugs.md VM.40): a second package declaring a native number already
-taken is refused at its load, where the original's would load.
 
 Differs (bugs.md WIN.57): the SDL windows name Henkan, Muhenkan,
 Katakana/Hiragana, Hangul, Hanja, the keypad's comma and equals and the
@@ -4190,14 +4184,6 @@ and stored as the float, it would go on.
 
 Differs (bugs.md REN.90): on GL ES a `LODBIAS` that is not a finite number
 ends the game.
-
-Differs (bugs.md VM.37): "Accessed None" is logged only at a statement's own
-None context, nothing at a nested one and a script error at `+=` and `++`,
-where the original warns once at every one.
-
-Differs (bugs.md VM.38): a static array index out of range is held to the
-array with nothing logged, where the original logs `Accessed array out of
-bounds`.
 
 ## The command line
 
