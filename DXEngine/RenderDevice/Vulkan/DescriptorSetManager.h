@@ -70,7 +70,7 @@ public:
 	void UpdateBindlessSet();
 	void UpdateFrameDescriptors();
 
-	static const int MaxBindlessTextures = 16536;
+	static const int MaxBindlessTextures = 16384;
 	static const int MaxSceneSets = 16384;
 	static const int SceneSetsPerPool = 1024;
 

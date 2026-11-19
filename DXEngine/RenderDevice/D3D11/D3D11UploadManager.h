@@ -29,4 +29,5 @@ private:
 
 	D3D11RenderDevice* renderer = nullptr;
 	std::vector<uint32_t> UploadBuffer;
+	bool LoggedTextureRefused = false;
 };

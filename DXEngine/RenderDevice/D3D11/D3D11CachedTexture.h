@@ -15,6 +15,9 @@ public:
 	// Colour 0 cleared in it, as the draw that made it was masked
 	bool Masked = false;
 	int DummyMipmapCount = 0;
+	// A white texel in the texture's place (none, too big, short of its
+	// bytes, or refused by the device): no upload of the texture's reaches it
+	bool White = false;
 
 	float UScale = 0.0f;
 	float VScale = 0.0f;

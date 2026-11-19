@@ -2,6 +2,7 @@
 #include "Precomp.h"
 #include "CommandBufferManager.h"
 #include "VulkanRenderDevice.h"
+#include "Utils/Logger.h"
 #include <dxgpu/vulkanswapchain.h>
 #include <dxgpu/vulkansurface.h>
 #include <dxwidgets/core/widget.h>
@@ -88,37 +89,7 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
 	if (present)
 	{
 		if (SwapChain->Lost() || RequestedWidth != presentWidth || RequestedHeight != presentHeight || UsingVsync != renderer->UseVSync || UsingHdr != renderer->Hdr)
-		{
-			// A fence covers a submit, not the present queued after it: the
-			// old swapchain and its semaphores may still be in use until the
-			// device is idle.
-			vkDeviceWaitIdle(renderer->Device.get()->device);
-
-			UsingVsync = renderer->UseVSync;
-			UsingHdr = renderer->Hdr;
-			RequestedWidth = presentWidth;
-			RequestedHeight = presentHeight;
-			renderer->Framebuffers->DestroySwapChainFramebuffers();
-			// The surface itself lost (a compositor gone): the swapchain let
-			// go, a new surface from the window, the dead one freed; the
-			// swapchain was once remade on the dead surface every frame
-			if (SwapChain->SurfaceLost())
-			{
-				SwapChain.reset();
-				renderer->Device->Surface = std::make_shared<VulkanSurface>(renderer->Device->Instance, renderer->Viewport->CreateVulkanSurface(renderer->Device->Instance->Instance));
-				SwapChain = std::make_shared<VulkanSwapChain>(renderer->Device.get());
-			}
-			SwapChain->Create(presentWidth, presentHeight, renderer->UseVSync ? 2 : 3, renderer->UseVSync, renderer->Hdr);
-			renderer->Framebuffers->CreateSwapChainFramebuffers();
-
-			RenderFinishedSemaphores.clear();
-			for (int i = 0; i < SwapChain->ImageCount(); i++)
-			{
-				RenderFinishedSemaphores.push_back(SemaphoreBuilder()
-					.DebugName("RenderFinishedSemaphore")
-					.Create(renderer->Device.get()));
-			}
-		}
+			CreateSwapChain(presentWidth, presentHeight);
 
 		PresentImageIndex = SwapChain->AcquireImage(ImageAvailableSemaphore.get());
 		if (PresentImageIndex != -1)
@@ -182,6 +153,52 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
 	DrawCommands.reset();
 	TransferCommands.reset();
 	DeleteFrameObjects();
+}
+
+void CommandBufferManager::CreateSwapChain(int width, int height, bool logFailure)
+{
+	// A fence covers a submit, not the present queued after it: the
+	// old swapchain and its semaphores may still be in use until the
+	// device is idle.
+	vkDeviceWaitIdle(renderer->Device.get()->device);
+
+	UsingVsync = renderer->UseVSync;
+	UsingHdr = renderer->Hdr;
+	RequestedWidth = width;
+	RequestedHeight = height;
+	renderer->Framebuffers->DestroySwapChainFramebuffers();
+	// The surface itself lost (a compositor gone): the swapchain let
+	// go, a new surface from the window, the dead one freed; the
+	// swapchain was once remade on the dead surface every frame
+	if (SwapChain->SurfaceLost())
+	{
+		SwapChain.reset();
+		renderer->Device->Surface = std::make_shared<VulkanSurface>(renderer->Device->Instance, renderer->Viewport->CreateVulkanSurface(renderer->Device->Instance->Instance));
+		SwapChain = std::make_shared<VulkanSwapChain>(renderer->Device.get());
+	}
+	SwapChain->Create(width, height, renderer->UseVSync ? 2 : 3, renderer->UseVSync, renderer->Hdr);
+	// The present pass and its pipelines for a swapchain made alone: none
+	// made (a surface of no size, a create refused), which the next present
+	// tries again, has no images for them, and building them at every
+	// frame of it cost 8 pipelines a frame (bugs.md REN.77)
+	if (SwapChain->ImageCount() > 0)
+		renderer->Framebuffers->CreateSwapChainFramebuffers();
+
+	RenderFinishedSemaphores.clear();
+	for (int i = 0; i < SwapChain->ImageCount(); i++)
+	{
+		RenderFinishedSemaphores.push_back(SemaphoreBuilder()
+			.DebugName("RenderFinishedSemaphore")
+			.Create(renderer->Device.get()));
+	}
+
+	// A create refused is logged once with its result, the window then
+	// showing nothing until one is made, where it was silent
+	VkResult result = SwapChain->CreateResult();
+	if (logFailure && result != VK_SUCCESS && result != LoggedSwapChainResult)
+		LogMessage("VulkanDrv: could not make the swapchain (" + VkResultToString(result) + "): nothing presented, tried again at each frame");
+	if (result != VK_SUCCESS || SwapChain->ImageCount() > 0)
+		LoggedSwapChainResult = result;
 }
 
 VulkanCommandBuffer* CommandBufferManager::GetTransferCommands()

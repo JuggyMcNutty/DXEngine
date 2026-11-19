@@ -12,6 +12,11 @@ public:
 
 	void WaitForTransfer();
 	void SubmitCommands(bool present, int presentWidth, int presentHeight, bool wait = true);
+	// The swapchain made for a size, with the present pass for its images:
+	// at the device's start and when a present finds it lost or the size,
+	// vsync or HDR changed; a create refused is logged unless the caller
+	// reports it (the device's start, which then fails)
+	void CreateSwapChain(int width, int height, bool logFailure = true);
 
 	// Waits for a frame SubmitCommands left in flight (wait = false), if there
 	// is one. Anything that writes a buffer, image or descriptor the GPU may
@@ -54,4 +59,8 @@ private:
 	bool FramePending = false;
 	std::unique_ptr<VulkanCommandBuffer> PendingDrawCommands;
 	std::unique_ptr<VulkanCommandBuffer> PendingTransferCommands;
+
+	// The create's failure last logged, logged again only when it changes or
+	// after a swapchain was made
+	VkResult LoggedSwapChainResult = VK_SUCCESS;
 };

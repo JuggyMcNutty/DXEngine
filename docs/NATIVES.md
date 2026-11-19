@@ -95,15 +95,11 @@ A swimmer at a place that is not a number plays on in both engines, the
 search for its water line ended at once, its pawn falling and then without
 physics (`ShortTickConsole` with `Only=c`, each line alike).
 
-Differs (bugs.md REN.76): the GPU devices do not hold their render size to
-the GPU's limits, so a window past them ends the game (Vulkan) or draws
-black (GL); the original: unread.
+Differs (bugs.md REN.76): a GPU device whose memory cannot hold its scene at
+one sample ends the game (Vulkan) or draws black (GL); the original: unread.
 
 Differs (bugs.md REN.80): a lost GL context is never reported, what is seen
 after a GPU reset left to the driver; the original: unread.
-
-Differs (bugs.md REN.81): the D3D11 device, chosen by hand, ends the game on
-a failed resize or texture with no cause named.
 
 `Canvas.DrawActor`, `Canvas.DrawClippedActor`, `GetSoundDuration` and
 `Window.ConvertCoordinates` given None stop both engines, the original's
@@ -864,9 +860,6 @@ the original's grid is the frame's own.
 
 What is drawn and how it looks, against `Render.dll` and `D3DDrv.dll`.
 
-Differs (bugs.md REN.79): the Vulkan device's GPU is its own sort's first,
-over the system's choice, and a GPU passed over is not logged.
-
 ### The view's width
 
 Differs by choice: on a screen wider than 4:3 the view keeps the height a
@@ -1076,11 +1069,6 @@ reference, the GPU devices and `D3DDrv` wrap it: a float past 2^23 is its own
 floor (`HugeTileConsole`: the tile at U 1e12 drawn, its shot alike with the
 reference's, `DXE_SW_REFERENCE=1`, and the Vulkan device's, where the device
 read some 8 GiB before the texture and dumped core).
-
-Differs (bugs.md REN.74): a Vulkan or GL device that starts but fails at its
-first frame (its swapchain, scene buffers or pipelines) gives a black window
-or a fatal error, not the software device, where the original's
-`WindowedRenderDevice` takes the place of a device that fails to start.
 
 Differs (bugs.md REN.82): the software device makes a thread for every
 hardware thread of the machine, not for the CPUs the process may use, and is
@@ -2609,10 +2597,6 @@ Open (bugs.md ENG.51): `SETRES` of a windowed size the window cannot take is
 saved as asked and asked again at the next start, never the size the window
 took; what the original keeps when Windows clamps its window is unread.
 
-Differs (bugs.md REN.78): with vsync on the Vulkan device takes relaxed FIFO
-where offered, a late frame torn, and with it off falls back to FIFO where
-immediate presents are missing; `D3DDrv`'s `UseVSync`: unread.
-
 ## Sound
 
 Matches `Galaxy.dll`
@@ -3591,12 +3575,6 @@ a window an event makes is drawn once before its first tick, its focus a
 frame late, where the original's windows tick first; and a destroyed window
 is freed only at the next collection, which no count of windows brings on,
 where the original deletes it at once.
-
-Differs (bugs.md REN.77): a lost Vulkan swapchain is made again every frame
-with its present pass and pipelines, and its failure is not logged.
-
-Differs (bugs.md REN.91): the Vulkan device builds its scene pipelines again
-at every new render size, and keeps a bindless limit of 16536.
 
 Differs (bugs.md REN.92): the X11 window's EGL path needs EGL 1.5 and a
 context with no config untested; the GL and D3D11 devices leave some results

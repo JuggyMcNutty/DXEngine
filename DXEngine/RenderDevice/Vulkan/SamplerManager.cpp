@@ -1,10 +1,13 @@
 
 #include "SamplerManager.h"
 #include "VulkanRenderDevice.h"
+#include "Utils/Logger.h"
 #include <dxgpu/vulkanbuilders.h>
 
 SamplerManager::SamplerManager(VulkanRenderDevice* renderer) : renderer(renderer)
 {
+	if (!renderer->Device->EnabledFeatures.Features.samplerAnisotropy)
+		LogMessage("Vulkan: no samplerAnisotropy; the scene samplers filter without it");
 	CreateSceneSamplers();
 
 	PPNearestRepeat = SamplerBuilder()
@@ -31,8 +34,9 @@ void SamplerManager::CreateSceneSamplers()
 		SamplerBuilder builder;
 		// Anisotropy on the smooth samplers alone: a NoSmooth texture is
 		// point-sampled, pixel-exact at a slant as D3DDrv draws it, where a
-		// driver's anisotropy averages its nearest texels (bugs.md D.40)
-		if ((i & 1) == 0)
+		// driver's anisotropy averages its nearest texels (bugs.md D.40); on
+		// a GPU that has it, as the GL device's
+		if ((i & 1) == 0 && renderer->Device->EnabledFeatures.Features.samplerAnisotropy)
 			builder.Anisotropy(8.0f);
 		builder.MipLodBias(renderer->LODBias);
 

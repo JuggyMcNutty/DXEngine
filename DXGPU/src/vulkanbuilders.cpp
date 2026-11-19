@@ -1843,20 +1843,34 @@ std::vector<VulkanCompatibleDevice> VulkanDeviceBuilder::FindDevices(const std::
 	{
 		const auto& info = instance->PhysicalDevices[idx];
 
+		// A GPU passed over is logged with what it lacks, where the log named
+		// neither it nor that, only that no device met the requirements or
+		// that the CPU driver was found
+		auto passOver = [&](const std::string& reason)
+		{
+			VulkanPrintLog("vulkan", std::string("GPU passed over, ") + info.Properties.Properties.deviceName + ": " + reason);
+		};
+
 		// Check if all required extensions are there
 		std::set<std::string> requiredExtensionSearch = requiredDeviceExtensions;
 		for (const auto& ext : info.Extensions)
 			requiredExtensionSearch.erase(ext.extensionName);
 		if (!requiredExtensionSearch.empty())
+		{
+			std::string missing;
+			for (const std::string& ext : requiredExtensionSearch)
+				missing += (missing.empty() ? "" : ", ") + ext;
+			passOver("no " + missing);
 			continue;
+		}
 
-		// Check if all required features are there: no draw is indirect,
-		// no shader stores or uses atomics, and the scene has one colour
-		// attachment, so neither multiDrawIndirect, fragmentStoresAndAtomics
-		// nor independentBlend is asked for (a GPU lacking one fell back to
-		// the software device for features nothing uses)
-		if (info.Features.Features.samplerAnisotropy != VK_TRUE)
-			continue;
+		// No feature is required: no draw is indirect, no shader stores or
+		// uses atomics, and the scene has one colour attachment, so neither
+		// multiDrawIndirect, fragmentStoresAndAtomics nor independentBlend is
+		// asked for (a GPU lacking one fell back to the software device for
+		// features nothing uses), and anisotropy goes on the samplers where
+		// the GPU has it, as the GL device's (SamplerManager), where a GPU
+		// without samplerAnisotropy was passed over for the software device
 
 		VulkanCompatibleDevice dev;
 		dev.Device = &instance->PhysicalDevices[idx];
@@ -1927,6 +1941,10 @@ std::vector<VulkanCompatibleDevice> VulkanDeviceBuilder::FindDevices(const std::
 		{
 			supportedDevices.push_back(dev);
 		}
+		else
+		{
+			passOver(dev.GraphicsFamily == -1 ? "no graphics queue" : "no queue presents to the window");
+		}
 	}
 
 	// The device order returned by Vulkan can be anything. Prefer discrete > integrated > virtual gpu > other > cpu:
@@ -1946,9 +1964,10 @@ std::vector<VulkanCompatibleDevice> VulkanDeviceBuilder::FindDevices(const std::
 		if (sortA != sortB)
 			return sortA < sortB;
 
-		// Then sort by the device's unique ID so that vk_device uses a consistent order
-		int sortUUID = memcmp(a.Device->Properties.Properties.pipelineCacheUUID, b.Device->Properties.Properties.pipelineCacheUUID, VK_UUID_SIZE);
-		return sortUUID < 0;
+		// Then the loader's order, which the stable sort keeps: the order the
+		// system's choice sets (Windows' graphics preference, DRI_PRIME,
+		// MESA_VK_DEVICE_SELECT), where the pipeline cache's UUID overrode it
+		return false;
 	};
 	std::stable_sort(supportedDevices.begin(), supportedDevices.end(), sortFunc);
 

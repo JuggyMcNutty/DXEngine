@@ -3,6 +3,8 @@
 #include "D3D11UploadManager.h"
 #include "D3D11RenderDevice.h"
 #include "D3D11CachedTexture.h"
+#include "Utils/Logger.h"
+#include <cstdio>
 
 D3D11UploadManager::D3D11UploadManager(D3D11RenderDevice* renderer) : renderer(renderer)
 {
@@ -19,6 +21,11 @@ bool D3D11UploadManager::SupportsTextureFormat(TextureFormat Format) const
 
 void D3D11UploadManager::UploadTexture(D3D11CachedTexture* tex, const TextureInfo& Info, bool masked)
 {
+	// Made a white texel, which keeps it: the texture's levels would land
+	// outside its one texel
+	if (tex->Texture && tex->White)
+		return;
+
 	// The image the size of its top mip's data, whatever the texture's USize
 	// and VSize say; none, too big or short of its bytes, a white texel, as
 	// the Vulkan device has it. The levels are at most the chain down to 1x1:
@@ -30,7 +37,11 @@ void D3D11UploadManager::UploadTexture(D3D11CachedTexture* tex, const TextureInf
 
 	D3D11TextureUploader* uploader = D3D11TextureUploader::GetUploader(Info.Format);
 
-	if (!uploader || width < 1 || height < 1 || (uint32_t)width > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || (uint32_t)height > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION ||
+	// The largest side the feature level takes: 16384 at 11.0 and 11.1,
+	// 8192 at 10.0 and 10.1 (D3D10_REQ_TEXTURE2D_U_OR_V_DIMENSION), which the
+	// device also starts on, where 11's was taken at every level
+	uint32_t maxSize = renderer->FeatureLevel >= D3D_FEATURE_LEVEL_11_0 ? D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION : 8192;
+	if (!uploader || width < 1 || height < 1 || (uint32_t)width > maxSize || (uint32_t)height > maxSize ||
 		Info.Mips[0].Data.size() < RenderDevice::MipBytes(Info.Format, width, height))
 	{
 		width = 1;
@@ -86,7 +97,30 @@ void D3D11UploadManager::UploadTexture(D3D11CachedTexture* tex, const TextureInf
 		texDesc.SampleDesc.Quality = 0;
 		//texDesc.MiscFlags = tex->DummyMipmapCount > 0 ? D3D11_RESOURCE_MISC_RESOURCE_CLAMP : 0;
 		HRESULT result = renderer->Device->CreateTexture2D(&texDesc, nullptr, tex->Texture.TypedInitPtr());
+		if (FAILED(result))
+		{
+			// A texture the device refuses (its memory short) is a white
+			// texel, logged once, as the GL device draws one, where the error
+			// ended the game (bugs.md REN.81); a removed device, or a texel
+			// refused in turn, ends it
+			renderer->ThrowIfDeviceRemoved(result);
+			if (!LoggedTextureRefused)
+			{
+				char code[16];
+				snprintf(code, sizeof(code), "0x%08lx", (unsigned long)result);
+				LogMessage(std::string("D3D11Drv: CreateTexture2D(GameTexture) failed, ") + code + ": a white texel in its place, and in any other's refused");
+				LoggedTextureRefused = true;
+			}
+			texDesc.Width = 1;
+			texDesc.Height = 1;
+			texDesc.MipLevels = 1;
+			texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			tex->DummyMipmapCount = 0;
+			uploader = nullptr;
+			result = renderer->Device->CreateTexture2D(&texDesc, nullptr, tex->Texture.TypedInitPtr());
+		}
 		ThrowIfFailed(result, "CreateTexture2D(GameTexture) failed");
+		tex->White = !uploader;
 
 		//if (tex->DummyMipmapCount > 0)
 		//	renderer->Context->SetResourceMinLOD(tex->Texture, (float)tex->DummyMipmapCount);
@@ -111,7 +145,7 @@ void D3D11UploadManager::UploadTexture(D3D11CachedTexture* tex, const TextureInf
 void D3D11UploadManager::UploadTextureRect(D3D11CachedTexture* tex, const TextureInfo& Info, int x, int y, int w, int h, bool masked)
 {
 	D3D11TextureUploader* uploader = D3D11TextureUploader::GetUploader(Info.Format);
-	if (!uploader || Info.NumMips < 1 || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > Info.Mips[0].Width || y + h > Info.Mips[0].Height || Info.Mips[0].Data.empty())
+	if (tex->White || !uploader || Info.NumMips < 1 || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > Info.Mips[0].Width || y + h > Info.Mips[0].Height || Info.Mips[0].Data.empty())
 		return;
 
 	// Whole blocks of the format (BC1's 4x4), the box on their edges

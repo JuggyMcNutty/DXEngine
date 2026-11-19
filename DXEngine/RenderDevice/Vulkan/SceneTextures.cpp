@@ -2,37 +2,61 @@
 #include "Precomp.h"
 #include "SceneTextures.h"
 #include "VulkanRenderDevice.h"
+#include "Utils/Logger.h"
 #include <dxgpu/vulkanbuilders.h>
 
 SceneTextures::SceneTextures(VulkanRenderDevice* renderer, int width, int height, int multisample) : Width(width), Height(height), Multisample(multisample)
 {
+	if (renderer->SceneSamplesCap > 0)
+		multisample = std::min(multisample, renderer->SceneSamplesCap);
 	SceneSamples = GetBestSampleCount(renderer->Device.get(), multisample);
 
-	ColorBuffer = ImageBuilder()
-		.Size(width, height)
-		.Samples(SceneSamples)
-		.Format(SceneFormat)
-		.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
-		.DebugName("colorBuffer")
-		.Create(renderer->Device.get());
+	auto createSceneImages = [&]()
+	{
+		ColorBuffer = ImageBuilder()
+			.Size(width, height)
+			.Samples(SceneSamples)
+			.Format(SceneFormat)
+			.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+			.DebugName("colorBuffer")
+			.Create(renderer->Device.get());
 
-	ColorBufferView = ImageViewBuilder()
-		.Image(ColorBuffer.get(), SceneFormat, VK_IMAGE_ASPECT_COLOR_BIT)
-		.DebugName("colorBufferView")
-		.Create(renderer->Device.get());
+		ColorBufferView = ImageViewBuilder()
+			.Image(ColorBuffer.get(), SceneFormat, VK_IMAGE_ASPECT_COLOR_BIT)
+			.DebugName("colorBufferView")
+			.Create(renderer->Device.get());
 
-	DepthBuffer = ImageBuilder()
-		.Size(width, height)
-		.Samples(SceneSamples)
-		.Format(VK_FORMAT_D32_SFLOAT)
-		.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
-		.DebugName("depthBuffer")
-		.Create(renderer->Device.get());
+		DepthBuffer = ImageBuilder()
+			.Size(width, height)
+			.Samples(SceneSamples)
+			.Format(VK_FORMAT_D32_SFLOAT)
+			.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+			.DebugName("depthBuffer")
+			.Create(renderer->Device.get());
 
-	DepthBufferView = ImageViewBuilder()
-		.Image(DepthBuffer.get(), VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT)
-		.DebugName("depthBufferView")
-		.Create(renderer->Device.get());
+		DepthBufferView = ImageViewBuilder()
+			.Image(DepthBuffer.get(), VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT)
+			.DebugName("depthBufferView")
+			.Create(renderer->Device.get());
+	};
+
+	// Multisampled images the GPU cannot make (its memory short at a large
+	// size) are made again with one sample, and with no more from then on,
+	// logged, as the GL device halves a refused storage's, where the error
+	// ended the game (bugs.md REN.76)
+	try
+	{
+		createSceneImages();
+	}
+	catch (const std::exception& e)
+	{
+		if (SceneSamples == VK_SAMPLE_COUNT_1_BIT)
+			throw;
+		LogMessage("VulkanDrv: the scene's images could not be made at " + std::to_string((int)SceneSamples) + " samples (" + e.what() + "); one sample in their place");
+		renderer->SceneSamplesCap = 1;
+		SceneSamples = VK_SAMPLE_COUNT_1_BIT;
+		createSceneImages();
+	}
 
 	for (int i = 0; i < 2; i++)
 	{
@@ -138,9 +162,9 @@ VkSampleCountFlagBits SceneTextures::GetBestSampleCount(VulkanDevice* device, in
 	const auto& limits = device->PhysicalDevice.Properties.Properties.limits;
 	int requestedSamples = clamp(multisample, 1, 64);
 	// Every attachment of the scene's framebuffer takes the count, and is
-	// sampled: the colour and the depth
+	// sampled: the colour and the depth, D32_SFLOAT, which has no stencil
 	VkSampleCountFlags deviceSampleCounts =
-		limits.sampledImageColorSampleCounts & limits.sampledImageDepthSampleCounts & limits.sampledImageStencilSampleCounts &
+		limits.sampledImageColorSampleCounts & limits.sampledImageDepthSampleCounts &
 		limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts;
 
 	int samples = 1;

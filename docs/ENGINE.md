@@ -430,7 +430,11 @@ By area, as the code stands. Each device's numbers are its port's, such as
 ([the keys](#settings-and-environment)). Render scale is
 `RenderDevice::GetRenderScale`: a device whose `SupportsRenderScale()` says so (Vulkan, GL,
 software) makes its scene buffers at `GetRenderWidth()` by `GetRenderHeight()` and scales them
-to the window as it presents; the viewport, the canvas and the UI see the render size.
+to the window as it presents; the viewport, the canvas and the UI see the render size. The scale
+is held down so that the larger side is within the device's `MaxRenderSize()`: the software
+device's guard band, 8000 pixels, and the GPU's largest image, framebuffer and viewport on the
+Vulkan and GL devices. A Vulkan scene the GPU cannot make multisampled is made with one sample
+from then on, logged, as the GL device halves a storage its driver refuses.
 
 ### Rendering
 
@@ -494,8 +498,10 @@ the frame's `Projection`, which the clipper and the HUD's projections use, keeps
 **Which device draws** (`Engine::ChooseRenderDevice`): with `-nohard`, the software device, as
 the original's; else the `Type` `Settings.json` names; else the device the game's ini names
 (`GameRenderDevice`): the software device for `SoftDrv.SoftwareRenderDevice`, the Vulkan device
-for any other. A GPU device that does not start -- no driver, or none it can use -- gives way to
-the software device, the window made again for it, full screen as the settings have it but with
+for any other. A GPU device that does not start -- no driver, none it can use, or one that
+cannot make the first frame's scene buffers, pipelines or swapchain, which each GPU device makes
+at its start -- gives way to the software device, the window made again for it, full screen as
+the settings have it but with
 `-noddraw` ([the command line](NATIVES.md#the-command-line)), and the error in the log
 (`Engine::CreateGameWindow`), as the original's `WindowedRenderDevice` takes
 `GameRenderDevice`'s place ([the software device](NATIVES.md#the-software-device)). A GPU device
@@ -522,13 +528,17 @@ dither texel for texel, repeated.
 **The Vulkan device**: the game tick runs while the GPU draws the previous frame
 (`CommandBufferManager` keeps one frame in flight, and `WaitForFrame()` collects it before
 anything it uses is touched; the swapchain is made again for a new size asked, not for an
-extent the surface clamps, after waiting for the device). Without every descriptor-indexing
+extent the surface clamps, after waiting for the device; one the driver refuses is logged once
+with its result and tried again at each frame, its present pass made only with it). Without
+every descriptor-indexing
 feature its bindless set uses (partial binding, runtime arrays, non-uniform indexing,
 update-after-bind, a variable count) and room for that set, it binds a descriptor set per
 batch instead of bindless textures. A clamped tile's sampler mirrors once and clamps where the
 GPU has `VK_KHR_sampler_mirror_clamp_to_edge`, else clamps to the edge, the same texels, as
 the GL device falls back. Its swapchain takes an 8-bit UNORM format in the sRGB colour space,
-never one that encodes sRGB itself, the present writing the frame's gamma.
+never one that encodes sRGB itself, the present writing the frame's gamma. With vsync it presents
+FIFO, a late frame held to the next refresh, never torn; without, immediate presents, else
+mailbox where the compositor offers no immediate ones (GNOME's Wayland), else FIFO.
 A mirror's frame alone is clipped at its plane, its `NearClip`, by a clip distance; every frame
 at the near and far planes, its depth never clamped, as `D3DDrv`'s is cut there
 ([the near plane](NATIVES.md#the-near-plane)). Without `shaderClipDistance` the mirror's
@@ -559,7 +569,13 @@ and 4x, draws its grey boxes pixel for pixel as without it, the `FontMenuHeaders
 of `D3DDrv`'s brightness block for block. Read at a covered sample (`centroid`), as the GL
 device's shader reads it, a pixel two triangles share, along a tile's diagonal, takes skewed
 derivatives on RADV, and with them another mip; on Mesa's radeonsi the GL device's tiles stay
-within a level of their picture without multisampling.
+within a level of their picture without multisampling. It draws on the first GPU by type,
+discrete, then integrated, virtual, other and the CPU, a layered driver (Dozen) after a native
+one of its type, and within those in the loader's order, so the system's choice (Windows'
+graphics preference, `DRI_PRIME`, `MESA_VK_DEVICE_SELECT`) counts only between GPUs of one
+type: a hybrid laptop's discrete GPU is taken over its integrated one whatever the system
+prefers; a GPU passed over for a missing extension or queue is logged with what it lacks, and
+one without `samplerAnisotropy` filters without it.
 
 **The GL device** runs desktop GL 4.2+ and OpenGL ES 3.1+ from one code path: `RenderAPI::GLES`
 and `RenderDeviceType::GLES`, an ES 3.1 context from every Linux window backend (SDL2 and SDL3
@@ -575,7 +591,9 @@ and `glDepthRangef`, `glDrawBuffers` for every `glDrawBuffer`, no `GL_DEPTH_CLAM
 GL errors once a frame, not at each flush of its batches and each texture upload: every
 `glGetError` makes Mesa's GL thread finish all it has queued. An error in a frame (`Lock`,
 `Unlock`, a texture made, a read-back) is logged with its names, each line once, and the game
-goes on, the call that erred having done nothing (a lost context's ends it, named); one where a
+goes on, the call that erred having done nothing (one naming a lost context ends it, named,
+though no context asks for reset notification, so only a driver that reports a reset unasked
+names one); one where a
 thing is made at the device's start fails it, named, and the software device draws. A draw sets
 only the state that
 differs from the last draw's (`DrawState`: program, samplers, textures, blend, depth), forgotten
@@ -597,7 +615,8 @@ wherever else that state is set.
   them, whose resolve is speckle.
 - **The desktop context**: every window backend, Windows' own too, asks for a desktop 4.2 core
   context, as the shaders are GLSL 4.20 (`CompileGlsl` prepends `#version 420`): a driver
-  without 4.2 fails at the context, with an error that says so, not at a shader. The vertex
+  without 4.2 fails at the context, not at a shader, with the window's error: SDL's names the
+  context it could not make, the Win32 window's names 4.2. The vertex
   shader writes the texture's coordinate at a covered sample (`centroid`), as the fragment
   shader reads it: before GLSL 4.30 the two stages must agree, or a strict driver refuses the
   link.

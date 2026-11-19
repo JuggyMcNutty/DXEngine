@@ -93,8 +93,16 @@ PipelineState* RenderPassManager::GetEndFlashPipeline()
 	return &Scene.Pipeline[2];
 }
 
+// Made again for a new sample count alone: the scene's size is no part of
+// them, their viewport and scissor dynamic, where every new render size, each
+// step of a window dragged by its edge, built all of them again (bugs.md
+// REN.91)
 void RenderPassManager::CreatePipelines()
 {
+	if (Scene.Pipeline[0].Pipeline && PipelineSamples == renderer->Textures->Scene->SceneSamples)
+		return;
+	PipelineSamples = renderer->Textures->Scene->SceneSamples;
+
 	CreateScenePipelines(renderer->Shaders->Scene, Scene.Pipeline, Scene.LinePipeline);
 	if (!renderer->Shaders->SceneClip.VertexShader.empty())
 		CreateScenePipelines(renderer->Shaders->SceneClip, Scene.ClipPipeline, Scene.ClipLinePipeline);
@@ -143,6 +151,7 @@ void RenderPassManager::CreateScenePipelines(const ShaderManager::SceneShaders& 
 		builder.AddVertexAttribute(6, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(SceneVertex, Color));
 		builder.AddVertexAttribute(7, 0, VK_FORMAT_R32G32B32A32_SINT, offsetof(SceneVertex, TextureBinds));
 		builder.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT);
+		builder.AddDynamicState(VK_DYNAMIC_STATE_SCISSOR);
 		builder.AddDynamicState(VK_DYNAMIC_STATE_BLEND_CONSTANTS);
 		builder.Layout(layout);
 		builder.RenderPass(Scene.RenderPass.get());
@@ -228,6 +237,7 @@ void RenderPassManager::CreateScenePipelines(const ShaderManager::SceneShaders& 
 		builder.AddVertexAttribute(6, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(SceneVertex, Color));
 		builder.AddVertexAttribute(7, 0, VK_FORMAT_R32G32B32A32_SINT, offsetof(SceneVertex, TextureBinds));
 		builder.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT);
+		builder.AddDynamicState(VK_DYNAMIC_STATE_SCISSOR);
 		builder.AddDynamicState(VK_DYNAMIC_STATE_BLEND_CONSTANTS);
 		builder.Layout(layout);
 		builder.RenderPass(Scene.RenderPass.get());
@@ -253,6 +263,11 @@ void RenderPassManager::CreateScenePipelines(const ShaderManager::SceneShaders& 
 
 void RenderPassManager::CreateRenderPass()
 {
+	// A new sample count alone makes it again (CreatePipelines)
+	if (Scene.RenderPass && RenderPassSamples == renderer->Textures->Scene->SceneSamples)
+		return;
+	RenderPassSamples = renderer->Textures->Scene->SceneSamples;
+
 	Scene.RenderPass = RenderPassBuilder()
 		.AddAttachment(
 			SceneTextures::SceneFormat,

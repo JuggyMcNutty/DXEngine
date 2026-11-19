@@ -25,8 +25,6 @@ VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
 			.Create();
 
 		auto surface = std::make_shared<VulkanSurface>(instance, Viewport->CreateVulkanSurface(instance->Instance));
-		if (!surface)
-			throw std::runtime_error("No vulkan surface found");
 
 		auto deviceBuilder = VulkanDeviceBuilder();
 		deviceBuilder.OptionalDescriptorIndexing();
@@ -104,6 +102,32 @@ VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
 		// software device against Mesa's)
 		if (!CPUDriver && props.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU)
 			throw std::runtime_error(std::string("its only device draws on the CPU: ") + props.deviceName);
+
+		// The scene's attachments, which the specification does not ask of
+		// every GPU (D32_SFLOAT is one of the two depth formats a GPU has at
+		// least one of): a GPU without one fails the start, named, where the
+		// images were made regardless
+		auto requireFormat = [&](VkFormat format, VkFormatFeatureFlags features, const char* name)
+		{
+			VkFormatProperties formatProps = {};
+			vkGetPhysicalDeviceFormatProperties(Device->PhysicalDevice.Device, format, &formatProps);
+			if ((formatProps.optimalTilingFeatures & features) != features)
+				throw std::runtime_error(std::string("its GPU cannot draw into ") + name);
+		};
+		requireFormat(SceneTextures::SceneFormat, VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT, "A2B10G10R10_UNORM_PACK32");
+		requireFormat(VK_FORMAT_D32_SFLOAT, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT, "a D32_SFLOAT depth buffer");
+
+		// The first frame's scene images, pipelines and swapchain made within
+		// the start, so that a GPU that cannot make them gives way to the
+		// software device with the reason logged, as one that does not start
+		// does (Engine::CreateGameWindow), where they were made at the first
+		// frame: a fatal error, or a black window. A window of no size yet
+		// makes no swapchain: the first present makes it.
+		CreateSceneTargets();
+		SubmitAndWait(false, 0, 0);
+		Commands->CreateSwapChain(Viewport->GetNativePixelWidth(), Viewport->GetNativePixelHeight(), false);
+		if (Commands->SwapChain->CreateResult() != VK_SUCCESS)
+			throw std::runtime_error("could not make its swapchain: " + VkResultToString(Commands->SwapChain->CreateResult()));
 	}
 	catch (const std::exception& e)
 	{
@@ -127,6 +151,16 @@ VulkanRenderDevice::~VulkanRenderDevice()
 	Commands.reset();
 
 	Device.reset();
+}
+
+// The scene pipelines' scissor, dynamic, as their viewport is: the scene's
+// whole image, set with the viewport in each command buffer that draws them
+static void SetSceneScissor(VulkanCommandBuffer* cmdbuffer, const SceneTextures* scene)
+{
+	VkRect2D scissor = {};
+	scissor.extent.width = scene->Width;
+	scissor.extent.height = scene->Height;
+	cmdbuffer->setScissor(0, 1, &scissor);
 }
 
 void VulkanPrintLog(const char* typestr, const std::string& msg)
@@ -196,6 +230,7 @@ void VulkanRenderDevice::Flush(bool AllowPrecache)
 		// A new command buffer keeps no dynamic state: the scene node's
 		// viewport again, as FlushDrawBatchAndWait sets it
 		cmdbuffer->setViewport(0, 1, &viewportdesc);
+		SetSceneScissor(cmdbuffer, Textures->Scene.get());
 	}
 	else
 	{
@@ -230,15 +265,7 @@ void VulkanRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenCle
 
 	// If frame textures no longer match the window or user settings, recreate them along with the swap chain
 	if (!Textures->Scene || Textures->Scene->Width != GetRenderWidth() || Textures->Scene->Height != GetRenderHeight() ||Textures->Scene->Multisample != GetSettingsMultisample())
-	{
-		Framebuffers->DestroySceneFramebuffer();
-		Textures->Scene.reset();
-		Textures->Scene.reset(new SceneTextures(this, GetRenderWidth(), GetRenderHeight(), GetSettingsMultisample()));
-		RenderPasses->CreateRenderPass();
-		RenderPasses->CreatePipelines();
-		Framebuffers->CreateSceneFramebuffer();
-		DescriptorSets->UpdateFrameDescriptors();
-	}
+		CreateSceneTargets();
 
 	auto cmdbuffer = Commands->GetDrawCommands();
 
@@ -269,6 +296,17 @@ void VulkanRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenCle
 	cmdbuffer->bindIndexBuffer(Buffers->SceneIndexBuffer->buffer, 0, VK_INDEX_TYPE_UINT32);
 
 	IsLocked = true;
+}
+
+void VulkanRenderDevice::CreateSceneTargets()
+{
+	Framebuffers->DestroySceneFramebuffer();
+	Textures->Scene.reset();
+	Textures->Scene.reset(new SceneTextures(this, GetRenderWidth(), GetRenderHeight(), GetSettingsMultisample()));
+	RenderPasses->CreateRenderPass();
+	RenderPasses->CreatePipelines();
+	Framebuffers->CreateSceneFramebuffer();
+	DescriptorSets->UpdateFrameDescriptors();
 }
 
 void VulkanRenderDevice::FlushDrawBatchAndWait()
@@ -302,6 +340,7 @@ void VulkanRenderDevice::FlushDrawBatchAndWait()
 	drawcommands->bindVertexBuffers(0, 1, vertexBuffers, offsets);
 	drawcommands->bindIndexBuffer(Buffers->SceneIndexBuffer->buffer, 0, VK_INDEX_TYPE_UINT32);
 	drawcommands->setViewport(0, 1, &viewportdesc);
+	SetSceneScissor(drawcommands, Textures->Scene.get());
 }
 
 void VulkanRenderDevice::Unlock(bool Blit)
@@ -750,6 +789,8 @@ void VulkanRenderDevice::Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineF
 
 void VulkanRenderDevice::ClearZ()
 {
+	if (!IsLocked) // outside a frame no pass is open to clear in, as the GL device's
+		return;
 	DrawBatch(Commands->GetDrawCommands());
 
 	VkClearAttachment attachment = {};
@@ -886,6 +927,8 @@ void VulkanRenderDevice::LastFrameSize(int& width, int& height) const
 
 void VulkanRenderDevice::EndFlash()
 {
+	if (!IsLocked) // outside a frame no pass is open to draw in, as the GL device's
+		return;
 	if (FlashScale != vec4(0.5f, 0.5f, 0.5f, 0.0f) || FlashFog != vec4(0.0f, 0.0f, 0.0f, 0.0f))
 	{
 		vec4 color(FlashFog.x, FlashFog.y, FlashFog.z, 1.0f - std::min(FlashScale.x * 2.0f, 1.0f));
@@ -947,6 +990,7 @@ void VulkanRenderDevice::SetSceneNode(SceneNode* Frame)
 	viewportdesc.minDepth = 0.1f;
 	viewportdesc.maxDepth = 1.0f;
 	commands->setViewport(0, 1, &viewportdesc);
+	SetSceneScissor(commands, Textures->Scene.get());
 
 	pushconstants.objectToProjection = PolygonShift(Frame) * mat4::frustum(-RProjZ, RProjZ, -Aspect * RProjZ, Aspect * RProjZ, 1.0f, 32768.0f, handedness::left, clipzrange::zero_positive_w);
 
@@ -1373,6 +1417,19 @@ void VulkanRenderDevice::DrawPresentTexture(int width, int height)
 	PipelineBarrier()
 		.AddImage(Commands->SwapChain->GetImage(Commands->PresentImageIndex), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0)
 		.Execute(cmdbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+}
+
+// The GPU's largest image side, framebuffer and viewport: a larger window is
+// drawn smaller and scaled up at the present (RenderDevice::GetRenderScale),
+// as the software device holds it to its guard band, where the scene's
+// images past them failed to be made, a fatal error (bugs.md REN.76)
+int VulkanRenderDevice::MaxRenderSize() const
+{
+	if (!Device)
+		return 0;
+	const auto& limits = Device->PhysicalDevice.Properties.Properties.limits;
+	uint32_t most = std::min({ limits.maxImageDimension2D, limits.maxFramebufferWidth, limits.maxFramebufferHeight, limits.maxViewportDimensions[0], limits.maxViewportDimensions[1] });
+	return (int)std::min<uint32_t>(most, 1u << 30);
 }
 
 // Held within the GPU's maxSamplerLodBias, which a sampler may not pass

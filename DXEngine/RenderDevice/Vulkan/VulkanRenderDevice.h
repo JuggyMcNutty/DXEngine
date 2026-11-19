@@ -44,6 +44,7 @@ public:
 
 	bool SupportsTextureFormat(TextureFormat Format) override;
 	bool SupportsRenderScale() const override { return true; }
+	int MaxRenderSize() const override;
 	void UpdateTextureRect(TextureInfo& Info, int U, int V, int UL, int VL) override;
 
 	std::shared_ptr<VulkanDevice> Device;
@@ -65,6 +66,10 @@ public:
 	std::unique_ptr<FramebufferManager> Framebuffers;
 
 	int VkDeviceIndex = 0;
+
+	// The most samples the scene's images take, once the GPU could not make
+	// them with more (SceneTextures); 0 for the setting's
+	int SceneSamplesCap = 0;
 
 	void RunBloomPass();
 	void BloomStep(VulkanCommandBuffer* cmdbuffer, VulkanPipeline* pipeline, VulkanDescriptorSet* input, VulkanFramebuffer* output, int width, int height, const BloomPushConstants &pushconstants);
@@ -98,6 +103,9 @@ public:
 
 private:
 	void ClearTextureCache();
+	// The scene's images, render passes, pipelines and framebuffers at the
+	// render size and the multisampling set
+	void CreateSceneTargets();
 	void BlitSceneToPostprocess();
 
 	struct VertexReserveInfo

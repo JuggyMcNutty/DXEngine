@@ -67,6 +67,10 @@ public:
 	// the window, so it can be drawn smaller (Settings.json
 	// Performance.RenderScale -- the handheld's 853×480).
 	bool SupportsRenderScale() const override { return true; }
+	// The driver's largest scene (Init): its textures', framebuffers' and
+	// viewport's limits
+	int MaxRenderSize() const override { return MaxSceneSize; }
+	int MaxSceneSize = 0;
 
 	// To do: port this
 	bool Init(int NewX, int NewY, bool Fullscreen);

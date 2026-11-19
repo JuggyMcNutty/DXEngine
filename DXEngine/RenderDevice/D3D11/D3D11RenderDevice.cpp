@@ -407,6 +407,16 @@ void D3D11RenderDevice::ReleaseSwapChainResources()
 	BackBufferView.reset();
 }
 
+void D3D11RenderDevice::ThrowIfDeviceRemoved(HRESULT result)
+{
+	if (result == DXGI_ERROR_DEVICE_REMOVED || result == DXGI_ERROR_DEVICE_RESET)
+	{
+		char reason[64];
+		snprintf(reason, sizeof(reason), "0x%08lx (reason 0x%08lx)", (unsigned long)result, (unsigned long)Device->GetDeviceRemovedReason());
+		throw std::runtime_error(std::string("D3D11 device removed: ") + reason);
+	}
+}
+
 bool D3D11RenderDevice::UpdateSwapChain()
 {
 	UINT flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
@@ -415,11 +425,23 @@ bool D3D11RenderDevice::UpdateSwapChain()
 
 	LogMessage("D3D11Drv: Updating SwapChain size to " + std::to_string(CurrentSizeX) + " x " + std::to_string(CurrentSizeY));
 
+	// A call that fails is logged with its code and kept for the resize's
+	// error, a removed device given its own, where the error named neither
+	// (bugs.md REN.81)
+	SwapChainError.clear();
+	auto failed = [&](const char* what, HRESULT result) -> bool
+	{
+		ThrowIfDeviceRemoved(result);
+		char code[16];
+		snprintf(code, sizeof(code), "0x%08lx", (unsigned long)result);
+		SwapChainError = std::string(what) + " failed, " + code;
+		LogMessage("D3D11Drv: " + SwapChainError);
+		return false;
+	};
+
 	HRESULT result = SwapChain->ResizeBuffers(BufferCount, CurrentSizeX, CurrentSizeY, ActiveHdr ? DXGI_FORMAT_R16G16B16A16_FLOAT : DXGI_FORMAT_R8G8B8A8_UNORM, flags);
 	if (FAILED(result))
-	{
-		return false;
-	}
+		return failed("ResizeBuffers", result);
 
 	SetColorSpace();
 
@@ -436,18 +458,19 @@ bool D3D11RenderDevice::UpdateSwapChain()
 		catch (const std::exception& e)
 		{
 			LogMessage(std::string("Could not resize scene buffers: ") + e.what());
+			SwapChainError = std::string("the scene buffers: ") + e.what();
 			return false;
 		}
 	}
 
 	result = SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&BackBuffer);
 	if (FAILED(result))
-		return false;
+		return failed("GetBuffer", result);
 	SetDebugName(BackBuffer, "BackBuffer");
 
 	result = Device->CreateRenderTargetView(BackBuffer, nullptr, BackBufferView.TypedInitPtr());
 	if (FAILED(result))
-		return false;
+		return failed("CreateRenderTargetView(BackBuffer)", result);
 	SetDebugName(BackBufferView, "BackBufferView");
 
 	return true;
@@ -1475,7 +1498,7 @@ void D3D11RenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClea
 		CurrentSizeX = Viewport->GetNativePixelWidth();
 		CurrentSizeY = Viewport->GetNativePixelHeight();
 		if (!UpdateSwapChain())
-			Exception::Throw("Could not resize D3D11RenderDevice");
+			Exception::Throw("Could not resize D3D11RenderDevice" + (SwapChainError.empty() ? std::string() : ": " + SwapChainError));
 	}
 
 	nulltex = Textures->GetNullTexture();
@@ -1637,12 +1660,7 @@ void D3D11RenderDevice::Unlock(bool Blit)
 		// A device removed or reset (a driver crash, a TDR) showed only as
 		// silent Map failures and a frozen picture until something else
 		// failed with a message naming neither: named here
-		if (presented == DXGI_ERROR_DEVICE_REMOVED || presented == DXGI_ERROR_DEVICE_RESET)
-		{
-			char reason[64];
-			snprintf(reason, sizeof(reason), "0x%08lx (reason 0x%08lx)", (unsigned long)presented, (unsigned long)Device->GetDeviceRemovedReason());
-			throw std::runtime_error(std::string("D3D11 device removed: ") + reason);
-		}
+		ThrowIfDeviceRemoved(presented);
 
 		Batch.Pipeline = nullptr;
 		Batch.Tex = nullptr;

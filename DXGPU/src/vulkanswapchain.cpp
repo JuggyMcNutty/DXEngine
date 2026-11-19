@@ -125,27 +125,27 @@ void VulkanSwapChain::SelectFormat(const VulkanSurfaceCapabilities& caps, bool h
 bool VulkanSwapChain::CreateSwapchain(int width, int height, int imageCount, bool vsync, bool hdr)
 {
 	lost = false;
+	createResult = VK_SUCCESS;
 
 	VulkanSurfaceCapabilities caps = GetSurfaceCapabilities();
 
 	if (caps.PresentModes.empty())
 		VulkanError("No surface present modes supported");
 
-	bool supportsFifoRelaxed = std::find(caps.PresentModes.begin(), caps.PresentModes.end(), VK_PRESENT_MODE_FIFO_RELAXED_KHR) != caps.PresentModes.end();
 	bool supportsImmediate = std::find(caps.PresentModes.begin(), caps.PresentModes.end(), VK_PRESENT_MODE_IMMEDIATE_KHR) != caps.PresentModes.end();
+	bool supportsMailbox = std::find(caps.PresentModes.begin(), caps.PresentModes.end(), VK_PRESENT_MODE_MAILBOX_KHR) != caps.PresentModes.end();
 
+	// Vsync on, FIFO: a frame late for the refresh waits for the next, no
+	// tearing, where relaxed FIFO presented it at once, torn. Off, immediate,
+	// else mailbox, which a compositor with no tearing control (GNOME's
+	// Wayland) offers in its place, else FIFO, every GPU's.
 	presentMode = VK_PRESENT_MODE_FIFO_KHR;
-	if (vsync)
+	if (!vsync)
 	{
-		if (supportsFifoRelaxed)
-			presentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
-	}
-	else
-	{
-		/*if (supportsMailbox)
-			presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-		else*/ if (supportsImmediate)
+		if (supportsImmediate)
 			presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+		else if (supportsMailbox)
+			presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
 	}
 
 	SelectFormat(caps, hdr);
@@ -203,6 +203,12 @@ bool VulkanSwapChain::CreateSwapchain(int width, int height, int imageCount, boo
 
 	if (result != VK_SUCCESS)
 	{
+		// Kept for the owner to report (CreateResult); a surface lost here is
+		// marked as at an acquire or a present, so that the owner makes a new
+		// one, where the create was tried again on the dead surface
+		createResult = result;
+		if (result == VK_ERROR_SURFACE_LOST_KHR)
+			surfaceLost = true;
 		swapchain = VK_NULL_HANDLE;
 		lost = true;
 		return false;

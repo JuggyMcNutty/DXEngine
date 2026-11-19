@@ -49,6 +49,9 @@ public:
 		PipelineState ClipLinePipeline[2];
 	} Scene;
 	bool MirrorClip = false;
+	// The sample count the scene's pass and its pipelines were made for
+	VkSampleCountFlagBits RenderPassSamples = (VkSampleCountFlagBits)0;
+	VkSampleCountFlagBits PipelineSamples = (VkSampleCountFlagBits)0;
 
 	struct
 	{

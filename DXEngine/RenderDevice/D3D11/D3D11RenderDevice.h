@@ -100,6 +100,10 @@ public:
 	void SetDebugName(ID3D11Device* obj, const char* name);
 	void SetDebugName(ID3D11DeviceChild* obj, const char* name);
 
+	// A device removed or reset (a driver crash, a TDR) ends the game with its
+	// code and the removal's reason, whichever call meets it
+	void ThrowIfDeviceRemoved(HRESULT result);
+
 	HWND WindowHandle = 0;
 	ComPtr<ID3D11Device> Device;
 	D3D_FEATURE_LEVEL FeatureLevel = {};
@@ -268,6 +272,7 @@ private:
 
 	void ReleaseSwapChainResources();
 	bool UpdateSwapChain();
+	std::string SwapChainError; // why UpdateSwapChain failed, for the resize's error
 	void SetColorSpace();
 	void ResizeSceneBuffers(int width, int height, int multisample);
 	void ClearTextureCache();

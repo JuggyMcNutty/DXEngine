@@ -132,6 +132,26 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 		if (!ClipDistance)
 			LogMessage("GLDrv: EXT_clip_cull_distance absent; a mirror's plane is clipped by a discard");
 
+		// The largest scene the driver makes: its textures' side, its
+		// framebuffers' (ES 3.1's and desktop 4.3's; a 4.2 driver answers
+		// none) and its viewport's. A larger window is drawn smaller and
+		// scaled up at the present (MaxRenderSize), where its scene buffers
+		// failed to be made, the window black (bugs.md REN.76).
+		{
+			GLint textureSize = 0, framebufferWidth = 0, framebufferHeight = 0, viewportSize[2] = {};
+			glGetIntegerv(GL_MAX_TEXTURE_SIZE, &textureSize);
+			glGetIntegerv(GL_MAX_VIEWPORT_DIMS, viewportSize);
+			glGetIntegerv(GL_MAX_FRAMEBUFFER_WIDTH, &framebufferWidth);
+			glGetIntegerv(GL_MAX_FRAMEBUFFER_HEIGHT, &framebufferHeight);
+			TakeGLErrors();
+			MaxSceneSize = 0;
+			for (GLint limit : { textureSize, viewportSize[0], viewportSize[1], framebufferWidth, framebufferHeight })
+			{
+				if (limit > 0)
+					MaxSceneSize = MaxSceneSize > 0 ? std::min(MaxSceneSize, (int)limit) : (int)limit;
+			}
+		}
+
 		// GL_MIRROR_CLAMP_TO_EDGE: 4.4 desktop and 3.2 ES core on paper, but
 		// optional in practice (the GE8300's ES 3.2 driver rejects it: Port Ex
 		// Machina's tools/probes/probe-gles-sampler.c). Probe once; fall back
@@ -164,6 +184,23 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 
 	if (!SetRes(NewX, NewY, Fullscreen))
 	{
+		Exit();
+		return false;
+	}
+
+	// The first frame's scene buffers made within the start, as the D3D11
+	// device makes its own, so that a driver that cannot make them gives way
+	// to the software device with the reason logged (Engine::CreateGameWindow),
+	// where the first frame's Lock skipped every frame after it, the window
+	// black
+	try
+	{
+		ResizeSceneBuffers(GetRenderWidth(), GetRenderHeight(), GetSettingsMultisample());
+	}
+	catch (const std::exception& e)
+	{
+		LogMessage(std::string("Could not create opengl renderer: could not make the scene buffers: ") + e.what());
+		InitError = std::string("could not make the scene buffers: ") + e.what();
 		Exit();
 		return false;
 	}

@@ -25,6 +25,10 @@ public:
 	// The surface itself gone (VK_ERROR_SURFACE_LOST_KHR): the owner makes a
 	// new one before the next Create, this swapchain let go first
 	bool SurfaceLost() const { return surfaceLost; }
+	// What the last Create's vkCreateSwapchainKHR answered: VK_SUCCESS where
+	// none was asked for, a surface of no size (minimised), which Lost()
+	// alone reports
+	VkResult CreateResult() const { return createResult; }
 
 	int Width() const { return actualExtent.width; }
 	int Height() const { return actualExtent.height; }
@@ -47,6 +51,7 @@ private:
 	VulkanDevice* device = nullptr;
 	bool lost = true;
 	bool surfaceLost = false;
+	VkResult createResult = VK_SUCCESS;
 
 	VkExtent2D actualExtent = {};
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
