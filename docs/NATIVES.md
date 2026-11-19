@@ -4891,11 +4891,14 @@ engines), a string's count at every version and a name's NUL ending below
 64, and a function's code at any version as the original's reads it, a
 `LetBool` its two expressions and a `Return` its one.
 
-For the owner (bugs.md D.86): an ini is written in place, as the original's
-is, so a full disk, a power cut or a kill during the write leaves it empty
-or short, and the next start takes the empty file as it is, an empty system
-ini stopping the start; written to a temporary file and renamed, a failed
-write would leave the ini as it was.
+By choice, an ini is written whole to a temporary file beside it,
+`.<name>.dxe-<process number>`, on the disk before it is moved over the ini,
+where the original's writes it in place: a full disk, a power cut or a kill
+during the write leaves the ini as it was, never empty or short. An ini that
+is a link is written where it leads, the link kept; the new file takes the
+old one's permissions; one whose folder takes no new file is written in
+place, as before; a temporary that a killed write left is removed by a write
+of the same ini a minute or more later.
 
 A property tag whose size runs back over itself, its value failing to load,
 fails its object's load with the value's error, where the original's load

@@ -33,6 +33,18 @@ public:
 
 	static void rename(const std::string& sourceName, const std::string& destinationName);
 
+	// A whole file, on the disk, moved over the file it replaces, and the
+	// folder's entry on the disk after: a power cut or a kill then leaves the
+	// old file or the new one, never one cut short (bugs.md PKG.56)
+	static void move_into_place(const std::string& tempName, const std::string& filename);
+
+	// A file's new bytes written whole to a temporary file beside it, then
+	// moved over it, so that a write that fails (a full disk, a kill) leaves
+	// the file as it was (bugs.md D.86). A link is written where it leads,
+	// the link kept; the new file takes the old one's permissions. A folder
+	// that takes no new file has the file written in place.
+	static void replace_all_bytes(const std::string& filename, const void* data, size_t size);
+
 	static void write_all_bytes(const std::string& filename, const void* data, size_t size);
 	static void write_all_text(const std::string& filename, const std::string& text);
 	static Array<uint8_t> read_all_bytes(const std::string& filename);

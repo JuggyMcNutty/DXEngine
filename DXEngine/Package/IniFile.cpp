@@ -71,14 +71,16 @@ static bool IsReadOnly(const std::string& filename)
 // 0x109067b0), logs nothing and gives none; appSaveStringToFile then writes
 // nothing, and the config cache's Write (0x10915760) and Flush (0x10915250)
 // go on, the values kept in memory, nothing logged or shown (bugs.md
-// ENG.25).
+// ENG.25). Written whole beside it and moved over it, by the owner's choice
+// against the original's write in place: a write that fails part-way leaves
+// the file as it was, not empty or short (bugs.md D.86).
 static void WriteQuietly(const std::string& filename, const std::string& bytes)
 {
 	if (IsReadOnly(filename))
 		return;
 	try
 	{
-		File::write_all_text(filename, bytes);
+		File::replace_all_bytes(filename, bytes.data(), bytes.size());
 	}
 	catch (const std::exception&)
 	{

@@ -75,8 +75,7 @@ void PackageWriter::Save(UObject* packageObject, std::string filename)
 		// one is: the original's SavePackage writes Save.tmp beside it and
 		// moves that over it (its log's "Moving '..\Save\Current\Save.tmp'
 		// to '..\Save\Current\01_NYC_UNATCOIsland.dxs'", over a file there)
-		File::rename(tempFilename, filename);
-		Directory::sync(fs::path(filename).parent_path());
+		File::move_into_place(tempFilename, filename);
 
 		if (filename == Source->GetPackageFilePath()) // To do: should we search all open packages?
 		{

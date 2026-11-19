@@ -24,6 +24,7 @@
 #include <cstring>
 #include <sstream>
 #include <cstdio>
+#include <chrono>
 
 #ifdef WIN32
 
@@ -302,6 +303,111 @@ void File::write_all_text(const std::string& filename, const std::string& text)
 	auto file = create_always(filename);
 	file->write(text.data(), text.size());
 	file->close();
+}
+
+void File::move_into_place(const std::string& tempName, const std::string& filename)
+{
+	rename(tempName, filename);
+	Directory::sync(fs::path(filename).parent_path());
+}
+
+// Where a link leads, link after link, a relative one from its own folder:
+// the path itself when it is none. One that does not end, a loop, throws, as
+// a write through it fails.
+static fs::path LinkEnd(const fs::path& path)
+{
+	fs::path at = path;
+	for (int i = 0; i < 40; i++)
+	{
+		std::error_code ec;
+		if (!fs::is_symlink(fs::symlink_status(at, ec)))
+			return at;
+		fs::path to = fs::read_symlink(at, ec);
+		if (ec)
+			break;
+		at = to.is_absolute() ? to : at.parent_path() / to;
+	}
+	Exception::Throw("Could not follow the link " + path.string());
+}
+
+static std::string ProcessNumber()
+{
+#ifdef WIN32
+	return std::to_string(GetCurrentProcessId());
+#else
+	return std::to_string(getpid());
+#endif
+}
+
+// The temporaries of a file's that a write killed before its move left in
+// its folder, .<name>.dxe-<process number>, a name of the engine's own that
+// no other program's temporary bears, removed once a minute old: a live
+// write's lasts a moment
+static void RemoveStaleTemporaries(const fs::path& folder, const std::string& name)
+{
+	const std::string prefix = "." + name + ".dxe-";
+	const auto now = fs::file_time_type::clock::now();
+	std::error_code ec;
+	for (const auto& entry : fs::directory_iterator(folder, ec))
+	{
+		const std::string entryName = entry.path().filename().string();
+		if (entryName.size() <= prefix.size() || entryName.compare(0, prefix.size(), prefix) != 0)
+			continue;
+		if (entryName.find_first_not_of("0123456789", prefix.size()) != std::string::npos)
+			continue;
+		std::error_code fileError;
+		if (!fs::is_regular_file(fs::symlink_status(entry.path(), fileError)))
+			continue;
+		const auto written = fs::last_write_time(entry.path(), fileError);
+		if (!fileError && now - written > std::chrono::minutes(1))
+			fs::remove(entry.path(), fileError);
+	}
+}
+
+void File::replace_all_bytes(const std::string& filename, const void* data, size_t size)
+{
+	const fs::path target = LinkEnd(fs::path(filename));
+	const fs::path folder = target.parent_path();
+	const std::string name = target.filename().string();
+	const std::string tempName = (folder / ("." + name + ".dxe-" + ProcessNumber())).string();
+
+	std::shared_ptr<File> file;
+	try
+	{
+		file = create_always(tempName);
+	}
+	catch (const std::exception&)
+	{
+#ifndef WIN32
+		// A folder that takes new files (a full card, a quota) leaves the
+		// file as it is: written in place there it would be emptied
+		if (access(folder.empty() ? "." : folder.c_str(), W_OK) == 0)
+			throw;
+#endif
+		// A folder that takes no new file, the file itself writable: written
+		// in place, as before the temporary
+		write_all_bytes(target.string(), data, size);
+		return;
+	}
+	try
+	{
+		file->write(data, size);
+		file->sync();
+		file->close();
+		file.reset();
+		std::error_code ec;
+		const fs::file_status old = fs::status(target, ec);
+		if (!ec && fs::exists(old))
+			fs::permissions(tempName, old.permissions(), ec);
+		move_into_place(tempName, target.string());
+	}
+	catch (...)
+	{
+		file.reset();
+		try_delete(tempName);
+		throw;
+	}
+	RemoveStaleTemporaries(folder, name);
 }
 
 Array<uint8_t> File::read_all_bytes(const std::string& filename)
