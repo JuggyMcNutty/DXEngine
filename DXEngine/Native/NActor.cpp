@@ -274,33 +274,109 @@ void NActor::GetBoundingBox(UObject* Self, vec3& MinVect, vec3& MaxVect, std::op
 		return;
 	}
 
-	// With a test place or rotation, as every script call gives, the
-	// original puts the actor there for the moment and takes its
-	// primitive's box; moving the world-space box by them instead left it
-	// off by the actor's own place. It files nothing (engine-dll.md,
-	// Traces): the box is made, the level's BSP left as it was, so an
-	// actor already destroyed stays out of it.
-	if (testLocation || testRotation)
+	// With no brush the original asks the actor's primitive (AActor::
+	// GetPrimitive, Engine.dll 0x1034c9a0), the actor at the test place and
+	// rotation for the moment: its mesh, whatever its DrawType, else the
+	// engine's cylinder. It files nothing (engine-dll.md, Traces): the box is
+	// made, the level's BSP left as it was, so an actor already destroyed
+	// stays out of it.
+	auto R = X87::Round;
+	vec3 location = testLocation ? *testLocation : actor->Location();
+	Rotator rotation = testRotation ? *testRotation : actor->Rotation();
+	UMesh* mesh = actor->Mesh();
+	if (!mesh)
 	{
-		vec3 keepLocation = actor->Location();
-		Rotator keepRotation = actor->Rotation();
-		actor->Location() = testLocation ? *testLocation : keepLocation;
-		actor->Rotation() = testRotation ? *testRotation : keepRotation;
-		BBox bbox = actor->VisualBoundingBox();
-		actor->Location() = keepLocation;
-		actor->Rotation() = keepRotation;
-		MinVect = bbox.min;
-		MaxVect = bbox.max;
+		// UPrimitive::GetRenderBoundingBox (0x103d8580): the place less and
+		// plus the collision radius and height, each with 1 more; Y's side
+		// from the sum as the x87 holds it
+		double radius = R((double)actor->CollisionRadius() + 1.0);
+		float radiusStored = (float)radius;
+		float height = (float)R((double)actor->CollisionHeight() + 1.0);
+		MinVect = vec3((float)R((double)location.x - radiusStored), (float)R((double)location.y - radius), (float)R((double)location.z - height));
+		MaxVect = vec3((float)R((double)radiusStored + location.x), (float)R(radius + location.y), (float)R((double)height + location.z));
 		ReturnValue = true;
 		return;
 	}
 
-	// Without, its box where it is now, as the original takes its
-	// primitive's: the box the renderer last made is a frame old, and a
-	// dedicated server, drawing no frame, makes none.
-	BBox bbox = actor->VisualBoundingBox();
-	MinVect = bbox.min;
-	MaxVect = bbox.max;
+	// UMesh::GetRenderBoundingBox (0x103a6850). The box: with the actor's
+	// sequence one of the mesh's and its frame 0 or above, the boxes of two
+	// of the sequence's frames together -- frame (AnimFrame + 1) x the
+	// sequence's frames, less a half and rounded as the x87 rounds, and the
+	// one after it, each taken round the sequence's count -- else the
+	// mesh's own
+	BBox box = mesh->BoundingBox;
+	MeshAnimSeq* seq = mesh->GetSequence(actor->AnimSequence());
+	if (seq && actor->AnimFrame() >= 0.0f && seq->NumFrames > 0)
+	{
+		float at = (float)R(R((double)actor->AnimFrame() + 1.0) * (double)seq->NumFrames);
+		int frame = (int)std::nearbyint((double)at - 0.5);
+		int first = seq->StartFrame + frame % seq->NumFrames;
+		int next = seq->StartFrame + (frame + 1) % seq->NumFrames;
+		// A guard of ours: a sequence past the mesh's frame boxes, where the
+		// original reads past its array, keeps the mesh's own box
+		if (first >= 0 && next >= 0 && (size_t)first < mesh->BoundingBoxes.size() && (size_t)next < mesh->BoundingBoxes.size())
+		{
+			box = mesh->BoundingBoxes[first];
+			const BBox& other = mesh->BoundingBoxes[next];
+			if (box.IsValid && other.IsValid)
+			{
+				box.min = vec3(std::min(box.min.x, other.min.x), std::min(box.min.y, other.min.y), std::min(box.min.z, other.min.z));
+				box.max = vec3(std::max(box.max.x, other.max.x), std::max(box.max.y, other.max.y), std::max(box.max.z, other.max.z));
+			}
+			else
+			{
+				box = other;
+			}
+		}
+	}
+
+	// Its corners less the mesh's origin, times the mesh's scale and the
+	// actor's (1.5 for one that is bParticles), each side then moved out by
+	// 1. The highest corner's Z is one product of the sums as the x87 holds
+	// them; every other part is stored as a float on the way.
+	double drawScale = actor->bParticles() ? 1.5 : (double)actor->DrawScale();
+	float scaleX = (float)R(drawScale * mesh->Scale.x);
+	float scaleY = (float)R(drawScale * mesh->Scale.y);
+	float scaleZ = (float)R(drawScale * mesh->Scale.z);
+	vec3 hi(
+		(float)R((double)scaleX * (float)R((double)box.max.x - mesh->Origin.x)),
+		(float)R((double)scaleY * (float)R((double)box.max.y - mesh->Origin.y)),
+		(float)R(R((double)box.max.z - mesh->Origin.z) * R(drawScale * mesh->Scale.z)));
+	vec3 lo(
+		(float)R((double)scaleX * (float)R((double)box.min.x - mesh->Origin.x)),
+		(float)R((double)scaleY * (float)R((double)box.min.y - mesh->Origin.y)),
+		(float)R((double)scaleZ * (float)R((double)box.min.z - mesh->Origin.z)));
+	hi = vec3((float)R((double)hi.x + 1.0), (float)R((double)hi.y + 1.0), (float)R((double)hi.z + 1.0));
+	lo = vec3((float)R((double)lo.x - 1.0), (float)R((double)lo.y - 1.0), (float)R((double)lo.z - 1.0));
+
+	// That box through the unit coords turned back by the mesh's RotOrigin
+	// and the actor's rotation, at the actor's place plus its PrePivot,
+	// transposed (FCoords::Transpose: the axes' rows for columns, the origin
+	// turned by them and made negative), its eight corners as points
+	Coords coords = Coords::Identity();
+	CoreCoords::Unturn(coords, mesh->RotOrigin);
+	CoreCoords::Unturn(coords, rotation);
+	coords.Origin = vec3(
+		(float)R((double)location.x + actor->PrePivot().x),
+		(float)R((double)location.y + actor->PrePivot().y),
+		(float)R((double)location.z + actor->PrePivot().z));
+	vec3 turnedOrigin = CoreCoords::TransformVector(coords.Origin, coords);
+	Coords toWorld;
+	toWorld.Origin = vec3(-turnedOrigin.x, -turnedOrigin.y, -turnedOrigin.z);
+	toWorld.XAxis = vec3(coords.XAxis.x, coords.YAxis.x, coords.ZAxis.x);
+	toWorld.YAxis = vec3(coords.XAxis.y, coords.YAxis.y, coords.ZAxis.y);
+	toWorld.ZAxis = vec3(coords.XAxis.z, coords.YAxis.z, coords.ZAxis.z);
+	bool any = false;
+	vec3 worldLo(0.0f), worldHi(0.0f);
+	for (int i = 0; i < 8; i++)
+	{
+		vec3 p = CoreCoords::TransformPoint(vec3((i & 4) ? hi.x : lo.x, (i & 2) ? hi.y : lo.y, (i & 1) ? hi.z : lo.z), toWorld);
+		worldLo = any ? vec3(std::min(worldLo.x, p.x), std::min(worldLo.y, p.y), std::min(worldLo.z, p.z)) : p;
+		worldHi = any ? vec3(std::max(worldHi.x, p.x), std::max(worldHi.y, p.y), std::max(worldHi.z, p.z)) : p;
+		any = true;
+	}
+	MinVect = worldLo;
+	MaxVect = worldHi;
 	ReturnValue = true;
 }
 
