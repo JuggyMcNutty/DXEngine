@@ -623,8 +623,9 @@ wherever else that state is set.
   them, whose resolve is speckle.
 - **The desktop context**: every window backend, Windows' own too, asks for a desktop 4.2 core
   context, as the shaders are GLSL 4.20 (`CompileGlsl` prepends `#version 420`): a driver
-  without 4.2 fails at the context, not at a shader, with the window's error: SDL's names the
-  context it could not make, the Win32 window's names 4.2. The vertex
+  without 4.2 fails at the context, not at a shader, with the window's error: the SDL windows'
+  is SDL's own reason for the context it could not make, the Win32 window's names 4.2, the X11
+  and Wayland windows' is EGL's error code. The vertex
   shader writes the texture's coordinate at a covered sample (`centroid`), as the fragment
   shader reads it: before GLSL 4.30 the two stages must agree, or a strict driver refuses the
   link.

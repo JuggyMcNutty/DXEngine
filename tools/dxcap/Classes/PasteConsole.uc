@@ -14,14 +14,19 @@ class PasteConsole extends Console;
 var float RunTime;
 var int Step;
 
-// Each character's code, the log being 8-bit
+// Each character's code, the log being 8-bit: of the first 64, so that a
+// large clipboard (an INCR transfer's 300,000 characters) is not walked
+// a character a string
 function string Codes(string S)
 {
 	local string R;
-	local int i;
+	local int i, n;
 
-	for (i = 0; i < Len(S); i++)
+	n = Min(Len(S), 64);
+	for (i = 0; i < n; i++)
 		R = R $ " " $ Asc(Mid(S, i, 1));
+	if (Len(S) > n)
+		R = R $ " ...";
 	return R;
 }
 
@@ -40,7 +45,7 @@ event Tick(float Delta)
 	{
 		Log("DXPASTE: asking the clipboard");
 		T = P.PasteFromClipboard();
-		Log("DXPASTE: " $ Len(T) $ " character(s): '" $ T $ "', codes" $ Codes(T));
+		Log("DXPASTE: " $ Len(T) $ " character(s): '" $ Left(T, 64) $ "', codes" $ Codes(T));
 		Step = 1;
 	}
 	else if (Step == 1 && RunTime > 3.5)

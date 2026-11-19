@@ -1243,6 +1243,9 @@ first person. `MirrorConsole`, at 4:3, on GL and on Vulkan:
   original's frame walks from it: the lobby floor's reflected chairs, plants
   and mannequin nearer `D3DDrv`'s frames than lit from the player's eye.
 - **`ShinySurfaces` off**: the lobby's floor solid marble in both.
+- **No decal in a mirror's frame** (`ScorchMarks`): a scorch mark on a wall
+  the lobby's floor shows is on the wall and not in its reflection, in the
+  original's frames as in DXEngine's.
 - **A mover's mirror**, as a BSP mirror, the original filing a mover's
   faces into the BSP
   ([which actors are drawn](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#which-actors-are-drawn)):
@@ -1257,6 +1260,14 @@ first person. `MirrorConsole`, at 4:3, on GL and on Vulkan:
   the tracker files still reflecting (`FarConsole` turned to them from the
   start: three mover mirror frames a scene, where two buried ones made it
   five, counted by a tool not kept), the frame unchanged.
+
+For the owner (bugs.md D.107): in a mirror's frame the original lights a
+mesh's faces as from their other side, its normals made from the frame's
+reflected corners and never turned back
+([a face's normal](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#meshes));
+DXEngine lights them by their own normals, with the mirror's eye for the
+highlights alone, so a frond of the lobby's plants that the original's
+reflection has lit is black in DXEngine's.
 
 Differs by choice:
 
@@ -2830,7 +2841,7 @@ ms, so a moving or fading sound steps twice as often; a song's speed
 command that comes to 0 is dropped, where Galaxy's stops its sequencer, the
 song halted while its sounding voices play on, which no stock song has.
 
-For the owner (bugs.md AUD.28): an MP3 or WAV song plays from its start
+For the owner (bugs.md D.104): an MP3 or WAV song plays from its start
 again at its end, as an Ogg one does, and one of more than two channels as
 its front pair.
 
@@ -3191,7 +3202,13 @@ Every other native the scripted runs compare matches the original
   ([small](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#small)).
   `Actor.GetBoundingBox` with no test place is the box where the actor is
   now, a dedicated server's too, as the original takes its primitive's
-  (`MoverServer`). `Actor.GetMeshTexture` answers as the original's: the
+  (`MoverServer`); of an actor that is no brush, its mesh's box whatever its
+  `DrawType` -- two frames' boxes of the sequence it plays, else the mesh's
+  own, each side moved out by 1 before it is turned -- and with no mesh its
+  collision cylinder's with 1 more, as the original's
+  ([`GetBoundingBox`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#traces);
+  `MeshBoxConsole`: decorations, pawns at set frames, a light and a path
+  node, each box alike in both engines). `Actor.GetMeshTexture` answers as the original's: the
   skin of that number, else the mesh's texture of a number above 0, else
   `Skin`, else the mesh's texture of that number, None past the mesh's
   textures and for an actor with no mesh, never `DefaultTexture`
@@ -3511,14 +3528,7 @@ machine with VSync off or a slowed game, a thing at rest never starts to
 fall or walk in DXEngine; the original's ticks never go under its floor of 5
 ms.
 
-Differs (bugs.md DX.9): `GetBoundingBox` of an actor that is no brush gives
-its mesh's own box, scaled and turned, and an empty one where it has no mesh
-to draw, always valid; the original's gives the mesh's box moved out by 1 on
-each side before it is turned, two frames' boxes of an animating one, and for
-an actor with no mesh its collision cylinder's plus 1. The game's scripts ask
-it of movers alone.
-
-For the owner (bugs.md AUD.28): a script's play of a sound whose data will
+For the owner (bugs.md D.105): a script's play of a sound whose data will
 not decode is a script error each time, which takes no channel, where
 Galaxy's unreadable data is a fatal error at the level's start
 ([`RegisterSound`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)).
@@ -3529,14 +3539,12 @@ are read by C's rules, not the original's `appAtoi`'s; nothing seen.
 Differs (bugs.md ENG.57): past `Shot9999` a `SHOT` takes nothing and says
 nothing; the original's limit is unread.
 
-Differs (bugs.md REN.94): the Vulkan device's `ClearZ` and `EndFlash` do not
-test for a frame in hand, as the GL device's do; nothing seen.
-
-Differs (bugs.md WIN.57): the SDL, X11 and Wayland windows name Henkan, Muhenkan,
-Katakana/Hiragana, Hangul, Hanja, the keypad's comma and equals and the
-volume and media keys `None`, so none can be bound, where the original
-passes each by its virtual-key code; and a move of the window undoes a
-console `LODBIAS`, where the original's move is no resize.
+Differs (bugs.md WIN.57): the SDL windows name Katakana/Hiragana and the
+keypad's comma and equals `None`, and the X11 and Wayland windows those and
+Henkan, Muhenkan, Hangul, Hanja and the volume and media keys, so none can
+be bound, where the original passes each by its virtual-key code; and a move
+of the X11 window undoes a console `LODBIAS`, where the original's move is
+no resize.
 
 ## Small
 
