@@ -489,8 +489,8 @@ before its SaveInfo is written (each file's `fsync`, Windows'
 soon after a save leaves no file of 0 bytes under a save's name, on the
 Smart Pro's exFAT card too.
 
-For the owner (bugs.md D.92): a slot whose level file is empty or cut short
-stops both engines at its load, every time.
+A slot whose level file is empty or cut short stops both engines at its
+load, every time.
 
 For the owner (bugs.md D.102): the game's own script lets `;`, the save
 list's delimiter, into a save's name, and Load or Delete then acts on
@@ -2842,9 +2842,8 @@ ms, so a moving or fading sound steps twice as often; a song's speed
 command that comes to 0 is dropped, where Galaxy's stops its sequencer, the
 song halted while its sounding voices play on, which no stock song has.
 
-For the owner (bugs.md D.104): an MP3 or WAV song plays from its start
-again at its end, as an Ogg one does, and one of more than two channels as
-its front pair.
+By choice, an MP3 or WAV song plays from its start again at its end, as an
+Ogg one does, and one of more than two channels as its front pair.
 
 A sound device lost during play, a platform matter: its loss logged, the
 game's sounds and song play on unheard at their pace, and the default
@@ -3529,8 +3528,8 @@ machine with VSync off or a slowed game, a thing at rest never starts to
 fall or walk in DXEngine; the original's ticks never go under its floor of 5
 ms.
 
-For the owner (bugs.md D.105): a script's play of a sound whose data will
-not decode is a script error each time, which takes no channel, where
+By choice, a script's play of a sound whose data will not decode is a
+script error each time, which takes no channel, the game playing on, where
 Galaxy's unreadable data is a fatal error at the level's start
 ([`RegisterSound`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)).
 
