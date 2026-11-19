@@ -480,9 +480,22 @@ entered for a map exit's, where the original tells nothing (`SaveConsole`
 with the save folder read-only: the warning, the message and the run's own
 exit).
 
-For the owner (bugs.md D.88): a save empties its slot before it writes, as
-the original's, so one that fails or is killed part-way loses the save that
-was there.
+By choice, a slot's save is written into a folder beside the slot,
+`.dxe-new-<slot>`, and swapped in once whole, where the original's empties
+the slot and writes into it: the slot renamed to `.dxe-old-<slot>`, the new
+folder to the slot, the old removed (a folder in it, which no save makes,
+moved into the new). The slot is the original's whenever the save goes
+well; one that fails or is killed keeps the save before it. Neither name is
+a `Save*` folder, which the Load Game screen lists and a new save's slot
+counts, nor one DXLauncher reads. What a kill leaves is put right at the
+next start and before each save: a new save's folder removed, an old slot's
+put back where the slot is not there, a kill having come between the two
+renames, else removed. A map exit's save into `Current` needs no swap: each
+level's file there is written whole beside the old and moved over it
+(above), and the start empties `Current`. (`SaveConsole` under a file-size
+limit that kills the engine part-way through the save, an earlier slot 9 in
+place: slot 9 as it was, `.dxe-new-Save0009` beside it, removed at the next
+start.)
 
 By choice, a new save's slot counts a slot's folder spelt in another case:
 with `Save0004` and `save0005` it is `Save0006`, `save0005` kept, where the

@@ -153,6 +153,15 @@ public:
 	// A save that failed: Core's SaveWarning logged with the error, and the
 	// player told on the HUD's log once a player is there (bugs.md D.87)
 	void SaveFailed(const std::string& what, const std::string& error);
+	// A slot's save written into a folder beside it and swapped in whole,
+	// by the owner's choice against the original's save in place (bugs.md
+	// D.88): the new save's folder beside the slot, .dxe-new-<slot>, and the
+	// old slot's while the two are swapped, .dxe-old-<slot>, names that no
+	// Save* listing takes. SwapSaveSlot puts the new in the slot's place; TidySaveSlots,
+	// at the start and before each save, removes what a save killed part-way
+	// left, the old slot put back where the kill came between its renames.
+	bool SwapSaveSlot(const std::string& newFolderPath, const std::string& slotFolderPath) const;
+	void TidySaveSlots() const;
 	void DeleteGame(int32_t slot) const;
 	// Deus Ex travel: within a mission the departing level is pruned and
 	// saved into Current, and a map saved there is revisited as the player
@@ -195,7 +204,9 @@ public:
 	void PruneTravelActors() const;
 	// False, the failure logged, where the level's file was not written:
 	// the level's action and movers are as after a save either way
-	bool SaveCurrentLevel(int32_t slot);
+	// A folder given, a path or a name in the save folder, is the folder
+	// written, in place of the slot's.
+	bool SaveCurrentLevel(int32_t slot, const std::string& folderName = {});
 	void SetLevelURLForSave() const;
 	UnrealURL LevelHeldURL() const;
 	int32_t DeusExMissionNumber(const std::string& mapName) const;

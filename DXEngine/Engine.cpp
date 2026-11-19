@@ -353,6 +353,8 @@ void Engine::Run()
 	// Downloads left unfinished, and those unused too long (the original
 	// cleans its cache as the engine starts).
 	packages->CleanFileCache();
+	// What a save killed part-way left (bugs.md D.88)
+	TidySaveSlots();
 
 #ifndef WIN32
 	InstallStopSignal();
@@ -2063,7 +2065,11 @@ void Engine::SaveGameToSlot(int32_t slotNum, const std::string& saveDescription)
 	// MakeDirectory makes the whole tree (0x1000f644-0x1000f64b), and found
 	// in any case, as Windows' file system finds it; then it is emptied,
 	// Current copied in, the SaveInfo filled and written to the slot alone
-	// (0x1000f8e6), and the level saved on top of the copy.
+	// (0x1000f8e6), and the level saved on top of the copy. DXEngine, by
+	// the owner's choice, does all of it in a new folder beside the slot,
+	// swapped in once whole (SwapSaveSlot), the same slot as the original's
+	// whenever the save goes well, the save before it kept whole when it
+	// does not (bugs.md D.88).
 	//
 	// A file that fails -- a full disk, a read-only folder, a file another
 	// program holds -- is logged with Core's SaveWarning and the game plays
@@ -2071,16 +2077,47 @@ void Engine::SaveGameToSlot(int32_t slotNum, const std::string& saveDescription)
 	// player's save count as before the save; the player is told on the
 	// HUD's log too, by the owner's choice beyond the original, which tells
 	// nothing (bugs.md D.87).
+	// What an earlier save left put right first, so that a new slot's
+	// number is not that of an old slot the tidy-up puts back
+	TidySaveSlots();
 	if (slotNum == 0)
 		slotNum = NextSaveSlot();
 	const auto slotFolderName = slotNum == -1 ? SaveSlotFolderName(slotNum) : SaveNumberedFolderName(slotNum);
-	const auto saveSlotFolder = Directory::resolveCase(packages->GetSaveFolderPath() / slotFolderName);
+	// The slot found in any case, a link to it followed, the new folder
+	// beside the folder it leads to so that the swap keeps the link
 	std::error_code ec;
-	fs::create_directories(saveSlotFolder, ec);
-	if (!DeleteSaveGameFiles(slotFolderName) || !CopySaveGameFiles("Current", slotFolderName))
+	fs::path slotFolder = Directory::resolveCase(packages->GetSaveFolderPath() / slotFolderName);
+	if (fs::is_symlink(fs::symlink_status(slotFolder, ec)))
 	{
-		packages->RemoveSaveInfoPackage(slotFolderName);
-		SaveFailed(slotFolderName, "Current not copied into it");
+		const fs::path target = fs::canonical(slotFolder, ec);
+		if (!ec)
+			slotFolder = target;
+	}
+	const std::string newFolderName = ".dxe-new-" + slotFolder.filename().string();
+	const auto saveSlotFolder = slotFolder.parent_path() / newFolderName;
+	auto discard = [&]() {
+		packages->CloseStreams();
+		std::error_code removeError;
+		fs::remove_all(saveSlotFolder, removeError);
+		packages->RemoveSaveInfoPackage(newFolderName);
+	};
+	// A file in the slot's place fails the save, as the original's copy
+	// into it fails; one left of an earlier save's new folder goes first
+	std::string madeError;
+	const fs::file_status slotStatus = fs::status(slotFolder, ec);
+	if (fs::exists(slotStatus) && !fs::is_directory(slotStatus))
+		madeError = "a file is in the slot's place";
+	else
+	{
+		fs::remove_all(saveSlotFolder, ec);
+		fs::create_directories(saveSlotFolder, ec);
+		if (ec || !fs::is_empty(saveSlotFolder, ec))
+			madeError = "cannot make " + saveSlotFolder.string() + (ec ? ": " + ec.message() : "");
+	}
+	if (!madeError.empty() || !CopySaveGameFiles("Current", saveSlotFolder.string()))
+	{
+		discard();
+		SaveFailed(slotFolderName, !madeError.empty() ? madeError : "Current not copied into it");
 		return;
 	}
 	// The copies on the disk before the SaveInfo and the level make the
@@ -2122,15 +2159,114 @@ void Engine::SaveGameToSlot(int32_t slotNum, const std::string& saveDescription)
 	}
 	catch (const std::exception& e)
 	{
+		discard();
 		SaveFailed(slotFolderName, e.what());
 		saved = false;
 	}
 
-	saved = saved && SaveCurrentLevel(slotNum);
+	// Slot -2's level into Current, its SaveInfo into Save-002, as the
+	// original's; any other slot's into the new folder. A level not written
+	// has told its failure.
+	if (saved && !SaveCurrentLevel(slotNum, slotNum == -2 ? std::string() : saveSlotFolder.string()))
+	{
+		discard();
+		saved = false;
+	}
+
+	packages->CloseStreams();
+	if (saved && !SwapSaveSlot(saveSlotFolder.string(), slotFolder.string()))
+	{
+		discard();
+		SaveFailed(slotFolderName, "not put in the slot's place");
+		saved = false;
+	}
 
 	packages->RemoveSaveInfoPackage(slotFolderName);
 	if (!saved && player)
 		player->saveCount() = savedCount;
+}
+
+// The rename of the slot away and of the new folder in, on the same file
+// system, each a moment's work: a slot that will not go -- on Windows a file
+// in it another program holds -- fails the save, the slot as it was.
+bool Engine::SwapSaveSlot(const std::string& newFolderPath, const std::string& slotFolderPath) const
+{
+	const fs::path newFolder(newFolderPath);
+	const fs::path slotFolder(slotFolderPath);
+	const fs::path saveFolder = slotFolder.parent_path();
+	const fs::path oldFolder = saveFolder / (".dxe-old-" + slotFolder.filename().string());
+	std::error_code ec;
+	const bool hadSlot = fs::exists(fs::symlink_status(slotFolder, ec));
+	if (hadSlot)
+	{
+		// One left beside a slot's link's folder, where no tidying looks
+		fs::remove_all(oldFolder, ec);
+		fs::rename(slotFolder, oldFolder, ec);
+		if (ec)
+		{
+			LogMessage("Could not move " + slotFolder.string() + " away: " + ec.message());
+			return false;
+		}
+	}
+	fs::rename(newFolder, slotFolder, ec);
+	if (ec)
+	{
+		LogMessage("Could not move " + newFolder.string() + " into the slot: " + ec.message());
+		std::error_code backError;
+		if (hadSlot)
+			fs::rename(oldFolder, slotFolder, backError);
+		return false;
+	}
+	Directory::sync(saveFolder);
+	if (!hadSlot)
+		return true;
+	// A folder in the old slot, which no save makes, kept in the new, as the
+	// original's emptying of a slot removes its files alone
+	fs::directory_iterator entries(oldFolder, ec);
+	for (; !ec && entries != fs::directory_iterator(); entries.increment(ec))
+	{
+		std::error_code moveError;
+		if (fs::is_directory(fs::symlink_status(entries->path(), moveError)) && !fs::exists(slotFolder / entries->path().filename(), moveError))
+			fs::rename(entries->path(), slotFolder / entries->path().filename(), moveError);
+	}
+	fs::remove_all(oldFolder, ec);
+	return true;
+}
+
+void Engine::TidySaveSlots() const
+{
+	const fs::path saveFolder = packages->GetSaveFolderPath();
+	std::vector<fs::path> left;
+	std::error_code ec;
+	fs::directory_iterator entries(saveFolder, ec);
+	for (; !ec && entries != fs::directory_iterator(); entries.increment(ec))
+	{
+		const std::string name = entries->path().filename().string();
+		std::error_code typeError;
+		if ((name.rfind(".dxe-new-", 0) == 0 || name.rfind(".dxe-old-", 0) == 0) && fs::is_directory(fs::symlink_status(entries->path(), typeError)))
+			left.push_back(entries->path());
+	}
+	if (left.empty())
+		return;
+	packages->CloseStreams();
+	for (const fs::path& folder : left)
+	{
+		const std::string name = folder.filename().string();
+		packages->RemoveSaveInfoPackage(name);
+		std::error_code fileError;
+		const fs::path slot = saveFolder / name.substr(9);
+		if (name.rfind(".dxe-old-", 0) == 0 && !fs::exists(fs::symlink_status(slot, fileError)))
+		{
+			fs::rename(folder, slot, fileError);
+			if (!fileError)
+			{
+				LogMessage("Save slot " + slot.filename().string() + " put back from " + name);
+				continue;
+			}
+		}
+		fs::remove_all(folder, fileError);
+		LogMessage("Save folder " + name + " left by a save not made, removed");
+	}
 }
 
 void Engine::SaveFailed(const std::string& what, const std::string& error)
@@ -2666,7 +2802,7 @@ void Engine::PruneTravelActors() const
 
 // The level package into a save directory: -2 Current, -1 the quick save,
 // else the numbered slot, the writer's new file moved over the old one.
-bool Engine::SaveCurrentLevel(int32_t slot)
+bool Engine::SaveCurrentLevel(int32_t slot, const std::string& folderName)
 {
 	// With no DeusExLevelInfo the original's saves nothing and logs that it
 	// has none (DeusEx.dll 0x1000fac0); nothing asks for it then, SaveGame
@@ -2685,7 +2821,7 @@ bool Engine::SaveCurrentLevel(int32_t slot)
 
 	// The folder made with the folders it is in, as the original's
 	// MakeDirectory makes the whole tree, and found in any case
-	const auto folder = Directory::resolveCase(packages->GetSaveFolderPath() / SaveSlotFolderName(slot));
+	const auto folder = Directory::resolveCase(packages->GetSaveFolderPath() / (folderName.empty() ? SaveSlotFolderName(slot) : folderName));
 	std::error_code ec;
 	fs::create_directories(folder, ec);
 	// Named by the DeusExLevelInfo's MapName, as the original's
