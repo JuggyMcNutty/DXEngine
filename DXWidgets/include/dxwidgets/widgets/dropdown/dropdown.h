@@ -35,6 +35,7 @@ public:
 	void SetDropdownDirection(bool below);
 
 	int GetSelectedItem() const { return selectedItem; }
+	bool IsDropdownOpen() const { return dropdownOpen; }
 	void SetSelectedItem(int index);
 
 	double GetPreferredHeight() override;

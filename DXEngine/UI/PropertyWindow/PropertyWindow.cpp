@@ -48,9 +48,11 @@ namespace Look
 	constexpr double FrameHeight = 26.0;
 }
 
-// A combo whose Up and Down move the tree's selection, as the original's
-// (OBSERVED: a Down sent to a bool's combo selects the next row, the value
-// unchanged); its other keys its own
+// A combo whose Up and Down move the tree's selection with its list shut, as
+// the original's (OBSERVED: a Down sent to a bool's combo selects the next
+// row, the value unchanged); its other keys its own, and with its list open
+// every key, Up and Down moving through the choices as a dropped Windows
+// combo's list takes them (by choice: bugs.md D.106)
 class PropertyCombo : public Dropdown
 {
 public:
@@ -60,7 +62,7 @@ public:
 protected:
 	void OnKeyDown(InputKey key) override
 	{
-		if (FuncTreeKey && FuncTreeKey(key))
+		if (!IsDropdownOpen() && FuncTreeKey && FuncTreeKey(key))
 			return;
 		Dropdown::OnKeyDown(key);
 	}

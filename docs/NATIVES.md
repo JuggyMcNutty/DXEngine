@@ -4277,9 +4277,13 @@ Rendering's two `(failed load)` drivers among them, the static arrays opened in
 DXEngine's alone; an edit at Enter, one left without it, Reset To Defaults and
 `Paths`' Add, Insert, Delete and Empty by a test hook against the original's by
 `prefclick.exe`, the `GET`s and the ini alike; full screen by reading). A combo's
-pick commits at once, as the window's other editors do; the original's could not
-be seen picked under Wine (its list opens to no click `SendInput` puts in, and a
-pick's messages sent do not commit), so this one is by reading. An edit of
+pick commits at once, as the window's other editors do; with its list shut Up and
+Down move the tree's selection, as the original's, and with it open (Space or
+Enter) they and PageUp and PageDown move through its choices, by choice, as a
+dropped Windows combo's list takes them (what the original's open list does with
+them is unread, its code Window.dll's); the original's could not be seen picked
+under Wine (its list opens to no click `SendInput` puts in, and a pick's messages
+sent do not commit), so this one is by reading. An edit of
 `Engine.GameEngine`'s `ServerActors` or `ServerPackages` changes the running
 game engine's lists too, as the original's changes its engine's in memory. The
 client's and the devices' settings are DXEngine's objects', in their own
@@ -4302,11 +4306,6 @@ to `JoyPovRight`, as the original's input names them from Actor's
 `DefUser.ini`'s keys, and the Advanced Options' Raw Key Bindings in both
 engines), `Console.uc`'s own enum alone naming them `UnknownF0` to
 `UnknownF3`.
-
-For the owner (bugs.md D.106): in the Advanced Options a combo's Up and Down
-move the tree even with its list open, so only its first and last choices
-are reached from the keyboard; what the original's open list takes is
-unread.
 
 ## Mods
 
