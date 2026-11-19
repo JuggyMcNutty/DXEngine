@@ -38,7 +38,8 @@ Differs by choice. An error DXEngine does not catch -- a script error, an
 unknown native, a call to a function import that did not load, a failed save
 -- exits the engine with 1, which the launcher takes for a crash; one in a
 script that a native or a console command runs too. No map or
-action is known to reach one; the audit lists the natives whose call would.
+action is known to reach one, but for a save's failed file work (below); the
+audit lists the natives whose call would.
 A `foreach` on a None context, and state code's `goto` to a label its state
 has not, stop both engines alike (the original's Critical Error); a None
 class's `default` is 0 in both, and `AllActors(None)` every actor. A dynamic
@@ -4315,6 +4316,11 @@ the size asked, and the Wayland window's double click tests the time alone;
 nothing seen.
 
 ## Mods
+
+A mod without native code of its own plays, as a folder of its own: The
+Zodiac, Hotel Carone, GMDX, Deus Ex Randomizer and Transcended each play
+their opening; The Zodiac, GMDX and Transcended import into DXLauncher's
+Mods, the other two untried there.
 
 A mod with native code of its own does not play as it ships, but HX (below):
 a native its packages declare for its own DLL stops the game at its first

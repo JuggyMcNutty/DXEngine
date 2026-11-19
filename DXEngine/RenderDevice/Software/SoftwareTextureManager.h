@@ -47,7 +47,7 @@ public:
 	SoftwareBuffer<uint32_t> Data;
 
 	// What the draws not yet drawn read of it, as of the device's epoch
-	// (SoftwareRenderDevice::Drain): all of it, or the rectangles a light
+	// (SoftwareRenderDevice::DrawRecorded): all of it, or the rectangles a light
 	// map's draws read of the page it shares
 	uint64_t NamedEpoch = 0;
 	bool NamedAll = false;

@@ -285,7 +285,9 @@ bool UActor::Destroy(bool netForce)
 	// An event above (Destroyed, an owned actor's SetOwner, UnTouch,
 	// LostChild) may have moved or re-collided the actor, filing it in the
 	// hash and a BSP node again: out once more, now that bDeleteMe keeps it
-	// out, so no cell points at it once it is freed.
+	// out of the hash (AddToCollision) and its emptied slot in the level's
+	// actors out of the render's filing in the BSP (UpdateBspInfo's
+	// callers), so no cell points at it once it is freed.
 	RemoveFromBspNode();
 	level->Collision.RemoveFromCollision(this);
 

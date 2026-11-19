@@ -148,7 +148,7 @@ is the game still.
   added to line by line, so that a crash leaves the run's log up to it, then written whole as
   the run ends, a fatal error's line in it: a long run's first 1,000 lines and its last
   100,000, the count of those between said; two engines run with one folder write one file,
-  the last to end the one kept), the crash reports, the shots (its
+  the last to end the one kept), the crash reports of MSVC's build alone, the shots (its
   `Screenshots` folder) and a class's own config file (a mod's, as `DXMTL.ini`), read from
   `<dir>` first, else from the System folder (`--system`'s, else the game's), and written to
   `<dir>`. The engine makes the folder; without the option nothing changes.
@@ -484,8 +484,9 @@ The renderer's CPU work is lighter than Surreal Engine's:
   texture, and a map's change is sent as a part of its page. The opaque surfaces are drawn by
   zone, texture and light map ([draw order](NATIVES.md#draw-order-and-movers)), so a run of one
   texture and one page is one batch where descriptor indexing is missing (the Smart Pro's).
-- **Meshes**: each vertex animated, lit and fogged once a draw; a run of faces with one texture
-  drawn in one device call, set up once (the GL device's `DrawGouraudTriangles` too).
+- **Meshes**: a LOD mesh's each vertex animated, lit and fogged once a draw, a plain mesh's
+  worked at each face's corners; a run of faces with one texture drawn in one device call, set up
+  once (the GL device's `DrawGouraudTriangles` too).
 - **A portal's spans** are put in order by row in linear time, not sorted (`SortPortalSpans`).
 
 Deus Ex's look, as `Render.dll` and `D3DDrv.dll` make it, is described by feature in

@@ -137,7 +137,10 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
 	if (mover)
 	{
 		// A mover's maps are its own: the mover's ID in the upper 12 bits
-		// (4096 movers), which leaves 20 bits (1 million) for the lightmaps.
+		// (4096 movers), ORed over the light map's ID past its 20th bit: that
+		// ID counts for the whole process (UModel's LMCacheID) and passes
+		// 2^20, but one level's maps, numbered in a row, differ in their low
+		// 20 bits.
 		// And a map of each zone it is drawn in, by the zone actor's own zone
 		// number, as the original's cache holds one under the model, the
 		// light map and that number (the zone actor's at 0x10b06e90), where a

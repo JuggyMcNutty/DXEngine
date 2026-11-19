@@ -66,12 +66,12 @@ std::string ReadString()
 ```
 
 ### String Data Type
-A string property's value, as the original's `FString` saves it (Core.dll `0x101459b0`). In a
-package of version under 64 it is zero terminated, a byte a character, as a name. From 64 it is
-an `index` count of characters, its terminator among them, then the characters: a byte each
-when the count is positive, a `uint16` each (UTF-16) when it is negative. A string of the
-terminator alone is empty. Written 16-bit when any character before the terminator is past
-0xFF, else 8-bit (`ObjectStream::ReadScriptString`, `PackageStreamWriter::WriteScriptString`).
+A string property's value, as the original's `FString` saves it (Core.dll `0x101459b0`), at
+every version: an `index` count of characters, its terminator among them, then the characters:
+a byte each when the count is positive, a `uint16` each (UTF-16) when it is negative; only a
+name is zero terminated below version 64. A string of the terminator alone is empty. Written
+16-bit when any character before the terminator is past 0xFF, else 8-bit
+(`ObjectStream::ReadScriptString`, `PackageStreamWriter::WriteScriptString`).
 
 ## File Header
 ```
@@ -123,7 +123,7 @@ struct ExportTableEntry
   index Base
   uint32 Package
   index ObjectName
-  index ObjectFlags
+  uint32 ObjectFlags
   index Size
   index Offset
 } ExportTable[FileHeader.ExportCount]
