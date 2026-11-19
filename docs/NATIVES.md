@@ -1229,7 +1229,8 @@ first person. `MirrorConsole`, at 4:3, on GL and on Vulkan:
 - **Liberty Island's UNATCO HQ lobby**, its marble floor a mirror, turned
   and stepped across: the furniture, a mannequin and the player show in its
   reflection from every view, the right way out, as in the original's
-  frame.
+  frame, each reflected mesh lit from the other side of its faces: the
+  potted plants' fronds as `D3DDrv`'s.
 - **UNATCO HQ's glass mirrors**, facing -x, -y and +x, and the Paris club's:
   the room and the player reflected, each mirror within 2 to 5% of the
   original's brightness, through `OpenGLDrv` and `D3DDrv` alike.
@@ -1261,14 +1262,6 @@ first person. `MirrorConsole`, at 4:3, on GL and on Vulkan:
   the tracker files still reflecting (`FarConsole` turned to them from the
   start: three mover mirror frames a scene, where two buried ones made it
   five, counted by a tool not kept), the frame unchanged.
-
-For the owner (bugs.md D.107): in a mirror's frame the original lights a
-mesh's faces as from their other side, its normals made from the frame's
-reflected corners and never turned back
-([a face's normal](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#meshes));
-DXEngine lights them by their own normals, with the mirror's eye for the
-highlights alone, so a frond of the lobby's plants that the original's
-reflection has lit is black in DXEngine's.
 
 Differs by choice:
 
@@ -1524,7 +1517,11 @@ lights and those it kept; an actor's own light counts in the pass, so that
 a light under an eighth of its strength lights nothing, but lights nothing
 of it. A vertex is lit by its normal alone, whatever its faces' flags, as
 the original's `Light` (`Render.dll` `0x10b027f0`) lights each once: a
-two-sided face shows on both sides the light its normal gets. An unlit
+two-sided face shows on both sides the light its normal gets. In a mirror's
+frame a mesh's normals are turned round, as the original's, made in the
+frame's reflected view space, are
+([a face's normal](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/render-dll.md#meshes)):
+a face is lit there from its other side ([mirrors](#mirrors)). An unlit
 face is lit at the unlit level of the mesh drawn, its `AmbientGlow` / 256 +
 `ScaleGlow` / 2, a held item's its own though the pawn lights the rest of
 it, and as the original's face draw it writes that level into its corners'

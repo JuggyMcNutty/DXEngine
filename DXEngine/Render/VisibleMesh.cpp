@@ -726,7 +726,10 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 
 			vertices[i].Point = (ObjectToWorld * vec4(vertex, 1.0f)).xyz();
 			vertices[i].UV = { tri.UV[i].x * uscale, tri.UV[i].y * vscale };
-			normals[i] = normalize(ObjectNormalToWorld * normal);
+			// Turned round in a mirror's frame, as the original's DrawMesh
+			// makes a face's normal in the frame's reflected view space
+			// (render-dll.md, a face's normal in a mirror's frame)
+			normals[i] = normalize(ObjectNormalToWorld * normal) * (frame->MirrorFlag ? -1.0f : 1.0f);
 		}
 
 		// The original's DrawMesh culls a face that faces away when its own
@@ -1204,11 +1207,19 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor* 
 	// made a unit -- |n|² + 0.001 under the root, as its table takes it --
 	// so that at reduced detail the shading follows the coarse faces. A
 	// vertex is moved out along its normal by the fatness once its face is
-	// kept.
-	auto faceNormal = [](const vec3& a, const vec3& b, const vec3& c)
+	// kept. The original makes each face's normal from its corners in the
+	// frame's view space, which a mirror's frame reflects, and does not
+	// multiply it by the frame's Mirror as its facing test does
+	// (render-dll.md, a face's normal in a mirror's frame): in a mirror's
+	// frame every normal is turned round, so a face lit from one side in
+	// the main view is lit from the other in its reflection, as D3DDrv's
+	// frames of Liberty Island's lobby floor show, and a mirror's in a
+	// mirror the right way again.
+	const float mirrored = frame->MirrorFlag ? -1.0f : 1.0f;
+	auto faceNormal = [mirrored](const vec3& a, const vec3& b, const vec3& c)
 	{
 		vec3 n = cross(b - a, c - a);
-		return n * (1.0f / std::sqrt(dot(n, n) + 0.001f));
+		return n * (mirrored / std::sqrt(dot(n, n) + 0.001f));
 	};
 	// The vertices placed at the frame's pose and their normals made, timed
 	// for STAT MESH's GetFrame, as the original's DrawLodMesh clocks its
