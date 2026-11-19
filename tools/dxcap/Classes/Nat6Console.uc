@@ -137,6 +137,7 @@ event Tick(float Delta)
 {
 	local PlayerPawn P;
 	local float X, Y;
+	local CapNat6Probe Probe;
 
 	Super.Tick(Delta);
 	if (Phase == 9 || Viewport == None || Viewport.Actor == None)
@@ -149,6 +150,11 @@ event Tick(float Delta)
 		VecDivOps();
 		CrossOps();
 		MirrorOps();
+		// The cases that rest on the sums' order and precision, here in the
+		// console's tick and by the probe in the level's
+		Probe = P.Spawn(class'CapNat6Probe');
+		if (Probe != None)
+			Probe.Cases("console's tick:");
 		FloatZeroOps();
 		MathEdgeOps();
 		RandOps();

@@ -455,12 +455,18 @@ public:
 		UActor* Next = nullptr;
 	} BspInfo;
 
-	// Tweening animation state
+	// Tweening animation state: where the tween began, as offsets into the
+	// vertices of the actor's Mesh, and as the sequence and frame it was at,
+	// for a draw with another mesh of the actor's (a held item's
+	// ThirdPersonMesh, VisibleMesh.cpp's TweenStart)
 	struct
 	{
 		int V0 = 0;
 		int V1 = 0;
 		float T = -1.0f;
+		UMesh* Mesh = nullptr; // compared alone, never read through
+		NameString Sequence;
+		float Frame = 0.0f;
 	} TweenFromAnimFrame;
 
 	// Tweening blend animation state (per slot)

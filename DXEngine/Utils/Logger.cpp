@@ -69,6 +69,8 @@ void Logger::LogMessage(const std::string& message)
 void Logger::Add(LogMessageLine line)
 {
 	Log.push_back(std::move(line));
+	if (LastRun)
+		StreamLine(Log.back());
 	if (printLogDebugger)
 		printLogDebugger(Log.back());
 	if (Log.size() == HeadLines + 1)
@@ -154,19 +156,84 @@ void Logger::SaveLog(const std::string& filename) const
 	File::write_all_text(filename, json);
 }
 
+std::string Logger::PlainLine(const LogMessageLine& line)
+{
+	const auto source = line.Source.empty() ? "<DXEngine>" : line.Source;
+	return "[" + std::to_string(line.Time) + "] " + source + ": " + line.Text + "\n";
+}
+
 void Logger::SaveLogAsPlaintext(const std::string& filename) const
 {
 	std::string finalLog;
 
 	for (const LogMessageLine& line : GetLog())
-	{
-		const auto source = line.Source.empty() ? "<DXEngine>" : line.Source;
-		finalLog += "[" + std::to_string(line.Time) + "] " + source + ": " + line.Text + "\n";
-	}
+		finalLog += PlainLine(line);
 
 	File::write_all_text(filename, finalLog);
 }
 
+// A line onto the last run's log, under the log's lock. A file that will
+// not take it ends the adding, not the run.
+void Logger::StreamLine(const LogMessageLine& line)
+{
+	if (LastRunLines >= StreamLines)
+		return;
+	try
+	{
+		std::string text = PlainLine(line);
+		LastRun->write(text.data(), text.size());
+		LastRun->flush();
+		LastRunLines++;
+	}
+	catch (...)
+	{
+		LastRun.reset();
+	}
+}
+
+void Logger::BeginLastRun()
+{
+	std::lock_guard<std::mutex> lock(mutex);
+	try
+	{
+		LastRun = File::create_always(LastRunFilename());
+		LastRunLines = 0;
+		for (const LogMessageLine& line : Log)
+		{
+			if (!LastRun)
+				break;
+			StreamLine(line);
+		}
+	}
+	catch (...)
+	{
+		LastRun.reset();
+	}
+}
+
+
+std::string Logger::LastRunFilename()
+{
+	return (Directory::engineUserDir() / "DXE-Log-LastRun.txt").string();
+}
+
+bool Logger::SaveLastRun()
+{
+	try
+	{
+		// The file is let go first: it is written anew, whole
+		{
+			std::lock_guard<std::mutex> lock(mutex);
+			LastRun.reset();
+		}
+		SaveLogAsPlaintext(LastRunFilename());
+		return true;
+	}
+	catch (const std::exception&)
+	{
+		return false;
+	}
+}
 
 std::list<LogMessageLine> Logger::LoadLog(const std::string& filename)
 {

@@ -615,13 +615,18 @@ void UActor::SetTweenFromAnimFrame()
 			TweenFromAnimFrame.V0 = (seq->StartFrame + frame0) * Mesh()->FrameVerts;
 			TweenFromAnimFrame.V1 = (seq->StartFrame + frame1) * Mesh()->FrameVerts;
 			TweenFromAnimFrame.T = animFrame - (float)frame0;
+			TweenFromAnimFrame.Sequence = AnimSequence();
+			TweenFromAnimFrame.Frame = std::max(AnimFrame(), 0.0f);
 		}
 		else // For safety. Should never happen.
 		{
 			TweenFromAnimFrame.V0 = 0;
 			TweenFromAnimFrame.V1 = 0;
 			TweenFromAnimFrame.T = -1.0f;
+			TweenFromAnimFrame.Sequence = NameString();
+			TweenFromAnimFrame.Frame = 0.0f;
 		}
+		TweenFromAnimFrame.Mesh = Mesh();
 	}
 }
 

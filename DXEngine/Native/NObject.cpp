@@ -474,9 +474,23 @@ void NObject::DivideEqual_RotatorFloat(Rotator& A, float B, Rotator& ReturnValue
 	ReturnValue = A = Rotator(X87::OverFloat(A.Pitch, B), X87::OverFloat(A.Yaw, B), X87::OverFloat(A.Roll, B));
 }
 
+// A vector over a float is each part times one over the float, the
+// reciprocal as the x87 holds it and each product stored as a float, as the
+// original's (Core.dll 0x10137ab0, /= at 0x10138a10: an fdivr of 1.0, then
+// an fmul and a store a part). In the console's tick, at 24 bits,
+// vect(100,10,5) / 3.0 has 33.333336 for its X, where a divide gives
+// 33.333332; in the level's the reciprocal keeps its bits (Nat6Console and
+// CapNat6Probe: every case alike in both ticks).
+static vec3 VectorOverFloat(const vec3& a, float b)
+{
+	auto R = X87::Round;
+	double r = R(1.0 / (double)b);
+	return vec3((float)R(a.x * r), (float)R(a.y * r), (float)R(a.z * r));
+}
+
 void NObject::DivideEqual_VectorFloat(vec3& A, float B, vec3& ReturnValue)
 {
-	ReturnValue = A /= B;
+	ReturnValue = A = VectorOverFloat(A, B);
 }
 
 void NObject::Divide_FloatFloat(float A, float B, float& ReturnValue)
@@ -507,7 +521,7 @@ void NObject::Divide_RotatorFloat(const Rotator& A, float B, Rotator& ReturnValu
 
 void NObject::Divide_VectorFloat(const vec3& A, float B, vec3& ReturnValue)
 {
-	ReturnValue = A / B;
+	ReturnValue = VectorOverFloat(A, B);
 }
 
 // The original's (Core.dll 0x10138630): the products summed on the x87, Z's
@@ -926,9 +940,22 @@ void NObject::Min(int A, int B, int& ReturnValue)
 	ReturnValue = std::min(A, B);
 }
 
+// The original's (Core.dll 0x101392a0): the normal made a unit
+// (FVector::SafeNormal), its dot with the vector summed Y's and Z's products
+// first, then X's, and stored as a float; then each part less twice the
+// normal's part times that dot, X's product as the x87 holds it, Y's and Z's
+// stored as floats first. (1,0,-1) by (0,0,2) is (1,0,1), by (0,0,0) the
+// vector; by normals off the axes each part alike to its last bit in the
+// console's tick and the level's (Nat6Console and CapNat6Probe).
 void NObject::MirrorVectorByNormal(const vec3& Vect, const vec3& Normal, vec3& ReturnValue)
 {
-	ReturnValue = reflect(Vect, Normal);
+	auto R = X87::Round;
+	vec3 n = X87::SafeNormal(Normal);
+	float d = (float)R(R(R((double)Vect.y * n.y) + R((double)Vect.z * n.z)) + R((double)Vect.x * n.x));
+	double x = R((double)(2.0f * n.x) * d);
+	float y = (float)R((double)(2.0f * n.y) * d);
+	float z = (float)R((double)(2.0f * n.z) * d);
+	ReturnValue = vec3((float)R((double)Vect.x - x), (float)R((double)Vect.y - y), (float)R((double)Vect.z - z));
 }
 
 void NObject::MultiplyEqual_ByteByte(uint8_t& A, uint8_t B, uint8_t& ReturnValue)

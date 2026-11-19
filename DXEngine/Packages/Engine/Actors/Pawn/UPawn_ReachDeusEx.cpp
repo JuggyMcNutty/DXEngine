@@ -213,13 +213,18 @@ int UPawn::DeusExSwimMove(vec3 delta, UActor* goalActor, float threshold, bool a
 
 // APawn::findWaterLine (Engine.dll 0x103d3b10): the water's edge between a
 // point in the water and one out of it, halved until they lie within a unit.
+// An end that is no number ends the search at once, as the original's does
+// (ShortTickConsole, Only=c: a swimmer at a NaN place plays on in the
+// original, where a test for "under a unit" never held and hung the game);
+// 128 halvings bring any two finite points within a unit, so the count
+// stops only ends at infinity, which halve to themselves.
 void UPawn::FindWaterLine(vec3 start, vec3& end)
 {
 	bool hereWater = Water(Region().Zone);
-	for (;;)
+	for (int pass = 0; pass < 128; pass++)
 	{
 		vec3 d = end - start;
-		if (dot(d, d) < 1.0f)
+		if (!(dot(d, d) >= 1.0f))
 			return;
 		vec3 mid = (start + end) * 0.5f;
 		if (Water(XLevel()->Model->FindRegion(mid, Level()).Zone) == hereWater)

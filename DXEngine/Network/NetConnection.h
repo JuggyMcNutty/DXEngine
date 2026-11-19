@@ -143,6 +143,9 @@ public:
 	int Challenge = 0;
 	int NegotiatedVer = 1100;
 	int UserFlags = 0;
+	// On a server: the connection's LOGIN answered the challenge and the
+	// game's PreLogin took it, so its JOIN is one to take
+	bool LoginAccepted = false;
 	int CurrentNetSpeed = 0;
 	// The server's DYNAMICRATE and STATICRATE as intervals, which pace the
 	// player's moves (Deus Ex's).

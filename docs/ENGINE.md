@@ -132,8 +132,11 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   else the game's. Without it, the game's `System`.
 - **`--userdir=<dir>`** is the engine's own folder in place of `~/.config/DXEngine` (Windows'
   `%LOCALAPPDATA%\DXEngine`):
-  `Settings.json`, the last run's log (`DXE-Log-LastRun.txt`: a long run's first 1,000 lines and
-  its last 100,000, the count of those between said), the crash reports, the shots (its
+  `Settings.json`, the last run's log (`DXE-Log-LastRun.txt`, begun as the engine starts and
+  added to line by line, so that a crash leaves the run's log up to it, then written whole as
+  the run ends, a fatal error's line in it: a long run's first 1,000 lines and its last
+  100,000, the count of those between said; two engines run with one folder write one file,
+  the last to end the one kept), the crash reports, the shots (its
   `Screenshots` folder) and a class's own config file (a mod's, as `DXMTL.ini`), read from
   `<dir>` first, else from the System folder (`--system`'s, else the game's), and written to
   `<dir>`. The engine makes the folder; without the option nothing changes.
@@ -357,7 +360,9 @@ By area, as the code stands. Each device's numbers are its port's, such as
 - **The Fatal Error window** is 1500x800 DIPs, or less to fit the work area of the screen it
   opens on, the primary one (its taskbar left out under SDL3, SDL2 and Win32, the whole screen
   elsewhere), centred there. Esc closes it as its close box does; in SDL3's and the Win32
-  window on Windows Alt+F4 closes it and Alt+Space opens its window menu.
+  window on Windows Alt+F4 closes it and Alt+Space opens its window menu. Under the error it
+  names the last run's log, which holds the same text: what Copy to clipboard copies lasts, on
+  X11 and Wayland, only while the window does, unless a clipboard manager keeps it.
 - **The property windows**, the Advanced Options of `PREFERENCES` and `EDITACTOR`'s
   inspectors (`UI/PropertyWindow`), are DXWidgets windows owned by the game's window (a
   dedicated server's on their own, its loop taking their events while one is open),

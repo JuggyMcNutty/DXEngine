@@ -46,6 +46,11 @@ public:
 			Exception::Throw("CloseHandle failed");
 	}
 
+	// WriteFile hands each write to the system: nothing is held in the process
+	void flush() override
+	{
+	}
+
 	// In chunks a DWORD holds, each of what is left (bugs.md ENG.34), the
 	// pointer moved by what was written
 	void write(const void *data, size_t size) override
@@ -198,6 +203,12 @@ public:
 		size_t result = fwrite(data, size, 1, handle);
 		if (result != 1)
 			Exception::Throw("fwrite failed");
+	}
+
+	void flush() override
+	{
+		if (handle && fflush(handle) != 0)
+			Exception::Throw("fflush failed");
 	}
 
 	void seek(int64_t offset, SeekPoint origin = SeekPoint::begin) override

@@ -248,9 +248,44 @@ Engine::Engine(GameLaunchInfo launchinfo) : LaunchInfo(launchinfo)
 	std::string consolestr = packages->GetIniValue("system", "Engine.Engine", "Console");
 	std::string consolepkg = consolestr.substr(0, consolestr.find('.'));
 	std::string consolecls = consolestr.substr(consolestr.find('.') + 1);
+	// A class that is not there, or is no Console, stops the start as it
+	// stops the original's (its StaticLoadClass, the texts Core's own:
+	// "Failed to find object 'Class Engine.NoSuchConsole'", "Class
+	// Engine.Canvas is not a child class of Class Engine.Console.A", the
+	// last two characters its own slip), where a null class or console
+	// crashed with no message. A package that is not there has thrown
+	// already, naming the package.
+	auto coreError = [&](const char* key, const char* fallback, std::initializer_list<std::string> args) {
+		std::string format = packages->Localize("Core", "Errors", key);
+		if (format.empty())
+			format = fallback;
+		std::string text;
+		auto arg = args.begin();
+		for (size_t i = 0; i < format.size(); i++)
+		{
+			if (format[i] == '%' && i + 1 < format.size() && format[i + 1] == 's')
+			{
+				if (arg != args.end())
+					text += *arg++;
+				i++;
+			}
+			else
+			{
+				text += format[i];
+			}
+		}
+		return text;
+	};
+	UClass* consoleClass = packages->GetPackage(consolepkg)->GetClass(consolecls);
+	if (!consoleClass)
+		Exception::Throw(coreError("ObjectNotFound", "Failed to find object '%s %s.%s'", { "Class", consolepkg, consolecls }));
+	bool isConsole = false;
+	for (UStruct* cls = consoleClass; cls && !isConsole; cls = cls->BaseStruct)
+		isConsole = cls->Name == "Console";
+	if (!isConsole)
+		Exception::Throw(coreError("LoadClassMismatch", "%s is not a child class of %s.%s", { "Class " + consolestr, "Engine", "Console" }));
 	// Named after its class and a number, as the original's console object is
 	// made with no name (StaticConstructObject: DeusExConsole0)
-	UClass* consoleClass = packages->GetPackage(consolepkg)->GetClass(consolecls);
 	console = UObject::Cast<UConsole>(transientpkg->NewObject(transientpkg->MakeUniqueObjectName(consoleClass), consoleClass, ObjectFlags::Transient));
 
 	console->Viewport() = viewport;
@@ -260,19 +295,27 @@ Engine::Engine(GameLaunchInfo launchinfo) : LaunchInfo(launchinfo)
 
 Engine::~Engine()
 {
-	if (audiodev)
-		audiodev->ShutdownDevice();
-
-	// A log the folder will not take (a full disk, an I/O error) is lost, not
-	// the exit: a throw out of a destructor ends the process, before the error
-	// window when one from Run is on its way
+	// The Advanced Options and the actor inspectors go while the engine is
+	// whole, as at Run's own end. Left to the game window's destructor, an
+	// error's unwinding ran their closing -- the toggle back to full screen,
+	// its input words, script and a flush of the inis -- on members already
+	// destroyed, a crash in the error's place; on a dedicated server, whose
+	// windows have no owner, they lived on to paint with no engine.
 	try
 	{
-		Logger::Get()->SaveLogAsPlaintext((Directory::engineUserDir() / "DXE-Log-LastRun.txt").string());
+		ClosePropertyWindows();
 	}
 	catch (const std::exception&)
 	{
 	}
+
+	if (audiodev)
+		audiodev->ShutdownDevice();
+
+	// A log the folder will not take is lost, not the exit: nothing is thrown
+	// out of the destructor, which would end the process before the error
+	// window when an error from Run is on its way
+	Logger::Get()->SaveLastRun();
 
 	engine = nullptr;
 }
@@ -6732,16 +6775,14 @@ void Engine::UnlockCursor()
 		window->UnlockCursor();
 }
 
+// A typed character goes to the console's KeyType, a ~ with Shift held as
+// any other: the original's UEngine::Key has no hook that opens the console
+// (TildeConsole: its console gets 126 and stays in its state, in play and
+// under the main menu).
 bool Engine::Key(char16_t key)
 {
 	if (Frame::Halted)
 		return false;
-
-	if (key == '~' && window->GetKeyState(IK_Shift))
-	{
-		// Did they REALLY hack UE1 to do something as lame as this??
-		console->GotoState("Typing", {});
-	}
 
 	return CallEvent(console, EventName::KeyType, { ExpressionValue::ByteValue((uint8_t)key) }).ToBool();
 }

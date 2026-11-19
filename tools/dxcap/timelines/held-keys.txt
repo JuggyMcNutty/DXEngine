@@ -1,9 +1,11 @@
 # Left Shift held while ~ is typed, then Left Ctrl and Left Alt each held a
 # second: KeysConsole logs its state and the root window's marks of the keys
-# every quarter second (DXKEYS:). The state must turn Typing at the ~, the
-# engine's Shift+~ asking the window's key state, which must count a
-# timeline's key as held though it is an event SDL's own keyboard state never
-# sees (docs/DEVELOPMENT.md, timelines). Then an exit.
+# every quarter second (DXKEYS:). The marks must follow the keys, and the
+# console stay in its state at the ~: a ~ typed with Shift held is a
+# character as any other, as the original's. That a timeline's held key
+# counts in the window's key state, an event SDL's own keyboard state never
+# sees, is axis-keys.txt's to show (Enter with Alt held; docs/DEVELOPMENT.md,
+# timelines). Then an exit.
 # DXCAP_BACKEND=SDL3 DXCAP_TIMELINE=<this> tools/dxcap.sh dxe KeysConsole 01_NYC_UNATCOIsland.dx 14
 start 6.0 keydown Left Shift
 start 6.5 chars ~

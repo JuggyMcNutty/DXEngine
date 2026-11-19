@@ -108,6 +108,36 @@ static const MeshAnimSeq* SequenceOrFirstFrame(UMesh* mesh, const NameString& na
 	return seq ? seq : &firstFrame;
 }
 
+// A tween's start in the mesh drawn. An actor's is recorded against its own
+// Mesh (SetTweenFromAnimFrame); a held item is drawn with its
+// ThirdPersonMesh, a mesh of other frames and vertices, where those offsets
+// name nothing: there the start is the sequence the item was in, at its
+// frame, as that mesh has it, or the mesh's first frame where it has none --
+// the pose the original's GetFrame keeps for the actor from its last draw
+// (engine-dll.md, the mesh; bugs.md REN.75).
+static void TweenStart(UActor* animSource, UMesh* mesh, int& v0, int& v1, float& t)
+{
+	const auto& from = animSource->TweenFromAnimFrame;
+	if (!from.Mesh || from.Mesh == mesh)
+	{
+		v0 = from.V0;
+		v1 = from.V1;
+		t = from.T;
+		return;
+	}
+	v0 = 0;
+	v1 = 0;
+	t = 0.0f;
+	const MeshAnimSeq* seq = mesh->GetSequence(from.Sequence);
+	if (!seq || seq->NumFrames <= 0)
+		return;
+	float animFrame = from.Frame * seq->NumFrames;
+	int frame0 = (int)animFrame;
+	t = animFrame - (float)frame0;
+	v0 = (seq->StartFrame + frame0 % seq->NumFrames) * mesh->FrameVerts;
+	v1 = (seq->StartFrame + (frame0 + 1) % seq->NumFrames) * mesh->FrameVerts;
+}
+
 bool VisibleMesh::DrawsInFaceOrder(UActor* actor)
 {
 	UMesh* mesh = actor->Mesh();
@@ -340,12 +370,21 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
 		vertexOffsets[1] = (seq->StartFrame + frame1) * mesh->FrameVerts;
 		vertexOffsets[2] = 0;
 	}
+	else if (!mesh->GetSequence(animSource->AnimSequence()))
+	{
+		// A sequence the mesh lacks is drawn at the mesh's frame 0, not
+		// tweened, as the original's GetFrame draws it: a held item's
+		// first-person sequence on its third-person mesh
+		t0 = 0.0f;
+		t1 = 0.0f;
+		vertexOffsets[0] = 0;
+		vertexOffsets[1] = 0;
+		vertexOffsets[2] = 0;
+	}
 	else // Tween from old animation
 	{
-		t0 = animSource->TweenFromAnimFrame.T;
+		TweenStart(animSource, mesh, vertexOffsets[0], vertexOffsets[1], t0);
 		t1 = clamp(animFrame + 1.0f, 0.0f, 1.0f);
-		vertexOffsets[0] = animSource->TweenFromAnimFrame.V0;
-		vertexOffsets[1] = animSource->TweenFromAnimFrame.V1;
 		vertexOffsets[2] = seq->StartFrame * mesh->FrameVerts;
 	}
 
@@ -768,12 +807,21 @@ bool VisibleMesh::DrawLodMeshDX(VisibleFrame* frame, UActor* actor, UActor* ligh
 		vertexOffsets[1] = (seq->StartFrame + frame1) * mesh->FrameVerts;
 		vertexOffsets[2] = 0;
 	}
+	else if (!mesh->GetSequence(animSource->AnimSequence()))
+	{
+		// A sequence the mesh lacks is drawn at the mesh's frame 0, not
+		// tweened, as the original's GetFrame draws it: a held item's
+		// first-person sequence on its third-person mesh
+		t0 = 0.0f;
+		t1 = 0.0f;
+		vertexOffsets[0] = 0;
+		vertexOffsets[1] = 0;
+		vertexOffsets[2] = 0;
+	}
 	else // Tween from old animation
 	{
-		t0 = animSource->TweenFromAnimFrame.T;
+		TweenStart(animSource, mesh, vertexOffsets[0], vertexOffsets[1], t0);
 		t1 = clamp(animFrame + 1.0f, 0.0f, 1.0f);
-		vertexOffsets[0] = animSource->TweenFromAnimFrame.V0;
-		vertexOffsets[1] = animSource->TweenFromAnimFrame.V1;
 		vertexOffsets[2] = seq->StartFrame * mesh->FrameVerts;
 	}
 

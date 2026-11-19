@@ -53,6 +53,9 @@ int GameApp::main(Array<std::string> args)
 	// Read while the command line lives: the try block's end destroys it
 	// before its handler runs
 	bool noLauncher = false;
+	// The log's lines that are an error out of Run, logged as it ended: none
+	// while the two are equal
+	size_t errorLogBegin = 0, errorLogEnd = 0;
 
 	try
 	{
@@ -140,8 +143,23 @@ int GameApp::main(Array<std::string> args)
 			          << std::endl;
 			GameLaunchInfo info = GameFolderSelection::GetLaunchInfo(0);
 			game = info;
+			// The last run's log is this run's from here on (Logger)
+			Logger::Get()->BeginLastRun();
 			Engine engine(info);
-			engine.Run();
+			try
+			{
+				engine.Run();
+			}
+			catch (const std::exception& e)
+			{
+				// Into the log before the engine saves it as it goes, on the
+				// way to the catch below: the last run's log then holds the
+				// error that ended the run
+				errorLogBegin = Logger::Get()->GetLog().size();
+				LogMessage(std::string("DXEngine error: ") + e.what());
+				errorLogEnd = Logger::Get()->GetLog().size();
+				throw;
+			}
 			relaunchLine = engine.RelaunchLine;
 		}
 		commandline = nullptr;
@@ -154,15 +172,33 @@ int GameApp::main(Array<std::string> args)
 		// an embedded target there may be no window to read the message in, and
 		// a modal error window with nobody to close it just spins.
 		exitcode = 1;
-		std::cerr << "DXEngine error: " << e.what() << std::endl;
+		const std::string errorLine = std::string("DXEngine error: ") + e.what();
+		std::cerr << errorLine << std::endl;
+		size_t index = 0;
 		for (const LogMessageLine& line : Logger::Get()->GetLog())
-			std::cerr << "  log: " << line.Text << std::endl;
+		{
+			// The error's own lines, logged as Run ended, are the one above
+			if (index < errorLogBegin || index >= errorLogEnd)
+				std::cerr << "  log: " << line.Text << std::endl;
+			index++;
+		}
+		// An error from before the engine ran saved no log, or one without
+		// it: the last run's log with the error, where its folder is known
+		if (errorLogBegin == errorLogEnd)
+			LogMessage(errorLine);
+		bool saved = Logger::Get()->SaveLastRun();
 		if (widgets && windowSystem && !noLauncher)
 		{
 			std::vector<std::shared_ptr<Image>> icon;
 			if (!game.gameRootFolder.empty())
 				icon = PEIcon::OfGame(game.gameRootFolder, game.gameExecutableName);
-			ErrorWindow::ExecModal(e.what(), Logger::Get()->GetLog(), {}, icon);
+			// The window's copy to the clipboard lasts, on X11 and Wayland,
+			// only while the window does unless a clipboard manager keeps
+			// it: the file that holds the same text is named
+			std::string shown = e.what();
+			if (saved)
+				shown += "\n\nThis run's log: " + Logger::LastRunFilename();
+			ErrorWindow::ExecModal(shown, Logger::Get()->GetLog(), {}, icon);
 		}
 	}
 

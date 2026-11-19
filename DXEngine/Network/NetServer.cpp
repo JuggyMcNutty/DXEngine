@@ -422,10 +422,27 @@ void NetServerLevel::NotifyReceivedText(NetConnection* connection, const std::st
 			connection->State = ConnectionState::Closed;
 			return;
 		}
+		connection->LoginAccepted = true;
 		Welcome(connection);
 	}
 	else if (NetParseCommand(text, "JOIN"))
 	{
+		// A join is taken only after a login that was accepted. One with no
+		// login before it has no URL, and one after a login the game's
+		// PreLogin refused -- its password, its bans -- in the same bunch,
+		// whose every line is handed on though the refusal closed the
+		// connection, would join past that refusal. The original's server
+		// takes both and stops with a critical error, the player class not
+		// loaded for a connection never welcomed (network.md, Joining): a
+		// guard, the stranger sent away as one that failed the challenge
+		// (bugs.md NET.41).
+		if (!connection->LoginAccepted)
+		{
+			LogMessage("Net: " + connection->RemoteAddressString() + " joins with no login accepted: refused");
+			if (connection->State != ConnectionState::Closed)
+				Refuse(connection, "FAILURE CHALLENGE");
+			return;
+		}
 		if (!connection->Actor)
 			Join(connection);
 	}

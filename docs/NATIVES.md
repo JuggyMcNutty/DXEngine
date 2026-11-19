@@ -78,27 +78,21 @@ For the owner (bugs.md D.93): a lost GPU device ends the game, as the
 original's critical error does, but the Vulkan device's text most often
 reads a bare `vkWaitForFences failed`, not that the device was lost.
 
-Differs (bugs.md ENG.42): a `Console=` naming a class that is not there ends
-DXEngine with a segmentation fault and no message, where the original stops
-with a critical error that names the class.
-
-Differs (bugs.md ENG.43): a fatal error while the Advanced Options or an
-actor inspector is open ends DXEngine with a segmentation fault and no error
-message, where the original stops with its error.
-
-Differs (bugs.md ENG.44): run by hand, the last run's log is written only as
-the engine ends, so a crash leaves the run before's log, and it never holds
-the fatal error itself, where the original's log is written from its first
-line.
+A `Console=` in `[Engine.Engine]` naming a class that is not there, or one
+that is no console, stops both engines alike, with Core's text for each:
+`Failed to find object 'Class Engine.NoSuchConsole'`, and that the class is
+not a child class of the console's (`StartConsole` with the ini's `Console`
+so named). A fatal error with the Advanced Options or an actor inspector
+open closes them first and is reported as any other (`FatalPrefsConsole`).
 
 Differs (bugs.md EXT.44): a window that destroys itself in its own
 `DrawWindow`, or a tab group's child in its `ConfigurationChanged`, stops
 the original with a critical error; DXEngine plays on, by choice, the
 siblings after it left out of that frame or laid out later.
 
-Differs (bugs.md PHYS.42): a swimmer at a place that is not a number hangs
-DXEngine, where the original plays on, its pawn falling and then without
-physics.
+A swimmer at a place that is not a number plays on in both engines, the
+search for its water line ended at once, its pawn falling and then without
+physics (`ShortTickConsole` with `Only=c`, each line alike).
 
 Differs (bugs.md REN.76): the GPU devices do not hold their render size to
 the GPU's limits, so a window past them ends the game (Vulkan) or draws
@@ -1188,9 +1182,11 @@ Matches the original
 triangle lies, where the original's is dropped as the triangle leaves the
 view: an armed NPC's gun gone at the view's edge, its barrel still in it.
 
-Differs (bugs.md REN.75): a held weapon or tool is not drawn while it tweens
-(0.1 s at an NPC's shot, an `Idle1`, a tool's use), its tween worked out
-against its first-person mesh; the original draws it.
+A held item is drawn through its tween too (0.1 s at an NPC's shot, an
+`Idle1`, a tool's use), as the original's: with its third-person mesh's
+first frame where that mesh has no such sequence, a first-person one's
+(`HeldTweenConsole`: an assault gun tweening into `Shoot`, over the
+shoulder in both).
 
 ### Viewport windows
 
@@ -2430,10 +2426,6 @@ held as the focus comes back is pressed again late or never, where the
 original resets its input at each focus change, no release sent, and presses
 each key still held at once as the focus comes back.
 
-Differs (bugs.md ENG.41): Shift with `~` puts the console into its `Typing`
-state wherever a typed character arrives, under a menu too, where the
-original's console takes the character 126 as any other and its state stays.
-
 Differs (bugs.md EXT.39): the menus' pointer stops a unit past the screen's
 right and bottom edge, where the original's is held within the root, to its
 width and height less 1.
@@ -3251,7 +3243,14 @@ Every other native the scripted runs compare matches the original
   precision (`SweepVmConsole`'s mantissas alike in both ticks, `Normal`'s
   apart in two of three at 24 bits from a double's; rot(10, 20,
   30) × 0.7 is (7, 14, 21) in the console's tick and (6, 13, 20) in the
-  level's, rot(90, 180, 270) / 90 (1, 2, 3) and (0, 1, 3)); `Clamp` and
+  level's, rot(90, 180, 270) / 90 (1, 2, 3) and (0, 1, 3)); a vector over a
+  float each part times one over the float, the reciprocal at that
+  precision, and `MirrorVectorByNormal` by its normal made a unit, the dot
+  Y's and Z's first, then X's, stored as a float, X's product taken away as
+  the x87 holds it and Y's and Z's as floats (`Nat6Console`, with
+  `CapNat6Probe` in the level's tick: `vect(100,10,5) / 3.0`'s X 33.333336,
+  (1,0,-1) by (0,0,2) (1,0,1), and by normals off the axes each part alike
+  to its last bit in both ticks, in both engines); `Clamp` and
   `FClamp` take a
   value under the lower bound to it, else one under the upper as it is, else
   the upper, so with the bounds the wrong way round the upper wins; a NaN
@@ -3414,12 +3413,6 @@ Differs:
   longer than 5 ms, 0.4 units further out from there. Without it,
   DXEngine's swimmer goes by the real time, 3.4 units out at 0.2 s and 37 at
   0.75 s, a float step each of its first ticks, whose moves are under one.
-
-Differs (bugs.md VM.41): `MirrorVectorByNormal` reflects by the normal as
-passed, where the original's makes it a unit first.
-
-Differs (bugs.md VM.42): a vector over a float divides each part, where the
-original's multiplies by the reciprocal, the last bit differing.
 
 ## Housekeeping, not seen directly
 
@@ -5514,9 +5507,12 @@ packets, so a frame of several packets plays slower than it was made; and a
 call recorded has its parameters evaluated once, where the original's
 evaluates them for the demo and again for the call.
 
-Differs (bugs.md NET.41): a `JOIN` with no `LOGIN` before it logs a player
-in past the game's password, where the original's server stops with a
-critical error.
+A `JOIN` is taken only after a `LOGIN` the game's `PreLogin` accepted. One
+with no login before it, or after a login refused in the same bunch, whose
+every line the control channel hands on, is refused (`FAILURE CHALLENGE`),
+by choice, a guard: the original's server takes both and stops with a
+critical error, `Failed to load player class`
+([joining](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md#joining)).
 
 Differs (bugs.md NET.46): a link's `ReceivedText` and `ReceivedLine` read
 the bytes as UTF-8, a valid pair one character, where the original's take a
