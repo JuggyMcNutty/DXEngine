@@ -144,7 +144,8 @@ public:
 	int NegotiatedVer = 1100;
 	int UserFlags = 0;
 	// On a server: the connection's LOGIN answered the challenge and the
-	// game's PreLogin took it, so its JOIN is one to take
+	// game's PreLogin took it, so its JOIN is one to take (bugs.md NET.41),
+	// and while it has no player yet it has the long wait (NET.40)
 	bool LoginAccepted = false;
 	int CurrentNetSpeed = 0;
 	// The server's DYNAMICRATE and STATICRATE as intervals, which pace the

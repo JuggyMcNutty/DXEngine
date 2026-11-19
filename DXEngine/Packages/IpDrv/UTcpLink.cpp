@@ -330,13 +330,15 @@ void UTcpLink::PollConnections()
 		return;
 	data[count] = 0;
 
+	// The text up to a NUL, each byte a character, as the original's
+	// raises it (appFromAnsi), as ReadText takes it (NTcpLink.cpp)
 	if (LinkMode() == MODE_Text)
 	{
-		CallEvent(this, "ReceivedText", { ExpressionValue::StringValue(std::string(data)) });
+		CallEvent(this, "ReceivedText", { ExpressionValue::StringValue(Latin1ToScript(data)) });
 	}
 	else if (LinkMode() == MODE_Line)
 	{
-		CallEvent(this, "ReceivedLine", { ExpressionValue::StringValue(std::string(data)) });
+		CallEvent(this, "ReceivedLine", { ExpressionValue::StringValue(Latin1ToScript(data)) });
 	}
 	else if (LinkMode() == MODE_Binary && count > 0)
 	{

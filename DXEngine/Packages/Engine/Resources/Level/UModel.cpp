@@ -277,6 +277,7 @@ void UModel::Load(ObjectStream* stream)
 	{
 		const BspNode& node = Nodes[i];
 		if (node.Front >= (int)Nodes.size() || node.Back >= (int)Nodes.size() || node.Plane >= (int)Nodes.size() ||
+			node.Front < -1 || node.Back < -1 || node.Plane < -1 || // -1 is none; the walks test for it alone
 			node.Zone0 < 0 || (size_t)node.Zone0 >= Zones.size() || node.Zone1 < 0 || (size_t)node.Zone1 >= Zones.size())
 			Exception::Throw("Model " + Name.ToString() + ": node " + std::to_string(i) + " points outside its nodes or zones");
 		// The walks' other reads: the node's surface, its render box, its

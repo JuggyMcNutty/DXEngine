@@ -7,6 +7,7 @@ class GCMarker;
 #include <memory>
 #include <atomic>
 #include <string>
+#include <unordered_map>
 
 class NetChannel;
 class UPlayerPawn;
@@ -119,6 +120,18 @@ public:
 	// reads from one.
 	bool Demo = false;
 
+	// A server's guard of ours against one host's, or many hosts', sources
+	// holding its memory, where the original's makes a connection for every
+	// new source, without limit (bugs.md NET.40): a connection whose client
+	// has not answered the challenge goes after this many seconds with
+	// nothing from it; a new source is let go while this many connections
+	// have no player yet, of all and of its address. An honest join's
+	// connection has no player for seconds, or for its downloads; a LAN
+	// party of 16 behind one address joins at once.
+	static constexpr float HandshakeTimeout = 30.0f;
+	static constexpr int MaxWaitingConnections = 256;
+	static constexpr int MaxWaitingConnectionsPerAddress = 32;
+
 protected:
 	// The settings of an ini section, each as it is where the section has
 	// none.
@@ -126,6 +139,12 @@ protected:
 
 private:
 	bool OpenSocket(int port, std::string& error);
+	// Whether a new source's connection is made (bugs.md NET.40).
+	bool RoomForConnection(uint32_t addr, int port);
 
 	intptr_t Socket = -1;
+	// A server's connections by address and port, each packet's found
+	// without a scan of them all (bugs.md NET.40).
+	std::unordered_map<uint64_t, NetConnection*> ConnectionsByAddress;
+	bool RefusingConnections = false;
 };

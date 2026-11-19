@@ -342,6 +342,22 @@ void NetPendingLevel::NotifyReceivedText(NetConnection* connection, const std::s
 	}
 	else if (NetParseCommand(text, "USES"))
 	{
+		// A server's list held to 4,096 packages, a guard of ours where the
+		// original's takes any number (network.md, Joining), so that a server
+		// that sends them without end cannot fill this side's memory (bugs.md
+		// NET.42): a server's list is its map's packages and their imports,
+		// some 40 for a stock map, a few hundred with any mod.
+		if (Uses.size() >= 4096)
+		{
+			if (connection->State != ConnectionState::Closed)
+			{
+				LogMessage("Net: the server lists more than 4096 packages: join ended");
+				Error = "The server lists more than 4096 packages";
+				connection->State = ConnectionState::Closed;
+			}
+			return;
+		}
+
 		// The GUID as the original's four words, 0 for one missing or not
 		// of 32 characters (FPackageInfo, Core.dll 0x1012b8b0), and written
 		// back as their 32 hex digits: what names the package in the cache
@@ -360,7 +376,24 @@ void NetPendingLevel::NotifyReceivedText(NetConnection* connection, const std::s
 	{
 		LogMessage("Net: welcomed by server: " + text);
 		if (NetParseValue(text, "LEVEL=", value, 4096))
+		{
+			// A map named by a path refused: a guard of ours (bugs.md
+			// NET.43), where a path's folders, an absolute one's or a UNC
+			// one's on Windows, would reach the map's file lookup, so that a
+			// server could have this side open a file, or a share of a host,
+			// of its choosing. A server names its map by its package's name
+			// alone, as DXEngine's does: the original's demo of Liberty
+			// Island, which records the WELCOME its server sends, has the
+			// same line as DXEngine's (NATIVES.md, demos).
+			if (value.find_first_of("/\\:") != std::string::npos || value == "." || value == "..")
+			{
+				LogMessage("Net: the server's map is named by a path: join ended");
+				Error = "The server's map is named by a path";
+				connection->State = ConnectionState::Closed;
+				return;
+			}
 			URL.Map = value;
+		}
 		NetParseBool(text, "LONE=", LonePlayer);
 		NetParseInt(text, "CHALLENGE=", connection->Challenge);
 

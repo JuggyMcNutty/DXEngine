@@ -442,8 +442,17 @@ void NetConnection::Tick()
 		QueuedBytes = (int)(-allowedLag);
 	LastTickTime = Driver->Time;
 
-	// The long wait lasts until the connection has its player.
-	float timeout = (State != ConnectionState::Pending && Actor) ? Driver->ConnectionTimeout : Driver->InitialConnectTimeout;
+	// The long wait lasts until the connection has its player. A server's
+	// connection whose login has not been accepted has a short one: a guard of ours, where the original's waits InitialConnectTimeout
+	// for any source that sent a packet (network.md, Packets), so that a
+	// host's many source ports cannot hold the server's memory (bugs.md
+	// NET.40). An honest client's LOGIN follows its HELLO by a round trip;
+	// the downloads and the map's load, which can take minutes, come after.
+	float timeout = Driver->InitialConnectTimeout;
+	if (State != ConnectionState::Pending && Actor)
+		timeout = Driver->ConnectionTimeout;
+	else if (!LoginAccepted && !Driver->ServerConnection && !Driver->Demo)
+		timeout = std::min(timeout, NetDriver::HandshakeTimeout);
 	if (State != ConnectionState::Closed && Driver->Time - LastReceiveTime > timeout)
 	{
 		LogMessage("Net: connection timed out after " + std::to_string(Driver->Time - LastReceiveTime) + " s");

@@ -483,7 +483,12 @@ void NetServerLevel::Join(NetConnection* connection)
 
 	LogMessage("Net: join request: " + RequestURLs[connection].ToString());
 	std::string error;
-	UObject* player = engine->packages->GetTransientPackage()->NewObject("NetConnection" + std::to_string(PlayerConnections.size()), engine->packages->FindClass("Engine.NetConnection"), ObjectFlags::Transient);
+	// Its player object named by its class's count, as the original names
+	// an object it makes (MakeUniqueObjectName), so no two share a name
+	// after a leave and a join (bugs.md NET.45)
+	Package* transient = engine->packages->GetTransientPackage();
+	UClass* playerClass = engine->packages->FindClass("Engine.NetConnection");
+	UObject* player = transient->NewObject(transient->MakeUniqueObjectName(playerClass), playerClass, ObjectFlags::Transient);
 	PlayerConnections[player] = connection;
 	connection->PlayerObject = player;
 

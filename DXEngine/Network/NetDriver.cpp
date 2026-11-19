@@ -29,6 +29,11 @@
 
 namespace
 {
+	uint64_t AddressKey(uint32_t addr, int port)
+	{
+		return ((uint64_t)addr << 16) | (uint16_t)port;
+	}
+
 #ifdef WIN32
 	constexpr intptr_t NoSocket = (intptr_t)INVALID_SOCKET;
 	bool WouldBlock() { return WSAGetLastError() == WSAEWOULDBLOCK; }
@@ -109,6 +114,7 @@ NetDriver::NetDriver()
 NetDriver::~NetDriver()
 {
 	ServerConnection.reset();
+	ConnectionsByAddress.clear();
 	ClientConnections.clear();
 	if (Socket != NoSocket)
 		CloseSocket(Socket);
@@ -312,6 +318,9 @@ void NetDriver::TickDispatch(float deltaTime)
 		{
 			std::unique_ptr<NetConnection> connection = std::move(ClientConnections[i]);
 			ClientConnections.erase(ClientConnections.begin() + i);
+			auto it = ConnectionsByAddress.find(AddressKey(connection->RemoteAddr, connection->RemotePort));
+			if (it != ConnectionsByAddress.end() && it->second == connection.get())
+				ConnectionsByAddress.erase(it);
 			if (Notify)
 				Notify->NotifyConnectionClosed(connection.get());
 		}
@@ -353,18 +362,20 @@ void NetDriver::TickDispatch(float deltaTime)
 		NetConnection* connection = nullptr;
 		if (ServerConnection && addr == ServerConnection->RemoteAddr && port == ServerConnection->RemotePort)
 			connection = ServerConnection.get();
-		for (size_t i = 0; !connection && i < ClientConnections.size(); i++)
+		if (!connection)
 		{
-			if (addr == ClientConnections[i]->RemoteAddr && port == ClientConnections[i]->RemotePort)
-				connection = ClientConnections[i].get();
+			auto it = ConnectionsByAddress.find(AddressKey(addr, port));
+			if (it != ConnectionsByAddress.end())
+				connection = it->second;
 		}
 
-		// A new client, when the level takes it; its connection is open
-		// from the first packet.
-		if (!connection && !ServerConnection && Notify && Notify->NotifyAcceptingConnection())
+		// A new client, when the level takes it and there is room; its
+		// connection is open from the first packet.
+		if (!connection && !ServerConnection && Notify && Notify->NotifyAcceptingConnection() && RoomForConnection(addr, port))
 		{
 			ClientConnections.push_back(std::make_unique<NetConnection>(this, addr, port, IniInt("Engine.Player", "ConfiguredInternetSpeed", 2600)));
 			connection = ClientConnections.back().get();
+			ConnectionsByAddress[AddressKey(addr, port)] = connection;
 			connection->State = ConnectionState::Open;
 			LogMessage("Net: open " + std::to_string(addr >> 24) + "." + std::to_string((addr >> 16) & 255) + "." + std::to_string((addr >> 8) & 255) + "." + std::to_string(addr & 255) + ":" + std::to_string(port));
 		}
@@ -372,6 +383,28 @@ void NetDriver::TickDispatch(float deltaTime)
 		if (connection)
 			connection->ReceivedRawPacket(data, size);
 	}
+}
+
+bool NetDriver::RoomForConnection(uint32_t addr, int port)
+{
+	int waiting = 0, waitingFromAddr = 0;
+	for (const auto& connection : ClientConnections)
+	{
+		if (!connection->Actor && connection->State != ConnectionState::Closed)
+		{
+			waiting++;
+			if (connection->RemoteAddr == addr)
+				waitingFromAddr++;
+		}
+	}
+	bool room = waiting < MaxWaitingConnections && waitingFromAddr < MaxWaitingConnectionsPerAddress;
+
+	// The first source let go is logged, and the next once there was room
+	// again in between.
+	if (!room && !RefusingConnections)
+		LogMessage("Net: no room for " + NetAddressString(addr, port) + ": " + std::to_string(waiting) + " connections wait for a player, " + std::to_string(waitingFromAddr) + " of its address; new sources let go until there is room");
+	RefusingConnections = !room;
+	return room;
 }
 
 void NetDriver::TickFlush()

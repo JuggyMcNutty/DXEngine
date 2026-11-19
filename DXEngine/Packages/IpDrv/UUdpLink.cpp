@@ -51,15 +51,17 @@ void UUdpLink::Tick(float elapsed)
 			return;
 		data[count] = 0;
 
+		// The text up to a NUL, each byte a character, as ReadText takes
+		// it (the original's appFromAnsi: ipdrv-dll.md, the script's links)
 		UStructProperty prop({}, nullptr, ObjectFlags::NoFlags);
 		if (LinkMode() == MODE_Text)
 		{
-			CallEvent(this, "ReceivedText", { IpAddrArg("ReceivedText", from, prop), ExpressionValue::StringValue(std::string(data)) });
+			CallEvent(this, "ReceivedText", { IpAddrArg("ReceivedText", from, prop), ExpressionValue::StringValue(Latin1ToScript(data)) });
 		}
 		else if (LinkMode() == MODE_Line)
 		{
 			// The whole datagram is the line.
-			CallEvent(this, "ReceivedLine", { IpAddrArg("ReceivedLine", from, prop), ExpressionValue::StringValue(std::string(data)) });
+			CallEvent(this, "ReceivedLine", { IpAddrArg("ReceivedLine", from, prop), ExpressionValue::StringValue(Latin1ToScript(data)) });
 		}
 		else if (LinkMode() == MODE_Binary)
 		{

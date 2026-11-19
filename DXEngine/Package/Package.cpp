@@ -901,14 +901,18 @@ std::string Package::GetExportName(int objref)
 	if (objref <= 0 || (size_t)objref > ExportTable.size())
 		return "None";
 
+	// A name the table lacks reads as None: this is for the log's lines
+	auto nameOf = [&](const ExportTableEntry* e) {
+		return e->ObjName >= 0 && (size_t)e->ObjName < NameTable.size() ? NameTable[e->ObjName].Name.ToString() : std::string("None");
+	};
 	const ExportTableEntry* entry = &ExportTable[objref - 1];
-	std::string objname = NameTable[entry->ObjName].Name.ToString();
+	std::string objname = nameOf(entry);
 
 	// Held to 64 outers, as FindObjectReference's walk (bugs.md PKG.50)
 	for (int outers = 0; outers < 64 && entry->ObjOuter > 0 && (size_t)entry->ObjOuter <= ExportTable.size(); outers++)
 	{
 		entry = &ExportTable[entry->ObjOuter - 1];
-		objname = NameTable[entry->ObjName].Name.ToString() + '.' + objname;
+		objname = nameOf(entry) + '.' + objname;
 	}
 
 	objname = Name.ToString() + '.' + objname;

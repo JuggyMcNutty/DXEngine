@@ -4,9 +4,10 @@ for HandshakeConsole (docs/DEVELOPMENT.md, net tests): a server of another
 version, values with blanks the original's Core reads past, and a package of
 any GUID.
 
-    handshakeserver.py [--port 7790] [--mode upgrade|values|guid]
+    handshakeserver.py [--port 7790] [--mode upgrade|values|guid|uses|level]
                        [--minver 400] [--ver 436] [--guid <text>]
-                       [--pkg <name>]
+                       [--pkg <name>] [--count 10000] [--burst 40]
+                       [--level <text>]
                        [--secs 120]
 
 It listens on UDP --port and answers each client's control channel as the
@@ -29,7 +30,12 @@ original's server would (dx-reverse-info network.md, joining and packets):
   (UFileChannel::ReceivedBunch, 0x10400464). --pkg names the package
   (DXCapGuid): with Window, one whose file no client has but whose
   Window.dll is in System, the original's client counts it had and asks
-  for no file (UNetPendingLevel::NotifyReceivedText, 0x1040a880).
+  for no file (UNetPendingLevel::NotifyReceivedText, 0x1040a880);
+- uses: the HELLO as in guid mode, and from the LOGIN on --count USES lines
+  of packages FloodN, --burst for each packet the client sends, no WELCOME:
+  a client with no limit takes them all (bugs.md NET.42);
+- level: the HELLO as in guid mode, and the LOGIN "WELCOME LEVEL=<--level>
+  LONE=0", a map named by a path (bugs.md NET.43).
 
 Every packet a client sends is acknowledged in a packet of the server's, as
 the new connection the original's server opens for a client's later
@@ -197,16 +203,20 @@ class Client:
         self.out_id = 1
         self.out_reliable = 0
         self.in_reliable = 0
+        self.uses = 0
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--port", type=int, default=7790)
-    ap.add_argument("--mode", choices=["upgrade", "values", "guid"], default="upgrade")
+    ap.add_argument("--mode", choices=["upgrade", "values", "guid", "uses", "level"], default="upgrade")
     ap.add_argument("--minver", type=int, default=400)
     ap.add_argument("--ver", type=int, default=436)
     ap.add_argument("--guid", default="not-a-guid")
     ap.add_argument("--pkg", default="DXCapGuid")
+    ap.add_argument("--count", type=int, default=10000)
+    ap.add_argument("--burst", type=int, default=40)
+    ap.add_argument("--level", default="../../System/DeusEx")
     ap.add_argument("--secs", type=float, default=120.0)
     args = ap.parse_args()
 
@@ -249,10 +259,14 @@ def main():
                 word = text.split(" ", 1)[0].upper()
                 if word == "HELLO" and args.mode == "upgrade":
                     replies.append("UPGRADE MINVER=%d VER=%d" % (args.minver, args.ver))
-                elif word == "HELLO" and args.mode == "guid":
+                elif word == "HELLO" and args.mode in ("guid", "uses", "level"):
                     replies.append("CHALLENGE VER=1100 CHALLENGE=7 STATS=0")
                 elif word == "HELLO":
                     replies.append("CHALLENGE VER= 1100 CHALLENGE= 7 STATS= 1")
+                elif word == "LOGIN" and args.mode == "uses":
+                    c.uses = args.count
+                elif word == "LOGIN" and args.mode == "level":
+                    replies.append("WELCOME LEVEL=%s LONE=0" % args.level)
                 elif word == "LOGIN" and args.mode == "guid":
                     replies.append("USES GUID=%s PKG=%s FLAGS=1 SIZE=1000 GEN=1" % (args.guid, args.pkg))
                     replies.append("WELCOME LEVEL=DX LONE=0")
@@ -263,34 +277,50 @@ def main():
                             print("server: the response is the answer to %s" % (
                                 "7" if r == challenge_response(7) else "0" if r == challenge_response(0) else "neither 7 nor 0"), flush=True)
                     replies.append("\tFAILURE\t\tspaced text")
-        w = Writer()
-        w.int(c.out_id, MAX_PACKET_ID)
-        w.bit(1)
-        w.int(packet, MAX_PACKET_ID)
-        for text in replies:
-            print("server: sent: %r" % text, flush=True)
-            data = fstring(text)
-            c.out_reliable += 1
-            w.bit(0)
-            w.bit(0)
-            w.bit(1)
-            w.int(0, MAX_CHANNELS)
-            w.int(c.out_reliable, MAX_CH_SEQUENCE)
-            w.int(CONTROL, MAX_CH_TYPE)
-            w.int(len(data) * 8, MAX_PACKET * 8)
-            w.bytes(data)
-        for ch in refused:
-            print("server: refused the file on channel %d" % ch, flush=True)
-            w.bit(0)
-            w.bit(1)
-            w.bit(0)
-            w.bit(1)
-            w.bit(0)
-            w.int(ch, MAX_CHANNELS)
-            w.int(0, MAX_PACKET * 8)
-        s.sendto(w.packet(), addr)
-        c.out_id = (c.out_id + 1) % MAX_PACKET_ID
+        flood = []
+        while c.uses > 0 and len(flood) < args.burst:
+            flood.append("USES GUID=%032X PKG=Flood%d FLAGS=1 SIZE=1000 GEN=1" % (c.uses, c.uses))
+            c.uses -= 1
+            if c.uses == 0:
+                print("server: sent %d USES lines" % args.count, flush=True)
+        for i in range(0, len(flood), 5):
+            send(s, addr, c, packet, flood[i:i + 5], [], quiet=True)
+        if replies or refused or not flood:
+            send(s, addr, c, packet, replies, refused)
     print("server: exiting", flush=True)
+
+
+def send(s, addr, c, packet, replies, refused, quiet=False):
+    """One packet to the client: the ack of its packet, the lines as reliable
+    bunches of the control channel, a close for each refused file."""
+    w = Writer()
+    w.int(c.out_id, MAX_PACKET_ID)
+    w.bit(1)
+    w.int(packet, MAX_PACKET_ID)
+    for text in replies:
+        if not quiet:
+            print("server: sent: %r" % text, flush=True)
+        data = fstring(text)
+        c.out_reliable += 1
+        w.bit(0)
+        w.bit(0)
+        w.bit(1)
+        w.int(0, MAX_CHANNELS)
+        w.int(c.out_reliable, MAX_CH_SEQUENCE)
+        w.int(CONTROL, MAX_CH_TYPE)
+        w.int(len(data) * 8, MAX_PACKET * 8)
+        w.bytes(data)
+    for ch in refused:
+        print("server: refused the file on channel %d" % ch, flush=True)
+        w.bit(0)
+        w.bit(1)
+        w.bit(0)
+        w.bit(1)
+        w.bit(0)
+        w.int(ch, MAX_CHANNELS)
+        w.int(0, MAX_PACKET * 8)
+    s.sendto(w.packet(), addr)
+    c.out_id = (c.out_id + 1) % MAX_PACKET_ID
 
 
 if __name__ == "__main__":

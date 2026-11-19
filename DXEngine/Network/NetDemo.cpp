@@ -179,7 +179,15 @@ void NetDemoDriver::TickDispatch(float deltaTime)
 					waitStart = Clock::now();
 					waited = true;
 				}
-				std::this_thread::sleep_until(waitStart + std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(time - Time)));
+				// A tick's wait held to 30 s, a guard of ours where the
+				// original's spins out any time the file holds (network.md,
+				// Demos), so that a damaged or hostile demo's time past all
+				// reason neither stops the game for good nor overflows the
+				// clock (bugs.md NET.44). A recording writes a packet every
+				// frame, so a real wait is a frame's, or a hitch's while it
+				// was made.
+				double wait = std::min(time - Time, 30.0);
+				std::this_thread::sleep_until(waitStart + std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(wait)));
 			}
 		}
 

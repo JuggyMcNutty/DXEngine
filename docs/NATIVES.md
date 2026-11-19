@@ -3564,9 +3564,6 @@ the other font, a modal destroyed as it shows leaving the root's grabs one
 down, and a new window's destroy in its `InitWindow` not held to after its
 first layout.
 
-Differs (bugs.md NET.45): two of a server's player objects can share a name
-after a leave and a join, where the original's are unique.
-
 Differs (bugs.md PHYS.43): an actor can be filed twice into the collision
 hash, the falling step's frame-end call does nothing, and a destroyed fire
 is moved with its carrier until a collection; nothing seen.
@@ -5104,6 +5101,15 @@ client: the connection closed, the client back on Entry by
   on a machine up more than twice 9999 s, in both engines (`AlertServer`,
   each engine the server, the machine up 12 hours; the build before had it
   on for the first second).
+- **Connections that wait for a player**: a server's connection whose client
+  has not answered the challenge goes after 30 s with nothing from it, and
+  a new source is let go while 256 connections have no player yet, or 32 of
+  its address, a guard against one host's many source ports holding the
+  server's memory, where the original's makes a connection for every new
+  source and keeps it `InitialConnectTimeout` with nothing from it
+  ([packets](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md#packets)).
+  A client answers the challenge a round trip after its `HELLO`; its
+  downloads and its map's load, which have the long wait, come after.
 - **The challenge's check**: a login whose answer to the challenge is wrong
   is refused, by choice, where the original's server compares the answer
   with whether the right one is 0, a slip, and so refuses only a missing
@@ -5444,6 +5450,13 @@ As in the original:
   its `Checksum=`, and `Connection failed` over `Rejected By Server: spaced
   text`; against `--mode guid`: the package's file asked for by the same
   four words, and its refusal's lines alike, in both engines).
+- A client ends a join whose server lists more than 4,096 packages, or
+  names its map in its `WELCOME` by a path (a folder in it, a drive or a
+  share), guards against a server that sends `USES` lines without end, and
+  against one that would have the client open a file or a share of its
+  choosing, where the original's takes any number of packages; a stock
+  map's list is some 40, and a server names its map by its package's name
+  alone.
 
 A client's travel with its items, its
 player's replication info not come yet, leaves the player out, by choice:
@@ -5518,7 +5531,9 @@ Where the original's ends the game, DXEngine's goes on, logged: a spectator
 class not to be had -- the stock ini's `UnrealShare.UnrealSpectator`, which
 Deus Ex has not, for any third person's view, a server's demo's among them:
 `Engine.Spectator` taken --, a `DemoRecSpectator` that cannot be spawned, a
-packet in the file longer than any the protocol sends. By choice,
+packet in the file longer than any the protocol sends. A packet's time
+ahead of the playback's is waited for 30 s at most a tick, a guard where
+the original's waits out any time the file holds. By choice,
 played by frame, a packet ahead of the driver's time waits from the
 tick's first wait, where the original's waits again for each of a frame's
 packets, so a frame of several packets plays slower than it was made; and a
@@ -5531,10 +5546,6 @@ every line the control channel hands on, is refused (`FAILURE CHALLENGE`),
 by choice, a guard: the original's server takes both and stops with a
 critical error, `Failed to load player class`
 ([joining](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/network.md#joining)).
-
-Differs (bugs.md NET.46): a link's `ReceivedText` and `ReceivedLine` read
-the bytes as UTF-8, a valid pair one character, where the original's take a
-byte a character.
 
 ## Not needed for single player
 
