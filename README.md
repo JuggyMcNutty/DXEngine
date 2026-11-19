@@ -95,7 +95,10 @@ with the launcher for each of its ports, and stages, runs or deploys the result:
 You need:
 
 - a C++20 compiler (GCC 10 or later), CMake 3.15 or later and pkg-config;
-- the development files of OpenAL, SDL3 or SDL2, and X11 (with Xi and Xext);
+- the development files of OpenAL, SDL3 or SDL2, and X11 (with Xi and Xext); with
+  `-DDXE_BUNDLE_OPENAL=ON`, PipeWire's, PulseAudio's and ALSA's in OpenAL's place: OpenAL Soft
+  is then built from `Thirdparty/openal-soft` and put beside the engine as `libopenal.so.1`,
+  as the Linux ports ship it;
 - optionally Wayland's (waylandpp, xkbcommon), EGL, dbus, GLib and fontconfig, used when found.
 
 On Arch these are among the packages

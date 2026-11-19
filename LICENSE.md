@@ -342,4 +342,5 @@
 
 OpenAL Soft is under the GNU Library General Public License, version 2, the
 text in `Thirdparty/openal-soft/COPYING`. windows-x86_64 builds it and ships
-it beside the engine as `OpenAL32.dll`, with that file.
+it beside the engine as `OpenAL32.dll`, linux-x86_64 and linux-aarch64 as
+`libopenal.so.1`, each with that file.

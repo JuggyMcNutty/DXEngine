@@ -15,10 +15,15 @@ add_subdirectory(Thirdparty/openmpt)
 add_subdirectory(DXGPU)
 add_subdirectory(DXWidgets)
 
-if (WIN32)
-	# OpenAL Soft as OpenAL32.dll beside the engine (LGPL, so a library of its
-	# own): its library alone -- none of its programs or install rules, no
-	# PipeWire, nor the steps that run sed, dlltool or git while building.
+# OpenAL Soft built from Thirdparty and shipped beside the engine (LGPL, so a
+# library of its own): on Windows always, as OpenAL32.dll; on Linux where
+# the build asks for it, as libopenal.so.1, which the engine finds by its
+# run path, $ORIGIN, so that a system with no OpenAL Soft of its own plays.
+# Off, the engine links the system's.
+option(DXE_BUNDLE_OPENAL "Build OpenAL Soft from Thirdparty and ship it beside the engine (Linux)" OFF)
+if (WIN32 OR DXE_BUNDLE_OPENAL)
+	# Its library alone -- none of its programs or install rules, nor the
+	# steps that run sed, dlltool or git while building.
 	set(ALSOFT_UTILS OFF CACHE BOOL "" FORCE)
 	set(ALSOFT_EXAMPLES OFF CACHE BOOL "" FORCE)
 	set(ALSOFT_INSTALL OFF CACHE BOOL "" FORCE)
@@ -28,9 +33,39 @@ if (WIN32)
 	set(ALSOFT_INSTALL_EXAMPLES OFF CACHE BOOL "" FORCE)
 	set(ALSOFT_INSTALL_UTILS OFF CACHE BOOL "" FORCE)
 	set(ALSOFT_UPDATE_BUILD_VERSION OFF CACHE BOOL "" FORCE)
-	set(ALSOFT_BUILD_IMPORT_LIB OFF CACHE BOOL "" FORCE)
-	set(ALSOFT_BACKEND_PIPEWIRE OFF CACHE BOOL "" FORCE)
+	if (WIN32)
+		set(ALSOFT_BUILD_IMPORT_LIB OFF CACHE BOOL "" FORCE)
+		set(ALSOFT_BACKEND_PIPEWIRE OFF CACHE BOOL "" FORCE)
+	else()
+		# The desktop's sound opened at run time by name, whichever it has:
+		# PipeWire, PulseAudio and ALSA, each one's headers required, so that
+		# a sysroot lacking one stops the build, where a library with no way
+		# to the sound would ship in silence. Nothing linked that a system
+		# may lack: no JACK, sndio, OSS, PortAudio or SDL.
+		set(ALSOFT_DLOPEN ON CACHE BOOL "" FORCE)
+		set(ALSOFT_REQUIRE_PIPEWIRE ON CACHE BOOL "" FORCE)
+		set(ALSOFT_REQUIRE_PULSEAUDIO ON CACHE BOOL "" FORCE)
+		set(ALSOFT_REQUIRE_ALSA ON CACHE BOOL "" FORCE)
+		set(ALSOFT_BACKEND_JACK OFF CACHE BOOL "" FORCE)
+		set(ALSOFT_BACKEND_SNDIO OFF CACHE BOOL "" FORCE)
+		set(ALSOFT_BACKEND_OSS OFF CACHE BOOL "" FORCE)
+		set(ALSOFT_BACKEND_PORTAUDIO OFF CACHE BOOL "" FORCE)
+		set(ALSOFT_BACKEND_SDL2 OFF CACHE BOOL "" FORCE)
+	endif()
 	add_subdirectory(Thirdparty/openal-soft)
+endif()
+
+if (MINGW OR DXE_BUNDLE_OPENAL)
+	# OpenAL Soft's own warnings ignored: not ours to fix.
+	target_compile_options(OpenAL PRIVATE -w)
+	target_compile_options(common PRIVATE -w)
+endif()
+
+if (DXE_BUNDLE_OPENAL AND NOT WIN32)
+	# Only the libraries it uses asked of the loader: its build names
+	# libatomic wherever a toolchain has one, which a system may lack and
+	# these machines' atomics do not need.
+	target_link_options(OpenAL PRIVATE -Wl,--as-needed)
 endif()
 
 if (MINGW)
@@ -38,8 +73,6 @@ if (MINGW)
 	# for MSVC's multi-threaded C library among them -- ignored, as the MSVC
 	# block below ignores theirs: not ours to fix.
 	target_compile_options(openmpt PRIVATE -w)
-	target_compile_options(OpenAL PRIVATE -w)
-	target_compile_options(common PRIVATE -w)
 endif()
 
 project(DXEngine)
@@ -831,9 +864,17 @@ set(DXCOMMON_WIN32_LIBS
 	psapi
 )
 
-set(DXCOMMON_UNIX_LIBS
-	openal
-)
+# The system's OpenAL Soft, or the one built here and shipped beside the
+# engine (DXE_BUNDLE_OPENAL)
+if (DXE_BUNDLE_OPENAL)
+	set(DXCOMMON_UNIX_LIBS
+		OpenAL
+	)
+else()
+	set(DXCOMMON_UNIX_LIBS
+		openal
+	)
+endif()
 
 set(DXENGINE_SOURCES
 	DXEngine/MainGame.cpp
@@ -1049,6 +1090,15 @@ add_dependencies(DXEngine Resources)
 
 if(WIN32)
 	add_custom_command(TARGET DXEngine POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:OpenAL::OpenAL>" $<TARGET_FILE_DIR:DXEngine>)
+elseif(DXE_BUNDLE_OPENAL)
+	# The library beside the engine under the name the engine asks the
+	# loader for, and the engine's run path the folder it is in alone: no
+	# path of the build's.
+	set_target_properties(DXEngine PROPERTIES BUILD_WITH_INSTALL_RPATH ON INSTALL_RPATH "\$ORIGIN")
+	# A run path the player's LD_LIBRARY_PATH still comes before, not the
+	# old tag, which nothing overrides.
+	target_link_options(DXEngine PRIVATE -Wl,--enable-new-dtags)
+	add_custom_command(TARGET DXEngine POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:OpenAL::OpenAL>" "$<TARGET_FILE_DIR:DXEngine>/$<TARGET_SONAME_FILE_NAME:OpenAL::OpenAL>")
 endif()
 
 add_custom_command(TARGET DXEngine POST_BUILD
