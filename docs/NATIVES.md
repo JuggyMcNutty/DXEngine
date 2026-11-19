@@ -4307,9 +4307,10 @@ to `JoyPovRight`, as the original's input names them from Actor's
 engines), `Console.uc`'s own enum alone naming them `UnknownF0` to
 `UnknownF3`.
 
-Differs (bugs.md ENG.52): in the Advanced Options a combo's Up and Down move
-the tree even with its list open, so only its first and last choices are
-reached from the keyboard; what the original's open list takes is unread.
+For the owner (bugs.md D.106): in the Advanced Options a combo's Up and Down
+move the tree even with its list open, so only its first and last choices
+are reached from the keyboard; what the original's open list takes is
+unread.
 
 Differs (bugs.md WIN.61): the Win32 window's raw input buffer is eight times
 the size asked, and the Wayland window's double click tests the time alone;
