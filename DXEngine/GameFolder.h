@@ -24,6 +24,8 @@ public:
 	static GameLaunchInfo GetLaunchInfo(int selectedGame);
 
 	static Array<GameLaunchInfo> Games;
+	// Why no game was taken, for the error that says so
+	static std::string NotFound;
 
 private:
 	static GameLaunchInfo ExamineFolder(const std::string& path);

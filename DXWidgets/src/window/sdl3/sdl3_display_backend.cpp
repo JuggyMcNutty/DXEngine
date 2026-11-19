@@ -154,6 +154,7 @@ bool SDL3DisplayBackend::SimulateKey(const std::string& name, bool down)
 	SDL_Event event = {};
 	event.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
 	event.key.windowID = SDL3DisplayWindow::WindowList.begin()->first;
+	event.key.which = SDL3DisplayWindow::SimulatedKeyboard;
 	event.key.scancode = scancode;
 	event.key.key = SDL_GetKeyFromScancode(scancode, mod, true);
 	event.key.mod = mod;

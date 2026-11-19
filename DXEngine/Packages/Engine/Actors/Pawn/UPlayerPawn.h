@@ -24,6 +24,8 @@ public:
 	void ReadPlayerInput(float elapsed);
 	void ClearInput();
 	void ScaleInput(float scale);
+	// Every input property 0, the buttons' bytes with the floats
+	void ResetInput();
 	// Deus Ex's other places the player sees from, for the server's relevancy
 	// (a ViewportWindow's origin actor)
 	bool AddAdditionalView(UActor* actor);

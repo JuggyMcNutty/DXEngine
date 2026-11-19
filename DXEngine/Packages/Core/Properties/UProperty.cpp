@@ -206,9 +206,21 @@ bool UProperty::ReadToken(const std::string& text, size_t& pos, std::string& tok
 			}
 			else
 			{
+				// Each a character of its own, U+0000 to U+00FF, as the
+				// original's (core-dll.md, the token reader), in the text's
+				// UTF-8 (bugs.md ENG.55)
 				int high = i + 1 < n ? hex(text[i + 1]) : 0;
 				int low = i + 2 < n ? hex(text[i + 2]) : 0;
-				token.push_back((char)(16 * high + low));
+				int c = 16 * high + low;
+				if (c < 0x80)
+				{
+					token.push_back((char)c);
+				}
+				else
+				{
+					token.push_back((char)(0xc0 | (c >> 6)));
+					token.push_back((char)(0x80 | (c & 0x3f)));
+				}
 				i += 3;
 			}
 		}

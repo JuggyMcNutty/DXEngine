@@ -11,7 +11,9 @@ static uint32_t HashIniString(const std::string& str)
 {
 	std::string strLower;
 	strLower.resize(str.size());
-	std::transform(str.begin(), str.end(), strLower.begin(), [](unsigned char c) { return tolower(c); });
+	// A to Z alone folded, whatever the locale, as the original's compare
+	// folds them (core-dll.md, names hashed and compared; bugs.md ENG.56)
+	std::transform(str.begin(), str.end(), strLower.begin(), [](unsigned char c) { return (c >= 'A' && c <= 'Z') ? (char)(c - 'A' + 'a') : (char)c; });
 
 	uint32_t hash = 0;
 	MurmurHash3_x86_32(strLower.c_str(), (int)strLower.length(), 0, &hash);

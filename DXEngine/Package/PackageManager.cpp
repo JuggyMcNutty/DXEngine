@@ -1474,7 +1474,18 @@ void PackageManager::LoadIntFiles()
 						std::error_code exists;
 						if (fs::is_regular_file(file, exists))
 						{
-							languageFile = std::make_unique<IniFile>(file.string());
+							// One that cannot be read is empty, as the original's
+							// config cache takes a file it cannot load, the .int
+							// kept for its text (bugs.md ENG.55)
+							try
+							{
+								languageFile = std::make_unique<IniFile>(file.string());
+							}
+							catch (const std::exception& e)
+							{
+								LogMessage("Could not read " + file.string() + ": " + e.what());
+								languageFile = std::make_unique<IniFile>();
+							}
 							break;
 						}
 					}

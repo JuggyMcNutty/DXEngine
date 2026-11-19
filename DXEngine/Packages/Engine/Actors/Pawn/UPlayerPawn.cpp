@@ -11,6 +11,9 @@
 #include "VM/ScriptCall.h"
 #include "Packages/Core/UClass.h"
 #include "Packages/Core/Properties/UFloatProperty.h"
+#include "Packages/Core/Properties/UByteProperty.h"
+#include "Packages/Core/Properties/UIntProperty.h"
+#include "Packages/Core/Properties/UBoolProperty.h"
 
 // The pawn's Player's input read, as the original's Player->ReadInput reads
 // it: a viewport's keys and mouse (UInput::ReadInput, Engine.dll
@@ -58,6 +61,30 @@ void UPlayerPawn::ScaleInput(float scale)
 		{
 			for (int i = 0; i < prop->ArrayDimension; i++)
 				*reinterpret_cast<float*>(static_cast<uint8_t*>(PropertyData.Ptr(prop)) + i * prop->ElementPitch()) *= scale;
+		}
+	}
+}
+
+// Every input property zeroed, its bytes (bFire, bRun...) with its floats,
+// as the original's UInput::ResetInput zeroes the player's at a focus change
+// (Engine.dll 0x10394910; windrv-dll.md, the keys)
+void UPlayerPawn::ResetInput()
+{
+	for (UProperty* prop : Class->Properties)
+	{
+		if (!AllFlags(prop->PropFlags, PropertyFlags::Input))
+			continue;
+		for (int i = 0; i < prop->ArrayDimension; i++)
+		{
+			void* data = static_cast<uint8_t*>(PropertyData.Ptr(prop)) + i * prop->ElementPitch();
+			if (UBoolProperty* boolProp = UObject::TryCast<UBoolProperty>(prop))
+				boolProp->SetBool(data, false);
+			else if (UObject::IsType<UByteProperty>(prop))
+				*static_cast<uint8_t*>(data) = 0;
+			else if (UObject::IsType<UFloatProperty>(prop))
+				*static_cast<float*>(data) = 0.0f;
+			else if (UObject::IsType<UIntProperty>(prop))
+				*static_cast<int32_t*>(data) = 0;
 		}
 	}
 }

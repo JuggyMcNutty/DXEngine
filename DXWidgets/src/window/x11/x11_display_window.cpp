@@ -1021,6 +1021,34 @@ void X11DisplayWindow::OnFocusIn(XEvent* event)
 		XSetICFocus(xic);
 
 	RawInput.Focused = true;
+
+	// No KeyPress comes for a key held as the focus comes, nor a ButtonPress
+	// for a button: each is read from the server, so that the host finds it
+	// held (GetKeyState), as the original's poll finds it in Windows' state
+	// (Engine::PressHeldKeys; bugs.md ENG.40)
+	char keys[32] = {};
+	XQueryKeymap(display, keys);
+	for (int code = 8; code < 256; code++)
+	{
+		if (keys[code / 8] & (1 << (code % 8)))
+		{
+			XEvent press = {};
+			press.type = KeyPress;
+			press.xkey.display = display;
+			press.xkey.keycode = code;
+			keyState[GetInputKey(&press)] = true;
+		}
+	}
+	Window root = 0, child = 0;
+	int rootX = 0, rootY = 0, x = 0, y = 0;
+	unsigned int buttons = 0;
+	if (XQueryPointer(display, window, &root, &child, &rootX, &rootY, &x, &y, &buttons))
+	{
+		keyState[InputKey::LeftMouse] = (buttons & Button1Mask) != 0;
+		keyState[InputKey::MiddleMouse] = (buttons & Button2Mask) != 0;
+		keyState[InputKey::RightMouse] = (buttons & Button3Mask) != 0;
+	}
+
 	windowHost->OnWindowActivated();
 }
 
@@ -1028,19 +1056,15 @@ void X11DisplayWindow::OnFocusOut(XEvent* event)
 {
 	RawInput.Focused = false;
 
-	// No KeyRelease reaches an unfocused window: every key held is let go
-	// now, as the original's input poll lets go any key it reads up
-	std::vector<InputKey> held;
-	for (auto& it : keyState)
-		if (it.second)
-			held.push_back(it.first);
-	for (InputKey key : held)
-	{
-		keyState[key] = false;
-		windowHost->OnWindowKeyUp(key);
-	}
-
+	// The host is told, which resets its input there, and the keys held are
+	// forgotten with no release made up for them: no KeyRelease reaches an
+	// unfocused window, and none reaches the original's at a focus loss
+	// (bugs.md ENG.40). A button's ButtonRelease comes while the pointer is
+	// over the window, as Windows sends the original's its button messages.
 	windowHost->OnWindowDeactivated();
+	for (auto& it : keyState)
+		if (it.first != InputKey::LeftMouse && it.first != InputKey::MiddleMouse && it.first != InputKey::RightMouse)
+			it.second = false;
 }
 
 // The window manager's state: maximized both ways where it was not is

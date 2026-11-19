@@ -178,6 +178,7 @@ bool SDL2DisplayBackend::SimulateKey(const std::string& name, bool down)
 	event.type = down ? SDL_KEYDOWN : SDL_KEYUP;
 	event.key.windowID = SDL2DisplayWindow::WindowList.begin()->first;
 	event.key.state = down ? SDL_PRESSED : SDL_RELEASED;
+	event.key.keysym.unused = SDL2DisplayWindow::SimulatedKeyMark;
 	event.key.keysym.scancode = scancode;
 	event.key.keysym.sym = SDL_GetKeyFromScancode(scancode);
 	event.key.keysym.mod = (Uint16)mod;

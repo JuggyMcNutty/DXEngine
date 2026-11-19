@@ -6447,6 +6447,12 @@ void Engine::TickWindow()
 
 	GameWindow::ProcessEvents();
 
+	if (pressHeldKeys)
+	{
+		pressHeldKeys = false;
+		PressHeldKeys();
+	}
+
 	// The window's size kept the tick after it last changed (KeepWindowedSize)
 	if (windowSettleTicks > 0 && --windowSettleTicks == 0)
 		KeepWindowedSize();
@@ -6731,18 +6737,74 @@ void Engine::OnWindowClose()
 	quit = true;
 }
 
+// The focus back, as the original's WM_SETFOCUS takes it (WinDrv.dll
+// 0x1110a1ab; windrv-dll.md, the keys): the input reset again and each key
+// and button held pressed, here at the tick's end, once the window's events
+// have told what is held. A window telling of the focus it has already
+// (Wayland's every configure) changes nothing.
 void Engine::OnWindowActivated()
 {
 	//SetPause(false);
+	if (GameWindowActive)
+		return;
 	GameWindowActive = true;
+	ResetInput();
+	pressHeldKeys = true;
 }
 
+// The focus gone, as the original's WM_KILLFOCUS takes it (WinDrv.dll
+// 0x1110a0a3; windrv-dll.md, the keys): the input reset, no release sent,
+// the pad's buttons and sticks with the keys
 void Engine::OnWindowDeactivated()
 {
 	//SetPause(true);
+	if (!GameWindowActive)
+		return;
 	GameWindowActive = false;
+	pressHeldKeys = false;
+	ResetInput();
+	gamepad.Forget();
 	if (dxRootWindow)
 		dxRootWindow->ForgetKeys();
+}
+
+// The original's UInput::ResetInput (Engine.dll 0x10394910; windrv-dll.md,
+// the keys): its table of the keys held cleared and every input property of
+// the player zeroed, no release sent
+void Engine::ResetInput()
+{
+	heldInputKeys.clear();
+	activeInputButtons.clear();
+	activeInputAxes.clear();
+	if (viewport && viewport->Actor())
+		viewport->Actor()->ResetInput();
+}
+
+// The original's poll at an input reset with the focus (UWindowsViewport::
+// UpdateInput, WinDrv.dll 0x11109853-0x111098c2; windrv-dll.md, the keys):
+// each key and mouse button the window holds down pressed, as its message
+// presses it, Alt with Enter toggling nothing. A side's own code is never
+// pressed (NATIVES.md, by choice), nor a pad's, which the pad presses again
+// as it reads it (GamepadInput), nor a key pressed since the focus came.
+void Engine::PressHeldKeys()
+{
+	if (!window)
+		return;
+	for (int code = IK_LeftMouse; code <= IK_OEMClear; code++)
+	{
+		EInputKey key = (EInputKey)code;
+		if ((key >= IK_LShift && key <= IK_UnknownA5) || (key >= IK_Joy1 && key <= IK_Joy16) ||
+			(key >= IK_JoyX && key <= IK_Unknown10F && key != IK_JoyZ) || (key >= IK_JoyPovUp && key <= IK_JoyPovRight))
+			continue;
+		if (heldInputKeys.count(key) || !window->GetKeyState(key))
+			continue;
+		if (key == IK_LeftMouse || key == IK_RightMouse || key == IK_MiddleMouse)
+			OnWindowMouseDown(Point(0.0, 0.0), key);   // the root window clicks at its own pointer
+		else if (dxRootWindow && dxRootWindow->OnWindowKeyDown(key))
+			ReleaseHeldInputKeys();
+		else
+			InputEvent(key, IST_Press);
+	}
 }
 
 void Engine::OnWindowDpiScaleChanged()

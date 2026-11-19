@@ -405,6 +405,10 @@ public:
 	void InputEvent(EInputKey key, EInputType type, int delta = 0);
 	void ReleaseHeldInputKeys();
 	void ReleaseFireButtons();
+	void ResetInput();
+	void PressHeldKeys();
+	// The focus back: the keys held pressed at the tick's end (PressHeldKeys)
+	bool pressHeldKeys = false;
 
 	void OnWindowPaint() override;
 	void OnWindowMouseMove(const Point& pos) override;

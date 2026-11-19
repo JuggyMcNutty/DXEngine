@@ -356,11 +356,15 @@ bool SDL2DisplayWindow::GetKeyState(InputKey key)
 	// sees: it counts as down from its press to its release
 	auto down = [&](SDL_Scancode index) { return (index < numkeys && state[index] != 0) || (index < SDL_NUM_SCANCODES && SimulatedKeys[index]); };
 	// Either side's, as Windows' state of VK_SHIFT, VK_CONTROL and VK_MENU.
+	// A mouse button's SDL's own, as Windows' of VK_LBUTTON and the others.
 	switch (key)
 	{
 	case InputKey::Shift: return down(SDL_SCANCODE_LSHIFT) || down(SDL_SCANCODE_RSHIFT);
 	case InputKey::Ctrl: return down(SDL_SCANCODE_LCTRL) || down(SDL_SCANCODE_RCTRL);
 	case InputKey::Alt: return down(SDL_SCANCODE_LALT) || down(SDL_SCANCODE_RALT);
+	case InputKey::LeftMouse: return (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK) != 0;
+	case InputKey::RightMouse: return (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_RMASK) != 0;
+	case InputKey::MiddleMouse: return (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_MMASK) != 0;
 	default: return down(InputKeyToScancode(key));
 	}
 }
@@ -759,6 +763,18 @@ void SDL2DisplayWindow::OnJoyButtonDown(const SDL_ControllerButtonEvent& event)
 // pressed (dx-reverse-info/windrv-dll.md, the keys; bugs.md ENG.37).
 void SDL2DisplayWindow::OnKeyUp(const SDL_KeyboardEvent& event)
 {
+	// SDL lets go of every key it holds as the window loses the keyboard, a
+	// release each, before its news of the loss. No release reaches the
+	// original's window at a focus loss, its input reset there: the host is
+	// told of the loss first and those releases are not passed on (bugs.md
+	// ENG.40). A timeline's key, which SDL's keyboard never held, is passed
+	// on whatever the focus.
+	if (event.keysym.unused != SimulatedKeyMark && SDL_GetKeyboardFocus() != Handle.window)
+	{
+		WindowHost->OnWindowDeactivated();
+		PressedAs[event.keysym.scancode] = InputKey::None;
+		return;
+	}
 	InputKey key = PressedAs[event.keysym.scancode];
 	if (key == InputKey::None)
 		key = KeyEventToInputKey(event);

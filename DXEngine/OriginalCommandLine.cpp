@@ -7,30 +7,6 @@
 namespace
 {
 	bool IsSpace(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; }
-
-	// ParseToken: the next word, or a quoted run; false at the end.
-	bool NextToken(const std::string& s, size_t& pos, std::string& token)
-	{
-		while (pos < s.size() && IsSpace(s[pos]))
-			pos++;
-		if (pos >= s.size())
-			return false;
-		token.clear();
-		if (s[pos] == '"')
-		{
-			pos++;
-			while (pos < s.size() && s[pos] != '"')
-				token += s[pos++];
-			if (pos < s.size())
-				pos++;
-		}
-		else
-		{
-			while (pos < s.size() && !IsSpace(s[pos]))
-				token += s[pos++];
-		}
-		return true;
-	}
 }
 
 OriginalCommandLine& OriginalCommandLine::Get()
@@ -74,15 +50,17 @@ bool OriginalCommandLine::Number(const std::string& name, int& value) const
 	return true;
 }
 
+// The tokens by the original's ParseToken (StrTools::ue1_parse_token): blanks
+// and tabs between them, a quoted run whole
 std::string OriginalCommandLine::FirstToken() const
 {
 	size_t pos = 0;
 	std::string token;
-	if (!NextToken(line, pos, token))
+	if (!StrTools::ue1_parse_token(line, pos, token, 0))
 		return {};
-	if (StrTools::ue1_strfind(token, "SERVER") == 0 && token.size() == 6 && !NextToken(line, pos, token))
+	if (StrTools::ue1_strfind(token, "SERVER") == 0 && token.size() == 6 && !StrTools::ue1_parse_token(line, pos, token, 0))
 		return {};
-	if (token.empty() || token[0] == '-')
+	if (token[0] == '-')
 		return {};
 	return token;
 }
@@ -91,13 +69,5 @@ std::string OriginalCommandLine::StartURL() const
 {
 	if (!Param("hax0r") && !Param("server"))
 		return {};
-	size_t pos = 0;
-	std::string token;
-	if (!NextToken(line, pos, token))
-		return {};
-	if (StrTools::ue1_strfind(token, "SERVER") == 0 && token.size() == 6 && !NextToken(line, pos, token))
-		return {};
-	if (token.empty() || token[0] == '-')
-		return {};
-	return token;
+	return FirstToken();
 }

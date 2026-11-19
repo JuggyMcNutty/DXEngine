@@ -29,6 +29,11 @@ class GamepadInput
 {
 public:
 	void Update(Engine* engine, float timeElapsed);
+	// The focus gone: the buttons and sticks held forgotten, no release
+	// sent, as the keys are (Engine::OnWindowDeactivated); while the game's
+	// window is without the focus the pad is not read, and each button held
+	// as it comes back is pressed again
+	void Forget();
 
 private:
 	enum class Owner : uint8_t { None, Game, UI };

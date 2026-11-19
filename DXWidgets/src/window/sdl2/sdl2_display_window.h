@@ -128,6 +128,8 @@ public:
 	// Caps Lock off at the start), and the layout's family it stands in for
 	// (SimulateKeyLayout; empty for the system's)
 	static bool SimulatedKeys[SDL_NUM_SCANCODES];
+	// A timeline's key event's mark, in its keysym's field SDL leaves unused
+	static constexpr Uint32 SimulatedKeyMark = 0x44584b;
 	static bool SimulatedNumLock;
 	static bool SimulatedCapsLock;
 	static std::string SimulatedLayout;

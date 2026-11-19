@@ -10,17 +10,49 @@
 #include <filesystem>
 
 Array<GameLaunchInfo> GameFolderSelection::Games;
+std::string GameFolderSelection::NotFound;
+
+// Why a folder given is not taken for the game, as FindUE1GameInPath looks
+static std::string WhyNotTheGame(const std::string& folder)
+{
+	std::error_code ec;
+	if (!fs::is_directory(fs::path(folder), ec))
+		return "\"" + folder + "\" is no folder";
+	fs::path system = Directory::resolveCase(fs::path(folder) / "System");
+	for (const std::string& name : knownUE1ExecutableNames)
+	{
+		fs::path exe = Directory::resolveCase(system / name);
+		if (fs::is_regular_file(exe, ec))
+			return exe.string() + " is a build the engine does not know";
+	}
+	return "\"" + folder + "\" has no System folder with " + knownUE1ExecutableNames[0];
+}
 
 void GameFolderSelection::UpdateList()
 {
 	Games.clear();
+	NotFound.clear();
 
 	for (const std::string& folder : commandline->GetItems())
 	{
 		GameLaunchInfo game = ExamineFolder(folder);
 		if (!game.gameName.empty())
 			Games.push_back(game);
+		else if (NotFound.empty())
+			NotFound = "No UE1 game found in the given folder: " + WhyNotTheGame(folder);
 	}
+
+	// A folder given and not the game: no other is looked for, which would
+	// start another install (bugs.md ENG.47)
+	if (!commandline->GetItems().empty())
+		return;
+
+#ifdef WIN32
+	NotFound = "No UE1 game found: no game folder given, the engine started in no game's System "
+		"folder, and none named in the registry";
+#else
+	NotFound = "No UE1 game found: no game folder given, and the engine started in no game's System folder";
+#endif
 
 	if (Games.empty())
 	{

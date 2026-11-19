@@ -1014,12 +1014,14 @@ run_dxe() {
             export ALSOFT_CONF="$CAP/alsoft-null.conf"
         fi
         # The run's own Settings.json, where the engine looks for it
-        # ($HOME/.config/DXEngine); the caches stay where they are.
+        # ($XDG_CONFIG_HOME/DXEngine, else $HOME/.config/DXEngine); the
+        # caches stay where they are.
         if [ -n "$settings" ] && ! windows_engine; then
             mkdir -p "$dir/home/.config/DXEngine"
             cp "$settings" "$dir/home/.config/DXEngine/Settings.json"
             export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
             export HOME="$dir/home"
+            export XDG_CONFIG_HOME="$dir/home/.config"
         fi
         fps_env
         local e_ini e_userini run=("$ENGINE_BIN")

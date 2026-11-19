@@ -2431,11 +2431,21 @@ green, white or None (`ButtonDefaultsConsole`: a button's six slots set
 apart, then each call with its first slot alone, its insensitive and focused
 look alike in both engines).
 
-Differs (bugs.md ENG.40): a button or key held as the window loses the focus
-stays down for the game (on the SDL3 window the weapon fires on), and one
-held as the focus comes back is pressed again late or never, where the
-original resets its input at each focus change, no release sent, and presses
-each key still held at once as the focus comes back.
+As the window loses the focus the game's input is reset, as the original's
+([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys)):
+the keys and buttons held forgotten and every `input` property of the
+player 0, no release sent, a pad's buttons and sticks with them, the pad
+not read while the window is without the focus. As the focus comes back the
+input is reset again and each key and mouse button the window holds down is
+pressed, a side's own code never (by choice: a key's name, [small](#small)),
+a pad's as the pad reads it (`FocusLossConsole` beside
+`tools/dxcap/focusheld.py`).
+
+Differs (bugs.md ENG.40): in the SDL3 and SDL2 windows a key held as the
+focus comes back, but a shift, control or alt, is pressed only as its repeat
+comes, and on Wayland not at all, SDL knowing of no other key held then; in
+the Wayland window a mouse button held then is not pressed again. The
+original presses each at once.
 
 Differs (bugs.md EXT.39): the menus' pointer stops a unit past the screen's
 right and bottom edge, where the original's is held within the root, to its
@@ -3298,6 +3308,8 @@ Every other native the scripted runs compare matches the original
   array's by `Name[i]`, its own before those of the struct it extends (a
   Plane's W, then X, Y and Z), a quoted string holding a comma or a
   parenthesis whole, a nested struct whole; only the members named are set.
+  A quoted string's `\\` is a backslash and its `\xx` a character of its
+  own, `"\C3\A9"` two, U+00C3 and U+00A9.
   An element by its index, `N[1]=7`, stops the import there, logged
   (`ImportText: Illegal array element`), the members before it set, as the
   original's index reader starts on the bracket and finds none, though its
@@ -3562,10 +3574,6 @@ original's sets nothing.
 
 Differs (bugs.md ENG.60): `MLMODE`'s number and a Color's members in an ini
 are read by C's rules, not the original's `appAtoi`'s; nothing seen.
-
-Differs (bugs.md ENG.55): a property text's `\xx` escapes are joined as
-UTF-8 bytes, `"\C3\A9"` one character, where the original makes each escape
-a character of its own.
 
 Differs (bugs.md ENG.57): the window events come after the windows' tick, so
 a window an event makes is drawn once before its first tick, its focus a

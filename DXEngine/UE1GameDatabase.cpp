@@ -19,7 +19,8 @@ std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_g
 
 	for (auto& executable_name : knownUE1ExecutableNames)
 	{
-		auto executablePath = UE1GameSystemPath / executable_name;
+		// The executable in any case too, its name kept as the database's
+		auto executablePath = Directory::resolveCase(UE1GameSystemPath / executable_name);
 
 		std::string sha1sum = SHA1Sum::of_file(executablePath);
 

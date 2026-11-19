@@ -258,18 +258,15 @@ void WaylandDisplayBackend::ConnectKeyboardEvents()
 	};
 
 	m_waylandKeyboard.on_leave() = [this] (uint32_t serial, wayland::surface_t surfaceLeft) {
-		// The keyboard gone: every key held is released to the window, the
-		// repeat stopped, and the window told it lost the keyboard (the
-		// engine forgets the keys it holds)
-		for (auto& state : inputKeyStates)
-		{
-			if (state.second && m_FocusWindow)
-				m_FocusWindow->windowHost->OnWindowKeyUp(state.first);
-			state.second = false;
-		}
-		StopKeyboardTimers();
+		// The keyboard gone: the window is told it lost the keyboard (the
+		// engine resets its input there), the keys held are forgotten with no
+		// release made up for them, as none reaches the original's window at
+		// a focus loss (bugs.md ENG.40), and the repeat stopped
 		if (m_FocusWindow)
 			m_FocusWindow->windowHost->OnWindowDeactivated();
+		for (auto& state : inputKeyStates)
+			state.second = false;
+		StopKeyboardTimers();
 	};
 
 	m_waylandKeyboard.on_key() = [this] (uint32_t serial, uint32_t time, uint32_t key, wayland::keyboard_key_state state) {

@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <pwd.h>
 #include <fcntl.h>
 #include <cerrno>
 #include <cstdio>
@@ -355,27 +356,26 @@ void Directory::create(const std::string& name)
 	if (result == FALSE)
 	{
 		DWORD error = GetLastError();
+		if (error == ERROR_PATH_NOT_FOUND)
+		{
+			std::string parent = fs::path(path).parent_path().string();
+			if (!parent.empty())
+			{
+				Directory::create(parent);
+				if (CreateDirectory(to_utf16(path).c_str(), nullptr) == TRUE)
+					return;
+				error = GetLastError();
+			}
+		}
+		// Made already; a file in its place is no folder (bugs.md ENG.55)
 		if (error == ERROR_ALREADY_EXISTS)
 		{
-			return;
+			DWORD attributes = GetFileAttributes(to_utf16(path).c_str());
+			if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY))
+				return;
+			throw std::runtime_error("Could not create directory " + path + ": a file is there");
 		}
-		else if (error == ERROR_PATH_NOT_FOUND)
-		{
-			try
-			{
-				std::string parent = fs::path(path).parent_path().string();
-				if (!parent.empty())
-				{
-					Directory::create(parent);
-					if (CreateDirectory(to_utf16(path).c_str(), nullptr) == TRUE)
-						return;
-				}
-			}
-			catch (...)
-			{
-			}
-		}
-		throw std::runtime_error("Could not create directory for path " + path);
+		throw std::runtime_error("Could not create directory " + path + ": " + std::system_category().message((int)error));
 	}
 }
 
@@ -428,34 +428,47 @@ void Directory::create(const std::string& name)
 		dirname.pop_back();
 	if (mkdir(dirname.c_str(), 0777) == 0)
 		return;
-	if (errno == EEXIST)
-		return;
-	if (errno == ENOENT)
+	int error = errno;
+	if (error == ENOENT)
 	{
-		try
+		fs::path parent = fs::path(dirname).parent_path();
+		if (!parent.empty())
 		{
-			fs::path parent = fs::path(dirname).parent_path();
-			if (!parent.empty())
-			{
-				Directory::create(parent.string());
-				if (mkdir(dirname.c_str(), 0777) == 0)
-					return;
-			}
-		}
-		catch (...)
-		{
+			Directory::create(parent.string());
+			if (mkdir(dirname.c_str(), 0777) == 0)
+				return;
+			error = errno;
 		}
 	}
-	Exception::Throw("Could not create directory " + dirname);
+	// Made already; a file in its place is no folder (bugs.md ENG.55)
+	if (error == EEXIST)
+	{
+		struct stat info = {};
+		if (stat(dirname.c_str(), &info) == 0 && S_ISDIR(info.st_mode))
+			return;
+		Exception::Throw("Could not create directory " + dirname + ": a file is there");
+	}
+	Exception::Throw("Could not create directory " + dirname + ": " + strerror(error));
 }
 
 fs::path Directory::localAppData()
 {
-	// We're trying to find "~/.config" here
-	const char* homeDir = getenv("HOME");
+	// The configuration's home as freedesktop's base directories name it:
+	// XDG_CONFIG_HOME where it is an absolute path, else HOME's .config, else
+	// that of the home the user database gives, a service run with no HOME
+	// (bugs.md ENG.48)
+	const char* configHome = getenv("XDG_CONFIG_HOME");
+	if (configHome && configHome[0] == '/')
+		return fs::path(configHome);
 
-	if (!homeDir)
-		throw std::runtime_error("HOME environment variable is not set... somehow.");
+	const char* homeDir = getenv("HOME");
+	if (!homeDir || !homeDir[0])
+	{
+		const passwd* user = getpwuid(getuid());
+		homeDir = user ? user->pw_dir : nullptr;
+	}
+	if (!homeDir || !homeDir[0])
+		throw std::runtime_error("No folder for the engine's own: no HOME, no XDG_CONFIG_HOME and no home for the user; --userdir names one");
 
 	return fs::path(homeDir) / ".config";
 }

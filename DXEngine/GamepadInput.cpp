@@ -290,10 +290,23 @@ void GamepadInput::Pointer(Engine* engine, const GamepadState& state, float time
 		engine->OnWindowRawMouseMove(dx, dy);
 }
 
+void GamepadInput::Forget()
+{
+	for (int i = 0; i < NumButtons; i++)
+	{
+		wasDown[i] = false;
+		owner[i] = Owner::None;
+	}
+	repeatButton = -1;
+	for (bool& active : axisActive)
+		active = false;
+	pointerRemX = pointerRemY = 0.0f;
+}
+
 void GamepadInput::Update(Engine* engine, float timeElapsed)
 {
 	Configure();
-	if (!enabled)
+	if (!enabled || !engine->GameWindowActive)
 		return;
 
 	GamepadState state;

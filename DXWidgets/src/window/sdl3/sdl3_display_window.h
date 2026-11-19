@@ -154,6 +154,8 @@ public:
 	// Caps Lock off at the start), and the layout's family it stands in for
 	// (SimulateKeyLayout; empty for the system's)
 	static bool SimulatedKeys[SDL_SCANCODE_COUNT];
+	// The keyboard a timeline's key event names, no keyboard of SDL's
+	static constexpr SDL_KeyboardID SimulatedKeyboard = 0x44584b;
 	static bool SimulatedNumLock;
 	static bool SimulatedCapsLock;
 	static std::string SimulatedLayout;

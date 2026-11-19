@@ -16,6 +16,8 @@
 #include <stdexcept>
 #include <iostream>
 #include <cstring>
+#include <clocale>
+#include <locale>
 #include <vector>
 #ifndef _WIN32
 #include <cerrno>
@@ -34,6 +36,13 @@ static const char* const Features = "userdir loadgame-url int-paths system";
 
 int GameApp::main(Array<std::string> args)
 {
+	// The C locale, C's and C++'s, which the engine's text takes for its own
+	// (a float's '.', a name's fold of A to Z alone), as no module of the
+	// original's game sets one (core-dll.md, names hashed and compared): a
+	// guard, the locale nothing in the engine changes (bugs.md ENG.56)
+	std::setlocale(LC_ALL, "C");
+	std::locale::global(std::locale::classic());
+
 	// --version: which engine this is and what it can do, for a launcher
 	// to check before it starts one (and before anything is loaded).
 	for (const std::string& arg : args)
@@ -99,7 +108,8 @@ int GameApp::main(Array<std::string> args)
 		windowSystem = InitWidgetResources("dark");
 		widgets = true;
 
-		if (ErrorWindow::CheckCrashReporter())
+		// The engine's own folder made here: none for --help (bugs.md ENG.48)
+		if (!commandline->HasArg("-h", "--help") && ErrorWindow::CheckCrashReporter())
 			return 0;
 
 		// Every option the engine takes but MSVC's build's --showcrashreport,
@@ -134,7 +144,7 @@ int GameApp::main(Array<std::string> args)
 			// A failure, reported as every other (the error window, the
 			// launcher's prefix, a failing exit code), not a clean quit
 			// after one line on stdout
-			throw std::runtime_error("No UE1 game found in the given folder");
+			throw std::runtime_error(GameFolderSelection::NotFound);
 		}
 		else
 		{
@@ -200,6 +210,12 @@ int GameApp::main(Array<std::string> args)
 				shown += "\n\nThis run's log: " + Logger::LastRunFilename();
 			ErrorWindow::ExecModal(shown, Logger::Get()->GetLog(), {}, icon);
 		}
+#ifdef _WIN32
+		else if (ErrorBox && !noLauncher)
+		{
+			MessageBoxW(nullptr, to_utf16(errorLine).c_str(), L"DXEngine", MB_OK | MB_ICONERROR);
+		}
+#endif
 	}
 
 	if (widgets)

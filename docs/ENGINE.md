@@ -95,11 +95,17 @@ directory:
 DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
 ```
 
+A game's folder is one whose `System/DeusEx.exe` is a build the engine knows, `System` and
+`DeusEx.exe` in any case, as Windows finds them: a copy recased on a case-sensitive file system
+is the game still.
+
 - `--help` (`-h`) lists the options below.
 - `--no-launcher` (`-n`) puts the log on stderr, as `--verbose` (`-v`) does, and opens no error
-  window: an error goes to stderr alone. With no game folder given, the engine runs the game
-  whose `System` folder (in any case) it starts in, or on Windows the Deus Ex the registry
-  names; with neither, it says no game is found and exits.
+  window: an error goes to stderr alone. A game folder given that is not the game is an error
+  that says why (no folder, no `System` with `DeusEx.exe`, an exe of a build the engine does not
+  know). With no game folder given, the engine runs the game whose `System` folder (in any case)
+  it starts in, or on Windows the Deus Ex the registry names; with neither, it says no game is
+  found and exits.
 - **A map is `--url=<map>` (or `-u=<map>`, `--url <map>`).** An option that takes a value
   (`--url`, `--ini`, `--userini`, `--system`, `--userdir`, `--cmdline`, `--timeline`) takes
   the next word when it has no `=`, unless that word starts with `-`.
@@ -109,14 +115,18 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   run as the original's log window runs a typed line (`say <text>`, `servertravel <map>`,
   `exit`), its output and "Unrecognized command" in the log; the input's end is ignored. On
   Windows the engine is a windowed program, which a console's prompt hands no input: its
-  input is a pipe or a file given it (`DXEngine.exe --server ... < commands.txt`).
+  input is a pipe or a file given it (`DXEngine.exe --server ... < commands.txt`). Given no
+  output of its own (a pipe, a file), it writes to the console it is started from, `--help`,
+  `--version` and the log, the prompt coming back before the text; started with no console, an
+  error before its error window can open (a missing `DXEngine.pk3`) shows in a message box.
 - **SIGTERM, SIGINT or SIGHUP quits as a closed window does**: at the next frame, the inis
   written back, exit 0, whatever the window (a dedicated server too). A second signal kills at
   once, as a stuck engine needs. The Fatal Error window closes on one within a tenth of a
   second, the engine exiting with 1, or, up before the engine installs its handler (an error as
   it starts), through SDL's own (an SDL window) or the signal's default (the X11 window).
   Windows has no such signals: there a launcher's `Quit` (below) does so, the Fatal Error
-  window's too.
+  window's too. A pipe the log goes to (`-n`, `-v`) that its reader closes stops nothing: the
+  lines after are lost, the engine runs on.
 - `Running.ini` is the launcher's crash sentinel, not the engine's: a run under a launcher that
   is killed leaves it behind like any crash; a run by hand has none.
 - `--ini=<file>` and `--userini=<file>` name the inis to read and write back, as the original's
@@ -130,8 +140,9 @@ DXEngine --no-launcher /path/to/deusex --url=01_NYC_UNATCOIsland.dx
   files and its `.int` files are taken from there, as the original takes them from its
   `Core.dll`'s folder ([mods](NATIVES.md#mods)); `Default.ini` and `DefUser.ini` from there,
   else the game's. Without it, the game's `System`.
-- **`--userdir=<dir>`** is the engine's own folder in place of `~/.config/DXEngine` (Windows'
-  `%LOCALAPPDATA%\DXEngine`):
+- **`--userdir=<dir>`** is the engine's own folder in place of `~/.config/DXEngine` (in
+  `XDG_CONFIG_HOME` where that is set; with no `HOME`, the user's home from the system's user
+  database; Windows' `%LOCALAPPDATA%\DXEngine`):
   `Settings.json`, the last run's log (`DXE-Log-LastRun.txt`, begun as the engine starts and
   added to line by line, so that a crash leaves the run's log up to it, then written whole as
   the run ends, a fatal error's line in it: a long run's first 1,000 lines and its last
