@@ -137,6 +137,16 @@ void UMesh::Load(ObjectStream* stream)
 	FrameVerts = stream->ReadInt32();
 	AnimFrames = stream->ReadInt32();
 
+	// A frame's vertices held to the mesh's, its frames to as many as they
+	// fill: the draws size a buffer by FrameVerts, and DXEngine's own normals
+	// below go over every frame, where the original works out none at a load.
+	// A guard of ours (bugs.md PKG.54): a FrameVerts under 0 or past the
+	// vertices refused; every stock mesh's frames fill its vertices exactly.
+	if (FrameVerts < 0 || (size_t)FrameVerts > Verts.size())
+		Exception::Throw("Mesh " + Name.ToString() + ": " + std::to_string(FrameVerts) + " vertices a frame of its " + std::to_string(Verts.size()));
+	if (FrameVerts > 0)
+		AnimFrames = std::min(AnimFrames, (int)(Verts.size() / FrameVerts));
+
 	// Each sequence held to the mesh's frames, at least one frame long: the
 	// animation calls divide by its frames and the draws read its frames'
 	// vertices, and a package may give an empty sequence or one past the
@@ -187,8 +197,10 @@ void UMesh::Load(ObjectStream* stream)
 	Normals.clear();
 	Normals.resize(Verts.size(), vec3(0.0f));
 	// A face running past the vertices (a hand-made mesh's) is passed over,
-	// not written past the buffer
-	for (int frame = 0; frame < AnimFrames; frame++)
+	// not written past the buffer; with no vertices a frame every frame is
+	// the first, its normals once
+	int normalFrames = FrameVerts > 0 ? AnimFrames : std::min(AnimFrames, 1);
+	for (int frame = 0; frame < normalFrames; frame++)
 	{
 		for (const MeshTri& tri : Tris)
 		{

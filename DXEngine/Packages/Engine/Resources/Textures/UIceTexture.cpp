@@ -25,6 +25,9 @@ void UIceTexture::Prepare()
 	{
 		const UnrealMipmap& sourceMip = *source->P8Mip();
 		bool sourceFits = sourceMip.Width == mipmap.Width && sourceMip.Height == mipmap.Height;
+		// A source whose bits are not its size's is none, as a wet texture's
+		// (bugs.md PKG.47): its rows are found by them
+		bool sourceSound = sourceMip.UBits < 16 && sourceMip.VBits < 16 && (1 << sourceMip.UBits) == sourceMip.Width && (1 << sourceMip.VBits) == sourceMip.Height;
 		UTexture* glass = GlassTexture();
 		const UnrealMipmap* glassMip = glass ? glass->P8Mip() : nullptr;
 		bool glassFits = glassMip && glassMip->Width == mipmap.Width && glassMip->Height == mipmap.Height;
@@ -34,7 +37,7 @@ void UIceTexture::Prepare()
 		{
 			int ushift = mipmap.UBits - sourceMip.UBits;
 			int vshift = mipmap.VBits - sourceMip.VBits;
-			if (ushift < 0 || vshift < 0)
+			if (ushift < 0 || vshift < 0 || !sourceSound)
 			{
 				SourceTexture() = nullptr;
 			}

@@ -10,11 +10,20 @@ void UFont::Load(ObjectStream* stream)
 {
 	UObject::Load(stream);
 
-	pages.resize(stream->ReadIndex());
+	// Each count held to what the object has left before anything is
+	// allocated, a page two bytes at the least, a character 16, a guard of
+	// ours (bugs.md PKG.61): a sound file holds every one it counts
+	int count = stream->ReadIndex();
+	if (count < 0 || (int64_t)count * 2 > stream->Remaining())
+		Exception::Throw("Font " + Name.ToString() + " has " + std::to_string(count) + " pages");
+	pages.resize(count);
 	for (FontPage& page : pages)
 	{
 		page.Texture = stream->ReadObject<UTexture>();
-		page.Characters.resize(stream->ReadIndex());
+		count = stream->ReadIndex();
+		if (count < 0 || (int64_t)count * 16 > stream->Remaining())
+			Exception::Throw("Font " + Name.ToString() + " has a page of " + std::to_string(count) + " characters");
+		page.Characters.resize(count);
 		for (FontCharacter& character : page.Characters)
 		{
 			character.StartU = stream->ReadInt32();

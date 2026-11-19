@@ -29,10 +29,27 @@ void UObject::LoadNow()
 	if (DelayLoad)
 	{
 		auto info = std::move(DelayLoad);
-		auto stream = info->package->OpenObjectStream(info->Index, info->ObjName, info->Class);
+		// One whose bytes cannot be read or loaded is no object of its
+		// package: its export's slot is emptied, so the next reference makes
+		// and loads it again and fails as this one did, where the half-built
+		// object was handed on as loaded. A guard of ours (bugs.md PKG.57):
+		// the original stops the game at a load error (dx-reverse-info
+		// core-dll.md, packages and linkers).
+		std::unique_ptr<ObjectStream> stream;
+		try
+		{
+			stream = info->package->OpenObjectStream(info->Index, info->ObjName, info->Class);
+			if (!stream->IsEmptyStream())
+				Load(stream.get());
+		}
+		catch (...)
+		{
+			if (info->package->IsExportObject(this, info->Index))
+				info->package->ExportObjects[info->Index] = nullptr;
+			throw;
+		}
 		if (!stream->IsEmptyStream())
 		{
-			Load(stream.get());
 			// One its export gives no outer is in its package, as the
 			// original's: a level and its actors, a texture in no group. A
 			// class keeps none, its block being its defaults, whose Outer
@@ -896,6 +913,13 @@ void PropertyDataBlock::Load(ObjectStream* stream)
 		}
 		catch (const std::exception& e)
 		{
+			// A size that runs back (one past 2 GB read as negative) put the
+			// read on this tag or one before it again, without end: it fails
+			// the object's load with the value's error instead, a guard of
+			// ours (bugs.md PKG.49). A size past the object fails at the seek.
+			// No object holds 2 GB, so no sound file's tag meets it.
+			if (header.type != UPT_Bool && header.size < 0)
+				throw;
 			LogMessage(std::string(e.what()) + " in " + name.ToString() + " of " + owner + ": skipping " + std::to_string(header.size) + " bytes of type " + std::to_string((int)header.type));
 			stream->Seek(header.type != UPT_Bool ? start + header.size : start);
 		}

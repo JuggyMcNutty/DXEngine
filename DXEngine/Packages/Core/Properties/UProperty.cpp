@@ -11,6 +11,12 @@ void UProperty::Load(ObjectStream* stream)
 	UField::Load(stream);
 
 	ArrayDimension = stream->ReadInt32();
+	// A guard of ours (bugs.md PKG.46): a dimension under 1 laid the next
+	// property over this one and the class's block out short, its last
+	// element written past the block. The compiler writes 1 for a single
+	// value and a static array's count for one, so no sound file holds one.
+	if (ArrayDimension < 1)
+		Exception::Throw("Property " + Name.ToString() + " has an array dimension of " + std::to_string(ArrayDimension));
 	PropFlags = (PropertyFlags)stream->ReadUInt32();
 	Category = stream->ReadName();
 	if (AllFlags(PropFlags, PropertyFlags::Net))

@@ -203,8 +203,12 @@ void UScriptedTexture::DrawTileP8(UTexture* texture, float left, float top, floa
 	if (!texture || width <= 0.0f || height <= 0.0f || UsedFormat != TextureFormat::P8 || texture->UsedFormat != TextureFormat::P8)
 		return;
 
+	// A source mip of no size holds no texel to wrap into: a guard of ours
+	// (bugs.md PKG.62), drawing nothing from it
 	int swidth = texture->UsedMipmaps.front().Width;
 	int sheight = texture->UsedMipmaps.front().Height;
+	if (swidth <= 0 || sheight <= 0)
+		return;
 	const uint8_t* src = (const uint8_t*)texture->UsedMipmaps.front().Data.data();
 
 	int dwidth = UsedMipmaps.front().Width;
@@ -247,8 +251,12 @@ void UScriptedTexture::DrawTileP8Masked(UTexture* texture, float left, float top
 	if (!texture || width <= 0.0f || height <= 0.0f || UsedFormat != TextureFormat::P8 || texture->UsedFormat != TextureFormat::P8)
 		return;
 
+	// A source mip of no size holds no texel to wrap into: a guard of ours
+	// (bugs.md PKG.62), drawing nothing from it
 	int swidth = texture->UsedMipmaps.front().Width;
 	int sheight = texture->UsedMipmaps.front().Height;
+	if (swidth <= 0 || sheight <= 0)
+		return;
 	const uint8_t* src = (const uint8_t*)texture->UsedMipmaps.front().Data.data();
 
 	int dwidth = UsedMipmaps.front().Width;
@@ -292,8 +300,12 @@ void UScriptedTexture::DrawTileP8Color(UTexture* texture, float left, float top,
 	if (!texture || width <= 0.0f || height <= 0.0f || UsedFormat != TextureFormat::P8 || texture->UsedFormat != TextureFormat::P8)
 		return;
 
+	// A source mip of no size holds no texel to wrap into: a guard of ours
+	// (bugs.md PKG.62), drawing nothing from it
 	int swidth = texture->UsedMipmaps.front().Width;
 	int sheight = texture->UsedMipmaps.front().Height;
+	if (swidth <= 0 || sheight <= 0)
+		return;
 	const uint8_t* src = (const uint8_t*)texture->UsedMipmaps.front().Data.data();
 
 	int dwidth = UsedMipmaps.front().Width;

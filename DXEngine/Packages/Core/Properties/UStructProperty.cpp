@@ -32,6 +32,10 @@ void UStructProperty::Load(ObjectStream* stream)
 {
 	UProperty::Load(stream);
 	Struct = stream->ReadObject<UStruct>();
+	// No struct is refused, as the fixed array refuses no inner, a guard of
+	// ours (bugs.md PKG.59): the compiler names the struct of every one
+	if (!Struct)
+		Exception::Throw("Struct property " + Name.ToString() + " has no struct");
 	Struct->LoadNow();
 
 	if (Struct->Name == "Vector")

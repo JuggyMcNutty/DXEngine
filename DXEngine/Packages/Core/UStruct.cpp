@@ -9,6 +9,7 @@
 #include "Packages/Core/Properties/UBoolProperty.h"
 #include "Packages/Core/Properties/UObjectProperty.h"
 #include "Packages/Core/Properties/UStructProperty.h"
+#include <unordered_set>
 
 UStruct::UStruct(NameString name, UClass* cls, ObjectFlags flags) : UField(std::move(name), cls, flags)
 {
@@ -54,6 +55,20 @@ void UStruct::Load(ObjectStream* stream)
 	if (!BaseStruct && BaseField)
 		BaseStruct = UObject::Cast<UStruct>(BaseField);
 
+	// The links are the file's own: a struct that extends itself, or a ring
+	// of them, hung every walk up the supers, and a field whose Next is
+	// itself or one before it added it to the properties without end. Each
+	// is refused, a guard of ours (bugs.md PKG.60): in a sound file a struct
+	// extends a chain that ends, and its fields are a list that ends, no
+	// field in it twice.
+	std::unordered_set<UStruct*> supers;
+	for (UStruct* s = BaseStruct; s; s = s->BaseStruct)
+	{
+		if (s == this || !supers.insert(s).second)
+			Exception::Throw("Struct " + Name.ToString() + " extends itself");
+	}
+	std::unordered_set<UField*> fields;
+
 	size_t offset = 0;
 	size_t structAlignment = 1;
 	if (BaseStruct && !UObject::TryCast<UFunction>(this)) // functions should not inherit properties from the super/base function
@@ -69,6 +84,8 @@ void UStruct::Load(ObjectStream* stream)
 	UField* child = Children;
 	while (child)
 	{
+		if (!fields.insert(child).second)
+			Exception::Throw("Struct " + Name.ToString() + ": its fields never end");
 		child->LoadNow();
 
 		if (UProperty* prop = UObject::TryCast<UBoolProperty>(child))

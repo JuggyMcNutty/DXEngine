@@ -20,7 +20,12 @@ void UTexture::Load(ObjectStream* stream)
 		// 0x103f0d80, the lazy array's 0x10371140), a compressed mip's alike
 		if (stream->GetVersion() > 61)
 			stream->ReadInt32();
+		// Its bytes held to what the object has left before they are
+		// allocated, a guard of ours (bugs.md PKG.61): a sound file holds
+		// every byte it counts
 		int bytes = stream->ReadIndex();
+		if (bytes < 0 || (uint32_t)bytes > stream->Remaining())
+			Exception::Throw("Texture " + Name.ToString() + " has a mip of " + std::to_string(bytes) + " bytes");
 		mipmap.Data.resize(bytes);
 		stream->ReadBytes(mipmap.Data.data(), bytes);
 		mipmap.Width = stream->ReadUInt32();
@@ -65,6 +70,8 @@ void UTexture::Load(ObjectStream* stream)
 			if (stream->GetVersion() > 61)
 				stream->ReadInt32(); // its skip offset
 			int bytes = stream->ReadIndex();
+			if (bytes < 0 || (uint32_t)bytes > stream->Remaining())
+				Exception::Throw("Texture " + Name.ToString() + " has a mip of " + std::to_string(bytes) + " bytes");
 			mipmap.Data.resize(bytes);
 			stream->ReadBytes(mipmap.Data.data(), bytes);
 			mipmap.Width = stream->ReadUInt32();

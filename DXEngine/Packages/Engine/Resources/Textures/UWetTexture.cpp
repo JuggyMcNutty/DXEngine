@@ -26,7 +26,12 @@ void UWetTexture::Prepare()
 	const UnrealMipmap& sourceMip = *source->P8Mip();
 	int ushift = mipmap.UBits - sourceMip.UBits;
 	int vshift = mipmap.VBits - sourceMip.VBits;
-	if (ushift < 0 || vshift < 0)
+	// A source whose bits are not its size's is none: the rows below, and
+	// the wave's own, are found by them, and bits past the size read past
+	// its pixels. A guard of ours (bugs.md PKG.47); every stock texture's
+	// bits are its size's.
+	bool sourceSound = sourceMip.UBits < 16 && sourceMip.VBits < 16 && (1 << sourceMip.UBits) == sourceMip.Width && (1 << sourceMip.VBits) == sourceMip.Height;
+	if (ushift < 0 || vshift < 0 || !sourceSound)
 	{
 		SourceTexture() = nullptr;
 		return;

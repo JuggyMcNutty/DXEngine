@@ -4638,7 +4638,11 @@ A mod with none gets the original's loader and natives:
   no stock property being that large; a script's Unicode string constant of more than
   one character loads on the Linux ports; an expression 1,024 deep loads
   (`DepthConsole`'s 100); a mesh whose faces run past its vertices or wedges
-  loads, those faces passed over; a mesh DXEngine saves loads back; a palette short of 256 colours is
+  loads, those faces passed over; a mesh whose frame count runs past its
+  vertices loads with the frames they fill, and one whose frame's vertex
+  count is under 0 or past its vertices is refused, every stock mesh's
+  frames filling its vertices; a mesh DXEngine saves loads back; a palette
+  short of 256 colours is
   padded with black; an uncompressed mip shorter than its size is padded
   with black, a compressed one not: on every device a texture whose top
   mip is short of its bytes draws white, and on the GPU devices a short
@@ -4653,21 +4657,33 @@ A mod with none gets the original's loader and natives:
   pool's entries no node names left alone, every map of the game having
   thousands past its points (`MapWalkConsole`: every map of the game loads);
   a fire texture's sparks and drops outside it are masked into it and a
-  water texture's cells checked, a row's shift taken from the texture's
-  width, where the original's writes with the package's `UBits`, every stock
-  one its width's; a fire's `SparksLimit` past 1,048,576 is held there, where
+  water texture's cells checked; a fractal texture's rows are stepped by its
+  width, where the original's step by the package's `UBits`, one of a size
+  that is no power of two is refused, and a wet or ice texture's source
+  whose bits are not its size's is none, every stock texture's size a power
+  of two and its `UBits` its width's; a fire's `SparksLimit` past 1,048,576
+  is held there, where
   the original's makes room for any; a scripted texture drawn from outside its source wraps, and one drawn with a
   size of 0 or a float that is no number draws nothing; an animation chain
-  that never comes back ends at 2,048 textures; an import whose outers never
+  that never comes back ends at 2,048 textures; a struct property with no
+  struct or a dynamic array with no inner is refused; an import whose outers never
   end is refused; an export whose class, outer or base rings on itself is
-  refused; a dynamic array property of a dimension over 1 reads its element
+  refused, as is a struct that extends itself or whose fields ring on
+  themselves; a dynamic array property of a dimension over 1 reads its element
   where it is; a name's length that is no name is refused; a string's, an
-  array's, a sound's or a song's size that is none is refused before
+  array's, a sound's or a song's size that is none, or a count past what its
+  object holds (a mip's bytes, a font's pages or characters, a model's light
+  bits, a fire's sparks, a text buffer's bytes), is refused before
   anything is allocated; a map folder the paths name but the disk lacks is
-  passed over with a line in the log; a path's map pattern is taken in any
+  passed over with a line in the log; a model of package version 61 or older
+  lacking one of its five arrays is refused; a path's map pattern is taken in any
   case; a path's folder in another case than the disk's gives its text and
-  registered objects too; a class DXEngine saves has its super class for its
-  base, so it loads back laid out from it.
+  registered objects too; a property whose array dimension is under 1 is
+  refused; a class DXEngine saves has its super class for its
+  base, so it loads back laid out from it; a map whose BSP links a node back
+  up its own path, a ring the original's walks follow for ever, is refused,
+  as is one whose nodes are reached many times over, every map of the game
+  reaching each node once, and a render bound under -1.
 - **A mod's actors drawn.** A mesh sequence of no frames draws its first
   frame, and an `AnimFrame` of 1 or more wraps into its sequence with the
   weight between frames taken before the wrap, as the original's GetFrame
@@ -4689,7 +4705,11 @@ A mod with none gets the original's loader and natives:
   place (a NaN location) sorts
   nearest among the translucent.
 - **A mod's deletions and sizes.** A light in the level's light lists
-  is kept, destroyed or not, so the lists keep their places; a destroyed
+  is kept, destroyed or not, so the lists keep their places; a map whose
+  surface's light list starts or runs past the level's lights, or whose
+  light map is under 1 or over 1,024 texels a side, is refused, every map of
+  the game's lists ending in its lights and its light maps 1 to 256 a side;
+  a destroyed
   mover's polygons keep their texture for a `TraceTexture` through them; a
   collision size or location past the cells an int names, or no number, is
   held to them.
@@ -4713,7 +4733,9 @@ A mod with none gets the original's loader and natives:
   the two textures' bits, its palette with it, and that copy laid over it
   each tick before its notify actor draws, as the original's: a source set
   later, or a `ReplaceTexture` on it, never shows (`CapSourced` keeps
-  `plaque_b` through both in both engines).
+  `plaque_b` through both in both engines). A draw into one from a texture
+  whose top mip is 0 wide or high draws nothing, there being no texel to
+  take; every stock texture's top mip has a size.
 - **Config files.** A class's config file that is not there is empty, its
   properties keeping their defaults, until the class writes it
   ([configuration](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#configuration)):
@@ -4946,20 +4968,16 @@ Differs (bugs.md ENG.49): a dynamic array of an ini that shrank keeps its
 removed elements' lines, which come back at the next start, where the
 original's `SaveConfig` writes one line an element and no more.
 
-Differs (bugs.md PKG.49): a property tag whose size runs back over itself is
-read again without end in both engines, DXEngine logging a line and a call
-stack at each pass, where the original logs nothing.
+A property tag whose size runs back over itself, its value failing to load,
+fails its object's load with the value's error, where the original's load
+does not end.
 
-Differs (bugs.md PKG.50): a map whose `MyLevel` is its own outer takes
-DXEngine's memory until it fails, where the original ends within seconds.
+A map whose `MyLevel` is its own outer, or in a ring of outers, is refused
+as a map without its `MyLevel` ("Failed to find object 'Level None.MyLevel'"),
+where the original ends within seconds.
 
-Differs (bugs.md PKG.54): a mesh whose frame count runs far past its
-vertices never finishes loading in DXEngine, which works out its normals at
-the load; the original works out none there.
-
-Differs (bugs.md PKG.57): an object whose load fails is None the first time
-it is asked for and the half-loaded object the next, where the original
-stops at the error.
+An object whose load fails is None each time it is asked for, its load tried
+again each time, where the original stops at the error.
 
 Differs (bugs.md PKG.58): a folder the paths name that cannot be listed
 stops DXEngine at its start, where the original finds no file there.

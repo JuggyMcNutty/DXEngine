@@ -9,7 +9,11 @@ void UTextBuffer::Load(ObjectStream* stream)
 	Pos = stream->ReadUInt32();
 	Top = stream->ReadUInt32();
 
+	// Held to what the object has left before it is allocated, a guard of
+	// ours (bugs.md PKG.61): a sound file holds every byte it counts
 	int size = stream->ReadIndex();
+	if (size > 0 && (uint32_t)size > stream->Remaining())
+		Exception::Throw("Text buffer " + Name.ToString() + " of " + std::to_string(size) + " bytes");
 	if (size > 0)
 	{
 		Text.resize(size);

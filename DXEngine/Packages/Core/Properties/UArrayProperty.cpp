@@ -11,6 +11,10 @@ void UArrayProperty::Load(ObjectStream* stream)
 {
 	UProperty::Load(stream);
 	Inner = stream->ReadObject<UProperty>();
+	// No inner is refused, as the fixed array refuses its own, a guard of
+	// ours (bugs.md PKG.59): the compiler names the inner of every one
+	if (!Inner)
+		Exception::Throw("Array " + Name.ToString() + " has no inner property");
 }
 
 void UArrayProperty::Save(PackageStreamWriter* stream)

@@ -6,7 +6,12 @@ void UFireTexture::Load(ObjectStream* stream)
 {
 	UFractalTexture::Load(stream);
 
+	// Held to what the object has left before they are allocated, eight
+	// bytes a spark, a guard of ours (bugs.md PKG.61): a sound file holds
+	// every spark it counts
 	int size = stream->ReadIndex();
+	if (size < 0 || (int64_t)size * 8 > stream->Remaining())
+		Exception::Throw("Fire texture " + Name.ToString() + " has " + std::to_string(size) + " sparks");
 	Sparks.resize(size);
 	for (int i = 0; i < size; i++)
 	{
@@ -134,12 +139,8 @@ void UFireTexture::UpdateFrame()
 
 	FireEngine::Fire fire;
 	fire.Bits = mipmap.Data.data();
-	// The row shift from the width itself: the package's UBits is not
-	// checked against it, and a wrong one indexed outside the image
-	int ubits = 0;
-	while ((1u << ubits) < (unsigned)mipmap.Width && ubits < 16)
-		ubits++;
-	fire.UBits = ubits;
+	// The row shift the load took from the width (UFractalTexture::Load)
+	fire.UBits = mipmap.UBits;
 	fire.UMask = mipmap.Width - 1;
 	fire.VMask = mipmap.Height - 1;
 	fire.Sparks = Sparks.data();

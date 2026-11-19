@@ -47,6 +47,11 @@ void UModel::Load(ObjectStream* stream)
 		OldFormat.Surfaces = stream->ReadObject<UBspSurfs>();
 		OldFormat.Verts = stream->ReadObject<UVerts>();
 
+		// One missing is refused, as every other bad reference throws, a
+		// guard of ours (bugs.md PKG.64): no Deus Ex file is this old
+		if (!OldFormat.Vectors || !OldFormat.Points || !OldFormat.Nodes || !OldFormat.Surfaces || !OldFormat.Verts)
+			Exception::Throw("Model " + Name.ToString() + " lacks one of its arrays");
+
 		OldFormat.Vectors->LoadNow();
 		OldFormat.Points->LoadNow();
 		OldFormat.Nodes->LoadNow();
@@ -182,7 +187,12 @@ void UModel::Load(ObjectStream* stream)
 		LightMap.push_back(entry);
 	}
 
-	LightBits.resize(stream->ReadIndex());
+	// Held to what the object has left before it is allocated, a guard of
+	// ours (bugs.md PKG.61): a sound file holds every byte it counts
+	count = stream->ReadIndex();
+	if (count < 0 || (uint32_t)count > stream->Remaining())
+		Exception::Throw("Model " + Name.ToString() + " has " + std::to_string(count) + " bytes of light bits");
+	LightBits.resize(count);
 	stream->ReadBytes(LightBits.data(), (uint32_t)LightBits.size());
 
 	count = stream->ReadIndex();
@@ -222,6 +232,27 @@ void UModel::Load(ObjectStream* stream)
 		Lights.push_back(stream->ReadObject<UActor>());
 	}
 
+	// A light map's list is a run of Lights from LightActors to a None,
+	// which the builds walk to that None, as the original's do, and its
+	// size sizes their buffers. A guard of ours (bugs.md PKG.52, PKG.53): a
+	// list that starts or runs past Lights refused, as a leaf's walk stops
+	// at their end, and a size outside 1 to 1,024 texels a side; every map
+	// of the game's lists end in Lights, its light maps 1 to 256 a side.
+	int lastNone = -1;
+	for (size_t i = 0; i < Lights.size(); i++)
+	{
+		if (!Lights[i])
+			lastNone = (int)i;
+	}
+	for (size_t i = 0; i < LightMap.size(); i++)
+	{
+		const LightMapIndex& entry = LightMap[i];
+		if (entry.UClamp < 1 || entry.UClamp > 1024 || entry.VClamp < 1 || entry.VClamp > 1024)
+			Exception::Throw("Model " + Name.ToString() + ": light map " + std::to_string(i) + " is " + std::to_string(entry.UClamp) + " by " + std::to_string(entry.VClamp));
+		if (entry.LightActors >= 0 && entry.LightActors > lastNone)
+			Exception::Throw("Model " + Name.ToString() + ": light map " + std::to_string(i) + "'s light list runs outside its lights");
+	}
+
 	if (stream->GetVersion() <= 61)
 	{
 		OldFormat.Unknown1 = stream->ReadObject<UObject>();
@@ -253,7 +284,7 @@ void UModel::Load(ObjectStream* stream)
 		// indexes in LeafHulls, a negative one ending it, the box's six floats
 		// after). The vertex pool's entries no node names are left alone:
 		// every map of the game has thousands past its points.
-		if (node.Surf >= (int)Surfaces.size() || node.RenderBound >= (int)Bounds.size())
+		if (node.Surf >= (int)Surfaces.size() || node.RenderBound < -1 || node.RenderBound >= (int)Bounds.size())
 			Exception::Throw("Model " + Name.ToString() + ": node " + std::to_string(i) + " points outside its surfaces or bounds");
 		if (node.NumVertices > 0)
 		{
@@ -277,6 +308,46 @@ void UModel::Load(ObjectStream* stream)
 			}
 			if (k + 1 + 6 > LeafHulls.size())
 				Exception::Throw("Model " + Name.ToString() + ": node " + std::to_string(i) + "'s hull runs outside its leaf hulls");
+		}
+	}
+
+	// The walks go from the root by Front, Back and Plane until a link is
+	// under 0, as the original's (Engine.dll 0x103f5db0): a link back up a
+	// node's own path loops them for ever or recurses past the stack. A
+	// guard of ours (bugs.md PKG.51): such a ring is refused, and a tree
+	// whose nodes are reached many times over, whose walks would not end in
+	// a player's time; a node two parents share is walked, as the original
+	// walks it. Every map of the game reaches each node once.
+	if (!Nodes.empty())
+	{
+		struct Step { int Node; int Next; };
+		Array<uint8_t> onPath;
+		onPath.resize(Nodes.size(), 0);
+		Array<Step> path;
+		path.push_back({ 0, 0 });
+		onPath[0] = 1;
+		size_t visits = 1;
+		size_t budget = Nodes.size() * 16 + 1024;
+		while (!path.empty())
+		{
+			int index = path.back().Node;
+			int next = path.back().Next++;
+			if (next == 3)
+			{
+				onPath[index] = 0;
+				path.pop_back();
+				continue;
+			}
+			const BspNode& node = Nodes[index];
+			int child = next == 0 ? node.Front : next == 1 ? node.Back : node.Plane;
+			if (child < 0)
+				continue;
+			if (onPath[child])
+				Exception::Throw("Model " + Name.ToString() + ": node " + std::to_string(child) + " is its own child");
+			if (++visits > budget)
+				Exception::Throw("Model " + Name.ToString() + ": its nodes are reached many times over");
+			onPath[child] = 1;
+			path.push_back({ child, 0 });
 		}
 	}
 

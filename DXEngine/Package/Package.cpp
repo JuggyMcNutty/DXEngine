@@ -669,10 +669,15 @@ int Package::FindObjectReference(const NameString& className, const NameString& 
 
 		if (!ignoreGroup)
 		{
-			// Find the path for the outer object
+			// Find the path for the outer object. Outers that never end (an
+			// export its own outer, or a ring of them) grew the path until
+			// memory ran out: past 64, as the imports' walk ends
+			// (ImportFullName), the export is in no group the name asks
+			// for, a guard of ours (bugs.md PKG.50); no file of the game
+			// nests a group past a few
 			std::string entryGroup;
 			int outerRef = entry.ObjOuter;
-			while (outerRef != 0)
+			for (int outers = 0; outerRef != 0 && outers < 64; outers++)
 			{
 				if (!entryGroup.empty())
 					entryGroup += '.';
@@ -689,7 +694,7 @@ int Package::FindObjectReference(const NameString& className, const NameString& 
 					outerRef = outerEntry->ObjOuter;
 				}
 			}
-			if ((group.IsNone() && !entryGroup.empty()) || (!group.IsNone() && group != entryGroup))
+			if (outerRef != 0 || (group.IsNone() && !entryGroup.empty()) || (!group.IsNone() && group != entryGroup))
 				continue;
 		}
 
@@ -899,7 +904,8 @@ std::string Package::GetExportName(int objref)
 	const ExportTableEntry* entry = &ExportTable[objref - 1];
 	std::string objname = NameTable[entry->ObjName].Name.ToString();
 
-	while (entry->ObjOuter > 0 && (size_t)entry->ObjOuter <= ExportTable.size())
+	// Held to 64 outers, as FindObjectReference's walk (bugs.md PKG.50)
+	for (int outers = 0; outers < 64 && entry->ObjOuter > 0 && (size_t)entry->ObjOuter <= ExportTable.size(); outers++)
 	{
 		entry = &ExportTable[entry->ObjOuter - 1];
 		objname = NameTable[entry->ObjName].Name.ToString() + '.' + objname;
