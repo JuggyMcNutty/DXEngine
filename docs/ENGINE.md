@@ -446,8 +446,10 @@ By area, as the code stands. Each device's numbers are its port's, such as
 - **The windows' icon** is `DeusEx.exe`'s icon group 128, as the original's windows show it
   ([the frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#the-frame)),
   read from the game's `System` folder as a window opens (`DXEngine/Utils/PEIcon.cpp`): its
-  32x32 and its 16x16 with the most colours. The engine carries no icon of its own, so without
-  that file a window has none.
+  32x32 and its 16x16 with the most colours. Windows' `DXEngine.exe` carries DXLauncher's
+  drawing as the program's own icon (`Win32Resources/DXEngine.ico`, a copy of the launcher's),
+  which Explorer, a taskbar pin and Task Manager show, and SDL3 gives its windows until the
+  game's is set: without that file a window there has the launcher's, elsewhere none.
 
 ### Settings the launcher exposes
 

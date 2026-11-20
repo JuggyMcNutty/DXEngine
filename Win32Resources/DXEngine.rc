@@ -147,3 +147,12 @@ END
 CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "DXEngine.manifest"
 #endif
 
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon: the program's, for Explorer, a taskbar pin and Task Manager:
+// DXLauncher's drawing, a copy of its Windows branch's DXLauncher.ico,
+// which its dxl-icon makes when the drawing changes.
+//
+
+IDI_ICON1 ICON "DXEngine.ico"
+
