@@ -113,7 +113,8 @@ carries others is a row more there, and in DXLauncher's list, which Port Ex Mach
   runs the game whose `System` folder (in any case) it starts in, or on Windows the Deus Ex the
   registry names; with neither, it says no game is found and exits.
 - **A map is `--url=<map>` (or `-u=<map>`, `--url <map>`).** An option that takes a value
-  (`--url`, `--ini`, `--userini`, `--system`, `--userdir`, `--cmdline`, `--timeline`) takes
+  (`--url`, `--ini`, `--userini`, `--system`, `--userdir`, `--cmdline`, `--timeline`,
+  `--audit-natives`) takes
   the next word when it has no `=`, unless that word starts with `-`.
 - **`--server`** runs a dedicated server of the `--url` map, as the original's `-SERVER`: no
   window, sound or player; `--lanplay` gives it the LAN tick rate
@@ -163,8 +164,27 @@ carries others is a row more there, and in DXLauncher's list, which Port Ex Mach
   [the command line](NATIVES.md#the-command-line); `int-paths`, a mod's `.int` files read from
   its own folders: [mods](NATIVES.md#mods); `system`, `--system`; `game-by-packages`, a game
   folder of an unknown exe taken by its packages; `open-link`, the launcher's `OpenLink`;
-  `launcher-mark`, `DXL_LAUNCHER_MARK_FD`; `vulkan-device`, `Settings.json`'s `"Device"`),
-  and exits before anything is loaded.
+  `launcher-mark`, `DXL_LAUNCHER_MARK_FD`; `vulkan-device`, `Settings.json`'s `"Device"`;
+  `audit-natives`, the option below), and exits before anything is loaded.
+- **`--audit-natives=<dir>`** reads the packages (`.u`) of a folder -- a mod's `System` --
+  with the game's for what they import, and prints on standard output each native function
+  they declare that the engine has no native for, as a call of one finds none ("Unknown native
+  function": by its number, else by its class's and its own name), then exits 0: a line
+  `native-audit: <dir>`; for a package not read (damaged, or an import not found)
+  `damaged: <file>: <why>`, the others read on; `lacks: <Package>.<Class>.<Function>`, with
+  ` (<number>)` for a numbered one, each once, in order; and last `natives: <n> declared, <n>
+  the engine has, <n> it lacks`. A native it lacks counts where a script can reach it: in a
+  package that takes a game package's place, that another of the folder's packages imports, or
+  that an ini of the folder names a class of; one in a package apart from all three, which the
+  mod's own DLLs alone would load, stops no game here and is told on a line of its own,
+  `apart: <Package>: <n> the engine lacks, ...`, counted in none of the three numbers. The
+  folder's packages are found before the paths', those of the `Textures`, `Sounds` and `Music`
+  beside it (a mod's) next. `Editor.u` is passed over: its natives, the brush builders', are
+  the editor's own, which no game calls and the engine has none of, the game's own `System`
+  holding the package too. No window, sound or map: the folder's classes are loaded with the
+  game's they build on, and nothing is written, not even the last run's log. No game or no
+  such folder is an error on standard error, exit 1. DXLauncher asks it of a mod before it
+  makes the mod a profile ([mods](NATIVES.md#mods)).
 - **`--cmdline=<line>`** is the original's command line, which the launchers pass on (the
   recreated one, deusex-launcher's `main`, and DXLauncher): its start URL, `-server`,
   `-lanplay`, `PORT=`, `MULTIHOME=`, `-PRIMARYNET`, `INI=`, `USERINI=`, `EXEC=`, `-norunaway`

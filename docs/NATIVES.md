@@ -4381,7 +4381,9 @@ Mods, the other two untried there.
 A mod with native code of its own does not play as it ships, but HX (below):
 a native its packages declare for its own DLL stops the game at its first
 call ("Unknown native function"), as `natives_audit.py --mod` lists them
-([how it is known](#how-it-is-known)), and what its DLLs change in the engine
+([how it is known](#how-it-is-known)) and the engine's own `--audit-natives`
+([running it](ENGINE.md#running-it)), which DXLauncher asks before it makes a
+mod a profile, and what its DLLs change in the engine
 itself is not there. An active mod's code -- Revision's, The Nameless Mod's,
 Vanilla? Madder.'s -- is its developers' work, which DXEngine takes on only
 with their permission.

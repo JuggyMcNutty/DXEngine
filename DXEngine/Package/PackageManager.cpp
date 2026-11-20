@@ -894,6 +894,18 @@ void PackageManager::ScanPaths()
 	const auto cachePath = convert_path_separators(GetIniValue("System", "Core.System", "CachePath"));
 	gameCacheFolderPath = Directory::resolveCase((gameSystemFolderPath / cachePath).lexically_normal());
 
+	// --audit-natives: the folder's packages before the paths', then those of
+	// the Textures, Sounds and Music beside it (in any case), which a mod's
+	// packages import, as a mod's profile puts its folders first
+	if (!launchInfo.auditFolder.empty())
+	{
+		const fs::path folder(launchInfo.auditFolder);
+		ScanFolder(folder.string(), "*.u");
+		const char* const beside[][2] = { { "Textures", "*.utx" }, { "Sounds", "*.uax" }, { "Music", "*.umx" } };
+		for (const auto& [name, search] : beside)
+			ScanFolder(Directory::resolveCase(folder.parent_path() / name).string(), search);
+	}
+
 	for (auto& currentPathStr: paths)
 	{
 		auto currentPath = convert_path_separators(currentPathStr);

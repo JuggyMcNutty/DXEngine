@@ -98,6 +98,8 @@ set(DXCOMMON_SOURCES
 	DXEngine/GamepadInput.h
 	DXEngine/LauncherLine.cpp
 	DXEngine/LauncherLine.h
+	DXEngine/NativesAudit.cpp
+	DXEngine/NativesAudit.h
 	DXEngine/OriginalCommandLine.cpp
 	DXEngine/OriginalCommandLine.h
 	DXEngine/ServerConsole.cpp

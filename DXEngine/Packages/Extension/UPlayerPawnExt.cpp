@@ -14,12 +14,14 @@
 // flag base of the pawn's own when it holds none, the pawn its outer and its
 // name the class's count, at a spawn and at a load alike. A load's saved base
 // then takes its place, so a pawn saved with none, pruned into Current, keeps
-// this one; a travel makes another for the flags it brings.
+// this one; a travel makes another for the flags it brings. The class found
+// by the pawn's own package's manager, which an object of the class read
+// with no engine there has too (NativesAudit.h).
 void UPlayerPawnExt::InitNativeDefaults()
 {
 	if (FlagBase())
 		return;
-	UClass* cls = engine->packages->FindClass("Extension.FlagBase");
+	UClass* cls = package->GetPackageManager()->FindClass("Extension.FlagBase");
 	if (!cls)
 		return;
 	cls->LoadNow();

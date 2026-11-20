@@ -8,6 +8,7 @@
 #include "LauncherLine.h"
 #include "OriginalCommandLine.h"
 #include "Engine.h"
+#include "NativesAudit.h"
 #include "UI/WidgetResourceData.h"
 #include "UI/ErrorWindow/ErrorWindow.h"
 #include "Utils/File.h"
@@ -36,8 +37,10 @@
 // OpenLink, a server's link opened from a game on a server alone (D.96);
 // DXL_LAUNCHER_MARK_FD, the launcher's mark held to the game's end and
 // kept from what it starts (D.95); Settings.json's RenderDevice.Device, the
-// GPU the Vulkan device takes by a part of its name (bugs.md REN.79).
-static const char* const Features = "userdir loadgame-url int-paths system game-by-packages open-link launcher-mark vulkan-device";
+// GPU the Vulkan device takes by a part of its name (bugs.md REN.79);
+// --audit-natives, the natives a folder's packages declare that the engine
+// lacks (NativesAudit.h).
+static const char* const Features = "userdir loadgame-url int-paths system game-by-packages open-link launcher-mark vulkan-device audit-natives";
 
 int GameApp::main(Array<std::string> args)
 {
@@ -56,6 +59,21 @@ int GameApp::main(Array<std::string> args)
 		{
 			std::cout << "DXEngine " << DXE_VERSION << "\nfeatures: " << Features << std::endl;
 			return 0;
+		}
+	}
+
+	// --audit-natives=<dir>: the natives a folder's packages declare that the
+	// engine lacks, for a launcher to ask of a mod before it is played; no
+	// display, sound or level, and nothing written, not even the last run's
+	// log (NativesAudit.h)
+	{
+		CommandLine cmd(args);
+		if (cmd.HasArg("", "--audit-natives"))
+		{
+			commandline = &cmd;
+			int code = NativesAudit::Run(cmd.GetArg("", "--audit-natives"));
+			commandline = nullptr;
+			return code;
 		}
 	}
 
@@ -136,6 +154,8 @@ int GameApp::main(Array<std::string> args)
 				"  -n, --no-launcher     the log on stderr, an error there alone, no error window\n"
 				"  -v, --verbose         the log on stderr\n"
 				"  --version             the engine's version and features\n"
+				"  --audit-natives=<dir> the natives the packages in <dir> declare that the engine\n"
+				"                        lacks, read with the game's, and exits\n"
 				"  -h, --help            these options\n"
 				"An option that takes a value takes the next word when it has no '='.\n"
 				"With no game folder, the game whose System folder it starts in (on Windows,\n"

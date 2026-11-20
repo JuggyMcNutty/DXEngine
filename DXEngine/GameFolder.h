@@ -16,6 +16,7 @@ struct GameLaunchInfo
 	bool dedicatedServer = false;			// --server: no client, the map served, as the original's -SERVER
 	bool lanPlay = false;					// --lanplay: a dedicated server's LAN tick rate, as the original's -LANPLAY
 	std::string timelinePath = "";			// --timeline: keys and commands at set times, the harness's live mode (Timeline.h)
+	std::string auditFolder = "";			// --audit-natives: the folder whose packages are found first (NativesAudit.h)
 };
 
 class GameFolderSelection
