@@ -35,8 +35,9 @@
 // executable is of no known hash taken by its packages (bugs.md D.89);
 // OpenLink, a server's link opened from a game on a server alone (D.96);
 // DXL_LAUNCHER_MARK_FD, the launcher's mark held to the game's end and
-// kept from what it starts (D.95).
-static const char* const Features = "userdir loadgame-url int-paths system game-by-packages open-link launcher-mark";
+// kept from what it starts (D.95); Settings.json's RenderDevice.Device, the
+// GPU the Vulkan device takes by a part of its name (bugs.md REN.79).
+static const char* const Features = "userdir loadgame-url int-paths system game-by-packages open-link launcher-mark vulkan-device";
 
 int GameApp::main(Array<std::string> args)
 {

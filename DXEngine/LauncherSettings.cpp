@@ -79,6 +79,7 @@ LauncherSettings::LauncherSettings()
 			RenderDevice.Type = RenderDeviceType::Software;
 		RenderDevice.TypeNamed = rendevtype == "Vulkan" || rendevtype == "D3D11" || rendevtype == "OpenGL" || rendevtype == "GLES" || rendevtype == "Software";
 		ReadBool(rendev, "RenderDevice", "CPUDriver", RenderDevice.CPUDriver);
+		RenderDevice.Device = ReadChoice(rendev, "RenderDevice", "Device");
 
 		std::string rendevaa = ReadChoice(rendev, "RenderDevice", "Antialias");
 		if (rendevaa == "Off")

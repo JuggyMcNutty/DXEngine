@@ -5,6 +5,7 @@
 #include "glslang/glslang/Public/ShaderLang.h"
 #include "glslang/glslang/Public/ResourceLimits.h"
 #include "glslang/spirv/GlslangToSpv.h"
+#include <cctype>
 
 void GLSLCompiler::Init()
 {
@@ -1835,6 +1836,12 @@ VulkanDeviceBuilder& VulkanDeviceBuilder::SelectCPUDevice()
 	return *this;
 }
 
+VulkanDeviceBuilder& VulkanDeviceBuilder::SelectDeviceByName(const std::string& namePart)
+{
+	deviceName = namePart;
+	return *this;
+}
+
 std::vector<VulkanCompatibleDevice> VulkanDeviceBuilder::FindDevices(const std::shared_ptr<VulkanInstance>& instance)
 {
 	std::vector<VulkanCompatibleDevice> supportedDevices;
@@ -1986,8 +1993,51 @@ std::shared_ptr<VulkanDevice> VulkanDeviceBuilder::Create(std::shared_ptr<Vulkan
 	size_t selected = deviceIndex;
 	if (selected >= supportedDevices.size())
 		selected = 0;
+	std::string why = "the first in the automatic order (discrete, integrated, virtual, other, CPU)";
+	if (!cpuDevice && !deviceName.empty())
+	{
+		// A part of the GPU's name, without regard to case, the CPU driver
+		// never matched (SelectCPUDevice asks for it); one that matches no
+		// GPU fit to draw leaves the automatic order's first, the GPUs that
+		// are fit named. A GPU of that very name comes first: DXLauncher
+		// writes a name whole, which a GPU sorted before it may hold within
+		// its own ("RTX 4060" within "RTX 4060 Ti")
+		auto lower = [](std::string text)
+		{
+			for (char& c : text)
+				c = (char)std::tolower((unsigned char)c);
+			return text;
+		};
+		std::string part = lower(deviceName);
+		std::string fit;
+		size_t named = supportedDevices.size(), exact = supportedDevices.size();
+		for (size_t i = 0; i < supportedDevices.size(); i++)
+		{
+			const auto& props = supportedDevices[i].Device->Properties.Properties;
+			if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU)
+				continue;
+			fit += (fit.empty() ? "" : ", ") + std::string(props.deviceName);
+			std::string name = lower(props.deviceName);
+			if (exact == supportedDevices.size() && name == part)
+				exact = i;
+			if (named == supportedDevices.size() && name.find(part) != std::string::npos)
+				named = i;
+		}
+		if (exact < supportedDevices.size())
+			named = exact;
+		if (named < supportedDevices.size())
+		{
+			selected = named;
+			why = "its name holds \"" + deviceName + "\" (RenderDevice.Device)";
+		}
+		else
+		{
+			VulkanPrintLog("vulkan", "no GPU fit to draw has \"" + deviceName + "\" (RenderDevice.Device) in its name; the GPUs fit to draw: " + (fit.empty() ? std::string("none") : fit));
+		}
+	}
 	if (cpuDevice)
 	{
+		why = "the CPU driver asked for (RenderDevice.CPUDriver)";
 		selected = supportedDevices.size();
 		for (size_t i = 0; i < supportedDevices.size(); i++)
 		{
@@ -2000,6 +2050,7 @@ std::shared_ptr<VulkanDevice> VulkanDeviceBuilder::Create(std::shared_ptr<Vulkan
 		if (selected == supportedDevices.size())
 			VulkanError("No Vulkan device draws on the CPU (Mesa's lavapipe, vulkan-swrast)");
 	}
+	VulkanPrintLog("vulkan", std::string("GPU taken, ") + supportedDevices[selected].Device->Properties.Properties.deviceName + ": " + why);
 	return std::make_shared<VulkanDevice>(instance, surface, supportedDevices[selected]);
 }
 

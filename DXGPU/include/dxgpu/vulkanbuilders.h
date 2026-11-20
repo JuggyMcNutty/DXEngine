@@ -43,6 +43,10 @@ public:
 	// The first device that draws on the CPU (Mesa's lavapipe), the GPUs
 	// passed over; none is an error
 	VulkanDeviceBuilder& SelectCPUDevice();
+	// The first GPU fit to draw whose name holds this, without regard to
+	// case (Settings.json's RenderDevice.Device); empty, or matching none,
+	// the first in FindDevices' order. A CPU driver is never matched.
+	VulkanDeviceBuilder& SelectDeviceByName(const std::string& namePart);
 
 	std::vector<VulkanCompatibleDevice> FindDevices(const std::shared_ptr<VulkanInstance>& instance);
 	std::shared_ptr<VulkanDevice> Create(std::shared_ptr<VulkanInstance> instance);
@@ -53,6 +57,7 @@ private:
 	std::shared_ptr<VulkanSurface> surface;
 	int deviceIndex = 0;
 	bool cpuDevice = false;
+	std::string deviceName;
 };
 
 class VulkanSwapChainBuilder

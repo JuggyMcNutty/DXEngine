@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 enum class RenderDeviceType
 {
 	Vulkan,
@@ -39,6 +41,7 @@ public:
 		RenderDeviceType Type = RenderDeviceType::Vulkan;
 		bool TypeNamed = false; // Settings.json names Type: else the game's ini chooses (Engine::ChooseRenderDevice)
 		bool CPUDriver = false; // the Vulkan or GL device on Mesa's CPU driver, lavapipe or llvmpipe
+		std::string Device; // a part of the GPU's name the Vulkan device takes; empty, the automatic order's first (VulkanDeviceBuilder::SelectDeviceByName)
 		bool UseVSync = true;
 		AntialiasMode Antialias = AntialiasMode::MSAA4x;
 		LightMode Light = LightMode::Normal;

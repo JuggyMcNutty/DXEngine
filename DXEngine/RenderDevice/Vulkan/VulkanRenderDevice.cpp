@@ -3,6 +3,7 @@
 #include "VulkanRenderDevice.h"
 #include "CachedTexture.h"
 #include "Utils/Logger.h"
+#include "LauncherSettings.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include <dxgpu/vulkanbuilders.h>
 #include <dxgpu/vulkanswapchain.h>
@@ -36,6 +37,7 @@ VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
 		// without it (a Mali, PowerVR or Adreno board's) keeps the Vulkan device
 		deviceBuilder.OptionalExtension(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
 		deviceBuilder.SelectDevice(VkDeviceIndex);
+		deviceBuilder.SelectDeviceByName(LauncherSettings::Get().RenderDevice.Device);
 		if (CPUDriver)
 			deviceBuilder.SelectCPUDevice();
 		Device = deviceBuilder.Create(surface->Instance);

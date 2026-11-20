@@ -163,7 +163,8 @@ carries others is a row more there, and in DXLauncher's list, which Port Ex Mach
   [the command line](NATIVES.md#the-command-line); `int-paths`, a mod's `.int` files read from
   its own folders: [mods](NATIVES.md#mods); `system`, `--system`; `game-by-packages`, a game
   folder of an unknown exe taken by its packages; `open-link`, the launcher's `OpenLink`;
-  `launcher-mark`, `DXL_LAUNCHER_MARK_FD`), and exits before anything is loaded.
+  `launcher-mark`, `DXL_LAUNCHER_MARK_FD`; `vulkan-device`, `Settings.json`'s `"Device"`),
+  and exits before anything is loaded.
 - **`--cmdline=<line>`** is the original's command line, which the launchers pass on (the
   recreated one, deusex-launcher's `main`, and DXLauncher): its start URL, `-server`,
   `-lanplay`, `PORT=`, `MULTIHOME=`, `-PRIMARYNET`, `INI=`, `USERINI=`, `EXEC=`, `-norunaway`
@@ -297,6 +298,7 @@ where true or false or a number goes, `"UseVSync": "true"`), the log naming it. 
 | `"Antialias"`, `"Light"`, `"Gamma"` in `RenderDevice` | `Off`, `MSAA2x` or `MSAA4x`; `Normal`, `OneX` or `BrighterActors`; `D3D9` or `XOpenGL` ([rendering](#rendering)). |
 | `"UseVSync"`, `"Hdr"`, `"HdrScale"`, `"Bloom"`, `"BloomAmount"`, `"GammaCorrectScreenshots"`, `"UseDebugLayer"` in `RenderDevice` | Vsync (on unless the key says otherwise), HDR and its scale, bloom and its amount (0 to 255, 128 each), screenshots written gamma-corrected, and the Vulkan validation layer or D3D11's debug layer where the machine has it. |
 | `"Contrast"`, `"Saturation"`, `"GammaOffset"`, `"GammaOffsetRed"`, `"GammaOffsetGreen"`, `"GammaOffsetBlue"`, `"LODBias"` in `RenderDevice` | On every device: the present's colour correction, the picture unchanged at 1 each, contrast about the middle grey (0.1 to 4) and saturation toward the pixel's grey (0 to 1); its gamma's offsets, every channel's and each one's, added to the gamma (-1 to 1, 0 each by default); and the textures' mip bias (-2 to 2, -0.5 by default, `D3DDrv`'s as Wine draws it: each draw's mip the floor of log2 of its texels to a pixel), the console's `LODBIAS` changing it until the device's mode is set again ([small](NATIVES.md#small)), GL ES's in its scene shader, which no ES sampler takes. |
+| `"Device"` in `RenderDevice` | The GPU the Vulkan device takes, by its name, or a part of it (`"Radeon"`, `"RTX 4060"`), without regard to case; empty or left out, the first by type (DXLauncher's Graphics page, its GPU row; [rendering](#rendering)). |
 | `"CPUDriver": true` in `RenderDevice` | The Vulkan device on Mesa's lavapipe, or the GL device on llvmpipe, a GPU passed over (DXLauncher's `[VulkanCPU]` and `[OpenGLCPU]` renderers; [rendering](#rendering)). |
 | `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)); in a rootless container (podman's: distrobox, toolbox), where the host's root is unmapped and libudev drops its messages, SDL watches `/dev/input` itself (`SDL_JOYSTICK_DISABLE_UDEV`), so a pad plugged in after the start is found. |
 
@@ -606,13 +608,16 @@ and 4x, draws its grey boxes pixel for pixel as without it, the `FontMenuHeaders
 of `D3DDrv`'s brightness block for block. Read at a covered sample (`centroid`), as the GL
 device's shader reads it, a pixel two triangles share, along a tile's diagonal, takes skewed
 derivatives on RADV, and with them another mip; on Mesa's radeonsi the GL device's tiles stay
-within a level of their picture without multisampling. It draws on the first GPU by type,
-discrete, then integrated, virtual, other and the CPU, a layered driver (Dozen) after a native
-one of its type, and within those in the loader's order, so the system's choice (Windows'
-graphics preference, `DRI_PRIME`, `MESA_VK_DEVICE_SELECT`) counts only between GPUs of one
-type: a hybrid laptop's discrete GPU is taken over its integrated one whatever the system
-prefers; a GPU passed over for a missing extension or queue is logged with what it lacks, and
-one without `samplerAnisotropy` filters without it.
+within a level of their picture without multisampling. It draws on the GPU fit to draw named
+`"Device"`'s text, else the first whose name holds it, without regard to case, the CPU driver
+never matched (`"CPUDriver"` alone takes it); with no `"Device"`, or one that matches none, which
+is logged with the names of the GPUs that are fit, on the first GPU by type, discrete, then
+integrated, virtual, other and the CPU, a layered driver (Dozen) after a native one of its type,
+and within those in the loader's order, so the system's choice (Windows' graphics preference,
+`DRI_PRIME`, `MESA_VK_DEVICE_SELECT`) counts only between GPUs of one type: a hybrid laptop's
+discrete GPU is taken over its integrated one whatever the system prefers. The log names the GPU
+taken and why (`[vulkan] GPU taken, <name>: <why>`); a GPU passed over for a missing extension
+or queue is logged with what it lacks, and one without `samplerAnisotropy` filters without it.
 
 **The GL device** runs desktop GL 4.2+ and OpenGL ES 3.1+ from one code path: `RenderAPI::GLES`
 and `RenderDeviceType::GLES`, an ES 3.1 context from every Linux window backend (SDL2 and SDL3
