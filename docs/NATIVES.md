@@ -76,8 +76,10 @@ driver's fault report in the log where it gives one (`VK_EXT_device_fault`);
 the GL device's reads that the context was lost to a GPU reset, from the
 reset status it reads at each frame's start. The GL context is one lost on a
 reset where the driver offers it; SDL2's EGL path, the Smart Pro's, cannot
-ask for one, and there what a reset shows is the driver's. What the
-original's `D3DDrv` does with Direct3D 7's lost surfaces is unread.
+ask for one, and there what a reset shows is the driver's. The D3D11
+device, which no launcher offers, reads no loss of its device (bugs.md
+REN.96). What the original's `D3DDrv` does with Direct3D 7's lost surfaces
+is unread.
 
 A `Console=` in `[Engine.Engine]` naming a class that is not there, or one
 that is no console, stops both engines alike, with Core's text for each:
