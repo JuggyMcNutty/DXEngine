@@ -962,7 +962,11 @@ its code is:
   that plays nothing takes OpenAL's place (`Audio initialization failed.`). An output OpenAL
   Soft finds gone during play (`ALC_CONNECTED`) is logged (`Audio: the output device is
   gone`), the mix going on at the clock's pace unheard, and the default device is opened
-  again each second until one opens (`Audio: the output opened again on`). DXEngine's audio
+  again each second until one opens (`Audio: the output opened again on`). On Windows a new
+  default output is followed: OpenAL Soft tells of the change (`ALC_SOFT_system_events`), and a
+  quarter second after the last such word the output is opened on the new default and started
+  as at the start (`Audio: the output follows the system's default device`), unless it is the
+  device already played on or will not open. DXEngine's audio
   device adds `SpeechVolume` and `DopplerSpeed` to its ini section,
   and keeps Deus Ex's channel count under Galaxy's name, `EffectsChannels`
   ([sound](NATIVES.md#sound)). DXEngine's render device keeps `DetailTextures` beside Surreal

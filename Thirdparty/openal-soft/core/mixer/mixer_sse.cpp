@@ -1,72 +1,82 @@
 #include "config.h"
 
+#include <mmintrin.h>
 #include <xmmintrin.h>
 
-#include <cmath>
+#include <algorithm>
+#include <array>
 #include <limits>
+#include <span>
+#include <variant>
 
-#include "alnumeric.h"
 #include "core/bsinc_defs.h"
+#include "core/bufferline.h"
 #include "core/cubic_defs.h"
+#include "core/mixer/hrtfdefs.h"
+#include "core/resampler_limits.h"
 #include "defs.h"
+#include "gsl/gsl"
 #include "hrtfbase.h"
-
-struct SSETag;
-struct CubicTag;
-struct BSincTag;
-struct FastBSincTag;
+#include "opthelpers.h"
 
 
-#if defined(__GNUC__) && !defined(__clang__) && !defined(__SSE__)
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__SSE__) && !defined(__powerpc64__)
 #pragma GCC target("sse")
 #endif
 
 namespace {
 
-constexpr uint BSincPhaseDiffBits{MixerFracBits - BSincPhaseBits};
-constexpr uint BSincPhaseDiffOne{1 << BSincPhaseDiffBits};
-constexpr uint BSincPhaseDiffMask{BSincPhaseDiffOne - 1u};
+constexpr auto BSincPhaseDiffBits = unsigned{MixerFracBits - BSincPhaseBits};
+constexpr auto BSincPhaseDiffOne = 1u << BSincPhaseDiffBits;
+constexpr auto BSincPhaseDiffMask = BSincPhaseDiffOne - 1u;
 
-constexpr uint CubicPhaseDiffBits{MixerFracBits - CubicPhaseBits};
-constexpr uint CubicPhaseDiffOne{1 << CubicPhaseDiffBits};
-constexpr uint CubicPhaseDiffMask{CubicPhaseDiffOne - 1u};
+constexpr auto CubicPhaseDiffBits = unsigned{MixerFracBits - CubicPhaseBits};
+constexpr auto CubicPhaseDiffOne = 1u << CubicPhaseDiffBits;
+constexpr auto CubicPhaseDiffMask = CubicPhaseDiffOne - 1u;
 
-#define MLA4(x, y, z) _mm_add_ps(x, _mm_mul_ps(y, z))
+force_inline auto vmadd(__m128 const x, __m128 const y, __m128 const z) noexcept -> __m128
+{ return _mm_add_ps(x, _mm_mul_ps(y, z)); }
 
-inline void ApplyCoeffs(float2 *RESTRICT Values, const size_t IrSize, const ConstHrirSpan Coeffs,
-    const float left, const float right)
+void ApplyCoeffs(std::span<f32x2> const Values, std::size_t const IrSize,
+    ConstHrirSpan const Coeffs, float const left, float const right) noexcept NONBLOCKING
 {
-    const __m128 lrlr{_mm_setr_ps(left, right, left, right)};
-
     ASSUME(IrSize >= MinIrLength);
-    /* This isn't technically correct to test alignment, but it's true for
+    ASSUME(IrSize <= HrirLength);
+    auto const lrlr = _mm_setr_ps(left, right, left, right);
+    /* Round up the IR size to a multiple of 2 for SIMD (2 IRs for 2 channels
+     * is 4 floats), to avoid cutting the last sample for odd IR counts. The
+     * underlying HRIR is a fixed-size multiple of 2, any extra samples are
+     * either 0 (silence) or more IR samples that get applied for "free".
+     */
+    auto const count4 = (IrSize+1) >> 1;
+
+    /* NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
+     * This isn't technically correct to test alignment, but it's true for
      * systems that support SSE, which is the only one that needs to know the
      * alignment of Values (which alternates between 8- and 16-byte aligned).
      */
-    if(!(reinterpret_cast<uintptr_t>(Values)&15))
+    if(!(reinterpret_cast<uintptr_t>(Values.data())&15))
     {
-        for(size_t i{0};i < IrSize;i += 2)
-        {
-            const __m128 coeffs{_mm_load_ps(Coeffs[i].data())};
-            __m128 vals{_mm_load_ps(Values[i].data())};
-            vals = MLA4(vals, lrlr, coeffs);
-            _mm_store_ps(Values[i].data(), vals);
-        }
+        auto const vals4 = std::span{reinterpret_cast<__m128*>(Values[0].data()), count4};
+        auto const coeffs4 = std::span{reinterpret_cast<const __m128*>(Coeffs[0].data()), count4};
+
+        std::ranges::transform(vals4, coeffs4, vals4.begin(),
+            [lrlr](__m128 const &val, __m128 const &coeff) -> __m128
+            { return vmadd(val, coeff, lrlr); });
     }
     else
     {
-        __m128 imp0, imp1;
-        __m128 coeffs{_mm_load_ps(Coeffs[0].data())};
-        __m128 vals{_mm_loadl_pi(_mm_setzero_ps(), reinterpret_cast<__m64*>(Values[0].data()))};
-        imp0 = _mm_mul_ps(lrlr, coeffs);
+        auto coeffs = _mm_load_ps(Coeffs[0].data());
+        auto vals = _mm_loadl_pi(_mm_setzero_ps(), reinterpret_cast<__m64*>(Values[0].data()));
+        auto imp0 = _mm_mul_ps(lrlr, coeffs);
         vals = _mm_add_ps(imp0, vals);
         _mm_storel_pi(reinterpret_cast<__m64*>(Values[0].data()), vals);
-        size_t td{((IrSize+1)>>1) - 1};
-        size_t i{1};
+        auto td = count4 - 1_uz;
+        auto i = 1_uz;
         do {
             coeffs = _mm_load_ps(Coeffs[i+1].data());
             vals = _mm_load_ps(Values[i].data());
-            imp1 = _mm_mul_ps(lrlr, coeffs);
+            auto const imp1 = _mm_mul_ps(lrlr, coeffs);
             imp0 = _mm_shuffle_ps(imp0, imp1, _MM_SHUFFLE(1, 0, 3, 2));
             vals = _mm_add_ps(imp0, vals);
             _mm_store_ps(Values[i].data(), vals);
@@ -78,39 +88,43 @@ inline void ApplyCoeffs(float2 *RESTRICT Values, const size_t IrSize, const Cons
         vals = _mm_add_ps(imp0, vals);
         _mm_storel_pi(reinterpret_cast<__m64*>(Values[i].data()), vals);
     }
+    /* NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast) */
 }
 
-force_inline void MixLine(const al::span<const float> InSamples, float *RESTRICT dst,
-    float &CurrentGain, const float TargetGain, const float delta, const size_t min_len,
-    const size_t aligned_len, size_t Counter)
+force_inline void MixLine(std::span<float const> const InSamples, std::span<float> const dst,
+    float &CurrentGain, float const TargetGain, float const delta, std::size_t const fade_len,
+    std::size_t const realign_len, std::size_t const Counter) noexcept NONBLOCKING
 {
-    float gain{CurrentGain};
-    const float step{(TargetGain-gain) * delta};
+    auto const step = float{(TargetGain-CurrentGain) * delta};
 
-    size_t pos{0};
-    if(!(std::abs(step) > std::numeric_limits<float>::epsilon()))
-        gain = TargetGain;
-    else
+    auto pos = 0_uz;
+    if(std::abs(step) > std::numeric_limits<float>::epsilon())
     {
-        float step_count{0.0f};
+        auto const gain = CurrentGain;
+        auto step_count = 0.0f;
         /* Mix with applying gain steps in aligned multiples of 4. */
-        if(size_t todo{min_len >> 2})
+        if(auto const todo = fade_len>>2)
         {
-            const __m128 four4{_mm_set1_ps(4.0f)};
-            const __m128 step4{_mm_set1_ps(step)};
-            const __m128 gain4{_mm_set1_ps(gain)};
-            __m128 step_count4{_mm_setr_ps(0.0f, 1.0f, 2.0f, 3.0f)};
-            do {
-                const __m128 val4{_mm_load_ps(&InSamples[pos])};
-                __m128 dry4{_mm_load_ps(&dst[pos])};
+            auto const four4 = _mm_set1_ps(4.0f);
+            auto const step4 = _mm_set1_ps(step);
+            auto const gain4 = _mm_set1_ps(gain);
+            auto step_count4 = _mm_setr_ps(0.0f, 1.0f, 2.0f, 3.0f);
 
+            /* NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) */
+            auto const in4 = std::span{reinterpret_cast<const __m128*>(InSamples.data()),
+                InSamples.size()/4}.first(todo);
+            auto const out4 = std::span{reinterpret_cast<__m128*>(dst.data()), dst.size()/4};
+            /* NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast) */
+            std::ranges::transform(in4, out4, out4.begin(),
+                [gain4,step4,four4,&step_count4](__m128 const val4, __m128 dry4) -> __m128
+            {
                 /* dry += val * (gain + step*step_count) */
-                dry4 = MLA4(dry4, val4, MLA4(gain4, step4, step_count4));
-
-                _mm_store_ps(&dst[pos], dry4);
+                dry4 = vmadd(dry4, val4, vmadd(gain4, step4, step_count4));
                 step_count4 = _mm_add_ps(step_count4, four4);
-                pos += 4;
-            } while(--todo);
+                return dry4;
+            });
+            pos += in4.size()*4;
+
             /* NOTE: step_count4 now represents the next four counts after the
              * last four mixed samples, so the lowest element represents the
              * next step count to apply.
@@ -118,210 +132,254 @@ force_inline void MixLine(const al::span<const float> InSamples, float *RESTRICT
             step_count = _mm_cvtss_f32(step_count4);
         }
         /* Mix with applying left over gain steps that aren't aligned multiples of 4. */
-        for(size_t leftover{min_len&3};leftover;++pos,--leftover)
+        if(auto const leftover = fade_len&3)
         {
-            dst[pos] += InSamples[pos] * (gain + step*step_count);
-            step_count += 1.0f;
+            auto const in = InSamples.subspan(pos, leftover);
+            auto const out = dst.subspan(pos);
+
+            std::ranges::transform(in, out, out.begin(),
+                [gain,step,&step_count](float const val, float dry) noexcept -> float
+            {
+                dry += val * (gain + step*step_count);
+                step_count += 1.0f;
+                return dry;
+            });
+            pos += leftover;
         }
-        if(pos == Counter)
-            gain = TargetGain;
-        else
-            gain += step*step_count;
+        if(pos < Counter)
+        {
+            CurrentGain = gain + step*step_count;
+            return;
+        }
 
         /* Mix until pos is aligned with 4 or the mix is done. */
-        for(size_t leftover{aligned_len&3};leftover;++pos,--leftover)
-            dst[pos] += InSamples[pos] * gain;
-    }
-    CurrentGain = gain;
+        if(auto const leftover = realign_len&3)
+        {
+            auto const in = InSamples.subspan(pos, leftover);
+            auto const out = dst.subspan(pos);
 
-    if(!(std::abs(gain) > GainSilenceThreshold))
-        return;
-    if(size_t todo{(InSamples.size()-pos) >> 2})
-    {
-        const __m128 gain4{_mm_set1_ps(gain)};
-        do {
-            const __m128 val4{_mm_load_ps(&InSamples[pos])};
-            __m128 dry4{_mm_load_ps(&dst[pos])};
-            dry4 = _mm_add_ps(dry4, _mm_mul_ps(val4, gain4));
-            _mm_store_ps(&dst[pos], dry4);
-            pos += 4;
-        } while(--todo);
+            std::ranges::transform(in, out, out.begin(),
+                [TargetGain](float const val, float const dry) noexcept -> float
+                { return dry + val*TargetGain; });
+            pos += leftover;
+        }
     }
-    for(size_t leftover{(InSamples.size()-pos)&3};leftover;++pos,--leftover)
-        dst[pos] += InSamples[pos] * gain;
+    CurrentGain = TargetGain;
+
+    if(!(std::abs(TargetGain) > GainSilenceThreshold))
+        return;
+    if(auto const todo = (InSamples.size()-pos) >> 2)
+    {
+        /* NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) */
+        auto const in4 = std::span{reinterpret_cast<const __m128*>(InSamples.data()),
+            InSamples.size()/4}.last(todo);
+        auto const out = dst.subspan(pos);
+        auto const out4 = std::span{reinterpret_cast<__m128*>(out.data()), out.size()/4};
+        /* NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast) */
+
+        auto const gain4 = _mm_set1_ps(TargetGain);
+        std::ranges::transform(in4, out4, out4.begin(),
+            [gain4](__m128 const val4, __m128 const dry4) -> __m128
+            { return vmadd(dry4, val4, gain4); });
+        pos += in4.size()*4;
+    }
+    if(auto const leftover = (InSamples.size()-pos)&3)
+    {
+        auto const in = InSamples.last(leftover);
+        auto const out = dst.subspan(pos);
+
+        std::ranges::transform(in, out, out.begin(),
+            [TargetGain](float const val, float const dry) noexcept -> float
+            { return dry + val*TargetGain; });
+    }
 }
 
 } // namespace
 
-template<>
-void Resample_<CubicTag,SSETag>(const InterpState *state, const float *RESTRICT src, uint frac,
-    const uint increment, const al::span<float> dst)
+void Resample_Cubic_SSE(InterpState const *const state, std::span<float const> const src,
+    unsigned frac, unsigned const increment, std::span<float> const dst) noexcept NONBLOCKING
 {
     ASSUME(frac < MixerFracOne);
 
-    const CubicCoefficients *RESTRICT filter = al::assume_aligned<16>(state->cubic.filter);
+    auto const filter = gsl::not_null{std::get_if<CubicState>(state)}->filter;
 
-    src -= 1;
-    for(float &out_sample : dst)
+    auto pos = std::size_t{MaxResamplerEdge-1};
+    std::ranges::generate(dst, [&pos,&frac,src,increment,filter]() -> float
     {
-        const uint pi{frac >> CubicPhaseDiffBits};
-        const float pf{static_cast<float>(frac&CubicPhaseDiffMask) * (1.0f/CubicPhaseDiffOne)};
-        const __m128 pf4{_mm_set1_ps(pf)};
+        auto const pi = std::size_t{frac >> CubicPhaseDiffBits}; ASSUME(pi < CubicPhaseCount);
+        auto const pf = gsl::narrow_cast<float>(frac&CubicPhaseDiffMask)*(1.0f/CubicPhaseDiffOne);
+        auto const pf4 = _mm_set1_ps(pf);
 
         /* Apply the phase interpolated filter. */
 
         /* f = fil + pf*phd */
-        const __m128 f4 = MLA4(_mm_load_ps(filter[pi].mCoeffs), pf4,
-            _mm_load_ps(filter[pi].mDeltas));
+        auto const f4 = vmadd(_mm_load_ps(filter[pi].mCoeffs.data()), pf4,
+            _mm_load_ps(filter[pi].mDeltas.data()));
         /* r = f*src */
-        __m128 r4{_mm_mul_ps(f4, _mm_loadu_ps(src))};
+        auto r4 = _mm_mul_ps(f4, _mm_loadu_ps(&src[pos]));
 
         r4 = _mm_add_ps(r4, _mm_shuffle_ps(r4, r4, _MM_SHUFFLE(0, 1, 2, 3)));
         r4 = _mm_add_ps(r4, _mm_movehl_ps(r4, r4));
-        out_sample = _mm_cvtss_f32(r4);
+        auto const output = _mm_cvtss_f32(r4);
 
         frac += increment;
-        src  += frac>>MixerFracBits;
+        pos  += frac>>MixerFracBits;
         frac &= MixerFracMask;
-    }
+        return output;
+    });
 }
 
-template<>
-void Resample_<BSincTag,SSETag>(const InterpState *state, const float *RESTRICT src, uint frac,
-    const uint increment, const al::span<float> dst)
+void Resample_FastBSinc_SSE(InterpState const *const state, std::span<float const> const src,
+    unsigned frac, unsigned const increment, std::span<float> const dst) noexcept NONBLOCKING
 {
-    const float *const filter{state->bsinc.filter};
-    const __m128 sf4{_mm_set1_ps(state->bsinc.sf)};
-    const size_t m{state->bsinc.m};
+    auto const &bsinc = *gsl::not_null{std::get_if<BsincState>(state)};
+    auto const m = std::size_t{bsinc.m.c_val};
     ASSUME(m > 0);
+    ASSUME(m <= MaxResamplerPadding);
     ASSUME(frac < MixerFracOne);
 
-    src -= state->bsinc.l;
-    for(float &out_sample : dst)
+    auto const filter = bsinc.filter.first(2_uz*m*BSincPhaseCount);
+
+    ASSUME(bsinc.l.c_val <= MaxResamplerEdge);
+    auto pos = std::size_t{MaxResamplerEdge-bsinc.l.c_val};
+    std::ranges::generate(dst, [&pos,&frac,src,increment,filter,m]() -> float
     {
         // Calculate the phase index and factor.
-        const uint pi{frac >> BSincPhaseDiffBits};
-        const float pf{static_cast<float>(frac&BSincPhaseDiffMask) * (1.0f/BSincPhaseDiffOne)};
-
-        // Apply the scale and phase interpolated filter.
-        __m128 r4{_mm_setzero_ps()};
-        {
-            const __m128 pf4{_mm_set1_ps(pf)};
-            const float *RESTRICT fil{filter + m*pi*2};
-            const float *RESTRICT phd{fil + m};
-            const float *RESTRICT scd{fil + BSincPhaseCount*2*m};
-            const float *RESTRICT spd{scd + m};
-            size_t td{m >> 2};
-            size_t j{0u};
-
-            do {
-                /* f = ((fil + sf*scd) + pf*(phd + sf*spd)) */
-                const __m128 f4 = MLA4(
-                    MLA4(_mm_load_ps(&fil[j]), sf4, _mm_load_ps(&scd[j])),
-                    pf4, MLA4(_mm_load_ps(&phd[j]), sf4, _mm_load_ps(&spd[j])));
-                /* r += f*src */
-                r4 = MLA4(r4, f4, _mm_loadu_ps(&src[j]));
-                j += 4;
-            } while(--td);
-        }
-        r4 = _mm_add_ps(r4, _mm_shuffle_ps(r4, r4, _MM_SHUFFLE(0, 1, 2, 3)));
-        r4 = _mm_add_ps(r4, _mm_movehl_ps(r4, r4));
-        out_sample = _mm_cvtss_f32(r4);
-
-        frac += increment;
-        src  += frac>>MixerFracBits;
-        frac &= MixerFracMask;
-    }
-}
-
-template<>
-void Resample_<FastBSincTag,SSETag>(const InterpState *state, const float *RESTRICT src, uint frac,
-    const uint increment, const al::span<float> dst)
-{
-    const float *const filter{state->bsinc.filter};
-    const size_t m{state->bsinc.m};
-    ASSUME(m > 0);
-    ASSUME(frac < MixerFracOne);
-
-    src -= state->bsinc.l;
-    for(float &out_sample : dst)
-    {
-        // Calculate the phase index and factor.
-        const uint pi{frac >> BSincPhaseDiffBits};
-        const float pf{static_cast<float>(frac&BSincPhaseDiffMask) * (1.0f/BSincPhaseDiffOne)};
+        auto const pi = std::size_t{frac >> BSincPhaseDiffBits}; ASSUME(pi < BSincPhaseCount);
+        auto const pf = gsl::narrow_cast<float>(frac&BSincPhaseDiffMask)*(1.0f/BSincPhaseDiffOne);
 
         // Apply the phase interpolated filter.
-        __m128 r4{_mm_setzero_ps()};
+        auto r4 = _mm_setzero_ps();
         {
-            const __m128 pf4{_mm_set1_ps(pf)};
-            const float *RESTRICT fil{filter + m*pi*2};
-            const float *RESTRICT phd{fil + m};
-            size_t td{m >> 2};
-            size_t j{0u};
+            auto const pf4 = _mm_set1_ps(pf);
+            auto const fil = filter.subspan(2_uz*m*pi);
+            auto const phd = fil.subspan(m);
+            auto td = m >> 2;
+            auto j = 0_uz;
 
             do {
                 /* f = fil + pf*phd */
-                const __m128 f4 = MLA4(_mm_load_ps(&fil[j]), pf4, _mm_load_ps(&phd[j]));
+                auto const f4 = vmadd(_mm_load_ps(&fil[j]), pf4, _mm_load_ps(&phd[j]));
                 /* r += f*src */
-                r4 = MLA4(r4, f4, _mm_loadu_ps(&src[j]));
+                r4 = vmadd(r4, f4, _mm_loadu_ps(&src[pos+j]));
                 j += 4;
             } while(--td);
         }
         r4 = _mm_add_ps(r4, _mm_shuffle_ps(r4, r4, _MM_SHUFFLE(0, 1, 2, 3)));
         r4 = _mm_add_ps(r4, _mm_movehl_ps(r4, r4));
-        out_sample = _mm_cvtss_f32(r4);
+        auto const output = _mm_cvtss_f32(r4);
 
         frac += increment;
-        src  += frac>>MixerFracBits;
+        pos  += frac>>MixerFracBits;
         frac &= MixerFracMask;
-    }
+        return output;
+    });
+}
+
+void Resample_BSinc_SSE(InterpState const *const state, std::span<float const> const src,
+    unsigned frac, unsigned const increment, std::span<float> const dst) noexcept NONBLOCKING
+{
+    auto const &bsinc = *gsl::not_null{std::get_if<BsincState>(state)};
+    auto const sf4 = _mm_set1_ps(bsinc.sf);
+    auto const m = std::size_t{bsinc.m.c_val};
+    ASSUME(m > 0);
+    ASSUME(m <= MaxResamplerPadding);
+    ASSUME(frac < MixerFracOne);
+
+    auto const filter = bsinc.filter.first(4_uz*BSincPhaseCount*m);
+
+    ASSUME(bsinc.l.c_val <= MaxResamplerEdge);
+    auto pos = std::size_t{MaxResamplerEdge-bsinc.l.c_val};
+    std::ranges::generate(dst, [&pos,&frac,src,increment,sf4,m,filter]() -> float
+    {
+        // Calculate the phase index and factor.
+        auto const pi = std::size_t{frac >> BSincPhaseDiffBits}; ASSUME(pi < BSincPhaseCount);
+        auto const pf = gsl::narrow_cast<float>(frac&BSincPhaseDiffMask)*(1.0f/BSincPhaseDiffOne);
+
+        // Apply the scale and phase interpolated filter.
+        auto r4 = _mm_setzero_ps();
+        {
+            auto const pf4 = _mm_set1_ps(pf);
+            auto const fil = filter.subspan(2_uz*pi*m);
+            auto const phd = fil.subspan(m);
+            auto const scd = fil.subspan(2_uz*BSincPhaseCount*m);
+            auto const spd = scd.subspan(m);
+            auto td = m >> 2;
+            auto j = 0_uz;
+
+            do {
+                /* f = ((fil + sf*scd) + pf*(phd + sf*spd)) */
+                auto const f4 = vmadd(
+                    vmadd(_mm_load_ps(&fil[j]), sf4, _mm_load_ps(&scd[j])),
+                    pf4, vmadd(_mm_load_ps(&phd[j]), sf4, _mm_load_ps(&spd[j])));
+                /* r += f*src */
+                r4 = vmadd(r4, f4, _mm_loadu_ps(&src[pos+j]));
+                j += 4;
+            } while(--td);
+        }
+        r4 = _mm_add_ps(r4, _mm_shuffle_ps(r4, r4, _MM_SHUFFLE(0, 1, 2, 3)));
+        r4 = _mm_add_ps(r4, _mm_movehl_ps(r4, r4));
+        auto const output = _mm_cvtss_f32(r4);
+
+        frac += increment;
+        pos  += frac>>MixerFracBits;
+        frac &= MixerFracMask;
+        return output;
+    });
 }
 
 
-template<>
-void MixHrtf_<SSETag>(const float *InSamples, float2 *AccumSamples, const uint IrSize,
-    const MixHrtfFilter *hrtfparams, const size_t BufferSize)
-{ MixHrtfBase<ApplyCoeffs>(InSamples, AccumSamples, IrSize, hrtfparams, BufferSize); }
+void MixHrtf_SSE(std::span<float const> const InSamples, std::span<f32x2> const AccumSamples,
+    unsigned const IrSize, MixHrtfFilter const *const hrtfparams, std::size_t const SamplesToDo)
+    noexcept NONBLOCKING
+{ MixHrtfBase<ApplyCoeffs>(InSamples, AccumSamples, IrSize, hrtfparams, SamplesToDo); }
 
-template<>
-void MixHrtfBlend_<SSETag>(const float *InSamples, float2 *AccumSamples, const uint IrSize,
-    const HrtfFilter *oldparams, const MixHrtfFilter *newparams, const size_t BufferSize)
+void MixHrtfBlend_SSE(std::span<float const> const InSamples, std::span<f32x2> const AccumSamples,
+    unsigned const IrSize, HrtfFilter const *const oldparams, MixHrtfFilter const *const newparams,
+    std::size_t const SamplesToDo) noexcept NONBLOCKING
 {
     MixHrtfBlendBase<ApplyCoeffs>(InSamples, AccumSamples, IrSize, oldparams, newparams,
-        BufferSize);
+        SamplesToDo);
 }
 
-template<>
-void MixDirectHrtf_<SSETag>(const FloatBufferSpan LeftOut, const FloatBufferSpan RightOut,
-    const al::span<const FloatBufferLine> InSamples, float2 *AccumSamples,
-    float *TempBuf, HrtfChannelState *ChanState, const size_t IrSize, const size_t BufferSize)
+void MixDirectHrtf_SSE(FloatBufferSpan const LeftOut, FloatBufferSpan const RightOut,
+    std::span<FloatBufferLine const> const InSamples, std::span<f32x2> const AccumSamples,
+    std::span<float, BufferLineSize> const TempBuf, std::span<HrtfChannelState> const ChanState,
+    std::size_t const IrSize, std::size_t const SamplesToDo) noexcept NONBLOCKING
 {
     MixDirectHrtfBase<ApplyCoeffs>(LeftOut, RightOut, InSamples, AccumSamples, TempBuf, ChanState,
-        IrSize, BufferSize);
+        IrSize, SamplesToDo);
 }
 
 
-template<>
-void Mix_<SSETag>(const al::span<const float> InSamples, const al::span<FloatBufferLine> OutBuffer,
-    float *CurrentGains, const float *TargetGains, const size_t Counter, const size_t OutPos)
+void Mix_SSE(std::span<float const> const InSamples, std::span<FloatBufferLine> const OutBuffer,
+    std::span<float> const CurrentGains, std::span<float const> const TargetGains,
+    std::size_t const Counter, std::size_t const OutPos) noexcept NONBLOCKING
 {
-    const float delta{(Counter > 0) ? 1.0f / static_cast<float>(Counter) : 0.0f};
-    const auto min_len = minz(Counter, InSamples.size());
-    const auto aligned_len = minz((min_len+3) & ~size_t{3}, InSamples.size()) - min_len;
+    if((OutPos&3) != 0) [[unlikely]]
+        return Mix_C(InSamples, OutBuffer, CurrentGains, TargetGains, Counter, OutPos);
 
-    for(FloatBufferLine &output : OutBuffer)
-        MixLine(InSamples, al::assume_aligned<16>(output.data()+OutPos), *CurrentGains++,
-            *TargetGains++, delta, min_len, aligned_len, Counter);
+    auto const delta = (Counter > 0) ? 1.0f / gsl::narrow_cast<float>(Counter) : 0.0f;
+    auto const fade_len = std::min(Counter, InSamples.size());
+    auto const realign_len = std::min((fade_len+3_uz) & ~3_uz, InSamples.size()) - fade_len;
+
+    auto curgains = CurrentGains.begin();
+    auto targetgains = TargetGains.begin();
+    for(FloatBufferSpan const output : OutBuffer)
+        MixLine(InSamples, output.subspan(OutPos), *curgains++, *targetgains++, delta, fade_len,
+            realign_len, Counter);
 }
 
-template<>
-void Mix_<SSETag>(const al::span<const float> InSamples, float *OutBuffer, float &CurrentGain,
-    const float TargetGain, const size_t Counter)
+void Mix_SSE(std::span<float const> const InSamples, std::span<float> const OutBuffer,
+    float &CurrentGain, float const TargetGain, std::size_t const Counter) noexcept NONBLOCKING
 {
-    const float delta{(Counter > 0) ? 1.0f / static_cast<float>(Counter) : 0.0f};
-    const auto min_len = minz(Counter, InSamples.size());
-    const auto aligned_len = minz((min_len+3) & ~size_t{3}, InSamples.size()) - min_len;
+    /* NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) */
+    if((reinterpret_cast<uintptr_t>(OutBuffer.data())&15) != 0) [[unlikely]]
+        return Mix_C(InSamples, OutBuffer, CurrentGain, TargetGain, Counter);
 
-    MixLine(InSamples, al::assume_aligned<16>(OutBuffer), CurrentGain, TargetGain, delta, min_len,
-        aligned_len, Counter);
+    auto const delta = (Counter > 0) ? 1.0f / gsl::narrow_cast<float>(Counter) : 0.0f;
+    auto const fade_len = std::min(Counter, InSamples.size());
+    auto const realign_len = std::min((fade_len+3_uz) & ~3_uz, InSamples.size()) - fade_len;
+
+    MixLine(InSamples, OutBuffer, CurrentGain, TargetGain, delta, fade_len, realign_len, Counter);
 }

@@ -4,63 +4,69 @@
 #include "converter.h"
 
 #include <algorithm>
-#include <cassert>
+#include <bit>
+#include <climits>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <iterator>
-#include <limits.h>
+#include <ranges>
+#include <span>
 
-#include "albit.h"
-#include "albyte.h"
 #include "alnumeric.h"
 #include "fpu_ctrl.h"
+#include "gsl/gsl"
 
 
 namespace {
 
-constexpr uint MaxPitch{10};
+constexpr auto MaxPitch = 10u;
 
 static_assert((BufferLineSize-1)/MaxPitch > 0, "MaxPitch is too large for BufferLineSize!");
 static_assert((INT_MAX>>MixerFracBits)/MaxPitch > BufferLineSize,
     "MaxPitch and/or BufferLineSize are too large for MixerFracBits!");
 
-/* Base template left undefined. Should be marked =delete, but Clang 3.8.1
- * chokes on that given the inline specializations.
- */
-template<DevFmtType T>
-inline float LoadSample(DevFmtType_t<T> val) noexcept;
+template<DevFmtType T> constexpr
+auto LoadSample(DevFmtType_t<T> val) noexcept -> float = delete;
 
-template<> inline float LoadSample<DevFmtByte>(DevFmtType_t<DevFmtByte> val) noexcept
-{ return val * (1.0f/128.0f); }
-template<> inline float LoadSample<DevFmtShort>(DevFmtType_t<DevFmtShort> val) noexcept
-{ return val * (1.0f/32768.0f); }
-template<> inline float LoadSample<DevFmtInt>(DevFmtType_t<DevFmtInt> val) noexcept
-{ return static_cast<float>(val) * (1.0f/2147483648.0f); }
-template<> inline float LoadSample<DevFmtFloat>(DevFmtType_t<DevFmtFloat> val) noexcept
-{ return val; }
+template<> constexpr auto LoadSample<DevFmtByte>(i8 const val) noexcept -> float
+{ return (val.as<f32>() * (1.0f/128.0f)).c_val; }
+template<> constexpr auto LoadSample<DevFmtShort>(i16 const val) noexcept -> float
+{ return (val.as<f32>() * (1.0f/32768.0f)).c_val; }
+template<> constexpr auto LoadSample<DevFmtInt>(i32 const val) noexcept -> float
+{ return (val.cast_to<f32>() * (1.0f/2147483648.0f)).c_val; }
+template<> constexpr auto LoadSample<DevFmtFloat>(f32 const val) noexcept -> float
+{ return val.c_val; }
 
-template<> inline float LoadSample<DevFmtUByte>(DevFmtType_t<DevFmtUByte> val) noexcept
-{ return LoadSample<DevFmtByte>(static_cast<int8_t>(val - 128)); }
-template<> inline float LoadSample<DevFmtUShort>(DevFmtType_t<DevFmtUShort> val) noexcept
-{ return LoadSample<DevFmtShort>(static_cast<int16_t>(val - 32768)); }
-template<> inline float LoadSample<DevFmtUInt>(DevFmtType_t<DevFmtUInt> val) noexcept
-{ return LoadSample<DevFmtInt>(static_cast<int32_t>(val - 2147483648u)); }
+template<> constexpr auto LoadSample<DevFmtUByte>(u8 const val) noexcept -> float
+{ return LoadSample<DevFmtByte>((val - 128).reinterpret_as<i8>()); }
+template<> constexpr auto LoadSample<DevFmtUShort>(u16 const val) noexcept -> float
+{ return LoadSample<DevFmtShort>((val - 32768).reinterpret_as<i16>()); }
+template<> constexpr auto LoadSample<DevFmtUInt>(u32 const val) noexcept -> float
+{ return LoadSample<DevFmtInt>((val - 2147483648u).reinterpret_as<i32>()); }
 
 
 template<DevFmtType T>
-inline void LoadSampleArray(float *RESTRICT dst, const void *src, const size_t srcstep,
-    const size_t samples) noexcept
+void LoadSampleArray(std::span<float> const dst, void const *const src, std::size_t const channel,
+    std::size_t const srcstep) noexcept
 {
-    const DevFmtType_t<T> *ssrc = static_cast<const DevFmtType_t<T>*>(src);
-    for(size_t i{0u};i < samples;i++)
-        dst[i] = LoadSample<T>(ssrc[i*srcstep]);
+    Expects(channel < srcstep);
+    const auto srcspan = std::span{static_cast<const DevFmtType_t<T>*>(src), dst.size()*srcstep};
+    auto ssrc = srcspan.begin();
+    std::advance(ssrc, channel);
+    dst.front() = LoadSample<T>(*ssrc);
+    std::ranges::generate(dst | std::views::drop(1), [&ssrc,srcstep]
+    {
+        std::advance(ssrc, srcstep);
+        return LoadSample<T>(*ssrc);
+    });
 }
 
-void LoadSamples(float *dst, const void *src, const size_t srcstep, const DevFmtType srctype,
-    const size_t samples) noexcept
+void LoadSamples(std::span<float> const dst, void const *const src, std::size_t const channel,
+    std::size_t const srcstep, DevFmtType const srctype) noexcept
 {
 #define HANDLE_FMT(T)                                                         \
-    case T: LoadSampleArray<T>(dst, src, srcstep, samples); break
+    case T: LoadSampleArray<T>(dst, src, channel, srcstep); break
     switch(srctype)
     {
         HANDLE_FMT(DevFmtByte);
@@ -76,40 +82,47 @@ void LoadSamples(float *dst, const void *src, const size_t srcstep, const DevFmt
 
 
 template<DevFmtType T>
-inline DevFmtType_t<T> StoreSample(float) noexcept;
+auto StoreSample(float) noexcept -> DevFmtType_t<T> = delete;
 
-template<> inline float StoreSample<DevFmtFloat>(float val) noexcept
-{ return val; }
-template<> inline int32_t StoreSample<DevFmtInt>(float val) noexcept
-{ return fastf2i(clampf(val*2147483648.0f, -2147483648.0f, 2147483520.0f)); }
-template<> inline int16_t StoreSample<DevFmtShort>(float val) noexcept
-{ return static_cast<int16_t>(fastf2i(clampf(val*32768.0f, -32768.0f, 32767.0f))); }
-template<> inline int8_t StoreSample<DevFmtByte>(float val) noexcept
-{ return static_cast<int8_t>(fastf2i(clampf(val*128.0f, -128.0f, 127.0f))); }
+template<> auto StoreSample<DevFmtFloat>(float const val) noexcept -> f32
+{ return f32{val}; }
+template<> auto StoreSample<DevFmtInt>(float const val) noexcept -> i32
+{ return i32{fastf2i(std::clamp(val*2147483648.0f, -2147483648.0f, 2147483520.0f))}; }
+template<> auto StoreSample<DevFmtShort>(float const val) noexcept -> i16
+{ return i16{gsl::narrow_cast<std::int16_t>(fastf2i(std::clamp(val*32768.0f, -32768.0f, 32767.0f)))}; }
+template<> auto StoreSample<DevFmtByte>(float const val) noexcept -> i8
+{ return i8{gsl::narrow_cast<std::int8_t>(fastf2i(std::clamp(val*128.0f, -128.0f, 127.0f)))}; }
 
 /* Define unsigned output variations. */
-template<> inline uint32_t StoreSample<DevFmtUInt>(float val) noexcept
-{ return static_cast<uint32_t>(StoreSample<DevFmtInt>(val)) + 2147483648u; }
-template<> inline uint16_t StoreSample<DevFmtUShort>(float val) noexcept
-{ return static_cast<uint16_t>(StoreSample<DevFmtShort>(val) + 32768); }
-template<> inline uint8_t StoreSample<DevFmtUByte>(float val) noexcept
-{ return static_cast<uint8_t>(StoreSample<DevFmtByte>(val) + 128); }
+template<> auto StoreSample<DevFmtUInt>(float const val) noexcept -> u32
+{ return StoreSample<DevFmtInt>(val).reinterpret_as<u32>() + 2147483648u; }
+template<> auto StoreSample<DevFmtUShort>(float const val) noexcept -> u16
+{ return StoreSample<DevFmtShort>(val).reinterpret_as<u16>() + 32768; }
+template<> auto StoreSample<DevFmtUByte>(float const val) noexcept -> u8
+{ return StoreSample<DevFmtByte>(val).reinterpret_as<u8>() + 128; }
 
 template<DevFmtType T>
-inline void StoreSampleArray(void *dst, const float *RESTRICT src, const size_t dststep,
-    const size_t samples) noexcept
+void StoreSampleArray(void *const dst, std::span<float const> const src, std::size_t const channel,
+    std::size_t const dststep) noexcept
 {
-    DevFmtType_t<T> *sdst = static_cast<DevFmtType_t<T>*>(dst);
-    for(size_t i{0u};i < samples;i++)
-        sdst[i*dststep] = StoreSample<T>(src[i]);
+    Expects(channel < dststep);
+    const auto dstspan = std::span{static_cast<DevFmtType_t<T>*>(dst), src.size()*dststep};
+    auto sdst = dstspan.begin();
+    std::advance(sdst, channel);
+    *sdst = StoreSample<T>(src.front());
+    std::ranges::for_each(src | std::views::drop(1), [&sdst,dststep](float const in)
+    {
+        std::advance(sdst, dststep);
+        *sdst = StoreSample<T>(in);
+    });
 }
 
 
-void StoreSamples(void *dst, const float *src, const size_t dststep, const DevFmtType dsttype,
-    const size_t samples) noexcept
+void StoreSamples(void *const dst, std::span<float const> const src, std::size_t const channel,
+    std::size_t const dststep, DevFmtType const dsttype) noexcept
 {
 #define HANDLE_FMT(T)                                                         \
-    case T: StoreSampleArray<T>(dst, src, dststep, samples); break
+    case T: StoreSampleArray<T>(dst, src, channel, dststep); break
     switch(dsttype)
     {
         HANDLE_FMT(DevFmtByte);
@@ -125,41 +138,50 @@ void StoreSamples(void *dst, const float *src, const size_t dststep, const DevFm
 
 
 template<DevFmtType T>
-void Mono2Stereo(float *RESTRICT dst, const void *src, const size_t frames) noexcept
+void Mono2Stereo(std::span<float> const dst, void const *const src) noexcept
 {
-    const DevFmtType_t<T> *ssrc = static_cast<const DevFmtType_t<T>*>(src);
-    for(size_t i{0u};i < frames;i++)
-        dst[i*2 + 1] = dst[i*2 + 0] = LoadSample<T>(ssrc[i]) * 0.707106781187f;
+    const auto srcspan = std::span{static_cast<DevFmtType_t<T> const*>(src), dst.size()>>1};
+    auto sdst = dst.begin();
+    std::ranges::for_each(srcspan, [&sdst](float const in)
+    { sdst = std::fill_n(sdst, 2, in*0.707106781187f); }, &LoadSample<T>);
 }
 
 template<DevFmtType T>
-void Multi2Mono(uint chanmask, const size_t step, const float scale, float *RESTRICT dst,
-    const void *src, const size_t frames) noexcept
+void Multi2Mono(unsigned chanmask, std::size_t const step, std::span<float> const dst,
+    void const *const src) noexcept
 {
-    const DevFmtType_t<T> *ssrc = static_cast<const DevFmtType_t<T>*>(src);
-    std::fill_n(dst, frames, 0.0f);
-    for(size_t c{0};chanmask;++c)
+    const auto scale = std::sqrt(1.0f / gsl::narrow_cast<float>(std::popcount(chanmask)));
+    const auto srcspan = std::span{static_cast<DevFmtType_t<T> const*>(src), step*dst.size()};
+    std::ranges::fill(dst, 0.0f);
+    while(chanmask)
     {
-        if((chanmask&1)) LIKELY
+        const auto c = std::countr_zero(chanmask);
+        chanmask &= ~(1u << c);
+
+        auto ssrc = srcspan.begin();
+        std::advance(ssrc, c);
+        dst.front() += LoadSample<T>(*ssrc);
+        std::ranges::for_each(dst | std::views::drop(1), [&ssrc,step](float &sample)
         {
-            for(size_t i{0u};i < frames;i++)
-                dst[i] += LoadSample<T>(ssrc[i*step + c]);
-        }
-        chanmask >>= 1;
+            std::advance(ssrc, step);
+            sample += LoadSample<T>(*ssrc);
+        });
     }
-    for(size_t i{0u};i < frames;i++)
-        dst[i] *= scale;
+    std::ranges::transform(dst, dst.begin(), [scale](float const sample) noexcept -> float
+    { return sample * scale; });
 }
 
 } // namespace
 
-SampleConverterPtr SampleConverter::Create(DevFmtType srcType, DevFmtType dstType, size_t numchans,
-    uint srcRate, uint dstRate, Resampler resampler)
+auto SampleConverter::Create(DevFmtType const srcType, DevFmtType const dstType,
+    std::size_t const numchans, unsigned const srcRate, unsigned const dstRate,
+    Resampler const resampler) -> SampleConverterPtr
 {
+    auto converter = SampleConverterPtr{};
     if(numchans < 1 || srcRate < 1 || dstRate < 1)
-        return nullptr;
+        return converter;
 
-    SampleConverterPtr converter{new(FamCount(numchans)) SampleConverter{numchans}};
+    converter = SampleConverterPtr{new(FamCount{numchans}) SampleConverter{numchans}};
     converter->mSrcType = srcType;
     converter->mDstType = dstType;
     converter->mSrcTypeSize = BytesFromDevFmt(srcType);
@@ -167,20 +189,23 @@ SampleConverterPtr SampleConverter::Create(DevFmtType srcType, DevFmtType dstTyp
 
     converter->mSrcPrepCount = MaxResamplerPadding;
     converter->mFracOffset = 0;
-    for(auto &chan : converter->mChan)
-    {
-        const al::span<float> buffer{chan.PrevSamples};
-        std::fill(buffer.begin(), buffer.end(), 0.0f);
-    }
+    std::ranges::fill(converter->mChan | std::views::transform(&ChanSamples::PrevSamples)
+        | std::views::join, 0.0f);
 
     /* Have to set the mixer FPU mode since that's what the resampler code expects. */
-    FPUCtl mixer_mode{};
-    auto step = static_cast<uint>(
-        mind(srcRate*double{MixerFracOne}/dstRate + 0.5, MaxPitch*MixerFracOne));
-    converter->mIncrement = maxu(step, 1);
+    auto mixer_mode = FPUCtl{};
+    const auto step = std::clamp(std::round(srcRate*double{MixerFracOne}/dstRate), 1.0,
+        MaxPitch*double{MixerFracOne});
+    converter->mIncrement = gsl::narrow_cast<unsigned>(step);
     if(converter->mIncrement == MixerFracOne)
-        converter->mResample = [](const InterpState*, const float *RESTRICT src, uint, const uint,
-            const al::span<float> dst) { std::copy_n(src, dst.size(), dst.begin()); };
+    {
+        converter->mResample = [](InterpState const*, std::span<float const> const src, unsigned,
+            unsigned const, std::span<float> const dst) noexcept NONBLOCKING
+        {
+            std::ranges::copy(src | std::views::drop(MaxResamplerEdge)
+                | std::views::take(dst.size()), dst.begin());
+        };
+    }
     else
         converter->mResample = PrepareResampler(resampler, converter->mIncrement,
             &converter->mState);
@@ -188,7 +213,7 @@ SampleConverterPtr SampleConverter::Create(DevFmtType srcType, DevFmtType dstTyp
     return converter;
 }
 
-uint SampleConverter::availableOut(uint srcframes) const
+auto SampleConverter::availableOut(unsigned const srcframes) const -> unsigned
 {
     if(srcframes < 1)
     {
@@ -196,96 +221,95 @@ uint SampleConverter::availableOut(uint srcframes) const
         return 0;
     }
 
-    const uint prepcount{mSrcPrepCount};
+    auto const prepcount = mSrcPrepCount;
     if(prepcount < MaxResamplerPadding && MaxResamplerPadding - prepcount >= srcframes)
     {
         /* Not enough input samples to generate an output sample. */
         return 0;
     }
 
-    uint64_t DataSize64{prepcount};
-    DataSize64 += srcframes;
+    auto DataSize64 = u64{prepcount};
+    DataSize64 += u64{srcframes};
     DataSize64 -= MaxResamplerPadding;
     DataSize64 <<= MixerFracBits;
-    DataSize64 -= mFracOffset;
+    DataSize64 -= u64{mFracOffset};
 
     /* If we have a full prep, we can generate at least one sample. */
-    return static_cast<uint>(clampu64((DataSize64 + mIncrement-1)/mIncrement, 1,
-        std::numeric_limits<int>::max()));
+    return gsl::narrow_cast<unsigned>(std::clamp((DataSize64 + u64{mIncrement}-1)/u64{mIncrement},
+        1_u64, u64{std::numeric_limits<int>::max()}).c_val);
 }
 
-uint SampleConverter::convert(const void **src, uint *srcframes, void *dst, uint dstframes)
+auto SampleConverter::convert(const void **const src, unsigned *const srcframes, void *const dst,
+    unsigned const dstframes) -> unsigned
 {
-    const uint SrcFrameSize{static_cast<uint>(mChan.size()) * mSrcTypeSize};
-    const uint DstFrameSize{static_cast<uint>(mChan.size()) * mDstTypeSize};
-    const uint increment{mIncrement};
-    auto SamplesIn = static_cast<const al::byte*>(*src);
-    uint NumSrcSamples{*srcframes};
+    const auto SrcFrameSize = mChan.size() * mSrcTypeSize;
+    const auto DstFrameSize = mChan.size() * mDstTypeSize;
+    const auto increment = mIncrement;
+    auto NumSrcSamples = *srcframes;
+    auto SamplesIn = std::span{static_cast<const std::byte*>(*src), NumSrcSamples*SrcFrameSize};
+    auto SamplesOut = std::span{static_cast<std::byte*>(dst), dstframes*DstFrameSize};
 
-    FPUCtl mixer_mode{};
-    uint pos{0};
+    const auto mixer_mode = FPUCtl{};
+    auto pos = 0u;
     while(pos < dstframes && NumSrcSamples > 0)
     {
-        const uint prepcount{mSrcPrepCount};
-        const uint readable{minu(NumSrcSamples, BufferLineSize - prepcount)};
+        const auto prepcount = mSrcPrepCount;
+        const auto readable = std::min(NumSrcSamples, unsigned{BufferLineSize} - prepcount);
 
         if(prepcount < MaxResamplerPadding && MaxResamplerPadding-prepcount >= readable)
         {
             /* Not enough input samples to generate an output sample. Store
              * what we're given for later.
              */
-            for(size_t chan{0u};chan < mChan.size();chan++)
-                LoadSamples(&mChan[chan].PrevSamples[prepcount], SamplesIn + mSrcTypeSize*chan,
-                    mChan.size(), mSrcType, readable);
+            for(const auto chan : std::views::iota(0_uz, mChan.size()))
+                LoadSamples(std::span{mChan[chan].PrevSamples}.subspan(prepcount, readable),
+                    SamplesIn.data(), chan, mChan.size(), mSrcType);
 
             mSrcPrepCount = prepcount + readable;
             NumSrcSamples = 0;
             break;
         }
 
-        float *RESTRICT SrcData{mSrcSamples};
-        float *RESTRICT DstData{mDstSamples};
-        uint DataPosFrac{mFracOffset};
-        uint64_t DataSize64{prepcount};
-        DataSize64 += readable;
+        const auto SrcData = std::span<float>{mSrcSamples};
+        const auto DstData = std::span<float>{mDstSamples};
+        const auto DataPosFrac = mFracOffset;
+        auto DataSize64 = u64{prepcount};
+        DataSize64 += u64{readable};
         DataSize64 -= MaxResamplerPadding;
         DataSize64 <<= MixerFracBits;
-        DataSize64 -= DataPosFrac;
+        DataSize64 -= u64{DataPosFrac};
 
         /* If we have a full prep, we can generate at least one sample. */
-        auto DstSize = static_cast<uint>(
-            clampu64((DataSize64 + increment-1)/increment, 1, BufferLineSize));
-        DstSize = minu(DstSize, dstframes-pos);
+        auto DstSize = gsl::narrow_cast<unsigned>(std::clamp((DataSize64 + u64{increment}-1)/u64{increment},
+            1_u64, u64{BufferLineSize}).c_val);
+        DstSize = std::min(DstSize, dstframes-pos);
 
-        const uint DataPosEnd{DstSize*increment + DataPosFrac};
-        const uint SrcDataEnd{DataPosEnd>>MixerFracBits};
+        const auto DataPosEnd = DstSize*increment + DataPosFrac;
+        const auto SrcDataEnd = DataPosEnd>>MixerFracBits;
 
-        assert(prepcount+readable >= SrcDataEnd);
-        const uint nextprep{minu(prepcount + readable - SrcDataEnd, MaxResamplerPadding)};
+        Expects(prepcount+readable >= SrcDataEnd);
+        const auto nextprep = std::min(prepcount+readable-SrcDataEnd, MaxResamplerPadding);
 
-        for(size_t chan{0u};chan < mChan.size();chan++)
+        for(const auto chan : std::views::iota(0_uz, mChan.size()))
         {
-            const al::byte *SrcSamples{SamplesIn + mSrcTypeSize*chan};
-            al::byte *DstSamples = static_cast<al::byte*>(dst) + mDstTypeSize*chan;
-
             /* Load the previous samples into the source data first, then the
              * new samples from the input buffer.
              */
-            std::copy_n(mChan[chan].PrevSamples, prepcount, SrcData);
-            LoadSamples(SrcData + prepcount, SrcSamples, mChan.size(), mSrcType, readable);
+            std::copy_n(mChan[chan].PrevSamples.cbegin(), prepcount, SrcData.begin());
+            LoadSamples(SrcData.subspan(prepcount, readable), SamplesIn.data(), chan, mChan.size(),
+                mSrcType);
 
             /* Store as many prep samples for next time as possible, given the
              * number of output samples being generated.
              */
-            std::copy_n(SrcData+SrcDataEnd, nextprep, mChan[chan].PrevSamples);
-            std::fill(std::begin(mChan[chan].PrevSamples)+nextprep,
-                std::end(mChan[chan].PrevSamples), 0.0f);
+            auto const previter = std::ranges::copy(SrcData | std::views::drop(SrcDataEnd)
+                | std::views::take(nextprep), mChan[chan].PrevSamples.begin()).out;
+            std::fill(previter, mChan[chan].PrevSamples.end(), 0.0f);
 
             /* Now resample, and store the result in the output buffer. */
-            mResample(&mState, SrcData+MaxResamplerEdge, DataPosFrac, increment,
-                {DstData, DstSize});
+            mResample(&mState, SrcData, DataPosFrac, increment, DstData.first(DstSize));
 
-            StoreSamples(DstSamples, DstData, mChan.size(), mDstType, DstSize);
+            StoreSamples(SamplesOut.data(), DstData.first(DstSize), chan, mChan.size(), mDstType);
         }
 
         /* Update the number of prep samples still available, as well as the
@@ -295,29 +319,132 @@ uint SampleConverter::convert(const void **src, uint *srcframes, void *dst, uint
         mFracOffset = DataPosEnd & MixerFracMask;
 
         /* Update the src and dst pointers in case there's still more to do. */
-        const uint srcread{minu(NumSrcSamples, SrcDataEnd + mSrcPrepCount - prepcount)};
-        SamplesIn += SrcFrameSize*srcread;
+        auto const srcread = std::min(NumSrcSamples, SrcDataEnd + mSrcPrepCount - prepcount);
+        SamplesIn = SamplesIn.subspan(SrcFrameSize*srcread);
         NumSrcSamples -= srcread;
 
-        dst = static_cast<al::byte*>(dst) + DstFrameSize*DstSize;
+        SamplesOut = SamplesOut.subspan(DstFrameSize*DstSize);
         pos += DstSize;
     }
 
-    *src = SamplesIn;
+    *src = SamplesIn.data();
+    *srcframes = NumSrcSamples;
+
+    return pos;
+}
+
+auto SampleConverter::convertPlanar(void const **const src, unsigned *const srcframes,
+    void *const *const dst, unsigned const dstframes) -> unsigned
+{
+    const auto srcs = std::span{src, mChan.size()};
+    const auto dsts = std::span{dst, mChan.size()};
+    const auto increment = mIncrement;
+    auto NumSrcSamples = *srcframes;
+
+    const auto mixer_mode = FPUCtl{};
+    auto pos = 0u;
+    while(pos < dstframes && NumSrcSamples > 0)
+    {
+        const auto prepcount = mSrcPrepCount;
+        const auto readable = std::min(NumSrcSamples, unsigned{BufferLineSize} - prepcount);
+
+        if(prepcount < MaxResamplerPadding && MaxResamplerPadding-prepcount >= readable)
+        {
+            /* Not enough input samples to generate an output sample. Store
+             * what we're given for later.
+             */
+            for(const auto chan : std::views::iota(0_uz, mChan.size()))
+            {
+                auto samples = std::span{static_cast<const std::byte*>(srcs[chan]),
+                    NumSrcSamples*std::size_t{mSrcTypeSize}};
+                LoadSamples(std::span{mChan[chan].PrevSamples}.subspan(prepcount, readable),
+                    samples.data(), 0, 1, mSrcType);
+                srcs[chan] = samples.subspan(std::size_t{mSrcTypeSize}*readable).data();
+            }
+
+            mSrcPrepCount = prepcount + readable;
+            NumSrcSamples = 0;
+            break;
+        }
+
+        const auto SrcData = std::span{mSrcSamples};
+        const auto DstData = std::span{mDstSamples};
+        const auto DataPosFrac = mFracOffset;
+        auto DataSize64 = u64{prepcount};
+        DataSize64 += u64{readable};
+        DataSize64 -= MaxResamplerPadding;
+        DataSize64 <<= MixerFracBits;
+        DataSize64 -= u64{DataPosFrac};
+
+        /* If we have a full prep, we can generate at least one sample. */
+        auto DstSize = gsl::narrow_cast<unsigned>(std::clamp((DataSize64 + u64{increment}-1)/u64{increment},
+            1_u64, u64{BufferLineSize}).c_val);
+        DstSize = std::min(DstSize, dstframes-pos);
+
+        const auto DataPosEnd = DstSize*increment + DataPosFrac;
+        const auto SrcDataEnd = DataPosEnd>>MixerFracBits;
+
+        Expects(prepcount+readable >= SrcDataEnd);
+        const auto nextprep = std::min(prepcount+readable-SrcDataEnd, MaxResamplerPadding);
+
+        for(const auto chan : std::views::iota(0_uz, mChan.size()))
+        {
+            /* Load the previous samples into the source data first, then the
+             * new samples from the input buffer.
+             */
+            auto srciter = std::copy_n(mChan[chan].PrevSamples.cbegin(),prepcount,SrcData.begin());
+            LoadSamples({srciter, readable}, srcs[chan], 0, 1, mSrcType);
+
+            /* Store as many prep samples for next time as possible, given the
+             * number of output samples being generated.
+             */
+            auto const previter = std::ranges::copy(SrcData | std::views::drop(SrcDataEnd)
+                | std::views::take(nextprep), mChan[chan].PrevSamples.begin()).out;
+            std::fill(previter, mChan[chan].PrevSamples.end(), 0.0f);
+
+            /* Now resample, and store the result in the output buffer. */
+            mResample(&mState, SrcData, DataPosFrac, increment, DstData.first(DstSize));
+
+            auto DstSamples = std::span{static_cast<std::byte*>(dsts[chan]),
+                std::size_t{mDstTypeSize}*dstframes}.subspan(pos*std::size_t{mDstTypeSize});
+            StoreSamples(DstSamples.data(), DstData.first(DstSize), 0, 1, mDstType);
+        }
+
+        /* Update the number of prep samples still available, as well as the
+         * fractional offset.
+         */
+        mSrcPrepCount = nextprep;
+        mFracOffset = DataPosEnd & MixerFracMask;
+
+        /* Update the src and dst pointers in case there's still more to do. */
+        auto const srcread = std::min(NumSrcSamples, SrcDataEnd + mSrcPrepCount - prepcount);
+        std::ranges::for_each(srcs, [this,NumSrcSamples,srcread](void const *&srcref)
+        {
+            auto const srcspan = std::span{static_cast<std::byte const*>(srcref),
+                std::size_t{mSrcTypeSize}*NumSrcSamples};
+            srcref = srcspan.subspan(std::size_t{mSrcTypeSize}*srcread).data();
+        });
+        NumSrcSamples -= srcread;
+
+        pos += DstSize;
+    }
+
     *srcframes = NumSrcSamples;
 
     return pos;
 }
 
 
-void ChannelConverter::convert(const void *src, float *dst, uint frames) const
+void ChannelConverter::convert(void const *const src, float *const dst, unsigned const frames)
+    const
 {
+    if(!frames)
+        return;
     if(mDstChans == DevFmtMono)
     {
-        const float scale{std::sqrt(1.0f / static_cast<float>(al::popcount(mChanMask)))};
         switch(mSrcType)
         {
-#define HANDLE_FMT(T) case T: Multi2Mono<T>(mChanMask, mSrcStep, scale, dst, src, frames); break
+#define HANDLE_FMT(T) case T: Multi2Mono<T>(mChanMask, mSrcStep, {dst, frames}, src); break
         HANDLE_FMT(DevFmtByte);
         HANDLE_FMT(DevFmtUByte);
         HANDLE_FMT(DevFmtShort);
@@ -332,7 +459,7 @@ void ChannelConverter::convert(const void *src, float *dst, uint frames) const
     {
         switch(mSrcType)
         {
-#define HANDLE_FMT(T) case T: Mono2Stereo<T>(dst, src, frames); break
+#define HANDLE_FMT(T) case T: Mono2Stereo<T>({dst, frames*2_uz}, src); break
         HANDLE_FMT(DevFmtByte);
         HANDLE_FMT(DevFmtUByte);
         HANDLE_FMT(DevFmtShort);

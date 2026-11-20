@@ -2,11 +2,15 @@
 #define CORE_AMBDEC_H
 
 #include <array>
-#include <memory>
+#include <optional>
+#include <span>
 #include <string>
+#include <string_view>
+#include <vector>
 
-#include "aloptional.h"
+#include "expected.hpp"
 #include "core/ambidefs.h"
+#include "opthelpers.h"
 
 /* Helpers to read .ambdec configuration files. */
 
@@ -34,22 +38,21 @@ struct AmbDecConf {
         float Elevation{0.0f};
         std::string Connection;
     };
-    size_t NumSpeakers{0};
-    std::unique_ptr<SpeakerConf[]> Speakers;
+    std::vector<SpeakerConf> Speakers;
 
     using CoeffArray = std::array<float,MaxAmbiChannels>;
-    std::unique_ptr<CoeffArray[]> Matrix;
+    std::vector<CoeffArray> Matrix;
 
     /* Unused when FreqBands == 1 */
-    float LFOrderGain[MaxAmbiOrder+1]{};
-    CoeffArray *LFMatrix;
+    std::array<float,MaxAmbiOrder+1> LFOrderGain{};
+    std::span<CoeffArray> LFMatrix;
 
-    float HFOrderGain[MaxAmbiOrder+1]{};
-    CoeffArray *HFMatrix;
+    std::array<float,MaxAmbiOrder+1> HFOrderGain{};
+    std::span<CoeffArray> HFMatrix;
 
-    ~AmbDecConf();
+    NOINLINE ~AmbDecConf() = default;
 
-    al::optional<std::string> load(const char *fname) noexcept;
+    auto load(const std::string_view fname) noexcept -> al::expected<std::monostate,std::string>;
 };
 
 #endif /* CORE_AMBDEC_H */

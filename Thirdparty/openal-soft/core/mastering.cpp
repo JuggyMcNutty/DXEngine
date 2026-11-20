@@ -7,13 +7,14 @@
 #include <cmath>
 #include <cstddef>
 #include <functional>
-#include <iterator>
 #include <limits>
-#include <new>
+#include <memory>
+#include <ranges>
+#include <span>
 
-#include "almalloc.h"
 #include "alnumeric.h"
-#include "alspan.h"
+#include "altypes.hpp"
+#include "gsl/gsl"
 #include "opthelpers.h"
 
 
@@ -21,17 +22,19 @@
 static_assert((BufferLineSize & (BufferLineSize-1)) == 0, "BufferLineSize is not a power of 2");
 
 struct SlidingHold {
-    alignas(16) float mValues[BufferLineSize];
-    uint mExpiries[BufferLineSize];
-    uint mLowerIndex;
-    uint mUpperIndex;
-    uint mLength;
+    alignas(16) std::array<f32, BufferLineSize> mValues;
+    std::array<sys_uint, BufferLineSize> mExpiries;
+    unsigned mLowerIndex;
+    unsigned mUpperIndex;
+    sys_uint mLength;
 };
 
 
 namespace {
 
-using namespace std::placeholders;
+template<std::size_t A, typename T, std::size_t N>
+constexpr auto assume_aligned_span(const std::span<T,N> s) noexcept -> std::span<T,N>
+{ return std::span<T,N>{std::assume_aligned<A>(s.data()), s.size()}; }
 
 /* This sliding hold follows the input level with an instant attack and a
  * fixed duration hold before an instant release to the next highest level.
@@ -40,14 +43,14 @@ using namespace std::placeholders;
  *
  *   http://www.richardhartersworld.com/cri/2001/slidingmin.html
  */
-float UpdateSlidingHold(SlidingHold *Hold, const uint i, const float in)
+auto UpdateSlidingHold(SlidingHold *Hold, unsigned const i, f32 const in) -> f32
 {
-    static constexpr uint mask{BufferLineSize - 1};
-    const uint length{Hold->mLength};
-    float (&values)[BufferLineSize] = Hold->mValues;
-    uint (&expiries)[BufferLineSize] = Hold->mExpiries;
-    uint lowerIndex{Hold->mLowerIndex};
-    uint upperIndex{Hold->mUpperIndex};
+    static constexpr auto mask = unsigned{BufferLineSize - 1};
+    const auto length = Hold->mLength;
+    const auto values = std::span{Hold->mValues};
+    const auto expiries = std::span{Hold->mExpiries};
+    auto lowerIndex = Hold->mLowerIndex;
+    auto upperIndex = Hold->mUpperIndex;
 
     if(i >= expiries[upperIndex])
         upperIndex = (upperIndex + 1) & mask;
@@ -60,14 +63,16 @@ float UpdateSlidingHold(SlidingHold *Hold, const uint i, const float in)
     }
     else
     {
-        do {
+        auto findLowerIndex = [&lowerIndex,in,values]() noexcept -> bool
+        {
             do {
                 if(!(in >= values[lowerIndex]))
-                    goto found_place;
+                    return true;
             } while(lowerIndex--);
+            return false;
+        };
+        while(!findLowerIndex())
             lowerIndex = mask;
-        } while(true);
-    found_place:
 
         lowerIndex = (lowerIndex + 1) & mask;
         values[lowerIndex] = in;
@@ -80,170 +85,148 @@ float UpdateSlidingHold(SlidingHold *Hold, const uint i, const float in)
     return values[upperIndex];
 }
 
-void ShiftSlidingHold(SlidingHold *Hold, const uint n)
+void ShiftSlidingHold(SlidingHold *Hold, sys_uint const n)
 {
-    auto exp_begin = std::begin(Hold->mExpiries) + Hold->mUpperIndex;
-    auto exp_last = std::begin(Hold->mExpiries) + Hold->mLowerIndex;
-    if(exp_last-exp_begin < 0)
+    if(Hold->mLowerIndex < Hold->mUpperIndex)
     {
-        std::transform(exp_begin, std::end(Hold->mExpiries), exp_begin,
-            [n](uint e){ return e - n; });
-        exp_begin = std::begin(Hold->mExpiries);
+        auto expiries = std::span{Hold->mExpiries}.first(Hold->mLowerIndex+1);
+        std::ranges::transform(expiries, expiries.begin(), [n](sys_uint const e) { return e-n; });
+        expiries = std::span{Hold->mExpiries}.subspan(Hold->mUpperIndex);
+        std::ranges::transform(expiries, expiries.begin(), [n](sys_uint const e) { return e-n; });
     }
-    std::transform(exp_begin, exp_last+1, exp_begin, [n](uint e){ return e - n; });
-}
-
-
-/* Multichannel compression is linked via the absolute maximum of all
- * channels.
- */
-void LinkChannels(Compressor *Comp, const uint SamplesToDo, const FloatBufferLine *OutBuffer)
-{
-    const size_t numChans{Comp->mNumChans};
-
-    ASSUME(SamplesToDo > 0);
-    ASSUME(numChans > 0);
-
-    auto side_begin = std::begin(Comp->mSideChain) + Comp->mLookAhead;
-    std::fill(side_begin, side_begin+SamplesToDo, 0.0f);
-
-    auto fill_max = [SamplesToDo,side_begin](const FloatBufferLine &input) -> void
+    else
     {
-        const float *RESTRICT buffer{al::assume_aligned<16>(input.data())};
-        auto max_abs = std::bind(maxf, _1, std::bind(static_cast<float(&)(float)>(std::fabs), _2));
-        std::transform(side_begin, side_begin+SamplesToDo, buffer, side_begin, max_abs);
-    };
-    std::for_each(OutBuffer, OutBuffer+numChans, fill_max);
+        const auto expiries = std::span{Hold->mExpiries}.first(Hold->mLowerIndex+1)
+            .subspan(Hold->mUpperIndex);
+        std::ranges::transform(expiries, expiries.begin(), [n](sys_uint const e) { return e-n; });
+    }
 }
 
-/* This calculates the squared crest factor of the control signal for the
- * basic automation of the attack/release times.  As suggested by the paper,
- * it uses an instantaneous squared peak detector and a squared RMS detector
- * both with 200ms release times.
- */
-void CrestDetector(Compressor *Comp, const uint SamplesToDo)
+} // namespace
+
+auto Compressor::Create(Params const params) -> std::unique_ptr<Compressor>
 {
-    const float a_crest{Comp->mCrestCoeff};
-    float y2_peak{Comp->mLastPeakSq};
-    float y2_rms{Comp->mLastRmsSq};
+    const auto lookAhead = std::clamp(round(params.LookAheadTime*params.SampleRate), 0.0_f32,
+        f32{BufferLineSize-1.0f}).reinterpret_as<sys_uint>();
+    const auto hold = std::clamp(round(params.HoldTime*params.SampleRate), 0.0_f32,
+        f32{BufferLineSize-1.0f}).reinterpret_as<sys_uint>();
 
-    ASSUME(SamplesToDo > 0);
+    auto Comp = std::make_unique<Compressor>(PrivateToken{});
+    Comp->mAuto.Knee = params.AutoFlags.test(Flags::AutoKnee);
+    Comp->mAuto.Attack = params.AutoFlags.test(Flags::AutoAttack);
+    Comp->mAuto.Release = params.AutoFlags.test(Flags::AutoRelease);
+    Comp->mAuto.PostGain = params.AutoFlags.test(Flags::AutoPostGain);
+    Comp->mAuto.Declip = params.AutoFlags.test(Flags::AutoPostGain)
+        && params.AutoFlags.test(Flags::AutoDeclip);
+    Comp->mLookAhead = lookAhead.c_val;
+    Comp->mPreGain = pow(10.0_f32, params.PreGainDb / 20.0_f32);
+    Comp->mPostGain = (log(10.0_f64)/20.0_f64 * params.PostGainDb).cast_to<f32>();
+    Comp->mThreshold = (log(10.0_f64)/20.0_f64 * params.ThresholdDb).cast_to<f32>();
+    Comp->mSlope = 1.0_f32/std::max(1.0_f32, params.Ratio) - 1.0_f32;
+    Comp->mKnee = std::max(0.0_f64, log(10.0_f64)/20.0_f64 * params.KneeDb).cast_to<f32>();
+    Comp->mAttack = std::max(1.0_f32, params.AttackTime * params.SampleRate);
+    Comp->mRelease = std::max(1.0_f32, params.ReleaseTime * params.SampleRate);
 
-    auto calc_crest = [&y2_rms,&y2_peak,a_crest](const float x_abs) noexcept -> float
+    /* Knee width automation actually treats the compressor as a limiter. By
+     * varying the knee width, it can effectively be seen as applying
+     * compression over a wide range of ratios.
+     */
+    if(params.AutoFlags.test(Flags::AutoKnee))
+        Comp->mSlope = -1.0_f32;
+
+    if(lookAhead > 0)
     {
-        const float x2{clampf(x_abs * x_abs, 0.000001f, 1000000.0f)};
+        /* The sliding hold implementation doesn't handle a length of 1. A 1-
+         * sample hold is useless anyway, it would only ever give back what was
+         * just given to it.
+         */
+        if(hold > 1)
+        {
+            Comp->mHold = std::make_unique<SlidingHold>();
+            Comp->mHold->mValues[0] = -f32::infinity();
+            Comp->mHold->mExpiries[0] = hold;
+            Comp->mHold->mLength = hold;
+        }
+        Comp->mDelay.resize(params.NumChans.c_val, FloatBufferLine{});
+    }
 
-        y2_peak = maxf(x2, lerpf(x2, y2_peak, a_crest));
-        y2_rms = lerpf(x2, y2_rms, a_crest);
-        return y2_peak / y2_rms;
-    };
-    auto side_begin = std::begin(Comp->mSideChain) + Comp->mLookAhead;
-    std::transform(side_begin, side_begin+SamplesToDo, std::begin(Comp->mCrestFactor), calc_crest);
+    Comp->mCrestCoeff = exp(-1.0_f32 / (0.200_f32 * params.SampleRate)); // 200ms
+    Comp->mGainEstimate = Comp->mThreshold * -0.5_f32 * Comp->mSlope;
+    Comp->mAdaptCoeff = exp(-1.0_f32 / (2.0_f32 * params.SampleRate)); // 2s
 
-    Comp->mLastPeakSq = y2_peak;
-    Comp->mLastRmsSq = y2_rms;
+    return Comp;
 }
 
-/* The side-chain starts with a simple peak detector (based on the absolute
- * value of the incoming signal) and performs most of its operations in the
- * log domain.
- */
-void PeakDetector(Compressor *Comp, const uint SamplesToDo)
-{
-    ASSUME(SamplesToDo > 0);
+Compressor::Compressor(PrivateToken) { }
+Compressor::~Compressor() = default;
 
-    /* Clamp the minimum amplitude to near-zero and convert to logarithm. */
-    auto side_begin = std::begin(Comp->mSideChain) + Comp->mLookAhead;
-    std::transform(side_begin, side_begin+SamplesToDo, side_begin,
-        [](float s) { return std::log(maxf(0.000001f, s)); });
-}
-
-/* An optional hold can be used to extend the peak detector so it can more
- * solidly detect fast transients.  This is best used when operating as a
- * limiter.
- */
-void PeakHoldDetector(Compressor *Comp, const uint SamplesToDo)
-{
-    ASSUME(SamplesToDo > 0);
-
-    SlidingHold *hold{Comp->mHold};
-    uint i{0};
-    auto detect_peak = [&i,hold](const float x_abs) -> float
-    {
-        const float x_G{std::log(maxf(0.000001f, x_abs))};
-        return UpdateSlidingHold(hold, i++, x_G);
-    };
-    auto side_begin = std::begin(Comp->mSideChain) + Comp->mLookAhead;
-    std::transform(side_begin, side_begin+SamplesToDo, side_begin, detect_peak);
-
-    ShiftSlidingHold(hold, SamplesToDo);
-}
 
 /* This is the heart of the feed-forward compressor.  It operates in the log
  * domain (to better match human hearing) and can apply some basic automation
  * to knee width, attack/release times, make-up/post gain, and clipping
  * reduction.
  */
-void GainCompressor(Compressor *Comp, const uint SamplesToDo)
+void Compressor::gainCompressor(unsigned const SamplesToDo)
 {
-    const bool autoKnee{Comp->mAuto.Knee};
-    const bool autoAttack{Comp->mAuto.Attack};
-    const bool autoRelease{Comp->mAuto.Release};
-    const bool autoPostGain{Comp->mAuto.PostGain};
-    const bool autoDeclip{Comp->mAuto.Declip};
-    const uint lookAhead{Comp->mLookAhead};
-    const float threshold{Comp->mThreshold};
-    const float slope{Comp->mSlope};
-    const float attack{Comp->mAttack};
-    const float release{Comp->mRelease};
-    const float c_est{Comp->mGainEstimate};
-    const float a_adp{Comp->mAdaptCoeff};
-    const float *crestFactor{Comp->mCrestFactor};
-    float postGain{Comp->mPostGain};
-    float knee{Comp->mKnee};
-    float t_att{attack};
-    float t_rel{release - attack};
-    float a_att{std::exp(-1.0f / t_att)};
-    float a_rel{std::exp(-1.0f / t_rel)};
-    float y_1{Comp->mLastRelease};
-    float y_L{Comp->mLastAttack};
-    float c_dev{Comp->mLastGainDev};
+    const auto autoKnee = mAuto.Knee;
+    const auto autoAttack = mAuto.Attack;
+    const auto autoRelease = mAuto.Release;
+    const auto autoPostGain = mAuto.PostGain;
+    const auto autoDeclip = mAuto.Declip;
+    const auto threshold = mThreshold;
+    const auto slope = mSlope;
+    const auto attack = mAttack;
+    const auto release = mRelease;
+    const auto c_est = mGainEstimate;
+    const auto a_adp = mAdaptCoeff;
+    auto crestFactor = mCrestFactor.cbegin();
+    auto postGain = mPostGain;
+    auto knee = mKnee;
+    auto t_att = attack;
+    auto t_rel = release - attack;
+    auto a_att = exp(-1.0_f32 / t_att);
+    auto a_rel = exp(-1.0_f32 / t_rel);
+    auto y_1 = mLastRelease;
+    auto y_L = mLastAttack;
+    auto c_dev = mLastGainDev;
 
     ASSUME(SamplesToDo > 0);
+    ASSUME(SamplesToDo <= BufferLineSize);
 
-    for(float &sideChain : al::span<float>{Comp->mSideChain, SamplesToDo})
+    std::ranges::transform(mSideChain | std::views::take(SamplesToDo),
+        mSideChain | std::views::drop(mLookAhead), mSideChain.begin(),
+        [&](f32 const input, f32 const lookAhead) -> f32
     {
         if(autoKnee)
-            knee = maxf(0.0f, 2.5f * (c_dev + c_est));
-        const float knee_h{0.5f * knee};
+            knee = std::max(0.0_f32, 2.5_f32*(c_dev + c_est));
+        const auto knee_h = 0.5_f32 * knee;
 
-        /* This is the gain computer.  It applies a static compression curve
-         * to the control signal.
+        /* This is the gain computer. It applies a static compression curve to
+         * the control signal.
          */
-        const float x_over{std::addressof(sideChain)[lookAhead] - threshold};
-        const float y_G{
-            (x_over <= -knee_h) ? 0.0f :
-            (std::fabs(x_over) < knee_h) ? (x_over + knee_h) * (x_over + knee_h) / (2.0f * knee) :
-            x_over};
+        const auto x_over = lookAhead - threshold;
+        const auto y_G = (x_over <= -knee_h) ? 0.0_f32
+            : (x_over.abs() < knee_h) ? (x_over+knee_h) * (x_over+knee_h) / (2.0_f32 * knee)
+            : x_over;
 
-        const float y2_crest{*(crestFactor++)};
+        const auto y2_crest = *(crestFactor++);
         if(autoAttack)
         {
-            t_att = 2.0f*attack/y2_crest;
-            a_att = std::exp(-1.0f / t_att);
+            t_att = 2.0_f32*attack/y2_crest;
+            a_att = exp(-1.0_f32 / t_att);
         }
         if(autoRelease)
         {
-            t_rel = 2.0f*release/y2_crest - t_att;
-            a_rel = std::exp(-1.0f / t_rel);
+            t_rel = 2.0_f32*release/y2_crest - t_att;
+            a_rel = exp(-1.0_f32 / t_rel);
         }
 
         /* Gain smoothing (ballistics) is done via a smooth decoupled peak
-         * detector.  The attack time is subtracted from the release time
+         * detector. The attack time is subtracted from the release time
          * above to compensate for the chained operating mode.
          */
-        const float x_L{-slope * y_G};
-        y_1 = maxf(x_L, lerpf(x_L, y_1, a_rel));
+        const auto x_L = -slope * y_G;
+        y_1 = std::max(x_L, lerpf(x_L, y_1, a_rel));
         y_L = lerpf(y_1, y_L, a_att);
 
         /* Knee width and make-up gain automation make use of a smoothed
@@ -262,178 +245,135 @@ void GainCompressor(Compressor *Comp, const uint SamplesToDo)
              * same output level.
              */
             if(autoDeclip)
-                c_dev = maxf(c_dev, sideChain - y_L - threshold - c_est);
+                c_dev = std::max(c_dev, input - y_L - threshold - c_est);
 
             postGain = -(c_dev + c_est);
         }
 
-        sideChain = std::exp(postGain - y_L);
-    }
+        return exp(postGain - y_L);
+    });
 
-    Comp->mLastRelease = y_1;
-    Comp->mLastAttack = y_L;
-    Comp->mLastGainDev = c_dev;
+    mLastRelease = y_1;
+    mLastAttack = y_L;
+    mLastGainDev = c_dev;
 }
 
-/* Combined with the hold time, a look-ahead delay can improve handling of
- * fast transients by allowing the envelope time to converge prior to
- * reaching the offending impulse.  This is best used when operating as a
- * limiter.
- */
-void SignalDelay(Compressor *Comp, const uint SamplesToDo, FloatBufferLine *OutBuffer)
+void Compressor::process(unsigned const SamplesToDo, std::span<FloatBufferLine> const InOut)
 {
-    const size_t numChans{Comp->mNumChans};
-    const uint lookAhead{Comp->mLookAhead};
-
     ASSUME(SamplesToDo > 0);
-    ASSUME(numChans > 0);
-    ASSUME(lookAhead > 0);
+    ASSUME(SamplesToDo <= BufferLineSize);
 
-    for(size_t c{0};c < numChans;c++)
+    if(const auto preGain = mPreGain; preGain != 1.0f)
     {
-        float *inout{al::assume_aligned<16>(OutBuffer[c].data())};
-        float *delaybuf{al::assume_aligned<16>(Comp->mDelay[c].data())};
-
-        auto inout_end = inout + SamplesToDo;
-        if(SamplesToDo >= lookAhead) LIKELY
+        std::ranges::for_each(InOut, [SamplesToDo,preGain](const FloatBufferSpan input) -> void
         {
-            auto delay_end = std::rotate(inout, inout_end - lookAhead, inout_end);
-            std::swap_ranges(inout, delay_end, delaybuf);
-        }
-        else
-        {
-            auto delay_start = std::swap_ranges(inout, inout_end, delaybuf);
-            std::rotate(delaybuf, delay_start, delaybuf + lookAhead);
-        }
-    }
-}
-
-} // namespace
-
-
-std::unique_ptr<Compressor> Compressor::Create(const size_t NumChans, const float SampleRate,
-    const bool AutoKnee, const bool AutoAttack, const bool AutoRelease, const bool AutoPostGain,
-    const bool AutoDeclip, const float LookAheadTime, const float HoldTime, const float PreGainDb,
-    const float PostGainDb, const float ThresholdDb, const float Ratio, const float KneeDb,
-    const float AttackTime, const float ReleaseTime)
-{
-    const auto lookAhead = static_cast<uint>(
-        clampf(std::round(LookAheadTime*SampleRate), 0.0f, BufferLineSize-1));
-    const auto hold = static_cast<uint>(
-        clampf(std::round(HoldTime*SampleRate), 0.0f, BufferLineSize-1));
-
-    size_t size{sizeof(Compressor)};
-    if(lookAhead > 0)
-    {
-        size += sizeof(*Compressor::mDelay) * NumChans;
-        /* The sliding hold implementation doesn't handle a length of 1. A 1-
-         * sample hold is useless anyway, it would only ever give back what was
-         * just given to it.
-         */
-        if(hold > 1)
-            size += sizeof(*Compressor::mHold);
+            std::ranges::transform(input | std::views::take(SamplesToDo), input.begin(),
+                [preGain](const float s) noexcept { return s * preGain.c_val; });
+        });
     }
 
-    auto Comp = CompressorPtr{al::construct_at(static_cast<Compressor*>(al_calloc(16, size)))};
-    Comp->mNumChans = NumChans;
-    Comp->mAuto.Knee = AutoKnee;
-    Comp->mAuto.Attack = AutoAttack;
-    Comp->mAuto.Release = AutoRelease;
-    Comp->mAuto.PostGain = AutoPostGain;
-    Comp->mAuto.Declip = AutoPostGain && AutoDeclip;
-    Comp->mLookAhead = lookAhead;
-    Comp->mPreGain = std::pow(10.0f, PreGainDb / 20.0f);
-    Comp->mPostGain = PostGainDb * std::log(10.0f) / 20.0f;
-    Comp->mThreshold = ThresholdDb * std::log(10.0f) / 20.0f;
-    Comp->mSlope = 1.0f / maxf(1.0f, Ratio) - 1.0f;
-    Comp->mKnee = maxf(0.0f, KneeDb * std::log(10.0f) / 20.0f);
-    Comp->mAttack = maxf(1.0f, AttackTime * SampleRate);
-    Comp->mRelease = maxf(1.0f, ReleaseTime * SampleRate);
-
-    /* Knee width automation actually treats the compressor as a limiter. By
-     * varying the knee width, it can effectively be seen as applying
-     * compression over a wide range of ratios.
+    /* Multichannel compression is linked via the absolute maximum of all
+     * channels.
      */
-    if(AutoKnee)
-        Comp->mSlope = -1.0f;
-
-    if(lookAhead > 0)
+    const auto sideChain = std::span{mSideChain}.subspan(mLookAhead, SamplesToDo);
+    std::ranges::fill(sideChain, 0.0_f32);
+    std::ranges::for_each(InOut, [sideChain](const FloatBufferSpan input) -> void
     {
-        if(hold > 1)
-        {
-            Comp->mHold = al::construct_at(reinterpret_cast<SlidingHold*>(Comp.get() + 1));
-            Comp->mHold->mValues[0] = -std::numeric_limits<float>::infinity();
-            Comp->mHold->mExpiries[0] = hold;
-            Comp->mHold->mLength = hold;
-            Comp->mDelay = reinterpret_cast<FloatBufferLine*>(Comp->mHold + 1);
-        }
-        else
-            Comp->mDelay = reinterpret_cast<FloatBufferLine*>(Comp.get() + 1);
-        std::uninitialized_fill_n(Comp->mDelay, NumChans, FloatBufferLine{});
-    }
-
-    Comp->mCrestCoeff = std::exp(-1.0f / (0.200f * SampleRate)); // 200ms
-    Comp->mGainEstimate = Comp->mThreshold * -0.5f * Comp->mSlope;
-    Comp->mAdaptCoeff = std::exp(-1.0f / (2.0f * SampleRate)); // 2s
-
-    return Comp;
-}
-
-Compressor::~Compressor()
-{
-    if(mHold)
-        al::destroy_at(mHold);
-    mHold = nullptr;
-    if(mDelay)
-        al::destroy_n(mDelay, mNumChans);
-    mDelay = nullptr;
-}
-
-
-void Compressor::process(const uint SamplesToDo, FloatBufferLine *OutBuffer)
-{
-    const size_t numChans{mNumChans};
-
-    ASSUME(SamplesToDo > 0);
-    ASSUME(numChans > 0);
-
-    const float preGain{mPreGain};
-    if(preGain != 1.0f)
-    {
-        auto apply_gain = [SamplesToDo,preGain](FloatBufferLine &input) noexcept -> void
-        {
-            float *buffer{al::assume_aligned<16>(input.data())};
-            std::transform(buffer, buffer+SamplesToDo, buffer,
-                [preGain](float s) { return s * preGain; });
-        };
-        std::for_each(OutBuffer, OutBuffer+numChans, apply_gain);
-    }
-
-    LinkChannels(this, SamplesToDo, OutBuffer);
+        std::ranges::transform(sideChain, input, sideChain.begin(),
+            [](f32 const s0, f32 const s1) noexcept -> f32
+        { return std::max(s0, s1.abs()); });
+    });
 
     if(mAuto.Attack || mAuto.Release)
-        CrestDetector(this, SamplesToDo);
-
-    if(mHold)
-        PeakHoldDetector(this, SamplesToDo);
-    else
-        PeakDetector(this, SamplesToDo);
-
-    GainCompressor(this, SamplesToDo);
-
-    if(mDelay)
-        SignalDelay(this, SamplesToDo, OutBuffer);
-
-    const float (&sideChain)[BufferLineSize*2] = mSideChain;
-    auto apply_comp = [SamplesToDo,&sideChain](FloatBufferLine &input) noexcept -> void
     {
-        float *buffer{al::assume_aligned<16>(input.data())};
-        const float *gains{al::assume_aligned<16>(&sideChain[0])};
-        std::transform(gains, gains+SamplesToDo, buffer, buffer,
-            [](float g, float s) { return g * s; });
-    };
-    std::for_each(OutBuffer, OutBuffer+numChans, apply_comp);
+        /* This calculates the squared crest factor of the control signal for
+         * the basic automation of the attack/release times. As suggested by
+         * the paper, it uses an instantaneous squared peak detector and a
+         * squared RMS detector both with 200ms release times.
+         */
+        const auto a_crest = mCrestCoeff;
+        auto y2_peak = mLastPeakSq;
+        auto y2_rms = mLastRmsSq;
 
-    auto side_begin = std::begin(mSideChain) + SamplesToDo;
-    std::copy(side_begin, side_begin+mLookAhead, std::begin(mSideChain));
+        std::ranges::transform(sideChain, mCrestFactor.begin(),
+            [&y2_rms,&y2_peak,a_crest](f32 const x_abs) noexcept -> f32
+        {
+            const auto x2 = f32{std::clamp(x_abs*x_abs, 0.000001_f32, 1000000.0_f32)};
+
+            y2_peak = std::max(x2, lerpf(x2, y2_peak, a_crest));
+            y2_rms = lerpf(x2, y2_rms, a_crest);
+            return y2_peak / y2_rms;
+        });
+
+        mLastPeakSq = y2_peak;
+        mLastRmsSq = y2_rms;
+    }
+
+    if(auto *hold = mHold.get())
+    {
+        /* An optional hold can be used to extend the peak detector so it can
+         * more solidly detect fast transients. This is best used when
+         * operating as a limiter.
+         */
+        auto i = 0u;
+        std::ranges::transform(sideChain, sideChain.begin(), [&i,hold](f32 const x_abs) -> f32
+        {
+            auto const x_G = log(std::max(0.000001_f32, x_abs));
+            return UpdateSlidingHold(hold, i++, x_G);
+        });
+        ShiftSlidingHold(hold, SamplesToDo);
+    }
+    else
+    {
+        /* The side-chain starts with a simple peak detector (based on the
+         * absolute value of the incoming signal) and performs most of its
+         * operations in the log domain.
+         */
+        std::ranges::transform(sideChain, sideChain.begin(), [](f32 const s) -> f32
+        { return log(std::max(0.000001_f32, s)); });
+    }
+
+    gainCompressor(SamplesToDo);
+
+    if(!mDelay.empty())
+    {
+        /* Combined with the hold time, a look-ahead delay can improve handling
+         * of fast transients by allowing the envelope time to converge prior
+         * to reaching the offending impulse. This is best used when operating
+         * as a limiter.
+         */
+        const auto lookAhead = mLookAhead;
+        ASSUME(lookAhead > 0);
+        ASSUME(lookAhead < BufferLineSize);
+
+        auto delays = mDelay.begin();
+        std::ranges::for_each(InOut, [SamplesToDo,lookAhead,&delays](const FloatBufferSpan buffer)
+        {
+            const auto inout = buffer.first(SamplesToDo);
+            const auto delaybuf = std::span{*(delays++)}.first(lookAhead);
+
+            if(SamplesToDo >= delaybuf.size()) [[likely]]
+            {
+                const auto inout_start = std::prev(inout.end(), std::ssize(delaybuf));
+                const auto delay_end = std::ranges::rotate(inout, inout_start).begin();
+                std::ranges::swap_ranges(std::span{inout.begin(), delay_end}, delaybuf);
+            }
+            else
+            {
+                const auto delay_start = std::ranges::swap_ranges(inout, delaybuf).in2;
+                std::ranges::rotate(delaybuf, delay_start);
+            }
+        });
+    }
+
+    const auto gains = std::span{mSideChain}.first(SamplesToDo);
+    std::ranges::for_each(InOut, [gains](const FloatBufferSpan inout) -> void
+    {
+        const auto buffer = assume_aligned_span<16>(std::span{inout});
+        std::ranges::transform(gains | std::views::transform(&f32::c_val), buffer, buffer.begin(),
+            std::multiplies{});
+    });
+
+    std::ranges::copy(mSideChain | std::views::drop(SamplesToDo) | std::views::take(mLookAhead),
+        mSideChain.begin());
 }

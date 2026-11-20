@@ -2,25 +2,29 @@
 
 #include "utils.h"
 
-#include <cassert>
 #include <exception>
 
+#include "gsl/gsl"
+
+#if HAVE_CXXMODULES
+import logging;
+#else
 #include "core/logging.h"
+#endif
 
 
-void eax_log_exception(const char *message) noexcept
+void eax_log_exception(std::string_view message) noexcept
 {
     const auto exception_ptr = std::current_exception();
-    assert(exception_ptr);
+    Expects(exception_ptr);
 
     try {
         std::rethrow_exception(exception_ptr);
     }
-    catch(const std::exception& ex) {
-        const auto ex_message = ex.what();
-        ERR("%s %s\n", message ? message : "", ex_message);
+    catch(std::exception& ex) {
+        ERR("{} {}", message, ex.what());
     }
     catch(...) {
-        ERR("%s %s\n", message ? message : "", "Generic exception.");
+        ERR("{} {}", message, "Generic exception.");
     }
 }

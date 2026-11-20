@@ -7,12 +7,15 @@
 
 #include "config.h"
 
-#include <algorithm>
-
 #include "api.h"
 
+static_assert(sizeof(EAX30SOURCEPROPERTIES) == 72);
+static_assert(sizeof(EAXSOURCESENDPROPERTIES) == 24);
+static_assert(sizeof(EAXSOURCEOCCLUSIONSENDPROPERTIES) == 32);
+static_assert(sizeof(EAXSOURCEEXCLUSIONSENDPROPERTIES) == 24);
+static_assert(sizeof(EAXSOURCEALLSENDPROPERTIES) == 48);
 
-const GUID DSPROPSETID_EAX_ReverbProperties =
+const AL_GUID DSPROPSETID_EAX_ReverbProperties =
 {
     0x4A4E6FC1,
     0xC341,
@@ -20,7 +23,7 @@ const GUID DSPROPSETID_EAX_ReverbProperties =
     {0xB7, 0x3A, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00}
 };
 
-const GUID DSPROPSETID_EAXBUFFER_ReverbProperties =
+const AL_GUID DSPROPSETID_EAXBUFFER_ReverbProperties =
 {
     0x4A4E6FC0,
     0xC341,
@@ -28,7 +31,7 @@ const GUID DSPROPSETID_EAXBUFFER_ReverbProperties =
     {0xB7, 0x3A, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00}
 };
 
-const GUID DSPROPSETID_EAX20_ListenerProperties =
+const AL_GUID DSPROPSETID_EAX20_ListenerProperties =
 {
     0x306A6A8,
     0xB224,
@@ -36,7 +39,7 @@ const GUID DSPROPSETID_EAX20_ListenerProperties =
     {0x99, 0xE5, 0x00, 0x00, 0xE8, 0xD8, 0xC7, 0x22}
 };
 
-const GUID DSPROPSETID_EAX20_BufferProperties =
+const AL_GUID DSPROPSETID_EAX20_BufferProperties =
 {
     0x306A6A7,
     0xB224,
@@ -44,7 +47,7 @@ const GUID DSPROPSETID_EAX20_BufferProperties =
     {0x99, 0xE5, 0x00, 0x00, 0xE8, 0xD8, 0xC7, 0x22}
 };
 
-const GUID DSPROPSETID_EAX30_ListenerProperties =
+const AL_GUID DSPROPSETID_EAX30_ListenerProperties =
 {
     0xA8FA6882,
     0xB476,
@@ -52,7 +55,7 @@ const GUID DSPROPSETID_EAX30_ListenerProperties =
     {0xBD, 0xB9, 0x00, 0xC0, 0xF0, 0x2D, 0xDF, 0x87}
 };
 
-const GUID DSPROPSETID_EAX30_BufferProperties =
+const AL_GUID DSPROPSETID_EAX30_BufferProperties =
 {
     0xA8FA6881,
     0xB476,
@@ -60,7 +63,7 @@ const GUID DSPROPSETID_EAX30_BufferProperties =
     {0xBD, 0xB9, 0x00, 0xC0, 0xF0, 0x2D, 0xDF, 0x87}
 };
 
-const GUID EAX_NULL_GUID =
+const AL_GUID EAX_NULL_GUID =
 {
     0x00000000,
     0x0000,
@@ -68,7 +71,7 @@ const GUID EAX_NULL_GUID =
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 };
 
-const GUID EAX_PrimaryFXSlotID =
+const AL_GUID EAX_PrimaryFXSlotID =
 {
     0xF317866D,
     0x924C,
@@ -76,7 +79,7 @@ const GUID EAX_PrimaryFXSlotID =
     {0x86, 0x1B, 0xE6, 0xDA, 0xA2, 0x5E, 0x7C, 0x20}
 };
 
-const GUID EAXPROPERTYID_EAX40_Context =
+const AL_GUID EAXPROPERTYID_EAX40_Context =
 {
     0x1D4870AD,
     0xDEF,
@@ -84,7 +87,7 @@ const GUID EAXPROPERTYID_EAX40_Context =
     {0xA4, 0xC, 0x52, 0x36, 0x32, 0x29, 0x63, 0x42}
 };
 
-const GUID EAXPROPERTYID_EAX50_Context =
+const AL_GUID EAXPROPERTYID_EAX50_Context =
 {
     0x57E13437,
     0xB932,
@@ -92,7 +95,7 @@ const GUID EAXPROPERTYID_EAX50_Context =
     {0xB8, 0xBD, 0x52, 0x66, 0xC1, 0xA8, 0x87, 0xEE}
 };
 
-const GUID EAXPROPERTYID_EAX40_FXSlot0 =
+const AL_GUID EAXPROPERTYID_EAX40_FXSlot0 =
 {
     0xC4D79F1E,
     0xF1AC,
@@ -100,7 +103,7 @@ const GUID EAXPROPERTYID_EAX40_FXSlot0 =
     {0xA8, 0x1D, 0xA7, 0x38, 0xE7, 0x04, 0x54, 0x69}
 };
 
-const GUID EAXPROPERTYID_EAX50_FXSlot0 =
+const AL_GUID EAXPROPERTYID_EAX50_FXSlot0 =
 {
     0x91F9590F,
     0xC388,
@@ -108,7 +111,7 @@ const GUID EAXPROPERTYID_EAX50_FXSlot0 =
     {0x84, 0xB0, 0x1B, 0xAE, 0xE, 0xF7, 0x1A, 0xBC}
 };
 
-const GUID EAXPROPERTYID_EAX40_FXSlot1 =
+const AL_GUID EAXPROPERTYID_EAX40_FXSlot1 =
 {
     0x8C00E96,
     0x74BE,
@@ -116,7 +119,7 @@ const GUID EAXPROPERTYID_EAX40_FXSlot1 =
     {0x93, 0xAA, 0xE8, 0xAD, 0x35, 0xA4, 0x91, 0x17}
 };
 
-const GUID EAXPROPERTYID_EAX50_FXSlot1 =
+const AL_GUID EAXPROPERTYID_EAX50_FXSlot1 =
 {
     0x8F5F7ACA,
     0x9608,
@@ -124,7 +127,7 @@ const GUID EAXPROPERTYID_EAX50_FXSlot1 =
     {0x81, 0x37, 0x82, 0x13, 0xC7, 0xB9, 0xD9, 0xDE}
 };
 
-const GUID EAXPROPERTYID_EAX40_FXSlot2 =
+const AL_GUID EAXPROPERTYID_EAX40_FXSlot2 =
 {
     0x1D433B88,
     0xF0F6,
@@ -132,7 +135,7 @@ const GUID EAXPROPERTYID_EAX40_FXSlot2 =
     {0x91, 0x9F, 0x60, 0xE7, 0xE0, 0x6B, 0x5E, 0xDD}
 };
 
-const GUID EAXPROPERTYID_EAX50_FXSlot2 =
+const AL_GUID EAXPROPERTYID_EAX50_FXSlot2 =
 {
     0x3C0F5252,
     0x9834,
@@ -140,7 +143,7 @@ const GUID EAXPROPERTYID_EAX50_FXSlot2 =
     {0xA1, 0xD8, 0x5B, 0x95, 0xC4, 0xA0, 0xA, 0x30}
 };
 
-const GUID EAXPROPERTYID_EAX40_FXSlot3 =
+const AL_GUID EAXPROPERTYID_EAX40_FXSlot3 =
 {
     0xEFFF08EA,
     0xC7D8,
@@ -148,7 +151,7 @@ const GUID EAXPROPERTYID_EAX40_FXSlot3 =
     {0x93, 0xAD, 0x6D, 0xBD, 0x5F, 0x91, 0x00, 0x64}
 };
 
-const GUID EAXPROPERTYID_EAX50_FXSlot3 =
+const AL_GUID EAXPROPERTYID_EAX50_FXSlot3 =
 {
     0xE2EB0EAA,
     0xE806,
@@ -156,7 +159,7 @@ const GUID EAXPROPERTYID_EAX50_FXSlot3 =
     {0x9F, 0x86, 0x06, 0xC1, 0x57, 0x1A, 0x6F, 0xA3}
 };
 
-const GUID EAXPROPERTYID_EAX40_Source =
+const AL_GUID EAXPROPERTYID_EAX40_Source =
 {
     0x1B86B823,
     0x22DF,
@@ -164,7 +167,7 @@ const GUID EAXPROPERTYID_EAX40_Source =
     {0x8B, 0x3C, 0x12, 0x78, 0xCE, 0x54, 0x42, 0x27}
 };
 
-const GUID EAXPROPERTYID_EAX50_Source =
+const AL_GUID EAXPROPERTYID_EAX50_Source =
 {
     0x5EDF82F0,
     0x24A7,
@@ -172,7 +175,7 @@ const GUID EAXPROPERTYID_EAX50_Source =
     {0x8E, 0x64, 0x2F, 0x09, 0xCA, 0x05, 0xDE, 0xE1}
 };
 
-const GUID EAX_REVERB_EFFECT =
+const AL_GUID EAX_REVERB_EFFECT =
 {
     0xCF95C8F,
     0xA3CC,
@@ -180,7 +183,7 @@ const GUID EAX_REVERB_EFFECT =
     {0xB0, 0xB6, 0x83, 0x2E, 0xCC, 0x18, 0x22, 0xDF}
 };
 
-const GUID EAX_AGCCOMPRESSOR_EFFECT =
+const AL_GUID EAX_AGCCOMPRESSOR_EFFECT =
 {
     0xBFB7A01E,
     0x7825,
@@ -188,7 +191,7 @@ const GUID EAX_AGCCOMPRESSOR_EFFECT =
     {0x92, 0x7F, 0x03, 0xAA, 0xBD, 0xA0, 0xC5, 0x60}
 };
 
-const GUID EAX_AUTOWAH_EFFECT =
+const AL_GUID EAX_AUTOWAH_EFFECT =
 {
     0xEC3130C0,
     0xAC7A,
@@ -196,7 +199,7 @@ const GUID EAX_AUTOWAH_EFFECT =
     {0x88, 0xDD, 0x00, 0xA0, 0x24, 0xD1, 0x3C, 0xE1}
 };
 
-const GUID EAX_CHORUS_EFFECT =
+const AL_GUID EAX_CHORUS_EFFECT =
 {
     0xDE6D6FE0,
     0xAC79,
@@ -204,7 +207,7 @@ const GUID EAX_CHORUS_EFFECT =
     {0x88, 0xDD, 0x00, 0xA0, 0x24, 0xD1, 0x3C, 0xE1}
 };
 
-const GUID EAX_DISTORTION_EFFECT =
+const AL_GUID EAX_DISTORTION_EFFECT =
 {
     0x975A4CE0,
     0xAC7E,
@@ -212,7 +215,7 @@ const GUID EAX_DISTORTION_EFFECT =
     {0x88, 0xDD, 0x00, 0xA0, 0x24, 0xD1, 0x3C, 0xE1}
 };
 
-const GUID EAX_ECHO_EFFECT =
+const AL_GUID EAX_ECHO_EFFECT =
 {
     0xE9F1BC0,
     0xAC82,
@@ -220,7 +223,7 @@ const GUID EAX_ECHO_EFFECT =
     {0x88, 0xDD, 0x00, 0xA0, 0x24, 0xD1, 0x3C, 0xE1}
 };
 
-const GUID EAX_EQUALIZER_EFFECT =
+const AL_GUID EAX_EQUALIZER_EFFECT =
 {
     0x65F94CE0,
     0x9793,
@@ -228,7 +231,7 @@ const GUID EAX_EQUALIZER_EFFECT =
     {0x93, 0x9D, 0x00, 0xC0, 0xF0, 0x2D, 0xD6, 0xF0}
 };
 
-const GUID EAX_FLANGER_EFFECT =
+const AL_GUID EAX_FLANGER_EFFECT =
 {
     0xA70007C0,
     0x7D2,
@@ -236,7 +239,7 @@ const GUID EAX_FLANGER_EFFECT =
     {0x9B, 0x1E, 0x00, 0xA0, 0x24, 0xD1, 0x3C, 0xE1}
 };
 
-const GUID EAX_FREQUENCYSHIFTER_EFFECT =
+const AL_GUID EAX_FREQUENCYSHIFTER_EFFECT =
 {
     0xDC3E1880,
     0x9212,
@@ -244,7 +247,7 @@ const GUID EAX_FREQUENCYSHIFTER_EFFECT =
     {0x93, 0x9D, 0x00, 0xC0, 0xF0, 0x2D, 0xD6, 0xF0}
 };
 
-const GUID EAX_VOCALMORPHER_EFFECT =
+const AL_GUID EAX_VOCALMORPHER_EFFECT =
 {
     0xE41CF10C,
     0x3383,
@@ -252,7 +255,7 @@ const GUID EAX_VOCALMORPHER_EFFECT =
     {0x88, 0xDD, 0x00, 0xA0, 0x24, 0xD1, 0x3C, 0xE1}
 };
 
-const GUID EAX_PITCHSHIFTER_EFFECT =
+const AL_GUID EAX_PITCHSHIFTER_EFFECT =
 {
     0xE7905100,
     0xAFB2,
@@ -260,7 +263,7 @@ const GUID EAX_PITCHSHIFTER_EFFECT =
     {0x88, 0xDD, 0x00, 0xA0, 0x24, 0xD1, 0x3C, 0xE1}
 };
 
-const GUID EAX_RINGMODULATOR_EFFECT =
+const AL_GUID EAX_RINGMODULATOR_EFFECT =
 {
     0xB89FE60,
     0xAFB5,
@@ -269,8 +272,8 @@ const GUID EAX_RINGMODULATOR_EFFECT =
 };
 
 
-const GUID EAX40CONTEXT_DEFAULTPRIMARYFXSLOTID = EAXPROPERTYID_EAX40_FXSlot0;
-const GUID EAX50CONTEXT_DEFAULTPRIMARYFXSLOTID = EAXPROPERTYID_EAX50_FXSlot0;
+const AL_GUID EAX40CONTEXT_DEFAULTPRIMARYFXSLOTID = EAXPROPERTYID_EAX40_FXSlot0;
+const AL_GUID EAX50CONTEXT_DEFAULTPRIMARYFXSLOTID = EAXPROPERTYID_EAX50_FXSlot0;
 
 const EAX40ACTIVEFXSLOTS EAX40SOURCE_DEFAULTACTIVEFXSLOTID = EAX40ACTIVEFXSLOTS
 {{
@@ -378,14 +381,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_GENERIC{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_PADDEDCELL{
-    -1'000L,
-    -6'000L,
+    -1'000_eax_long,
+    -6'000_eax_long,
     0.0F,
     0.17F,
     0.1F,
-    -1'204L,
+    -1'204_eax_long,
     0.001F,
-    207L,
+    207_eax_long,
     0.002F,
     EAX2_ENVIRONMENT_PADDEDCELL,
     1.4F,
@@ -395,14 +398,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_PADDEDCELL{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_ROOM{
-    -1'000L,
-    -454L,
+    -1'000_eax_long,
+    -454_eax_long,
     0.0F,
     0.4F,
     0.83F,
-    -1'646L,
+    -1'646_eax_long,
     0.002F,
-    53L,
+    53_eax_long,
     0.003F,
     EAX2_ENVIRONMENT_ROOM,
     1.9F,
@@ -412,14 +415,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_ROOM{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_BATHROOM{
-    -1'000L,
-    -1'200L,
+    -1'000_eax_long,
+    -1'200_eax_long,
     0.0F,
     1.49F,
     0.54F,
-    -370L,
+    -370_eax_long,
     0.007F,
-    1'030L,
+    1'030_eax_long,
     0.011F,
     EAX2_ENVIRONMENT_BATHROOM,
     1.4F,
@@ -429,14 +432,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_BATHROOM{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_LIVINGROOM{
-    -1'000L,
-    -6'000L,
+    -1'000_eax_long,
+    -6'000_eax_long,
     0.0F,
     0.5F,
     0.1F,
-    -1'376L,
+    -1'376_eax_long,
     0.003F,
-    -1'104L,
+    -1'104_eax_long,
     0.004F,
     EAX2_ENVIRONMENT_LIVINGROOM,
     2.5F,
@@ -446,14 +449,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_LIVINGROOM{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_STONEROOM{
-    -1'000L,
-    -300L,
+    -1'000_eax_long,
+    -300_eax_long,
     0.0F,
     2.31F,
     0.64F,
-    -711L,
+    -711_eax_long,
     0.012F,
-    83L,
+    83_eax_long,
     0.017F,
     EAX2_ENVIRONMENT_STONEROOM,
     11.6F,
@@ -463,14 +466,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_STONEROOM{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_AUDITORIUM{
-    -1'000L,
-    -476L,
+    -1'000_eax_long,
+    -476_eax_long,
     0.0F,
     4.32F,
     0.59F,
-    -789L,
+    -789_eax_long,
     0.02F,
-    -289L,
+    -289_eax_long,
     0.03F,
     EAX2_ENVIRONMENT_AUDITORIUM,
     21.6F,
@@ -480,14 +483,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_AUDITORIUM{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_CONCERTHALL{
-    -1'000L,
-    -500L,
+    -1'000_eax_long,
+    -500_eax_long,
     0.0F,
     3.92F,
     0.7F,
-    -1'230L,
+    -1'230_eax_long,
     0.02F,
-    -2L,
+    -2_eax_long,
     0.029F,
     EAX2_ENVIRONMENT_CONCERTHALL,
     19.6F,
@@ -497,14 +500,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_CONCERTHALL{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_CAVE{
-    -1'000L,
-    0L,
+    -1'000_eax_long,
+    0_eax_long,
     0.0F,
     2.91F,
     1.3F,
-    -602L,
+    -602_eax_long,
     0.015F,
-    -302L,
+    -302_eax_long,
     0.022F,
     EAX2_ENVIRONMENT_CAVE,
     14.6F,
@@ -518,14 +521,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_CAVE{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_ARENA{
-    -1'000L,
-    -698L,
+    -1'000_eax_long,
+    -698_eax_long,
     0.0F,
     7.24F,
     0.33F,
-    -1'166L,
+    -1'166_eax_long,
     0.02F,
-    16L,
+    16_eax_long,
     0.03F,
     EAX2_ENVIRONMENT_ARENA,
     36.2F,
@@ -535,14 +538,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_ARENA{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_HANGAR{
-    -1'000L,
-    -1'000L,
+    -1'000_eax_long,
+    -1'000_eax_long,
     0.0F,
     10.05F,
     0.23F,
-    -602L,
+    -602_eax_long,
     0.02F,
-    198L,
+    198_eax_long,
     0.03F,
     EAX2_ENVIRONMENT_HANGAR,
     50.3F,
@@ -552,14 +555,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_HANGAR{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_CARPETTEDHALLWAY{
-    -1'000L,
-    -4'000L,
+    -1'000_eax_long,
+    -4'000_eax_long,
     0.0F,
     0.3F,
     0.1F,
-    -1'831L,
+    -1'831_eax_long,
     0.002F,
-    -1'630L,
+    -1'630_eax_long,
     0.03F,
     EAX2_ENVIRONMENT_CARPETEDHALLWAY,
     1.9F,
@@ -569,14 +572,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_CARPETTEDHALLWAY{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_HALLWAY{
-    -1'000L,
-    -300L,
+    -1'000_eax_long,
+    -300_eax_long,
     0.0F,
     1.49F,
     0.59F,
-    -1'219L,
+    -1'219_eax_long,
     0.007F,
-    441L,
+    441_eax_long,
     0.011F,
     EAX2_ENVIRONMENT_HALLWAY,
     1.8F,
@@ -586,14 +589,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_HALLWAY{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_STONECORRIDOR{
-    -1'000L,
-    -237L,
+    -1'000_eax_long,
+    -237_eax_long,
     0.0F,
     2.7F,
     0.79F,
-    -1'214L,
+    -1'214_eax_long,
     0.013F,
-    395L,
+    395_eax_long,
     0.02F,
     EAX2_ENVIRONMENT_STONECORRIDOR,
     13.5F,
@@ -603,14 +606,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_STONECORRIDOR{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_ALLEY{
-    -1'000L,
-    -270L,
+    -1'000_eax_long,
+    -270_eax_long,
     0.0F,
     1.49F,
     0.86F,
-    -1'204L,
+    -1'204_eax_long,
     0.007F,
-    -4L,
+    -4_eax_long,
     0.011F,
     EAX2_ENVIRONMENT_ALLEY,
     7.5F,
@@ -620,14 +623,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_ALLEY{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_FOREST{
-    -1'000L,
-    -3'300L,
+    -1'000_eax_long,
+    -3'300_eax_long,
     0.0F,
     1.49F,
     0.54F,
-    -2'560L,
+    -2'560_eax_long,
     0.162F,
-    -229L,
+    -229_eax_long,
     0.088F,
     EAX2_ENVIRONMENT_FOREST,
     38.0F,
@@ -637,14 +640,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_FOREST{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_CITY{
-    -1'000L,
-    -800L,
+    -1'000_eax_long,
+    -800_eax_long,
     0.0F,
     1.49F,
     0.67F,
-    -2'273L,
+    -2'273_eax_long,
     0.007F,
-    -1'691L,
+    -1'691_eax_long,
     0.011F,
     EAX2_ENVIRONMENT_CITY,
     7.5F,
@@ -654,14 +657,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_CITY{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_MOUNTAINS{
-    -1'000L,
-    -2'500L,
+    -1'000_eax_long,
+    -2'500_eax_long,
     0.0F,
     1.49F,
     0.21F,
-    -2'780L,
+    -2'780_eax_long,
     0.3F,
-    -1'434L,
+    -1'434_eax_long,
     0.1F,
     EAX2_ENVIRONMENT_MOUNTAINS,
     100.0F,
@@ -675,14 +678,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_MOUNTAINS{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_QUARRY{
-    -1'000L,
-    -1'000L,
+    -1'000_eax_long,
+    -1'000_eax_long,
     0.0F,
     1.49F,
     0.83F,
-    -10'000L,
+    -10'000_eax_long,
     0.061F,
-    500L,
+    500_eax_long,
     0.025F,
     EAX2_ENVIRONMENT_QUARRY,
     17.5F,
@@ -692,14 +695,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_QUARRY{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_PLAIN{
-    -1'000L,
-    -2'000L,
+    -1'000_eax_long,
+    -2'000_eax_long,
     0.0F,
     1.49F,
     0.5F,
-    -2'466L,
+    -2'466_eax_long,
     0.179F,
-    -1'926L,
+    -1'926_eax_long,
     0.1F,
     EAX2_ENVIRONMENT_PLAIN,
     42.5F,
@@ -709,14 +712,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_PLAIN{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_PARKINGLOT{
-    -1'000L,
-    0L,
+    -1'000_eax_long,
+    0_eax_long,
     0.0F,
     1.65F,
     1.5F,
-    -1'363L,
+    -1'363_eax_long,
     0.008F,
-    -1'153L,
+    -1'153_eax_long,
     0.012F,
     EAX2_ENVIRONMENT_PARKINGLOT,
     8.3F,
@@ -730,14 +733,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_PARKINGLOT{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_SEWERPIPE{
-    -1'000L,
-    -1'000L,
+    -1'000_eax_long,
+    -1'000_eax_long,
     0.0F,
     2.81F,
     0.14F,
-    429L,
+    429_eax_long,
     0.014F,
-    1'023L,
+    1'023_eax_long,
     0.021F,
     EAX2_ENVIRONMENT_SEWERPIPE,
     1.7F,
@@ -747,14 +750,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_SEWERPIPE{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_UNDERWATER{
-    -1'000L,
-    -4'000L,
+    -1'000_eax_long,
+    -4'000_eax_long,
     0.0F,
     1.49F,
     0.1F,
-    -449L,
+    -449_eax_long,
     0.007F,
-    1'700L,
+    1'700_eax_long,
     0.011F,
     EAX2_ENVIRONMENT_UNDERWATER,
     1.8F,
@@ -764,14 +767,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_UNDERWATER{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_DRUGGED{
-    -1'000L,
-    0L,
+    -1'000_eax_long,
+    0_eax_long,
     0.0F,
     8.39F,
     1.39F,
-    -115L,
+    -115_eax_long,
     0.002F,
-    985L,
+    985_eax_long,
     0.03F,
     EAX2_ENVIRONMENT_DRUGGED,
     1.9F,
@@ -785,14 +788,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_DRUGGED{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_DIZZY{
-    -1'000L,
-    -400L,
+    -1'000_eax_long,
+    -400_eax_long,
     0.0F,
     17.23F,
     0.56F,
-    -1'713L,
+    -1'713_eax_long,
     0.02F,
-    -613L,
+    -613_eax_long,
     0.03F,
     EAX2_ENVIRONMENT_DIZZY,
     1.8F,
@@ -806,14 +809,14 @@ constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_DIZZY{
 };
 
 constexpr EAX20LISTENERPROPERTIES EAX2REVERB_PRESET_PSYCHOTIC{
-    -1'000L,
-    -151L,
+    -1'000_eax_long,
+    -151_eax_long,
     0.0F,
     7.56F,
     0.91F,
-    -626L,
+    -626_eax_long,
     0.02F,
-    774L,
+    774_eax_long,
     0.03F,
     EAX2_ENVIRONMENT_PSYCHOTIC,
     1.0F,
@@ -894,16 +897,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_PADDEDCELL =
     EAX_ENVIRONMENT_PADDEDCELL,
     1.4F,
     1.0F,
-    -1'000L,
-    -6'000L,
-    0L,
+    -1'000_eax_long,
+    -6'000_eax_long,
+    0_eax_long,
     0.17F,
     0.10F,
     1.0F,
-    -1'204L,
+    -1'204_eax_long,
     0.001F,
     EAXVECTOR{},
-    207L,
+    207_eax_long,
     0.002F,
     EAXVECTOR{},
     0.250F,
@@ -914,7 +917,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_PADDEDCELL =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_ROOM =
@@ -922,16 +925,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_ROOM =
     EAX_ENVIRONMENT_ROOM,
     1.9F,
     1.0F,
-    -1'000L,
-    -454L,
-    0L,
+    -1'000_eax_long,
+    -454_eax_long,
+    0_eax_long,
     0.40F,
     0.83F,
     1.0F,
-    -1'646L,
+    -1'646_eax_long,
     0.002F,
     EAXVECTOR{},
-    53L,
+    53_eax_long,
     0.003F,
     EAXVECTOR{},
     0.250F,
@@ -942,7 +945,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_ROOM =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_BATHROOM =
@@ -950,16 +953,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_BATHROOM =
     EAX_ENVIRONMENT_BATHROOM,
     1.4F,
     1.0F,
-    -1'000L,
-    -1'200L,
-    0L,
+    -1'000_eax_long,
+    -1'200_eax_long,
+    0_eax_long,
     1.49F,
     0.54F,
     1.0F,
-    -370L,
+    -370_eax_long,
     0.007F,
     EAXVECTOR{},
-    1'030L,
+    1'030_eax_long,
     0.011F,
     EAXVECTOR{},
     0.250F,
@@ -970,7 +973,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_BATHROOM =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_LIVINGROOM =
@@ -978,16 +981,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_LIVINGROOM =
     EAX_ENVIRONMENT_LIVINGROOM,
     2.5F,
     1.0F,
-    -1'000L,
-    -6'000L,
-    0L,
+    -1'000_eax_long,
+    -6'000_eax_long,
+    0_eax_long,
     0.50F,
     0.10F,
     1.0F,
     -1'376,
     0.003F,
     EAXVECTOR{},
-    -1'104L,
+    -1'104_eax_long,
     0.004F,
     EAXVECTOR{},
     0.250F,
@@ -998,7 +1001,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_LIVINGROOM =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_STONEROOM =
@@ -1006,16 +1009,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_STONEROOM =
     EAX_ENVIRONMENT_STONEROOM,
     11.6F,
     1.0F,
-    -1'000L,
-    -300L,
-    0L,
+    -1'000_eax_long,
+    -300_eax_long,
+    0_eax_long,
     2.31F,
     0.64F,
     1.0F,
-    -711L,
+    -711_eax_long,
     0.012F,
     EAXVECTOR{},
-    83L,
+    83_eax_long,
     0.017F,
     EAXVECTOR{},
     0.250F,
@@ -1026,7 +1029,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_STONEROOM =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_AUDITORIUM =
@@ -1034,16 +1037,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_AUDITORIUM =
     EAX_ENVIRONMENT_AUDITORIUM,
     21.6F,
     1.0F,
-    -1'000L,
-    -476L,
-    0L,
+    -1'000_eax_long,
+    -476_eax_long,
+    0_eax_long,
     4.32F,
     0.59F,
     1.0F,
-    -789L,
+    -789_eax_long,
     0.020F,
     EAXVECTOR{},
-    -289L,
+    -289_eax_long,
     0.030F,
     EAXVECTOR{},
     0.250F,
@@ -1054,7 +1057,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_AUDITORIUM =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_CONCERTHALL =
@@ -1062,16 +1065,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_CONCERTHALL =
     EAX_ENVIRONMENT_CONCERTHALL,
     19.6F,
     1.0F,
-    -1'000L,
-    -500L,
-    0L,
+    -1'000_eax_long,
+    -500_eax_long,
+    0_eax_long,
     3.92F,
     0.70F,
     1.0F,
-    -1'230L,
+    -1'230_eax_long,
     0.020F,
     EAXVECTOR{},
-    -2L,
+    -2_eax_long,
     0.029F,
     EAXVECTOR{},
     0.250F,
@@ -1082,7 +1085,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_CONCERTHALL =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_CAVE =
@@ -1090,16 +1093,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_CAVE =
     EAX_ENVIRONMENT_CAVE,
     14.6F,
     1.0F,
-    -1'000L,
-    0L,
-    0L,
+    -1'000_eax_long,
+    0_eax_long,
+    0_eax_long,
     2.91F,
     1.30F,
     1.0F,
-    -602L,
+    -602_eax_long,
     0.015F,
     EAXVECTOR{},
-    -302L,
+    -302_eax_long,
     0.022F,
     EAXVECTOR{},
     0.250F,
@@ -1110,7 +1113,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_CAVE =
     5'000.0F,
     250.0F,
     0.0F,
-    0x1FUL,
+    0x1F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_ARENA =
@@ -1118,16 +1121,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_ARENA =
     EAX_ENVIRONMENT_ARENA,
     36.2F,
     1.0F,
-    -1'000L,
-    -698L,
-    0L,
+    -1'000_eax_long,
+    -698_eax_long,
+    0_eax_long,
     7.24F,
     0.33F,
     1.0F,
-    -1'166L,
+    -1'166_eax_long,
     0.020F,
     EAXVECTOR{},
-    16L,
+    16_eax_long,
     0.030F,
     EAXVECTOR{},
     0.250F,
@@ -1138,7 +1141,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_ARENA =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_HANGAR =
@@ -1146,16 +1149,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_HANGAR =
     EAX_ENVIRONMENT_HANGAR,
     50.3F,
     1.0F,
-    -1'000L,
-    -1'000L,
-    0L,
+    -1'000_eax_long,
+    -1'000_eax_long,
+    0_eax_long,
     10.05F,
     0.23F,
     1.0F,
-    -602L,
+    -602_eax_long,
     0.020F,
     EAXVECTOR{},
-    198L,
+    198_eax_long,
     0.030F,
     EAXVECTOR{},
     0.250F,
@@ -1166,7 +1169,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_HANGAR =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_CARPETTEDHALLWAY =
@@ -1174,16 +1177,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_CARPETTEDHALLWAY =
     EAX_ENVIRONMENT_CARPETEDHALLWAY,
     1.9F,
     1.0F,
-    -1'000L,
-    -4'000L,
-    0L,
+    -1'000_eax_long,
+    -4'000_eax_long,
+    0_eax_long,
     0.30F,
     0.10F,
     1.0F,
-    -1'831L,
+    -1'831_eax_long,
     0.002F,
     EAXVECTOR{},
-    -1'630L,
+    -1'630_eax_long,
     0.030F,
     EAXVECTOR{},
     0.250F,
@@ -1194,7 +1197,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_CARPETTEDHALLWAY =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_HALLWAY =
@@ -1202,16 +1205,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_HALLWAY =
     EAX_ENVIRONMENT_HALLWAY,
     1.8F,
     1.0F,
-    -1'000L,
-    -300L,
-    0L,
+    -1'000_eax_long,
+    -300_eax_long,
+    0_eax_long,
     1.49F,
     0.59F,
     1.0F,
-    -1'219L,
+    -1'219_eax_long,
     0.007F,
     EAXVECTOR{},
-    441L,
+    441_eax_long,
     0.011F,
     EAXVECTOR{},
     0.250F,
@@ -1222,7 +1225,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_HALLWAY =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_STONECORRIDOR =
@@ -1230,16 +1233,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_STONECORRIDOR =
     EAX_ENVIRONMENT_STONECORRIDOR,
     13.5F,
     1.0F,
-    -1'000L,
-    -237L,
-    0L,
+    -1'000_eax_long,
+    -237_eax_long,
+    0_eax_long,
     2.70F,
     0.79F,
     1.0F,
-    -1'214L,
+    -1'214_eax_long,
     0.013F,
     EAXVECTOR{},
-    395L,
+    395_eax_long,
     0.020F,
     EAXVECTOR{},
     0.250F,
@@ -1250,7 +1253,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_STONECORRIDOR =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_ALLEY =
@@ -1258,16 +1261,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_ALLEY =
     EAX_ENVIRONMENT_ALLEY,
     7.5F,
     0.300F,
-    -1'000L,
-    -270L,
-    0L,
+    -1'000_eax_long,
+    -270_eax_long,
+    0_eax_long,
     1.49F,
     0.86F,
     1.0F,
-    -1'204L,
+    -1'204_eax_long,
     0.007F,
     EAXVECTOR{},
-    -4L,
+    -4_eax_long,
     0.011F,
     EAXVECTOR{},
     0.125F,
@@ -1278,7 +1281,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_ALLEY =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_FOREST =
@@ -1286,16 +1289,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_FOREST =
     EAX_ENVIRONMENT_FOREST,
     38.0F,
     0.300F,
-    -1'000L,
-    -3'300L,
-    0L,
+    -1'000_eax_long,
+    -3'300_eax_long,
+    0_eax_long,
     1.49F,
     0.54F,
     1.0F,
-    -2'560L,
+    -2'560_eax_long,
     0.162F,
     EAXVECTOR{},
-    -229L,
+    -229_eax_long,
     0.088F,
     EAXVECTOR{},
     0.125F,
@@ -1306,7 +1309,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_FOREST =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_CITY =
@@ -1314,16 +1317,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_CITY =
     EAX_ENVIRONMENT_CITY,
     7.5F,
     0.500F,
-    -1'000L,
-    -800L,
-    0L,
+    -1'000_eax_long,
+    -800_eax_long,
+    0_eax_long,
     1.49F,
     0.67F,
     1.0F,
-    -2'273L,
+    -2'273_eax_long,
     0.007F,
     EAXVECTOR{},
-    -1'691L,
+    -1'691_eax_long,
     0.011F,
     EAXVECTOR{},
     0.250F,
@@ -1334,7 +1337,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_CITY =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_MOUNTAINS =
@@ -1342,16 +1345,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_MOUNTAINS =
     EAX_ENVIRONMENT_MOUNTAINS,
     100.0F,
     0.270F,
-    -1'000L,
-    -2'500L,
-    0L,
+    -1'000_eax_long,
+    -2'500_eax_long,
+    0_eax_long,
     1.49F,
     0.21F,
     1.0F,
-    -2'780L,
+    -2'780_eax_long,
     0.300F,
     EAXVECTOR{},
-    -1'434L,
+    -1'434_eax_long,
     0.100F,
     EAXVECTOR{},
     0.250F,
@@ -1362,7 +1365,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_MOUNTAINS =
     5'000.0F,
     250.0F,
     0.0F,
-    0x1FUL,
+    0x1F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_QUARRY =
@@ -1370,16 +1373,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_QUARRY =
     EAX_ENVIRONMENT_QUARRY,
     17.5F,
     1.0F,
-    -1'000L,
-    -1'000L,
-    0L,
+    -1'000_eax_long,
+    -1'000_eax_long,
+    0_eax_long,
     1.49F,
     0.83F,
     1.0F,
-    -10'000L,
+    -10'000_eax_long,
     0.061F,
     EAXVECTOR{},
-    500L,
+    500_eax_long,
     0.025F,
     EAXVECTOR{},
     0.125F,
@@ -1390,7 +1393,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_QUARRY =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_PLAIN =
@@ -1398,16 +1401,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_PLAIN =
     EAX_ENVIRONMENT_PLAIN,
     42.5F,
     0.210F,
-    -1'000L,
-    -2'000L,
-    0L,
+    -1'000_eax_long,
+    -2'000_eax_long,
+    0_eax_long,
     1.49F,
     0.50F,
     1.0F,
-    -2'466L,
+    -2'466_eax_long,
     0.179F,
     EAXVECTOR{},
-    -1'926L,
+    -1'926_eax_long,
     0.100F,
     EAXVECTOR{},
     0.250F,
@@ -1418,7 +1421,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_PLAIN =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_PARKINGLOT =
@@ -1426,16 +1429,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_PARKINGLOT =
     EAX_ENVIRONMENT_PARKINGLOT,
     8.3F,
     1.0F,
-    -1'000L,
-    0L,
-    0L,
+    -1'000_eax_long,
+    0_eax_long,
+    0_eax_long,
     1.65F,
     1.50F,
     1.0F,
-    -1'363L,
+    -1'363_eax_long,
     0.008F,
     EAXVECTOR{},
-    -1'153L,
+    -1'153_eax_long,
     0.012F,
     EAXVECTOR{},
     0.250F,
@@ -1446,7 +1449,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_PARKINGLOT =
     5'000.0F,
     250.0F,
     0.0F,
-    0x1FUL,
+    0x1F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_SEWERPIPE =
@@ -1454,16 +1457,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_SEWERPIPE =
     EAX_ENVIRONMENT_SEWERPIPE,
     1.7F,
     0.800F,
-    -1'000L,
-    -1'000L,
-    0L,
+    -1'000_eax_long,
+    -1'000_eax_long,
+    0_eax_long,
     2.81F,
     0.14F,
     1.0F,
-    429L,
+    429_eax_long,
     0.014F,
     EAXVECTOR{},
-    1'023L,
+    1'023_eax_long,
     0.021F,
     EAXVECTOR{},
     0.250F,
@@ -1474,7 +1477,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_SEWERPIPE =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_UNDERWATER =
@@ -1482,16 +1485,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_UNDERWATER =
     EAX_ENVIRONMENT_UNDERWATER,
     1.8F,
     1.0F,
-    -1'000L,
-    -4'000L,
-    0L,
+    -1'000_eax_long,
+    -4'000_eax_long,
+    0_eax_long,
     1.49F,
     0.10F,
     1.0F,
-    -449L,
+    -449_eax_long,
     0.007F,
     EAXVECTOR{},
-    1'700L,
+    1'700_eax_long,
     0.011F,
     EAXVECTOR{},
     0.250F,
@@ -1502,7 +1505,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_UNDERWATER =
     5'000.0F,
     250.0F,
     0.0F,
-    0x3FUL,
+    0x3F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_DRUGGED =
@@ -1510,16 +1513,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_DRUGGED =
     EAX_ENVIRONMENT_DRUGGED,
     1.9F,
     0.500F,
-    -1'000L,
-    0L,
-    0L,
+    -1'000_eax_long,
+    0_eax_long,
+    0_eax_long,
     8.39F,
     1.39F,
     1.0F,
-    -115L,
+    -115_eax_long,
     0.002F,
     EAXVECTOR{},
-    985L,
+    985_eax_long,
     0.030F,
     EAXVECTOR{},
     0.250F,
@@ -1530,7 +1533,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_DRUGGED =
     5'000.0F,
     250.0F,
     0.0F,
-    0x1FUL,
+    0x1F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_DIZZY =
@@ -1538,16 +1541,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_DIZZY =
     EAX_ENVIRONMENT_DIZZY,
     1.8F,
     0.600F,
-    -1'000L,
-    -400L,
-    0L,
+    -1'000_eax_long,
+    -400_eax_long,
+    0_eax_long,
     17.23F,
     0.56F,
     1.0F,
-    -1'713L,
+    -1'713_eax_long,
     0.020F,
     EAXVECTOR{},
-    -613L,
+    -613_eax_long,
     0.030F,
     EAXVECTOR{},
     0.250F,
@@ -1558,7 +1561,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_DIZZY =
     5'000.0F,
     250.0F,
     0.0F,
-    0x1FUL,
+    0x1F_eax_ulong,
 };
 
 constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_PSYCHOTIC =
@@ -1566,16 +1569,16 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_PSYCHOTIC =
     EAX_ENVIRONMENT_PSYCHOTIC,
     1.0F,
     0.500F,
-    -1'000L,
-    -151L,
-    0L,
+    -1'000_eax_long,
+    -151_eax_long,
+    0_eax_long,
     7.56F,
     0.91F,
     1.0F,
-    -626L,
+    -626_eax_long,
     0.020F,
     EAXVECTOR{},
-    774L,
+    774_eax_long,
     0.030F,
     EAXVECTOR{},
     0.250F,
@@ -1586,7 +1589,7 @@ constexpr EAXREVERBPROPERTIES EAXREVERB_PRESET_PSYCHOTIC =
     5'000.0F,
     250.0F,
     0.0F,
-    0x1FUL,
+    0x1F_eax_ulong,
 };
 
 } // namespace

@@ -1,38 +1,41 @@
 #ifndef ALU_H
 #define ALU_H
 
-#include <bitset>
+#include <cstdint>
+#include <optional>
 
-#include "aloptional.h"
+#include "bitset.hpp"
 
-struct ALCcontext;
-struct ALCdevice;
-struct EffectSlot;
+struct EffectSlotBase;
 
-enum class StereoEncoding : unsigned char;
+enum class StereoEncoding : std::uint8_t;
+
+namespace al {
+struct Context;
+struct Device;
+} // namespace al
+
+constexpr inline auto GainMixMax = 1000.0f; /* +60dB */
 
 
-constexpr float GainMixMax{1000.0f}; /* +60dB */
-
-
-enum CompatFlags : uint8_t {
+enum class CompatFlags : std::uint8_t {
     ReverseX,
     ReverseY,
     ReverseZ,
 
-    Count
+    MaxValue = ReverseZ
 };
-using CompatFlagBitset = std::bitset<CompatFlags::Count>;
+using CompatFlagBitset = al::bitset<CompatFlags>;
 
-void aluInit(CompatFlagBitset flags, const float nfcscale);
+void aluInit(CompatFlagBitset flags, float nfcscale);
 
 /* aluInitRenderer
  *
  * Set up the appropriate panning method and mixing method given the device
  * properties.
  */
-void aluInitRenderer(ALCdevice *device, int hrtf_id, al::optional<StereoEncoding> stereomode);
+void aluInitRenderer(al::Device *device, int hrtf_id, std::optional<StereoEncoding> stereomode);
 
-void aluInitEffectPanning(EffectSlot *slot, ALCcontext *context);
+void aluInitEffectPanning(EffectSlotBase *slot, al::Context *context);
 
 #endif

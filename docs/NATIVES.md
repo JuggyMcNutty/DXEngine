@@ -2879,17 +2879,16 @@ A sound device lost during play, a platform matter: its loss logged, the
 game's sounds and song play on unheard at their pace, and the default
 device is opened again each second, the sound going on there from where
 they have got to, where Windows moves the original's DirectSound to the new
-default at once ([the audio mixer](ENGINE.md#gameplay)).
+default at once ([the audio mixer](ENGINE.md#gameplay)). A new default
+output chosen during play is followed on windows-x86_64, the output opened
+again on it, as the original's follows it there; elsewhere the desktop's
+sound server moves the stream itself.
 
 An MP3 sound, the game's speech among them, is held decoded whole for the
 mixer, where Galaxy decodes one into a ring as it plays: past 32 MB of them,
 some six minutes of distinct speech, those played longest ago are let go of
 and decoded again at their next play, as at their first, an internal method
 with the same sound ([objects and memory](ENGINE.md#objects-and-memory)).
-
-Differs (bugs.md AUD.27): on windows-x86_64 the sound stays on the output
-that was the default at the start, where the original's follows the new
-default.
 
 ## Implemented, not as the original
 

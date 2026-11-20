@@ -1,3 +1,236 @@
+openal-soft-1.25.2:
+
+    Fixed the library version string for builds made without Git repo info.
+
+    Fixed an STL hardening assertion in the reverb effect.
+
+    Fixed a potential crash for builds made with older PipeWire headers.
+
+    Fixed capturing mono from a stereo or greater WASAPI input device.
+
+    Fixed building on macOS without std::format.
+
+    Fixed height encoding for TSME output.
+
+    Fixed the Super Stereo decoder's stereo separation with TSME output.
+
+    Implemented 3D processing for the Distortion, Chorus, Flanger, Pitch
+    Shifter, and Frequency Shifter effects.
+
+    Improved handling duplicate device names from PipeWire.
+
+    Added support for 7.1.4 output autodetection with CoreAudio.
+
+    Added capture support to the SDL3 backend.
+
+    Added support for device added and removed events to the SDL3 backend.
+
+    Removed use of "protected" visibility for exported symbols, now using the
+    normal "default" visibility.
+
+    Actually changed the default Super Stereo width to 0.46.
+
+openal-soft-1.25.1:
+
+    Fixed the OpenSL and JACK backends.
+
+    Fixed WASAPI and CoreAudio capture.
+
+    Fixed building the OSS backend with OSS v4.
+
+    Fixed a debug assertion with HRTF enabled.
+
+    Fixed an STL hardening assertion in the polyphase resampler with certain
+    resampling ratios.
+
+    Added a new stereo-encoding option for Tetraphonic Surround Matrix
+    Encoding.
+
+openal-soft-1.25.0:
+
+    Updated library codebase to C++20.
+
+    Fixed alcIsExtensionPresent to do a case-insensitive compare.
+
+    Fixed potential noise when switching reverbs.
+
+    Fixed reverb panning with certain output modes.
+
+    Fixed retrieving the alGetProcAddressDirect extension function.
+
+    Fixed negative source offsets with a callback buffer.
+
+    Fixed a memory issue that could occur in rare situations with looping
+    sources.
+
+    Fixed compiling for and running on older macOS versions.
+
+    Fixed using unicode in environment variable values on Windows.
+
+    Fixed memory alignment issues with 32-bit MinGW builds.
+
+    Fixed a crash in sofa-info with SOFA files that have null strings.
+
+    Updated alsoft-config to Qt6.
+
+    Added build options for STL hardening. Performant checks meant for
+    production are enabled by default.
+
+    Added support for fourth-order ambisonics.
+
+    Added support for CAF files to the Wave Writer backend.
+
+    Added optional support for C++20 modules. These are intended to be copied
+    into projects wishing to use them, since modules depend on being built with
+    compatible compile flags as the sources they're imported into.
+
+    Added a .note.dlopen section to ELF shared library builds to record dynamic
+    dependencies for build maintainers.
+
+    Converted the headers to XML files, which are used to generate the headers
+    (and modules) with a script. Other scripts can be made to generate bindings
+    for various other languages.
+
+    Changed AL_PANNING_ENABLED_SOFT to allow being toggled on playing sources.
+
+    Changed the default period size to 512 sample frames.
+
+    Changed the default Super Stereo width to 0.46.
+
+openal-soft-1.24.3:
+
+    Fixed using as a static library when linked into another project that uses
+    fmtlib.
+
+    Fixed building with static VC runtimes.
+
+    Fixed building with Windows headers that default to older targets.
+
+    Fixed building on 32-bit targets that use 32-bit file offsets.
+
+    Fixed handling WASAPI enumerated device changes.
+
+    Fixed a crash with UWP builds when __wargv is null.
+
+    Fixed using AL_FORMAT_BFORMAT3D_I32.
+
+    Improved the bsinc resamplers' cutoff frequencies.
+
+    Slightly reduced the aliasing noise in the cubic spline resampler.
+
+    Added new bsinc48 and fast_bsinc48 resampler options.
+
+    Added support for 16KB page sizes on Android.
+
+    Added support for using NFC filters with UHJ output.
+
+openal-soft-1.24.2:
+
+    Implemented the AL_SOFT_bformat_hoa extension.
+
+    Implemented default device change events for the PulseAudio backend.
+
+    Implemented an option for WASAPI exclusive mode playback.
+
+    Fixed reverb being too quiet for sounds from different directions.
+
+    Fixed compiling with certain versions of Clang.
+
+    Fixed compiling for some older macOS versions.
+
+    Fixed building alffplay on systems without pkg-config.
+
+    Improved output format detection for CoreAudio.
+
+    Changed the default resampler back to Cubic Spline.
+
+    Added an SDL3 playback backend. Disabled by default to avoid a runtime
+    dependency and for compatibility; a single process can't safely use SDL2
+    and SDL3 together on some OSs, so enable with care.
+
+    Converted examples from SDL2 to SDL3.
+
+    Integrated fmtlib into the main library and router for logging and string
+    formatting.
+
+openal-soft-1.24.1:
+
+    Fixed compilation on PowerPC.
+
+    Fixed compilation on some targets that lack lock-free 64-bit atomics.
+
+    Fixed a crash when parsing certain option values.
+
+    Fixed applying noexcept in the public headers with MSVC.
+
+    Fixed building for UWP with vcpkg.
+
+    Improved compatibility when compiling as C++20 or later.
+
+    Integrated fmtlib for some examples and utilities.
+
+openal-soft-1.24.0:
+
+    Updated library codebase to C++17.
+
+    Implemented the ALC_SOFT_system_events extension.
+
+    Implemented the AL_EXT_debug extension.
+
+    Implemented the AL_EXT_direct_context extension.
+
+    Implemented speaker configuration and headphones detection on CoreAudio.
+
+    Fixed a potential crash with some extension functions on 32-bit Windows.
+
+    Fixed a crash that can occur when stopping playback with the Oboe backend.
+
+    Fixed calculating the reverb room rolloff.
+
+    Fixed EAX occlusion, obstruction, and exclusion low-pass filter strength.
+
+    Fixed EAX distance factor calculations.
+
+    Fixed querying AL_EFFECTSLOT_EFFECT on auxiliary effect slots.
+
+    Fixed compilation on some macOS systems that lack libdispatch.
+
+    Fixed compilation as a subproject with MinGW.
+
+    Changed the context error state to be thread-local. This is technically out
+    of spec, but necessary to avoid race conditions with multi-threaded use.
+
+    Split the cubic resampler into 4-point spline and gaussian variants. The
+    latter prioritizing the suppression of aliasing distortion and harmonics,
+    the former not reducing high frequencies as much.
+
+    Improved timing precision of starting delayed sources.
+
+    Improved ring modulator quality.
+
+    Improved performance of convolution reverb.
+
+    Improved WASAPI device enumeration performance.
+
+    Added UWP support.
+
+    Added 'noexcept' to functions and function types when compiled as C++. As a
+    C API, OpenAL can't be expected to throw C++ exceptions, nor can it handle
+    them if they leave a callback.
+
+    Added an experimental config option for using WASAPI spatial audio output.
+
+    Added enumeration support to the PortAudio backend.
+
+    Added compatibility options to override the AL_VENDOR, AL_VERSION, and
+    AL_RENDERER strings.
+
+    Added an example to play LAF files.
+
+    Disabled real-time mixing by default for PipeWire playback.
+
+    Disabled the SndIO backend by default on non-BSD targets.
+
 openal-soft-1.23.1:
 
     Implemented the AL_SOFT_UHJ_ex extension.

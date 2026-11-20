@@ -3,27 +3,27 @@
 
 
 #include <cstddef>
+#include <optional>
+#include <string_view>
 
-#include "aloptional.h"
 #include "api.h"
 
 
 using EaxFxSlotIndexValue = std::size_t;
 
-class EaxFxSlotIndex : public al::optional<EaxFxSlotIndexValue>
-{
+class EaxFxSlotIndex : public std::optional<EaxFxSlotIndexValue> {
 public:
-    using al::optional<EaxFxSlotIndexValue>::optional;
+    using std::optional<EaxFxSlotIndexValue>::optional;
 
     EaxFxSlotIndex& operator=(const EaxFxSlotIndexValue &value) { set(value); return *this; }
-    EaxFxSlotIndex& operator=(const GUID &guid) { set(guid); return *this; }
+    EaxFxSlotIndex& operator=(AL_GUID const& guid) { set(guid); return *this; }
 
     void set(EaxFxSlotIndexValue index);
-    void set(const GUID& guid);
+    void set(AL_GUID const& guid);
 
 private:
     [[noreturn]]
-    static void fail(const char *message);
+    static void fail(std::string_view message);
 }; // EaxFxSlotIndex
 
 inline bool operator==(const EaxFxSlotIndex& lhs, const EaxFxSlotIndex& rhs) noexcept

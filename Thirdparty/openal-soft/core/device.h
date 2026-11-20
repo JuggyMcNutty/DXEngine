@@ -1,65 +1,72 @@
 #ifndef CORE_DEVICE_H
 #define CORE_DEVICE_H
 
-#include <stddef.h>
-
 #include <array>
 #include <atomic>
-#include <bitset>
 #include <chrono>
+#include <concepts>
+#include <functional>
 #include <memory>
-#include <mutex>
+#include <ranges>
+#include <span>
 #include <string>
+#include <variant>
 
+#include "alformat.hpp"
 #include "almalloc.h"
-#include "alspan.h"
+#include "alnumeric.h"
 #include "ambidefs.h"
 #include "atomic.h"
+#include "bitset.hpp"
 #include "bufferline.h"
+#include "decoderbase.hpp"
 #include "devformat.h"
+#include "encoderbase.hpp"
 #include "filters/nfc.h"
+#include "flexarray.h"
+#include "gsl/gsl"
 #include "intrusive_ptr.h"
 #include "mixer/hrtfdefs.h"
-#include "opthelpers.h"
 #include "resampler_limits.h"
-#include "uhjfilter.h"
 #include "vector.h"
 
 class BFormatDec;
+namespace Bs2b {
 struct bs2b;
-struct Compressor;
+} // namespace Bs2b
+class Compressor;
 struct ContextBase;
-struct DirectHrtfState;
+class DirectHrtfState;
+class FrontStablizer;
 struct HrtfStore;
 
-using uint = unsigned int;
+
+inline constexpr auto MinOutputRate = 8000_uz;
+inline constexpr auto MaxOutputRate = 192000_uz;
+inline constexpr auto DefaultOutputRate = 48000_uz;
+
+inline constexpr auto DefaultUpdateSize = 512_uz; /* ~10.7ms */
+inline constexpr auto DefaultNumUpdates = 3_uz;
 
 
-#define MIN_OUTPUT_RATE      8000
-#define MAX_OUTPUT_RATE      192000
-#define DEFAULT_OUTPUT_RATE  48000
-
-#define DEFAULT_UPDATE_SIZE  960 /* 20ms */
-#define DEFAULT_NUM_UPDATES  3
-
-
-enum class DeviceType : unsigned char {
+enum class DeviceType : u8::value_t {
     Playback,
     Capture,
     Loopback
 };
 
 
-enum class RenderMode : unsigned char {
+enum class RenderMode : u8::value_t {
     Normal,
     Pairwise,
     Hrtf
 };
 
-enum class StereoEncoding : unsigned char {
+enum class StereoEncoding : u8::value_t {
     Basic,
     Uhj,
     Hrtf,
+    Tsme,
 
     Default = Basic
 };
@@ -69,87 +76,123 @@ struct InputRemixMap {
     struct TargetMix { Channel channel; float mix; };
 
     Channel channel;
-    al::span<const TargetMix> targets;
+    std::span<TargetMix const> targets;
 };
 
 
-struct DistanceComp {
+class DistanceComp {
+    explicit DistanceComp(std::size_t const count) : mSamples{count} { }
+
+public:
     /* Maximum delay in samples for speaker distance compensation. */
-    static constexpr uint MaxDelay{1024};
+    static constexpr auto MaxDelay = 1024u;
 
     struct ChanData {
+        std::span<float> Buffer; /* Valid size is [0...MaxDelay). */
         float Gain{1.0f};
-        uint Length{0u}; /* Valid range is [0...MaxDelay). */
-        float *Buffer{nullptr};
     };
 
-    std::array<ChanData,MAX_OUTPUT_CHANNELS> mChannels;
-    al::FlexArray<float,16> mSamples;
+    std::array<ChanData, MaxOutputChannels> mChannels{};
+    al::FlexArray<float, 16> mSamples;
 
-    DistanceComp(size_t count) : mSamples{count} { }
-
-    static std::unique_ptr<DistanceComp> Create(size_t numsamples)
-    { return std::unique_ptr<DistanceComp>{new(FamCount(numsamples)) DistanceComp{numsamples}}; }
+    static auto Create(std::size_t const numsamples) -> std::unique_ptr<DistanceComp>
+    { return std::unique_ptr<DistanceComp>{new(FamCount{numsamples}) DistanceComp{numsamples}}; }
 
     DEF_FAM_NEWDEL(DistanceComp, mSamples)
 };
 
 
-constexpr uint InvalidChannelIndex{~0u};
+inline constexpr auto InvalidChannelIndex = ~0_u8;
 
 struct BFChannelConfig {
     float Scale;
-    uint Index;
+    unsigned Index;
 };
 
 struct MixParams {
     /* Coefficient channel mapping for mixing to the buffer. */
-    std::array<BFChannelConfig,MaxAmbiChannels> AmbiMap{};
+    std::array<BFChannelConfig, MaxAmbiChannels> AmbiMap{};
 
-    al::span<FloatBufferLine> Buffer;
+    std::span<FloatBufferLine> Buffer;
 
     /**
      * Helper to set an identity/pass-through panning for ambisonic mixing. The
      * source is expected to be a 3D ACN/N3D ambisonic buffer, and for each
      * channel [0...count), the given functor is called with the source channel
      * index, destination channel index, and the gain for that channel. If the
-     * destination channel is INVALID_CHANNEL_INDEX, the given source channel
-     * is not used for output.
+     * destination channel is InvalidChannelIndex, the given source channel is
+     * not used for output.
      */
-    template<typename F>
-    void setAmbiMixParams(const MixParams &inmix, const float gainbase, F func) const
+    template<std::invocable<std::size_t, u8, float> F>
+    void setAmbiMixParams(MixParams const &inmix, float const gainbase, F func) const
     {
-        const size_t numIn{inmix.Buffer.size()};
-        const size_t numOut{Buffer.size()};
-        for(size_t i{0};i < numIn;++i)
+        auto const numIn = inmix.Buffer.size();
+        auto const numOut = Buffer.size();
+        for(auto const i : std::views::iota(0_uz, numIn))
         {
             auto idx = InvalidChannelIndex;
             auto gain = 0.0f;
 
-            for(size_t j{0};j < numOut;++j)
+            for(auto const j : std::views::iota(0_uz, numOut))
             {
                 if(AmbiMap[j].Index == inmix.AmbiMap[i].Index)
                 {
-                    idx = static_cast<uint>(j);
+                    idx = u8{static_cast<u8::value_t>(j)};
                     gain = AmbiMap[j].Scale * gainbase;
                     break;
                 }
             }
-            func(i, idx, gain);
+            std::invoke(func, i, idx, gain);
         }
     }
 };
 
 struct RealMixParams {
-    al::span<const InputRemixMap> RemixMap;
-    std::array<uint,MaxChannels> ChannelIndex{};
+    std::span<InputRemixMap const> RemixMap;
+    std::array<u8, MaxChannels> ChannelIndex{};
 
-    al::span<FloatBufferLine> Buffer;
+    std::span<FloatBufferLine> Buffer;
 };
 
-using AmbiRotateMatrix = std::array<std::array<float,MaxAmbiChannels>,MaxAmbiChannels>;
+using AmbiRotateMatrix = std::array<std::array<float, MaxAmbiChannels>, MaxAmbiChannels>;
 
-enum {
+
+struct AmbiDecPostProcess {
+    std::unique_ptr<BFormatDec> mAmbiDecoder;
+};
+
+struct HrtfPostProcess {
+    std::unique_ptr<DirectHrtfState> mHrtfState;
+};
+
+struct UhjPostProcess {
+    std::unique_ptr<EncoderBase> mUhjEncoder;
+};
+
+struct TsmePostProcess {
+    std::unique_ptr<EncoderBase> mUhjEncoder;
+};
+
+struct StablizerPostProcess {
+    std::unique_ptr<BFormatDec> mAmbiDecoder;
+    std::unique_ptr<FrontStablizer> mStablizer;
+};
+
+struct Bs2bPostProcess {
+    std::unique_ptr<BFormatDec> mAmbiDecoder;
+    std::unique_ptr<Bs2b::bs2b> mBs2b;
+};
+
+using PostProcess = std::variant<std::monostate,
+    AmbiDecPostProcess,
+    HrtfPostProcess,
+    UhjPostProcess,
+    TsmePostProcess,
+    StablizerPostProcess,
+    Bs2bPostProcess>;
+
+
+enum class DeviceFlag : u8::value_t {
     // Frequency was requested by the app or config file
     FrequencyRequest,
     // Channel configuration was requested by the app or config file
@@ -159,32 +202,39 @@ enum {
 
     // Specifies if the DSP is paused at user request
     DevicePaused,
-    // Specifies if the device is currently running
-    DeviceRunning,
 
     // Specifies if the output plays directly on/in ears (headphones, headset,
-    // ear buds, etc).
+    // ear buds, etc.).
     DirectEar,
 
-    DeviceFlagsCount
+    /* Specifies if output is using speaker virtualization (e.g. Windows
+     * Spatial Audio).
+     */
+    Virtualization,
+
+    MaxValue = Virtualization
 };
 
+enum class DeviceState : u8::value_t {
+    Unprepared,
+    Configured,
+    Playing
+};
+
+/* NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding) */
 struct DeviceBase {
-    /* To avoid extraneous allocations, a 0-sized FlexArray<ContextBase*> is
-     * defined globally as a sharable object.
-     */
-    static al::FlexArray<ContextBase*> sEmptyContextArray;
-
     std::atomic<bool> Connected{true};
-    const DeviceType Type{};
+    DeviceType const Type{};
 
-    uint Frequency{};
-    uint UpdateSize{};
-    uint BufferSize{};
+    std::string mDeviceName;
+
+    unsigned mSampleRate{};
+    unsigned mUpdateSize{};
+    unsigned mBufferSize{};
 
     DevFmtChannels FmtChans{};
     DevFmtType FmtType{};
-    uint mAmbiOrder{0};
+    unsigned mAmbiOrder{0u};
     float mXOverFreq{400.0f};
     /* If the main device mix is horizontal/2D only. */
     bool m2DMixing{false};
@@ -194,12 +244,11 @@ struct DeviceBase {
     DevAmbiLayout mAmbiLayout{DevAmbiLayout::Default};
     DevAmbiScaling mAmbiScale{DevAmbiScaling::Default};
 
-    std::string DeviceName;
-
     // Device flags
-    std::bitset<DeviceFlagsCount> Flags{};
+    al::bitset<DeviceFlag> mFlags;
+    DeviceState mDeviceState{DeviceState::Unprepared};
 
-    uint NumAuxSends{};
+    unsigned NumAuxSends{};
 
     /* Rendering mode. */
     RenderMode mRenderMode{RenderMode::Normal};
@@ -214,35 +263,36 @@ struct DeviceBase {
      */
     NfcFilter mNFCtrlFilter{};
 
-    uint SamplesDone{0u};
-    std::chrono::nanoseconds ClockBase{0};
+    using seconds32 = std::chrono::duration<int>;
+    using nanoseconds32 = std::chrono::duration<int, std::nano>;
+
+    std::atomic<unsigned> mSamplesDone{0u};
+    /* Split the clock to avoid a 64-bit atomic for certain 32-bit targets. */
+    std::atomic<seconds32> mClockBaseSec{seconds32{}};
+    std::atomic<nanoseconds32> mClockBaseNSec{nanoseconds32{}};
     std::chrono::nanoseconds FixedLatency{0};
 
     AmbiRotateMatrix mAmbiRotateMatrix{};
     AmbiRotateMatrix mAmbiRotateMatrix2{};
 
     /* Temp storage used for mixer processing. */
-    static constexpr size_t MixerLineSize{BufferLineSize + DecoderBase::sMaxPadding};
-    static constexpr size_t MixerChannelsMax{16};
-    using MixerBufferLine = std::array<float,MixerLineSize>;
-    alignas(16) std::array<MixerBufferLine,MixerChannelsMax> mSampleData;
-    alignas(16) std::array<float,MixerLineSize+MaxResamplerPadding> mResampleData;
+    static constexpr auto MixerLineSize = std::size_t{BufferLineSize + DecoderBase::sMaxPadding};
+    static constexpr auto MixerChannelsMax = 25_uz;
+    alignas(16) std::array<float, MixerLineSize*MixerChannelsMax> mSampleData{};
+    alignas(16) std::array<float, MixerLineSize+MaxResamplerPadding> mResampleData{};
 
-    alignas(16) float FilteredData[BufferLineSize];
-    union {
-        alignas(16) float HrtfSourceData[BufferLineSize + HrtfHistoryLength];
-        alignas(16) float NfcSampleData[BufferLineSize];
-    };
+    alignas(16) std::array<float, BufferLineSize> FilteredData{};
+    alignas(16) std::array<float, BufferLineSize+HrtfHistoryLength> ExtraSampleData{};
 
     /* Persistent storage for HRTF mixing. */
-    alignas(16) float2 HrtfAccumData[BufferLineSize + HrirLength];
+    alignas(16) std::array<f32x2, BufferLineSize+HrirLength> HrtfAccumData{};
 
     /* Mixing buffer used by the Dry mix and Real output. */
     al::vector<FloatBufferLine, 16> MixBuffer;
 
     /* The "dry" path corresponds to the main output. */
     MixParams Dry;
-    uint NumChannelsPerOrder[MaxAmbiOrder+1]{};
+    std::array<unsigned, MaxAmbiOrder+1> NumChannelsPerOrder{};
 
     /* "Real" output, which will be written to the device buffer. May alias the
      * dry buffer.
@@ -250,21 +300,10 @@ struct DeviceBase {
     RealMixParams RealOut;
 
     /* HRTF state and info */
-    std::unique_ptr<DirectHrtfState> mHrtfState;
     al::intrusive_ptr<HrtfStore> mHrtf;
-    uint mIrSize{0};
+    unsigned mIrSize{0u};
 
-    /* Ambisonic-to-UHJ encoder */
-    std::unique_ptr<UhjEncoderBase> mUhjEncoder;
-
-    /* Ambisonic decoder for speakers */
-    std::unique_ptr<BFormatDec> AmbiDecoder;
-
-    /* Stereo-to-binaural filter */
-    std::unique_ptr<bs2b> Bs2b;
-
-    using PostProc = void(DeviceBase::*)(const size_t SamplesToDo);
-    PostProc PostProcess{nullptr};
+    PostProcess mPostProcess;
 
     std::unique_ptr<Compressor> Limiter;
 
@@ -273,73 +312,114 @@ struct DeviceBase {
 
     /* Dithering control. */
     float DitherDepth{0.0f};
-    uint DitherSeed{0u};
+    unsigned DitherSeed{0u};
 
     /* Running count of the mixer invocations, in 31.1 fixed point. This
      * actually increments *twice* when mixing, first at the start and then at
      * the end, so the bottom bit indicates if the device is currently mixing
      * and the upper bits indicates how many mixes have been done.
      */
-    RefCount MixCount{0u};
+    std::atomic<unsigned> mMixCount{0u};
 
     // Contexts created on this device
-    std::atomic<al::FlexArray<ContextBase*>*> mContexts{nullptr};
+    using ContextArray = al::FlexArray<ContextBase*>;
+    al::atomic_unique_ptr<ContextArray> mContexts;
 
+    /** Returns the number of contexts remaining on the device. */
+    [[nodiscard]] auto removeContext(ContextBase *context) -> usize;
 
-    DeviceBase(DeviceType type);
-    DeviceBase(const DeviceBase&) = delete;
-    DeviceBase& operator=(const DeviceBase&) = delete;
-    ~DeviceBase();
+    [[nodiscard]]
+    auto bytesFromFmt() const noexcept -> unsigned { return BytesFromDevFmt(FmtType); }
+    [[nodiscard]]
+    auto channelsFromFmt() const noexcept -> unsigned
+    { return ChannelsFromDevFmt(FmtChans, mAmbiOrder); }
+    [[nodiscard]]
+    auto frameSizeFromFmt() const noexcept -> unsigned
+    { return bytesFromFmt() * channelsFromFmt(); }
 
-    uint bytesFromFmt() const noexcept { return BytesFromDevFmt(FmtType); }
-    uint channelsFromFmt() const noexcept { return ChannelsFromDevFmt(FmtChans, mAmbiOrder); }
-    uint frameSizeFromFmt() const noexcept { return bytesFromFmt() * channelsFromFmt(); }
+    struct MixLock {
+        DeviceBase *const self;
+        unsigned const mEndVal;
 
-    uint waitForMix() const noexcept
+        MixLock(DeviceBase *device, unsigned const endval) noexcept : self{device}, mEndVal{endval}
+        { }
+        MixLock(const MixLock&) = delete;
+        void operator=(const MixLock&) = delete;
+        /* Update the mix count when the lock goes out of scope to "release" it
+         * (lsb should be 0).
+         */
+        ~MixLock() { self->mMixCount.store(mEndVal, std::memory_order_release); }
+    };
+    [[nodiscard]] auto getWriteMixLock() noexcept -> MixLock
     {
-        uint refcount;
-        while((refcount=MixCount.load(std::memory_order_acquire))&1) {
-        }
+        /* Increment the mix count at the start of mixing and writing clock
+         * info (lsb should be 1).
+         */
+        auto const oldCount = mMixCount.fetch_add(1u, std::memory_order_acq_rel);
+        return MixLock{this, oldCount+2};
+    }
+
+    /** Waits for the mixer to not be mixing or updating the clock. */
+    [[nodiscard]] auto waitForMix() const noexcept -> unsigned
+    {
+        auto refcount = mMixCount.load(std::memory_order_acquire);
+        while((refcount&1)) refcount = mMixCount.load(std::memory_order_acquire);
         return refcount;
     }
 
-    void ProcessHrtf(const size_t SamplesToDo);
-    void ProcessAmbiDec(const size_t SamplesToDo);
-    void ProcessAmbiDecStablized(const size_t SamplesToDo);
-    void ProcessUhj(const size_t SamplesToDo);
-    void ProcessBs2b(const size_t SamplesToDo);
+    /**
+     * Helper to get the current clock time from the device's ClockBase, and
+     * SamplesDone converted from the sample rate. Should only be called while
+     * watching the MixCount.
+     */
+    [[nodiscard]] auto getClockTime() const noexcept -> std::chrono::nanoseconds
+    {
+        using std::chrono::seconds;
+        using std::chrono::nanoseconds;
 
-    inline void postProcess(const size_t SamplesToDo)
-    { if(PostProcess) LIKELY (this->*PostProcess)(SamplesToDo); }
+        auto const ns = nanoseconds{seconds{mSamplesDone.load(std::memory_order_relaxed)}}
+            / mSampleRate;
+        return nanoseconds{mClockBaseNSec.load(std::memory_order_relaxed)}
+            + mClockBaseSec.load(std::memory_order_relaxed) + ns;
+    }
 
-    void renderSamples(const al::span<float*> outBuffers, const uint numSamples);
-    void renderSamples(void *outBuffer, const uint numSamples, const size_t frameStep);
+    static void Process(std::monostate const&, std::size_t const) { }
+    void Process(AmbiDecPostProcess const &proc, std::size_t SamplesToDo) const;
+    void Process(HrtfPostProcess const &proc, std::size_t SamplesToDo);
+    void Process(UhjPostProcess const &proc, std::size_t SamplesToDo);
+    void Process(TsmePostProcess const &proc, std::size_t SamplesToDo);
+    void Process(StablizerPostProcess const &proc, std::size_t SamplesToDo);
+    void Process(Bs2bPostProcess const &proc, std::size_t SamplesToDo);
+
+    void renderSamples(std::span<void*const> outBuffers, unsigned numSamples);
+    void renderSamples(void *outBuffer, unsigned numSamples, std::size_t frameStep);
 
     /* Caller must lock the device state, and the mixer must not be running. */
-#ifdef __USE_MINGW_ANSI_STDIO
-    [[gnu::format(gnu_printf,2,3)]]
-#else
-    [[gnu::format(printf,2,3)]]
-#endif
-    void handleDisconnect(const char *msg, ...);
+    void doDisconnect(std::string&& msg);
 
-    /**
-     * Returns the index for the given channel name (e.g. FrontCenter), or
-     * INVALID_CHANNEL_INDEX if it doesn't exist.
-     */
-    uint channelIdxByName(Channel chan) const noexcept
-    { return RealOut.ChannelIndex[chan]; }
-
-    DISABLE_ALLOC()
+    template<typename ...Args>
+    void handleDisconnect(al::format_string<Args...> fmt, Args&& ...args)
+    { doDisconnect(al::format(std::move(fmt), std::forward<Args>(args)...)); }
 
 private:
-    uint renderSamples(const uint numSamples);
+    [[nodiscard]]
+    auto renderSamples(unsigned numSamples) -> unsigned;
+
+protected:
+    explicit DeviceBase(DeviceType type);
+    ~DeviceBase();
+
+public:
+    DeviceBase(const DeviceBase&) = delete;
+    DeviceBase& operator=(const DeviceBase&) = delete;
 };
 
 /* Must be less than 15 characters (16 including terminating null) for
  * compatibility with pthread_setname_np limitations. */
-#define MIXER_THREAD_NAME "alsoft-mixer"
+[[nodiscard]] constexpr
+auto GetMixerThreadName() noexcept -> gsl::czstring { return "alsoft-mixer"; }
 
-#define RECORD_THREAD_NAME "alsoft-record"
+[[nodiscard]] constexpr
+auto GetRecordThreadName() noexcept -> gsl::czstring { return "alsoft-record"; }
 
 #endif /* CORE_DEVICE_H */

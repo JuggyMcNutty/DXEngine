@@ -25,54 +25,56 @@
 #include <cmath>
 #include <complex>
 #include <cstdlib>
-#include <iterator>
+#include <numbers>
+#include <ranges>
+#include <span>
+#include <variant>
 
 #include "alc/effects/base.h"
-#include "alcomplex.h"
-#include "almalloc.h"
-#include "alnumbers.h"
 #include "alnumeric.h"
-#include "alspan.h"
+#include "core/ambidefs.h"
 #include "core/bufferline.h"
-#include "core/devformat.h"
 #include "core/device.h"
+#include "core/effects/base.h"
 #include "core/effectslot.h"
 #include "core/mixer.h"
 #include "core/mixer/defs.h"
 #include "intrusive_ptr.h"
+#include "pffft.h"
 
+#if HAVE_CXXMODULES
+import window.hann;
+#else
+#include "hann_window.hpp"
+#endif
+
+struct BufferStorage;
 struct ContextBase;
 
 
 namespace {
 
-using uint = unsigned int;
+/* To keep from being too intensive with these FFTs, only process up to second
+ * order (9 channels) and upsample higher orders.
+ */
+constexpr auto EffectMaxOrder = 2u;
+constexpr auto UpsampleMatrix = std::span{AmbiScale::SecondOrderUp};
+constexpr auto NumLines = AmbiChannelsFromOrder(EffectMaxOrder);
+
+
 using complex_f = std::complex<float>;
 
-constexpr size_t StftSize{1024};
-constexpr size_t StftHalfSize{StftSize >> 1};
-constexpr size_t OversampleFactor{8};
+constexpr auto StftSize = 1024u;
+constexpr auto StftHalfSize = StftSize >> 1u;
+constexpr auto OversampleFactor = 8u;
+
+static_assert(std::popcount(OversampleFactor) == 1, "Factor must be a power of two");
+constexpr auto OversampleMask = OversampleFactor - 1u;
 
 static_assert(StftSize%OversampleFactor == 0, "Factor must be a clean divisor of the size");
-constexpr size_t StftStep{StftSize / OversampleFactor};
+constexpr auto StftStep = StftSize / OversampleFactor;
 
-/* Define a Hann window, used to filter the STFT input and output. */
-struct Windower {
-    alignas(16) std::array<float,StftSize> mData;
-
-    Windower()
-    {
-        /* Create lookup table of the Hann window for the desired size. */
-        for(size_t i{0};i < StftHalfSize;i++)
-        {
-            constexpr double scale{al::numbers::pi / double{StftSize}};
-            const double val{std::sin((static_cast<double>(i)+0.5) * scale)};
-            mData[i] = mData[StftSize-1-i] = static_cast<float>(val * val);
-        }
-    }
-};
-const Windower gWindow{};
-
+auto &gWindow = gHannWindow<StftSize>;
 
 struct FrequencyBin {
     float Magnitude;
@@ -80,76 +82,130 @@ struct FrequencyBin {
 };
 
 
-struct PshifterState final : public EffectState {
+struct PshifterState final : EffectState {
     /* Effect parameters */
-    size_t mCount;
-    size_t mPos;
-    uint mPitchShiftI;
-    float mPitchShift;
+    std::size_t mCount{};
+    std::size_t mPos{};
+    unsigned mPitchShiftI{};
+    float mPitchShift{};
 
-    /* Effects buffers */
-    std::array<float,StftSize> mFIFO;
-    std::array<float,StftHalfSize+1> mLastPhase;
-    std::array<float,StftHalfSize+1> mSumPhase;
-    std::array<float,StftSize> mOutputAccum;
+    PFFFTSetup mFft;
+    alignas(16) std::array<float, StftSize> mFftBuffer{};
+    alignas(16) std::array<float, StftSize> mFftWorkBuffer{};
 
-    std::array<complex_f,StftSize> mFftBuffer;
+    std::array<FrequencyBin, StftHalfSize+1> mSynthesisBuffer{};
 
-    std::array<FrequencyBin,StftHalfSize+1> mAnalysisBuffer;
-    std::array<FrequencyBin,StftHalfSize+1> mSynthesisBuffer;
+    std::array<float, StftHalfSize+1> mLastPhase{};
+    std::array<float, StftHalfSize+1> mSumPhase{};
 
-    alignas(16) FloatBufferLine mBufferOut;
+    struct ProcessParams {
+        /* Effects buffers */
+        std::array<float, StftSize> mFIFO{};
+        std::array<float, StftSize> mOutputAccum{};
 
-    /* Effect gains for each output channel */
-    float mCurrentGains[MaxAmbiChannels];
-    float mTargetGains[MaxAmbiChannels];
+        unsigned mTargetChannel{InvalidChannelIndex.c_val};
 
+        /* Current and target gain for this channel. */
+        float mCurrentGain{};
+        float mTargetGain{};
+    };
+    std::array<ProcessParams, NumLines> mChans;
+
+    alignas(16) std::array<FloatBufferLine, NumLines> mBBuffer{};
+
+    /* When the device is mixing to higher-order B-Format, the output needs
+     * high-frequency adjustment and (potentially) mixing into higher order
+     * channels to compensate.
+     */
+    struct UpsampleParams {
+        float mHfScale{1.0f};
+        BandSplitter mSplitter;
+        std::array<float, MaxAmbiChannels> mCurrentGains{};
+        std::array<float, MaxAmbiChannels> mTargetGains{};
+    };
+    std::optional<std::array<UpsampleParams, NumLines>> mUpsampler;
 
     void deviceUpdate(const DeviceBase *device, const BufferStorage *buffer) override;
-    void update(const ContextBase *context, const EffectSlot *slot, const EffectProps *props,
-        const EffectTarget target) override;
-    void process(const size_t samplesToDo, const al::span<const FloatBufferLine> samplesIn,
-        const al::span<FloatBufferLine> samplesOut) override;
-
-    DEF_NEWDEL(PshifterState)
+    void update(const ContextBase *context, const EffectSlotBase *slot, const EffectProps *props,
+        EffectTarget target) override;
+    void process(size_t samplesToDo, std::span<const FloatBufferLine> samplesIn,
+        std::span<FloatBufferLine> samplesOut) override;
 };
 
-void PshifterState::deviceUpdate(const DeviceBase*, const BufferStorage*)
+void PshifterState::deviceUpdate(DeviceBase const *device, BufferStorage const*)
 {
+    if(!mFft)
+        mFft = PFFFTSetup{StftSize, PFFFT_REAL};
+
     /* (Re-)initializing parameters and clear the buffers. */
     mCount       = 0;
     mPos         = StftSize - StftStep;
     mPitchShiftI = MixerFracOne;
     mPitchShift  = 1.0f;
 
-    mFIFO.fill(0.0f);
     mLastPhase.fill(0.0f);
     mSumPhase.fill(0.0f);
-    mOutputAccum.fill(0.0f);
-    mFftBuffer.fill(complex_f{});
-    mAnalysisBuffer.fill(FrequencyBin{});
+    mChans.fill(ProcessParams{});
+    mFftBuffer.fill(0.0f);
     mSynthesisBuffer.fill(FrequencyBin{});
 
-    std::fill(std::begin(mCurrentGains), std::end(mCurrentGains), 0.0f);
-    std::fill(std::begin(mTargetGains),  std::end(mTargetGains),  0.0f);
+    mUpsampler.reset();
+    if(device->mAmbiOrder > EffectMaxOrder)
+    {
+        auto const hfscales = AmbiScale::GetHFOrderScales(EffectMaxOrder, device->mAmbiOrder,
+            device->m2DMixing);
+        auto idx = 0_uz;
+
+        auto const splitter = BandSplitter{device->mXOverFreq
+            / static_cast<float>(device->mSampleRate)};
+
+        auto &upsampler = mUpsampler.emplace();
+        for(auto &chandata : upsampler)
+        {
+            chandata.mHfScale = hfscales[idx];
+            idx = 1;
+
+            chandata.mSplitter = splitter;
+        }
+    }
 }
 
-void PshifterState::update(const ContextBase*, const EffectSlot *slot,
-    const EffectProps *props, const EffectTarget target)
+void PshifterState::update(const ContextBase*, const EffectSlotBase *slot,
+    const EffectProps *props_, const EffectTarget target)
 {
-    const int tune{props->Pshifter.CoarseTune*100 + props->Pshifter.FineTune};
-    const float pitch{std::pow(2.0f, static_cast<float>(tune) / 1200.0f)};
-    mPitchShiftI = clampu(fastf2u(pitch*MixerFracOne), MixerFracHalf, MixerFracOne*2);
-    mPitchShift  = static_cast<float>(mPitchShiftI) * float{1.0f/MixerFracOne};
-
-    static constexpr auto coeffs = CalcDirectionCoeffs({0.0f, 0.0f, -1.0f});
+    auto &props = std::get<PshifterProps>(*props_);
+    const auto tune = props.CoarseTune*100 + props.FineTune;
+    const auto pitch = std::pow(2.0f, static_cast<float>(tune) / 1200.0f);
+    mPitchShiftI = fastf2u(std::clamp(pitch, 0.5f, 2.0f)*MixerFracOne);
+    mPitchShift = static_cast<float>(mPitchShiftI) * float{1.0f/MixerFracOne};
 
     mOutTarget = target.Main->Buffer;
-    ComputePanGains(target.Main, coeffs.data(), slot->Gain, mTargetGains);
+    target.Main->setAmbiMixParams(slot->Wet, slot->Gain,
+        [this](std::size_t const idx, u8 const outchan, float const outgain)
+    {
+        if(idx < mChans.size())
+        {
+            mChans[idx].mTargetChannel = outchan.c_val;
+            mChans[idx].mTargetGain = outgain;
+        }
+    });
+
+    if(mUpsampler.has_value())
+    {
+        auto &upsampler = mUpsampler.value();
+
+        auto const outgain = slot->Gain;
+        for(auto const idx : std::views::iota(0_uz, mChans.size()))
+        {
+            if(mChans[idx].mTargetChannel != InvalidChannelIndex)
+                ComputePanGains(target.Main, UpsampleMatrix[idx], outgain,
+                    upsampler[idx].mTargetGains);
+        }
+    }
 }
 
 void PshifterState::process(const size_t samplesToDo,
-    const al::span<const FloatBufferLine> samplesIn, const al::span<FloatBufferLine> samplesOut)
+    const std::span<const FloatBufferLine> samplesIn, const std::span<FloatBufferLine> samplesOut)
 {
     /* Pitch shifter engine based on the work of Stephan Bernsee.
      * http://blogs.zynaptiq.com/bernsee/pitch-shifting-using-the-ft/
@@ -158,150 +214,268 @@ void PshifterState::process(const size_t samplesToDo,
     /* Cycle offset per update expected of each frequency bin (bin 0 is none,
      * bin 1 is x1, bin 2 is x2, etc).
      */
-    constexpr float expected_cycles{al::numbers::pi_v<float>*2.0f / OversampleFactor};
+    static constexpr auto expected_cycles = std::numbers::pi_v<float>*2.0f / OversampleFactor;
 
-    for(size_t base{0u};base < samplesToDo;)
+    auto const numInput = std::min(samplesIn.size(), NumLines);
+    for(auto base = 0_uz;base < samplesToDo;)
     {
-        const size_t todo{minz(StftStep-mCount, samplesToDo-base)};
+        const auto todo = std::min(StftStep-mCount, samplesToDo-base);
 
         /* Retrieve the output samples from the FIFO and fill in the new input
          * samples.
          */
-        auto fifo_iter = mFIFO.begin()+mPos + mCount;
-        std::copy_n(fifo_iter, todo, mBufferOut.begin()+base);
+        for(const auto c : std::views::iota(0_uz, numInput))
+        {
+            auto fiforange = std::span{mChans[c].mFIFO}.subspan(mPos+mCount, todo);
+            std::ranges::copy(fiforange, std::span{mBBuffer[c]}.subspan(base, todo).begin());
 
-        std::copy_n(samplesIn[0].begin()+base, todo, fifo_iter);
+            std::ranges::copy(std::span{samplesIn[c]}.subspan(base, todo), fiforange.begin());
+        }
         mCount += todo;
         base += todo;
 
-        /* Check whether FIFO buffer is filled with new samples. */
+        /* Check whether the FIFO buffer is filled with new samples. */
         if(mCount < StftStep) break;
         mCount = 0;
-        mPos = (mPos+StftStep) & (mFIFO.size()-1);
+        mPos = (mPos+StftStep) & (StftSize-1);
 
-        /* Time-domain signal windowing, store in FftBuffer, and apply a
-         * forward FFT to get the frequency-domain signal.
-         */
-        for(size_t src{mPos}, k{0u};src < StftSize;++src,++k)
-            mFftBuffer[k] = mFIFO[src] * gWindow.mData[k];
-        for(size_t src{0u}, k{StftSize-mPos};src < mPos;++src,++k)
-            mFftBuffer[k] = mFIFO[src] * gWindow.mData[k];
-        forward_fft(al::as_span(mFftBuffer));
-
-        /* Analyze the obtained data. Since the real FFT is symmetric, only
-         * StftHalfSize+1 samples are needed.
-         */
-        for(size_t k{0u};k < StftHalfSize+1;k++)
+        for(const auto c : std::views::iota(0_uz, numInput))
         {
-            const float magnitude{std::abs(mFftBuffer[k])};
-            const float phase{std::arg(mFftBuffer[k])};
+            auto &chandata = mChans[c];
+            auto fifo = std::span{chandata.mFIFO};
 
-            /* Compute the phase difference from the last update and subtract
-             * the expected phase difference for this bin.
-             *
-             * When oversampling, the expected per-update offset increments by
-             * 1/OversampleFactor for every frequency bin. So, the offset wraps
-             * every 'OversampleFactor' bin.
+            /* Time-domain signal windowing, store in FftBuffer, and apply a
+             * forward FFT to get the frequency-domain signal.
              */
-            const auto bin_offset = static_cast<float>(k % OversampleFactor);
-            float tmp{(phase - mLastPhase[k]) - bin_offset*expected_cycles};
-            /* Store the actual phase for the next update. */
-            mLastPhase[k] = phase;
+            const auto [_, windowiter, fftbufiter] = std::ranges::transform(
+                fifo | std::views::drop(mPos), gWindow, mFftBuffer.begin(), std::multiplies{});
+            std::ranges::transform(fifo.begin(), fifo.end(), windowiter, gWindow.end(), fftbufiter,
+                std::multiplies{});
 
-            /* Normalize from pi, and wrap the delta between -1 and +1. */
-            tmp *= al::numbers::inv_pi_v<float>;
-            int qpd{float2int(tmp)};
-            tmp -= static_cast<float>(qpd + (qpd%2));
+            mFft.transform_ordered(mFftBuffer.begin(), mFftBuffer.begin(), mFftWorkBuffer.begin(),
+                PFFFT_FORWARD);
 
-            /* Get deviation from bin frequency (-0.5 to +0.5), and account for
-             * oversampling.
+            mSynthesisBuffer.fill(FrequencyBin{});
+
+            /* Analyze the obtained data. Since the real FFT is symmetric, only
+             * StftHalfSize+1 samples are needed.
              */
-            tmp *= 0.5f * OversampleFactor;
+            if(c == 0)
+            {
+                for(auto k = 0_uz;k < StftHalfSize+1;++k)
+                {
+                    auto const cplx = (k == 0) ? complex_f{mFftBuffer[0]}
+                        : (k == StftHalfSize) ? complex_f{mFftBuffer[1]}
+                        : complex_f{mFftBuffer[k*2], mFftBuffer[k*2 + 1]};
+                    auto const magnitude = std::abs(cplx);
+                    auto const phase = std::arg(cplx);
 
-            /* Compute the k-th partials' frequency bin target and store the
-             * magnitude and frequency bin in the analysis buffer. We don't
-             * need the "true frequency" since it's a linear relationship with
-             * the bin.
+                    /* Compute the phase difference from the last update and
+                     * subtract the expected phase difference for this bin.
+                     *
+                     * When oversampling, the expected per-update offset
+                     * increments by 1/OversampleFactor for every frequency
+                     * bin. So, the offset wraps every 'OversampleFactor' bin.
+                     */
+                    auto const bin_offset = static_cast<float>(k & OversampleMask);
+                    auto tmp = (phase - mLastPhase[k]) - bin_offset*expected_cycles;
+                    /* Store the actual phase for the next update. */
+                    mLastPhase[k] = phase;
+
+                    /* Normalize from pi and wrap the delta between -1 and +1,
+                     * to get deviation from bin frequency (-0.5 to +0.5) and
+                     * account for oversampling.
+                     */
+                    tmp *= std::numbers::inv_pi_v<float>;
+                    auto const qpd = float2int(tmp);
+                    tmp -= static_cast<float>(qpd + (qpd%2));
+                    tmp *= float{0.5f*OversampleFactor};
+
+                    /* Compute the k-th partials' frequency bin target. We
+                     * don't need the "true frequency" since it's a linear
+                     * relationship with the bin.
+                     */
+                    auto const freqbin = static_cast<float>(k) + tmp;
+
+                    /* Shift the frequency bins according to the pitch
+                     * adjustment, accumulating the magnitudes of overlapping
+                     * frequency bins. If two bins end up together, use the
+                     * target frequency bin for the one with the dominant
+                     * magnitude. There might be a better way to handle this,
+                     * but it's better than last-index-wins.
+                     */
+                    if(auto const j = (k*mPitchShiftI + MixerFracHalf) >> MixerFracBits;
+                        j < mSynthesisBuffer.size())
+                    {
+                        if(mSynthesisBuffer[j].Magnitude < magnitude)
+                            mSynthesisBuffer[j].FreqBin = freqbin * mPitchShift;
+                        mSynthesisBuffer[j].Magnitude += magnitude;
+                    }
+                }
+
+                /* Reconstruct the frequency-domain signal from the adjusted
+                 * frequency bins.
+                 */
+                for(auto k = 0_uz;k < StftHalfSize+1;++k)
+                {
+                    /* Calculate the actual delta phase for this bin's target
+                     * frequency bin. Subtract the bin index and convert the
+                     * bin deviation to phase deviation, accounting for
+                     * oversampling. Also add the expected phase cycle for this
+                     * index, accounting for oversampling.
+                     *
+                     * tmp = (freqbin - k) * pi*2 / oversamplefactor
+                     * tmp += (k&oversamplemask) * expected_cycles
+                     *
+                     * Equivalently:
+                     *
+                     * tmp = (freqbin-k)*expected_cycles + (k&oversamplemask)*expected_cycles
+                     *     = (freqbin - k + (k&oversamplemask)) * expected_cycles
+                     *     = (freqbin - (k - (k&oversamplemask))) * expected_cycles
+                     *     = (freqbin - (k & ~oversamplemask)) * expected_cycles
+                     */
+                    auto const bin_offset = static_cast<float>(k & ~std::size_t{OversampleMask});
+                    auto tmp = (mSynthesisBuffer[k].FreqBin-bin_offset) * expected_cycles;
+
+                    /* Accumulate the phase delta to get the actual bin phase,
+                     * and wrap between -pi and +pi for the sum. If mSumPhase
+                     * is left to accumulate indefinitely, it will grow and
+                     * lose precision, producing less exact phase over time.
+                     */
+                    tmp = (tmp+mSumPhase[k]) * std::numbers::inv_pi_v<float>;
+                    auto const qpd = float2int(tmp);
+                    tmp -= static_cast<float>(qpd + (qpd%2));
+                    mSumPhase[k] = tmp * std::numbers::pi_v<float>;
+
+                    auto const cplx = std::polar(mSynthesisBuffer[k].Magnitude, mSumPhase[k]);
+                    if(k == 0)
+                        mFftBuffer[0] = cplx.real();
+                    else if(k == StftHalfSize)
+                        mFftBuffer[1] = cplx.real();
+                    else
+                    {
+                        mFftBuffer[k*2 + 0] = cplx.real();
+                        mFftBuffer[k*2 + 1] = cplx.imag();
+                    }
+                }
+            }
+            else
+            {
+                static constexpr auto bin_limit = unsigned{
+                    ((StftHalfSize+1)<<MixerFracBits)-MixerFracHalf - 1};
+                auto const bin_count = size_t{std::min(StftHalfSize+1,
+                    bin_limit/mPitchShiftI + 1)};
+                /* For the non-omnidirectional (W) channels, we only need the
+                 * phase difference from W and the magnitude for the given bin.
+                 * The bin the response ends up on needs to maintain the
+                 * difference from the W channel output.
+                 */
+                for(auto k = 0_uz;k < bin_count;++k)
+                {
+                    auto const cplx = (k == 0) ? complex_f{mFftBuffer[0]}
+                        : (k == StftHalfSize) ? complex_f{mFftBuffer[1]}
+                        : complex_f{mFftBuffer[k*2], mFftBuffer[k*2 + 1]};
+                    auto const magnitude = std::abs(cplx);
+                    auto const phasediff = std::arg(cplx) - mLastPhase[k];
+
+                    auto const j = (k*mPitchShiftI + MixerFracHalf) >> MixerFracBits;
+                    if(mSynthesisBuffer[j].Magnitude < magnitude)
+                        mSynthesisBuffer[j].FreqBin = phasediff;
+                    mSynthesisBuffer[j].Magnitude += magnitude;
+                }
+
+                for(auto k = 0_uz;k < StftHalfSize+1;++k)
+                {
+                    /* Apply the expected offset from the W channel phase for
+                     * the original bin this frequency response came from.
+                     */
+                    auto tmp = mSumPhase[k] + mSynthesisBuffer[k].FreqBin;
+
+                    /* Wrap between -pi and +pi for the sum. */
+                    tmp *= std::numbers::inv_pi_v<float>;
+                    auto const qpd = float2int(tmp);
+                    tmp -= static_cast<float>(qpd + (qpd%2));
+                    auto const phase = tmp * std::numbers::pi_v<float>;
+
+                    auto const cplx = std::polar(mSynthesisBuffer[k].Magnitude, phase);
+                    if(k == 0)
+                        mFftBuffer[0] = cplx.real();
+                    else if(k == StftHalfSize)
+                        mFftBuffer[1] = cplx.real();
+                    else
+                    {
+                        mFftBuffer[k*2 + 0] = cplx.real();
+                        mFftBuffer[k*2 + 1] = cplx.imag();
+                    }
+                }
+            }
+
+            /* Apply an inverse FFT to get the time-domain signal, and
+             * accumulate for the output with windowing.
              */
-            mAnalysisBuffer[k].Magnitude = magnitude;
-            mAnalysisBuffer[k].FreqBin = static_cast<float>(k) + tmp;
+            mFft.transform_ordered(mFftBuffer.begin(), mFftBuffer.begin(), mFftWorkBuffer.begin(),
+                PFFFT_BACKWARD);
+
+            static constexpr auto scale = float{3.0f / OversampleFactor / StftSize};
+            std::ranges::transform(mFftBuffer, gWindow, mFftBuffer.begin(),
+                [](const float a, const float w) noexcept { return w*a*scale; });
+
+            auto outputAccum = std::span{chandata.mOutputAccum};
+            const auto accumrange = outputAccum | std::views::drop(mPos);
+            std::ranges::transform(accumrange, mFftBuffer, accumrange.begin(), std::plus{});
+            std::ranges::transform(outputAccum, mFftBuffer | std::views::drop(StftSize-mPos),
+                outputAccum.begin(), std::plus{});
+
+            /* Copy out the accumulated result, then clear for the next
+             * iteration.
+             */
+            const auto outrange = accumrange | std::views::take(StftStep);
+            std::ranges::copy(outrange, (fifo | std::views::drop(mPos)).begin());
+            std::ranges::fill(outrange, 0.0f);
         }
-
-        /* Shift the frequency bins according to the pitch adjustment,
-         * accumulating the magnitudes of overlapping frequency bins.
-         */
-        std::fill(mSynthesisBuffer.begin(), mSynthesisBuffer.end(), FrequencyBin{});
-
-        constexpr size_t bin_limit{((StftHalfSize+1)<<MixerFracBits) - MixerFracHalf - 1};
-        const size_t bin_count{minz(StftHalfSize+1, bin_limit/mPitchShiftI + 1)};
-        for(size_t k{0u};k < bin_count;k++)
-        {
-            const size_t j{(k*mPitchShiftI + MixerFracHalf) >> MixerFracBits};
-
-            /* If more than two bins end up together, use the target frequency
-             * bin for the one with the dominant magnitude. There might be a
-             * better way to handle this, but it's better than last-index-wins.
-             */
-            if(mAnalysisBuffer[k].Magnitude > mSynthesisBuffer[j].Magnitude)
-                mSynthesisBuffer[j].FreqBin = mAnalysisBuffer[k].FreqBin * mPitchShift;
-            mSynthesisBuffer[j].Magnitude += mAnalysisBuffer[k].Magnitude;
-        }
-
-        /* Reconstruct the frequency-domain signal from the adjusted frequency
-         * bins.
-         */
-        for(size_t k{0u};k < StftHalfSize+1;k++)
-        {
-            /* Calculate the actual delta phase for this bin's target frequency
-             * bin, and accumulate it to get the actual bin phase.
-             */
-            float tmp{mSumPhase[k] + mSynthesisBuffer[k].FreqBin*expected_cycles};
-
-            /* Wrap between -pi and +pi for the sum. If mSumPhase is left to
-             * grow indefinitely, it will lose precision and produce less exact
-             * phase over time.
-             */
-            tmp *= al::numbers::inv_pi_v<float>;
-            int qpd{float2int(tmp)};
-            tmp -= static_cast<float>(qpd + (qpd%2));
-            mSumPhase[k] = tmp * al::numbers::pi_v<float>;
-
-            mFftBuffer[k] = std::polar(mSynthesisBuffer[k].Magnitude, mSumPhase[k]);
-        }
-        for(size_t k{StftHalfSize+1};k < StftSize;++k)
-            mFftBuffer[k] = std::conj(mFftBuffer[StftSize-k]);
-
-        /* Apply an inverse FFT to get the time-domain signal, and accumulate
-         * for the output with windowing.
-         */
-        inverse_fft(al::as_span(mFftBuffer));
-
-        static constexpr float scale{3.0f / OversampleFactor / StftSize};
-        for(size_t dst{mPos}, k{0u};dst < StftSize;++dst,++k)
-            mOutputAccum[dst] += gWindow.mData[k]*mFftBuffer[k].real() * scale;
-        for(size_t dst{0u}, k{StftSize-mPos};dst < mPos;++dst,++k)
-            mOutputAccum[dst] += gWindow.mData[k]*mFftBuffer[k].real() * scale;
-
-        /* Copy out the accumulated result, then clear for the next iteration. */
-        std::copy_n(mOutputAccum.begin() + mPos, StftStep, mFIFO.begin() + mPos);
-        std::fill_n(mOutputAccum.begin() + mPos, StftStep, 0.0f);
     }
 
     /* Now, mix the processed sound data to the output. */
-    MixSamples({mBufferOut.data(), samplesToDo}, samplesOut, mCurrentGains, mTargetGains,
-        maxz(samplesToDo, 512), 0);
+    if(mUpsampler.has_value())
+    {
+        auto &upsampler = mUpsampler.value();
+        auto chandata = mChans.begin();
+        for(const auto c : std::views::iota(0_uz, numInput))
+        {
+            auto &upchan = upsampler[c];
+            if(chandata->mTargetChannel != InvalidChannelIndex)
+            {
+                auto src = std::span{mBBuffer[c]}.first(samplesToDo);
+                upchan.mSplitter.processHfScale(src, src, upchan.mHfScale);
+                MixSamples(src, samplesOut, upchan.mCurrentGains, upchan.mTargetGains, samplesToDo,
+                    0);
+            }
+            ++chandata;
+        }
+    }
+    else
+    {
+        auto chandata = mChans.begin();
+        for(const auto c : std::views::iota(0_uz, numInput))
+        {
+            if(auto const outidx = chandata->mTargetChannel; outidx != InvalidChannelIndex)
+                MixSamples(std::span{mBBuffer[c]}.first(samplesToDo), samplesOut[outidx],
+                    chandata->mCurrentGain, chandata->mTargetGain, samplesToDo);
+            ++chandata;
+        }
+    }
 }
 
 
-struct PshifterStateFactory final : public EffectStateFactory {
+struct PshifterStateFactory final : EffectStateFactory {
     al::intrusive_ptr<EffectState> create() override
     { return al::intrusive_ptr<EffectState>{new PshifterState{}}; }
 };
 
 } // namespace
 
-EffectStateFactory *PshifterStateFactory_getFactory()
+auto PshifterStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>
 {
     static PshifterStateFactory PshifterFactory{};
-    return &PshifterFactory;
+    return gsl::make_not_null(&PshifterFactory);
 }

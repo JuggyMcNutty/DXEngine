@@ -3,19 +3,34 @@
 
 #include "device.h"
 
-#include <numeric>
-#include <stddef.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
-#include "albit.h"
-#include "alconfig.h"
+#include <algorithm>
+#include <csignal>
+#include <numeric>
+
+#include "al/buffer.h"
+#include "al/effect.h"
+#include "al/filter.h"
+#include "alnumeric.h"
+#include "altypes.hpp"
+#include "atomic.h"
 #include "backends/base.h"
-#include "core/bformatdec.h"
-#include "core/bs2b.h"
-#include "core/front_stablizer.h"
+#include "core/devformat.h"
 #include "core/hrtf.h"
-#include "core/logging.h"
 #include "core/mastering.h"
-#include "core/uhjfilter.h"
+#include "flexarray.h"
+#include "gsl/gsl"
+
+#if HAVE_CXXMODULES
+import format.types;
+import logging;
+#else
+#include "alformattypes.hpp"
+#include "core/logging.h"
+#endif
 
 
 namespace {
@@ -24,49 +39,55 @@ using voidp = void*;
 
 } // namespace
 
+namespace al {
 
-ALCdevice::ALCdevice(DeviceType type) : DeviceBase{type}
+void DeviceDeleter::operator()(gsl::owner<Device*> device) const noexcept
+{ delete device; }
+
+auto Device::Create(DeviceType type) -> intrusive_ptr<Device>
+{ return intrusive_ptr{new Device{type}}; }
+
+Device::Device(DeviceType type) : DeviceBase{type}
 { }
 
-ALCdevice::~ALCdevice()
+Device::~Device()
 {
-    TRACE("Freeing device %p\n", voidp{this});
+    TRACE("Freeing device {}", voidp{this});
 
     Backend = nullptr;
 
-    size_t count{std::accumulate(BufferList.cbegin(), BufferList.cend(), size_t{0u},
-        [](size_t cur, const BufferSubList &sublist) noexcept -> size_t
-        { return cur + static_cast<uint>(al::popcount(~sublist.FreeMask)); })};
+    auto count = std::accumulate(BufferList.cbegin(), BufferList.cend(), 0_usize,
+        [](usize const cur, const BufferSubList &sublist) noexcept -> usize
+        { return cur + (~sublist.mFreeMask).popcount(); });
     if(count > 0)
-        WARN("%zu Buffer%s not deleted\n", count, (count==1)?"":"s");
+        WARN("{} Buffer{} not deleted", count, (count==1)?"":"s");
 
-    count = std::accumulate(EffectList.cbegin(), EffectList.cend(), size_t{0u},
-        [](size_t cur, const EffectSubList &sublist) noexcept -> size_t
-        { return cur + static_cast<uint>(al::popcount(~sublist.FreeMask)); });
+    count = std::accumulate(EffectList.cbegin(), EffectList.cend(), 0_usize,
+        [](usize const cur, const EffectSubList &sublist) noexcept -> usize
+        { return cur + (~sublist.mFreeMask).popcount(); });
     if(count > 0)
-        WARN("%zu Effect%s not deleted\n", count, (count==1)?"":"s");
+        WARN("{} Effect{} not deleted", count, (count==1)?"":"s");
 
-    count = std::accumulate(FilterList.cbegin(), FilterList.cend(), size_t{0u},
-        [](size_t cur, const FilterSubList &sublist) noexcept -> size_t
-        { return cur + static_cast<uint>(al::popcount(~sublist.FreeMask)); });
+    count = std::accumulate(FilterList.cbegin(), FilterList.cend(), 0_usize,
+        [](usize const cur, const FilterSubList &sublist) noexcept -> usize
+        { return cur + (~sublist.mFreeMask).popcount(); });
     if(count > 0)
-        WARN("%zu Filter%s not deleted\n", count, (count==1)?"":"s");
+        WARN("{} Filter{} not deleted", count, (count==1)?"":"s");
 }
 
-void ALCdevice::enumerateHrtfs()
+void Device::enumerateHrtfs()
 {
-    mHrtfList = EnumerateHrtf(configValue<std::string>(nullptr, "hrtf-paths"));
-    if(auto defhrtfopt = configValue<std::string>(nullptr, "default-hrtf"))
+    mHrtfList = EnumerateHrtf(configValue<std::string>({}, "hrtf-paths"));
+    if(auto defhrtfopt = configValue<std::string>({}, "default-hrtf"))
     {
-        auto iter = std::find(mHrtfList.begin(), mHrtfList.end(), *defhrtfopt);
-        if(iter == mHrtfList.end())
-            WARN("Failed to find default HRTF \"%s\"\n", defhrtfopt->c_str());
+        if(const auto iter = std::ranges::find(mHrtfList, *defhrtfopt); iter == mHrtfList.end())
+            WARN("Failed to find default HRTF \"{}\"", *defhrtfopt);
         else if(iter != mHrtfList.begin())
             std::rotate(mHrtfList.begin(), iter, iter+1);
     }
 }
 
-auto ALCdevice::getOutputMode1() const noexcept -> OutputMode1
+auto Device::getOutputMode1() const noexcept -> OutputMode1
 {
     if(mContexts.load(std::memory_order_relaxed)->empty())
         return OutputMode1::Any;
@@ -77,7 +98,7 @@ auto ALCdevice::getOutputMode1() const noexcept -> OutputMode1
     case DevFmtStereo:
         if(mHrtf)
             return OutputMode1::Hrtf;
-        else if(mUhjEncoder)
+        if(std::holds_alternative<UhjPostProcess>(mPostProcess))
             return OutputMode1::Uhj2;
         return OutputMode1::StereoBasic;
     case DevFmtQuad: return OutputMode1::Quad;
@@ -85,9 +106,33 @@ auto ALCdevice::getOutputMode1() const noexcept -> OutputMode1
     case DevFmtX61: return OutputMode1::X61;
     case DevFmtX71: return OutputMode1::X71;
     case DevFmtX714:
+    case DevFmtX7144:
     case DevFmtX3D71:
     case DevFmtAmbi3D:
         break;
     }
     return OutputMode1::Any;
 }
+
+
+void Device::SetError(Device *device, ALCenum errorCode)
+{
+    WARN("Error generated on device {}, code {:#04x}", voidp{device}, as_unsigned(errorCode));
+    if(sTrapALCError)
+    {
+#ifdef _WIN32
+        /* DebugBreak() will cause an exception if there is no debugger */
+        if(IsDebuggerPresent())
+            DebugBreak();
+#elif defined(SIGTRAP)
+        raise(SIGTRAP);
+#endif
+    }
+
+    if(device)
+        device->mLastError.store(errorCode);
+    else
+        sLastGlobalError.store(errorCode);
+}
+
+} // namespace al

@@ -22,126 +22,120 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdlib>
-#include <iterator>
-#include <tuple>
+#include <cmath>
+#include <span>
+#include <variant>
+#include <vector>
 
 #include "alc/effects/base.h"
-#include "almalloc.h"
 #include "alnumeric.h"
-#include "alspan.h"
+#include "core/ambidefs.h"
 #include "core/bufferline.h"
 #include "core/context.h"
-#include "core/devformat.h"
 #include "core/device.h"
+#include "core/effects/base.h"
 #include "core/effectslot.h"
 #include "core/filters/biquad.h"
 #include "core/mixer.h"
 #include "intrusive_ptr.h"
 #include "opthelpers.h"
-#include "vector.h"
 
+struct BufferStorage;
 
 namespace {
 
-using uint = unsigned int;
-
-constexpr float LowpassFreqRef{5000.0f};
+constexpr auto LowpassFreqRef = 5000.0f;
 
 struct EchoState final : public EffectState {
-    al::vector<float,16> mSampleBuffer;
+    std::vector<float> mSampleBuffer;
 
     // The echo is two tap. The delay is the number of samples from before the
     // current offset
-    struct {
-        size_t delay{0u};
-    } mTap[2];
+    std::array<size_t,2> mDelayTap{};
     size_t mOffset{0u};
 
     /* The panning gains for the two taps */
-    struct {
-        float Current[MaxAmbiChannels]{};
-        float Target[MaxAmbiChannels]{};
-    } mGains[2];
+    struct OutGains {
+        std::array<float,MaxAmbiChannels> Current{};
+        std::array<float,MaxAmbiChannels> Target{};
+    };
+    std::array<OutGains,2> mGains;
 
     BiquadFilter mFilter;
     float mFeedGain{0.0f};
 
-    alignas(16) float mTempBuffer[2][BufferLineSize];
+    alignas(16) std::array<FloatBufferLine,2> mTempBuffer{};
 
     void deviceUpdate(const DeviceBase *device, const BufferStorage *buffer) override;
-    void update(const ContextBase *context, const EffectSlot *slot, const EffectProps *props,
+    void update(const ContextBase *context, const EffectSlotBase *slot, const EffectProps *props,
         const EffectTarget target) override;
-    void process(const size_t samplesToDo, const al::span<const FloatBufferLine> samplesIn,
-        const al::span<FloatBufferLine> samplesOut) override;
-
-    DEF_NEWDEL(EchoState)
+    void process(const size_t samplesToDo, const std::span<const FloatBufferLine> samplesIn,
+        const std::span<FloatBufferLine> samplesOut) override;
 };
 
 void EchoState::deviceUpdate(const DeviceBase *Device, const BufferStorage*)
 {
-    const auto frequency = static_cast<float>(Device->Frequency);
+    const auto frequency = static_cast<float>(Device->mSampleRate);
 
     // Use the next power of 2 for the buffer length, so the tap offsets can be
     // wrapped using a mask instead of a modulo
-    const uint maxlen{NextPowerOf2(float2uint(EchoMaxDelay*frequency + 0.5f) +
-        float2uint(EchoMaxLRDelay*frequency + 0.5f))};
+    auto const maxlen = NextPowerOf2(float2uint(EchoMaxDelay*frequency + 0.5f) +
+        float2uint(EchoMaxLRDelay*frequency + 0.5f));
     if(maxlen != mSampleBuffer.size())
-        al::vector<float,16>(maxlen).swap(mSampleBuffer);
+        decltype(mSampleBuffer)(maxlen).swap(mSampleBuffer);
 
-    std::fill(mSampleBuffer.begin(), mSampleBuffer.end(), 0.0f);
-    for(auto &e : mGains)
-    {
-        std::fill(std::begin(e.Current), std::end(e.Current), 0.0f);
-        std::fill(std::begin(e.Target), std::end(e.Target), 0.0f);
-    }
+    std::ranges::fill(mSampleBuffer, 0.0f);
+    mGains.fill(OutGains{});
 }
 
-void EchoState::update(const ContextBase *context, const EffectSlot *slot,
-    const EffectProps *props, const EffectTarget target)
+void EchoState::update(const ContextBase *context, const EffectSlotBase *slot,
+    const EffectProps *props_, const EffectTarget target)
 {
-    const DeviceBase *device{context->mDevice};
-    const auto frequency = static_cast<float>(device->Frequency);
+    auto &props = std::get<EchoProps>(*props_);
+    auto const device = al::get_not_null(context->mDevice);
+    auto const frequency = static_cast<float>(device->mSampleRate);
 
-    mTap[0].delay = maxu(float2uint(props->Echo.Delay*frequency + 0.5f), 1);
-    mTap[1].delay = float2uint(props->Echo.LRDelay*frequency + 0.5f) + mTap[0].delay;
+    mDelayTap[0] = std::max(float2uint(std::round(props.Delay*frequency)), 1u);
+    mDelayTap[1] = float2uint(std::round(props.LRDelay*frequency)) + mDelayTap[0];
 
-    const float gainhf{maxf(1.0f - props->Echo.Damping, 0.0625f)}; /* Limit -24dB */
+    const auto gainhf = std::max(1.0f - props.Damping, 0.0625f); /* Limit -24dB */
     mFilter.setParamsFromSlope(BiquadType::HighShelf, LowpassFreqRef/frequency, gainhf, 1.0f);
 
-    mFeedGain = props->Echo.Feedback;
+    mFeedGain = props.Feedback;
 
-    /* Convert echo spread (where 0 = center, +/-1 = sides) to angle. */
-    const float angle{std::asin(props->Echo.Spread)};
+    /* Convert echo spread (where 0 = center, +/-1 = sides) to a 2D vector. */
+    const auto x = props.Spread; /* +x = left */
+    const auto z = std::sqrt(1.0f - x*x);
 
-    const auto coeffs0 = CalcAngleCoeffs(-angle, 0.0f, 0.0f);
-    const auto coeffs1 = CalcAngleCoeffs( angle, 0.0f, 0.0f);
+    const auto coeffs0 = CalcAmbiCoeffs( x, 0.0f, z, 0.0f);
+    const auto coeffs1 = CalcAmbiCoeffs(-x, 0.0f, z, 0.0f);
 
     mOutTarget = target.Main->Buffer;
-    ComputePanGains(target.Main, coeffs0.data(), slot->Gain, mGains[0].Target);
-    ComputePanGains(target.Main, coeffs1.data(), slot->Gain, mGains[1].Target);
+    ComputePanGains(target.Main, coeffs0, slot->Gain, mGains[0].Target);
+    ComputePanGains(target.Main, coeffs1, slot->Gain, mGains[1].Target);
 }
 
-void EchoState::process(const size_t samplesToDo, const al::span<const FloatBufferLine> samplesIn, const al::span<FloatBufferLine> samplesOut)
+void EchoState::process(const size_t samplesToDo, const std::span<const FloatBufferLine> samplesIn,
+    const std::span<FloatBufferLine> samplesOut)
 {
-    const size_t mask{mSampleBuffer.size()-1};
-    float *RESTRICT delaybuf{mSampleBuffer.data()};
-    size_t offset{mOffset};
-    size_t tap1{offset - mTap[0].delay};
-    size_t tap2{offset - mTap[1].delay};
-    float z1, z2;
+    const auto delaybuf = std::span{mSampleBuffer};
+    const auto mask = delaybuf.size()-1;
+    auto offset = mOffset;
+    auto tap1 = offset - mDelayTap[0];
+    auto tap2 = offset - mDelayTap[1];
 
     ASSUME(samplesToDo > 0);
 
-    const BiquadFilter filter{mFilter};
-    std::tie(z1, z2) = mFilter.getComponents();
-    for(size_t i{0u};i < samplesToDo;)
+    const auto filter = mFilter;
+    auto [z1, z2] = mFilter.getComponents();
+    for(auto i=0_uz;i < samplesToDo;)
     {
         offset &= mask;
         tap1 &= mask;
         tap2 &= mask;
 
-        size_t td{minz(mask+1 - maxz(offset, maxz(tap1, tap2)), samplesToDo-i)};
+        const auto max_offset = std::max(offset, std::max(tap1, tap2));
+        auto td = std::min(mask+1 - max_offset, samplesToDo-i);
         do {
             /* Feed the delay buffer's input first. */
             delaybuf[offset] = samplesIn[0][i];
@@ -151,7 +145,7 @@ void EchoState::process(const size_t samplesToDo, const al::span<const FloatBuff
              */
             mTempBuffer[0][i] = delaybuf[tap1++];
             mTempBuffer[1][i] = delaybuf[tap2++];
-            const float feedb{mTempBuffer[1][i++]};
+            const auto feedb = mTempBuffer[1][i++];
 
             /* Add feedback to the delay buffer with damping and attenuation. */
             delaybuf[offset++] += filter.processOne(feedb, z1, z2) * mFeedGain;
@@ -161,8 +155,8 @@ void EchoState::process(const size_t samplesToDo, const al::span<const FloatBuff
     mOffset = offset;
 
     for(size_t c{0};c < 2;c++)
-        MixSamples({mTempBuffer[c], samplesToDo}, samplesOut, mGains[c].Current, mGains[c].Target,
-            samplesToDo, 0);
+        MixSamples(std::span{mTempBuffer[c]}.first(samplesToDo), samplesOut, mGains[c].Current,
+            mGains[c].Target, samplesToDo, 0);
 }
 
 
@@ -173,8 +167,8 @@ struct EchoStateFactory final : public EffectStateFactory {
 
 } // namespace
 
-EffectStateFactory *EchoStateFactory_getFactory()
+auto EchoStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>
 {
     static EchoStateFactory EchoFactory{};
-    return &EchoFactory;
+    return gsl::make_not_null(&EchoFactory);
 }

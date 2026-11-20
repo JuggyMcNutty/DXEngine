@@ -1,75 +1,128 @@
 
 #include "config.h"
 
-#include "logging.h"
-
-#include <cstdarg>
-#include <cstdio>
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+#include <mutex>
+#include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
 
-#include "alspan.h"
-#include "strutils.h"
-#include "vector.h"
+#include "alformat.hpp"
+#include "alnumeric.h"
+#include "alstring.h"
+#include "filesystem.h"
+#include "fmt/std.h"
+#include "strutils.hpp"
 
 
 #if defined(_WIN32)
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #elif defined(__ANDROID__)
 #include <android/log.h>
 #endif
 
-void al_print(LogLevel level, FILE *logfile, const char *fmt, ...)
+#if HAVE_CXXMODULES
+import logging;
+#else
+#include "logging.h"
+#endif
+
+
+#ifdef _DEBUG
+LogLevel gLogLevel{LogLevel::Warning};
+#else
+LogLevel gLogLevel{LogLevel::Error};
+#endif
+
+namespace {
+
+using namespace std::string_view_literals;
+
+using lpvoid = void*;
+
+enum class LogState : std::uint8_t {
+    FirstRun,
+    Ready,
+    Disable
+};
+
+auto LogCallbackMutex = std::mutex{};
+auto gLogState = LogState::FirstRun;
+
+auto gLogFile = std::ofstream{}; /* NOLINT(cert-err58-cpp) */
+
+
+auto gLogCallback = LogCallbackFunc{};
+auto gLogCallbackPtr = lpvoid{};
+
+constexpr auto GetLevelCode(LogLevel const level) noexcept -> std::optional<char>
 {
-    /* Kind of ugly since string literals are const char arrays with a size
-     * that includes the null terminator, which we want to exclude from the
-     * span.
-     */
-    auto prefix = al::as_span("[ALSOFT] (--) ").first<14>();
     switch(level)
     {
     case LogLevel::Disable: break;
-    case LogLevel::Error: prefix = al::as_span("[ALSOFT] (EE) ").first<14>(); break;
-    case LogLevel::Warning: prefix = al::as_span("[ALSOFT] (WW) ").first<14>(); break;
-    case LogLevel::Trace: prefix = al::as_span("[ALSOFT] (II) ").first<14>(); break;
+    case LogLevel::Error: return 'E';
+    case LogLevel::Warning: return 'W';
+    case LogLevel::Trace: return 'I';
     }
+    return std::nullopt;
+}
 
-    al::vector<char> dynmsg;
-    std::array<char,256> stcmsg{};
+} // namespace
 
-    char *str{stcmsg.data()};
-    auto prefend1 = std::copy_n(prefix.begin(), prefix.size(), stcmsg.begin());
-    al::span<char> msg{prefend1, stcmsg.end()};
+void al_open_logfile(fs::path const &fname)
+{
+    gLogFile.open(fname);
+    if(!gLogFile.is_open())
+        ERR("Failed to open log file '{}'", al::u8_as_char(fname.u8string()));
+}
 
-    std::va_list args, args2;
-    va_start(args, fmt);
-    va_copy(args2, args);
-    const int msglen{std::vsnprintf(msg.data(), msg.size(), fmt, args)};
-    if(msglen >= 0 && static_cast<size_t>(msglen) >= msg.size()) UNLIKELY
+void al_set_log_callback(LogCallbackFunc const callback, void *const userptr)
+{
+    auto const cblock = std::lock_guard{LogCallbackMutex};
+    gLogCallback = callback;
+    gLogCallbackPtr = callback ? userptr : nullptr;
+    if(gLogState == LogState::FirstRun)
     {
-        dynmsg.resize(static_cast<size_t>(msglen)+prefix.size() + 1u);
-
-        str = dynmsg.data();
-        auto prefend2 = std::copy_n(prefix.begin(), prefix.size(), dynmsg.begin());
-        msg = {prefend2, dynmsg.end()};
-
-        std::vsnprintf(msg.data(), msg.size(), fmt, args2);
+        if(auto const extlogopt = al::getenv("ALSOFT_DISABLE_LOG_CALLBACK");
+            !extlogopt || *extlogopt != "1")
+            gLogState = LogState::Ready;
+        else
+            gLogState = LogState::Disable;
     }
-    va_end(args2);
-    va_end(args);
+}
+
+void al_print_impl(LogLevel const level, al::string_view const fmt, al::format_args&& args)
+{
+    const auto msg = al::vformat(fmt, std::move(args));
+
+    auto const prefix = std::invoke([level]() -> std::string_view
+    {
+        switch(level)
+        {
+        case LogLevel::Trace: return "[ALSOFT] (II) "sv;
+        case LogLevel::Warning: return "[ALSOFT] (WW) "sv;
+        case LogLevel::Error: return "[ALSOFT] (EE) "sv;
+        case LogLevel::Disable: break;
+        }
+        return "[ALSOFT] (--) "sv;
+    });
 
     if(gLogLevel >= level)
     {
-        fputs(str, logfile);
-        fflush(logfile);
+        auto &logfile = gLogFile.is_open() ? gLogFile : std::cerr;
+        /* std::vprint_unicode */
+        fmt::vprint(logfile, "{}{}\n", fmt::make_format_args(prefix, msg));
+        logfile.flush();
     }
 #if defined(_WIN32) && !defined(NDEBUG)
     /* OutputDebugStringW has no 'level' property to distinguish between
      * informational, warning, or error debug messages. So only print them for
      * non-Release builds.
      */
-    std::wstring wstr{utf8_to_wstr(str)};
-    OutputDebugStringW(wstr.c_str());
+    OutputDebugStringW(utf8_to_wstr(al::format("{}{}\n", prefix, msg)).c_str());
 #elif defined(__ANDROID__)
     auto android_severity = [](LogLevel l) noexcept
     {
@@ -84,6 +137,21 @@ void al_print(LogLevel level, FILE *logfile, const char *fmt, ...)
         }
         return ANDROID_LOG_ERROR;
     };
-    __android_log_print(android_severity(level), "openal", "%s", str);
+    /* NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg) */
+    __android_log_print(android_severity(level), "openal", "%.*s%s",
+        al::saturate_cast<int>(prefix.size()), prefix.data(), msg.c_str());
 #endif
+
+    auto const cblock = std::lock_guard{LogCallbackMutex};
+    if(gLogState != LogState::Disable)
+    {
+        if(auto const logcode = GetLevelCode(level))
+        {
+            if(gLogCallback)
+                gLogCallback(gLogCallbackPtr, *logcode, msg.data(),
+                    al::saturate_cast<int>(msg.size()));
+            else if(gLogState == LogState::FirstRun)
+                gLogState = LogState::Disable;
+        }
+    }
 }

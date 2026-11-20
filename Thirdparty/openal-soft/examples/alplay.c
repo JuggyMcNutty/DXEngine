@@ -37,6 +37,8 @@
 
 #include "common/alhelpers.h"
 
+#include "win_main_utf8.h"
+
 
 enum FormatType {
     Int16,
@@ -54,7 +56,8 @@ static ALuint LoadSound(const char *filename)
     ALint byteblockalign = 0;
     ALint splblockalign = 0;
     sf_count_t num_frames;
-    ALenum err, format;
+    ALenum err;
+    ALenum format;
     ALsizei num_bytes;
     SNDFILE *sndfile;
     SF_INFO sfinfo;
@@ -266,7 +269,7 @@ static ALuint LoadSound(const char *filename)
     free(membuf);
     sf_close(sndfile);
 
-    /* Check if an error occured, and clean up if so. */
+    /* Check if an error occurred, and clean up if so. */
     err = alGetError();
     if(err != AL_NO_ERROR)
     {
@@ -282,7 +285,8 @@ static ALuint LoadSound(const char *filename)
 
 int main(int argc, char **argv)
 {
-    ALuint source, buffer;
+    ALuint source;
+    ALuint buffer;
     ALfloat offset;
     ALenum state;
 

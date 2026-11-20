@@ -3,17 +3,16 @@
 
 #include "base.h"
 
-struct NullBackendFactory final : public BackendFactory {
-public:
-    bool init() override;
+struct NullBackendFactory final : BackendFactory {
+    auto init() -> bool final;
 
-    bool querySupport(BackendType type) override;
+    auto querySupport(BackendType type) -> bool final;
 
-    std::string probe(BackendType type) override;
+    auto enumerate(BackendType type) -> std::vector<std::string> final;
 
-    BackendPtr createBackend(DeviceBase *device, BackendType type) override;
+    auto createBackend(gsl::not_null<DeviceBase*> device, BackendType type) -> BackendPtr final;
 
-    static BackendFactory &getFactory();
+    static auto getFactory() -> BackendFactory&;
 };
 
 #endif /* BACKENDS_NULL_H */

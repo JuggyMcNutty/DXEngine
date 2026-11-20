@@ -40,6 +40,8 @@
 
 #include "common/alhelpers.h"
 
+#include "win_main_utf8.h"
+
 
 #ifndef M_PI
 #define M_PI                         (3.14159265358979323846)
@@ -53,7 +55,8 @@ static LPALCRESETDEVICESOFT alcResetDeviceSOFT;
  */
 static ALuint LoadSound(const char *filename)
 {
-    ALenum err, format;
+    ALenum err;
+    ALenum format;
     ALuint buffer;
     SNDFILE *sndfile;
     SF_INFO sfinfo;
@@ -121,7 +124,7 @@ static ALuint LoadSound(const char *filename)
     free(membuf);
     sf_close(sndfile);
 
-    /* Check if an error occured, and clean up if so. */
+    /* Check if an error occurred, and clean up if so. */
     err = alGetError();
     if(err != AL_NO_ERROR)
     {
@@ -140,7 +143,8 @@ int main(int argc, char **argv)
     ALCdevice *device;
     ALCcontext *context;
     ALboolean has_angle_ext;
-    ALuint source, buffer;
+    ALuint source;
+    ALuint buffer;
     const char *soundname;
     const char *hrtfname;
     ALCint hrtf_state;

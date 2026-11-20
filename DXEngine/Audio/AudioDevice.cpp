@@ -69,6 +69,7 @@ public:
 			Exception::Throw("Failed to make OpenAL context current");
 		}
 		canTellConnected = alcIsExtensionPresent(alDevice, "ALC_EXT_disconnect") == ALC_TRUE;
+		WatchDefaultDevice();
 
 		// Deus Ex's sounds are mixed as Galaxy mixes them, in Galaxy's 32
 		// channel records, and the music added to them, the output streamed
@@ -82,6 +83,8 @@ public:
 	~OpenALAudioDevice()
 	{
 		StopMixStream();
+		if (eventCallback)
+			eventCallback(nullptr, nullptr);
 
 		alcDestroyContext(alContext);
 		alcCloseDevice(alDevice);
@@ -492,6 +495,49 @@ public:
 		return true;
 	}
 
+	// OpenAL Soft's word that the system's default output is another one
+	// (ALC_SOFT_system_events, its 1.24 and later; asked for by name, as a
+	// system's own library may be an older one): on Windows the output is
+	// opened again on it, as the original's DirectSound follows the default
+	// device there (bugs.md AUD.27); elsewhere the sound server moves the
+	// stream itself, and may keep it where the player put it, so nothing is
+	// asked. The call comes on a thread of OpenAL Soft's and only raises
+	// the mark.
+	static void ALC_APIENTRY OnSystemEvent(ALCenum eventType, ALCenum deviceType, ALCdevice*, ALCsizei, const ALCchar*, void* userParam) noexcept
+	{
+		if (eventType == ALC_EVENT_TYPE_DEFAULT_DEVICE_CHANGED_SOFT && deviceType == ALC_PLAYBACK_DEVICE_SOFT)
+			static_cast<OpenALAudioDevice*>(userParam)->defaultChanged = true;
+	}
+
+	void WatchDefaultDevice()
+	{
+#ifdef WIN32
+		if (alcIsExtensionPresent(nullptr, "ALC_SOFT_system_events") != ALC_TRUE)
+			return;
+		auto control = (LPALCEVENTCONTROLSOFT)alcGetProcAddress(nullptr, "alcEventControlSOFT");
+		auto callback = (LPALCEVENTCALLBACKSOFT)alcGetProcAddress(nullptr, "alcEventCallbackSOFT");
+		if (!control || !callback)
+			return;
+		callback(&OpenALAudioDevice::OnSystemEvent, this);
+		const ALCenum events[] = { ALC_EVENT_TYPE_DEFAULT_DEVICE_CHANGED_SOFT };
+		if (control(1, events, ALC_TRUE) == ALC_TRUE)
+			eventCallback = callback;
+		else
+			callback(nullptr, nullptr);
+#endif
+	}
+
+	// Whether the device the output is on is the system's default one, by
+	// their full names; true where they cannot be told (no reopening then)
+	bool OnDefaultDevice()
+	{
+		if (alcIsExtensionPresent(nullptr, "ALC_ENUMERATE_ALL_EXT") != ALC_TRUE)
+			return true;
+		const ALCchar* now = alcGetString(alDevice, ALC_ALL_DEVICES_SPECIFIER);
+		const ALCchar* def = alcGetString(nullptr, ALC_DEFAULT_ALL_DEVICES_SPECIFIER);
+		return !now || !def || std::string(now) == def;
+	}
+
 	// A line for the main thread to log (Update)
 	void TellMainThread(std::string note)
 	{
@@ -539,8 +585,8 @@ public:
 		// the output starts on it as at the start. A platform matter, which
 		// the original's DirectSound leaves to Windows (bugs.md AUD.25).
 		using clock = std::chrono::steady_clock;
-		bool lost = false;
-		clock::time_point lostAt, nextOpen;
+		bool lost = false, followPending = false;
+		clock::time_point lostAt, nextOpen, followAt;
 		int64_t lostBlocks = 0;
 		while (!mixExit)
 		{
@@ -551,6 +597,25 @@ public:
 				lostAt = nextOpen = clock::now();
 				lostBlocks = 0;
 				TellMainThread("Audio: the output device is gone: the game plays on unheard until a default device opens");
+			}
+			// A new default output, followed once its events have been quiet a
+			// quarter second (Windows tells of each role's change): the
+			// output opened on it and started as at the start; one that will
+			// not open leaves the output where it is
+			if (!lost && defaultChanged.exchange(false))
+			{
+				followPending = true;
+				followAt = clock::now() + 250ms;
+			}
+			if (!lost && followPending && clock::now() >= followAt)
+			{
+				followPending = false;
+				if (!OnDefaultDevice() && ReopenDevice())
+				{
+					const ALCchar* name = alcGetString(alDevice, ALC_DEVICE_SPECIFIER);
+					TellMainThread(std::string("Audio: the output follows the system's default device, ") + (name ? name : "unnamed"));
+					start();
+				}
 			}
 			if (lost)
 			{
@@ -599,6 +664,8 @@ public:
 	ALCcontext* alContext = nullptr;
 	ALCint contextAttribs[9] = {};      // the context's, for a device opened again
 	bool canTellConnected = false;      // ALC_EXT_disconnect's ALC_CONNECTED answers
+	LPALCEVENTCALLBACKSOFT eventCallback = nullptr;   // set while the default device's changes are asked for
+	std::atomic<bool> defaultChanged{ false };        // raised by OpenAL Soft's thread, taken by the mixing one
 
 	// Deus Ex's mixer, the sounds it holds, and its output
 	std::unique_ptr<GalaxyMixer> mixer;

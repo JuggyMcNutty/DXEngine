@@ -5,19 +5,40 @@
 #include "bs2b.h"
 #include "device.h"
 #include "front_stablizer.h"
+#include "gsl/gsl"
 #include "hrtf.h"
 #include "mastering.h"
 
 
-al::FlexArray<ContextBase*> DeviceBase::sEmptyContextArray{0u};
-
-
-DeviceBase::DeviceBase(DeviceType type) : Type{type}, mContexts{&sEmptyContextArray}
+DeviceBase::DeviceBase(DeviceType type)
+    : Type{type}, mContexts{al::FlexArray<ContextBase*>::Create(0)}
 {
 }
 
-DeviceBase::~DeviceBase()
+DeviceBase::~DeviceBase() = default;
+
+auto DeviceBase::removeContext(ContextBase *context) -> usize
 {
-    auto *oldarray = mContexts.exchange(nullptr, std::memory_order_relaxed);
-    if(oldarray != &sEmptyContextArray) delete oldarray;
+    auto oldarray = std::span{*mContexts.load(std::memory_order_acquire)};
+    if(const auto toremove = std::ranges::count(oldarray, context))
+    {
+        const auto newsize = oldarray.size() - gsl::narrow_cast<std::size_t>(toremove);
+        auto newarray = ContextArray::Create(newsize);
+
+        /* Copy the current/old context handles to the new array, excluding the
+         * given context.
+         */
+        std::ranges::copy_if(oldarray, newarray->begin(), [context](const ContextBase *ctx)
+        { return ctx != context; });
+
+        /* Store the new context array in the device. Wait for any current mix
+         * to finish before deleting the old array.
+         */
+        auto prevarray = mContexts.exchange(std::move(newarray));
+        std::ignore = waitForMix();
+
+        return newsize;
+    }
+
+    return oldarray.size();
 }

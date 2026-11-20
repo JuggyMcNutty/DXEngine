@@ -7,11 +7,13 @@
 #include "almalloc.h"
 #include "bufferline.h"
 #include "filters/splitter.h"
+#include "flexarray.h"
 
 
-struct FrontStablizer {
-    FrontStablizer(size_t numchans) : ChannelFilters{numchans} { }
+class FrontStablizer {
+    explicit FrontStablizer(const size_t numchans) : ChannelFilters{numchans} { }
 
+public:
     alignas(16) std::array<float,BufferLineSize> MidDirect{};
     alignas(16) std::array<float,BufferLineSize> Side{};
     alignas(16) std::array<float,BufferLineSize> Temp{};
@@ -22,8 +24,8 @@ struct FrontStablizer {
 
     al::FlexArray<BandSplitter,16> ChannelFilters;
 
-    static std::unique_ptr<FrontStablizer> Create(size_t numchans)
-    { return std::unique_ptr<FrontStablizer>{new(FamCount(numchans)) FrontStablizer{numchans}}; }
+    static auto Create(size_t numchans) -> std::unique_ptr<FrontStablizer>
+    { return std::unique_ptr<FrontStablizer>{new(FamCount{numchans}) FrontStablizer{numchans}}; }
 
     DEF_FAM_NEWDEL(FrontStablizer, ChannelFilters)
 };

@@ -1,51 +1,48 @@
 #ifndef CORE_LOGGING_H
 #define CORE_LOGGING_H
 
-#include <stdio.h>
+#include <cstdint>
+#include <string_view>
 
+#include "alformat.hpp"
+#include "filesystem.h"
+#include "gsl/gsl"
 #include "opthelpers.h"
 
 
-enum class LogLevel {
+enum class LogLevel : std::uint8_t {
     Disable,
     Error,
     Warning,
     Trace
 };
-extern LogLevel gLogLevel;
+DECL_HIDDEN extern LogLevel gLogLevel;
 
-extern FILE *gLogFile;
 
-#ifdef __USE_MINGW_ANSI_STDIO
-[[gnu::format(gnu_printf,3,4)]]
-#else
-[[gnu::format(printf,3,4)]]
-#endif
-void al_print(LogLevel level, FILE *logfile, const char *fmt, ...);
+using LogCallbackFunc = auto(*)(void *userptr, char level, gsl::czstring message, int length)
+    noexcept -> void;
 
-#if (!defined(_WIN32) || defined(NDEBUG)) && !defined(__ANDROID__)
-#define TRACE(...) do {                                                       \
-    if(gLogLevel >= LogLevel::Trace) UNLIKELY                                 \
-        al_print(LogLevel::Trace, gLogFile, __VA_ARGS__);                     \
-} while(0)
+void al_set_log_callback(LogCallbackFunc callback, void *userptr);
 
-#define WARN(...) do {                                                        \
-    if(gLogLevel >= LogLevel::Warning) UNLIKELY                               \
-        al_print(LogLevel::Warning, gLogFile, __VA_ARGS__);                   \
-} while(0)
+void al_open_logfile(fs::path const &fname);
+void al_print_impl(LogLevel level, al::string_view fmt, al::format_args&& args);
 
-#define ERR(...) do {                                                         \
-    if(gLogLevel >= LogLevel::Error) UNLIKELY                                 \
-        al_print(LogLevel::Error, gLogFile, __VA_ARGS__);                     \
-} while(0)
+template<typename ...Args>
+void al_print(LogLevel const level, al::format_string<Args...> const fmt, Args&& ...args) noexcept
+try {
+    al_print_impl(level, fmt.get(), al::make_format_args(args...));
+} catch(...) { /* Swallow all exceptions */ }
 
-#else
+template<typename ...Args>
+void TRACE(al::format_string<Args...> const fmt, Args&& ...args) noexcept
+{ al_print(LogLevel::Trace, fmt, std::forward<Args>(args)...); }
 
-#define TRACE(...) al_print(LogLevel::Trace, gLogFile, __VA_ARGS__)
+template<typename ...Args>
+void WARN(al::format_string<Args...> const fmt, Args&& ...args) noexcept
+{ al_print(LogLevel::Warning, fmt, std::forward<Args>(args)...); }
 
-#define WARN(...) al_print(LogLevel::Warning, gLogFile, __VA_ARGS__)
-
-#define ERR(...) al_print(LogLevel::Error, gLogFile, __VA_ARGS__)
-#endif
+template<typename ...Args>
+void ERR(al::format_string<Args...> const fmt, Args&& ...args) noexcept
+{ al_print(LogLevel::Error, fmt, std::forward<Args>(args)...); }
 
 #endif /* CORE_LOGGING_H */

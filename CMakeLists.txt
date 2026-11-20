@@ -52,13 +52,18 @@ if (WIN32 OR DXE_BUNDLE_OPENAL)
 		set(ALSOFT_BACKEND_PORTAUDIO OFF CACHE BOOL "" FORCE)
 		set(ALSOFT_BACKEND_SDL2 OFF CACHE BOOL "" FORCE)
 	endif()
+	# Its checks are written for the CMake that leaves a macro's backslashes
+	# as they were: a newer one asks which is meant, and is told
+	set(CMAKE_POLICY_DEFAULT_CMP0219 OLD)
 	add_subdirectory(Thirdparty/openal-soft)
 endif()
 
 if (MINGW OR DXE_BUNDLE_OPENAL)
-	# OpenAL Soft's own warnings ignored: not ours to fix.
+	# OpenAL Soft's own warnings ignored, and those of the libraries it
+	# carries: not ours to fix.
 	target_compile_options(OpenAL PRIVATE -w)
-	target_compile_options(common PRIVATE -w)
+	target_compile_options(alsoft.common PRIVATE -w)
+	target_compile_options(alsoft.fmt PRIVATE -w)
 endif()
 
 if (DXE_BUNDLE_OPENAL AND NOT WIN32)

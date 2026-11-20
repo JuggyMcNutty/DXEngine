@@ -340,7 +340,11 @@
 
 ## License for Thirdparty/openal-soft
 
-OpenAL Soft is under the GNU Library General Public License, version 2, the
-text in `Thirdparty/openal-soft/COPYING`. windows-x86_64 builds it and ships
-it beside the engine as `OpenAL32.dll`, linux-x86_64 and linux-aarch64 as
-`libopenal.so.1`, each with that file.
+OpenAL Soft (1.25.2) is under the GNU Library General Public License, version
+2, the text in `Thirdparty/openal-soft/COPYING`; parts of it are under the BSD
+3-Clause license (`Thirdparty/openal-soft/BSD-3Clause`), its copy of PFFFT
+under that library's own (`Thirdparty/openal-soft/LICENSE-pffft`), and it
+carries Microsoft's GSL (`Thirdparty/openal-soft/gsl/LICENSE`, MIT) and the
+{fmt} library (`Thirdparty/openal-soft/fmt-11.2.0/LICENSE`, MIT). windows-x86_64
+builds it and ships it beside the engine as `OpenAL32.dll`, linux-x86_64 and
+linux-aarch64 as `libopenal.so.1`, each with those notices.

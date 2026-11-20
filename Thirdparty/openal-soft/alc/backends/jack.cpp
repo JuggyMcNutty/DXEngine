@@ -22,31 +22,42 @@
 
 #include "jack.h"
 
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
-#include <memory.h>
-
 #include <array>
+#include <cstring>
+#include <memory>
+#include <mutex>
+#include <ranges>
+#include <span>
 #include <thread>
-#include <functional>
+#include <vector>
 
 #include "alc/alconfig.h"
+#include "alformat.hpp"
 #include "alnumeric.h"
+#include "althrd_setname.h"
 #include "core/device.h"
 #include "core/helpers.h"
-#include "core/logging.h"
 #include "dynload.h"
+#include "gsl/gsl"
+#include "opthelpers.h"
 #include "ringbuffer.h"
-#include "threads.h"
 
 #include <jack/jack.h>
 #include <jack/ringbuffer.h>
 
+#if HAVE_CXXMODULES
+import logging;
+#else
+#include "core/logging.h"
+#endif
+
 
 namespace {
 
-#ifdef HAVE_DYNLOAD
+using namespace std::string_literals;
+using namespace std::string_view_literals;
+
+#if HAVE_DYNLOAD
 #define JACK_FUNCS(MAGIC)          \
     MAGIC(jack_client_open);       \
     MAGIC(jack_client_close);      \
@@ -99,154 +110,152 @@ decltype(jack_error_callback) * pjack_error_callback;
 #endif
 
 
-constexpr char JackDefaultAudioType[] = JACK_DEFAULT_AUDIO_TYPE;
-
 jack_options_t ClientOptions = JackNullOption;
 
-bool jack_load()
-{
-    bool error{false};
+#if defined(_WIN64)
+#define JACK_LIB "libjack64.dll"
+#elif defined(_WIN32)
+#define JACK_LIB "libjack.dll"
+#else
+#define JACK_LIB "libjack.so.0"
+#endif
 
-#ifdef HAVE_DYNLOAD
+#if HAVE_DYNLOAD
+OAL_ELF_NOTE_DLOPEN(
+    "backend-jack",
+    "Support for the JACK backend",
+    OAL_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+    JACK_LIB
+);
+#endif
+
+auto jack_load() -> bool
+{
+#if HAVE_DYNLOAD
     if(!jack_handle)
     {
-        std::string missing_funcs;
-
-#ifdef _WIN32
-#define JACKLIB "libjack.dll"
-#else
-#define JACKLIB "libjack.so.0"
-#endif
-        jack_handle = LoadLib(JACKLIB);
-        if(!jack_handle)
+        const char *jack_lib = JACK_LIB;
+        if(auto libresult = LoadLib(jack_lib))
+            jack_handle = libresult.value();
+        else
         {
-            WARN("Failed to load %s\n", JACKLIB);
+            WARN("Failed to load {}: {}", jack_lib, libresult.error());
             return false;
         }
 
-        error = false;
-#define LOAD_FUNC(f) do {                                                     \
-    p##f = reinterpret_cast<decltype(p##f)>(GetSymbol(jack_handle, #f));      \
-    if(p##f == nullptr) {                                                     \
-        error = true;                                                         \
-        missing_funcs += "\n" #f;                                             \
-    }                                                                         \
-} while(0)
-        JACK_FUNCS(LOAD_FUNC);
-#undef LOAD_FUNC
-        /* Optional symbols. These don't exist in all versions of JACK. */
-#define LOAD_SYM(f) p##f = reinterpret_cast<decltype(p##f)>(GetSymbol(jack_handle, #f))
-        LOAD_SYM(jack_error_callback);
-#undef LOAD_SYM
-
-        if(error)
+        static constexpr auto load_func = [](auto *&func, const char *name) -> bool
         {
-            WARN("Missing expected functions:%s\n", missing_funcs.c_str());
+            using func_t = std::remove_reference_t<decltype(func)>;
+            auto funcresult = GetSymbol(jack_handle, name);
+            if(!funcresult)
+            {
+                WARN("Failed to load function {}: {}", name, funcresult.error());
+                return false;
+            }
+            /* NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) */
+            func = reinterpret_cast<func_t>(funcresult.value());
+            return true;
+        };
+        auto ok = true;
+#define LOAD_FUNC(f) ok &= load_func(p##f, #f)
+        JACK_FUNCS(LOAD_FUNC)
+#undef LOAD_FUNC
+        if(!ok)
+        {
             CloseLib(jack_handle);
             jack_handle = nullptr;
+            return false;
         }
+
+        /* Optional symbols. These don't exist in all versions of JACK. */
+#define LOAD_SYM(f) std::ignore = load_func(p##f, #f)
+        LOAD_SYM(jack_error_callback);
+#undef LOAD_SYM
     }
 #endif
 
-    return !error;
+    return true;
 }
 
 
-struct JackDeleter {
-    void operator()(void *ptr) { jack_free(ptr); }
-};
-using JackPortsPtr = std::unique_ptr<const char*[],JackDeleter>;
+/* NOLINTNEXTLINE(*-avoid-c-arrays) */
+using JackPortsPtr = std::unique_ptr<gsl::czstring[], decltype([](gsl::czstring *ptr)
+    { jack_free(static_cast<void*>(ptr)); })>;
 
 struct DeviceEntry {
     std::string mName;
     std::string mPattern;
 
-    template<typename T, typename U>
-    DeviceEntry(T&& name, U&& pattern)
-        : mName{std::forward<T>(name)}, mPattern{std::forward<U>(pattern)}
-    { }
+    NOINLINE ~DeviceEntry() = default;
 };
 
-al::vector<DeviceEntry> PlaybackList;
+std::vector<DeviceEntry> PlaybackList;
 
 
-void EnumerateDevices(jack_client_t *client, al::vector<DeviceEntry> &list)
+void EnumerateDevices(jack_client_t *client, std::vector<DeviceEntry> &list)
 {
     std::remove_reference_t<decltype(list)>{}.swap(list);
 
-    if(JackPortsPtr ports{jack_get_ports(client, nullptr, JackDefaultAudioType, JackPortIsInput)})
+    if(const auto ports = JackPortsPtr{jack_get_ports(client, nullptr, JACK_DEFAULT_AUDIO_TYPE,
+        JackPortIsInput)})
     {
-        for(size_t i{0};ports[i];++i)
+        for(auto i = 0_uz;ports[i];++i)
         {
-            const char *sep{std::strchr(ports[i], ':')};
-            if(!sep || ports[i] == sep) continue;
-
-            const al::span<const char> portdev{ports[i], sep};
-            auto check_name = [portdev](const DeviceEntry &entry) -> bool
-            {
-                const size_t len{portdev.size()};
-                return entry.mName.length() == len
-                    && entry.mName.compare(0, len, portdev.data(), len) == 0;
-            };
-            if(std::find_if(list.cbegin(), list.cend(), check_name) != list.cend())
+            const auto portname = std::string_view{ports[i]};
+            const auto seppos = portname.find(':');
+            if(seppos == 0 || seppos >= portname.size())
                 continue;
 
-            std::string name{portdev.data(), portdev.size()};
-            list.emplace_back(name, name+":");
-            const auto &entry = list.back();
-            TRACE("Got device: %s = %s\n", entry.mName.c_str(), entry.mPattern.c_str());
+            const auto portdev = portname.substr(0, seppos);
+            if(std::ranges::find(list, portdev, &DeviceEntry::mName) != list.end())
+                continue;
+
+            const auto &entry = list.emplace_back(std::string{portdev},
+                al::format("{}:", portdev));
+            TRACE("Got device: {} = {}", entry.mName, entry.mPattern);
         }
         /* There are ports but couldn't get device names from them. Add a
          * generic entry.
          */
         if(ports[0] && list.empty())
         {
-            WARN("No device names found in available ports, adding a generic name.\n");
-            list.emplace_back("JACK", "");
+            WARN("No device names found in available ports, adding a generic name.");
+            list.emplace_back("JACK"s, ""s);
         }
     }
 
-    if(auto listopt = ConfigValueStr(nullptr, "jack", "custom-devices"))
+    if(auto listopt = ConfigValueStr({}, "jack", "custom-devices"))
     {
-        for(size_t strpos{0};strpos < listopt->size();)
+        for(auto strpos = 0_uz;strpos < listopt->size();)
         {
-            size_t nextpos{listopt->find(';', strpos)};
-            size_t seppos{listopt->find('=', strpos)};
+            auto nextpos = listopt->find(';', strpos);
+            const auto seppos = listopt->find('=', strpos);
             if(seppos >= nextpos || seppos == strpos)
             {
-                const std::string entry{listopt->substr(strpos, nextpos-strpos)};
-                ERR("Invalid device entry: \"%s\"\n", entry.c_str());
+                const auto entry = std::string_view{*listopt}.substr(strpos, nextpos-strpos);
+                ERR("Invalid device entry: \"{}\"", entry);
                 if(nextpos != std::string::npos) ++nextpos;
                 strpos = nextpos;
                 continue;
             }
 
-            const al::span<const char> name{listopt->data()+strpos, seppos-strpos};
-            const al::span<const char> pattern{listopt->data()+(seppos+1),
-                std::min(nextpos, listopt->size())-(seppos+1)};
+            const auto name = std::string_view{*listopt}.substr(strpos, seppos-strpos);
+            const auto pattern = std::string_view{*listopt}.substr(seppos+1,
+                std::min(nextpos, listopt->size())-(seppos+1));
 
             /* Check if this custom pattern already exists in the list. */
-            auto check_pattern = [pattern](const DeviceEntry &entry) -> bool
-            {
-                const size_t len{pattern.size()};
-                return entry.mPattern.length() == len
-                    && entry.mPattern.compare(0, len, pattern.data(), len) == 0;
-            };
-            auto itemmatch = std::find_if(list.begin(), list.end(), check_pattern);
+            auto itemmatch = std::ranges::find(list, pattern, &DeviceEntry::mPattern);
             if(itemmatch != list.end())
             {
                 /* If so, replace the name with this custom one. */
-                itemmatch->mName.assign(name.data(), name.size());
-                TRACE("Customized device name: %s = %s\n", itemmatch->mName.c_str(),
-                    itemmatch->mPattern.c_str());
+                itemmatch->mName = name;
+                TRACE("Customized device name: {} = {}", itemmatch->mName, itemmatch->mPattern);
             }
             else
             {
                 /* Otherwise, add a new device entry. */
-                list.emplace_back(std::string{name.data(), name.size()},
-                    std::string{pattern.data(), pattern.size()});
-                const auto &entry = list.back();
-                TRACE("Got custom device: %s = %s\n", entry.mName.c_str(), entry.mPattern.c_str());
+                const auto &entry = list.emplace_back(std::string{name}, std::string{pattern});
+                TRACE("Got custom device: {} = {}", entry.mName, entry.mPattern);
             }
 
             if(nextpos != std::string::npos) ++nextpos;
@@ -261,19 +270,14 @@ void EnumerateDevices(jack_client_t *client, al::vector<DeviceEntry> &list)
          */
         for(auto curitem = list.begin()+1;curitem != list.end();++curitem)
         {
-            auto check_match = [curitem](const DeviceEntry &entry) -> bool
-            { return entry.mName == curitem->mName; };
-            if(std::find_if(list.begin(), curitem, check_match) != curitem)
+            const auto subrange = std::span{list.begin(), curitem};
+            if(std::ranges::find(subrange, curitem->mName, &DeviceEntry::mName) != subrange.end())
             {
-                std::string name{curitem->mName};
-                size_t count{1};
-                auto check_name = [&name](const DeviceEntry &entry) -> bool
-                { return entry.mName == name; };
+                auto name = std::string{};
+                auto count = 1_uz;
                 do {
-                    name = curitem->mName;
-                    name += " #";
-                    name += std::to_string(++count);
-                } while(std::find_if(list.begin(), curitem, check_name) != curitem);
+                    name = al::format("{} #{}", curitem->mName, ++count);
+                } while(std::ranges::find(subrange, name, &DeviceEntry::mName) != subrange.end());
                 curitem->mName = std::move(name);
             }
         }
@@ -282,7 +286,7 @@ void EnumerateDevices(jack_client_t *client, al::vector<DeviceEntry> &list)
 
 
 struct JackPlayback final : public BackendBase {
-    JackPlayback(DeviceBase *device) noexcept : BackendBase{device} { }
+    explicit JackPlayback(gsl::not_null<DeviceBase*> device) noexcept : BackendBase{device} { }
     ~JackPlayback() override;
 
     int processRt(jack_nframes_t numframes) noexcept;
@@ -295,7 +299,7 @@ struct JackPlayback final : public BackendBase {
 
     int mixerProc();
 
-    void open(const char *name) override;
+    void open(std::string_view name) override;
     bool reset() override;
     void start() override;
     void stop() override;
@@ -304,19 +308,17 @@ struct JackPlayback final : public BackendBase {
     std::string mPortPattern;
 
     jack_client_t *mClient{nullptr};
-    std::array<jack_port_t*,MAX_OUTPUT_CHANNELS> mPort{};
+    std::vector<jack_port_t*> mPort;
 
     std::mutex mMutex;
 
     std::atomic<bool> mPlaying{false};
     bool mRTMixing{false};
-    RingBufferPtr mRing;
-    al::semaphore mSem;
+    RingBufferPtr<float> mRing;
+    std::atomic<bool> mSignal;
 
     std::atomic<bool> mKillNow{true};
     std::thread mThread;
-
-    DEF_NEWDEL(JackPlayback)
 };
 
 JackPlayback::~JackPlayback()
@@ -324,10 +326,8 @@ JackPlayback::~JackPlayback()
     if(!mClient)
         return;
 
-    auto unregister_port = [this](jack_port_t *port) -> void
-    { if(port) jack_port_unregister(mClient, port); };
-    std::for_each(mPort.begin(), mPort.end(), unregister_port);
-    mPort.fill(nullptr);
+    std::ranges::for_each(mPort, [this](jack_port_t *port) -> void
+    { jack_port_unregister(mClient, port); });
 
     jack_client_close(mClient);
     mClient = nullptr;
@@ -336,22 +336,17 @@ JackPlayback::~JackPlayback()
 
 int JackPlayback::processRt(jack_nframes_t numframes) noexcept
 {
-    std::array<jack_default_audio_sample_t*,MAX_OUTPUT_CHANNELS> out;
-    size_t numchans{0};
-    for(auto port : mPort)
-    {
-        if(!port || numchans == mDevice->RealOut.Buffer.size())
-            break;
-        out[numchans++] = static_cast<float*>(jack_port_get_buffer(port, numframes));
-    }
+    auto outptrs = std::array<void*,MaxOutputChannels>{};
+    std::ranges::transform(mPort, outptrs.begin(), [numframes](jack_port_t *port)
+    { return jack_port_get_buffer(port, numframes); });
 
-    if(mPlaying.load(std::memory_order_acquire)) LIKELY
-        mDevice->renderSamples({out.data(), numchans}, static_cast<uint>(numframes));
+    const auto dst = std::span{outptrs}.first(mPort.size());
+    if(mPlaying.load(std::memory_order_acquire)) [[likely]]
+        mDevice->renderSamples(dst, gsl::narrow_cast<unsigned>(numframes));
     else
     {
-        auto clear_buf = [numframes](float *outbuf) -> void
-        { std::fill_n(outbuf, numframes, 0.0f); };
-        std::for_each(out.begin(), out.begin()+numchans, clear_buf);
+        std::ranges::for_each(dst, [numframes](void *outbuf) -> void
+        { std::ranges::fill(std::views::counted(static_cast<float*>(outbuf), numframes), 0.0f); });
     }
 
     return 0;
@@ -360,65 +355,49 @@ int JackPlayback::processRt(jack_nframes_t numframes) noexcept
 
 int JackPlayback::process(jack_nframes_t numframes) noexcept
 {
-    std::array<jack_default_audio_sample_t*,MAX_OUTPUT_CHANNELS> out;
-    size_t numchans{0};
-    for(auto port : mPort)
+    auto out = std::array<std::span<float>,MaxOutputChannels>{};
+    std::ranges::transform(mPort, out.begin(), [numframes](jack_port_t *port)
     {
-        if(!port) break;
-        out[numchans++] = static_cast<float*>(jack_port_get_buffer(port, numframes));
-    }
+        auto *ptr = static_cast<float*>(jack_port_get_buffer(port, numframes));
+        return std::span{ptr, numframes};
+    });
+    const auto numchans = mPort.size();
 
-    jack_nframes_t total{0};
-    if(mPlaying.load(std::memory_order_acquire)) LIKELY
+    if(mPlaying.load(std::memory_order_acquire)) [[likely]]
     {
-        auto data = mRing->getReadVector();
-        jack_nframes_t todo{minu(numframes, static_cast<uint>(data.first.len))};
-        auto write_first = [&data,numchans,todo](float *outbuf) -> float*
-        {
-            const float *RESTRICT in = reinterpret_cast<float*>(data.first.buf);
-            auto deinterlace_input = [&in,numchans]() noexcept -> float
-            {
-                float ret{*in};
-                in += numchans;
-                return ret;
-            };
-            std::generate_n(outbuf, todo, deinterlace_input);
-            data.first.buf += sizeof(float);
-            return outbuf + todo;
-        };
-        std::transform(out.begin(), out.begin()+numchans, out.begin(), write_first);
-        total += todo;
+        auto const data = mRing->getReadVector();
 
-        todo = minu(numframes-total, static_cast<uint>(data.second.len));
-        if(todo > 0)
+        const auto outlen = std::size_t{numframes / mDevice->mUpdateSize};
+        const auto updates1 = std::min(data[0].size() / mRing->getElemSize(), outlen);
+        const auto updates2 = std::min(data[1].size() / mRing->getElemSize(), outlen - updates1);
+
+        auto src = data[0];
+        for(auto i = 0_uz;i < updates1;++i)
         {
-            auto write_second = [&data,numchans,todo](float *outbuf) -> float*
+            for(auto c = 0_uz;c < numchans;++c)
             {
-                const float *RESTRICT in = reinterpret_cast<float*>(data.second.buf);
-                auto deinterlace_input = [&in,numchans]() noexcept -> float
-                {
-                    float ret{*in};
-                    in += numchans;
-                    return ret;
-                };
-                std::generate_n(outbuf, todo, deinterlace_input);
-                data.second.buf += sizeof(float);
-                return outbuf + todo;
-            };
-            std::transform(out.begin(), out.begin()+numchans, out.begin(), write_second);
-            total += todo;
+                std::ranges::copy(src.first(mDevice->mUpdateSize), out[c].begin());
+                out[c] = out[c].subspan(mDevice->mUpdateSize);
+                src = src.subspan(mDevice->mUpdateSize);
+            }
         }
 
-        mRing->readAdvance(total);
-        mSem.post();
-    }
+        src = data[1];
+        for(auto i = 0_uz;i < updates2;++i)
+        {
+            for(auto c = 0_uz;c < numchans;++c)
+            {
+                std::ranges::copy(src.first(mDevice->mUpdateSize), out[c].begin());
+                out[c] = out[c].subspan(mDevice->mUpdateSize);
+                src = src.subspan(mDevice->mUpdateSize);
+            }
+        }
 
-    if(numframes > total)
-    {
-        const jack_nframes_t todo{numframes - total};
-        auto clear_buf = [todo](float *outbuf) -> void { std::fill_n(outbuf, todo, 0.0f); };
-        std::for_each(out.begin(), out.begin()+numchans, clear_buf);
+        mRing->readAdvance(updates1 + updates2);
+        mSignal.store(true, std::memory_order_release);
+        mSignal.notify_all();
     }
+    std::ranges::fill(out | std::views::take(numchans) | std::views::join, 0.0f);
 
     return 0;
 }
@@ -426,143 +405,152 @@ int JackPlayback::process(jack_nframes_t numframes) noexcept
 int JackPlayback::mixerProc()
 {
     SetRTPriority();
-    althrd_setname(MIXER_THREAD_NAME);
+    althrd_setname(GetMixerThreadName());
 
-    const size_t frame_step{mDevice->channelsFromFmt()};
+    const auto update_size = mDevice->mUpdateSize;
+    auto outptrs = std::vector<void*>(mPort.size());
 
     while(!mKillNow.load(std::memory_order_acquire)
         && mDevice->Connected.load(std::memory_order_acquire))
     {
-        if(mRing->writeSpace() < mDevice->UpdateSize)
+        if(mRing->writeSpace() == 0)
         {
-            mSem.wait();
+            mSignal.wait(false, std::memory_order_acquire);
+            mSignal.store(false, std::memory_order_release);
             continue;
         }
 
-        auto data = mRing->getWriteVector();
-        size_t todo{data.first.len + data.second.len};
-        todo -= todo%mDevice->UpdateSize;
-
-        const auto len1 = static_cast<uint>(minz(data.first.len, todo));
-        const auto len2 = static_cast<uint>(minz(data.second.len, todo-len1));
-
-        std::lock_guard<std::mutex> _{mMutex};
-        mDevice->renderSamples(data.first.buf, len1, frame_step);
-        if(len2 > 0)
-            mDevice->renderSamples(data.second.buf, len2, frame_step);
-        mRing->writeAdvance(todo);
+        auto dlock = std::lock_guard{mMutex};
+        auto writevec = mRing->getWriteVector();
+        std::ranges::for_each(writevec, [this,update_size,&outptrs](const std::span<float> samples)
+        {
+            auto bufiter = samples.begin();
+            const auto updates = samples.size() / mRing->getElemSize();
+            for(auto i = 0_uz;i < updates;++i)
+            {
+                std::ranges::generate(outptrs, [&bufiter,update_size]
+                {
+                    auto ret = std::to_address(bufiter);
+                    std::advance(bufiter, update_size);
+                    return ret;
+                });
+                mDevice->renderSamples(outptrs, update_size);
+            }
+            mRing->writeAdvance(updates);
+        });
     }
 
     return 0;
 }
 
 
-void JackPlayback::open(const char *name)
+void JackPlayback::open(std::string_view name)
 {
     if(!mClient)
     {
-        const PathNamePair &binname = GetProcBinary();
-        const char *client_name{binname.fname.empty() ? "alsoft" : binname.fname.c_str()};
+        auto&& binname = GetProcBinary();
+        auto *client_name = binname.fname.empty() ? "alsoft" : binname.fname.c_str();
 
-        jack_status_t status;
+        auto status = jack_status_t{};
         mClient = jack_client_open(client_name, ClientOptions, &status, nullptr);
         if(mClient == nullptr)
             throw al::backend_exception{al::backend_error::DeviceError,
-                "Failed to open client connection: 0x%02x", status};
+                "Failed to open client connection: {:#02x}",
+                as_unsigned(al::to_underlying(status))};
         if((status&JackServerStarted))
-            TRACE("JACK server started\n");
+            TRACE("JACK server started");
         if((status&JackNameNotUnique))
         {
             client_name = jack_get_client_name(mClient);
-            TRACE("Client name not unique, got '%s' instead\n", client_name);
+            TRACE("Client name not unique, got '{}' instead", client_name);
         }
     }
 
     if(PlaybackList.empty())
         EnumerateDevices(mClient, PlaybackList);
 
-    if(!name && !PlaybackList.empty())
+    if(name.empty() && !PlaybackList.empty())
     {
-        name = PlaybackList[0].mName.c_str();
+        name = PlaybackList[0].mName;
         mPortPattern = PlaybackList[0].mPattern;
     }
     else
     {
-        auto check_name = [name](const DeviceEntry &entry) -> bool
-        { return entry.mName == name; };
-        auto iter = std::find_if(PlaybackList.cbegin(), PlaybackList.cend(), check_name);
-        if(iter == PlaybackList.cend())
+        auto iter = std::ranges::find(PlaybackList, name, &DeviceEntry::mName);
+        if(iter == PlaybackList.end())
             throw al::backend_exception{al::backend_error::NoDevice,
-                "Device name \"%s\" not found", name?name:""};
+                "Device name \"{}\" not found", name};
         mPortPattern = iter->mPattern;
     }
 
-    mRTMixing = GetConfigValueBool(name, "jack", "rt-mix", true);
-    jack_set_process_callback(mClient,
-        mRTMixing ? &JackPlayback::processRtC : &JackPlayback::processC, this);
-
-    mDevice->DeviceName = name;
+    mDeviceName = name;
 }
 
 bool JackPlayback::reset()
 {
-    auto unregister_port = [this](jack_port_t *port) -> void
-    { if(port) jack_port_unregister(mClient, port); };
-    std::for_each(mPort.begin(), mPort.end(), unregister_port);
-    mPort.fill(nullptr);
+    std::ranges::for_each(mPort, [this](jack_port_t *port) -> void
+    { jack_port_unregister(mClient, port); });
+    decltype(mPort){}.swap(mPort);
+
+    mRTMixing = GetConfigValueBool(mDevice->mDeviceName, "jack", "rt-mix", true);
+    jack_set_process_callback(mClient,
+        mRTMixing ? &JackPlayback::processRtC : &JackPlayback::processC, this);
 
     /* Ignore the requested buffer metrics and just keep one JACK-sized buffer
      * ready for when requested.
      */
-    mDevice->Frequency = jack_get_sample_rate(mClient);
-    mDevice->UpdateSize = jack_get_buffer_size(mClient);
+    mDevice->mSampleRate = jack_get_sample_rate(mClient);
+    mDevice->mUpdateSize = jack_get_buffer_size(mClient);
     if(mRTMixing)
     {
         /* Assume only two periods when directly mixing. Should try to query
          * the total port latency when connected.
          */
-        mDevice->BufferSize = mDevice->UpdateSize * 2;
+        mDevice->mBufferSize = mDevice->mUpdateSize * 2;
     }
     else
     {
-        const char *devname{mDevice->DeviceName.c_str()};
-        uint bufsize{ConfigValueUInt(devname, "jack", "buffer-size").value_or(mDevice->UpdateSize)};
-        bufsize = maxu(NextPowerOf2(bufsize), mDevice->UpdateSize);
-        mDevice->BufferSize = bufsize + mDevice->UpdateSize;
+        const auto devname = std::string_view{mDevice->mDeviceName};
+        auto bufsize = ConfigValueU32(devname, "jack", "buffer-size")
+            .value_or(mDevice->mUpdateSize);
+        bufsize = std::max(NextPowerOf2(bufsize), mDevice->mUpdateSize);
+        mDevice->mBufferSize = bufsize + mDevice->mUpdateSize;
     }
 
     /* Force 32-bit float output. */
     mDevice->FmtType = DevFmtFloat;
 
-    int port_num{0};
-    auto ports_end = mPort.begin() + mDevice->channelsFromFmt();
-    auto bad_port = mPort.begin();
-    while(bad_port != ports_end)
-    {
-        std::string name{"channel_" + std::to_string(++port_num)};
-        *bad_port = jack_port_register(mClient, name.c_str(), JackDefaultAudioType,
-            JackPortIsOutput | JackPortIsTerminal, 0);
-        if(!*bad_port) break;
-        ++bad_port;
-    }
-    if(bad_port != ports_end)
-    {
-        ERR("Failed to register enough JACK ports for %s output\n",
-            DevFmtChannelsString(mDevice->FmtChans));
-        if(bad_port == mPort.begin()) return false;
-
-        if(bad_port == mPort.begin()+1)
-            mDevice->FmtChans = DevFmtMono;
-        else
+    try {
+        const auto numchans = std::size_t{mDevice->channelsFromFmt()};
+        std::ranges::for_each(std::views::iota(0_uz, numchans), [this](std::size_t const idx)
         {
-            ports_end = mPort.begin()+2;
-            while(bad_port != ports_end)
+            auto const name = al::format("channel_{}", idx);
+            auto &newport = mPort.emplace_back();
+            newport = jack_port_register(mClient, name.c_str(), JACK_DEFAULT_AUDIO_TYPE,
+                JackPortIsOutput | JackPortIsTerminal, 0);
+            if(!newport)
             {
-                jack_port_unregister(mClient, *(--bad_port));
-                *bad_port = nullptr;
+                mPort.pop_back();
+                throw std::runtime_error{al::format(
+                    "Failed to register enough JACK ports for {} output",
+                    DevFmtChannelsString(mDevice->FmtChans))};
             }
+        });
+    }
+    catch(std::exception& e) {
+        ERR("Exception: {}", e.what());
+        if(mPort.size() >= 2)
+        {
+            std::ranges::for_each(mPort | std::views::drop(2), [this](jack_port_t *port)
+            { jack_port_unregister(mClient, port); });
+            mPort.resize(2_uz);
+            mPort.shrink_to_fit();
             mDevice->FmtChans = DevFmtStereo;
         }
+        else if(mPort.size() == 1)
+            mDevice->FmtChans = DevFmtMono;
+        else
+            throw;
     }
 
     setDefaultChannelOrder();
@@ -575,59 +563,68 @@ void JackPlayback::start()
     if(jack_activate(mClient))
         throw al::backend_exception{al::backend_error::DeviceError, "Failed to activate client"};
 
-    const char *devname{mDevice->DeviceName.c_str()};
+    const auto devname = std::string_view{mDevice->mDeviceName};
     if(ConfigValueBool(devname, "jack", "connect-ports").value_or(true))
     {
-        JackPortsPtr pnames{jack_get_ports(mClient, mPortPattern.c_str(), JackDefaultAudioType,
-            JackPortIsInput)};
-        if(!pnames)
+        auto pnamesptr = JackPortsPtr{jack_get_ports(mClient, mPortPattern.c_str(),
+            JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput)};
+        if(!pnamesptr)
         {
             jack_deactivate(mClient);
             throw al::backend_exception{al::backend_error::DeviceError, "No playback ports found"};
         }
 
-        for(size_t i{0};i < al::size(mPort) && mPort[i];++i)
+        auto *pnames_end = pnamesptr.get();
+        /* NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) */
+        while(*pnames_end) ++pnames_end;
+        const auto pnames = std::span{pnamesptr.get(), pnames_end};
+
+        std::ignore = std::ranges::mismatch(mPort, pnames,
+            [this](jack_port_t *const port, gsl::czstring const portname)
         {
-            if(!pnames[i])
+            if(!portname)
             {
-                ERR("No physical playback port for \"%s\"\n", jack_port_name(mPort[i]));
-                break;
+                ERR("No playback port for \"{}\"", jack_port_name(port));
+                return false;
             }
-            if(jack_connect(mClient, jack_port_name(mPort[i]), pnames[i]))
-                ERR("Failed to connect output port \"%s\" to \"%s\"\n", jack_port_name(mPort[i]),
-                    pnames[i]);
-        }
+            if(jack_connect(mClient, jack_port_name(port), portname))
+                ERR(R"(Failed to connect output port "{}" to "{}")", jack_port_name(port),
+                    portname);
+            return true;
+        });
     }
 
     /* Reconfigure buffer metrics in case the server changed it since the reset
      * (it won't change again after jack_activate), then allocate the ring
      * buffer with the appropriate size.
      */
-    mDevice->Frequency = jack_get_sample_rate(mClient);
-    mDevice->UpdateSize = jack_get_buffer_size(mClient);
-    mDevice->BufferSize = mDevice->UpdateSize * 2;
+    mDevice->mSampleRate = jack_get_sample_rate(mClient);
+    mDevice->mUpdateSize = jack_get_buffer_size(mClient);
+    mDevice->mBufferSize = mDevice->mUpdateSize * 2;
 
     mRing = nullptr;
     if(mRTMixing)
         mPlaying.store(true, std::memory_order_release);
     else
     {
-        uint bufsize{ConfigValueUInt(devname, "jack", "buffer-size").value_or(mDevice->UpdateSize)};
-        bufsize = maxu(NextPowerOf2(bufsize), mDevice->UpdateSize);
-        mDevice->BufferSize = bufsize + mDevice->UpdateSize;
+        auto bufsize = ConfigValueU32(devname, "jack", "buffer-size")
+            .value_or(mDevice->mUpdateSize);
+        bufsize = std::max(NextPowerOf2(bufsize), mDevice->mUpdateSize) / mDevice->mUpdateSize;
+        mDevice->mBufferSize = (bufsize+1) * mDevice->mUpdateSize;
 
-        mRing = RingBuffer::Create(bufsize, mDevice->frameSizeFromFmt(), true);
+        mRing = RingBuffer<float>::Create(bufsize,
+            std::size_t{mDevice->mUpdateSize} * mDevice->channelsFromFmt(), true);
 
         try {
             mPlaying.store(true, std::memory_order_release);
             mKillNow.store(false, std::memory_order_release);
-            mThread = std::thread{std::mem_fn(&JackPlayback::mixerProc), this};
+            mThread = std::thread{&JackPlayback::mixerProc, this};
         }
         catch(std::exception& e) {
             jack_deactivate(mClient);
             mPlaying.store(false, std::memory_order_release);
             throw al::backend_exception{al::backend_error::DeviceError,
-                "Failed to start mixing thread: %s", e.what()};
+                "Failed to start mixing thread: {}", e.what()};
         }
     }
 }
@@ -639,7 +636,8 @@ void JackPlayback::stop()
         mKillNow.store(true, std::memory_order_release);
         if(mThread.joinable())
         {
-            mSem.post();
+            mSignal.store(true, std::memory_order_release);
+            mSignal.notify_all();
             mThread.join();
         }
 
@@ -651,12 +649,12 @@ void JackPlayback::stop()
 
 ClockLatency JackPlayback::getClockLatency()
 {
-    ClockLatency ret;
+    auto dlock = std::lock_guard{mMutex};
 
-    std::lock_guard<std::mutex> _{mMutex};
-    ret.ClockTime = GetDeviceClockTime(mDevice);
-    ret.Latency  = std::chrono::seconds{mRing ? mRing->readSpace() : mDevice->UpdateSize};
-    ret.Latency /= mDevice->Frequency;
+    auto ret = ClockLatency{};
+    ret.ClockTime = mDevice->getClockTime();
+    ret.Latency  = std::chrono::seconds{mRing ? mRing->readSpace() : 1_uz} * mDevice->mUpdateSize;
+    ret.Latency /= mDevice->mSampleRate;
 
     return ret;
 }
@@ -664,7 +662,7 @@ ClockLatency JackPlayback::getClockLatency()
 
 void jack_msg_handler(const char *message)
 {
-    WARN("%s\n", message);
+    WARN("{}", message);
 }
 
 } // namespace
@@ -674,22 +672,22 @@ bool JackBackendFactory::init()
     if(!jack_load())
         return false;
 
-    if(!GetConfigValueBool(nullptr, "jack", "spawn-server", false))
-        ClientOptions = static_cast<jack_options_t>(ClientOptions | JackNoStartServer);
+    if(!GetConfigValueBool({}, "jack", "spawn-server", false))
+        ClientOptions = gsl::narrow_cast<jack_options_t>(ClientOptions | JackNoStartServer);
 
-    const PathNamePair &binname = GetProcBinary();
-    const char *client_name{binname.fname.empty() ? "alsoft" : binname.fname.c_str()};
+    auto&& binname = GetProcBinary();
+    auto *client_name = binname.fname.empty() ? "alsoft" : binname.fname.c_str();
 
     void (*old_error_cb)(const char*){&jack_error_callback ? jack_error_callback : nullptr};
     jack_set_error_function(jack_msg_handler);
-    jack_status_t status;
-    jack_client_t *client{jack_client_open(client_name, ClientOptions, &status, nullptr)};
+    auto status = jack_status_t{};
+    auto *client = jack_client_open(client_name, ClientOptions, &status, nullptr);
     jack_set_error_function(old_error_cb);
     if(!client)
     {
-        WARN("jack_client_open() failed, 0x%02x\n", status);
+        WARN("jack_client_open() failed, {:#02x}", as_unsigned(al::to_underlying(status)));
         if((status&JackServerFailed) && !(ClientOptions&JackNoStartServer))
-            ERR("Unable to connect to JACK server\n");
+            ERR("Unable to connect to JACK server");
         return false;
     }
 
@@ -700,37 +698,37 @@ bool JackBackendFactory::init()
 bool JackBackendFactory::querySupport(BackendType type)
 { return (type == BackendType::Playback); }
 
-std::string JackBackendFactory::probe(BackendType type)
+auto JackBackendFactory::enumerate(BackendType type) -> std::vector<std::string>
 {
-    std::string outnames;
-    auto append_name = [&outnames](const DeviceEntry &entry) -> void
-    {
-        /* Includes null char. */
-        outnames.append(entry.mName.c_str(), entry.mName.length()+1);
-    };
+    auto outnames = std::vector<std::string>{};
 
-    const PathNamePair &binname = GetProcBinary();
-    const char *client_name{binname.fname.empty() ? "alsoft" : binname.fname.c_str()};
-    jack_status_t status;
+    auto&& binname = GetProcBinary();
+    auto *client_name = binname.fname.empty() ? "alsoft" : binname.fname.c_str();
+    auto status = jack_status_t{};
     switch(type)
     {
     case BackendType::Playback:
-        if(jack_client_t *client{jack_client_open(client_name, ClientOptions, &status, nullptr)})
+        if(auto *client = jack_client_open(client_name, ClientOptions, &status, nullptr))
         {
             EnumerateDevices(client, PlaybackList);
             jack_client_close(client);
         }
         else
-            WARN("jack_client_open() failed, 0x%02x\n", status);
-        std::for_each(PlaybackList.cbegin(), PlaybackList.cend(), append_name);
+            WARN("jack_client_open() failed, {:#02x}", as_unsigned(al::to_underlying(status)));
+
+        outnames.reserve(PlaybackList.size());
+        std::ranges::transform(PlaybackList, std::back_inserter(outnames), &DeviceEntry::mName);
         break;
+
     case BackendType::Capture:
         break;
     }
+
     return outnames;
 }
 
-BackendPtr JackBackendFactory::createBackend(DeviceBase *device, BackendType type)
+auto JackBackendFactory::createBackend(gsl::not_null<DeviceBase*> device, BackendType type)
+    -> BackendPtr
 {
     if(type == BackendType::Playback)
         return BackendPtr{new JackPlayback{device}};

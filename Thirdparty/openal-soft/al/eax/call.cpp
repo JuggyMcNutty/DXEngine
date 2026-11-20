@@ -1,29 +1,27 @@
 #include "config.h"
+
 #include "call.h"
+
+#include <string_view>
+
 #include "exception.h"
 
 namespace {
 
 constexpr auto deferred_flag = 0x80000000U;
 
-class EaxCallException : public EaxException {
+/* NOLINTNEXTLINE(clazy-copyable-polymorphic) Exceptions must be copyable. */
+class EaxCallException final : public EaxException {
 public:
-    explicit EaxCallException(const char* message)
-        : EaxException{"EAX_CALL", message}
-    {}
-}; // EaxCallException
+    explicit EaxCallException(const std::string_view message) : EaxException{"EAX_CALL", message}
+    { }
+};
 
 } // namespace
 
-EaxCall::EaxCall(
-    EaxCallType type,
-    const GUID& property_set_guid,
-    ALuint property_id,
-    ALuint property_source_id,
-    ALvoid* property_buffer,
-    ALuint property_size)
-    : mCallType{type}, mVersion{0}, mPropertySetId{EaxCallPropertySetId::none}
-    , mIsDeferred{(property_id & deferred_flag) != 0}
+EaxCall::EaxCall(EaxCallType type, AL_GUID const& property_set_guid, ALuint property_id,
+    ALuint property_source_id, ALvoid *property_buffer, ALuint property_size)
+    : mCallType{type}, mIsDeferred{(property_id & deferred_flag) != 0}
     , mPropertyId{property_id & ~deferred_flag}, mPropertySourceId{property_source_id}
     , mPropertyBuffer{property_buffer}, mPropertyBufferSize{property_size}
 {
@@ -37,132 +35,138 @@ EaxCall::EaxCall(
             fail("Invalid type.");
     }
 
-    if (false)
-    {
-    }
-    else if (property_set_guid == EAXPROPERTYID_EAX40_Context)
+    if(property_set_guid == EAXPROPERTYID_EAX40_Context)
     {
         mVersion = 4;
         mPropertySetId = EaxCallPropertySetId::context;
     }
-    else if (property_set_guid == EAXPROPERTYID_EAX50_Context)
+    else if(property_set_guid == EAXPROPERTYID_EAX50_Context)
     {
         mVersion = 5;
         mPropertySetId = EaxCallPropertySetId::context;
     }
-    else if (property_set_guid == DSPROPSETID_EAX20_ListenerProperties)
+    else if(property_set_guid == DSPROPSETID_EAX20_ListenerProperties)
     {
         mVersion = 2;
         mFxSlotIndex = 0u;
         mPropertySetId = EaxCallPropertySetId::fx_slot_effect;
     }
-    else if (property_set_guid == DSPROPSETID_EAX30_ListenerProperties)
+    else if(property_set_guid == DSPROPSETID_EAX30_ListenerProperties)
     {
         mVersion = 3;
         mFxSlotIndex = 0u;
         mPropertySetId = EaxCallPropertySetId::fx_slot_effect;
     }
-    else if (property_set_guid == EAXPROPERTYID_EAX40_FXSlot0)
+    else if(property_set_guid == EAXPROPERTYID_EAX40_FXSlot0)
     {
         mVersion = 4;
         mFxSlotIndex = 0u;
         mPropertySetId = EaxCallPropertySetId::fx_slot;
     }
-    else if (property_set_guid == EAXPROPERTYID_EAX50_FXSlot0)
+    else if(property_set_guid == EAXPROPERTYID_EAX50_FXSlot0)
     {
         mVersion = 5;
         mFxSlotIndex = 0u;
         mPropertySetId = EaxCallPropertySetId::fx_slot;
     }
-    else if (property_set_guid == EAXPROPERTYID_EAX40_FXSlot1)
+    else if(property_set_guid == EAXPROPERTYID_EAX40_FXSlot1)
     {
         mVersion = 4;
         mFxSlotIndex = 1u;
         mPropertySetId = EaxCallPropertySetId::fx_slot;
     }
-    else if (property_set_guid == EAXPROPERTYID_EAX50_FXSlot1)
+    else if(property_set_guid == EAXPROPERTYID_EAX50_FXSlot1)
     {
         mVersion = 5;
         mFxSlotIndex = 1u;
         mPropertySetId = EaxCallPropertySetId::fx_slot;
     }
-    else if (property_set_guid == EAXPROPERTYID_EAX40_FXSlot2)
+    else if(property_set_guid == EAXPROPERTYID_EAX40_FXSlot2)
     {
         mVersion = 4;
         mFxSlotIndex = 2u;
         mPropertySetId = EaxCallPropertySetId::fx_slot;
     }
-    else if (property_set_guid == EAXPROPERTYID_EAX50_FXSlot2)
+    else if(property_set_guid == EAXPROPERTYID_EAX50_FXSlot2)
     {
         mVersion = 5;
         mFxSlotIndex = 2u;
         mPropertySetId = EaxCallPropertySetId::fx_slot;
     }
-    else if (property_set_guid == EAXPROPERTYID_EAX40_FXSlot3)
+    else if(property_set_guid == EAXPROPERTYID_EAX40_FXSlot3)
     {
         mVersion = 4;
         mFxSlotIndex = 3u;
         mPropertySetId = EaxCallPropertySetId::fx_slot;
     }
-    else if (property_set_guid == EAXPROPERTYID_EAX50_FXSlot3)
+    else if(property_set_guid == EAXPROPERTYID_EAX50_FXSlot3)
     {
         mVersion = 5;
         mFxSlotIndex = 3u;
         mPropertySetId = EaxCallPropertySetId::fx_slot;
     }
-    else if (property_set_guid == DSPROPSETID_EAX20_BufferProperties)
+    else if(property_set_guid == DSPROPSETID_EAX20_BufferProperties)
     {
         mVersion = 2;
         mPropertySetId = EaxCallPropertySetId::source;
     }
-    else if (property_set_guid == DSPROPSETID_EAX30_BufferProperties)
+    else if(property_set_guid == DSPROPSETID_EAX30_BufferProperties)
     {
         mVersion = 3;
         mPropertySetId = EaxCallPropertySetId::source;
     }
-    else if (property_set_guid == EAXPROPERTYID_EAX40_Source)
+    else if(property_set_guid == EAXPROPERTYID_EAX40_Source)
     {
         mVersion = 4;
         mPropertySetId = EaxCallPropertySetId::source;
     }
-    else if (property_set_guid == EAXPROPERTYID_EAX50_Source)
+    else if(property_set_guid == EAXPROPERTYID_EAX50_Source)
     {
         mVersion = 5;
         mPropertySetId = EaxCallPropertySetId::source;
     }
-    else if (property_set_guid == DSPROPSETID_EAX_ReverbProperties)
+    else if(property_set_guid == DSPROPSETID_EAX_ReverbProperties)
     {
         mVersion = 1;
         mFxSlotIndex = 0u;
         mPropertySetId = EaxCallPropertySetId::fx_slot_effect;
     }
-    else if (property_set_guid == DSPROPSETID_EAXBUFFER_ReverbProperties)
+    else if(property_set_guid == DSPROPSETID_EAXBUFFER_ReverbProperties)
     {
         mVersion = 1;
         mPropertySetId = EaxCallPropertySetId::source;
     }
     else
-    {
         fail("Unsupported property set id.");
-    }
 
-    switch(mPropertyId)
+    if(mPropertySetId == EaxCallPropertySetId::context)
     {
-    case EAXCONTEXT_LASTERROR:
-    case EAXCONTEXT_SPEAKERCONFIG:
-    case EAXCONTEXT_EAXSESSION:
-    case EAXFXSLOT_NONE:
-    case EAXFXSLOT_ALLPARAMETERS:
-    case EAXFXSLOT_LOADEFFECT:
-    case EAXFXSLOT_VOLUME:
-    case EAXFXSLOT_LOCK:
-    case EAXFXSLOT_FLAGS:
-    case EAXFXSLOT_OCCLUSION:
-    case EAXFXSLOT_OCCLUSIONLFRATIO:
-        // EAX allow to set "defer" flag on immediate-only properties.
-        // If we don't clear our flag then "applyAllUpdates" in EAX context won't be called.
-        mIsDeferred = false;
-        break;
+        switch(mPropertyId)
+        {
+        case EAXCONTEXT_LASTERROR:
+        case EAXCONTEXT_SPEAKERCONFIG:
+        case EAXCONTEXT_EAXSESSION:
+            // EAX allow to set "defer" flag on immediate-only properties.
+            // If we don't clear our flag then "applyAllUpdates" in EAX context won't be called.
+            mIsDeferred = false;
+            break;
+        }
+    }
+    else if(mPropertySetId == EaxCallPropertySetId::fx_slot)
+    {
+        switch(mPropertyId)
+        {
+        case EAXFXSLOT_NONE:
+        case EAXFXSLOT_ALLPARAMETERS:
+        case EAXFXSLOT_LOADEFFECT:
+        case EAXFXSLOT_VOLUME:
+        case EAXFXSLOT_LOCK:
+        case EAXFXSLOT_FLAGS:
+        case EAXFXSLOT_OCCLUSION:
+        case EAXFXSLOT_OCCLUSIONLFRATIO:
+            mIsDeferred = false;
+            break;
+        }
     }
 
     if(!mIsDeferred)
@@ -187,7 +191,7 @@ EaxCall::EaxCall(
     }
 }
 
-[[noreturn]] void EaxCall::fail(const char* message)
+[[noreturn]] void EaxCall::fail(const std::string_view message)
 {
     throw EaxCallException{message};
 }
@@ -199,7 +203,7 @@ EaxCall::EaxCall(
 
 EaxCall create_eax_call(
     EaxCallType type,
-    const GUID* property_set_id,
+    AL_GUID const* property_set_id,
     ALuint property_id,
     ALuint property_source_id,
     ALvoid* property_buffer,

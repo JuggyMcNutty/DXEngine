@@ -2,25 +2,30 @@
 #define EFFECTS_BASE_H
 
 #include "core/effects/base.h"
+#include "gsl/gsl"
 
 
-EffectStateFactory *NullStateFactory_getFactory(void);
-EffectStateFactory *ReverbStateFactory_getFactory(void);
-EffectStateFactory *StdReverbStateFactory_getFactory(void);
-EffectStateFactory *AutowahStateFactory_getFactory(void);
-EffectStateFactory *ChorusStateFactory_getFactory(void);
-EffectStateFactory *CompressorStateFactory_getFactory(void);
-EffectStateFactory *DistortionStateFactory_getFactory(void);
-EffectStateFactory *EchoStateFactory_getFactory(void);
-EffectStateFactory *EqualizerStateFactory_getFactory(void);
-EffectStateFactory *FlangerStateFactory_getFactory(void);
-EffectStateFactory *FshifterStateFactory_getFactory(void);
-EffectStateFactory *ModulatorStateFactory_getFactory(void);
-EffectStateFactory *PshifterStateFactory_getFactory(void);
-EffectStateFactory* VmorpherStateFactory_getFactory(void);
+/* This is a user config option for modifying the overall output of the reverb
+ * effect.
+ */
+inline float ReverbBoost{1.0f};
 
-EffectStateFactory *DedicatedStateFactory_getFactory(void);
 
-EffectStateFactory *ConvolutionStateFactory_getFactory(void);
+auto NullStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>;
+auto ReverbStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>;
+auto ChorusStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>;
+auto AutowahStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>;
+auto CompressorStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>;
+auto DistortionStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>;
+auto EchoStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>;
+auto EqualizerStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>;
+auto FshifterStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>;
+auto ModulatorStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>;
+auto PshifterStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>;
+auto VmorpherStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>;
+
+auto DedicatedStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>;
+
+auto ConvolutionStateFactory_getFactory() -> gsl::not_null<EffectStateFactory*>;
 
 #endif /* EFFECTS_BASE_H */

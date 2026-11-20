@@ -1,63 +1,15 @@
 #ifndef CORE_BUFFER_STORAGE_H
 #define CORE_BUFFER_STORAGE_H
 
-#include <atomic>
+#include <span>
+#include <variant>
 
-#include "albyte.h"
 #include "alnumeric.h"
-#include "alspan.h"
-#include "ambidefs.h"
+#include "fmt_traits.h"
+#include "storage_formats.h"
 
 
-using uint = unsigned int;
-
-/* Storable formats */
-enum FmtType : unsigned char {
-    FmtUByte,
-    FmtShort,
-    FmtFloat,
-    FmtDouble,
-    FmtMulaw,
-    FmtAlaw,
-    FmtIMA4,
-    FmtMSADPCM,
-};
-enum FmtChannels : unsigned char {
-    FmtMono,
-    FmtStereo,
-    FmtRear,
-    FmtQuad,
-    FmtX51, /* (WFX order) */
-    FmtX61, /* (WFX order) */
-    FmtX71, /* (WFX order) */
-    FmtBFormat2D,
-    FmtBFormat3D,
-    FmtUHJ2, /* 2-channel UHJ, aka "BHJ", stereo-compatible */
-    FmtUHJ3, /* 3-channel UHJ, aka "THJ" */
-    FmtUHJ4, /* 4-channel UHJ, aka "PHJ" */
-    FmtSuperStereo, /* Stereo processed with Super Stereo. */
-};
-
-enum class AmbiLayout : unsigned char {
-    FuMa,
-    ACN,
-};
-enum class AmbiScaling : unsigned char {
-    FuMa,
-    SN3D,
-    N3D,
-    UHJ,
-};
-
-const char *NameFromFormat(FmtType type) noexcept;
-const char *NameFromFormat(FmtChannels channels) noexcept;
-
-uint BytesFromFmt(FmtType type) noexcept;
-uint ChannelsFromFmt(FmtChannels chans, uint ambiorder) noexcept;
-inline uint FrameSizeFromFmt(FmtChannels chans, FmtType type, uint ambiorder) noexcept
-{ return ChannelsFromFmt(chans, ambiorder) * BytesFromFmt(type); }
-
-constexpr bool IsBFormat(FmtChannels chans) noexcept
+constexpr auto IsBFormat(FmtChannels const chans) noexcept -> bool
 { return chans == FmtBFormat2D || chans == FmtBFormat3D; }
 
 /* Super Stereo is considered part of the UHJ family here, since it goes
@@ -65,51 +17,62 @@ constexpr bool IsBFormat(FmtChannels chans) noexcept
  * needs the same consideration as BHJ (three channel result with only two
  * channel input).
  */
-constexpr bool IsUHJ(FmtChannels chans) noexcept
+constexpr auto IsUHJ(FmtChannels const chans) noexcept -> bool
 { return chans == FmtUHJ2 || chans == FmtUHJ3 || chans == FmtUHJ4 || chans == FmtSuperStereo; }
 
 /** Ambisonic formats are either B-Format or UHJ formats. */
-constexpr bool IsAmbisonic(FmtChannels chans) noexcept
+constexpr auto IsAmbisonic(FmtChannels const chans) noexcept -> bool
 { return IsBFormat(chans) || IsUHJ(chans); }
 
-constexpr bool Is2DAmbisonic(FmtChannels chans) noexcept
+constexpr auto Is2DAmbisonic(FmtChannels const chans) noexcept -> bool
 {
     return chans == FmtBFormat2D || chans == FmtUHJ2 || chans == FmtUHJ3
         || chans == FmtSuperStereo;
 }
 
 
-using CallbackType = int(*)(void*, void*, int);
+using CallbackType = auto(*)(void*, void*, int) noexcept -> int;
+
+using SampleVariant = std::variant<std::span<u8>,
+    std::span<i16>,
+    std::span<i32>,
+    std::span<f32>,
+    std::span<f64>,
+    std::span<MulawSample>,
+    std::span<AlawSample>,
+    std::span<IMA4Data>,
+    std::span<MSADPCMData>>;
 
 struct BufferStorage {
     CallbackType mCallback{nullptr};
     void *mUserData{nullptr};
 
-    al::span<al::byte> mData;
+    SampleVariant mData;
 
-    uint mSampleRate{0u};
+    unsigned mSampleRate{0u};
     FmtChannels mChannels{FmtMono};
     FmtType mType{FmtShort};
-    uint mSampleLen{0u};
-    uint mBlockAlign{0u};
+    unsigned mSampleLen{0u};
+    unsigned mBlockAlign{0u};
 
     AmbiLayout mAmbiLayout{AmbiLayout::FuMa};
     AmbiScaling mAmbiScaling{AmbiScaling::FuMa};
-    uint mAmbiOrder{0u};
+    unsigned mAmbiOrder{0u};
 
-    inline uint bytesFromFmt() const noexcept { return BytesFromFmt(mType); }
-    inline uint channelsFromFmt() const noexcept
+    [[nodiscard]] auto bytesFromFmt() const noexcept -> unsigned { return BytesFromFmt(mType); }
+    [[nodiscard]] auto channelsFromFmt() const noexcept -> unsigned
     { return ChannelsFromFmt(mChannels, mAmbiOrder); }
-    inline uint frameSizeFromFmt() const noexcept { return channelsFromFmt() * bytesFromFmt(); }
+    [[nodiscard]] auto frameSizeFromFmt() const noexcept -> unsigned
+    { return channelsFromFmt() * bytesFromFmt(); }
 
-    inline uint blockSizeFromFmt() const noexcept
+    [[nodiscard]] auto blockSizeFromFmt() const noexcept -> unsigned
     {
         if(mType == FmtIMA4) return ((mBlockAlign-1)/2 + 4) * channelsFromFmt();
         if(mType == FmtMSADPCM) return ((mBlockAlign-2)/2 + 7) * channelsFromFmt();
         return frameSizeFromFmt();
-    };
+    }
 
-    inline bool isBFormat() const noexcept { return IsBFormat(mChannels); }
+    [[nodiscard]] auto isBFormat() const noexcept -> bool { return IsBFormat(mChannels); }
 };
 
 #endif /* CORE_BUFFER_STORAGE_H */

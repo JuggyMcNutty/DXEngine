@@ -2,20 +2,22 @@
 
 #include <arm_neon.h>
 
-#include <cmath>
+#include <algorithm>
+#include <array>
 #include <limits>
+#include <span>
+#include <variant>
 
 #include "alnumeric.h"
 #include "core/bsinc_defs.h"
+#include "core/bufferline.h"
 #include "core/cubic_defs.h"
+#include "core/mixer/hrtfdefs.h"
+#include "core/resampler_limits.h"
 #include "defs.h"
+#include "gsl/gsl"
 #include "hrtfbase.h"
-
-struct NEONTag;
-struct LerpTag;
-struct CubicTag;
-struct BSincTag;
-struct FastBSincTag;
+#include "opthelpers.h"
 
 
 #if defined(__GNUC__) && !defined(__clang__) && !defined(__ARM_NEON)
@@ -24,77 +26,92 @@ struct FastBSincTag;
 
 namespace {
 
-constexpr uint BSincPhaseDiffBits{MixerFracBits - BSincPhaseBits};
-constexpr uint BSincPhaseDiffOne{1 << BSincPhaseDiffBits};
-constexpr uint BSincPhaseDiffMask{BSincPhaseDiffOne - 1u};
+constexpr auto BSincPhaseDiffBits = unsigned{MixerFracBits - BSincPhaseBits};
+constexpr auto BSincPhaseDiffOne = 1u << BSincPhaseDiffBits;
+constexpr auto BSincPhaseDiffMask = BSincPhaseDiffOne - 1u;
 
-constexpr uint CubicPhaseDiffBits{MixerFracBits - CubicPhaseBits};
-constexpr uint CubicPhaseDiffOne{1 << CubicPhaseDiffBits};
-constexpr uint CubicPhaseDiffMask{CubicPhaseDiffOne - 1u};
+constexpr auto CubicPhaseDiffBits = unsigned{MixerFracBits - CubicPhaseBits};
+constexpr auto CubicPhaseDiffOne = 1u << CubicPhaseDiffBits;
+constexpr auto CubicPhaseDiffMask = CubicPhaseDiffOne - 1u;
 
-inline float32x4_t set_f4(float l0, float l1, float l2, float l3)
+force_inline
+void vtranspose4(float32x4_t &x0, float32x4_t &x1, float32x4_t &x2, float32x4_t &x3) noexcept
 {
-    float32x4_t ret{vmovq_n_f32(l0)};
+    auto t0_ = vzipq_f32(x0, x2);
+    auto t1_ = vzipq_f32(x1, x3);
+    auto u0_ = vzipq_f32(t0_.val[0], t1_.val[0]);
+    auto u1_ = vzipq_f32(t0_.val[1], t1_.val[1]);
+    x0 = u0_.val[0];
+    x1 = u0_.val[1];
+    x2 = u1_.val[0];
+    x3 = u1_.val[1];
+}
+
+inline
+auto set_f4(float const l0, float const l1, float const l2, float const l3) noexcept -> float32x4_t
+{
+    auto ret = vmovq_n_f32(l0);
     ret = vsetq_lane_f32(l1, ret, 1);
     ret = vsetq_lane_f32(l2, ret, 2);
     ret = vsetq_lane_f32(l3, ret, 3);
     return ret;
 }
 
-inline void ApplyCoeffs(float2 *RESTRICT Values, const size_t IrSize, const ConstHrirSpan Coeffs,
-    const float left, const float right)
+inline void ApplyCoeffs(std::span<f32x2> const Values, std::size_t const IrSize,
+    ConstHrirSpan const Coeffs, float const left, float const right) noexcept NONBLOCKING
 {
-    float32x4_t leftright4;
-    {
-        float32x2_t leftright2{vmov_n_f32(left)};
-        leftright2 = vset_lane_f32(right, leftright2, 1);
-        leftright4 = vcombine_f32(leftright2, leftright2);
-    }
-
     ASSUME(IrSize >= MinIrLength);
-    for(size_t c{0};c < IrSize;c += 2)
+    ASSUME(IrSize <= HrirLength);
+
+    auto const leftright2 = vset_lane_f32(right, vmov_n_f32(left), 1);
+    auto const leftright4 = vcombine_f32(leftright2, leftright2);
+
+    /* Using a loop here instead of std::transform since some builds seem to
+     * have an issue with accessing an array/span of float32x4_t.
+     */
+    for(auto c = 0_uz;c < IrSize;c += 2)
     {
-        float32x4_t vals = vld1q_f32(&Values[c][0]);
-        float32x4_t coefs = vld1q_f32(&Coeffs[c][0]);
-
-        vals = vmlaq_f32(vals, coefs, leftright4);
-
+        auto vals = vld1q_f32(&Values[c][0]);
+        vals = vmlaq_f32(vals, vld1q_f32(&Coeffs[c][0]), leftright4);
         vst1q_f32(&Values[c][0], vals);
     }
 }
 
-force_inline void MixLine(const al::span<const float> InSamples, float *RESTRICT dst,
-    float &CurrentGain, const float TargetGain, const float delta, const size_t min_len,
-    const size_t aligned_len, size_t Counter)
+force_inline void MixLine(std::span<float const> const InSamples, std::span<float> const dst,
+    float &CurrentGain, float const TargetGain, float const delta, std::size_t const fade_len,
+    std::size_t const realign_len, std::size_t Counter) noexcept NONBLOCKING
 {
-    float gain{CurrentGain};
-    const float step{(TargetGain-gain) * delta};
+    auto const step = float{(TargetGain-CurrentGain) * delta};
 
-    size_t pos{0};
-    if(!(std::abs(step) > std::numeric_limits<float>::epsilon()))
-        gain = TargetGain;
-    else
+    auto pos = 0_uz;
+    if(std::abs(step) > std::numeric_limits<float>::epsilon())
     {
-        float step_count{0.0f};
+        auto const gain = CurrentGain;
+        auto step_count = 0.0f;
         /* Mix with applying gain steps in aligned multiples of 4. */
-        if(size_t todo{min_len >> 2})
+        if(auto const todo = fade_len >> 2)
         {
-            const float32x4_t four4{vdupq_n_f32(4.0f)};
-            const float32x4_t step4{vdupq_n_f32(step)};
-            const float32x4_t gain4{vdupq_n_f32(gain)};
-            float32x4_t step_count4{vdupq_n_f32(0.0f)};
-            step_count4 = vsetq_lane_f32(1.0f, step_count4, 1);
-            step_count4 = vsetq_lane_f32(2.0f, step_count4, 2);
-            step_count4 = vsetq_lane_f32(3.0f, step_count4, 3);
+            auto const four4 = vdupq_n_f32(4.0f);
+            auto const step4 = vdupq_n_f32(step);
+            auto const gain4 = vdupq_n_f32(gain);
+            auto step_count4 = set_f4(0.0f, 1.0f, 2.0f, 3.0f);
 
-            do {
-                const float32x4_t val4 = vld1q_f32(&InSamples[pos]);
-                float32x4_t dry4 = vld1q_f32(&dst[pos]);
+            /* NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) */
+            auto const in4 = std::span{reinterpret_cast<const float32x4_t*>(InSamples.data()),
+                InSamples.size()/4}.first(todo);
+            auto const out4 = std::span{reinterpret_cast<float32x4_t*>(dst.data()), dst.size()/4};
+            /* NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast) */
+
+            std::ranges::transform(in4, out4, out4.begin(),
+                [gain4,step4,four4,&step_count4](float32x4_t const val4, float32x4_t dry4)
+            {
+                /* dry += val * (gain + step*step_count) */
                 dry4 = vmlaq_f32(dry4, val4, vmlaq_f32(gain4, step4, step_count4));
                 step_count4 = vaddq_f32(step_count4, four4);
-                vst1q_f32(&dst[pos], dry4);
-                pos += 4;
-            } while(--todo);
+                return dry4;
+            });
+            pos += in4.size()*4;
+
             /* NOTE: step_count4 now represents the next four counts after the
              * last four mixed samples, so the lowest element represents the
              * next step count to apply.
@@ -102,261 +119,365 @@ force_inline void MixLine(const al::span<const float> InSamples, float *RESTRICT
             step_count = vgetq_lane_f32(step_count4, 0);
         }
         /* Mix with applying left over gain steps that aren't aligned multiples of 4. */
-        for(size_t leftover{min_len&3};leftover;++pos,--leftover)
+        if(auto const leftover = fade_len&3)
         {
-            dst[pos] += InSamples[pos] * (gain + step*step_count);
-            step_count += 1.0f;
+            auto const in = InSamples.subspan(pos, leftover);
+            auto const out = dst.subspan(pos);
+
+            std::ranges::transform(in, out, out.begin(),
+                [gain,step,&step_count](float const val, float dry) noexcept -> float
+            {
+                dry += val * (gain + step*step_count);
+                step_count += 1.0f;
+                return dry;
+            });
+            pos += leftover;
         }
-        if(pos == Counter)
-            gain = TargetGain;
-        else
-            gain += step*step_count;
+        if(pos < Counter)
+        {
+            CurrentGain = gain + step*step_count;
+            return;
+        }
 
         /* Mix until pos is aligned with 4 or the mix is done. */
-        for(size_t leftover{aligned_len&3};leftover;++pos,--leftover)
-            dst[pos] += InSamples[pos] * gain;
-    }
-    CurrentGain = gain;
+        if(auto const leftover = realign_len&3)
+        {
+            auto const in = InSamples.subspan(pos, leftover);
+            auto const out = dst.subspan(pos);
 
-    if(!(std::abs(gain) > GainSilenceThreshold))
-        return;
-    if(size_t todo{(InSamples.size()-pos) >> 2})
-    {
-        const float32x4_t gain4 = vdupq_n_f32(gain);
-        do {
-            const float32x4_t val4 = vld1q_f32(&InSamples[pos]);
-            float32x4_t dry4 = vld1q_f32(&dst[pos]);
-            dry4 = vmlaq_f32(dry4, val4, gain4);
-            vst1q_f32(&dst[pos], dry4);
-            pos += 4;
-        } while(--todo);
+            std::ranges::transform(in, out, out.begin(),
+                [TargetGain](float const val, float const dry) noexcept -> float
+                { return dry + val*TargetGain; });
+            pos += leftover;
+        }
     }
-    for(size_t leftover{(InSamples.size()-pos)&3};leftover;++pos,--leftover)
-        dst[pos] += InSamples[pos] * gain;
+    CurrentGain = TargetGain;
+
+    if(!(std::abs(TargetGain) > GainSilenceThreshold))
+        return;
+    if(auto const todo = (InSamples.size()-pos) >> 2)
+    {
+        /* NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) */
+        auto const in4 = std::span{reinterpret_cast<const float32x4_t*>(InSamples.data()),
+            InSamples.size()/4}.last(todo);
+        auto const out = dst.subspan(pos);
+        auto const out4 = std::span{reinterpret_cast<float32x4_t*>(out.data()), out.size()/4};
+        /* NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast) */
+
+        auto const gain4 = vdupq_n_f32(TargetGain);
+        std::ranges::transform(in4, out4, out4.begin(),
+            [gain4](float32x4_t const val4, float32x4_t const dry4) -> float32x4_t
+            { return vmlaq_f32(dry4, val4, gain4); });
+        pos += in4.size()*4;
+    }
+    if(auto const leftover = (InSamples.size()-pos)&3)
+    {
+        auto const in = InSamples.last(leftover);
+        auto const out = dst.subspan(pos);
+
+        std::ranges::transform(in, out, out.begin(),
+            [TargetGain](float const val, float const dry) noexcept -> float
+            { return dry + val*TargetGain; });
+    }
 }
 
 } // namespace
 
-template<>
-void Resample_<LerpTag,NEONTag>(const InterpState*, const float *RESTRICT src, uint frac,
-    const uint increment, const al::span<float> dst)
+void Resample_Linear_NEON(InterpState const*, std::span<float const> const src, unsigned frac,
+    unsigned const increment, std::span<float> const dst) noexcept NONBLOCKING
 {
     ASSUME(frac < MixerFracOne);
 
-    const int32x4_t increment4 = vdupq_n_s32(static_cast<int>(increment*4));
-    const float32x4_t fracOne4 = vdupq_n_f32(1.0f/MixerFracOne);
-    const int32x4_t fracMask4 = vdupq_n_s32(MixerFracMask);
-    alignas(16) uint pos_[4], frac_[4];
-    int32x4_t pos4, frac4;
+    auto const increment4 = vdupq_n_u32(increment*4u);
+    auto const fracMask4 = vdupq_n_u32(MixerFracMask);
+    auto const fracOne4 = vdupq_n_f32(1.0f/MixerFracOne);
 
-    InitPosArrays(frac, increment, frac_, pos_);
-    frac4 = vld1q_s32(reinterpret_cast<int*>(frac_));
-    pos4 = vld1q_s32(reinterpret_cast<int*>(pos_));
+    alignas(16) auto pos_ = std::array<unsigned, 4>{};
+    alignas(16) auto frac_ = std::array<unsigned, 4>{};
+    InitPosArrays(MaxResamplerEdge, frac, increment, std::span{frac_}, std::span{pos_});
+    auto frac4 = vld1q_u32(frac_.data());
+    auto pos4 = vld1q_u32(pos_.data());
 
-    auto dst_iter = dst.begin();
-    for(size_t todo{dst.size()>>2};todo;--todo)
+    /* NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) */
+    std::ranges::generate(std::span{reinterpret_cast<float32x4_t*>(dst.data()), dst.size()/4},
+        [src,increment4,fracMask4,fracOne4,&pos4,&frac4]
     {
-        const int pos0{vgetq_lane_s32(pos4, 0)};
-        const int pos1{vgetq_lane_s32(pos4, 1)};
-        const int pos2{vgetq_lane_s32(pos4, 2)};
-        const int pos3{vgetq_lane_s32(pos4, 3)};
-        const float32x4_t val1{set_f4(src[pos0], src[pos1], src[pos2], src[pos3])};
-        const float32x4_t val2{set_f4(src[pos0+1], src[pos1+1], src[pos2+1], src[pos3+1])};
+        auto const pos0 = vgetq_lane_u32(pos4, 0);
+        auto const pos1 = vgetq_lane_u32(pos4, 1);
+        auto const pos2 = vgetq_lane_u32(pos4, 2);
+        auto const pos3 = vgetq_lane_u32(pos4, 3);
+        ASSUME(pos0 <= pos1); ASSUME(pos1 <= pos2); ASSUME(pos2 <= pos3);
+        auto const val1 = set_f4(src[pos0], src[pos1], src[pos2], src[pos3]);
+        auto const val2 = set_f4(src[pos0+1_uz], src[pos1+1_uz], src[pos2+1_uz], src[pos3+1_uz]);
 
         /* val1 + (val2-val1)*mu */
-        const float32x4_t r0{vsubq_f32(val2, val1)};
-        const float32x4_t mu{vmulq_f32(vcvtq_f32_s32(frac4), fracOne4)};
-        const float32x4_t out{vmlaq_f32(val1, mu, r0)};
+        auto const r0 = vsubq_f32(val2, val1);
+        auto const mu = vmulq_f32(vcvtq_f32_u32(frac4), fracOne4);
+        auto const out = vmlaq_f32(val1, mu, r0);
 
-        vst1q_f32(dst_iter, out);
-        dst_iter += 4;
+        frac4 = vaddq_u32(frac4, increment4);
+        pos4 = vaddq_u32(pos4, vshrq_n_u32(frac4, MixerFracBits));
+        frac4 = vandq_u32(frac4, fracMask4);
+        return out;
+    });
 
-        frac4 = vaddq_s32(frac4, increment4);
-        pos4 = vaddq_s32(pos4, vshrq_n_s32(frac4, MixerFracBits));
-        frac4 = vandq_s32(frac4, fracMask4);
-    }
-
-    if(size_t todo{dst.size()&3})
+    if(auto const todo = dst.size()&3)
     {
-        src += static_cast<uint>(vgetq_lane_s32(pos4, 0));
-        frac = static_cast<uint>(vgetq_lane_s32(frac4, 0));
+        auto pos = std::size_t{vgetq_lane_u32(pos4, 0)};
+        frac = vgetq_lane_u32(frac4, 0);
 
-        do {
-            *(dst_iter++) = lerpf(src[0], src[1], static_cast<float>(frac) * (1.0f/MixerFracOne));
+        std::ranges::generate(dst.last(todo), [&pos,&frac,src,increment]
+        {
+            auto const output = lerpf(src[pos+0], src[pos+1],
+                gsl::narrow_cast<float>(frac) * (1.0f/MixerFracOne));
 
             frac += increment;
-            src  += frac>>MixerFracBits;
+            pos  += frac>>MixerFracBits;
             frac &= MixerFracMask;
-        } while(--todo);
+            return output;
+        });
     }
 }
 
-template<>
-void Resample_<CubicTag,NEONTag>(const InterpState *state, const float *RESTRICT src, uint frac,
-    const uint increment, const al::span<float> dst)
+void Resample_Cubic_NEON(InterpState const *const state, std::span<float const> const src,
+    unsigned frac, unsigned const increment, std::span<float> const dst) noexcept NONBLOCKING
 {
     ASSUME(frac < MixerFracOne);
 
-    const CubicCoefficients *RESTRICT filter = al::assume_aligned<16>(state->cubic.filter);
+    auto const filter = gsl::not_null{std::get_if<CubicState>(state)}->filter;
 
-    src -= 1;
-    for(float &out_sample : dst)
+    auto const increment4 = vdupq_n_u32(increment*4u);
+    auto const fracMask4 = vdupq_n_u32(MixerFracMask);
+    auto const fracDiffOne4 = vdupq_n_f32(1.0f/CubicPhaseDiffOne);
+    auto const fracDiffMask4 = vdupq_n_u32(CubicPhaseDiffMask);
+
+    alignas(16) auto pos_ = std::array<unsigned, 4>{};
+    alignas(16) auto frac_ = std::array<unsigned, 4>{};
+    InitPosArrays(MaxResamplerEdge-1, frac, increment, std::span{frac_}, std::span{pos_});
+    auto frac4 = vld1q_u32(frac_.data());
+    auto pos4 = vld1q_u32(pos_.data());
+
+    /* NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) */
+    std::ranges::generate(std::span{reinterpret_cast<float32x4_t*>(dst.data()), dst.size()/4},
+        [src,filter,increment4,fracMask4,fracDiffOne4,fracDiffMask4,&pos4,&frac4]
     {
-        const uint pi{frac >> CubicPhaseDiffBits};
-        const float pf{static_cast<float>(frac&CubicPhaseDiffMask) * (1.0f/CubicPhaseDiffOne)};
-        const float32x4_t pf4{vdupq_n_f32(pf)};
+        auto const pos0 = vgetq_lane_u32(pos4, 0);
+        auto const pos1 = vgetq_lane_u32(pos4, 1);
+        auto const pos2 = vgetq_lane_u32(pos4, 2);
+        auto const pos3 = vgetq_lane_u32(pos4, 3);
+        ASSUME(pos0 <= pos1); ASSUME(pos1 <= pos2); ASSUME(pos2 <= pos3);
+        auto const val0 = vld1q_f32(&src[pos0]);
+        auto const val1 = vld1q_f32(&src[pos1]);
+        auto const val2 = vld1q_f32(&src[pos2]);
+        auto const val3 = vld1q_f32(&src[pos3]);
 
-        /* Apply the phase interpolated filter. */
+        auto const pi4 = vshrq_n_u32(frac4, CubicPhaseDiffBits);
+        auto const pi0 = vgetq_lane_u32(pi4, 0); ASSUME(pi0 < CubicPhaseCount);
+        auto const pi1 = vgetq_lane_u32(pi4, 1); ASSUME(pi1 < CubicPhaseCount);
+        auto const pi2 = vgetq_lane_u32(pi4, 2); ASSUME(pi2 < CubicPhaseCount);
+        auto const pi3 = vgetq_lane_u32(pi4, 3); ASSUME(pi3 < CubicPhaseCount);
 
-        /* f = fil + pf*phd */
-        const float32x4_t f4 = vmlaq_f32(vld1q_f32(filter[pi].mCoeffs), pf4,
-            vld1q_f32(filter[pi].mDeltas));
-        /* r = f*src */
-        float32x4_t r4{vmulq_f32(f4, vld1q_f32(src))};
+        auto const pf4 = vmulq_f32(vcvtq_f32_u32(vandq_u32(frac4, fracDiffMask4)),
+            fracDiffOne4);
 
-        r4 = vaddq_f32(r4, vrev64q_f32(r4));
-        out_sample = vget_lane_f32(vadd_f32(vget_low_f32(r4), vget_high_f32(r4)), 0);
+        auto r0 = vmulq_f32(val0,
+            vmlaq_f32(vld1q_f32(filter[pi0].mCoeffs.data()), vdupq_lane_f32(vget_low_f32(pf4), 0),
+                vld1q_f32(filter[pi0].mDeltas.data())));
+        auto r1 = vmulq_f32(val1,
+            vmlaq_f32(vld1q_f32(filter[pi1].mCoeffs.data()), vdupq_lane_f32(vget_low_f32(pf4), 1),
+                vld1q_f32(filter[pi1].mDeltas.data())));
+        auto r2 = vmulq_f32(val2,
+            vmlaq_f32(vld1q_f32(filter[pi2].mCoeffs.data()), vdupq_lane_f32(vget_high_f32(pf4), 0),
+                vld1q_f32(filter[pi2].mDeltas.data())));
+        auto r3 = vmulq_f32(val3,
+            vmlaq_f32(vld1q_f32(filter[pi3].mCoeffs.data()), vdupq_lane_f32(vget_high_f32(pf4), 1),
+                vld1q_f32(filter[pi3].mDeltas.data())));
 
-        frac += increment;
-        src  += frac>>MixerFracBits;
-        frac &= MixerFracMask;
-    }
-}
+        vtranspose4(r0, r1, r2, r3);
+        r0 = vaddq_f32(vaddq_f32(r0, r1), vaddq_f32(r2, r3));
 
-template<>
-void Resample_<BSincTag,NEONTag>(const InterpState *state, const float *RESTRICT src, uint frac,
-    const uint increment, const al::span<float> dst)
-{
-    const float *const filter{state->bsinc.filter};
-    const float32x4_t sf4{vdupq_n_f32(state->bsinc.sf)};
-    const size_t m{state->bsinc.m};
-    ASSUME(m > 0);
-    ASSUME(frac < MixerFracOne);
+        frac4 = vaddq_u32(frac4, increment4);
+        pos4 = vaddq_u32(pos4, vshrq_n_u32(frac4, MixerFracBits));
+        frac4 = vandq_u32(frac4, fracMask4);
+        return r0;
+    });
 
-    src -= state->bsinc.l;
-    for(float &out_sample : dst)
+    if(auto const todo = dst.size()&3)
     {
-        // Calculate the phase index and factor.
-        const uint pi{frac >> BSincPhaseDiffBits};
-        const float pf{static_cast<float>(frac&BSincPhaseDiffMask) * (1.0f/BSincPhaseDiffOne)};
+        auto pos = std::size_t{vgetq_lane_u32(pos4, 0)};
+        frac = vgetq_lane_u32(frac4, 0);
 
-        // Apply the scale and phase interpolated filter.
-        float32x4_t r4{vdupq_n_f32(0.0f)};
+        std::ranges::generate(dst.last(todo), [&pos,&frac,src,increment,filter]
         {
-            const float32x4_t pf4{vdupq_n_f32(pf)};
-            const float *RESTRICT fil{filter + m*pi*2};
-            const float *RESTRICT phd{fil + m};
-            const float *RESTRICT scd{fil + BSincPhaseCount*2*m};
-            const float *RESTRICT spd{scd + m};
-            size_t td{m >> 2};
-            size_t j{0u};
+            auto const pi = frac >> CubicPhaseDiffBits; ASSUME(pi < CubicPhaseCount);
+            auto const pf = gsl::narrow_cast<float>(frac&CubicPhaseDiffMask)
+                * float{1.0f/CubicPhaseDiffOne};
+            auto const pf4 = vdupq_n_f32(pf);
 
-            do {
-                /* f = ((fil + sf*scd) + pf*(phd + sf*spd)) */
-                const float32x4_t f4 = vmlaq_f32(
-                    vmlaq_f32(vld1q_f32(&fil[j]), sf4, vld1q_f32(&scd[j])),
-                    pf4, vmlaq_f32(vld1q_f32(&phd[j]), sf4, vld1q_f32(&spd[j])));
-                /* r += f*src */
-                r4 = vmlaq_f32(r4, f4, vld1q_f32(&src[j]));
-                j += 4;
-            } while(--td);
-        }
-        r4 = vaddq_f32(r4, vrev64q_f32(r4));
-        out_sample = vget_lane_f32(vadd_f32(vget_low_f32(r4), vget_high_f32(r4)), 0);
+            auto const f4 = vmlaq_f32(vld1q_f32(filter[pi].mCoeffs.data()), pf4,
+                vld1q_f32(filter[pi].mDeltas.data()));
+            auto r4 = vmulq_f32(f4, vld1q_f32(&src[pos]));
 
-        frac += increment;
-        src  += frac>>MixerFracBits;
-        frac &= MixerFracMask;
+            r4 = vaddq_f32(r4, vrev64q_f32(r4));
+            auto const output = vget_lane_f32(vadd_f32(vget_low_f32(r4), vget_high_f32(r4)), 0);
+
+            frac += increment;
+            pos  += frac>>MixerFracBits;
+            frac &= MixerFracMask;
+            return output;
+        });
     }
 }
 
-template<>
-void Resample_<FastBSincTag,NEONTag>(const InterpState *state, const float *RESTRICT src, uint frac,
-    const uint increment, const al::span<float> dst)
+void Resample_FastBSinc_NEON(InterpState const *const state, std::span<float const> const src,
+    unsigned frac, unsigned const increment, std::span<float> const dst) noexcept NONBLOCKING
 {
-    const float *const filter{state->bsinc.filter};
-    const size_t m{state->bsinc.m};
+    auto const &bsinc = *gsl::not_null{std::get_if<BsincState>(state)};
+    auto const m = std::size_t{bsinc.m.c_val};
     ASSUME(m > 0);
+    ASSUME(m <= MaxResamplerPadding);
     ASSUME(frac < MixerFracOne);
 
-    src -= state->bsinc.l;
-    for(float &out_sample : dst)
+    auto const filter = bsinc.filter.first(2_uz*BSincPhaseCount*m);
+
+    ASSUME(bsinc.l.c_val <= MaxResamplerEdge);
+    auto pos = std::size_t{MaxResamplerEdge-bsinc.l.c_val};
+    std::ranges::generate(dst, [&pos,&frac,src,increment,m,filter]() -> float
     {
         // Calculate the phase index and factor.
-        const uint pi{frac >> BSincPhaseDiffBits};
-        const float pf{static_cast<float>(frac&BSincPhaseDiffMask) * (1.0f/BSincPhaseDiffOne)};
+        auto const pi = frac >> BSincPhaseDiffBits; ASSUME(pi < BSincPhaseCount);
+        auto const pf = static_cast<float>(frac&BSincPhaseDiffMask)*float{1.0f/BSincPhaseDiffOne};
 
         // Apply the phase interpolated filter.
-        float32x4_t r4{vdupq_n_f32(0.0f)};
+        auto r4 = vdupq_n_f32(0.0f);
         {
-            const float32x4_t pf4{vdupq_n_f32(pf)};
-            const float *RESTRICT fil{filter + m*pi*2};
-            const float *RESTRICT phd{fil + m};
-            size_t td{m >> 2};
-            size_t j{0u};
+            auto const pf4 = vdupq_n_f32(pf);
+            auto const fil = filter.subspan(2_uz*pi*m);
+            auto const phd = fil.subspan(m);
+            auto td = m >> 2_uz;
+            auto j = 0_uz;
 
             do {
                 /* f = fil + pf*phd */
-                const float32x4_t f4 = vmlaq_f32(vld1q_f32(&fil[j]), pf4, vld1q_f32(&phd[j]));
+                auto const f4 = vmlaq_f32(vld1q_f32(&fil[j]), pf4, vld1q_f32(&phd[j]));
                 /* r += f*src */
-                r4 = vmlaq_f32(r4, f4, vld1q_f32(&src[j]));
+                r4 = vmlaq_f32(r4, f4, vld1q_f32(&src[pos+j]));
                 j += 4;
             } while(--td);
         }
         r4 = vaddq_f32(r4, vrev64q_f32(r4));
-        out_sample = vget_lane_f32(vadd_f32(vget_low_f32(r4), vget_high_f32(r4)), 0);
+        auto const output = vget_lane_f32(vadd_f32(vget_low_f32(r4), vget_high_f32(r4)), 0);
 
         frac += increment;
-        src  += frac>>MixerFracBits;
+        pos  += frac>>MixerFracBits;
         frac &= MixerFracMask;
-    }
+        return output;
+    });
+}
+
+void Resample_BSinc_NEON(InterpState const *const state, std::span<float const> const src,
+    unsigned frac, unsigned const increment, std::span<float> const dst) noexcept NONBLOCKING
+{
+    auto const &bsinc = *gsl::not_null{std::get_if<BsincState>(state)};
+    auto const sf4 = vdupq_n_f32(bsinc.sf);
+    auto const m = std::size_t{bsinc.m.c_val};
+    ASSUME(m > 0);
+    ASSUME(m <= MaxResamplerPadding);
+    ASSUME(frac < MixerFracOne);
+
+    auto const filter = bsinc.filter.first(4_uz*BSincPhaseCount*m);
+
+    ASSUME(bsinc.l.c_val <= MaxResamplerEdge);
+    auto pos = std::size_t{MaxResamplerEdge-bsinc.l.c_val};
+    std::ranges::generate(dst, [&pos,&frac,src,increment,sf4,m,filter]() -> float
+    {
+        // Calculate the phase index and factor.
+        auto const pi = frac >> BSincPhaseDiffBits; ASSUME(pi < BSincPhaseCount);
+        auto const pf = static_cast<float>(frac&BSincPhaseDiffMask)*float{1.0f/BSincPhaseDiffOne};
+
+        // Apply the scale and phase interpolated filter.
+        auto r4 = vdupq_n_f32(0.0f);
+        {
+            auto const pf4 = vdupq_n_f32(pf);
+            auto const fil = filter.subspan(2_uz*pi*m);
+            auto const phd = fil.subspan(m);
+            auto const scd = fil.subspan(2_uz*BSincPhaseCount*m);
+            auto const spd = scd.subspan(m);
+            auto td = m >> 2_uz;
+            auto j = 0_uz;
+
+            do {
+                /* f = ((fil + sf*scd) + pf*(phd + sf*spd)) */
+                auto const f4 = vmlaq_f32(
+                    vmlaq_f32(vld1q_f32(&fil[j]), sf4, vld1q_f32(&scd[j])),
+                    pf4, vmlaq_f32(vld1q_f32(&phd[j]), sf4, vld1q_f32(&spd[j])));
+                /* r += f*src */
+                r4 = vmlaq_f32(r4, f4, vld1q_f32(&src[pos+j]));
+                j += 4;
+            } while(--td);
+        }
+        r4 = vaddq_f32(r4, vrev64q_f32(r4));
+        auto const output = vget_lane_f32(vadd_f32(vget_low_f32(r4), vget_high_f32(r4)), 0);
+
+        frac += increment;
+        pos  += frac>>MixerFracBits;
+        frac &= MixerFracMask;
+        return output;
+    });
 }
 
 
-template<>
-void MixHrtf_<NEONTag>(const float *InSamples, float2 *AccumSamples, const uint IrSize,
-    const MixHrtfFilter *hrtfparams, const size_t BufferSize)
-{ MixHrtfBase<ApplyCoeffs>(InSamples, AccumSamples, IrSize, hrtfparams, BufferSize); }
+void MixHrtf_NEON(std::span<float const> const InSamples, std::span<f32x2> const AccumSamples,
+    unsigned const IrSize, MixHrtfFilter const *const hrtfparams, std::size_t const SamplesToDo)
+    noexcept NONBLOCKING
+{ MixHrtfBase<ApplyCoeffs>(InSamples, AccumSamples, IrSize, hrtfparams, SamplesToDo); }
 
-template<>
-void MixHrtfBlend_<NEONTag>(const float *InSamples, float2 *AccumSamples, const uint IrSize,
-    const HrtfFilter *oldparams, const MixHrtfFilter *newparams, const size_t BufferSize)
+void MixHrtfBlend_NEON(std::span<float const> const InSamples, std::span<f32x2> const AccumSamples,
+    unsigned const IrSize, HrtfFilter const *const oldparams, MixHrtfFilter const *const newparams,
+    std::size_t const SamplesToDo) noexcept NONBLOCKING
 {
     MixHrtfBlendBase<ApplyCoeffs>(InSamples, AccumSamples, IrSize, oldparams, newparams,
-        BufferSize);
+        SamplesToDo);
 }
 
-template<>
-void MixDirectHrtf_<NEONTag>(const FloatBufferSpan LeftOut, const FloatBufferSpan RightOut,
-    const al::span<const FloatBufferLine> InSamples, float2 *AccumSamples,
-    float *TempBuf, HrtfChannelState *ChanState, const size_t IrSize, const size_t BufferSize)
+void MixDirectHrtf_NEON(FloatBufferSpan const LeftOut, FloatBufferSpan const RightOut,
+    std::span<FloatBufferLine const> const InSamples, std::span<f32x2> const AccumSamples,
+    std::span<float, BufferLineSize> const TempBuf, std::span<HrtfChannelState> const ChanState,
+    std::size_t const IrSize, std::size_t const SamplesToDo) noexcept NONBLOCKING
 {
     MixDirectHrtfBase<ApplyCoeffs>(LeftOut, RightOut, InSamples, AccumSamples, TempBuf, ChanState,
-        IrSize, BufferSize);
+        IrSize, SamplesToDo);
 }
 
 
-template<>
-void Mix_<NEONTag>(const al::span<const float> InSamples, const al::span<FloatBufferLine> OutBuffer,
-    float *CurrentGains, const float *TargetGains, const size_t Counter, const size_t OutPos)
+void Mix_NEON(std::span<float const> const InSamples, std::span<FloatBufferLine> const OutBuffer,
+    std::span<float> const CurrentGains, std::span<float const> const TargetGains,
+    std::size_t const Counter, std::size_t const OutPos) noexcept NONBLOCKING
 {
-    const float delta{(Counter > 0) ? 1.0f / static_cast<float>(Counter) : 0.0f};
-    const auto min_len = minz(Counter, InSamples.size());
-    const auto aligned_len = minz((min_len+3) & ~size_t{3}, InSamples.size()) - min_len;
+    if((OutPos&3) != 0) [[unlikely]]
+        return Mix_C(InSamples, OutBuffer, CurrentGains, TargetGains, Counter, OutPos);
 
-    for(FloatBufferLine &output : OutBuffer)
-        MixLine(InSamples, al::assume_aligned<16>(output.data()+OutPos), *CurrentGains++,
-            *TargetGains++, delta, min_len, aligned_len, Counter);
+    auto const delta = (Counter > 0) ? 1.0f / static_cast<float>(Counter) : 0.0f;
+    auto const fade_len = std::min(Counter, InSamples.size());
+    auto const realign_len = std::min((fade_len+3_uz) & ~3_uz, InSamples.size()) - fade_len;
+
+    auto curgains = CurrentGains.begin();
+    auto targetgains = TargetGains.begin();
+    for(FloatBufferSpan const output : OutBuffer)
+        MixLine(InSamples, output.subspan(OutPos), *curgains++, *targetgains++, delta, fade_len,
+            realign_len, Counter);
 }
 
-template<>
-void Mix_<NEONTag>(const al::span<const float> InSamples, float *OutBuffer, float &CurrentGain,
-    const float TargetGain, const size_t Counter)
+void Mix_NEON(std::span<float const> const InSamples, std::span<float> const OutBuffer,
+    float &CurrentGain, float const TargetGain, std::size_t const Counter) noexcept NONBLOCKING
 {
-    const float delta{(Counter > 0) ? 1.0f / static_cast<float>(Counter) : 0.0f};
-    const auto min_len = minz(Counter, InSamples.size());
-    const auto aligned_len = minz((min_len+3) & ~size_t{3}, InSamples.size()) - min_len;
+    /* NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) */
+    if((reinterpret_cast<uintptr_t>(OutBuffer.data())&15) != 0) [[unlikely]]
+        return Mix_C(InSamples, OutBuffer, CurrentGain, TargetGain, Counter);
 
-    MixLine(InSamples, al::assume_aligned<16>(OutBuffer), CurrentGain, TargetGain, delta, min_len,
-        aligned_len, Counter);
+    auto const delta = (Counter > 0) ? 1.0f / static_cast<float>(Counter) : 0.0f;
+    auto const fade_len = std::min(Counter, InSamples.size());
+    auto const realign_len = std::min((fade_len+3_uz) & ~3_uz, InSamples.size()) - fade_len;
+
+    MixLine(InSamples, OutBuffer, CurrentGain, TargetGain, delta, fade_len, realign_len, Counter);
 }
