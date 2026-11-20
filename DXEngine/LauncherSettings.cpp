@@ -130,6 +130,7 @@ LauncherSettings::LauncherSettings()
 		ReadFloat(pad, "Gamepad", "LookSensitivityY", Gamepad.LookSensitivityY);
 		ReadBool(pad, "Gamepad", "InvertY", Gamepad.InvertY);
 		ReadFloat(pad, "Gamepad", "CursorSpeed", Gamepad.CursorSpeed);
+		ReadBool(pad, "Gamepad", "DXController", Gamepad.DXController);
 
 		const JsonValue& perf = settings["Performance"];
 		ReadFloat(perf, "Performance", "RenderScale", Performance.RenderScale);

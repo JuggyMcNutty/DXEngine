@@ -1,0 +1,73 @@
+# The window's virtual pad for PadModeConsole on Liberty Island, the pad's
+# DXController mode on (tools/dxcap/dxcontroller-settings.json) or off
+# (pad-settings.json): each button pressed and let go in SDL's order, the
+# d-pad's four among them; each stick's axis to -1, -0.5, 0.5 and 1 and back
+# to rest; each trigger to 0.05 (under the threshold), 0.5 and 1 and back;
+# the right stick right 3 s for the turn (31 s and 32 s: PadModeConsole's
+# GamepadGetRawMag and GamepadReload while it is held); then the right stick
+# down from 36 s to 50 s, over which tools/dxcap/focusheld.py may take the
+# window's focus away and give it back. Either SDL window (DXCAP_BACKEND=SDL3
+# or SDL2), then an exit.
+start 14.0 pad A down
+start 14.2 pad A up
+start 14.4 pad B down
+start 14.6 pad B up
+start 14.8 pad X down
+start 15.0 pad X up
+start 15.2 pad Y down
+start 15.4 pad Y up
+start 15.6 pad Back down
+start 15.8 pad Back up
+start 16.0 pad Guide down
+start 16.2 pad Guide up
+start 16.4 pad LeftStick down
+start 16.6 pad LeftStick up
+start 16.8 pad RightStick down
+start 17.0 pad RightStick up
+start 17.2 pad LeftShoulder down
+start 17.4 pad LeftShoulder up
+start 17.6 pad RightShoulder down
+start 17.8 pad RightShoulder up
+start 18.0 pad DpadUp down
+start 18.2 pad DpadUp up
+start 18.4 pad DpadDown down
+start 18.6 pad DpadDown up
+start 18.8 pad DpadLeft down
+start 19.0 pad DpadLeft up
+start 19.2 pad DpadRight down
+start 19.4 pad DpadRight up
+start 19.6 pad Start down
+start 19.8 pad Start up
+start 20.0 padaxis LeftX -1
+start 20.3 padaxis LeftX -0.5
+start 20.6 padaxis LeftX 0.5
+start 20.9 padaxis LeftX 1
+start 21.2 padaxis LeftX 0
+start 21.6 padaxis LeftY -1
+start 21.9 padaxis LeftY -0.5
+start 22.2 padaxis LeftY 0.5
+start 22.5 padaxis LeftY 1
+start 22.8 padaxis LeftY 0
+start 23.2 padaxis RightX -1
+start 23.5 padaxis RightX -0.5
+start 23.8 padaxis RightX 0.5
+start 24.1 padaxis RightX 1
+start 24.4 padaxis RightX 0
+start 24.8 padaxis RightY -1
+start 25.1 padaxis RightY -0.5
+start 25.4 padaxis RightY 0.5
+start 25.7 padaxis RightY 1
+start 26.0 padaxis RightY 0
+start 26.4 padaxis LeftTrigger 0.05
+start 26.7 padaxis LeftTrigger 0.5
+start 27.0 padaxis LeftTrigger 1
+start 27.3 padaxis LeftTrigger 0
+start 27.7 padaxis RightTrigger 0.05
+start 28.0 padaxis RightTrigger 0.5
+start 28.3 padaxis RightTrigger 1
+start 28.6 padaxis RightTrigger 0
+start 30.0 padaxis RightX 1
+start 33.0 padaxis RightX 0
+start 36.0 padaxis RightY 1
+start 50.0 padaxis RightY 0
+start 52 exit

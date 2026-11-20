@@ -63,7 +63,9 @@ are gone.
   compares, each without MSAA or vsync: `perf-settings.json` (GL), `gles-settings.json` (the GL
   device on an ES context, as the Smart Pro draws), `vulkan-settings.json`,
   `software-settings.json`, and Mesa's CPU drivers' (`CPUDriver`), `lavapipe-settings.json` and
-  `llvmpipe-settings.json`.
+  `llvmpipe-settings.json`; and two on Vulkan with the pad read (`Gamepad.Enabled`):
+  `pad-settings.json`, DXEngine's own pad, and `dxcontroller-settings.json`, the pad's
+  DXController mode ([the pad](ENGINE.md#the-pads-dxcontroller-mode)).
 - **Results.** A run's log (`engine.log` or `DeusEx.log`), shots and recording land in
   `build/dxcap/runs/<engine>-<console>-<date>-<time>/`.
 
@@ -299,6 +301,7 @@ launcher's part, which DXEngine leaves to the launchers.
 | `TypeConsole` | both | text typed into an edit field on the main menu, past ASCII and 8 and 16 bits, and several characters at once: DXEngine's by the timeline, the original's by `xdotool type` into its window once the field is logged (its capitals come lower case) | `DXTYPE:` | with `tools/dxcap/timelines/type.txt`; with none under `DXCAP_BACKEND=Wayland` or `SDL3-Wayland`, beside `tools/dxcap/imtype.py build/dxcap/runs` (`--toggle`: Ctrl+Space first, for an input method that starts off, fcitx5's), a uinput keyboard typing `nihao ` once the field is logged, through the desktop's input method (KWin's Virtual Keyboard, a Pinyin one): `你好`, 20320 and 22909; KWin's `/VirtualKeyboard` `activeClientSupportsTextInput` (`busctl --user`) true while the field has the focus (bugs.md WIN.35, WIN.39) |
 | `PasteConsole` | both | `PasteFromClipboard`'s text, its length and the codes of its first 64 characters, the clipboard holding "dxcap paste" or what the run's X selection owner holds (an owner alive through the run); then the game's own copy (`CopyToClipboard`) of "dxcap copy" and three characters, one past Latin-1, pasted back | `DXPASTE:` | the two logs' lines |
 | `PadConsole` | dxe | the player's place, speed, facing and physics every half second, and the root window's size, as a pad or the keys move it | `DXPAD:` | with `tools/dxcap/timelines/pad.txt` or `axis-keys.txt` (`DXCAP_BACKEND=SDL3`), on a `DXCAP_SETTINGS` file whose `Gamepad.Enabled` is true (`vulkan-settings.json`'s is not: the virtual pad attaches and moves nothing) |
+| `PadModeConsole` | dxe | on Liberty Island, each `KeyEvent` of a pad's key the console sees (its name, number, action and value), each run of `JoyU`'s axis events summed against the view's yaw, and the answers of the pad's DXController words (`GamepadGetInfo`, `GamepadSampleCurve`, `GamepadGetRawMag` at rest and with the right stick held, `GamepadReload`); an exit at `Seconds` (55) | `DXPADMODE:` | with `tools/dxcap/timelines/pad-mode.txt` (`DXCAP_BACKEND=SDL3` or `SDL2`), on `dxcontroller-settings.json` (the mode: the button table, axes of -1000..1000 every tick and one 0 at rest, triggers as axes, the words answered) and on `pad-settings.json` (DXEngine's own pad: axes of -100..100 and a release at rest, the triggers `Joy11` and `Joy12`, no word answered); beside `tools/dxcap/focusheld.py keys 36 4 2`, the releases and 0s at the focus's loss; at `DXCAP_FPS=60` and `120`, the yaw a tick a `JoyU` unit the same in the mode |
 | `AxisConsole` | both | an input axis a script sets: the player's `aBaseY` set to `Axis` from the console's tick for `Ticks` ticks on the island, each tick's acceleration and speed | `DXAXIS:` | the accelerations at `DXCAP_FPS=60`, the speeds tick by tick |
 | `BindConsole` | both | the island's input bytes every quarter second and exec functions of its own (`Mark`, `Shot`, `ShowPath`), for `bind-keys.txt`'s keys on DXEngine with a `User.ini` binding them (its header); in both engines the console's `TIMEDEMO` by command, started and stopped | `DXBIND:` | the timedemo's result lines, from `DX.dx` in both (a level change restarts it, its first result empty) |
 | `KeysConsole` | dxe | the console's state and the root window's marks of Shift, Ctrl and Alt every quarter second, as a timeline holds Left Shift while typing `~`: the marks follow the keys and the state stays, a `~` with Shift a character as any other | `DXKEYS:` | with `tools/dxcap/timelines/held-keys.txt`, `DXCAP_BACKEND=SDL3` |
@@ -575,6 +578,7 @@ console with `DXCAP_BACKEND=SDL3`, `bad-keys.txt`, a `Button` and an
 `Axis` the pawn lacks pressed on the stock console (`DXCAP_USERINI` binding them), and, each one
 console's input, `loot-drags.txt` (`LootConsole`), `stray-release.txt` (`KeypadConsole`),
 `scroll.txt` (`ScrollConsole`), `clicks.txt` (`ClickConsole`), `pad.txt` (`PadConsole`),
+`pad-mode.txt` (`PadModeConsole`),
 `maximize-back.txt` (`PadConsole`: the console's `togglefullscreen` at 30 s, beside
 `tools/dxcap/maximize.py :0 ' - DXEngine$' 20 12`, which asks the window manager to maximize the
 game's window at 20 s and logs its state and size; `'^Deus Ex$'` the original's; with

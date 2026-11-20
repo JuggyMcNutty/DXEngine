@@ -22,6 +22,8 @@ public:
 	std::vector<Size> GetFullscreenModes() override;
 
 	bool GetGamepadState(GamepadState& state) override;
+	void GetGamepads(std::vector<GamepadFullState>& pads) override;
+	void SetGamepadSensors(bool gyro, bool accel) override;
 	void SetGamepadKeyEmulation(bool enable) override;
 	bool SimulateKey(const std::string& name, bool down) override;
 	bool SimulateKeyLayout(const std::string& family) override;
@@ -32,6 +34,11 @@ public:
 
 private:
 	SDL_Gamepad* Gamepad = nullptr;
+	// GetGamepads' pads, each with the sensors switched on on it
+	struct OpenPad { SDL_Gamepad* Pad; bool Gyro; bool Accel; };
+	std::vector<OpenPad> Pads;
+	bool WantGyro = false;
+	bool WantAccel = false;
 	SDL_Joystick* VirtualPad();
 	SDL_Joystick* Virtual = nullptr;
 };

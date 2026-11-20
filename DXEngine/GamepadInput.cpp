@@ -74,6 +74,15 @@ namespace
 	}
 }
 
+void GamepadInput::Start(PackageManager* packages)
+{
+	dxcMode = LauncherSettings::Get().Gamepad.DXController;
+	if (!dxcMode)
+		return;
+	LogMessage("Gamepad: the DXController mode");
+	dxc.LoadIni(packages);
+}
+
 void GamepadInput::Configure()
 {
 	if (configured)
@@ -290,8 +299,13 @@ void GamepadInput::Pointer(Engine* engine, const GamepadState& state, float time
 		engine->OnWindowRawMouseMove(dx, dy);
 }
 
-void GamepadInput::Forget()
+void GamepadInput::Forget(Engine* engine)
 {
+	if (dxcMode)
+	{
+		dxc.ReleaseAll(engine);
+		return;
+	}
 	for (int i = 0; i < NumButtons; i++)
 	{
 		wasDown[i] = false;
@@ -308,6 +322,12 @@ void GamepadInput::Update(Engine* engine, float timeElapsed)
 	Configure();
 	if (!enabled || !engine->GameWindowActive)
 		return;
+
+	if (dxcMode)
+	{
+		dxc.Update(engine);
+		return;
+	}
 
 	GamepadState state;
 	if (!DisplayBackend::Get()->GetGamepadState(state))

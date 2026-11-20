@@ -165,7 +165,8 @@ carries others is a row more there, and in DXLauncher's list, which Port Ex Mach
   its own folders: [mods](NATIVES.md#mods); `system`, `--system`; `game-by-packages`, a game
   folder of an unknown exe taken by its packages; `open-link`, the launcher's `OpenLink`;
   `launcher-mark`, `DXL_LAUNCHER_MARK_FD`; `vulkan-device`, `Settings.json`'s `"Device"`;
-  `audit-natives`, the option below), and exits before anything is loaded.
+  `audit-natives`, the option below; `dxcontroller-pad`, the pad's DXController mode:
+  [the mode](#the-pads-dxcontroller-mode)), and exits before anything is loaded.
 - **`--audit-natives=<dir>`** reads the packages (`.u`) of a folder -- a mod's `System` --
   with the game's for what they import, and prints on standard output each native function
   they declare that the engine has no native for, as a call of one finds none ("Unknown native
@@ -320,7 +321,7 @@ where true or false or a number goes, `"UseVSync": "true"`), the log naming it. 
 | `"Contrast"`, `"Saturation"`, `"GammaOffset"`, `"GammaOffsetRed"`, `"GammaOffsetGreen"`, `"GammaOffsetBlue"`, `"LODBias"` in `RenderDevice` | On every device: the present's colour correction, the picture unchanged at 1 each, contrast about the middle grey (0.1 to 4) and saturation toward the pixel's grey (0 to 1); its gamma's offsets, every channel's and each one's, added to the gamma (-1 to 1, 0 each by default); and the textures' mip bias (-2 to 2, -0.5 by default, `D3DDrv`'s as Wine draws it: each draw's mip the floor of log2 of its texels to a pixel), the console's `LODBIAS` changing it until the device's mode is set again ([small](NATIVES.md#small)), GL ES's in its scene shader, which no ES sampler takes. |
 | `"Device"` in `RenderDevice` | The GPU the Vulkan device takes, by its name, or a part of it (`"Radeon"`, `"RTX 4060"`), without regard to case; empty or left out, the first by type (DXLauncher's Graphics page, its GPU row; [rendering](#rendering)). |
 | `"CPUDriver": true` in `RenderDevice` | The Vulkan device on Mesa's lavapipe, or the GL device on llvmpipe, a GPU passed over (DXLauncher's `[VulkanCPU]` and `[OpenGLCPU]` renderers; [rendering](#rendering)). |
-| `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed` ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)); in a rootless container (podman's: distrobox, toolbox), where the host's root is unmapped and libudev drops its messages, SDL watches `/dev/input` itself (`SDL_JOYSTICK_DISABLE_UDEV`), so a pad plugged in after the start is found. |
+| `Gamepad` | The pad: `Enabled`, `DeadZone`, `LookSensitivityX` and `LookSensitivityY`, `InvertY`, `CursorSpeed`, and `DXController`, the pad as the DXController mod's scripts take it, of the others `Enabled` alone read then ([the mode](#the-pads-dxcontroller-mode)) ([the controller](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-controller)); in a rootless container (podman's: distrobox, toolbox), where the host's root is unmapped and libudev drops its messages, SDL watches `/dev/input` itself (`SDL_JOYSTICK_DISABLE_UDEV`), so a pad plugged in after the start is found. |
 
 The environment:
 
@@ -373,11 +374,12 @@ By area, as the code stands. Each device's numbers are its port's, such as
   exception's code, which the launcher names.
 - **The gamepad**: the SDL2 and SDL3 display backends give the pad as polled state
   (`GetGamepadState`), and `GamepadInput` turns it into UE1 joystick keys and axes that
-  `User.ini` binds; menus get their own controls. DXWidgets builds one SDL backend, SDL3's
-  when both are on: linux-x86_64's and windows-x86_64's engines are built with SDL3's,
-  linux-aarch64's and the Smart Pro's with SDL2's, the Smart Pro's display being its vendor
-  SDL2's alone. Each backend also has a virtual pad of its own for the harness's timelines
-  ([timelines](DEVELOPMENT.md#timelines)).
+  `User.ini` binds; menus get their own controls. The pad's DXController mode reads every
+  attached pad (`GetGamepads`; [the mode](#the-pads-dxcontroller-mode)). DXWidgets builds one
+  SDL backend, SDL3's when both are on: linux-x86_64's and windows-x86_64's engines are built
+  with SDL3's, linux-aarch64's and the Smart Pro's with SDL2's, the Smart Pro's display being
+  its vendor SDL2's alone. Each backend also has a virtual pad of its own for the harness's
+  timelines ([timelines](DEVELOPMENT.md#timelines)).
 - **The launchers' lines**: `--cmdline=` (`OriginalCommandLine`) and `DXL_LAUNCHER_FD`
   (`LauncherLine`) ([running it](#running-it)), with the console's `exec`, and its `open`,
   which takes the rest of its line as the URL, a map's file name among them; `RELAUNCH` passed
@@ -492,6 +494,76 @@ reset (its memory short, most often), is made at a lower render scale
 size and scale asked, the error and the scale taken; a new window size or render scale asks the
 GPU again. Refused at 0.25, the device fails as at any other error: at its start the software
 device takes its place; in play the game ends, the error said.
+
+### The pad's DXController mode
+
+With `Settings.json`'s `Gamepad.DXController` true the pad is read as the scripts of
+[DXController](https://github.com/dsgls/DXController), dsgls's mod, take it, in the place of
+DXEngine's own pad (`DXEngine/DXControllerPad.cpp`, `DXControllerStick.h`; `GamepadInput` hands
+it the ticks); with it false or absent the pad is DXEngine's own, as above. The pad is read only
+with `Gamepad.Enabled` and without `-nojoy`; `DeadZone`, `LookSensitivityX`,
+`LookSensitivityY`, `InvertY` and `CursorSpeed` are not read. In the mode:
+
+- **Buttons** are a press and a release as each changes: by default A, B, X and Y `Joy1` to
+  `Joy4`, the shoulders `Joy5` and `Joy6`, Back and Start `Joy7` and `Joy8`, the stick clicks
+  `Joy9` and `Joy10`, the four paddles `Joy11` to `Joy14`, Misc1 `Joy15`, the touchpad's click
+  `Joy16`, the d-pad `JoyPovUp`, `JoyPovDown`, `JoyPovLeft` and `JoyPovRight`, Guide and Misc2 to
+  Misc6 nothing. The triggers are axes alone.
+- **Axes** go from -1000 to 1000, up positive: the left stick `JoyX` and `JoyY`, the right one
+  `JoyU` and `JoyV`, the triggers `JoyZ` and `JoyR` (0 to 1000). A stick has a radial dead zone,
+  the rest of its travel rescaled from 0 and shaped by its curve (linear; power, u to the power;
+  expo, (1 - e)u + eu³; sigmoid, a logistic of its steepness about its midpoint stretched to
+  pass through 0 and 1, blended with u by its strength), the right one then scaled. A trigger
+  gives nothing up to its threshold, then a straight line to full travel. `InvertLookY` turns
+  `JoyV` round. An axis not at 0 is sent every tick; the first tick back at 0 sends one 0,
+  never a release.
+- **Each event** goes to the console's `KeyEvent` first, then to the root window, then to the
+  key's binding, whose `Axis` adds its speed x the value x 0.01 at the event, as a mouse's move
+  ([where it differs](NATIVES.md#the-pad)). There are no menu controls of the pad's own.
+- **One pad** is followed: the first attached, until a button pressed or a stick pushed past a
+  quarter of its travel on another makes that one active. Every button held is released and
+  every axis not at 0 sent its 0 before a switch, as the active pad goes (the next attached
+  taking over), as the window loses the focus and at a `GamepadReload`, a button held through
+  a `GamepadReload` pressed again only once it has come up; while the window has no focus no
+  pad is read. The log says which pad's family is active (`DXController: the PS5 pad
+  active`) and when it goes.
+- **The system ini** holds three sections, read as the engine starts, before the mod's
+  classes read their config, and at each `GamepadReload`:
+  - `[DXController.ControllerSettings]`: `StickDeadzoneLeft` and `StickDeadzoneRight` (SDL's
+    units, 0 to 32766, 3500), `StickCurveLeft` and `StickCurveRight` (`Linear`, `Power`, `Expo`,
+    `Sigmoid`; `Power` and `Sigmoid`), each side's `StickCurvePower` (0.1 to 10, 2),
+    `StickCurveExpo` (0 to 1, 0.5), `StickCurveSigmoidSteepness` (1 to 12, 8),
+    `StickCurveSigmoidMidpoint` (0.15 to 0.85, 0.7) and `StickCurveSigmoidStrength` (0 to 1, 0.9),
+    the side's name after each (`StickCurvePowerLeft`), `StickScaleRight` (0.1 to 1, 0.4),
+    `InvertLookY` (False) and `TriggerThreshold` (0 to 255 of a trigger's travel, 30). A key
+    missing is written with its default; a value that does not read keeps the default.
+  - `[DXController.GamepadButtonMap]`: a button by SDL's name (`a`, `b`, `x`, `y`, `back`,
+    `guide`, `start`, `leftstick`, `rightstick`, `leftshoulder`, `rightshoulder`, `dpup`,
+    `dpdown`, `dpleft`, `dpright`, `misc1`, `paddle1` to `paddle4`, `touchpad`, `misc2` to
+    `misc6`) = a key's name without `IK_`, its number, or `None`. The defaults stand first, then
+    the lines, the later of two for one button winning; a button put on a stick's or a
+    trigger's key, or on a key another button has, is refused and logged, the one a line moved
+    going back to its default or, that taken, to `None`. Each button missing is written with
+    its default.
+  - `[DXController.GamepadAxisMap]`: a source (`gyro.pitch`, `gyro.yaw`, `gyro.roll` in
+    radians a second; `accel.x`, `accel.y`, `accel.z` in metres a second squared; `touchpad.x`,
+    `touchpad.y`, -1 to 1 while it is touched, up positive; `joyaxis.N`, the joystick's own axis
+    N from 0, -1 to 1) = a key's name, then `Scale=` (1000) and `Deadzone=` (0, in the source's
+    units) if wanted: the source, 0 within its dead zone, times the scale, held within -1000 to
+    1000, sent as the sticks are. A key a stick, a trigger, a button or an earlier line has is
+    refused and logged. The gyro and the accelerometer are switched on on every pad only while
+    a line reads them. The section is never written.
+- **The console's words**, after all of the original's: `GamepadReload` releases everything
+  and reads the three sections again; `GamepadSampleCurve Left|Right <n>` answers n values
+  (2 to 256) of the stick's output, 0 to 1, at even steps of its travel, `%.4f` each,
+  comma-separated; `GamepadGetRawMag` answers `L=<f> R=<f>`, each stick's distance from its
+  centre, 0 to 1, as last read; `GamepadGetInfo` answers the active pad's family (`Xbox360`,
+  `XboxOne`, `PS3`, `PS4`, `PS5`, `SwitchPro`, `JoyconLeft`, `JoyconRight`, `JoyconPair`,
+  `GameCube`, `Standard`, `Unknown`), or `None`.
+- **The windows**: the SDL3 and SDL2 backends read every attached pad
+  (`DisplayBackend::GetGamepads`), the Smart Pro's vendor SDL2 among them, which has no Misc2 to
+  Misc6 and no GameCube family; the X11, Wayland and Win32 windows read none, the words then
+  answering `None` and 0.
 
 ### Rendering
 

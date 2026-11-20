@@ -39,8 +39,9 @@
 // kept from what it starts (D.95); Settings.json's RenderDevice.Device, the
 // GPU the Vulkan device takes by a part of its name (bugs.md REN.79);
 // --audit-natives, the natives a folder's packages declare that the engine
-// lacks (NativesAudit.h).
-static const char* const Features = "userdir loadgame-url int-paths system game-by-packages open-link launcher-mark vulkan-device audit-natives";
+// lacks (NativesAudit.h); Settings.json's Gamepad.DXController, the pad as
+// the DXController mod's scripts take it (DXControllerPad).
+static const char* const Features = "userdir loadgame-url int-paths system game-by-packages open-link launcher-mark vulkan-device audit-natives dxcontroller-pad";
 
 int GameApp::main(Array<std::string> args)
 {

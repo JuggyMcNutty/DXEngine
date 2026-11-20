@@ -433,6 +433,39 @@ struct GamepadState
 	bool Buttons[(int)GamepadButton::Count] = {};
 };
 
+// The buttons past GamepadButton's, in SDL's order: a misc button (a share or
+// capture button), the four paddles (the right hand's upper, the left's
+// upper, the right's lower, the left's lower), the touchpad's click, and five
+// misc buttons more, which SDL2 has not.
+enum class GamepadExtraButton
+{
+	Misc1, RightPaddle1, LeftPaddle1, RightPaddle2, LeftPaddle2, Touchpad,
+	Misc2, Misc3, Misc4, Misc5, Misc6, Count
+};
+
+// One attached controller whole, for an application that follows every pad
+// (GetGamepads).
+struct GamepadFullState : GamepadState
+{
+	// The backend's number for the pad, the same while it stays attached
+	unsigned int Id = 0;
+	// Its family by SDL's type: Xbox360, XboxOne, PS3, PS4, PS5, SwitchPro,
+	// JoyconLeft, JoyconRight, JoyconPair, GameCube, Standard or Unknown
+	std::string Type = "Unknown";
+	bool Extra[(int)GamepadExtraButton::Count] = {};
+	// The sensors SetGamepadSensors switched on, zero otherwise: the gyro in
+	// radians a second about x, y and z (pitch, yaw, roll), the accelerometer
+	// in metres a second squared along x, y and z
+	float Gyro[3] = {};
+	float Accel[3] = {};
+	// The first touchpad's first finger, 0..1 from its top left, while it
+	// touches
+	bool Touching = false;
+	float Touch[2] = {};
+	// The underlying joystick's own axes, -1..1, in its order
+	std::vector<float> JoystickAxes;
+};
+
 class DisplayBackend
 {
 public:
@@ -488,6 +521,16 @@ public:
 	// The first connected controller. Backends without controller support
 	// report none.
 	virtual bool GetGamepadState(GamepadState& state) { state = {}; return false; }
+
+	// Every attached controller, in the order the backend lists them, each
+	// opened as it is first seen and closed as it goes. Backends without
+	// controller support report none. An application uses this or
+	// GetGamepadState, not both.
+	virtual void GetGamepads(std::vector<GamepadFullState>& pads) { pads.clear(); }
+
+	// The gyro and the accelerometer switched on, or off, on every attached
+	// controller that has them and on each attached later; off by default.
+	virtual void SetGamepadSensors(bool gyro, bool accel) {}
 
 	// By default a backend may turn controller buttons into key presses
 	// (A as Enter, the d-pad as arrow keys) so launcher UIs work with a pad.

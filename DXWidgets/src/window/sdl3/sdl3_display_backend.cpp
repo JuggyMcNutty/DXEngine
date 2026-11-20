@@ -62,6 +62,56 @@ SDL3DisplayBackend::SDL3DisplayBackend()
 	SDL_free(ids);
 }
 
+// A pad's sticks, triggers and buttons
+static void ReadGamepad(SDL_Gamepad* pad, GamepadState& state)
+{
+	static const SDL_GamepadAxis axes[(int)GamepadAxis::Count] =
+	{
+		SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY,
+		SDL_GAMEPAD_AXIS_RIGHTX, SDL_GAMEPAD_AXIS_RIGHTY,
+		SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER
+	};
+	for (int i = 0; i < (int)GamepadAxis::Count; i++)
+	{
+		float v = SDL_GetGamepadAxis(pad, axes[i]) / 32767.0f;
+		state.Axes[i] = v < -1.0f ? -1.0f : v > 1.0f ? 1.0f : v;
+	}
+
+	// GamepadButton's order is SDL's: south, east, west and north its A, B,
+	// X and Y.
+	static const SDL_GamepadButton buttons[(int)GamepadButton::Count] =
+	{
+		SDL_GAMEPAD_BUTTON_SOUTH, SDL_GAMEPAD_BUTTON_EAST, SDL_GAMEPAD_BUTTON_WEST, SDL_GAMEPAD_BUTTON_NORTH,
+		SDL_GAMEPAD_BUTTON_BACK, SDL_GAMEPAD_BUTTON_GUIDE, SDL_GAMEPAD_BUTTON_START,
+		SDL_GAMEPAD_BUTTON_LEFT_STICK, SDL_GAMEPAD_BUTTON_RIGHT_STICK,
+		SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,
+		SDL_GAMEPAD_BUTTON_DPAD_UP, SDL_GAMEPAD_BUTTON_DPAD_DOWN, SDL_GAMEPAD_BUTTON_DPAD_LEFT, SDL_GAMEPAD_BUTTON_DPAD_RIGHT
+	};
+	for (int i = 0; i < (int)GamepadButton::Count; i++)
+		state.Buttons[i] = SDL_GetGamepadButton(pad, buttons[i]);
+
+	state.Connected = true;
+}
+
+static const char* GamepadTypeName(SDL_GamepadType type)
+{
+	switch (type)
+	{
+	case SDL_GAMEPAD_TYPE_STANDARD: return "Standard";
+	case SDL_GAMEPAD_TYPE_XBOX360: return "Xbox360";
+	case SDL_GAMEPAD_TYPE_XBOXONE: return "XboxOne";
+	case SDL_GAMEPAD_TYPE_PS3: return "PS3";
+	case SDL_GAMEPAD_TYPE_PS4: return "PS4";
+	case SDL_GAMEPAD_TYPE_PS5: return "PS5";
+	case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO: return "SwitchPro";
+	case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT: return "JoyconLeft";
+	case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT: return "JoyconRight";
+	case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR: return "JoyconPair";
+	case SDL_GAMEPAD_TYPE_GAMECUBE: return "GameCube";
+	default: return "Unknown";
+	}
+}
+
 bool SDL3DisplayBackend::GetGamepadState(GamepadState& state)
 {
 	state = {};
@@ -91,33 +141,96 @@ bool SDL3DisplayBackend::GetGamepadState(GamepadState& state)
 	if (!Gamepad)
 		return false;
 
-	static const SDL_GamepadAxis axes[(int)GamepadAxis::Count] =
+	ReadGamepad(Gamepad, state);
+	return true;
+}
+
+// Every attached pad (DXEngine's DXController mode): one gone closed, once,
+// which frees one the constructor opened too (bugs.md WIN.57); one not open
+// yet opened; the sensors asked for switched on as each is first seen.
+void SDL3DisplayBackend::GetGamepads(std::vector<GamepadFullState>& pads)
+{
+	pads.clear();
+	for (auto it = Pads.begin(); it != Pads.end();)
 	{
-		SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY,
-		SDL_GAMEPAD_AXIS_RIGHTX, SDL_GAMEPAD_AXIS_RIGHTY,
-		SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER
-	};
-	for (int i = 0; i < (int)GamepadAxis::Count; i++)
-	{
-		float v = SDL_GetGamepadAxis(Gamepad, axes[i]) / 32767.0f;
-		state.Axes[i] = v < -1.0f ? -1.0f : v > 1.0f ? 1.0f : v;
+		if (!SDL_GamepadConnected(it->Pad))
+		{
+			if (Gamepad == it->Pad)
+				Gamepad = nullptr;
+			SDL_CloseGamepad(it->Pad);
+			it = Pads.erase(it);
+		}
+		else
+		{
+			++it;
+		}
 	}
 
-	// GamepadButton's order is SDL's: south, east, west and north its A, B,
-	// X and Y.
-	static const SDL_GamepadButton buttons[(int)GamepadButton::Count] =
+	int count = 0;
+	SDL_JoystickID* ids = SDL_GetGamepads(&count);
+	for (int i = 0; ids && i < count; i++)
 	{
-		SDL_GAMEPAD_BUTTON_SOUTH, SDL_GAMEPAD_BUTTON_EAST, SDL_GAMEPAD_BUTTON_WEST, SDL_GAMEPAD_BUTTON_NORTH,
-		SDL_GAMEPAD_BUTTON_BACK, SDL_GAMEPAD_BUTTON_GUIDE, SDL_GAMEPAD_BUTTON_START,
-		SDL_GAMEPAD_BUTTON_LEFT_STICK, SDL_GAMEPAD_BUTTON_RIGHT_STICK,
-		SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,
-		SDL_GAMEPAD_BUTTON_DPAD_UP, SDL_GAMEPAD_BUTTON_DPAD_DOWN, SDL_GAMEPAD_BUTTON_DPAD_LEFT, SDL_GAMEPAD_BUTTON_DPAD_RIGHT
-	};
-	for (int i = 0; i < (int)GamepadButton::Count; i++)
-		state.Buttons[i] = SDL_GetGamepadButton(Gamepad, buttons[i]);
+		SDL_Gamepad* pad = SDL_GetGamepadFromID(ids[i]);
+		if (!pad)
+			pad = SDL_OpenGamepad(ids[i]);
+		if (!pad)
+			continue;
+		auto open = std::find_if(Pads.begin(), Pads.end(), [&](const OpenPad& p) { return p.Pad == pad; });
+		if (open == Pads.end())
+		{
+			Pads.push_back({ pad, false, false });
+			open = Pads.end() - 1;
+		}
+		if (open->Gyro != WantGyro)
+		{
+			if (SDL_GamepadHasSensor(pad, SDL_SENSOR_GYRO))
+				SDL_SetGamepadSensorEnabled(pad, SDL_SENSOR_GYRO, WantGyro);
+			open->Gyro = WantGyro;
+		}
+		if (open->Accel != WantAccel)
+		{
+			if (SDL_GamepadHasSensor(pad, SDL_SENSOR_ACCEL))
+				SDL_SetGamepadSensorEnabled(pad, SDL_SENSOR_ACCEL, WantAccel);
+			open->Accel = WantAccel;
+		}
 
-	state.Connected = true;
-	return true;
+		GamepadFullState state;
+		ReadGamepad(pad, state);
+		state.Id = (unsigned int)SDL_GetGamepadID(pad);
+		state.Type = GamepadTypeName(SDL_GetGamepadType(pad));
+		// SDL's buttons from MISC1 to MISC6 are GamepadExtraButton's order
+		for (int b = 0; b < (int)GamepadExtraButton::Count; b++)
+			state.Extra[b] = SDL_GetGamepadButton(pad, (SDL_GamepadButton)(SDL_GAMEPAD_BUTTON_MISC1 + b));
+		if (WantGyro && SDL_GamepadHasSensor(pad, SDL_SENSOR_GYRO))
+			SDL_GetGamepadSensorData(pad, SDL_SENSOR_GYRO, state.Gyro, 3);
+		if (WantAccel && SDL_GamepadHasSensor(pad, SDL_SENSOR_ACCEL))
+			SDL_GetGamepadSensorData(pad, SDL_SENSOR_ACCEL, state.Accel, 3);
+		if (SDL_GetNumGamepadTouchpads(pad) > 0)
+		{
+			bool down = false;
+			float x = 0.0f, y = 0.0f, pressure = 0.0f;
+			if (SDL_GetGamepadTouchpadFinger(pad, 0, 0, &down, &x, &y, &pressure) && down)
+			{
+				state.Touching = true;
+				state.Touch[0] = x;
+				state.Touch[1] = y;
+			}
+		}
+		if (SDL_Joystick* joystick = SDL_GetGamepadJoystick(pad))
+		{
+			int axes = SDL_GetNumJoystickAxes(joystick);
+			for (int a = 0; a < axes; a++)
+				state.JoystickAxes.push_back(std::clamp(SDL_GetJoystickAxis(joystick, a) / 32767.0f, -1.0f, 1.0f));
+		}
+		pads.push_back(std::move(state));
+	}
+	SDL_free(ids);
+}
+
+void SDL3DisplayBackend::SetGamepadSensors(bool gyro, bool accel)
+{
+	WantGyro = gyro;
+	WantAccel = accel;
 }
 
 void SDL3DisplayBackend::SetGamepadKeyEmulation(bool enable)

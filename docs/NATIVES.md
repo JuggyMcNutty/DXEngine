@@ -2596,6 +2596,38 @@ Open (bugs.md ENG.51): `SETRES` of a windowed size the window cannot take is
 saved as asked and asked again at the next start, never the size the window
 took; what the original keeps when Windows clamps its window is unread.
 
+### The pad
+
+How the original's window scales a joystick's axes, and how often it sends them, is unread
+([the keys](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/windrv-dll.md#the-keys)).
+
+By choice, for the DXController mod's sake, the pad's DXController mode
+([the mode](ENGINE.md#the-pads-dxcontroller-mode)) differs from DXEngine's own pad and from the
+original's joystick:
+
+- From DXEngine's own pad: it has no menu controls (no clicks, Escape, arrows or pointer of
+  its own), its triggers are axes alone, its axes go from -1000 to 1000 with one 0 at rest in
+  place of -100 to 100 and a release, its dead zone and curves are the system ini's
+  `[DXController.ControllerSettings]`, it follows the pad last used of several, and as the
+  window loses the focus it releases each button held and sends each axis not at 0 its 0,
+  through the console, where DXEngine's own pad and the keys forget what is held with no
+  release, as the original's input is reset.
+- Its `Axis` binding adds its speed x the axis's value x 0.01 at each event, as the original
+  adds any axis's
+  ([a key's binding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)),
+  an event each tick, so a stick held turns the view by as much a tick at any frame rate and
+  the faster the higher the frame rate, where DXEngine's own pad holds its value x 16 for each
+  read, as much a second at any frame rate (`PadModeConsole` with
+  `tools/dxcap/timelines/pad-mode.txt` at `DXCAP_FPS=60` and `120`). DXController's own
+  launcher does the same and holds the game to 120 frames a second unless told otherwise, the
+  rate its sticks' defaults are set for: the mod's look is its own here at that rate, and its
+  Controller settings' sensitivity corrects another (bugs.md D.109).
+- A pad's event goes to the console's `KeyEvent` first, then to the root window, then to the
+  binding, as the original's every key does
+  ([a key's binding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)).
+  Differs (bugs.md ENG.61): the keys and DXEngine's own pad go to the root window before the
+  console.
+
 ## Sound
 
 Matches `Galaxy.dll`

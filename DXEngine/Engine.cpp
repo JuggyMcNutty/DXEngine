@@ -214,6 +214,9 @@ Engine::Engine(GameLaunchInfo launchinfo) : LaunchInfo(launchinfo)
 	engine = this;
 
 	packages = std::make_unique<PackageManager>(LaunchInfo);
+	// The pad's DXController mode's ini sections completed before the mod's
+	// classes, loaded with the console, read their config
+	gamepad.Start(packages.get());
 
 	// The script's random numbers differ from run to run, as the original's
 	std::srand((unsigned int)std::time(nullptr));
@@ -4745,6 +4748,33 @@ bool Engine::WindowExec(const std::string& line, ExecOutput& out)
 		OpenAdvancedOptions(true);
 		return true;
 	}
+	// The words the DXController mod's scripts send, which its own launcher
+	// answers on the original: in the pad's DXController mode alone
+	// (DXControllerPad), after every word of the original's
+	if (gamepad.DXControllerMode())
+	{
+		DXControllerPad& pad = gamepad.DXController();
+		if (ParseWord(line, "gamepadreload", rest))
+		{
+			pad.Reload(this, packages.get());
+			return true;
+		}
+		if (ParseWord(line, "gamepadsamplecurve", rest))
+		{
+			out.Log(pad.SampleCurve(rest));
+			return true;
+		}
+		if (ParseWord(line, "gamepadgetrawmag", rest))
+		{
+			out.Log(pad.RawMagnitudes());
+			return true;
+		}
+		if (ParseWord(line, "gamepadgetinfo", rest))
+		{
+			out.Log(pad.PadInfo());
+			return true;
+		}
+	}
 	return false;
 }
 
@@ -7084,7 +7114,7 @@ void Engine::OnWindowDeactivated()
 	GameWindowActive = false;
 	pressHeldKeys = false;
 	ResetInput();
-	gamepad.Forget();
+	gamepad.Forget(this);
 	if (dxRootWindow)
 		dxRootWindow->ForgetKeys();
 }
@@ -7228,7 +7258,51 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 		return;
 
 	bool handled = CallEvent(console, EventName::KeyEvent, { ExpressionValue::ByteValue(key), ExpressionValue::ByteValue(type), ExpressionValue::FloatValue((float)delta) }).ToBool();
-	if (handled || key < 0 || (int)key >= 256)
+	if (handled)
+		return;
+	InputBinding(key, type, delta);
+}
+
+// A pad's event in the DXController mode (GamepadInput, DXControllerPad): the
+// console's KeyEvent first, with the value as it is, -1000..1000 for an axis;
+// then the root window, which takes a press or a release as it takes a key's,
+// and an axis whenever it holds the keyboard; then the key's binding, an
+// axis's value added at once (InputExec). The order is the original's for
+// every key (UEngine::InputEvent, Engine.dll 0x103814e0: the console's
+// KeyEvent, then the input's Process, Extension's, which offers each key to
+// the root window before its binding: engine-dll.md, a key's binding). The
+// keyboard and our own pad go to the root window before the console
+// (OnWindowKeyDown; bugs.md ENG.61).
+void Engine::PadInputEvent(EInputKey key, EInputType type, float delta)
+{
+	if (Frame::Halted)
+		return;
+	if (Timeline::LogKeys && type != EInputType::IST_Axis)
+		LogMessage(std::string("DXKEY: ") + (keynames[key] ? keynames[key] : "?") + (type == EInputType::IST_Press ? " down" : " up"));
+
+	if (CallEvent(console, EventName::KeyEvent, { ExpressionValue::ByteValue(key), ExpressionValue::ByteValue(type), ExpressionValue::FloatValue(delta) }).ToBool())
+		return;
+	if (dxRootWindow)
+	{
+		bool taken;
+		if (type == EInputType::IST_Press)
+			taken = dxRootWindow->OnWindowKeyDown(key);
+		else if (type == EInputType::IST_Release)
+			taken = dxRootWindow->OnWindowKeyUp(key);
+		else
+			taken = dxRootWindow->IsKeyboardGrabbed();
+		if (taken)
+		{
+			ReleaseHeldInputKeys();
+			return;
+		}
+	}
+	InputBinding(key, type, (int)std::lround(delta));
+}
+
+void Engine::InputBinding(EInputKey key, EInputType type, int delta)
+{
+	if (key < 0 || (int)key >= 256)
 		return;
 
 	// The key's binding run as the original's input runs it (XInputExt,
@@ -7243,8 +7317,10 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 	else if (type == EInputType::IST_Axis)
 	{
 		// A mouse's move as it comes, which its Axis adds at once; a pad's
-		// stick x 16, held until it moves again or is let go (InputExec)
-		ExecInputLine(keybindings[keynames[key]], key, type, IsMouseAxis(key) ? delta : delta * 16);
+		// stick x 16, held until it moves again or is let go, but in the
+		// DXController mode as it comes, as a mouse's (InputExec)
+		const bool atOnce = IsMouseAxis(key) || gamepad.DXControllerMode();
+		ExecInputLine(keybindings[keynames[key]], key, type, atOnce ? delta : delta * 16);
 	}
 	else if (type == EInputType::IST_Release)
 	{
@@ -7548,7 +7624,10 @@ bool Engine::InputExec(const std::string& command, EInputKey key, EInputType act
 			if (args[i].size() > 6 && StrTools::equals_ignore_case(args[i].substr(0, 6), "speed="))
 				speed = (float)std::atof(args[i].substr(6).c_str());
 		}
-		if (action == EInputType::IST_Axis && IsMouseAxis(key))
+		// The DXController mode's pad axes as the original takes any axis
+		// (engine-dll.md, a key's binding): the speed x the move x 0.01 at
+		// the event, the move the mod's -1000..1000
+		if (action == EInputType::IST_Axis && (IsMouseAxis(key) || gamepad.DXControllerMode()))
 			*static_cast<float*>(actor->GetProperty(prop)) += speed * value * 0.01f;
 		else if (key != IK_None && (action == EInputType::IST_Press || action == EInputType::IST_Axis))
 			activeInputAxes[{ args[1], key }] = speed * value;

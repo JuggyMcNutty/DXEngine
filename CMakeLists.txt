@@ -96,6 +96,9 @@ set(DXCOMMON_SOURCES
 	DXEngine/LauncherSettings.h
 	DXEngine/GamepadInput.cpp
 	DXEngine/GamepadInput.h
+	DXEngine/DXControllerPad.cpp
+	DXEngine/DXControllerPad.h
+	DXEngine/DXControllerStick.h
 	DXEngine/LauncherLine.cpp
 	DXEngine/LauncherLine.h
 	DXEngine/NativesAudit.cpp

@@ -422,6 +422,8 @@ public:
 
 	bool Key(char16_t key);
 	void InputEvent(EInputKey key, EInputType type, int delta = 0);
+	// A pad's event in the DXController mode (DXControllerPad)
+	void PadInputEvent(EInputKey key, EInputType type, float delta);
 	void ReleaseHeldInputKeys();
 	void ReleaseFireButtons();
 	void ResetInput();
@@ -603,6 +605,10 @@ public:
 	bool getDXWindowDebugMode() const { return m_DrawDebugDXWindowHierarchy; }
 
 private:
+	// A key's or an axis's binding run, past the console's KeyEvent and the
+	// root window (InputEvent, PadInputEvent)
+	void InputBinding(EInputKey key, EInputType type, int delta);
+
 	std::map<std::string, std::string> CreateServerTravelInfo();
 	std::map<std::string, std::string> CreateClientTravelInfo(bool transferItems);
 	// An arriving player's travel, a local or a remote one's, between its

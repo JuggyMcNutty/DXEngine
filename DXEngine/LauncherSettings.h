@@ -73,6 +73,9 @@ public:
 		float LookSensitivityY = 1.0f;
 		bool InvertY = false;
 		float CursorSpeed = 1.0f;
+		// The pad as the DXController mod's scripts take it: of the keys
+		// above Enabled alone read (DXControllerPad)
+		bool DXController = false;
 	} Gamepad;
 
 	// Speed for slow hardware.

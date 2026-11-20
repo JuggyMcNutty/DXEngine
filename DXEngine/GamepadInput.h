@@ -1,8 +1,10 @@
 #pragma once
 
 #include "GameWindow.h"
+#include "DXControllerPad.h"
 
 class Engine;
+class PackageManager;
 struct GamepadState;
 
 // Controller support.
@@ -25,15 +27,30 @@ struct GamepadState;
 // Axis values: a stick at full deflection sends 100. Up and right are
 // positive. The engine multiplies axis input by 16 and then by the binding's
 // Speed, so "JoyY=Axis aBaseY Speed=3.75" matches the keyboard's top speed.
+//
+// With Settings.json's Gamepad.DXController true the pad is the DXController
+// mod's instead (DXControllerPad): none of the above but the pad's reading,
+// Gamepad.Enabled and -nojoy.
 class GamepadInput
 {
 public:
+	// At the engine's start, before any class of the game reads its config:
+	// the DXController mode's sections of the system ini read and completed
+	void Start(PackageManager* packages);
 	void Update(Engine* engine, float timeElapsed);
 	// The focus gone: the buttons and sticks held forgotten, no release
 	// sent, as the keys are (Engine::OnWindowDeactivated); while the game's
 	// window is without the focus the pad is not read, and each button held
-	// as it comes back is pressed again
-	void Forget();
+	// as it comes back is pressed again. In the DXController mode each
+	// button held is released and each axis sent its 0 first, through the
+	// console, as the mod's scripts need.
+	void Forget(Engine* engine);
+
+	// The DXController mode: its axis events taken by an Axis binding as the
+	// original takes an axis, its value at once (Engine::InputExec), not our
+	// pad's held value x 16
+	bool DXControllerMode() const { return dxcMode; }
+	DXControllerPad& DXController() { return dxc; }
 
 private:
 	enum class Owner : uint8_t { None, Game, UI };
@@ -51,6 +68,9 @@ private:
 	bool configured = false;
 	bool enabled = true;
 	bool uiLast = false;
+
+	bool dxcMode = false;
+	DXControllerPad dxc;
 
 	bool wasDown[NumButtons] = {};
 	Owner owner[NumButtons] = {};
