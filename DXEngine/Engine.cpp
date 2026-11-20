@@ -7321,7 +7321,7 @@ void Engine::PadInputEvent(EInputKey key, EInputType type, float delta)
 	if (Frame::Halted)
 		return;
 	if (Timeline::LogKeys && type != EInputType::IST_Axis)
-		LogMessage(std::string("DXKEY: ") + (keynames[key] ? keynames[key] : "?") + (type == EInputType::IST_Press ? " down" : " up"));
+		LogMessage(std::string("DXKEY: ") + ((unsigned)key < 256 && keynames[key] ? keynames[key] : "?") + (type == EInputType::IST_Press ? " down" : " up"));
 
 	if (ConsoleKeyEvent(key, type, delta))
 	{
