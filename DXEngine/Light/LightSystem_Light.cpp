@@ -755,7 +755,9 @@ void LightSystem::SetupForActorDX(VertexLight& out, UActor* actor, bool leafLigh
 			entry.Light = light;
 			entry.Fade = candidate.Fade;
 
-			int strength = (int)(candidate.Strength * 1024.0f);
+			// By the original's float to int: a strength that is no number,
+			// an actor's or a light's place being none, 0, on every CPU
+			int strength = ftol(candidate.Strength * 1024.0f);
 			bool lit = false;
 			if (strength >= threshold && (candidate.Static ? litStatics : litAll) < 8)
 			{

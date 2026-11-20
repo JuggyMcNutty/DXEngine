@@ -579,6 +579,17 @@ void UDXEngineAudioDevice::UpdateSounds(float timeStep)
 	}
 }
 
+// A double as a whole number for a clamp: one that is no number, as a
+// sound's or the camera's place being none gives, 0, as the original's float
+// to int makes of it (Math/floating.h, ftol), and one past every whole
+// number the largest: a C++ cast of either is undefined
+static int64_t Whole(double v)
+{
+	if (!(v == v))
+		return 0;
+	return (int64_t)std::clamp(v, -9.0e18, 9.0e18);
+}
+
 // A Deus Ex channel's voice, as Galaxy's Update works it out (galaxy-dll.md,
 // Each frame): heard from the eyes the view is drawn from, the sound falls off
 // as 1 - distance / radius; its angle off straight ahead, front and back
@@ -602,7 +613,7 @@ void UDXEngineAudioDevice::GalaxyVoice(const PlayingSound& Playing, int& volume,
 	double nearby = Playing.Radius * 0.1;
 	if (nearby * nearby > distance * distance)
 		angle = distance / nearby * angle;
-	panning = (int)std::clamp((int64_t)(angle * 28671.125 * 0.3183098861837907 + 16383.0), (int64_t)0, (int64_t)0x7fff);
+	panning = (int)std::clamp(Whole(angle * 28671.125 * 0.3183098861837907 + 16383.0), (int64_t)0, (int64_t)0x7fff);
 	if (ReverseStereo)
 		panning = 0x7fff - panning;
 	if (z < 0.0 && UseSurround)
@@ -616,7 +627,7 @@ void UDXEngineAudioDevice::GalaxyVoice(const PlayingSound& Playing, int& volume,
 		share = (double)SoundVolume / SpeechVolume;
 	else if (speech && SoundVolume > SpeechVolume)
 		share = (double)SpeechVolume / SoundVolume;
-	volume = (int)std::clamp((int64_t)(obstruction * falloff * share * Playing.Volume * 32767.0), (int64_t)0, (int64_t)0x7fff);
+	volume = (int)std::clamp(Whole(obstruction * falloff * share * Playing.Volume * 32767.0), (int64_t)0, (int64_t)0x7fff);
 	// Then Galaxy's floor, on every voice it starts or updates (Galaxy.dll
 	// 0x10609ee3): a sound gone out of its radius as it plays (an ambient
 	// one stops there), one at a volume of 0 and one whose own slider is at
