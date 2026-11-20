@@ -3558,7 +3558,7 @@ script error each time, which takes no channel, the game playing on, where
 Galaxy's unreadable data is a fatal error at the level's start
 ([`RegisterSound`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#playing-a-sound)).
 
-For the owner (bugs.md D.108): a `SHOT` takes the first name not there of
+By choice (bugs.md D.108), a `SHOT` takes the first name not there of
 `Shot0000` to `Shot9999`, where the original's takes one of `Shot0000` to
 `Shot0255` and, with all 256 there, nothing, saying nothing
 ([`SHOT`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)).
