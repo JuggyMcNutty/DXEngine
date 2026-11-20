@@ -12,7 +12,9 @@
 // value of an inherited pipe's handle; one text line a message. The engine
 // says "hello" as it starts and "ready" once its first map is in -- the
 // launcher's splash closes then -- and takes "TakeFocus" and "Open <url>",
-// what a second launch forwarded, and "Quit", the launcher's stop.
+// what a second launch forwarded, "OpenLink <host:port>", a server's link
+// in it, opened only from a game on a server, and "Quit", the launcher's
+// stop.
 // "relaunch <line>" asks the launcher to start again with that command line
 // once the game has exited, as the original's RELAUNCH starts DeusEx.exe.
 // Without the variable every call does nothing.

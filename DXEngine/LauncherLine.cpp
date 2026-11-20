@@ -21,6 +21,20 @@ bool LauncherLine::Open()
 	if (tried)
 		return handle >= 0;
 	tried = true;
+#ifndef _WIN32
+	// DXLauncher's mark of a game running (its bugs.md D.95), which this
+	// process holds for its whole run, as the original's mutex is the game's:
+	// kept from anything it starts in turn, which would hold the mark past
+	// the game's end.
+	if (const char* mark = std::getenv("DXL_LAUNCHER_MARK_FD"))
+	{
+		char* markEnd = nullptr;
+		long long fd = std::strtoll(mark, &markEnd, 10);
+		if (*mark && !*markEnd && fd > 2 && fd <= INT32_MAX && fcntl((int)fd, F_GETFD) >= 0)
+			fcntl((int)fd, F_SETFD, FD_CLOEXEC);
+		unsetenv("DXL_LAUNCHER_MARK_FD");
+	}
+#endif
 	const char* value = std::getenv("DXL_LAUNCHER_FD");
 	if (!value || !*value)
 		return false;

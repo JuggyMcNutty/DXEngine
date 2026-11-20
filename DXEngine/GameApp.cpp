@@ -32,8 +32,11 @@
 // command line: --userdir; a start URL of ?loadgame=N, a save loaded; the
 // .int files read from the paths' folders, a mod's from its own; --system,
 // a mod's own System folder that it runs from; a game folder whose
-// executable is of no known hash taken by its packages (bugs.md D.89).
-static const char* const Features = "userdir loadgame-url int-paths system game-by-packages";
+// executable is of no known hash taken by its packages (bugs.md D.89);
+// OpenLink, a server's link opened from a game on a server alone (D.96);
+// DXL_LAUNCHER_MARK_FD, the launcher's mark held to the game's end and
+// kept from what it starts (D.95).
+static const char* const Features = "userdir loadgame-url int-paths system game-by-packages open-link launcher-mark";
 
 int GameApp::main(Array<std::string> args)
 {

@@ -162,7 +162,8 @@ carries others is a row more there, and in DXLauncher's list, which Port Ex Mach
   what a launcher can rely on (`userdir`; `loadgame-url`, a start URL of `?loadgame=N`:
   [the command line](NATIVES.md#the-command-line); `int-paths`, a mod's `.int` files read from
   its own folders: [mods](NATIVES.md#mods); `system`, `--system`; `game-by-packages`, a game
-  folder of an unknown exe taken by its packages), and exits before anything is loaded.
+  folder of an unknown exe taken by its packages; `open-link`, the launcher's `OpenLink`;
+  `launcher-mark`, `DXL_LAUNCHER_MARK_FD`), and exits before anything is loaded.
 - **`--cmdline=<line>`** is the original's command line, which the launchers pass on (the
   recreated one, deusex-launcher's `main`, and DXLauncher): its start URL, `-server`,
   `-lanplay`, `PORT=`, `MULTIHOME=`, `-PRIMARYNET`, `INI=`, `USERINI=`, `EXEC=`, `-norunaway`
@@ -173,11 +174,18 @@ carries others is a row more there, and in DXLauncher's list, which Port Ex Mach
   descriptor, on Windows an inherited pipe's handle, taken out of the environment once opened,
   so that nothing the engine starts takes its number for a line. The engine says `hello` as it
   starts and `ready` once its first map is in, takes `TakeFocus`, `Open <url>` and `Quit` (the
-  launcher's stop, as a closed window quits), and passes a `RELAUNCH` as `relaunch <line>`
+  launcher's stop, as a closed window quits), and `OpenLink <host:port>`, a server's link a
+  second start handed on, which it opens only where its game is a network client's, a player
+  going from one server to another, and otherwise logs, the game staying as it is: by choice,
+  where the original opens any first word of a handed line, so that a web page's link never
+  ends a single-player game unasked (bugs.md D.96). It passes a `RELAUNCH` as `relaunch <line>`
   before it exits; the lines and their meaning are
   [the game and the launcher](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md#the-game-and-the-launcher)
   (DXLauncher's alike:
   [the game and the launcher](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-game-and-the-launcher)).
+  **`DXL_LAUNCHER_MARK_FD`**, on Linux, is DXLauncher's mark of a game running, which the
+  engine holds to its end, as the original's mutex is the game's: taken out of the environment
+  and kept from anything the engine starts in turn, a relaunch of its own among them.
   Started by hand, with nothing set, nothing changes.
 
 ## Measuring it

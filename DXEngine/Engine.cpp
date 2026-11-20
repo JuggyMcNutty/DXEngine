@@ -1027,6 +1027,24 @@ void Engine::OnLauncherLine(const std::string& line)
 		LogMessage("Launcher: open " + line.substr(5));
 		RunCommand("open " + line.substr(5), nullptr, true);
 	}
+	else if (line.compare(0, 9, "OpenLink ") == 0 && line.size() > 9)
+	{
+		// A server's link (DXLauncher's deusex://) handed on while the game
+		// plays: opened only from a game on a server already, a player going
+		// from one server to another; any other game stays as it is, brought
+		// to the front by the TakeFocus before it. The owner's choice against
+		// the original's receiver, which opens any first word (bugs.md D.96).
+		std::string url = line.substr(9);
+		if (LevelInfo && LevelInfo->NetMode() == NM_Client)
+		{
+			LogMessage("Launcher: open link " + url);
+			RunCommand("open " + url, nullptr, true);
+		}
+		else
+		{
+			LogMessage("Launcher: link " + url + " not opened: the game is on no server");
+		}
+	}
 	else if (line == "Quit")
 	{
 		// The launcher's stop, where there are no signals (on POSIX it
