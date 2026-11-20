@@ -422,6 +422,7 @@ public:
 
 	bool Key(char16_t key);
 	void InputEvent(EInputKey key, EInputType type, int delta = 0);
+	bool ConsoleKeyEvent(EInputKey key, EInputType type, float delta = 0.0f);
 	// A pad's event in the DXController mode (DXControllerPad)
 	void PadInputEvent(EInputKey key, EInputType type, float delta);
 	void ReleaseHeldInputKeys();

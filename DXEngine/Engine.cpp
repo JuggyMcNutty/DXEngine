@@ -6839,19 +6839,30 @@ void Engine::OnWindowMouseMove(const Point& pos)
 	viewport->WindowsMouseY() = pos.y * scale;
 }
 
+// A key's or a button's press and release: the console's KeyEvent first,
+// then the root window, then the binding, as the original offers each
+// (UEngine::InputEvent, Engine.dll 0x103814e0: the console, then the
+// input's Process, Extension's, the root window before the binding;
+// engine-dll.md, a key's binding; bugs.md ENG.61). A release the console
+// takes still marks its key up, its release binding not run, as the
+// original shows it to the input's PreProcess alone.
 void Engine::OnWindowMouseDown(const Point& pos, EInputKey key)
 {
+	if (ConsoleKeyEvent(key, IST_Press))
+		return;
 	if (engine->dxRootWindow && engine->dxRootWindow->OnWindowMouseDown(pos, key))
 	{
 		ReleaseFireButtons();
 		return;
 	}
 
-	InputEvent(key, IST_Press);
+	InputBinding(key, IST_Press, 0);
 }
 
 void Engine::OnWindowMouseDoubleclick(const Point& pos, EInputKey key)
 {
+	if (ConsoleKeyEvent(key, IST_Press))
+		return;
 	if (engine->dxRootWindow && engine->dxRootWindow->OnWindowMouseDoubleclick(pos, key))
 	{
 		ReleaseFireButtons();
@@ -6861,31 +6872,47 @@ void Engine::OnWindowMouseDoubleclick(const Point& pos, EInputKey key)
 	// Double click event sequence is: mouse down, up, doubleclick, up
 	// Since we don't have double click events in the UE1 event system, the second click
 	// should be treated as a normal mouse down event.
-	InputEvent(key, IST_Press);
+	InputBinding(key, IST_Press, 0);
 }
 
 void Engine::OnWindowMouseUp(const Point& pos, EInputKey key)
 {
+	if (ConsoleKeyEvent(key, IST_Release))
+	{
+		heldInputKeys.erase(key);
+		return;
+	}
 	if (engine->dxRootWindow && engine->dxRootWindow->OnWindowMouseUp(pos, key))
 	{
 		ReleaseFireButtons();
 		return;
 	}
 
-	InputEvent(key, IST_Release);
+	InputBinding(key, IST_Release, 0);
 }
 
 void Engine::OnWindowMouseWheel(const Point& pos, EInputKey key)
 {
-	if (engine->dxRootWindow && engine->dxRootWindow->OnWindowMouseWheel(pos, key))
-		return;
-
 	// The wheel's delta to the MouseW axis, a notch's 120 (Windows'
 	// WHEEL_DELTA), then its press and release, as the original's window
-	// sends a WM_MOUSEWHEEL (WinDrv.dll 0x1110b2bd; bugs.md ENG.38)
-	InputEvent(IK_MouseW, IST_Axis, key == IK_MouseWheelUp ? 120 : -120);
-	InputEvent(key, IST_Press);
-	InputEvent(key, IST_Release);
+	// sends a WM_MOUSEWHEEL (WinDrv.dll 0x1110b2bd; bugs.md ENG.38): each to
+	// the console first, the root window then taking the wheel whole where
+	// the console left its press
+	const int delta = key == IK_MouseWheelUp ? 120 : -120;
+	const bool axisTaken = ConsoleKeyEvent(IK_MouseW, IST_Axis, (float)delta);
+	const bool pressTaken = ConsoleKeyEvent(key, IST_Press);
+	const bool releaseTaken = ConsoleKeyEvent(key, IST_Release);
+	if (!pressTaken && engine->dxRootWindow && engine->dxRootWindow->OnWindowMouseWheel(pos, key))
+		return;
+
+	if (!axisTaken)
+		InputBinding(IK_MouseW, IST_Axis, delta);
+	if (!pressTaken)
+		InputBinding(key, IST_Press, 0);
+	if (releaseTaken)
+		heldInputKeys.erase(key);
+	else
+		InputBinding(key, IST_Release, 0);
 }
 
 void Engine::OnWindowRawMouseMove(int dx, int dy)
@@ -6982,26 +7009,33 @@ void Engine::OnWindowKeyDown(EInputKey key)
 		ToggleFullscreen();
 		return;
 	}
+	if (ConsoleKeyEvent(key, IST_Press))
+		return;
 	if (engine->dxRootWindow && engine->dxRootWindow->OnWindowKeyDown(key))
 	{
 		ReleaseHeldInputKeys();
 		return;
 	}
 
-	InputEvent(key, IST_Press);
+	InputBinding(key, IST_Press, 0);
 }
 
 void Engine::OnWindowKeyUp(EInputKey key)
 {
 	if (Timeline::LogKeys)
 		LogMessage(std::string("DXKEY: ") + ((unsigned)key < 256 && keynames[key] ? keynames[key] : "?") + " up");
+	if (ConsoleKeyEvent(key, IST_Release))
+	{
+		heldInputKeys.erase(key);
+		return;
+	}
 	if (engine->dxRootWindow && engine->dxRootWindow->OnWindowKeyUp(key))
 	{
 		ReleaseHeldInputKeys();
 		return;
 	}
 
-	InputEvent(key, IST_Release);
+	InputBinding(key, IST_Release, 0);
 }
 
 void Engine::OnWindowGeometryChanged()
@@ -7151,10 +7185,12 @@ void Engine::PressHeldKeys()
 			continue;
 		if (key == IK_LeftMouse || key == IK_RightMouse || key == IK_MiddleMouse)
 			OnWindowMouseDown(Point(0.0, 0.0), key);   // the root window clicks at its own pointer
+		else if (ConsoleKeyEvent(key, IST_Press))
+			continue;
 		else if (dxRootWindow && dxRootWindow->OnWindowKeyDown(key))
 			ReleaseHeldInputKeys();
 		else
-			InputEvent(key, IST_Press);
+			InputBinding(key, IST_Press, 0);
 	}
 }
 
@@ -7252,6 +7288,14 @@ static bool IsMouseAxis(EInputKey key)
 	return key == IK_MouseX || key == IK_MouseY || key == IK_MouseZ || key == IK_MouseW;
 }
 
+// The console's KeyEvent, true for a key, a button or an axis it takes
+bool Engine::ConsoleKeyEvent(EInputKey key, EInputType type, float delta)
+{
+	if (Frame::Halted)
+		return false;
+	return CallEvent(console, EventName::KeyEvent, { ExpressionValue::ByteValue(key), ExpressionValue::ByteValue(type), ExpressionValue::FloatValue(delta) }).ToBool();
+}
+
 void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 {
 	if (Frame::Halted)
@@ -7270,9 +7314,8 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
 // axis's value added at once (InputExec). The order is the original's for
 // every key (UEngine::InputEvent, Engine.dll 0x103814e0: the console's
 // KeyEvent, then the input's Process, Extension's, which offers each key to
-// the root window before its binding: engine-dll.md, a key's binding). The
-// keyboard and our own pad go to the root window before the console
-// (OnWindowKeyDown; bugs.md ENG.61).
+// the root window before its binding: engine-dll.md, a key's binding), as a
+// key's and a mouse button's go (OnWindowKeyDown).
 void Engine::PadInputEvent(EInputKey key, EInputType type, float delta)
 {
 	if (Frame::Halted)
@@ -7280,8 +7323,12 @@ void Engine::PadInputEvent(EInputKey key, EInputType type, float delta)
 	if (Timeline::LogKeys && type != EInputType::IST_Axis)
 		LogMessage(std::string("DXKEY: ") + (keynames[key] ? keynames[key] : "?") + (type == EInputType::IST_Press ? " down" : " up"));
 
-	if (CallEvent(console, EventName::KeyEvent, { ExpressionValue::ByteValue(key), ExpressionValue::ByteValue(type), ExpressionValue::FloatValue(delta) }).ToBool())
+	if (ConsoleKeyEvent(key, type, delta))
+	{
+		if (type == EInputType::IST_Release)
+			heldInputKeys.erase(key);
 		return;
+	}
 	if (dxRootWindow)
 	{
 		bool taken;
@@ -7302,7 +7349,7 @@ void Engine::PadInputEvent(EInputKey key, EInputType type, float delta)
 
 void Engine::InputBinding(EInputKey key, EInputType type, int delta)
 {
-	if (key < 0 || (int)key >= 256)
+	if (Frame::Halted || key < 0 || (int)key >= 256)
 		return;
 
 	// The key's binding run as the original's input runs it (XInputExt,

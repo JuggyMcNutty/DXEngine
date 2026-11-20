@@ -2596,6 +2596,17 @@ Open (bugs.md ENG.51): `SETRES` of a windowed size the window cannot take is
 saved as asked and asked again at the next start, never the size the window
 took; what the original keeps when Windows clamps its window is unread.
 
+A key's and a mouse button's press and release are offered to the console's
+`KeyEvent` first, then to the root window, then to the binding, as the
+original offers every key
+([a key's binding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)):
+a window that holds the keyboard keeps no key from the console
+(`KeyOrderConsole` beside `tools/dxcap/focusheld.py`, the main menu up and
+Left Shift and X held: both engines' consoles, in their state `Menuing`, log
+the presses; the build before logged none). A release the console takes
+marks its key up and runs no binding. Differs (bugs.md ENG.61): a mouse's
+move goes to the root window before the console.
+
 ### The pad
 
 How the original's window scales a joystick's axes, and how often it sends them, is unread
@@ -2624,9 +2635,8 @@ original's joystick:
   Controller settings' sensitivity corrects another (bugs.md D.109).
 - A pad's event goes to the console's `KeyEvent` first, then to the root window, then to the
   binding, as the original's every key does
-  ([a key's binding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)).
-  Differs (bugs.md ENG.61): the keys and DXEngine's own pad go to the root window before the
-  console.
+  ([a key's binding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)),
+  and as the keys and DXEngine's own pad's buttons go.
 
 ## Sound
 
