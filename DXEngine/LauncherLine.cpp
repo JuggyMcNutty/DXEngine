@@ -34,6 +34,30 @@ bool LauncherLine::Open()
 			fcntl((int)fd, F_SETFD, FD_CLOEXEC);
 		unsetenv("DXL_LAUNCHER_MARK_FD");
 	}
+#else
+	// DXLauncher's marks (its bugs.md D.95 and LPORT.23): handles of its
+	// named mutexes, of a launcher running and of a client's game playing,
+	// "<mark>" or "<mark>,<playing>", which this process holds for its whole
+	// run, as the original's mutex is the game's: kept from anything it
+	// starts in turn, which would hold them past the game's end.
+	if (const char* mark = std::getenv("DXL_LAUNCHER_MARK_FD"))
+	{
+		std::string marks = mark;
+		for (size_t at = 0; at < marks.size();)
+		{
+			size_t comma = marks.find(',', at);
+			if (comma == std::string::npos)
+				comma = marks.size();
+			std::string word = marks.substr(at, comma - at);
+			char* wordEnd = nullptr;
+			long long h = std::strtoll(word.c_str(), &wordEnd, 10);
+			DWORD flags = 0;
+			if (!word.empty() && !*wordEnd && h > 0 && GetHandleInformation((HANDLE)(intptr_t)h, &flags))
+				SetHandleInformation((HANDLE)(intptr_t)h, HANDLE_FLAG_INHERIT, 0);
+			at = comma + 1;
+		}
+		SetEnvironmentVariableA("DXL_LAUNCHER_MARK_FD", nullptr);
+	}
 #endif
 	const char* value = std::getenv("DXL_LAUNCHER_FD");
 	if (!value || !*value)

@@ -183,10 +183,12 @@ carries others is a row more there, and in DXLauncher's list, which Port Ex Mach
   [the game and the launcher](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md#the-game-and-the-launcher)
   (DXLauncher's alike:
   [the game and the launcher](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md#the-game-and-the-launcher)).
-  **`DXL_LAUNCHER_MARK_FD`**, on Linux, is DXLauncher's mark of a game running, which the
-  engine holds to its end, as the original's mutex is the game's: taken out of the environment
-  and kept from anything the engine starts in turn, a relaunch of its own among them.
-  Started by hand, with nothing set, nothing changes.
+  **`DXL_LAUNCHER_MARK_FD`** is DXLauncher's mark of a game running, which the engine holds to
+  its end, as the original's mutex is the game's: a descriptor, on Windows the values of
+  inherited handles of two named mutexes, the launcher's mark and, a client's, its mark of a
+  game playing (`<mark>` or `<mark>,<playing>`); taken out of the environment and kept from
+  anything the engine starts in turn, a relaunch of its own among them. Started by hand, with
+  nothing set, nothing changes.
 
 ## Measuring it
 
