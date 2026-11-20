@@ -463,7 +463,13 @@ to the window as it presents; the viewport, the canvas and the UI see the render
 is held down so that the larger side is within the device's `MaxRenderSize()`: the software
 device's guard band, 8000 pixels, and the GPU's largest image, framebuffer and viewport on the
 Vulkan and GL devices. A Vulkan scene the GPU cannot make multisampled is made with one sample
-from then on, logged, as the GL device halves a storage its driver refuses.
+from then on, logged, as the GL device halves a storage its driver refuses. A scene the Vulkan
+or GL device cannot make even with its fewest samples, for any error but a lost device or a GPU
+reset (its memory short, most often), is made at a lower render scale
+(`RenderDevice::LowerRenderScale`), each step half the pixels, down to 0.25, the log naming the
+size and scale asked, the error and the scale taken; a new window size or render scale asks the
+GPU again. Refused at 0.25, the device fails as at any other error: at its start the software
+device takes its place; in play the game ends, the error said.
 
 ### Rendering
 

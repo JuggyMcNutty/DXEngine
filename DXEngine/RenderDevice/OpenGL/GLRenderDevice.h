@@ -312,6 +312,9 @@ private:
 	void DrawComplexSurfaceFaces(const ComplexSurfaceInfo& info);
 
 	void ResizeSceneBuffers(int width, int height, int multisample);
+	// ResizeSceneBuffers at the render size and the setting's samples, the
+	// render scale lowered while the driver refuses them (bugs.md REN.76)
+	void MakeSceneBuffers();
 	void ClearTextureCache();
 
 	void CreatePresentPass();
@@ -418,7 +421,6 @@ private:
 	GLViewport SceneViewport = {};
 
 	bool IsLocked = false;
-	std::string LastResizeError; // the last failed resize's reason, said once
 	std::set<std::string> LoggedGLErrors; // LogFrameGLErrors' lines, each said once
 	// The scene's samples: the setting and colour format they were found for
 	// (ResizeSceneBuffers), the count found, and the most a refused storage

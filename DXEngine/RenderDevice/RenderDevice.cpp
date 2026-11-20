@@ -2,6 +2,7 @@
 #include "Precomp.h"
 #include "RenderDevice.h"
 #include "LauncherSettings.h"
+#include "Utils/Logger.h"
 #include "Vulkan/VulkanRenderDevice.h"
 #include "OpenGL/GLRenderDevice.h"
 #include "Software/SoftwareRenderDevice.h"
@@ -134,7 +135,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(Widget* viewport, RenderAPI r
 	}
 }
 
-float RenderDevice::GetRenderScale() const
+float RenderDevice::GetAskedRenderScale() const
 {
 	if (!SupportsRenderScale())
 		return 1.0f;
@@ -144,6 +145,51 @@ float RenderDevice::GetRenderScale() const
 	if (MaxRenderSize() > 0 && side * scale > MaxRenderSize())
 		scale = (float)MaxRenderSize() / side;
 	return scale;
+}
+
+float RenderDevice::GetRenderScale() const
+{
+	float scale = GetAskedRenderScale();
+	if (MemoryScale > 0.0f && MemoryScale < scale && MemoryScaleAsked == scale &&
+		MemoryScaleWidth == Viewport->GetNativePixelWidth() && MemoryScaleHeight == Viewport->GetNativePixelHeight())
+		return MemoryScale;
+	return scale;
+}
+
+// A render scale for the log, to two places
+static std::string ScaleText(float scale)
+{
+	char text[32];
+	snprintf(text, sizeof(text), "%.2f", scale);
+	return text;
+}
+
+bool RenderDevice::LowerRenderScale(const char* device, const std::string& refused)
+{
+	const float least = 0.25f; // Performance.RenderScale's own least
+	float asked = GetAskedRenderScale();
+	float tried = GetRenderScale();
+	int triedWidth = GetRenderWidth(), triedHeight = GetRenderHeight();
+	// At the least the caller's error says the refusal, once
+	if (tried <= least * 1.001f)
+		return false;
+	MemoryScale = std::max(tried * 0.70710678f, least);
+	MemoryScaleWidth = Viewport->GetNativePixelWidth();
+	MemoryScaleHeight = Viewport->GetNativePixelHeight();
+	MemoryScaleAsked = asked;
+	LogMessage(std::string(device) + ": the scene could not be made at " + std::to_string(triedWidth) + "x" + std::to_string(triedHeight) +
+		" (render scale " + ScaleText(tried) + ", asked " + ScaleText(asked) + "): " + refused + "; render scale " + ScaleText(MemoryScale) +
+		", " + std::to_string(GetRenderWidth()) + "x" + std::to_string(GetRenderHeight()) + ", tried in its place");
+	return true;
+}
+
+void RenderDevice::LogLoweredRenderScale(const char* device)
+{
+	float asked = GetAskedRenderScale(), scale = GetRenderScale();
+	if (scale >= asked)
+		return;
+	LogMessage(std::string(device) + ": the scene drawn at " + std::to_string(GetRenderWidth()) + "x" + std::to_string(GetRenderHeight()) +
+		", render scale " + ScaleText(scale) + " of the " + ScaleText(asked) + " asked, until the window's size or the setting changes");
 }
 
 int RenderDevice::GetRenderWidth() const

@@ -311,7 +311,28 @@ void VulkanRenderDevice::CreateSceneTargets()
 {
 	Framebuffers->DestroySceneFramebuffer();
 	Textures->Scene.reset();
-	Textures->Scene.reset(new SceneTextures(this, GetRenderWidth(), GetRenderHeight(), GetSettingsMultisample()));
+	// Images the GPU cannot make even with one sample (SceneTextures) are
+	// made at a lower render scale, step by step, where the error ended the
+	// game; a device lost, or the least scale refused, still does, the
+	// latter said as the GL device says it (bugs.md REN.76)
+	bool lowered = false;
+	while (!Textures->Scene)
+	{
+		try
+		{
+			Textures->Scene.reset(new SceneTextures(this, GetRenderWidth(), GetRenderHeight(), GetSettingsMultisample()));
+		}
+		catch (const std::exception& e)
+		{
+			if (Device->Lost)
+				throw;
+			if (!LowerRenderScale("VulkanDrv", e.what()))
+				throw std::runtime_error(std::string("the scene's images could not be made at any render scale: ") + e.what());
+			lowered = true;
+		}
+	}
+	if (lowered)
+		LogLoweredRenderScale("VulkanDrv");
 	RenderPasses->CreateRenderPass();
 	RenderPasses->CreatePipelines();
 	Framebuffers->CreateSceneFramebuffer();

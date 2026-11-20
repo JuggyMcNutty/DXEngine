@@ -260,9 +260,22 @@ public:
 	// The largest side the device draws, the render scale held down to fit a
 	// larger window; 0 for none.
 	virtual int MaxRenderSize() const { return 0; }
+	// The scale asked: the setting, held to MaxRenderSize
+	float GetAskedRenderScale() const;
+	// The scale drawn at: the one asked, or the lower one the GPU's memory
+	// held the scene to (LowerRenderScale) at this window's size and that ask
 	float GetRenderScale() const;
 	int GetRenderWidth() const;
 	int GetRenderHeight() const;
+	// The scene's buffers could not be made at the render size (refused, the
+	// device's error): the render scale a step lower, each step half the
+	// pixels, down to the setting's own least, 0.25, logged with what was
+	// asked, refused and taken. False at the least: the device fails as it
+	// would have. A new window size or setting asks the GPU again (bugs.md
+	// REN.76).
+	bool LowerRenderScale(const char* device, const std::string& refused);
+	// Said once the scene is made at a scale LowerRenderScale lowered to
+	void LogLoweredRenderScale(const char* device);
 
 	bool ParseCommand(std::string* cmd, const std::string& keyword) { return false; }
 
@@ -316,6 +329,14 @@ public:
 	bool GammaCorrectScreenshots = true;
 	bool UseDebugLayer = false;
 	bool CPUDriver = false; // Mesa's CPU driver asked for: lavapipe, llvmpipe
+
+private:
+	// The scale the GPU's memory held the scene to (LowerRenderScale), and
+	// the window's size and the asked scale it holds for; 0 for none
+	float MemoryScale = 0.0f;
+	int MemoryScaleWidth = 0;
+	int MemoryScaleHeight = 0;
+	float MemoryScaleAsked = 0.0f;
 };
 
 // A device texture cache's figures for STAT HARDWARE's pools: each texture's

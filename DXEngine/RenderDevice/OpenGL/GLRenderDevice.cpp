@@ -219,7 +219,7 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
 	// black
 	try
 	{
-		ResizeSceneBuffers(GetRenderWidth(), GetRenderHeight(), GetSettingsMultisample());
+		MakeSceneBuffers();
 	}
 	catch (const std::exception& e)
 	{
@@ -314,6 +314,32 @@ static int FormatSamples(GLenum format)
 		most = std::min(maxColor, maxDepth);
 	}
 	return most;
+}
+
+// Buffers the driver cannot make even at their fewest samples
+// (ResizeSceneBuffers) are made at a lower render scale, step by step, where
+// every frame was skipped, the window black; a GPU reset, or the least scale
+// refused, throws: at the start the software device takes the device's
+// place, in play the game ends (Lock)
+void GLRenderDevice::MakeSceneBuffers()
+{
+	bool lowered = false;
+	for (;;)
+	{
+		try
+		{
+			ResizeSceneBuffers(GetRenderWidth(), GetRenderHeight(), GetSettingsMultisample());
+			break;
+		}
+		catch (const std::exception& e)
+		{
+			if ((GetResetStatus && GetResetStatus() != GL_NO_ERROR) || !LowerRenderScale("GLDrv", e.what()))
+				throw;
+			lowered = true;
+		}
+	}
+	if (lowered)
+		LogLoweredRenderScale("GLDrv");
 }
 
 void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
@@ -1376,25 +1402,19 @@ void GLRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenClear)
 		{
 			// The scene buffers live at the render size (the window's times
 			// Performance.RenderScale); the present pass scales them up.
-			ResizeSceneBuffers(GetRenderWidth(), GetRenderHeight(), GetSettingsMultisample());
+			MakeSceneBuffers();
 		}
 		catch (const std::exception& e)
 		{
-			// The frame is skipped: nothing of it is bound, and the draws
-			// are passed over (below) until a Lock gets past the resize; the
-			// window keeps what it showed. Said once, and again when the
-			// reason changes: the engine drew the frame regardless, into the
-			// window's back buffer through the present pass's vertex array
-			// and constants, until a later Lock threw its errors as its own.
-			if (LastResizeError != e.what())
-			{
-				LastResizeError = e.what();
-				LogMessage("GLDrv: could not resize the scene buffers: " + LastResizeError);
-			}
-			IsLocked = false;
-			return;
+			// Refused at every render scale down to the least
+			// (MakeSceneBuffers), or a GPU reset met on the way: the game
+			// ends with the reason, as the Vulkan device's does, where every
+			// frame was skipped, the window black or frozen with no word
+			// (bugs.md REN.76)
+			if (GetResetStatus && GetResetStatus() != GL_NO_ERROR)
+				throw std::runtime_error(std::string("the OpenGL context was lost to a GPU reset: ") + e.what());
+			throw std::runtime_error(std::string("the scene's buffers could not be made at any render scale: ") + e.what());
 		}
-		LastResizeError.clear();
 	}
 
 	FlashScale = InFlashScale;

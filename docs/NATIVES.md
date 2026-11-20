@@ -97,8 +97,10 @@ A swimmer at a place that is not a number plays on in both engines, the
 search for its water line ended at once, its pawn falling and then without
 physics (`ShortTickConsole` with `Only=c`, each line alike).
 
-Differs (bugs.md REN.76): a GPU device whose memory cannot hold its scene at
-one sample ends the game (Vulkan) or draws black (GL); the original: unread.
+The Vulkan or GL device whose memory cannot hold its scene at one sample draws
+it at a lower render scale, down to a quarter of the window's size
+([how](ENGINE.md#settings-the-launcher-exposes)), a platform matter of the
+GPU devices; the original's `D3DDrv` with a mode it cannot allocate: unread.
 
 `Canvas.DrawActor`, `Canvas.DrawClippedActor`, `GetSoundDuration` and
 `Window.ConvertCoordinates` given None stop both engines, the original's
