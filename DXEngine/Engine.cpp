@@ -7344,7 +7344,29 @@ void Engine::PadInputEvent(EInputKey key, EInputType type, float delta)
 			return;
 		}
 	}
-	InputBinding(key, type, (int)std::lround(delta));
+	// An axis's value to its binding scaled by the tick's time x 120, by
+	// choice: the original's rule adds an axis's value at each event, one a
+	// tick here as with the mod's own launcher, so the view turned by as much
+	// a frame and twice as fast a second at twice the frame rate; that
+	// launcher holds the game to 120 frames a second, the rate the mod's
+	// sticks are set for, and DXEngine has no such limit. The scripts above
+	// were given the value as it is; what the rounding leaves goes to the
+	// axis's next event, none to its 0
+	int amount = (int)std::lround(delta);
+	if (type == EInputType::IST_Axis && key >= 0 && (int)key < 256)
+	{
+		if (delta == 0.0f)
+		{
+			padAxisLeft[key] = 0.0f;
+		}
+		else
+		{
+			float scaled = delta * padAxisScale + padAxisLeft[key];
+			amount = (int)std::lround(scaled);
+			padAxisLeft[key] = scaled - (float)amount;
+		}
+	}
+	InputBinding(key, type, amount);
 }
 
 void Engine::InputBinding(EInputKey key, EInputType type, int delta)

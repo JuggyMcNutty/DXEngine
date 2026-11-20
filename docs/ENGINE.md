@@ -518,7 +518,10 @@ with `Gamepad.Enabled` and without `-nojoy`; `DeadZone`, `LookSensitivityX`,
   `JoyV` round. An axis not at 0 is sent every tick; the first tick back at 0 sends one 0,
   never a release.
 - **Each event** goes to the console's `KeyEvent` first, then to the root window, then to the
-  key's binding, whose `Axis` adds its speed x the value x 0.01 at the event, as a mouse's move
+  key's binding, whose `Axis` adds its speed x the value x 0.01 at the event, as a mouse's
+  move, the value first multiplied by the tick's time x 120 (the time held to 0.2 s), so that a
+  stick turns the view as fast a second at any frame rate as with the mod's own launcher at
+  its 120 frames a second; the console and the root window are given the value as it is
   ([where it differs](NATIVES.md#the-pad)). There are no menu controls of the pad's own.
 - **One pad** is followed: the first attached, until a button pressed or a stick pushed past a
   quarter of its travel on another makes that one active. Every button held is released and

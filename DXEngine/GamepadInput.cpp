@@ -325,6 +325,9 @@ void GamepadInput::Update(Engine* engine, float timeElapsed)
 
 	if (dxcMode)
 	{
+		// The tick's time held as the mod's own launcher holds a frame's, 0
+		// to 0.2 s
+		engine->padAxisScale = std::clamp(timeElapsed, 0.0f, 0.2f) * 120.0f;
 		dxc.Update(engine);
 		return;
 	}

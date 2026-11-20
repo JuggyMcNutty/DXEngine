@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include "Utils/Logger.h"
 #include "Math/vec.h"
 #include "Math/mat.h"
@@ -425,6 +426,12 @@ public:
 	bool ConsoleKeyEvent(EInputKey key, EInputType type, float delta = 0.0f);
 	// A pad's event in the DXController mode (DXControllerPad)
 	void PadInputEvent(EInputKey key, EInputType type, float delta);
+	// The pad's DXController mode: what an axis's value to its binding is
+	// multiplied by, the tick's time x 120, the frames a second the mod's own
+	// launcher holds the game to, and what each axis's rounding left for its
+	// next event (PadInputEvent; NATIVES.md, the pad: by choice)
+	float padAxisScale = 1.0f;
+	std::array<float, 256> padAxisLeft = {};
 	void ReleaseHeldInputKeys();
 	void ReleaseFireButtons();
 	void ResetInput();

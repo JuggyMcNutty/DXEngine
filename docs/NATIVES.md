@@ -2626,13 +2626,15 @@ original's joystick:
 - Its `Axis` binding adds its speed x the axis's value x 0.01 at each event, as the original
   adds any axis's
   ([a key's binding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)),
-  an event each tick, so a stick held turns the view by as much a tick at any frame rate and
-  the faster the higher the frame rate, where DXEngine's own pad holds its value x 16 for each
-  read, as much a second at any frame rate (`PadModeConsole` with
-  `tools/dxcap/timelines/pad-mode.txt` at `DXCAP_FPS=60` and `120`). DXController's own
-  launcher does the same and holds the game to 120 frames a second unless told otherwise, the
-  rate its sticks' defaults are set for: the mod's look is its own here at that rate, and its
-  Controller settings' sensitivity corrects another (bugs.md D.109).
+  an event each tick. By choice the value is first multiplied by the tick's time x 120: by the
+  original's rule alone a stick held turns the view by as much a tick, twice as fast a second
+  at twice the frame rate, as it does with DXController's own launcher, which holds the game
+  to 120 frames a second, the rate its sticks' defaults are set for, where DXEngine has no
+  such limit. So the mod's look is its own at any frame rate (`PadModeConsole` with
+  `tools/dxcap/timelines/pad-mode.txt`: the right stick held 3 s turns the view 1,081,145
+  units at `DXCAP_FPS=60`, 1,084,155 at `120` and 1,085,933 at 660; the build before 540,580,
+  1,084,180 and 5,759,140), and the mod's scripts are given the value as it is. DXEngine's
+  own pad holds its value x 16 for each read, as much a second at any frame rate.
 - A pad's event goes to the console's `KeyEvent` first, then to the root window, then to the
   binding, as the original's every key does
   ([a key's binding](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/engine-dll.md#a-keys-binding)),
