@@ -32,7 +32,7 @@
 class FileImpl : public File
 {
 public:
-	FileImpl(HANDLE handle) : handle(handle)
+	FileImpl(HANDLE handle, std::string name) : handle(handle), name(std::move(name))
 	{
 	}
 
@@ -86,8 +86,13 @@ public:
 			size_t readsize = std::min(size - pos, (size_t)0xffffffff);
 			DWORD bytesRead = 0;
 			BOOL result = ReadFile(handle, (uint8_t*)data + pos, (DWORD)readsize, &bytesRead, nullptr);
-			if (result == FALSE || bytesRead != readsize)
-				Exception::Throw("ReadFile failed");
+			// The file named, and one that ends before what is read of it
+			// told from one the system could not read (a save or a package
+			// cut short: a copy that stopped, a full disk as it was written)
+			if (result == FALSE)
+				Exception::Throw("Could not read " + name + ": the system's error " + std::to_string(GetLastError()));
+			if (bytesRead != readsize)
+				Exception::Throw("Could not read " + name + ": the file is cut short");
 			pos += readsize;
 		}
 	}
@@ -124,6 +129,7 @@ public:
 	}
 
 	HANDLE handle = INVALID_HANDLE_VALUE;
+	std::string name; // the file's, for an error's text
 };
 
 std::shared_ptr<File> File::create_always(const std::string &filename)
@@ -132,7 +138,7 @@ std::shared_ptr<File> File::create_always(const std::string &filename)
 	if (handle == INVALID_HANDLE_VALUE)
 		Exception::Throw("Could not create " + filename);
 
-	return std::make_shared<FileImpl>(handle);
+	return std::make_shared<FileImpl>(handle, filename);
 }
 
 std::shared_ptr<File> File::open_existing(const std::string &filename)
@@ -141,7 +147,7 @@ std::shared_ptr<File> File::open_existing(const std::string &filename)
 	if (handle == INVALID_HANDLE_VALUE)
 		Exception::Throw("Could not open " + filename);
 
-	return std::make_shared<FileImpl>(handle);
+	return std::make_shared<FileImpl>(handle, filename);
 }
 
 bool File::try_delete(const std::string& filename)
@@ -183,7 +189,7 @@ void Directory::rename(const fs::path& from, const fs::path& to, std::error_code
 class FileImpl : public File
 {
 public:
-	FileImpl(FILE* handle) : handle(handle)
+	FileImpl(FILE* handle, std::string name) : handle(handle), name(std::move(name))
 	{
 	}
 
@@ -232,9 +238,13 @@ public:
 		if (size == 0)
 			return;
 
+		// The file named, and one that ends before what is read of it told
+		// from one the system could not read (a save or a package cut short:
+		// a copy that stopped, a full disk as it was written)
+		errno = 0;
 		size_t result = fread(data, size, 1, handle);
 		if (result != 1)
-			Exception::Throw("fread failed");
+			Exception::Throw("Could not read " + name + ": " + (feof(handle) || errno == 0 ? std::string("the file is cut short") : std::string(strerror(errno))));
 	}
 
 	void write(const void *data, size_t size) override
@@ -272,6 +282,7 @@ public:
 	}
 
 	FILE* handle = nullptr;
+	std::string name; // the file's, for an error's text
 };
 
 std::shared_ptr<File> File::create_always(const std::string &filename)
@@ -280,7 +291,7 @@ std::shared_ptr<File> File::create_always(const std::string &filename)
 	if (handle == nullptr)
 		Exception::Throw("Could not create " + filename);
 
-	return std::make_shared<FileImpl>(handle);
+	return std::make_shared<FileImpl>(handle, filename);
 }
 
 std::shared_ptr<File> File::open_existing(const std::string &filename)
@@ -289,7 +300,7 @@ std::shared_ptr<File> File::open_existing(const std::string &filename)
 	if (handle == nullptr)
 		Exception::Throw("Could not open " + filename);
 
-	return std::make_shared<FileImpl>(handle);
+	return std::make_shared<FileImpl>(handle, filename);
 }
 
 bool File::try_delete(const std::string& filename)
